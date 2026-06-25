@@ -6071,7 +6071,7 @@ async def seed_standards(db: AsyncSession) -> None:
             "rationale": "Ensures compliance with Saudi Arabia's National Organizational Requirements for Architecture.",
             "category": "security",
             "compliance_level": "mandated",
-            "reference_url": "https://www.nora.gov.sa",
+            "reference_url": "https://www.dga.gov.sa",
             "sort_order": 1,
         },
         {
@@ -6089,7 +6089,7 @@ async def seed_standards(db: AsyncSession) -> None:
             "rationale": "Enables seamless integration between government systems and agencies.",
             "category": "interoperability",
             "compliance_level": "mandated",
-            "reference_url": "https://www.nora.gov.sa",
+            "reference_url": "https://www.dga.gov.sa",
             "sort_order": 3,
         },
         {
@@ -6107,7 +6107,7 @@ async def seed_standards(db: AsyncSession) -> None:
             "rationale": "Ensures consistent handling and protection of data according to sensitivity level.",
             "category": "data",
             "compliance_level": "mandated",
-            "reference_url": "https://www.nora.gov.sa",
+            "reference_url": "https://www.dga.gov.sa",
             "sort_order": 5,
         },
         {
@@ -6125,7 +6125,7 @@ async def seed_standards(db: AsyncSession) -> None:
             "rationale": "Prevents unauthorized access and ensures user accountability in audit logs.",
             "category": "security",
             "compliance_level": "mandated",
-            "reference_url": "https://www.nora.gov.sa",
+            "reference_url": "https://www.dga.gov.sa",
             "sort_order": 7,
         },
         {
@@ -6134,7 +6134,7 @@ async def seed_standards(db: AsyncSession) -> None:
             "rationale": "Establishes accountability for service availability and recovery expectations.",
             "category": "business",
             "compliance_level": "recommended",
-            "reference_url": "https://www.nora.gov.sa",
+            "reference_url": "https://www.dga.gov.sa",
             "sort_order": 8,
         },
         {
@@ -6143,7 +6143,7 @@ async def seed_standards(db: AsyncSession) -> None:
             "rationale": "Protects sensitive data from interception and unauthorized access.",
             "category": "security",
             "compliance_level": "mandated",
-            "reference_url": "https://www.nora.gov.sa",
+            "reference_url": "https://www.dga.gov.sa",
             "sort_order": 9,
         },
         {
