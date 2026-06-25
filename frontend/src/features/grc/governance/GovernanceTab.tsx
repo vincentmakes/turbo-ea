@@ -9,12 +9,14 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 
 const PrinciplesPanel = lazy(() => import("./PrinciplesPanel"));
 const DecisionsPanel = lazy(() => import("./DecisionsPanel"));
+const StandardsPanel = lazy(() => import("./StandardsPanel"));
 
-const SUB_KEYS = ["principles", "decisions"] as const;
+const SUB_KEYS = ["principles", "standards", "decisions"] as const;
 type SubKey = (typeof SUB_KEYS)[number];
 
 const SUB_ICONS: Record<SubKey, string> = {
   principles: "bookmark_star",
+  standards: "rule",
   decisions: "fact_check",
 };
 
@@ -53,6 +55,7 @@ export default function GovernanceTab() {
   const labels: Record<SubKey, string> = useMemo(
     () => ({
       principles: t("governance.subtabs.principles"),
+      standards: t("governance.subtabs.standards"),
       decisions: t("governance.subtabs.decisions"),
     }),
     [t],
@@ -80,6 +83,7 @@ export default function GovernanceTab() {
       </Tabs>
       <Suspense fallback={<PanelFallback />}>
         {sub === "principles" && <PrinciplesPanel />}
+        {sub === "standards" && <StandardsPanel />}
         {sub === "decisions" && <DecisionsPanel />}
       </Suspense>
     </Box>

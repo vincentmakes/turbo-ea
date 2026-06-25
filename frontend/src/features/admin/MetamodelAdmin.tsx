@@ -29,6 +29,7 @@ import IconPicker from "@/components/IconPicker";
 import KeyInput, { isValidKey } from "@/components/KeyInput";
 import CalculationsAdmin from "@/features/admin/CalculationsAdmin";
 import PrinciplesAdmin from "@/features/admin/PrinciplesAdmin";
+import StandardsAdmin from "@/features/admin/StandardsAdmin";
 import RegulationsAdmin from "@/features/admin/RegulationsAdmin";
 import TagsAdmin from "@/features/admin/TagsAdmin";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -322,6 +323,7 @@ export default function MetamodelAdmin() {
         <Tab label={t("metamodel.tabs.tags")} />
         <Tab label={t("metamodel.tabs.graph")} />
         <Tab label={t("metamodel.tabs.principles")} />
+        <Tab label={t("metamodel.tabs.standards")} />
         <Tab label={t("metamodel.tabs.regulations")} />
       </Tabs>
 
@@ -775,9 +777,14 @@ export default function MetamodelAdmin() {
       {tab === 5 && <PrinciplesAdmin />}
 
       {/* ============================================================ */}
-      {/*  TAB 6 -- Compliance Regulations                             */}
+      {/*  TAB 6 -- EA Standards                                       */}
       {/* ============================================================ */}
-      {tab === 6 && <RegulationsAdmin />}
+      {tab === 6 && <StandardsAdmin />}
+
+      {/* ============================================================ */}
+      {/*  TAB 7 -- Compliance Regulations                             */}
+      {/* ============================================================ */}
+      {tab === 7 && <RegulationsAdmin />}
 
       {/* ============================================================ */}
       {/*  Type Detail Dialog                                          */}

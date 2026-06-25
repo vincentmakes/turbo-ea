@@ -11,6 +11,7 @@ from app.models.compliance_regulation import ComplianceRegulation
 from app.models.diagram import Diagram
 from app.models.document import Document
 from app.models.ea_principle import EAPrinciple
+from app.models.ea_standard import EAStandard
 from app.models.event import Event
 from app.models.file_attachment import FileAttachment
 from app.models.kpi_snapshot import KpiSnapshot
@@ -47,6 +48,7 @@ from app.models.servicenow import (
 )
 from app.models.soaw import SoAW
 from app.models.sso_invitation import SsoInvitation
+from app.models.standard_card import StandardCard
 from app.models.stakeholder import Stakeholder
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.survey import Survey, SurveyResponse
@@ -96,6 +98,7 @@ __all__ = [
     "Event",
     "Document",
     "EAPrinciple",
+    "EAStandard",
     "Bookmark",
     "Calculation",
     "Diagram",
@@ -134,5 +137,6 @@ __all__ = [
     "SnowSyncRun",
     "SnowStagedRecord",
     "SnowIdentityMap",
+    "StandardCard",
     "UserFavorite",
 ]

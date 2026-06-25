@@ -11,6 +11,7 @@
   "governance": {
     "subtabs": {
       "principles": "Principles",
+      "standards": "Standards",
       "decisions": "Decisions"
     },
     "principles": {
@@ -18,6 +19,13 @@
       "empty": "No active principles yet. Define them under Admin › Metamodel.",
       "rationale": "Rationale",
       "implications": "Implications"
+    },
+    "standards": {
+      "title": "Enterprise Standards",
+      "empty": "No active standards yet. Define them under Admin › Metamodel.",
+      "rationale": "Rationale",
+      "reference": "Reference",
+      "linkedCards": "Linked to {{count}} card(s)"
     },
     "decisions": {
       "title": "Architecture Decisions",

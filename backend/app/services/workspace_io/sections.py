@@ -13,6 +13,7 @@ from __future__ import annotations
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.bookmark import Bookmark
+from app.models.standard_card import StandardCard
 from app.models.comment import Comment
 from app.models.diagram import Diagram
 from app.models.document import Document
@@ -149,6 +150,7 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         self_parent_column="parent_id",
     ),
     EntitySection("AdrCards", ArchitectureDecisionCard, card_fk_columns=("card_id",)),
+    EntitySection("StandardCards", StandardCard, card_fk_columns=("card_id", "standard_id")),
     EntitySection(
         "Soaws",
         SoAW,

@@ -14,7 +14,9 @@ from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.compliance_regulation import ComplianceRegulation
 from app.models.ea_principle import EAPrinciple
+from app.models.ea_standard import EAStandard
 from app.models.relation import Relation
+from app.models.standard_card import StandardCard
 from app.models.relation_type import RelationType
 from app.models.stakeholder import Stakeholder
 from app.models.user import User
@@ -1000,6 +1002,220 @@ async def delete_principle(
     await PermissionService.require_permission(db, user, "admin.metamodel")
     await db.execute(delete(EAPrinciple).where(EAPrinciple.id == uuid.UUID(principle_id)))
     await db.commit()
+
+
+# ── EA Standards ──────────────────────────────────────────────────────
+
+
+class StandardCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=300)
+    description: str | None = None
+    rationale: str | None = None
+    category: str = "technical"
+    compliance_level: str = "recommended"
+    reference_url: str | None = None
+    is_active: bool = True
+    sort_order: int = 0
+
+
+class StandardUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    rationale: str | None = None
+    category: str | None = None
+    compliance_level: str | None = None
+    reference_url: str | None = None
+    is_active: bool | None = None
+    sort_order: int | None = None
+
+
+class StandardCardLink(BaseModel):
+    compliance_status: str = "pending_review"
+    evidence: str | None = None
+    notes: str | None = None
+
+
+def _serialize_standard(s: EAStandard, card_count: int = 0) -> dict:
+    return {
+        "id": str(s.id),
+        "title": s.title,
+        "description": s.description,
+        "rationale": s.rationale,
+        "category": s.category,
+        "compliance_level": s.compliance_level,
+        "reference_url": s.reference_url,
+        "is_active": s.is_active,
+        "sort_order": s.sort_order,
+        "card_count": card_count,
+        "created_at": s.created_at.isoformat() if s.created_at else None,
+        "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+    }
+
+
+@router.get("/standards")
+async def list_standards(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """List all EA standards ordered by sort_order."""
+    result = await db.execute(
+        select(EAStandard).order_by(EAStandard.sort_order, EAStandard.created_at)
+    )
+    standards = result.scalars().all()
+
+    # Count linked cards per standard
+    serialized = []
+    for s in standards:
+        card_count = await db.execute(select(func.count(StandardCard.card_id)).where(StandardCard.standard_id == s.id))
+        count = card_count.scalar() or 0
+        serialized.append(_serialize_standard(s, count))
+    return serialized
+
+
+@router.post("/standards", status_code=201)
+async def create_standard(
+    body: StandardCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Create a new EA standard (admin only)."""
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    s = EAStandard(
+        id=uuid.uuid4(),
+        title=body.title,
+        description=body.description,
+        rationale=body.rationale,
+        category=body.category,
+        compliance_level=body.compliance_level,
+        reference_url=body.reference_url,
+        is_active=body.is_active,
+        sort_order=body.sort_order,
+    )
+    db.add(s)
+    await db.commit()
+    await db.refresh(s)
+    return _serialize_standard(s, 0)
+
+
+@router.patch("/standards/{standard_id}")
+async def update_standard(
+    standard_id: str,
+    body: StandardUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Update an EA standard (admin only)."""
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    result = await db.execute(select(EAStandard).where(EAStandard.id == uuid.UUID(standard_id)))
+    s = result.scalar_one_or_none()
+    if not s:
+        raise HTTPException(404, "Standard not found")
+    updates = body.model_dump(exclude_unset=True)
+    for k, v in updates.items():
+        setattr(s, k, v)
+    await db.commit()
+    await db.refresh(s)
+    return _serialize_standard(s, 0)
+
+
+@router.delete("/standards/{standard_id}", status_code=204)
+async def delete_standard(
+    standard_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Delete an EA standard (admin only)."""
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    await db.execute(delete(EAStandard).where(EAStandard.id == uuid.UUID(standard_id)))
+    await db.commit()
+
+
+# ── Standard Card Linking ─────────────────────────────────────────────
+
+
+@router.post("/standards/{standard_id}/cards/{card_id}", status_code=201)
+async def link_standard_to_card(
+    standard_id: str,
+    card_id: str,
+    body: StandardCardLink = StandardCardLink(),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Link a standard to a card (idempotent, upserts compliance tracking)."""
+    await PermissionService.require_permission(db, user, "grc.manage")
+
+    # Verify both exist
+    std_result = await db.execute(select(EAStandard).where(EAStandard.id == uuid.UUID(standard_id)))
+    if not std_result.scalar_one_or_none():
+        raise HTTPException(404, "Standard not found")
+
+    card_result = await db.execute(select(Card).where(Card.id == uuid.UUID(card_id)))
+    if not card_result.scalar_one_or_none():
+        raise HTTPException(404, "Card not found")
+
+    # Upsert: delete + recreate to ensure updated timestamps + fields
+    await db.execute(
+        delete(StandardCard).where(
+            (StandardCard.standard_id == uuid.UUID(standard_id)) & (StandardCard.card_id == uuid.UUID(card_id))
+        )
+    )
+
+    link = StandardCard(
+        standard_id=uuid.UUID(standard_id),
+        card_id=uuid.UUID(card_id),
+        compliance_status=body.compliance_status,
+        evidence=body.evidence,
+        notes=body.notes,
+    )
+    db.add(link)
+    await db.commit()
+    return {"standard_id": standard_id, "card_id": card_id, "compliance_status": body.compliance_status}
+
+
+@router.delete("/standards/{standard_id}/cards/{card_id}", status_code=204)
+async def unlink_standard_from_card(
+    standard_id: str,
+    card_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Unlink a standard from a card."""
+    await PermissionService.require_permission(db, user, "grc.manage")
+    await db.execute(
+        delete(StandardCard).where(
+            (StandardCard.standard_id == uuid.UUID(standard_id)) & (StandardCard.card_id == uuid.UUID(card_id))
+        )
+    )
+    await db.commit()
+
+
+@router.get("/cards/{card_id}/standards")
+async def get_card_standards(
+    card_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Get all standards linked to a card with compliance status."""
+    # Verify card exists and user can view it
+    card_result = await db.execute(select(Card).where(Card.id == uuid.UUID(card_id)))
+    if not card_result.scalar_one_or_none():
+        raise HTTPException(404, "Card not found")
+
+    # Fetch linked standards with their compliance info
+    result = await db.execute(
+        select(EAStandard, StandardCard).outerjoin(StandardCard).where(StandardCard.card_id == uuid.UUID(card_id))
+    )
+    rows = result.all()
+
+    return [
+        {
+            **_serialize_standard(s),
+            "compliance_status": link.compliance_status if link else None,
+            "evidence": link.evidence if link else None,
+            "notes": link.notes if link else None,
+        }
+        for s, link in rows
+    ]
 
 
 # ── Compliance Regulations ────────────────────────────────────────────

@@ -24,8 +24,10 @@ from dataclasses import dataclass, field
 from app.models.calculation import Calculation
 from app.models.compliance_regulation import ComplianceRegulation
 from app.models.ea_principle import EAPrinciple
+from app.models.ea_standard import EAStandard
 from app.models.role import Role
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
+from app.models.standard_card import StandardCard
 
 # Bump when the on-disk shape changes incompatibly. The importer refuses a
 # bundle whose major version it does not understand.
@@ -44,6 +46,7 @@ SHEET_TAG_GROUPS = "TagGroups"
 SHEET_TAGS = "Tags"
 SHEET_CALCULATIONS = "Calculations"
 SHEET_PRINCIPLES = "Principles"
+SHEET_STANDARDS = "Standards"
 SHEET_COMPLIANCE_REGS = "ComplianceRegs"
 SHEET_SETTINGS = "Settings"
 SHEET_USERS = "Users"
@@ -208,6 +211,22 @@ CONFIG_SECTIONS: tuple[ConfigSection, ...] = (
             "description",
             "rationale",
             "implications",
+            "is_active",
+            "sort_order",
+            "catalogue_id",
+        ),
+    ),
+    ConfigSection(
+        sheet=SHEET_STANDARDS,
+        model=EAStandard,
+        natural_key=("title",),
+        columns=(
+            "title",
+            "description",
+            "rationale",
+            "category",
+            "compliance_level",
+            "reference_url",
             "is_active",
             "sort_order",
             "catalogue_id",

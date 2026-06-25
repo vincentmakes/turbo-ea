@@ -303,6 +303,24 @@ export interface EAPrinciple {
   updated_at?: string;
 }
 
+export interface EAStandard {
+  id: string;
+  title: string;
+  description?: string;
+  rationale?: string;
+  category: string;
+  compliance_level: string;
+  reference_url?: string;
+  is_active: boolean;
+  sort_order: number;
+  card_count: number;
+  created_at?: string;
+  updated_at?: string;
+  compliance_status?: string | null;
+  evidence?: string | null;
+  notes?: string | null;
+}
+
 export interface CataloguePrinciple {
   id: string;
   title: string;
