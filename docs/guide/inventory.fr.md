@@ -22,6 +22,8 @@ Le panneau latéral gauche permet de **filtrer** les fiches selon différents cr
 - **Afficher uniquement les archives** -- Basculer pour voir les fiches archivées (supprimées de manière logique)
 - **Tout effacer** -- Réinitialiser tous les filtres actifs d'un coup
 
+> **Trouver les cartes sans valeur.** Les filtres Sous-type, Cycle de vie, Étiquettes, Relations et attributs personnalisés de type liste proposent chacun une option **(vide)**. Sélectionnez-la pour n'afficher que les cartes qui n'ont *aucune* valeur pour ce champ — par exemple toutes les cartes sans cycle de vie défini. Elle se combine avec des valeurs normales (correspond à l'une d'elles) et entre plusieurs filtres (correspond à tous).
+
 Un **badge de nombre de filtres actifs** indique combien de filtres sont actuellement appliqués.
 
 ### Onglet Colonnes

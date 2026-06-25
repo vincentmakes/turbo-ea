@@ -22,6 +22,8 @@ O painel lateral esquerdo permite **filtrar** cards por diferentes critérios:
 - **Mostrar apenas arquivados** — Alternância para visualizar cards arquivados (excluídos temporariamente)
 - **Limpar tudo** — Redefinir todos os filtros ativos de uma vez
 
+> **Encontrar cartões sem valor.** Os filtros de Subtipo, Ciclo de vida, Etiquetas, Relações e atributos personalizados de seleção incluem, cada um, uma opção **(vazio)**. Selecione-a para listar apenas os cartões que *não* têm valor nesse campo — por exemplo, todos os cartões sem ciclo de vida definido. Pode ser combinada com valores normais (corresponde a qualquer um) e entre vários filtros (corresponde a todos).
+
 Um **contador de filtros ativos** mostra quantos filtros estão atualmente aplicados.
 
 ### Aba Colunas

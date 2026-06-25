@@ -22,6 +22,8 @@ Det venstre sidepanel lader dig **filtrere** kort efter forskellige kriterier:
 - **Vis kun arkiverede** — Skift for at se arkiverede (soft-deleted) kort
 - **Ryd alle** — Nulstil alle aktive filtre på én gang
 
+> **Find kort uden værdi.** Filtrene Undertype, Livscyklus, Tags, Relationer og brugerdefinerede valg-attributter har hver en **(tom)**-mulighed. Vælg den for kun at vise de kort, der *ikke* har en værdi for det felt — for eksempel alle kort uden en angivet livscyklus. Den kan kombineres med normale værdier (matcher en af dem) og på tværs af flere filtre (matcher alle).
+
 Et **aktivt-filter-tæller**-badge viser, hvor mange filtre der aktuelt er anvendt.
 
 ### Kolonner-fane

@@ -36,6 +36,8 @@ import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import InventoryFilterSidebar, {
   CORE_COLUMN_KEYS,
   LOCKED_COLUMN_KEYS,
+  EMPTY_VALUE,
+  valueIsEmpty,
   type Filters,
 } from "./InventoryFilterSidebar";
 import ImportDialog from "./ImportDialog";
@@ -585,14 +587,14 @@ export default function InventoryPage() {
       result = result.filter((card) => filters.types.includes(card.type));
     }
 
-    // Subtype filter
+    // Subtype filter ("(empty)" matches cards with no subtype set)
     if (filters.subtypes.length > 0) {
-      result = result.filter((card) => card.subtype && filters.subtypes.includes(card.subtype));
+      result = result.filter((card) => filters.subtypes.includes(card.subtype || EMPTY_VALUE));
     }
 
-    // Lifecycle filter
+    // Lifecycle filter ("(empty)" matches cards with no/unstarted lifecycle)
     if (filters.lifecyclePhases.length > 0) {
-      result = result.filter((card) => filters.lifecyclePhases.includes(getLifecyclePhase(card)));
+      result = result.filter((card) => filters.lifecyclePhases.includes(getLifecyclePhase(card) || EMPTY_VALUE));
     }
 
     // Data quality filter
@@ -613,9 +615,12 @@ export default function InventoryPage() {
         const attrs = card.attributes || {};
         return attrEntries.every(([key, val]) => {
           const actual = attrs[key];
-          // multi-select: array of allowed values (OR match)
+          // single/multi-select: array of allowed values (OR match).
+          // "(empty)" matches cards with no value for this attribute.
           if (Array.isArray(val)) {
             if (val.length === 0) return true;
+            if (valueIsEmpty(actual)) return val.includes(EMPTY_VALUE);
+            if (Array.isArray(actual)) return actual.some((a) => val.includes(a as string));
             return val.includes(actual as string);
           }
           // number/cost: filter as minimum value
@@ -643,37 +648,59 @@ export default function InventoryPage() {
         return relEntries.every(([relTypeKey, selectedNames]) => {
           if (!Array.isArray(selectedNames) || selectedNames.length === 0) return true;
           const index = relationsMap.get(relTypeKey);
-          if (!index) return false;
-          const names = index.get(card.id);
-          if (!names) return false;
-          return selectedNames.some((n) => names.includes(n));
+          const names = index?.get(card.id);
+          const wantEmpty = selectedNames.includes(EMPTY_VALUE);
+          // No related cards of this type → only matches when "(empty)" is selected.
+          if (!names || names.length === 0) return wantEmpty;
+          return selectedNames.some((n) => n !== EMPTY_VALUE && names.includes(n));
         });
       });
     }
 
-    // Tag filters — OR within a group, AND across groups
+    // Tag filters — OR within a group, AND across groups.
+    // A group's "(empty)" token matches cards bearing no tag from that group.
     const selectedTagIds = filters.tagIds || [];
     if (selectedTagIds.length > 0 && tagGroups.length > 0) {
-      // Group selected ids by their tag_group_id
       const tagToGroup = new Map<string, string>();
+      const groupTagIdSets = new Map<string, Set<string>>();
       for (const g of tagGroups) {
+        groupTagIdSets.set(g.id, new Set(g.tags.map((tg) => tg.id)));
         for (const tg of g.tags) tagToGroup.set(tg.id, g.id);
       }
-      const byGroup = new Map<string, Set<string>>();
+      // groupId → { ids: real tag ids selected, wantEmpty: "(empty)" selected }
+      const byGroup = new Map<string, { ids: Set<string>; wantEmpty: boolean }>();
+      const ensure = (gid: string) => {
+        let e = byGroup.get(gid);
+        if (!e) {
+          e = { ids: new Set<string>(), wantEmpty: false };
+          byGroup.set(gid, e);
+        }
+        return e;
+      };
+      const emptyPrefix = `${EMPTY_VALUE}:`;
       for (const id of selectedTagIds) {
-        const gid = tagToGroup.get(id);
-        if (!gid) continue;
-        if (!byGroup.has(gid)) byGroup.set(gid, new Set());
-        byGroup.get(gid)!.add(id);
+        if (id.startsWith(emptyPrefix)) {
+          ensure(id.slice(emptyPrefix.length)).wantEmpty = true;
+        } else {
+          const gid = tagToGroup.get(id);
+          if (gid) ensure(gid).ids.add(id);
+        }
       }
       result = result.filter((card) => {
         const cardTagIds = new Set((card.tags || []).map((tg) => tg.id));
-        for (const groupTagIds of byGroup.values()) {
+        for (const [gid, sel] of byGroup) {
           let anyMatch = false;
-          for (const id of groupTagIds) {
-            if (cardTagIds.has(id)) {
-              anyMatch = true;
-              break;
+          if (sel.wantEmpty) {
+            const groupSet = groupTagIdSets.get(gid);
+            const hasNoneInGroup = !groupSet || ![...groupSet].some((id) => cardTagIds.has(id));
+            if (hasNoneInGroup) anyMatch = true;
+          }
+          if (!anyMatch) {
+            for (const id of sel.ids) {
+              if (cardTagIds.has(id)) {
+                anyMatch = true;
+                break;
+              }
             }
           }
           if (!anyMatch) return false;

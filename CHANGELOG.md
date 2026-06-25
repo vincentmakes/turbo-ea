@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.46.0] - 2026-06-25
+
+### Added
+- **Inventory filters: an "(empty)" option to find cards with no value.** The Subtype, Lifecycle, Tags, Relationships, and single/multi-select custom-attribute filters each now offer an **(empty)** entry. Selecting it lists only the cards that have no value set for that field — for example every card with no lifecycle — without having to positively select every other value. It combines with normal values (matches either) and across filters (matches all).
+
 ## [1.45.3] - 2026-06-25
 
 ### Fixed

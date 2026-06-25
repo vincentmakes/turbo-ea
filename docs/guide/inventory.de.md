@@ -22,6 +22,8 @@ Das linke Seitenpanel ermöglicht es Ihnen, Karten nach verschiedenen Kriterien 
 - **Nur archivierte anzeigen** — Umschalter zur Anzeige archivierter (weich gelöschter) Karten
 - **Alle zurücksetzen** — Alle aktiven Filter auf einmal zurücksetzen
 
+> **Karten ohne Wert finden.** Die Filter für Untertyp, Lebenszyklus, Tags, Beziehungen und Auswahl-Attribute bieten jeweils eine Option **(leer)**. Wählen Sie sie, um nur Karten anzuzeigen, die für dieses Feld *keinen* Wert haben – zum Beispiel alle Karten ohne festgelegten Lebenszyklus. Sie lässt sich mit normalen Werten (Treffer bei einem davon) und über mehrere Filter hinweg (Treffer bei allen) kombinieren.
+
 Ein **Badge mit der Anzahl aktiver Filter** zeigt an, wie viele Filter derzeit angewendet werden.
 
 ### Registerkarte Spalten

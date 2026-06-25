@@ -50,6 +50,7 @@
   "filter.any": "Beliebig",
   "filter.minValue": "Mindestwert",
   "filter.contains": "Enthält...",
+  "filter.emptyValue": "(leer)",
   "filter.showArchivedOnly": "Nur archivierte anzeigen",
   "filter.clearAll": "Alle löschen ({{count}})",
   "massEdit.title": "Massenbearbeitung",

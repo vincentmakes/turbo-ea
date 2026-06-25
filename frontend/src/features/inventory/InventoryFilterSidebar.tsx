@@ -110,6 +110,29 @@ const DATA_QUALITY_THRESHOLDS = [
 const MIN_WIDTH = 220;
 const MAX_WIDTH = 500;
 
+/**
+ * Sentinel filter value that matches cards which have *no* value for a facet
+ * (blank lifecycle, no subtype, empty attribute, no relation, untagged group).
+ * Real option/subtype/relation keys are slugs / UUIDs / card names, so this
+ * never collides. For tag groups it is scoped per group as
+ * `${EMPTY_VALUE}:${groupId}` so "no tag from group A" and "from group B" stay
+ * distinguishable inside the single flat `tagIds` array.
+ */
+export const EMPTY_VALUE = "__empty__";
+
+/** Group-scoped empty token for tag filters. */
+export const tagEmptyToken = (groupId: string) => `${EMPTY_VALUE}:${groupId}`;
+
+/** True when a card value should count as "empty" for filtering purposes. */
+export function valueIsEmpty(actual: unknown): boolean {
+  return (
+    actual === null ||
+    actual === undefined ||
+    actual === "" ||
+    (Array.isArray(actual) && actual.length === 0)
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
@@ -682,6 +705,11 @@ export default function InventoryFilterSidebar({
                           color={filters.subtypes.includes(st.key) ? "primary" : "default"}
                         />
                       ))}
+                      <EmptyChip
+                        label={t("filter.emptyValue")}
+                        selected={filters.subtypes.includes(EMPTY_VALUE)}
+                        onClick={() => toggleSubtype(EMPTY_VALUE)}
+                      />
                     </Box>
                   </Collapse>
                 </>
@@ -738,6 +766,11 @@ export default function InventoryFilterSidebar({
                       }
                     />
                   ))}
+                  <EmptyChip
+                    label={t("filter.emptyValue")}
+                    selected={filters.lifecyclePhases.includes(EMPTY_VALUE)}
+                    onClick={() => toggleLifecyclePhase(EMPTY_VALUE)}
+                  />
                 </Box>
               </Collapse>
 
@@ -803,13 +836,15 @@ export default function InventoryFilterSidebar({
                                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.25 }}>
                                     {(vals as string[]).map((v) => {
                                       const opt = optionMap.get(v);
+                                      const isEmpty = v === EMPTY_VALUE;
                                       return (
                                         <Chip
                                           key={v}
-                                          label={opt ? rl(opt.label || opt.key, opt.translations) : v}
+                                          label={isEmpty ? t("filter.emptyValue") : opt ? rl(opt.label || opt.key, opt.translations) : v}
                                           size="small"
                                           sx={{
                                             height: 20, fontSize: 12,
+                                            ...(isEmpty ? { fontStyle: "italic" } : {}),
                                             ...(opt?.color ? { bgcolor: opt.color, color: "#fff" } : {}),
                                           }}
                                           onDelete={() => setAttr(field.key, selected.filter((s) => s !== v))}
@@ -839,6 +874,14 @@ export default function InventoryFilterSidebar({
                                     }}
                                   />
                                 </ListSubheader>
+                                {(!searchTerm || t("filter.emptyValue").toLowerCase().includes(searchTerm)) && (
+                                  <MenuItem value={EMPTY_VALUE}>
+                                    <Checkbox size="small" checked={selected.includes(EMPTY_VALUE)} sx={{ p: 0, mr: 1 }} />
+                                    <Typography variant="body2" sx={{ fontSize: 14, fontStyle: "italic" }}>
+                                      {t("filter.emptyValue")}
+                                    </Typography>
+                                  </MenuItem>
+                                )}
                                 {filteredOpts.map((opt) => (
                                   <MenuItem key={opt.key} value={opt.key}>
                                     <Checkbox size="small" checked={selected.includes(opt.key)} sx={{ p: 0, mr: 1 }} />
@@ -956,9 +999,9 @@ export default function InventoryFilterSidebar({
                                   {(vals as string[]).map((v) => (
                                     <Chip
                                       key={v}
-                                      label={v}
+                                      label={v === EMPTY_VALUE ? t("filter.emptyValue") : v}
                                       size="small"
-                                      sx={{ height: 20, fontSize: 12 }}
+                                      sx={{ height: 20, fontSize: 12, ...(v === EMPTY_VALUE ? { fontStyle: "italic" } : {}) }}
                                       onDelete={() => setRelFilter(rt.key, selected.filter((s) => s !== v))}
                                       onMouseDown={(e) => e.stopPropagation()}
                                     />
@@ -985,6 +1028,14 @@ export default function InventoryFilterSidebar({
                                   }}
                                 />
                               </ListSubheader>
+                              {(!searchTerm || t("filter.emptyValue").toLowerCase().includes(searchTerm)) && (
+                                <MenuItem value={EMPTY_VALUE}>
+                                  <Checkbox size="small" checked={selected.includes(EMPTY_VALUE)} sx={{ p: 0, mr: 1 }} />
+                                  <Typography variant="body2" sx={{ fontSize: 14, fontStyle: "italic" }}>
+                                    {t("filter.emptyValue")}
+                                  </Typography>
+                                </MenuItem>
+                              )}
                               {filteredOpts.map((name) => (
                                 <MenuItem key={name} value={name}>
                                   <Checkbox size="small" checked={selected.includes(name)} sx={{ p: 0, mr: 1 }} />
@@ -1026,7 +1077,9 @@ export default function InventoryFilterSidebar({
                   const group = applicableGroups.find((g) => g.id === groupId);
                   if (!group) return;
                   const groupIds = new Set(group.tags.map((tg) => tg.id));
-                  const kept = (filters.tagIds || []).filter((id) => !groupIds.has(id));
+                  const emptyTok = tagEmptyToken(groupId);
+                  // Drop this group's own ids (and its empty token) before re-adding the new selection.
+                  const kept = (filters.tagIds || []).filter((id) => !groupIds.has(id) && id !== emptyTok);
                   onFiltersChange({ ...filters, tagIds: [...kept, ...next] });
                 };
 
@@ -1042,9 +1095,11 @@ export default function InventoryFilterSidebar({
                     <Collapse in={expandedSections.tags}>
                       <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, mb: 2, px: 0.5 }}>
                         {applicableGroups.map((group) => {
-                          const groupSelected = group.tags
-                            .filter((tg) => selectedIds.has(tg.id))
-                            .map((tg) => tg.id);
+                          const emptyTok = tagEmptyToken(group.id);
+                          const groupSelected = [
+                            ...(selectedIds.has(emptyTok) ? [emptyTok] : []),
+                            ...group.tags.filter((tg) => selectedIds.has(tg.id)).map((tg) => tg.id),
+                          ];
                           const searchKey = `tag_${group.id}`;
                           const searchTerm = (dropdownSearch[searchKey] || "").toLowerCase();
                           const filteredTags = searchTerm
@@ -1064,17 +1119,19 @@ export default function InventoryFilterSidebar({
                                 renderValue={(vals) => (
                                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.25 }}>
                                     {(vals as string[]).map((id) => {
-                                      const tag = group.tags.find((tg) => tg.id === id);
-                                      if (!tag) return null;
+                                      const isEmpty = id === emptyTok;
+                                      const tag = isEmpty ? null : group.tags.find((tg) => tg.id === id);
+                                      if (!isEmpty && !tag) return null;
                                       return (
                                         <Chip
                                           key={id}
-                                          label={tag.name}
+                                          label={isEmpty ? t("filter.emptyValue") : tag!.name}
                                           size="small"
                                           sx={{
                                             height: 20,
                                             fontSize: 12,
-                                            ...(tag.color ? { bgcolor: tag.color, color: "#fff" } : {}),
+                                            ...(isEmpty ? { fontStyle: "italic" } : {}),
+                                            ...(tag?.color ? { bgcolor: tag.color, color: "#fff" } : {}),
                                           }}
                                           onDelete={() =>
                                             setGroupSelection(
@@ -1108,6 +1165,14 @@ export default function InventoryFilterSidebar({
                                     }}
                                   />
                                 </ListSubheader>
+                                {(!searchTerm || t("filter.emptyValue").toLowerCase().includes(searchTerm)) && (
+                                  <MenuItem value={emptyTok}>
+                                    <Checkbox size="small" checked={selectedIds.has(emptyTok)} sx={{ p: 0, mr: 1 }} />
+                                    <Typography variant="body2" sx={{ fontSize: 14, fontStyle: "italic" }}>
+                                      {t("filter.emptyValue")}
+                                    </Typography>
+                                  </MenuItem>
+                                )}
                                 {filteredTags.map((tag) => (
                                   <MenuItem key={tag.id} value={tag.id}>
                                     <Checkbox size="small" checked={groupSelected.includes(tag.id)} sx={{ p: 0, mr: 1 }} />
@@ -1498,6 +1563,34 @@ export default function InventoryFilterSidebar({
         </DialogActions>
       </Dialog>
     </Box>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  "(empty)" chip helper — matches cards with no value for a facet     */
+/* ------------------------------------------------------------------ */
+
+function EmptyChip({
+  label,
+  selected,
+  onClick,
+}: {
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Chip
+      label={label}
+      size="small"
+      onClick={onClick}
+      variant={selected ? "filled" : "outlined"}
+      sx={
+        selected
+          ? { bgcolor: "text.secondary", color: "background.paper", fontStyle: "italic" }
+          : { borderColor: "divider", color: "text.secondary", fontStyle: "italic" }
+      }
+    />
   );
 }
 

@@ -50,6 +50,7 @@
   "filter.any": "Enhver",
   "filter.minValue": "Min. værdi",
   "filter.contains": "Indeholder...",
+  "filter.emptyValue": "(tom)",
   "filter.showArchivedOnly": "Vis kun arkiverede",
   "filter.clearAll": "Ryd alle ({{count}})",
   "massEdit.title": "Masseredigering",

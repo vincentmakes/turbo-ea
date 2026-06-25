@@ -22,6 +22,8 @@ The left sidebar panel allows you to **filter** cards by different criteria:
 - **Show archived only** — Toggle to view archived (soft-deleted) cards
 - **Clear all** — Reset all active filters at once
 
+> **Find cards with no value.** The Subtype, Lifecycle, Tags, Relations, and single/multi-select custom attribute filters each include an **(empty)** option. Select it to list only the cards that have *no* value for that field — for example, every card with no lifecycle set. It can be combined with normal values (matching either) and across filters (matching all).
+
 An **active filter count** badge shows how many filters are currently applied.
 
 ### Columns Tab

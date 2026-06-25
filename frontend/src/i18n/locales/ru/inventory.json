@@ -50,6 +50,7 @@
   "filter.any": "Любой",
   "filter.minValue": "Мин. значение",
   "filter.contains": "Содержит...",
+  "filter.emptyValue": "(пусто)",
   "filter.showArchivedOnly": "Показать только архивные",
   "filter.clearAll": "Очистить все ({{count}})",
   "massEdit.title": "Массовое редактирование",

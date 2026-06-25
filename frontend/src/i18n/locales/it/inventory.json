@@ -50,6 +50,7 @@
   "filter.any": "Qualsiasi",
   "filter.minValue": "Valore minimo",
   "filter.contains": "Contiene...",
+  "filter.emptyValue": "(vuoto)",
   "filter.showArchivedOnly": "Mostra solo archiviate",
   "filter.clearAll": "Cancella tutto ({{count}})",
   "massEdit.title": "Modifica massiva",

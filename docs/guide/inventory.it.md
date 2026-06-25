@@ -22,6 +22,8 @@ Il pannello laterale sinistro consente di **filtrare** le card secondo diversi c
 - **Mostra solo archiviate** — Attiva/disattiva per visualizzare le card archiviate (eliminate temporaneamente)
 - **Cancella tutto** — Reimposta tutti i filtri attivi in una volta
 
+> **Trovare le carte senza valore.** I filtri Sottotipo, Ciclo di vita, Tag, Relazioni e gli attributi personalizzati a selezione offrono ciascuno un'opzione **(vuoto)**. Selezionala per elencare solo le carte che *non* hanno un valore per quel campo — ad esempio tutte le carte senza ciclo di vita impostato. Può essere combinata con valori normali (corrisponde a uno qualsiasi) e tra più filtri (corrisponde a tutti).
+
 Un **badge con il conteggio dei filtri attivi** mostra quanti filtri sono attualmente applicati.
 
 ### Scheda Colonne

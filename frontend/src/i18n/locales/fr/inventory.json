@@ -50,6 +50,7 @@
   "filter.any": "Tous",
   "filter.minValue": "Valeur min.",
   "filter.contains": "Contient…",
+  "filter.emptyValue": "(vide)",
   "filter.showArchivedOnly": "Afficher uniquement les archivés",
   "filter.clearAll": "Tout effacer ({{count}})",
   "massEdit.title": "Modification en masse",

@@ -22,6 +22,8 @@ El panel lateral izquierdo permite **filtrar** las fichas por diferentes criteri
 - **Mostrar solo archivados** — Alternar para ver fichas archivadas (eliminadas temporalmente)
 - **Limpiar todo** — Restablecer todos los filtros activos de una vez
 
+> **Encontrar fichas sin valor.** Los filtros de Subtipo, Ciclo de vida, Etiquetas, Relaciones y atributos personalizados de selección incluyen cada uno una opción **(vacío)**. Selecciónela para mostrar solo las fichas que *no* tienen valor en ese campo, por ejemplo todas las fichas sin ciclo de vida definido. Se puede combinar con valores normales (coincide con cualquiera) y entre varios filtros (coincide con todos).
+
 Un **contador de filtros activos** muestra cuántos filtros están aplicados actualmente.
 
 ### Pestaña Columnas

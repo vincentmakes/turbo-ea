@@ -50,6 +50,7 @@
   "filter.any": "任意",
   "filter.minValue": "最小值",
   "filter.contains": "包含...",
+  "filter.emptyValue": "（空）",
   "filter.showArchivedOnly": "仅显示已归档",
   "filter.clearAll": "清除全部 ({{count}})",
   "massEdit.title": "批量编辑",
