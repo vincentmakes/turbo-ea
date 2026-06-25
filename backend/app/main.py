@@ -532,11 +532,16 @@ async def lifespan(app: FastAPI):
 
     logger.info("[startup] Email settings loaded, seeding metamodel...")
     # Seed default metamodel
-    from app.services.seed import seed_metamodel
+    from app.services.seed import seed_metamodel, seed_standards
 
     async with async_session() as db:
         await seed_metamodel(db)
     logger.info("[startup] Metamodel seed complete")
+
+    # Seed default standards (NORA/ISO)
+    async with async_session() as db:
+        await seed_standards(db)
+    logger.info("[startup] Standards seed complete")
 
     # Optionally seed demo data (NexaTech Industries dataset)
     if settings.SEED_DEMO:

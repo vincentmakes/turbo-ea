@@ -6058,3 +6058,125 @@ async def seed_metamodel(db: AsyncSession) -> None:
         )
 
     await db.commit()
+
+
+async def seed_standards(db: AsyncSession) -> None:
+    """Seed default NORA/ISO standards for governance."""
+    from app.models.ea_standard import EAStandard
+
+    standards = [
+        {
+            "title": "NORA Cloud Security Requirements",
+            "description": "Mandatory security controls for all cloud-deployed systems per NORA framework.",
+            "rationale": "Ensures compliance with Saudi Arabia's National Organizational Requirements for Architecture.",
+            "category": "security",
+            "compliance_level": "mandated",
+            "reference_url": "https://www.nora.gov.sa",
+            "sort_order": 1,
+        },
+        {
+            "title": "ISO 27001 Information Security",
+            "description": "International standard for information security management systems.",
+            "rationale": "Protects the confidentiality, integrity and availability of information assets.",
+            "category": "security",
+            "compliance_level": "mandated",
+            "reference_url": "https://www.iso.org/isoiec-27001-information-security-management.html",
+            "sort_order": 2,
+        },
+        {
+            "title": "NORA API Interoperability Standard",
+            "description": "All inter-agency APIs must follow NORA REST/OAuth2.1 specifications.",
+            "rationale": "Enables seamless integration between government systems and agencies.",
+            "category": "interoperability",
+            "compliance_level": "mandated",
+            "reference_url": "https://www.nora.gov.sa",
+            "sort_order": 3,
+        },
+        {
+            "title": "NIST 800-53 Security Controls",
+            "description": "Recommended security and privacy controls for federal information systems.",
+            "rationale": "De-facto standard for enterprise security architecture in government and regulated sectors.",
+            "category": "security",
+            "compliance_level": "recommended",
+            "reference_url": "https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final",
+            "sort_order": 4,
+        },
+        {
+            "title": "Data Classification (NORA)",
+            "description": "Public, Internal, Confidential, and Restricted data classification levels.",
+            "rationale": "Ensures consistent handling and protection of data according to sensitivity level.",
+            "category": "data",
+            "compliance_level": "mandated",
+            "reference_url": "https://www.nora.gov.sa",
+            "sort_order": 5,
+        },
+        {
+            "title": "RESTful API Design Standards",
+            "description": "APIs must follow REST conventions: JSON payloads, proper HTTP methods, versioning via URL.",
+            "rationale": "Provides consistency and predictability for API consumers and simplifies integration.",
+            "category": "interoperability",
+            "compliance_level": "recommended",
+            "reference_url": "https://restfulapi.net",
+            "sort_order": 6,
+        },
+        {
+            "title": "Identity & Access Management (IAM)",
+            "description": "All systems must implement role-based access control (RBAC) with multi-factor authentication.",
+            "rationale": "Prevents unauthorized access and ensures user accountability in audit logs.",
+            "category": "security",
+            "compliance_level": "mandated",
+            "reference_url": "https://www.nora.gov.sa",
+            "sort_order": 7,
+        },
+        {
+            "title": "Service Level Agreements (SLA)",
+            "description": "Minimum uptime 99.5%, RTO ≤ 4 hours, RPO ≤ 1 hour for critical systems.",
+            "rationale": "Establishes accountability for service availability and recovery expectations.",
+            "category": "business",
+            "compliance_level": "recommended",
+            "reference_url": "https://www.nora.gov.sa",
+            "sort_order": 8,
+        },
+        {
+            "title": "Encryption Standards (AES-256, TLS 1.3)",
+            "description": "All data in transit must use TLS 1.3; data at rest must be encrypted with AES-256.",
+            "rationale": "Protects sensitive data from interception and unauthorized access.",
+            "category": "security",
+            "compliance_level": "mandated",
+            "reference_url": "https://www.nora.gov.sa",
+            "sort_order": 9,
+        },
+        {
+            "title": "Business Continuity & Disaster Recovery",
+            "description": "All systems must have documented recovery procedures with annual testing.",
+            "rationale": "Ensures organizational resilience and minimizes downtime during incidents.",
+            "category": "business",
+            "compliance_level": "recommended",
+            "reference_url": "https://www.iso.org/standard/75106.html",
+            "sort_order": 10,
+        },
+    ]
+
+    # Check which standards already exist
+    existing_result = await db.execute(select(EAStandard))
+    existing_titles = {s.title for s in existing_result.scalars().all()}
+
+    # Add missing standards
+    for std in standards:
+        if std["title"] in existing_titles:
+            continue
+        db.add(
+            EAStandard(
+                id=uuid.uuid4(),
+                title=std["title"],
+                description=std["description"],
+                rationale=std["rationale"],
+                category=std["category"],
+                compliance_level=std["compliance_level"],
+                reference_url=std["reference_url"],
+                is_active=True,
+                sort_order=std["sort_order"],
+            )
+        )
+
+    await db.commit()

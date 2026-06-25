@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.48.0] - 2026-06-25
+
+### Added
+- **Enterprise Standards register (TOGAF SIB / NORA-aligned).** A new **Standards** tab in **Governance** complements Principles and ADRs. Define mandated / recommended / deprecated standards across security, data, interoperability, business, and governance domains with compliance_level badges and reference URLs. Link standards to cards for compliance tracking. Full export/import support for workspace transfers.
+- **10 built-in NORA/ISO standards.** Seeded by default: NORA Cloud Security, ISO 27001, NORA API Interoperability, NIST 800-53, Data Classification, RESTful APIs, IAM, SLAs, Encryption (AES-256, TLS 1.3), and Business Continuity/Disaster Recovery. Admins can disable, edit, or add custom standards under **Admin → Metamodel → Enterprise Standards**.
+
 ## [1.47.0] - 2026-06-25
 
 ### Added

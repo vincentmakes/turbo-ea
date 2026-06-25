@@ -6243,7 +6243,7 @@ if __name__ == "__main__":
 
     from app.database import async_session, engine
     from app.models import Base
-    from app.services.seed import seed_metamodel
+    from app.services.seed import seed_metamodel, seed_standards
 
     async def _main():
         # Ensure tables exist
@@ -6253,6 +6253,10 @@ if __name__ == "__main__":
         # Seed metamodel first (required for FK constraints)
         async with async_session() as db:
             await seed_metamodel(db)
+
+        # Seed standards
+        async with async_session() as db:
+            await seed_standards(db)
 
         # Seed demo data
         async with async_session() as db:
