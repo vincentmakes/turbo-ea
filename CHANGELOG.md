@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.47.2] - 2026-06-25
+
+### Fixed
+- **Inventory: applying a saved view keeps you on the Views tab.** Clicking a saved view in the sidebar no longer jumps back to the Filters tab, so you can switch between views in quick succession without losing your place.
+
 ## [1.47.1] - 2026-06-25
 
 ### Fixed

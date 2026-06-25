@@ -408,7 +408,7 @@ export default function InventoryFilterSidebar({
     if (bmColumns && Array.isArray(bmColumns)) {
       onSelectedColumnsChange(new Set(bmColumns));
     }
-    setTab(0);
+    // Stay on the Views tab so the user can switch between views quickly.
   };
 
   const handleDeleteView = async (bm: Bookmark) => {
