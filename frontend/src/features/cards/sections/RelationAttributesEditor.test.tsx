@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { relationAttributeBadges } from "./RelationAttributesEditor";
+import { hasRelationSubtypes, relationAttributeBadges } from "./RelationAttributesEditor";
 import type { RelationType } from "@/types";
 
 const usageType: RelationType = {
@@ -65,6 +65,55 @@ const multiDimension: RelationType = {
     },
   ],
 } as unknown as RelationType;
+
+const noOptions: RelationType = {
+  key: "relAppToApp",
+  label: "depends on",
+  source_type_key: "Application",
+  target_type_key: "Application",
+  cardinality: "n:m",
+  built_in: true,
+  is_hidden: false,
+  attributes_schema: [
+    {
+      key: "kind",
+      label: "Kind",
+      type: "single_select",
+      options: [],
+    },
+  ],
+} as unknown as RelationType;
+
+const noSchema: RelationType = {
+  key: "relBare",
+  label: "relates to",
+  source_type_key: "Application",
+  target_type_key: "DataObject",
+  cardinality: "n:m",
+  built_in: true,
+  is_hidden: false,
+  attributes_schema: [],
+} as unknown as RelationType;
+
+describe("hasRelationSubtypes", () => {
+  it("returns true when a single_select field has options", () => {
+    expect(hasRelationSubtypes(usageType)).toBe(true);
+    expect(hasRelationSubtypes(flowOnly)).toBe(true);
+    expect(hasRelationSubtypes(multiDimension)).toBe(true);
+  });
+
+  it("returns false when a single_select field has no options (no subtypes)", () => {
+    expect(hasRelationSubtypes(noOptions)).toBe(false);
+  });
+
+  it("returns false for an empty attributes_schema", () => {
+    expect(hasRelationSubtypes(noSchema)).toBe(false);
+  });
+
+  it("returns false when relationType is undefined", () => {
+    expect(hasRelationSubtypes(undefined)).toBe(false);
+  });
+});
 
 describe("relationAttributeBadges", () => {
   it("returns an empty array when no value is set", () => {

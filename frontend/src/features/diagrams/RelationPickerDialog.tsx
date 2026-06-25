@@ -14,7 +14,7 @@ import Chip from "@mui/material/Chip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import RelationAttributesEditor, {
-  hasRelationAttributes,
+  hasRelationSubtypes,
   type RelationAttributes,
 } from "@/features/cards/sections/RelationAttributesEditor";
 import type { RelationType } from "@/types";
@@ -88,7 +88,7 @@ export default function RelationPickerDialog({
   }
 
   const handlePickType = (rt: RelationType, direction: "as-is" | "reversed") => {
-    if (hasRelationAttributes(rt)) {
+    if (hasRelationSubtypes(rt)) {
       setPicked({ rt, direction });
       setAttrs({});
     } else {
