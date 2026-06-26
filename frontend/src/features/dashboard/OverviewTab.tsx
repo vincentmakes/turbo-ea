@@ -229,7 +229,30 @@ export default function OverviewTab() {
                       width={150}
                       orientation={isRtl ? "right" : "left"}
                       tickMargin={8}
-                      tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
+                      tick={
+                        isRtl
+                          ? ({ x, y, payload }: {
+                              x?: string | number;
+                              y?: string | number;
+                              payload?: { value?: string };
+                            }) => (
+                              // In RTL the document `direction` flips how text-anchor resolves, so
+                              // the default tick renders the label over the bars. Anchor it explicitly
+                              // to the right of the (right-side) axis so it sits outside the bars.
+                              <text
+                                x={Number(x ?? 0) + 10}
+                                y={Number(y ?? 0)}
+                                direction="rtl"
+                                textAnchor="end"
+                                dominantBaseline="central"
+                                fontSize={12}
+                                fill={theme.palette.text.secondary}
+                              >
+                                {payload?.value ?? ""}
+                              </text>
+                            )
+                          : { fontSize: 12, fill: theme.palette.text.secondary }
+                      }
                       tickLine={false}
                     />
                     <RTooltip
