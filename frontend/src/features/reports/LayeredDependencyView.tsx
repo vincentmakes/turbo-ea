@@ -833,11 +833,11 @@ function LayeredDependencyInner({
   const exportImage = useCallback(
     async (format: "png" | "svg") => {
       setExportAnchor(null);
-      const flowNodes = getNodes();
-      if (flowNodes.length === 0) return;
+      const exportNodes = getNodes();
+      if (exportNodes.length === 0) return;
       // Flatten child coordinates to absolute so bounds cover the whole graph.
-      const byId = new Map(flowNodes.map((n) => [n.id, n]));
-      const absNodes = flowNodes.map((n) => {
+      const byId = new Map(exportNodes.map((n) => [n.id, n]));
+      const absNodes = exportNodes.map((n) => {
         if (n.parentId) {
           const p = byId.get(n.parentId);
           if (p) {
@@ -1025,14 +1025,21 @@ function LayeredDependencyInner({
   // Re-seed nodes whenever the layout changes (data / navigation / hierarchy /
   // expand). Manual drag positions reset here by design. Keyed on builtNodes
   // only — display-setting changes go through the patch effect so they don't
-  // wipe the user's drags.
+  // wipe the user's drags. The freshly-built nodes already carry current
+  // display data, so suppress the patch effect for that same commit.
+  const skipPatchRef = useRef(false);
   useEffect(() => {
+    skipPatchRef.current = true;
     setNodes(buildNodesRef.current());
   }, [builtNodes, setNodes]);
 
   // Patch display data onto the live nodes when display settings change, keeping
   // each node's current (possibly dragged) position and React Flow measurement.
   useEffect(() => {
+    if (skipPatchRef.current) {
+      skipPatchRef.current = false;
+      return;
+    }
     setNodes((prev) =>
       prev.map((n) =>
         n.type === "ldvNode" ? { ...n, data: { ...n.data, ...cardDisplayData(n) } } : n,
