@@ -1,5 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { api } from "@/api/client";
+import { currencySymbolOverride } from "@/lib/currency";
+
+/** Minimal currency formatter shape. A real `Intl.NumberFormat` satisfies it;
+ * for currencies with a symbol override we return a lightweight wrapper that
+ * swaps the currency token for the override glyph. */
+export type CurrencyFormatter = { format: (value: number) => string };
 
 let _cache: string | null = null;
 let _inflight: Promise<void> | null = null;
@@ -47,8 +53,7 @@ export function useCurrency() {
     };
   }, []);
 
-  /** Full-format: e.g. $1,200,000 or 1.200.000 € */
-  const fmt = useMemo(
+  const baseFmt = useMemo(
     () =>
       new Intl.NumberFormat(undefined, {
         style: "currency",
@@ -58,11 +63,29 @@ export function useCurrency() {
     [currency],
   );
 
-  /** Currency symbol extracted from the formatter, e.g. "$", "€" */
+  /** Currency symbol — override glyph (e.g. the new Saudi Riyal sign) when one
+   * applies, otherwise the symbol the formatter emits, e.g. "$", "€". */
   const symbol = useMemo(() => {
-    const parts = fmt.formatToParts(0);
+    const override = currencySymbolOverride(currency);
+    if (override) return override;
+    const parts = baseFmt.formatToParts(0);
     return parts.find((p) => p.type === "currency")?.value || currency;
-  }, [fmt, currency]);
+  }, [baseFmt, currency]);
+
+  /** Full-format: e.g. $1,200,000 or 1.200.000 €. For overridden currencies the
+   * Intl currency token is swapped for the override glyph while grouping and
+   * placement stay locale-correct. */
+  const fmt = useMemo<CurrencyFormatter>(() => {
+    const override = currencySymbolOverride(currency);
+    if (!override) return baseFmt;
+    return {
+      format: (value: number) =>
+        baseFmt
+          .formatToParts(value)
+          .map((p) => (p.type === "currency" ? override : p.value))
+          .join(""),
+    };
+  }, [baseFmt, currency]);
 
   /** Short format for tight spaces: e.g. $450k, €1.2M */
   const fmtShort = useCallback(

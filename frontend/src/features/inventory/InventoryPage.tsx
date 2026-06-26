@@ -47,6 +47,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
+import { useIsRtl } from "@/hooks/useIsRtl";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { api, ApiError } from "@/api/client";
 import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
@@ -180,6 +181,7 @@ export default function InventoryPage() {
   const rml = useResolveMetaLabel();
   const { user } = useAuth();
   const { mode } = useThemeMode();
+  const isRtl = useIsRtl();
   const canArchive = !!(user?.permissions?.["*"] || user?.permissions?.["inventory.archive"]);
   const canDelete = !!(user?.permissions?.["*"] || user?.permissions?.["inventory.delete"]);
   const canShareBookmarks = !!(user?.permissions?.["*"] || user?.permissions?.["bookmarks.share"]);
@@ -2235,6 +2237,8 @@ export default function InventoryPage() {
           sx={{ flex: 1, width: "100%", minHeight: 0 }}
         >
           <AgGridReact
+            key={isRtl ? "rtl" : "ltr"}
+            enableRtl={isRtl}
             ref={gridRef}
             rowData={filteredData}
             columnDefs={columnDefs}

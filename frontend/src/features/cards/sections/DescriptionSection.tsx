@@ -10,6 +10,7 @@ import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Alert from "@mui/material/Alert";
 import { useTranslation } from "react-i18next";
+import type { CurrencyFormatter } from "@/hooks/useCurrency";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { FieldValue, FieldEditor, isValidUrl, getUrlErrorMsg } from "@/features/cards/sections/cardDetailUtils";
 import { useResolveLabel } from "@/hooks/useResolveLabel";
@@ -32,7 +33,7 @@ function DescriptionSection({
   canEdit?: boolean;
   initialExpanded?: boolean;
   extraFields?: FieldDef[];
-  currencyFmt?: Intl.NumberFormat;
+  currencyFmt?: CurrencyFormatter;
   onAiSuggest?: () => void;
   aiBusy?: boolean;
 }) {

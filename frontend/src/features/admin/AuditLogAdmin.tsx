@@ -33,6 +33,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useThemeMode } from "@/hooks/useThemeMode";
+import { useIsRtl } from "@/hooks/useIsRtl";
 import AuditLogBatchDrawer, {
   originColor,
   statusOf,
@@ -113,6 +114,7 @@ function saveAuditPrefs(p: AuditPrefs) {
 
 export default function AuditLogAdmin() {
   const { mode } = useThemeMode();
+  const isRtl = useIsRtl();
   const { formatDateTime } = useDateFormat();
   const gridRef = useRef<AgGridReact<AuditBatch> | null>(null);
 
@@ -478,6 +480,8 @@ export default function AuditLogAdmin() {
             sx={{ flex: 1, width: "100%", minHeight: 0 }}
           >
             <AgGridReact<AuditBatch>
+              key={isRtl ? "rtl" : "ltr"}
+              enableRtl={isRtl}
               ref={gridRef}
               rowData={filteredRows}
               columnDefs={visibleColumnDefs}

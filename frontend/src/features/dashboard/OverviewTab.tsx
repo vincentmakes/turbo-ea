@@ -25,6 +25,7 @@ import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useIsRtl } from "@/hooks/useIsRtl";
 import { api } from "@/api/client";
 import { APPROVAL_STATUS_COLORS, DATA_QUALITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import type { DashboardData } from "@/types";
@@ -38,9 +39,16 @@ const DATA_QUALITY_LABELS: Record<string, string> = {
   "75-100": "75 - 100%",
 };
 
+/** Recharts has no global RTL switch, so flip chart geometry per-locale. */
+type ChartMargin = { left?: number; right?: number; top?: number; bottom?: number };
+function mirrorMargin(m: ChartMargin, isRtl: boolean): ChartMargin {
+  return isRtl ? { ...m, left: m.right, right: m.left } : m;
+}
+
 export default function OverviewTab() {
   const navigate = useNavigate();
   const theme = useTheme();
+  const isRtl = useIsRtl();
   const { t } = useTranslation("common");
   const { types } = useMetamodel();
   const rml = useResolveMetaLabel();
@@ -210,13 +218,14 @@ export default function OverviewTab() {
               </Typography>
               {typeChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={Math.max(typeChartData.length * 38, 200)}>
-                  <BarChart data={typeChartData} layout="vertical" margin={{ left: 10, right: 24, top: 4, bottom: 4 }}>
+                  <BarChart data={typeChartData} layout="vertical" margin={mirrorMargin({ left: 10, right: 24, top: 4, bottom: 4 }, isRtl)}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={theme.palette.divider} />
-                    <XAxis type="number" allowDecimals={false} tick={{ fill: theme.palette.text.secondary }} />
+                    <XAxis type="number" allowDecimals={false} reversed={isRtl} tick={{ fill: theme.palette.text.secondary }} />
                     <YAxis
                       type="category"
                       dataKey="name"
                       width={130}
+                      orientation={isRtl ? "right" : "left"}
                       tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
                       tickLine={false}
                     />
@@ -226,6 +235,8 @@ export default function OverviewTab() {
                         backgroundColor: theme.palette.background.paper,
                         borderColor: theme.palette.divider,
                         color: theme.palette.text.primary,
+                        direction: isRtl ? "rtl" : "ltr",
+                        textAlign: isRtl ? "right" : "left",
                       }}
                       labelStyle={{ color: theme.palette.text.primary }}
                       itemStyle={{ color: theme.palette.text.primary }}
@@ -233,7 +244,7 @@ export default function OverviewTab() {
                     <Bar
                       dataKey="count"
                       name={t("labels.count")}
-                      radius={[0, 4, 4, 0]}
+                      radius={isRtl ? [4, 0, 0, 4] : [0, 4, 4, 0]}
                       cursor="pointer"
                       onClick={(_data, _idx) => {
                         const key = typeChartData[_idx]?.key;
@@ -288,11 +299,17 @@ export default function OverviewTab() {
                         backgroundColor: theme.palette.background.paper,
                         borderColor: theme.palette.divider,
                         color: theme.palette.text.primary,
+                        direction: isRtl ? "rtl" : "ltr",
+                        textAlign: isRtl ? "right" : "left",
                       }}
                       labelStyle={{ color: theme.palette.text.primary }}
                       itemStyle={{ color: theme.palette.text.primary }}
                     />
-                    <Legend formatter={(value: string) => <span style={{ color: theme.palette.text.primary }}>{value}</span>} />
+                    <Legend
+                      align={isRtl ? "right" : "left"}
+                      wrapperStyle={{ direction: isRtl ? "rtl" : "ltr" }}
+                      formatter={(value: string) => <span style={{ color: theme.palette.text.primary }}>{value}</span>}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
@@ -312,16 +329,18 @@ export default function OverviewTab() {
                 {t("dashboard.completionDistribution")}
               </Typography>
               <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={dataQualityChartData} margin={{ left: 0, right: 16, top: 8, bottom: 4 }}>
+                <BarChart data={dataQualityChartData} margin={mirrorMargin({ left: 0, right: 16, top: 8, bottom: 4 }, isRtl)}>
                   <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
-                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
-                  <YAxis allowDecimals={false} tick={{ fill: theme.palette.text.secondary }} />
+                  <XAxis dataKey="name" reversed={isRtl} tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
+                  <YAxis allowDecimals={false} orientation={isRtl ? "right" : "left"} tick={{ fill: theme.palette.text.secondary }} />
                   <RTooltip
                     cursor={{ fill: theme.palette.action.hover }}
                     contentStyle={{
                       backgroundColor: theme.palette.background.paper,
                       borderColor: theme.palette.divider,
                       color: theme.palette.text.primary,
+                      direction: isRtl ? "rtl" : "ltr",
+                      textAlign: isRtl ? "right" : "left",
                     }}
                     labelStyle={{ color: theme.palette.text.primary }}
                     itemStyle={{ color: theme.palette.text.primary }}
@@ -350,16 +369,18 @@ export default function OverviewTab() {
                 {t("dashboard.lifecycleOverview")}
               </Typography>
               <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={lifecycleChartData} margin={{ left: 0, right: 16, top: 8, bottom: 4 }}>
+                <BarChart data={lifecycleChartData} margin={mirrorMargin({ left: 0, right: 16, top: 8, bottom: 4 }, isRtl)}>
                   <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
-                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
-                  <YAxis allowDecimals={false} tick={{ fill: theme.palette.text.secondary }} />
+                  <XAxis dataKey="name" reversed={isRtl} tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
+                  <YAxis allowDecimals={false} orientation={isRtl ? "right" : "left"} tick={{ fill: theme.palette.text.secondary }} />
                   <RTooltip
                     cursor={{ fill: theme.palette.action.hover }}
                     contentStyle={{
                       backgroundColor: theme.palette.background.paper,
                       borderColor: theme.palette.divider,
                       color: theme.palette.text.primary,
+                      direction: isRtl ? "rtl" : "ltr",
+                      textAlign: isRtl ? "right" : "left",
                     }}
                     labelStyle={{ color: theme.palette.text.primary }}
                     itemStyle={{ color: theme.palette.text.primary }}

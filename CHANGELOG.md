@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.50.1] - 2026-06-26
+
+### Fixed
+- **Arabic right-to-left layout now extends to data grids and dashboard charts.** With Arabic selected, the Inventory grid and the other data tables (Risk Register, Compliance, ADRs, Users, Audit Log) mirror to right-to-left — column order, header and cell alignment, and horizontal scrolling all follow RTL. The Dashboard → Overview charts (Cards by Type, Approval Status, Completion, Lifecycle) also flip: category axis on the right, bars growing right-to-left, and RTL-aligned legends and tooltips.
+- **Currency selector is now translated, and Saudi Riyal shows its own symbol.** The currency picker in **Admin → Settings** lists currencies by their localized name in the active language instead of fixed English text. Saudi Riyal now displays the dedicated ⃁ symbol (falling back to "SAR" on platforms whose fonts don't yet include it).
+
 ## [1.50.0] - 2026-06-26
 
 ### Added

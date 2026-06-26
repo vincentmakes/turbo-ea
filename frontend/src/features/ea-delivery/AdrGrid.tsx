@@ -20,6 +20,7 @@ import ListItemText from "@mui/material/ListItemText";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { useIsRtl } from "@/hooks/useIsRtl";
 import type { ArchitectureDecision, CardType } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
@@ -78,6 +79,7 @@ export default function AdrGrid({
   const { t } = useTranslation("delivery");
   const navigate = useNavigate();
   const { mode } = useThemeMode();
+  const isRtl = useIsRtl();
   const { formatDate } = useDateFormat();
   const gridRef = useRef<AgGridReact>(null);
 
@@ -432,6 +434,8 @@ export default function AdrGrid({
           onContextMenu={handleContextMenu}
         >
           <AgGridReact<ArchitectureDecision>
+            key={isRtl ? "rtl" : "ltr"}
+            enableRtl={isRtl}
             ref={gridRef}
             rowData={adrs}
             columnDefs={columnDefs}

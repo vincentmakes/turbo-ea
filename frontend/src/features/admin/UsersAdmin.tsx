@@ -32,6 +32,7 @@ import "ag-grid-community/styles/ag-theme-quartz.css";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useThemeMode } from "@/hooks/useThemeMode";
+import { useIsRtl } from "@/hooks/useIsRtl";
 import type { User, SsoInvitation, AppRole } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import RolesAdmin from "@/features/admin/RolesAdmin";
@@ -101,6 +102,7 @@ export default function UsersAdmin() {
   const { t } = useTranslation(["admin", "common"]);
   const { formatDate, formatDateTime } = useDateFormat();
   const { mode } = useThemeMode();
+  const isRtl = useIsRtl();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [tab, setTab] = useState(0);
@@ -1048,6 +1050,8 @@ export default function UsersAdmin() {
               sx={{ flex: 1, minHeight: 0 }}
             >
               <AgGridReact<User>
+                key={isRtl ? "rtl" : "ltr"}
+                enableRtl={isRtl}
                 rowData={filteredUsers}
                 columnDefs={columnDefs}
                 defaultColDef={defaultColDef}

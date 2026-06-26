@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Suspense, lazy } from "react";
+import { useState, useEffect, useMemo, useRef, Suspense, lazy } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
@@ -20,6 +20,7 @@ import Checkbox from "@mui/material/Checkbox";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
+import { currencySymbolOverride } from "@/lib/currency";
 import {
   DATE_FORMAT_OPTIONS,
   DEFAULT_DATE_FORMAT,
@@ -72,51 +73,40 @@ function TabLoader() {
 // General Tab
 // ---------------------------------------------------------------------------
 
-const CURRENCIES = [
-  { code: "USD", label: "US Dollar ($)" },
-  { code: "EUR", label: "Euro (\u20ac)" },
-  { code: "GBP", label: "British Pound (\u00a3)" },
-  { code: "CHF", label: "Swiss Franc (CHF)" },
-  { code: "JPY", label: "Japanese Yen (\u00a5)" },
-  { code: "CNY", label: "Chinese Yuan (\u00a5)" },
-  { code: "CAD", label: "Canadian Dollar (CA$)" },
-  { code: "AUD", label: "Australian Dollar (A$)" },
-  { code: "SEK", label: "Swedish Krona (kr)" },
-  { code: "NOK", label: "Norwegian Krone (kr)" },
-  { code: "DKK", label: "Danish Krone (kr)" },
-  { code: "PLN", label: "Polish Z\u0142oty (z\u0142)" },
-  { code: "INR", label: "Indian Rupee (\u20b9)" },
-  { code: "BRL", label: "Brazilian Real (R$)" },
-  { code: "KRW", label: "South Korean Won (\u20a9)" },
-  { code: "SGD", label: "Singapore Dollar (S$)" },
-  { code: "HKD", label: "Hong Kong Dollar (HK$)" },
-  { code: "ZAR", label: "South African Rand (R)" },
-  { code: "MXN", label: "Mexican Peso (MX$)" },
-  { code: "TRY", label: "Turkish Lira (\u20ba)" },
-  { code: "IDR", label: "Indonesian Rupiah (Rp)" },
-  { code: "THB", label: "Thai Baht (\u0e3f)" },
-  { code: "MYR", label: "Malaysian Ringgit (RM)" },
-  { code: "PHP", label: "Philippine Peso (\u20b1)" },
-  { code: "VND", label: "Vietnamese Dong (\u20ab)" },
-  { code: "NZD", label: "New Zealand Dollar (NZ$)" },
-  { code: "TWD", label: "New Taiwan Dollar (NT$)" },
-  { code: "AED", label: "UAE Dirham (AED)" },
-  { code: "SAR", label: "Saudi Riyal (SAR)" },
-  { code: "ILS", label: "Israeli New Shekel (\u20aa)" },
-  { code: "QAR", label: "Qatari Riyal (QAR)" },
-  { code: "CZK", label: "Czech Koruna (K\u010d)" },
-  { code: "HUF", label: "Hungarian Forint (Ft)" },
-  { code: "RON", label: "Romanian Leu (lei)" },
-  { code: "RUB", label: "Russian Ruble (\u20bd)" },
-  { code: "UAH", label: "Ukrainian Hryvnia (\u20b4)" },
-  { code: "ARS", label: "Argentine Peso (AR$)" },
-  { code: "CLP", label: "Chilean Peso (CLP$)" },
-  { code: "COP", label: "Colombian Peso (COP$)" },
-  { code: "EGP", label: "Egyptian Pound (E\u00a3)" },
-  { code: "NGN", label: "Nigerian Naira (\u20a6)" },
-  { code: "PKR", label: "Pakistani Rupee (\u20a8)" },
-  { code: "BDT", label: "Bangladeshi Taka (\u09f3)" },
+// Curated, common-first list of supported currency codes. Display names are
+// resolved per active locale via Intl.DisplayNames (so the selector is
+// translated), and the symbol uses the override map (e.g. the new Saudi Riyal
+// sign) with an Intl fallback \u2014 see currencyOptionLabel().
+const CURRENCY_CODES = [
+  "USD", "EUR", "GBP", "CHF", "JPY", "CNY", "CAD", "AUD", "SEK", "NOK", "DKK",
+  "PLN", "INR", "BRL", "KRW", "SGD", "HKD", "ZAR", "MXN", "TRY", "IDR", "THB",
+  "MYR", "PHP", "VND", "NZD", "TWD", "AED", "SAR", "ILS", "QAR", "CZK", "HUF",
+  "RON", "RUB", "UAH", "ARS", "CLP", "COP", "EGP", "NGN", "PKR", "BDT",
 ];
+
+/** Localized "Name (symbol)" label for a currency code in the given locale. */
+function currencyOptionLabel(code: string, locale: string): string {
+  let name = code;
+  try {
+    name = new Intl.DisplayNames([locale], { type: "currency" }).of(code) || code;
+  } catch {
+    /* fall back to the ISO code */
+  }
+  let symbol = currencySymbolOverride(code);
+  if (!symbol) {
+    try {
+      const parts = new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency: code,
+        maximumFractionDigits: 0,
+      }).formatToParts(0);
+      symbol = parts.find((p) => p.type === "currency")?.value || code;
+    } catch {
+      symbol = code;
+    }
+  }
+  return `${name} (${symbol})`;
+}
 
 interface EmailSettings {
   smtp_host: string;
@@ -159,7 +149,11 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 }
 
 function GeneralTab() {
-  const { t } = useTranslation(["admin", "common"]);
+  const { t, i18n } = useTranslation(["admin", "common"]);
+  const currencyOptions = useMemo(
+    () => CURRENCY_CODES.map((code) => ({ code, label: currencyOptionLabel(code, i18n.language) })),
+    [i18n.language],
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -968,7 +962,7 @@ function GeneralTab() {
             onChange={(e) => setSelectedCurrency(e.target.value)}
             sx={{ minWidth: 280 }}
           >
-            {CURRENCIES.map((c) => (
+            {currencyOptions.map((c) => (
               <MenuItem key={c.code} value={c.code}>
                 {c.code} — {c.label}
               </MenuItem>

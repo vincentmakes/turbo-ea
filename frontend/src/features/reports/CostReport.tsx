@@ -24,7 +24,7 @@ import MetricCard from "./MetricCard";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
-import { useCurrency } from "@/hooks/useCurrency";
+import { useCurrency, type CurrencyFormatter } from "@/hooks/useCurrency";
 import { useAuth } from "@/hooks/useAuth";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
@@ -125,7 +125,7 @@ const TreemapContent = ({
 }: {
   x: number; y: number; width: number; height: number; name: string; cost: number; index: number;
   id?: string;
-  costFmt: Intl.NumberFormat;
+  costFmt: CurrencyFormatter;
   onCellClick?: (id: string, name: string) => void;
   clickable?: boolean;
 }) => {

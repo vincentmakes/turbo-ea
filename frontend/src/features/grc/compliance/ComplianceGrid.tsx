@@ -58,6 +58,7 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useThemeMode } from "@/hooks/useThemeMode";
+import { useIsRtl } from "@/hooks/useIsRtl";
 import { useTheme } from "@mui/material/styles";
 import type {
   ComplianceDecision,
@@ -199,6 +200,7 @@ export default function ComplianceGrid({
   const { t: tCommon } = useTranslation("common");
   const theme = useTheme();
   const { mode } = useThemeMode();
+  const isRtl = useIsRtl();
   const { formatDate } = useDateFormat();
 
   const [deleteConfirm, setDeleteConfirm] =
@@ -822,6 +824,8 @@ export default function ComplianceGrid({
           }}
         >
           <AgGridReact<TurboLensComplianceFinding>
+            key={isRtl ? "rtl" : "ltr"}
+            enableRtl={isRtl}
             rowData={sortedFindings}
             columnDefs={visibleColumnDefs}
             defaultColDef={defaultColDef}

@@ -45,6 +45,7 @@ import { exportRegister } from "./mitigation/taskHistoryExport";
 import Tooltip from "@mui/material/Tooltip";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { useIsRtl } from "@/hooks/useIsRtl";
 import CreateRiskDialog from "./CreateRiskDialog";
 import RiskImportDialog from "./RiskImportDialog";
 import RiskFilterSidebar, {
@@ -162,6 +163,7 @@ export default function RiskRegisterPage() {
   const { t } = useTranslation("grc");
   const navigate = useNavigate();
   const { mode } = useThemeMode();
+  const isRtl = useIsRtl();
   const { formatDate } = useDateFormat();
   const gridRef = useRef<AgGridReact<Risk> | null>(null);
 
@@ -737,6 +739,8 @@ export default function RiskRegisterPage() {
             sx={{ flex: 1, width: "100%", minHeight: 0 }}
           >
             <AgGridReact<Risk>
+              key={isRtl ? "rtl" : "ltr"}
+              enableRtl={isRtl}
               ref={gridRef}
               rowData={filteredRows}
               columnDefs={visibleColumnDefs}
