@@ -45,6 +45,8 @@ function mirrorMargin(m: ChartMargin, isRtl: boolean): ChartMargin {
   return isRtl ? { ...m, left: m.right, right: m.left } : m;
 }
 
+const RADIAN = Math.PI / 180;
+
 export default function OverviewTab() {
   const navigate = useNavigate();
   const theme = useTheme();
@@ -218,14 +220,15 @@ export default function OverviewTab() {
               </Typography>
               {typeChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={Math.max(typeChartData.length * 38, 200)}>
-                  <BarChart data={typeChartData} layout="vertical" margin={mirrorMargin({ left: 10, right: 24, top: 4, bottom: 4 }, isRtl)}>
+                  <BarChart data={typeChartData} layout="vertical" margin={{ left: 16, right: 16, top: 4, bottom: 4 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={theme.palette.divider} />
                     <XAxis type="number" allowDecimals={false} reversed={isRtl} tick={{ fill: theme.palette.text.secondary }} />
                     <YAxis
                       type="category"
                       dataKey="name"
-                      width={130}
+                      width={150}
                       orientation={isRtl ? "right" : "left"}
+                      tickMargin={8}
                       tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
                       tickLine={false}
                     />
@@ -272,18 +275,42 @@ export default function OverviewTab() {
               </Typography>
               {approvalChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={260}>
-                  <PieChart>
+                  <PieChart margin={{ top: 12, right: 16, bottom: 12, left: 16 }}>
                     <Pie
                       data={approvalChartData}
                       dataKey="value"
                       nameKey="name"
                       cx="50%"
                       cy="50%"
-                      innerRadius={50}
-                      outerRadius={90}
+                      innerRadius={46}
+                      outerRadius={78}
                       paddingAngle={2}
                       cursor="pointer"
-                      label={({ name, value }: { name?: string; value?: number }) => `${name ?? ""}: ${value ?? 0}`}
+                      labelLine={false}
+                      label={({ cx, cy, midAngle, outerRadius, value }: {
+                        cx?: number;
+                        cy?: number;
+                        midAngle?: number;
+                        outerRadius?: number;
+                        value?: number;
+                      }) => {
+                        if (cx == null || cy == null || midAngle == null || outerRadius == null) return null;
+                        const r = outerRadius + 14;
+                        const x = cx + r * Math.cos(-midAngle * RADIAN);
+                        const y = cy + r * Math.sin(-midAngle * RADIAN);
+                        return (
+                          <text
+                            x={x}
+                            y={y}
+                            fill={theme.palette.text.secondary}
+                            fontSize={12}
+                            textAnchor={x >= cx ? "start" : "end"}
+                            dominantBaseline="central"
+                          >
+                            {value ?? 0}
+                          </text>
+                        );
+                      }}
                       onClick={(_data, idx) => {
                         const status = approvalChartData[idx]?.key;
                         if (status) navigate(`/inventory?approval_status=${status}`);
