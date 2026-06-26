@@ -114,6 +114,7 @@ class TagGroupCreate(BaseModel):
 
 class TagCreate(BaseModel):
     name: str
+    description: str | None = None
     color: str | None = None
 
 
@@ -127,6 +128,7 @@ class TagGroupUpdate(BaseModel):
 
 class TagUpdate(BaseModel):
     name: str | None = None
+    description: str | None = None
     color: str | None = None
 
 

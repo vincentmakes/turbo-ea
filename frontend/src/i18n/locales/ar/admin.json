@@ -218,6 +218,8 @@
   "tags.noTags": "لا توجد وسوم",
   "tags.groupName": "اسم المجموعة",
   "tags.tagName": "اسم الوسم",
+  "tags.tagDescription": "الوصف",
+  "tags.tagDescriptionHelper": "اختياري — يوضّح ما يعنيه هذا الوسم",
   "tags.color": "اللون",
   "tags.editGroup": "تعديل مجموعة الوسوم",
   "tags.editTag": "تعديل الوسم",

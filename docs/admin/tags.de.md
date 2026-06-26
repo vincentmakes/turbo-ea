@@ -24,7 +24,8 @@ Innerhalb jeder Gruppe können Sie einzelne Tags hinzufügen:
 
 1. Klicken Sie auf **+ Tag hinzufügen** innerhalb einer Tag-Gruppe.
 2. Geben Sie den **Namen** des Tags ein.
-3. Setzen Sie optional eine **Farbe** zur visuellen Unterscheidung — die Farbe bestimmt den Chip-Hintergrund auf Kartendetails, im Inventar, in Berichten und Web-Portalen.
+3. Fügen Sie optional eine **Beschreibung** hinzu — eine kurze Notiz, die erklärt, was das Tag bedeutet, angezeigt als Tooltip, wenn Administratoren Tags verwalten.
+4. Setzen Sie optional eine **Farbe** zur visuellen Unterscheidung — die Farbe bestimmt den Chip-Hintergrund auf Kartendetails, im Inventar, in Berichten und Web-Portalen.
 
 Tags erscheinen auf Kartendetailseiten im Abschnitt **Tags**, wo Benutzer mit der passenden Berechtigung sie anwenden oder entfernen können.
 

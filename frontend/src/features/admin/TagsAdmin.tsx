@@ -43,6 +43,7 @@ export default function TagsAdmin() {
   const [groupName, setGroupName] = useState("");
   const [addTagGroupId, setAddTagGroupId] = useState<string | null>(null);
   const [tagName, setTagName] = useState("");
+  const [tagDescription, setTagDescription] = useState("");
   const [tagColor, setTagColor] = useState("#1976d2");
 
   const [editGroup, setEditGroup] = useState<TagGroup | null>(null);
@@ -60,7 +61,7 @@ export default function TagsAdmin() {
     restrict_to_types: [],
   });
   const [editTag, setEditTag] = useState<Tag | null>(null);
-  const [editTagDraft, setEditTagDraft] = useState({ name: "", color: "#1976d2" });
+  const [editTagDraft, setEditTagDraft] = useState({ name: "", description: "", color: "#1976d2" });
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
   const load = () => api.get<TagGroup[]>("/tag-groups").then(setGroups);
@@ -78,8 +79,13 @@ export default function TagsAdmin() {
 
   const createTag = async () => {
     if (!addTagGroupId) return;
-    await api.post(`/tag-groups/${addTagGroupId}/tags`, { name: tagName, color: tagColor });
+    await api.post(`/tag-groups/${addTagGroupId}/tags`, {
+      name: tagName,
+      description: tagDescription.trim() || null,
+      color: tagColor,
+    });
     setTagName("");
+    setTagDescription("");
     setAddTagGroupId(null);
     load();
   };
@@ -114,12 +120,19 @@ export default function TagsAdmin() {
 
   const openEditTag = (tag: Tag) => {
     setEditTag(tag);
-    setEditTagDraft({ name: tag.name, color: tag.color ?? "#1976d2" });
+    setEditTagDraft({
+      name: tag.name,
+      description: tag.description ?? "",
+      color: tag.color ?? "#1976d2",
+    });
   };
 
   const updateTag = async () => {
     if (!editTag) return;
-    await api.patch(`/tag-groups/${editTag.tag_group_id}/tags/${editTag.id}`, editTagDraft);
+    await api.patch(`/tag-groups/${editTag.tag_group_id}/tags/${editTag.id}`, {
+      ...editTagDraft,
+      description: editTagDraft.description.trim() || null,
+    });
     setEditTag(null);
     load();
   };
@@ -185,6 +198,7 @@ export default function TagsAdmin() {
                 <Chip
                   key={tag.id}
                   label={tag.name}
+                  title={tag.description || undefined}
                   sx={tag.color ? { bgcolor: tag.color, color: "#fff" } : {}}
                   onClick={() => openEditTag(tag)}
                   onDelete={() => setDeleteTarget({ kind: "tag", id: tag.id, groupId: g.id, name: tag.name })}
@@ -211,6 +225,16 @@ export default function TagsAdmin() {
         <DialogTitle>{t("tags.addTag")}</DialogTitle>
         <DialogContent>
           <TextField fullWidth label={t("tags.tagName")} value={tagName} onChange={(e) => setTagName(e.target.value)} sx={{ mt: 1, mb: 2 }} />
+          <TextField
+            fullWidth
+            label={t("tags.tagDescription")}
+            value={tagDescription}
+            onChange={(e) => setTagDescription(e.target.value)}
+            multiline
+            minRows={2}
+            helperText={t("tags.tagDescriptionHelper")}
+            sx={{ mb: 2 }}
+          />
           <ColorPicker value={tagColor} onChange={setTagColor} label={t("tags.color")} />
         </DialogContent>
         <DialogActions>
@@ -319,6 +343,16 @@ export default function TagsAdmin() {
             value={editTagDraft.name}
             onChange={(e) => setEditTagDraft((d) => ({ ...d, name: e.target.value }))}
             sx={{ mt: 1, mb: 2 }}
+          />
+          <TextField
+            fullWidth
+            label={t("tags.tagDescription")}
+            value={editTagDraft.description}
+            onChange={(e) => setEditTagDraft((d) => ({ ...d, description: e.target.value }))}
+            multiline
+            minRows={2}
+            helperText={t("tags.tagDescriptionHelper")}
+            sx={{ mb: 2 }}
           />
           <ColorPicker
             value={editTagDraft.color}

@@ -24,7 +24,8 @@ Dentro de cada grupo, puede agregar etiquetas individuales:
 
 1. Haga clic en **+ Agregar Etiqueta** dentro de un grupo de etiquetas.
 2. Introduzca el **nombre** de la etiqueta.
-3. Opcionalmente, establezca un **color** para la distinción visual — el color determina el fondo del chip en el detalle de ficha, el inventario, los informes y los portales web.
+3. Opcionalmente, añada una **descripción** — una breve nota que explica qué significa la etiqueta, mostrada como información sobre herramientas cuando los administradores gestionan las etiquetas.
+4. Opcionalmente, establezca un **color** para la distinción visual — el color determina el fondo del chip en el detalle de ficha, el inventario, los informes y los portales web.
 
 Las etiquetas aparecen en la sección **Etiquetas** de las páginas de detalle, donde los usuarios con permiso pueden aplicarlas o eliminarlas.
 

@@ -413,6 +413,7 @@ export interface TagGroup {
 export interface Tag {
   id: string;
   name: string;
+  description?: string;
   color?: string;
   tag_group_id: string;
 }

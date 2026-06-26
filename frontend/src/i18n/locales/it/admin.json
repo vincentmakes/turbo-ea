@@ -218,6 +218,8 @@
   "tags.noTags": "Nessun tag",
   "tags.groupName": "Nome gruppo",
   "tags.tagName": "Nome tag",
+  "tags.tagDescription": "Descrizione",
+  "tags.tagDescriptionHelper": "Facoltativo — spiega cosa significa questo tag",
   "tags.color": "Colore",
   "tags.editGroup": "Modifica gruppo tag",
   "tags.editTag": "Modifica tag",

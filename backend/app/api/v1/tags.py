@@ -33,6 +33,7 @@ async def list_tag_groups(db: AsyncSession = Depends(get_db)):
                 {
                     "id": str(t.id),
                     "name": t.name,
+                    "description": t.description,
                     "color": t.color,
                     "tag_group_id": str(t.tag_group_id),
                 }
@@ -110,11 +111,21 @@ async def create_tag(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "tags.manage")
-    tag = Tag(tag_group_id=uuid.UUID(group_id), name=body.name, color=body.color)
+    tag = Tag(
+        tag_group_id=uuid.UUID(group_id),
+        name=body.name,
+        description=body.description,
+        color=body.color,
+    )
     db.add(tag)
     await db.commit()
     await db.refresh(tag)
-    return {"id": str(tag.id), "name": tag.name, "color": tag.color}
+    return {
+        "id": str(tag.id),
+        "name": tag.name,
+        "description": tag.description,
+        "color": tag.color,
+    }
 
 
 @router.patch("/tag-groups/{group_id}/tags/{tag_id}")
@@ -142,6 +153,7 @@ async def update_tag(
     return {
         "id": str(tag.id),
         "name": tag.name,
+        "description": tag.description,
         "color": tag.color,
         "tag_group_id": str(tag.tag_group_id),
     }

@@ -360,6 +360,7 @@ async def _apply_tags(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: b
             tag = Tag(
                 tag_group_id=group.id,
                 name=name,
+                description=row.get("description"),
                 color=row.get("color"),
                 sort_order=row.get("sort_order") or 0,
             )
@@ -367,9 +368,15 @@ async def _apply_tags(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: b
             existing[nk] = tag
             sr.created += 1
         else:
+            new_desc = row.get("description")
             new_color = row.get("color")
             new_order = row.get("sort_order") or 0
-            if current.color != new_color or current.sort_order != new_order:
+            if (
+                current.color != new_color
+                or current.sort_order != new_order
+                or current.description != new_desc
+            ):
+                current.description = new_desc
                 current.color = new_color
                 current.sort_order = new_order
                 sr.updated += 1
