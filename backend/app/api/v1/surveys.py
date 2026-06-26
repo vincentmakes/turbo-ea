@@ -357,6 +357,8 @@ async def _apply_relation_change(
 
     touched: set[uuid.UUID] = set()
     extra = {"source": "survey_response"}
+    source_card: Card | None
+    target_card: Card | None
 
     for peer_id in to_add:
         peer_card = await db.get(Card, peer_id)
