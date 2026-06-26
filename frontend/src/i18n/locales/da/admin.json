@@ -175,6 +175,7 @@
   "metamodel.dataQuality.lifecycle": "Livscyklus",
   "metamodel.dataQuality.relations": "Obligatoriske relationer",
   "metamodel.dataQuality.tags": "Obligatoriske tags",
+  "metamodel.dataQuality.stakeholders": "Interessentroller",
   "metamodel.dataQuality.builtInGroup": "Indbyggede faktorer",
   "metamodel.fieldEditor.options": "Valgmuligheder",
   "metamodel.fieldEditor.optionKeyLabel": "Nøgle",

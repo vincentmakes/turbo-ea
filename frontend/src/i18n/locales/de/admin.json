@@ -175,6 +175,7 @@
   "metamodel.dataQuality.lifecycle": "Lebenszyklus",
   "metamodel.dataQuality.relations": "Pflichtbeziehungen",
   "metamodel.dataQuality.tags": "Pflicht-Tags",
+  "metamodel.dataQuality.stakeholders": "Stakeholder-Rollen",
   "metamodel.dataQuality.builtInGroup": "Integrierte Faktoren",
   "metamodel.fieldEditor.options": "Optionen",
   "metamodel.fieldEditor.optionKeyLabel": "Schlüssel",

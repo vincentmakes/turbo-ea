@@ -175,6 +175,7 @@
   "metamodel.dataQuality.lifecycle": "Cycle de vie",
   "metamodel.dataQuality.relations": "Relations obligatoires",
   "metamodel.dataQuality.tags": "Étiquettes obligatoires",
+  "metamodel.dataQuality.stakeholders": "Rôles des parties prenantes",
   "metamodel.dataQuality.builtInGroup": "Facteurs intégrés",
   "metamodel.fieldEditor.options": "Options",
   "metamodel.fieldEditor.optionKeyLabel": "Clé",

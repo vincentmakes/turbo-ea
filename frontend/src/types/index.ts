@@ -195,6 +195,7 @@ export interface DataQualityConfig {
   lifecycle?: number;
   relations?: number;
   tags?: number;
+  stakeholders?: number;
 }
 
 export interface CardType {

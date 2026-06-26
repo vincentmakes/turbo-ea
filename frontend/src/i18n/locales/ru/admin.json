@@ -175,6 +175,7 @@
   "metamodel.dataQuality.lifecycle": "Жизненный цикл",
   "metamodel.dataQuality.relations": "Обязательные связи",
   "metamodel.dataQuality.tags": "Обязательные теги",
+  "metamodel.dataQuality.stakeholders": "Роли заинтересованных сторон",
   "metamodel.dataQuality.builtInGroup": "Встроенные факторы",
   "metamodel.fieldEditor.options": "Варианты",
   "metamodel.fieldEditor.optionKeyLabel": "Ключ",

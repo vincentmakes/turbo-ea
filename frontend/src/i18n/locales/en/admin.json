@@ -175,6 +175,7 @@
   "metamodel.dataQuality.lifecycle": "Lifecycle",
   "metamodel.dataQuality.relations": "Mandatory relations",
   "metamodel.dataQuality.tags": "Mandatory tags",
+  "metamodel.dataQuality.stakeholders": "Stakeholder roles",
   "metamodel.dataQuality.builtInGroup": "Built-in factors",
   "metamodel.fieldEditor.options": "Options",
   "metamodel.fieldEditor.optionKeyLabel": "Key",

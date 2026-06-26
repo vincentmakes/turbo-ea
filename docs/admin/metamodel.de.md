@@ -63,7 +63,7 @@ Der spezielle Abschnittsname `__description` fügt Felder zum Beschreibungsabsch
 
 #### Datenqualitätsbewertung
 
-Der **Datenqualitätswert** einer Karte ist ein gewichtetes Maß für ihre Vollständigkeit. Jeder beitragende Faktor – jedes Feld sowie vier integrierte Faktoren – wird an einer Stelle verwaltet: im **Datenqualität**-Tab des Kartentyp-Editors. (Der Editor ist in Registerkarten unterteilt – Allgemein, Beziehungen, Stakeholder-Rollen und Datenqualität – Übersetzungen sind über das Symbol in der Kopfzeile verfügbar.)
+Der **Datenqualitätswert** einer Karte ist ein gewichtetes Maß für ihre Vollständigkeit. Jeder beitragende Faktor – jedes Feld sowie fünf integrierte Faktoren – wird an einer Stelle verwaltet: im **Datenqualität**-Tab des Kartentyp-Editors. (Der Editor ist in Registerkarten unterteilt – Allgemein, Beziehungen, Stakeholder-Rollen und Datenqualität – Übersetzungen sind über das Symbol in der Kopfzeile verfügbar.)
 
 Die Wichtigkeit jedes Faktors wird mit einem einfachen Schieberegler über vier Stufen festgelegt, der auch die zugrunde liegende Zahl anzeigt:
 
@@ -72,7 +72,7 @@ Die Wichtigkeit jedes Faktors wird mit einem einfachen Schieberegler über vier 
 - **Wichtig (2)** – zählt doppelt.
 - **Kritisch (3)** – zählt dreifach.
 
-Der Bereich listet die vier **integrierten Faktoren** – **Beschreibung**, **Lebenszyklus** (ob ein Lebenszyklusdatum gesetzt ist), **Pflichtbeziehungen** und **Pflicht-Tags** – gefolgt von jedem Feld, gruppiert nach seinem Abschnitt, jeweils mit demselben Schieberegler. Setzen Sie zum Beispiel den **Lebenszyklus** auf *Ignorieren* für einen Typ, dessen Karten berechtigterweise nie Datumsangaben tragen, damit sie nicht abgewertet werden.
+Der Bereich listet die fünf **integrierten Faktoren** – **Beschreibung**, **Lebenszyklus** (ob ein Lebenszyklusdatum gesetzt ist), **Pflichtbeziehungen**, **Pflicht-Tags** und **Stakeholder-Rollen** (jede für den Typ definierte Rolle gilt als erfüllt, sobald ein Stakeholder zugewiesen ist) – gefolgt von jedem Feld, gruppiert nach seinem Abschnitt, jeweils mit demselben Schieberegler. Setzen Sie zum Beispiel den **Lebenszyklus** auf *Ignorieren* für einen Typ, dessen Karten berechtigterweise nie Datumsangaben tragen, damit sie nicht abgewertet werden.
 
 Ein Balken zur **Wertzusammensetzung** oben im Bereich zeigt den Anteil jedes Faktors am maximal möglichen Wert, sodass Sie auf einen Blick sehen, welche Faktoren dominieren. Im Karten-Layout der Registerkarte **Allgemein** zeigt jedes Feld – sowie die integrierten Abschnitte Beschreibung, Lebenszyklus und Beziehungen – ein kleines Abzeichen mit seiner aktuellen Stufennummer, sodass Sie die Gewichtung sehen, ohne die Registerkarte zu verlassen.
 

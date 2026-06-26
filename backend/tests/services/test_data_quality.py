@@ -8,7 +8,13 @@ under ``section_config.__dataQuality``.
 import pytest
 
 from app.services.data_quality import calc_data_quality
-from tests.conftest import create_card, create_card_type
+from tests.conftest import (
+    create_card,
+    create_card_type,
+    create_role,
+    create_stakeholder_role_def,
+    create_user,
+)
 
 pytestmark = pytest.mark.asyncio
 
@@ -103,6 +109,41 @@ async def test_bad_dq_value_falls_back_to_one(db):
     # description("oops"→1) filled, lifecycle(None→1) empty, both fields filled.
     # filled = a+b+desc = 3 ; total = a+b+desc+lifecycle = 4 → 75%
     assert await calc_data_quality(db, card) == 75.0
+
+
+async def test_stakeholder_roles_contributor(db):
+    """Each non-archived stakeholder role of the type is a completeness slot;
+    a role is filled when a stakeholder holds it on the card."""
+    from app.models.stakeholder import Stakeholder
+
+    # Empty field schema + all other buckets off → only stakeholders count.
+    await create_card_type(db, key="Application", fields_schema=[])
+    await _set_dq(db, description=0, lifecycle=0, relations=0, tags=0, stakeholders=1)
+    await create_stakeholder_role_def(db, card_type_key="Application", key="owner", label="Owner")
+    await create_stakeholder_role_def(
+        db, card_type_key="Application", key="architect", label="Architect"
+    )
+    await create_role(db, key="member", label="Member", permissions={})
+    user = await create_user(db, email="sh@test.com", role="member")
+    card = await create_card(db, card_type="Application")
+
+    # No stakeholders assigned → 0 of 2 roles → 0%.
+    assert await calc_data_quality(db, card) == 0.0
+
+    # One of two roles filled → 50%.
+    db.add(Stakeholder(card_id=card.id, user_id=user.id, role="owner"))
+    await db.flush()
+    assert await calc_data_quality(db, card) == 50.0
+
+
+async def test_stakeholders_bucket_excluded_when_zero(db):
+    """Weight 0 drops the stakeholders bucket entirely (no slots added)."""
+    await create_card_type(db, key="Application", fields_schema=_SCHEMA)
+    await _set_dq(db, description=0, lifecycle=0, relations=0, tags=0, stakeholders=0)
+    await create_stakeholder_role_def(db, card_type_key="Application", key="owner", label="Owner")
+    card = await create_card(db, attributes={"a": "x", "b": "y"})  # both fields filled
+    # Only the two fields count; stakeholders excluded → 100%.
+    assert await calc_data_quality(db, card) == 100.0
 
 
 async def _set_dq(db, **buckets):

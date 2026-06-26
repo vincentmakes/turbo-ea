@@ -6,8 +6,9 @@ A card's data-quality score is a weighted completeness ratio:
 1. **Per-field weights** from the card type's ``fields_schema`` (default 1;
    ``weight <= 0`` excludes the field).
 2. **Built-in contributor weights** — Description, Lifecycle, mandatory
-   Relations and mandatory Tag groups — which admins tune per card type via the
-   reserved ``section_config.__dataQuality`` key (each default 1, 0 = exclude).
+   Relations, mandatory Tag groups and Stakeholder roles — which admins tune
+   per card type via the reserved ``section_config.__dataQuality`` key (each
+   default 1, 0 = exclude).
 
 This is the single source of truth: ``cards.py``, ``ppm.py`` and
 ``turbolens_commit.py`` all call :func:`calc_data_quality`. ``seed_demo.py``
@@ -22,11 +23,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
 from app.models.card_type import CardType
+from app.models.stakeholder import Stakeholder
+from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.services.card_completeness import missing_mandatory
 
-# Reserved key on CardType.section_config holding the four built-in weights.
+# Reserved key on CardType.section_config holding the built-in weights.
 DATA_QUALITY_CONFIG_KEY = "__dataQuality"
-_BUILT_IN_BUCKETS = ("description", "lifecycle", "relations", "tags")
+_BUILT_IN_BUCKETS = ("description", "lifecycle", "relations", "tags", "stakeholders")
 
 
 def _bucket_weight(dq_cfg: dict, name: str) -> float:
@@ -106,6 +109,30 @@ async def calc_data_quality(db: AsyncSession, card: Card) -> float:
         if tag_w > 0:
             total_weight += state["tag_groups_applicable"] * tag_w
             filled_weight += (state["tag_groups_applicable"] - len(state["tag_groups"])) * tag_w
+
+    # Stakeholder roles bucket: every non-archived role defined for the card's
+    # type contributes its weight; a role counts as filled when at least one
+    # stakeholder holds it on the card. (Roles carry no "mandatory" flag, so
+    # this never gates approval — it only shapes the completeness score.)
+    stake_w = _bucket_weight(dq_cfg, "stakeholders")
+    if stake_w > 0:
+        role_rows = await db.execute(
+            select(StakeholderRoleDefinition.key).where(
+                StakeholderRoleDefinition.card_type_key == card.type,
+                StakeholderRoleDefinition.is_archived.is_(False),
+            )
+        )
+        role_keys = list(role_rows.scalars().all())
+        if role_keys:
+            assigned_rows = await db.execute(
+                select(Stakeholder.role).where(
+                    Stakeholder.card_id == card.id,
+                    Stakeholder.role.in_(role_keys),
+                )
+            )
+            satisfied = len(set(assigned_rows.scalars().all()))
+            total_weight += len(role_keys) * stake_w
+            filled_weight += satisfied * stake_w
 
     if total_weight == 0:
         return 0.0

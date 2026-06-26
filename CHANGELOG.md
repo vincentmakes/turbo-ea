@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.50.0] - 2026-06-26
+
+### Added
+- **Stakeholder roles count toward data quality.** Admin → Metamodel → a card type's **Data quality** panel has a new **Stakeholder roles** contributor alongside Description, Lifecycle, Relations and Tags. Each stakeholder role defined for the type is a completeness slot that's satisfied once someone is assigned to it. Like the other built-in factors it counts at *Normal* weight by default (only for types that actually define roles); set it to *Ignore* to exclude it.
+
 ## [1.49.0] - 2026-06-26
 
 ### Added

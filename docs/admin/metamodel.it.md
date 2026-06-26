@@ -63,7 +63,7 @@ Il nome speciale di sezione `__description` aggiunge campi alla sezione Descrizi
 
 #### Punteggio di qualità dei dati
 
-Il punteggio di **qualità dei dati** di una card misura in modo ponderato quanto è completa. Ogni fattore che contribuisce — ogni campo e quattro fattori integrati — è gestito in un unico posto: la scheda **Qualità dei dati** dell'editor del tipo di card. (L'editor è organizzato in schede – Generale, Relazioni, Ruoli degli stakeholder e Qualità dei dati – le traduzioni sono disponibili dall'icona nell'intestazione.)
+Il punteggio di **qualità dei dati** di una card misura in modo ponderato quanto è completa. Ogni fattore che contribuisce — ogni campo e cinque fattori integrati — è gestito in un unico posto: la scheda **Qualità dei dati** dell'editor del tipo di card. (L'editor è organizzato in schede – Generale, Relazioni, Ruoli degli stakeholder e Qualità dei dati – le traduzioni sono disponibili dall'icona nell'intestazione.)
 
 L'importanza di ciascun fattore si imposta con un semplice cursore a quattro livelli, che mostra anche il numero sottostante:
 
@@ -72,7 +72,7 @@ L'importanza di ciascun fattore si imposta con un semplice cursore a quattro liv
 - **Importante (2)** — conta il doppio.
 - **Critico (3)** — conta il triplo.
 
-Il pannello elenca i quattro **fattori integrati** — **Descrizione**, **Ciclo di vita** (se è impostata almeno una data del ciclo di vita), **Relazioni obbligatorie** e **Tag obbligatori** — seguiti da ogni campo raggruppato per sezione, ciascuno con lo stesso cursore. Ad esempio, imposta il **Ciclo di vita** su *Ignora* per un tipo le cui card legittimamente non riportano mai date, così da non penalizzarle.
+Il pannello elenca i cinque **fattori integrati** — **Descrizione**, **Ciclo di vita** (se è impostata almeno una data del ciclo di vita), **Relazioni obbligatorie**, **Tag obbligatori** e **Ruoli degli stakeholder** (ogni ruolo definito per il tipo è soddisfatto quando vi viene assegnato uno stakeholder) — seguiti da ogni campo raggruppato per sezione, ciascuno con lo stesso cursore. Ad esempio, imposta il **Ciclo di vita** su *Ignora* per un tipo le cui card legittimamente non riportano mai date, così da non penalizzarle.
 
 Una barra di **composizione del punteggio** in cima al pannello mostra la quota di ciascun fattore sul punteggio massimo possibile, per vedere a colpo d'occhio quali fattori dominano. Nel layout della card della scheda **Generale**, ogni campo — e le sezioni integrate Descrizione, Ciclo di vita e Relazioni — mostra un piccolo badge con il livello attuale, per vedere la ponderazione senza lasciare quella scheda.
 

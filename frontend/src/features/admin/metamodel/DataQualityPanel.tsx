@@ -19,7 +19,7 @@ interface DataQualityPanelProps {
   onRefresh: () => void;
 }
 
-const BUILT_IN_BUCKETS = ["description", "lifecycle", "relations", "tags"] as const;
+const BUILT_IN_BUCKETS = ["description", "lifecycle", "relations", "tags", "stakeholders"] as const;
 
 export default function DataQualityPanel({ cardType, onRefresh }: DataQualityPanelProps) {
   const { t } = useTranslation(["admin", "common"]);

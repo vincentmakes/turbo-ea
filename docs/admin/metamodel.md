@@ -63,7 +63,7 @@ The special section name `__description` adds fields to the Description section 
 
 #### Data quality scoring
 
-A card's **data quality** score is a weighted measure of how complete it is. Every contributing factor — each field plus four built-in factors — is managed in one place: the **Data quality** tab of the card-type editor. (The editor is organised into tabs — Main, Relations, Stakeholder roles, and Data quality — with translations available from the icon in the header.)
+A card's **data quality** score is a weighted measure of how complete it is. Every contributing factor — each field plus five built-in factors — is managed in one place: the **Data quality** tab of the card-type editor. (The editor is organised into tabs — Main, Relations, Stakeholder roles, and Data quality — with translations available from the icon in the header.)
 
 Each factor has an importance set with a simple slider across four tiers, which also shows the underlying number:
 
@@ -72,7 +72,7 @@ Each factor has an importance set with a simple slider across four tiers, which 
 - **Important (2)** — counts twice as much.
 - **Critical (3)** — counts three times as much.
 
-The panel lists the four **built-in factors** — **Description**, **Lifecycle** (whether any lifecycle date is set), **mandatory Relations**, and **mandatory Tags** — followed by every field grouped by its section, each with the same slider. For example, set **Lifecycle** to *Ignore* for a type whose cards legitimately never carry dates, so they are not penalized.
+The panel lists the five **built-in factors** — **Description**, **Lifecycle** (whether any lifecycle date is set), **mandatory Relations**, **mandatory Tags**, and **Stakeholder roles** (each role defined for the type is satisfied once a stakeholder is assigned to it) — followed by every field grouped by its section, each with the same slider. For example, set **Lifecycle** to *Ignore* for a type whose cards legitimately never carry dates, so they are not penalized.
 
 A **score composition** bar at the top of the tab shows each factor's share of the maximum possible score, so you can see at a glance which factors dominate. In the **Main** tab's card layout, each field — and the built-in Description, Lifecycle and Relations sections — shows a small badge with its current tier number, so you can see the weighting without leaving that tab.
 

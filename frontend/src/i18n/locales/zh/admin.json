@@ -175,6 +175,7 @@
   "metamodel.dataQuality.lifecycle": "生命周期",
   "metamodel.dataQuality.relations": "必填关系",
   "metamodel.dataQuality.tags": "必填标签",
+  "metamodel.dataQuality.stakeholders": "干系人角色",
   "metamodel.dataQuality.builtInGroup": "内置因素",
   "metamodel.fieldEditor.options": "选项",
   "metamodel.fieldEditor.optionKeyLabel": "键",

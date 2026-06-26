@@ -175,6 +175,7 @@
   "metamodel.dataQuality.lifecycle": "دورة الحياة",
   "metamodel.dataQuality.relations": "العلاقات الإلزامية",
   "metamodel.dataQuality.tags": "الوسوم الإلزامية",
+  "metamodel.dataQuality.stakeholders": "أدوار أصحاب المصلحة",
   "metamodel.dataQuality.builtInGroup": "العوامل المدمجة",
   "metamodel.fieldEditor.options": "الخيارات",
   "metamodel.fieldEditor.optionKeyLabel": "المفتاح",

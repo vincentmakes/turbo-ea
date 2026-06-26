@@ -63,7 +63,7 @@ Le nom de section special `__description` ajoute les champs à la section Descri
 
 #### Évaluation de la qualité des données
 
-Le score de **qualité des données** d'une fiche mesure de manière pondérée son niveau de complétude. Chaque facteur contributeur – chaque champ ainsi que quatre facteurs intégrés – est géré au même endroit : l'onglet **Qualité des données** de l'éditeur de type de fiche. (L'éditeur est organisé en onglets – Principal, Relations, Rôles des parties prenantes et Qualité des données – les traductions sont accessibles via l'icône de l'en-tête.)
+Le score de **qualité des données** d'une fiche mesure de manière pondérée son niveau de complétude. Chaque facteur contributeur – chaque champ ainsi que cinq facteurs intégrés – est géré au même endroit : l'onglet **Qualité des données** de l'éditeur de type de fiche. (L'éditeur est organisé en onglets – Principal, Relations, Rôles des parties prenantes et Qualité des données – les traductions sont accessibles via l'icône de l'en-tête.)
 
 L'importance de chaque facteur se règle avec un simple curseur à quatre niveaux, qui affiche aussi le nombre sous-jacent :
 
@@ -72,7 +72,7 @@ L'importance de chaque facteur se règle avec un simple curseur à quatre niveau
 - **Important (2)** – compte deux fois plus.
 - **Critique (3)** – compte trois fois plus.
 
-Le panneau liste les quatre **facteurs intégrés** – **Description**, **Cycle de vie** (selon qu'une date de cycle de vie est renseignée), **Relations obligatoires** et **Étiquettes obligatoires** – suivis de chaque champ regroupé par section, avec le même curseur. Par exemple, réglez le **Cycle de vie** sur *Ignorer* pour un type dont les fiches ne portent légitimement jamais de dates, afin qu'elles ne soient pas pénalisées.
+Le panneau liste les cinq **facteurs intégrés** – **Description**, **Cycle de vie** (selon qu'une date de cycle de vie est renseignée), **Relations obligatoires**, **Étiquettes obligatoires** et **Rôles des parties prenantes** (chaque rôle défini pour le type est satisfait dès qu'une partie prenante y est affectée) – suivis de chaque champ regroupé par section, avec le même curseur. Par exemple, réglez le **Cycle de vie** sur *Ignorer* pour un type dont les fiches ne portent légitimement jamais de dates, afin qu'elles ne soient pas pénalisées.
 
 Une barre de **composition du score** en haut du panneau montre la part de chaque facteur dans le score maximal possible, pour voir d'un coup d'œil quels facteurs dominent. Dans la mise en page de la fiche de l'onglet **Principal**, chaque champ – ainsi que les sections intégrées Description, Cycle de vie et Relations – affiche un petit badge avec son niveau actuel, pour voir la pondération sans quitter cet onglet.
 

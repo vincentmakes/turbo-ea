@@ -27,17 +27,18 @@ function makeType(overrides: Partial<CardType> = {}): CardType {
 }
 
 describe("DataQualityPanel built-in factors", () => {
-  it("renders all four built-in factors, each with a weight tier", () => {
+  it("renders all five built-in factors, each with a weight tier", () => {
     render(<DataQualityPanel cardType={makeType()} onRefresh={() => {}} />);
 
-    // All four built-in factor rows are present.
+    // All five built-in factor rows are present.
     expect(screen.getByText("Description")).toBeInTheDocument();
     expect(screen.getByText("Lifecycle")).toBeInTheDocument();
     expect(screen.getByText("Mandatory relations")).toBeInTheDocument();
     expect(screen.getByText("Mandatory tags")).toBeInTheDocument();
+    expect(screen.getByText("Stakeholder roles")).toBeInTheDocument();
 
-    // One slider per built-in (4) + one per field (1) = 5.
-    expect(screen.getAllByRole("slider")).toHaveLength(5);
+    // One slider per built-in (5) + one per field (1) = 6.
+    expect(screen.getAllByRole("slider")).toHaveLength(6);
   });
 
   it("shows the configured weight for lifecycle (and defaults the rest to Normal)", () => {

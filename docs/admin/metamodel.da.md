@@ -63,7 +63,7 @@ Det særlige sektionsnavn `__description` tilføjer felter til Beskrivelsessekti
 
 #### Datakvalitetsscore
 
-Et korts **datakvalitetsscore** er et vægtet mål for, hvor komplet det er. Hver bidragende faktor – hvert felt samt fire indbyggede faktorer – håndteres ét sted: fanen **Datakvalitet** i korttypeeditoren. (Editoren er organiseret i faner – Generelt, Relationer, Interessentroller og Datakvalitet – oversættelser er tilgængelige via ikonet i headeren.)
+Et korts **datakvalitetsscore** er et vægtet mål for, hvor komplet det er. Hver bidragende faktor – hvert felt samt fem indbyggede faktorer – håndteres ét sted: fanen **Datakvalitet** i korttypeeditoren. (Editoren er organiseret i faner – Generelt, Relationer, Interessentroller og Datakvalitet – oversættelser er tilgængelige via ikonet i headeren.)
 
 Hver faktors vigtighed angives med en enkel skyder over fire niveauer, der også viser det underliggende tal:
 
@@ -72,7 +72,7 @@ Hver faktors vigtighed angives med en enkel skyder over fire niveauer, der også
 - **Vigtig (2)** – tæller dobbelt.
 - **Kritisk (3)** – tæller tredobbelt.
 
-Panelet viser de fire **indbyggede faktorer** – **Beskrivelse**, **Livscyklus** (om der er angivet en livscyklusdato), **obligatoriske relationer** og **obligatoriske tags** – efterfulgt af hvert felt grupperet efter sin sektion, hver med den samme skyder. Sæt for eksempel **Livscyklus** til *Ignorér* for en type, hvis kort legitimt aldrig har datoer, så de ikke straffes.
+Panelet viser de fem **indbyggede faktorer** – **Beskrivelse**, **Livscyklus** (om der er angivet en livscyklusdato), **obligatoriske relationer**, **obligatoriske tags** og **Interessentroller** (hver rolle, der er defineret for typen, er opfyldt, når en interessent tildeles) – efterfulgt af hvert felt grupperet efter sin sektion, hver med den samme skyder. Sæt for eksempel **Livscyklus** til *Ignorér* for en type, hvis kort legitimt aldrig har datoer, så de ikke straffes.
 
 En **scorens sammensætning**-bjælke øverst i panelet viser hver faktors andel af den maksimalt mulige score, så du med et blik kan se, hvilke faktorer der dominerer. I kortlayoutet på fanen **Generelt** viser hvert felt – og de indbyggede sektioner Beskrivelse, Livscyklus og Relationer – et lille mærke med sit aktuelle niveaunummer, så du kan se vægtningen uden at forlade fanen.
 
