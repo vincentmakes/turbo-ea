@@ -48,6 +48,7 @@ export interface LdvNodeData {
   typeKey: string;
   typeLabel: string;
   typeColor: string;
+  typeIcon: string;
   category: string;
   nodeId?: string;
   onClick?: (id: string, shiftKey: boolean) => void;
@@ -96,6 +97,9 @@ const CATEGORY_COLORS: Record<string, string> = LAYER_COLORS;
 
 /** Padding inside each group boundary */
 const PAD = 30;
+/** Extra empty space inside each layer box so cards can be dragged/rearranged
+ *  within their layer (they are clamped to the box via extent: "parent"). */
+const DRAG_ROOM = 56;
 /** Height reserved for the category label at top of group */
 const LABEL_H = 32;
 /** Vertical gap between stacked category groups */
@@ -113,6 +117,10 @@ function typeColor(key: string, types: CardType[]): string {
 
 function typeLabel(key: string, types: CardType[]): string {
   return types.find((t) => t.key === key)?.label || key;
+}
+
+function typeIcon(key: string, types: CardType[]): string {
+  return types.find((t) => t.key === key)?.icon || "category";
 }
 
 function typeCategory(key: string, types: CardType[]): string {
@@ -270,8 +278,8 @@ export function buildLdvFlow(
     groupLayouts.push({
       cat,
       positioned,
-      groupW: innerW + 2 * PAD,
-      groupH: innerH + LABEL_H + 2 * PAD,
+      groupW: innerW + 2 * PAD + DRAG_ROOM,
+      groupH: innerH + LABEL_H + 2 * PAD + DRAG_ROOM,
     });
   }
 
@@ -320,6 +328,7 @@ export function buildLdvFlow(
           typeKey: nd.type,
           typeLabel: typeLabel(nd.type, types),
           typeColor: typeColor(nd.type, types),
+          typeIcon: typeIcon(nd.type, types),
           category: gl.cat,
           proposed: nd.proposed,
         } satisfies LdvNodeData,

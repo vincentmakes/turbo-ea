@@ -281,6 +281,18 @@ Layer order is invariant. Layer color = `LAYER_COLORS[layer]` from `theme/tokens
 - Within each layer: Dagre graph layout for connected nodes; grid layout (max 3 columns) for disconnected nodes.
 - Between layers: vertical stacking with a 72 px gap, in the fixed order above.
 
+**Interaction & toolbar** (`LayeredDependencyView.tsx`)
+
+The view ships with a top-bar toolbar and is directly manipulable:
+
+- **Drag** any card to rearrange it; **Reset layout** restores the automatic Dagre arrangement and re-fits. Manual positions are session-only and reset when the underlying graph changes (navigation / new data).
+- **Fullscreen** uses the browser Fullscreen API on the view container. MUI overlays (settings popover, export menu) are portalled into the container while fullscreen so they remain visible.
+- **Export** renders the whole graph (not just the visible viewport) to **PNG** or **SVG** via `html-to-image` + `getViewportForBounds`.
+- **Background** cycles grid → dots → none. Default is a faint **line grid** (not dots).
+- **Card display** menu: toggle the type label, toggle a lifecycle-status dot (`getCurrentPhase`), and pick extra attribute fields. The first two chosen fields render on the card body; the full set (plus type and lifecycle) appears in the card's hover tooltip. Settings persist to `localStorage` (`tea.ldv.display.*`).
+
+These are presentation/interaction concerns layered in the component — they do **not** change the layout-geometry engine (`layeredDependencyLayout.ts`), so every consumer of the view gets them for free.
+
 **What the view is — and isn't**
 
 - It **is** an opinionated, layered EA dependency view, inspired by ArchiMate's layering principle and the C4 Model's "good defaults, fewer choices" philosophy.

@@ -6,16 +6,33 @@ import Paper from "@mui/material/Paper";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
+import Popover from "@mui/material/Popover";
+import Switch from "@mui/material/Switch";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Divider from "@mui/material/Divider";
+import Autocomplete from "@mui/material/Autocomplete";
+import TextField from "@mui/material/TextField";
 import { lighten, useTheme } from "@mui/material/styles";
+import { toPng, toSvg } from "html-to-image";
+import { saveAs } from "file-saver";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { getCurrentPhase } from "@/components/LifecycleBadge";
 import {
   ReactFlow,
   Background,
+  BackgroundVariant,
   Controls,
   ControlButton,
   Handle,
   Position,
+  getNodesBounds,
+  getViewportForBounds,
   type NodeProps,
+  type NodeChange,
   type EdgeProps,
   type Edge,
   type Node,
@@ -27,7 +44,8 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
+import { useLdvSettings, type LdvBackgroundStyle } from "./ldvDisplaySettings";
 import type { CardType } from "@/types";
 import {
   buildLdvFlow,
@@ -39,6 +57,67 @@ import {
   type LdvGroupData,
   type LdvEdgeData,
 } from "./layeredDependencyLayout";
+
+/* ------------------------------------------------------------------ */
+/*  Card display settings (persisted, shared store)                    */
+/* ------------------------------------------------------------------ */
+
+type BackgroundStyle = LdvBackgroundStyle;
+
+/** How many of the chosen extra fields render directly on the card body.
+ *  The rest still appear in the hover tooltip. */
+const MAX_CARD_LINES = 2;
+
+/** Lifecycle-phase → dot colour (hex, theme-independent). Mirrors LifecycleBadge. */
+const PHASE_DOT: Record<string, string> = {
+  plan: "#9e9e9e",
+  phaseIn: "#1976d2",
+  active: "#2e7d32",
+  phaseOut: "#ed6c02",
+  endOfLife: "#d32f2f",
+};
+
+interface FieldMeta {
+  key: string;
+  label: string;
+  translations?: Record<string, string>;
+  type: string;
+  options?: { key: string; label: string; translations?: Record<string, string> }[];
+}
+
+/** A single label/value line displayed on a card and/or its tooltip. */
+interface DisplayLine {
+  label: string;
+  value: string;
+}
+
+/** Collect a de-duplicated, sorted catalogue of attribute fields across the
+ *  card types currently present in the graph — drives the "extra fields" picker. */
+function buildFieldCatalog(types: CardType[], presentTypeKeys: Set<string>): FieldMeta[] {
+  const out: FieldMeta[] = [];
+  const seen = new Set<string>();
+  for (const ct of types) {
+    if (!presentTypeKeys.has(ct.key)) continue;
+    for (const sec of ct.fields_schema || []) {
+      for (const f of sec.fields || []) {
+        if (seen.has(f.key)) continue;
+        seen.add(f.key);
+        out.push({
+          key: f.key,
+          label: f.label || f.key,
+          translations: f.translations,
+          type: f.type,
+          options: f.options?.map((o) => ({
+            key: o.key,
+            label: o.label || o.key,
+            translations: o.translations,
+          })),
+        });
+      }
+    }
+  }
+  return out.sort((a, b) => a.label.localeCompare(b.label));
+}
 
 /* ------------------------------------------------------------------ */
 /*  Module-level long-press flag (shared between LdvNode and click handler) */
@@ -89,6 +168,13 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
     : `rgb(${mix(r)},${mix(g)},${mix(b)})`;
 
   const name = data.name.length > 26 ? data.name.slice(0, 25) + "\u2026" : data.name;
+
+  // Display extensions injected by the parent (see rfNodes memo)
+  const lifecyclePhase = (data.lifecyclePhase as string | null | undefined) ?? null;
+  const extraLines = (data.extraLines as DisplayLine[] | undefined) ?? [];
+  const showType = data.showType !== false;
+  const detailText = (data.detailText as string | undefined) ?? data.name;
+  const dotColor = lifecyclePhase ? PHASE_DOT[lifecyclePhase] ?? "#9e9e9e" : null;
 
   const usedSet = useMemo(() => new Set(data.usedHandles ?? []), [data.usedHandles]);
   const hs = (id: string, extra?: React.CSSProperties) => {
@@ -161,6 +247,7 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
 
   return (
     <Box
+      title={detailText}
       onClick={(e) => e.stopPropagation()}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
@@ -184,6 +271,38 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         "&:hover": { boxShadow: 4 },
       }}
     >
+      {/* Card-type icon from the metamodel (top-left corner) */}
+      {data.typeIcon && (
+        <Box
+          sx={{
+            position: "absolute",
+            top: 5,
+            left: 6,
+            display: "flex",
+            lineHeight: 0,
+            opacity: 0.9,
+            pointerEvents: "none",
+          }}
+        >
+          <MaterialSymbol icon={data.typeIcon} size={16} color={accent} />
+        </Box>
+      )}
+      {/* Lifecycle status dot (top-right corner) */}
+      {dotColor && (
+        <Box
+          sx={{
+            position: "absolute",
+            top: 6,
+            right: 6,
+            width: 9,
+            height: 9,
+            borderRadius: "50%",
+            bgcolor: dotColor,
+            border: "1.5px solid",
+            borderColor: isDark ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.85)",
+          }}
+        />
+      )}
       {/* Proposed "NEW" badge */}
       {data.proposed && (
         <Box sx={{
@@ -269,17 +388,39 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
       >
         {name}
       </Typography>
-      <Typography
-        variant="caption"
-        sx={{
-          color: accent,
-          fontStyle: "italic",
-          lineHeight: 1.2,
-          mt: 0.25,
-        }}
-      >
-        [{rml(data.typeKey, undefined, "label") || data.typeLabel}]
-      </Typography>
+      {extraLines.length > 0 ? (
+        extraLines.slice(0, MAX_CARD_LINES).map((line) => (
+          <Typography
+            key={line.label}
+            variant="caption"
+            sx={{
+              lineHeight: 1.25,
+              maxWidth: "100%",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              color: "text.secondary",
+            }}
+          >
+            <Box component="span" sx={{ color: accent, fontWeight: 600 }}>
+              {line.label}:
+            </Box>{" "}
+            {line.value}
+          </Typography>
+        ))
+      ) : showType ? (
+        <Typography
+          variant="caption"
+          sx={{
+            color: accent,
+            fontStyle: "italic",
+            lineHeight: 1.2,
+            mt: 0.25,
+          }}
+        >
+          [{rml(data.typeKey, undefined, "label") || data.typeLabel}]
+        </Typography>
+      ) : null}
     </Box>
   );
 });
@@ -575,19 +716,177 @@ function LayeredDependencyInner({
   hasNext,
   centerName,
 }: Props) {
-  const { t } = useTranslation(["reports"]);
+  const { t } = useTranslation(["reports", "common"]);
   const theme = useTheme();
+  const rl = useResolveLabel();
+  const { fitView, getNodes } = useReactFlow();
+
+  /* ---- Card display settings (persisted, shared with the card-detail section) ---- */
+  const [settings, updateSettings] = useLdvSettings();
+
+  // When "show hierarchy" is on, synthesise containment edges (parent → child)
+  // for any node whose parent is also present, so the parent slots into the
+  // same layered layout as a normal edge (routed + labelled by the engine).
+  const effectiveEdges = useMemo(() => {
+    if (!settings.showHierarchy) return edges;
+    const idSet = new Set(nodes.map((n) => n.id));
+    const hierEdges: GEdge[] = [];
+    for (const n of nodes) {
+      if (n.parent_id && idSet.has(n.parent_id)) {
+        hierEdges.push({
+          source: n.parent_id,
+          target: n.id,
+          type: "hierarchy",
+          label: t("dependency.hierarchyContains"),
+          reverse_label: t("dependency.hierarchyPartOf"),
+        });
+      }
+    }
+    return hierEdges.length > 0 ? [...edges, ...hierEdges] : edges;
+  }, [edges, nodes, settings.showHierarchy, t]);
 
   const { nodes: builtNodes, edges: rfEdges } = useMemo(
-    () => buildLdvFlow(nodes, edges, types),
-    [nodes, edges, types],
+    () => buildLdvFlow(nodes, effectiveEdges, types),
+    [nodes, effectiveEdges, types],
+  );
+
+  /* ---- Original card data (attributes/lifecycle) by id + field catalogue ---- */
+  const gnodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
+  const fieldCatalog = useMemo(() => {
+    const present = new Set(nodes.map((n) => n.type));
+    return buildFieldCatalog(types, present);
+  }, [types, nodes]);
+  const fieldMetaByKey = useMemo(
+    () => new Map(fieldCatalog.map((f) => [f.key, f])),
+    [fieldCatalog],
+  );
+
+  const formatVal = useCallback(
+    (raw: unknown, meta?: FieldMeta): string => {
+      if (raw === null || raw === undefined || raw === "") return "—";
+      if (typeof raw === "boolean") return raw ? t("common:labels.yes") : t("common:labels.no");
+      const optLabel = (x: unknown) => {
+        const o = meta?.options?.find((opt) => opt.key === x);
+        return o ? rl(o.label || o.key, o.translations) : String(x);
+      };
+      if (Array.isArray(raw)) return raw.map(optLabel).join(", ");
+      if (meta?.options) return optLabel(raw);
+      if (typeof raw === "object") return JSON.stringify(raw);
+      return String(raw);
+    },
+    [rl, t],
+  );
+
+  /* ---- Manual node positions (drag) keyed by node id ---- */
+  const [posOverrides, setPosOverrides] = useState<Record<string, { x: number; y: number }>>({});
+  // Reset manual positions whenever a new graph is laid out (navigation / data change).
+  useEffect(() => {
+    setPosOverrides({});
+  }, [builtNodes]);
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    const moves: Record<string, { x: number; y: number }> = {};
+    let has = false;
+    for (const c of changes) {
+      if (c.type === "position" && c.position) {
+        moves[c.id] = { x: c.position.x, y: c.position.y };
+        has = true;
+      }
+    }
+    if (has) setPosOverrides((prev) => ({ ...prev, ...moves }));
+  }, []);
+
+  /* ---- Fullscreen ---- */
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  useEffect(() => {
+    const h = () => setIsFullscreen(document.fullscreenElement === containerRef.current);
+    document.addEventListener("fullscreenchange", h);
+    return () => document.removeEventListener("fullscreenchange", h);
+  }, []);
+  const toggleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) document.exitFullscreen?.();
+    else containerRef.current?.requestFullscreen?.();
+  }, []);
+
+  /* ---- Toolbar menus ---- */
+  const [settingsAnchor, setSettingsAnchor] = useState<HTMLElement | null>(null);
+  const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null);
+
+  /* ---- Background style cycle (lines → dots → none) ---- */
+  const cycleBackground = useCallback(() => {
+    const order: BackgroundStyle[] = ["lines", "dots", "none"];
+    const idx = order.indexOf(settings.background);
+    updateSettings({ background: order[(idx + 1) % order.length] });
+  }, [settings.background, updateSettings]);
+
+  /* ---- Reset manual layout ---- */
+  const resetLayout = useCallback(() => {
+    setPosOverrides({});
+    window.setTimeout(() => fitView({ padding: 0.15, duration: 300 }), 30);
+  }, [fitView]);
+
+  /* ---- Re-fit after entering/leaving fullscreen ---- */
+  useEffect(() => {
+    const handle = window.setTimeout(() => fitView({ padding: 0.15, duration: 200 }), 150);
+    return () => window.clearTimeout(handle);
+  }, [isFullscreen, fitView]);
+
+  /* ---- Export the diagram as a PNG / SVG image ---- */
+  const exportImage = useCallback(
+    async (format: "png" | "svg") => {
+      setExportAnchor(null);
+      const flowNodes = getNodes();
+      if (flowNodes.length === 0) return;
+      // Flatten child coordinates to absolute so bounds cover the whole graph.
+      const byId = new Map(flowNodes.map((n) => [n.id, n]));
+      const absNodes = flowNodes.map((n) => {
+        if (n.parentId) {
+          const p = byId.get(n.parentId);
+          if (p) {
+            return {
+              ...n,
+              parentId: undefined,
+              position: { x: p.position.x + n.position.x, y: p.position.y + n.position.y },
+            };
+          }
+        }
+        return n;
+      });
+      const bounds = getNodesBounds(absNodes);
+      const pad = 48;
+      const imageWidth = Math.min(6000, Math.max(800, Math.round((bounds.width + pad * 2) * 2)));
+      const imageHeight = Math.min(6000, Math.max(600, Math.round((bounds.height + pad * 2) * 2)));
+      const vp = getViewportForBounds(bounds, imageWidth, imageHeight, 0.2, 4, 0.06);
+      const viewportEl = containerRef.current?.querySelector(
+        ".react-flow__viewport",
+      ) as HTMLElement | null;
+      if (!viewportEl) return;
+      const opts = {
+        backgroundColor: theme.palette.background.paper,
+        width: imageWidth,
+        height: imageHeight,
+        style: {
+          width: `${imageWidth}px`,
+          height: `${imageHeight}px`,
+          transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})`,
+        },
+      };
+      const fname = `${(centerName || "dependency").replace(/[^\w.-]+/g, "_")}.${format}`;
+      try {
+        const dataUrl =
+          format === "png" ? await toPng(viewportEl, opts) : await toSvg(viewportEl, opts);
+        saveAs(dataUrl, fname);
+      } catch {
+        /* image export failed — ignore */
+      }
+    },
+    [getNodes, theme.palette.background.paper, centerName],
   );
 
   // ReactFlow's `fitView` prop only fits on the initial render. When the parent
   // navigates to a new centre, the new graph is laid out at different coordinates
   // and the user sees an empty (off-screen) canvas until the page is refreshed.
   // Re-fit imperatively whenever the underlying data changes.
-  const { fitView } = useReactFlow();
   const initialFitDone = useRef(false);
   useEffect(() => {
     // Skip the very first effect run — the static `fitView` prop handles the
@@ -650,23 +949,75 @@ function LayeredDependencyInner({
     [onNodeShiftClick],
   );
 
-  // Inject click + long-press callbacks into ldvNode data
+  // Inject click + long-press callbacks, per-card display data, and manual
+  // drag positions into ldvNode data. Layer (group) boxes are draggable too —
+  // dragging one moves all of its child cards with it, so the "category"
+  // follows. Cards stay clamped to their layer via extent: "parent".
   const rfNodes = useMemo(
     () =>
-      builtNodes.map((n) =>
-        n.type === "ldvNode"
-          ? {
-              ...n,
-              data: {
-                ...n.data,
-                nodeId: n.id,
-                onClick: handleLdvNodeClick,
-                ...(onNodeShiftClick && { onLongPress: handleLongPress }),
-              },
-            }
-          : n,
-      ),
-    [builtNodes, handleLdvNodeClick, onNodeShiftClick, handleLongPress],
+      builtNodes.map((n) => {
+        if (n.type !== "ldvNode") {
+          // Layer boundary: draggable, positions overridable, children follow.
+          if (n.type === "ldvGroup") {
+            const ov = posOverrides[n.id];
+            return { ...n, draggable: true, ...(ov ? { position: ov } : {}) };
+          }
+          return n;
+        }
+
+        const g = gnodeById.get(n.id);
+        const phase = settings.showLifecycle ? getCurrentPhase(g?.lifecycle) : null;
+
+        // Resolve every chosen extra field to a label/value line (skips empties).
+        const lines: DisplayLine[] = [];
+        for (const fk of settings.extraFields) {
+          const meta = fieldMetaByKey.get(fk);
+          const value = formatVal(g?.attributes?.[fk], meta);
+          if (value === "—") continue;
+          lines.push({ label: meta ? rl(meta.label, meta.translations) : fk, value });
+        }
+
+        // Plain-text tooltip (native title) with the full detail set.
+        const typeLabelText =
+          (n.data as LdvNodeData).typeLabel || (n.data as LdvNodeData).typeKey;
+        const detailParts = [g?.name ?? (n.data as LdvNodeData).name, `[${typeLabelText}]`];
+        if (phase) detailParts.push(`${t("dependency.lifecycleLabel")}: ${t(`common:lifecycle.${phase}`)}`);
+        for (const l of lines) detailParts.push(`${l.label}: ${l.value}`);
+        const detailText = detailParts.join("\n");
+
+        const override = posOverrides[n.id];
+        return {
+          ...n,
+          draggable: true,
+          // keep extent: "parent" from the layout so cards stay in their layer
+          ...(override ? { position: override } : {}),
+          data: {
+            ...n.data,
+            nodeId: n.id,
+            onClick: handleLdvNodeClick,
+            showType: settings.showType,
+            lifecyclePhase: phase,
+            extraLines: lines,
+            detailText,
+            ...(onNodeShiftClick && { onLongPress: handleLongPress }),
+          },
+        };
+      }),
+    [
+      builtNodes,
+      handleLdvNodeClick,
+      onNodeShiftClick,
+      handleLongPress,
+      gnodeById,
+      settings.showLifecycle,
+      settings.showType,
+      settings.extraFields,
+      fieldMetaByKey,
+      formatVal,
+      rl,
+      t,
+      posOverrides,
+    ],
   );
 
   // In highlight mode, clicking the canvas (not a node) dismisses the highlight
@@ -775,6 +1126,7 @@ function LayeredDependencyInner({
 
   return (
     <Paper
+      ref={containerRef}
       variant="outlined"
       sx={{
         borderRadius: 2,
@@ -782,6 +1134,7 @@ function LayeredDependencyInner({
         display: "flex",
         flexDirection: "column",
         height: "100%",
+        bgcolor: "background.paper",
       }}
     >
       {/* Navigation bar */}
@@ -825,12 +1178,62 @@ function LayeredDependencyInner({
             {centerName}
           </Typography>
         )}
-        <Typography
-          variant="caption"
-          sx={{ ml: "auto", color: "text.disabled", whiteSpace: "nowrap", fontSize: "0.68rem" }}
-        >
-          {t("dependency.shiftClickHint")}
-        </Typography>
+        <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 0.25 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.disabled",
+              whiteSpace: "nowrap",
+              fontSize: "0.68rem",
+              mr: 0.5,
+              display: { xs: "none", md: "block" },
+            }}
+          >
+            {t("dependency.shiftClickHint")}
+          </Typography>
+          <Tooltip title={t("dependency.displaySettings")} arrow>
+            <IconButton size="small" onClick={(e) => setSettingsAnchor(e.currentTarget)}>
+              <MaterialSymbol icon="tune" size={19} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip
+            title={t("dependency.backgroundStyle", {
+              style: t(`dependency.background_${settings.background}`),
+            })}
+            arrow
+          >
+            <IconButton size="small" onClick={cycleBackground}>
+              <MaterialSymbol
+                icon={
+                  settings.background === "none"
+                    ? "grid_off"
+                    : settings.background === "dots"
+                      ? "grain"
+                      : "grid_on"
+                }
+                size={19}
+              />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={t("dependency.resetLayout")} arrow>
+            <IconButton size="small" onClick={resetLayout}>
+              <MaterialSymbol icon="restart_alt" size={19} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={t("dependency.exportImage")} arrow>
+            <IconButton size="small" onClick={(e) => setExportAnchor(e.currentTarget)}>
+              <MaterialSymbol icon="download" size={19} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip
+            title={isFullscreen ? t("dependency.exitFullscreen") : t("dependency.fullscreen")}
+            arrow
+          >
+            <IconButton size="small" onClick={toggleFullscreen}>
+              <MaterialSymbol icon={isFullscreen ? "fullscreen_exit" : "fullscreen"} size={20} />
+            </IconButton>
+          </Tooltip>
+        </Box>
       </Box>
       <Box sx={{ flex: 1, minHeight: 0 }} className={hoveredNode ? "ldv-hover-active" : undefined}>
         {hoverStyle && <style>{hoverStyle}</style>}
@@ -839,6 +1242,7 @@ function LayeredDependencyInner({
           edges={orderedEdges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
+          onNodesChange={onNodesChange}
           onPaneClick={handlePaneClick}
           onNodeMouseEnter={handleNodeMouseEnter}
           onNodeMouseLeave={handleNodeMouseLeave}
@@ -849,13 +1253,22 @@ function LayeredDependencyInner({
           minZoom={0.2}
           maxZoom={2}
           proOptions={{ hideAttribution: true }}
-          nodesDraggable={false}
+          nodesDraggable
           nodesConnectable={false}
           edgesReconnectable={false}
           elementsSelectable={false}
           colorMode={theme.palette.mode}
         >
-          <Background gap={16} size={1} />
+          {settings.background !== "none" && (
+            <Background
+              variant={
+                settings.background === "dots" ? BackgroundVariant.Dots : BackgroundVariant.Lines
+              }
+              gap={settings.background === "dots" ? 18 : 28}
+              size={1}
+              color={theme.palette.mode === "dark" ? "#2a2a2a" : "#eef0f2"}
+            />
+          )}
           <Controls showInteractive={false}>
             <ControlButton
               title={t("dependency.highlightMode")}
@@ -906,6 +1319,101 @@ function LayeredDependencyInner({
           variant="outlined"
         />
       </Box>
+
+      {/* Export menu */}
+      <Menu
+        anchorEl={exportAnchor}
+        open={Boolean(exportAnchor)}
+        onClose={() => setExportAnchor(null)}
+        container={isFullscreen ? containerRef.current : undefined}
+      >
+        <MenuItem onClick={() => exportImage("png")}>
+          <ListItemIcon>
+            <MaterialSymbol icon="image" size={18} />
+          </ListItemIcon>
+          <ListItemText>{t("dependency.exportPng")}</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => exportImage("svg")}>
+          <ListItemIcon>
+            <MaterialSymbol icon="shape_line" size={18} />
+          </ListItemIcon>
+          <ListItemText>{t("dependency.exportSvg")}</ListItemText>
+        </MenuItem>
+      </Menu>
+
+      {/* Card display settings */}
+      <Popover
+        anchorEl={settingsAnchor}
+        open={Boolean(settingsAnchor)}
+        onClose={() => setSettingsAnchor(null)}
+        container={isFullscreen ? containerRef.current : undefined}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        slotProps={{ paper: { sx: { p: 2, width: 320, maxWidth: "90vw" } } }}
+      >
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+          {t("dependency.displaySettings")}
+        </Typography>
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={settings.showType}
+              onChange={(e) => updateSettings({ showType: e.target.checked })}
+            />
+          }
+          label={<Typography variant="body2">{t("dependency.showType")}</Typography>}
+        />
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={settings.showLifecycle}
+              onChange={(e) => updateSettings({ showLifecycle: e.target.checked })}
+            />
+          }
+          label={<Typography variant="body2">{t("dependency.showLifecycle")}</Typography>}
+        />
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={settings.showHierarchy}
+              onChange={(e) => updateSettings({ showHierarchy: e.target.checked })}
+            />
+          }
+          label={
+            <Box>
+              <Typography variant="body2">{t("dependency.showHierarchy")}</Typography>
+              <Typography variant="caption" color="text.secondary">
+                {t("dependency.showHierarchyHint")}
+              </Typography>
+            </Box>
+          }
+        />
+        <Divider sx={{ my: 1.5 }} />
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+          {t("dependency.extraFieldsHint", { count: MAX_CARD_LINES })}
+        </Typography>
+        <Autocomplete
+          multiple
+          size="small"
+          options={fieldCatalog}
+          value={fieldCatalog.filter((f) => settings.extraFields.includes(f.key))}
+          getOptionLabel={(f) => rl(f.label, f.translations)}
+          isOptionEqualToValue={(a, b) => a.key === b.key}
+          onChange={(_, vals) => updateSettings({ extraFields: vals.map((v) => v.key) })}
+          renderInput={(params) => (
+            <TextField {...params} placeholder={t("dependency.extraFields")} />
+          )}
+          renderTags={(vals, getTagProps) =>
+            vals.map((v, i) => (
+              <Chip {...getTagProps({ index: i })} key={v.key} label={rl(v.label, v.translations)} size="small" />
+            ))
+          }
+          noOptionsText={t("dependency.noFields")}
+        />
+      </Popover>
     </Paper>
   );
 }

@@ -8,6 +8,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import LayeredDependencyView from "@/features/reports/LayeredDependencyView";
+import { useLdvSettings } from "@/features/reports/ldvDisplaySettings";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
 import type { GNode, GEdge } from "@/features/reports/layeredDependencyLayout";
@@ -19,6 +20,7 @@ interface Props {
 export default function LayeredDependencySection({ cardId }: Props) {
   const { t } = useTranslation(["cards"]);
   const { types } = useMetamodel();
+  const [ldvSettings] = useLdvSettings();
 
   const [expanded, setExpanded] = useState(true);
   const [nodes, setNodes] = useState<GNode[]>([]);
@@ -161,11 +163,25 @@ export default function LayeredDependencySection({ cardId }: Props) {
         if (nodeMap.has(nb.nodeId)) visited.add(nb.nodeId);
       }
     }
+    // When "show hierarchy" is on, pull in each visible card's ancestor chain
+    // so a parent (e.g. a parent Organization) appears in the layout. The
+    // containment edge itself is synthesised by the view from parent_id.
+    if (ldvSettings.showHierarchy) {
+      for (const id of [...visited]) {
+        let cur = nodeMap.get(id);
+        const guard = new Set<string>();
+        while (cur?.parent_id && nodeMap.has(cur.parent_id) && !guard.has(cur.parent_id)) {
+          guard.add(cur.parent_id);
+          visited.add(cur.parent_id);
+          cur = nodeMap.get(cur.parent_id);
+        }
+      }
+    }
     return {
       nodes: nodes.filter((n) => visited.has(n.id)),
       edges: edges.filter((e) => visited.has(e.source) && visited.has(e.target)),
     };
-  }, [center, nodes, edges, adjMap, nodeMap, expandedNodes]);
+  }, [center, nodes, edges, adjMap, nodeMap, expandedNodes, ldvSettings.showHierarchy]);
 
   const hasData = ldvVisible.nodes.length > 0;
 
