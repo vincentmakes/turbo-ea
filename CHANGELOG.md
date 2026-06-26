@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.47.3] - 2026-06-26
+
+### Fixed
+- **Metamodel: custom self-relations are no longer blocked by the built-in "succeeds" relation.** Creating a self-referential relation type (e.g. Data Object → Data Object) failed with "a relation type already exists" for card types that ship a built-in successor relation — most types, including Application, IT Component and Data Object. The hidden successor relation is no longer counted toward the one-relation-per-pair rule, so you can add your own self-relation alongside it.
+
 ## [1.47.2] - 2026-06-25
 
 ### Fixed

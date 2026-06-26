@@ -330,6 +330,45 @@ class TestRelationTypeCRUD:
         )
         assert response.status_code == 400
 
+    async def test_self_relation_allowed_alongside_successor(self, client, db, metamodel_env):
+        # A built-in successor self-relation must not block a custom self-relation
+        # on the same pair (regression for discussion #690).
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="DataObject", label="Data Object")
+        await create_relation_type(
+            db,
+            key="relDataObjectSuccessor",
+            label="succeeds",
+            source_type_key="DataObject",
+            target_type_key="DataObject",
+            built_in=True,
+        )
+
+        response = await client.post(
+            "/api/v1/metamodel/relation-types",
+            json={
+                "key": "do_to_do",
+                "label": "Derived From",
+                "source_type_key": "DataObject",
+                "target_type_key": "DataObject",
+            },
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 201
+
+        # A second non-successor self-relation on the same pair is still rejected.
+        response = await client.post(
+            "/api/v1/metamodel/relation-types",
+            json={
+                "key": "do_to_do_2",
+                "label": "Also Derived From",
+                "source_type_key": "DataObject",
+                "target_type_key": "DataObject",
+            },
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 400
+
     async def test_invalid_source_type_rejected(self, client, db, metamodel_env):
         admin = metamodel_env["admin"]
         await create_card_type(db, key="Application", label="Application")

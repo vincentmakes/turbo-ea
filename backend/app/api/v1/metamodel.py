@@ -633,6 +633,13 @@ async def delete_type(
 
 # ── Relation Types ─────────────────────────────────────────────────────
 
+# Successor relations (key ends with "Successor") are a separate, UI-isolated
+# category — see frontend RelationsSection/MetamodelGraph/MetamodelAdmin, which all
+# filter on key.endsWith("Successor"). They are exempt from the one-relation-per-pair
+# uniqueness rule so a custom self-relation can coexist with the built-in successor
+# (mirrors the seeded BusinessProcess "depends on" + "succeeds" pair).
+SUCCESSOR_KEY_SUFFIX = "Successor"
+
 
 @router.get("/relation-types")
 async def list_relation_types(
@@ -681,12 +688,13 @@ async def create_relation_type(
         if not exists.scalar_one_or_none():
             raise HTTPException(400, f"Type '{type_key}' does not exist")
 
-    # Prevent duplicate source+target pair (ignore hidden/soft-deleted)
+    # Prevent duplicate source+target pair (ignore hidden/soft-deleted + successors)
     dup = await db.execute(
         select(RelationType).where(
             RelationType.source_type_key == body["source_type_key"],
             RelationType.target_type_key == body["target_type_key"],
             RelationType.is_hidden == False,  # noqa: E712
+            ~RelationType.key.endswith(SUCCESSOR_KEY_SUFFIX),
         )
     )
     if dup.scalar_one_or_none():
@@ -761,6 +769,7 @@ async def update_relation_type(
                 RelationType.target_type_key == new_tgt,
                 RelationType.key != key,
                 RelationType.is_hidden == False,  # noqa: E712
+                ~RelationType.key.endswith(SUCCESSOR_KEY_SUFFIX),
             )
         )
         if dup.scalar_one_or_none():
@@ -884,6 +893,7 @@ async def restore_relation_type(
             RelationType.target_type_key == r.target_type_key,
             RelationType.key != key,
             RelationType.is_hidden == False,  # noqa: E712
+            ~RelationType.key.endswith(SUCCESSOR_KEY_SUFFIX),
         )
     )
     if dup.scalar_one_or_none():
