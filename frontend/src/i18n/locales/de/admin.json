@@ -12,6 +12,8 @@
   "surveys.respond.updatedValue": "Aktualisierter Wert:",
   "surveys.respond.proposedValue": "Vorgeschlagener Wert:",
   "surveys.respond.searchRelated": "Karten zum Verknüpfen suchen …",
+  "surveys.respond.relationMaintainInstruction": "Pflegen Sie die Beziehung zwischen {{card}} und {{related}}.",
+  "surveys.respond.relationConfirmInstruction": "Bestätigen Sie die Beziehung zwischen {{card}} und {{related}}.",
   "surveys.respond.maintain": "Pflegen",
   "surveys.respond.confirmLabel": "Bestätigen",
   "surveys.respond.noChangeNeeded": "Keine Änderung erforderlich",

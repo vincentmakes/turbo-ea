@@ -12,6 +12,8 @@
   "surveys.respond.updatedValue": "القيمة المحدّثة:",
   "surveys.respond.proposedValue": "القيمة المقترحة:",
   "surveys.respond.searchRelated": "البحث عن البطاقات للربط...",
+  "surveys.respond.relationMaintainInstruction": "حافظ على العلاقة بين {{card}} و{{related}}.",
+  "surveys.respond.relationConfirmInstruction": "أكّد العلاقة بين {{card}} و{{related}}.",
   "surveys.respond.maintain": "تحديث",
   "surveys.respond.confirmLabel": "تأكيد",
   "surveys.respond.noChangeNeeded": "لا حاجة إلى تغيير",

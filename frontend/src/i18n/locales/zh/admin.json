@@ -12,6 +12,8 @@
   "surveys.respond.updatedValue": "更新后的值：",
   "surveys.respond.proposedValue": "建议值：",
   "surveys.respond.searchRelated": "搜索要关联的卡片……",
+  "surveys.respond.relationMaintainInstruction": "维护 {{card}} 与 {{related}} 之间的关系。",
+  "surveys.respond.relationConfirmInstruction": "确认 {{card}} 与 {{related}} 之间的关系。",
   "surveys.respond.maintain": "维护",
   "surveys.respond.confirmLabel": "确认",
   "surveys.respond.noChangeNeeded": "无需更改",

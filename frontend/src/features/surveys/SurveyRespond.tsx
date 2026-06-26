@@ -14,7 +14,9 @@ import Switch from "@mui/material/Switch";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Autocomplete from "@mui/material/Autocomplete";
 import IconButton from "@mui/material/IconButton";
+import { useTheme } from "@mui/material/styles";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useMetamodel } from "@/hooks/useMetamodel";
 import Tooltip from "@mui/material/Tooltip";
 import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -79,20 +81,27 @@ function RelationFieldEditor({
   value,
   onChange,
   placeholder,
+  chipColor,
 }: {
   relatedTypeKey?: string;
   value: RelationRef[];
   onChange: (refs: RelationRef[]) => void;
   placeholder: string;
+  chipColor?: { bg: string; fg: string };
 }) {
   const [search, setSearch] = useState("");
   const [options, setOptions] = useState<RelationRef[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
+  // Load candidates as soon as the dropdown opens (empty query returns the
+  // first cards of the related type) and refine as the user types — users
+  // can't be expected to know linkable card names by heart.
   useEffect(() => {
-    if (!relatedTypeKey || search.length < 2) {
-      setOptions([]);
+    if (!relatedTypeKey || !open) {
       return;
     }
+    setLoading(true);
     const timer = setTimeout(async () => {
       try {
         const res = await api.get<{ items: RelationRef[] }>(
@@ -101,10 +110,12 @@ function RelationFieldEditor({
         setOptions(res.items.map((c) => ({ id: c.id, name: c.name })));
       } catch {
         // ignore — empty option list
+      } finally {
+        setLoading(false);
       }
-    }, 300);
+    }, 250);
     return () => clearTimeout(timer);
-  }, [search, relatedTypeKey]);
+  }, [search, relatedTypeKey, open]);
 
   const merged = useMemo(() => {
     const ids = new Set(options.map((o) => o.id));
@@ -115,6 +126,10 @@ function RelationFieldEditor({
     <Autocomplete
       multiple
       filterSelectedOptions
+      open={open}
+      onOpen={() => setOpen(true)}
+      onClose={() => setOpen(false)}
+      loading={loading}
       options={merged}
       getOptionLabel={(o) => o.name}
       isOptionEqualToValue={(opt, val) => opt.id === val.id}
@@ -124,10 +139,47 @@ function RelationFieldEditor({
         if (reason !== "reset") setSearch(val);
       }}
       onChange={(_, vals) => onChange(vals)}
-      renderInput={(params) => <TextField {...params} size="small" placeholder={placeholder} />}
+      renderOption={(props, opt) => (
+        <li {...props} key={opt.id}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            {chipColor && (
+              <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: chipColor.bg, flexShrink: 0 }} />
+            )}
+            <Typography variant="body2">{opt.name}</Typography>
+          </Box>
+        </li>
+      )}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          size="small"
+          placeholder={placeholder}
+          slotProps={{
+            input: {
+              ...params.InputProps,
+              endAdornment: (
+                <>
+                  {loading ? <CircularProgress color="inherit" size={16} /> : null}
+                  {params.InputProps.endAdornment}
+                </>
+              ),
+            },
+          }}
+        />
+      )}
       renderTags={(vals, getTagProps) =>
         vals.map((v, i) => (
-          <Chip {...getTagProps({ index: i })} key={v.id} label={v.name} size="small" />
+          <Chip
+            {...getTagProps({ index: i })}
+            key={v.id}
+            label={v.name}
+            size="small"
+            sx={
+              chipColor
+                ? { bgcolor: chipColor.bg, color: chipColor.fg, "& .MuiChip-deleteIcon": { color: chipColor.fg, opacity: 0.7 } }
+                : undefined
+            }
+          />
         ))
       }
     />
@@ -138,7 +190,21 @@ export default function SurveyRespond() {
   const { t } = useTranslation(["admin", "common"]);
   const rl = useResolveLabel();
   const rml = useResolveMetaLabel();
+  const theme = useTheme();
+  const { types } = useMetamodel();
   const { surveyId, cardId } = useParams<{ surveyId: string; cardId: string }>();
+
+  // For a relation field, the related cards are all of one type (relation types
+  // are unique per type pair), so colour the pills by that type's metamodel
+  // colour and resolve its label for the "between X and Y" instruction.
+  const relatedTypeColor = (key?: string): { bg: string; fg: string } => {
+    const bg = types.find((ct) => ct.key === key)?.color || theme.palette.grey[500];
+    return { bg, fg: theme.palette.getContrastText(bg) };
+  };
+  const relatedTypeLabel = (key?: string): string => {
+    const ct = types.find((c) => c.key === key);
+    return ct ? rml(ct.label, ct.translations, "label") : key || "";
+  };
   const navigate = useNavigate();
 
   const [form, setForm] = useState<SurveyRespondForm | null>(null);
@@ -234,6 +300,7 @@ export default function SurveyRespond() {
           value={selected}
           onChange={(refs) => setNewValue(field.key, refs)}
           placeholder={t("surveys.respond.searchRelated")}
+          chipColor={relatedTypeColor(field.related_type_key)}
         />
       );
     }
@@ -422,7 +489,7 @@ export default function SurveyRespond() {
 
         return (
           <Card key={field.key} sx={{ mb: 2, p: 2 }}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: field.kind === "relation" ? 0.5 : 1 }}>
               <Typography sx={{ fontWeight: 600, flex: 1 }}>
                 {field.kind === "relation" ? field.label : rl(field.key, field.translations)}
               </Typography>
@@ -432,18 +499,51 @@ export default function SurveyRespond() {
                 color={isMaintain ? "primary" : "default"}
                 variant="outlined"
               />
-              <Typography variant="caption" color="text.secondary">
-                {rl(field.section, field.section_translations)}
-              </Typography>
+              {field.kind !== "relation" && (
+                <Typography variant="caption" color="text.secondary">
+                  {rl(field.section, field.section_translations)}
+                </Typography>
+              )}
             </Box>
 
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+            {field.kind === "relation" && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                {t(
+                  isMaintain
+                    ? "surveys.respond.relationMaintainInstruction"
+                    : "surveys.respond.relationConfirmInstruction",
+                  { card: form.card.name, related: relatedTypeLabel(field.related_type_key) },
+                )}
+              </Typography>
+            )}
+
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1, flexWrap: "wrap" }}>
               <Typography variant="body2" color="text.secondary">
                 {t("surveys.respond.currentValue")}
               </Typography>
-              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                {formatValue(field.current_value, field, t, rl)}
-              </Typography>
+              {field.kind === "relation" ? (
+                isRelationRefList(field.current_value) && field.current_value.length > 0 ? (
+                  field.current_value.map((r) => {
+                    const c = relatedTypeColor(field.related_type_key);
+                    return (
+                      <Chip
+                        key={r.id}
+                        label={r.name}
+                        size="small"
+                        sx={{ bgcolor: c.bg, color: c.fg }}
+                      />
+                    );
+                  })
+                ) : (
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    —
+                  </Typography>
+                )
+              ) : (
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {formatValue(field.current_value, field, t, rl)}
+                </Typography>
+              )}
             </Box>
 
             <Divider sx={{ my: 1 }} />

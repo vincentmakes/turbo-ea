@@ -24,8 +24,10 @@ import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useResolveLabel } from "@/hooks/useResolveLabel";
+import { useMetamodel } from "@/hooks/useMetamodel";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { api } from "@/api/client";
 import type { Survey, SurveyResponseDetail, SurveyField } from "@/types";
@@ -65,11 +67,39 @@ function formatValue(val: unknown, field?: SurveyField, boolLabels?: { yes: stri
 export default function SurveyResults() {
   const { t } = useTranslation(["admin", "common"]);
   const rl = useResolveLabel();
+  const theme = useTheme();
+  const { types } = useMetamodel();
+  const boolLabels = { yes: t("surveyResults.boolTrue"), no: t("surveyResults.boolFalse") };
+
+  // Relation values render as colour-coded pills (by the related card type's
+  // metamodel colour); everything else falls back to the text formatter.
+  const renderCellValue = (val: unknown, field: SurveyField, emphasize: boolean) => {
+    if (field?.kind === "relation") {
+      if (!isRelationRefList(val) || val.length === 0)
+        return <Typography variant="body2">—</Typography>;
+      const bg = types.find((ct) => ct.key === field.related_type_key)?.color || theme.palette.grey[500];
+      const fg = theme.palette.getContrastText(bg);
+      return (
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+          {val.map((r) => (
+            <Chip key={r.id} label={r.name} size="small" sx={{ bgcolor: bg, color: fg }} />
+          ))}
+        </Box>
+      );
+    }
+    return (
+      <Typography
+        variant="body2"
+        component="span"
+        sx={emphasize ? { color: "info.main", fontWeight: 600 } : undefined}
+      >
+        {formatValue(val, field, boolLabels)}
+      </Typography>
+    );
+  };
   const { formatDate } = useDateFormat();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-
-  const boolLabels = { yes: t("surveyResults.boolTrue"), no: t("surveyResults.boolFalse") };
 
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [responses, setResponses] = useState<SurveyResponseDetail[]>([]);
@@ -416,15 +446,9 @@ export default function SurveyResults() {
                             {field.kind === "relation" ? field.label : rl(field.key, field.translations)}
                           </Typography>
                         </TableCell>
-                        <TableCell>{formatValue(resp.current_value, field, boolLabels)}</TableCell>
+                        <TableCell>{renderCellValue(resp.current_value, field, false)}</TableCell>
                         <TableCell>
-                          {changed ? (
-                            <Typography variant="body2" sx={{ color: "info.main", fontWeight: 600 }}>
-                              {formatValue(resp.new_value, field, boolLabels)}
-                            </Typography>
-                          ) : (
-                            formatValue(resp.current_value, field, boolLabels)
-                          )}
+                          {renderCellValue(changed ? resp.new_value : resp.current_value, field, changed)}
                         </TableCell>
                         <TableCell>
                           {resp.confirmed ? (

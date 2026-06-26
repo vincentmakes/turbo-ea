@@ -12,6 +12,8 @@
   "surveys.respond.updatedValue": "Обновлённое значение:",
   "surveys.respond.proposedValue": "Предлагаемое значение:",
   "surveys.respond.searchRelated": "Поиск карточек для связи...",
+  "surveys.respond.relationMaintainInstruction": "Поддерживайте связь между {{card}} и {{related}}.",
+  "surveys.respond.relationConfirmInstruction": "Подтвердите связь между {{card}} и {{related}}.",
   "surveys.respond.maintain": "Поддерживать",
   "surveys.respond.confirmLabel": "Подтвердить",
   "surveys.respond.noChangeNeeded": "Изменения не требуются",

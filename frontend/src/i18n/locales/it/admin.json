@@ -12,6 +12,8 @@
   "surveys.respond.updatedValue": "Valore aggiornato:",
   "surveys.respond.proposedValue": "Valore proposto:",
   "surveys.respond.searchRelated": "Cerca schede da collegare...",
+  "surveys.respond.relationMaintainInstruction": "Mantieni la relazione tra {{card}} e {{related}}.",
+  "surveys.respond.relationConfirmInstruction": "Conferma la relazione tra {{card}} e {{related}}.",
   "surveys.respond.maintain": "Mantieni",
   "surveys.respond.confirmLabel": "Conferma",
   "surveys.respond.noChangeNeeded": "Nessuna modifica necessaria",

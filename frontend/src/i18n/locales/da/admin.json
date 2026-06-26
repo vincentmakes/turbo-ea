@@ -12,6 +12,8 @@
   "surveys.respond.updatedValue": "Opdateret værdi:",
   "surveys.respond.proposedValue": "Foreslået værdi:",
   "surveys.respond.searchRelated": "Søg efter kort, der skal knyttes...",
+  "surveys.respond.relationMaintainInstruction": "Vedligehold relationen mellem {{card}} og {{related}}.",
+  "surveys.respond.relationConfirmInstruction": "Bekræft relationen mellem {{card}} og {{related}}.",
   "surveys.respond.maintain": "Vedligehold",
   "surveys.respond.confirmLabel": "Bekræft",
   "surveys.respond.noChangeNeeded": "Ingen ændring nødvendig",
