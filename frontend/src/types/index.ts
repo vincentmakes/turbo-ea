@@ -628,6 +628,12 @@ export interface FileAttachment {
 // Surveys
 // ---------------------------------------------------------------------------
 
+/** A card reference linked through a survey relation field. */
+export interface SurveyRelationRef {
+  id: string;
+  name: string;
+}
+
 export interface SurveyField {
   key: string;
   section: string;
@@ -637,6 +643,12 @@ export interface SurveyField {
   action: "maintain" | "confirm";
   translations?: TranslationMap;
   section_translations?: TranslationMap;
+  // Relation fields: when kind === "relation" the field surveys a relationship
+  // rather than an attribute. The respondent's value is a list of SurveyRelationRef.
+  kind?: "attribute" | "relation";
+  relation_type_key?: string;
+  direction?: "outgoing" | "incoming";
+  related_type_key?: string;
 }
 
 export interface SurveyTargetFilters {

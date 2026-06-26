@@ -51,6 +51,15 @@ Design your questions. Each question can be:
 - **Date** — Date picker
 - **Boolean** — Yes/No toggle
 
+### Relationships
+
+Beyond attributes, a survey can also ask respondents to keep a card's **relationships** current. In the **Fields** step, the **Relations** section lists every relationship the target card type can have, in both directions (for example, for an Application: *supports → IT Component* and *used by ← Organization*). For each one you pick, choose an action:
+
+- **Maintain** — The respondent sees the currently linked cards and can add or remove links using a search picker.
+- **Confirm** — The respondent simply acknowledges that the current links are correct, or turns the toggle off to propose changes.
+
+When you apply such a response, Turbo EA adds the new links and removes the ones the respondent dropped. The change is recorded in the card's history just like a manual relationship edit.
+
 ### Auto-Actions
 
 Configure rules that automatically update card attributes based on survey responses. For example, if a respondent selects "Mission Critical" for business criticality, the card's `businessCriticality` field can be updated automatically.

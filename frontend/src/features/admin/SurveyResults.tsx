@@ -30,8 +30,20 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import { api } from "@/api/client";
 import type { Survey, SurveyResponseDetail, SurveyField } from "@/types";
 
+/** True when a value is a list of related-card references ({id, name}). */
+function isRelationRefList(val: unknown): val is { id: string; name: string }[] {
+  return (
+    Array.isArray(val) &&
+    val.every((v) => v !== null && typeof v === "object" && "id" in (v as object))
+  );
+}
+
 /** Resolve a value to its display label using field options when available. */
 function formatValue(val: unknown, field?: SurveyField, boolLabels?: { yes: string; no: string }): string {
+  if (field?.kind === "relation" || isRelationRefList(val)) {
+    if (!isRelationRefList(val) || val.length === 0) return "—";
+    return val.map((r) => r.name).join(", ");
+  }
   if (val === null || val === undefined || val === "") return "—";
   if (typeof val === "boolean") return val ? (boolLabels?.yes ?? "Yes") : (boolLabels?.no ?? "No");
 
@@ -401,7 +413,7 @@ export default function SurveyResults() {
                       <TableRow key={field.key}>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {rl(field.key, field.translations)}
+                            {field.kind === "relation" ? field.label : rl(field.key, field.translations)}
                           </Typography>
                         </TableCell>
                         <TableCell>{formatValue(resp.current_value, field, boolLabels)}</TableCell>

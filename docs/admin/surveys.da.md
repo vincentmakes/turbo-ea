@@ -51,6 +51,15 @@ Design dine spørgsmål. Hvert spørgsmål kan være:
 - **Dato** — Datovælger
 - **Boolean** — Ja/nej-omskifter
 
+### Relationer
+
+Ud over attributter kan en undersøgelse også bede respondenter om at holde et korts **relationer** opdaterede. I trinnet **Felter** viser afsnittet **Relationer** alle de relationer, måltypen for kortet kan have, i begge retninger (for eksempel for en Applikation: *understøtter → IT-komponent* og *bruges af ← Organisation*). For hver enkelt, du vælger, skal du vælge en handling:
+
+- **Vedligehold** — Respondenten ser de aktuelt tilknyttede kort og kan tilføje eller fjerne tilknytninger via en søgevælger.
+- **Bekræft** — Respondenten bekræfter blot, at de aktuelle tilknytninger er korrekte, eller slår kontakten fra for at foreslå ændringer.
+
+Når du anvender et sådant svar, tilføjer Turbo EA de nye tilknytninger og fjerner dem, respondenten har fjernet. Ændringen registreres i kortets historik, ligesom en manuel relationsændring.
+
 ### Auto-handlinger
 
 Konfigurer regler, der automatisk opdaterer kortegenskaber baseret på undersøgelsessvar. For eksempel, hvis en respondent vælger "Mission Critical" for forretningskritikalitet, kan kortets `businessCriticality`-felt opdateres automatisk.

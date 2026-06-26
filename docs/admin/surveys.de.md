@@ -51,6 +51,15 @@ Gestalten Sie Ihre Fragen. Jede Frage kann sein:
 - **Datum** — Datumsauswahl
 - **Boolean** — Ja/Nein-Umschalter
 
+### Beziehungen
+
+Über Attribute hinaus kann eine Umfrage die Befragten auch bitten, die **Beziehungen** einer Karte aktuell zu halten. Im Schritt **Felder** listet der Abschnitt **Beziehungen** jede Beziehung auf, die der Ziel-Kartentyp haben kann, in beiden Richtungen (zum Beispiel für eine Anwendung: *unterstützt → IT-Komponente* und *genutzt von ← Organisation*). Für jede ausgewählte Beziehung wählen Sie eine Aktion:
+
+- **Pflegen** — Der Befragte sieht die aktuell verknüpften Karten und kann über eine Suchauswahl Verknüpfungen hinzufügen oder entfernen.
+- **Bestätigen** — Der Befragte bestätigt lediglich, dass die aktuellen Verknüpfungen korrekt sind, oder schaltet den Schalter aus, um Änderungen vorzuschlagen.
+
+Wenn Sie eine solche Antwort anwenden, fügt Turbo EA die neuen Verknüpfungen hinzu und entfernt die vom Befragten entfernten. Die Änderung wird im Verlauf der Karte festgehalten, genau wie eine manuelle Beziehungsänderung.
+
 ### Auto-Aktionen
 
 Konfigurieren Sie Regeln, die Kartenattribute basierend auf Umfrageantworten automatisch aktualisieren. Zum Beispiel: Wenn ein Befragter «Mission Critical» für die Geschäftskritikalität auswählt, kann das `businessCriticality`-Feld der Karte automatisch aktualisiert werden.

@@ -254,6 +254,162 @@ async def _get_response_stats(db: AsyncSession, survey_id: uuid.UUID) -> dict:
     }
 
 
+def _is_relation_field(field_def: dict) -> bool:
+    """A survey field describes a relation (rather than a card attribute) when it
+    carries ``kind == "relation"`` plus a relation type + direction."""
+    return (
+        isinstance(field_def, dict)
+        and field_def.get("kind") == "relation"
+        and bool(field_def.get("relation_type_key"))
+        and field_def.get("direction") in ("outgoing", "incoming")
+    )
+
+
+async def _relation_field_peers(
+    db: AsyncSession, card_id: uuid.UUID, field_def: dict
+) -> list[dict]:
+    """Resolve the related cards currently linked to ``card_id`` for a relation
+    survey field. Returns ``[{id, name}]`` of the peer cards on the configured
+    side. ``direction == "outgoing"`` means the surveyed card is the relation
+    *source* (peers are targets); ``"incoming"`` means it is the *target*."""
+    rtk = field_def.get("relation_type_key")
+    direction = field_def.get("direction")
+    if not rtk or direction not in ("outgoing", "incoming"):
+        return []
+
+    if direction == "outgoing":
+        q = (
+            select(Card.id, Card.name)
+            .join(Relation, Relation.target_id == Card.id)
+            .where(
+                Relation.type == rtk,
+                Relation.source_id == card_id,
+                Card.status == "ACTIVE",
+            )
+        )
+    else:
+        q = (
+            select(Card.id, Card.name)
+            .join(Relation, Relation.source_id == Card.id)
+            .where(
+                Relation.type == rtk,
+                Relation.target_id == card_id,
+                Card.status == "ACTIVE",
+            )
+        )
+
+    rows = await db.execute(q.order_by(Card.name))
+    return [{"id": str(rid), "name": name} for rid, name in rows.all()]
+
+
+def _relation_peer_ids(new_value: object) -> set[uuid.UUID]:
+    """Parse a respondent's proposed relation set into a set of card UUIDs.
+    Accepts a list of ``{id, name}`` refs or bare id strings; silently drops
+    anything that is not a valid UUID."""
+    ids: set[uuid.UUID] = set()
+    if not isinstance(new_value, list):
+        return ids
+    for ref in new_value:
+        rid = ref.get("id") if isinstance(ref, dict) else ref
+        if not rid:
+            continue
+        try:
+            ids.add(uuid.UUID(str(rid)))
+        except (ValueError, TypeError):
+            continue
+    return ids
+
+
+async def _apply_relation_change(
+    db: AsyncSession,
+    card: Card,
+    field_def: dict,
+    new_value: object,
+    actor_id: uuid.UUID,
+) -> bool:
+    """Sync the surveyed card's relations of one type to the respondent's
+    proposed set: create the links they added, delete the ones they removed.
+    Emits relation events for both endpoints (audit parity with the relations
+    API) and recalculates calculated fields on every touched card. Returns
+    True when anything changed."""
+    # Local imports avoid any router import-ordering coupling.
+    from app.api.v1.relations import _emit_relation_events
+    from app.services.calculation_engine import run_calculations_for_card
+
+    rtk = field_def["relation_type_key"]
+    direction = field_def["direction"]
+    desired_ids = _relation_peer_ids(new_value)
+
+    if direction == "outgoing":
+        q = select(Relation).where(Relation.type == rtk, Relation.source_id == card.id)
+    else:
+        q = select(Relation).where(Relation.type == rtk, Relation.target_id == card.id)
+    existing = (await db.execute(q)).scalars().all()
+    current: dict[uuid.UUID, Relation] = {}
+    for rel in existing:
+        peer = rel.target_id if direction == "outgoing" else rel.source_id
+        current[peer] = rel
+
+    to_add = desired_ids - set(current.keys())
+    to_remove = set(current.keys()) - desired_ids
+    if not to_add and not to_remove:
+        return False
+
+    touched: set[uuid.UUID] = set()
+    extra = {"source": "survey_response"}
+
+    for peer_id in to_add:
+        peer_card = await db.get(Card, peer_id)
+        # Only link to active peers; skip stale ids the respondent may carry.
+        if not peer_card or peer_card.status != "ACTIVE":
+            continue
+        if direction == "outgoing":
+            rel = Relation(type=rtk, source_id=card.id, target_id=peer_id)
+            source_card, target_card = card, peer_card
+        else:
+            rel = Relation(type=rtk, source_id=peer_id, target_id=card.id)
+            source_card, target_card = peer_card, card
+        db.add(rel)
+        await db.flush()
+        await _emit_relation_events(
+            db,
+            event_type="relation.created",
+            rel=rel,
+            source_card=source_card,
+            target_card=target_card,
+            actor_id=actor_id,
+            extra=extra,
+        )
+        touched.add(peer_id)
+
+    for peer_id in to_remove:
+        rel = current[peer_id]
+        peer_card = await db.get(Card, peer_id)
+        if direction == "outgoing":
+            source_card, target_card = card, peer_card
+        else:
+            source_card, target_card = peer_card, card
+        await _emit_relation_events(
+            db,
+            event_type="relation.deleted",
+            rel=rel,
+            source_card=source_card,
+            target_card=target_card,
+            actor_id=actor_id,
+            extra=extra,
+        )
+        await db.delete(rel)
+        touched.add(peer_id)
+
+    await run_calculations_for_card(db, card)
+    for cid in touched:
+        peer_card = await db.get(Card, cid)
+        if peer_card is not None:
+            await run_calculations_for_card(db, peer_card)
+
+    return bool(touched)
+
+
 # ── Admin endpoints ──────────────────────────────────────────────────────────
 
 
@@ -641,8 +797,9 @@ async def apply_responses(
         # Apply changes from response, recording old → new per field so the
         # audit event has parity with the regular PATCH /cards/{id} path.
         field_responses = resp.responses or {}
+        field_defs = {f.get("key"): f for f in (survey.fields or []) if isinstance(f, dict)}
         old_attrs = card.attributes or {}
-        attrs = dict(old_attrs)
+        attr_updates: dict[str, object] = {}
         changes: dict[str, dict[str, object]] = {}
 
         for field_key, field_data in field_responses.items():
@@ -651,15 +808,26 @@ async def apply_responses(
             confirmed = field_data.get("confirmed", False)
             new_value = field_data.get("new_value")
 
+            field_def = field_defs.get(field_key) or {}
+            if _is_relation_field(field_def):
+                # Relation edits create/delete their own rows + emit relation
+                # events; they don't touch card.attributes.
+                if not confirmed and new_value is not None:
+                    await _apply_relation_change(db, card, field_def, new_value, user.id)
+                continue
+
             if not confirmed and new_value is not None:
                 changes[f"attr_{field_key}"] = {
                     "old": old_attrs.get(field_key),
                     "new": new_value,
                 }
-                attrs[field_key] = new_value
+                attr_updates[field_key] = new_value
 
         if changes:
-            card.attributes = attrs
+            # Merge onto the live attributes — a relation edit in the same
+            # response may have recomputed calculated fields, which we must not
+            # clobber with a pre-loop snapshot.
+            card.attributes = {**(card.attributes or {}), **attr_updates}
             card.updated_by = user.id
             # Audit-log the survey-driven update so it shows up in the card's
             # History tab alongside manual edits. The `source` payload field
@@ -744,6 +912,17 @@ async def get_response_form(
     attrs = card.attributes or {}
     fields_with_values = []
     for field_def in survey.fields or []:
+        # Relation fields carry the live set of linked cards as their value
+        # instead of an attribute, and need no metamodel field/option enrichment.
+        if _is_relation_field(field_def):
+            fields_with_values.append(
+                {
+                    **field_def,
+                    "current_value": await _relation_field_peers(db, card.id, field_def),
+                }
+            )
+            continue
+
         current_value = attrs.get(field_def["key"])
         meta_field = meta_field_by_key.get(field_def["key"]) or {}
         enriched: dict = {**field_def, "current_value": current_value}
@@ -842,8 +1021,12 @@ async def submit_response(
     for field_def in survey.fields or []:
         key = field_def["key"]
         submitted = body.responses.get(key, {})
+        if _is_relation_field(field_def):
+            current_value: object = await _relation_field_peers(db, card.id, field_def)
+        else:
+            current_value = attrs.get(key)
         full_responses[key] = {
-            "current_value": attrs.get(key),
+            "current_value": current_value,
             "new_value": submitted.get("new_value"),
             "confirmed": submitted.get("confirmed", False),
         }

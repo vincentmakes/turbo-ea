@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import Box from "@mui/material/Box";
@@ -12,6 +12,7 @@ import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import Switch from "@mui/material/Switch";
 import FormControlLabel from "@mui/material/FormControlLabel";
+import Autocomplete from "@mui/material/Autocomplete";
 import IconButton from "@mui/material/IconButton";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import Tooltip from "@mui/material/Tooltip";
@@ -22,6 +23,19 @@ import type { SurveyRespondForm, SurveyField } from "@/types";
 
 type OptionLabelResolver = (key: string, translations?: Record<string, string>) => string;
 
+interface RelationRef {
+  id: string;
+  name: string;
+}
+
+/** True when a value is a list of related-card references ({id, name}). */
+function isRelationRefList(val: unknown): val is RelationRef[] {
+  return (
+    Array.isArray(val) &&
+    val.every((v) => v !== null && typeof v === "object" && "id" in (v as object))
+  );
+}
+
 /** Resolve a value to its display label using field options when available. */
 function formatValue(
   val: unknown,
@@ -29,6 +43,10 @@ function formatValue(
   t?: (key: string) => string,
   rl?: OptionLabelResolver,
 ): string {
+  if (field?.kind === "relation" || isRelationRefList(val)) {
+    if (!isRelationRefList(val) || val.length === 0) return "—";
+    return val.map((r) => r.name).join(", ");
+  }
   if (val === null || val === undefined || val === "") return "—";
   if (typeof val === "boolean") return val ? (t ? t("common:labels.yes") : "Yes") : (t ? t("common:labels.no") : "No");
 
@@ -52,6 +70,68 @@ function formatValue(
 interface FieldResponse {
   confirmed: boolean;
   new_value: unknown;
+}
+
+/** Card-picker for a relation survey field: search cards of the related type
+ * and edit the linked set. Manages its own debounced search + options. */
+function RelationFieldEditor({
+  relatedTypeKey,
+  value,
+  onChange,
+  placeholder,
+}: {
+  relatedTypeKey?: string;
+  value: RelationRef[];
+  onChange: (refs: RelationRef[]) => void;
+  placeholder: string;
+}) {
+  const [search, setSearch] = useState("");
+  const [options, setOptions] = useState<RelationRef[]>([]);
+
+  useEffect(() => {
+    if (!relatedTypeKey || search.length < 2) {
+      setOptions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.get<{ items: RelationRef[] }>(
+          `/cards?type=${encodeURIComponent(relatedTypeKey)}&search=${encodeURIComponent(search)}&page_size=20`,
+        );
+        setOptions(res.items.map((c) => ({ id: c.id, name: c.name })));
+      } catch {
+        // ignore — empty option list
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search, relatedTypeKey]);
+
+  const merged = useMemo(() => {
+    const ids = new Set(options.map((o) => o.id));
+    return [...options, ...value.filter((v) => !ids.has(v.id))];
+  }, [options, value]);
+
+  return (
+    <Autocomplete
+      multiple
+      filterSelectedOptions
+      options={merged}
+      getOptionLabel={(o) => o.name}
+      isOptionEqualToValue={(opt, val) => opt.id === val.id}
+      value={value}
+      inputValue={search}
+      onInputChange={(_, val, reason) => {
+        if (reason !== "reset") setSearch(val);
+      }}
+      onChange={(_, vals) => onChange(vals)}
+      renderInput={(params) => <TextField {...params} size="small" placeholder={placeholder} />}
+      renderTags={(vals, getTagProps) =>
+        vals.map((v, i) => (
+          <Chip {...getTagProps({ index: i })} key={v.id} label={v.name} size="small" />
+        ))
+      }
+    />
+  );
 }
 
 export default function SurveyRespond() {
@@ -143,6 +223,20 @@ export default function SurveyRespond() {
 
   const renderFieldInput = (field: SurveyField & { current_value: unknown }, resp: FieldResponse) => {
     if (resp.confirmed) return null; // No input needed if confirmed
+
+    if (field.kind === "relation") {
+      // Baseline = current links; respondent edits the set (add/remove).
+      const current = isRelationRefList(field.current_value) ? field.current_value : [];
+      const selected = isRelationRefList(resp.new_value) ? resp.new_value : current;
+      return (
+        <RelationFieldEditor
+          relatedTypeKey={field.related_type_key}
+          value={selected}
+          onChange={(refs) => setNewValue(field.key, refs)}
+          placeholder={t("surveys.respond.searchRelated")}
+        />
+      );
+    }
 
     const value = resp.new_value ?? field.current_value ?? "";
 
@@ -329,7 +423,9 @@ export default function SurveyRespond() {
         return (
           <Card key={field.key} sx={{ mb: 2, p: 2 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-              <Typography sx={{ fontWeight: 600, flex: 1 }}>{rl(field.key, field.translations)}</Typography>
+              <Typography sx={{ fontWeight: 600, flex: 1 }}>
+                {field.kind === "relation" ? field.label : rl(field.key, field.translations)}
+              </Typography>
               <Chip
                 label={isMaintain ? t("surveys.respond.maintain") : t("surveys.respond.confirmLabel")}
                 size="small"

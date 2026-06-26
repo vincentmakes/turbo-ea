@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.48.0] - 2026-06-26
+
+### Added
+- **Surveys can now ask respondents to maintain relationships, not just attributes.** When building a survey, the Fields step has a new **Relations** section listing every relationship the target card type can have (in both directions). Pick any to have respondents review the linked cards — set each to **Maintain** (edit the linked set: add or remove cards via a search picker) or **Confirm** (acknowledge the current links are correct). Applying a response syncs the relations on the card, recorded in its history like a normal relation change.
+
 ## [1.47.3] - 2026-06-26
 
 ### Fixed

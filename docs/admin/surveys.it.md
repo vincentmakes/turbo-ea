@@ -51,6 +51,15 @@ Progettate le vostre domande. Ogni domanda può essere:
 - **Data** — Selettore di data
 - **Booleano** — Interruttore Sì/No
 
+### Relazioni
+
+Oltre agli attributi, un'indagine può anche chiedere ai rispondenti di mantenere aggiornate le **relazioni** di una scheda. Nel passaggio **Campi**, la sezione **Relazioni** elenca ogni relazione che il tipo di scheda di destinazione può avere, in entrambe le direzioni (ad esempio, per un'Applicazione: *supporta → Componente IT* e *utilizzata da ← Organizzazione*). Per ciascuna selezionata, scegli un'azione:
+
+- **Mantieni** — Il rispondente vede le schede attualmente collegate e può aggiungere o rimuovere collegamenti tramite un selettore di ricerca.
+- **Conferma** — Il rispondente si limita a confermare che i collegamenti attuali sono corretti, oppure disattiva l'interruttore per proporre modifiche.
+
+Quando applichi una risposta di questo tipo, Turbo EA aggiunge i nuovi collegamenti e rimuove quelli rimossi dal rispondente. La modifica viene registrata nella cronologia della scheda, proprio come una modifica manuale di relazione.
+
 ### Auto-azioni
 
 Configurate regole che aggiornano automaticamente gli attributi della card in base alle risposte del sondaggio. Ad esempio, se un rispondente seleziona "Mission Critical" per la criticità aziendale, il campo `businessCriticality` della card può essere aggiornato automaticamente.

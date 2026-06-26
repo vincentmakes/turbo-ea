@@ -51,6 +51,15 @@ Concevez vos questions. Chaque question peut être :
 - **Date** -- Sélecteur de date
 - **Booleen** -- Bascule Oui/Non
 
+### Relations
+
+Au-delà des attributs, une enquête peut également demander aux répondants de tenir à jour les **relations** d'une fiche. À l'étape **Champs**, la section **Relations** répertorie toutes les relations que le type de fiche cible peut avoir, dans les deux sens (par exemple, pour une Application : *prend en charge → Composant informatique* et *utilisée par ← Organisation*). Pour chacune que vous sélectionnez, choisissez une action :
+
+- **Maintenir** — Le répondant voit les fiches actuellement liées et peut ajouter ou supprimer des liens à l'aide d'un sélecteur de recherche.
+- **Confirmer** — Le répondant se contente de confirmer que les liens actuels sont corrects, ou désactive le bouton pour proposer des modifications.
+
+Lorsque vous appliquez une telle réponse, Turbo EA ajoute les nouveaux liens et supprime ceux que le répondant a retirés. La modification est enregistrée dans l'historique de la fiche, tout comme une modification manuelle de relation.
+
 ### Actions automatiques
 
 Configurez des règles qui mettent automatiquement à jour les attributs des fiches en fonction des réponses à l'enquête. Par exemple, si un répondant sélectionne « Mission critique » pour la criticité métier, le champ `businessCriticality` de la fiche peut être mis à jour automatiquement.
