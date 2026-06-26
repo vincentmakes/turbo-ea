@@ -52,6 +52,27 @@ export default function OverviewTab() {
   const theme = useTheme();
   const isRtl = useIsRtl();
   const { t } = useTranslation("common");
+
+  // In RTL the inherited document `direction` flips how SVG text-anchor resolves,
+  // so the default axis ticks render the label over the bars instead of outside.
+  // This custom tick anchors the label just outside the right-side axis.
+  const rtlAxisTick = (props: {
+    x?: string | number;
+    y?: string | number;
+    payload?: { value?: string | number };
+  }) => (
+    <text
+      x={Number(props.x ?? 0) + 8}
+      y={Number(props.y ?? 0)}
+      direction="rtl"
+      textAnchor="end"
+      dominantBaseline="central"
+      fontSize={12}
+      fill={theme.palette.text.secondary}
+    >
+      {props.payload?.value ?? ""}
+    </text>
+  );
   const { types } = useMetamodel();
   const rml = useResolveMetaLabel();
   const [data, setData] = useState<DashboardData | null>(null);
@@ -229,30 +250,7 @@ export default function OverviewTab() {
                       width={150}
                       orientation={isRtl ? "right" : "left"}
                       tickMargin={8}
-                      tick={
-                        isRtl
-                          ? ({ x, y, payload }: {
-                              x?: string | number;
-                              y?: string | number;
-                              payload?: { value?: string };
-                            }) => (
-                              // In RTL the document `direction` flips how text-anchor resolves, so
-                              // the default tick renders the label over the bars. Anchor it explicitly
-                              // to the right of the (right-side) axis so it sits outside the bars.
-                              <text
-                                x={Number(x ?? 0) + 10}
-                                y={Number(y ?? 0)}
-                                direction="rtl"
-                                textAnchor="end"
-                                dominantBaseline="central"
-                                fontSize={12}
-                                fill={theme.palette.text.secondary}
-                              >
-                                {payload?.value ?? ""}
-                              </text>
-                            )
-                          : { fontSize: 12, fill: theme.palette.text.secondary }
-                      }
+                      tick={isRtl ? rtlAxisTick : { fontSize: 12, fill: theme.palette.text.secondary }}
                       tickLine={false}
                     />
                     <RTooltip
@@ -358,7 +356,20 @@ export default function OverviewTab() {
                     <Legend
                       align={isRtl ? "right" : "left"}
                       wrapperStyle={{ direction: isRtl ? "rtl" : "ltr" }}
-                      formatter={(value: string) => <span style={{ color: theme.palette.text.primary }}>{value}</span>}
+                      formatter={(value: string) => (
+                        // Recharts' default item spacing is a physical margin-right that
+                        // collapses in RTL; logical inline margins restore the gap between
+                        // the swatch and the label and between items.
+                        <span
+                          style={
+                            isRtl
+                              ? { color: theme.palette.text.primary, marginInlineStart: 4, marginInlineEnd: 16 }
+                              : { color: theme.palette.text.primary }
+                          }
+                        >
+                          {value}
+                        </span>
+                      )}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -382,7 +393,7 @@ export default function OverviewTab() {
                 <BarChart data={dataQualityChartData} margin={mirrorMargin({ left: 0, right: 16, top: 8, bottom: 4 }, isRtl)}>
                   <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
                   <XAxis dataKey="name" reversed={isRtl} tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
-                  <YAxis allowDecimals={false} orientation={isRtl ? "right" : "left"} tick={{ fill: theme.palette.text.secondary }} />
+                  <YAxis allowDecimals={false} orientation={isRtl ? "right" : "left"} tick={isRtl ? rtlAxisTick : { fill: theme.palette.text.secondary }} />
                   <RTooltip
                     cursor={{ fill: theme.palette.action.hover }}
                     contentStyle={{
@@ -422,7 +433,7 @@ export default function OverviewTab() {
                 <BarChart data={lifecycleChartData} margin={mirrorMargin({ left: 0, right: 16, top: 8, bottom: 4 }, isRtl)}>
                   <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
                   <XAxis dataKey="name" reversed={isRtl} tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
-                  <YAxis allowDecimals={false} orientation={isRtl ? "right" : "left"} tick={{ fill: theme.palette.text.secondary }} />
+                  <YAxis allowDecimals={false} orientation={isRtl ? "right" : "left"} tick={isRtl ? rtlAxisTick : { fill: theme.palette.text.secondary }} />
                   <RTooltip
                     cursor={{ fill: theme.palette.action.hover }}
                     contentStyle={{
