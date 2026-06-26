@@ -30,6 +30,8 @@ import {
   Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 import { brand, SEVERITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
+import { useIsRtl } from "@/hooks/useIsRtl";
+import { makeRtlAxisTick, rtlLegendItemStyle, rtlTooltipStyle } from "@/lib/rechartsRtl";
 import type { BpmDashboardData } from "@/types";
 import ProcessNavigator from "./ProcessNavigator";
 import BpmReportsContent from "./BpmReportPage";
@@ -65,6 +67,8 @@ function BpmDashboardContent() {
   const { t } = useTranslation(["bpm", "common"]);
   const navigate = useNavigate();
   const theme = useTheme();
+  const isRtl = useIsRtl();
+  const rtlAxisTick = makeRtlAxisTick(theme.palette.text.secondary);
   const [data, setData] = useState<BpmDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
@@ -172,8 +176,8 @@ function BpmDashboardContent() {
                       <Cell key={i} fill={COLORS[i % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
-                  <Legend formatter={(value: string) => <span style={{ color: theme.palette.text.primary }}>{value}</span>} />
+                  <Tooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary, ...rtlTooltipStyle(isRtl) }} />
+                  <Legend formatter={(value: string) => <span style={rtlLegendItemStyle(isRtl, theme.palette.text.primary)}>{value}</span>} />
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>
@@ -188,9 +192,9 @@ function BpmDashboardContent() {
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={maturityData}>
                   <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
-                  <XAxis dataKey="name" tick={{ fill: theme.palette.text.secondary }} />
-                  <YAxis tick={{ fill: theme.palette.text.secondary }} />
-                  <Tooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
+                  <XAxis dataKey="name" reversed={isRtl} tick={{ fill: theme.palette.text.secondary }} />
+                  <YAxis orientation={isRtl ? "right" : "left"} tick={isRtl ? rtlAxisTick : { fill: theme.palette.text.secondary }} />
+                  <Tooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary, ...rtlTooltipStyle(isRtl) }} />
                   <Bar
                     dataKey="value"
                     name={t("dashboard.processes")}
@@ -218,9 +222,9 @@ function BpmDashboardContent() {
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={automationData}>
                   <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
-                  <XAxis dataKey="name" tick={{ fill: theme.palette.text.secondary }} />
-                  <YAxis tick={{ fill: theme.palette.text.secondary }} />
-                  <Tooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
+                  <XAxis dataKey="name" reversed={isRtl} tick={{ fill: theme.palette.text.secondary }} />
+                  <YAxis orientation={isRtl ? "right" : "left"} tick={isRtl ? rtlAxisTick : { fill: theme.palette.text.secondary }} />
+                  <Tooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary, ...rtlTooltipStyle(isRtl) }} />
                   <Bar
                     dataKey="value"
                     name={t("dashboard.processes")}

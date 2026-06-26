@@ -25,6 +25,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useCurrency, type CurrencyFormatter } from "@/hooks/useCurrency";
+import { useIsRtl } from "@/hooks/useIsRtl";
 import { useAuth } from "@/hooks/useAuth";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
@@ -121,18 +122,22 @@ function treemapColor(index: number): string {
 }
 
 const TreemapContent = ({
-  x, y, width, height, name, cost, index, id, costFmt, onCellClick, clickable,
+  x, y, width, height, name, cost, index, id, costFmt, onCellClick, clickable, isRtl,
 }: {
   x: number; y: number; width: number; height: number; name: string; cost: number; index: number;
   id?: string;
   costFmt: CurrencyFormatter;
   onCellClick?: (id: string, name: string) => void;
   clickable?: boolean;
+  isRtl?: boolean;
 }) => {
   if (width < 4 || height < 4) return null;
   const showLabel = width > 50 && height > 30;
   const showCost = width > 70 && height > 45;
   const handleClick = id && onCellClick ? () => onCellClick(id, name) : undefined;
+  // In RTL, anchor the cell labels at the top-right corner so they read correctly.
+  const labelX = isRtl ? x + width - 6 : x + 6;
+  const textDir = isRtl ? { textAnchor: "end" as const, direction: "rtl" as const } : {};
   return (
     <g
       onClick={handleClick}
@@ -140,12 +145,12 @@ const TreemapContent = ({
     >
       <rect x={x} y={y} width={width} height={height} fill={treemapColor(index)} stroke="#fff" strokeWidth={2} rx={3} />
       {showLabel && (
-        <text x={x + 6} y={y + 16} fontSize={11} fontWeight={600} fill="#fff" style={{ pointerEvents: "none" }}>
+        <text x={labelX} y={y + 16} fontSize={11} fontWeight={600} fill="#fff" style={{ pointerEvents: "none" }} {...textDir}>
           {name.length > Math.floor(width / 7) ? name.slice(0, Math.floor(width / 7) - 1) + "\u2026" : name}
         </text>
       )}
       {showCost && (
-        <text x={x + 6} y={y + 30} fontSize={10} fill="rgba(255,255,255,0.8)" style={{ pointerEvents: "none" }}>
+        <text x={labelX} y={y + 30} fontSize={10} fill="rgba(255,255,255,0.8)" style={{ pointerEvents: "none" }} {...textDir}>
           {costFmt.format(cost)}
         </text>
       )}
@@ -163,6 +168,7 @@ export default function CostReport() {
   const rl = useResolveLabel();
   const rml = useResolveMetaLabel();
   const { fmt } = useCurrency();
+  const isRtl = useIsRtl();
   const { user } = useAuth();
   const canViewCostsGlobally = !!(
     user?.permissions?.["*"] || user?.permissions?.["costs.view"]
@@ -717,6 +723,7 @@ export default function CostReport() {
                             costFmt={fmt}
                             onCellClick={handleRectClick}
                             clickable={canDrill}
+                            isRtl={isRtl}
                           />
                         }
                       >

@@ -31,6 +31,7 @@ import { APPROVAL_STATUS_COLORS, DATA_QUALITY_COLORS, STATUS_COLORS } from "@/th
 import type { DashboardData } from "@/types";
 import TrendIndicator from "./TrendIndicator";
 import RecentActivity from "./RecentActivity";
+import { makeRtlAxisTick, rtlLegendItemStyle, mirrorChartMargin } from "@/lib/rechartsRtl";
 
 const DATA_QUALITY_LABELS: Record<string, string> = {
   "0-25": "0 - 25%",
@@ -38,12 +39,6 @@ const DATA_QUALITY_LABELS: Record<string, string> = {
   "50-75": "50 - 75%",
   "75-100": "75 - 100%",
 };
-
-/** Recharts has no global RTL switch, so flip chart geometry per-locale. */
-type ChartMargin = { left?: number; right?: number; top?: number; bottom?: number };
-function mirrorMargin(m: ChartMargin, isRtl: boolean): ChartMargin {
-  return isRtl ? { ...m, left: m.right, right: m.left } : m;
-}
 
 const RADIAN = Math.PI / 180;
 
@@ -54,25 +49,8 @@ export default function OverviewTab() {
   const { t } = useTranslation("common");
 
   // In RTL the inherited document `direction` flips how SVG text-anchor resolves,
-  // so the default axis ticks render the label over the bars instead of outside.
-  // This custom tick anchors the label just outside the right-side axis.
-  const rtlAxisTick = (props: {
-    x?: string | number;
-    y?: string | number;
-    payload?: { value?: string | number };
-  }) => (
-    <text
-      x={Number(props.x ?? 0) + 8}
-      y={Number(props.y ?? 0)}
-      direction="rtl"
-      textAnchor="end"
-      dominantBaseline="central"
-      fontSize={12}
-      fill={theme.palette.text.secondary}
-    >
-      {props.payload?.value ?? ""}
-    </text>
-  );
+  // so default axis ticks render over the bars; this anchors them outside instead.
+  const rtlAxisTick = makeRtlAxisTick(theme.palette.text.secondary);
   const { types } = useMetamodel();
   const rml = useResolveMetaLabel();
   const [data, setData] = useState<DashboardData | null>(null);
@@ -357,18 +335,7 @@ export default function OverviewTab() {
                       align={isRtl ? "right" : "left"}
                       wrapperStyle={{ direction: isRtl ? "rtl" : "ltr" }}
                       formatter={(value: string) => (
-                        // Recharts' default item spacing is a physical margin-right that
-                        // collapses in RTL; logical inline margins restore the gap between
-                        // the swatch and the label and between items.
-                        <span
-                          style={
-                            isRtl
-                              ? { color: theme.palette.text.primary, marginInlineStart: 4, marginInlineEnd: 16 }
-                              : { color: theme.palette.text.primary }
-                          }
-                        >
-                          {value}
-                        </span>
+                        <span style={rtlLegendItemStyle(isRtl, theme.palette.text.primary)}>{value}</span>
                       )}
                     />
                   </PieChart>
@@ -390,7 +357,7 @@ export default function OverviewTab() {
                 {t("dashboard.completionDistribution")}
               </Typography>
               <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={dataQualityChartData} margin={mirrorMargin({ left: 0, right: 16, top: 8, bottom: 4 }, isRtl)}>
+                <BarChart data={dataQualityChartData} margin={mirrorChartMargin({ left: 0, right: 16, top: 8, bottom: 4 }, isRtl)}>
                   <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
                   <XAxis dataKey="name" reversed={isRtl} tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
                   <YAxis allowDecimals={false} orientation={isRtl ? "right" : "left"} tick={isRtl ? rtlAxisTick : { fill: theme.palette.text.secondary }} />
@@ -430,7 +397,7 @@ export default function OverviewTab() {
                 {t("dashboard.lifecycleOverview")}
               </Typography>
               <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={lifecycleChartData} margin={mirrorMargin({ left: 0, right: 16, top: 8, bottom: 4 }, isRtl)}>
+                <BarChart data={lifecycleChartData} margin={mirrorChartMargin({ left: 0, right: 16, top: 8, bottom: 4 }, isRtl)}>
                   <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
                   <XAxis dataKey="name" reversed={isRtl} tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
                   <YAxis allowDecimals={false} orientation={isRtl ? "right" : "left"} tick={isRtl ? rtlAxisTick : { fill: theme.palette.text.secondary }} />

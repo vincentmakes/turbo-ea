@@ -29,6 +29,8 @@ import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { useIsRtl } from "@/hooks/useIsRtl";
+import { makeRtlAxisTick, rtlLegendItemStyle, rtlTooltipStyle } from "@/lib/rechartsRtl";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip,
   Legend, ResponsiveContainer,
@@ -50,6 +52,8 @@ const DIMENSIONS = [
 export default function ProcessAssessmentPanel({ processId }: Props) {
   const { t } = useTranslation(["bpm", "common"]);
   const theme = useTheme();
+  const isRtl = useIsRtl();
+  const rtlAxisTick = makeRtlAxisTick(theme.palette.text.secondary, 11);
   const { formatDate } = useDateFormat();
   const [assessments, setAssessments] = useState<ProcessAssessment[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -140,6 +144,7 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
               <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
               <XAxis
                 dataKey="date"
+                reversed={isRtl}
                 tick={{ fill: theme.palette.text.secondary, fontSize: 11 }}
                 tickMargin={8}
                 minTickGap={16}
@@ -147,7 +152,8 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
               <YAxis
                 domain={[1, 5]}
                 ticks={[1, 2, 3, 4, 5]}
-                tick={{ fill: theme.palette.text.secondary, fontSize: 11 }}
+                orientation={isRtl ? "right" : "left"}
+                tick={isRtl ? rtlAxisTick : { fill: theme.palette.text.secondary, fontSize: 11 }}
                 width={28}
               />
               <RTooltip
@@ -156,12 +162,13 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
                   borderColor: theme.palette.divider,
                   color: theme.palette.text.primary,
                   fontSize: 12,
+                  ...rtlTooltipStyle(isRtl),
                 }}
               />
               <Legend
-                wrapperStyle={{ fontSize: 12 }}
+                wrapperStyle={{ fontSize: 12, direction: isRtl ? "rtl" : "ltr" }}
                 formatter={(value: string) => (
-                  <span style={{ color: theme.palette.text.primary }}>{value}</span>
+                  <span style={rtlLegendItemStyle(isRtl, theme.palette.text.primary)}>{value}</span>
                 )}
               />
               {DIMENSIONS.map((d) => (

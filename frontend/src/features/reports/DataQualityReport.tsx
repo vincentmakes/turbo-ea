@@ -22,6 +22,8 @@ import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { useIsRtl } from "@/hooks/useIsRtl";
+import { makeRtlAxisTick, rtlLegendItemStyle, mirrorChartMargin } from "@/lib/rechartsRtl";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 
@@ -73,6 +75,8 @@ function dataQualityLabelKey(v: number): string {
 export default function DataQualityReport() {
   const { t } = useTranslation(["reports", "common"]);
   const theme = useTheme();
+  const isRtl = useIsRtl();
+  const rtlAxisTick = makeRtlAxisTick(theme.palette.text.secondary);
   const { formatDate } = useDateFormat();
   const { types } = useMetamodel();
   const rml = useResolveMetaLabel();
@@ -221,15 +225,15 @@ export default function DataQualityReport() {
               {t("dataQuality.completenessByType")}
             </Typography>
             <ResponsiveContainer width="100%" height={Math.max(250, chartData.length * 50)}>
-              <BarChart data={chartData} layout="vertical" margin={{ left: 120, right: 20, top: 5, bottom: 5 }}>
+              <BarChart data={chartData} layout="vertical" margin={mirrorChartMargin({ left: 120, right: 20, top: 5, bottom: 5 }, isRtl)}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={theme.palette.divider} />
-                <XAxis type="number" tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
-                <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
+                <XAxis type="number" reversed={isRtl} tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
+                <YAxis type="category" dataKey="name" width={110} orientation={isRtl ? "right" : "left"} tick={isRtl ? rtlAxisTick : { fontSize: 12, fill: theme.palette.text.secondary }} />
                 <RTooltip cursor={{ fill: theme.palette.action.hover }} content={<CustomTooltip />} />
-                <Legend formatter={(value: string) => <span style={{ color: theme.palette.text.primary }}>{value}</span>} />
+                <Legend formatter={(value: string) => <span style={rtlLegendItemStyle(isRtl, theme.palette.text.primary)}>{value}</span>} />
                 <Bar dataKey={completeLabel} stackId="a" fill={QUALITY_COLORS.complete} radius={[0, 0, 0, 0]} />
                 <Bar dataKey={partialLabel} stackId="a" fill={QUALITY_COLORS.partial} />
-                <Bar dataKey={minimalLabel} stackId="a" fill={QUALITY_COLORS.minimal} radius={[0, 4, 4, 0]} />
+                <Bar dataKey={minimalLabel} stackId="a" fill={QUALITY_COLORS.minimal} radius={isRtl ? [4, 0, 0, 4] : [0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </Paper>
