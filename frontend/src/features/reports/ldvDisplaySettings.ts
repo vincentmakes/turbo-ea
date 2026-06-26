@@ -28,7 +28,7 @@ export const LDV_DEFAULT_SETTINGS: LdvDisplaySettings = {
   showLifecycle: true,
   showHierarchy: false,
   extraFields: [],
-  background: "lines",
+  background: "dots",
 };
 
 let _cache: LdvDisplaySettings | null = null;

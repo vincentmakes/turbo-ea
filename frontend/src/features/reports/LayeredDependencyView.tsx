@@ -32,7 +32,6 @@ import {
   getNodesBounds,
   getViewportForBounds,
   type NodeProps,
-  type NodeChange,
   type EdgeProps,
   type Edge,
   type Node,
@@ -41,6 +40,7 @@ import {
   EdgeLabelRenderer,
   ReactFlowProvider,
   useNodes,
+  useNodesState,
   useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -271,9 +271,13 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         "&:hover": { boxShadow: 4 },
       }}
     >
-      {/* Card-type icon from the metamodel (top-left corner) */}
+      {/* Card-type icon from the metamodel (top-left corner). Tagged
+          `ldv-type-icon` so image export can drop it — it's a Material Symbols
+          font ligature, which html-to-image can't rasterise (it would emit the
+          raw icon name as text). */}
       {data.typeIcon && (
         <Box
+          className="ldv-type-icon"
           sx={{
             position: "absolute",
             top: 5,
@@ -777,23 +781,15 @@ function LayeredDependencyInner({
     [rl, t],
   );
 
-  /* ---- Manual node positions (drag) keyed by node id ---- */
-  const [posOverrides, setPosOverrides] = useState<Record<string, { x: number; y: number }>>({});
-  // Reset manual positions whenever a new graph is laid out (navigation / data change).
-  useEffect(() => {
-    setPosOverrides({});
-  }, [builtNodes]);
-  const onNodesChange = useCallback((changes: NodeChange[]) => {
-    const moves: Record<string, { x: number; y: number }> = {};
-    let has = false;
-    for (const c of changes) {
-      if (c.type === "position" && c.position) {
-        moves[c.id] = { x: c.position.x, y: c.position.y };
-        has = true;
-      }
-    }
-    if (has) setPosOverrides((prev) => ({ ...prev, ...moves }));
-  }, []);
+  /* ---- Node state ----
+     React Flow owns the live node list (positions, drag state, measured sizes)
+     via useNodesState/applyNodeChanges. Rebuilding the array by hand on every
+     render — the previous approach — dropped React Flow's per-node measurements
+     mid-drag, which made cards and their edges vanish until a reload. The
+     builder is assigned below (once the display helpers exist); resetLayout and
+     the re-seed effect call through this ref so they always use the latest one. */
+  const [flowNodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const buildNodesRef = useRef<() => Node[]>(() => []);
 
   /* ---- Fullscreen ---- */
   const containerRef = useRef<HTMLDivElement>(null);
@@ -814,16 +810,16 @@ function LayeredDependencyInner({
 
   /* ---- Background style cycle (lines → dots → none) ---- */
   const cycleBackground = useCallback(() => {
-    const order: BackgroundStyle[] = ["lines", "dots", "none"];
+    const order: BackgroundStyle[] = ["dots", "lines", "none"];
     const idx = order.indexOf(settings.background);
     updateSettings({ background: order[(idx + 1) % order.length] });
   }, [settings.background, updateSettings]);
 
   /* ---- Reset manual layout ---- */
   const resetLayout = useCallback(() => {
-    setPosOverrides({});
+    setNodes(buildNodesRef.current());
     window.setTimeout(() => fitView({ padding: 0.15, duration: 300 }), 30);
-  }, [fitView]);
+  }, [setNodes, fitView]);
 
   /* ---- Re-fit after entering/leaving fullscreen ---- */
   useEffect(() => {
@@ -865,6 +861,11 @@ function LayeredDependencyInner({
         backgroundColor: theme.palette.background.paper,
         width: imageWidth,
         height: imageHeight,
+        // Drop the metamodel card-type icons: they're Material Symbols font
+        // ligatures that html-to-image renders as their raw icon name (e.g.
+        // "apps"). The card keeps its colour, label and lifecycle dot.
+        filter: (node: HTMLElement) =>
+          !(node.classList && node.classList.contains("ldv-type-icon")),
         style: {
           width: `${imageWidth}px`,
           height: `${imageHeight}px`,
@@ -949,65 +950,39 @@ function LayeredDependencyInner({
     [onNodeShiftClick],
   );
 
-  // Inject click + long-press callbacks, per-card display data, and manual
-  // drag positions into ldvNode data. Layer (group) boxes are draggable too —
-  // dragging one moves all of its child cards with it, so the "category"
-  // follows. Cards stay clamped to their layer via extent: "parent".
-  const rfNodes = useMemo(
-    () =>
-      builtNodes.map((n) => {
-        if (n.type !== "ldvNode") {
-          // Layer boundary: draggable, positions overridable, children follow.
-          if (n.type === "ldvGroup") {
-            const ov = posOverrides[n.id];
-            return { ...n, draggable: true, ...(ov ? { position: ov } : {}) };
-          }
-          return n;
-        }
+  // Per-card display data derived from the current display settings. Computed
+  // here so it can be both baked into freshly-built nodes and patched onto
+  // already-positioned nodes (see the patch effect below) without disturbing
+  // their drag positions.
+  const cardDisplayData = useCallback(
+    (n: Node) => {
+      const g = gnodeById.get(n.id);
+      const phase = settings.showLifecycle ? getCurrentPhase(g?.lifecycle) : null;
 
-        const g = gnodeById.get(n.id);
-        const phase = settings.showLifecycle ? getCurrentPhase(g?.lifecycle) : null;
+      // Resolve every chosen extra field to a label/value line (skips empties).
+      const lines: DisplayLine[] = [];
+      for (const fk of settings.extraFields) {
+        const meta = fieldMetaByKey.get(fk);
+        const value = formatVal(g?.attributes?.[fk], meta);
+        if (value === "—") continue;
+        lines.push({ label: meta ? rl(meta.label, meta.translations) : fk, value });
+      }
 
-        // Resolve every chosen extra field to a label/value line (skips empties).
-        const lines: DisplayLine[] = [];
-        for (const fk of settings.extraFields) {
-          const meta = fieldMetaByKey.get(fk);
-          const value = formatVal(g?.attributes?.[fk], meta);
-          if (value === "—") continue;
-          lines.push({ label: meta ? rl(meta.label, meta.translations) : fk, value });
-        }
+      // Plain-text tooltip (native title) with the full detail set.
+      const typeLabelText = (n.data as LdvNodeData).typeLabel || (n.data as LdvNodeData).typeKey;
+      const detailParts = [g?.name ?? (n.data as LdvNodeData).name, `[${typeLabelText}]`];
+      if (phase)
+        detailParts.push(`${t("dependency.lifecycleLabel")}: ${t(`common:lifecycle.${phase}`)}`);
+      for (const l of lines) detailParts.push(`${l.label}: ${l.value}`);
 
-        // Plain-text tooltip (native title) with the full detail set.
-        const typeLabelText =
-          (n.data as LdvNodeData).typeLabel || (n.data as LdvNodeData).typeKey;
-        const detailParts = [g?.name ?? (n.data as LdvNodeData).name, `[${typeLabelText}]`];
-        if (phase) detailParts.push(`${t("dependency.lifecycleLabel")}: ${t(`common:lifecycle.${phase}`)}`);
-        for (const l of lines) detailParts.push(`${l.label}: ${l.value}`);
-        const detailText = detailParts.join("\n");
-
-        const override = posOverrides[n.id];
-        return {
-          ...n,
-          draggable: true,
-          // keep extent: "parent" from the layout so cards stay in their layer
-          ...(override ? { position: override } : {}),
-          data: {
-            ...n.data,
-            nodeId: n.id,
-            onClick: handleLdvNodeClick,
-            showType: settings.showType,
-            lifecyclePhase: phase,
-            extraLines: lines,
-            detailText,
-            ...(onNodeShiftClick && { onLongPress: handleLongPress }),
-          },
-        };
-      }),
+      return {
+        showType: settings.showType,
+        lifecyclePhase: phase,
+        extraLines: lines,
+        detailText: detailParts.join("\n"),
+      };
+    },
     [
-      builtNodes,
-      handleLdvNodeClick,
-      onNodeShiftClick,
-      handleLongPress,
       gnodeById,
       settings.showLifecycle,
       settings.showType,
@@ -1016,9 +991,52 @@ function LayeredDependencyInner({
       formatVal,
       rl,
       t,
-      posOverrides,
     ],
   );
+
+  // Build the full node list from the layout: structure + position, plus click /
+  // long-press callbacks and display data. Layer (group) boxes are draggable so
+  // a whole layer can be moved; cards stay clamped to their layer via extent.
+  const buildDisplayNodes = useCallback(
+    (): Node[] =>
+      builtNodes.map((n) => {
+        if (n.type !== "ldvNode") {
+          if (n.type === "ldvGroup") return { ...n, draggable: true };
+          return n;
+        }
+        return {
+          ...n,
+          draggable: true,
+          data: {
+            ...n.data,
+            nodeId: n.id,
+            onClick: handleLdvNodeClick,
+            ...(onNodeShiftClick && { onLongPress: handleLongPress }),
+            ...cardDisplayData(n),
+          },
+        };
+      }),
+    [builtNodes, handleLdvNodeClick, onNodeShiftClick, handleLongPress, cardDisplayData],
+  );
+  buildNodesRef.current = buildDisplayNodes;
+
+  // Re-seed nodes whenever the layout changes (data / navigation / hierarchy /
+  // expand). Manual drag positions reset here by design. Keyed on builtNodes
+  // only — display-setting changes go through the patch effect so they don't
+  // wipe the user's drags.
+  useEffect(() => {
+    setNodes(buildNodesRef.current());
+  }, [builtNodes, setNodes]);
+
+  // Patch display data onto the live nodes when display settings change, keeping
+  // each node's current (possibly dragged) position and React Flow measurement.
+  useEffect(() => {
+    setNodes((prev) =>
+      prev.map((n) =>
+        n.type === "ldvNode" ? { ...n, data: { ...n.data, ...cardDisplayData(n) } } : n,
+      ),
+    );
+  }, [cardDisplayData, setNodes]);
 
   // In highlight mode, clicking the canvas (not a node) dismisses the highlight
   const handlePaneClick = useCallback(() => {
@@ -1116,7 +1134,7 @@ function LayeredDependencyInner({
     ].join("\n");
   }, [hoveredNeighbors]);
 
-  if (rfNodes.length === 0) {
+  if (builtNodes.length === 0) {
     return (
       <Paper variant="outlined" sx={{ p: 6, textAlign: "center", borderRadius: 2 }}>
         <Typography color="text.disabled">{t("dependency.ldvNoData")}</Typography>
@@ -1238,7 +1256,7 @@ function LayeredDependencyInner({
       <Box sx={{ flex: 1, minHeight: 0 }} className={hoveredNode ? "ldv-hover-active" : undefined}>
         {hoverStyle && <style>{hoverStyle}</style>}
         <ReactFlow
-          nodes={rfNodes}
+          nodes={flowNodes}
           edges={orderedEdges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
@@ -1264,9 +1282,15 @@ function LayeredDependencyInner({
               variant={
                 settings.background === "dots" ? BackgroundVariant.Dots : BackgroundVariant.Lines
               }
-              gap={settings.background === "dots" ? 18 : 28}
-              size={1}
-              color={theme.palette.mode === "dark" ? "#2a2a2a" : "#eef0f2"}
+              gap={settings.background === "dots" ? 16 : 28}
+              size={settings.background === "dots" ? 1.4 : 1}
+              color={
+                theme.palette.mode === "dark"
+                  ? "#3a3a3a"
+                  : settings.background === "dots"
+                    ? "#b8bcc4"
+                    : "#e9ebee"
+              }
             />
           )}
           <Controls showInteractive={false}>

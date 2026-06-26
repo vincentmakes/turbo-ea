@@ -13,9 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Show parent hierarchy in the dependency view.** A new toggle adds each card's parent card to the diagram and draws the *contains / part of* containment link, so hierarchical context (e.g. a parent Organization) is visible alongside the relationship graph.
 - **Card-type icons in the dependency view.** Each card in the Layered Dependency View now shows its metamodel icon in the top-left corner, making card types recognisable at a glance.
 
-### Changed
-- **Dependency view background is cleaner by default.** The canvas now shows a faint line grid instead of the previous dotted pattern, and can be switched off entirely.
-
 ## [1.48.0] - 2026-06-26
 
 ### Added
