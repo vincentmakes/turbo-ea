@@ -182,6 +182,7 @@
   "dependency.background_lines": "grid",
   "dependency.background_dots": "dots",
   "dependency.background_none": "none",
+  "dependency.proposedBadge": "NEW",
   "dependency.highlightMode": "Highlight mode: click a card to highlight its connections",
   "cost.title": "Cost Analysis",
   "cost.cardType": "Card Type",

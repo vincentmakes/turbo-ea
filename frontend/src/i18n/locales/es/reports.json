@@ -182,6 +182,7 @@
   "dependency.background_lines": "cuadrícula",
   "dependency.background_dots": "puntos",
   "dependency.background_none": "ninguno",
+  "dependency.proposedBadge": "NUEVO",
   "dependency.highlightMode": "Modo resaltado: haga clic en una tarjeta para resaltar sus conexiones",
   "cost.title": "Análisis de costos",
   "cost.cardType": "Tipo de ficha",

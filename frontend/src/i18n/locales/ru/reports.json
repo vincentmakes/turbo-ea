@@ -182,6 +182,7 @@
   "dependency.background_lines": "сетка",
   "dependency.background_dots": "точки",
   "dependency.background_none": "нет",
+  "dependency.proposedBadge": "НОВ.",
   "dependency.highlightMode": "Режим подсветки: нажмите на карточку, чтобы подсветить её связи",
   "cost.title": "Анализ стоимости",
   "cost.cardType": "Тип карточки",

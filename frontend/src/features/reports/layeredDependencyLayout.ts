@@ -340,11 +340,15 @@ export function buildLdvFlow(
     yOffset += gl.groupH + GROUP_GAP;
   }
 
+  // Lookup map for node-by-id, reused by the position + grouping passes below
+  // (was a linear `.find()` inside each loop — O(N²)).
+  const nodeById = new Map(rfNodes.map((n) => [n.id, n]));
+
   // Compute absolute center positions for each node (for edge routing)
   const absPos = new Map<string, { x: number; y: number }>();
   for (const n of rfNodes) {
     if (n.type === "ldvNode" && n.parentId) {
-      const parent = rfNodes.find((p) => p.id === n.parentId);
+      const parent = nodeById.get(n.parentId);
       if (parent) {
         absPos.set(n.id, {
           x: parent.position.x + n.position.x + LDV_NODE_W / 2,
@@ -610,7 +614,7 @@ export function buildLdvFlow(
   const nodeGroupCat = new Map<string, string>();
   for (const n of rfNodes) {
     if (n.type === "ldvNode" && n.parentId) {
-      const parent = rfNodes.find((p) => p.id === n.parentId);
+      const parent = nodeById.get(n.parentId);
       if (parent && parent.type === "ldvGroup") {
         nodeGroupCat.set(n.id, parent.id);
       }

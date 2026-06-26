@@ -182,6 +182,7 @@
   "dependency.background_lines": "griglia",
   "dependency.background_dots": "punti",
   "dependency.background_none": "nessuno",
+  "dependency.proposedBadge": "NUOVO",
   "dependency.highlightMode": "Modalità evidenziazione: clicca su una scheda per evidenziare le sue connessioni",
   "cost.title": "Analisi dei costi",
   "cost.cardType": "Tipo di scheda",

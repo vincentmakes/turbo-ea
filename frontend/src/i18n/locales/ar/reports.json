@@ -182,6 +182,7 @@
   "dependency.background_lines": "شبكة",
   "dependency.background_dots": "نقاط",
   "dependency.background_none": "بلا",
+  "dependency.proposedBadge": "جديد",
   "dependency.highlightMode": "وضع التمييز: انقر على بطاقة لتمييز اتصالاتها",
   "cost.title": "تحليل التكلفة",
   "cost.cardType": "نوع البطاقة",

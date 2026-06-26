@@ -1,4 +1,13 @@
-import { useMemo, useCallback, useState, useRef, useEffect, memo } from "react";
+import {
+  useMemo,
+  useCallback,
+  useState,
+  useRef,
+  useEffect,
+  memo,
+  createContext,
+  useContext,
+} from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
@@ -38,7 +47,6 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   ReactFlowProvider,
-  useNodes,
   useNodesState,
   useReactFlow,
 } from "@xyflow/react";
@@ -90,6 +98,36 @@ interface DisplayLine {
   value: string;
 }
 
+/* Obstacle boxes (cards + group-label strips) that edge labels must avoid.
+   Computed once per render in the parent and shared with every edge through
+   context. Previously each edge recomputed this from the full node list with a
+   `.find()` inside the loop — O(E·N²) on every drag frame. */
+type ObstacleBounds = { x1: number; y1: number; x2: number; y2: number };
+const LdvObstaclesContext = createContext<ObstacleBounds[]>([]);
+
+function computeObstacles(nodeList: Node[]): ObstacleBounds[] {
+  const byId = new Map(nodeList.map((n) => [n.id, n]));
+  const bounds: ObstacleBounds[] = [];
+  for (const n of nodeList) {
+    if (n.type === "ldvNode" && n.parentId) {
+      const parent = byId.get(n.parentId);
+      if (!parent) continue;
+      const w = (n.style?.width as number) ?? LDV_NODE_W;
+      const h = (n.style?.height as number) ?? LDV_NODE_H;
+      const ax = parent.position.x + n.position.x;
+      const ay = parent.position.y + n.position.y;
+      bounds.push({ x1: ax, y1: ay, x2: ax + w, y2: ay + h });
+    } else if (n.type === "ldvGroup") {
+      // Group label strip across the top of the box.
+      const gx = n.position.x;
+      const gy = n.position.y;
+      const gw = (n.style?.width as number) ?? 0;
+      bounds.push({ x1: gx, y1: gy, x2: gx + gw, y2: gy + 34 });
+    }
+  }
+  return bounds;
+}
+
 /** Collect a de-duplicated, sorted catalogue of attribute fields across the
  *  card types currently present in the graph — drives the "extra fields" picker. */
 function buildFieldCatalog(types: CardType[], presentTypeKeys: Set<string>): FieldMeta[] {
@@ -119,12 +157,6 @@ function buildFieldCatalog(types: CardType[], presentTypeKeys: Set<string>): Fie
 }
 
 /* ------------------------------------------------------------------ */
-/*  Module-level long-press flag (shared between LdvNode and click handler) */
-/* ------------------------------------------------------------------ */
-
-let _longPressFired = false;
-
-/* ------------------------------------------------------------------ */
 /*  Custom Layered Dependency View Node                                */
 /* ------------------------------------------------------------------ */
 
@@ -149,9 +181,12 @@ export function readableTypeColor(hex: string, isDark: boolean): string {
 
 const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   const rml = useResolveMetaLabel();
+  const { t } = useTranslation("reports");
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
-  const color = data.typeColor;
+  // Fall back to a neutral grey if the type colour isn't a #rrggbb hex, so the
+  // tint maths below can't produce rgb(NaN,…).
+  const color = /^#[0-9a-fA-F]{6}$/.test(data.typeColor) ? data.typeColor : "#9e9e9e";
   // Lightened version for borders and caption text — keeps darker
   // card-type colors (BusinessCapability navy, DataObject purple, etc.)
   // readable against the dark-theme paper.
@@ -201,6 +236,9 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   const fireTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pressing, setPressing] = useState(false);
   const downPos = useRef<{ x: number; y: number; shift: boolean } | null>(null);
+  // Per-node long-press flag (was a module global, which let one card's
+  // long-press suppress another card's click under multi-touch).
+  const longPressFiredRef = useRef(false);
 
   const clearTimer = useCallback(() => {
     if (showTimerRef.current) {
@@ -214,41 +252,71 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
     setPressing(false);
   }, []);
 
+  const { onClick, onLongPress, nodeId } = data;
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
       downPos.current = { x: e.clientX, y: e.clientY, shift: e.shiftKey };
-      if (!data.onLongPress || !data.nodeId) return;
-      _longPressFired = false;
+      if (!onLongPress || !nodeId) return;
+      longPressFiredRef.current = false;
       showTimerRef.current = setTimeout(() => setPressing(true), 150);
       fireTimerRef.current = setTimeout(() => {
-        _longPressFired = true;
+        longPressFiredRef.current = true;
         setPressing(false);
-        data.onLongPress!(data.nodeId!);
+        onLongPress(nodeId);
       }, 1000);
     },
-    [data],
+    [onLongPress, nodeId],
+  );
+
+  // Cancel the long-press (and the click) as soon as the pointer is dragged:
+  // moving a card must not also trigger its long-press "centre on this card".
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      const d = downPos.current;
+      if (!d) return;
+      if (Math.abs(e.clientX - d.x) > 5 || Math.abs(e.clientY - d.y) > 5) {
+        clearTimer();
+        downPos.current = null;
+      }
+    },
+    [clearTimer],
   );
 
   const handlePointerUp = useCallback(
     (e: React.PointerEvent) => {
       clearTimer();
-      if (_longPressFired) { _longPressFired = false; downPos.current = null; return; }
+      if (longPressFiredRef.current) {
+        longPressFiredRef.current = false;
+        downPos.current = null;
+        return;
+      }
       const d = downPos.current;
       downPos.current = null;
       if (!d) return;
       if (Math.abs(e.clientX - d.x) > 5 || Math.abs(e.clientY - d.y) > 5) return;
       // Stop propagation so React Flow doesn't also fire its own click handler
       e.stopPropagation();
-      if (data.onClick && data.nodeId) data.onClick(data.nodeId, d.shift);
+      if (onClick && nodeId) onClick(nodeId, d.shift);
     },
-    [data, clearTimer],
+    [onClick, nodeId, clearTimer],
   );
 
   return (
     <Box
       title={detailText}
+      role="button"
+      tabIndex={0}
+      aria-label={detailText}
       onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        // Keyboard equivalent of a tap: Enter/Space activates the card.
+        if ((e.key === "Enter" || e.key === " ") && onClick && nodeId) {
+          e.preventDefault();
+          onClick(nodeId, e.shiftKey);
+        }
+      }}
       onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={clearTimer}
       onPointerLeave={clearTimer}
@@ -318,7 +386,7 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           px: 0.7, py: 0.25, borderRadius: "4px",
           textTransform: "uppercase", letterSpacing: 0.5,
         }}>
-          NEW
+          {t("dependency.proposedBadge")}
         </Box>
       )}
       {/* Long-press radial progress ring */}
@@ -474,8 +542,8 @@ LdvGroup.displayName = "LdvGroup";
 /*  Custom Layered Dependency View Edge (smoothstep + hover highlight) */
 /* ------------------------------------------------------------------ */
 
-const LdvEdgeComponent = (
-  {
+const LdvEdgeComponent = memo(
+  ({
     id,
     sourceX,
     sourceY,
@@ -486,8 +554,7 @@ const LdvEdgeComponent = (
     data,
     markerEnd,
     markerStart,
-  }: EdgeProps,
-) => {
+  }: EdgeProps) => {
     const theme = useTheme();
     const edgeData = data as LdvEdgeData | undefined;
     const connectedToHovered = edgeData?.connectedToHovered ?? false;
@@ -529,31 +596,9 @@ const LdvEdgeComponent = (
       ? (isDark ? "#4fc3f7" : "#1976d2")
       : (isDark ? "#444" : "#ccc");
 
-    // Build node + group-label bounding boxes from React Flow nodes for overlap detection
-    const rfNodes = useNodes();
-    const obstacleBounds = useMemo(() => {
-      const bounds: { x1: number; y1: number; x2: number; y2: number }[] = [];
-      for (const n of rfNodes) {
-        if (n.type === "ldvNode" && n.parentId) {
-          const parent = rfNodes.find((p) => p.id === n.parentId);
-          if (!parent) continue;
-          const w = (n.style?.width as number) ?? LDV_NODE_W;
-          const h = (n.style?.height as number) ?? LDV_NODE_H;
-          const ax = parent.position.x + n.position.x;
-          const ay = parent.position.y + n.position.y;
-          bounds.push({ x1: ax, y1: ay, x2: ax + w, y2: ay + h });
-        } else if (n.type === "ldvGroup") {
-          // Group label text area (top-left corner of group box)
-          const gx = n.position.x;
-          const gy = n.position.y;
-          const gw = (n.style?.width as number) ?? 0;
-          // Label sits at top:8 left:14, ~13px font, covers roughly top 30px
-          // Use full group width for the label strip to avoid any overlap
-          bounds.push({ x1: gx, y1: gy, x2: gx + gw, y2: gy + 34 });
-        }
-      }
-      return bounds;
-    }, [rfNodes]);
+    // Node + group-label bounding boxes for label-overlap avoidance, computed
+    // once in the parent and shared via context (see LdvObstaclesContext).
+    const obstacleBounds = useContext(LdvObstaclesContext);
 
     // Find a label position along the path that doesn't overlap any node
     const pathRef = useRef<SVGPathElement>(null);
@@ -668,7 +713,9 @@ const LdvEdgeComponent = (
         )}
       </>
     );
-  };
+  },
+);
+LdvEdgeComponent.displayName = "LdvEdgeComponent";
 
 /* ------------------------------------------------------------------ */
 /*  Node types registry                                                */
@@ -1074,6 +1121,14 @@ function LayeredDependencyInner({
     }
     return cbs;
   }, []);
+  // Drop cached hover callbacks for edges that no longer exist (navigation /
+  // expand / collapse) so the map can't grow unbounded over a long session.
+  useEffect(() => {
+    const live = new Set(rfEdges.map((e) => e.id));
+    for (const id of edgeHoverCbs.current.keys()) {
+      if (!live.has(id)) edgeHoverCbs.current.delete(id);
+    }
+  }, [rfEdges]);
 
   // Highlight all connections when hovering a card node
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
@@ -1143,6 +1198,10 @@ function LayeredDependencyInner({
     ].join("\n");
   }, [hoveredNeighbors]);
 
+  // Obstacle boxes for edge-label placement — computed once here and shared
+  // with every edge via context (each edge no longer walks the node list).
+  const obstacles = useMemo(() => computeObstacles(flowNodes), [flowNodes]);
+
   if (builtNodes.length === 0) {
     return (
       <Paper variant="outlined" sx={{ p: 6, textAlign: "center", borderRadius: 2 }}>
@@ -1152,6 +1211,7 @@ function LayeredDependencyInner({
   }
 
   return (
+    <LdvObstaclesContext.Provider value={obstacles}>
     <Paper
       ref={containerRef}
       variant="outlined"
@@ -1456,6 +1516,7 @@ function LayeredDependencyInner({
         />
       </Popover>
     </Paper>
+    </LdvObstaclesContext.Provider>
   );
 }
 
