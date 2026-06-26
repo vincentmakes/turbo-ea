@@ -12,7 +12,6 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Popover from "@mui/material/Popover";
 import Switch from "@mui/material/Switch";
-import FormControlLabel from "@mui/material/FormControlLabel";
 import Divider from "@mui/material/Divider";
 import Autocomplete from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
@@ -264,7 +263,10 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         alignItems: "center",
         justifyContent: "center",
         px: 1,
-        cursor: "pointer",
+        // Cards are draggable: use the grab/grabbing cursor so it doesn't
+        // flicker against React Flow's drag cursor (the previous "pointer" did).
+        cursor: "grab",
+        "&:active": { cursor: "grabbing" },
         position: "relative",
         transition: "box-shadow 0.15s, opacity 0.15s",
         touchAction: "none",
@@ -1278,17 +1280,20 @@ function LayeredDependencyInner({
           colorMode={theme.palette.mode}
         >
           {settings.background !== "none" && (
+            // Dots replicate the original pre-toolbar background exactly
+            // (`gap={16} size={1}`, React Flow's default theme-aware dot colour).
+            // Lines are the new alternative and use a faint custom colour.
             <Background
               variant={
                 settings.background === "dots" ? BackgroundVariant.Dots : BackgroundVariant.Lines
               }
               gap={settings.background === "dots" ? 16 : 28}
-              size={settings.background === "dots" ? 1.4 : 1}
+              size={1}
               color={
-                theme.palette.mode === "dark"
-                  ? "#3a3a3a"
-                  : settings.background === "dots"
-                    ? "#b8bcc4"
+                settings.background === "dots"
+                  ? undefined
+                  : theme.palette.mode === "dark"
+                    ? "#2a2a2a"
                     : "#e9ebee"
               }
             />
@@ -1375,46 +1380,51 @@ function LayeredDependencyInner({
         transformOrigin={{ vertical: "top", horizontal: "right" }}
         slotProps={{ paper: { sx: { p: 2, width: 320, maxWidth: "90vw" } } }}
       >
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
           {t("dependency.displaySettings")}
         </Typography>
-        <FormControlLabel
-          control={
-            <Switch
-              size="small"
-              checked={settings.showType}
-              onChange={(e) => updateSettings({ showType: e.target.checked })}
-            />
-          }
-          label={<Typography variant="body2">{t("dependency.showType")}</Typography>}
-        />
-        <FormControlLabel
-          control={
-            <Switch
-              size="small"
-              checked={settings.showLifecycle}
-              onChange={(e) => updateSettings({ showLifecycle: e.target.checked })}
-            />
-          }
-          label={<Typography variant="body2">{t("dependency.showLifecycle")}</Typography>}
-        />
-        <FormControlLabel
-          control={
-            <Switch
-              size="small"
-              checked={settings.showHierarchy}
-              onChange={(e) => updateSettings({ showHierarchy: e.target.checked })}
-            />
-          }
-          label={
-            <Box>
-              <Typography variant="body2">{t("dependency.showHierarchy")}</Typography>
-              <Typography variant="caption" color="text.secondary">
-                {t("dependency.showHierarchyHint")}
-              </Typography>
+        {(
+          [
+            { key: "showType", label: t("dependency.showType") },
+            { key: "showLifecycle", label: t("dependency.showLifecycle") },
+            {
+              key: "showHierarchy",
+              label: t("dependency.showHierarchy"),
+              hint: t("dependency.showHierarchyHint"),
+            },
+          ] as const
+        ).map((row) => (
+          <Box
+            key={row.key}
+            sx={{
+              display: "flex",
+              alignItems: "hint" in row && row.hint ? "flex-start" : "center",
+              justifyContent: "space-between",
+              gap: 2,
+              py: 0.5,
+            }}
+          >
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="body2">{row.label}</Typography>
+              {"hint" in row && row.hint && (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: "block", lineHeight: 1.35, mt: 0.25 }}
+                >
+                  {row.hint}
+                </Typography>
+              )}
             </Box>
-          }
-        />
+            <Switch
+              size="small"
+              checked={settings[row.key]}
+              onChange={(e) => updateSettings({ [row.key]: e.target.checked })}
+              inputProps={{ "aria-label": row.label }}
+              sx={{ flexShrink: 0, mt: "hint" in row && row.hint ? "2px" : 0 }}
+            />
+          </Box>
+        ))}
         <Divider sx={{ my: 1.5 }} />
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
           {t("dependency.extraFieldsHint", { count: MAX_CARD_LINES })}
