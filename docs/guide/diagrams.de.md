@@ -6,7 +6,22 @@ Das Modul **Diagramme** ermöglicht es Ihnen, **visuelle Architekturdiagramme** 
 
 ## Diagramm-Galerie
 
-Die Galerie listet jedes Diagramm mit einer Miniaturansicht, dem Namen, dem Typ und den referenzierten Karten auf. Von hier aus können Sie jedes Diagramm **Erstellen**, **Öffnen**, **Details bearbeiten** oder **Löschen**.
+Die Galerie listet jedes Diagramm als kompakte Karte mit Vorschaubild, Name, Autor und der Anzahl der referenzierten Karten auf. Wechseln Sie zwischen **Karten-** und **Listenansicht** und **Erstellen**, **Öffnen**, **Details bearbeiten**, organisieren oder **Löschen** Sie jedes Diagramm.
+
+### Diagramme finden
+
+- **Filter-Seitenleiste** — die linke Leiste schränkt die Galerie auf **Alle Diagramme**, **Von mir erstellt** oder Ihre **Favoriten** ein und filtert nach Diagramm**typ** (Data Flow / Free Draw).
+- **Suche** — das Suchfeld findet Diagramme anhand ihres Namens, ihres Autors und der Namen der darin gezeichneten Karten, sodass Sie ein Diagramm anhand seines Inhalts finden können.
+- **Sortierung** — nach zuletzt aktualisiert, zuletzt erstellt oder Name.
+- **Favoriten** — klicken Sie auf den Stern einer Karte, um sie zu Ihren persönlichen Favoriten hinzuzufügen; der Filter **Favoriten** zeigt sie alle an.
+
+### Bereiche
+
+Gruppieren Sie zusammengehörige Diagramme in **Bereiche** — gemeinsame, arbeitsbereichsweite Etiketten. Ein Diagramm kann gleichzeitig zu mehreren Bereichen gehören. In der Kartenansicht zeigt die Galerie jeden Bereich als einklappbare Überschrift; nicht zugeordnete Diagramme erscheinen unter **Nicht gruppiert**.
+
+- Verwenden Sie **Bereiche verwalten** in der Seitenleiste, um Bereiche zu erstellen, umzubenennen, umzufärben oder zu löschen.
+- Verwenden Sie **Zu Bereichen hinzufügen…** im Menü eines Diagramms, um es in einen oder mehrere Bereiche einzuordnen (Sie können dabei direkt einen neuen Bereich erstellen).
+- Die Auswahl eines Bereichs in der Seitenleiste filtert die Galerie auf genau diesen Bereich.
 
 ## Der Diagramm-Editor
 

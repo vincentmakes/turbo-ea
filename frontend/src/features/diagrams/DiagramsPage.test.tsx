@@ -11,7 +11,7 @@ vi.mock("react-router-dom", async () => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 vi.mock("@/api/client", () => ({
-  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn(), put: vi.fn() },
 }));
 vi.mock("@/hooks/useMetamodel", () => ({
   useMetamodel: () => ({
@@ -23,6 +23,12 @@ vi.mock("@/hooks/useMetamodel", () => ({
     loading: false,
   }),
 }));
+vi.mock("@/hooks/useDateFormat", () => ({
+  useDateFormat: () => ({ formatDate: (iso: string) => iso }),
+}));
+// Section dialogs are exercised separately; stub to keep this suite focused.
+vi.mock("./ManageSectionsDialog", () => ({ default: () => null }));
+vi.mock("./AssignSectionsDialog", () => ({ default: () => null }));
 
 import { api } from "@/api/client";
 import DiagramsPage from "./DiagramsPage";
@@ -34,7 +40,10 @@ const diagrams = [
     description: "High-level system diagram",
     type: "free_draw",
     card_ids: ["i1"],
+    section_ids: [],
     card_count: 5,
+    created_by_name: "Ada Admin",
+    is_favorite: false,
     updated_at: "2025-06-10T10:00:00Z",
   },
   {
@@ -43,7 +52,10 @@ const diagrams = [
     description: "",
     type: "data_flow",
     card_ids: [],
+    section_ids: [],
     card_count: 0,
+    created_by_name: "Mel Member",
+    is_favorite: false,
     updated_at: "2025-06-08T10:00:00Z",
   },
 ];
@@ -55,6 +67,15 @@ const cards = {
   ],
 };
 
+function setupApi(diagramRows = diagrams) {
+  vi.mocked(api.get).mockImplementation((url: string) => {
+    if (url.startsWith("/diagram-sections")) return Promise.resolve([] as never);
+    if (url.startsWith("/diagrams")) return Promise.resolve(diagramRows as never);
+    if (url.startsWith("/cards")) return Promise.resolve(cards as never);
+    return Promise.reject(new Error(`no mock for ${url}`));
+  });
+}
+
 function renderPage() {
   return render(
     <MemoryRouter>
@@ -65,19 +86,18 @@ function renderPage() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(api.get).mockImplementation((url: string) => {
-    if (url === "/diagrams") return Promise.resolve(diagrams);
-    if (url.startsWith("/cards?page_size=")) return Promise.resolve(cards);
-    return Promise.reject(new Error("no mock"));
-  });
+  setupApi();
+  vi.mocked(api.post).mockResolvedValue({} as never);
+  vi.mocked(api.delete).mockResolvedValue(undefined as never);
 });
 
 describe("DiagramsPage", () => {
   it("shows page title and diagram count", async () => {
     renderPage();
+    expect(screen.getByText("Diagrams")).toBeInTheDocument();
+    // Header count chip (also appears as the Ungrouped group count once loaded).
     await waitFor(() => {
-      expect(screen.getByText("Diagrams")).toBeInTheDocument();
-      expect(screen.getByText("2")).toBeInTheDocument();
+      expect(screen.getAllByText("2").length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -86,49 +106,24 @@ describe("DiagramsPage", () => {
     expect(screen.getByText("New Diagram")).toBeInTheDocument();
   });
 
-  it("shows diagram names in card view", async () => {
+  it("shows diagram names grouped under Ungrouped", async () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("Architecture Overview")).toBeInTheDocument();
       expect(screen.getByText("Data Flow Map")).toBeInTheDocument();
     });
+    expect(screen.getByText("Ungrouped")).toBeInTheDocument();
   });
 
-  it("shows description for diagrams that have one", async () => {
+  it("shows the author on the card", async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText("High-level system diagram")).toBeInTheDocument();
-    });
-  });
-
-  it("shows type chips", async () => {
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByText("Free Draw")).toBeInTheDocument();
-      expect(screen.getByText("Data Flow")).toBeInTheDocument();
-    });
-  });
-
-  it("shows card count chips", async () => {
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByText("5 cards")).toBeInTheDocument();
-    });
-  });
-
-  it("shows linked card count chip", async () => {
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByText("1 linked card")).toBeInTheDocument();
+      expect(screen.getByText(/Ada Admin/)).toBeInTheDocument();
     });
   });
 
   it("shows empty state when no diagrams", async () => {
-    vi.mocked(api.get).mockImplementation((url: string) => {
-      if (url === "/diagrams") return Promise.resolve([]);
-      if (url.startsWith("/cards?type=Initiative")) return Promise.resolve({ items: [] });
-      return Promise.reject(new Error("no mock"));
-    });
+    setupApi([]);
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("No diagrams yet. Create one to get started.")).toBeInTheDocument();
@@ -136,7 +131,7 @@ describe("DiagramsPage", () => {
   });
 
   it("opens create dialog and creates diagram", async () => {
-    vi.mocked(api.post).mockResolvedValue({ id: "new-id" });
+    vi.mocked(api.post).mockResolvedValue({ id: "new-id" } as never);
     renderPage();
 
     await userEvent.click(screen.getByText("New Diagram"));
@@ -150,10 +145,10 @@ describe("DiagramsPage", () => {
     await userEvent.click(createBtn);
 
     await waitFor(() => {
-      expect(api.post).toHaveBeenCalledWith("/diagrams", expect.objectContaining({
-        name: "New Test Diagram",
-        type: "free_draw",
-      }));
+      expect(api.post).toHaveBeenCalledWith(
+        "/diagrams",
+        expect.objectContaining({ name: "New Test Diagram", type: "free_draw" }),
+      );
       expect(mockNavigate).toHaveBeenCalledWith("/diagrams/new-id/edit");
     });
   });
@@ -169,45 +164,69 @@ describe("DiagramsPage", () => {
 
   it("has view toggle buttons", () => {
     renderPage();
-    const toggleGroup = screen.getAllByRole("button").filter(
-      (b) => b.getAttribute("value") === "card" || b.getAttribute("value") === "list"
-    );
+    const toggleGroup = screen
+      .getAllByRole("button")
+      .filter((b) => b.getAttribute("value") === "card" || b.getAttribute("value") === "list");
     expect(toggleGroup.length).toBe(2);
   });
 
-  it("opens delete dialog from context menu", async () => {
+  it("'Created by me' sidebar filter requests mine=true", async () => {
     renderPage();
+    await screen.findByText("Architecture Overview");
+
+    await userEvent.click(screen.getByText("Created by me"));
+
     await waitFor(() => {
-      expect(screen.getByText("Architecture Overview")).toBeInTheDocument();
+      const calls = vi.mocked(api.get).mock.calls.map((c) => c[0] as string);
+      expect(calls.some((u) => u.includes("/diagrams") && u.includes("mine=true"))).toBe(true);
     });
-
-    // Click the more_vert button (first one)
-    const moreButtons = screen.getAllByRole("button").filter(
-      (b) => b.querySelector("span")?.textContent === "more_vert"
-    );
-    await userEvent.click(moreButtons[0]);
-
-    // Click Delete in the menu
-    await userEvent.click(screen.getByText("Delete"));
-
-    // Delete confirmation dialog should appear
-    expect(screen.getByText("Delete Diagram")).toBeInTheDocument();
-    expect(screen.getByText(/Are you sure you want to delete/)).toBeInTheDocument();
-    expect(screen.getByText("Architecture Overview", { selector: "strong" })).toBeInTheDocument();
   });
 
-  it("handles diagram deletion", async () => {
-    vi.mocked(api.delete).mockResolvedValue(undefined);
+  it("typing in the search box issues a search request", async () => {
+    renderPage();
+    await screen.findByText("Architecture Overview");
+
+    await userEvent.type(screen.getByPlaceholderText(/Search by name/i), "payment");
+
+    await waitFor(() => {
+      const calls = vi.mocked(api.get).mock.calls.map((c) => c[0] as string);
+      expect(calls.some((u) => u.includes("search=payment"))).toBe(true);
+    });
+  });
+
+  it("clicking a card's star favorites the diagram", async () => {
+    renderPage();
+    await screen.findByText("Architecture Overview");
+
+    // The card star button's text is exactly "star"; the sidebar "Favorites"
+    // button also has a star glyph but reads "starFavorites".
+    const cardStar = screen
+      .getAllByText("star")
+      .map((el) => el.closest("button"))
+      .find((b) => b && b.textContent === "star");
+    expect(cardStar).toBeTruthy();
+
+    await userEvent.click(cardStar as HTMLElement);
+
+    await waitFor(() => {
+      const calls = vi.mocked(api.post).mock.calls.map((c) => c[0] as string);
+      expect(calls.some((u) => /\/diagrams\/d\d\/favorite/.test(u))).toBe(true);
+    });
+  });
+
+  it("opens delete dialog and deletes from the context menu", async () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("Architecture Overview")).toBeInTheDocument();
     });
 
-    const moreButtons = screen.getAllByRole("button").filter(
-      (b) => b.querySelector("span")?.textContent === "more_vert"
-    );
+    const moreButtons = screen
+      .getAllByRole("button")
+      .filter((b) => b.querySelector("span")?.textContent === "more_vert");
     await userEvent.click(moreButtons[0]);
     await userEvent.click(screen.getByText("Delete"));
+
+    expect(screen.getByText("Delete Diagram")).toBeInTheDocument();
 
     const deleteBtn = screen.getByRole("button", { name: "Delete" });
     await userEvent.click(deleteBtn);

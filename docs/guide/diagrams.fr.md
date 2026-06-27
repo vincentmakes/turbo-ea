@@ -6,7 +6,22 @@ Le module **Diagrammes** vous permet de créer des **diagrammes d'architecture v
 
 ## Galerie de diagrammes
 
-La galerie liste chaque diagramme avec une miniature, son nom, son type et les fiches qu'il référence. Depuis ici, vous pouvez **Créer**, **Ouvrir**, **Modifier les détails** ou **Supprimer** n'importe quel diagramme.
+La galerie présente chaque diagramme sous forme de carte compacte avec une miniature, un nom, un auteur et le nombre de cartes référencées. Basculez entre les vues **carte** et **liste**, et **Créez**, **Ouvrez**, **Modifiez les détails**, organisez ou **Supprimez** n'importe quel diagramme.
+
+### Trouver des diagrammes
+
+- **Barre latérale de filtres** — le volet de gauche restreint la galerie à **Tous les diagrammes**, **Créés par moi** ou vos **Favoris**, et filtre par **type** de diagramme (Data Flow / Free Draw).
+- **Recherche** — le champ de recherche correspond au nom d'un diagramme, à son auteur et aux noms des cartes qui y sont dessinées, afin de retrouver un diagramme par son contenu.
+- **Tri** — par récemment mis à jour, récemment créé ou nom.
+- **Favoris** — cliquez sur l'étoile d'une carte pour l'ajouter à vos favoris personnels ; le filtre **Favoris** les affiche tous.
+
+### Sections
+
+Regroupez les diagrammes associés dans des **sections** — des étiquettes partagées à l'échelle de l'espace de travail. Un diagramme peut appartenir à plusieurs sections à la fois. En vue carte, la galerie affiche chaque section sous forme d'en-tête repliable ; les diagrammes non affectés apparaissent sous **Non groupé**.
+
+- Utilisez **Gérer les sections** dans la barre latérale pour créer, renommer, recolorer ou supprimer des sections.
+- Utilisez **Ajouter à des sections…** depuis le menu d'un diagramme pour le placer dans une ou plusieurs sections (vous pouvez créer une nouvelle section au passage).
+- Sélectionner une section dans la barre latérale filtre la galerie sur cette seule section.
 
 ## L'éditeur de diagrammes
 

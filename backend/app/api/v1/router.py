@@ -13,6 +13,7 @@ from app.api.v1 import (
     capability_catalogue,
     cards,
     comments,
+    diagram_sections,
     diagrams,
     documents,
     eol,
@@ -62,6 +63,7 @@ api_router.include_router(bookmarks.router)
 api_router.include_router(saved_reports.router)
 api_router.include_router(reports.router)
 api_router.include_router(diagrams.router)
+api_router.include_router(diagram_sections.router)
 api_router.include_router(soaw.router)
 api_router.include_router(eol.router)
 api_router.include_router(events.router)

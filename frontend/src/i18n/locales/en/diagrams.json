@@ -1,6 +1,5 @@
 {
   "page.title": "Diagrams",
-
   "gallery.newDiagram": "New Diagram",
   "gallery.editDiagram": "Edit Diagram",
   "gallery.empty": "No diagrams yet. Create one to get started.",
@@ -18,12 +17,10 @@
   "gallery.menu.renameEdit": "Rename / Edit",
   "gallery.delete.title": "Delete Diagram",
   "gallery.delete.confirm": "Are you sure you want to delete <strong>{{name}}</strong>? This action cannot be undone.",
-
   "viewer.title": "Diagram Viewer",
   "viewer.notFound": "Diagram not found",
   "viewer.toolbar.edit": "Edit",
   "viewer.toolbar.editTooltip": "Open the diagram in the editor",
-
   "editor.title": "Diagram Editor",
   "editor.notFound": "Diagram not found",
   "editor.saved": "Diagram saved",
@@ -65,7 +62,7 @@
   "editor.errors.saveFailed": "Save failed",
   "editor.errors.loadRelationsFailed": "Failed to load relations",
   "editor.errors.resyncFailed": "Failed to resync relations",
-  "editor.errors.editorNotReady": "Editor not ready \u2014 try again in a moment",
+  "editor.errors.editorNotReady": "Editor not ready — try again in a moment",
   "editor.errors.createCardFailed": "Failed to create card",
   "editor.errors.createRelationFailed": "Failed to create relation",
   "editor.errors.syncCardsFirst": "Sync the connected cards first",
@@ -124,7 +121,6 @@
   "editor.expandMenu.showDependency": "Show Dependency",
   "editor.expandMenu.drillDown": "Drill-Down",
   "editor.expandMenu.rollUp": "Roll-Up",
-
   "sync.title": "Synchronise",
   "sync.pushAll": "Push all ({{count}})",
   "sync.checkUpdates": "Check updates",
@@ -151,12 +147,9 @@
   "sync.inventoryChanged": "Inventory Changed",
   "sync.acceptUpdate": "Accept update from inventory",
   "sync.allInSync": "Everything is in sync.",
-
-
   "cardPicker.title": "Insert Card",
   "cardPicker.search": "Search cards...",
   "cardPicker.selectOrSearch": "Select a type or search to browse",
-
   "insertDialog.titleMulti": "Insert Cards",
   "insertDialog.titleSingle": "Pick a Card",
   "insertDialog.typeFilter": "Type",
@@ -176,22 +169,51 @@
   "insertDialog.insertAllConfirm": "Confirm: insert all",
   "insertDialog.confirmInsertAll_one": "Click again to insert {{count}} card",
   "insertDialog.confirmInsertAll_other": "Click again to insert {{count}} cards",
-
   "viewSelector.button": "View: {{view}}",
   "viewSelector.cardType": "Card colors",
   "viewSelector.approvalStatus": "Approval status",
   "viewSelector.fieldsOnCard": "Fields on card",
-
   "legend.applied_one": "{{count}} cell colored",
   "legend.applied_other": "{{count}} cells colored",
   "legend.reset": "Reset to card colors",
-
   "createOnDiagram.title": "Create Card",
   "createOnDiagram.descriptionOptional": "Description (optional)",
   "createOnDiagram.pendingHintPre": "Will be added to the diagram as a pending",
   "createOnDiagram.pendingHintPost": "Synchronise to save it to the inventory.",
   "createOnDiagram.addToDiagram": "Add to Diagram",
-
   "relationPicker.title": "Pick Relation Type",
-  "relationPicker.noValidTypes": "No valid relation types exist between these two card types in the metamodel."
+  "relationPicker.noValidTypes": "No valid relation types exist between these two card types in the metamodel.",
+  "gallery.search.placeholder": "Search by name, author, or card inside…",
+  "gallery.noResults": "No diagrams match your filters.",
+  "gallery.ungrouped": "Ungrouped",
+  "gallery.byAuthor": "by {{name}}",
+  "gallery.author": "Author",
+  "gallery.favorite.add": "Add to favorites",
+  "gallery.favorite.remove": "Remove from favorites",
+  "gallery.sort.updated": "Recently updated",
+  "gallery.sort.created": "Recently created",
+  "gallery.sort.name": "Name (A–Z)",
+  "gallery.menu.addToSections": "Add to sections…",
+  "sidebar.show": "Show",
+  "sidebar.all": "All diagrams",
+  "sidebar.mine": "Created by me",
+  "sidebar.favorites": "Favorites",
+  "sidebar.type": "Type",
+  "sidebar.allTypes": "All types",
+  "sidebar.sections": "Sections",
+  "sidebar.manageSections": "Manage sections",
+  "sidebar.noSections": "No sections yet",
+  "manageSections.title": "Manage Sections",
+  "manageSections.newName": "New section name",
+  "manageSections.add": "Add",
+  "manageSections.empty": "No sections yet. Create one to group your diagrams.",
+  "manageSections.deleteConfirm": "Delete section «{{name}}»? Diagrams are kept; they just lose this grouping.",
+  "manageSections.diagramCount_one": "{{count}} diagram",
+  "manageSections.diagramCount_other": "{{count}} diagrams",
+  "manageSections.rename": "Rename",
+  "assignSections.title": "Add to Sections",
+  "assignSections.subtitle": "Group «{{name}}» into one or more sections.",
+  "assignSections.empty": "No sections yet — create one below.",
+  "assignSections.createPlaceholder": "Create new section",
+  "assignSections.create": "Create"
 }

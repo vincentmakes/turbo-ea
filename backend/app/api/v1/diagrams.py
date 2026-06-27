@@ -10,7 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.models.card import Card
 from app.models.diagram import Diagram, diagram_cards
+from app.models.diagram_favorite import DiagramFavorite
+from app.models.diagram_section import diagram_section_members
 from app.models.user import User
 from app.services.permission_service import PermissionService
 
@@ -67,6 +70,33 @@ async def _get_card_ids_bulk(db: AsyncSession) -> dict[str, list[str]]:
     return mapping
 
 
+async def _get_section_ids_bulk(db: AsyncSession) -> dict[str, list[str]]:
+    """Return mapping of diagram_id -> [section_id, ...] for all diagrams."""
+    result = await db.execute(select(diagram_section_members))
+    mapping: dict[str, list[str]] = {}
+    for row in result.all():
+        did = str(row.diagram_id)
+        mapping.setdefault(did, []).append(str(row.section_id))
+    return mapping
+
+
+async def _get_favorite_ids(db: AsyncSession, user_id: uuid.UUID) -> set[str]:
+    """Return the set of diagram_ids the user has favorited."""
+    result = await db.execute(
+        select(DiagramFavorite.diagram_id).where(DiagramFavorite.user_id == user_id)
+    )
+    return {str(row[0]) for row in result.all()}
+
+
+async def _get_creator_names(db: AsyncSession, rows: list[Diagram]) -> dict[str, str]:
+    """Return mapping of user_id -> display_name for the diagrams' creators."""
+    ids = {d.created_by for d in rows if d.created_by}
+    if not ids:
+        return {}
+    result = await db.execute(select(User.id, User.display_name).where(User.id.in_(ids)))
+    return {str(uid): name for uid, name in result.all()}
+
+
 async def _set_card_ids(
     db: AsyncSession,
     diagram_id: uuid.UUID,
@@ -90,32 +120,90 @@ async def _set_card_ids(
 # ── endpoints ─────────────────────────────────────────────────────────────────
 
 
+_SORT_COLUMNS = {
+    "name": Diagram.name,
+    "created_at": Diagram.created_at,
+    "updated_at": Diagram.updated_at,
+}
+
+
 @router.get("")
 async def list_diagrams(
     card_id: str | None = None,
+    search: str | None = None,
+    mine: bool = False,
+    favorites: bool = False,
+    type: str | None = None,
+    section_id: str | None = None,
+    sort_by: str = "updated_at",
+    sort_dir: str = "desc",
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "diagrams.view")
+
+    stmt = select(Diagram)
     if card_id:
         # Filter: only diagrams linked to this card
-        stmt = (
-            select(Diagram)
-            .join(
-                diagram_cards,
-                diagram_cards.c.diagram_id == Diagram.id,
-            )
-            .where(diagram_cards.c.card_id == uuid.UUID(card_id))
-            .order_by(Diagram.updated_at.desc())
+        stmt = stmt.join(diagram_cards, diagram_cards.c.diagram_id == Diagram.id).where(
+            diagram_cards.c.card_id == uuid.UUID(card_id)
         )
-    else:
-        stmt = select(Diagram).order_by(Diagram.updated_at.desc())
+    if mine:
+        stmt = stmt.where(Diagram.created_by == user.id)
+    if type:
+        stmt = stmt.where(Diagram.type == type)
+    if section_id:
+        stmt = stmt.join(
+            diagram_section_members, diagram_section_members.c.diagram_id == Diagram.id
+        ).where(diagram_section_members.c.section_id == uuid.UUID(section_id))
+
+    favorite_ids = await _get_favorite_ids(db, user.id)
+    if favorites:
+        if not favorite_ids:
+            return []
+        stmt = stmt.where(Diagram.id.in_({uuid.UUID(fid) for fid in favorite_ids}))
 
     result = await db.execute(stmt)
-    rows = result.scalars().all()
+    rows = list(result.scalars().all())
 
-    # Bulk-load card_ids
+    # Bulk-load supporting data
     id_map = await _get_card_ids_bulk(db)
+    section_map = await _get_section_ids_bulk(db)
+    creator_names = await _get_creator_names(db, rows)
+
+    # Unified text search: name / description / author / contained-card names.
+    if search and search.strip():
+        term = search.strip().lower()
+        like = f"%{search.strip()}%"
+        matching_card_ids = {
+            str(row[0])
+            for row in (await db.execute(select(Card.id).where(Card.name.ilike(like)))).all()
+        }
+
+        def _matches(d: Diagram) -> bool:
+            if term in (d.name or "").lower():
+                return True
+            if d.description and term in d.description.lower():
+                return True
+            author = creator_names.get(str(d.created_by)) if d.created_by else None
+            if author and term in author.lower():
+                return True
+            # Contained cards = explicit links ∪ cards drawn on the canvas.
+            refs = set(id_map.get(str(d.id), [])) | set(_extract_card_refs(d.data))
+            return bool(refs & matching_card_ids)
+
+        rows = [d for d in rows if _matches(d)]
+
+    # Sorting (whitelisted columns; default updated_at desc).
+    sort_col = sort_by if sort_by in _SORT_COLUMNS else "updated_at"
+    reverse = sort_dir != "asc"
+    if sort_col == "name":
+        rows.sort(key=lambda d: (d.name or "").lower(), reverse=reverse)
+    else:
+        rows.sort(
+            key=lambda d: getattr(d, sort_col) or "",
+            reverse=reverse,
+        )
 
     return [
         {
@@ -124,13 +212,76 @@ async def list_diagrams(
             "description": d.description,
             "type": d.type,
             "card_ids": id_map.get(str(d.id), []),
+            "section_ids": section_map.get(str(d.id), []),
             "thumbnail": (d.data or {}).get("thumbnail"),
             "card_count": len(_extract_card_refs(d.data)),
+            "created_by": str(d.created_by) if d.created_by else None,
+            "created_by_name": creator_names.get(str(d.created_by)) if d.created_by else None,
+            "is_favorite": str(d.id) in favorite_ids,
             "created_at": d.created_at.isoformat() if d.created_at else None,
             "updated_at": d.updated_at.isoformat() if d.updated_at else None,
         }
         for d in rows
     ]
+
+
+# ── favorites (per-user) ───────────────────────────────────────────────────────
+# NOTE: these must be declared before the ``/{diagram_id}`` routes so that
+# ``/diagrams/favorites`` is not captured by the ``{diagram_id}`` path param.
+
+
+@router.get("/favorites")
+async def list_favorite_diagrams(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return the set of diagram ids the current user has favorited."""
+    await PermissionService.require_permission(db, user, "diagrams.view")
+    return sorted(await _get_favorite_ids(db, user.id))
+
+
+@router.post("/{diagram_id}/favorite", status_code=201)
+async def add_diagram_favorite(
+    diagram_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Add a diagram to favorites. Idempotent."""
+    await PermissionService.require_permission(db, user, "diagrams.view")
+    d_id = uuid.UUID(diagram_id)
+    result = await db.execute(select(Diagram).where(Diagram.id == d_id))
+    if not result.scalar_one_or_none():
+        raise HTTPException(404, "Diagram not found")
+    existing = await db.execute(
+        select(DiagramFavorite).where(
+            DiagramFavorite.user_id == user.id,
+            DiagramFavorite.diagram_id == d_id,
+        )
+    )
+    if existing.scalar_one_or_none():
+        return {"status": "already_favorited"}
+    db.add(DiagramFavorite(user_id=user.id, diagram_id=d_id))
+    await db.commit()
+    return {"diagram_id": str(d_id)}
+
+
+@router.delete("/{diagram_id}/favorite", status_code=204)
+async def remove_diagram_favorite(
+    diagram_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Remove a diagram from favorites."""
+    await PermissionService.require_permission(db, user, "diagrams.view")
+    result = await db.execute(
+        delete(DiagramFavorite).where(
+            DiagramFavorite.user_id == user.id,
+            DiagramFavorite.diagram_id == uuid.UUID(diagram_id),
+        )
+    )
+    if result.rowcount == 0:  # type: ignore[attr-defined]
+        raise HTTPException(404, "Favorite not found")
+    await db.commit()
 
 
 @router.post("", status_code=201)
@@ -175,6 +326,14 @@ async def get_diagram(
     if not d:
         raise HTTPException(404, "Diagram not found")
     linked_card_ids = await _get_card_ids(db, d.id)
+    section_result = await db.execute(
+        select(diagram_section_members.c.section_id).where(
+            diagram_section_members.c.diagram_id == d.id
+        )
+    )
+    section_ids = [str(row[0]) for row in section_result.all()]
+    favorite_ids = await _get_favorite_ids(db, user.id)
+    creator_names = await _get_creator_names(db, [d])
     return {
         "id": str(d.id),
         "name": d.name,
@@ -183,6 +342,10 @@ async def get_diagram(
         "data": d.data,
         "card_ids": linked_card_ids,
         "card_refs": _extract_card_refs(d.data),
+        "section_ids": section_ids,
+        "created_by": str(d.created_by) if d.created_by else None,
+        "created_by_name": creator_names.get(str(d.created_by)) if d.created_by else None,
+        "is_favorite": str(d.id) in favorite_ids,
         "created_at": d.created_at.isoformat() if d.created_at else None,
         "updated_at": d.updated_at.isoformat() if d.updated_at else None,
     }
@@ -292,3 +455,38 @@ async def unlink_card_from_diagram(
     if result.rowcount == 0:  # type: ignore[attr-defined]
         raise HTTPException(404, "Link not found")
     await db.commit()
+
+
+# ── section membership ──────────────────────────────────────────────────────────
+
+
+class DiagramSectionsUpdate(BaseModel):
+    section_ids: list[str]
+
+
+@router.put("/{diagram_id}/sections")
+async def set_diagram_sections(
+    diagram_id: str,
+    body: DiagramSectionsUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Replace a diagram's section memberships (multi-section)."""
+    await PermissionService.require_permission(db, user, "diagrams.manage")
+    d_id = uuid.UUID(diagram_id)
+    result = await db.execute(select(Diagram).where(Diagram.id == d_id))
+    if not result.scalar_one_or_none():
+        raise HTTPException(404, "Diagram not found")
+
+    await db.execute(
+        delete(diagram_section_members).where(diagram_section_members.c.diagram_id == d_id)
+    )
+    for sid in dict.fromkeys(body.section_ids):
+        await db.execute(
+            diagram_section_members.insert().values(
+                diagram_id=d_id,
+                section_id=uuid.UUID(sid),
+            )
+        )
+    await db.commit()
+    return {"diagram_id": str(d_id), "section_ids": list(dict.fromkeys(body.section_ids))}

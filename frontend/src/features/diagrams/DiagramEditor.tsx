@@ -154,6 +154,7 @@ interface DrawIOMessage {
   xml?: string;
   data?: string;
   modified?: boolean;
+  exit?: boolean;
   x?: number;
   y?: number;
   cardId?: string;
@@ -463,6 +464,10 @@ export default function DiagramEditor() {
 
   // Refs
   const pendingSaveXmlRef = useRef<string | null>(null);
+  // DrawIO's "Save & Exit" button fires a `save` event with `exit: true` (not an
+  // `exit` event). Remember the request across the async save → export chain so we
+  // can navigate away once the diagram is persisted.
+  const exitAfterSaveRef = useRef(false);
   const contextInsertPosRef = useRef<{ x: number; y: number } | null>(null);
 
   // Expand/collapse caches — survive collapse/expand cycles so locally
@@ -2215,6 +2220,8 @@ export default function DiagramEditor() {
         case "save":
           if (msg.xml) {
             pendingSaveXmlRef.current = msg.xml;
+            // "Save & Exit" arrives as a `save` event carrying `exit: true`.
+            exitAfterSaveRef.current = !!msg.exit;
             postToDrawIO({ action: "export", format: "svg", spinKey: "saving" });
             postToDrawIO({ action: "status", messageKey: "allChangesSaved", modified: false });
           }
@@ -2224,7 +2231,11 @@ export default function DiagramEditor() {
           if (pendingSaveXmlRef.current) {
             const xml = pendingSaveXmlRef.current;
             pendingSaveXmlRef.current = null;
-            saveDiagram(xml, msg.data);
+            const shouldExit = exitAfterSaveRef.current;
+            exitAfterSaveRef.current = false;
+            saveDiagram(xml, msg.data).then(() => {
+              if (shouldExit) navigate(`/diagrams/${id}`);
+            });
           }
           break;
 

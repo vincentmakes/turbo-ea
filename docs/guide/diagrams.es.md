@@ -6,7 +6,22 @@ El módulo **Diagramas** permite crear **diagramas visuales de arquitectura** us
 
 ## Galería de diagramas
 
-La galería lista cada diagrama con una miniatura, su nombre, su tipo y las tarjetas a las que hace referencia. Desde aquí puede **Crear**, **Abrir**, **Editar detalles** o **Eliminar** cualquier diagrama.
+La galería muestra cada diagrama como una tarjeta compacta con una miniatura, un nombre, un autor y el número de tarjetas que referencia. Cambie entre las vistas de **tarjeta** y **lista**, y **Cree**, **Abra**, **Edite detalles**, organice o **Elimine** cualquier diagrama.
+
+### Encontrar diagramas
+
+- **Barra lateral de filtros** — el panel izquierdo limita la galería a **Todos los diagramas**, **Creados por mí** o sus **Favoritos**, y filtra por **tipo** de diagrama (Data Flow / Free Draw).
+- **Búsqueda** — el cuadro de búsqueda coincide con el nombre de un diagrama, su autor y los nombres de las tarjetas dibujadas en él, para que pueda encontrar un diagrama por su contenido.
+- **Orden** — por actualizado recientemente, creado recientemente o nombre.
+- **Favoritos** — haga clic en la estrella de cualquier tarjeta para añadirla a sus favoritos personales; el filtro **Favoritos** los muestra todos.
+
+### Secciones
+
+Agrupe diagramas relacionados en **secciones**: etiquetas compartidas en todo el espacio de trabajo. Un diagrama puede pertenecer a varias secciones a la vez. En la vista de tarjeta, la galería muestra cada sección como un encabezado plegable; lo no asignado aparece en **Sin agrupar**.
+
+- Use **Gestionar secciones** en la barra lateral para crear, renombrar, recolorear o eliminar secciones.
+- Use **Añadir a secciones…** desde el menú de un diagrama para colocarlo en una o varias secciones (puede crear una nueva sección sobre la marcha).
+- Seleccionar una sección en la barra lateral filtra la galería solo a esa sección.
 
 ## El editor de diagramas
 

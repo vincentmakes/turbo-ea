@@ -6,7 +6,22 @@
 
 ## Diagramgalleri
 
-Galleriet viser hvert diagram med en miniature, et navn, en type og de kort, det refererer til. Herfra kan du **oprette**, **åbne**, **redigere detaljer** eller **slette** et hvilket som helst diagram.
+Galleriet viser hvert diagram som et kompakt kort med et miniaturebillede, navn, forfatter og antallet af kort, det refererer til. Skift mellem **kort-** og **listevisning**, og **Opret**, **Åbn**, **Rediger detaljer**, organisér eller **Slet** ethvert diagram.
+
+### Find diagrammer
+
+- **Filtersidebjælke** — panelet til venstre indsnævrer galleriet til **Alle diagrammer**, **Oprettet af mig** eller dine **Favoritter** og filtrerer efter diagram**type** (Data Flow / Free Draw).
+- **Søgning** — søgefeltet matcher et diagrams navn, dets forfatter og navnene på de kort, der er tegnet i det, så du kan finde et diagram ud fra dets indhold.
+- **Sortering** — efter senest opdateret, senest oprettet eller navn.
+- **Favoritter** — klik på stjernen på et kort for at føje det til dine personlige favoritter; filteret **Favoritter** viser dem alle.
+
+### Sektioner
+
+Gruppér relaterede diagrammer i **sektioner** — delte etiketter på tværs af arbejdsområdet. Et diagram kan tilhøre flere sektioner på én gang. I kortvisning viser galleriet hver sektion som en sammenklappelig overskrift; det ikke-tildelte vises under **Ugrupperet**.
+
+- Brug **Administrer sektioner** i sidebjælken til at oprette, omdøbe, omfarve eller slette sektioner.
+- Brug **Tilføj til sektioner…** fra et diagrams menu for at placere det i en eller flere sektioner (du kan oprette en ny sektion undervejs).
+- Vælges en sektion i sidebjælken, filtreres galleriet til kun den sektion.
 
 ## Diagramredaktøren
 

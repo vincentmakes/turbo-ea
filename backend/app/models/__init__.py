@@ -9,6 +9,8 @@ from app.models.card_type import CardType
 from app.models.comment import Comment
 from app.models.compliance_regulation import ComplianceRegulation
 from app.models.diagram import Diagram
+from app.models.diagram_favorite import DiagramFavorite
+from app.models.diagram_section import DiagramSection, diagram_section_members
 from app.models.document import Document
 from app.models.ea_principle import EAPrinciple
 from app.models.event import Event
@@ -99,6 +101,9 @@ __all__ = [
     "Bookmark",
     "Calculation",
     "Diagram",
+    "DiagramFavorite",
+    "DiagramSection",
+    "diagram_section_members",
     "SoAW",
     "KpiSnapshot",
     "IdentityMap",

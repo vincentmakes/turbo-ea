@@ -6,7 +6,22 @@ The **Diagrams** module lets you create **visual architecture diagrams** using a
 
 ## Diagram Gallery
 
-The gallery lists every diagram with a thumbnail, name, type, and the cards it references. From here you can **Create**, **Open**, **Edit details**, or **Delete** any diagram.
+The gallery lists every diagram as a compact card with a thumbnail, name, author, and the number of cards it references. Switch between **card** and **list** views, and **Create**, **Open**, **Edit details**, organise, or **Delete** any diagram.
+
+### Finding diagrams
+
+- **Filter sidebar** — the left rail narrows the gallery to **All diagrams**, **Created by me**, or your **Favorites**, and filters by diagram **type** (Data Flow / Free Draw).
+- **Search** — the search box matches a diagram's name, its author, and the names of the cards drawn inside it, so you can find a diagram by what it contains.
+- **Sort** — order by recently updated, recently created, or name.
+- **Favorites** — click the star on any card to add it to your personal favorites; the **Favorites** filter then shows them all.
+
+### Sections
+
+Group related diagrams into **sections** — shared, workspace-wide labels. A diagram can belong to several sections at once. In card view the gallery shows each section as a collapsible heading, with anything unassigned under **Ungrouped**.
+
+- Use **Manage sections** in the sidebar to create, rename, recolour, or delete sections.
+- Use **Add to sections…** from a diagram's menu to place it in one or more sections (you can create a new section inline).
+- Selecting a section in the sidebar filters the gallery to just that section.
 
 ## The Diagram Editor
 

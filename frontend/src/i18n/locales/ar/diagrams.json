@@ -1,6 +1,5 @@
 {
   "page.title": "المخططات",
-
   "gallery.newDiagram": "مخطّط جديد",
   "gallery.editDiagram": "تحرير المخطّط",
   "gallery.empty": "لا توجد مخططات بعد. أنشئ واحدًا للبدء.",
@@ -18,12 +17,10 @@
   "gallery.menu.renameEdit": "إعادة تسمية / تحرير",
   "gallery.delete.title": "حذف المخطّط",
   "gallery.delete.confirm": "هل أنت متأكّد من رغبتك في حذف <strong>{{name}}</strong>؟ لا يمكن التراجع عن هذا الإجراء.",
-
   "viewer.title": "عارض المخططات",
   "viewer.notFound": "لم يتم العثور على المخطّط",
   "viewer.toolbar.edit": "تحرير",
   "viewer.toolbar.editTooltip": "فتح المخطّط في المحرّر",
-
   "editor.title": "محرّر المخططات",
   "editor.notFound": "لم يتم العثور على المخطّط",
   "editor.saved": "تم حفظ المخطّط",
@@ -124,7 +121,6 @@
   "editor.expandMenu.showDependency": "إظهار التبعية",
   "editor.expandMenu.drillDown": "التعمّق",
   "editor.expandMenu.rollUp": "التجميع",
-
   "sync.title": "مزامنة",
   "sync.pushAll": "دفع الكل ({{count}})",
   "sync.checkUpdates": "التحقّق من التحديثات",
@@ -151,12 +147,9 @@
   "sync.inventoryChanged": "تغيّر المخزون",
   "sync.acceptUpdate": "قبول التحديث من المخزون",
   "sync.allInSync": "كل شيء متزامن.",
-
-
   "cardPicker.title": "إدراج بطاقة",
   "cardPicker.search": "البحث في البطاقات...",
   "cardPicker.selectOrSearch": "اختر نوعًا أو ابحث للتصفّح",
-
   "insertDialog.titleMulti": "إدراج بطاقات",
   "insertDialog.titleSingle": "اختر بطاقة",
   "insertDialog.typeFilter": "النوع",
@@ -176,22 +169,51 @@
   "insertDialog.insertAllConfirm": "تأكيد: إدراج الكل",
   "insertDialog.confirmInsertAll_one": "انقر مرة أخرى لإدراج بطاقة واحدة ({{count}})",
   "insertDialog.confirmInsertAll_other": "انقر مرة أخرى لإدراج {{count}} بطاقات",
-
   "viewSelector.button": "العرض: {{view}}",
   "viewSelector.cardType": "ألوان البطاقات",
   "viewSelector.approvalStatus": "حالة الاعتماد",
   "viewSelector.fieldsOnCard": "الحقول على البطاقة",
-
   "legend.applied_one": "تم تلوين خلية واحدة ({{count}})",
   "legend.applied_other": "تم تلوين {{count}} خلايا",
   "legend.reset": "إعادة التعيين إلى ألوان البطاقات",
-
   "createOnDiagram.title": "إنشاء بطاقة",
   "createOnDiagram.descriptionOptional": "الوصف (اختياري)",
   "createOnDiagram.pendingHintPre": "ستتم إضافتها إلى المخطّط كعنصر معلّق",
   "createOnDiagram.pendingHintPost": "زامِن لحفظها في المخزون.",
   "createOnDiagram.addToDiagram": "إضافة إلى المخطّط",
-
   "relationPicker.title": "اختر نوع العلاقة",
-  "relationPicker.noValidTypes": "لا توجد أنواع علاقات صالحة بين نوعي البطاقة هذين في النموذج الفوقي."
+  "relationPicker.noValidTypes": "لا توجد أنواع علاقات صالحة بين نوعي البطاقة هذين في النموذج الفوقي.",
+  "gallery.search.placeholder": "البحث حسب الاسم أو المؤلف أو البطاقة المضمّنة…",
+  "gallery.noResults": "لا توجد مخططات تطابق عوامل التصفية.",
+  "gallery.ungrouped": "غير مجمّع",
+  "gallery.byAuthor": "بواسطة {{name}}",
+  "gallery.author": "المؤلف",
+  "gallery.favorite.add": "إضافة إلى المفضلة",
+  "gallery.favorite.remove": "إزالة من المفضلة",
+  "gallery.sort.updated": "المحدّثة مؤخرًا",
+  "gallery.sort.created": "المنشأة مؤخرًا",
+  "gallery.sort.name": "الاسم (A–Z)",
+  "gallery.menu.addToSections": "إضافة إلى الأقسام…",
+  "sidebar.show": "عرض",
+  "sidebar.all": "جميع المخططات",
+  "sidebar.mine": "أنشأتها أنا",
+  "sidebar.favorites": "المفضلة",
+  "sidebar.type": "النوع",
+  "sidebar.allTypes": "جميع الأنواع",
+  "sidebar.sections": "الأقسام",
+  "sidebar.manageSections": "إدارة الأقسام",
+  "sidebar.noSections": "لا توجد أقسام بعد",
+  "manageSections.title": "إدارة الأقسام",
+  "manageSections.newName": "اسم القسم الجديد",
+  "manageSections.add": "إضافة",
+  "manageSections.empty": "لا توجد أقسام بعد. أنشئ واحدًا لتجميع مخططاتك.",
+  "manageSections.deleteConfirm": "حذف القسم «{{name}}»؟ تبقى المخططات، لكنها تفقد هذا التجميع فقط.",
+  "manageSections.diagramCount_one": "{{count}} مخطط",
+  "manageSections.diagramCount_other": "{{count}} مخططات",
+  "manageSections.rename": "إعادة تسمية",
+  "assignSections.title": "إضافة إلى الأقسام",
+  "assignSections.subtitle": "جمّع «{{name}}» في قسم أو أكثر.",
+  "assignSections.empty": "لا توجد أقسام بعد — أنشئ واحدًا أدناه.",
+  "assignSections.createPlaceholder": "إنشاء قسم جديد",
+  "assignSections.create": "إنشاء"
 }
