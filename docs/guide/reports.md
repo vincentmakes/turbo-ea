@@ -72,19 +72,31 @@ The **Dependencies Report** visualizes **connections between components** as a n
 
 ![Layered Dependency View](../assets/img/en/13b_dependencies_c4.png)
 
-Toggle to the **Layered Dependency View** using the view-mode buttons in the toolbar. This is Turbo EA's house notation for showing dependencies between cards across the four EA layers — inspired by ArchiMate's layering and the C4 Model's "good defaults" philosophy, but distinct from both:
+Toggle to the **Layered Dependency View** using the view-mode buttons in the toolbar. This is Turbo EA's house notation for showing dependencies between cards across the four EA layers — inspired by ArchiMate's layering and the C4 Model's "good defaults" philosophy, but distinct from both. The same view is reused on the Card Detail page (showing the card's immediate dependency neighbourhood) and in the [TurboLens Architect](turbolens.md#architecture-ai) wizard, so dependencies look the same everywhere.
 
-- **Layered swim lanes** — Cards are grouped by architectural layer (Strategy & Transformation, Business Architecture, Application & Data, Technical Architecture) inside dashed boundary rectangles, in fixed order
-- **Type-colored nodes** — Each node is colored by its card type and labelled with the card name and type
-- **Directional labelled edges** — Edges follow the metamodel relation direction (source → target) and carry the relation's forward label (e.g. *uses*, *supports*, *runs on*)
-- **Proposed cards** — In the TurboLens Architect wizard, not-yet-committed cards have a dashed border and a green **NEW** badge
-- **Interactive canvas** — Pan, zoom, and use the minimap to navigate large diagrams
-- **Click to inspect** — Click any node to open the card detail side panel
-- **No center card required** — The Layered Dependency View shows all cards matching the current type filter
-- **Connection highlighting** — Hover over a card to highlight its connections; on touch devices, use the highlight toggle button in the controls panel to tap-highlight instead
-- **End-of-life cards hidden by default** — Related cards whose lifecycle has reached End of Life are hidden to keep the graph focused; turn on **Show end-of-life cards** in the **Card display** menu to bring them back. The card you are centered on is always shown, even if it is itself end-of-life
+**Reading the diagram**
 
-The same view is reused on the Card Detail page (showing the card's immediate dependency neighbourhood) and in the [TurboLens Architect](turbolens.md#architecture-ai) wizard, so dependencies look the same everywhere.
+- **Layered swim lanes** — Cards are grouped by architectural layer (Strategy & Transformation, Business Architecture, Application & Data, Technical Architecture) inside dashed boundary rectangles, in fixed order.
+- **Type-coloured nodes with icons** — Each node is coloured by its card type and shows the card-type icon in its top-left corner, so types are recognisable at a glance even without colour.
+- **Directional labelled edges** — Edges follow the metamodel relation direction (source → target) and carry the relation's forward label (e.g. *uses*, *supports*, *runs on*).
+- **Proposed cards** — In the TurboLens Architect wizard, not-yet-committed cards have a dashed border and a green **NEW** badge.
+
+**Exploring and navigating**
+
+- **Pan, zoom, minimap** — Drag the canvas to pan, scroll to zoom, and use the minimap to navigate large diagrams.
+- **Click to inspect** — Click any node to open the card detail side panel.
+- **Recenter** — Shift+click or long-press a card to center the diagram on it; the toolbar's **Back to card picker**, **Previous card**, and **Next card** buttons step through your navigation history.
+- **Highlight mode** — Hover a card to highlight its connections; on touch devices, turn on **Highlight mode** in the controls panel to tap-highlight instead.
+- **Expand mode** — Turn on **Expand mode** in the controls panel, then click a card to reveal all of its relations on demand.
+- **No center card required** — On the Dependencies report the Layered Dependency View shows all cards matching the current type filter, so you don't have to pick a starting card first.
+
+**Customising the view** (from the toolbar)
+
+- **Card display menu** — Toggle the **type** label and a **lifecycle-status dot**, turn on **parent hierarchy** (adds each card's parent card and draws the *contains / part of* containment link), and choose **extra attribute fields** to show on each card — the first two render on the card and the full set appears in the hover tooltip. Choices are remembered between visits.
+- **Show end-of-life cards** — Related cards whose lifecycle has reached End of Life are hidden by default to keep the graph focused; turn this toggle on (in the **Card display** menu) to bring them back. The card you are centered on is always shown, even if it is itself end-of-life.
+- **Rearrange** — Drag a card to move it within its layer, or drag a whole **layer box** to move it with all its cards. **Reset layout** restores the automatic arrangement.
+- **Background** — Cycle the canvas background between grid, dots, and none.
+- **Export and fullscreen** — Export the diagram to **PNG** or **SVG**, or open it in **fullscreen**.
 
 ## Cost Report
 

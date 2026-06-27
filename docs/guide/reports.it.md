@@ -72,19 +72,31 @@ Il **Report Dipendenze** visualizza le **connessioni tra componenti** come un gr
 
 ![Layered Dependency View](../assets/img/en/13b_dependencies_c4.png)
 
-Passate alla **Layered Dependency View** usando i pulsanti di modalità di visualizzazione nella barra degli strumenti. È la notazione interna di Turbo EA per mostrare le dipendenze tra le card sui quattro livelli EA — ispirata al principio di stratificazione di ArchiMate e alla filosofia dei «buoni valori predefiniti» del modello C4, ma distinta da entrambi:
+Passate alla **Layered Dependency View** usando i pulsanti di modalità di visualizzazione nella barra degli strumenti. È la notazione interna di Turbo EA per mostrare le dipendenze tra le schede sui quattro livelli EA — ispirata al principio di stratificazione di ArchiMate e alla filosofia dei «buoni valori predefiniti» del modello C4, ma distinta da entrambi. La stessa vista viene riutilizzata nella pagina di dettaglio della scheda (mostrando il vicinato di dipendenze immediato della scheda) e nell'assistente [TurboLens Architect](turbolens.md#architecture-ai), così le dipendenze appaiono uguali ovunque.
 
-- **Corsie per livello** — Le card sono raggruppate per livello architetturale (Strategia e Trasformazione, Architettura di Business, Applicazione e Dati, Architettura Tecnica) all'interno di rettangoli di confine tratteggiati, in ordine fisso
-- **Nodi colorati per tipo** — Ogni nodo è colorato in base al suo tipo di card ed etichettato con il nome e il tipo della card
-- **Archi orientati ed etichettati** — Gli archi seguono la direzione della relazione del metamodello (origine → destinazione) e portano l'etichetta diretta della relazione (per es. *usa*, *supporta*, *gira su*)
-- **Card proposte** — Nell'assistente TurboLens Architect, le card non ancora confermate hanno un bordo tratteggiato e un badge verde **NEW**
-- **Canvas interattivo** — Spostate, zoomate e usate la minimappa per navigare diagrammi di grandi dimensioni
-- **Cliccate per ispezionare** — Cliccate su qualsiasi nodo per aprire il pannello laterale di dettaglio della card
-- **Nessuna card centrale richiesta** — La Layered Dependency View mostra tutte le card che corrispondono al filtro di tipo corrente
-- **Evidenziazione delle connessioni** — Passate il mouse su una card per evidenziare le sue connessioni; sui dispositivi touch, usate il pulsante di evidenziazione nel pannello dei controlli per evidenziare con il tocco
-- **Card a fine vita nascoste per impostazione predefinita** — Le card correlate il cui ciclo di vita ha raggiunto la fine vita vengono nascoste per mantenere il grafico focalizzato; attivate **Mostra schede a fine vita** nel menu **Visualizzazione card** per mostrarle di nuovo. La card su cui siete centrati viene sempre mostrata, anche se è essa stessa a fine vita
+**Leggere il diagramma**
 
-La stessa vista viene riutilizzata nella pagina di dettaglio della card (mostrando il vicinato di dipendenze immediato della card) e nell'assistente [TurboLens Architect](turbolens.md#architecture-ai), così le dipendenze appaiono uguali ovunque.
+- **Corsie per livello** — Le schede sono raggruppate per livello architetturale (Strategia e Trasformazione, Architettura di Business, Applicazione e Dati, Architettura Tecnica) all'interno di rettangoli di confine tratteggiati, in ordine fisso.
+- **Nodi colorati per tipo con icone** — Ogni nodo è colorato in base al suo tipo di scheda e mostra l'icona del tipo di scheda nell'angolo in alto a sinistra, così i tipi sono riconoscibili a colpo d'occhio anche senza colore.
+- **Archi orientati ed etichettati** — Gli archi seguono la direzione della relazione del metamodello (origine → destinazione) e portano l'etichetta diretta della relazione (per es. *usa*, *supporta*, *gira su*).
+- **Schede proposte** — Nell'assistente TurboLens Architect, le schede non ancora confermate hanno un bordo tratteggiato e un badge verde **NUOVO**.
+
+**Esplorare e navigare**
+
+- **Spostamento, zoom, minimappa** — Trascinate il canvas per spostarvi, scorrete per zoomare e usate la minimappa per navigare diagrammi di grandi dimensioni.
+- **Cliccate per ispezionare** — Cliccate su qualsiasi nodo per aprire il pannello laterale di dettaglio della scheda.
+- **Ricentrare** — Maiusc+clic o pressione prolungata su una scheda per centrare il diagramma su di essa; i pulsanti **Torna al selettore di schede**, **Scheda precedente** e **Scheda successiva** della barra degli strumenti percorrono la cronologia di navigazione.
+- **Modalità evidenziazione** — Passate il mouse su una scheda per evidenziare le sue connessioni; sui dispositivi touch, attivate la **Modalità evidenziazione** nel pannello dei controlli per evidenziare con il tocco.
+- **Modalità espansione** — Attivate la **Modalità espansione** nel pannello dei controlli, quindi cliccate su una scheda per mostrare tutte le sue relazioni su richiesta.
+- **Nessuna scheda centrale richiesta** — Nel report Dipendenze la Layered Dependency View mostra tutte le schede che corrispondono al filtro di tipo corrente, quindi non dovete scegliere prima una scheda di partenza.
+
+**Personalizzare la vista** (dalla barra degli strumenti)
+
+- **Menu di visualizzazione scheda** — Attivate l'etichetta del **tipo** e un **punto di stato del ciclo di vita**, abilitate la **gerarchia superiore** (aggiunge la scheda superiore di ogni scheda e disegna il collegamento di contenimento *contiene / parte di*) e scegliete **campi attributo aggiuntivi** da mostrare su ogni scheda — i primi due appaiono sulla scheda e l'insieme completo compare nel tooltip al passaggio del mouse. Le scelte vengono ricordate tra le visite.
+- **Mostra schede a fine vita** — Le schede correlate il cui ciclo di vita ha raggiunto la fine vita vengono nascoste per impostazione predefinita per mantenere il grafico focalizzato; attivate questa opzione (nel menu **Visualizzazione schede**) per farle ricomparire. La scheda su cui siete centrati viene sempre mostrata, anche se è essa stessa a fine vita.
+- **Riorganizzare** — Trascinate una scheda per spostarla all'interno del suo livello, oppure trascinate un intero **riquadro di livello** per spostarlo con tutte le sue schede. **Reimposta disposizione** ripristina la disposizione automatica.
+- **Sfondo** — Alternate lo sfondo del canvas tra griglia, punti e nessuno.
+- **Esportazione e schermo intero** — Esportate il diagramma in **PNG** o **SVG**, oppure apritelo a **schermo intero**.
 
 ## Report Costi
 

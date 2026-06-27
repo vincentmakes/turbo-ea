@@ -72,19 +72,31 @@ O **Relatório de Dependências** visualiza **conexões entre componentes** como
 
 ![Layered Dependency View](../assets/img/en/13b_dependencies_c4.png)
 
-Alterne para a **Layered Dependency View** usando os botões de modo de visualização na barra de ferramentas. É a notação própria do Turbo EA para mostrar dependências entre cards nas quatro camadas EA — inspirada no princípio de estratificação do ArchiMate e na filosofia de «bons padrões» do modelo C4, mas distinta de ambos:
+Alterne para a **Layered Dependency View** usando os botões de modo de visualização na barra de ferramentas. É a notação própria do Turbo EA para mostrar dependências entre cartões nas quatro camadas EA — inspirada no princípio de estratificação do ArchiMate e na filosofia de «bons padrões» do modelo C4, mas distinta de ambos. A mesma vista é reutilizada na página de detalhes do cartão (mostrando a vizinhança imediata de dependências do cartão) e no assistente [TurboLens Architect](turbolens.md#architecture-ai), de modo que as dependências aparecem da mesma forma em toda parte.
 
-- **Faixas por camada** — Os cards são agrupados por camada arquitetural (Estratégia e Transformação, Arquitetura de Negócio, Aplicação e Dados, Arquitetura Técnica) dentro de retângulos de contorno tracejados, em ordem fixa
-- **Nós coloridos por tipo** — Cada nó é colorido segundo o seu tipo de card e rotulado com o nome e o tipo do card
-- **Arestas dirigidas e rotuladas** — As arestas seguem a direção da relação do metamodelo (origem → destino) e carregam o rótulo direto da relação (por ex. *usa*, *suporta*, *executa em*)
-- **Cards propostos** — No assistente TurboLens Architect, os cards ainda não confirmados têm uma borda tracejada e um selo verde **NEW**
-- **Canvas interativo** — Mova, amplie e use o minimapa para navegar em diagramas grandes
-- **Clique para inspecionar** — Clique em qualquer nó para abrir o painel lateral de detalhes do card
-- **Sem card central necessário** — A Layered Dependency View mostra todos os cards que correspondem ao filtro de tipo atual
-- **Destaque de conexões** — Passe o mouse sobre um card para destacar suas conexões; em dispositivos touch, use o botão de destaque no painel de controles para destacar ao tocar
-- **Cards em fim de vida ocultos por padrão** — Os cards relacionados cujo ciclo de vida atingiu o fim de vida são ocultados para manter o gráfico focado; ative **Mostrar cartões em fim de vida** no menu **Exibição do card** para mostrá-los novamente. O card no qual você está centrado é sempre mostrado, mesmo que ele próprio esteja em fim de vida
+**Lendo o diagrama**
 
-A mesma vista é reutilizada na página de detalhes do card (mostrando a vizinhança imediata de dependências do card) e no assistente [TurboLens Architect](turbolens.md#architecture-ai), de modo que as dependências aparecem da mesma forma em toda parte.
+- **Faixas por camada** — Os cartões são agrupados por camada arquitetural (Estratégia e Transformação, Arquitetura de Negócio, Aplicação e Dados, Arquitetura Técnica) dentro de retângulos de contorno tracejados, em ordem fixa.
+- **Nós coloridos por tipo com ícones** — Cada nó é colorido segundo o seu tipo de cartão e mostra o ícone do tipo de cartão no canto superior esquerdo, de modo que os tipos são reconhecíveis de relance mesmo sem cor.
+- **Arestas dirigidas e rotuladas** — As arestas seguem a direção da relação do metamodelo (origem → destino) e carregam o rótulo direto da relação (por ex. *usa*, *suporta*, *executa em*).
+- **Cartões propostos** — No assistente TurboLens Architect, os cartões ainda não confirmados têm uma borda tracejada e um selo verde **NOVO**.
+
+**Explorando e navegando**
+
+- **Mover, ampliar, minimapa** — Arraste o canvas para mover, role para ampliar e use o minimapa para navegar em diagramas grandes.
+- **Clique para inspecionar** — Clique em qualquer nó para abrir o painel lateral de detalhes do cartão.
+- **Recentralizar** — Shift+clique ou pressão longa num cartão para centrar o diagrama nele; os botões **Voltar ao seletor de cartões**, **Cartão anterior** e **Próximo cartão** da barra de ferramentas percorrem o seu histórico de navegação.
+- **Modo destaque** — Passe o mouse sobre um cartão para destacar suas conexões; em dispositivos touch, ative o **Modo destaque** no painel de controles para destacar ao tocar.
+- **Modo expansão** — Ative o **Modo expansão** no painel de controles e, em seguida, clique num cartão para revelar todas as suas relações sob demanda.
+- **Sem cartão central necessário** — No relatório de Dependências, a Layered Dependency View mostra todos os cartões que correspondem ao filtro de tipo atual, de modo que você não precisa escolher um cartão de partida primeiro.
+
+**Personalizando a vista** (a partir da barra de ferramentas)
+
+- **Menu de exibição do cartão** — Ative o rótulo de **tipo** e um **ponto de status do ciclo de vida**, ative a **hierarquia superior** (adiciona o cartão superior de cada cartão e desenha o vínculo de contenção *contém / parte de*) e escolha **campos de atributo adicionais** para mostrar em cada cartão — os dois primeiros aparecem no cartão e o conjunto completo aparece na dica de ferramenta ao passar o mouse. As escolhas são lembradas entre visitas.
+- **Mostrar cartões em fim de vida** — Os cartões relacionados cujo ciclo de vida atingiu o fim de vida são ocultados por padrão para manter o gráfico focado; ative esta opção (no menu **Exibição de cartões**) para trazê-los de volta. O cartão no qual você está centrado é sempre mostrado, mesmo que ele próprio esteja em fim de vida.
+- **Reorganizar** — Arraste um cartão para movê-lo dentro da sua camada, ou arraste uma **caixa de camada** inteira para movê-la com todos os seus cartões. **Redefinir disposição** restaura a disposição automática.
+- **Plano de fundo** — Alterne o plano de fundo do canvas entre grade, pontos e nenhum.
+- **Exportação e tela cheia** — Exporte o diagrama para **PNG** ou **SVG**, ou abra-o em **tela cheia**.
 
 ## Relatório de Custos
 

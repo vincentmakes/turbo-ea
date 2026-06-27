@@ -72,19 +72,31 @@ Le **Rapport Dépendances** visualise les **connexions entre composants** sous f
 
 ![Layered Dependency View](../assets/img/en/13b_dependencies_c4.png)
 
-Basculez vers la **Layered Dependency View** à l'aide des boutons de mode d'affichage dans la barre d'outils. Il s'agit de la notation maison de Turbo EA pour représenter les dépendances entre fiches selon les quatre couches EA — inspirée du principe de stratification d'ArchiMate et de la philosophie « bons défauts » du modèle C4, mais distincte des deux :
+Basculez vers la **Layered Dependency View** à l'aide des boutons de mode d'affichage dans la barre d'outils. Il s'agit de la notation maison de Turbo EA pour représenter les dépendances entre fiches selon les quatre couches EA — inspirée du principe de stratification d'ArchiMate et de la philosophie « bons défauts » du modèle C4, mais distincte des deux. La même vue est réutilisée sur la page de détail de fiche (montrant le voisinage de dépendances immédiat de la fiche) et dans l'assistant [TurboLens Architect](turbolens.md#architecture-ai), afin que les dépendances apparaissent de la même manière partout.
 
-- **Couloirs par couche** — Les fiches sont regroupées par couche architecturale (Stratégie & Transformation, Architecture Métier, Application & Données, Architecture Technique) dans des rectangles de périmètre en pointillés, dans un ordre fixe
-- **Nœuds colorés par type** — Chaque nœud est coloré selon son type de fiche et étiqueté avec le nom et le type de la fiche
-- **Arêtes orientées et étiquetées** — Les arêtes suivent la direction de la relation du métamodèle (source → cible) et portent l'étiquette directe de la relation (par ex. *utilise*, *supporte*, *s'exécute sur*)
-- **Fiches proposées** — Dans l'assistant TurboLens Architect, les fiches non encore validées ont une bordure en pointillés et un badge vert **NEW**
-- **Canevas interactif** — Déplacez, zoomez et utilisez la minimap pour naviguer dans les grands diagrammes
-- **Cliquer pour inspecter** — Cliquez sur n'importe quel nœud pour ouvrir le panneau latéral de détail de la fiche
-- **Pas de fiche centrale requise** — La Layered Dependency View affiche toutes les fiches correspondant au filtre de type actuel
-- **Mise en surbrillance des connexions** — Survolez une fiche pour mettre en surbrillance ses connexions ; sur les appareils tactiles, utilisez le bouton de surbrillance dans le panneau de contrôle pour mettre en surbrillance par toucher
-- **Fiches en fin de vie masquées par défaut** — Les fiches liées dont le cycle de vie a atteint la fin de vie sont masquées pour garder le graphe lisible ; activez **Afficher les fiches en fin de vie** dans le menu **Affichage des fiches** pour les réafficher. La fiche sur laquelle vous êtes centré est toujours affichée, même si elle est elle-même en fin de vie
+**Lire le diagramme**
 
-La même vue est réutilisée sur la page de détail de fiche (montrant le voisinage de dépendances immédiat de la fiche) et dans l'assistant [TurboLens Architect](turbolens.md#architecture-ai), afin que les dépendances apparaissent de la même manière partout.
+- **Couloirs par couche** — Les fiches sont regroupées par couche architecturale (Stratégie & Transformation, Architecture Métier, Application & Données, Architecture Technique) dans des rectangles de périmètre en pointillés, dans un ordre fixe.
+- **Nœuds colorés par type avec icônes** — Chaque nœud est coloré selon son type de fiche et affiche l'icône du type de fiche dans son coin supérieur gauche, de sorte que les types sont reconnaissables d'un coup d'œil, même sans couleur.
+- **Arêtes orientées et étiquetées** — Les arêtes suivent la direction de la relation du métamodèle (source → cible) et portent l'étiquette directe de la relation (par ex. *utilise*, *supporte*, *s'exécute sur*).
+- **Fiches proposées** — Dans l'assistant TurboLens Architect, les fiches non encore validées ont une bordure en pointillés et un badge vert **NOUVEAU**.
+
+**Explorer et naviguer**
+
+- **Déplacement, zoom, minimap** — Faites glisser le canevas pour vous déplacer, faites défiler pour zoomer et utilisez la minimap pour naviguer dans les grands diagrammes.
+- **Cliquer pour inspecter** — Cliquez sur n'importe quel nœud pour ouvrir le panneau latéral de détail de la fiche.
+- **Recentrer** — Maj+clic ou appui long sur une fiche pour centrer le diagramme dessus ; les boutons **Retour au sélecteur de cartes**, **Carte précédente** et **Carte suivante** de la barre d'outils parcourent votre historique de navigation.
+- **Mode surbrillance** — Survolez une fiche pour mettre en surbrillance ses connexions ; sur les appareils tactiles, activez le **Mode surbrillance** dans le panneau de contrôle pour mettre en surbrillance par toucher.
+- **Mode expansion** — Activez le **Mode expansion** dans le panneau de contrôle, puis cliquez sur une fiche pour révéler toutes ses relations à la demande.
+- **Pas de fiche centrale requise** — Dans le Rapport Dépendances, la Layered Dependency View affiche toutes les fiches correspondant au filtre de type actuel, vous n'avez donc pas à choisir une fiche de départ au préalable.
+
+**Personnaliser la vue** (depuis la barre d'outils)
+
+- **Menu Affichage des fiches** — Activez l'étiquette de **type** et un **point de statut de cycle de vie**, activez la **hiérarchie parente** (ajoute la fiche parente de chaque fiche et trace le lien de composition *contient / fait partie de*) et choisissez des **champs d'attributs supplémentaires** à afficher sur chaque fiche — les deux premiers s'affichent sur la fiche et l'ensemble complet apparaît dans l'infobulle au survol. Les choix sont mémorisés d'une visite à l'autre.
+- **Afficher les fiches en fin de vie** — Les fiches liées dont le cycle de vie a atteint la fin de vie sont masquées par défaut pour garder le graphe lisible ; activez cette option (dans le menu **Affichage des fiches**) pour les réafficher. La fiche sur laquelle vous êtes centré est toujours affichée, même si elle est elle-même en fin de vie.
+- **Réorganiser** — Faites glisser une fiche pour la déplacer au sein de sa couche, ou faites glisser un **bloc de couche** entier pour le déplacer avec toutes ses fiches. **Réinitialiser la disposition** restaure l'agencement automatique.
+- **Arrière-plan** — Faites défiler l'arrière-plan du canevas entre grille, points et aucun.
+- **Exporter et plein écran** — Exportez le diagramme en **PNG** ou **SVG**, ou ouvrez-le en **plein écran**.
 
 ## Rapport Coûts
 

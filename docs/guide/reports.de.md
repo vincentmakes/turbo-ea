@@ -72,19 +72,31 @@ Der **Abhängigkeitsbericht** visualisiert **Verbindungen zwischen Komponenten**
 
 ![Layered Dependency View](../assets/img/en/13b_dependencies_c4.png)
 
-Wechseln Sie über die Ansichtsmodus-Schaltflächen in der Symbolleiste zur **Layered Dependency View**. Dies ist die hauseigene Notation von Turbo EA, um Abhängigkeiten zwischen Karten über die vier EA-Ebenen hinweg darzustellen — inspiriert vom Schichtenprinzip von ArchiMate und der „Good Defaults"-Philosophie des C4-Modells, aber von beiden zu unterscheiden:
+Wechseln Sie über die Ansichtsmodus-Schaltflächen in der Symbolleiste zur **Layered Dependency View**. Dies ist die hauseigene Notation von Turbo EA, um Abhängigkeiten zwischen Karten über die vier EA-Ebenen hinweg darzustellen — inspiriert vom Schichtenprinzip von ArchiMate und der „Good Defaults"-Philosophie des C4-Modells, aber von beiden zu unterscheiden. Dieselbe Ansicht wird auf der Kartendetailseite (zeigt die unmittelbare Abhängigkeits-Nachbarschaft der Karte) und im [TurboLens-Architect](turbolens.md#architecture-ai)-Wizard wiederverwendet, sodass Abhängigkeiten überall gleich aussehen.
 
-- **Geschichtete Swimlanes** — Karten werden nach Architekturebene (Strategie & Transformation, Geschäftsarchitektur, Anwendung & Daten, Technische Architektur) in gestrichelten Grenzrechtecken in fester Reihenfolge gruppiert
-- **Typ-farbige Knoten** — Jeder Knoten ist nach seinem Kartentyp eingefärbt und mit Kartenname und Typ beschriftet
-- **Gerichtete, beschriftete Kanten** — Kanten folgen der Beziehungsrichtung des Metamodells (Quelle → Ziel) und tragen die Vorwärtsbeschriftung der Beziehung (z. B. *verwendet*, *unterstützt*, *läuft auf*)
-- **Vorgeschlagene Karten** — Im TurboLens-Architect-Wizard haben noch nicht festgeschriebene Karten einen gestrichelten Rand und ein grünes **NEW**-Abzeichen
-- **Interaktive Leinwand** — Schwenken, Zoomen und die Minimap nutzen, um große Diagramme zu navigieren
-- **Klicken zum Inspizieren** — Klicken Sie auf einen beliebigen Knoten, um das Kartendetail-Seitenpanel zu öffnen
-- **Kein Zentralknoten erforderlich** — Die Layered Dependency View zeigt alle Karten an, die dem aktuellen Typfilter entsprechen
-- **Verbindungshervorhebung** — Fahren Sie mit der Maus über eine Karte, um ihre Verbindungen hervorzuheben; auf Touch-Geräten verwenden Sie die Hervorhebungs-Schaltfläche im Bedienfeld zum Tippen-Hervorheben
-- **End-of-Life-Karten standardmäßig ausgeblendet** — Verbundene Karten, deren Lebenszyklus das Ende der Lebensdauer erreicht hat, werden ausgeblendet, damit das Diagramm fokussiert bleibt; aktivieren Sie **End-of-Life-Karten anzeigen** im Menü **Kartenanzeige**, um sie wieder einzublenden. Die zentrierte Karte wird immer angezeigt, auch wenn sie selbst End of Life ist
+**Das Diagramm lesen**
 
-Dieselbe Ansicht wird auf der Kartendetailseite (zeigt die unmittelbare Abhängigkeits-Nachbarschaft der Karte) und im [TurboLens-Architect](turbolens.md#architecture-ai)-Wizard wiederverwendet, sodass Abhängigkeiten überall gleich aussehen.
+- **Geschichtete Swimlanes** — Karten werden nach Architekturebene (Strategie & Transformation, Geschäftsarchitektur, Anwendung & Daten, Technische Architektur) in gestrichelten Grenzrechtecken in fester Reihenfolge gruppiert.
+- **Typ-farbige Knoten mit Symbolen** — Jeder Knoten ist nach seinem Kartentyp eingefärbt und zeigt das Symbol des Kartentyps in seiner oberen linken Ecke, sodass Typen auch ohne Farbe auf einen Blick erkennbar sind.
+- **Gerichtete, beschriftete Kanten** — Kanten folgen der Beziehungsrichtung des Metamodells (Quelle → Ziel) und tragen die Vorwärtsbeschriftung der Beziehung (z. B. *verwendet*, *unterstützt*, *läuft auf*).
+- **Vorgeschlagene Karten** — Im TurboLens-Architect-Wizard haben noch nicht festgeschriebene Karten einen gestrichelten Rand und ein grünes **NEU**-Abzeichen.
+
+**Erkunden und navigieren**
+
+- **Schwenken, Zoomen, Minimap** — Ziehen Sie die Leinwand zum Schwenken, scrollen Sie zum Zoomen und nutzen Sie die Minimap, um große Diagramme zu navigieren.
+- **Klicken zum Inspizieren** — Klicken Sie auf einen beliebigen Knoten, um das Kartendetail-Seitenpanel zu öffnen.
+- **Neu zentrieren** — Mit Umschalt+Klick oder langem Drücken auf eine Karte zentrieren Sie das Diagramm auf sie; die Symbolleisten-Schaltflächen **Zurück zur Kartenauswahl**, **Vorherige Karte** und **Nächste Karte** durchlaufen Ihren Navigationsverlauf.
+- **Hervorhebungsmodus** — Fahren Sie mit der Maus über eine Karte, um ihre Verbindungen hervorzuheben; aktivieren Sie auf Touch-Geräten den **Hervorhebungsmodus** im Bedienfeld, um stattdessen per Tippen hervorzuheben.
+- **Erweiterungsmodus** — Aktivieren Sie den **Erweiterungsmodus** im Bedienfeld und klicken Sie dann auf eine Karte, um bei Bedarf alle ihre Beziehungen anzuzeigen.
+- **Kein Zentralknoten erforderlich** — Im Abhängigkeitsbericht zeigt die Layered Dependency View alle Karten an, die dem aktuellen Typfilter entsprechen, sodass Sie nicht zuerst eine Startkarte auswählen müssen.
+
+**Die Ansicht anpassen** (über die Symbolleiste)
+
+- **Menü Kartenanzeige** — Schalten Sie die **Typ**-Beschriftung und einen **Lebenszyklusstatus-Punkt** um, aktivieren Sie die **Elternhierarchie** (fügt die Elternkarte jeder Karte hinzu und zeichnet die Containment-Verknüpfung *enthält / Teil von*) und wählen Sie **zusätzliche Attributfelder** zur Anzeige auf jeder Karte — die ersten beiden werden auf der Karte dargestellt, der vollständige Satz erscheint im Hover-Tooltip. Die Auswahl wird zwischen den Besuchen gespeichert.
+- **End-of-Life-Karten anzeigen** — Verbundene Karten, deren Lebenszyklus das Ende der Lebensdauer erreicht hat, werden standardmäßig ausgeblendet, damit das Diagramm fokussiert bleibt; aktivieren Sie diese Umschaltung (im Menü **Kartenanzeige**), um sie wieder einzublenden. Die zentrierte Karte wird immer angezeigt, auch wenn sie selbst End of Life ist.
+- **Neu anordnen** — Ziehen Sie eine Karte, um sie innerhalb ihrer Ebene zu verschieben, oder ziehen Sie ein ganzes **Ebenen-Rechteck**, um es mit all seinen Karten zu verschieben. **Layout zurücksetzen** stellt die automatische Anordnung wieder her.
+- **Hintergrund** — Wechseln Sie den Leinwandhintergrund zwischen Raster, Punkten und ohne.
+- **Exportieren und Vollbild** — Exportieren Sie das Diagramm als **PNG** oder **SVG** oder öffnen Sie es im **Vollbild**.
 
 ## Kostenbericht
 

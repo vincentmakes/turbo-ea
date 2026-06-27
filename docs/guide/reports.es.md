@@ -72,19 +72,31 @@ El **Informe de Dependencias** visualiza las **conexiones entre componentes** co
 
 ![Layered Dependency View](../assets/img/es/13b_dependencias_c4.png)
 
-Cambie a la **Layered Dependency View** utilizando los botones de modo de vista en la barra de herramientas. Es la notación propia de Turbo EA para mostrar dependencias entre fichas a través de las cuatro capas EA — inspirada en el principio de estratificación de ArchiMate y en la filosofía de «buenos valores por defecto» del modelo C4, pero distinta de ambos:
+Cambie a la **Layered Dependency View** utilizando los botones de modo de vista en la barra de herramientas. Es la notación propia de Turbo EA para mostrar dependencias entre fichas a través de las cuatro capas EA — inspirada en el principio de estratificación de ArchiMate y en la filosofía de «buenos valores por defecto» del modelo C4, pero distinta de ambos. La misma vista se reutiliza en la página de detalle de la ficha (mostrando el vecindario inmediato de dependencias de la ficha) y en el asistente [TurboLens Architect](turbolens.md#architecture-ai), de modo que las dependencias se ven igual en todas partes.
 
-- **Carriles por capa** — Las fichas se agrupan por capa arquitectónica (Estrategia y Transformación, Arquitectura de Negocio, Aplicación y Datos, Arquitectura Técnica) dentro de rectángulos de contorno punteados, en orden fijo
-- **Nodos coloreados por tipo** — Cada nodo se colorea según su tipo de ficha y se etiqueta con el nombre y el tipo de la ficha
-- **Aristas dirigidas y etiquetadas** — Las aristas siguen la dirección de la relación del metamodelo (origen → destino) y llevan la etiqueta directa de la relación (por ej. *usa*, *soporta*, *se ejecuta en*)
-- **Fichas propuestas** — En el asistente de TurboLens Architect, las fichas aún no confirmadas tienen un borde punteado y una insignia verde **NEW**
-- **Lienzo interactivo** — Desplace, haga zoom y use el minimapa para navegar por diagramas grandes
-- **Clic para inspeccionar** — Haga clic en cualquier nodo para abrir el panel lateral de detalle de la ficha
-- **Sin ficha central requerida** — La Layered Dependency View muestra todas las fichas que coinciden con el filtro de tipo actual
-- **Resaltado de conexiones** — Pase el cursor sobre una ficha para resaltar sus conexiones; en dispositivos táctiles, use el botón de resaltado en el panel de controles para resaltar al tocar
-- **Fichas al final de su vida útil ocultas por defecto** — Las fichas relacionadas cuyo ciclo de vida ha llegado al final de su vida útil se ocultan para mantener el gráfico enfocado; active **Mostrar tarjetas al final de su vida útil** en el menú **Visualización de la ficha** para volver a mostrarlas. La ficha en la que está centrado siempre se muestra, incluso si ella misma está al final de su vida útil
+**Leer el diagrama**
 
-La misma vista se reutiliza en la página de detalle de la ficha (mostrando el vecindario inmediato de dependencias de la ficha) y en el asistente [TurboLens Architect](turbolens.md#architecture-ai), de modo que las dependencias se ven igual en todas partes.
+- **Carriles por capa** — Las fichas se agrupan por capa arquitectónica (Estrategia y Transformación, Arquitectura de Negocio, Aplicación y Datos, Arquitectura Técnica) dentro de rectángulos de contorno punteados, en orden fijo.
+- **Nodos coloreados por tipo con iconos** — Cada nodo se colorea según su tipo de ficha y muestra el icono del tipo de ficha en su esquina superior izquierda, de modo que los tipos se reconocen de un vistazo, incluso sin color.
+- **Aristas dirigidas y etiquetadas** — Las aristas siguen la dirección de la relación del metamodelo (origen → destino) y llevan la etiqueta directa de la relación (por ej. *usa*, *soporta*, *se ejecuta en*).
+- **Fichas propuestas** — En el asistente de TurboLens Architect, las fichas aún no confirmadas tienen un borde punteado y una insignia verde **NUEVO**.
+
+**Explorar y navegar**
+
+- **Desplazar, hacer zoom, minimapa** — Arrastre el lienzo para desplazarse, haga scroll para hacer zoom y use el minimapa para navegar por diagramas grandes.
+- **Clic para inspeccionar** — Haga clic en cualquier nodo para abrir el panel lateral de detalle de la ficha.
+- **Recentrar** — Mayús+clic o pulsación larga sobre una ficha para centrar el diagrama en ella; los botones **Volver al selector de tarjetas**, **Tarjeta anterior** y **Tarjeta siguiente** de la barra de herramientas recorren su historial de navegación.
+- **Modo resaltado** — Pase el cursor sobre una ficha para resaltar sus conexiones; en dispositivos táctiles, active el **Modo resaltado** en el panel de controles para resaltar al tocar.
+- **Modo expansión** — Active el **Modo expansión** en el panel de controles y luego haga clic en una ficha para revelar todas sus relaciones bajo demanda.
+- **Sin ficha central requerida** — En el Informe de Dependencias, la Layered Dependency View muestra todas las fichas que coinciden con el filtro de tipo actual, por lo que no tiene que elegir una ficha de partida primero.
+
+**Personalizar la vista** (desde la barra de herramientas)
+
+- **Menú Visualización de tarjetas** — Active la etiqueta de **tipo** y un **punto de estado de ciclo de vida**, active la **jerarquía padre** (añade la ficha padre de cada ficha y dibuja el enlace de contención *contiene / parte de*) y elija **campos de atributos adicionales** para mostrar en cada ficha — los dos primeros se renderizan en la ficha y el conjunto completo aparece en la información sobre herramientas al pasar el cursor. Las opciones se recuerdan entre visitas.
+- **Mostrar tarjetas al final de su vida útil** — Las fichas relacionadas cuyo ciclo de vida ha llegado al final de su vida útil se ocultan por defecto para mantener el gráfico enfocado; active esta opción (en el menú **Visualización de tarjetas**) para volver a mostrarlas. La ficha en la que está centrado siempre se muestra, incluso si ella misma está al final de su vida útil.
+- **Reorganizar** — Arrastre una ficha para moverla dentro de su capa, o arrastre un **bloque de capa** completo para moverlo con todas sus fichas. **Restablecer disposición** restaura la disposición automática.
+- **Fondo** — Alterne el fondo del lienzo entre cuadrícula, puntos y ninguno.
+- **Exportar y pantalla completa** — Exporte el diagrama a **PNG** o **SVG**, o ábralo en **pantalla completa**.
 
 ## Informe de Costos
 
