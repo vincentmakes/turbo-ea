@@ -361,6 +361,13 @@
   "common.center": "Центр",
   "common.group": "Группа",
   "dependency.expandMode": "Режим расширения: нажмите на карточку, чтобы показать все её связи",
+  "dependency.createDiagram": "Создать диаграмму",
+  "dependency.createDiagramTitle": "Создать диаграмму",
+  "dependency.createDiagramHint": "Создаёт редактируемую диаграмму в модуле «Диаграммы». Каждая фигура остаётся связанной со своей карточкой инвентаря.",
+  "dependency.createDiagramNameLabel": "Название диаграммы",
+  "dependency.createDiagramDefaultName": "{{name}} — зависимости",
+  "dependency.createDiagramSubmit": "Создать",
+  "dependency.createDiagramError": "Не удалось создать диаграмму. Повторите попытку.",
   "cost.permissionDeniedTitle": "Доступ к данным о расходах ограничен",
   "cost.permissionDeniedBody": "У вас нет прав на просмотр отчётов о расходах. Попросите администратора предоставить вам разрешение «costs.view» или станьте заинтересованным лицом по соответствующим карточкам."
 }

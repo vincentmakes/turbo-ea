@@ -98,6 +98,7 @@ Passate alla **Layered Dependency View** usando i pulsanti di modalità di visua
 - **Riorganizzare** — Trascinate una scheda per spostarla all'interno del suo livello, oppure trascinate un intero **riquadro di livello** per spostarlo con tutte le sue schede. **Reimposta disposizione** ripristina la disposizione automatica.
 - **Sfondo** — Alternate lo sfondo del canvas tra griglia, punti e nessuno.
 - **Esportazione e schermo intero** — Esportate il diagramma in **PNG** o **SVG**, oppure apritelo a **schermo intero**.
+- **Crea diagramma** — Trasforma la vista corrente in un nuovo diagramma modificabile nel [modulo Diagrammi](diagrams.md). Ricrea le schede, le relazioni e le quattro corsie dei livelli di architettura, e ogni forma rimane collegata alla sua scheda di inventario. Ti viene chiesto un nome e poi vieni portato direttamente al nuovo diagramma. Disponibile per gli utenti che possono creare diagrammi.
 
 ## Report Costi
 

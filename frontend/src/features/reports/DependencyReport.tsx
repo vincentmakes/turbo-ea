@@ -25,6 +25,7 @@ import LayeredDependencyView, { readableTypeColor } from "./LayeredDependencyVie
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useAuthContext } from "@/hooks/AuthContext";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useResolveMetaLabel, resolveMetaLabel } from "@/hooks/useResolveLabel";
@@ -351,6 +352,9 @@ function computeTreeLayout(
 export default function DependencyReport() {
   const { t } = useTranslation(["reports", "common"]);
   const { types } = useMetamodel();
+  const { user } = useAuthContext();
+  const canCreateDiagram =
+    !!user?.permissions?.["*"] || !!user?.permissions?.["diagrams.manage"];
   const rml = useResolveMetaLabel();
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
@@ -780,6 +784,7 @@ export default function DependencyReport() {
               hasNext={hasNext}
               centerName={centerNode?.name}
               centerId={center || undefined}
+              canCreateDiagram={canCreateDiagram}
             />
           </Box>
         ) : chartMode === "tree" && center && layout && layout.cards.length > 0 ? (

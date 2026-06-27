@@ -98,6 +98,7 @@ Basculez vers la **Layered Dependency View** à l'aide des boutons de mode d'aff
 - **Réorganiser** — Faites glisser une fiche pour la déplacer au sein de sa couche, ou faites glisser un **bloc de couche** entier pour le déplacer avec toutes ses fiches. **Réinitialiser la disposition** restaure l'agencement automatique.
 - **Arrière-plan** — Faites défiler l'arrière-plan du canevas entre grille, points et aucun.
 - **Exporter et plein écran** — Exportez le diagramme en **PNG** ou **SVG**, ou ouvrez-le en **plein écran**.
+- **Créer un diagramme** — Transformez la vue actuelle en un nouveau diagramme modifiable dans le [module Diagrammes](diagrams.md). Les cartes, les relations et les quatre couches d'architecture sont recréées, et chaque forme reste liée à sa carte d'inventaire. Un nom vous est demandé, puis vous êtes dirigé directement vers le nouveau diagramme. Disponible pour les utilisateurs autorisés à créer des diagrammes.
 
 ## Rapport Coûts
 

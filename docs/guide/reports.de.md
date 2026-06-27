@@ -98,6 +98,7 @@ Wechseln Sie über die Ansichtsmodus-Schaltflächen in der Symbolleiste zur **La
 - **Neu anordnen** — Ziehen Sie eine Karte, um sie innerhalb ihrer Ebene zu verschieben, oder ziehen Sie ein ganzes **Ebenen-Rechteck**, um es mit all seinen Karten zu verschieben. **Layout zurücksetzen** stellt die automatische Anordnung wieder her.
 - **Hintergrund** — Wechseln Sie den Leinwandhintergrund zwischen Raster, Punkten und ohne.
 - **Exportieren und Vollbild** — Exportieren Sie das Diagramm als **PNG** oder **SVG** oder öffnen Sie es im **Vollbild**.
+- **Diagramm erstellen** — Wandeln Sie die aktuelle Ansicht in ein neues, bearbeitbares Diagramm im [Diagramm-Modul](diagrams.md) um. Karten, Beziehungen und die vier Architektur-Ebenen werden nachgebildet, und jede Form bleibt mit ihrer Inventarkarte verknüpft. Sie werden nach einem Namen gefragt und gelangen anschließend direkt zum neuen Diagramm. Verfügbar für Benutzer, die Diagramme erstellen dürfen.
 
 ## Kostenbericht
 

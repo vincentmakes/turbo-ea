@@ -98,6 +98,7 @@ Cambie a la **Layered Dependency View** utilizando los botones de modo de vista 
 - **Reorganizar** — Arrastre una ficha para moverla dentro de su capa, o arrastre un **bloque de capa** completo para moverlo con todas sus fichas. **Restablecer disposición** restaura la disposición automática.
 - **Fondo** — Alterne el fondo del lienzo entre cuadrícula, puntos y ninguno.
 - **Exportar y pantalla completa** — Exporte el diagrama a **PNG** o **SVG**, o ábralo en **pantalla completa**.
+- **Crear diagrama** — Convierta la vista actual en un nuevo diagrama editable en el [módulo de Diagramas](diagrams.md). Recrea las tarjetas, las relaciones y las cuatro capas de arquitectura, y cada forma permanece vinculada a su tarjeta de inventario. Se le solicita un nombre y, a continuación, se le lleva directamente al nuevo diagrama. Disponible para los usuarios que pueden crear diagramas.
 
 ## Informe de Costos
 

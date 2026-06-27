@@ -361,6 +361,13 @@
   "common.center": "Centrér",
   "common.group": "Gruppe",
   "dependency.expandMode": "Udvidelsestilstand: klik på et kort for at afsløre alle dets relationer",
+  "dependency.createDiagram": "Opret diagram",
+  "dependency.createDiagramTitle": "Opret diagram",
+  "dependency.createDiagramHint": "Opretter et redigerbart diagram i diagrammodulet. Hver figur forbliver knyttet til sit inventarkort.",
+  "dependency.createDiagramNameLabel": "Diagramnavn",
+  "dependency.createDiagramDefaultName": "{{name}} – afhængigheder",
+  "dependency.createDiagramSubmit": "Opret",
+  "dependency.createDiagramError": "Diagrammet kunne ikke oprettes. Prøv igen.",
   "cost.permissionDeniedTitle": "Omkostningsdata begrænset",
   "cost.permissionDeniedBody": "Du har ikke tilladelse til at se omkostningsrapporter. Bed en administrator om at give dig tilladelsen «costs.view», eller bliv interessent på de kort, hvis omkostninger du har brug for."
 }

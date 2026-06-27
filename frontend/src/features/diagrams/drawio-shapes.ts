@@ -9,6 +9,27 @@
 
 import { ICON_PATHS } from "./iconPaths";
 
+/** Escape a string for safe inclusion in XML attribute/text content. */
+function escapeXml(value: string): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** Mix a hex color toward white by a factor (0-1) for a faint background tint. */
+function tint(hex: string, factor = 0.88): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const t = (v: number) =>
+    Math.round(v + (255 - v) * factor)
+      .toString(16)
+      .padStart(2, "0");
+  return `#${t(r)}${t(g)}${t(b)}`;
+}
+
 /** Darken a hex color by a factor (0-1) for stroke color */
 function darken(hex: string, factor = 0.25): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -3250,4 +3271,148 @@ export function applyCardTypeIcons(
     model.endUpdate();
   }
   return touched;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Layered Dependency View → DrawIO diagram serialiser               */
+/* ------------------------------------------------------------------ */
+
+/** A card to render onto a generated diagram, positioned in graph space. */
+export interface DiagramCardInput {
+  cardId: string;
+  cardType: string;
+  name: string;
+  color: string;
+  /** Card-type Material Symbols icon name (e.g. "apps"). Optional. */
+  icon?: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** A relation edge between two cards on a generated diagram. */
+export interface DiagramRelInput {
+  sourceCardId: string;
+  targetCardId: string;
+  relationType: string;
+  label: string;
+  color: string;
+}
+
+/** A background swim-lane box (one per EA layer). */
+export interface DiagramLayerInput {
+  label: string;
+  color: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * Serialise a set of positioned cards, relation edges and layer boxes into a
+ * complete DrawIO `<mxGraphModel>` XML string — without touching a live graph.
+ *
+ * Used by the Layered Dependency View's "Create diagram" action to turn the
+ * on-screen graph into a real, editable diagram. Card cells carry `cardId` /
+ * `cardType` (so they stay dynamically connected to the inventory and are
+ * picked up by the backend's card-ref extraction). Relation edges are stamped
+ * with `relationType` for display but deliberately carry NO `pending="1"` flag
+ * and NO `relationId`, so the editor's sync treats them as already-existing
+ * relations and never tries to re-create them (see `scanDiagramItems`).
+ *
+ * Layer boxes are plain cells with no `cardId`, so they're ignored by card-ref
+ * extraction and render behind the cards (emitted first).
+ */
+export function buildLdvDiagramXml(
+  cards: DiagramCardInput[],
+  rels: DiagramRelInput[],
+  layers: DiagramLayerInput[],
+): string {
+  const r = (n: number) => Math.round(n);
+  const parts: string[] = [];
+
+  // Layer swim-lanes first so they paint behind the cards.
+  layers.forEach((lyr, i) => {
+    const style = [
+      "rounded=1",
+      "arcSize=2",
+      `fillColor=${tint(lyr.color)}`,
+      `strokeColor=${lyr.color}`,
+      "strokeWidth=1.5",
+      "dashed=1",
+      "dashPattern=8 6",
+      "verticalAlign=top",
+      "align=left",
+      "fontStyle=1",
+      "fontSize=13",
+      `fontColor=${darken(lyr.color)}`,
+      "spacingLeft=10",
+      "spacingTop=6",
+      "html=1",
+    ].join(";");
+    parts.push(
+      `<mxCell id="layer-${i}" value="${escapeXml(lyr.label)}" style="${escapeXml(style)}" ` +
+        `vertex="1" parent="1">` +
+        `<mxGeometry x="${r(lyr.x)}" y="${r(lyr.y)}" width="${r(lyr.w)}" height="${r(lyr.h)}" ` +
+        `as="geometry"/></mxCell>`,
+    );
+  });
+
+  // Cards. The id lives on the wrapping <object> (mxGraph's UserObject
+  // encoding); edges reference these ids.
+  const cellIdByCard = new Map<string, string>();
+  cards.forEach((c, i) => {
+    const cellId = `card-${i}-${c.cardId.slice(0, 8)}`;
+    cellIdByCard.set(c.cardId, cellId);
+    const { style } = buildCardCellData({
+      cardId: c.cardId,
+      cardType: c.cardType,
+      name: c.name,
+      color: c.color,
+      icon: c.icon,
+      x: c.x,
+      y: c.y,
+    });
+    parts.push(
+      `<object id="${escapeXml(cellId)}" label="${escapeXml(c.name)}" ` +
+        `cardId="${escapeXml(c.cardId)}" cardType="${escapeXml(c.cardType)}">` +
+        `<mxCell style="${escapeXml(style)}" vertex="1" parent="1">` +
+        `<mxGeometry x="${r(c.x)}" y="${r(c.y)}" width="${r(c.w)}" height="${r(c.h)}" ` +
+        `as="geometry"/></mxCell></object>`,
+    );
+  });
+
+  // Relation edges between cards that both made it onto the diagram.
+  let edgeIdx = 0;
+  for (const rel of rels) {
+    const src = cellIdByCard.get(rel.sourceCardId);
+    const tgt = cellIdByCard.get(rel.targetCardId);
+    if (!src || !tgt) continue;
+    const style =
+      `edgeStyle=entityRelationEdgeStyle;strokeColor=${rel.color};strokeWidth=1.5;` +
+      `endArrow=none;startArrow=none;fontSize=10;fontColor=#666;html=1;`;
+    // Only stamp a relationType for real relations; synthetic/hierarchy edges
+    // (empty type) render as plain labelled lines.
+    const relTypeAttr = rel.relationType
+      ? ` relationType="${escapeXml(rel.relationType)}"`
+      : "";
+    parts.push(
+      `<object id="edge-${edgeIdx}" label="${escapeXml(rel.label)}"${relTypeAttr}>` +
+        `<mxCell style="${escapeXml(style)}" edge="1" parent="1" ` +
+        `source="${escapeXml(src)}" target="${escapeXml(tgt)}">` +
+        `<mxGeometry relative="1" as="geometry"/></mxCell></object>`,
+    );
+    edgeIdx += 1;
+  }
+
+  return (
+    `<mxGraphModel dx="800" dy="600" grid="1" gridSize="10" guides="1" tooltips="1" ` +
+    `connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" ` +
+    `pageHeight="1100" math="0" shadow="0">` +
+    `<root><mxCell id="0"/><mxCell id="1" parent="0"/>` +
+    parts.join("") +
+    `</root></mxGraphModel>`
+  );
 }

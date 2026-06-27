@@ -361,6 +361,13 @@
   "common.center": "التمركز",
   "common.group": "المجموعة",
   "dependency.expandMode": "وضع التوسيع: انقر على بطاقة للكشف عن جميع علاقاتها",
+  "dependency.createDiagram": "إنشاء مخطط",
+  "dependency.createDiagramTitle": "إنشاء مخطط",
+  "dependency.createDiagramHint": "ينشئ مخططًا قابلًا للتحرير في وحدة المخططات. يظل كل شكل مرتبطًا ببطاقة المخزون الخاصة به.",
+  "dependency.createDiagramNameLabel": "اسم المخطط",
+  "dependency.createDiagramDefaultName": "تبعيات {{name}}",
+  "dependency.createDiagramSubmit": "إنشاء",
+  "dependency.createDiagramError": "تعذّر إنشاء المخطط. يرجى المحاولة مرة أخرى.",
   "cost.permissionDeniedTitle": "بيانات التكلفة مقيّدة",
   "cost.permissionDeniedBody": "ليس لديك إذن لعرض تقارير التكلفة. اطلب من المسؤول منحك إذن «costs.view»، أو كُن صاحب مصلحة في البطاقات التي تحتاج إلى تكاليفها."
 }
