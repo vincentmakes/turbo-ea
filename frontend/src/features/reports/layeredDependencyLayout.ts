@@ -28,6 +28,11 @@ export interface GNode {
   parent_id?: string | null;
   path?: string[];
   proposed?: boolean;
+  /** Whether this card has any child card in the full dataset (set by the
+   *  consumer, which holds the whole graph). Drives the "has hidden children"
+   *  hierarchy marker — the view only sees the visible slice, so it can't
+   *  derive this on its own. */
+  hasChildren?: boolean;
 }
 
 export interface GEdge {
@@ -38,6 +43,27 @@ export interface GEdge {
   reverse_label?: string;
   description?: string;
   attributes?: Record<string, unknown>;
+}
+
+/**
+ * Resolve which card ids the "Reveal parent" / "Reveal children" toolbar tools
+ * surface when `clickedId` is clicked. Hierarchy-based (uses `parent_id`):
+ *  - "parents": the clicked card's single hierarchical parent (if present in the graph).
+ *  - "children": every card whose `parent_id` is the clicked card.
+ * Returns ids only — the consumer adds them to its visible BFS set. Pure so it
+ * can be shared by every LDV consumer and unit-tested.
+ */
+export function resolveRevealIds(
+  nodes: GNode[],
+  nodeMap: Map<string, GNode>,
+  clickedId: string,
+  kind: "parents" | "children",
+): string[] {
+  if (kind === "parents") {
+    const parentId = nodeMap.get(clickedId)?.parent_id;
+    return parentId && nodeMap.has(parentId) ? [parentId] : [];
+  }
+  return nodes.filter((n) => n.parent_id === clickedId).map((n) => n.id);
 }
 
 /**

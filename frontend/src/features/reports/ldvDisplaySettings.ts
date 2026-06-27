@@ -5,8 +5,7 @@ import { useEffect, useState } from "react";
  *
  * Lives in a tiny module-level store (not a per-component useState) because
  * two unrelated trees need the same values: the view's own toolbar AND the
- * card-detail dependency section, which has to include a card's ancestor
- * chain when "show hierarchy" is on. Mirrors the singleton-hook pattern used
+ * card-detail dependency section. Mirrors the singleton-hook pattern used
  * by `useMetamodel` / `useCurrency`.
  */
 
@@ -15,8 +14,13 @@ export type LdvBackgroundStyle = "lines" | "dots" | "none";
 export interface LdvDisplaySettings {
   showType: boolean;
   showLifecycle: boolean;
-  /** Include each card's hierarchical parent(s) and draw the containment edge. */
-  showHierarchy: boolean;
+  /**
+   * Show a minimalistic marker on each card indicating it has a hierarchical
+   * parent and/or children that aren't currently on the diagram (a hint to use
+   * the Reveal parent / Reveal children toolbar tools). Does not pull any cards
+   * into view — exploration is driven by the toolbar.
+   */
+  showHierarchyMarkers: boolean;
   /** Show related cards whose current lifecycle phase is End of Life. The centered card is always shown. */
   showEndOfLife: boolean;
   /** Append a relation's single-select attribute value to its label (e.g. "supports [Leading]"). */
@@ -30,7 +34,7 @@ const KEY = "tea.ldv.display.v3";
 export const LDV_DEFAULT_SETTINGS: LdvDisplaySettings = {
   showType: true,
   showLifecycle: true,
-  showHierarchy: false,
+  showHierarchyMarkers: true,
   showEndOfLife: false,
   showRelationValues: true,
   extraFields: [],

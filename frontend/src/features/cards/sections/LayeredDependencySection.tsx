@@ -8,10 +8,10 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import LayeredDependencyView from "@/features/reports/LayeredDependencyView";
-import { useLdvSettings } from "@/features/reports/ldvDisplaySettings";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { api } from "@/api/client";
+import { resolveRevealIds } from "@/features/reports/layeredDependencyLayout";
 import type { GNode, GEdge } from "@/features/reports/layeredDependencyLayout";
 
 interface Props {
@@ -19,12 +19,11 @@ interface Props {
 }
 
 export default function LayeredDependencySection({ cardId }: Props) {
-  const { t } = useTranslation(["cards"]);
+  const { t } = useTranslation(["cards", "reports"]);
   const { types } = useMetamodel();
   const { user } = useAuthContext();
   const canCreateDiagram =
     !!user?.permissions?.["*"] || !!user?.permissions?.["diagrams.manage"];
-  const [ldvSettings] = useLdvSettings();
 
   const [expanded, setExpanded] = useState(true);
   const [nodes, setNodes] = useState<GNode[]>([]);
@@ -43,12 +42,19 @@ export default function LayeredDependencySection({ cardId }: Props) {
   // Expand mode: tracks which nodes have been expanded
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
+  // Reveal-parent / reveal-children modes: ids surfaced by each tool, tracked
+  // separately so toggling one tool off clears only its own reveals.
+  const [revealedParentIds, setRevealedParentIds] = useState<Set<string>>(new Set());
+  const [revealedChildIds, setRevealedChildIds] = useState<Set<string>>(new Set());
+
   // Reset when cardId changes
   useEffect(() => {
     setCenter(cardId);
     setNavHistory([cardId]);
     setNavIndex(0);
     setExpandedNodes(new Set());
+    setRevealedParentIds(new Set());
+    setRevealedChildIds(new Set());
     fetchedRef.current = false;
     setNodes([]);
     setEdges([]);
@@ -151,6 +157,25 @@ export default function LayeredDependencySection({ cardId }: Props) {
     setExpandedNodes(new Set());
   }, []);
 
+  // Reveal a clicked card's hierarchical parent or direct children.
+  const handleNodeReveal = useCallback(
+    (id: string, kind: "parents" | "children") => {
+      const ids = resolveRevealIds(nodes, nodeMap, id, kind);
+      if (ids.length === 0) return;
+      const setter = kind === "parents" ? setRevealedParentIds : setRevealedChildIds;
+      setter((prev) => {
+        const next = new Set(prev);
+        for (const rid of ids) next.add(rid);
+        return next;
+      });
+    },
+    [nodes, nodeMap],
+  );
+  const handleRevealReset = useCallback((kind: "parents" | "children") => {
+    if (kind === "parents") setRevealedParentIds(new Set());
+    else setRevealedChildIds(new Set());
+  }, []);
+
   // BFS from center + expanded nodes to build visible neighborhood
   const ldvVisible = useMemo(() => {
     if (!center || !nodeMap.has(center))
@@ -167,25 +192,43 @@ export default function LayeredDependencySection({ cardId }: Props) {
         if (nodeMap.has(nb.nodeId)) visited.add(nb.nodeId);
       }
     }
-    // When "show hierarchy" is on, pull in each visible card's ancestor chain
-    // so a parent (e.g. a parent Organization) appears in the layout. The
-    // containment edge itself is synthesised by the view from parent_id.
-    if (ldvSettings.showHierarchy) {
-      for (const id of [...visited]) {
-        let cur = nodeMap.get(id);
-        const guard = new Set<string>();
-        while (cur?.parent_id && nodeMap.has(cur.parent_id) && !guard.has(cur.parent_id)) {
-          guard.add(cur.parent_id);
-          visited.add(cur.parent_id);
-          cur = nodeMap.get(cur.parent_id);
-        }
+    // Targeted reveals: hierarchical parents / children surfaced by the toolbar.
+    for (const id of revealedParentIds) if (nodeMap.has(id)) visited.add(id);
+    for (const id of revealedChildIds) if (nodeMap.has(id)) visited.add(id);
+
+    const visibleEdges = edges.filter((e) => visited.has(e.source) && visited.has(e.target));
+    // Draw the containment line for parent/child pairs surfaced by the Reveal
+    // tools (the view no longer auto-synthesises hierarchy edges).
+    if (revealedParentIds.size > 0 || revealedChildIds.size > 0) {
+      for (const n of nodes) {
+        if (!visited.has(n.id) || !n.parent_id || !visited.has(n.parent_id)) continue;
+        visibleEdges.push({
+          source: n.parent_id,
+          target: n.id,
+          type: "hierarchy",
+          label: t("reports:dependency.hierarchyContains"),
+          reverse_label: t("reports:dependency.hierarchyPartOf"),
+        });
       }
     }
-    return {
-      nodes: nodes.filter((n) => visited.has(n.id)),
-      edges: edges.filter((e) => visited.has(e.source) && visited.has(e.target)),
-    };
-  }, [center, nodes, edges, adjMap, nodeMap, expandedNodes, ldvSettings.showHierarchy]);
+    // Annotate each visible card with whether it has any child in the full
+    // dataset, so the view can draw the "hidden children" hierarchy marker.
+    const parentIds = new Set(nodes.map((n) => n.parent_id).filter(Boolean) as string[]);
+    const visibleNodes = nodes
+      .filter((n) => visited.has(n.id))
+      .map((n) => ({ ...n, hasChildren: parentIds.has(n.id) }));
+    return { nodes: visibleNodes, edges: visibleEdges };
+  }, [
+    center,
+    nodes,
+    edges,
+    adjMap,
+    nodeMap,
+    expandedNodes,
+    revealedParentIds,
+    revealedChildIds,
+    t,
+  ]);
 
   const hasData = ldvVisible.nodes.length > 0;
 
@@ -229,6 +272,8 @@ export default function LayeredDependencySection({ cardId }: Props) {
               onNodeShiftClick={navigateTo}
               onNodeExpand={handleExpand}
               onExpandReset={handleExpandReset}
+              onNodeReveal={handleNodeReveal}
+              onRevealReset={handleRevealReset}
               onHome={handleHome}
               onPrev={handlePrev}
               onNext={handleNext}

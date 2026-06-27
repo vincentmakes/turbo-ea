@@ -22,6 +22,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import LayeredDependencyView, { readableTypeColor } from "./LayeredDependencyView";
+import { resolveRevealIds } from "./layeredDependencyLayout";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -386,6 +387,11 @@ export default function DependencyReport() {
   /* -- LDV expanded nodes (expand mode digs into a card's relations) -- */
   const [ldvExpandedNodes, setLdvExpandedNodes] = useState<Set<string>>(new Set());
 
+  /* -- LDV targeted reveals (hierarchy parent / children tools); tracked
+        separately so toggling one tool off clears only its own reveals -- */
+  const [revealedParentIds, setRevealedParentIds] = useState<Set<string>>(new Set());
+  const [revealedChildIds, setRevealedChildIds] = useState<Set<string>>(new Set());
+
   /* -- LDV navigation history (browser-style back/forward) -- */
   const [navHistory, setNavHistory] = useState<string[]>([]);
   const [navIndex, setNavIndex] = useState(-1);
@@ -503,10 +509,42 @@ export default function DependencyReport() {
         if (nodeMap.has(neighbor.nodeId)) visited.add(neighbor.nodeId);
       }
     }
-    const filteredNodes = nodes.filter((n) => visited.has(n.id));
+    // Targeted reveals: hierarchical parents / children surfaced by the toolbar.
+    for (const id of revealedParentIds) if (nodeMap.has(id)) visited.add(id);
+    for (const id of revealedChildIds) if (nodeMap.has(id)) visited.add(id);
+    // Annotate each visible card with whether it has any child in the full
+    // dataset, so the view can draw the "hidden children" hierarchy marker.
+    const parentIds = new Set(nodes.map((n) => n.parent_id).filter(Boolean) as string[]);
+    const filteredNodes = nodes
+      .filter((n) => visited.has(n.id))
+      .map((n) => ({ ...n, hasChildren: parentIds.has(n.id) }));
     const filteredEdges = edges.filter((e) => visited.has(e.source) && visited.has(e.target));
+    // Draw the containment line for parent/child pairs surfaced by the Reveal
+    // tools (the view no longer auto-synthesises hierarchy edges).
+    if (revealedParentIds.size > 0 || revealedChildIds.size > 0) {
+      for (const n of filteredNodes) {
+        if (!n.parent_id || !visited.has(n.parent_id)) continue;
+        filteredEdges.push({
+          source: n.parent_id,
+          target: n.id,
+          type: "hierarchy",
+          label: t("dependency.hierarchyContains"),
+          reverse_label: t("dependency.hierarchyPartOf"),
+        });
+      }
+    }
     return { nodes: filteredNodes, edges: filteredEdges };
-  }, [center, nodes, edges, adjMap, nodeMap, ldvExpandedNodes]);
+  }, [
+    center,
+    nodes,
+    edges,
+    adjMap,
+    nodeMap,
+    ldvExpandedNodes,
+    revealedParentIds,
+    revealedChildIds,
+    t,
+  ]);
 
   // Reset expansion when center changes
   useEffect(() => {
@@ -516,6 +554,8 @@ export default function DependencyReport() {
       setExpanded(new Set());
     }
     setLdvExpandedNodes(new Set());
+    setRevealedParentIds(new Set());
+    setRevealedChildIds(new Set());
   }, [center]);
 
   // LDV expand mode: toggle a node's neighbors into the visible set
@@ -530,6 +570,26 @@ export default function DependencyReport() {
 
   const handleLdvExpandReset = useCallback(() => {
     setLdvExpandedNodes(new Set());
+  }, []);
+
+  // LDV reveal modes: surface a clicked card's hierarchical parent / children.
+  const handleLdvReveal = useCallback(
+    (nodeId: string, kind: "parents" | "children") => {
+      const ids = resolveRevealIds(nodes, nodeMap, nodeId, kind);
+      if (ids.length === 0) return;
+      const setter = kind === "parents" ? setRevealedParentIds : setRevealedChildIds;
+      setter((prev) => {
+        const next = new Set(prev);
+        for (const rid of ids) next.add(rid);
+        return next;
+      });
+    },
+    [nodes, nodeMap],
+  );
+
+  const handleLdvRevealReset = useCallback((kind: "parents" | "children") => {
+    if (kind === "parents") setRevealedParentIds(new Set());
+    else setRevealedChildIds(new Set());
   }, []);
 
   const toggleExpand = useCallback((instanceId: string) => {
@@ -777,6 +837,8 @@ export default function DependencyReport() {
               onNodeShiftClick={navigateToLdv}
               onNodeExpand={handleLdvExpand}
               onExpandReset={handleLdvExpandReset}
+              onNodeReveal={handleLdvReveal}
+              onRevealReset={handleLdvRevealReset}
               onHome={handleNavHome}
               onPrev={handleNavPrev}
               onNext={handleNavNext}

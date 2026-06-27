@@ -3,6 +3,7 @@ import {
   buildLdvFlow,
   relationValueSuffix,
   filterEndOfLifeNodes,
+  resolveRevealIds,
   type GNode,
   type GEdge,
 } from "./layeredDependencyLayout";
@@ -461,5 +462,42 @@ describe("filterEndOfLifeNodes", () => {
     // a2's endOfLife date is in the future, so it is not yet end-of-life.
     expect(result.nodes.map((n) => n.id).sort()).toEqual(["a1", "a2", "a3"]);
     expect(result.edges).toHaveLength(2);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  resolveRevealIds (Reveal parent / Reveal children toolbar tools)   */
+/* ------------------------------------------------------------------ */
+
+describe("resolveRevealIds", () => {
+  const nodes: GNode[] = [
+    { id: "root", name: "Root", type: "Organization", parent_id: null },
+    { id: "mid", name: "Mid", type: "Organization", parent_id: "root" },
+    { id: "leafA", name: "Leaf A", type: "Application", parent_id: "mid" },
+    { id: "leafB", name: "Leaf B", type: "Application", parent_id: "mid" },
+  ];
+  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+
+  it("reveals the single hierarchical parent", () => {
+    expect(resolveRevealIds(nodes, nodeMap, "mid", "parents")).toEqual(["root"]);
+    expect(resolveRevealIds(nodes, nodeMap, "leafA", "parents")).toEqual(["mid"]);
+  });
+
+  it("returns nothing for a root card in parents mode", () => {
+    expect(resolveRevealIds(nodes, nodeMap, "root", "parents")).toEqual([]);
+  });
+
+  it("returns nothing when the parent is outside the loaded graph", () => {
+    const orphan: GNode[] = [{ id: "x", name: "X", type: "Application", parent_id: "missing" }];
+    expect(resolveRevealIds(orphan, new Map([["x", orphan[0]]]), "x", "parents")).toEqual([]);
+  });
+
+  it("reveals all direct children", () => {
+    expect(resolveRevealIds(nodes, nodeMap, "mid", "children").sort()).toEqual(["leafA", "leafB"]);
+    expect(resolveRevealIds(nodes, nodeMap, "root", "children")).toEqual(["mid"]);
+  });
+
+  it("returns nothing for a leaf card in children mode", () => {
+    expect(resolveRevealIds(nodes, nodeMap, "leafA", "children")).toEqual([]);
   });
 });

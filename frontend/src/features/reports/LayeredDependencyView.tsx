@@ -230,6 +230,10 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   const showType = data.showType !== false;
   const detailText = (data.detailText as string | undefined) ?? data.name;
   const dotColor = lifecyclePhase ? PHASE_DOT[lifecyclePhase] ?? "#9e9e9e" : null;
+  // Minimalistic hierarchy affordances: a hidden parent (above) / hidden
+  // children (below) the card can surface via the Reveal toolbar tools.
+  const hiddenParent = data.hiddenParent === true;
+  const hiddenChildren = data.hiddenChildren === true;
 
   const usedSet = useMemo(() => new Set(data.usedHandles ?? []), [data.usedHandles]);
   const hs = (id: string, extra?: React.CSSProperties) => {
@@ -397,6 +401,45 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
             borderColor: isDark ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.85)",
           }}
         />
+      )}
+      {/* Hierarchy markers: a chevron hint when the card has a parent (above)
+          or children (below) that aren't on the diagram yet. Decorative only —
+          tagged `ldv-hierarchy-marker` so image export drops the font glyph. */}
+      {hiddenParent && (
+        <Box
+          className="ldv-hierarchy-marker"
+          title={t("dependency.hasHiddenParent")}
+          sx={{
+            position: "absolute",
+            top: -1,
+            left: "50%",
+            transform: "translateX(-50%)",
+            display: "flex",
+            lineHeight: 0,
+            opacity: 0.5,
+            pointerEvents: "none",
+          }}
+        >
+          <MaterialSymbol icon="expand_less" size={15} color={accent} />
+        </Box>
+      )}
+      {hiddenChildren && (
+        <Box
+          className="ldv-hierarchy-marker"
+          title={t("dependency.hasHiddenChildren")}
+          sx={{
+            position: "absolute",
+            bottom: -1,
+            left: "50%",
+            transform: "translateX(-50%)",
+            display: "flex",
+            lineHeight: 0,
+            opacity: 0.5,
+            pointerEvents: "none",
+          }}
+        >
+          <MaterialSymbol icon="expand_more" size={15} color={accent} />
+        </Box>
       )}
       {/* Proposed "NEW" badge */}
       {data.proposed && (
@@ -797,6 +840,11 @@ interface Props {
   onNodeShiftClick?: (id: string) => void;
   onNodeExpand?: (id: string) => void;
   onExpandReset?: () => void;
+  /** Reveal a clicked card's hierarchical parent or direct children (targeted
+   *  siblings of expand). The consumer holds the full graph and decides which
+   *  nodes to surface. */
+  onNodeReveal?: (id: string, kind: "parents" | "children") => void;
+  onRevealReset?: (kind: "parents" | "children") => void;
   onHome: () => void;
   onPrev?: () => void;
   onNext?: () => void;
@@ -822,6 +870,8 @@ function LayeredDependencyInner({
   onNodeShiftClick,
   onNodeExpand,
   onExpandReset,
+  onNodeReveal,
+  onRevealReset,
   onHome,
   onPrev,
   onNext,
@@ -849,27 +899,6 @@ function LayeredDependencyInner({
     [rawNodes, rawEdges, settings.showEndOfLife, centerId],
   );
 
-  // When "show hierarchy" is on, synthesise containment edges (parent → child)
-  // for any node whose parent is also present, so the parent slots into the
-  // same layered layout as a normal edge (routed + labelled by the engine).
-  const effectiveEdges = useMemo(() => {
-    if (!settings.showHierarchy) return edges;
-    const idSet = new Set(nodes.map((n) => n.id));
-    const hierEdges: GEdge[] = [];
-    for (const n of nodes) {
-      if (n.parent_id && idSet.has(n.parent_id)) {
-        hierEdges.push({
-          source: n.parent_id,
-          target: n.id,
-          type: "hierarchy",
-          label: t("dependency.hierarchyContains"),
-          reverse_label: t("dependency.hierarchyPartOf"),
-        });
-      }
-    }
-    return hierEdges.length > 0 ? [...edges, ...hierEdges] : edges;
-  }, [edges, nodes, settings.showHierarchy, t]);
-
   /* ---- Resolve a relation's single-select attribute value(s) into a
          bracketed label suffix (e.g. " [Leading]"), using the metamodel's
          relation-type attribute schemas. flowDirection is excluded — it is
@@ -889,15 +918,36 @@ function LayeredDependencyInner({
     () =>
       buildLdvFlow(
         nodes,
-        effectiveEdges,
+        edges,
         types,
         settings.showRelationValues ? relValueResolver : undefined,
       ),
-    [nodes, effectiveEdges, types, settings.showRelationValues, relValueResolver],
+    [nodes, edges, types, settings.showRelationValues, relValueResolver],
   );
 
   /* ---- Original card data (attributes/lifecycle) by id + field catalogue ---- */
   const gnodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
+
+  // Minimalistic hierarchy markers: per card, whether it has a parent / children
+  // that are NOT currently on the diagram (so the marker points to something the
+  // Reveal tools can surface, and disappears once revealed). Empty when the
+  // display toggle is off.
+  const hierarchyMarkers = useMemo(() => {
+    const m = new Map<string, { hiddenParent: boolean; hiddenChildren: boolean }>();
+    // Markers are affordances for the Reveal tools — only surface them where the
+    // consumer wires those tools up (the static TurboLens views don't).
+    if (!settings.showHierarchyMarkers || !onNodeReveal) return m;
+    const visibleIds = new Set(nodes.map((n) => n.id));
+    const parentsWithVisibleChild = new Set<string>();
+    for (const n of nodes) if (n.parent_id) parentsWithVisibleChild.add(n.parent_id);
+    for (const n of nodes) {
+      const hiddenParent = !!n.parent_id && !visibleIds.has(n.parent_id);
+      const hiddenChildren = !!n.hasChildren && !parentsWithVisibleChild.has(n.id);
+      if (hiddenParent || hiddenChildren) m.set(n.id, { hiddenParent, hiddenChildren });
+    }
+    return m;
+  }, [nodes, settings.showHierarchyMarkers, onNodeReveal]);
+
   const fieldCatalog = useMemo(() => {
     const present = new Set(nodes.map((n) => n.type));
     return buildFieldCatalog(types, present);
@@ -1211,8 +1261,9 @@ function LayeredDependencyInner({
     return () => window.clearTimeout(handle);
   }, [builtNodes, rfEdges, fitView]);
 
-  // Interaction mode: "normal" (default), "highlight" (sticky hover), "expand" (add relations)
-  type InteractionMode = "normal" | "highlight" | "expand";
+  // Interaction mode: "normal" (default), "highlight" (sticky hover),
+  // "expand" (add all neighbours), "parents"/"children" (add hierarchy parent/children)
+  type InteractionMode = "normal" | "highlight" | "expand" | "parents" | "children";
   const [mode, setMode] = useState<InteractionMode>("normal");
   // Ref so the node-level click callback always reads the latest mode
   const modeRef = useRef<InteractionMode>(mode);
@@ -1221,6 +1272,8 @@ function LayeredDependencyInner({
   // Derived booleans for style props (read from state, not ref)
   const highlightMode = mode === "highlight";
   const expandMode = mode === "expand";
+  const parentsMode = mode === "parents";
+  const childrenMode = mode === "children";
 
   // Click handler injected into each ldvNode via data.onClick —
   // uses modeRef so the callback always reads the latest mode.
@@ -1232,6 +1285,10 @@ function LayeredDependencyInner({
         setHoveredNode((prev) => (prev === nodeId ? null : nodeId));
       } else if (currentMode === "expand" && onNodeExpand) {
         onNodeExpand(nodeId);
+      } else if (currentMode === "parents" && onNodeReveal) {
+        onNodeReveal(nodeId, "parents");
+      } else if (currentMode === "children" && onNodeReveal) {
+        onNodeReveal(nodeId, "children");
       } else if (shiftKey && onNodeShiftClick) {
         setHoveredNode(null);
         onNodeShiftClick(nodeId);
@@ -1240,7 +1297,7 @@ function LayeredDependencyInner({
         onNodeClick(nodeId);
       }
     },
-    [onNodeClick, onNodeShiftClick, onNodeExpand],
+    [onNodeClick, onNodeShiftClick, onNodeExpand, onNodeReveal],
   );
 
   // Long-press fires onNodeShiftClick directly from the LdvNode pointer-down
@@ -1281,15 +1338,20 @@ function LayeredDependencyInner({
         detailParts.push(`${t("dependency.lifecycleLabel")}: ${t(`common:lifecycle.${phase}`)}`);
       for (const l of lines) detailParts.push(`${l.label}: ${l.value}`);
 
+      const marker = hierarchyMarkers.get(n.id);
+
       return {
         showType: settings.showType,
         lifecyclePhase: phase,
         extraLines: lines,
         detailText: detailParts.join("\n"),
+        hiddenParent: marker?.hiddenParent ?? false,
+        hiddenChildren: marker?.hiddenChildren ?? false,
       };
     },
     [
       gnodeById,
+      hierarchyMarkers,
       settings.showLifecycle,
       settings.showType,
       settings.extraFields,
@@ -1666,6 +1728,46 @@ function LayeredDependencyInner({
             >
               <MaterialSymbol icon="alt_route" size={18} />
             </ControlButton>
+            {onNodeReveal && (
+              <>
+                <ControlButton
+                  title={t("dependency.revealParentsMode")}
+                  onClick={() => {
+                    setMode((m) => {
+                      if (m === "parents") {
+                        if (onRevealReset) onRevealReset("parents");
+                        return "normal";
+                      }
+                      return "parents";
+                    });
+                  }}
+                  style={{
+                    background: parentsMode ? theme.palette.primary.main : undefined,
+                    color: parentsMode ? theme.palette.primary.contrastText : undefined,
+                  }}
+                >
+                  <MaterialSymbol icon="arrow_upward" size={18} />
+                </ControlButton>
+                <ControlButton
+                  title={t("dependency.revealChildrenMode")}
+                  onClick={() => {
+                    setMode((m) => {
+                      if (m === "children") {
+                        if (onRevealReset) onRevealReset("children");
+                        return "normal";
+                      }
+                      return "children";
+                    });
+                  }}
+                  style={{
+                    background: childrenMode ? theme.palette.primary.main : undefined,
+                    color: childrenMode ? theme.palette.primary.contrastText : undefined,
+                  }}
+                >
+                  <MaterialSymbol icon="arrow_downward" size={18} />
+                </ControlButton>
+              </>
+            )}
           </Controls>
         </ReactFlow>
       </Box>
@@ -1763,9 +1865,9 @@ function LayeredDependencyInner({
             { key: "showType", label: t("dependency.showType") },
             { key: "showLifecycle", label: t("dependency.showLifecycle") },
             {
-              key: "showHierarchy",
-              label: t("dependency.showHierarchy"),
-              hint: t("dependency.showHierarchyHint"),
+              key: "showHierarchyMarkers",
+              label: t("dependency.showHierarchyMarkers"),
+              hint: t("dependency.showHierarchyMarkersHint"),
             },
             {
               key: "showEndOfLife",
