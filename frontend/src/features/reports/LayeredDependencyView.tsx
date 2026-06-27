@@ -980,6 +980,20 @@ function LayeredDependencyInner({
         backgroundColor: theme.palette.background.paper,
         width: imageWidth,
         height: imageHeight,
+        // Don't inline remote web fonts: the page loads Inter + Material Symbols
+        // from fonts.googleapis.com, and html-to-image's font-embedding step
+        // tries to fetch them — blocked by the CSP `connect-src 'self'` (noisy
+        // console errors on desktop, and a harder failure on iOS Safari). We
+        // don't need them: icons are dropped below, direction is vector SVG, and
+        // label text rasterises with the browser's locally-resolved fonts.
+        skipFonts: true,
+        cacheBust: true,
+        // Cap the device-pixel multiplier at 2. Retina desktop already used 2 (no
+        // change); iPhone defaults to 3, which — on top of the ×2 pre-scaled, up
+        // to 6000px dimensions — pushes the canvas past Safari's area limit and
+        // yields a blank image (export silently fails). Capping keeps it within
+        // bounds without lowering desktop quality.
+        pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
         // Drop the metamodel card-type icons: they're Material Symbols font
         // ligatures that html-to-image renders as their raw icon name (e.g.
         // "apps"). The card keeps its colour, label and lifecycle dot.

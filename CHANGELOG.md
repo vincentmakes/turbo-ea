@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - **Dependency-diagram image export no longer breaks on direction arrows.** The flow-direction indicators (→ ↔ ←) are now drawn as vector graphics instead of font glyphs, and exports are downloaded as a binary blob. Previously, a diagram containing these arrows would export a blank/invalid image that the browser saved with a `.txt` extension; PNG and SVG exports now save correctly (with the arrows and relationship-value labels visible).
+- **Dependency-diagram export now works on iOS and stops logging console errors.** Image export no longer attempts to fetch remote web fonts (which the Content Security Policy blocked, spamming the console) and caps the device-pixel ratio so the rendered canvas stays within Safari's size limit — fixing export on iPhone/iPad, where it previously produced nothing.
 
 ## [1.52.0] - 2026-06-27
 
