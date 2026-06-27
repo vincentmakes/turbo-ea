@@ -1714,13 +1714,17 @@ function LayeredDependencyInner({
             <ControlButton title={t("dependency.resetView")} onClick={resetView}>
               <MaterialSymbol icon="restart_alt" size={18} />
             </ControlButton>
-            {/* Divider marking the split between the view and exploration groups */}
+            {/* Divider between the view and exploration groups. A full-width
+                filled band (no horizontal margin, so the canvas never shows
+                through) with thin top/bottom rules — reads as a clean section
+                break rather than a transparent gap. */}
             <div
               aria-hidden
               style={{
-                height: 1,
-                margin: "5px 5px",
-                background: theme.palette.mode === "dark" ? "#555" : "#c4c8cc",
+                height: 6,
+                background: theme.palette.mode === "dark" ? "#2b2b2b" : "#eceef0",
+                borderTop: `1px solid ${theme.palette.mode === "dark" ? "#444" : "#d7dade"}`,
+                borderBottom: `1px solid ${theme.palette.mode === "dark" ? "#444" : "#d7dade"}`,
               }}
             />
             {/* --- Exploration group: highlight, expand, reveal parent/children --- */}
