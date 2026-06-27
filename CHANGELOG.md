@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Relationship values now appear in dependency diagrams.** When a relation is qualified with a value (e.g. an application *supports* a capability as *Leading*), the Layered Dependency View (Dependencies report, the card-detail dependency section) shows it in brackets next to the label — *supports [Leading]*. Relations without a value render exactly as before. A new **Show relationship values** toggle in the **Card display** menu (on by default) can hide them.
 
 ### Fixed
-- **Relation direction arrows now render in PNG/SVG exports.** The dependency-diagram flow-direction indicators (→ ↔ ←) are drawn as vector graphics instead of font glyphs, so they appear correctly in exported images instead of coming out blank.
+- **Dependency-diagram image export no longer breaks on direction arrows.** The flow-direction indicators (→ ↔ ←) are now drawn as vector graphics instead of font glyphs, and exports are downloaded as a binary blob. Previously, a diagram containing these arrows would export a blank/invalid image that the browser saved with a `.txt` extension; PNG and SVG exports now save correctly (with the arrows and relationship-value labels visible).
 
 ## [1.52.0] - 2026-06-27
 

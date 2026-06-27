@@ -25,7 +25,7 @@ import Divider from "@mui/material/Divider";
 import Autocomplete from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
 import { lighten, useTheme } from "@mui/material/styles";
-import { toPng, toSvg } from "html-to-image";
+import { toBlob, toSvg } from "html-to-image";
 import { saveAs } from "file-saver";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { getCurrentPhase } from "@/components/LifecycleBadge";
@@ -993,9 +993,20 @@ function LayeredDependencyInner({
       };
       const fname = `${(centerName || "dependency").replace(/[^\w.-]+/g, "_")}.${format}`;
       try {
-        const dataUrl =
-          format === "png" ? await toPng(viewportEl, opts) : await toSvg(viewportEl, opts);
-        saveAs(dataUrl, fname);
+        // Download via a Blob (not a data URL): file-saver honours the filename
+        // for Blobs through URL.createObjectURL, so the .png/.svg extension is
+        // always correct. A data URL whose rasterisation fails comes back as the
+        // type-less "data:," string, which the browser saves as text/plain → a
+        // bogus .txt download; a Blob path makes that impossible.
+        let blob: Blob | null;
+        if (format === "png") {
+          blob = await toBlob(viewportEl, opts);
+        } else {
+          const dataUrl = await toSvg(viewportEl, opts);
+          blob = await (await fetch(dataUrl)).blob();
+        }
+        if (!blob || blob.size === 0) return; // rasterisation produced nothing — don't save a bad file
+        saveAs(blob, fname);
       } catch {
         /* image export failed — ignore */
       }
