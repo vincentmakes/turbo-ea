@@ -76,6 +76,31 @@ describe("CardPicker", () => {
     });
   });
 
+  it("filters the visible list from the first character typed", async () => {
+    // The server returns the full set regardless of query; the picker must
+    // still narrow the dropdown client-side as soon as a character is typed.
+    vi.mocked(api.get).mockResolvedValue(
+      page(
+        [
+          { id: "1", name: "Alpha App", type: "Application" },
+          { id: "2", name: "Beta App", type: "Application" },
+        ],
+        2,
+      ),
+    );
+
+    render(<Harness />);
+    const input = screen.getByPlaceholderText("Search Application");
+    await userEvent.click(input);
+    await waitFor(() => expect(screen.getByText("Beta App")).toBeInTheDocument());
+
+    await userEvent.type(input, "alph");
+    // "Beta App" no longer matches and is hidden even though the server still
+    // returned it; "Alpha App" stays.
+    await waitFor(() => expect(screen.queryByText("Beta App")).not.toBeInTheDocument());
+    expect(screen.getByText("Alpha App")).toBeInTheDocument();
+  });
+
   it("hides excluded ids from the options", async () => {
     vi.mocked(api.get).mockResolvedValue(
       page(

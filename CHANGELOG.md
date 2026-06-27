@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [1.54.0] - 2026-06-27
 
 ### Changed
-- **Card pickers now let you browse, not just search.** Every dropdown that links a card — relations (card detail and the inventory grid), parent/child hierarchy, predecessors/successors, the Create card parent, vendor/Provider linking, ADR card links, BPM element linking, and compliance findings — now shows cards immediately when you open it, sorted alphabetically, and loads more as you scroll. Typing still filters. No more guessing an exact name before anything appears.
+- **Card pickers now let you browse, not just search.** Every dropdown that links a card — relations (card detail and the inventory grid), parent/child hierarchy, predecessors/successors, the Create card parent, vendor/Provider linking, ADR card links, BPM element linking, and compliance findings — now shows cards immediately when you open it, sorted alphabetically, and loads more as you scroll. The list narrows from the very first character you type. No more guessing an exact name before anything appears.
 
 ## [1.53.0] - 2026-06-27
 

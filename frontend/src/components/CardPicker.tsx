@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import Autocomplete, { type AutocompleteProps } from "@mui/material/Autocomplete";
+import Autocomplete, {
+  createFilterOptions,
+  type AutocompleteProps,
+} from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import TextField from "@mui/material/TextField";
@@ -14,6 +17,13 @@ export interface CardOption {
   name: string;
   type: string;
 }
+
+// Client-side filter over the loaded options, matched on name. This makes the
+// list narrow instantly from the first character typed, while the debounced
+// server query broadens the loaded set across the full catalog in the
+// background. Without it, the browse-on-open list would linger unfiltered for
+// the debounce window after each keystroke.
+const filterCards = createFilterOptions<CardOption>({ stringify: (o) => o.name });
 
 interface CardPickerProps {
   /** Card type key(s) to browse/search. Empty array (or omitted) = all types. */
@@ -122,8 +132,9 @@ export default function CardPicker({
           onInputChange?.("");
         }
       }}
-      // Server already filtered/sorted — never re-filter client-side.
-      filterOptions={(x) => x}
+      // Filter the loaded options by name so typing narrows the list
+      // instantly (the server query refines/extends it on a debounce).
+      filterOptions={filterCards}
       loading={loading}
       disabled={disabled}
       openOnFocus={openOnFocus}
