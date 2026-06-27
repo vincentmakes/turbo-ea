@@ -230,6 +230,8 @@ export default function TagsAdmin() {
             label={t("tags.tagDescription")}
             value={tagDescription}
             onChange={(e) => setTagDescription(e.target.value)}
+            multiline
+            minRows={2}
             slotProps={{ inputLabel: { shrink: true } }}
             sx={{ mb: 2 }}
           />
@@ -347,6 +349,8 @@ export default function TagsAdmin() {
             label={t("tags.tagDescription")}
             value={editTagDraft.description}
             onChange={(e) => setEditTagDraft((d) => ({ ...d, description: e.target.value }))}
+            multiline
+            minRows={2}
             slotProps={{ inputLabel: { shrink: true } }}
             sx={{ mb: 2 }}
           />
