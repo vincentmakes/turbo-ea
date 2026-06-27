@@ -842,9 +842,9 @@ interface Props {
   onExpandReset?: () => void;
   /** Reveal a clicked card's hierarchical parent or direct children (targeted
    *  siblings of expand). The consumer holds the full graph and decides which
-   *  nodes to surface. */
+   *  nodes to surface. Revealed cards persist until the view is re-centred (so
+   *  parents and children can be layered in the same view). */
   onNodeReveal?: (id: string, kind: "parents" | "children") => void;
-  onRevealReset?: (kind: "parents" | "children") => void;
   onHome: () => void;
   onPrev?: () => void;
   onNext?: () => void;
@@ -871,7 +871,6 @@ function LayeredDependencyInner({
   onNodeExpand,
   onExpandReset,
   onNodeReveal,
-  onRevealReset,
   onHome,
   onPrev,
   onNext,
@@ -1691,7 +1690,16 @@ function LayeredDependencyInner({
               }
             />
           )}
-          <Controls showInteractive={false}>
+          {/* Default fitView control is disabled — its frame icon looks too
+              much like the top-bar Fullscreen button. Replaced with a map-pin
+              "re-center" button below. */}
+          <Controls showInteractive={false} showFitView={false}>
+            <ControlButton
+              title={t("dependency.recenter")}
+              onClick={() => fitView({ padding: 0.15, duration: 300 })}
+            >
+              <MaterialSymbol icon="location_on" size={18} />
+            </ControlButton>
             <ControlButton
               title={t("dependency.highlightMode")}
               onClick={() => {
@@ -1733,13 +1741,10 @@ function LayeredDependencyInner({
                 <ControlButton
                   title={t("dependency.revealParentsMode")}
                   onClick={() => {
-                    setMode((m) => {
-                      if (m === "parents") {
-                        if (onRevealReset) onRevealReset("parents");
-                        return "normal";
-                      }
-                      return "parents";
-                    });
+                    // Toggling off only stops click-to-reveal — revealed cards
+                    // stay so parents + children can be layered in one view.
+                    // They clear on re-center (see consumer center-change reset).
+                    setMode((m) => (m === "parents" ? "normal" : "parents"));
                   }}
                   style={{
                     background: parentsMode ? theme.palette.primary.main : undefined,
@@ -1751,13 +1756,7 @@ function LayeredDependencyInner({
                 <ControlButton
                   title={t("dependency.revealChildrenMode")}
                   onClick={() => {
-                    setMode((m) => {
-                      if (m === "children") {
-                        if (onRevealReset) onRevealReset("children");
-                        return "normal";
-                      }
-                      return "children";
-                    });
+                    setMode((m) => (m === "children" ? "normal" : "children"));
                   }}
                   style={{
                     background: childrenMode ? theme.palette.primary.main : undefined,

@@ -365,6 +365,7 @@
   "dependency.expandMode": "展开模式：点击卡片以显示其所有关系",
   "dependency.revealParentsMode": "显示父级模式：点击卡片以添加其层级父级",
   "dependency.revealChildrenMode": "显示子级模式：点击卡片以添加其直接子级",
+  "dependency.recenter": "适应并重新居中",
   "dependency.createDiagram": "创建图表",
   "dependency.createDiagramTitle": "创建图表",
   "dependency.createDiagramHint": "在图表模块中创建一个可编辑的图表。每个形状都保持与其清单卡片的关联。",

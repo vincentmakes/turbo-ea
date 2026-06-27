@@ -365,6 +365,7 @@
   "dependency.expandMode": "Modalità espansione: clicca su una scheda per mostrare tutte le sue relazioni",
   "dependency.revealParentsMode": "Modalità mostra genitore: clicca su una scheda per aggiungere il suo elemento padre della gerarchia",
   "dependency.revealChildrenMode": "Modalità mostra figli: clicca su una scheda per aggiungere i suoi figli diretti",
+  "dependency.recenter": "Adatta e ricentra",
   "dependency.createDiagram": "Crea diagramma",
   "dependency.createDiagramTitle": "Crea diagramma",
   "dependency.createDiagramHint": "Crea un diagramma modificabile nel modulo Diagrammi. Ogni forma rimane collegata alla sua scheda di inventario.",

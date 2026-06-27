@@ -107,6 +107,14 @@ export default function LayeredDependencySection({ cardId }: Props) {
 
   const centerNode = nodeMap.get(center);
 
+  // Re-centring the view (home / navigate / prev / next all change `center`)
+  // is the "reset" that clears reveals — toggling a Reveal tool off keeps them
+  // so parents and children can be layered in the same view.
+  useEffect(() => {
+    setRevealedParentIds(new Set());
+    setRevealedChildIds(new Set());
+  }, [center]);
+
   // Navigation callbacks
   const navigateTo = useCallback(
     (id: string) => {
@@ -171,10 +179,6 @@ export default function LayeredDependencySection({ cardId }: Props) {
     },
     [nodes, nodeMap],
   );
-  const handleRevealReset = useCallback((kind: "parents" | "children") => {
-    if (kind === "parents") setRevealedParentIds(new Set());
-    else setRevealedChildIds(new Set());
-  }, []);
 
   // BFS from center + expanded nodes to build visible neighborhood
   const ldvVisible = useMemo(() => {
@@ -273,7 +277,6 @@ export default function LayeredDependencySection({ cardId }: Props) {
               onNodeExpand={handleExpand}
               onExpandReset={handleExpandReset}
               onNodeReveal={handleNodeReveal}
-              onRevealReset={handleRevealReset}
               onHome={handleHome}
               onPrev={handlePrev}
               onNext={handleNext}

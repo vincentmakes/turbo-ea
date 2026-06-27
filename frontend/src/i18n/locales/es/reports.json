@@ -365,6 +365,7 @@
   "dependency.expandMode": "Modo expansión: haga clic en una tarjeta para mostrar todas sus relaciones",
   "dependency.revealParentsMode": "Modo mostrar padre: haga clic en una tarjeta para añadir su elemento padre de la jerarquía",
   "dependency.revealChildrenMode": "Modo mostrar hijos: haga clic en una tarjeta para añadir sus hijos directos",
+  "dependency.recenter": "Ajustar y recentrar",
   "dependency.createDiagram": "Crear diagrama",
   "dependency.createDiagramTitle": "Crear diagrama",
   "dependency.createDiagramHint": "Crea un diagrama editable en el módulo de Diagramas. Cada forma permanece vinculada a su tarjeta de inventario.",

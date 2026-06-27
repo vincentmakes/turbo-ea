@@ -365,6 +365,7 @@
   "dependency.expandMode": "وضع التوسيع: انقر على بطاقة للكشف عن جميع علاقاتها",
   "dependency.revealParentsMode": "وضع إظهار الأصل: انقر على بطاقة لإضافة العنصر الأصل في التسلسل الهرمي",
   "dependency.revealChildrenMode": "وضع إظهار الفروع: انقر على بطاقة لإضافة فروعها المباشرة",
+  "dependency.recenter": "ملاءمة وإعادة التوسيط",
   "dependency.createDiagram": "إنشاء مخطط",
   "dependency.createDiagramTitle": "إنشاء مخطط",
   "dependency.createDiagramHint": "ينشئ مخططًا قابلًا للتحرير في وحدة المخططات. يظل كل شكل مرتبطًا ببطاقة المخزون الخاصة به.",

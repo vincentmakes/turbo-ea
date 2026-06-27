@@ -587,11 +587,6 @@ export default function DependencyReport() {
     [nodes, nodeMap],
   );
 
-  const handleLdvRevealReset = useCallback((kind: "parents" | "children") => {
-    if (kind === "parents") setRevealedParentIds(new Set());
-    else setRevealedChildIds(new Set());
-  }, []);
-
   const toggleExpand = useCallback((instanceId: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -838,7 +833,6 @@ export default function DependencyReport() {
               onNodeExpand={handleLdvExpand}
               onExpandReset={handleLdvExpandReset}
               onNodeReveal={handleLdvReveal}
-              onRevealReset={handleLdvRevealReset}
               onHome={handleNavHome}
               onPrev={handleNavPrev}
               onNext={handleNavNext}

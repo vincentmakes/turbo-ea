@@ -8,10 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [1.56.0] - 2026-06-27
 
 ### Added
-- **Reveal a card's parent or children on the dependency diagram.** The Layered Dependency View (Dependencies report and the card-detail dependency section) has two new toolbar tools beside Highlight and Expand: **Reveal parent** (↑) and **Reveal children** (↓). Turn one on, then click any card to add its hierarchy parent or its direct children to the diagram — a targeted alternative to Expand, which pulls in every neighbour at once. Turning a tool off removes the cards it revealed.
+- **Reveal a card's parent or children on the dependency diagram.** The Layered Dependency View (Dependencies report and the card-detail dependency section) has two new toolbar tools beside Highlight and Expand: **Reveal parent** (↑) and **Reveal children** (↓). Turn one on, then click any card to add its hierarchy parent or its direct children to the diagram — a targeted alternative to Expand, which pulls in every neighbour at once. Revealed cards stay on the diagram until you re-center, so you can layer parents and children together in one view.
 
 ### Changed
 - **The dependency diagram's "Show parent hierarchy" toggle is now "Show hierarchy markers".** Instead of pulling every card's ancestors into the view at once, the **Card display** menu now adds a minimalistic chevron to any card that has a parent or children not currently shown — a subtle hint to use the new Reveal tools — keeping the diagram uncluttered. Bringing parents/children into view is now done deliberately with the Reveal parent / Reveal children tools.
+- **The dependency diagram's re-center button now uses a map-pin icon** instead of the frame icon, so it's no longer easily confused with the Fullscreen button in the top toolbar.
 
 ## [1.55.0] - 2026-06-27
 
