@@ -56,6 +56,7 @@ import { useLdvSettings, type LdvBackgroundStyle } from "./ldvDisplaySettings";
 import type { CardType } from "@/types";
 import {
   buildLdvFlow,
+  filterEndOfLifeNodes,
   LDV_NODE_W,
   LDV_NODE_H,
   type GNode,
@@ -748,6 +749,8 @@ interface Props {
   hasPrev?: boolean;
   hasNext?: boolean;
   centerName?: string;
+  /** Id of the centered/target card — always kept visible by the end-of-life filter. */
+  centerId?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -755,8 +758,8 @@ interface Props {
 /* ------------------------------------------------------------------ */
 
 function LayeredDependencyInner({
-  nodes,
-  edges,
+  nodes: rawNodes,
+  edges: rawEdges,
   types,
   onNodeClick,
   onNodeShiftClick,
@@ -768,6 +771,7 @@ function LayeredDependencyInner({
   hasPrev,
   hasNext,
   centerName,
+  centerId,
 }: Props) {
   const { t } = useTranslation(["reports", "common"]);
   const theme = useTheme();
@@ -776,6 +780,15 @@ function LayeredDependencyInner({
 
   /* ---- Card display settings (persisted, shared with the card-detail section) ---- */
   const [settings, updateSettings] = useLdvSettings();
+
+  /* ---- Hide end-of-life related cards unless toggled on (centre always kept) ---- */
+  const { nodes, edges } = useMemo(
+    () =>
+      settings.showEndOfLife
+        ? { nodes: rawNodes, edges: rawEdges }
+        : filterEndOfLifeNodes(rawNodes, rawEdges, centerId),
+    [rawNodes, rawEdges, settings.showEndOfLife, centerId],
+  );
 
   // When "show hierarchy" is on, synthesise containment edges (parent → child)
   // for any node whose parent is also present, so the parent slots into the
@@ -1458,6 +1471,11 @@ function LayeredDependencyInner({
               key: "showHierarchy",
               label: t("dependency.showHierarchy"),
               hint: t("dependency.showHierarchyHint"),
+            },
+            {
+              key: "showEndOfLife",
+              label: t("dependency.showEndOfLife"),
+              hint: t("dependency.showEndOfLifeHint"),
             },
           ] as const
         ).map((row) => (

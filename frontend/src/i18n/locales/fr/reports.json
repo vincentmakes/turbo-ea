@@ -166,6 +166,8 @@
   "dependency.showLifecycle": "Afficher le statut du cycle de vie",
   "dependency.showHierarchy": "Afficher la hiérarchie parente",
   "dependency.showHierarchyHint": "Inclure la fiche parente de chaque fiche et tracer le lien de contenance",
+  "dependency.showEndOfLife": "Afficher les fiches en fin de vie",
+  "dependency.showEndOfLifeHint": "Inclure les fiches liées dont le cycle de vie a atteint la fin de vie. La fiche sur laquelle vous êtes centré est toujours affichée.",
   "dependency.hierarchyContains": "contient",
   "dependency.hierarchyPartOf": "fait partie de",
   "dependency.extraFields": "Champs supplémentaires",

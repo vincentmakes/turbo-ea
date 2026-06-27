@@ -166,6 +166,8 @@
   "dependency.showLifecycle": "Mostra stato del ciclo di vita",
   "dependency.showHierarchy": "Mostra gerarchia superiore",
   "dependency.showHierarchyHint": "Includi la scheda superiore di ogni scheda e disegna il collegamento di contenimento",
+  "dependency.showEndOfLife": "Mostra schede a fine vita",
+  "dependency.showEndOfLifeHint": "Includi le schede correlate il cui ciclo di vita ha raggiunto la fine vita. La scheda su cui sei centrato viene sempre mostrata.",
   "dependency.hierarchyContains": "contiene",
   "dependency.hierarchyPartOf": "parte di",
   "dependency.extraFields": "Campi aggiuntivi",

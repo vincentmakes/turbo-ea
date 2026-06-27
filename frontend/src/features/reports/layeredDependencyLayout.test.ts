@@ -1,6 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { buildLdvFlow, type GNode, type GEdge } from "./layeredDependencyLayout";
+import {
+  buildLdvFlow,
+  filterEndOfLifeNodes,
+  type GNode,
+  type GEdge,
+} from "./layeredDependencyLayout";
 import type { CardType } from "@/types";
+
+const PAST = "2000-01-01";
+const FUTURE = "2999-01-01";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -260,5 +268,56 @@ describe("buildLdvFlow", () => {
     const techIdx = labels.indexOf("Technical Architecture");
     expect(bizIdx).toBeLessThan(appIdx);
     expect(appIdx).toBeLessThan(techIdx);
+  });
+});
+
+describe("filterEndOfLifeNodes", () => {
+  it("drops an end-of-life node and its now-dangling edge", () => {
+    const nodes: GNode[] = [
+      { id: "a1", name: "App 1", type: "Application", lifecycle: { active: PAST } },
+      { id: "eol", name: "Old App", type: "Application", lifecycle: { endOfLife: PAST } },
+    ];
+    const edges: GEdge[] = [{ source: "a1", target: "eol", type: "uses" }];
+    const result = filterEndOfLifeNodes(nodes, edges);
+
+    expect(result.nodes.map((n) => n.id)).toEqual(["a1"]);
+    expect(result.edges).toHaveLength(0);
+  });
+
+  it("keeps an end-of-life node when it is the centered card", () => {
+    const nodes: GNode[] = [
+      { id: "center", name: "Focus", type: "Application", lifecycle: { endOfLife: PAST } },
+      { id: "a1", name: "App 1", type: "Application", lifecycle: { active: PAST } },
+    ];
+    const edges: GEdge[] = [{ source: "center", target: "a1", type: "uses" }];
+    const result = filterEndOfLifeNodes(nodes, edges, "center");
+
+    expect(result.nodes.map((n) => n.id).sort()).toEqual(["a1", "center"]);
+    expect(result.edges).toHaveLength(1);
+  });
+
+  it("keeps an end-of-life node when it is proposed (NEW)", () => {
+    const nodes: GNode[] = [
+      { id: "new", name: "Proposed", type: "Application", lifecycle: { endOfLife: PAST }, proposed: true },
+    ];
+    const result = filterEndOfLifeNodes(nodes, []);
+    expect(result.nodes.map((n) => n.id)).toEqual(["new"]);
+  });
+
+  it("keeps non-end-of-life nodes and edges between survivors", () => {
+    const nodes: GNode[] = [
+      { id: "a1", name: "App 1", type: "Application", lifecycle: { active: PAST } },
+      { id: "a2", name: "App 2", type: "Application", lifecycle: { endOfLife: FUTURE } },
+      { id: "a3", name: "App 3", type: "Application" },
+    ];
+    const edges: GEdge[] = [
+      { source: "a1", target: "a2", type: "uses" },
+      { source: "a2", target: "a3", type: "uses" },
+    ];
+    const result = filterEndOfLifeNodes(nodes, edges);
+
+    // a2's endOfLife date is in the future, so it is not yet end-of-life.
+    expect(result.nodes.map((n) => n.id).sort()).toEqual(["a1", "a2", "a3"]);
+    expect(result.edges).toHaveLength(2);
   });
 });

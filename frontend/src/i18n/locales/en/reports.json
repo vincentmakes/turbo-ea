@@ -166,6 +166,8 @@
   "dependency.showLifecycle": "Show lifecycle status",
   "dependency.showHierarchy": "Show parent hierarchy",
   "dependency.showHierarchyHint": "Include each card's parent card and draw the containment link",
+  "dependency.showEndOfLife": "Show end-of-life cards",
+  "dependency.showEndOfLifeHint": "Include related cards whose lifecycle has reached End of Life. The card you are centered on is always shown.",
   "dependency.hierarchyContains": "contains",
   "dependency.hierarchyPartOf": "part of",
   "dependency.extraFields": "Extra fields",

@@ -82,6 +82,7 @@ Basculez vers la **Layered Dependency View** à l'aide des boutons de mode d'aff
 - **Cliquer pour inspecter** — Cliquez sur n'importe quel nœud pour ouvrir le panneau latéral de détail de la fiche
 - **Pas de fiche centrale requise** — La Layered Dependency View affiche toutes les fiches correspondant au filtre de type actuel
 - **Mise en surbrillance des connexions** — Survolez une fiche pour mettre en surbrillance ses connexions ; sur les appareils tactiles, utilisez le bouton de surbrillance dans le panneau de contrôle pour mettre en surbrillance par toucher
+- **Fiches en fin de vie masquées par défaut** — Les fiches liées dont le cycle de vie a atteint la fin de vie sont masquées pour garder le graphe lisible ; activez **Afficher les fiches en fin de vie** dans le menu **Affichage des fiches** pour les réafficher. La fiche sur laquelle vous êtes centré est toujours affichée, même si elle est elle-même en fin de vie
 
 La même vue est réutilisée sur la page de détail de fiche (montrant le voisinage de dépendances immédiat de la fiche) et dans l'assistant [TurboLens Architect](turbolens.md#architecture-ai), afin que les dépendances apparaissent de la même manière partout.
 

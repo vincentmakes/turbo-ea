@@ -82,6 +82,7 @@ Wechseln Sie über die Ansichtsmodus-Schaltflächen in der Symbolleiste zur **La
 - **Klicken zum Inspizieren** — Klicken Sie auf einen beliebigen Knoten, um das Kartendetail-Seitenpanel zu öffnen
 - **Kein Zentralknoten erforderlich** — Die Layered Dependency View zeigt alle Karten an, die dem aktuellen Typfilter entsprechen
 - **Verbindungshervorhebung** — Fahren Sie mit der Maus über eine Karte, um ihre Verbindungen hervorzuheben; auf Touch-Geräten verwenden Sie die Hervorhebungs-Schaltfläche im Bedienfeld zum Tippen-Hervorheben
+- **End-of-Life-Karten standardmäßig ausgeblendet** — Verbundene Karten, deren Lebenszyklus das Ende der Lebensdauer erreicht hat, werden ausgeblendet, damit das Diagramm fokussiert bleibt; aktivieren Sie **End-of-Life-Karten anzeigen** im Menü **Kartenanzeige**, um sie wieder einzublenden. Die zentrierte Karte wird immer angezeigt, auch wenn sie selbst End of Life ist
 
 Dieselbe Ansicht wird auf der Kartendetailseite (zeigt die unmittelbare Abhängigkeits-Nachbarschaft der Karte) und im [TurboLens-Architect](turbolens.md#architecture-ai)-Wizard wiederverwendet, sodass Abhängigkeiten überall gleich aussehen.
 

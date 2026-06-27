@@ -166,6 +166,8 @@
   "dependency.showLifecycle": "Lebenszyklusstatus anzeigen",
   "dependency.showHierarchy": "Übergeordnete Hierarchie anzeigen",
   "dependency.showHierarchyHint": "Die übergeordnete Karte jeder Karte einbeziehen und die Zugehörigkeitsverbindung zeichnen",
+  "dependency.showEndOfLife": "End-of-Life-Karten anzeigen",
+  "dependency.showEndOfLifeHint": "Verbundene Karten einbeziehen, deren Lebenszyklus das Ende der Lebensdauer erreicht hat. Die zentrierte Karte wird immer angezeigt.",
   "dependency.hierarchyContains": "enthält",
   "dependency.hierarchyPartOf": "Teil von",
   "dependency.extraFields": "Zusätzliche Felder",

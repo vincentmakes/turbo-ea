@@ -82,6 +82,7 @@ Toggle to the **Layered Dependency View** using the view-mode buttons in the too
 - **Click to inspect** — Click any node to open the card detail side panel
 - **No center card required** — The Layered Dependency View shows all cards matching the current type filter
 - **Connection highlighting** — Hover over a card to highlight its connections; on touch devices, use the highlight toggle button in the controls panel to tap-highlight instead
+- **End-of-life cards hidden by default** — Related cards whose lifecycle has reached End of Life are hidden to keep the graph focused; turn on **Show end-of-life cards** in the **Card display** menu to bring them back. The card you are centered on is always shown, even if it is itself end-of-life
 
 The same view is reused on the Card Detail page (showing the card's immediate dependency neighbourhood) and in the [TurboLens Architect](turbolens.md#architecture-ai) wizard, so dependencies look the same everywhere.
 

@@ -779,6 +779,7 @@ export default function DependencyReport() {
               hasPrev={hasPrev}
               hasNext={hasNext}
               centerName={centerNode?.name}
+              centerId={center || undefined}
             />
           </Box>
         ) : chartMode === "tree" && center && layout && layout.cards.length > 0 ? (

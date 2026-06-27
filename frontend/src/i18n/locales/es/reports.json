@@ -166,6 +166,8 @@
   "dependency.showLifecycle": "Mostrar estado del ciclo de vida",
   "dependency.showHierarchy": "Mostrar jerarquía superior",
   "dependency.showHierarchyHint": "Incluir la tarjeta superior de cada tarjeta y dibujar el vínculo de contención",
+  "dependency.showEndOfLife": "Mostrar tarjetas al final de su vida útil",
+  "dependency.showEndOfLifeHint": "Incluir tarjetas relacionadas cuyo ciclo de vida ha llegado al final de su vida útil. La tarjeta en la que está centrado siempre se muestra.",
   "dependency.hierarchyContains": "contiene",
   "dependency.hierarchyPartOf": "parte de",
   "dependency.extraFields": "Campos adicionales",

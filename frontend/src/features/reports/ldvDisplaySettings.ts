@@ -17,6 +17,8 @@ export interface LdvDisplaySettings {
   showLifecycle: boolean;
   /** Include each card's hierarchical parent(s) and draw the containment edge. */
   showHierarchy: boolean;
+  /** Show related cards whose current lifecycle phase is End of Life. The centered card is always shown. */
+  showEndOfLife: boolean;
   extraFields: string[];
   background: LdvBackgroundStyle;
 }
@@ -27,6 +29,7 @@ export const LDV_DEFAULT_SETTINGS: LdvDisplaySettings = {
   showType: true,
   showLifecycle: true,
   showHierarchy: false,
+  showEndOfLife: false,
   extraFields: [],
   background: "dots",
 };

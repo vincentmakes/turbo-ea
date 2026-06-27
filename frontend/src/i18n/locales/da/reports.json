@@ -166,6 +166,8 @@
   "dependency.showLifecycle": "Vis livscyklusstatus",
   "dependency.showHierarchy": "Vis overordnet hierarki",
   "dependency.showHierarchyHint": "Inkludér hvert korts overordnede kort og tegn indeholdelsesforbindelsen",
+  "dependency.showEndOfLife": "Vis kort ved slutningen af deres levetid",
+  "dependency.showEndOfLifeHint": "Inkludér relaterede kort, hvis livscyklus har nået slutningen af levetiden. Det kort, du er centreret om, vises altid.",
   "dependency.hierarchyContains": "indeholder",
   "dependency.hierarchyPartOf": "del af",
   "dependency.extraFields": "Ekstra felter",

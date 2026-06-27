@@ -11,6 +11,7 @@
 
 import dagre from "@dagrejs/dagre";
 import type { Node, Edge } from "@xyflow/react";
+import { getCurrentPhase } from "@/components/LifecycleBadge";
 import { LAYER_COLORS } from "@/theme/tokens";
 import type { CardType } from "@/types";
 
@@ -37,6 +38,27 @@ export interface GEdge {
   reverse_label?: string;
   description?: string;
   attributes?: Record<string, unknown>;
+}
+
+/**
+ * Drop nodes whose current lifecycle phase is `endOfLife`, then drop any edge
+ * that lost an endpoint. The centered card (`centerId`) and any proposed/NEW
+ * card are always kept, so an end-of-life card can still be inspected when it
+ * is the focus of the view.
+ */
+export function filterEndOfLifeNodes(
+  nodes: GNode[],
+  edges: GEdge[],
+  centerId?: string,
+): { nodes: GNode[]; edges: GEdge[] } {
+  const visible = nodes.filter(
+    (n) => n.id === centerId || n.proposed || getCurrentPhase(n.lifecycle) !== "endOfLife",
+  );
+  const ids = new Set(visible.map((n) => n.id));
+  return {
+    nodes: visible,
+    edges: edges.filter((e) => ids.has(e.source) && ids.has(e.target)),
+  };
 }
 
 /* ------------------------------------------------------------------ */

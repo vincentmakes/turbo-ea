@@ -231,6 +231,7 @@ export default function LayeredDependencySection({ cardId }: Props) {
               hasPrev={hasPrev}
               hasNext={hasNext}
               centerName={centerNode?.name}
+              centerId={center}
             />
           </Box>
         )}

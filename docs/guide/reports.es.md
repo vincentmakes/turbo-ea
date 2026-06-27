@@ -82,6 +82,7 @@ Cambie a la **Layered Dependency View** utilizando los botones de modo de vista 
 - **Clic para inspeccionar** — Haga clic en cualquier nodo para abrir el panel lateral de detalle de la ficha
 - **Sin ficha central requerida** — La Layered Dependency View muestra todas las fichas que coinciden con el filtro de tipo actual
 - **Resaltado de conexiones** — Pase el cursor sobre una ficha para resaltar sus conexiones; en dispositivos táctiles, use el botón de resaltado en el panel de controles para resaltar al tocar
+- **Fichas al final de su vida útil ocultas por defecto** — Las fichas relacionadas cuyo ciclo de vida ha llegado al final de su vida útil se ocultan para mantener el gráfico enfocado; active **Mostrar tarjetas al final de su vida útil** en el menú **Visualización de la ficha** para volver a mostrarlas. La ficha en la que está centrado siempre se muestra, incluso si ella misma está al final de su vida útil
 
 La misma vista se reutiliza en la página de detalle de la ficha (mostrando el vecindario inmediato de dependencias de la ficha) y en el asistente [TurboLens Architect](turbolens.md#architecture-ai), de modo que las dependencias se ven igual en todas partes.
 

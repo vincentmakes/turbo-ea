@@ -166,6 +166,8 @@
   "dependency.showLifecycle": "Показывать статус жизненного цикла",
   "dependency.showHierarchy": "Показывать родительскую иерархию",
   "dependency.showHierarchyHint": "Включать родительскую карточку каждой карточки и рисовать связь принадлежности",
+  "dependency.showEndOfLife": "Показывать карточки с истёкшим сроком эксплуатации",
+  "dependency.showEndOfLifeHint": "Включать связанные карточки, жизненный цикл которых достиг конца эксплуатации. Карточка, на которой выполнено центрирование, отображается всегда.",
   "dependency.hierarchyContains": "содержит",
   "dependency.hierarchyPartOf": "часть",
   "dependency.extraFields": "Дополнительные поля",

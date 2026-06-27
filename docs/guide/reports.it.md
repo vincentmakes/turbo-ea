@@ -82,6 +82,7 @@ Passate alla **Layered Dependency View** usando i pulsanti di modalità di visua
 - **Cliccate per ispezionare** — Cliccate su qualsiasi nodo per aprire il pannello laterale di dettaglio della card
 - **Nessuna card centrale richiesta** — La Layered Dependency View mostra tutte le card che corrispondono al filtro di tipo corrente
 - **Evidenziazione delle connessioni** — Passate il mouse su una card per evidenziare le sue connessioni; sui dispositivi touch, usate il pulsante di evidenziazione nel pannello dei controlli per evidenziare con il tocco
+- **Card a fine vita nascoste per impostazione predefinita** — Le card correlate il cui ciclo di vita ha raggiunto la fine vita vengono nascoste per mantenere il grafico focalizzato; attivate **Mostra schede a fine vita** nel menu **Visualizzazione card** per mostrarle di nuovo. La card su cui siete centrati viene sempre mostrata, anche se è essa stessa a fine vita
 
 La stessa vista viene riutilizzata nella pagina di dettaglio della card (mostrando il vicinato di dipendenze immediato della card) e nell'assistente [TurboLens Architect](turbolens.md#architecture-ai), così le dipendenze appaiono uguali ovunque.
 

@@ -166,6 +166,8 @@
   "dependency.showLifecycle": "إظهار حالة دورة الحياة",
   "dependency.showHierarchy": "إظهار التسلسل الهرمي الأصل",
   "dependency.showHierarchyHint": "تضمين البطاقة الأصل لكل بطاقة ورسم رابط الاحتواء",
+  "dependency.showEndOfLife": "إظهار البطاقات المنتهية الصلاحية",
+  "dependency.showEndOfLifeHint": "تضمين البطاقات المرتبطة التي وصلت دورة حياتها إلى نهاية العمر. تُعرض دائمًا البطاقة التي يتم التركيز عليها.",
   "dependency.hierarchyContains": "يحتوي على",
   "dependency.hierarchyPartOf": "جزء من",
   "dependency.extraFields": "حقول إضافية",

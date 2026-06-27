@@ -82,6 +82,7 @@ Skift til **lagdelt afhængighedsvisning** ved hjælp af view-mode-knapperne i v
 - **Klik for at inspicere** — Klik på en node for at åbne sidepanelet med kortdetaljer
 - **Ingen centerkort påkrævet** — Den lagdelte afhængighedsvisning viser alle kort, der matcher det aktuelle type-filter
 - **Fremhævning af forbindelser** — Hold musen over et kort for at fremhæve dets forbindelser; på touch-enheder bruges fremhævnings-til/fra-knappen i kontrolpanelet til tap-fremhævning i stedet
+- **Kort ved slutningen af deres levetid skjult som standard** — Relaterede kort, hvis livscyklus har nået slutningen af levetiden, skjules for at holde grafen fokuseret; slå **Vis kort ved slutningen af deres levetid** til i menuen **Kortvisning** for at vise dem igen. Det kort, du er centreret om, vises altid, også hvis det selv er ved slutningen af sin levetid
 
 Den samme visning genbruges på Kortdetalje-siden (viser kortets umiddelbare afhængigheds­nabolag) og i [TurboLens Architect](turbolens.md#architecture-ai)-guiden, så afhængigheder ser ens ud overalt.
 

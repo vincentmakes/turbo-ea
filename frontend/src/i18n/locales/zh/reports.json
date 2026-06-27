@@ -166,6 +166,8 @@
   "dependency.showLifecycle": "显示生命周期状态",
   "dependency.showHierarchy": "显示父级层次结构",
   "dependency.showHierarchyHint": "包含每张卡片的父卡片并绘制包含关系连线",
+  "dependency.showEndOfLife": "显示生命周期终止的卡片",
+  "dependency.showEndOfLifeHint": "包含生命周期已达到生命终止的相关卡片。当前居中的卡片始终显示。",
   "dependency.hierarchyContains": "包含",
   "dependency.hierarchyPartOf": "属于",
   "dependency.extraFields": "额外字段",

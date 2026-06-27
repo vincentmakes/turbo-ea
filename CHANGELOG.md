@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.52.0] - 2026-06-27
+
+### Changed
+- **Dependency view hides end-of-life cards by default.** The Layered Dependency View (Dependencies report, the card-detail dependency section, and TurboLens Architect) no longer shows related cards whose lifecycle has reached End of Life — keeping the graph focused on what still matters. A new **Show end-of-life cards** toggle in the **Card display** menu brings them back. The card you are centered on is always shown, even if it is itself end-of-life.
+
 ## [1.51.0] - 2026-06-26
 
 ### Added
