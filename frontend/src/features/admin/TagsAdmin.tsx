@@ -232,7 +232,6 @@ export default function TagsAdmin() {
             onChange={(e) => setTagDescription(e.target.value)}
             multiline
             minRows={2}
-            slotProps={{ inputLabel: { shrink: true } }}
             sx={{ mb: 2 }}
           />
           <ColorPicker value={tagColor} onChange={setTagColor} label={t("tags.color")} />
@@ -351,7 +350,6 @@ export default function TagsAdmin() {
             onChange={(e) => setEditTagDraft((d) => ({ ...d, description: e.target.value }))}
             multiline
             minRows={2}
-            slotProps={{ inputLabel: { shrink: true } }}
             sx={{ mb: 2 }}
           />
           <ColorPicker
