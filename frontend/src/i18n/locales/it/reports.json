@@ -361,6 +361,13 @@
   "common.center": "Centro",
   "common.group": "Gruppo",
   "dependency.expandMode": "Modalità espansione: clicca su una scheda per mostrare tutte le sue relazioni",
+  "dependency.createDiagram": "Crea diagramma",
+  "dependency.createDiagramTitle": "Crea diagramma",
+  "dependency.createDiagramHint": "Crea un diagramma modificabile nel modulo Diagrammi. Ogni forma rimane collegata alla sua scheda di inventario.",
+  "dependency.createDiagramNameLabel": "Nome del diagramma",
+  "dependency.createDiagramDefaultName": "{{name}} – dipendenze",
+  "dependency.createDiagramSubmit": "Crea",
+  "dependency.createDiagramError": "Impossibile creare il diagramma. Riprova.",
   "cost.permissionDeniedTitle": "Dati sui costi limitati",
   "cost.permissionDeniedBody": "Non hai i permessi per visualizzare i report sui costi. Chiedi a un amministratore di concederti il permesso «costs.view», oppure diventa stakeholder delle schede in questione."
 }

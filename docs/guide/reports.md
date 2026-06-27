@@ -98,6 +98,7 @@ Toggle to the **Layered Dependency View** using the view-mode buttons in the too
 - **Rearrange** — Drag a card to move it within its layer, or drag a whole **layer box** to move it with all its cards. **Reset layout** restores the automatic arrangement.
 - **Background** — Cycle the canvas background between grid, dots, and none.
 - **Export and fullscreen** — Export the diagram to **PNG** or **SVG**, or open it in **fullscreen**.
+- **Create diagram** — Turn the current view into a new, editable diagram in the [Diagram module](diagrams.md). It recreates the cards, relationships, and the four architecture layer lanes, and every shape stays linked to its inventory card. You're asked for a name, then taken straight to the new diagram. Available to users who can create diagrams.
 
 ## Cost Report
 

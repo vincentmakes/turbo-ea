@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { buildCardCellData, applyCardTypeIcons } from "./drawio-shapes";
+import {
+  buildCardCellData,
+  applyCardTypeIcons,
+  buildLdvDiagramXml,
+  type DiagramCardInput,
+  type DiagramRelInput,
+  type DiagramLayerInput,
+} from "./drawio-shapes";
 import { ICON_PATHS } from "./iconPaths";
 
 /** Minimal fake mxGraph model so applyCardTypeIcons can run without DrawIO. */
@@ -135,5 +142,115 @@ describe("ICON_PATHS coverage", () => {
       expect(ICON_PATHS[name]?.d, `missing path for ${name}`).toBeTruthy();
       expect(ICON_PATHS[name]?.vb).toBeTruthy();
     }
+  });
+});
+
+describe("buildLdvDiagramXml", () => {
+  const cards: DiagramCardInput[] = [
+    {
+      cardId: "11111111-1111-1111-1111-111111111111",
+      cardType: "Application",
+      name: "NexaCore ERP",
+      color: "#0f7eb5",
+      icon: "apps",
+      x: 100,
+      y: 50,
+      w: 200,
+      h: 72,
+    },
+    {
+      cardId: "22222222-2222-2222-2222-222222222222",
+      cardType: "DataObject",
+      name: 'Orders & "stuff" <x>',
+      color: "#774fcc",
+      x: 400,
+      y: 50,
+      w: 200,
+      h: 72,
+    },
+  ];
+  const rels: DiagramRelInput[] = [
+    {
+      sourceCardId: "11111111-1111-1111-1111-111111111111",
+      targetCardId: "22222222-2222-2222-2222-222222222222",
+      relationType: "relAppToData",
+      label: "reads",
+      color: "#8a93a3",
+    },
+  ];
+  const layers: DiagramLayerInput[] = [
+    { label: "Application & Data", color: "#0f7eb5", x: 0, y: 0, w: 800, h: 200 },
+  ];
+
+  it("wraps cards in <object> with cardId/cardType so they stay linked to inventory", () => {
+    const xml = buildLdvDiagramXml(cards, rels, layers);
+    expect(xml.startsWith("<mxGraphModel")).toBe(true);
+    expect(xml).toContain('cardId="11111111-1111-1111-1111-111111111111"');
+    expect(xml).toContain('cardType="Application"');
+    expect(xml).toContain('cardType="DataObject"');
+    // geometry uses the supplied LDV node size/position
+    expect(xml).toContain('x="100" y="50" width="200" height="72"');
+  });
+
+  it("round-trips card ids through the backend's card-ref regex", () => {
+    const xml = buildLdvDiagramXml(cards, rels, layers);
+    const re = /cardId="([0-9a-fA-F-]{36})"/g;
+    const found = [...xml.matchAll(re)].map((m) => m[1]);
+    expect(found).toEqual([
+      "11111111-1111-1111-1111-111111111111",
+      "22222222-2222-2222-2222-222222222222",
+    ]);
+  });
+
+  it("emits relation edges with relationType but never marks them pending", () => {
+    const xml = buildLdvDiagramXml(cards, rels, layers);
+    expect(xml).toContain('relationType="relAppToData"');
+    expect(xml).toContain('edge="1"');
+    // Display-only: no pending flag and no relationId → editor won't re-create it
+    expect(xml).not.toContain('pending="1"');
+    expect(xml).not.toContain("relationId=");
+  });
+
+  it("renders layer boxes that carry no cardId (ignored by ref extraction)", () => {
+    const xml = buildLdvDiagramXml(cards, rels, layers);
+    expect(xml).toContain('id="layer-0"');
+    expect(xml).toContain("Application &amp; Data"); // label escaped
+    // exactly two cardId occurrences — layers must not add any
+    expect(xml.match(/cardId=/g)?.length).toBe(2);
+  });
+
+  it("escapes XML-significant characters in labels", () => {
+    const xml = buildLdvDiagramXml(cards, rels, layers);
+    expect(xml).toContain("Orders &amp; &quot;stuff&quot; &lt;x&gt;");
+    expect(xml).not.toContain('Orders & "stuff" <x>');
+  });
+
+  it("drops edges whose endpoints are not on the diagram", () => {
+    const orphanRel: DiagramRelInput[] = [
+      {
+        sourceCardId: "11111111-1111-1111-1111-111111111111",
+        targetCardId: "99999999-9999-9999-9999-999999999999",
+        relationType: "relAppToData",
+        label: "reads",
+        color: "#8a93a3",
+      },
+    ];
+    const xml = buildLdvDiagramXml(cards, orphanRel, layers);
+    expect(xml).not.toContain('edge="1"');
+  });
+
+  it("omits the relationType attribute for synthetic (typeless) edges", () => {
+    const hierRel: DiagramRelInput[] = [
+      {
+        sourceCardId: "11111111-1111-1111-1111-111111111111",
+        targetCardId: "22222222-2222-2222-2222-222222222222",
+        relationType: "",
+        label: "contains",
+        color: "#8a93a3",
+      },
+    ];
+    const xml = buildLdvDiagramXml(cards, hierRel, layers);
+    expect(xml).toContain('edge="1"');
+    expect(xml).not.toContain("relationType=");
   });
 });

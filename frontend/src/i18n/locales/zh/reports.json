@@ -361,6 +361,13 @@
   "common.center": "居中",
   "common.group": "分组",
   "dependency.expandMode": "展开模式：点击卡片以显示其所有关系",
+  "dependency.createDiagram": "创建图表",
+  "dependency.createDiagramTitle": "创建图表",
+  "dependency.createDiagramHint": "在图表模块中创建一个可编辑的图表。每个形状都保持与其清单卡片的关联。",
+  "dependency.createDiagramNameLabel": "图表名称",
+  "dependency.createDiagramDefaultName": "{{name}} 依赖关系",
+  "dependency.createDiagramSubmit": "创建",
+  "dependency.createDiagramError": "无法创建图表，请重试。",
   "cost.permissionDeniedTitle": "成本数据受限",
   "cost.permissionDeniedBody": "您无权查看成本报告。请管理员授予您「costs.view」权限，或成为相关卡片的利益相关方。"
 }

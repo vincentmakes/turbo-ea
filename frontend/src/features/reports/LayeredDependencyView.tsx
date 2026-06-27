@@ -24,9 +24,17 @@ import Switch from "@mui/material/Switch";
 import Divider from "@mui/material/Divider";
 import Autocomplete from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
 import { lighten, useTheme } from "@mui/material/styles";
 import { toBlob, toSvg } from "html-to-image";
 import { saveAs } from "file-saver";
+import { useNavigate } from "react-router-dom";
+import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { getCurrentPhase } from "@/components/LifecycleBadge";
 import {
@@ -56,6 +64,12 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useLdvSettings, type LdvBackgroundStyle } from "./ldvDisplaySettings";
 import type { CardType } from "@/types";
 import {
+  buildLdvDiagramXml,
+  type DiagramCardInput,
+  type DiagramRelInput,
+  type DiagramLayerInput,
+} from "@/features/diagrams/drawio-shapes";
+import {
   buildLdvFlow,
   relationValueSuffix,
   filterEndOfLifeNodes,
@@ -73,6 +87,10 @@ import {
 /* ------------------------------------------------------------------ */
 
 type BackgroundStyle = LdvBackgroundStyle;
+
+/** Neutral stroke colour for relation edges on a generated DrawIO diagram,
+ *  matching the LDV's muted edge styling. */
+const LDV_EDGE_COLOR = "#8a93a3";
 
 /** How many of the chosen extra fields render directly on the card body.
  *  The rest still appear in the hover tooltip. */
@@ -787,6 +805,9 @@ interface Props {
   centerName?: string;
   /** Id of the centered/target card — always kept visible by the end-of-life filter. */
   centerId?: string;
+  /** When true, show the "Create diagram" toolbar action (gated on `diagrams.manage`
+   *  by the parent). Only enable in consumers whose nodes are real inventory cards. */
+  canCreateDiagram?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -808,10 +829,12 @@ function LayeredDependencyInner({
   hasNext,
   centerName,
   centerId,
+  canCreateDiagram,
 }: Props) {
   const { t } = useTranslation(["reports", "common"]);
   const theme = useTheme();
   const rl = useResolveLabel();
+  const navigate = useNavigate();
   const { fitView, getNodes } = useReactFlow();
 
   /* ---- Card display settings (persisted, shared with the card-detail section) ---- */
@@ -1051,6 +1074,121 @@ function LayeredDependencyInner({
     },
     [getNodes, theme.palette.background.paper, centerName],
   );
+
+  /* ---- Create an editable DrawIO diagram from the current graph ----
+     Turns the on-screen LDV into a real diagram in the Diagram module. Card
+     shapes carry cardId/cardType so they stay connected to the inventory;
+     relation edges are display-only (never marked pending → no duplicate
+     relations created). Layer swim-lanes render as background boxes. */
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState(false);
+
+  // Real relation-type key per displayed card pair (one type per ordered pair
+  // in the metamodel). Synthetic hierarchy edges are excluded — they render as
+  // plain labelled lines, not relations.
+  const relTypeByPair = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const e of edges) {
+      if (!e.type || e.type === "hierarchy") continue;
+      const k = [e.source, e.target].sort().join("|");
+      if (!m.has(k)) m.set(k, e.type);
+    }
+    return m;
+  }, [edges]);
+
+  const openCreateDialog = useCallback(() => {
+    setCreateError(false);
+    setCreateName(
+      t("dependency.createDiagramDefaultName", { name: centerName || t("dependency.title") }),
+    );
+    setCreateOpen(true);
+  }, [centerName, t]);
+
+  const submitCreateDiagram = useCallback(async () => {
+    const name = createName.trim();
+    if (!name || creating) return;
+    setCreating(true);
+    setCreateError(false);
+    try {
+      // Flatten child (card) coordinates to absolute — child nodes are
+      // positioned relative to their layer group (mirrors exportImage).
+      const live = getNodes();
+      const byId = new Map(live.map((n) => [n.id, n]));
+      const absOf = (n: Node) => {
+        const p = n.parentId ? byId.get(n.parentId) : undefined;
+        return p
+          ? { x: p.position.x + n.position.x, y: p.position.y + n.position.y }
+          : { x: n.position.x, y: n.position.y };
+      };
+
+      const cards: DiagramCardInput[] = [];
+      const layers: DiagramLayerInput[] = [];
+      const included = new Set<string>();
+      for (const n of live) {
+        if (n.type === "ldvNode") {
+          const d = n.data as LdvNodeData;
+          if (d.proposed) continue; // proposed cards have no inventory id
+          const p = absOf(n);
+          cards.push({
+            cardId: n.id,
+            cardType: d.typeKey,
+            name: d.name,
+            color: d.typeColor,
+            icon: d.typeIcon,
+            x: p.x,
+            y: p.y,
+            w: (n.style?.width as number) ?? LDV_NODE_W,
+            h: (n.style?.height as number) ?? LDV_NODE_H,
+          });
+          included.add(n.id);
+        } else if (n.type === "ldvGroup") {
+          const d = n.data as LdvGroupData;
+          layers.push({
+            label: d.label,
+            color: d.color,
+            x: n.position.x,
+            y: n.position.y,
+            w: (n.style?.width as number) ?? 0,
+            h: (n.style?.height as number) ?? 0,
+          });
+        }
+      }
+
+      const rels: DiagramRelInput[] = [];
+      for (const e of rfEdges) {
+        if (!included.has(e.source) || !included.has(e.target)) continue;
+        const d = e.data as LdvEdgeData | undefined;
+        rels.push({
+          sourceCardId: e.source,
+          targetCardId: e.target,
+          relationType: relTypeByPair.get([e.source, e.target].sort().join("|")) ?? "",
+          label: d?.relLabel ?? "",
+          color: LDV_EDGE_COLOR,
+        });
+      }
+
+      if (cards.length === 0) {
+        setCreateError(true);
+        setCreating(false);
+        return;
+      }
+
+      const xml = buildLdvDiagramXml(cards, rels, layers);
+      const created = await api.post<{ id: string }>("/diagrams", {
+        name,
+        type: "free_draw",
+        data: { xml },
+      });
+      setCreateOpen(false);
+      navigate(`/diagrams/${created.id}/edit`);
+    } catch {
+      setCreateError(true);
+    } finally {
+      setCreating(false);
+    }
+  }, [createName, creating, getNodes, rfEdges, relTypeByPair, navigate]);
 
   // ReactFlow's `fitView` prop only fits on the initial render. When the parent
   // navigates to a new centre, the new graph is laid out at different coordinates
@@ -1431,6 +1569,13 @@ function LayeredDependencyInner({
               <MaterialSymbol icon="download" size={19} />
             </IconButton>
           </Tooltip>
+          {canCreateDiagram && (
+            <Tooltip title={t("dependency.createDiagram")} arrow>
+              <IconButton size="small" onClick={openCreateDialog}>
+                <MaterialSymbol icon="note_add" size={19} />
+              </IconButton>
+            </Tooltip>
+          )}
           <Tooltip
             title={isFullscreen ? t("dependency.exitFullscreen") : t("dependency.fullscreen")}
             arrow
@@ -1555,6 +1700,50 @@ function LayeredDependencyInner({
           <ListItemText>{t("dependency.exportSvg")}</ListItemText>
         </MenuItem>
       </Menu>
+
+      {/* Create-diagram name dialog */}
+      <Dialog
+        open={createOpen}
+        onClose={() => !creating && setCreateOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        disableRestoreFocus
+        container={isFullscreen ? containerRef.current : undefined}
+      >
+        <DialogTitle>{t("dependency.createDiagramTitle")}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t("dependency.createDiagramHint")}
+          </Typography>
+          <TextField
+            autoFocus
+            fullWidth
+            size="small"
+            label={t("dependency.createDiagramNameLabel")}
+            value={createName}
+            onChange={(e) => setCreateName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submitCreateDiagram();
+            }}
+            error={createError}
+            helperText={createError ? t("dependency.createDiagramError") : undefined}
+            disabled={creating}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateOpen(false)} disabled={creating}>
+            {t("common:actions.cancel")}
+          </Button>
+          <Button
+            variant="contained"
+            onClick={submitCreateDiagram}
+            disabled={creating || !createName.trim()}
+            startIcon={creating ? <CircularProgress size={16} color="inherit" /> : undefined}
+          >
+            {t("dependency.createDiagramSubmit")}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Card display settings */}
       <Popover

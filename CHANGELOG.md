@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.55.0] - 2026-06-27
+
+### Added
+- **Turn a dependency diagram into an editable diagram.** The Layered Dependency View (Dependencies report and the card-detail dependency section) has a new **Create diagram** button in its toolbar. It recreates the on-screen graph — cards, relationships, and the four architecture layer lanes — as a new diagram in the Diagram module, where you can keep editing it. Every shape stays linked to its inventory card. You're prompted for a name, then taken straight to the new diagram. The button only appears for users who can create diagrams.
+
 ## [1.54.0] - 2026-06-27
 
 ### Changed

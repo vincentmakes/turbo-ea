@@ -98,6 +98,7 @@ Alterne para a **Layered Dependency View** usando os botões de modo de visualiz
 - **Reorganizar** — Arraste um cartão para movê-lo dentro da sua camada, ou arraste uma **caixa de camada** inteira para movê-la com todos os seus cartões. **Redefinir disposição** restaura a disposição automática.
 - **Plano de fundo** — Alterne o plano de fundo do canvas entre grade, pontos e nenhum.
 - **Exportação e tela cheia** — Exporte o diagrama para **PNG** ou **SVG**, ou abra-o em **tela cheia**.
+- **Criar diagrama** — Transforme a visualização atual em um novo diagrama editável no [módulo de Diagramas](diagrams.md). Recria os cartões, os relacionamentos e as quatro faixas de camadas de arquitetura, e cada forma permanece vinculada ao seu cartão de inventário. É solicitado um nome e, em seguida, você é levado diretamente ao novo diagrama. Disponível para usuários que podem criar diagramas.
 
 ## Relatório de Custos
 

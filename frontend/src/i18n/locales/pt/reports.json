@@ -361,6 +361,13 @@
   "common.center": "Centralizar",
   "common.group": "Grupo",
   "dependency.expandMode": "Modo expansão: clique num cartão para revelar todas as suas relações",
+  "dependency.createDiagram": "Criar diagrama",
+  "dependency.createDiagramTitle": "Criar diagrama",
+  "dependency.createDiagramHint": "Cria um diagrama editável no módulo de Diagramas. Cada forma permanece vinculada ao seu cartão de inventário.",
+  "dependency.createDiagramNameLabel": "Nome do diagrama",
+  "dependency.createDiagramDefaultName": "{{name}} – dependências",
+  "dependency.createDiagramSubmit": "Criar",
+  "dependency.createDiagramError": "Não foi possível criar o diagrama. Tente novamente.",
   "cost.permissionDeniedTitle": "Dados de custo restritos",
   "cost.permissionDeniedBody": "Você não tem permissão para ver relatórios de custos. Peça a um administrador para conceder a permissão «costs.view», ou torne-se parte interessada nas cartas em questão."
 }

@@ -98,6 +98,7 @@ Skift til **lagdelt afhængighedsvisning** ved hjælp af view-mode-knapperne i v
 - **Omarrangér** — Træk et kort for at flytte det inden for dets lag, eller træk en hel **lag-boks** for at flytte den med alle dens kort. **Nulstil layout** gendanner den automatiske placering.
 - **Baggrund** — Skift lærredsbaggrunden mellem gitter, prikker og ingen.
 - **Eksport og fuldskærm** — Eksportér diagrammet til **PNG** eller **SVG**, eller åbn det i **fuldskærm**.
+- **Opret diagram** — Forvandl den aktuelle visning til et nyt, redigerbart diagram i [diagrammodulet](diagrams.md). Kort, relationer og de fire arkitekturlag genskabes, og hver figur forbliver knyttet til sit inventarkort. Du bliver bedt om et navn og føres derefter direkte til det nye diagram. Tilgængelig for brugere, der kan oprette diagrammer.
 
 ## Omkostningsrapport
 

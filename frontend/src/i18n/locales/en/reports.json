@@ -361,6 +361,13 @@
   "common.center": "Center",
   "common.group": "Group",
   "dependency.expandMode": "Expand mode: click a card to reveal all its relations",
+  "dependency.createDiagram": "Create diagram",
+  "dependency.createDiagramTitle": "Create diagram",
+  "dependency.createDiagramHint": "Creates an editable diagram in the Diagram module. Each shape stays linked to its inventory card.",
+  "dependency.createDiagramNameLabel": "Diagram name",
+  "dependency.createDiagramDefaultName": "{{name}} dependencies",
+  "dependency.createDiagramSubmit": "Create",
+  "dependency.createDiagramError": "Could not create the diagram. Please try again.",
   "cost.permissionDeniedTitle": "Cost data restricted",
   "cost.permissionDeniedBody": "You don't have permission to view cost reports. Ask an administrator to grant you the «costs.view» permission, or become a stakeholder on the cards whose costs you need."
 }

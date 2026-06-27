@@ -10,6 +10,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import LayeredDependencyView from "@/features/reports/LayeredDependencyView";
 import { useLdvSettings } from "@/features/reports/ldvDisplaySettings";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useAuthContext } from "@/hooks/AuthContext";
 import { api } from "@/api/client";
 import type { GNode, GEdge } from "@/features/reports/layeredDependencyLayout";
 
@@ -20,6 +21,9 @@ interface Props {
 export default function LayeredDependencySection({ cardId }: Props) {
   const { t } = useTranslation(["cards"]);
   const { types } = useMetamodel();
+  const { user } = useAuthContext();
+  const canCreateDiagram =
+    !!user?.permissions?.["*"] || !!user?.permissions?.["diagrams.manage"];
   const [ldvSettings] = useLdvSettings();
 
   const [expanded, setExpanded] = useState(true);
@@ -232,6 +236,7 @@ export default function LayeredDependencySection({ cardId }: Props) {
               hasNext={hasNext}
               centerName={centerNode?.name}
               centerId={center}
+              canCreateDiagram={canCreateDiagram}
             />
           </Box>
         )}
