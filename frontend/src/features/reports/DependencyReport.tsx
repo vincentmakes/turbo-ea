@@ -587,6 +587,18 @@ export default function DependencyReport() {
     [nodes, nodeMap],
   );
 
+  // Full reset (toolbar Reset button): clear all exploration and history but
+  // stay on the current centre so the user keeps the card they were exploring.
+  const handleLdvReset = useCallback(() => {
+    setLdvExpandedNodes(new Set());
+    setRevealedParentIds(new Set());
+    setRevealedChildIds(new Set());
+    if (center) {
+      setNavHistory([center]);
+      setNavIndex(0);
+    }
+  }, [center]);
+
   const toggleExpand = useCallback((instanceId: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -833,6 +845,7 @@ export default function DependencyReport() {
               onNodeExpand={handleLdvExpand}
               onExpandReset={handleLdvExpandReset}
               onNodeReveal={handleLdvReveal}
+              onReset={handleLdvReset}
               onHome={handleNavHome}
               onPrev={handleNavPrev}
               onNext={handleNavNext}

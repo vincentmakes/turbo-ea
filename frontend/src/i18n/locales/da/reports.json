@@ -366,6 +366,7 @@
   "dependency.revealParentsMode": "Vis forælder-tilstand: klik på et kort for at tilføje dets overordnede hierarkielement",
   "dependency.revealChildrenMode": "Vis underordnede-tilstand: klik på et kort for at tilføje dets direkte underordnede",
   "dependency.recenter": "Tilpas og centrér",
+  "dependency.resetView": "Nulstil visning",
   "dependency.createDiagram": "Opret diagram",
   "dependency.createDiagramTitle": "Opret diagram",
   "dependency.createDiagramHint": "Opretter et redigerbart diagram i diagrammodulet. Hver figur forbliver knyttet til sit inventarkort.",

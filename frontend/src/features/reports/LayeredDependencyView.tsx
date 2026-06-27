@@ -845,6 +845,10 @@ interface Props {
    *  nodes to surface. Revealed cards persist until the view is re-centred (so
    *  parents and children can be layered in the same view). */
   onNodeReveal?: (id: string, kind: "parents" | "children") => void;
+  /** Full reset of the view: clears expand + reveal exploration and returns to
+   *  the base centre. Fired by the toolbar Reset button (in addition to the
+   *  view's own layout-position reset). */
+  onReset?: () => void;
   onHome: () => void;
   onPrev?: () => void;
   onNext?: () => void;
@@ -871,6 +875,7 @@ function LayeredDependencyInner({
   onNodeExpand,
   onExpandReset,
   onNodeReveal,
+  onReset,
   onHome,
   onPrev,
   onNext,
@@ -977,7 +982,7 @@ function LayeredDependencyInner({
      via useNodesState/applyNodeChanges. Rebuilding the array by hand on every
      render — the previous approach — dropped React Flow's per-node measurements
      mid-drag, which made cards and their edges vanish until a reload. The
-     builder is assigned below (once the display helpers exist); resetLayout and
+     builder is assigned below (once the display helpers exist); resetView and
      the re-seed effect call through this ref so they always use the latest one. */
   const [flowNodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const buildNodesRef = useRef<() => Node[]>(() => []);
@@ -1006,11 +1011,13 @@ function LayeredDependencyInner({
     updateSettings({ background: order[(idx + 1) % order.length] });
   }, [settings.background, updateSettings]);
 
-  /* ---- Reset manual layout ---- */
-  const resetLayout = useCallback(() => {
+  /* ---- Full view reset: clears exploration (expand + reveals) via the
+     consumer, undoes manual drags, and re-fits. ---- */
+  const resetView = useCallback(() => {
+    onReset?.();
     setNodes(buildNodesRef.current());
     window.setTimeout(() => fitView({ padding: 0.15, duration: 300 }), 30);
-  }, [setNodes, fitView]);
+  }, [onReset, setNodes, fitView]);
 
   /* ---- Re-fit after entering/leaving fullscreen ---- */
   useEffect(() => {
@@ -1620,11 +1627,6 @@ function LayeredDependencyInner({
               />
             </IconButton>
           </Tooltip>
-          <Tooltip title={t("dependency.resetLayout")} arrow>
-            <IconButton size="small" onClick={resetLayout}>
-              <MaterialSymbol icon="restart_alt" size={19} />
-            </IconButton>
-          </Tooltip>
           <Tooltip title={t("dependency.exportImage")} arrow>
             <IconButton size="small" onClick={(e) => setExportAnchor(e.currentTarget)}>
               <MaterialSymbol icon="download" size={19} />
@@ -1637,14 +1639,6 @@ function LayeredDependencyInner({
               </IconButton>
             </Tooltip>
           )}
-          <Tooltip
-            title={isFullscreen ? t("dependency.exitFullscreen") : t("dependency.fullscreen")}
-            arrow
-          >
-            <IconButton size="small" onClick={toggleFullscreen}>
-              <MaterialSymbol icon={isFullscreen ? "fullscreen_exit" : "fullscreen"} size={20} />
-            </IconButton>
-          </Tooltip>
         </Box>
       </Box>
       <Box sx={{ flex: 1, minHeight: 0 }} className={hoveredNode ? "ldv-hover-active" : undefined}>
@@ -1694,12 +1688,26 @@ function LayeredDependencyInner({
               much like the top-bar Fullscreen button. Replaced with a map-pin
               "re-center" button below. */}
           <Controls showInteractive={false} showFitView={false}>
+            {/* --- Navigation / view group: zoom (RF default), recenter, reset,
+                fullscreen. Separated from the exploration tools by a gap. --- */}
             <ControlButton
               title={t("dependency.recenter")}
               onClick={() => fitView({ padding: 0.15, duration: 300 })}
             >
               <MaterialSymbol icon="location_on" size={18} />
             </ControlButton>
+            <ControlButton title={t("dependency.resetView")} onClick={resetView}>
+              <MaterialSymbol icon="restart_alt" size={18} />
+            </ControlButton>
+            <ControlButton
+              title={isFullscreen ? t("dependency.exitFullscreen") : t("dependency.fullscreen")}
+              onClick={toggleFullscreen}
+            >
+              <MaterialSymbol icon={isFullscreen ? "fullscreen_exit" : "fullscreen"} size={18} />
+            </ControlButton>
+            {/* Vertical gap separating the view group from the exploration tools */}
+            <div className="ldv-controls-gap" aria-hidden style={{ height: 10 }} />
+            {/* --- Exploration group: highlight, expand, reveal parent/children --- */}
             <ControlButton
               title={t("dependency.highlightMode")}
               onClick={() => {
@@ -1751,7 +1759,7 @@ function LayeredDependencyInner({
                     color: parentsMode ? theme.palette.primary.contrastText : undefined,
                   }}
                 >
-                  <MaterialSymbol icon="arrow_upward" size={18} />
+                  <MaterialSymbol icon="move_up" size={18} />
                 </ControlButton>
                 <ControlButton
                   title={t("dependency.revealChildrenMode")}
@@ -1763,7 +1771,7 @@ function LayeredDependencyInner({
                     color: childrenMode ? theme.palette.primary.contrastText : undefined,
                   }}
                 >
-                  <MaterialSymbol icon="arrow_downward" size={18} />
+                  <MaterialSymbol icon="move_down" size={18} />
                 </ControlButton>
               </>
             )}

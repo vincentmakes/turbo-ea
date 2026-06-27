@@ -366,6 +366,7 @@
   "dependency.revealParentsMode": "Modus „Übergeordnetes anzeigen“: Klicken Sie auf eine Karte, um ihr übergeordnetes Hierarchieelement hinzuzufügen",
   "dependency.revealChildrenMode": "Modus „Untergeordnete anzeigen“: Klicken Sie auf eine Karte, um ihre direkten untergeordneten Elemente hinzuzufügen",
   "dependency.recenter": "Anpassen & zentrieren",
+  "dependency.resetView": "Ansicht zurücksetzen",
   "dependency.createDiagram": "Diagramm erstellen",
   "dependency.createDiagramTitle": "Diagramm erstellen",
   "dependency.createDiagramHint": "Erstellt ein bearbeitbares Diagramm im Diagramm-Modul. Jede Form bleibt mit ihrer Inventarkarte verknüpft.",

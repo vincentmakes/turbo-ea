@@ -152,6 +152,17 @@ export default function LayeredDependencySection({ cardId }: Props) {
     window.open(`/cards/${id}`, "_blank");
   }, []);
 
+  // Full reset (toolbar Reset button): back to the card itself with no
+  // exploration (expand / reveals) and a clean navigation history.
+  const handleReset = useCallback(() => {
+    setCenter(cardId);
+    setNavHistory([cardId]);
+    setNavIndex(0);
+    setExpandedNodes(new Set());
+    setRevealedParentIds(new Set());
+    setRevealedChildIds(new Set());
+  }, [cardId]);
+
   // Expand mode: toggle a node's neighbors into the visible set
   const handleExpand = useCallback((nodeId: string) => {
     setExpandedNodes((prev) => {
@@ -277,6 +288,7 @@ export default function LayeredDependencySection({ cardId }: Props) {
               onNodeExpand={handleExpand}
               onExpandReset={handleExpandReset}
               onNodeReveal={handleNodeReveal}
+              onReset={handleReset}
               onHome={handleHome}
               onPrev={handlePrev}
               onNext={handleNext}

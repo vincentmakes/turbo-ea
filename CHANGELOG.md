@@ -8,11 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [1.56.0] - 2026-06-27
 
 ### Added
-- **Reveal a card's parent or children on the dependency diagram.** The Layered Dependency View (Dependencies report and the card-detail dependency section) has two new toolbar tools beside Highlight and Expand: **Reveal parent** (↑) and **Reveal children** (↓). Turn one on, then click any card to add its hierarchy parent or its direct children to the diagram — a targeted alternative to Expand, which pulls in every neighbour at once. Revealed cards stay on the diagram until you re-center, so you can layer parents and children together in one view.
+- **Reveal a card's parent or children on the dependency diagram.** The Layered Dependency View (Dependencies report and the card-detail dependency section) has two new tools in the left toolbar beside Highlight and Expand: **Reveal parent** and **Reveal children**. Turn one on, then click any card to add its hierarchy parent or its direct children to the diagram — a targeted alternative to Expand, which pulls in every neighbour at once. Revealed cards stay on the diagram so you can layer parents and children together in one view; re-centering or **Reset view** clears them.
 
 ### Changed
 - **The dependency diagram's "Show parent hierarchy" toggle is now "Show hierarchy markers".** Instead of pulling every card's ancestors into the view at once, the **Card display** menu now adds a minimalistic chevron to any card that has a parent or children not currently shown — a subtle hint to use the new Reveal tools — keeping the diagram uncluttered. Bringing parents/children into view is now done deliberately with the Reveal parent / Reveal children tools.
-- **The dependency diagram's re-center button now uses a map-pin icon** instead of the frame icon, so it's no longer easily confused with the Fullscreen button in the top toolbar.
+- **The dependency diagram's left toolbar is reorganised into two groups.** View controls (zoom, re-center, **Reset view**, **Fullscreen**) sit together at the top, separated by a gap from the exploration tools (Highlight, Expand, Reveal parent, Reveal children). Reset and Fullscreen moved here from the top bar. The re-center button now uses a map-pin icon so it's no longer confused with Fullscreen.
+- **"Reset view" now fully resets the diagram.** Besides undoing manual node drags, it clears any parent/children/expand exploration and returns to the starting card — a true clean slate.
 
 ## [1.55.0] - 2026-06-27
 
