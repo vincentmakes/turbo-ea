@@ -219,7 +219,6 @@
   "tags.groupName": "Nombre del grupo",
   "tags.tagName": "Nombre de la etiqueta",
   "tags.tagDescription": "Descripción",
-  "tags.tagDescriptionHelper": "Opcional — explica qué significa esta etiqueta",
   "tags.color": "Color",
   "tags.editGroup": "Editar grupo de etiquetas",
   "tags.editTag": "Editar etiqueta",

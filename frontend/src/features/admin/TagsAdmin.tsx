@@ -230,9 +230,6 @@ export default function TagsAdmin() {
             label={t("tags.tagDescription")}
             value={tagDescription}
             onChange={(e) => setTagDescription(e.target.value)}
-            multiline
-            minRows={2}
-            helperText={t("tags.tagDescriptionHelper")}
             sx={{ mb: 2 }}
           />
           <ColorPicker value={tagColor} onChange={setTagColor} label={t("tags.color")} />
@@ -349,9 +346,6 @@ export default function TagsAdmin() {
             label={t("tags.tagDescription")}
             value={editTagDraft.description}
             onChange={(e) => setEditTagDraft((d) => ({ ...d, description: e.target.value }))}
-            multiline
-            minRows={2}
-            helperText={t("tags.tagDescriptionHelper")}
             sx={{ mb: 2 }}
           />
           <ColorPicker

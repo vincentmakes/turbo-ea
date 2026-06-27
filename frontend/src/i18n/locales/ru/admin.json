@@ -219,7 +219,6 @@
   "tags.groupName": "Название группы",
   "tags.tagName": "Название тега",
   "tags.tagDescription": "Описание",
-  "tags.tagDescriptionHelper": "Необязательно — поясняет, что означает этот тег",
   "tags.color": "Цвет",
   "tags.editGroup": "Редактировать группу тегов",
   "tags.editTag": "Редактировать тег",
