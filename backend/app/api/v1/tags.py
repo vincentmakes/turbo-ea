@@ -37,7 +37,14 @@ async def list_tag_groups(db: AsyncSession = Depends(get_db)):
                     "color": t.color,
                     "tag_group_id": str(t.tag_group_id),
                 }
-                for t in (g.tags or [])
+                # Deterministic order (sort_order, then name) so editing a tag —
+                # e.g. adding a description — never reshuffles the list. The
+                # relationship has no ORDER BY, so DB row order is otherwise
+                # unstable after an UPDATE.
+                for t in sorted(
+                    g.tags or [],
+                    key=lambda t: (t.sort_order or 0, (t.name or "").casefold()),
+                )
             ],
         }
         for g in groups

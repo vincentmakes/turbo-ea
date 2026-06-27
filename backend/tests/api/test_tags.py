@@ -137,6 +137,41 @@ class TestCreateTag:
         assert patched.status_code == 200
         assert patched.json()["description"] == "Updated"
 
+    async def test_tag_order_is_stable_after_update(self, client, db, tags_env):
+        """Editing a tag (e.g. adding a description) must not reshuffle the list:
+        tags are returned in a deterministic (sort_order, name) order."""
+        admin = tags_env["admin"]
+        group_id = (
+            await client.post(
+                "/api/v1/tag-groups", json={"name": "Domain"}, headers=auth_headers(admin)
+            )
+        ).json()["id"]
+
+        # Create out of alphabetical order.
+        ids = {}
+        for name in ("Charlie", "Alpha", "Bravo"):
+            r = await client.post(
+                f"/api/v1/tag-groups/{group_id}/tags",
+                json={"name": name},
+                headers=auth_headers(admin),
+            )
+            ids[name] = r.json()["id"]
+
+        async def names():
+            listed = await client.get("/api/v1/tag-groups")
+            group = next(g for g in listed.json() if g["id"] == group_id)
+            return [t["name"] for t in group["tags"]]
+
+        assert await names() == ["Alpha", "Bravo", "Charlie"]
+
+        # Adding a description to the middle tag must not change the order.
+        await client.patch(
+            f"/api/v1/tag-groups/{group_id}/tags/{ids['Bravo']}",
+            json={"description": "A description"},
+            headers=auth_headers(admin),
+        )
+        assert await names() == ["Alpha", "Bravo", "Charlie"]
+
 
 # ---------------------------------------------------------------
 # POST /cards/{id}/tags  (assign tags)
