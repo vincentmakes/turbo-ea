@@ -227,12 +227,11 @@ export default function TagsAdmin() {
           <TextField fullWidth label={t("tags.tagName")} value={tagName} onChange={(e) => setTagName(e.target.value)} sx={{ mt: 1, mb: 2 }} />
           <TextField
             fullWidth
+            multiline
+            minRows={2}
             label={t("tags.tagDescription")}
             value={tagDescription}
             onChange={(e) => setTagDescription(e.target.value)}
-            multiline
-            minRows={2}
-            slotProps={{ inputLabel: { shrink: true } }}
             sx={{ mb: 2 }}
           />
           <ColorPicker value={tagColor} onChange={setTagColor} label={t("tags.color")} />
@@ -260,7 +259,6 @@ export default function TagsAdmin() {
             label={t("tags.description")}
             value={editGroupDraft.description}
             onChange={(e) => setEditGroupDraft((d) => ({ ...d, description: e.target.value }))}
-            slotProps={{ inputLabel: { shrink: true } }}
             sx={{ mb: 2 }}
           />
           <TextField
@@ -347,12 +345,11 @@ export default function TagsAdmin() {
           />
           <TextField
             fullWidth
+            multiline
+            minRows={2}
             label={t("tags.tagDescription")}
             value={editTagDraft.description}
             onChange={(e) => setEditTagDraft((d) => ({ ...d, description: e.target.value }))}
-            multiline
-            minRows={2}
-            slotProps={{ inputLabel: { shrink: true } }}
             sx={{ mb: 2 }}
           />
           <ColorPicker
