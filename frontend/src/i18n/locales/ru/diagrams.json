@@ -215,5 +215,6 @@
   "assignSections.subtitle": "Сгруппировать «{{name}}» в один или несколько разделов.",
   "assignSections.empty": "Разделов пока нет — создайте ниже.",
   "assignSections.createPlaceholder": "Создать новый раздел",
-  "assignSections.create": "Создать"
+  "assignSections.create": "Создать",
+  "gallery.filters": "Фильтры"
 }

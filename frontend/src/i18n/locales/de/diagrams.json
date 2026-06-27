@@ -215,5 +215,6 @@
   "assignSections.subtitle": "«{{name}}» in einen oder mehrere Bereiche gruppieren.",
   "assignSections.empty": "Noch keine Bereiche — erstellen Sie unten einen.",
   "assignSections.createPlaceholder": "Neuen Bereich erstellen",
-  "assignSections.create": "Erstellen"
+  "assignSections.create": "Erstellen",
+  "gallery.filters": "Filter"
 }

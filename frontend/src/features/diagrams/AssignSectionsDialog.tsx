@@ -19,7 +19,8 @@ interface Props {
   onClose: () => void;
   diagram: DiagramSummary | null;
   sections: DiagramSection[];
-  onSaved: () => void;
+  /** Called with the diagram's new section ids so the gallery can update at once. */
+  onSaved: (sectionIds: string[]) => void;
   /** Re-fetch sections after an inline create. */
   onSectionsChanged: () => void;
 }
@@ -68,10 +69,9 @@ export default function AssignSectionsDialog({
     if (!diagram) return;
     setSaving(true);
     try {
-      await api.put(`/diagrams/${diagram.id}/sections`, {
-        section_ids: Array.from(selected),
-      });
-      onSaved();
+      const ids = Array.from(selected);
+      await api.put(`/diagrams/${diagram.id}/sections`, { section_ids: ids });
+      onSaved(ids);
       onClose();
     } finally {
       setSaving(false);

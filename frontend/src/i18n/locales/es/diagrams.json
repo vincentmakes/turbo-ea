@@ -215,5 +215,6 @@
   "assignSections.subtitle": "Agrupe «{{name}}» en una o varias secciones.",
   "assignSections.empty": "Aún no hay secciones: cree una a continuación.",
   "assignSections.createPlaceholder": "Crear nueva sección",
-  "assignSections.create": "Crear"
+  "assignSections.create": "Crear",
+  "gallery.filters": "Filtros"
 }

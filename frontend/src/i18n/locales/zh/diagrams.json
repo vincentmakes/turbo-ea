@@ -215,5 +215,6 @@
   "assignSections.subtitle": "将「{{name}}」分组到一个或多个分区。",
   "assignSections.empty": "尚无分区——在下方创建一个。",
   "assignSections.createPlaceholder": "创建新分区",
-  "assignSections.create": "创建"
+  "assignSections.create": "创建",
+  "gallery.filters": "筛选"
 }

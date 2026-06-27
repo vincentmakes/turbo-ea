@@ -215,5 +215,6 @@
   "assignSections.subtitle": "Gruppér «{{name}}» i en eller flere sektioner.",
   "assignSections.empty": "Ingen sektioner endnu — opret en nedenfor.",
   "assignSections.createPlaceholder": "Opret ny sektion",
-  "assignSections.create": "Opret"
+  "assignSections.create": "Opret",
+  "gallery.filters": "Filtre"
 }

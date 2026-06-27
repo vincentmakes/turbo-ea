@@ -10,7 +10,7 @@ La galleria elenca ogni diagramma come una scheda compatta con miniatura, nome, 
 
 ### Trovare i diagrammi
 
-- **Barra laterale dei filtri** — il pannello a sinistra restringe la galleria a **Tutti i diagrammi**, **Creati da me** o i tuoi **Preferiti**, e filtra per **tipo** di diagramma (Data Flow / Free Draw).
+- **Barra laterale dei filtri** — il pannello a sinistra restringe la galleria a **Tutti i diagrammi**, **Creati da me** o i tuoi **Preferiti**, e filtra per **tipo** di diagramma (Data Flow / Free Draw). Usa il pulsante **Filtri** per comprimerla; su schermi piccoli si apre come pannello a scomparsa.
 - **Ricerca** — la casella di ricerca corrisponde al nome di un diagramma, al suo autore e ai nomi delle schede disegnate al suo interno, così puoi trovare un diagramma in base al suo contenuto.
 - **Ordinamento** — per aggiornati di recente, creati di recente o nome.
 - **Preferiti** — fai clic sulla stella di una scheda per aggiungerla ai tuoi preferiti personali; il filtro **Preferiti** li mostra tutti.

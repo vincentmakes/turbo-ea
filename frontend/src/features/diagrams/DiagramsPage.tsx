@@ -33,6 +33,9 @@ import Menu from "@mui/material/Menu";
 import Autocomplete from "@mui/material/Autocomplete";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
+import Drawer from "@mui/material/Drawer";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -54,6 +57,8 @@ const FAVORITE_COLOR = "#f5b400";
 export default function DiagramsPage() {
   const { t } = useTranslation(["diagrams", "common"]);
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const { formatDate } = useDateFormat();
   const { types: metamodelTypes } = useMetamodel();
   const [diagrams, setDiagrams] = useState<DiagramSummary[]>([]);
@@ -61,6 +66,23 @@ export default function DiagramsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>(
     () => (localStorage.getItem("diagrams_view") as ViewMode) || "card",
   );
+
+  // Collapsible filter sidebar: temporary drawer on mobile, inline-collapsible on desktop.
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [sidebarHidden, setSidebarHidden] = useState(
+    () => localStorage.getItem("diagrams_sidebar") === "hidden",
+  );
+  const toggleSidebar = () => {
+    if (isMobile) {
+      setFiltersOpen((v) => !v);
+    } else {
+      setSidebarHidden((v) => {
+        const next = !v;
+        localStorage.setItem("diagrams_sidebar", next ? "hidden" : "shown");
+        return next;
+      });
+    }
+  };
 
   // Sidebar + search + sort state
   const [scope, setScope] = useState<DiagramScope>({ kind: "all" });
@@ -357,18 +379,48 @@ export default function DiagramsPage() {
 
   return (
     <Box sx={{ display: "flex", gap: 2, alignItems: "flex-start" }}>
-      <DiagramsFilterSidebar
-        scope={scope}
-        onScopeChange={setScope}
-        typeFilter={typeFilter}
-        onTypeFilterChange={setTypeFilter}
-        sections={sections}
-        onManageSections={() => setManageOpen(true)}
-      />
+      {/* Sidebar — temporary Drawer on mobile, inline (collapsible) on desktop */}
+      {isMobile ? (
+        <Drawer
+          open={filtersOpen}
+          onClose={() => setFiltersOpen(false)}
+          PaperProps={{ sx: { width: 280 } }}
+        >
+          <DiagramsFilterSidebar
+            scope={scope}
+            onScopeChange={setScope}
+            typeFilter={typeFilter}
+            onTypeFilterChange={setTypeFilter}
+            sections={sections}
+            onManageSections={() => {
+              setFiltersOpen(false);
+              setManageOpen(true);
+            }}
+            onClose={() => setFiltersOpen(false)}
+            onAfterChange={() => setFiltersOpen(false)}
+          />
+        </Drawer>
+      ) : (
+        !sidebarHidden && (
+          <DiagramsFilterSidebar
+            scope={scope}
+            onScopeChange={setScope}
+            typeFilter={typeFilter}
+            onTypeFilterChange={setTypeFilter}
+            sections={sections}
+            onManageSections={() => setManageOpen(true)}
+          />
+        )
+      )}
 
       <Box sx={{ flex: 1, minWidth: 0 }}>
         {/* Header */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2, flexWrap: "wrap" }}>
+          <Tooltip title={t("gallery.filters")}>
+            <IconButton onClick={toggleSidebar} size="small">
+              <MaterialSymbol icon="filter_list" size={22} />
+            </IconButton>
+          </Tooltip>
           <Typography variant="h5" fontWeight={600}>
             {t("page.title")}
           </Typography>
@@ -623,8 +675,18 @@ export default function DiagramsPage() {
         onClose={() => setAssignOpen(false)}
         diagram={assignDiagram}
         sections={sections}
-        onSaved={() => {
-          loadDiagrams();
+        onSaved={(sectionIds) => {
+          // The PUT is authoritative for this diagram's section_ids, so update
+          // the gallery in place immediately (same pattern as the favorite
+          // toggle) — the section group and diagram appear without a refresh.
+          if (assignDiagram) {
+            setDiagrams((prev) =>
+              prev.map((d) =>
+                d.id === assignDiagram.id ? { ...d, section_ids: sectionIds } : d,
+              ),
+            );
+          }
+          // Refresh the section list for updated counts and any inline-created section.
           loadSections();
         }}
         onSectionsChanged={loadSections}

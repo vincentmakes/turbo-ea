@@ -215,5 +215,6 @@
   "assignSections.subtitle": "جمّع «{{name}}» في قسم أو أكثر.",
   "assignSections.empty": "لا توجد أقسام بعد — أنشئ واحدًا أدناه.",
   "assignSections.createPlaceholder": "إنشاء قسم جديد",
-  "assignSections.create": "إنشاء"
+  "assignSections.create": "إنشاء",
+  "gallery.filters": "عوامل التصفية"
 }

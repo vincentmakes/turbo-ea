@@ -10,7 +10,7 @@ Galleriet viser hvert diagram som et kompakt kort med et miniaturebillede, navn,
 
 ### Find diagrammer
 
-- **Filtersidebjælke** — panelet til venstre indsnævrer galleriet til **Alle diagrammer**, **Oprettet af mig** eller dine **Favoritter** og filtrerer efter diagram**type** (Data Flow / Free Draw).
+- **Filtersidebjælke** — panelet til venstre indsnævrer galleriet til **Alle diagrammer**, **Oprettet af mig** eller dine **Favoritter** og filtrerer efter diagram**type** (Data Flow / Free Draw). Brug knappen **Filtre** til at klappe den sammen; på små skærme åbnes den som et glidepanel.
 - **Søgning** — søgefeltet matcher et diagrams navn, dets forfatter og navnene på de kort, der er tegnet i det, så du kan finde et diagram ud fra dets indhold.
 - **Sortering** — efter senest opdateret, senest oprettet eller navn.
 - **Favoritter** — klik på stjernen på et kort for at føje det til dine personlige favoritter; filteret **Favoritter** viser dem alle.

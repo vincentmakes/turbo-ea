@@ -215,5 +215,6 @@
   "assignSections.subtitle": "Regrouper «{{name}}» dans une ou plusieurs sections.",
   "assignSections.empty": "Aucune section pour l'instant — créez-en une ci-dessous.",
   "assignSections.createPlaceholder": "Créer une nouvelle section",
-  "assignSections.create": "Créer"
+  "assignSections.create": "Créer",
+  "gallery.filters": "Filtres"
 }

@@ -10,7 +10,7 @@ The gallery lists every diagram as a compact card with a thumbnail, name, author
 
 ### Finding diagrams
 
-- **Filter sidebar** — the left rail narrows the gallery to **All diagrams**, **Created by me**, or your **Favorites**, and filters by diagram **type** (Data Flow / Free Draw).
+- **Filter sidebar** — the left rail narrows the gallery to **All diagrams**, **Created by me**, or your **Favorites**, and filters by diagram **type** (Data Flow / Free Draw). Use the **Filters** button to collapse it; on small screens it opens as a slide-in panel.
 - **Search** — the search box matches a diagram's name, its author, and the names of the cards drawn inside it, so you can find a diagram by what it contains.
 - **Sort** — order by recently updated, recently created, or name.
 - **Favorites** — click the star on any card to add it to your personal favorites; the **Favorites** filter then shows them all.

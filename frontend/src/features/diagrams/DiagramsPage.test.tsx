@@ -26,9 +26,15 @@ vi.mock("@/hooks/useMetamodel", () => ({
 vi.mock("@/hooks/useDateFormat", () => ({
   useDateFormat: () => ({ formatDate: (iso: string) => iso }),
 }));
-// Section dialogs are exercised separately; stub to keep this suite focused.
+// Section dialogs are exercised separately; stub them. The assign stub exposes
+// a button so we can drive its onSaved callback and assert the gallery updates.
 vi.mock("./ManageSectionsDialog", () => ({ default: () => null }));
-vi.mock("./AssignSectionsDialog", () => ({ default: () => null }));
+vi.mock("./AssignSectionsDialog", () => ({
+  default: ({ open, onSaved }: { open: boolean; onSaved: (ids: string[]) => void }) =>
+    open ? (
+      <button onClick={() => onSaved(["s1"])}>stub-assign-save</button>
+    ) : null,
+}));
 
 import { api } from "@/api/client";
 import DiagramsPage from "./DiagramsPage";
@@ -86,6 +92,7 @@ function renderPage() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
   setupApi();
   vi.mocked(api.post).mockResolvedValue({} as never);
   vi.mocked(api.delete).mockResolvedValue(undefined as never);
@@ -194,6 +201,20 @@ describe("DiagramsPage", () => {
     });
   });
 
+  it("the Filters button collapses and restores the inline sidebar", async () => {
+    renderPage();
+    await screen.findByText("Architecture Overview");
+    // Sidebar is shown inline on desktop.
+    expect(screen.getByText("Created by me")).toBeInTheDocument();
+
+    const filtersBtn = screen.getByText("filter_list").closest("button") as HTMLElement;
+    await userEvent.click(filtersBtn);
+    expect(screen.queryByText("Created by me")).not.toBeInTheDocument();
+
+    await userEvent.click(filtersBtn);
+    expect(screen.getByText("Created by me")).toBeInTheDocument();
+  });
+
   it("clicking a card's star favorites the diagram", async () => {
     renderPage();
     await screen.findByText("Architecture Overview");
@@ -211,6 +232,39 @@ describe("DiagramsPage", () => {
     await waitFor(() => {
       const calls = vi.mocked(api.post).mock.calls.map((c) => c[0] as string);
       expect(calls.some((u) => /\/diagrams\/d\d\/favorite/.test(u))).toBe(true);
+    });
+  });
+
+  it("shows the section group immediately after assigning, without a refresh", async () => {
+    // One section exists; the diagram starts ungrouped.
+    vi.mocked(api.get).mockImplementation((url: string) => {
+      if (url.startsWith("/diagram-sections"))
+        return Promise.resolve([
+          { id: "s1", name: "Domain A", color: null, sort_order: 0, diagram_count: 0 },
+        ] as never);
+      if (url.startsWith("/diagrams")) return Promise.resolve(diagrams as never);
+      if (url.startsWith("/cards")) return Promise.resolve(cards as never);
+      return Promise.reject(new Error(`no mock for ${url}`));
+    });
+    vi.mocked(api.put).mockResolvedValue({} as never);
+
+    renderPage();
+    await screen.findByText("Architecture Overview");
+    // "Domain A" appears once (the sidebar entry); no gallery group yet.
+    expect(screen.getAllByText("Domain A").length).toBe(1);
+
+    // Open the card menu → "Add to sections…" → assign stub.
+    const moreButtons = screen
+      .getAllByRole("button")
+      .filter((b) => b.querySelector("span")?.textContent === "more_vert");
+    await userEvent.click(moreButtons[0]);
+    await userEvent.click(screen.getByText("Add to sections…"));
+    await userEvent.click(screen.getByText("stub-assign-save"));
+
+    // The section group heading now appears in the gallery too (sidebar + group),
+    // in place — no page reload.
+    await waitFor(() => {
+      expect(screen.getAllByText("Domain A").length).toBe(2);
     });
   });
 
