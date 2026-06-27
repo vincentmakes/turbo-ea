@@ -24,7 +24,8 @@ Dans chaque groupe, vous pouvez ajouter des tags individuels :
 
 1. Cliquez sur **+ Ajouter un tag** dans un groupe de tags.
 2. Saisissez le **nom** du tag.
-3. Définissez éventuellement une **couleur** pour la distinction visuelle — la couleur détermine le fond du chip sur le détail de fiche, l'inventaire, les rapports et les portails web.
+3. Ajoutez éventuellement une **description** — une courte note expliquant la signification de l'étiquette, affichée en infobulle lorsque les administrateurs gèrent les étiquettes.
+4. Définissez éventuellement une **couleur** pour la distinction visuelle — la couleur détermine le fond du chip sur le détail de fiche, l'inventaire, les rapports et les portails web.
 
 Les tags apparaissent sur les pages de détail des fiches dans la section **Tags**, où les utilisateurs autorisés peuvent les appliquer ou les retirer.
 

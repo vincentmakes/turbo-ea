@@ -24,7 +24,8 @@ Dentro de cada grupo, você pode adicionar tags individuais:
 
 1. Clique em **+ Adicionar Tag** dentro de um grupo de tags.
 2. Informe o **nome** da tag.
-3. Opcionalmente defina uma **cor** para distinção visual — a cor determina o fundo do chip no detalhe do card, no inventário, nos relatórios e nos portais web.
+3. Opcionalmente adicione uma **descrição** — uma breve nota explicando o que a tag significa, exibida como dica de ferramenta quando os administradores gerenciam as tags.
+4. Opcionalmente defina uma **cor** para distinção visual — a cor determina o fundo do chip no detalhe do card, no inventário, nos relatórios e nos portais web.
 
 As tags aparecem nas páginas de detalhe dos cards na seção **Tags**, onde os usuários com a permissão adequada podem aplicá-las ou removê-las.
 

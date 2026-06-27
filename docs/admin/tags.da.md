@@ -24,7 +24,8 @@ Inden for hver gruppe kan du tilføje individuelle tags:
 
 1. Klik på **+ Tilføj tag** inde i en tag-gruppe.
 2. Indtast tag-**navnet**.
-3. Indstil eventuelt en **farve** til visuel skelnen — farven driver chip-baggrunden på kortdetalje, lager, rapporter og webportaler.
+3. Tilføj eventuelt en **beskrivelse** — en kort note, der forklarer, hvad tagget betyder, vist som et værktøjstip, når administratorer administrerer tags.
+4. Indstil eventuelt en **farve** til visuel skelnen — farven driver chip-baggrunden på kortdetalje, lager, rapporter og webportaler.
 
 Tags vises på kortdetaljesider i **Tags**-sektionen, hvor brugere med den rigtige tilladelse kan anvende eller fjerne dem.
 

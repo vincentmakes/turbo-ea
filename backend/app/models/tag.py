@@ -32,6 +32,7 @@ class Tag(Base, UUIDMixin):
         UUID(as_uuid=True), ForeignKey("tag_groups.id", ondelete="CASCADE"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
     color: Mapped[str | None] = mapped_column(String(20))
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 

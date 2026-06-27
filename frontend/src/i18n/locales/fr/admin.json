@@ -218,6 +218,7 @@
   "tags.noTags": "Aucun tag",
   "tags.groupName": "Nom du groupe",
   "tags.tagName": "Nom du tag",
+  "tags.tagDescription": "Description",
   "tags.color": "Couleur",
   "tags.editGroup": "Modifier le groupe de tags",
   "tags.editTag": "Modifier le tag",

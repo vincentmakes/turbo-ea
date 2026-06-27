@@ -218,6 +218,7 @@
   "tags.noTags": "暂无标签",
   "tags.groupName": "组名称",
   "tags.tagName": "标签名称",
+  "tags.tagDescription": "描述",
   "tags.color": "颜色",
   "tags.editGroup": "编辑标签组",
   "tags.editTag": "编辑标签",

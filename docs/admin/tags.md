@@ -24,7 +24,8 @@ Within each group, you can add individual tags:
 
 1. Click **+ Add Tag** inside a tag group.
 2. Enter the tag **name**.
-3. Optionally set a **color** for visual distinction — the colour drives the chip background on card detail, inventory, reports and web portals.
+3. Optionally add a **description** — a short note explaining what the tag means, shown as a tooltip when administrators manage tags.
+4. Optionally set a **color** for visual distinction — the colour drives the chip background on card detail, inventory, reports and web portals.
 
 Tags appear on card detail pages in the **Tags** section, where users with the right permission can apply or remove them.
 

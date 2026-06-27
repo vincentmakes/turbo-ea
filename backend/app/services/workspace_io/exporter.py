@@ -88,7 +88,7 @@ USER_COLUMNS = ("email", "display_name", "role", "is_active", "auth_provider", "
 
 TAG_GROUP_COLUMNS = ("name", "description", "mode", "restrict_to_types", "mandatory")
 TAG_GROUP_JSON = frozenset({"restrict_to_types"})
-TAG_COLUMNS = ("group_name", "name", "color", "sort_order")
+TAG_COLUMNS = ("group_name", "name", "description", "color", "sort_order")
 
 CARD_COLUMNS = (
     "type",
@@ -217,6 +217,7 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
                 if t.tag_group_id in group_by_id
                 else "",
                 "name": t.name,
+                "description": t.description,
                 "color": t.color,
                 "sort_order": t.sort_order,
             }

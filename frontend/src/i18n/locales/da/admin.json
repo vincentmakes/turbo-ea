@@ -218,6 +218,7 @@
   "tags.noTags": "Ingen tags",
   "tags.groupName": "Gruppenavn",
   "tags.tagName": "Tag-navn",
+  "tags.tagDescription": "Beskrivelse",
   "tags.color": "Farve",
   "tags.editGroup": "Redigér tag-gruppe",
   "tags.editTag": "Redigér tag",

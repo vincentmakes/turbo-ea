@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.51.0] - 2026-06-26
+
+### Added
+- **Tags can have a description.** Admin → Metamodel → Tags: each tag now has an optional description (tag groups already had one), shown as a tooltip in the admin and carried through workspace export/import.
+
 ## [1.50.1] - 2026-06-26
 
 ### Fixed

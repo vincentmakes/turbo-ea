@@ -105,6 +105,73 @@ class TestCreateTag:
         assert data["name"] == "Active"
         assert data["color"] == "#00ff00"
 
+    async def test_create_and_update_tag_with_description(self, client, db, tags_env):
+        admin = tags_env["admin"]
+        group_id = (
+            await client.post(
+                "/api/v1/tag-groups", json={"name": "Domain"}, headers=auth_headers(admin)
+            )
+        ).json()["id"]
+
+        # Create with a description.
+        created = await client.post(
+            f"/api/v1/tag-groups/{group_id}/tags",
+            json={"name": "Finance", "description": "Finance-domain systems"},
+            headers=auth_headers(admin),
+        )
+        assert created.status_code == 201
+        tag = created.json()
+        assert tag["description"] == "Finance-domain systems"
+
+        # It round-trips through the group listing.
+        listed = await client.get("/api/v1/tag-groups")
+        group = next(g for g in listed.json() if g["id"] == group_id)
+        assert group["tags"][0]["description"] == "Finance-domain systems"
+
+        # Update the description.
+        patched = await client.patch(
+            f"/api/v1/tag-groups/{group_id}/tags/{tag['id']}",
+            json={"description": "Updated"},
+            headers=auth_headers(admin),
+        )
+        assert patched.status_code == 200
+        assert patched.json()["description"] == "Updated"
+
+    async def test_tag_order_is_stable_after_update(self, client, db, tags_env):
+        """Editing a tag (e.g. adding a description) must not reshuffle the list:
+        tags are returned in a deterministic (sort_order, name) order."""
+        admin = tags_env["admin"]
+        group_id = (
+            await client.post(
+                "/api/v1/tag-groups", json={"name": "Domain"}, headers=auth_headers(admin)
+            )
+        ).json()["id"]
+
+        # Create out of alphabetical order.
+        ids = {}
+        for name in ("Charlie", "Alpha", "Bravo"):
+            r = await client.post(
+                f"/api/v1/tag-groups/{group_id}/tags",
+                json={"name": name},
+                headers=auth_headers(admin),
+            )
+            ids[name] = r.json()["id"]
+
+        async def names():
+            listed = await client.get("/api/v1/tag-groups")
+            group = next(g for g in listed.json() if g["id"] == group_id)
+            return [t["name"] for t in group["tags"]]
+
+        assert await names() == ["Alpha", "Bravo", "Charlie"]
+
+        # Adding a description to the middle tag must not change the order.
+        await client.patch(
+            f"/api/v1/tag-groups/{group_id}/tags/{ids['Bravo']}",
+            json={"description": "A description"},
+            headers=auth_headers(admin),
+        )
+        assert await names() == ["Alpha", "Bravo", "Charlie"]
+
 
 # ---------------------------------------------------------------
 # POST /cards/{id}/tags  (assign tags)
