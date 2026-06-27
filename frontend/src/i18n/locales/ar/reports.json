@@ -168,6 +168,8 @@
   "dependency.showHierarchyHint": "تضمين البطاقة الأصل لكل بطاقة ورسم رابط الاحتواء",
   "dependency.showEndOfLife": "إظهار البطاقات المنتهية الصلاحية",
   "dependency.showEndOfLifeHint": "تضمين البطاقات المرتبطة التي وصلت دورة حياتها إلى نهاية العمر. تُعرض دائمًا البطاقة التي يتم التركيز عليها.",
+  "dependency.showRelationValues": "إظهار قيم العلاقات",
+  "dependency.showRelationValuesHint": "عندما تحمل العلاقة قيمة مؤهِّلة (مثل نوع الدعم «رئيسي»)، تُعرض بجانب التسمية، مثل يدعم [رئيسي]. تبقى العلاقات بلا قيمة كما هي.",
   "dependency.hierarchyContains": "يحتوي على",
   "dependency.hierarchyPartOf": "جزء من",
   "dependency.extraFields": "حقول إضافية",

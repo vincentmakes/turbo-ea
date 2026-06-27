@@ -78,7 +78,7 @@ Toggle to the **Layered Dependency View** using the view-mode buttons in the too
 
 - **Layered swim lanes** — Cards are grouped by architectural layer (Strategy & Transformation, Business Architecture, Application & Data, Technical Architecture) inside dashed boundary rectangles, in fixed order.
 - **Type-coloured nodes with icons** — Each node is coloured by its card type and shows the card-type icon in its top-left corner, so types are recognisable at a glance even without colour.
-- **Directional labelled edges** — Edges follow the metamodel relation direction (source → target) and carry the relation's forward label (e.g. *uses*, *supports*, *runs on*).
+- **Directional labelled edges** — Edges follow the metamodel relation direction (source → target) and carry the relation's forward label (e.g. *uses*, *supports*, *runs on*). When a relation is qualified with a value (such as a Support Type of *Leading*), it appears in brackets after the label — for example *supports [Leading]*.
 - **Proposed cards** — In the TurboLens Architect wizard, not-yet-committed cards have a dashed border and a green **NEW** badge.
 
 **Exploring and navigating**
@@ -94,6 +94,7 @@ Toggle to the **Layered Dependency View** using the view-mode buttons in the too
 
 - **Card display menu** — Toggle the **type** label and a **lifecycle-status dot**, turn on **parent hierarchy** (adds each card's parent card and draws the *contains / part of* containment link), and choose **extra attribute fields** to show on each card — the first two render on the card and the full set appears in the hover tooltip. Choices are remembered between visits.
 - **Show end-of-life cards** — Related cards whose lifecycle has reached End of Life are hidden by default to keep the graph focused; turn this toggle on (in the **Card display** menu) to bring them back. The card you are centered on is always shown, even if it is itself end-of-life.
+- **Show relationship values** — Many relations can be qualified with a value (e.g. an application *supports* a capability as *Leading*, *Supporting* or *No Support*). When on (the default), these values appear in brackets next to the relation label (*supports [Leading]*) and are included in image exports. Turn it off in the **Card display** menu for a cleaner view; relations without a value are unchanged either way.
 - **Rearrange** — Drag a card to move it within its layer, or drag a whole **layer box** to move it with all its cards. **Reset layout** restores the automatic arrangement.
 - **Background** — Cycle the canvas background between grid, dots, and none.
 - **Export and fullscreen** — Export the diagram to **PNG** or **SVG**, or open it in **fullscreen**.

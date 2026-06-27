@@ -168,6 +168,8 @@
   "dependency.showHierarchyHint": "Incluir o cartão superior de cada cartão e desenhar o vínculo de contenção",
   "dependency.showEndOfLife": "Mostrar cartões em fim de vida",
   "dependency.showEndOfLifeHint": "Incluir cartões relacionados cujo ciclo de vida atingiu o fim de vida. O cartão no qual você está centrado é sempre mostrado.",
+  "dependency.showRelationValues": "Mostrar valores de relação",
+  "dependency.showRelationValuesHint": "Quando uma relação tem um valor qualificador (por ex. Tipo de suporte «Principal»), ele é mostrado ao lado do rótulo, como apoia [Principal]. Relações sem valor permanecem inalteradas.",
   "dependency.hierarchyContains": "contém",
   "dependency.hierarchyPartOf": "parte de",
   "dependency.extraFields": "Campos adicionais",

@@ -78,7 +78,7 @@ Skift til **lagdelt afhængighedsvisning** ved hjælp af view-mode-knapperne i v
 
 - **Lagdelte svømmebaner** — Kort er grupperet efter arkitekturlag (Strategy & Transformation, Business Architecture, Application & Data, Technical Architecture) inden i stiplede grænse-rektangler, i fast rækkefølge.
 - **Type-farvede noder med ikoner** — Hver node er farvet efter sin korttype og viser korttype-ikonet i sit øverste venstre hjørne, så typer er genkendelige med et øjekast, selv uden farve.
-- **Retningsbestemte mærkede kanter** — Kanter følger metamodel-relations-retningen (source → target) og bærer relationens forward label (f.eks. *uses*, *supports*, *runs on*).
+- **Retningsbestemte mærkede kanter** — Kanter følger metamodel-relations-retningen (source → target) og bærer relationens forward label (f.eks. *uses*, *supports*, *runs on*). Når en relation er kvalificeret med en værdi (såsom en Supporttype *Førende*), vises den i kantede parenteser efter etiketten — for eksempel *supports [Førende]*.
 - **Foreslåede kort** — I TurboLens Architect-guiden har endnu-ikke-committede kort en stiplet kant og et grønt **NY**-badge.
 
 **Udforskning og navigation**
@@ -94,6 +94,7 @@ Skift til **lagdelt afhængighedsvisning** ved hjælp af view-mode-knapperne i v
 
 - **Kortvisnings-menu** — Slå **type**-mærkatet og en **livscyklusstatus-prik** til, slå **overordnet hierarki** til (tilføjer hvert korts overordnede kort og tegner indeholdelsesforbindelsen *indeholder / del af*), og vælg **ekstra attributfelter** at vise på hvert kort — de første to gengives på kortet, og hele sættet vises i værktøjstippet ved hover. Valgene huskes mellem besøg.
 - **Vis kort ved slutningen af deres levetid** — Relaterede kort, hvis livscyklus har nået slutningen af levetiden, skjules som standard for at holde grafen fokuseret; slå denne til/fra (i menuen **Kortvisning**) for at vise dem igen. Det kort, du er centreret om, vises altid, også hvis det selv er ved slutningen af sin levetid.
+- **Vis relationsværdier** — Mange relationer kan kvalificeres med en værdi (f.eks. understøtter en applikation en kapabilitet som *Førende*, *Understøttende* eller *Ingen understøttelse*). Når den er slået til (standard), vises disse værdier i kantede parenteser ved siden af relationsetiketten (*supports [Førende]*) og inkluderes i billedeksporter. Slå den fra i menuen **Kortvisning** for en renere visning; relationer uden værdi er uændrede uanset hvad.
 - **Omarrangér** — Træk et kort for at flytte det inden for dets lag, eller træk en hel **lag-boks** for at flytte den med alle dens kort. **Nulstil layout** gendanner den automatiske placering.
 - **Baggrund** — Skift lærredsbaggrunden mellem gitter, prikker og ingen.
 - **Eksport og fuldskærm** — Eksportér diagrammet til **PNG** eller **SVG**, eller åbn det i **fuldskærm**.

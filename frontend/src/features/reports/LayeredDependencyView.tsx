@@ -52,10 +52,12 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
+import { useMetamodel } from "@/hooks/useMetamodel";
 import { useLdvSettings, type LdvBackgroundStyle } from "./ldvDisplaySettings";
 import type { CardType } from "@/types";
 import {
   buildLdvFlow,
+  relationValueSuffix,
   filterEndOfLifeNodes,
   LDV_NODE_W,
   LDV_NODE_H,
@@ -543,6 +545,35 @@ LdvGroup.displayName = "LdvGroup";
 /*  Custom Layered Dependency View Edge (smoothstep + hover highlight) */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Relation flow-direction indicator drawn as a vector SVG arrow (→ / ↔ / ←).
+ * Rendered as SVG shapes — not a Unicode glyph — so it rasterises identically
+ * in the live view and in PNG/SVG image export. (The previous ↔/→/← text
+ * glyphs relied on a system-font fallback that html-to-image cannot embed, so
+ * they came out blank/tofu in exports.)
+ */
+const LdvDirectionArrow = memo(
+  ({ dir }: { dir: "forward" | "reverse" | "bidirectional" }) => (
+    <svg
+      width={14}
+      height={8}
+      viewBox="0 0 14 8"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ flexShrink: 0 }}
+      aria-hidden
+    >
+      <line x1={1} y1={4} x2={13} y2={4} />
+      {dir !== "reverse" && <polyline points="9.5,1 13,4 9.5,7" />}
+      {dir !== "forward" && <polyline points="4.5,1 1,4 4.5,7" />}
+    </svg>
+  ),
+);
+LdvDirectionArrow.displayName = "LdvDirectionArrow";
+
 const LdvEdgeComponent = memo(
   ({
     id,
@@ -605,11 +636,12 @@ const LdvEdgeComponent = memo(
     const pathRef = useRef<SVGPathElement>(null);
     const [labelPos, setLabelPos] = useState<{ x: number; y: number } | null>(null);
 
+    const flowDir = edgeData?.flowDirection;
     const maxChars = 24;
     const displayLabel = label.length > maxChars
       ? label.slice(0, maxChars - 1) + "\u2026"
       : label;
-    const labelW = displayLabel.length * 6.5 + 16;
+    const labelW = displayLabel.length * 6.5 + 16 + (flowDir ? 17 : 0);
     const labelH = 20;
     const margin = 6;
 
@@ -706,9 +738,13 @@ const LdvEdgeComponent = memo(
                 whiteSpace: "nowrap",
                 lineHeight: "14px",
                 zIndex: active ? 2 : 1,
+                display: "flex",
+                alignItems: "center",
+                gap: 3,
               }}
             >
-              {displayLabel}
+              {flowDir && <LdvDirectionArrow dir={flowDir} />}
+              <span>{displayLabel}</span>
             </div>
           </EdgeLabelRenderer>
         )}
@@ -811,9 +847,30 @@ function LayeredDependencyInner({
     return hierEdges.length > 0 ? [...edges, ...hierEdges] : edges;
   }, [edges, nodes, settings.showHierarchy, t]);
 
+  /* ---- Resolve a relation's single-select attribute value(s) into a
+         bracketed label suffix (e.g. " [Leading]"), using the metamodel's
+         relation-type attribute schemas. flowDirection is excluded — it is
+         shown as a direction arrow, not a bracket. ---- */
+  const { relationTypes } = useMetamodel();
+  const relTypeByKey = useMemo(
+    () => new Map(relationTypes.map((rt) => [rt.key, rt])),
+    [relationTypes],
+  );
+  const relValueResolver = useCallback(
+    (edge: GEdge): string | undefined =>
+      relationValueSuffix(edge, relTypeByKey, (opt) => rl(opt.label, opt.translations)),
+    [relTypeByKey, rl],
+  );
+
   const { nodes: builtNodes, edges: rfEdges } = useMemo(
-    () => buildLdvFlow(nodes, effectiveEdges, types),
-    [nodes, effectiveEdges, types],
+    () =>
+      buildLdvFlow(
+        nodes,
+        effectiveEdges,
+        types,
+        settings.showRelationValues ? relValueResolver : undefined,
+      ),
+    [nodes, effectiveEdges, types, settings.showRelationValues, relValueResolver],
   );
 
   /* ---- Original card data (attributes/lifecycle) by id + field catalogue ---- */
@@ -1476,6 +1533,11 @@ function LayeredDependencyInner({
               key: "showEndOfLife",
               label: t("dependency.showEndOfLife"),
               hint: t("dependency.showEndOfLifeHint"),
+            },
+            {
+              key: "showRelationValues",
+              label: t("dependency.showRelationValues"),
+              hint: t("dependency.showRelationValuesHint"),
             },
           ] as const
         ).map((row) => (

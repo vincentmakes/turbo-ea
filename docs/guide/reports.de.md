@@ -78,7 +78,7 @@ Wechseln Sie über die Ansichtsmodus-Schaltflächen in der Symbolleiste zur **La
 
 - **Geschichtete Swimlanes** — Karten werden nach Architekturebene (Strategie & Transformation, Geschäftsarchitektur, Anwendung & Daten, Technische Architektur) in gestrichelten Grenzrechtecken in fester Reihenfolge gruppiert.
 - **Typ-farbige Knoten mit Symbolen** — Jeder Knoten ist nach seinem Kartentyp eingefärbt und zeigt das Symbol des Kartentyps in seiner oberen linken Ecke, sodass Typen auch ohne Farbe auf einen Blick erkennbar sind.
-- **Gerichtete, beschriftete Kanten** — Kanten folgen der Beziehungsrichtung des Metamodells (Quelle → Ziel) und tragen die Vorwärtsbeschriftung der Beziehung (z. B. *verwendet*, *unterstützt*, *läuft auf*).
+- **Gerichtete, beschriftete Kanten** — Kanten folgen der Beziehungsrichtung des Metamodells (Quelle → Ziel) und tragen die Vorwärtsbeschriftung der Beziehung (z. B. *verwendet*, *unterstützt*, *läuft auf*). Wenn eine Beziehung mit einem Wert qualifiziert ist (etwa einem Unterstützungstyp *Führend*), erscheint dieser in Klammern hinter der Beschriftung — zum Beispiel *unterstützt [Führend]*.
 - **Vorgeschlagene Karten** — Im TurboLens-Architect-Wizard haben noch nicht festgeschriebene Karten einen gestrichelten Rand und ein grünes **NEU**-Abzeichen.
 
 **Erkunden und navigieren**
@@ -94,6 +94,7 @@ Wechseln Sie über die Ansichtsmodus-Schaltflächen in der Symbolleiste zur **La
 
 - **Menü Kartenanzeige** — Schalten Sie die **Typ**-Beschriftung und einen **Lebenszyklusstatus-Punkt** um, aktivieren Sie die **Elternhierarchie** (fügt die Elternkarte jeder Karte hinzu und zeichnet die Containment-Verknüpfung *enthält / Teil von*) und wählen Sie **zusätzliche Attributfelder** zur Anzeige auf jeder Karte — die ersten beiden werden auf der Karte dargestellt, der vollständige Satz erscheint im Hover-Tooltip. Die Auswahl wird zwischen den Besuchen gespeichert.
 - **End-of-Life-Karten anzeigen** — Verbundene Karten, deren Lebenszyklus das Ende der Lebensdauer erreicht hat, werden standardmäßig ausgeblendet, damit das Diagramm fokussiert bleibt; aktivieren Sie diese Umschaltung (im Menü **Kartenanzeige**), um sie wieder einzublenden. Die zentrierte Karte wird immer angezeigt, auch wenn sie selbst End of Life ist.
+- **Beziehungswerte anzeigen** — Viele Beziehungen lassen sich mit einem Wert qualifizieren (z. B. *unterstützt* eine Anwendung eine Fähigkeit als *Führend*, *Unterstützend* oder *Keine Unterstützung*). Ist die Option aktiv (Standard), erscheinen diese Werte in Klammern neben der Beziehungsbeschriftung (*unterstützt [Führend]*) und werden in Bildexporten mit ausgegeben. Schalten Sie sie im Menü **Kartenanzeige** aus, um die Ansicht aufzuräumen; Beziehungen ohne Wert bleiben so oder so unverändert.
 - **Neu anordnen** — Ziehen Sie eine Karte, um sie innerhalb ihrer Ebene zu verschieben, oder ziehen Sie ein ganzes **Ebenen-Rechteck**, um es mit all seinen Karten zu verschieben. **Layout zurücksetzen** stellt die automatische Anordnung wieder her.
 - **Hintergrund** — Wechseln Sie den Leinwandhintergrund zwischen Raster, Punkten und ohne.
 - **Exportieren und Vollbild** — Exportieren Sie das Diagramm als **PNG** oder **SVG** oder öffnen Sie es im **Vollbild**.

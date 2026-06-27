@@ -78,7 +78,7 @@ Cambie a la **Layered Dependency View** utilizando los botones de modo de vista 
 
 - **Carriles por capa** — Las fichas se agrupan por capa arquitectónica (Estrategia y Transformación, Arquitectura de Negocio, Aplicación y Datos, Arquitectura Técnica) dentro de rectángulos de contorno punteados, en orden fijo.
 - **Nodos coloreados por tipo con iconos** — Cada nodo se colorea según su tipo de ficha y muestra el icono del tipo de ficha en su esquina superior izquierda, de modo que los tipos se reconocen de un vistazo, incluso sin color.
-- **Aristas dirigidas y etiquetadas** — Las aristas siguen la dirección de la relación del metamodelo (origen → destino) y llevan la etiqueta directa de la relación (por ej. *usa*, *soporta*, *se ejecuta en*).
+- **Aristas dirigidas y etiquetadas** — Las aristas siguen la dirección de la relación del metamodelo (origen → destino) y llevan la etiqueta directa de la relación (por ej. *usa*, *soporta*, *se ejecuta en*). Cuando una relación está cualificada con un valor (como un Tipo de soporte *Principal*), este aparece entre corchetes después de la etiqueta — por ejemplo *soporta [Principal]*.
 - **Fichas propuestas** — En el asistente de TurboLens Architect, las fichas aún no confirmadas tienen un borde punteado y una insignia verde **NUEVO**.
 
 **Explorar y navegar**
@@ -94,6 +94,7 @@ Cambie a la **Layered Dependency View** utilizando los botones de modo de vista 
 
 - **Menú Visualización de tarjetas** — Active la etiqueta de **tipo** y un **punto de estado de ciclo de vida**, active la **jerarquía padre** (añade la ficha padre de cada ficha y dibuja el enlace de contención *contiene / parte de*) y elija **campos de atributos adicionales** para mostrar en cada ficha — los dos primeros se renderizan en la ficha y el conjunto completo aparece en la información sobre herramientas al pasar el cursor. Las opciones se recuerdan entre visitas.
 - **Mostrar tarjetas al final de su vida útil** — Las fichas relacionadas cuyo ciclo de vida ha llegado al final de su vida útil se ocultan por defecto para mantener el gráfico enfocado; active esta opción (en el menú **Visualización de tarjetas**) para volver a mostrarlas. La ficha en la que está centrado siempre se muestra, incluso si ella misma está al final de su vida útil.
+- **Mostrar valores de relación** — Muchas relaciones pueden cualificarse con un valor (p. ej. una aplicación *soporta* una capacidad como *Principal*, *Secundario* o *Sin soporte*). Cuando está activado (por defecto), estos valores aparecen entre corchetes junto a la etiqueta de la relación (*soporta [Principal]*) y se incluyen en las exportaciones de imagen. Desactívelo en el menú **Visualización de tarjetas** para una vista más limpia; las relaciones sin valor no cambian en ningún caso.
 - **Reorganizar** — Arrastre una ficha para moverla dentro de su capa, o arrastre un **bloque de capa** completo para moverlo con todas sus fichas. **Restablecer disposición** restaura la disposición automática.
 - **Fondo** — Alterne el fondo del lienzo entre cuadrícula, puntos y ninguno.
 - **Exportar y pantalla completa** — Exporte el diagrama a **PNG** o **SVG**, o ábralo en **pantalla completa**.

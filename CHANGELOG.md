@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.53.0] - 2026-06-27
+
+### Added
+- **Relationship values now appear in dependency diagrams.** When a relation is qualified with a value (e.g. an application *supports* a capability as *Leading*), the Layered Dependency View (Dependencies report, the card-detail dependency section) shows it in brackets next to the label — *supports [Leading]*. Relations without a value render exactly as before. A new **Show relationship values** toggle in the **Card display** menu (on by default) can hide them.
+
+### Fixed
+- **Relation direction arrows now render in PNG/SVG exports.** The dependency-diagram flow-direction indicators (→ ↔ ←) are drawn as vector graphics instead of font glyphs, so they appear correctly in exported images instead of coming out blank.
+
 ## [1.52.0] - 2026-06-27
 
 ### Changed

@@ -168,6 +168,8 @@
   "dependency.showHierarchyHint": "Includi la scheda superiore di ogni scheda e disegna il collegamento di contenimento",
   "dependency.showEndOfLife": "Mostra schede a fine vita",
   "dependency.showEndOfLifeHint": "Includi le schede correlate il cui ciclo di vita ha raggiunto la fine vita. La scheda su cui sei centrato viene sempre mostrata.",
+  "dependency.showRelationValues": "Mostra i valori delle relazioni",
+  "dependency.showRelationValuesHint": "Quando una relazione ha un valore qualificante (ad es. Tipo di supporto «Principale»), viene mostrato accanto all'etichetta, come supporta [Principale]. Le relazioni senza valore restano invariate.",
   "dependency.hierarchyContains": "contiene",
   "dependency.hierarchyPartOf": "parte di",
   "dependency.extraFields": "Campi aggiuntivi",

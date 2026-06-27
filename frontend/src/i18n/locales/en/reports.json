@@ -168,6 +168,8 @@
   "dependency.showHierarchyHint": "Include each card's parent card and draw the containment link",
   "dependency.showEndOfLife": "Show end-of-life cards",
   "dependency.showEndOfLifeHint": "Include related cards whose lifecycle has reached End of Life. The card you are centered on is always shown.",
+  "dependency.showRelationValues": "Show relationship values",
+  "dependency.showRelationValuesHint": "When a relation carries a qualifying value (e.g. Support Type «Leading»), show it next to the label, like supports [Leading]. Relations without a value are unchanged.",
   "dependency.hierarchyContains": "contains",
   "dependency.hierarchyPartOf": "part of",
   "dependency.extraFields": "Extra fields",

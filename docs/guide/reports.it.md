@@ -78,7 +78,7 @@ Passate alla **Layered Dependency View** usando i pulsanti di modalità di visua
 
 - **Corsie per livello** — Le schede sono raggruppate per livello architetturale (Strategia e Trasformazione, Architettura di Business, Applicazione e Dati, Architettura Tecnica) all'interno di rettangoli di confine tratteggiati, in ordine fisso.
 - **Nodi colorati per tipo con icone** — Ogni nodo è colorato in base al suo tipo di scheda e mostra l'icona del tipo di scheda nell'angolo in alto a sinistra, così i tipi sono riconoscibili a colpo d'occhio anche senza colore.
-- **Archi orientati ed etichettati** — Gli archi seguono la direzione della relazione del metamodello (origine → destinazione) e portano l'etichetta diretta della relazione (per es. *usa*, *supporta*, *gira su*).
+- **Archi orientati ed etichettati** — Gli archi seguono la direzione della relazione del metamodello (origine → destinazione) e portano l'etichetta diretta della relazione (per es. *usa*, *supporta*, *gira su*). Quando una relazione è qualificata con un valore (come un Tipo di supporto *Principale*), questo appare tra parentesi quadre dopo l'etichetta — ad esempio *supporta [Principale]*.
 - **Schede proposte** — Nell'assistente TurboLens Architect, le schede non ancora confermate hanno un bordo tratteggiato e un badge verde **NUOVO**.
 
 **Esplorare e navigare**
@@ -94,6 +94,7 @@ Passate alla **Layered Dependency View** usando i pulsanti di modalità di visua
 
 - **Menu di visualizzazione scheda** — Attivate l'etichetta del **tipo** e un **punto di stato del ciclo di vita**, abilitate la **gerarchia superiore** (aggiunge la scheda superiore di ogni scheda e disegna il collegamento di contenimento *contiene / parte di*) e scegliete **campi attributo aggiuntivi** da mostrare su ogni scheda — i primi due appaiono sulla scheda e l'insieme completo compare nel tooltip al passaggio del mouse. Le scelte vengono ricordate tra le visite.
 - **Mostra schede a fine vita** — Le schede correlate il cui ciclo di vita ha raggiunto la fine vita vengono nascoste per impostazione predefinita per mantenere il grafico focalizzato; attivate questa opzione (nel menu **Visualizzazione schede**) per farle ricomparire. La scheda su cui siete centrati viene sempre mostrata, anche se è essa stessa a fine vita.
+- **Mostra i valori delle relazioni** — Molte relazioni possono essere qualificate con un valore (ad es. un'applicazione *supporta* una capacità come *Principale*, *Secondario* o *Nessun supporto*). Quando è attivo (impostazione predefinita), questi valori appaiono tra parentesi quadre accanto all'etichetta della relazione (*supporta [Principale]*) e sono inclusi nelle esportazioni di immagini. Disattivatelo nel menu **Visualizzazione schede** per una vista più pulita; le relazioni senza valore restano invariate in entrambi i casi.
 - **Riorganizzare** — Trascinate una scheda per spostarla all'interno del suo livello, oppure trascinate un intero **riquadro di livello** per spostarlo con tutte le sue schede. **Reimposta disposizione** ripristina la disposizione automatica.
 - **Sfondo** — Alternate lo sfondo del canvas tra griglia, punti e nessuno.
 - **Esportazione e schermo intero** — Esportate il diagramma in **PNG** o **SVG**, oppure apritelo a **schermo intero**.

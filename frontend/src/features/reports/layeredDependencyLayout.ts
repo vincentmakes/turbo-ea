@@ -13,7 +13,7 @@ import dagre from "@dagrejs/dagre";
 import type { Node, Edge } from "@xyflow/react";
 import { getCurrentPhase } from "@/components/LifecycleBadge";
 import { LAYER_COLORS } from "@/theme/tokens";
-import type { CardType } from "@/types";
+import type { CardType, RelationType, FieldOption } from "@/types";
 
 /* ------------------------------------------------------------------ */
 /*  Input types (same as DependencyReport)                             */
@@ -89,6 +89,14 @@ export interface LdvGroupData {
 
 export interface LdvEdgeData {
   relLabel: string;
+  /**
+   * Relation flow direction, surfaced separately from `relLabel` so the edge
+   * component can render it as a vector SVG arrow (→ / ↔ / ←) rather than a
+   * Unicode glyph baked into the text — the glyph relies on a system-font
+   * fallback that html-to-image can't embed, so it disappears in PNG/SVG
+   * exports. Vector shapes rasterise identically live and in export.
+   */
+  flowDirection?: "forward" | "reverse" | "bidirectional";
   description?: string;
   connectedToHovered?: boolean;
   isHovered?: boolean;
@@ -244,10 +252,46 @@ function layoutGroup(
 /*  Build React Flow nodes + edges with per-group layout               */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Build the bracketed suffix for a relation's single-select attribute value(s),
+ * e.g. `" [Leading]"` or `" [Owner · Leading]"`. Returns undefined when the
+ * relation has no displayable value. `flowDirection` is intentionally excluded —
+ * it is shown as a direction arrow, not a bracketed value.
+ *
+ * `resolveOptionLabel` localises an option to its display text (the caller binds
+ * it to the current locale). Pure (no React) so it is unit-testable.
+ */
+export function relationValueSuffix(
+  edge: GEdge,
+  relTypeByKey: Map<string, RelationType>,
+  resolveOptionLabel: (opt: FieldOption) => string,
+): string | undefined {
+  const rt = relTypeByKey.get(edge.type);
+  const attrs = edge.attributes;
+  if (!rt || !attrs) return undefined;
+  const parts: string[] = [];
+  for (const field of rt.attributes_schema || []) {
+    if (field.type !== "single_select" || field.key === "flowDirection") continue;
+    const raw = attrs[field.key];
+    if (raw == null || raw === "") continue;
+    const opt = field.options?.find((o) => o.key === raw);
+    if (!opt) continue;
+    parts.push(resolveOptionLabel(opt));
+  }
+  return parts.length > 0 ? ` [${parts.join(" · ")}]` : undefined;
+}
+
 export function buildLdvFlow(
   gNodes: GNode[],
   gEdges: GEdge[],
   types: CardType[],
+  /**
+   * Optional resolver that returns a bracketed suffix for a relation's
+   * single-select attribute value(s), e.g. `" [Leading]"`. Returns undefined
+   * when the relation has no displayable value. When omitted, labels render
+   * exactly as before (label-only).
+   */
+  relValueResolver?: (edge: GEdge) => string | undefined,
 ): { nodes: Node[]; edges: Edge[] } {
   if (gNodes.length === 0) return { nodes: [], edges: [] };
 
@@ -403,13 +447,14 @@ export function buildLdvFlow(
     const isNormalized = e.source < e.target;
     const [lo, hi] = isNormalized ? [e.source, e.target] : [e.target, e.source];
     const key = `${lo}||${hi}`;
+    // Append the relation's single-select attribute value (e.g. " [Leading]")
+    // so it flows through the per-pair merge / " / " join / dedup unchanged.
+    const valueSuffix = relValueResolver?.(e) ?? "";
     // Forward label = label when arrow goes lo→hi; reverse = when hi→lo
-    const fwdLbl = isNormalized
-      ? (e.label || e.type)
-      : (e.reverse_label || e.label || e.type);
-    const revLbl = isNormalized
-      ? (e.reverse_label || e.label || e.type)
-      : (e.label || e.type);
+    const fwdLbl =
+      (isNormalized ? (e.label || e.type) : (e.reverse_label || e.label || e.type)) + valueSuffix;
+    const revLbl =
+      (isNormalized ? (e.reverse_label || e.label || e.type) : (e.label || e.type)) + valueSuffix;
 
     // Re-orient flowDirection to the pair-normalised lo→hi axis so different
     // relation types between the same pair don't fight each other.
@@ -482,14 +527,10 @@ export function buildLdvFlow(
       if (fd === "forward") fd = "reverse";
       else if (fd === "reverse") fd = "forward";
     }
-    // Prefix the label with a direction glyph so the meaning is readable
-    // even at distance / on print. Arrows on the edge convey the same info
-    // but the glyph makes the textual label self-describing.
-    const labelText = labels.join(" / ");
-    let relLabel = labelText;
-    if (fd === "bidirectional") relLabel = `↔ ${labelText}`;
-    else if (fd === "forward") relLabel = `→ ${labelText}`;
-    else if (fd === "reverse") relLabel = `← ${labelText}`;
+    // The direction is carried on `flowDirection` and rendered as a vector SVG
+    // arrow next to the label by the edge component, so it survives image
+    // export (a Unicode glyph baked into the text does not — see LdvEdgeData).
+    const relLabel = labels.join(" / ");
     return {
       source: e.source,
       target: e.target,
@@ -886,6 +927,7 @@ export function buildLdvFlow(
       label: e.relLabel,
       data: {
         relLabel: e.relLabel,
+        flowDirection: e.flowDirection,
         description: e.description,
         pathOffset: pathOffsets[i],
         minOffset: edgeHandles[i].minOffset,
