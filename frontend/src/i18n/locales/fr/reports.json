@@ -366,6 +366,8 @@
   "dependency.revealParentsMode": "Mode affichage du parent : cliquez sur une carte pour ajouter son parent hiérarchique",
   "dependency.revealChildrenMode": "Mode affichage des enfants : cliquez sur une carte pour ajouter ses enfants directs",
   "dependency.recenter": "Ajuster et recentrer",
+  "dependency.zoomIn": "Zoom avant",
+  "dependency.zoomOut": "Zoom arrière",
   "dependency.resetView": "Réinitialiser la vue",
   "dependency.createDiagram": "Créer un diagramme",
   "dependency.createDiagramTitle": "Créer un diagramme",

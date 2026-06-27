@@ -366,6 +366,8 @@
   "dependency.revealParentsMode": "Reveal-parent mode: click a card to add its hierarchy parent",
   "dependency.revealChildrenMode": "Reveal-children mode: click a card to add its direct children",
   "dependency.recenter": "Fit & re-center",
+  "dependency.zoomIn": "Zoom in",
+  "dependency.zoomOut": "Zoom out",
   "dependency.resetView": "Reset view",
   "dependency.createDiagram": "Create diagram",
   "dependency.createDiagramTitle": "Create diagram",

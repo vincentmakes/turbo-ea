@@ -366,6 +366,8 @@
   "dependency.revealParentsMode": "显示父级模式：点击卡片以添加其层级父级",
   "dependency.revealChildrenMode": "显示子级模式：点击卡片以添加其直接子级",
   "dependency.recenter": "适应并重新居中",
+  "dependency.zoomIn": "放大",
+  "dependency.zoomOut": "缩小",
   "dependency.resetView": "重置视图",
   "dependency.createDiagram": "创建图表",
   "dependency.createDiagramTitle": "创建图表",

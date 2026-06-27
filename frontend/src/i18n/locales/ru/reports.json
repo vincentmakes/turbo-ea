@@ -366,6 +366,8 @@
   "dependency.revealParentsMode": "Режим показа родителя: нажмите на карточку, чтобы добавить её родителя в иерархии",
   "dependency.revealChildrenMode": "Режим показа потомков: нажмите на карточку, чтобы добавить её прямых потомков",
   "dependency.recenter": "Вписать и центрировать",
+  "dependency.zoomIn": "Приблизить",
+  "dependency.zoomOut": "Отдалить",
   "dependency.resetView": "Сбросить вид",
   "dependency.createDiagram": "Создать диаграмму",
   "dependency.createDiagramTitle": "Создать диаграмму",

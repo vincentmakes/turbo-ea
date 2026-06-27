@@ -366,6 +366,8 @@
   "dependency.revealParentsMode": "Modalità mostra genitore: clicca su una scheda per aggiungere il suo elemento padre della gerarchia",
   "dependency.revealChildrenMode": "Modalità mostra figli: clicca su una scheda per aggiungere i suoi figli diretti",
   "dependency.recenter": "Adatta e ricentra",
+  "dependency.zoomIn": "Ingrandisci",
+  "dependency.zoomOut": "Riduci",
   "dependency.resetView": "Reimposta vista",
   "dependency.createDiagram": "Crea diagramma",
   "dependency.createDiagramTitle": "Crea diagramma",

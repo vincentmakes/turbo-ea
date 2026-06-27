@@ -366,6 +366,8 @@
   "dependency.revealParentsMode": "Modo mostrar padre: haga clic en una tarjeta para añadir su elemento padre de la jerarquía",
   "dependency.revealChildrenMode": "Modo mostrar hijos: haga clic en una tarjeta para añadir sus hijos directos",
   "dependency.recenter": "Ajustar y recentrar",
+  "dependency.zoomIn": "Acercar",
+  "dependency.zoomOut": "Alejar",
   "dependency.resetView": "Restablecer vista",
   "dependency.createDiagram": "Crear diagrama",
   "dependency.createDiagramTitle": "Crear diagrama",

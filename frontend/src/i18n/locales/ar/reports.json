@@ -366,6 +366,8 @@
   "dependency.revealParentsMode": "وضع إظهار الأصل: انقر على بطاقة لإضافة العنصر الأصل في التسلسل الهرمي",
   "dependency.revealChildrenMode": "وضع إظهار الفروع: انقر على بطاقة لإضافة فروعها المباشرة",
   "dependency.recenter": "ملاءمة وإعادة التوسيط",
+  "dependency.zoomIn": "تكبير",
+  "dependency.zoomOut": "تصغير",
   "dependency.resetView": "إعادة تعيين العرض",
   "dependency.createDiagram": "إنشاء مخطط",
   "dependency.createDiagramTitle": "إنشاء مخطط",

@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 - **The dependency diagram's "Show parent hierarchy" toggle is now "Show hierarchy markers".** Instead of pulling every card's ancestors into the view at once, the **Card display** menu now adds a minimalistic chevron to any card that has a parent or children not currently shown — a subtle hint to use the new Reveal tools — keeping the diagram uncluttered. Bringing parents/children into view is now done deliberately with the Reveal parent / Reveal children tools.
-- **The dependency diagram's left toolbar is reorganised into two groups.** View controls (zoom, re-center, **Reset view**, **Fullscreen**) sit together at the top, separated by a gap from the exploration tools (Highlight, Expand, Reveal parent, Reveal children). Reset and Fullscreen moved here from the top bar. The re-center button now uses a map-pin icon so it's no longer confused with Fullscreen.
+- **The dependency diagram's left toolbar is reorganised into two groups.** View controls (**Fullscreen** at the top, then zoom, re-center, **Reset view**) are separated by a divider line from the exploration tools (Highlight, Expand, Reveal parent, Reveal children). Reset and Fullscreen moved here from the top bar. The re-center button now uses a map-pin icon so it's no longer confused with Fullscreen.
 - **"Reset view" now fully resets the diagram.** Besides undoing manual node drags, it clears any parent/children/expand exploration and returns to the starting card — a true clean slate.
 
 ## [1.55.0] - 2026-06-27

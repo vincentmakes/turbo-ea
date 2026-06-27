@@ -889,7 +889,7 @@ function LayeredDependencyInner({
   const theme = useTheme();
   const rl = useResolveLabel();
   const navigate = useNavigate();
-  const { fitView, getNodes } = useReactFlow();
+  const { fitView, getNodes, zoomIn, zoomOut } = useReactFlow();
 
   /* ---- Card display settings (persisted, shared with the card-detail section) ---- */
   const [settings, updateSettings] = useLdvSettings();
@@ -1684,12 +1684,27 @@ function LayeredDependencyInner({
               }
             />
           )}
-          {/* Default fitView control is disabled — its frame icon looks too
-              much like the top-bar Fullscreen button. Replaced with a map-pin
-              "re-center" button below. */}
-          <Controls showInteractive={false} showFitView={false}>
-            {/* --- Navigation / view group: zoom (RF default), recenter, reset,
-                fullscreen. Separated from the exploration tools by a gap. --- */}
+          {/* Default zoom + fitView controls are disabled so we can order the
+              whole navigation group ourselves (fullscreen first) and swap the
+              fitView frame icon — which looked too much like Fullscreen — for a
+              map-pin re-center button. */}
+          <Controls showInteractive={false} showZoom={false} showFitView={false}>
+            {/* --- Navigation / view group: fullscreen, zoom, recenter, reset --- */}
+            <ControlButton
+              title={isFullscreen ? t("dependency.exitFullscreen") : t("dependency.fullscreen")}
+              onClick={toggleFullscreen}
+            >
+              <MaterialSymbol icon={isFullscreen ? "fullscreen_exit" : "fullscreen"} size={18} />
+            </ControlButton>
+            <ControlButton title={t("dependency.zoomIn")} onClick={() => zoomIn({ duration: 200 })}>
+              <MaterialSymbol icon="add" size={18} />
+            </ControlButton>
+            <ControlButton
+              title={t("dependency.zoomOut")}
+              onClick={() => zoomOut({ duration: 200 })}
+            >
+              <MaterialSymbol icon="remove" size={18} />
+            </ControlButton>
             <ControlButton
               title={t("dependency.recenter")}
               onClick={() => fitView({ padding: 0.15, duration: 300 })}
@@ -1699,14 +1714,15 @@ function LayeredDependencyInner({
             <ControlButton title={t("dependency.resetView")} onClick={resetView}>
               <MaterialSymbol icon="restart_alt" size={18} />
             </ControlButton>
-            <ControlButton
-              title={isFullscreen ? t("dependency.exitFullscreen") : t("dependency.fullscreen")}
-              onClick={toggleFullscreen}
-            >
-              <MaterialSymbol icon={isFullscreen ? "fullscreen_exit" : "fullscreen"} size={18} />
-            </ControlButton>
-            {/* Vertical gap separating the view group from the exploration tools */}
-            <div className="ldv-controls-gap" aria-hidden style={{ height: 10 }} />
+            {/* Divider marking the split between the view and exploration groups */}
+            <div
+              aria-hidden
+              style={{
+                height: 1,
+                margin: "5px 5px",
+                background: theme.palette.mode === "dark" ? "#555" : "#c4c8cc",
+              }}
+            />
             {/* --- Exploration group: highlight, expand, reveal parent/children --- */}
             <ControlButton
               title={t("dependency.highlightMode")}
