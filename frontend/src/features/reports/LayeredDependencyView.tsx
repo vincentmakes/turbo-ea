@@ -969,8 +969,33 @@ function LayeredDependencyInner({
       });
       const bounds = getNodesBounds(absNodes);
       const pad = 48;
-      const imageWidth = Math.min(6000, Math.max(800, Math.round((bounds.width + pad * 2) * 2)));
-      const imageHeight = Math.min(6000, Math.max(600, Math.round((bounds.height + pad * 2) * 2)));
+
+      // Keep the rasterised SVG image *and* the canvas within WebKit's hard
+      // limits. html-to-image renders the diagram into an <img> sized
+      // imageWidth×imageHeight, then draws it onto a canvas sized
+      // (imageWidth×pixelRatio)×(imageHeight×pixelRatio). iOS/iPadOS WebKit caps
+      // canvas/image area at ~16.7M px and rejects oversized SVG images with a
+      // "Load failed" error (desktop Chrome/FF allow far more). So we pick
+      // device-aware caps and fit the FINAL canvas inside both a per-dimension
+      // and a total-area budget. Desktop output is unchanged for normal diagrams.
+      const isAppleMobile =
+        /iP(hone|ad|od)/.test(navigator.userAgent) ||
+        (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+      const maxDim = isAppleMobile ? 4096 : 6000;
+      const maxArea = isAppleMobile ? 16_000_000 : 64_000_000;
+      const pixelRatio = isAppleMobile ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+      // Supersample the logical bounds (×2) for crispness, as before.
+      const rawW = Math.max(800, Math.round((bounds.width + pad * 2) * 2));
+      const rawH = Math.max(600, Math.round((bounds.height + pad * 2) * 2));
+      // Scale so the final canvas (raw × pixelRatio) fits maxDim per side and maxArea total.
+      const finalW = rawW * pixelRatio;
+      const finalH = rawH * pixelRatio;
+      let fit = Math.min(1, maxDim / finalW, maxDim / finalH);
+      if (finalW * fit * (finalH * fit) > maxArea) {
+        fit *= Math.sqrt(maxArea / (finalW * fit * (finalH * fit)));
+      }
+      const imageWidth = Math.max(1, Math.round(rawW * fit));
+      const imageHeight = Math.max(1, Math.round(rawH * fit));
       const vp = getViewportForBounds(bounds, imageWidth, imageHeight, 0.2, 4, 0.06);
       const viewportEl = containerRef.current?.querySelector(
         ".react-flow__viewport",
@@ -988,12 +1013,7 @@ function LayeredDependencyInner({
         // label text rasterises with the browser's locally-resolved fonts.
         skipFonts: true,
         cacheBust: true,
-        // Cap the device-pixel multiplier at 2. Retina desktop already used 2 (no
-        // change); iPhone defaults to 3, which — on top of the ×2 pre-scaled, up
-        // to 6000px dimensions — pushes the canvas past Safari's area limit and
-        // yields a blank image (export silently fails). Capping keeps it within
-        // bounds without lowering desktop quality.
-        pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+        pixelRatio,
         // Drop the metamodel card-type icons: they're Material Symbols font
         // ligatures that html-to-image renders as their raw icon name (e.g.
         // "apps"). The card keeps its colour, label and lifecycle dot.
@@ -1016,8 +1036,12 @@ function LayeredDependencyInner({
         if (format === "png") {
           blob = await toBlob(viewportEl, opts);
         } else {
+          // Decode the SVG data URL directly instead of fetch()-ing it: toSvg
+          // builds `data:image/svg+xml;charset=utf-8,<encodeURIComponent(svg)>`,
+          // and fetch() on a data URL is itself a known iOS "Load failed" source.
           const dataUrl = await toSvg(viewportEl, opts);
-          blob = await (await fetch(dataUrl)).blob();
+          const svgText = decodeURIComponent(dataUrl.slice(dataUrl.indexOf(",") + 1));
+          blob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" });
         }
         if (!blob || blob.size === 0) return; // rasterisation produced nothing — don't save a bad file
         saveAs(blob, fname);
