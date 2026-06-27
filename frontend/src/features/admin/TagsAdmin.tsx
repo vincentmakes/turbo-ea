@@ -232,6 +232,9 @@ export default function TagsAdmin() {
             label={t("tags.tagDescription")}
             value={tagDescription}
             onChange={(e) => setTagDescription(e.target.value)}
+            // Keep the outline notched so the border never strikes through the
+            // label on an empty multiline field (MUI notch quirk on first focus).
+            slotProps={{ inputLabel: { shrink: true } }}
             sx={{ mb: 2 }}
           />
           <ColorPicker value={tagColor} onChange={setTagColor} label={t("tags.color")} />
@@ -259,6 +262,7 @@ export default function TagsAdmin() {
             label={t("tags.description")}
             value={editGroupDraft.description}
             onChange={(e) => setEditGroupDraft((d) => ({ ...d, description: e.target.value }))}
+            slotProps={{ inputLabel: { shrink: true } }}
             sx={{ mb: 2 }}
           />
           <TextField
@@ -350,6 +354,7 @@ export default function TagsAdmin() {
             label={t("tags.tagDescription")}
             value={editTagDraft.description}
             onChange={(e) => setEditTagDraft((d) => ({ ...d, description: e.target.value }))}
+            slotProps={{ inputLabel: { shrink: true } }}
             sx={{ mb: 2 }}
           />
           <ColorPicker
