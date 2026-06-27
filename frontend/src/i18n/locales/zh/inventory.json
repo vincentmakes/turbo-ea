@@ -145,7 +145,6 @@
   "relation.noRelationsYet": "暂无关系",
   "relation.addRelation": "添加关系",
   "relation.searchType": "搜索 {{type}}...",
-  "relation.typeToSearch": "输入以搜索...",
   "relation.createNew": "创建新 {{type}}",
   "relation.createAndAdd": "创建并添加",
   "relation.unknown": "未知",

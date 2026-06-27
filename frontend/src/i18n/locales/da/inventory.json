@@ -145,7 +145,6 @@
   "relation.noRelationsYet": "Ingen relationer endnu",
   "relation.addRelation": "Tilføj relation",
   "relation.searchType": "Søg {{type}}...",
-  "relation.typeToSearch": "Skriv for at søge...",
   "relation.createNew": "Opret ny {{type}}",
   "relation.createAndAdd": "Opret og tilføj",
   "relation.unknown": "Ukendt",

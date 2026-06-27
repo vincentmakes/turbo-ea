@@ -82,7 +82,7 @@ Shows all connections to other cards, grouped by relation type. For each relatio
 
 - **Related card name** — Click to navigate to the related card
 - **Relation type** — The nature of the connection (e.g., "uses", "runs on", "depends on")
-- **Add relation** — Click **+** to create a new relation by searching for cards
+- **Add relation** — Click **+** to create a new relation; the picker lists matching cards as soon as it opens (sorted by name, more load as you scroll), and typing filters the list
 - **Remove relation** — Click the delete icon to remove a relation
 
 ### Tags Section

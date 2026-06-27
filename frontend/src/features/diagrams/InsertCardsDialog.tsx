@@ -19,7 +19,7 @@ import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import type { Card, CardType } from "@/types";
-import { useCardSearch } from "./useCardSearch";
+import { useCardSearch } from "@/hooks/useCardSearch";
 
 interface CountsResponse {
   by_type: { type: string; count: number }[];

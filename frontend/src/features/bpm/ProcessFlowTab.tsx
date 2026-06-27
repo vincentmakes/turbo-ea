@@ -6,7 +6,7 @@
  *   Drafts    — Work-in-progress flows visible to member/bpm_admin/admin/process_owner/responsible/observer.
  *   Archived  — Previously published versions (read-only list with revision + archival date).
  */
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import DOMPurify from "dompurify";
@@ -38,10 +38,10 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
-import Autocomplete from "@mui/material/Autocomplete";
 import Collapse from "@mui/material/Collapse";
 import Snackbar from "@mui/material/Snackbar";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import CardPicker from "@/components/CardPicker";
 import BpmnViewer from "./BpmnViewer";
 import BpmnTemplateChooser from "./BpmnTemplateChooser";
 import { api } from "@/api/client";
@@ -54,10 +54,6 @@ interface Props {
   initialSubTab?: number;
 }
 
-interface CardOption {
-  id: string;
-  name: string;
-}
 
 const STATUS_COLORS: Record<string, "success" | "warning" | "info" | "default" | "error"> = {
   published: "success",
@@ -100,9 +96,6 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
   // Element editing state
   const [editingCell, setEditingCell] = useState<{ elementId: string; field: string } | null>(null);
-  const [cardOptions, setCardOptions] = useState<CardOption[]>([]);
-  const [fsLoading, setFsLoading] = useState(false);
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [snack, setSnack] = useState("");
 
   // Draft elements (pre-linking before publish)
@@ -189,43 +182,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     if (subTab === 2) loadArchived();
   }, [subTab, loadDrafts, loadArchived]);
 
-  // ── Card search for element editing ───────────────────────────────────
-
-  const loadInitialCardOptions = async (type: string) => {
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    setFsLoading(true);
-    try {
-      const res = await api.get<{ items: CardOption[] }>(
-        `/cards?type=${type}&page_size=200&status=ACTIVE&sort_by=name&sort_dir=asc`,
-      );
-      setCardOptions(res.items.map((p) => ({ id: p.id, name: p.name })));
-    } catch {
-      setCardOptions([]);
-    } finally {
-      setFsLoading(false);
-    }
-  };
-
-  const searchCards = (query: string, type: string) => {
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    if (!query) {
-      void loadInitialCardOptions(type);
-      return;
-    }
-    setFsLoading(true);
-    searchTimerRef.current = setTimeout(async () => {
-      try {
-        const res = await api.get<{ items: CardOption[] }>(
-          `/cards?type=${type}&search=${encodeURIComponent(query)}&page_size=50&status=ACTIVE`,
-        );
-        setCardOptions(res.items.map((p) => ({ id: p.id, name: p.name })));
-      } catch {
-        setCardOptions([]);
-      } finally {
-        setFsLoading(false);
-      }
-    }, 300);
-  };
+  // ── Card linking for element editing (see CardPicker for browse + search) ──
 
   const handleElementUpdate = async (elementId: string, updates: Record<string, unknown>) => {
     try {
@@ -237,7 +194,6 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       setSnack(t("flowTab.elementUpdateFailed"));
     }
     setEditingCell(null);
-    setCardOptions([]);
   };
 
   // ── Actions ──────────────────────────────────────────────────────────
@@ -354,7 +310,6 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       setSnack(t("flowTab.draftElementLinkFailed"));
     }
     setEditingCell(null);
-    setCardOptions([]);
   };
 
   const toggleDraftPreview = async (draftId: string) => {
@@ -503,36 +458,22 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
     if (isEditing) {
       return (
-        <Autocomplete
-          size="small"
-          options={cardOptions}
-          getOptionLabel={(o) => o.name}
-          loading={fsLoading}
-          onInputChange={(_, val) => searchCards(val, cardTypeKey)}
-          onChange={(_, val) => {
-            onUpdate(elementId, { [`${field}_id`]: val?.id || "" });
-          }}
-          onBlur={() => { setEditingCell(null); setCardOptions([]); }}
-          openOnFocus
+        <CardPicker
+          types={cardTypeKey}
+          value={null}
+          onChange={(val) => onUpdate(elementId, { [`${field}_id`]: val?.id || "" })}
+          onBlur={() => setEditingCell(null)}
+          enabled={isEditing}
           autoFocus
           sx={{ minWidth: 160 }}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              placeholder={t("flowTab.searchCardType", { type: cardTypeKey })}
-              variant="outlined"
-              size="small"
-              autoFocus
-              sx={{ "& .MuiOutlinedInput-root": { height: 32 } }}
-            />
-          )}
+          placeholder={t("flowTab.searchCardType", { type: cardTypeKey })}
         />
       );
     }
 
     return (
       <Box
-        onClick={() => { setEditingCell({ elementId, field }); void loadInitialCardOptions(cardTypeKey); }}
+        onClick={() => setEditingCell({ elementId, field })}
         sx={linkCellSx}
       >
         {currentName ? (

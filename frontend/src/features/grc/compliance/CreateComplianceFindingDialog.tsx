@@ -9,7 +9,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
-import Autocomplete from "@mui/material/Autocomplete";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -22,6 +21,7 @@ import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import { api, ApiError } from "@/api/client";
+import CardPicker from "@/components/CardPicker";
 import { useComplianceRegulations } from "@/hooks/useComplianceRegulations";
 import type {
   ComplianceStatus,
@@ -73,7 +73,6 @@ export default function CreateComplianceFindingDialog({
     defaultRegulation ?? enabledRegulations[0]?.key ?? "eu_ai_act",
   );
   const [regulationArticle, setRegulationArticle] = useState("");
-  const [cardOptions, setCardOptions] = useState<CardOption[]>([]);
   const [selectedCard, setSelectedCard] = useState<CardOption | null>(null);
   const [category, setCategory] = useState("");
   const [requirement, setRequirement] = useState("");
@@ -101,20 +100,6 @@ export default function CreateComplianceFindingDialog({
     setEvidence("");
     setRemediation("");
     setError(null);
-    // Load Application + ITComponent cards for the picker.
-    (async () => {
-      try {
-        const apps = await api.get<{ items: CardOption[] }>(
-          "/cards?type=Application&page_size=500&fields=id,name,type",
-        );
-        const itc = await api.get<{ items: CardOption[] }>(
-          "/cards?type=ITComponent&page_size=500&fields=id,name,type",
-        );
-        setCardOptions([...(apps.items ?? []), ...(itc.items ?? [])]);
-      } catch {
-        setCardOptions([]);
-      }
-    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, defaultRegulation]);
 
@@ -184,21 +169,15 @@ export default function CreateComplianceFindingDialog({
             fullWidth
           />
 
-          <Autocomplete<CardOption>
-            size="small"
-            options={cardOptions}
-            getOptionLabel={(c) => `${c.name} (${c.type})`}
-            isOptionEqualToValue={(a, b) => a.id === b.id}
+          <CardPicker
+            types={["Application", "ITComponent"]}
             value={selectedCard}
-            onChange={(_, v) => setSelectedCard(v)}
+            onChange={setSelectedCard}
+            enabled={open}
             disabled={submitting}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label={tCards("compliance.create.card")}
-                placeholder={tCards("compliance.create.cardPlaceholder")}
-              />
-            )}
+            fullWidth
+            label={tCards("compliance.create.card")}
+            placeholder={tCards("compliance.create.cardPlaceholder")}
           />
 
           <TextField

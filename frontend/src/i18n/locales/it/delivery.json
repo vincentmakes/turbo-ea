@@ -413,8 +413,6 @@
   "adr.createDialog.linkedCards": "Card collegate",
   "adr.createDialog.addCard": "Aggiungi card",
   "adr.createDialog.searchCards": "Cerca card...",
-  "adr.createDialog.noResults": "Nessuna card trovata",
-  "adr.createDialog.alreadyAdded": "Già aggiunta",
   "adr.createDialog.error": "Impossibile creare la decisione architetturale",
   "signatureDialog.searchPlaceholder": "Cerca utenti...",
   "signatureDialog.noResults": "Nessun utente trovato",

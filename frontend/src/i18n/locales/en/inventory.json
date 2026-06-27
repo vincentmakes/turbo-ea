@@ -145,7 +145,6 @@
   "relation.noRelationsYet": "No relations yet",
   "relation.addRelation": "Add relation",
   "relation.searchType": "Search {{type}}...",
-  "relation.typeToSearch": "Type to search...",
   "relation.createNew": "Create new {{type}}",
   "relation.createAndAdd": "Create & Add",
   "relation.unknown": "Unknown",

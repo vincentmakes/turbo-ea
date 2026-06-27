@@ -413,8 +413,6 @@
   "adr.createDialog.linkedCards": "البطاقات المرتبطة",
   "adr.createDialog.addCard": "إضافة بطاقة",
   "adr.createDialog.searchCards": "البحث في البطاقات...",
-  "adr.createDialog.noResults": "لم يتم العثور على بطاقات",
-  "adr.createDialog.alreadyAdded": "مُضاف بالفعل",
   "adr.createDialog.error": "فشل إنشاء قرار البنية",
   "signatureDialog.searchPlaceholder": "البحث في المستخدمين...",
   "signatureDialog.noResults": "لم يتم العثور على مستخدمين",

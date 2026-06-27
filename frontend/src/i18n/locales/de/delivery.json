@@ -413,8 +413,6 @@
   "adr.createDialog.linkedCards": "Verknüpfte Karten",
   "adr.createDialog.addCard": "Karte hinzufügen",
   "adr.createDialog.searchCards": "Karten suchen...",
-  "adr.createDialog.noResults": "Keine Karten gefunden",
-  "adr.createDialog.alreadyAdded": "Bereits hinzugefügt",
   "adr.createDialog.error": "Architekturentscheidung konnte nicht erstellt werden",
   "signatureDialog.searchPlaceholder": "Benutzer suchen...",
   "signatureDialog.noResults": "Keine Benutzer gefunden",

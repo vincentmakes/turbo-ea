@@ -64,13 +64,14 @@ export function useCardSearch({ types, search, enabled, pageSize = 1000 }: Optio
         if (trimmedSearch) params.set("search", trimmedSearch);
         const response = await api.get<CardListResponse>(`/cards?${params.toString()}`);
         if (token !== requestToken.current) return; // stale
-        setTotal(response.total);
+        const respItems = response.items ?? [];
+        setTotal(response.total ?? respItems.length);
         setItems((prev) => {
-          if (!append) return response.items;
+          if (!append) return respItems;
           // Dedup by id — the backend can in theory shift between pages
           // if cards are created while paginating.
           const seen = new Set(prev.map((c) => c.id));
-          const fresh = response.items.filter((c) => !seen.has(c.id));
+          const fresh = respItems.filter((c) => !seen.has(c.id));
           return prev.concat(fresh);
         });
       } catch {

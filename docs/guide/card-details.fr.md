@@ -82,7 +82,7 @@ Affiche toutes les connexions avec d'autres fiches, groupées par type de relati
 
 - **Nom de la fiche liée** -- Cliquer pour naviguer vers la fiche liée
 - **Type de relation** -- La nature de la connexion (par ex. « utilise », « s'exécute sur », « dépend de »)
-- **Ajouter une relation** -- Cliquez sur **+** pour créer une nouvelle relation en recherchant des fiches
+- **Ajouter une relation** -- Cliquez sur **+** pour créer une nouvelle relation ; le sélecteur affiche les fiches correspondantes dès son ouverture (triées par nom, d'autres se chargent au défilement), et la saisie filtre la liste
 - **Supprimer une relation** -- Cliquez sur l'icône de suppression pour retirer une relation
 
 ### Section Tags

@@ -413,8 +413,6 @@
   "adr.createDialog.linkedCards": "Tilknyttede kort",
   "adr.createDialog.addCard": "Tilføj kort",
   "adr.createDialog.searchCards": "Søg kort...",
-  "adr.createDialog.noResults": "Ingen kort fundet",
-  "adr.createDialog.alreadyAdded": "Allerede tilføjet",
   "adr.createDialog.error": "Kunne ikke oprette arkitekturbeslutning",
   "signatureDialog.searchPlaceholder": "Søg brugere...",
   "signatureDialog.noResults": "Ingen brugere fundet",

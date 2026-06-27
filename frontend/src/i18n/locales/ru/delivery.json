@@ -413,8 +413,6 @@
   "adr.createDialog.linkedCards": "Привязанные карточки",
   "adr.createDialog.addCard": "Добавить карточку",
   "adr.createDialog.searchCards": "Поиск карточек...",
-  "adr.createDialog.noResults": "Карточки не найдены",
-  "adr.createDialog.alreadyAdded": "Уже добавлена",
   "adr.createDialog.error": "Не удалось создать архитектурное решение",
   "signatureDialog.searchPlaceholder": "Поиск пользователей...",
   "signatureDialog.noResults": "Пользователи не найдены",

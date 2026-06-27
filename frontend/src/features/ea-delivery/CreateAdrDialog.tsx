@@ -8,14 +8,12 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import List from "@mui/material/List";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemText from "@mui/material/ListItemText";
 import Alert from "@mui/material/Alert";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import CardPicker, { type CardOption } from "@/components/CardPicker";
 import { api } from "@/api/client";
-import type { Card, ArchitectureDecision } from "@/types";
+import type { ArchitectureDecision } from "@/types";
 
 interface LinkedCard {
   id: string;
@@ -43,10 +41,8 @@ export default function CreateAdrDialog({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
 
-  // Card search
+  // Card picker
   const [showSearch, setShowSearch] = useState(false);
-  const [cardSearch, setCardSearch] = useState("");
-  const [searchResults, setSearchResults] = useState<Card[]>([]);
 
   // Reset state when dialog opens. preLinkedCards is intentionally omitted
   // from the deps — callers that don't pass it get a fresh `[]` default on
@@ -59,34 +55,14 @@ export default function CreateAdrDialog({
       setCreating(false);
       setError("");
       setShowSearch(false);
-      setCardSearch("");
-      setSearchResults([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const searchCardsHandler = async (q: string) => {
-    setCardSearch(q);
-    if (q.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-    try {
-      const res = await api.get<{ items: Card[] }>(
-        `/cards?search=${encodeURIComponent(q)}&page_size=20`,
-      );
-      setSearchResults(res.items);
-    } catch {
-      /* ignore */
-    }
-  };
-
-  const addCard = (card: Card) => {
-    if (linkedCards.some((c) => c.id === card.id)) return;
+  const addCard = (card: CardOption | null) => {
+    if (!card || linkedCards.some((c) => c.id === card.id)) return;
     setLinkedCards((prev) => [...prev, { id: card.id, name: card.name, type: card.type }]);
     setShowSearch(false);
-    setCardSearch("");
-    setSearchResults([]);
   };
 
   const removeCard = (cardId: string) => {
@@ -156,89 +132,26 @@ export default function CreateAdrDialog({
           </Box>
         )}
 
-        <Button
-          size="small"
-          startIcon={<MaterialSymbol icon="add" size={18} />}
-          onClick={() => {
-            setShowSearch(true);
-            setCardSearch("");
-            setSearchResults([]);
-          }}
-          sx={{ textTransform: "none", mb: 1 }}
-        >
-          {t("adr.createDialog.addCard")}
-        </Button>
-
-        {showSearch && (
+        {showSearch ? (
           <Box sx={{ mb: 1 }}>
-            <TextField
+            <CardPicker
+              value={null}
+              onChange={addCard}
+              excludeIds={linkedIds}
+              fullWidth
               autoFocus
               placeholder={t("adr.createDialog.searchCards")}
-              fullWidth
-              size="small"
-              value={cardSearch}
-              onChange={(e) => searchCardsHandler(e.target.value)}
-              sx={{ mb: 1 }}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  setShowSearch(false);
-                  setCardSearch("");
-                  setSearchResults([]);
-                }
-              }}
             />
-            <Box
-              sx={{
-                minHeight: 120,
-                maxHeight: 200,
-                overflow: "auto",
-                border: 1,
-                borderColor: "divider",
-                borderRadius: 1,
-              }}
-            >
-              {searchResults.length > 0 ? (
-                <List dense disablePadding>
-                  {searchResults.map((card) => {
-                    const alreadyAdded = linkedIds.has(card.id);
-                    return (
-                      <ListItemButton
-                        key={card.id}
-                        onClick={() => !alreadyAdded && addCard(card)}
-                        disabled={alreadyAdded}
-                      >
-                        <ListItemText primary={card.name} secondary={card.type} />
-                        {alreadyAdded && (
-                          <Chip
-                            label={t("adr.createDialog.alreadyAdded")}
-                            size="small"
-                            variant="outlined"
-                            sx={{ height: 20, fontSize: "0.7rem" }}
-                          />
-                        )}
-                      </ListItemButton>
-                    );
-                  })}
-                </List>
-              ) : cardSearch.length >= 2 ? (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ textAlign: "center", py: 3 }}
-                >
-                  {t("adr.createDialog.noResults")}
-                </Typography>
-              ) : (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ textAlign: "center", py: 3 }}
-                >
-                  {t("adr.createDialog.searchCards")}
-                </Typography>
-              )}
-            </Box>
           </Box>
+        ) : (
+          <Button
+            size="small"
+            startIcon={<MaterialSymbol icon="add" size={18} />}
+            onClick={() => setShowSearch(true)}
+            sx={{ textTransform: "none", mb: 1 }}
+          >
+            {t("adr.createDialog.addCard")}
+          </Button>
         )}
       </DialogContent>
       <DialogActions>

@@ -145,7 +145,6 @@
   "relation.noRelationsYet": "لا توجد علاقات بعد",
   "relation.addRelation": "إضافة علاقة",
   "relation.searchType": "البحث في {{type}}...",
-  "relation.typeToSearch": "اكتب للبحث...",
   "relation.createNew": "إنشاء {{type}} جديد",
   "relation.createAndAdd": "إنشاء وإضافة",
   "relation.unknown": "غير معروف",

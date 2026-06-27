@@ -82,7 +82,7 @@ Zeigt alle Verbindungen zu anderen Karten, gruppiert nach Beziehungstyp. Für je
 
 - **Name der verwandten Karte** — Klicken zum Navigieren zur verwandten Karte
 - **Beziehungstyp** — Die Art der Verbindung (z.B. «nutzt», «läuft auf», «hängt ab von»)
-- **Beziehung hinzufügen** — Klicken Sie auf **+**, um eine neue Beziehung durch Suche nach Karten zu erstellen
+- **Beziehung hinzufügen** — Klicken Sie auf **+**, um eine neue Beziehung zu erstellen; die Auswahlliste zeigt passende Karten bereits beim Öffnen an (nach Name sortiert, weitere werden beim Scrollen geladen), und durch Tippen wird die Liste gefiltert
 - **Beziehung entfernen** — Klicken Sie auf das Löschsymbol, um eine Beziehung zu entfernen
 
 ### Tags-Abschnitt

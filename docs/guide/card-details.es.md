@@ -82,7 +82,7 @@ Muestra todas las conexiones con otras fichas, agrupadas por tipo de relación. 
 
 - **Nombre de la ficha relacionada** — Haga clic para navegar a la ficha relacionada
 - **Tipo de relación** — La naturaleza de la conexión (por ejemplo, «utiliza», «se ejecuta en», «depende de»)
-- **Agregar relación** — Haga clic en **+** para crear una nueva relación buscando fichas
+- **Agregar relación** — Haga clic en **+** para crear una nueva relación; el selector muestra las fichas coincidentes en cuanto se abre (ordenadas por nombre, se cargan más al desplazarse) y al escribir se filtra la lista
 - **Eliminar relación** — Haga clic en el icono de eliminar para quitar una relación
 
 ### Sección de Etiquetas

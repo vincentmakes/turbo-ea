@@ -9,11 +9,10 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
-import Autocomplete from "@mui/material/Autocomplete";
-import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import CardPicker from "@/components/CardPicker";
 import { api } from "@/api/client";
-import type { ProcessElement, Card } from "@/types";
+import type { ProcessElement } from "@/types";
 
 interface Props {
   open: boolean;
@@ -31,30 +30,11 @@ interface CardOption {
 
 export default function ElementLinker({ open, onClose, element, processId, onSaved }: Props) {
   const { t } = useTranslation(["bpm", "common"]);
-  const [apps, setApps] = useState<CardOption[]>([]);
-  const [dataObjects, setDataObjects] = useState<CardOption[]>([]);
-  const [itComponents, setItComponents] = useState<CardOption[]>([]);
 
   const [selectedApp, setSelectedApp] = useState<CardOption | null>(null);
   const [selectedData, setSelectedData] = useState<CardOption | null>(null);
   const [selectedItc, setSelectedItc] = useState<CardOption | null>(null);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    // Load options for each type
-    async function load() {
-      const [appRes, dataRes, itcRes] = await Promise.all([
-        api.get<{ items: Card[] }>("/cards?type=Application&page_size=200&status=ACTIVE"),
-        api.get<{ items: Card[] }>("/cards?type=DataObject&page_size=200&status=ACTIVE"),
-        api.get<{ items: Card[] }>("/cards?type=ITComponent&page_size=200&status=ACTIVE"),
-      ]);
-      setApps((appRes.items || []).map((f: Card) => ({ id: f.id, name: f.name, type: f.type })));
-      setDataObjects((dataRes.items || []).map((f: Card) => ({ id: f.id, name: f.name, type: f.type })));
-      setItComponents((itcRes.items || []).map((f: Card) => ({ id: f.id, name: f.name, type: f.type })));
-    }
-    load();
-  }, [open]);
 
   useEffect(() => {
     if (!element) return;
@@ -91,31 +71,37 @@ export default function ElementLinker({ open, onClose, element, processId, onSav
           {element?.element_type} {element?.lane_name ? `| ${t("flowTab.lane")}: ${element.lane_name}` : ""}
         </Typography>
 
-        <Autocomplete
-          options={apps}
-          getOptionLabel={(o) => o.name}
+        <CardPicker
+          types="Application"
           value={selectedApp}
-          onChange={(_, v) => setSelectedApp(v)}
-          isOptionEqualToValue={(a, b) => a.id === b.id}
-          renderInput={(params) => <TextField {...params} label={t("linker.application")} margin="normal" />}
+          onChange={setSelectedApp}
+          enabled={open}
+          size="medium"
+          fullWidth
+          sx={{ my: 1 }}
+          label={t("linker.application")}
         />
 
-        <Autocomplete
-          options={dataObjects}
-          getOptionLabel={(o) => o.name}
+        <CardPicker
+          types="DataObject"
           value={selectedData}
-          onChange={(_, v) => setSelectedData(v)}
-          isOptionEqualToValue={(a, b) => a.id === b.id}
-          renderInput={(params) => <TextField {...params} label={t("linker.dataObject")} margin="normal" />}
+          onChange={setSelectedData}
+          enabled={open}
+          size="medium"
+          fullWidth
+          sx={{ my: 1 }}
+          label={t("linker.dataObject")}
         />
 
-        <Autocomplete
-          options={itComponents}
-          getOptionLabel={(o) => o.name}
+        <CardPicker
+          types="ITComponent"
           value={selectedItc}
-          onChange={(_, v) => setSelectedItc(v)}
-          isOptionEqualToValue={(a, b) => a.id === b.id}
-          renderInput={(params) => <TextField {...params} label={t("linker.itComponent")} margin="normal" />}
+          onChange={setSelectedItc}
+          enabled={open}
+          size="medium"
+          fullWidth
+          sx={{ my: 1 }}
+          label={t("linker.itComponent")}
         />
       </DialogContent>
       <DialogActions>

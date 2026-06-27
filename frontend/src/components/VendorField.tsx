@@ -4,7 +4,7 @@
  * text attribute is updated and the Provider relation (discovered
  * dynamically from the metamodel) is created automatically.
  */
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import Autocomplete, { createFilterOptions } from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
@@ -20,6 +20,7 @@ import Button from "@mui/material/Button";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useCardSearch } from "@/hooks/useCardSearch";
 import { VENDOR_ACCENT } from "@/theme/tokens";
 import type { Relation } from "@/types";
 
@@ -70,8 +71,7 @@ export default function VendorField({
   const resolvedLabel = label ?? t("vendor.label");
   const { relationTypes } = useMetamodel();
   const [inputValue, setInputValue] = useState(value || "");
-  const [options, setOptions] = useState<ProviderOption[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [debouncedInput, setDebouncedInput] = useState(value || "");
   const [linkedProvider, setLinkedProvider] = useState<ProviderOption | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingProvider, setPendingProvider] = useState<ProviderOption | null>(null);
@@ -118,33 +118,24 @@ export default function VendorField({
       .catch(() => {});
   }, [fsId, relType]);
 
-  // Search providers
-  const searchProviders = useCallback(
-    async (query: string) => {
-      if (query.length < 1) {
-        setOptions([]);
-        return;
-      }
-      setLoading(true);
-      try {
-        const res = await api.get<{ items: { id: string; name: string }[] }>(
-          `/cards?type=Provider&search=${encodeURIComponent(query)}&page_size=10`
-        );
-        setOptions(res.items.map((p) => ({ id: p.id, name: p.name })));
-      } catch {
-        setOptions([]);
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
-
-  // Debounced search
+  // Browse + search Provider cards via the shared engine: an empty input
+  // lists all Providers (browse), typing filters server-side (#702).
   useEffect(() => {
-    const timer = setTimeout(() => searchProviders(inputValue), 300);
+    const timer = setTimeout(() => setDebouncedInput(inputValue), 300);
     return () => clearTimeout(timer);
-  }, [inputValue, searchProviders]);
+  }, [inputValue]);
+
+  const { items, loading } = useCardSearch({
+    types: ["Provider"],
+    search: debouncedInput,
+    enabled: true,
+    pageSize: 50,
+  });
+
+  const options = useMemo<ProviderOption[]>(
+    () => items.map((p) => ({ id: p.id, name: p.name })),
+    [items],
+  );
 
   const handleSelect = async (provider: ProviderOption) => {
     if (provider.isNew) {

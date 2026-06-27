@@ -413,8 +413,6 @@
   "adr.createDialog.linkedCards": "关联卡片",
   "adr.createDialog.addCard": "添加卡片",
   "adr.createDialog.searchCards": "搜索卡片...",
-  "adr.createDialog.noResults": "未找到卡片",
-  "adr.createDialog.alreadyAdded": "已添加",
   "adr.createDialog.error": "创建架构决策失败",
   "signatureDialog.searchPlaceholder": "搜索用户...",
   "signatureDialog.noResults": "未找到用户",

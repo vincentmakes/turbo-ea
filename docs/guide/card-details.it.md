@@ -82,7 +82,7 @@ Mostra tutte le connessioni con altre card, raggruppate per tipo di relazione. P
 
 - **Nome della card correlata** — Cliccate per navigare alla card correlata
 - **Tipo di relazione** — La natura della connessione (es. "utilizza", "funziona su", "dipende da")
-- **Aggiungi relazione** — Cliccate su **+** per creare una nuova relazione cercando card
+- **Aggiungi relazione** — Cliccate su **+** per creare una nuova relazione; il selettore mostra le card corrispondenti non appena viene aperto (ordinate per nome, altre si caricano scorrendo) e digitando si filtra l'elenco
 - **Rimuovi relazione** — Cliccate sull'icona di eliminazione per rimuovere una relazione
 
 ### Sezione Tag

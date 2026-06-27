@@ -82,7 +82,7 @@ Mostra todas as conexões com outros cards, agrupadas por tipo de relacionamento
 
 - **Nome do card relacionado** — Clique para navegar até o card relacionado
 - **Tipo de relacionamento** — A natureza da conexão (ex.: "utiliza", "roda em", "depende de")
-- **Adicionar relacionamento** — Clique em **+** para criar um novo relacionamento pesquisando cards
+- **Adicionar relacionamento** — Clique em **+** para criar um novo relacionamento; o seletor lista os cards correspondentes assim que é aberto (ordenados por nome, mais são carregados ao rolar) e digitar filtra a lista
 - **Remover relacionamento** — Clique no ícone de exclusão para remover um relacionamento
 
 ### Seção de Tags

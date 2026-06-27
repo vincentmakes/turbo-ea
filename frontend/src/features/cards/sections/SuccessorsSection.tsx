@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -18,9 +18,9 @@ import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
-import Autocomplete from "@mui/material/Autocomplete";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import CardPicker, { type CardOption } from "@/components/CardPicker";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
@@ -67,8 +67,7 @@ function SuccessorsSection({
   // Add dialog state
   const [addMode, setAddMode] = useState<"successor" | "predecessor" | null>(null);
   const [search, setSearch] = useState("");
-  const [options, setOptions] = useState<{ id: string; name: string }[]>([]);
-  const [selected, setSelected] = useState<{ id: string; name: string } | null>(null);
+  const [selected, setSelected] = useState<CardOption | null>(null);
 
   // Inline create state
   const [createMode, setCreateMode] = useState(false);
@@ -91,29 +90,12 @@ function SuccessorsSection({
 
   useEffect(loadRelations, [loadRelations]);
 
-  // Search for cards of the same type
-  useEffect(() => {
-    if (!addMode || search.length < 1) {
-      setOptions([]);
-      return;
-    }
-    const timer = setTimeout(() => {
-      api
-        .get<{ items: { id: string; name: string }[] }>(
-          `/cards?type=${card.type}&search=${encodeURIComponent(search)}&page_size=20`,
-        )
-        .then((res) => {
-          // Exclude self and already-related cards
-          const existingIds = new Set(
-            relations.flatMap((r) => [r.source_id, r.target_id]),
-          );
-          existingIds.add(card.id);
-          setOptions(res.items.filter((item) => !existingIds.has(item.id)));
-        })
-        .catch(() => {});
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [addMode, search, card.id, card.type, relations]);
+  // Exclude self and already-related cards from the picker.
+  const excludeIds = useMemo(() => {
+    const ids = new Set(relations.flatMap((r) => [r.source_id, r.target_id]));
+    ids.add(card.id);
+    return [...ids];
+  }, [relations, card.id]);
 
   // Successors: cards where THIS card is the source (this card succeeds nothing — those cards succeed this one)
   // Actually: if relation is "A succeeds B", then A is source, B is target.
@@ -426,28 +408,16 @@ function SuccessorsSection({
             )}
             {!createMode ? (
               <>
-                <Autocomplete
-                  options={options}
-                  getOptionLabel={(opt) => opt.name}
+                <CardPicker
+                  types={card.type}
                   value={selected}
-                  onChange={(_, val) => setSelected(val)}
-                  inputValue={search}
-                  onInputChange={(_, val) => setSearch(val)}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      size="small"
-                      label={t("successors.search", { type: typeLabel })}
-                      placeholder={t("successors.searchPlaceholder")}
-                      sx={{ mt: 1 }}
-                    />
-                  )}
-                  noOptionsText={
-                    search
-                      ? t("common:labels.noResults")
-                      : t("successors.searchPlaceholder")
-                  }
-                  filterOptions={(x) => x}
+                  onChange={setSelected}
+                  onInputChange={setSearch}
+                  excludeIds={excludeIds}
+                  enabled={addMode !== null}
+                  fullWidth
+                  sx={{ mt: 1 }}
+                  label={t("successors.search", { type: typeLabel })}
                 />
                 <Button
                   size="small"

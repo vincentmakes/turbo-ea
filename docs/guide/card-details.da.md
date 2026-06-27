@@ -82,7 +82,7 @@ Viser alle forbindelser til andre kort, grupperet efter relations­type. For hve
 
 - **Relateret kortnavn** — Klik for at navigere til det relaterede kort
 - **Relations­type** — Forbindelsens karakter (f.eks. "uses", "runs on", "depends on")
-- **Tilføj relation** — Klik på **+** for at oprette en ny relation ved at søge efter kort
+- **Tilføj relation** — Klik på **+** for at oprette en ny relation; vælgeren viser matchende kort, så snart den åbnes (sorteret efter navn, flere indlæses, når du ruller), og indtastning filtrerer listen
 - **Fjern relation** — Klik på slet-ikonet for at fjerne en relation
 
 ### Tags-sektion

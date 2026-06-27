@@ -145,7 +145,6 @@
   "relation.noRelationsYet": "Связей пока нет",
   "relation.addRelation": "Добавить связь",
   "relation.searchType": "Поиск {{type}}...",
-  "relation.typeToSearch": "Введите для поиска...",
   "relation.createNew": "Создать новый {{type}}",
   "relation.createAndAdd": "Создать и добавить",
   "relation.unknown": "Неизвестно",
