@@ -34,6 +34,7 @@ from app.models.app_settings import AppSettings
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.diagram import Diagram, diagram_cards
+from app.models.diagram_group import DiagramGroup, diagram_group_members
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.role import Role
@@ -45,7 +46,11 @@ from app.services.workspace_io import schema
 from app.services.workspace_io.bundle import WorkspaceBundle, from_cell
 from app.services.workspace_io.entities import apply_entity_section
 from app.services.workspace_io.secrets import GENERAL_SECRET_PATHS
-from app.services.workspace_io.sections import ENTITY_SECTIONS, SHEET_DIAGRAM_CARDS
+from app.services.workspace_io.sections import (
+    ENTITY_SECTIONS,
+    SHEET_DIAGRAM_CARDS,
+    SHEET_DIAGRAM_GROUP_MEMBERS,
+)
 
 # Roles a synthetic (auto-created) user may take. Anything else falls back to
 # ``member`` so an export from a customised role set can't grant elevated
@@ -188,6 +193,10 @@ async def _run(
         sr = SectionResult(sheet=SHEET_DIAGRAM_CARDS)
         result.sections.append(sr)
         await _apply_diagram_cards(db, bundle, sr, ent_resolver)
+
+        sr = SectionResult(sheet=SHEET_DIAGRAM_GROUP_MEMBERS)
+        result.sections.append(sr)
+        await _apply_diagram_group_members(db, bundle, sr)
     finally:
         if dry_run:
             assert root is not None
@@ -222,6 +231,38 @@ async def _apply_diagram_cards(db, bundle: WorkspaceBundle, sr: SectionResult, r
             sr.skipped += 1
             continue
         await db.execute(diagram_cards.insert().values(diagram_id=diag_uuid, card_id=res.card_id))
+        existing.add(pair)
+        sr.created += 1
+
+
+async def _apply_diagram_group_members(db, bundle: WorkspaceBundle, sr: SectionResult) -> None:
+    """Bespoke Diagram↔Group membership — both PKs are preserved on import."""
+    rows = bundle.rows(SHEET_DIAGRAM_GROUP_MEMBERS)
+    if not rows:
+        return
+    existing = {
+        (r.diagram_id, r.group_id) for r in (await db.execute(select(diagram_group_members))).all()
+    }
+    existing_diagrams = set((await db.execute(select(Diagram.id))).scalars().all())
+    existing_groups = set((await db.execute(select(DiagramGroup.id))).scalars().all())
+    for row in rows:
+        diagram_id = row.get("diagram_id")
+        group_id = row.get("group_id")
+        if not diagram_id or not group_id:
+            sr.failed += 1
+            continue
+        diag_uuid = uuid.UUID(str(diagram_id))
+        grp_uuid = uuid.UUID(str(group_id))
+        if diag_uuid not in existing_diagrams or grp_uuid not in existing_groups:
+            sr.conflict += 1
+            continue
+        pair = (diag_uuid, grp_uuid)
+        if pair in existing:
+            sr.skipped += 1
+            continue
+        await db.execute(
+            diagram_group_members.insert().values(diagram_id=diag_uuid, group_id=grp_uuid)
+        )
         existing.add(pair)
         sr.created += 1
 

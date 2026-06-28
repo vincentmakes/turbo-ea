@@ -362,3 +362,44 @@ async def test_diagram_with_card_link_roundtrips(db):
     assert restored.data["thumbnail"] == "data:image/png;base64,AA"  # meta preserved
     links = (await db.execute(select(diagram_cards))).all()
     assert any(row.diagram_id == diag_id and row.card_id == card.id for row in links)
+
+
+async def test_diagram_groups_and_favorites_roundtrip(db):
+    """Diagram groups, their membership, and per-user favorites survive
+    export → delete → re-import."""
+    from app.models.diagram import Diagram
+    from app.models.diagram_favorite import DiagramFavorite
+    from app.models.diagram_group import DiagramGroup, diagram_group_members
+
+    user = await create_user(db, email="grp@test.com", role="admin")
+    diagram = Diagram(name="Grouped Diagram", data={"xml": "<x/>"}, created_by=user.id)
+    group = DiagramGroup(name="Domain A", color="#60a5fa", sort_order=0, created_by=user.id)
+    db.add_all([diagram, group])
+    await db.flush()
+    diag_id, group_id = diagram.id, group.id
+    await db.execute(diagram_group_members.insert().values(diagram_id=diag_id, group_id=group_id))
+    db.add(DiagramFavorite(user_id=user.id, diagram_id=diag_id))
+    await db.flush()
+
+    raw = await build_bundle(db)
+
+    await db.execute(delete(diagram_group_members))
+    await db.execute(delete(DiagramFavorite))
+    await db.execute(delete(DiagramGroup).where(DiagramGroup.id == group_id))
+    await db.execute(delete(Diagram).where(Diagram.id == diag_id))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    restored_group = (
+        await db.execute(select(DiagramGroup).where(DiagramGroup.id == group_id))
+    ).scalar_one()
+    assert restored_group.name == "Domain A"
+    assert restored_group.color == "#60a5fa"
+
+    members = (await db.execute(select(diagram_group_members))).all()
+    assert any(m.diagram_id == diag_id and m.group_id == group_id for m in members)
+
+    favs = (await db.execute(select(DiagramFavorite))).scalars().all()
+    assert any(f.user_id == user.id and f.diagram_id == diag_id for f in favs)

@@ -15,6 +15,8 @@ from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.bookmark import Bookmark
 from app.models.comment import Comment
 from app.models.diagram import Diagram
+from app.models.diagram_favorite import DiagramFavorite
+from app.models.diagram_group import DiagramGroup
 from app.models.document import Document
 from app.models.file_attachment import FileAttachment
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
@@ -40,6 +42,8 @@ from app.services.workspace_io.entities import EntitySection
 
 # Sheet name for the bespoke Diagram↔Card association (handled like CardTags).
 SHEET_DIAGRAM_CARDS = "DiagramCards"
+# Sheet name for the bespoke Diagram↔Group association (both PKs preserved).
+SHEET_DIAGRAM_GROUP_MEMBERS = "DiagramGroupMembers"
 
 ENTITY_SECTIONS: tuple[EntitySection, ...] = (
     # --- Card context ----------------------------------------------------
@@ -79,6 +83,10 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         json_asset_columns=(("data", "xml", "drawio"),),
         filename_column="name",
     ),
+    # Diagram groups (shared) + per-user favorites. After Diagrams so the
+    # favorites' diagram_id (an intra-module FK, preserved verbatim) resolves.
+    EntitySection("DiagramGroups", DiagramGroup, user_fk_columns=("created_by",)),
+    EntitySection("DiagramFavorites", DiagramFavorite, user_fk_columns=("user_id",)),
     # --- BPM --------------------------------------------------------------
     EntitySection(
         "ProcessDiagrams",
