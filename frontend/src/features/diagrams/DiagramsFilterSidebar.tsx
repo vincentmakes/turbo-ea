@@ -12,25 +12,21 @@ import IconButton from "@mui/material/IconButton";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import type { DiagramSection } from "@/types";
 
-/** Single-select scope (like mail folders) + an independent type filter. */
+/** Single-select scope (like mail folders). */
 export type DiagramScope =
   | { kind: "all" }
   | { kind: "mine" }
   | { kind: "favorites" }
   | { kind: "section"; id: string };
 
-export type DiagramTypeFilter = "all" | "data_flow" | "free_draw";
-
 interface Props {
   scope: DiagramScope;
   onScopeChange: (s: DiagramScope) => void;
-  typeFilter: DiagramTypeFilter;
-  onTypeFilterChange: (t: DiagramTypeFilter) => void;
   sections: DiagramSection[];
   onManageSections: () => void;
   /** When set, render a "Filters" header with a close button (drawer/mobile mode). */
   onClose?: () => void;
-  /** Called after any scope/type/section selection — used to auto-close the mobile drawer. */
+  /** Called after any scope/section selection — used to auto-close the mobile drawer. */
   onAfterChange?: () => void;
 }
 
@@ -40,8 +36,6 @@ const sameScope = (a: DiagramScope, b: DiagramScope) =>
 export default function DiagramsFilterSidebar({
   scope,
   onScopeChange,
-  typeFilter,
-  onTypeFilterChange,
   sections,
   onManageSections,
   onClose,
@@ -53,21 +47,11 @@ export default function DiagramsFilterSidebar({
     onScopeChange(s);
     onAfterChange?.();
   };
-  const pickType = (ty: DiagramTypeFilter) => {
-    onTypeFilterChange(ty);
-    onAfterChange?.();
-  };
 
   const quick: { scope: DiagramScope; icon: string; label: string }[] = [
     { scope: { kind: "all" }, icon: "grid_view", label: t("sidebar.all") },
     { scope: { kind: "mine" }, icon: "person", label: t("sidebar.mine") },
     { scope: { kind: "favorites" }, icon: "star", label: t("sidebar.favorites") },
-  ];
-
-  const types: { value: DiagramTypeFilter; label: string }[] = [
-    { value: "all", label: t("sidebar.allTypes") },
-    { value: "data_flow", label: t("gallery.types.dataFlow") },
-    { value: "free_draw", label: t("gallery.types.freeDraw") },
   ];
 
   const drawerMode = !!onClose;
@@ -110,25 +94,6 @@ export default function DiagramsFilterSidebar({
               <MaterialSymbol icon={q.icon} size={18} />
             </ListItemIcon>
             <ListItemText primary={q.label} />
-          </ListItemButton>
-        ))}
-      </List>
-
-      <Divider />
-
-      {/* Type filter */}
-      <Typography variant="overline" color="text.secondary" sx={{ px: 1 }}>
-        {t("sidebar.type")}
-      </Typography>
-      <List dense disablePadding>
-        {types.map((ty) => (
-          <ListItemButton
-            key={ty.value}
-            selected={typeFilter === ty.value}
-            onClick={() => pickType(ty.value)}
-            sx={{ borderRadius: 1 }}
-          >
-            <ListItemText primary={ty.label} />
           </ListItemButton>
         ))}
       </List>

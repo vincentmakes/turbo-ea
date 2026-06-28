@@ -1234,7 +1234,6 @@ function LayeredDependencyInner({
       const xml = buildLdvDiagramXml(cards, rels, layers);
       const created = await api.post<{ id: string }>("/diagrams", {
         name,
-        type: "free_draw",
         data: { xml },
       });
       setCreateOpen(false);

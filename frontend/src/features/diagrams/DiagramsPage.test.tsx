@@ -44,7 +44,6 @@ const diagrams = [
     id: "d1",
     name: "Architecture Overview",
     description: "High-level system diagram",
-    type: "free_draw",
     card_ids: ["i1"],
     section_ids: [],
     card_count: 5,
@@ -56,7 +55,6 @@ const diagrams = [
     id: "d2",
     name: "Data Flow Map",
     description: "",
-    type: "data_flow",
     card_ids: [],
     section_ids: [],
     card_count: 0,
@@ -154,7 +152,7 @@ describe("DiagramsPage", () => {
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith(
         "/diagrams",
-        expect.objectContaining({ name: "New Test Diagram", type: "free_draw" }),
+        expect.objectContaining({ name: "New Test Diagram" }),
       );
       expect(mockNavigate).toHaveBeenCalledWith("/diagrams/new-id/edit");
     });

@@ -86,7 +86,6 @@ const mockDiagrams = [
   {
     id: "diag-1",
     name: "System Overview",
-    type: "free_draw",
     card_ids: [CARD_ID],
     card_count: 3,
     updated_at: "2025-11-01T10:00:00Z",

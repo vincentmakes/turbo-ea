@@ -3633,11 +3633,6 @@
           "name": {
             "title": "Name",
             "type": "string"
-          },
-          "type": {
-            "default": "free_draw",
-            "title": "Type",
-            "type": "string"
           }
         },
         "required": [
@@ -19689,22 +19684,6 @@
               "default": false,
               "title": "Favorites",
               "type": "boolean"
-            }
-          },
-          {
-            "in": "query",
-            "name": "type",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Type"
             }
           },
           {

@@ -739,7 +739,7 @@ function ResourcesTab({
                         justifyContent: "center",
                       }}
                     >
-                      <MaterialSymbol icon="draw" size={20} color="#999" />
+                      <MaterialSymbol icon="schema" size={20} color="#999" />
                     </Box>
                   </ListItemIcon>
                 )}
@@ -747,16 +747,6 @@ function ResourcesTab({
                   primary={
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                       <Typography variant="body2">{d.name}</Typography>
-                      <Chip
-                        size="small"
-                        label={
-                          d.type === "data_flow"
-                            ? t("diagrams:gallery.types.dataFlow")
-                            : t("diagrams:gallery.types.freeDraw")
-                        }
-                        variant="outlined"
-                        sx={{ height: 20, fontSize: "0.7rem" }}
-                      />
                     </Box>
                   }
                 />
@@ -811,10 +801,7 @@ function ResourcesTab({
                 <ListItemText
                   primary={
                     <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                      <MaterialSymbol
-                        icon={d.type === "data_flow" ? "device_hub" : "draw"}
-                        size={18}
-                      />
+                      <MaterialSymbol icon="schema" size={18} />
                       <Typography variant="body2">{d.name}</Typography>
                     </Box>
                   }

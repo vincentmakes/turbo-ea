@@ -10,7 +10,7 @@ Die Galerie listet jedes Diagramm als kompakte Karte mit Vorschaubild, Name, Aut
 
 ### Diagramme finden
 
-- **Filter-Seitenleiste** — die linke Leiste schränkt die Galerie auf **Alle Diagramme**, **Von mir erstellt** oder Ihre **Favoriten** ein und filtert nach Diagramm**typ** (Data Flow / Free Draw). Über die Schaltfläche **Filter** lässt sie sich einklappen; auf kleinen Bildschirmen öffnet sie sich als eingeblendetes Panel.
+- **Filter-Seitenleiste** — die linke Leiste schränkt die Galerie auf **Alle Diagramme**, **Von mir erstellt** oder Ihre **Favoriten** ein. Über die Schaltfläche **Filter** lässt sie sich einklappen; auf kleinen Bildschirmen öffnet sie sich als eingeblendetes Panel.
 - **Suche** — das Suchfeld findet Diagramme anhand ihres Namens, ihres Autors und der Namen der darin gezeichneten Karten, sodass Sie ein Diagramm anhand seines Inhalts finden können.
 - **Sortierung** — nach zuletzt aktualisiert, zuletzt erstellt oder Name.
 - **Favoriten** — klicken Sie auf den Stern einer Karte, um sie zu Ihren persönlichen Favoriten hinzuzufügen; der Filter **Favoriten** zeigt sie alle an.

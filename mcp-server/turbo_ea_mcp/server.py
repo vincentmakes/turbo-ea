@@ -1918,7 +1918,6 @@ async def create_diagram(
             "would_create": {
                 "name": name,
                 "description": description,
-                "type": "free_draw",
                 "linked_card_ids": linked_card_ids,
                 "extracted_card_refs_from_xml": extracted_refs,
             },
@@ -1933,7 +1932,6 @@ async def create_diagram(
     payload: dict = {
         "name": name,
         "description": description or None,
-        "type": "free_draw",
         "data": {"xml": drawio_xml},
         "card_ids": linked_card_ids,
     }

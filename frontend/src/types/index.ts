@@ -790,7 +790,6 @@ export interface DiagramSummary {
   id: string;
   name: string;
   description?: string;
-  type: string;
   card_ids: string[];
   section_ids?: string[];
   thumbnail?: string;

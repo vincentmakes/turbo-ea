@@ -64,15 +64,6 @@ class TestListFilters:
         names = [d["name"] for d in resp.json()]
         assert names == ["By Member"]
 
-    async def test_type_filter(self, client, db, env):
-        admin = env["admin"]
-        await _create(client, admin, name="Flow", type="data_flow")
-        await _create(client, admin, name="Draw", type="free_draw")
-
-        resp = await client.get("/api/v1/diagrams?type=data_flow", headers=auth_headers(admin))
-        names = [d["name"] for d in resp.json()]
-        assert names == ["Flow"]
-
     async def test_search_by_name_and_author(self, client, db, env):
         admin, member = env["admin"], env["member"]
         await _create(client, admin, name="Payment Landscape")

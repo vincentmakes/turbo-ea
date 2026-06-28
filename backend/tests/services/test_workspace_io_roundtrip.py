@@ -336,7 +336,6 @@ async def test_diagram_with_card_link_roundtrips(db):
     card = await create_card(db, card_type="Application", name="Linked App", user_id=user.id)
     diagram = Diagram(
         name="My Diagram",
-        type="free_draw",
         data={"xml": "<mxGraphModel>hi</mxGraphModel>", "thumbnail": "data:image/png;base64,AA"},
         created_by=user.id,
     )

@@ -9,10 +9,6 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
-import FormControl from "@mui/material/FormControl";
-import InputLabel from "@mui/material/InputLabel";
-import MenuItem from "@mui/material/MenuItem";
-import Select from "@mui/material/Select";
 import TextField from "@mui/material/TextField";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
@@ -44,7 +40,6 @@ export default function CreateDiagramDialog({
   const [allCards, setAllCards] = useState<Card[]>([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [type, setType] = useState("free_draw");
   const [cardIds, setCardIds] = useState<string[]>(initialCardIds ?? []);
   const [submitting, setSubmitting] = useState(false);
 
@@ -53,7 +48,6 @@ export default function CreateDiagramDialog({
     if (open) {
       setName("");
       setDescription("");
-      setType("free_draw");
       setCardIds(initialCardIds ?? []);
     }
   }, [open, initialCardIds]);
@@ -93,7 +87,6 @@ export default function CreateDiagramDialog({
       const created = await api.post<{ id: string }>("/diagrams", {
         name: name.trim(),
         description: description.trim() || undefined,
-        type,
         card_ids: cardIds.length > 0 ? cardIds : undefined,
       });
       onCreated?.(created.id);
@@ -130,17 +123,6 @@ export default function CreateDiagramDialog({
           rows={2}
           sx={{ mb: 2 }}
         />
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel>{t("common:labels.type")}</InputLabel>
-          <Select
-            value={type}
-            label={t("common:labels.type")}
-            onChange={(e) => setType(e.target.value)}
-          >
-            <MenuItem value="free_draw">{t("gallery.types.freeDraw")}</MenuItem>
-            <MenuItem value="data_flow">{t("gallery.types.dataFlow")}</MenuItem>
-          </Select>
-        </FormControl>
         <Autocomplete
           multiple
           options={allCards}

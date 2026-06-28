@@ -10,7 +10,7 @@ La galerie présente chaque diagramme sous forme de carte compacte avec une mini
 
 ### Trouver des diagrammes
 
-- **Barre latérale de filtres** — le volet de gauche restreint la galerie à **Tous les diagrammes**, **Créés par moi** ou vos **Favoris**, et filtre par **type** de diagramme (Data Flow / Free Draw). Le bouton **Filtres** permet de la réduire ; sur petits écrans, elle s'ouvre en panneau coulissant.
+- **Barre latérale de filtres** — le volet de gauche restreint la galerie à **Tous les diagrammes**, **Créés par moi** ou vos **Favoris**. Le bouton **Filtres** permet de la réduire ; sur petits écrans, elle s'ouvre en panneau coulissant.
 - **Recherche** — le champ de recherche correspond au nom d'un diagramme, à son auteur et aux noms des cartes qui y sont dessinées, afin de retrouver un diagramme par son contenu.
 - **Tri** — par récemment mis à jour, récemment créé ou nom.
 - **Favoris** — cliquez sur l'étoile d'une carte pour l'ajouter à vos favoris personnels ; le filtre **Favoris** les affiche tous.

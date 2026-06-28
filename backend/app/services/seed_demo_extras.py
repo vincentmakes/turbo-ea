@@ -1183,7 +1183,6 @@ async def seed_extras_demo_data(db: AsyncSession) -> dict:
             id=uuid.uuid4(),
             name=diag_def["name"],
             description=diag_def["description"],
-            type="free_draw",
             data={"xml": xml},
             created_by=admin_id,
         )

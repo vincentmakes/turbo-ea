@@ -35,7 +35,6 @@ def _extract_card_refs(data: dict | None) -> list[str]:
 class DiagramCreate(BaseModel):
     name: str
     description: str | None = None
-    type: str = "free_draw"
     data: dict | None = None
     card_ids: list[str] | None = None
 
@@ -133,7 +132,6 @@ async def list_diagrams(
     search: str | None = None,
     mine: bool = False,
     favorites: bool = False,
-    type: str | None = None,
     section_id: str | None = None,
     sort_by: str = "updated_at",
     sort_dir: str = "desc",
@@ -150,8 +148,6 @@ async def list_diagrams(
         )
     if mine:
         stmt = stmt.where(Diagram.created_by == user.id)
-    if type:
-        stmt = stmt.where(Diagram.type == type)
     if section_id:
         stmt = stmt.join(
             diagram_section_members, diagram_section_members.c.diagram_id == Diagram.id
@@ -210,7 +206,6 @@ async def list_diagrams(
             "id": str(d.id),
             "name": d.name,
             "description": d.description,
-            "type": d.type,
             "card_ids": id_map.get(str(d.id), []),
             "section_ids": section_map.get(str(d.id), []),
             "thumbnail": (d.data or {}).get("thumbnail"),
@@ -294,7 +289,6 @@ async def create_diagram(
     d = Diagram(
         name=body.name,
         description=body.description,
-        type=body.type,
         data=body.data or {},
         created_by=user.id,
     )
@@ -309,7 +303,6 @@ async def create_diagram(
     return {
         "id": str(d.id),
         "name": d.name,
-        "type": d.type,
         "card_ids": body.card_ids or [],
     }
 
@@ -338,7 +331,6 @@ async def get_diagram(
         "id": str(d.id),
         "name": d.name,
         "description": d.description,
-        "type": d.type,
         "data": d.data,
         "card_ids": linked_card_ids,
         "card_refs": _extract_card_refs(d.data),

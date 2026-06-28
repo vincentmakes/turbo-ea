@@ -329,7 +329,7 @@ class TestCreateDiagram:
         assert args[0] == "/diagrams"
         assert kwargs["json"]["data"]["xml"] == xml
         assert kwargs["json"]["card_ids"] == ["c1"]
-        assert kwargs["json"]["type"] == "free_draw"
+        assert "type" not in kwargs["json"]
 
 
 # ── import_bpmn ────────────────────────────────────────────────────────────

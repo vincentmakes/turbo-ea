@@ -44,15 +44,13 @@ import type { Card, DiagramSummary, DiagramSection } from "@/types";
 import CreateDiagramDialog from "./CreateDiagramDialog";
 import ManageSectionsDialog from "./ManageSectionsDialog";
 import AssignSectionsDialog from "./AssignSectionsDialog";
-import DiagramsFilterSidebar, {
-  type DiagramScope,
-  type DiagramTypeFilter,
-} from "./DiagramsFilterSidebar";
+import DiagramsFilterSidebar, { type DiagramScope } from "./DiagramsFilterSidebar";
 
 type ViewMode = "card" | "list";
 type SortKey = "updated_at" | "created_at" | "name";
 
 const FAVORITE_COLOR = "#f5b400";
+const DIAGRAM_ICON = "schema";
 
 export default function DiagramsPage() {
   const { t } = useTranslation(["diagrams", "common"]);
@@ -86,7 +84,6 @@ export default function DiagramsPage() {
 
   // Sidebar + search + sort state
   const [scope, setScope] = useState<DiagramScope>({ kind: "all" });
-  const [typeFilter, setTypeFilter] = useState<DiagramTypeFilter>("all");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("updated_at");
@@ -128,12 +125,11 @@ export default function DiagramsPage() {
     if (scope.kind === "mine") params.set("mine", "true");
     if (scope.kind === "favorites") params.set("favorites", "true");
     if (scope.kind === "section") params.set("section_id", scope.id);
-    if (typeFilter !== "all") params.set("type", typeFilter);
     if (search) params.set("search", search);
     params.set("sort_by", sortBy);
     const qs = params.toString();
     api.get<DiagramSummary[]>(`/diagrams${qs ? `?${qs}` : ""}`).then(setDiagrams);
-  }, [scope, typeFilter, search, sortBy]);
+  }, [scope, search, sortBy]);
 
   const loadSections = useCallback(() => {
     api
@@ -232,9 +228,6 @@ export default function DiagramsPage() {
     setMenuDiagram(d);
   };
 
-  const typeLabel = (typeKey: string) =>
-    typeKey === "data_flow" ? t("gallery.types.dataFlow") : t("gallery.types.freeDraw");
-  const typeIcon = (typeKey: string) => (typeKey === "data_flow" ? "device_hub" : "draw");
   const fmtDate = (iso?: string) => (iso ? formatDate(iso) : "");
 
   const toggleCollapse = (key: string) =>
@@ -287,13 +280,13 @@ export default function DiagramsPage() {
               style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
             />
           ) : (
-            <MaterialSymbol icon={typeIcon(d.type)} size={36} color="#bbb" />
+            <MaterialSymbol icon={DIAGRAM_ICON} size={36} color="#bbb" />
           )}
         </Box>
 
         <CardContent sx={{ p: 1.25, "&:last-child": { pb: 1.25 } }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.25 }}>
-            <MaterialSymbol icon={typeIcon(d.type)} size={18} color="#1976d2" />
+            <MaterialSymbol icon={DIAGRAM_ICON} size={18} color="#1976d2" />
             <Typography variant="body2" fontWeight={600} noWrap sx={{ flex: 1 }}>
               {d.name}
             </Typography>
@@ -389,8 +382,6 @@ export default function DiagramsPage() {
           <DiagramsFilterSidebar
             scope={scope}
             onScopeChange={setScope}
-            typeFilter={typeFilter}
-            onTypeFilterChange={setTypeFilter}
             sections={sections}
             onManageSections={() => {
               setFiltersOpen(false);
@@ -405,8 +396,6 @@ export default function DiagramsPage() {
           <DiagramsFilterSidebar
             scope={scope}
             onScopeChange={setScope}
-            typeFilter={typeFilter}
-            onTypeFilterChange={setTypeFilter}
             sections={sections}
             onManageSections={() => setManageOpen(true)}
           />
@@ -478,7 +467,7 @@ export default function DiagramsPage() {
         {/* Empty state */}
         {diagrams.length === 0 && (
           <Typography color="text.secondary" sx={{ textAlign: "center", py: 6 }}>
-            {search || scope.kind !== "all" || typeFilter !== "all"
+            {search || scope.kind !== "all"
               ? t("gallery.noResults")
               : t("gallery.empty")}
           </Typography>
@@ -533,9 +522,6 @@ export default function DiagramsPage() {
                   <TableCell sx={{ fontWeight: 600 }}>
                     {t("common:labels.description")}
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600, width: 120 }}>
-                    {t("common:labels.type")}
-                  </TableCell>
                   <TableCell sx={{ fontWeight: 600, width: 160 }}>
                     {t("gallery.author")}
                   </TableCell>
@@ -568,7 +554,7 @@ export default function DiagramsPage() {
                             }
                           />
                         </IconButton>
-                        <MaterialSymbol icon={typeIcon(d.type)} size={20} color="#1976d2" />
+                        <MaterialSymbol icon={DIAGRAM_ICON} size={20} color="#1976d2" />
                         <Typography variant="body2" fontWeight={600} noWrap>
                           {d.name}
                         </Typography>
@@ -584,9 +570,6 @@ export default function DiagramsPage() {
                       >
                         {d.description || "—"}
                       </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip size="small" label={typeLabel(d.type)} />
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" color="text.secondary" noWrap>

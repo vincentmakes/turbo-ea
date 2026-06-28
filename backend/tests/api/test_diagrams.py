@@ -51,7 +51,6 @@ class TestCreateDiagram:
             "/api/v1/diagrams",
             json={
                 "name": "Architecture Overview",
-                "type": "free_draw",
                 "data": {"xml": "<mxGraphModel/>"},
             },
             headers=auth_headers(admin),
@@ -59,7 +58,6 @@ class TestCreateDiagram:
         assert resp.status_code == 201
         data = resp.json()
         assert data["name"] == "Architecture Overview"
-        assert data["type"] == "free_draw"
 
     async def test_member_can_create(self, client, db, diagrams_env):
         member = diagrams_env["member"]
