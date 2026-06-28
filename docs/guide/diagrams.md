@@ -6,7 +6,7 @@ The **Diagrams** module lets you create **visual architecture diagrams** using a
 
 ## Diagram Gallery
 
-The gallery lists every diagram as a compact card with a thumbnail, name, author, and the number of cards it references. Switch between **card** and **list** views, and **Create**, **Open**, **Edit details**, organise, or **Delete** any diagram.
+The gallery lists every diagram as a compact card with a thumbnail, name, author, and the number of cards it references. **Create**, **Open**, **Edit details**, organise, or **Delete** any diagram.
 
 ### Finding diagrams
 

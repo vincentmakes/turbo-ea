@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Removed
 - **Removed the unused Data Flow / Free Draw diagram type.** The distinction was never used by any feature; diagrams are now a single kind.
+- **Removed the Diagrams list/table view.** The gallery is now card-only, with grouping, search, and filters.
 
 ### Fixed
 - **The diagram editor's "Save & Exit" button now works.** Clicking *Save & Exit* in the DrawIO toolbar saves the diagram and returns to the viewer; previously it neither saved nor exited.

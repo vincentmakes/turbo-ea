@@ -6,7 +6,7 @@ Das Modul **Diagramme** ermöglicht es Ihnen, **visuelle Architekturdiagramme** 
 
 ## Diagramm-Galerie
 
-Die Galerie listet jedes Diagramm als kompakte Karte mit Vorschaubild, Name, Autor und der Anzahl der referenzierten Karten auf. Wechseln Sie zwischen **Karten-** und **Listenansicht** und **Erstellen**, **Öffnen**, **Details bearbeiten**, organisieren oder **Löschen** Sie jedes Diagramm.
+Die Galerie listet jedes Diagramm als kompakte Karte mit Vorschaubild, Name, Autor und der Anzahl der referenzierten Karten auf. **Erstellen**, **Öffnen**, **Details bearbeiten**, organisieren oder **Löschen** Sie jedes Diagramm.
 
 ### Diagramme finden
 

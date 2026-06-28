@@ -167,14 +167,6 @@ describe("DiagramsPage", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/diagrams/d1");
   });
 
-  it("has view toggle buttons", () => {
-    renderPage();
-    const toggleGroup = screen
-      .getAllByRole("button")
-      .filter((b) => b.getAttribute("value") === "card" || b.getAttribute("value") === "list");
-    expect(toggleGroup.length).toBe(2);
-  });
-
   it("'Created by me' sidebar filter requests mine=true", async () => {
     renderPage();
     await screen.findByText("Architecture Overview");

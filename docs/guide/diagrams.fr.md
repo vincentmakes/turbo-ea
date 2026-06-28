@@ -6,7 +6,7 @@ Le module **Diagrammes** vous permet de créer des **diagrammes d'architecture v
 
 ## Galerie de diagrammes
 
-La galerie présente chaque diagramme sous forme de carte compacte avec une miniature, un nom, un auteur et le nombre de cartes référencées. Basculez entre les vues **carte** et **liste**, et **Créez**, **Ouvrez**, **Modifiez les détails**, organisez ou **Supprimez** n'importe quel diagramme.
+La galerie présente chaque diagramme sous forme de carte compacte avec une miniature, un nom, un auteur et le nombre de cartes référencées. **Créez**, **Ouvrez**, **Modifiez les détails**, organisez ou **Supprimez** n'importe quel diagramme.
 
 ### Trouver des diagrammes
 

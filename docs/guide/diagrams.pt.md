@@ -6,7 +6,7 @@ O módulo **Diagramas** permite criar **diagramas visuais de arquitetura** utili
 
 ## Galeria de diagramas
 
-A galeria lista cada diagrama como um cartão compacto com miniatura, nome, autor e o número de cartões que referencia. Alterne entre as visualizações de **cartão** e **lista** e **Crie**, **Abra**, **Edite detalhes**, organize ou **Exclua** qualquer diagrama.
+A galeria lista cada diagrama como um cartão compacto com miniatura, nome, autor e o número de cartões que referencia. **Crie**, **Abra**, **Edite detalhes**, organize ou **Exclua** qualquer diagrama.
 
 ### Encontrar diagramas
 

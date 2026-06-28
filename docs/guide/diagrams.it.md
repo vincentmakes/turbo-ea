@@ -6,7 +6,7 @@ Il modulo **Diagrammi** consente di creare **diagrammi di architettura visivi** 
 
 ## Galleria diagrammi
 
-La galleria elenca ogni diagramma come una scheda compatta con miniatura, nome, autore e il numero di schede a cui fa riferimento. Passa dalla vista a **schede** a quella a **elenco** e **Crea**, **Apri**, **Modifica dettagli**, organizza o **Elimina** qualsiasi diagramma.
+La galleria elenca ogni diagramma come una scheda compatta con miniatura, nome, autore e il numero di schede a cui fa riferimento. **Crea**, **Apri**, **Modifica dettagli**, organizza o **Elimina** qualsiasi diagramma.
 
 ### Trovare i diagrammi
 

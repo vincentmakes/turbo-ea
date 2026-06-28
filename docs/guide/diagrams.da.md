@@ -6,7 +6,7 @@
 
 ## Diagramgalleri
 
-Galleriet viser hvert diagram som et kompakt kort med et miniaturebillede, navn, forfatter og antallet af kort, det refererer til. Skift mellem **kort-** og **listevisning**, og **Opret**, **Åbn**, **Rediger detaljer**, organisér eller **Slet** ethvert diagram.
+Galleriet viser hvert diagram som et kompakt kort med et miniaturebillede, navn, forfatter og antallet af kort, det refererer til. **Opret**, **Åbn**, **Rediger detaljer**, organisér eller **Slet** ethvert diagram.
 
 ### Find diagrammer
 

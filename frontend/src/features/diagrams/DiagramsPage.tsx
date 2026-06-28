@@ -19,16 +19,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import Chip from "@mui/material/Chip";
 import Checkbox from "@mui/material/Checkbox";
-import ToggleButton from "@mui/material/ToggleButton";
-import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Collapse from "@mui/material/Collapse";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
-import Paper from "@mui/material/Paper";
 import Menu from "@mui/material/Menu";
 import Autocomplete from "@mui/material/Autocomplete";
 import ListItemIcon from "@mui/material/ListItemIcon";
@@ -46,7 +37,6 @@ import ManageGroupsDialog from "./ManageGroupsDialog";
 import AssignGroupsDialog from "./AssignGroupsDialog";
 import DiagramsFilterSidebar, { type DiagramScope } from "./DiagramsFilterSidebar";
 
-type ViewMode = "card" | "list";
 type SortKey = "updated_at" | "created_at" | "name";
 
 const FAVORITE_COLOR = "#f5b400";
@@ -61,9 +51,6 @@ export default function DiagramsPage() {
   const { types: metamodelTypes } = useMetamodel();
   const [diagrams, setDiagrams] = useState<DiagramSummary[]>([]);
   const [groups, setGroups] = useState<DiagramGroup[]>([]);
-  const [viewMode, setViewMode] = useState<ViewMode>(
-    () => (localStorage.getItem("diagrams_view") as ViewMode) || "card",
-  );
 
   // Collapsible filter sidebar: temporary drawer on mobile, inline-collapsible on desktop.
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -149,13 +136,6 @@ export default function DiagramsPage() {
       .then((res) => setAllCards(res.items))
       .catch(() => {});
   }, [loadGroups]);
-
-  const handleViewChange = (_: unknown, mode: ViewMode | null) => {
-    if (mode) {
-      setViewMode(mode);
-      localStorage.setItem("diagrams_view", mode);
-    }
-  };
 
   const toggleFavorite = useCallback(
     async (d: DiagramSummary, e: React.MouseEvent) => {
@@ -368,7 +348,7 @@ export default function DiagramsPage() {
     </Box>
   );
 
-  const showGrouped = viewMode === "card" && scope.kind !== "group";
+  const showGrouped = scope.kind !== "group";
 
   return (
     <Box sx={{ display: "flex", gap: 2, alignItems: "flex-start" }}>
@@ -446,14 +426,6 @@ export default function DiagramsPage() {
             <MenuItem value="created_at">{t("gallery.sort.created")}</MenuItem>
             <MenuItem value="name">{t("gallery.sort.name")}</MenuItem>
           </Select>
-          <ToggleButtonGroup value={viewMode} exclusive onChange={handleViewChange} size="small">
-            <ToggleButton value="card">
-              <MaterialSymbol icon="grid_view" size={18} />
-            </ToggleButton>
-            <ToggleButton value="list">
-              <MaterialSymbol icon="view_list" size={18} />
-            </ToggleButton>
-          </ToggleButtonGroup>
           <Button
             variant="contained"
             startIcon={<MaterialSymbol icon="add" size={18} />}
@@ -473,8 +445,8 @@ export default function DiagramsPage() {
           </Typography>
         )}
 
-        {/* Card view — grouped by group */}
-        {viewMode === "card" && diagrams.length > 0 && showGrouped && (
+        {/* Grouped by group */}
+        {diagrams.length > 0 && showGrouped && (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {grouped.map((g) => (
               <Box key={g.key}>
@@ -509,90 +481,8 @@ export default function DiagramsPage() {
           </Box>
         )}
 
-        {/* Card view — flat (single group selected) */}
-        {viewMode === "card" && diagrams.length > 0 && !showGrouped && cardGrid(diagrams)}
-
-        {/* List view */}
-        {viewMode === "list" && diagrams.length > 0 && (
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>{t("common:labels.name")}</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>
-                    {t("common:labels.description")}
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 600, width: 160 }}>
-                    {t("gallery.author")}
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 600, width: 100 }} align="center">
-                    {t("common:labels.cards")}
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 600, width: 120 }}>
-                    {t("common:labels.updatedAt")}
-                  </TableCell>
-                  <TableCell sx={{ width: 48 }} />
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {diagrams.map((d) => (
-                  <TableRow
-                    key={d.id}
-                    hover
-                    sx={{ cursor: "pointer" }}
-                    onClick={() => navigate(`/diagrams/${d.id}`)}
-                  >
-                    <TableCell>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <IconButton size="small" onClick={(e) => toggleFavorite(d, e)}>
-                          <MaterialSymbol
-                            icon="star"
-                            size={16}
-                            color={d.is_favorite ? FAVORITE_COLOR : "#bbb"}
-                            style={
-                              d.is_favorite ? { fontVariationSettings: "'FILL' 1" } : undefined
-                            }
-                          />
-                        </IconButton>
-                        <MaterialSymbol icon={DIAGRAM_ICON} size={20} color="#1976d2" />
-                        <Typography variant="body2" fontWeight={600} noWrap>
-                          {d.name}
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        noWrap
-                        sx={{ maxWidth: 300 }}
-                        title={d.description}
-                      >
-                        {d.description || "—"}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary" noWrap>
-                        {d.created_by_name || "—"}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="center">{d.card_count || 0}</TableCell>
-                    <TableCell>
-                      <Typography variant="caption" color="text.secondary">
-                        {fmtDate(d.updated_at)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <IconButton size="small" onClick={(e) => openMenu(e, d)}>
-                        <MaterialSymbol icon="more_vert" size={18} />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
+        {/* Flat (single group selected) */}
+        {diagrams.length > 0 && !showGrouped && cardGrid(diagrams)}
       </Box>
 
       {/* Context menu */}
