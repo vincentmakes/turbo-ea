@@ -12,26 +12,26 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Checkbox from "@mui/material/Checkbox";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import type { DiagramSection, DiagramSummary } from "@/types";
+import type { DiagramGroup, DiagramSummary } from "@/types";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   diagram: DiagramSummary | null;
-  sections: DiagramSection[];
-  /** Called with the diagram's new section ids so the gallery can update at once. */
-  onSaved: (sectionIds: string[]) => void;
-  /** Re-fetch sections after an inline create. */
-  onSectionsChanged: () => void;
+  groups: DiagramGroup[];
+  /** Called with the diagram's new group ids so the gallery can update at once. */
+  onSaved: (groupIds: string[]) => void;
+  /** Re-fetch groups after an inline create. */
+  onGroupsChanged: () => void;
 }
 
-export default function AssignSectionsDialog({
+export default function AssignGroupsDialog({
   open,
   onClose,
   diagram,
-  sections,
+  groups,
   onSaved,
-  onSectionsChanged,
+  onGroupsChanged,
 }: Props) {
   const { t } = useTranslation(["diagrams", "common"]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -40,7 +40,7 @@ export default function AssignSectionsDialog({
 
   useEffect(() => {
     if (open && diagram) {
-      setSelected(new Set(diagram.section_ids || []));
+      setSelected(new Set(diagram.group_ids || []));
       setNewName("");
     }
   }, [open, diagram]);
@@ -56,21 +56,21 @@ export default function AssignSectionsDialog({
 
   const createInline = useCallback(async () => {
     if (!newName.trim()) return;
-    const created = await api.post<DiagramSection>("/diagram-sections", {
+    const created = await api.post<DiagramGroup>("/diagram-groups", {
       name: newName.trim(),
-      sort_order: sections.length,
+      sort_order: groups.length,
     });
     setNewName("");
     setSelected((prev) => new Set(prev).add(created.id));
-    onSectionsChanged();
-  }, [newName, sections.length, onSectionsChanged]);
+    onGroupsChanged();
+  }, [newName, groups.length, onGroupsChanged]);
 
   const save = useCallback(async () => {
     if (!diagram) return;
     setSaving(true);
     try {
       const ids = Array.from(selected);
-      await api.put(`/diagrams/${diagram.id}/sections`, { section_ids: ids });
+      await api.put(`/diagrams/${diagram.id}/groups`, { group_ids: ids });
       onSaved(ids);
       onClose();
     } finally {
@@ -80,19 +80,19 @@ export default function AssignSectionsDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth disableRestoreFocus>
-      <DialogTitle>{t("assignSections.title")}</DialogTitle>
+      <DialogTitle>{t("assignGroups.title")}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          {t("assignSections.subtitle", { name: diagram?.name || "" })}
+          {t("assignGroups.subtitle", { name: diagram?.name || "" })}
         </Typography>
 
-        {sections.length === 0 ? (
+        {groups.length === 0 ? (
           <Typography color="text.secondary" sx={{ mb: 1 }}>
-            {t("assignSections.empty")}
+            {t("assignGroups.empty")}
           </Typography>
         ) : (
           <Box sx={{ display: "flex", flexDirection: "column" }}>
-            {sections.map((s) => (
+            {groups.map((s) => (
               <FormControlLabel
                 key={s.id}
                 control={
@@ -125,7 +125,7 @@ export default function AssignSectionsDialog({
           <TextField
             size="small"
             fullWidth
-            placeholder={t("assignSections.createPlaceholder")}
+            placeholder={t("assignGroups.createPlaceholder")}
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => {
@@ -137,7 +137,7 @@ export default function AssignSectionsDialog({
             onClick={createInline}
             disabled={!newName.trim()}
           >
-            {t("assignSections.create")}
+            {t("assignGroups.create")}
           </Button>
         </Box>
       </DialogContent>

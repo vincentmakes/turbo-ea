@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [1.57.0] - 2026-06-27
 
 ### Added
-- **Redesigned Diagrams gallery.** Diagram cards are now more compact, and a left **filter sidebar** narrows the gallery to *All diagrams*, *Created by me*, or your *Favorites*. A **search box** matches a diagram's name, its author, and the names of the cards drawn inside it. Diagrams can be grouped into **sections** — shared, workspace-wide labels that a diagram can belong to several of at once — shown as collapsible headings with anything unassigned under *Ungrouped*. Each card has a **favorite** star (per user), and a *Sort* control orders by recently updated, recently created, or name.
+- **Redesigned Diagrams gallery.** Diagram cards are now more compact, and a left **filter sidebar** narrows the gallery to *All diagrams*, *Created by me*, or your *Favorites*. A **search box** matches a diagram's name, its author, and the names of the cards drawn inside it. Diagrams can be organized into **groups** — shared, workspace-wide labels that a diagram can belong to several of at once — shown as collapsible headings with anything unassigned under *Ungrouped*. Each card has a **favorite** star (per user), and a *Sort* control orders by recently updated, recently created, or name.
 
 ### Removed
 - **Removed the unused Data Flow / Free Draw diagram type.** The distinction was never used by any feature; diagrams are now a single kind.
@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 - **The diagram editor's "Save & Exit" button now works.** Clicking *Save & Exit* in the DrawIO toolbar saves the diagram and returns to the viewer; previously it neither saved nor exited.
 - **The Diagrams filter sidebar is now collapsible.** A *Filters* button hides/shows the sidebar on desktop (remembered across visits) and opens it as a slide-in panel on mobile, so the gallery is usable on small screens.
-- **Adding a diagram to a section now updates the gallery instantly** instead of requiring a page refresh.
+- **Adding a diagram to a group now updates the gallery instantly** instead of requiring a page refresh.
 
 ## [1.56.0] - 2026-06-27
 

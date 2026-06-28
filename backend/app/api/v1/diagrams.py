@@ -13,7 +13,7 @@ from app.database import get_db
 from app.models.card import Card
 from app.models.diagram import Diagram, diagram_cards
 from app.models.diagram_favorite import DiagramFavorite
-from app.models.diagram_section import diagram_section_members
+from app.models.diagram_group import diagram_group_members
 from app.models.user import User
 from app.services.permission_service import PermissionService
 
@@ -69,13 +69,13 @@ async def _get_card_ids_bulk(db: AsyncSession) -> dict[str, list[str]]:
     return mapping
 
 
-async def _get_section_ids_bulk(db: AsyncSession) -> dict[str, list[str]]:
-    """Return mapping of diagram_id -> [section_id, ...] for all diagrams."""
-    result = await db.execute(select(diagram_section_members))
+async def _get_group_ids_bulk(db: AsyncSession) -> dict[str, list[str]]:
+    """Return mapping of diagram_id -> [group_id, ...] for all diagrams."""
+    result = await db.execute(select(diagram_group_members))
     mapping: dict[str, list[str]] = {}
     for row in result.all():
         did = str(row.diagram_id)
-        mapping.setdefault(did, []).append(str(row.section_id))
+        mapping.setdefault(did, []).append(str(row.group_id))
     return mapping
 
 
@@ -132,7 +132,7 @@ async def list_diagrams(
     search: str | None = None,
     mine: bool = False,
     favorites: bool = False,
-    section_id: str | None = None,
+    group_id: str | None = None,
     sort_by: str = "updated_at",
     sort_dir: str = "desc",
     db: AsyncSession = Depends(get_db),
@@ -148,10 +148,10 @@ async def list_diagrams(
         )
     if mine:
         stmt = stmt.where(Diagram.created_by == user.id)
-    if section_id:
+    if group_id:
         stmt = stmt.join(
-            diagram_section_members, diagram_section_members.c.diagram_id == Diagram.id
-        ).where(diagram_section_members.c.section_id == uuid.UUID(section_id))
+            diagram_group_members, diagram_group_members.c.diagram_id == Diagram.id
+        ).where(diagram_group_members.c.group_id == uuid.UUID(group_id))
 
     favorite_ids = await _get_favorite_ids(db, user.id)
     if favorites:
@@ -164,7 +164,7 @@ async def list_diagrams(
 
     # Bulk-load supporting data
     id_map = await _get_card_ids_bulk(db)
-    section_map = await _get_section_ids_bulk(db)
+    group_map = await _get_group_ids_bulk(db)
     creator_names = await _get_creator_names(db, rows)
 
     # Unified text search: name / description / author / contained-card names.
@@ -207,7 +207,7 @@ async def list_diagrams(
             "name": d.name,
             "description": d.description,
             "card_ids": id_map.get(str(d.id), []),
-            "section_ids": section_map.get(str(d.id), []),
+            "group_ids": group_map.get(str(d.id), []),
             "thumbnail": (d.data or {}).get("thumbnail"),
             "card_count": len(_extract_card_refs(d.data)),
             "created_by": str(d.created_by) if d.created_by else None,
@@ -319,12 +319,10 @@ async def get_diagram(
     if not d:
         raise HTTPException(404, "Diagram not found")
     linked_card_ids = await _get_card_ids(db, d.id)
-    section_result = await db.execute(
-        select(diagram_section_members.c.section_id).where(
-            diagram_section_members.c.diagram_id == d.id
-        )
+    group_result = await db.execute(
+        select(diagram_group_members.c.group_id).where(diagram_group_members.c.diagram_id == d.id)
     )
-    section_ids = [str(row[0]) for row in section_result.all()]
+    group_ids = [str(row[0]) for row in group_result.all()]
     favorite_ids = await _get_favorite_ids(db, user.id)
     creator_names = await _get_creator_names(db, [d])
     return {
@@ -334,7 +332,7 @@ async def get_diagram(
         "data": d.data,
         "card_ids": linked_card_ids,
         "card_refs": _extract_card_refs(d.data),
-        "section_ids": section_ids,
+        "group_ids": group_ids,
         "created_by": str(d.created_by) if d.created_by else None,
         "created_by_name": creator_names.get(str(d.created_by)) if d.created_by else None,
         "is_favorite": str(d.id) in favorite_ids,
@@ -449,21 +447,21 @@ async def unlink_card_from_diagram(
     await db.commit()
 
 
-# ── section membership ──────────────────────────────────────────────────────────
+# ── group membership ──────────────────────────────────────────────────────────
 
 
-class DiagramSectionsUpdate(BaseModel):
-    section_ids: list[str]
+class DiagramGroupsUpdate(BaseModel):
+    group_ids: list[str]
 
 
-@router.put("/{diagram_id}/sections")
-async def set_diagram_sections(
+@router.put("/{diagram_id}/groups")
+async def set_diagram_groups(
     diagram_id: str,
-    body: DiagramSectionsUpdate,
+    body: DiagramGroupsUpdate,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Replace a diagram's section memberships (multi-section)."""
+    """Replace a diagram's group memberships (multi-group)."""
     await PermissionService.require_permission(db, user, "diagrams.manage")
     d_id = uuid.UUID(diagram_id)
     result = await db.execute(select(Diagram).where(Diagram.id == d_id))
@@ -471,14 +469,14 @@ async def set_diagram_sections(
         raise HTTPException(404, "Diagram not found")
 
     await db.execute(
-        delete(diagram_section_members).where(diagram_section_members.c.diagram_id == d_id)
+        delete(diagram_group_members).where(diagram_group_members.c.diagram_id == d_id)
     )
-    for sid in dict.fromkeys(body.section_ids):
+    for sid in dict.fromkeys(body.group_ids):
         await db.execute(
-            diagram_section_members.insert().values(
+            diagram_group_members.insert().values(
                 diagram_id=d_id,
-                section_id=uuid.UUID(sid),
+                group_id=uuid.UUID(sid),
             )
         )
     await db.commit()
-    return {"diagram_id": str(d_id), "section_ids": list(dict.fromkeys(body.section_ids))}
+    return {"diagram_id": str(d_id), "group_ids": list(dict.fromkeys(body.group_ids))}

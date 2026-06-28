@@ -15,13 +15,14 @@ La galleria elenca ogni diagramma come una scheda compatta con miniatura, nome, 
 - **Ordinamento** — per aggiornati di recente, creati di recente o nome.
 - **Preferiti** — fai clic sulla stella di una scheda per aggiungerla ai tuoi preferiti personali; il filtro **Preferiti** li mostra tutti.
 
-### Sezioni
+### Gruppi
 
-Raggruppa i diagrammi correlati in **sezioni** — etichette condivise a livello di area di lavoro. Un diagramma può appartenere a più sezioni contemporaneamente. Nella vista a schede la galleria mostra ogni sezione come intestazione comprimibile; gli elementi non assegnati compaiono in **Non raggruppati**.
+Raggruppa i diagrammi correlati in **gruppi** — etichette condivise a livello di area di lavoro. Un diagramma può appartenere a più gruppi contemporaneamente. Nella vista a schede la galleria mostra ogni gruppo come intestazione comprimibile; gli elementi non assegnati compaiono in **Non raggruppati**.
 
-- Usa **Gestisci sezioni** nella barra laterale per creare, rinominare, ricolorare o eliminare le sezioni.
-- Usa **Aggiungi a sezioni…** dal menu di un diagramma per inserirlo in una o più sezioni (puoi creare una nuova sezione al volo).
-- La selezione di una sezione nella barra laterale filtra la galleria solo su quella sezione.
+- Usa **Gestisci gruppi** nella barra laterale per creare, rinominare, ricolorare o eliminare i gruppi.
+- Usa **Aggiungi a gruppi…** dal menu di un diagramma per inserirlo in uno o più gruppi (puoi creare un nuovo gruppo al volo).
+- La selezione di un gruppo nella barra laterale filtra la galleria solo su quel gruppo.
+
 
 ## L'editor di diagrammi
 

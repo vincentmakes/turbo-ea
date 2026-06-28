@@ -15,13 +15,14 @@ Die Galerie listet jedes Diagramm als kompakte Karte mit Vorschaubild, Name, Aut
 - **Sortierung** — nach zuletzt aktualisiert, zuletzt erstellt oder Name.
 - **Favoriten** — klicken Sie auf den Stern einer Karte, um sie zu Ihren persönlichen Favoriten hinzuzufügen; der Filter **Favoriten** zeigt sie alle an.
 
-### Bereiche
+### Gruppen
 
-Gruppieren Sie zusammengehörige Diagramme in **Bereiche** — gemeinsame, arbeitsbereichsweite Etiketten. Ein Diagramm kann gleichzeitig zu mehreren Bereichen gehören. In der Kartenansicht zeigt die Galerie jeden Bereich als einklappbare Überschrift; nicht zugeordnete Diagramme erscheinen unter **Nicht gruppiert**.
+Gruppieren Sie zusammengehörige Diagramme in **Gruppen** — gemeinsame, arbeitsbereichsweite Etiketten. Ein Diagramm kann gleichzeitig zu mehreren Gruppen gehören. In der Kartenansicht zeigt die Galerie jede Gruppe als einklappbare Überschrift; nicht zugeordnete Diagramme erscheinen unter **Nicht gruppiert**.
 
-- Verwenden Sie **Bereiche verwalten** in der Seitenleiste, um Bereiche zu erstellen, umzubenennen, umzufärben oder zu löschen.
-- Verwenden Sie **Zu Bereichen hinzufügen…** im Menü eines Diagramms, um es in einen oder mehrere Bereiche einzuordnen (Sie können dabei direkt einen neuen Bereich erstellen).
-- Die Auswahl eines Bereichs in der Seitenleiste filtert die Galerie auf genau diesen Bereich.
+- Verwenden Sie **Gruppen verwalten** in der Seitenleiste, um Gruppen zu erstellen, umzubenennen, umzufärben oder zu löschen.
+- Verwenden Sie **Zu Gruppen hinzufügen…** im Menü eines Diagramms, um es in eine oder mehrere Gruppen einzuordnen (Sie können dabei direkt eine neue Gruppe erstellen).
+- Die Auswahl einer Gruppe in der Seitenleiste filtert die Galerie auf genau diese Gruppe.
+
 
 ## Der Diagramm-Editor
 

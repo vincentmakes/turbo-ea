@@ -26,10 +26,10 @@ vi.mock("@/hooks/useMetamodel", () => ({
 vi.mock("@/hooks/useDateFormat", () => ({
   useDateFormat: () => ({ formatDate: (iso: string) => iso }),
 }));
-// Section dialogs are exercised separately; stub them. The assign stub exposes
+// Group dialogs are exercised separately; stub them. The assign stub exposes
 // a button so we can drive its onSaved callback and assert the gallery updates.
-vi.mock("./ManageSectionsDialog", () => ({ default: () => null }));
-vi.mock("./AssignSectionsDialog", () => ({
+vi.mock("./ManageGroupsDialog", () => ({ default: () => null }));
+vi.mock("./AssignGroupsDialog", () => ({
   default: ({ open, onSaved }: { open: boolean; onSaved: (ids: string[]) => void }) =>
     open ? (
       <button onClick={() => onSaved(["s1"])}>stub-assign-save</button>
@@ -45,7 +45,7 @@ const diagrams = [
     name: "Architecture Overview",
     description: "High-level system diagram",
     card_ids: ["i1"],
-    section_ids: [],
+    group_ids: [],
     card_count: 5,
     created_by_name: "Ada Admin",
     is_favorite: false,
@@ -56,7 +56,7 @@ const diagrams = [
     name: "Data Flow Map",
     description: "",
     card_ids: [],
-    section_ids: [],
+    group_ids: [],
     card_count: 0,
     created_by_name: "Mel Member",
     is_favorite: false,
@@ -73,7 +73,7 @@ const cards = {
 
 function setupApi(diagramRows = diagrams) {
   vi.mocked(api.get).mockImplementation((url: string) => {
-    if (url.startsWith("/diagram-sections")) return Promise.resolve([] as never);
+    if (url.startsWith("/diagram-groups")) return Promise.resolve([] as never);
     if (url.startsWith("/diagrams")) return Promise.resolve(diagramRows as never);
     if (url.startsWith("/cards")) return Promise.resolve(cards as never);
     return Promise.reject(new Error(`no mock for ${url}`));
@@ -233,10 +233,10 @@ describe("DiagramsPage", () => {
     });
   });
 
-  it("shows the section group immediately after assigning, without a refresh", async () => {
-    // One section exists; the diagram starts ungrouped.
+  it("shows the group immediately after assigning, without a refresh", async () => {
+    // One group exists; the diagram starts ungrouped.
     vi.mocked(api.get).mockImplementation((url: string) => {
-      if (url.startsWith("/diagram-sections"))
+      if (url.startsWith("/diagram-groups"))
         return Promise.resolve([
           { id: "s1", name: "Domain A", color: null, sort_order: 0, diagram_count: 0 },
         ] as never);
@@ -251,15 +251,15 @@ describe("DiagramsPage", () => {
     // "Domain A" appears once (the sidebar entry); no gallery group yet.
     expect(screen.getAllByText("Domain A").length).toBe(1);
 
-    // Open the card menu → "Add to sections…" → assign stub.
+    // Open the card menu → "Add to groups…" → assign stub.
     const moreButtons = screen
       .getAllByRole("button")
       .filter((b) => b.querySelector("span")?.textContent === "more_vert");
     await userEvent.click(moreButtons[0]);
-    await userEvent.click(screen.getByText("Add to sections…"));
+    await userEvent.click(screen.getByText("Add to groups…"));
     await userEvent.click(screen.getByText("stub-assign-save"));
 
-    // The section group heading now appears in the gallery too (sidebar + group),
+    // The group heading now appears in the gallery too (sidebar + group),
     // in place — no page reload.
     await waitFor(() => {
       expect(screen.getAllByText("Domain A").length).toBe(2);

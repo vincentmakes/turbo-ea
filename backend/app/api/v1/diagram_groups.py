@@ -9,26 +9,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.models.diagram_section import DiagramSection, diagram_section_members
+from app.models.diagram_group import DiagramGroup, diagram_group_members
 from app.models.user import User
 from app.services.permission_service import PermissionService
 
-router = APIRouter(prefix="/diagram-sections", tags=["diagrams"])
+router = APIRouter(prefix="/diagram-groups", tags=["diagrams"])
 
 
-class SectionCreate(BaseModel):
+class GroupCreate(BaseModel):
     name: str
     color: str | None = None
     sort_order: int | None = None
 
 
-class SectionUpdate(BaseModel):
+class GroupUpdate(BaseModel):
     name: str | None = None
     color: str | None = None
     sort_order: int | None = None
 
 
-def _to_dict(s: DiagramSection, count: int) -> dict:
+def _to_dict(s: DiagramGroup, count: int) -> dict:
     return {
         "id": str(s.id),
         "name": s.name,
@@ -41,38 +41,38 @@ def _to_dict(s: DiagramSection, count: int) -> dict:
 
 
 @router.get("")
-async def list_sections(
+async def list_groups(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "diagrams.view")
     result = await db.execute(
-        select(DiagramSection).order_by(DiagramSection.sort_order, DiagramSection.name)
+        select(DiagramGroup).order_by(DiagramGroup.sort_order, DiagramGroup.name)
     )
-    sections = list(result.scalars().all())
+    groups = list(result.scalars().all())
 
-    # Per-section diagram counts in one query.
+    # Per-group diagram counts in one query.
     count_rows = await db.execute(
         select(
-            diagram_section_members.c.section_id,
-            func.count(diagram_section_members.c.diagram_id),
-        ).group_by(diagram_section_members.c.section_id)
+            diagram_group_members.c.group_id,
+            func.count(diagram_group_members.c.diagram_id),
+        ).group_by(diagram_group_members.c.group_id)
     )
     counts = {str(sid): cnt for sid, cnt in count_rows.all()}
 
-    return [_to_dict(s, counts.get(str(s.id), 0)) for s in sections]
+    return [_to_dict(s, counts.get(str(s.id), 0)) for s in groups]
 
 
 @router.post("", status_code=201)
-async def create_section(
-    body: SectionCreate,
+async def create_group(
+    body: GroupCreate,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "diagrams.manage")
     if not body.name.strip():
         raise HTTPException(400, "name is required")
-    s = DiagramSection(
+    s = DiagramGroup(
         name=body.name.strip(),
         color=body.color,
         sort_order=body.sort_order or 0,
@@ -84,20 +84,18 @@ async def create_section(
     return _to_dict(s, 0)
 
 
-@router.patch("/{section_id}")
-async def update_section(
-    section_id: str,
-    body: SectionUpdate,
+@router.patch("/{group_id}")
+async def update_group(
+    group_id: str,
+    body: GroupUpdate,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "diagrams.manage")
-    result = await db.execute(
-        select(DiagramSection).where(DiagramSection.id == uuid.UUID(section_id))
-    )
+    result = await db.execute(select(DiagramGroup).where(DiagramGroup.id == uuid.UUID(group_id)))
     s = result.scalar_one_or_none()
     if not s:
-        raise HTTPException(404, "Section not found")
+        raise HTTPException(404, "Group not found")
     if body.name is not None:
         if not body.name.strip():
             raise HTTPException(400, "name cannot be empty")
@@ -110,26 +108,24 @@ async def update_section(
     await db.refresh(s)
 
     count = await db.scalar(
-        select(func.count(diagram_section_members.c.diagram_id)).where(
-            diagram_section_members.c.section_id == s.id
+        select(func.count(diagram_group_members.c.diagram_id)).where(
+            diagram_group_members.c.group_id == s.id
         )
     )
     return _to_dict(s, count or 0)
 
 
-@router.delete("/{section_id}", status_code=204)
-async def delete_section(
-    section_id: str,
+@router.delete("/{group_id}", status_code=204)
+async def delete_group(
+    group_id: str,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "diagrams.manage")
-    result = await db.execute(
-        select(DiagramSection).where(DiagramSection.id == uuid.UUID(section_id))
-    )
+    result = await db.execute(select(DiagramGroup).where(DiagramGroup.id == uuid.UUID(group_id)))
     s = result.scalar_one_or_none()
     if not s:
-        raise HTTPException(404, "Section not found")
+        raise HTTPException(404, "Group not found")
     # Membership rows cascade via FK ondelete=CASCADE.
     await db.delete(s)
     await db.commit()

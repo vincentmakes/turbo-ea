@@ -15,18 +15,18 @@ import Chip from "@mui/material/Chip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColorPicker from "@/components/ColorPicker";
 import { api } from "@/api/client";
-import type { DiagramSection } from "@/types";
+import type { DiagramGroup } from "@/types";
 
 const DEFAULT_COLOR = "#60a5fa";
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  sections: DiagramSection[];
+  groups: DiagramGroup[];
   onChanged: () => void;
 }
 
-export default function ManageSectionsDialog({ open, onClose, sections, onChanged }: Props) {
+export default function ManageGroupsDialog({ open, onClose, groups, onChanged }: Props) {
   const { t } = useTranslation(["diagrams", "common"]);
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState(DEFAULT_COLOR);
@@ -43,35 +43,35 @@ export default function ManageSectionsDialog({ open, onClose, sections, onChange
 
   const create = useCallback(async () => {
     if (!newName.trim()) return;
-    await api.post("/diagram-sections", {
+    await api.post("/diagram-groups", {
       name: newName.trim(),
       color: newColor,
-      sort_order: sections.length,
+      sort_order: groups.length,
     });
     setNewName("");
     setNewColor(DEFAULT_COLOR);
     onChanged();
-  }, [newName, newColor, sections.length, onChanged]);
+  }, [newName, newColor, groups.length, onChanged]);
 
   const saveEdit = useCallback(async () => {
     if (!editId || !editName.trim()) return;
-    await api.patch(`/diagram-sections/${editId}`, { name: editName.trim() });
+    await api.patch(`/diagram-groups/${editId}`, { name: editName.trim() });
     setEditId(null);
     onChanged();
   }, [editId, editName, onChanged]);
 
   const updateColor = useCallback(
     async (id: string, color: string) => {
-      await api.patch(`/diagram-sections/${id}`, { color });
+      await api.patch(`/diagram-groups/${id}`, { color });
       onChanged();
     },
     [onChanged],
   );
 
   const remove = useCallback(
-    async (s: DiagramSection) => {
-      if (!window.confirm(t("manageSections.deleteConfirm", { name: s.name }))) return;
-      await api.delete(`/diagram-sections/${s.id}`);
+    async (s: DiagramGroup) => {
+      if (!window.confirm(t("manageGroups.deleteConfirm", { name: s.name }))) return;
+      await api.delete(`/diagram-groups/${s.id}`);
       onChanged();
     },
     [t, onChanged],
@@ -79,7 +79,7 @@ export default function ManageSectionsDialog({ open, onClose, sections, onChange
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>{t("manageSections.title")}</DialogTitle>
+      <DialogTitle>{t("manageGroups.title")}</DialogTitle>
       <DialogContent>
         {/* Create new */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1, mb: 2 }}>
@@ -87,7 +87,7 @@ export default function ManageSectionsDialog({ open, onClose, sections, onChange
           <TextField
             size="small"
             fullWidth
-            placeholder={t("manageSections.newName")}
+            placeholder={t("manageGroups.newName")}
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => {
@@ -95,17 +95,17 @@ export default function ManageSectionsDialog({ open, onClose, sections, onChange
             }}
           />
           <Button variant="contained" onClick={create} disabled={!newName.trim()}>
-            {t("manageSections.add")}
+            {t("manageGroups.add")}
           </Button>
         </Box>
 
-        {sections.length === 0 ? (
+        {groups.length === 0 ? (
           <Typography color="text.secondary" sx={{ py: 2, textAlign: "center" }}>
-            {t("manageSections.empty")}
+            {t("manageGroups.empty")}
           </Typography>
         ) : (
           <List dense disablePadding>
-            {sections.map((s) => (
+            {groups.map((s) => (
               <ListItem
                 key={s.id}
                 disableGutters
@@ -122,7 +122,7 @@ export default function ManageSectionsDialog({ open, onClose, sections, onChange
                           setEditId(s.id);
                           setEditName(s.name);
                         }}
-                        title={t("manageSections.rename")}
+                        title={t("manageGroups.rename")}
                       >
                         <MaterialSymbol icon="edit" size={18} />
                       </IconButton>
@@ -161,7 +161,7 @@ export default function ManageSectionsDialog({ open, onClose, sections, onChange
                   )}
                   <Chip
                     size="small"
-                    label={t("manageSections.diagramCount", { count: s.diagram_count })}
+                    label={t("manageGroups.diagramCount", { count: s.diagram_count })}
                     variant="outlined"
                   />
                 </Box>

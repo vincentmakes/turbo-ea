@@ -1,5 +1,5 @@
 """Integration tests for the Diagrams gallery redesign:
-filtering/search, per-user favorites, and custom sections.
+filtering/search, per-user favorites, and custom groups.
 """
 
 from __future__ import annotations
@@ -53,7 +53,7 @@ class TestListFilters:
         row = resp.json()[0]
         assert row["created_by_name"] == "Ada Admin"
         assert row["is_favorite"] is False
-        assert row["section_ids"] == []
+        assert row["group_ids"] == []
 
     async def test_mine_filter(self, client, db, env):
         admin, member = env["admin"], env["member"]
@@ -151,56 +151,56 @@ class TestFavorites:
 
 
 # -------------------------------------------------------------------
-# Sections
+# Groups
 # -------------------------------------------------------------------
 
 
-class TestSections:
+class TestGroups:
     async def test_crud_and_membership(self, client, db, env):
         admin = env["admin"]
         did = await _create(client, admin, name="Diag")
 
         created = await client.post(
-            "/api/v1/diagram-sections",
+            "/api/v1/diagram-groups",
             json={"name": "Domain A", "color": "#60a5fa"},
             headers=auth_headers(admin),
         )
         assert created.status_code == 201
-        section_id = created.json()["id"]
+        group_id = created.json()["id"]
         assert created.json()["diagram_count"] == 0
 
-        # Assign membership (multi-section put).
+        # Assign membership (multi-group put).
         put = await client.put(
-            f"/api/v1/diagrams/{did}/sections",
-            json={"section_ids": [section_id]},
+            f"/api/v1/diagrams/{did}/groups",
+            json={"group_ids": [group_id]},
             headers=auth_headers(admin),
         )
         assert put.status_code == 200
-        assert put.json()["section_ids"] == [section_id]
+        assert put.json()["group_ids"] == [group_id]
 
-        # Section list now reports the count.
-        listing = await client.get("/api/v1/diagram-sections", headers=auth_headers(admin))
+        # Group list now reports the count.
+        listing = await client.get("/api/v1/diagram-groups", headers=auth_headers(admin))
         assert listing.json()[0]["diagram_count"] == 1
 
-        # Diagram list + detail expose section_ids; section_id filter works.
-        by_section = await client.get(
-            f"/api/v1/diagrams?section_id={section_id}", headers=auth_headers(admin)
+        # Diagram list + detail expose group_ids; group_id filter works.
+        by_group = await client.get(
+            f"/api/v1/diagrams?group_id={group_id}", headers=auth_headers(admin)
         )
-        assert [d["name"] for d in by_section.json()] == ["Diag"]
+        assert [d["name"] for d in by_group.json()] == ["Diag"]
 
         detail = await client.get(f"/api/v1/diagrams/{did}", headers=auth_headers(admin))
-        assert detail.json()["section_ids"] == [section_id]
+        assert detail.json()["group_ids"] == [group_id]
 
-    async def test_update_section(self, client, db, env):
+    async def test_update_group(self, client, db, env):
         admin = env["admin"]
         created = await client.post(
-            "/api/v1/diagram-sections",
+            "/api/v1/diagram-groups",
             json={"name": "Old"},
             headers=auth_headers(admin),
         )
         sid = created.json()["id"]
         upd = await client.patch(
-            f"/api/v1/diagram-sections/{sid}",
+            f"/api/v1/diagram-groups/{sid}",
             json={"name": "New", "color": "#ef4444"},
             headers=auth_headers(admin),
         )
@@ -208,48 +208,48 @@ class TestSections:
         assert upd.json()["name"] == "New"
         assert upd.json()["color"] == "#ef4444"
 
-    async def test_delete_section_keeps_diagram(self, client, db, env):
+    async def test_delete_group_keeps_diagram(self, client, db, env):
         admin = env["admin"]
         did = await _create(client, admin, name="Survivor")
         created = await client.post(
-            "/api/v1/diagram-sections",
+            "/api/v1/diagram-groups",
             json={"name": "Temp"},
             headers=auth_headers(admin),
         )
         sid = created.json()["id"]
         await client.put(
-            f"/api/v1/diagrams/{did}/sections",
-            json={"section_ids": [sid]},
+            f"/api/v1/diagrams/{did}/groups",
+            json={"group_ids": [sid]},
             headers=auth_headers(admin),
         )
-        rm = await client.delete(f"/api/v1/diagram-sections/{sid}", headers=auth_headers(admin))
+        rm = await client.delete(f"/api/v1/diagram-groups/{sid}", headers=auth_headers(admin))
         assert rm.status_code == 204
 
-        # Diagram still exists with no sections.
+        # Diagram still exists with no groups.
         detail = await client.get(f"/api/v1/diagrams/{did}", headers=auth_headers(admin))
         assert detail.status_code == 200
-        assert detail.json()["section_ids"] == []
+        assert detail.json()["group_ids"] == []
 
-    async def test_viewer_cannot_manage_sections(self, client, db, env):
+    async def test_viewer_cannot_manage_groups(self, client, db, env):
         viewer = env["viewer"]
         resp = await client.post(
-            "/api/v1/diagram-sections",
+            "/api/v1/diagram-groups",
             json={"name": "Nope"},
             headers=auth_headers(viewer),
         )
         assert resp.status_code == 403
 
-    async def test_viewer_can_list_sections(self, client, db, env):
+    async def test_viewer_can_list_groups(self, client, db, env):
         viewer = env["viewer"]
-        resp = await client.get("/api/v1/diagram-sections", headers=auth_headers(viewer))
+        resp = await client.get("/api/v1/diagram-groups", headers=auth_headers(viewer))
         assert resp.status_code == 200
 
-    async def test_put_sections_nonexistent_diagram_404(self, client, db, env):
+    async def test_put_groups_nonexistent_diagram_404(self, client, db, env):
         admin = env["admin"]
         fake = str(uuid.uuid4())
         resp = await client.put(
-            f"/api/v1/diagrams/{fake}/sections",
-            json={"section_ids": []},
+            f"/api/v1/diagrams/{fake}/groups",
+            json={"group_ids": []},
             headers=auth_headers(admin),
         )
         assert resp.status_code == 404

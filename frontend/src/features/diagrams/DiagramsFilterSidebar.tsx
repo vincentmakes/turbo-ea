@@ -10,34 +10,34 @@ import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import type { DiagramSection } from "@/types";
+import type { DiagramGroup } from "@/types";
 
 /** Single-select scope (like mail folders). */
 export type DiagramScope =
   | { kind: "all" }
   | { kind: "mine" }
   | { kind: "favorites" }
-  | { kind: "section"; id: string };
+  | { kind: "group"; id: string };
 
 interface Props {
   scope: DiagramScope;
   onScopeChange: (s: DiagramScope) => void;
-  sections: DiagramSection[];
-  onManageSections: () => void;
+  groups: DiagramGroup[];
+  onManageGroups: () => void;
   /** When set, render a "Filters" header with a close button (drawer/mobile mode). */
   onClose?: () => void;
-  /** Called after any scope/section selection — used to auto-close the mobile drawer. */
+  /** Called after any scope/group selection — used to auto-close the mobile drawer. */
   onAfterChange?: () => void;
 }
 
 const sameScope = (a: DiagramScope, b: DiagramScope) =>
-  a.kind === b.kind && (a.kind !== "section" || b.kind !== "section" || a.id === b.id);
+  a.kind === b.kind && (a.kind !== "group" || b.kind !== "group" || a.id === b.id);
 
 export default function DiagramsFilterSidebar({
   scope,
   onScopeChange,
-  sections,
-  onManageSections,
+  groups,
+  onManageGroups,
   onClose,
   onAfterChange,
 }: Props) {
@@ -100,27 +100,27 @@ export default function DiagramsFilterSidebar({
 
       <Divider />
 
-      {/* Sections */}
+      {/* Groups */}
       <Typography variant="overline" color="text.secondary" sx={{ px: 1 }}>
-        {t("sidebar.sections")}
+        {t("sidebar.groups")}
       </Typography>
       <List dense disablePadding sx={{ flex: 1, overflowY: "auto" }}>
-        {sections.length === 0 ? (
+        {groups.length === 0 ? (
           <Typography
             variant="body2"
             color="text.secondary"
             sx={{ px: 1.5, py: 1, fontStyle: "italic" }}
           >
-            {t("sidebar.noSections")}
+            {t("sidebar.noGroups")}
           </Typography>
         ) : (
-          sections.map((s) => {
-            const sel = scope.kind === "section" && scope.id === s.id;
+          groups.map((s) => {
+            const sel = scope.kind === "group" && scope.id === s.id;
             return (
               <ListItemButton
                 key={s.id}
                 selected={sel}
-                onClick={() => pickScope({ kind: "section", id: s.id })}
+                onClick={() => pickScope({ kind: "group", id: s.id })}
                 sx={{ borderRadius: 1 }}
               >
                 <ListItemIcon sx={{ minWidth: 28 }}>
@@ -144,10 +144,10 @@ export default function DiagramsFilterSidebar({
       <Button
         size="small"
         startIcon={<MaterialSymbol icon="settings" size={16} />}
-        onClick={onManageSections}
+        onClick={onManageGroups}
         sx={{ textTransform: "none", justifyContent: "flex-start", mt: 0.5 }}
       >
-        {t("sidebar.manageSections")}
+        {t("sidebar.manageGroups")}
       </Button>
     </Box>
   );

@@ -15,13 +15,14 @@ La galerie présente chaque diagramme sous forme de carte compacte avec une mini
 - **Tri** — par récemment mis à jour, récemment créé ou nom.
 - **Favoris** — cliquez sur l'étoile d'une carte pour l'ajouter à vos favoris personnels ; le filtre **Favoris** les affiche tous.
 
-### Sections
+### Groupes
 
-Regroupez les diagrammes associés dans des **sections** — des étiquettes partagées à l'échelle de l'espace de travail. Un diagramme peut appartenir à plusieurs sections à la fois. En vue carte, la galerie affiche chaque section sous forme d'en-tête repliable ; les diagrammes non affectés apparaissent sous **Non groupé**.
+Regroupez les diagrammes associés dans des **groupes** — des étiquettes partagées à l'échelle de l'espace de travail. Un diagramme peut appartenir à plusieurs groupes à la fois. En vue carte, la galerie affiche chaque groupe sous forme d'en-tête repliable ; les diagrammes non affectés apparaissent sous **Non groupé**.
 
-- Utilisez **Gérer les sections** dans la barre latérale pour créer, renommer, recolorer ou supprimer des sections.
-- Utilisez **Ajouter à des sections…** depuis le menu d'un diagramme pour le placer dans une ou plusieurs sections (vous pouvez créer une nouvelle section au passage).
-- Sélectionner une section dans la barre latérale filtre la galerie sur cette seule section.
+- Utilisez **Gérer les groupes** dans la barre latérale pour créer, renommer, recolorer ou supprimer des groupes.
+- Utilisez **Ajouter à des groupes…** depuis le menu d'un diagramme pour le placer dans un ou plusieurs groupes (vous pouvez créer un nouveau groupe au passage).
+- Sélectionner un groupe dans la barre latérale filtre la galerie sur ce seul groupe.
+
 
 ## L'éditeur de diagrammes
 

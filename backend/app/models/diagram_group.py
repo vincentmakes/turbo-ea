@@ -8,9 +8,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
-# Many-to-many: diagrams <-> sections (a diagram can belong to several sections)
-diagram_section_members = Table(
-    "diagram_section_members",
+# Many-to-many: diagrams <-> groups (a diagram can belong to several groups)
+diagram_group_members = Table(
+    "diagram_group_members",
     Base.metadata,
     Column(
         "diagram_id",
@@ -19,18 +19,18 @@ diagram_section_members = Table(
         primary_key=True,
     ),
     Column(
-        "section_id",
+        "group_id",
         UUID(as_uuid=True),
-        ForeignKey("diagram_sections.id", ondelete="CASCADE"),
+        ForeignKey("diagram_groups.id", ondelete="CASCADE"),
         primary_key=True,
     ),
 )
 
 
-class DiagramSection(Base, UUIDMixin, TimestampMixin):
-    """Workspace-shared grouping for diagrams (label/tag style, multi-section)."""
+class DiagramGroup(Base, UUIDMixin, TimestampMixin):
+    """Workspace-shared grouping for diagrams (label/tag style, multi-group)."""
 
-    __tablename__ = "diagram_sections"
+    __tablename__ = "diagram_groups"
 
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     color: Mapped[str | None] = mapped_column(String(20))

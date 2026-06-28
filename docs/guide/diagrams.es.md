@@ -15,13 +15,14 @@ La galería muestra cada diagrama como una tarjeta compacta con una miniatura, u
 - **Orden** — por actualizado recientemente, creado recientemente o nombre.
 - **Favoritos** — haga clic en la estrella de cualquier tarjeta para añadirla a sus favoritos personales; el filtro **Favoritos** los muestra todos.
 
-### Secciones
+### Grupos
 
-Agrupe diagramas relacionados en **secciones**: etiquetas compartidas en todo el espacio de trabajo. Un diagrama puede pertenecer a varias secciones a la vez. En la vista de tarjeta, la galería muestra cada sección como un encabezado plegable; lo no asignado aparece en **Sin agrupar**.
+Agrupe diagramas relacionados en **grupos**: etiquetas compartidas en todo el espacio de trabajo. Un diagrama puede pertenecer a varios grupos a la vez. En la vista de tarjeta, la galería muestra cada grupo como un encabezado plegable; lo no asignado aparece en **Sin agrupar**.
 
-- Use **Gestionar secciones** en la barra lateral para crear, renombrar, recolorear o eliminar secciones.
-- Use **Añadir a secciones…** desde el menú de un diagrama para colocarlo en una o varias secciones (puede crear una nueva sección sobre la marcha).
-- Seleccionar una sección en la barra lateral filtra la galería solo a esa sección.
+- Use **Gestionar grupos** en la barra lateral para crear, renombrar, recolorear o eliminar grupos.
+- Use **Añadir a grupos…** desde el menú de un diagrama para colocarlo en uno o varios grupos (puede crear un nuevo grupo sobre la marcha).
+- Seleccionar un grupo en la barra lateral filtra la galería solo a ese grupo.
+
 
 ## El editor de diagramas
 

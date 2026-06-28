@@ -15,13 +15,14 @@ Galleriet viser hvert diagram som et kompakt kort med et miniaturebillede, navn,
 - **Sortering** — efter senest opdateret, senest oprettet eller navn.
 - **Favoritter** — klik på stjernen på et kort for at føje det til dine personlige favoritter; filteret **Favoritter** viser dem alle.
 
-### Sektioner
+### Grupper
 
-Gruppér relaterede diagrammer i **sektioner** — delte etiketter på tværs af arbejdsområdet. Et diagram kan tilhøre flere sektioner på én gang. I kortvisning viser galleriet hver sektion som en sammenklappelig overskrift; det ikke-tildelte vises under **Ugrupperet**.
+Gruppér relaterede diagrammer i **grupper** — delte etiketter på tværs af arbejdsområdet. Et diagram kan tilhøre flere grupper på én gang. I kortvisning viser galleriet hver gruppe som en sammenklappelig overskrift; det ikke-tildelte vises under **Ugrupperet**.
 
-- Brug **Administrer sektioner** i sidebjælken til at oprette, omdøbe, omfarve eller slette sektioner.
-- Brug **Tilføj til sektioner…** fra et diagrams menu for at placere det i en eller flere sektioner (du kan oprette en ny sektion undervejs).
-- Vælges en sektion i sidebjælken, filtreres galleriet til kun den sektion.
+- Brug **Administrer grupper** i sidebjælken til at oprette, omdøbe, omfarve eller slette grupper.
+- Brug **Tilføj til grupper…** fra et diagrams menu for at placere det i en eller flere grupper (du kan oprette en ny gruppe undervejs).
+- Vælges en gruppe i sidebjælken, filtreres galleriet til kun den gruppe.
+
 
 ## Diagramredaktøren
 

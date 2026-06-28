@@ -1,8 +1,8 @@
-"""Create diagram favorites and diagram sections tables.
+"""Create diagram favorites and diagram groups tables.
 
 Backs the Diagrams gallery redesign: per-user diagram favorites and
-workspace-shared, multi-section grouping (a diagram can belong to several
-sections, label/tag style).
+workspace-shared, multi-group grouping (a diagram can belong to several
+groups, label/tag style).
 
 Revision ID: 110
 Revises: 109
@@ -50,7 +50,7 @@ def upgrade() -> None:
     op.create_index("ix_diagram_favorites_diagram_id", "diagram_favorites", ["diagram_id"])
 
     op.create_table(
-        "diagram_sections",
+        "diagram_groups",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("name", sa.String(length=200), nullable=False),
         sa.Column("color", sa.String(length=20), nullable=True),
@@ -70,7 +70,7 @@ def upgrade() -> None:
     )
 
     op.create_table(
-        "diagram_section_members",
+        "diagram_group_members",
         sa.Column(
             "diagram_id",
             postgresql.UUID(as_uuid=True),
@@ -78,17 +78,17 @@ def upgrade() -> None:
             primary_key=True,
         ),
         sa.Column(
-            "section_id",
+            "group_id",
             postgresql.UUID(as_uuid=True),
-            sa.ForeignKey("diagram_sections.id", ondelete="CASCADE"),
+            sa.ForeignKey("diagram_groups.id", ondelete="CASCADE"),
             primary_key=True,
         ),
     )
 
 
 def downgrade() -> None:
-    op.drop_table("diagram_section_members")
-    op.drop_table("diagram_sections")
+    op.drop_table("diagram_group_members")
+    op.drop_table("diagram_groups")
     op.drop_index("ix_diagram_favorites_diagram_id", table_name="diagram_favorites")
     op.drop_index("ix_diagram_favorites_user_id", table_name="diagram_favorites")
     op.drop_table("diagram_favorites")

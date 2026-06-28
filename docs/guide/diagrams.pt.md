@@ -15,13 +15,14 @@ A galeria lista cada diagrama como um cartão compacto com miniatura, nome, auto
 - **Ordenação** — por atualizado recentemente, criado recentemente ou nome.
 - **Favoritos** — clique na estrela de qualquer cartão para adicioná-lo aos seus favoritos pessoais; o filtro **Favoritos** mostra todos eles.
 
-### Seções
+### Grupos
 
-Agrupe diagramas relacionados em **seções** — rótulos compartilhados em todo o espaço de trabalho. Um diagrama pode pertencer a várias seções ao mesmo tempo. Na visualização de cartão, a galeria mostra cada seção como um cabeçalho recolhível; o que não foi atribuído aparece em **Sem agrupamento**.
+Agrupe diagramas relacionados em **grupos** — rótulos compartilhados em todo o espaço de trabalho. Um diagrama pode pertencer a vários grupos ao mesmo tempo. Na visualização de cartão, a galeria mostra cada grupo como um cabeçalho recolhível; o que não foi atribuído aparece em **Sem agrupamento**.
 
-- Use **Gerenciar seções** na barra lateral para criar, renomear, recolorir ou excluir seções.
-- Use **Adicionar a seções…** no menu de um diagrama para colocá-lo em uma ou mais seções (você pode criar uma nova seção na hora).
-- Selecionar uma seção na barra lateral filtra a galeria apenas para essa seção.
+- Use **Gerenciar grupos** na barra lateral para criar, renomear, recolorir ou excluir grupos.
+- Use **Adicionar a grupos…** no menu de um diagrama para colocá-lo em um ou mais grupos (você pode criar um novo grupo na hora).
+- Selecionar um grupo na barra lateral filtra a galeria apenas para esse grupo.
+
 
 ## O editor de diagramas
 

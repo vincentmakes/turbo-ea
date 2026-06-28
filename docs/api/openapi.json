@@ -3641,6 +3641,22 @@
         "title": "DiagramCreate",
         "type": "object"
       },
+      "DiagramGroupsUpdate": {
+        "properties": {
+          "group_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Group Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "group_ids"
+        ],
+        "title": "DiagramGroupsUpdate",
+        "type": "object"
+      },
       "DiagramSave": {
         "properties": {
           "bpmn_xml": {
@@ -3668,22 +3684,6 @@
           "bpmn_xml"
         ],
         "title": "DiagramSave",
-        "type": "object"
-      },
-      "DiagramSectionsUpdate": {
-        "properties": {
-          "section_ids": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Section Ids",
-            "type": "array"
-          }
-        },
-        "required": [
-          "section_ids"
-        ],
-        "title": "DiagramSectionsUpdate",
         "type": "object"
       },
       "DiagramUpdate": {
@@ -4366,6 +4366,80 @@
           "enabled"
         ],
         "title": "GrcEnabledPayload",
+        "type": "object"
+      },
+      "GroupCreate": {
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "GroupCreate",
+        "type": "object"
+      },
+      "GroupUpdate": {
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          }
+        },
+        "title": "GroupUpdate",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -10176,80 +10250,6 @@
           }
         },
         "title": "SavedReportUpdate",
-        "type": "object"
-      },
-      "SectionCreate": {
-        "properties": {
-          "color": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Color"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "sort_order": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sort Order"
-          }
-        },
-        "required": [
-          "name"
-        ],
-        "title": "SectionCreate",
-        "type": "object"
-      },
-      "SectionUpdate": {
-        "properties": {
-          "color": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Color"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "sort_order": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sort Order"
-          }
-        },
-        "title": "SectionUpdate",
         "type": "object"
       },
       "SecurityOverviewOut": {
@@ -19491,9 +19491,9 @@
         ]
       }
     },
-    "/api/v1/diagram-sections": {
+    "/api/v1/diagram-groups": {
       "get": {
-        "operationId": "list_sections_api_v1_diagram_sections_get",
+        "operationId": "list_groups_api_v1_diagram_groups_get",
         "responses": {
           "200": {
             "content": {
@@ -19504,18 +19504,18 @@
             "description": "Successful Response"
           }
         },
-        "summary": "List Sections",
+        "summary": "List Groups",
         "tags": [
           "diagrams"
         ]
       },
       "post": {
-        "operationId": "create_section_api_v1_diagram_sections_post",
+        "operationId": "create_group_api_v1_diagram_groups_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SectionCreate"
+                "$ref": "#/components/schemas/GroupCreate"
               }
             }
           },
@@ -19541,22 +19541,22 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Create Section",
+        "summary": "Create Group",
         "tags": [
           "diagrams"
         ]
       }
     },
-    "/api/v1/diagram-sections/{section_id}": {
+    "/api/v1/diagram-groups/{group_id}": {
       "delete": {
-        "operationId": "delete_section_api_v1_diagram_sections__section_id__delete",
+        "operationId": "delete_group_api_v1_diagram_groups__group_id__delete",
         "parameters": [
           {
             "in": "path",
-            "name": "section_id",
+            "name": "group_id",
             "required": true,
             "schema": {
-              "title": "Section Id",
+              "title": "Group Id",
               "type": "string"
             }
           }
@@ -19576,20 +19576,20 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Delete Section",
+        "summary": "Delete Group",
         "tags": [
           "diagrams"
         ]
       },
       "patch": {
-        "operationId": "update_section_api_v1_diagram_sections__section_id__patch",
+        "operationId": "update_group_api_v1_diagram_groups__group_id__patch",
         "parameters": [
           {
             "in": "path",
-            "name": "section_id",
+            "name": "group_id",
             "required": true,
             "schema": {
-              "title": "Section Id",
+              "title": "Group Id",
               "type": "string"
             }
           }
@@ -19598,7 +19598,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SectionUpdate"
+                "$ref": "#/components/schemas/GroupUpdate"
               }
             }
           },
@@ -19624,7 +19624,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Update Section",
+        "summary": "Update Group",
         "tags": [
           "diagrams"
         ]
@@ -19688,7 +19688,7 @@
           },
           {
             "in": "query",
-            "name": "section_id",
+            "name": "group_id",
             "required": false,
             "schema": {
               "anyOf": [
@@ -19699,7 +19699,7 @@
                   "type": "null"
                 }
               ],
-              "title": "Section Id"
+              "title": "Group Id"
             }
           },
           {
@@ -20100,10 +20100,10 @@
         ]
       }
     },
-    "/api/v1/diagrams/{diagram_id}/sections": {
+    "/api/v1/diagrams/{diagram_id}/groups": {
       "put": {
-        "description": "Replace a diagram's section memberships (multi-section).",
-        "operationId": "set_diagram_sections_api_v1_diagrams__diagram_id__sections_put",
+        "description": "Replace a diagram's group memberships (multi-group).",
+        "operationId": "set_diagram_groups_api_v1_diagrams__diagram_id__groups_put",
         "parameters": [
           {
             "in": "path",
@@ -20119,7 +20119,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DiagramSectionsUpdate"
+                "$ref": "#/components/schemas/DiagramGroupsUpdate"
               }
             }
           },
@@ -20145,7 +20145,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Set Diagram Sections",
+        "summary": "Set Diagram Groups",
         "tags": [
           "diagrams"
         ]

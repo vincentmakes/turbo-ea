@@ -791,7 +791,7 @@ export interface DiagramSummary {
   name: string;
   description?: string;
   card_ids: string[];
-  section_ids?: string[];
+  group_ids?: string[];
   thumbnail?: string;
   card_count: number;
   created_by?: string | null;
@@ -801,7 +801,7 @@ export interface DiagramSummary {
   updated_at?: string;
 }
 
-export interface DiagramSection {
+export interface DiagramGroup {
   id: string;
   name: string;
   color?: string | null;

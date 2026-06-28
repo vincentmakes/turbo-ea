@@ -40,10 +40,10 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { api } from "@/api/client";
-import type { Card, DiagramSummary, DiagramSection } from "@/types";
+import type { Card, DiagramSummary, DiagramGroup } from "@/types";
 import CreateDiagramDialog from "./CreateDiagramDialog";
-import ManageSectionsDialog from "./ManageSectionsDialog";
-import AssignSectionsDialog from "./AssignSectionsDialog";
+import ManageGroupsDialog from "./ManageGroupsDialog";
+import AssignGroupsDialog from "./AssignGroupsDialog";
 import DiagramsFilterSidebar, { type DiagramScope } from "./DiagramsFilterSidebar";
 
 type ViewMode = "card" | "list";
@@ -60,7 +60,7 @@ export default function DiagramsPage() {
   const { formatDate } = useDateFormat();
   const { types: metamodelTypes } = useMetamodel();
   const [diagrams, setDiagrams] = useState<DiagramSummary[]>([]);
-  const [sections, setSections] = useState<DiagramSection[]>([]);
+  const [groups, setGroups] = useState<DiagramGroup[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>(
     () => (localStorage.getItem("diagrams_view") as ViewMode) || "card",
   );
@@ -124,17 +124,17 @@ export default function DiagramsPage() {
     const params = new URLSearchParams();
     if (scope.kind === "mine") params.set("mine", "true");
     if (scope.kind === "favorites") params.set("favorites", "true");
-    if (scope.kind === "section") params.set("section_id", scope.id);
+    if (scope.kind === "group") params.set("group_id", scope.id);
     if (search) params.set("search", search);
     params.set("sort_by", sortBy);
     const qs = params.toString();
     api.get<DiagramSummary[]>(`/diagrams${qs ? `?${qs}` : ""}`).then(setDiagrams);
   }, [scope, search, sortBy]);
 
-  const loadSections = useCallback(() => {
+  const loadGroups = useCallback(() => {
     api
-      .get<DiagramSection[]>("/diagram-sections")
-      .then(setSections)
+      .get<DiagramGroup[]>("/diagram-groups")
+      .then(setGroups)
       .catch(() => {});
   }, []);
 
@@ -143,12 +143,12 @@ export default function DiagramsPage() {
   }, [loadDiagrams]);
 
   useEffect(() => {
-    loadSections();
+    loadGroups();
     api
       .get<{ items: Card[] }>("/cards?page_size=500")
       .then((res) => setAllCards(res.items))
       .catch(() => {});
-  }, [loadSections]);
+  }, [loadGroups]);
 
   const handleViewChange = (_: unknown, mode: ViewMode | null) => {
     if (mode) {
@@ -238,20 +238,20 @@ export default function DiagramsPage() {
       return next;
     });
 
-  // Group diagrams by section for the grouped view (only when not filtered to a
-  // single section). Multi-section diagrams appear under each of their sections.
+  // Group diagrams by group for the grouped view (only when not filtered to a
+  // single group). Multi-group diagrams appear under each of their groups.
   const grouped = useMemo(() => {
-    const groups: { key: string; label: string; color?: string | null; items: DiagramSummary[] }[] =
+    const out: { key: string; label: string; color?: string | null; items: DiagramSummary[] }[] =
       [];
-    for (const s of sections) {
-      const items = diagrams.filter((d) => (d.section_ids || []).includes(s.id));
-      if (items.length) groups.push({ key: s.id, label: s.name, color: s.color, items });
+    for (const g of groups) {
+      const items = diagrams.filter((d) => (d.group_ids || []).includes(g.id));
+      if (items.length) out.push({ key: g.id, label: g.name, color: g.color, items });
     }
-    const ungrouped = diagrams.filter((d) => !(d.section_ids || []).length);
+    const ungrouped = diagrams.filter((d) => !(d.group_ids || []).length);
     if (ungrouped.length)
-      groups.push({ key: "__ungrouped", label: t("gallery.ungrouped"), items: ungrouped });
-    return groups;
-  }, [diagrams, sections, t]);
+      out.push({ key: "__ungrouped", label: t("gallery.ungrouped"), items: ungrouped });
+    return out;
+  }, [diagrams, groups, t]);
 
   const renderCard = (d: DiagramSummary) => (
     <MuiCard key={d.id} sx={{ position: "relative" }}>
@@ -368,7 +368,7 @@ export default function DiagramsPage() {
     </Box>
   );
 
-  const showGrouped = viewMode === "card" && scope.kind !== "section";
+  const showGrouped = viewMode === "card" && scope.kind !== "group";
 
   return (
     <Box sx={{ display: "flex", gap: 2, alignItems: "flex-start" }}>
@@ -382,8 +382,8 @@ export default function DiagramsPage() {
           <DiagramsFilterSidebar
             scope={scope}
             onScopeChange={setScope}
-            sections={sections}
-            onManageSections={() => {
+            groups={groups}
+            onManageGroups={() => {
               setFiltersOpen(false);
               setManageOpen(true);
             }}
@@ -396,8 +396,8 @@ export default function DiagramsPage() {
           <DiagramsFilterSidebar
             scope={scope}
             onScopeChange={setScope}
-            sections={sections}
-            onManageSections={() => setManageOpen(true)}
+            groups={groups}
+            onManageGroups={() => setManageOpen(true)}
           />
         )
       )}
@@ -473,7 +473,7 @@ export default function DiagramsPage() {
           </Typography>
         )}
 
-        {/* Card view — grouped by section */}
+        {/* Card view — grouped by group */}
         {viewMode === "card" && diagrams.length > 0 && showGrouped && (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {grouped.map((g) => (
@@ -509,7 +509,7 @@ export default function DiagramsPage() {
           </Box>
         )}
 
-        {/* Card view — flat (single section selected) */}
+        {/* Card view — flat (single group selected) */}
         {viewMode === "card" && diagrams.length > 0 && !showGrouped && cardGrid(diagrams)}
 
         {/* List view */}
@@ -626,7 +626,7 @@ export default function DiagramsPage() {
           <ListItemIcon>
             <MaterialSymbol icon="folder" size={18} />
           </ListItemIcon>
-          <ListItemText>{t("gallery.menu.addToSections")}</ListItemText>
+          <ListItemText>{t("gallery.menu.addToGroups")}</ListItemText>
         </MenuItem>
         <MenuItem
           onClick={() => {
@@ -643,36 +643,36 @@ export default function DiagramsPage() {
 
       <CreateDiagramDialog open={createOpen} onClose={() => setCreateOpen(false)} />
 
-      <ManageSectionsDialog
+      <ManageGroupsDialog
         open={manageOpen}
         onClose={() => setManageOpen(false)}
-        sections={sections}
+        groups={groups}
         onChanged={() => {
-          loadSections();
+          loadGroups();
           loadDiagrams();
         }}
       />
 
-      <AssignSectionsDialog
+      <AssignGroupsDialog
         open={assignOpen}
         onClose={() => setAssignOpen(false)}
         diagram={assignDiagram}
-        sections={sections}
-        onSaved={(sectionIds) => {
-          // The PUT is authoritative for this diagram's section_ids, so update
+        groups={groups}
+        onSaved={(groupIds) => {
+          // The PUT is authoritative for this diagram's group_ids, so update
           // the gallery in place immediately (same pattern as the favorite
-          // toggle) — the section group and diagram appear without a refresh.
+          // toggle) — the group and diagram appear without a refresh.
           if (assignDiagram) {
             setDiagrams((prev) =>
               prev.map((d) =>
-                d.id === assignDiagram.id ? { ...d, section_ids: sectionIds } : d,
+                d.id === assignDiagram.id ? { ...d, group_ids: groupIds } : d,
               ),
             );
           }
-          // Refresh the section list for updated counts and any inline-created section.
-          loadSections();
+          // Refresh the group list for updated counts and any inline-created group.
+          loadGroups();
         }}
-        onSectionsChanged={loadSections}
+        onGroupsChanged={loadGroups}
       />
 
       {/* Edit Dialog */}
