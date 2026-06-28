@@ -191,17 +191,20 @@ describe("DiagramsPage", () => {
     });
   });
 
-  it("the Filters button collapses and restores the inline sidebar", async () => {
+  it("collapses to a rail and expands again via the sidebar chevron", async () => {
     renderPage();
     await screen.findByText("Architecture Overview");
-    // Sidebar is shown inline on desktop.
+    // Sidebar is shown inline (expanded) on desktop.
     expect(screen.getByText("Created by me")).toBeInTheDocument();
 
-    const filtersBtn = screen.getByText("filter_list").closest("button") as HTMLElement;
-    await userEvent.click(filtersBtn);
+    // Collapse via the header chevron — content disappears, rail remains.
+    const collapseBtn = screen.getByText("chevron_left").closest("button") as HTMLElement;
+    await userEvent.click(collapseBtn);
     expect(screen.queryByText("Created by me")).not.toBeInTheDocument();
 
-    await userEvent.click(filtersBtn);
+    // Expand again via the rail chevron.
+    const expandBtn = screen.getByText("chevron_right").closest("button") as HTMLElement;
+    await userEvent.click(expandBtn);
     expect(screen.getByText("Created by me")).toBeInTheDocument();
   });
 

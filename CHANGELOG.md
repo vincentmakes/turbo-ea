@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - **The diagram editor's "Save & Exit" button now works.** Clicking *Save & Exit* in the DrawIO toolbar saves the diagram and returns to the viewer; previously it neither saved nor exited.
-- **The Diagrams filter sidebar is now collapsible.** A *Filters* button hides/shows the sidebar on desktop (remembered across visits) and opens it as a slide-in panel on mobile, so the gallery is usable on small screens.
+- **The Diagrams filter sidebar matches the inventory sidebar and is collapsible.** Same colours and styling; it collapses to a slim rail via a chevron on desktop (width and state remembered, drag-to-resize) and opens as a slide-in panel on mobile.
 - **Adding a diagram to a group now updates the gallery instantly** instead of requiring a page refresh.
 
 ## [1.56.0] - 2026-06-27

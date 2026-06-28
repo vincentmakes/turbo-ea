@@ -10,7 +10,7 @@ A galeria lista cada diagrama como um cartão compacto com miniatura, nome, auto
 
 ### Encontrar diagramas
 
-- **Barra lateral de filtros** — o painel à esquerda restringe a galeria a **Todos os diagramas**, **Criados por mim** ou seus **Favoritos**. Use o botão **Filtros** para recolhê-la; em telas pequenas ela abre como um painel deslizante.
+- **Barra lateral de filtros** — o painel à esquerda restringe a galeria a **Todos os diagramas**, **Criados por mim** ou seus **Favoritos**. Recolha-a em uma barra estreita com o chevron; em telas pequenas o botão **Filtros** a abre como um painel deslizante.
 - **Pesquisa** — a caixa de pesquisa corresponde ao nome de um diagrama, ao seu autor e aos nomes dos cartões desenhados nele, para que você possa encontrar um diagrama pelo seu conteúdo.
 - **Ordenação** — por atualizado recentemente, criado recentemente ou nome.
 - **Favoritos** — clique na estrela de qualquer cartão para adicioná-lo aos seus favoritos pessoais; o filtro **Favoritos** mostra todos eles.

@@ -35,7 +35,11 @@ import type { Card, DiagramSummary, DiagramGroup } from "@/types";
 import CreateDiagramDialog from "./CreateDiagramDialog";
 import ManageGroupsDialog from "./ManageGroupsDialog";
 import AssignGroupsDialog from "./AssignGroupsDialog";
-import DiagramsFilterSidebar, { type DiagramScope } from "./DiagramsFilterSidebar";
+import DiagramsFilterSidebar, {
+  type DiagramScope,
+  SIDEBAR_MIN_WIDTH,
+  SIDEBAR_MAX_WIDTH,
+} from "./DiagramsFilterSidebar";
 
 type SortKey = "updated_at" | "created_at" | "name";
 
@@ -52,21 +56,26 @@ export default function DiagramsPage() {
   const [diagrams, setDiagrams] = useState<DiagramSummary[]>([]);
   const [groups, setGroups] = useState<DiagramGroup[]>([]);
 
-  // Collapsible filter sidebar: temporary drawer on mobile, inline-collapsible on desktop.
+  // Filter sidebar: temporary drawer on mobile, inline collapsible rail on desktop
+  // (mirrors the inventory sidebar). Collapse state + width persist across visits.
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [sidebarHidden, setSidebarHidden] = useState(
-    () => localStorage.getItem("diagrams_sidebar") === "hidden",
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => localStorage.getItem("diagrams_sidebar_collapsed") === "1",
   );
-  const toggleSidebar = () => {
-    if (isMobile) {
-      setFiltersOpen((v) => !v);
-    } else {
-      setSidebarHidden((v) => {
-        const next = !v;
-        localStorage.setItem("diagrams_sidebar", next ? "hidden" : "shown");
-        return next;
-      });
-    }
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const stored = Number(localStorage.getItem("diagrams_sidebar_width"));
+    return stored >= SIDEBAR_MIN_WIDTH && stored <= SIDEBAR_MAX_WIDTH ? stored : 240;
+  });
+  const toggleSidebarCollapse = () => {
+    setSidebarCollapsed((v) => {
+      const next = !v;
+      localStorage.setItem("diagrams_sidebar_collapsed", next ? "1" : "0");
+      return next;
+    });
+  };
+  const changeSidebarWidth = (w: number) => {
+    setSidebarWidth(w);
+    localStorage.setItem("diagrams_sidebar_width", String(w));
   };
 
   // Sidebar + search + sort state
@@ -351,13 +360,13 @@ export default function DiagramsPage() {
   const showGrouped = scope.kind !== "group";
 
   return (
-    <Box sx={{ display: "flex", gap: 2, alignItems: "flex-start" }}>
-      {/* Sidebar — temporary Drawer on mobile, inline (collapsible) on desktop */}
+    <Box sx={{ display: "flex", height: "calc(100vh - 64px)", m: { xs: -1.5, sm: -3 } }}>
+      {/* Sidebar — temporary Drawer on mobile, inline collapsible rail on desktop */}
       {isMobile ? (
         <Drawer
           open={filtersOpen}
           onClose={() => setFiltersOpen(false)}
-          PaperProps={{ sx: { width: 280 } }}
+          PaperProps={{ sx: { width: 300 } }}
         >
           <DiagramsFilterSidebar
             scope={scope}
@@ -367,29 +376,36 @@ export default function DiagramsPage() {
               setFiltersOpen(false);
               setManageOpen(true);
             }}
-            onClose={() => setFiltersOpen(false)}
+            collapsed={false}
+            onToggleCollapse={() => setFiltersOpen(false)}
+            width={300}
+            onWidthChange={() => {}}
             onAfterChange={() => setFiltersOpen(false)}
           />
         </Drawer>
       ) : (
-        !sidebarHidden && (
-          <DiagramsFilterSidebar
-            scope={scope}
-            onScopeChange={setScope}
-            groups={groups}
-            onManageGroups={() => setManageOpen(true)}
-          />
-        )
+        <DiagramsFilterSidebar
+          scope={scope}
+          onScopeChange={setScope}
+          groups={groups}
+          onManageGroups={() => setManageOpen(true)}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={toggleSidebarCollapse}
+          width={sidebarWidth}
+          onWidthChange={changeSidebarWidth}
+        />
       )}
 
-      <Box sx={{ flex: 1, minWidth: 0 }}>
+      <Box sx={{ flex: 1, minWidth: 0, overflow: "auto", p: { xs: 1.5, sm: 2 } }}>
         {/* Header */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2, flexWrap: "wrap" }}>
-          <Tooltip title={t("gallery.filters")}>
-            <IconButton onClick={toggleSidebar} size="small">
-              <MaterialSymbol icon="filter_list" size={22} />
-            </IconButton>
-          </Tooltip>
+          {isMobile && (
+            <Tooltip title={t("gallery.filters")}>
+              <IconButton onClick={() => setFiltersOpen(true)} size="small">
+                <MaterialSymbol icon="filter_list" size={22} />
+              </IconButton>
+            </Tooltip>
+          )}
           <Typography variant="h5" fontWeight={600}>
             {t("page.title")}
           </Typography>
