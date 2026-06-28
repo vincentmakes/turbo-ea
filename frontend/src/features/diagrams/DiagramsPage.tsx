@@ -415,7 +415,7 @@ export default function DiagramsPage() {
             placeholder={t("gallery.search.placeholder")}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            sx={{ flex: 1, minWidth: 240, maxWidth: 460 }}
+            sx={{ flexGrow: 1, flexBasis: { xs: "100%", sm: 320 }, minWidth: { sm: 280 } }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -431,7 +431,6 @@ export default function DiagramsPage() {
               ) : undefined,
             }}
           />
-          <Box sx={{ flex: 1 }} />
           <Select
             size="small"
             value={sortBy}
