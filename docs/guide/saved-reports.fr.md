@@ -56,3 +56,7 @@ Au-delà des types de rapports intégrés, Turbo EA peut créer des **rapports e
 - **Sûr et gouverné** : les rapports sont en lecture seule, fonctionnent entièrement sur des règles déclaratives (pas de code, pas de SQL), et les champs de coût restent derrière l'autorisation **Voir les coûts** — exactement comme tout autre rapport.
 
 Les rapports personnalisés sont enregistrés comme n'importe quel autre rapport ; les mêmes options de visibilité et de partage (privé / partagé / public) s'appliquent.
+
+### Le créer à la main
+
+L'assistant IA n'est pas obligatoire. Ouvrez **Rapports > Rapports enregistrés**, créez un rapport personnalisé et cliquez sur **Créer un rapport** pour ouvrir un éditeur visuel : choisissez un type de carte, ajoutez des filtres, définissez le regroupement (dimensions) et les mesures, puis sélectionnez un type de graphique. Un aperçu en direct se met à jour ; cliquez sur **Enregistrer** pour publier.

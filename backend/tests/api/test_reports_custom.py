@@ -131,3 +131,47 @@ class TestSavedReportCustomType:
         )
         assert r.status_code in (200, 201)
         assert r.json()["report_type"] == "custom"
+
+    async def test_malformed_custom_config_rejected_on_save(self, client, db, env):
+        # measures is required by CustomReportSpec → save-time validation must 400.
+        bad = _spec()
+        del bad["measures"]
+        r = await client.post(
+            "/api/v1/saved-reports",
+            json={"name": "Bad", "report_type": "custom", "config": bad, "visibility": "private"},
+            headers=auth_headers(env["admin"]),
+        )
+        assert r.status_code == 400
+
+    async def test_malformed_custom_config_rejected_on_update(self, client, db, env):
+        created = await client.post(
+            "/api/v1/saved-reports",
+            json={
+                "name": "OK",
+                "report_type": "custom",
+                "config": _spec(),
+                "visibility": "private",
+            },
+            headers=auth_headers(env["admin"]),
+        )
+        rid = created.json()["id"]
+        r = await client.patch(
+            f"/api/v1/saved-reports/{rid}",
+            json={"config": {"title": "broken"}},  # missing source/measures/visualization
+            headers=auth_headers(env["admin"]),
+        )
+        assert r.status_code == 400
+
+    async def test_non_custom_type_skips_spec_validation(self, client, db, env):
+        # A non-custom report stores any config shape unchanged.
+        r = await client.post(
+            "/api/v1/saved-reports",
+            json={
+                "name": "Cost view",
+                "report_type": "cost",
+                "config": {"cardTypeKey": "Application", "view": "chart"},
+                "visibility": "private",
+            },
+            headers=auth_headers(env["admin"]),
+        )
+        assert r.status_code in (200, 201)

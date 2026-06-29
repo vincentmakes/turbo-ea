@@ -56,3 +56,7 @@ Oltre ai tipi di report integrati, Turbo EA può creare **report completamente p
 - **Sicuro e governato**: i report sono di sola lettura, funzionano interamente su regole dichiarative (niente codice, niente SQL), e i campi di costo restano dietro l'autorizzazione **Visualizza costi**, esattamente come ogni altro report.
 
 I report personalizzati vengono salvati come qualsiasi altro report, quindi si applicano le stesse opzioni di visibilità e condivisione (privato / condiviso / pubblico).
+
+### Crearlo a mano
+
+Non serve l'assistente IA. Apri **Report > Report salvati**, crea un report personalizzato e fai clic su **Crea un report** per aprire un editor visivo: scegli un tipo di carta, aggiungi filtri, definisci il raggruppamento (dimensioni) e le misure e seleziona un tipo di grafico. Un'anteprima dal vivo si aggiorna man mano; **Salva** per pubblicare.

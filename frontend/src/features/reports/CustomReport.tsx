@@ -30,9 +30,12 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import Button from "@mui/material/Button";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
+import ReportBuilderDialog from "./ReportBuilderDialog";
 import MetricCard from "./MetricCard";
+import MaterialSymbol from "@/components/MaterialSymbol";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useIsRtl } from "@/hooks/useIsRtl";
@@ -89,6 +92,16 @@ export default function CustomReport() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<"chart" | "table">("chart");
+  const [builderOpen, setBuilderOpen] = useState(false);
+
+  // Apply a spec assembled by the manual builder: render it and remember it.
+  const handleApplySpec = useCallback(
+    (next: Record<string, unknown>) => {
+      setSpec(next);
+      saved.persistConfig(next);
+    },
+    [saved],
+  );
 
   // Pull the spec from the saved report config (set on the saved_reports row by
   // the MCP `create_saved_report` tool, or by editing an existing custom report).
@@ -140,6 +153,20 @@ export default function CustomReport() {
         <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
           {t("reports:custom.emptyHint")}
         </Typography>
+        <Button
+          variant="contained"
+          startIcon={<MaterialSymbol icon="auto_awesome" size={18} />}
+          sx={{ mt: 2 }}
+          onClick={() => setBuilderOpen(true)}
+        >
+          {t("reports:builder.build")}
+        </Button>
+        <ReportBuilderDialog
+          open={builderOpen}
+          onClose={() => setBuilderOpen(false)}
+          initialSpec={null}
+          onApply={handleApplySpec}
+        />
       </ReportShell>
     );
   }
@@ -324,6 +351,15 @@ export default function CustomReport() {
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
       onReset={handleReset}
+      actions={
+        <Button
+          size="small"
+          startIcon={<MaterialSymbol icon="edit" size={18} />}
+          onClick={() => setBuilderOpen(true)}
+        >
+          {t("reports:builder.editReport")}
+        </Button>
+      }
     >
       {loading && (
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
@@ -351,6 +387,12 @@ export default function CustomReport() {
         reportType="custom"
         config={spec}
         thumbnail={thumbnail}
+      />
+      <ReportBuilderDialog
+        open={builderOpen}
+        onClose={() => setBuilderOpen(false)}
+        initialSpec={spec}
+        onApply={handleApplySpec}
       />
     </ReportShell>
   );

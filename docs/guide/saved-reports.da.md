@@ -56,3 +56,7 @@ Ud over de indbyggede rapporttyper kan Turbo EA bygge **fuldt tilpassede rapport
 - **Sikker og styret**: rapporter er skrivebeskyttede, kører helt på deklarative regler (ingen kode, ingen SQL), og omkostningsfelter forbliver bag tilladelsen **Vis omkostninger** — præcis som enhver anden rapport.
 
 Tilpassede rapporter gemmes ligesom enhver anden rapport, så de samme indstillinger for synlighed og deling (privat / delt / offentlig) gælder.
+
+### Byg en i hånden
+
+Du behøver ikke AI-assistenten. Åbn **Rapporter > Gemte rapporter**, opret en tilpasset rapport, og klik på **Opret en rapport** for at åbne en visuel editor: vælg en korttype, tilføj filtre, bestem grupperingen (dimensioner) og målene, og vælg en diagramtype. En live-forhåndsvisning opdateres undervejs; klik på **Gem** for at udgive.

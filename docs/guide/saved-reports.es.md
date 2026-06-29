@@ -56,3 +56,7 @@ Más allá de los tipos de informe integrados, Turbo EA puede crear **informes t
 - **Seguro y gobernado**: los informes son de solo lectura, funcionan totalmente con reglas declarativas (sin código, sin SQL), y los campos de coste permanecen detrás del permiso **Ver costes**, igual que cualquier otro informe.
 
 Los informes personalizados se guardan como cualquier otro informe, por lo que se aplican las mismas opciones de visibilidad y uso compartido (privado / compartido / público).
+
+### Crearlo a mano
+
+No necesitas el asistente de IA. Abre **Informes > Informes guardados**, crea un informe personalizado y haz clic en **Crear un informe** para abrir un editor visual: elige un tipo de tarjeta, añade filtros, define la agrupación (dimensiones) y las medidas, y selecciona un tipo de gráfico. Una vista previa en vivo se actualiza sobre la marcha; pulsa **Guardar** para publicar.

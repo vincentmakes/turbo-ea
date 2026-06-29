@@ -56,3 +56,7 @@ Além dos tipos de relatório integrados, o Turbo EA pode criar **relatórios to
 - **Seguro e governado**: os relatórios são somente leitura, funcionam inteiramente com regras declarativas (sem código, sem SQL), e os campos de custo permanecem atrás da permissão **Ver custos**, exatamente como qualquer outro relatório.
 
 Os relatórios personalizados são salvos como qualquer outro relatório, portanto, aplicam-se as mesmas opções de visibilidade e compartilhamento (privado / compartilhado / público).
+
+### Criar manualmente
+
+Você não precisa do assistente de IA. Abra **Relatórios > Relatórios salvos**, crie um relatório personalizado e clique em **Criar um relatório** para abrir um editor visual: escolha um tipo de cartão, adicione filtros, defina o agrupamento (dimensões) e as medidas e selecione um tipo de gráfico. Uma pré-visualização ao vivo é atualizada conforme você avança; clique em **Salvar** para publicar.

@@ -56,3 +56,7 @@ Beyond the built-in report types, Turbo EA can build **fully custom reports** fr
 - **Safe and governed**: reports are read-only, run entirely on declarative rules (no code, no SQL), and cost fields stay behind the **View costs** permission — exactly like every other report.
 
 Custom reports are saved exactly like any other report, so the same private / shared / public visibility and sharing options apply.
+
+### Building one by hand
+
+You don't need the AI assistant. Open **Reports > Saved Reports**, create a Custom Report, and click **Build a report** to open a point-and-click builder: pick a card type, add filters, choose how to group (dimensions) and what to measure, and select a chart type. A live preview updates as you go; **Save** to publish.

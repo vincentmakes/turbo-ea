@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import ValidationError
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -12,9 +13,26 @@ from app.database import get_db
 from app.models.saved_report import SavedReport, saved_report_shares
 from app.models.user import User
 from app.schemas.common import SavedReportCreate, SavedReportUpdate
+from app.schemas.custom_report import CustomReportSpec
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/saved-reports", tags=["saved-reports"])
+
+
+def _validate_custom_config(config: dict) -> None:
+    """Reject a malformed Custom Report spec at save time.
+
+    The renderer already rejects a bad spec at run time (``POST /reports/custom``
+    validates via Pydantic), but validating here too means a broken custom report
+    can never be persisted in the first place — fail fast, not at render.
+    """
+    try:
+        CustomReportSpec.model_validate(config or {})
+    except ValidationError as exc:
+        raise HTTPException(
+            400, f"Invalid custom report specification: {exc.errors()[0].get('msg', 'invalid')}"
+        ) from exc
+
 
 VALID_REPORT_TYPES = {
     "portfolio",
@@ -138,6 +156,8 @@ async def create_saved_report(
         )
     if body.visibility not in ("private", "public", "shared"):
         raise HTTPException(400, "visibility must be private, public, or shared")
+    if body.report_type == "custom":
+        _validate_custom_config(body.config)
 
     report = SavedReport(
         owner_id=user.id,
@@ -212,6 +232,8 @@ async def update_saved_report(
 
     if "visibility" in data and data["visibility"] not in ("private", "public", "shared"):
         raise HTTPException(400, "visibility must be private, public, or shared")
+    if "config" in data and report.report_type == "custom":
+        _validate_custom_config(data["config"])
 
     shared_with = data.pop("shared_with", None)
 
