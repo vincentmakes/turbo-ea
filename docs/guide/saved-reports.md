@@ -35,3 +35,24 @@ Navigate to **Reports > Saved Reports** to browse all saved reports you have acc
 - **Edit** — Update the name, visibility, or sharing settings
 - **Duplicate** — Create a copy with a new name
 - **Delete** — Remove the saved report (only the creator or users with edit permissions can delete)
+
+## Custom Reports with Your AI Assistant
+
+Beyond the built-in report types, Turbo EA can build **fully custom reports** from a plain-language description, using an AI assistant connected through the **MCP server**.
+
+### How it works
+
+1. Connect the Turbo EA MCP server to your AI assistant (for example Claude Code) — see the **MCP Integration** guide.
+2. Describe the report you want in plain language, e.g. *"Count applications by business criticality as a pie chart"* or *"Total annual cost of IT components grouped by provider"*.
+3. The assistant calls `get_report_builder_schema` to read your live metamodel (card types, fields, relations, tags), assembles a safe report **specification**, and previews it against your real workspace data with `preview_custom_report` — so you see actual results before anything is saved.
+4. When you are happy, the assistant **publishes** the report with `create_saved_report`. It appears on the **Saved Reports** gallery and opens as a native, interactive report.
+
+### What custom reports can do
+
+- **Metamodel-aware**: your card types, subtypes, fields, relations, and tags are reflected automatically — no coding required.
+- **Group and aggregate**: group by an attribute, subtype, lifecycle phase, tag group, or related card, and measure with count, sum, average, minimum, or maximum.
+- **Filter and traverse**: filter the source cards and optionally follow one relation hop to related cards.
+- **Many visualizations**: render as a table, bar/column/pie/donut/scatter/treemap/line chart, or KPI tiles.
+- **Safe and governed**: reports are read-only, run entirely on declarative rules (no code, no SQL), and cost fields stay behind the **View costs** permission — exactly like every other report.
+
+Custom reports are saved exactly like any other report, so the same private / shared / public visibility and sharing options apply.

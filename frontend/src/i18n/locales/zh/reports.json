@@ -377,5 +377,11 @@
   "dependency.createDiagramSubmit": "创建",
   "dependency.createDiagramError": "无法创建图表，请重试。",
   "cost.permissionDeniedTitle": "成本数据受限",
-  "cost.permissionDeniedBody": "您无权查看成本报告。请管理员授予您「costs.view」权限，或成为相关卡片的利益相关方。"
+  "cost.permissionDeniedBody": "您无权查看成本报告。请管理员授予您「costs.view」权限，或成为相关卡片的利益相关方。",
+  "saved.typeCustom": "自定义",
+  "custom.title": "自定义报告",
+  "custom.empty": "此自定义报告尚无规范。",
+  "custom.emptyHint": "自定义报告通过 Turbo EA MCP 服务器向你的 AI 助手描述来创建，助手会实时预览数据，然后在此处发布报告。打开已保存的自定义报告即可查看。",
+  "custom.noData": "没有数据符合此报告的规范。",
+  "custom.truncated": "由于报告匹配了非常大量的卡片或分组，结果已被截断。"
 }

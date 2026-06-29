@@ -210,6 +210,17 @@
         "title": "ADRUpdate",
         "type": "object"
       },
+      "Aggregation": {
+        "enum": [
+          "count",
+          "sum",
+          "avg",
+          "min",
+          "max"
+        ],
+        "title": "Aggregation",
+        "type": "string"
+      },
       "AiFieldSuggestion": {
         "properties": {
           "confidence": {
@@ -3580,6 +3591,118 @@
         "title": "CurrencyPayload",
         "type": "object"
       },
+      "CustomReportSpec": {
+        "additionalProperties": false,
+        "description": "A complete, safe description of a custom report.",
+        "properties": {
+          "dimensions": {
+            "items": {
+              "$ref": "#/components/schemas/Dimension"
+            },
+            "maxItems": 2,
+            "title": "Dimensions",
+            "type": "array"
+          },
+          "limit": {
+            "default": 100,
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "measures": {
+            "items": {
+              "$ref": "#/components/schemas/Measure"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Measures",
+            "type": "array"
+          },
+          "sort": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sort"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source": {
+            "$ref": "#/components/schemas/DataSource"
+          },
+          "title": {
+            "maxLength": 200,
+            "title": "Title",
+            "type": "string"
+          },
+          "version": {
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
+          },
+          "visualization": {
+            "$ref": "#/components/schemas/Visualization"
+          }
+        },
+        "required": [
+          "title",
+          "source",
+          "measures",
+          "visualization"
+        ],
+        "title": "CustomReportSpec",
+        "type": "object"
+      },
+      "DataSource": {
+        "additionalProperties": false,
+        "properties": {
+          "card_type": {
+            "pattern": "^[a-zA-Z_][a-zA-Z0-9_]{0,63}$",
+            "title": "Card Type",
+            "type": "string"
+          },
+          "filters": {
+            "items": {
+              "$ref": "#/components/schemas/Filter"
+            },
+            "maxItems": 25,
+            "title": "Filters",
+            "type": "array"
+          },
+          "subtypes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtypes"
+          },
+          "traverse": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RelationTraversal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "card_type"
+        ],
+        "title": "DataSource",
+        "type": "object"
+      },
       "DateFormatPayload": {
         "properties": {
           "date_format": {
@@ -3739,6 +3862,53 @@
         },
         "title": "DiagramUpdate",
         "type": "object"
+      },
+      "Dimension": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/DimensionKind"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "Dimension",
+        "type": "object"
+      },
+      "DimensionKind": {
+        "enum": [
+          "attribute",
+          "subtype",
+          "lifecycle",
+          "tag_group",
+          "relation"
+        ],
+        "title": "DimensionKind",
+        "type": "string"
       },
       "DocumentCreate": {
         "properties": {
@@ -4328,6 +4498,94 @@
         ],
         "title": "FileUploadsEnabledPayload",
         "type": "object"
+      },
+      "Filter": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z_][a-zA-Z0-9_]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "op": {
+            "$ref": "#/components/schemas/FilterOp"
+          },
+          "target": {
+            "$ref": "#/components/schemas/FilterTarget"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "target",
+          "op"
+        ],
+        "title": "Filter",
+        "type": "object"
+      },
+      "FilterOp": {
+        "enum": [
+          "eq",
+          "ne",
+          "in",
+          "not_in",
+          "gt",
+          "gte",
+          "lt",
+          "lte",
+          "contains",
+          "is_set",
+          "is_empty"
+        ],
+        "title": "FilterOp",
+        "type": "string"
+      },
+      "FilterTarget": {
+        "enum": [
+          "attribute",
+          "lifecycle",
+          "subtype",
+          "tag",
+          "name",
+          "approval_status"
+        ],
+        "title": "FilterTarget",
+        "type": "string"
       },
       "FiscalYearStartPayload": {
         "properties": {
@@ -4930,6 +5188,43 @@
           }
         },
         "title": "McpSettingsPayload",
+        "type": "object"
+      },
+      "Measure": {
+        "additionalProperties": false,
+        "properties": {
+          "agg": {
+            "$ref": "#/components/schemas/Aggregation"
+          },
+          "field": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z_][a-zA-Z0-9_]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          }
+        },
+        "required": [
+          "agg"
+        ],
+        "title": "Measure",
         "type": "object"
       },
       "MigrationOut": {
@@ -8813,6 +9108,34 @@
         "title": "RelationResponse",
         "type": "object"
       },
+      "RelationTraversal": {
+        "additionalProperties": false,
+        "description": "Hop from the source working set to related cards (exactly one hop in v1).",
+        "properties": {
+          "direction": {
+            "default": "any",
+            "pattern": "^(out|in|any)$",
+            "title": "Direction",
+            "type": "string"
+          },
+          "relation_type": {
+            "pattern": "^[a-zA-Z_][a-zA-Z0-9_]{0,63}$",
+            "title": "Relation Type",
+            "type": "string"
+          },
+          "target_type": {
+            "pattern": "^[a-zA-Z_][a-zA-Z0-9_]{0,63}$",
+            "title": "Target Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "relation_type",
+          "target_type"
+        ],
+        "title": "RelationTraversal",
+        "type": "object"
+      },
       "RelationUpdate": {
         "properties": {
           "attributes": {
@@ -10570,6 +10893,26 @@
           }
         },
         "title": "SoAWUpdate",
+        "type": "object"
+      },
+      "Sort": {
+        "additionalProperties": false,
+        "properties": {
+          "by": {
+            "maxLength": 120,
+            "title": "By",
+            "type": "string"
+          },
+          "desc": {
+            "default": true,
+            "title": "Desc",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "by"
+        ],
+        "title": "Sort",
         "type": "object"
       },
       "SourceFieldRow": {
@@ -12713,6 +13056,70 @@
         ],
         "title": "VendorHierarchyOut",
         "type": "object"
+      },
+      "Visualization": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/VizKind"
+          },
+          "series": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series"
+          },
+          "x": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "X"
+          },
+          "y": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Y"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "Visualization",
+        "type": "object"
+      },
+      "VizKind": {
+        "enum": [
+          "table",
+          "bar",
+          "column",
+          "pie",
+          "donut",
+          "scatter",
+          "treemap",
+          "line",
+          "kpi"
+        ],
+        "title": "VizKind",
+        "type": "string"
       },
       "WebPortalCreate": {
         "properties": {
@@ -25810,6 +26217,46 @@
           }
         },
         "summary": "Cost Treemap",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/custom": {
+      "post": {
+        "description": "Run a freeform Custom Report spec against live data.\n\nThe spec is a fully-declarative description (no code, no SQL). The engine\nvalidates every metamodel reference, gates cost fields behind ``costs.view``,\nand caps resource usage. Used both for the in-app Custom Report renderer and\nby the MCP ``preview_custom_report`` tool. Saving is a separate concern\n(``POST /saved-reports`` with ``report_type=\"custom\"``).",
+        "operationId": "custom_report_api_v1_reports_custom_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomReportSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Custom Report",
         "tags": [
           "reports"
         ]

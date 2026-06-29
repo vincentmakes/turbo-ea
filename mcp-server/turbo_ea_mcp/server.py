@@ -602,6 +602,180 @@ async def get_data_quality_report() -> str:
     return _fmt(data)
 
 
+# ── Custom report builder ──────────────────────────────────────────────────
+
+# Declarative contract for a CustomReportSpec. Kept in lockstep with
+# backend/app/schemas/custom_report.py — the assistant authors a spec matching
+# this shape, previews it, then publishes it via create_saved_report.
+_CUSTOM_REPORT_DSL = {
+    "description": (
+        "A freeform Custom Report is a safe, declarative JSON spec (no code, no "
+        "SQL). Build it from the metamodel references returned alongside this "
+        "doc, preview it with preview_custom_report, then publish it with "
+        "create_saved_report(report_type='custom', config=<spec>)."
+    ),
+    "spec": {
+        "title": "str (required, <=200 chars)",
+        "source": {
+            "card_type": "str (required) — a card type key",
+            "subtypes": "list[str] (optional) — subtype keys of card_type",
+            "filters": (
+                "list (optional, <=25) of {target, key?, op, value?}. "
+                "target ∈ attribute|lifecycle|subtype|tag|name|approval_status "
+                "(key required when target=attribute). "
+                "op ∈ eq|ne|in|not_in|gt|gte|lt|lte|contains|is_set|is_empty"
+            ),
+            "traverse": (
+                "optional {relation_type, direction(out|in|any), target_type} — "
+                "ONE hop to related cards; dimensions/measures then apply to "
+                "target_type"
+            ),
+        },
+        "dimensions": (
+            "list (optional, <=2) of {kind, key?, label?}. "
+            "kind ∈ attribute|subtype|lifecycle|tag_group|relation "
+            "(key required for attribute=field key, relation=relation_type key, "
+            "tag_group=tag group id)"
+        ),
+        "measures": (
+            "list (required, 1..4) of {agg, field?, label?}. "
+            "agg ∈ count|sum|avg|min|max (field required unless count; must be a "
+            "numeric/cost field)"
+        ),
+        "visualization": {
+            "kind": "str (required) ∈ table|bar|column|pie|donut|scatter|treemap|line|kpi"
+        },
+        "sort": "optional {by(dimension/measure label), desc(bool)}",
+        "limit": "int 1..500 (default 100)",
+    },
+    "examples": [
+        {
+            "title": "Applications by business criticality",
+            "source": {"card_type": "Application"},
+            "dimensions": [{"kind": "attribute", "key": "businessCriticality"}],
+            "measures": [{"agg": "count"}],
+            "visualization": {"kind": "pie"},
+        },
+        {
+            "title": "Annual cost by lifecycle phase",
+            "source": {"card_type": "Application"},
+            "dimensions": [{"kind": "lifecycle"}],
+            "measures": [
+                {"agg": "sum", "field": "costTotalAnnual", "label": "Annual cost"}
+            ],
+            "visualization": {"kind": "column"},
+        },
+    ],
+}
+
+
+def _summarise_card_types(types: list) -> list:
+    out = []
+    for t in types if isinstance(types, list) else []:
+        if not isinstance(t, dict) or t.get("is_hidden"):
+            continue
+        fields = []
+        for section in t.get("fields_schema") or []:
+            for f in section.get("fields", []) or []:
+                if isinstance(f, dict) and f.get("key"):
+                    fields.append(
+                        {
+                            "key": f["key"],
+                            "label": f.get("label", f["key"]),
+                            "type": f.get("type", "text"),
+                            "numeric": f.get("type") in ("number", "cost"),
+                            "cost": f.get("type") == "cost",
+                        }
+                    )
+        out.append(
+            {
+                "key": t.get("key"),
+                "label": t.get("label"),
+                "subtypes": [
+                    s.get("key")
+                    for s in (t.get("subtypes") or [])
+                    if isinstance(s, dict)
+                ],
+                "fields": fields,
+            }
+        )
+    return out
+
+
+@mcp.tool(annotations=_READ_ANNOT)
+async def get_report_builder_schema() -> str:
+    """Return the Custom Report spec DSL plus the live metamodel references
+    needed to author a VALID spec — card types with their attribute keys/types
+    (numeric + cost flags), relation-type keys, and tag groups.
+
+    Call this FIRST when a user asks you to build a custom report, then assemble
+    a spec, preview it with ``preview_custom_report``, and publish it with
+    ``create_saved_report``.
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    client = TurboEAClient(token)
+    card_types = await client.get("/metamodel/types")
+    relation_types = await client.get("/metamodel/relation-types")
+    tag_groups = await client.get("/tag-groups")
+    return _fmt(
+        {
+            "dsl": _CUSTOM_REPORT_DSL,
+            "card_types": _summarise_card_types(card_types),
+            "relation_types": [
+                {
+                    "key": r.get("key"),
+                    "source_type_key": r.get("source_type_key"),
+                    "target_type_key": r.get("target_type_key"),
+                }
+                for r in (relation_types if isinstance(relation_types, list) else [])
+                if isinstance(r, dict)
+            ],
+            "tag_groups": [
+                {"id": g.get("id"), "name": g.get("name")}
+                for g in (tag_groups if isinstance(tag_groups, list) else [])
+                if isinstance(g, dict)
+            ],
+        }
+    )
+
+
+@mcp.tool(annotations=_READ_ANNOT)
+async def preview_custom_report(spec: dict) -> str:
+    """Run a Custom Report spec against live data WITHOUT saving it.
+
+    Returns ``{columns, rows, meta}``. Use ``get_report_builder_schema`` first to
+    build a valid spec, show the user this preview, and only then publish with
+    ``create_saved_report``.
+
+    Args:
+        spec: A CustomReportSpec dict (see get_report_builder_schema for the shape).
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    client = TurboEAClient(token)
+    data = await client.post("/reports/custom", json=spec)
+    return _fmt(data)
+
+
+@mcp.tool(annotations=_READ_ANNOT)
+async def list_saved_reports(filter: str = "all") -> str:
+    """List saved reports visible to the current user.
+
+    Args:
+        filter: One of all | my | shared | public (default all). Use this to find
+            an existing custom report's id before updating it.
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    client = TurboEAClient(token)
+    data = await client.get("/saved-reports", params=_compact({"filter": filter}))
+    return _fmt(data)
+
+
 # ── Card context ───────────────────────────────────────────────────────────
 
 
@@ -1937,6 +2111,98 @@ async def create_diagram(
     }
     data = await client.post("/diagrams", json=payload)
     return _fmt(data)
+
+
+@mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
+async def create_saved_report(
+    name: str,
+    config: dict,
+    report_type: str = "custom",
+    description: str = "",
+    visibility: str = "private",
+    shared_with: list[str] | None = None,
+    dry_run: bool = True,
+    confirm_token: str = "",
+) -> str:
+    """Publish a saved report — typically a freeform Custom Report.
+
+    This is the "publish" step of the build-a-report flow: after
+    ``get_report_builder_schema`` → assemble a spec → ``preview_custom_report``,
+    save it here so it renders natively at ``/reports/custom`` and (with
+    public/shared visibility) appears on every user's Saved Reports page.
+
+    Args:
+        name: Display name for the saved report.
+        config: The report configuration. For ``report_type='custom'`` this is a
+            CustomReportSpec dict (see ``get_report_builder_schema``).
+        report_type: The report type. Defaults to ``custom`` (the freeform
+            engine); the fixed types (portfolio, matrix, …) are normally built in
+            the web UI.
+        description: Optional description.
+        visibility: ``private`` (default), ``public``, or ``shared``. Publishing
+            to other users means ``public`` or ``shared``.
+        shared_with: User ids to share with when ``visibility='shared'``.
+        dry_run: When True (default), validate the spec by previewing it against
+            live data and return the preview WITHOUT saving. Re-run with
+            dry_run=False to actually publish.
+        confirm_token: Echo the token from a prior dry-run if one was required.
+
+    Returns: On dry-run, the live preview metadata; on commit, the created saved
+    report (with its ``id``) plus the audit ``batch_id``.
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    if (disabled := _writes_disabled_message()) is not None:
+        return disabled
+    if not dry_run:
+        gate = _confirmation_required_message("create_saved_report", 1)
+        if gate is not None and not confirm_token:
+            return gate
+
+    async with mutation_batch(
+        token,
+        tool_name="create_saved_report",
+        row_count=1,
+        dry_run=dry_run,
+        confirm_token=confirm_token or None,
+    ) as batch:
+        client = batch.client()
+        if dry_run:
+            # Validate by previewing the spec; never persist on a dry-run.
+            preview: dict = {
+                "dry_run": True,
+                "would_create": {
+                    "name": name,
+                    "report_type": report_type,
+                    "visibility": visibility,
+                },
+            }
+            if report_type == "custom":
+                result = await client.post("/reports/custom", json=config)
+                if isinstance(result, dict):
+                    preview["preview_meta"] = result.get("meta")
+                    preview["preview_rows"] = result.get("rows")
+                    preview["preview_columns"] = result.get("columns")
+            data: dict = preview
+        else:
+            data = await client.post(
+                "/saved-reports",
+                json={
+                    "name": name,
+                    "description": description or None,
+                    "report_type": report_type,
+                    "config": config,
+                    "visibility": visibility,
+                    "shared_with": shared_with,
+                },
+            )
+        if isinstance(data, dict):
+            data["batch_id"] = batch.batch_id
+            if dry_run and batch.confirm_token_issued:
+                data["confirm_token"] = batch.confirm_token_issued
+            batch.summary = {"rows": 1, "name": name, "report_type": report_type}
+        return _fmt(data)
 
 
 @mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)

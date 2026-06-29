@@ -377,5 +377,11 @@
   "dependency.createDiagramSubmit": "Criar",
   "dependency.createDiagramError": "Não foi possível criar o diagrama. Tente novamente.",
   "cost.permissionDeniedTitle": "Dados de custo restritos",
-  "cost.permissionDeniedBody": "Você não tem permissão para ver relatórios de custos. Peça a um administrador para conceder a permissão «costs.view», ou torne-se parte interessada nas cartas em questão."
+  "cost.permissionDeniedBody": "Você não tem permissão para ver relatórios de custos. Peça a um administrador para conceder a permissão «costs.view», ou torne-se parte interessada nas cartas em questão.",
+  "saved.typeCustom": "Personalizado",
+  "custom.title": "Relatório personalizado",
+  "custom.empty": "Este relatório personalizado ainda não tem uma especificação.",
+  "custom.emptyHint": "Os relatórios personalizados são criados descrevendo-os ao seu assistente de IA por meio do servidor MCP do Turbo EA, que pré-visualiza os dados ao vivo e depois publica o relatório aqui. Abra um relatório personalizado salvo para visualizá-lo.",
+  "custom.noData": "Nenhum dado correspondeu à especificação deste relatório.",
+  "custom.truncated": "Os resultados foram truncados porque o relatório correspondeu a um número muito grande de cartões ou grupos."
 }

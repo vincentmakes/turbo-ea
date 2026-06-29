@@ -377,5 +377,11 @@
   "dependency.createDiagramSubmit": "Erstellen",
   "dependency.createDiagramError": "Diagramm konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
   "cost.permissionDeniedTitle": "Kostendaten eingeschränkt",
-  "cost.permissionDeniedBody": "Sie sind nicht berechtigt, Kostenberichte einzusehen. Bitten Sie einen Administrator, Ihnen die Berechtigung «costs.view» zu erteilen, oder werden Sie Stakeholder der betreffenden Karten."
+  "cost.permissionDeniedBody": "Sie sind nicht berechtigt, Kostenberichte einzusehen. Bitten Sie einen Administrator, Ihnen die Berechtigung «costs.view» zu erteilen, oder werden Sie Stakeholder der betreffenden Karten.",
+  "saved.typeCustom": "Benutzerdefiniert",
+  "custom.title": "Benutzerdefinierter Bericht",
+  "custom.empty": "Dieser benutzerdefinierte Bericht hat noch keine Spezifikation.",
+  "custom.emptyHint": "Benutzerdefinierte Berichte werden erstellt, indem Sie sie Ihrem KI-Assistenten über den Turbo-EA-MCP-Server beschreiben, der die Daten live in der Vorschau anzeigt und den Bericht dann hier veröffentlicht. Öffnen Sie einen gespeicherten benutzerdefinierten Bericht, um ihn anzuzeigen.",
+  "custom.noData": "Keine Daten entsprachen der Spezifikation dieses Berichts.",
+  "custom.truncated": "Die Ergebnisse wurden gekürzt, da der Bericht eine sehr große Anzahl von Karten oder Gruppen umfasste."
 }

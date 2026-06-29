@@ -27,7 +27,9 @@ from app.models.tag import CardTag, Tag, TagGroup
 from app.models.todo import Todo
 from app.models.user import User
 from app.models.user_favorite import UserFavorite
+from app.schemas.custom_report import CustomReportSpec
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
+from app.services.custom_report_engine import run_custom_report
 from app.services.kpi_snapshot_service import (
     compute_trend_block,
     get_comparison_snapshot,
@@ -2174,3 +2176,21 @@ async def eol_report(
             "manual": manual_count,
         },
     }
+
+
+@router.post("/custom")
+async def custom_report(
+    spec: CustomReportSpec,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Run a freeform Custom Report spec against live data.
+
+    The spec is a fully-declarative description (no code, no SQL). The engine
+    validates every metamodel reference, gates cost fields behind ``costs.view``,
+    and caps resource usage. Used both for the in-app Custom Report renderer and
+    by the MCP ``preview_custom_report`` tool. Saving is a separate concern
+    (``POST /saved-reports`` with ``report_type="custom"``).
+    """
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    return await run_custom_report(db, user, spec)

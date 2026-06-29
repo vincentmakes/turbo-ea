@@ -377,5 +377,11 @@
   "dependency.createDiagramSubmit": "Crea",
   "dependency.createDiagramError": "Impossibile creare il diagramma. Riprova.",
   "cost.permissionDeniedTitle": "Dati sui costi limitati",
-  "cost.permissionDeniedBody": "Non hai i permessi per visualizzare i report sui costi. Chiedi a un amministratore di concederti il permesso «costs.view», oppure diventa stakeholder delle schede in questione."
+  "cost.permissionDeniedBody": "Non hai i permessi per visualizzare i report sui costi. Chiedi a un amministratore di concederti il permesso «costs.view», oppure diventa stakeholder delle schede in questione.",
+  "saved.typeCustom": "Personalizzato",
+  "custom.title": "Report personalizzato",
+  "custom.empty": "Questo report personalizzato non ha ancora una specifica.",
+  "custom.emptyHint": "I report personalizzati si creano descrivendoli al tuo assistente IA tramite il server MCP di Turbo EA, che mostra in anteprima i dati in tempo reale e poi pubblica il report qui. Apri un report personalizzato salvato per visualizzarlo.",
+  "custom.noData": "Nessun dato corrisponde alla specifica di questo report.",
+  "custom.truncated": "I risultati sono stati troncati perché il report corrispondeva a un numero molto elevato di carte o gruppi."
 }

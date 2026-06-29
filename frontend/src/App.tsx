@@ -35,6 +35,7 @@ const DependencyReport = lazy(() => import("@/features/reports/DependencyReport"
 const CostReport = lazy(() => import("@/features/reports/CostReport"));
 const MatrixReport = lazy(() => import("@/features/reports/MatrixReport"));
 const DataQualityReport = lazy(() => import("@/features/reports/DataQualityReport"));
+const CustomReport = lazy(() => import("@/features/reports/CustomReport"));
 const EolReport = lazy(() => import("@/features/reports/EolReport"));
 const SavedReportsPage = lazy(() => import("@/features/reports/SavedReportsPage"));
 const DiagramsPage = lazy(() => import("@/features/diagrams/DiagramsPage"));
@@ -161,6 +162,7 @@ function AppRoutes() {
                 <Route path="/reports/cost" element={<CostReport />} />
                 <Route path="/reports/matrix" element={<MatrixReport />} />
                 <Route path="/reports/data-quality" element={<DataQualityReport />} />
+                <Route path="/reports/custom" element={<CustomReport />} />
                 <Route path="/reports/eol" element={<EolReport />} />
                 <Route path="/reports/saved" element={<SavedReportsPage />} />
                 <Route path="/bpm" element={<ModuleGate module="bpm"><BpmDashboard /></ModuleGate>} />
