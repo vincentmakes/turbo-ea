@@ -11,6 +11,7 @@
   "reports.matrix": "Matrix",
   "reports.dataQuality": "Datenqualität",
   "reports.endOfLife": "End of Life",
+  "reports.custom": "Benutzerdefinierter Bericht",
   "reports.eaDelivery": "EA-Lieferung",
   "reports.saved": "Gespeicherte Berichte",
   "reports.processMap": "Prozesslandkarte",

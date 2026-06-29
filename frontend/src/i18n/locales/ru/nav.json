@@ -11,6 +11,7 @@
   "reports.matrix": "Матрица",
   "reports.dataQuality": "Качество данных",
   "reports.endOfLife": "Окончание поддержки",
+  "reports.custom": "Пользовательский отчёт",
   "reports.eaDelivery": "Поставка EA",
   "reports.saved": "Сохранённые отчёты",
   "reports.processMap": "Карта процессов",

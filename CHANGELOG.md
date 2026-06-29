@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - **Build custom reports with your AI assistant.** A new freeform **Custom Report** type lets you describe the report you need in plain language to an AI assistant connected through the Turbo EA MCP server — the assistant builds it, previews it live against your workspace data, and publishes it as a native, shareable report. Custom reports are metamodel-aware (your card types, fields, relations, and tags are reflected automatically) and render as tables, bar/column/pie/donut/scatter/treemap/line charts, or KPI tiles. New MCP tools: `get_report_builder_schema`, `preview_custom_report`, `create_saved_report`, and `list_saved_reports`. Cost fields stay gated behind the *View costs* permission, just like every other report.
-- **Point-and-click custom report builder.** Custom reports can now also be built by hand in the browser — no AI and no JSON. A **Build a report** dialog lets you pick a card type, add filters, choose group-by dimensions and measures, and select a chart type, with a live preview before saving.
+- **Point-and-click custom report builder.** Custom reports can now also be built by hand in the browser — no AI and no JSON. Open **Reports → Custom Report** and click **Build a report** to pick a card type, add filters, choose group-by dimensions and measures, and select a chart type, with a live preview before saving.
 
 ### Security
 - **Custom report specifications are validated when saved**, not only when rendered, so a malformed custom report can no longer be persisted.

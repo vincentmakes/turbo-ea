@@ -11,6 +11,7 @@
   "reports.matrix": "Matrix",
   "reports.dataQuality": "Data Quality",
   "reports.endOfLife": "End of Life",
+  "reports.custom": "Custom Report",
   "reports.eaDelivery": "EA Delivery",
   "reports.saved": "Saved Reports",
   "reports.processMap": "Process Map",

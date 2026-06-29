@@ -11,6 +11,7 @@
   "reports.matrix": "Matrix",
   "reports.dataQuality": "Datakvalitet",
   "reports.endOfLife": "Udløb",
+  "reports.custom": "Tilpasset rapport",
   "reports.eaDelivery": "EA-levering",
   "reports.saved": "Gemte rapporter",
   "reports.processMap": "Proceskort",

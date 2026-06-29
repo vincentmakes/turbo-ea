@@ -71,6 +71,7 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
       { labelKey: "reports.matrix", icon: "table_chart", path: "/reports/matrix" },
       { labelKey: "reports.dataQuality", icon: "verified", path: "/reports/data-quality" },
       { labelKey: "reports.endOfLife", icon: "update", path: "/reports/eol" },
+      { labelKey: "reports.custom", icon: "auto_awesome", path: "/reports/custom" },
       // EA Delivery lives inside /ppm as a tab when PPM is enabled. When PPM
       // is disabled the nav memo below promotes EA Delivery to a top-level
       // nav item (in PPM's old slot) so the surface stays reachable.

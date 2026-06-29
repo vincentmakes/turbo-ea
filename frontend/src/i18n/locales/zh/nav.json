@@ -11,6 +11,7 @@
   "reports.matrix": "矩阵",
   "reports.dataQuality": "数据质量",
   "reports.endOfLife": "生命终止",
+  "reports.custom": "自定义报告",
   "reports.eaDelivery": "EA 交付",
   "reports.saved": "已保存报告",
   "reports.processMap": "流程地图",
