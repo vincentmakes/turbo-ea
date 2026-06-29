@@ -224,3 +224,19 @@ Für jeden Kartentyp steuert der **Layout**-Bereich in der Typ-Schublade, wie di
 - **Standarderweiterung** — Wählen, ob jeder Abschnitt standardmäßig erweitert oder eingeklappt startet
 - **Spaltenlayout** — 1 oder 2 Spalten pro benutzerdefiniertem Abschnitt festlegen
 - **Felder zwischen Abschnitten verschieben** – Über die **Verschieben**-Aktion eines Feldes (neben den Schaltflächen Bearbeiten und Löschen) es in einen anderen Abschnitt verschieben, wobei seine Konfiguration erhalten bleibt
+
+## Ressourcen
+
+Der Tab **Ressourcen** verwaltet die beiden Listen, die auf dem **Ressourcen**-Tab jeder Karte angeboten werden:
+
+- **Linktypen** — die Kategorie eines Dokumentlinks (z. B. *Dokumentation*, *Vertrag*, *Sicherheit*). Jeder Linktyp trägt zudem ein **Symbol**, das neben dem Link angezeigt wird.
+- **Dateikategorien** — die einem hochgeladenen Dateianhang zugewiesene Kategorie.
+
+Für jede Liste können Sie:
+
+- **Einen Eintrag hinzufügen** — mit einem Schlüssel (ein kleingeschriebener, auf Karten gespeicherter Bezeichner, nach dem Anlegen unveränderlich), einer Anzeigebezeichnung und — bei Linktypen — einem Symbol.
+- **Bezeichnung, Symbol, Sortierreihenfolge und Übersetzungen** jedes Eintrags bearbeiten, auch der integrierten.
+- **Aktivieren / Deaktivieren** über den Schalter — deaktivierte Einträge verschwinden aus der Auswahl, vorhandene Werte auf Karten bleiben erhalten.
+- **Einen eigenen Eintrag löschen** — integrierte Einträge können nicht gelöscht, nur deaktiviert werden.
+
+Ein integrierter Linktyp **Vertrag** ist standardmäßig aktiviert. Beide Listen sind im **Workspace-Transfer** enthalten und werden so zwischen Instanzen übernommen.

@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.58.0] - 2026-06-29
+
+### Added
+- **Admin-configurable link types & file categories.** A new **Resources** tab under **Admin → Metamodel** lets admins curate the two lists shown on every card's Resources tab: the **link types** for document links and the **categories** for file attachments. Add your own entries, rename or reorder the built-ins, pick an icon for link types, translate labels per language, or disable entries you don't use. Built-in entries can be disabled but not deleted; the defaults now include a new **Contract** link type. The lists travel with **Workspace Transfer** between instances.
+
 ## [1.57.0] - 2026-06-27
 
 ### Added

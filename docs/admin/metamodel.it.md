@@ -224,3 +224,19 @@ Per ogni tipo di card, la sezione **Layout** nel cassetto del tipo controlla com
 - **Espansione predefinita** — Scegliete se ogni sezione inizia espansa o compressa
 - **Layout colonne** — Impostate 1 o 2 colonne per sezione personalizzata
 - **Spostare campi tra le sezioni** — Usare l'azione **sposta** di un campo (accanto ai pulsanti di modifica ed elimina) per ricollocarlo in un'altra sezione, mantenendone la configurazione
+
+## Risorse
+
+La scheda **Risorse** gestisce i due elenchi proposti nella scheda **Risorse** di ogni carta:
+
+- **Tipi di link** — la categoria di un link a un documento (es. *Documentazione*, *Contratto*, *Sicurezza*). Ogni tipo di link porta anche un'**icona** mostrata accanto al link.
+- **Categorie di file** — la categoria assegnata a un allegato caricato.
+
+Per ogni elenco puoi:
+
+- **Aggiungere una voce** — con una chiave (un identificatore minuscolo memorizzato sulle carte, fisso dopo la creazione), un'etichetta visualizzata e — per i tipi di link — un'icona.
+- **Modificare** etichetta, icona, ordinamento e traduzioni per lingua di qualsiasi voce, incluse quelle integrate.
+- **Attivare / disattivare** una voce con l'interruttore — le voci disattivate scompaiono dal selettore, ma i valori esistenti sulle carte vengono mantenuti.
+- **Eliminare** una voce personalizzata — le voci integrate non possono essere eliminate, solo disattivate.
+
+Un tipo di link **Contratto** integrato è attivo per impostazione predefinita. Entrambi gli elenchi sono inclusi nel **Trasferimento dell'area di lavoro** e si clonano così tra le istanze.

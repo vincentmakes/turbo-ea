@@ -24,6 +24,7 @@ import { invalidateAppTitle } from "@/hooks/useAppTitle";
 import { invalidateCurrency } from "@/hooks/useCurrency";
 import { invalidateBpmEnabled } from "@/hooks/useBpmEnabled";
 import { invalidateComplianceRegulations } from "@/hooks/useComplianceRegulations";
+import { invalidateResourceTypes } from "@/hooks/useResourceTypes";
 import { invalidateGrcEnabled } from "@/hooks/useGrcEnabled";
 import { invalidatePpmEnabled } from "@/hooks/usePpmEnabled";
 import { invalidateArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
@@ -31,7 +32,7 @@ import { invalidateFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
 import { invalidateEnabledLocalesGlobal } from "@/hooks/useEnabledLocales";
 import { invalidateLoginBranding } from "@/hooks/useLoginBranding";
 import { SUPPORTED_LOCALES, type SupportedLocale } from "@/i18n";
-import type { ComplianceRegulation } from "@/types";
+import type { ComplianceRegulation, ResourceType } from "@/types";
 
 type BootstrapResponse = {
   currency: string;
@@ -48,6 +49,7 @@ type BootstrapResponse = {
   bpm_row_order: string[];
   show_principles_tab: boolean;
   compliance_regulations: ComplianceRegulation[];
+  resource_types: ResourceType[];
   login_tagline: string;
   login_tagline_hidden: boolean;
   login_help_text: string;
@@ -97,6 +99,10 @@ export function primeBootstrap(): Promise<void> {
 
       invalidateComplianceRegulations(
         Array.isArray(r.compliance_regulations) ? r.compliance_regulations : [],
+      );
+
+      invalidateResourceTypes(
+        Array.isArray(r.resource_types) ? r.resource_types : [],
       );
 
       invalidateLoginBranding({

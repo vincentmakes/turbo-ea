@@ -1412,6 +1412,30 @@ export interface ComplianceRegulation {
   updated_at?: string | null;
 }
 
+/** Discriminator for {@link ResourceType}. */
+export type ResourceTypeKind = "link_type" | "file_category";
+
+/**
+ * An admin-managed link type or file category shown on a card's Resources
+ * tab. A single list per `kind`, with built-in defaults that can be edited
+ * or disabled but not deleted. `icon` is a Material Symbol name used by link
+ * types; file categories leave it null.
+ */
+export interface ResourceType {
+  id: string;
+  kind: ResourceTypeKind;
+  key: string;
+  label: string;
+  description: string | null;
+  icon: string | null;
+  is_enabled: boolean;
+  built_in: boolean;
+  sort_order: number;
+  translations: TranslationMap;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
 /**
  * Compliance finding lifecycle state. 4-state main path + 3 side
  * branches. Visualised in the ComplianceLifecycleTimeline.

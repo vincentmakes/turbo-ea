@@ -224,3 +224,19 @@ Para cada tipo de card, a seção **Layout** no painel do tipo controla como a p
 - **Expansão padrão** — Escolha se cada seção começa expandida ou recolhida
 - **Layout de colunas** — Defina 1 ou 2 colunas por seção personalizada
 - **Mover campos entre seções** — Usar a ação **mover** de um campo (ao lado dos botões de editar e excluir) para realocá-lo em outra seção, mantendo a sua configuração
+
+## Recursos
+
+O separador **Recursos** faz a gestão das duas listas oferecidas no separador **Recursos** de cada cartão:
+
+- **Tipos de ligação** — a categoria de uma ligação de documento (p. ex. *Documentação*, *Contrato*, *Segurança*). Cada tipo de ligação inclui também um **ícone** apresentado ao lado da ligação.
+- **Categorias de ficheiro** — a categoria atribuída a um ficheiro anexado carregado.
+
+Para cada lista pode:
+
+- **Adicionar uma entrada** — com uma chave (um identificador em minúsculas armazenado nos cartões, fixo após a criação), uma etiqueta apresentada e — para os tipos de ligação — um ícone.
+- **Editar** a etiqueta, o ícone, a ordem e as traduções por idioma de qualquer entrada, incluindo as integradas.
+- **Ativar / desativar** uma entrada com o interruptor — as entradas desativadas desaparecem do seletor, mas os valores existentes nos cartões são preservados.
+- **Eliminar** uma entrada personalizada — as entradas integradas não podem ser eliminadas, apenas desativadas.
+
+Um tipo de ligação **Contrato** integrado vem ativado por predefinição. Ambas as listas são incluídas na **Transferência de área de trabalho**, pelo que as suas personalizações se clonam entre instâncias.

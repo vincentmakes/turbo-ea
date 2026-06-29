@@ -32,6 +32,7 @@ from app.models.process_element import ProcessElement
 from app.models.process_flow_version import ProcessFlowVersion
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
+from app.models.resource_type import ResourceType
 from app.models.risk import Risk, RiskCard
 from app.models.risk_mitigation_task import (
     RiskMitigationTask,
@@ -140,4 +141,5 @@ __all__ = [
     "SnowStagedRecord",
     "SnowIdentityMap",
     "UserFavorite",
+    "ResourceType",
 ]

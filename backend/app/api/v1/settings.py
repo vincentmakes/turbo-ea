@@ -16,6 +16,7 @@ from app.models.app_settings import AppSettings
 from app.models.card_type import CardType
 from app.models.compliance_regulation import ComplianceRegulation
 from app.models.relation_type import RelationType
+from app.models.resource_type import ResourceType
 from app.models.user import User
 from app.services.ai_service import DEFAULT_AZURE_API_VERSION
 from app.services.permission_service import PermissionService
@@ -165,6 +166,33 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         for r in reg_rows
     ]
 
+    rt_rows = (
+        (
+            await db.execute(
+                select(ResourceType).order_by(
+                    ResourceType.kind, ResourceType.sort_order, ResourceType.label
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    resource_types = [
+        {
+            "id": str(r.id),
+            "kind": r.kind,
+            "key": r.key,
+            "label": r.label,
+            "description": r.description,
+            "icon": r.icon,
+            "is_enabled": r.is_enabled,
+            "built_in": r.built_in,
+            "sort_order": r.sort_order,
+            "translations": r.translations or {},
+        }
+        for r in rt_rows
+    ]
+
     email_settings = (row.email_settings if row else None) or {}
     smtp_configured = bool(email_settings.get("smtp_host") or app_config.SMTP_HOST)
 
@@ -185,6 +213,7 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         "bpm_row_order": general.get("bpmRowOrder", ["management", "core", "support"]),
         "show_principles_tab": general.get("showPrinciplesTab", True),
         "compliance_regulations": compliance_regulations,
+        "resource_types": resource_types,
         "login_tagline": (general.get("loginTagline") or "").strip(),
         "login_tagline_hidden": bool(general.get("loginTaglineHidden", False)),
         "login_help_text": (general.get("loginHelpText") or "").strip(),

@@ -224,3 +224,19 @@ Pour chaque type de fiche, la section **Mise en page** dans le tiroir du type co
 - **Développement par défaut** -- Choisissez si chaque section commence développée ou repliée
 - **Disposition en colonnes** -- Définissez 1 ou 2 colonnes par section personnalisée
 - **Déplacer des champs entre sections** — Utiliser l'action **déplacer** d'un champ (à côté de ses boutons modifier et supprimer) pour le replacer dans une autre section, en conservant sa configuration
+
+## Ressources
+
+L'onglet **Ressources** gère les deux listes proposées dans l'onglet **Ressources** de chaque carte :
+
+- **Types de liens** — la catégorie d'un lien de document (p. ex. *Documentation*, *Contrat*, *Sécurité*). Chaque type de lien porte aussi une **icône** affichée à côté du lien.
+- **Catégories de fichiers** — la catégorie attribuée à un fichier joint téléversé.
+
+Pour chaque liste, vous pouvez :
+
+- **Ajouter une entrée** — avec une clé (un identifiant en minuscules stocké sur les cartes, figé après création), un libellé d'affichage et — pour les types de liens — une icône.
+- **Modifier** le libellé, l'icône, l'ordre de tri et les traductions par langue de chaque entrée, y compris celles intégrées.
+- **Activer / désactiver** une entrée avec le commutateur — les entrées désactivées disparaissent du sélecteur, mais les valeurs existantes sur les cartes sont conservées.
+- **Supprimer** une entrée personnalisée — les entrées intégrées ne peuvent pas être supprimées, seulement désactivées.
+
+Un type de lien **Contrat** intégré est activé par défaut. Les deux listes sont incluses dans le **Transfert d'espace de travail** et se clonent ainsi entre instances.

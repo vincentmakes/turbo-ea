@@ -30,6 +30,7 @@ import KeyInput, { isValidKey } from "@/components/KeyInput";
 import CalculationsAdmin from "@/features/admin/CalculationsAdmin";
 import PrinciplesAdmin from "@/features/admin/PrinciplesAdmin";
 import RegulationsAdmin from "@/features/admin/RegulationsAdmin";
+import ResourceTypesAdmin from "@/features/admin/ResourceTypesAdmin";
 import TagsAdmin from "@/features/admin/TagsAdmin";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveLabel } from "@/hooks/useResolveLabel";
@@ -323,6 +324,7 @@ export default function MetamodelAdmin() {
         <Tab label={t("metamodel.tabs.graph")} />
         <Tab label={t("metamodel.tabs.principles")} />
         <Tab label={t("metamodel.tabs.regulations")} />
+        <Tab label={t("metamodel.tabs.resources")} />
       </Tabs>
 
       {/* ============================================================ */}
@@ -778,6 +780,11 @@ export default function MetamodelAdmin() {
       {/*  TAB 6 -- Compliance Regulations                             */}
       {/* ============================================================ */}
       {tab === 6 && <RegulationsAdmin />}
+
+      {/* ============================================================ */}
+      {/*  TAB 7 -- Resource Types (link types & file categories)      */}
+      {/* ============================================================ */}
+      {tab === 7 && <ResourceTypesAdmin />}
 
       {/* ============================================================ */}
       {/*  Type Detail Dialog                                          */}

@@ -224,3 +224,19 @@ For hver korttype styrer afsnittet **Layout** i typepanelet, hvordan kortdetalje
 - **Standardudvidelse** — Vælg, om hver sektion starter udvidet eller sammenklappet
 - **Kolonnelayout** — Indstil 1 eller 2 kolonner pr. brugerdefineret sektion
 - **Flyt felter mellem afsnit** — Brug et felts **flyt**-handling (ved siden af knapperne rediger og slet) til at flytte det til et andet afsnit, mens dets konfiguration bevares
+
+## Ressourcer
+
+Fanen **Ressourcer** administrerer de to lister, der tilbydes på hver karts **Ressourcer**-fane:
+
+- **Linktyper** — kategorien for et dokumentlink (f.eks. *Dokumentation*, *Kontrakt*, *Sikkerhed*). Hver linktype har også et **ikon**, der vises ved siden af linket.
+- **Filkategorier** — kategorien, der tildeles en uploadet filvedhæftning.
+
+For hver liste kan du:
+
+- **Tilføje en post** — med en nøgle (en identifikator med små bogstaver, der gemmes på kort og er låst efter oprettelse), en visningsetiket og — for linktyper — et ikon.
+- **Redigere** etiket, ikon, sorteringsrækkefølge og oversættelser pr. sprog for enhver post, inklusive de indbyggede.
+- **Aktivere / deaktivere** en post med kontakten — deaktiverede poster forsvinder fra vælgeren, men eksisterende værdier på kort bevares.
+- **Slette** en brugerdefineret post — indbyggede poster kan ikke slettes, kun deaktiveres.
+
+En indbygget **Kontrakt**-linktype er aktiveret som standard. Begge lister indgår i **Workspace-overførsel**, så dine tilpasninger klones mellem instanser.

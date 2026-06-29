@@ -224,3 +224,19 @@ Para cada tipo de ficha, la sección **Diseño** en el panel del tipo controla c
 - **Expansión predeterminada** — Elija si cada sección comienza expandida o colapsada
 - **Diseño de columnas** — Configure 1 o 2 columnas por sección personalizada
 - **Mover campos entre secciones** — Usar la acción **mover** de un campo (junto a sus botones de editar y eliminar) para reubicarlo en otra sección, conservando su configuración
+
+## Recursos
+
+La pestaña **Recursos** gestiona las dos listas que se ofrecen en la pestaña **Recursos** de cada tarjeta:
+
+- **Tipos de enlace** — la categoría de un enlace de documento (p. ej. *Documentación*, *Contrato*, *Seguridad*). Cada tipo de enlace lleva además un **icono** que se muestra junto al enlace.
+- **Categorías de archivo** — la categoría asignada a un archivo adjunto subido.
+
+Para cada lista puede:
+
+- **Añadir una entrada** — con una clave (un identificador en minúsculas almacenado en las tarjetas, fijo tras crearse), una etiqueta visible y — para los tipos de enlace — un icono.
+- **Editar** la etiqueta, el icono, el orden y las traducciones por idioma de cualquier entrada, incluidas las integradas.
+- **Activar / desactivar** una entrada con el interruptor — las entradas desactivadas desaparecen del selector, pero se conservan los valores existentes en las tarjetas.
+- **Eliminar** una entrada personalizada — las entradas integradas no se pueden eliminar, solo desactivar.
+
+Un tipo de enlace **Contrato** integrado viene activado por defecto. Ambas listas se incluyen en la **Transferencia de espacio de trabajo**, por lo que sus personalizaciones se clonan entre instancias.

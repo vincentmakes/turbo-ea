@@ -25,6 +25,8 @@ import { useNavigate } from "react-router-dom";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
+import { useResourceTypes } from "@/hooks/useResourceTypes";
+import { resolveLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import CreateAdrDialog from "@/features/ea-delivery/CreateAdrDialog";
 import type { ArchitectureDecision, DiagramSummary, FileAttachment } from "@/types";
@@ -44,42 +46,12 @@ const STATUS_COLORS: Record<string, "default" | "warning" | "success"> = {
   signed: "success",
 };
 
-const LINK_TYPES = [
-  "documentation",
-  "security",
-  "compliance",
-  "architecture",
-  "operations",
-  "support",
-  "other",
-] as const;
-
-const FILE_CATEGORIES = [
-  "architecture",
-  "security",
-  "compliance",
-  "operations",
-  "meeting_notes",
-  "design",
-  "other",
-] as const;
-
 const MIME_ICONS: Record<string, string> = {
   "application/pdf": "picture_as_pdf",
   "image/png": "image",
   "image/jpeg": "image",
   "image/svg+xml": "image",
   "text/plain": "description",
-};
-
-const LINK_TYPE_ICONS: Record<string, string> = {
-  documentation: "menu_book",
-  security: "shield",
-  compliance: "verified",
-  architecture: "architecture",
-  operations: "settings",
-  support: "support_agent",
-  other: "link",
 };
 
 function formatFileSize(bytes: number): string {
@@ -104,10 +76,34 @@ function ResourcesTab({
   canManageAdrLinks: boolean;
   canManageDiagramLinks: boolean;
 }) {
-  const { t } = useTranslation(["cards", "common"]);
+  const { t, i18n } = useTranslation(["cards", "common"]);
   const navigate = useNavigate();
   const { types: metamodelTypes } = useMetamodel();
   const { fileUploadsEnabled } = useFileUploadsEnabled();
+  const { linkTypes, fileCategories, byKindKey } = useResourceTypes();
+  const locale = i18n.language;
+
+  // Resolve the display label / icon for a stored link-type or file-category
+  // key. Falls back to the raw stored value so legacy / removed keys still
+  // render (e.g. a document saved before its type was deleted from the list).
+  const linkTypeLabel = useCallback(
+    (key: string) => {
+      const row = byKindKey[`link_type:${key}`];
+      return row ? resolveLabel(row.label, row.translations, locale) : key;
+    },
+    [byKindKey, locale],
+  );
+  const fileCategoryLabel = useCallback(
+    (key: string) => {
+      const row = byKindKey[`file_category:${key}`];
+      return row ? resolveLabel(row.label, row.translations, locale) : key;
+    },
+    [byKindKey, locale],
+  );
+  const linkTypeIcon = useCallback(
+    (key: string) => byKindKey[`link_type:${key}`]?.icon || "link",
+    [byKindKey],
+  );
 
   const typeColorMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -145,6 +141,15 @@ function ResourcesTab({
   const [linkDiagramOpen, setLinkDiagramOpen] = useState(false);
   const [diagramSearch, setDiagramSearch] = useState("");
   const [allDiagrams, setAllDiagrams] = useState<DiagramSummary[]>([]);
+
+  // Keep the Add-link dialog's selected type valid even if an admin removed
+  // the built-in "documentation" type from the list.
+  useEffect(() => {
+    if (linkTypes.length === 0) return;
+    if (!linkTypes.some((lt) => lt.key === linkType)) {
+      setLinkType(linkTypes[0].key);
+    }
+  }, [linkTypes, linkType]);
 
   const loadAdrs = useCallback(() => {
     api
@@ -532,7 +537,7 @@ function ResourcesTab({
                       {f.category && (
                         <Chip
                           size="small"
-                          label={t(`resources.fileCategory.${f.category}`)}
+                          label={fileCategoryLabel(f.category)}
                           variant="outlined"
                           sx={{ height: 20, fontSize: "0.7rem" }}
                         />
@@ -606,10 +611,7 @@ function ResourcesTab({
                 }
               >
                 <ListItemIcon sx={{ minWidth: 36 }}>
-                  <MaterialSymbol
-                    icon={LINK_TYPE_ICONS[doc.type] || "link"}
-                    size={20}
-                  />
+                  <MaterialSymbol icon={linkTypeIcon(doc.type)} size={20} />
                 </ListItemIcon>
                 <ListItemText
                   primary={
@@ -628,7 +630,7 @@ function ResourcesTab({
                       {doc.type && doc.type !== "link" && (
                         <Chip
                           size="small"
-                          label={t(`resources.linkType.${doc.type}`)}
+                          label={linkTypeLabel(doc.type)}
                           variant="outlined"
                           sx={{ height: 20, fontSize: "0.7rem" }}
                         />
@@ -921,9 +923,9 @@ function ResourcesTab({
             onChange={(e) => setUploadCategory(e.target.value)}
           >
             <MenuItem value="">{t("resources.uploadFileDialog.noCategory")}</MenuItem>
-            {FILE_CATEGORIES.map((cat) => (
-              <MenuItem key={cat} value={cat}>
-                {t(`resources.fileCategory.${cat}`)}
+            {fileCategories.map((cat) => (
+              <MenuItem key={cat.key} value={cat.key}>
+                {resolveLabel(cat.label, cat.translations, locale)}
               </MenuItem>
             ))}
           </TextField>
@@ -969,9 +971,9 @@ function ResourcesTab({
             onChange={(e) => setLinkType(e.target.value)}
             sx={{ mb: 2 }}
           >
-            {LINK_TYPES.map((lt) => (
-              <MenuItem key={lt} value={lt}>
-                {t(`resources.linkType.${lt}`)}
+            {linkTypes.map((lt) => (
+              <MenuItem key={lt.key} value={lt.key}>
+                {resolveLabel(lt.label, lt.translations, locale)}
               </MenuItem>
             ))}
           </TextField>

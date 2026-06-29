@@ -403,3 +403,51 @@ async def test_diagram_groups_and_favorites_roundtrip(db):
 
     favs = (await db.execute(select(DiagramFavorite))).scalars().all()
     assert any(f.user_id == user.id and f.diagram_id == diag_id for f in favs)
+
+
+async def test_resource_types_roundtrip(db):
+    """A custom link type / file category survives an export → delete →
+    import round-trip, keyed by (kind, key)."""
+    from app.models.resource_type import ResourceType
+
+    user = await create_user(db, email="rt-ws@test.com", role="admin")
+    db.add(
+        ResourceType(
+            kind="link_type",
+            key="runbook",
+            label="Runbook",
+            icon="menu_book",
+            is_enabled=True,
+            built_in=False,
+            sort_order=150,
+            translations={"fr": "Runbook"},
+        )
+    )
+    db.add(
+        ResourceType(
+            kind="file_category",
+            key="invoices",
+            label="Invoices",
+            icon=None,
+            is_enabled=False,
+            built_in=False,
+            sort_order=200,
+            translations={},
+        )
+    )
+    await db.flush()
+
+    raw = await build_bundle(db)
+
+    await db.execute(delete(ResourceType).where(ResourceType.built_in.is_(False)))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    rows = {(r.kind, r.key): r for r in (await db.execute(select(ResourceType))).scalars().all()}
+    assert ("link_type", "runbook") in rows
+    assert rows[("link_type", "runbook")].icon == "menu_book"
+    assert rows[("link_type", "runbook")].translations.get("fr") == "Runbook"
+    assert ("file_category", "invoices") in rows
+    assert rows[("file_category", "invoices")].is_enabled is False

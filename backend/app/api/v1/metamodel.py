@@ -16,6 +16,7 @@ from app.models.compliance_regulation import ComplianceRegulation
 from app.models.ea_principle import EAPrinciple
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
+from app.models.resource_type import ResourceType
 from app.models.stakeholder import Stakeholder
 from app.models.user import User
 from app.services.permission_service import PermissionService
@@ -1150,6 +1151,164 @@ async def delete_compliance_regulation(
         raise HTTPException(
             400,
             "Built-in regulations cannot be deleted — toggle is_enabled to disable instead.",
+        )
+    await db.delete(r)
+    await db.commit()
+
+
+# ── Resource Types (link types & file categories) ─────────────────────
+
+_RESOURCE_KINDS = ("link_type", "file_category")
+
+
+class ResourceTypeCreate(BaseModel):
+    kind: str = Field(..., min_length=1, max_length=20)
+    key: str = Field(..., min_length=1, max_length=100)
+    label: str = Field(..., min_length=1, max_length=300)
+    description: str | None = None
+    icon: str | None = Field(None, max_length=100)
+    is_enabled: bool = True
+    sort_order: int = 0
+    translations: dict[str, str] | None = None
+
+
+class ResourceTypeUpdate(BaseModel):
+    label: str | None = Field(None, min_length=1, max_length=300)
+    description: str | None = None
+    icon: str | None = Field(None, max_length=100)
+    is_enabled: bool | None = None
+    sort_order: int | None = None
+    translations: dict[str, str] | None = None
+
+
+def _serialize_resource_type(r: ResourceType) -> dict:
+    return {
+        "id": str(r.id),
+        "kind": r.kind,
+        "key": r.key,
+        "label": r.label,
+        "description": r.description,
+        "icon": r.icon,
+        "is_enabled": r.is_enabled,
+        "built_in": r.built_in,
+        "sort_order": r.sort_order,
+        "translations": r.translations or {},
+        "created_at": r.created_at.isoformat() if r.created_at else None,
+        "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+    }
+
+
+@router.get("/resource-types")
+async def list_resource_types(
+    kind: str | None = None,
+    enabled_only: bool = False,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """List resource types (link types & file categories).
+
+    Authenticated read so the card Resources tab can fetch the lists for
+    any user. Write operations remain gated behind ``admin.metamodel``.
+    """
+    stmt = select(ResourceType)
+    if kind:
+        stmt = stmt.where(ResourceType.kind == kind)
+    if enabled_only:
+        stmt = stmt.where(ResourceType.is_enabled == True)  # noqa: E712
+    stmt = stmt.order_by(ResourceType.kind, ResourceType.sort_order, ResourceType.label)
+    result = await db.execute(stmt)
+    return [_serialize_resource_type(r) for r in result.scalars().all()]
+
+
+@router.post("/resource-types", status_code=201)
+async def create_resource_type(
+    body: ResourceTypeCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Create a new resource type (admin only)."""
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    kind = body.kind.strip()
+    if kind not in _RESOURCE_KINDS:
+        raise HTTPException(400, f"kind must be one of {_RESOURCE_KINDS}")
+    key = body.key.strip().lower()
+    if not key:
+        raise HTTPException(400, "key is required")
+    existing = await db.execute(
+        select(ResourceType).where(ResourceType.kind == kind, ResourceType.key == key)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(400, f"A {kind} with key '{key}' already exists")
+    r = ResourceType(
+        id=uuid.uuid4(),
+        kind=kind,
+        key=key,
+        label=body.label.strip(),
+        description=body.description,
+        icon=(body.icon or None),
+        is_enabled=body.is_enabled,
+        built_in=False,
+        sort_order=body.sort_order,
+        translations=body.translations or {},
+    )
+    db.add(r)
+    await db.commit()
+    await db.refresh(r)
+    return _serialize_resource_type(r)
+
+
+@router.patch("/resource-types/{resource_type_id}")
+async def update_resource_type(
+    resource_type_id: str,
+    body: ResourceTypeUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Update a resource type (admin only).
+
+    ``kind`` and ``key`` are immutable. ``built_in`` rows can be edited and
+    disabled but never deleted.
+    """
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    result = await db.execute(
+        select(ResourceType).where(ResourceType.id == uuid.UUID(resource_type_id))
+    )
+    r = result.scalar_one_or_none()
+    if not r:
+        raise HTTPException(404, "Resource type not found")
+    updates = body.model_dump(exclude_unset=True)
+    if "label" in updates and updates["label"] is not None:
+        updates["label"] = updates["label"].strip()
+    if "translations" in updates and updates["translations"] is None:
+        updates["translations"] = {}
+    for k, v in updates.items():
+        setattr(r, k, v)
+    await db.commit()
+    await db.refresh(r)
+    return _serialize_resource_type(r)
+
+
+@router.delete("/resource-types/{resource_type_id}", status_code=204)
+async def delete_resource_type(
+    resource_type_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Delete a resource type (admin only).
+
+    Built-in rows are protected — they can be disabled but not hard-deleted.
+    """
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    result = await db.execute(
+        select(ResourceType).where(ResourceType.id == uuid.UUID(resource_type_id))
+    )
+    r = result.scalar_one_or_none()
+    if not r:
+        raise HTTPException(404, "Resource type not found")
+    if r.built_in:
+        raise HTTPException(
+            400,
+            "Built-in resource types cannot be deleted — toggle is_enabled to disable instead.",
         )
     await db.delete(r)
     await db.commit()

@@ -4,7 +4,7 @@ The **Metamodel** defines your platform's entire data structure — what types o
 
 ![Metamodel Configuration](../assets/img/en/20_admin_metamodel.png)
 
-Navigate to **Admin > Metamodel** to access the metamodel editor. It has seven tabs: **Card Types**, **Relation Types**, **Calculations**, **Tags**, **Metamodel Graph**, **EA Principles**, and **Compliance Regulations**.
+Navigate to **Admin > Metamodel** to access the metamodel editor. It has eight tabs: **Card Types**, **Relation Types**, **Calculations**, **Tags**, **Metamodel Graph**, **EA Principles**, **Compliance Regulations**, and **Resources**.
 
 ## Card Types
 
@@ -214,6 +214,22 @@ For each row you can:
 - **Delete** a custom regulation — built-in regulations cannot be deleted, only disabled.
 
 The compliance scanner and risk-promotion flow work **even when no AI provider is configured** — manual finding entry, status transitions and the promotion-to-Risk path all stay available. AI is only required when you actually trigger a new scan.
+
+## Resources
+
+The **Resources** tab manages the two lists offered on every card's **Resources** tab:
+
+- **Link types** — the category of a document link (e.g. *Documentation*, *Contract*, *Security*). Each link type also carries an **icon** shown next to the link.
+- **File categories** — the category assigned to an uploaded file attachment.
+
+For each list you can:
+
+- **Add an entry** — give it a key (a lowercase identifier stored on cards, fixed once created), a display label, and — for link types — an icon.
+- **Edit** the label, icon, sort order, and per-language translations of any entry, including the built-in ones.
+- **Enable / disable** an entry with the toggle — disabled entries disappear from the picker but existing values on cards are preserved.
+- **Delete** a custom entry — built-in entries cannot be deleted, only disabled.
+
+A built-in **Contract** link type ships enabled by default. Both lists are included in **Workspace Transfer**, so your customisations clone between instances.
 
 ## Card Layout Editor
 
