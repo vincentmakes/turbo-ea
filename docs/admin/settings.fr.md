@@ -69,24 +69,58 @@ Lorsqu'une fiche est archivée, elle est masquée de l'inventaire, des rapports 
 
 La purge s'exécute toutes les heures et relit ce paramètre à chaque passage, de sorte que les modifications prennent effet sans redémarrer l'application. Les bannières d'archivage et les boîtes de dialogue de confirmation reflètent automatiquement la durée configurée.
 
-## E-mail (SMTP)
+## E-mail
 
-Configurez la livraison d'e-mails pour les e-mails d'invitation, les notifications d'enquête et autres messages système.
+Turbo EA envoie des e-mails d'invitation, des notifications d'enquête, des réinitialisations de mot de passe et d'autres messages système. Choisissez une **méthode d'envoi** adaptée à votre plateforme de messagerie.
+
+!!! warning "L'authentification SMTP de base est en cours de retrait"
+    Microsoft 365 désactive l'authentification SMTP de base (indisponible pour les nouveaux locataires, supprimée pour les existants au cours de 2026–2027) et Google Workspace l'a désactivée en mars 2025. Pour ces plateformes, utilisez l'une des méthodes OAuth ci-dessous au lieu d'un mot de passe de boîte aux lettres.
+
+### Méthodes d'envoi
+
+| Méthode | Quand l'utiliser |
+|---------|------------------|
+| **SMTP (nom d'utilisateur et mot de passe)** | SMTP classique pour les serveurs qui acceptent encore l'authentification de base. Par défaut. |
+| **SMTP avec OAuth 2.0 (XOAUTH2)** | SMTP authentifié avec un jeton OAuth de courte durée — Microsoft 365 (application seule) ou Google Workspace (compte de service). |
+| **API Microsoft Graph** | `sendMail` de Microsoft Graph en application seule. L'option recommandée pour Microsoft 365 — pas de SMTP, pas de mot de passe stocké. |
+
+### Champs communs
+
+| Champ | Description |
+|-------|-------------|
+| **Adresse d'expéditeur** | L'adresse d'expéditeur des messages sortants |
+| **URL de base de l'application** | L'URL publique de votre instance (utilisée dans les liens des e-mails) |
+
+### SMTP (nom d'utilisateur et mot de passe)
 
 | Champ | Description |
 |-------|-------------|
 | **Hôte SMTP** | Le nom d'hôte de votre serveur de messagerie (par ex. `smtp.gmail.com`) |
-| **Port SMTP** | Port du serveur (généralement 587 pour TLS) |
-| **Utilisateur SMTP** | Nom d'utilisateur d'authentification |
-| **Mot de passe SMTP** | Mot de passe d'authentification (stocké chiffré) |
-| **Utiliser TLS** | Activer le chiffrement TLS (recommandé) |
-| **Adresse d'expédition** | L'adresse e-mail de l'expéditeur pour les messages sortants |
-| **URL de base de l'application** | L'URL publique de votre instance Turbo EA (utilisée dans les liens des e-mails) |
+| **Port SMTP** | Le port du serveur (généralement 587 pour TLS) |
+| **Utilisateur SMTP** | Le nom d'utilisateur d'authentification |
+| **Mot de passe SMTP** | Le mot de passe d'authentification (stocké chiffré) |
+| **Utiliser TLS** | Activer le chiffrement STARTTLS (recommandé) |
 
-Après la configuration, cliquez sur **Envoyer un e-mail de test** pour vérifier que les paramètres fonctionnent correctement.
+### API Microsoft Graph (recommandée pour Microsoft 365)
+
+1. Dans **Microsoft Entra ID → Inscriptions d'applications**, créez une inscription d'application dédiée.
+2. Sous **Autorisations d'API**, ajoutez l'autorisation **d'application** **Mail.Send** et accordez le **consentement de l'administrateur**.
+3. Créez un **secret client** sous **Certificats et secrets**.
+4. Dans Turbo EA, choisissez **API Microsoft Graph** et saisissez l'**ID de locataire**, l'**ID client**, le **secret client** et la **boîte aux lettres d'expéditeur** (le nom principal d'utilisateur depuis lequel le courrier est envoyé).
+
+Aucun mot de passe de boîte aux lettres n'est stocké ; Turbo EA demande un jeton de courte durée pour chaque envoi.
+
+### SMTP avec OAuth 2.0
+
+- **Microsoft 365 :** saisissez l'**ID de locataire**, l'**ID client** et le **secret client** d'une inscription d'application, ainsi que la **boîte aux lettres d'expéditeur**. SMTP AUTH doit être activé pour la boîte aux lettres.
+- **Google Workspace :** choisissez **Google**, collez la **clé de compte de service (JSON)** avec la délégation à l'échelle du domaine activée pour la boîte aux lettres d'expéditeur, et définissez la **boîte aux lettres d'expéditeur** à usurper.
+
+Les champs **Portée** et **Point de terminaison du jeton** sont des remplacements facultatifs — laissez-les vides sauf si votre locataire exige des valeurs personnalisées.
+
+Après avoir configuré une méthode, cliquez sur **Envoyer un e-mail de test** pour vérifier son bon fonctionnement.
 
 !!! note
-    L'e-mail est optionnel. Si le SMTP n'est pas configuré, les fonctionnalités qui envoient des e-mails (invitations, notifications d'enquête) passeront gracieusement la livraison par e-mail.
+    L'e-mail est facultatif. Si aucune méthode n'est configurée, les fonctionnalités qui envoient des e-mails ignorent simplement l'envoi.
 
 ## Module BPM
 

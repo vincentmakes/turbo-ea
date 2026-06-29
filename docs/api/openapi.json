@@ -4058,6 +4058,51 @@
             "title": "App Base Url",
             "type": "string"
           },
+          "graph_sender": {
+            "default": "",
+            "title": "Graph Sender",
+            "type": "string"
+          },
+          "method": {
+            "default": "smtp_basic",
+            "title": "Method",
+            "type": "string"
+          },
+          "oauth_client_id": {
+            "default": "",
+            "title": "Oauth Client Id",
+            "type": "string"
+          },
+          "oauth_client_secret": {
+            "default": "",
+            "title": "Oauth Client Secret",
+            "type": "string"
+          },
+          "oauth_provider": {
+            "default": "microsoft",
+            "title": "Oauth Provider",
+            "type": "string"
+          },
+          "oauth_scope": {
+            "default": "",
+            "title": "Oauth Scope",
+            "type": "string"
+          },
+          "oauth_tenant_id": {
+            "default": "",
+            "title": "Oauth Tenant Id",
+            "type": "string"
+          },
+          "oauth_token_endpoint": {
+            "default": "",
+            "title": "Oauth Token Endpoint",
+            "type": "string"
+          },
+          "service_account_json": {
+            "default": "",
+            "title": "Service Account Json",
+            "type": "string"
+          },
           "smtp_from": {
             "default": "noreply@turboea.local",
             "title": "Smtp From",

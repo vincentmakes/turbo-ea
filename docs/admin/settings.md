@@ -69,9 +69,29 @@ When a card is archived it is hidden from the inventory, reports, and relations,
 
 The purge job runs hourly and re-reads this setting on each run, so changes take effect without restarting the application. Archive banners and confirmation dialogs reflect the configured period automatically.
 
-## Email (SMTP)
+## Email
 
-Configure email delivery for invitation emails, survey notifications, and other system messages.
+Turbo EA sends invitation emails, survey notifications, password resets, and other system messages. Choose a **sending method** that matches your mail platform.
+
+!!! warning "Basic SMTP authentication is being retired"
+    Microsoft 365 is disabling basic SMTP authentication (unavailable for new tenants, removed for existing ones across 2026–2027) and Google Workspace disabled it in March 2025. For those platforms, use one of the OAuth methods below instead of a mailbox password.
+
+### Sending methods
+
+| Method | When to use |
+|--------|-------------|
+| **SMTP (username & password)** | Classic SMTP for servers that still accept basic auth. The default. |
+| **SMTP with OAuth 2.0 (XOAUTH2)** | SMTP authenticated with a short-lived OAuth token — Microsoft 365 (app-only) or Google Workspace (service account). |
+| **Microsoft Graph API** | App-only Microsoft Graph `sendMail`. The recommended Microsoft 365 option — no SMTP, no stored password. |
+
+### Common fields
+
+| Field | Description |
+|-------|-------------|
+| **From Address** | The sender address for outgoing messages |
+| **App Base URL** | The public URL of your instance (used in email links) |
+
+### SMTP (username & password)
 
 | Field | Description |
 |-------|-------------|
@@ -79,14 +99,28 @@ Configure email delivery for invitation emails, survey notifications, and other 
 | **SMTP Port** | Server port (typically 587 for TLS) |
 | **SMTP User** | Authentication username |
 | **SMTP Password** | Authentication password (stored encrypted) |
-| **Use TLS** | Enable TLS encryption (recommended) |
-| **From Address** | The sender email address for outgoing messages |
-| **App Base URL** | The public URL of your Turbo EA instance (used in email links) |
+| **Use TLS** | Enable STARTTLS encryption (recommended) |
 
-After configuring, click **Send Test Email** to verify the settings work correctly.
+### Microsoft Graph API (recommended for Microsoft 365)
+
+1. In **Microsoft Entra ID → App registrations**, create a dedicated app registration.
+2. Under **API permissions**, add the **Mail.Send** *application* permission and grant **admin consent**.
+3. Create a **client secret** under **Certificates & secrets**.
+4. In Turbo EA, choose **Microsoft Graph API** and enter the **Tenant ID**, **Client ID**, **Client secret**, and the **Sender mailbox** (the user principal name mail is sent from).
+
+No mailbox password is stored; Turbo EA requests a short-lived token for each send.
+
+### SMTP with OAuth 2.0
+
+- **Microsoft 365:** enter the **Tenant ID**, **Client ID**, and **Client secret** of an app registration, plus the **Sender mailbox**. SMTP AUTH must be enabled for the mailbox.
+- **Google Workspace:** choose **Google**, paste the **service-account key (JSON)** with domain-wide delegation enabled for the sender mailbox, and set the **Sender mailbox** to impersonate.
+
+The **Scope** and **Token endpoint** fields are optional overrides — leave them empty unless your tenant requires custom values.
+
+After configuring any method, click **Send Test Email** to verify it works.
 
 !!! note
-    Email is optional. If SMTP is not configured, features that send emails (invitations, survey notifications) will gracefully skip email delivery.
+    Email is optional. If no method is configured, features that send emails gracefully skip delivery.
 
 ## BPM Module
 

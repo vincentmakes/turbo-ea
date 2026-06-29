@@ -112,7 +112,10 @@ function currencyOptionLabel(code: string, locale: string): string {
   return `${name} (${symbol})`;
 }
 
+type EmailMethod = "smtp_basic" | "smtp_oauth" | "graph_api";
+
 interface EmailSettings {
+  method: EmailMethod;
   smtp_host: string;
   smtp_port: number;
   smtp_user: string;
@@ -120,6 +123,14 @@ interface EmailSettings {
   smtp_from: string;
   smtp_tls: boolean;
   app_base_url: string;
+  oauth_provider: string;
+  oauth_tenant_id: string;
+  oauth_client_id: string;
+  oauth_client_secret: string;
+  graph_sender: string;
+  oauth_scope: string;
+  oauth_token_endpoint: string;
+  service_account_json: string;
   configured: boolean;
 }
 
@@ -241,6 +252,7 @@ function GeneralTab() {
   const [loginHelpLink, setLoginHelpLink] = useState("");
   const [savingLoginBranding, setSavingLoginBranding] = useState(false);
 
+  const [emailMethod, setEmailMethod] = useState<EmailMethod>("smtp_basic");
   const [smtpHost, setSmtpHost] = useState("");
   const [smtpPort, setSmtpPort] = useState(587);
   const [smtpUser, setSmtpUser] = useState("");
@@ -248,6 +260,14 @@ function GeneralTab() {
   const [smtpFrom, setSmtpFrom] = useState("noreply@turboea.local");
   const [smtpTls, setSmtpTls] = useState(true);
   const [appBaseUrl, setAppBaseUrl] = useState("");
+  const [oauthProvider, setOauthProvider] = useState("microsoft");
+  const [oauthTenantId, setOauthTenantId] = useState("");
+  const [oauthClientId, setOauthClientId] = useState("");
+  const [oauthClientSecret, setOauthClientSecret] = useState("");
+  const [graphSender, setGraphSender] = useState("");
+  const [oauthScope, setOauthScope] = useState("");
+  const [oauthTokenEndpoint, setOauthTokenEndpoint] = useState("");
+  const [serviceAccountJson, setServiceAccountJson] = useState("");
   const [configured, setConfigured] = useState(false);
 
   useEffect(() => {
@@ -278,6 +298,7 @@ function GeneralTab() {
       api.get<{ enabled: boolean }>("/settings/sponsor-button-enabled"),
     ])
       .then(([emailData, logoData, faviconData, currencyData, bpmData, localesData, ppmData, fiscalData, archiveRetentionData, appTitleData, dateFormatData, grcData, fileUploadsData, loginBrandingData, sponsorButtonData]) => {
+        setEmailMethod(emailData.method ?? "smtp_basic");
         setSmtpHost(emailData.smtp_host);
         setSmtpPort(emailData.smtp_port);
         setSmtpUser(emailData.smtp_user);
@@ -285,6 +306,14 @@ function GeneralTab() {
         setSmtpFrom(emailData.smtp_from);
         setSmtpTls(emailData.smtp_tls);
         setAppBaseUrl(emailData.app_base_url);
+        setOauthProvider(emailData.oauth_provider ?? "microsoft");
+        setOauthTenantId(emailData.oauth_tenant_id ?? "");
+        setOauthClientId(emailData.oauth_client_id ?? "");
+        setOauthClientSecret(emailData.oauth_client_secret ?? "");
+        setGraphSender(emailData.graph_sender ?? "");
+        setOauthScope(emailData.oauth_scope ?? "");
+        setOauthTokenEndpoint(emailData.oauth_token_endpoint ?? "");
+        setServiceAccountJson(emailData.service_account_json ?? "");
         setConfigured(emailData.configured);
         setHasCustomLogo(logoData.has_custom_logo);
         setHasCustomFavicon(faviconData.has_custom_favicon);
@@ -321,6 +350,7 @@ function GeneralTab() {
     setError("");
     try {
       await api.patch("/settings/email", {
+        method: emailMethod,
         smtp_host: smtpHost,
         smtp_port: smtpPort,
         smtp_user: smtpUser,
@@ -328,8 +358,22 @@ function GeneralTab() {
         smtp_from: smtpFrom,
         smtp_tls: smtpTls,
         app_base_url: appBaseUrl,
+        oauth_provider: oauthProvider,
+        oauth_tenant_id: oauthTenantId,
+        oauth_client_id: oauthClientId,
+        oauth_client_secret: oauthClientSecret,
+        graph_sender: graphSender,
+        oauth_scope: oauthScope,
+        oauth_token_endpoint: oauthTokenEndpoint,
+        service_account_json: serviceAccountJson,
       });
-      setConfigured(!!smtpHost);
+      // Re-read so the freshly computed `configured` flag + masked secrets are
+      // reflected without a manual refresh.
+      const refreshed = await api.get<EmailSettings>("/settings/email");
+      setConfigured(refreshed.configured);
+      setSmtpPassword(refreshed.smtp_password);
+      setOauthClientSecret(refreshed.oauth_client_secret ?? "");
+      setServiceAccountJson(refreshed.service_account_json ?? "");
       setSnack(t("settings.smtp.savedSuccess"));
     } catch (e) {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
@@ -1409,44 +1453,189 @@ function GeneralTab() {
           {t("settings.smtp.description")}
         </Typography>
 
-        <Box
-          sx={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 2, mb: 2 }}
+        {/* Transport method selector */}
+        <TextField
+          select
+          label={t("settings.email.method")}
+          fullWidth
+          value={emailMethod}
+          onChange={(e) => setEmailMethod(e.target.value as EmailMethod)}
+          helperText={t("settings.email.methodHelper")}
+          sx={{ mb: 2 }}
         >
-          <TextField
-            label={t("settings.smtp.host")}
-            fullWidth
-            value={smtpHost}
-            onChange={(e) => setSmtpHost(e.target.value)}
-            placeholder="e.g. smtp.gmail.com"
-          />
-          <TextField
-            label={t("settings.smtp.port")}
-            fullWidth
-            type="number"
-            value={smtpPort}
-            onChange={(e) => setSmtpPort(Number(e.target.value))}
-          />
-        </Box>
+          <MenuItem value="smtp_basic">{t("settings.email.method.smtpBasic")}</MenuItem>
+          <MenuItem value="smtp_oauth">{t("settings.email.method.smtpOauth")}</MenuItem>
+          <MenuItem value="graph_api">{t("settings.email.method.graphApi")}</MenuItem>
+        </TextField>
 
-        <Box
-          sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, mb: 2 }}
-        >
-          <TextField
-            label={t("settings.smtp.username")}
-            fullWidth
-            value={smtpUser}
-            onChange={(e) => setSmtpUser(e.target.value)}
-            placeholder="e.g. user@gmail.com"
-          />
-          <TextField
-            label={t("settings.smtp.password")}
-            fullWidth
-            type="password"
-            value={smtpPassword}
-            onChange={(e) => setSmtpPassword(e.target.value)}
-          />
-        </Box>
+        {emailMethod === "graph_api" && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            {t("settings.email.hint.graphApi")}
+          </Alert>
+        )}
+        {emailMethod === "smtp_oauth" && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            {t("settings.email.hint.smtpOauth")}
+          </Alert>
+        )}
 
+        {/* SMTP connection (basic + xoauth2) */}
+        {emailMethod !== "graph_api" && (
+          <Box
+            sx={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 2, mb: 2 }}
+          >
+            <TextField
+              label={t("settings.smtp.host")}
+              fullWidth
+              value={smtpHost}
+              onChange={(e) => setSmtpHost(e.target.value)}
+              placeholder="e.g. smtp.gmail.com"
+            />
+            <TextField
+              label={t("settings.smtp.port")}
+              fullWidth
+              type="number"
+              value={smtpPort}
+              onChange={(e) => setSmtpPort(Number(e.target.value))}
+            />
+          </Box>
+        )}
+
+        {/* Basic auth credentials */}
+        {emailMethod === "smtp_basic" && (
+          <Box
+            sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, mb: 2 }}
+          >
+            <TextField
+              label={t("settings.smtp.username")}
+              fullWidth
+              value={smtpUser}
+              onChange={(e) => setSmtpUser(e.target.value)}
+              placeholder="e.g. user@gmail.com"
+            />
+            <TextField
+              label={t("settings.smtp.password")}
+              fullWidth
+              type="password"
+              value={smtpPassword}
+              onChange={(e) => setSmtpPassword(e.target.value)}
+            />
+          </Box>
+        )}
+
+        {/* OAuth provider config (graph_api + smtp_oauth) */}
+        {emailMethod !== "smtp_basic" && (
+          <>
+            <TextField
+              select
+              label={t("settings.email.oauthProvider")}
+              fullWidth
+              value={oauthProvider}
+              onChange={(e) => setOauthProvider(e.target.value)}
+              disabled={emailMethod === "graph_api"}
+              sx={{ mb: 2 }}
+            >
+              <MenuItem value="microsoft">
+                {t("settings.email.provider.microsoft")}
+              </MenuItem>
+              <MenuItem value="google">{t("settings.email.provider.google")}</MenuItem>
+            </TextField>
+
+            {emailMethod === "smtp_oauth" && (
+              <TextField
+                label={t("settings.email.senderMailbox")}
+                fullWidth
+                value={smtpUser}
+                onChange={(e) => setSmtpUser(e.target.value)}
+                placeholder="mailbox@yourcompany.com"
+                helperText={t("settings.email.senderMailboxHelper")}
+                sx={{ mb: 2 }}
+              />
+            )}
+
+            {emailMethod === "graph_api" && (
+              <TextField
+                label={t("settings.email.graphSender")}
+                fullWidth
+                value={graphSender}
+                onChange={(e) => setGraphSender(e.target.value)}
+                placeholder="mailbox@yourcompany.com"
+                helperText={t("settings.email.graphSenderHelper")}
+                sx={{ mb: 2 }}
+              />
+            )}
+
+            {oauthProvider === "google" && emailMethod === "smtp_oauth" ? (
+              <TextField
+                label={t("settings.email.serviceAccountJson")}
+                fullWidth
+                multiline
+                minRows={3}
+                value={serviceAccountJson}
+                onChange={(e) => setServiceAccountJson(e.target.value)}
+                placeholder='{ "client_email": "...", "private_key": "..." }'
+                helperText={t("settings.email.serviceAccountJsonHelper")}
+                sx={{ mb: 2 }}
+              />
+            ) : (
+              <>
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 2,
+                    mb: 2,
+                  }}
+                >
+                  <TextField
+                    label={t("settings.email.tenantId")}
+                    fullWidth
+                    value={oauthTenantId}
+                    onChange={(e) => setOauthTenantId(e.target.value)}
+                    placeholder="organizations"
+                  />
+                  <TextField
+                    label={t("settings.email.clientId")}
+                    fullWidth
+                    value={oauthClientId}
+                    onChange={(e) => setOauthClientId(e.target.value)}
+                  />
+                </Box>
+                <TextField
+                  label={t("settings.email.clientSecret")}
+                  fullWidth
+                  type="password"
+                  value={oauthClientSecret}
+                  onChange={(e) => setOauthClientSecret(e.target.value)}
+                  sx={{ mb: 2 }}
+                />
+              </>
+            )}
+
+            {/* Advanced overrides */}
+            <Box
+              sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, mb: 2 }}
+            >
+              <TextField
+                label={t("settings.email.scope")}
+                fullWidth
+                value={oauthScope}
+                onChange={(e) => setOauthScope(e.target.value)}
+                placeholder={t("settings.email.scopePlaceholder")}
+                helperText={t("settings.email.scopeHelper")}
+              />
+              <TextField
+                label={t("settings.email.tokenEndpoint")}
+                fullWidth
+                value={oauthTokenEndpoint}
+                onChange={(e) => setOauthTokenEndpoint(e.target.value)}
+                helperText={t("settings.email.tokenEndpointHelper")}
+              />
+            </Box>
+          </>
+        )}
+
+        {/* From + TLS */}
         <Box
           sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, mb: 2 }}
         >
@@ -1457,16 +1646,18 @@ function GeneralTab() {
             onChange={(e) => setSmtpFrom(e.target.value)}
             placeholder="noreply@turboea.local"
           />
-          <FormControlLabel
-            control={
-              <Switch
-                checked={smtpTls}
-                onChange={(e) => setSmtpTls(e.target.checked)}
-              />
-            }
-            label={t("settings.smtp.useTls")}
-            sx={{ ml: 1, mt: 1 }}
-          />
+          {emailMethod !== "graph_api" && (
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={smtpTls}
+                  onChange={(e) => setSmtpTls(e.target.checked)}
+                />
+              }
+              label={t("settings.smtp.useTls")}
+              sx={{ ml: 1, mt: 1 }}
+            />
+          )}
         </Box>
 
         <Divider sx={{ my: 2 }} />
@@ -1493,7 +1684,7 @@ function GeneralTab() {
             }
             sx={{ textTransform: "none" }}
             onClick={handleTest}
-            disabled={saving || testing || !smtpHost}
+            disabled={saving || testing || !configured}
           >
             {testing ? t("settings.smtp.sending") : t("settings.smtp.sendTest")}
           </Button>

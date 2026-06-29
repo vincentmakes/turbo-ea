@@ -69,24 +69,58 @@ Cuando una ficha se archiva, queda oculta en el inventario, los informes y las r
 
 La purga se ejecuta cada hora y vuelve a leer este ajuste en cada ejecución, por lo que los cambios surten efecto sin reiniciar la aplicación. Los avisos de archivado y los cuadros de diálogo de confirmación reflejan automáticamente el período configurado.
 
-## Correo Electrónico (SMTP)
+## Correo Electrónico
 
-Configure la entrega de correo electrónico para correos de invitación, notificaciones de encuestas y otros mensajes del sistema.
+Turbo EA envía correos de invitación, notificaciones de encuestas, restablecimientos de contraseña y otros mensajes del sistema. Elija un **método de envío** que se ajuste a su plataforma de correo.
+
+!!! warning "La autenticación SMTP básica se está retirando"
+    Microsoft 365 está deshabilitando la autenticación SMTP básica (no disponible para inquilinos nuevos, eliminada para los existentes durante 2026–2027) y Google Workspace la deshabilitó en marzo de 2025. Para esas plataformas, use uno de los métodos OAuth a continuación en lugar de una contraseña de buzón.
+
+### Métodos de envío
+
+| Método | Cuándo usarlo |
+|--------|---------------|
+| **SMTP (usuario y contraseña)** | SMTP clásico para servidores que aún aceptan autenticación básica. El predeterminado. |
+| **SMTP con OAuth 2.0 (XOAUTH2)** | SMTP autenticado con un token OAuth de corta duración — Microsoft 365 (solo aplicación) o Google Workspace (cuenta de servicio). |
+| **API de Microsoft Graph** | `sendMail` de Microsoft Graph solo de aplicación. La opción recomendada para Microsoft 365 — sin SMTP, sin contraseña almacenada. |
+
+### Campos comunes
 
 | Campo | Descripción |
 |-------|-------------|
-| **Host SMTP** | El nombre de host de su servidor de correo (por ejemplo, `smtp.gmail.com`) |
-| **Puerto SMTP** | Puerto del servidor (normalmente 587 para TLS) |
-| **Usuario SMTP** | Nombre de usuario de autenticación |
-| **Contraseña SMTP** | Contraseña de autenticación (almacenada cifrada) |
-| **Usar TLS** | Habilitar cifrado TLS (recomendado) |
-| **Dirección del Remitente** | La dirección de correo electrónico del remitente para los mensajes salientes |
-| **URL Base de la Aplicación** | La URL pública de su instancia de Turbo EA (utilizada en los enlaces del correo electrónico) |
+| **Dirección de remitente** | La dirección del remitente de los mensajes salientes |
+| **URL base de la aplicación** | La URL pública de su instancia (usada en los enlaces de los correos) |
 
-Después de configurar, haga clic en **Enviar Correo de Prueba** para verificar que la configuración funciona correctamente.
+### SMTP (usuario y contraseña)
+
+| Campo | Descripción |
+|-------|-------------|
+| **Host SMTP** | El nombre de host de su servidor de correo (p. ej., `smtp.gmail.com`) |
+| **Puerto SMTP** | El puerto del servidor (normalmente 587 para TLS) |
+| **Usuario SMTP** | El nombre de usuario de autenticación |
+| **Contraseña SMTP** | La contraseña de autenticación (almacenada cifrada) |
+| **Usar TLS** | Habilitar el cifrado STARTTLS (recomendado) |
+
+### API de Microsoft Graph (recomendada para Microsoft 365)
+
+1. En **Microsoft Entra ID → Registros de aplicaciones**, cree un registro de aplicación dedicado.
+2. En **Permisos de API**, agregue el permiso **de aplicación** **Mail.Send** y otorgue el **consentimiento del administrador**.
+3. Cree un **secreto de cliente** en **Certificados y secretos**.
+4. En Turbo EA, elija **API de Microsoft Graph** e introduzca el **ID de inquilino**, el **ID de cliente**, el **secreto de cliente** y el **buzón de remitente** (el nombre principal de usuario desde el que se envía el correo).
+
+No se almacena ninguna contraseña de buzón; Turbo EA solicita un token de corta duración para cada envío.
+
+### SMTP con OAuth 2.0
+
+- **Microsoft 365:** introduzca el **ID de inquilino**, el **ID de cliente** y el **secreto de cliente** de un registro de aplicación, además del **buzón de remitente**. SMTP AUTH debe estar habilitado para el buzón.
+- **Google Workspace:** elija **Google**, pegue la **clave de cuenta de servicio (JSON)** con la delegación en todo el dominio habilitada para el buzón de remitente, y establezca el **buzón de remitente** que se suplantará.
+
+Los campos **Ámbito** y **Punto de conexión de token** son anulaciones opcionales — déjelos vacíos a menos que su inquilino requiera valores personalizados.
+
+Después de configurar cualquier método, haga clic en **Enviar correo de prueba** para verificar que funciona.
 
 !!! note
-    El correo electrónico es opcional. Si SMTP no está configurado, las funciones que envían correos (invitaciones, notificaciones de encuestas) omitirán el envío de correo electrónico de forma transparente.
+    El correo es opcional. Si no se configura ningún método, las funciones que envían correos omiten la entrega de forma silenciosa.
 
 ## Módulo BPM
 

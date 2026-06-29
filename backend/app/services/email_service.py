@@ -1,18 +1,18 @@
-"""Simple SMTP email service for notification delivery.
+"""Email service facade for notification delivery.
 
-If SMTP_HOST is not configured, emails are silently skipped.
+Builds the message + standard template, then dispatches to the transport
+backend selected by ``EMAIL_METHOD`` (``smtp_basic`` by default — see
+``app.services.email_backends``). If the active backend is not configured,
+emails are silently skipped, preserving the original contract.
 """
 
 from __future__ import annotations
 
-import asyncio
 import html
 import logging
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
 from app.config import settings
+from app.services.email_backends import EmailConfig, get_backend
 
 logger = logging.getLogger(__name__)
 
@@ -26,54 +26,33 @@ def _get_app_title() -> str:
 
 
 def _is_configured() -> bool:
-    return bool(settings.SMTP_HOST)
-
-
-def _send_sync(to: str, subject: str, body_html: str, body_text: str) -> None:
-    """Send an email synchronously (called from a thread).
-
-    Raises on SMTP / network failure so async callers can surface the
-    error to the user. Best-effort callers (background notifications)
-    should wrap this in their own try/except.
-    """
-    msg = MIMEMultipart("alternative")
-    msg["From"] = settings.SMTP_FROM
-    msg["To"] = to
-    msg["Subject"] = subject
-
-    msg.attach(MIMEText(body_text, "plain"))
-    msg.attach(MIMEText(body_html, "html"))
-
-    try:
-        if settings.SMTP_TLS:
-            server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT)
-            server.starttls()
-        else:
-            server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT)
-
-        if settings.SMTP_USER:
-            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-
-        server.sendmail(settings.SMTP_FROM, [to], msg.as_string())
-        server.quit()
-        logger.info("Email sent to %s: %s", to, subject)
-    except Exception:
-        logger.exception("Failed to send email to %s", to)
-        raise
+    """True when the currently-selected email backend has enough config to send."""
+    cfg = EmailConfig.from_runtime()
+    return get_backend(cfg.method).is_configured(cfg)
 
 
 async def send_email(to: str, subject: str, body_html: str, body_text: str = "") -> bool:
-    """Send an email asynchronously. No-op if SMTP is not configured.
+    """Send an email asynchronously via the active backend.
 
-    Returns True if the email was actually sent, False otherwise.
+    No-op (returns False) if the selected backend is not configured.
+    Returns True if the email was actually sent.
     """
-    if not _is_configured():
+    cfg = EmailConfig.from_runtime()
+    backend = get_backend(cfg.method)
+    if not backend.is_configured(cfg):
         return False
 
     if not body_text:
         body_text = body_html  # Fallback plain text
 
-    await asyncio.to_thread(_send_sync, to, subject, body_html, body_text)
+    await backend.send(
+        to=to,
+        subject=subject,
+        body_html=body_html,
+        body_text=body_text,
+        from_addr=cfg.from_addr,
+        cfg=cfg,
+    )
     return True
 
 

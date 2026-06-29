@@ -69,24 +69,58 @@ Wenn eine Karte archiviert wird, ist sie im Inventar, in Berichten und in Bezieh
 
 Die Bereinigung läuft stündlich und liest diese Einstellung bei jedem Durchlauf neu, sodass Änderungen ohne Neustart der Anwendung wirksam werden. Archiv-Banner und Bestätigungsdialoge zeigen die konfigurierte Dauer automatisch an.
 
-## E-Mail (SMTP)
+## E-Mail
 
-Konfigurieren Sie die E-Mail-Zustellung für Einladungs-E-Mails, Umfragebenachrichtigungen und andere Systemnachrichten.
+Turbo EA versendet Einladungs-E-Mails, Umfrage-Benachrichtigungen, Passwort-Zurücksetzungen und andere Systemnachrichten. Wählen Sie eine **Versandmethode**, die zu Ihrer Mail-Plattform passt.
+
+!!! warning "Basis-SMTP-Authentifizierung wird abgeschafft"
+    Microsoft 365 deaktiviert die Basis-SMTP-Authentifizierung (für neue Mandanten nicht verfügbar, für bestehende über 2026–2027 entfernt), und Google Workspace hat sie im März 2025 deaktiviert. Verwenden Sie für diese Plattformen eine der untenstehenden OAuth-Methoden anstelle eines Postfachpassworts.
+
+### Versandmethoden
+
+| Methode | Wann verwenden |
+|---------|----------------|
+| **SMTP (Benutzername & Passwort)** | Klassisches SMTP für Server, die weiterhin Basisauthentifizierung akzeptieren. Der Standard. |
+| **SMTP mit OAuth 2.0 (XOAUTH2)** | SMTP, authentifiziert mit einem kurzlebigen OAuth-Token — Microsoft 365 (App-only) oder Google Workspace (Dienstkonto). |
+| **Microsoft Graph API** | App-only Microsoft Graph `sendMail`. Die empfohlene Microsoft-365-Option — kein SMTP, kein gespeichertes Passwort. |
+
+### Gemeinsame Felder
 
 | Feld | Beschreibung |
-|------|-------------|
-| **SMTP-Host** | Hostname Ihres Mailservers (z.B. `smtp.gmail.com`) |
-| **SMTP-Port** | Server-Port (typischerweise 587 für TLS) |
-| **SMTP-Benutzer** | Benutzername für die Authentifizierung |
-| **SMTP-Passwort** | Passwort für die Authentifizierung (verschlüsselt gespeichert) |
-| **TLS verwenden** | TLS-Verschlüsselung aktivieren (empfohlen) |
-| **Absenderadresse** | Die Absender-E-Mail-Adresse für ausgehende Nachrichten |
-| **App-Basis-URL** | Die öffentliche URL Ihrer Turbo EA-Instanz (wird in E-Mail-Links verwendet) |
+|------|--------------|
+| **Absenderadresse** | Die Absenderadresse für ausgehende Nachrichten |
+| **App-Basis-URL** | Die öffentliche URL Ihrer Instanz (für Links in E-Mails) |
 
-Nach der Konfiguration klicken Sie auf **Test-E-Mail senden**, um zu überprüfen, ob die Einstellungen korrekt funktionieren.
+### SMTP (Benutzername & Passwort)
+
+| Feld | Beschreibung |
+|------|--------------|
+| **SMTP-Host** | Hostname Ihres Mailservers (z. B. `smtp.gmail.com`) |
+| **SMTP-Port** | Server-Port (üblicherweise 587 für TLS) |
+| **SMTP-Benutzer** | Authentifizierungs-Benutzername |
+| **SMTP-Passwort** | Authentifizierungspasswort (verschlüsselt gespeichert) |
+| **TLS verwenden** | STARTTLS-Verschlüsselung aktivieren (empfohlen) |
+
+### Microsoft Graph API (empfohlen für Microsoft 365)
+
+1. Erstellen Sie unter **Microsoft Entra ID → App-Registrierungen** eine dedizierte App-Registrierung.
+2. Fügen Sie unter **API-Berechtigungen** die **Anwendungsberechtigung** **Mail.Send** hinzu und erteilen Sie die **Administratoreinwilligung**.
+3. Erstellen Sie unter **Zertifikate & Geheimnisse** ein **Client-Geheimnis**.
+4. Wählen Sie in Turbo EA **Microsoft Graph API** und geben Sie **Mandanten-ID**, **Client-ID**, **Client-Geheimnis** und das **Absenderpostfach** (den User Principal Name, von dem gesendet wird) ein.
+
+Es wird kein Postfachpasswort gespeichert; Turbo EA fordert für jeden Versand ein kurzlebiges Token an.
+
+### SMTP mit OAuth 2.0
+
+- **Microsoft 365:** Geben Sie **Mandanten-ID**, **Client-ID** und **Client-Geheimnis** einer App-Registrierung sowie das **Absenderpostfach** ein. SMTP AUTH muss für das Postfach aktiviert sein.
+- **Google Workspace:** Wählen Sie **Google**, fügen Sie den **Dienstkontoschlüssel (JSON)** mit aktivierter domänenweiter Delegierung für das Absenderpostfach ein und legen Sie das zu imitierende **Absenderpostfach** fest.
+
+Die Felder **Bereich** und **Token-Endpunkt** sind optionale Überschreibungen — lassen Sie sie leer, sofern Ihr Mandant keine benutzerdefinierten Werte erfordert.
+
+Klicken Sie nach der Konfiguration auf **Test-E-Mail senden**, um die Funktion zu überprüfen.
 
 !!! note
-    E-Mail ist optional. Wenn SMTP nicht konfiguriert ist, überspringen Funktionen, die E-Mails senden (Einladungen, Umfragebenachrichtigungen), den E-Mail-Versand ohne Fehlermeldung.
+    E-Mail ist optional. Wenn keine Methode konfiguriert ist, überspringen Funktionen, die E-Mails senden, die Zustellung ohne Fehler.
 
 ## BPM-Modul
 

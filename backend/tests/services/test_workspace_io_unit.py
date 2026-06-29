@@ -51,7 +51,15 @@ def test_strip_secrets_removes_known_credentials():
         "sso": {"enabled": True, "client_id": "abc", "client_secret": "enc:SHHH"},
         "ai": {"enabled": True, "model": "gpt", "apiKey": "enc:KEY"},
     }
-    email = {"smtp_host": "mail", "smtp_user": "u", "smtp_password": "enc:PW"}
+    email = {
+        "smtp_host": "mail",
+        "smtp_user": "u",
+        "smtp_password": "enc:PW",
+        "method": "graph_api",
+        "oauth_client_id": "client-1",
+        "oauth_client_secret": "enc:CS",
+        "service_account_json": "enc:SA",
+    }
     g, e = strip_secrets(general, email)
     assert g["currency"] == "EUR"
     assert "client_secret" not in g["sso"]
@@ -59,7 +67,12 @@ def test_strip_secrets_removes_known_credentials():
     assert "apiKey" not in g["ai"]
     assert g["ai"]["model"] == "gpt"
     assert "smtp_password" not in e
+    # New OAuth email secrets are stripped; non-secret fields survive.
+    assert "oauth_client_secret" not in e
+    assert "service_account_json" not in e
     assert e["smtp_host"] == "mail"
+    assert e["method"] == "graph_api"
+    assert e["oauth_client_id"] == "client-1"
 
 
 def test_strip_secrets_scrubs_arbitrary_encrypted_value():

@@ -29,7 +29,11 @@ GENERAL_SECRET_PATHS: tuple[tuple[str, ...], ...] = (
     ("sso", "client_secret"),
     ("ai", "apiKey"),
 )
-EMAIL_SECRET_PATHS: tuple[tuple[str, ...], ...] = (("smtp_password",),)
+EMAIL_SECRET_PATHS: tuple[tuple[str, ...], ...] = (
+    ("smtp_password",),
+    ("oauth_client_secret",),
+    ("service_account_json",),
+)
 
 # User-FK columns that are instance-local and meaningless on the target. They
 # are dropped on export and re-resolved on import via the email→user map.

@@ -60,6 +60,20 @@ class Settings:
     SMTP_FROM: str = os.getenv("SMTP_FROM", "noreply@turboea.local")
     SMTP_TLS: bool = os.getenv("SMTP_TLS", "true").lower() in ("1", "true", "yes")
 
+    # Email transport method: smtp_basic (default) | smtp_oauth | graph_api.
+    # OAuth fields are a *dedicated* email app registration (not the SSO one) —
+    # used by the Microsoft Graph backend and SMTP XOAUTH2. Secrets may be
+    # sourced from the environment / a secret store instead of the database.
+    EMAIL_METHOD: str = os.getenv("EMAIL_METHOD", "smtp_basic")
+    EMAIL_OAUTH_PROVIDER: str = os.getenv("EMAIL_OAUTH_PROVIDER", "microsoft")
+    EMAIL_OAUTH_TENANT_ID: str = os.getenv("EMAIL_OAUTH_TENANT_ID", "")
+    EMAIL_OAUTH_CLIENT_ID: str = os.getenv("EMAIL_OAUTH_CLIENT_ID", "")
+    EMAIL_OAUTH_CLIENT_SECRET: str = os.getenv("EMAIL_OAUTH_CLIENT_SECRET", "")
+    EMAIL_OAUTH_SCOPE: str = os.getenv("EMAIL_OAUTH_SCOPE", "")
+    EMAIL_OAUTH_TOKEN_ENDPOINT: str = os.getenv("EMAIL_OAUTH_TOKEN_ENDPOINT", "")
+    EMAIL_GRAPH_SENDER: str = os.getenv("EMAIL_GRAPH_SENDER", "")
+    EMAIL_SERVICE_ACCOUNT_JSON: str = os.getenv("EMAIL_SERVICE_ACCOUNT_JSON", "")
+
     # Display name shown in the navbar, browser tab, and outgoing emails.
     # Seeded from the DB on startup and updated when the admin changes it.
     APP_TITLE: str = "Turbo EA"

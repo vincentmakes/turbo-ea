@@ -1,0 +1,195 @@
+"""OAuth 2.0 token acquisition for email backends.
+
+Two flows are supported:
+
+* **client_credentials** — app-only token from the Microsoft identity platform
+  (``login.microsoftonline.com/{tenant}/oauth2/v2.0/token``). Used by the Graph
+  backend (scope ``https://graph.microsoft.com/.default``) and by M365 SMTP
+  XOAUTH2 (scope ``https://outlook.office365.com/.default``).
+* **service_account** — Google service-account JWT-bearer grant (domain-wide
+  delegation) for Google Workspace SMTP XOAUTH2 (scope ``https://mail.google.com/``).
+
+Tokens are cached in-memory per ``(provider, client_id, scope[, subject])`` and
+reused until shortly before expiry. Secrets and tokens are never logged.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import base64
+import json
+import logging
+import time
+
+import httpx
+
+logger = logging.getLogger(__name__)
+
+# Refresh this many seconds before the token actually expires.
+_EXPIRY_SKEW_SECONDS = 60
+_HTTP_TIMEOUT = 20.0
+
+# (cache_key) -> (access_token, expires_at_monotonic)
+_token_cache: dict[str, tuple[str, float]] = {}
+_lock = asyncio.Lock()
+
+
+def reset_cache() -> None:
+    """Drop all cached tokens (used by tests and after a settings change)."""
+    _token_cache.clear()
+
+
+def microsoft_token_endpoint(tenant_id: str) -> str:
+    tenant = (tenant_id or "organizations").strip() or "organizations"
+    return f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
+
+
+def _cache_get(key: str) -> str | None:
+    entry = _token_cache.get(key)
+    if not entry:
+        return None
+    token, expires_at = entry
+    if time.monotonic() >= expires_at:
+        _token_cache.pop(key, None)
+        return None
+    return token
+
+
+def _cache_put(key: str, token: str, expires_in: int) -> None:
+    ttl = max(int(expires_in) - _EXPIRY_SKEW_SECONDS, 0)
+    _token_cache[key] = (token, time.monotonic() + ttl)
+
+
+async def get_client_credentials_token(
+    *,
+    tenant_id: str,
+    client_id: str,
+    client_secret: str,
+    scope: str,
+    token_endpoint: str = "",
+) -> str:
+    """Fetch (or reuse a cached) app-only access token via client credentials."""
+    cache_key = f"cc:{client_id}:{scope}"
+    cached = _cache_get(cache_key)
+    if cached:
+        return cached
+
+    async with _lock:
+        cached = _cache_get(cache_key)
+        if cached:
+            return cached
+
+        endpoint = (token_endpoint or "").strip() or microsoft_token_endpoint(tenant_id)
+        data = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "scope": scope,
+            "grant_type": "client_credentials",
+        }
+        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
+            resp = await client.post(endpoint, data=data)
+        if resp.status_code != 200:
+            # Surface the provider's error description without leaking the secret.
+            detail = _safe_error(resp)
+            raise RuntimeError(f"OAuth token request failed ({resp.status_code}): {detail}")
+        payload = resp.json()
+        token = payload.get("access_token")
+        if not token:
+            raise RuntimeError("OAuth token response did not contain an access_token")
+        _cache_put(cache_key, token, payload.get("expires_in", 3600))
+        return token
+
+
+async def get_service_account_token(
+    *,
+    service_account_json: str,
+    subject: str,
+    scope: str,
+) -> str:
+    """Fetch a Google access token via the service-account JWT-bearer grant.
+
+    ``subject`` is the mailbox to impersonate (domain-wide delegation). The
+    service-account key (with private key) is supplied as a JSON string.
+    """
+    try:
+        sa = json.loads(service_account_json)
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise RuntimeError("Service-account JSON is not valid JSON") from exc
+
+    client_email = sa.get("client_email")
+    private_key = sa.get("private_key")
+    token_uri = sa.get("token_uri") or "https://oauth2.googleapis.com/token"
+    if not client_email or not private_key:
+        raise RuntimeError("Service-account JSON missing client_email or private_key")
+
+    cache_key = f"sa:{client_email}:{subject}:{scope}"
+    cached = _cache_get(cache_key)
+    if cached:
+        return cached
+
+    async with _lock:
+        cached = _cache_get(cache_key)
+        if cached:
+            return cached
+
+        assertion = _build_google_assertion(
+            client_email=client_email,
+            private_key=private_key,
+            token_uri=token_uri,
+            subject=subject,
+            scope=scope,
+        )
+        data = {
+            "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+            "assertion": assertion,
+        }
+        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
+            resp = await client.post(token_uri, data=data)
+        if resp.status_code != 200:
+            raise RuntimeError(
+                f"Google token request failed ({resp.status_code}): {_safe_error(resp)}"
+            )
+        payload = resp.json()
+        token = payload.get("access_token")
+        if not token:
+            raise RuntimeError("Google token response did not contain an access_token")
+        _cache_put(cache_key, token, payload.get("expires_in", 3600))
+        return token
+
+
+def _build_google_assertion(
+    *,
+    client_email: str,
+    private_key: str,
+    token_uri: str,
+    subject: str,
+    scope: str,
+) -> str:
+    """Build the signed JWT for the Google JWT-bearer grant (RS256)."""
+    import jwt  # PyJWT — already a backend dependency
+
+    now = int(time.time())
+    claims = {
+        "iss": client_email,
+        "scope": scope,
+        "aud": token_uri,
+        "iat": now,
+        "exp": now + 3600,
+    }
+    if subject:
+        claims["sub"] = subject
+    return jwt.encode(claims, private_key, algorithm="RS256")
+
+
+def build_xoauth2_string(user: str, access_token: str) -> str:
+    """Build the base64-encoded SASL XOAUTH2 initial-client-response."""
+    raw = f"user={user}\x01auth=Bearer {access_token}\x01\x01"
+    return base64.b64encode(raw.encode()).decode()
+
+
+def _safe_error(resp: httpx.Response) -> str:
+    try:
+        body = resp.json()
+        return str(body.get("error_description") or body.get("error") or body)
+    except Exception:
+        return resp.text[:200]

@@ -69,24 +69,58 @@ Quando una scheda viene archiviata, è nascosta dall'inventario, dai report e da
 
 L'eliminazione viene eseguita ogni ora e rilegge questa impostazione a ogni esecuzione, quindi le modifiche hanno effetto senza riavviare l'applicazione. I banner di archiviazione e le finestre di conferma riflettono automaticamente il periodo configurato.
 
-## Email (SMTP)
+## Email
 
-Configurate la consegna delle email per email di invito, notifiche dei sondaggi e altri messaggi di sistema.
+Turbo EA invia e-mail di invito, notifiche dei sondaggi, reimpostazioni della password e altri messaggi di sistema. Scegli un **metodo di invio** adatto alla tua piattaforma di posta.
+
+!!! warning "L'autenticazione SMTP di base sta per essere ritirata"
+    Microsoft 365 sta disattivando l'autenticazione SMTP di base (non disponibile per i nuovi tenant, rimossa per quelli esistenti nel corso del 2026–2027) e Google Workspace l'ha disattivata a marzo 2025. Per queste piattaforme, usa uno dei metodi OAuth seguenti invece di una password della casella di posta.
+
+### Metodi di invio
+
+| Metodo | Quando usarlo |
+|--------|---------------|
+| **SMTP (nome utente e password)** | SMTP classico per server che accettano ancora l'autenticazione di base. Il valore predefinito. |
+| **SMTP con OAuth 2.0 (XOAUTH2)** | SMTP autenticato con un token OAuth di breve durata — Microsoft 365 (solo app) o Google Workspace (account di servizio). |
+| **API Microsoft Graph** | `sendMail` di Microsoft Graph solo app. L'opzione consigliata per Microsoft 365 — niente SMTP, nessuna password memorizzata. |
+
+### Campi comuni
 
 | Campo | Descrizione |
 |-------|-------------|
-| **SMTP Host** | L'hostname del vostro server di posta (es. `smtp.gmail.com`) |
-| **SMTP Port** | Porta del server (tipicamente 587 per TLS) |
-| **SMTP User** | Nome utente per l'autenticazione |
-| **SMTP Password** | Password per l'autenticazione (memorizzata crittografata) |
-| **Usa TLS** | Abilita la crittografia TLS (consigliato) |
-| **Indirizzo mittente** | L'indirizzo email del mittente per i messaggi in uscita |
-| **URL base dell'app** | L'URL pubblico della vostra istanza Turbo EA (utilizzato nei link delle email) |
+| **Indirizzo mittente** | L'indirizzo del mittente per i messaggi in uscita |
+| **URL di base dell'app** | L'URL pubblico della tua istanza (usato nei collegamenti delle e-mail) |
 
-Dopo la configurazione, cliccate su **Invia email di test** per verificare che le impostazioni funzionino correttamente.
+### SMTP (nome utente e password)
+
+| Campo | Descrizione |
+|-------|-------------|
+| **Host SMTP** | Il nome host del tuo server di posta (es. `smtp.gmail.com`) |
+| **Porta SMTP** | La porta del server (di solito 587 per TLS) |
+| **Utente SMTP** | Il nome utente di autenticazione |
+| **Password SMTP** | La password di autenticazione (memorizzata cifrata) |
+| **Usa TLS** | Abilita la crittografia STARTTLS (consigliato) |
+
+### API Microsoft Graph (consigliata per Microsoft 365)
+
+1. In **Microsoft Entra ID → Registrazioni app**, crea una registrazione app dedicata.
+2. In **Autorizzazioni API**, aggiungi l'autorizzazione **applicativa** **Mail.Send** e concedi il **consenso dell'amministratore**.
+3. Crea un **segreto client** in **Certificati e segreti**.
+4. In Turbo EA, scegli **API Microsoft Graph** e inserisci **ID tenant**, **ID client**, **Segreto client** e la **Casella di posta del mittente** (lo user principal name da cui viene inviata la posta).
+
+Non viene memorizzata alcuna password della casella di posta; Turbo EA richiede un token di breve durata per ogni invio.
+
+### SMTP con OAuth 2.0
+
+- **Microsoft 365:** inserisci **ID tenant**, **ID client** e **Segreto client** di una registrazione app, più la **Casella di posta del mittente**. SMTP AUTH deve essere abilitato per la casella di posta.
+- **Google Workspace:** scegli **Google**, incolla la **chiave dell'account di servizio (JSON)** con la delega a livello di dominio abilitata per la casella di posta del mittente, e imposta la **Casella di posta del mittente** da impersonare.
+
+I campi **Ambito** ed **Endpoint del token** sono sostituzioni facoltative — lasciali vuoti a meno che il tuo tenant non richieda valori personalizzati.
+
+Dopo aver configurato un metodo, fai clic su **Invia e-mail di prova** per verificarne il funzionamento.
 
 !!! note
-    L'email è opzionale. Se SMTP non è configurato, le funzionalità che inviano email (inviti, notifiche dei sondaggi) salteranno la consegna via email in modo trasparente.
+    L'e-mail è facoltativa. Se non è configurato alcun metodo, le funzionalità che inviano e-mail saltano la consegna senza errori.
 
 ## Modulo BPM
 

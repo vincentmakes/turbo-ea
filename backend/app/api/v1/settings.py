@@ -33,6 +33,9 @@ MAX_LOGO_SIZE = 2 * 1024 * 1024  # 2 MB
 
 
 class EmailSettingsPayload(BaseModel):
+    # Transport method: smtp_basic (default) | smtp_oauth | graph_api
+    method: str = "smtp_basic"
+    # SMTP basic (also reused for the SMTP XOAUTH2 connection)
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_user: str = ""
@@ -40,6 +43,15 @@ class EmailSettingsPayload(BaseModel):
     smtp_from: str = "noreply@turboea.local"
     smtp_tls: bool = True
     app_base_url: str = ""
+    # OAuth (dedicated email app registration) — used by graph_api & smtp_oauth
+    oauth_provider: str = "microsoft"
+    oauth_tenant_id: str = ""
+    oauth_client_id: str = ""
+    oauth_client_secret: str = ""
+    graph_sender: str = ""
+    oauth_scope: str = ""
+    oauth_token_endpoint: str = ""
+    service_account_json: str = ""
 
 
 class CurrencyPayload(BaseModel):
@@ -103,8 +115,39 @@ async def _get_or_create_row(db: AsyncSession) -> AppSettings:
     return row
 
 
+EMAIL_SECRET_FIELDS = ("smtp_password", "oauth_client_secret", "service_account_json")
+ALLOWED_EMAIL_METHODS = ("smtp_basic", "smtp_oauth", "graph_api")
+MASK = "••••••••"
+
+
+def _email_configured(stored: dict) -> bool:
+    """Whether the currently-selected email backend has enough config to send."""
+    method = stored.get("method", app_config.EMAIL_METHOD) or "smtp_basic"
+    if method == "graph_api":
+        return bool(
+            (stored.get("oauth_tenant_id") or app_config.EMAIL_OAUTH_TENANT_ID)
+            and (stored.get("oauth_client_id") or app_config.EMAIL_OAUTH_CLIENT_ID)
+            and (stored.get("oauth_client_secret") or app_config.EMAIL_OAUTH_CLIENT_SECRET)
+            and (stored.get("graph_sender") or app_config.EMAIL_GRAPH_SENDER)
+        )
+    if method == "smtp_oauth":
+        if not (stored.get("smtp_host") or app_config.SMTP_HOST):
+            return False
+        provider = stored.get("oauth_provider", app_config.EMAIL_OAUTH_PROVIDER)
+        if provider == "google":
+            return bool(stored.get("service_account_json") or app_config.EMAIL_SERVICE_ACCOUNT_JSON)
+        return bool(
+            (stored.get("oauth_tenant_id") or app_config.EMAIL_OAUTH_TENANT_ID)
+            and (stored.get("oauth_client_id") or app_config.EMAIL_OAUTH_CLIENT_ID)
+            and (stored.get("oauth_client_secret") or app_config.EMAIL_OAUTH_CLIENT_SECRET)
+        )
+    return bool(stored.get("smtp_host") or app_config.SMTP_HOST)
+
+
 def _apply_to_runtime(email: dict) -> None:
     """Push DB email settings into the runtime config singleton."""
+    if email.get("method"):
+        app_config.EMAIL_METHOD = email["method"]
     if email.get("smtp_host"):
         app_config.SMTP_HOST = email["smtp_host"]
     if email.get("smtp_port"):
@@ -119,6 +162,30 @@ def _apply_to_runtime(email: dict) -> None:
         app_config.SMTP_TLS = bool(email["smtp_tls"])
     if email.get("app_base_url"):
         app_config._app_base_url = email["app_base_url"]
+    # OAuth (dedicated email app registration)
+    if email.get("oauth_provider"):
+        app_config.EMAIL_OAUTH_PROVIDER = email["oauth_provider"]
+    if email.get("oauth_tenant_id"):
+        app_config.EMAIL_OAUTH_TENANT_ID = email["oauth_tenant_id"]
+    if email.get("oauth_client_id"):
+        app_config.EMAIL_OAUTH_CLIENT_ID = email["oauth_client_id"]
+    if email.get("oauth_client_secret"):
+        app_config.EMAIL_OAUTH_CLIENT_SECRET = decrypt_value(email["oauth_client_secret"])
+    if email.get("graph_sender"):
+        app_config.EMAIL_GRAPH_SENDER = email["graph_sender"]
+    if email.get("oauth_scope"):
+        app_config.EMAIL_OAUTH_SCOPE = email["oauth_scope"]
+    if email.get("oauth_token_endpoint"):
+        app_config.EMAIL_OAUTH_TOKEN_ENDPOINT = email["oauth_token_endpoint"]
+    if email.get("service_account_json"):
+        app_config.EMAIL_SERVICE_ACCOUNT_JSON = decrypt_value(email["service_account_json"])
+    # Drop cached OAuth tokens so the next send picks up the new credentials.
+    try:
+        from app.services.email_backends import oauth as _email_oauth
+
+        _email_oauth.reset_cache()
+    except Exception:  # pragma: no cover - defensive
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -194,7 +261,7 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
     ]
 
     email_settings = (row.email_settings if row else None) or {}
-    smtp_configured = bool(email_settings.get("smtp_host") or app_config.SMTP_HOST)
+    email_configured = _email_configured(email_settings)
 
     return {
         "currency": general.get("currency", DEFAULT_CURRENCY),
@@ -219,7 +286,10 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         "login_tagline_hidden": bool(general.get("loginTaglineHidden", False)),
         "login_help_text": (general.get("loginHelpText") or "").strip(),
         "login_help_link": (general.get("loginHelpLink") or "").strip(),
-        "smtp_configured": smtp_configured,
+        # email_configured is method-aware; smtp_configured kept as an alias for
+        # frontend backward compatibility.
+        "email_configured": email_configured,
+        "smtp_configured": email_configured,
     }
 
 
@@ -232,17 +302,34 @@ async def get_email_settings(
     row = await _get_or_create_row(db)
     await db.commit()
     stored = row.email_settings or {}
+
+    def _secret_mask(key: str, env_fallback: str = "") -> str:
+        return MASK if stored.get(key) or env_fallback else ""
+
     return {
+        "method": stored.get("method", app_config.EMAIL_METHOD),
         "smtp_host": stored.get("smtp_host", app_config.SMTP_HOST),
         "smtp_port": stored.get("smtp_port", app_config.SMTP_PORT),
         "smtp_user": stored.get("smtp_user", app_config.SMTP_USER),
-        "smtp_password": (
-            "••••••••" if stored.get("smtp_password") or app_config.SMTP_PASSWORD else ""
-        ),
+        "smtp_password": _secret_mask("smtp_password", app_config.SMTP_PASSWORD),
         "smtp_from": stored.get("smtp_from", app_config.SMTP_FROM),
         "smtp_tls": stored.get("smtp_tls", app_config.SMTP_TLS),
         "app_base_url": stored.get("app_base_url", ""),
-        "configured": bool(stored.get("smtp_host") or app_config.SMTP_HOST),
+        "oauth_provider": stored.get("oauth_provider", app_config.EMAIL_OAUTH_PROVIDER),
+        "oauth_tenant_id": stored.get("oauth_tenant_id", app_config.EMAIL_OAUTH_TENANT_ID),
+        "oauth_client_id": stored.get("oauth_client_id", app_config.EMAIL_OAUTH_CLIENT_ID),
+        "oauth_client_secret": _secret_mask(
+            "oauth_client_secret", app_config.EMAIL_OAUTH_CLIENT_SECRET
+        ),
+        "graph_sender": stored.get("graph_sender", app_config.EMAIL_GRAPH_SENDER),
+        "oauth_scope": stored.get("oauth_scope", app_config.EMAIL_OAUTH_SCOPE),
+        "oauth_token_endpoint": stored.get(
+            "oauth_token_endpoint", app_config.EMAIL_OAUTH_TOKEN_ENDPOINT
+        ),
+        "service_account_json": _secret_mask(
+            "service_account_json", app_config.EMAIL_SERVICE_ACCOUNT_JSON
+        ),
+        "configured": _email_configured(stored),
     }
 
 
@@ -253,16 +340,22 @@ async def update_email_settings(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "admin.settings")
+
+    if body.method not in ALLOWED_EMAIL_METHODS:
+        raise HTTPException(400, f"Unsupported email method: {body.method}")
+
     row = await _get_or_create_row(db)
 
     email = dict(row.email_settings or {})
     payload = body.model_dump()
 
-    # Only overwrite password if the caller sends a real value (not the masked placeholder)
-    if payload.get("smtp_password") in ("", "••••••••"):
-        payload.pop("smtp_password", None)
-    elif payload.get("smtp_password"):
-        payload["smtp_password"] = encrypt_value(payload["smtp_password"])
+    # Secret fields: drop when masked/empty (preserve stored value), otherwise encrypt.
+    for field in EMAIL_SECRET_FIELDS:
+        value = payload.get(field)
+        if value in ("", MASK):
+            payload.pop(field, None)
+        elif value:
+            payload[field] = encrypt_value(value)
 
     email.update(payload)
     row.email_settings = email
