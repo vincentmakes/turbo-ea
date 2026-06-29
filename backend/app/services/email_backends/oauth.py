@@ -94,7 +94,7 @@ async def get_client_credentials_token(
             raise RuntimeError(f"OAuth token request failed ({resp.status_code}): {detail}")
         payload = resp.json()
         token = payload.get("access_token")
-        if not token:
+        if not isinstance(token, str) or not token:
             raise RuntimeError("OAuth token response did not contain an access_token")
         _cache_put(cache_key, token, payload.get("expires_in", 3600))
         return token
@@ -151,7 +151,7 @@ async def get_service_account_token(
             )
         payload = resp.json()
         token = payload.get("access_token")
-        if not token:
+        if not isinstance(token, str) or not token:
             raise RuntimeError("Google token response did not contain an access_token")
         _cache_put(cache_key, token, payload.get("expires_in", 3600))
         return token
@@ -178,7 +178,7 @@ def _build_google_assertion(
     }
     if subject:
         claims["sub"] = subject
-    return jwt.encode(claims, private_key, algorithm="RS256")
+    return str(jwt.encode(claims, private_key, algorithm="RS256"))
 
 
 def build_xoauth2_string(user: str, access_token: str) -> str:
