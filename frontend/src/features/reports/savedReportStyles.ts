@@ -14,6 +14,7 @@ export const REPORT_TYPE_STYLE: Record<string, { icon: string; color: string; pa
   matrix: { icon: "table_chart", color: "#6a1b9a", path: "/reports/matrix" },
   "data-quality": { icon: "verified", color: "#00695c", path: "/reports/data-quality" },
   eol: { icon: "update", color: "#bf360c", path: "/reports/eol" },
+  custom: { icon: "auto_awesome", color: "#1976d2", path: "/reports/custom" },
 };
 
 export const VISIBILITY_STYLE: Record<string, { icon: string; color: string }> = {
@@ -33,6 +34,7 @@ export function getReportTypeLabels(t: TFunction): Record<string, string> {
     matrix: t("reports:saved.typeMatrix"),
     "data-quality": t("reports:saved.typeDataQuality"),
     eol: t("reports:saved.typeEol"),
+    custom: t("reports:saved.typeCustom"),
   };
 }
 

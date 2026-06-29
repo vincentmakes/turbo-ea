@@ -35,3 +35,24 @@ Naviguez vers **Rapports > Rapports sauvegardés** pour parcourir tous les rappo
 - **Modifier** -- Mettre à jour le nom, la visibilité ou les paramètres de partage
 - **Dupliquer** -- Créer une copie avec un nouveau nom
 - **Supprimer** -- Supprimer le rapport sauvegarde (seul le créateur ou les utilisateurs avec des permissions de modification peuvent supprimer)
+
+## Rapports personnalisés avec votre assistant IA
+
+Au-delà des types de rapports intégrés, Turbo EA peut créer des **rapports entièrement personnalisés** à partir d'une description en langage naturel, à l'aide d'un assistant IA connecté via le **serveur MCP**.
+
+### Comment ça marche
+
+1. Connectez le serveur MCP de Turbo EA à votre assistant IA (par exemple Claude Code) — voir le guide **Intégration MCP**.
+2. Décrivez le rapport souhaité en langage naturel, par exemple *« Compter les applications par criticité métier sous forme de camembert »* ou *« Coût annuel total des composants informatiques regroupés par fournisseur »*.
+3. L'assistant appelle `get_report_builder_schema` pour lire votre métamodèle en direct (types de cartes, champs, relations, étiquettes), assemble une **spécification** de rapport sûre et la prévisualise sur vos données réelles avec `preview_custom_report` — vous voyez donc de vrais résultats avant tout enregistrement.
+4. Lorsque le résultat vous convient, l'assistant **publie** le rapport avec `create_saved_report`. Il apparaît dans la galerie **Rapports enregistrés** et s'ouvre comme un rapport natif et interactif.
+
+### Ce que permettent les rapports personnalisés
+
+- **Conscient du métamodèle** : vos types de cartes, sous-types, champs, relations et étiquettes sont reflétés automatiquement — sans programmation.
+- **Regrouper et agréger** : regrouper par attribut, sous-type, phase de cycle de vie, groupe d'étiquettes ou carte liée, et mesurer avec le nombre, la somme, la moyenne, le minimum ou le maximum.
+- **Filtrer et parcourir** : filtrer les cartes sources et, en option, suivre un saut de relation vers les cartes liées.
+- **De nombreuses visualisations** : afficher sous forme de tableau, de graphique à barres/colonnes/secteurs/anneau/nuage de points/treemap/courbes, ou de tuiles KPI.
+- **Sûr et gouverné** : les rapports sont en lecture seule, fonctionnent entièrement sur des règles déclaratives (pas de code, pas de SQL), et les champs de coût restent derrière l'autorisation **Voir les coûts** — exactement comme tout autre rapport.
+
+Les rapports personnalisés sont enregistrés comme n'importe quel autre rapport ; les mêmes options de visibilité et de partage (privé / partagé / public) s'appliquent.

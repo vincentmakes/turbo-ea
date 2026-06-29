@@ -377,5 +377,11 @@
   "dependency.createDiagramSubmit": "Opret",
   "dependency.createDiagramError": "Diagrammet kunne ikke oprettes. Prøv igen.",
   "cost.permissionDeniedTitle": "Omkostningsdata begrænset",
-  "cost.permissionDeniedBody": "Du har ikke tilladelse til at se omkostningsrapporter. Bed en administrator om at give dig tilladelsen «costs.view», eller bliv interessent på de kort, hvis omkostninger du har brug for."
+  "cost.permissionDeniedBody": "Du har ikke tilladelse til at se omkostningsrapporter. Bed en administrator om at give dig tilladelsen «costs.view», eller bliv interessent på de kort, hvis omkostninger du har brug for.",
+  "saved.typeCustom": "Tilpasset",
+  "custom.title": "Tilpasset rapport",
+  "custom.empty": "Denne tilpassede rapport har endnu ingen specifikation.",
+  "custom.emptyHint": "Tilpassede rapporter oprettes ved at beskrive dem for din AI-assistent via Turbo EA's MCP-server, som viser dataene live og derefter udgiver rapporten her. Åbn en gemt tilpasset rapport for at se den.",
+  "custom.noData": "Ingen data matchede denne rapports specifikation.",
+  "custom.truncated": "Resultaterne blev afkortet, fordi rapporten matchede et meget stort antal kort eller grupper."
 }

@@ -377,5 +377,11 @@
   "dependency.createDiagramSubmit": "Create",
   "dependency.createDiagramError": "Could not create the diagram. Please try again.",
   "cost.permissionDeniedTitle": "Cost data restricted",
-  "cost.permissionDeniedBody": "You don't have permission to view cost reports. Ask an administrator to grant you the «costs.view» permission, or become a stakeholder on the cards whose costs you need."
+  "cost.permissionDeniedBody": "You don't have permission to view cost reports. Ask an administrator to grant you the «costs.view» permission, or become a stakeholder on the cards whose costs you need.",
+  "saved.typeCustom": "Custom",
+  "custom.title": "Custom Report",
+  "custom.empty": "This custom report has no specification yet.",
+  "custom.emptyHint": "Custom reports are built by describing them to your AI assistant through the Turbo EA MCP server, which previews the data live and then publishes the report here. Open a saved custom report to view it.",
+  "custom.noData": "No data matched this report's specification.",
+  "custom.truncated": "Results were truncated because the report matched a very large number of cards or groups."
 }

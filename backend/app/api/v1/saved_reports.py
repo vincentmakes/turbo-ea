@@ -26,6 +26,7 @@ VALID_REPORT_TYPES = {
     "matrix",
     "data-quality",
     "eol",
+    "custom",
 }
 
 

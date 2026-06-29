@@ -377,5 +377,11 @@
   "dependency.createDiagramSubmit": "Crear",
   "dependency.createDiagramError": "No se pudo crear el diagrama. Inténtalo de nuevo.",
   "cost.permissionDeniedTitle": "Datos de costos restringidos",
-  "cost.permissionDeniedBody": "No tiene permiso para ver los informes de costos. Solicite a un administrador que le conceda el permiso «costs.view», o conviértase en parte interesada de las tarjetas implicadas."
+  "cost.permissionDeniedBody": "No tiene permiso para ver los informes de costos. Solicite a un administrador que le conceda el permiso «costs.view», o conviértase en parte interesada de las tarjetas implicadas.",
+  "saved.typeCustom": "Personalizado",
+  "custom.title": "Informe personalizado",
+  "custom.empty": "Este informe personalizado aún no tiene especificación.",
+  "custom.emptyHint": "Los informes personalizados se crean describiéndolos a tu asistente de IA a través del servidor MCP de Turbo EA, que previsualiza los datos en vivo y luego publica el informe aquí. Abre un informe personalizado guardado para verlo.",
+  "custom.noData": "Ningún dato coincidió con la especificación de este informe.",
+  "custom.truncated": "Los resultados se truncaron porque el informe coincidió con un número muy grande de tarjetas o grupos."
 }
