@@ -127,7 +127,7 @@ class Dimension(BaseModel):
 
 
 class Aggregation(str, Enum):
-    count = "count"
+    count = "count"  # type: ignore[assignment]  # shadows str.count; harmless for an enum value
     sum = "sum"
     avg = "avg"
     min = "min"
