@@ -75,11 +75,13 @@ def _option_label_map(fields_schema: list[dict] | None) -> dict[str, dict[str, s
             key = field.get("key")
             opts = field.get("options")
             if isinstance(key, str) and isinstance(opts, list):
-                out[key] = {
-                    o.get("key"): o.get("label", o.get("key"))
-                    for o in opts
-                    if isinstance(o, dict) and o.get("key")
-                }
+                option_labels: dict[str, str] = {}
+                for o in opts:
+                    if isinstance(o, dict):
+                        ok = o.get("key")
+                        if isinstance(ok, str):
+                            option_labels[ok] = o.get("label", ok)
+                out[key] = option_labels
     return out
 
 
@@ -198,7 +200,7 @@ def _validate_keys(
         if m.agg == Aggregation.count:
             continue
         _check_key(m.field, "measure")
-        ftype = eff_keys.get(m.field)
+        ftype = eff_keys.get(m.field or "")
         if ftype is None:
             raise HTTPException(
                 status_code=400,
@@ -448,7 +450,7 @@ def _dimension_label(d: Dimension, mm: _Metamodel, eff_type: CardType) -> str:
         for section in eff_type.fields_schema or []:
             for field in section.get("fields", []) or []:
                 if field.get("key") == d.key:
-                    return field.get("label", d.key)
+                    return str(field.get("label", d.key))
         return d.key or "attribute"
     if d.kind == DimensionKind.subtype:
         return "Subtype"
@@ -638,7 +640,7 @@ def _current_phase(lifecycle: dict | None) -> str | None:
 def _resolve_sort_key(by: str, columns: list[dict]) -> str | None:
     for c in columns:
         if by in (c["key"], c["label"]):
-            return c["key"]
+            return str(c["key"])
     return None
 
 
