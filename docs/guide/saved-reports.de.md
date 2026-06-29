@@ -56,3 +56,7 @@ Navigieren Sie zu **Berichte > Gespeicherte Berichte**, um alle gespeicherten Be
 - **Sicher und kontrolliert**: Berichte sind schreibgeschützt, laufen vollständig auf deklarativen Regeln (kein Code, kein SQL), und Kostenfelder bleiben hinter der Berechtigung **Kosten anzeigen** — genau wie bei jedem anderen Bericht.
 
 Benutzerdefinierte Berichte werden genauso wie jeder andere Bericht gespeichert, sodass dieselben Sichtbarkeits- und Freigabeoptionen (privat / geteilt / öffentlich) gelten.
+
+### Manuell erstellen
+
+Sie brauchen den KI-Assistenten nicht. Öffnen Sie **Berichte > Gespeicherte Berichte**, erstellen Sie einen benutzerdefinierten Bericht und klicken Sie auf **Bericht erstellen**, um einen grafischen Editor zu öffnen: Wählen Sie einen Kartentyp, fügen Sie Filter hinzu, bestimmen Sie die Gruppierung (Dimensionen) und die Kennzahlen und wählen Sie einen Diagrammtyp. Eine Live-Vorschau aktualisiert sich dabei; mit **Speichern** veröffentlichen Sie den Bericht.

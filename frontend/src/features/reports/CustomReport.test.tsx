@@ -15,6 +15,11 @@ vi.mock("@/hooks/useThumbnailCapture", () => ({
   useThumbnailCapture: () => ({ chartRef: { current: null }, thumbnail: undefined, captureAndSave: vi.fn() }),
 }));
 
+// The always-mounted ReportBuilderDialog reads the metamodel; stub it so no fetch fires.
+vi.mock("@/hooks/useMetamodel", () => ({
+  useMetamodel: () => ({ types: [], relationTypes: [] }),
+}));
+
 const RESULT = {
   columns: [
     { key: "d0", label: "Business Criticality", kind: "dimension", type: "string" },

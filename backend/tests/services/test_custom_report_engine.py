@@ -27,6 +27,7 @@ APP_SCHEMA = [
         "fields": [
             {"key": "costTotalAnnual", "type": "cost", "weight": 1},
             {"key": "headcount", "type": "number", "weight": 0},
+            {"key": "isCore", "type": "boolean", "weight": 0},
             {
                 "key": "businessCriticality",
                 "type": "single_select",
@@ -132,6 +133,37 @@ class TestAggregation:
         spec = _spec(measures=[{"agg": "sum", "field": "headcount"}], visualization={"kind": "kpi"})
         out = await run_custom_report(db, env["admin"], spec)
         assert out["rows"][0]["m0"] == 45
+
+    async def test_eq_filter_is_case_insensitive(self, db, env):
+        # The builder may send a differently-cased value; eq must still match.
+        spec = _spec(
+            source={
+                "card_type": "Application",
+                "filters": [
+                    {
+                        "target": "attribute",
+                        "key": "businessCriticality",
+                        "op": "eq",
+                        "value": "HIGH",
+                    }
+                ],
+            },
+            measures=[{"agg": "count"}],
+        )
+        out = await run_custom_report(db, env["admin"], spec)
+        assert out["rows"][0]["m0"] == 2
+
+    async def test_boolean_filter_matches_string_value(self, db, env):
+        await create_card(db, card_type="Application", name="Flagged", attributes={"isCore": True})
+        spec = _spec(
+            source={
+                "card_type": "Application",
+                "filters": [{"target": "attribute", "key": "isCore", "op": "eq", "value": "true"}],
+            },
+            measures=[{"agg": "count"}],
+        )
+        out = await run_custom_report(db, env["admin"], spec)
+        assert out["rows"][0]["m0"] == 1
 
 
 class TestTraversal:

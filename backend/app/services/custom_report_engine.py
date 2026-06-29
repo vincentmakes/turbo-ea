@@ -237,19 +237,31 @@ def _collect_cost_fields(
     return used
 
 
+def _norm(v: Any) -> str:
+    """Case-insensitive, bool-aware string form for equality comparisons.
+
+    Booleans normalise to ``true`` / ``false`` so a value picker that sends the
+    string "true" matches a JSONB boolean attribute; everything else is compared
+    case-insensitively, which is friendlier for select-option keys and names.
+    """
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    return str(v).strip().lower()
+
+
 def _apply_op(actual: Any, op: FilterOp, value: Any) -> bool:
     if op == FilterOp.is_set:
         return actual is not None and actual != ""
     if op == FilterOp.is_empty:
         return actual is None or actual == ""
     if op == FilterOp.eq:
-        return str(actual) == str(value)
+        return _norm(actual) == _norm(value)
     if op == FilterOp.ne:
-        return str(actual) != str(value)
+        return _norm(actual) != _norm(value)
     if op == FilterOp.in_:
-        return str(actual) in {str(v) for v in _as_list(value)}
+        return _norm(actual) in {_norm(v) for v in _as_list(value)}
     if op == FilterOp.not_in:
-        return str(actual) not in {str(v) for v in _as_list(value)}
+        return _norm(actual) not in {_norm(v) for v in _as_list(value)}
     if op == FilterOp.contains:
         return actual is not None and str(value).lower() in str(actual).lower()
     if op in (FilterOp.gt, FilterOp.gte, FilterOp.lt, FilterOp.lte):
