@@ -794,6 +794,11 @@ export default function InventoryPage() {
       .filter((c) => c.sort)
       .map((c) => ({ colId: c.colId!, sort: c.sort! }));
     setSortModel(sorted);
+    // getColumnState() carries each column's sort/sortIndex, and column_state is
+    // what saved views persist + restore — so fold the new sort into it here.
+    // Without this, a sort-only change (no drag/pin) never reaches the saved
+    // view and sorting wouldn't survive reopening it.
+    setColumnState(colState as unknown as ColumnLayoutItem[]);
   }, []);
 
   // Capture order/width/pinning whenever the user drags or pins a column.
@@ -810,8 +815,8 @@ export default function InventoryPage() {
 
   // Push a saved/pending layout into the live grid once it's ready and the
   // columnDefs reflect the matching visibility set. We strip `hide` so column
-  // visibility keeps flowing from `selectedColumns` (the sidebar picker) — this
-  // call only restores order, width, and pinning.
+  // visibility keeps flowing from `selectedColumns` (the sidebar picker); the
+  // remaining state restores order, width, pinning, and sort.
   useEffect(() => {
     if (!gridReady || pendingColumnState == null) return;
     const api = gridRef.current?.api;
