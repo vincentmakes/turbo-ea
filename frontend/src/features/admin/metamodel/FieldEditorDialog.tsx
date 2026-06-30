@@ -22,7 +22,7 @@ import KeyInput, { isValidKey } from "@/components/KeyInput";
 import { api } from "@/api/client";
 import { LOCALE_LABELS } from "@/i18n";
 import type { FieldDef, FieldOption, TranslationMap } from "@/types";
-import { FIELD_TYPE_OPTIONS } from "./constants";
+import { FIELD_TYPE_OPTIONS, DEFAULT_OPTION_COLOR } from "./constants";
 
 /** Remove empty-string entries from a TranslationMap. Returns undefined if all empty. */
 function cleanTranslationMap(map: TranslationMap | undefined): TranslationMap | undefined {
@@ -90,7 +90,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
   const addOption = () => {
     setField({
       ...field,
-      options: [...(field.options || []), { key: "", label: "", color: "#1976d2" }],
+      options: [...(field.options || []), { key: "", label: "", color: DEFAULT_OPTION_COLOR }],
     });
   };
 
@@ -216,7 +216,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
                   />
                   <ColorPicker
                     compact
-                    value={opt.color || "#1976d2"}
+                    value={opt.color || DEFAULT_OPTION_COLOR}
                     onChange={(c) => updateOption(idx, { color: c })}
                   />
                   <IconButton size="small" onClick={() => promptRemoveOption(idx)}>
@@ -274,6 +274,9 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
               translations: cleanTranslationMap(mergedTranslations),
               options: field.options?.map((o) => ({
                 ...o,
+                // Persist the default the picker displays so an option whose
+                // swatch was never touched still saves a color (issue #718).
+                color: o.color || DEFAULT_OPTION_COLOR,
                 translations: cleanTranslationMap(o.translations),
               })),
             };

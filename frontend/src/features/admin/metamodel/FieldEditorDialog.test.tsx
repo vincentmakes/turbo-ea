@@ -56,6 +56,42 @@ describe("FieldEditorDialog — new select option color", () => {
     expect(lastOption.color).toBe("#1976d2");
   });
 
+  it("normalizes an existing colorless option to the default on save (issue #718)", async () => {
+    // The reporter's option was saved (in an earlier version) with no `color`.
+    // Re-opening the field and clicking Save — without touching any picker —
+    // must now persist the displayed default so its dot finally renders.
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+
+    const initial: FieldDef = {
+      key: "myField",
+      label: "My Field",
+      type: "single_select",
+      options: [
+        { key: "first", label: "First", color: "#ff0000" },
+        { key: "sixth", label: "Sixth" }, // no color — the bug scenario
+      ],
+    };
+
+    render(
+      <FieldEditorDialog
+        open
+        field={initial}
+        typeKey="Application"
+        fieldKey="myField"
+        onClose={() => {}}
+        onSave={onSave}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /^Save$/ }));
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const saved = onSave.mock.calls[0][0] as FieldDef;
+    expect(saved.options![0].color).toBe("#ff0000"); // explicit color preserved
+    expect(saved.options![1].color).toBe("#1976d2"); // colorless option filled
+  });
+
   it("blocks saving an option that has a label but no key (issue #718 follow-up)", async () => {
     // An option with an empty key would render in the card-detail dropdown but
     // select to value "" — never displayed, never saved. Save must stay disabled

@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.62.1] - 2026-06-30
+
+### Fixed
+- **Select-field option colors now save reliably.** The color shown in the option color picker is the default for a new or untouched option, but it was only displayed — not stored — so its color dot never appeared in the card editor or Inventory until the picker was explicitly clicked. Every option now persists the color the picker shows on Save, and upgrading backfills the color on options that were previously saved without one (only where other options in the same field already have colors, so intentionally color-less built-ins are left untouched).
+
 ## [1.62.0] - 2026-06-30
 
 ### Added

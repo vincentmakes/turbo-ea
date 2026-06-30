@@ -20,6 +20,7 @@ import { useResolveLabel } from "@/hooks/useResolveLabel";
 import { LOCALE_LABELS } from "@/i18n";
 import { api, ApiError } from "@/api/client";
 import type { FieldDef, FieldOption, RelationType, TranslationMap } from "@/types";
+import { DEFAULT_OPTION_COLOR } from "./constants";
 
 /** Remove empty-string entries from a TranslationMap. Returns undefined if all empty. */
 function cleanTranslationMap(map: TranslationMap | undefined): TranslationMap | undefined {
@@ -118,7 +119,7 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
     setSchema((prev) =>
       prev.map((f, i) =>
         i === fi
-          ? { ...f, options: [...(f.options ?? []), { key: "", label: "", color: "#1976d2" }] }
+          ? { ...f, options: [...(f.options ?? []), { key: "", label: "", color: DEFAULT_OPTION_COLOR }] }
           : f,
       ),
     );
@@ -142,6 +143,9 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
       translations: cleanTranslationMap(f.translations),
       options: (f.options ?? []).map((o) => ({
         ...o,
+        // Persist the picker's displayed default so an untouched swatch still
+        // saves a color and its badge renders (issue #718).
+        color: o.color || DEFAULT_OPTION_COLOR,
         translations: cleanTranslationMap(o.translations),
       })),
     }));
@@ -293,7 +297,7 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
                   />
                   <ColorPicker
                     compact
-                    value={opt.color || "#1976d2"}
+                    value={opt.color || DEFAULT_OPTION_COLOR}
                     onChange={(c) => updateOption(fi, oi, { color: c })}
                   />
                   <IconButton size="small" onClick={() => removeValue(fi, oi)}>

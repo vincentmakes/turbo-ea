@@ -27,6 +27,14 @@ export const LAYER_ORDER = [...CATEGORIES, "Other"];
 
 export const CARDINALITY_OPTIONS: ("1:1" | "1:n" | "n:m")[] = ["1:1", "1:n", "n:m"];
 
+/**
+ * Default color seeded onto a select-field option. The ColorPicker shows this
+ * as its fallback swatch when an option has no color, so it must also be the
+ * value persisted on save — otherwise the picker shows blue but the stored
+ * option has no color and its dot never renders (issue #718).
+ */
+export const DEFAULT_OPTION_COLOR = "#1976d2";
+
 /* ------------------------------------------------------------------ */
 /*  Graph layout constants                                             */
 /* ------------------------------------------------------------------ */
