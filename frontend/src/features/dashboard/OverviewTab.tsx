@@ -24,7 +24,7 @@ import {
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { useIsRtl } from "@/hooks/useIsRtl";
 import { api } from "@/api/client";
 import { APPROVAL_STATUS_COLORS, DATA_QUALITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
@@ -52,7 +52,7 @@ export default function OverviewTab() {
   // so default axis ticks render over the bars; this anchors them outside instead.
   const rtlAxisTick = makeRtlAxisTick(theme.palette.text.secondary);
   const { types } = useMetamodel();
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
   const [data, setData] = useState<DashboardData | null>(null);
 
   useEffect(() => {
@@ -63,7 +63,7 @@ export default function OverviewTab() {
     if (!data) return [];
     return types
       .filter((t) => (data.by_type[t.key] ?? 0) > 0)
-      .map((t) => ({ name: rml(t.key, t.translations, "label"), count: data.by_type[t.key] || 0, color: t.color, key: t.key }))
+      .map((t) => ({ name: typeLabel(t), count: data.by_type[t.key] || 0, color: t.color, key: t.key }))
       .sort((a, b) => b.count - a.count);
   }, [data, types]);
 
@@ -449,7 +449,7 @@ export default function OverviewTab() {
                   onClick={() => navigate(`/inventory?type=${t.key}`)}
                 >
                   <MaterialSymbol icon={t.icon} size={20} color={t.color} />
-                  <Typography variant="body2" sx={{ flex: 1 }}>{rml(t.key, t.translations, "label")}</Typography>
+                  <Typography variant="body2" sx={{ flex: 1 }}>{typeLabel(t)}</Typography>
                   <Chip size="small" label={data.by_type[t.key] || 0} />
                 </Box>
               ))}

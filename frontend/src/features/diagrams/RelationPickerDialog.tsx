@@ -12,7 +12,7 @@ import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useRelationLabel } from "@/hooks/useResolveLabel";
 import RelationAttributesEditor, {
   hasRelationSubtypes,
   type RelationAttributes,
@@ -59,7 +59,7 @@ export default function RelationPickerDialog({
   onSelect,
 }: Props) {
   const { t } = useTranslation(["diagrams", "cards", "common"]);
-  const rml = useResolveMetaLabel();
+  const relLabel = useRelationLabel();
   const [picked, setPicked] = useState<{
     rt: RelationType;
     direction: "as-is" | "reversed";
@@ -106,7 +106,7 @@ export default function RelationPickerDialog({
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <MaterialSymbol icon="link" size={22} color="#1976d2" />
         {picked
-          ? rml(picked.rt.key, picked.rt.translations, "label")
+          ? relLabel(picked.rt)
           : t("relationPicker.title")}
       </DialogTitle>
       <DialogContent sx={{ px: 1, pt: "0 !important" }}>
@@ -153,7 +153,7 @@ export default function RelationPickerDialog({
                   sx={{ borderRadius: 1, mx: 1, my: 0.25 }}
                 >
                   <ListItemText
-                    primary={rml(rt.key, rt.translations, "label")}
+                    primary={relLabel(rt)}
                     secondary={
                       <>
                         {srcName} → {tgtName}

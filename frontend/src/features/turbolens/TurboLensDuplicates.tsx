@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -49,13 +49,13 @@ const STATUS_KEYS = ["pending", "confirmed", "investigating", "dismissed"] as co
 export default function TurboLensDuplicates() {
   const { t } = useTranslation("admin");
   const { types } = useMetamodel();
-  const rml = useResolveMetaLabel();
+  const resolveTypeLabel = useTypeLabel();
   const typeLabel = useCallback(
     (key: string) => {
       const tp = types.find(t => t.key === key);
-      return tp ? rml(tp.key, tp.translations, "label") : key;
+      return tp ? resolveTypeLabel(tp) : key;
     },
-    [types, rml],
+    [types, resolveTypeLabel],
   );
   const [activeTab, setActiveTab] = useState(0);
 

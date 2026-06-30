@@ -44,7 +44,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 
 import type { CardType, SectionDef, FieldDef, SectionConfig } from "@/types";
-import { useResolveLabel } from "@/hooks/useResolveLabel";
+import { useResolveLabel, useFieldLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 
@@ -223,7 +223,7 @@ function FieldCard({
   isDragging?: boolean;
 }) {
   const { t } = useTranslation(["admin"]);
-  const rl = useResolveLabel();
+  const fieldLabel = useFieldLabel();
   return (
     <Box
       sx={{
@@ -239,7 +239,7 @@ function FieldCard({
         <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: "#1976d2", flexShrink: 0 }} />
       )}
       <Typography variant="body2" fontWeight={500} sx={{ flex: 1 }} noWrap>
-        {isProtected ? field.label : rl(field.key, field.translations)}
+        {isProtected ? field.label : fieldLabel(field)}
         {isCalc && <Chip component="span" size="small" label="calc" color="info" sx={{ ml: 0.5, height: 16, fontSize: "0.6rem" }} />}
       </Typography>
       <WeightBadge weight={field.weight} />

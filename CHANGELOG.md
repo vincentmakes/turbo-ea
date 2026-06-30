@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.62.3] - 2026-06-30
+
+### Fixed
+- **Custom card and relation types now show their name, not their internal key** (#731). A custom Card Type or Relation Type created in the metamodel (with a key like `itAsset` and a name like "IT Asset") was displayed by its key across the Inventory type list and grid, the Create-Card type picker, diagrams, reports, dashboards, and more. It now shows the configured name everywhere, in every language. Label resolution was made structural so the issue cannot recur.
+
 ## [1.62.2] - 2026-06-30
 
 ### Fixed

@@ -20,7 +20,7 @@ import MetricCard from "./MetricCard";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 import {
@@ -116,7 +116,7 @@ export default function MatrixReport() {
   const countTextHigh = "#fff";
   const countTextDiag = isDark ? "#aaa" : "#666";
   const { types, loading: ml } = useMetamodel();
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
   const saved = useSavedReport("matrix");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [rowType, setRowType] = useState("Application");
@@ -424,8 +424,8 @@ export default function MatrixReport() {
 
   const rowMeta = types.find((t) => t.key === rowType);
   const colMeta = types.find((t) => t.key === colType);
-  const rowLabel = rml(rowMeta?.key ?? "", rowMeta?.translations, "label") || rowType;
-  const colLabel = rml(colMeta?.key ?? "", colMeta?.translations, "label") || colType;
+  const rowLabel = typeLabel(rowMeta) || rowType;
+  const colLabel = typeLabel(colMeta) || colType;
 
   const sortModeLabel = (m: SortMode) => m === "alpha" ? t("matrix.sortAlpha") : m === "count" ? t("matrix.sortByCount") : t("matrix.sortHierarchy");
   const printParams = useMemo(() => {
@@ -460,10 +460,10 @@ export default function MatrixReport() {
       toolbar={
         <>
           <TextField select size="small" label={t("matrix.rows")} value={rowType} onChange={(e) => setRowType(e.target.value)} sx={{ minWidth: 150 }}>
-            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{rml(tp.key, tp.translations, "label")}</MenuItem>)}
+            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{typeLabel(tp)}</MenuItem>)}
           </TextField>
           <TextField select size="small" label={t("matrix.columns")} value={colType} onChange={(e) => setColType(e.target.value)} sx={{ minWidth: 150 }}>
-            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{rml(tp.key, tp.translations, "label")}</MenuItem>)}
+            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{typeLabel(tp)}</MenuItem>)}
           </TextField>
           <TextField select size="small" label={t("matrix.cellDisplay")} value={cellMode} onChange={(e) => setCellMode(e.target.value as CellMode)} sx={{ minWidth: 140 }}>
             <MenuItem value="exists">{t("matrix.existsDot")}</MenuItem>

@@ -22,7 +22,7 @@ import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import type { Card, HierarchyData } from "@/types";
 
@@ -43,7 +43,7 @@ function HierarchySection({
   const { t } = useTranslation(["cards", "common"]);
   const navigate = useNavigate();
   const { getType } = useMetamodel();
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
   const typeConfig = getType(card.type);
   const [hierarchy, setHierarchy] = useState<HierarchyData | null>(null);
 
@@ -270,7 +270,7 @@ function HierarchySection({
                       enabled={pickingParent}
                       fullWidth
                       sx={{ mt: 1 }}
-                      label={t("hierarchy.search", { type: rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type })}
+                      label={t("hierarchy.search", { type: typeLabel(typeConfig) || card.type })}
                     />
                     <Button
                       size="small"
@@ -278,13 +278,13 @@ function HierarchySection({
                       startIcon={<MaterialSymbol icon="add" size={16} />}
                       onClick={() => { setCreateMode("parent"); setCreateName(parentSearch); }}
                     >
-                      {t("hierarchy.createNew", { type: rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type })}
+                      {t("hierarchy.createNew", { type: typeLabel(typeConfig) || card.type })}
                     </Button>
                   </>
                 ) : (
                   <Box sx={{ mt: 1, p: 2, border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "action.hover" }}>
                     <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-                      {t("hierarchy.createAsParent", { type: rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type })}
+                      {t("hierarchy.createAsParent", { type: typeLabel(typeConfig) || card.type })}
                     </Typography>
                     <TextField
                       fullWidth size="small" label={t("common:labels.name")} value={createName}
@@ -380,7 +380,7 @@ function HierarchySection({
                       enabled={addChildOpen}
                       fullWidth
                       sx={{ mt: 1 }}
-                      label={t("hierarchy.search", { type: rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type })}
+                      label={t("hierarchy.search", { type: typeLabel(typeConfig) || card.type })}
                     />
                     <Button
                       size="small"
@@ -388,13 +388,13 @@ function HierarchySection({
                       startIcon={<MaterialSymbol icon="add" size={16} />}
                       onClick={() => { setCreateMode("child"); setCreateName(childSearch); }}
                     >
-                      {t("hierarchy.createNew", { type: rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type })}
+                      {t("hierarchy.createNew", { type: typeLabel(typeConfig) || card.type })}
                     </Button>
                   </>
                 ) : (
                   <Box sx={{ mt: 1, p: 2, border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "action.hover" }}>
                     <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-                      {t("hierarchy.createAsChild", { type: rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type })}
+                      {t("hierarchy.createAsChild", { type: typeLabel(typeConfig) || card.type })}
                     </Typography>
                     <TextField
                       fullWidth size="small" label={t("common:labels.name")} value={createName}

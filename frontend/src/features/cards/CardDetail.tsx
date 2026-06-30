@@ -26,7 +26,7 @@ import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel
 import ArchiveDeleteDialog from "@/features/cards/ArchiveDeleteDialog";
 import RestoreDialog from "@/features/cards/RestoreDialog";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { useAiStatus } from "@/hooks/useAiStatus";
 import { useArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
 import { api, ApiError } from "@/api/client";
@@ -68,8 +68,8 @@ export default function CardDetail() {
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { getType } = useMetamodel();
   const { archiveRetentionDays } = useArchiveRetentionDays();
-  const rml = useResolveMetaLabel();
-  const rl = useResolveLabel();
+  const typeLabel = useTypeLabel();
+  const stLabel = useSubtypeLabel();
   const [card, setCard] = useState<Card | null>(null);
   const [initialTab, setInitialTab] = useState(0);
   const [initialSubTab, setInitialSubTab] = useState<number | undefined>(undefined);
@@ -252,7 +252,7 @@ export default function CardDetail() {
     card.subtype && typeof card.subtype === "string"
       ? (() => {
           const st = typeConfig?.subtypes?.find((s) => s.key === card.subtype);
-          return st ? rl(st.label, st.translations) : card.subtype;
+          return st ? stLabel(st) : card.subtype;
         })()
       : null;
   const hasSubtypes = !!(typeConfig?.subtypes && typeConfig.subtypes.length > 0);
@@ -522,7 +522,7 @@ export default function CardDetail() {
               variant="body2"
               sx={{ color: typeConfig?.color || "text.secondary" }}
             >
-              {rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type}
+              {typeLabel(typeConfig) || card.type}
             </Typography>
             {(hasSubtypes || subtypeLabel) && (
               <>
@@ -577,7 +577,7 @@ export default function CardDetail() {
                           selected={card.subtype === st.key}
                           onClick={() => saveSubtype(st.key)}
                         >
-                          {rl(st.label, st.translations)}
+                          {stLabel(st)}
                         </MenuItem>
                       ))}
                     </Menu>

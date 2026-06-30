@@ -18,7 +18,7 @@ import { exportAdrsToDocx } from "@/features/ea-delivery/adrExport";
 import CreateAdrDialog from "@/features/ea-delivery/CreateAdrDialog";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 import type { ArchitectureDecision } from "@/types";
 
 export default function DecisionsPanel() {
@@ -26,7 +26,7 @@ export default function DecisionsPanel() {
   const navigate = useNavigate();
   const { user } = useAuthContext();
   const { types: metamodelTypes } = useMetamodel();
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
 
   const canManage = !!user?.permissions?.["*"] || !!user?.permissions?.["adr.manage"];
 
@@ -161,11 +161,11 @@ export default function DecisionsPanel() {
       const mt = metamodelTypes.find((mt) => mt.key === key);
       return {
         key,
-        label: rml(key, mt?.translations, "label") || key,
+        label: mt ? typeLabel(mt) : key,
         color: mt?.color ?? "#666",
       };
     });
-  }, [adrs, metamodelTypes, rml]);
+  }, [adrs, metamodelTypes, typeLabel]);
 
   const availableLinkedCards = useMemo(() => {
     const seen = new Map<

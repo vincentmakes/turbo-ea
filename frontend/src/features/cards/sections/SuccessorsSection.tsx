@@ -22,7 +22,7 @@ import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import type { Card, Relation, RelationType } from "@/types";
 
@@ -55,7 +55,7 @@ function SuccessorsSection({
   const { t } = useTranslation(["cards", "common"]);
   const navigate = useNavigate();
   const { getType, relationTypes } = useMetamodel();
-  const rml = useResolveMetaLabel();
+  const resolveTypeLabel = useTypeLabel();
   const typeConfig = getType(card.type);
 
   const successorRT = findSuccessorRelationType(relationTypes, card.type);
@@ -176,8 +176,7 @@ function SuccessorsSection({
 
   if (!typeConfig?.has_successors || !successorRT) return null;
 
-  const typeLabel =
-    rml(typeConfig.key, typeConfig.translations, "label") || card.type;
+  const typeLabel = resolveTypeLabel(typeConfig) || card.type;
   const totalCount = successors.length + predecessors.length;
 
   return (

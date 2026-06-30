@@ -29,6 +29,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { api } from "@/api/client";
 import type { Card, DiagramSummary, DiagramGroup } from "@/types";
@@ -53,6 +54,7 @@ export default function DiagramsPage() {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const { formatDate } = useDateFormat();
   const { types: metamodelTypes } = useMetamodel();
+  const typeLabel = useTypeLabel();
   const [diagrams, setDiagrams] = useState<DiagramSummary[]>([]);
   const [groups, setGroups] = useState<DiagramGroup[]>([]);
 
@@ -106,9 +108,7 @@ export default function DiagramsPage() {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [menuDiagram, setMenuDiagram] = useState<DiagramSummary | null>(null);
 
-  const typeMap = Object.fromEntries(
-    metamodelTypes.map((mt) => [mt.key, { color: mt.color, icon: mt.icon, label: mt.label }]),
-  );
+  const typeMap = Object.fromEntries(metamodelTypes.map((mt) => [mt.key, mt]));
 
   // Debounce the search box.
   useEffect(() => {
@@ -608,7 +608,7 @@ export default function DiagramsPage() {
             multiple
             options={allCards}
             getOptionLabel={(opt) => opt.name}
-            groupBy={(opt) => typeMap[opt.type]?.label || opt.type}
+            groupBy={(opt) => typeLabel(typeMap[opt.type]) || opt.type}
             value={allCards.filter((c) => editCardIds.includes(c.id))}
             onChange={(_, newVal) => setEditCardIds(newVal.map((v) => v.id))}
             disableCloseOnSelect

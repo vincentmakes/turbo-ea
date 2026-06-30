@@ -112,6 +112,19 @@ const MOCK_TYPES = [
     fields_schema: [],
     is_hidden: false,
   },
+  // Admin-added custom card type: key != label, empty translations map (issue #731)
+  {
+    key: "itAsset",
+    label: "IT Asset",
+    icon: "inventory_2",
+    color: "#888888",
+    category: "Technical Architecture",
+    has_hierarchy: false,
+    translations: {},
+    subtypes: [],
+    fields_schema: [],
+    is_hidden: false,
+  },
 ];
 
 const MOCK_RELATION_TYPES = [
@@ -223,6 +236,19 @@ describe("CreateCardDialog", () => {
     // never the internal key.
     expect(screen.getByText("labelname")).toBeInTheDocument();
     expect(screen.queryByText("keyname")).not.toBeInTheDocument();
+  });
+
+  it("displays custom card type name, not its key (issue #731)", async () => {
+    const user = userEvent.setup();
+    renderDialog({});
+
+    // Open the type dropdown (first combobox) — the custom type has an empty
+    // translations map, so its configured name must show, never the key.
+    const comboboxes = screen.getAllByRole("combobox");
+    await user.click(comboboxes[0]);
+
+    expect(screen.getByText("IT Asset")).toBeInTheDocument();
+    expect(screen.queryByText("itAsset")).not.toBeInTheDocument();
   });
 
   it("shows parent selector for hierarchical types", () => {

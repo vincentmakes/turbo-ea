@@ -14,7 +14,7 @@ import InputAdornment from "@mui/material/InputAdornment";
 import { useTranslation } from "react-i18next";
 import type { CurrencyFormatter } from "@/hooks/useCurrency";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { useResolveLabel } from "@/hooks/useResolveLabel";
+import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import type { FieldDef } from "@/types";
 
 // ── URL validation (matches backend _ALLOWED_URL_SCHEMES) ────────
@@ -137,7 +137,7 @@ export function FieldValue({
   canViewCosts?: boolean;
 }) {
   const { t } = useTranslation(["cards", "common"]);
-  const rl = useResolveLabel();
+  const optLabel = useOptionLabel();
 
   // Cost fields the user is not allowed to see render as a redacted placeholder
   // regardless of whether the backend stripped the value (defence in depth + UX).
@@ -168,7 +168,7 @@ export function FieldValue({
     const strVal = typeof value === "string" ? value : safeString(value);
     const opt = field.options.find((o) => o.key === strVal);
     return opt ? (
-      <Chip size="small" label={rl(opt.label || opt.key, opt.translations)} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
+      <Chip size="small" label={optLabel(opt)} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
     ) : (
       <Tooltip title={t("utils.unknownOption", { key: strVal })}>
         <Chip size="small" label={strVal} variant="outlined" color="warning" sx={{ ...SELECT_CHIP_BASE, width: w }} />
@@ -185,7 +185,7 @@ export function FieldValue({
           const key = typeof v === "string" ? v : safeString(v);
           const opt = field.options!.find((o) => o.key === key);
           return opt ? (
-            <Chip key={key + i} size="small" label={rl(opt.label || opt.key, opt.translations)} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
+            <Chip key={key + i} size="small" label={optLabel(opt)} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
           ) : (
             <Chip key={key + i} size="small" label={key} variant="outlined" color="warning" sx={{ ...SELECT_CHIP_BASE, width: w }} />
           );
@@ -255,7 +255,8 @@ export function FieldEditor({
   canViewCosts?: boolean;
 }) {
   const { t } = useTranslation(["cards", "common"]);
-  const rl = useResolveLabel();
+  const fieldLabel = useFieldLabel();
+  const optLabel = useOptionLabel();
 
   // Sanitize: ensure value passed to MUI is always the expected primitive type
   const strVal = typeof value === "string" ? value : (value != null ? safeString(value) : "");
@@ -265,10 +266,10 @@ export function FieldEditor({
     case "single_select":
       return (
         <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>{rl(field.key, field.translations)}</InputLabel>
+          <InputLabel>{fieldLabel(field)}</InputLabel>
           <Select
             value={strVal}
-            label={rl(field.key, field.translations)}
+            label={fieldLabel(field)}
             onChange={(e) => onChange(e.target.value || undefined)}
           >
             <MenuItem value="">
@@ -287,7 +288,7 @@ export function FieldEditor({
                       }}
                     />
                   )}
-                  {rl(opt.label || opt.key, opt.translations)}
+                  {optLabel(opt)}
                 </Box>
               </MenuItem>
             ))}
@@ -296,7 +297,7 @@ export function FieldEditor({
       );
     case "multiple_select": {
       const arrVal: string[] = Array.isArray(value) ? value.map((v) => typeof v === "string" ? v : safeString(v)) : (strVal ? [strVal] : []);
-      const labelText = rl(field.key, field.translations);
+      const labelText = fieldLabel(field);
       return (
         <FormControl size="small" sx={{ minWidth: 200 }}>
           <InputLabel>{labelText}</InputLabel>
@@ -326,7 +327,7 @@ export function FieldEditor({
                       <Chip
                         key={key}
                         size="small"
-                        label={opt ? rl(opt.label || opt.key, opt.translations) : key}
+                        label={opt ? optLabel(opt) : key}
                         onMouseDown={(e) => e.stopPropagation()}
                         onDelete={() => onChange(arrVal.filter((v) => v !== key))}
                         sx={{
@@ -349,7 +350,7 @@ export function FieldEditor({
                     {opt.color && (
                       <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: opt.color }} />
                     )}
-                    {rl(opt.label || opt.key, opt.translations)}
+                    {optLabel(opt)}
                   </Box>
                 </MenuItem>
               );
@@ -363,7 +364,7 @@ export function FieldEditor({
         return (
           <TextField
             size="small"
-            label={rl(field.key, field.translations)}
+            label={fieldLabel(field)}
             value={t("cards:utils.costRestricted")}
             disabled
             slotProps={{
@@ -382,7 +383,7 @@ export function FieldEditor({
       return (
         <TextField
           size="small"
-          label={rl(field.key, field.translations)}
+          label={fieldLabel(field)}
           type="number"
           value={numVal}
           onChange={(e) =>
@@ -396,7 +397,7 @@ export function FieldEditor({
       return (
         <TextField
           size="small"
-          label={rl(field.key, field.translations)}
+          label={fieldLabel(field)}
           type="number"
           value={numVal}
           onChange={(e) =>
@@ -414,14 +415,14 @@ export function FieldEditor({
               onChange={(e) => onChange(e.target.checked)}
             />
           }
-          label={rl(field.key, field.translations)}
+          label={fieldLabel(field)}
         />
       );
     case "date":
       return (
         <TextField
           size="small"
-          label={rl(field.key, field.translations)}
+          label={fieldLabel(field)}
           type="date"
           value={strVal}
           onChange={(e) => onChange(e.target.value || undefined)}
@@ -433,7 +434,7 @@ export function FieldEditor({
       return (
         <TextField
           size="small"
-          label={rl(field.key, field.translations)}
+          label={fieldLabel(field)}
           type="url"
           placeholder="https://"
           value={strVal}
@@ -447,7 +448,7 @@ export function FieldEditor({
       return (
         <TextField
           size="small"
-          label={rl(field.key, field.translations)}
+          label={fieldLabel(field)}
           value={strVal}
           onChange={(e) => onChange(e.target.value || undefined)}
           multiline
@@ -461,7 +462,7 @@ export function FieldEditor({
       return (
         <TextField
           size="small"
-          label={rl(field.key, field.translations)}
+          label={fieldLabel(field)}
           value={strVal}
           onChange={(e) => onChange(e.target.value || undefined)}
           sx={{ minWidth: 300 }}

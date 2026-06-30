@@ -15,7 +15,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker from "@/components/CardPicker";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel, useRelationLabel } from "@/hooks/useResolveLabel";
 import type { Relation, RelationType } from "@/types";
 
 interface RelationCellPopoverProps {
@@ -45,14 +45,15 @@ export default function RelationCellPopover({
 }: RelationCellPopoverProps) {
   const { t } = useTranslation(["inventory", "common"]);
   const { getType } = useMetamodel();
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
+  const relLabel = useRelationLabel();
 
   const isSource = relationType.source_type_key === selectedType;
   const targetTypeKey = isSource ? relationType.target_type_key : relationType.source_type_key;
   const targetTypeConfig = getType(targetTypeKey);
   const verb = isSource
-    ? rml(relationType.key, relationType.translations, "label")
-    : (rml(relationType.key, relationType.translations, "reverse_label") || rml(relationType.key, relationType.translations, "label"));
+    ? relLabel(relationType)
+    : relLabel(relationType, true);
 
   const [relations, setRelations] = useState<Relation[]>([]);
   const [loading, setLoading] = useState(false);
@@ -170,7 +171,7 @@ export default function RelationCellPopover({
           <Typography component="span" variant="body1" color="text.secondary" sx={{ mx: 1 }}>
             {verb} &rarr;
           </Typography>
-          {otherType ? rml(otherType.key, otherType.translations, "label") : targetTypeKey}
+          {otherType ? typeLabel(otherType) : targetTypeKey}
         </Typography>
         <IconButton size="small" onClick={onClose} edge="end">
           <MaterialSymbol icon="close" size={20} />
@@ -224,7 +225,7 @@ export default function RelationCellPopover({
                 onInputChange={setTargetSearch}
                 excludeIds={excludeIds}
                 enabled={open}
-                placeholder={t("relation.searchType", { type: rml(targetTypeConfig?.key ?? "", targetTypeConfig?.translations, "label") || targetTypeKey })}
+                placeholder={t("relation.searchType", { type: typeLabel(targetTypeConfig) || targetTypeKey })}
               />
               <Button
                 variant="contained"
@@ -242,13 +243,13 @@ export default function RelationCellPopover({
               startIcon={<MaterialSymbol icon="add" size={16} />}
               onClick={() => { setCreateMode(true); setCreateName(targetSearch); }}
             >
-              {t("relation.createNew", { type: rml(targetTypeConfig?.key ?? "", targetTypeConfig?.translations, "label") || targetTypeKey })}
+              {t("relation.createNew", { type: typeLabel(targetTypeConfig) || targetTypeKey })}
             </Button>
           </>
         ) : (
           <Box sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "action.hover" }}>
             <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-              {t("relation.createNew", { type: rml(targetTypeConfig?.key ?? "", targetTypeConfig?.translations, "label") || targetTypeKey })}
+              {t("relation.createNew", { type: typeLabel(targetTypeConfig) || targetTypeKey })}
             </Typography>
             <TextField
               fullWidth

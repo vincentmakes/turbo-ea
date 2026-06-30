@@ -7,7 +7,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Divider from "@mui/material/Divider";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { APPROVAL_STATUS_COLORS, SEVERITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import type { CardType, FieldDef } from "@/types";
 
@@ -48,7 +48,7 @@ export default function ViewSelector({
   onChange,
 }: Props) {
   const { t } = useTranslation(["diagrams", "common"]);
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
   const [anchorEl, setAnchorEl] = useMenu();
 
   const typeMap = useMemo(
@@ -83,9 +83,9 @@ export default function ViewSelector({
       .flatMap((s) => s.fields ?? [])
       .find((f) => f.key === current.field_key);
     return field
-      ? `${rml(tp.key, tp.translations, "label")} · ${field.label}`
+      ? `${typeLabel(tp)} · ${field.label}`
       : t("viewSelector.cardType");
-  }, [current, typeMap, rml, t]);
+  }, [current, typeMap, typeLabel, t]);
 
   return (
     <>
@@ -166,7 +166,7 @@ export default function ViewSelector({
               fontWeight: 600,
             }}
           >
-            {rml(type.key, type.translations, "label")}
+            {typeLabel(type)}
           </Box>,
           ...fields.map((f) => {
             const active =

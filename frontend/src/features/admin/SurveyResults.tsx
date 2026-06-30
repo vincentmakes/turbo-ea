@@ -26,7 +26,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { useResolveLabel } from "@/hooks/useResolveLabel";
+import { useFieldLabel } from "@/hooks/useResolveLabel";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { api } from "@/api/client";
@@ -66,7 +66,7 @@ function formatValue(val: unknown, field?: SurveyField, boolLabels?: { yes: stri
 
 export default function SurveyResults() {
   const { t } = useTranslation(["admin", "common"]);
-  const rl = useResolveLabel();
+  const fieldLabel = useFieldLabel();
   const theme = useTheme();
   const { types } = useMetamodel();
   const boolLabels = { yes: t("surveyResults.boolTrue"), no: t("surveyResults.boolFalse") };
@@ -443,7 +443,7 @@ export default function SurveyResults() {
                       <TableRow key={field.key}>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {field.kind === "relation" ? field.label : rl(field.key, field.translations)}
+                            {field.kind === "relation" ? field.label : fieldLabel(field)}
                           </Typography>
                         </TableCell>
                         <TableCell>{renderCellValue(resp.current_value, field, false)}</TableCell>

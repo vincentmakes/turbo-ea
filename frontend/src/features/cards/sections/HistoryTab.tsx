@@ -10,7 +10,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { getPhaseLabels } from "@/features/cards/sections/cardDetailUtils";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveLabel } from "@/hooks/useResolveLabel";
+import { useFieldLabel } from "@/hooks/useResolveLabel";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import type { EventEntry } from "@/types";
 
@@ -295,7 +295,7 @@ function HistoryTab({ fsId, cardType }: { fsId: string; cardType?: string }) {
   const fieldLabels = getFieldLabels(t);
   const phaseLabels = getPhaseLabels(t);
   const { getType } = useMetamodel();
-  const rl = useResolveLabel();
+  const fieldLabel = useFieldLabel();
   // Build a `{attributeKey: localizedLabel}` map for the card's type so
   // change rows can show "Total Annual Cost" instead of `costTotalAnnual`.
   const attrLabels: Record<string, string> = {};
@@ -304,7 +304,7 @@ function HistoryTab({ fsId, cardType }: { fsId: string; cardType?: string }) {
     if (ct) {
       for (const section of ct.fields_schema || []) {
         for (const f of section.fields || []) {
-          attrLabels[f.key] = rl(f.label || f.key, f.translations);
+          attrLabels[f.key] = fieldLabel(f);
         }
       }
     }

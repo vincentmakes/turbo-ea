@@ -33,7 +33,7 @@ import RegulationsAdmin from "@/features/admin/RegulationsAdmin";
 import ResourceTypesAdmin from "@/features/admin/ResourceTypesAdmin";
 import TagsAdmin from "@/features/admin/TagsAdmin";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveLabel } from "@/hooks/useResolveLabel";
+import { useFieldLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import type {
   CardType as FSType,
@@ -74,7 +74,7 @@ function cleanTranslations(
 export default function MetamodelAdmin() {
   const { t } = useTranslation(["admin", "common"]);
   const { invalidateCache } = useMetamodel();
-  const rl = useResolveLabel();
+  const fieldLabel = useFieldLabel();
 
   const [tab, setTab] = useState(0);
   const [types, setTypes] = useState<FSType[]>([]);
@@ -681,7 +681,7 @@ export default function MetamodelAdmin() {
                     {typeDims.length > 0 && (
                       <Tooltip
                         title={typeDims
-                          .map((f) => rl(f.label, f.translations))
+                          .map((f) => fieldLabel(f))
                           .join(", ")}
                       >
                         <Chip

@@ -10,7 +10,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveLabel } from "@/hooks/useResolveLabel";
+import { useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { CARD_TYPE_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import { INITIATIVE_STATUS_COLORS } from "./constants";
 import type { InitiativeTreeNode } from "./useInitiativeData";
@@ -58,7 +58,7 @@ export default function InitiativeTreeSidebar({
 }: Props) {
   const { t } = useTranslation(["delivery", "common"]);
   const { types: metamodelTypes } = useMetamodel();
-  const rl = useResolveLabel();
+  const stLabel = useSubtypeLabel();
 
   const initiativeType = metamodelTypes.find((mt) => mt.key === "Initiative");
   const subtypes = initiativeType?.subtypes ?? [];
@@ -120,7 +120,7 @@ export default function InitiativeTreeSidebar({
             <MenuItem value="">{t("filter.allSubtypes")}</MenuItem>
             {subtypes.map((st) => (
               <MenuItem key={st.key} value={st.key}>
-                {rl(st.label, st.translations)}
+                {stLabel(st)}
               </MenuItem>
             ))}
           </TextField>

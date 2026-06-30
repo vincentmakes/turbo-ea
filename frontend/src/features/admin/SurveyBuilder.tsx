@@ -28,7 +28,12 @@ import TableRow from "@mui/material/TableRow";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
+import {
+  useTypeLabel,
+  useRelationLabel,
+  useFieldLabel,
+  useOptionLabel,
+} from "@/hooks/useResolveLabel";
 import { FIELD_TYPE_OPTIONS } from "@/features/admin/metamodel/constants";
 import type {
   Survey,
@@ -45,8 +50,10 @@ export default function SurveyBuilder() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { types, relationTypes } = useMetamodel();
-  const rml = useResolveMetaLabel();
-  const rl = useResolveLabel();
+  const typeLabel = useTypeLabel();
+  const relLabel = useRelationLabel();
+  const fieldLabel = useFieldLabel();
+  const optLabel = useOptionLabel();
 
   const STEPS = [
     t("surveyBuilder.steps.basics"),
@@ -210,23 +217,23 @@ export default function SurveyBuilder() {
         fields.push({
           section: section.section,
           key: f.key,
-          label: rl(f.key, f.translations),
+          label: fieldLabel(f),
           type: f.type,
-          options: f.options?.map((o) => ({ ...o, label: rl(o.key, o.translations) })),
+          options: f.options?.map((o) => ({ ...o, label: optLabel(o) })),
         });
       }
     }
     return fields;
-  }, [selectedType, rl]);
+  }, [selectedType, fieldLabel, optLabel]);
 
   // Relation types the surveyed card type can participate in, expanded into one
   // entry per direction (a self-referential relation yields both). Each becomes
   // a selectable survey "field" with kind === "relation".
   const allRelations = useMemo(() => {
     if (!targetTypeKey) return [];
-    const typeLabel = (key: string) => {
+    const relatedTypeLabel = (key: string) => {
       const ct = types.find((c) => c.key === key);
-      return ct ? rml(ct.label, ct.translations, "label") : key;
+      return ct ? typeLabel(ct) : key;
     };
     const entries: {
       key: string;
@@ -244,8 +251,8 @@ export default function SurveyBuilder() {
           relation_type_key: rt.key,
           direction: "outgoing",
           related_type_key: rt.target_type_key,
-          label: rml(rt.label, rt.translations, "label"),
-          relatedTypeLabel: typeLabel(rt.target_type_key),
+          label: relLabel(rt),
+          relatedTypeLabel: relatedTypeLabel(rt.target_type_key),
         });
       }
       if (rt.target_type_key === targetTypeKey) {
@@ -254,13 +261,13 @@ export default function SurveyBuilder() {
           relation_type_key: rt.key,
           direction: "incoming",
           related_type_key: rt.source_type_key,
-          label: rml(rt.reverse_label || rt.label, rt.translations, "reverse_label"),
-          relatedTypeLabel: typeLabel(rt.source_type_key),
+          label: relLabel(rt, true),
+          relatedTypeLabel: relatedTypeLabel(rt.source_type_key),
         });
       }
     }
     return entries;
-  }, [relationTypes, targetTypeKey, types, rml]);
+  }, [relationTypes, targetTypeKey, types, typeLabel, relLabel]);
 
   // All tags from all groups
   const allTags = useMemo(
@@ -545,7 +552,7 @@ export default function SurveyBuilder() {
                 <MenuItem key={ct.key} value={ct.key}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <MaterialSymbol icon={ct.icon} size={18} color={ct.color} />
-                    {rml(ct.key, ct.translations, "label")}
+                    {typeLabel(ct)}
                   </Box>
                 </MenuItem>
               ))}
@@ -788,7 +795,7 @@ export default function SurveyBuilder() {
             {t("surveyBuilder.fields.title")}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {t("surveyBuilder.fields.description", { type: rml(selectedType?.key ?? "", selectedType?.translations, "label") || "card" })}
+            {t("surveyBuilder.fields.description", { type: selectedType ? typeLabel(selectedType) : "card" })}
           </Typography>
 
           {!selectedType && (

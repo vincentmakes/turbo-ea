@@ -14,6 +14,11 @@ vi.mock("@/hooks/AuthContext", () => ({
 vi.mock("@/hooks/useResolveLabel", () => ({
   useResolveLabel: () => (label: string) => label,
   useResolveMetaLabel: () => (label: string) => label,
+  useTypeLabel: () => (e?: { label?: string; key?: string } | null) => e?.label ?? e?.key ?? "",
+  useRelationLabel: () => (e?: { label?: string; key?: string } | null) => e?.label ?? e?.key ?? "",
+  useFieldLabel: () => (e?: { label?: string; key?: string } | null) => e?.label ?? e?.key ?? "",
+  useOptionLabel: () => (e?: { label?: string; key?: string } | null) => e?.label ?? e?.key ?? "",
+  useSubtypeLabel: () => (e?: { label?: string; key?: string } | null) => e?.label ?? e?.key ?? "",
 }));
 
 vi.mock("@/hooks/useMetamodel", () => ({

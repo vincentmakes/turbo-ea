@@ -13,7 +13,7 @@ import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 
 interface SearchResult {
   id: string;
@@ -32,7 +32,7 @@ export default function SearchDialog({ open, onClose }: Props) {
   const location = useLocation();
   const { t } = useTranslation("nav");
   const { getType } = useMetamodel();
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
 
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -233,11 +233,7 @@ export default function SearchDialog({ open, onClose }: Props) {
                       </Typography>
                     </Box>
                     <Chip
-                      label={
-                        typeConfig
-                          ? rml(typeConfig.key, typeConfig.translations, "label")
-                          : item.type
-                      }
+                      label={typeConfig ? typeLabel(typeConfig) : item.type}
                       size="small"
                       sx={{
                         height: 20,

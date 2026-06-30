@@ -2,7 +2,7 @@ import * as XLSX from "xlsx";
 
 import { api } from "@/api/client";
 import i18n from "@/i18n";
-import { resolveMetaLabel } from "@/hooks/useResolveLabel";
+import { typeLabel } from "@/hooks/useResolveLabel";
 import type { Card, CardType, Relation, RelationType } from "@/types";
 
 /**
@@ -111,9 +111,7 @@ interface ExportOptions {
  * back to the key if the label is too long or duplicates an existing name.
  */
 function sheetNameForType(type: CardType, taken: Set<string>): string {
-  const stripped = (
-    resolveMetaLabel(type.key, type.translations, "label", i18n.language) || type.label || type.key
-  ).replace(/[\\/?*[\]:]/g, "_");
+  const stripped = typeLabel(type, i18n.language).replace(/[\\/?*[\]:]/g, "_");
   const candidates = [stripped.slice(0, 31), type.key.slice(0, 31)];
   for (const c of candidates) {
     if (c && !taken.has(c)) {
@@ -535,10 +533,10 @@ export async function buildExportWorkbook(
   metaWs["!cols"] = autoSizeColumns(metaRows);
   XLSX.utils.book_append_sheet(wb, metaWs, META_SHEET_NAME);
 
-  const typeLabel = typeConfig
-    ? resolveMetaLabel(typeConfig.key, typeConfig.translations, "label", i18n.language)
+  const typeLabelStr = typeConfig
+    ? typeLabel(typeConfig, i18n.language)
     : "landscape";
-  void typeLabel;
+  void typeLabelStr;
   return wb;
 }
 
@@ -642,8 +640,8 @@ export async function exportToExcel(
   options: ExportOptions = {},
 ): Promise<void> {
   const wb = await buildExportWorkbook(cards, typeConfig, allTypes, relationTypes, options);
-  const typeLabel = typeConfig
-    ? resolveMetaLabel(typeConfig.key, typeConfig.translations, "label", i18n.language)
+  const typeLabelStr = typeConfig
+    ? typeLabel(typeConfig, i18n.language)
     : "landscape";
-  XLSX.writeFile(wb, `${typeLabel}_export_${exportTimestamp()}.xlsx`);
+  XLSX.writeFile(wb, `${typeLabelStr}_export_${exportTimestamp()}.xlsx`);
 }

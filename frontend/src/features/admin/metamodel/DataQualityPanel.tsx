@@ -3,7 +3,7 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Tooltip from "@mui/material/Tooltip";
 import { api } from "@/api/client";
-import { useResolveLabel } from "@/hooks/useResolveLabel";
+import { useResolveLabel, useFieldLabel } from "@/hooks/useResolveLabel";
 import type { CardType, DataQualityConfig } from "@/types";
 import ImportanceSlider, { useTierColor, weightToTier } from "./ImportanceSlider";
 
@@ -24,6 +24,7 @@ const BUILT_IN_BUCKETS = ["description", "lifecycle", "relations", "tags", "stak
 export default function DataQualityPanel({ cardType, onRefresh }: DataQualityPanelProps) {
   const { t } = useTranslation(["admin", "common"]);
   const rl = useResolveLabel();
+  const fieldLabel = useFieldLabel();
   const tierColor = useTierColor();
 
   const secCfg = (cardType.section_config || {}) as Record<string, unknown> & {
@@ -65,7 +66,7 @@ export default function DataQualityPanel({ cardType, onRefresh }: DataQualityPan
     factors: section.fields.map(
       (f, fi): Factor => ({
         id: `${si}:${fi}`,
-        label: rl(f.key, f.translations),
+        label: fieldLabel(f),
         weight: f.weight ?? 1,
         set: (w) => setFieldWeight(si, fi, w),
       }),

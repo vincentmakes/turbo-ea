@@ -27,7 +27,7 @@ import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker from "@/components/CardPicker";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useResolveLabel, useTypeLabel, useRelationLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import type { Relation, RelationType } from "@/types";
 import RelationAttributesEditor, {
@@ -145,7 +145,7 @@ function InlineAddRow({
   onClose: () => void;
 }) {
   const { t } = useTranslation(["cards", "common"]);
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
   const { getType } = useMetamodel();
   const targetTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
   const targetTypeConfig = getType(targetTypeKey);
@@ -195,8 +195,7 @@ function InlineAddRow({
     }
   };
 
-  const targetLabel =
-    rml(targetTypeConfig?.key ?? "", targetTypeConfig?.translations, "label") || targetTypeKey;
+  const targetLabel = typeLabel(targetTypeConfig) || targetTypeKey;
 
   if (createMode) {
     return (
@@ -279,8 +278,9 @@ function RelationGroup({
   onRelationUpdated: (updated: Relation) => void;
 }) {
   const { t } = useTranslation(["cards", "common"]);
-  const rml = useResolveMetaLabel();
   const rl = useResolveLabel();
+  const typeLabel = useTypeLabel();
+  const relLabel = useRelationLabel();
   const { getType } = useMetamodel();
   const navigate = useNavigate();
   const [inlineAddOpen, setInlineAddOpen] = useState(false);
@@ -291,10 +291,7 @@ function RelationGroup({
 
   const otherTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
   const otherType = getType(otherTypeKey);
-  const verb = isSource
-    ? rml(rt.label || rt.key, rt.translations, "label")
-    : rml(rt.reverse_label || rt.label || rt.key, rt.translations, "reverse_label") ||
-      rml(rt.label || rt.key, rt.translations, "label");
+  const verb = isSource ? relLabel(rt) : relLabel(rt, true);
 
   const handleDelete = async (relId: string) => {
     await api.delete(`/relations/${relId}`);
@@ -334,7 +331,7 @@ function RelationGroup({
     : [];
   const unspecifiedRels = hasFlowDirection ? rels.filter((r) => !readFlow(r)) : [];
 
-  const otherTypeLabel = rml(otherType?.key ?? "", otherType?.translations, "label") || otherTypeKey;
+  const otherTypeLabel = typeLabel(otherType) || otherTypeKey;
 
   const renderRow = (r: Relation) => {
     const other = r.source_id === fsId ? r.target : r.source;
@@ -492,7 +489,7 @@ function RelationGroup({
           {verb}
           {otherType && (
             <Typography component="span" variant="subtitle2" color="text.secondary" sx={{ ml: 0.5 }}>
-              {rml(otherType.key, otherType.translations, "label")}
+              {typeLabel(otherType)}
             </Typography>
           )}
         </Typography>
@@ -513,7 +510,7 @@ function RelationGroup({
         />
         {canManageRelations && !inlineAddOpen && (
           <Tooltip title={t("relations.addSpecific", {
-            type: rml(otherType?.key ?? "", otherType?.translations, "label") || otherTypeKey,
+            type: typeLabel(otherType) || otherTypeKey,
           })}>
             <IconButton
               size="small"
@@ -607,7 +604,8 @@ function RelationsSection({
   initialExpanded?: boolean;
 }) {
   const { t } = useTranslation(["cards", "common"]);
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
+  const relLabel = useRelationLabel();
   const [relations, setRelations] = useState<Relation[]>([]);
   const { types: allTypes, relationTypes, getType } = useMetamodel();
   const visibleTypeKeys = useMemo(() => new Set(allTypes.map((t) => t.key)), [allTypes]);
@@ -832,10 +830,7 @@ function RelationsSection({
             >
               {hiddenRTs.map((rt) => {
                 const rtIsSource = rt.source_type_key === cardTypeKey;
-                const verb = rtIsSource
-                  ? rml(rt.label || rt.key, rt.translations, "label")
-                  : rml(rt.reverse_label || rt.label || rt.key, rt.translations, "reverse_label") ||
-                    rml(rt.label || rt.key, rt.translations, "label");
+                const verb = rtIsSource ? relLabel(rt) : relLabel(rt, true);
                 const otherKey = rtIsSource ? rt.target_type_key : rt.source_type_key;
                 const other = getType(otherKey);
                 return (
@@ -846,7 +841,7 @@ function RelationsSection({
                       {other && (
                         <>
                           <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: other.color }} />
-                          <Typography variant="body2">{rml(other.key, other.translations, "label")}</Typography>
+                          <Typography variant="body2">{typeLabel(other)}</Typography>
                         </>
                       )}
                       <Chip size="small" label={rt.cardinality} variant="outlined" sx={{ height: 18, fontSize: "0.65rem" }} />
@@ -866,7 +861,7 @@ function RelationsSection({
                 excludeIds={[fsId]}
                 fullWidth
                 label={t("relations.search", {
-                  type: rml(dialogTargetConfig?.key ?? "", dialogTargetConfig?.translations, "label") || dialogTargetTypeKey,
+                  type: typeLabel(dialogTargetConfig) || dialogTargetTypeKey,
                 })}
               />
               <Button
@@ -876,7 +871,7 @@ function RelationsSection({
                 onClick={() => { setCreateOpen(true); setCreateName(targetSearch); }}
               >
                 {t("relations.createNew", {
-                  type: rml(dialogTargetConfig?.key ?? "", dialogTargetConfig?.translations, "label") || dialogTargetTypeKey,
+                  type: typeLabel(dialogTargetConfig) || dialogTargetTypeKey,
                 })}
               </Button>
               {selectedRT && hasRelationSubtypes(selectedRT) && (
@@ -898,7 +893,7 @@ function RelationsSection({
             <Box sx={{ mt: 1, p: 2, border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "action.hover" }}>
               <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
                 {t("relations.createNew", {
-                  type: rml(dialogTargetConfig?.key ?? "", dialogTargetConfig?.translations, "label") || dialogTargetTypeKey,
+                  type: typeLabel(dialogTargetConfig) || dialogTargetTypeKey,
                 })}
               </Typography>
               <TextField

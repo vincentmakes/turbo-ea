@@ -26,7 +26,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
 import { useResourceTypes } from "@/hooks/useResourceTypes";
-import { resolveLabel } from "@/hooks/useResolveLabel";
+import { fieldLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import CreateAdrDialog from "@/features/ea-delivery/CreateAdrDialog";
 import type { ArchitectureDecision, DiagramSummary, FileAttachment } from "@/types";
@@ -89,14 +89,14 @@ function ResourcesTab({
   const linkTypeLabel = useCallback(
     (key: string) => {
       const row = byKindKey[`link_type:${key}`];
-      return row ? resolveLabel(row.label, row.translations, locale) : key;
+      return row ? fieldLabel(row, locale) : key;
     },
     [byKindKey, locale],
   );
   const fileCategoryLabel = useCallback(
     (key: string) => {
       const row = byKindKey[`file_category:${key}`];
-      return row ? resolveLabel(row.label, row.translations, locale) : key;
+      return row ? fieldLabel(row, locale) : key;
     },
     [byKindKey, locale],
   );
@@ -925,7 +925,7 @@ function ResourcesTab({
             <MenuItem value="">{t("resources.uploadFileDialog.noCategory")}</MenuItem>
             {fileCategories.map((cat) => (
               <MenuItem key={cat.key} value={cat.key}>
-                {resolveLabel(cat.label, cat.translations, locale)}
+                {fieldLabel(cat, locale)}
               </MenuItem>
             ))}
           </TextField>
@@ -973,7 +973,7 @@ function ResourcesTab({
           >
             {linkTypes.map((lt) => (
               <MenuItem key={lt.key} value={lt.key}>
-                {resolveLabel(lt.label, lt.translations, locale)}
+                {fieldLabel(lt, locale)}
               </MenuItem>
             ))}
           </TextField>

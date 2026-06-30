@@ -9,7 +9,8 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useResolveLabel, useTypeLabel } from "@/hooks/useResolveLabel";
+import { useMetamodel } from "@/hooks/useMetamodel";
 import SectionPaper, { EmptyState } from "../workspace/SectionPaper";
 
 interface DirectoryCard {
@@ -57,7 +58,8 @@ export default function StakeholderDirectorySection() {
   const { t } = useTranslation("common");
   const navigate = useNavigate();
   const rl = useResolveLabel();
-  const rml = useResolveMetaLabel();
+  const resolveTypeLabel = useTypeLabel();
+  const { getType } = useMetamodel();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DirectoryResponse | null>(null);
   const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
@@ -214,7 +216,7 @@ export default function StakeholderDirectorySection() {
                     </IconButton>
                     <MaterialSymbol icon={ct.type_icon} size={18} color={ct.type_color} />
                     <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }} noWrap>
-                      {rml(ct.type_key, undefined, "label") || ct.type_label}
+                      {resolveTypeLabel(getType(ct.type_key)) || ct.type_label}
                     </Typography>
                     <Chip
                       size="small"

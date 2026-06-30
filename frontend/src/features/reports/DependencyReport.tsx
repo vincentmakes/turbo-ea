@@ -29,7 +29,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
-import { useResolveMetaLabel, resolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel, typeLabel as resolveTypeLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 import type { CardType } from "@/types";
@@ -143,7 +143,7 @@ function tc(key: string, types: CardType[]): string {
 }
 function tl(key: string, types: CardType[], locale?: string): string {
   const t = types.find((t) => t.key === key);
-  return resolveMetaLabel(t?.key ?? "", t?.translations, "label", locale) || key;
+  return resolveTypeLabel(t, locale) || key;
 }
 function ti(key: string, types: CardType[]): string {
   return types.find((t) => t.key === key)?.icon || "description";
@@ -356,7 +356,7 @@ export default function DependencyReport() {
   const { user } = useAuthContext();
   const canCreateDiagram =
     !!user?.permissions?.["*"] || !!user?.permissions?.["diagrams.manage"];
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
   const saved = useSavedReport("dependencies");
@@ -686,14 +686,14 @@ export default function DependencyReport() {
     const params: { label: string; value: string }[] = [];
     if (cardTypeKey) {
       const tp = types.find((tp) => tp.key === cardTypeKey);
-      const typeLabel = rml(tp?.key ?? "", tp?.translations, "label") || cardTypeKey;
-      params.push({ label: t("common:labels.type"), value: typeLabel });
+      const tpLabel = typeLabel(tp) || cardTypeKey;
+      params.push({ label: t("common:labels.type"), value: tpLabel });
     }
     if (centerNode) params.push({ label: t("dependency.center"), value: centerNode.name });
     if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
     if (chartMode === "c4") params.push({ label: t("common.view"), value: t("dependency.ldvView") });
     return params;
-  }, [cardTypeKey, types, centerNode, view, chartMode]);
+  }, [cardTypeKey, types, centerNode, view, chartMode, typeLabel, t]);
 
   if (loading)
     return (
@@ -736,7 +736,7 @@ export default function DependencyReport() {
             <MenuItem value="">{t("dependency.allTypes")}</MenuItem>
             {types.filter((tp) => !tp.is_hidden).map((tp) => (
               <MenuItem key={tp.key} value={tp.key}>
-                {rml(tp.key, tp.translations, "label")}
+                {typeLabel(tp)}
               </MenuItem>
             ))}
           </TextField>

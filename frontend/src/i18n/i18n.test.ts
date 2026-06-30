@@ -1,6 +1,14 @@
 import { describe, it, expect } from "vitest";
 import i18n, { SUPPORTED_LOCALES, LOCALE_LABELS } from "@/i18n";
-import { resolveLabel, resolveMetaLabel } from "@/hooks/useResolveLabel";
+import {
+  resolveLabel,
+  resolveMetaLabel,
+  typeLabel,
+  relationLabel,
+  fieldLabel,
+  optionLabel,
+  subtypeLabel,
+} from "@/hooks/useResolveLabel";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -285,6 +293,91 @@ describe("resolveMetaLabel", () => {
     expect(resolveMetaLabel("App", { label: { fr: "Application" } }, "reverse_label", "fr")).toBe(
       "App",
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6b. Entity-aware resolvers (issue #731 / #661): always fall back to the
+//     stored label, NEVER the key.
+// ---------------------------------------------------------------------------
+
+describe("typeLabel (entity-aware)", () => {
+  it("custom type with empty translations returns the label, not the key", () => {
+    expect(typeLabel({ key: "itAsset", label: "IT Asset", translations: {} }, "en")).toBe(
+      "IT Asset",
+    );
+  });
+
+  it("custom type with undefined translations returns the label", () => {
+    expect(typeLabel({ key: "itAsset", label: "IT Asset" }, "fr")).toBe("IT Asset");
+  });
+
+  it("returns the localized translation when present", () => {
+    expect(
+      typeLabel(
+        { key: "Application", label: "Application", translations: { label: { fr: "Application FR" } } },
+        "fr",
+      ),
+    ).toBe("Application FR");
+  });
+
+  it("returns an empty string for a null/undefined entity", () => {
+    expect(typeLabel(undefined, "en")).toBe("");
+    expect(typeLabel(null, "en")).toBe("");
+  });
+});
+
+describe("relationLabel (entity-aware)", () => {
+  const rt = {
+    key: "appUsesItc",
+    label: "uses",
+    reverse_label: "is used by",
+    translations: { label: { fr: "utilise" }, reverse_label: { fr: "est utilisé par" } },
+  };
+
+  it("forward: custom relation with empty translations returns the label, not the key", () => {
+    expect(relationLabel({ key: "rel", label: "depends on", translations: {} }, "en")).toBe(
+      "depends on",
+    );
+  });
+
+  it("forward: returns the localized label", () => {
+    expect(relationLabel(rt, "fr")).toBe("utilise");
+  });
+
+  it("reverse: returns the localized reverse label", () => {
+    expect(relationLabel(rt, "fr", true)).toBe("est utilisé par");
+  });
+
+  it("reverse: with no reverse_label falls back to the forward label, not the key", () => {
+    expect(relationLabel({ key: "rel", label: "owns" }, "en", true)).toBe("owns");
+  });
+
+  it("returns an empty string for a null/undefined relation", () => {
+    expect(relationLabel(undefined, "en")).toBe("");
+  });
+});
+
+describe("fieldLabel / optionLabel / subtypeLabel (entity-aware)", () => {
+  it("custom field with empty translations returns the label, not the key", () => {
+    expect(fieldLabel({ key: "riskLevel", label: "Risk Level", translations: {} }, "en")).toBe(
+      "Risk Level",
+    );
+  });
+
+  it("returns the localized field translation when present", () => {
+    expect(
+      fieldLabel({ key: "riskLevel", label: "Risk Level", translations: { fr: "Niveau" } }, "fr"),
+    ).toBe("Niveau");
+  });
+
+  it("optionLabel and subtypeLabel resolve the same way", () => {
+    expect(optionLabel({ key: "high", label: "High", translations: {} }, "en")).toBe("High");
+    expect(subtypeLabel({ key: "team", label: "Team", translations: {} }, "en")).toBe("Team");
+  });
+
+  it("returns an empty string for a null/undefined entity", () => {
+    expect(fieldLabel(undefined, "en")).toBe("");
   });
 });
 

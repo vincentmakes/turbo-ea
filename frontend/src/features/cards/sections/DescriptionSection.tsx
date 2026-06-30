@@ -13,7 +13,7 @@ import { useTranslation } from "react-i18next";
 import type { CurrencyFormatter } from "@/hooks/useCurrency";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { FieldValue, FieldEditor, isValidUrl, getUrlErrorMsg } from "@/features/cards/sections/cardDetailUtils";
-import { useResolveLabel } from "@/hooks/useResolveLabel";
+import { useFieldLabel } from "@/hooks/useResolveLabel";
 import { ApiError } from "@/api/client";
 import type { Card, FieldDef } from "@/types";
 
@@ -38,7 +38,7 @@ function DescriptionSection({
   aiBusy?: boolean;
 }) {
   const { t } = useTranslation(["cards", "common"]);
-  const rl = useResolveLabel();
+  const fieldLabel = useFieldLabel();
   const [editing, setEditing] = useState(false);
   const [description, setDescription] = useState(card.description || "");
   const [attrs, setAttrs] = useState<Record<string, unknown>>(card.attributes || {});
@@ -169,7 +169,7 @@ function DescriptionSection({
                     return (
                       <Box key={field.key}>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                          {rl(field.key, field.translations)}
+                          {fieldLabel(field)}
                         </Typography>
                         <FieldValue field={field} value={(card.attributes || {})[field.key]} currencyFmt={currencyFmt} />
                       </Box>
@@ -177,7 +177,7 @@ function DescriptionSection({
                   }
                   return (
                     <Box key={field.key} sx={{ display: "grid", gridTemplateColumns: "1fr", columnGap: 2, "@container (min-width: 480px)": { gridTemplateColumns: "180px 1fr", alignItems: "center" } }}>
-                      <Typography variant="body2" color="text.secondary">{rl(field.key, field.translations)}</Typography>
+                      <Typography variant="body2" color="text.secondary">{fieldLabel(field)}</Typography>
                       <FieldValue field={field} value={(card.attributes || {})[field.key]} currencyFmt={currencyFmt} />
                     </Box>
                   );

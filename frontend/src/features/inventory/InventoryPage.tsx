@@ -48,7 +48,7 @@ import ImportDialog from "./ImportDialog";
 import { exportToExcel, exportCurrentViewToExcel } from "./excelExport";
 import RelationCellPopover from "./RelationCellPopover";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel, useRelationLabel, useFieldLabel, useOptionLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useIsRtl } from "@/hooks/useIsRtl";
@@ -184,8 +184,11 @@ export default function InventoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { formatDate, formatDateTime } = useDateFormat();
   const { types, relationTypes } = useMetamodel();
-  const rl = useResolveLabel();
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
+  const relLabel = useRelationLabel();
+  const fieldLabel = useFieldLabel();
+  const optLabel = useOptionLabel();
+  const stLabel = useSubtypeLabel();
   const { user } = useAuth();
   const { mode } = useThemeMode();
   const isRtl = useIsRtl();
@@ -873,10 +876,10 @@ export default function InventoryPage() {
       rows.push(row);
     });
     const sheetLabel = typeConfig
-      ? rml(typeConfig.key, typeConfig.translations, "label")
+      ? typeLabel(typeConfig)
       : t("export.viewSheetName", { defaultValue: "View" });
     exportCurrentViewToExcel(rows, columns, { sheetLabel });
-  }, [typeConfig, rml, t]);
+  }, [typeConfig, typeLabel, t]);
 
   // Stable AG Grid config objects — prevents unnecessary grid re-renders
   const defaultColDef = useMemo(() => ({ sortable: true, filter: true, resizable: true }), []);
@@ -919,7 +922,7 @@ export default function InventoryPage() {
           if (field.readonly) continue;
           fields.push({
             key: `attr_${field.key}`,
-            label: rl(field.key, field.translations),
+            label: fieldLabel(field),
             fieldDef: field,
             group: "attribute",
           });
@@ -937,10 +940,10 @@ export default function InventoryPage() {
         if (!sourceMatches && !targetMatches) continue;
         // "out" direction: selected card is source
         if (sourceMatches && visibleTypeKeys.has(rt.target_type_key)) {
-          const verb = rml(rt.key, rt.translations, "label");
+          const verb = relLabel(rt);
           const otherLabel = (() => {
             const ot = types.find((tp) => tp.key === rt.target_type_key);
-            return ot ? rml(ot.key, ot.translations, "label") : rt.target_type_key;
+            return ot ? typeLabel(ot) : rt.target_type_key;
           })();
           fields.push({
             key: `rel_${rt.key}__out`,
@@ -954,11 +957,10 @@ export default function InventoryPage() {
         if (targetMatches && visibleTypeKeys.has(rt.source_type_key)) {
           const isSelf = sourceMatches && targetMatches;
           if (!isSelf && sourceMatches) continue; // already covered by out
-          const reverse = rml(rt.key, rt.translations, "reverse_label");
-          const verb = reverse || rml(rt.key, rt.translations, "label");
+          const verb = relLabel(rt, true);
           const otherLabel = (() => {
             const ot = types.find((tp) => tp.key === rt.source_type_key);
-            return ot ? rml(ot.key, ot.translations, "label") : rt.source_type_key;
+            return ot ? typeLabel(ot) : rt.source_type_key;
           })();
           fields.push({
             key: `rel_${rt.key}__in`,
@@ -970,7 +972,7 @@ export default function InventoryPage() {
       }
     }
     return fields;
-  }, [typeConfig, selectedType, relationTypes, visibleTypeKeys, types, t, rl, rml]);
+  }, [typeConfig, selectedType, relationTypes, visibleTypeKeys, types, t, fieldLabel, relLabel, typeLabel]);
 
   const currentMassField = massEditableFields.find((f) => f.key === massEditField);
 
@@ -1319,7 +1321,7 @@ export default function InventoryPage() {
           return tp ? (
             <Chip
               size="small"
-              label={rml(tp.key, tp.translations, "label")}
+              label={typeLabel(tp)}
               sx={{ bgcolor: tp.color, color: "#fff", fontWeight: 500 }}
             />
           ) : (
@@ -1447,7 +1449,7 @@ export default function InventoryPage() {
           return (
             <Chip
               size="small"
-              label={st ? rl(st.label, st.translations) : p.value}
+              label={st ? stLabel(st) : p.value}
               variant="outlined"
             />
           );
@@ -1638,7 +1640,7 @@ export default function InventoryPage() {
           const colKey = `attr_${field.key}`;
           cols.push({
             field: colKey,
-            headerName: rl(field.key, field.translations),
+            headerName: fieldLabel(field),
             width: 150,
             hide: !selectedColumns.has(colKey),
             editable: gridEditMode && !field.readonly,
@@ -1661,7 +1663,7 @@ export default function InventoryPage() {
                     return opt ? (
                       <Chip
                         size="small"
-                        label={rl(opt.label || opt.key, opt.translations)}
+                        label={optLabel(opt)}
                         sx={
                           opt.color
                             ? { bgcolor: opt.color, color: "#fff" }
@@ -1686,7 +1688,7 @@ export default function InventoryPage() {
                             <Chip
                               key={String(v)}
                               size="small"
-                              label={opt ? rl(opt.label || opt.key, opt.translations) : String(v)}
+                              label={opt ? optLabel(opt) : String(v)}
                               sx={opt?.color ? { bgcolor: opt.color, color: "#fff" } : {}}
                             />
                           );
@@ -1713,7 +1715,7 @@ export default function InventoryPage() {
         const colKey = `attr_${field.key}`;
         cols.push({
           field: colKey,
-          headerName: rl(field.key, field.translations),
+          headerName: fieldLabel(field),
           width: 150,
           hide: !selectedColumns.has(colKey),
           valueGetter: (p: { data: Card }) =>
@@ -1725,7 +1727,7 @@ export default function InventoryPage() {
                   return opt ? (
                     <Chip
                       size="small"
-                      label={rl(opt.label || opt.key, opt.translations)}
+                      label={optLabel(opt)}
                       sx={opt.color ? { bgcolor: opt.color, color: "#fff" } : {}}
                     />
                   ) : (
@@ -1746,7 +1748,7 @@ export default function InventoryPage() {
                           <Chip
                             key={String(v)}
                             size="small"
-                            label={opt ? rl(opt.label || opt.key, opt.translations) : String(v)}
+                            label={opt ? optLabel(opt) : String(v)}
                             sx={opt?.color ? { bgcolor: opt.color, color: "#fff" } : {}}
                           />
                         );
@@ -1765,7 +1767,7 @@ export default function InventoryPage() {
       const isSource = rt.source_type_key === selectedType;
       const otherTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
       const otherType = types.find((t) => t.key === otherTypeKey);
-      const headerName = otherType ? rml(otherType.key, otherType.translations, "label") : otherTypeKey;
+      const headerName = otherType ? typeLabel(otherType) : otherTypeKey;
       const relTypeRef = rt;
       const colKey = `rel_${otherTypeKey}`;
       // All relation type keys that connect selectedType ↔ otherTypeKey
@@ -1939,7 +1941,7 @@ export default function InventoryPage() {
           <Select value={(massEditValue as string) || ""} label={t("massEdit.value")} onChange={(e) => setMassEditValue(e.target.value)}>
             <MenuItem value=""><em>{t("common:labels.none")}</em></MenuItem>
             {typeConfig.subtypes.map((st) => (
-              <MenuItem key={st.key} value={st.key}>{rl(st.label, st.translations)}</MenuItem>
+              <MenuItem key={st.key} value={st.key}>{stLabel(st)}</MenuItem>
             ))}
           </Select>
         </FormControl>
@@ -1986,7 +1988,7 @@ export default function InventoryPage() {
     if (currentMassField.relInfo) {
       const otherType = types.find((tp) => tp.key === currentMassField.relInfo!.otherTypeKey);
       const otherLabel = otherType
-        ? rml(otherType.key, otherType.translations, "label")
+        ? typeLabel(otherType)
         : currentMassField.relInfo.otherTypeKey;
       return (
         <Box>
@@ -2075,7 +2077,7 @@ export default function InventoryPage() {
               <MenuItem key={opt.key} value={opt.key}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   {opt.color && <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: opt.color }} />}
-                  {rl(opt.label || opt.key, opt.translations)}
+                  {optLabel(opt)}
                 </Box>
               </MenuItem>
             ))}

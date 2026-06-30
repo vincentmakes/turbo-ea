@@ -1,7 +1,7 @@
 import * as XLSX from "xlsx";
 
 import { api } from "@/api/client";
-import { resolveLabel, resolveMetaLabel } from "@/hooks/useResolveLabel";
+import { fieldLabel, typeLabel } from "@/hooks/useResolveLabel";
 import i18n from "@/i18n";
 import type {
   CalculatedFieldsMap,
@@ -426,7 +426,7 @@ export function parseWorkbookSheets(
       const candidates = new Set<string>();
       candidates.add(t.key.toLowerCase());
       candidates.add(t.label.toLowerCase());
-      const translated = resolveMetaLabel(t.key, t.translations, "label", i18n.language);
+      const translated = typeLabel(t, i18n.language);
       if (translated) candidates.add(translated.toLowerCase());
       if (candidates.has(lower)) return t.key;
     }
@@ -846,7 +846,7 @@ export function validateImport(
               column: colKey,
               message: t("import.warnings.readOnlyFieldIgnored", {
                 row: rowNum,
-                field: resolveLabel(field.key, field.translations, i18n.language),
+                field: fieldLabel(field, i18n.language),
               }),
             });
           }
@@ -864,7 +864,7 @@ export function validateImport(
           warnings.push({
             row: rowNum,
             column: colKey,
-            message: t("import.errors.requiredFieldEmpty", { row: rowNum, field: resolveLabel(field.key, field.translations, i18n.language) }),
+            message: t("import.errors.requiredFieldEmpty", { row: rowNum, field: fieldLabel(field, i18n.language) }),
           });
         }
         continue;
@@ -880,7 +880,7 @@ export function validateImport(
             errors.push({
               row: rowNum,
               column: colKey,
-              message: t("import.errors.expectsNumber", { row: rowNum, field: resolveLabel(field.key, field.translations, i18n.language), value: val }),
+              message: t("import.errors.expectsNumber", { row: rowNum, field: fieldLabel(field, i18n.language), value: val }),
             });
             rowHasAttrError = true;
           } else {
@@ -899,7 +899,7 @@ export function validateImport(
             errors.push({
               row: rowNum,
               column: colKey,
-              message: t("import.errors.expectsBoolean", { row: rowNum, field: resolveLabel(field.key, field.translations, i18n.language), value: val }),
+              message: t("import.errors.expectsBoolean", { row: rowNum, field: fieldLabel(field, i18n.language), value: val }),
             });
             rowHasAttrError = true;
           }
@@ -911,7 +911,7 @@ export function validateImport(
             errors.push({
               row: rowNum,
               column: colKey,
-              message: t("import.errors.invalidDate", { row: rowNum, field: resolveLabel(field.key, field.translations, i18n.language), value: val }),
+              message: t("import.errors.invalidDate", { row: rowNum, field: fieldLabel(field, i18n.language), value: val }),
             });
             rowHasAttrError = true;
           } else {
@@ -927,7 +927,7 @@ export function validateImport(
               errors.push({
                 row: rowNum,
                 column: colKey,
-                message: t("import.errors.invalidSelectValue", { row: rowNum, value: val, field: resolveLabel(field.key, field.translations, i18n.language), valid: validKeys.join(", ") }),
+                message: t("import.errors.invalidSelectValue", { row: rowNum, value: val, field: fieldLabel(field, i18n.language), valid: validKeys.join(", ") }),
               });
               rowHasAttrError = true;
             } else {
@@ -947,7 +947,7 @@ export function validateImport(
                 errors.push({
                   row: rowNum,
                   column: colKey,
-                  message: t("import.errors.invalidSelectValue", { row: rowNum, value: part, field: resolveLabel(field.key, field.translations, i18n.language), valid: validKeys.join(", ") }),
+                  message: t("import.errors.invalidSelectValue", { row: rowNum, value: part, field: fieldLabel(field, i18n.language), valid: validKeys.join(", ") }),
                 });
                 rowHasAttrError = true;
               }

@@ -16,7 +16,7 @@ import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColorPicker from "@/components/ColorPicker";
 import KeyInput, { isValidKey } from "@/components/KeyInput";
-import { useResolveLabel } from "@/hooks/useResolveLabel";
+import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { LOCALE_LABELS } from "@/i18n";
 import { api, ApiError } from "@/api/client";
 import type { FieldDef, FieldOption, RelationType, TranslationMap } from "@/types";
@@ -49,7 +49,8 @@ interface Props {
 export default function RelationTypeValuesDialog({ open, relationType, onClose, onSaved }: Props) {
   const { t, i18n } = useTranslation(["admin", "common"]);
   const locale = i18n.language;
-  const rl = useResolveLabel();
+  const fieldLabel = useFieldLabel();
+  const optLabel = useOptionLabel();
 
   const [schema, setSchema] = useState<FieldDef[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -228,7 +229,7 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
               {f.built_in ? (
                 <>
                   <MaterialSymbol icon="lock" size={16} color="#888" />
-                  <Typography variant="subtitle2">{rl(f.label, f.translations)}</Typography>
+                  <Typography variant="subtitle2">{fieldLabel(f)}</Typography>
                   <Chip size="small" label={t("metamodel.builtIn")} color="info" sx={{ height: 20 }} />
                 </>
               ) : (
@@ -289,7 +290,7 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
                     }}
                   />
                   <Typography variant="body2" sx={{ flex: 1 }}>
-                    {rl(opt.label, opt.translations)}
+                    {optLabel(opt)}
                   </Typography>
                   {opt.hidden && (
                     <Chip size="small" label={t("metamodel.hidden")} color="warning" sx={{ height: 20 }} />

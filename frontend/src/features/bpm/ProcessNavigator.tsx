@@ -45,7 +45,7 @@ import DOMPurify from "dompurify";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveLabel } from "@/hooks/useResolveLabel";
+import { useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { useAuth } from "@/hooks/useAuth";
 
 /* ================================================================== */
@@ -338,7 +338,7 @@ function HouseCard({
   onDragDrop?: (dragId: string, dropId: string, rowType: string) => void;
 }) {
   const { t } = useTranslation(["bpm", "common"]);
-  const rl = useResolveLabel();
+  const stLabel = useSubtypeLabel();
   const { getType } = useMetamodel();
   const color = getCardColor(node, overlay);
   const isLeaf = node.level >= displayLevel || node.children.length === 0;
@@ -347,7 +347,7 @@ function HouseCard({
   const hasDiagram = node.has_diagram ?? false;
   const bpType = getType("BusinessProcess");
   const stDef = node.subtype ? bpType?.subtypes?.find((s) => s.key === node.subtype) : undefined;
-  const subtypeLabel = stDef ? rl(stDef.key, stDef.translations) : null;
+  const subtypeLabel = stDef ? stLabel(stDef) : null;
 
   // Search highlight
   const matchesSearch =
@@ -716,7 +716,7 @@ function DrawerOverview({
   onDrill: (id: string) => void;
 }) {
   const { t } = useTranslation(["bpm", "common"]);
-  const rl = useResolveLabel();
+  const stLabel = useSubtypeLabel();
   const { getType } = useMetamodel();
   const [card, setCard] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
@@ -739,7 +739,7 @@ function DrawerOverview({
   }
   const bpType = getType("BusinessProcess");
   const stDef = node.subtype ? bpType?.subtypes?.find((s) => s.key === node.subtype) : undefined;
-  const drawerSubtypeLabel = stDef ? rl(stDef.key, stDef.translations) : null;
+  const drawerSubtypeLabel = stDef ? stLabel(stDef) : null;
 
   return (
     <Box>

@@ -28,7 +28,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTimeline } from "@/hooks/useTimeline";
-import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -623,8 +623,9 @@ export default function CapabilityMapReport() {
   const { t } = useTranslation(["reports", "common"]);
   const { fmtShort } = useCurrency();
   const { types: metamodelTypes } = useMetamodel();
-  const rl = useResolveLabel();
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
+  const fieldLabel = useFieldLabel();
+  const optLabel = useOptionLabel();
   const saved = useSavedReport("capability-map");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
 
@@ -703,13 +704,13 @@ export default function CapabilityMapReport() {
     const raw = pickSelectFields(fieldsSchema);
     return raw.map((f) => ({
       ...f,
-      label: rl(f.key, f.translations),
+      label: fieldLabel(f),
       options: f.options?.map((o) => ({
         ...o,
-        label: rl(o.key, o.translations),
+        label: optLabel(o),
       })),
     }));
-  }, [fieldsSchema, rl]);
+  }, [fieldsSchema, fieldLabel, optLabel]);
 
   // Color-by options: all single_select fields + "none"
   const colorByOptions = useMemo(() => {
@@ -829,7 +830,7 @@ export default function CapabilityMapReport() {
       const typeMeta = metamodelTypes.find((t) => t.key === typeKey);
       out.push({
         typeKey,
-        label: rml(typeMeta?.key ?? "", typeMeta?.translations, "label") || typeKey,
+        label: typeLabel(typeMeta) || typeKey,
         options: members.map((m) => ({ key: m.id, label: m.name })),
       });
     }
@@ -840,7 +841,7 @@ export default function CapabilityMapReport() {
       return a.typeKey.localeCompare(b.typeKey);
     });
     return out;
-  }, [filterableTypes, metamodelTypes]);
+  }, [filterableTypes, metamodelTypes, typeLabel]);
 
   // Level picker options
   const levelOptions = useMemo(() => {

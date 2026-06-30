@@ -15,7 +15,14 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Autocomplete from "@mui/material/Autocomplete";
 import IconButton from "@mui/material/IconButton";
 import { useTheme } from "@mui/material/styles";
-import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import {
+  useResolveLabel,
+  useResolveMetaLabel,
+  useTypeLabel,
+  useSubtypeLabel,
+  useOptionLabel,
+  useFieldLabel,
+} from "@/hooks/useResolveLabel";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import Tooltip from "@mui/material/Tooltip";
 import Divider from "@mui/material/Divider";
@@ -190,6 +197,10 @@ export default function SurveyRespond() {
   const { t } = useTranslation(["admin", "common"]);
   const rl = useResolveLabel();
   const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
+  const stLabel = useSubtypeLabel();
+  const optLabel = useOptionLabel();
+  const fieldLabel = useFieldLabel();
   const theme = useTheme();
   const { types } = useMetamodel();
   const { surveyId, cardId } = useParams<{ surveyId: string; cardId: string }>();
@@ -203,7 +214,7 @@ export default function SurveyRespond() {
   };
   const relatedTypeLabel = (key?: string): string => {
     const ct = types.find((c) => c.key === key);
-    return ct ? rml(ct.label, ct.translations, "label") : key || "";
+    return ct ? typeLabel(ct) : key || "";
   };
   const navigate = useNavigate();
 
@@ -335,7 +346,7 @@ export default function SurveyRespond() {
           </MenuItem>
           {field.options.map((opt) => (
             <MenuItem key={opt.key} value={opt.key}>
-              {rl(opt.label || opt.key, opt.translations)}
+              {optLabel(opt)}
             </MenuItem>
           ))}
         </TextField>
@@ -355,7 +366,7 @@ export default function SurveyRespond() {
         >
           {field.options.map((opt) => (
             <MenuItem key={opt.key} value={opt.key}>
-              {rl(opt.label || opt.key, opt.translations)}
+              {optLabel(opt)}
             </MenuItem>
           ))}
         </TextField>
@@ -455,13 +466,22 @@ export default function SurveyRespond() {
         <MaterialSymbol icon="apps" size={22} color="#0f7eb5" />
         <Typography sx={{ fontWeight: 600, flex: 1 }}>{form.card.name}</Typography>
         <Chip
-          label={rml(form.card.type, form.card.type_translations, "label")}
+          label={
+            typeLabel(types.find((tp) => tp.key === form.card.type)) ||
+            rml(form.card.type, form.card.type_translations, "label")
+          }
           size="small"
           variant="outlined"
         />
         {form.card.subtype && (
           <Chip
-            label={rl(form.card.subtype, form.card.subtype_translations)}
+            label={
+              stLabel(
+                types
+                  .find((tp) => tp.key === form.card.type)
+                  ?.subtypes?.find((s) => s.key === form.card.subtype),
+              ) || rl(form.card.subtype, form.card.subtype_translations)
+            }
             size="small"
           />
         )}
@@ -491,7 +511,7 @@ export default function SurveyRespond() {
           <Card key={field.key} sx={{ mb: 2, p: 2 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: field.kind === "relation" ? 0.5 : 1 }}>
               <Typography sx={{ fontWeight: 600, flex: 1 }}>
-                {field.kind === "relation" ? field.label : rl(field.key, field.translations)}
+                {field.kind === "relation" ? field.label : fieldLabel(field)}
               </Typography>
               <Chip
                 label={isMaintain ? t("surveys.respond.maintain") : t("surveys.respond.confirmLabel")}

@@ -6,7 +6,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useFieldLabel, useOptionLabel, useRelationLabel } from "@/hooks/useResolveLabel";
 import type { FieldDef, RelationType } from "@/types";
 
 export type RelationAttributes = Record<string, unknown>;
@@ -35,8 +35,9 @@ export default function RelationAttributesEditor({
   disabled = false,
 }: Props) {
   const { t } = useTranslation(["cards", "common"]);
-  const rl = useResolveLabel();
-  const rml = useResolveMetaLabel();
+  const fieldLabel = useFieldLabel();
+  const optLabel = useOptionLabel();
+  const relLabel = useRelationLabel();
 
   const schema = relationType.attributes_schema ?? [];
   if (schema.length === 0) return null;
@@ -58,8 +59,9 @@ export default function RelationAttributesEditor({
             }
             onChange(merged);
           }}
-          rl={rl}
-          rml={rml}
+          fieldLabel={fieldLabel}
+          optLabel={optLabel}
+          relLabel={relLabel}
           t={t}
           disabled={disabled}
         />
@@ -73,14 +75,15 @@ interface FieldInputProps {
   relationType: RelationType;
   value: unknown;
   onChange: (next: unknown) => void;
-  rl: ReturnType<typeof useResolveLabel>;
-  rml: ReturnType<typeof useResolveMetaLabel>;
+  fieldLabel: ReturnType<typeof useFieldLabel>;
+  optLabel: ReturnType<typeof useOptionLabel>;
+  relLabel: ReturnType<typeof useRelationLabel>;
   t: ReturnType<typeof useTranslation>["t"];
   disabled?: boolean;
 }
 
-function FieldInput({ field, relationType, value, onChange, rl, rml, t, disabled }: FieldInputProps) {
-  const label = rl(field.label, field.translations);
+function FieldInput({ field, relationType, value, onChange, fieldLabel, optLabel, relLabel, t, disabled }: FieldInputProps) {
+  const label = fieldLabel(field);
 
   if (field.type === "single_select") {
     const current = typeof value === "string" ? value : "";
@@ -102,7 +105,7 @@ function FieldInput({ field, relationType, value, onChange, rl, rml, t, disabled
           </MenuItem>
           {options.map((opt) => (
             <MenuItem key={opt.key} value={opt.key}>
-              {renderOptionLabel(field, opt.key, opt.label, opt.translations, relationType, rl, rml, t)}
+              {renderOptionLabel(field, opt.key, opt.label, opt.translations, relationType, optLabel, relLabel, t)}
             </MenuItem>
           ))}
         </Select>
@@ -121,12 +124,12 @@ function renderOptionLabel(
   optionLabel: string,
   optionTranslations: { [k: string]: string } | undefined,
   relationType: RelationType,
-  rl: ReturnType<typeof useResolveLabel>,
-  rml: ReturnType<typeof useResolveMetaLabel>,
+  optLabel: ReturnType<typeof useOptionLabel>,
+  relLabel: ReturnType<typeof useRelationLabel>,
   t: ReturnType<typeof useTranslation>["t"],
 ) {
   if (field.key !== "flowDirection") {
-    return rl(optionLabel, optionTranslations);
+    return optLabel({ key: optionKey, label: optionLabel, translations: optionTranslations });
   }
   // For Application↔Interface specifically, use the canonical EA
   // Provider / Consumer / Bidirectional wording. For any other
@@ -146,11 +149,8 @@ function renderOptionLabel(
       text = t("cards:relations.role.bidirectional");
     }
   } else {
-    const fwd = rml(relationType.key, relationType.translations, "label") || relationType.label;
-    const rev =
-      rml(relationType.key, relationType.translations, "reverse_label") ||
-      relationType.reverse_label ||
-      fwd;
+    const fwd = relLabel(relationType);
+    const rev = relLabel(relationType, true);
     if (optionKey === "forward") {
       icon = "arrow_forward";
       text = fwd;

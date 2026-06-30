@@ -28,7 +28,12 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import TagPicker from "@/components/TagPicker";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
+import {
+  useTypeLabel,
+  useRelationLabel,
+  useFieldLabel,
+  useSubtypeLabel,
+} from "@/hooks/useResolveLabel";
 import type { WebPortal, TagGroup } from "@/types";
 
 interface ToggleEntry {
@@ -74,8 +79,10 @@ function slugify(text: string): string {
 export default function WebPortalsAdmin() {
   const { t } = useTranslation(["admin", "common"]);
   const { types, relationTypes } = useMetamodel();
-  const rml = useResolveMetaLabel();
-  const rl = useResolveLabel();
+  const typeLabel = useTypeLabel();
+  const relLabel = useRelationLabel();
+  const fieldLabel = useFieldLabel();
+  const stLabel = useSubtypeLabel();
 
   const BUILT_IN_PROPERTIES = BUILT_IN_PROPERTY_KEYS.map((key) => ({
     key,
@@ -197,7 +204,7 @@ export default function WebPortalsAdmin() {
         ? rt.target_type_key
         : rt.source_type_key;
     const tp = types.find((tp) => tp.key === otherKey);
-    return rml(tp?.key ?? "", tp?.translations, "label") || otherKey;
+    return tp ? typeLabel(tp) : otherKey;
   };
 
   const handleSave = async () => {
@@ -259,7 +266,7 @@ export default function WebPortalsAdmin() {
 
   const getTypeLabel = (key: string) => {
     const ct = types.find((tp) => tp.key === key);
-    return rml(ct?.key ?? "", ct?.translations, "label") || key;
+    return ct ? typeLabel(ct) : key;
   };
 
   const getTypeColor = (key: string) => {
@@ -511,7 +518,7 @@ export default function WebPortalsAdmin() {
                     size={18}
                     color={ct.color}
                   />
-                  {rml(ct.key, ct.translations, "label")}
+                  {typeLabel(ct)}
                 </Box>
               </MenuItem>
             ))}
@@ -536,7 +543,7 @@ export default function WebPortalsAdmin() {
             >
               {selectedType.subtypes.map((st) => (
                 <MenuItem key={st.key} value={st.key}>
-                  {rl(st.label, st.translations)}
+                  {stLabel(st)}
                 </MenuItem>
               ))}
             </TextField>
@@ -652,7 +659,7 @@ export default function WebPortalsAdmin() {
                     return (
                       <TableRow key={fKey}>
                         <TableCell>
-                          <Typography variant="body2">{rl(field.key, field.translations)}</Typography>
+                          <Typography variant="body2">{fieldLabel(field)}</Typography>
                         </TableCell>
                         <TableCell align="center">
                           <Checkbox
@@ -715,8 +722,8 @@ export default function WebPortalsAdmin() {
                     const detailChecked = tog ? tog.detail : false;
                     const verb =
                       rt.source_type_key === cardType
-                        ? rml(rt.key, rt.translations, "label")
-                        : rml(rt.key, rt.translations, "reverse_label") || rml(rt.key, rt.translations, "label");
+                        ? relLabel(rt)
+                        : relLabel(rt, true);
                     return (
                       <TableRow key={rKey}>
                         <TableCell>

@@ -13,6 +13,7 @@ import TextField from "@mui/material/TextField";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 import type { Card } from "@/types";
 
 interface Props {
@@ -36,6 +37,7 @@ export default function CreateDiagramDialog({
   const { t } = useTranslation(["diagrams", "common"]);
   const navigate = useNavigate();
   const { types: metamodelTypes } = useMetamodel();
+  const typeLabel = useTypeLabel();
 
   const [allCards, setAllCards] = useState<Card[]>([]);
   const [name, setName] = useState("");
@@ -70,13 +72,7 @@ export default function CreateDiagramDialog({
   }, [open, allCards.length]);
 
   const typeMap = useMemo(
-    () =>
-      Object.fromEntries(
-        metamodelTypes.map((mt) => [
-          mt.key,
-          { color: mt.color, icon: mt.icon, label: mt.label },
-        ]),
-      ),
+    () => Object.fromEntries(metamodelTypes.map((mt) => [mt.key, mt])),
     [metamodelTypes],
   );
 
@@ -127,7 +123,7 @@ export default function CreateDiagramDialog({
           multiple
           options={allCards}
           getOptionLabel={(opt) => opt.name}
-          groupBy={(opt) => typeMap[opt.type]?.label || opt.type}
+          groupBy={(opt) => typeLabel(typeMap[opt.type]) || opt.type}
           value={allCards.filter((c) => cardIds.includes(c.id))}
           onChange={(_, newVal) => setCardIds(newVal.map((v) => v.id))}
           disableCloseOnSelect

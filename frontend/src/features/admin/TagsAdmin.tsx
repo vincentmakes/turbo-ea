@@ -21,7 +21,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Autocomplete from "@mui/material/Autocomplete";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import type { CardType, Tag, TagGroup } from "@/types";
 
@@ -32,11 +32,11 @@ type DeleteTarget =
 export default function TagsAdmin() {
   const { t } = useTranslation(["admin", "common"]);
   const { types } = useMetamodel();
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
   const visibleTypes = types.filter((tp) => !tp.is_hidden);
   const labelForType = (key: string) => {
     const tp = types.find((x) => x.key === key);
-    return tp ? rml(tp.key, tp.translations, "label") : key;
+    return tp ? typeLabel(tp) : key;
   };
   const [groups, setGroups] = useState<TagGroup[]>([]);
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
@@ -286,13 +286,13 @@ export default function TagsAdmin() {
                 restrict_to_types: next.map((tp) => tp.key),
               }))
             }
-            getOptionLabel={(tp) => rml(tp.key, tp.translations, "label")}
+            getOptionLabel={(tp) => typeLabel(tp)}
             isOptionEqualToValue={(a, b) => a.key === b.key}
             renderOption={(props, option) => (
               <li {...props} key={option.key}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <MaterialSymbol icon={option.icon} size={18} color={option.color} />
-                  {rml(option.key, option.translations, "label")}
+                  {typeLabel(option)}
                 </Box>
               </li>
             )}
@@ -303,7 +303,7 @@ export default function TagsAdmin() {
                   <Chip
                     key={key}
                     size="small"
-                    label={rml(option.key, option.translations, "label")}
+                    label={typeLabel(option)}
                     icon={<MaterialSymbol icon={option.icon} size={14} color={option.color} />}
                     {...chipProps}
                   />

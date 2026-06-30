@@ -1,6 +1,6 @@
 import Chip from "@mui/material/Chip";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 
 interface Props {
   typeKey: string;
@@ -13,10 +13,10 @@ interface Props {
  */
 export default function CardTypePill({ typeKey }: Props) {
   const { getType } = useMetamodel();
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
   const type = getType(typeKey);
   const color = type?.color ?? "#757575";
-  const label = type ? rml(type.key, type.translations, "label") : typeKey;
+  const label = type ? typeLabel(type) : typeKey;
 
   return (
     <Chip

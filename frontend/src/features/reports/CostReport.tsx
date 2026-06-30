@@ -27,7 +27,7 @@ import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useCurrency, type CurrencyFormatter } from "@/hooks/useCurrency";
 import { useIsRtl } from "@/hooks/useIsRtl";
 import { useAuth } from "@/hooks/useAuth";
-import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
@@ -165,8 +165,9 @@ const TreemapContent = ({
 export default function CostReport() {
   const { t } = useTranslation(["reports", "common"]);
   const { types, relationTypes, loading: ml } = useMetamodel();
-  const rl = useResolveLabel();
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
+  const fieldLabel = useFieldLabel();
+  const optLabel = useOptionLabel();
   const { fmt } = useCurrency();
   const isRtl = useIsRtl();
   const { user } = useAuth();
@@ -248,8 +249,8 @@ export default function CostReport() {
   const typeDef = useMemo(() => types.find((t) => t.key === cardTypeKey), [types, cardTypeKey]);
   const costFields = useMemo(() => {
     const raw = typeDef ? pickCostFields(typeDef.fields_schema) : [];
-    return raw.map((f) => ({ ...f, label: rl(f.key, f.translations) }));
-  }, [typeDef, rl]);
+    return raw.map((f) => ({ ...f, label: fieldLabel(f) }));
+  }, [typeDef, fieldLabel]);
 
   // Auto-select cost field when card type changes
   useEffect(() => {
@@ -266,12 +267,12 @@ export default function CostReport() {
     for (const s of typeDef.fields_schema) for (const f of s.fields) {
       if (f.type === "single_select") out.push({
         ...f,
-        label: rl(f.key, f.translations),
-        options: f.options?.map((o) => ({ ...o, label: rl(o.key, o.translations) })),
+        label: fieldLabel(f),
+        options: f.options?.map((o) => ({ ...o, label: optLabel(o) })),
       });
     }
     return out;
-  }, [typeDef, rl]);
+  }, [typeDef, fieldLabel, optLabel]);
 
   // Aggregate options: every (related-type, cost-field) pair reachable via any relation
   // type involving the current card type. The relation label is intentionally NOT shown —
@@ -296,22 +297,22 @@ export default function CostReport() {
     for (const otherKey of reachable) {
       const otherType = typeMap.get(otherKey);
       if (!otherType) continue;
-      const typeLabel = rml(otherType.key, otherType.translations, "label") || otherType.label;
+      const otherTypeLabel = typeLabel(otherType);
       for (const f of pickCostFields(otherType.fields_schema)) {
-        const fieldLabel = rl(f.key, f.translations);
+        const otherFieldLabel = fieldLabel(f);
         out.push({
           value: `${otherKey}:${f.key}`,
-          label: t("cost.costSourceItem", { type: typeLabel, field: fieldLabel }),
+          label: t("cost.costSourceItem", { type: otherTypeLabel, field: otherFieldLabel }),
           typeKey: otherKey,
-          typeLabel,
+          typeLabel: otherTypeLabel,
           fieldKey: f.key,
-          fieldLabel,
+          fieldLabel: otherFieldLabel,
         });
       }
     }
     out.sort((a, b) => a.label.localeCompare(b.label));
     return out;
-  }, [typeDef, types, relationTypes, cardTypeKey, rl, rml, t]);
+  }, [typeDef, types, relationTypes, cardTypeKey, typeLabel, fieldLabel, t]);
 
   // Drop any selected pair that's no longer offered (e.g. after switching card type).
   useEffect(() => {
@@ -411,8 +412,8 @@ export default function CostReport() {
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
     const tp = types.find((tp) => tp.key === cardTypeKey);
-    const typeLabel = rml(tp?.key ?? "", tp?.translations, "label") || cardTypeKey;
-    params.push({ label: t("common:labels.type"), value: typeLabel });
+    const tpLabel = typeLabel(tp) || cardTypeKey;
+    params.push({ label: t("common:labels.type"), value: tpLabel });
     if (activeAggregates.length > 0) {
       params.push({
         label: t("cost.costSource"),
@@ -434,7 +435,7 @@ export default function CostReport() {
       });
     }
     return params;
-  }, [cardTypeKey, types, costField, costFields, activeAggregates, groupBy, groupableFields, view, drillStack, t, rml]);
+  }, [cardTypeKey, types, costField, costFields, activeAggregates, groupBy, groupableFields, view, drillStack, t, typeLabel]);
 
   // Drill is offered at depth 0 whenever at least one aggregate source is
   // active. With multiple sources, depth 1 renders one chart per source so
@@ -461,8 +462,8 @@ export default function CostReport() {
 
   const rootTypeLabel = useMemo(() => {
     const tp = types.find((tp) => tp.key === cardTypeKey);
-    return rml(tp?.key ?? "", tp?.translations, "label") || cardTypeKey;
-  }, [types, cardTypeKey, rml]);
+    return typeLabel(tp) || cardTypeKey;
+  }, [types, cardTypeKey, typeLabel]);
 
   if (!canViewCostsGlobally) {
     return (
@@ -540,7 +541,7 @@ export default function CostReport() {
       toolbar={
         <>
           <TextField select size="small" label={t("cost.cardType")} value={cardTypeKey} onChange={(e) => { setCardTypeKey(e.target.value); setDrillStack([]); }} sx={{ minWidth: 150 }}>
-            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{rml(tp.key, tp.translations, "label")}</MenuItem>)}
+            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{typeLabel(tp)}</MenuItem>)}
           </TextField>
           {aggregateOptions.length > 0 && (
             <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>

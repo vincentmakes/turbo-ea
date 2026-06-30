@@ -59,7 +59,7 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel, useFieldLabel } from "@/hooks/useResolveLabel";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useLdvSettings, type LdvBackgroundStyle } from "./ldvDisplaySettings";
 import type { CardType } from "@/types";
@@ -201,7 +201,7 @@ export function readableTypeColor(hex: string, isDark: boolean): string {
 }
 
 const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
   const { t } = useTranslation("reports");
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
@@ -556,7 +556,7 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
             mt: 0.25,
           }}
         >
-          [{rml(data.typeKey, undefined, "label") || data.typeLabel}]
+          [{typeLabel({ key: data.typeKey, label: data.typeLabel }) || data.typeLabel}]
         </Typography>
       ) : null}
     </Box>
@@ -887,7 +887,7 @@ function LayeredDependencyInner({
 }: Props) {
   const { t } = useTranslation(["reports", "common"]);
   const theme = useTheme();
-  const rl = useResolveLabel();
+  const fieldLabel = useFieldLabel();
   const navigate = useNavigate();
   const { fitView, getNodes, zoomIn, zoomOut } = useReactFlow();
 
@@ -914,8 +914,8 @@ function LayeredDependencyInner({
   );
   const relValueResolver = useCallback(
     (edge: GEdge): string | undefined =>
-      relationValueSuffix(edge, relTypeByKey, (opt) => rl(opt.label, opt.translations)),
-    [relTypeByKey, rl],
+      relationValueSuffix(edge, relTypeByKey, (opt) => fieldLabel(opt)),
+    [relTypeByKey, fieldLabel],
   );
 
   const { nodes: builtNodes, edges: rfEdges } = useMemo(
@@ -967,14 +967,14 @@ function LayeredDependencyInner({
       if (typeof raw === "boolean") return raw ? t("common:labels.yes") : t("common:labels.no");
       const optLabel = (x: unknown) => {
         const o = meta?.options?.find((opt) => opt.key === x);
-        return o ? rl(o.label || o.key, o.translations) : String(x);
+        return o ? fieldLabel(o) : String(x);
       };
       if (Array.isArray(raw)) return raw.map(optLabel).join(", ");
       if (meta?.options) return optLabel(raw);
       if (typeof raw === "object") return JSON.stringify(raw);
       return String(raw);
     },
-    [rl, t],
+    [fieldLabel, t],
   );
 
   /* ---- Node state ----
@@ -1333,7 +1333,7 @@ function LayeredDependencyInner({
         const meta = fieldMetaByKey.get(fk);
         const value = formatVal(g?.attributes?.[fk], meta);
         if (value === "—") continue;
-        lines.push({ label: meta ? rl(meta.label, meta.translations) : fk, value });
+        lines.push({ label: meta ? fieldLabel(meta) : fk, value });
       }
 
       // Plain-text tooltip (native title) with the full detail set.
@@ -1362,7 +1362,7 @@ function LayeredDependencyInner({
       settings.extraFields,
       fieldMetaByKey,
       formatVal,
-      rl,
+      fieldLabel,
       t,
     ],
   );
@@ -1947,7 +1947,7 @@ function LayeredDependencyInner({
           size="small"
           options={fieldCatalog}
           value={fieldCatalog.filter((f) => settings.extraFields.includes(f.key))}
-          getOptionLabel={(f) => rl(f.label, f.translations)}
+          getOptionLabel={(f) => fieldLabel(f)}
           isOptionEqualToValue={(a, b) => a.key === b.key}
           onChange={(_, vals) => updateSettings({ extraFields: vals.map((v) => v.key) })}
           renderInput={(params) => (
@@ -1955,7 +1955,7 @@ function LayeredDependencyInner({
           )}
           renderTags={(vals, getTagProps) =>
             vals.map((v, i) => (
-              <Chip {...getTagProps({ index: i })} key={v.key} label={rl(v.label, v.translations)} size="small" />
+              <Chip {...getTagProps({ index: i })} key={v.key} label={fieldLabel(v)} size="small" />
             ))
           }
           noOptionsText={t("dependency.noFields")}

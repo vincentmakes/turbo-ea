@@ -25,7 +25,7 @@ import ReportLegend from "./ReportLegend";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
-import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 
 /* ------------------------------------------------------------------ */
@@ -101,8 +101,9 @@ function fmtDate(s: string | undefined): string {
 export default function LifecycleReport() {
   const { t } = useTranslation(["reports", "common"]);
   const { types, loading: ml } = useMetamodel();
-  const rl = useResolveLabel();
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
+  const fieldLabel = useFieldLabel();
+  const optLabel = useOptionLabel();
   const saved = useSavedReport("lifecycle");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [cardTypeKey, setCardTypeKey] = useState("");
@@ -162,10 +163,10 @@ export default function LifecycleReport() {
       for (const f of section.fields) {
         const resolved: FieldDef = {
           ...f,
-          label: rl(f.key, f.translations),
+          label: fieldLabel(f),
           options: f.options?.map((o) => ({
             ...o,
-            label: rl(o.key, o.translations),
+            label: optLabel(o),
           })),
         };
         if (f.type === "date") dFields.push(resolved);
@@ -173,7 +174,7 @@ export default function LifecycleReport() {
       }
     }
     return { dateFields: dFields, selectFields: sFields };
-  }, [selectedType, rl]);
+  }, [selectedType, fieldLabel, optLabel]);
 
   // A type supports custom date mode if it has at least 2 date fields
   const hasDateFields = dateFields.length >= 2;
@@ -290,8 +291,8 @@ export default function LifecycleReport() {
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
     const tp = types.find((tp) => tp.key === cardTypeKey);
-    const typeLabel = cardTypeKey ? (rml(tp?.key ?? "", tp?.translations, "label") || cardTypeKey) : t("lifecycle.allTypes");
-    params.push({ label: t("common:labels.type"), value: typeLabel });
+    const tpLabel = cardTypeKey ? (typeLabel(tp) || cardTypeKey) : t("lifecycle.allTypes");
+    params.push({ label: t("common:labels.type"), value: tpLabel });
     if (useCustomDates) params.push({ label: t("common.mode"), value: t("lifecycle.dateRangeView") });
     if (useCustomDates && customColorBy) {
       const cLabel = colorByOptions.find((o) => o.key === customColorBy)?.label || customColorBy;
@@ -299,7 +300,7 @@ export default function LifecycleReport() {
     }
     if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
     return params;
-  }, [cardTypeKey, types, useCustomDates, customColorBy, colorByOptions, view]);
+  }, [cardTypeKey, types, useCustomDates, customColorBy, colorByOptions, view, typeLabel, t]);
 
   if (ml || data === null)
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
@@ -353,7 +354,7 @@ export default function LifecycleReport() {
         <>
           <TextField select size="small" label={t("lifecycle.cardType")} value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 180 }}>
             <MenuItem value="">{t("lifecycle.allTypes")}</MenuItem>
-            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{rml(tp.key, tp.translations, "label")}</MenuItem>)}
+            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{typeLabel(tp)}</MenuItem>)}
           </TextField>
 
           {hasDateFields && (

@@ -96,7 +96,7 @@ import type { ColorEntry, ViewSource } from "./ViewSelector";
 import DiagramViewLegend from "./DiagramViewLegend";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { relationLabel, useTypeLabel } from "@/hooks/useResolveLabel";
 import { useAuthContext } from "@/hooks/AuthContext";
 import type { Card, CardType, Relation, RelationType } from "@/types";
 
@@ -438,7 +438,7 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
 /* ------------------------------------------------------------------ */
 
 export default function DiagramEditor() {
-  const { t } = useTranslation(["diagrams", "common"]);
+  const { t, i18n } = useTranslation(["diagrams", "common"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuthContext();
@@ -456,7 +456,7 @@ export default function DiagramEditor() {
 
   // Metamodel
   const { types: fsTypes, relationTypes } = useMetamodel();
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
   const fsTypesRef = useRef(fsTypes);
   fsTypesRef.current = fsTypes;
   const relTypesRef = useRef(relationTypes);
@@ -846,9 +846,9 @@ export default function DiagramEditor() {
     (relationTypeKey: string): string => {
       if (!relationTypeKey) return "";
       const rt = relTypesRef.current.find((x) => x.key === relationTypeKey);
-      return rt?.label || relationTypeKey;
+      return rt ? relationLabel(rt, i18n.language) : relationTypeKey;
     },
-    [],
+    [i18n.language],
   );
 
   /** Handle a commit from the ExpandMenu. Three branches:
@@ -1724,7 +1724,7 @@ export default function DiagramEditor() {
         return {
           cellId: p.cellId,
           type: p.type,
-          typeLabel: rml(typeInfo?.key ?? "", typeInfo?.translations, "label") || p.type,
+          typeLabel: typeLabel(typeInfo) || p.type,
           typeColor: typeInfo?.color || "#999",
           name: p.name,
         };
@@ -1749,7 +1749,7 @@ export default function DiagramEditor() {
         };
       }),
     );
-  }, []);
+  }, [typeLabel]);
 
   /* ---------- Create new (pending) card ---------- */
   const handleCreateCard = useCallback(

@@ -13,7 +13,7 @@ import Alert from "@mui/material/Alert";
 import { useTranslation } from "react-i18next";
 import { FieldValue, FieldEditor, isValidUrl, getUrlErrorMsg } from "@/features/cards/sections/cardDetailUtils";
 import { useCurrency } from "@/hooks/useCurrency";
-import { useResolveLabel } from "@/hooks/useResolveLabel";
+import { useResolveLabel, useFieldLabel } from "@/hooks/useResolveLabel";
 import { ApiError } from "@/api/client";
 import type { Card, FieldDef, SectionDef } from "@/types";
 
@@ -44,6 +44,7 @@ function AttributeSection({
   const { t } = useTranslation(["cards", "common"]);
   const { fmt, symbol } = useCurrency();
   const rl = useResolveLabel();
+  const fieldLabel = useFieldLabel();
   const [editing, setEditing] = useState(false);
   const [attrs, setAttrs] = useState<Record<string, unknown>>(
     card.attributes || {}
@@ -130,7 +131,7 @@ function AttributeSection({
       {fields.map((field) => (
         <Box key={field.key} sx={{ display: "contents" }}>
           <Typography variant="body2" color="text.secondary">
-            {rl(field.key, field.translations)}
+            {fieldLabel(field)}
             {calculatedFieldKeys.includes(field.key) ? (
               <Chip component="span" size="small" label={t("attributes.calculated")} sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
             ) : field.readonly ? (
@@ -149,7 +150,7 @@ function AttributeSection({
       {fields.map((field) =>
         field.readonly || calculatedFieldKeys.includes(field.key) ? (
           <Box key={field.key} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>{rl(field.key, field.translations)}</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>{fieldLabel(field)}</Typography>
             <FieldValue field={field} value={attrs[field.key]} currencyFmt={fmt} canViewCosts={canViewCosts} />
             <Chip size="small" label={calculatedFieldKeys.includes(field.key) ? t("attributes.calculated") : t("attributes.auto")} sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
           </Box>

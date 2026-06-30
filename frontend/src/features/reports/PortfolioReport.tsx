@@ -37,7 +37,12 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTimeline } from "@/hooks/useTimeline";
-import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import {
+  useTypeLabel,
+  useRelationLabel,
+  useFieldLabel,
+  useOptionLabel,
+} from "@/hooks/useResolveLabel";
 import { useAiStatus } from "@/hooks/useAiStatus";
 import type { PortfolioInsightsResponse, StructuredInsight } from "@/types";
 import {
@@ -377,8 +382,10 @@ export default function PortfolioReport({
   const { t } = useTranslation(["reports", "common"]);
   const theme = useTheme();
   const { types: metamodelTypes } = useMetamodel();
-  const rl = useResolveLabel();
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
+  const relLabel = useRelationLabel();
+  const fieldLabel = useFieldLabel();
+  const optLabel = useOptionLabel();
   const saved = useSavedReport(savedReportKey);
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
 
@@ -532,13 +539,13 @@ export default function PortfolioReport({
     const raw = data ? pickSelectFields(data.fields_schema) : [];
     return raw.map((f) => ({
       ...f,
-      label: rl(f.key, f.translations),
+      label: fieldLabel(f),
       options: f.options?.map((o) => ({
         ...o,
-        label: rl(o.key, o.translations),
+        label: optLabel(o),
       })),
     }));
-  }, [data, rl]);
+  }, [data, fieldLabel, optLabel]);
 
   // Relation subtypes — single_select attributes on relation types touching
   // the current card type (e.g. "is used by · Usage Type"), tagged with the
@@ -548,27 +555,25 @@ export default function PortfolioReport({
     if (!data) return [];
     return extractRelSubtypes(data.relation_types as RelTypeDef[], cardType).map(
       ({ relType, field }) => {
-        const relLabel =
+        const relVerb =
           relType.source_type_key === cardType
-            ? rml(relType.key, relType.translations, "label") || relType.label
-            : rml(relType.key, relType.translations, "reverse_label") ||
-              relType.reverse_label ||
-              relType.label;
-        const fieldLabel = rl(field.label, field.translations);
+            ? relLabel(relType)
+            : relLabel(relType, true);
+        const fieldVerb = fieldLabel(field);
         return {
           composite: relSubtypeComposite(relType.key, field.key),
           relTypeKey: relType.key,
           fieldKey: field.key,
           relatedTypeKey: relType.other_type_key,
-          comboLabel: `${relLabel} · ${fieldLabel}`,
+          comboLabel: `${relVerb} · ${fieldVerb}`,
           options: (field.options ?? []).map((o) => ({
             ...o,
-            label: rl(o.label, o.translations),
+            label: optLabel(o),
           })),
         };
       },
     );
-  }, [data, cardType, rl, rml]);
+  }, [data, cardType, relLabel, fieldLabel, optLabel]);
 
   // Build group-by options from schema + relation types
   const groupByOptions = useMemo(() => {
@@ -586,14 +591,14 @@ export default function PortfolioReport({
     for (const [typeKey, members] of Object.entries(data.groupable_types)) {
       if (members.length > 0) {
         const typeMeta = metamodelTypes.find((t) => t.key === typeKey);
-        const label = rml(typeMeta?.key ?? "", typeMeta?.translations, "label") || typeKey;
+        const label = typeLabel(typeMeta) || typeKey;
         const icon = typeMeta?.icon || "link";
         opts.push({ key: `rel:${typeKey}`, label, icon });
       }
     }
 
     return opts;
-  }, [data, selectFields, metamodelTypes]);
+  }, [data, selectFields, metamodelTypes, typeLabel]);
 
   // Apply defaults once data is available. Skip when `data` is stale (loaded
   // for a previous card type) — otherwise we'd pick options from the old
@@ -901,13 +906,13 @@ export default function PortfolioReport({
       const typeMeta = metamodelTypes.find((t) => t.key === typeKey);
       out.push({
         typeKey,
-        label: rml(typeMeta?.key ?? "", typeMeta?.translations, "label") || typeKey,
+        label: typeLabel(typeMeta) || typeKey,
         icon: typeMeta?.icon || "link",
         options: members.map((m) => ({ key: m.id, label: m.name })),
       });
     }
     return out;
-  }, [data, metamodelTypes]);
+  }, [data, metamodelTypes, typeLabel]);
 
   // Table helpers
   const tableSort = (k: string) => {
@@ -941,17 +946,14 @@ export default function PortfolioReport({
       .filter((tp) => !tp.is_hidden)
       .map((tp) => ({
         key: tp.key,
-        label: rml(tp.key, tp.translations, "label") || tp.label || tp.key,
+        label: typeLabel(tp),
         icon: tp.icon || "category",
         color: tp.color,
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [metamodelTypes, rml]);
+  }, [metamodelTypes, typeLabel]);
   const currentType = metamodelTypes.find((tp) => tp.key === cardType);
-  const typeLabel =
-    rml(cardType, currentType?.translations, "label") ||
-    currentType?.label ||
-    cardType;
+  const currentTypeLabel = typeLabel(currentType) || cardType;
   const typeIcon = currentType?.icon || "dashboard";
   const typeColor = currentType?.color || "#0f7eb5";
 
@@ -960,10 +962,10 @@ export default function PortfolioReport({
   const resolvedTitle = titleOverride
     ? titleOverride
     : showTypeSelector
-      ? t("flexiblePortfolio.titleFor", { type: typeLabel })
+      ? t("flexiblePortfolio.titleFor", { type: currentTypeLabel })
       : cardType === "Application"
         ? t("portfolio.title")
-        : t("flexiblePortfolio.titleFor", { type: typeLabel });
+        : t("flexiblePortfolio.titleFor", { type: currentTypeLabel });
 
   // Group/ungrouped count chip — "{n} apps" for the legacy Application
   // Portfolio (preserves wording); "{n} {typeLabel}" once the user picks
@@ -972,29 +974,29 @@ export default function PortfolioReport({
     (n: number) =>
       cardType === "Application"
         ? t("portfolio.apps", { count: n })
-        : `${n} ${typeLabel}`,
-    [cardType, typeLabel, t],
+        : `${n} ${currentTypeLabel}`,
+    [cardType, currentTypeLabel, t],
   );
 
   // Noun used after the summary stat ("12 applications" vs "12 Business
   // Process"). Application Portfolio keeps the localised plural "applications"
   // string for back-compat; other types fall back to the singular type label.
   const typeNoun =
-    cardType === "Application" ? t("portfolio.applications") : typeLabel;
+    cardType === "Application" ? t("portfolio.applications") : currentTypeLabel;
 
   // Empty-state messages, parameterised by type for the Flexible Portfolio.
   const noItemsFiltered =
     cardType === "Application"
       ? t("portfolio.noAppsFiltered")
-      : t("portfolio.noItemsFiltered", { type: typeLabel });
+      : t("portfolio.noItemsFiltered", { type: currentTypeLabel });
   const noItemsEmpty =
     cardType === "Application"
       ? t("portfolio.noAppsEmpty")
-      : t("portfolio.noItemsEmpty", { type: typeLabel });
+      : t("portfolio.noItemsEmpty", { type: currentTypeLabel });
   const noItemsInGroup =
     cardType === "Application"
       ? t("portfolio.noAppsInGroup")
-      : t("portfolio.noItemsInGroup", { type: typeLabel });
+      : t("portfolio.noItemsInGroup", { type: currentTypeLabel });
 
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
@@ -1200,7 +1202,7 @@ export default function PortfolioReport({
                 color="text.secondary"
                 sx={{ fontWeight: 600 }}
               >
-                {t("portfolio.typeFilters", { type: typeLabel })}
+                {t("portfolio.typeFilters", { type: currentTypeLabel })}
               </Typography>
               {hasActiveFilters && (
                 <Chip

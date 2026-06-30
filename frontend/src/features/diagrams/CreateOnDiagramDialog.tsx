@@ -10,7 +10,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 import type { CardType } from "@/types";
 
 interface Props {
@@ -35,7 +35,7 @@ export default function CreateOnDiagramDialog({
   onCreate,
 }: Props) {
   const { t } = useTranslation(["diagrams", "common"]);
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
   const [selectedType, setSelectedType] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -96,7 +96,7 @@ export default function CreateOnDiagramDialog({
                     flexShrink: 0,
                   }}
                 />
-                {rml(tp.key, tp.translations, "label")}
+                {typeLabel(tp)}
               </Box>
             </MenuItem>
           ))}
@@ -128,7 +128,7 @@ export default function CreateOnDiagramDialog({
         {typeInfo && (
           <Typography variant="caption" color="text.disabled">
             {t("createOnDiagram.pendingHintPre")}{" "}
-            <strong style={{ color: typeInfo.color }}>{rml(typeInfo.key, typeInfo.translations, "label")}</strong>.{" "}
+            <strong style={{ color: typeInfo.color }}>{typeLabel(typeInfo)}</strong>.{" "}
             {t("createOnDiagram.pendingHintPost")}
           </Typography>
         )}

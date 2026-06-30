@@ -10,6 +10,11 @@ vi.mock("@/api/client", () => ({
 vi.mock("@/hooks/useResolveLabel", () => ({
   useResolveLabel: () => (label: string) => label,
   useResolveMetaLabel: () => (label: string) => label,
+  useTypeLabel: () => (e?: { label?: string; key?: string } | null) => e?.label ?? e?.key ?? "",
+}));
+
+vi.mock("@/hooks/useMetamodel", () => ({
+  useMetamodel: () => ({ getType: () => undefined }),
 }));
 
 import { api } from "@/api/client";

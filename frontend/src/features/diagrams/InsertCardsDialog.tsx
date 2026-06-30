@@ -17,7 +17,7 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 import type { Card, CardType } from "@/types";
 import { useCardSearch } from "@/hooks/useCardSearch";
 
@@ -52,7 +52,7 @@ export default function InsertCardsDialog({
   onInsert,
 }: Props) {
   const { t } = useTranslation(["diagrams", "common"]);
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
   const { types: allTypes } = useMetamodel();
   const visibleTypes = useMemo(() => allTypes.filter((tp) => !tp.is_hidden), [allTypes]);
   const typeMap = useMemo(
@@ -239,7 +239,7 @@ export default function InsertCardsDialog({
                     label={
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                         <Box sx={{ flex: 1, textAlign: "left" }}>
-                          {rml(tp.key, tp.translations, "label")}
+                          {typeLabel(tp)}
                         </Box>
                         <Box
                           sx={{
@@ -382,7 +382,7 @@ export default function InsertCardsDialog({
                       {ct && (
                         <Chip
                           size="small"
-                          label={rml(ct.key, ct.translations, "label")}
+                          label={typeLabel(ct)}
                           sx={{
                             height: 20,
                             fontSize: "0.7rem",
