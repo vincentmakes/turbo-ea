@@ -11,6 +11,7 @@
   "key.noAccents": "الأحرف المشكَّلة غير مسموح بها",
   "key.lettersAndDigitsOnly": "يُسمح بالأحرف والأرقام فقط (نمط camelCase)",
   "key.cannotChange": "لا يمكن تغيير المفتاح بعد الإنشاء",
+  "key.duplicate": "هذا المفتاح مستخدم بالفعل في هذه القائمة",
   "key.valid": "مفتاح صالح",
   "key.hint": "أحرف وأرقام فقط، بدون فواصل (مثل businessFit أو ApplicationToITComponent)"
 }

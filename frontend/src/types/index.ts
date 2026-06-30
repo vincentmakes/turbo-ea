@@ -132,6 +132,10 @@ export interface FieldOption {
   // fully editable. `hidden` removes a value from the picker without deleting it.
   built_in?: boolean;
   hidden?: boolean;
+  // Transient, editor-only: marks an option that already existed when an editor
+  // dialog opened (so its key is locked). Stripped before persisting — never
+  // sent to or stored by the backend.
+  _original?: boolean;
 }
 
 export interface FieldDef {
@@ -158,6 +162,9 @@ export interface FieldDef {
   // flowDirection): the field definition is locked, but its options can be
   // managed. Custom relation dimensions are fully editable.
   built_in?: boolean;
+  // Transient, editor-only: marks a dimension that already existed when the
+  // editor opened (so its key is locked). Stripped before persisting.
+  _original?: boolean;
 }
 
 export interface SubtypeDef {

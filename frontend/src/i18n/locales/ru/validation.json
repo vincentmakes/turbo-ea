@@ -10,6 +10,7 @@
   "key.noAccents": "Символы с диакритикой не допускаются",
   "key.lettersAndDigitsOnly": "Только буквы и цифры (camelCase)",
   "key.cannotChange": "Ключ нельзя изменить после создания",
+  "key.duplicate": "Этот ключ уже используется в этом списке",
   "key.valid": "Корректный ключ",
   "key.hint": "Только буквы и цифры, без разделителей (например, businessFit или ApplicationToITComponent)"
 }

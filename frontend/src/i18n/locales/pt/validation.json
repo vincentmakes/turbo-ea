@@ -11,6 +11,7 @@
   "key.noAccents": "Caracteres acentuados não são permitidos",
   "key.lettersAndDigitsOnly": "Apenas letras e dígitos são permitidos (camelCase)",
   "key.cannotChange": "A chave não pode ser alterada após a criação",
+  "key.duplicate": "Esta chave já é usada nesta lista",
   "key.valid": "Chave válida",
   "key.hint": "Apenas letras e dígitos, sem separadores (ex: businessFit ou ApplicationToITComponent)"
 }

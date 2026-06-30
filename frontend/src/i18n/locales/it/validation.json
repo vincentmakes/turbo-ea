@@ -10,6 +10,7 @@
   "key.noAccents": "I caratteri accentati non sono consentiti",
   "key.lettersAndDigitsOnly": "Sono consentiti solo lettere e cifre (camelCase)",
   "key.cannotChange": "La chiave non pu\u00f2 essere modificata dopo la creazione",
+  "key.duplicate": "Questa chiave è già usata in questo elenco",
   "key.valid": "Chiave valida",
   "key.hint": "Solo lettere e cifre, senza separatori (es. businessFit o ApplicationToITComponent)"
 }

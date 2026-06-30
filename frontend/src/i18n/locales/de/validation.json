@@ -10,6 +10,7 @@
   "key.noAccents": "Akzentzeichen sind nicht erlaubt",
   "key.lettersAndDigitsOnly": "Nur Buchstaben und Ziffern erlaubt (camelCase)",
   "key.cannotChange": "Schlüssel kann nach der Erstellung nicht geändert werden",
+  "key.duplicate": "Dieser Schlüssel wird in dieser Liste bereits verwendet",
   "key.valid": "Gültiger Schlüssel",
   "key.hint": "Nur Buchstaben und Ziffern, keine Trennzeichen (z. B. businessFit oder ApplicationToITComponent)"
 }

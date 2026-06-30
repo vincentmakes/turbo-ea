@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - **Select-field option colors now save reliably.** The color shown in the option color picker is the default for a new or untouched option, but it was only displayed — not stored — so its color dot never appeared in the card editor or Inventory until the picker was explicitly clicked. Every option now persists the color the picker shows on Save, and upgrading backfills the color on options that were previously saved without one (only where other options in the same field already have colors, so intentionally color-less built-ins are left untouched).
+- **Metamodel keys no longer lock when they match an existing key.** When adding a new select-field option (or relation-attribute dimension/value), typing a key that matched an existing one used to lock the new field so it couldn't be edited — and silently hid the collision. New keys now stay editable, and a key that duplicates another in the same list is flagged in red and blocks saving until it's made unique.
 
 ## [1.62.0] - 2026-06-30
 

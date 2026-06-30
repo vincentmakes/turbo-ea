@@ -11,6 +11,7 @@
   "key.noAccents": "Accented characters are not allowed",
   "key.lettersAndDigitsOnly": "Only letters and digits allowed (camelCase)",
   "key.cannotChange": "Key cannot be changed after creation",
+  "key.duplicate": "This key is already used in this list",
   "key.valid": "Valid key",
   "key.hint": "Letters and digits only, no separators (e.g. businessFit or ApplicationToITComponent)"
 }

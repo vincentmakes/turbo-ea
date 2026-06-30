@@ -11,6 +11,7 @@
   "key.noAccents": "Tegn med accent er ikke tilladt",
   "key.lettersAndDigitsOnly": "Kun bogstaver og tal tilladt (camelCase)",
   "key.cannotChange": "Nøglen kan ikke ændres efter oprettelse",
+  "key.duplicate": "Denne nøgle bruges allerede i denne liste",
   "key.valid": "Gyldig nøgle",
   "key.hint": "Kun bogstaver og tal, ingen separatorer (f.eks. businessFit eller ApplicationToITComponent)"
 }

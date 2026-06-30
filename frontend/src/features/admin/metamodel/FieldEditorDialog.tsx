@@ -57,11 +57,15 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
   // The label input reads/writes translations[currentLocale]
   const [displayLabel, setDisplayLabel] = useState("");
 
-  // Track which option keys existed before editing — these are locked
-  const originalOptionKeys = useMemo(
-    () => new Set((initial.options || []).map((o) => o.key).filter(Boolean)),
-    [initial],
-  );
+  // Keys that appear on more than one option — flagged red, and block Save.
+  // Keys must be unique within a select field's option list.
+  const duplicateOptionKeys = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const o of field.options || []) {
+      if (o.key) counts.set(o.key, (counts.get(o.key) || 0) + 1);
+    }
+    return new Set([...counts].filter(([, n]) => n > 1).map(([k]) => k));
+  }, [field.options]);
 
   // Option deletion confirmation
   const [deleteOptConfirm, setDeleteOptConfirm] = useState<{
@@ -73,7 +77,13 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
 
   useEffect(() => {
     if (open) {
-      setField({ ...initial });
+      // Mark options that already exist so their key stays locked. A row's
+      // original-ness travels with the row (survives add/remove), so a new row
+      // never locks just because its typed key matches an existing one.
+      setField({
+        ...initial,
+        options: (initial.options || []).map((o) => ({ ...o, _original: true })),
+      });
       setDisplayLabel(initial.translations?.[locale] || initial.label || "");
       setDeleteOptConfirm(null);
     }
@@ -106,7 +116,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
     if (!opt) return;
 
     // New options (not yet saved) can be removed without confirmation
-    if (!originalOptionKeys.has(opt.key)) {
+    if (!opt._original) {
       removeOption(idx);
       return;
     }
@@ -202,9 +212,12 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
                     value={opt.key}
                     onChange={(v) => updateOption(idx, { key: v })}
                     sx={{ flex: 1 }}
-                    locked={originalOptionKeys.has(opt.key)}
+                    locked={!!opt._original}
                     lockedReason={t("metamodel.fieldEditor.optionKeyLocked")}
                     required={!!opt.label.trim()}
+                    externalError={
+                      duplicateOptionKeys.has(opt.key) ? t("validation:key.duplicate") : undefined
+                    }
                   />
                   <TextField
                     size="small"
@@ -272,7 +285,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
               ...field,
               label: displayLabel,
               translations: cleanTranslationMap(mergedTranslations),
-              options: field.options?.map((o) => ({
+              options: field.options?.map(({ _original, ...o }) => ({
                 ...o,
                 // Persist the default the picker displays so an option whose
                 // swatch was never touched still saves a color (issue #718).
@@ -282,7 +295,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
             };
             onSave(cleanedField);
           }}
-          disabled={!field.key || !displayLabel || (!initial.key && !isValidKey(field.key)) || (isSelect && (field.options || []).some((o) => !originalOptionKeys.has(o.key) && !isValidKey(o.key)))}
+          disabled={!field.key || !displayLabel || (!initial.key && !isValidKey(field.key)) || (isSelect && ((field.options || []).some((o) => !o._original && !isValidKey(o.key)) || duplicateOptionKeys.size > 0))}
         >
           {t("common:actions.save")}
         </Button>
