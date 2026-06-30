@@ -20,6 +20,7 @@ En haut de l'écran, vous trouverez la **barre de navigation principale** avec l
 - **+ Créer** : Bouton pour créer rapidement de nouvelles fiches
 - **Cloche de notification** : Alertes système et [notifications](notifications.md)
 - **Icône de profil** : Sélection de la langue, bascule de thème, préférences de notification et accès à l'administration
+- **Soutenir** : Un bouton violet-rose à côté du numéro de version dans le menu de profil ouvre une boîte de dialogue expliquant pourquoi le parrainage est important, avec un lien vers le blog et des options ponctuelles ou mensuelles via GitHub Sponsors
 
 ## Fiches récapitulatives
 

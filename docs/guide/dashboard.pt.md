@@ -20,6 +20,7 @@ Na parte superior da tela, você encontrará a **barra de navegação principal*
 - **+ Criar**: Botão para criar rapidamente novos cards
 - **Sino de notificações**: Alertas do sistema e [notificações](notifications.md)
 - **Ícone de perfil**: Seleção de idioma, alternância de tema, preferências de notificação e acesso à administração
+- **Apoiar**: Um botão roxo a rosa ao lado do número da versão no menu de perfil abre uma caixa de diálogo que explica por que o patrocínio é importante, com uma ligação para o blogue e opções únicas ou mensais através do GitHub Sponsors
 
 ## Cards de Resumo
 

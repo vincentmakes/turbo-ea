@@ -20,6 +20,7 @@ Dashboardet er den første skærm, du ser efter login. Det giver et **hurtigt ov
 - **+ Opret**: Knap til hurtigt at oprette nye kort
 - **Notifikationsklokke**: Systemadvarsler og [notifikationer](notifications.md)
 - **Profilikon**: Sprogvalg, temaskifter, notifikationspræferencer og adgang til administration
+- **Støt**: En lilla-lyserød knap ved siden af versionsnummeret i profilmenuen åbner en dialog, der forklarer, hvorfor sponsorering er vigtig, med et link til bloggen og engangs- eller månedlige muligheder via GitHub Sponsors
 
 ## Oversigtskort
 

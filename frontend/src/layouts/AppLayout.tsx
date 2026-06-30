@@ -22,6 +22,8 @@ import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import NotificationBell from "@/components/NotificationBell";
 import NotificationPreferencesDialog from "@/components/NotificationPreferencesDialog";
+import SponsorshipDialog from "@/components/SponsorshipDialog";
+import { brand } from "@/theme";
 import { api, auth, setToken } from "@/api/client";
 import { useAuthContext } from "@/hooks/AuthContext";
 import ImpersonateRoleDialog from "@/features/admin/ImpersonateRoleDialog";
@@ -219,6 +221,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const [drawerReportsOpen, setDrawerReportsOpen] = useState(false);
   const [drawerAdminOpen, setDrawerAdminOpen] = useState(false);
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
+  const [sponsorshipOpen, setSponsorshipOpen] = useState(false);
   const [langMenu, setLangMenu] = useState<HTMLElement | null>(null);
   // Reference Catalogues menu section starts collapsed by default — there are
   // now three catalogue links (capability, process, value stream) plus
@@ -724,11 +727,44 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                 {user.email}
               </Typography>
             </MenuItem>
-            <MenuItem disabled sx={{ minHeight: 24 }}>
-              <Typography variant="caption" color="text.disabled" sx={{ fontSize: "0.65rem" }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 1,
+                px: 2,
+                py: 0.75,
+              }}
+            >
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.72rem" }}>
                 v{__APP_VERSION__}
               </Typography>
-            </MenuItem>
+              <Button
+                size="small"
+                startIcon={<MaterialSymbol icon="volunteer_activism" size={16} />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setUserMenu(null);
+                  setSponsorshipOpen(true);
+                }}
+                sx={{
+                  background: `linear-gradient(135deg, ${brand.sponsorFrom}, ${brand.sponsorTo})`,
+                  color: "#fff",
+                  textTransform: "none",
+                  px: 1.25,
+                  py: 0.25,
+                  minHeight: 0,
+                  fontSize: "0.72rem",
+                  "&:hover": {
+                    background: `linear-gradient(135deg, ${brand.sponsorFrom}, ${brand.sponsorTo})`,
+                    filter: "brightness(0.95)",
+                  },
+                }}
+              >
+                {t("userMenu.sponsorship")}
+              </Button>
+            </Box>
             <Divider />
             <MenuItem
               onClick={() => {
@@ -923,6 +959,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
         open={notifPrefsOpen}
         onClose={() => setNotifPrefsOpen(false)}
       />
+
+      {/* Sponsorship dialog */}
+      <SponsorshipDialog open={sponsorshipOpen} onClose={() => setSponsorshipOpen(false)} />
 
       {/* Language submenu */}
       <Menu

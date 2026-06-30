@@ -23,6 +23,11 @@ export const brand = {
    *  hover, lifecycle "plan" chip), where `primary` is too dark to
    *  legibly stand against the background. */
   primaryLight: "#90caf9",
+  /** Turbo EA logo accent — purple→pink. Used only for the Sponsor
+   *  affordance (the gradient button next to the version in the profile
+   *  menu and the sponsorship dialog's call-to-action buttons). */
+  sponsorFrom: "#7B2CBF",
+  sponsorTo: "#E91E63",
 } as const;
 
 export const surface = {

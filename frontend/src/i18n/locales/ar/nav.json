@@ -52,5 +52,15 @@
   "userMenu.valueStreamCatalogue": "كتالوج تدفق القيمة",
   "userMenu.viewAsRole": "العرض بصفة دور…",
   "impersonation.banner": "العرض بصفة {{role}}",
-  "impersonation.stop": "إيقاف"
+  "impersonation.stop": "إيقاف",
+  "userMenu.sponsorship": "ادعم",
+  "sponsorship.title": "ادعم Turbo EA",
+  "sponsorship.whyHeading": "لماذا الرعاية",
+  "sponsorship.whyBody": "تشغيل Turbo EA له تكاليف حقيقية — وقتي، واشتراك الذكاء الاصطناعي، والاستضافة. تساعد الرعاية في تغطية هذه التكاليف، وتدعم إلى جانب ذلك وقتي في إصدار تصحيحات الأمان وإصلاح الأخطاء كحد أدنى.",
+  "sponsorship.quote": "لقد أنشأت Turbo EA لأنني أؤمن بأن هندسة المؤسسة تخلق قيمة، وأن هذه القيمة لا ينبغي أن تعيقها قلة الأدوات أو الأدوات الباهظة الثمن. تستحق هندسة المؤسسة أن تصبح في متناول الجميع، وينبغي تمكين وظيفة هندسة المؤسسة من خلال حل معياري حديث وسهل الوصول وسهل الاستخدام لدفع تحول الأعمال والتحديث وتحقيق أهداف العمل بوجه عام عبر استخدام التقنية واعتمادها بكفاءة.",
+  "sponsorship.blogLink": "اقرأ: لماذا أنشأت Turbo EA",
+  "sponsorship.howHeading": "كيفية الدعم",
+  "sponsorship.howBody": "عبر GitHub Sponsors في الوقت الحالي. اختر تبرعًا لمرة واحدة أو مساهمة شهرية منتظمة:",
+  "sponsorship.oneTime": "مرة واحدة",
+  "sponsorship.monthly": "شهري"
 }

@@ -20,6 +20,7 @@ Am oberen Bildschirmrand finden Sie die **Hauptnavigationsleiste** mit folgenden
 - **+ Erstellen**: Schaltfläche zum schnellen Erstellen neuer Karten
 - **Benachrichtigungsglocke**: Systemhinweise und [Benachrichtigungen](notifications.md)
 - **Profilsymbol**: Sprachauswahl, Design-Umschaltung, Benachrichtigungseinstellungen und Zugang zur Administration
+- **Unterstützen**: Eine lila-pinke Schaltfläche neben der Versionsnummer im Profilmenü öffnet einen Dialog, der erklärt, warum Sponsoring wichtig ist, mit einem Link zum Blog und einmaligen oder monatlichen Optionen über GitHub Sponsors
 
 ## Zusammenfassungskarten
 

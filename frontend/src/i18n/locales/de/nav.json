@@ -52,5 +52,15 @@
   "userMenu.valueStreamCatalogue": "Wertstrom-Katalog",
   "userMenu.viewAsRole": "Als Rolle anzeigen…",
   "impersonation.banner": "Anzeige als {{role}}",
-  "impersonation.stop": "Beenden"
+  "impersonation.stop": "Beenden",
+  "userMenu.sponsorship": "Unterstützen",
+  "sponsorship.title": "Turbo EA unterstützen",
+  "sponsorship.whyHeading": "Warum Sponsoring",
+  "sponsorship.whyBody": "Der Betrieb von Turbo EA verursacht echte Kosten — meine Zeit, ein KI-Abonnement und das Hosting. Sponsoring hilft, diese zu decken, und darüber hinaus unterstützt es meine Zeit für Sicherheitspatches und Fehlerbehebungen als absolutes Minimum.",
+  "sponsorship.quote": "Ich habe Turbo EA entwickelt, weil ich überzeugt bin, dass Enterprise Architecture Wert schafft und dieser Wert nicht durch fehlende oder sehr teure Werkzeuge behindert werden sollte. EA verdient es, demokratisiert zu werden, und die EA-Funktion sollte durch eine moderne, zugängliche und einfach zu bedienende modulare Lösung ermöglicht werden, um Geschäftstransformation, Modernisierung und das Erreichen der Geschäftsziele allgemein durch einen effizienten Einsatz und die Akzeptanz von Technologie voranzutreiben.",
+  "sponsorship.blogLink": "Lesen: Warum ich Turbo EA entwickelt habe",
+  "sponsorship.howHeading": "Wie man unterstützt",
+  "sponsorship.howBody": "Vorerst über GitHub Sponsors. Wählen Sie eine einmalige Zuwendung oder einen regelmäßigen monatlichen Beitrag:",
+  "sponsorship.oneTime": "Einmalig",
+  "sponsorship.monthly": "Monatlich"
 }

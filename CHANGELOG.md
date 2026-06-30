@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.60.0] - 2026-06-30
+
+### Added
+- **Sponsor Turbo EA from the profile menu.** A purple-to-pink **Sponsor** button now sits next to the version number in the profile menu. Clicking it opens a dialog explaining why sponsorship matters, with a link to the "Why I built Turbo EA" blog post and one-time or monthly options via GitHub Sponsors. The version label is also slightly larger and easier to read.
+
 ## [1.59.1] - 2026-06-30
 
 ### Fixed

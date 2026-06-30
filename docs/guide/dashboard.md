@@ -20,6 +20,7 @@ At the top of the screen, you will find the **main navigation bar** with the fol
 - **+ Create**: Button to quickly create new cards
 - **Notification bell**: System alerts and [notifications](notifications.md)
 - **Profile icon**: Language selection, theme toggle, notification preferences, and administration access
+- **Sponsor**: A purple-to-pink button next to the version number in the profile menu opens a dialog explaining why sponsorship matters, with a link to the blog and one-time or monthly options via GitHub Sponsors
 
 ## Summary Cards
 

@@ -20,6 +20,7 @@ En la parte superior de la pantalla encontrará la **barra de navegación princi
 - **+ Crear**: Botón para crear nuevas fichas rápidamente
 - **Campana de notificaciones**: Alertas del sistema y [notificaciones](notifications.es.md)
 - **Icono de perfil**: Selección de idioma, cambio de tema, preferencias de notificaciones y acceso a administración
+- **Patrocinar**: Un botón de color púrpura a rosa junto al número de versión en el menú de perfil abre un cuadro de diálogo que explica por qué importa el patrocinio, con un enlace al blog y opciones únicas o mensuales a través de GitHub Sponsors
 
 ## Tarjetas de Resumen
 

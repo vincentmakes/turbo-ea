@@ -52,5 +52,15 @@
   "userMenu.valueStreamCatalogue": "价值流目录",
   "userMenu.viewAsRole": "以角色身份查看…",
   "impersonation.banner": "正在以 {{role}} 身份查看",
-  "impersonation.stop": "停止"
+  "impersonation.stop": "停止",
+  "userMenu.sponsorship": "赞助",
+  "sponsorship.title": "支持 Turbo EA",
+  "sponsorship.whyHeading": "为什么需要赞助",
+  "sponsorship.whyBody": "运营 Turbo EA 有实实在在的成本——我的时间、AI 订阅和托管费用。赞助有助于覆盖这些成本，此外还能支持我投入时间进行安全补丁和缺陷修复，至少维持基本保障。",
+  "sponsorship.quote": "我打造 Turbo EA，是因为我相信企业架构能够创造价值，而这种价值不应因缺乏工具或工具过于昂贵而受到阻碍。企业架构理应被普及，EA 职能应当由一个现代、易得且易用的模块化解决方案来支撑，从而通过高效地使用和采用技术，推动业务转型、现代化以及总体业务目标的实现。",
+  "sponsorship.blogLink": "阅读：我为什么打造 Turbo EA",
+  "sponsorship.howHeading": "如何赞助",
+  "sponsorship.howBody": "目前通过 GitHub Sponsors。可选择一次性捐赠或定期的每月贡献：",
+  "sponsorship.oneTime": "一次性",
+  "sponsorship.monthly": "每月"
 }

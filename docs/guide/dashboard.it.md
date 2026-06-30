@@ -20,6 +20,7 @@ Nella parte superiore dello schermo si trova la **barra di navigazione principal
 - **+ Crea**: Pulsante per creare rapidamente nuove card
 - **Campanella delle notifiche**: Avvisi di sistema e [notifiche](notifications.md)
 - **Icona profilo**: Selezione della lingua, cambio tema, preferenze di notifica e accesso all'amministrazione
+- **Sostieni**: Un pulsante viola-rosa accanto al numero di versione nel menu del profilo apre una finestra che spiega perché le sponsorizzazioni sono importanti, con un collegamento al blog e opzioni una tantum o mensili tramite GitHub Sponsors
 
 ## Schede riepilogative
 

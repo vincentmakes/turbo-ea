@@ -52,5 +52,15 @@
   "userMenu.valueStreamCatalogue": "Catalogue de chaînes de valeur",
   "userMenu.viewAsRole": "Voir en tant que rôle…",
   "impersonation.banner": "Affichage en tant que {{role}}",
-  "impersonation.stop": "Arrêter"
+  "impersonation.stop": "Arrêter",
+  "userMenu.sponsorship": "Soutenir",
+  "sponsorship.title": "Soutenir Turbo EA",
+  "sponsorship.whyHeading": "Pourquoi le parrainage",
+  "sponsorship.whyBody": "Faire fonctionner Turbo EA a un coût réel — mon temps, un abonnement IA et l'hébergement. Le parrainage aide à les couvrir, et au-delà il soutient mon temps consacré aux correctifs de sécurité et à la correction de bugs, au strict minimum.",
+  "sponsorship.quote": "J'ai créé Turbo EA parce que je crois que l'architecture d'entreprise crée de la valeur et que cette valeur ne devrait pas être entravée par le manque d'outils ou par des outils très coûteux. L'EA mérite d'être démocratisée et la fonction EA devrait être soutenue par une solution modulaire moderne, accessible et facile à utiliser pour mener la transformation des activités, la modernisation et la réalisation des objectifs métier en général grâce à un usage efficace et à l'adoption de la technologie.",
+  "sponsorship.blogLink": "À lire : Pourquoi j'ai créé Turbo EA",
+  "sponsorship.howHeading": "Comment soutenir",
+  "sponsorship.howBody": "Via GitHub Sponsors pour l'instant. Choisissez un don unique ou une contribution mensuelle régulière :",
+  "sponsorship.oneTime": "Ponctuel",
+  "sponsorship.monthly": "Mensuel"
 }
