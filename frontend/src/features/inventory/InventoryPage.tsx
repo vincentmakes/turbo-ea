@@ -344,13 +344,30 @@ export default function InventoryPage() {
   const [columnState, setColumnState] = useState<ColumnLayoutItem[] | undefined>(
     () => savedPrefsRef.current?.columnState,
   );
-  // A layout waiting to be pushed into the live grid (initial load, or a view
-  // being applied). Applied by the effect below once the grid is ready and
-  // columnDefs reflect the matching visibility set.
-  const [pendingColumnState, setPendingColumnState] = useState<ColumnLayoutItem[] | null>(
-    () => savedPrefsRef.current?.columnState ?? null,
-  );
+  // Mirror of the latest columnState for the apply effect (which keys on
+  // columnDefs, not columnState, to avoid re-applying on every capture).
+  const columnStateRef = useRef(columnState);
+  columnStateRef.current = columnState;
+  // While true, the saved layout is (re)applied to the grid as columns arrive.
+  // Attribute/relation columns appear only after the metamodel loads — *after*
+  // the grid is ready — so a one-shot restore would miss them. We keep
+  // re-applying on every columnDefs change until the user manually rearranges.
+  const restorePendingRef = useRef(true);
+  // Guards against the apply firing column events that we'd otherwise capture
+  // back (feedback) or mistake for a user rearrange.
+  const applyingLayoutRef = useRef(false);
+  // Bumped to force a re-apply (e.g. when a saved view is applied and the
+  // column *set* doesn't change, so columnDefs alone wouldn't retrigger).
+  const [layoutNonce, setLayoutNonce] = useState(0);
   const [gridReady, setGridReady] = useState(false);
+
+  // Set the saved layout to restore (initial load handled by restorePendingRef
+  // default; this is the entry point for applying a bookmark's layout).
+  const applyColumnLayout = useCallback((layout: ColumnLayoutItem[] | null) => {
+    restorePendingRef.current = true;
+    setColumnState(layout ?? undefined);
+    setLayoutNonce((n) => n + 1);
+  }, []);
   const [exportMenuAnchor, setExportMenuAnchor] = useState<null | HTMLElement>(null);
 
   // Mass edit state
@@ -790,6 +807,8 @@ export default function InventoryPage() {
   }, [defaultColumns]);
 
   const handleSortChanged = useCallback((event: SortChangedEvent) => {
+    // Ignore sort events fired by our own applyColumnState() restore.
+    if (applyingLayoutRef.current) return;
     const colState = event.api.getColumnState();
     const sorted = colState
       .filter((c) => c.sort)
@@ -804,28 +823,18 @@ export default function InventoryPage() {
 
   // Capture order/width/pinning whenever the user drags or pins a column.
   // onDragStopped covers both column moves and resizes (one event at drag end).
+  // A genuine user rearrange also ends the initial-restore window.
   const captureColumnState = useCallback(() => {
+    if (applyingLayoutRef.current) return;
     const api = gridRef.current?.api;
     if (!api) return;
+    restorePendingRef.current = false;
     setColumnState(api.getColumnState() as unknown as ColumnLayoutItem[]);
   }, []);
 
   const handleGridReady = useCallback((_event: GridReadyEvent) => {
     setGridReady(true);
   }, []);
-
-  // Push a saved/pending layout into the live grid once it's ready and the
-  // columnDefs reflect the matching visibility set. We strip `hide` so column
-  // visibility keeps flowing from `selectedColumns` (the sidebar picker); the
-  // remaining state restores order, width, pinning, and sort.
-  useEffect(() => {
-    if (!gridReady || pendingColumnState == null) return;
-    const api = gridRef.current?.api;
-    if (!api) return;
-    const state: ColumnState[] = pendingColumnState.map(({ hide: _hide, ...rest }) => rest);
-    api.applyColumnState({ state, applyOrder: true });
-    setPendingColumnState(null);
-  }, [gridReady, pendingColumnState]);
 
   // Export only what's on screen: the displayed columns, in their current
   // left-to-right order, with their displayed headers, and only the rows left
@@ -1886,6 +1895,26 @@ export default function InventoryPage() {
     return cols;
   }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, selectedType, parentPaths, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally, tagGroups]);
 
+  // Restore the saved column layout (order/width/pinning/sort) onto the grid.
+  // Keyed on `columnDefs` so it re-applies each time the column *set* changes —
+  // crucially when attribute/relation columns arrive after the metamodel loads,
+  // which happens *after* the grid is ready. We strip `hide` so visibility keeps
+  // flowing from `selectedColumns`. `restorePendingRef` stops the restore once
+  // the user manually rearranges; `applyingLayoutRef` guards against capturing
+  // the events this apply fires. Without re-applying on columnDefs changes, a
+  // one-shot restore at grid-ready loses the late-arriving columns' positions.
+  useEffect(() => {
+    if (!gridReady || !restorePendingRef.current) return;
+    const layout = columnStateRef.current;
+    if (!layout || layout.length === 0) return;
+    const api = gridRef.current?.api;
+    if (!api) return;
+    const state: ColumnState[] = layout.map(({ hide: _hide, ...rest }) => rest);
+    applyingLayoutRef.current = true;
+    api.applyColumnState({ state, applyOrder: true });
+    applyingLayoutRef.current = false;
+  }, [gridReady, columnDefs, layoutNonce]);
+
   // Render mass edit value input based on field type
   const renderMassEditInput = () => {
     if (!currentMassField) return null;
@@ -2108,7 +2137,7 @@ export default function InventoryPage() {
             defaultColumns={defaultColumns}
             onResetColumns={handleResetColumns}
             columnState={columnState}
-            onApplyColumnState={setPendingColumnState}
+            onApplyColumnState={applyColumnLayout}
           />
         </Drawer>
       ) : (
@@ -2132,7 +2161,7 @@ export default function InventoryPage() {
           defaultColumns={defaultColumns}
           onResetColumns={handleResetColumns}
           columnState={columnState}
-          onApplyColumnState={setPendingColumnState}
+          onApplyColumnState={applyColumnLayout}
         />
       )}
 
