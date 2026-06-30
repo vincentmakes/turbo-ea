@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Select field options now require a key.** The field editor let an option be saved with only a label and no key; on a card such an option appeared in the dropdown but could not be selected, displayed, or saved. The editor now keeps Save disabled until every option has a valid key.
 
 ### Changed
-- **Empty mandatory fields are highlighted in red across the Metamodel editor.** Required inputs — card-type key/name, field key/label, select-option keys, subtype key/label, relation key/verb, relation-value dimensions and options, and stakeholder-role key/name — now show a red border while empty, so it's clear what still needs filling in before Save is enabled.
+- **Empty mandatory fields are highlighted in red across the Metamodel editor.** Required inputs — card-type key/name, field key/label, select-option keys, subtype key/label, relation key/verb, relation-value dimensions and options, and stakeholder-role key/name — now show a red border when left empty, so it's clear what still needs filling in before Save is enabled. Key fields only turn red once you start editing them (a pristine, untouched key is never flagged).
 
 ## [1.59.0] - 2026-06-30
 

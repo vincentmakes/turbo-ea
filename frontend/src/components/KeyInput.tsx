@@ -96,8 +96,9 @@ export default function KeyInput({
   const displayError = externalError || (errorKey ? t(errorKey) : "");
   const showSuccess = touched && !externalError && !errorKey && value.length > 0;
   // A mandatory but still-empty key: flag the border/label red without adding
-  // any error helper text.
-  const requiredEmpty = required && !locked && !value;
+  // any error helper text. Only after the user has interacted (started typing)
+  // — a pristine, untouched field is never shown red.
+  const requiredEmpty = required && !locked && !value && touched;
 
   return (
     <TextField

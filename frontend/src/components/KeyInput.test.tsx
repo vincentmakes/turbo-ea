@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import KeyInput, { isValidKey, coerceKey } from "./KeyInput";
@@ -137,15 +138,24 @@ describe("KeyInput component", () => {
     expect(input).toHaveProperty("disabled", true);
   });
 
-  it("flags an empty required field as invalid (red border) without a value", () => {
+  it("does not flag a pristine (untouched) empty required field", () => {
     render(<KeyInput value="" onChange={vi.fn()} required label="Key" />);
-    // MUI sets aria-invalid on the input when the field is in error state.
-    expect(screen.getByRole("textbox")).toHaveAttribute("aria-invalid", "true");
+    // No red until the user interacts with it.
+    expect(screen.getByRole("textbox")).toHaveAttribute("aria-invalid", "false");
   });
 
-  it("clears the required error once a valid value is present", () => {
-    render(<KeyInput value="inProgress" onChange={vi.fn()} required label="Key" />);
-    expect(screen.getByRole("textbox")).toHaveAttribute("aria-invalid", "false");
+  it("flags a required field red once the user has typed and left it empty", () => {
+    function Controlled() {
+      const [v, setV] = useState("");
+      return <KeyInput value={v} onChange={setV} required label="Key" />;
+    }
+    render(<Controlled />);
+    const input = screen.getByRole("textbox");
+    expect(input).toHaveAttribute("aria-invalid", "false"); // pristine
+    fireEvent.change(input, { target: { value: "abc" } });
+    expect(input).toHaveAttribute("aria-invalid", "false"); // has a value
+    fireEvent.change(input, { target: { value: "" } });
+    expect(input).toHaveAttribute("aria-invalid", "true"); // touched + empty
   });
 
   it("does not flag a locked required field as invalid", () => {
