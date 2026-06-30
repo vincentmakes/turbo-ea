@@ -1546,5 +1546,13 @@
   "metamodel.resourceTypes.translationsHelp": "各语言的显示标签。留空则回退到默认标签。",
   "metamodel.resourceTypes.loadError": "无法加载资源类型。",
   "metamodel.resourceTypes.saveError": "无法保存资源类型。",
-  "metamodel.resourceTypes.deleteError": "无法删除资源类型。"
+  "metamodel.resourceTypes.deleteError": "无法删除资源类型。",
+  "settings.sponsorButton.title": "赞助按钮",
+  "settings.sponsorButton.enabled": "显示",
+  "settings.sponsorButton.disabled": "隐藏",
+  "settings.sponsorButton.description": "在用户（头像）菜单中显示或隐藏赞助按钮。它始终可在此设置页面中使用。",
+  "settings.sponsorButton.visible": "赞助按钮显示在用户菜单中",
+  "settings.sponsorButton.hidden": "赞助按钮已从用户菜单中隐藏",
+  "settings.sponsorButton.enabledSuccess": "赞助按钮已显示在用户菜单中",
+  "settings.sponsorButton.disabledSuccess": "赞助按钮已从用户菜单中隐藏"
 }

@@ -10936,6 +10936,19 @@
         "title": "SourceOut",
         "type": "object"
       },
+      "SponsorButtonEnabledPayload": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "SponsorButtonEnabledPayload",
+        "type": "object"
+      },
       "SsoCallbackRequest": {
         "properties": {
           "code": {
@@ -30529,6 +30542,64 @@
           }
         },
         "summary": "Update Registration Settings",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/sponsor-button-enabled": {
+      "get": {
+        "description": "Public endpoint \u2014 returns whether the Sponsor button is shown in the user menu.\n\nDefaults to True so existing installations keep showing it; administrators can\nhide it from the avatar menu via the admin UI. It always remains reachable from\nAdmin \u2192 Settings regardless of this flag.",
+        "operationId": "get_sponsor_button_enabled_api_v1_settings_sponsor_button_enabled_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Sponsor Button Enabled",
+        "tags": [
+          "settings"
+        ]
+      },
+      "patch": {
+        "description": "Admin endpoint \u2014 show or hide the Sponsor button in the user (avatar) menu.",
+        "operationId": "update_sponsor_button_enabled_api_v1_settings_sponsor_button_enabled_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SponsorButtonEnabledPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Sponsor Button Enabled",
         "tags": [
           "settings"
         ]

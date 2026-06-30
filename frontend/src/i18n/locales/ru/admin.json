@@ -1546,5 +1546,13 @@
   "metamodel.resourceTypes.translationsHelp": "Отображаемое название для каждого языка. Оставьте пустым, чтобы использовать название по умолчанию.",
   "metamodel.resourceTypes.loadError": "Не удалось загрузить типы ресурсов.",
   "metamodel.resourceTypes.saveError": "Не удалось сохранить тип ресурса.",
-  "metamodel.resourceTypes.deleteError": "Не удалось удалить тип ресурса."
+  "metamodel.resourceTypes.deleteError": "Не удалось удалить тип ресурса.",
+  "settings.sponsorButton.title": "Кнопка «Поддержать»",
+  "settings.sponsorButton.enabled": "Показана",
+  "settings.sponsorButton.disabled": "Скрыта",
+  "settings.sponsorButton.description": "Показать или скрыть кнопку «Поддержать» в меню пользователя (аватар). Она всегда остаётся доступной здесь, в настройках.",
+  "settings.sponsorButton.visible": "Кнопка «Поддержать» показана в меню пользователя",
+  "settings.sponsorButton.hidden": "Кнопка «Поддержать» скрыта из меню пользователя",
+  "settings.sponsorButton.enabledSuccess": "Кнопка «Поддержать» показана в меню пользователя",
+  "settings.sponsorButton.disabledSuccess": "Кнопка «Поддержать» скрыта из меню пользователя"
 }

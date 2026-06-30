@@ -204,6 +204,7 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         "ppm_enabled": general.get("ppmEnabled", False),
         "turbolens_enabled": general.get("turboLensEnabled", True),
         "grc_enabled": general.get("grcEnabled", True),
+        "sponsor_button_enabled": general.get("sponsorButtonEnabled", True),
         "file_uploads_enabled": general.get("fileUploadsEnabled", True),
         "enabled_locales": general.get("enabledLocales", SUPPORTED_LOCALES),
         "fiscal_year_start": general.get("fiscalYearStart", 1),
@@ -627,6 +628,42 @@ async def update_grc_enabled(
     row = await _get_or_create_row(db)
     general = dict(row.general_settings or {})
     general["grcEnabled"] = body.enabled
+    row.general_settings = general
+
+    await db.commit()
+    return {"ok": True}
+
+
+class SponsorButtonEnabledPayload(BaseModel):
+    enabled: bool
+
+
+@router.get("/sponsor-button-enabled")
+async def get_sponsor_button_enabled(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — returns whether the Sponsor button is shown in the user menu.
+
+    Defaults to True so existing installations keep showing it; administrators can
+    hide it from the avatar menu via the admin UI. It always remains reachable from
+    Admin → Settings regardless of this flag.
+    """
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    return {"enabled": general.get("sponsorButtonEnabled", True)}
+
+
+@router.patch("/sponsor-button-enabled")
+async def update_sponsor_button_enabled(
+    body: SponsorButtonEnabledPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — show or hide the Sponsor button in the user (avatar) menu."""
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["sponsorButtonEnabled"] = body.enabled
     row.general_settings = general
 
     await db.commit()

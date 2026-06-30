@@ -1546,5 +1546,13 @@
   "metamodel.resourceTypes.translationsHelp": "Display label per locale. Leave empty to fall back to the default label.",
   "metamodel.resourceTypes.loadError": "Could not load resource types.",
   "metamodel.resourceTypes.saveError": "Could not save resource type.",
-  "metamodel.resourceTypes.deleteError": "Could not delete resource type."
+  "metamodel.resourceTypes.deleteError": "Could not delete resource type.",
+  "settings.sponsorButton.title": "Sponsor Button",
+  "settings.sponsorButton.enabled": "Shown",
+  "settings.sponsorButton.disabled": "Hidden",
+  "settings.sponsorButton.description": "Show or hide the Sponsor button in the user (avatar) menu. It always remains available here in Settings.",
+  "settings.sponsorButton.visible": "Sponsor button is shown in the user menu",
+  "settings.sponsorButton.hidden": "Sponsor button is hidden from the user menu",
+  "settings.sponsorButton.enabledSuccess": "Sponsor button shown in the user menu",
+  "settings.sponsorButton.disabledSuccess": "Sponsor button hidden from the user menu"
 }

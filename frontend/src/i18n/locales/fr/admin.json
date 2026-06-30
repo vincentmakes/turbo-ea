@@ -1546,5 +1546,13 @@
   "metamodel.resourceTypes.translationsHelp": "Libellé d'affichage par langue. Laisser vide pour utiliser le libellé par défaut.",
   "metamodel.resourceTypes.loadError": "Impossible de charger les types de ressources.",
   "metamodel.resourceTypes.saveError": "Impossible d'enregistrer le type de ressource.",
-  "metamodel.resourceTypes.deleteError": "Impossible de supprimer le type de ressource."
+  "metamodel.resourceTypes.deleteError": "Impossible de supprimer le type de ressource.",
+  "settings.sponsorButton.title": "Bouton Soutenir",
+  "settings.sponsorButton.enabled": "Affiché",
+  "settings.sponsorButton.disabled": "Masqué",
+  "settings.sponsorButton.description": "Affichez ou masquez le bouton Soutenir dans le menu utilisateur (avatar). Il reste toujours disponible ici dans les Paramètres.",
+  "settings.sponsorButton.visible": "Le bouton Soutenir est affiché dans le menu utilisateur",
+  "settings.sponsorButton.hidden": "Le bouton Soutenir est masqué du menu utilisateur",
+  "settings.sponsorButton.enabledSuccess": "Bouton Soutenir affiché dans le menu utilisateur",
+  "settings.sponsorButton.disabledSuccess": "Bouton Soutenir masqué du menu utilisateur"
 }

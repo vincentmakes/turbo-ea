@@ -1546,5 +1546,13 @@
   "metamodel.resourceTypes.translationsHelp": "التسمية المعروضة لكل لغة. اتركها فارغة للرجوع إلى التسمية الافتراضية.",
   "metamodel.resourceTypes.loadError": "تعذّر تحميل أنواع الموارد.",
   "metamodel.resourceTypes.saveError": "تعذّر حفظ نوع المورد.",
-  "metamodel.resourceTypes.deleteError": "تعذّر حذف نوع المورد."
+  "metamodel.resourceTypes.deleteError": "تعذّر حذف نوع المورد.",
+  "settings.sponsorButton.title": "زر الدعم",
+  "settings.sponsorButton.enabled": "ظاهر",
+  "settings.sponsorButton.disabled": "مخفي",
+  "settings.sponsorButton.description": "إظهار أو إخفاء زر الدعم في قائمة المستخدم (الصورة الرمزية). يبقى متاحًا دائمًا هنا في الإعدادات.",
+  "settings.sponsorButton.visible": "زر الدعم ظاهر في قائمة المستخدم",
+  "settings.sponsorButton.hidden": "زر الدعم مخفي من قائمة المستخدم",
+  "settings.sponsorButton.enabledSuccess": "تم إظهار زر الدعم في قائمة المستخدم",
+  "settings.sponsorButton.disabledSuccess": "تم إخفاء زر الدعم من قائمة المستخدم"
 }
