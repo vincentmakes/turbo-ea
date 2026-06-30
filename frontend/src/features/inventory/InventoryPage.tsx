@@ -835,6 +835,11 @@ export default function InventoryPage() {
       headerName: api.getDisplayNameForColumn(c, null) || c.getColId(),
     }));
     const rows: Record<string, unknown>[] = [];
+    // forEachNodeAfterFilterAndSort walks EVERY row that passes the active
+    // filters, in display (sort) order — it ignores pagination and row
+    // virtualization. So the export always covers the full filtered result,
+    // not just the rows currently scrolled/paged into view. (Do not switch to
+    // getRenderedNodes(), which is viewport-bound.)
     api.forEachNodeAfterFilterAndSort((node) => {
       if (!node.data) return;
       const row: Record<string, unknown> = {};
