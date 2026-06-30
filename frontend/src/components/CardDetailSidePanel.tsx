@@ -14,7 +14,7 @@ import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
 import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { useAiStatus } from "@/hooks/useAiStatus";
 import { api } from "@/api/client";
 import { DataQualityPill } from "@/features/cards/sections";
@@ -55,6 +55,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
   const { t } = useTranslation("common");
   const { getType } = useMetamodel();
   const rml = useResolveMetaLabel();
+  const rl = useResolveLabel();
 
   const [card, setCard] = useState<Card | null>(null);
   const [error, setError] = useState("");
@@ -86,6 +87,15 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
   }, [cardId, open]);
 
   const typeConfig = card ? getType(card.type) : null;
+  // Resolve the subtype key (e.g. "aiModel") to its translated metamodel label
+  // (e.g. "AI Model"), mirroring CardDetail.tsx's header.
+  const subtypeLabel =
+    card?.subtype && typeof card.subtype === "string"
+      ? (() => {
+          const st = typeConfig?.subtypes?.find((s) => s.key === card.subtype);
+          return st ? rl(st.label, st.translations) : card.subtype;
+        })()
+      : null;
   const isArchived = card?.status === "ARCHIVED";
   const aiEnabled =
     !!card &&
@@ -192,10 +202,10 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
                   <Typography variant="caption" color="text.secondary" noWrap>
                     {rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type}
                   </Typography>
-                  {card.subtype && typeof card.subtype === "string" && (
+                  {subtypeLabel && (
                     <Chip
                       size="small"
-                      label={card.subtype}
+                      label={subtypeLabel}
                       variant="outlined"
                       sx={{ height: 18, fontSize: "0.65rem" }}
                     />

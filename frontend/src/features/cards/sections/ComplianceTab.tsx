@@ -26,6 +26,8 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api, ApiError } from "@/api/client";
 import { useComplianceRegulations } from "@/hooks/useComplianceRegulations";
@@ -52,6 +54,8 @@ export default function ComplianceTab({ cardId }: Props) {
   const { t: tAdmin } = useTranslation("admin");
   const { byKey: regulationsByKey } = useComplianceRegulations();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const [findings, setFindings] = useState<TurboLensComplianceFinding[]>([]);
   const [loading, setLoading] = useState(true);
@@ -143,6 +147,88 @@ export default function ComplianceTab({ cardId }: Props) {
         <Typography variant="body2" color="text.secondary">
           {t("compliance.cardTab.empty")}
         </Typography>
+      ) : isMobile ? (
+        <Stack spacing={1}>
+          {findings.map((f) => (
+            <Box
+              key={f.id}
+              onClick={() => setDrawer(f)}
+              sx={{
+                border: 1,
+                borderColor: "divider",
+                borderRadius: 1,
+                p: 1.5,
+                cursor: "pointer",
+                opacity: f.auto_resolved ? 0.65 : 1,
+                "&:hover": { bgcolor: "action.hover" },
+              }}
+            >
+              <Stack
+                direction="row"
+                spacing={0.75}
+                alignItems="center"
+                flexWrap="wrap"
+                useFlexGap
+                sx={{ mb: 0.75 }}
+              >
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={
+                    regulationsByKey[f.regulation]?.label ??
+                    tAdmin(`compliance_regulation_${f.regulation}`, {
+                      defaultValue: f.regulation,
+                    })
+                  }
+                />
+                {f.regulation_article && (
+                  <Typography variant="caption" color="text.secondary">
+                    {f.regulation_article}
+                  </Typography>
+                )}
+              </Stack>
+              <Stack
+                direction="row"
+                spacing={0.75}
+                alignItems="center"
+                flexWrap="wrap"
+                useFlexGap
+                sx={{ mb: 1 }}
+              >
+                <Chip
+                  size="small"
+                  color={complianceStatusColor(f.status)}
+                  label={tAdmin(`compliance_status_${f.status}`)}
+                />
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={tAdmin(`compliance_severity_${f.severity}`)}
+                />
+                <Chip
+                  size="small"
+                  icon={
+                    f.auto_resolved ? (
+                      <MaterialSymbol icon="replay" size={12} />
+                    ) : undefined
+                  }
+                  label={tAdmin(`compliance_decision_${f.decision}`)}
+                  sx={{
+                    bgcolor:
+                      COMPLIANCE_LIFECYCLE_COLORS[
+                        f.decision as ComplianceDecision
+                      ] || undefined,
+                    color: "#fff",
+                    fontWeight: 600,
+                  }}
+                />
+              </Stack>
+              <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
+                {f.requirement}
+              </Typography>
+            </Box>
+          ))}
+        </Stack>
       ) : (
         <Table size="small" sx={{ tableLayout: "fixed", width: "100%" }}>
           <TableHead>
