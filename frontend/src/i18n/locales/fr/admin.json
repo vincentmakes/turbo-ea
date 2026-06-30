@@ -1554,5 +1554,6 @@
   "settings.sponsorButton.visible": "Le bouton Soutenir est affiché dans le menu utilisateur",
   "settings.sponsorButton.hidden": "Le bouton Soutenir est masqué du menu utilisateur",
   "settings.sponsorButton.enabledSuccess": "Bouton Soutenir affiché dans le menu utilisateur",
-  "settings.sponsorButton.disabledSuccess": "Bouton Soutenir masqué du menu utilisateur"
+  "settings.sponsorButton.disabledSuccess": "Bouton Soutenir masqué du menu utilisateur",
+  "settings.sponsorButton.companyLogoNote": "Si votre entreprise sponsorise Turbo EA et souhaite que son logo soit mis en avant sur turbo-ea.org, veuillez nous contacter à"
 }

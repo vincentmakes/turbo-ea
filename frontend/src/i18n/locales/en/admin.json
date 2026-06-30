@@ -1554,5 +1554,6 @@
   "settings.sponsorButton.visible": "Sponsor button is shown in the user menu",
   "settings.sponsorButton.hidden": "Sponsor button is hidden from the user menu",
   "settings.sponsorButton.enabledSuccess": "Sponsor button shown in the user menu",
-  "settings.sponsorButton.disabledSuccess": "Sponsor button hidden from the user menu"
+  "settings.sponsorButton.disabledSuccess": "Sponsor button hidden from the user menu",
+  "settings.sponsorButton.companyLogoNote": "If your company sponsors Turbo EA and would like its logo featured on turbo-ea.org, please reach out at"
 }

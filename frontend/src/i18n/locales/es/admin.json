@@ -1554,5 +1554,6 @@
   "settings.sponsorButton.visible": "El botón Patrocinar se muestra en el menú de usuario",
   "settings.sponsorButton.hidden": "El botón Patrocinar está oculto en el menú de usuario",
   "settings.sponsorButton.enabledSuccess": "Botón Patrocinar mostrado en el menú de usuario",
-  "settings.sponsorButton.disabledSuccess": "Botón Patrocinar oculto en el menú de usuario"
+  "settings.sponsorButton.disabledSuccess": "Botón Patrocinar oculto en el menú de usuario",
+  "settings.sponsorButton.companyLogoNote": "Si tu empresa patrocina Turbo EA y desea que su logotipo aparezca en turbo-ea.org, ponte en contacto en"
 }

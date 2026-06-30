@@ -121,6 +121,8 @@ Consultate la [guida GRC](../guide/grc.md) per il riferimento completo delle fun
 
 Mostra o nascondi il pulsante **Sostieni** nel menu utente (avatar). Quando è nascosto, gli utenti non vedono più il pulsante Sostieni nel loro menu del profilo. Il pulsante Sostieni — e la finestra che spiega come sostenere Turbo EA — rimane sempre disponibile da questo pannello delle impostazioni, così gli amministratori possono comunque raggiungerlo anche quando è nascosto dal menu.
 
+Se la tua azienda sostiene Turbo EA e desidera che il suo logo venga mostrato su turbo-ea.org, scrivi a [sponsorship@turbo-ea.org](mailto:sponsorship@turbo-ea.org).
+
 ## Impostazioni TurboLens
 
 La scheda **TurboLens** raccoglie gli interruttori che governano la superficie di analisi IA. A differenza degli interruttori per-modulo sopra, TurboLens **non** è un on/off binario — è «pronto» quando sia un provider IA è configurato (sotto la scheda **IA**) sia i dati di analisi si sono sincronizzati almeno una volta. La pagina espone anche:

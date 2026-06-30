@@ -121,6 +121,8 @@ Se [GRC-vejledningen](../guide/grc.md) for den fulde funktionsreference.
 
 Vis eller skjul **Støt**-knappen i brugermenuen (avatar). Når den er skjult, ser brugerne ikke længere Støt-knappen i deres profilmenu. Støt-knappen — og dialogen, der forklarer, hvordan man støtter Turbo EA — er altid tilgængelig fra dette indstillingspanel, så administratorer stadig kan nå den, selv når den er skjult i menuen.
 
+Hvis din virksomhed sponsorerer Turbo EA og gerne vil have sit logo vist på turbo-ea.org, så kontakt [sponsorship@turbo-ea.org](mailto:sponsorship@turbo-ea.org).
+
 ## TurboLens-indstillinger
 
 Fanebladet **TurboLens** samler de kontakter, der styrer AI-analysefladen. I modsætning til de modulvise omskiftere ovenfor er TurboLens **ikke** en binær til/fra — den er "klar", når både en AI-udbyder er konfigureret (under fanebladet **AI**), og analysedataene er synkroniseret mindst én gang. Siden eksponerer også:
