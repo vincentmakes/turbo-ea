@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.62.2] - 2026-06-30
+
+### Fixed
+- **Enabling "Supports Lineage" on a card type now shows the lineage section** (#729). Turning on Supports Lineage in the Metamodel for any card type (e.g. Business Context, Objective) previously had no visible effect on the card detail page. The Predecessors/Successors lineage section now appears automatically, and existing installs are backfilled.
+
 ## [1.62.1] - 2026-06-30
 
 ### Fixed

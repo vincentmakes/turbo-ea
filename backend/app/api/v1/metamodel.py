@@ -485,6 +485,10 @@ async def create_type(
         translations=body.get("translations", {}),
     )
     db.add(t)
+    if t.has_successors:
+        # Auto-provide the lineage relation type so the card detail lineage
+        # section renders (issue #729).
+        await _ensure_successor_relation_type(db, t.key)
     await db.commit()
     await db.refresh(t)
     return _serialize_type(t)
@@ -556,6 +560,13 @@ async def update_type(
     for field in updatable:
         if field in body:
             setattr(t, field, body[field])
+
+    # Auto-provide the self-referential lineage relation type whenever lineage is
+    # enabled. Run unconditionally-when-true (idempotent, one indexed lookup) so it
+    # also self-heals types already stuck in the issue #729 state — flag set, no
+    # relation type — on their next save.
+    if t.has_successors:
+        await _ensure_successor_relation_type(db, t.key)
 
     await db.commit()
     await db.refresh(t)
@@ -640,6 +651,96 @@ async def delete_type(
 # uniqueness rule so a custom self-relation can coexist with the built-in successor
 # (mirrors the seeded BusinessProcess "depends on" + "succeeds" pair).
 SUCCESSOR_KEY_SUFFIX = "Successor"
+
+# Canonical label + i18n for an auto-provisioned successor (lineage) relation type.
+# Mirrors the seeded built-in successors (e.g. ``relAppSuccessor`` in seed.py) so a
+# relation type created when an admin enables "Supports Lineage" carries the same
+# wording/translations as the built-ins. The English label is also injected into the
+# translations dict to match the seed (see ``_inject_english_translations_relation``).
+_SUCCESSOR_LABEL = "succeeds"
+_SUCCESSOR_REVERSE_LABEL = "is preceded by"
+_SUCCESSOR_TRANSLATIONS: dict = {
+    "label": {
+        "en": _SUCCESSOR_LABEL,
+        "de": "folgt auf",
+        "fr": "succède à",
+        "es": "sucede a",
+        "it": "succede a",
+        "pt": "sucede a",
+        "zh": "继承",
+        "ru": "предшествует",
+        "da": "efterfølger",
+        "ar": "يخلف",
+    },
+    "reverse_label": {
+        "en": _SUCCESSOR_REVERSE_LABEL,
+        "de": "wird abgelöst durch",
+        "fr": "est précédé par",
+        "es": "es precedido por",
+        "it": "è preceduto da",
+        "pt": "é precedido por",
+        "zh": "被继承",
+        "ru": "следует за",
+        "da": "efterfølges af",
+        "ar": "مسبوق بـ",
+    },
+}
+
+
+async def _ensure_successor_relation_type(db: AsyncSession, card_type_key: str) -> None:
+    """Provision the self-referential ``rel{Key}Successor`` relation type that the card
+    detail lineage section needs when "Supports Lineage" is enabled on a card type.
+
+    Without this, enabling ``has_successors`` only flips the boolean and the frontend
+    ``SuccessorsSection`` (which requires a non-hidden, self-referential relation type
+    whose key ends in "Successor") renders nothing — see issue #729.
+
+    Idempotent: returns early when a qualifying relation type already exists (covers the
+    seeded built-ins and any prior auto-created one), un-hides an existing hidden one
+    (re-enable case, preserving relation instances), and otherwise inserts a new one.
+    The caller is responsible for committing.
+    """
+    # Already have a usable successor relation type for this self-pair? Nothing to do.
+    existing = await db.execute(
+        select(RelationType).where(
+            RelationType.source_type_key == card_type_key,
+            RelationType.target_type_key == card_type_key,
+            RelationType.is_hidden == False,  # noqa: E712
+            RelationType.key.endswith(SUCCESSOR_KEY_SUFFIX),
+        )
+    )
+    if existing.scalar_one_or_none():
+        return
+
+    key = f"rel{card_type_key}{SUCCESSOR_KEY_SUFFIX}"
+
+    # A row with the exact key may exist but be hidden (the admin disabled then
+    # re-enabled lineage, or hid it manually) — un-hide instead of inserting, which
+    # would violate the relation_types.key UNIQUE constraint.
+    by_key = await db.execute(select(RelationType).where(RelationType.key == key))
+    found = by_key.scalar_one_or_none()
+    if found is not None:
+        if found.is_hidden:
+            found.is_hidden = False
+        return
+
+    max_order = await db.execute(select(func.max(RelationType.sort_order)))
+    next_order = (max_order.scalar() or 0) + 1
+    db.add(
+        RelationType(
+            key=key,
+            label=_SUCCESSOR_LABEL,
+            reverse_label=_SUCCESSOR_REVERSE_LABEL,
+            source_type_key=card_type_key,
+            target_type_key=card_type_key,
+            cardinality="n:m",
+            attributes_schema=[],
+            built_in=False,
+            is_hidden=False,
+            sort_order=next_order,
+            translations=_SUCCESSOR_TRANSLATIONS,
+        )
+    )
 
 
 @router.get("/relation-types")

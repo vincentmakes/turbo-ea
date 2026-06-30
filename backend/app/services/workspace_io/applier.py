@@ -298,7 +298,13 @@ async def _apply_relation_types(
 ) -> None:
     existing = {rt.key: rt for rt in (await db.execute(select(RelationType))).scalars().all()}
     # One relation type per ordered (source, target) pair — enforced here too.
-    pair_owner = {(rt.source_type_key, rt.target_type_key): rt.key for rt in existing.values()}
+    # Successor (lineage) relation types are exempt (see below), so they never claim
+    # a pair.
+    pair_owner = {
+        (rt.source_type_key, rt.target_type_key): rt.key
+        for rt in existing.values()
+        if not rt.key.endswith("Successor")
+    }
     for row in bundle.rows(schema.SHEET_RELATION_TYPES):
         data = _coerce(row, exp.RELATION_TYPE_COLUMNS, exp.RELATION_TYPE_JSON)
         key = data.get("key")
@@ -307,9 +313,14 @@ async def _apply_relation_types(
             continue
         current = existing.get(key)
         pair = (data.get("source_type_key"), data.get("target_type_key"))
+        # Successor (lineage) relation types are a separate, UI-isolated category and
+        # are exempt from the one-relation-type-per-pair rule (mirrors the API in
+        # metamodel.py) — a self-referential rel{Key}Successor must be able to coexist
+        # with a custom self-relation on the same pair.
+        is_successor = bool(key) and key.endswith("Successor")
         if current is None:
             owner = pair_owner.get(pair)
-            if owner is not None and owner != key:
+            if not is_successor and owner is not None and owner != key:
                 sr.conflict += 1
                 sr.errors.append(
                     f"relation_type {key!r}: pair {pair} already used by {owner!r} — skipped"
@@ -318,7 +329,8 @@ async def _apply_relation_types(
             rt = RelationType(**{k: v for k, v in data.items()})
             db.add(rt)
             existing[key] = rt
-            pair_owner[pair] = key
+            if not is_successor:
+                pair_owner[pair] = key
             sr.created += 1
         else:
             cols = [c for c in exp.RELATION_TYPE_COLUMNS if c not in ("key", "built_in")]

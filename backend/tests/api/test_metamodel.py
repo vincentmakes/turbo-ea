@@ -827,3 +827,145 @@ class TestRelationAttributeValues:
         schema = response.json()["attributes_schema"]
         assert schema[0]["label"] == "Renamed Tier"
         assert [o["key"] for o in schema[0]["options"]] == ["b"]
+
+
+# ---------------------------------------------------------------------------
+# Lineage ("Supports Lineage") — auto-provision the successor relation type
+# (issue #729)
+# ---------------------------------------------------------------------------
+
+
+class TestSuccessorRelationType:
+    """Enabling has_successors must auto-create the self-referential
+    rel{Key}Successor relation type the card-detail lineage section needs."""
+
+    async def _fetch(self, client, admin, key):
+        """Return the relation type dict for ``key`` (incl. hidden), or None."""
+        resp = await client.get(
+            "/api/v1/metamodel/relation-types?include_hidden=true",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        return next((r for r in resp.json() if r["key"] == key), None)
+
+    async def test_enable_via_patch_creates_relation_type(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Widget", label="Widget")
+
+        resp = await client.patch(
+            "/api/v1/metamodel/types/Widget",
+            json={"has_successors": True},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["has_successors"] is True
+
+        rt = await self._fetch(client, admin, "relWidgetSuccessor")
+        assert rt is not None
+        assert rt["source_type_key"] == "Widget"
+        assert rt["target_type_key"] == "Widget"
+        assert rt["is_hidden"] is False
+        assert rt["built_in"] is False
+        assert rt["label"] == "succeeds"
+        assert rt["translations"]  # non-empty i18n
+        assert rt["translations"]["label"].get("en") == "succeeds"
+
+    async def test_idempotent(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Widget", label="Widget")
+
+        for _ in range(2):
+            resp = await client.patch(
+                "/api/v1/metamodel/types/Widget",
+                json={"has_successors": True},
+                headers=auth_headers(admin),
+            )
+            assert resp.status_code == 200
+
+        listing = await client.get(
+            "/api/v1/metamodel/relation-types?include_hidden=true",
+            headers=auth_headers(admin),
+        )
+        matches = [r for r in listing.json() if r["key"] == "relWidgetSuccessor"]
+        assert len(matches) == 1
+
+    async def test_reenable_unhides(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Widget", label="Widget")
+
+        # Enable, then hide the auto-created relation type manually.
+        await client.patch(
+            "/api/v1/metamodel/types/Widget",
+            json={"has_successors": True},
+            headers=auth_headers(admin),
+        )
+        await client.patch(
+            "/api/v1/metamodel/relation-types/relWidgetSuccessor",
+            json={"is_hidden": True},
+            headers=auth_headers(admin),
+        )
+        hidden = await self._fetch(client, admin, "relWidgetSuccessor")
+        assert hidden["is_hidden"] is True
+
+        # Re-running the enable must un-hide the same row, not insert a second.
+        await client.patch(
+            "/api/v1/metamodel/types/Widget",
+            json={"has_successors": True},
+            headers=auth_headers(admin),
+        )
+        listing = await client.get(
+            "/api/v1/metamodel/relation-types?include_hidden=true",
+            headers=auth_headers(admin),
+        )
+        matches = [r for r in listing.json() if r["key"] == "relWidgetSuccessor"]
+        assert len(matches) == 1
+        assert matches[0]["is_hidden"] is False
+
+    async def test_create_type_with_flag_creates_relation_type(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        resp = await client.post(
+            "/api/v1/metamodel/types",
+            json={"key": "Widget", "label": "Widget", "has_successors": True},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+
+        rt = await self._fetch(client, admin, "relWidgetSuccessor")
+        assert rt is not None
+        assert rt["source_type_key"] == rt["target_type_key"] == "Widget"
+
+    async def test_disable_leaves_relation_type(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Widget", label="Widget")
+        await client.patch(
+            "/api/v1/metamodel/types/Widget",
+            json={"has_successors": True},
+            headers=auth_headers(admin),
+        )
+        # Disabling must NOT delete the relation type (no silent data loss).
+        await client.patch(
+            "/api/v1/metamodel/types/Widget",
+            json={"has_successors": False},
+            headers=auth_headers(admin),
+        )
+        rt = await self._fetch(client, admin, "relWidgetSuccessor")
+        assert rt is not None
+        assert rt["is_hidden"] is False
+
+    async def test_self_heal_when_flag_set_but_missing(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        # Simulate an install already in the #729 state: flag on, no relation type.
+        ct = await create_card_type(db, key="Widget", label="Widget")
+        ct.has_successors = True
+        await db.flush()
+        assert await self._fetch(client, admin, "relWidgetSuccessor") is None
+
+        # Any save while has_successors stays true should provision the missing one.
+        resp = await client.patch(
+            "/api/v1/metamodel/types/Widget",
+            json={"label": "Widget Renamed"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        rt = await self._fetch(client, admin, "relWidgetSuccessor")
+        assert rt is not None
