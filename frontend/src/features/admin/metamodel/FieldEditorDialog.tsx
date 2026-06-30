@@ -276,7 +276,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
             };
             onSave(cleanedField);
           }}
-          disabled={!field.key || !displayLabel || (!initial.key && !isValidKey(field.key)) || (isSelect && (field.options || []).some((o) => o.key && !isValidKey(o.key) && !originalOptionKeys.has(o.key)))}
+          disabled={!field.key || !displayLabel || (!initial.key && !isValidKey(field.key)) || (isSelect && (field.options || []).some((o) => !originalOptionKeys.has(o.key) && !isValidKey(o.key)))}
         >
           {t("common:actions.save")}
         </Button>

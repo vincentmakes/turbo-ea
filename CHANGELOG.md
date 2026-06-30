@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - **Select field options added later now keep their color.** When an admin added a new option to an existing single-select or multi-select field, the new option could be saved without a color even though the picker showed a default — so its color dot was missing in the card editor and Inventory filter. New options now adopt the displayed default color, matching what the picker shows.
+- **Select field options now require a key.** The field editor let an option be saved with only a label and no key; on a card such an option appeared in the dropdown but could not be selected, displayed, or saved. The editor now keeps Save disabled until every option has a valid key.
 
 ## [1.59.0] - 2026-06-30
 
