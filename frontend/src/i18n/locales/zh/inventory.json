@@ -224,5 +224,10 @@
   "import.errors.relationTypeRequired": "需要 relation_type",
   "import.errors.unknownRelationType": "未知关系类型：{{type}}",
   "import.warnings.formatVersionMismatch": "工作簿格式版本 {{version}} 与当前版本不一致。某些字段可能无法完整往返。",
-  "import.warnings.unknownRelationType": "未知关系类型「{{type}}」— 已忽略该列"
+  "import.warnings.unknownRelationType": "未知关系类型「{{type}}」— 已忽略该列",
+  "export.allFields": "导出所有字段",
+  "export.allFieldsHint": "完整数据集，可重新导入",
+  "export.currentView": "导出当前视图",
+  "export.currentViewHint": "与屏幕上的表格一致 — 不适合重新导入",
+  "export.viewSheetName": "视图"
 }

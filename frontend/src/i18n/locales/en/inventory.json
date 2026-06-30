@@ -224,5 +224,10 @@
   "import.errors.relationTypeRequired": "relation_type is required",
   "import.errors.unknownRelationType": "Unknown relation type: {{type}}",
   "import.warnings.formatVersionMismatch": "Workbook format version {{version}} differs from the current version. Some fields may not round-trip cleanly.",
-  "import.warnings.unknownRelationType": "Unknown relation type \"{{type}}\" — column ignored"
+  "import.warnings.unknownRelationType": "Unknown relation type \"{{type}}\" — column ignored",
+  "export.allFields": "Export all fields",
+  "export.allFieldsHint": "Full data set, re-importable",
+  "export.currentView": "Export current view",
+  "export.currentViewHint": "Mirrors the on-screen grid — not for re-import",
+  "export.viewSheetName": "View"
 }

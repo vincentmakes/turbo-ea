@@ -224,5 +224,10 @@
   "import.errors.relationTypeRequired": "relation_type مطلوب",
   "import.errors.unknownRelationType": "نوع علاقة غير معروف: {{type}}",
   "import.warnings.formatVersionMismatch": "إصدار تنسيق المصنّف {{version}} يختلف عن الإصدار الحالي. قد لا تُسترجَع بعض الحقول بشكل سليم.",
-  "import.warnings.unknownRelationType": "نوع علاقة غير معروف «{{type}}» — تم تجاهل العمود"
+  "import.warnings.unknownRelationType": "نوع علاقة غير معروف «{{type}}» — تم تجاهل العمود",
+  "export.allFields": "تصدير جميع الحقول",
+  "export.allFieldsHint": "مجموعة بيانات كاملة، قابلة لإعادة الاستيراد",
+  "export.currentView": "تصدير العرض الحالي",
+  "export.currentViewHint": "يطابق الجدول المعروض — غير مناسب لإعادة الاستيراد",
+  "export.viewSheetName": "عرض"
 }

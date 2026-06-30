@@ -51,7 +51,7 @@ Cuando se selecciona un tipo de tarjeta por primera vez, **todas las columnas de
 
 Un **punto indicador de cambio** aparece en el encabezado de la pestaña «Columnas» cuando la selección de columnas difiere de los valores predeterminados. El mismo indicador aparece en la pestaña **Filtros** cuando hay filtros activos, lo que facilita ver de un vistazo qué configuraciones han sido modificadas.
 
-Su selección de columnas, filtros activos y orden de clasificación se **guardan automáticamente** en su navegador. Al volver a la página de inventario, se restaura su configuración anterior. Las vistas guardadas (marcadores) también conservan la selección completa de columnas, de modo que al cambiar entre vistas se restauran exactamente las columnas que había configurado.
+Su selección de columnas, el **diseño de columnas** (orden de izquierda a derecha, anchos y columnas fijadas), los filtros activos y el orden de clasificación se **guardan automáticamente** en su navegador. Al volver a la página de inventario, se restaura su configuración anterior. Las vistas guardadas (marcadores) también conservan este diseño completo, de modo que al cambiar entre vistas se restauran exactamente las columnas que había configurado, y en la misma disposición, lo que importa al compartir una vista organizada con las partes interesadas.
 
 ### Tabla Principal
 
@@ -172,3 +172,5 @@ Haga clic en **Importar** en la barra de herramientas, suelte el libro y revise 
 ### Exportar
 
 Haga clic en **Exportar**. El filtro activo determina el contenido: con un filtro de tipo único, una hoja para ese tipo; sin filtro, una hoja por tipo presente. En todos los casos el libro incluye `Relations` y `_Meta` y puede reimportarse sin perder atributos específicos del tipo.
+
+También puede elegir **Exportar vista actual** en el menú Exportar: una instantánea plana de una sola hoja que refleja lo que está en pantalla (solo las columnas visibles, en su orden actual, para las filas filtradas). Está pensada para compartir y **no es apta para reimportar**.

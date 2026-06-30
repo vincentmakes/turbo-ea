@@ -70,6 +70,53 @@ class TestCreateBookmark:
         )
         assert resp.status_code == 201
 
+    async def test_column_state_round_trips(self, client, db, bm_env):
+        """The AG Grid column layout is persisted and returned verbatim."""
+        admin = bm_env["admin"]
+        column_state = [
+            {"colId": "core_name", "width": 240, "pinned": "left"},
+            {"colId": "core_type", "width": 140},
+            {"colId": "attr_costTotalAnnual", "width": 160, "hide": True},
+        ]
+        resp = await client.post(
+            "/api/v1/bookmarks",
+            json={
+                "name": "Layout View",
+                "card_type": "Application",
+                "columns": ["core_name", "core_type"],
+                "column_state": column_state,
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["column_state"] == column_state
+
+        # GET returns it too
+        bm_id = resp.json()["id"]
+        listed = await client.get("/api/v1/bookmarks", headers=auth_headers(admin))
+        match = next(b for b in listed.json() if b["id"] == bm_id)
+        assert match["column_state"] == column_state
+
+        # PATCH updates it
+        new_state = [{"colId": "core_type", "width": 120}]
+        patched = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}",
+            json={"column_state": new_state},
+            headers=auth_headers(admin),
+        )
+        assert patched.status_code == 200
+        assert patched.json()["column_state"] == new_state
+
+    async def test_column_state_defaults_to_null(self, client, db, bm_env):
+        admin = bm_env["admin"]
+        resp = await client.post(
+            "/api/v1/bookmarks",
+            json={"name": "No Layout"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["column_state"] is None
+
 
 # ---------------------------------------------------------------
 # GET /bookmarks  (list)

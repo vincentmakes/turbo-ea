@@ -51,7 +51,7 @@ Quando un tipo di scheda viene selezionato per la prima volta, **tutte le colonn
 
 Un **punto indicatore di modifica** appare sull'intestazione della scheda «Colonne» quando la selezione delle colonne differisce dai valori predefiniti. Lo stesso indicatore appare sulla scheda **Filtri** quando sono attivi dei filtri, rendendo facile vedere a colpo d'occhio quali impostazioni sono state modificate.
 
-La selezione delle colonne, i filtri attivi e l'ordine di ordinamento vengono **salvati automaticamente** nel browser. Quando si torna alla pagina dell'inventario, la configurazione precedente viene ripristinata. Le viste salvate (segnalibri) conservano anche la selezione completa delle colonne, in modo che il passaggio tra le viste ripristini esattamente le colonne configurate.
+La selezione delle colonne, il **layout delle colonne** (ordine da sinistra a destra, larghezze e colonne bloccate), i filtri attivi e l'ordine di ordinamento vengono **salvati automaticamente** nel browser. Quando si torna alla pagina dell'inventario, la configurazione precedente viene ripristinata. Le viste salvate (segnalibri) conservano anche questo layout completo, in modo che il passaggio tra le viste ripristini esattamente le colonne configurate, nella stessa disposizione, aspetto importante quando si condivide una vista organizzata con gli stakeholder.
 
 ### Tabella principale
 
@@ -172,3 +172,5 @@ Cliccate su **Importa** nella barra degli strumenti, rilasciate la cartella di l
 ### Esportare
 
 Cliccate su **Esporta**. Il filtro corrente determina il contenuto: con un filtro per tipo singolo, un foglio per quel tipo; senza filtro, un foglio per ogni tipo presente. In ogni caso la cartella di lavoro include `Relations` e `_Meta` e può essere reimportata senza perdere gli attributi specifici del tipo.
+
+Potete anche scegliere **Esporta vista corrente** dal menu Esporta: un'istantanea piatta su un unico foglio che rispecchia ciò che è a schermo (solo le colonne visibili, nel loro ordine corrente, per le righe filtrate). È pensata per la condivisione e **non è adatta al reimport**.

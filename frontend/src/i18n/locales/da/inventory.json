@@ -224,5 +224,10 @@
   "import.errors.relationTypeRequired": "relation_type er påkrævet",
   "import.errors.unknownRelationType": "Ukendt relationstype: {{type}}",
   "import.warnings.formatVersionMismatch": "Workbook-formatversion {{version}} adskiller sig fra den aktuelle version. Nogle felter rundtursserialiserer muligvis ikke rent.",
-  "import.warnings.unknownRelationType": "Ukendt relationstype «{{type}}» — kolonne ignoreret"
+  "import.warnings.unknownRelationType": "Ukendt relationstype «{{type}}» — kolonne ignoreret",
+  "export.allFields": "Eksportér alle felter",
+  "export.allFieldsHint": "Komplet datasæt, kan genimporteres",
+  "export.currentView": "Eksportér aktuel visning",
+  "export.currentViewHint": "Afspejler tabellen på skærmen — ikke egnet til genimport",
+  "export.viewSheetName": "Visning"
 }

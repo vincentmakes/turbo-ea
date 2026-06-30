@@ -224,5 +224,10 @@
   "import.errors.relationTypeRequired": "relation_type è obbligatorio",
   "import.errors.unknownRelationType": "Tipo di relazione sconosciuto: {{type}}",
   "import.warnings.formatVersionMismatch": "La versione del formato della cartella di lavoro {{version}} è diversa da quella corrente. Alcuni campi potrebbero non essere ripristinati correttamente.",
-  "import.warnings.unknownRelationType": "Tipo di relazione sconosciuto «{{type}}» — colonna ignorata"
+  "import.warnings.unknownRelationType": "Tipo di relazione sconosciuto «{{type}}» — colonna ignorata",
+  "export.allFields": "Esporta tutti i campi",
+  "export.allFieldsHint": "Set di dati completo, reimportabile",
+  "export.currentView": "Esporta vista corrente",
+  "export.currentViewHint": "Rispecchia la griglia visualizzata — non adatta al reimport",
+  "export.viewSheetName": "Vista"
 }

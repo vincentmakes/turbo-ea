@@ -797,6 +797,18 @@
             ],
             "title": "Card Type"
           },
+          "column_state": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column State"
+          },
           "columns": {
             "anyOf": [
               {
@@ -903,6 +915,18 @@
               }
             ],
             "title": "Card Type"
+          },
+          "column_state": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column State"
           },
           "columns": {
             "anyOf": [

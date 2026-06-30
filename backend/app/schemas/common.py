@@ -162,6 +162,7 @@ class BookmarkCreate(BaseModel):
     card_type: str | None = None
     filters: dict | None = None
     columns: list | None = None
+    column_state: list | None = None
     sort: dict | None = None
     is_default: bool = False
     visibility: str = "private"
@@ -174,6 +175,7 @@ class BookmarkUpdate(BaseModel):
     card_type: str | None = None
     filters: dict | None = None
     columns: list | None = None
+    column_state: list | None = None
     sort: dict | None = None
     is_default: bool | None = None
     visibility: str | None = None
@@ -187,6 +189,7 @@ class BookmarkResponse(BaseModel):
     card_type: str | None = None
     filters: dict | None = None
     columns: list | None = None
+    column_state: list | None = None
     sort: dict | None = None
     is_default: bool
     visibility: str = "private"

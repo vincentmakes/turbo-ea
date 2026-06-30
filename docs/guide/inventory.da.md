@@ -51,7 +51,7 @@ Når en korttype vælges første gang, er **alle egenskabs- og relations­kolonn
 
 En **ændrings-indikator-prik** vises på Kolonner-fanens overskrift, når kolonnevalget afviger fra standarderne. Den samme indikator vises på **Filtre**-fanen, når filtre er aktive, hvilket gør det let med et øjekast at se, hvilke indstillinger der er ændret.
 
-Dit kolonnevalg, aktive filtre og sorteringsrækkefølge **gemmes automatisk** i din browser. Når du vender tilbage til lager-siden, gendannes din tidligere konfiguration. Gemte visninger (bogmærker) bevarer også det fulde kolonnevalg, så når du skifter mellem visninger, gendannes præcis de kolonner, du havde konfigureret.
+Dit kolonnevalg, **kolonnelayout** (rækkefølge fra venstre til højre, bredder og fastgjorte kolonner), aktive filtre og sorteringsrækkefølge **gemmes automatisk** i din browser. Når du vender tilbage til lager-siden, gendannes din tidligere konfiguration. Gemte visninger (bogmærker) bevarer også dette fulde layout, så når du skifter mellem visninger, gendannes præcis de kolonner, du havde konfigureret — og i samme arrangement, hvilket er vigtigt, når du deler en organiseret visning med interessenter.
 
 ### Hovedtabel
 
@@ -205,6 +205,8 @@ Klik på **Export** i værktøjslinjen. Det aktuelle gitter-filter bestemmer ind
 
 - **Single-type-filter aktivt** → ét kort-ark for den type, plus Relations-arket for eventuelle egenskabs-bærende relationer, plus `_Meta`.
 - **Intet filter eller multi-type-filter** → ét ark pr. type til stede, plus Relations-arket, plus `_Meta`. Projektmappen er fuldt redigerbar og kan re-importeres uden at miste pr.-type-egenskaber.
+
+Du kan også vælge **Eksportér aktuel visning** i Export-menuen — et fladt enkelt-ark-øjebliksbillede, der afspejler det viste (kun de synlige kolonner, i deres aktuelle rækkefølge, for de filtrerede rækker). Det er beregnet til deling og er **ikke egnet til genimport**.
 
 ### Round-trip-tips
 

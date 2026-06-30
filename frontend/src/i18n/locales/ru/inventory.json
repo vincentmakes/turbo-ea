@@ -224,5 +224,10 @@
   "import.errors.relationTypeRequired": "Поле relation_type обязательно",
   "import.errors.unknownRelationType": "Неизвестный тип связи: {{type}}",
   "import.warnings.formatVersionMismatch": "Версия формата книги {{version}} отличается от текущей. Некоторые поля могут не восстановиться корректно.",
-  "import.warnings.unknownRelationType": "Неизвестный тип связи «{{type}}» — столбец проигнорирован"
+  "import.warnings.unknownRelationType": "Неизвестный тип связи «{{type}}» — столбец проигнорирован",
+  "export.allFields": "Экспортировать все поля",
+  "export.allFieldsHint": "Полный набор данных, пригоден для повторного импорта",
+  "export.currentView": "Экспортировать текущий вид",
+  "export.currentViewHint": "Отражает таблицу на экране — не подходит для повторного импорта",
+  "export.viewSheetName": "Вид"
 }

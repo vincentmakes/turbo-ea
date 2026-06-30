@@ -51,7 +51,7 @@ When a card type is first selected, **all attribute and relation columns are ena
 
 A **change indicator dot** appears on the Columns tab header when the column selection differs from the defaults. The same indicator appears on the **Filters** tab when any filters are active, making it easy to see at a glance which settings have been modified.
 
-Your column selection, active filters, and sort order are **automatically persisted** in your browser. When you return to the inventory page, your previous configuration is restored. Saved views (bookmarks) also preserve the full column selection, so switching between views restores exactly the columns you had configured.
+Your column selection, **column layout** (left-to-right order, widths, and pinned columns), active filters, and sort order are **automatically persisted** in your browser. When you return to the inventory page, your previous configuration is restored. Saved views (bookmarks) preserve this full layout too, so switching between views restores exactly the columns you had configured — and in the same arrangement, which matters when sharing an organized view with stakeholders.
 
 ### Main Table
 
@@ -201,10 +201,12 @@ Errors block the apply. Warnings (e.g. unknown tag, format version mismatch) don
 
 ### Exporting
 
-Click **Export** in the toolbar. The current grid filter determines the contents:
+Click **Export** in the toolbar and choose one of two options:
 
-- **Single-type filter active** → one card sheet for that type, plus the Relations sheet for any attribute-bearing relations, plus `_Meta`.
-- **No filter or multi-type filter** → one sheet per type present, plus the Relations sheet, plus `_Meta`. The workbook is fully editable and can be re-imported without losing per-type attributes.
+- **Export all fields** — the full, re-importable workbook described below. The current grid filter determines the contents:
+    - **Single-type filter active** → one card sheet for that type, plus the Relations sheet for any attribute-bearing relations, plus `_Meta`.
+    - **No filter or multi-type filter** → one sheet per type present, plus the Relations sheet, plus `_Meta`. The workbook is fully editable and can be re-imported without losing per-type attributes.
+- **Export current view** — a flat, single-sheet snapshot that mirrors exactly what's on screen: only the **visible columns**, in their current **left-to-right order**, with the displayed column headers, for the **filtered rows**. Use this to share an organized view with stakeholders. This format carries no card IDs and only the columns you chose, so it is **not suitable for re-import** — use *Export all fields* when you intend to edit and re-import.
 
 ### Round-trip tips
 

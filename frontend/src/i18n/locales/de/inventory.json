@@ -224,5 +224,10 @@
   "import.errors.relationTypeRequired": "relation_type ist erforderlich",
   "import.errors.unknownRelationType": "Unbekannter Beziehungstyp: {{type}}",
   "import.warnings.formatVersionMismatch": "Arbeitsmappen-Formatversion {{version}} weicht von der aktuellen Version ab. Einige Felder werden möglicherweise nicht korrekt zurückgeschrieben.",
-  "import.warnings.unknownRelationType": "Unbekannter Beziehungstyp „{{type}}“ — Spalte ignoriert"
+  "import.warnings.unknownRelationType": "Unbekannter Beziehungstyp „{{type}}“ — Spalte ignoriert",
+  "export.allFields": "Alle Felder exportieren",
+  "export.allFieldsHint": "Vollständiger Datensatz, reimportierbar",
+  "export.currentView": "Aktuelle Ansicht exportieren",
+  "export.currentViewHint": "Entspricht der angezeigten Tabelle – nicht für den Reimport",
+  "export.viewSheetName": "Ansicht"
 }

@@ -425,12 +425,29 @@ export interface BookmarkShareEntry {
   can_edit: boolean;
 }
 
+/**
+ * A single column's persisted layout, mirroring the subset of AG Grid's
+ * `ColumnState` we care about (order is the array position; width / pinning /
+ * visibility are explicit). Stored on a saved view's `column_state` so the
+ * inventory grid restores exactly how it looked when the view was saved.
+ */
+export interface ColumnLayoutItem {
+  colId: string;
+  width?: number;
+  flex?: number | null;
+  pinned?: "left" | "right" | boolean | null;
+  hide?: boolean | null;
+  sort?: "asc" | "desc" | null;
+  sortIndex?: number | null;
+}
+
 export interface Bookmark {
   id: string;
   name: string;
   card_type?: string;
   filters?: Record<string, unknown>;
   columns?: string[];
+  column_state?: ColumnLayoutItem[];
   sort?: Record<string, unknown>;
   is_default: boolean;
   visibility: "private" | "public" | "shared";

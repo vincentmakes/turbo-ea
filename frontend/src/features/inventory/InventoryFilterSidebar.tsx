@@ -35,6 +35,7 @@ import { api } from "@/api/client";
 import type {
   CardType,
   Bookmark,
+  ColumnLayoutItem,
   FieldDef,
   RelationType,
   TranslationMap,
@@ -84,6 +85,10 @@ interface Props {
   onSelectedColumnsChange: (cols: Set<string>) => void;
   defaultColumns?: Set<string>;
   onResetColumns?: () => void;
+  // Current grid column layout (order/width/pinning), captured by InventoryPage.
+  // Saved into a view's `column_state`; applied back via `onApplyColumnState`.
+  columnState?: ColumnLayoutItem[];
+  onApplyColumnState?: (state: ColumnLayoutItem[] | null) => void;
 }
 
 const APPROVAL_STATUS_OPTIONS = [
@@ -172,6 +177,8 @@ export default function InventoryFilterSidebar({
   onSelectedColumnsChange,
   defaultColumns,
   onResetColumns,
+  columnState,
+  onApplyColumnState,
 }: Props) {
   const { t } = useTranslation(["inventory", "common"]);
   const rl = useResolveLabel();
@@ -371,6 +378,7 @@ export default function InventoryFilterSidebar({
         mineScope: filters.mineScope,
       },
       columns: Array.from(selectedColumns),
+      column_state: columnState ?? null,
       visibility: dialogVisibility,
       odata_enabled: dialogOdata,
       shared_with: sharedWithPayload,
@@ -407,6 +415,12 @@ export default function InventoryFilterSidebar({
     const bmColumns = (bm as unknown as Record<string, unknown>).columns as string[] | undefined;
     if (bmColumns && Array.isArray(bmColumns)) {
       onSelectedColumnsChange(new Set(bmColumns));
+    }
+    // Restore the saved column layout (order/width/pinning). Applied after the
+    // visibility set above so the grid's columnDefs have rebuilt first.
+    if (onApplyColumnState) {
+      const layout = (bm.column_state as ColumnLayoutItem[] | undefined) ?? null;
+      onApplyColumnState(layout && layout.length > 0 ? layout : null);
     }
     // Stay on the Views tab so the user can switch between views quickly.
   };

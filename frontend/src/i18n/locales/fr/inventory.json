@@ -224,5 +224,10 @@
   "import.errors.relationTypeRequired": "relation_type est requis",
   "import.errors.unknownRelationType": "Type de relation inconnu : {{type}}",
   "import.warnings.formatVersionMismatch": "La version du format de classeur {{version}} diffère de la version actuelle. Certains champs peuvent ne pas être restaurés correctement.",
-  "import.warnings.unknownRelationType": "Type de relation inconnu « {{type}} » — colonne ignorée"
+  "import.warnings.unknownRelationType": "Type de relation inconnu « {{type}} » — colonne ignorée",
+  "export.allFields": "Exporter tous les champs",
+  "export.allFieldsHint": "Jeu de données complet, réimportable",
+  "export.currentView": "Exporter la vue actuelle",
+  "export.currentViewHint": "Reflète la grille affichée — non réimportable",
+  "export.viewSheetName": "Vue"
 }

@@ -405,6 +405,42 @@ async def test_diagram_groups_and_favorites_roundtrip(db):
     assert any(f.user_id == user.id and f.diagram_id == diag_id for f in favs)
 
 
+async def test_bookmark_column_state_roundtrips(db):
+    """A saved view's AG Grid column layout (order/width/pinning) survives an
+    export → delete → import round-trip via the generic entity engine."""
+    from app.models.bookmark import Bookmark
+
+    user = await create_user(db, email="bm-ws@test.com", role="admin")
+    column_state = [
+        {"colId": "core_name", "width": 240, "pinned": "left"},
+        {"colId": "core_type", "width": 140},
+        {"colId": "attr_costTotalAnnual", "width": 160, "hide": True},
+    ]
+    bm = Bookmark(
+        user_id=user.id,
+        name="Layout View",
+        card_type="Application",
+        filters={"types": ["Application"]},
+        columns=["core_name", "core_type"],
+        column_state=column_state,
+    )
+    db.add(bm)
+    await db.flush()
+    bm_id = bm.id
+
+    raw = await build_bundle(db)
+
+    await db.execute(delete(Bookmark).where(Bookmark.id == bm_id))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    restored = (await db.execute(select(Bookmark).where(Bookmark.id == bm_id))).scalar_one()
+    assert restored.column_state == column_state
+    assert restored.columns == ["core_name", "core_type"]
+
+
 async def test_resource_types_roundtrip(db):
     """A custom link type / file category survives an export → delete →
     import round-trip, keyed by (kind, key)."""

@@ -38,6 +38,11 @@ class Bookmark(Base, UUIDMixin, TimestampMixin):
     card_type: Mapped[str | None] = mapped_column(String(100))
     filters: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     columns: Mapped[list | None] = mapped_column(JSONB, default=list)
+    # AG Grid column layout (order, width, pinning, visibility) captured via
+    # api.getColumnState(). `columns` above still drives the column-picker
+    # visibility set; this carries the richer positional layout so a saved
+    # view restores exactly how the grid looked when it was saved.
+    column_state: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     sort: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
     visibility: Mapped[str] = mapped_column(String(20), nullable=False, server_default="private")

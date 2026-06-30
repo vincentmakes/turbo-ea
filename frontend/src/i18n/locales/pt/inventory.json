@@ -224,5 +224,10 @@
   "import.errors.relationTypeRequired": "relation_type é obrigatório",
   "import.errors.unknownRelationType": "Tipo de relação desconhecido: {{type}}",
   "import.warnings.formatVersionMismatch": "A versão do formato do livro {{version}} é diferente da atual. Alguns campos podem não ser restaurados corretamente.",
-  "import.warnings.unknownRelationType": "Tipo de relação desconhecido «{{type}}» — coluna ignorada"
+  "import.warnings.unknownRelationType": "Tipo de relação desconhecido «{{type}}» — coluna ignorada",
+  "export.allFields": "Exportar todos os campos",
+  "export.allFieldsHint": "Conjunto de dados completo, reimportável",
+  "export.currentView": "Exportar vista atual",
+  "export.currentViewHint": "Espelha a grade exibida — não adequada para reimportação",
+  "export.viewSheetName": "Vista"
 }

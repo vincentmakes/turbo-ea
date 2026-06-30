@@ -542,6 +542,94 @@ export async function buildExportWorkbook(
   return wb;
 }
 
+/** Render a single grid cell value to a flat string for the current-view
+ * export. Mirrors what the grid shows: arrays join with ", ", tag refs
+ * collapse to "Group: Tag", and plain objects fall back to their `name`. */
+function stringifyViewCell(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (Array.isArray(value)) {
+    return value
+      .map((v) => {
+        if (v && typeof v === "object") {
+          const ref = v as { name?: string; group_name?: string };
+          if (ref.name) return ref.group_name ? `${ref.group_name}: ${ref.name}` : ref.name;
+        }
+        return String(v);
+      })
+      .join(", ");
+  }
+  if (typeof value === "object") {
+    const ref = value as { name?: string };
+    return ref.name ?? "";
+  }
+  return String(value);
+}
+
+interface CurrentViewOptions {
+  /** Used for the sheet name and download filename (e.g. the card-type label). */
+  sheetLabel?: string;
+}
+
+/**
+ * "Export current view" — a flat, single-sheet WYSIWYG snapshot of the grid.
+ *
+ * Unlike {@link exportToExcel} (a multi-sheet, re-importable workbook with the
+ * full field set), this writes exactly what's on screen: the `rows` are the
+ * filtered+sorted grid rows, `columns` are the displayed columns in their
+ * left-to-right order, and the header row uses each column's displayed name.
+ * Values are pre-extracted from the grid by the caller (via AG Grid's
+ * valueGetters/valueFormatters), so this stays in sync with rendering.
+ *
+ * This format is **not** suitable for re-import — it carries no card ids and a
+ * user-arranged column subset. It's a sharing artifact, nothing more.
+ */
+export function buildCurrentViewWorkbook(
+  rows: Record<string, unknown>[],
+  columns: { colId: string; headerName: string }[],
+  options: CurrentViewOptions = {},
+): XLSX.WorkBook {
+  // Build unique, stable header labels (two columns can share a display name;
+  // object keys can't collide, so disambiguate with the colId on conflict).
+  const usedHeaders = new Set<string>();
+  const headerFor = new Map<string, string>();
+  for (const col of columns) {
+    let header = col.headerName?.trim() || col.colId;
+    if (usedHeaders.has(header)) header = `${header} (${col.colId})`;
+    usedHeaders.add(header);
+    headerFor.set(col.colId, header);
+  }
+
+  const sheetRows = rows.map((row) => {
+    const out: Record<string, string> = {};
+    for (const col of columns) {
+      out[headerFor.get(col.colId)!] = stringifyViewCell(row[col.colId]);
+    }
+    return out;
+  });
+
+  const headers = columns.map((c) => headerFor.get(c.colId)!);
+  const ws =
+    sheetRows.length > 0
+      ? XLSX.utils.json_to_sheet(sheetRows, { header: headers })
+      : XLSX.utils.aoa_to_sheet([headers]);
+  ws["!cols"] = autoSizeColumns(
+    sheetRows.length > 0 ? sheetRows : [Object.fromEntries(headers.map((h) => [h, ""]))],
+  );
+  const wb = XLSX.utils.book_new();
+  const label = (options.sheetLabel || "View").replace(/[\\/?*[\]:]/g, "_").slice(0, 31) || "View";
+  XLSX.utils.book_append_sheet(wb, ws, label);
+  return wb;
+}
+
+export function exportCurrentViewToExcel(
+  rows: Record<string, unknown>[],
+  columns: { colId: string; headerName: string }[],
+  options: CurrentViewOptions = {},
+): void {
+  const wb = buildCurrentViewWorkbook(rows, columns, options);
+  XLSX.writeFile(wb, `${options.sheetLabel || "view"}_view_${exportTimestamp()}.xlsx`);
+}
+
 /**
  * Public entry point used by the Inventory page export buttons. Builds the
  * workbook via `buildExportWorkbook()` and triggers a browser download.
