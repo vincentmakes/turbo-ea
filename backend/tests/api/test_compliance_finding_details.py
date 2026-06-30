@@ -43,7 +43,9 @@ async def env(db):
     return {"admin": admin, "viewer": viewer, "run_id": run.id}
 
 
-async def _make_finding(db, run_id: uuid.UUID, *, decision: str = "verified") -> TurboLensComplianceFinding:
+async def _make_finding(
+    db, run_id: uuid.UUID, *, decision: str = "verified"
+) -> TurboLensComplianceFinding:
     row = TurboLensComplianceFinding(
         id=uuid.uuid4(),
         run_id=run_id,
@@ -76,10 +78,13 @@ class TestComplianceFindingDetails:
         row = await _make_finding(db, env["run_id"], decision="verified")
         await db.commit()
 
+        # ``regulation`` is intentionally omitted: the endpoint validates it
+        # against the regulation catalogue, which this lightweight fixture
+        # does not seed. Omitting it leaves the finding's regulation unchanged
+        # and still exercises the status/severity/content edit.
         r = await client.patch(
             _url(row.id),
             json={
-                "regulation": "gdpr",
                 "regulation_article": "Art. 35",
                 "card_id": None,
                 "category": "privacy",
