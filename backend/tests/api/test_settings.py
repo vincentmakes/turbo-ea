@@ -231,6 +231,56 @@ class TestGrcEnabledSettings:
 
 
 # -------------------------------------------------------------------
+# GET /settings/sponsor-button-enabled + PATCH /settings/sponsor-button-enabled
+# -------------------------------------------------------------------
+
+
+class TestSponsorButtonEnabledSettings:
+    async def test_get_default_sponsor_button_enabled(self, client, db, settings_env):
+        """Sponsor button endpoint is public and defaults to True."""
+        resp = await client.get("/api/v1/settings/sponsor-button-enabled")
+        assert resp.status_code == 200
+        assert resp.json()["enabled"] is True
+
+    async def test_admin_can_toggle_sponsor_button(self, client, db, settings_env):
+        admin = settings_env["admin"]
+
+        resp = await client.patch(
+            "/api/v1/settings/sponsor-button-enabled",
+            json={"enabled": False},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["ok"] is True
+
+        get_resp = await client.get("/api/v1/settings/sponsor-button-enabled")
+        assert get_resp.json()["enabled"] is False
+
+        # bootstrap reflects the admin edit
+        boot = await client.get("/api/v1/settings/bootstrap")
+        assert boot.json()["sponsor_button_enabled"] is False
+
+        resp2 = await client.patch(
+            "/api/v1/settings/sponsor-button-enabled",
+            json={"enabled": True},
+            headers=auth_headers(admin),
+        )
+        assert resp2.status_code == 200
+
+        get_resp2 = await client.get("/api/v1/settings/sponsor-button-enabled")
+        assert get_resp2.json()["enabled"] is True
+
+    async def test_member_cannot_toggle_sponsor_button(self, client, db, settings_env):
+        member = settings_env["member"]
+        resp = await client.patch(
+            "/api/v1/settings/sponsor-button-enabled",
+            json={"enabled": False},
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 403
+
+
+# -------------------------------------------------------------------
 # GET /settings/file-uploads-enabled + PATCH /settings/file-uploads-enabled
 # -------------------------------------------------------------------
 
@@ -386,6 +436,7 @@ class TestBootstrapSettings:
         assert data["ppm_enabled"] is False
         assert data["turbolens_enabled"] is True
         assert data["grc_enabled"] is True
+        assert data["sponsor_button_enabled"] is True
         assert data["file_uploads_enabled"] is True
         assert "en" in data["enabled_locales"]
         assert data["fiscal_year_start"] == 1

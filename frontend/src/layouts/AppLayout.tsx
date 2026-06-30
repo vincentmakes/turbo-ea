@@ -30,6 +30,7 @@ import ImpersonateRoleDialog from "@/features/admin/ImpersonateRoleDialog";
 import { useEventStream } from "@/hooks/useEventStream";
 import { useBpmEnabled } from "@/hooks/useBpmEnabled";
 import { useGrcEnabled } from "@/hooks/useGrcEnabled";
+import { useSponsorButtonEnabled } from "@/hooks/useSponsorButtonEnabled";
 import { usePpmEnabled } from "@/hooks/usePpmEnabled";
 import { useTurboLensReady } from "@/hooks/useTurboLensReady";
 import { useThemeMode } from "@/hooks/useThemeMode";
@@ -113,6 +114,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const { bpmEnabled } = useBpmEnabled();
   const { ppmEnabled } = usePpmEnabled();
   const { grcEnabled } = useGrcEnabled();
+  const { sponsorButtonEnabled } = useSponsorButtonEnabled();
   const { turboLensReady } = useTurboLensReady();
   const { enabledLocales } = useEnabledLocales();
   const { mode, toggleMode } = useThemeMode();
@@ -740,30 +742,32 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.72rem" }}>
                 v{__APP_VERSION__}
               </Typography>
-              <Button
-                size="small"
-                startIcon={<MaterialSymbol icon="volunteer_activism" size={16} />}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setUserMenu(null);
-                  setSponsorshipOpen(true);
-                }}
-                sx={{
-                  background: `linear-gradient(135deg, ${brand.sponsorFrom}, ${brand.sponsorTo})`,
-                  color: "#fff",
-                  textTransform: "none",
-                  px: 1.25,
-                  py: 0.25,
-                  minHeight: 0,
-                  fontSize: "0.72rem",
-                  "&:hover": {
+              {sponsorButtonEnabled && (
+                <Button
+                  size="small"
+                  startIcon={<MaterialSymbol icon="volunteer_activism" size={16} />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setUserMenu(null);
+                    setSponsorshipOpen(true);
+                  }}
+                  sx={{
                     background: `linear-gradient(135deg, ${brand.sponsorFrom}, ${brand.sponsorTo})`,
-                    filter: "brightness(0.95)",
-                  },
-                }}
-              >
-                {t("userMenu.sponsorship")}
-              </Button>
+                    color: "#fff",
+                    textTransform: "none",
+                    px: 1.25,
+                    py: 0.25,
+                    minHeight: 0,
+                    fontSize: "0.72rem",
+                    "&:hover": {
+                      background: `linear-gradient(135deg, ${brand.sponsorFrom}, ${brand.sponsorTo})`,
+                      filter: "brightness(0.95)",
+                    },
+                  }}
+                >
+                  {t("userMenu.sponsorship")}
+                </Button>
+              )}
             </Box>
             <Divider />
             <MenuItem

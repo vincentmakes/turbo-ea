@@ -26,6 +26,7 @@ import { invalidateBpmEnabled } from "@/hooks/useBpmEnabled";
 import { invalidateComplianceRegulations } from "@/hooks/useComplianceRegulations";
 import { invalidateResourceTypes } from "@/hooks/useResourceTypes";
 import { invalidateGrcEnabled } from "@/hooks/useGrcEnabled";
+import { invalidateSponsorButtonEnabled } from "@/hooks/useSponsorButtonEnabled";
 import { invalidatePpmEnabled } from "@/hooks/usePpmEnabled";
 import { invalidateArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
 import { invalidateFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
@@ -42,6 +43,7 @@ type BootstrapResponse = {
   ppm_enabled: boolean;
   turbolens_enabled: boolean;
   grc_enabled: boolean;
+  sponsor_button_enabled: boolean;
   file_uploads_enabled: boolean;
   enabled_locales: string[];
   fiscal_year_start: number;
@@ -84,6 +86,7 @@ export function primeBootstrap(): Promise<void> {
       invalidateBpmEnabled(r.bpm_enabled);
       invalidatePpmEnabled(r.ppm_enabled);
       invalidateGrcEnabled(r.grc_enabled);
+      invalidateSponsorButtonEnabled(r.sponsor_button_enabled);
       invalidateFileUploadsEnabled(r.file_uploads_enabled);
 
       if (typeof r.archive_retention_days === "number") {

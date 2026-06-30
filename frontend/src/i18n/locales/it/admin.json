@@ -1546,5 +1546,13 @@
   "metamodel.resourceTypes.translationsHelp": "Etichetta visualizzata per lingua. Lascia vuoto per usare l'etichetta predefinita.",
   "metamodel.resourceTypes.loadError": "Impossibile caricare i tipi di risorsa.",
   "metamodel.resourceTypes.saveError": "Impossibile salvare il tipo di risorsa.",
-  "metamodel.resourceTypes.deleteError": "Impossibile eliminare il tipo di risorsa."
+  "metamodel.resourceTypes.deleteError": "Impossibile eliminare il tipo di risorsa.",
+  "settings.sponsorButton.title": "Pulsante Sostieni",
+  "settings.sponsorButton.enabled": "Visibile",
+  "settings.sponsorButton.disabled": "Nascosto",
+  "settings.sponsorButton.description": "Mostra o nascondi il pulsante Sostieni nel menu utente (avatar). Rimane sempre disponibile qui nelle Impostazioni.",
+  "settings.sponsorButton.visible": "Il pulsante Sostieni è mostrato nel menu utente",
+  "settings.sponsorButton.hidden": "Il pulsante Sostieni è nascosto dal menu utente",
+  "settings.sponsorButton.enabledSuccess": "Pulsante Sostieni mostrato nel menu utente",
+  "settings.sponsorButton.disabledSuccess": "Pulsante Sostieni nascosto dal menu utente"
 }
