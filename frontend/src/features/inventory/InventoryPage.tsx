@@ -41,6 +41,7 @@ import InventoryFilterSidebar, {
   LOCKED_COLUMN_KEYS,
   EMPTY_VALUE,
   valueIsEmpty,
+  tagsToFilterText,
   type Filters,
 } from "./InventoryFilterSidebar";
 import ImportDialog from "./ImportDialog";
@@ -1546,6 +1547,10 @@ export default function InventoryPage() {
           p.data.tags = p.newValue || [];
           return true;
         },
+        // The cell value is a TagRef[]; without this, AG Grid's column-header
+        // text filter stringifies it to "[object Object]" and never matches a
+        // typed tag name (issue #728). Filter on the joined tag names instead.
+        filterValueGetter: (p: { data?: Card }) => tagsToFilterText(p.data?.tags),
         cellRenderer: (p: { value: TagRef[] }) => {
           const tags = p.value || [];
           if (tags.length === 0) return "";

@@ -4,6 +4,7 @@ import {
   EMPTY_VALUE,
   filtersAfterTypeToggle,
   tagEmptyToken,
+  tagsToFilterText,
   valueIsEmpty,
 } from "./InventoryFilterSidebar";
 
@@ -48,6 +49,23 @@ describe("tagEmptyToken", () => {
     const prefix = `${EMPTY_VALUE}:`;
     expect(token.startsWith(prefix)).toBe(true);
     expect(token.slice(prefix.length)).toBe("grp-42");
+  });
+});
+
+describe("tagsToFilterText", () => {
+  it("joins tag names so AG Grid's text filter can match them (issue #728)", () => {
+    const text = tagsToFilterText([
+      { name: "R&D" },
+      { name: "Critical" },
+    ]);
+    expect(text).toBe("R&D, Critical");
+    // A typed tag-name fragment must be a substring of the filter text.
+    expect(text.toLowerCase().includes("r&".toLowerCase())).toBe(true);
+  });
+
+  it("handles empty / undefined tag lists", () => {
+    expect(tagsToFilterText([])).toBe("");
+    expect(tagsToFilterText(undefined)).toBe("");
   });
 });
 

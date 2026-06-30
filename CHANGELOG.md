@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **The Inventory remembers the active view and side-panel tab across refreshes.** After applying a saved view, reloading the page re-renders that same view (still highlighted as active) and keeps the same filter/columns/views tab open.
 - **"Export current view" from the Inventory.** The Export button is now a menu with two choices: **Export all fields** (the existing full, re-importable workbook) and **Export current view** — a flat, single-sheet snapshot that mirrors what's on screen (only the visible columns, in their current order, for the filtered rows). The current-view export is meant for sharing and is not suitable for re-import.
 
+### Fixed
+- **Inventory column filter on the Tags column now works** (#728). Typing a tag name in the Tags column's header filter returned no rows because the column holds a list of tag objects; it now matches against the tag names as shown.
+
 ## [1.61.0] - 2026-06-30
 
 ### Added

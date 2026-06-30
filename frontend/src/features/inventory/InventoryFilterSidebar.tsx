@@ -128,6 +128,16 @@ export const EMPTY_VALUE = "__empty__";
 /** Group-scoped empty token for tag filters. */
 export const tagEmptyToken = (groupId: string) => `${EMPTY_VALUE}:${groupId}`;
 
+/**
+ * Flatten a card's tags to a plain searchable string (tag names joined).
+ * Used as the AG Grid `filterValueGetter` for the Tags column: the cell value
+ * is a `TagRef[]`, and AG Grid's default text filter would otherwise stringify
+ * it to "[object Object]" and never match a typed tag name (issue #728).
+ */
+export function tagsToFilterText(tags?: { name: string }[]): string {
+  return (tags || []).map((t) => t.name).join(", ");
+}
+
 /** True when a card value should count as "empty" for filtering purposes. */
 export function valueIsEmpty(actual: unknown): boolean {
   return (
