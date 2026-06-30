@@ -36,6 +36,10 @@ Haz clic en **+ Nuevo hallazgo** en la barra de herramientas de Cumplimiento par
 
 `compliance.manage` es requerido para crear, editar, retirar o bulk-actionar hallazgos. `compliance.view` basta para leer el registro y triagear desde la pestaña Cumplimiento a nivel de tarjeta.
 
+### Editar un hallazgo
+
+Abra un hallazgo — desde la cuadrícula de Cumplimiento o desde la pestaña **Cumplimiento** de una tarjeta — y haga clic en **Editar** en el panel para cambiar, después de su creación, su **estado** de cumplimiento (por ejemplo Conforme → Parcial), severidad, requisito, brecha, evidencia, remediación, artículo o tarjeta vinculada. Editar el contenido no altera la decisión del ciclo de vida del hallazgo; use para ello la línea de tiempo del ciclo de vida. Requiere `compliance.manage`.
+
 ## Ejecutar un escaneo IA
 
 !!! info "IA requerida para escaneos, no para hallazgos manuales"

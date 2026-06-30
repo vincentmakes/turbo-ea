@@ -35,6 +35,10 @@ Klik på **+ New finding** i Compliance-værktøjslinjen for at åbne oprettelse
 
 `compliance.manage` er påkrævet for at oprette, redigere, tilbagetrække eller masse-håndtere fund. `compliance.view` er nok til at læse registret og triagere fra fanen Compliance på kort-niveau.
 
+### Rediger et fund
+
+Åbn et fund — fra Compliance-gitteret eller fra et korts **Compliance**-fane — og klik på **Rediger** i panelet for efter oprettelsen at ændre dets compliance-**status** (for eksempel Compliant → Delvis), alvorlighed, krav, mangel, dokumentation, afhjælpning, artikel eller tilknyttet kort. Redigering af indholdet rører ikke ved fundets livscyklusbeslutning; brug livscyklus-tidslinjen til det. Kræver `compliance.manage`.
+
 ## Køre en AI-scanning
 
 !!! info "AI kræves til scanninger, ikke til manuelle fund"

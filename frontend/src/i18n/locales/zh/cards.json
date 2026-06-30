@@ -589,6 +589,8 @@
   "compliance.columns.reset": "重置",
   "compliance.create.newFinding": "新建发现",
   "compliance.create.title": "新建合规发现",
+  "compliance.drawer.edit": "编辑",
+  "compliance.edit.title": "编辑合规发现",
   "compliance.create.regulation": "法规",
   "compliance.create.article": "条款（可选）",
   "compliance.create.card": "受影响卡片（可选）",

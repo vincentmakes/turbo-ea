@@ -323,6 +323,28 @@ class ComplianceFindingDecisionUpdate(BaseModel):
     review_note: str | None = None
 
 
+class ComplianceFindingDetailUpdate(BaseModel):
+    """Body for ``PATCH /compliance-findings/{id}/details``.
+
+    Edits the human-authored content of a finding — compliance
+    ``status``, ``severity``, ``requirement``, gap/evidence/remediation,
+    category, article, regulation, and linked card — **without** touching
+    the lifecycle ``decision`` (that has its own endpoint). All fields are
+    optional so callers can send a partial update.
+    """
+
+    regulation: str | None = None
+    regulation_article: str | None = None
+    card_id: str | None = None
+    category: str | None = None
+    requirement: str | None = None
+    status: str | None = None
+    severity: str | None = None
+    gap_description: str | None = None
+    evidence: str | None = None
+    remediation: str | None = None
+
+
 class ComplianceFindingBulkDelete(BaseModel):
     """Body for ``DELETE /security/compliance-findings/bulk``.
 

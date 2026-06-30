@@ -589,6 +589,8 @@
   "compliance.columns.reset": "Restablecer",
   "compliance.create.newFinding": "Nuevo hallazgo",
   "compliance.create.title": "Nuevo hallazgo de cumplimiento",
+  "compliance.drawer.edit": "Editar",
+  "compliance.edit.title": "Editar hallazgo de cumplimiento",
   "compliance.create.regulation": "Regulación",
   "compliance.create.article": "Artículo (opcional)",
   "compliance.create.card": "Tarjeta impactada (opcional)",

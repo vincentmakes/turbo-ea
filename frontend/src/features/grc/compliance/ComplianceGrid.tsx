@@ -85,7 +85,7 @@ interface Props {
   onOpenCard: (cardId: string) => void;
   onPromoteToRisk?: (finding: TurboLensComplianceFinding) => void;
   onOpenRisk?: (riskId: string) => void;
-  onRequestAccept?: (finding: TurboLensComplianceFinding) => void;
+  onEdit?: (finding: TurboLensComplianceFinding) => void;
   onDelete?: (finding: TurboLensComplianceFinding) => Promise<void> | void;
   /** Bulk delete a selection of findings. Returns the partial-success
    *  result so the grid can surface skipped rows to the user. */
@@ -186,7 +186,7 @@ export default function ComplianceGrid({
   onOpenCard,
   onPromoteToRisk,
   onOpenRisk,
-  onRequestAccept,
+  onEdit,
   onDelete,
   onBulkDelete,
   onBulkDecisionUpdate,
@@ -861,11 +861,11 @@ export default function ComplianceGrid({
             : undefined
         }
         onOpenRisk={onOpenRisk}
-        onRequestAccept={
-          onRequestAccept
+        onEdit={
+          onEdit
             ? (f) => {
                 setFindingDrawer(null);
-                onRequestAccept(f);
+                onEdit(f);
               }
             : undefined
         }
@@ -978,7 +978,7 @@ export default function ComplianceGrid({
                 ] as ComplianceDecision[]
               ).map((d) => (
                 <MenuItem key={d} value={d}>
-                  {tCards(`compliance.lifecycle.${d}`)}
+                  {t(`compliance_decision_${d}`)}
                 </MenuItem>
               ))}
             </TextField>

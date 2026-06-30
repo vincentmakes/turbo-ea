@@ -589,6 +589,8 @@
   "compliance.columns.reset": "Сбросить",
   "compliance.create.newFinding": "Новая находка",
   "compliance.create.title": "Новая находка соответствия",
+  "compliance.drawer.edit": "Изменить",
+  "compliance.edit.title": "Изменить находку соответствия",
   "compliance.create.regulation": "Регламент",
   "compliance.create.article": "Статья (необязательно)",
   "compliance.create.card": "Затронутая карточка (необязательно)",

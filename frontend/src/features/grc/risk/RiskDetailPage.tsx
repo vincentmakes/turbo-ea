@@ -406,7 +406,13 @@ export default function RiskDetailPage() {
         sx={{ mb: 2 }}
       >
         <Box>
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            flexWrap="wrap"
+            useFlexGap
+          >
             <Typography variant="h6" fontWeight={700}>
               {risk.reference}
             </Typography>
@@ -802,28 +808,34 @@ export default function RiskDetailPage() {
           <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
             {t("risks.section.workflow")}
           </Typography>
-          <Stepper
-            activeStep={statusStepIndex}
-            alternativeLabel
-            nonLinear
-            sx={{ mb: 2 }}
-          >
-            {STATUS_STEPS.map((s) => {
-              const allowed =
-                s === risk.status ||
-                ALLOWED_TRANSITIONS[risk.status as RiskStatus]?.has(s);
-              return (
-                <Step key={s} completed={STATUS_STEPS.indexOf(s) < statusStepIndex}>
-                  <StepButton
-                    onClick={() => tryTransition(s)}
-                    disabled={!allowed || saving}
-                  >
-                    {t(`risks.status.${s}`)}
-                  </StepButton>
-                </Step>
-              );
-            })}
-          </Stepper>
+          {/* The 7-step alternativeLabel stepper has a large intrinsic
+              width; on a phone it would otherwise push the whole page wide
+              and make the sibling boxes look narrow. Contain the overflow so
+              the stepper scrolls within its own card. */}
+          <Box sx={{ overflowX: "auto", mb: 2 }}>
+            <Stepper
+              activeStep={statusStepIndex}
+              alternativeLabel
+              nonLinear
+              sx={{ minWidth: 520 }}
+            >
+              {STATUS_STEPS.map((s) => {
+                const allowed =
+                  s === risk.status ||
+                  ALLOWED_TRANSITIONS[risk.status as RiskStatus]?.has(s);
+                return (
+                  <Step key={s} completed={STATUS_STEPS.indexOf(s) < statusStepIndex}>
+                    <StepButton
+                      onClick={() => tryTransition(s)}
+                      disabled={!allowed || saving}
+                    >
+                      {t(`risks.status.${s}`)}
+                    </StepButton>
+                  </Step>
+                );
+              })}
+            </Stepper>
+          </Box>
 
           <Divider sx={{ my: 1 }} />
 

@@ -589,6 +589,8 @@
   "compliance.columns.reset": "Reset",
   "compliance.create.newFinding": "New finding",
   "compliance.create.title": "New compliance finding",
+  "compliance.drawer.edit": "Edit",
+  "compliance.edit.title": "Edit compliance finding",
   "compliance.create.regulation": "Regulation",
   "compliance.create.article": "Article (optional)",
   "compliance.create.card": "Impacted card (optional)",

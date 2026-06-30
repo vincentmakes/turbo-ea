@@ -19,10 +19,15 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
 import Divider from "@mui/material/Divider";
 import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -41,7 +46,7 @@ interface Props {
   onOpenCard?: (cardId: string) => void;
   onPromoteToRisk?: (finding: TurboLensComplianceFinding) => void;
   onOpenRisk?: (riskId: string) => void;
-  onRequestAccept?: (finding: TurboLensComplianceFinding) => void;
+  onEdit?: (finding: TurboLensComplianceFinding) => void;
   onUpdated?: (updated: TurboLensComplianceFinding) => void;
   canManage?: boolean;
 }
@@ -66,7 +71,7 @@ export default function FindingDetailDrawer({
   onOpenCard,
   onPromoteToRisk,
   onOpenRisk,
-  onRequestAccept,
+  onEdit,
   onUpdated,
   canManage = true,
 }: Props) {
@@ -77,6 +82,29 @@ export default function FindingDetailDrawer({
 
   const [saving, setSaving] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  // Accept-with-rationale lives here so every consumer of the drawer (the
+  // GRC scanner and the per-card Compliance tab) collects the required
+  // review note the same way — see ComplianceLifecycleTimeline.transition().
+  const [acceptNote, setAcceptNote] = useState<string | null>(null);
+  const [accepting, setAccepting] = useState(false);
+
+  const confirmAccept = async () => {
+    if (!finding || !acceptNote?.trim()) return;
+    setAccepting(true);
+    setErr(null);
+    try {
+      const updated = await api.patch<TurboLensComplianceFinding>(
+        `/compliance/compliance-findings/${finding.id}`,
+        { decision: "accepted", review_note: acceptNote.trim() },
+      );
+      onUpdated?.(updated);
+      setAcceptNote(null);
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      setAccepting(false);
+    }
+  };
 
   const submitVerdict = async (verdict: "confirmed" | "rejected") => {
     if (!finding) return;
@@ -118,7 +146,7 @@ export default function FindingDetailDrawer({
           <ComplianceLifecycleTimeline
             finding={finding}
             canManage={canManage}
-            onRequestAccept={onRequestAccept}
+            onRequestAccept={() => setAcceptNote("")}
             onUpdated={(updated) => onUpdated?.(updated)}
           />
 
@@ -266,6 +294,16 @@ export default function FindingDetailDrawer({
           {/* Action bar: Create Risk / Open Risk + Open impacted card. All
               lifecycle transitions live in the timeline above. */}
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            {canManage && onEdit && (
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<MaterialSymbol icon="edit" size={16} />}
+                onClick={() => onEdit(finding)}
+              >
+                {tCards("compliance.drawer.edit")}
+              </Button>
+            )}
             {finding.card_name && finding.card_id && onOpenCard && (
               <Button
                 size="small"
@@ -308,6 +346,47 @@ export default function FindingDetailDrawer({
           </Stack>
         </Stack>
       )}
+
+      {/* Accept-with-rationale dialog. Backend requires a review_note when
+          transitioning to ``accepted``; collecting it here means the card
+          tab and the GRC scanner share one flow. */}
+      <Dialog
+        open={acceptNote !== null}
+        onClose={() => !accepting && setAcceptNote(null)}
+        fullWidth
+        maxWidth="sm"
+        disableRestoreFocus
+      >
+        <DialogTitle>{t("compliance_accept_title")}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t("compliance_accept_help")}
+          </Typography>
+          <TextField
+            autoFocus
+            fullWidth
+            multiline
+            minRows={3}
+            label={t("compliance_review_note")}
+            value={acceptNote ?? ""}
+            onChange={(e) => setAcceptNote(e.target.value)}
+            disabled={accepting}
+            required
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAcceptNote(null)} disabled={accepting}>
+            {t("compliance_accept_cancel")}
+          </Button>
+          <Button
+            variant="contained"
+            disabled={!acceptNote?.trim() || accepting}
+            onClick={confirmAccept}
+          >
+            {t("compliance_accept_confirm")}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Drawer>
   );
 }

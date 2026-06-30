@@ -589,6 +589,8 @@
   "compliance.columns.reset": "Nulstil",
   "compliance.create.newFinding": "Nyt fund",
   "compliance.create.title": "Nyt compliance-fund",
+  "compliance.drawer.edit": "Rediger",
+  "compliance.edit.title": "Rediger compliance-fund",
   "compliance.create.regulation": "Regulering",
   "compliance.create.article": "Artikel (valgfri)",
   "compliance.create.card": "Påvirket kort (valgfrit)",

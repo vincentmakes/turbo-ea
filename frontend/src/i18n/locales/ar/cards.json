@@ -589,6 +589,8 @@
   "compliance.columns.reset": "إعادة التعيين",
   "compliance.create.newFinding": "نتيجة جديدة",
   "compliance.create.title": "نتيجة امتثال جديدة",
+  "compliance.drawer.edit": "تعديل",
+  "compliance.edit.title": "تعديل نتيجة الامتثال",
   "compliance.create.regulation": "اللائحة",
   "compliance.create.article": "المادة (اختياري)",
   "compliance.create.card": "البطاقة المتأثرة (اختياري)",

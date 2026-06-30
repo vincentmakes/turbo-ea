@@ -589,6 +589,8 @@
   "compliance.columns.reset": "Zurücksetzen",
   "compliance.create.newFinding": "Neuer Befund",
   "compliance.create.title": "Neuer Compliance-Befund",
+  "compliance.drawer.edit": "Bearbeiten",
+  "compliance.edit.title": "Compliance-Befund bearbeiten",
   "compliance.create.regulation": "Regulierung",
   "compliance.create.article": "Artikel (optional)",
   "compliance.create.card": "Betroffene Karte (optional)",

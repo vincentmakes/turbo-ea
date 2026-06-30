@@ -36,6 +36,10 @@ Cliquez **+ Nouveau constat** dans la barre d'outils Conformité pour ouvrir le 
 
 `compliance.manage` est requis pour créer, modifier, retirer ou bulk-actionner des constats. `compliance.view` suffit pour lire le registre et trier depuis l'onglet Conformité d'une fiche.
 
+### Modifier un constat
+
+Ouvrez un constat — depuis la grille Conformité ou depuis l'onglet **Conformité** d'une fiche — et cliquez sur **Modifier** dans le tiroir pour changer, après sa création, son **statut** de conformité (par exemple Conforme → Partiel), sa sévérité, son exigence, son écart, sa preuve, sa remédiation, son article ou sa fiche liée. Modifier le contenu ne touche pas à la décision de cycle de vie du constat ; utilisez pour cela la chronologie du cycle de vie. Nécessite `compliance.manage`.
+
 ## Exécuter un scan IA
 
 !!! info "IA requise pour les scans, pas pour les constats manuels"

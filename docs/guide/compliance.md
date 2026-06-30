@@ -35,6 +35,10 @@ Click **+ New finding** in the Compliance toolbar to open the create dialog. Req
 
 `compliance.manage` is required to create, edit, retire or bulk-act on findings. `compliance.view` is enough to read the register and triage from the card-level Compliance tab.
 
+### Editing a finding
+
+Open any finding — from the Compliance grid or from a card's **Compliance** tab — and click **Edit** in the drawer to change its compliance **status** (for example Compliant → Partial), severity, requirement, gap, evidence, remediation, article, or linked card after it was created. Editing the content leaves the finding's lifecycle decision untouched; use the lifecycle timeline for that. Requires `compliance.manage`.
+
 ## Running an AI scan
 
 !!! info "AI required for scans, not for manual findings"
@@ -69,7 +73,7 @@ new → in_review → mitigated → verified
                       ↘ risk_tracked      (set automatically on promote-to-Risk)
 ```
 
-Transitions are restricted to users with `compliance.manage`. The engine enforces transitions server-side and rejects illegal moves with a clear error.
+Transitions are restricted to users with `compliance.manage`. The engine enforces transitions server-side and rejects illegal moves with a clear error. Choosing **Accepted** — whether from the GRC Compliance module or a card's Compliance tab — opens a dialog to capture the required review rationale before the transition is saved.
 
 `risk_tracked` is never set by hand — it is written automatically when you click **Create risk** on a finding and is cleared by the Risk back-propagation engine when the linked Risk closes.
 

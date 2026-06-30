@@ -40,6 +40,7 @@ from app.schemas.turbolens import (
     ComplianceFindingBulkResult,
     ComplianceFindingCreate,
     ComplianceFindingDecisionUpdate,
+    ComplianceFindingDetailUpdate,
     ComplianceFindingOut,
     DuplicateClusterOut,
     ModernizationOut,
@@ -1409,6 +1410,123 @@ async def update_compliance_finding_decision(
         nt = meta.get(str(row.card_id))
         if nt:
             card_name, card_type, card_has_ai_features = nt
+    risk_refs = await load_risk_references(db, {row.risk_id}) if row.risk_id else {}
+    reviewer_names = await load_reviewer_names(db, {row.reviewed_by}) if row.reviewed_by else {}
+    return ComplianceFindingOut.model_validate(
+        compliance_to_dict(
+            row,
+            card_name,
+            card_type=card_type,
+            card_has_ai_features=card_has_ai_features,
+            risk_reference=risk_refs.get(str(row.risk_id)) if row.risk_id else None,
+            reviewer_name=(reviewer_names.get(str(row.reviewed_by)) if row.reviewed_by else None),
+        )
+    )
+
+
+@compliance_router.patch("/compliance-findings/{finding_id}/details")
+async def update_compliance_finding_details(
+    finding_id: str,
+    body: ComplianceFindingDetailUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ComplianceFindingOut:
+    """Edit a finding's descriptive / assessment fields.
+
+    Distinct from ``PATCH /compliance-findings/{id}`` which only
+    transitions the lifecycle ``decision``. This endpoint updates the
+    human-authored content of a finding — compliance ``status``,
+    ``severity``, ``requirement``, gap/evidence/remediation, category,
+    article, regulation, and linked card — without touching the lifecycle
+    state. The ``finding_key`` is recomputed so a later re-scan still
+    upserts cleanly. Requires ``compliance.manage``.
+    """
+    await PermissionService.require_permission(db, user, "compliance.manage")
+
+    row = await db.get(TurboLensComplianceFinding, uuid.UUID(finding_id))
+    if not row:
+        raise HTTPException(404, "Finding not found")
+
+    data = body.model_dump(exclude_unset=True)
+
+    if "status" in data and data["status"] not in _VALID_COMPLIANCE_STATUSES:
+        raise HTTPException(
+            400,
+            f"status must be one of: {', '.join(sorted(_VALID_COMPLIANCE_STATUSES))}",
+        )
+    if "severity" in data and data["severity"] not in _VALID_SEVERITIES:
+        raise HTTPException(400, f"severity must be one of: {', '.join(sorted(_VALID_SEVERITIES))}")
+    if "requirement" in data and not (data["requirement"] or "").strip():
+        raise HTTPException(400, "requirement is required")
+
+    card_name: str | None = None
+    card_type: str | None = None
+    card_has_ai_features: bool | None = None
+    if "card_id" in data:
+        new_card_id = data["card_id"]
+        if new_card_id:
+            try:
+                card_uuid = uuid.UUID(new_card_id)
+            except ValueError as exc:
+                raise HTTPException(400, "Invalid card_id") from exc
+            meta = await _load_card_meta(db, {card_uuid})
+            nt = meta.get(str(card_uuid))
+            if not nt:
+                raise HTTPException(404, "Card not found")
+            card_name, card_type, card_has_ai_features = nt
+            row.card_id = card_uuid
+            row.scope_type = "card"
+        else:
+            row.card_id = None
+            row.scope_type = "landscape"
+
+    if "regulation" in data and data["regulation"]:
+        reg_key = data["regulation"].strip()
+        reg_exists = await db.execute(
+            select(ComplianceRegulation).where(ComplianceRegulation.key == reg_key)
+        )
+        if reg_exists.scalar_one_or_none() is None:
+            raise HTTPException(400, f"Unknown regulation '{reg_key}'.")
+        row.regulation = reg_key
+
+    for field in (
+        "regulation_article",
+        "category",
+        "requirement",
+        "status",
+        "severity",
+        "gap_description",
+        "evidence",
+        "remediation",
+    ):
+        if field in data:
+            setattr(row, field, data[field])
+
+    # Keep finding_key consistent with the (possibly changed) identity
+    # fields so a later re-scan upserts onto this row rather than duplicating.
+    from app.services.compliance_scanner import (
+        compliance_to_dict,
+        compute_finding_key,
+        load_reviewer_names,
+        load_risk_references,
+    )
+
+    row.finding_key = compute_finding_key(
+        row.scope_type,
+        row.card_id,
+        row.regulation,
+        row.regulation_article,
+        row.requirement,
+    )
+    await db.commit()
+    await db.refresh(row)
+
+    if row.card_id and card_name is None:
+        meta = await _load_card_meta(db, {row.card_id})
+        nt = meta.get(str(row.card_id))
+        if nt:
+            card_name, card_type, card_has_ai_features = nt
+
     risk_refs = await load_risk_references(db, {row.risk_id}) if row.risk_id else {}
     reviewer_names = await load_reviewer_names(db, {row.reviewed_by}) if row.reviewed_by else {}
     return ComplianceFindingOut.model_validate(

@@ -589,6 +589,8 @@
   "compliance.columns.reset": "Redefinir",
   "compliance.create.newFinding": "Novo achado",
   "compliance.create.title": "Novo achado de conformidade",
+  "compliance.drawer.edit": "Editar",
+  "compliance.edit.title": "Editar achado de conformidade",
   "compliance.create.regulation": "Regulamento",
   "compliance.create.article": "Artigo (opcional)",
   "compliance.create.card": "Cartão impactado (opcional)",

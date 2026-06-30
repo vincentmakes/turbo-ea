@@ -13,10 +13,6 @@ import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormGroup from "@mui/material/FormGroup";
 import Grid from "@mui/material/Grid";
@@ -24,7 +20,6 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
-import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import MetricCard from "@/features/reports/MetricCard";
@@ -228,12 +223,9 @@ export default function ComplianceScanner() {
   // Card side panel triggered from a finding's card-name click.
   const [cardPanelId, setCardPanelId] = useState<string | null>(null);
 
-  // Inline "accept with rationale" dialog state.
-  const [acceptDialog, setAcceptDialog] = useState<{
-    finding: TurboLensComplianceFinding;
-    note: string;
-    saving: boolean;
-  } | null>(null);
+  // Finding being edited (status / severity / details). null = create mode.
+  const [editFinding, setEditFinding] =
+    useState<TurboLensComplianceFinding | null>(null);
 
   // Risk promotion dialog (used from compliance cards).
   const [riskSeed, setRiskSeed] = useState<RiskDialogSeed | null>(null);
@@ -444,42 +436,6 @@ export default function ComplianceScanner() {
     complianceCardTypeFilter,
   ]);
 
-  const setDecision = useCallback(
-    async (
-      finding: TurboLensComplianceFinding,
-      decision: ComplianceDecision,
-      note?: string,
-    ) => {
-      try {
-        const updated = await api.patch<TurboLensComplianceFinding>(
-          `/compliance/compliance-findings/${finding.id}`,
-          {
-            decision,
-            ...(note !== undefined ? { review_note: note } : {}),
-          },
-        );
-        // Splice the updated row back into the loaded compliance bundles
-        // so the UI reflects the new decision immediately without a full
-        // refetch.
-        setCompliance((prev) =>
-          prev.map((b) =>
-            b.regulation === finding.regulation
-              ? {
-                  ...b,
-                  findings: b.findings.map((f) =>
-                    f.id === finding.id ? updated : f,
-                  ),
-                }
-              : b,
-          ),
-        );
-      } catch (e) {
-        if (e instanceof ApiError) setError(e.message);
-        else setError(String(e));
-      }
-    },
-    [],
-  );
 
   // ── Render ────────────────────────────────────────────────────────
   return (
@@ -522,65 +478,6 @@ export default function ComplianceScanner() {
         onClose={() => setCardPanelId(null)}
       />
 
-      <Dialog
-        open={Boolean(acceptDialog)}
-        onClose={() =>
-          !acceptDialog?.saving && setAcceptDialog(null)
-        }
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>
-          {t("compliance_accept_title")}
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {t("compliance_accept_help")}
-          </Typography>
-          <TextField
-            autoFocus
-            fullWidth
-            multiline
-            minRows={3}
-            label={t("compliance_review_note")}
-            value={acceptDialog?.note ?? ""}
-            onChange={(e) =>
-              setAcceptDialog((d) =>
-                d ? { ...d, note: e.target.value } : d,
-              )
-            }
-            disabled={acceptDialog?.saving}
-            required
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => setAcceptDialog(null)}
-            disabled={acceptDialog?.saving}
-          >
-            {t("compliance_accept_cancel")}
-          </Button>
-          <Button
-            variant="contained"
-            disabled={
-              !acceptDialog?.note.trim() || Boolean(acceptDialog?.saving)
-            }
-            onClick={async () => {
-              if (!acceptDialog) return;
-              setAcceptDialog({ ...acceptDialog, saving: true });
-              await setDecision(
-                acceptDialog.finding,
-                "accepted",
-                acceptDialog.note.trim(),
-              );
-              setAcceptDialog(null);
-            }}
-          >
-            {t("compliance_accept_confirm")}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
       <CreateRiskDialog
         open={Boolean(riskSeed)}
         seed={riskSeed}
@@ -596,12 +493,16 @@ export default function ComplianceScanner() {
       />
 
       <CreateComplianceFindingDialog
-        open={createFindingOpen}
+        open={createFindingOpen || Boolean(editFinding)}
+        finding={editFinding}
         defaultRegulation={activeRegulation}
-        onClose={() => setCreateFindingOpen(false)}
-        onCreated={() => {
-          // Refresh the compliance bundle so the new manual finding lands
-          // on the active regulation tab.
+        onClose={() => {
+          setCreateFindingOpen(false);
+          setEditFinding(null);
+        }}
+        onSaved={() => {
+          // Refresh the compliance bundle so the new/edited finding lands
+          // on the active regulation tab with its updated status.
           loadCompliance();
         }}
       />
@@ -888,9 +789,7 @@ export default function ComplianceScanner() {
           onOpenCard={setCardPanelId}
           onPromoteToRisk={(f) => setRiskSeed(seedFromCompliance(f))}
           onOpenRisk={openRisk}
-          onRequestAccept={(f) =>
-            setAcceptDialog({ finding: f, note: "", saving: false })
-          }
+          onEdit={(f) => setEditFinding(f)}
           loading={complianceLoading}
           onCreate={() => setCreateFindingOpen(true)}
           onExport={() =>

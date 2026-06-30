@@ -2975,6 +2975,123 @@
         "title": "ComplianceFindingDecisionUpdate",
         "type": "object"
       },
+      "ComplianceFindingDetailUpdate": {
+        "description": "Body for ``PATCH /compliance-findings/{id}/details``.\n\nEdits the human-authored content of a finding \u2014 compliance\n``status``, ``severity``, ``requirement``, gap/evidence/remediation,\ncategory, article, regulation, and linked card \u2014 **without** touching\nthe lifecycle ``decision`` (that has its own endpoint). All fields are\noptional so callers can send a partial update.",
+        "properties": {
+          "card_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Id"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence"
+          },
+          "gap_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gap Description"
+          },
+          "regulation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regulation"
+          },
+          "regulation_article": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regulation Article"
+          },
+          "remediation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remediation"
+          },
+          "requirement": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "title": "ComplianceFindingDetailUpdate",
+        "type": "object"
+      },
       "ComplianceFindingOut": {
         "properties": {
           "ai_detected": {
@@ -19570,6 +19687,59 @@
           }
         },
         "summary": "Submit Ai Verdict",
+        "tags": [
+          "Compliance"
+        ]
+      }
+    },
+    "/api/v1/compliance/compliance-findings/{finding_id}/details": {
+      "patch": {
+        "description": "Edit a finding's descriptive / assessment fields.\n\nDistinct from ``PATCH /compliance-findings/{id}`` which only\ntransitions the lifecycle ``decision``. This endpoint updates the\nhuman-authored content of a finding \u2014 compliance ``status``,\n``severity``, ``requirement``, gap/evidence/remediation, category,\narticle, regulation, and linked card \u2014 without touching the lifecycle\nstate. The ``finding_key`` is recomputed so a later re-scan still\nupserts cleanly. Requires ``compliance.manage``.",
+        "operationId": "update_compliance_finding_details_api_v1_compliance_compliance_findings__finding_id__details_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "finding_id",
+            "required": true,
+            "schema": {
+              "title": "Finding Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComplianceFindingDetailUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceFindingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Compliance Finding Details",
         "tags": [
           "Compliance"
         ]

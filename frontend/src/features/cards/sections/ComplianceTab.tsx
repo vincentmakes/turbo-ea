@@ -38,6 +38,7 @@ import CreateRiskDialog from "@/features/grc/risk/CreateRiskDialog";
 import { seedFromCompliance } from "@/features/grc/risk/riskDefaults";
 import type { RiskDialogSeed } from "@/features/grc/risk/riskDefaults";
 import FindingDetailDrawer from "@/features/grc/compliance/FindingDetailDrawer";
+import CreateComplianceFindingDialog from "@/features/grc/compliance/CreateComplianceFindingDialog";
 import {
   complianceStatusColor,
 } from "@/features/turbolens/utils";
@@ -58,6 +59,8 @@ export default function ComplianceTab({ cardId }: Props) {
   const [includeResolved, setIncludeResolved] = useState(false);
   const [dialogSeed, setDialogSeed] = useState<RiskDialogSeed | null>(null);
   const [drawer, setDrawer] = useState<TurboLensComplianceFinding | null>(null);
+  const [editFinding, setEditFinding] =
+    useState<TurboLensComplianceFinding | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -248,12 +251,26 @@ export default function ComplianceTab({ cardId }: Props) {
         onClose={() => setDrawer(null)}
         canManage
         onOpenCard={undefined}
+        onEdit={(f) => {
+          setDrawer(null);
+          setEditFinding(f);
+        }}
         onPromoteToRisk={(f) => {
           setDrawer(null);
           setDialogSeed(seedFromCompliance(f));
         }}
         onOpenRisk={(riskId) => navigate(`/grc/risks/${riskId}`)}
         onUpdated={onUpdated}
+      />
+
+      <CreateComplianceFindingDialog
+        open={Boolean(editFinding)}
+        finding={editFinding}
+        onClose={() => setEditFinding(null)}
+        onSaved={(updated) => {
+          setEditFinding(null);
+          onUpdated(updated);
+        }}
       />
 
       <CreateRiskDialog

@@ -45,7 +45,11 @@ export default function RiskMatrix({
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: `130px repeat(${IMPACTS.length}, 1fr)`,
+          // Narrower label column on phones so the data cells stay legible.
+          gridTemplateColumns: {
+            xs: `84px repeat(${IMPACTS.length}, 1fr)`,
+            sm: `130px repeat(${IMPACTS.length}, 1fr)`,
+          },
           gap: 0.5,
           alignItems: "stretch",
         }}

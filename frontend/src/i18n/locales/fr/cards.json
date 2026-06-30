@@ -589,6 +589,8 @@
   "compliance.columns.reset": "Réinitialiser",
   "compliance.create.newFinding": "Nouveau constat",
   "compliance.create.title": "Nouveau constat de conformité",
+  "compliance.drawer.edit": "Modifier",
+  "compliance.edit.title": "Modifier le constat de conformité",
   "compliance.create.regulation": "Réglementation",
   "compliance.create.article": "Article (optionnel)",
   "compliance.create.card": "Carte impactée (optionnel)",

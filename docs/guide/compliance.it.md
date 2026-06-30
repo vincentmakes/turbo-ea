@@ -36,6 +36,10 @@ Clicca **+ Nuova rilevazione** nella toolbar Conformità per aprire il dialogo d
 
 `compliance.manage` è richiesto per creare, modificare, ritirare o bulk-azionare rilevazioni. `compliance.view` basta per leggere il registro e triagiare dalla scheda Conformità a livello di card.
 
+### Modificare una rilevazione
+
+Apri una rilevazione — dalla griglia Conformità o dalla scheda **Conformità** di una card — e fai clic su **Modifica** nel drawer per cambiare, dopo la creazione, il suo **stato** di conformità (ad esempio Conforme → Parziale), gravità, requisito, lacuna, evidenza, rimedio, articolo o card collegata. La modifica del contenuto non tocca la decisione del ciclo di vita della rilevazione; per quello usa la timeline del ciclo di vita. Richiede `compliance.manage`.
+
 ## Eseguire una scansione IA
 
 !!! info "IA richiesta per le scansioni, non per le rilevazioni manuali"

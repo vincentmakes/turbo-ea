@@ -36,6 +36,10 @@ Klick **+ Neuer Befund** in der Compliance-Symbolleiste, um den Erstellungsdialo
 
 `compliance.manage` ist erforderlich, um Befunde zu erstellen, zu bearbeiten, stillzulegen oder bulk-zu-aktionieren. `compliance.view` reicht, um das Register zu lesen und vom kartenseitigen Compliance-Reiter zu triagieren.
 
+### Einen Befund bearbeiten
+
+Öffnen Sie einen Befund — aus dem Compliance-Raster oder aus dem **Compliance**-Reiter einer Karte — und klicken Sie im Drawer auf **Bearbeiten**, um nach der Erstellung dessen Compliance-**Status** (zum Beispiel Konform → Teilweise), Schweregrad, Anforderung, Lücke, Nachweis, Behebung, Artikel oder verknüpfte Karte zu ändern. Das Bearbeiten des Inhalts lässt die Lebenszyklus-Entscheidung des Befunds unberührt; verwenden Sie dafür die Lebenszyklus-Zeitleiste. Erfordert `compliance.manage`.
+
 ## Einen KI-Scan ausführen
 
 !!! info "KI für Scans erforderlich, nicht für manuelle Befunde"

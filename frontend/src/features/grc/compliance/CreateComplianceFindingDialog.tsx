@@ -53,15 +53,18 @@ interface CardOption {
 interface Props {
   open: boolean;
   defaultRegulation?: RegulationKey;
+  /** When set, the dialog edits this finding instead of creating one. */
+  finding?: TurboLensComplianceFinding | null;
   onClose: () => void;
-  onCreated: (finding: TurboLensComplianceFinding) => void;
+  onSaved: (finding: TurboLensComplianceFinding) => void;
 }
 
 export default function CreateComplianceFindingDialog({
   open,
   defaultRegulation,
+  finding,
   onClose,
-  onCreated,
+  onSaved,
 }: Props) {
   const { t } = useTranslation("admin");
   const { t: tCards } = useTranslation("cards");
@@ -87,21 +90,43 @@ export default function CreateComplianceFindingDialog({
 
   useEffect(() => {
     if (!open) return;
-    setRegulation(
-      defaultRegulation ?? enabledRegulations[0]?.key ?? "eu_ai_act",
-    );
-    setRegulationArticle("");
-    setSelectedCard(null);
-    setCategory("");
-    setRequirement("");
-    setStatus("review_needed");
-    setSeverity("medium");
-    setGap("");
-    setEvidence("");
-    setRemediation("");
+    if (finding) {
+      // Edit mode — prefill from the existing finding.
+      setRegulation(finding.regulation);
+      setRegulationArticle(finding.regulation_article ?? "");
+      setSelectedCard(
+        finding.card_id
+          ? {
+              id: finding.card_id,
+              name: finding.card_name ?? "",
+              type: finding.card_type ?? "",
+            }
+          : null,
+      );
+      setCategory(finding.category ?? "");
+      setRequirement(finding.requirement ?? "");
+      setStatus(finding.status);
+      setSeverity(finding.severity);
+      setGap(finding.gap_description ?? "");
+      setEvidence(finding.evidence ?? "");
+      setRemediation(finding.remediation ?? "");
+    } else {
+      setRegulation(
+        defaultRegulation ?? enabledRegulations[0]?.key ?? "eu_ai_act",
+      );
+      setRegulationArticle("");
+      setSelectedCard(null);
+      setCategory("");
+      setRequirement("");
+      setStatus("review_needed");
+      setSeverity("medium");
+      setGap("");
+      setEvidence("");
+      setRemediation("");
+    }
     setError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, defaultRegulation]);
+  }, [open, defaultRegulation, finding]);
 
   const handleSubmit = async () => {
     if (!requirement.trim()) {
@@ -110,23 +135,29 @@ export default function CreateComplianceFindingDialog({
     }
     setSubmitting(true);
     setError(null);
+    const payload = {
+      regulation,
+      regulation_article: regulationArticle.trim() || null,
+      card_id: selectedCard?.id ?? null,
+      category: category.trim(),
+      requirement: requirement.trim(),
+      status,
+      severity,
+      gap_description: gap.trim(),
+      evidence: evidence.trim() || null,
+      remediation: remediation.trim() || null,
+    };
     try {
-      const created = await api.post<TurboLensComplianceFinding>(
-        "/compliance/compliance-findings",
-        {
-          regulation,
-          regulation_article: regulationArticle.trim() || null,
-          card_id: selectedCard?.id ?? null,
-          category: category.trim(),
-          requirement: requirement.trim(),
-          status,
-          severity,
-          gap_description: gap.trim(),
-          evidence: evidence.trim() || null,
-          remediation: remediation.trim() || null,
-        },
-      );
-      onCreated(created);
+      const saved = finding
+        ? await api.patch<TurboLensComplianceFinding>(
+            `/compliance/compliance-findings/${finding.id}/details`,
+            payload,
+          )
+        : await api.post<TurboLensComplianceFinding>(
+            "/compliance/compliance-findings",
+            payload,
+          );
+      onSaved(saved);
       onClose();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e));
@@ -137,7 +168,11 @@ export default function CreateComplianceFindingDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{tCards("compliance.create.title")}</DialogTitle>
+      <DialogTitle>
+        {finding
+          ? tCards("compliance.edit.title")
+          : tCards("compliance.create.title")}
+      </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <FormControl size="small" fullWidth>
@@ -274,7 +309,9 @@ export default function CreateComplianceFindingDialog({
           variant="contained"
           disabled={submitting || !requirement.trim()}
         >
-          {tCards("compliance.create.submit")}
+          {finding
+            ? tCommon("actions.save")
+            : tCards("compliance.create.submit")}
         </Button>
       </DialogActions>
     </Dialog>

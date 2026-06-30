@@ -589,6 +589,8 @@
   "compliance.columns.reset": "Ripristina",
   "compliance.create.newFinding": "Nuovo riscontro",
   "compliance.create.title": "Nuovo riscontro di conformità",
+  "compliance.drawer.edit": "Modifica",
+  "compliance.edit.title": "Modifica riscontro di conformità",
   "compliance.create.regulation": "Regolamento",
   "compliance.create.article": "Articolo (opzionale)",
   "compliance.create.card": "Scheda impattata (opzionale)",
