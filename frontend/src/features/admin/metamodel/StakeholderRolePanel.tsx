@@ -395,6 +395,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                         value={editForm.label}
                         onChange={(e) => setEditForm({ ...editForm, label: e.target.value })}
                         fullWidth
+                        error={!editForm.label.trim()}
                       />
                       <TextField
                         size="small"
@@ -485,6 +486,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                 onChange={(v) => setCreateForm({ ...createForm, key: v })}
                 placeholder={t("metamodel.stakeholderPanel.keyPlaceholder")}
                 fullWidth
+                required={!!createForm.label.trim()}
               />
               <TextField
                 size="small"
@@ -493,6 +495,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                 onChange={(e) => setCreateForm({ ...createForm, label: e.target.value })}
                 placeholder={t("metamodel.stakeholderPanel.labelPlaceholder")}
                 fullWidth
+                error={!createForm.label.trim()}
               />
               <TextField
                 size="small"

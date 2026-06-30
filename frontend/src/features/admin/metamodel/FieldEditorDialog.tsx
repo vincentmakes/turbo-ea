@@ -90,7 +90,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
   const addOption = () => {
     setField({
       ...field,
-      options: [...(field.options || []), { key: "", label: "" }],
+      options: [...(field.options || []), { key: "", label: "", color: "#1976d2" }],
     });
   };
 
@@ -143,6 +143,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
           size="small"
           locked={!!initial.key}
           lockedReason={t("metamodel.fieldEditor.keyLockedReason")}
+          required={!!displayLabel.trim()}
         />
         <TextField
           fullWidth
@@ -150,6 +151,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
           value={displayLabel}
           onChange={(e) => setDisplayLabel(e.target.value)}
           sx={{ mb: 2 }}
+          error={!displayLabel.trim()}
         />
         <FormControl fullWidth sx={{ mb: 2 }}>
           <InputLabel>{t("metamodel.fieldEditor.typeLabel")}</InputLabel>
@@ -202,6 +204,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
                     sx={{ flex: 1 }}
                     locked={originalOptionKeys.has(opt.key)}
                     lockedReason={t("metamodel.fieldEditor.optionKeyLocked")}
+                    required={!!opt.label.trim()}
                   />
                   <TextField
                     size="small"
@@ -276,7 +279,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
             };
             onSave(cleanedField);
           }}
-          disabled={!field.key || !displayLabel || (!initial.key && !isValidKey(field.key)) || (isSelect && (field.options || []).some((o) => o.key && !isValidKey(o.key) && !originalOptionKeys.has(o.key)))}
+          disabled={!field.key || !displayLabel || (!initial.key && !isValidKey(field.key)) || (isSelect && (field.options || []).some((o) => !originalOptionKeys.has(o.key) && !isValidKey(o.key)))}
         >
           {t("common:actions.save")}
         </Button>

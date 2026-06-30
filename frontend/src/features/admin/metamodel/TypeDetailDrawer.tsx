@@ -594,6 +594,7 @@ export default function TypeDetailDrawer({
                   value={newSubKey}
                   onChange={setNewSubKey}
                   sx={{ flex: 1 }}
+                  required={!!newSubLabel.trim()}
                 />
                 <TextField
                   size="small"
@@ -601,6 +602,7 @@ export default function TypeDetailDrawer({
                   value={newSubLabel}
                   onChange={(e) => setNewSubLabel(e.target.value)}
                   sx={{ flex: 1 }}
+                  error={!newSubLabel.trim()}
                 />
                 <Button size="small" variant="contained" onClick={handleAddSubtype} disabled={!newSubKey || !newSubLabel || !isValidKey(newSubKey)} sx={{ mt: "8px" }}>
                   {t("common:actions.add")}

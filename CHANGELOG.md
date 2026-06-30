@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.59.1] - 2026-06-30
+
+### Fixed
+- **Select field options added later now keep their color.** When an admin added a new option to an existing single-select or multi-select field, the new option could be saved without a color even though the picker showed a default — so its color dot was missing in the card editor and Inventory filter. New options now adopt the displayed default color, matching what the picker shows.
+- **Select field options now require a key.** The field editor let an option be saved with only a label and no key; on a card such an option appeared in the dropdown but could not be selected, displayed, or saved. The editor now keeps Save disabled until every option has a valid key.
+
+### Changed
+- **Empty mandatory fields are highlighted in red across the Metamodel editor.** Required inputs — card-type key/name, field key/label, select-option keys, subtype key/label, relation key/verb, relation-value dimensions and options, and stakeholder-role key/name — now show a red border when left empty, so it's clear what still needs filling in before Save is enabled. A key field turns red once you start filling in its row (i.e. type the matching label/name) while the key is still empty, so a not-yet-started row is never flagged.
+
 ## [1.59.0] - 2026-06-30
 
 ### Added

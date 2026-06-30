@@ -136,4 +136,25 @@ describe("KeyInput component", () => {
     const input = screen.getByRole("textbox");
     expect(input).toHaveProperty("disabled", true);
   });
+
+  it("flags an empty field red when the caller marks it required", () => {
+    render(<KeyInput value="" onChange={vi.fn()} required label="Key" />);
+    expect(screen.getByRole("textbox")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("does not flag an empty field when not (yet) required", () => {
+    // The parent keeps `required` false until the row's label is started.
+    render(<KeyInput value="" onChange={vi.fn()} required={false} label="Key" />);
+    expect(screen.getByRole("textbox")).toHaveAttribute("aria-invalid", "false");
+  });
+
+  it("clears the required red once a value is present", () => {
+    render(<KeyInput value="inProgress" onChange={vi.fn()} required label="Key" />);
+    expect(screen.getByRole("textbox")).toHaveAttribute("aria-invalid", "false");
+  });
+
+  it("does not flag a locked required field as invalid", () => {
+    render(<KeyInput value="" onChange={vi.fn()} required locked label="Key" />);
+    expect(screen.getByRole("textbox")).toHaveAttribute("aria-invalid", "false");
+  });
 });
