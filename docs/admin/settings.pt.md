@@ -121,6 +121,8 @@ Consulte o [guia do GRC](../guide/grc.md) para a referência completa de funcion
 
 Mostre ou oculte o botão **Apoiar** no menu de utilizador (avatar). Quando está oculto, os utilizadores deixam de ver o botão Apoiar no seu menu de perfil. O botão Apoiar — e a caixa de diálogo que explica como apoiar o Turbo EA — permanece sempre disponível neste painel de definições, pelo que os administradores ainda conseguem aceder-lhe mesmo quando está oculto no menu.
 
+Se a sua empresa apoia o Turbo EA e gostaria que o seu logótipo fosse divulgado em turbo-ea.org, contacte [sponsorship@turbo-ea.org](mailto:sponsorship@turbo-ea.org).
+
 ## Configurações do TurboLens
 
 A aba **TurboLens** reúne as alternâncias que regem a superfície de análise IA. Ao contrário dos interruptores por módulo acima, o TurboLens **não** é um on/off binário — está «pronto» quando tanto um provedor IA está configurado (na aba **IA**) quanto os dados de análise sincronizaram pelo menos uma vez. A página também expõe:

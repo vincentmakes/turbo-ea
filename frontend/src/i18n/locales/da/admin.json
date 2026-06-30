@@ -1554,5 +1554,6 @@
   "settings.sponsorButton.visible": "Støt-knappen vises i brugermenuen",
   "settings.sponsorButton.hidden": "Støt-knappen er skjult i brugermenuen",
   "settings.sponsorButton.enabledSuccess": "Støt-knappen vises i brugermenuen",
-  "settings.sponsorButton.disabledSuccess": "Støt-knappen er skjult i brugermenuen"
+  "settings.sponsorButton.disabledSuccess": "Støt-knappen er skjult i brugermenuen",
+  "settings.sponsorButton.companyLogoNote": "Hvis din virksomhed sponsorerer Turbo EA og gerne vil have sit logo vist på turbo-ea.org, så kontakt os på"
 }

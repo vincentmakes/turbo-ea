@@ -1554,5 +1554,6 @@
   "settings.sponsorButton.visible": "Sponsor-Schaltfläche wird im Benutzermenü angezeigt",
   "settings.sponsorButton.hidden": "Sponsor-Schaltfläche ist im Benutzermenü ausgeblendet",
   "settings.sponsorButton.enabledSuccess": "Sponsor-Schaltfläche im Benutzermenü angezeigt",
-  "settings.sponsorButton.disabledSuccess": "Sponsor-Schaltfläche im Benutzermenü ausgeblendet"
+  "settings.sponsorButton.disabledSuccess": "Sponsor-Schaltfläche im Benutzermenü ausgeblendet",
+  "settings.sponsorButton.companyLogoNote": "Wenn Ihr Unternehmen Turbo EA sponsert und sein Logo auf turbo-ea.org präsentieren möchte, wenden Sie sich bitte an"
 }

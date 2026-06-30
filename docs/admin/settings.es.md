@@ -121,6 +121,8 @@ Consulte la [guía de GRC](../guide/grc.md) para la referencia completa de funci
 
 Muestra u oculta el botón **Patrocinar** en el menú de usuario (avatar). Cuando está oculto, los usuarios ya no ven el botón Patrocinar en su menú de perfil. El botón Patrocinar — y el cuadro de diálogo que explica cómo apoyar Turbo EA — siempre permanece disponible desde este panel de configuración, por lo que los administradores aún pueden acceder a él incluso cuando está oculto en el menú.
 
+Si tu empresa patrocina Turbo EA y desea que su logotipo aparezca en turbo-ea.org, escribe a [sponsorship@turbo-ea.org](mailto:sponsorship@turbo-ea.org).
+
 ## Configuración de TurboLens
 
 La pestaña **TurboLens** agrupa los interruptores que gobiernan la superficie de análisis IA. A diferencia de los interruptores por módulo de arriba, TurboLens **no** es un on/off binario — está «listo» cuando tanto un proveedor IA está configurado (bajo la pestaña **IA**) como los datos de análisis se han sincronizado al menos una vez. La página también expone:

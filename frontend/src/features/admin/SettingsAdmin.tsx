@@ -7,6 +7,7 @@ import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import Button from "@mui/material/Button";
+import Link from "@mui/material/Link";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import Alert from "@mui/material/Alert";
@@ -1365,6 +1366,10 @@ function GeneralTab() {
         >
           {t("nav:userMenu.sponsorship")}
         </Button>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("settings.sponsorButton.companyLogoNote")}{" "}
+          <Link href="mailto:sponsorship@turbo-ea.org">sponsorship@turbo-ea.org</Link>
+        </Typography>
         <FormControlLabel
           sx={{ display: "flex" }}
           control={

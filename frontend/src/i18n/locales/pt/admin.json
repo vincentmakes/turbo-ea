@@ -1554,5 +1554,6 @@
   "settings.sponsorButton.visible": "O botão Apoiar é mostrado no menu de utilizador",
   "settings.sponsorButton.hidden": "O botão Apoiar está oculto no menu de utilizador",
   "settings.sponsorButton.enabledSuccess": "Botão Apoiar mostrado no menu de utilizador",
-  "settings.sponsorButton.disabledSuccess": "Botão Apoiar oculto no menu de utilizador"
+  "settings.sponsorButton.disabledSuccess": "Botão Apoiar oculto no menu de utilizador",
+  "settings.sponsorButton.companyLogoNote": "Se a sua empresa apoia o Turbo EA e gostaria que o seu logótipo fosse divulgado em turbo-ea.org, entre em contacto através de"
 }

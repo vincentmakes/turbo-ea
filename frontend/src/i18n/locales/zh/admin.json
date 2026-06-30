@@ -1554,5 +1554,6 @@
   "settings.sponsorButton.visible": "赞助按钮显示在用户菜单中",
   "settings.sponsorButton.hidden": "赞助按钮已从用户菜单中隐藏",
   "settings.sponsorButton.enabledSuccess": "赞助按钮已显示在用户菜单中",
-  "settings.sponsorButton.disabledSuccess": "赞助按钮已从用户菜单中隐藏"
+  "settings.sponsorButton.disabledSuccess": "赞助按钮已从用户菜单中隐藏",
+  "settings.sponsorButton.companyLogoNote": "如果贵公司赞助 Turbo EA 并希望在 turbo-ea.org 上展示公司徽标，请通过以下邮箱联系："
 }

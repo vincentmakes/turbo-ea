@@ -121,6 +121,8 @@ See the [GRC guide](../guide/grc.md) for the full feature reference.
 
 Show or hide the **Sponsor** button in the user (avatar) menu. When hidden, users no longer see the Sponsor button in their profile menu. The Sponsor button — and the dialog explaining how to support Turbo EA — always remains available from this settings panel, so administrators can still reach it even when it is hidden from the menu.
 
+If your company sponsors Turbo EA and would like its logo featured on turbo-ea.org, reach out at [sponsorship@turbo-ea.org](mailto:sponsorship@turbo-ea.org).
+
 ## TurboLens settings
 
 The **TurboLens** tab gathers the toggles that govern the AI analysis surface. Unlike the per-module switches above, TurboLens is **not** a binary on/off — it is "ready" when both an AI provider is configured (under the **AI** tab) and the analysis data has synced at least once. The page also exposes:

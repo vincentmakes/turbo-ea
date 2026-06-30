@@ -1554,5 +1554,6 @@
   "settings.sponsorButton.visible": "زر الدعم ظاهر في قائمة المستخدم",
   "settings.sponsorButton.hidden": "زر الدعم مخفي من قائمة المستخدم",
   "settings.sponsorButton.enabledSuccess": "تم إظهار زر الدعم في قائمة المستخدم",
-  "settings.sponsorButton.disabledSuccess": "تم إخفاء زر الدعم من قائمة المستخدم"
+  "settings.sponsorButton.disabledSuccess": "تم إخفاء زر الدعم من قائمة المستخدم",
+  "settings.sponsorButton.companyLogoNote": "إذا كانت شركتك ترعى Turbo EA وترغب في عرض شعارها على turbo-ea.org، يرجى التواصل عبر"
 }

@@ -1554,5 +1554,6 @@
   "settings.sponsorButton.visible": "Кнопка «Поддержать» показана в меню пользователя",
   "settings.sponsorButton.hidden": "Кнопка «Поддержать» скрыта из меню пользователя",
   "settings.sponsorButton.enabledSuccess": "Кнопка «Поддержать» показана в меню пользователя",
-  "settings.sponsorButton.disabledSuccess": "Кнопка «Поддержать» скрыта из меню пользователя"
+  "settings.sponsorButton.disabledSuccess": "Кнопка «Поддержать» скрыта из меню пользователя",
+  "settings.sponsorButton.companyLogoNote": "Если ваша компания спонсирует Turbo EA и хотела бы разместить свой логотип на turbo-ea.org, напишите нам на"
 }

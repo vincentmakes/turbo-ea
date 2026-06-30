@@ -121,6 +121,8 @@ Siehe den [GRC-Leitfaden](../guide/grc.md) für die vollständige Funktionsüber
 
 Blenden Sie die **Sponsor**-Schaltfläche im Benutzermenü (Avatar) ein oder aus. Wenn sie ausgeblendet ist, sehen Benutzer die Sponsor-Schaltfläche nicht mehr in ihrem Profilmenü. Die Sponsor-Schaltfläche — und der Dialog, der erklärt, wie man Turbo EA unterstützt — bleibt in diesem Einstellungsbereich immer verfügbar, sodass Administratoren sie auch dann erreichen, wenn sie im Menü ausgeblendet ist.
 
+Wenn Ihr Unternehmen Turbo EA sponsert und sein Logo auf turbo-ea.org präsentieren möchte, wenden Sie sich an [sponsorship@turbo-ea.org](mailto:sponsorship@turbo-ea.org).
+
 ## TurboLens-Einstellungen
 
 Der **TurboLens**-Reiter bündelt die Schalter, die die KI-Analyse-Oberfläche regeln. Anders als die per-Modul-Schalter oben ist TurboLens **kein** binäres An/Aus — es ist «bereit», wenn sowohl ein KI-Provider konfiguriert ist (unter dem **KI**-Reiter) als auch die Analyse-Daten mindestens einmal synchronisiert wurden. Die Seite exponiert ausserdem:
