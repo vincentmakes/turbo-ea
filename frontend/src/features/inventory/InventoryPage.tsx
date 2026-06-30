@@ -835,7 +835,12 @@ export default function InventoryPage() {
   const handleExportCurrentView = useCallback(() => {
     const api = gridRef.current?.api;
     if (!api) return;
-    const displayed = api.getAllDisplayedColumns();
+    // Exclude AG Grid's auto-generated columns (the row-selection / controls
+    // column, colId `ag-Grid-ControlsColumn` / `ag-Grid-SelectionColumn`) — they
+    // carry no data and would otherwise surface as an empty leading column.
+    const displayed = api
+      .getAllDisplayedColumns()
+      .filter((c) => !c.getColId().startsWith("ag-Grid-"));
     const columns = displayed.map((c) => ({
       colId: c.getColId(),
       headerName: api.getDisplayNameForColumn(c, null) || c.getColId(),
