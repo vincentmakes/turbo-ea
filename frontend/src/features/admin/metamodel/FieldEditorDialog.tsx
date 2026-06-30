@@ -143,6 +143,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
           size="small"
           locked={!!initial.key}
           lockedReason={t("metamodel.fieldEditor.keyLockedReason")}
+          required
         />
         <TextField
           fullWidth
@@ -150,6 +151,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
           value={displayLabel}
           onChange={(e) => setDisplayLabel(e.target.value)}
           sx={{ mb: 2 }}
+          error={!displayLabel.trim()}
         />
         <FormControl fullWidth sx={{ mb: 2 }}>
           <InputLabel>{t("metamodel.fieldEditor.typeLabel")}</InputLabel>
@@ -202,6 +204,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
                     sx={{ flex: 1 }}
                     locked={originalOptionKeys.has(opt.key)}
                     lockedReason={t("metamodel.fieldEditor.optionKeyLocked")}
+                    required
                   />
                   <TextField
                     size="small"

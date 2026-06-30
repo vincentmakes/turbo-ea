@@ -31,6 +31,12 @@ export interface KeyInputProps
   locked?: boolean;
   /** Text shown when locked. */
   lockedReason?: string;
+  /**
+   * When true, an empty value is treated as invalid and the border/label turn
+   * red (no extra helper text) — used to flag a mandatory key field that has
+   * not been filled in yet.
+   */
+  required?: boolean;
 }
 
 function validate(value: string): string {
@@ -60,6 +66,7 @@ export default function KeyInput({
   externalError,
   locked = false,
   lockedReason,
+  required = false,
   ...rest
 }: KeyInputProps) {
   const { t } = useTranslation("validation");
@@ -88,6 +95,9 @@ export default function KeyInput({
   const errorKey = touched ? internalError : "";
   const displayError = externalError || (errorKey ? t(errorKey) : "");
   const showSuccess = touched && !externalError && !errorKey && value.length > 0;
+  // A mandatory but still-empty key: flag the border/label red without adding
+  // any error helper text.
+  const requiredEmpty = required && !locked && !value;
 
   return (
     <TextField
@@ -95,7 +105,7 @@ export default function KeyInput({
       value={value}
       onChange={handleChange}
       disabled={locked}
-      error={!!displayError}
+      error={!!displayError || requiredEmpty}
       helperText={
         locked
           ? lockedReason || t("key.cannotChange")

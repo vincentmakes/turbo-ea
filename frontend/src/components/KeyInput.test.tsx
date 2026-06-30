@@ -136,4 +136,20 @@ describe("KeyInput component", () => {
     const input = screen.getByRole("textbox");
     expect(input).toHaveProperty("disabled", true);
   });
+
+  it("flags an empty required field as invalid (red border) without a value", () => {
+    render(<KeyInput value="" onChange={vi.fn()} required label="Key" />);
+    // MUI sets aria-invalid on the input when the field is in error state.
+    expect(screen.getByRole("textbox")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("clears the required error once a valid value is present", () => {
+    render(<KeyInput value="inProgress" onChange={vi.fn()} required label="Key" />);
+    expect(screen.getByRole("textbox")).toHaveAttribute("aria-invalid", "false");
+  });
+
+  it("does not flag a locked required field as invalid", () => {
+    render(<KeyInput value="" onChange={vi.fn()} required locked label="Key" />);
+    expect(screen.getByRole("textbox")).toHaveAttribute("aria-invalid", "false");
+  });
 });

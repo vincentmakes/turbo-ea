@@ -211,6 +211,7 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
                     value={f.translations?.[locale] ?? f.label}
                     onChange={(e) => setFieldLabel(fi, e.target.value)}
                     sx={{ flex: 1 }}
+                    error={!(f.translations?.[locale] ?? f.label ?? "").trim()}
                   />
                   <Tooltip title={t("common:actions.delete")}>
                     <IconButton size="small" onClick={() => removeField(fi)}>
@@ -230,6 +231,7 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
                 locked={!!relationType?.attributes_schema?.some((e) => e.key === f.key)}
                 lockedReason={t("metamodel.fieldEditor.keyLockedReason")}
                 sx={{ mb: 1.5 }}
+                required
               />
             )}
 
@@ -279,6 +281,7 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
                       ?.options?.some((e) => e.key === opt.key)}
                     lockedReason={t("metamodel.fieldEditor.optionKeyLocked")}
                     sx={{ flex: 1 }}
+                    required
                   />
                   <TextField
                     size="small"
@@ -286,6 +289,7 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
                     value={opt.translations?.[locale] ?? opt.label}
                     onChange={(e) => setOptionLabel(fi, oi, e.target.value)}
                     sx={{ flex: 1 }}
+                    error={!(opt.translations?.[locale] ?? opt.label ?? "").trim()}
                   />
                   <ColorPicker
                     compact

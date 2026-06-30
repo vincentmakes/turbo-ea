@@ -827,6 +827,7 @@ export default function MetamodelAdmin() {
             onChange={(v) => setNewType({ ...newType, key: v })}
             sx={{ mt: 1, mb: 2 }}
             size="small"
+            required
           />
           <TextField
             fullWidth
@@ -834,6 +835,7 @@ export default function MetamodelAdmin() {
             value={newType.label}
             onChange={(e) => setNewType({ ...newType, label: e.target.value })}
             sx={{ mb: 2 }}
+            error={!newType.label.trim()}
           />
           <TextField
             fullWidth
@@ -1015,6 +1017,7 @@ export default function MetamodelAdmin() {
             onChange={(v) => setNewRel({ ...newRel, key: v })}
             sx={{ mb: 2 }}
             size="small"
+            required
           />
           <TextField
             fullWidth
@@ -1022,6 +1025,7 @@ export default function MetamodelAdmin() {
             value={newRel.label}
             onChange={(e) => setNewRel({ ...newRel, label: e.target.value })}
             sx={{ mb: 2 }}
+            error={!newRel.label.trim()}
           />
           <TextField
             fullWidth
