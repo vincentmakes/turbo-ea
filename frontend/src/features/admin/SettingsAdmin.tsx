@@ -7,6 +7,7 @@ import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import Button from "@mui/material/Button";
+import Link from "@mui/material/Link";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import Alert from "@mui/material/Alert";
@@ -30,6 +31,9 @@ import {
 } from "@/hooks/useDateFormat";
 import { invalidateAppTitle, DEFAULT_APP_TITLE } from "@/hooks/useAppTitle";
 import { invalidateGrcEnabled } from "@/hooks/useGrcEnabled";
+import { invalidateSponsorButtonEnabled } from "@/hooks/useSponsorButtonEnabled";
+import SponsorshipDialog from "@/components/SponsorshipDialog";
+import { brand } from "@/theme";
 import { invalidateFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
 import {
   invalidateArchiveRetentionDays,
@@ -203,6 +207,11 @@ function GeneralTab() {
   const [grcEnabled, setGrcEnabled] = useState(true);
   const [savingGrc, setSavingGrc] = useState(false);
 
+  // Sponsor button toggle state (gates the avatar-menu button only)
+  const [sponsorButtonEnabled, setSponsorButtonEnabled] = useState(true);
+  const [savingSponsorButton, setSavingSponsorButton] = useState(false);
+  const [sponsorDialogOpen, setSponsorDialogOpen] = useState(false);
+
   // File uploads toggle state
   const [fileUploadsEnabled, setFileUploadsEnabled] = useState(true);
   const [savingFileUploads, setSavingFileUploads] = useState(false);
@@ -266,8 +275,9 @@ function GeneralTab() {
         login_help_text: string;
         login_help_link: string;
       }>("/settings/login-branding"),
+      api.get<{ enabled: boolean }>("/settings/sponsor-button-enabled"),
     ])
-      .then(([emailData, logoData, faviconData, currencyData, bpmData, localesData, ppmData, fiscalData, archiveRetentionData, appTitleData, dateFormatData, grcData, fileUploadsData, loginBrandingData]) => {
+      .then(([emailData, logoData, faviconData, currencyData, bpmData, localesData, ppmData, fiscalData, archiveRetentionData, appTitleData, dateFormatData, grcData, fileUploadsData, loginBrandingData, sponsorButtonData]) => {
         setSmtpHost(emailData.smtp_host);
         setSmtpPort(emailData.smtp_port);
         setSmtpUser(emailData.smtp_user);
@@ -282,6 +292,7 @@ function GeneralTab() {
         setBpmEnabled(bpmData.enabled);
         setPpmEnabled(ppmData.enabled);
         setGrcEnabled(grcData.enabled);
+        setSponsorButtonEnabled(sponsorButtonData.enabled);
         setFileUploadsEnabled(fileUploadsData.enabled);
         setFiscalYearStart(fiscalData.month);
         setArchiveRetentionDays(archiveRetentionData.days);
@@ -461,6 +472,25 @@ function GeneralTab() {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingGrc(false);
+    }
+  };
+
+  const handleSponsorButtonToggle = async (enabled: boolean) => {
+    setSavingSponsorButton(true);
+    setError("");
+    try {
+      await api.patch("/settings/sponsor-button-enabled", { enabled });
+      setSponsorButtonEnabled(enabled);
+      invalidateSponsorButtonEnabled(enabled);
+      setSnack(
+        enabled
+          ? t("settings.sponsorButton.enabledSuccess")
+          : t("settings.sponsorButton.disabledSuccess"),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingSponsorButton(false);
     }
   };
 
@@ -1298,6 +1328,65 @@ function GeneralTab() {
           label={grcEnabled ? t("settings.grc.visible") : t("settings.grc.hidden")}
         />
       </Paper>
+
+      {/* Sponsor Button Toggle */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="volunteer_activism" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.sponsorButton.title")}
+          </Typography>
+          <Chip
+            label={
+              sponsorButtonEnabled
+                ? t("settings.sponsorButton.enabled")
+                : t("settings.sponsorButton.disabled")
+            }
+            size="small"
+            color={sponsorButtonEnabled ? "success" : "default"}
+            sx={{ ml: 1 }}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("settings.sponsorButton.description")}
+        </Typography>
+        <Button
+          startIcon={<MaterialSymbol icon="volunteer_activism" size={18} />}
+          onClick={() => setSponsorDialogOpen(true)}
+          sx={{
+            mb: 2,
+            background: `linear-gradient(135deg, ${brand.sponsorFrom}, ${brand.sponsorTo})`,
+            color: "#fff",
+            textTransform: "none",
+            "&:hover": {
+              background: `linear-gradient(135deg, ${brand.sponsorFrom}, ${brand.sponsorTo})`,
+              filter: "brightness(0.95)",
+            },
+          }}
+        >
+          {t("nav:userMenu.sponsorship")}
+        </Button>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("settings.sponsorButton.companyLogoNote")}{" "}
+          <Link href="mailto:sponsorship@turbo-ea.org">sponsorship@turbo-ea.org</Link>
+        </Typography>
+        <FormControlLabel
+          sx={{ display: "flex" }}
+          control={
+            <Switch
+              checked={sponsorButtonEnabled}
+              onChange={(e) => handleSponsorButtonToggle(e.target.checked)}
+              disabled={savingSponsorButton}
+            />
+          }
+          label={
+            sponsorButtonEnabled
+              ? t("settings.sponsorButton.visible")
+              : t("settings.sponsorButton.hidden")
+          }
+        />
+      </Paper>
+      <SponsorshipDialog open={sponsorDialogOpen} onClose={() => setSponsorDialogOpen(false)} />
 
       {/* ── Email ─────────────────────────────────────────────────── */}
       <SectionHeader>{t("settings.section.email")}</SectionHeader>

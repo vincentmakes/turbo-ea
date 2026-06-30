@@ -1546,5 +1546,14 @@
   "metamodel.resourceTypes.translationsHelp": "Anzeigebezeichnung pro Sprache. Leer lassen, um auf die Standardbezeichnung zurückzugreifen.",
   "metamodel.resourceTypes.loadError": "Ressourcentypen konnten nicht geladen werden.",
   "metamodel.resourceTypes.saveError": "Ressourcentyp konnte nicht gespeichert werden.",
-  "metamodel.resourceTypes.deleteError": "Ressourcentyp konnte nicht gelöscht werden."
+  "metamodel.resourceTypes.deleteError": "Ressourcentyp konnte nicht gelöscht werden.",
+  "settings.sponsorButton.title": "Sponsor-Schaltfläche",
+  "settings.sponsorButton.enabled": "Sichtbar",
+  "settings.sponsorButton.disabled": "Ausgeblendet",
+  "settings.sponsorButton.description": "Blenden Sie die Sponsor-Schaltfläche im Benutzermenü (Avatar) ein oder aus. Sie bleibt hier in den Einstellungen immer verfügbar.",
+  "settings.sponsorButton.visible": "Sponsor-Schaltfläche wird im Benutzermenü angezeigt",
+  "settings.sponsorButton.hidden": "Sponsor-Schaltfläche ist im Benutzermenü ausgeblendet",
+  "settings.sponsorButton.enabledSuccess": "Sponsor-Schaltfläche im Benutzermenü angezeigt",
+  "settings.sponsorButton.disabledSuccess": "Sponsor-Schaltfläche im Benutzermenü ausgeblendet",
+  "settings.sponsorButton.companyLogoNote": "Wenn Ihr Unternehmen Turbo EA sponsert und sein Logo auf turbo-ea.org präsentieren möchte, wenden Sie sich bitte an"
 }

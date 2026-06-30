@@ -1546,5 +1546,14 @@
   "metamodel.resourceTypes.translationsHelp": "Visningsetiket pr. sprog. Lad være tom for at falde tilbage til standardetiketten.",
   "metamodel.resourceTypes.loadError": "Ressourcetyperne kunne ikke indlæses.",
   "metamodel.resourceTypes.saveError": "Ressourcetypen kunne ikke gemmes.",
-  "metamodel.resourceTypes.deleteError": "Ressourcetypen kunne ikke slettes."
+  "metamodel.resourceTypes.deleteError": "Ressourcetypen kunne ikke slettes.",
+  "settings.sponsorButton.title": "Støt-knap",
+  "settings.sponsorButton.enabled": "Vist",
+  "settings.sponsorButton.disabled": "Skjult",
+  "settings.sponsorButton.description": "Vis eller skjul Støt-knappen i brugermenuen (avatar). Den er altid tilgængelig her under Indstillinger.",
+  "settings.sponsorButton.visible": "Støt-knappen vises i brugermenuen",
+  "settings.sponsorButton.hidden": "Støt-knappen er skjult i brugermenuen",
+  "settings.sponsorButton.enabledSuccess": "Støt-knappen vises i brugermenuen",
+  "settings.sponsorButton.disabledSuccess": "Støt-knappen er skjult i brugermenuen",
+  "settings.sponsorButton.companyLogoNote": "Hvis din virksomhed sponsorerer Turbo EA og gerne vil have sit logo vist på turbo-ea.org, så kontakt os på"
 }

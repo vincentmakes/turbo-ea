@@ -4,7 +4,7 @@ Siden **Indstillinger** under **Admin → Indstillinger** (`/admin/settings`) er
 
 | Faneblad | URL | Hvad det styrer | Fuld vejledning |
 |-----|-----|------------------|------------|
-| **Generelt** | `/admin/settings?tab=general` | Udseende (logo, favicon, valuta, datoformat, aktiverede sprog, regnskabsår), SMTP-e-mail, **modulkontakter** (BPM, PPM, GRC, TurboLens) | Denne side |
+| **Generelt** | `/admin/settings?tab=general` | Udseende (logo, favicon, valuta, datoformat, aktiverede sprog, regnskabsår), SMTP-e-mail, **modulkontakter** (BPM, PPM, GRC, TurboLens, Sponsor button) | Denne side |
 | **Autentificering** | `/admin/settings?tab=authentication` | SSO-udbydere, registrering, adgangskodepolitik | [Autentificering og SSO](sso.md) |
 | **AI** | `/admin/settings?tab=ai` | LLM-udbyder, model, websøgningsbackend, AI-forslagskontakter pr. korttype | [AI-funktioner](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Massetilknytning af produkter til endoflife.date-poster | [End-of-Life (EOL)](eol.md) |
@@ -116,6 +116,12 @@ Slå **Governance, Risk and Compliance**-modulet til eller fra. Når det er deak
 - Risici og compliance-fund forbliver i databasen — de underliggende `risks.*`- og `compliance.*`-tilladelser er uændrede, så dataene bevares og dukker uændret op igen, hvis modulet aktiveres på ny
 
 Se [GRC-vejledningen](../guide/grc.md) for den fulde funktionsreference.
+
+## Støt-knap
+
+Vis eller skjul **Støt**-knappen i brugermenuen (avatar). Når den er skjult, ser brugerne ikke længere Støt-knappen i deres profilmenu. Støt-knappen — og dialogen, der forklarer, hvordan man støtter Turbo EA — er altid tilgængelig fra dette indstillingspanel, så administratorer stadig kan nå den, selv når den er skjult i menuen.
+
+Hvis din virksomhed sponsorerer Turbo EA og gerne vil have sit logo vist på turbo-ea.org, så kontakt [sponsorship@turbo-ea.org](mailto:sponsorship@turbo-ea.org).
 
 ## TurboLens-indstillinger
 

@@ -4,7 +4,7 @@
 
 | 标签页 | URL | 控制内容 | 完整指南 |
 |--------|-----|----------|----------|
-| **常规** | `/admin/settings?tab=general` | 外观（Logo、favicon、货币、日期格式、已启用语言、财年）、SMTP 邮件、**模块开关**（BPM、PPM、GRC、TurboLens） | 本页 |
+| **常规** | `/admin/settings?tab=general` | 外观（Logo、favicon、货币、日期格式、已启用语言、财年）、SMTP 邮件、**模块开关**（BPM、PPM、GRC、TurboLens、赞助按钮） | 本页 |
 | **认证** | `/admin/settings?tab=authentication` | SSO 提供商、注册、密码策略 | [认证与 SSO](sso.md) |
 | **AI** | `/admin/settings?tab=ai` | LLM 提供商、模型、网络搜索后端、按卡片类型的 AI 建议开关 | [AI 功能](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | 将产品批量链接到 endoflife.date 条目 | [生命周期结束 (EOL)](eol.md) |
@@ -116,6 +116,12 @@
 - 风险与合规发现仍保留在数据库中——底层的 `risks.*` 和 `compliance.*` 权限保持不变，因此数据得以保留；模块重新启用后，数据将原样再次出现
 
 请参阅 [GRC 指南](../guide/grc.md) 获取完整功能参考。
+
+## 赞助按钮
+
+在用户（头像）菜单中显示或隐藏 **赞助** 按钮。隐藏后，用户的个人菜单中将不再显示赞助按钮。赞助按钮以及说明如何支持 Turbo EA 的对话框始终可在此设置面板中使用，因此即使在菜单中隐藏，管理员仍可访问它。
+
+如果贵公司赞助 Turbo EA 并希望在 turbo-ea.org 上展示公司徽标，请联系 [sponsorship@turbo-ea.org](mailto:sponsorship@turbo-ea.org)。
 
 ## TurboLens 设置
 

@@ -4,7 +4,7 @@ La page **Paramètres** sous **Admin → Paramètres** (`/admin/settings`) est l
 
 | Onglet | URL | Ce qu'il contrôle | Guide complet |
 |--------|-----|-------------------|---------------|
-| **Général** | `/admin/settings?tab=general` | Apparence (logo, favicon, devise, format de date, langues activées, année fiscale), e-mail SMTP, **bascules de modules** (BPM, PPM, GRC, TurboLens) | Cette page |
+| **Général** | `/admin/settings?tab=general` | Apparence (logo, favicon, devise, format de date, langues activées, année fiscale), e-mail SMTP, **bascules de modules** (BPM, PPM, GRC, TurboLens, Sponsor button) | Cette page |
 | **Authentification** | `/admin/settings?tab=authentication` | Fournisseurs SSO, inscription, politique de mot de passe | [Authentification & SSO](sso.md) |
 | **IA** | `/admin/settings?tab=ai` | Fournisseur LLM, modèle, backend de recherche web, bascules de suggestion IA par type de fiche | [Capacités IA](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Liaison en masse des produits aux entrées endoflife.date | [Fin de vie (EOL)](eol.md) |
@@ -116,6 +116,12 @@ Activez ou désactivez le module **Gouvernance, Risque et Conformité** (GRC). L
 - Les risques et les constats de conformité restent dans la base de données — les permissions sous-jacentes `risks.*` et `compliance.*` sont inchangées, de sorte que les données sont préservées et réapparaissent telles quelles si le module est réactivé
 
 Voir le [guide GRC](../guide/grc.md) pour la référence complète des fonctionnalités.
+
+## Bouton Soutenir
+
+Affichez ou masquez le bouton **Soutenir** dans le menu utilisateur (avatar). Lorsqu'il est masqué, les utilisateurs ne voient plus le bouton Soutenir dans leur menu de profil. Le bouton Soutenir — et la boîte de dialogue expliquant comment soutenir Turbo EA — reste toujours disponible depuis ce panneau de paramètres, de sorte que les administrateurs peuvent toujours y accéder même lorsqu'il est masqué du menu.
+
+Si votre entreprise sponsorise Turbo EA et souhaite que son logo soit mis en avant sur turbo-ea.org, contactez-nous à [sponsorship@turbo-ea.org](mailto:sponsorship@turbo-ea.org).
 
 ## Paramètres TurboLens
 

@@ -4,7 +4,7 @@ The **Settings** page at **Admin → Settings** (`/admin/settings`) is the centr
 
 | Tab | URL | What it controls | Full guide |
 |-----|-----|------------------|------------|
-| **General** | `/admin/settings?tab=general` | Appearance (logo, favicon, currency, date format, enabled languages, fiscal year), SMTP email, **module toggles** (BPM, PPM, GRC, TurboLens) | This page |
+| **General** | `/admin/settings?tab=general` | Appearance (logo, favicon, currency, date format, enabled languages, fiscal year), SMTP email, **module toggles** (BPM, PPM, GRC, TurboLens, Sponsor button) | This page |
 | **Authentication** | `/admin/settings?tab=authentication` | SSO providers, registration, password policy | [Authentication & SSO](sso.md) |
 | **AI** | `/admin/settings?tab=ai` | LLM provider, model, web search backend, per-card-type AI suggestion toggles | [AI Capabilities](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Mass-linking products to endoflife.date entries | [End-of-Life (EOL)](eol.md) |
@@ -116,6 +116,12 @@ Toggle the **Governance, Risk and Compliance** module on or off. When disabled:
 - Risks and compliance findings remain in the database — the underlying `risks.*` and `compliance.*` permissions are unchanged, so the data is preserved and re-appears unchanged if the module is re-enabled
 
 See the [GRC guide](../guide/grc.md) for the full feature reference.
+
+## Sponsor Button
+
+Show or hide the **Sponsor** button in the user (avatar) menu. When hidden, users no longer see the Sponsor button in their profile menu. The Sponsor button — and the dialog explaining how to support Turbo EA — always remains available from this settings panel, so administrators can still reach it even when it is hidden from the menu.
+
+If your company sponsors Turbo EA and would like its logo featured on turbo-ea.org, reach out at [sponsorship@turbo-ea.org](mailto:sponsorship@turbo-ea.org).
 
 ## TurboLens settings
 

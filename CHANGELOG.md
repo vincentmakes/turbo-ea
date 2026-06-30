@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.61.0] - 2026-06-30
+
+### Added
+- **Admins can hide the Sponsor button from the user menu.** A new toggle in **Settings → General → Modules** controls whether the Sponsor button appears in the profile (avatar) menu for all users. The Sponsor button itself is shown in that settings panel too, so sponsorship stays reachable from Settings even when it is hidden from the menu. The panel also notes how sponsoring companies can have their logo featured on turbo-ea.org (contact `sponsorship@turbo-ea.org`).
+
 ## [1.60.0] - 2026-06-30
 
 ### Added

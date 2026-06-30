@@ -1546,5 +1546,14 @@
   "metamodel.resourceTypes.translationsHelp": "Etiqueta apresentada por idioma. Deixe vazio para usar a etiqueta predefinida.",
   "metamodel.resourceTypes.loadError": "Não foi possível carregar os tipos de recurso.",
   "metamodel.resourceTypes.saveError": "Não foi possível guardar o tipo de recurso.",
-  "metamodel.resourceTypes.deleteError": "Não foi possível eliminar o tipo de recurso."
+  "metamodel.resourceTypes.deleteError": "Não foi possível eliminar o tipo de recurso.",
+  "settings.sponsorButton.title": "Botão Apoiar",
+  "settings.sponsorButton.enabled": "Visível",
+  "settings.sponsorButton.disabled": "Oculto",
+  "settings.sponsorButton.description": "Mostre ou oculte o botão Apoiar no menu de utilizador (avatar). Permanece sempre disponível aqui nas Definições.",
+  "settings.sponsorButton.visible": "O botão Apoiar é mostrado no menu de utilizador",
+  "settings.sponsorButton.hidden": "O botão Apoiar está oculto no menu de utilizador",
+  "settings.sponsorButton.enabledSuccess": "Botão Apoiar mostrado no menu de utilizador",
+  "settings.sponsorButton.disabledSuccess": "Botão Apoiar oculto no menu de utilizador",
+  "settings.sponsorButton.companyLogoNote": "Se a sua empresa apoia o Turbo EA e gostaria que o seu logótipo fosse divulgado em turbo-ea.org, entre em contacto através de"
 }

@@ -1546,5 +1546,14 @@
   "metamodel.resourceTypes.translationsHelp": "Etiqueta visible por idioma. Déjelo vacío para usar la etiqueta predeterminada.",
   "metamodel.resourceTypes.loadError": "No se pudieron cargar los tipos de recurso.",
   "metamodel.resourceTypes.saveError": "No se pudo guardar el tipo de recurso.",
-  "metamodel.resourceTypes.deleteError": "No se pudo eliminar el tipo de recurso."
+  "metamodel.resourceTypes.deleteError": "No se pudo eliminar el tipo de recurso.",
+  "settings.sponsorButton.title": "Botón Patrocinar",
+  "settings.sponsorButton.enabled": "Visible",
+  "settings.sponsorButton.disabled": "Oculto",
+  "settings.sponsorButton.description": "Muestra u oculta el botón Patrocinar en el menú de usuario (avatar). Siempre permanece disponible aquí en Configuración.",
+  "settings.sponsorButton.visible": "El botón Patrocinar se muestra en el menú de usuario",
+  "settings.sponsorButton.hidden": "El botón Patrocinar está oculto en el menú de usuario",
+  "settings.sponsorButton.enabledSuccess": "Botón Patrocinar mostrado en el menú de usuario",
+  "settings.sponsorButton.disabledSuccess": "Botón Patrocinar oculto en el menú de usuario",
+  "settings.sponsorButton.companyLogoNote": "Si tu empresa patrocina Turbo EA y desea que su logotipo aparezca en turbo-ea.org, ponte en contacto en"
 }
