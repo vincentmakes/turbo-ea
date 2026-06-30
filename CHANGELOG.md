@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.59.1] - 2026-06-30
+
+### Fixed
+- **Select field options added later now keep their color.** When an admin added a new option to an existing single-select or multi-select field, the new option could be saved without a color even though the picker showed a default — so its color dot was missing in the card editor and Inventory filter. New options now adopt the displayed default color, matching what the picker shows.
+
 ## [1.59.0] - 2026-06-30
 
 ### Added

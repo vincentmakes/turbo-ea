@@ -90,7 +90,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
   const addOption = () => {
     setField({
       ...field,
-      options: [...(field.options || []), { key: "", label: "" }],
+      options: [...(field.options || []), { key: "", label: "", color: "#1976d2" }],
     });
   };
 
