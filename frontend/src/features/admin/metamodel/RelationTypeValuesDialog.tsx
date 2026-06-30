@@ -231,7 +231,7 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
                 locked={!!relationType?.attributes_schema?.some((e) => e.key === f.key)}
                 lockedReason={t("metamodel.fieldEditor.keyLockedReason")}
                 sx={{ mb: 1.5 }}
-                required
+                required={!!(f.translations?.[locale] ?? f.label ?? "").trim()}
               />
             )}
 
@@ -281,7 +281,7 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
                       ?.options?.some((e) => e.key === opt.key)}
                     lockedReason={t("metamodel.fieldEditor.optionKeyLocked")}
                     sx={{ flex: 1 }}
-                    required
+                    required={!!(opt.translations?.[locale] ?? opt.label ?? "").trim()}
                   />
                   <TextField
                     size="small"

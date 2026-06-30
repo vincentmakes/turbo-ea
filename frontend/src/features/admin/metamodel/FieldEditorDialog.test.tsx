@@ -97,4 +97,42 @@ describe("FieldEditorDialog — new select option color", () => {
     expect(saveButton).toBeEnabled();
     expect(onSave).not.toHaveBeenCalled();
   });
+
+  it("flags a new option's key red only once its label is typed", async () => {
+    const user = userEvent.setup();
+
+    const initial: FieldDef = {
+      key: "myField",
+      label: "My Field",
+      type: "single_select",
+      options: [{ key: "first", label: "First", color: "#ff0000" }],
+    };
+
+    render(
+      <FieldEditorDialog
+        open
+        field={initial}
+        typeKey="Application"
+        fieldKey="myField"
+        onClose={() => {}}
+        onSave={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Add Option/ }));
+
+    const newKey = () => screen.getAllByLabelText("Key").at(-1)!;
+    const newLabel = () => screen.getAllByLabelText("Label").at(-1)!;
+
+    // Fresh row: key is empty but the label has not been started — no red.
+    expect(newKey()).toHaveAttribute("aria-invalid", "false");
+
+    // Start typing the label → the still-empty key turns red.
+    await user.type(newLabel(), "In Progress");
+    expect(newKey()).toHaveAttribute("aria-invalid", "true");
+
+    // Filling the key clears the red.
+    await user.type(newKey(), "inProgress");
+    expect(newKey()).toHaveAttribute("aria-invalid", "false");
+  });
 });

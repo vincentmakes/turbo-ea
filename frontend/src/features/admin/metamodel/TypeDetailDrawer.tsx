@@ -594,7 +594,7 @@ export default function TypeDetailDrawer({
                   value={newSubKey}
                   onChange={setNewSubKey}
                   sx={{ flex: 1 }}
-                  required
+                  required={!!newSubLabel.trim()}
                 />
                 <TextField
                   size="small"

@@ -33,8 +33,10 @@ export interface KeyInputProps
   lockedReason?: string;
   /**
    * When true, an empty value is treated as invalid and the border/label turn
-   * red (no extra helper text) — used to flag a mandatory key field that has
-   * not been filled in yet.
+   * red (no extra helper text) — used to flag a mandatory key field that still
+   * needs filling in. Callers control *when* a key becomes required (e.g. once
+   * the row's label has been typed) by toggling this prop, so the field is not
+   * shown red on a pristine, not-yet-started row.
    */
   required?: boolean;
 }
@@ -96,9 +98,9 @@ export default function KeyInput({
   const displayError = externalError || (errorKey ? t(errorKey) : "");
   const showSuccess = touched && !externalError && !errorKey && value.length > 0;
   // A mandatory but still-empty key: flag the border/label red without adding
-  // any error helper text. Only after the user has interacted (started typing)
-  // — a pristine, untouched field is never shown red.
-  const requiredEmpty = required && !locked && !value && touched;
+  // any error helper text. The caller toggles `required` (e.g. once the row's
+  // label has been typed), so a not-yet-started row is never shown red.
+  const requiredEmpty = required && !locked && !value;
 
   return (
     <TextField

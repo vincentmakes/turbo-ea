@@ -486,7 +486,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                 onChange={(v) => setCreateForm({ ...createForm, key: v })}
                 placeholder={t("metamodel.stakeholderPanel.keyPlaceholder")}
                 fullWidth
-                required
+                required={!!createForm.label.trim()}
               />
               <TextField
                 size="small"
