@@ -699,7 +699,7 @@ Converts between ServiceNow string booleans (`"true"`, `"1"`, `"yes"`) and nativ
 
 | Practice | Details |
 |----------|---------|
-| **RBAC gated** | All ServiceNow endpoints require `servicenow.manage` permission. |
+| **RBAC gated** | Read-only ServiceNow endpoints require the `servicenow.view` permission; all changes require `servicenow.manage`. |
 | **Audit trail** | All sync-created changes publish events with `source: "servicenow_sync"`, visible in card history. |
 | **No credential exposure** | Passwords and secrets are never returned in API responses. |
 
@@ -817,7 +817,7 @@ GET /api/v1/servicenow/sync/runs/{run_id}/staged?status=error
 
 ## API Reference (Quick)
 
-All endpoints require `Authorization: Bearer <token>` and `servicenow.manage` permission. Base path: `/api/v1`.
+All endpoints require `Authorization: Bearer <token>`. Read-only endpoints need the `servicenow.view` permission; mutating endpoints need `servicenow.manage`. Base path: `/api/v1`.
 
 ### Connections
 

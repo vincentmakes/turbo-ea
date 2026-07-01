@@ -532,7 +532,7 @@ turbo-ea/
 │   │   ├── config.py                  # Settings from env vars + APP_VERSION
 │   │   ├── database.py                # Async engine + session factory
 │   │   └── main.py                    # FastAPI app, lifespan (migrations + seed + purge loop + AI auto-config)
-│   ├── alembic/                       # Database migrations (115 versions)
+│   ├── alembic/                       # Database migrations (116 versions)
 │   ├── tests/
 │   └── pyproject.toml
 │
@@ -917,7 +917,7 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 
 ### Migrations
 
-Located in `backend/alembic/versions/` (115 migration files, sequentially numbered `001_` through `115_`). The app auto-runs Alembic on startup:
+Located in `backend/alembic/versions/` (116 migration files, sequentially numbered `001_` through `116_`). The app auto-runs Alembic on startup:
 - Fresh DB: `create_all` + stamp head
 - Existing DB without Alembic: stamp head
 - Normal: `upgrade head` (run pending migrations)

@@ -699,7 +699,7 @@ Konverterer mellem ServiceNow streng-booleans (`"true"`, `"1"`, `"yes"`) og nati
 
 | Praksis | Detaljer |
 |----------|---------|
-| **RBAC-bevogtet** | Alle ServiceNow-endpoints kræver `servicenow.manage`-tilladelse. |
+| **RBAC-bevogtet** | Skrivebeskyttede ServiceNow-endpoints kræver `servicenow.view`-tilladelse; alle ændringer kræver `servicenow.manage`. |
 | **Revisionsspor** | Alle synkroniserings-oprettede ændringer publicerer hændelser med `source: "servicenow_sync"`, synlige i korthistorik. |
 | **Ingen legitimationsoplysnings-eksponering** | Adgangskoder og hemmeligheder returneres aldrig i API-svar. |
 
@@ -817,7 +817,7 @@ GET /api/v1/servicenow/sync/runs/{run_id}/staged?status=error
 
 ## API-reference (hurtig)
 
-Alle endpoints kræver `Authorization: Bearer <token>` og `servicenow.manage`-tilladelse. Basissti: `/api/v1`.
+Alle endpoints kræver `Authorization: Bearer <token>`. Skrivebeskyttede endpoints kræver `servicenow.view`-tilladelse; ændrende endpoints kræver `servicenow.manage`. Basissti: `/api/v1`.
 
 ### Forbindelser
 

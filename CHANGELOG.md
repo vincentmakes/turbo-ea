@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Card side-panel now shows the card type's name, not its internal key.** For admin-created custom card types (with an empty translations map) the quick-look side panel leaked the internal slug (e.g. `itAsset`) instead of the display name ("IT Asset"); it now resolves the label the same structural way as the rest of the app.
 
 ### Changed
-- **ServiceNow read screens no longer require the manage permission.** Listing connections, mappings, sync runs, and staged records now only needs `servicenow.view`; `servicenow.manage` remains required for any change. This lets a read-only role review the integration without being able to modify it.
+- **ServiceNow read screens no longer require the manage permission.** Listing connections, mappings, sync runs, and staged records now only needs `servicenow.view`; `servicenow.manage` remains required for any change. This lets a read-only role review the integration without being able to modify it. Existing custom roles that hold `servicenow.manage` are automatically granted `servicenow.view` on upgrade, so nobody loses read access they had before.
 - **MCP write tools `transition_card_lifecycle`, `add_card_comment`, and `sign_adr` now default to a dry-run preview**, matching every other mutating MCP tool — the agent shows the planned change first and only writes when called again with `dry_run=false`.
 - **The Audit Log admin screen is now fully translated** into all supported languages (previously English-only).
 

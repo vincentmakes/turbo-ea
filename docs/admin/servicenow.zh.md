@@ -698,7 +698,7 @@ deletions / total_linked > max_deletion_ratio  ->  跳过所有删除
 
 | 实践 | 详情 |
 |------|------|
-| **RBAC 网关** | 所有 ServiceNow 端点需要 `servicenow.manage` 权限。 |
+| **RBAC 网关** | 只读 ServiceNow 端点需要 `servicenow.view` 权限；所有更改需要 `servicenow.manage` 权限。 |
 | **审计轨迹** | 所有同步创建的更改发布带有 `source: "servicenow_sync"` 的事件，在卡片历史中可见。 |
 | **不暴露凭据** | API 响应中永远不返回密码和密钥。 |
 
@@ -816,7 +816,7 @@ GET /api/v1/servicenow/sync/runs/{run_id}/staged?status=error
 
 ## API 参考（快速）
 
-所有端点需要 `Authorization: Bearer <token>` 和 `servicenow.manage` 权限。基础路径：`/api/v1`。
+所有端点需要 `Authorization: Bearer <token>`。只读端点需要 `servicenow.view` 权限，修改端点需要 `servicenow.manage` 权限。基础路径：`/api/v1`。
 
 ### 连接
 
