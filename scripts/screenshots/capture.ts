@@ -341,6 +341,18 @@ async function executeActions(
         }
         break;
 
+      case "type":
+        try {
+          // pressSequentially (not fill) so each keystroke fires the page's
+          // key handlers — required for MUI Autocomplete to open its popup.
+          const input = page.locator(action.selector).first();
+          await input.click({ timeout: 3000 });
+          await input.pressSequentially(action.text, { timeout: 3000 });
+        } catch (e) {
+          console.warn(`    WARNING: Type failed for "${action.selector}": ${e}`);
+        }
+        break;
+
       case "wait":
         await page.waitForTimeout(action.ms);
         break;
@@ -380,6 +392,24 @@ async function capturePage(
   if (isLoginPage) {
     await page.evaluate(() => sessionStorage.removeItem("token"));
   }
+
+  // Reset persisted UI state before navigating so every screenshot starts from
+  // pristine app defaults. Inventory filters and report configs (portfolio
+  // grouping, dependency LDV toggle + focus card, …) are persisted to
+  // localStorage; in this shared browser context they would otherwise bleed
+  // across pages and locales — e.g. the Application filter set by
+  // 23_inventory_filters leaks into the next locale's 03_inventory, and the
+  // dependency C4 view (13b) leaks into 13. Preserve the i18n locale key so the
+  // page still renders in the locale we switched to.
+  await page.evaluate(() => {
+    try {
+      const lng = localStorage.getItem("i18nextLng");
+      localStorage.clear();
+      if (lng !== null) localStorage.setItem("i18nextLng", lng);
+    } catch {
+      // about:blank / no document origin yet — nothing to clear.
+    }
+  });
 
   // Navigate
   // Use "domcontentloaded" instead of "networkidle" because the app opens an

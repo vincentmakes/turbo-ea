@@ -16,7 +16,10 @@ export type ScreenshotAction =
   | { type: "scroll"; target: "bottom" | "top" | string; pixels?: number }
   | { type: "click"; selector: string; nth?: number }
   | { type: "wait"; ms: number }
-  | { type: "hover"; selector: string };
+  | { type: "hover"; selector: string }
+  // Type text into a field one key at a time (via pressSequentially) so
+  // keystroke-driven widgets like MUI Autocomplete open their option popup.
+  | { type: "type"; selector: string; text: string };
 
 export interface PageDef {
   /** Unique identifier (used as fallback filename when locale name is missing). */
@@ -138,7 +141,8 @@ const TAB_PPM_TASKS = tabSelector(
   "Tasks", "Aufgaben", "Tâches", "Tareas",
   "Attività", "Tarefas", "任务", "Задачи",
 );
-const TAB_PPM_GANTT = tabSelector("Gantt");
+// "Gantt" stays Latin in en/de/fr/es/it/pt but transliterates in zh/ru.
+const TAB_PPM_GANTT = tabSelector("Gantt", "甘特图", "Гантт");
 const BTN_CREATE = [
   "button:has-text('Create')", "button:has-text('Erstellen')",
   "button:has-text('Créer')", "button:has-text('Crear')",
@@ -433,7 +437,15 @@ export const DOC_PAGES: PageDef[] = [
     actions: [
       { type: "click", selector: "[value='c4']" },
       { type: "wait", ms: 800 },
-      { type: "click", selector: "text=SAP S/4HANA" },
+      // The empty-state picker no longer takes a plain text click (its long
+      // virtualized list makes the row unactionable). Drive the "Center on"
+      // Autocomplete instead: focus it, type the card name so its option
+      // popup opens, then pick the first (exact-prefix) match. Selecting an
+      // Autocomplete option closes the popup cleanly — no dropdown lingers
+      // over the diagram.
+      { type: "type", selector: "input[role='combobox']", text: "SAP S/4HANA" },
+      { type: "wait", ms: 700 },
+      { type: "click", selector: "[role='option']" },
       // React Flow runs an auto-layout + fit-view animation; allow it to settle.
       { type: "wait", ms: 2500 },
     ],
@@ -654,9 +666,12 @@ export const DOC_PAGES: PageDef[] = [
     waitFor: ".ag-root",
     actions: [
       { type: "wait", ms: 600 },
-      // Click the "Application" type-filter row in the sidebar — it's a
-      // ListItemButton, not a TreeItem (see InventoryFilterSidebar.tsx).
-      { type: "click", selector: ".MuiListItemButton-root:has-text('Application')" },
+      // Click the "Application" type-filter row in the sidebar. Match on the
+      // Material Symbol ligature "apps" (the row's icon) rather than the type
+      // label — the label is metamodel-translated per locale ("Anwendung",
+      // "Приложение", …) but the icon ligature is language-independent and
+      // uniquely identifies the Application row.
+      { type: "click", selector: ".MuiListItemButton-root:has-text('apps')" },
       { type: "wait", ms: 600 },
     ],
     filenames: {
