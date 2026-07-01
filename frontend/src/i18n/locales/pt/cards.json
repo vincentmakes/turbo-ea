@@ -328,6 +328,7 @@
   "catalogue.subtitle": "Explore o catálogo de referência e crie cartões de Capacidade de Negócio correspondentes.",
   "catalogue.versionChip": "v{{version}} · {{count}} capacidades",
   "catalogue.sourceBundled": "Incluído nesta build do Turbo EA",
+  "catalogue.alreadyExists": "Já existe como cartão",
   "catalogue.sourceRemote": "Obtido do catálogo público (integrado v{{version}})",
   "catalogue.checkUpdate": "Verificar atualização",
   "catalogue.fetchUpdate": "Obter v{{version}}",

@@ -328,6 +328,7 @@
   "catalogue.subtitle": "Durchsuchen Sie den Referenzkatalog und erstellen Sie passende Business-Capability-Karten.",
   "catalogue.versionChip": "v{{version}} · {{count}} Capabilities",
   "catalogue.sourceBundled": "In diesem Turbo-EA-Build enthalten",
+  "catalogue.alreadyExists": "Existiert bereits als Karte",
   "catalogue.sourceRemote": "Aus dem öffentlichen Katalog geladen (gebündelt v{{version}})",
   "catalogue.checkUpdate": "Auf Aktualisierung prüfen",
   "catalogue.fetchUpdate": "v{{version}} laden",

@@ -8,6 +8,7 @@
  * fetch since they're cheap to compute over the page-sized result).
  */
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
@@ -51,31 +52,31 @@ export const EMPTY_AUDIT_FILTERS: AuditLogFilters = {
   dateTo: "",
 };
 
-const ORIGINS: { id: AuditOrigin; label: string }[] = [
-  { id: "mcp", label: "MCP (AI agent)" },
-  { id: "web", label: "Web UI" },
-  { id: "api", label: "API" },
+const ORIGINS: { id: AuditOrigin; labelKey: string }[] = [
+  { id: "mcp", labelKey: "auditLog.origins.mcp" },
+  { id: "web", labelKey: "auditLog.origins.web" },
+  { id: "api", labelKey: "auditLog.origins.api" },
 ];
 
-const STATUSES: { id: AuditStatusKey; label: string }[] = [
-  { id: "committed", label: "Committed" },
-  { id: "dry_run", label: "Dry-run only" },
-  { id: "open", label: "Open / errored" },
+const STATUSES: { id: AuditStatusKey; labelKey: string }[] = [
+  { id: "committed", labelKey: "auditLog.statuses.committed" },
+  { id: "dry_run", labelKey: "auditLog.statuses.dryRun" },
+  { id: "open", labelKey: "auditLog.statuses.open" },
 ];
 
 export interface AuditColumn {
   id: string;
-  label: string;
+  labelKey: string;
 }
 
 export const AUDIT_GRID_COLUMNS: AuditColumn[] = [
-  { id: "created_at", label: "When" },
-  { id: "tool_name", label: "Tool" },
-  { id: "origin", label: "Origin" },
-  { id: "actor_display_name", label: "Actor" },
-  { id: "status_derived", label: "Status" },
-  { id: "event_count", label: "Events" },
-  { id: "actions", label: "Actions" },
+  { id: "created_at", labelKey: "auditLog.columns.when" },
+  { id: "tool_name", labelKey: "auditLog.columns.tool" },
+  { id: "origin", labelKey: "auditLog.columns.origin" },
+  { id: "actor_display_name", labelKey: "auditLog.columns.actor" },
+  { id: "status_derived", labelKey: "auditLog.columns.status" },
+  { id: "event_count", labelKey: "auditLog.columns.events" },
+  { id: "actions", labelKey: "auditLog.columns.actions" },
 ];
 
 /** Columns that always render — they anchor each row. */
@@ -148,6 +149,7 @@ export default function AuditLogFilterSidebar({
   onVisibleColumnsChange,
   onResetColumns,
 }: Props) {
+  const { t } = useTranslation("admin");
   const [tab, setTab] = useState<0 | 1>(0);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     search: true,
@@ -239,7 +241,7 @@ export default function AuditLogFilterSidebar({
           bgcolor: "action.hover",
         }}
       >
-        <Tooltip title="Expand filter panel" placement="right">
+        <Tooltip title={t("auditLog.filters.expand")} placement="right">
           <IconButton size="small" onClick={onToggleCollapse}>
             <MaterialSymbol icon="chevron_right" size={20} />
           </IconButton>
@@ -299,7 +301,7 @@ export default function AuditLogFilterSidebar({
             <Tab
               label={
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                  Filters
+                  {t("auditLog.filters.tabFilters")}
                   {activeCount > 0 && (
                     <Box
                       sx={{
@@ -317,7 +319,7 @@ export default function AuditLogFilterSidebar({
             <Tab
               label={
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                  Columns
+                  {t("auditLog.filters.tabColumns")}
                   {columnsChanged && (
                     <Box
                       sx={{
@@ -348,13 +350,13 @@ export default function AuditLogFilterSidebar({
                   startIcon={<MaterialSymbol icon="filter_alt_off" size={16} />}
                   sx={{ mb: 1, textTransform: "none", fontSize: 12 }}
                 >
-                  Clear filters
+                  {t("auditLog.filters.clear")}
                 </Button>
               )}
 
               {/* Search */}
               <SectionHeader
-                label="Search"
+                label={t("auditLog.filters.sectionSearch")}
                 expanded={expandedSections.search}
                 onToggle={() => toggleSection("search")}
               />
@@ -362,7 +364,7 @@ export default function AuditLogFilterSidebar({
                 <TextField
                   size="small"
                   fullWidth
-                  placeholder="Search actor or tool…"
+                  placeholder={t("auditLog.filters.searchPlaceholder")}
                   value={filters.search}
                   onChange={(e) => setField("search", e.target.value)}
                   sx={{ my: 0.5, "& input": { fontSize: 12, height: 16 } }}
@@ -373,7 +375,7 @@ export default function AuditLogFilterSidebar({
 
               {/* Origin */}
               <SectionHeader
-                label="Origin"
+                label={t("auditLog.filters.sectionOrigin")}
                 expanded={expandedSections.origin}
                 onToggle={() => toggleSection("origin")}
               />
@@ -396,7 +398,7 @@ export default function AuditLogFilterSidebar({
                         />
                       </ListItemIcon>
                       <ListItemText
-                        primary={o.label}
+                        primary={t(o.labelKey)}
                         primaryTypographyProps={{ fontSize: 12 }}
                       />
                     </ListItemButton>
@@ -408,7 +410,7 @@ export default function AuditLogFilterSidebar({
 
               {/* Status */}
               <SectionHeader
-                label="Status"
+                label={t("auditLog.filters.sectionStatus")}
                 expanded={expandedSections.status}
                 onToggle={() => toggleSection("status")}
               />
@@ -431,7 +433,7 @@ export default function AuditLogFilterSidebar({
                         />
                       </ListItemIcon>
                       <ListItemText
-                        primary={s.label}
+                        primary={t(s.labelKey)}
                         primaryTypographyProps={{ fontSize: 12 }}
                       />
                     </ListItemButton>
@@ -443,7 +445,7 @@ export default function AuditLogFilterSidebar({
 
               {/* Tool name */}
               <SectionHeader
-                label="Tool name"
+                label={t("auditLog.filters.sectionTool")}
                 expanded={expandedSections.tool}
                 onToggle={() => toggleSection("tool")}
               />
@@ -451,7 +453,7 @@ export default function AuditLogFilterSidebar({
                 <TextField
                   size="small"
                   fullWidth
-                  placeholder="e.g. create_cards_bulk"
+                  placeholder={t("auditLog.filters.toolPlaceholder")}
                   value={filters.toolName}
                   onChange={(e) => setField("toolName", e.target.value)}
                   sx={{ my: 0.5, "& input": { fontSize: 12, height: 16 } }}
@@ -462,7 +464,7 @@ export default function AuditLogFilterSidebar({
 
               {/* Date range */}
               <SectionHeader
-                label="Date range"
+                label={t("auditLog.filters.sectionDate")}
                 expanded={expandedSections.date}
                 onToggle={() => toggleSection("date")}
               />
@@ -471,7 +473,7 @@ export default function AuditLogFilterSidebar({
                   <TextField
                     size="small"
                     type="date"
-                    label="From"
+                    label={t("auditLog.filters.dateFrom")}
                     value={filters.dateFrom}
                     onChange={(e) => setField("dateFrom", e.target.value)}
                     InputLabelProps={{ shrink: true }}
@@ -479,7 +481,7 @@ export default function AuditLogFilterSidebar({
                   <TextField
                     size="small"
                     type="date"
-                    label="To"
+                    label={t("auditLog.filters.dateTo")}
                     value={filters.dateTo}
                     onChange={(e) => setField("dateTo", e.target.value)}
                     InputLabelProps={{ shrink: true }}
@@ -500,7 +502,7 @@ export default function AuditLogFilterSidebar({
                 }}
               >
                 <Typography variant="caption" color="text.secondary">
-                  Toggle columns to show or hide.
+                  {t("auditLog.filters.columnsHint")}
                 </Typography>
                 {columnsChanged && onResetColumns && (
                   <Button
@@ -508,7 +510,7 @@ export default function AuditLogFilterSidebar({
                     onClick={onResetColumns}
                     sx={{ textTransform: "none", fontSize: 12 }}
                   >
-                    Reset
+                    {t("auditLog.filters.reset")}
                   </Button>
                 )}
               </Box>
@@ -533,7 +535,7 @@ export default function AuditLogFilterSidebar({
                         />
                       </ListItemIcon>
                       <ListItemText
-                        primary={c.label}
+                        primary={t(c.labelKey)}
                         primaryTypographyProps={{
                           fontSize: 13,
                           ml: 0.75,

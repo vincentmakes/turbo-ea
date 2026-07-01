@@ -16,6 +16,7 @@
  * another row.
  */
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -94,13 +95,14 @@ export function originColor(origin: string): "default" | "primary" | "warning" {
 
 export function statusOf(batch: AuditBatch): {
   key: "committed" | "dry_run" | "open";
-  label: string;
+  labelKey: string;
 } {
   if (batch.dry_run && !batch.committed_at) {
-    return { key: "dry_run", label: "Dry-run only" };
+    return { key: "dry_run", labelKey: "auditLog.statuses.dryRun" };
   }
-  if (batch.committed_at) return { key: "committed", label: "Committed" };
-  return { key: "open", label: "Open" };
+  if (batch.committed_at)
+    return { key: "committed", labelKey: "auditLog.statuses.committed" };
+  return { key: "open", labelKey: "auditLog.statuses.openShort" };
 }
 
 // ── Rollback dialog ───────────────────────────────────────────────────────
@@ -116,6 +118,7 @@ function RollbackDialog({
   onClose: () => void;
   onCompleted: () => void;
 }) {
+  const { t } = useTranslation("admin");
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [plan, setPlan] = useState<RollbackPlan | null>(null);
   const [conflicts, setConflicts] = useState<ConflictingBatch[]>([]);
@@ -146,7 +149,7 @@ function RollbackDialog({
             | undefined;
           if (detail?.error === "rollback_conflict") {
             setConflicts(detail.conflicting_batches ?? []);
-            setError(detail.message ?? "Conflicts detected.");
+            setError(detail.message ?? t("auditLog.rollback.conflictsDetected"));
           } else {
             setError(err.message);
           }
@@ -157,7 +160,7 @@ function RollbackDialog({
         setLoadingPlan(false);
       }
     })();
-  }, [open, batch]);
+  }, [open, batch, t]);
 
   const commit = useCallback(async () => {
     if (!batch) return;
@@ -177,7 +180,7 @@ function RollbackDialog({
           | undefined;
         if (detail?.error === "rollback_conflict") {
           setConflicts(detail.conflicting_batches ?? []);
-          setError(detail.message ?? "Conflicts detected.");
+          setError(detail.message ?? t("auditLog.rollback.conflictsDetected"));
         } else {
           setError(err.message);
         }
@@ -187,15 +190,16 @@ function RollbackDialog({
     } finally {
       setCommitting(false);
     }
-  }, [batch, force, onCompleted]);
+  }, [batch, force, onCompleted, t]);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
-        Roll back batch{" "}
-        <code style={{ fontSize: "0.85em" }}>{batch?.id?.slice(0, 8)}…</code>{" "}
+        {t("auditLog.rollback.title", {
+          id: `${batch?.id?.slice(0, 8) ?? ""}…`,
+        })}{" "}
         <Typography component="span" variant="body2" color="text.secondary">
-          ({batch?.tool_name})
+          {t("auditLog.rollback.toolSuffix", { tool: batch?.tool_name ?? "" })}
         </Typography>
       </DialogTitle>
       <DialogContent dividers>
@@ -207,8 +211,9 @@ function RollbackDialog({
 
         {committedResult ? (
           <Alert severity="success">
-            Rollback committed. {plan?.operations?.length ?? 0} operation
-            {(plan?.operations?.length ?? 0) === 1 ? "" : "s"} applied.
+            {t("auditLog.rollback.committed", {
+              count: plan?.operations?.length ?? 0,
+            })}
           </Alert>
         ) : (
           <>
@@ -224,16 +229,18 @@ function RollbackDialog({
             {conflicts.length > 0 && (
               <Box sx={{ mb: 2 }}>
                 <Typography variant="subtitle2" gutterBottom>
-                  Later batches modified the same entities:
+                  {t("auditLog.rollback.conflictHeading")}
                 </Typography>
                 <TableContainer component={Paper} variant="outlined">
                   <Table size="small">
                     <TableHead>
                       <TableRow>
-                        <TableCell>Batch</TableCell>
-                        <TableCell>Tool</TableCell>
-                        <TableCell>When</TableCell>
-                        <TableCell>Touched</TableCell>
+                        <TableCell>{t("auditLog.rollback.colBatch")}</TableCell>
+                        <TableCell>{t("auditLog.rollback.colTool")}</TableCell>
+                        <TableCell>{t("auditLog.rollback.colWhen")}</TableCell>
+                        <TableCell>
+                          {t("auditLog.rollback.colTouched")}
+                        </TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -260,7 +267,7 @@ function RollbackDialog({
                       onChange={(e) => setForce(e.target.checked)}
                     />
                   }
-                  label="Force rollback (overwrites the later batches' changes)"
+                  label={t("auditLog.rollback.forceLabel")}
                 />
               </Box>
             )}
@@ -268,16 +275,17 @@ function RollbackDialog({
             {plan && (
               <>
                 <Typography variant="subtitle2" gutterBottom>
-                  Inverse-op plan ({plan.operations.length} operation
-                  {plan.operations.length === 1 ? "" : "s"})
+                  {t("auditLog.rollback.planHeading", {
+                    count: plan.operations.length,
+                  })}
                 </Typography>
                 <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
                   <Table size="small">
                     <TableHead>
                       <TableRow>
-                        <TableCell>Op</TableCell>
-                        <TableCell>Target</TableCell>
-                        <TableCell>Detail</TableCell>
+                        <TableCell>{t("auditLog.rollback.colOp")}</TableCell>
+                        <TableCell>{t("auditLog.rollback.colTarget")}</TableCell>
+                        <TableCell>{t("auditLog.rollback.colDetail")}</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -298,7 +306,7 @@ function RollbackDialog({
                                 {Object.keys(op.fields).join(", ")}
                               </code>
                             ) : (
-                              "—"
+                              t("auditLog.batch.emptyValue")
                             )}
                           </TableCell>
                         </TableRow>
@@ -309,14 +317,14 @@ function RollbackDialog({
 
                 {plan.unsupported_events.length > 0 && (
                   <Alert severity="info" sx={{ mb: 2 }}>
-                    {plan.unsupported_events.length} event(s) cannot be reversed
-                    automatically (no structured snapshot recorded). These will be
-                    left in place:{" "}
-                    {Array.from(
-                      new Set(
-                        plan.unsupported_events.map((e) => e.event_type ?? "?"),
-                      ),
-                    ).join(", ")}
+                    {t("auditLog.rollback.unsupported", {
+                      count: plan.unsupported_events.length,
+                      types: Array.from(
+                        new Set(
+                          plan.unsupported_events.map((e) => e.event_type ?? "?"),
+                        ),
+                      ).join(", "),
+                    })}
                   </Alert>
                 )}
               </>
@@ -325,7 +333,11 @@ function RollbackDialog({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>{committedResult ? "Close" : "Cancel"}</Button>
+        <Button onClick={onClose}>
+          {committedResult
+            ? t("auditLog.rollback.close")
+            : t("auditLog.rollback.cancel")}
+        </Button>
         {!committedResult && plan && (
           <Button
             onClick={commit}
@@ -340,7 +352,11 @@ function RollbackDialog({
               )
             }
           >
-            {committing ? "Rolling back…" : force ? "Force rollback" : "Roll back"}
+            {committing
+              ? t("auditLog.rollback.rollingBack")
+              : force
+                ? t("auditLog.rollback.force")
+                : t("auditLog.rollback.rollback")}
           </Button>
         )}
       </DialogActions>
@@ -351,6 +367,7 @@ function RollbackDialog({
 // ── Batch events table ────────────────────────────────────────────────────
 
 function BatchEventsTable({ batchId }: { batchId: string }) {
+  const { t } = useTranslation("admin");
   const [history, setHistory] = useState<BatchHistory | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -380,16 +397,16 @@ function BatchEventsTable({ batchId }: { batchId: string }) {
   return (
     <Box>
       <Typography variant="caption" color="text.secondary">
-        {history.events.length} event{history.events.length === 1 ? "" : "s"}
+        {t("auditLog.events.count", { count: history.events.length })}
       </Typography>
       <TableContainer component={Paper} variant="outlined" sx={{ mt: 1 }}>
         <Table size="small" stickyHeader>
           <TableHead>
             <TableRow>
-              <TableCell>When</TableCell>
-              <TableCell>Event</TableCell>
-              <TableCell>Card</TableCell>
-              <TableCell>Data</TableCell>
+              <TableCell>{t("auditLog.events.colWhen")}</TableCell>
+              <TableCell>{t("auditLog.events.colEvent")}</TableCell>
+              <TableCell>{t("auditLog.events.colCard")}</TableCell>
+              <TableCell>{t("auditLog.events.colData")}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -405,7 +422,7 @@ function BatchEventsTable({ batchId }: { batchId: string }) {
                   {e.card_id ? (
                     <code>{e.card_id.slice(0, 8)}…</code>
                   ) : (
-                    "—"
+                    t("auditLog.batch.emptyValue")
                   )}
                 </TableCell>
                 <TableCell
@@ -440,6 +457,7 @@ export default function AuditLogBatchDrawer({
   onClose: () => void;
   onRolledBack: () => void;
 }) {
+  const { t } = useTranslation("admin");
   const [rollbackOpen, setRollbackOpen] = useState(false);
   const { formatDateTime } = useDateFormat();
 
@@ -467,9 +485,9 @@ export default function AuditLogBatchDrawer({
       >
         <Stack direction="row" alignItems="center" gap={1}>
           <MaterialSymbol icon="history" size={22} />
-          <Typography variant="h6">Batch detail</Typography>
+          <Typography variant="h6">{t("auditLog.batch.detailTitle")}</Typography>
         </Stack>
-        <Tooltip title="Close">
+        <Tooltip title={t("auditLog.batch.close")}>
           <IconButton onClick={onClose} size="small">
             <MaterialSymbol icon="close" />
           </IconButton>
@@ -480,7 +498,7 @@ export default function AuditLogBatchDrawer({
         <Stack spacing={1.5}>
           <Box>
             <Typography variant="caption" color="text.secondary">
-              Batch id
+              {t("auditLog.batch.batchId")}
             </Typography>
             <Typography variant="body2">
               <code style={{ fontSize: 11 }}>{batch.id}</code>
@@ -490,7 +508,7 @@ export default function AuditLogBatchDrawer({
           <Stack direction="row" gap={2} flexWrap="wrap">
             <Box>
               <Typography variant="caption" color="text.secondary">
-                Tool
+                {t("auditLog.batch.tool")}
               </Typography>
               <Typography variant="body2">
                 <code>{batch.tool_name}</code>
@@ -498,7 +516,7 @@ export default function AuditLogBatchDrawer({
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary">
-                Origin
+                {t("auditLog.batch.origin")}
               </Typography>
               <Box sx={{ mt: 0.5 }}>
                 <Chip
@@ -511,12 +529,12 @@ export default function AuditLogBatchDrawer({
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary">
-                Status
+                {t("auditLog.batch.status")}
               </Typography>
               <Box sx={{ mt: 0.5 }}>
                 <Chip
                   size="small"
-                  label={status.label}
+                  label={t(status.labelKey)}
                   color={
                     status.key === "committed"
                       ? "success"
@@ -530,10 +548,10 @@ export default function AuditLogBatchDrawer({
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary">
-                Actor
+                {t("auditLog.batch.actor")}
               </Typography>
               <Typography variant="body2">
-                {batch.actor_display_name ?? "—"}
+                {batch.actor_display_name ?? t("auditLog.batch.emptyValue")}
               </Typography>
             </Box>
           </Stack>
@@ -541,7 +559,7 @@ export default function AuditLogBatchDrawer({
           <Stack direction="row" gap={2}>
             <Box>
               <Typography variant="caption" color="text.secondary">
-                Created
+                {t("auditLog.batch.created")}
               </Typography>
               <Typography variant="body2">
                 {formatDateTime(batch.created_at)}
@@ -549,24 +567,27 @@ export default function AuditLogBatchDrawer({
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary">
-                Committed
+                {t("auditLog.batch.committed")}
               </Typography>
               <Typography variant="body2">
-                {batch.committed_at ? formatDateTime(batch.committed_at) : "—"}
+                {batch.committed_at
+                  ? formatDateTime(batch.committed_at)
+                  : t("auditLog.batch.emptyValue")}
               </Typography>
             </Box>
           </Stack>
 
           {status.key === "dry_run" && (
             <Alert severity="info" sx={{ mt: 1 }}>
-              Dry-run batches don't change data — they're previews. There's
-              nothing to roll back.
+              {t("auditLog.batch.dryRunNotice")}
             </Alert>
           )}
 
           <Divider sx={{ my: 1 }} />
 
-          <Typography variant="subtitle2">Events</Typography>
+          <Typography variant="subtitle2">
+            {t("auditLog.batch.eventsHeading")}
+          </Typography>
           <BatchEventsTable batchId={batch.id} />
         </Stack>
       </Box>
@@ -582,12 +603,12 @@ export default function AuditLogBatchDrawer({
           gap: 1,
         }}
       >
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}>{t("auditLog.batch.close")}</Button>
         <Tooltip
           title={
             canRollback
-              ? "Reverse every write in this batch"
-              : "Only committed batches can be rolled back"
+              ? t("auditLog.batch.rollbackTooltip")
+              : t("auditLog.batch.rollbackDisabledTooltip")
           }
         >
           <span>
@@ -598,7 +619,7 @@ export default function AuditLogBatchDrawer({
               onClick={() => setRollbackOpen(true)}
               startIcon={<MaterialSymbol icon="undo" />}
             >
-              Roll back
+              {t("auditLog.batch.rollback")}
             </Button>
           </span>
         </Tooltip>

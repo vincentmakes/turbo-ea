@@ -328,6 +328,7 @@
   "catalogue.subtitle": "Sfoglia il catalogo di riferimento e crea le carte Business Capability corrispondenti.",
   "catalogue.versionChip": "v{{version}} · {{count}} capacità",
   "catalogue.sourceBundled": "Incluso in questa build di Turbo EA",
+  "catalogue.alreadyExists": "Esiste già come scheda",
   "catalogue.sourceRemote": "Recuperato dal catalogo pubblico (integrato v{{version}})",
   "catalogue.checkUpdate": "Verifica aggiornamento",
   "catalogue.fetchUpdate": "Scarica v{{version}}",

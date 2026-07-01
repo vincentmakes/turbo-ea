@@ -365,6 +365,7 @@
   "catalogue.subtitle": "تصفّح الكتالوج المرجعي وأنشئ بطاقات قدرات الأعمال المطابقة.",
   "catalogue.versionChip": "الإصدار {{version}} · {{count}} قدرة",
   "catalogue.sourceBundled": "مضمّن مع نسخة Turbo EA هذه",
+  "catalogue.alreadyExists": "موجود بالفعل كبطاقة",
   "catalogue.sourceRemote": "تم جلبه من الكتالوج العام (المضمّن الإصدار {{version}})",
   "catalogue.checkUpdate": "التحقق من وجود تحديث",
   "catalogue.fetchUpdate": "جلب الإصدار {{version}}",

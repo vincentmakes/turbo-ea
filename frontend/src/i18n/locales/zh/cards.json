@@ -328,6 +328,7 @@
   "catalogue.subtitle": "浏览参考目录并创建匹配的业务能力卡片。",
   "catalogue.versionChip": "v{{version}} · {{count}} 项能力",
   "catalogue.sourceBundled": "随此 Turbo EA 构建一起打包",
+  "catalogue.alreadyExists": "已作为卡片存在",
   "catalogue.sourceRemote": "已从公开目录获取 (内置 v{{version}})",
   "catalogue.checkUpdate": "检查更新",
   "catalogue.fetchUpdate": "获取 v{{version}}",

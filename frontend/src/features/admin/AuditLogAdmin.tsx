@@ -8,6 +8,7 @@
  * don't keep re-toggling them.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { AgGridReact } from "ag-grid-react";
 import type {
   ColDef,
@@ -113,6 +114,7 @@ function saveAuditPrefs(p: AuditPrefs) {
 // ──────────────────────────────────────────────────────────────────────────
 
 export default function AuditLogAdmin() {
+  const { t } = useTranslation("admin");
   const { mode } = useThemeMode();
   const isRtl = useIsRtl();
   const { formatDateTime } = useDateFormat();
@@ -238,7 +240,7 @@ export default function AuditLogAdmin() {
       {
         field: "created_at",
         colId: "created_at",
-        headerName: "When",
+        headerName: t("auditLog.columns.when"),
         width: 180,
         sort: "desc",
         filter: "agDateColumnFilter",
@@ -247,7 +249,7 @@ export default function AuditLogAdmin() {
       {
         field: "tool_name",
         colId: "tool_name",
-        headerName: "Tool",
+        headerName: t("auditLog.columns.tool"),
         flex: 1,
         minWidth: 200,
         filter: "agTextColumnFilter",
@@ -258,7 +260,7 @@ export default function AuditLogAdmin() {
       {
         field: "origin",
         colId: "origin",
-        headerName: "Origin",
+        headerName: t("auditLog.columns.origin"),
         width: 130,
         filter: "agSetColumnFilter",
         cellRenderer: (p: ICellRendererParams<AuditBatch, string>) =>
@@ -274,17 +276,18 @@ export default function AuditLogAdmin() {
       {
         field: "actor_display_name",
         colId: "actor_display_name",
-        headerName: "Actor",
+        headerName: t("auditLog.columns.actor"),
         width: 180,
         filter: "agTextColumnFilter",
-        valueFormatter: (p) => (p.value as string | null) ?? "—",
+        valueFormatter: (p) =>
+          (p.value as string | null) ?? t("auditLog.batch.emptyValue"),
       },
       {
         colId: "status_derived",
-        headerName: "Status",
+        headerName: t("auditLog.columns.status"),
         width: 150,
         filter: "agSetColumnFilter",
-        valueGetter: (p) => (p.data ? statusOf(p.data).label : ""),
+        valueGetter: (p) => (p.data ? t(statusOf(p.data).labelKey) : ""),
         cellRenderer: (p: ICellRendererParams<AuditBatch>) => {
           if (!p.data) return null;
           const s = statusOf(p.data);
@@ -295,13 +298,18 @@ export default function AuditLogAdmin() {
                 ? "default"
                 : "warning";
           return (
-            <Chip size="small" label={s.label} color={color} variant="outlined" />
+            <Chip
+              size="small"
+              label={t(s.labelKey)}
+              color={color}
+              variant="outlined"
+            />
           );
         },
       },
       {
         colId: "event_count",
-        headerName: "Events",
+        headerName: t("auditLog.columns.events"),
         width: 100,
         filter: "agNumberColumnFilter",
         valueGetter: (p) => {
@@ -315,7 +323,8 @@ export default function AuditLogAdmin() {
             | undefined;
           return typeof n === "number" ? n : null;
         },
-        valueFormatter: (p) => (p.value == null ? "—" : String(p.value)),
+        valueFormatter: (p) =>
+          p.value == null ? t("auditLog.batch.emptyValue") : String(p.value),
       },
       {
         colId: "actions",
@@ -332,8 +341,8 @@ export default function AuditLogAdmin() {
             <Tooltip
               title={
                 canRollback
-                  ? "Open this batch's detail + rollback"
-                  : "Open detail (no rollback — dry-run / open batch)"
+                  ? t("auditLog.rowActions.rollbackTooltip")
+                  : t("auditLog.rowActions.viewTooltip")
               }
             >
               <span>
@@ -353,7 +362,9 @@ export default function AuditLogAdmin() {
                   }}
                   sx={{ textTransform: "none" }}
                 >
-                  {canRollback ? "Roll back" : "View"}
+                  {canRollback
+                    ? t("auditLog.rowActions.rollback")
+                    : t("auditLog.rowActions.view")}
                 </Button>
               </span>
             </Tooltip>
@@ -361,7 +372,7 @@ export default function AuditLogAdmin() {
         },
       },
     ],
-    [formatDateTime],
+    [formatDateTime, t],
   );
 
   const visibleColumnDefs = useMemo<ColDef<AuditBatch>[]>(
@@ -383,18 +394,15 @@ export default function AuditLogAdmin() {
       >
         <Box>
           <Typography variant="h6" fontWeight={700}>
-            Audit log
+            {t("auditLog.title")}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Every mutating write (MCP agent, Web UI, direct API) lands here as a
-            mutation batch with its actor, tool, origin and per-event diff. Use
-            it to audit what changed and to roll back AI-driven batches that
-            landed wrong. (Rollback is supported on card / relation writes today;
-            other event types surface in the dry-run plan as
-            <code> unsupported_events</code>.)
+            {t("auditLog.description", {
+              token: t("auditLog.unsupportedEventsToken"),
+            })}
           </Typography>
         </Box>
-        <Tooltip title="Refresh">
+        <Tooltip title={t("auditLog.refresh")}>
           <IconButton size="small" onClick={load} disabled={loading}>
             <MaterialSymbol icon="refresh" />
           </IconButton>
@@ -431,38 +439,41 @@ export default function AuditLogAdmin() {
           >
             <Stack direction="row" alignItems="center" spacing={1.5}>
               <Typography variant="subtitle1" fontWeight={700}>
-                Mutation batches
+                {t("auditLog.mutationBatches")}
               </Typography>
               <Chip
                 size="small"
                 label={
                   total === 0
-                    ? "No batches"
-                    : `${(page - 1) * pageSize + 1}–${Math.min(
-                        page * pageSize,
+                    ? t("auditLog.noBatches")
+                    : t("auditLog.rangeOfTotal", {
+                        start: (page - 1) * pageSize + 1,
+                        end: Math.min(page * pageSize, total),
                         total,
-                      )} of ${total}`
+                      })
                 }
                 sx={{ bgcolor: "action.hover", fontWeight: 500 }}
               />
               <Tooltip
-                title="The audit log keeps the most recent 15 days of activity. Older batches are purged automatically by a background job. Events themselves stay in the per-card History tab."
+                title={t("auditLog.retentionTooltip")}
                 placement="right"
               >
                 <Chip
                   size="small"
                   variant="outlined"
                   icon={<MaterialSymbol icon="schedule" size={14} />}
-                  label="15-day retention"
+                  label={t("auditLog.retentionChip")}
                   sx={{ fontWeight: 500 }}
                 />
               </Tooltip>
             </Stack>
             <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel id="audit-page-size-label">Per page</InputLabel>
+              <InputLabel id="audit-page-size-label">
+                {t("auditLog.perPage")}
+              </InputLabel>
               <Select
                 labelId="audit-page-size-label"
-                label="Per page"
+                label={t("auditLog.perPage")}
                 value={pageSize}
                 onChange={(e) => setPageSize(Number(e.target.value))}
               >

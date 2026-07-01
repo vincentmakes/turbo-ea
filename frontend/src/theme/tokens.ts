@@ -81,6 +81,23 @@ export const RAG_COLORS = {
   green: "#2e7d32",
 } as const;
 
+// ── Notification-type accents (NotificationBell) ─────────────────────────
+// Categorical palette used only to visually differentiate notification
+// types in the bell dropdown — not a semantic status scale. Values reuse
+// existing tokens where the hue matches exactly; the rest are MUI accent
+// hues kept verbatim so the dropdown looks unchanged.
+
+export const NOTIFICATION_TYPE_COLORS = {
+  todo_assigned: brand.primary, // #1976d2
+  task_assigned: "#7b1fa2", // purple 700
+  card_updated: "#ed6c02", // orange 800
+  comment_added: RAG_COLORS.green, // #2e7d32
+  approval_status_changed: "#9c27b0", // purple 500
+  soaw_sign_requested: RAG_COLORS.red, // #d32f2f
+  soaw_signed: RAG_COLORS.green, // #2e7d32
+  survey_request: "#0288d1", // light blue 700
+} as const;
+
 // ── Data quality buckets (Dashboard chart) ───────────────────────────────
 
 export const DATA_QUALITY_COLORS = {

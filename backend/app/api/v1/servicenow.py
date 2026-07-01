@@ -244,7 +244,7 @@ async def list_connections(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, "servicenow.manage")
+    await PermissionService.require_permission(db, user, "servicenow.view")
     result = await db.execute(select(SnowConnection).order_by(SnowConnection.created_at.desc()))
     conns = result.scalars().all()
     out = []
@@ -290,7 +290,7 @@ async def get_connection(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, "servicenow.manage")
+    await PermissionService.require_permission(db, user, "servicenow.view")
     result = await db.execute(select(SnowConnection).where(SnowConnection.id == conn_id))
     conn = result.scalar_one_or_none()
     if not conn:
@@ -473,7 +473,7 @@ async def list_mappings(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, "servicenow.manage")
+    await PermissionService.require_permission(db, user, "servicenow.view")
     stmt = (
         select(SnowMapping)
         .options(selectinload(SnowMapping.field_mappings))
@@ -545,7 +545,7 @@ async def get_mapping(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, "servicenow.manage")
+    await PermissionService.require_permission(db, user, "servicenow.view")
     result = await db.execute(
         select(SnowMapping)
         .options(selectinload(SnowMapping.field_mappings))
@@ -845,7 +845,7 @@ async def list_sync_runs(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, "servicenow.manage")
+    await PermissionService.require_permission(db, user, "servicenow.view")
     stmt = select(SnowSyncRun).order_by(SnowSyncRun.started_at.desc()).limit(limit)
     if connection_id:
         stmt = stmt.where(SnowSyncRun.connection_id == connection_id)
@@ -876,7 +876,7 @@ async def get_sync_run(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, "servicenow.manage")
+    await PermissionService.require_permission(db, user, "servicenow.view")
     result = await db.execute(select(SnowSyncRun).where(SnowSyncRun.id == run_id))
     run = result.scalar_one_or_none()
     if not run:
@@ -903,7 +903,7 @@ async def list_staged_records(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, "servicenow.manage")
+    await PermissionService.require_permission(db, user, "servicenow.view")
     stmt = (
         select(SnowStagedRecord)
         .where(SnowStagedRecord.sync_run_id == run_id)

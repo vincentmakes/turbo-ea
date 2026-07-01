@@ -23,6 +23,7 @@ import InputLabel from "@mui/material/InputLabel";
 import LinearProgress from "@mui/material/LinearProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { STATUS_COLORS } from "@/theme/tokens";
 import type { Card, EolProduct, EolCycle, EolProductMatch } from "@/types";
 
 const EOL_TYPES = ["Application", "ITComponent"];
@@ -36,15 +37,15 @@ function formatEolField(
   val: string | boolean | null | undefined,
   t: (key: string) => string,
 ): { label: string; color: string } {
-  if (val === true) return { label: t("eol.status.yesEol"), color: "#f44336" };
-  if (val === false) return { label: t("common:labels.no"), color: "#4caf50" };
+  if (val === true) return { label: t("eol.status.yesEol"), color: STATUS_COLORS.error };
+  if (val === false) return { label: t("common:labels.no"), color: STATUS_COLORS.success };
   if (typeof val === "string") {
     const d = new Date(val);
     const now = new Date();
     const isPast = d <= now;
-    return { label: val, color: isPast ? "#f44336" : "#4caf50" };
+    return { label: val, color: isPast ? STATUS_COLORS.error : STATUS_COLORS.success };
   }
-  return { label: t("eol.status.unknown"), color: "#9e9e9e" };
+  return { label: t("eol.status.unknown"), color: STATUS_COLORS.neutral };
 }
 
 /** Compute overall status from cycle data. */
@@ -58,19 +59,19 @@ function computeEolStatus(
 } {
   const eol = cycle.eol;
   if (eol === true)
-    return { label: t("eol.status.endOfLife"), color: "#f44336", icon: "cancel" };
+    return { label: t("eol.status.endOfLife"), color: STATUS_COLORS.error, icon: "cancel" };
   if (typeof eol === "string") {
     const eolDate = new Date(eol);
     const now = new Date();
     if (eolDate <= now)
-      return { label: t("eol.status.endOfLife"), color: "#f44336", icon: "cancel" };
+      return { label: t("eol.status.endOfLife"), color: STATUS_COLORS.error, icon: "cancel" };
     // Warn if within 6 months
     const sixMonths = new Date();
     sixMonths.setMonth(sixMonths.getMonth() + 6);
     if (eolDate <= sixMonths)
       return {
         label: t("eol.status.approachingEol"),
-        color: "#ff9800",
+        color: STATUS_COLORS.warning,
         icon: "warning",
       };
   }
@@ -80,12 +81,12 @@ function computeEolStatus(
     if (support === false || (typeof support === "string" && new Date(support) <= new Date())) {
       return {
         label: t("eol.status.securityOnly"),
-        color: "#ff9800",
+        color: STATUS_COLORS.warning,
         icon: "shield",
       };
     }
   }
-  return { label: t("eol.status.supported"), color: "#4caf50", icon: "check_circle" };
+  return { label: t("eol.status.supported"), color: STATUS_COLORS.success, icon: "check_circle" };
 }
 
 // ── Inline EOL Picker (used in both Dialog and Detail page) ─────
@@ -644,7 +645,7 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
                   onClick={handleUnlink}
                   title={t("eol.unlinkTooltip")}
                 >
-                  <MaterialSymbol icon="link_off" size={16} color="#f44336" />
+                  <MaterialSymbol icon="link_off" size={16} color={STATUS_COLORS.error} />
                 </IconButton>
               </Box>
             </Box>

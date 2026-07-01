@@ -157,11 +157,57 @@ class TestListConnections:
         assert conn_id in ids
 
     async def test_viewer_cannot_list_connections(self, client, db, snow_env):
-        """Viewer role lacks servicenow.manage permission for listing."""
+        """Default viewer holds neither servicenow.view nor .manage → 403."""
         viewer = snow_env["viewer"]
         resp = await client.get(
             "/api/v1/servicenow/connections",
             headers=auth_headers(viewer),
+        )
+        assert resp.status_code == 403
+
+
+class TestReadOnlyViewPermission:
+    """The read-only GET routes are gated on `servicenow.view`; mutations
+    still require `servicenow.manage`. A view-only user can read but not write.
+    """
+
+    @pytest.fixture
+    async def snow_viewer(self, db):
+        await create_role(
+            db,
+            key="snow_reader",
+            label="SNOW Reader",
+            permissions={**VIEWER_PERMISSIONS, "servicenow.view": True},
+            is_system=False,
+        )
+        return await create_user(db, email="snowreader@test.com", role="snow_reader")
+
+    async def test_view_permission_can_list_connections(self, client, db, snow_viewer):
+        resp = await client.get(
+            "/api/v1/servicenow/connections",
+            headers=auth_headers(snow_viewer),
+        )
+        assert resp.status_code == 200
+
+    async def test_view_permission_can_list_mappings(self, client, db, snow_viewer):
+        resp = await client.get(
+            "/api/v1/servicenow/mappings",
+            headers=auth_headers(snow_viewer),
+        )
+        assert resp.status_code == 200
+
+    async def test_view_permission_cannot_create_connection(self, client, db, snow_viewer):
+        """View grants read only — creating still needs servicenow.manage."""
+        resp = await client.post(
+            "/api/v1/servicenow/connections",
+            json={
+                "name": "Nope",
+                "instance_url": "https://x.service-now.com",
+                "auth_type": "basic",
+                "username": "u",
+                "password": "p",
+            },
+            headers=auth_headers(snow_viewer),
         )
         assert resp.status_code == 403
 
