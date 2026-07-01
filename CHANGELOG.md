@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.62.4] - 2026-07-01
+
+### Security
+- **Bumped the nginx base image to `1.30.3-alpine`** for the frontend and edge-nginx images, clearing the `libexpat` < 2.8.2 CVEs (CVE-2026-50219, CVE-2026-56131/56132, and the CVE-2026-56403–56412 series) surfaced by the daily Trivy image scan. The `db` (`postgres:18-alpine`) and build-stage bases track moving tags and pick up Alpine package fixes on the next no-cache rebuild.
+
 ## [1.62.3] - 2026-06-30
 
 ### Fixed
