@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - **Closed surveys no longer clutter the Todos list.** A survey set to the closed state (and its badge count) now disappears from the "My Surveys" list for users who never submitted a response, instead of leaving an un-openable row behind.
+- **Business Capability Map app-count chips are now readable in dark mode.** The count chip on each capability box previously rendered white text on a light background in dark mode; its text is now pinned dark so it stays legible in both themes.
 
 ## [1.63.0] - 2026-07-02
 
