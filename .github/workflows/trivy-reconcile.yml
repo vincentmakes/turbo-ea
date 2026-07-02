@@ -1,0 +1,89 @@
+# One-shot utility to reconcile stale, low-severity Trivy code-scanning alerts.
+#
+# Why this exists
+# ---------------
+# The regular Trivy steps in `docker-publish.yml` and `security-scan-published.yml`
+# scan with `severity: HIGH,CRITICAL` and upload SARIF under category
+# `trivy-<image>`. GitHub only auto-closes a code-scanning alert when a *new*
+# analysis in the SAME category omits it — but a HIGH+CRITICAL-only SARIF never
+# lists note/low/medium rules at all, so any <=medium alert created by an earlier
+# full-severity scan lingers open forever, even after the underlying package has
+# been rebuilt/patched. Rebuilding and republishing therefore cannot clear them.
+#
+# What this does
+# --------------
+# Re-scans the published `:latest` images across ALL severities and:
+#   1. Always prints an installed-vs-fixed vulnerability table to the job log
+#      (the diagnostic: is the package actually patched in the live image yet?).
+#   2. When `upload_sarif=true`, uploads a full-severity SARIF to the same
+#      `trivy-<image>` category so GitHub reconciles the Security tab — anything
+#      genuinely gone from the rebuilt image auto-closes, and anything listed in
+#      `.github/trivy-allowlist` is filtered out of the SARIF and closes too.
+#      (Run the diagnostic first with the default `false` so you can see the
+#      scope before writing to the Security tab.)
+#
+# Trigger from the Actions tab (workflow_dispatch), on `main`. Kept as a runbook
+# tool for future <=medium Trivy drift; see .github/SECURITY_PIPELINE.md.
+
+name: Trivy reconcile (stale alerts)
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload_sarif:
+        description: "Upload full-severity SARIF to reconcile/close stale alerts (default: diagnostic table only)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  # Required to upload SARIF (which closes stale alerts) to the Security tab.
+  security-events: write
+
+jobs:
+  reconcile:
+    name: Reconcile ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The three images that carry the stale <=medium alerts. Extend if the
+        # backend / mcp-server images ever accumulate the same drift.
+        image: [db, frontend, nginx]
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+
+      # Diagnostic — always runs. Prints the installed vs fixed version per CVE
+      # so we can tell "already patched, just stale" from "genuinely unfixed".
+      - name: Trivy table (all severities, installed vs fixed)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}/${{ matrix.image }}:latest
+          scan-type: image
+          scanners: vuln
+          format: table
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: "0"
+
+      # Reconcile — opt-in. Same severities + the shared allowlist, uploaded to
+      # the SAME category the stale alerts live under so GitHub closes them.
+      - name: Trivy SARIF (all severities) for reconciliation
+        if: ${{ inputs.upload_sarif }}
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}/${{ matrix.image }}:latest
+          scan-type: image
+          scanners: vuln
+          format: sarif
+          output: trivy-${{ matrix.image }}.sarif
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          ignore-unfixed: false
+          trivyignores: .github/trivy-allowlist
+
+      - name: Upload SARIF to Security tab (same category reconciles stale alerts)
+        if: ${{ inputs.upload_sarif }}
+        uses: github/codeql-action/upload-sarif@53e96ec3b35fce51c141c0d6f0e31028a448722d # v3
+        with:
+          sarif_file: trivy-${{ matrix.image }}.sarif
+          category: trivy-${{ matrix.image }}
