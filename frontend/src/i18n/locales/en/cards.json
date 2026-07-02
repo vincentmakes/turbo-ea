@@ -365,6 +365,7 @@
   "catalogue.subtitle": "Browse the reference catalogue and create matching Business Capability cards.",
   "catalogue.versionChip": "v{{version}} · {{count}} capabilities",
   "catalogue.sourceBundled": "Bundled with this Turbo EA build",
+  "catalogue.alreadyExists": "Already exists as a card",
   "catalogue.sourceRemote": "Fetched from the public catalogue (bundled v{{version}})",
   "catalogue.checkUpdate": "Check for update",
   "catalogue.fetchUpdate": "Fetch v{{version}}",

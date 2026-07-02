@@ -695,7 +695,7 @@ active=true^install_statusNOT IN7,8
 
 | Практика | Детали |
 |----------|--------|
-| **Защита RBAC** | Все конечные точки ServiceNow требуют разрешения `servicenow.manage`. |
+| **Защита RBAC** | Конечные точки ServiceNow только для чтения требуют разрешения `servicenow.view`; все изменения требуют `servicenow.manage`. |
 | **Аудит** | Все изменения, созданные синхронизацией, публикуют события с `source: "servicenow_sync"`, видимые в истории карточки. |
 | **Без раскрытия учётных данных** | Пароли и секреты никогда не возвращаются в ответах API. |
 
@@ -812,7 +812,7 @@ GET /api/v1/servicenow/sync/runs/{run_id}/staged?status=error
 
 ## Справочник API (краткий)
 
-Все конечные точки требуют `Authorization: Bearer <token>` и разрешение `servicenow.manage`. Базовый путь: `/api/v1`.
+Все конечные точки требуют `Authorization: Bearer <token>`. Конечные точки только для чтения требуют разрешения `servicenow.view`, изменяющие — `servicenow.manage`. Базовый путь: `/api/v1`.
 
 ### Подключения
 

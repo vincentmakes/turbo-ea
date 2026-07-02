@@ -328,6 +328,7 @@
   "catalogue.subtitle": "Просматривайте справочный каталог и создавайте соответствующие карточки бизнес-возможностей.",
   "catalogue.versionChip": "v{{version}} · {{count}} возможностей",
   "catalogue.sourceBundled": "Входит в эту сборку Turbo EA",
+  "catalogue.alreadyExists": "Уже существует как карточка",
   "catalogue.sourceRemote": "Получено из публичного каталога (встроенная v{{version}})",
   "catalogue.checkUpdate": "Проверить обновление",
   "catalogue.fetchUpdate": "Загрузить v{{version}}",

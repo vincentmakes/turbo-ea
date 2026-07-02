@@ -86,6 +86,17 @@ class TestRegistryCompleteness:
                 assert isinstance(desc, str), f"'{key}' description is not a string"
                 assert desc, f"'{key}' has empty description"
 
+    def test_admin_todos_is_registered(self):
+        """`admin.todos` is checked by todos.py to gate cross-user todo
+        management and must be a registered key (regression: it was used
+        in code but missing from the registry)."""
+        assert "admin.todos" in ALL_APP_PERMISSION_KEYS
+
+    def test_servicenow_view_is_registered(self):
+        """`servicenow.view` gates the read-only ServiceNow GET routes and
+        must be a registered key (it was previously defined but unused)."""
+        assert "servicenow.view" in ALL_APP_PERMISSION_KEYS
+
     def test_card_permissions_have_descriptions(self):
         """Every card permission should have a non-empty description string."""
         for key, desc in CARD_PERMISSIONS.items():

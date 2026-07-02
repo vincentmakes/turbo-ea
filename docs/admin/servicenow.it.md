@@ -699,7 +699,7 @@ Converte tra stringhe booleane di ServiceNow (`"true"`, `"1"`, `"yes"`) e boolea
 
 | Pratica | Dettagli |
 |---------|----------|
-| **Gated RBAC** | Tutti gli endpoint ServiceNow richiedono il permesso `servicenow.manage`. |
+| **Gated RBAC** | Gli endpoint ServiceNow di sola lettura richiedono il permesso `servicenow.view`; tutte le modifiche richiedono `servicenow.manage`. |
 | **Registro di audit** | Tutte le modifiche create dalla sincronizzazione pubblicano eventi con `source: "servicenow_sync"`, visibili nella cronologia della card. |
 | **Nessuna esposizione credenziali** | Password e segreti non vengono mai restituiti nelle risposte API. |
 
@@ -817,7 +817,7 @@ GET /api/v1/servicenow/sync/runs/{run_id}/staged?status=error
 
 ## Riferimento API (Rapido)
 
-Tutti gli endpoint richiedono `Authorization: Bearer <token>` e il permesso `servicenow.manage`. Percorso base: `/api/v1`.
+Tutti gli endpoint richiedono `Authorization: Bearer <token>`. Gli endpoint di sola lettura richiedono il permesso `servicenow.view`, quelli di modifica `servicenow.manage`. Percorso base: `/api/v1`.
 
 ### Connessioni
 

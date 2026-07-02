@@ -699,7 +699,7 @@ Converte entre booleanos de string do ServiceNow (`"true"`, `"1"`, `"yes"`) e bo
 
 | Prática | Detalhes |
 |---------|----------|
-| **Protegido por RBAC** | Todos os endpoints do ServiceNow requerem a permissão `servicenow.manage`. |
+| **Protegido por RBAC** | Os endpoints do ServiceNow somente leitura requerem a permissão `servicenow.view`; todas as alterações requerem `servicenow.manage`. |
 | **Trilha de auditoria** | Todas as alterações criadas pela sincronização publicam eventos com `source: "servicenow_sync"`, visíveis no histórico do card. |
 | **Sem exposição de credenciais** | Senhas e secrets nunca são retornados nas respostas da API. |
 
@@ -817,7 +817,7 @@ GET /api/v1/servicenow/sync/runs/{run_id}/staged?status=error
 
 ## Referência da API (Rápida)
 
-Todos os endpoints requerem `Authorization: Bearer <token>` e permissão `servicenow.manage`. Caminho base: `/api/v1`.
+Todos os endpoints requerem `Authorization: Bearer <token>`. Endpoints somente leitura precisam da permissão `servicenow.view`; endpoints de modificação precisam de `servicenow.manage`. Caminho base: `/api/v1`.
 
 ### Conexões
 

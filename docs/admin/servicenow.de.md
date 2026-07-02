@@ -699,7 +699,7 @@ Konvertiert zwischen ServiceNow-String-Booleans (`"true"`, `"1"`, `"yes"`) und n
 
 | Praxis | Details |
 |--------|---------|
-| **RBAC-geschützt** | Alle ServiceNow-Endpunkte erfordern die Berechtigung `servicenow.manage`. |
+| **RBAC-geschützt** | Lesende ServiceNow-Endpunkte erfordern die Berechtigung `servicenow.view`; alle Änderungen erfordern `servicenow.manage`. |
 | **Audit-Spur** | Alle durch Synchronisation erstellten Änderungen veröffentlichen Events mit `source: "servicenow_sync"`, sichtbar in der Kartenhistorie. |
 | **Keine Anmeldedaten-Offenlegung** | Passwörter und Geheimnisse werden nie in API-Antworten zurückgegeben. |
 
@@ -817,7 +817,7 @@ GET /api/v1/servicenow/sync/runs/{run_id}/staged?status=error
 
 ## API-Referenz (Kurzfassung)
 
-Alle Endpunkte erfordern `Authorization: Bearer <token>` und die Berechtigung `servicenow.manage`. Basispfad: `/api/v1`.
+Alle Endpunkte erfordern `Authorization: Bearer <token>`. Lesende Endpunkte benötigen die Berechtigung `servicenow.view`, ändernde Endpunkte `servicenow.manage`. Basispfad: `/api/v1`.
 
 ### Verbindungen
 

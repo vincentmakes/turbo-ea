@@ -455,7 +455,7 @@ turbo-ea/
 │   │   ├── api/
 │   │   │   ├── deps.py                # Auth dependencies (get_current_user, require_permission)
 │   │   │   └── v1/
-│   │   │       ├── router.py          # Mounts all API routers (48 include_router calls)
+│   │   │       ├── router.py          # Mounts all API routers (50 include_router calls)
 │   │   │       ├── auth.py            # /auth (login, register, me, SSO, set-password)
 │   │   │       ├── cards.py           # /cards CRUD + hierarchy + approval status + CSV export
 │   │   │       ├── metamodel.py       # /metamodel (types + relation types + field/section usage)
@@ -471,6 +471,7 @@ turbo-ea/
 │   │   │       ├── ppm.py             # /ppm (status reports, costs, budgets, risks, tasks, WBS)
 │   │   │       ├── ppm_reports.py     # /reports/ppm (dashboard, gantt, group-options)
 │   │   │       ├── diagrams.py        # /diagrams CRUD (DrawIO XML storage)
+│   │   │       ├── diagram_groups.py  # /diagram-groups (diagram folders + per-user favorites)
 │   │   │       ├── soaw.py            # /soaw (Statement of Architecture Work)
 │   │   │       ├── reports.py         # /reports (dashboard, portfolio, matrix, etc.)
 │   │   │       ├── saved_reports.py   # /saved-reports (persisted report configs)
@@ -505,7 +506,7 @@ turbo-ea/
 │   │   │   ├── permissions.py         # Permission key registry (single source of truth)
 │   │   │   ├── encryption.py          # Fernet symmetric encryption for DB secrets
 │   │   │   └── rate_limit.py          # slowapi rate limiter instance
-│   │   ├── models/                    # SQLAlchemy ORM models (49 files, see Database section)
+│   │   ├── models/                    # SQLAlchemy ORM models (52 files, see Database section)
 │   │   ├── schemas/                   # Pydantic request/response models
 │   │   │   ├── auth.py                # Auth schemas
 │   │   │   ├── card.py                # Card schemas
@@ -531,7 +532,7 @@ turbo-ea/
 │   │   ├── config.py                  # Settings from env vars + APP_VERSION
 │   │   ├── database.py                # Async engine + session factory
 │   │   └── main.py                    # FastAPI app, lifespan (migrations + seed + purge loop + AI auto-config)
-│   ├── alembic/                       # Database migrations (100 versions)
+│   ├── alembic/                       # Database migrations (116 versions)
 │   ├── tests/
 │   └── pyproject.toml
 │
@@ -564,7 +565,13 @@ turbo-ea/
 │   │   │   ├── useComplianceRegulations.ts # Compliance regulation catalogue
 │   │   │   ├── useSavedReport.ts      # Saved report caching
 │   │   │   ├── useThumbnailCapture.ts # SVG → PNG for report thumbnails
-│   │   │   └── useTimeline.ts         # Process timeline data
+│   │   │   ├── useTimeline.ts         # Process timeline data
+│   │   │   ├── useResourceTypes.ts    # Resource type catalogue (metamodel resource types)
+│   │   │   ├── useLoginBranding.ts    # Public login-page branding (singleton)
+│   │   │   ├── useFileUploadsEnabled.ts # File-attachment feature flag (singleton)
+│   │   │   ├── useArchiveRetentionDays.ts # Archived-card purge window (singleton)
+│   │   │   ├── useSponsorButtonEnabled.ts # Sponsor affordance toggle (singleton)
+│   │   │   └── useCardTabActivity.ts  # Per-card tab unread/activity indicators
 │   │   ├── layouts/AppLayout.tsx       # Top nav bar + mobile drawer + badge debounce
 │   │   ├── components/
 │   │   │   ├── CreateCardDialog.tsx
@@ -723,7 +730,9 @@ turbo-ea/
 │   │   │       ├── AuthAdmin.tsx          # SSO / Authentication settings
 │   │   │       ├── PrinciplesAdmin.tsx    # EA principles CRUD (statement, rationale, implications)
 │   │   │       ├── TurboLensAdmin.tsx     # TurboLens analysis settings
-│   │   │       └── AiAdmin.tsx            # AI suggestion settings (provider, model, search)
+│   │   │       ├── AiAdmin.tsx            # AI suggestion settings (provider, model, search)
+│   │   │       ├── AuditLogAdmin.tsx      # Audit log over the mutation-batch ledger (+ filter sidebar, batch drawer)
+│   │   │       └── ResourceTypesAdmin.tsx # Resource type catalogue management (see metamodel/settings)
 │   │   ├── App.tsx                          # Routes + MUI theme (lazy imports)
 │   │   └── main.tsx                         # React entry point
 │   ├── drawio-config/                       # PreConfig.js, PostConfig.js
@@ -863,6 +872,9 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 | `events` | `Event` | Audit trail: event_type + JSONB data, linked to card and user |
 | `diagrams` | `Diagram` | DrawIO diagram storage: name, type, data (JSONB with XML + thumbnail) |
 | `diagram_initiatives` | (association) | M:N between diagrams and initiative cards |
+| `diagram_groups` | `DiagramGroup` | Named folders that organise diagrams in the gallery |
+| `diagram_favorites` | `DiagramFavorite` | Per-user favorited diagrams (M:N user × diagram) |
+| `resource_types` | `ResourceType` | Admin-managed resource-type catalogue used by the metamodel |
 | `statement_of_architecture_works` | `SoAW` | TOGAF SoAW documents linked to initiatives |
 | `app_settings` | `AppSettings` | Singleton row: email_settings, general_settings (incl. AI config), custom_logo, custom_favicon |
 | `surveys` | `Survey` | Data-maintenance surveys with target_type, filters, actions |
@@ -905,7 +917,7 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 
 ### Migrations
 
-Located in `backend/alembic/versions/` (100 migration files, sequentially numbered `001_` through `100_`). The app auto-runs Alembic on startup:
+Located in `backend/alembic/versions/` (116 migration files, sequentially numbered `001_` through `116_`). The app auto-runs Alembic on startup:
 - Fresh DB: `create_all` + stamp head
 - Existing DB without Alembic: stamp head
 - Normal: `upgrade head` (run pending migrations)
@@ -1122,6 +1134,8 @@ Base path: `/api/v1`. All endpoints except auth and public portals require `Auth
 | **Documents** | `GET/POST /cards/{id}/documents`, `DELETE /documents/{id}` |
 | **Bookmarks** | `GET/POST /bookmarks`, `PATCH/DELETE /bookmarks/{id}` |
 | **Diagrams** | `GET/POST /diagrams`, `GET/PATCH/DELETE /diagrams/{id}` |
+| **Diagram Groups** | `GET/POST /diagram-groups`, `PATCH/DELETE /diagram-groups/{id}`, favorite toggling |
+| **Resource Types** | `GET/POST /metamodel/resource-types`, `PATCH/DELETE /metamodel/resource-types/{id}` |
 | **SoAW** | `GET/POST /soaw`, `GET/PATCH/DELETE /soaw/{id}` |
 | **Surveys** | Full CRUD + `/surveys/{id}/send`, `/surveys/{id}/respond/{card_id}` |
 | **EOL** | `/eol/products`, `/eol/products/fuzzy`, `/eol/mass-search`, `/eol/mass-link` |

@@ -699,7 +699,7 @@ Convierte entre booleanos de cadena de ServiceNow (`"true"`, `"1"`, `"yes"`) y b
 
 | Práctica | Detalles |
 |----------|----------|
-| **Controlado por RBAC** | Todos los endpoints de ServiceNow requieren permiso `servicenow.manage`. |
+| **Controlado por RBAC** | Los endpoints de ServiceNow de solo lectura requieren el permiso `servicenow.view`; todos los cambios requieren `servicenow.manage`. |
 | **Pista de auditoría** | Todos los cambios creados por sincronización publican eventos con `source: "servicenow_sync"`, visibles en el historial de fichas. |
 | **Sin exposición de credenciales** | Las contraseñas y secretos nunca se devuelven en respuestas API. |
 
@@ -817,7 +817,7 @@ GET /api/v1/servicenow/sync/runs/{run_id}/staged?status=error
 
 ## Referencia Rápida de la API
 
-Todos los endpoints requieren `Authorization: Bearer <token>` y permiso `servicenow.manage`. Ruta base: `/api/v1`.
+Todos los endpoints requieren `Authorization: Bearer <token>`. Los endpoints de solo lectura necesitan el permiso `servicenow.view`; los de modificación necesitan `servicenow.manage`. Ruta base: `/api/v1`.
 
 ### Conexiones
 

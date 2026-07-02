@@ -14,7 +14,7 @@ import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
 import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useResolveLabel, useTypeLabel } from "@/hooks/useResolveLabel";
 import { useAiStatus } from "@/hooks/useAiStatus";
 import { api } from "@/api/client";
 import { DataQualityPill } from "@/features/cards/sections";
@@ -54,7 +54,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
   const navigate = useNavigate();
   const { t } = useTranslation("common");
   const { getType } = useMetamodel();
-  const rml = useResolveMetaLabel();
+  const typeLabel = useTypeLabel();
   const rl = useResolveLabel();
 
   const [card, setCard] = useState<Card | null>(null);
@@ -200,7 +200,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
                 </Typography>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                   <Typography variant="caption" color="text.secondary" noWrap>
-                    {rml(typeConfig?.key ?? "", typeConfig?.translations, "label") || card.type}
+                    {typeLabel(typeConfig) || card.type}
                   </Typography>
                   {subtypeLabel && (
                     <Chip

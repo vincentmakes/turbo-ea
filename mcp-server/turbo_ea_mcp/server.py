@@ -765,6 +765,7 @@ async def transition_card_lifecycle(
     card_id: str,
     target: str,
     effective_date: str = "",
+    dry_run: bool = True,
 ) -> str:
     """Transition a card through approval or lifecycle phase.
 
@@ -788,41 +789,66 @@ async def transition_card_lifecycle(
             ``inventory.edit``.
         effective_date: ISO date for lifecycle transitions (e.g.
             ``"2026-06-01"``).
+        dry_run: When True (default), validate the target and return a
+            preview of the transition without applying it. Re-run with
+            ``dry_run=False`` to commit.
     """
     token = await _get_current_token()
     if not token:
         return "Error: Not authenticated. Please reconnect."
     if (disabled := _writes_disabled_message()) is not None:
         return disabled
-    client = TurboEAClient(token)
     approval_targets = {"approve", "reject", "reset"}
     phase_targets = {"phaseIn", "active", "phaseOut", "endOfLife"}
     status_targets = {"ACTIVE", "PHASING_IN", "PHASING_OUT", "END_OF_LIFE", "ARCHIVED"}
 
+    # Validate the target up-front so an unrecognised value is reported
+    # even during a preview, before any backend call is attempted.
+    if target in approval_targets:
+        family = "approval"
+    elif target in phase_targets:
+        family = "lifecycle_phase"
+    elif target in status_targets:
+        family = "status"
+    else:
+        return _fmt(
+            {
+                "error": "invalid_target",
+                "message": (
+                    f"target='{target}' is not recognised. "
+                    f"Approval: {sorted(approval_targets)}. "
+                    f"Phase: {sorted(phase_targets)}. "
+                    f"Status: {sorted(status_targets)}."
+                ),
+            }
+        )
+
+    if dry_run:
+        return _fmt(
+            {
+                "dry_run": True,
+                "would_transition": {
+                    "card_id": card_id,
+                    "target": target,
+                    "family": family,
+                    "effective_date": effective_date or None,
+                },
+            }
+        )
+
+    client = TurboEAClient(token)
     try:
-        if target in approval_targets:
+        if family == "approval":
             data = await client.post(
                 f"/cards/{card_id}/approval-status?action={target}", json=None
             )
-        elif target in phase_targets:
+        elif family == "lifecycle_phase":
             payload: dict = {"lifecycle": {"phase": target}}
             if effective_date:
                 payload["lifecycle"]["effective_date"] = effective_date
             data = await client.patch(f"/cards/{card_id}", json=payload)
-        elif target in status_targets:
+        else:  # status
             data = await client.patch(f"/cards/{card_id}", json={"status": target})
-        else:
-            return _fmt(
-                {
-                    "error": "invalid_target",
-                    "message": (
-                        f"target='{target}' is not recognised. "
-                        f"Approval: {sorted(approval_targets)}. "
-                        f"Phase: {sorted(phase_targets)}. "
-                        f"Status: {sorted(status_targets)}."
-                    ),
-                }
-            )
         return _fmt(data)
     except Exception as exc:  # noqa: BLE001
         msg = str(exc)
@@ -917,7 +943,9 @@ async def update_risks(updates: list[dict], dry_run: bool = True) -> str:
 
 
 @mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
-async def add_card_comment(card_id: str, body: str, parent_id: str = "") -> str:
+async def add_card_comment(
+    card_id: str, body: str, parent_id: str = "", dry_run: bool = True
+) -> str:
     """Post a comment on a card.
 
     Useful for the agent to leave a non-destructive, reviewable note
@@ -929,6 +957,8 @@ async def add_card_comment(card_id: str, body: str, parent_id: str = "") -> str:
         card_id: Card UUID.
         body: Comment body.
         parent_id: Reply-to comment id for threading.
+        dry_run: When True (default), return a preview of the comment
+            without posting it. Re-run with ``dry_run=False`` to commit.
     """
     token = await _get_current_token()
     if not token:
@@ -938,6 +968,8 @@ async def add_card_comment(card_id: str, body: str, parent_id: str = "") -> str:
     payload: dict = {"body": body}
     if parent_id:
         payload["parent_id"] = parent_id
+    if dry_run:
+        return _fmt({"dry_run": True, "would_comment": {"card_id": card_id, **payload}})
     client = TurboEAClient(token)
     data = await client.post(f"/cards/{card_id}/comments", json=payload)
     return _fmt(data)
@@ -1624,7 +1656,7 @@ async def update_adr(
 
 
 @mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
-async def sign_adr(adr_id: str, comment: str = "") -> str:
+async def sign_adr(adr_id: str, comment: str = "", dry_run: bool = True) -> str:
     """Sign an Architecture Decision Record.
 
     Requires ``adr.sign`` on the calling user. When the user lacks the
@@ -1635,12 +1667,16 @@ async def sign_adr(adr_id: str, comment: str = "") -> str:
     Args:
         adr_id: ADR UUID.
         comment: Optional comment recorded on the signature.
+        dry_run: When True (default), return a preview of the signature
+            without applying it. Re-run with ``dry_run=False`` to commit.
     """
     token = await _get_current_token()
     if not token:
         return "Error: Not authenticated. Please reconnect."
     if (disabled := _writes_disabled_message()) is not None:
         return disabled
+    if dry_run:
+        return _fmt({"dry_run": True, "would_sign": {"adr_id": adr_id, "comment": comment}})
     client = TurboEAClient(token)
     try:
         data = await client.post(

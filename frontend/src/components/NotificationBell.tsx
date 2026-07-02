@@ -18,17 +18,21 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useEventStream } from "@/hooks/useEventStream";
 import { formatDateWith, getCachedDateFormat } from "@/hooks/useDateFormat";
+import { NOTIFICATION_TYPE_COLORS } from "@/theme/tokens";
 import type { Notification, NotificationListResponse } from "@/types";
 
 const NOTIFICATION_ICONS: Record<string, { icon: string; color: string }> = {
-  todo_assigned: { icon: "assignment_ind", color: "#1976d2" },
-  task_assigned: { icon: "task", color: "#7b1fa2" },
-  card_updated: { icon: "edit_note", color: "#ed6c02" },
-  comment_added: { icon: "comment", color: "#2e7d32" },
-  approval_status_changed: { icon: "verified", color: "#9c27b0" },
-  soaw_sign_requested: { icon: "draw", color: "#d32f2f" },
-  soaw_signed: { icon: "task_alt", color: "#2e7d32" },
-  survey_request: { icon: "assignment", color: "#0288d1" },
+  todo_assigned: { icon: "assignment_ind", color: NOTIFICATION_TYPE_COLORS.todo_assigned },
+  task_assigned: { icon: "task", color: NOTIFICATION_TYPE_COLORS.task_assigned },
+  card_updated: { icon: "edit_note", color: NOTIFICATION_TYPE_COLORS.card_updated },
+  comment_added: { icon: "comment", color: NOTIFICATION_TYPE_COLORS.comment_added },
+  approval_status_changed: {
+    icon: "verified",
+    color: NOTIFICATION_TYPE_COLORS.approval_status_changed,
+  },
+  soaw_sign_requested: { icon: "draw", color: NOTIFICATION_TYPE_COLORS.soaw_sign_requested },
+  soaw_signed: { icon: "task_alt", color: NOTIFICATION_TYPE_COLORS.soaw_signed },
+  survey_request: { icon: "assignment", color: NOTIFICATION_TYPE_COLORS.survey_request },
 };
 
 function timeAgo(dateStr: string, t: (key: string, opts?: Record<string, unknown>) => string): string {

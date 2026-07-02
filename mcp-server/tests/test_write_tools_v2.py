@@ -223,7 +223,7 @@ class TestAdrTools:
             raise RuntimeError("HTTP 403 Forbidden: Not enough permissions")
 
         with patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=raising)):
-            out = await server.sign_adr(adr_id="ADR-9")
+            out = await server.sign_adr(adr_id="ADR-9", dry_run=False)
         data = _parse(out)
         assert data["status"] == "pending"
         assert data["deep_link"] == "/ea-delivery/adr/ADR-9?action=sign"
@@ -234,7 +234,7 @@ class TestTransitionLifecycle:
     async def test_approve_action_posts(self, fake_token):
         post_mock = AsyncMock(return_value={"approval_status": "APPROVED"})
         with patch.object(server.TurboEAClient, "post", post_mock):
-            await server.transition_card_lifecycle(card_id="c1", target="approve")
+            await server.transition_card_lifecycle(card_id="c1", target="approve", dry_run=False)
         path, body = post_mock.call_args[0][0], None
         assert "approval-status?action=approve" in path
 
@@ -243,7 +243,7 @@ class TestTransitionLifecycle:
         patch_mock = AsyncMock(return_value={"id": "c1"})
         with patch.object(server.TurboEAClient, "patch", patch_mock):
             await server.transition_card_lifecycle(
-                card_id="c1", target="phaseOut", effective_date="2026-12-31"
+                card_id="c1", target="phaseOut", effective_date="2026-12-31", dry_run=False
             )
         path = patch_mock.call_args[0][0]
         body = patch_mock.call_args[1]["json"]
@@ -354,7 +354,7 @@ class TestAddCardComment:
         post_mock = AsyncMock(return_value={"id": "cmt-1"})
         with patch.object(server.TurboEAClient, "post", post_mock):
             await server.add_card_comment(
-                card_id="c1", body="reply", parent_id="cmt-0"
+                card_id="c1", body="reply", parent_id="cmt-0", dry_run=False
             )
         path = post_mock.call_args[0][0]
         body = post_mock.call_args[1]["json"]

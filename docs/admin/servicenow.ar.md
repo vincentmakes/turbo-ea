@@ -699,7 +699,7 @@ Month 2+: CONSERVATIVE mode, staging OFF (skip), automated daily cron
 
 | الممارسة | التفاصيل |
 |----------|---------|
-| **محكوم بـ RBAC** | تتطلب جميع نقاط نهاية ServiceNow إذن `servicenow.manage`. |
+| **محكوم بـ RBAC** | تتطلب نقاط نهاية ServiceNow للقراءة فقط إذن `servicenow.view`؛ وتتطلب جميع التغييرات إذن `servicenow.manage`. |
 | **مسار التدقيق** | تنشر جميع التغييرات المنشأة بواسطة المزامنة أحداثًا تحمل `source: "servicenow_sync"`، مرئية في سجل البطاقة. |
 | **عدم كشف بيانات الاعتماد** | لا تُرجَع كلمات المرور والأسرار أبدًا في استجابات API. |
 
@@ -817,7 +817,7 @@ GET /api/v1/servicenow/sync/runs/{run_id}/staged?status=error
 
 ## مرجع API (سريع)
 
-تتطلب جميع نقاط النهاية `Authorization: Bearer <token>` وإذن `servicenow.manage`. المسار الأساسي: `/api/v1`.
+تتطلب جميع نقاط النهاية `Authorization: Bearer <token>`. تتطلب نقاط النهاية للقراءة فقط إذن `servicenow.view`، بينما تتطلب نقاط نهاية التعديل إذن `servicenow.manage`. المسار الأساسي: `/api/v1`.
 
 ### الاتصالات
 

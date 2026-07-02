@@ -222,6 +222,7 @@ APP_PERMISSIONS: dict[str, dict] = {
             "admin.settings": "Manage app settings (email, logo, SSO)",
             "admin.mcp": "Manage MCP integration settings (AI tool access)",
             "admin.events": "View audit trail and event stream",
+            "admin.todos": "View and manage other users' todos (not just your own)",
             "admin.migrate": (
                 "Run platform migration imports (e.g., LeanIX workspace snapshot). "
                 "Lets the holder extend the metamodel and bulk-create cards, "
@@ -378,6 +379,7 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "admin.settings": False,
     "admin.mcp": False,
     "admin.events": False,
+    "admin.todos": False,
     "admin.migrate": False,
     "admin.impersonate": False,
     "admin.export_workspace": False,
@@ -454,6 +456,7 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "admin.settings": False,
     "admin.mcp": False,
     "admin.events": False,
+    "admin.todos": False,
     "admin.migrate": False,
     "admin.impersonate": False,
     "admin.export_workspace": False,
@@ -530,6 +533,7 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "admin.settings": False,
     "admin.mcp": False,
     "admin.events": False,
+    "admin.todos": False,
     "admin.migrate": False,
     "admin.impersonate": False,
     "admin.export_workspace": False,

@@ -668,6 +668,7 @@ function DetailTreeNode({
   byParent: Map<string | null, CatalogueNode[]>;
   levelLabel: (level: number) => string;
 }) {
+  const { t } = useTranslation("cards");
   const kids = byParent.get(node.id) ?? [];
   return (
     <Box>
@@ -676,7 +677,7 @@ function DetailTreeNode({
         <span className="tcc-cap-level">{levelLabel(node.level)}</span>
         {node.deprecated && <span className="tcc-deprecated-badge">Dep.</span>}
         {node.existing_card_id && (
-          <Tooltip title="Already exists as a card">
+          <Tooltip title={t("catalogue.alreadyExists")}>
             <span className="tcc-existing-tick">
               <MaterialSymbol icon="check_circle" size={14} />
             </span>
