@@ -152,3 +152,26 @@ def test_oversized_cell_survives_via_overflow_asset():
     restored = parsed.rows("Big")[0]["v"]
     assert restored == big  # full value, not truncated
     assert json.loads(restored)["blob"] == "y" * 50000
+
+
+def test_merge_settings_never_writes_incoming_secrets():
+    """A hand-edited/malicious bundle carrying a secret must not land it —
+    neither overwriting the target's value nor creating one the target lacked
+    (it would be stored unencrypted)."""
+    from app.services.workspace_io.applier import _merge_settings
+    from app.services.workspace_io.secrets import EMAIL_SECRET_PATHS
+
+    target = {"smtp_host": "old-host", "smtp_password": "enc:KEEP"}
+    incoming = {
+        "smtp_host": "new-host",
+        "method": "graph_api",
+        "smtp_password": "plaintext-attack",
+        "oauth_client_secret": "plaintext-attack",
+        "service_account_json": '{"private_key": "attack"}',
+    }
+    merged = _merge_settings(target, incoming, EMAIL_SECRET_PATHS)
+    assert merged["smtp_host"] == "new-host"
+    assert merged["method"] == "graph_api"
+    assert merged["smtp_password"] == "enc:KEEP"  # target's own value preserved
+    assert "oauth_client_secret" not in merged  # never created from a bundle
+    assert "service_account_json" not in merged

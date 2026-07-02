@@ -110,6 +110,8 @@ O Turbo EA envia e-mails de convite, notificações de pesquisas, redefinições
 
 Nenhuma senha de caixa de correio é armazenada; o Turbo EA solicita um token de curta duração para cada envio.
 
+O **endereço do remetente** é opcional com o Graph: deixe-o no valor padrão para enviar como a caixa de correio do remetente. Definir um endereço diferente exige uma permissão **Send As** para esse endereço na caixa de correio do remetente.
+
 ### SMTP com OAuth 2.0
 
 - **Microsoft 365:** informe o **ID do locatário**, o **ID do cliente** e o **segredo do cliente** de um registro de aplicativo, além da **Caixa de correio do remetente**. O SMTP AUTH deve estar habilitado para a caixa de correio.

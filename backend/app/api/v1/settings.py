@@ -19,6 +19,14 @@ from app.models.relation_type import RelationType
 from app.models.resource_type import ResourceType
 from app.models.user import User
 from app.services.ai_service import DEFAULT_AZURE_API_VERSION
+from app.services.email_backends.base import (
+    ALLOWED_METHODS as ALLOWED_EMAIL_METHODS,
+)
+from app.services.email_backends.base import (
+    EmailConfig,
+    get_backend,
+)
+from app.services.email_backends.runtime import apply_email_settings_to_runtime
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -116,76 +124,18 @@ async def _get_or_create_row(db: AsyncSession) -> AppSettings:
 
 
 EMAIL_SECRET_FIELDS = ("smtp_password", "oauth_client_secret", "service_account_json")
-ALLOWED_EMAIL_METHODS = ("smtp_basic", "smtp_oauth", "graph_api")
 MASK = "••••••••"
 
 
 def _email_configured(stored: dict) -> bool:
-    """Whether the currently-selected email backend has enough config to send."""
-    method = stored.get("method", app_config.EMAIL_METHOD) or "smtp_basic"
-    if method == "graph_api":
-        return bool(
-            (stored.get("oauth_tenant_id") or app_config.EMAIL_OAUTH_TENANT_ID)
-            and (stored.get("oauth_client_id") or app_config.EMAIL_OAUTH_CLIENT_ID)
-            and (stored.get("oauth_client_secret") or app_config.EMAIL_OAUTH_CLIENT_SECRET)
-            and (stored.get("graph_sender") or app_config.EMAIL_GRAPH_SENDER)
-        )
-    if method == "smtp_oauth":
-        if not (stored.get("smtp_host") or app_config.SMTP_HOST):
-            return False
-        provider = stored.get("oauth_provider", app_config.EMAIL_OAUTH_PROVIDER)
-        if provider == "google":
-            return bool(stored.get("service_account_json") or app_config.EMAIL_SERVICE_ACCOUNT_JSON)
-        return bool(
-            (stored.get("oauth_tenant_id") or app_config.EMAIL_OAUTH_TENANT_ID)
-            and (stored.get("oauth_client_id") or app_config.EMAIL_OAUTH_CLIENT_ID)
-            and (stored.get("oauth_client_secret") or app_config.EMAIL_OAUTH_CLIENT_SECRET)
-        )
-    return bool(stored.get("smtp_host") or app_config.SMTP_HOST)
+    """Whether the currently-selected email backend has enough config to send.
 
-
-def _apply_to_runtime(email: dict) -> None:
-    """Push DB email settings into the runtime config singleton."""
-    if email.get("method"):
-        app_config.EMAIL_METHOD = email["method"]
-    if email.get("smtp_host"):
-        app_config.SMTP_HOST = email["smtp_host"]
-    if email.get("smtp_port"):
-        app_config.SMTP_PORT = int(email["smtp_port"])
-    if email.get("smtp_user"):
-        app_config.SMTP_USER = email["smtp_user"]
-    if email.get("smtp_password"):
-        app_config.SMTP_PASSWORD = decrypt_value(email["smtp_password"])
-    if email.get("smtp_from"):
-        app_config.SMTP_FROM = email["smtp_from"]
-    if "smtp_tls" in email:
-        app_config.SMTP_TLS = bool(email["smtp_tls"])
-    if email.get("app_base_url"):
-        app_config._app_base_url = email["app_base_url"]
-    # OAuth (dedicated email app registration)
-    if email.get("oauth_provider"):
-        app_config.EMAIL_OAUTH_PROVIDER = email["oauth_provider"]
-    if email.get("oauth_tenant_id"):
-        app_config.EMAIL_OAUTH_TENANT_ID = email["oauth_tenant_id"]
-    if email.get("oauth_client_id"):
-        app_config.EMAIL_OAUTH_CLIENT_ID = email["oauth_client_id"]
-    if email.get("oauth_client_secret"):
-        app_config.EMAIL_OAUTH_CLIENT_SECRET = decrypt_value(email["oauth_client_secret"])
-    if email.get("graph_sender"):
-        app_config.EMAIL_GRAPH_SENDER = email["graph_sender"]
-    if email.get("oauth_scope"):
-        app_config.EMAIL_OAUTH_SCOPE = email["oauth_scope"]
-    if email.get("oauth_token_endpoint"):
-        app_config.EMAIL_OAUTH_TOKEN_ENDPOINT = email["oauth_token_endpoint"]
-    if email.get("service_account_json"):
-        app_config.EMAIL_SERVICE_ACCOUNT_JSON = decrypt_value(email["service_account_json"])
-    # Drop cached OAuth tokens so the next send picks up the new credentials.
-    try:
-        from app.services.email_backends import oauth as _email_oauth
-
-        _email_oauth.reset_cache()
-    except Exception:  # pragma: no cover - defensive
-        pass
+    Delegates to the backend's own ``is_configured`` over a stored-over-runtime
+    config snapshot, so this stays in lockstep with what ``send_email()``
+    actually requires.
+    """
+    cfg = EmailConfig.from_stored(stored)
+    return get_backend(cfg.method).is_configured(cfg)
 
 
 # ---------------------------------------------------------------------------
@@ -293,15 +243,8 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
     }
 
 
-@router.get("/email")
-async def get_email_settings(
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    await PermissionService.require_permission(db, user, "admin.settings")
-    row = await _get_or_create_row(db)
-    await db.commit()
-    stored = row.email_settings or {}
+def _email_settings_response(stored: dict) -> dict:
+    """Masked email-settings body shared by GET and PATCH /settings/email."""
 
     def _secret_mask(key: str, env_fallback: str = "") -> str:
         return MASK if stored.get(key) or env_fallback else ""
@@ -333,6 +276,17 @@ async def get_email_settings(
     }
 
 
+@router.get("/email")
+async def get_email_settings(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "admin.settings")
+    row = await _get_or_create_row(db)
+    await db.commit()
+    return _email_settings_response(row.email_settings or {})
+
+
 @router.patch("/email")
 async def update_email_settings(
     body: EmailSettingsPayload,
@@ -347,7 +301,9 @@ async def update_email_settings(
     row = await _get_or_create_row(db)
 
     email = dict(row.email_settings or {})
-    payload = body.model_dump()
+    # Only fields the caller actually sent — a client built against an older
+    # payload shape must not reset method/oauth fields to Pydantic defaults.
+    payload = body.model_dump(exclude_unset=True)
 
     # Secret fields: drop when masked/empty (preserve stored value), otherwise encrypt.
     for field in EMAIL_SECRET_FIELDS:
@@ -361,9 +317,11 @@ async def update_email_settings(
     row.email_settings = email
     await db.commit()
 
-    _apply_to_runtime(email)
+    apply_email_settings_to_runtime(email)
 
-    return {"ok": True}
+    # Return the same masked body as GET so the client can refresh its state
+    # (incl. the computed `configured` flag) without a second round-trip.
+    return {"ok": True, **_email_settings_response(email)}
 
 
 @router.post("/email/test")
@@ -392,7 +350,8 @@ async def test_email_settings(
     if not sent:
         raise HTTPException(
             400,
-            "SMTP is not configured. Set SMTP_HOST and related settings before testing.",
+            "Email is not configured for the selected sending method. "
+            "Complete the required fields under Admin → Settings → Email before testing.",
         )
 
     return {"ok": True, "sent_to": user.email}

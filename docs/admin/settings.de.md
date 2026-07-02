@@ -110,6 +110,8 @@ Turbo EA versendet Einladungs-E-Mails, Umfrage-Benachrichtigungen, Passwort-Zur�
 
 Es wird kein Postfachpasswort gespeichert; Turbo EA fordert für jeden Versand ein kurzlebiges Token an.
 
+Die **Absenderadresse** ist bei Graph optional: Belassen Sie sie auf dem Standardwert, um als Absenderpostfach zu senden. Eine abweichende Adresse erfordert eine **Send-As-Berechtigung** für diese Adresse auf dem Absenderpostfach.
+
 ### SMTP mit OAuth 2.0
 
 - **Microsoft 365:** Geben Sie **Mandanten-ID**, **Client-ID** und **Client-Geheimnis** einer App-Registrierung sowie das **Absenderpostfach** ein. SMTP AUTH muss für das Postfach aktiviert sein.

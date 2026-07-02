@@ -110,6 +110,8 @@ Turbo EA sender invitations-e-mails, undersøgelsesnotifikationer, nulstillinger
 
 Der gemmes ingen postkasseadgangskode; Turbo EA anmoder om et kortvarigt token for hver afsendelse.
 
+**Afsenderadressen** er valgfri med Graph: Lad den stå på standardværdien for at sende som afsenderpostkassen. En anden adresse kræver en **Send As**-tilladelse for den adresse på afsenderpostkassen.
+
 ### SMTP med OAuth 2.0
 
 - **Microsoft 365:** indtast **Lejer-id**, **Klient-id** og **Klienthemmelighed** for en appregistrering samt **Afsenderpostkassen**. SMTP AUTH skal være aktiveret for postkassen.

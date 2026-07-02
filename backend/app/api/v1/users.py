@@ -200,7 +200,8 @@ async def resend_invitation_by_invitation(
     if not sent:
         raise HTTPException(
             400,
-            "SMTP is not configured. Configure SMTP in admin settings before resending.",
+            "Email is not configured. Configure an email sending method in admin "
+            "settings before resending.",
         )
 
     return {"email_sent": True, "sent_to": inv.email}
@@ -574,9 +575,9 @@ async def create_user(
             response["email_sent"] = bool(sent)
             if not sent:
                 response["email_error"] = (
-                    "SMTP is not configured, so the invitation email could not "
-                    "be sent. The account was created — configure SMTP in admin "
-                    "settings and re-send manually if needed."
+                    "Email is not configured, so the invitation email could not "
+                    "be sent. The account was created — configure an email "
+                    "sending method in admin settings and re-send manually if needed."
                 )
         except Exception as exc:
             import logging

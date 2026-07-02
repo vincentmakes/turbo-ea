@@ -110,6 +110,8 @@ Turbo EA invia e-mail di invito, notifiche dei sondaggi, reimpostazioni della pa
 
 Non viene memorizzata alcuna password della casella di posta; Turbo EA richiede un token di breve durata per ogni invio.
 
+L'**indirizzo mittente** è facoltativo con Graph: lascialo al valore predefinito per inviare come casella di posta del mittente. Impostare un indirizzo diverso richiede un'autorizzazione **Send As** per quell'indirizzo sulla casella di posta del mittente.
+
 ### SMTP con OAuth 2.0
 
 - **Microsoft 365:** inserisci **ID tenant**, **ID client** e **Segreto client** di una registrazione app, più la **Casella di posta del mittente**. SMTP AUTH deve essere abilitato per la casella di posta.

@@ -9,8 +9,9 @@ Two flows are supported:
 * **service_account** — Google service-account JWT-bearer grant (domain-wide
   delegation) for Google Workspace SMTP XOAUTH2 (scope ``https://mail.google.com/``).
 
-Tokens are cached in-memory per ``(provider, client_id, scope[, subject])`` and
-reused until shortly before expiry. Secrets and tokens are never logged.
+Tokens are cached in-memory per credential identity (tenant/endpoint, client,
+scope, and — for Google — the impersonated subject) and reused until shortly
+before expiry. Secrets and tokens are never logged.
 """
 
 from __future__ import annotations
@@ -69,7 +70,10 @@ async def get_client_credentials_token(
     token_endpoint: str = "",
 ) -> str:
     """Fetch (or reuse a cached) app-only access token via client credentials."""
-    cache_key = f"cc:{client_id}:{scope}"
+    endpoint = (token_endpoint or "").strip() or microsoft_token_endpoint(tenant_id)
+    # Tenant and endpoint are part of the key: correcting either must not keep
+    # serving the hour-long token minted against the old authority.
+    cache_key = f"cc:{tenant_id}:{client_id}:{scope}:{endpoint}"
     cached = _cache_get(cache_key)
     if cached:
         return cached
@@ -79,7 +83,6 @@ async def get_client_credentials_token(
         if cached:
             return cached
 
-        endpoint = (token_endpoint or "").strip() or microsoft_token_endpoint(tenant_id)
         data = {
             "client_id": client_id,
             "client_secret": client_secret,
@@ -88,15 +91,8 @@ async def get_client_credentials_token(
         }
         async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
             resp = await client.post(endpoint, data=data)
-        if resp.status_code != 200:
-            # Surface the provider's error description without leaking the secret.
-            detail = _safe_error(resp)
-            raise RuntimeError(f"OAuth token request failed ({resp.status_code}): {detail}")
-        payload = resp.json()
-        token = payload.get("access_token")
-        if not isinstance(token, str) or not token:
-            raise RuntimeError("OAuth token response did not contain an access_token")
-        _cache_put(cache_key, token, payload.get("expires_in", 3600))
+        token, expires_in = _extract_token(resp, "OAuth token request failed")
+        _cache_put(cache_key, token, expires_in)
         return token
 
 
@@ -145,15 +141,8 @@ async def get_service_account_token(
         }
         async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
             resp = await client.post(token_uri, data=data)
-        if resp.status_code != 200:
-            raise RuntimeError(
-                f"Google token request failed ({resp.status_code}): {_safe_error(resp)}"
-            )
-        payload = resp.json()
-        token = payload.get("access_token")
-        if not isinstance(token, str) or not token:
-            raise RuntimeError("Google token response did not contain an access_token")
-        _cache_put(cache_key, token, payload.get("expires_in", 3600))
+        token, expires_in = _extract_token(resp, "Google token request failed")
+        _cache_put(cache_key, token, expires_in)
         return token
 
 
@@ -195,9 +184,29 @@ def build_xoauth2_string(user: str, access_token: str) -> str:
     return base64.b64encode(build_xoauth2_raw(user, access_token).encode()).decode()
 
 
-def _safe_error(resp: httpx.Response) -> str:
+def _extract_token(resp: httpx.Response, error_prefix: str) -> tuple[str, int]:
+    """Validate a token-endpoint response and return (access_token, expires_in)."""
+    if resp.status_code != 200:
+        # Surface the provider's error description without leaking the secret.
+        raise RuntimeError(f"{error_prefix} ({resp.status_code}): {safe_error(resp)}")
+    payload = resp.json()
+    token = payload.get("access_token")
+    if not isinstance(token, str) or not token:
+        raise RuntimeError(f"{error_prefix}: response did not contain an access_token")
+    return token, payload.get("expires_in", 3600)
+
+
+def safe_error(resp: httpx.Response) -> str:
+    """Extract a loggable error message from an httpx response without secrets.
+
+    Handles both OAuth token-endpoint shapes (``error_description`` / ``error``
+    string) and Graph's nested ``{"error": {"message": ...}}``.
+    """
     try:
         body = resp.json()
-        return str(body.get("error_description") or body.get("error") or body)
+        err = body.get("error") if isinstance(body, dict) else None
+        if isinstance(err, dict):
+            return str(err.get("message") or err)
+        return str(body.get("error_description") or err or body)[:300]
     except Exception:
         return resp.text[:200]

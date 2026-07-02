@@ -8,8 +8,8 @@ directly (keeps them unit-testable).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from dataclasses import dataclass, fields
+from typing import Protocol
 
 from app.config import settings
 
@@ -19,6 +19,26 @@ METHOD_SMTP_OAUTH = "smtp_oauth"
 METHOD_GRAPH_API = "graph_api"
 
 ALLOWED_METHODS = (METHOD_SMTP_BASIC, METHOD_SMTP_OAUTH, METHOD_GRAPH_API)
+
+# EmailConfig field name -> stored email_settings key (identical except the
+# From address, which the settings dict calls smtp_from).
+_STORED_KEYS = {
+    "method": "method",
+    "from_addr": "smtp_from",
+    "smtp_host": "smtp_host",
+    "smtp_port": "smtp_port",
+    "smtp_user": "smtp_user",
+    "smtp_password": "smtp_password",
+    "smtp_tls": "smtp_tls",
+    "oauth_provider": "oauth_provider",
+    "oauth_tenant_id": "oauth_tenant_id",
+    "oauth_client_id": "oauth_client_id",
+    "oauth_client_secret": "oauth_client_secret",
+    "oauth_scope": "oauth_scope",
+    "oauth_token_endpoint": "oauth_token_endpoint",
+    "service_account_json": "service_account_json",
+    "graph_sender": "graph_sender",
+}
 
 
 @dataclass
@@ -44,12 +64,12 @@ class EmailConfig:
     oauth_token_endpoint: str = ""  # optional override
     service_account_json: str = ""  # Google service-account key (JSON string)
 
-    # Graph sendMail sender mailbox (UPN or object id). XOAUTH2 falls back to
-    # smtp_user, then this, then from_addr.
+    # Sender mailbox: Graph sends from it; SMTP XOAUTH2 authenticates as
+    # smtp_user (its own sender-mailbox field).
     graph_sender: str = ""
 
     @classmethod
-    def from_runtime(cls) -> "EmailConfig":
+    def from_runtime(cls) -> EmailConfig:
         """Build a config snapshot from the runtime ``settings`` singleton."""
         return cls(
             method=getattr(settings, "EMAIL_METHOD", METHOD_SMTP_BASIC) or METHOD_SMTP_BASIC,
@@ -69,8 +89,30 @@ class EmailConfig:
             graph_sender=getattr(settings, "EMAIL_GRAPH_SENDER", ""),
         )
 
+    @classmethod
+    def from_stored(cls, stored: dict) -> EmailConfig:
+        """Layer a stored ``email_settings`` dict over the runtime snapshot.
 
-@runtime_checkable
+        Used by the settings API to answer "is this configuration complete?"
+        with the exact same per-backend ``is_configured`` logic the send path
+        uses. Secrets stay encrypted — ``is_configured`` only checks presence.
+        Falsy stored values fall back to the runtime/env value, mirroring the
+        endpoint's long-standing ``stored or env`` semantics.
+        """
+        cfg = cls.from_runtime()
+        for field in fields(cls):
+            value = stored.get(_STORED_KEYS[field.name])
+            if field.name == "smtp_tls":
+                if "smtp_tls" in stored:
+                    cfg.smtp_tls = bool(stored["smtp_tls"])
+            elif field.name == "smtp_port":
+                if value:
+                    cfg.smtp_port = int(value)
+            elif value:
+                setattr(cfg, field.name, value)
+        return cfg
+
+
 class EmailBackend(Protocol):
     """Transport strategy. Implementations live in this package."""
 
@@ -90,15 +132,21 @@ class EmailBackend(Protocol):
     ) -> None: ...
 
 
+_registry: dict[str, EmailBackend] | None = None
+
+
 def get_backend(method: str | None) -> EmailBackend:
     """Resolve the backend for ``method`` (defaults to smtp_basic)."""
-    # Imported lazily to avoid a circular import at module load.
-    from app.services.email_backends.graph import GraphApiBackend
-    from app.services.email_backends.smtp import SmtpBasicBackend, SmtpXOAuth2Backend
+    global _registry
+    if _registry is None:
+        # Imported lazily to avoid a circular import at module load; the
+        # stateless backends are built once and reused.
+        from app.services.email_backends.graph import GraphApiBackend
+        from app.services.email_backends.smtp import SmtpBasicBackend, SmtpXOAuth2Backend
 
-    registry: dict[str, EmailBackend] = {
-        METHOD_SMTP_BASIC: SmtpBasicBackend(),
-        METHOD_SMTP_OAUTH: SmtpXOAuth2Backend(),
-        METHOD_GRAPH_API: GraphApiBackend(),
-    }
-    return registry.get((method or METHOD_SMTP_BASIC), registry[METHOD_SMTP_BASIC])
+        _registry = {
+            METHOD_SMTP_BASIC: SmtpBasicBackend(),
+            METHOD_SMTP_OAUTH: SmtpXOAuth2Backend(),
+            METHOD_GRAPH_API: GraphApiBackend(),
+        }
+    return _registry.get(method or METHOD_SMTP_BASIC, _registry[METHOD_SMTP_BASIC])

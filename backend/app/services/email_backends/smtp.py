@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import smtplib
+from collections.abc import Callable
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -28,11 +29,39 @@ def _build_message(to: str, subject: str, body_html: str, body_text: str, from_a
     return msg.as_string()
 
 
-def _connect(cfg: EmailConfig) -> smtplib.SMTP:
-    server = smtplib.SMTP(cfg.smtp_host, cfg.smtp_port)
-    if cfg.smtp_tls:
-        server.starttls()
-    return server
+def _send_sync(
+    *,
+    to: str,
+    subject: str,
+    body_html: str,
+    body_text: str,
+    from_addr: str,
+    cfg: EmailConfig,
+    key: str,
+    authenticate: Callable[[smtplib.SMTP], None],
+) -> None:
+    """Shared SMTP send: connect → (starttls) → ehlo → authenticate → send.
+
+    Runs in a thread. The two backends differ only in the ``authenticate``
+    step, so transport-level fixes land in one place.
+    """
+    try:
+        server = smtplib.SMTP(cfg.smtp_host, cfg.smtp_port)
+        if cfg.smtp_tls:
+            server.starttls()
+        # starttls() resets the EHLO state; re-EHLO so AUTH is accepted. On the
+        # non-TLS path this is the first EHLO. Harmless before login(), which
+        # skips its own EHLO when one already succeeded.
+        server.ehlo()
+        authenticate(server)
+        server.sendmail(
+            from_addr, [to], _build_message(to, subject, body_html, body_text, from_addr)
+        )
+        server.quit()
+        logger.info("Email sent to %s via %s: %s", to, key, subject)
+    except Exception:
+        logger.exception("Failed to send email to %s via %s", to, key)
+        raise
 
 
 class SmtpBasicBackend:
@@ -42,28 +71,6 @@ class SmtpBasicBackend:
 
     def is_configured(self, cfg: EmailConfig) -> bool:
         return bool(cfg.smtp_host)
-
-    def _send_sync(
-        self,
-        to: str,
-        subject: str,
-        body_html: str,
-        body_text: str,
-        from_addr: str,
-        cfg: EmailConfig,
-    ) -> None:
-        try:
-            server = _connect(cfg)
-            if cfg.smtp_user:
-                server.login(cfg.smtp_user, cfg.smtp_password)
-            server.sendmail(
-                from_addr, [to], _build_message(to, subject, body_html, body_text, from_addr)
-            )
-            server.quit()
-            logger.info("Email sent to %s via smtp_basic: %s", to, subject)
-        except Exception:
-            logger.exception("Failed to send email to %s via smtp_basic", to)
-            raise
 
     async def send(
         self,
@@ -75,23 +82,38 @@ class SmtpBasicBackend:
         from_addr: str,
         cfg: EmailConfig,
     ) -> None:
-        await asyncio.to_thread(self._send_sync, to, subject, body_html, body_text, from_addr, cfg)
+        def authenticate(server: smtplib.SMTP) -> None:
+            if cfg.smtp_user:
+                server.login(cfg.smtp_user, cfg.smtp_password)
+
+        await asyncio.to_thread(
+            _send_sync,
+            to=to,
+            subject=subject,
+            body_html=body_html,
+            body_text=body_text,
+            from_addr=from_addr,
+            cfg=cfg,
+            key=self.key,
+            authenticate=authenticate,
+        )
 
 
 class SmtpXOAuth2Backend:
-    """SMTP authenticated with an OAuth2 bearer token (SASL XOAUTH2)."""
+    """SMTP authenticated with an OAuth2 bearer token (SASL XOAUTH2).
+
+    ``smtp_user`` is the sender mailbox the token authenticates as (and, for
+    Google, the mailbox the service account impersonates) — required.
+    """
 
     key = METHOD_SMTP_OAUTH
 
     def is_configured(self, cfg: EmailConfig) -> bool:
-        if not cfg.smtp_host:
+        if not cfg.smtp_host or not cfg.smtp_user:
             return False
         if cfg.oauth_provider == "google":
             return bool(cfg.service_account_json)
         return bool(cfg.oauth_tenant_id and cfg.oauth_client_id and cfg.oauth_client_secret)
-
-    def _auth_user(self, cfg: EmailConfig, from_addr: str) -> str:
-        return cfg.smtp_user or cfg.graph_sender or from_addr
 
     async def _acquire_token(self, cfg: EmailConfig, auth_user: str) -> str:
         if cfg.oauth_provider == "google":
@@ -110,36 +132,6 @@ class SmtpXOAuth2Backend:
             token_endpoint=cfg.oauth_token_endpoint,
         )
 
-    def _send_sync(
-        self,
-        to: str,
-        subject: str,
-        body_html: str,
-        body_text: str,
-        from_addr: str,
-        cfg: EmailConfig,
-        auth_user: str,
-        token: str,
-    ) -> None:
-        try:
-            server = _connect(cfg)
-            server.ehlo()
-            # smtplib base64-encodes the authobject's return value itself and
-            # raises SMTPAuthenticationError on a non-235 reply — docmd() would
-            # silently ignore a rejected token.
-            server.auth(
-                "XOAUTH2",
-                lambda challenge=None: oauth.build_xoauth2_raw(auth_user, token),
-            )
-            server.sendmail(
-                from_addr, [to], _build_message(to, subject, body_html, body_text, from_addr)
-            )
-            server.quit()
-            logger.info("Email sent to %s via smtp_oauth: %s", to, subject)
-        except Exception:
-            logger.exception("Failed to send email to %s via smtp_oauth", to)
-            raise
-
     async def send(
         self,
         *,
@@ -150,16 +142,26 @@ class SmtpXOAuth2Backend:
         from_addr: str,
         cfg: EmailConfig,
     ) -> None:
-        auth_user = self._auth_user(cfg, from_addr)
+        auth_user = cfg.smtp_user
         token = await self._acquire_token(cfg, auth_user)
+
+        def authenticate(server: smtplib.SMTP) -> None:
+            # smtplib base64-encodes the authobject's return value itself and
+            # raises SMTPAuthenticationError on a non-235 reply — docmd() would
+            # silently ignore a rejected token.
+            server.auth(
+                "XOAUTH2",
+                lambda challenge=None: oauth.build_xoauth2_raw(auth_user, token),
+            )
+
         await asyncio.to_thread(
-            self._send_sync,
-            to,
-            subject,
-            body_html,
-            body_text,
-            from_addr,
-            cfg,
-            auth_user,
-            token,
+            _send_sync,
+            to=to,
+            subject=subject,
+            body_html=body_html,
+            body_text=body_text,
+            from_addr=from_addr,
+            cfg=cfg,
+            key=self.key,
+            authenticate=authenticate,
         )

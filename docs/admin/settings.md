@@ -110,6 +110,8 @@ Turbo EA sends invitation emails, survey notifications, password resets, and oth
 
 No mailbox password is stored; Turbo EA requests a short-lived token for each send.
 
+The **From Address** is optional with Graph: leave it at the default to send as the sender mailbox. Setting a different address requires a **Send As** grant for that address on the sender mailbox.
+
 ### SMTP with OAuth 2.0
 
 - **Microsoft 365:** enter the **Tenant ID**, **Client ID**, and **Client secret** of an app registration, plus the **Sender mailbox**. SMTP AUTH must be enabled for the mailbox.

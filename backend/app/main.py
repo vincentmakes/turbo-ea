@@ -506,23 +506,11 @@ async def lifespan(app: FastAPI):
         _res = await _db.execute(_sel(AppSettings).where(AppSettings.id == "default"))
         _row = _res.scalar_one_or_none()
         if _row and _row.email_settings:
-            _email = _row.email_settings
-            if _email.get("smtp_host"):
-                settings.SMTP_HOST = _email["smtp_host"]
-            if _email.get("smtp_port"):
-                settings.SMTP_PORT = int(_email["smtp_port"])
-            if _email.get("smtp_user"):
-                settings.SMTP_USER = _email["smtp_user"]
-            if _email.get("smtp_password"):
-                from app.core.encryption import decrypt_value
+            from app.services.email_backends.runtime import apply_email_settings_to_runtime
 
-                settings.SMTP_PASSWORD = decrypt_value(_email["smtp_password"])
-            if _email.get("smtp_from"):
-                settings.SMTP_FROM = _email["smtp_from"]
-            if "smtp_tls" in _email:
-                settings.SMTP_TLS = bool(_email["smtp_tls"])
-            if _email.get("app_base_url"):
-                settings._app_base_url = _email["app_base_url"]
+            # Shared with PATCH /settings/email and the workspace importer, so
+            # the method + OAuth/Graph fields survive a restart like smtp_*.
+            apply_email_settings_to_runtime(_row.email_settings)
         # Seed the app title from the general_settings JSONB so email templates
         # and any other consumers can read it off the singleton without a DB query.
         if _row and _row.general_settings:

@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - **Modern email sending: OAuth 2.0 and Microsoft Graph.** Email now supports a **sending method** beyond SMTP username/password, so Turbo EA keeps delivering mail after Microsoft 365 and Google Workspace disable basic SMTP authentication. Choose **Microsoft Graph API** (app-only `sendMail`, no stored mailbox password — recommended for Microsoft 365) or **SMTP with OAuth 2.0 (XOAUTH2)** for Microsoft 365 (app-only credentials) and Google Workspace (service account with domain-wide delegation), all configured under **Admin → Settings → Email**. Classic **SMTP (username & password)** remains the default, so existing setups are unchanged. OAuth credentials are stored encrypted and never leave the instance in a Workspace Transfer.
 
+### Fixed
+- **OAuth email settings now survive a backend restart.** The startup loader restores the sending method and OAuth/Graph fields from the database, not just the legacy SMTP fields.
+- **Partial email-settings updates no longer reset the sending method.** API clients built against the older payload shape can update a single field without blanking the stored OAuth configuration.
+- **Graph sends work with the default From address.** The placeholder From is no longer forced as an explicit Graph `from` header (which required a Send-As grant and failed every send); a deliberately configured brand address still applies.
+- **Rejected OAuth tokens now surface as clear authentication errors** in the SMTP OAuth method instead of a confusing downstream failure, and the sender mailbox is validated as required before sending.
+- **Workspace import never writes email credentials from a bundle.** The importer now refuses all email secret fields (not just the SMTP password), preserving the target instance's own encrypted values.
+
 ## [1.62.5] - 2026-07-01
 
 ### Fixed

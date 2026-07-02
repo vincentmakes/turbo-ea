@@ -469,6 +469,54 @@ class TestEmailTestEndpoint:
         assert data["oauth_client_secret"] == "••••••••"
         assert data["configured"] is True
 
+    async def test_partial_patch_preserves_method_and_oauth(self, client, db, ext_settings_env):
+        """A PATCH built against the old payload shape (no method/oauth fields)
+        must not reset the stored method or blank the OAuth config."""
+        admin = ext_settings_env["admin"]
+        await client.patch(
+            "/api/v1/settings/email",
+            json={
+                "method": "graph_api",
+                "oauth_tenant_id": "t",
+                "oauth_client_id": "c",
+                "oauth_client_secret": "sec",
+                "graph_sender": "m@company.com",
+            },
+            headers=auth_headers(admin),
+        )
+        # Old-shape client tweaks only the From address.
+        await client.patch(
+            "/api/v1/settings/email",
+            json={"smtp_from": "brand@company.com"},
+            headers=auth_headers(admin),
+        )
+        resp = await client.get("/api/v1/settings/email", headers=auth_headers(admin))
+        data = resp.json()
+        assert data["method"] == "graph_api"
+        assert data["oauth_tenant_id"] == "t"
+        assert data["graph_sender"] == "m@company.com"
+        assert data["smtp_from"] == "brand@company.com"
+        assert data["configured"] is True
+
+    async def test_patch_returns_masked_settings(self, client, db, ext_settings_env):
+        """PATCH echoes the same masked body as GET so the UI needs no refetch."""
+        admin = ext_settings_env["admin"]
+        resp = await client.patch(
+            "/api/v1/settings/email",
+            json={
+                "method": "graph_api",
+                "oauth_tenant_id": "t",
+                "oauth_client_id": "c",
+                "oauth_client_secret": "sec",
+                "graph_sender": "m@company.com",
+            },
+            headers=auth_headers(admin),
+        )
+        data = resp.json()
+        assert data["ok"] is True
+        assert data["configured"] is True
+        assert data["oauth_client_secret"] == "••••••••"
+
     async def test_oauth_secret_masked_placeholder_preserved(self, client, db, ext_settings_env):
         """Sending the masked placeholder must not overwrite the stored oauth secret."""
         admin = ext_settings_env["admin"]

@@ -110,6 +110,8 @@ Turbo EA envoie des e-mails d'invitation, des notifications d'enquête, des réi
 
 Aucun mot de passe de boîte aux lettres n'est stocké ; Turbo EA demande un jeton de courte durée pour chaque envoi.
 
+L'**adresse d'expéditeur** est facultative avec Graph : laissez-la à la valeur par défaut pour envoyer en tant que boîte aux lettres d'expéditeur. Définir une adresse différente nécessite une autorisation **Send As** pour cette adresse sur la boîte aux lettres d'expéditeur.
+
 ### SMTP avec OAuth 2.0
 
 - **Microsoft 365 :** saisissez l'**ID de locataire**, l'**ID client** et le **secret client** d'une inscription d'application, ainsi que la **boîte aux lettres d'expéditeur**. SMTP AUTH doit être activé pour la boîte aux lettres.

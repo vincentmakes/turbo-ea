@@ -41,11 +41,12 @@ from app.models.role import Role
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.services.card_resolver import CardResolver
+from app.services.email_backends.runtime import apply_email_settings_to_runtime
 from app.services.workspace_io import exporter as exp
 from app.services.workspace_io import schema
 from app.services.workspace_io.bundle import WorkspaceBundle, from_cell
 from app.services.workspace_io.entities import apply_entity_section
-from app.services.workspace_io.secrets import GENERAL_SECRET_PATHS
+from app.services.workspace_io.secrets import EMAIL_SECRET_PATHS, GENERAL_SECRET_PATHS
 from app.services.workspace_io.sections import (
     ENTITY_SECTIONS,
     SHEET_DIAGRAM_CARDS,
@@ -504,14 +505,15 @@ async def _apply_settings(db, bundle: WorkspaceBundle, sr: SectionResult, dry_ru
             sr.skipped += 1
     if "email_settings" in incoming and isinstance(incoming["email_settings"], dict):
         email = dict(row_obj.email_settings or {})
-        # smtp_password is never in the bundle; preserve whatever the target has.
-        for k, v in incoming["email_settings"].items():
-            if k == "smtp_password":
-                continue
-            email[k] = v
-        if email != (row_obj.email_settings or {}):
-            row_obj.email_settings = email
+        # Secrets (smtp_password, oauth_client_secret, service_account_json) are
+        # never in a legit bundle; _merge_settings refuses to write them back.
+        merged_email = _merge_settings(email, incoming["email_settings"], EMAIL_SECRET_PATHS)
+        if merged_email != (row_obj.email_settings or {}):
+            row_obj.email_settings = merged_email
             sr.updated += 1
+            # Mirror the imported settings into the runtime singleton so the
+            # new method/transport takes effect without a restart.
+            apply_email_settings_to_runtime(merged_email)
         else:
             sr.skipped += 1
     if incoming.get("custom_logo_mime"):
@@ -539,19 +541,22 @@ def _find_asset(bundle: WorkspaceBundle, prefix: str) -> bytes | None:
 def _merge_settings(
     target: dict[str, Any], incoming: dict[str, Any], secret_paths: tuple[tuple[str, ...], ...]
 ) -> dict[str, Any]:
-    """Shallow-merge ``incoming`` into ``target`` but keep the target's value at
-    every secret path (e.g. ``sso.client_secret``) untouched."""
+    """Shallow-merge ``incoming`` into ``target`` but never write a secret path.
+
+    The exporter strips secrets, so a bundle carrying one is hand-edited or
+    malicious — an incoming secret leaf is ignored entirely (it would land
+    unencrypted), and the target's own value is always preserved.
+    """
+    secret_leaves = {p[0] for p in secret_paths if len(p) == 1}
     merged = dict(target)
     for key, value in incoming.items():
+        if key in secret_leaves:
+            continue
         if isinstance(value, dict) and isinstance(merged.get(key), dict):
             sub_secrets = tuple(p[1:] for p in secret_paths if p and p[0] == key)
             merged[key] = _merge_settings(merged[key], value, sub_secrets)
         else:
             merged[key] = value
-    # Restore any direct secret leaf at this level from the original target.
-    for path in secret_paths:
-        if len(path) == 1 and path[0] in target:
-            merged[path[0]] = target[path[0]]
     return merged
 
 

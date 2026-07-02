@@ -349,7 +349,7 @@ function GeneralTab() {
     setSaving(true);
     setError("");
     try {
-      await api.patch("/settings/email", {
+      const saved = await api.patch<EmailSettings>("/settings/email", {
         method: emailMethod,
         smtp_host: smtpHost,
         smtp_port: smtpPort,
@@ -367,13 +367,12 @@ function GeneralTab() {
         oauth_token_endpoint: oauthTokenEndpoint,
         service_account_json: serviceAccountJson,
       });
-      // Re-read so the freshly computed `configured` flag + masked secrets are
-      // reflected without a manual refresh.
-      const refreshed = await api.get<EmailSettings>("/settings/email");
-      setConfigured(refreshed.configured);
-      setSmtpPassword(refreshed.smtp_password);
-      setOauthClientSecret(refreshed.oauth_client_secret ?? "");
-      setServiceAccountJson(refreshed.service_account_json ?? "");
+      // PATCH echoes the masked settings back, so the computed `configured`
+      // flag and re-masked secrets update without a second round-trip.
+      setConfigured(saved.configured);
+      setSmtpPassword(saved.smtp_password);
+      setOauthClientSecret(saved.oauth_client_secret ?? "");
+      setServiceAccountJson(saved.service_account_json ?? "");
       setSnack(t("settings.smtp.savedSuccess"));
     } catch (e) {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));

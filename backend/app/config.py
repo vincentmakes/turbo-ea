@@ -5,6 +5,10 @@ from pathlib import Path
 
 _DEFAULT_SECRET_KEYS = ("change-me-in-production", "dev-secret-key-change-in-production")
 
+# Placeholder From address used when the admin never configured one. The Graph
+# backend treats it as "unset" and lets the sender mailbox supply the From.
+DEFAULT_SMTP_FROM = "noreply@turboea.local"
+
 
 def _read_version() -> str:
     """Read version from the project-root VERSION file."""
@@ -57,7 +61,7 @@ class Settings:
     SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
     SMTP_USER: str = os.getenv("SMTP_USER", "")
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
-    SMTP_FROM: str = os.getenv("SMTP_FROM", "noreply@turboea.local")
+    SMTP_FROM: str = os.getenv("SMTP_FROM", DEFAULT_SMTP_FROM)
     SMTP_TLS: bool = os.getenv("SMTP_TLS", "true").lower() in ("1", "true", "yes")
 
     # Email transport method: smtp_basic (default) | smtp_oauth | graph_api.
@@ -77,6 +81,10 @@ class Settings:
     # Display name shown in the navbar, browser tab, and outgoing emails.
     # Seeded from the DB on startup and updated when the admin changes it.
     APP_TITLE: str = "Turbo EA"
+
+    # Public base URL used in email links — seeded from the stored email
+    # settings (app_base_url) at startup / on save; empty means localhost.
+    _app_base_url: str = ""
 
     # AI / LLM (optional — disabled by default)
     AI_PROVIDER_URL: str = os.getenv("AI_PROVIDER_URL", "")

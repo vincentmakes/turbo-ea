@@ -110,6 +110,8 @@ Turbo EA envía correos de invitación, notificaciones de encuestas, restablecim
 
 No se almacena ninguna contraseña de buzón; Turbo EA solicita un token de corta duración para cada envío.
 
+La **dirección de remitente** es opcional con Graph: déjela en el valor predeterminado para enviar como el buzón de remitente. Definir una dirección diferente requiere un permiso de **Send As** para esa dirección en el buzón de remitente.
+
 ### SMTP con OAuth 2.0
 
 - **Microsoft 365:** introduzca el **ID de inquilino**, el **ID de cliente** y el **secreto de cliente** de un registro de aplicación, además del **buzón de remitente**. SMTP AUTH debe estar habilitado para el buzón.
