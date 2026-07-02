@@ -53,6 +53,10 @@ class NotificationPreferencesUpdate(BaseModel):
 
 class UiPreferencesUpdate(BaseModel):
     dashboard_default_tab: Literal["overview", "workspace", "admin"] | None = None
+    # Enabled Draw.io "More Shapes" libraries the user chose to remember, in the
+    # order Draw.io reports them (e.g. ["general", "uml", "archimate3"]). Restored
+    # as the embedded editor's `libs` URL param so the selection survives sessions.
+    diagram_libraries: list[str] | None = None
 
 
 class InvitationCreate(BaseModel):
@@ -274,6 +278,13 @@ async def update_ui_preferences(
             prefs.pop("dashboard_default_tab", None)
         else:
             prefs["dashboard_default_tab"] = value
+
+    if "diagram_libraries" in data:
+        libs = data["diagram_libraries"]
+        if libs is None:
+            prefs.pop("diagram_libraries", None)
+        else:
+            prefs["diagram_libraries"] = libs
 
     current_user.ui_preferences = prefs
     await db.commit()

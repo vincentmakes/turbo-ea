@@ -799,3 +799,52 @@ class TestUiPreferences:
             headers=auth_headers(admin),
         )
         assert resp.status_code == 422
+
+    async def test_persists_diagram_libraries(self, client, db, users_env):
+        admin = users_env["admin"]
+        libs = ["general", "uml", "archimate3"]
+        resp = await client.patch(
+            "/api/v1/users/me/ui-preferences",
+            json={"diagram_libraries": libs},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["diagram_libraries"] == libs
+        # Survives a fresh read
+        resp = await client.get(
+            "/api/v1/users/me/ui-preferences",
+            headers=auth_headers(admin),
+        )
+        assert resp.json()["diagram_libraries"] == libs
+
+    async def test_diagram_libraries_merge_preserves_tab(self, client, db, users_env):
+        admin = users_env["admin"]
+        await client.patch(
+            "/api/v1/users/me/ui-preferences",
+            json={"dashboard_default_tab": "workspace"},
+            headers=auth_headers(admin),
+        )
+        resp = await client.patch(
+            "/api/v1/users/me/ui-preferences",
+            json={"diagram_libraries": ["general", "azure"]},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["diagram_libraries"] == ["general", "azure"]
+        assert body["dashboard_default_tab"] == "workspace"
+
+    async def test_null_clears_diagram_libraries(self, client, db, users_env):
+        admin = users_env["admin"]
+        await client.patch(
+            "/api/v1/users/me/ui-preferences",
+            json={"diagram_libraries": ["general", "uml"]},
+            headers=auth_headers(admin),
+        )
+        resp = await client.patch(
+            "/api/v1/users/me/ui-preferences",
+            json={"diagram_libraries": None},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert "diagram_libraries" not in resp.json()

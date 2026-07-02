@@ -2,6 +2,9 @@ export type DashboardTabKey = "overview" | "workspace" | "admin";
 
 export interface UiPreferences {
   dashboard_default_tab?: DashboardTabKey;
+  // Enabled Draw.io "More Shapes" libraries the user chose to remember, in the
+  // order Draw.io reports them. Restored as the embedded editor's `libs` param.
+  diagram_libraries?: string[];
 }
 
 export interface User {

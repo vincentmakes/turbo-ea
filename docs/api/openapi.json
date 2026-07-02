@@ -12515,6 +12515,20 @@
               }
             ],
             "title": "Dashboard Default Tab"
+          },
+          "diagram_libraries": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diagram Libraries"
           }
         },
         "title": "UiPreferencesUpdate",

@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.63.2] - 2026-07-02
+
+### Fixed
+- **Draw.io "Remember this setting" now persists your shape libraries.** Selecting shape libraries in the Draw.io **More Shapes** dialog and enabling **Remember this setting** now saves your choice to your user profile and restores it every time you reopen the diagram editor — on any browser or device — instead of resetting to the default set each session.
+
 ## [1.63.1] - 2026-07-02
 
 ### Fixed
