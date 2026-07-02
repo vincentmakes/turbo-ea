@@ -123,9 +123,14 @@ class SmtpXOAuth2Backend:
     ) -> None:
         try:
             server = _connect(cfg)
-            xoauth2 = oauth.build_xoauth2_string(auth_user, token)
             server.ehlo()
-            server.docmd("AUTH", "XOAUTH2 " + xoauth2)
+            # smtplib base64-encodes the authobject's return value itself and
+            # raises SMTPAuthenticationError on a non-235 reply — docmd() would
+            # silently ignore a rejected token.
+            server.auth(
+                "XOAUTH2",
+                lambda challenge=None: oauth.build_xoauth2_raw(auth_user, token),
+            )
             server.sendmail(
                 from_addr, [to], _build_message(to, subject, body_html, body_text, from_addr)
             )

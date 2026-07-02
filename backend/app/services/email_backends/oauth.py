@@ -181,10 +181,18 @@ def _build_google_assertion(
     return str(jwt.encode(claims, private_key, algorithm="RS256"))
 
 
+def build_xoauth2_raw(user: str, access_token: str) -> str:
+    """Build the raw (un-encoded) SASL XOAUTH2 initial-client-response.
+
+    ``smtplib.SMTP.auth`` base64-encodes the authobject's return value itself,
+    so the raw form is what the XOAUTH2 backend feeds it.
+    """
+    return f"user={user}\x01auth=Bearer {access_token}\x01\x01"
+
+
 def build_xoauth2_string(user: str, access_token: str) -> str:
     """Build the base64-encoded SASL XOAUTH2 initial-client-response."""
-    raw = f"user={user}\x01auth=Bearer {access_token}\x01\x01"
-    return base64.b64encode(raw.encode()).decode()
+    return base64.b64encode(build_xoauth2_raw(user, access_token).encode()).decode()
 
 
 def _safe_error(resp: httpx.Response) -> str:

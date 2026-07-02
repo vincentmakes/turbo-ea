@@ -275,11 +275,49 @@ class TestXOAuth2Backend:
 
         assert result is True
         mock_smtp.starttls.assert_called_once()
-        mock_smtp.docmd.assert_called_once()
-        cmd, arg = mock_smtp.docmd.call_args.args
-        assert cmd == "AUTH"
-        assert arg.startswith("XOAUTH2 ")
-        decoded = base64.b64decode(arg.split(" ", 1)[1])
-        assert b"auth=Bearer XO_TOKEN" in decoded
-        assert b"user=mailbox@company.com" in decoded
+        # server.auth raises SMTPAuthenticationError on a rejected token; docmd
+        # would swallow it. The authobject returns the raw SASL string —
+        # smtplib base64-encodes it itself.
+        mock_smtp.auth.assert_called_once()
+        mechanism, authobject = mock_smtp.auth.call_args.args
+        assert mechanism == "XOAUTH2"
+        raw = authobject()
+        assert raw == "user=mailbox@company.com\x01auth=Bearer XO_TOKEN\x01\x01"
         mock_smtp.login.assert_not_called()  # OAuth, never basic login
+
+    async def test_auth_failure_propagates(self, monkeypatch):
+        """A rejected token must surface as an SMTPAuthenticationError, not fall
+        through to sendmail."""
+        import smtplib
+
+        overrides = {
+            "EMAIL_METHOD": "smtp_oauth",
+            "SMTP_HOST": "smtp.office365.com",
+            "SMTP_PORT": 587,
+            "SMTP_TLS": True,
+            "SMTP_USER": "mailbox@company.com",
+            "SMTP_FROM": "mailbox@company.com",
+            "EMAIL_OAUTH_PROVIDER": "microsoft",
+            "EMAIL_OAUTH_TENANT_ID": "t",
+            "EMAIL_OAUTH_CLIENT_ID": "c",
+            "EMAIL_OAUTH_CLIENT_SECRET": "s",
+            "EMAIL_OAUTH_SCOPE": "",
+            "EMAIL_GRAPH_SENDER": "",
+            "EMAIL_SERVICE_ACCOUNT_JSON": "",
+        }
+        for key, value in overrides.items():
+            monkeypatch.setattr(real_settings, key, value, raising=False)
+
+        mock_smtp = MagicMock()
+        mock_smtp.auth.side_effect = smtplib.SMTPAuthenticationError(535, b"bad token")
+        with (
+            patch(
+                "app.services.email_backends.oauth.get_client_credentials_token",
+                AsyncMock(return_value="XO_TOKEN"),
+            ),
+            patch(SMTP_PATCH_TARGET, return_value=mock_smtp),
+        ):
+            with pytest.raises(smtplib.SMTPAuthenticationError):
+                await send_email("to@x.com", "Subj", "<p>Body</p>", "Body")
+
+        mock_smtp.sendmail.assert_not_called()
