@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.63.1] - 2026-07-02
+
+### Fixed
+- **Closed surveys no longer clutter the Todos list.** A survey set to the closed state (and its badge count) now disappears from the "My Surveys" list for users who never submitted a response, instead of leaving an un-openable row behind.
+
 ## [1.63.0] - 2026-07-02
 
 ### Added

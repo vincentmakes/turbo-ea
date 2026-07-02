@@ -282,6 +282,47 @@ class TestMySurveys:
         assert item["card_id"] == str(survey_env["card"].id)
         assert item["card_name"] == "Survey Test App"
 
+    async def test_closed_survey_not_shown_as_pending(self, client, db, survey_env):
+        """A closed survey drops off /surveys/my and the badge count (issue #746)."""
+        admin = survey_env["admin"]
+        member = survey_env["member"]
+
+        survey = await _create_draft_survey(client, admin)
+        survey_id = survey["id"]
+
+        # Send the survey so the member has a pending response.
+        send_resp = await client.post(
+            f"/api/v1/surveys/{survey_id}/send",
+            headers=auth_headers(admin),
+        )
+        assert send_resp.status_code == 200
+
+        # Sanity: the member sees it while the survey is active.
+        resp = await client.get("/api/v1/surveys/my", headers=auth_headers(member))
+        assert resp.status_code == 200
+        assert any(s["survey_id"] == survey_id for s in resp.json())
+
+        badge = await client.get("/api/v1/notifications/badge-counts", headers=auth_headers(member))
+        assert badge.status_code == 200
+        assert badge.json()["pending_surveys"] >= 1
+
+        # Admin closes the survey without the member ever responding.
+        close_resp = await client.post(
+            f"/api/v1/surveys/{survey_id}/close",
+            headers=auth_headers(admin),
+        )
+        assert close_resp.status_code == 200
+
+        # The closed survey must no longer appear in the member's Todos.
+        resp = await client.get("/api/v1/surveys/my", headers=auth_headers(member))
+        assert resp.status_code == 200
+        assert not any(s["survey_id"] == survey_id for s in resp.json())
+
+        # ...and the badge count drops back to zero.
+        badge = await client.get("/api/v1/notifications/badge-counts", headers=auth_headers(member))
+        assert badge.status_code == 200
+        assert badge.json()["pending_surveys"] == 0
+
     async def test_non_targeted_user_sees_no_surveys(self, client, db, survey_env):
         """A user who is not a stakeholder on any matching card sees nothing."""
         admin = survey_env["admin"]

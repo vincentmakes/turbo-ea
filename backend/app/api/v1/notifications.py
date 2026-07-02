@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.notification import Notification
-from app.models.survey import SurveyResponse
+from app.models.survey import Survey, SurveyResponse
 from app.models.todo import Todo
 from app.models.user import User
 from app.services import notification_service
@@ -103,9 +103,12 @@ async def badge_counts(
 
     pending_surveys = (
         await db.execute(
-            select(func.count(SurveyResponse.id)).where(
+            select(func.count(SurveyResponse.id))
+            .join(Survey, SurveyResponse.survey_id == Survey.id)
+            .where(
                 SurveyResponse.user_id == user.id,
                 SurveyResponse.status == "pending",
+                Survey.status == "active",
             )
         )
     ).scalar() or 0

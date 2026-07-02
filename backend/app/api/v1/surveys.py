@@ -481,9 +481,11 @@ async def my_surveys(
     await PermissionService.require_permission(db, user, "surveys.respond")
     q = (
         select(SurveyResponse)
+        .join(Survey, SurveyResponse.survey_id == Survey.id)
         .where(
             SurveyResponse.user_id == user.id,
             SurveyResponse.status == "pending",
+            Survey.status == "active",
         )
         .options(selectinload(SurveyResponse.survey), selectinload(SurveyResponse.card))
         .order_by(SurveyResponse.created_at.desc())
