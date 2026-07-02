@@ -1,6 +1,6 @@
 # Notifications
 
-Turbo EA keeps you informed about changes to cards, tasks, and documents that matter to you. Notifications are delivered **in-app** (via the notification bell) and optionally **by email** if SMTP is configured.
+Turbo EA keeps you informed about changes to cards, tasks, and documents that matter to you. Notifications are delivered **in-app** (via the notification bell) and optionally **by email** if email delivery is configured.
 
 ## Notification Bell
 
@@ -37,6 +37,6 @@ Click the **gear icon** in the notification dropdown (or go to your profile menu
 For each notification type, you can independently toggle:
 
 - **In-app** — Whether it appears in the notification bell
-- **Email** — Whether an email is also sent (requires SMTP to be configured by an admin)
+- **Email** — Whether an email is also sent (requires email delivery to be configured by an admin)
 
 Some notification types (e.g., survey requests) may have email delivery enforced by the system and cannot be disabled.

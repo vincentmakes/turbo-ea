@@ -1,6 +1,6 @@
 # Notificaciones
 
-Turbo EA le mantiene informado sobre cambios en fichas, tareas y documentos que le importan. Las notificaciones se entregan **en la aplicación** (mediante la campana de notificaciones) y opcionalmente **por correo electrónico** si SMTP está configurado.
+Turbo EA le mantiene informado sobre cambios en fichas, tareas y documentos que le importan. Las notificaciones se entregan **en la aplicación** (mediante la campana de notificaciones) y opcionalmente **por correo electrónico** si el envío de correo está configurado.
 
 ## Campana de Notificaciones
 
@@ -37,6 +37,6 @@ Haga clic en el **icono de engranaje** en el menú desplegable de notificaciones
 Para cada tipo de notificación, puede alternar de forma independiente:
 
 - **En la aplicación** — Si aparece en la campana de notificaciones
-- **Correo electrónico** — Si también se envía un correo electrónico (requiere que SMTP esté configurado por un administrador)
+- **Correo electrónico** — Si también se envía un correo electrónico (requiere que un administrador configure el envío de correo)
 
 Algunos tipos de notificaciones (ej., solicitudes de encuesta) pueden tener la entrega por correo electrónico obligatoria por el sistema y no pueden desactivarse.

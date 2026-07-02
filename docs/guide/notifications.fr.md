@@ -1,6 +1,6 @@
 # Notifications
 
-Turbo EA vous tient informé des modifications apportées aux fiches, tâches et documents qui vous concernent. Les notifications sont délivrées **dans l'application** (via la cloche de notification) et optionnellement **par e-mail** si le SMTP est configuré.
+Turbo EA vous tient informé des modifications apportées aux fiches, tâches et documents qui vous concernent. Les notifications sont délivrées **dans l'application** (via la cloche de notification) et optionnellement **par e-mail** si l'envoi d'e-mails est configuré.
 
 ## Cloche de notification
 
@@ -37,6 +37,6 @@ Cliquez sur l'**icône d'engrenage** dans le menu déroulant des notifications (
 Pour chaque type de notification, vous pouvez activer/désactiver indépendamment :
 
 - **Dans l'application** -- Si elle apparaît dans la cloche de notification
-- **E-mail** -- Si un e-mail est également envoyé (nécessite que le SMTP soit configuré par un administrateur)
+- **E-mail** -- Si un e-mail est également envoyé (nécessite que l'envoi d'e-mails soit configuré par un administrateur)
 
 Certains types de notifications (par ex. demandes d'enquête) peuvent avoir la livraison par e-mail imposée par le système et ne peuvent pas être désactivés.

@@ -4,7 +4,7 @@ La page **Paramètres** sous **Admin → Paramètres** (`/admin/settings`) est l
 
 | Onglet | URL | Ce qu'il contrôle | Guide complet |
 |--------|-----|-------------------|---------------|
-| **Général** | `/admin/settings?tab=general` | Apparence (logo, favicon, devise, format de date, langues activées, année fiscale), e-mail SMTP, **bascules de modules** (BPM, PPM, GRC, TurboLens, Sponsor button) | Cette page |
+| **Général** | `/admin/settings?tab=general` | Apparence (logo, favicon, devise, format de date, langues activées, année fiscale), envoi d'e-mails, **bascules de modules** (BPM, PPM, GRC, TurboLens, Sponsor button) | Cette page |
 | **Authentification** | `/admin/settings?tab=authentication` | Fournisseurs SSO, inscription, politique de mot de passe | [Authentification & SSO](sso.md) |
 | **IA** | `/admin/settings?tab=ai` | Fournisseur LLM, modèle, backend de recherche web, bascules de suggestion IA par type de fiche | [Capacités IA](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Liaison en masse des produits aux entrées endoflife.date | [Fin de vie (EOL)](eol.md) |

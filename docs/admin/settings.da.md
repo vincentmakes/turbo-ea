@@ -4,7 +4,7 @@ Siden **Indstillinger** under **Admin → Indstillinger** (`/admin/settings`) er
 
 | Faneblad | URL | Hvad det styrer | Fuld vejledning |
 |-----|-----|------------------|------------|
-| **Generelt** | `/admin/settings?tab=general` | Udseende (logo, favicon, valuta, datoformat, aktiverede sprog, regnskabsår), SMTP-e-mail, **modulkontakter** (BPM, PPM, GRC, TurboLens, Sponsor button) | Denne side |
+| **Generelt** | `/admin/settings?tab=general` | Udseende (logo, favicon, valuta, datoformat, aktiverede sprog, regnskabsår), e-mail-afsendelse, **modulkontakter** (BPM, PPM, GRC, TurboLens, Sponsor button) | Denne side |
 | **Autentificering** | `/admin/settings?tab=authentication` | SSO-udbydere, registrering, adgangskodepolitik | [Autentificering og SSO](sso.md) |
 | **AI** | `/admin/settings?tab=ai` | LLM-udbyder, model, websøgningsbackend, AI-forslagskontakter pr. korttype | [AI-funktioner](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Massetilknytning af produkter til endoflife.date-poster | [End-of-Life (EOL)](eol.md) |

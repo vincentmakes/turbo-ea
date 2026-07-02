@@ -1,6 +1,6 @@
 # Notificações
 
-O Turbo EA mantém você informado sobre alterações em cards, tarefas e documentos que são importantes para você. As notificações são entregues **dentro do aplicativo** (através do sino de notificações) e opcionalmente **por e-mail** se o SMTP estiver configurado.
+O Turbo EA mantém você informado sobre alterações em cards, tarefas e documentos que são importantes para você. As notificações são entregues **dentro do aplicativo** (através do sino de notificações) e opcionalmente **por e-mail** se o envio de e-mail estiver configurado.
 
 ## Sino de Notificações
 
@@ -37,6 +37,6 @@ Clique no **ícone de engrenagem** no dropdown de notificações (ou vá ao menu
 Para cada tipo de notificação, você pode alternar independentemente:
 
 - **No aplicativo** — Se aparece no sino de notificações
-- **E-mail** — Se um e-mail também é enviado (requer que o SMTP esteja configurado por um administrador)
+- **E-mail** — Se um e-mail também é enviado (requer que o envio de e-mail esteja configurado por um administrador)
 
 Alguns tipos de notificação (ex.: solicitações de pesquisa) podem ter entrega por e-mail imposta pelo sistema e não podem ser desabilitados.

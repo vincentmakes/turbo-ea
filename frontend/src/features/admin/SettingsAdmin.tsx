@@ -1434,12 +1434,12 @@ function GeneralTab() {
       {/* ── Email ─────────────────────────────────────────────────── */}
       <SectionHeader>{t("settings.section.email")}</SectionHeader>
 
-      {/* Email / SMTP Settings */}
+      {/* Email delivery settings (SMTP / SMTP OAuth / Microsoft Graph) */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
           <MaterialSymbol icon="mail" size={22} color="#555" />
           <Typography variant="h6" fontWeight={600}>
-            {t("settings.smtp.title")}
+            {t("settings.email.title")}
           </Typography>
           <Chip
             label={configured ? t("settings.smtp.configured") : t("settings.smtp.notConfigured")}
@@ -1449,7 +1449,7 @@ function GeneralTab() {
           />
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          {t("settings.smtp.description")}
+          {t("settings.email.description")}
         </Typography>
 
         {/* Transport method selector */}

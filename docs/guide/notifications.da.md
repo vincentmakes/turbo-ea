@@ -1,6 +1,6 @@
 # Notifikationer
 
-Turbo EA holder dig informeret om ændringer i kort, opgaver og dokumenter, der betyder noget for dig. Notifikationer leveres **i appen** (via notifikationsklokken) og valgfrit **via e-mail**, hvis SMTP er konfigureret.
+Turbo EA holder dig informeret om ændringer i kort, opgaver og dokumenter, der betyder noget for dig. Notifikationer leveres **i appen** (via notifikationsklokken) og valgfrit **via e-mail**, hvis e-mail-afsendelse er konfigureret.
 
 ## Notifikationsklokke
 
@@ -37,6 +37,6 @@ Klik på **tandhjulsikonet** i notifikationsdropdownen (eller gå til din profil
 For hver notifikationstype kan du uafhængigt slå til/fra:
 
 - **I appen** — Om den vises i notifikationsklokken
-- **E-mail** — Om en e-mail også sendes (kræver, at SMTP er konfigureret af en administrator)
+- **E-mail** — Om en e-mail også sendes (kræver, at e-mail-afsendelse er konfigureret af en administrator)
 
 Nogle notifikationstyper (f.eks. undersøgelsesanmodninger) kan have e-maillevering håndhævet af systemet og kan ikke deaktiveres.

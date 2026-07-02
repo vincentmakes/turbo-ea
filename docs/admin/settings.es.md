@@ -4,7 +4,7 @@ La página de **Configuración** en **Administrador → Configuración** (`/admi
 
 | Pestaña | URL | Qué controla | Guía completa |
 |---------|-----|--------------|---------------|
-| **General** | `/admin/settings?tab=general` | Apariencia (logo, favicon, moneda, formato de fecha, idiomas habilitados, año fiscal), correo SMTP, **interruptores de módulos** (BPM, PPM, GRC, TurboLens, Sponsor button) | Esta página |
+| **General** | `/admin/settings?tab=general` | Apariencia (logo, favicon, moneda, formato de fecha, idiomas habilitados, año fiscal), envío de correo, **interruptores de módulos** (BPM, PPM, GRC, TurboLens, Sponsor button) | Esta página |
 | **Autenticación** | `/admin/settings?tab=authentication` | Proveedores SSO, registro, política de contraseñas | [Autenticación y SSO](sso.md) |
 | **IA** | `/admin/settings?tab=ai` | Proveedor LLM, modelo, backend de búsqueda web, interruptores de sugerencia IA por tipo de tarjeta | [Capacidades de IA](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Vinculación masiva de productos a entradas de endoflife.date | [Fin de vida (EOL)](eol.md) |

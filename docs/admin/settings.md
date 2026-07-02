@@ -4,7 +4,7 @@ The **Settings** page at **Admin → Settings** (`/admin/settings`) is the centr
 
 | Tab | URL | What it controls | Full guide |
 |-----|-----|------------------|------------|
-| **General** | `/admin/settings?tab=general` | Appearance (logo, favicon, currency, date format, enabled languages, fiscal year), SMTP email, **module toggles** (BPM, PPM, GRC, TurboLens, Sponsor button) | This page |
+| **General** | `/admin/settings?tab=general` | Appearance (logo, favicon, currency, date format, enabled languages, fiscal year), email delivery, **module toggles** (BPM, PPM, GRC, TurboLens, Sponsor button) | This page |
 | **Authentication** | `/admin/settings?tab=authentication` | SSO providers, registration, password policy | [Authentication & SSO](sso.md) |
 | **AI** | `/admin/settings?tab=ai` | LLM provider, model, web search backend, per-card-type AI suggestion toggles | [AI Capabilities](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Mass-linking products to endoflife.date entries | [End-of-Life (EOL)](eol.md) |

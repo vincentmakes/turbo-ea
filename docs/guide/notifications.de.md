@@ -1,6 +1,6 @@
 # Benachrichtigungen
 
-Turbo EA hält Sie über Änderungen an Karten, Aufgaben und Dokumenten, die für Sie relevant sind, auf dem Laufenden. Benachrichtigungen werden **in der Anwendung** (über die Benachrichtigungsglocke) und optional **per E-Mail** zugestellt, sofern SMTP konfiguriert ist.
+Turbo EA hält Sie über Änderungen an Karten, Aufgaben und Dokumenten, die für Sie relevant sind, auf dem Laufenden. Benachrichtigungen werden **in der Anwendung** (über die Benachrichtigungsglocke) und optional **per E-Mail** zugestellt, sofern der E-Mail-Versand konfiguriert ist.
 
 ## Benachrichtigungsglocke
 
@@ -37,6 +37,6 @@ Klicken Sie auf das **Zahnradsymbol** im Benachrichtigungs-Dropdown (oder gehen 
 Für jeden Benachrichtigungstyp können Sie unabhängig umschalten:
 
 - **In der App** — Ob sie in der Benachrichtigungsglocke erscheint
-- **E-Mail** — Ob zusätzlich eine E-Mail gesendet wird (erfordert SMTP-Konfiguration durch einen Administrator)
+- **E-Mail** — Ob zusätzlich eine E-Mail gesendet wird (erfordert einen von einem Administrator konfigurierten E-Mail-Versand)
 
 Einige Benachrichtigungstypen (z.B. Umfrageanfragen) können eine vom System erzwungene E-Mail-Zustellung haben und können nicht deaktiviert werden.

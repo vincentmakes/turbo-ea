@@ -1,6 +1,6 @@
 # Notifiche
 
-Turbo EA vi tiene informati sulle modifiche a card, attività e documenti che vi interessano. Le notifiche vengono consegnate **in-app** (tramite la campanella delle notifiche) e opzionalmente **via email** se SMTP è configurato.
+Turbo EA vi tiene informati sulle modifiche a card, attività e documenti che vi interessano. Le notifiche vengono consegnate **in-app** (tramite la campanella delle notifiche) e opzionalmente **via email** se l'invio email è configurato.
 
 ## Campanella delle notifiche
 
@@ -37,6 +37,6 @@ Cliccate sull'**icona dell'ingranaggio** nel menu a tendina delle notifiche (o a
 Per ogni tipo di notifica, potete attivare/disattivare indipendentemente:
 
 - **In-app** — Se appare nella campanella delle notifiche
-- **Email** — Se viene anche inviata un'email (richiede che SMTP sia configurato da un amministratore)
+- **Email** — Se viene anche inviata un'email (richiede che l'invio email sia configurato da un amministratore)
 
 Alcuni tipi di notifica (es. richieste di sondaggio) possono avere la consegna via email imposta dal sistema e non possono essere disabilitati.

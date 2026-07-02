@@ -4,7 +4,7 @@
 
 | 标签页 | URL | 控制内容 | 完整指南 |
 |--------|-----|----------|----------|
-| **常规** | `/admin/settings?tab=general` | 外观（Logo、favicon、货币、日期格式、已启用语言、财年）、SMTP 邮件、**模块开关**（BPM、PPM、GRC、TurboLens、赞助按钮） | 本页 |
+| **常规** | `/admin/settings?tab=general` | 外观（Logo、favicon、货币、日期格式、已启用语言、财年）、电子邮件发送、**模块开关**（BPM、PPM、GRC、TurboLens、赞助按钮） | 本页 |
 | **认证** | `/admin/settings?tab=authentication` | SSO 提供商、注册、密码策略 | [认证与 SSO](sso.md) |
 | **AI** | `/admin/settings?tab=ai` | LLM 提供商、模型、网络搜索后端、按卡片类型的 AI 建议开关 | [AI 功能](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | 将产品批量链接到 endoflife.date 条目 | [生命周期结束 (EOL)](eol.md) |
