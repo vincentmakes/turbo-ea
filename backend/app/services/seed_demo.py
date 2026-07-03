@@ -5606,8 +5606,9 @@ def _compute_data_quality(d: dict, type_schemas: dict[str, list]) -> float:
     Intentionally standalone (not the canonical ``calc_data_quality``): seeding
     operates on plain dicts before relations/tags exist, so it cannot evaluate
     the mandatory-relation/tag buckets and always uses default contributor
-    weights. Real scores are recomputed via the canonical scorer on the first
-    card edit.
+    weights. Only a placeholder — ``seed_demo_data`` replaces every score with
+    the canonical one via ``recompute_all_data_quality`` once relations and
+    tags have been inserted.
     """
     schema = type_schemas.get(d["type"], [])
     total_weight = 0.0
@@ -5743,6 +5744,14 @@ async def seed_demo_data(db: AsyncSession) -> dict:
         risk_count = await _seed_demo_risks(db, admin_id, uuid_to_ref)
     except Exception:  # noqa: BLE001
         risk_count = 0
+
+    # Replace the insert-time approximation with canonical scores now that
+    # relations and tags exist — otherwise the Dashboard's Average Completion
+    # shows inflated numbers (the approximation can't see the mandatory
+    # relation/tag/stakeholder buckets) until each card is individually edited.
+    from app.services.data_quality import recompute_all_data_quality
+
+    await recompute_all_data_quality(db)
 
     await db.commit()
     return {

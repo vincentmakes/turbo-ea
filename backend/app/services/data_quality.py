@@ -137,3 +137,26 @@ async def calc_data_quality(db: AsyncSession, card: Card) -> float:
     if total_weight == 0:
         return 0.0
     return round((filled_weight / total_weight) * 100, 1)
+
+
+async def recompute_all_data_quality(db: AsyncSession, *, chunk_size: int = 500) -> int:
+    """Rescore ``data_quality`` for every non-archived card. Returns the count
+    of cards whose stored score changed.
+
+    Used wherever scores may have been produced by something other than the
+    canonical scorer above — the demo seed's dict-based approximation, or an
+    older workspace importer — so the Dashboard's Average Completion reflects
+    the same math everywhere.
+    """
+    ids = list((await db.execute(select(Card.id).where(Card.status != "ARCHIVED"))).scalars().all())
+    changed = 0
+    for i in range(0, len(ids), chunk_size):
+        chunk = ids[i : i + chunk_size]
+        cards = (await db.execute(select(Card).where(Card.id.in_(chunk)))).scalars().all()
+        for card in cards:
+            score = await calc_data_quality(db, card)
+            if card.data_quality != score:
+                card.data_quality = score
+                changed += 1
+    await db.flush()
+    return changed
