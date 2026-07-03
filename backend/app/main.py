@@ -274,6 +274,66 @@ async def _promote_recurring_tasks_loop() -> None:
             await asyncio.sleep(3600)
 
 
+# Marker in app_settings.general_settings recording that the one-shot
+# canonical data-quality rescore has run on this install.
+_DQ_RESCORE_FLAG = "dataQualityCanonicalRescoreDone"
+
+
+async def _one_shot_data_quality_rescore() -> None:
+    """Rescore every card with the canonical scorer, once per install.
+
+    Existing installs can carry non-canonical ``data_quality`` values from two
+    historic sources: the demo seed's insert-time approximation (which cannot
+    see the relation/tag/stakeholder buckets) and workspace imports made by
+    importer versions that scored cards before their relations were applied.
+    Both inflate or depress the Dashboard's Average Completion until each card
+    is individually edited. This one-shot heals the whole inventory on the
+    first startup after upgrading; a marker in ``app_settings`` makes every
+    later boot a no-op (discussion #667).
+    """
+    from app.database import async_session
+
+    try:
+        async with async_session() as db:
+            changed = await run_dq_rescore_once(db)
+            await db.commit()
+            if changed:
+                logger.info(
+                    "One-shot data-quality rescore updated %d card(s) to canonical scores",
+                    changed,
+                )
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        # Marker not written — the rescore retries on the next startup.
+        logger.exception("One-shot data-quality rescore failed")
+
+
+async def run_dq_rescore_once(db) -> int | None:
+    """Rescore all cards unless the settings marker says it already ran.
+
+    Returns the changed-card count, or ``None`` when the marker was set and
+    nothing was done. The caller commits.
+    """
+    from sqlalchemy import select
+
+    from app.models.app_settings import AppSettings
+    from app.services.data_quality import recompute_all_data_quality
+
+    row = (
+        await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    ).scalar_one_or_none()
+    if row is not None and (row.general_settings or {}).get(_DQ_RESCORE_FLAG):
+        return None
+    changed = await recompute_all_data_quality(db)
+    if row is None:
+        row = AppSettings(id="default", general_settings={}, email_settings={})
+        db.add(row)
+    row.general_settings = {**(row.general_settings or {}), _DQ_RESCORE_FLAG: True}
+    await db.flush()
+    return changed
+
+
 async def _ensure_initial_kpi_snapshot() -> None:
     """Capture an immediate snapshot on startup if the table is empty.
 
@@ -661,6 +721,10 @@ async def lifespan(app: FastAPI):
     # scheduled cycles to open once their lead window opens.
     promote_task = asyncio.create_task(_promote_recurring_tasks_loop())
 
+    # One-shot canonical data-quality rescore (guarded by a settings marker;
+    # a no-op on every boot after the first successful run).
+    dq_rescore_task = asyncio.create_task(_one_shot_data_quality_rescore())
+
     yield
 
     # Cancel background tasks on shutdown
@@ -684,6 +748,12 @@ async def lifespan(app: FastAPI):
         await promote_task
     except asyncio.CancelledError:
         pass
+    if not dq_rescore_task.done():
+        dq_rescore_task.cancel()
+        try:
+            await dq_rescore_task
+        except asyncio.CancelledError:
+            pass
     if ollama_task and not ollama_task.done():
         ollama_task.cancel()
         try:
