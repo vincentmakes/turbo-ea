@@ -31,6 +31,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.app_settings import AppSettings
+from app.models.bookmark import Bookmark, bookmark_shares
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.diagram import Diagram, diagram_cards
@@ -49,6 +50,7 @@ from app.services.workspace_io.entities import apply_entity_section
 from app.services.workspace_io.secrets import EMAIL_SECRET_PATHS, GENERAL_SECRET_PATHS
 from app.services.workspace_io.sections import (
     ENTITY_SECTIONS,
+    SHEET_BOOKMARK_SHARES,
     SHEET_DIAGRAM_CARDS,
     SHEET_DIAGRAM_GROUP_MEMBERS,
 )
@@ -68,6 +70,14 @@ class SectionResult:
     conflict: int = 0
     failed: int = 0
     errors: list[str] = field(default_factory=list)
+    # Reason-keyed skip counters (e.g. {"identical": 30}). Keys are stable
+    # snake_case identifiers translated client-side; a skip is almost always
+    # "already present on this instance — no action needed".
+    skip_reasons: dict[str, int] = field(default_factory=dict)
+
+    def skip(self, reason: str = "already_present") -> None:
+        self.skipped += 1
+        self.skip_reasons[reason] = self.skip_reasons.get(reason, 0) + 1
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -77,7 +87,9 @@ class SectionResult:
             "skipped": self.skipped,
             "conflict": self.conflict,
             "failed": self.failed,
-            "errors": self.errors[:20],
+            "errors": self.errors[:50],
+            "errors_total": len(self.errors),
+            "skip_reasons": dict(self.skip_reasons),
         }
 
 
@@ -128,7 +140,7 @@ def _update_if_changed(current: Any, data: dict[str, Any], cols, sr: SectionResu
     if changed:
         sr.updated += 1
     else:
-        sr.skipped += 1
+        sr.skip("identical")
 
 
 # ---------------------------------------------------------------------------
@@ -198,6 +210,21 @@ async def _run(
         sr = SectionResult(sheet=SHEET_DIAGRAM_GROUP_MEMBERS)
         result.sections.append(sr)
         await _apply_diagram_group_members(db, bundle, sr)
+
+        sr = SectionResult(sheet=SHEET_BOOKMARK_SHARES)
+        result.sections.append(sr)
+        await _apply_bookmark_shares(db, bundle, sr, email_to_id)
+
+        # --- Final calculation + data-quality pass --------------------------
+        # Re-run calculated fields and rescore every active card, now that
+        # tags, relations, stakeholders, and PPM data are all in place.
+        # Running during the cards pass would evaluate relation-dependent
+        # formulas against an empty landscape (clobbering exported values) and
+        # score the relation/tag/stakeholder buckets as unfilled. Covering ALL
+        # cards (not just imported ones) also heals rows mis-scored by earlier
+        # importer versions. Runs in dry-run too (the savepoint rolls it back)
+        # so a preview exercises the same code path as an apply.
+        await _finalize_cards(db)
     finally:
         if dry_run:
             assert root is not None
@@ -229,7 +256,7 @@ async def _apply_diagram_cards(db, bundle: WorkspaceBundle, sr: SectionResult, r
             continue
         pair = (diag_uuid, res.card_id)
         if pair in existing:
-            sr.skipped += 1
+            sr.skip("already_present")
             continue
         await db.execute(diagram_cards.insert().values(diagram_id=diag_uuid, card_id=res.card_id))
         existing.add(pair)
@@ -259,10 +286,48 @@ async def _apply_diagram_group_members(db, bundle: WorkspaceBundle, sr: SectionR
             continue
         pair = (diag_uuid, grp_uuid)
         if pair in existing:
-            sr.skipped += 1
+            sr.skip("already_present")
             continue
         await db.execute(
             diagram_group_members.insert().values(diagram_id=diag_uuid, group_id=grp_uuid)
+        )
+        existing.add(pair)
+        sr.created += 1
+
+
+async def _apply_bookmark_shares(
+    db, bundle: WorkspaceBundle, sr: SectionResult, email_to_id: dict[str, Any]
+) -> None:
+    """Bespoke Bookmark↔User share — preserved bookmark PK + email-matched user."""
+    rows = bundle.rows(SHEET_BOOKMARK_SHARES)
+    if not rows:
+        return
+    existing = {
+        (r.bookmark_id, r.user_id) for r in (await db.execute(select(bookmark_shares))).all()
+    }
+    existing_bookmarks = set((await db.execute(select(Bookmark.id))).scalars().all())
+    for row in rows:
+        bookmark_id = row.get("bookmark_id")
+        email = row.get("user_email")
+        if not bookmark_id or not email:
+            sr.failed += 1
+            continue
+        bm_uuid = uuid.UUID(str(bookmark_id))
+        user_id = email_to_id.get(str(email).lower())
+        if bm_uuid not in existing_bookmarks or user_id is None:
+            sr.conflict += 1
+            sr.errors.append(
+                f"bookmark share: bookmark {bookmark_id!r} or user {email!r} not found — skipped"
+            )
+            continue
+        pair = (bm_uuid, user_id)
+        if pair in existing:
+            sr.skip("already_present")
+            continue
+        await db.execute(
+            bookmark_shares.insert().values(
+                bookmark_id=bm_uuid, user_id=user_id, can_edit=bool(row.get("can_edit"))
+            )
         )
         existing.add(pair)
         sr.created += 1
@@ -435,7 +500,7 @@ async def _apply_tags(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: b
                 current.sort_order = new_order
                 sr.updated += 1
             else:
-                sr.skipped += 1
+                sr.skip("identical")
     await db.flush()
 
 
@@ -453,7 +518,7 @@ async def _apply_users(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: 
             sr.failed += 1
             continue
         if email.lower() in existing:
-            sr.skipped += 1
+            sr.skip("user_exists")
             continue
         role = row.get("role")
         if role not in valid_roles:
@@ -502,7 +567,7 @@ async def _apply_settings(db, bundle: WorkspaceBundle, sr: SectionResult, dry_ru
             row_obj.general_settings = merged
             sr.updated += 1
         else:
-            sr.skipped += 1
+            sr.skip("identical")
     if "email_settings" in incoming and isinstance(incoming["email_settings"], dict):
         email = dict(row_obj.email_settings or {})
         # Secrets (smtp_password, oauth_client_secret, service_account_json) are
@@ -515,7 +580,7 @@ async def _apply_settings(db, bundle: WorkspaceBundle, sr: SectionResult, dry_ru
             # new method/transport takes effect without a restart.
             apply_email_settings_to_runtime(merged_email)
         else:
-            sr.skipped += 1
+            sr.skip("identical")
     if incoming.get("custom_logo_mime"):
         row_obj.custom_logo_mime = incoming["custom_logo_mime"]
     if incoming.get("custom_favicon_mime"):
@@ -565,6 +630,31 @@ def _merge_settings(
 # ---------------------------------------------------------------------------
 
 
+async def _finalize_cards(db) -> None:
+    """Re-run calculated fields and rescore data quality for every active card.
+
+    Mirrors the live card routes: calculations run with the same PPM-managed
+    field exclusions (``costBudget``/``costActual`` when budget/cost lines
+    exist — the PPM entity sections have already been applied at this point),
+    then the data-quality score is derived from the final attribute state.
+    """
+    from app.api.v1.cards import _get_ppm_exclusions
+    from app.services.calculation_engine import run_calculations_for_card
+    from app.services.data_quality import calc_data_quality
+
+    ids = list((await db.execute(select(Card.id).where(Card.status != "ARCHIVED"))).scalars().all())
+    for i in range(0, len(ids), 500):
+        chunk = ids[i : i + 500]
+        cards = (await db.execute(select(Card).where(Card.id.in_(chunk)))).scalars().all()
+        for card in cards:
+            ppm_excl = await _get_ppm_exclusions(db, card)
+            await run_calculations_for_card(db, card, exclude_fields=ppm_excl)
+            score = await calc_data_quality(db, card)
+            if card.data_quality != score:
+                card.data_quality = score
+    await db.flush()
+
+
 def _make_cards_applier(user: User):
     async def _apply(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: bool) -> None:
         from app.api.v1.cards import (
@@ -572,8 +662,6 @@ def _make_cards_applier(user: User):
             _sync_capability_level,
             _validate_url_attributes,
         )
-        from app.services.calculation_engine import run_calculations_for_card
-        from app.services.data_quality import calc_data_quality
         from app.services.event_bus import event_bus
 
         rows = bundle.rows(schema.SHEET_CARDS)
@@ -601,14 +689,17 @@ def _make_cards_applier(user: User):
             # Skip if already present (idempotency): by external_id, by created
             # this batch, or resolvable in the live DB.
             if (type_key, own_ref) in created_refs:
-                sr.skipped += 1
+                sr.skip("duplicate_in_bundle")
                 continue
             if external_id and await _card_by_external_id(db, type_key, external_id):
-                sr.skipped += 1
+                sr.skip("already_present")
                 continue
             existing = resolver.resolve(type_key, own_ref)
-            if existing.status in ("resolved", "ambiguous"):
-                sr.skipped += 1
+            if existing.status == "resolved":
+                sr.skip("already_present")
+                continue
+            if existing.status == "ambiguous":
+                sr.skip("ambiguous_match")
                 continue
 
             # Resolve parent.
@@ -647,8 +738,10 @@ def _make_cards_applier(user: User):
                 if card.parent_id:
                     await _check_hierarchy_depth(db, card, card.parent_id)
                 await _sync_capability_level(db, card)
-                card.data_quality = await calc_data_quality(db, card)
-                await run_calculations_for_card(db, card)
+                # Calculations and data_quality run in the final pass, once the
+                # card's relations/tags/stakeholders/PPM data have landed too —
+                # running them here would evaluate relation-dependent formulas
+                # against an empty landscape and clobber the exported values.
                 if not dry_run:
                     await event_bus.publish(
                         "card.created",
@@ -700,15 +793,22 @@ async def _apply_card_tags(db, bundle: WorkspaceBundle, sr: SectionResult, dry_r
         group = groups.get(row.get("group_name"))
         if not ctype or not cref or group is None:
             sr.conflict += 1
+            sr.errors.append(
+                f"card tag {row.get('tag_name')!r}: group {row.get('group_name')!r} "
+                f"or card ref missing — skipped"
+            )
             continue
         tag = tag_index.get((group.id, row.get("tag_name")))
         res = resolver.resolve(ctype, cref) if cref else None
         if tag is None or res is None or res.status != "resolved":
             sr.conflict += 1
+            sr.errors.append(
+                f"card tag {row.get('tag_name')!r}: tag or card {cref!r} unresolved — skipped"
+            )
             continue
         link = (res.card_id, tag.id)
         if link in existing_links:
-            sr.skipped += 1
+            sr.skip("already_present")
             continue
         db.add(CardTag(card_id=res.card_id, tag_id=tag.id))
         existing_links.add(link)
@@ -747,7 +847,7 @@ async def _apply_relations(db, bundle: WorkspaceBundle, sr: SectionResult, dry_r
             continue
         key = (rtype, s_res.card_id, t_res.card_id)
         if key in existing:
-            sr.skipped += 1
+            sr.skip("already_present")
             continue
         db.add(
             Relation(

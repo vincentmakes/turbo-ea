@@ -105,7 +105,7 @@ La pestaña Cumplimiento también muestra un **KPI global de cumplimiento** en l
 
 ## Cumplimiento en una sola ficha
 
-![Detalle de la ficha — pestaña Cumplimiento](../assets/img/es/56_card_compliance_tab.png)
+![Detalle de la ficha — pestaña Cumplimiento](../assets/img/es/56_ficha_cumplimiento_tab.png)
 
 Las fichas dentro del alcance de cualquier hallazgo también muestran una pestaña **Cumplimiento** en su página de detalle (gobernada por `compliance.view`). Lista cada hallazgo actualmente vinculado a la ficha con las mismas acciones Reconocer / Aceptar / **Crear riesgo** / **Abrir riesgo** que la vista GRC — de modo que un Application Owner pueda clasificar sus propios hallazgos sin salir de la ficha. La misma regla de ocultamiento automático se aplica a la pestaña **Riesgos** en el detalle de la ficha: ambas pestañas solo aparecen cuando la ficha realmente tiene elementos vinculados, de modo que las fichas sin actividad GRC no arrastran pestañas vacías.
 

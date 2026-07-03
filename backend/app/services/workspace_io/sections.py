@@ -10,6 +10,8 @@ are applied earlier by the bespoke core sections, so card FKs always resolve.
 
 from __future__ import annotations
 
+import sqlalchemy as sa
+
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.bookmark import Bookmark
@@ -37,6 +39,7 @@ from app.models.soaw import SoAW
 from app.models.stakeholder import Stakeholder
 from app.models.survey import Survey, SurveyResponse
 from app.models.todo import Todo
+from app.models.turbolens import TurboLensAnalysisRun, TurboLensComplianceFinding
 from app.models.web_portal import WebPortal
 from app.services.workspace_io.entities import EntitySection
 
@@ -44,6 +47,8 @@ from app.services.workspace_io.entities import EntitySection
 SHEET_DIAGRAM_CARDS = "DiagramCards"
 # Sheet name for the bespoke Diagram↔Group association (both PKs preserved).
 SHEET_DIAGRAM_GROUP_MEMBERS = "DiagramGroupMembers"
+# Sheet name for the bespoke Bookmark↔User share association (user matched by email).
+SHEET_BOOKMARK_SHARES = "BookmarkShares"
 
 ENTITY_SECTIONS: tuple[EntitySection, ...] = (
     # --- Card context ----------------------------------------------------
@@ -148,6 +153,30 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         "RiskMitTaskOccurrences",
         RiskMitigationTaskOccurrence,
         user_fk_columns=("assigned_owner_id", "completed_by", "owner_at_completion"),
+    ),
+    # --- TurboLens compliance ----------------------------------------------
+    # Runs before findings (NOT-NULL run_id resolves verbatim — module PKs are
+    # preserved); after Risks so a promoted finding's risk_id back-link resolves.
+    # Only runs actually referenced by a finding are exported — vendor/duplicate/
+    # architect analysis results stay instance-local (they can be regenerated).
+    EntitySection(
+        "TurbolensAnalysisRuns",
+        TurboLensAnalysisRun,
+        user_fk_columns=("created_by",),
+        export_where=sa.or_(
+            TurboLensAnalysisRun.id.in_(sa.select(TurboLensComplianceFinding.run_id)),
+            TurboLensAnalysisRun.id.in_(
+                sa.select(TurboLensComplianceFinding.last_seen_run_id).where(
+                    TurboLensComplianceFinding.last_seen_run_id.is_not(None)
+                )
+            ),
+        ),
+    ),
+    EntitySection(
+        "ComplianceFindings",
+        TurboLensComplianceFinding,
+        card_fk_columns=("card_id",),
+        user_fk_columns=("reviewed_by",),
     ),
     # --- Governance / delivery -------------------------------------------
     EntitySection(

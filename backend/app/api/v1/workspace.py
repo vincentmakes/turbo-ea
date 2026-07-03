@@ -50,6 +50,7 @@ class WorkspaceTransferOut(BaseModel):
     filename: str
     status: str
     format_version: str | None = None
+    source_app_version: str | None = None
     source_url: str | None = None
     diff: dict | None = None
     result: dict | None = None
@@ -65,6 +66,7 @@ def _to_out(t: WorkspaceTransfer) -> WorkspaceTransferOut:
         filename=t.filename,
         status=t.status,
         format_version=t.format_version,
+        source_app_version=t.source_app_version,
         source_url=t.source_url,
         diff=t.diff or None,
         result=t.result or None,
@@ -219,6 +221,7 @@ async def _preview_job(transfer_id_str: str, user_id_str: str) -> None:
             raw = Path(transfer.storage_path).read_bytes()
             bundle = parse_bundle(raw)
             transfer.format_version = bundle.format_version
+            transfer.source_app_version = bundle.manifest.get("app_version")
             transfer.source_url = bundle.manifest.get("source_url")
             if bundle.format_version != FORMAT_VERSION:
                 transfer.status = "failed"

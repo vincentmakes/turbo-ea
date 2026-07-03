@@ -5,6 +5,24 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.64.0] - 2026-07-03
+
+### Added
+- **Workspace transfer now moves compliance findings.** GRC compliance findings (and the analysis runs they reference) are included in the export bundle, so the Compliance page is no longer empty after migrating to a new instance. Other TurboLens analysis results (vendors, duplicates, modernization, saved assessments) stay instance-local — re-run the analyses on the target. (discussion #667)
+- **Workspace transfer now moves saved-view shares.** A saved inventory view shared with other users keeps its shares (including the can-edit flag) across an export/import.
+- **The import preview explains itself.** Each section row in the workspace-import pre-check can be expanded to show *why* items were skipped (already present, identical to the target, duplicate in bundle, …) and any conflict/failure messages — previously the reasons were counted but never shown. A legend clarifies that "Skipped" means no action was needed. (discussion #667)
+- **Advisory version check on import.** The pre-check now shows which Turbo EA version the bundle was exported from and warns (without blocking) when it differs from the importing instance. (discussion #667)
+
+### Changed
+- **Heads-up: your Average Completion may drop after this upgrade — that is a correction, not data loss.** Some installs carried inflated data-quality scores: the demo seed used an approximation that ignored the relations, tags, and stakeholders buckets, and older workspace imports scored cards before their relations were applied. On the first startup after upgrading, a one-shot background task rescores every card with the canonical scorer, so the Dashboard's Average Completion (and its distribution) may visibly decrease. The new values are the accurate ones — no card data is changed, only the completeness score. (discussion #667)
+
+### Fixed
+- **Demo-seeded instances no longer show an inflated Average Completion.** Seeding now finishes with a canonical rescore of every card instead of leaving the insert-time approximation in place until each card is edited. (discussion #667)
+- **Data-quality scores and calculated fields now match the source instance after a workspace import.** Cards were scored — and relation-dependent calculated fields evaluated — before their tags, relations, stakeholders, and PPM data were imported, so calculated values were clobbered and the Dashboard's Average Completion drifted lower on the target. Both now run in a final pass over every active card once everything has landed, which also repairs cards mis-scored by earlier imports. (discussion #667)
+- **No more stale menus after a workspace import.** Applying an import now refreshes the app's cached feature flags, metamodel, compliance regulations, and other boot-time settings — previously the PPM menu could briefly be replaced by "EA Delivery" and the compliance overview could show an outdated regulation list until a manual browser refresh. (discussion #667)
+- **A missing required user no longer aborts a workspace import.** A row whose mandatory owner can't be matched by email (e.g. a saved view) is now reported as a per-row conflict instead of failing the entire import.
+- **User-manual screenshots render again on several translated pages.** The Compliance guide (de/es/fr/it/pt/ru/da/ar) and the Russian Diagrams guide referenced screenshots by their English filenames; they now point at the localized captures.
+
 ## [1.63.2] - 2026-07-02
 
 ### Fixed

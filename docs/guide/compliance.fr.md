@@ -105,7 +105,7 @@ L'onglet Conformité affiche aussi un **KPI global de conformité** en haut de p
 
 ## Conformité sur une seule fiche
 
-![Détail de la fiche — onglet Conformité](../assets/img/fr/56_card_compliance_tab.png)
+![Détail de la fiche — onglet Conformité](../assets/img/fr/56_fiche_conformite_tab.png)
 
 Les fiches dans le périmètre de n'importe quel constat exposent aussi un onglet **Conformité** sur leur page de détail (gouverné par `compliance.view`). Il liste chaque constat actuellement lié à la fiche avec les mêmes actions Acquitter / Accepter / **Créer un risque** / **Ouvrir le risque** que la vue GRC — de sorte qu'un Application Owner peut trier ses propres constats sans quitter la fiche. La même règle d'auto-masquage s'applique à l'onglet **Risques** dans le détail de la fiche : les deux onglets n'apparaissent que lorsque la fiche a effectivement des éléments liés, de sorte que les fiches sans activité GRC ne traînent pas d'onglets vides.
 

@@ -30,6 +30,7 @@ class WorkspaceTransfer(UUIDMixin, TimestampMixin, Base):
     storage_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="uploaded", nullable=False)
     format_version: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    source_app_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
     source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     diff: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     result: Mapped[dict | None] = mapped_column(JSONB, default=dict)

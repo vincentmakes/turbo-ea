@@ -13345,6 +13345,17 @@
             ],
             "title": "Result"
           },
+          "source_app_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source App Version"
+          },
           "source_url": {
             "anyOf": [
               {

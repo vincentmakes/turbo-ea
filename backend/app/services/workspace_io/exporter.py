@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import APP_VERSION
 from app.models.app_settings import AppSettings
+from app.models.bookmark import bookmark_shares
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.diagram import diagram_cards
@@ -42,6 +43,7 @@ from app.services.workspace_io import entities, schema
 from app.services.workspace_io.secrets import strip_secrets
 from app.services.workspace_io.sections import (
     ENTITY_SECTIONS,
+    SHEET_BOOKMARK_SHARES,
     SHEET_DIAGRAM_CARDS,
     SHEET_DIAGRAM_GROUP_MEMBERS,
 )
@@ -363,6 +365,22 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
         wb, SHEET_DIAGRAM_GROUP_MEMBERS, ["diagram_id", "group_id"], gm_rows, assets
     )
     section_counts[SHEET_DIAGRAM_GROUP_MEMBERS] = len(gm_rows)
+
+    # Bookmark↔user shares (bespoke association; bookmark PK preserved, user
+    # matched by email on import — instance-local user UUIDs never travel).
+    bs_rows = [
+        {
+            "bookmark_id": str(row.bookmark_id),
+            "user_email": user_email.get(row.user_id),
+            "can_edit": bool(row.can_edit),
+        }
+        for row in (await db.execute(select(bookmark_shares))).all()
+        if user_email.get(row.user_id)
+    ]
+    bundle_io.write_sheet(
+        wb, SHEET_BOOKMARK_SHARES, ["bookmark_id", "user_email", "can_edit"], bs_rows, assets
+    )
+    section_counts[SHEET_BOOKMARK_SHARES] = len(bs_rows)
 
     # Branding binaries → assets/branding/ with a real extension from the MIME.
     if settings_row and settings_row.custom_logo:
