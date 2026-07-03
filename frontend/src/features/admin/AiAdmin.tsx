@@ -581,7 +581,7 @@ export default function AiAdmin() {
               <Typography variant="body2" sx={{ mb: 0.5 }}>
                 <strong>{t("settings.mcp.serverUrl")}</strong>
               </Typography>
-              <code>{window.location.origin}/mcp</code>
+              <code>{window.location.origin}/mcp/mcp</code>
             </Alert>
           </>
         )}

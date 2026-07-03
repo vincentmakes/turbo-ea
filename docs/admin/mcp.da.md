@@ -11,7 +11,7 @@ Denne funktion er **valgfri** og **starter ikke automatisk**. Den kræver, at SS
 ```
 AI Tool (Claude, Copilot, etc.)
     │
-    │  MCP protocol (HTTP + SSE)
+    │  MCP protocol (streamable HTTP)
     ▼
 Turbo EA MCP Server (:8001, internal)
     │
@@ -66,7 +66,7 @@ MCP_PUBLIC_URL=https://your-domain.example.com/mcp
 | Variabel | Standard | Beskrivelse |
 |----------|---------|-------------|
 | `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | Den offentlige URL til din Turbo EA-instans |
-| `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` | Den offentlige URL til MCP-serveren (bruges i OAuth-redirect-URI'er) |
+| `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` (docker compose) | Den offentlige URL til MCP-serveren (bruges i OAuth-redirect-URI'er). Når containeren køres selvstændigt, er kode-standarden `http://localhost:8001` |
 | `MCP_PORT` | `8001` | Intern port for MCP-containeren (sjældent behov for at ændre) |
 
 ### Trin 3: Tilføj OAuth-redirect-URI'en til din SSO-app
@@ -98,7 +98,7 @@ Når MCP er aktiveret, så del **MCP-server-URL'en** med dit team. Hver bruger t
 ### Claude Desktop
 
 1. Åbn **Settings > Connectors > Add custom connector**.
-2. Indtast MCP-server-URL'en: `https://your-domain.example.com/mcp`
+2. Indtast MCP-server-URL'en: `https://your-domain.example.com/mcp/mcp`
 3. Klik på **Connect** — et browservindue åbner for SSO-login.
 4. Efter autentificering kan Claude forespørge dine EA-data.
 
@@ -117,7 +117,7 @@ Tilføj til dit workspace `.vscode/mcp.json`:
 }
 ```
 
-Den dobbelte `/mcp/mcp` er tilsigtet — den første `/mcp/` er Nginx-proxysti, den anden er MCP-protokol-endpointet.
+Den dobbelte `/mcp/mcp` er tilsigtet — for både Claude og VS Code er den første `/mcp/` Nginx-proxystien, og den anden er MCP-protokol-endpointet. En enkelt `/mcp` vil ikke kunne forbinde.
 
 ---
 
@@ -155,7 +155,7 @@ I denne tilstand autentificerer serveren sig med e-mail/adgangskode og fornyer t
 
 ## Tilgængelige funktioner
 
-MCP-serveren eksponerer **30 værktøjer** på tværs af to grupper: **25 læseværktøjer**, der forespørger EA-data, og **5 skriveværktøjer**, der omdanner artefakter, som et AI-værktøj har i sin egen kontekst (regneark, BPMN XML, DrawIO XML, dokumenter, billeder), til kort, relationer og diagrammer.
+MCP-serveren eksponerer **47 værktøjer** på tværs af to grupper: **30 læseværktøjer**, der forespørger EA-data, og **17 skriveværktøjer** (13 additive, 4 destruktive), der opretter og vedligeholder kort, relationer, diagrammer, risici, ADR'er og mere — herunder omdannelse af artefakter, som et AI-værktøj har i sin egen kontekst (regneark, BPMN XML, DrawIO XML, dokumenter, billeder), til strukturerede EA-data. Hvert værktøj bærer MCP-`ToolAnnotations` (skrivebeskyttet / destruktiv / idempotent-hints), så connectors kan vise destruktivitet i deres UI.
 
 ### Dry-run-sikkerhed på skrivninger
 
@@ -163,7 +163,7 @@ Hvert skriveværktøj har **`dry_run=true`** som standard. I denne tilstand kør
 
 ### Læseværktøjer
 
-Serveren eksponerer 25 læseværktøjer grupperet i seks klynger.
+Serveren eksponerer 30 læseværktøjer grupperet i otte klynger.
 
 **Kort og metamodel**
 
@@ -175,6 +175,8 @@ Serveren eksponerer 25 læseværktøjer grupperet i seks klynger.
 | `get_card_hierarchy` | Få forfædre og børn af et kort |
 | `list_card_types` | Liste over alle korttyper i metamodellen |
 | `get_relation_types` | Liste over relationstyper, valgfrit filtreret efter korttype |
+| `resolve_card_refs` | Forhåndsvalider navnebaserede kortreferencer (navn → UUID) før en bulk-import — opløser kun, skriver aldrig |
+| `analyze_impact` | Afhængigheds-konsekvensanalyse (blast radius) for en foreslået ændring af et kort |
 
 **Dashboards**
 
@@ -225,19 +227,55 @@ Serveren eksponerer 25 læseværktøjer grupperet i seks klynger.
 | `get_card_comments` | Trådede kommentarer på et kort |
 | `get_card_documents` | Dokumentlinks vedhæftet et kort |
 
+**Diagrammer**
+
+| Værktøj | Beskrivelse |
+|------|-------------|
+| `list_diagrams` | Liste over fritformatede (DrawIO) diagrammer, valgfrit filtreret til ét kort |
+| `get_diagram` | Hent et enkelt diagram efter id, inklusive dets DrawIO XML |
+
+**Revision og ændringshistorik**
+
+| Værktøj | Beskrivelse |
+|------|-------------|
+| `get_change_history` | Forespørg mutations-batch-hovedbogen (efter batch-id, aktør, værktøj eller oprindelse) for at rekonstruere præcis, hvad en tidligere MCP-commit ændrede |
+
 Alle værktøjer er bundet af den autentificerede brugers RBAC — en viewer vil simpelthen få en tom liste (eller 403) for områder, de ikke kan se; intet på MCP-laget skal konfigureres pr. værktøj.
 
-### Skriveværktøjer — artefakt-upload
+### Skriveværktøjer
 
-Fem værktøjer lader en AI-agent omdanne artefakter til strukturerede EA-data. Agenten læser kildefilen fra sin egen kontekst (multimodal vision, filvedhæftninger), uddrager strukturerede rækker og kalder disse værktøjer. MCP-serveren selv parser aldrig filer — den forventer allerede-struktureret input.
+Serveren eksponerer 17 skriveværktøjer, hver annoteret som **additiv** (opretter eller udvider data) eller **destruktiv** (ændrer eller fjerner eksisterende data), så connectors kan advare tilsvarende.
+
+**Additive (13)**
 
 | Værktøj | Beskrivelse |
 |------|-------------|
 | `create_cards_bulk` | Opret mange kort i ét kald (f.eks. regnearksrækker). Understøtter samme-batch-forældrereferencer efter navn med server-side topologisk sortering. |
-| `resolve_card_refs` | Forhåndsvalider navnebaserede referencer før en bulk-import — nyttigt til at vise tvetydige eller manglende forældre for brugeren. |
-| `upsert_relations_bulk` | Opret eller slet relationer mellem kort. Kilde/mål/type valideres mod metamodellen. |
+| `transition_card_lifecycle` | Flyt et kort gennem godkendelses- eller livscyklusfaser. |
+| `create_risks` | Opret poster i EA-risikoregisteret. |
+| `update_risks` | Opdater risikoregister-poster (felter, tilknyttede kort). |
+| `add_card_comment` | Skriv en kommentar på et kort — en ikke-destruktiv, gennemgåelig note i stedet for at mutere felter. |
+| `create_soaw` | Opret et Statement of Architecture Work for et initiativ. |
+| `assign_stakeholders` | Tildel eller fjern interessentroller på kort. |
+| `update_cards_bulk` | Patches på feltniveau på mange kort i ét kald. |
+| `create_adr` | Opret en Architecture Decision Record. |
+| `update_adr` | Opdater en ADR (titel, sektioner, status, tilknyttede kort). |
+| `sign_adr` | Signér en ADR (kræver tilladelsen `adr.sign`; ellers returneres et UI-dybdelink til at signere i browseren). |
 | `create_diagram` | Opret et fritformatet DrawIO-diagram med valgfri links til eksisterende kort. |
 | `import_bpmn` | Gem et BPMN 2.0 XML-diagram mod et **eksisterende** Business Process-kort. Hvis intet kort matcher det angivne navn, returnerer værktøjet en `card_not_found`-fejl, der peger agenten mod `create_cards_bulk` — dette tvinger agenten til at oprette kortet eksplicit med beskrivelse, undertype og egenskaber først, i stedet for at tage en genvej, der lander et sparsomt kort. |
+
+**Destruktive (4)**
+
+| Værktøj | Beskrivelse |
+|------|-------------|
+| `upsert_relations_bulk` | Opret eller slet relationer mellem kort. Kilde/mål/type valideres mod metamodellen. Sletning afvises, medmindre operatøren tilvælger det (se rettesnore). |
+| `archive_cards` | Soft-delete af kort. Kan genoprettes — arkiverede kort kan gendannes i 30 dage før auto-udrensning. |
+| `update_diagram` | Erstat et diagrams DrawIO XML, navn eller kortlinks. |
+| `rollback_batch` | Tilbagerul de skrivninger, der blev udført under en tidligere mutations-batch. |
+
+### Artefakt-upload
+
+En delmængde af skriveværktøjerne (`create_cards_bulk`, `upsert_relations_bulk`, `create_diagram`, `import_bpmn`) lader en AI-agent omdanne artefakter til strukturerede EA-data. Agenten læser kildefilen fra sin egen kontekst (multimodal vision, filvedhæftninger), uddrager strukturerede rækker og kalder disse værktøjer. MCP-serveren selv parser aldrig filer — den forventer allerede-struktureret input.
 
 Typisk arbejdsproces, når en bruger deler et regneark med AI-agenten:
 
@@ -253,18 +291,21 @@ Forsvar i dybden ovenpå dry-run, så en LLM-fejltagelse ikke kan forårsage mas
 
 - **Per-kald-størrelsesgrænser.** MCP-skriveværktøjerne håndhæver en meget mindre grænse end de underliggende Excel-importør-endpoints: 200 rækker for `create_cards_bulk`, 500 operationer for `upsert_relations_bulk`. Stort nok til enhver realistisk enkelt artefakt-upload, lille nok til, at en dry-run-forhåndsvisning stadig kan gennemses.
 - **Ingen relationssletning som standard.** `upsert_relations_bulk` afviser `action: "delete"`-operationer — for at fjerne relationer, brug web-UI'et, hvor handlingen registreres under brugerens identitet. Operatører kan tilvælge ved at indstille `MCP_ALLOW_RELATION_DELETE=true`.
-- **Kill switch.** `MCP_WRITES_ENABLED=false` slår alle fem skriveværktøjer fra uden at re-deploye kode. De 25 læseværktøjer fortsætter med at virke.
+- **Kill switch.** `MCP_WRITES_ENABLED=false` slår alle 17 skriveværktøjer fra uden at re-deploye kode. De 30 læseværktøjer fortsætter med at virke.
 - **Audit origin-tag.** Hver backend-anmodning fra MCP-serveren bærer en `X-Turbo-EA-Origin: mcp`-header. Hændelser udsendt fra disse anmodninger er tagget `origin: "mcp"` i revisions-log-payloaden, så admins kan filtrere MCP-drevne skrivninger ud af tidslinjen adskilt fra web-UI-handlinger.
-- **Ingen masseødelæggelsesværktøjer.** Værktøjssættet udelader bevidst kortsletning, arkivering og bulk-update. Tilføjelse af et sådant værktøj ville kræve en eksplicit designgennemgang.
+- **Mutations-batches.** Hvert MCP-skrivekald åbner en mutations-batch før nogen skrivninger; hver hændelse udsendt under kaldet stemples med batch-id'et. Admins (eller værktøjet `get_change_history`) kan rekonstruere den fulde per-hændelses-diff for en commit fra ét id, og `rollback_batch` kan tilbagerulle den. Commits over `MCP_BATCH_CONFIRMATION_THRESHOLD` rækker skal ekko en engangs-`confirm_token` udstedt af den forudgående dry-run (15 minutters TTL), så en stor commit altid følger efter en gennemgået forhåndsvisning.
+- **Ingen hård sletning.** Værktøjssættet udelader bevidst permanent kortsletning. `archive_cards` og `update_cards_bulk` *er* eksponeret, men arkivering er en genoprettelig soft-delete (30-dages gendannelsesvindue), og begge er destruktivitets-annoterede og dry-run-gatede. Tilføjelse af et værktøj, der udfører en irreversibel mutation (hård sletning, tvungen udrensning), ville kræve en eksplicit designgennemgang.
 
-De fire rettesnore-miljøvariabler på MCP-containeren:
+De seks rettesnore-miljøvariabler på MCP-containeren:
 
 | Variabel | Standard | Effekt |
 |----------|---------|--------|
 | `MCP_WRITES_ENABLED` | `true` | Hovedkontakt for skriveværktøjer. `false` → skrivebeskyttet MCP. |
-| `MCP_MAX_CARDS_PER_CALL` | `200` | Hård grænse på `create_cards_bulk`-rækker pr. anmodning. |
+| `MCP_MAX_CARDS_PER_CALL` | `200` | Hård grænse på `create_cards_bulk`- / `update_cards_bulk`-rækker pr. anmodning. |
 | `MCP_MAX_RELATIONS_PER_CALL` | `500` | Hård grænse på `upsert_relations_bulk`-operationer pr. anmodning. |
 | `MCP_ALLOW_RELATION_DELETE` | `false` | Når `true`, accepterer `upsert_relations_bulk` `action: "delete"`-operationer. |
+| `MCP_BATCH_CONFIRMATION_THRESHOLD` | `20` | Commits, der berører flere rækker end dette, kræver `confirm_token` fra en forudgående dry-run. |
+| `MCP_REQUIRE_DRYRUN_FIRST` | `true` | Aktiverer confirm-token-gaten ovenfor. Sæt kun til `false` for betroede automatiseringspipelines, der eksplicit springer forhåndsvisnings-rundturen over. |
 
 ### Ressourcer
 
@@ -289,7 +330,7 @@ De fire rettesnore-miljøvariabler på MCP-containeren:
 | Rolle | Adgang |
 |------|--------|
 | **Admin** | Konfigurer MCP-indstillinger (`admin.mcp`-tilladelse). Fuld læse + skrive gennem MCP. |
-| **Alle autentificerede brugere** | Læseadgang styres af deres eksisterende RBAC. Skriveværktøjer kræver de matchende backend-tilladelser — `inventory.create` (kort), `relations.manage` (relationer), `diagrams.manage` (diagrammer), `bpm.edit` (BPMN). |
+| **Alle autentificerede brugere** | Læseadgang styres af deres eksisterende RBAC. Skriveværktøjer kræver de matchende backend-tilladelser — `inventory.create` / `inventory.edit` / `inventory.archive` (kort), `relations.manage` (relationer), `diagrams.manage` (diagrammer), `bpm.edit` (BPMN), `risks.manage` (risikoregister), `comments.create` (kommentarer), `stakeholders.manage` (interessenter), `soaw.create` (SoAW), `adr.create` / `adr.sign` (ADR'er). |
 
 Tilladelsen `admin.mcp` styrer, hvem der kan administrere MCP-indstillinger. Den er kun tilgængelig for Admin-rollen som standard. Brugerdefinerede roller kan tildeles denne tilladelse gennem Roller-administrationssiden.
 

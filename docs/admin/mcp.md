@@ -11,7 +11,7 @@ This feature is **optional** and **does not start automatically**. It requires S
 ```
 AI Tool (Claude, Copilot, etc.)
     │
-    │  MCP protocol (HTTP + SSE)
+    │  MCP protocol (streamable HTTP)
     ▼
 Turbo EA MCP Server (:8001, internal)
     │
@@ -66,7 +66,7 @@ MCP_PUBLIC_URL=https://your-domain.example.com/mcp
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | The public URL of your Turbo EA instance |
-| `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` | The public URL of the MCP server (used in OAuth redirect URIs) |
+| `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` (docker compose) | The public URL of the MCP server (used in OAuth redirect URIs). When running the container standalone, the code default is `http://localhost:8001` |
 | `MCP_PORT` | `8001` | Internal port for the MCP container (rarely needs changing) |
 
 ### Step 3: Add the OAuth redirect URI to your SSO app
@@ -98,7 +98,7 @@ Once MCP is enabled, share the **MCP Server URL** with your team. Each user adds
 ### Claude Desktop
 
 1. Open **Settings > Connectors > Add custom connector**.
-2. Enter the MCP server URL: `https://your-domain.example.com/mcp`
+2. Enter the MCP server URL: `https://your-domain.example.com/mcp/mcp`
 3. Click **Connect** — a browser window opens for SSO login.
 4. After authentication, Claude can query your EA data.
 
@@ -117,7 +117,7 @@ Add to your workspace `.vscode/mcp.json`:
 }
 ```
 
-The double `/mcp/mcp` is intentional — the first `/mcp/` is the Nginx proxy path, the second is the MCP protocol endpoint.
+The double `/mcp/mcp` is intentional — for Claude and VS Code alike, the first `/mcp/` is the Nginx proxy path and the second is the MCP protocol endpoint. A bare `/mcp` will not connect.
 
 ---
 
@@ -155,7 +155,7 @@ In this mode, the server authenticates with email/password and refreshes the tok
 
 ## Available Capabilities
 
-The MCP server exposes **30 tools** across two groups: **25 read tools** that query EA data and **5 write tools** that turn artifacts an AI tool has in its own context (spreadsheets, BPMN XML, DrawIO XML, documents, images) into cards, relations and diagrams.
+The MCP server exposes **47 tools** across two groups: **30 read tools** that query EA data and **17 write tools** (13 additive, 4 destructive) that create and maintain cards, relations, diagrams, risks, ADRs and more — including turning artifacts an AI tool has in its own context (spreadsheets, BPMN XML, DrawIO XML, documents, images) into structured EA data. Every tool carries MCP `ToolAnnotations` (read-only / destructive / idempotent hints) so connectors can surface destructiveness in their UI.
 
 ### Dry-run safety on writes
 
@@ -163,7 +163,7 @@ Every write tool defaults to **`dry_run=true`**. In this mode the backend runs e
 
 ### Read tools
 
-The server exposes 25 read tools grouped into six clusters.
+The server exposes 30 read tools grouped into eight clusters.
 
 **Cards & metamodel**
 
@@ -175,6 +175,8 @@ The server exposes 25 read tools grouped into six clusters.
 | `get_card_hierarchy` | Get ancestors and children of a card |
 | `list_card_types` | List all card types in the metamodel |
 | `get_relation_types` | List relation types, optionally filtered by card type |
+| `resolve_card_refs` | Pre-validate name-based card references (name → UUID) before a bulk import — resolves only, never writes |
+| `analyze_impact` | Dependency blast-radius analysis for a proposed change to a card |
 
 **Dashboards**
 
@@ -225,19 +227,55 @@ The server exposes 25 read tools grouped into six clusters.
 | `get_card_comments` | Threaded comments on a card |
 | `get_card_documents` | Document links attached to a card |
 
+**Diagrams**
+
+| Tool | Description |
+|------|-------------|
+| `list_diagrams` | List free-draw (DrawIO) diagrams, optionally filtered to one card |
+| `get_diagram` | Fetch a single diagram by id, including its DrawIO XML |
+
+**Audit & change history**
+
+| Tool | Description |
+|------|-------------|
+| `get_change_history` | Query the mutation-batch ledger (by batch id, actor, tool, or origin) to reconstruct exactly what a previous MCP commit changed |
+
 All tools are bound by the authenticated user's RBAC — a viewer will simply get an empty list (or 403) for areas they cannot see; nothing on the MCP layer needs configuring per tool.
 
-### Write tools — artifact upload
+### Write tools
 
-Five tools let an AI agent turn artifacts into structured EA data. The agent reads the source file from its own context (multimodal vision, file attachments), extracts structured rows, and calls these tools. The MCP server itself never parses files — it expects already-structured input.
+The server exposes 17 write tools, each annotated as **additive** (creates or extends data) or **destructive** (modifies or removes existing data) so connectors can warn accordingly.
+
+**Additive (13)**
 
 | Tool | Description |
 |------|-------------|
 | `create_cards_bulk` | Create many cards in one call (e.g. spreadsheet rows). Supports same-batch parent references by name with server-side topological sort. |
-| `resolve_card_refs` | Pre-validate name-based references before a bulk import — useful for surfacing ambiguous or missing parents to the user. |
-| `upsert_relations_bulk` | Create or delete relations between cards. Source / target / type are validated against the metamodel. |
+| `transition_card_lifecycle` | Move a card through approval or lifecycle phases. |
+| `create_risks` | Create entries in the EA Risk Register. |
+| `update_risks` | Update Risk Register entries (fields, linked cards). |
+| `add_card_comment` | Post a comment on a card — a non-destructive, reviewable note instead of mutating fields. |
+| `create_soaw` | Create a Statement of Architecture Work for an initiative. |
+| `assign_stakeholders` | Assign or remove stakeholder roles on cards. |
+| `update_cards_bulk` | Field-level patches on many cards in one call. |
+| `create_adr` | Create an Architecture Decision Record. |
+| `update_adr` | Update an ADR (title, sections, status, linked cards). |
+| `sign_adr` | Sign an ADR (requires the `adr.sign` permission; otherwise returns a UI deep-link to sign in the browser). |
 | `create_diagram` | Create a free-form DrawIO diagram with optional links to existing cards. |
 | `import_bpmn` | Save a BPMN 2.0 XML diagram against an **existing** Business Process card. If no card matches the given name, the tool returns a `card_not_found` error pointing the agent at `create_cards_bulk` — this forces the agent to create the card explicitly with description, subtype and attributes first, instead of taking a shortcut that lands a sparse card. |
+
+**Destructive (4)**
+
+| Tool | Description |
+|------|-------------|
+| `upsert_relations_bulk` | Create or delete relations between cards. Source / target / type are validated against the metamodel. Deletion is refused unless the operator opts in (see guardrails). |
+| `archive_cards` | Soft-delete cards. Recoverable — archived cards can be restored for 30 days before auto-purge. |
+| `update_diagram` | Replace a diagram's DrawIO XML, name, or card links. |
+| `rollback_batch` | Reverse the writes performed under a previous mutation batch. |
+
+### Artifact upload
+
+A subset of the write tools (`create_cards_bulk`, `upsert_relations_bulk`, `create_diagram`, `import_bpmn`) lets an AI agent turn artifacts into structured EA data. The agent reads the source file from its own context (multimodal vision, file attachments), extracts structured rows, and calls these tools. The MCP server itself never parses files — it expects already-structured input.
 
 Typical workflow when a user shares a spreadsheet with the AI agent:
 
@@ -253,18 +291,21 @@ Defense in depth on top of dry-run, so an LLM mishap can't cause mass damage:
 
 - **Per-call size caps.** The MCP write tools enforce a much smaller cap than the underlying Excel-importer endpoints: 200 rows for `create_cards_bulk`, 500 ops for `upsert_relations_bulk`. Big enough for any realistic single artifact upload, small enough that a dry-run preview is still scannable.
 - **No relation deletion by default.** `upsert_relations_bulk` refuses `action: "delete"` ops — to remove relations, use the web UI where the action is captured under the user's identity. Operators can opt in by setting `MCP_ALLOW_RELATION_DELETE=true`.
-- **Kill switch.** `MCP_WRITES_ENABLED=false` turns off all five write tools without redeploying code. The 25 read tools keep working.
+- **Kill switch.** `MCP_WRITES_ENABLED=false` turns off all 17 write tools without redeploying code. The 30 read tools keep working.
 - **Audit origin tag.** Every backend request from the MCP server carries an `X-Turbo-EA-Origin: mcp` header. Events emitted from those requests are tagged `origin: "mcp"` in the audit-log payload, so admins can filter MCP-driven writes out of the timeline distinct from web-UI actions.
-- **No mass-destruction tools.** The toolset deliberately omits card delete, archive, and bulk-update. Adding any such tool would require an explicit design review.
+- **Mutation batches.** Every MCP write call opens a mutation batch before any writes; every event emitted during the call is stamped with the batch id. Admins (or the `get_change_history` tool) can reconstruct the full per-event diff of a commit from one id, and `rollback_batch` can reverse it. Commits above `MCP_BATCH_CONFIRMATION_THRESHOLD` rows must echo back a one-shot `confirm_token` issued by the prior dry-run (15-minute TTL), so a large commit always follows a reviewed preview.
+- **No hard delete.** The toolset deliberately omits permanent card deletion. `archive_cards` and `update_cards_bulk` *are* exposed, but archiving is a recoverable soft-delete (30-day restore window) and both are destructiveness-annotated and dry-run-gated. Adding any tool that performs an irreversible mutation (hard delete, force-purge) would require an explicit design review.
 
-The four guardrail environment variables on the MCP container:
+The six guardrail environment variables on the MCP container:
 
 | Variable | Default | Effect |
 |----------|---------|--------|
 | `MCP_WRITES_ENABLED` | `true` | Master switch for write tools. `false` → read-only MCP. |
-| `MCP_MAX_CARDS_PER_CALL` | `200` | Hard cap on `create_cards_bulk` rows per request. |
+| `MCP_MAX_CARDS_PER_CALL` | `200` | Hard cap on `create_cards_bulk` / `update_cards_bulk` rows per request. |
 | `MCP_MAX_RELATIONS_PER_CALL` | `500` | Hard cap on `upsert_relations_bulk` operations per request. |
 | `MCP_ALLOW_RELATION_DELETE` | `false` | When `true`, `upsert_relations_bulk` accepts `action: "delete"` ops. |
+| `MCP_BATCH_CONFIRMATION_THRESHOLD` | `20` | Commits touching more rows than this require the `confirm_token` from a prior dry-run. |
+| `MCP_REQUIRE_DRYRUN_FIRST` | `true` | Enables the confirm-token gate above. Set `false` only for trusted automation pipelines that explicitly skip the preview round-trip. |
 
 ### Resources
 
@@ -289,7 +330,7 @@ The four guardrail environment variables on the MCP container:
 | Role | Access |
 |------|--------|
 | **Admin** | Configure MCP settings (`admin.mcp` permission). Full read + write through MCP. |
-| **All authenticated users** | Read access governed by their existing RBAC. Write tools require the matching backend permissions — `inventory.create` (cards), `relations.manage` (relations), `diagrams.manage` (diagrams), `bpm.edit` (BPMN). |
+| **All authenticated users** | Read access governed by their existing RBAC. Write tools require the matching backend permissions — `inventory.create` / `inventory.edit` / `inventory.archive` (cards), `relations.manage` (relations), `diagrams.manage` (diagrams), `bpm.edit` (BPMN), `risks.manage` (Risk Register), `comments.create` (comments), `stakeholders.manage` (stakeholders), `soaw.create` (SoAW), `adr.create` / `adr.sign` (ADRs). |
 
 The `admin.mcp` permission controls who can manage MCP settings. It is only available to the Admin role by default. Custom roles can be granted this permission through the Roles administration page.
 

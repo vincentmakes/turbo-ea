@@ -531,7 +531,7 @@ npm run build         # TypeScript check + production build
 | `AI_SEARCH_URL` | *(empty)* | Search provider URL (SearXNG URL or `API_KEY:CX` for Google) |
 | `AI_AUTO_CONFIGURE` | `false` | Auto-enable AI on startup if provider is reachable |
 | `OLLAMA_MEMORY_LIMIT` | `4G` | Memory limit for bundled Ollama container |
-| `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` | (MCP server) Public URL for OAuth metadata |
+| `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` (docker compose; code default `http://localhost:8001`) | (MCP server) Public URL for OAuth metadata |
 | `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | Public-facing Turbo EA URL (also drives bundled nginx hostname/proto) |
 
 > **API Documentation**: Swagger UI is available at `/api/docs` when running in development mode (`ENVIRONMENT=development`).

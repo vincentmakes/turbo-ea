@@ -11,7 +11,7 @@ Esta función es **opcional** y **no se inicia automáticamente**. Requiere que 
 ```
 Herramienta de IA (Claude, Copilot, etc.)
     │
-    │  Protocolo MCP (HTTP + SSE)
+    │  Protocolo MCP (streamable HTTP)
     ▼
 Servidor MCP de Turbo EA (:8001, interno)
     │
@@ -66,7 +66,7 @@ MCP_PUBLIC_URL=https://su-dominio.ejemplo.com/mcp
 | Variable | Predeterminado | Descripción |
 |----------|---------------|-------------|
 | `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | La URL pública de su instancia de Turbo EA |
-| `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` | La URL pública del servidor MCP (usada en URIs de redirección OAuth) |
+| `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` (docker compose) | La URL pública del servidor MCP (usada en URIs de redirección OAuth). Cuando el contenedor se ejecuta de forma independiente, el valor predeterminado del código es `http://localhost:8001` |
 | `MCP_PORT` | `8001` | Puerto interno del contenedor MCP (raramente necesita cambio) |
 
 ### Paso 3: Agregar la URI de redirección OAuth a su aplicación SSO
@@ -98,7 +98,7 @@ Una vez habilitado MCP, comparta la **URL del servidor MCP** con su equipo. Cada
 ### Claude Desktop
 
 1. Abra **Configuración > Conectores > Agregar conector personalizado**.
-2. Ingrese la URL del servidor MCP: `https://su-dominio.ejemplo.com/mcp`
+2. Ingrese la URL del servidor MCP: `https://su-dominio.ejemplo.com/mcp/mcp`
 3. Haga clic en **Conectar** — se abre una ventana del navegador para el inicio de sesión SSO.
 4. Tras la autenticación, Claude puede consultar sus datos de EA.
 
@@ -117,7 +117,7 @@ Agregue a su `.vscode/mcp.json` del espacio de trabajo:
 }
 ```
 
-El doble `/mcp/mcp` es intencional — el primer `/mcp/` es la ruta del proxy Nginx, el segundo es el punto de acceso del protocolo MCP.
+El doble `/mcp/mcp` es intencional — tanto para Claude como para VS Code, el primer `/mcp/` es la ruta del proxy Nginx y el segundo es el punto de acceso del protocolo MCP. Un simple `/mcp` no logrará conectarse.
 
 ---
 
@@ -155,7 +155,7 @@ En este modo, el servidor se autentica con correo/contraseña y renueva el token
 
 ## Capacidades disponibles
 
-El servidor MCP expone **30 herramientas** repartidas en dos grupos: **25 herramientas de lectura** que consultan datos de EA y **5 herramientas de escritura** que convierten artefactos que una herramienta de IA tiene en su propio contexto (hojas de cálculo, BPMN XML, DrawIO XML, documentos, imágenes) en fichas, relaciones y diagramas.
+El servidor MCP expone **47 herramientas** repartidas en dos grupos: **30 herramientas de lectura** que consultan datos de EA y **17 herramientas de escritura** (13 aditivas, 4 destructivas) que crean y mantienen fichas, relaciones, diagramas, riesgos, ADRs y más — incluida la conversión de artefactos que una herramienta de IA tiene en su propio contexto (hojas de cálculo, BPMN XML, DrawIO XML, documentos, imágenes) en datos EA estructurados. Cada herramienta lleva `ToolAnnotations` de MCP (indicaciones de solo lectura / destructiva / idempotente) para que los conectores puedan mostrar la destructividad en su interfaz.
 
 ### Seguridad mediante ejecución en seco en las escrituras
 
@@ -163,7 +163,7 @@ Cada herramienta de escritura usa por defecto **`dry_run=true`**. En este modo, 
 
 ### Herramientas de lectura
 
-El servidor expone 25 herramientas de lectura agrupadas en seis clusters.
+El servidor expone 30 herramientas de lectura agrupadas en ocho clusters.
 
 **Fichas y metamodelo**
 
@@ -175,6 +175,8 @@ El servidor expone 25 herramientas de lectura agrupadas en seis clusters.
 | `get_card_hierarchy` | Obtener ancestros e hijos de una ficha |
 | `list_card_types` | Listar todos los tipos de ficha del metamodelo |
 | `get_relation_types` | Listar tipos de relación, opcionalmente filtrados por tipo de ficha |
+| `resolve_card_refs` | Prevalidar referencias de ficha basadas en nombre (nombre → UUID) antes de una importación masiva — solo resuelve, nunca escribe |
+| `analyze_impact` | Análisis del radio de impacto de dependencias para un cambio propuesto en una ficha |
 
 **Paneles**
 
@@ -225,19 +227,55 @@ El servidor expone 25 herramientas de lectura agrupadas en seis clusters.
 | `get_card_comments` | Hilo de comentarios de una ficha |
 | `get_card_documents` | Enlaces a documentos adjuntos a una ficha (URL, no archivos) |
 
+**Diagramas**
+
+| Herramienta | Descripción |
+|-------------|-------------|
+| `list_diagrams` | Listar diagramas libres (DrawIO), opcionalmente filtrados a una ficha |
+| `get_diagram` | Obtener un diagrama por id, incluido su XML de DrawIO |
+
+**Auditoría e historial de cambios**
+
+| Herramienta | Descripción |
+|-------------|-------------|
+| `get_change_history` | Consultar el registro de lotes de mutación (por id de lote, actor, herramienta u origen) para reconstruir exactamente qué cambió un commit MCP anterior |
+
 Todas las herramientas respetan el RBAC del usuario autenticado — una visualizadora recibirá simplemente una lista vacía (o 403) para lo que no puede ver; no hace falta configurar nada por herramienta a nivel MCP.
 
-### Herramientas de escritura — carga de artefactos
+### Herramientas de escritura
 
-Cinco herramientas permiten a un agente de IA convertir artefactos en datos EA estructurados. El agente lee el archivo origen en su propio contexto (visión multimodal, archivos adjuntos), extrae filas estructuradas y llama a estas herramientas. El servidor MCP en sí mismo nunca analiza archivos — espera entrada ya estructurada.
+El servidor expone 17 herramientas de escritura, cada una anotada como **aditiva** (crea o amplía datos) o **destructiva** (modifica o elimina datos existentes) para que los conectores puedan advertir en consecuencia.
+
+**Aditivas (13)**
 
 | Herramienta | Descripción |
 |-------------|-------------|
 | `create_cards_bulk` | Crea varias fichas en una sola llamada (por ejemplo, filas de hoja de cálculo). Admite referencias al padre por nombre dentro del mismo lote, con ordenación topológica en el servidor. |
-| `resolve_card_refs` | Prevalida referencias basadas en nombre antes de una importación masiva — útil para mostrar al usuario padres ambiguos o ausentes. |
-| `upsert_relations_bulk` | Crea o elimina relaciones entre fichas. Origen / destino / tipo se validan contra el metamodelo. |
+| `transition_card_lifecycle` | Mueve una ficha a través de las fases de aprobación o de ciclo de vida. |
+| `create_risks` | Crea entradas en el registro de riesgos EA. |
+| `update_risks` | Actualiza entradas del registro de riesgos (campos, fichas vinculadas). |
+| `add_card_comment` | Publica un comentario en una ficha — una nota no destructiva y revisable en lugar de modificar campos. |
+| `create_soaw` | Crea un Statement of Architecture Work para una iniciativa. |
+| `assign_stakeholders` | Asigna o retira roles de partes interesadas en fichas. |
+| `update_cards_bulk` | Parches a nivel de campo en muchas fichas en una sola llamada. |
+| `create_adr` | Crea un Architecture Decision Record. |
+| `update_adr` | Actualiza un ADR (título, secciones, estado, fichas vinculadas). |
+| `sign_adr` | Firma un ADR (requiere el permiso `adr.sign`; de lo contrario devuelve un enlace profundo a la interfaz para firmar en el navegador). |
 | `create_diagram` | Crea un diagrama libre DrawIO con vínculos opcionales a fichas existentes. |
 | `import_bpmn` | Guarda un diagrama BPMN 2.0 XML contra una ficha de Proceso de negocio **existente**. Si no hay ficha con el nombre indicado, la herramienta devuelve un error `card_not_found` que dirige al agente a `create_cards_bulk` — esto obliga a crear la ficha explícitamente con descripción, subtipo y atributos antes, en vez de tomar un atajo que deja una ficha pobre. |
+
+**Destructivas (4)**
+
+| Herramienta | Descripción |
+|-------------|-------------|
+| `upsert_relations_bulk` | Crea o elimina relaciones entre fichas. Origen / destino / tipo se validan contra el metamodelo. La eliminación se rechaza salvo que el operador la habilite explícitamente (vea las salvaguardas). |
+| `archive_cards` | Borrado suave de fichas. Recuperable — las fichas archivadas pueden restaurarse durante 30 días antes de la purga automática. |
+| `update_diagram` | Reemplaza el XML de DrawIO, el nombre o los vínculos de fichas de un diagrama. |
+| `rollback_batch` | Revierte las escrituras realizadas bajo un lote de mutación anterior. |
+
+### Carga de artefactos
+
+Un subconjunto de las herramientas de escritura (`create_cards_bulk`, `upsert_relations_bulk`, `create_diagram`, `import_bpmn`) permite a un agente de IA convertir artefactos en datos EA estructurados. El agente lee el archivo origen en su propio contexto (visión multimodal, archivos adjuntos), extrae filas estructuradas y llama a estas herramientas. El servidor MCP en sí mismo nunca analiza archivos — espera entrada ya estructurada.
 
 Flujo típico cuando un usuario comparte una hoja de cálculo con el agente de IA:
 
@@ -253,18 +291,21 @@ Defensa en profundidad sobre la ejecución en seco, para que un descuido del LLM
 
 - **Límite de tamaño por llamada.** Las herramientas de escritura MCP aplican un límite mucho menor que los endpoints subyacentes del importador de Excel: 200 filas para `create_cards_bulk`, 500 operaciones para `upsert_relations_bulk`. Suficientemente grandes para cualquier carga realista de un artefacto, suficientemente pequeñas para que una vista previa de ejecución en seco siga siendo revisable.
 - **Sin eliminación de relaciones por defecto.** `upsert_relations_bulk` rechaza operaciones `action: "delete"` — para eliminar relaciones, use la interfaz web donde la acción queda registrada bajo la identidad del usuario. Los operadores pueden activarlo estableciendo `MCP_ALLOW_RELATION_DELETE=true`.
-- **Interruptor de apagado.** `MCP_WRITES_ENABLED=false` desactiva las cinco herramientas de escritura sin redesplegar código. Las 25 herramientas de lectura siguen funcionando.
+- **Interruptor de apagado.** `MCP_WRITES_ENABLED=false` desactiva las 17 herramientas de escritura sin redesplegar código. Las 30 herramientas de lectura siguen funcionando.
 - **Etiqueta de origen para auditoría.** Cada solicitud al backend desde el servidor MCP lleva un encabezado `X-Turbo-EA-Origin: mcp`. Los eventos emitidos desde esas solicitudes se etiquetan con `origin: "mcp"` en el payload del registro de auditoría, de modo que los administradores pueden filtrar las escrituras impulsadas por MCP de la línea de tiempo, separadas de las acciones de la interfaz web.
-- **Sin herramientas de destrucción masiva.** El conjunto de herramientas omite deliberadamente el borrado, el archivado y la actualización masiva de fichas. Añadir cualquiera de estas herramientas requeriría una revisión de diseño explícita.
+- **Lotes de mutación.** Cada llamada de escritura MCP abre un lote de mutación antes de cualquier escritura; cada evento emitido durante la llamada se sella con el id del lote. Los administradores (o la herramienta `get_change_history`) pueden reconstruir el diff completo, evento por evento, de un commit a partir de un solo id, y `rollback_batch` puede revertirlo. Los commits que superan `MCP_BATCH_CONFIRMATION_THRESHOLD` filas deben devolver un `confirm_token` de un solo uso emitido por la ejecución en seco previa (validez de 15 minutos), de modo que un commit grande siempre sigue a una vista previa revisada.
+- **Sin borrado permanente.** El conjunto de herramientas omite deliberadamente el borrado permanente de fichas. `archive_cards` y `update_cards_bulk` *sí* están expuestas, pero el archivado es un borrado suave recuperable (ventana de restauración de 30 días) y ambas están anotadas como destructivas y protegidas por la ejecución en seco. Añadir cualquier herramienta que realice una mutación irreversible (borrado permanente, purga forzada) requeriría una revisión de diseño explícita.
 
-Las cuatro variables de entorno de salvaguarda en el contenedor MCP:
+Las seis variables de entorno de salvaguarda en el contenedor MCP:
 
 | Variable | Por defecto | Efecto |
 |----------|-------------|--------|
 | `MCP_WRITES_ENABLED` | `true` | Interruptor maestro de las herramientas de escritura. `false` → MCP de solo lectura. |
-| `MCP_MAX_CARDS_PER_CALL` | `200` | Límite estricto de filas `create_cards_bulk` por solicitud. |
+| `MCP_MAX_CARDS_PER_CALL` | `200` | Límite estricto de filas `create_cards_bulk` / `update_cards_bulk` por solicitud. |
 | `MCP_MAX_RELATIONS_PER_CALL` | `500` | Límite estricto de operaciones `upsert_relations_bulk` por solicitud. |
 | `MCP_ALLOW_RELATION_DELETE` | `false` | Cuando es `true`, `upsert_relations_bulk` acepta operaciones `action: "delete"`. |
+| `MCP_BATCH_CONFIRMATION_THRESHOLD` | `20` | Los commits que tocan más filas que este umbral requieren el `confirm_token` de una ejecución en seco previa. |
+| `MCP_REQUIRE_DRYRUN_FIRST` | `true` | Habilita la barrera de confirm-token anterior. Establezca `false` solo para pipelines de automatización de confianza que omiten explícitamente el ciclo de vista previa. |
 
 ### Recursos
 
@@ -289,7 +330,7 @@ Las cuatro variables de entorno de salvaguarda en el contenedor MCP:
 | Rol | Acceso |
 |-----|--------|
 | **Administrador** | Configurar ajustes MCP (permiso `admin.mcp`). Acceso completo de lectura + escritura a través de MCP. |
-| **Todos los usuarios autenticados** | Acceso de lectura regido por su RBAC existente. Las herramientas de escritura requieren los permisos backend correspondientes — `inventory.create` (fichas), `relations.manage` (relaciones), `diagrams.manage` (diagramas), `bpm.edit` (BPMN). |
+| **Todos los usuarios autenticados** | Acceso de lectura regido por su RBAC existente. Las herramientas de escritura requieren los permisos backend correspondientes — `inventory.create` / `inventory.edit` / `inventory.archive` (fichas), `relations.manage` (relaciones), `diagrams.manage` (diagramas), `bpm.edit` (BPMN), `risks.manage` (registro de riesgos), `comments.create` (comentarios), `stakeholders.manage` (partes interesadas), `soaw.create` (SoAW), `adr.create` / `adr.sign` (ADRs). |
 
 El permiso `admin.mcp` controla quién puede gestionar la configuración de MCP. Solo está disponible para el rol de Administrador por defecto. Los roles personalizados pueden recibir este permiso a través de la página de administración de Roles.
 

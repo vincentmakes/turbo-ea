@@ -11,7 +11,7 @@ Questa funzionalità è **opzionale** e **non si avvia automaticamente**. Richie
 ```
 Strumento IA (Claude, Copilot, ecc.)
     │
-    │  Protocollo MCP (HTTP + SSE)
+    │  Protocollo MCP (streamable HTTP)
     ▼
 Server MCP di Turbo EA (:8001, interno)
     │
@@ -66,7 +66,7 @@ MCP_PUBLIC_URL=https://il-tuo-dominio.esempio.com/mcp
 | Variabile | Predefinito | Descrizione |
 |-----------|------------|-------------|
 | `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | L'URL pubblico dell'istanza Turbo EA |
-| `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` | L'URL pubblico del server MCP (usato negli URI di reindirizzamento OAuth) |
+| `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` (docker compose) | L'URL pubblico del server MCP (usato negli URI di reindirizzamento OAuth). Quando il container viene eseguito in modalità standalone, il valore predefinito nel codice è `http://localhost:8001` |
 | `MCP_PORT` | `8001` | Porta interna del container MCP (raramente necessita di modifica) |
 
 ### Passaggio 3: Aggiungere l'URI di reindirizzamento OAuth all'app SSO
@@ -98,7 +98,7 @@ Una volta abilitato MCP, condividere l'**URL del server MCP** con il team. Ogni 
 ### Claude Desktop
 
 1. Aprire **Impostazioni > Connettori > Aggiungi connettore personalizzato**.
-2. Inserire l'URL del server MCP: `https://il-tuo-dominio.esempio.com/mcp`
+2. Inserire l'URL del server MCP: `https://il-tuo-dominio.esempio.com/mcp/mcp`
 3. Fare clic su **Connetti** — si apre una finestra del browser per il login SSO.
 4. Dopo l'autenticazione, Claude può interrogare i dati EA.
 
@@ -117,7 +117,7 @@ Aggiungere al file `.vscode/mcp.json` del workspace:
 }
 ```
 
-Il doppio `/mcp/mcp` è intenzionale — il primo `/mcp/` è il percorso del proxy Nginx, il secondo è l'endpoint del protocollo MCP.
+Il doppio `/mcp/mcp` è intenzionale — per Claude e per VS Code allo stesso modo, il primo `/mcp/` è il percorso del proxy Nginx e il secondo è l'endpoint del protocollo MCP. Un semplice `/mcp` non si connetterà.
 
 ---
 
@@ -155,7 +155,7 @@ In questa modalità, il server si autentica con email/password e rinnova il toke
 
 ## Funzionalità disponibili
 
-Il server MCP espone **30 strumenti** suddivisi in due gruppi: **25 strumenti di lettura** che interrogano i dati EA e **5 strumenti di scrittura** che trasformano gli artefatti che uno strumento di IA ha nel proprio contesto (fogli di calcolo, BPMN XML, DrawIO XML, documenti, immagini) in card, relazioni e diagrammi.
+Il server MCP espone **47 strumenti** suddivisi in due gruppi: **30 strumenti di lettura** che interrogano i dati EA e **17 strumenti di scrittura** (13 additivi, 4 distruttivi) che creano e mantengono card, relazioni, diagrammi, rischi, ADR e altro ancora — inclusa la trasformazione degli artefatti che uno strumento di IA ha nel proprio contesto (fogli di calcolo, BPMN XML, DrawIO XML, documenti, immagini) in dati EA strutturati. Ogni strumento porta `ToolAnnotations` MCP (indicazioni di sola lettura / distruttivo / idempotente) in modo che i connettori possano evidenziare la distruttività nella loro interfaccia.
 
 ### Sicurezza tramite esecuzione di prova nelle scritture
 
@@ -163,7 +163,7 @@ Ogni strumento di scrittura usa per impostazione predefinita **`dry_run=true`**.
 
 ### Strumenti di lettura
 
-Il server espone 25 strumenti di lettura raggruppati in sei cluster.
+Il server espone 30 strumenti di lettura raggruppati in otto cluster.
 
 **Card & metamodello**
 
@@ -175,6 +175,8 @@ Il server espone 25 strumenti di lettura raggruppati in sei cluster.
 | `get_card_hierarchy` | Ottenere antenati e figli di una card |
 | `list_card_types` | Elencare tutti i tipi di card nel metamodello |
 | `get_relation_types` | Elencare i tipi di relazione, con filtro opzionale per tipo di card |
+| `resolve_card_refs` | Pre-validare i riferimenti alle card basati sul nome (nome → UUID) prima di un'importazione di massa — risolve soltanto, non scrive mai |
+| `analyze_impact` | Analisi del raggio d'impatto delle dipendenze per una modifica proposta a una card |
 
 **Dashboard**
 
@@ -225,19 +227,55 @@ Il server espone 25 strumenti di lettura raggruppati in sei cluster.
 | `get_card_comments` | Thread di commenti di una card |
 | `get_card_documents` | Link a documenti allegati a una card (URL, non file) |
 
+**Diagrammi**
+
+| Strumento | Descrizione |
+|-----------|-------------|
+| `list_diagrams` | Elencare i diagrammi a disegno libero (DrawIO), con filtro opzionale su una card |
+| `get_diagram` | Recuperare un singolo diagramma tramite id, incluso il suo XML DrawIO |
+
+**Audit & cronologia delle modifiche**
+
+| Strumento | Descrizione |
+|-----------|-------------|
+| `get_change_history` | Interrogare il registro dei batch di mutazione (per id del batch, attore, strumento o origine) per ricostruire esattamente cosa ha modificato un precedente commit MCP |
+
 Tutti gli strumenti rispettano l'RBAC dell'utente autenticato — un visualizzatore riceverà semplicemente una lista vuota (o 403) per ciò che non può vedere; non serve alcuna configurazione per-tool a livello MCP.
 
-### Strumenti di scrittura — caricamento di artefatti
+### Strumenti di scrittura
 
-Cinque strumenti permettono a un agente di IA di trasformare gli artefatti in dati EA strutturati. L'agente legge il file sorgente nel proprio contesto (visione multimodale, allegati), estrae righe strutturate e chiama questi strumenti. Il server MCP in sé non analizza mai i file — si aspetta un input già strutturato.
+Il server espone 17 strumenti di scrittura, ciascuno annotato come **additivo** (crea o estende dati) o **distruttivo** (modifica o rimuove dati esistenti), in modo che i connettori possano avvertire di conseguenza.
+
+**Additivi (13)**
 
 | Strumento | Descrizione |
 |-----------|-------------|
 | `create_cards_bulk` | Crea più card in una sola chiamata (per esempio righe di foglio di calcolo). Supporta riferimenti al genitore per nome all'interno dello stesso batch, con ordinamento topologico lato server. |
-| `resolve_card_refs` | Pre-valida i riferimenti per nome prima di un'importazione di massa — utile per mostrare all'utente genitori ambigui o mancanti. |
-| `upsert_relations_bulk` | Crea o elimina relazioni tra card. Sorgente / destinazione / tipo sono validati contro il metamodello. |
+| `transition_card_lifecycle` | Fa avanzare una card attraverso le fasi di approvazione o del ciclo di vita. |
+| `create_risks` | Crea voci nel Registro dei rischi EA. |
+| `update_risks` | Aggiorna le voci del Registro dei rischi (campi, card collegate). |
+| `add_card_comment` | Pubblica un commento su una card — una nota non distruttiva e revisionabile invece di modificare i campi. |
+| `create_soaw` | Crea uno Statement of Architecture Work per un'iniziativa. |
+| `assign_stakeholders` | Assegna o rimuove ruoli di stakeholder sulle card. |
+| `update_cards_bulk` | Patch a livello di campo su molte card in una sola chiamata. |
+| `create_adr` | Crea un Architecture Decision Record. |
+| `update_adr` | Aggiorna un ADR (titolo, sezioni, stato, card collegate). |
+| `sign_adr` | Firma un ADR (richiede il permesso `adr.sign`; altrimenti restituisce un deep-link all'interfaccia per firmare nel browser). |
 | `create_diagram` | Crea un diagramma DrawIO libero con collegamenti opzionali a card esistenti. |
 | `import_bpmn` | Salva un diagramma BPMN 2.0 XML su una card Processo di business **esistente**. Se nessuna card corrisponde al nome fornito, lo strumento restituisce un errore `card_not_found` che rimanda l'agente a `create_cards_bulk` — questo forza la creazione esplicita della card con descrizione, sottotipo e attributi prima, invece di una scorciatoia che produce una card scarna. |
+
+**Distruttivi (4)**
+
+| Strumento | Descrizione |
+|-----------|-------------|
+| `upsert_relations_bulk` | Crea o elimina relazioni tra card. Sorgente / destinazione / tipo sono validati contro il metamodello. L'eliminazione è rifiutata a meno che l'operatore non la abiliti esplicitamente (vedere le salvaguardie). |
+| `archive_cards` | Archivia le card (soft-delete). Recuperabile — le card archiviate possono essere ripristinate per 30 giorni prima dell'eliminazione automatica. |
+| `update_diagram` | Sostituisce l'XML DrawIO di un diagramma, il nome o i collegamenti alle card. |
+| `rollback_batch` | Annulla le scritture eseguite in un precedente batch di mutazione. |
+
+### Caricamento di artefatti
+
+Un sottoinsieme degli strumenti di scrittura (`create_cards_bulk`, `upsert_relations_bulk`, `create_diagram`, `import_bpmn`) permette a un agente di IA di trasformare gli artefatti in dati EA strutturati. L'agente legge il file sorgente nel proprio contesto (visione multimodale, allegati), estrae righe strutturate e chiama questi strumenti. Il server MCP in sé non analizza mai i file — si aspetta un input già strutturato.
 
 Flusso tipico quando un utente condivide un foglio di calcolo con l'agente di IA:
 
@@ -253,18 +291,21 @@ Difesa in profondità sopra l'esecuzione di prova, in modo che un errore del LLM
 
 - **Limite di dimensione per chiamata.** Gli strumenti di scrittura MCP applicano un limite molto più piccolo rispetto agli endpoint sottostanti dell'importatore Excel: 200 righe per `create_cards_bulk`, 500 operazioni per `upsert_relations_bulk`. Sufficientemente grande per qualsiasi caricamento realistico di un singolo artefatto, sufficientemente piccolo perché un'anteprima di esecuzione di prova rimanga visionabile.
 - **Nessuna eliminazione di relazioni per impostazione predefinita.** `upsert_relations_bulk` rifiuta le operazioni `action: "delete"` — per rimuovere relazioni, utilizzare l'interfaccia web dove l'azione viene registrata sotto l'identità dell'utente. Gli operatori possono abilitarla impostando `MCP_ALLOW_RELATION_DELETE=true`.
-- **Interruttore di spegnimento.** `MCP_WRITES_ENABLED=false` disattiva tutti e cinque gli strumenti di scrittura senza ridistribuire codice. I 25 strumenti di lettura continuano a funzionare.
+- **Interruttore di spegnimento.** `MCP_WRITES_ENABLED=false` disattiva tutti i 17 strumenti di scrittura senza ridistribuire codice. I 30 strumenti di lettura continuano a funzionare.
 - **Etichetta di origine per l'audit.** Ogni richiesta al backend dal server MCP porta un'intestazione `X-Turbo-EA-Origin: mcp`. Gli eventi emessi da queste richieste vengono etichettati con `origin: "mcp"` nel payload del log di audit, in modo che gli amministratori possano filtrare le scritture guidate da MCP fuori dalla timeline, separate dalle azioni dell'interfaccia web.
-- **Nessuno strumento di distruzione di massa.** Il set di strumenti omette deliberatamente l'eliminazione, l'archiviazione e l'aggiornamento di massa delle card. Aggiungere uno di questi strumenti richiederebbe una revisione di progettazione esplicita.
+- **Batch di mutazione.** Ogni chiamata di scrittura MCP apre un batch di mutazione prima di qualsiasi scrittura; ogni evento emesso durante la chiamata viene marcato con l'id del batch. Gli amministratori (o lo strumento `get_change_history`) possono ricostruire il diff completo per evento di un commit a partire da un singolo id, e `rollback_batch` può annullarlo. I commit che superano `MCP_BATCH_CONFIRMATION_THRESHOLD` righe devono restituire un `confirm_token` monouso emesso dalla precedente esecuzione di prova (TTL di 15 minuti), così un commit di grandi dimensioni segue sempre un'anteprima revisionata.
+- **Nessuna eliminazione definitiva.** Il set di strumenti omette deliberatamente l'eliminazione permanente delle card. `archive_cards` e `update_cards_bulk` *sono* esposti, ma l'archiviazione è un soft-delete recuperabile (finestra di ripristino di 30 giorni) ed entrambi sono annotati come distruttivi e protetti dall'esecuzione di prova. Aggiungere uno strumento che esegua una mutazione irreversibile (eliminazione definitiva, force-purge) richiederebbe una revisione di progettazione esplicita.
 
-Le quattro variabili di ambiente di salvaguardia sul container MCP:
+Le sei variabili di ambiente di salvaguardia sul container MCP:
 
 | Variabile | Predefinito | Effetto |
 |-----------|-------------|---------|
 | `MCP_WRITES_ENABLED` | `true` | Interruttore principale degli strumenti di scrittura. `false` → MCP in sola lettura. |
-| `MCP_MAX_CARDS_PER_CALL` | `200` | Limite massimo di righe `create_cards_bulk` per richiesta. |
+| `MCP_MAX_CARDS_PER_CALL` | `200` | Limite massimo di righe `create_cards_bulk` / `update_cards_bulk` per richiesta. |
 | `MCP_MAX_RELATIONS_PER_CALL` | `500` | Limite massimo di operazioni `upsert_relations_bulk` per richiesta. |
 | `MCP_ALLOW_RELATION_DELETE` | `false` | Quando `true`, `upsert_relations_bulk` accetta operazioni `action: "delete"`. |
+| `MCP_BATCH_CONFIRMATION_THRESHOLD` | `20` | I commit che toccano più righe di questo valore richiedono il `confirm_token` di una precedente esecuzione di prova. |
+| `MCP_REQUIRE_DRYRUN_FIRST` | `true` | Abilita il gate del token di conferma di cui sopra. Impostare `false` solo per pipeline di automazione fidate che saltano esplicitamente il ciclo di anteprima. |
 
 ### Risorse
 
@@ -289,7 +330,7 @@ Le quattro variabili di ambiente di salvaguardia sul container MCP:
 | Ruolo | Accesso |
 |-------|---------|
 | **Amministratore** | Configurare le impostazioni MCP (permesso `admin.mcp`). Accesso completo in lettura + scrittura tramite MCP. |
-| **Tutti gli utenti autenticati** | Accesso in lettura governato dal loro RBAC esistente. Gli strumenti di scrittura richiedono i corrispondenti permessi backend — `inventory.create` (card), `relations.manage` (relazioni), `diagrams.manage` (diagrammi), `bpm.edit` (BPMN). |
+| **Tutti gli utenti autenticati** | Accesso in lettura governato dal loro RBAC esistente. Gli strumenti di scrittura richiedono i corrispondenti permessi backend — `inventory.create` / `inventory.edit` / `inventory.archive` (card), `relations.manage` (relazioni), `diagrams.manage` (diagrammi), `bpm.edit` (BPMN), `risks.manage` (Registro dei rischi), `comments.create` (commenti), `stakeholders.manage` (stakeholder), `soaw.create` (SoAW), `adr.create` / `adr.sign` (ADR). |
 
 Il permesso `admin.mcp` controlla chi può gestire le impostazioni MCP. È disponibile solo per il ruolo Amministratore per impostazione predefinita. Ai ruoli personalizzati può essere concesso questo permesso tramite la pagina di amministrazione dei Ruoli.
 

@@ -796,7 +796,7 @@ turbo-ea/
 | `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | Public-facing Turbo EA URL for OAuth redirects and bundled nginx hostname/proto derivation |
 | `MCP_PUBLIC_URL` | `http://localhost:8001` | (MCP server) Public URL for OAuth metadata |
 | `MCP_PORT` | `8001` | (MCP server) Bind port |
-| `MCP_WRITES_ENABLED` | `true` | (MCP server) Kill switch for all 5 write tools — set to `false` to put the MCP server into read-only mode without a code redeploy. Read tools keep working. |
+| `MCP_WRITES_ENABLED` | `true` | (MCP server) Kill switch for all 17 write tools — set to `false` to put the MCP server into read-only mode without a code redeploy. Read tools keep working. |
 | `MCP_MAX_CARDS_PER_CALL` | `200` | (MCP server) Per-call size cap for `create_cards_bulk`. The backend `/cards/bulk-create` endpoint still accepts up to 2000 for the legitimate Excel importer; the MCP wrapper enforces this lower cap so a dry-run preview stays reviewable. |
 | `MCP_MAX_RELATIONS_PER_CALL` | `500` | (MCP server) Per-call size cap for `upsert_relations_bulk`. Backend accepts up to 5000 from the UI. |
 | `MCP_ALLOW_RELATION_DELETE` | `false` | (MCP server) When `false` (default), `upsert_relations_bulk` refuses `action: "delete"` ops — relations must be removed via the web UI for an explicit audit trail. Set `true` only when an operator opts in. |

@@ -11,7 +11,7 @@ Diese Funktion ist **optional** und **startet nicht automatisch**. Sie erfordert
 ```
 KI-Werkzeug (Claude, Copilot usw.)
     │
-    │  MCP-Protokoll (HTTP + SSE)
+    │  MCP-Protokoll (streamable HTTP)
     ▼
 Turbo EA MCP-Server (:8001, intern)
     │
@@ -66,7 +66,7 @@ MCP_PUBLIC_URL=https://ihre-domain.beispiel.de/mcp
 | Variable | Standard | Beschreibung |
 |----------|---------|-------------|
 | `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | Die öffentliche URL Ihrer Turbo-EA-Instanz |
-| `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` | Die öffentliche URL des MCP-Servers (wird in OAuth-Weiterleitungs-URIs verwendet) |
+| `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` (docker compose) | Die öffentliche URL des MCP-Servers (wird in OAuth-Weiterleitungs-URIs verwendet). Wird der Container eigenständig betrieben, lautet der Code-Standard `http://localhost:8001` |
 | `MCP_PORT` | `8001` | Interner Port des MCP-Containers (muss selten geändert werden) |
 
 ### Schritt 3: OAuth-Weiterleitungs-URI zur SSO-App hinzufügen
@@ -98,7 +98,7 @@ Sobald MCP aktiviert ist, teilen Sie die **MCP-Server-URL** mit Ihrem Team. Jede
 ### Claude Desktop
 
 1. Öffnen Sie **Einstellungen > Konnektoren > Benutzerdefinierten Konnektor hinzufügen**.
-2. Geben Sie die MCP-Server-URL ein: `https://ihre-domain.beispiel.de/mcp`
+2. Geben Sie die MCP-Server-URL ein: `https://ihre-domain.beispiel.de/mcp/mcp`
 3. Klicken Sie auf **Verbinden** — ein Browserfenster öffnet sich für die SSO-Anmeldung.
 4. Nach der Authentifizierung kann Claude Ihre EA-Daten abfragen.
 
@@ -117,7 +117,7 @@ Fügen Sie zu Ihrer Arbeitsbereich-Datei `.vscode/mcp.json` hinzu:
 }
 ```
 
-Das doppelte `/mcp/mcp` ist beabsichtigt — das erste `/mcp/` ist der Nginx-Proxy-Pfad, das zweite der MCP-Protokoll-Endpunkt.
+Das doppelte `/mcp/mcp` ist beabsichtigt — für Claude wie für VS Code gleichermaßen: Das erste `/mcp/` ist der Nginx-Proxy-Pfad, das zweite der MCP-Protokoll-Endpunkt. Ein bloßes `/mcp` stellt keine Verbindung her.
 
 ---
 
@@ -155,7 +155,7 @@ In diesem Modus authentifiziert sich der Server mit E-Mail/Passwort und erneuert
 
 ## Verfügbare Funktionen
 
-Der MCP-Server stellt **30 Werkzeuge** in zwei Gruppen bereit: **25 Lese-Werkzeuge** zur Abfrage von EA-Daten und **5 Schreib-Werkzeuge**, die Artefakte, die ein KI-Werkzeug in seinem eigenen Kontext hat (Tabellen, BPMN-XML, DrawIO-XML, Dokumente, Bilder), in Karten, Beziehungen und Diagramme umwandeln.
+Der MCP-Server stellt **47 Werkzeuge** in zwei Gruppen bereit: **30 Lese-Werkzeuge** zur Abfrage von EA-Daten und **17 Schreib-Werkzeuge** (13 additiv, 4 destruktiv), die Karten, Beziehungen, Diagramme, Risiken, ADRs und mehr erstellen und pflegen — einschließlich der Umwandlung von Artefakten, die ein KI-Werkzeug in seinem eigenen Kontext hat (Tabellen, BPMN-XML, DrawIO-XML, Dokumente, Bilder), in strukturierte EA-Daten. Jedes Werkzeug trägt MCP-`ToolAnnotations` (Hinweise auf schreibgeschützt / destruktiv / idempotent), sodass Konnektoren die Destruktivität in ihrer Oberfläche anzeigen können.
 
 ### Sicherheit beim Schreiben durch Trockenlauf
 
@@ -163,7 +163,7 @@ Jedes Schreib-Werkzeug verwendet standardmäßig **`dry_run=true`**. In diesem M
 
 ### Lese-Werkzeuge
 
-Der Server stellt 25 Lese-Werkzeuge in sechs Gruppen bereit.
+Der Server stellt 30 Lese-Werkzeuge in acht Gruppen bereit.
 
 **Karten & Metamodell**
 
@@ -175,6 +175,8 @@ Der Server stellt 25 Lese-Werkzeuge in sechs Gruppen bereit.
 | `get_card_hierarchy` | Vorfahren und Kinder einer Karte abrufen |
 | `list_card_types` | Alle Kartentypen im Metamodell auflisten |
 | `get_relation_types` | Beziehungstypen auflisten, optional nach Kartentyp gefiltert |
+| `resolve_card_refs` | Vorvalidiert namensbasierte Karten-Referenzen (Name → UUID) vor einem Bulk-Import — löst nur auf, schreibt niemals |
+| `analyze_impact` | Abhängigkeits-Wirkungsradius-Analyse für eine geplante Änderung an einer Karte |
 
 **Dashboards**
 
@@ -225,19 +227,55 @@ Der Server stellt 25 Lese-Werkzeuge in sechs Gruppen bereit.
 | `get_card_comments` | Kommentar-Threads einer Karte |
 | `get_card_documents` | Dokument-Links an einer Karte (URLs, keine Dateien) |
 
+**Diagramme**
+
+| Werkzeug | Beschreibung |
+|----------|-------------|
+| `list_diagrams` | Frei gestaltete (DrawIO-)Diagramme auflisten, optional gefiltert auf eine Karte |
+| `get_diagram` | Ein einzelnes Diagramm per ID abrufen, einschließlich seines DrawIO-XML |
+
+**Audit & Änderungshistorie**
+
+| Werkzeug | Beschreibung |
+|----------|-------------|
+| `get_change_history` | Das Mutations-Batch-Register abfragen (nach Batch-ID, Akteur, Werkzeug oder Herkunft), um exakt zu rekonstruieren, was ein früherer MCP-Commit geändert hat |
+
 Alle Werkzeuge respektieren das RBAC des authentifizierten Nutzers — eine Viewerin erhält für unzugängliche Bereiche eine leere Liste (oder 403); auf MCP-Ebene ist keine Pro-Tool-Konfiguration nötig.
 
-### Schreib-Werkzeuge — Artefakt-Upload
+### Schreib-Werkzeuge
 
-Fünf Werkzeuge erlauben einem KI-Agenten, Artefakte in strukturierte EA-Daten umzuwandeln. Der Agent liest die Quelldatei in seinem eigenen Kontext (multimodale Bildverarbeitung, Dateianhänge), extrahiert strukturierte Zeilen und ruft diese Werkzeuge auf. Der MCP-Server selbst analysiert niemals Dateien — er erwartet bereits strukturierte Eingaben.
+Der Server stellt 17 Schreib-Werkzeuge bereit, jedes annotiert als **additiv** (erstellt oder erweitert Daten) oder **destruktiv** (verändert oder entfernt bestehende Daten), damit Konnektoren entsprechend warnen können.
+
+**Additiv (13)**
 
 | Werkzeug | Beschreibung |
 |----------|--------------|
 | `create_cards_bulk` | Erstellt mehrere Karten in einem Aufruf (z. B. Tabellenzeilen). Unterstützt Eltern-Referenzen per Name innerhalb desselben Batches mit serverseitiger topologischer Sortierung. |
-| `resolve_card_refs` | Vorvalidiert namensbasierte Referenzen vor einem Bulk-Import — nützlich, um mehrdeutige oder fehlende Eltern dem Benutzer anzuzeigen. |
-| `upsert_relations_bulk` | Erstellt oder löscht Beziehungen zwischen Karten. Quelle / Ziel / Typ werden gegen das Metamodell validiert. |
+| `transition_card_lifecycle` | Bewegt eine Karte durch Genehmigungs- oder Lebenszyklus-Phasen. |
+| `create_risks` | Erstellt Einträge im EA-Risikoregister. |
+| `update_risks` | Aktualisiert Risikoregister-Einträge (Felder, verknüpfte Karten). |
+| `add_card_comment` | Hinterlässt einen Kommentar an einer Karte — eine nicht-destruktive, überprüfbare Notiz statt einer Feldänderung. |
+| `create_soaw` | Erstellt ein Statement of Architecture Work für eine Initiative. |
+| `assign_stakeholders` | Weist Stakeholder-Rollen an Karten zu oder entfernt sie. |
+| `update_cards_bulk` | Feldweise Patches an vielen Karten in einem Aufruf. |
+| `create_adr` | Erstellt ein Architecture Decision Record. |
+| `update_adr` | Aktualisiert ein ADR (Titel, Abschnitte, Status, verknüpfte Karten). |
+| `sign_adr` | Unterschreibt ein ADR (erfordert die Berechtigung `adr.sign`; andernfalls wird ein UI-Deep-Link zum Unterschreiben im Browser zurückgegeben). |
 | `create_diagram` | Erstellt ein frei gestaltetes DrawIO-Diagramm mit optionalen Verknüpfungen zu bestehenden Karten. |
 | `import_bpmn` | Speichert ein BPMN-2.0-XML-Diagramm an einer **bestehenden** Geschäftsprozess-Karte. Existiert keine Karte mit dem angegebenen Namen, liefert das Werkzeug einen `card_not_found`-Fehler, der den Agenten an `create_cards_bulk` verweist — so muss die Karte zuerst explizit mit Beschreibung, Subtyp und Attributen angelegt werden, statt auf eine Abkürzung auszuweichen, die eine spärliche Karte erzeugt. |
+
+**Destruktiv (4)**
+
+| Werkzeug | Beschreibung |
+|----------|--------------|
+| `upsert_relations_bulk` | Erstellt oder löscht Beziehungen zwischen Karten. Quelle / Ziel / Typ werden gegen das Metamodell validiert. Löschungen werden abgelehnt, sofern der Operator nicht ausdrücklich zustimmt (siehe Schutzmechanismen). |
+| `archive_cards` | Soft-Delete von Karten. Wiederherstellbar — archivierte Karten können 30 Tage lang wiederhergestellt werden, bevor sie automatisch endgültig gelöscht werden. |
+| `update_diagram` | Ersetzt das DrawIO-XML, den Namen oder die Kartenverknüpfungen eines Diagramms. |
+| `rollback_batch` | Macht die Schreibvorgänge eines früheren Mutations-Batches rückgängig. |
+
+### Artefakt-Upload
+
+Eine Teilmenge der Schreib-Werkzeuge (`create_cards_bulk`, `upsert_relations_bulk`, `create_diagram`, `import_bpmn`) erlaubt einem KI-Agenten, Artefakte in strukturierte EA-Daten umzuwandeln. Der Agent liest die Quelldatei in seinem eigenen Kontext (multimodale Bildverarbeitung, Dateianhänge), extrahiert strukturierte Zeilen und ruft diese Werkzeuge auf. Der MCP-Server selbst analysiert niemals Dateien — er erwartet bereits strukturierte Eingaben.
 
 Typischer Ablauf, wenn ein Benutzer dem KI-Agenten eine Tabelle freigibt:
 
@@ -253,18 +291,21 @@ Verteidigung in der Tiefe zusätzlich zum Trockenlauf, damit ein Fehlverhalten d
 
 - **Größenbegrenzung pro Aufruf.** Die MCP-Schreib-Werkzeuge erzwingen eine wesentlich kleinere Obergrenze als die zugrunde liegenden Excel-Import-Endpunkte: 200 Zeilen für `create_cards_bulk`, 500 Operationen für `upsert_relations_bulk`. Groß genug für jeden realistischen Einzel-Artefakt-Upload, klein genug, dass eine Trockenlauf-Vorschau überprüfbar bleibt.
 - **Standardmäßig keine Löschung von Beziehungen.** `upsert_relations_bulk` lehnt `action: "delete"`-Operationen ab — um Beziehungen zu entfernen, ist die Weboberfläche zu verwenden, wo die Aktion unter der Identität des Benutzers erfasst wird. Operatoren können dies aktivieren, indem sie `MCP_ALLOW_RELATION_DELETE=true` setzen.
-- **Notausschalter.** `MCP_WRITES_ENABLED=false` schaltet alle fünf Schreib-Werkzeuge aus, ohne dass Code neu bereitgestellt werden muss. Die 25 Lese-Werkzeuge funktionieren weiter.
+- **Notausschalter.** `MCP_WRITES_ENABLED=false` schaltet alle 17 Schreib-Werkzeuge aus, ohne dass Code neu bereitgestellt werden muss. Die 30 Lese-Werkzeuge funktionieren weiter.
 - **Audit-Herkunfts-Marker.** Jede Backend-Anfrage vom MCP-Server trägt einen `X-Turbo-EA-Origin: mcp`-Header. Ereignisse, die aus diesen Anfragen emittiert werden, werden im Audit-Log-Payload mit `origin: "mcp"` markiert, sodass Administratoren MCP-gesteuerte Schreibvorgänge getrennt von Web-UI-Aktionen aus der Zeitleiste filtern können.
-- **Keine Massenvernichtungs-Werkzeuge.** Die Werkzeugsammlung lässt bewusst Kartenlöschung, Archivierung und Massenaktualisierung weg. Das Hinzufügen eines solchen Werkzeugs würde eine explizite Designprüfung erfordern.
+- **Mutations-Batches.** Jeder MCP-Schreibaufruf öffnet vor allen Schreibvorgängen einen Mutations-Batch; jedes während des Aufrufs emittierte Ereignis wird mit der Batch-ID gestempelt. Administratoren (oder das Werkzeug `get_change_history`) können aus einer einzigen ID den vollständigen Ereignis-Diff eines Commits rekonstruieren, und `rollback_batch` kann ihn rückgängig machen. Commits oberhalb von `MCP_BATCH_CONFIRMATION_THRESHOLD` Zeilen müssen ein einmaliges `confirm_token` zurückgeben, das der vorherige Trockenlauf ausgestellt hat (15 Minuten Gültigkeit) — ein großer Commit folgt also immer auf eine geprüfte Vorschau.
+- **Kein endgültiges Löschen.** Die Werkzeugsammlung lässt bewusst das dauerhafte Löschen von Karten weg. `archive_cards` und `update_cards_bulk` *sind* verfügbar, aber die Archivierung ist ein wiederherstellbares Soft-Delete (30-Tage-Wiederherstellungsfenster) und beide sind mit Destruktivitäts-Annotationen versehen und durch den Trockenlauf abgesichert. Das Hinzufügen eines Werkzeugs, das eine irreversible Mutation durchführt (endgültiges Löschen, erzwungenes Bereinigen), würde eine explizite Designprüfung erfordern.
 
-Die vier Umgebungsvariablen für Schutzmechanismen auf dem MCP-Container:
+Die sechs Umgebungsvariablen für Schutzmechanismen auf dem MCP-Container:
 
 | Variable | Standard | Wirkung |
 |----------|----------|---------|
 | `MCP_WRITES_ENABLED` | `true` | Hauptschalter für Schreib-Werkzeuge. `false` → schreibgeschützter MCP. |
-| `MCP_MAX_CARDS_PER_CALL` | `200` | Harte Obergrenze für `create_cards_bulk`-Zeilen pro Anfrage. |
+| `MCP_MAX_CARDS_PER_CALL` | `200` | Harte Obergrenze für `create_cards_bulk`- / `update_cards_bulk`-Zeilen pro Anfrage. |
 | `MCP_MAX_RELATIONS_PER_CALL` | `500` | Harte Obergrenze für `upsert_relations_bulk`-Operationen pro Anfrage. |
 | `MCP_ALLOW_RELATION_DELETE` | `false` | Bei `true` akzeptiert `upsert_relations_bulk` `action: "delete"`-Operationen. |
+| `MCP_BATCH_CONFIRMATION_THRESHOLD` | `20` | Commits, die mehr Zeilen als diesen Wert berühren, erfordern das `confirm_token` aus einem vorherigen Trockenlauf. |
+| `MCP_REQUIRE_DRYRUN_FIRST` | `true` | Aktiviert das obige Confirm-Token-Gate. Nur für vertrauenswürdige Automatisierungs-Pipelines, die den Vorschau-Zyklus bewusst überspringen, auf `false` setzen. |
 
 ### Ressourcen
 
@@ -289,7 +330,7 @@ Die vier Umgebungsvariablen für Schutzmechanismen auf dem MCP-Container:
 | Rolle | Zugriff |
 |-------|---------|
 | **Administrator** | MCP-Einstellungen konfigurieren (Berechtigung `admin.mcp`). Vollständiger Lese- + Schreibzugriff über MCP. |
-| **Alle authentifizierten Benutzer** | Lesezugriff gemäß ihrem bestehenden RBAC. Schreib-Werkzeuge erfordern die entsprechenden Backend-Berechtigungen — `inventory.create` (Karten), `relations.manage` (Beziehungen), `diagrams.manage` (Diagramme), `bpm.edit` (BPMN). |
+| **Alle authentifizierten Benutzer** | Lesezugriff gemäß ihrem bestehenden RBAC. Schreib-Werkzeuge erfordern die entsprechenden Backend-Berechtigungen — `inventory.create` / `inventory.edit` / `inventory.archive` (Karten), `relations.manage` (Beziehungen), `diagrams.manage` (Diagramme), `bpm.edit` (BPMN), `risks.manage` (Risikoregister), `comments.create` (Kommentare), `stakeholders.manage` (Stakeholder), `soaw.create` (SoAW), `adr.create` / `adr.sign` (ADRs). |
 
 Die Berechtigung `admin.mcp` steuert, wer MCP-Einstellungen verwalten kann. Sie ist standardmäßig nur für die Admin-Rolle verfügbar. Benutzerdefinierten Rollen kann diese Berechtigung über die Rollenverwaltungsseite gewährt werden.
 
