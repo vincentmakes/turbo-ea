@@ -169,19 +169,6 @@ async def _run(
     # break that visibility under the test harness's savepoint-restart fixture).
     root = await db.begin_nested() if dry_run else None
 
-    # Cards whose data-quality inputs this import changed (created cards, and
-    # existing cards that gained tags/relations/stakeholders). Rescored in a
-    # final pass once every contributing section has been applied — scoring
-    # during the cards pass would miss the relation/tag/stakeholder buckets,
-    # which are imported later.
-    touched_card_ids: set[Any] = set()
-
-    def _with_touched(fn):
-        async def _wrapped(db, bundle, sr, dry_run):
-            await fn(db, bundle, sr, dry_run, touched_card_ids=touched_card_ids)
-
-        return _wrapped
-
     sections = [
         (schema.SHEET_CARD_TYPES, _apply_card_types),
         (schema.SHEET_RELATION_TYPES, _apply_relation_types),
@@ -190,9 +177,9 @@ async def _run(
         (schema.SHEET_TAGS, _apply_tags),
         (schema.SHEET_USERS, _apply_users),
         (schema.SHEET_SETTINGS, _apply_settings),
-        (schema.SHEET_CARDS, _make_cards_applier(user, touched_card_ids)),
-        (schema.SHEET_CARD_TAGS, _with_touched(_apply_card_tags)),
-        (schema.SHEET_RELATIONS, _with_touched(_apply_relations)),
+        (schema.SHEET_CARDS, _make_cards_applier(user)),
+        (schema.SHEET_CARD_TAGS, _apply_card_tags),
+        (schema.SHEET_RELATIONS, _apply_relations),
     ]
 
     try:
@@ -213,14 +200,7 @@ async def _run(
             sr = SectionResult(sheet=ent.sheet)
             result.sections.append(sr)
             await apply_entity_section(
-                db,
-                ent,
-                bundle,
-                sr,
-                ent_resolver,
-                email_to_id,
-                dry_run=dry_run,
-                touched_card_ids=touched_card_ids,
+                db, ent, bundle, sr, ent_resolver, email_to_id, dry_run=dry_run
             )
 
         sr = SectionResult(sheet=SHEET_DIAGRAM_CARDS)
@@ -235,11 +215,16 @@ async def _run(
         result.sections.append(sr)
         await _apply_bookmark_shares(db, bundle, sr, email_to_id)
 
-        # --- Final data-quality pass ---------------------------------------
-        # Rescore every card the import touched, now that its tags, relations,
-        # and stakeholders are all in place. Runs in dry-run too (the savepoint
-        # rolls it back) so a preview exercises the same code path as an apply.
-        await _recompute_data_quality(db, touched_card_ids)
+        # --- Final calculation + data-quality pass --------------------------
+        # Re-run calculated fields and rescore every active card, now that
+        # tags, relations, stakeholders, and PPM data are all in place.
+        # Running during the cards pass would evaluate relation-dependent
+        # formulas against an empty landscape (clobbering exported values) and
+        # score the relation/tag/stakeholder buckets as unfilled. Covering ALL
+        # cards (not just imported ones) also heals rows mis-scored by earlier
+        # importer versions. Runs in dry-run too (the savepoint rolls it back)
+        # so a preview exercises the same code path as an apply.
+        await _finalize_cards(db)
     finally:
         if dry_run:
             assert root is not None
@@ -645,35 +630,38 @@ def _merge_settings(
 # ---------------------------------------------------------------------------
 
 
-async def _recompute_data_quality(db, card_ids: set[Any]) -> None:
-    """Rescore ``data_quality`` for the given cards after all sections landed."""
+async def _finalize_cards(db) -> None:
+    """Re-run calculated fields and rescore data quality for every active card.
+
+    Mirrors the live card routes: calculations run with the same PPM-managed
+    field exclusions (``costBudget``/``costActual`` when budget/cost lines
+    exist — the PPM entity sections have already been applied at this point),
+    then the data-quality score is derived from the final attribute state.
+    """
+    from app.api.v1.cards import _get_ppm_exclusions
+    from app.services.calculation_engine import run_calculations_for_card
     from app.services.data_quality import calc_data_quality
 
-    if not card_ids:
-        return
-    ids = list(card_ids)
+    ids = list((await db.execute(select(Card.id).where(Card.status != "ARCHIVED"))).scalars().all())
     for i in range(0, len(ids), 500):
         chunk = ids[i : i + 500]
-        cards = (
-            (await db.execute(select(Card).where(Card.id.in_(chunk), Card.status != "ARCHIVED")))
-            .scalars()
-            .all()
-        )
+        cards = (await db.execute(select(Card).where(Card.id.in_(chunk)))).scalars().all()
         for card in cards:
+            ppm_excl = await _get_ppm_exclusions(db, card)
+            await run_calculations_for_card(db, card, exclude_fields=ppm_excl)
             score = await calc_data_quality(db, card)
             if card.data_quality != score:
                 card.data_quality = score
     await db.flush()
 
 
-def _make_cards_applier(user: User, touched_card_ids: set[Any]):
+def _make_cards_applier(user: User):
     async def _apply(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: bool) -> None:
         from app.api.v1.cards import (
             _check_hierarchy_depth,
             _sync_capability_level,
             _validate_url_attributes,
         )
-        from app.services.calculation_engine import run_calculations_for_card
         from app.services.event_bus import event_bus
 
         rows = bundle.rows(schema.SHEET_CARDS)
@@ -750,9 +738,10 @@ def _make_cards_applier(user: User, touched_card_ids: set[Any]):
                 if card.parent_id:
                     await _check_hierarchy_depth(db, card, card.parent_id)
                 await _sync_capability_level(db, card)
-                # data_quality is scored in the final pass, once the card's
-                # tags/relations/stakeholders have been imported too.
-                await run_calculations_for_card(db, card)
+                # Calculations and data_quality run in the final pass, once the
+                # card's relations/tags/stakeholders/PPM data have landed too —
+                # running them here would evaluate relation-dependent formulas
+                # against an empty landscape and clobber the exported values.
                 if not dry_run:
                     await event_bus.publish(
                         "card.created",
@@ -762,7 +751,6 @@ def _make_cards_applier(user: User, touched_card_ids: set[Any]):
                         user_id=user.id,
                     )
                 created_refs[(type_key, own_ref)] = card.id
-                touched_card_ids.add(card.id)
                 sr.created += 1
             except Exception as exc:  # noqa: BLE001
                 sr.failed += 1
@@ -789,14 +777,7 @@ async def _card_by_external_id(db, type_key: str, external_id: str):
 # ---------------------------------------------------------------------------
 
 
-async def _apply_card_tags(
-    db,
-    bundle: WorkspaceBundle,
-    sr: SectionResult,
-    dry_run: bool,
-    *,
-    touched_card_ids: set[Any] | None = None,
-) -> None:
+async def _apply_card_tags(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: bool) -> None:
     rows = bundle.rows(schema.SHEET_CARD_TAGS)
     type_keys: set[str] = {str(r["card_type"]) for r in rows if r.get("card_type")}
     resolver = await CardResolver.load(db, type_keys)
@@ -831,20 +812,11 @@ async def _apply_card_tags(
             continue
         db.add(CardTag(card_id=res.card_id, tag_id=tag.id))
         existing_links.add(link)
-        if touched_card_ids is not None:
-            touched_card_ids.add(res.card_id)
         sr.created += 1
     await db.flush()
 
 
-async def _apply_relations(
-    db,
-    bundle: WorkspaceBundle,
-    sr: SectionResult,
-    dry_run: bool,
-    *,
-    touched_card_ids: set[Any] | None = None,
-) -> None:
+async def _apply_relations(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: bool) -> None:
     rows = bundle.rows(schema.SHEET_RELATIONS)
     type_keys: set[str] = set()
     for r in rows:
@@ -887,8 +859,5 @@ async def _apply_relations(
             )
         )
         existing.add(key)
-        if touched_card_ids is not None:
-            touched_card_ids.add(s_res.card_id)
-            touched_card_ids.add(t_res.card_id)
         sr.created += 1
     await db.flush()

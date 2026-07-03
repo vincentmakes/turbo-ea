@@ -504,9 +504,11 @@ async def test_resource_types_roundtrip(db):
 
 
 async def test_data_quality_recomputed_after_import(db):
-    """Imported cards are scored AFTER their relations land — a card whose
-    mandatory relation is satisfied by the bundle must not be penalised for
-    being scored mid-import (discussion #667: dashboard completion drift)."""
+    """Imported cards run calculations and are scored AFTER their relations
+    land — a relation-dependent formula must see the imported relations (not
+    an empty landscape), and a card whose mandatory relation is satisfied by
+    the bundle must not be penalised for being scored mid-import (discussion
+    #667: dashboard completion drift)."""
     user = await create_user(db, email="dq@test.com", role="admin")
 
     card_types = [
@@ -519,13 +521,31 @@ async def test_data_quality_recomputed_after_import(db):
             "has_hierarchy": False,
             "has_successors": False,
             "subtypes": [],
-            "fields_schema": [],
+            "fields_schema": [
+                {
+                    "section": "Main",
+                    "fields": [
+                        {"key": "linkCount", "label": "Links", "type": "number", "weight": 1}
+                    ],
+                }
+            ],
             "stakeholder_roles": [],
             "section_config": {},
             "built_in": False,
             "is_hidden": False,
             "sort_order": 0,
             "translations": {},
+        }
+    ]
+    calculations = [
+        {
+            "name": "link count",
+            "description": None,
+            "target_type_key": "Widget",
+            "target_field_key": "linkCount",
+            "formula": "relation_count.widget_link",
+            "is_active": True,
+            "execution_order": 0,
         }
     ]
     relation_types = [
@@ -575,6 +595,7 @@ async def test_data_quality_recomputed_after_import(db):
             "attributes": {},
         }
     ]
+    calc_section = next(s for s in schema.CONFIG_SECTIONS if s.sheet == schema.SHEET_CALCULATIONS)
     raw = _make_bundle(
         {
             schema.SHEET_CARD_TYPES: (exp.CARD_TYPE_COLUMNS, exp.CARD_TYPE_JSON, card_types),
@@ -582,6 +603,11 @@ async def test_data_quality_recomputed_after_import(db):
                 exp.RELATION_TYPE_COLUMNS,
                 exp.RELATION_TYPE_JSON,
                 relation_types,
+            ),
+            schema.SHEET_CALCULATIONS: (
+                calc_section.columns,
+                calc_section.json_columns,
+                calculations,
             ),
             schema.SHEET_CARDS: (exp.CARD_COLUMNS, exp.CARD_JSON, [_card("Alpha"), _card("Beta")]),
             schema.SHEET_RELATIONS: (exp.RELATION_COLUMNS, exp.RELATION_JSON, relations),
@@ -594,11 +620,17 @@ async def test_data_quality_recomputed_after_import(db):
 
     alpha = (await db.execute(select(Card).where(Card.name == "Alpha"))).scalar_one()
     beta = (await db.execute(select(Card).where(Card.name == "Beta"))).scalar_one()
-    # Alpha: description + lifecycle + satisfied mandatory relation = 3/3.
-    # Scoring during the cards pass (before relations land) would yield 66.7.
+
+    # The relation-dependent calculation ran AFTER the relation landed —
+    # running it during the cards pass would have written 0 for both cards.
+    assert alpha.attributes.get("linkCount") == 1
+    assert beta.attributes.get("linkCount") == 1
+
+    # Alpha: linkCount field + description + lifecycle + satisfied mandatory
+    # relation = 4/4. Scoring during the cards pass would yield 50.0.
     assert alpha.data_quality == 100.0
     # Beta has no outgoing widget_link, so its relations bucket stays open.
-    assert beta.data_quality == round(2 / 3 * 100, 1)
+    assert beta.data_quality == 75.0
 
     # The stored score matches a fresh recompute — no drift left behind.
     from app.services.data_quality import calc_data_quality

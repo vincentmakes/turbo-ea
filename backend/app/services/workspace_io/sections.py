@@ -53,11 +53,7 @@ SHEET_BOOKMARK_SHARES = "BookmarkShares"
 ENTITY_SECTIONS: tuple[EntitySection, ...] = (
     # --- Card context ----------------------------------------------------
     EntitySection(
-        "Stakeholders",
-        Stakeholder,
-        card_fk_columns=("card_id",),
-        user_fk_columns=("user_id",),
-        touches_data_quality=True,  # stakeholder roles contribute to the score
+        "Stakeholders", Stakeholder, card_fk_columns=("card_id",), user_fk_columns=("user_id",)
     ),
     EntitySection(
         "Documents", Document, card_fk_columns=("card_id",), user_fk_columns=("created_by",)

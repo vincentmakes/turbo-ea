@@ -71,10 +71,6 @@ class EntitySection:
     # only analysis runs referenced by a compliance finding). Import is
     # unaffected — whatever rows are in the bundle are applied.
     export_where: Any = None
-    # When True, the resolved card FK of every created row is recorded in the
-    # caller's ``touched_card_ids`` set so the post-import data-quality pass
-    # can rescore those cards (stakeholders contribute to the score).
-    touches_data_quality: bool = False
 
     def value_columns(self) -> list[str]:
         managed = (
@@ -300,7 +296,6 @@ async def apply_entity_section(
     email_to_id: dict[str, Any],
     *,
     dry_run: bool,
-    touched_card_ids: set[Any] | None = None,
 ) -> None:
     """Create rows for a section, preserving PKs and resolving card/user FKs."""
     rows = bundle.rows(section.sheet)
@@ -383,9 +378,5 @@ async def apply_entity_section(
 
         db.add(model(**kwargs))
         existing_pks.add(pk_vals)
-        if section.touches_data_quality and touched_card_ids is not None:
-            for col in section.card_fk_columns:
-                if kwargs.get(col) is not None:
-                    touched_card_ids.add(kwargs[col])
         sr.created += 1
     await db.flush()
