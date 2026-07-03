@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.64.1] - 2026-07-03
+
+### Fixed
+- **The MCP Server URL shown in admin settings now actually connects.** The Admin → Settings → AI panel displayed `https://your-domain/mcp` as the URL to share with your team, but that path does not reach the MCP protocol endpoint — the correct URL is `https://your-domain/mcp/mcp` (the first `/mcp` is the reverse-proxy path, the second the protocol endpoint). The same fix was applied to the Claude setup step in the MCP admin guide, which already showed the correct URL in its VS Code example.
+- **The MCP admin guide caught up with the server it documents.** The guide (all 10 languages) claimed 30 tools (25 read + 5 write), listed only 5 write tools, and stated that archive and bulk-update tools don't exist. It now documents the actual 47 tools (30 read + 17 write, split additive vs destructive), the mutation-batch audit ledger with confirm-token gating, all six guardrail environment variables, and the full set of backend permissions the write tools require.
+
 ## [1.64.0] - 2026-07-03
 
 ### Added
