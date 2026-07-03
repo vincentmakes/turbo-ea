@@ -14,7 +14,7 @@ La exportación captura el workspace completo como un paquete `.zip` que contien
 - **Usuarios** — correo electrónico, nombre para mostrar, rol e indicador de actividad (se usan para revincular la propiedad y las asignaciones en el destino). Sin contraseñas ni identidades SSO.
 - **Inventario** — cada tarjeta (con su jerarquía, ciclo de vida y atributos), etiquetas de tarjeta y relaciones.
 - **Contexto de tarjeta** — partes interesadas, enlaces a documentos, comentarios, tareas pendientes y archivos adjuntos.
-- **Datos de módulos** — BPM (diagramas de proceso, elementos, versiones de flujo, evaluaciones), PPM (informes de estado, costes, presupuestos, riesgos, tareas, WBS, dependencias), el registro de riesgos de GRC (riesgos, tareas de mitigación y sus ocurrencias, enlaces a tarjetas), decisiones de arquitectura y Statements of Architecture Work, diagramas de dibujo libre, informes guardados, marcadores, portales web y encuestas.
+- **Datos de módulos** — BPM (diagramas de proceso, elementos, versiones de flujo, evaluaciones), PPM (informes de estado, costes, presupuestos, riesgos, tareas, WBS, dependencias), el registro de riesgos de GRC (riesgos, tareas de mitigación y sus ocurrencias, enlaces a tarjetas), los hallazgos de cumplimiento de GRC (con las ejecuciones de análisis a las que hacen referencia), decisiones de arquitectura y Statements of Architecture Work, diagramas de dibujo libre, informes guardados, marcadores (vistas guardadas del inventario, incluidas sus comparticiones), portales web y encuestas.
 - **Activos** — los archivos adjuntos binarios, el XML de diagramas y BPMN, y el logo/favicon viajan como archivos separados dentro de la carpeta `assets/` del paquete.
 
 ## Qué nunca se incluye
@@ -27,6 +27,11 @@ Por seguridad, **los secretos nunca se exportan**:
 - Credenciales de ServiceNow
 
 Debe volver a introducirlos en la instancia de destino después de importar. Esto es inevitable por diseño: los valores cifrados están vinculados a la `SECRET_KEY` de la instancia de origen y no pueden descifrarse en ningún otro lugar.
+
+Algunos otros elementos se quedan atrás por diseño:
+
+- **Los resultados de análisis de TurboLens** (análisis de proveedores, clústeres de duplicados, evaluaciones de modernización, evaluaciones de arquitectura guardadas) y el historial de KPI del panel son locales a la instancia — vuelva a ejecutar los análisis en el destino. Los hallazgos de cumplimiento son la excepción y sí se transfieren.
+- **El estado local del navegador** nunca se transfiere: el orden ad hoc de columnas de la cuadrícula del inventario vive en el almacenamiento local de su navegador, no en la base de datos. El diseño de columnas que guardó **dentro de una vista guardada** sí se transfiere con la vista.
 
 ## Exportar
 
@@ -43,10 +48,21 @@ Debe volver a introducirlos en la instancia de destino después de importar. Est
 
 La importación es **idempotente**: el metamodelo y la configuración se emparejan por clave, las tarjetas por id externo o por tipo + ruta de jerarquía, y los usuarios por correo electrónico. Volver a importar el mismo paquete es seguro — las entidades ya presentes se omiten en lugar de duplicarse. Los tipos de metamodelo built-in existentes conservan su identidad; solo se fusiona su esquema editable.
 
+### Cómo leer la vista previa
+
+- **«Omitido» significa «ya presente — no se requiere ninguna acción».** En una instalación nueva verá normalmente omisiones para el contenido que se distribuye con Turbo EA (roles de partes interesadas, tipos de recurso, ajustes predeterminados), porque la copia del paquete es idéntica a lo que el destino ya tiene. Expanda una fila de sección (la flecha de la izquierda) para ver el desglose por motivo y cualquier mensaje de conflicto o de fallo.
+- **Aviso de versión.** La vista previa muestra desde qué versión de Turbo EA se exportó el paquete y advierte cuando difiere de la instancia que importa. La advertencia es solo informativa — la importación se ejecuta igualmente — pero exportar e importar en la misma versión es la vía más segura.
+
 ## Después de importar
 
 - Vuelva a introducir cualquier credencial de SMTP, SSO e IA en sus respectivas pestañas de configuración.
 - Los usuarios sintéticos referenciados por el paquete se crean **desactivados**; actívelos en **Administración → Usuarios** según sea necesario.
+- **Los datos propiedad del usuario siguen al usuario, emparejado por correo electrónico.** Las tareas pendientes, las vistas guardadas, los favoritos y otros datos personales pertenecen a la cuenta cuyo correo electrónico coincide con el del paquete. Si inicia sesión en el destino con un correo distinto al que usó en el origen, sus elementos personales parecerán haber desaparecido — están vinculados a la cuenta coincidente (posiblemente desactivada). Inicie sesión con el mismo correo, o active la cuenta coincidente en **Administración → Usuarios**.
+- Las vistas guardadas privadas solo son visibles para su propietario; las vistas compartidas y públicas siguen sus ajustes de visibilidad.
+
+## Empezar de cero
+
+No existe una función integrada de «deshacer importación». Para restablecer una instancia de destino y volver a importar desde cero, reiníciela una vez con `RESET_DB=true` (elimina y vuelve a crear todas las tablas y, a continuación, vuelve a sembrar los datos), y después vuelva a establecer `RESET_DB=false` **antes** del siguiente reinicio para no borrar los datos recién importados.
 
 ## Permisos
 

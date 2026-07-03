@@ -204,6 +204,20 @@ async def test_export_roundtrip_is_idempotent(db):
     assert totals["created"] == 0, result.as_dict()
     assert totals["updated"] == 0, result.as_dict()
 
+    # Every skip carries a reason so the preview can explain itself: cards are
+    # "already_present", the existing user is "user_exists", and unchanged
+    # metamodel rows are "identical".
+    sections = {s["sheet"]: s for s in result.as_dict()["sections"]}
+    assert sections[schema.SHEET_CARDS]["skip_reasons"] == {"already_present": 2}
+    assert sections[schema.SHEET_USERS]["skip_reasons"] == {"user_exists": 1}
+    ct_reasons = sections[schema.SHEET_CARD_TYPES]["skip_reasons"]
+    assert ct_reasons.get("identical", 0) >= 1
+    for s in result.as_dict()["sections"]:
+        assert s["skipped"] == sum(s["skip_reasons"].values()), s
+
+    # The manifest has always carried the source app version — assert it stays.
+    assert bundle.manifest.get("app_version")
+
 
 async def test_export_excludes_secrets(db):
     """Encrypted secrets must never appear anywhere in the exported bundle."""
@@ -487,3 +501,262 @@ async def test_resource_types_roundtrip(db):
     assert rows[("link_type", "runbook")].translations.get("fr") == "Runbook"
     assert ("file_category", "invoices") in rows
     assert rows[("file_category", "invoices")].is_enabled is False
+
+
+async def test_data_quality_recomputed_after_import(db):
+    """Imported cards are scored AFTER their relations land — a card whose
+    mandatory relation is satisfied by the bundle must not be penalised for
+    being scored mid-import (discussion #667: dashboard completion drift)."""
+    user = await create_user(db, email="dq@test.com", role="admin")
+
+    card_types = [
+        {c: None for c in exp.CARD_TYPE_COLUMNS}
+        | {
+            "key": "Widget",
+            "label": "Widget",
+            "icon": "widgets",
+            "color": "#123456",
+            "has_hierarchy": False,
+            "has_successors": False,
+            "subtypes": [],
+            "fields_schema": [],
+            "stakeholder_roles": [],
+            "section_config": {},
+            "built_in": False,
+            "is_hidden": False,
+            "sort_order": 0,
+            "translations": {},
+        }
+    ]
+    relation_types = [
+        {c: None for c in exp.RELATION_TYPE_COLUMNS}
+        | {
+            "key": "widget_link",
+            "label": "links to",
+            "reverse_label": "linked from",
+            "source_type_key": "Widget",
+            "target_type_key": "Widget",
+            "cardinality": "n:m",
+            "attributes_schema": [],
+            "built_in": False,
+            "is_hidden": False,
+            "sort_order": 0,
+            "translations": {},
+            "source_visible": True,
+            "source_mandatory": True,  # every Widget needs an outgoing link
+            "target_visible": True,
+            "target_mandatory": False,
+        }
+    ]
+
+    def _card(name: str) -> dict:
+        return {
+            "type": "Widget",
+            "name": name,
+            "parent_path": "",
+            "subtype": None,
+            "description": f"{name} description",
+            "external_id": None,
+            "alias": None,
+            "approval_status": "DRAFT",
+            "status": "ACTIVE",
+            "lifecycle": {"active": "2026-01-01"},
+            "attributes": {},
+        }
+
+    relations = [
+        {
+            "type": "widget_link",
+            "source_type": "Widget",
+            "source_ref": "Alpha",
+            "target_type": "Widget",
+            "target_ref": "Beta",
+            "description": None,
+            "attributes": {},
+        }
+    ]
+    raw = _make_bundle(
+        {
+            schema.SHEET_CARD_TYPES: (exp.CARD_TYPE_COLUMNS, exp.CARD_TYPE_JSON, card_types),
+            schema.SHEET_RELATION_TYPES: (
+                exp.RELATION_TYPE_COLUMNS,
+                exp.RELATION_TYPE_JSON,
+                relation_types,
+            ),
+            schema.SHEET_CARDS: (exp.CARD_COLUMNS, exp.CARD_JSON, [_card("Alpha"), _card("Beta")]),
+            schema.SHEET_RELATIONS: (exp.RELATION_COLUMNS, exp.RELATION_JSON, relations),
+        }
+    )
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    assert result.total_conflict == 0, result.as_dict()
+
+    alpha = (await db.execute(select(Card).where(Card.name == "Alpha"))).scalar_one()
+    beta = (await db.execute(select(Card).where(Card.name == "Beta"))).scalar_one()
+    # Alpha: description + lifecycle + satisfied mandatory relation = 3/3.
+    # Scoring during the cards pass (before relations land) would yield 66.7.
+    assert alpha.data_quality == 100.0
+    # Beta has no outgoing widget_link, so its relations bucket stays open.
+    assert beta.data_quality == round(2 / 3 * 100, 1)
+
+    # The stored score matches a fresh recompute — no drift left behind.
+    from app.services.data_quality import calc_data_quality
+
+    assert alpha.data_quality == await calc_data_quality(db, alpha)
+    assert beta.data_quality == await calc_data_quality(db, beta)
+
+
+async def test_compliance_findings_roundtrip(db):
+    """Compliance findings + the analysis runs they reference transfer;
+    unreferenced (vendor/duplicate/architect) runs stay instance-local."""
+    from app.models.turbolens import TurboLensAnalysisRun, TurboLensComplianceFinding
+
+    user = await create_user(db, email="grc@test.com", role="admin")
+    await create_card_type(db, key="Application", label="Application")
+    card = await create_card(db, card_type="Application", name="Regulated App", user_id=user.id)
+
+    run = TurboLensAnalysisRun(
+        analysis_type="compliance", status="completed", results={"n": 1}, created_by=user.id
+    )
+    vendor_run = TurboLensAnalysisRun(analysis_type="vendor", status="completed", results={})
+    db.add_all([run, vendor_run])
+    await db.flush()
+    finding = TurboLensComplianceFinding(
+        run_id=run.id,
+        last_seen_run_id=run.id,
+        regulation="gdpr",
+        regulation_article="Art. 32",
+        card_id=card.id,
+        requirement="Security of processing",
+        status="gap",
+        severity="high",
+        gap_description="No encryption at rest",
+        finding_key="k1",
+        decision="accepted",
+        reviewed_by=user.id,
+    )
+    db.add(finding)
+    await db.flush()
+    run_id, finding_id = run.id, finding.id
+
+    raw = await build_bundle(db)
+    bundle = parse_bundle(raw)
+
+    # Only the run referenced by a finding is exported.
+    run_rows = bundle.rows("TurbolensAnalysisRuns")
+    assert [r["id"] for r in run_rows] == [str(run_id)]
+    finding_rows = bundle.rows("ComplianceFindings")
+    assert len(finding_rows) == 1
+    assert finding_rows[0]["card_id__ref"] == "Regulated App"
+    assert finding_rows[0]["reviewed_by__email"] == "grc@test.com"
+
+    # Delete, re-import, and verify a faithful restore.
+    await db.execute(
+        delete(TurboLensComplianceFinding).where(TurboLensComplianceFinding.id == finding_id)
+    )
+    await db.execute(delete(TurboLensAnalysisRun).where(TurboLensAnalysisRun.id == run_id))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    assert result.total_conflict == 0, result.as_dict()
+
+    restored = (
+        await db.execute(
+            select(TurboLensComplianceFinding).where(TurboLensComplianceFinding.id == finding_id)
+        )
+    ).scalar_one()
+    assert restored.run_id == run_id  # intra-module FK preserved verbatim
+    assert restored.card_id == card.id  # card FK resolved by ref
+    assert restored.reviewed_by == user.id  # user FK remapped by email
+    assert restored.decision == "accepted"
+    assert restored.severity == "high"
+    restored_run = (
+        await db.execute(select(TurboLensAnalysisRun).where(TurboLensAnalysisRun.id == run_id))
+    ).scalar_one()
+    assert restored_run.results == {"n": 1}
+
+    # Idempotent re-apply.
+    result2 = await apply_bundle(db, parse_bundle(raw), user)
+    findings_section = next(s for s in result2.sections if s.sheet == "ComplianceFindings")
+    assert findings_section.created == 0 and findings_section.skipped == 1
+
+
+async def test_unresolved_required_user_fk_is_conflict(db):
+    """A row whose NOT-NULL user FK can't be matched by email is reported as a
+    conflict and skipped — it must not abort the whole import with an
+    IntegrityError at flush time."""
+    from app.models.bookmark import Bookmark
+    from app.services.workspace_io.sections import ENTITY_SECTIONS
+
+    user = await create_user(db, email="importer2@test.com", role="admin")
+    bm_section = next(s for s in ENTITY_SECTIONS if s.sheet == "Bookmarks")
+    row = {c: None for c in bm_section.header()} | {
+        "id": "8a1c2f34-0000-4000-8000-000000000001",
+        "name": "Ghost View",
+        "visibility": "private",
+        "is_default": False,
+        "odata_enabled": False,
+        "user_id__email": "ghost@nowhere.example",  # no Users sheet → unresolvable
+    }
+    raw = _make_bundle(
+        {"Bookmarks": (tuple(bm_section.header()), frozenset(), [row])},
+    )
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    bm = next(s for s in result.sections if s.sheet == "Bookmarks")
+    assert bm.conflict == 1 and bm.created == 0
+    assert any("ghost@nowhere.example" in e for e in bm.errors)
+    assert (await db.execute(select(Bookmark).where(Bookmark.name == "Ghost View"))).first() is None
+
+
+async def test_bookmark_shares_roundtrip(db):
+    """A saved view shared with another user keeps its share (and can_edit
+    flag) across export → delete → re-import; re-apply skips."""
+    from app.models.bookmark import Bookmark, bookmark_shares
+    from app.services.workspace_io.sections import SHEET_BOOKMARK_SHARES
+
+    owner = await create_user(db, email="owner-bm@test.com", role="admin")
+    peer = await create_user(db, email="peer-bm@test.com", role="member")
+    bm = Bookmark(user_id=owner.id, name="Shared View", visibility="private")
+    db.add(bm)
+    await db.flush()
+    await db.execute(
+        bookmark_shares.insert().values(bookmark_id=bm.id, user_id=peer.id, can_edit=True)
+    )
+    await db.flush()
+
+    raw = await build_bundle(db)
+    bundle = parse_bundle(raw)
+    share_rows = bundle.rows(SHEET_BOOKMARK_SHARES)
+    assert share_rows == [
+        {"bookmark_id": str(bm.id), "user_email": "peer-bm@test.com", "can_edit": True}
+    ]
+
+    await db.execute(delete(bookmark_shares))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), owner)
+    assert result.total_failed == 0, result.as_dict()
+    restored = (await db.execute(select(bookmark_shares))).all()
+    assert [(r.bookmark_id, r.user_id, r.can_edit) for r in restored] == [(bm.id, peer.id, True)]
+
+    result2 = await apply_bundle(db, parse_bundle(raw), owner)
+    shares_section = next(s for s in result2.sections if s.sheet == SHEET_BOOKMARK_SHARES)
+    assert shares_section.created == 0 and shares_section.skipped == 1
+    assert shares_section.skip_reasons == {"already_present": 1}
+
+
+async def test_transfer_out_exposes_source_app_version():
+    """The import API surfaces the bundle's source app version for the
+    advisory version check in the preview UI."""
+    from app.api.v1.workspace import _to_out
+    from app.models.workspace_transfer import WorkspaceTransfer
+
+    t = WorkspaceTransfer(
+        filename="x.zip", status="previewed", source_app_version="1.62.3", format_version="1"
+    )
+    out = _to_out(t)
+    assert out.source_app_version == "1.62.3"

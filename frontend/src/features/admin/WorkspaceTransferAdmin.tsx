@@ -7,7 +7,9 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
+  Collapse,
   FormControlLabel,
+  IconButton,
   LinearProgress,
   Stack,
   Table,
@@ -15,13 +17,17 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
 } from "@mui/material";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { primeBootstrap, resetBootstrap } from "@/api/bootstrap";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { invalidateCalculatedFields } from "@/hooks/useCalculatedFields";
+import { invalidateCache as invalidateMetamodel } from "@/hooks/useMetamodel";
 
 interface SectionResult {
   sheet: string;
@@ -31,6 +37,8 @@ interface SectionResult {
   conflict: number;
   failed: number;
   errors: string[];
+  errors_total?: number;
+  skip_reasons?: Record<string, number>;
 }
 
 interface TransferReport {
@@ -50,10 +58,24 @@ interface WorkspaceTransfer {
   filename: string;
   status: string;
   format_version?: string | null;
+  source_app_version?: string | null;
   source_url?: string | null;
   diff?: TransferReport | null;
   result?: TransferReport | null;
   error_message?: string | null;
+}
+
+/**
+ * An import can flip feature toggles (PPM/BPM/GRC), metamodel, currency,
+ * locales, compliance regulations, calculations, … — all held in boot-time
+ * singleton caches. Re-prime them so the app reflects the imported workspace
+ * without a manual browser refresh.
+ */
+function refreshAppCaches() {
+  resetBootstrap(); // primeBootstrap is guarded — must reset before re-priming
+  void primeBootstrap();
+  void invalidateMetamodel();
+  invalidateCalculatedFields();
 }
 
 const POLL_MS = 2000;
@@ -92,6 +114,8 @@ export default function WorkspaceTransferAdmin() {
           setTransfer(next);
           if (!TERMINAL.has(next.status)) {
             poll(id);
+          } else if (next.status === "applied") {
+            refreshAppCaches();
           }
         } catch (e) {
           setImportError(e instanceof Error ? e.message : String(e));
@@ -310,6 +334,20 @@ export default function WorkspaceTransferAdmin() {
 
               {(isPreviewing || isApplying) && <LinearProgress sx={{ mb: 2 }} />}
 
+              {transfer.source_app_version &&
+                transfer.source_app_version !== __APP_VERSION__ && (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    {t(
+                      "workspaceTransfer.import.versionMismatch",
+                      "This bundle was exported from Turbo EA {{source}}, but this instance runs {{current}}. The import can proceed — review the preview carefully, and prefer matching versions when possible.",
+                      {
+                        source: transfer.source_app_version,
+                        current: __APP_VERSION__,
+                      },
+                    )}
+                  </Alert>
+                )}
+
               {transfer.error_message && (
                 <Alert severity="error" sx={{ mb: 2 }}>
                   {transfer.error_message}
@@ -344,53 +382,135 @@ export default function WorkspaceTransferAdmin() {
   );
 }
 
-function ReportTable({
-  report,
-  t,
-}: {
-  report: TransferReport;
-  t: ReturnType<typeof useTranslation>["t"] | ((k: string, d?: string) => string);
-}) {
+type Translate = ReturnType<typeof useTranslation>["t"];
+
+function ReportTable({ report, t }: { report: TransferReport; t: Translate }) {
   const rows = report.sections.filter(
     (s) => s.created || s.updated || s.skipped || s.conflict || s.failed,
   );
   return (
     <Box>
-      <Typography variant="body2" sx={{ mb: 1 }}>
+      <Typography variant="body2" sx={{ mb: 0.5 }}>
         {t("workspaceTransfer.report.heading", "Preview")} — {t("workspaceTransfer.report.created", "Created")}: {report.totals.created},{" "}
         {t("workspaceTransfer.report.updated", "Updated")}: {report.totals.updated},{" "}
         {t("workspaceTransfer.report.skipped", "Skipped")}: {report.totals.skipped},{" "}
         {t("workspaceTransfer.report.conflict", "Conflicts")}: {report.totals.conflict},{" "}
         {t("workspaceTransfer.report.failed", "Failed")}: {report.totals.failed}
       </Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+        {t(
+          "workspaceTransfer.report.skippedHint",
+          "Skipped means the item already exists on this instance — no action was needed.",
+        )}
+      </Typography>
       <Table size="small">
         <TableHead>
           <TableRow>
+            <TableCell sx={{ width: 40 }} />
             <TableCell>{t("workspaceTransfer.report.section", "Section")}</TableCell>
             <TableCell align="right">{t("workspaceTransfer.report.created", "Created")}</TableCell>
             <TableCell align="right">{t("workspaceTransfer.report.updated", "Updated")}</TableCell>
-            <TableCell align="right">{t("workspaceTransfer.report.skipped", "Skipped")}</TableCell>
+            <TableCell align="right">
+              <Tooltip
+                title={t(
+                  "workspaceTransfer.report.skippedHint",
+                  "Skipped means the item already exists on this instance — no action was needed.",
+                )}
+              >
+                <span>{t("workspaceTransfer.report.skipped", "Skipped")}</span>
+              </Tooltip>
+            </TableCell>
             <TableCell align="right">{t("workspaceTransfer.report.conflict", "Conflicts")}</TableCell>
             <TableCell align="right">{t("workspaceTransfer.report.failed", "Failed")}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {rows.map((s) => (
-            <TableRow key={s.sheet}>
-              <TableCell>{s.sheet}</TableCell>
-              <TableCell align="right">{s.created || ""}</TableCell>
-              <TableCell align="right">{s.updated || ""}</TableCell>
-              <TableCell align="right">{s.skipped || ""}</TableCell>
-              <TableCell align="right">
-                {s.conflict ? <Chip size="small" color="warning" label={s.conflict} /> : ""}
-              </TableCell>
-              <TableCell align="right">
-                {s.failed ? <Chip size="small" color="error" label={s.failed} /> : ""}
-              </TableCell>
-            </TableRow>
+            <SectionRow key={s.sheet} section={s} t={t} />
           ))}
         </TableBody>
       </Table>
     </Box>
+  );
+}
+
+function SectionRow({ section: s, t }: { section: SectionResult; t: Translate }) {
+  const [open, setOpen] = useState(false);
+  const reasons = Object.entries(s.skip_reasons ?? {});
+  const hasDetails = reasons.length > 0 || s.errors.length > 0;
+  const errorsTotal = s.errors_total ?? s.errors.length;
+  return (
+    <Fragment>
+      <TableRow>
+        <TableCell sx={{ width: 40 }}>
+          {hasDetails && (
+            <IconButton
+              size="small"
+              onClick={() => setOpen((v) => !v)}
+              aria-label={t("workspaceTransfer.report.toggleDetails", "Toggle details")}
+            >
+              <MaterialSymbol icon={open ? "expand_less" : "expand_more"} size={18} />
+            </IconButton>
+          )}
+        </TableCell>
+        <TableCell>{s.sheet}</TableCell>
+        <TableCell align="right">{s.created || ""}</TableCell>
+        <TableCell align="right">{s.updated || ""}</TableCell>
+        <TableCell align="right">{s.skipped || ""}</TableCell>
+        <TableCell align="right">
+          {s.conflict ? <Chip size="small" color="warning" label={s.conflict} /> : ""}
+        </TableCell>
+        <TableCell align="right">
+          {s.failed ? <Chip size="small" color="error" label={s.failed} /> : ""}
+        </TableCell>
+      </TableRow>
+      {hasDetails && (
+        <TableRow>
+          <TableCell colSpan={7} sx={{ py: 0, border: 0 }}>
+            <Collapse in={open} timeout="auto" unmountOnExit>
+              <Box sx={{ py: 1, pl: 5 }}>
+                {reasons.length > 0 && (
+                  <Box sx={{ mb: s.errors.length ? 1 : 0 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {t("workspaceTransfer.report.skipReasons", "Skip reasons")}
+                    </Typography>
+                    {reasons.map(([key, count]) => (
+                      <Typography key={key} variant="body2">
+                        {t(`workspaceTransfer.report.reason.${key}`, key)} × {count}
+                      </Typography>
+                    ))}
+                  </Box>
+                )}
+                {s.errors.length > 0 && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      {t("workspaceTransfer.report.messages", "Messages")}
+                    </Typography>
+                    {s.errors.map((msg, i) => (
+                      <Typography
+                        key={i}
+                        variant="body2"
+                        sx={{ fontFamily: "monospace", fontSize: 12 }}
+                      >
+                        {msg}
+                      </Typography>
+                    ))}
+                    {errorsTotal > s.errors.length && (
+                      <Typography variant="caption" color="text.secondary">
+                        {t(
+                          "workspaceTransfer.report.messagesTruncated",
+                          "Showing the first {{shown}} of {{total}} messages",
+                          { shown: s.errors.length, total: errorsTotal },
+                        )}
+                      </Typography>
+                    )}
+                  </Box>
+                )}
+              </Box>
+            </Collapse>
+          </TableCell>
+        </TableRow>
+      )}
+    </Fragment>
   );
 }

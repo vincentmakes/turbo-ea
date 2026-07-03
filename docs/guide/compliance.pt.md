@@ -105,7 +105,7 @@ A aba Conformidade também mostra um **KPI geral de conformidade** no topo da p�
 
 ## Conformidade num único card
 
-![Detalhe do card — aba Conformidade](../assets/img/pt/56_card_compliance_tab.png)
+![Detalhe do card — aba Conformidade](../assets/img/pt/56_ficha_conformidade_tab.png)
 
 Cards no escopo de qualquer descoberta também expõem uma aba **Conformidade** na sua página de detalhe (governada por `compliance.view`). Lista cada descoberta atualmente vinculada ao card com as mesmas ações Reconhecer / Aceitar / **Criar risco** / **Abrir risco** da visão GRC — de modo que um Application Owner possa triagiar suas próprias descobertas sem deixar o card. A mesma regra de auto-ocultação se aplica à aba **Riscos** no detalhe do card: ambas as abas só aparecem quando o card realmente tem itens vinculados, de modo que cards sem atividade GRC não arrastam abas vazias.
 
