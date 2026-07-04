@@ -1678,7 +1678,5 @@
   "auditLog.rollback.rollingBack": "A reverter…",
   "auditLog.rollback.force": "Forçar a reversão",
   "auditLog.rollback.rollback": "Reverter",
-  "users.create.passwordOptionalLocalHelperText": "Deixe em branco para que o utilizador defina a palavra-passe no primeiro início de sessão.",
-  "users.create.setupLinkHint": "Utilizador criado. Partilhe esta ligação de utilização única para que possa definir a sua palavra-passe:",
-  "users.create.copySetupLink": "Copiar ligação"
+  "users.create.passwordOptionalLocalHelperText": "Deixe em branco para que o utilizador defina a palavra-passe no primeiro início de sessão."
 }

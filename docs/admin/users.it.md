@@ -45,7 +45,7 @@ Lo stato dei filtri, le colonne visibili, la larghezza della barra laterale e il
 **Cosa succede dietro le quinte:**
 - Viene creato un account utente nel sistema
 - Viene creato anche un record di invito SSO, così se l'utente accede tramite SSO, riceve automaticamente il ruolo pre-assegnato
-- Se non viene impostata una password (un account «In attesa di configurazione»), viene generato un token monouso per l'impostazione della password. L'utente imposta la propria password al primo accesso tramite il link, recapitato dall'email di invito se hai selezionato la casella, oppure tramite il link copiabile mostrato dopo la creazione. Può raggiungerlo anche dall'opzione «Password dimenticata» nella pagina di accesso, pur non avendo mai avuto una password
+- Se non viene impostata una password (un account «In attesa di configurazione»), viene generato un token monouso per l'impostazione della password. Se selezioni «Invia email di invito», viene recapitato come link per impostare la password; altrimenti l'utente imposta la propria password al primo accesso tramite l'opzione «Password dimenticata» nella pagina di accesso, che funziona anche se non ha mai avuto una password
 
 #### Modifica di un utente
 

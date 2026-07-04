@@ -617,7 +617,5 @@
   "todos.recurrence.months_one": "كل شهر",
   "todos.recurrence.months_other": "كل {{count}} أشهر",
   "todos.recurrence.years_one": "كل سنة",
-  "todos.recurrence.years_other": "كل {{count}} سنوات",
-  "stakeholders.setupLinkHint": "تم إنشاء المستخدم. شارك هذا الرابط لمرة واحدة حتى يتمكن من تعيين كلمة المرور الخاصة به:",
-  "stakeholders.copySetupLink": "نسخ الرابط"
+  "todos.recurrence.years_other": "كل {{count}} سنوات"
 }

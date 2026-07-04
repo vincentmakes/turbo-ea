@@ -1678,7 +1678,5 @@
   "auditLog.rollback.rollingBack": "Rolling back…",
   "auditLog.rollback.force": "Force rollback",
   "auditLog.rollback.rollback": "Roll back",
-  "users.create.passwordOptionalLocalHelperText": "Leave blank to let the user set their own password on first login.",
-  "users.create.setupLinkHint": "User created. Share this one-time link so they can set their password:",
-  "users.create.copySetupLink": "Copy link"
+  "users.create.passwordOptionalLocalHelperText": "Leave blank to let the user set their own password on first login."
 }

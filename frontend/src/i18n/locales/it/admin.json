@@ -1678,7 +1678,5 @@
   "auditLog.rollback.rollingBack": "Annullamento in corso…",
   "auditLog.rollback.force": "Forza l'annullamento",
   "auditLog.rollback.rollback": "Annulla",
-  "users.create.passwordOptionalLocalHelperText": "Lascia vuoto per consentire all'utente di impostare la password al primo accesso.",
-  "users.create.setupLinkHint": "Utente creato. Condividi questo link monouso per consentirgli di impostare la password:",
-  "users.create.copySetupLink": "Copia link"
+  "users.create.passwordOptionalLocalHelperText": "Lascia vuoto per consentire all'utente di impostare la password al primo accesso."
 }

@@ -617,7 +617,5 @@
   "todos.recurrence.months_one": "Каждый месяц",
   "todos.recurrence.months_other": "Каждые {{count}} мес.",
   "todos.recurrence.years_one": "Каждый год",
-  "todos.recurrence.years_other": "Каждые {{count}} лет",
-  "stakeholders.setupLinkHint": "Пользователь создан. Поделитесь этой одноразовой ссылкой, чтобы он мог задать пароль:",
-  "stakeholders.copySetupLink": "Скопировать ссылку"
+  "todos.recurrence.years_other": "Каждые {{count}} лет"
 }

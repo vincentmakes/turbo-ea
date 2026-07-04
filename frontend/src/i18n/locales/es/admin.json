@@ -1678,7 +1678,5 @@
   "auditLog.rollback.rollingBack": "Revirtiendo…",
   "auditLog.rollback.force": "Forzar la reversión",
   "auditLog.rollback.rollback": "Revertir",
-  "users.create.passwordOptionalLocalHelperText": "Déjalo en blanco para que el usuario establezca su contraseña en el primer inicio de sesión.",
-  "users.create.setupLinkHint": "Usuario creado. Comparte este enlace de un solo uso para que pueda establecer su contraseña:",
-  "users.create.copySetupLink": "Copiar enlace"
+  "users.create.passwordOptionalLocalHelperText": "Déjalo en blanco para que el usuario establezca su contraseña en el primer inicio de sesión."
 }

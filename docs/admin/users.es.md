@@ -45,7 +45,7 @@ El estado del filtro, las columnas visibles, el ancho de la barra lateral y su e
 **Lo que sucede internamente:**
 - Se crea una cuenta de usuario en el sistema
 - También se crea un registro de invitación SSO, de modo que si el usuario inicia sesión a través de SSO, recibirá automáticamente el rol preasignado
-- Si no se establece una contraseña (una cuenta «Configuración pendiente»), se genera un token de un solo uso para configurar la contraseña. El usuario establece su propia contraseña en el primer inicio de sesión mediante el enlace, entregado por el correo de invitación si marcó la casilla, o mediante el enlace copiable que se muestra tras la creación. También puede obtenerlo desde la opción «Olvidé mi contraseña» de la página de inicio de sesión, aunque nunca haya tenido una contraseña
+- Si no se establece una contraseña (una cuenta «Configuración pendiente»), se genera un token de un solo uso para configurar la contraseña. Si marca «Enviar correo de invitación», se entrega como un enlace para configurar la contraseña; de lo contrario, el usuario establece su contraseña en el primer inicio de sesión mediante la opción «Olvidé mi contraseña» de la página de inicio de sesión, que funciona aunque nunca haya tenido una contraseña
 
 #### Editar un Usuario
 

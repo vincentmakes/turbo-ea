@@ -1678,7 +1678,5 @@
   "auditLog.rollback.rollingBack": "جارٍ التراجع…",
   "auditLog.rollback.force": "فرض التراجع",
   "auditLog.rollback.rollback": "تراجع",
-  "users.create.passwordOptionalLocalHelperText": "اتركه فارغًا ليقوم المستخدم بتعيين كلمة المرور الخاصة به عند أول تسجيل دخول.",
-  "users.create.setupLinkHint": "تم إنشاء المستخدم. شارك هذا الرابط لمرة واحدة حتى يتمكن من تعيين كلمة المرور الخاصة به:",
-  "users.create.copySetupLink": "نسخ الرابط"
+  "users.create.passwordOptionalLocalHelperText": "اتركه فارغًا ليقوم المستخدم بتعيين كلمة المرور الخاصة به عند أول تسجيل دخول."
 }

@@ -1678,7 +1678,5 @@
   "auditLog.rollback.rollingBack": "正在回滚…",
   "auditLog.rollback.force": "强制回滚",
   "auditLog.rollback.rollback": "回滚",
-  "users.create.passwordOptionalLocalHelperText": "留空以让用户在首次登录时自行设置密码。",
-  "users.create.setupLinkHint": "用户已创建。请分享此一次性链接，以便其设置密码：",
-  "users.create.copySetupLink": "复制链接"
+  "users.create.passwordOptionalLocalHelperText": "留空以让用户在首次登录时自行设置密码。"
 }

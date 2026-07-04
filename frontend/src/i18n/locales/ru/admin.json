@@ -1678,7 +1678,5 @@
   "auditLog.rollback.rollingBack": "Откат…",
   "auditLog.rollback.force": "Принудительный откат",
   "auditLog.rollback.rollback": "Откатить",
-  "users.create.passwordOptionalLocalHelperText": "Оставьте пустым, чтобы пользователь задал пароль при первом входе.",
-  "users.create.setupLinkHint": "Пользователь создан. Поделитесь этой одноразовой ссылкой, чтобы он мог задать пароль:",
-  "users.create.copySetupLink": "Скопировать ссылку"
+  "users.create.passwordOptionalLocalHelperText": "Оставьте пустым, чтобы пользователь задал пароль при первом входе."
 }

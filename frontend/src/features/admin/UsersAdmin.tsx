@@ -117,10 +117,6 @@ export default function UsersAdmin() {
   const [createUserForm, setCreateUserForm] = useState<CreateUserFormState>(EMPTY_CREATE_USER);
   const [createUserError, setCreateUserError] = useState<string | null>(null);
   const [createUserSubmitting, setCreateUserSubmitting] = useState(false);
-  // Copyable /auth/set-password link surfaced after creating a password-less
-  // local account without an invite email (or when the email failed).
-  const [createSetupLink, setCreateSetupLink] = useState<string | null>(null);
-  const [createLinkCopied, setCreateLinkCopied] = useState(false);
 
   // Edit dialog state
   const [editOpen, setEditOpen] = useState(false);
@@ -363,8 +359,6 @@ export default function UsersAdmin() {
   const openCreateUser = () => {
     setCreateUserForm(EMPTY_CREATE_USER);
     setCreateUserError(null);
-    setCreateSetupLink(null);
-    setCreateLinkCopied(false);
     setCreateUserOpen(true);
   };
 
@@ -379,29 +373,20 @@ export default function UsersAdmin() {
     try {
       setCreateUserSubmitting(true);
       setCreateUserError(null);
-      const created = await api.post<
-        User & { email_error?: string; email_sent?: boolean; setup_token?: string }
-      >("/users", {
-        email: createUserForm.email.trim(),
-        display_name: createUserForm.display_name.trim(),
-        password: createUserForm.password || null,
-        role: createUserForm.role,
-        send_email: createUserForm.send_email,
-      });
+      const created = await api.post<User & { email_error?: string; email_sent?: boolean }>(
+        "/users",
+        {
+          email: createUserForm.email.trim(),
+          display_name: createUserForm.display_name.trim(),
+          password: createUserForm.password || null,
+          role: createUserForm.role,
+          send_email: createUserForm.send_email,
+        }
+      );
       setUsers((prev) => [...prev, created]);
       setCreateUserOpen(false);
-      // Surface the copyable set-password link when no invite email was
-      // delivered but the account still needs a password (password-less).
-      const emailDelivered =
-        createUserForm.send_email && created.email_sent && !created.email_error;
-      if (!emailDelivered && created.setup_token) {
-        setCreateSetupLink(
-          `${window.location.origin}/auth/set-password?token=${created.setup_token}`
-        );
-        setCreateLinkCopied(false);
-      } else {
-        setCreateSetupLink(null);
-      }
+      // Password-less accounts set their password on first login via «Forgot
+      // password» on the login page; surface only an email-send failure here.
       if (createUserForm.send_email && created.email_error) {
         setWarning(created.email_error);
       } else {
@@ -1036,44 +1021,6 @@ export default function UsersAdmin() {
           {success && (
             <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
               {success}
-            </Alert>
-          )}
-          {createSetupLink && (
-            <Alert
-              severity="info"
-              sx={{ mb: 2 }}
-              onClose={() => setCreateSetupLink(null)}
-              action={
-                <IconButton
-                  size="small"
-                  color="inherit"
-                  title={t("users.create.copySetupLink")}
-                  onClick={() => {
-                    navigator.clipboard
-                      ?.writeText(createSetupLink)
-                      .then(() => setCreateLinkCopied(true))
-                      .catch(() => {});
-                  }}
-                >
-                  <MaterialSymbol
-                    icon={createLinkCopied ? "check" : "content_copy"}
-                    size={18}
-                  />
-                </IconButton>
-              }
-            >
-              {t("users.create.setupLinkHint")}
-              <Box
-                component="code"
-                sx={{
-                  display: "block",
-                  mt: 0.5,
-                  wordBreak: "break-all",
-                  fontSize: "0.8rem",
-                }}
-              >
-                {createSetupLink}
-              </Box>
             </Alert>
           )}
 

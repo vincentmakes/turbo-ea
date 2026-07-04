@@ -45,7 +45,7 @@ O estado do filtro, colunas visíveis, largura da barra lateral e seu estado rec
 **O que acontece nos bastidores:**
 - Uma conta de usuário é criada no sistema
 - Um registro de convite SSO também é criado, então se o usuário fizer login via SSO, ele receberá automaticamente o papel pré-atribuído
-- Se nenhuma senha for definida (uma conta «Configuração Pendente»), um token de uso único para configuração de senha é gerado. O usuário define a própria senha no primeiro login pelo link — entregue pelo e-mail de convite quando você marca a caixa, ou pelo link copiável exibido após a criação. Ele também pode obtê-lo pela opção «Esqueci minha senha» na página de login, mesmo nunca tendo tido uma senha
+- Se nenhuma senha for definida (uma conta «Configuração Pendente»), um token de uso único para configuração de senha é gerado. Se você marcar «Enviar e-mail de convite», ele é entregue como um link para definir a senha; caso contrário, o usuário define a senha no primeiro login pela opção «Esqueci minha senha» na página de login, que funciona mesmo que nunca tenha tido uma senha
 
 #### Editando um Usuário
 

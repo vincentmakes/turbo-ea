@@ -1678,7 +1678,5 @@
   "auditLog.rollback.rollingBack": "Rücknahme läuft…",
   "auditLog.rollback.force": "Rücknahme erzwingen",
   "auditLog.rollback.rollback": "Zurücknehmen",
-  "users.create.passwordOptionalLocalHelperText": "Leer lassen, damit der Benutzer beim ersten Anmelden sein eigenes Passwort festlegt.",
-  "users.create.setupLinkHint": "Benutzer erstellt. Teilen Sie diesen einmaligen Link, damit die Person ihr Passwort festlegen kann:",
-  "users.create.copySetupLink": "Link kopieren"
+  "users.create.passwordOptionalLocalHelperText": "Leer lassen, damit der Benutzer beim ersten Anmelden sein eigenes Passwort festlegt."
 }

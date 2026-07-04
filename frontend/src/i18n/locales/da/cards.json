@@ -617,7 +617,5 @@
   "todos.recurrence.months_one": "Hver måned",
   "todos.recurrence.months_other": "Hver {{count}}. måned",
   "todos.recurrence.years_one": "Hvert år",
-  "todos.recurrence.years_other": "Hvert {{count}}. år",
-  "stakeholders.setupLinkHint": "Bruger oprettet. Del dette engangslink, så de kan angive deres adgangskode:",
-  "stakeholders.copySetupLink": "Kopiér link"
+  "todos.recurrence.years_other": "Hvert {{count}}. år"
 }

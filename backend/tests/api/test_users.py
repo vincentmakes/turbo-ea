@@ -295,10 +295,11 @@ class TestUpdateUser:
     async def test_create_user_without_password_allowed_when_sso_disabled(
         self, client, db, users_env
     ):
-        """A local account may be created with no password and no invite email:
-        it gets a single-use setup token so the user picks their own password on
-        first login. The one-time link is returned to the creator (only from the
-        create response) so it can be shared out-of-band.
+        """A local account may be created with no password and no invite email.
+        It lands as a «Pending Setup» account (password-less) — the user sets
+        their password on first login via «Forgot password» on the login page.
+        The one-time setup token is stored on the row but never returned by the
+        API.
         """
         admin = users_env["admin"]
         resp = await client.post(
@@ -315,25 +316,12 @@ class TestUpdateUser:
         data = resp.json()
         assert data["has_password"] is False
         assert data["pending_setup"] is True
-        token = data["setup_token"]
-        assert token
+        # The one-time setup token is never surfaced through the API.
+        assert "setup_token" not in data
 
-        # The token validates and lets the user set their own password + logs in.
-        val = await client.get(f"/api/v1/auth/validate-setup-token?token={token}")
-        assert val.status_code == 200
-        assert val.json()["email"] == "no-pass@test.com"
-
-        setp = await client.post(
-            "/api/v1/auth/set-password",
-            json={"token": token, "password": "UserPicks1"},
-        )
-        assert setp.status_code == 200
-        assert setp.json()["access_token"]
-
-    async def test_setup_token_not_leaked_when_password_supplied(self, client, db, users_env):
-        """A user created WITH a password has no setup token — and the create
-        response must not carry one. The token only appears for password-less
-        accounts (and never from the shared list/get responses)."""
+    async def test_setup_token_never_returned_by_api(self, client, db, users_env):
+        """Neither the create response nor the list endpoint exposes the setup
+        token, whether or not a password was supplied at creation."""
         admin = users_env["admin"]
         resp = await client.post(
             "/api/v1/users",

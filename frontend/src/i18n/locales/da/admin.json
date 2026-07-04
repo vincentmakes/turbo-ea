@@ -1678,7 +1678,5 @@
   "auditLog.rollback.rollingBack": "Ruller tilbage…",
   "auditLog.rollback.force": "Gennemtving tilbagerulning",
   "auditLog.rollback.rollback": "Rul tilbage",
-  "users.create.passwordOptionalLocalHelperText": "Lad feltet være tomt, så brugeren selv angiver adgangskoden ved første login.",
-  "users.create.setupLinkHint": "Bruger oprettet. Del dette engangslink, så de kan angive deres adgangskode:",
-  "users.create.copySetupLink": "Kopiér link"
+  "users.create.passwordOptionalLocalHelperText": "Lad feltet være tomt, så brugeren selv angiver adgangskoden ved første login."
 }

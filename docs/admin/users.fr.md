@@ -45,7 +45,7 @@ L'état des filtres, les colonnes visibles, la largeur de la barre latérale et 
 **Ce qui se passe en arrière-plan :**
 - Un compte utilisateur est créé dans le système
 - Un enregistrement d'invitation SSO est également créé, de sorte que si l'utilisateur se connecte via SSO, il reçoit automatiquement le rôle pré-attribué
-- Si aucun mot de passe n'est défini (un compte « Configuration en attente »), un jeton de configuration à usage unique est généré. L'utilisateur définit son propre mot de passe à la première connexion via le lien — envoyé par l'e-mail d'invitation si vous avez coché la case, ou via le lien copiable affiché après la création. Il peut aussi l'obtenir depuis l'option « Mot de passe oublié » de la page de connexion, même s'il n'a jamais eu de mot de passe
+- Si aucun mot de passe n'est défini (un compte « Configuration en attente »), un jeton de configuration à usage unique est généré. Si vous cochez « Envoyer un e-mail d'invitation », il est envoyé sous forme de lien de configuration du mot de passe ; sinon, l'utilisateur définit son mot de passe à la première connexion via l'option « Mot de passe oublié » de la page de connexion — ce qui fonctionne même s'il n'a jamais eu de mot de passe
 
 #### Modifier un utilisateur
 

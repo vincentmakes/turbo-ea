@@ -45,7 +45,7 @@ Filterzustand, sichtbare Spalten, die Sidebar-Breite und ihr Eingeklappt-Zustand
 **Was im Hintergrund passiert:**
 - Ein Benutzerkonto wird im System erstellt
 - Ein SSO-Einladungsdatensatz wird ebenfalls erstellt, sodass der Benutzer bei SSO-Anmeldung automatisch die zugewiesene Rolle erhält
-- Wenn kein Passwort gesetzt ist (ein Konto mit «Einrichtung ausstehend»), wird ein einmaliges Passwort-Einrichtungstoken generiert. Der Benutzer legt sein Passwort beim ersten Anmelden über den Link fest – zugestellt per Einladungs-E-Mail, wenn Sie das Kästchen aktiviert haben, oder über den nach dem Erstellen angezeigten kopierbaren Link. Er kann ihn auch über die Option «Passwort vergessen» auf der Anmeldeseite erreichen, obwohl er nie ein Passwort hatte
+- Wenn kein Passwort gesetzt ist (ein Konto mit «Einrichtung ausstehend»), wird ein einmaliges Passwort-Einrichtungstoken generiert. Wenn Sie «Einladungs-E-Mail senden» aktivieren, wird es als Link zum Festlegen des Passworts zugestellt; andernfalls legt der Benutzer sein Passwort beim ersten Anmelden über die Option «Passwort vergessen» auf der Anmeldeseite fest – was auch funktioniert, obwohl er nie ein Passwort hatte
 
 #### Einen Benutzer bearbeiten
 

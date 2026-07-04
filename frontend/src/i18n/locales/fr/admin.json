@@ -1678,7 +1678,5 @@
   "auditLog.rollback.rollingBack": "Annulation en cours…",
   "auditLog.rollback.force": "Forcer l'annulation",
   "auditLog.rollback.rollback": "Annuler",
-  "users.create.passwordOptionalLocalHelperText": "Laissez vide pour que l'utilisateur définisse son mot de passe à la première connexion.",
-  "users.create.setupLinkHint": "Utilisateur créé. Partagez ce lien à usage unique pour qu'il puisse définir son mot de passe :",
-  "users.create.copySetupLink": "Copier le lien"
+  "users.create.passwordOptionalLocalHelperText": "Laissez vide pour que l'utilisateur définisse son mot de passe à la première connexion."
 }

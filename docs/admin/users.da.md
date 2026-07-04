@@ -45,7 +45,7 @@ Filtertilstand, synlige kolonner, sidebarens bredde og dens sammenklappede tilst
 **Hvad der sker bag kulisserne:**
 - En brugerkonto oprettes i systemet
 - En SSO-invitationspost oprettes også, så hvis brugeren logger ind via SSO, modtager de automatisk den forhåndstildelte rolle
-- Hvis der ikke er sat nogen adgangskode (en konto med «Pending Setup»), genereres et engangs-token til opsætning af adgangskode. Brugeren angiver selv sin adgangskode ved første login via linket — leveret med invitationsmailen, hvis du satte fluebenet, eller via det kopierbare link, der vises efter oprettelsen. De kan også nå det via «Glemt adgangskode» på login-siden, selvom de aldrig har haft en adgangskode
+- Hvis der ikke er sat nogen adgangskode (en konto med «Pending Setup»), genereres et engangs-token til opsætning af adgangskode. Hvis du sætter flueben ved «Send invitationsmail», leveres det som et link til at angive adgangskoden; ellers angiver brugeren sin adgangskode ved første login via «Glemt adgangskode» på login-siden — hvilket virker, selvom de aldrig har haft en adgangskode
 
 #### Redigering af en bruger
 

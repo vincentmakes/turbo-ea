@@ -561,13 +561,6 @@ async def create_user(
     # we surface the SMTP error in the response so the admin can see it
     # and re-send (e.g. via the test-email endpoint after fixing creds).
     response = _user_response(u)
-    # Surface the one-time setup token to the creator (only here, never from
-    # the shared list/get responses) so the UI can show a copyable
-    # /auth/set-password link when no invite email was sent — or as a
-    # fallback if the email fails. This endpoint is already gated behind
-    # admin.users / users.invite, so only a trusted inviter sees it.
-    if u.password_setup_token:
-        response["setup_token"] = u.password_setup_token
     if body.send_email:
         from app.services.email_service import _get_app_title, send_notification_email
 

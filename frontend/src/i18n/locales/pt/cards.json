@@ -617,7 +617,5 @@
   "todos.recurrence.months_one": "Todos os meses",
   "todos.recurrence.months_other": "A cada {{count}} meses",
   "todos.recurrence.years_one": "Todos os anos",
-  "todos.recurrence.years_other": "A cada {{count}} anos",
-  "stakeholders.setupLinkHint": "Utilizador criado. Partilhe esta ligação de utilização única para que possa definir a sua palavra-passe:",
-  "stakeholders.copySetupLink": "Copiar ligação"
+  "todos.recurrence.years_other": "A cada {{count}} anos"
 }

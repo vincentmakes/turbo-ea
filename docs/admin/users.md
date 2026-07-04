@@ -39,13 +39,12 @@ Filter state, visible columns, the sidebar width and its collapsed state are per
    - **Email** (required): The email address they will use to log in
    - **Password** (optional): Leave it blank to let the user choose their own password on first login. If SSO is enabled, a password-less user can sign in via their SSO provider instead
    - **Role**: Select the role to assign (Admin, Member, Viewer, or any custom role)
-   - **Send invitation email**: Check this to email the user their set-password link. When left unchecked, no email is sent — the account is still created and a copyable set-password link is shown for you to share directly
+   - **Send invitation email**: Check this to email the user their set-password link. When left unchecked, no email is sent — the account is still created, and the user sets their password on first login via the **Forgot password** link on the login page
 3. Click **Create user** to create the account.
 
 **What happens behind the scenes:**
 - A user account is created in the system
-- If no password is set (a "Pending Setup" account), a single-use set-password token is generated. The user sets their own password on first login through the link — delivered by the invitation email when you ticked the box, or via the copyable link shown after creation
-- The user can also reach this link themselves from the login page's **Forgot password** option, even though they never had a password
+- If no password is set (a "Pending Setup" account), a single-use set-password token is generated. When you tick **Send invitation email** it is delivered as a set-password link; otherwise the user sets their password on first login via the login page's **Forgot password** option — which works even though they never had a password
 - When SSO is enabled, an SSO invitation record is also created, so if the user logs in via SSO they automatically receive the pre-assigned role
 
 #### Editing a User
