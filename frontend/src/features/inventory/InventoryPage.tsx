@@ -54,10 +54,11 @@ import { useThemeMode } from "@/hooks/useThemeMode";
 import { useIsRtl } from "@/hooks/useIsRtl";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { api, ApiError } from "@/api/client";
+import { useSemanticSearchEnabled } from "@/hooks/useSemanticSearchEnabled";
 import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
 import TagPicker from "@/components/TagPicker";
 import TagsCellEditor from "@/features/inventory/TagsCellEditor";
-import type { Card, CardListResponse, ColumnLayoutItem, FieldDef, Relation, RelationType, TagGroup, TagRef } from "@/types";
+import type { Card, CardListResponse, ColumnLayoutItem, FieldDef, Relation, RelationType, SemanticSearchResponse, TagGroup, TagRef } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
 
@@ -279,6 +280,13 @@ export default function InventoryPage() {
   const [data, setData] = useState<Card[]>([]);
   const [, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const { semanticSearchEnabled } = useSemanticSearchEnabled();
+  // Debounced search term used only in semantic mode so we don't fire an
+  // embedding request on every keystroke. Text mode uses filters.search live.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  // True when semantic mode ran but no embedding provider was available and the
+  // backend fell back to substring matching — surfaced as a quiet hint.
+  const [semanticUnavailable, setSemanticUnavailable] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [gridEditMode, setGridEditMode] = useState(false);
@@ -545,9 +553,43 @@ export default function InventoryPage() {
     });
   }, [filters, selectedColumns, sortModel, columnState]);
 
+  const semanticActive = semanticSearchEnabled && filters.searchMode === "semantic";
+
+  // Debounce the search term while in semantic mode; reset immediately when
+  // leaving semantic mode so text search stays live.
+  useEffect(() => {
+    if (!semanticActive) {
+      setDebouncedSearch("");
+      setSemanticUnavailable(false);
+      return;
+    }
+    const term = filters.search.trim();
+    const handle = setTimeout(() => setDebouncedSearch(term), 450);
+    return () => clearTimeout(handle);
+  }, [semanticActive, filters.search]);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
+      // Semantic mode with a non-empty (debounced) query → embedding-ranked
+      // hybrid search. An empty query falls through to the normal listing so
+      // switching to semantic mode doesn't blank the grid.
+      if (semanticActive && debouncedSearch) {
+        const params = new URLSearchParams();
+        params.set("query", debouncedSearch);
+        if (filters.types.length === 1) params.set("type", filters.types[0]);
+        if (filters.showArchived) params.set("status", "ARCHIVED");
+        params.set("top_k", "100");
+        params.set("mode", "hybrid");
+        const res = await api.get<SemanticSearchResponse>(
+          `/cards/semantic-search?${params}`,
+        );
+        setData(res.items.map((i) => i.card));
+        setTotal(res.items.length);
+        setSemanticUnavailable(!res.embedding_available);
+        return;
+      }
+
       const params = new URLSearchParams();
       if (filters.types.length === 1) params.set("type", filters.types[0]);
       if (filters.search) params.set("search", filters.search);
@@ -569,7 +611,7 @@ export default function InventoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters.types, filters.search, filters.approvalStatuses, filters.showArchived, filters.mineScope]);
+  }, [semanticActive, debouncedSearch, filters.types, filters.search, filters.approvalStatuses, filters.showArchived, filters.mineScope]);
 
   useEffect(() => {
     loadData();
@@ -2412,6 +2454,12 @@ export default function InventoryPage() {
               {t("massEdit.clearSelection")}
             </Button>
           </Box>
+        )}
+
+        {semanticUnavailable && (
+          <Alert severity="info" sx={{ mb: 1 }} onClose={() => setSemanticUnavailable(false)}>
+            {t("filter.semanticUnavailable")}
+          </Alert>
         )}
 
         {/* AG Grid */}

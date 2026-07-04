@@ -75,3 +75,8 @@ MCP_BATCH_CONFIRMATION_THRESHOLD: int = int(
 # trusted automation pipelines that explicitly do not want the second
 # round-trip.
 MCP_REQUIRE_DRYRUN_FIRST: bool = _env_bool("MCP_REQUIRE_DRYRUN_FIRST", True)
+
+# Default number of ranked hits returned by ``semantic_search_cards`` when the
+# agent doesn't specify ``top_k``. Kept small so a single call stays cheap to
+# read; the tool accepts up to 100.
+MCP_DEFAULT_TOP_K: int = int(os.environ.get("MCP_DEFAULT_TOP_K", "10"))

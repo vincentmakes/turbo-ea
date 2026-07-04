@@ -229,5 +229,9 @@
   "export.allFieldsHint": "完整数据集，可重新导入",
   "export.currentView": "导出当前视图",
   "export.currentViewHint": "与屏幕上的表格一致 — 不适合重新导入",
-  "export.viewSheetName": "视图"
+  "export.viewSheetName": "视图",
+  "filter.searchModeText": "文本",
+  "filter.searchModeSemantic": "语义",
+  "filter.searchSemanticPlaceholder": "描述您要查找的内容…",
+  "filter.semanticUnavailable": "未配置语义搜索，因此结果回退到文本匹配。管理员可在「设置 → AI」中启用。"
 }

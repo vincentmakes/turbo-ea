@@ -75,7 +75,7 @@ The publish workflow runs [Trivy](https://github.com/aquasecurity/trivy) against
 
 The scan is currently **non-blocking** (`exit-code: 0`). Reasons:
 
-- The bases are alpine-based (`python:3.12-alpine`, `postgres:18-alpine`, `nginx:alpine`). Alpine images regularly carry baseline findings against musl-libc and apk transitive dependencies — many of which aren't reachable through any path Turbo EA actually uses, but Trivy reports them anyway.
+- Most bases are alpine-based (`python:3.12-alpine`, `nginx:alpine`); the `db` image is `pgvector/pgvector:pg18` (Debian bookworm) so the `vector` extension used by semantic search is prebuilt and version-matched. These bases regularly carry baseline findings against their libc and package trees — many of which aren't reachable through any path Turbo EA actually uses, but Trivy reports them anyway.
 - Treating those findings as hard failures from day one would block every publish without giving operators time to react. The phased plan is: ship informational scans, capture the baseline in `.github/trivy-allowlist.yaml` with rationale per CVE, *then* flip the gate to enforcing.
 
 **For operators:** if Trivy results matter for your deployment, run your own scanner against the pulled image. The published SBOM is a clean input. Don't rely on the upstream gate to be enforcing yet.

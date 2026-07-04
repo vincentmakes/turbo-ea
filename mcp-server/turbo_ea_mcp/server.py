@@ -25,6 +25,7 @@ from turbo_ea_mcp.config import (
     APP_VERSION,
     MCP_ALLOW_RELATION_DELETE,
     MCP_BATCH_CONFIRMATION_THRESHOLD,
+    MCP_DEFAULT_TOP_K,
     MCP_MAX_CARDS_PER_CALL,
     MCP_MAX_RELATIONS_PER_CALL,
     MCP_PORT,
@@ -104,6 +105,11 @@ mcp = FastMCP(
         to turn artifacts the user has shared with you (spreadsheets, BPMN
         XML, DrawIO XML, documents) into cards, relations and diagrams.
 
+        Finding cards: for a conceptual question ("payment-related apps") reach
+        for semantic_search_cards (meaning-based) rather than fanning out
+        keyword guesses through search_cards (exact substring); use search_cards
+        for an exact/known name or identifier.
+
         Write tools default to dry_run=True: they validate and return a
         preview without persisting. Surface the preview to the user, then
         call again with dry_run=False to commit. Always call list_card_types
@@ -141,10 +147,17 @@ async def search_cards(
     page: int = 1,
     page_size: int = 20,
 ) -> str:
-    """Search and list cards (EA items) with optional filtering.
+    """Search and list cards (EA items) by EXACT substring match, with paging.
+
+    This matches the literal characters of `query` against card name and
+    description. Use it for an exact/known name or identifier, or to page through
+    a type. For a CONCEPTUAL question ("customer-facing payment systems",
+    "things that handle PII") where you don't know the exact wording, use
+    `semantic_search_cards` instead — substring match will miss a card named
+    "NexaPay Gateway".
 
     Args:
-        query: Free-text search across card name and description.
+        query: Substring searched across card name and description.
         type: Filter by card type key (e.g. 'Application', 'ITComponent').
         status: Filter by status ('ACTIVE', 'PHASING_IN', 'PHASING_OUT', 'END_OF_LIFE', 'ARCHIVED').
         page: Page number (default 1).
@@ -162,6 +175,58 @@ async def search_cards(
     if status:
         params["status"] = status
     data = await client.get("/cards", params=params)
+    return _fmt(data)
+
+
+@mcp.tool(annotations=_READ_ANNOT)
+async def semantic_search_cards(
+    query: str,
+    type: str = "",
+    status: str = "",
+    top_k: int = MCP_DEFAULT_TOP_K,
+    mode: str = "hybrid",
+) -> str:
+    """Find cards by MEANING, not exact wording — the tool to reach for first
+    when a question is conceptual.
+
+    Ranks cards by embedding similarity to `query` and fuses that with the
+    substring match (hybrid). Respects the same permissions as `search_cards` —
+    you never see a card here you couldn't list there. Returns ranked hits each
+    carrying `score`, `match` ("semantic" | "lexical" | "both") and a `snippet`.
+
+    Recommended workflow:
+      1. Call this ONCE with a natural-language `query` to get the candidate set.
+      2. Triage using each hit's `score` / `match` / `snippet` — do NOT fetch
+         every hit. `match: "both"` and high `score` are your confident hits.
+      3. For the shortlist only, drill in with `get_card`, `get_card_relations`,
+         or `analyze_impact`.
+      4. For multi-hop questions, traverse from a confirmed card with the graph
+         tools rather than re-searching by keyword.
+    If `embedding_available` is false in the response, no embedding provider is
+    configured and results fell back to substring match — say so and consider
+    `search_cards`.
+
+    Args:
+        query: Natural-language description of what you're looking for.
+        type: Optional card type key(s) to filter to (comma-separated).
+        status: Optional status filter (defaults to ACTIVE cards only).
+        top_k: Max ranked hits to return (default from server config, max 100).
+        mode: 'hybrid' (default), 'semantic', or 'lexical'.
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    client = TurboEAClient(token)
+    params = _compact(
+        {
+            "query": query,
+            "type": type,
+            "status": status,
+            "top_k": min(top_k, 100),
+            "mode": mode,
+        }
+    )
+    data = await client.get("/cards/semantic-search", params=params)
     return _fmt(data)
 
 
@@ -1676,7 +1741,9 @@ async def sign_adr(adr_id: str, comment: str = "", dry_run: bool = True) -> str:
     if (disabled := _writes_disabled_message()) is not None:
         return disabled
     if dry_run:
-        return _fmt({"dry_run": True, "would_sign": {"adr_id": adr_id, "comment": comment}})
+        return _fmt(
+            {"dry_run": True, "would_sign": {"adr_id": adr_id, "comment": comment}}
+        )
     client = TurboEAClient(token)
     try:
         data = await client.post(

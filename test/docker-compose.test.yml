@@ -1,6 +1,7 @@
 services:
   test-db:
-    image: postgres:16-alpine
+    # pgvector image so the card_embeddings vector column can be created in tests.
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_DB: turboea_test
       POSTGRES_USER: turboea

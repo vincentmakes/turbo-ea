@@ -5,6 +5,7 @@ from app.models.base import Base
 from app.models.bookmark import Bookmark
 from app.models.calculation import Calculation
 from app.models.card import Card
+from app.models.card_embedding import EMBEDDING_DIM, CardEmbedding
 from app.models.card_type import CardType
 from app.models.comment import Comment
 from app.models.compliance_regulation import ComplianceRegulation
@@ -87,6 +88,8 @@ __all__ = [
     "CardType",
     "RelationType",
     "Card",
+    "CardEmbedding",
+    "EMBEDDING_DIM",
     "Relation",
     "Stakeholder",
     "TagGroup",

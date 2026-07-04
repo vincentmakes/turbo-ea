@@ -1678,5 +1678,17 @@
   "auditLog.rollback.rollingBack": "Rolling back…",
   "auditLog.rollback.force": "Force rollback",
   "auditLog.rollback.rollback": "Roll back",
-  "users.create.passwordOptionalLocalHelperText": "Leave blank to let the user set their own password on first login."
+  "users.create.passwordOptionalLocalHelperText": "Leave blank to let the user set their own password on first login.",
+  "settings.embedding.title": "Semantic Search (Embeddings)",
+  "settings.embedding.description": "Configure an embedding provider to enable meaning-based card search in the inventory and the MCP server. Uses a small text-to-vector model — not a chat LLM. Defaults to self-hosted Ollama so it works offline.",
+  "settings.embedding.enabled": "Semantic search enabled",
+  "settings.embedding.disabled": "Semantic search disabled",
+  "settings.embedding.providerType": "Embedding provider",
+  "settings.embedding.providerUrl": "Provider URL",
+  "settings.embedding.apiKey": "API key",
+  "settings.embedding.model": "Embedding model",
+  "settings.embedding.modelHelp": "Must output 768-dimensional vectors (e.g. nomic-embed-text, or text-embedding-3-small).",
+  "settings.embedding.test": "Test",
+  "settings.embedding.savedSuccess": "Embedding settings saved.",
+  "settings.embedding.testSuccess": "Embedding provider OK — returned {{dimension}}-dimensional vectors."
 }

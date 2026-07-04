@@ -1678,5 +1678,17 @@
   "auditLog.rollback.rollingBack": "جارٍ التراجع…",
   "auditLog.rollback.force": "فرض التراجع",
   "auditLog.rollback.rollback": "تراجع",
-  "users.create.passwordOptionalLocalHelperText": "اتركه فارغًا ليقوم المستخدم بتعيين كلمة المرور الخاصة به عند أول تسجيل دخول."
+  "users.create.passwordOptionalLocalHelperText": "اتركه فارغًا ليقوم المستخدم بتعيين كلمة المرور الخاصة به عند أول تسجيل دخول.",
+  "settings.embedding.title": "البحث الدلالي (التضمينات)",
+  "settings.embedding.description": "قم بتكوين مزود التضمين لتمكين البحث عن البطاقات حسب المعنى في المخزون وخادم MCP. يستخدم نموذجًا صغيرًا لتحويل النص إلى متجه — وليس نموذج محادثة لغويًا كبيرًا. يستخدم افتراضيًا Ollama المستضاف ذاتيًا ليعمل دون اتصال.",
+  "settings.embedding.enabled": "البحث الدلالي مُفعَّل",
+  "settings.embedding.disabled": "البحث الدلالي مُعطَّل",
+  "settings.embedding.providerType": "مزود التضمين",
+  "settings.embedding.providerUrl": "عنوان URL للمزود",
+  "settings.embedding.apiKey": "مفتاح API",
+  "settings.embedding.model": "نموذج التضمين",
+  "settings.embedding.modelHelp": "يجب أن ينتج متجهات بـ 768 بُعدًا (مثل nomic-embed-text أو text-embedding-3-small).",
+  "settings.embedding.test": "اختبار",
+  "settings.embedding.savedSuccess": "تم حفظ إعدادات التضمين.",
+  "settings.embedding.testSuccess": "مزود التضمين يعمل — أعاد متجهات بـ {{dimension}} بُعدًا."
 }

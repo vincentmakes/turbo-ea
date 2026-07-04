@@ -229,5 +229,9 @@
   "export.allFieldsHint": "Conjunto de datos completo, reimportable",
   "export.currentView": "Exportar vista actual",
   "export.currentViewHint": "Refleja la cuadrícula en pantalla: no apta para reimportar",
-  "export.viewSheetName": "Vista"
+  "export.viewSheetName": "Vista",
+  "filter.searchModeText": "Texto",
+  "filter.searchModeSemantic": "Semántica",
+  "filter.searchSemanticPlaceholder": "Describe lo que buscas…",
+  "filter.semanticUnavailable": "La búsqueda semántica no está configurada, por lo que los resultados vuelven a la coincidencia de texto. Un administrador puede activarla en Configuración → IA."
 }

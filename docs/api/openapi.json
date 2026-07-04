@@ -4137,6 +4137,42 @@
         "title": "EmailSettingsPayload",
         "type": "object"
       },
+      "EmbeddingSettingsPayload": {
+        "properties": {
+          "api_key": {
+            "default": "",
+            "title": "Api Key",
+            "type": "string"
+          },
+          "dimension": {
+            "default": 768,
+            "title": "Dimension",
+            "type": "integer"
+          },
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "model": {
+            "default": "",
+            "title": "Model",
+            "type": "string"
+          },
+          "provider_type": {
+            "default": "ollama",
+            "title": "Provider Type",
+            "type": "string"
+          },
+          "provider_url": {
+            "default": "",
+            "title": "Provider Url",
+            "type": "string"
+          }
+        },
+        "title": "EmbeddingSettingsPayload",
+        "type": "object"
+      },
       "EnabledLocalesPayload": {
         "properties": {
           "locales": {
@@ -10725,6 +10761,71 @@
           }
         },
         "title": "SecurityScanRunOut",
+        "type": "object"
+      },
+      "SemanticCardResult": {
+        "description": "One ranked hit from semantic/hybrid card search.",
+        "properties": {
+          "card": {
+            "$ref": "#/components/schemas/CardResponse"
+          },
+          "match": {
+            "title": "Match",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "snippet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snippet"
+          }
+        },
+        "required": [
+          "card",
+          "score",
+          "match"
+        ],
+        "title": "SemanticCardResult",
+        "type": "object"
+      },
+      "SemanticSearchResponse": {
+        "properties": {
+          "embedding_available": {
+            "title": "Embedding Available",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SemanticCardResult"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "query",
+          "mode",
+          "embedding_available"
+        ],
+        "title": "SemanticSearchResponse",
         "type": "object"
       },
       "SetPasswordRequest": {
@@ -18008,6 +18109,108 @@
           }
         },
         "summary": "Resolve Card Refs",
+        "tags": [
+          "cards"
+        ]
+      }
+    },
+    "/api/v1/cards/semantic-search": {
+      "get": {
+        "description": "Meaning-based card search (embedding similarity) fused with lexical match.\n\nUses an embedding model \u2014 NOT a chat LLM/agent \u2014 to rank cards by semantic\nsimilarity to ``query``, then fuses with the existing substring match via\nReciprocal Rank Fusion. Runs through the same RBAC scope + cost redaction as\n``GET /cards``, so a user never sees a card here they couldn't list there.\nFalls back to lexical-only (``embedding_available=false``) when no embedding\nprovider is configured or the query embedding fails.",
+        "operationId": "semantic_search_cards_api_v1_cards_semantic_search_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "query",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Comma-separated card type keys to filter to.",
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated card type keys to filter to.",
+              "title": "Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "top_k",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Top K",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "default": "hybrid",
+              "pattern": "^(hybrid|semantic|lexical)$",
+              "title": "Mode",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemanticSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Semantic Search Cards",
         "tags": [
           "cards"
         ]
@@ -29436,6 +29639,84 @@
           }
         },
         "summary": "Update Ai Settings",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/ai/embedding": {
+      "get": {
+        "description": "Admin endpoint \u2014 get the embedding-provider configuration.",
+        "operationId": "get_embedding_settings_api_v1_settings_ai_embedding_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Embedding Settings",
+        "tags": [
+          "settings"
+        ]
+      },
+      "patch": {
+        "description": "Admin endpoint \u2014 update the embedding-provider configuration.",
+        "operationId": "update_embedding_settings_api_v1_settings_ai_embedding_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmbeddingSettingsPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Embedding Settings",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/ai/embedding/test": {
+      "post": {
+        "description": "Admin endpoint \u2014 embed a sample string to verify the embedding provider.",
+        "operationId": "test_embedding_connection_api_v1_settings_ai_embedding_test_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Test Embedding Connection",
         "tags": [
           "settings"
         ]

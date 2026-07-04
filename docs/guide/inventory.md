@@ -10,7 +10,7 @@ The **Inventory** is the heart of Turbo EA. Here all **cards** (components) of t
 
 The left sidebar panel allows you to **filter** cards by different criteria:
 
-- **Search** — Free text search across card names
+- **Search** — Free text search across card names. When an administrator has enabled [semantic search](../admin/ai.md#semantic-search-embeddings), a **Text / Semantic** toggle appears above the box: **Semantic** mode finds cards by meaning (e.g. "customer-facing payment systems" matches a card named "NexaPay Gateway") instead of exact wording. Semantic search runs when you finish typing; if the embedding provider is unavailable it falls back to text matching.
 - **Types** — Filter by one or more card types: Objective, Platform, Initiative, Organization, Business Capability, Business Context, Business Process, Application, Interface, Data Object, IT Component, Tech Category, Provider, System
 - **Subtypes** — When a type is selected, filter further by subtype (e.g., Application → Business Application, Microservice, AI Agent, Deployment)
 - **Approval Status** — Draft, Approved, Broken, or Rejected

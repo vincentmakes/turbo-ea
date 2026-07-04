@@ -14,6 +14,7 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
+from app.models.card_embedding import CardEmbedding
 from app.models.card_type import CardType
 from app.models.event import Event
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
@@ -62,6 +63,8 @@ from app.schemas.card import (
     CardUpdate,
     RestoreImpactPassenger,
     RestoreImpactResponse,
+    SemanticCardResult,
+    SemanticSearchResponse,
     StakeholderRef,
     TagRef,
 )
@@ -72,6 +75,7 @@ from app.services.card_resolver import CardResolver
 from app.services.card_uniqueness import check_sibling_name_unique
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.data_quality import calc_data_quality
+from app.services.embedding_service import EmbeddingError, embed_texts, load_embedding_config
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -379,6 +383,43 @@ async def _card_response_with_cost_check(db: AsyncSession, user: User, card: Car
     return _card_to_response(card, strip_cost_keys=redact.get(card.id, frozenset()))
 
 
+def _apply_card_scope_filters(
+    stmt, *, type: str | None, status: str | None, include_all_statuses: bool
+):
+    """Apply the RBAC-relevant card filters shared by list + semantic search.
+
+    Covers the security-relevant narrowing — hidden card types are always
+    excluded, and status defaults to ACTIVE unless explicit statuses are passed
+    or ``include_all_statuses`` is set (the by-ids case). ``type`` accepts a
+    comma-separated list. Callable on both a ``select(Card)`` and a
+    ``select(func.count(...))`` so list_cards can keep q/count_q in sync.
+
+    NOTE: cost-field redaction is applied post-query by ``_cost_redaction_map``
+    and is intentionally not part of this filter — both list and semantic search
+    run every result through it, so they redact identically.
+    """
+    hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
+    stmt = stmt.where(Card.type.not_in(hidden_types_sq))
+
+    if type:
+        types_list = [t.strip() for t in type.split(",") if t.strip()]
+        if len(types_list) == 1:
+            stmt = stmt.where(Card.type == types_list[0])
+        elif types_list:
+            stmt = stmt.where(Card.type.in_(types_list))
+
+    if status:
+        statuses = [s.strip() for s in status.split(",") if s.strip()]
+        if len(statuses) == 1:
+            stmt = stmt.where(Card.status == statuses[0])
+        elif statuses:
+            stmt = stmt.where(Card.status.in_(statuses))
+    elif not include_all_statuses:
+        stmt = stmt.where(Card.status == "ACTIVE")
+
+    return stmt
+
+
 _ALLOWED_SORT_COLUMNS = {
     "name",
     "type",
@@ -425,11 +466,6 @@ async def list_cards(
     q = select(Card)
     count_q = select(func.count(Card.id))
 
-    # Exclude cards whose type is hidden
-    hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
-    q = q.where(Card.type.not_in(hidden_types_sq))
-    count_q = count_q.where(Card.type.not_in(hidden_types_sq))
-
     if ids:
         # Skip silently-malformed UUIDs so a single bad id doesn't 500 a batch.
         id_list: list[uuid.UUID] = []
@@ -446,28 +482,15 @@ async def list_cards(
         q = q.where(Card.id.in_(id_list))
         count_q = count_q.where(Card.id.in_(id_list))
 
-    if type:
-        types_list = [t.strip() for t in type.split(",") if t.strip()]
-        if len(types_list) == 1:
-            q = q.where(Card.type == types_list[0])
-            count_q = count_q.where(Card.type == types_list[0])
-        elif types_list:
-            q = q.where(Card.type.in_(types_list))
-            count_q = count_q.where(Card.type.in_(types_list))
-    if status:
-        statuses = [s.strip() for s in status.split(",") if s.strip()]
-        if len(statuses) == 1:
-            q = q.where(Card.status == statuses[0])
-            count_q = count_q.where(Card.status == statuses[0])
-        else:
-            q = q.where(Card.status.in_(statuses))
-            count_q = count_q.where(Card.status.in_(statuses))
-    elif not ids:
-        # When fetching specific ids, callers expect to receive what they
-        # asked for regardless of status (e.g. a saved diagram referencing an
-        # archived card should still surface the card so the view can flag it).
-        q = q.where(Card.status == "ACTIVE")
-        count_q = count_q.where(Card.status == "ACTIVE")
+    # Shared RBAC-relevant scope: hidden types excluded, type filter, and status
+    # defaulting to ACTIVE. When fetching specific ids, callers expect to receive
+    # what they asked for regardless of status (e.g. a saved diagram referencing
+    # an archived card), so the ACTIVE default is suppressed in that case.
+    q = _apply_card_scope_filters(q, type=type, status=status, include_all_statuses=bool(ids))
+    count_q = _apply_card_scope_filters(
+        count_q, type=type, status=status, include_all_statuses=bool(ids)
+    )
+
     if search:
         like = f"%{search}%"
         q = q.where(or_(Card.name.ilike(like), Card.description.ilike(like)))
@@ -506,6 +529,135 @@ async def list_cards(
     ]
 
     return CardListResponse(items=items, total=total, page=page, page_size=page_size)
+
+
+# Reciprocal Rank Fusion constant — the standard k=60 dampener. Larger k flattens
+# the contribution of rank position across the two candidate lists.
+_RRF_K = 60
+
+
+def _search_snippet(card: Card, query: str) -> str | None:
+    """A short human-readable excerpt for a search hit."""
+    desc = (card.description or "").strip()
+    if not desc:
+        return None
+    lowered = desc.lower()
+    pos = lowered.find(query.lower())
+    if pos >= 0:
+        start = max(0, pos - 40)
+        return ("…" if start > 0 else "") + desc[start : start + 200].strip()
+    return desc[:200].strip()
+
+
+@router.get("/semantic-search", response_model=SemanticSearchResponse)
+async def semantic_search_cards(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    query: str = Query(..., min_length=1, max_length=200),
+    type: str | None = Query(None, description="Comma-separated card type keys to filter to."),
+    status: str | None = Query(None),
+    top_k: int = Query(20, ge=1, le=100),
+    mode: str = Query("hybrid", pattern="^(hybrid|semantic|lexical)$"),
+):
+    """Meaning-based card search (embedding similarity) fused with lexical match.
+
+    Uses an embedding model — NOT a chat LLM/agent — to rank cards by semantic
+    similarity to ``query``, then fuses with the existing substring match via
+    Reciprocal Rank Fusion. Runs through the same RBAC scope + cost redaction as
+    ``GET /cards``, so a user never sees a card here they couldn't list there.
+    Falls back to lexical-only (``embedding_available=false``) when no embedding
+    provider is configured or the query embedding fails.
+    """
+    await PermissionService.require_permission(db, user, "inventory.view")
+
+    cfg = None if mode == "lexical" else await load_embedding_config(db)
+    embedding_available = cfg is not None
+
+    load_opts = (
+        selectinload(Card.tags).selectinload(Tag.group),
+        selectinload(Card.stakeholders).selectinload(Stakeholder.user),
+    )
+    base = _apply_card_scope_filters(
+        select(Card), type=type, status=status, include_all_statuses=False
+    )
+
+    # ── Semantic candidates ──────────────────────────────────────────────
+    semantic_ids: list[uuid.UUID] = []
+    if embedding_available and mode in ("hybrid", "semantic"):
+        try:
+            qvec = (await embed_texts([query], cfg))[0]
+        except EmbeddingError:
+            embedding_available = False
+            qvec = None
+        if qvec is not None:
+            sem_stmt = (
+                base.join(CardEmbedding, CardEmbedding.card_id == Card.id)
+                .order_by(CardEmbedding.embedding.cosine_distance(qvec))
+                .limit(top_k)
+                .options(*load_opts)
+            )
+            sem_cards = list((await db.execute(sem_stmt)).scalars().all())
+            semantic_ids = [c.id for c in sem_cards]
+        else:
+            sem_cards = []
+    else:
+        sem_cards = []
+
+    # ── Lexical candidates ───────────────────────────────────────────────
+    # Always run in hybrid/lexical mode, and as the fallback when embeddings are
+    # unavailable even if the caller asked for semantic.
+    lex_cards: list[Card] = []
+    if mode in ("hybrid", "lexical") or not embedding_available:
+        like = f"%{query}%"
+        lex_stmt = (
+            base.where(or_(Card.name.ilike(like), Card.description.ilike(like)))
+            .order_by(Card.name.asc())
+            .limit(top_k)
+            .options(*load_opts)
+        )
+        lex_cards = list((await db.execute(lex_stmt)).scalars().all())
+
+    # ── Fuse via Reciprocal Rank Fusion ──────────────────────────────────
+    by_id: dict[uuid.UUID, Card] = {}
+    scores: dict[uuid.UUID, float] = {}
+    in_sem: set[uuid.UUID] = set(semantic_ids)
+    in_lex: set[uuid.UUID] = set()
+    for rank, card in enumerate(sem_cards, start=1):
+        by_id[card.id] = card
+        scores[card.id] = scores.get(card.id, 0.0) + 1.0 / (_RRF_K + rank)
+    for rank, card in enumerate(lex_cards, start=1):
+        by_id[card.id] = card
+        in_lex.add(card.id)
+        scores[card.id] = scores.get(card.id, 0.0) + 1.0 / (_RRF_K + rank)
+
+    ranked_ids = sorted(scores, key=lambda cid: scores[cid], reverse=True)[:top_k]
+    ranked_cards = [by_id[cid] for cid in ranked_ids]
+    redact = await _cost_redaction_map(db, user, ranked_cards)
+
+    items: list[SemanticCardResult] = []
+    for cid in ranked_ids:
+        card = by_id[cid]
+        if cid in in_sem and cid in in_lex:
+            match = "both"
+        elif cid in in_sem:
+            match = "semantic"
+        else:
+            match = "lexical"
+        items.append(
+            SemanticCardResult(
+                card=_card_to_response(card, strip_cost_keys=redact.get(cid, frozenset())),
+                score=round(scores[cid], 6),
+                match=match,
+                snippet=_search_snippet(card, query),
+            )
+        )
+
+    return SemanticSearchResponse(
+        items=items,
+        query=query,
+        mode=mode,
+        embedding_available=embedding_available,
+    )
 
 
 # ---------------------------------------------------------------------------

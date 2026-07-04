@@ -1678,5 +1678,17 @@
   "auditLog.rollback.rollingBack": "Ruller tilbage…",
   "auditLog.rollback.force": "Gennemtving tilbagerulning",
   "auditLog.rollback.rollback": "Rul tilbage",
-  "users.create.passwordOptionalLocalHelperText": "Lad feltet være tomt, så brugeren selv angiver adgangskoden ved første login."
+  "users.create.passwordOptionalLocalHelperText": "Lad feltet være tomt, så brugeren selv angiver adgangskoden ved første login.",
+  "settings.embedding.title": "Semantisk søgning (embeddings)",
+  "settings.embedding.description": "Konfigurer en embedding-udbyder for at aktivere betydningsbaseret kortsøgning i inventaret og MCP-serveren. Bruger en lille tekst-til-vektor-model — ikke en chat-LLM. Som standard selvhostet Ollama, så det virker offline.",
+  "settings.embedding.enabled": "Semantisk søgning aktiveret",
+  "settings.embedding.disabled": "Semantisk søgning deaktiveret",
+  "settings.embedding.providerType": "Embedding-udbyder",
+  "settings.embedding.providerUrl": "Udbyder-URL",
+  "settings.embedding.apiKey": "API-nøgle",
+  "settings.embedding.model": "Embedding-model",
+  "settings.embedding.modelHelp": "Skal udsende 768-dimensionelle vektorer (f.eks. nomic-embed-text eller text-embedding-3-small).",
+  "settings.embedding.test": "Test",
+  "settings.embedding.savedSuccess": "Embedding-indstillinger gemt.",
+  "settings.embedding.testSuccess": "Embedding-udbyder OK — returnerede {{dimension}}-dimensionelle vektorer."
 }

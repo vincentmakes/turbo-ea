@@ -156,6 +156,25 @@ class CardListResponse(BaseModel):
     page_size: int
 
 
+class SemanticCardResult(BaseModel):
+    """One ranked hit from semantic/hybrid card search."""
+
+    card: CardResponse
+    score: float
+    # Which candidate list(s) surfaced this card.
+    match: str  # "semantic" | "lexical" | "both"
+    snippet: str | None = None
+
+
+class SemanticSearchResponse(BaseModel):
+    items: list[SemanticCardResult]
+    query: str
+    mode: str  # echoes the effective mode ("hybrid" | "semantic" | "lexical")
+    # False when no embedding provider is configured (or the query embed failed)
+    # and the endpoint fell back to lexical substring matching.
+    embedding_available: bool
+
+
 class CardRelationSummaryEntry(BaseModel):
     """One row of the relation-summary endpoint — counts neighbours per
     relation-type / direction so the diagram editor can render LeanIX-style

@@ -39,6 +39,12 @@ def _alembic_upgrade_sync(sync_connection, alembic_cfg):
 _PURGE_INTERVAL_SECONDS = 3600  # Run once per hour
 _PURGE_RETENTION_DAYS = 30  # Fallback when the admin setting is unset
 
+# Semantic-search embedding reconciliation: how often to look for cards whose
+# vector is missing/stale, and how many to (re)embed per cycle. The first cycles
+# after enabling embeddings act as a rolling backfill of the whole inventory.
+_EMBED_RECONCILE_INTERVAL_SECONDS = 45
+_EMBED_RECONCILE_BATCH = 128
+
 
 def _archive_purge_cutoff(retention_days, now):
     """Return the purge cutoff datetime, or ``None`` to skip purging.
@@ -184,6 +190,129 @@ async def _purge_archived_cards_loop() -> None:
             raise
         except Exception:
             logger.exception("Error in archived card purge loop")
+
+
+async def _embedding_reconcile_loop() -> None:
+    """Background loop that keeps card_embeddings in sync for semantic search.
+
+    Each cycle: if an embedding provider is configured, embed a batch of cards
+    whose vector is missing, was produced by a different model, or is older than
+    the card's last edit. The first cycles after enabling embeddings roll a full
+    backfill of the inventory. Zero changes to card write handlers — this
+    reconciler covers every write path (create, update, bulk, import, migration)
+    from one place. Provider errors soft-fail: the cycle is skipped and retried
+    next tick, never crashing the loop or a card write.
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import or_, select
+
+    from app.database import async_session
+    from app.models.card import Card
+    from app.models.card_embedding import EMBEDDING_DIM, CardEmbedding
+    from app.models.card_type import CardType
+    from app.services.cost_field_filter import cost_field_keys_from_card_schema
+    from app.services.embedding_service import (
+        EmbeddingError,
+        build_embedding_document,
+        content_hash,
+        embed_texts,
+        load_embedding_config,
+    )
+
+    while True:
+        try:
+            await asyncio.sleep(_EMBED_RECONCILE_INTERVAL_SECONDS)
+            async with async_session() as db:
+                cfg = await load_embedding_config(db)
+                if cfg is None:
+                    continue  # embeddings disabled/unconfigured
+
+                rows = (
+                    await db.execute(
+                        select(Card, CardEmbedding)
+                        .outerjoin(CardEmbedding, CardEmbedding.card_id == Card.id)
+                        .where(
+                            Card.status != "ARCHIVED",
+                            or_(
+                                CardEmbedding.card_id.is_(None),
+                                CardEmbedding.model != cfg.model,
+                                CardEmbedding.updated_at < Card.updated_at,
+                            ),
+                        )
+                        .limit(_EMBED_RECONCILE_BATCH)
+                    )
+                ).all()
+                if not rows:
+                    continue
+
+                # Resolve type labels + cost-field keys once for the batch.
+                type_keys = {card.type for card, _ in rows}
+                type_map = {
+                    ct.key: ct
+                    for ct in (
+                        await db.execute(select(CardType).where(CardType.key.in_(type_keys)))
+                    )
+                    .scalars()
+                    .all()
+                }
+
+                now = datetime.now(timezone.utc)
+                to_embed: list[tuple[Card, CardEmbedding | None, str, str]] = []
+                for card, ce in rows:
+                    ct = type_map.get(card.type)
+                    type_label = (ct.label if ct else None) or card.type
+                    cost_keys = (
+                        cost_field_keys_from_card_schema(ct.fields_schema) if ct else frozenset()
+                    )
+                    doc = build_embedding_document(
+                        type_label=type_label,
+                        subtype=card.subtype,
+                        name=card.name,
+                        description=card.description,
+                        attributes=card.attributes,
+                        cost_field_keys=cost_keys,
+                    )
+                    h = content_hash(doc, cfg.model)
+                    if ce is not None and ce.model == cfg.model and ce.content_hash == h:
+                        # Content unchanged (card touched by an unrelated edit) —
+                        # bump updated_at so it stops re-selecting each cycle.
+                        ce.updated_at = now
+                        continue
+                    to_embed.append((card, ce, doc, h))
+
+                if to_embed:
+                    try:
+                        vectors = await embed_texts([d for _, _, d, _ in to_embed], cfg)
+                    except EmbeddingError as exc:
+                        logger.warning("[embedding] reconcile cycle skipped: %s", exc)
+                        await db.rollback()
+                        continue
+                    for (card, ce, _doc, h), vec in zip(to_embed, vectors, strict=True):
+                        if ce is None:
+                            db.add(
+                                CardEmbedding(
+                                    card_id=card.id,
+                                    embedding=vec,
+                                    model=cfg.model,
+                                    dim=cfg.dimension or EMBEDDING_DIM,
+                                    content_hash=h,
+                                )
+                            )
+                        else:
+                            ce.embedding = vec
+                            ce.model = cfg.model
+                            ce.dim = cfg.dimension or EMBEDDING_DIM
+                            ce.content_hash = h
+                            ce.updated_at = now
+
+                await db.commit()
+                if to_embed:
+                    logger.info("[embedding] reconciled %d card embedding(s)", len(to_embed))
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Error in embedding reconcile loop")
 
 
 async def _kpi_snapshot_loop() -> None:
@@ -488,6 +617,13 @@ async def lifespan(app: FastAPI):
 
     logger.info("[startup] RESET_DB=%s, checking database state...", settings.RESET_DB)
 
+    # Ensure the pgvector extension exists before any create_all / migration so
+    # the card_embeddings vector column can be created on every path — including
+    # the fresh-DB path, which runs create_all + stamp and skips migration bodies.
+    async with engine.begin() as conn:
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+    logger.info("[startup] pgvector extension ensured")
+
     if settings.RESET_DB:
         # Full reset: drop everything and recreate
         async with engine.begin() as conn:
@@ -725,6 +861,10 @@ async def lifespan(app: FastAPI):
     # a no-op on every boot after the first successful run).
     dq_rescore_task = asyncio.create_task(_one_shot_data_quality_rescore())
 
+    # Semantic-search embedding reconciliation loop (no-op until an embedding
+    # provider is configured). Rolls a backfill of the inventory on first enable.
+    embedding_task = asyncio.create_task(_embedding_reconcile_loop())
+
     yield
 
     # Cancel background tasks on shutdown
@@ -754,6 +894,11 @@ async def lifespan(app: FastAPI):
             await dq_rescore_task
         except asyncio.CancelledError:
             pass
+    embedding_task.cancel()
+    try:
+        await embedding_task
+    except asyncio.CancelledError:
+        pass
     if ollama_task and not ollama_task.done():
         ollama_task.cancel()
         try:

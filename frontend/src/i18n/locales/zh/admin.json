@@ -1678,5 +1678,17 @@
   "auditLog.rollback.rollingBack": "正在回滚…",
   "auditLog.rollback.force": "强制回滚",
   "auditLog.rollback.rollback": "回滚",
-  "users.create.passwordOptionalLocalHelperText": "留空以让用户在首次登录时自行设置密码。"
+  "users.create.passwordOptionalLocalHelperText": "留空以让用户在首次登录时自行设置密码。",
+  "settings.embedding.title": "语义搜索（嵌入）",
+  "settings.embedding.description": "配置嵌入提供程序，以在清单和 MCP 服务器中启用基于含义的卡片搜索。使用小型文本转向量模型，而非聊天大语言模型。默认使用自托管的 Ollama，可离线工作。",
+  "settings.embedding.enabled": "语义搜索已启用",
+  "settings.embedding.disabled": "语义搜索已禁用",
+  "settings.embedding.providerType": "嵌入提供程序",
+  "settings.embedding.providerUrl": "提供程序 URL",
+  "settings.embedding.apiKey": "API 密钥",
+  "settings.embedding.model": "嵌入模型",
+  "settings.embedding.modelHelp": "必须输出 768 维向量（例如 nomic-embed-text 或 text-embedding-3-small）。",
+  "settings.embedding.test": "测试",
+  "settings.embedding.savedSuccess": "嵌入设置已保存。",
+  "settings.embedding.testSuccess": "嵌入提供程序正常 — 返回了 {{dimension}} 维向量。"
 }

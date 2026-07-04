@@ -1678,5 +1678,17 @@
   "auditLog.rollback.rollingBack": "A reverter…",
   "auditLog.rollback.force": "Forçar a reversão",
   "auditLog.rollback.rollback": "Reverter",
-  "users.create.passwordOptionalLocalHelperText": "Deixe em branco para que o utilizador defina a palavra-passe no primeiro início de sessão."
+  "users.create.passwordOptionalLocalHelperText": "Deixe em branco para que o utilizador defina a palavra-passe no primeiro início de sessão.",
+  "settings.embedding.title": "Pesquisa semântica (embeddings)",
+  "settings.embedding.description": "Configure um provedor de embeddings para habilitar a pesquisa de cartões por significado no inventário e no servidor MCP. Usa um pequeno modelo de texto para vetor — não um LLM de chat. Por padrão, usa Ollama auto-hospedado para funcionar offline.",
+  "settings.embedding.enabled": "Pesquisa semântica ativada",
+  "settings.embedding.disabled": "Pesquisa semântica desativada",
+  "settings.embedding.providerType": "Provedor de embeddings",
+  "settings.embedding.providerUrl": "URL do provedor",
+  "settings.embedding.apiKey": "Chave de API",
+  "settings.embedding.model": "Modelo de embedding",
+  "settings.embedding.modelHelp": "Deve gerar vetores de 768 dimensões (p. ex. nomic-embed-text ou text-embedding-3-small).",
+  "settings.embedding.test": "Testar",
+  "settings.embedding.savedSuccess": "Configurações de embedding salvas.",
+  "settings.embedding.testSuccess": "Provedor de embeddings OK — retornou vetores de {{dimension}} dimensões."
 }

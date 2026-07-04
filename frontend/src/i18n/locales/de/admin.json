@@ -1678,5 +1678,17 @@
   "auditLog.rollback.rollingBack": "Rücknahme läuft…",
   "auditLog.rollback.force": "Rücknahme erzwingen",
   "auditLog.rollback.rollback": "Zurücknehmen",
-  "users.create.passwordOptionalLocalHelperText": "Leer lassen, damit der Benutzer beim ersten Anmelden sein eigenes Passwort festlegt."
+  "users.create.passwordOptionalLocalHelperText": "Leer lassen, damit der Benutzer beim ersten Anmelden sein eigenes Passwort festlegt.",
+  "settings.embedding.title": "Semantische Suche (Embeddings)",
+  "settings.embedding.description": "Konfigurieren Sie einen Embedding-Anbieter, um die bedeutungsbasierte Kartensuche im Inventar und im MCP-Server zu aktivieren. Verwendet ein kleines Text-zu-Vektor-Modell — kein Chat-LLM. Standardmäßig selbst gehostetes Ollama, damit es offline funktioniert.",
+  "settings.embedding.enabled": "Semantische Suche aktiviert",
+  "settings.embedding.disabled": "Semantische Suche deaktiviert",
+  "settings.embedding.providerType": "Embedding-Anbieter",
+  "settings.embedding.providerUrl": "Anbieter-URL",
+  "settings.embedding.apiKey": "API-Schlüssel",
+  "settings.embedding.model": "Embedding-Modell",
+  "settings.embedding.modelHelp": "Muss 768-dimensionale Vektoren ausgeben (z. B. nomic-embed-text oder text-embedding-3-small).",
+  "settings.embedding.test": "Testen",
+  "settings.embedding.savedSuccess": "Embedding-Einstellungen gespeichert.",
+  "settings.embedding.testSuccess": "Embedding-Anbieter OK — {{dimension}}-dimensionale Vektoren zurückgegeben."
 }

@@ -31,6 +31,15 @@ interface AiSettings {
   portfolio_insights_enabled: boolean;
 }
 
+interface EmbeddingSettings {
+  enabled: boolean;
+  provider_type: string;
+  provider_url: string;
+  api_key: string;
+  model: string;
+  dimension: number;
+}
+
 const AI_KEY_MASK = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022";
 
 export default function AiAdmin() {
@@ -52,6 +61,16 @@ export default function AiAdmin() {
   const [testingAi, setTestingAi] = useState(false);
   const [aiAvailableModels, setAiAvailableModels] = useState<string[]>([]);
 
+  // Embedding (semantic-search) provider state — independent of the chat AI
+  // config above (Anthropic has no embeddings API).
+  const [embEnabled, setEmbEnabled] = useState(false);
+  const [embProviderType, setEmbProviderType] = useState("ollama");
+  const [embProviderUrl, setEmbProviderUrl] = useState("");
+  const [embApiKey, setEmbApiKey] = useState("");
+  const [embModel, setEmbModel] = useState("nomic-embed-text");
+  const [savingEmb, setSavingEmb] = useState(false);
+  const [testingEmb, setTestingEmb] = useState(false);
+
   // MCP integration state
   const [mcpEnabled, setMcpEnabled] = useState(false);
   const [mcpSsoConfigured, setMcpSsoConfigured] = useState(false);
@@ -66,8 +85,11 @@ export default function AiAdmin() {
       api
         .get<{ enabled: boolean; sso_configured: boolean }>("/settings/mcp")
         .catch(() => ({ enabled: false, sso_configured: false })),
+      api
+        .get<EmbeddingSettings>("/settings/ai/embedding")
+        .catch(() => null),
     ])
-      .then(([data, mcpData]) => {
+      .then(([data, mcpData, embData]) => {
         setAiEnabled(data.enabled);
         setAiProviderType(data.provider_type || "ollama");
         setAiProviderUrl(data.provider_url);
@@ -78,10 +100,51 @@ export default function AiAdmin() {
         setPortfolioInsightsEnabled(data.portfolio_insights_enabled ?? false);
         setMcpEnabled(mcpData.enabled);
         setMcpSsoConfigured(mcpData.sso_configured);
+        if (embData) {
+          setEmbEnabled(embData.enabled);
+          setEmbProviderType(embData.provider_type || "ollama");
+          setEmbProviderUrl(embData.provider_url || "");
+          setEmbApiKey(embData.api_key || "");
+          setEmbModel(embData.model || "nomic-embed-text");
+        }
       })
       .catch((e) => setError(e instanceof Error ? e.message : t("common:errors.generic")))
       .finally(() => setLoading(false));
   }, []);
+
+  const handleEmbeddingSave = async () => {
+    setSavingEmb(true);
+    setError("");
+    try {
+      await api.patch("/settings/ai/embedding", {
+        enabled: embEnabled,
+        provider_type: embProviderType,
+        provider_url: embProviderUrl,
+        api_key: embApiKey,
+        model: embModel,
+      });
+      setSnack(t("settings.embedding.savedSuccess"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingEmb(false);
+    }
+  };
+
+  const handleEmbeddingTest = async () => {
+    setTestingEmb(true);
+    setError("");
+    try {
+      const res = await api.post<{ ok: boolean; model: string; dimension: number }>(
+        "/settings/ai/embedding/test",
+      );
+      setSnack(t("settings.embedding.testSuccess", { dimension: res.dimension }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setTestingEmb(false);
+    }
+  };
 
   const handleAiSave = async () => {
     setSavingAi(true);
@@ -508,6 +571,99 @@ export default function AiAdmin() {
             disabled={savingAi}
           >
             {savingAi ? t("common:labels.loading") : t("common:actions.save")}
+          </Button>
+        </Box>
+      </Paper>
+
+      {/* Embedding provider (semantic search) */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="search" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.embedding.title")}
+          </Typography>
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          {t("settings.embedding.description")}
+        </Typography>
+
+        <FormControlLabel
+          control={
+            <Switch checked={embEnabled} onChange={(e) => setEmbEnabled(e.target.checked)} />
+          }
+          label={
+            embEnabled
+              ? t("settings.embedding.enabled")
+              : t("settings.embedding.disabled")
+          }
+          sx={{ mb: 2, display: "block" }}
+        />
+
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <TextField
+            select
+            size="small"
+            label={t("settings.embedding.providerType")}
+            value={embProviderType}
+            onChange={(e) => setEmbProviderType(e.target.value)}
+            sx={{ maxWidth: 320 }}
+          >
+            <MenuItem value="ollama">Ollama</MenuItem>
+            <MenuItem value="openai">OpenAI-compatible</MenuItem>
+            <MenuItem value="azure_openai">Azure OpenAI</MenuItem>
+          </TextField>
+
+          <TextField
+            size="small"
+            label={t("settings.embedding.providerUrl")}
+            placeholder="http://ollama:11434"
+            value={embProviderUrl}
+            onChange={(e) => setEmbProviderUrl(e.target.value)}
+          />
+
+          {embProviderType !== "ollama" && (
+            <TextField
+              size="small"
+              type="password"
+              label={t("settings.embedding.apiKey")}
+              value={embApiKey}
+              onChange={(e) => setEmbApiKey(e.target.value)}
+              placeholder={embApiKey === AI_KEY_MASK ? AI_KEY_MASK : ""}
+            />
+          )}
+
+          <TextField
+            size="small"
+            label={t("settings.embedding.model")}
+            placeholder="nomic-embed-text"
+            value={embModel}
+            onChange={(e) => setEmbModel(e.target.value)}
+            helperText={t("settings.embedding.modelHelp")}
+          />
+        </Box>
+
+        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 2 }}>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={
+              testingEmb ? <CircularProgress size={16} /> : <MaterialSymbol icon="wifi_tethering" size={18} />
+            }
+            sx={{ textTransform: "none" }}
+            onClick={handleEmbeddingTest}
+            disabled={testingEmb || !embEnabled}
+          >
+            {t("settings.embedding.test")}
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<MaterialSymbol icon="save" size={18} />}
+            sx={{ textTransform: "none" }}
+            onClick={handleEmbeddingSave}
+            disabled={savingEmb}
+          >
+            {savingEmb ? t("common:labels.loading") : t("common:actions.save")}
           </Button>
         </Box>
       </Paper>

@@ -229,5 +229,9 @@
   "export.allFieldsHint": "Set di dati completo, reimportabile",
   "export.currentView": "Esporta vista corrente",
   "export.currentViewHint": "Rispecchia la griglia visualizzata — non adatta al reimport",
-  "export.viewSheetName": "Vista"
+  "export.viewSheetName": "Vista",
+  "filter.searchModeText": "Testo",
+  "filter.searchModeSemantic": "Semantica",
+  "filter.searchSemanticPlaceholder": "Descrivi ciò che cerchi…",
+  "filter.semanticUnavailable": "La ricerca semantica non è configurata, quindi i risultati ricadono sulla corrispondenza testuale. Un amministratore può abilitarla in Impostazioni → IA."
 }

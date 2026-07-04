@@ -155,7 +155,7 @@ In diesem Modus authentifiziert sich der Server mit E-Mail/Passwort und erneuert
 
 ## Verfügbare Funktionen
 
-Der MCP-Server stellt **47 Werkzeuge** in zwei Gruppen bereit: **30 Lese-Werkzeuge** zur Abfrage von EA-Daten und **17 Schreib-Werkzeuge** (13 additiv, 4 destruktiv), die Karten, Beziehungen, Diagramme, Risiken, ADRs und mehr erstellen und pflegen — einschließlich der Umwandlung von Artefakten, die ein KI-Werkzeug in seinem eigenen Kontext hat (Tabellen, BPMN-XML, DrawIO-XML, Dokumente, Bilder), in strukturierte EA-Daten. Jedes Werkzeug trägt MCP-`ToolAnnotations` (Hinweise auf schreibgeschützt / destruktiv / idempotent), sodass Konnektoren die Destruktivität in ihrer Oberfläche anzeigen können.
+Der MCP-Server stellt **48 Werkzeuge** in zwei Gruppen bereit: **31 Lese-Werkzeuge** zur Abfrage von EA-Daten und **17 Schreib-Werkzeuge** (13 additiv, 4 destruktiv), die Karten, Beziehungen, Diagramme, Risiken, ADRs und mehr erstellen und pflegen — einschließlich der Umwandlung von Artefakten, die ein KI-Werkzeug in seinem eigenen Kontext hat (Tabellen, BPMN-XML, DrawIO-XML, Dokumente, Bilder), in strukturierte EA-Daten. Jedes Werkzeug trägt MCP-`ToolAnnotations` (Hinweise auf schreibgeschützt / destruktiv / idempotent), sodass Konnektoren die Destruktivität in ihrer Oberfläche anzeigen können.
 
 ### Sicherheit beim Schreiben durch Trockenlauf
 
@@ -163,7 +163,7 @@ Jedes Schreib-Werkzeug verwendet standardmäßig **`dry_run=true`**. In diesem M
 
 ### Lese-Werkzeuge
 
-Der Server stellt 30 Lese-Werkzeuge in acht Gruppen bereit.
+Der Server stellt 31 Lese-Werkzeuge in acht Gruppen bereit.
 
 **Karten & Metamodell**
 
@@ -291,7 +291,7 @@ Verteidigung in der Tiefe zusätzlich zum Trockenlauf, damit ein Fehlverhalten d
 
 - **Größenbegrenzung pro Aufruf.** Die MCP-Schreib-Werkzeuge erzwingen eine wesentlich kleinere Obergrenze als die zugrunde liegenden Excel-Import-Endpunkte: 200 Zeilen für `create_cards_bulk`, 500 Operationen für `upsert_relations_bulk`. Groß genug für jeden realistischen Einzel-Artefakt-Upload, klein genug, dass eine Trockenlauf-Vorschau überprüfbar bleibt.
 - **Standardmäßig keine Löschung von Beziehungen.** `upsert_relations_bulk` lehnt `action: "delete"`-Operationen ab — um Beziehungen zu entfernen, ist die Weboberfläche zu verwenden, wo die Aktion unter der Identität des Benutzers erfasst wird. Operatoren können dies aktivieren, indem sie `MCP_ALLOW_RELATION_DELETE=true` setzen.
-- **Notausschalter.** `MCP_WRITES_ENABLED=false` schaltet alle 17 Schreib-Werkzeuge aus, ohne dass Code neu bereitgestellt werden muss. Die 30 Lese-Werkzeuge funktionieren weiter.
+- **Notausschalter.** `MCP_WRITES_ENABLED=false` schaltet alle 17 Schreib-Werkzeuge aus, ohne dass Code neu bereitgestellt werden muss. Die 31 Lese-Werkzeuge funktionieren weiter.
 - **Audit-Herkunfts-Marker.** Jede Backend-Anfrage vom MCP-Server trägt einen `X-Turbo-EA-Origin: mcp`-Header. Ereignisse, die aus diesen Anfragen emittiert werden, werden im Audit-Log-Payload mit `origin: "mcp"` markiert, sodass Administratoren MCP-gesteuerte Schreibvorgänge getrennt von Web-UI-Aktionen aus der Zeitleiste filtern können.
 - **Mutations-Batches.** Jeder MCP-Schreibaufruf öffnet vor allen Schreibvorgängen einen Mutations-Batch; jedes während des Aufrufs emittierte Ereignis wird mit der Batch-ID gestempelt. Administratoren (oder das Werkzeug `get_change_history`) können aus einer einzigen ID den vollständigen Ereignis-Diff eines Commits rekonstruieren, und `rollback_batch` kann ihn rückgängig machen. Commits oberhalb von `MCP_BATCH_CONFIRMATION_THRESHOLD` Zeilen müssen ein einmaliges `confirm_token` zurückgeben, das der vorherige Trockenlauf ausgestellt hat (15 Minuten Gültigkeit) — ein großer Commit folgt also immer auf eine geprüfte Vorschau.
 - **Kein endgültiges Löschen.** Die Werkzeugsammlung lässt bewusst das dauerhafte Löschen von Karten weg. `archive_cards` und `update_cards_bulk` *sind* verfügbar, aber die Archivierung ist ein wiederherstellbares Soft-Delete (30-Tage-Wiederherstellungsfenster) und beide sind mit Destruktivitäts-Annotationen versehen und durch den Trockenlauf abgesichert. Das Hinzufügen eines Werkzeugs, das eine irreversible Mutation durchführt (endgültiges Löschen, erzwungenes Bereinigen), würde eine explizite Designprüfung erfordern.

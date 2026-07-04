@@ -30,6 +30,7 @@ import { invalidateSponsorButtonEnabled } from "@/hooks/useSponsorButtonEnabled"
 import { invalidatePpmEnabled } from "@/hooks/usePpmEnabled";
 import { invalidateArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
 import { invalidateFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
+import { invalidateSemanticSearchEnabled } from "@/hooks/useSemanticSearchEnabled";
 import { invalidateEnabledLocalesGlobal } from "@/hooks/useEnabledLocales";
 import { invalidateLoginBranding } from "@/hooks/useLoginBranding";
 import { SUPPORTED_LOCALES, type SupportedLocale } from "@/i18n";
@@ -50,6 +51,7 @@ type BootstrapResponse = {
   archive_retention_days: number;
   bpm_row_order: string[];
   show_principles_tab: boolean;
+  semantic_search_enabled: boolean;
   compliance_regulations: ComplianceRegulation[];
   resource_types: ResourceType[];
   login_tagline: string;
@@ -88,6 +90,7 @@ export function primeBootstrap(): Promise<void> {
       invalidateGrcEnabled(r.grc_enabled);
       invalidateSponsorButtonEnabled(r.sponsor_button_enabled);
       invalidateFileUploadsEnabled(r.file_uploads_enabled);
+      invalidateSemanticSearchEnabled(Boolean(r.semantic_search_enabled));
 
       if (typeof r.archive_retention_days === "number") {
         invalidateArchiveRetentionDays(r.archive_retention_days);

@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.65.0] - 2026-07-04
+
+### Added
+- **Semantic (meaning-based) card search.** A new search mode finds cards by what they *mean*, not just literal text — searching "customer-facing payment systems" now surfaces a card named "NexaPay Gateway" that a substring search would miss. It uses a small embedding model (text→vector), not a chat LLM, and fuses semantic ranking with the existing substring match. In the inventory, a **Semantic** toggle appears next to the search box once an embedding provider is configured (results fall back to text matching otherwise). The MCP server gains a `semantic_search_cards` tool so AI agents can find the right cards in one call instead of guessing keywords.
+- **Embedding provider settings.** Admin → Settings → AI has a new **Semantic Search (Embeddings)** section to configure the embedding provider (self-hosted Ollama `nomic-embed-text` by default, or an OpenAI-compatible / Azure OpenAI endpoint). It is independent of the chat AI provider — Anthropic has no embeddings API — and includes a connectivity test. Card embeddings are generated and kept up to date automatically by a background reconciliation task; the first run backfills the existing inventory. Semantic results respect the same permissions and cost-field redaction as the normal card list.
+
+### Changed
+- **The bundled PostgreSQL image now ships the `pgvector` extension** (base image `pgvector/pgvector:pg18`) to store card embeddings. The non-root hardening is preserved on the new Debian base.
+
 ## [1.64.3] - 2026-07-04
 
 ### Changed

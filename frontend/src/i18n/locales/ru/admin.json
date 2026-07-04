@@ -1678,5 +1678,17 @@
   "auditLog.rollback.rollingBack": "Откат…",
   "auditLog.rollback.force": "Принудительный откат",
   "auditLog.rollback.rollback": "Откатить",
-  "users.create.passwordOptionalLocalHelperText": "Оставьте пустым, чтобы пользователь задал пароль при первом входе."
+  "users.create.passwordOptionalLocalHelperText": "Оставьте пустым, чтобы пользователь задал пароль при первом входе.",
+  "settings.embedding.title": "Смысловой поиск (эмбеддинги)",
+  "settings.embedding.description": "Настройте поставщика эмбеддингов, чтобы включить смысловой поиск карточек в инвентаре и на сервере MCP. Использует небольшую модель «текст в вектор» — не чат-LLM. По умолчанию — локальный Ollama для работы офлайн.",
+  "settings.embedding.enabled": "Смысловой поиск включён",
+  "settings.embedding.disabled": "Смысловой поиск отключён",
+  "settings.embedding.providerType": "Поставщик эмбеддингов",
+  "settings.embedding.providerUrl": "URL поставщика",
+  "settings.embedding.apiKey": "Ключ API",
+  "settings.embedding.model": "Модель эмбеддингов",
+  "settings.embedding.modelHelp": "Должна выдавать 768-мерные векторы (например, nomic-embed-text или text-embedding-3-small).",
+  "settings.embedding.test": "Проверить",
+  "settings.embedding.savedSuccess": "Настройки эмбеддингов сохранены.",
+  "settings.embedding.testSuccess": "Поставщик эмбеддингов в порядке — возвращены {{dimension}}-мерные векторы."
 }

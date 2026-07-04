@@ -179,6 +179,46 @@ class TestUnauthenticatedTools:
         result = asyncio.run(server.list_risks())
         assert "Not authenticated" in result
 
+    def test_semantic_search_requires_auth(self, monkeypatch):
+        monkeypatch.setattr(server, "_stdio_token", None)
+        import asyncio
+
+        result = asyncio.run(server.semantic_search_cards("payment systems"))
+        assert "Not authenticated" in result
+
+
+class TestSemanticSearch:
+    @pytest.mark.asyncio
+    async def test_forwards_query_and_strips_empty_filters(self, fake_token):
+        patcher, mock = _patched_get(
+            {
+                "items": [],
+                "query": "payments",
+                "mode": "hybrid",
+                "embedding_available": True,
+            }
+        )
+        with patcher:
+            out = await server.semantic_search_cards("payments", top_k=5)
+        _assert_called_with(
+            mock,
+            "/cards/semantic-search",
+            params={"query": "payments", "top_k": 5, "mode": "hybrid"},
+        )
+        assert _parse(out)["embedding_available"] is True
+
+    @pytest.mark.asyncio
+    async def test_caps_top_k_and_passes_type(self, fake_token):
+        patcher, mock = _patched_get({"items": [], "embedding_available": False})
+        with patcher:
+            await server.semantic_search_cards(
+                "apps", type="Application", top_k=500, mode="semantic"
+            )
+        _, kwargs = mock.call_args
+        assert kwargs["params"]["top_k"] == 100  # capped
+        assert kwargs["params"]["type"] == "Application"
+        assert kwargs["params"]["mode"] == "semantic"
+
 
 class TestGrcTools:
     @pytest.mark.asyncio

@@ -155,7 +155,7 @@ In this mode, the server authenticates with email/password and refreshes the tok
 
 ## Available Capabilities
 
-The MCP server exposes **47 tools** across two groups: **30 read tools** that query EA data and **17 write tools** (13 additive, 4 destructive) that create and maintain cards, relations, diagrams, risks, ADRs and more — including turning artifacts an AI tool has in its own context (spreadsheets, BPMN XML, DrawIO XML, documents, images) into structured EA data. Every tool carries MCP `ToolAnnotations` (read-only / destructive / idempotent hints) so connectors can surface destructiveness in their UI.
+The MCP server exposes **48 tools** across two groups: **31 read tools** that query EA data and **17 write tools** (13 additive, 4 destructive) that create and maintain cards, relations, diagrams, risks, ADRs and more — including turning artifacts an AI tool has in its own context (spreadsheets, BPMN XML, DrawIO XML, documents, images) into structured EA data. Every tool carries MCP `ToolAnnotations` (read-only / destructive / idempotent hints) so connectors can surface destructiveness in their UI.
 
 ### Dry-run safety on writes
 
@@ -163,13 +163,14 @@ Every write tool defaults to **`dry_run=true`**. In this mode the backend runs e
 
 ### Read tools
 
-The server exposes 30 read tools grouped into eight clusters.
+The server exposes 31 read tools grouped into eight clusters.
 
 **Cards & metamodel**
 
 | Tool | Description |
 |------|-------------|
-| `search_cards` | Search and filter cards by type, status, or free text |
+| `search_cards` | Search and filter cards by type, status, or exact substring |
+| `semantic_search_cards` | Meaning-based (embedding) card search fused with substring match; ranked hits with score/match/snippet. Requires an embedding provider (falls back to substring otherwise) |
 | `get_card` | Get full details of a card by UUID |
 | `get_card_relations` | Get all relations connected to a card |
 | `get_card_hierarchy` | Get ancestors and children of a card |
@@ -291,7 +292,7 @@ Defense in depth on top of dry-run, so an LLM mishap can't cause mass damage:
 
 - **Per-call size caps.** The MCP write tools enforce a much smaller cap than the underlying Excel-importer endpoints: 200 rows for `create_cards_bulk`, 500 ops for `upsert_relations_bulk`. Big enough for any realistic single artifact upload, small enough that a dry-run preview is still scannable.
 - **No relation deletion by default.** `upsert_relations_bulk` refuses `action: "delete"` ops — to remove relations, use the web UI where the action is captured under the user's identity. Operators can opt in by setting `MCP_ALLOW_RELATION_DELETE=true`.
-- **Kill switch.** `MCP_WRITES_ENABLED=false` turns off all 17 write tools without redeploying code. The 30 read tools keep working.
+- **Kill switch.** `MCP_WRITES_ENABLED=false` turns off all 17 write tools without redeploying code. The 31 read tools keep working.
 - **Audit origin tag.** Every backend request from the MCP server carries an `X-Turbo-EA-Origin: mcp` header. Events emitted from those requests are tagged `origin: "mcp"` in the audit-log payload, so admins can filter MCP-driven writes out of the timeline distinct from web-UI actions.
 - **Mutation batches.** Every MCP write call opens a mutation batch before any writes; every event emitted during the call is stamped with the batch id. Admins (or the `get_change_history` tool) can reconstruct the full per-event diff of a commit from one id, and `rollback_batch` can reverse it. Commits above `MCP_BATCH_CONFIRMATION_THRESHOLD` rows must echo back a one-shot `confirm_token` issued by the prior dry-run (15-minute TTL), so a large commit always follows a reviewed preview.
 - **No hard delete.** The toolset deliberately omits permanent card deletion. `archive_cards` and `update_cards_bulk` *are* exposed, but archiving is a recoverable soft-delete (30-day restore window) and both are destructiveness-annotated and dry-run-gated. Adding any tool that performs an irreversible mutation (hard delete, force-purge) would require an explicit design review.

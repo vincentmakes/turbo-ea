@@ -1678,5 +1678,17 @@
   "auditLog.rollback.rollingBack": "Annullamento in corso…",
   "auditLog.rollback.force": "Forza l'annullamento",
   "auditLog.rollback.rollback": "Annulla",
-  "users.create.passwordOptionalLocalHelperText": "Lascia vuoto per consentire all'utente di impostare la password al primo accesso."
+  "users.create.passwordOptionalLocalHelperText": "Lascia vuoto per consentire all'utente di impostare la password al primo accesso.",
+  "settings.embedding.title": "Ricerca semantica (embedding)",
+  "settings.embedding.description": "Configura un provider di embedding per abilitare la ricerca delle carte per significato nell'inventario e nel server MCP. Usa un piccolo modello testo-vettore, non un LLM di chat. Per impostazione predefinita usa Ollama self-hosted per funzionare offline.",
+  "settings.embedding.enabled": "Ricerca semantica attivata",
+  "settings.embedding.disabled": "Ricerca semantica disattivata",
+  "settings.embedding.providerType": "Provider di embedding",
+  "settings.embedding.providerUrl": "URL del provider",
+  "settings.embedding.apiKey": "Chiave API",
+  "settings.embedding.model": "Modello di embedding",
+  "settings.embedding.modelHelp": "Deve produrre vettori a 768 dimensioni (es. nomic-embed-text o text-embedding-3-small).",
+  "settings.embedding.test": "Prova",
+  "settings.embedding.savedSuccess": "Impostazioni di embedding salvate.",
+  "settings.embedding.testSuccess": "Provider di embedding OK — restituiti vettori a {{dimension}} dimensioni."
 }

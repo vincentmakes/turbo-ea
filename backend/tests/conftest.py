@@ -88,6 +88,9 @@ def test_engine():
                 await conn.execute(text(f"CREATE SCHEMA {schema}"))
             await raw_engine.dispose()
         async with engine.begin() as conn:
+            # card_embeddings has a pgvector column — the extension must exist
+            # before create_all (mirrors the app lifespan on a real DB).
+            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
 

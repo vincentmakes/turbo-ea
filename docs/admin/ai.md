@@ -160,6 +160,31 @@ These fields are only suggested when the AI finds clear evidence — they are no
 
 ---
 
+## Semantic Search (Embeddings)
+
+Semantic search lets users find cards by **meaning** rather than exact wording — a search for "customer-facing payment systems" surfaces a card named "NexaPay Gateway" that a plain text search would miss. It powers the **Semantic** toggle in the inventory search box and the `semantic_search_cards` MCP tool.
+
+Under the hood it uses an **embedding model** (a small text→vector model), not a chat LLM, and fuses the meaning-based ranking with the existing substring match. Because embeddings are a distinct capability — and Anthropic, a supported chat provider, has no embeddings API — the embedding provider is configured **separately** from the chat AI provider above.
+
+### Enabling semantic search
+
+1. Go to **Admin → Settings → AI → Semantic Search (Embeddings)**.
+2. Turn on **Semantic search enabled**.
+3. Choose an **embedding provider**:
+   - **Ollama** (default, self-hosted, works offline): set the provider URL (e.g. `http://ollama:11434`) and a model that outputs 768-dimensional vectors — `nomic-embed-text` is the recommended default. Pull it with `ollama pull nomic-embed-text`.
+   - **OpenAI-compatible**: set the provider URL and API key; use `text-embedding-3-small` (or `-large`), which Turbo EA requests at 768 dimensions.
+   - **Azure OpenAI**: set the resource URL, API key, and an embeddings deployment name.
+4. Click **Test** to verify connectivity — a successful test reports the vector dimension (768).
+5. Click **Save**.
+
+> The embedding model must output **768-dimensional** vectors. `nomic-embed-text` does natively; the OpenAI `text-embedding-3-*` models are requested at 768 automatically.
+
+### How embeddings stay up to date
+
+Card embeddings are generated and refreshed automatically by a background task — you don't trigger anything manually. When you first enable the feature it **backfills** the existing inventory (this can take from a few minutes to a few hours on a large estate with a CPU-only Ollama, and runs quietly in the background). After that, new and edited cards are re-embedded within a minute or so. If you switch embedding models, every card is re-embedded automatically.
+
+Semantic results respect the **same permissions and cost-field redaction** as the normal card list — a user never sees a card in semantic results they couldn't see in the inventory. If the embedding provider is unavailable, search transparently falls back to substring matching.
+
 ## Portfolio Insights
 
 When enabled, the Application Portfolio report displays an **AI Insights** button. Clicking it sends a summary of the current portfolio view — grouping, attribute distributions, and lifecycle data — to the configured LLM, which returns 3–5 actionable insights.

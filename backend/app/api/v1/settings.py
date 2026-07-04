@@ -230,6 +230,11 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         ),
         "bpm_row_order": general.get("bpmRowOrder", ["management", "core", "support"]),
         "show_principles_tab": general.get("showPrinciplesTab", True),
+        # Semantic card search is available only when an embedding provider is
+        # enabled; the inventory UI uses this to show/hide its Semantic toggle.
+        "semantic_search_enabled": bool(
+            ((general.get("ai") or {}).get("embedding") or {}).get("enabled", False)
+        ),
         "compliance_regulations": compliance_regulations,
         "resource_types": resource_types,
         "login_tagline": (general.get("loginTagline") or "").strip(),
@@ -1274,6 +1279,10 @@ async def update_ai_settings(
         "enabledTypes": body.enabled_types,
         "portfolioInsightsEnabled": body.portfolio_insights_enabled,
     }
+    # Preserve the independent embedding-provider block — it is managed by the
+    # /ai/embedding endpoints and must survive a chat-AI settings save.
+    if prev_ai.get("embedding"):
+        general["ai"]["embedding"] = prev_ai["embedding"]
     row.general_settings = general
     await db.commit()
 
@@ -1334,6 +1343,125 @@ async def test_ai_connection(
         raise HTTPException(502, str(exc)) from exc
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Embedding (semantic-search) settings — a provider block independent of the
+# chat AI config above. Anthropic has no embeddings API, so it is intentionally
+# not a valid embedding provider.
+# ---------------------------------------------------------------------------
+
+_VALID_EMBEDDING_PROVIDER_TYPES = {"ollama", "openai", "azure_openai"}
+
+
+class EmbeddingSettingsPayload(BaseModel):
+    enabled: bool = False
+    provider_type: str = "ollama"
+    provider_url: str = ""
+    api_key: str = ""
+    model: str = ""
+    dimension: int = 768
+
+
+@router.get("/ai/embedding")
+async def get_embedding_settings(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — get the embedding-provider configuration."""
+    from app.models.card_embedding import EMBEDDING_DIM
+    from app.services.embedding_service import DEFAULT_EMBEDDING_MODEL
+
+    await PermissionService.require_permission(db, user, "admin.settings")
+    row = await _get_or_create_row(db)
+    await db.commit()
+    general = row.general_settings or {}
+    emb = (general.get("ai") or {}).get("embedding") or {}
+    api_key_stored = emb.get("apiKey", "")
+    return {
+        "enabled": emb.get("enabled", False),
+        "provider_type": emb.get("providerType", "ollama"),
+        "provider_url": emb.get("providerUrl", ""),
+        "api_key": _AI_KEY_MASK if api_key_stored else "",
+        "model": emb.get("model", DEFAULT_EMBEDDING_MODEL),
+        "dimension": emb.get("dimension", EMBEDDING_DIM),
+    }
+
+
+@router.patch("/ai/embedding")
+async def update_embedding_settings(
+    body: EmbeddingSettingsPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — update the embedding-provider configuration."""
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    provider_type = body.provider_type
+    if provider_type not in _VALID_EMBEDDING_PROVIDER_TYPES:
+        raise HTTPException(
+            400,
+            f"Invalid embedding provider_type '{provider_type}'. "
+            f"Must be one of: {', '.join(sorted(_VALID_EMBEDDING_PROVIDER_TYPES))}. "
+            "Anthropic has no embeddings API.",
+        )
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    ai = dict(general.get("ai") or {})
+    prev_emb = ai.get("embedding", {})
+
+    new_api_key = body.api_key
+    if new_api_key == _AI_KEY_MASK or (not new_api_key and prev_emb.get("apiKey")):
+        encrypted_key = prev_emb.get("apiKey", "")
+    elif new_api_key:
+        encrypted_key = encrypt_value(new_api_key)
+    else:
+        encrypted_key = ""
+
+    if provider_type == "azure_openai" and not body.provider_url:
+        raise HTTPException(400, "Provider URL is required for Azure Hosted OpenAI embeddings.")
+    if (
+        provider_type in ("openai", "azure_openai")
+        and body.enabled
+        and not (new_api_key or encrypted_key)
+    ):
+        raise HTTPException(400, "API key is required for commercial embedding providers.")
+
+    ai["embedding"] = {
+        "enabled": body.enabled,
+        "providerType": provider_type,
+        "providerUrl": body.provider_url,
+        "apiKey": encrypted_key,
+        "model": body.model,
+        "dimension": body.dimension,
+    }
+    general["ai"] = ai
+    row.general_settings = general
+    await db.commit()
+
+    return {"ok": True}
+
+
+@router.post("/ai/embedding/test")
+async def test_embedding_connection(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — embed a sample string to verify the embedding provider."""
+    from app.services.embedding_service import EmbeddingError, embed_texts, load_embedding_config
+
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    cfg = await load_embedding_config(db)
+    if cfg is None:
+        raise HTTPException(400, "Embedding provider is not enabled or not configured.")
+    try:
+        vectors = await embed_texts(["Turbo EA embedding connectivity check."], cfg)
+    except EmbeddingError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    dim = len(vectors[0]) if vectors else 0
+    return {"ok": True, "model": cfg.model, "dimension": dim}
 
 
 SUPPORTED_LOCALES = ["en", "de", "fr", "es", "it", "pt", "zh", "ru", "da", "ar"]

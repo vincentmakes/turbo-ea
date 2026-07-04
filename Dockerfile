@@ -46,26 +46,28 @@ EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "info"]
 
 
-FROM postgres:18-alpine AS db
+# pgvector/pgvector:pg18 is the official pgvector image (Debian bookworm base,
+# same Postgres 18 as the upstream postgres:18 image) with the `vector`
+# extension prebuilt and version-matched — used for semantic card search. It is
+# Debian-, not alpine-based, so the hardening below uses apt/passwd tooling.
+FROM pgvector/pgvector:pg18 AS db
 
 ARG APP_UID
 ARG APP_GID
 
-RUN apk upgrade --no-cache && \
-    apk add --no-cache shadow && \
-    groupmod -g ${APP_GID} postgres && \
-    usermod -u ${APP_UID} -g ${APP_GID} postgres && \
-    apk del shadow && \
-    # The upstream postgres-alpine image bundles a gosu binary built against
-    # an older Go stdlib. The entrypoint only invokes it when running as root
-    # (id -u == 0) to drop privileges to the postgres user — but we set USER
-    # to a fixed non-root UID below, so the gosu branch is never taken.
-    # Deleting the binary closes 8 Go-stdlib CVEs that Trivy flags on every
-    # image scan without changing runtime behaviour.
-    rm -f /usr/local/bin/gosu /usr/local/bin/gosu.asc && \
-    mkdir -p /var/lib/postgresql/data /var/run/postgresql && \
-    chown -R ${APP_UID}:${APP_GID} /var/lib/postgresql /var/run/postgresql && \
-    chmod 700 /var/lib/postgresql/data && \
+RUN set -eux; \
+    apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*; \
+    groupmod -g ${APP_GID} postgres; \
+    usermod -u ${APP_UID} -g ${APP_GID} postgres; \
+    # The upstream postgres image bundles a gosu binary. The entrypoint only
+    # invokes it when running as root (id -u == 0) to drop privileges to the
+    # postgres user — but we set USER to a fixed non-root UID below, so the
+    # gosu branch is never taken. Deleting the binary drops its CVE surface
+    # from every image scan without changing runtime behaviour.
+    rm -f /usr/local/bin/gosu; \
+    mkdir -p /var/lib/postgresql/data /var/run/postgresql; \
+    chown -R ${APP_UID}:${APP_GID} /var/lib/postgresql /var/run/postgresql; \
+    chmod 700 /var/lib/postgresql/data; \
     chmod 3775 /var/run/postgresql
 
 USER ${APP_UID}:${APP_GID}
