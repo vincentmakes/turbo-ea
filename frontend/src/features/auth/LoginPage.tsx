@@ -120,10 +120,7 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
             {!showLocalLogin && (
               <Box sx={{ textAlign: "center", mb: 3 }}>
                 <Typography variant="h6" fontWeight={600}>
-                  {t("login.ssoOnlyTitle")}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  {t("login.subtitle")}
+                  {t("login.signInToApp", { app: appTitle })}
                 </Typography>
               </Box>
             )}
@@ -159,11 +156,14 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
               }
               sx={{
                 mb: showLocalLogin ? 2 : 1.5,
-                bgcolor: "background.paper",
+                bgcolor: "action.hover",
                 color: "text.primary",
                 textTransform: "none",
                 fontWeight: 600,
-                "&:hover": { bgcolor: "action.hover" },
+                boxShadow: "none",
+                border: 1,
+                borderColor: "divider",
+                "&:hover": { bgcolor: "action.selected", boxShadow: "none" },
               }}
             >
               {t("login.ssoButtonProvider", {
