@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
@@ -52,6 +52,16 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
   const [configLoading, setConfigLoading] = useState(() => readCachedSsoConfig() === null);
   const appTitle = useAppTitle();
   const branding = useLoginBranding();
+
+  // Measure the logo+tagline header so we can shift the group up by half its
+  // height, keeping the card (not just the group) at the true vertical centre.
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [headerShift, setHeaderShift] = useState(0);
+  useLayoutEffect(() => {
+    const h = headerRef.current?.offsetHeight ?? 0;
+    // 24px = the mb:3 gap (theme spacing unit 8px × 3) between header and card.
+    setHeaderShift(h > 0 ? (h + 24) / 2 : 0);
+  }, [branding.taglineHidden, branding.tagline, appTitle]);
 
   useEffect(() => {
     auth
@@ -127,21 +137,34 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
         alignItems: "center",
         justifyContent: "center",
         bgcolor: "#1a1a2e",
+        py: 4,
       }}
     >
-      <Box sx={{ textAlign: "center", mb: 3 }}>
-        <img
-          src="/api/v1/settings/logo"
-          alt={appTitle}
-          style={{ height: 64, maxWidth: 280, objectFit: "contain" }}
-        />
-        {!branding.taglineHidden && (
-          <Typography variant="body2" sx={{ mt: 1, color: "rgba(255,255,255,0.6)" }}>
-            {branding.tagline || t("login.title")}
-          </Typography>
-        )}
-      </Box>
-      <Card sx={{ p: 4, width: 400, maxWidth: "90vw" }}>
+      {/* Shift the logo+card group up by half the header's height so the CARD
+          itself sits at the true vertical centre of the viewport (not just the
+          logo+card group). Works in every card state since the header height is
+          independent of the card's contents. */}
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          transform: `translateY(-${headerShift}px)`,
+        }}
+      >
+        <Box ref={headerRef} sx={{ textAlign: "center", mb: 3 }}>
+          <img
+            src="/api/v1/settings/logo"
+            alt={appTitle}
+            style={{ height: 64, maxWidth: 280, objectFit: "contain" }}
+          />
+          {!branding.taglineHidden && (
+            <Typography variant="body2" sx={{ mt: 1, color: "rgba(255,255,255,0.6)" }}>
+              {branding.tagline || t("login.title")}
+            </Typography>
+          )}
+        </Box>
+        <Card sx={{ p: 4, width: 400, maxWidth: "90vw" }}>
         {configLoading ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 5 }}>
             <CircularProgress size={28} />
@@ -300,7 +323,8 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
         )}
           </>
         )}
-      </Card>
+        </Card>
+      </Box>
       {(branding.helpText || branding.helpLink) && (
         <Box
           sx={{
