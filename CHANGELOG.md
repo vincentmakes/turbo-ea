@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 - **No more flash of the email/password fields on the login page.** The sign-in screen now shows a brief spinner while it checks the SSO configuration, instead of flashing the email/password form and then hiding it. The resolved configuration is cached for the session, so a page refresh renders the correct layout instantly without a repeat round-trip.
 - **No more flicker of a customised application name.** The app title is remembered between loads, so screens that show it (the login heading, the browser tab) render your customised name immediately instead of briefly showing the default "Turbo EA" and swapping.
-- **The sign-in card is now vertically centred.** For the compact SSO-only card the card sits at the true vertical centre of the screen with the logo above it; when the email/password form is shown, the logo and card are balanced as a group so the taller card doesn't sit too high.
+- **The sign-in card is now vertically centred.** For the compact SSO-only card the card sits at the true vertical centre of the screen with the logo above it; when the email/password form is shown, the logo and card are balanced as a group so the taller card doesn't sit too high. On mobile the login screen now centres against the visible viewport height, so the form is no longer pushed down behind the browser's address bar.
 
 ## [1.64.2] - 2026-07-04
 

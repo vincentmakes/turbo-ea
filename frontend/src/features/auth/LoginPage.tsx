@@ -131,7 +131,11 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
   return (
     <Box
       sx={{
+        // Center against the *visible* viewport. On mobile, 100vh includes the
+        // area behind the address bar, so 100vh-centred content sits lower than
+        // the visual centre — 100dvh tracks the actually-visible height.
         minHeight: "100vh",
+        "@supports (min-height: 100dvh)": { minHeight: "100dvh" },
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
