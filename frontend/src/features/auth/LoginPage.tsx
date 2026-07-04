@@ -140,16 +140,17 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
         py: 4,
       }}
     >
-      {/* Shift the logo+card group up by half the header's height so the CARD
-          itself sits at the true vertical centre of the viewport (not just the
-          logo+card group). Works in every card state since the header height is
-          independent of the card's contents. */}
+      {/* For the compact SSO-only card, shift the group up by half the header's
+          height so the CARD itself sits at the true vertical centre (not just the
+          logo+card group). When the taller email/password form is shown, keep the
+          balanced group-centring — shifting a tall card up leaves it looking too
+          high. */}
       <Box
         sx={{
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          transform: `translateY(-${headerShift}px)`,
+          transform: `translateY(-${showLocalLogin ? 0 : headerShift}px)`,
         }}
       >
         <Box ref={headerRef} sx={{ textAlign: "center", mb: 3 }}>
