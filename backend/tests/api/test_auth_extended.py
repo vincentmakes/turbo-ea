@@ -8,9 +8,29 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
+from app.models.app_settings import AppSettings
 from app.models.sso_invitation import SsoInvitation
 from app.models.user import User
-from tests.conftest import auth_headers
+from tests.conftest import auth_headers, create_user
+
+
+async def _enable_sso(db):
+    """Enable Microsoft SSO on the singleton app_settings row (no network needed)."""
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = dict(row.general_settings or {}) if row else {}
+    general["sso"] = {
+        "enabled": True,
+        "provider": "microsoft",
+        "client_id": "test-client-id",
+        "tenant_id": "organizations",
+    }
+    if row:
+        row.general_settings = general
+    else:
+        db.add(AppSettings(id="default", general_settings=general))
+    await db.flush()
+
 
 # ---------------------------------------------------------------
 # POST /auth/register  (validation edge cases)
@@ -238,6 +258,58 @@ class TestSsoConfig:
         # Ensure no secret keys are leaked
         assert "client_secret" not in data
         assert "password" not in data
+
+    async def test_local_login_flag_absent_when_sso_disabled(self, client, db):
+        """When SSO is disabled the flag is omitted (frontend defaults to showing the form)."""
+        resp = await client.get("/api/v1/auth/sso/config")
+        assert resp.status_code == 200
+        assert "local_login_available" not in resp.json()
+
+    async def test_local_login_unavailable_when_all_accounts_sso(self, client, db):
+        """SSO enabled + only SSO accounts ⇒ local_login_available is False."""
+        await _enable_sso(db)
+        db.add(
+            User(
+                email="sso-only@example.com",
+                display_name="SSO Only",
+                password_hash=None,
+                role="member",
+                auth_provider="sso",
+                sso_subject_id="sub-sso-only",
+                is_active=True,
+            )
+        )
+        await db.flush()
+
+        resp = await client.get("/api/v1/auth/sso/config")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["enabled"] is True
+        assert data["local_login_available"] is False
+
+    async def test_local_login_available_when_local_account_exists(self, client, db):
+        """SSO enabled but at least one local account exists ⇒ flag is True."""
+        await _enable_sso(db)
+        db.add(
+            User(
+                email="sso-user@example.com",
+                display_name="SSO User",
+                password_hash=None,
+                role="member",
+                auth_provider="sso",
+                sso_subject_id="sub-sso-user",
+                is_active=True,
+            )
+        )
+        # A single local/invited account keeps the password form available.
+        await create_user(db, email="local@example.com", role="member")
+        await db.flush()
+
+        resp = await client.get("/api/v1/auth/sso/config")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["enabled"] is True
+        assert data["local_login_available"] is True
 
 
 # ---------------------------------------------------------------

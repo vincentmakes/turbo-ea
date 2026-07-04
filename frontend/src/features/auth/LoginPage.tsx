@@ -38,6 +38,11 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
   }, []);
 
   const ssoEnabled = ssoConfig?.enabled === true;
+  // Hide the email/password form when SSO is on and every account is SSO-based
+  // (the backend reports no local accounts). Any local/invited account keeps
+  // the form visible so those users can still sign in or set a password.
+  const showLocalLogin =
+    !ssoEnabled || ssoConfig?.local_login_available !== false;
   const registrationAllowed =
     !ssoEnabled && ssoConfig?.registration_enabled !== false;
 
@@ -153,9 +158,11 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
                 provider: ssoConfig?.provider_name || "SSO",
               })}
             </Button>
-            <Divider sx={{ my: 2, color: "text.secondary", fontSize: 13 }}>
-              {t("login.ssoEmailDivider")}
-            </Divider>
+            {showLocalLogin && (
+              <Divider sx={{ my: 2, color: "text.secondary", fontSize: 13 }}>
+                {t("login.ssoEmailDivider")}
+              </Divider>
+            )}
           </>
         )}
 
@@ -167,63 +174,71 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
           </Tabs>
         )}
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
+        {showLocalLogin && (
+          <>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
 
-        <form onSubmit={handleSubmit}>
-          <TextField
-            fullWidth
-            label={t("login.email")}
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            sx={{ mb: 2 }}
-          />
-          {tab === 1 && registrationAllowed && (
-            <TextField
-              fullWidth
-              label={t("register.displayName")}
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              required
-              sx={{ mb: 2 }}
-            />
-          )}
-          <TextField
-            fullWidth
-            label={t("login.password")}
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            sx={{ mb: tab === 0 && branding.smtpConfigured ? 1 : 3 }}
-          />
-          {tab === 0 && branding.smtpConfigured && (
-            <Box sx={{ textAlign: "right", mb: 2 }}>
-              <Link
-                component={RouterLink}
-                to="/auth/forgot-password"
-                variant="body2"
-                underline="hover"
+            <form onSubmit={handleSubmit}>
+              <TextField
+                fullWidth
+                label={t("login.email")}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                sx={{ mb: 2 }}
+              />
+              {tab === 1 && registrationAllowed && (
+                <TextField
+                  fullWidth
+                  label={t("register.displayName")}
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  required
+                  sx={{ mb: 2 }}
+                />
+              )}
+              <TextField
+                fullWidth
+                label={t("login.password")}
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                sx={{ mb: tab === 0 && branding.smtpConfigured ? 1 : 3 }}
+              />
+              {tab === 0 && branding.smtpConfigured && (
+                <Box sx={{ textAlign: "right", mb: 2 }}>
+                  <Link
+                    component={RouterLink}
+                    to="/auth/forgot-password"
+                    variant="body2"
+                    underline="hover"
+                  >
+                    {t("login.forgotPassword")}
+                  </Link>
+                </Box>
+              )}
+              <Button
+                fullWidth
+                variant="contained"
+                type="submit"
+                disabled={loading}
+                size="large"
               >
-                {t("login.forgotPassword")}
-              </Link>
-            </Box>
-          )}
-          <Button
-            fullWidth
-            variant="contained"
-            type="submit"
-            disabled={loading}
-            size="large"
-          >
-            {loading ? "..." : tab === 0 || !registrationAllowed ? t("login.submitLogin") : t("login.submitRegister")}
-          </Button>
-        </form>
+                {loading
+                  ? "..."
+                  : tab === 0 || !registrationAllowed
+                    ? t("login.submitLogin")
+                    : t("login.submitRegister")}
+              </Button>
+            </form>
+          </>
+        )}
       </Card>
       {(branding.helpText || branding.helpLink) && (
         <Box

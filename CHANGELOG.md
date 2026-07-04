@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.64.3] - 2026-07-04
+
+### Changed
+- **The login page hides the email/password fields when every account uses SSO.** When Single Sign-On is enabled and there are no local accounts left, the sign-in screen now shows only the SSO button — the (unusable) email and password form is hidden. If any local or invited account still exists, the form stays visible so those users can sign in or set their password.
+
 ## [1.64.2] - 2026-07-04
 
 ### Fixed
