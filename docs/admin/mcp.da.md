@@ -170,6 +170,7 @@ Serveren eksponerer 31 læseværktøjer grupperet i otte klynger.
 | Værktøj | Beskrivelse |
 |------|-------------|
 | `search_cards` | Søg og filtrer kort efter type, status eller fri tekst |
+| `semantic_search_cards` | Betydningsbaseret (embedding) kortsøgning fusioneret med delstrengsmatchning; rangerede resultater med score/match/uddrag. Kræver en embedding-udbyder (ellers fald tilbage til delstreng) |
 | `get_card` | Få fulde detaljer for et kort efter UUID |
 | `get_card_relations` | Få alle relationer forbundet til et kort |
 | `get_card_hierarchy` | Få forfædre og børn af et kort |

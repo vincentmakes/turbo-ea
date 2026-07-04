@@ -170,6 +170,7 @@ Le serveur expose 31 outils de lecture, regroupés en huit clusters.
 | Outil | Description |
 |-------|-------------|
 | `search_cards` | Rechercher et filtrer les fiches par type, statut ou texte libre |
+| `semantic_search_cards` | Recherche de fiches par le sens (embedding) fusionnée avec la correspondance de sous-chaîne ; résultats classés avec score/match/extrait. Nécessite un fournisseur d'embeddings (sinon, repli sur la sous-chaîne) |
 | `get_card` | Obtenir les détails complets d'une fiche par UUID |
 | `get_card_relations` | Obtenir toutes les relations connectées à une fiche |
 | `get_card_hierarchy` | Obtenir les ancêtres et enfants d'une fiche |

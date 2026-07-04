@@ -170,6 +170,7 @@ Il server espone 31 strumenti di lettura raggruppati in otto cluster.
 | Strumento | Descrizione |
 |-----------|-------------|
 | `search_cards` | Cercare e filtrare le card per tipo, stato o testo libero |
+| `semantic_search_cards` | Ricerca di card per significato (embedding) fusa con la corrispondenza di sottostringa; risultati classificati con score/match/snippet. Richiede un provider di embedding (altrimenti ricade sulla sottostringa) |
 | `get_card` | Ottenere i dettagli completi di una card tramite UUID |
 | `get_card_relations` | Ottenere tutte le relazioni connesse a una card |
 | `get_card_hierarchy` | Ottenere antenati e figli di una card |

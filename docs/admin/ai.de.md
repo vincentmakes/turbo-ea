@@ -156,6 +156,31 @@ Diese Felder werden nur vorgeschlagen, wenn die KI eindeutige Belege findet — 
 
 ---
 
+## Semantische Suche (Embeddings) { #semantic-search-embeddings }
+
+Mit der semantischen Suche finden Benutzer Karten anhand ihrer **Bedeutung** statt anhand der exakten Formulierung — eine Suche nach „kundenorientierte Zahlungssysteme" findet eine Karte namens „NexaPay Gateway", die eine reine Textsuche übersehen würde. Sie treibt den **Semantik**-Umschalter im Suchfeld des Inventars sowie das MCP-Werkzeug `semantic_search_cards` an.
+
+Im Hintergrund verwendet sie ein **Embedding-Modell** (ein kleines Text-zu-Vektor-Modell), kein Chat-LLM, und verbindet die bedeutungsbasierte Rangfolge mit der bestehenden Teilstring-Suche. Da Embeddings eine eigenständige Fähigkeit sind — und Anthropic, ein unterstützter Chat-Anbieter, keine Embeddings-API hat — wird der Embedding-Anbieter **getrennt** vom obigen Chat-KI-Anbieter konfiguriert.
+
+### Semantische Suche aktivieren
+
+1. Gehen Sie zu **Administration → Einstellungen → KI → Semantische Suche (Embeddings)**.
+2. Aktivieren Sie **Semantische Suche aktiviert**.
+3. Wählen Sie einen **Embedding-Anbieter**:
+   - **Ollama** (Standard, selbst gehostet, funktioniert offline): Legen Sie die Anbieter-URL fest (z. B. `http://ollama:11434`) und ein Modell, das 768-dimensionale Vektoren ausgibt — `nomic-embed-text` ist der empfohlene Standard. Laden Sie es mit `ollama pull nomic-embed-text`.
+   - **OpenAI-kompatibel**: Legen Sie die Anbieter-URL und den API-Schlüssel fest; verwenden Sie `text-embedding-3-small` (oder `-large`), das Turbo EA mit 768 Dimensionen anfordert.
+   - **Azure OpenAI**: Legen Sie die Ressourcen-URL, den API-Schlüssel und einen Embeddings-Deployment-Namen fest.
+4. Klicken Sie auf **Testen**, um die Verbindung zu prüfen — ein erfolgreicher Test meldet die Vektordimension (768).
+5. Klicken Sie auf **Speichern**.
+
+> Das Embedding-Modell muss **768-dimensionale** Vektoren ausgeben. `nomic-embed-text` tut dies nativ; die OpenAI-Modelle `text-embedding-3-*` werden automatisch mit 768 angefordert.
+
+### Wie Embeddings aktuell bleiben
+
+Karten-Embeddings werden automatisch von einer Hintergrundaufgabe erzeugt und aktualisiert — Sie müssen nichts manuell auslösen. Wenn Sie die Funktion zum ersten Mal aktivieren, wird das bestehende Inventar **nachgefüllt** (dies kann bei einem großen Bestand mit einem reinen CPU-Ollama von einigen Minuten bis zu einigen Stunden dauern und läuft unauffällig im Hintergrund). Danach werden neue und bearbeitete Karten innerhalb von etwa einer Minute neu eingebettet. Wenn Sie das Embedding-Modell wechseln, wird jede Karte automatisch neu eingebettet.
+
+Semantische Ergebnisse respektieren die **gleichen Berechtigungen und die Schwärzung von Kostenfeldern** wie die normale Kartenliste — ein Benutzer sieht in den semantischen Ergebnissen niemals eine Karte, die er im Inventar nicht sehen könnte. Wenn der Embedding-Anbieter nicht verfügbar ist, greift die Suche transparent auf die Teilstring-Suche zurück.
+
 ## Portfolio-Erkenntnisse
 
 Wenn aktiviert, zeigt der Anwendungsportfolio-Bericht eine Schaltfläche **KI-Erkenntnisse**. Ein Klick sendet eine Zusammenfassung der aktuellen Portfolioansicht — Gruppierung, Attributverteilungen und Lebenszyklusdaten — an das konfigurierte LLM, das 3–5 umsetzbare Erkenntnisse zurückgibt.

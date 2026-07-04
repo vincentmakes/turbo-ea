@@ -170,6 +170,7 @@ El servidor expone 31 herramientas de lectura agrupadas en ocho clusters.
 | Herramienta | Descripción |
 |-------------|-------------|
 | `search_cards` | Buscar y filtrar fichas por tipo, estado o texto libre |
+| `semantic_search_cards` | Búsqueda de fichas por significado (embedding) fusionada con la coincidencia de subcadena; resultados clasificados con score/match/fragmento. Requiere un proveedor de embeddings (si no, recurre a la subcadena) |
 | `get_card` | Obtener detalles completos de una ficha por UUID |
 | `get_card_relations` | Obtener todas las relaciones conectadas a una ficha |
 | `get_card_hierarchy` | Obtener ancestros e hijos de una ficha |

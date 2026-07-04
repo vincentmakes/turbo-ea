@@ -170,6 +170,7 @@ Der Server stellt 31 Lese-Werkzeuge in acht Gruppen bereit.
 | Werkzeug | Beschreibung |
 |----------|-------------|
 | `search_cards` | Karten nach Typ, Status oder Freitext suchen und filtern |
+| `semantic_search_cards` | Bedeutungsbasierte (Embedding-)Kartensuche, kombiniert mit Teilstring-Abgleich; bewertete Treffer mit Score/Match/Snippet. Erfordert einen Embedding-Anbieter (andernfalls Rückgriff auf Teilstring) |
 | `get_card` | Vollständige Details einer Karte per UUID abrufen |
 | `get_card_relations` | Alle Beziehungen einer Karte abrufen |
 | `get_card_hierarchy` | Vorfahren und Kinder einer Karte abrufen |

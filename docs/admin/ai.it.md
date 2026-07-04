@@ -156,6 +156,31 @@ Questi campi vengono suggeriti solo quando l'AI trova prove chiare — non vengo
 
 ---
 
+## Ricerca semantica (embedding) { #semantic-search-embeddings }
+
+La ricerca semantica consente agli utenti di trovare le card in base al loro **significato** anziché alla dicitura esatta — una ricerca di «sistemi di pagamento rivolti ai clienti» fa emergere una card denominata «NexaPay Gateway» che una semplice ricerca testuale non troverebbe. Alimenta l'interruttore **Semantica** nella casella di ricerca dell'inventario e lo strumento MCP `semantic_search_cards`.
+
+Internamente utilizza un **modello di embedding** (un piccolo modello testo-vettore), non un LLM di chat, e fonde il ranking per significato con la corrispondenza di sottostringa esistente. Poiché gli embedding sono una capacità distinta — e Anthropic, un provider di chat supportato, non dispone di un'API di embedding — il provider di embedding si configura **separatamente** dal provider di IA di chat sopra.
+
+### Abilitare la ricerca semantica
+
+1. Vai su **Amministrazione → Impostazioni → IA → Ricerca semantica (embedding)**.
+2. Attiva **Ricerca semantica abilitata**.
+3. Scegli un **provider di embedding**:
+   - **Ollama** (predefinito, self-hosted, funziona offline): imposta l'URL del provider (es. `http://ollama:11434`) e un modello che produce vettori a 768 dimensioni — `nomic-embed-text` è il valore predefinito consigliato. Scaricalo con `ollama pull nomic-embed-text`.
+   - **Compatibile con OpenAI**: imposta l'URL del provider e la chiave API; usa `text-embedding-3-small` (o `-large`), che Turbo EA richiede a 768 dimensioni.
+   - **Azure OpenAI**: imposta l'URL della risorsa, la chiave API e un nome di distribuzione di embedding.
+4. Fai clic su **Prova** per verificare la connettività — un test riuscito riporta la dimensione del vettore (768).
+5. Fai clic su **Salva**.
+
+> Il modello di embedding deve produrre vettori a **768 dimensioni**. `nomic-embed-text` lo fa nativamente; i modelli OpenAI `text-embedding-3-*` vengono richiesti automaticamente a 768.
+
+### Come gli embedding restano aggiornati
+
+Gli embedding delle card vengono generati e aggiornati automaticamente da un'attività in background — non devi attivare nulla manualmente. Quando abiliti la funzione per la prima volta, essa **ripopola** l'inventario esistente (questo può richiedere da pochi minuti a qualche ora su un patrimonio grande con un Ollama solo CPU, e viene eseguito silenziosamente in background). Successivamente, le card nuove e modificate vengono ri-embeddate entro circa un minuto. Se cambi modello di embedding, ogni card viene ri-embeddata automaticamente.
+
+I risultati semantici rispettano gli **stessi permessi e la stessa oscuratura dei campi di costo** dell'elenco card normale — un utente non vede mai nei risultati semantici una card che non potrebbe vedere nell'inventario. Se il provider di embedding non è disponibile, la ricerca ricade in modo trasparente sulla corrispondenza di sottostringa.
+
 ## Analisi del portafoglio
 
 Quando abilitata, il report del portafoglio applicativo mostra un pulsante **Analisi IA**. Cliccandolo viene inviato un riepilogo della vista corrente del portafoglio — raggruppamento, distribuzioni di attributi e dati del ciclo di vita — al LLM configurato, che restituisce da 3 a 5 analisi attuabili.

@@ -156,6 +156,31 @@ Ces champs ne sont suggérés que lorsque l'IA trouve des preuves claires — il
 
 ---
 
+## Recherche sémantique (embeddings) { #semantic-search-embeddings }
+
+La recherche sémantique permet aux utilisateurs de trouver des fiches par leur **sens** plutôt que par la formulation exacte — une recherche de « systèmes de paiement destinés aux clients » fait remonter une fiche nommée « NexaPay Gateway » qu'une simple recherche textuelle manquerait. Elle alimente le commutateur **Sémantique** de la zone de recherche de l'inventaire et l'outil MCP `semantic_search_cards`.
+
+En coulisses, elle utilise un **modèle d'embedding** (un petit modèle texte-vers-vecteur), et non un LLM de chat, et fusionne le classement par le sens avec la correspondance de sous-chaîne existante. Comme les embeddings sont une capacité distincte — et qu'Anthropic, un fournisseur de chat pris en charge, ne dispose pas d'API d'embeddings — le fournisseur d'embeddings se configure **séparément** du fournisseur d'IA de chat ci-dessus.
+
+### Activer la recherche sémantique
+
+1. Allez dans **Administration → Paramètres → IA → Recherche sémantique (embeddings)**.
+2. Activez **Recherche sémantique activée**.
+3. Choisissez un **fournisseur d'embeddings** :
+   - **Ollama** (par défaut, auto-hébergé, fonctionne hors ligne) : définissez l'URL du fournisseur (p. ex. `http://ollama:11434`) et un modèle qui produit des vecteurs à 768 dimensions — `nomic-embed-text` est la valeur par défaut recommandée. Téléchargez-le avec `ollama pull nomic-embed-text`.
+   - **Compatible OpenAI** : définissez l'URL du fournisseur et la clé API ; utilisez `text-embedding-3-small` (ou `-large`), que Turbo EA demande en 768 dimensions.
+   - **Azure OpenAI** : définissez l'URL de la ressource, la clé API et un nom de déploiement d'embeddings.
+4. Cliquez sur **Tester** pour vérifier la connectivité — un test réussi indique la dimension du vecteur (768).
+5. Cliquez sur **Enregistrer**.
+
+> Le modèle d'embedding doit produire des vecteurs à **768 dimensions**. `nomic-embed-text` le fait nativement ; les modèles OpenAI `text-embedding-3-*` sont automatiquement demandés en 768.
+
+### Comment les embeddings restent à jour
+
+Les embeddings des fiches sont générés et rafraîchis automatiquement par une tâche d'arrière-plan — vous n'avez rien à déclencher manuellement. Lorsque vous activez la fonctionnalité pour la première fois, elle **réalimente** l'inventaire existant (cela peut prendre de quelques minutes à quelques heures sur un grand patrimoine avec un Ollama uniquement CPU, et s'exécute discrètement en arrière-plan). Ensuite, les fiches nouvelles ou modifiées sont ré-embeddées en une minute environ. Si vous changez de modèle d'embedding, chaque fiche est ré-embeddée automatiquement.
+
+Les résultats sémantiques respectent les **mêmes autorisations et le même masquage des champs de coût** que la liste de fiches normale — un utilisateur ne voit jamais dans les résultats sémantiques une fiche qu'il ne pourrait pas voir dans l'inventaire. Si le fournisseur d'embeddings est indisponible, la recherche bascule de façon transparente vers la correspondance de sous-chaîne.
+
 ## Analyses du portefeuille
 
 Lorsque cette fonctionnalité est activée, le rapport de portefeuille applicatif affiche un bouton **Analyses IA**. Un clic envoie un résumé de la vue actuelle du portefeuille — regroupement, distributions d'attributs et données de cycle de vie — au LLM configuré, qui renvoie 3 à 5 analyses exploitables.

@@ -160,6 +160,31 @@ Disse felter foreslås kun, når AI'en finder klart bevis — de spekuleres ikke
 
 ---
 
+## Semantisk søgning (embeddings) { #semantic-search-embeddings }
+
+Semantisk søgning lader brugere finde kort ud fra **betydning** frem for præcis ordlyd — en søgning efter «kundevendte betalingssystemer» finder et kort ved navn «NexaPay Gateway», som en almindelig tekstsøgning ville overse. Den driver **Semantisk**-omskifteren i inventarets søgefelt og MCP-værktøjet `semantic_search_cards`.
+
+Under motorhjelmen bruger den en **embedding-model** (en lille tekst-til-vektor-model), ikke en chat-LLM, og fusionerer den betydningsbaserede rangering med den eksisterende delstrengsmatchning. Da embeddings er en særskilt egenskab — og Anthropic, en understøttet chat-udbyder, ikke har en embeddings-API — konfigureres embedding-udbyderen **separat** fra chat-AI-udbyderen ovenfor.
+
+### Aktivér semantisk søgning
+
+1. Gå til **Administration → Indstillinger → AI → Semantisk søgning (embeddings)**.
+2. Slå **Semantisk søgning aktiveret** til.
+3. Vælg en **embedding-udbyder**:
+   - **Ollama** (standard, selvhostet, virker offline): angiv udbyder-URL'en (f.eks. `http://ollama:11434`) og en model, der udsender 768-dimensionelle vektorer — `nomic-embed-text` er den anbefalede standard. Hent den med `ollama pull nomic-embed-text`.
+   - **OpenAI-kompatibel**: angiv udbyder-URL og API-nøgle; brug `text-embedding-3-small` (eller `-large`), som Turbo EA anmoder om i 768 dimensioner.
+   - **Azure OpenAI**: angiv ressource-URL, API-nøgle og et embeddings-deployment-navn.
+4. Klik på **Test** for at verificere forbindelsen — en vellykket test rapporterer vektordimensionen (768).
+5. Klik på **Gem**.
+
+> Embedding-modellen skal udsende **768-dimensionelle** vektorer. `nomic-embed-text` gør det nativt; OpenAI-modellerne `text-embedding-3-*` anmodes automatisk om i 768.
+
+### Sådan holdes embeddings opdateret
+
+Kort-embeddings genereres og opdateres automatisk af en baggrundsopgave — du behøver ikke udløse noget manuelt. Når du aktiverer funktionen første gang, **efterfylder** den det eksisterende inventar (dette kan tage fra få minutter til nogle timer på en stor bestand med en Ollama, der kun kører på CPU, og kører stille i baggrunden). Derefter genindlejres nye og redigerede kort inden for cirka et minut. Hvis du skifter embedding-model, genindlejres hvert kort automatisk.
+
+Semantiske resultater respekterer de **samme tilladelser og samme sløring af omkostningsfelter** som den normale kortliste — en bruger ser aldrig et kort i de semantiske resultater, som vedkommende ikke kunne se i inventaret. Hvis embedding-udbyderen er utilgængelig, falder søgningen gennemsigtigt tilbage til delstrengsmatchning.
+
 ## Porteføljeindsigt
 
 Når den er aktiveret, viser Application Portfolio-rapporten en **AI Insights**-knap. Et klik på den sender et resumé af den aktuelle porteføljevisning — gruppering, attributfordelinger og livscyklusdata — til den konfigurerede LLM, som returnerer 3-5 handlingsorienterede indsigter.

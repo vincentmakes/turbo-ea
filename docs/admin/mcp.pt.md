@@ -170,6 +170,7 @@ O servidor expõe 31 ferramentas de leitura agrupadas em oito clusters.
 | Ferramenta | Descrição |
 |------------|-----------|
 | `search_cards` | Pesquisar e filtrar cards por tipo, status ou texto livre |
+| `semantic_search_cards` | Pesquisa de cards por significado (embedding) fundida com a correspondência de subcadeia; resultados classificados com score/match/trecho. Requer um provedor de embeddings (caso contrário, recorre à subcadeia) |
 | `get_card` | Obter detalhes completos de um card por UUID |
 | `get_card_relations` | Obter todas as relações conectadas a um card |
 | `get_card_hierarchy` | Obter ancestrais e filhos de um card |
