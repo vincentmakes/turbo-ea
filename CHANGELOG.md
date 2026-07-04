@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [1.64.3] - 2026-07-04
 
 ### Changed
-- **The login page hides the email/password fields when every account uses SSO.** When Single Sign-On is enabled and there are no local accounts left, the sign-in screen now shows only the SSO button — the (unusable) email and password form is hidden. If any local or invited account still exists, the form stays visible so those users can sign in or set their password.
+- **The login page hides the email/password fields when every account uses SSO.** When Single Sign-On is enabled and there are no local accounts left, the sign-in screen shows a streamlined card — a welcome heading, subtitle, the SSO button, and a "you'll be redirected" hint — with the (unusable) email and password form hidden. If any local or invited account still exists, the form stays visible so those users can sign in or set their password.
 
 ## [1.64.2] - 2026-07-04
 

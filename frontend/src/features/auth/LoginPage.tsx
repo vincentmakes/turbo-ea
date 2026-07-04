@@ -115,6 +115,18 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
         {/* SSO Login Button */}
         {ssoEnabled && (
           <>
+            {/* When SSO is the only method, give the card a proper heading so
+                it doesn't read as a lone button. */}
+            {!showLocalLogin && (
+              <Box sx={{ textAlign: "center", mb: 3 }}>
+                <Typography variant="h6" fontWeight={600}>
+                  {t("login.ssoOnlyTitle")}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  {t("login.subtitle")}
+                </Typography>
+              </Box>
+            )}
             <Button
               fullWidth
               variant="contained"
@@ -146,7 +158,7 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
                 )
               }
               sx={{
-                mb: 2,
+                mb: showLocalLogin ? 2 : 1.5,
                 bgcolor: "background.paper",
                 color: "text.primary",
                 textTransform: "none",
@@ -158,6 +170,17 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
                 provider: ssoConfig?.provider_name || "SSO",
               })}
             </Button>
+            {!showLocalLogin && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: "block", textAlign: "center", mt: 1.5 }}
+              >
+                {t("login.ssoRedirectHint", {
+                  provider: ssoConfig?.provider_name || "SSO",
+                })}
+              </Typography>
+            )}
             {showLocalLogin && (
               <Divider sx={{ my: 2, color: "text.secondary", fontSize: 13 }}>
                 {t("login.ssoEmailDivider")}
