@@ -311,6 +311,31 @@ class TestSsoConfig:
         assert data["enabled"] is True
         assert data["local_login_available"] is True
 
+    async def test_disabled_local_accounts_do_not_keep_form(self, client, db):
+        """Deactivated local accounts can't log in, so they don't force the form."""
+        await _enable_sso(db)
+        db.add(
+            User(
+                email="active-sso@example.com",
+                display_name="Active SSO",
+                password_hash=None,
+                role="member",
+                auth_provider="sso",
+                sso_subject_id="sub-active-sso",
+                is_active=True,
+            )
+        )
+        # A disabled local account must NOT keep the password form visible.
+        disabled = await create_user(db, email="disabled-local@example.com", role="member")
+        disabled.is_active = False
+        await db.flush()
+
+        resp = await client.get("/api/v1/auth/sso/config")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["enabled"] is True
+        assert data["local_login_available"] is False
+
 
 # ---------------------------------------------------------------
 # POST /auth/set-password  (edge cases)

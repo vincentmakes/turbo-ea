@@ -522,11 +522,17 @@ async def sso_config_endpoint(db: AsyncSession = Depends(get_db)):
             )
             return {"enabled": False, "registration_enabled": registration_enabled}
 
-    # Detect whether any local (non-SSO) account exists. When every account is
-    # SSO-based the login page hides the email/password form entirely — there's
-    # no one who could use it (password login is rejected for SSO users). If a
-    # single local/invited account exists we keep the form so they can sign in.
-    local_count = await db.execute(select(func.count(User.id)).where(User.auth_provider != "sso"))
+    # Detect whether any *active* local (non-SSO) account exists. When every
+    # usable account is SSO-based the login page hides the email/password form
+    # entirely — no one could use it (password login is rejected for SSO users,
+    # and disabled accounts can't log in at all). A single active local/invited
+    # account keeps the form so they can sign in or set their password.
+    local_count = await db.execute(
+        select(func.count(User.id)).where(
+            User.auth_provider != "sso",
+            User.is_active.is_(True),
+        )
+    )
     local_login_available = (local_count.scalar() or 0) > 0
 
     result = {
