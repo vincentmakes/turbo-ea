@@ -37,7 +37,7 @@ O estado do filtro, colunas visíveis, largura da barra lateral e seu estado rec
 2. Preencha o formulário:
    - **Nome de Exibição** (obrigatório): O nome completo do usuário
    - **E-mail** (obrigatório): O endereço de e-mail que eles usarão para fazer login
-   - **Senha** (opcional): Se deixado em branco e o SSO estiver desabilitado, o usuário recebe um e-mail com um link de configuração de senha. Se o SSO estiver habilitado, o usuário pode entrar pelo provedor SSO sem senha
+   - **Senha** (opcional): Deixe em branco para que o usuário escolha a própria senha no primeiro login. Se o SSO estiver habilitado, um usuário sem senha pode entrar pelo provedor SSO
    - **Papel**: Selecione o papel a atribuir (Admin, Membro, Visualizador ou qualquer papel personalizado)
    - **Enviar e-mail de convite**: Marque para enviar uma notificação por e-mail ao usuário com instruções de login
 3. Clique em **Criar usuário** para criar a conta.
@@ -45,7 +45,7 @@ O estado do filtro, colunas visíveis, largura da barra lateral e seu estado rec
 **O que acontece nos bastidores:**
 - Uma conta de usuário é criada no sistema
 - Um registro de convite SSO também é criado, então se o usuário fizer login via SSO, ele receberá automaticamente o papel pré-atribuído
-- Se nenhuma senha for definida e o SSO estiver desabilitado, um token de configuração de senha é gerado. O usuário pode definir sua senha seguindo o link no e-mail de convite
+- Se nenhuma senha for definida (uma conta «Configuração Pendente»), um token de uso único para configuração de senha é gerado. O usuário define a própria senha no primeiro login pelo link — entregue pelo e-mail de convite quando você marca a caixa, ou pelo link copiável exibido após a criação. Ele também pode obtê-lo pela opção «Esqueci minha senha» na página de login, mesmo nunca tendo tido uma senha
 
 #### Editando um Usuário
 

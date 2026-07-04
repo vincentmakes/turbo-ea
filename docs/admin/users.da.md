@@ -37,7 +37,7 @@ Filtertilstand, synlige kolonner, sidebarens bredde og dens sammenklappede tilst
 2. Udfyld formularen:
    - **Visningsnavn** (påkrævet): Brugerens fulde navn
    - **E-mail** (påkrævet): E-mailadressen, de vil bruge til at logge ind
-   - **Adgangskode** (valgfrit): Hvis efterladt tomt, og SSO er deaktiveret, modtager brugeren en e-mail med et link til opsætning af adgangskode. Hvis SSO er aktiveret, kan brugeren logge ind via deres SSO-udbyder uden en adgangskode
+   - **Adgangskode** (valgfrit): Lad feltet være tomt, så brugeren selv vælger sin adgangskode ved første login. Hvis SSO er aktiveret, kan en bruger uden adgangskode i stedet logge ind via deres SSO-udbyder
    - **Rolle**: Vælg den rolle, der skal tildeles (Admin, Member, Viewer eller en hvilken som helst brugerdefineret rolle)
    - **Send invitationsmail**: Sæt flueben her for at sende en e-mailnotifikation til brugeren med login-instruktioner
 3. Klik på **Opret bruger** for at oprette kontoen.
@@ -45,7 +45,7 @@ Filtertilstand, synlige kolonner, sidebarens bredde og dens sammenklappede tilst
 **Hvad der sker bag kulisserne:**
 - En brugerkonto oprettes i systemet
 - En SSO-invitationspost oprettes også, så hvis brugeren logger ind via SSO, modtager de automatisk den forhåndstildelte rolle
-- Hvis der ikke er sat nogen adgangskode, og SSO er deaktiveret, genereres et adgangskode-opsætningstoken. Brugeren kan indstille deres adgangskode ved at følge linket i invitationsmailen
+- Hvis der ikke er sat nogen adgangskode (en konto med «Pending Setup»), genereres et engangs-token til opsætning af adgangskode. Brugeren angiver selv sin adgangskode ved første login via linket — leveret med invitationsmailen, hvis du satte fluebenet, eller via det kopierbare link, der vises efter oprettelsen. De kan også nå det via «Glemt adgangskode» på login-siden, selvom de aldrig har haft en adgangskode
 
 #### Redigering af en bruger
 

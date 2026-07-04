@@ -277,8 +277,6 @@ class TestSetPasswordEdgeCases:
         """
         # Inject the legacy "invited but not yet accepted" state directly:
         # a User row with a one-time setup_token + a paired SsoInvitation row.
-        # We bypass POST /users because that endpoint now rejects no-password
-        # invites when SSO is disabled (test env has SSO off by default).
         setup_token = "test-setup-token-acceptme"
         db.add(
             User(
@@ -316,3 +314,101 @@ class TestSetPasswordEdgeCases:
             select(SsoInvitation).where(SsoInvitation.email == "invited@test.com")
         )
         assert result.scalar_one_or_none() is None
+
+
+# ---------------------------------------------------------------
+# POST /auth/forgot-password  (password-less accounts get a set-password link)
+# ---------------------------------------------------------------
+
+
+class TestForgotPasswordSetup:
+    def _patch_email(self, monkeypatch):
+        """Make email look configured and capture every send. Returns the list
+        of sent messages (dicts with subject/html)."""
+        from app.services import email_service
+
+        sent: list[dict] = []
+
+        async def _fake_send(to, subject, body_html, body_text=""):
+            sent.append({"to": to, "subject": subject, "html": body_html})
+            return True
+
+        monkeypatch.setattr(email_service, "_is_configured", lambda: True)
+        monkeypatch.setattr(email_service, "send_email", _fake_send)
+        return sent
+
+    async def test_setup_link_for_passwordless_account(self, client, db, monkeypatch):
+        """A local account with a setup token but no password receives a
+        set-password link (not a reset link) via «Forgot password»."""
+        sent = self._patch_email(monkeypatch)
+        db.add(
+            User(
+                email="pwless@test.com",
+                display_name="No Pass",
+                password_hash=None,
+                role="member",
+                auth_provider="local",
+                password_setup_token="existing-setup-token-abc",
+            )
+        )
+        await db.commit()
+
+        resp = await client.post(
+            "/api/v1/auth/forgot-password",
+            json={"email": "pwless@test.com"},
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+        assert len(sent) == 1
+        assert "set-password?token=existing-setup-token-abc" in sent[0]["html"]
+
+    async def test_mints_setup_token_when_missing(self, client, db, monkeypatch):
+        """A password-less local account without a token has one minted so it's
+        never permanently locked out."""
+        sent = self._patch_email(monkeypatch)
+        db.add(
+            User(
+                email="notoken@test.com",
+                display_name="No Token",
+                password_hash=None,
+                role="member",
+                auth_provider="local",
+                password_setup_token=None,
+            )
+        )
+        await db.commit()
+
+        resp = await client.post(
+            "/api/v1/auth/forgot-password",
+            json={"email": "notoken@test.com"},
+        )
+        assert resp.status_code == 200
+        assert len(sent) == 1
+
+        result = await db.execute(select(User).where(User.email == "notoken@test.com"))
+        user = result.scalar_one()
+        assert user.password_setup_token
+        assert f"set-password?token={user.password_setup_token}" in sent[0]["html"]
+
+    async def test_silent_for_sso_only_account(self, client, db, monkeypatch):
+        """SSO-only accounts (no password, no setup path) get nothing."""
+        sent = self._patch_email(monkeypatch)
+        db.add(
+            User(
+                email="ssoonly@test.com",
+                display_name="SSO Only",
+                password_hash=None,
+                role="member",
+                auth_provider="sso",
+                sso_subject_id="sso-subject-123",
+            )
+        )
+        await db.commit()
+
+        resp = await client.post(
+            "/api/v1/auth/forgot-password",
+            json={"email": "ssoonly@test.com"},
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+        assert sent == []

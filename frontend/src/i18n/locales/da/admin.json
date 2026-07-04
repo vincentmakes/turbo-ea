@@ -303,7 +303,7 @@
   "users.invitations.revokeTooltip": "Tilbagekald invitation",
   "users.create.title": "Opret bruger",
   "users.create.ssoHint": "SSO er aktiveret. Hvis ingen adgangskode er defineret, skal brugeren logge ind via sin SSO-udbyder.",
-  "users.create.emailHint": "En adgangskode er påkrævet for lokale konti. Brugeren kan logge ind med adressen og den adgangskode, du angiver.",
+  "users.create.emailHint": "Lad adgangskoden være tom, så brugeren selv kan angive den ved første login, eller angiv en nu. Brugeren logger ind med sin e-mailadresse.",
   "users.create.displayName": "Visningsnavn",
   "users.create.password": "Adgangskode",
   "users.create.passwordOptional": "Adgangskode (valgfri)",
@@ -1677,5 +1677,8 @@
   "auditLog.rollback.cancel": "Annuller",
   "auditLog.rollback.rollingBack": "Ruller tilbage…",
   "auditLog.rollback.force": "Gennemtving tilbagerulning",
-  "auditLog.rollback.rollback": "Rul tilbage"
+  "auditLog.rollback.rollback": "Rul tilbage",
+  "users.create.passwordOptionalLocalHelperText": "Lad feltet være tomt, så brugeren selv angiver adgangskoden ved første login.",
+  "users.create.setupLinkHint": "Bruger oprettet. Del dette engangslink, så de kan angive deres adgangskode:",
+  "users.create.copySetupLink": "Kopiér link"
 }

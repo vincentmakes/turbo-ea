@@ -303,7 +303,7 @@
   "users.invitations.revokeTooltip": "Отозвать приглашение",
   "users.create.title": "Создать пользователя",
   "users.create.ssoHint": "SSO включён. Если пароль не задан, пользователю потребуется войти через SSO-провайдер.",
-  "users.create.emailHint": "Для локальных учётных записей требуется пароль. Пользователь входит по указанному адресу и заданному паролю.",
+  "users.create.emailHint": "Оставьте пароль пустым, чтобы пользователь задал его при первом входе, или задайте сейчас. Вход выполняется по адресу электронной почты.",
   "users.create.displayName": "Отображаемое имя",
   "users.create.password": "Пароль",
   "users.create.passwordOptional": "Пароль (необязательно)",
@@ -1677,5 +1677,8 @@
   "auditLog.rollback.cancel": "Отмена",
   "auditLog.rollback.rollingBack": "Откат…",
   "auditLog.rollback.force": "Принудительный откат",
-  "auditLog.rollback.rollback": "Откатить"
+  "auditLog.rollback.rollback": "Откатить",
+  "users.create.passwordOptionalLocalHelperText": "Оставьте пустым, чтобы пользователь задал пароль при первом входе.",
+  "users.create.setupLinkHint": "Пользователь создан. Поделитесь этой одноразовой ссылкой, чтобы он мог задать пароль:",
+  "users.create.copySetupLink": "Скопировать ссылку"
 }

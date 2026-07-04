@@ -37,7 +37,7 @@ L'état des filtres, les colonnes visibles, la largeur de la barre latérale et 
 2. Remplissez le formulaire :
    - **Nom d'affichage** (obligatoire) : Le nom complet de l'utilisateur
    - **E-mail** (obligatoire) : L'adresse e-mail qu'il utilisera pour se connecter
-   - **Mot de passe** (optionnel) : Si laissé vide et que le SSO est désactivé, l'utilisateur reçoit un e-mail avec un lien de configuration du mot de passe. Si le SSO est activé, l'utilisateur peut se connecter via son fournisseur SSO sans mot de passe
+   - **Mot de passe** (optionnel) : Laissez vide pour que l'utilisateur choisisse son propre mot de passe à la première connexion. Si le SSO est activé, un utilisateur sans mot de passe peut se connecter via son fournisseur SSO à la place
    - **Rôle** : Sélectionnez le rôle à attribuer (Admin, Membre, Lecteur, ou tout rôle personnalisé)
    - **Envoyer un e-mail d'invitation** : Cochez cette case pour envoyer une notification par e-mail à l'utilisateur avec les instructions de connexion
 3. Cliquez sur **Créer un utilisateur** pour créer le compte.
@@ -45,7 +45,7 @@ L'état des filtres, les colonnes visibles, la largeur de la barre latérale et 
 **Ce qui se passe en arrière-plan :**
 - Un compte utilisateur est créé dans le système
 - Un enregistrement d'invitation SSO est également créé, de sorte que si l'utilisateur se connecte via SSO, il reçoit automatiquement le rôle pré-attribué
-- Si aucun mot de passe n'est défini et que le SSO est désactivé, un jeton de configuration de mot de passe est généré. L'utilisateur peut définir son mot de passe en suivant le lien dans l'e-mail d'invitation
+- Si aucun mot de passe n'est défini (un compte « Configuration en attente »), un jeton de configuration à usage unique est généré. L'utilisateur définit son propre mot de passe à la première connexion via le lien — envoyé par l'e-mail d'invitation si vous avez coché la case, ou via le lien copiable affiché après la création. Il peut aussi l'obtenir depuis l'option « Mot de passe oublié » de la page de connexion, même s'il n'a jamais eu de mot de passe
 
 #### Modifier un utilisateur
 

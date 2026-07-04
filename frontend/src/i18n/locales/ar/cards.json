@@ -365,7 +365,7 @@
   "catalogue.subtitle": "تصفّح الكتالوج المرجعي وأنشئ بطاقات قدرات الأعمال المطابقة.",
   "catalogue.versionChip": "الإصدار {{version}} · {{count}} قدرة",
   "catalogue.sourceBundled": "مضمّن مع نسخة Turbo EA هذه",
-  "catalogue.alreadyExists": "موجود بالفعل كبطاقة",
+  "catalogue.alreadyExists": "موجودة بالفعل كبطاقة",
   "catalogue.sourceRemote": "تم جلبه من الكتالوج العام (المضمّن الإصدار {{version}})",
   "catalogue.checkUpdate": "التحقق من وجود تحديث",
   "catalogue.fetchUpdate": "جلب الإصدار {{version}}",
@@ -381,7 +381,6 @@
   "catalogue.deprecatedToggle": "إظهار المهملة",
   "catalogue.deprecatedTooltip": "تضمين القدرات المهملة في القائمة.",
   "catalogue.deprecatedLabel": "مهملة",
-  "catalogue.alreadyExists": "موجودة بالفعل كبطاقة",
   "catalogue.matchCount_one": "تطابق",
   "catalogue.matchCount_other": "تطابقات",
   "catalogue.total": "الإجمالي",
@@ -618,5 +617,7 @@
   "todos.recurrence.months_one": "كل شهر",
   "todos.recurrence.months_other": "كل {{count}} أشهر",
   "todos.recurrence.years_one": "كل سنة",
-  "todos.recurrence.years_other": "كل {{count}} سنوات"
+  "todos.recurrence.years_other": "كل {{count}} سنوات",
+  "stakeholders.setupLinkHint": "تم إنشاء المستخدم. شارك هذا الرابط لمرة واحدة حتى يتمكن من تعيين كلمة المرور الخاصة به:",
+  "stakeholders.copySetupLink": "نسخ الرابط"
 }

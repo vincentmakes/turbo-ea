@@ -491,19 +491,12 @@ async def create_user(
     sso_enabled = sso_cfg.get("enabled", False)
 
     if body.auth_provider == "local":
+        # A local account may be created without a password: it gets a
+        # single-use setup token (below) so the user picks their own
+        # password on first login. When no invite email is sent, the
+        # setup link is returned in the response so the creator can hand
+        # it over out-of-band (and «Forgot password» can re-deliver it).
         auth_provider = "local"
-        if not body.password and not body.send_email:
-            # Local account with no password and no invite — the user has
-            # no way to reach the system. Bulk imports leave the password
-            # column blank by design (passwords don't belong in
-            # spreadsheets) and rely on the welcome email to deliver a
-            # password-setup link instead.
-            raise HTTPException(
-                400,
-                "Local accounts need an invitation email to deliver the "
-                "password-setup link. Tick «send invites» on the import "
-                "step and try again.",
-            )
     elif body.auth_provider == "sso":
         auth_provider = "sso"
         if not sso_enabled:
@@ -513,14 +506,15 @@ async def create_user(
                 "Enable SSO in admin settings first.",
             )
     else:
-        # Legacy heuristic — no explicit provider passed.
-        if not body.password and not sso_enabled:
-            raise HTTPException(
-                400,
-                "A password is required when creating a local account. "
-                "Enable SSO or set a password for the new user.",
-            )
-        auth_provider = "sso" if not body.password else "local"
+        # Legacy heuristic — no explicit provider passed. A password means
+        # a local account. Without a password we default to SSO when it's
+        # enabled (the invite binds the SSO identity on first sign-in);
+        # otherwise the account is local and password-less, relying on the
+        # setup-token flow rather than being rejected.
+        if not body.password:
+            auth_provider = "sso" if sso_enabled else "local"
+        else:
+            auth_provider = "local"
 
     pw_hash = hash_password(body.password) if body.password else None
 
@@ -567,6 +561,13 @@ async def create_user(
     # we surface the SMTP error in the response so the admin can see it
     # and re-send (e.g. via the test-email endpoint after fixing creds).
     response = _user_response(u)
+    # Surface the one-time setup token to the creator (only here, never from
+    # the shared list/get responses) so the UI can show a copyable
+    # /auth/set-password link when no invite email was sent — or as a
+    # fallback if the email fails. This endpoint is already gated behind
+    # admin.users / users.invite, so only a trusted inviter sees it.
+    if u.password_setup_token:
+        response["setup_token"] = u.password_setup_token
     if body.send_email:
         from app.services.email_service import _get_app_title, send_notification_email
 

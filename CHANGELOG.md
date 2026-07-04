@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.64.2] - 2026-07-04
+
+### Fixed
+- **You can now create a non-SSO user without setting a password for them.** Assigning a stakeholder role to a brand-new local user (or creating one from Admin → Users) no longer requires you to invent a password or force an invitation email. Leave the password blank and the account is created with a one-time set-password link the person uses on their first login. The invitation email is only sent when you tick the box; when you don't, the copyable link is shown so you can share it yourself.
+- **Forgot password now works for users who have never set one.** A local account created without a password can use the login page's "Forgot password" link to receive its set-password link, instead of getting nothing.
+
 ## [1.64.1] - 2026-07-03
 
 ### Fixed

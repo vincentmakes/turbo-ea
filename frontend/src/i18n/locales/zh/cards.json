@@ -344,7 +344,6 @@
   "catalogue.deprecatedToggle": "显示已弃用",
   "catalogue.deprecatedTooltip": "包含已弃用的能力。",
   "catalogue.deprecatedLabel": "已弃用",
-  "catalogue.alreadyExists": "已作为卡片存在",
   "catalogue.matchCount_one": "项匹配",
   "catalogue.matchCount_other": "项匹配",
   "catalogue.total": "共计",
@@ -618,5 +617,7 @@
   "todos.recurrence.months_one": "每月",
   "todos.recurrence.months_other": "每 {{count}} 月",
   "todos.recurrence.years_one": "每年",
-  "todos.recurrence.years_other": "每 {{count}} 年"
+  "todos.recurrence.years_other": "每 {{count}} 年",
+  "stakeholders.setupLinkHint": "用户已创建。请分享此一次性链接，以便其设置密码：",
+  "stakeholders.copySetupLink": "复制链接"
 }

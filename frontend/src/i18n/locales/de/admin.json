@@ -303,7 +303,7 @@
   "users.invitations.revokeTooltip": "Einladung widerrufen",
   "users.create.title": "Benutzer erstellen",
   "users.create.ssoHint": "SSO ist aktiviert. Ohne Passwort muss sich der Benutzer über seinen SSO-Anbieter anmelden.",
-  "users.create.emailHint": "Für lokale Konten ist ein Passwort erforderlich. Der Benutzer meldet sich mit der angegebenen Adresse und dem festgelegten Passwort an.",
+  "users.create.emailHint": "Lassen Sie das Passwort leer, damit der Benutzer beim ersten Anmelden sein eigenes Passwort festlegt, oder legen Sie jetzt eines fest. Die Anmeldung erfolgt mit der E-Mail-Adresse.",
   "users.create.displayName": "Anzeigename",
   "users.create.password": "Passwort",
   "users.create.passwordOptional": "Passwort (optional)",
@@ -1677,5 +1677,8 @@
   "auditLog.rollback.cancel": "Abbrechen",
   "auditLog.rollback.rollingBack": "Rücknahme läuft…",
   "auditLog.rollback.force": "Rücknahme erzwingen",
-  "auditLog.rollback.rollback": "Zurücknehmen"
+  "auditLog.rollback.rollback": "Zurücknehmen",
+  "users.create.passwordOptionalLocalHelperText": "Leer lassen, damit der Benutzer beim ersten Anmelden sein eigenes Passwort festlegt.",
+  "users.create.setupLinkHint": "Benutzer erstellt. Teilen Sie diesen einmaligen Link, damit die Person ihr Passwort festlegen kann:",
+  "users.create.copySetupLink": "Link kopieren"
 }

@@ -365,7 +365,7 @@
   "catalogue.subtitle": "Gennemse referencekataloget, og opret matchende forretningskompetencekort.",
   "catalogue.versionChip": "v{{version}} · {{count}} kompetencer",
   "catalogue.sourceBundled": "Bundtet med denne Turbo EA-build",
-  "catalogue.alreadyExists": "Findes allerede som et kort",
+  "catalogue.alreadyExists": "Findes allerede som kort",
   "catalogue.sourceRemote": "Hentet fra det offentlige katalog (bundtet v{{version}})",
   "catalogue.checkUpdate": "Søg efter opdatering",
   "catalogue.fetchUpdate": "Hent v{{version}}",
@@ -381,7 +381,6 @@
   "catalogue.deprecatedToggle": "Vis udfasede",
   "catalogue.deprecatedTooltip": "Inkludér udfasede kompetencer i listen.",
   "catalogue.deprecatedLabel": "Udfaset",
-  "catalogue.alreadyExists": "Findes allerede som kort",
   "catalogue.matchCount_one": "match",
   "catalogue.matchCount_other": "match",
   "catalogue.total": "i alt",
@@ -618,5 +617,7 @@
   "todos.recurrence.months_one": "Hver måned",
   "todos.recurrence.months_other": "Hver {{count}}. måned",
   "todos.recurrence.years_one": "Hvert år",
-  "todos.recurrence.years_other": "Hvert {{count}}. år"
+  "todos.recurrence.years_other": "Hvert {{count}}. år",
+  "stakeholders.setupLinkHint": "Bruger oprettet. Del dette engangslink, så de kan angive deres adgangskode:",
+  "stakeholders.copySetupLink": "Kopiér link"
 }

@@ -37,7 +37,7 @@ Filterzustand, sichtbare Spalten, die Sidebar-Breite und ihr Eingeklappt-Zustand
 2. Füllen Sie das Formular aus:
    - **Anzeigename** (erforderlich): Der vollständige Name des Benutzers
    - **E-Mail** (erforderlich): Die E-Mail-Adresse, mit der sich der Benutzer anmelden wird
-   - **Passwort** (optional): Wenn leer gelassen und SSO deaktiviert ist, erhält der Benutzer eine E-Mail mit einem Link zur Passworteinrichtung. Wenn SSO aktiviert ist, kann sich der Benutzer über seinen SSO-Anbieter ohne Passwort anmelden
+   - **Passwort** (optional): Leer lassen, damit der Benutzer beim ersten Anmelden sein eigenes Passwort wählt. Wenn SSO aktiviert ist, kann sich ein Benutzer ohne Passwort stattdessen über seinen SSO-Anbieter anmelden
    - **Rolle**: Wählen Sie die zuzuweisende Rolle (Admin, Mitglied, Betrachter oder eine benutzerdefinierte Rolle)
    - **Einladungs-E-Mail senden**: Aktivieren Sie dies, um dem Benutzer eine E-Mail-Benachrichtigung mit Anmeldeinstruktionen zu senden
 3. Klicken Sie auf **Benutzer erstellen**, um das Konto zu erstellen.
@@ -45,7 +45,7 @@ Filterzustand, sichtbare Spalten, die Sidebar-Breite und ihr Eingeklappt-Zustand
 **Was im Hintergrund passiert:**
 - Ein Benutzerkonto wird im System erstellt
 - Ein SSO-Einladungsdatensatz wird ebenfalls erstellt, sodass der Benutzer bei SSO-Anmeldung automatisch die zugewiesene Rolle erhält
-- Wenn kein Passwort gesetzt und SSO deaktiviert ist, wird ein Passwort-Einrichtungstoken generiert. Der Benutzer kann sein Passwort über den Link in der Einladungs-E-Mail einrichten
+- Wenn kein Passwort gesetzt ist (ein Konto mit «Einrichtung ausstehend»), wird ein einmaliges Passwort-Einrichtungstoken generiert. Der Benutzer legt sein Passwort beim ersten Anmelden über den Link fest – zugestellt per Einladungs-E-Mail, wenn Sie das Kästchen aktiviert haben, oder über den nach dem Erstellen angezeigten kopierbaren Link. Er kann ihn auch über die Option «Passwort vergessen» auf der Anmeldeseite erreichen, obwohl er nie ein Passwort hatte
 
 #### Einen Benutzer bearbeiten
 

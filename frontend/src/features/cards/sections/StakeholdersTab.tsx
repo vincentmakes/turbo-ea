@@ -61,6 +61,10 @@ function StakeholdersTab({
   const [inviteFeedback, setInviteFeedback] = useState<
     { kind: "info" | "warning" | "error"; message: string } | null
   >(null);
+  // Copyable /auth/set-password link surfaced when a user is created without
+  // an invite email (or when the email failed to send).
+  const [inviteSetupLink, setInviteSetupLink] = useState<string | null>(null);
+  const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
 
   const canInvite = !!(
     currentUser?.permissions?.["*"] ||
@@ -91,6 +95,8 @@ function StakeholdersTab({
     setInviteDisplayName("");
     setInviteSendEmail(false);
     setInviteFeedback(null);
+    setInviteSetupLink(null);
+    setInviteLinkCopied(false);
     setInviteSubmitting(false);
   }, []);
 
@@ -128,12 +134,15 @@ function StakeholdersTab({
     if (!addRole || !EMAIL_RE.test(inviteEmail) || !inviteDisplayName.trim()) return;
     setInviteSubmitting(true);
     setInviteFeedback(null);
+    setInviteSetupLink(null);
+    setInviteLinkCopied(false);
     try {
       const created = await api.post<{
         id: string;
         email: string;
         email_sent?: boolean;
         email_error?: string;
+        setup_token?: string;
       }>("/users", {
         email: inviteEmail,
         display_name: inviteDisplayName.trim(),
@@ -149,7 +158,33 @@ function StakeholdersTab({
       api.get<User[]>("/users").then(setUsers).catch(() => {});
       load();
       onRefresh();
-      if (inviteSendEmail && created.email_error) {
+
+      // Invite email requested and delivered — nothing more to hand over.
+      if (inviteSendEmail && created.email_sent && !created.email_error) {
+        resetAddForm();
+        return;
+      }
+
+      // Otherwise surface the one-time set-password link so the inviter can
+      // share it out-of-band. Keep the form open so it can be copied; the
+      // submit button is disabled once a link is shown to prevent a re-POST.
+      const setupLink = created.setup_token
+        ? `${window.location.origin}/auth/set-password?token=${created.setup_token}`
+        : null;
+      if (setupLink) {
+        setInviteSetupLink(setupLink);
+        setInviteFeedback(
+          created.email_error
+            ? { kind: "warning", message: created.email_error }
+            : { kind: "info", message: t("stakeholders.setupLinkHint") }
+        );
+        setInviteSubmitting(false);
+        return;
+      }
+
+      // No link to surface (e.g. an SSO account was created). Fall back to
+      // showing any email error, else just close.
+      if (created.email_error) {
         setInviteFeedback({ kind: "warning", message: created.email_error });
         setInviteSubmitting(false);
         return;
@@ -418,6 +453,29 @@ function StakeholdersTab({
                     {inviteFeedback.message}
                   </Alert>
                 )}
+                {inviteSetupLink && (
+                  <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                    <TextField
+                      size="small"
+                      value={inviteSetupLink}
+                      slotProps={{ input: { readOnly: true } }}
+                      onFocus={(e) => e.target.select()}
+                      sx={{ flex: 1, minWidth: 240 }}
+                    />
+                    <IconButton
+                      size="small"
+                      title={t("stakeholders.copySetupLink")}
+                      onClick={() => {
+                        navigator.clipboard
+                          ?.writeText(inviteSetupLink)
+                          .then(() => setInviteLinkCopied(true))
+                          .catch(() => {});
+                      }}
+                    >
+                      <MaterialSymbol icon={inviteLinkCopied ? "check" : "content_copy"} size={18} />
+                    </IconButton>
+                  </Box>
+                )}
               </Box>
             )}
 
@@ -429,6 +487,7 @@ function StakeholdersTab({
                   onClick={handleInviteAndAdd}
                   disabled={
                     inviteSubmitting ||
+                    !!inviteSetupLink ||
                     !addRole ||
                     !inviteDisplayName.trim() ||
                     !EMAIL_RE.test(inviteEmail)

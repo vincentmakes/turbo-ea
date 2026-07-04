@@ -303,7 +303,7 @@
   "users.invitations.revokeTooltip": "Revoke invitation",
   "users.create.title": "Create user",
   "users.create.ssoHint": "SSO is enabled. If no password is defined, the user will need to sign in via their SSO provider.",
-  "users.create.emailHint": "A password is required for local accounts. The user can sign in with the address and password you set.",
+  "users.create.emailHint": "Leave the password blank to let the user set their own password on first login, or set one now. The user signs in with their email address.",
   "users.create.displayName": "Display Name",
   "users.create.password": "Password",
   "users.create.passwordOptional": "Password (optional)",
@@ -1677,5 +1677,8 @@
   "auditLog.rollback.cancel": "Cancel",
   "auditLog.rollback.rollingBack": "Rolling back…",
   "auditLog.rollback.force": "Force rollback",
-  "auditLog.rollback.rollback": "Roll back"
+  "auditLog.rollback.rollback": "Roll back",
+  "users.create.passwordOptionalLocalHelperText": "Leave blank to let the user set their own password on first login.",
+  "users.create.setupLinkHint": "User created. Share this one-time link so they can set their password:",
+  "users.create.copySetupLink": "Copy link"
 }

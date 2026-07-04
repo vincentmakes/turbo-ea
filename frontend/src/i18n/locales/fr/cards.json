@@ -328,7 +328,7 @@
   "catalogue.subtitle": "Parcourez le catalogue de référence et créez les cartes Business Capability correspondantes.",
   "catalogue.versionChip": "v{{version}} · {{count}} capacités",
   "catalogue.sourceBundled": "Inclus dans cette version de Turbo EA",
-  "catalogue.alreadyExists": "Existe déjà en tant que carte",
+  "catalogue.alreadyExists": "Existe déjà comme carte",
   "catalogue.sourceRemote": "Récupéré du catalogue public (intégré v{{version}})",
   "catalogue.checkUpdate": "Vérifier la mise à jour",
   "catalogue.fetchUpdate": "Récupérer v{{version}}",
@@ -344,7 +344,6 @@
   "catalogue.deprecatedToggle": "Afficher les obsolètes",
   "catalogue.deprecatedTooltip": "Inclure les capacités obsolètes.",
   "catalogue.deprecatedLabel": "Obsolète",
-  "catalogue.alreadyExists": "Existe déjà comme carte",
   "catalogue.matchCount_one": "résultat",
   "catalogue.matchCount_other": "résultats",
   "catalogue.total": "au total",
@@ -618,5 +617,7 @@
   "todos.recurrence.months_one": "Chaque mois",
   "todos.recurrence.months_other": "Tous les {{count}} mois",
   "todos.recurrence.years_one": "Chaque année",
-  "todos.recurrence.years_other": "Tous les {{count}} ans"
+  "todos.recurrence.years_other": "Tous les {{count}} ans",
+  "stakeholders.setupLinkHint": "Utilisateur créé. Partagez ce lien à usage unique pour qu'il puisse définir son mot de passe :",
+  "stakeholders.copySetupLink": "Copier le lien"
 }

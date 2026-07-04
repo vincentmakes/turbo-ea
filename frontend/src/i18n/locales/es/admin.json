@@ -303,7 +303,7 @@
   "users.invitations.revokeTooltip": "Revocar invitación",
   "users.create.title": "Crear usuario",
   "users.create.ssoHint": "SSO está habilitado. Si no se define una contraseña, el usuario deberá iniciar sesión a través de su proveedor SSO.",
-  "users.create.emailHint": "Se requiere una contraseña para las cuentas locales. El usuario inicia sesión con la dirección y la contraseña que indique.",
+  "users.create.emailHint": "Deja la contraseña en blanco para que el usuario establezca la suya en el primer inicio de sesión, o define una ahora. El usuario inicia sesión con su dirección de correo electrónico.",
   "users.create.displayName": "Nombre para mostrar",
   "users.create.password": "Contraseña",
   "users.create.passwordOptional": "Contraseña (opcional)",
@@ -1677,5 +1677,8 @@
   "auditLog.rollback.cancel": "Cancelar",
   "auditLog.rollback.rollingBack": "Revirtiendo…",
   "auditLog.rollback.force": "Forzar la reversión",
-  "auditLog.rollback.rollback": "Revertir"
+  "auditLog.rollback.rollback": "Revertir",
+  "users.create.passwordOptionalLocalHelperText": "Déjalo en blanco para que el usuario establezca su contraseña en el primer inicio de sesión.",
+  "users.create.setupLinkHint": "Usuario creado. Comparte este enlace de un solo uso para que pueda establecer su contraseña:",
+  "users.create.copySetupLink": "Copiar enlace"
 }

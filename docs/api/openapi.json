@@ -14704,7 +14704,7 @@
     },
     "/api/v1/auth/forgot-password": {
       "post": {
-        "description": "Initiate a password reset for a local account.\n\nAnti-enumeration: always returns `{\"ok\": True}` regardless of whether the\nemail matches a user. An email is only sent when ALL of the following hold:\n\n- A user exists with the given email.\n- The user has a local password (not SSO-only).\n- The user is active.\n- SMTP is configured.\n\nTokens live for one hour and are stored on the user row directly.",
+        "description": "Initiate a password reset \u2014 or first-time password setup \u2014 for a local account.\n\nAnti-enumeration: always returns `{\"ok\": True}` regardless of whether the\nemail matches a user. An email is only sent for an active local account when\nSMTP is configured, and its shape depends on the account's state:\n\n- The account already has a password \u2192 a one-hour **reset** link.\n- The account has no password but a setup token (created without a\n  password, e.g. via a stakeholder invite left un-emailed) \u2192 a **set-password**\n  link so the user can self-serve on first login. A missing setup token is\n  minted here so the account is never permanently locked out.\n\nSSO-only accounts (no password, marked `auth_provider=\"sso\"`) get nothing.",
         "operationId": "forgot_password_api_v1_auth_forgot_password_post",
         "requestBody": {
           "content": {

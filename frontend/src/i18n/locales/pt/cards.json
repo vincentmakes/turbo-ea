@@ -344,7 +344,6 @@
   "catalogue.deprecatedToggle": "Mostrar obsoletas",
   "catalogue.deprecatedTooltip": "Incluir capacidades obsoletas.",
   "catalogue.deprecatedLabel": "Obsoleta",
-  "catalogue.alreadyExists": "Já existe como cartão",
   "catalogue.matchCount_one": "resultado",
   "catalogue.matchCount_other": "resultados",
   "catalogue.total": "no total",
@@ -618,5 +617,7 @@
   "todos.recurrence.months_one": "Todos os meses",
   "todos.recurrence.months_other": "A cada {{count}} meses",
   "todos.recurrence.years_one": "Todos os anos",
-  "todos.recurrence.years_other": "A cada {{count}} anos"
+  "todos.recurrence.years_other": "A cada {{count}} anos",
+  "stakeholders.setupLinkHint": "Utilizador criado. Partilhe esta ligação de utilização única para que possa definir a sua palavra-passe:",
+  "stakeholders.copySetupLink": "Copiar ligação"
 }

@@ -292,14 +292,13 @@ class TestUpdateUser:
         )
         assert resp.status_code == 404
 
-    async def test_create_user_without_password_rejected_when_sso_disabled(
+    async def test_create_user_without_password_allowed_when_sso_disabled(
         self, client, db, users_env
     ):
-        """Creating a local account requires a password when SSO is not enabled.
-
-        Replaces the pre-fix flow where an admin could invite a user without a
-        password and expect an emailed setup link — that flow leaked stale
-        SsoInvitation rows into the admin list with no clean way to recover.
+        """A local account may be created with no password and no invite email:
+        it gets a single-use setup token so the user picks their own password on
+        first login. The one-time link is returned to the creator (only from the
+        create response) so it can be shared out-of-band.
         """
         admin = users_env["admin"]
         resp = await client.post(
@@ -312,8 +311,47 @@ class TestUpdateUser:
             },
             headers=auth_headers(admin),
         )
-        assert resp.status_code == 400
-        assert "password" in resp.json()["detail"].lower()
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["has_password"] is False
+        assert data["pending_setup"] is True
+        token = data["setup_token"]
+        assert token
+
+        # The token validates and lets the user set their own password + logs in.
+        val = await client.get(f"/api/v1/auth/validate-setup-token?token={token}")
+        assert val.status_code == 200
+        assert val.json()["email"] == "no-pass@test.com"
+
+        setp = await client.post(
+            "/api/v1/auth/set-password",
+            json={"token": token, "password": "UserPicks1"},
+        )
+        assert setp.status_code == 200
+        assert setp.json()["access_token"]
+
+    async def test_setup_token_not_leaked_when_password_supplied(self, client, db, users_env):
+        """A user created WITH a password has no setup token — and the create
+        response must not carry one. The token only appears for password-less
+        accounts (and never from the shared list/get responses)."""
+        admin = users_env["admin"]
+        resp = await client.post(
+            "/api/v1/users",
+            json={
+                "email": "with-pass@test.com",
+                "display_name": "With Pass",
+                "password": "StrongPass1",
+                "role": "member",
+                "send_email": False,
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        assert "setup_token" not in resp.json()
+
+        # The list endpoint never exposes the setup token either.
+        listing = await client.get("/api/v1/users", headers=auth_headers(admin))
+        assert all("setup_token" not in u for u in listing.json())
 
     async def test_admin_setting_password_keeps_invitation_visible_until_login(
         self, client, db, users_env
@@ -330,9 +368,9 @@ class TestUpdateUser:
 
         admin = users_env["admin"]
 
-        # Inject the "invited but not yet accepted" state directly. We bypass
-        # POST /users because that endpoint now rejects no-password invites
-        # when SSO is disabled (test env has SSO off by default).
+        # Inject the "invited but not yet accepted" state directly so this test
+        # focuses purely on the admin-set-password path (independent of how the
+        # account was first created).
         invited = User(
             email="admin-set@test.com",
             display_name="Admin-Set",

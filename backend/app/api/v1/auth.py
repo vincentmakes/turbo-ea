@@ -908,6 +908,52 @@ def _build_reset_email_body(display_name: str, app_title: str, reset_url: str) -
     return body_html, body_text
 
 
+def _build_setup_email_body(display_name: str, app_title: str, setup_url: str) -> tuple[str, str]:
+    """Return (html, plain_text) email body for a password-setup link.
+
+    Used when «Forgot password» is triggered for a local account that was
+    created without a password (it has a setup token but no hash). Mirrors
+    the reset email's styling but frames the action as first-time setup and
+    omits the one-hour-expiry wording — setup tokens don't expire.
+    """
+    import html as _html
+
+    safe_name = _html.escape(display_name or "")
+    safe_app = _html.escape(app_title)
+    safe_link = _html.escape(setup_url)
+
+    intro = f"Hi {safe_name}," if safe_name else "Hi,"
+    wrapper = "font-family: sans-serif; max-width: 600px; margin: 0 auto"
+    header_s = "background: #1a1a2e; padding: 16px 24px"
+    body_s = "padding: 24px; border: 1px solid #e0e0e0"
+    btn = (
+        f"<a href='{safe_link}' style='display: inline-block; margin-top: 12px; "
+        "padding: 10px 18px; background: #1976d2; color: white; "
+        "text-decoration: none; border-radius: 4px;'>Set password</a>"
+    )
+    body_html = (
+        f'<div style="{wrapper}">'
+        f'<div style="{header_s}">'
+        f'<h2 style="color:#64b5f6;margin:0">{safe_app}</h2></div>'
+        f'<div style="{body_s}">'
+        f'<p style="color:#333">{intro}</p>'
+        f'<p style="color:#555">Your {safe_app} account is ready. '
+        "Click the button below to set your password and sign in.</p>"
+        f"{btn}"
+        '<p style="color:#777;font-size:12px;margin-top:24px">'
+        "If you didn't expect this email, you can safely ignore it.</p>"
+        "</div></div>"
+    )
+    body_text = (
+        f"{intro}\n\n"
+        f"Your {app_title} account is ready.\n"
+        f"Open the link below to set your password and sign in:\n\n"
+        f"{setup_url}\n\n"
+        "If you didn't expect this email, you can safely ignore it."
+    )
+    return body_html, body_text
+
+
 def _resolve_app_base_url(request: Request) -> str:
     """Resolve the public base URL for emailed links.
 
@@ -929,17 +975,19 @@ async def forgot_password(
     body: ForgotPasswordRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """Initiate a password reset for a local account.
+    """Initiate a password reset — or first-time password setup — for a local account.
 
     Anti-enumeration: always returns `{"ok": True}` regardless of whether the
-    email matches a user. An email is only sent when ALL of the following hold:
+    email matches a user. An email is only sent for an active local account when
+    SMTP is configured, and its shape depends on the account's state:
 
-    - A user exists with the given email.
-    - The user has a local password (not SSO-only).
-    - The user is active.
-    - SMTP is configured.
+    - The account already has a password → a one-hour **reset** link.
+    - The account has no password but a setup token (created without a
+      password, e.g. via a stakeholder invite left un-emailed) → a **set-password**
+      link so the user can self-serve on first login. A missing setup token is
+      minted here so the account is never permanently locked out.
 
-    Tokens live for one hour and are stored on the user row directly.
+    SSO-only accounts (no password, marked `auth_provider="sso"`) get nothing.
     """
     raw_email = (body.email or "").strip().lower()
     if not raw_email:
@@ -949,32 +997,42 @@ async def forgot_password(
     result = await db.execute(select(User).where(User.email == raw_email))
     user = result.scalar_one_or_none()
 
-    if (
-        user is not None
-        and user.password_hash is not None
-        and user.is_active
-        and email_service._is_configured()
-    ):
+    if user is None or not user.is_active or not email_service._is_configured():
+        return {"ok": True}
+
+    base_url = _resolve_app_base_url(request)
+    app_title = email_service._get_app_title()
+
+    if user.password_hash is not None:
+        # Existing local password → reset flow.
         token = secrets.token_urlsafe(32)
         user.password_reset_token = token
         user.password_reset_expires_at = datetime.now(timezone.utc) + PASSWORD_RESET_TTL
         await db.commit()
 
-        base_url = _resolve_app_base_url(request)
         reset_url = f"{base_url}/auth/reset-password?token={token}"
-        app_title = email_service._get_app_title()
         body_html, body_text = _build_reset_email_body(user.display_name, app_title, reset_url)
-        try:
-            await email_service.send_email(
-                user.email,
-                f"[{app_title}] Reset your password",
-                body_html,
-                body_text,
-            )
-        except Exception:
-            # Email delivery failure must not leak via response status —
-            # the user still receives the generic success screen.
-            logger.exception("Failed to send password-reset email to %s", user.email)
+        subject = f"[{app_title}] Reset your password"
+    elif user.auth_provider != "sso":
+        # Password-less local account → deliver a set-password link. Mint a
+        # setup token if the row somehow lacks one so the user is never stuck.
+        if not user.password_setup_token:
+            user.password_setup_token = generate_setup_token()
+            await db.commit()
+
+        setup_url = f"{base_url}/auth/set-password?token={user.password_setup_token}"
+        body_html, body_text = _build_setup_email_body(user.display_name, app_title, setup_url)
+        subject = f"[{app_title}] Set your password"
+    else:
+        # SSO-only account — nothing to reset. Stay silent (anti-enumeration).
+        return {"ok": True}
+
+    try:
+        await email_service.send_email(user.email, subject, body_html, body_text)
+    except Exception:
+        # Email delivery failure must not leak via response status —
+        # the user still receives the generic success screen.
+        logger.exception("Failed to send password email to %s", user.email)
 
     return {"ok": True}
 

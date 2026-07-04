@@ -344,7 +344,6 @@
   "catalogue.deprecatedToggle": "Veraltete anzeigen",
   "catalogue.deprecatedTooltip": "Veraltete Capabilities einbeziehen.",
   "catalogue.deprecatedLabel": "Veraltet",
-  "catalogue.alreadyExists": "Existiert bereits als Karte",
   "catalogue.matchCount_one": "Treffer",
   "catalogue.matchCount_other": "Treffer",
   "catalogue.total": "gesamt",
@@ -618,5 +617,7 @@
   "todos.recurrence.months_one": "Jeden Monat",
   "todos.recurrence.months_other": "Alle {{count}} Monate",
   "todos.recurrence.years_one": "Jedes Jahr",
-  "todos.recurrence.years_other": "Alle {{count}} Jahre"
+  "todos.recurrence.years_other": "Alle {{count}} Jahre",
+  "stakeholders.setupLinkHint": "Benutzer erstellt. Teilen Sie diesen einmaligen Link, damit die Person ihr Passwort festlegen kann:",
+  "stakeholders.copySetupLink": "Link kopieren"
 }

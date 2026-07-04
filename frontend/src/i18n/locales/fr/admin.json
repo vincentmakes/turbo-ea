@@ -303,7 +303,7 @@
   "users.invitations.revokeTooltip": "Révoquer l’invitation",
   "users.create.title": "Créer un utilisateur",
   "users.create.ssoHint": "SSO est activé. Sans mot de passe, l'utilisateur devra se connecter via son fournisseur SSO.",
-  "users.create.emailHint": "Un mot de passe est requis pour les comptes locaux. L’utilisateur se connecte avec l’adresse et le mot de passe que vous définissez.",
+  "users.create.emailHint": "Laissez le mot de passe vide pour que l'utilisateur définisse le sien à la première connexion, ou définissez-en un maintenant. L'utilisateur se connecte avec son adresse e-mail.",
   "users.create.displayName": "Nom d’affichage",
   "users.create.password": "Mot de passe",
   "users.create.passwordOptional": "Mot de passe (facultatif)",
@@ -1677,5 +1677,8 @@
   "auditLog.rollback.cancel": "Annuler",
   "auditLog.rollback.rollingBack": "Annulation en cours…",
   "auditLog.rollback.force": "Forcer l'annulation",
-  "auditLog.rollback.rollback": "Annuler"
+  "auditLog.rollback.rollback": "Annuler",
+  "users.create.passwordOptionalLocalHelperText": "Laissez vide pour que l'utilisateur définisse son mot de passe à la première connexion.",
+  "users.create.setupLinkHint": "Utilisateur créé. Partagez ce lien à usage unique pour qu'il puisse définir son mot de passe :",
+  "users.create.copySetupLink": "Copier le lien"
 }

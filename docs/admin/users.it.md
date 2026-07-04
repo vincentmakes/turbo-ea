@@ -37,7 +37,7 @@ Lo stato dei filtri, le colonne visibili, la larghezza della barra laterale e il
 2. Compilate il modulo:
    - **Nome visualizzato** (obbligatorio): Il nome completo dell'utente
    - **Email** (obbligatorio): L'indirizzo email che utilizzeranno per il login
-   - **Password** (opzionale): Se lasciata vuota e SSO è disabilitato, l'utente riceve un'email con un link per impostare la password. Se SSO è abilitato, l'utente può accedere tramite il proprio provider SSO senza password
+   - **Password** (opzionale): Lasciala vuota per consentire all'utente di scegliere la propria password al primo accesso. Se SSO è abilitato, un utente senza password può accedere tramite il proprio provider SSO
    - **Ruolo**: Selezionate il ruolo da assegnare (Admin, Member, Viewer o qualsiasi ruolo personalizzato)
    - **Invia email di invito**: Spuntate per inviare una notifica email all'utente con le istruzioni per il login
 3. Cliccate su **Crea utente** per creare l'account.
@@ -45,7 +45,7 @@ Lo stato dei filtri, le colonne visibili, la larghezza della barra laterale e il
 **Cosa succede dietro le quinte:**
 - Viene creato un account utente nel sistema
 - Viene creato anche un record di invito SSO, così se l'utente accede tramite SSO, riceve automaticamente il ruolo pre-assegnato
-- Se non viene impostata una password e SSO è disabilitato, viene generato un token per l'impostazione della password. L'utente può impostare la propria password seguendo il link nell'email di invito
+- Se non viene impostata una password (un account «In attesa di configurazione»), viene generato un token monouso per l'impostazione della password. L'utente imposta la propria password al primo accesso tramite il link, recapitato dall'email di invito se hai selezionato la casella, oppure tramite il link copiabile mostrato dopo la creazione. Può raggiungerlo anche dall'opzione «Password dimenticata» nella pagina di accesso, pur non avendo mai avuto una password
 
 #### Modifica di un utente
 

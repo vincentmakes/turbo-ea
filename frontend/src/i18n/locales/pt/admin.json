@@ -303,7 +303,7 @@
   "users.invitations.revokeTooltip": "Revogar convite",
   "users.create.title": "Criar usuário",
   "users.create.ssoHint": "SSO está ativado. Sem senha, o utilizador terá de iniciar sessão através do seu fornecedor SSO.",
-  "users.create.emailHint": "É necessária uma senha para contas locais. O usuário inicia sessão com o endereço e a senha que você definir.",
+  "users.create.emailHint": "Deixe a palavra-passe em branco para que o utilizador defina a sua no primeiro início de sessão, ou defina uma agora. O utilizador inicia sessão com o seu endereço de e-mail.",
   "users.create.displayName": "Nome de exibição",
   "users.create.password": "Senha",
   "users.create.passwordOptional": "Senha (opcional)",
@@ -1677,5 +1677,8 @@
   "auditLog.rollback.cancel": "Cancelar",
   "auditLog.rollback.rollingBack": "A reverter…",
   "auditLog.rollback.force": "Forçar a reversão",
-  "auditLog.rollback.rollback": "Reverter"
+  "auditLog.rollback.rollback": "Reverter",
+  "users.create.passwordOptionalLocalHelperText": "Deixe em branco para que o utilizador defina a palavra-passe no primeiro início de sessão.",
+  "users.create.setupLinkHint": "Utilizador criado. Partilhe esta ligação de utilização única para que possa definir a sua palavra-passe:",
+  "users.create.copySetupLink": "Copiar ligação"
 }

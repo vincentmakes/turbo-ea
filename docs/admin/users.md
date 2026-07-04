@@ -37,15 +37,16 @@ Filter state, visible columns, the sidebar width and its collapsed state are per
 2. Fill in the form:
    - **Display Name** (required): The user's full name
    - **Email** (required): The email address they will use to log in
-   - **Password** (optional): If left blank and SSO is disabled, the user receives an email with a password setup link. If SSO is enabled, the user can sign in via their SSO provider without a password
+   - **Password** (optional): Leave it blank to let the user choose their own password on first login. If SSO is enabled, a password-less user can sign in via their SSO provider instead
    - **Role**: Select the role to assign (Admin, Member, Viewer, or any custom role)
-   - **Send invitation email**: Check this to send an email notification to the user with login instructions
+   - **Send invitation email**: Check this to email the user their set-password link. When left unchecked, no email is sent — the account is still created and a copyable set-password link is shown for you to share directly
 3. Click **Create user** to create the account.
 
 **What happens behind the scenes:**
 - A user account is created in the system
-- An SSO invitation record is also created, so if the user logs in via SSO, they automatically receive the pre-assigned role
-- If no password is set and SSO is disabled, a password setup token is generated. The user can set their password by following the link in the invitation email
+- If no password is set (a "Pending Setup" account), a single-use set-password token is generated. The user sets their own password on first login through the link — delivered by the invitation email when you ticked the box, or via the copyable link shown after creation
+- The user can also reach this link themselves from the login page's **Forgot password** option, even though they never had a password
+- When SSO is enabled, an SSO invitation record is also created, so if the user logs in via SSO they automatically receive the pre-assigned role
 
 #### Editing a User
 

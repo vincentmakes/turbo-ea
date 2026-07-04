@@ -303,7 +303,7 @@
   "users.invitations.revokeTooltip": "Revoca invito",
   "users.create.title": "Crea utente",
   "users.create.ssoHint": "SSO è abilitato. Senza password, l’utente dovrà accedere tramite il proprio provider SSO.",
-  "users.create.emailHint": "Per gli account locali è richiesta una password. L'utente accede con l'indirizzo e la password che imposti.",
+  "users.create.emailHint": "Lascia vuota la password per consentire all'utente di impostarne una al primo accesso, oppure impostala ora. L'utente accede con il proprio indirizzo e-mail.",
   "users.create.displayName": "Nome visualizzato",
   "users.create.password": "Password",
   "users.create.passwordOptional": "Password (facoltativa)",
@@ -1677,5 +1677,8 @@
   "auditLog.rollback.cancel": "Annulla",
   "auditLog.rollback.rollingBack": "Annullamento in corso…",
   "auditLog.rollback.force": "Forza l'annullamento",
-  "auditLog.rollback.rollback": "Annulla"
+  "auditLog.rollback.rollback": "Annulla",
+  "users.create.passwordOptionalLocalHelperText": "Lascia vuoto per consentire all'utente di impostare la password al primo accesso.",
+  "users.create.setupLinkHint": "Utente creato. Condividi questo link monouso per consentirgli di impostare la password:",
+  "users.create.copySetupLink": "Copia link"
 }

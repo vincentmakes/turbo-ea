@@ -303,7 +303,7 @@
   "users.invitations.revokeTooltip": "撤销邀请",
   "users.create.title": "创建用户",
   "users.create.ssoHint": "SSO 已启用。如果未设置密码，用户将需要通过其 SSO 提供商登录。",
-  "users.create.emailHint": "本地账户需要设置密码。用户使用此邮箱和您设置的密码登录。",
+  "users.create.emailHint": "将密码留空，让用户在首次登录时自行设置密码，或现在设置一个。用户使用其电子邮件地址登录。",
   "users.create.displayName": "显示名称",
   "users.create.password": "密码",
   "users.create.passwordOptional": "密码（可选）",
@@ -1677,5 +1677,8 @@
   "auditLog.rollback.cancel": "取消",
   "auditLog.rollback.rollingBack": "正在回滚…",
   "auditLog.rollback.force": "强制回滚",
-  "auditLog.rollback.rollback": "回滚"
+  "auditLog.rollback.rollback": "回滚",
+  "users.create.passwordOptionalLocalHelperText": "留空以让用户在首次登录时自行设置密码。",
+  "users.create.setupLinkHint": "用户已创建。请分享此一次性链接，以便其设置密码：",
+  "users.create.copySetupLink": "复制链接"
 }

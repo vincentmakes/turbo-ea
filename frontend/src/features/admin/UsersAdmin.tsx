@@ -117,6 +117,10 @@ export default function UsersAdmin() {
   const [createUserForm, setCreateUserForm] = useState<CreateUserFormState>(EMPTY_CREATE_USER);
   const [createUserError, setCreateUserError] = useState<string | null>(null);
   const [createUserSubmitting, setCreateUserSubmitting] = useState(false);
+  // Copyable /auth/set-password link surfaced after creating a password-less
+  // local account without an invite email (or when the email failed).
+  const [createSetupLink, setCreateSetupLink] = useState<string | null>(null);
+  const [createLinkCopied, setCreateLinkCopied] = useState(false);
 
   // Edit dialog state
   const [editOpen, setEditOpen] = useState(false);
@@ -359,6 +363,8 @@ export default function UsersAdmin() {
   const openCreateUser = () => {
     setCreateUserForm(EMPTY_CREATE_USER);
     setCreateUserError(null);
+    setCreateSetupLink(null);
+    setCreateLinkCopied(false);
     setCreateUserOpen(true);
   };
 
@@ -367,25 +373,35 @@ export default function UsersAdmin() {
       setCreateUserError(t("users.create.requiredFields"));
       return;
     }
-    if (!ssoEnabled && !createUserForm.password) {
-      setCreateUserError(t("users.create.passwordRequiredLocal"));
-      return;
-    }
+    // Password is optional for local accounts too: leaving it blank creates a
+    // password-less account that sets its own password on first login (via the
+    // returned setup link or «Forgot password»).
     try {
       setCreateUserSubmitting(true);
       setCreateUserError(null);
-      const created = await api.post<User & { email_error?: string; email_sent?: boolean }>(
-        "/users",
-        {
-          email: createUserForm.email.trim(),
-          display_name: createUserForm.display_name.trim(),
-          password: createUserForm.password || null,
-          role: createUserForm.role,
-          send_email: createUserForm.send_email,
-        }
-      );
+      const created = await api.post<
+        User & { email_error?: string; email_sent?: boolean; setup_token?: string }
+      >("/users", {
+        email: createUserForm.email.trim(),
+        display_name: createUserForm.display_name.trim(),
+        password: createUserForm.password || null,
+        role: createUserForm.role,
+        send_email: createUserForm.send_email,
+      });
       setUsers((prev) => [...prev, created]);
       setCreateUserOpen(false);
+      // Surface the copyable set-password link when no invite email was
+      // delivered but the account still needs a password (password-less).
+      const emailDelivered =
+        createUserForm.send_email && created.email_sent && !created.email_error;
+      if (!emailDelivered && created.setup_token) {
+        setCreateSetupLink(
+          `${window.location.origin}/auth/set-password?token=${created.setup_token}`
+        );
+        setCreateLinkCopied(false);
+      } else {
+        setCreateSetupLink(null);
+      }
       if (createUserForm.send_email && created.email_error) {
         setWarning(created.email_error);
       } else {
@@ -1022,6 +1038,44 @@ export default function UsersAdmin() {
               {success}
             </Alert>
           )}
+          {createSetupLink && (
+            <Alert
+              severity="info"
+              sx={{ mb: 2 }}
+              onClose={() => setCreateSetupLink(null)}
+              action={
+                <IconButton
+                  size="small"
+                  color="inherit"
+                  title={t("users.create.copySetupLink")}
+                  onClick={() => {
+                    navigator.clipboard
+                      ?.writeText(createSetupLink)
+                      .then(() => setCreateLinkCopied(true))
+                      .catch(() => {});
+                  }}
+                >
+                  <MaterialSymbol
+                    icon={createLinkCopied ? "check" : "content_copy"}
+                    size={18}
+                  />
+                </IconButton>
+              }
+            >
+              {t("users.create.setupLinkHint")}
+              <Box
+                component="code"
+                sx={{
+                  display: "block",
+                  mt: 0.5,
+                  wordBreak: "break-all",
+                  fontSize: "0.8rem",
+                }}
+              >
+                {createSetupLink}
+              </Box>
+            </Alert>
+          )}
 
           {/* Sidebar + Grid */}
           <Paper
@@ -1138,11 +1192,7 @@ export default function UsersAdmin() {
                   size="small"
                 />
                 <TextField
-                  label={
-                    ssoEnabled
-                      ? t("users.create.passwordOptional")
-                      : t("users.create.password")
-                  }
+                  label={t("users.create.passwordOptional")}
                   type="password"
                   value={createUserForm.password}
                   onChange={(e) =>
@@ -1150,11 +1200,10 @@ export default function UsersAdmin() {
                   }
                   fullWidth
                   size="small"
-                  required={!ssoEnabled}
                   helperText={
                     ssoEnabled
                       ? t("users.create.passwordSsoHelperText")
-                      : t("users.create.passwordHelperText")
+                      : t("users.create.passwordOptionalLocalHelperText")
                   }
                 />
                 <FormControl fullWidth size="small">
