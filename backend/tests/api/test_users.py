@@ -673,12 +673,12 @@ class TestUpdateUser:
         assert u.password_setup_token is not None
         assert len(u.password_setup_token) >= 32  # urlsafe(48) → 64 chars
 
-    async def test_create_user_local_no_password_without_invite_rejected(
+    async def test_create_user_local_no_password_without_invite_allowed(
         self, client, db, users_env
     ):
-        """Local account, no password, no invite → reject. The setup link
-        only travels via email, so without the welcome email the user has
-        no way into the system."""
+        """Explicit local account, no password, no invite → allowed. It lands
+        as a «Pending Setup» account; the user sets their password on first
+        login via «Forgot password» on the login page."""
         admin = users_env["admin"]
         resp = await client.post(
             "/api/v1/users",
@@ -691,8 +691,11 @@ class TestUpdateUser:
             },
             headers=auth_headers(admin),
         )
-        assert resp.status_code == 400
-        assert "invitation" in resp.json()["detail"].lower()
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["has_password"] is False
+        assert data["pending_setup"] is True
+        assert "setup_token" not in data
 
     async def test_create_user_explicit_auth_provider_sso_requires_sso_enabled(
         self, client, db, users_env
