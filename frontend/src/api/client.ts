@@ -162,6 +162,7 @@ export const auth = {
       scopes?: string;
       extra_auth_params?: Record<string, string>;
       registration_enabled?: boolean;
+      local_login_available?: boolean;
     }>("/auth/sso/config"),
   ssoCallback: (code: string, redirect_uri: string) =>
     api.post<{ access_token: string }>("/auth/sso/callback", { code, redirect_uri }),

@@ -97,6 +97,7 @@ export interface SsoConfig {
   scopes?: string;
   extra_auth_params?: Record<string, string>;
   registration_enabled?: boolean;
+  local_login_available?: boolean;
 }
 
 export interface SsoInvitation {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
@@ -10,6 +10,7 @@ import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Alert from "@mui/material/Alert";
 import Divider from "@mui/material/Divider";
+import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
 import { auth } from "@/api/client";
 import { useAppTitle } from "@/hooks/useAppTitle";
@@ -21,6 +22,22 @@ interface Props {
   onRegister: (email: string, displayName: string, password: string) => Promise<void>;
 }
 
+// Cache the resolved SSO config for the session so a refresh renders the
+// correct login layout instantly — no flash of the email/password fields
+// while the request is in flight, and no repeat round-trip (the config
+// fetch can take a couple seconds when the backend must reach an OIDC
+// provider's discovery document).
+const SSO_CACHE_KEY = "turboea_sso_config";
+
+function readCachedSsoConfig(): SsoConfig | null {
+  try {
+    const raw = sessionStorage.getItem(SSO_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as SsoConfig) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function LoginPage({ onLogin, onRegister }: Props) {
   const { t } = useTranslation("auth");
   const [tab, setTab] = useState(0);
@@ -29,15 +46,44 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [ssoConfig, setSsoConfig] = useState<SsoConfig | null>(null);
+  const [ssoConfig, setSsoConfig] = useState<SsoConfig | null>(readCachedSsoConfig);
+  // Only "loading" on the very first visit (no cached config yet). With a
+  // cached value we render the right layout immediately and refresh silently.
+  const [configLoading, setConfigLoading] = useState(() => readCachedSsoConfig() === null);
   const appTitle = useAppTitle();
   const branding = useLoginBranding();
 
+  // Measure the logo+tagline header so we can shift the group up by half its
+  // height, keeping the card (not just the group) at the true vertical centre.
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [headerShift, setHeaderShift] = useState(0);
+  useLayoutEffect(() => {
+    const h = headerRef.current?.offsetHeight ?? 0;
+    // 24px = the mb:3 gap (theme spacing unit 8px × 3) between header and card.
+    setHeaderShift(h > 0 ? (h + 24) / 2 : 0);
+  }, [branding.taglineHidden, branding.tagline, appTitle]);
+
   useEffect(() => {
-    auth.ssoConfig().then(setSsoConfig).catch(() => {});
+    auth
+      .ssoConfig()
+      .then((cfg) => {
+        setSsoConfig(cfg);
+        try {
+          sessionStorage.setItem(SSO_CACHE_KEY, JSON.stringify(cfg));
+        } catch {
+          // sessionStorage unavailable (private mode etc.) — non-fatal.
+        }
+      })
+      .catch(() => {})
+      .finally(() => setConfigLoading(false));
   }, []);
 
   const ssoEnabled = ssoConfig?.enabled === true;
+  // Hide the email/password form when SSO is on and every account is SSO-based
+  // (the backend reports no local accounts). Any local/invited account keeps
+  // the form visible so those users can still sign in or set a password.
+  const showLocalLogin =
+    !ssoEnabled || ssoConfig?.local_login_available !== false;
   const registrationAllowed =
     !ssoEnabled && ssoConfig?.registration_enabled !== false;
 
@@ -85,31 +131,63 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
   return (
     <Box
       sx={{
+        // Center against the *visible* viewport. On mobile, 100vh includes the
+        // area behind the address bar, so 100vh-centred content sits lower than
+        // the visual centre — 100dvh tracks the actually-visible height.
         minHeight: "100vh",
+        "@supports (min-height: 100dvh)": { minHeight: "100dvh" },
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         bgcolor: "#1a1a2e",
+        py: 4,
       }}
     >
-      <Box sx={{ textAlign: "center", mb: 3 }}>
-        <img
-          src="/api/v1/settings/logo"
-          alt={appTitle}
-          style={{ height: 64, maxWidth: 280, objectFit: "contain" }}
-        />
-        {!branding.taglineHidden && (
-          <Typography variant="body2" sx={{ mt: 1, color: "rgba(255,255,255,0.6)" }}>
-            {branding.tagline || t("login.title")}
-          </Typography>
-        )}
-      </Box>
-      <Card sx={{ p: 4, width: 400, maxWidth: "90vw" }}>
-
+      {/* For the compact SSO-only card, shift the group up by half the header's
+          height so the CARD itself sits at the true vertical centre (not just the
+          logo+card group). When the taller email/password form is shown, keep the
+          balanced group-centring — shifting a tall card up leaves it looking too
+          high. */}
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          transform: `translateY(-${showLocalLogin ? 0 : headerShift}px)`,
+        }}
+      >
+        <Box ref={headerRef} sx={{ textAlign: "center", mb: 3 }}>
+          <img
+            src="/api/v1/settings/logo"
+            alt={appTitle}
+            style={{ height: 64, maxWidth: 280, objectFit: "contain" }}
+          />
+          {!branding.taglineHidden && (
+            <Typography variant="body2" sx={{ mt: 1, color: "rgba(255,255,255,0.6)" }}>
+              {branding.tagline || t("login.title")}
+            </Typography>
+          )}
+        </Box>
+        <Card sx={{ p: 4, width: 400, maxWidth: "90vw" }}>
+        {configLoading ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 5 }}>
+            <CircularProgress size={28} />
+          </Box>
+        ) : (
+          <>
         {/* SSO Login Button */}
         {ssoEnabled && (
           <>
+            {/* When SSO is the only method, give the card a proper heading so
+                it doesn't read as a lone button. */}
+            {!showLocalLogin && (
+              <Box sx={{ textAlign: "center", mb: 3 }}>
+                <Typography variant="h6" fontWeight={600}>
+                  {t("login.signInToApp", { app: appTitle })}
+                </Typography>
+              </Box>
+            )}
             <Button
               fullWidth
               variant="contained"
@@ -141,21 +219,37 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
                 )
               }
               sx={{
-                mb: 2,
-                bgcolor: "background.paper",
+                mb: showLocalLogin ? 2 : 1.5,
+                bgcolor: "action.hover",
                 color: "text.primary",
                 textTransform: "none",
                 fontWeight: 600,
-                "&:hover": { bgcolor: "action.hover" },
+                boxShadow: "none",
+                border: 1,
+                borderColor: "divider",
+                "&:hover": { bgcolor: "action.selected", boxShadow: "none" },
               }}
             >
               {t("login.ssoButtonProvider", {
                 provider: ssoConfig?.provider_name || "SSO",
               })}
             </Button>
-            <Divider sx={{ my: 2, color: "text.secondary", fontSize: 13 }}>
-              {t("login.ssoEmailDivider")}
-            </Divider>
+            {!showLocalLogin && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: "block", textAlign: "center", mt: 1.5 }}
+              >
+                {t("login.ssoRedirectHint", {
+                  provider: ssoConfig?.provider_name || "SSO",
+                })}
+              </Typography>
+            )}
+            {showLocalLogin && (
+              <Divider sx={{ my: 2, color: "text.secondary", fontSize: 13 }}>
+                {t("login.ssoEmailDivider")}
+              </Divider>
+            )}
           </>
         )}
 
@@ -167,64 +261,75 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
           </Tabs>
         )}
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
+        {showLocalLogin && (
+          <>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
 
-        <form onSubmit={handleSubmit}>
-          <TextField
-            fullWidth
-            label={t("login.email")}
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            sx={{ mb: 2 }}
-          />
-          {tab === 1 && registrationAllowed && (
-            <TextField
-              fullWidth
-              label={t("register.displayName")}
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              required
-              sx={{ mb: 2 }}
-            />
-          )}
-          <TextField
-            fullWidth
-            label={t("login.password")}
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            sx={{ mb: tab === 0 && branding.smtpConfigured ? 1 : 3 }}
-          />
-          {tab === 0 && branding.smtpConfigured && (
-            <Box sx={{ textAlign: "right", mb: 2 }}>
-              <Link
-                component={RouterLink}
-                to="/auth/forgot-password"
-                variant="body2"
-                underline="hover"
+            <form onSubmit={handleSubmit}>
+              <TextField
+                fullWidth
+                label={t("login.email")}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                sx={{ mb: 2 }}
+              />
+              {tab === 1 && registrationAllowed && (
+                <TextField
+                  fullWidth
+                  label={t("register.displayName")}
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  required
+                  sx={{ mb: 2 }}
+                />
+              )}
+              <TextField
+                fullWidth
+                label={t("login.password")}
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                sx={{ mb: tab === 0 && branding.smtpConfigured ? 1 : 3 }}
+              />
+              {tab === 0 && branding.smtpConfigured && (
+                <Box sx={{ textAlign: "right", mb: 2 }}>
+                  <Link
+                    component={RouterLink}
+                    to="/auth/forgot-password"
+                    variant="body2"
+                    underline="hover"
+                  >
+                    {t("login.forgotPassword")}
+                  </Link>
+                </Box>
+              )}
+              <Button
+                fullWidth
+                variant="contained"
+                type="submit"
+                disabled={loading}
+                size="large"
               >
-                {t("login.forgotPassword")}
-              </Link>
-            </Box>
-          )}
-          <Button
-            fullWidth
-            variant="contained"
-            type="submit"
-            disabled={loading}
-            size="large"
-          >
-            {loading ? "..." : tab === 0 || !registrationAllowed ? t("login.submitLogin") : t("login.submitRegister")}
-          </Button>
-        </form>
-      </Card>
+                {loading
+                  ? "..."
+                  : tab === 0 || !registrationAllowed
+                    ? t("login.submitLogin")
+                    : t("login.submitRegister")}
+              </Button>
+            </form>
+          </>
+        )}
+          </>
+        )}
+        </Card>
+      </Box>
       {(branding.helpText || branding.helpLink) && (
         <Box
           sx={{
