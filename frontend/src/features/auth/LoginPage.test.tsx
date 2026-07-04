@@ -23,6 +23,10 @@ import { auth } from "@/api/client";
 beforeEach(() => {
   vi.clearAllMocks();
   _resetLoginBrandingCache();
+  // LoginPage caches the resolved SSO config in sessionStorage; clear it so
+  // each test starts from a cold "loading" state and doesn't inherit another
+  // test's config.
+  sessionStorage.clear();
 });
 
 // ---------------------------------------------------------------------------
@@ -50,7 +54,8 @@ describe("LoginPage", () => {
 
     renderLogin();
 
-    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+    // The form appears once the SSO config resolves (a spinner shows first).
+    expect(await screen.findByLabelText(/email/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
   });
 
@@ -94,7 +99,7 @@ describe("LoginPage", () => {
 
     renderLogin();
 
-    await user.type(screen.getByLabelText(/email/i), "test@example.com");
+    await user.type(await screen.findByLabelText(/email/i), "test@example.com");
     await user.type(screen.getByLabelText(/password/i), "secret123");
     await user.click(screen.getByRole("button", { name: /login/i }));
 
@@ -136,7 +141,7 @@ describe("LoginPage", () => {
 
     renderLogin();
 
-    await user.type(screen.getByLabelText(/email/i), "bad@example.com");
+    await user.type(await screen.findByLabelText(/email/i), "bad@example.com");
     await user.type(screen.getByLabelText(/password/i), "wrong");
     await user.click(screen.getByRole("button", { name: /login/i }));
 

@@ -10,6 +10,7 @@ import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Alert from "@mui/material/Alert";
 import Divider from "@mui/material/Divider";
+import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
 import { auth } from "@/api/client";
 import { useAppTitle } from "@/hooks/useAppTitle";
@@ -21,6 +22,22 @@ interface Props {
   onRegister: (email: string, displayName: string, password: string) => Promise<void>;
 }
 
+// Cache the resolved SSO config for the session so a refresh renders the
+// correct login layout instantly — no flash of the email/password fields
+// while the request is in flight, and no repeat round-trip (the config
+// fetch can take a couple seconds when the backend must reach an OIDC
+// provider's discovery document).
+const SSO_CACHE_KEY = "turboea_sso_config";
+
+function readCachedSsoConfig(): SsoConfig | null {
+  try {
+    const raw = sessionStorage.getItem(SSO_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as SsoConfig) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function LoginPage({ onLogin, onRegister }: Props) {
   const { t } = useTranslation("auth");
   const [tab, setTab] = useState(0);
@@ -29,12 +46,26 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [ssoConfig, setSsoConfig] = useState<SsoConfig | null>(null);
+  const [ssoConfig, setSsoConfig] = useState<SsoConfig | null>(readCachedSsoConfig);
+  // Only "loading" on the very first visit (no cached config yet). With a
+  // cached value we render the right layout immediately and refresh silently.
+  const [configLoading, setConfigLoading] = useState(() => readCachedSsoConfig() === null);
   const appTitle = useAppTitle();
   const branding = useLoginBranding();
 
   useEffect(() => {
-    auth.ssoConfig().then(setSsoConfig).catch(() => {});
+    auth
+      .ssoConfig()
+      .then((cfg) => {
+        setSsoConfig(cfg);
+        try {
+          sessionStorage.setItem(SSO_CACHE_KEY, JSON.stringify(cfg));
+        } catch {
+          // sessionStorage unavailable (private mode etc.) — non-fatal.
+        }
+      })
+      .catch(() => {})
+      .finally(() => setConfigLoading(false));
   }, []);
 
   const ssoEnabled = ssoConfig?.enabled === true;
@@ -111,7 +142,12 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
         )}
       </Box>
       <Card sx={{ p: 4, width: 400, maxWidth: "90vw" }}>
-
+        {configLoading ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 5 }}>
+            <CircularProgress size={28} />
+          </Box>
+        ) : (
+          <>
         {/* SSO Login Button */}
         {ssoEnabled && (
           <>
@@ -260,6 +296,8 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
                     : t("login.submitRegister")}
               </Button>
             </form>
+          </>
+        )}
           </>
         )}
       </Card>

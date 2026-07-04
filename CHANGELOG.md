@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 - **The login page hides the email/password fields when every account uses SSO.** When Single Sign-On is enabled and there are no active local accounts left, the sign-in screen shows a streamlined card — a "Sign in to {app}" heading, the SSO button, and a "you'll be redirected" hint — with the (unusable) email and password form hidden. If any active local or invited account still exists, the form stays visible so those users can sign in or set their password. Deactivated local accounts don't count, since they can't sign in anyway.
 
+### Fixed
+- **No more flash of the email/password fields on the login page.** The sign-in screen now shows a brief spinner while it checks the SSO configuration, instead of flashing the email/password form and then hiding it. The resolved configuration is cached for the session, so a page refresh renders the correct layout instantly without a repeat round-trip.
+
 ## [1.64.2] - 2026-07-04
 
 ### Fixed
