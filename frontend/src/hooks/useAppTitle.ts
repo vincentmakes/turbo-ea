@@ -3,12 +3,34 @@ import { api } from "@/api/client";
 
 export const DEFAULT_APP_TITLE = "Turbo EA";
 
+// Persist the last known title so a page load renders the customised name
+// immediately instead of flashing the default and then swapping. We still
+// refetch on mount, so a title changed elsewhere self-corrects on next load.
+const STORAGE_KEY = "turboea_app_title";
+
+function readStored(): string | null {
+  try {
+    return localStorage.getItem(STORAGE_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStored(title: string) {
+  try {
+    localStorage.setItem(STORAGE_KEY, title);
+  } catch {
+    // localStorage unavailable (private mode etc.) — non-fatal.
+  }
+}
+
 let _cache: string | null = null;
 let _inflight: Promise<void> | null = null;
 const _listeners = new Set<(title: string) => void>();
 
 function notify(title: string) {
   _cache = title;
+  writeStored(title);
   for (const fn of _listeners) fn(title);
 }
 
@@ -34,7 +56,7 @@ function loadOnce() {
  * after a successful PATCH to broadcast the new value to all consumers.
  */
 export function useAppTitle(): string {
-  const [title, setTitle] = useState(_cache || DEFAULT_APP_TITLE);
+  const [title, setTitle] = useState(_cache || readStored() || DEFAULT_APP_TITLE);
 
   useEffect(() => {
     _listeners.add(setTitle);

@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - **No more flash of the email/password fields on the login page.** The sign-in screen now shows a brief spinner while it checks the SSO configuration, instead of flashing the email/password form and then hiding it. The resolved configuration is cached for the session, so a page refresh renders the correct layout instantly without a repeat round-trip.
+- **No more flicker of a customised application name.** The app title is remembered between loads, so screens that show it (the login heading, the browser tab) render your customised name immediately instead of briefly showing the default "Turbo EA" and swapping.
 
 ## [1.64.2] - 2026-07-04
 
