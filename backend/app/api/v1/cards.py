@@ -1298,6 +1298,14 @@ async def bulk_update(
             "would_update": len(diffs),
         }
 
+    # Recompute data-quality for every updated card. Unlike create_card,
+    # bulk_create_cards and the single-card update_card, this bulk PATCH path
+    # historically skipped the recompute, leaving scores frozen at their prior
+    # (often creation-time) value after any bulk edit. Mirror the other paths so
+    # bulk edits keep the canonical completeness score in sync.
+    for card in sheets:
+        card.data_quality = await calc_data_quality(db, card)
+
     await db.commit()
     result = await db.execute(
         select(Card)
