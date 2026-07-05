@@ -1298,6 +1298,15 @@ async def bulk_update(
             "would_update": len(diffs),
         }
 
+    # Recompute completeness score and calculated fields per card, mirroring
+    # create_card / bulk_create_cards / update_card. Without this a bulk edit
+    # persists the new values but leaves data_quality and calculated fields
+    # frozen at their prior (often creation-time) value.
+    for card in sheets:
+        card.data_quality = await calc_data_quality(db, card)
+        ppm_excl = await _get_ppm_exclusions(db, card)
+        await run_calculations_for_card(db, card, exclude_fields=ppm_excl)
+
     await db.commit()
     result = await db.execute(
         select(Card)
