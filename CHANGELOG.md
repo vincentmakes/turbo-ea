@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.64.5] - 2026-07-05
+
+### Fixed
+- **The BPM Process Navigator now correctly recognises a process's Automation Level.** Processes set to *Partially Automated* or *Fully Automated* were shown as grey "Not Set", were missing the Automation chip in the side summary panel, and only "Manual" appeared in the overlay legend. The classification map used the wrong internal values, so only *Manual* was matched; these processes now colour, chip, and appear in the legend correctly.
+
 ## [1.64.4] - 2026-07-05
 
 ### Security

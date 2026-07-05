@@ -130,7 +130,10 @@ const OVERLAY_OPTIONS: { key: ColorOverlay; labelKey: string; icon: string }[] =
   { key: "riskLevel", labelKey: "navigator.overlayRisk", icon: "warning" },
 ];
 
-const ATTR_COLORS: Record<string, Record<string, { label: string; color: string }>> = {
+// Exported for the issue #762 regression test (key parity with the seeded
+// automationLevel options); it is a plain constant, not a component.
+// eslint-disable-next-line react-refresh/only-export-components
+export const ATTR_COLORS: Record<string, Record<string, { label: string; color: string }>> = {
   processType: {
     core: { label: "Core", color: "#1565c0" },
     support: { label: "Support", color: "#7b1fa2" },
@@ -145,8 +148,8 @@ const ATTR_COLORS: Record<string, Record<string, { label: string; color: string 
   },
   automationLevel: {
     manual: { label: "Manual", color: "#d32f2f" },
-    partially: { label: "Partial", color: "#f57c00" },
-    fully: { label: "Fully Auto", color: "#2e7d32" },
+    partiallyAutomated: { label: "Partial", color: "#f57c00" },
+    fullyAutomated: { label: "Fully Auto", color: "#2e7d32" },
   },
   riskLevel: {
     low: { label: "Low", color: "#66bb6a" },
