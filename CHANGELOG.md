@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.64.7] - 2026-07-05
+
+### Fixed
+- **Self-hosted MCP servers now connect from standard OAuth MCP clients out of the box.** The bundled reverse proxy now routes the OAuth discovery requests (`/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource`) that AI tools like Claude and the MCP Inspector make at the site root to the MCP server, instead of returning the web app's HTML and breaking sign-in discovery. The MCP endpoint is now also reachable at the clean `https://your-domain/mcp` URL — and the Admin → Settings → AI page now shows that clean URL instead of the doubled `…/mcp/mcp` form (which keeps working, so already-configured connectors are unaffected).
+
 ## [1.64.6] - 2026-07-05
 
 ### Fixed
