@@ -93,7 +93,9 @@ jobs:
     continue-on-error: true
     services:
       postgres:
-        image: postgres:16-alpine
+        # pgvector image so the card_embeddings vector column + the
+        # CREATE EXTENSION in conftest work in the integration test DB.
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: turboea
           POSTGRES_PASSWORD: turboea
@@ -209,7 +211,8 @@ jobs:
     continue-on-error: true
     services:
       postgres:
-        image: postgres:16-alpine
+        # pgvector image so create_all of the card_embeddings vector column works.
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: turboea
           POSTGRES_PASSWORD: turboea
@@ -233,12 +236,15 @@ jobs:
       - name: Create tables and stamp head (mirrors app startup on fresh DB)
         run: |
           python -c "
+          from sqlalchemy import text
           from app.models import Base
           from app.database import engine
           import asyncio
 
           async def init():
               async with engine.begin() as conn:
+                  # The app lifespan ensures this before create_all; mirror it here.
+                  await conn.execute(text('CREATE EXTENSION IF NOT EXISTS vector'))
                   await conn.run_sync(Base.metadata.create_all)
 
           asyncio.run(init())
