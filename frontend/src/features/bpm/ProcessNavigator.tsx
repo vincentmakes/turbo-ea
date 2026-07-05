@@ -467,11 +467,6 @@ function HouseCard({
           >
             {node.name}
           </Typography>
-          {subtypeLabel && (
-            <Typography variant="caption" sx={{ opacity: 0.85, fontSize: "0.6rem", flexShrink: 0, ml: 0.5 }}>
-              {subtypeLabel}
-            </Typography>
-          )}
         </Box>
 
         {/* Footer badges */}
@@ -487,6 +482,11 @@ function HouseCard({
             borderColor: "divider",
           }}
         >
+          {subtypeLabel && (
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.6rem", flexShrink: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {subtypeLabel}
+            </Typography>
+          )}
           {node.deepAppCount > 0 && (
             <Tooltip title={t("navigator.applicationCount", { count: node.deepAppCount })}>
               <Chip
@@ -592,7 +592,7 @@ function HouseCard({
           bgcolor: color,
           color: "#fff",
           display: "flex",
-          alignItems: "center",
+          flexDirection: "column",
           gap: 0.5,
           cursor: "pointer",
           "&:hover": { opacity: 0.9 },
@@ -603,95 +603,102 @@ function HouseCard({
           if (e.key === "Enter") onOpen(node);
         }}
       >
-        {nestedDrag && (
-          <Box
-            onMouseDown={() => { dragHandleActive.current = true; }}
-            onMouseUp={() => { dragHandleActive.current = false; }}
-            sx={{
-              opacity: 0.5,
-              transition: "opacity 0.15s",
-              cursor: "grab",
-              flexShrink: 0,
-              display: "flex",
-              alignItems: "center",
-              p: 0.25,
-              ml: -0.5,
-              borderRadius: 0.5,
-              zIndex: 2,
-              position: "relative",
-              bgcolor: "rgba(255,255,255,0.25)",
-              "&:hover": { opacity: 1, bgcolor: "rgba(255,255,255,0.5)" },
-              "&:active": { cursor: "grabbing" },
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <MaterialSymbol icon="drag_indicator" size={16} />
-          </Box>
-        )}
-        <Typography
-          variant="body2"
-          sx={{
-            fontWeight: 700,
-            fontSize: "0.82rem",
-            flex: 1,
-            minWidth: 0,
-            lineHeight: 1.3,
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-          }}
-        >
-          {node.name}
-        </Typography>
-        {subtypeLabel && (
-          <Typography variant="caption" sx={{ opacity: 0.85, fontSize: "0.6rem", flexShrink: 0, ml: 0.5 }}>
-            {subtypeLabel}
-          </Typography>
-        )}
-        {(hasDiagram || hasElements) && (
-          <Tooltip title={hasDiagram ? t("navigator.hasProcessFlow", { count: node.element_count ?? 0 }) : t("navigator.bpmnElementCount", { count: node.element_count })}>
-            <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.25, ml: 0.25, opacity: 0.85, flexShrink: 0 }}>
-              <MaterialSymbol icon="schema" size={16} />
-              {hasElements && (
-                <Typography variant="caption" sx={{ fontSize: "0.6rem", color: "#fff", fontWeight: 600, lineHeight: 1 }}>
-                  {node.element_count}
-                </Typography>
-              )}
-            </Box>
-          </Tooltip>
-        )}
-        <Chip
-          size="small"
-          label={childCount}
-          sx={{
-            height: 20,
-            fontSize: "0.65rem",
-            fontWeight: 600,
-            bgcolor: "rgba(255,255,255,0.25)",
-            color: "#fff",
-            ml: 0.5,
-            flexShrink: 0,
-          }}
-        />
-        {!isNested && (
-          <Tooltip title={t("navigator.drillDown")}>
-            <IconButton
-              size="small"
-              onClick={(e) => { e.stopPropagation(); onDrill(node.id); }}
+        {/* Title row — the name gets the full width */}
+        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5 }}>
+          {nestedDrag && (
+            <Box
+              onMouseDown={() => { dragHandleActive.current = true; }}
+              onMouseUp={() => { dragHandleActive.current = false; }}
               sx={{
-                p: 0.25,
-                ml: 0.25,
-                color: "#fff",
-                opacity: 0.7,
+                opacity: 0.5,
+                transition: "opacity 0.15s",
+                cursor: "grab",
                 flexShrink: 0,
-                "&:hover": { opacity: 1, bgcolor: "rgba(255,255,255,0.2)" },
+                display: "flex",
+                alignItems: "center",
+                p: 0.25,
+                ml: -0.5,
+                borderRadius: 0.5,
+                zIndex: 2,
+                position: "relative",
+                bgcolor: "rgba(255,255,255,0.25)",
+                "&:hover": { opacity: 1, bgcolor: "rgba(255,255,255,0.5)" },
+                "&:active": { cursor: "grabbing" },
               }}
+              onClick={(e) => e.stopPropagation()}
             >
-              <MaterialSymbol icon="zoom_in" size={18} />
-            </IconButton>
+              <MaterialSymbol icon="drag_indicator" size={16} />
+            </Box>
+          )}
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: 700,
+              fontSize: "0.82rem",
+              flex: 1,
+              minWidth: 0,
+              lineHeight: 1.3,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {node.name}
+          </Typography>
+        </Box>
+        {/* Meta row — subtype label, counts, and the drill affordance */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, minHeight: 20 }}>
+          {subtypeLabel && (
+            <Typography variant="caption" sx={{ opacity: 0.85, fontSize: "0.6rem", flexShrink: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {subtypeLabel}
+            </Typography>
+          )}
+          <Box sx={{ flex: 1 }} />
+          {(hasDiagram || hasElements) && (
+            <Tooltip title={hasDiagram ? t("navigator.hasProcessFlow", { count: node.element_count ?? 0 }) : t("navigator.bpmnElementCount", { count: node.element_count })}>
+              <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.25, opacity: 0.85, flexShrink: 0 }}>
+                <MaterialSymbol icon="schema" size={16} />
+                {hasElements && (
+                  <Typography variant="caption" sx={{ fontSize: "0.6rem", color: "#fff", fontWeight: 600, lineHeight: 1 }}>
+                    {node.element_count}
+                  </Typography>
+                )}
+              </Box>
+            </Tooltip>
+          )}
+          <Tooltip title={t("navigator.subProcessDrillDown", { count: childCount })}>
+            <Chip
+              size="small"
+              label={childCount}
+              sx={{
+                height: 20,
+                fontSize: "0.65rem",
+                fontWeight: 600,
+                bgcolor: "rgba(255,255,255,0.25)",
+                color: "#fff",
+                flexShrink: 0,
+              }}
+            />
           </Tooltip>
-        )}
+          {!isNested && (
+            <Tooltip title={t("navigator.drillDown")}>
+              <IconButton
+                size="small"
+                onClick={(e) => { e.stopPropagation(); onDrill(node.id); }}
+                sx={{
+                  p: 0.25,
+                  color: "#fff",
+                  opacity: 0.7,
+                  flexShrink: 0,
+                  "&:hover": { opacity: 1, bgcolor: "rgba(255,255,255,0.2)" },
+                }}
+              >
+                <MaterialSymbol icon="zoom_in" size={18} />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
       </Box>
       <Box sx={{ p: 0.75, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 0.75, bgcolor: "rgba(0,0,0,0.02)" }}>
         {node.children.map((ch) => (
