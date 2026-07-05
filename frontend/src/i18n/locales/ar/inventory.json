@@ -229,9 +229,5 @@
   "export.allFieldsHint": "مجموعة بيانات كاملة، قابلة لإعادة الاستيراد",
   "export.currentView": "تصدير العرض الحالي",
   "export.currentViewHint": "يطابق الجدول المعروض — غير مناسب لإعادة الاستيراد",
-  "export.viewSheetName": "عرض",
-  "filter.searchModeText": "نص",
-  "filter.searchModeSemantic": "دلالي",
-  "filter.searchSemanticPlaceholder": "صِف ما تبحث عنه…",
-  "filter.semanticUnavailable": "لم يتم تكوين البحث الدلالي، لذا تعود النتائج إلى مطابقة النص. يمكن للمسؤول تفعيله من الإعدادات ← الذكاء الاصطناعي."
+  "export.viewSheetName": "عرض"
 }

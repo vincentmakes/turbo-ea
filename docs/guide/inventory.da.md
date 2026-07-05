@@ -10,7 +10,7 @@
 
 Det venstre sidepanel lader dig **filtrere** kort efter forskellige kriterier:
 
-- **Søg** — Friform tekstsøgning på tværs af kortnavne. Når en administrator har aktiveret [semantisk søgning](../admin/ai.md#semantic-search-embeddings), vises en **Tekst / Semantisk**-omskifter over feltet: **Semantisk**-tilstand finder kort ud fra betydning (f.eks. matcher «kundevendte betalingssystemer» et kort ved navn «NexaPay Gateway») frem for præcis ordlyd. Semantisk søgning kører, når du er færdig med at skrive; hvis embedding-udbyderen er utilgængelig, falder den tilbage til tekstmatchning.
+- **Søg** — Friform tekstsøgning på tværs af kortnavne
 - **Typer** — Filtrer efter en eller flere korttyper: Objective, Platform, Initiative, Organization, Business Capability, Business Context, Business Process, Application, Interface, Data Object, IT Component, Tech Category, Provider, System
 - **Undertyper** — Når en type er valgt, kan du filtrere yderligere efter undertype (f.eks. Application → Business Application, Microservice, AI Agent, Deployment)
 - **Godkendelsesstatus** — Draft, Approved, Broken eller Rejected

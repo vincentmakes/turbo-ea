@@ -158,7 +158,7 @@ Diese Felder werden nur vorgeschlagen, wenn die KI eindeutige Belege findet — 
 
 ## Semantische Suche (Embeddings) { #semantic-search-embeddings }
 
-Mit der semantischen Suche finden Benutzer Karten anhand ihrer **Bedeutung** statt anhand der exakten Formulierung — eine Suche nach „kundenorientierte Zahlungssysteme" findet eine Karte namens „NexaPay Gateway", die eine reine Textsuche übersehen würde. Sie treibt den **Semantik**-Umschalter im Suchfeld des Inventars sowie das MCP-Werkzeug `semantic_search_cards` an.
+Mit der semantischen Suche finden Benutzer Karten anhand ihrer **Bedeutung** statt anhand der exakten Formulierung — eine Suche nach „kundenorientierte Zahlungssysteme" findet eine Karte namens „NexaPay Gateway", die eine reine Textsuche übersehen würde. Sie treibt das MCP-Werkzeug `semantic_search_cards` an.
 
 Im Hintergrund verwendet sie ein **Embedding-Modell** (ein kleines Text-zu-Vektor-Modell), kein Chat-LLM, und verbindet die bedeutungsbasierte Rangfolge mit der bestehenden Teilstring-Suche. Da Embeddings eine eigenständige Fähigkeit sind — und Anthropic, ein unterstützter Chat-Anbieter, keine Embeddings-API hat — wird der Embedding-Anbieter **getrennt** vom obigen Chat-KI-Anbieter konfiguriert.
 

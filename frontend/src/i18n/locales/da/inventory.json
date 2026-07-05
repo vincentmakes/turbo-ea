@@ -229,9 +229,5 @@
   "export.allFieldsHint": "Komplet datasæt, kan genimporteres",
   "export.currentView": "Eksportér aktuel visning",
   "export.currentViewHint": "Afspejler tabellen på skærmen — ikke egnet til genimport",
-  "export.viewSheetName": "Visning",
-  "filter.searchModeText": "Tekst",
-  "filter.searchModeSemantic": "Semantisk",
-  "filter.searchSemanticPlaceholder": "Beskriv, hvad du leder efter…",
-  "filter.semanticUnavailable": "Semantisk søgning er ikke konfigureret, så resultaterne falder tilbage til tekstmatchning. En administrator kan aktivere den under Indstillinger → AI."
+  "export.viewSheetName": "Visning"
 }

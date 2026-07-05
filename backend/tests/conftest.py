@@ -80,6 +80,17 @@ def test_engine():
     engine = create_async_engine(url, echo=False, poolclass=NullPool, connect_args=connect_args)
 
     async def _setup():
+        # pgvector must exist (for the card_embeddings vector column) before
+        # create_all, in the shared `public` schema so every worker's
+        # `{schema},public` search_path resolves the `vector` type. Serialize
+        # with an advisory lock: pg_extension.extname is database-global, so
+        # parallel xdist workers running CREATE EXTENSION IF NOT EXISTS
+        # concurrently can otherwise duplicate-key on pg_extension_name_index.
+        ext_engine = create_async_engine(url, echo=False, poolclass=NullPool)
+        async with ext_engine.begin() as conn:
+            await conn.execute(text("SELECT pg_advisory_xact_lock(191919)"))
+            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector SCHEMA public"))
+        await ext_engine.dispose()
         if schema:
             # Create the worker schema (use a raw connection without search_path)
             raw_engine = create_async_engine(url, echo=False, poolclass=NullPool)
@@ -88,9 +99,6 @@ def test_engine():
                 await conn.execute(text(f"CREATE SCHEMA {schema}"))
             await raw_engine.dispose()
         async with engine.begin() as conn:
-            # card_embeddings has a pgvector column — the extension must exist
-            # before create_all (mirrors the app lifespan on a real DB).
-            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
 

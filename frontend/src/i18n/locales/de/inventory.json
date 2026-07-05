@@ -229,9 +229,5 @@
   "export.allFieldsHint": "Vollständiger Datensatz, reimportierbar",
   "export.currentView": "Aktuelle Ansicht exportieren",
   "export.currentViewHint": "Entspricht der angezeigten Tabelle – nicht für den Reimport",
-  "export.viewSheetName": "Ansicht",
-  "filter.searchModeText": "Text",
-  "filter.searchModeSemantic": "Semantisch",
-  "filter.searchSemanticPlaceholder": "Beschreiben Sie, wonach Sie suchen…",
-  "filter.semanticUnavailable": "Die semantische Suche ist nicht konfiguriert, daher wird auf die Textsuche zurückgegriffen. Ein Administrator kann sie unter Einstellungen → KI aktivieren."
+  "export.viewSheetName": "Ansicht"
 }

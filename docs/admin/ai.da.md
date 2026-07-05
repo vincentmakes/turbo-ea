@@ -162,7 +162,7 @@ Disse felter foreslås kun, når AI'en finder klart bevis — de spekuleres ikke
 
 ## Semantisk søgning (embeddings) { #semantic-search-embeddings }
 
-Semantisk søgning lader brugere finde kort ud fra **betydning** frem for præcis ordlyd — en søgning efter «kundevendte betalingssystemer» finder et kort ved navn «NexaPay Gateway», som en almindelig tekstsøgning ville overse. Den driver **Semantisk**-omskifteren i inventarets søgefelt og MCP-værktøjet `semantic_search_cards`.
+Semantisk søgning lader brugere finde kort ud fra **betydning** frem for præcis ordlyd — en søgning efter «kundevendte betalingssystemer» finder et kort ved navn «NexaPay Gateway», som en almindelig tekstsøgning ville overse. Den driver MCP-værktøjet `semantic_search_cards`.
 
 Under motorhjelmen bruger den en **embedding-model** (en lille tekst-til-vektor-model), ikke en chat-LLM, og fusionerer den betydningsbaserede rangering med den eksisterende delstrengsmatchning. Da embeddings er en særskilt egenskab — og Anthropic, en understøttet chat-udbyder, ikke har en embeddings-API — konfigureres embedding-udbyderen **separat** fra chat-AI-udbyderen ovenfor.
 

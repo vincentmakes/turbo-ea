@@ -162,7 +162,7 @@ These fields are only suggested when the AI finds clear evidence — they are no
 
 ## Semantic Search (Embeddings)
 
-Semantic search lets users find cards by **meaning** rather than exact wording — a search for "customer-facing payment systems" surfaces a card named "NexaPay Gateway" that a plain text search would miss. It powers the **Semantic** toggle in the inventory search box and the `semantic_search_cards` MCP tool.
+Semantic search lets users find cards by **meaning** rather than exact wording — a search for "customer-facing payment systems" surfaces a card named "NexaPay Gateway" that a plain text search would miss. It powers the `semantic_search_cards` MCP tool (see the [MCP integration guide](mcp.md)).
 
 Under the hood it uses an **embedding model** (a small text→vector model), not a chat LLM, and fuses the meaning-based ranking with the existing substring match. Because embeddings are a distinct capability — and Anthropic, a supported chat provider, has no embeddings API — the embedding provider is configured **separately** from the chat AI provider above.
 

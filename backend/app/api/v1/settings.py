@@ -230,11 +230,6 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         ),
         "bpm_row_order": general.get("bpmRowOrder", ["management", "core", "support"]),
         "show_principles_tab": general.get("showPrinciplesTab", True),
-        # Semantic card search is available only when an embedding provider is
-        # enabled; the inventory UI uses this to show/hide its Semantic toggle.
-        "semantic_search_enabled": bool(
-            ((general.get("ai") or {}).get("embedding") or {}).get("enabled", False)
-        ),
         "compliance_regulations": compliance_regulations,
         "resource_types": resource_types,
         "login_tagline": (general.get("loginTagline") or "").strip(),

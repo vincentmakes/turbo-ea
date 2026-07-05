@@ -229,9 +229,5 @@
   "export.allFieldsHint": "Полный набор данных, пригоден для повторного импорта",
   "export.currentView": "Экспортировать текущий вид",
   "export.currentViewHint": "Отражает таблицу на экране — не подходит для повторного импорта",
-  "export.viewSheetName": "Вид",
-  "filter.searchModeText": "Текст",
-  "filter.searchModeSemantic": "Смысловой",
-  "filter.searchSemanticPlaceholder": "Опишите, что вы ищете…",
-  "filter.semanticUnavailable": "Смысловой поиск не настроен, поэтому результаты возвращаются к текстовому совпадению. Администратор может включить его в разделе «Настройки → ИИ»."
+  "export.viewSheetName": "Вид"
 }

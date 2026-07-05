@@ -10,7 +10,7 @@ El **Inventario** es el corazón de Turbo EA. Aquí se listan todas las **fichas
 
 El panel lateral izquierdo permite **filtrar** las fichas por diferentes criterios:
 
-- **Buscar** — Búsqueda de texto libre en los nombres de las fichas. Cuando un administrador ha habilitado la [búsqueda semántica](../admin/ai.md#semantic-search-embeddings), aparece un conmutador **Texto / Semántica** sobre el cuadro: el modo **Semántica** encuentra fichas por significado (p. ej. «sistemas de pago de cara al cliente» coincide con una ficha llamada «NexaPay Gateway») en lugar de por la redacción exacta. La búsqueda semántica se ejecuta cuando termina de escribir; si el proveedor de embeddings no está disponible, recurre a la coincidencia de texto.
+- **Buscar** — Búsqueda de texto libre en los nombres de las fichas
 - **Tipos** — Filtrar por uno o más tipos de ficha: Objetivo, Plataforma, Iniciativa, Organización, Capacidad de Negocio, Contexto de Negocio, Proceso de Negocio, Aplicación, Interfaz, Objeto de Datos, Componente TI, Categoría Tecnológica, Proveedor, Sistema
 - **Subtipos** — Cuando se selecciona un tipo, permite filtrar por subtipo (por ejemplo, Aplicación → Aplicación de Negocio, Microservicio, Agente IA, Despliegue)
 - **Estado de Aprobación** — Borrador, Aprobado, Roto o Rechazado

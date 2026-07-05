@@ -359,20 +359,6 @@ export interface CardListResponse {
   page_size: number;
 }
 
-export interface SemanticCardResult {
-  card: Card;
-  score: number;
-  match: "semantic" | "lexical" | "both";
-  snippet?: string | null;
-}
-
-export interface SemanticSearchResponse {
-  items: SemanticCardResult[];
-  query: string;
-  mode: string;
-  embedding_available: boolean;
-}
-
 export interface RelationRef {
   id: string;
   type: string;

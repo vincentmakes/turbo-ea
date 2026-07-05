@@ -229,9 +229,5 @@
   "export.allFieldsHint": "Full data set, re-importable",
   "export.currentView": "Export current view",
   "export.currentViewHint": "Mirrors the on-screen grid — not for re-import",
-  "export.viewSheetName": "View",
-  "filter.searchModeText": "Text",
-  "filter.searchModeSemantic": "Semantic",
-  "filter.searchSemanticPlaceholder": "Describe what you're looking for…",
-  "filter.semanticUnavailable": "Semantic search isn't configured, so results fall back to text matching. An admin can enable it under Settings → AI."
+  "export.viewSheetName": "View"
 }

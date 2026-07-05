@@ -29,11 +29,8 @@ import MenuItem from "@mui/material/MenuItem";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import Autocomplete from "@mui/material/Autocomplete";
-import ToggleButton from "@mui/material/ToggleButton";
-import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useTypeLabel, useSubtypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
-import { useSemanticSearchEnabled } from "@/hooks/useSemanticSearchEnabled";
 import { api } from "@/api/client";
 import type {
   CardType,
@@ -52,9 +49,6 @@ import type {
 export interface Filters {
   types: string[];
   search: string;
-  // "text" (exact substring, default) or "semantic" (embedding-ranked, hybrid).
-  // Optional so pre-existing saved views deserialize as plain text search.
-  searchMode?: "text" | "semantic";
   subtypes: string[];
   lifecyclePhases: string[];
   dataQualityMin: number | null;
@@ -227,8 +221,6 @@ export default function InventoryFilterSidebar({
   onApplyColumnState,
 }: Props) {
   const { t } = useTranslation(["inventory", "common"]);
-  const { semanticSearchEnabled } = useSemanticSearchEnabled();
-  const searchMode = filters.searchMode ?? "text";
   const typeLabel = useTypeLabel();
   const stLabel = useSubtypeLabel();
   const fieldLabel = useFieldLabel();
@@ -663,34 +655,10 @@ export default function InventoryFilterSidebar({
                 onToggle={() => toggleSection("search")}
               />
               <Collapse in={expandedSections.search}>
-                {semanticSearchEnabled && (
-                  <ToggleButtonGroup
-                    size="small"
-                    exclusive
-                    fullWidth
-                    value={searchMode}
-                    onChange={(_, v) =>
-                      v && onFiltersChange({ ...filters, searchMode: v })
-                    }
-                    sx={{ mb: 1 }}
-                  >
-                    <ToggleButton value="text">
-                      {t("filter.searchModeText")}
-                    </ToggleButton>
-                    <ToggleButton value="semantic">
-                      <MaterialSymbol icon="auto_awesome" size={14} style={{ marginRight: 4 }} />
-                      {t("filter.searchModeSemantic")}
-                    </ToggleButton>
-                  </ToggleButtonGroup>
-                )}
                 <TextField
                   size="small"
                   fullWidth
-                  placeholder={
-                    semanticSearchEnabled && searchMode === "semantic"
-                      ? t("filter.searchSemanticPlaceholder")
-                      : t("filter.searchPlaceholder")
-                  }
+                  placeholder={t("filter.searchPlaceholder")}
                   value={filters.search}
                   onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
                   sx={{ mb: 2 }}

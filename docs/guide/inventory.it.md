@@ -10,7 +10,7 @@ L'**Inventario** è il cuore di Turbo EA. Qui sono elencate tutte le **card** (c
 
 Il pannello laterale sinistro consente di **filtrare** le card secondo diversi criteri:
 
-- **Ricerca** — Ricerca libera per testo nel nome delle card. Quando un amministratore ha abilitato la [ricerca semantica](../admin/ai.md#semantic-search-embeddings), sopra la casella compare un interruttore **Testo / Semantica**: la modalità **Semantica** trova le card in base al significato (es. «sistemi di pagamento rivolti ai clienti» corrisponde a una card denominata «NexaPay Gateway») anziché alla dicitura esatta. La ricerca semantica viene eseguita quando hai finito di digitare; se il provider di embedding non è disponibile, ricade sulla corrispondenza testuale.
+- **Ricerca** — Ricerca libera per testo nel nome delle card
 - **Tipi** — Filtra per uno o più tipi di card: Objective, Platform, Initiative, Organization, Business Capability, Business Context, Business Process, Application, Interface, Data Object, IT Component, Tech Category, Provider, System
 - **Sottotipi** — Quando un tipo è selezionato, filtra ulteriormente per sottotipo (es. Application -> Business Application, Microservice, AI Agent, Deployment)
 - **Stato di approvazione** — Draft, Approved, Broken o Rejected

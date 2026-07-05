@@ -229,9 +229,5 @@
   "export.allFieldsHint": "Jeu de données complet, réimportable",
   "export.currentView": "Exporter la vue actuelle",
   "export.currentViewHint": "Reflète la grille affichée — non réimportable",
-  "export.viewSheetName": "Vue",
-  "filter.searchModeText": "Texte",
-  "filter.searchModeSemantic": "Sémantique",
-  "filter.searchSemanticPlaceholder": "Décrivez ce que vous cherchez…",
-  "filter.semanticUnavailable": "La recherche sémantique n'est pas configurée ; les résultats reviennent donc à la correspondance textuelle. Un administrateur peut l'activer dans Paramètres → IA."
+  "export.viewSheetName": "Vue"
 }

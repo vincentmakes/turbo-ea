@@ -158,7 +158,7 @@ Estos campos solo se sugieren cuando la IA encuentra evidencia clara — no se e
 
 ## Búsqueda semántica (embeddings) { #semantic-search-embeddings }
 
-La búsqueda semántica permite a los usuarios encontrar fichas por su **significado** en lugar de por la redacción exacta — una búsqueda de «sistemas de pago de cara al cliente» hace aparecer una ficha llamada «NexaPay Gateway» que una búsqueda de texto simple pasaría por alto. Impulsa el conmutador **Semántica** del cuadro de búsqueda del inventario y la herramienta MCP `semantic_search_cards`.
+La búsqueda semántica permite a los usuarios encontrar fichas por su **significado** en lugar de por la redacción exacta — una búsqueda de «sistemas de pago de cara al cliente» hace aparecer una ficha llamada «NexaPay Gateway» que una búsqueda de texto simple pasaría por alto. Impulsa la herramienta MCP `semantic_search_cards`.
 
 Internamente utiliza un **modelo de embeddings** (un pequeño modelo de texto a vector), no un LLM de chat, y fusiona la clasificación por significado con la coincidencia de subcadena existente. Como los embeddings son una capacidad distinta — y Anthropic, un proveedor de chat compatible, no tiene API de embeddings — el proveedor de embeddings se configura **por separado** del proveedor de IA de chat anterior.
 

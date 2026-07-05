@@ -10,7 +10,7 @@ Das **Inventar** ist das Herzstück von Turbo EA. Hier werden alle **Karten** (K
 
 Das linke Seitenpanel ermöglicht es Ihnen, Karten nach verschiedenen Kriterien zu **filtern**:
 
-- **Suche** — Freitextsuche über Kartennamen. Wenn ein Administrator die [semantische Suche](../admin/ai.md#semantic-search-embeddings) aktiviert hat, erscheint über dem Feld ein Umschalter **Text / Semantik**: Im Modus **Semantik** werden Karten nach Bedeutung gefunden (z. B. findet „kundenorientierte Zahlungssysteme" eine Karte namens „NexaPay Gateway") statt nach exakter Formulierung. Die semantische Suche wird ausgeführt, wenn Sie mit der Eingabe fertig sind; ist der Embedding-Anbieter nicht verfügbar, greift sie auf die Textsuche zurück.
+- **Suche** — Freitextsuche über Kartennamen
 - **Typen** — Filtern nach einem oder mehreren Kartentypen: Ziel, Plattform, Initiative, Organisation, Geschäftsfähigkeit, Geschäftskontext, Geschäftsprozess, Anwendung, Schnittstelle, Datenobjekt, IT-Komponente, Technologiekategorie, Anbieter, System
 - **Subtypen** — Wenn ein Typ ausgewählt ist, können Sie weiter nach Subtyp filtern (z.B. Anwendung -> Geschäftsanwendung, Microservice, AI Agent, Deployment)
 - **Genehmigungsstatus** — Entwurf, Genehmigt, Ungültig oder Abgelehnt
