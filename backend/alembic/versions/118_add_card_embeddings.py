@@ -63,5 +63,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_card_embeddings_embedding_hnsw", table_name="card_embeddings")
+    # IF EXISTS: on the fresh-DB "create_all + stamp head" path the table is
+    # created from the model but this raw-SQL HNSW index is not, so a plain
+    # drop_index would error on downgrade. drop_table removes the index anyway.
+    op.execute(sa.text("DROP INDEX IF EXISTS ix_card_embeddings_embedding_hnsw"))
     op.drop_table("card_embeddings")
