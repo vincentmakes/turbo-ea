@@ -75,3 +75,17 @@ MCP_BATCH_CONFIRMATION_THRESHOLD: int = int(
 # trusted automation pipelines that explicitly do not want the second
 # round-trip.
 MCP_REQUIRE_DRYRUN_FIRST: bool = _env_bool("MCP_REQUIRE_DRYRUN_FIRST", True)
+
+# ── OAuth authorization-server guardrails ──────────────────────────────────
+#
+# Exact redirect URIs always accepted at ``/oauth/authorize`` even for clients
+# that did not dynamically register (RFC 7591). Empty by default, which means
+# a client must register its redirect URI before it can be used — an authorize
+# request with an unknown client or an unregistered redirect URI is rejected.
+# This is an escape hatch for first-party / non-DCR integrations that pin a
+# fixed redirect. Comma-separated; exact string match only, no wildcards.
+MCP_OAUTH_ALLOWED_REDIRECT_URIS: list[str] = [
+    u.strip()
+    for u in os.environ.get("MCP_OAUTH_ALLOWED_REDIRECT_URIS", "").split(",")
+    if u.strip()
+]

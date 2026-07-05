@@ -28,7 +28,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse, Response
 
 from turbo_ea_mcp import api_client
-from turbo_ea_mcp.config import MCP_PUBLIC_URL
+from turbo_ea_mcp.config import MCP_OAUTH_ALLOWED_REDIRECT_URIS, MCP_PUBLIC_URL
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +38,20 @@ REFRESH_TOKEN_TTL = 30 * 24 * 3600  # 30 days
 AUTH_CODE_TTL = 600  # 10 minutes
 # Proactive refresh: renew the Turbo EA JWT when less than this much TTL remains
 TURBO_JWT_REFRESH_BUFFER = 3600  # 1 hour
+
+
+@dataclass
+class RegisteredClient:
+    """A dynamically-registered OAuth client (RFC 7591).
+
+    The ``redirect_uris`` recorded here are the *only* URIs an authorization
+    code will ever be sent to for this client — see ``_redirect_uri_registered``
+    and the validation in ``authorize``."""
+
+    client_id: str
+    redirect_uris: list[str]
+    client_name: str = "MCP Client"
+    created_at: float = field(default_factory=time.time)
 
 
 @dataclass
@@ -83,6 +97,7 @@ class OAuthStore:
     deployment — tokens are lost on restart (users simply re-authenticate)."""
 
     def __init__(self) -> None:
+        self.clients: dict[str, RegisteredClient] = {}  # keyed by client_id
         self.pending: dict[str, PendingAuth] = {}  # keyed by our internal state
         self.codes: dict[str, AuthCode] = {}  # keyed by code
         self.tokens: dict[str, TokenEntry] = {}  # keyed by access_token
@@ -160,15 +175,46 @@ async def authorization_server_metadata(_request: Request) -> Response:
 
 
 async def register_client(request: Request) -> Response:
-    """Minimal dynamic registration — accept any client as a public client."""
+    """Dynamic registration (RFC 7591) — register a public client and record
+    the redirect URIs it is allowed to receive authorization codes on.
+
+    The recorded ``redirect_uris`` are authoritative: ``authorize`` will only
+    redirect a code to a URI this client registered here."""
     try:
         body = await request.json()
     except Exception:
         return JSONResponse({"error": "invalid_request"}, status_code=400)
 
-    client_id = secrets.token_urlsafe(24)
     client_name = body.get("client_name", "MCP Client")
     redirect_uris = body.get("redirect_uris", [])
+
+    # A client with no valid redirect URIs can never pass authorize-time
+    # validation, so reject it up front (RFC 7591 §3.2.2 error code).
+    if not isinstance(redirect_uris, list) or not all(
+        isinstance(u, str) and u for u in redirect_uris
+    ):
+        return JSONResponse(
+            {
+                "error": "invalid_client_metadata",
+                "error_description": "redirect_uris must be a non-empty list of strings",
+            },
+            status_code=400,
+        )
+    if not redirect_uris:
+        return JSONResponse(
+            {
+                "error": "invalid_client_metadata",
+                "error_description": "at least one redirect_uri is required",
+            },
+            status_code=400,
+        )
+
+    client_id = secrets.token_urlsafe(24)
+    store.clients[client_id] = RegisteredClient(
+        client_id=client_id,
+        redirect_uris=list(redirect_uris),
+        client_name=client_name,
+    )
 
     return JSONResponse(
         {
@@ -181,6 +227,22 @@ async def register_client(request: Request) -> Response:
         },
         status_code=201,
     )
+
+
+def _redirect_uri_registered(
+    client: RegisteredClient | None, redirect_uri: str
+) -> bool:
+    """True iff ``redirect_uri`` is an exact match of a URI the client
+    registered, or of an operator-configured static allowlist entry.
+
+    Exact string comparison only — no prefix/substring/port normalization,
+    which would reopen the redirection bypass this guards against."""
+    if not redirect_uri:
+        return False
+    allowed: set[str] = set(MCP_OAUTH_ALLOWED_REDIRECT_URIS)
+    if client is not None:
+        allowed.update(client.redirect_uris)
+    return redirect_uri in allowed
 
 
 # ── Authorization endpoint ──────────────────────────────────────────────────
@@ -204,6 +266,21 @@ async def authorize(request: Request) -> Response:
     if not code_challenge or code_challenge_method != "S256":
         return JSONResponse(
             {"error": "invalid_request", "error_description": "PKCE S256 required"},
+            status_code=400,
+        )
+
+    # Validate the redirect_uri against the client's registration BEFORE doing
+    # anything else. On failure we return a direct error to the user agent and
+    # never issue a redirect to the supplied URI — redirecting an unvalidated
+    # redirect_uri is exactly the flaw this guards against (an attacker could
+    # otherwise have a victim's authorization code delivered to their own URI).
+    client = store.clients.get(client_id)
+    if not _redirect_uri_registered(client, redirect_uri):
+        return JSONResponse(
+            {
+                "error": "invalid_request",
+                "error_description": ("redirect_uri is not registered for this client"),
+            },
             status_code=400,
         )
 
@@ -339,7 +416,10 @@ async def sso_callback(request: Request) -> Response:
         turbo_jwt=turbo_jwt,
     )
 
-    # Redirect back to the AI tool with the authorization code
+    # Redirect back to the AI tool with the authorization code. Safe because
+    # pending.redirect_uri was validated against the client's registration in
+    # authorize() before this PendingAuth was ever stored — authorize() is the
+    # only writer of store.pending.
     redirect_params = urlencode({"code": our_code, "state": pending.state})
     return RedirectResponse(
         f"{pending.redirect_uri}?{redirect_params}", status_code=302
@@ -383,6 +463,7 @@ async def _handle_code_exchange(body: dict) -> Response:
     """Exchange authorization code for access + refresh tokens."""
     code = body.get("code", "")
     code_verifier = body.get("code_verifier", "")
+    redirect_uri = body.get("redirect_uri", "")
 
     auth_code = store.codes.get(code)
     if not auth_code:
@@ -401,6 +482,32 @@ async def _handle_code_exchange(body: dict) -> Response:
 
     # Mark as used
     auth_code.used = True
+
+    # Bind the token request to the authorization request: the redirect_uri
+    # here must exactly equal the one the code was issued for (RFC 6749
+    # §4.1.3). Combined with PKCE, this means an intercepted code is useless to
+    # anyone who did not initiate the original, validated authorize request.
+    if redirect_uri != auth_code.redirect_uri:
+        store.codes.pop(code, None)
+        return JSONResponse(
+            {
+                "error": "invalid_grant",
+                "error_description": "redirect_uri mismatch",
+            },
+            status_code=400,
+        )
+
+    # If the client identified itself, it must match the code's client.
+    req_client_id = body.get("client_id", "")
+    if req_client_id and req_client_id != auth_code.client_id:
+        store.codes.pop(code, None)
+        return JSONResponse(
+            {
+                "error": "invalid_grant",
+                "error_description": "client_id mismatch",
+            },
+            status_code=400,
+        )
 
     # Validate PKCE
     if not code_verifier or not _verify_pkce(code_verifier, auth_code.code_challenge):
