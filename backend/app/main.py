@@ -100,6 +100,53 @@ async def _purge_mutation_batches_loop() -> None:
             logger.exception("Error in mutation-batch purge loop")
 
 
+async def _ops_access_maintenance_loop() -> None:
+    """Hourly maintenance for the control-plane ops API: deactivate time-boxed
+    rescue accounts past ``access_expires_at`` (defense in depth on top of the
+    ``get_current_user`` check) and purge old signed-request nonces. A no-op on
+    self-hosted installs — no rescue accounts, no nonces ever exist."""
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import delete, select
+
+    from app.database import async_session
+    from app.models.ops_nonce import OpsRequestNonce
+    from app.models.user import User
+
+    while True:
+        try:
+            await asyncio.sleep(3600)
+            async with async_session() as db:
+                now = datetime.now(timezone.utc)
+                expired = (
+                    (
+                        await db.execute(
+                            select(User).where(
+                                User.access_expires_at.isnot(None),
+                                User.access_expires_at < now,
+                                User.is_active == True,  # noqa: E712
+                            )
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                for user in expired:
+                    user.is_active = False
+                    user.password_setup_token = None
+                    logger.info("Deactivated expired rescue account %s", user.id)
+                await db.execute(
+                    delete(OpsRequestNonce).where(
+                        OpsRequestNonce.created_at < now - timedelta(hours=1)
+                    )
+                )
+                await db.commit()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Error in ops access maintenance loop")
+
+
 async def _purge_archived_cards_loop() -> None:
     """Background loop that permanently deletes cards archived past the
     admin-configured retention window.
@@ -725,6 +772,9 @@ async def lifespan(app: FastAPI):
     # a no-op on every boot after the first successful run).
     dq_rescore_task = asyncio.create_task(_one_shot_data_quality_rescore())
 
+    # Hourly ops-access maintenance: expire rescue accounts + purge ops nonces.
+    ops_access_task = asyncio.create_task(_ops_access_maintenance_loop())
+
     yield
 
     # Cancel background tasks on shutdown
@@ -746,6 +796,11 @@ async def lifespan(app: FastAPI):
     promote_task.cancel()
     try:
         await promote_task
+    except asyncio.CancelledError:
+        pass
+    ops_access_task.cancel()
+    try:
+        await ops_access_task
     except asyncio.CancelledError:
         pass
     if not dq_rescore_task.done():

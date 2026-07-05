@@ -19,6 +19,7 @@ from app.models.kpi_snapshot import KpiSnapshot
 from app.models.migration import IdentityMap, Migration, StagedRecord
 from app.models.mutation_batch import MutationBatch
 from app.models.notification import Notification
+from app.models.ops_nonce import OpsRequestNonce
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.ppm_dependency import PpmDependency
 from app.models.ppm_risk import PpmRisk
@@ -142,4 +143,5 @@ __all__ = [
     "SnowIdentityMap",
     "UserFavorite",
     "ResourceType",
+    "OpsRequestNonce",
 ]

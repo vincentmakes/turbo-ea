@@ -86,6 +86,12 @@ class Settings:
     # settings (app_base_url) at startup / on save; empty means localhost.
     _app_base_url: str = ""
 
+    # Control-plane ops API (optional — the /api/v1/ops router only accepts
+    # requests when this Ed25519 public key (base64 raw 32 bytes) is set.
+    # Managed Turbo EA Cloud deployments inject it; self-hosted installs
+    # leave it empty and the ops API answers 404.
+    OPS_PUBLIC_KEY: str = os.getenv("OPS_PUBLIC_KEY", "")
+
     # AI / LLM (optional — disabled by default)
     AI_PROVIDER_URL: str = os.getenv("AI_PROVIDER_URL", "")
     AI_MODEL: str = os.getenv("AI_MODEL", "")

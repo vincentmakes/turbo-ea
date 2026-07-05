@@ -24,6 +24,7 @@ from app.api.v1 import (
     migration,
     mutation_batches,
     notifications,
+    ops,
     ppm,
     ppm_reports,
     principles_catalogue,
@@ -100,3 +101,4 @@ api_router.include_router(capability_catalogue.router)
 api_router.include_router(process_catalogue.router)
 api_router.include_router(value_stream_catalogue.router)
 api_router.include_router(principles_catalogue.router)
+api_router.include_router(ops.router)

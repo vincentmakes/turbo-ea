@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.65.0] - 2026-07-05
+
+### Added
+- **Control-plane ops API for managed deployments.** A new opt-in `/api/v1/ops` surface lets a Turbo EA Cloud control plane manage a hosted instance: health/version info, time-boxed operator ("rescue") admin accounts, and workspace exports. It is disabled (answers 404) unless the `OPS_PUBLIC_KEY` environment variable is set, and every request must carry a valid Ed25519 signature with replay protection. Self-hosted installs are unaffected and remain free of any billing or licensing logic.
+- **Transparent operator access.** Every rescue-access grant, revocation, and expiry emits an audit event and notifies all instance admins in-app and by email, including the operator's name, reason, and expiry time. Rescue accounts are automatically rejected and deactivated once `access_expires_at` passes — enforced by the instance itself.
+
 ## [1.64.4] - 2026-07-05
 
 ### Security

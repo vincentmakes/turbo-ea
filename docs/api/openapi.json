@@ -9046,6 +9046,65 @@
         "title": "ReporterOut",
         "type": "object"
       },
+      "RescueAccessRequest": {
+        "properties": {
+          "break_glass": {
+            "default": false,
+            "title": "Break Glass",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "operator_email": {
+            "maxLength": 320,
+            "title": "Operator Email",
+            "type": "string"
+          },
+          "operator_name": {
+            "maxLength": 200,
+            "title": "Operator Name",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "title": "Reason",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 64,
+            "minLength": 8,
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "operator_email",
+          "operator_name",
+          "reason",
+          "expires_at"
+        ],
+        "title": "RescueAccessRequest",
+        "type": "object"
+      },
+      "RescueAccessRevoke": {
+        "properties": {
+          "request_id": {
+            "maxLength": 64,
+            "minLength": 8,
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id"
+        ],
+        "title": "RescueAccessRevoke",
+        "type": "object"
+      },
       "ResetPasswordRequest": {
         "properties": {
           "password": {
@@ -24088,6 +24147,123 @@
         "summary": "Mark Read",
         "tags": [
           "notifications"
+        ]
+      }
+    },
+    "/api/v1/ops/export": {
+      "get": {
+        "description": "Stream the full secret-stripped workspace bundle (same content as\nAdmin \u2192 Workspace export) for control-plane backups and GDPR data exports.",
+        "operationId": "ops_export_api_v1_ops_export_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ops Export",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/api/v1/ops/info": {
+      "get": {
+        "operationId": "ops_info_api_v1_ops_info_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ops Info",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/api/v1/ops/rescue-access": {
+      "delete": {
+        "description": "Immediately deactivate the rescue account created for a request.",
+        "operationId": "revoke_rescue_access_api_v1_ops_rescue_access_delete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RescueAccessRevoke"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Rescue Access",
+        "tags": [
+          "ops"
+        ]
+      },
+      "post": {
+        "description": "Create (or refresh) a time-boxed admin account for a control-plane operator.\n\nThe account is dedicated to this request (deterministic email derived from the\nrequest id), carries ``access_expires_at``, and is handed back as a single-use\npassword-setup link. Expiry is enforced instance-side by ``get_current_user``\nand the hourly deactivation loop \u2014 a control-plane outage cannot extend access.",
+        "operationId": "create_rescue_access_api_v1_ops_rescue_access_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RescueAccessRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Rescue Access",
+        "tags": [
+          "ops"
         ]
       }
     },
