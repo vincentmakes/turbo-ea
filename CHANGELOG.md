@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.64.6] - 2026-07-05
+
+### Fixed
+- **Bulk card edits now refresh the completeness score and calculated fields.** Updating several cards at once (from the inventory grid's bulk edit, or the MCP `update_cards_bulk` tool) now recomputes each card's data-quality score and re-runs its calculated fields, matching what happens when you edit a card one at a time. Previously a bulk edit saved the new values but left the completeness score frozen at its earlier value, so a fully-populated inventory could still report near-zero completeness on the dashboard and grid.
+
 ## [1.64.5] - 2026-07-05
 
 ### Fixed
