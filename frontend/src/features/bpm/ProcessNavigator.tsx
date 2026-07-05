@@ -636,9 +636,10 @@ function HouseCard({
             flex: 1,
             minWidth: 0,
             lineHeight: 1.3,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
             overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
           }}
         >
           {node.name}
