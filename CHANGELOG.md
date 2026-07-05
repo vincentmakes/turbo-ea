@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - **The BPM Process Navigator now correctly recognises a process's Automation Level.** Processes set to *Partially Automated* or *Fully Automated* were shown as grey "Not Set", were missing the Automation chip in the side summary panel, and only "Manual" appeared in the overlay legend. The classification map used the wrong internal values, so only *Manual* was matched; these processes now colour, chip, and appear in the legend correctly.
+- **BPM Process Navigator count badges are no longer clipped.** The small count badges in process card headers (sub-process and application counts) were being cut off at the card's edge when the process name was long. Names now truncate with an ellipsis and the badges stay fully visible.
 
 ## [1.64.4] - 2026-07-05
 

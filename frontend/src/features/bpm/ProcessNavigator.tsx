@@ -457,6 +457,7 @@ function HouseCard({
               fontWeight: 600,
               fontSize: "0.82rem",
               flex: 1,
+              minWidth: 0,
               lineHeight: 1.3,
               display: "-webkit-box",
               WebkitLineClamp: 2,
@@ -492,7 +493,7 @@ function HouseCard({
                 size="small"
                 icon={<MaterialSymbol icon="apps" size={12} />}
                 label={node.deepAppCount}
-                sx={{ height: 20, fontSize: "0.65rem", bgcolor: "action.hover" }}
+                sx={{ height: 20, fontSize: "0.65rem", bgcolor: "action.hover", flexShrink: 0 }}
               />
             </Tooltip>
           )}
@@ -502,13 +503,13 @@ function HouseCard({
                 size="small"
                 icon={<MaterialSymbol icon="checklist" size={12} />}
                 label={node.element_count}
-                sx={{ height: 20, fontSize: "0.65rem", bgcolor: "action.hover" }}
+                sx={{ height: 20, fontSize: "0.65rem", bgcolor: "action.hover", flexShrink: 0 }}
               />
             </Tooltip>
           )}
           {hasDiagram && (
             <Tooltip title={t("navigator.hasBpmnDiagram")}>
-              <Box sx={{ display: "flex", alignItems: "center" }}>
+              <Box sx={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
                 <MaterialSymbol icon="schema" size={14} color="#7b1fa2" />
               </Box>
             </Tooltip>
@@ -530,6 +531,7 @@ function HouseCard({
                   bgcolor: color,
                   color: "#fff",
                   cursor: "pointer",
+                  flexShrink: 0,
                   "&:hover": { opacity: 0.85 },
                 }}
               />
@@ -628,7 +630,16 @@ function HouseCard({
         )}
         <Typography
           variant="body2"
-          sx={{ fontWeight: 700, fontSize: "0.82rem", flex: 1, lineHeight: 1.3 }}
+          sx={{
+            fontWeight: 700,
+            fontSize: "0.82rem",
+            flex: 1,
+            minWidth: 0,
+            lineHeight: 1.3,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
         >
           {node.name}
         </Typography>
@@ -639,7 +650,7 @@ function HouseCard({
         )}
         {(hasDiagram || hasElements) && (
           <Tooltip title={hasDiagram ? t("navigator.hasProcessFlow", { count: node.element_count ?? 0 }) : t("navigator.bpmnElementCount", { count: node.element_count })}>
-            <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.25, ml: 0.25, opacity: 0.85 }}>
+            <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.25, ml: 0.25, opacity: 0.85, flexShrink: 0 }}>
               <MaterialSymbol icon="schema" size={16} />
               {hasElements && (
                 <Typography variant="caption" sx={{ fontSize: "0.6rem", color: "#fff", fontWeight: 600, lineHeight: 1 }}>
@@ -659,6 +670,7 @@ function HouseCard({
             bgcolor: "rgba(255,255,255,0.25)",
             color: "#fff",
             ml: 0.5,
+            flexShrink: 0,
           }}
         />
         {!isNested && (
@@ -671,6 +683,7 @@ function HouseCard({
                 ml: 0.25,
                 color: "#fff",
                 opacity: 0.7,
+                flexShrink: 0,
                 "&:hover": { opacity: 1, bgcolor: "rgba(255,255,255,0.2)" },
               }}
             >
