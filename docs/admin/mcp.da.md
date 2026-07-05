@@ -98,7 +98,7 @@ Når MCP er aktiveret, så del **MCP-server-URL'en** med dit team. Hver bruger t
 ### Claude Desktop
 
 1. Åbn **Settings > Connectors > Add custom connector**.
-2. Indtast MCP-server-URL'en: `https://your-domain.example.com/mcp/mcp`
+2. Indtast MCP-server-URL'en: `https://your-domain.example.com/mcp`
 3. Klik på **Connect** — et browservindue åbner for SSO-login.
 4. Efter autentificering kan Claude forespørge dine EA-data.
 
@@ -111,13 +111,13 @@ Tilføj til dit workspace `.vscode/mcp.json`:
   "servers": {
     "turbo-ea": {
       "type": "http",
-      "url": "https://your-domain.example.com/mcp/mcp"
+      "url": "https://your-domain.example.com/mcp"
     }
   }
 }
 ```
 
-Den dobbelte `/mcp/mcp` er tilsigtet — for både Claude og VS Code er den første `/mcp/` Nginx-proxystien, og den anden er MCP-protokol-endpointet. En enkelt `/mcp` vil ikke kunne forbinde.
+Brug `https://your-domain.example.com/mcp` som endpoint. Den tidligere dobbelte form `https://your-domain.example.com/mcp/mcp` fungerer stadig, så eksisterende connectorer fortsætter med at fungere uden ændringer.
 
 ---
 

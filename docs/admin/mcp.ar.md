@@ -98,7 +98,7 @@ https://your-domain.example.com/mcp/oauth/callback
 ### Claude Desktop
 
 1. افتح **Settings > Connectors > Add custom connector**.
-2. أدخل عنوان URL لخادم MCP: `https://your-domain.example.com/mcp/mcp`
+2. أدخل عنوان URL لخادم MCP: `https://your-domain.example.com/mcp`
 3. انقر **Connect** — تُفتح نافذة متصفح لتسجيل الدخول عبر SSO.
 4. بعد المصادقة، يمكن لـ Claude الاستعلام عن بيانات هندسة المؤسسة لديك.
 
@@ -111,13 +111,13 @@ https://your-domain.example.com/mcp/oauth/callback
   "servers": {
     "turbo-ea": {
       "type": "http",
-      "url": "https://your-domain.example.com/mcp/mcp"
+      "url": "https://your-domain.example.com/mcp"
     }
   }
 }
 ```
 
-التكرار المزدوج لـ `/mcp/mcp` مقصود — بالنسبة إلى Claude وVS Code على حد سواء، فالأول `/mcp/` هو مسار وكيل Nginx، والثاني هو نقطة نهاية بروتوكول MCP. أما المسار المفرد `/mcp` فلن يتصل.
+استخدم `https://your-domain.example.com/mcp` كنقطة نهاية. لا يزال الشكل المزدوج القديم `https://your-domain.example.com/mcp/mcp` يعمل، لذا تستمر الموصّلات الحالية في العمل دون أي تغييرات.
 
 ---
 

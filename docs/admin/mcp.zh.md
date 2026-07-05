@@ -98,7 +98,7 @@ https://your-domain.example.com/mcp/oauth/callback
 ### Claude Desktop
 
 1. 打开**设置 > 连接器 > 添加自定义连接器**。
-2. 输入 MCP 服务器 URL：`https://your-domain.example.com/mcp/mcp`
+2. 输入 MCP 服务器 URL：`https://your-domain.example.com/mcp`
 3. 点击**连接** —— 浏览器窗口将打开进行 SSO 登录。
 4. 认证后，Claude 即可查询您的 EA 数据。
 
@@ -111,13 +111,13 @@ https://your-domain.example.com/mcp/oauth/callback
   "servers": {
     "turbo-ea": {
       "type": "http",
-      "url": "https://your-domain.example.com/mcp/mcp"
+      "url": "https://your-domain.example.com/mcp"
     }
   }
 }
 ```
 
-双重 `/mcp/mcp` 是有意的——无论是 Claude 还是 VS Code，第一个 `/mcp/` 都是 Nginx 代理路径，第二个是 MCP 协议端点。仅使用 `/mcp` 将无法连接。
+请使用 `https://your-domain.example.com/mcp` 作为端点。旧的双重形式 `https://your-domain.example.com/mcp/mcp` 仍然有效，因此现有连接器无需更改即可继续正常工作。
 
 ---
 

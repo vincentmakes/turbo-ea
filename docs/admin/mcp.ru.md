@@ -98,7 +98,7 @@ https://your-domain.example.com/mcp/oauth/callback
 ### Claude Desktop
 
 1. Откройте **Настройки > Коннекторы > Добавить пользовательский коннектор**.
-2. Введите URL MCP-сервера: `https://your-domain.example.com/mcp/mcp`
+2. Введите URL MCP-сервера: `https://your-domain.example.com/mcp`
 3. Нажмите **Подключить** — откроется окно браузера для SSO-входа.
 4. После аутентификации Claude может запрашивать данные вашей EA.
 
@@ -111,13 +111,13 @@ https://your-domain.example.com/mcp/oauth/callback
   "servers": {
     "turbo-ea": {
       "type": "http",
-      "url": "https://your-domain.example.com/mcp/mcp"
+      "url": "https://your-domain.example.com/mcp"
     }
   }
 }
 ```
 
-Двойное `/mcp/mcp` намеренное — как для Claude, так и для VS Code первое `/mcp/` — это путь прокси Nginx, а второе — конечная точка протокола MCP. Одиночное `/mcp` не подключится.
+Используйте `https://your-domain.example.com/mcp` в качестве конечной точки. Прежняя двойная форма `https://your-domain.example.com/mcp/mcp` по-прежнему работает, поэтому существующие коннекторы продолжают работать без изменений.
 
 ---
 

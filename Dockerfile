@@ -267,6 +267,47 @@ ${nginx_https_ipv6_line}
         add_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'\" always;
     }
 
+    # OAuth 2.1 discovery (RFC 9728 / RFC 8414). Standard MCP clients fetch these
+    # at the host root, not under /mcp/, so they must be routed to the MCP server
+    # explicitly — otherwise they fall through to the SPA catch-all and return
+    # index.html, breaking discovery ('JSON Parse error: Unrecognized token <').
+    # ^~ makes these prefixes win over the SPA regex; the rewrite collapses any
+    # RFC 8414 resource suffix (e.g. .../oauth-authorization-server/mcp) to the
+    # bare canonical path the MCP server serves.
+    location ^~ /.well-known/oauth-authorization-server {
+        set \$mcp_upstream http://mcp-server:8001;
+        rewrite ^ /.well-known/oauth-authorization-server break;
+        proxy_pass \$mcp_upstream;
+        proxy_set_header Host \$host;
+    }
+
+    location ^~ /.well-known/oauth-protected-resource {
+        set \$mcp_upstream http://mcp-server:8001;
+        rewrite ^ /.well-known/oauth-protected-resource break;
+        proxy_pass \$mcp_upstream;
+        proxy_set_header Host \$host;
+    }
+
+    # Clean MCP endpoint URL. The MCP server serves its Streamable-HTTP endpoint
+    # at internal /mcp; without this exact-match block a bare external /mcp would
+    # miss 'location /mcp/' and hit the SPA catch-all, so clients had to use the
+    # doubled /mcp/mcp. This maps external /mcp -> internal /mcp; /mcp/mcp still
+    # works via the prefixed block below for already-configured clients.
+    location = /mcp {
+        set \$mcp_upstream http://mcp-server:8001;
+        rewrite ^ /mcp break;
+        proxy_pass \$mcp_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
+        proxy_set_header Connection '';
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 300s;
+    }
+
     location /mcp/ {
         set \$mcp_upstream http://mcp-server:8001;
         rewrite ^/mcp/(.*) /\$1 break;
@@ -384,6 +425,47 @@ ${nginx_http_ipv6_line}
         add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
         add_header X-XSS-Protection \"1; mode=block\" always;
         add_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'\" always;
+    }
+
+    # OAuth 2.1 discovery (RFC 9728 / RFC 8414). Standard MCP clients fetch these
+    # at the host root, not under /mcp/, so they must be routed to the MCP server
+    # explicitly — otherwise they fall through to the SPA catch-all and return
+    # index.html, breaking discovery ('JSON Parse error: Unrecognized token <').
+    # ^~ makes these prefixes win over the SPA regex; the rewrite collapses any
+    # RFC 8414 resource suffix (e.g. .../oauth-authorization-server/mcp) to the
+    # bare canonical path the MCP server serves.
+    location ^~ /.well-known/oauth-authorization-server {
+        set \$mcp_upstream http://mcp-server:8001;
+        rewrite ^ /.well-known/oauth-authorization-server break;
+        proxy_pass \$mcp_upstream;
+        proxy_set_header Host \$host;
+    }
+
+    location ^~ /.well-known/oauth-protected-resource {
+        set \$mcp_upstream http://mcp-server:8001;
+        rewrite ^ /.well-known/oauth-protected-resource break;
+        proxy_pass \$mcp_upstream;
+        proxy_set_header Host \$host;
+    }
+
+    # Clean MCP endpoint URL. The MCP server serves its Streamable-HTTP endpoint
+    # at internal /mcp; without this exact-match block a bare external /mcp would
+    # miss 'location /mcp/' and hit the SPA catch-all, so clients had to use the
+    # doubled /mcp/mcp. This maps external /mcp -> internal /mcp; /mcp/mcp still
+    # works via the prefixed block below for already-configured clients.
+    location = /mcp {
+        set \$mcp_upstream http://mcp-server:8001;
+        rewrite ^ /mcp break;
+        proxy_pass \$mcp_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
+        proxy_set_header Connection '';
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 300s;
     }
 
     location /mcp/ {
