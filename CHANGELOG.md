@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.64.8] - 2026-07-06
+
+### Fixed
+- **Inventory import no longer silently drops cards when a workbook has multiple card-type sheets.** Re-importing an exported inventory (which puts each card type — Application, IT Component, Provider, … — on its own sheet) could quietly skip cards from the second and later sheets, most visibly Providers, with no error shown and any relations to the dropped cards failing as "not found". Each sheet numbered its rows independently, and that per-sheet number was reused as the identifier that ties a row together across the browser and server, so same-numbered rows from different sheets collided and one was lost while the import still reported success. Rows now get a workbook-wide unique identifier, and the server rejects a batch with duplicate identifiers instead of collapsing it. Import error messages still show the per-sheet row number and sheet name.
+
 ## [1.64.7] - 2026-07-05
 
 ### Fixed

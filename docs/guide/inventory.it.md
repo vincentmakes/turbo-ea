@@ -169,6 +169,11 @@ Per relazioni con attributi, usate il foglio dedicato con le colonne `relation_t
 
 Cliccate su **Importa** nella barra degli strumenti, rilasciate la cartella di lavoro e verificate l'anteprima prima di applicare. Vedrete sia le schede da creare / aggiornare sia le relazioni da aggiungere / rimuovere. Gli errori (per esempio, un target ambiguo con i suoi percorsi candidati) bloccano l'applicazione.
 
+Alcune precisazioni sull'importazione:
+
+- **Per creare una scheda servono solo `name` e `type`.** I campi contrassegnati come *obbligatori* nel metamodello (compreso Provider o qualsiasi altro tipo) non bloccano l'importazione: la scheda viene comunque creata e le lacune si riflettono nel suo punteggio di qualità dei dati anziché causare un salto silenzioso.
+- **Una `/` nella colonna `name` di una scheda non va preceduta da escape.** L'escape (`\/` per una barra, `\\` per una barra rovesciata) serve solo quando *fate riferimento* a quella scheda da una cella `parent_path`, `rel:<chiave>`, `source_ref` o `target_ref`, dove `/` è il separatore di percorso.
+
 ### Esportare
 
 Cliccate su **Esporta**. Il filtro corrente determina il contenuto: con un filtro per tipo singolo, un foglio per quel tipo; senza filtro, un foglio per ogni tipo presente. In ogni caso la cartella di lavoro include `Relations` e `_Meta` e può essere reimportata senza perdere gli attributi specifici del tipo.

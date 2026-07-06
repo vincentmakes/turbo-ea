@@ -31,7 +31,19 @@ export interface ImportWarning {
 }
 
 export interface ParsedRow {
+  /** Per-sheet visible row number (`i + 2`) — used for user-facing display. */
   rowIndex: number;
+  /**
+   * Workbook-wide unique correlation id, assigned by `validateMultiSheet()`
+   * when merging sheets. This is what gets sent as the wire `row_index` and
+   * used as a map/dedup key on both client and server, so it MUST be unique
+   * across the whole workbook (unlike `rowIndex`, which restarts per sheet).
+   * Undefined for the legacy single-sheet path, where `rowIndex` is already
+   * unique and is used directly.
+   */
+  wireRow?: number;
+  /** Originating sheet name — set by `validateMultiSheet()`, for display. */
+  sheet?: string;
   id?: string;
   type: string;
   data: Record<string, unknown>;
@@ -64,6 +76,12 @@ export interface ParsedRow {
 export interface RelationOp {
   /** Row number from the originating sheet — 0 indicates the inline cell. */
   rowIndex: number;
+  /**
+   * Workbook-wide unique correlation id assigned by `validateMultiSheet()`,
+   * used as the wire `row_index` so a `/relations/bulk` response can be tied
+   * back to the exact op even when two sheets share a per-sheet row number.
+   */
+  wireRow?: number;
   sheet: string;
   action: "upsert" | "delete";
   /** Relation type key. */
@@ -278,7 +296,11 @@ function topoSortCreates(rows: ParsedRow[]): ParsedRow[] {
   const visited = new Set<string | number>();
 
   function visit(row: ParsedRow) {
-    const key = row.id ?? `row:${row.rowIndex}`;
+    // Key by the workbook-wide unique `wireRow` when present (multi-sheet):
+    // `rowIndex` restarts per sheet, so keying by it collapses same-numbered
+    // rows from different sheets into one and silently drops cards. Falls
+    // back to `rowIndex` for the legacy single-sheet path where it's unique.
+    const key = row.id ?? `row:${row.wireRow ?? row.rowIndex}`;
     if (visited.has(key)) return;
     visited.add(key);
 
@@ -1099,6 +1121,11 @@ export async function validateMultiSheet(
   const updates: ParsedRow[] = [];
   let skipped = 0;
   let totalRows = 0;
+  // Monotonic counter used to hand every merged row a workbook-wide unique
+  // `wireRow`. `validateImport()`'s per-sheet `rowIndex` (`i + 2`) restarts at
+  // 2 for each sheet, so it collides across sheets and cannot be used as a
+  // correlation / dedup key once the sheets are flattened into one batch.
+  let wireCounter = 0;
 
   const meta = parsed.meta;
   // Banner-trigger: a format mismatch is non-fatal — surface as a warning.
@@ -1133,6 +1160,17 @@ export async function validateMultiSheet(
         message: `${sheet.sheet}: ${w.message}`,
       })),
     );
+    // Tag each row with its sheet name (for display) and a workbook-wide
+    // unique `wireRow` (for correlation). `rowIndex` stays the per-sheet
+    // visible Excel row number.
+    for (const r of sheetReport.creates) {
+      r.sheet = sheet.sheet;
+      r.wireRow = ++wireCounter;
+    }
+    for (const r of sheetReport.updates) {
+      r.sheet = sheet.sheet;
+      r.wireRow = ++wireCounter;
+    }
     creates.push(...sheetReport.creates);
     updates.push(...sheetReport.updates);
     skipped += sheetReport.skipped;
@@ -1643,6 +1681,11 @@ export async function validateMultiSheet(
   relationOps.length = 0;
   relationOps.push(...dedupedOps);
 
+  // Hand every relation op a workbook-wide unique `wireRow` so a
+  // `/relations/bulk` response can be tied back to the exact op for
+  // failure reporting even when two sheets share a per-sheet row number.
+  for (const op of relationOps) op.wireRow = ++wireCounter;
+
   void inlineRefs;
   return {
     errors,
@@ -1859,6 +1902,20 @@ export async function executeMultiSheetImport(
   let relationsFailed = 0;
   const failedDetails: { row: number; message: string }[] = [];
 
+  // Record a failure using the per-sheet visible row number for `row` and
+  // prefixing the sheet name into the message (mirroring how validation
+  // errors are formatted), so the user sees "Provider: ..." rather than a
+  // bare — and now workbook-global — correlation id.
+  const pushFailure = (
+    src: { rowIndex: number; sheet?: string },
+    message: string,
+  ) => {
+    failedDetails.push({
+      row: src.rowIndex,
+      message: src.sheet ? `${src.sheet}: ${message}` : message,
+    });
+  };
+
   // pathKey → server uuid, populated as bulk-create finishes.
   const pathToId = new Map<string, string>();
   // file row's `parsed.id` (legacy parent_id form) → server id
@@ -1889,7 +1946,7 @@ export async function executeMultiSheetImport(
             ? idMapping.get(row.parentId)
             : undefined);
         return {
-          row_index: row.rowIndex,
+          row_index: row.wireRow ?? row.rowIndex,
           type: row.type,
           name: (d.name as string) ?? "",
           subtype: d.subtype as string | undefined,
@@ -1909,7 +1966,7 @@ export async function executeMultiSheetImport(
         results: { row_index: number; status: "created" | "failed"; id?: string; error?: string }[];
       }>("/cards/bulk-create", body);
       for (const r of resp.results) {
-        const row = chunk.find((c) => c.rowIndex === r.row_index);
+        const row = chunk.find((c) => (c.wireRow ?? c.rowIndex) === r.row_index);
         if (!row) continue;
         if (r.status === "created" && r.id) {
           created++;
@@ -1924,20 +1981,14 @@ export async function executeMultiSheetImport(
           }
         } else {
           failed++;
-          failedDetails.push({
-            row: row.rowIndex,
-            message: r.error ?? t("import.errors.unknown"),
-          });
+          pushFailure(row, r.error ?? t("import.errors.unknown"));
         }
       }
     } catch (e) {
       // Whole-chunk failure — count everything as failed so the user sees the totals.
       for (const row of chunk) {
         failed++;
-        failedDetails.push({
-          row: row.rowIndex,
-          message: e instanceof Error ? e.message : t("import.errors.unknown"),
-        });
+        pushFailure(row, e instanceof Error ? e.message : t("import.errors.unknown"));
       }
     }
     done += chunk.length;
@@ -1971,10 +2022,7 @@ export async function executeMultiSheetImport(
       if (didSomething) updated++;
     } catch (e) {
       failed++;
-      failedDetails.push({
-        row: row.rowIndex,
-        message: e instanceof Error ? e.message : t("import.errors.unknown"),
-      });
+      pushFailure(row, e instanceof Error ? e.message : t("import.errors.unknown"));
     }
     done++;
     onProgress?.(done, total);
@@ -1997,9 +2045,14 @@ export async function executeMultiSheetImport(
 
   for (let i = 0; i < report.relationOps.length; i += CHUNK) {
     const chunk = report.relationOps.slice(i, i + CHUNK);
+    // Correlate the response's echoed `row_index` back to the exact op so a
+    // failure is attributed to the right sheet + visible row, even when two
+    // sheets share a per-sheet row number.
+    const opByWire = new Map<number, RelationOp>();
+    for (const op of chunk) opByWire.set(op.wireRow ?? op.rowIndex, op);
     const body = {
       operations: chunk.map((op) => ({
-        row_index: op.rowIndex,
+        row_index: op.wireRow ?? op.rowIndex,
         action: op.action,
         type: op.relationType,
         source: materialize(op.sourceRef),
@@ -2017,19 +2070,14 @@ export async function executeMultiSheetImport(
         else if (r.status === "deleted") relationsDeleted++;
         else if (r.status === "failed") {
           relationsFailed++;
-          failedDetails.push({
-            row: r.row_index,
-            message: r.error ?? t("import.errors.unknown"),
-          });
+          const op = opByWire.get(r.row_index);
+          pushFailure(op ?? { rowIndex: r.row_index }, r.error ?? t("import.errors.unknown"));
         }
       }
     } catch (e) {
       for (const op of chunk) {
         relationsFailed++;
-        failedDetails.push({
-          row: op.rowIndex,
-          message: e instanceof Error ? e.message : t("import.errors.unknown"),
-        });
+        pushFailure(op, e instanceof Error ? e.message : t("import.errors.unknown"));
       }
     }
     done += chunk.length;

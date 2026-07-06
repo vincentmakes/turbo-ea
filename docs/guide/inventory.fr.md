@@ -169,6 +169,11 @@ Pour les relations avec attributs, utilisez la feuille dédiée `Relations` avec
 
 Cliquez sur **Importer** dans la barre d'outils, déposez le classeur et vérifiez l'aperçu avant d'appliquer. Vous voyez à la fois les fiches à créer / mettre à jour et les relations à ajouter / supprimer. Les erreurs (par exemple, une cible ambiguë avec ses chemins candidats) bloquent l'application.
 
+Quelques précisions sur l'import :
+
+- **Seuls `name` et `type` sont requis pour créer une fiche.** Les champs marqués *obligatoires* dans le métamodèle (y compris sur Provider ou tout autre type) ne bloquent pas l'import — la fiche est tout de même créée, et les manques se reflètent dans son score de qualité des données plutôt que de provoquer un saut silencieux.
+- **Un `/` dans la colonne `name` d'une fiche n'a pas besoin d'être échappé.** L'échappement (`\/` pour une barre oblique, `\\` pour une barre oblique inverse) n'est nécessaire que lorsque vous *référencez* cette fiche depuis une cellule `parent_path`, `rel:<clé>`, `source_ref` ou `target_ref`, où `/` est le séparateur de chemin.
+
 ### Export
 
 Cliquez sur **Exporter**. Le filtre courant détermine le contenu : avec un filtre mono-type, une seule feuille de cartes ; sans filtre, une feuille par type présent. Dans tous les cas, le classeur inclut `Relations` et `_Meta` et peut être réimporté sans perdre les attributs spécifiques au type.

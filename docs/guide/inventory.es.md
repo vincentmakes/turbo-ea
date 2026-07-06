@@ -169,6 +169,11 @@ Para relaciones con atributos, use la hoja dedicada con las columnas `relation_t
 
 Haga clic en **Importar** en la barra de herramientas, suelte el libro y revise la vista previa antes de aplicar. Verá tanto las fichas a crear / actualizar como las relaciones a añadir / eliminar. Los errores (por ejemplo, un destino ambiguo con sus rutas candidatas) bloquean la aplicación.
 
+Algunas aclaraciones sobre la importación:
+
+- **Solo `name` y `type` son obligatorios para crear una ficha.** Los campos marcados como *obligatorios* en el metamodelo (incluido Provider o cualquier otro tipo) no bloquean la importación: la ficha se crea igualmente y las carencias se reflejan en su puntuación de calidad de datos en lugar de provocar un salto silencioso.
+- **Una `/` en la columna `name` de una ficha no necesita escaparse.** El escape (`\/` para una barra, `\\` para una barra invertida) solo es necesario cuando *referencia* esa ficha desde una celda `parent_path`, `rel:<clave>`, `source_ref` o `target_ref`, donde `/` es el separador de ruta.
+
 ### Exportar
 
 Haga clic en **Exportar**. El filtro activo determina el contenido: con un filtro de tipo único, una hoja para ese tipo; sin filtro, una hoja por tipo presente. En todos los casos el libro incluye `Relations` y `_Meta` y puede reimportarse sin perder atributos específicos del tipo.

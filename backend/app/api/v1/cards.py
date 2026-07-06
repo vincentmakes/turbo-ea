@@ -783,6 +783,33 @@ async def bulk_create_cards(
     """
     await PermissionService.require_permission(db, user, "inventory.create")
 
+    rows = list(body.cards)
+
+    # `row_index` is used as a dict key throughout this handler (parent
+    # resolution, topo sort, per-row results) and by the caller to pair each
+    # response back to its source row. Duplicate indices would silently
+    # collapse rows — one card dropped, both reported "created" with the same
+    # id. Reject them loudly so a buggy caller fails fast instead of losing
+    # data quietly (see issue #767: the importer used to send per-sheet row
+    # numbers that collided across sheets). Checked before the dry-run
+    # savepoint is opened so the error path leaves no dangling transaction.
+    seen_indices: set[int] = set()
+    duplicate_indices: set[int] = set()
+    for r in rows:
+        if r.row_index in seen_indices:
+            duplicate_indices.add(r.row_index)
+        else:
+            seen_indices.add(r.row_index)
+    if duplicate_indices:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Duplicate row_index values in batch: "
+                f"{', '.join(str(i) for i in sorted(duplicate_indices))}. "
+                "Each card must carry a unique row_index."
+            ),
+        )
+
     # Dry-run isolation: wrap the whole batch in our own savepoint so the
     # discard at the end only undoes our work and never reaches a wrapping
     # transaction (e.g. the savepoint that backs the integration-test
@@ -790,7 +817,6 @@ async def bulk_create_cards(
     # transaction and take fixture data with it.
     dry_run_savepoint = await db.begin_nested() if body.dry_run else None
 
-    rows = list(body.cards)
     by_index: dict[int, CardBulkCreateResult] = {}
 
     # Build a resolver scoped to every type that might serve as a parent.

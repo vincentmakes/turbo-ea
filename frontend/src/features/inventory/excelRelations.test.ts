@@ -403,6 +403,81 @@ describe("executeMultiSheetImport", () => {
   });
 });
 
+describe("multi-sheet row_index collision (#767)", () => {
+  const postMock = api.post as unknown as ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    postMock.mockReset();
+  });
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("keeps every card when two sheets share per-sheet row numbers", async () => {
+    // Two card-type sheets, each with rows at Excel rows 2 and 3 — the exact
+    // shape (e.g. Application + Provider) that used to collide on `row_index`
+    // and silently drop the second sheet's cards.
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.json_to_sheet([
+        { type: "Application", name: "App One" },
+        { type: "Application", name: "App Two" },
+      ]),
+      "Application",
+    );
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.json_to_sheet([
+        { type: "ITComponent", name: "Comp One" },
+        { type: "ITComponent", name: "Comp Two" },
+      ]),
+      "IT Component",
+    );
+    const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
+
+    const parsed = parseWorkbookSheets(buf, [APP_TYPE, ITC_TYPE]);
+    const report = await validateMultiSheet(parsed, [], [APP_TYPE, ITC_TYPE], [], []);
+
+    expect(report.errors).toEqual([]);
+    // All four cards survive the per-sheet → merged flattening (previously
+    // the two "row 2" / "row 3" collisions dropped a card each).
+    expect(report.creates).toHaveLength(4);
+    // Each merged row carries a workbook-wide unique wireRow...
+    const wireRows = report.creates.map((c) => c.wireRow);
+    expect(new Set(wireRows).size).toBe(4);
+    // ...while the per-sheet display row still repeats across sheets.
+    expect(report.creates.map((c) => c.rowIndex).sort()).toEqual([2, 2, 3, 3]);
+
+    // Capture the wire row_index values bulk-create actually receives.
+    const seenRowIndices: number[] = [];
+    postMock.mockImplementation(async (url: string, body: unknown) => {
+      if (url === "/cards/bulk-create") {
+        const cards = (body as { cards: { row_index: number }[] }).cards;
+        for (const c of cards) seenRowIndices.push(c.row_index);
+        return {
+          results: cards.map((c) => ({
+            row_index: c.row_index,
+            status: "created",
+            id: `new-${c.row_index}`,
+          })),
+          created: cards.length,
+          failed: 0,
+        };
+      }
+      return {};
+    });
+
+    const result = await executeMultiSheetImport(report);
+    expect(result.created).toBe(4);
+    expect(result.failed).toBe(0);
+    // The wire row_index values sent to the server are unique — no collision,
+    // so the backend's duplicate-index guard is never tripped.
+    expect(seenRowIndices).toHaveLength(4);
+    expect(new Set(seenRowIndices).size).toBe(4);
+  });
+});
+
 describe("buildExportWorkbook", () => {
   const getMock = api.get as unknown as ReturnType<typeof vi.fn>;
   const postMock = api.post as unknown as ReturnType<typeof vi.fn>;
