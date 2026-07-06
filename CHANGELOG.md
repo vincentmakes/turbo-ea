@@ -5,10 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [1.64.8] - 2026-07-06
+## [1.65.1] - 2026-07-06
 
 ### Fixed
 - **Inventory import no longer silently drops cards when a workbook has multiple card-type sheets.** Re-importing an exported inventory (which puts each card type — Application, IT Component, Provider, … — on its own sheet) could quietly skip cards from the second and later sheets, most visibly Providers, with no error shown and any relations to the dropped cards failing as "not found". Each sheet numbered its rows independently, and that per-sheet number was reused as the identifier that ties a row together across the browser and server, so same-numbered rows from different sheets collided and one was lost while the import still reported success. Rows now get a workbook-wide unique identifier, and the server rejects a batch with duplicate identifiers instead of collapsing it. Import error messages still show the per-sheet row number and sheet name.
+
+## [1.65.0] - 2026-07-05
+
+### Added
+- **Control-plane ops API for managed deployments.** A new opt-in `/api/v1/ops` surface lets a Turbo EA Cloud control plane manage a hosted instance: health/version info, time-boxed operator ("rescue") admin accounts, and workspace exports. It is disabled (answers 404) unless the `OPS_PUBLIC_KEY` environment variable is set, and every request must carry a valid Ed25519 signature with replay protection. Self-hosted installs are unaffected and remain free of any billing or licensing logic.
+- **Transparent operator access.** Every rescue-access grant, revocation, and expiry emits an audit event and notifies all instance admins in-app and by email, including the operator's name, reason, and expiry time. Rescue accounts are automatically rejected and deactivated once `access_expires_at` passes — enforced by the instance itself.
 
 ## [1.64.7] - 2026-07-05
 

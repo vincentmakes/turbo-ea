@@ -106,6 +106,7 @@ plugins:
             Authentication & SSO: Autenticación y SSO
             AI Capabilities: Capacidades de IA
             MCP Integration: Integracion MCP
+            Ops API: API de operaciones
             API Reference: Referencia de la API
             End-of-Life (EOL): Fin de vida (EOL)
             Surveys: Encuestas
@@ -167,6 +168,7 @@ plugins:
             Authentication & SSO: Authentifizierung und SSO
             AI Capabilities: KI-Funktionen
             MCP Integration: MCP-Integration
+            Ops API: Ops-API
             API Reference: API-Referenz
             End-of-Life (EOL): End-of-Life (EOL)
             Surveys: Umfragen
@@ -228,6 +230,7 @@ plugins:
             Authentication & SSO: Authentification et SSO
             AI Capabilities: Fonctionnalités IA
             MCP Integration: Integration MCP
+            Ops API: API d'operations
             API Reference: Référence API
             End-of-Life (EOL): Fin de vie (EOL)
             Surveys: Enquêtes
@@ -289,6 +292,7 @@ plugins:
             Authentication & SSO: Autenticazione e SSO
             AI Capabilities: Funzionalità IA
             MCP Integration: Integrazione MCP
+            Ops API: API operativa
             API Reference: Riferimento API
             End-of-Life (EOL): Fine vita (EOL)
             Surveys: Sondaggi
@@ -350,6 +354,7 @@ plugins:
             Authentication & SSO: Autenticação e SSO
             AI Capabilities: Funcionalidades de IA
             MCP Integration: Integracao MCP
+            Ops API: API de operacoes
             API Reference: Referência da API
             End-of-Life (EOL): Fim de vida (EOL)
             Surveys: Pesquisas
@@ -411,6 +416,7 @@ plugins:
             Authentication & SSO: 认证与 SSO
             AI Capabilities: AI 功能
             MCP Integration: MCP 集成
+            Ops API: 运维 API
             API Reference: API 参考
             End-of-Life (EOL): 生命周期结束 (EOL)
             Surveys: 调查
@@ -472,6 +478,7 @@ plugins:
             Authentication & SSO: Аутентификация и SSO
             AI Capabilities: Возможности ИИ
             MCP Integration: Интеграция MCP
+            Ops API: Операционный API
             API Reference: Справочник API
             End-of-Life (EOL): Окончание жизненного цикла (EOL)
             Surveys: Опросы
@@ -533,6 +540,7 @@ plugins:
             Authentication & SSO: Autentificering og SSO
             AI Capabilities: AI-funktioner
             MCP Integration: MCP-integration
+            Ops API: Drifts-API
             API Reference: API-reference
             End-of-Life (EOL): Udløb (EOL)
             Surveys: Undersøgelser
@@ -594,6 +602,7 @@ plugins:
             Authentication & SSO: المصادقة والدخول الموحّد
             AI Capabilities: قدرات الذكاء الاصطناعي
             MCP Integration: تكامل MCP
+            Ops API: واجهة العمليات
             API Reference: مرجع API
             End-of-Life (EOL): نهاية العمر (EOL)
             Surveys: الاستبيانات
@@ -684,6 +693,7 @@ nav:
       - Authentication & SSO: admin/sso.md
       - AI Capabilities: admin/ai.md
       - MCP Integration: admin/mcp.md
+      - Ops API: admin/ops-api.md
       - API Reference: admin/api.md
       - End-of-Life (EOL): admin/eol.md
       - Surveys: admin/surveys.md
