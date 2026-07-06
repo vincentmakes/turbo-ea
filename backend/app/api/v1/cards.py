@@ -65,6 +65,7 @@ from app.schemas.card import (
     StakeholderRef,
     TagRef,
 )
+from app.schemas.relation import RelationBulkResult
 from app.services import card_lifecycle, notification_service
 from app.services.calculation_engine import run_calculations_for_card
 from app.services.card_completeness import missing_mandatory
@@ -810,6 +811,11 @@ async def bulk_create_cards(
             ),
         )
 
+    # A combined import (cards + relations) touches relations too, so require
+    # that permission up front — fail fast before creating any card.
+    if body.relations:
+        await PermissionService.require_permission(db, user, "relations.manage")
+
     # Dry-run isolation: wrap the whole batch in our own savepoint so the
     # discard at the end only undoes our work and never reaches a wrapping
     # transaction (e.g. the savepoint that backs the integration-test
@@ -993,6 +999,28 @@ async def bulk_create_cards(
     created_count = sum(1 for r in results if r.status == "created")
     failed_count = sum(1 for r in results if r.status == "failed")
 
+    # Relations pass — applied in the SAME transaction, after every card has
+    # been created + flushed, so the relation resolver (loaded inside
+    # `apply_relation_operations`) can see the just-created cards and resolve
+    # same-batch `(type, parent_path, name)` refs. This is what lets a full
+    # workbook of new cards + the relations among them validate/apply as one
+    # unit, instead of the client having to pre-resolve same-batch targets.
+    relation_results: list[RelationBulkResult] = []
+    relations_upserted = relations_deleted = relations_failed = 0
+    if body.relations:
+        # Permission already checked up front. Local import avoids any module
+        # load-order coupling between the cards and relations route modules.
+        from app.api.v1.relations import apply_relation_operations
+
+        (
+            relation_results,
+            relations_upserted,
+            relations_deleted,
+            relations_failed,
+        ) = await apply_relation_operations(
+            db, list(body.relations), actor_id=user.id, dry_run=body.dry_run
+        )
+
     if body.dry_run:
         # Preview-only mode: every validator and resolver has already run,
         # but the agent expects to confirm before persisting. Roll back the
@@ -1001,7 +1029,12 @@ async def bulk_create_cards(
         # caller-supplied transaction.
         assert dry_run_savepoint is not None
         await dry_run_savepoint.rollback()
-    elif failed_count > 0 and created_count == 0:
+    elif (
+        created_count == 0
+        and relations_upserted == 0
+        and relations_deleted == 0
+        and (failed_count > 0 or relations_failed > 0)
+    ):
         # Nothing succeeded — roll back so we don't half-apply.
         await db.rollback()
     else:
@@ -1011,6 +1044,10 @@ async def bulk_create_cards(
         results=results,
         created=created_count,
         failed=failed_count,
+        relation_results=relation_results,
+        relations_upserted=relations_upserted,
+        relations_deleted=relations_deleted,
+        relations_failed=relations_failed,
         dry_run=body.dry_run,
     )
 

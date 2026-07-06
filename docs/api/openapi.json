@@ -1581,6 +1581,14 @@
             "default": false,
             "title": "Dry Run",
             "type": "boolean"
+          },
+          "relations": {
+            "items": {
+              "$ref": "#/components/schemas/RelationBulkOperation"
+            },
+            "maxItems": 5000,
+            "title": "Relations",
+            "type": "array"
           }
         },
         "required": [
@@ -1602,6 +1610,28 @@
           },
           "failed": {
             "title": "Failed",
+            "type": "integer"
+          },
+          "relation_results": {
+            "items": {
+              "$ref": "#/components/schemas/RelationBulkResult"
+            },
+            "title": "Relation Results",
+            "type": "array"
+          },
+          "relations_deleted": {
+            "default": 0,
+            "title": "Relations Deleted",
+            "type": "integer"
+          },
+          "relations_failed": {
+            "default": 0,
+            "title": "Relations Failed",
+            "type": "integer"
+          },
+          "relations_upserted": {
+            "default": 0,
+            "title": "Relations Upserted",
             "type": "integer"
           },
           "results": {

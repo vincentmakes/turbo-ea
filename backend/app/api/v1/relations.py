@@ -16,6 +16,7 @@ from app.models.relation_type import RelationType
 from app.models.user import User
 from app.schemas.relation import (
     CardRef,
+    RelationBulkOperation,
     RelationBulkRequest,
     RelationBulkResponse,
     RelationBulkResult,
@@ -427,7 +428,44 @@ async def bulk_relations(
     # Dry-run isolation — see the matching comment in `cards.py` bulk-create.
     dry_run_savepoint = await db.begin_nested() if body.dry_run else None
 
-    operations = list(body.operations)
+    results, upserted, deleted, failed = await apply_relation_operations(
+        db, list(body.operations), actor_id=user.id, dry_run=body.dry_run
+    )
+
+    if body.dry_run:
+        assert dry_run_savepoint is not None
+        await dry_run_savepoint.rollback()
+    elif failed > 0 and upserted == 0 and deleted == 0:
+        await db.rollback()
+    else:
+        await db.commit()
+
+    return RelationBulkResponse(
+        results=results,
+        upserted=upserted,
+        deleted=deleted,
+        failed=failed,
+        dry_run=body.dry_run,
+    )
+
+
+async def apply_relation_operations(
+    db: AsyncSession,
+    operations: list[RelationBulkOperation],
+    *,
+    actor_id: uuid.UUID,
+    dry_run: bool,
+) -> tuple[list[RelationBulkResult], int, int, int]:
+    """Apply relation upsert/delete ops within the CURRENT transaction and
+    return ``(results, upserted, deleted, failed)``.
+
+    The caller owns the transaction lifecycle (savepoint / commit / rollback)
+    — this helper never commits. A fresh ``CardResolver`` is loaded here, so
+    when the caller created cards earlier in the same session (the combined
+    ``/cards/bulk-create`` path), name/path refs resolve against those
+    just-created cards too. Events are emitted only when ``dry_run`` is False.
+    """
+    operations = list(operations)
 
     # Preload every referenced relation type in one query.
     rt_keys: set[str] = {op.type for op in operations}
@@ -583,7 +621,7 @@ async def bulk_relations(
     # Emit all events after the writes settle so listeners see consistent
     # state if they query back. Skipped in dry-run mode — nothing was
     # persisted, so listeners must not be told it was.
-    if not body.dry_run:
+    if not dry_run:
         for event_type, rel, source_card, target_card, extra in events_to_emit:
             await _emit_relation_events(
                 db,
@@ -591,22 +629,8 @@ async def bulk_relations(
                 rel=rel,
                 source_card=source_card,
                 target_card=target_card,
-                actor_id=user.id,
+                actor_id=actor_id,
                 extra=extra,
             )
 
-    if body.dry_run:
-        assert dry_run_savepoint is not None
-        await dry_run_savepoint.rollback()
-    elif failed > 0 and upserted == 0 and deleted == 0:
-        await db.rollback()
-    else:
-        await db.commit()
-
-    return RelationBulkResponse(
-        results=results,
-        upserted=upserted,
-        deleted=deleted,
-        failed=failed,
-        dry_run=body.dry_run,
-    )
+    return results, upserted, deleted, failed
