@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.65.3] - 2026-07-06
+
+### Fixed
+- **BPMN editor context pad is now clearly visible in dark mode.** When editing a process flow in dark mode, the contextual editing icons that appear next to a selected element (for example a Start Event) rendered white-on-white and were almost impossible to see. Those icons — and the replace/append popup menu — now use a dark, high-contrast color that matches the left-hand palette, in both light and dark mode.
+
 ## [1.65.2] - 2026-07-06
 
 ### Fixed

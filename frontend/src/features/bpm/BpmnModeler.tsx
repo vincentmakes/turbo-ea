@@ -26,6 +26,7 @@ import ToggleButton from "@mui/material/ToggleButton";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type { ProcessFlowVersion, BpmnTemplate } from "@/types";
+import { bpmnCanvasSx } from "./bpmnStyles";
 
 // bpmn-js CSS
 import "bpmn-js/dist/assets/diagram-js.css";
@@ -343,7 +344,7 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
         sx={{
           flex: 1,
           bgcolor: "action.hover",
-          "& .bjs-powered-by": { display: "none" },
+          ...bpmnCanvasSx,
           // Simple mode: hide advanced palette entries
           ...(mode === "simple" && {
             // Hide sub-process, data store, data object, group, participant/pool
