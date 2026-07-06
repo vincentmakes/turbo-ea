@@ -98,7 +98,7 @@ Una volta abilitato MCP, condividere l'**URL del server MCP** con il team. Ogni 
 ### Claude Desktop
 
 1. Aprire **Impostazioni > Connettori > Aggiungi connettore personalizzato**.
-2. Inserire l'URL del server MCP: `https://il-tuo-dominio.esempio.com/mcp/mcp`
+2. Inserire l'URL del server MCP: `https://il-tuo-dominio.esempio.com/mcp`
 3. Fare clic su **Connetti** — si apre una finestra del browser per il login SSO.
 4. Dopo l'autenticazione, Claude può interrogare i dati EA.
 
@@ -111,13 +111,13 @@ Aggiungere al file `.vscode/mcp.json` del workspace:
   "servers": {
     "turbo-ea": {
       "type": "http",
-      "url": "https://il-tuo-dominio.esempio.com/mcp/mcp"
+      "url": "https://il-tuo-dominio.esempio.com/mcp"
     }
   }
 }
 ```
 
-Il doppio `/mcp/mcp` è intenzionale — per Claude e per VS Code allo stesso modo, il primo `/mcp/` è il percorso del proxy Nginx e il secondo è l'endpoint del protocollo MCP. Un semplice `/mcp` non si connetterà.
+Utilizzare `https://il-tuo-dominio.esempio.com/mcp` come endpoint. La precedente forma doppia `https://il-tuo-dominio.esempio.com/mcp/mcp` continua a funzionare, quindi i connettori esistenti continuano a funzionare senza modifiche.
 
 ---
 

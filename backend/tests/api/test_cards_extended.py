@@ -330,6 +330,33 @@ class TestBulkUpdate:
         for card in data:
             assert card["attributes"]["riskLevel"] == "high"
 
+    async def test_bulk_update_recomputes_data_quality(self, client, db, env):
+        """Bulk-filling a scored attribute refreshes data_quality (#760).
+
+        Factory-created cards start at data_quality == 0.0. A bulk PATCH that
+        populates a weighted attribute must rescore them, just like the
+        single-card PATCH path does.
+        """
+        admin = env["admin"]
+        card_a = await create_card(db, card_type="Application", name="Score A", user_id=admin.id)
+        card_b = await create_card(db, card_type="Application", name="Score B", user_id=admin.id)
+        assert card_a.data_quality == 0.0
+        assert card_b.data_quality == 0.0
+
+        response = await client.patch(
+            "/api/v1/cards/bulk",
+            json={
+                "ids": [str(card_a.id), str(card_b.id)],
+                "updates": {"attributes": {"costTotalAnnual": 1000, "riskLevel": "high"}},
+            },
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 2
+        for card in data:
+            assert card["data_quality"] > 0.0
+
     async def test_bulk_update_viewer_forbidden(self, client, db, env):
         """Viewer role lacks inventory.bulk_edit and gets 403."""
         admin = env["admin"]

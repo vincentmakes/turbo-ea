@@ -11,6 +11,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Control-plane ops API for managed deployments.** A new opt-in `/api/v1/ops` surface lets a Turbo EA Cloud control plane manage a hosted instance: health/version info, time-boxed operator ("rescue") admin accounts, and workspace exports. It is disabled (answers 404) unless the `OPS_PUBLIC_KEY` environment variable is set, and every request must carry a valid Ed25519 signature with replay protection. Self-hosted installs are unaffected and remain free of any billing or licensing logic.
 - **Transparent operator access.** Every rescue-access grant, revocation, and expiry emits an audit event and notifies all instance admins in-app and by email, including the operator's name, reason, and expiry time. Rescue accounts are automatically rejected and deactivated once `access_expires_at` passes — enforced by the instance itself.
 
+## [1.64.7] - 2026-07-05
+
+### Fixed
+- **Self-hosted MCP servers now connect from standard OAuth MCP clients out of the box.** The bundled reverse proxy now routes the OAuth discovery requests (`/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource`) that AI tools like Claude and the MCP Inspector make at the site root to the MCP server, instead of returning the web app's HTML and breaking sign-in discovery. The MCP endpoint is now also reachable at the clean `https://your-domain/mcp` URL — and the Admin → Settings → AI page now shows that clean URL instead of the doubled `…/mcp/mcp` form (which keeps working, so already-configured connectors are unaffected).
+
+## [1.64.6] - 2026-07-05
+
+### Fixed
+- **Bulk card edits now refresh the completeness score and calculated fields.** Updating several cards at once (from the inventory grid's bulk edit, or the MCP `update_cards_bulk` tool) now recomputes each card's data-quality score and re-runs its calculated fields, matching what happens when you edit a card one at a time. Previously a bulk edit saved the new values but left the completeness score frozen at its earlier value, so a fully-populated inventory could still report near-zero completeness on the dashboard and grid.
+
+## [1.64.5] - 2026-07-05
+
+### Fixed
+- **The BPM Process Navigator now correctly recognises a process's Automation Level.** Processes set to *Partially Automated* or *Fully Automated* were shown as grey "Not Set", were missing the Automation chip in the side summary panel, and only "Manual" appeared in the overlay legend. The classification map used the wrong internal values, so only *Manual* was matched; these processes now colour, chip, and appear in the legend correctly.
+- **BPM Process Navigator cards now give the process name room to breathe.** Card headers were cramming the name, the type label, the counts, and the drill button onto one line, so the name was cut off ("New Produ…") and the count badges were clipped at the card edge. The name now spans the full card width on its own line, with the type label, counts, and drill action moved to a tidy row beneath it.
+
 ## [1.64.4] - 2026-07-05
 
 ### Security
