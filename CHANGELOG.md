@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.65.2] - 2026-07-06
+
+### Fixed
+- **Importing a workbook of new cards plus the relations among them now works, including relations to hierarchical cards referenced by name.** Previously, creating new cards and linking them in the same import could fail with a wall of "relation target doesn't match any card" errors — most visibly when seeding a fresh instance — because the browser tried to resolve each relation before the cards existed and couldn't match a bare name to a card that lives under a parent. The importer now validates and applies the whole workbook in a single server-side transaction: the cards are created first, then the relations resolve against them and everything commits together (or rolls back on preview). Relation problems such as duplicate/cardinality conflicts now also show up in the pre-import preview instead of only at apply time.
+
 ## [1.65.1] - 2026-07-06
 
 ### Fixed

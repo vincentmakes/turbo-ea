@@ -324,6 +324,47 @@ describe("validateMultiSheet", () => {
     // produces no upsert — only the removed Cache shows in the diff.
     expect(upserts).toHaveLength(0);
   });
+
+  it("resolves a same-batch hierarchical target referenced by bare name", async () => {
+    // Application is hierarchical. "CRM" is a child of "Platform", so its
+    // full path key is `Application|platform/crm`, but the relation cell
+    // references it by the bare name "CRM" (the exporter's default for
+    // uniquely-named cards). Same-batch matching must still find it — this
+    // is the new-card / empty-instance case that used to fail with
+    // "relation target doesn't match any card".
+    const APP_DEP: RelationType = {
+      ...DEPENDS_ON_TYPE,
+      key: "app_dep",
+      source_type_key: "Application",
+      target_type_key: "Application",
+    };
+    postMock.mockImplementation(buildResolveRefsMock([])); // empty DB
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.json_to_sheet([
+        { type: "Application", name: "Platform" },
+        { type: "Application", name: "CRM", parent_path: "Platform" },
+        { type: "Application", name: "Portal", "rel:app_dep": "CRM" },
+      ]),
+      "Application",
+    );
+    const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
+    const parsed = parseWorkbookSheets(buf, [APP_TYPE, ITC_TYPE]);
+    const report = await validateMultiSheet(parsed, [], [APP_TYPE, ITC_TYPE], [APP_DEP], []);
+
+    expect(report.errors).toEqual([]);
+    expect(report.creates).toHaveLength(3);
+    const op = report.relationOps.find((o) => o.relationType === "app_dep");
+    expect(op).toBeTruthy();
+    // Target resolved to the child's full path key (via bare-name match),
+    // which the apply step hands the backend as a name+path ref.
+    expect(op!.targetRef).toEqual({
+      kind: "pathKey",
+      pathKey: "Application|platform/crm",
+      type: "Application",
+    });
+  });
 });
 
 describe("executeMultiSheetImport", () => {
@@ -336,31 +377,28 @@ describe("executeMultiSheetImport", () => {
     vi.clearAllMocks();
   });
 
-  it("uses bulk-create for new cards and relations/bulk for relation ops", async () => {
+  it("applies cards and relations in one combined bulk-create call", async () => {
     postMock.mockImplementation(async (url: string, body: unknown) => {
       if (url === "/cards/bulk-create") {
-        const cards = (body as { cards: { row_index: number; name: string }[] }).cards;
+        const b = body as {
+          cards: { row_index: number }[];
+          relations?: { row_index: number }[];
+        };
         return {
-          results: cards.map((c) => ({
+          results: b.cards.map((c) => ({
             row_index: c.row_index,
             status: "created",
             id: `new-${c.row_index}`,
           })),
-          created: cards.length,
+          created: b.cards.length,
           failed: 0,
-        };
-      }
-      if (url === "/relations/bulk") {
-        const ops = (body as { operations: { row_index: number }[] }).operations;
-        return {
-          results: ops.map((o) => ({
+          relation_results: (b.relations ?? []).map((o) => ({
             row_index: o.row_index,
             status: "upserted",
-            relation_id: `rel-${o.row_index}`,
           })),
-          upserted: ops.length,
-          deleted: 0,
-          failed: 0,
+          relations_upserted: (b.relations ?? []).length,
+          relations_deleted: 0,
+          relations_failed: 0,
         };
       }
       return {};
@@ -395,11 +433,17 @@ describe("executeMultiSheetImport", () => {
     expect(result.created).toBe(1);
     expect(result.relationsUpserted).toBe(1);
     expect(result.failed).toBe(0);
-    // The pathKey source ref must have been materialised into the new uuid.
-    const bulkRelCall = postMock.mock.calls.find((c) => c[0] === "/relations/bulk");
-    expect(bulkRelCall).toBeTruthy();
-    const operations = (bulkRelCall![1] as { operations: { source: { id?: string } }[] }).operations;
-    expect(operations[0].source.id).toBe("new-2");
+    // No separate /relations/bulk request — relations travel inside the
+    // combined bulk-create body and resolve server-side.
+    expect(postMock.mock.calls.some((c) => c[0] === "/relations/bulk")).toBe(false);
+    const bulkCall = postMock.mock.calls.find((c) => c[0] === "/cards/bulk-create");
+    const combinedBody = bulkCall![1] as {
+      relations: { source: { id?: string; type?: string; name?: string } }[];
+    };
+    expect(combinedBody.relations).toHaveLength(1);
+    // The same-batch pathKey source is handed to the backend as a name+path
+    // ref (not a client-materialised id) for it to resolve post-create.
+    expect(combinedBody.relations[0].source.name).toBe("newapp");
   });
 });
 

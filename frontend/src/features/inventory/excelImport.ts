@@ -1191,6 +1191,37 @@ export async function validateMultiSheet(
     if (r.ownPathKey) fileByOwnPathKey.set(r.ownPathKey, r);
   }
 
+  // Bare-name index of same-batch creates. The exporter writes a relation
+  // target as just its name when that name is unique for its type — even for
+  // hierarchical cards, whose `ownPathKey` is parent-qualified. So a
+  // bare-name ref to a new child card misses `fileByOwnPathKey`; this index
+  // lets us still recognise it as a same-batch row and express it as a
+  // name+path ref the backend resolves after creating the cards. `null`
+  // marks an ambiguous bare name (2+ creates of the same type share it) —
+  // those fall through to the full-path / backend resolver.
+  const fileByTypeName = new Map<string, ParsedRow | null>();
+  for (const r of creates) {
+    const nm = str(r.data.name).toLowerCase();
+    if (!nm) continue;
+    const k = `${r.type}|${nm}`;
+    fileByTypeName.set(k, fileByTypeName.has(k) ? null : r);
+  }
+
+  /** Match a ref against a card created in this same workbook, by full path
+   * first (exact) then by a unique bare name. Returns the matched row, or
+   * undefined when there's no unambiguous same-batch card. */
+  function sameBatchCreate(type: string, ref: string): ParsedRow | undefined {
+    const segs = decodePath(ref);
+    if (segs.length === 0) return undefined;
+    const full = fileByOwnPathKey.get(pathKey(type, segs));
+    if (full) return full;
+    if (segs.length === 1) {
+      const byName = fileByTypeName.get(`${type}|${segs[0].trim().toLowerCase()}`);
+      if (byName) return byName; // null (ambiguous) → undefined
+    }
+    return undefined;
+  }
+
   // ----- Two-pass ref resolution ----------------------------------------
   // The previous implementation matched relation targets against
   // `existingCards`, which is whatever slice of the Inventory grid the user
@@ -1217,8 +1248,7 @@ export async function validateMultiSheet(
   function stageRef(type: string, ref: string): void {
     const segs = decodePath(ref);
     if (segs.length === 0) return;
-    const fullKey = pathKey(type, segs);
-    if (fileByOwnPathKey.has(fullKey)) return; // same-batch hit, no server call
+    if (sameBatchCreate(type, ref)) return; // same-batch hit, no server call
     const key = refLookupKey(type, ref);
     if (!refsToResolve.has(key)) {
       refsToResolve.set(key, { type, ref });
@@ -1341,11 +1371,14 @@ export async function validateMultiSheet(
   ): CardRefHandle | undefined {
     const segs = decodePath(ref);
     if (segs.length === 0) return undefined;
-    const fullKey = pathKey(targetTypeKey, segs);
-    // Same-batch row?
-    const fileMatch = fileByOwnPathKey.get(fullKey);
-    if (fileMatch) {
-      return { kind: "pathKey", pathKey: fullKey, type: targetTypeKey };
+    // Same-batch row? Match by full path, then by unique bare name (the
+    // exporter writes bare names for uniquely-named cards, including
+    // hierarchical ones). Express it as the matched row's own path key so
+    // the apply step hands the backend a name+path ref it resolves after
+    // creating the cards.
+    const fileMatch = sameBatchCreate(targetTypeKey, ref);
+    if (fileMatch?.ownPathKey) {
+      return { kind: "pathKey", pathKey: fileMatch.ownPathKey, type: targetTypeKey };
     }
     const lookupKey = refLookupKey(targetTypeKey, ref);
     const r = refResults.get(lookupKey);
@@ -1686,6 +1719,56 @@ export async function validateMultiSheet(
   // failure reporting even when two sheets share a per-sheet row number.
   for (const op of relationOps) op.wireRow = ++wireCounter;
 
+  // Authoritative preview: when the client-side checks pass, simulate the
+  // whole import server-side in one transaction — create the cards, then
+  // resolve + validate the relations against them — and roll it back. This
+  // matches exactly what the atomic apply will do, and surfaces issues the
+  // client can't see on its own: relation cardinality violations, and
+  // targets that only resolve (or fail) once the same-batch cards exist.
+  // Best-effort — on any transport error we keep the client-side result.
+  // Skipped for relations-only or over-cap workbooks (those take the
+  // chunked apply path, which the combined dry-run doesn't model).
+  if (
+    errors.length === 0 &&
+    creates.length > 0 &&
+    creates.length <= COMBINED_CARDS_CAP &&
+    relationOps.length <= COMBINED_RELATIONS_CAP
+  ) {
+    try {
+      const preview = await api.post<CombinedImportResponse>("/cards/bulk-create", {
+        cards: buildImportCards(creates),
+        relations: buildImportRelations(relationOps),
+        dry_run: true,
+      });
+      const wireToCreate = new Map<number, ParsedRow>();
+      for (const r of creates) wireToCreate.set(r.wireRow ?? r.rowIndex, r);
+      for (const r of preview.results ?? []) {
+        if (r.status === "failed") {
+          const row = wireToCreate.get(r.row_index);
+          const msg = r.error ?? t("import.errors.unknown");
+          errors.push({
+            row: row?.rowIndex ?? r.row_index,
+            message: row?.sheet ? `${row.sheet}: ${msg}` : msg,
+          });
+        }
+      }
+      const wireToOp = new Map<number, RelationOp>();
+      for (const op of relationOps) wireToOp.set(op.wireRow ?? op.rowIndex, op);
+      for (const rr of preview.relation_results ?? []) {
+        if (rr.status === "failed") {
+          const op = wireToOp.get(rr.row_index);
+          const msg = rr.error ?? t("import.errors.unknown");
+          errors.push({
+            row: op?.rowIndex ?? rr.row_index,
+            message: op?.sheet ? `${op.sheet}: ${msg}` : msg,
+          });
+        }
+      }
+    } catch {
+      // Keep the client-side validation result.
+    }
+  }
+
   void inlineRefs;
   return {
     errors,
@@ -1873,9 +1956,221 @@ function refHandleToPayload(
   return { type: handle.type, name, parent_path: parentPath };
 }
 
+// Backend caps for the combined `/cards/bulk-create` call (see the request
+// schema's `max_length`). Within these, a whole workbook goes in one atomic
+// request; beyond them we fall back to the chunked split path.
+const COMBINED_CARDS_CAP = 2000;
+const COMBINED_RELATIONS_CAP = 5000;
+
+/** Build the `cards` array for `/cards/bulk-create` from parsed create rows.
+ * Same-batch parents are handed to the backend as `parent_name`/`parent_path`
+ * (it topologically sorts and resolves them); an already-resolved existing
+ * parent id passes through as `parent_id`. */
+function buildImportCards(creates: ParsedRow[]) {
+  return creates.map((row) => {
+    const d = row.data as Record<string, unknown>;
+    const parentSegments = row.parentPath;
+    const lastSeg =
+      parentSegments && parentSegments.length > 0
+        ? parentSegments[parentSegments.length - 1]
+        : undefined;
+    const parentPath =
+      parentSegments && parentSegments.length > 1
+        ? parentSegments.slice(0, -1)
+        : parentSegments && parentSegments.length === 1
+          ? []
+          : undefined;
+    const parentId = d.parent_id as string | undefined;
+    return {
+      row_index: row.wireRow ?? row.rowIndex,
+      type: row.type,
+      name: (d.name as string) ?? "",
+      subtype: d.subtype as string | undefined,
+      description: d.description as string | undefined,
+      parent_id: parentId,
+      parent_name: parentId ? undefined : lastSeg,
+      parent_path: parentId ? undefined : parentPath,
+      lifecycle: d.lifecycle as Record<string, unknown> | undefined,
+      attributes: d.attributes as Record<string, unknown> | undefined,
+      external_id: d.external_id as string | undefined,
+      alias: d.alias as string | undefined,
+    };
+  });
+}
+
+/** Build the `relations` array for the combined `/cards/bulk-create` call.
+ * Every ref is expressed as `{id}` or `{type, name, parent_path}` — the
+ * backend resolves name+path refs against the cards it just created in the
+ * same transaction, so same-batch targets (including hierarchical ones
+ * referenced by bare name) resolve without the client pre-materialising ids. */
+function buildImportRelations(relationOps: RelationOp[]) {
+  return relationOps.map((op) => ({
+    row_index: op.wireRow ?? op.rowIndex,
+    action: op.action,
+    type: op.relationType,
+    source: refHandleToPayload(op.sourceRef),
+    target: refHandleToPayload(op.targetRef),
+    attributes: op.attributes,
+    description: op.description,
+  }));
+}
+
+/** Response shape of the combined `/cards/bulk-create` (cards + relations). */
+interface CombinedImportResponse {
+  results: { row_index: number; status: "created" | "failed"; id?: string; error?: string }[];
+  created: number;
+  failed: number;
+  relation_results: { row_index: number; status: string; error?: string }[];
+  relations_upserted: number;
+  relations_deleted: number;
+  relations_failed: number;
+}
+
 /**
- * Multi-sheet executor. Uses the new backend bulk endpoints so a 500-row
- * workbook doesn't fire 500 HTTP requests.
+ * Multi-sheet executor. Applies a whole workbook — new cards **and** the
+ * relations among them — through the combined `POST /cards/bulk-create`
+ * endpoint in ONE atomic transaction, so relation targets (including
+ * hierarchical cards referenced by bare name) resolve server-side against
+ * the cards created in the very same request. Updates to existing cards run
+ * as per-row PATCHes afterward. Workbooks beyond the backend's per-request
+ * caps fall back to the chunked `executeSplitImport` path.
+ */
+export async function executeMultiSheetImport(
+  report: ImportReport,
+  onProgress?: (done: number, total: number) => void,
+): Promise<ImportResult> {
+  // Over caps, or relations-only (the combined endpoint requires ≥1 card):
+  // use the chunked fallback, which handles those shapes.
+  if (
+    report.creates.length === 0 ||
+    report.creates.length > COMBINED_CARDS_CAP ||
+    report.relationOps.length > COMBINED_RELATIONS_CAP
+  ) {
+    return executeSplitImport(report, onProgress);
+  }
+
+  const total =
+    report.creates.length + report.updates.length + report.relationOps.length;
+  let done = 0;
+  let created = 0;
+  let updated = 0;
+  let failed = 0;
+  let relationsUpserted = 0;
+  let relationsDeleted = 0;
+  let relationsFailed = 0;
+  const failedDetails: { row: number; message: string }[] = [];
+
+  const pushFailure = (
+    src: { rowIndex: number; sheet?: string },
+    message: string,
+  ) => {
+    failedDetails.push({
+      row: src.rowIndex,
+      message: src.sheet ? `${src.sheet}: ${message}` : message,
+    });
+  };
+
+  const wireToCreate = new Map<number, ParsedRow>();
+  for (const r of report.creates) wireToCreate.set(r.wireRow ?? r.rowIndex, r);
+  const wireToOp = new Map<number, RelationOp>();
+  for (const op of report.relationOps) wireToOp.set(op.wireRow ?? op.rowIndex, op);
+
+  // ----- Cards + relations, one atomic request --------------------------
+  const body = {
+    cards: buildImportCards(report.creates),
+    relations: buildImportRelations(report.relationOps),
+  };
+  try {
+    const resp = await api.post<CombinedImportResponse>("/cards/bulk-create", body);
+    const tagJobs: Promise<void>[] = [];
+    for (const r of resp.results) {
+      const row = wireToCreate.get(r.row_index);
+      if (r.status === "created" && r.id) {
+        created++;
+        if (row?.tagIds && row.tagIds.length > 0) {
+          tagJobs.push(
+            api
+              .post(`/cards/${r.id}/tags`, row.tagIds)
+              .then(() => {})
+              .catch(() => {}),
+          );
+        }
+      } else if (row) {
+        failed++;
+        pushFailure(row, r.error ?? t("import.errors.unknown"));
+      }
+    }
+    await Promise.all(tagJobs);
+    relationsUpserted += resp.relations_upserted ?? 0;
+    relationsDeleted += resp.relations_deleted ?? 0;
+    relationsFailed += resp.relations_failed ?? 0;
+    for (const rr of resp.relation_results ?? []) {
+      if (rr.status === "failed") {
+        const op = wireToOp.get(rr.row_index);
+        pushFailure(op ?? { rowIndex: rr.row_index }, rr.error ?? t("import.errors.unknown"));
+      }
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : t("import.errors.unknown");
+    for (const row of report.creates) {
+      failed++;
+      pushFailure(row, msg);
+    }
+    for (const op of report.relationOps) {
+      relationsFailed++;
+      pushFailure(op, msg);
+    }
+  }
+  done += report.creates.length + report.relationOps.length;
+  onProgress?.(done, total);
+
+  // ----- Updates to existing cards — per-row PATCH ----------------------
+  for (const row of report.updates) {
+    try {
+      const { patch } = buildPatch(row.data, row.existing!);
+      let didSomething = false;
+      if (Object.keys(patch).length > 0) {
+        await api.patch(`/cards/${row.id}`, patch);
+        didSomething = true;
+      }
+      if (row.tagIds !== undefined && row.existing) {
+        const oldIds = new Set((row.existing.tags || []).map((tg) => tg.id));
+        const newIds = new Set(row.tagIds);
+        const toAdd = [...newIds].filter((id) => !oldIds.has(id));
+        const toRemove = [...oldIds].filter((id) => !newIds.has(id));
+        if (toAdd.length > 0) {
+          await api.post(`/cards/${row.id}/tags`, toAdd);
+          didSomething = true;
+        }
+        for (const id of toRemove) {
+          await api.delete(`/cards/${row.id}/tags/${id}`);
+          didSomething = true;
+        }
+      }
+      if (didSomething) updated++;
+    } catch (e) {
+      failed++;
+      pushFailure(row, e instanceof Error ? e.message : t("import.errors.unknown"));
+    }
+    done++;
+    onProgress?.(done, total);
+  }
+
+  return {
+    created,
+    updated,
+    failed,
+    relationsUpserted,
+    relationsDeleted,
+    relationsFailed,
+    failedDetails,
+  };
+}
+
+/**
+ * Fallback executor for workbooks larger than the combined endpoint's caps.
+ * Applies cards then relations as separate (chunked) requests — not atomic,
+ * but relations still resolve against the just-committed cards.
  *
  * Phases:
  *   1. `POST /cards/bulk-create` (chunked) for new cards. Captures the
@@ -1887,7 +2182,7 @@ function refHandleToPayload(
  *      stay per-row for the same reason.
  *   3. `POST /relations/bulk` (chunked) for the queued relation operations.
  */
-export async function executeMultiSheetImport(
+async function executeSplitImport(
   report: ImportReport,
   onProgress?: (done: number, total: number) => void,
 ): Promise<ImportResult> {
