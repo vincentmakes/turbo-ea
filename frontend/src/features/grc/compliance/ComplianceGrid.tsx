@@ -56,6 +56,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { RAG_COLORS } from "@/theme";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useIsRtl } from "@/hooks/useIsRtl";
@@ -352,10 +353,22 @@ export default function ComplianceGrid({
           return null;
         }
         if (!data?.card_name || !data.card_id) {
+          // Landscape (estate-wide, card-less) finding — style it like a card
+          // name (same weight, not greyed/italic) but in green so it reads as
+          // an intentional scope choice rather than missing data. Use the
+          // theme-aware success hue so it stays legible in dark mode.
           return (
-            <Typography variant="body2" color="text.disabled" sx={{ fontStyle: "italic" }}>
+            <Box
+              sx={{
+                color:
+                  theme.palette.mode === "dark"
+                    ? theme.palette.success.light
+                    : RAG_COLORS.green,
+                fontWeight: groupMode === "by_card" ? 700 : 500,
+              }}
+            >
               {tCards("compliance.grid.landscape")}
-            </Typography>
+            </Box>
           );
         }
         return (

@@ -31,8 +31,10 @@ Cliquez **+ Nouveau constat** dans la barre d'outils Conformité pour ouvrir le 
 | **Lacune** | Description de la lacune ou de l'observation. |
 | **Preuve** | Preuves justificatives, notes d'audit, liens. |
 | **Remédiation** | Remédiation suggérée. Utilisée comme amorce de la tâche de mitigation si le constat est ensuite promu en Risque. |
-| **Carte liée** | Optionnel — restreindre le constat à une Application, un Composant IT ou une autre carte spécifique. |
+| **Périmètre** | Requis. Choisissez **Une carte spécifique** — restreindre le constat à une seule Application ou un Composant IT — ou **L'ensemble du paysage** pour une lacune systémique, à l'échelle du parc, qu'aucune carte ne possède (par ex. une procédure à l'échelle de l'organisation manquante). Les constats paysage sont affichés en vert dans la colonne **Carte**. |
 | **Risque lié** | Optionnel — pré-lier à un Risque existant si l'un suit déjà cette lacune. |
+
+Chaque constat doit être rattaché soit à une carte spécifique, soit à l'ensemble du paysage — il n'y a pas d'état ambigu « sans carte ». Le périmètre paysage est un choix à part entière, pas un champ vide : les scans IA produisent eux aussi des constats de niveau paysage pour les contrôles systémiques qui couvrent tout le parc.
 
 `compliance.manage` est requis pour créer, modifier, retirer ou bulk-actionner des constats. `compliance.view` suffit pour lire le registre et trier depuis l'onglet Conformité d'une fiche.
 

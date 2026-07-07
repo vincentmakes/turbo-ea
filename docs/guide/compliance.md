@@ -30,8 +30,10 @@ Click **+ New finding** in the Compliance toolbar to open the create dialog. Req
 | **Gap** | Description of the gap or observation. |
 | **Evidence** | Supporting evidence, audit notes, links. |
 | **Remediation** | Suggested remediation. Used as the seed for the mitigation task if you later promote the finding to a Risk. |
-| **Linked card** | Optional — scope the finding to a specific Application, IT Component or other card. |
+| **Scope** | Required. Choose **A specific card** — scope the finding to a single Application or IT Component — or **The whole landscape** for a systemic, estate-wide gap that no single card owns (e.g. a missing organisation-wide procedure). Landscape findings are shown in green under the **Card** column. |
 | **Linked risk** | Optional — pre-link to an existing Risk if one is already tracking this gap. |
+
+Every finding must be scoped either to a specific card or to the whole landscape — there is no ambiguous "no card" state. Landscape scope is a first-class choice, not a blank: AI scans also produce landscape findings for systemic controls that span the estate.
 
 `compliance.manage` is required to create, edit, retire or bulk-act on findings. `compliance.view` is enough to read the register and triage from the card-level Compliance tab.
 

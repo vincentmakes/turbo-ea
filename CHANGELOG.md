@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.68.0] - 2026-07-07
+
+### Changed
+- **Compliance findings now require an explicit scope.** When creating or editing a finding you choose whether it applies to **a specific card** or to **the whole landscape** (a systemic, estate-wide gap), instead of leaving the card silently blank. Landscape findings are now shown in green in the Card column so they read as a deliberate choice rather than missing data.
+
 ## [1.67.0] - 2026-07-07
 
 ### Changed
