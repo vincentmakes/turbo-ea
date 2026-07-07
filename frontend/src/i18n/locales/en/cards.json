@@ -288,6 +288,8 @@
   "resources.architectureDecisions": "Architecture Decisions",
   "resources.fileAttachments": "File Attachments",
   "resources.documentLinks": "Document Links",
+  "resources.serviceNow": "ServiceNow",
+  "resources.serviceNowHint": "Automatically linked from ServiceNow sync — opens the matching record in your instance.",
   "resources.createAdr": "Create ADR",
   "resources.linkAdr": "Link ADR",
   "resources.unlinkAdr": "Unlink",

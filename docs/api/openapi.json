@@ -10849,6 +10849,46 @@
         "title": "SignatureRequest",
         "type": "object"
       },
+      "SnowLinkOut": {
+        "description": "A resolved deep link from a card to its ServiceNow record.",
+        "properties": {
+          "connection_name": {
+            "title": "Connection Name",
+            "type": "string"
+          },
+          "last_synced_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Synced At"
+          },
+          "sys_id": {
+            "title": "Sys Id",
+            "type": "string"
+          },
+          "table": {
+            "title": "Table",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "connection_name",
+          "table",
+          "sys_id",
+          "url"
+        ],
+        "title": "SnowLinkOut",
+        "type": "object"
+      },
       "SoAWCreate": {
         "properties": {
           "document_info": {
@@ -28621,6 +28661,54 @@
         "summary": "Update Saved Report",
         "tags": [
           "saved-reports"
+        ]
+      }
+    },
+    "/api/v1/servicenow/cards/{card_id}/links": {
+      "get": {
+        "description": "Return deep links to the ServiceNow record(s) a card is synced with.\n\nDerived read-only from the sync identity map \u2014 a card may map to more than\none ServiceNow record if it is covered by several mappings. The URL is the\ndirect record form on the connection's instance.",
+        "operationId": "list_card_servicenow_links_api_v1_servicenow_cards__card_id__links_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SnowLinkOut"
+                  },
+                  "title": "Response List Card Servicenow Links Api V1 Servicenow Cards  Card Id  Links Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Card Servicenow Links",
+        "tags": [
+          "ServiceNow"
         ]
       }
     },

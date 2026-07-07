@@ -277,6 +277,11 @@ Après la première synchronisation qui établit les liens de la carte d'identit
 
 ---
 
+### Ouvrir l'enregistrement ServiceNow
+
+Une fois une carte synchronisée, son onglet **Ressources** affiche une section **ServiceNow** avec un lien direct qui ouvre l'enregistrement correspondant (`https://<votre-instance>/<table>.do?sys_id=<id>`) dans un nouvel onglet. Le lien est en lecture seule et maintenu automatiquement par la synchronisation — rien à configurer. Les cartes jamais synchronisées n'affichent pas la section ; vous pouvez toujours ajouter un lien manuel sous **Liens de documents** sur le même onglet.
+
+
 ## Étape 5 : Exécuter votre première synchronisation
 
 Basculez vers l'onglet **Tableau de bord de synchronisation**.

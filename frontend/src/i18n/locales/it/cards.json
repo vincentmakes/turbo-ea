@@ -251,6 +251,8 @@
   "resources.architectureDecisions": "Decisioni architetturali",
   "resources.fileAttachments": "Allegati",
   "resources.documentLinks": "Link ai documenti",
+  "resources.serviceNow": "ServiceNow",
+  "resources.serviceNowHint": "Collegato automaticamente dalla sincronizzazione ServiceNow — apre il record corrispondente nella tua istanza.",
   "resources.createAdr": "Crea ADR",
   "resources.linkAdr": "Collega ADR",
   "resources.unlinkAdr": "Scollega",

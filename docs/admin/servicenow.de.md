@@ -277,6 +277,11 @@ Nach der ersten Synchronisation, die Identity-Map-Verknüpfungen erstellt, verwe
 
 ---
 
+### Den ServiceNow-Datensatz öffnen
+
+Nach der Synchronisierung einer Karte zeigt deren **Ressourcen**-Tab einen Abschnitt **ServiceNow** mit einem direkten Link, der den zugehörigen Datensatz (`https://<ihre-instanz>/<tabelle>.do?sys_id=<id>`) in einem neuen Tab öffnet. Der Link ist schreibgeschützt und wird automatisch von der Synchronisierung gepflegt — nichts zu konfigurieren. Karten, die nie synchronisiert wurden, zeigen den Abschnitt nicht; Sie können auf demselben Tab weiterhin unter **Dokument-Links** einen manuellen Link hinzufügen.
+
+
 ## Schritt 5: Ihre erste Synchronisation ausführen
 
 Wechseln Sie zum **Synchronisations-Dashboard**-Tab.

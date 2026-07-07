@@ -277,6 +277,11 @@ After the first sync establishes identity map links, subsequent syncs use the pe
 
 ---
 
+### Opening the ServiceNow record
+
+After a card is synced, its **Resources** tab shows a **ServiceNow** section with a direct link that opens the matching record (`https://<your-instance>/<table>.do?sys_id=<id>`) in a new tab. The link is read-only and maintained automatically by sync — nothing to configure. Cards that were never synced don't show the section; you can still add a manual link under **Document Links** on the same tab.
+
+
 ## Step 5: Run Your First Sync
 
 Switch to the **Sync Dashboard** tab.

@@ -277,6 +277,11 @@ Dopo che la prima sincronizzazione stabilisce i collegamenti nella mappa delle i
 
 ---
 
+### Aprire il record ServiceNow
+
+Dopo la sincronizzazione di una carta, la sua scheda **Risorse** mostra una sezione **ServiceNow** con un link diretto che apre il record corrispondente (`https://<tua-istanza>/<tabella>.do?sys_id=<id>`) in una nuova scheda. Il link è di sola lettura ed è mantenuto automaticamente dalla sincronizzazione — nulla da configurare. Le carte mai sincronizzate non mostrano la sezione; puoi comunque aggiungere un link manuale in **Link ai documenti** nella stessa scheda.
+
+
 ## Passo 5: Eseguire la prima sincronizzazione
 
 Passate alla scheda **Dashboard di sincronizzazione**.

@@ -288,6 +288,8 @@
   "resources.architectureDecisions": "Arkitekturbeslutninger",
   "resources.fileAttachments": "Filvedhæftninger",
   "resources.documentLinks": "Dokumentlinks",
+  "resources.serviceNow": "ServiceNow",
+  "resources.serviceNowHint": "Automatisk knyttet via ServiceNow-synkronisering — åbner den tilsvarende post i din instans.",
   "resources.createAdr": "Opret ADR",
   "resources.linkAdr": "Tilknyt ADR",
   "resources.unlinkAdr": "Frakobl",

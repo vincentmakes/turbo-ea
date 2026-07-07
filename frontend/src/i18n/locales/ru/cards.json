@@ -251,6 +251,8 @@
   "resources.architectureDecisions": "Архитектурные решения",
   "resources.fileAttachments": "Вложенные файлы",
   "resources.documentLinks": "Ссылки на документы",
+  "resources.serviceNow": "ServiceNow",
+  "resources.serviceNowHint": "Автоматически связано синхронизацией ServiceNow — открывает соответствующую запись в вашем экземпляре.",
   "resources.createAdr": "Создать ADR",
   "resources.linkAdr": "Привязать ADR",
   "resources.unlinkAdr": "Отвязать",

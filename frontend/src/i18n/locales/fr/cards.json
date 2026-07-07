@@ -251,6 +251,8 @@
   "resources.architectureDecisions": "Décisions d’architecture",
   "resources.fileAttachments": "Pièces jointes",
   "resources.documentLinks": "Liens de documents",
+  "resources.serviceNow": "ServiceNow",
+  "resources.serviceNowHint": "Lié automatiquement par la synchronisation ServiceNow — ouvre l'enregistrement correspondant dans votre instance.",
   "resources.createAdr": "Créer une ADR",
   "resources.linkAdr": "Lier une ADR",
   "resources.unlinkAdr": "Délier",

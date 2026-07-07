@@ -251,6 +251,8 @@
   "resources.architectureDecisions": "架构决策",
   "resources.fileAttachments": "文件附件",
   "resources.documentLinks": "文档链接",
+  "resources.serviceNow": "ServiceNow",
+  "resources.serviceNowHint": "由 ServiceNow 同步自动关联 —— 在您的实例中打开对应记录。",
   "resources.createAdr": "创建 ADR",
   "resources.linkAdr": "关联 ADR",
   "resources.unlinkAdr": "取消关联",

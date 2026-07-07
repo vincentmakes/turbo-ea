@@ -19,6 +19,7 @@ from app.models.card_type import CardType
 from app.models.servicenow import (
     SnowConnection,
     SnowFieldMapping,
+    SnowIdentityMap,
     SnowMapping,
     SnowStagedRecord,
     SnowSyncRun,
@@ -164,6 +165,16 @@ class StagedRecordOut(BaseModel):
     status: str
     error_message: str | None = None
     created_at: str | None = None
+
+
+class SnowLinkOut(BaseModel):
+    """A resolved deep link from a card to its ServiceNow record."""
+
+    connection_name: str
+    table: str
+    sys_id: str
+    url: str
+    last_synced_at: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -1043,3 +1054,42 @@ async def apply_staged_records(
         raise HTTPException(502, "Failed to apply staged records")
 
     return {"ok": True, "applied": applied}
+
+
+# ---------------------------------------------------------------------------
+# Card → ServiceNow record links
+# ---------------------------------------------------------------------------
+
+
+@router.get("/cards/{card_id}/links", response_model=list[SnowLinkOut])
+async def list_card_servicenow_links(
+    card_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return deep links to the ServiceNow record(s) a card is synced with.
+
+    Derived read-only from the sync identity map — a card may map to more than
+    one ServiceNow record if it is covered by several mappings. The URL is the
+    direct record form on the connection's instance.
+    """
+    await PermissionService.require_permission(db, user, "servicenow.view")
+    result = await db.execute(
+        select(SnowIdentityMap, SnowConnection)
+        .join(SnowConnection, SnowConnection.id == SnowIdentityMap.connection_id)
+        .where(SnowIdentityMap.card_id == card_id)
+        .order_by(SnowIdentityMap.last_synced_at.desc().nullslast())
+    )
+    links: list[SnowLinkOut] = []
+    for entry, conn in result.all():
+        base = (conn.instance_url or "").rstrip("/")
+        links.append(
+            SnowLinkOut(
+                connection_name=conn.name,
+                table=entry.snow_table,
+                sys_id=entry.snow_sys_id,
+                url=f"{base}/{entry.snow_table}.do?sys_id={entry.snow_sys_id}",
+                last_synced_at=entry.last_synced_at.isoformat() if entry.last_synced_at else None,
+            )
+        )
+    return links

@@ -277,6 +277,11 @@ Después de la primera sincronización que establece los vínculos del mapa de i
 
 ---
 
+### Abrir el registro de ServiceNow
+
+Una vez sincronizada una tarjeta, su pestaña **Recursos** muestra una sección **ServiceNow** con un enlace directo que abre el registro correspondiente (`https://<su-instancia>/<tabla>.do?sys_id=<id>`) en una pestaña nueva. El enlace es de solo lectura y se mantiene automáticamente mediante la sincronización: no hay nada que configurar. Las tarjetas que nunca se sincronizaron no muestran la sección; aún puede añadir un enlace manual en **Enlaces de documentos** en la misma pestaña.
+
+
 ## Paso 5: Ejecutar su Primera Sincronización
 
 Cambie a la pestaña **Panel de Sincronización**.

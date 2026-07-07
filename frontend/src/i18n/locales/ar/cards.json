@@ -288,6 +288,8 @@
   "resources.architectureDecisions": "قرارات المعمارية",
   "resources.fileAttachments": "مرفقات الملفات",
   "resources.documentLinks": "روابط المستندات",
+  "resources.serviceNow": "ServiceNow",
+  "resources.serviceNowHint": "مرتبط تلقائيًا عبر مزامنة ServiceNow — يفتح السجل المطابق في نسختك.",
   "resources.createAdr": "إنشاء ADR",
   "resources.linkAdr": "ربط ADR",
   "resources.unlinkAdr": "إلغاء الربط",

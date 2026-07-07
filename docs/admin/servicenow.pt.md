@@ -277,6 +277,11 @@ Após a primeira sincronização estabelecer vínculos no mapa de identidade, si
 
 ---
 
+### Abrir o registro do ServiceNow
+
+Depois de sincronizar um cartão, a sua aba **Recursos** mostra uma seção **ServiceNow** com um link direto que abre o registro correspondente (`https://<sua-instância>/<tabela>.do?sys_id=<id>`) numa nova aba. O link é somente leitura e mantido automaticamente pela sincronização — nada a configurar. Cartões que nunca foram sincronizados não mostram a seção; você ainda pode adicionar um link manual em **Links de documentos** na mesma aba.
+
+
 ## Passo 5: Executar sua Primeira Sincronização
 
 Mude para a aba **Painel de Sincronização**.

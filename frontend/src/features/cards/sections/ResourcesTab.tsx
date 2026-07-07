@@ -40,6 +40,14 @@ interface DocumentLink {
   created_at: string | null;
 }
 
+interface SnowLink {
+  connection_name: string;
+  table: string;
+  sys_id: string;
+  url: string;
+  last_synced_at: string | null;
+}
+
 const STATUS_COLORS: Record<string, "default" | "warning" | "success"> = {
   draft: "default",
   in_review: "warning",
@@ -114,6 +122,7 @@ function ResourcesTab({
   const [adrs, setAdrs] = useState<ArchitectureDecision[]>([]);
   const [files, setFiles] = useState<FileAttachment[]>([]);
   const [docs, setDocs] = useState<DocumentLink[]>([]);
+  const [snowLinks, setSnowLinks] = useState<SnowLink[]>([]);
   const [linkedDiagrams, setLinkedDiagrams] = useState<DiagramSummary[]>([]);
   const [error, setError] = useState("");
 
@@ -179,12 +188,23 @@ function ResourcesTab({
       .catch(() => {});
   }, [fsId]);
 
+  const loadSnowLinks = useCallback(() => {
+    // Derived read-only deep links to the ServiceNow record(s) this card is
+    // synced with. Silently ignore errors (e.g. no servicenow.view permission)
+    // — the section simply stays hidden.
+    api
+      .get<SnowLink[]>(`/servicenow/cards/${fsId}/links`)
+      .then(setSnowLinks)
+      .catch(() => setSnowLinks([]));
+  }, [fsId]);
+
   useEffect(() => {
     loadAdrs();
     loadFiles();
     loadDocs();
     loadDiagrams();
-  }, [loadAdrs, loadFiles, loadDocs, loadDiagrams]);
+    loadSnowLinks();
+  }, [loadAdrs, loadFiles, loadDocs, loadDiagrams, loadSnowLinks]);
 
   // ── ADR Linking ──
   const openLinkAdr = async () => {
@@ -652,6 +672,51 @@ function ResourcesTab({
           </List>
         </AccordionDetails>
       </Accordion>
+
+      {/* ── ServiceNow (read-only, auto-derived from sync) ── */}
+      {snowLinks.length > 0 && (
+        <Accordion defaultExpanded>
+          <AccordionSummary
+            expandIcon={<MaterialSymbol icon="expand_more" size={20} />}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <MaterialSymbol icon="cloud_sync" size={20} />
+              <Typography variant="subtitle1" fontWeight={600}>
+                {t("resources.serviceNow")}
+              </Typography>
+              <Chip label={snowLinks.length} size="small" />
+              <Tooltip title={t("resources.serviceNowHint")}>
+                <Box component="span" sx={{ display: "inline-flex" }}>
+                  <MaterialSymbol icon="info" size={16} />
+                </Box>
+              </Tooltip>
+            </Box>
+          </AccordionSummary>
+          <AccordionDetails>
+            <List dense>
+              {snowLinks.map((link) => (
+                <ListItem key={`${link.table}-${link.sys_id}`}>
+                  <ListItemIcon sx={{ minWidth: 36 }}>
+                    <MaterialSymbol icon="open_in_new" size={20} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={
+                      <Link
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {`${link.connection_name} — ${link.table}`}
+                      </Link>
+                    }
+                    secondary={link.sys_id}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          </AccordionDetails>
+        </Accordion>
+      )}
 
       {/* ── Diagrams ── */}
       <Accordion defaultExpanded>

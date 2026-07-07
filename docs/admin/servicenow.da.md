@@ -277,6 +277,11 @@ Efter at den første synkronisering etablerer identitetskort-links, bruger efter
 
 ---
 
+### Åbn ServiceNow-posten
+
+Når et kort er synkroniseret, viser dets **Ressourcer**-fane en **ServiceNow**-sektion med et direkte link, der åbner den tilsvarende post (`https://<din-instans>/<tabel>.do?sys_id=<id>`) i en ny fane. Linket er skrivebeskyttet og vedligeholdes automatisk af synkroniseringen — intet at konfigurere. Kort, der aldrig er blevet synkroniseret, viser ikke sektionen; du kan stadig tilføje et manuelt link under **Dokumentlinks** på samme fane.
+
+
 ## Trin 5: Kør din første synkronisering
 
 Skift til fanebladet **Sync Dashboard**.

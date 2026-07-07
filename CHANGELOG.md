@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - **Default and constant values in ServiceNow field mappings.** Each field mapping can now carry a default value that is written to the card during a pull. Leave the ServiceNow field blank to set a hardcoded constant on every synced card (e.g. always land CIs as `hardware`), or keep the ServiceNow field to use the default only as a fallback when the source value is empty. Multi-select targets accept a comma-separated list, and the value is coerced to the target field's type.
+- **Link from a card to its ServiceNow record.** Cards synced with ServiceNow now show a read-only ServiceNow section on their Resources tab with a direct link that opens the matching record in your instance. The link is derived automatically from the sync identity map — no manual URL or external-ID entry needed.
 
 ## [1.65.5] - 2026-07-07
 

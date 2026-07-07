@@ -533,6 +533,72 @@ class TestMappingDefaultValues:
 
 
 # ---------------------------------------------------------------
+# GET /servicenow/cards/{id}/links  — derived record deep links
+# ---------------------------------------------------------------
+
+
+class TestCardServiceNowLinks:
+    async def test_link_derived_from_identity_map(self, client, db, snow_env):
+        """A synced card exposes a deep link built from its identity map row."""
+        from app.models.servicenow import (
+            SnowConnection,
+            SnowIdentityMap,
+            SnowMapping,
+        )
+        from tests.conftest import create_card
+
+        admin = snow_env["admin"]
+        card = await create_card(db, name="NexaCore ERP")
+        conn = SnowConnection(
+            name="Prod SNOW",
+            instance_url="https://acme.service-now.com/",  # trailing slash on purpose
+            auth_type="basic",
+            credentials={},
+        )
+        db.add(conn)
+        await db.flush()
+        mapping = SnowMapping(
+            connection_id=conn.id, card_type_key="Application", snow_table="cmdb_ci_appl"
+        )
+        db.add(mapping)
+        await db.flush()
+        db.add(
+            SnowIdentityMap(
+                connection_id=conn.id,
+                mapping_id=mapping.id,
+                card_id=card.id,
+                snow_sys_id="abc123",
+                snow_table="cmdb_ci_appl",
+            )
+        )
+        await db.flush()
+
+        resp = await client.get(
+            f"/api/v1/servicenow/cards/{card.id}/links", headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert len(data) == 1
+        assert data[0]["connection_name"] == "Prod SNOW"
+        assert data[0]["table"] == "cmdb_ci_appl"
+        assert data[0]["sys_id"] == "abc123"
+        # trailing slash collapsed, direct record-form URL
+        assert data[0]["url"] == "https://acme.service-now.com/cmdb_ci_appl.do?sys_id=abc123"
+
+    async def test_no_links_for_unsynced_card(self, client, db, snow_env):
+        """A card that was never synced returns an empty list."""
+        from tests.conftest import create_card
+
+        admin = snow_env["admin"]
+        card = await create_card(db, name="Manual Card")
+        resp = await client.get(
+            f"/api/v1/servicenow/cards/{card.id}/links", headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json() == []
+
+
+# ---------------------------------------------------------------
 # Default-value coercion helpers (pure, no DB)
 # ---------------------------------------------------------------
 
