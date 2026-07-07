@@ -35,6 +35,27 @@ communication goes a long way.
 
 ---
 
+## Licensing of Contributions
+
+From v1.67.0 onward, Turbo EA is licensed under the [Functional Source License 1.1
+with MIT Future License (FSL-1.1-MIT)](LICENSE). Any contribution that does land in
+the project is accepted under that same license — which means your work is guaranteed
+to become MIT two years after the release it ships in.
+
+Because this is a solo-maintained project, contributions are governed by the
+lightweight [Developer Certificate of Origin](https://developercertificate.org/)
+rather than a full CLA. Sign off every commit with:
+
+```bash
+git commit -s
+```
+
+The `-s` flag adds a `Signed-off-by: Your Name <you@example.com>` line, certifying that
+you wrote the change (or have the right to submit it) and agree to it being distributed
+under the project's license.
+
+---
+
 ## Getting Started (for fork developers)
 
 1. **Fork the repository** and clone it locally.
