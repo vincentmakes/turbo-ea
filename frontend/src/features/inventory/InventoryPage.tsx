@@ -206,6 +206,10 @@ export default function InventoryPage() {
   // toolbar button). This is the grid's own filter model — a layer separate
   // from the sidebar `filters` state below.
   const [hasColumnFilters, setHasColumnFilters] = useState(false);
+  // Rows displayed after AG Grid column filtering — drives the item-count pill
+  // so it reflects the column filters, not just the sidebar-filtered set.
+  // Null until the grid's first model update; falls back to filteredData.length.
+  const [displayedRowCount, setDisplayedRowCount] = useState<number | null>(null);
 
   // Sidebar state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -850,6 +854,15 @@ export default function InventoryPage() {
     const api = gridRef.current?.api;
     if (!api) return;
     setHasColumnFilters(Object.keys(api.getFilterModel() ?? {}).length > 0);
+  }, []);
+
+  // Keep the item-count pill in sync with the rows AG Grid actually shows.
+  // onModelUpdated fires after row data is set and after every filter/sort, so
+  // the count reflects the active column filters (not just the sidebar filters).
+  const handleModelUpdated = useCallback(() => {
+    const api = gridRef.current?.api;
+    if (!api) return;
+    setDisplayedRowCount(api.getDisplayedRowCount());
   }, []);
 
   // Clear all AG Grid column filters at once. Also invoked by the sidebar's
@@ -2206,7 +2219,7 @@ export default function InventoryPage() {
           <Typography variant={isMobile ? "h6" : "h5"} fontWeight={600}>
             {t("page.title")}
           </Typography>
-          <Chip label={t("common:items", { count: filteredData.length })} size="small" />
+          <Chip label={t("common:items", { count: displayedRowCount ?? filteredData.length })} size="small" />
           <Box sx={{ flex: 1 }} />
           {isMobile ? (
             <>
@@ -2476,6 +2489,7 @@ export default function InventoryPage() {
             onSortChanged={handleSortChanged}
             onGridReady={handleGridReady}
             onFilterChanged={handleFilterChanged}
+            onModelUpdated={handleModelUpdated}
             onDragStopped={captureColumnState}
             onColumnPinned={captureColumnState}
             maintainColumnOrder
