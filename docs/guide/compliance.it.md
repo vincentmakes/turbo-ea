@@ -31,8 +31,10 @@ Clicca **+ Nuova rilevazione** nella toolbar Conformità per aprire il dialogo d
 | **Lacuna** | Descrizione della lacuna o osservazione. |
 | **Evidenza** | Evidenza di supporto, note di audit, link. |
 | **Rimedio** | Rimedio suggerito. Usato come seme per il task di mitigazione se in seguito promuovi la rilevazione a un Rischio. |
-| **Card collegata** | Opzionale — restringere la rilevazione a una specifica Applicazione, Componente IT o altra card. |
+| **Ambito** | Obbligatorio. Scegli **Una scheda specifica** — restringere la rilevazione a una singola Applicazione o Componente IT — oppure **L'intero paesaggio** per una lacuna sistemica, a livello dell'intero parco, che nessuna singola card possiede (es. una procedura a livello di organizzazione mancante). Le rilevazioni di paesaggio sono mostrate in verde nella colonna **Card**. |
 | **Rischio collegato** | Opzionale — pre-collegare a un Rischio esistente se uno già traccia questa lacuna. |
+
+Ogni rilevazione deve essere circoscritta a una card specifica o all'intero paesaggio — non esiste uno stato ambiguo «senza card». L'ambito paesaggio è una scelta a pieno titolo, non un campo vuoto: anche le scansioni IA producono rilevazioni a livello di paesaggio per controlli sistemici che coprono l'intero parco.
 
 `compliance.manage` è richiesto per creare, modificare, ritirare o bulk-azionare rilevazioni. `compliance.view` basta per leggere il registro e triagiare dalla scheda Conformità a livello di card.
 

@@ -30,8 +30,10 @@ Klik på **+ New finding** i Compliance-værktøjslinjen for at åbne oprettelse
 | **Gap** | Beskrivelse af manglen eller observationen. |
 | **Evidence** | Understøttende dokumentation, audit-noter, links. |
 | **Remediation** | Foreslået afhjælpning. Bruges som udgangspunkt for afhjælpningsopgaven, hvis du senere promoverer fundet til en risiko. |
-| **Linked card** | Valgfrit — afgræns fundet til en specifik Application, IT Component eller andet kort. |
+| **Scope** | Påkrævet. Vælg **Et bestemt kort** — afgræns fundet til en enkelt Application eller IT Component — eller **Hele landskabet** for en systemisk, porteføljedækkende mangel, som intet enkelt kort ejer (f.eks. en manglende organisationsdækkende procedure). Landskabsfund vises med grønt i kolonnen **Kort**. |
 | **Linked risk** | Valgfrit — forhåndslink til en eksisterende risiko, hvis en allerede sporer denne mangel. |
+
+Hvert fund skal afgrænses enten til et bestemt kort eller til hele landskabet — der findes ingen tvetydig „intet kort“-tilstand. Landskabsafgrænsning er et fuldgyldigt valg, ikke et tomt felt: AI-scanninger producerer også fund på landskabsniveau for systemiske kontroller, der spænder over hele porteføljen.
 
 `compliance.manage` er påkrævet for at oprette, redigere, tilbagetrække eller masse-håndtere fund. `compliance.view` er nok til at læse registret og triagere fra fanen Compliance på kort-niveau.
 

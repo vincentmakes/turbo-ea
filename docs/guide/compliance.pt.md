@@ -31,8 +31,10 @@ Clique em **+ Nova descoberta** na barra de ferramentas Conformidade para abrir 
 | **Lacuna** | Descrição da lacuna ou observação. |
 | **Evidência** | Evidência de respaldo, notas de auditoria, links. |
 | **Remediação** | Remediação sugerida. Usada como semente para a tarefa de mitigação se depois promover a descoberta a um Risco. |
-| **Card vinculado** | Opcional — restringir a descoberta a uma Aplicação, Componente IT ou outro card específico. |
+| **Escopo** | Obrigatório. Escolha **Um cartão específico** — restringir a descoberta a uma única Aplicação ou Componente IT — ou **Toda a paisagem** para uma lacuna sistêmica, ao nível de todo o parque, que nenhum card possui (p. ex. um procedimento a nível de organização ausente). As descobertas de paisagem são exibidas em verde na coluna **Card**. |
 | **Risco vinculado** | Opcional — pré-vincular a um Risco existente se algum já rastreia essa lacuna. |
+
+Cada descoberta deve estar delimitada a um card específico ou a toda a paisagem — não existe um estado ambíguo «sem card». O escopo de paisagem é uma escolha de pleno direito, não um campo vazio: as varreduras com IA também produzem descobertas em nível de paisagem para controles sistêmicos que abrangem todo o parque.
 
 `compliance.manage` é requerido para criar, editar, retirar ou bulk-actionar descobertas. `compliance.view` basta para ler o registro e triagiar a partir da aba Conformidade no nível do card.
 

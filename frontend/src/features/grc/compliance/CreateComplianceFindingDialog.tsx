@@ -15,8 +15,12 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import FormControl from "@mui/material/FormControl";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import FormLabel from "@mui/material/FormLabel";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
+import Radio from "@mui/material/Radio";
+import RadioGroup from "@mui/material/RadioGroup";
 import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
@@ -76,6 +80,7 @@ export default function CreateComplianceFindingDialog({
     defaultRegulation ?? enabledRegulations[0]?.key ?? "eu_ai_act",
   );
   const [regulationArticle, setRegulationArticle] = useState("");
+  const [scope, setScope] = useState<"card" | "landscape">("card");
   const [selectedCard, setSelectedCard] = useState<CardOption | null>(null);
   const [category, setCategory] = useState("");
   const [requirement, setRequirement] = useState("");
@@ -94,6 +99,7 @@ export default function CreateComplianceFindingDialog({
       // Edit mode — prefill from the existing finding.
       setRegulation(finding.regulation);
       setRegulationArticle(finding.regulation_article ?? "");
+      setScope(finding.card_id ? "card" : "landscape");
       setSelectedCard(
         finding.card_id
           ? {
@@ -115,6 +121,7 @@ export default function CreateComplianceFindingDialog({
         defaultRegulation ?? enabledRegulations[0]?.key ?? "eu_ai_act",
       );
       setRegulationArticle("");
+      setScope("card");
       setSelectedCard(null);
       setCategory("");
       setRequirement("");
@@ -133,12 +140,16 @@ export default function CreateComplianceFindingDialog({
       setError(tCards("compliance.create.errRequirement"));
       return;
     }
+    if (scope === "card" && !selectedCard) {
+      setError(tCards("compliance.create.errCard"));
+      return;
+    }
     setSubmitting(true);
     setError(null);
     const payload = {
       regulation,
       regulation_article: regulationArticle.trim() || null,
-      card_id: selectedCard?.id ?? null,
+      card_id: scope === "card" ? (selectedCard?.id ?? null) : null,
       category: category.trim(),
       requirement: requirement.trim(),
       status,
@@ -204,16 +215,42 @@ export default function CreateComplianceFindingDialog({
             fullWidth
           />
 
-          <CardPicker
-            types={["Application", "ITComponent"]}
-            value={selectedCard}
-            onChange={setSelectedCard}
-            enabled={open}
-            disabled={submitting}
-            fullWidth
-            label={tCards("compliance.create.card")}
-            placeholder={tCards("compliance.create.cardPlaceholder")}
-          />
+          <FormControl disabled={submitting}>
+            <FormLabel sx={{ mb: 0.5 }}>
+              {tCards("compliance.create.scopeLabel")}
+            </FormLabel>
+            <RadioGroup
+              row
+              value={scope}
+              onChange={(e) =>
+                setScope(e.target.value as "card" | "landscape")
+              }
+            >
+              <FormControlLabel
+                value="card"
+                control={<Radio size="small" />}
+                label={tCards("compliance.create.scopeCard")}
+              />
+              <FormControlLabel
+                value="landscape"
+                control={<Radio size="small" />}
+                label={tCards("compliance.create.scopeLandscape")}
+              />
+            </RadioGroup>
+          </FormControl>
+
+          {scope === "card" && (
+            <CardPicker
+              types={["Application", "ITComponent"]}
+              value={selectedCard}
+              onChange={setSelectedCard}
+              enabled={open}
+              disabled={submitting}
+              fullWidth
+              label={tCards("compliance.create.card")}
+              placeholder={tCards("compliance.create.cardPlaceholder")}
+            />
+          )}
 
           <TextField
             label={tCards("compliance.grid.col.requirement")}

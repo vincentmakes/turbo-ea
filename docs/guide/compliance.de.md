@@ -31,8 +31,10 @@ Klick **+ Neuer Befund** in der Compliance-Symbolleiste, um den Erstellungsdialo
 | **Lücke** | Beschreibung der Lücke oder Beobachtung. |
 | **Nachweis** | Belege, Audit-Notizen, Links. |
 | **Empfohlene Behebung** | Vorgeschlagene Behebung. Wird als Seed für die Mitigationsaufgabe verwendet, wenn der Befund später zu einem Risiko überführt wird. |
-| **Verknüpfte Karte** | Optional — den Befund auf eine bestimmte Anwendung, IT-Komponente oder andere Karte beziehen. |
+| **Scope** | Erforderlich. Wählen Sie **Eine bestimmte Karte** — den Befund auf eine einzelne Anwendung oder IT-Komponente beziehen — oder **Die gesamte Landschaft** für eine systemische, bestandsweite Lücke, die keine einzelne Karte besitzt (z. B. ein fehlendes organisationsweites Verfahren). Landschaftsbefunde werden in der Spalte **Karte** grün dargestellt. |
 | **Verknüpftes Risiko** | Optional — vorab mit einem bestehenden Risiko verknüpfen, falls eines die Lücke bereits verfolgt. |
+
+Jeder Befund muss entweder auf eine bestimmte Karte oder auf die gesamte Landschaft bezogen werden — es gibt keinen mehrdeutigen Zustand „ohne Karte“. Der Landschafts-Scope ist eine vollwertige Wahl, kein leeres Feld: KI-Scans erzeugen ebenfalls Landschaftsbefunde für systemische Kontrollen, die sich über den gesamten Bestand erstrecken.
 
 `compliance.manage` ist erforderlich, um Befunde zu erstellen, zu bearbeiten, stillzulegen oder bulk-zu-aktionieren. `compliance.view` reicht, um das Register zu lesen und vom kartenseitigen Compliance-Reiter zu triagieren.
 

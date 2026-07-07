@@ -31,8 +31,10 @@ Haz clic en **+ Nuevo hallazgo** en la barra de herramientas de Cumplimiento par
 | **Brecha** | Descripción de la brecha u observación. |
 | **Evidencia** | Evidencia de respaldo, notas de auditoría, enlaces. |
 | **Remediación** | Remediación sugerida. Usada como semilla para la tarea de mitigación si luego promueves el hallazgo a un Riesgo. |
-| **Tarjeta vinculada** | Opcional — limitar el hallazgo a una Aplicación, Componente IT u otra tarjeta específica. |
+| **Alcance** | Obligatorio. Elige **Una tarjeta específica** — limitar el hallazgo a una sola Aplicación o Componente IT — o **Todo el paisaje** para una brecha sistémica, a nivel de todo el parque, que ninguna tarjeta posee (p. ej. un procedimiento a nivel de organización ausente). Los hallazgos de paisaje se muestran en verde en la columna **Tarjeta**. |
 | **Riesgo vinculado** | Opcional — pre-vincular a un Riesgo existente si uno ya rastrea esta brecha. |
+
+Cada hallazgo debe estar acotado a una tarjeta específica o a todo el paisaje — no existe un estado ambiguo «sin tarjeta». El alcance de paisaje es una opción de pleno derecho, no un campo vacío: los escaneos con IA también producen hallazgos a nivel de paisaje para controles sistémicos que abarcan todo el parque.
 
 `compliance.manage` es requerido para crear, editar, retirar o bulk-actionar hallazgos. `compliance.view` basta para leer el registro y triagear desde la pestaña Cumplimiento a nivel de tarjeta.
 
