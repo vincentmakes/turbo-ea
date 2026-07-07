@@ -1,4 +1,4 @@
-"""TurboLens Vendor Analysis + Resolution — ported from ai.js + resolution.js.
+"""TurboLens Vendor Analysis + Resolution.
 
 Queries the cards table directly (no fact_sheets copy) and calls AI to:
   1. Categorise vendors into 60+ industry categories
@@ -26,7 +26,7 @@ from app.services.turbolens_ai import call_ai, parse_json
 logger = logging.getLogger("turboea.turbolens.vendors")
 
 # ---------------------------------------------------------------------------
-# Categories (ported from ai.js)
+# Categories
 # ---------------------------------------------------------------------------
 
 CATEGORIES = [
@@ -193,7 +193,7 @@ async def _load_cards_with_vendors(
 
 
 # ---------------------------------------------------------------------------
-# Vendor Analysis (port of analyseVendors from ai.js)
+# Vendor Analysis
 # ---------------------------------------------------------------------------
 
 
@@ -422,7 +422,7 @@ Return ONLY a JSON object (no markdown):
 
 
 # ---------------------------------------------------------------------------
-# Vendor Resolution (port of resolveVendorIdentities from resolution.js)
+# Vendor Resolution
 # ---------------------------------------------------------------------------
 
 

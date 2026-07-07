@@ -5,9 +5,6 @@ O módulo **TurboLens** fornece análise baseada em IA do seu panorama de arquit
 !!! note
     O TurboLens requer um fornecedor de IA comercial (Anthropic Claude, OpenAI, DeepSeek ou Google Gemini) configurado nas [Definições de IA](../admin/ai.md). O módulo fica automaticamente disponível quando a IA está configurada.
 
-!!! info "Créditos"
-    O TurboLens baseia-se no projeto open-source [ArchLens](https://github.com/vinod-ea/archlens) de [Vinod](https://github.com/vinod-ea), publicado sob a licença MIT. A lógica de análise foi portada de Node.js para Python e integrada nativamente no Turbo EA.
-
 ## Painel
 
 O painel do TurboLens fornece uma visão geral instantânea da análise do seu panorama.

@@ -5,9 +5,6 @@
 !!! note
     TurboLens kræver en kommerciel AI-udbyder (Anthropic Claude, OpenAI, DeepSeek eller Google Gemini) konfigureret i [AI-indstillinger](../admin/ai.md). Modulet er automatisk tilgængeligt, når AI er konfigureret.
 
-!!! info "Credits"
-    TurboLens er baseret på open source-projektet [ArchLens](https://github.com/vinod-ea/archlens) af [Vinod](https://github.com/vinod-ea), udgivet under MIT-licensen. Analyse-logikken er blevet porteret fra Node.js til Python og integreret nativt i Turbo EA.
-
 ## Dashboard
 
 TurboLens-dashboardet giver et øjebliks overblik over din landskabsanalyse.

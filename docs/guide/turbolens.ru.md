@@ -5,9 +5,6 @@
 !!! note
     TurboLens требует настройки коммерческого AI-провайдера (Anthropic Claude, OpenAI, DeepSeek или Google Gemini) в разделе [Настройки AI](../admin/ai.md). Модуль становится доступен автоматически после настройки AI.
 
-!!! info "Credits"
-    TurboLens основан на проекте с открытым исходным кодом [ArchLens](https://github.com/vinod-ea/archlens), созданном [Vinod](https://github.com/vinod-ea) и опубликованном под лицензией MIT. Логика анализа перенесена с Node.js на Python и нативно интегрирована в Turbo EA.
-
 ## Панель управления
 
 Панель управления TurboLens предоставляет общий обзор результатов анализа ландшафта.

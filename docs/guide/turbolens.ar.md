@@ -5,9 +5,6 @@
 !!! note
     تتطلّب TurboLens مزوّد ذكاء اصطناعي تجاريًا (Anthropic Claude أو OpenAI أو DeepSeek أو Google Gemini) مُهيّأً في [إعدادات الذكاء الاصطناعي](../admin/ai.md). تتوفّر الوحدة تلقائيًا عند تهيئة الذكاء الاصطناعي.
 
-!!! info "اعتمادات"
-    تستند TurboLens إلى مشروع [ArchLens](https://github.com/vinod-ea/archlens) مفتوح المصدر من تأليف [Vinod](https://github.com/vinod-ea)، المُصدَر بموجب رخصة MIT. وقد جرى نقل منطق التحليل من Node.js إلى Python ودمجه أصليًا في Turbo EA.
-
 ## لوحة المعلومات
 
 توفّر لوحة معلومات TurboLens نظرة سريعة شاملة على تحليل مشهدك.

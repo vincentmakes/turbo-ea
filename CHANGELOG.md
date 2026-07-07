@@ -1837,7 +1837,7 @@ This release is a stress-test pass: shaking out a real-world large-dataset workf
 ## [0.42.5] - 2026-04-07
 
 ### Changed
-- Renamed ArchLens to TurboLens across the entire codebase (routes, components, database tables, permissions, translations, documentation)
+- Consolidated the AI intelligence module under the TurboLens name across the entire codebase (routes, components, database tables, permissions, translations, documentation)
 
 ## [0.42.4] - 2026-03-26
 
@@ -1926,7 +1926,7 @@ This release is a stress-test pass: shaking out a real-world large-dataset workf
 ## [0.38.0] - 2026-03-14
 
 ### Added
-- TurboLens AI Intelligence module — AI-powered vendor analysis, duplicate detection, modernization assessment, and 3-phase architecture AI, ported from [ArchLens](https://github.com/vinod-ea/archlens) (MIT License, by [Vinod](https://github.com/vinod-ea)) and integrated natively into Turbo EA
+- TurboLens AI Intelligence module — AI-powered vendor analysis, duplicate detection, modernization assessment, and 3-phase architecture AI, integrated natively into Turbo EA
 - Vendor categorisation across 45+ industry categories with AI-driven sub-category and reasoning
 - Vendor resolution that groups aliases and product variants into a canonical vendor hierarchy
 - Duplicate detection using union-find clustering to identify functionally overlapping cards

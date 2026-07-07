@@ -5,9 +5,6 @@
 !!! note
     TurboLens 需要在 [AI 设置](../admin/ai.md) 中配置商业 AI 提供商（Anthropic Claude、OpenAI、DeepSeek 或 Google Gemini）。配置 AI 后，该模块将自动可用。
 
-!!! info "Credits"
-    TurboLens 基于 [Vinod](https://github.com/vinod-ea) 发布的开源项目 [ArchLens](https://github.com/vinod-ea/archlens)，遵循 MIT 许可证。分析逻辑已从 Node.js 移植为 Python，并原生集成到 Turbo EA 中。
-
 ## 仪表板
 
 TurboLens 仪表板提供您的全景分析概览。

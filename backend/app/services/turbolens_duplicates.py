@@ -1,4 +1,4 @@
-"""TurboLens Duplicate Detection + Modernization — ported from resolution.js.
+"""TurboLens Duplicate Detection + Modernization.
 
 Clusters cards by functional purpose using AI, then assesses modernization
 opportunities for each card type.
@@ -152,7 +152,7 @@ def _merge_overlapping_clusters(
 
 
 # ---------------------------------------------------------------------------
-# Duplicate Detection (port of detectDuplicates from resolution.js)
+# Duplicate Detection
 # ---------------------------------------------------------------------------
 
 
@@ -255,7 +255,7 @@ If no duplicates found, return: []"""
 
 
 # ---------------------------------------------------------------------------
-# Modernization Assessment (port of assessModernization from resolution.js)
+# Modernization Assessment
 # ---------------------------------------------------------------------------
 
 

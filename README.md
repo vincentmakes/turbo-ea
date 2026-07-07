@@ -100,7 +100,7 @@ The demo comes pre-populated with the NexaTech Industries dataset — 150+ cards
 
 ### TurboLens AI Intelligence
 
-AI-powered EA analysis module — originally ported from [ArchLens](https://github.com/vinod-ea/archlens) by [Vinod](https://github.com/vinod-ea) (MIT License). Runs natively in Turbo EA using the same AI provider configuration.
+AI-powered EA analysis module that runs natively in Turbo EA using the same AI provider configuration.
 
 - **Vendor Analysis** — AI categorizes technology vendors from your portfolio into 45+ industry categories, counting associated applications and costs. Results displayed with category breakdowns and detailed reasoning.
 - **Vendor Resolution** — Builds a canonical vendor hierarchy by resolving aliases, parent-child relationships, and product groupings. Displays confidence scores for each resolution.
@@ -674,12 +674,6 @@ turbo-ea/
 ├── .env.example             # Template for environment variables
 └── CLAUDE.md                # AI assistant context file
 ```
-
----
-
-## Credits
-
-- **TurboLens AI Intelligence** — The AI-powered vendor analysis, duplicate detection, and architecture recommendation features are based on [ArchLens](https://github.com/vinod-ea/archlens) by [Vinod](https://github.com/vinod-ea), originally released under the MIT License. The analysis logic has been ported from Node.js/Express/SQLite to Python/FastAPI/PostgreSQL and integrated natively into Turbo EA.
 
 ---
 
