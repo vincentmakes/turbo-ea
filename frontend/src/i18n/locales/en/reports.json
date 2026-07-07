@@ -37,7 +37,7 @@
   "saved.deleteTitle": "Delete Saved Report",
   "saved.deleteConfirm": "Are you sure you want to delete <strong>{{name}}</strong>? This cannot be undone.",
   "saved.byOwner": "by {{name}}",
-  "saved.typePortfolio": "Portfolio",
+  "saved.typePortfolio": "Application Portfolio",
   "saved.typeFlexiblePortfolio": "Flexible Portfolio",
   "saved.typeCapabilityMap": "Capability Map",
   "saved.typeLifecycle": "Lifecycle",

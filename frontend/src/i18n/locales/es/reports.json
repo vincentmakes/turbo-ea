@@ -37,7 +37,7 @@
   "saved.deleteTitle": "Eliminar informe guardado",
   "saved.deleteConfirm": "¿Está seguro de que desea eliminar <strong>{{name}}</strong>? Esta acción no se puede deshacer.",
   "saved.byOwner": "por {{name}}",
-  "saved.typePortfolio": "Portafolio",
+  "saved.typePortfolio": "Portafolio de aplicaciones",
   "saved.typeFlexiblePortfolio": "Portafolio flexible",
   "saved.typeCapabilityMap": "Mapa de capacidades",
   "saved.typeLifecycle": "Ciclo de vida",

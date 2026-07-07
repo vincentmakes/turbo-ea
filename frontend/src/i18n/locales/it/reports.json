@@ -37,7 +37,7 @@
   "saved.deleteTitle": "Elimina report salvato",
   "saved.deleteConfirm": "Conferma l'eliminazione di <strong>{{name}}</strong>? Questa azione non può essere annullata.",
   "saved.byOwner": "di {{name}}",
-  "saved.typePortfolio": "Portfolio",
+  "saved.typePortfolio": "Portfolio applicazioni",
   "saved.typeFlexiblePortfolio": "Portfolio flessibile",
   "saved.typeCapabilityMap": "Mappa delle capacità",
   "saved.typeLifecycle": "Ciclo di vita",

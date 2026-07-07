@@ -37,7 +37,7 @@
   "saved.deleteTitle": "删除已保存报告",
   "saved.deleteConfirm": "您确定要删除 <strong>{{name}}</strong> 吗？此操作无法撤销。",
   "saved.byOwner": "由 {{name}} 创建",
-  "saved.typePortfolio": "组合分析",
+  "saved.typePortfolio": "应用组合",
   "saved.typeFlexiblePortfolio": "灵活组合分析",
   "saved.typeCapabilityMap": "能力地图",
   "saved.typeLifecycle": "生命周期",

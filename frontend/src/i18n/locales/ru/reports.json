@@ -37,7 +37,7 @@
   "saved.deleteTitle": "Удалить сохранённый отчёт",
   "saved.deleteConfirm": "Вы уверены, что хотите удалить <strong>{{name}}</strong>? Это действие нельзя отменить.",
   "saved.byOwner": "от {{name}}",
-  "saved.typePortfolio": "Портфолио",
+  "saved.typePortfolio": "Портфолио приложений",
   "saved.typeFlexiblePortfolio": "Гибкое портфолио",
   "saved.typeCapabilityMap": "Карта возможностей",
   "saved.typeLifecycle": "Жизненный цикл",

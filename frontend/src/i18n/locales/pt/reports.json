@@ -37,7 +37,7 @@
   "saved.deleteTitle": "Excluir relatório salvo",
   "saved.deleteConfirm": "Tem certeza de que deseja excluir <strong>{{name}}</strong>? Esta ação não pode ser desfeita.",
   "saved.byOwner": "por {{name}}",
-  "saved.typePortfolio": "Portfólio",
+  "saved.typePortfolio": "Portfólio de aplicações",
   "saved.typeFlexiblePortfolio": "Portfólio flexível",
   "saved.typeCapabilityMap": "Mapa de capacidades",
   "saved.typeLifecycle": "Ciclo de vida",

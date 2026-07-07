@@ -37,7 +37,7 @@
   "saved.deleteTitle": "Supprimer le rapport enregistré",
   "saved.deleteConfirm": "Êtes-vous sûr de vouloir supprimer <strong>{{name}}</strong> ? Cette action est irréversible.",
   "saved.byOwner": "par {{name}}",
-  "saved.typePortfolio": "Portefeuille",
+  "saved.typePortfolio": "Portefeuille applicatif",
   "saved.typeFlexiblePortfolio": "Portefeuille flexible",
   "saved.typeCapabilityMap": "Carte des capacités",
   "saved.typeLifecycle": "Cycle de vie",

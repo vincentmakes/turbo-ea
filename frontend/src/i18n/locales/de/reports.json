@@ -37,7 +37,7 @@
   "saved.deleteTitle": "Gespeicherten Bericht löschen",
   "saved.deleteConfirm": "Möchten Sie <strong>{{name}}</strong> wirklich löschen? Dies kann nicht rückgängig gemacht werden.",
   "saved.byOwner": "von {{name}}",
-  "saved.typePortfolio": "Portfolio",
+  "saved.typePortfolio": "Anwendungsportfolio",
   "saved.typeFlexiblePortfolio": "Flexibles Portfolio",
   "saved.typeCapabilityMap": "Geschäftsfähigkeiten",
   "saved.typeLifecycle": "Lebenszyklus",

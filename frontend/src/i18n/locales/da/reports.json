@@ -37,7 +37,7 @@
   "saved.deleteTitle": "Slet gemt rapport",
   "saved.deleteConfirm": "Er du sikker på, at du vil slette <strong>{{name}}</strong>? Dette kan ikke fortrydes.",
   "saved.byOwner": "af {{name}}",
-  "saved.typePortfolio": "Portefølje",
+  "saved.typePortfolio": "Applikationsportefølje",
   "saved.typeFlexiblePortfolio": "Fleksibel portefølje",
   "saved.typeCapabilityMap": "Kompetencekort",
   "saved.typeLifecycle": "Livscyklus",

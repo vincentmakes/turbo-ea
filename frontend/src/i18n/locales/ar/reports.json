@@ -37,7 +37,7 @@
   "saved.deleteTitle": "حذف التقرير المحفوظ",
   "saved.deleteConfirm": "هل أنت متأكد من رغبتك في حذف <strong>{{name}}</strong>؟ لا يمكن التراجع عن هذا الإجراء.",
   "saved.byOwner": "بواسطة {{name}}",
-  "saved.typePortfolio": "المحفظة",
+  "saved.typePortfolio": "محفظة التطبيقات",
   "saved.typeFlexiblePortfolio": "المحفظة المرنة",
   "saved.typeCapabilityMap": "خريطة القدرات",
   "saved.typeLifecycle": "دورة الحياة",
