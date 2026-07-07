@@ -31,7 +31,19 @@ export interface ImportWarning {
 }
 
 export interface ParsedRow {
+  /** Per-sheet visible row number (`i + 2`) — used for user-facing display. */
   rowIndex: number;
+  /**
+   * Workbook-wide unique correlation id, assigned by `validateMultiSheet()`
+   * when merging sheets. This is what gets sent as the wire `row_index` and
+   * used as a map/dedup key on both client and server, so it MUST be unique
+   * across the whole workbook (unlike `rowIndex`, which restarts per sheet).
+   * Undefined for the legacy single-sheet path, where `rowIndex` is already
+   * unique and is used directly.
+   */
+  wireRow?: number;
+  /** Originating sheet name — set by `validateMultiSheet()`, for display. */
+  sheet?: string;
   id?: string;
   type: string;
   data: Record<string, unknown>;
@@ -64,6 +76,12 @@ export interface ParsedRow {
 export interface RelationOp {
   /** Row number from the originating sheet — 0 indicates the inline cell. */
   rowIndex: number;
+  /**
+   * Workbook-wide unique correlation id assigned by `validateMultiSheet()`,
+   * used as the wire `row_index` so a `/relations/bulk` response can be tied
+   * back to the exact op even when two sheets share a per-sheet row number.
+   */
+  wireRow?: number;
   sheet: string;
   action: "upsert" | "delete";
   /** Relation type key. */
@@ -278,7 +296,11 @@ function topoSortCreates(rows: ParsedRow[]): ParsedRow[] {
   const visited = new Set<string | number>();
 
   function visit(row: ParsedRow) {
-    const key = row.id ?? `row:${row.rowIndex}`;
+    // Key by the workbook-wide unique `wireRow` when present (multi-sheet):
+    // `rowIndex` restarts per sheet, so keying by it collapses same-numbered
+    // rows from different sheets into one and silently drops cards. Falls
+    // back to `rowIndex` for the legacy single-sheet path where it's unique.
+    const key = row.id ?? `row:${row.wireRow ?? row.rowIndex}`;
     if (visited.has(key)) return;
     visited.add(key);
 
@@ -1099,6 +1121,11 @@ export async function validateMultiSheet(
   const updates: ParsedRow[] = [];
   let skipped = 0;
   let totalRows = 0;
+  // Monotonic counter used to hand every merged row a workbook-wide unique
+  // `wireRow`. `validateImport()`'s per-sheet `rowIndex` (`i + 2`) restarts at
+  // 2 for each sheet, so it collides across sheets and cannot be used as a
+  // correlation / dedup key once the sheets are flattened into one batch.
+  let wireCounter = 0;
 
   const meta = parsed.meta;
   // Banner-trigger: a format mismatch is non-fatal — surface as a warning.
@@ -1133,6 +1160,17 @@ export async function validateMultiSheet(
         message: `${sheet.sheet}: ${w.message}`,
       })),
     );
+    // Tag each row with its sheet name (for display) and a workbook-wide
+    // unique `wireRow` (for correlation). `rowIndex` stays the per-sheet
+    // visible Excel row number.
+    for (const r of sheetReport.creates) {
+      r.sheet = sheet.sheet;
+      r.wireRow = ++wireCounter;
+    }
+    for (const r of sheetReport.updates) {
+      r.sheet = sheet.sheet;
+      r.wireRow = ++wireCounter;
+    }
     creates.push(...sheetReport.creates);
     updates.push(...sheetReport.updates);
     skipped += sheetReport.skipped;
@@ -1151,6 +1189,37 @@ export async function validateMultiSheet(
   const fileByOwnPathKey = new Map<string, ParsedRow>();
   for (const r of creates) {
     if (r.ownPathKey) fileByOwnPathKey.set(r.ownPathKey, r);
+  }
+
+  // Bare-name index of same-batch creates. The exporter writes a relation
+  // target as just its name when that name is unique for its type — even for
+  // hierarchical cards, whose `ownPathKey` is parent-qualified. So a
+  // bare-name ref to a new child card misses `fileByOwnPathKey`; this index
+  // lets us still recognise it as a same-batch row and express it as a
+  // name+path ref the backend resolves after creating the cards. `null`
+  // marks an ambiguous bare name (2+ creates of the same type share it) —
+  // those fall through to the full-path / backend resolver.
+  const fileByTypeName = new Map<string, ParsedRow | null>();
+  for (const r of creates) {
+    const nm = str(r.data.name).toLowerCase();
+    if (!nm) continue;
+    const k = `${r.type}|${nm}`;
+    fileByTypeName.set(k, fileByTypeName.has(k) ? null : r);
+  }
+
+  /** Match a ref against a card created in this same workbook, by full path
+   * first (exact) then by a unique bare name. Returns the matched row, or
+   * undefined when there's no unambiguous same-batch card. */
+  function sameBatchCreate(type: string, ref: string): ParsedRow | undefined {
+    const segs = decodePath(ref);
+    if (segs.length === 0) return undefined;
+    const full = fileByOwnPathKey.get(pathKey(type, segs));
+    if (full) return full;
+    if (segs.length === 1) {
+      const byName = fileByTypeName.get(`${type}|${segs[0].trim().toLowerCase()}`);
+      if (byName) return byName; // null (ambiguous) → undefined
+    }
+    return undefined;
   }
 
   // ----- Two-pass ref resolution ----------------------------------------
@@ -1179,8 +1248,7 @@ export async function validateMultiSheet(
   function stageRef(type: string, ref: string): void {
     const segs = decodePath(ref);
     if (segs.length === 0) return;
-    const fullKey = pathKey(type, segs);
-    if (fileByOwnPathKey.has(fullKey)) return; // same-batch hit, no server call
+    if (sameBatchCreate(type, ref)) return; // same-batch hit, no server call
     const key = refLookupKey(type, ref);
     if (!refsToResolve.has(key)) {
       refsToResolve.set(key, { type, ref });
@@ -1303,11 +1371,14 @@ export async function validateMultiSheet(
   ): CardRefHandle | undefined {
     const segs = decodePath(ref);
     if (segs.length === 0) return undefined;
-    const fullKey = pathKey(targetTypeKey, segs);
-    // Same-batch row?
-    const fileMatch = fileByOwnPathKey.get(fullKey);
-    if (fileMatch) {
-      return { kind: "pathKey", pathKey: fullKey, type: targetTypeKey };
+    // Same-batch row? Match by full path, then by unique bare name (the
+    // exporter writes bare names for uniquely-named cards, including
+    // hierarchical ones). Express it as the matched row's own path key so
+    // the apply step hands the backend a name+path ref it resolves after
+    // creating the cards.
+    const fileMatch = sameBatchCreate(targetTypeKey, ref);
+    if (fileMatch?.ownPathKey) {
+      return { kind: "pathKey", pathKey: fileMatch.ownPathKey, type: targetTypeKey };
     }
     const lookupKey = refLookupKey(targetTypeKey, ref);
     const r = refResults.get(lookupKey);
@@ -1392,20 +1463,25 @@ export async function validateMultiSheet(
       const parentPathRaw = str(raw["parent_path"]);
       if (!name) continue;
 
-      // Locate the source. The `id` column is authoritative — a valid
-      // UUID is trusted directly, **without** requiring the card to be
-      // in the loaded `existingCards` slice (the grid filter shouldn't
-      // affect which sheet rows the importer can process). If the UUID
-      // is stale, the bulk-apply will surface a per-row error.
+      // Locate the source. A row that this same workbook is *creating*
+      // (`fileByOwnPathKey`, which holds only creates) must source its
+      // relations from the pathKey, so the apply step resolves them to the
+      // NEW server id. Trusting the `id` column here instead would carry a
+      // stale, cross-instance UUID — the card's id from the *source* instance
+      // an export came from — which is absent in a fresh target and fails
+      // the relation insert with a foreign-key violation. The `id` column is
+      // only authoritative for cards that already exist in the target (an
+      // update / same-instance re-import), where it also enables the
+      // relation delete-diff below.
       let sourceRef: CardRefHandle | undefined;
       const ownPath = parentPathRaw
         ? [...decodePath(parentPathRaw), name]
         : [name];
       const ownKey = pathKey(sheetType, ownPath);
-      if (idCell && UUID_RE.test(idCell)) {
-        sourceRef = { kind: "id", id: normalizeId(idCell) };
-      } else if (fileByOwnPathKey.has(ownKey)) {
+      if (fileByOwnPathKey.has(ownKey)) {
         sourceRef = { kind: "pathKey", pathKey: ownKey, type: sheetType };
+      } else if (idCell && UUID_RE.test(idCell)) {
+        sourceRef = { kind: "id", id: normalizeId(idCell) };
       } else {
         // Fallback for rows whose `id` cell is missing / non-UUID — try
         // to resolve against existing cards via the staged name+path ref.
@@ -1643,6 +1719,11 @@ export async function validateMultiSheet(
   relationOps.length = 0;
   relationOps.push(...dedupedOps);
 
+  // Hand every relation op a workbook-wide unique `wireRow` so a
+  // `/relations/bulk` response can be tied back to the exact op for
+  // failure reporting even when two sheets share a per-sheet row number.
+  for (const op of relationOps) op.wireRow = ++wireCounter;
+
   void inlineRefs;
   return {
     errors,
@@ -1831,8 +1912,11 @@ function refHandleToPayload(
 }
 
 /**
- * Multi-sheet executor. Uses the new backend bulk endpoints so a 500-row
- * workbook doesn't fire 500 HTTP requests.
+ * Multi-sheet executor. Uses the backend bulk endpoints so a 500-row
+ * workbook doesn't fire 500 HTTP requests. Cards are created (and committed)
+ * first, then relations are applied against the now-persisted cards — so a
+ * relation failure can never leave a card half-created, and same-batch
+ * targets resolve via the server-assigned UUIDs captured from bulk-create.
  *
  * Phases:
  *   1. `POST /cards/bulk-create` (chunked) for new cards. Captures the
@@ -1858,6 +1942,20 @@ export async function executeMultiSheetImport(
   let relationsDeleted = 0;
   let relationsFailed = 0;
   const failedDetails: { row: number; message: string }[] = [];
+
+  // Record a failure using the per-sheet visible row number for `row` and
+  // prefixing the sheet name into the message (mirroring how validation
+  // errors are formatted), so the user sees "Provider: ..." rather than a
+  // bare — and now workbook-global — correlation id.
+  const pushFailure = (
+    src: { rowIndex: number; sheet?: string },
+    message: string,
+  ) => {
+    failedDetails.push({
+      row: src.rowIndex,
+      message: src.sheet ? `${src.sheet}: ${message}` : message,
+    });
+  };
 
   // pathKey → server uuid, populated as bulk-create finishes.
   const pathToId = new Map<string, string>();
@@ -1889,7 +1987,7 @@ export async function executeMultiSheetImport(
             ? idMapping.get(row.parentId)
             : undefined);
         return {
-          row_index: row.rowIndex,
+          row_index: row.wireRow ?? row.rowIndex,
           type: row.type,
           name: (d.name as string) ?? "",
           subtype: d.subtype as string | undefined,
@@ -1909,7 +2007,7 @@ export async function executeMultiSheetImport(
         results: { row_index: number; status: "created" | "failed"; id?: string; error?: string }[];
       }>("/cards/bulk-create", body);
       for (const r of resp.results) {
-        const row = chunk.find((c) => c.rowIndex === r.row_index);
+        const row = chunk.find((c) => (c.wireRow ?? c.rowIndex) === r.row_index);
         if (!row) continue;
         if (r.status === "created" && r.id) {
           created++;
@@ -1924,20 +2022,14 @@ export async function executeMultiSheetImport(
           }
         } else {
           failed++;
-          failedDetails.push({
-            row: row.rowIndex,
-            message: r.error ?? t("import.errors.unknown"),
-          });
+          pushFailure(row, r.error ?? t("import.errors.unknown"));
         }
       }
     } catch (e) {
       // Whole-chunk failure — count everything as failed so the user sees the totals.
       for (const row of chunk) {
         failed++;
-        failedDetails.push({
-          row: row.rowIndex,
-          message: e instanceof Error ? e.message : t("import.errors.unknown"),
-        });
+        pushFailure(row, e instanceof Error ? e.message : t("import.errors.unknown"));
       }
     }
     done += chunk.length;
@@ -1971,10 +2063,7 @@ export async function executeMultiSheetImport(
       if (didSomething) updated++;
     } catch (e) {
       failed++;
-      failedDetails.push({
-        row: row.rowIndex,
-        message: e instanceof Error ? e.message : t("import.errors.unknown"),
-      });
+      pushFailure(row, e instanceof Error ? e.message : t("import.errors.unknown"));
     }
     done++;
     onProgress?.(done, total);
@@ -1997,9 +2086,14 @@ export async function executeMultiSheetImport(
 
   for (let i = 0; i < report.relationOps.length; i += CHUNK) {
     const chunk = report.relationOps.slice(i, i + CHUNK);
+    // Correlate the response's echoed `row_index` back to the exact op so a
+    // failure is attributed to the right sheet + visible row, even when two
+    // sheets share a per-sheet row number.
+    const opByWire = new Map<number, RelationOp>();
+    for (const op of chunk) opByWire.set(op.wireRow ?? op.rowIndex, op);
     const body = {
       operations: chunk.map((op) => ({
-        row_index: op.rowIndex,
+        row_index: op.wireRow ?? op.rowIndex,
         action: op.action,
         type: op.relationType,
         source: materialize(op.sourceRef),
@@ -2017,19 +2111,14 @@ export async function executeMultiSheetImport(
         else if (r.status === "deleted") relationsDeleted++;
         else if (r.status === "failed") {
           relationsFailed++;
-          failedDetails.push({
-            row: r.row_index,
-            message: r.error ?? t("import.errors.unknown"),
-          });
+          const op = opByWire.get(r.row_index);
+          pushFailure(op ?? { rowIndex: r.row_index }, r.error ?? t("import.errors.unknown"));
         }
       }
     } catch (e) {
       for (const op of chunk) {
         relationsFailed++;
-        failedDetails.push({
-          row: op.rowIndex,
-          message: e instanceof Error ? e.message : t("import.errors.unknown"),
-        });
+        pushFailure(op, e instanceof Error ? e.message : t("import.errors.unknown"));
       }
     }
     done += chunk.length;

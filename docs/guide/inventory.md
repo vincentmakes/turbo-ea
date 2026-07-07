@@ -213,3 +213,5 @@ Click **Export** in the toolbar and choose one of two options:
 - Edit the workbook in Excel, save as `.xlsx`, re-import. Cards land via `(type, parent_path, name)` matching even if you didn't keep the `id` column.
 - Renaming a card breaks the name-based match. Keep the `id` column populated when you plan to rename and re-import in the same workbook.
 - New cards that reference each other (parent-child or relation source-target) work in either order — the server topologically sorts before applying.
+- **Only `name` and `type` are required to create a card.** Fields marked *required* in the metamodel (including on Provider or any other type) don't block the import — the card is still created, and any gaps are reflected in its data-quality score rather than causing a silent skip.
+- **A `/` in a card's own `name` column needs no escaping.** Escaping (`\/` for a slash, `\\` for a backslash) is only needed when you *reference* that card from a `parent_path`, `rel:<key>`, `source_ref`, or `target_ref` cell, where `/` is the path separator.

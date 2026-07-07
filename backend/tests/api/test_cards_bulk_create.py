@@ -43,6 +43,28 @@ async def test_bulk_create_simple_rows(client, db, bulk_env):
     assert [r["status"] for r in body["results"]] == ["created", "created"]
 
 
+async def test_bulk_create_rejects_duplicate_row_index(client, db, bulk_env):
+    """Duplicate `row_index` values (the multi-sheet importer bug in #767)
+    must be rejected loudly rather than silently collapsing rows — the
+    handler keys parent-resolution / result maps by `row_index`, so a
+    duplicate would drop a card while reporting success for both."""
+    admin = bulk_env["admin"]
+    payload = {
+        "cards": [
+            {"row_index": 2, "type": "Application", "name": "App from sheet 1"},
+            {"row_index": 2, "type": "Organization", "name": "Org from sheet 2"},
+        ]
+    }
+    resp = await client.post("/api/v1/cards/bulk-create", json=payload, headers=auth_headers(admin))
+    assert resp.status_code == 422
+    assert "row_index" in resp.json()["detail"]
+    # Nothing should have been created.
+    listing = await client.get("/api/v1/cards", headers=auth_headers(admin))
+    names = {c["name"] for c in listing.json()["items"]}
+    assert "App from sheet 1" not in names
+    assert "Org from sheet 2" not in names
+
+
 async def test_bulk_create_resolves_same_batch_parent_by_name(client, db, bulk_env):
     """A child row whose parent is created in the same batch must resolve
     against that newly-created parent — this is the whole point of the
@@ -71,6 +93,57 @@ async def test_bulk_create_resolves_same_batch_parent_by_name(client, db, bulk_e
     nexa_id = next(r["id"] for r in body["results"] if r["row_index"] == 2)
     list_resp = await client.get(f"/api/v1/cards/{sales_id}", headers=auth_headers(admin))
     assert list_resp.json()["parent_id"] == nexa_id
+
+
+async def test_bulk_create_deep_hierarchy_out_of_order(client, db, bulk_env):
+    """A 4-level hierarchy (A / B / C / D) whose rows arrive child-first must
+    still create every level and parent each correctly. The topo sort links a
+    child to its same-batch parent, but a child names its parent by the FULL
+    ancestor chain while the parent row indexes itself by its own (shorter)
+    path — so for chains 3+ deep the ordering edge was lost and the deep child
+    was processed before its parent existed ("Parent not found"). Regression
+    guard for that."""
+    admin = bulk_env["admin"]
+    # Deliberately reversed: deepest child first, root last.
+    payload = {
+        "cards": [
+            {
+                "row_index": 1,
+                "type": "Organization",
+                "name": "D",
+                "parent_path": ["A", "B"],
+                "parent_name": "C",
+            },
+            {
+                "row_index": 2,
+                "type": "Organization",
+                "name": "C",
+                "parent_path": ["A"],
+                "parent_name": "B",
+            },
+            {
+                "row_index": 3,
+                "type": "Organization",
+                "name": "B",
+                "parent_path": [],
+                "parent_name": "A",
+            },
+            {"row_index": 4, "type": "Organization", "name": "A"},
+        ]
+    }
+    resp = await client.post("/api/v1/cards/bulk-create", json=payload, headers=auth_headers(admin))
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["created"] == 4, body
+    assert body["failed"] == 0, body
+    ids = {r["row_index"]: r["id"] for r in body["results"]}
+    # Verify the chain wires up: D→C→B→A.
+    d = await client.get(f"/api/v1/cards/{ids[1]}", headers=auth_headers(admin))
+    assert d.json()["parent_id"] == ids[2]
+    c = await client.get(f"/api/v1/cards/{ids[2]}", headers=auth_headers(admin))
+    assert c.json()["parent_id"] == ids[3]
+    b = await client.get(f"/api/v1/cards/{ids[3]}", headers=auth_headers(admin))
+    assert b.json()["parent_id"] == ids[4]
 
 
 async def test_bulk_create_unknown_parent_fails_that_row(client, db, bulk_env):

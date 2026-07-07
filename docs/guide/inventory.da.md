@@ -213,3 +213,5 @@ Du kan også vælge **Eksportér aktuel visning** i Export-menuen — et fladt e
 - Rediger projektmappen i Excel, gem som `.xlsx`, re-importer. Kort lander via `(type, parent_path, name)`-matchning, selv hvis du ikke beholdt `id`-kolonnen.
 - At omdøbe et kort bryder den navn-baserede match. Hold `id`-kolonnen udfyldt, når du planlægger at omdøbe og re-importere i den samme projektmappe.
 - Nye kort, der refererer til hinanden (forælder-barn eller relation source-target), virker i begge rækkefølger — serveren topologisk-sorterer før anvendelse.
+- **Kun `name` og `type` kræves for at oprette et kort.** Felter, der er markeret som *påkrævede* i metamodellen (også på Provider eller enhver anden type), blokerer ikke importen — kortet oprettes alligevel, og mangler afspejles i dets datakvalitetsscore i stedet for at føre til et stille spring.
+- **En `/` i et korts egen `name`-kolonne skal ikke escapes.** Escaping (`\/` for en skråstreg, `\\` for en omvendt skråstreg) er kun nødvendig, når du *refererer* til kortet fra en `parent_path`-, `rel:<nøgle>`-, `source_ref`- eller `target_ref`-celle, hvor `/` er stiadskilleren.

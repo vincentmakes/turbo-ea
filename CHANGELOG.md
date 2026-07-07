@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.65.2] - 2026-07-06
+
+### Fixed
+- **Importing new cards and linking them in the same workbook now resolves relations to hierarchical targets referenced by name.** Previously, when a relation pointed at a card being created in the same import and that card lives under a parent (e.g. an Application nested beneath a Platform), the browser could not match the bare name to the not-yet-created card and the import failed with "relation target doesn't match any card" errors — most visibly when seeding a fresh instance. The importer now matches a same-batch target by its bare name against the cards staged for creation, so the relation attaches to the correct new card once it is created. Cards are still created first and the relations applied afterwards, so relation foreign keys are always valid.
+- **Relations from newly-created cards no longer fail with a foreign-key error when re-importing an export into a different instance.** An exported workbook keeps each card's original UUID in its `id` column. When that workbook was imported into a fresh instance, a card's own outgoing relations were still sourced from that stale UUID — which doesn't exist in the new instance — so every such relation failed with "source_id … is not present in table cards". A card that the import is creating now sources its relations from the card itself (resolved to the new server id), and only cards that already exist in the target are matched by their `id` column.
+- **Importing a large workbook no longer fails hundreds of rows once a single row hits a database error.** When one card or relation failed at write time (for example a relation whose card was not created), the shared database transaction was left in a failed state and every following row in the batch reported "transaction has been rolled back due to a previous exception" — turning one real problem into a wall of misleading failures. Each card and each relation is now written inside its own savepoint, so a single bad row fails on its own and the rest of the import still applies.
+- **Deeply nested cards created in the same import now find their parent.** Creating a hierarchy three or more levels deep in one import (e.g. `Corporate Finance / Tax Management / Transfer Pricing Management / …`) could fail the deepest rows with "Parent not found", because the child referenced its parent by the full ancestor path while the parent was indexed under its own shorter path, so the two never matched and the child could be processed before its parent existed. The importer now also matches a same-batch parent by name, restoring the correct create order regardless of row order in the sheet.
+
+## [1.65.1] - 2026-07-06
+
+### Fixed
+- **Inventory import no longer silently drops cards when a workbook has multiple card-type sheets.** Re-importing an exported inventory (which puts each card type — Application, IT Component, Provider, … — on its own sheet) could quietly skip cards from the second and later sheets, most visibly Providers, with no error shown and any relations to the dropped cards failing as "not found". Each sheet numbered its rows independently, and that per-sheet number was reused as the identifier that ties a row together across the browser and server, so same-numbered rows from different sheets collided and one was lost while the import still reported success. Rows now get a workbook-wide unique identifier, and the server rejects a batch with duplicate identifiers instead of collapsing it. Import error messages still show the per-sheet row number and sheet name.
+
 ## [1.65.0] - 2026-07-05
 
 ### Added
