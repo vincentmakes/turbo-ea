@@ -347,11 +347,12 @@ async def mass_eol_link(
     """Bulk-link cards to EOL products/cycles.
 
     Expects a list of: [{card_id, eol_product, eol_cycle}].
-    For ITComponent type, lifecycle dates are synced from EOL data.
+    Only the EOL product/cycle association is recorded — lifecycle phase dates
+    (including End of Life, the decommission date) are manually owned and are
+    never auto-filled from vendor EOL data.
     """
     await PermissionService.require_permission(db, user, "eol.manage")
 
-    client = await _get_client()
     updated = []
 
     for link in links:
@@ -373,31 +374,6 @@ async def mass_eol_link(
         attrs["eol_cycle"] = cycle
         card.attributes = attrs
         flag_modified(card, "attributes")
-
-        # For ITComponent: sync lifecycle dates
-        if card.type == "ITComponent":
-            try:
-                resp = await client.get(f"{EOL_BASE}/{product}.json")
-                if resp.status_code == 200:
-                    cycles_data = resp.json()
-                    match = next(
-                        (c for c in cycles_data if str(c.get("cycle")) == str(cycle)),
-                        None,
-                    )
-                    if match:
-                        lifecycle = dict(card.lifecycle or {})
-                        if match.get("releaseDate"):
-                            lifecycle["active"] = match["releaseDate"]
-                        support = match.get("support")
-                        if isinstance(support, str):
-                            lifecycle["phaseOut"] = support
-                        eol_val = match.get("eol")
-                        if isinstance(eol_val, str):
-                            lifecycle["endOfLife"] = eol_val
-                        card.lifecycle = lifecycle
-                        flag_modified(card, "lifecycle")
-            except httpx.HTTPError:
-                pass  # Link without lifecycle sync on error
 
         updated.append(str(card.id))
 

@@ -38,7 +38,6 @@ import { useAiStatus } from "@/hooks/useAiStatus";
 import { api, ApiError } from "@/api/client";
 import type {
   FieldDef,
-  EolCycle,
   EolProductMatch,
   AiSuggestResponse,
   TagGroup,
@@ -287,29 +286,6 @@ export default function CreateCardDialog({
         finalAttrs.eol_cycle = eolCycle;
       }
 
-      // For ITComponent: sync lifecycle dates from EOL data
-      let lifecycle: Record<string, string> | undefined;
-      if (selectedType === "ITComponent" && eolProduct && eolCycle) {
-        try {
-          const cycles = await api.get<EolCycle[]>(
-            `/eol/products/${encodeURIComponent(eolProduct)}`
-          );
-          const match = cycles.find(
-            (c) => String(c.cycle) === String(eolCycle)
-          );
-          if (match) {
-            lifecycle = {};
-            if (match.releaseDate) lifecycle.active = match.releaseDate;
-            if (typeof match.support === "string")
-              lifecycle.phaseOut = match.support;
-            if (typeof match.eol === "string")
-              lifecycle.endOfLife = match.eol;
-          }
-        } catch {
-          // If fetching cycles fails, just create without lifecycle
-        }
-      }
-
       // Defensive: never persist an orphan vendor text attribute. Provider
       // linkage is owned by the relation created below.
       delete finalAttrs.vendor;
@@ -322,7 +298,6 @@ export default function CreateCardDialog({
         parent_id: parentCard?.id || undefined,
         attributes:
           Object.keys(finalAttrs).length > 0 ? finalAttrs : undefined,
-        lifecycle,
       });
       if (tagIds.length > 0) {
         try {

@@ -221,7 +221,7 @@
   "eol.refreshTooltip": "Обновить данные EOL",
   "eol.changeTooltip": "Сменить привязанный продукт",
   "eol.unlinkTooltip": "Отвязать данные EOL",
-  "eol.linkDescription.itComponent": "Привяжите этот ИТ-компонент к продукту на endoflife.date для отслеживания жизненного цикла поддержки. Даты жизненного цикла будут синхронизироваться автоматически.",
+  "eol.linkDescription.itComponent": "Привяжите этот ИТ-компонент к продукту на endoflife.date для отслеживания жизненного цикла поддержки.",
   "eol.linkDescription.application": "Привяжите это приложение к продукту на endoflife.date для отслеживания жизненного цикла поддержки.",
   "eol.status.endOfLife": "Поддержка прекращена",
   "eol.status.approachingEol": "Приближается окончание поддержки",

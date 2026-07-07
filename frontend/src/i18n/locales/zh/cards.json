@@ -221,7 +221,7 @@
   "eol.refreshTooltip": "刷新 EOL 数据",
   "eol.changeTooltip": "更改关联产品",
   "eol.unlinkTooltip": "取消关联 EOL 数据",
-  "eol.linkDescription.itComponent": "将此 IT 组件关联到 endoflife.date 上的产品以跟踪其支持生命周期。生命周期日期将自动同步。",
+  "eol.linkDescription.itComponent": "将此 IT 组件关联到 endoflife.date 上的产品以跟踪其支持生命周期。",
   "eol.linkDescription.application": "将此应用关联到 endoflife.date 上的产品以跟踪其支持生命周期。",
   "eol.status.endOfLife": "生命终止",
   "eol.status.approachingEol": "即将终止",

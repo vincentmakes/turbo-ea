@@ -221,7 +221,7 @@
   "eol.refreshTooltip": "Refresh EOL data",
   "eol.changeTooltip": "Change linked product",
   "eol.unlinkTooltip": "Unlink EOL data",
-  "eol.linkDescription.itComponent": "Link this IT component to a product on endoflife.date to track its support lifecycle. Lifecycle dates will be synced automatically.",
+  "eol.linkDescription.itComponent": "Link this IT component to a product on endoflife.date to track its support lifecycle.",
   "eol.linkDescription.application": "Link this application to a product on endoflife.date to track its support lifecycle.",
   "eol.status.endOfLife": "End of Life",
   "eol.status.approachingEol": "Approaching EOL",

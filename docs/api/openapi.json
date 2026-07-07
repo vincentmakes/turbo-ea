@@ -20760,7 +20760,7 @@
     },
     "/api/v1/eol/mass-link": {
       "post": {
-        "description": "Bulk-link cards to EOL products/cycles.\n\nExpects a list of: [{card_id, eol_product, eol_cycle}].\nFor ITComponent type, lifecycle dates are synced from EOL data.",
+        "description": "Bulk-link cards to EOL products/cycles.\n\nExpects a list of: [{card_id, eol_product, eol_cycle}].\nOnly the EOL product/cycle association is recorded \u2014 lifecycle phase dates\n(including End of Life, the decommission date) are manually owned and are\nnever auto-filled from vendor EOL data.",
         "operationId": "mass_eol_link_api_v1_eol_mass_link_post",
         "requestBody": {
           "content": {

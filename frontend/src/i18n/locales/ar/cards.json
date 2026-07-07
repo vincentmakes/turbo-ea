@@ -221,7 +221,7 @@
   "eol.refreshTooltip": "تحديث بيانات نهاية العمر الافتراضي",
   "eol.changeTooltip": "تغيير المنتج المرتبط",
   "eol.unlinkTooltip": "إلغاء ربط بيانات نهاية العمر الافتراضي",
-  "eol.linkDescription.itComponent": "اربط مكوّن تقنية المعلومات هذا بمنتج على endoflife.date لتتبّع دورة حياة دعمه. ستتم مزامنة تواريخ دورة الحياة تلقائيًا.",
+  "eol.linkDescription.itComponent": "اربط مكوّن تقنية المعلومات هذا بمنتج على endoflife.date لتتبّع دورة حياة دعمه.",
   "eol.linkDescription.application": "اربط هذا التطبيق بمنتج على endoflife.date لتتبّع دورة حياة دعمه.",
   "eol.status.endOfLife": "نهاية العمر الافتراضي",
   "eol.status.approachingEol": "يقترب من نهاية العمر الافتراضي",

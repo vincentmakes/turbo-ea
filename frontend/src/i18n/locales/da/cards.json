@@ -221,7 +221,7 @@
   "eol.refreshTooltip": "Opdatér udløbsdata",
   "eol.changeTooltip": "Skift tilknyttet produkt",
   "eol.unlinkTooltip": "Frakobl udløbsdata",
-  "eol.linkDescription.itComponent": "Tilknyt denne IT-komponent til et produkt på endoflife.date for at spore dens supportlivscyklus. Livscyklusdatoer synkroniseres automatisk.",
+  "eol.linkDescription.itComponent": "Tilknyt denne IT-komponent til et produkt på endoflife.date for at spore dens supportlivscyklus.",
   "eol.linkDescription.application": "Tilknyt denne applikation til et produkt på endoflife.date for at spore dens supportlivscyklus.",
   "eol.status.endOfLife": "Udløb",
   "eol.status.approachingEol": "Nærmer sig udløb",

@@ -532,7 +532,9 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
   if (!isEolEligible(card.type)) return null;
 
   const handleLink = async (product: string, cycle: string) => {
-    // Build the attributes update
+    // Record the EOL product/cycle association only. Lifecycle phase dates
+    // (including End of Life, which represents the decommission date) are
+    // manually owned and must never be auto-filled from vendor EOL data.
     const updates: Record<string, unknown> = {
       attributes: {
         ...(card.attributes || {}),
@@ -540,28 +542,6 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
         eol_cycle: cycle,
       },
     };
-
-    // For ITComponent: sync lifecycle dates from EOL data
-    if (card.type === "ITComponent") {
-      try {
-        const cycles = await api.get<EolCycle[]>(
-          `/eol/products/${encodeURIComponent(product)}`
-        );
-        const match = cycles.find((c) => String(c.cycle) === String(cycle));
-        if (match) {
-          const lifecycle: Record<string, string> = {
-            ...(card.lifecycle || {}),
-          };
-          if (match.releaseDate) lifecycle.active = match.releaseDate;
-          if (typeof match.support === "string")
-            lifecycle.phaseOut = match.support;
-          if (typeof match.eol === "string") lifecycle.endOfLife = match.eol;
-          updates.lifecycle = lifecycle;
-        }
-      } catch {
-        // If fetching cycles fails, just link without syncing lifecycle
-      }
-    }
 
     await onSave(updates);
     setLinking(false);

@@ -260,6 +260,63 @@ class TestMassEolSearch:
 
 
 # ---------------------------------------------------------------
+# POST /eol/mass-link  (bulk-link cards to EOL products/cycles)
+# ---------------------------------------------------------------
+
+
+class TestMassEolLink:
+    async def test_mass_link_records_attributes_only(self, client, db):
+        """Mass-link records eol_product/eol_cycle but never touches lifecycle.
+
+        The vendor's End-of-Life date must not be written into the card's
+        lifecycle (the End of Life phase represents the decommission date, a
+        manual decision — not the vendor end-of-support date).
+        """
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        # Pre-existing, manually-owned lifecycle dates that must survive linking.
+        initial_lifecycle = {"active": "2019-01-01", "endOfLife": "2035-12-31"}
+        card = await create_card(
+            db,
+            card_type="ITComponent",
+            name="Nginx LB",
+            user_id=admin.id,
+            lifecycle=dict(initial_lifecycle),
+        )
+
+        resp = await client.post(
+            "/api/v1/eol/mass-link",
+            json=[{"card_id": str(card.id), "eol_product": "nginx", "eol_cycle": "1.25"}],
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["count"] == 1
+        assert body["updated"] == [str(card.id)]
+
+        await db.refresh(card)
+        assert card.attributes.get("eol_product") == "nginx"
+        assert card.attributes.get("eol_cycle") == "1.25"
+        # Lifecycle must be left exactly as it was — no EOL-driven sync.
+        assert card.lifecycle == initial_lifecycle
+
+    async def test_mass_link_requires_manage_permission(self, client, db):
+        """Users without eol.manage cannot mass-link."""
+        await create_role(db, key="viewer", label="Viewer", permissions={"eol.view": True})
+        viewer = await create_user(db, email="viewer@test.com", role="viewer")
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        card = await create_card(db, card_type="ITComponent", name="Nginx LB", user_id=viewer.id)
+
+        resp = await client.post(
+            "/api/v1/eol/mass-link",
+            json=[{"card_id": str(card.id), "eol_product": "nginx", "eol_cycle": "1.25"}],
+            headers=auth_headers(viewer),
+        )
+        assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------
 # Permission checks
 # ---------------------------------------------------------------
 

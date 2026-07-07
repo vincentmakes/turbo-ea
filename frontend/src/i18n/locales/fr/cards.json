@@ -221,7 +221,7 @@
   "eol.refreshTooltip": "Actualiser les données EOL",
   "eol.changeTooltip": "Changer le produit lié",
   "eol.unlinkTooltip": "Délier les données EOL",
-  "eol.linkDescription.itComponent": "Liez ce composant IT à un produit sur endoflife.date pour suivre son cycle de support. Les dates du cycle de vie seront synchronisées automatiquement.",
+  "eol.linkDescription.itComponent": "Liez ce composant IT à un produit sur endoflife.date pour suivre son cycle de support.",
   "eol.linkDescription.application": "Liez cette application à un produit sur endoflife.date pour suivre son cycle de support.",
   "eol.status.endOfLife": "Fin de vie",
   "eol.status.approachingEol": "Fin de vie imminente",

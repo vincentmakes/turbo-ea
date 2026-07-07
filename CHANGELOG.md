@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.66.3] - 2026-07-07
+
+### Fixed
+- **Linking a card to an endoflife.date product no longer overwrites its lifecycle dates.** Previously, linking an IT Component to a product (individually, during creation, or via the bulk EOL admin tool) auto-filled the lifecycle **End of Life** date from the vendor's end-of-support date — along with Active and Phase Out. The End of Life phase represents your own decommission date, not the vendor's end of support, so lifecycle dates are now left entirely manual; EOL linking only records the product and version.
+
 ## [1.66.2] - 2026-07-07
 
 ### Fixed
