@@ -129,7 +129,7 @@ class TestCreateTag:
         assert tag["description"] == "Finance-domain systems"
 
         # It round-trips through the group listing.
-        listed = await client.get("/api/v1/tag-groups")
+        listed = await client.get("/api/v1/tag-groups", headers=auth_headers(admin))
         group = next(g for g in listed.json() if g["id"] == group_id)
         assert group["tags"][0]["description"] == "Finance-domain systems"
 
@@ -163,7 +163,7 @@ class TestCreateTag:
             ids[name] = r.json()["id"]
 
         async def names():
-            listed = await client.get("/api/v1/tag-groups")
+            listed = await client.get("/api/v1/tag-groups", headers=auth_headers(admin))
             group = next(g for g in listed.json() if g["id"] == group_id)
             return [t["name"] for t in group["tags"]]
 
