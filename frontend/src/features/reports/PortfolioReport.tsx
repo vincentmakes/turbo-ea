@@ -24,6 +24,8 @@ import Button from "@mui/material/Button";
 import Alert from "@mui/material/Alert";
 import Collapse from "@mui/material/Collapse";
 import LinearProgress from "@mui/material/LinearProgress";
+import Switch from "@mui/material/Switch";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import TimelineSlider from "@/components/TimelineSlider";
@@ -73,6 +75,15 @@ import type {
   SectionDef,
   TagGroupDef,
 } from "./portfolioHelpers";
+import {
+  ALL_LEVELS,
+  buildColorSegmentsFor,
+  buildGroupTree,
+  getMaxGroupLevel,
+  getVisibleGroupApps,
+  isLeafAtDepth,
+} from "./portfolioGrouping";
+import type { GroupMember, GroupNode } from "./portfolioGrouping";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -87,7 +98,7 @@ interface ApiResponse {
   items: AppData[];
   fields_schema: SectionDef[];
   relation_types: RelTypeDef[];
-  groupable_types: Record<string, { id: string; name: string; type: string }[]>;
+  groupable_types: Record<string, GroupMember[]>;
   organizations: OrgRef[];
   tag_groups?: TagGroupDef[];
 }
@@ -103,6 +114,9 @@ interface DrawerData {
   apps: AppData[];
   /** Related card id this group represents, for per-member subtype colouring. */
   memberId?: string;
+  /** Per-app member ids for nested groups, where rolled-up cards belong to
+   * different (deeper) members than the clicked node. */
+  appMemberIds?: Record<string, string>;
 }
 
 /* ------------------------------------------------------------------ */
@@ -354,6 +368,166 @@ function GroupCard({
   );
 }
 
+function NestedGroupCard({
+  node,
+  displayLevel,
+  colorRes,
+  colorLabels,
+  perMemberColor,
+  onNodeClick,
+  onAppClick,
+  countLabel,
+}: {
+  node: GroupNode;
+  displayLevel: number;
+  colorRes: ColorResolution;
+  colorLabels: ColorLabels;
+  /** When colouring by a relation subtype, each chip uses its own member. */
+  perMemberColor: boolean;
+  onNodeClick: (n: GroupNode) => void;
+  onAppClick: (id: string) => void;
+  countLabel: (count: number) => string;
+}) {
+  const isLeaf = isLeafAtDepth(node, displayLevel);
+  const visibleApps = useMemo(
+    () =>
+      getVisibleGroupApps(node, displayLevel).sort((a, b) =>
+        a.app.name.localeCompare(b.app.name),
+      ),
+    [node, displayLevel],
+  );
+  const colorSegments = useMemo(
+    () => buildColorSegmentsFor(visibleApps, colorRes, colorLabels, perMemberColor),
+    [visibleApps, colorRes, colorLabels, perMemberColor],
+  );
+
+  const header = (
+    <Box
+      sx={{
+        p: 1.5,
+        bgcolor: "action.hover",
+        borderBottom: 1,
+        borderColor: "divider",
+        display: "flex",
+        alignItems: "center",
+        gap: 1,
+        cursor: "pointer",
+        "&:hover": { bgcolor: "action.selected" },
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onNodeClick(node);
+      }}
+    >
+      <Typography variant="subtitle2" sx={{ fontWeight: 700, flex: 1 }} noWrap>
+        {node.label}
+      </Typography>
+      <Chip
+        size="small"
+        label={countLabel(node.deepCount)}
+        sx={{
+          height: 22,
+          fontSize: "0.72rem",
+          fontWeight: 600,
+          bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
+          color: "primary.dark",
+        }}
+      />
+    </Box>
+  );
+
+  const colorBar = colorSegments.length > 0 && (
+    <Tooltip
+      title={colorSegments
+        .map((s) => `${s.label}: ${s.n} (${Math.round((s.n / visibleApps.length) * 100)}%)`)
+        .join(" · ")}
+    >
+      <Box sx={{ height: 6, display: "flex" }}>
+        {colorSegments.map((s, i) => (
+          <Box
+            key={i}
+            sx={{
+              height: "100%",
+              width: `${(s.n / visibleApps.length) * 100}%`,
+              bgcolor: s.color,
+              transition: "width 0.3s",
+            }}
+          />
+        ))}
+      </Box>
+    </Tooltip>
+  );
+
+  const chips = visibleApps.length > 0 && (
+    <Box sx={{ p: 1.5, display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+      {visibleApps.map((entry) => (
+        <AppChip
+          key={entry.app.id}
+          app={entry.app}
+          colorRes={colorRes}
+          colorLabels={colorLabels}
+          colorMemberId={perMemberColor ? entry.memberId : undefined}
+          onClick={() => onAppClick(entry.app.id)}
+        />
+      ))}
+    </Box>
+  );
+
+  if (isLeaf) {
+    return (
+      <Box
+        sx={{
+          border: 1,
+          borderColor: "divider",
+          borderRadius: 2,
+          overflow: "hidden",
+          bgcolor: "background.paper",
+          transition: "box-shadow 0.2s",
+          "&:hover": { boxShadow: 3 },
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {header}
+        {colorBar}
+        {chips}
+      </Box>
+    );
+  }
+
+  return (
+    <Box
+      sx={{
+        border: 1,
+        borderColor: "divider",
+        borderRadius: 2,
+        overflow: "hidden",
+        bgcolor: "background.paper",
+      }}
+    >
+      {header}
+      {colorBar}
+      {chips}
+      <Box sx={{ p: 1.5, display: "flex", flexWrap: "wrap", gap: 1.5, alignItems: "flex-start" }}>
+        {node.children.map((child) => (
+          <Box key={child.key} sx={{ flex: "1 1 220px", minWidth: 200 }}>
+            <NestedGroupCard
+              node={child}
+              displayLevel={displayLevel}
+              colorRes={colorRes}
+              colorLabels={colorLabels}
+              perMemberColor={perMemberColor}
+              onNodeClick={onNodeClick}
+              onAppClick={onAppClick}
+              countLabel={countLabel}
+            />
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /*  Main component                                                     */
 /* ------------------------------------------------------------------ */
@@ -413,6 +587,10 @@ export default function PortfolioReport({
   const [search, setSearch] = useState("");
   const [defaultsApplied, setDefaultsApplied] = useState(false);
 
+  // Nested groups (only offered when grouping by a hierarchical related type)
+  const [nestedGroups, setNestedGroups] = useState(false);
+  const [groupDepth, setGroupDepth] = useState(2);
+
   // Filters
   const [attrFilters, setAttrFilters] = useState<Record<string, string[]>>({});
   const [relationFilters, setRelationFilters] = useState<Record<string, string[]>>({});
@@ -442,6 +620,8 @@ export default function PortfolioReport({
       if (cfg.relationFilters) setRelationFilters(cfg.relationFilters as Record<string, string[]>);
       if (cfg.relSubtypeFilters)
         setRelSubtypeFilters(cfg.relSubtypeFilters as Record<string, string[]>);
+      if (cfg.nestedGroups != null) setNestedGroups(!!cfg.nestedGroups);
+      if (cfg.groupDepth != null) setGroupDepth(cfg.groupDepth as number);
       // Migrate prior `{groupId: tagIds[]}` shape to a flat `string[]`
       if (cfg.tagFilterIds) {
         setTagFilterIds(cfg.tagFilterIds as string[]);
@@ -460,7 +640,7 @@ export default function PortfolioReport({
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ cardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, tagFilterIds, timelineDate: tl.persistValue, sortK, sortD });
+  const getConfig = () => ({ cardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, tagFilterIds, timelineDate: tl.persistValue, sortK, sortD, nestedGroups, groupDepth });
 
   // Auto-persist config to localStorage. Skip the very first run so that on
   // mount we don't overwrite a previously-saved config with the initial
@@ -477,7 +657,7 @@ export default function PortfolioReport({
     }
     if (dataCardType !== cardType) return;
     saved.persistConfig(getConfig());
-  }, [cardType, dataCardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, tagFilterIds, tl.timelineDate, sortK, sortD]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardType, dataCardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, tagFilterIds, tl.timelineDate, sortK, sortD, nestedGroups, groupDepth]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -495,6 +675,8 @@ export default function PortfolioReport({
     tl.reset();
     setSortK("name");
     setSortD("asc");
+    setNestedGroups(false);
+    setGroupDepth(2);
     setDefaultsApplied(false);
   }, [saved, initialCardType]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -531,6 +713,8 @@ export default function PortfolioReport({
     setRelSubtypeFilters({});
     setTagFilterIds([]);
     setShowAllRelFilters(false);
+    setNestedGroups(false);
+    setGroupDepth(2);
     setDefaultsApplied(false);
   }, [cardType]);
 
@@ -771,6 +955,28 @@ export default function PortfolioReport({
     return groupApps(filteredApps, groupByMode, selectFields, data.groupable_types, relMemberMatch);
   }, [filteredApps, groupByMode, selectFields, data, relMemberMatch]);
 
+  // Nested groups are offered only when grouping by a related card type whose
+  // metamodel type supports hierarchy. Ungrouped is identical in both modes
+  // (membership is by direct relation either way), so the flat result above
+  // keeps feeding the Ungrouped section and the AI insights payload.
+  const nestedAvailable = useMemo(() => {
+    if (groupByMode.kind !== "relation") return false;
+    const tm = metamodelTypes.find((tp) => tp.key === groupByMode.typeKey);
+    return !!tm?.has_hierarchy;
+  }, [groupByMode, metamodelTypes]);
+  const nestedActive = nestedAvailable && nestedGroups;
+
+  const groupTree = useMemo(() => {
+    if (!data || !nestedActive || groupByMode.kind !== "relation") return null;
+    return buildGroupTree(
+      filteredApps,
+      groupByMode.typeKey,
+      data.groupable_types[groupByMode.typeKey] || [],
+      relMemberMatch,
+    );
+  }, [data, nestedActive, groupByMode, filteredApps, relMemberMatch]);
+  const maxGroupLevel = useMemo(() => (groupTree ? getMaxGroupLevel(groupTree) : 0), [groupTree]);
+
   // Color-by distribution for the ungrouped section
   const ungroupedColorSegments = useMemo(
     () => buildColorSegments(ungrouped, colorRes, colorLabels),
@@ -897,18 +1103,34 @@ export default function PortfolioReport({
     setDrawer({ label: g.label, apps: g.apps, memberId: g.key });
   }, []);
 
+  const handleNodeClick = useCallback((node: GroupNode) => {
+    // Nested nodes list their whole rolled-up subtree; each app keeps its own
+    // (deepest) member id so subtype colouring in the drawer stays correct.
+    const entries = Array.from(node.deepApps.values());
+    setDrawer({
+      label: node.label,
+      apps: entries.map((e) => e.app),
+      memberId: node.key,
+      appMemberIds: Object.fromEntries(entries.map((e) => [e.app.id, e.memberId])),
+    });
+  }, []);
+
   // Build relation filter options from groupable_types
   const relationFilterOptions = useMemo(() => {
     if (!data) return [];
     const out: { typeKey: string; label: string; icon: string; options: { key: string; label: string }[] }[] = [];
     for (const [typeKey, members] of Object.entries(data.groupable_types)) {
-      if (members.length === 0) continue;
+      // Ancestor-only members exist purely to complete the nested-group
+      // hierarchy — they have no direct relations, so a filter on them could
+      // never match anything.
+      const directMembers = members.filter((m) => !m.ancestor_only);
+      if (directMembers.length === 0) continue;
       const typeMeta = metamodelTypes.find((t) => t.key === typeKey);
       out.push({
         typeKey,
         label: typeLabel(typeMeta) || typeKey,
         icon: typeMeta?.icon || "link",
-        options: members.map((m) => ({ key: m.id, label: m.name })),
+        options: directMembers.map((m) => ({ key: m.id, label: m.name })),
       });
     }
     return out;
@@ -998,16 +1220,36 @@ export default function PortfolioReport({
       ? t("portfolio.noAppsInGroup")
       : t("portfolio.noItemsInGroup", { type: currentTypeLabel });
 
+  // Depth options for the nested-groups selector — "Level 1..N" + "All levels"
+  // (same pattern as the Capability Map's Display Depth control).
+  const depthOptions = useMemo(() => {
+    // Cover a restored groupDepth that exceeds the current tree so the select
+    // always has a matching option.
+    const savedDepth = groupDepth < ALL_LEVELS ? groupDepth : 2;
+    const top = Math.max(maxGroupLevel, 2, savedDepth);
+    const opts: { value: number; label: string }[] = [];
+    for (let i = 1; i <= top; i++) {
+      opts.push({ value: i, label: t("portfolio.levelN", { n: i }) });
+    }
+    opts.push({ value: ALL_LEVELS, label: t("portfolio.allLevels") });
+    return opts;
+  }, [maxGroupLevel, groupDepth, t]);
+  const depthLabel =
+    groupDepth >= ALL_LEVELS
+      ? t("portfolio.allLevels")
+      : t("portfolio.levelN", { n: groupDepth });
+
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
     params.push({ label: t("portfolio.groupBy"), value: groupByLabel });
+    if (nestedActive) params.push({ label: t("portfolio.nestedGroups"), value: depthLabel });
     if (colorBy) params.push({ label: t("common.colorBy"), value: colorByLabel });
     if (search) params.push({ label: t("common.search"), value: search });
     if (tl.printParam) params.push(tl.printParam);
     if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
     if (activeFilterCount > 0) params.push({ label: t("common.filters"), value: t("common.filtersActive", { count: activeFilterCount }) });
     return params;
-  }, [groupByLabel, colorBy, colorByLabel, search, tl.printParam, view, activeFilterCount, t]);
+  }, [groupByLabel, nestedActive, depthLabel, colorBy, colorByLabel, search, tl.printParam, view, activeFilterCount, t]);
 
   if (!data)
     return (
@@ -1119,6 +1361,39 @@ export default function PortfolioReport({
                 </MenuItem>
               ))}
           </TextField>
+
+          {nestedAvailable && (
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  checked={nestedGroups}
+                  onChange={(e) => setNestedGroups(e.target.checked)}
+                />
+              }
+              label={
+                <Typography variant="body2">{t("portfolio.nestedGroups")}</Typography>
+              }
+              sx={{ ml: 0 }}
+            />
+          )}
+
+          {nestedActive && (
+            <TextField
+              select
+              size="small"
+              label={t("portfolio.displayDepth")}
+              value={Math.min(groupDepth, ALL_LEVELS)}
+              onChange={(e) => setGroupDepth(Number(e.target.value))}
+              sx={{ minWidth: 140 }}
+            >
+              {depthOptions.map((o) => (
+                <MenuItem key={o.value} value={o.value}>
+                  {o.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
 
           <TextField
             select
@@ -1586,7 +1861,8 @@ export default function PortfolioReport({
 
       {view === "chart" ? (
         <>
-          {groups.length === 0 && ungrouped.length === 0 ? (
+          {(nestedActive ? (groupTree?.length ?? 0) === 0 : groups.length === 0) &&
+          ungrouped.length === 0 ? (
             <Box sx={{ py: 8, textAlign: "center" }}>
               <Typography color="text.secondary">
                 {hasActiveFilters ? noItemsFiltered : noItemsEmpty}
@@ -1594,34 +1870,67 @@ export default function PortfolioReport({
             </Box>
           ) : (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              {/* Group cards grid */}
-              <Box
-                className="report-print-grid-4"
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: {
-                    xs: "1fr",
-                    sm: "1fr 1fr",
-                    md: "1fr 1fr 1fr",
-                    lg: "1fr 1fr 1fr 1fr",
-                  },
-                  gap: 2,
-                }}
-              >
-                {groups.map((g) => (
-                  <Box key={g.key} data-export-row>
-                    <GroupCard
-                      group={g}
-                      colorRes={colorRes}
-                      colorLabels={colorLabels}
-                      colorMemberId={perMemberColor ? g.key : undefined}
-                      onGroupClick={handleGroupClick}
-                      onAppClick={handleAppClick}
-                      countLabel={countLabel}
-                    />
-                  </Box>
-                ))}
-              </Box>
+              {nestedActive && groupTree ? (
+                /* Nested group tree — boxes within boxes per hierarchy */
+                <Box
+                  className={groupDepth <= 1 ? "report-print-grid-4" : "report-print-grid-3"}
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: {
+                      xs: "1fr",
+                      sm: "1fr 1fr",
+                      md: groupDepth <= 1 ? "1fr 1fr 1fr" : "1fr 1fr",
+                      lg: groupDepth <= 1 ? "1fr 1fr 1fr 1fr" : "1fr 1fr 1fr",
+                    },
+                    gap: 2,
+                    alignItems: "start",
+                  }}
+                >
+                  {groupTree.map((n) => (
+                    <Box key={n.key} data-export-row>
+                      <NestedGroupCard
+                        node={n}
+                        displayLevel={groupDepth}
+                        colorRes={colorRes}
+                        colorLabels={colorLabels}
+                        perMemberColor={perMemberColor}
+                        onNodeClick={handleNodeClick}
+                        onAppClick={handleAppClick}
+                        countLabel={countLabel}
+                      />
+                    </Box>
+                  ))}
+                </Box>
+              ) : (
+                /* Flat group cards grid */
+                <Box
+                  className="report-print-grid-4"
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: {
+                      xs: "1fr",
+                      sm: "1fr 1fr",
+                      md: "1fr 1fr 1fr",
+                      lg: "1fr 1fr 1fr 1fr",
+                    },
+                    gap: 2,
+                  }}
+                >
+                  {groups.map((g) => (
+                    <Box key={g.key} data-export-row>
+                      <GroupCard
+                        group={g}
+                        colorRes={colorRes}
+                        colorLabels={colorLabels}
+                        colorMemberId={perMemberColor ? g.key : undefined}
+                        onGroupClick={handleGroupClick}
+                        onAppClick={handleAppClick}
+                        countLabel={countLabel}
+                      />
+                    </Box>
+                  ))}
+                </Box>
+              )}
 
               {/* Ungrouped section */}
               {ungrouped.length > 0 && (
@@ -1908,7 +2217,9 @@ export default function PortfolioReport({
                       a,
                       colorRes,
                       colorLabels,
-                      perMemberColor ? drawer.memberId : undefined,
+                      perMemberColor
+                        ? (drawer.appMemberIds?.[a.id] ?? drawer.memberId)
+                        : undefined,
                     );
                     if (lbl) parts.push(lbl);
                   }
@@ -1933,7 +2244,9 @@ export default function PortfolioReport({
                               a,
                               colorRes,
                               colorLabels,
-                              perMemberColor ? drawer.memberId : undefined,
+                              perMemberColor
+                                ? (drawer.appMemberIds?.[a.id] ?? drawer.memberId)
+                                : undefined,
                             ),
                             flexShrink: 0,
                             ml: 1,

@@ -984,6 +984,7 @@ async def app_portfolio(
                 "id": str(card.id),
                 "name": card.name,
                 "type": card.type,
+                "parent_id": str(card.parent_id) if card.parent_id else None,
             }
 
     # 4. Build card -> relations lookup
@@ -1010,6 +1011,40 @@ async def app_portfolio(
                     "attributes": r.attributes or {},
                 }
             )
+
+    # 4b. Ancestor closure for hierarchical related types: nested grouping needs
+    # the full parent chain of every related member, including ancestors that
+    # have no direct relation to any portfolio card. Added members are flagged
+    # ancestor_only so the client can exclude them from direct-relation filters.
+    hierarchical_type_keys = {t.key for t in all_types if t.has_hierarchy and not t.is_hidden}
+    pending = {
+        m["parent_id"]
+        for m in related_map.values()
+        if m["type"] in hierarchical_type_keys
+        and m["parent_id"]
+        and m["parent_id"] not in related_map
+    }
+    for _ in range(10):  # hierarchy depth is capped well below this
+        if not pending:
+            break
+        anc_result = await db.execute(
+            select(Card).where(Card.id.in_(list(pending)), Card.status == "ACTIVE")
+        )
+        pending = set()
+        for card in anc_result.scalars().all():
+            cid = str(card.id)
+            if cid in related_map:
+                continue
+            parent_id = str(card.parent_id) if card.parent_id else None
+            related_map[cid] = {
+                "id": cid,
+                "name": card.name,
+                "type": card.type,
+                "parent_id": parent_id,
+                "ancestor_only": True,
+            }
+            if parent_id and parent_id not in related_map:
+                pending.add(parent_id)
 
     # 5. Get relation types for label resolution
     rt_result = await db.execute(select(RelationType).where(RelationType.is_hidden.is_(False)))

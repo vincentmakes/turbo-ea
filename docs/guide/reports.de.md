@@ -35,6 +35,10 @@ Beim Wechsel des Kartentyps werden die Auswahl für Gruppierung, Färbung und Fi
 
 Wenn die Beziehungen einer Karte einen «Typ»-Wert tragen — etwa den **Verwendungstyp** (Eigentümer / Benutzer / Stakeholder) bei Beziehungen Organisation→Anwendung oder den **Unterstützungstyp** bei Beziehungen Anwendung→Geschäftsfähigkeit — können Sie die Karten danach einfärben und filtern. **Gruppieren Sie den Bericht nach dem verbundenen Kartentyp**, um sie zu nutzen (z. B. *Gruppieren nach → Organisation*, um den *Verwendungstyp* freizuschalten): Der Untertyp erscheint dann unter der Gruppe **Beziehungs-Untertypen** in der Auswahl *Einfärben nach* sowie als eigene Filterzeile. Da jede Karte unter einer verbundenen Karte angezeigt wird, wird sie nach *dieser* Beziehung eingefärbt — eine Anwendung, die *Benutzer* einer Organisation ist, erscheint dort als Benutzer, auch wenn sie einer anderen gehört.
 
+### Verschachtelte Gruppen
+
+Beim Gruppieren nach einem verknüpften Kartentyp mit Hierarchie (z. B. Geschäftsfähigkeit oder Organisation) erscheint neben der Auswahl *Gruppieren nach* ein Schalter **Verschachtelte Gruppen**. Aktivieren Sie ihn, um die Gruppen als ineinander verschachtelte Boxen entlang der Eltern-Kind-Hierarchie des verknüpften Typs darzustellen — wie in der Fähigkeitskarte. Die Auswahl **Anzeigetiefe** steuert, wie viele Ebenen aufgeklappt werden: Jede Karte erscheint unter ihrer tiefsten sichtbaren Gruppe, und Gruppen unterhalb der Tiefengrenze rollen ihre Karten in den nächsten sichtbaren Vorfahren hoch. Zweige ohne Karten werden ausgeblendet.
+
 ## Fähigkeitskarte
 
 ![Geschäftsfähigkeitskarte](../assets/img/de/11_faehigkeiten_karte.png)

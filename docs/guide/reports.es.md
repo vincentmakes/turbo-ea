@@ -35,6 +35,10 @@ Cambiar el tipo de tarjeta restablece las selecciones de agrupación, color y fi
 
 Cuando las relaciones de una tarjeta llevan un valor de «tipo» —por ejemplo el **tipo de uso** (Propietario / Usuario / Parte interesada) en las relaciones Organización→Aplicación, o el **tipo de soporte** en las relaciones Aplicación→Capacidad de negocio— puede colorear las tarjetas por ese valor y filtrar por él. **Agrupe el informe por el tipo de tarjeta relacionado** para usarlos (p. ej. *Agrupar por → Organización* para habilitar el *tipo de uso*): el subtipo aparece entonces bajo el grupo **Subtipos de relación** en el desplegable *Colorear por* y como su propia fila de filtros. Como cada tarjeta se muestra bajo una tarjeta relacionada, se colorea según *esa* relación: una aplicación que es *Usuario* de una organización aparece como Usuario ahí, aunque pertenezca a otra.
 
+### Grupos anidados
+
+Al agrupar por un tipo de tarjeta relacionado que admite jerarquía (como Capacidad de negocio u Organización), aparece un interruptor **Grupos anidados** junto al selector *Agrupar por*. Actívelo para mostrar los grupos como cajas anidadas siguiendo la jerarquía padre/hijo del tipo relacionado, como en el Mapa de Capacidades. El selector **Profundidad de visualización** controla cuántos niveles se expanden: cada tarjeta aparece bajo su grupo visible más profundo, y los grupos por debajo del límite de profundidad suben sus tarjetas al ancestro visible más cercano. Las ramas sin tarjetas se ocultan.
+
 ## Mapa de Capacidades
 
 ![Mapa de Capacidades de Negocio](../assets/img/es/11_mapa_capacidades.png)

@@ -35,6 +35,10 @@ Cambiare il tipo di scheda azzera le selezioni di raggruppamento, colore e filtr
 
 Quando le relazioni di una scheda portano un valore di «tipo» — ad esempio il **tipo di utilizzo** (Proprietario / Utente / Stakeholder) sulle relazioni Organizzazione→Applicazione, o il **tipo di supporto** sulle relazioni Applicazione→Capability di business — puoi colorare le schede in base a quel valore e filtrarle. **Raggruppa il report per il tipo di scheda correlato** per usarli (ad es. *Raggruppa per → Organizzazione* per abilitare il *tipo di utilizzo*): il sottotipo compare quindi sotto il gruppo **Sottotipi di relazione** nel menu *Colora per* e come riga di filtri dedicata. Poiché ogni scheda è mostrata sotto una scheda correlata, viene colorata in base a *quella* relazione: un'applicazione che è *Utente* di un'organizzazione appare come Utente lì, anche se appartiene a un'altra.
 
+### Gruppi annidati
+
+Quando si raggruppa per un tipo di scheda correlato che supporta la gerarchia (come Business Capability o Organizzazione), accanto al selettore *Raggruppa per* compare un interruttore **Gruppi annidati**. Attivandolo, i gruppi vengono visualizzati come riquadri annidati secondo la gerarchia padre/figlio del tipo correlato — come nella Mappa delle Capability. Il selettore **Profondità di visualizzazione** controlla quanti livelli vengono espansi: ogni scheda compare sotto il suo gruppo visibile più profondo e i gruppi oltre il limite di profondità riportano le proprie schede all’antenato visibile più vicino. I rami senza schede vengono nascosti.
+
 ## Mappa delle Capability
 
 ![Mappa delle Business Capability](../assets/img/it/11_mappa_capacita.png)

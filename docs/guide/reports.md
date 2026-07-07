@@ -35,6 +35,10 @@ Switching the card type clears the group-by, colour-by, and filter selections (t
 
 When a card's relations carry a "type" value — for example the **Usage Type** (Owner / User / Stakeholder) on Organization→Application relations, or the **Support Type** on Application→Business Capability relations — you can colour the cards by that value and filter on it. **Group the report by the related card type** to use them (e.g. *Group by → Organization* to unlock *Usage Type*): the subtype then appears under a **Relation Subtypes** group in the *Color by* dropdown and as its own filter row. Because each card is shown under one related card, it is coloured by *that* relation — an application that is a *User* of one organisation shows as User there, even if it is owned by another.
 
+### Nested groups
+
+When grouping by a related card type that supports hierarchy (such as Business Capability or Organization), a **Nested groups** toggle appears next to the *Group by* selector. Enable it to render the groups as boxes within boxes following the related type's parent/child hierarchy — like the Capability Map. A **Display Depth** selector controls how many levels are expanded: each card appears under its deepest visible group, and groups below the depth limit roll their cards up into the closest visible ancestor. Branches that contain no cards are hidden.
+
 ## Capability Map
 
 ![Business Capability Map](../assets/img/en/11_capability_map.png)

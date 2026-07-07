@@ -61,7 +61,9 @@ async def portfolio_env(db):
     )
     await create_card_type(db, key="ITComponent", label="IT Component")
     await create_card_type(db, key="Organization", label="Organization")
-    await create_card_type(db, key="BusinessCapability", label="Business Capability")
+    await create_card_type(
+        db, key="BusinessCapability", label="Business Capability", has_hierarchy=True
+    )
 
     await create_relation_type(
         db,
@@ -374,6 +376,108 @@ class TestAppPortfolioTypeParam:
         data = resp.json()
         other_types = {rt["other_type_key"] for rt in data["relation_types"]}
         assert "Application" in other_types
+
+
+class TestAppPortfolioHierarchy:
+    """groupable_types members carry parent_id, and for hierarchical related
+    types the ancestor closure is included so the frontend can render nested
+    groups (Nested groups toggle on the portfolio reports).
+    """
+
+    async def test_members_include_parent_id(self, client, db, portfolio_env):
+        admin = portfolio_env["admin"]
+        app = await create_card(db, card_type="Application", name="CRM", user_id=admin.id)
+        root = await create_card(db, card_type="BusinessCapability", name="Root", user_id=admin.id)
+        child = await create_card(
+            db,
+            card_type="BusinessCapability",
+            name="Child",
+            user_id=admin.id,
+            parent_id=root.id,
+        )
+        await create_relation(db, type_key="app_to_cap", source_id=app.id, target_id=root.id)
+        await create_relation(db, type_key="app_to_cap", source_id=app.id, target_id=child.id)
+
+        resp = await client.get(
+            "/api/v1/reports/app-portfolio",
+            headers=auth_headers(admin),
+        )
+        members = {m["name"]: m for m in resp.json()["groupable_types"]["BusinessCapability"]}
+        assert members["Root"]["parent_id"] is None
+        assert members["Child"]["parent_id"] == str(root.id)
+
+    async def test_ancestor_closure_adds_unrelated_ancestors(self, client, db, portfolio_env):
+        """App relates only to an L3 capability; unrelated L1/L2 ancestors are
+        added to groupable_types, flagged ancestor_only."""
+        admin = portfolio_env["admin"]
+        app = await create_card(db, card_type="Application", name="CRM", user_id=admin.id)
+        l1 = await create_card(db, card_type="BusinessCapability", name="L1", user_id=admin.id)
+        l2 = await create_card(
+            db, card_type="BusinessCapability", name="L2", user_id=admin.id, parent_id=l1.id
+        )
+        l3 = await create_card(
+            db, card_type="BusinessCapability", name="L3", user_id=admin.id, parent_id=l2.id
+        )
+        await create_relation(db, type_key="app_to_cap", source_id=app.id, target_id=l3.id)
+
+        resp = await client.get(
+            "/api/v1/reports/app-portfolio",
+            headers=auth_headers(admin),
+        )
+        members = {m["name"]: m for m in resp.json()["groupable_types"]["BusinessCapability"]}
+        assert set(members) == {"L1", "L2", "L3"}
+        assert members["L1"].get("ancestor_only") is True
+        assert members["L2"].get("ancestor_only") is True
+        assert members["L2"]["parent_id"] == str(l1.id)
+        assert "ancestor_only" not in members["L3"]
+
+    async def test_ancestor_closure_skips_archived_parents(self, client, db, portfolio_env):
+        """An archived ancestor is not added; the child keeps pointing at it
+        (the frontend treats such children as roots)."""
+        admin = portfolio_env["admin"]
+        app = await create_card(db, card_type="Application", name="CRM", user_id=admin.id)
+        l1 = await create_card(
+            db,
+            card_type="BusinessCapability",
+            name="L1",
+            user_id=admin.id,
+            status="ARCHIVED",
+        )
+        l2 = await create_card(
+            db, card_type="BusinessCapability", name="L2", user_id=admin.id, parent_id=l1.id
+        )
+        await create_relation(db, type_key="app_to_cap", source_id=app.id, target_id=l2.id)
+
+        resp = await client.get(
+            "/api/v1/reports/app-portfolio",
+            headers=auth_headers(admin),
+        )
+        members = {m["name"]: m for m in resp.json()["groupable_types"]["BusinessCapability"]}
+        assert set(members) == {"L2"}
+        assert members["L2"]["parent_id"] == str(l1.id)
+
+    async def test_no_closure_for_non_hierarchy_types(self, client, db, portfolio_env):
+        """Non-hierarchy related types get parent_id passthrough but no
+        synthetic ancestor members."""
+        admin = portfolio_env["admin"]
+        app = await create_card(db, card_type="Application", name="CRM", user_id=admin.id)
+        parent_itc = await create_card(db, card_type="ITComponent", name="Parent", user_id=admin.id)
+        child_itc = await create_card(
+            db,
+            card_type="ITComponent",
+            name="Child",
+            user_id=admin.id,
+            parent_id=parent_itc.id,
+        )
+        await create_relation(db, type_key="app_to_itc", source_id=app.id, target_id=child_itc.id)
+
+        resp = await client.get(
+            "/api/v1/reports/app-portfolio",
+            headers=auth_headers(admin),
+        )
+        members = resp.json()["groupable_types"]["ITComponent"]
+        assert [m["name"] for m in members] == ["Child"]
+        assert members[0]["parent_id"] == str(parent_itc.id)
 
 
 class TestAppPortfolioRelationSubtypes:

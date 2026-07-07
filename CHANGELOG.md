@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.69.0] - 2026-07-07
+
+### Added
+- **Nested groups in the portfolio reports.** When the Flexible Portfolio (or Application Portfolio) is grouped by a related card type that supports hierarchy — Business Capability, Organization, etc. — a new **Nested groups** toggle renders the groups as boxes within boxes following that type's parent/child hierarchy, like the Capability Map. A **Display Depth** selector (Level 1…N / All levels) controls how many levels are expanded: each card appears under its deepest visible group, deeper groups roll their cards up into the closest visible ancestor, and empty branches are hidden. All existing features — colour-by bars, relation-subtype colouring and filters, timeline, search, drawer drill-down, export/print, and saved reports — keep working in nested mode.
+
 ## [1.68.0] - 2026-07-07
 
 ### Changed

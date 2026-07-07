@@ -35,6 +35,10 @@ Changer de type de carte réinitialise les sélections de regroupement, de color
 
 Lorsque les relations d'une carte portent une valeur de « type » — par exemple le **type d'utilisation** (Propriétaire / Utilisateur / Partie prenante) sur les relations Organisation→Application, ou le **type de support** sur les relations Application→Capacité métier — vous pouvez colorer les cartes selon cette valeur et filtrer dessus. **Groupez le rapport par le type de carte lié** pour les utiliser (par ex. *Grouper par → Organisation* pour débloquer le *type d'utilisation*) : le sous-type apparaît alors sous le groupe **Sous-types de relation** dans la liste *Colorer par* et dans sa propre ligne de filtres. Comme chaque carte est affichée sous une carte liée, elle est colorée selon *cette* relation — une application qui est *Utilisateur* d'une organisation s'affiche comme Utilisateur à cet endroit, même si elle appartient à une autre.
 
+### Groupes imbriqués
+
+Lorsque vous regroupez par un type de carte lié prenant en charge la hiérarchie (par exemple Capacité métier ou Organisation), un interrupteur **Groupes imbriqués** apparaît à côté du sélecteur *Regrouper par*. Activez-le pour afficher les groupes sous forme de boîtes imbriquées suivant la hiérarchie parent/enfant du type lié — comme dans la carte de capacités. Le sélecteur **Profondeur d’affichage** contrôle le nombre de niveaux développés : chaque carte apparaît sous son groupe visible le plus profond, et les groupes situés au-delà de la limite de profondeur remontent leurs cartes vers l’ancêtre visible le plus proche. Les branches sans cartes sont masquées.
+
 ## Carte de capacités
 
 ![Carte de capacités métier](../assets/img/fr/11_carte_capacites.png)
