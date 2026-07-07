@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.67.0] - 2026-07-07
+
+### Changed
+- **Turbo EA is now licensed under the Functional Source License 1.1 (FSL-1.1-MIT).** Starting with this release, the project is source-available and free for all users — self-host it internally for any purpose (commercial or not), modify it, and provide professional services around it. The only restriction is that you may not resell Turbo EA, or a derivative, as a competing commercial product or hosted/managed service. Every release automatically converts to the MIT license two years after its release date, so the code always returns to fully permissive open source. All releases up to and including v1.66.x were published under MIT and remain MIT forever; this change applies only from v1.67.0 onward.
+
 ## [1.66.3] - 2026-07-07
 
 ### Fixed
