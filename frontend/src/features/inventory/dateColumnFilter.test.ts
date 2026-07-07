@@ -31,4 +31,10 @@ describe("compareDateFilter", () => {
     expect(dateColumnFilterDef.filter).toBe("agDateColumnFilter");
     expect(dateColumnFilterDef.filterParams.comparator).toBe(compareDateFilter);
   });
+
+  it("includes a reset button so the filter can be cleared per column", () => {
+    // Guards the merge-vs-replace pitfall: a column's own filterParams replaces
+    // the grid default's, so the reset button must be declared here too.
+    expect(dateColumnFilterDef.filterParams.buttons).toContain("reset");
+  });
 });

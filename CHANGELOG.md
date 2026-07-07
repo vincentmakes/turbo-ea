@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [1.66.1] - 2026-07-07
 
 ### Fixed
-- **Inventory date columns now filter by date instead of text.** The Created and Updated columns — and any custom date field — offered only a text "contains" filter that compared the raw stored timestamp as a string. They now use a proper date filter with equals / before / after / in-range options.
+- **Inventory date columns now filter by date instead of text.** The Created and Updated columns — and any custom date field — offered only a text "contains" filter that compared the raw stored timestamp as a string. They now use a proper date filter with equals / before / after / in-range options. Every column's filter can be cleared with a Reset button in its filter popup or the new "Clear filters" toolbar button, and clearing the sidebar filters or applying a saved view now also clears the column filters.
 
 ## [1.66.0] - 2026-07-07
 

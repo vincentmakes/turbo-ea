@@ -202,6 +202,10 @@ export default function InventoryPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  // Whether any AG Grid column filter is active (drives the "Clear filters"
+  // toolbar button). This is the grid's own filter model — a layer separate
+  // from the sidebar `filters` state below.
+  const [hasColumnFilters, setHasColumnFilters] = useState(false);
 
   // Sidebar state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -840,6 +844,20 @@ export default function InventoryPage() {
     setGridReady(true);
   }, []);
 
+  // Reflect the grid's column-filter model into `hasColumnFilters` so the
+  // toolbar "Clear filters" button appears only when something is filtered.
+  const handleFilterChanged = useCallback(() => {
+    const api = gridRef.current?.api;
+    if (!api) return;
+    setHasColumnFilters(Object.keys(api.getFilterModel() ?? {}).length > 0);
+  }, []);
+
+  // Clear all AG Grid column filters at once. Also invoked by the sidebar's
+  // "Clear all" filter reset and when applying a saved view.
+  const clearColumnFilters = useCallback(() => {
+    gridRef.current?.api?.setFilterModel(null);
+  }, []);
+
   // Export only what's on screen: the displayed columns, in their current
   // left-to-right order, with their displayed headers, and only the rows left
   // after filtering — in sort order. WYSIWYG, not importable. Values are read
@@ -883,7 +901,7 @@ export default function InventoryPage() {
   }, [typeConfig, typeLabel, t]);
 
   // Stable AG Grid config objects — prevents unnecessary grid re-renders
-  const defaultColDef = useMemo(() => ({ sortable: true, filter: true, resizable: true }), []);
+  const defaultColDef = useMemo(() => ({ sortable: true, filter: true, resizable: true, filterParams: { buttons: ["reset"] } }), []);
   const rowSelection = useMemo(() => ({ mode: "multiRow" as const, enableClickSelection: false, headerCheckbox: true, selectAll: "filtered" as const }), []);
   const getRowId = useCallback((p: { data: Card }) => p.data.id, []);
   const getRowStyle = useCallback((p: { data?: Card }) => p.data?.status === "ARCHIVED" ? { opacity: 0.6 } : undefined, []);
@@ -2145,6 +2163,7 @@ export default function InventoryPage() {
             onResetColumns={handleResetColumns}
             columnState={columnState}
             onApplyColumnState={applyColumnLayout}
+            onClearColumnFilters={clearColumnFilters}
           />
         </Drawer>
       ) : (
@@ -2169,6 +2188,7 @@ export default function InventoryPage() {
           onResetColumns={handleResetColumns}
           columnState={columnState}
           onApplyColumnState={applyColumnLayout}
+          onClearColumnFilters={clearColumnFilters}
         />
       )}
 
@@ -2190,6 +2210,13 @@ export default function InventoryPage() {
           <Box sx={{ flex: 1 }} />
           {isMobile ? (
             <>
+              {hasColumnFilters && (
+                <Tooltip title={t("filter.clearColumnFilters")}>
+                  <IconButton onClick={clearColumnFilters} size="small">
+                    <MaterialSymbol icon="filter_alt_off" size={20} />
+                  </IconButton>
+                </Tooltip>
+              )}
               <Tooltip title={gridEditMode ? t("toolbar.editing") : t("toolbar.gridEdit")}>
                 <IconButton
                   color={gridEditMode ? "primary" : "default"}
@@ -2223,6 +2250,17 @@ export default function InventoryPage() {
             </>
           ) : (
             <>
+              {hasColumnFilters && (
+                <Button
+                  variant="outlined"
+                  color="inherit"
+                  startIcon={<MaterialSymbol icon="filter_alt_off" size={18} />}
+                  onClick={clearColumnFilters}
+                  sx={{ textTransform: "none" }}
+                >
+                  {t("filter.clearColumnFilters")}
+                </Button>
+              )}
               <Button
                 variant={gridEditMode ? "contained" : "outlined"}
                 color={gridEditMode ? "primary" : "inherit"}
@@ -2437,6 +2475,7 @@ export default function InventoryPage() {
             onRowClicked={onRowClicked}
             onSortChanged={handleSortChanged}
             onGridReady={handleGridReady}
+            onFilterChanged={handleFilterChanged}
             onDragStopped={captureColumnState}
             onColumnPinned={captureColumnState}
             maintainColumnOrder

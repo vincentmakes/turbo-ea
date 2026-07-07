@@ -53,6 +53,7 @@
   "filter.emptyValue": "(tom)",
   "filter.showArchivedOnly": "Vis kun arkiverede",
   "filter.clearAll": "Ryd alle ({{count}})",
+  "filter.clearColumnFilters": "Ryd filtre",
   "massEdit.title": "Masseredigering",
   "massEdit.dialogTitle": "Masseredigering ({{count}} elementer)",
   "massEdit.field": "Felt",

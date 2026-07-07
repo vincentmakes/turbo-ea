@@ -53,6 +53,7 @@
   "filter.emptyValue": "(leer)",
   "filter.showArchivedOnly": "Nur archivierte anzeigen",
   "filter.clearAll": "Alle löschen ({{count}})",
+  "filter.clearColumnFilters": "Filter löschen",
   "massEdit.title": "Massenbearbeitung",
   "massEdit.dialogTitle": "Massenbearbeitung ({{count}} Elemente)",
   "massEdit.field": "Feld",

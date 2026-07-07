@@ -53,6 +53,7 @@
   "filter.emptyValue": "（空）",
   "filter.showArchivedOnly": "仅显示已归档",
   "filter.clearAll": "清除全部 ({{count}})",
+  "filter.clearColumnFilters": "清除筛选",
   "massEdit.title": "批量编辑",
   "massEdit.dialogTitle": "批量编辑 ({{count}} 个项目)",
   "massEdit.field": "字段",

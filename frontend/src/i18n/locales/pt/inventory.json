@@ -53,6 +53,7 @@
   "filter.emptyValue": "(vazio)",
   "filter.showArchivedOnly": "Mostrar apenas arquivados",
   "filter.clearAll": "Limpar tudo ({{count}})",
+  "filter.clearColumnFilters": "Limpar filtros",
   "massEdit.title": "Edição em massa",
   "massEdit.dialogTitle": "Edição em massa ({{count}} itens)",
   "massEdit.field": "Campo",

@@ -27,8 +27,15 @@ export function compareDateFilter(filterDate: Date, cellValue: unknown): number 
   return toDayValue(cell) - toDayValue(filterDate);
 }
 
-/** Reusable partial column definition enabling the date filter with our comparator. */
+/**
+ * Reusable partial column definition enabling the date filter with our comparator.
+ *
+ * `buttons: ["reset"]` adds AG Grid's Reset button to the filter popup so any
+ * column's filter can be cleared in one click. A column's own `filterParams`
+ * replaces (does not deep-merge with) the grid `defaultColDef.filterParams`, so
+ * the button is declared here as well as on the default col-def.
+ */
 export const dateColumnFilterDef = {
   filter: "agDateColumnFilter" as const,
-  filterParams: { comparator: compareDateFilter },
+  filterParams: { comparator: compareDateFilter, buttons: ["reset"] as const },
 };

@@ -53,6 +53,7 @@
   "filter.emptyValue": "(فارغ)",
   "filter.showArchivedOnly": "عرض المؤرشف فقط",
   "filter.clearAll": "مسح الكل ({{count}})",
+  "filter.clearColumnFilters": "مسح عوامل التصفية",
   "massEdit.title": "التحرير الجماعي",
   "massEdit.dialogTitle": "التحرير الجماعي ({{count}} عناصر)",
   "massEdit.field": "الحقل",

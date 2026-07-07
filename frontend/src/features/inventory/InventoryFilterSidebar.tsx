@@ -87,6 +87,9 @@ interface Props {
   // Saved into a view's `column_state`; applied back via `onApplyColumnState`.
   columnState?: ColumnLayoutItem[];
   onApplyColumnState?: (state: ColumnLayoutItem[] | null) => void;
+  // Clears the grid's AG Grid column-filter model (a layer separate from these
+  // sidebar filters). Invoked on "Clear all" and when applying a saved view.
+  onClearColumnFilters?: () => void;
 }
 
 const APPROVAL_STATUS_OPTIONS = [
@@ -219,6 +222,7 @@ export default function InventoryFilterSidebar({
   onResetColumns,
   columnState,
   onApplyColumnState,
+  onClearColumnFilters,
 }: Props) {
   const { t } = useTranslation(["inventory", "common"]);
   const typeLabel = useTypeLabel();
@@ -360,8 +364,10 @@ export default function InventoryFilterSidebar({
     return result;
   }, [relationsMap, relevantRelTypes]);
 
-  const clearAll = () =>
+  const clearAll = () => {
     onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityMin: null, approvalStatuses: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null });
+    onClearColumnFilters?.();
+  };
 
   const activeCount =
     filters.types.length +
@@ -475,6 +481,9 @@ export default function InventoryFilterSidebar({
       const layout = (bm.column_state as ColumnLayoutItem[] | undefined) ?? null;
       onApplyColumnState(layout && layout.length > 0 ? layout : null);
     }
+    // A saved view defines a clean, self-contained state; clear any ad-hoc AG
+    // Grid column filters so stale ones don't linger on top of the applied view.
+    onClearColumnFilters?.();
     // Mark this view active so it stays highlighted (and survives a refresh).
     setActiveViewId(bm.id);
     // Stay on the Views tab so the user can switch between views quickly.
