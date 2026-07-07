@@ -249,7 +249,7 @@ def _field_type_for(fields_schema: list | None, turbo_field: str) -> str:
     for section in fields_schema or []:
         for f in section.get("fields", []) or []:
             if f.get("key") == key:
-                return f.get("type", "text")
+                return str(f.get("type", "text"))
     return "text"
 
 
