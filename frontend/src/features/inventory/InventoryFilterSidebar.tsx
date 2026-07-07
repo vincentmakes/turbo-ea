@@ -368,10 +368,8 @@ export default function InventoryFilterSidebar({
     return result;
   }, [relationsMap, relevantRelTypes]);
 
-  const clearAll = () => {
+  const clearAll = () =>
     onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityMin: null, approvalStatuses: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null });
-    onApplyColumnFilters?.(null);
-  };
 
   const activeCount =
     filters.types.length +

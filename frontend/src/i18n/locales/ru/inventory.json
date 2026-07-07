@@ -53,7 +53,7 @@
   "filter.emptyValue": "(пусто)",
   "filter.showArchivedOnly": "Показать только архивные",
   "filter.clearAll": "Очистить все ({{count}})",
-  "filter.clearColumnFilters": "Сбросить фильтры",
+  "filter.clearColumnFilters": "Сбросить фильтры столбцов",
   "massEdit.title": "Массовое редактирование",
   "massEdit.dialogTitle": "Массовое редактирование ({{count}} элементов)",
   "massEdit.field": "Поле",

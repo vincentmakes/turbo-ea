@@ -53,7 +53,7 @@
   "filter.emptyValue": "(vide)",
   "filter.showArchivedOnly": "Afficher uniquement les archivés",
   "filter.clearAll": "Tout effacer ({{count}})",
-  "filter.clearColumnFilters": "Effacer les filtres",
+  "filter.clearColumnFilters": "Effacer les filtres de colonne",
   "massEdit.title": "Modification en masse",
   "massEdit.dialogTitle": "Modification en masse ({{count}} éléments)",
   "massEdit.field": "Champ",
