@@ -490,6 +490,18 @@ async def apply_relation_operations(
     events_to_emit: list[tuple[str, Relation, Card | None, Card | None, dict | None]] = []
 
     for op in operations:
+        # Per-op savepoint so a single failing op (e.g. a relation whose
+        # source/target card no longer exists — a foreign-key violation at
+        # flush time) rolls back only itself instead of poisoning the whole
+        # session transaction and cascading "transaction has been rolled back"
+        # onto every later op. This is what makes the per-op result reporting
+        # below actually hold under a partial failure.
+        op_sp = await db.begin_nested()
+        # Bookkeeping collected inside the savepoint and only committed to the
+        # batch-level accumulators on success (in the `else` branch).
+        op_events: list = []
+        op_impacted: list[uuid.UUID] = []
+        op_result: RelationBulkResult
         try:
             # Distinct name from the outer `for rt in rt_by_key.values()`
             # loop above so mypy can keep the non-Optional narrowing intact.
@@ -513,104 +525,110 @@ async def apply_relation_operations(
 
             if op.action == "delete":
                 if rel is None:
-                    results.append(RelationBulkResult(row_index=op.row_index, status="noop"))
-                    continue
-                source_card = await db.get(Card, rel.source_id)
-                target_card = await db.get(Card, rel.target_id)
-                events_to_emit.append(("relation.deleted", rel, source_card, target_card, None))
-                await db.delete(rel)
-                impacted_cards.add(source_id)
-                impacted_cards.add(target_id)
-                deleted += 1
-                results.append(RelationBulkResult(row_index=op.row_index, status="deleted"))
-                continue
-
-            # Upsert path.
-            if rel is None:
-                # Cardinality guards: 1:1 forbids a second relation of the
-                # same type from this source or to this target; 1:n forbids
-                # a second relation from the same source.
-                if rt_def.cardinality in ("1:1", "1:n"):
-                    existing_src = await db.scalar(
-                        select(func.count(Relation.id)).where(
-                            Relation.type == op.type, Relation.source_id == source_id
-                        )
-                    )
-                    if existing_src and existing_src > 0:
-                        raise HTTPException(
-                            422,
-                            f"Cardinality {rt_def.cardinality} forbids a second '{op.type}' "
-                            "relation from this source",
-                        )
-                if rt_def.cardinality == "1:1":
-                    existing_tgt = await db.scalar(
-                        select(func.count(Relation.id)).where(
-                            Relation.type == op.type, Relation.target_id == target_id
-                        )
-                    )
-                    if existing_tgt and existing_tgt > 0:
-                        raise HTTPException(
-                            422,
-                            f"Cardinality 1:1 forbids a second '{op.type}' relation to this target",
-                        )
-
-                rel = Relation(
-                    type=op.type,
-                    source_id=source_id,
-                    target_id=target_id,
-                    attributes=op.attributes or {},
-                    description=op.description,
-                )
-                db.add(rel)
-                await db.flush()
-                # Reload with source/target for the event payload.
-                refetched = await db.execute(
-                    select(Relation)
-                    .where(Relation.id == rel.id)
-                    .options(selectinload(Relation.source), selectinload(Relation.target))
-                )
-                rel = refetched.scalar_one()
-                events_to_emit.append(("relation.created", rel, rel.source, rel.target, None))
+                    op_result = RelationBulkResult(row_index=op.row_index, status="noop")
+                else:
+                    source_card = await db.get(Card, rel.source_id)
+                    target_card = await db.get(Card, rel.target_id)
+                    op_events.append(("relation.deleted", rel, source_card, target_card, None))
+                    await db.delete(rel)
+                    await db.flush()
+                    op_impacted += [source_id, target_id]
+                    op_result = RelationBulkResult(row_index=op.row_index, status="deleted")
             else:
-                changed: list[str] = []
-                if op.attributes is not None and op.attributes != (rel.attributes or {}):
-                    rel.attributes = op.attributes
-                    changed.append("attributes")
-                if op.description is not None and op.description != rel.description:
-                    rel.description = op.description
-                    changed.append("description")
-                if changed:
-                    events_to_emit.append(
-                        (
-                            "relation.updated",
-                            rel,
-                            rel.source,
-                            rel.target,
-                            {"fields": changed},
+                # Upsert path.
+                if rel is None:
+                    # Cardinality guards: 1:1 forbids a second relation of the
+                    # same type from this source or to this target; 1:n forbids
+                    # a second relation from the same source.
+                    if rt_def.cardinality in ("1:1", "1:n"):
+                        existing_src = await db.scalar(
+                            select(func.count(Relation.id)).where(
+                                Relation.type == op.type, Relation.source_id == source_id
+                            )
                         )
-                    )
+                        if existing_src and existing_src > 0:
+                            raise HTTPException(
+                                422,
+                                f"Cardinality {rt_def.cardinality} forbids a second '{op.type}' "
+                                "relation from this source",
+                            )
+                    if rt_def.cardinality == "1:1":
+                        existing_tgt = await db.scalar(
+                            select(func.count(Relation.id)).where(
+                                Relation.type == op.type, Relation.target_id == target_id
+                            )
+                        )
+                        if existing_tgt and existing_tgt > 0:
+                            raise HTTPException(
+                                422,
+                                f"Cardinality 1:1 forbids a second '{op.type}' relation "
+                                "to this target",
+                            )
 
-            impacted_cards.add(source_id)
-            impacted_cards.add(target_id)
-            upserted += 1
-            results.append(
-                RelationBulkResult(
+                    rel = Relation(
+                        type=op.type,
+                        source_id=source_id,
+                        target_id=target_id,
+                        attributes=op.attributes or {},
+                        description=op.description,
+                    )
+                    db.add(rel)
+                    await db.flush()
+                    # Reload with source/target for the event payload.
+                    refetched = await db.execute(
+                        select(Relation)
+                        .where(Relation.id == rel.id)
+                        .options(selectinload(Relation.source), selectinload(Relation.target))
+                    )
+                    rel = refetched.scalar_one()
+                    op_events.append(("relation.created", rel, rel.source, rel.target, None))
+                else:
+                    changed: list[str] = []
+                    if op.attributes is not None and op.attributes != (rel.attributes or {}):
+                        rel.attributes = op.attributes
+                        changed.append("attributes")
+                    if op.description is not None and op.description != rel.description:
+                        rel.description = op.description
+                        changed.append("description")
+                    if changed:
+                        op_events.append(
+                            (
+                                "relation.updated",
+                                rel,
+                                rel.source,
+                                rel.target,
+                                {"fields": changed},
+                            )
+                        )
+
+                op_impacted += [source_id, target_id]
+                op_result = RelationBulkResult(
                     row_index=op.row_index,
                     status="upserted",
                     relation_id=str(rel.id),
                 )
-            )
 
         except HTTPException as exc:
+            await op_sp.rollback()
             failed += 1
             results.append(
                 RelationBulkResult(row_index=op.row_index, status="failed", error=exc.detail)
             )
         except Exception as exc:  # noqa: BLE001 — surface anything to the user
+            await op_sp.rollback()
             failed += 1
             results.append(
                 RelationBulkResult(row_index=op.row_index, status="failed", error=str(exc))
             )
+        else:
+            await op_sp.commit()
+            events_to_emit.extend(op_events)
+            impacted_cards.update(op_impacted)
+            if op_result.status == "deleted":
+                deleted += 1
+            elif op_result.status == "upserted":
+                upserted += 1
+            results.append(op_result)
 
     # Recalculate calculated fields on every card touched by the batch.
     for cid in impacted_cards:

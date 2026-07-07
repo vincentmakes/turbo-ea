@@ -178,6 +178,48 @@ async def test_bulk_unknown_relation_type_fails_row(client, db, rel_env):
     assert "Unknown relation type" in (body["results"][0]["error"] or "")
 
 
+async def test_bulk_missing_source_card_isolates_failure(client, db, rel_env):
+    """A relation whose source id does not exist in `cards` hits a foreign-key
+    violation at flush time. Without a per-op savepoint that failure would
+    poison the whole transaction and every later op would cascade with
+    "transaction has been rolled back". The failing op must be isolated so a
+    following valid op still upserts."""
+    import uuid
+
+    admin = rel_env["admin"]
+    ghost_id = str(uuid.uuid4())  # not present in cards
+    payload = {
+        "operations": [
+            {
+                "row_index": 1,
+                "action": "upsert",
+                "type": "app_to_itc",
+                "source": {"id": ghost_id},
+                "target": {"id": str(rel_env["itc1"].id)},
+            },
+            {
+                "row_index": 2,
+                "action": "upsert",
+                "type": "app_to_itc",
+                "source": {"id": str(rel_env["app1"].id)},
+                "target": {"id": str(rel_env["itc1"].id)},
+            },
+        ]
+    }
+    resp = await client.post("/api/v1/relations/bulk", json=payload, headers=auth_headers(admin))
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["upserted"] == 1, body
+    assert body["failed"] == 1, body
+    row2 = next(r for r in body["results"] if r["row_index"] == 2)
+    assert row2["status"] == "upserted"
+    # The good relation actually persisted.
+    rows = await db.execute(select(Relation).where(Relation.type == "app_to_itc"))
+    rels = list(rows.scalars().all())
+    assert len(rels) == 1
+    assert rels[0].source_id == rel_env["app1"].id
+
+
 async def test_bulk_dry_run_validates_without_persisting(client, db, rel_env):
     """Dry-run preview used by the MCP `upsert_relations_bulk` tool:
     every validator runs, but nothing persists."""

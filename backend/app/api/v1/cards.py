@@ -833,20 +833,31 @@ async def bulk_create_cards(
         parent_row_idx: int | None = None
         # Only look up a same-batch parent when the row didn't supply a UUID.
         if r.parent_id is None and r.parent_name:
-            # Try exact `(parent_path, parent_name)` first, then bare name.
-            keys = [_path_key(r.type, r.parent_path or [], r.parent_name)]
-            # Same-name siblings may share a parent_path that includes the
-            # path segments — also try the bare-name index as a fallback.
-            keys.append(_path_key(r.type, [], r.parent_name))
+            # The child references its parent by the FULL ancestor chain
+            # (`parent_path` = every level above the parent, `parent_name` =
+            # the parent itself).
+            full_ref = _path_key(r.type, r.parent_path or [], r.parent_name)
+            bare_ref = _path_key(r.type, [], r.parent_name)
+            bare_fallback: int | None = None
             for other in rows:
-                if other is r:
+                if other is r or other.type != r.type:
                     continue
-                if other.type != r.type:
-                    continue
-                other_key = _path_key(other.type, other.parent_path or [], other.name)
-                if other_key in keys:
+                # Exact `(parent_path, name)` match wins.
+                if _path_key(other.type, other.parent_path or [], other.name) == full_ref:
                     parent_row_idx = other.row_index
                     break
+                # Bare-name match is the fallback. A parent row indexes itself
+                # under its OWN (shorter) parent_path, while the child names it
+                # with the full ancestor chain, so the full keys never line up
+                # for hierarchies 3+ levels deep — the topo edge would be lost
+                # and a deep child could be processed before its parent exists
+                # ("Parent not found"). Matching the bare name restores the
+                # ordering edge; it mirrors the resolution pass below, which
+                # also falls back to the bare-name index.
+                if bare_fallback is None and _path_key(other.type, [], other.name) == bare_ref:
+                    bare_fallback = other.row_index
+            if parent_row_idx is None:
+                parent_row_idx = bare_fallback
         parent_row_of[r.row_index] = parent_row_idx
 
     # Kahn's algorithm: produce a list of row_indices in topo order.
@@ -879,6 +890,12 @@ async def bulk_create_cards(
 
     for row_idx in order:
         r = rows_by_index[row_idx]
+        # Per-row savepoint so a row that fails at flush time (e.g. a database
+        # integrity error) rolls back only itself. Without this, one failed
+        # flush poisons the whole session transaction and every subsequent row
+        # cascades with "transaction has been rolled back" — defeating the
+        # per-row result reporting this handler is built around.
+        row_sp = await db.begin_nested()
         try:
             await _validate_url_attributes(db, r.type, r.attributes or {})
 
@@ -962,7 +979,18 @@ async def bulk_create_cards(
                     card_id=card.id,
                     user_id=user.id,
                 )
-
+        except HTTPException as exc:
+            await row_sp.rollback()
+            by_index[r.row_index] = CardBulkCreateResult(
+                row_index=r.row_index, status="failed", error=exc.detail
+            )
+        except Exception as exc:  # noqa: BLE001 — surface anything to the user
+            await row_sp.rollback()
+            by_index[r.row_index] = CardBulkCreateResult(
+                row_index=r.row_index, status="failed", error=str(exc)
+            )
+        else:
+            await row_sp.commit()
             # Index this freshly-created card so subsequent rows can reference
             # it as a parent (under both its full path and bare-name keys).
             full_key = _path_key(r.type, r.parent_path or [], r.name)
@@ -972,14 +1000,6 @@ async def bulk_create_cards(
 
             by_index[r.row_index] = CardBulkCreateResult(
                 row_index=r.row_index, status="created", id=str(card.id)
-            )
-        except HTTPException as exc:
-            by_index[r.row_index] = CardBulkCreateResult(
-                row_index=r.row_index, status="failed", error=exc.detail
-            )
-        except Exception as exc:  # noqa: BLE001 — surface anything to the user
-            by_index[r.row_index] = CardBulkCreateResult(
-                row_index=r.row_index, status="failed", error=str(exc)
             )
 
     for cycle_idx in cycle_rows:
