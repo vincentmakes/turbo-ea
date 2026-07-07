@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.65.5] - 2026-07-07
+
+### Security
+- **The user directory no longer exposes account details to non-administrators.** Any signed-in user could previously list every user with their email, role, sign-in provider, whether they had a password set, and last-login time. Non-administrators now receive only the minimal information the owner/stakeholder/assignee pickers need (name, email, active status); the full account record is reserved for administrators and for a user viewing their own profile.
+- **The real-time activity stream is now filtered per user.** The live event stream previously delivered every event in the system — including administrative audit and operator break-glass activity — to any signed-in browser. Non-administrators now receive only events addressed to them (such as their own notifications); the full audit stream stays limited to users with audit-log access. Real-time notifications and badge counts are unchanged.
+- **Role definitions no longer reveal the full permission matrix to non-administrators.** Listing roles still returns each role's name and colour so role labels render everywhere, but the detailed permission set and per-role user counts are now limited to users who can manage roles.
+- **The tag catalogue now requires sign-in.** The tag-groups listing was reachable without authentication; it now requires a valid session like every other data endpoint.
+- **Signing a Statement of Architecture Work now uses the dedicated signing permission.** Signatories granted only the SoAW signing permission can now sign, and manage-level users retain the ability.
+- **Card detail, hierarchy, history and archive/restore-impact reads now enforce the same view permission as the card list**, closing an inconsistency where those reads skipped the check.
+
 ## [1.65.4] - 2026-07-07
 
 ### Fixed

@@ -77,7 +77,15 @@ class RoleUpdate(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _role_response(role: Role, user_count: int | None = None) -> dict:
+def _role_response(role: Role, user_count: int | None = None, *, full: bool = True) -> dict:
+    """Serialize a role.
+
+    ``full`` gates the sensitive fields to `admin.roles` holders: the
+    ``permissions`` JSONB (the entire RBAC matrix) and the per-role
+    ``user_count``. Non-admin callers still get ``key`` / ``label`` / ``color``
+    so role chips render everywhere, but not the matrix — mirroring the
+    lite-payload approach used for `/users`.
+    """
     data = {
         "id": str(role.id),
         "key": role.key,
@@ -87,15 +95,16 @@ def _role_response(role: Role, user_count: int | None = None) -> dict:
         "is_default": role.is_default,
         "is_archived": role.is_archived,
         "color": role.color,
-        "permissions": role.permissions,
         "sort_order": role.sort_order,
         "created_at": role.created_at.isoformat() if role.created_at else None,
         "updated_at": role.updated_at.isoformat() if role.updated_at else None,
         "archived_at": role.archived_at.isoformat() if role.archived_at else None,
         "archived_by": str(role.archived_by) if role.archived_by else None,
     }
-    if user_count is not None:
-        data["user_count"] = user_count
+    if full:
+        data["permissions"] = role.permissions
+        if user_count is not None:
+            data["user_count"] = user_count
     return data
 
 
@@ -110,14 +119,23 @@ async def list_roles(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """List all roles. Any authenticated user can view roles."""
+    """List all roles.
+
+    Any authenticated user can resolve role labels/colors (for role chips), but
+    only `admin.roles` holders get the permission matrix and per-role user
+    counts — those stay admin-only.
+    """
     query = select(Role).order_by(Role.sort_order, Role.key)
     if not include_archived:
         query = query.where(Role.is_archived == False)  # noqa: E712
     result = await db.execute(query)
     roles = result.scalars().all()
 
-    # Get user counts per role
+    full = await PermissionService.has_app_permission(db, user, "admin.roles")
+    if not full:
+        return [_role_response(r, full=False) for r in roles]
+
+    # Get user counts per role (admin.roles only)
     count_result = await db.execute(
         select(User.role, func.count(User.id)).where(User.is_active == True).group_by(User.role)  # noqa: E712
     )
@@ -143,7 +161,11 @@ async def get_role(
     if not role:
         raise HTTPException(404, "Role not found")
 
-    # Get user count
+    full = await PermissionService.has_app_permission(db, user, "admin.roles")
+    if not full:
+        return _role_response(role, full=False)
+
+    # Get user count (admin.roles only)
     count_result = await db.execute(
         select(func.count(User.id)).where(User.role == key, User.is_active == True)  # noqa: E712
     )

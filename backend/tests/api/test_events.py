@@ -129,3 +129,56 @@ class TestListEvents:
     async def test_unauthenticated_returns_401(self, client, db, events_env):
         resp = await client.get("/api/v1/events")
         assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------
+# GET /events/stream — per-subscriber visibility filter
+# ---------------------------------------------------------------
+
+
+class TestEventStreamVisibility:
+    """Unit tests for the pure `_event_visible_to` predicate that gates which
+    bus messages each SSE subscriber receives. No live connection needed."""
+
+    def test_admin_sees_everything(self):
+        from app.api.v1.events import _event_visible_to
+
+        # An audit / ops-sensitive event (break-glass operator email in payload).
+        ops_msg = {
+            "event": "ops.rescue_access_granted",
+            "data": {"operator_email": "op@vendor.example", "reason": "incident"},
+        }
+        assert _event_visible_to(True, ops_msg, "any-user-id") is True
+
+    def test_non_admin_does_not_see_ops_event(self):
+        from app.api.v1.events import _event_visible_to
+
+        ops_msg = {
+            "event": "ops.rescue_access_granted",
+            "data": {"operator_email": "op@vendor.example"},
+        }
+        assert _event_visible_to(False, ops_msg, "user-123") is False
+
+    def test_non_admin_does_not_see_card_event(self):
+        from app.api.v1.events import _event_visible_to
+
+        card_msg = {"event": "card.updated", "data": {"detail": "x"}, "card_id": "c1"}
+        assert _event_visible_to(False, card_msg, "user-123") is False
+
+    def test_non_admin_sees_own_notification(self):
+        from app.api.v1.events import _event_visible_to
+
+        msg = {"event": "notification.created", "data": {"user_id": "user-123"}}
+        assert _event_visible_to(False, msg, "user-123") is True
+
+    def test_non_admin_does_not_see_others_notification(self):
+        from app.api.v1.events import _event_visible_to
+
+        msg = {"event": "notification.created", "data": {"user_id": "someone-else"}}
+        assert _event_visible_to(False, msg, "user-123") is False
+
+    def test_non_admin_missing_data_is_withheld(self):
+        from app.api.v1.events import _event_visible_to
+
+        assert _event_visible_to(False, {"event": "x"}, "user-123") is False
+        assert _event_visible_to(False, {"event": "x", "data": None}, "user-123") is False

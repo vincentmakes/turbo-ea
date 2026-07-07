@@ -72,9 +72,14 @@ class TestCreateTagGroup:
 
 
 class TestListTagGroups:
-    async def test_list_tag_groups(self, client, db, tags_env):
-        """Tag groups are public (no auth required by endpoint)."""
+    async def test_list_tag_groups_requires_auth(self, client, db, tags_env):
+        """Tag groups now require authentication (was previously public)."""
         resp = await client.get("/api/v1/tag-groups")
+        assert resp.status_code == 401
+
+    async def test_authenticated_user_can_list_tag_groups(self, client, db, tags_env):
+        viewer = tags_env["viewer"]
+        resp = await client.get("/api/v1/tag-groups", headers=auth_headers(viewer))
         assert resp.status_code == 200
         assert isinstance(resp.json(), list)
 

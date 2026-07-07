@@ -21047,7 +21047,7 @@
     },
     "/api/v1/events/stream": {
       "get": {
-        "description": "SSE endpoint. Accepts token via query parameter or httpOnly cookie.",
+        "description": "SSE endpoint. Accepts token via query parameter or httpOnly cookie.\n\nEvents are filtered per subscriber: `admin.events` holders receive the full\naudit stream, everyone else only their own user-directed events (see\n`_event_visible_to`).",
         "operationId": "event_stream_api_v1_events_stream_get",
         "parameters": [
           {
@@ -28140,7 +28140,7 @@
     },
     "/api/v1/roles": {
       "get": {
-        "description": "List all roles. Any authenticated user can view roles.",
+        "description": "List all roles.\n\nAny authenticated user can resolve role labels/colors (for role chips), but\nonly `admin.roles` holders get the permission matrix and per-role user\ncounts \u2014 those stay admin-only.",
         "operationId": "list_roles_api_v1_roles_get",
         "parameters": [
           {

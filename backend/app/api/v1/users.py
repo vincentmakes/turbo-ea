@@ -96,6 +96,27 @@ def _user_response(u: User) -> dict:
     }
 
 
+def _user_response_lite(u: User) -> dict:
+    """Minimal user payload for non-admin callers.
+
+    `GET /users` feeds owner / assignee / stakeholder / signer pickers that
+    every authenticated user needs, so the endpoint can't be locked behind
+    `admin.users`. Instead we shape the response to the caller: non-admins get
+    only what those pickers consume (`id`, `display_name`, `email`,
+    `is_active`) and are denied the account-security / attacker-surface fields
+    (`role`, `auth_provider`, `has_password`, `pending_setup`, `last_login`,
+    `created_at`, `locale`, `ui_preferences`) that only the admin Users screen
+    reads. `email` stays: pickers display and search by it, and it is already
+    surfaced to non-admins via the stakeholders endpoint.
+    """
+    return {
+        "id": str(u.id),
+        "display_name": u.display_name,
+        "email": u.email,
+        "is_active": u.is_active,
+    }
+
+
 def _invitation_response(inv: SsoInvitation) -> dict:
     return {
         "id": str(inv.id),
@@ -128,7 +149,14 @@ async def list_users(
     if not include_inactive:
         stmt = stmt.where(User.is_active.is_(True))
     result = await db.execute(stmt)
-    return [_user_response(u) for u in result.scalars().all()]
+    users = result.scalars().all()
+
+    # Shape the payload to the caller. Admins (Users admin screen) get the full
+    # record; everyone else gets the lite payload the pickers need — never the
+    # PII / attacker-surface metadata.
+    is_admin = await PermissionService.has_app_permission(db, user, "admin.users")
+    serialize = _user_response if is_admin else _user_response_lite
+    return [serialize(u) for u in users]
 
 
 @router.get("/invitations")
@@ -436,7 +464,12 @@ async def get_user(
     u = result.scalar_one_or_none()
     if not u:
         raise HTTPException(404, "User not found")
-    return _user_response(u)
+
+    # Full record only for admins or the user reading their own profile;
+    # everyone else gets the lite payload (mirrors list_users).
+    is_admin = await PermissionService.has_app_permission(db, current_user, "admin.users")
+    is_self = str(current_user.id) == user_id
+    return _user_response(u) if (is_admin or is_self) else _user_response_lite(u)
 
 
 INVITE_ALLOWED_ROLES: set[str] = {"member", "viewer"}

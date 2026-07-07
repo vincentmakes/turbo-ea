@@ -226,5 +226,6 @@ class TestConcurrentSubscribers:
 
         assert len(received[0]) == 2
         assert len(received[1]) == 2
-        assert received[0][0].startswith("data: ")
-        assert received[1][0].startswith("data: ")
+        # subscribe() yields raw dicts; the endpoint handles SSE formatting.
+        assert received[0][0]["event"] == "a"
+        assert received[1][0]["event"] == "a"
