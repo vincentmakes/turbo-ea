@@ -170,6 +170,7 @@ export function exportTaskHistory(task: MitigationTask, riskReference: string): 
 interface RiskRow {
   reference: string;
   title: string;
+  description: string;
   category: string;
   initial_level: string;
   residual_level: string;
@@ -180,10 +181,11 @@ interface RiskRow {
   updated_at: string;
 }
 
-function risksToRows(risks: Risk[]): RiskRow[] {
+export function risksToRows(risks: Risk[]): RiskRow[] {
   return risks.map((r) => ({
     reference: r.reference,
     title: r.title,
+    description: r.description ?? "",
     category: r.category,
     initial_level: r.initial_level,
     residual_level: r.residual_level ?? "",
@@ -198,6 +200,7 @@ function risksToRows(risks: Risk[]): RiskRow[] {
 const RISK_COLUMNS: readonly (keyof RiskRow)[] = [
   "reference",
   "title",
+  "description",
   "category",
   "initial_level",
   "residual_level",

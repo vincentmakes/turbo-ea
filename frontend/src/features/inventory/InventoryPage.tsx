@@ -46,6 +46,7 @@ import InventoryFilterSidebar, {
 } from "./InventoryFilterSidebar";
 import ImportDialog from "./ImportDialog";
 import { exportToExcel, exportCurrentViewToExcel } from "./excelExport";
+import { dateColumnFilterDef } from "./dateColumnFilter";
 import RelationCellPopover from "./RelationCellPopover";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel, useRelationLabel, useFieldLabel, useOptionLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
@@ -1705,6 +1706,7 @@ export default function InventoryPage() {
                   cellEditorParams: { rows: 8, cols: 60, maxLength: 100000 },
                 }
               : {}),
+            ...(field.type === "date" ? dateColumnFilterDef : {}),
           });
         }
       }
@@ -1758,6 +1760,7 @@ export default function InventoryPage() {
                 },
               }
             : {}),
+          ...(field.type === "date" ? dateColumnFilterDef : {}),
         });
       }
     }
@@ -1865,6 +1868,7 @@ export default function InventoryPage() {
         width: 160,
         hide: !selectedColumns.has("meta_created_at"),
         valueFormatter: (p) => (p.value ? formatDateTime(p.value) : ""),
+        ...dateColumnFilterDef,
       },
       {
         colId: "meta_updated_at",
@@ -1873,6 +1877,7 @@ export default function InventoryPage() {
         width: 160,
         hide: !selectedColumns.has("meta_updated_at"),
         valueFormatter: (p) => (p.value ? formatDateTime(p.value) : ""),
+        ...dateColumnFilterDef,
       },
       {
         colId: "meta_created_by",

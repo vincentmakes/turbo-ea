@@ -1,6 +1,36 @@
 import { describe, expect, it } from "vitest";
-import type { MitigationTask } from "@/types";
-import { flattenTasksForExport } from "./taskHistoryExport";
+import type { MitigationTask, Risk } from "@/types";
+import { flattenTasksForExport, risksToRows } from "./taskHistoryExport";
+
+function risk(overrides: Partial<Risk> = {}): Risk {
+  return {
+    id: "risk-1",
+    reference: "R-000123",
+    title: "Legacy auth service",
+    description: "Unsupported identity provider still in production.",
+    category: "technology",
+    source_type: "manual",
+    source_ref: null,
+    initial_probability: "high",
+    initial_impact: "high",
+    initial_level: "high",
+    residual_probability: null,
+    residual_impact: null,
+    residual_level: null,
+    owner_id: null,
+    owner_name: null,
+    target_resolution_date: null,
+    status: "identified",
+    acceptance_rationale: null,
+    accepted_by: null,
+    accepted_at: null,
+    created_by: "u1",
+    created_at: "2026-05-14T10:00:00Z",
+    updated_at: "2026-05-14T10:00:00Z",
+    cards: [],
+    ...overrides,
+  } as Risk;
+}
 
 function task(overrides: Partial<MitigationTask> = {}): MitigationTask {
   return {
@@ -149,6 +179,25 @@ describe("flattenTasksForExport", () => {
     const t = task({ occurrences: [openOccurrence()] });
     const rows = flattenTasksForExport([t], new Map());
     expect(rows[0].risk_reference).toBe("");
+  });
+});
+
+describe("risksToRows", () => {
+  it("includes the description field in the exported row", () => {
+    const rows = risksToRows([
+      risk({ description: "Unsupported identity provider still in production." }),
+    ]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].description).toBe(
+      "Unsupported identity provider still in production.",
+    );
+    expect(rows[0].reference).toBe("R-000123");
+    expect(rows[0].title).toBe("Legacy auth service");
+  });
+
+  it("maps a blank description to an empty string", () => {
+    const rows = risksToRows([risk({ description: "" })]);
+    expect(rows[0].description).toBe("");
   });
 });
 

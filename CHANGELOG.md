@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.66.2] - 2026-07-07
+
+### Fixed
+- **Risk Register export now includes the risk description.** The Excel export of the Risk Register omitted each risk's description; the "Risks" sheet now carries a Description column alongside the reference and title.
+
+## [1.66.1] - 2026-07-07
+
+### Fixed
+- **Inventory date columns now filter by date instead of text.** The Created and Updated columns — and any custom date field — offered only a text "contains" filter that compared the raw stored timestamp as a string. They now use a proper date filter with equals / before / after / in-range options.
+
 ## [1.66.0] - 2026-07-07
 
 ### Added
