@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.65.4] - 2026-07-07
+
+### Fixed
+- **Azure Hosted OpenAI now works for TurboLens and the GRC Compliance scanner.** Selecting *Azure Hosted OpenAI* as the AI provider previously left TurboLens analyses (vendors, duplicates, modernization, Architecture AI) and the Compliance scanner reporting "AI not configured", even though AI description suggestions worked. These features now recognise the Azure provider and call the deployment endpoint correctly.
+
 ## [1.65.3] - 2026-07-06
 
 ### Fixed
