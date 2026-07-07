@@ -1463,20 +1463,25 @@ export async function validateMultiSheet(
       const parentPathRaw = str(raw["parent_path"]);
       if (!name) continue;
 
-      // Locate the source. The `id` column is authoritative — a valid
-      // UUID is trusted directly, **without** requiring the card to be
-      // in the loaded `existingCards` slice (the grid filter shouldn't
-      // affect which sheet rows the importer can process). If the UUID
-      // is stale, the bulk-apply will surface a per-row error.
+      // Locate the source. A row that this same workbook is *creating*
+      // (`fileByOwnPathKey`, which holds only creates) must source its
+      // relations from the pathKey, so the apply step resolves them to the
+      // NEW server id. Trusting the `id` column here instead would carry a
+      // stale, cross-instance UUID — the card's id from the *source* instance
+      // an export came from — which is absent in a fresh target and fails
+      // the relation insert with a foreign-key violation. The `id` column is
+      // only authoritative for cards that already exist in the target (an
+      // update / same-instance re-import), where it also enables the
+      // relation delete-diff below.
       let sourceRef: CardRefHandle | undefined;
       const ownPath = parentPathRaw
         ? [...decodePath(parentPathRaw), name]
         : [name];
       const ownKey = pathKey(sheetType, ownPath);
-      if (idCell && UUID_RE.test(idCell)) {
-        sourceRef = { kind: "id", id: normalizeId(idCell) };
-      } else if (fileByOwnPathKey.has(ownKey)) {
+      if (fileByOwnPathKey.has(ownKey)) {
         sourceRef = { kind: "pathKey", pathKey: ownKey, type: sheetType };
+      } else if (idCell && UUID_RE.test(idCell)) {
+        sourceRef = { kind: "id", id: normalizeId(idCell) };
       } else {
         // Fallback for rows whose `id` cell is missing / non-UUID — try
         // to resolve against existing cards via the staged name+path ref.

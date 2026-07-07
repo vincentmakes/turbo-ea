@@ -267,6 +267,46 @@ describe("validateMultiSheet", () => {
     });
   });
 
+  it("sources relations from a new card by pathKey, not its stale exported id", async () => {
+    // Re-importing an export into a FRESH instance: the Application row still
+    // carries the source instance's UUID in its `id` column, but no such card
+    // exists in the target, so the row is created. Its outgoing relation must
+    // source from the new card (pathKey → resolved to the new server id on
+    // apply), NOT the stale UUID — otherwise the relation insert fails with a
+    // foreign-key violation ("source_id ... is not present in table cards").
+    const targetDb = makeCard({
+      id: "22222222-2222-2222-2222-222222222222",
+      type: "ITComponent",
+      name: "DB",
+    });
+    postMock.mockImplementation(buildResolveRefsMock([targetDb]));
+    const staleId = "f4776e0b-b6ae-4619-b89a-4170b8dee616";
+    const wb = buildWorkbook(
+      [{ id: staleId, type: "Application", name: "NewApp", "rel:depends_on": "DB" }],
+      "Application",
+    );
+    const parsed = parseWorkbookSheets(wb, [APP_TYPE, ITC_TYPE]);
+    const report = await validateMultiSheet(
+      parsed,
+      [], // fresh instance — nothing exists locally
+      [APP_TYPE, ITC_TYPE],
+      [DEPENDS_ON_TYPE],
+      [],
+    );
+    expect(report.errors).toEqual([]);
+    expect(report.creates).toHaveLength(1);
+    expect(report.relationOps).toHaveLength(1);
+    expect(report.relationOps[0].sourceRef).toEqual({
+      kind: "pathKey",
+      pathKey: "Application|newapp",
+      type: "Application",
+    });
+    expect(report.relationOps[0].targetRef).toEqual({
+      kind: "id",
+      id: "22222222-2222-2222-2222-222222222222",
+    });
+  });
+
   it("flags an ambiguous relation target", async () => {
     const existing: Card[] = [
       makeCard({ id: "11111111-1111-1111-1111-111111111111", type: "Application", name: "ERP" }),
