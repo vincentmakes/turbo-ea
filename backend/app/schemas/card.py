@@ -5,8 +5,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.schemas.relation import RelationBulkOperation, RelationBulkResult
-
 # M-1: Limits for JSONB dict fields to prevent memory exhaustion
 _MAX_DICT_KEYS = 200
 _MAX_DICT_DEPTH = 5
@@ -375,14 +373,6 @@ class CardBulkCreateItem(BaseModel):
 
 class CardBulkCreateRequest(BaseModel):
     cards: list[CardBulkCreateItem] = Field(..., min_length=1, max_length=2000)
-    # Optional relations to apply in the SAME transaction, AFTER every card is
-    # created. The relation resolver is (re)loaded post-create, so these ops
-    # may reference cards created in this very batch by `(type, parent_path,
-    # name)` — this is what lets a full workbook (new cards + the relations
-    # among them) validate and apply atomically without the client having to
-    # pre-resolve same-batch targets. Empty by default, so existing callers
-    # (and the plain card importer) are unaffected.
-    relations: list[RelationBulkOperation] = Field(default_factory=list, max_length=5000)
     # When true, run every validator and resolver exactly as a real create,
     # then roll the transaction back instead of committing. Side-effect
     # emitters (event_bus, downstream sync) are also skipped. Used by the
@@ -404,13 +394,6 @@ class CardBulkCreateResponse(BaseModel):
     results: list[CardBulkCreateResult]
     created: int
     failed: int
-    # Populated only when the request carried `relations`. Mirrors the shape
-    # of `POST /relations/bulk`'s response so the importer can render both
-    # halves of a combined dry-run / apply from one call.
-    relation_results: list[RelationBulkResult] = Field(default_factory=list)
-    relations_upserted: int = 0
-    relations_deleted: int = 0
-    relations_failed: int = 0
     dry_run: bool = False
 
 

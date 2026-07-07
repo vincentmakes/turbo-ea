@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [1.65.2] - 2026-07-06
 
 ### Fixed
-- **Importing a workbook of new cards plus the relations among them now works, including relations to hierarchical cards referenced by name.** Previously, creating new cards and linking them in the same import could fail with a wall of "relation target doesn't match any card" errors — most visibly when seeding a fresh instance — because the browser tried to resolve each relation before the cards existed and couldn't match a bare name to a card that lives under a parent. The importer now validates and applies the whole workbook in a single server-side transaction: the cards are created first, then the relations resolve against them and everything commits together (or rolls back on preview). Relation problems such as duplicate/cardinality conflicts now also show up in the pre-import preview instead of only at apply time.
+- **Importing new cards and linking them in the same workbook now resolves relations to hierarchical targets referenced by name.** Previously, when a relation pointed at a card being created in the same import and that card lives under a parent (e.g. an Application nested beneath a Platform), the browser could not match the bare name to the not-yet-created card and the import failed with "relation target doesn't match any card" errors — most visibly when seeding a fresh instance. The importer now matches a same-batch target by its bare name against the cards staged for creation, so the relation attaches to the correct new card once it is created. Cards are still created first and the relations applied afterwards, so relation foreign keys are always valid.
 
 ## [1.65.1] - 2026-07-06
 
