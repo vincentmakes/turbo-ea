@@ -348,6 +348,33 @@ class TestSignWorkflow:
         )
         assert resp.status_code == 403
 
+    async def test_sign_only_permission_can_sign(self, client, db, soaw_env):
+        """A signatory whose role grants only `soaw.sign` (not `soaw.manage`)
+        can sign — the dedicated signing permission now gates this endpoint."""
+        admin = soaw_env["admin"]
+        await create_role(db, key="signer", label="Signer", permissions={"soaw.sign": True})
+        signer = await create_user(db, email="signer@test.com", role="signer")
+
+        create_resp = await client.post(
+            "/api/v1/soaw",
+            json={"name": "Sign-only Flow"},
+            headers=auth_headers(admin),
+        )
+        soaw_id = create_resp.json()["id"]
+
+        await client.post(
+            f"/api/v1/soaw/{soaw_id}/request-signatures",
+            json={"user_ids": [str(signer.id)]},
+            headers=auth_headers(admin),
+        )
+
+        resp = await client.post(
+            f"/api/v1/soaw/{soaw_id}/sign",
+            headers=auth_headers(signer),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "signed"
+
     async def test_cannot_edit_signed_soaw(self, client, db, soaw_env):
         admin = soaw_env["admin"]
         member = soaw_env["member"]

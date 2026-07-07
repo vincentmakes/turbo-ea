@@ -91,6 +91,68 @@ class TestListUsers:
         assert "disabled@test.com" in emails
         assert "admin@test.com" in emails
 
+    # Fields the lite (non-admin) payload must never expose.
+    SENSITIVE_FIELDS = {
+        "role",
+        "auth_provider",
+        "has_password",
+        "pending_setup",
+        "last_login",
+        "created_at",
+        "locale",
+        "ui_preferences",
+    }
+
+    async def test_admin_gets_full_payload(self, client, db, users_env):
+        admin = users_env["admin"]
+        resp = await client.get("/api/v1/users", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        row = resp.json()[0]
+        # Admin retains the full record (used by the Users admin screen).
+        assert self.SENSITIVE_FIELDS.issubset(row.keys())
+
+    @pytest.mark.parametrize("role_key", ["member", "viewer"])
+    async def test_non_admin_gets_lite_payload(self, client, db, users_env, role_key):
+        """A non-admin picker consumer sees only id/display_name/email/is_active
+        — never the PII / attacker-surface metadata."""
+        caller = users_env[role_key]
+        resp = await client.get("/api/v1/users", headers=auth_headers(caller))
+        assert resp.status_code == 200
+        rows = resp.json()
+        assert rows, "expected at least one user in the list"
+        for row in rows:
+            assert set(row.keys()) == {"id", "display_name", "email", "is_active"}
+            assert not self.SENSITIVE_FIELDS.intersection(row.keys())
+        # email stays — pickers display/search by it.
+        assert any(r["email"] == "admin@test.com" for r in rows)
+
+
+# -------------------------------------------------------------------
+# GET /users/{id}  (single)
+# -------------------------------------------------------------------
+
+
+class TestGetUser:
+    async def test_admin_gets_full_payload(self, client, db, users_env):
+        admin, member = users_env["admin"], users_env["member"]
+        resp = await client.get(f"/api/v1/users/{member.id}", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        assert TestListUsers.SENSITIVE_FIELDS.issubset(resp.json().keys())
+
+    async def test_non_admin_reading_other_user_gets_lite_payload(self, client, db, users_env):
+        member, admin = users_env["member"], users_env["admin"]
+        resp = await client.get(f"/api/v1/users/{admin.id}", headers=auth_headers(member))
+        assert resp.status_code == 200
+        assert set(resp.json().keys()) == {"id", "display_name", "email", "is_active"}
+
+    async def test_non_admin_reading_self_gets_full_payload(self, client, db, users_env):
+        """A user reading their own profile gets the full record (defensive —
+        no frontend caller hits this today)."""
+        member = users_env["member"]
+        resp = await client.get(f"/api/v1/users/{member.id}", headers=auth_headers(member))
+        assert resp.status_code == 200
+        assert TestListUsers.SENSITIVE_FIELDS.issubset(resp.json().keys())
+
 
 # -------------------------------------------------------------------
 # POST /users  (create)

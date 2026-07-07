@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import uuid
 from contextvars import ContextVar
 from datetime import datetime, timezone
@@ -161,13 +160,21 @@ class EventBus:
         for q in dead:
             self._subscribers.remove(q)
 
-    async def subscribe(self) -> AsyncGenerator[str, None]:
+    async def subscribe(self) -> AsyncGenerator[dict[str, Any], None]:
+        """Yield each published event as a raw dict.
+
+        The SSE endpoint (`events.py`) is responsible for filtering events per
+        subscriber (so non-admins don't receive audit / ops-sensitive events)
+        and for SSE serialization. Keeping this generic — yielding the raw
+        message rather than a pre-formatted ``data: …`` string — is what lets
+        the route apply per-user authorization before anything is sent.
+        """
         q: asyncio.Queue = asyncio.Queue(maxsize=256)
         self._subscribers.append(q)
         try:
             while True:
                 msg = await q.get()
-                yield f"data: {json.dumps(msg, default=str)}\n\n"
+                yield msg
         finally:
             if q in self._subscribers:
                 self._subscribers.remove(q)

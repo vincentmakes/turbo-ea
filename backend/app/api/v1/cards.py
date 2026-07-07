@@ -1106,6 +1106,9 @@ async def cards_counts(
 async def get_card(
     card_id: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
 ):
+    await PermissionService.require_permission(
+        db, user, "inventory.view", card_id=uuid.UUID(card_id), card_permission="card.view"
+    )
     result = await db.execute(
         select(Card)
         .where(Card.id == uuid.UUID(card_id))
@@ -1122,10 +1125,13 @@ async def get_card(
 
 @router.get("/{card_id}/hierarchy")
 async def get_hierarchy(
-    card_id: str, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)
+    card_id: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
 ):
     """Return ancestors (root→parent), children, and computed level."""
     uid = uuid.UUID(card_id)
+    await PermissionService.require_permission(
+        db, user, "inventory.view", card_id=uid, card_permission="card.view"
+    )
     result = await db.execute(select(Card).where(Card.id == uid))
     card = result.scalar_one_or_none()
     if not card:
@@ -1164,7 +1170,7 @@ async def get_hierarchy(
 async def relation_summary(
     card_id: str,
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
     """Per-relation-type / per-direction neighbour counts for one card.
 
@@ -1177,6 +1183,9 @@ async def relation_summary(
     relations.
     """
     uid = uuid.UUID(card_id)
+    await PermissionService.require_permission(
+        db, user, "inventory.view", card_id=uid, card_permission="card.view"
+    )
     card = await db.get(Card, uid)
     if not card:
         raise HTTPException(404, "Card not found")
@@ -1952,7 +1961,7 @@ async def update_card(
 async def get_archive_impact(
     card_id: str,
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
     """Pre-flight payload for the archive/delete dialog.
 
@@ -1961,6 +1970,9 @@ async def get_archive_impact(
     the relations list endpoint at `/api/v1/relations`.
     """
     uid = uuid.UUID(card_id)
+    await PermissionService.require_permission(
+        db, user, "inventory.view", card_id=uid, card_permission="card.view"
+    )
     res = await db.execute(select(Card).where(Card.id == uid))
     primary = res.scalar_one_or_none()
     if not primary:
@@ -2232,7 +2244,7 @@ async def archive_card(
 async def get_restore_impact(
     card_id: str,
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
     """List the cards that were archived together with this one and are still archived.
 
@@ -2241,6 +2253,9 @@ async def get_restore_impact(
     individually restored are filtered out.
     """
     uid = uuid.UUID(card_id)
+    await PermissionService.require_permission(
+        db, user, "inventory.view", card_id=uid, card_permission="card.view"
+    )
     res = await db.execute(select(Card).where(Card.id == uid))
     primary = res.scalar_one_or_none()
     if not primary:
@@ -2507,10 +2522,13 @@ async def fix_hierarchy_names(
 async def get_history(
     card_id: str,
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ):
+    await PermissionService.require_permission(
+        db, user, "inventory.view", card_id=uuid.UUID(card_id), card_permission="card.view"
+    )
     q = (
         select(Event)
         .where(Event.card_id == uuid.UUID(card_id))

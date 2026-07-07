@@ -281,7 +281,14 @@ async def sign_soaw(
 ):
     """Sign the SoAW as the current user. When all signatories have signed,
     the document status changes to 'signed' and becomes readonly."""
-    await PermissionService.require_permission(db, user, "soaw.manage")
+    # Signing is gated by the dedicated `soaw.sign` permission (mirrors
+    # `adr.py`'s sign_adr → `adr.sign`); `soaw.manage` holders retain the
+    # ability too so the change never removes an existing capability.
+    can_sign = await PermissionService.check_permission(
+        db, user, "soaw.sign"
+    ) or await PermissionService.check_permission(db, user, "soaw.manage")
+    if not can_sign:
+        raise HTTPException(403, "Insufficient permissions")
     s = await _get_soaw(db, soaw_id)
 
     if s.status == "signed":

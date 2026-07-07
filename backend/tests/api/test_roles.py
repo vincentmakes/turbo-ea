@@ -5,6 +5,7 @@ These tests require a PostgreSQL test database and an HTTP test client.
 
 from __future__ import annotations
 
+from app.core.permissions import VIEWER_PERMISSIONS
 from tests.conftest import auth_headers, create_role, create_user
 
 # ---------------------------------------------------------------------------
@@ -67,6 +68,48 @@ class TestListRoles:
         )
         admin_role = next(r for r in response.json() if r["key"] == "admin")
         assert admin_role["user_count"] >= 2
+
+
+# ---------------------------------------------------------------------------
+# GET /roles — payload shaping (RBAC matrix is admin.roles-only)
+# ---------------------------------------------------------------------------
+
+
+class TestRolePayloadShaping:
+    async def _setup(self, db):
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        await create_role(db, key="viewer", label="Viewer", permissions=VIEWER_PERMISSIONS)
+        admin = await create_user(db, email="admin@test.com", role="admin")
+        viewer = await create_user(db, email="viewer@test.com", role="viewer")
+        return admin, viewer
+
+    async def test_admin_sees_permissions_and_counts(self, client, db):
+        admin, _ = await self._setup(db)
+        resp = await client.get("/api/v1/roles", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        row = next(r for r in resp.json() if r["key"] == "admin")
+        assert "permissions" in row
+        assert "user_count" in row
+
+    async def test_non_admin_gets_trimmed_roles(self, client, db):
+        """A viewer (no admin.roles) can resolve labels/colors but not the
+        permission matrix or per-role user counts."""
+        _, viewer = await self._setup(db)
+        resp = await client.get("/api/v1/roles", headers=auth_headers(viewer))
+        assert resp.status_code == 200
+        for row in resp.json():
+            assert "key" in row and "label" in row and "color" in row
+            assert "permissions" not in row
+            assert "user_count" not in row
+
+    async def test_non_admin_get_single_role_trimmed(self, client, db):
+        _, viewer = await self._setup(db)
+        resp = await client.get("/api/v1/roles/admin", headers=auth_headers(viewer))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["key"] == "admin"
+        assert "permissions" not in body
+        assert "user_count" not in body
 
 
 # ---------------------------------------------------------------------------

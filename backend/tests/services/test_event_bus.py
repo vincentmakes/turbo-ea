@@ -7,7 +7,6 @@ class directly using asyncio tasks for concurrent subscribe/publish.
 from __future__ import annotations
 
 import asyncio
-import json
 
 from app.services.event_bus import EventBus
 
@@ -104,10 +103,11 @@ class TestPublish:
 
 
 class TestSubscribe:
-    async def test_subscribe_yields_json_messages(self):
-        """subscribe() should yield SSE-formatted JSON strings."""
+    async def test_subscribe_yields_raw_message_dicts(self):
+        """subscribe() yields raw message dicts; SSE formatting + per-subscriber
+        filtering happen in the /events/stream endpoint, not the bus."""
         bus = EventBus()
-        received: list[str] = []
+        received: list[dict] = []
 
         async def subscriber():
             async for msg in bus.subscribe():
@@ -127,13 +127,10 @@ class TestSubscribe:
         await asyncio.wait_for(task, timeout=2.0)
 
         assert len(received) == 1
-        assert received[0].startswith("data: ")
-        assert received[0].endswith("\n\n")
-
-        # Parse the JSON payload
-        payload = json.loads(received[0].removeprefix("data: ").strip())
-        assert payload["event"] == "test.event"
-        assert payload["data"]["key"] == "value"
+        msg = received[0]
+        assert isinstance(msg, dict)
+        assert msg["event"] == "test.event"
+        assert msg["data"]["key"] == "value"
 
     async def test_subscribe_cleans_up_on_cancel(self):
         """Cancelling a subscriber should remove its queue."""

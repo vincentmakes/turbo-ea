@@ -18,7 +18,10 @@ router = APIRouter(tags=["tags"])
 
 
 @router.get("/tag-groups")
-async def list_tag_groups(db: AsyncSession = Depends(get_db)):
+async def list_tag_groups(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     result = await db.execute(select(TagGroup).options(selectinload(TagGroup.tags)))
     groups = result.scalars().all()
     return [
