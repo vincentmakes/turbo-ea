@@ -117,6 +117,55 @@ class TestCreateBookmark:
         assert resp.status_code == 201
         assert resp.json()["column_state"] is None
 
+    async def test_column_filter_model_round_trips(self, client, db, bm_env):
+        """The AG Grid column-filter model is persisted and returned verbatim."""
+        admin = bm_env["admin"]
+        column_filter_model = {
+            "meta_created_at": {
+                "filterType": "date",
+                "type": "greaterThan",
+                "dateFrom": "2026-01-01 00:00:00",
+            },
+            "core_name": {"filterType": "text", "type": "contains", "filter": "erp"},
+        }
+        resp = await client.post(
+            "/api/v1/bookmarks",
+            json={
+                "name": "Filtered View",
+                "card_type": "Application",
+                "column_filter_model": column_filter_model,
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["column_filter_model"] == column_filter_model
+
+        # GET returns it too
+        bm_id = resp.json()["id"]
+        listed = await client.get("/api/v1/bookmarks", headers=auth_headers(admin))
+        match = next(b for b in listed.json() if b["id"] == bm_id)
+        assert match["column_filter_model"] == column_filter_model
+
+        # PATCH updates it
+        new_model = {"core_type": {"filterType": "text", "type": "equals", "filter": "Application"}}
+        patched = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}",
+            json={"column_filter_model": new_model},
+            headers=auth_headers(admin),
+        )
+        assert patched.status_code == 200
+        assert patched.json()["column_filter_model"] == new_model
+
+    async def test_column_filter_model_defaults_to_null(self, client, db, bm_env):
+        admin = bm_env["admin"]
+        resp = await client.post(
+            "/api/v1/bookmarks",
+            json={"name": "No Filters"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["column_filter_model"] is None
+
 
 # ---------------------------------------------------------------
 # GET /bookmarks  (list)

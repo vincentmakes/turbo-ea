@@ -797,6 +797,18 @@
             ],
             "title": "Card Type"
           },
+          "column_filter_model": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Filter Model"
+          },
           "column_state": {
             "anyOf": [
               {
@@ -915,6 +927,18 @@
               }
             ],
             "title": "Card Type"
+          },
+          "column_filter_model": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Filter Model"
           },
           "column_state": {
             "anyOf": [

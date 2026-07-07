@@ -459,6 +459,7 @@ export interface Bookmark {
   filters?: Record<string, unknown>;
   columns?: string[];
   column_state?: ColumnLayoutItem[];
+  column_filter_model?: Record<string, unknown>;
   sort?: Record<string, unknown>;
   is_default: boolean;
   visibility: "private" | "public" | "shared";

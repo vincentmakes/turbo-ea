@@ -163,6 +163,7 @@ class BookmarkCreate(BaseModel):
     filters: dict | None = None
     columns: list | None = None
     column_state: list | None = None
+    column_filter_model: dict | None = None
     sort: dict | None = None
     is_default: bool = False
     visibility: str = "private"
@@ -176,6 +177,7 @@ class BookmarkUpdate(BaseModel):
     filters: dict | None = None
     columns: list | None = None
     column_state: list | None = None
+    column_filter_model: dict | None = None
     sort: dict | None = None
     is_default: bool | None = None
     visibility: str | None = None
@@ -190,6 +192,7 @@ class BookmarkResponse(BaseModel):
     filters: dict | None = None
     columns: list | None = None
     column_state: list | None = None
+    column_filter_model: dict | None = None
     sort: dict | None = None
     is_default: bool
     visibility: str = "private"

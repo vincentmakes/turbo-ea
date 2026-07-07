@@ -154,6 +154,9 @@ interface InventoryPrefs {
   // AG Grid column layout (order/width/pinning), captured via getColumnState().
   // Visibility still flows from `columns` → `selectedColumns` → colDef `hide`.
   columnState?: ColumnLayoutItem[];
+  // AG Grid column-filter model (api.getFilterModel()), a layer separate from
+  // `filters` (the sidebar filters). Persisted so column filters survive reload.
+  columnFilterModel?: Record<string, unknown>;
   sortModel?: { colId: string; sort: string }[];
   // Set to true after the one-time migration that surfaces the previously
   // always-on Tags column in users' saved column selection. Without this
@@ -204,8 +207,11 @@ export default function InventoryPage() {
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   // Whether any AG Grid column filter is active (drives the "Clear filters"
   // toolbar button). This is the grid's own filter model — a layer separate
-  // from the sidebar `filters` state below.
-  const [hasColumnFilters, setHasColumnFilters] = useState(false);
+  // from the sidebar `filters` state below. Seeded from persisted prefs so the
+  // button shows immediately on reload.
+  const [hasColumnFilters, setHasColumnFilters] = useState(
+    () => Object.keys(loadPrefs()?.columnFilterModel ?? {}).length > 0,
+  );
   // Rows displayed after AG Grid column filtering — drives the item-count pill
   // so it reflects the column filters, not just the sidebar-filtered set.
   // Null until the grid's first model update; falls back to filteredData.length.
@@ -380,6 +386,33 @@ export default function InventoryPage() {
     setColumnState(layout ?? undefined);
     setLayoutNonce((n) => n + 1);
   }, []);
+
+  // --- Column filters (AG Grid filter model) --------------------------------
+  // The grid's own column-filter model, persisted to localStorage and saved
+  // views alongside the layout above. `columnFilterModelRef` feeds the restore
+  // effect (which keys on columnDefs so late attribute columns get their
+  // filters); `applyingFilterRef` guards against the restore's own
+  // onFilterChanged wiping the model when a not-yet-present column is dropped;
+  // `filterNonce` forces a re-apply when a view is applied without a columnDefs
+  // change.
+  const [columnFilterModel, setColumnFilterModel] = useState<Record<string, unknown>>(
+    () => savedPrefsRef.current?.columnFilterModel ?? {},
+  );
+  const columnFilterModelRef = useRef(columnFilterModel);
+  columnFilterModelRef.current = columnFilterModel;
+  const applyingFilterRef = useRef(false);
+  const [filterNonce, setFilterNonce] = useState(0);
+
+  // Apply a filter model (or clear with null). Used by the toolbar Clear button,
+  // the sidebar "Clear all", and applying a saved view. Updates state/ref and
+  // bumps the nonce; the restore effect performs the actual setFilterModel.
+  const applyColumnFilters = useCallback((model: Record<string, unknown> | null) => {
+    const next = model ?? {};
+    columnFilterModelRef.current = next;
+    setColumnFilterModel(next);
+    setFilterNonce((n) => n + 1);
+  }, []);
+
   const [exportMenuAnchor, setExportMenuAnchor] = useState<null | HTMLElement>(null);
 
   // Mass edit state
@@ -549,10 +582,11 @@ export default function InventoryPage() {
       filters,
       columns: Array.from(selectedColumns),
       columnState,
+      columnFilterModel,
       sortModel,
       coreTagsMerged: true,
     });
-  }, [filters, selectedColumns, sortModel, columnState]);
+  }, [filters, selectedColumns, sortModel, columnState, columnFilterModel]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -848,12 +882,18 @@ export default function InventoryPage() {
     setGridReady(true);
   }, []);
 
-  // Reflect the grid's column-filter model into `hasColumnFilters` so the
-  // toolbar "Clear filters" button appears only when something is filtered.
+  // Reflect the grid's column-filter model into `hasColumnFilters` (drives the
+  // toolbar "Clear filters" button) and into the persisted `columnFilterModel`.
+  // Skips the model update while our own restore is running, so re-applying a
+  // model that references a not-yet-present column (which AG Grid silently
+  // drops) doesn't erase that column's filter from the persisted model.
   const handleFilterChanged = useCallback(() => {
     const api = gridRef.current?.api;
     if (!api) return;
-    setHasColumnFilters(Object.keys(api.getFilterModel() ?? {}).length > 0);
+    const model = api.getFilterModel() ?? {};
+    setHasColumnFilters(Object.keys(model).length > 0);
+    if (applyingFilterRef.current) return;
+    setColumnFilterModel(model);
   }, []);
 
   // Keep the item-count pill in sync with the rows AG Grid actually shows.
@@ -863,12 +903,6 @@ export default function InventoryPage() {
     const api = gridRef.current?.api;
     if (!api) return;
     setDisplayedRowCount(api.getDisplayedRowCount());
-  }, []);
-
-  // Clear all AG Grid column filters at once. Also invoked by the sidebar's
-  // "Clear all" filter reset and when applying a saved view.
-  const clearColumnFilters = useCallback(() => {
-    gridRef.current?.api?.setFilterModel(null);
   }, []);
 
   // Export only what's on screen: the displayed columns, in their current
@@ -1953,6 +1987,23 @@ export default function InventoryPage() {
     applyingLayoutRef.current = false;
   }, [gridReady, columnDefs, layoutNonce]);
 
+  // Restore the saved column-filter model onto the grid. Like the layout effect
+  // above, keyed on `columnDefs` so filters on attribute/relation columns land
+  // once those columns arrive after the metamodel loads. `filterNonce` forces a
+  // re-apply when a view is applied without changing the column set. The
+  // `applyingFilterRef` guard stops onFilterChanged from overwriting the
+  // persisted model while we apply it (see handleFilterChanged).
+  useEffect(() => {
+    if (!gridReady) return;
+    const api = gridRef.current?.api;
+    if (!api) return;
+    const model = columnFilterModelRef.current;
+    applyingFilterRef.current = true;
+    api.setFilterModel(model && Object.keys(model).length > 0 ? model : null);
+    applyingFilterRef.current = false;
+    setHasColumnFilters(Object.keys(api.getFilterModel() ?? {}).length > 0);
+  }, [gridReady, columnDefs, filterNonce]);
+
   // Render mass edit value input based on field type
   const renderMassEditInput = () => {
     if (!currentMassField) return null;
@@ -2176,7 +2227,8 @@ export default function InventoryPage() {
             onResetColumns={handleResetColumns}
             columnState={columnState}
             onApplyColumnState={applyColumnLayout}
-            onClearColumnFilters={clearColumnFilters}
+            onApplyColumnFilters={applyColumnFilters}
+            columnFilterModel={columnFilterModel}
           />
         </Drawer>
       ) : (
@@ -2201,7 +2253,8 @@ export default function InventoryPage() {
           onResetColumns={handleResetColumns}
           columnState={columnState}
           onApplyColumnState={applyColumnLayout}
-          onClearColumnFilters={clearColumnFilters}
+          onApplyColumnFilters={applyColumnFilters}
+          columnFilterModel={columnFilterModel}
         />
       )}
 
@@ -2225,7 +2278,7 @@ export default function InventoryPage() {
             <>
               {hasColumnFilters && (
                 <Tooltip title={t("filter.clearColumnFilters")}>
-                  <IconButton onClick={clearColumnFilters} size="small">
+                  <IconButton onClick={() => applyColumnFilters(null)} size="small">
                     <MaterialSymbol icon="filter_alt_off" size={20} />
                   </IconButton>
                 </Tooltip>
@@ -2268,7 +2321,7 @@ export default function InventoryPage() {
                   variant="outlined"
                   color="inherit"
                   startIcon={<MaterialSymbol icon="filter_alt_off" size={18} />}
-                  onClick={clearColumnFilters}
+                  onClick={() => applyColumnFilters(null)}
                   sx={{ textTransform: "none" }}
                 >
                   {t("filter.clearColumnFilters")}
