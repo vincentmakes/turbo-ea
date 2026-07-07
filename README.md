@@ -2,7 +2,7 @@
 
 
 [![CI](https://github.com/vincentmakes/turbo-ea/actions/workflows/ci.yml/badge.svg)](https://github.com/vincentmakes/turbo-ea/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: FSL-1.1-MIT](https://img.shields.io/badge/license-FSL--1.1--MIT-blue)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB.svg)](https://www.python.org/)
 [![React 18](https://img.shields.io/badge/react-18-61DAFB.svg)](https://react.dev/)
 [![GitHub Sponsors Badge](https://img.shields.io/badge/GitHub%20Sponsors-FF009D?logo=githubsponsors&logoColor=fff&style=flat-square)](https://github.com/sponsors/vincentmakes)
@@ -685,4 +685,18 @@ turbo-ea/
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+Turbo EA is licensed under the [Functional Source License 1.1 with MIT Future License (FSL-1.1-MIT)](LICENSE).
+
+**What this means in practice:**
+
+- ✅ **Use it freely.** Self-host Turbo EA in your company, for any internal purpose, commercial or not. No fees, no seat limits, no strings.
+- ✅ **Modify it.** Fork it, adapt it, build on it for your own use.
+- ✅ **Consult with it.** Professional services helping organizations adopt and run Turbo EA are explicitly permitted.
+- ✅ **It becomes MIT.** Each release automatically converts to the MIT license two years after publication. The code always returns to fully permissive open source.
+- ❌ **Don't resell it.** You may not offer Turbo EA (or a derivative) to third parties as a competing commercial product, or as a hosted/managed service.
+
+Versions up to and including v1.66.x remain under the MIT license.
+
+Third-party components incorporated into Turbo EA keep their own licenses — see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
+If you want to build a commercial offering on Turbo EA, get in touch at **vincent at turbo-ea.org** — I'm open to partnerships.
