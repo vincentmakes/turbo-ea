@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "turbo-ea-mcp"
 version = "0.0.0"
 description = "MCP server for Turbo EA — AI tool access to EA data plus artifact upload (cards, relations, diagrams)"
+license = "FSL-1.1-MIT"
 requires-python = ">=3.11"
 dependencies = [
     "mcp>=1.9.0",

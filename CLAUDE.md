@@ -1461,7 +1461,7 @@ Optional module (toggled via admin settings) for managing Initiative cards as fu
 
 ## TurboLens (AI-Powered EA Intelligence)
 
-Native AI analysis module — originally ported from [ArchLens](https://github.com/vinod-ea/archlens) (MIT License, by [Vinod](https://github.com/vinod-ea)). Provides vendor analysis, duplicate detection, modernization assessment, and architecture AI recommendations using data directly from the `cards` table.
+Native AI analysis module. Provides vendor analysis, duplicate detection, modernization assessment, and architecture AI recommendations using data directly from the `cards` table.
 
 ### Architecture
 - **No separate container**: All logic runs natively in Turbo EA (FastAPI + PostgreSQL). No proxy layer, no SQLite.
@@ -1609,9 +1609,6 @@ Owner assignment on create / patch / promote auto-creates a single `is_system` T
 ### Permissions
 - **`turbolens.view`**: View analysis results. Granted to admin, bpm_admin, member roles.
 - **`turbolens.manage`**: Trigger analyses. Granted to admin role.
-
-### Credits
-TurboLens was originally created by [Vinod](https://github.com/vinod-ea/archlens) under the MIT License. The AI analysis logic has been ported to Python and integrated natively into Turbo EA.
 
 ---
 

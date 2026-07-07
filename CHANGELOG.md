@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.67.0] - 2026-07-07
+
+### Changed
+- **Turbo EA is now licensed under the Functional Source License 1.1 (FSL-1.1-MIT).** Starting with this release, the project is source-available and free for all users — self-host it internally for any purpose (commercial or not), modify it, and provide professional services around it. The only restriction is that you may not resell Turbo EA, or a derivative, as a competing commercial product or hosted/managed service. Every release automatically converts to the MIT license two years after its release date, so the code always returns to fully permissive open source. All releases up to and including v1.66.x were published under MIT and remain MIT forever; this change applies only from v1.67.0 onward.
+
 ## [1.66.3] - 2026-07-07
 
 ### Fixed
@@ -1832,7 +1837,7 @@ This release is a stress-test pass: shaking out a real-world large-dataset workf
 ## [0.42.5] - 2026-04-07
 
 ### Changed
-- Renamed ArchLens to TurboLens across the entire codebase (routes, components, database tables, permissions, translations, documentation)
+- Consolidated the AI intelligence module under the TurboLens name across the entire codebase (routes, components, database tables, permissions, translations, documentation)
 
 ## [0.42.4] - 2026-03-26
 
@@ -1921,7 +1926,7 @@ This release is a stress-test pass: shaking out a real-world large-dataset workf
 ## [0.38.0] - 2026-03-14
 
 ### Added
-- TurboLens AI Intelligence module — AI-powered vendor analysis, duplicate detection, modernization assessment, and 3-phase architecture AI, ported from [ArchLens](https://github.com/vinod-ea/archlens) (MIT License, by [Vinod](https://github.com/vinod-ea)) and integrated natively into Turbo EA
+- TurboLens AI Intelligence module — AI-powered vendor analysis, duplicate detection, modernization assessment, and 3-phase architecture AI, integrated natively into Turbo EA
 - Vendor categorisation across 45+ industry categories with AI-driven sub-category and reasoning
 - Vendor resolution that groups aliases and product variants into a canonical vendor hierarchy
 - Duplicate detection using union-find clustering to identify functionally overlapping cards

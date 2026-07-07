@@ -1,7 +1,7 @@
 """TurboLens Architecture AI — 3-phase conversational architecture workflow.
 
-Ported from architect.js. Queries the cards table directly for landscape
-context and uses the shared AI caller for LLM interactions.
+Queries the cards table directly for landscape context and uses the shared AI
+caller for LLM interactions.
 """
 
 from __future__ import annotations

@@ -5,9 +5,6 @@ El módulo **TurboLens** proporciona análisis impulsado por IA de su paisaje de
 !!! note
     TurboLens requiere un proveedor de IA comercial (Anthropic Claude, OpenAI, DeepSeek o Google Gemini) configurado en [Configuración de IA](../admin/ai.md). El módulo está disponible automáticamente cuando la IA está configurada.
 
-!!! info "Créditos"
-    TurboLens está basado en el proyecto de código abierto [ArchLens](https://github.com/vinod-ea/archlens) de [Vinod](https://github.com/vinod-ea), publicado bajo la Licencia MIT. La lógica de análisis ha sido portada de Node.js a Python e integrada de forma nativa en Turbo EA.
-
 ## Panel de Control
 
 El panel de control de TurboLens proporciona una visión general de un vistazo del análisis de su paisaje.

@@ -5,9 +5,6 @@ Das **TurboLens**-Modul bietet KI-gestützte Analysen Ihrer Enterprise-Architect
 !!! note
     TurboLens erfordert einen kommerziellen KI-Anbieter (Anthropic Claude, OpenAI, DeepSeek oder Google Gemini), der in den [KI-Einstellungen](../admin/ai.md) konfiguriert wurde. Das Modul ist automatisch verfügbar, sobald KI konfiguriert ist.
 
-!!! info "Danksagung"
-    TurboLens basiert auf dem Open-Source-Projekt [ArchLens](https://github.com/vinod-ea/archlens) von [Vinod](https://github.com/vinod-ea), veröffentlicht unter der MIT-Lizenz. Die Analyselogik wurde von Node.js nach Python portiert und nativ in Turbo EA integriert.
-
 ## Dashboard
 
 Das TurboLens-Dashboard bietet einen schnellen Überblick über Ihre Landschaftsanalyse.

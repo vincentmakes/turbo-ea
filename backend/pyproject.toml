@@ -2,6 +2,7 @@
 name = "turbo-ea-backend"
 version = "0.0.0"  # Placeholder — real version read from /VERSION at runtime
 description = "Turbo EA - Enterprise Architecture Management API"
+license = "FSL-1.1-MIT"
 requires-python = ">=3.11"
 dependencies = [
     # 0.136.3 silently added an undocumented `fastar` dependency to the
