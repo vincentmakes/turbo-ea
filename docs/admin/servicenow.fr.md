@@ -245,6 +245,7 @@ L'autocompletion regroupe les champs par section. Voici la référence complète
 |--------|-------|-------------------|
 | `name` | Nom d'affichage de la fiche | `"SAP S/4HANA"` |
 | `description` | Description de la fiche | `"Système ERP principal pour les finances"` |
+| `subtype` | Sous-type de la carte (issu de la liste de sous-types du type de carte) | `"hardware"` |
 | `lifecycle.plan` | Cycle de vie : Date de planification | `"2024-01-15"` |
 | `lifecycle.phaseIn` | Cycle de vie : Date de mise en service | `"2024-03-01"` |
 | `lifecycle.active` | Cycle de vie : Date d'activation | `"2024-06-01"` |

@@ -245,6 +245,7 @@ The autocomplete groups fields by section. Here's the full path reference:
 |------|--------|---------------|
 | `name` | Card display name | `"SAP S/4HANA"` |
 | `description` | Card description | `"Core ERP system for financials"` |
+| `subtype` | Card subtype (from the card type's subtype list) | `"hardware"` |
 | `lifecycle.plan` | Lifecycle: Plan date | `"2024-01-15"` |
 | `lifecycle.phaseIn` | Lifecycle: Phase In date | `"2024-03-01"` |
 | `lifecycle.active` | Lifecycle: Active date | `"2024-06-01"` |

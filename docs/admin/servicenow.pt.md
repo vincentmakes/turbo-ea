@@ -245,6 +245,7 @@ O autocompletar agrupa campos por seção. Aqui está a referência completa de 
 |---------|---------|------------------|
 | `name` | Nome de exibição do card | `"SAP S/4HANA"` |
 | `description` | Descrição do card | `"Sistema ERP principal para finanças"` |
+| `subtype` | Subtipo do cartão (da lista de subtipos do tipo de cartão) | `"hardware"` |
 | `lifecycle.plan` | Ciclo de vida: Data de planejamento | `"2024-01-15"` |
 | `lifecycle.phaseIn` | Ciclo de vida: Data de introdução | `"2024-03-01"` |
 | `lifecycle.active` | Ciclo de vida: Data de ativação | `"2024-06-01"` |

@@ -587,6 +587,9 @@ class SyncEngine:
                 old_val = card.name
                 if old_val != new_val and new_val:
                     diff[key] = {"old": old_val, "new": new_val}
+            elif key == "subtype":
+                if card.subtype != new_val and new_val:
+                    diff[key] = {"old": card.subtype, "new": new_val}
             elif key == "description":
                 old_val = card.description
                 if old_val != new_val and new_val:
@@ -716,6 +719,7 @@ class SyncEngine:
 
         card = Card(
             type=mapping.card_type_key,
+            subtype=transformed.get("subtype"),
             name=transformed.get("name", f"SNOW-{staged.snow_sys_id[:8]}"),
             description=transformed.get("description"),
             lifecycle=transformed.get("lifecycle", {}),
@@ -765,6 +769,8 @@ class SyncEngine:
             new_val = change.get("new")
             if field_path == "name" and new_val:
                 card.name = new_val
+            elif field_path == "subtype" and new_val:
+                card.subtype = new_val
             elif field_path == "description" and new_val:
                 card.description = new_val
             elif field_path.startswith("lifecycle."):

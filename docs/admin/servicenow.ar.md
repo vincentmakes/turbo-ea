@@ -245,6 +245,7 @@ active=true^install_statusNOT IN7,8
 |------|--------|---------------|
 | `name` | اسم عرض البطاقة | `"SAP S/4HANA"` |
 | `description` | وصف البطاقة | `"Core ERP system for financials"` |
+| `subtype` | النوع الفرعي للبطاقة (من قائمة الأنواع الفرعية لنوع البطاقة) | `"hardware"` |
 | `lifecycle.plan` | دورة الحياة: تاريخ Plan | `"2024-01-15"` |
 | `lifecycle.phaseIn` | دورة الحياة: تاريخ Phase In | `"2024-03-01"` |
 | `lifecycle.active` | دورة الحياة: تاريخ Active | `"2024-06-01"` |

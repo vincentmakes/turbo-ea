@@ -245,6 +245,7 @@ active=true^install_statusNOT IN7,8
 |------|------|--------|
 | `name` | 卡片显示名称 | `"SAP S/4HANA"` |
 | `description` | 卡片描述 | `"核心财务 ERP 系统"` |
+| `subtype` | 卡片子类型（来自卡片类型的子类型列表） | `"hardware"` |
 | `lifecycle.plan` | 生命周期：规划日期 | `"2024-01-15"` |
 | `lifecycle.phaseIn` | 生命周期：引入日期 | `"2024-03-01"` |
 | `lifecycle.active` | 生命周期：活跃日期 | `"2024-06-01"` |

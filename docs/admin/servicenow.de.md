@@ -245,6 +245,7 @@ Die Autovervollständigung gruppiert Felder nach Abschnitt. Hier die vollständi
 |------|------|-------------|
 | `name` | Karten-Anzeigename | `"SAP S/4HANA"` |
 | `description` | Kartenbeschreibung | `"Kern-ERP-System für Finanzen"` |
+| `subtype` | Karten-Subtyp (aus der Subtyp-Liste des Kartentyps) | `"hardware"` |
 | `lifecycle.plan` | Lebenszyklus: Planungsdatum | `"2024-01-15"` |
 | `lifecycle.phaseIn` | Lebenszyklus: Einführungsdatum | `"2024-03-01"` |
 | `lifecycle.active` | Lebenszyklus: Aktivdatum | `"2024-06-01"` |

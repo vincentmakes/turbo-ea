@@ -41,6 +41,8 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel, useFieldLabel } from "@/hooks/useResolveLabel";
+import { useCurrency } from "@/hooks/useCurrency";
+import { FieldEditor } from "@/features/cards/sections/cardDetailUtils";
 import type { FieldDef } from "@/types";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import type { SnowConnection, SnowMapping, SnowSyncRun, SnowStagedRecord, CardType } from "@/types";
@@ -69,6 +71,11 @@ function getTurboFieldOptions(
     { path: "lifecycle.endOfLife", label: "End of Life", group: "Lifecycle" },
   ];
 
+  // Subtype is only meaningful for card types that define subtypes.
+  if (cardType?.subtypes?.length) {
+    options.splice(2, 0, { path: "subtype", label: "Subtype", group: "Core" });
+  }
+
   if (cardType?.fields_schema) {
     for (const section of cardType.fields_schema) {
       for (const field of section.fields) {
@@ -82,6 +89,44 @@ function getTurboFieldOptions(
   }
 
   return options;
+}
+
+// Resolve the metamodel FieldDef that a dotted turbo_field path targets, so the
+// default-value input can render (and validate) the right control. Returns null
+// for free-form / unknown paths (a plain text input is used as fallback).
+function resolveTurboFieldDef(
+  cardType: CardType | undefined,
+  path: string,
+): FieldDef | null {
+  if (!path) return null;
+  if (path.startsWith("attributes.")) {
+    const key = path.slice("attributes.".length);
+    for (const section of cardType?.fields_schema ?? []) {
+      const field = section.fields.find((f) => f.key === key);
+      if (field) return field;
+    }
+    return null;
+  }
+  if (path === "subtype") {
+    // A single-select whose options are the card type's subtypes.
+    return {
+      key: "subtype",
+      label: "Subtype",
+      type: "single_select",
+      options: (cardType?.subtypes ?? []).map((st) => ({
+        key: st.key,
+        label: st.label,
+        translations: st.translations,
+      })),
+    };
+  }
+  if (path === "name" || path === "description") {
+    return { key: path, label: path, type: "text" };
+  }
+  if (path.startsWith("lifecycle.")) {
+    return { key: path, label: path, type: "date" };
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -630,16 +675,26 @@ interface FieldMappingRow {
   direction: string;
   transform_type: string;
   transform_config: Record<string, unknown> | null;
-  // Edited as a plain string in the UI; comma-separated for multi-select targets.
-  default_value: string;
+  // Typed to the target field: string | number | boolean | string[] | undefined.
+  // A type-aware control (FieldEditor) edits it; free-form paths fall back to text.
+  default_value: unknown;
   is_identity: boolean;
 }
 
-// Render a stored default value (which may be a JSON list) back into the text input.
+// Render a stored default value (which may be a JSON list) as a string — used by
+// the read-only table and the free-text fallback input.
 function defaultValueToString(value: unknown): string {
   if (value == null) return "";
   if (Array.isArray(value)) return value.join(", ");
   return String(value);
+}
+
+// Whether a row carries a meaningful default (vs. an empty/unset one).
+function hasDefault(value: unknown): boolean {
+  if (value == null) return false;
+  if (typeof value === "string") return value.trim() !== "";
+  if (Array.isArray(value)) return value.length > 0;
+  return true; // number / boolean
 }
 
 interface MappingDialogProps {
@@ -655,6 +710,7 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
   const { types } = useMetamodel();
   const typeLabel = useTypeLabel();
   const fieldLabel = useFieldLabel();
+  const { symbol: currencySymbol } = useCurrency();
   const [connectionId, setConnectionId] = useState("");
   const [cardTypeKey, setCardTypeKey] = useState("");
   const [snowTable, setSnowTable] = useState("");
@@ -693,7 +749,8 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
           direction: fm.direction,
           transform_type: fm.transform_type || "direct",
           transform_config: (fm.transform_config as Record<string, unknown>) || null,
-          default_value: defaultValueToString(fm.default_value),
+          // Keep the raw (already type-coerced) value so the type-aware editor binds directly.
+          default_value: fm.default_value ?? undefined,
           is_identity: fm.is_identity,
         })) || []
       );
@@ -704,7 +761,7 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
   const addFieldMapping = () => {
     setFieldMappings([
       ...fieldMappings,
-      { turbo_field: "", snow_field: "", direction: "snow_leads", transform_type: "direct", transform_config: null, default_value: "", is_identity: false },
+      { turbo_field: "", snow_field: "", direction: "snow_leads", transform_type: "direct", transform_config: null, default_value: undefined, is_identity: false },
     ]);
   };
 
@@ -713,7 +770,15 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
   };
 
   const updateFieldMapping = (idx: number, field: string, value: unknown) => {
-    setFieldMappings(fieldMappings.map((fm, i) => (i === idx ? { ...fm, [field]: value } : fm)));
+    setFieldMappings(
+      fieldMappings.map((fm, i) => {
+        if (i !== idx) return fm;
+        const next = { ...fm, [field]: value };
+        // Changing the target field can invalidate the default's type — reset it.
+        if (field === "turbo_field") next.default_value = undefined;
+        return next;
+      }),
+    );
   };
 
   const handleSave = async () => {
@@ -731,10 +796,14 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
         skip_staging: skipStaging,
         // A row is meaningful if it has a source field OR a default/constant value.
         field_mappings: fieldMappings
-          .filter((fm) => fm.turbo_field && (fm.snow_field || fm.default_value.trim()))
+          .filter((fm) => fm.turbo_field && (fm.snow_field || hasDefault(fm.default_value)))
           .map((fm) => ({
             ...fm,
-            default_value: fm.default_value.trim() ? fm.default_value.trim() : null,
+            default_value: hasDefault(fm.default_value)
+              ? typeof fm.default_value === "string"
+                ? fm.default_value.trim()
+                : fm.default_value
+              : null,
           })),
       };
       if (mapping) {
@@ -752,7 +821,7 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
       <DialogTitle>{mapping ? t("servicenow.mappings.dialog.editMapping") : t("servicenow.mappings.dialog.newMapping")}</DialogTitle>
       <DialogContent>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -882,7 +951,9 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
             </Typography>
           )}
 
-          {fieldMappings.map((fm, idx) => (
+          {fieldMappings.map((fm, idx) => {
+            const defField = resolveTurboFieldDef(selectedCardType, fm.turbo_field);
+            return (
             <Box key={idx} sx={{ display: "flex", gap: 1, alignItems: "center" }}>
               <Autocomplete
                 freeSolo
@@ -914,14 +985,36 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
                 sx={{ flex: 1 }}
               />
               <Tooltip title={t("servicenow.mappings.dialog.defaultValueTooltip")}>
-                <TextField
-                  label={t("servicenow.mappings.dialog.defaultValueLabel")}
-                  size="small"
-                  value={fm.default_value}
-                  onChange={(e) => updateFieldMapping(idx, "default_value", e.target.value)}
-                  placeholder={t("servicenow.mappings.dialog.defaultValuePlaceholder")}
-                  sx={{ flex: 1 }}
-                />
+                <Box
+                  sx={{
+                    flex: 1,
+                    "& .MuiFormControl-root, & .MuiTextField-root": { minWidth: 0, width: "100%" },
+                  }}
+                >
+                  {defField ? (
+                    <FieldEditor
+                      field={{
+                        ...defField,
+                        label: t("servicenow.mappings.dialog.defaultValueLabel"),
+                        translations: undefined,
+                        required: false,
+                        readonly: false,
+                      }}
+                      value={fm.default_value}
+                      onChange={(v) => updateFieldMapping(idx, "default_value", v)}
+                      currencySymbol={currencySymbol}
+                    />
+                  ) : (
+                    <TextField
+                      label={t("servicenow.mappings.dialog.defaultValueLabel")}
+                      size="small"
+                      value={defaultValueToString(fm.default_value)}
+                      onChange={(e) => updateFieldMapping(idx, "default_value", e.target.value)}
+                      placeholder={t("servicenow.mappings.dialog.defaultValuePlaceholder")}
+                      fullWidth
+                    />
+                  )}
+                </Box>
               </Tooltip>
               <Tooltip title={t("servicenow.mappings.dialog.fieldDirectionTooltip")}>
                 <FormControl size="small" sx={{ minWidth: 130 }}>
@@ -959,7 +1052,8 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
                 <MaterialSymbol icon="close" size={16} />
               </IconButton>
             </Box>
-          ))}
+            );
+          })}
         </Stack>
       </DialogContent>
       <DialogActions>

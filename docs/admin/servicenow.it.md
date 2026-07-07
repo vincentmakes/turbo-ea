@@ -245,6 +245,7 @@ L'autocompletamento raggruppa i campi per sezione. Ecco il riferimento completo 
 |----------|--------|-------------------|
 | `name` | Nome visualizzato della card | `"SAP S/4HANA"` |
 | `description` | Descrizione della card | `"Sistema ERP principale per la finanza"` |
+| `subtype` | Sottotipo della carta (dall'elenco dei sottotipi del tipo di carta) | `"hardware"` |
 | `lifecycle.plan` | Ciclo di vita: data Plan | `"2024-01-15"` |
 | `lifecycle.phaseIn` | Ciclo di vita: data Phase In | `"2024-03-01"` |
 | `lifecycle.active` | Ciclo di vita: data Active | `"2024-06-01"` |

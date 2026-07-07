@@ -245,6 +245,7 @@ Autocomplete grupperer felter efter sektion. Her er den fulde stireference:
 |------|--------|---------------|
 | `name` | Kort-visningsnavn | `"SAP S/4HANA"` |
 | `description` | Kortbeskrivelse | `"Core ERP system for financials"` |
+| `subtype` | Kortets undertype (fra korttypens undertypeliste) | `"hardware"` |
 | `lifecycle.plan` | Livscyklus: Plan-dato | `"2024-01-15"` |
 | `lifecycle.phaseIn` | Livscyklus: Phase In-dato | `"2024-03-01"` |
 | `lifecycle.active` | Livscyklus: Active-dato | `"2024-06-01"` |

@@ -267,6 +267,7 @@ class TestFieldTransformerMappings:
         fms = [self._make_fm("", "subtype", default_value="hardware")]
         result = FieldTransformer.apply_mappings({}, fms, "snow_to_turbo")
         assert result == {"subtype": "hardware"}
+        # subtype is a top-level target applied by _apply_create / _apply_update.
 
     def test_default_used_as_fallback_when_source_empty(self):
         """With a snow_field, the default only fills in when the source is empty."""
@@ -439,13 +440,27 @@ class TestSyncEngineComputeDiff:
     """Tests for _compute_diff (no DB needed — operates on card objects)."""
 
     @staticmethod
-    def _make_card(name="App", description="Desc", lifecycle=None, attributes=None):
+    def _make_card(name="App", description="Desc", lifecycle=None, attributes=None, subtype=None):
         card = SimpleNamespace()
         card.name = name
         card.description = description
+        card.subtype = subtype
         card.lifecycle = lifecycle or {}
         card.attributes = attributes or {}
         return card
+
+    def test_diff_subtype_change(self):
+        engine = SyncEngine(db=None, client=None)
+        card = self._make_card(subtype=None)
+        transformed = {"subtype": "hardware"}
+        diff = engine._compute_diff(card, transformed)
+        assert diff == {"subtype": {"old": None, "new": "hardware"}}
+
+    def test_no_diff_when_subtype_unchanged(self):
+        engine = SyncEngine(db=None, client=None)
+        card = self._make_card(subtype="hardware")
+        transformed = {"subtype": "hardware"}
+        assert engine._compute_diff(card, transformed) is None
 
     def test_no_diff_when_identical(self):
         engine = SyncEngine(db=None, client=None)

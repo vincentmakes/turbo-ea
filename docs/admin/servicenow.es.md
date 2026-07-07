@@ -245,6 +245,7 @@ El autocompletado agrupa los campos por sección. Aquí está la referencia comp
 |------|---------|------------------|
 | `name` | Nombre visible de la ficha | `"SAP S/4HANA"` |
 | `description` | Descripción de la ficha | `"Sistema ERP principal para finanzas"` |
+| `subtype` | Subtipo de la tarjeta (de la lista de subtipos del tipo de tarjeta) | `"hardware"` |
 | `lifecycle.plan` | Ciclo de vida: Fecha de plan | `"2024-01-15"` |
 | `lifecycle.phaseIn` | Ciclo de vida: Fecha de puesta en marcha | `"2024-03-01"` |
 | `lifecycle.active` | Ciclo de vida: Fecha de activación | `"2024-06-01"` |
