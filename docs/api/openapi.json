@@ -4313,6 +4313,15 @@
       },
       "FieldMappingIn": {
         "properties": {
+          "default_value": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Value"
+          },
           "direction": {
             "default": "snow_leads",
             "pattern": "^(snow_leads|turbo_leads)$",
@@ -4325,6 +4334,7 @@
             "type": "boolean"
           },
           "snow_field": {
+            "default": "",
             "title": "Snow Field",
             "type": "string"
           },
@@ -4357,8 +4367,7 @@
           }
         },
         "required": [
-          "turbo_field",
-          "snow_field"
+          "turbo_field"
         ],
         "title": "FieldMappingIn",
         "type": "object"
@@ -4390,6 +4399,15 @@
       },
       "FieldMappingOut": {
         "properties": {
+          "default_value": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Value"
+          },
           "direction": {
             "title": "Direction",
             "type": "string"

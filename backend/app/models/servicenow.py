@@ -62,10 +62,16 @@ class SnowFieldMapping(UUIDMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("servicenow_mappings.id", ondelete="CASCADE")
     )
     turbo_field: Mapped[str] = mapped_column(String(200))
-    snow_field: Mapped[str] = mapped_column(String(200))
+    # Empty when this row is a hardcoded constant (no ServiceNow source column).
+    snow_field: Mapped[str] = mapped_column(String(200), default="")
     direction: Mapped[str] = mapped_column(String(20), default="snow_leads")
     transform_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     transform_config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Default / constant value written to ``turbo_field`` on inbound (pull) sync.
+    # With no ``snow_field`` it acts as a hardcoded constant; with a ``snow_field``
+    # it is a fallback used only when the source value is empty/missing. Stored as
+    # typed JSON (a list for ``multiple_select`` targets) so lists survive intact.
+    default_value: Mapped[object | None] = mapped_column(JSONB, nullable=True)
     is_identity: Mapped[bool] = mapped_column(Boolean, default=False)
 
     mapping: Mapped[SnowMapping] = relationship(back_populates="field_mappings")

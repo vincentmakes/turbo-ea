@@ -231,7 +231,8 @@ active=true^install_statusNOT IN7,8
 | 设置 | 描述 |
 |------|------|
 | **Turbo EA 字段** | Turbo EA 中的字段路径（自动补全根据卡片类型建议选项） |
-| **SNOW 字段** | ServiceNow 列 API 名称（例如 `name`、`short_description`） |
+| **SNOW 字段** | ServiceNow 列 API 名称（例如 `name`、`short_description`）。留空可写入固定常量（见下文） |
+| **默认值** | 当 ServiceNow 字段为空或缺失时写入的值（见下文） |
 | **方向** | 每个字段的权威来源：SNOW 主导或 Turbo 主导 |
 | **转换** | 如何转换值：直接、值映射、日期、布尔 |
 | **标识**（ID 复选框） | 用于初始同步期间匹配记录 |
@@ -252,6 +253,15 @@ active=true^install_statusNOT IN7,8
 | `attributes.<key>` | 卡片类型字段架构中的任何自定义属性 | 因字段类型而异 |
 
 例如，如果您的应用程序类型有一个键为 `businessCriticality` 的字段，从下拉菜单中选择 `attributes.businessCriticality`。
+
+### 默认值与常量值
+
+字段映射上的**默认值**可用于填充 ServiceNow 未提供的数据。它**仅在入站方向**（拉取时）生效，并根据是否设置了 **SNOW 字段**表现为两种方式：
+
+- **回退** —— 同时设置 SNOW 字段和默认值时，仅当 ServiceNow 的值为空或缺失时才使用默认值。真实的 ServiceNow 值始终优先。
+- **常量** —— 将 SNOW 字段留空，仅设置默认值，即可在每张同步的卡片上写入固定值，与 ServiceNow 无关。例如，将 `subtype` 映射为不设 SNOW 字段、默认值为 `hardware`，这样每个拉取的 CI 都会成为硬件类 IT 组件。
+
+默认值会被转换为目标字段的类型：`boolean`、`number` 和 `cost` 字段会解析该值；**多选字段接受以逗号分隔的列表**（例如 `web, backend` 会变成两个值）。若要将多个 ServiceNow 字段合并到一个 Turbo EA 字段中，请使用[计算字段](calculations.md)来聚合中间映射字段 —— 映射层每次只映射一列。
 
 ### 标识字段 —— 匹配工作原理
 

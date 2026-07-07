@@ -231,7 +231,8 @@ Para cada mapeamento de campo, você configura:
 | Configuração | Descrição |
 |--------------|-----------|
 | **Campo Turbo EA** | Caminho do campo no Turbo EA (o autocompletar sugere opções baseadas no tipo de card) |
-| **Campo SNOW** | Nome da coluna API do ServiceNow (ex.: `name`, `short_description`) |
+| **Campo SNOW** | Nome da coluna API do ServiceNow (ex.: `name`, `short_description`). Deixe em branco para gravar uma constante fixa (ver abaixo) |
+| **Valor padrão** | Valor gravado quando o campo do ServiceNow está vazio ou ausente (ver abaixo) |
 | **Direção** | Fonte da verdade por campo: SNOW lidera ou Turbo lidera |
 | **Transformação** | Como converter valores: Direto, Mapa de Valores, Data, Booleano |
 | **Identidade** (checkbox ID) | Usado para correspondência de registros durante a sincronização inicial |
@@ -252,6 +253,15 @@ O autocompletar agrupa campos por seção. Aqui está a referência completa de 
 | `attributes.<key>` | Qualquer atributo personalizado do esquema de campos do tipo de card | Varia conforme o tipo de campo |
 
 Por exemplo, se seu tipo Application possui um campo com a chave `businessCriticality`, selecione `attributes.businessCriticality` no menu suspenso.
+
+### Valores padrão e constantes
+
+O **valor padrão** de um mapeamento de campo permite preencher dados que o ServiceNow não fornece. Aplica-se **apenas na entrada** (durante um pull) e comporta-se de duas formas conforme haja um **campo SNOW** definido:
+
+- **Fallback** — Com um campo SNOW e um valor padrão, este só é usado quando o valor do ServiceNow está vazio ou ausente. Um valor real do ServiceNow sempre prevalece.
+- **Constante** — Deixe o campo SNOW em branco e defina apenas um valor padrão para gravar um valor fixo em cada cartão sincronizado, independentemente do ServiceNow. Por exemplo, mapeie `subtype` sem campo SNOW com valor padrão `hardware` para que cada CI extraído se torne um componente de TI de hardware.
+
+O valor padrão é convertido para o tipo do campo de destino: os campos `boolean`, `number` e `cost` analisam o valor; **campos de seleção múltipla aceitam uma lista separada por vírgulas** (ex.: `web, backend` torna-se dois valores). Para combinar vários campos do ServiceNow num único campo do Turbo EA, use um [campo calculado](calculations.md) que agrega campos mapeados intermédios — a camada de mapeamento mapeia uma coluna de cada vez.
 
 ### Campos de Identidade — Como Funciona a Correspondência
 

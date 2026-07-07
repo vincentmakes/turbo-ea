@@ -1058,6 +1058,7 @@ export interface SnowFieldMapping {
   direction: string;
   transform_type?: string | null;
   transform_config?: Record<string, unknown> | null;
+  default_value?: unknown;
   is_identity: boolean;
 }
 

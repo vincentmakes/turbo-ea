@@ -562,6 +562,7 @@ function MappingsTab() {
                           <TableRow>
                             <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>{t("servicenow.mappings.columns.turboField")}</TableCell>
                             <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>{t("servicenow.mappings.columns.snowField")}</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>{t("servicenow.mappings.columns.defaultValue")}</TableCell>
                             <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>{t("servicenow.mappings.columns.direction")}</TableCell>
                             <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>{t("servicenow.mappings.columns.transform")}</TableCell>
                             <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem" }}>{t("servicenow.mappings.columns.identity")}</TableCell>
@@ -574,7 +575,10 @@ function MappingsTab() {
                                 {fm.turbo_field}
                               </TableCell>
                               <TableCell sx={{ fontSize: "0.8rem", fontFamily: "monospace" }}>
-                                {fm.snow_field}
+                                {fm.snow_field || <Typography component="span" variant="caption" color="text.secondary">{t("servicenow.mappings.dialog.constantTag")}</Typography>}
+                              </TableCell>
+                              <TableCell sx={{ fontSize: "0.8rem", fontFamily: "monospace" }}>
+                                {defaultValueToString(fm.default_value) || "—"}
                               </TableCell>
                               <TableCell>
                                 <Chip
@@ -626,7 +630,16 @@ interface FieldMappingRow {
   direction: string;
   transform_type: string;
   transform_config: Record<string, unknown> | null;
+  // Edited as a plain string in the UI; comma-separated for multi-select targets.
+  default_value: string;
   is_identity: boolean;
+}
+
+// Render a stored default value (which may be a JSON list) back into the text input.
+function defaultValueToString(value: unknown): string {
+  if (value == null) return "";
+  if (Array.isArray(value)) return value.join(", ");
+  return String(value);
 }
 
 interface MappingDialogProps {
@@ -680,6 +693,7 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
           direction: fm.direction,
           transform_type: fm.transform_type || "direct",
           transform_config: (fm.transform_config as Record<string, unknown>) || null,
+          default_value: defaultValueToString(fm.default_value),
           is_identity: fm.is_identity,
         })) || []
       );
@@ -690,7 +704,7 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
   const addFieldMapping = () => {
     setFieldMappings([
       ...fieldMappings,
-      { turbo_field: "", snow_field: "", direction: "snow_leads", transform_type: "direct", transform_config: null, is_identity: false },
+      { turbo_field: "", snow_field: "", direction: "snow_leads", transform_type: "direct", transform_config: null, default_value: "", is_identity: false },
     ]);
   };
 
@@ -715,7 +729,13 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
         max_deletion_ratio: maxDeletionRatio,
         filter_query: filterQuery || null,
         skip_staging: skipStaging,
-        field_mappings: fieldMappings.filter((fm) => fm.turbo_field && fm.snow_field),
+        // A row is meaningful if it has a source field OR a default/constant value.
+        field_mappings: fieldMappings
+          .filter((fm) => fm.turbo_field && (fm.snow_field || fm.default_value.trim()))
+          .map((fm) => ({
+            ...fm,
+            default_value: fm.default_value.trim() ? fm.default_value.trim() : null,
+          })),
       };
       if (mapping) {
         await api.patch(`/servicenow/mappings/${mapping.id}`, body);
@@ -893,6 +913,16 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
                 placeholder="name"
                 sx={{ flex: 1 }}
               />
+              <Tooltip title={t("servicenow.mappings.dialog.defaultValueTooltip")}>
+                <TextField
+                  label={t("servicenow.mappings.dialog.defaultValueLabel")}
+                  size="small"
+                  value={fm.default_value}
+                  onChange={(e) => updateFieldMapping(idx, "default_value", e.target.value)}
+                  placeholder={t("servicenow.mappings.dialog.defaultValuePlaceholder")}
+                  sx={{ flex: 1 }}
+                />
+              </Tooltip>
               <Tooltip title={t("servicenow.mappings.dialog.fieldDirectionTooltip")}>
                 <FormControl size="small" sx={{ minWidth: 130 }}>
                   <Select

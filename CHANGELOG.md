@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.66.0] - 2026-07-07
+
+### Added
+- **Default and constant values in ServiceNow field mappings.** Each field mapping can now carry a default value that is written to the card during a pull. Leave the ServiceNow field blank to set a hardcoded constant on every synced card (e.g. always land CIs as `hardware`), or keep the ServiceNow field to use the default only as a fallback when the source value is empty. Multi-select targets accept a comma-separated list, and the value is coerced to the target field's type.
+
 ## [1.65.5] - 2026-07-07
 
 ### Security

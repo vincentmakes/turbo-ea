@@ -195,6 +195,7 @@ class TestFieldTransformerMappings:
         direction: str = "snow_leads",
         transform_type: str | None = None,
         transform_config: dict | None = None,
+        default_value: object | None = None,
         is_identity: bool = False,
     ):
         """Create a mock SnowFieldMapping."""
@@ -204,6 +205,7 @@ class TestFieldTransformerMappings:
         fm.direction = direction
         fm.transform_type = transform_type
         fm.transform_config = transform_config
+        fm.default_value = default_value
         fm.is_identity = is_identity
         return fm
 
@@ -259,6 +261,36 @@ class TestFieldTransformerMappings:
         record = {"priority": "1"}
         result = FieldTransformer.apply_mappings(record, fms, "snow_to_turbo")
         assert result == {"attributes": {"priority": "critical"}}
+
+    def test_constant_default_no_snow_field(self):
+        """A row with no snow_field always writes its default (a hardcoded constant)."""
+        fms = [self._make_fm("", "subtype", default_value="hardware")]
+        result = FieldTransformer.apply_mappings({}, fms, "snow_to_turbo")
+        assert result == {"subtype": "hardware"}
+
+    def test_default_used_as_fallback_when_source_empty(self):
+        """With a snow_field, the default only fills in when the source is empty."""
+        fm = self._make_fm("u_env", "attributes.environment", default_value="production")
+        # Missing key → default applies.
+        assert FieldTransformer.apply_mappings({}, [fm], "snow_to_turbo") == {
+            "attributes": {"environment": "production"}
+        }
+        # Empty string → default applies.
+        assert FieldTransformer.apply_mappings({"u_env": ""}, [fm], "snow_to_turbo") == {
+            "attributes": {"environment": "production"}
+        }
+
+    def test_source_value_overrides_default(self):
+        """A present source value wins over the configured default."""
+        fm = self._make_fm("u_env", "attributes.environment", default_value="production")
+        result = FieldTransformer.apply_mappings({"u_env": "staging"}, [fm], "snow_to_turbo")
+        assert result == {"attributes": {"environment": "staging"}}
+
+    def test_list_default_written_verbatim(self):
+        """A list-typed default (multiple_select) is written as a list, not stringified."""
+        fm = self._make_fm("u_tags", "attributes.tags", default_value=["a", "b"])
+        result = FieldTransformer.apply_mappings({}, [fm], "snow_to_turbo")
+        assert result == {"attributes": {"tags": ["a", "b"]}}
 
 
 # ---------------------------------------------------------------------------

@@ -284,10 +284,16 @@ class FieldTransformer:
                 continue
 
             if direction == "snow_to_turbo":
-                raw = record.get(fm.snow_field)
+                raw = record.get(fm.snow_field) if fm.snow_field else None
                 transformed = FieldTransformer.transform_value(
                     raw, fm.transform_type, fm.transform_config, direction
                 )
+                # Fallback / constant: substitute the configured default when the
+                # source value is empty. With no snow_field this always applies
+                # (a hardcoded constant). Bypasses value_map so list-typed
+                # defaults are written verbatim rather than stringified.
+                if fm.default_value is not None and transformed in (None, ""):
+                    transformed = fm.default_value
                 _set_nested(result, fm.turbo_field, transformed)
             else:
                 raw = _get_nested(record, fm.turbo_field)
@@ -367,8 +373,8 @@ class SyncEngine:
         await self.db.flush()
 
         try:
-            # Collect SNOW fields needed
-            snow_fields = [fm.snow_field for fm in field_mappings]
+            # Collect SNOW fields needed (skip constant rows with no source column)
+            snow_fields = [fm.snow_field for fm in field_mappings if fm.snow_field]
             identity_fields = [fm for fm in field_mappings if fm.is_identity]
 
             # Fetch all records (paginated)

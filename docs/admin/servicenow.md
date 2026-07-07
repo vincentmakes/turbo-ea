@@ -231,7 +231,8 @@ For each field mapping, you configure:
 | Setting | Description |
 |---------|-------------|
 | **Turbo EA Field** | Field path in Turbo EA (autocomplete suggests options based on card type) |
-| **SNOW Field** | ServiceNow column API name (e.g., `name`, `short_description`) |
+| **SNOW Field** | ServiceNow column API name (e.g., `name`, `short_description`). Leave blank to write a hardcoded constant (see below) |
+| **Default value** | Value written when the ServiceNow field is empty or missing (see below) |
 | **Direction** | Per-field source of truth: SNOW leads or Turbo leads |
 | **Transform** | How to convert values: Direct, Value Map, Date, Boolean |
 | **Identity** (ID checkbox) | Used for matching records during initial sync |
@@ -252,6 +253,15 @@ The autocomplete groups fields by section. Here's the full path reference:
 | `attributes.<key>` | Any custom attribute from the card type's fields schema | Varies by field type |
 
 For example, if your Application type has a field with key `businessCriticality`, select `attributes.businessCriticality` from the dropdown.
+
+### Default and Constant Values
+
+The **Default value** on a field mapping lets you fill in data that ServiceNow doesn't provide. It applies **inbound only** (during a pull), and behaves two ways depending on whether a **SNOW Field** is set:
+
+- **Fallback** — With both a SNOW Field and a default, the default is used only when the ServiceNow value is empty or missing. A real ServiceNow value always wins.
+- **Constant** — Leave the SNOW Field blank and set only a default to write a hardcoded value on every synced card, regardless of ServiceNow. For example, map `subtype` with no SNOW Field and a default of `hardware` so every pulled CI lands as a hardware IT Component.
+
+The default is coerced to the target field's type: `boolean`, `number`, and `cost` fields parse the value; **multi-select fields accept a comma-separated list** (e.g. `web, backend` becomes two values). To combine several ServiceNow fields into one Turbo EA field, use a [calculated field](calculations.md) that aggregates intermediate mapped fields — the mapping layer maps one column at a time.
 
 ### Identity Fields — How Matching Works
 
