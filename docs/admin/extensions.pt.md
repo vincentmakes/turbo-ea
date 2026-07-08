@@ -15,12 +15,12 @@ Duas verificações independentes protegem a sua instância:
 
 ## O separador Loja
 
-Se o seu operador configurou um URL de loja (`EXTENSION_STORE_URL`), o separador **Loja** lista as extensões publicadas pelo fornecedor com descrição e preço:
+O separador **Loja** funciona sem qualquer configuração e lista as extensões publicadas pelo fornecedor com descrição e preço:
 
 - **Comprar** abre a página de pagamento num novo separador do navegador. Após a compra, a sua licença chega por e-mail — cole-a no separador Instaladas.
 - **Instalar** (ou **Atualizar** quando uma versão mais recente é publicada) descarrega o pacote e submete-o exatamente à mesma verificação de assinatura e pré-visualização de simulação de um carregamento manual.
 
-O separador Loja é só de leitura e anónimo: sem conta, sem token, e nada sobre a sua instância é enviado — apenas o catálogo público do fornecedor é lido. As instâncias isoladas deixam a loja por configurar e usam o fluxo baseado em ficheiros abaixo; o site da loja do fornecedor oferece as mesmas compras e transferências a partir de qualquer navegador com ligação à Internet.
+O separador Loja é só de leitura e anónimo: sem conta, sem token, e nada sobre a sua instância é enviado — apenas o catálogo público do fornecedor é lido. As instâncias isoladas não precisam de configuração — o separador mostra então uma indicação amigável (os operadores também podem definir `EXTENSION_STORE_URL=off` para suprimir a chamada de saída) — e usam o fluxo baseado em ficheiros abaixo; o site da loja do fornecedor oferece as mesmas compras e transferências a partir de qualquer navegador com ligação à Internet.
 
 ## Instalar uma extensão
 

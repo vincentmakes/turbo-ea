@@ -15,12 +15,12 @@ Zwei unabhängige Prüfungen schützen Ihre Instanz:
 
 ## Der Store-Tab
 
-Wenn Ihr Betreiber eine Store-URL konfiguriert hat (`EXTENSION_STORE_URL`), listet der Tab **Store** die veröffentlichten Erweiterungen des Anbieters mit Beschreibung und Preis:
+Der Tab **Store** funktioniert ohne jede Konfiguration und listet die veröffentlichten Erweiterungen des Anbieters mit Beschreibung und Preis:
 
 - **Kaufen** öffnet die Zahlungsseite in einem neuen Browser-Tab. Nach dem Kauf erhalten Sie Ihre Lizenz per E-Mail — fügen Sie sie im Tab Installiert ein.
 - **Installieren** (bzw. **Aktualisieren**, wenn eine neuere Version veröffentlicht ist) lädt das Paket herunter und führt es durch exakt dieselbe Signaturprüfung und Dry-Run-Vorschau wie ein manueller Upload.
 
-Der Store-Tab ist schreibgeschützt und anonym: kein Konto, kein Token, und es werden keinerlei Informationen über Ihre Instanz übertragen — es wird nur der öffentliche Katalog des Anbieters gelesen. Abgeschottete Instanzen lassen den Store unkonfiguriert und nutzen den dateibasierten Ablauf unten; die Storefront-Website des Anbieters bietet dieselben Käufe und Downloads von jedem Browser mit Internetzugang.
+Der Store-Tab ist schreibgeschützt und anonym: kein Konto, kein Token, und es werden keinerlei Informationen über Ihre Instanz übertragen — es wird nur der öffentliche Katalog des Anbieters gelesen. Abgeschottete Instanzen brauchen keine Konfiguration — der Tab zeigt dann einen freundlichen Hinweis (Betreiber können mit `EXTENSION_STORE_URL=off` den ausgehenden Abruf ganz unterdrücken) — und nutzen den dateibasierten Ablauf unten; die Storefront-Website des Anbieters bietet dieselben Käufe und Downloads von jedem Browser mit Internetzugang.
 
 ## Eine Erweiterung installieren
 

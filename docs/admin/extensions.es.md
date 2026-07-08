@@ -15,12 +15,12 @@ Dos comprobaciones independientes protegen su instancia:
 
 ## La pestaña Tienda
 
-Si tu operador ha configurado una URL de tienda (`EXTENSION_STORE_URL`), la pestaña **Tienda** lista las extensiones publicadas por el proveedor con descripción y precio:
+La pestaña **Tienda** funciona sin configuración alguna y lista las extensiones publicadas por el proveedor con descripción y precio:
 
 - **Comprar** abre la página de pago en una pestaña nueva del navegador. Tras la compra, tu licencia llega por correo electrónico: pégala en la pestaña Instaladas.
 - **Instalar** (o **Actualizar** cuando se publica una versión más reciente) descarga el paquete y lo somete exactamente a la misma verificación de firma y vista previa de simulación que una carga manual.
 
-La pestaña Tienda es de solo lectura y anónima: sin cuenta, sin token, y no se envía nada sobre tu instancia — solo se lee el catálogo público del proveedor. Las instancias aisladas dejan la tienda sin configurar y usan el flujo basado en archivos de abajo; el sitio web de la tienda del proveedor ofrece las mismas compras y descargas desde cualquier navegador con conexión a Internet.
+La pestaña Tienda es de solo lectura y anónima: sin cuenta, sin token, y no se envía nada sobre tu instancia — solo se lee el catálogo público del proveedor. Las instancias aisladas no necesitan configuración — la pestaña muestra entonces un aviso amable (los operadores también pueden establecer `EXTENSION_STORE_URL=off` para suprimir la llamada saliente) — y usan el flujo basado en archivos de abajo; el sitio web de la tienda del proveedor ofrece las mismas compras y descargas desde cualquier navegador con conexión a Internet.
 
 ## Instalar una extensión
 

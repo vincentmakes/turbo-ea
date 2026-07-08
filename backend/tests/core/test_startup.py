@@ -254,3 +254,34 @@ class TestAppVersion:
 
         parts = APP_VERSION.split(".")
         assert len(parts) >= 2  # At least major.minor
+
+
+# ---------------------------------------------------------------------------
+# Extension store URL resolution
+# ---------------------------------------------------------------------------
+
+
+class TestExtensionStoreUrl:
+    def test_unset_falls_back_to_baked_default(self):
+        from app.config import DEFAULT_EXTENSION_STORE_URL, _parse_extension_store_url
+
+        assert _parse_extension_store_url("") == DEFAULT_EXTENSION_STORE_URL
+        assert _parse_extension_store_url("   ") == DEFAULT_EXTENSION_STORE_URL
+
+    def test_explicit_url_overrides(self):
+        from app.config import _parse_extension_store_url
+
+        assert (
+            _parse_extension_store_url("https://mirror.example.com") == "https://mirror.example.com"
+        )
+
+    def test_sentinels_disable_the_store(self):
+        from app.config import _parse_extension_store_url
+
+        for sentinel in ("off", "OFF", "none", "disabled", "false", " Off "):
+            assert _parse_extension_store_url(sentinel) == "", sentinel
+
+    def test_default_is_a_https_url(self):
+        from app.config import DEFAULT_EXTENSION_STORE_URL
+
+        assert DEFAULT_EXTENSION_STORE_URL.startswith("https://")

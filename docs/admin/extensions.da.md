@@ -15,12 +15,12 @@ To uafhængige kontroller beskytter din installation:
 
 ## Fanen Butik
 
-Hvis din operatør har konfigureret en butiks-URL (`EXTENSION_STORE_URL`), viser fanen **Butik** leverandørens udgivne udvidelser med beskrivelse og pris:
+Fanen **Butik** virker uden nogen konfiguration og viser leverandørens udgivne udvidelser med beskrivelse og pris:
 
 - **Køb** åbner betalingssiden i en ny browserfane. Efter købet modtager du din licens pr. e-mail — indsæt den under fanen Installerede.
 - **Installer** (eller **Opdater**, når en nyere version er udgivet) downloader pakken og kører den gennem præcis den samme signaturkontrol og prøvekørselsforhåndsvisning som en manuel upload.
 
-Fanen Butik er skrivebeskyttet og anonym: ingen konto, intet token, og intet om din instans sendes nogen steder hen — kun leverandørens offentlige katalog læses. Isolerede instanser lader butikken være ukonfigureret og bruger det filbaserede forløb nedenfor; leverandørens butikswebsted tilbyder de samme køb og downloads fra enhver browser med internetadgang.
+Fanen Butik er skrivebeskyttet og anonym: ingen konto, intet token, og intet om din instans sendes nogen steder hen — kun leverandørens offentlige katalog læses. Isolerede instanser behøver ingen konfiguration — fanen viser i stedet et venligt hint (operatører kan også sætte `EXTENSION_STORE_URL=off` for helt at undertrykke det udgående kald) — og bruger det filbaserede forløb nedenfor; leverandørens butikswebsted tilbyder de samme køb og downloads fra enhver browser med internetadgang.
 
 ## Installer en udvidelse
 
