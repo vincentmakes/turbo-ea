@@ -63,5 +63,7 @@
   "sponsorship.howHeading": "Как поддержать",
   "sponsorship.howBody": "Пока через GitHub Sponsors. Выберите разовый взнос или регулярный ежемесячный вклад:",
   "sponsorship.oneTime": "Разово",
-  "sponsorship.monthly": "Ежемесячно"
+  "sponsorship.monthly": "Ежемесячно",
+  "extensionLicense.banner": "Лицензия расширения требует внимания: {{keys}}. Запросите обновлённый файл лицензии и примените его в разделе Администрирование → Расширения.",
+  "extensionLicense.manage": "Управлять"
 }

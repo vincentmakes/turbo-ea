@@ -350,5 +350,7 @@
   "dashboard.workspace.andMore_one": "og {{count}} mere",
   "dashboard.workspace.andMore_other": "og {{count}} flere",
   "actions.undo": "Fortryd",
-  "dashboard.workspace.favoriteRemoved": "Fjernede «{{name}}» fra favoritter"
+  "dashboard.workspace.favoriteRemoved": "Fjernede «{{name}}» fra favoritter",
+  "notFound.title": "Siden blev ikke fundet",
+  "notFound.extensionHint": "Denne side hører til en udvidelse, der ikke er installeret, ikke er aktiveret eller stadig indlæses."
 }

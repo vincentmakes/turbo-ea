@@ -63,5 +63,7 @@
   "sponsorship.howHeading": "Come sostenere",
   "sponsorship.howBody": "Tramite GitHub Sponsors per ora. Scegli una donazione una tantum o un contributo mensile regolare:",
   "sponsorship.oneTime": "Una tantum",
-  "sponsorship.monthly": "Mensile"
+  "sponsorship.monthly": "Mensile",
+  "extensionLicense.banner": "La licenza dell'estensione richiede attenzione: {{keys}}. Richiedi un file di licenza rinnovato e applicalo in Admin → Estensioni.",
+  "extensionLicense.manage": "Gestisci"
 }

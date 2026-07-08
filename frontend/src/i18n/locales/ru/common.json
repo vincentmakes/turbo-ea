@@ -350,5 +350,7 @@
   "dashboard.workspace.andMore_one": "и ещё {{count}}",
   "dashboard.workspace.andMore_other": "и ещё {{count}}",
   "actions.undo": "Отменить",
-  "dashboard.workspace.favoriteRemoved": "«{{name}}» удалено из избранного"
+  "dashboard.workspace.favoriteRemoved": "«{{name}}» удалено из избранного",
+  "notFound.title": "Страница не найдена",
+  "notFound.extensionHint": "Эта страница принадлежит расширению, которое не установлено, не включено или ещё загружается."
 }

@@ -37,6 +37,8 @@ import {
 } from "@/features/cards/sections";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
+import { hasPermission } from "@/components/RequirePermission";
+import { ExtensionBoundary, useExtensionUI } from "@/lib/extensionHost";
 import SoAWTab from "@/features/cards/sections/SoAWTab";
 import type {
   Card,
@@ -386,6 +388,17 @@ export default function CardDetailContent({
   // SoAW tab index = 1 when Initiative (no BPM); slots in right after Card.
   const soawTabIdx = isSoaw ? 1 + bpmOffset : -1;
 
+  // Extension-contributed tabs render at the very end of the strip,
+  // filtered by card type (appliesTo) and app-level permission.
+  const uiExtensions = useExtensionUI();
+  const extensionTabs = uiExtensions.flatMap(({ key, plugin }) =>
+    (plugin.cardTabs ?? [])
+      .filter((def) => !def.appliesTo || def.appliesTo.includes(card.type))
+      .filter((def) => !def.permission || hasPermission(user?.permissions, def.permission))
+      .map((def) => ({ extKey: key, def })),
+  );
+  const extensionTabBase = historyIdx + 1 + (isPpm ? 1 : 0);
+
   const { hasUpdates, noteVisit } = useCardTabActivity(card.id, user?.id);
 
   const tabKeyForIndex = (idx: number): string | null => {
@@ -464,6 +477,9 @@ export default function CardDetailContent({
         )}
         <Tab label={renderTabLabel("history", t("tabs.history"))} />
         {isPpm && <Tab label={renderTabLabel("ppm", t("tabs.ppm"))} />}
+        {extensionTabs.map(({ extKey, def }) => (
+          <Tab key={`ext:${extKey}:${def.id}`} label={def.label} />
+        ))}
       </Tabs>
 
       {tab === 0 && (
@@ -586,6 +602,17 @@ export default function CardDetailContent({
             </CardContent>
           </MuiCard>
         </ErrorBoundary>
+      )}
+      {extensionTabs.map(({ extKey, def }, i) =>
+        tab === extensionTabBase + i ? (
+          <ExtensionBoundary key={`ext:${extKey}:${def.id}`} extensionKey={extKey}>
+            <MuiCard>
+              <CardContent>
+                <def.component cardId={card.id} cardType={card.type} />
+              </CardContent>
+            </MuiCard>
+          </ExtensionBoundary>
+        ) : null,
       )}
     </>
   );

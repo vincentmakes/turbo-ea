@@ -55,6 +55,7 @@ const UsersAdmin = lazy(() => import("@/features/admin/UsersAdmin"));
 const SettingsAdmin = lazy(() => import("@/features/admin/SettingsAdmin"));
 const SurveysAdmin = lazy(() => import("@/features/admin/SurveysAdmin"));
 const ExtensionsAdmin = lazy(() => import("@/features/admin/ExtensionsAdmin"));
+const ExtensionRoutesOutlet = lazy(() => import("@/lib/ExtensionRoutesOutlet"));
 const SurveyBuilder = lazy(() => import("@/features/admin/SurveyBuilder"));
 const SurveyResults = lazy(() => import("@/features/admin/SurveyResults"));
 const SurveyRespond = lazy(() => import("@/features/surveys/SurveyRespond"));
@@ -197,6 +198,7 @@ function AppRoutes() {
                 <Route path="/admin/web-portals" element={<RequirePermission permission="web_portals.manage"><Navigate to="/admin/settings?tab=web-portals" /></RequirePermission>} />
                 <Route path="/admin/servicenow" element={<RequirePermission permission="servicenow.manage"><Navigate to="/admin/settings?tab=servicenow" /></RequirePermission>} />
                 <Route path="/admin/extensions" element={<RequirePermission permission="admin.manage_extensions"><ExtensionsAdmin /></RequirePermission>} />
+                <Route path="/ext/*" element={<ExtensionRoutesOutlet />} />
                 <Route path="/admin/surveys" element={<RequirePermission permission="surveys.manage"><SurveysAdmin /></RequirePermission>} />
                 <Route path="/admin/surveys/new" element={<RequirePermission permission="surveys.manage"><SurveyBuilder /></RequirePermission>} />
                 <Route path="/admin/surveys/:id/results" element={<RequirePermission permission="surveys.manage"><SurveyResults /></RequirePermission>} />

@@ -43,6 +43,9 @@ export function useAuth() {
       // still empty. Bootstrap failures are swallowed inside primeBootstrap()
       // so a transient bootstrap error doesn't block login.
       await primeBootstrap();
+      // Load UI extension bundles in the background (entitlement-filtered
+      // manifest + dynamic import; failures are captured per-extension).
+      void import("@/lib/extensionHost").then((m) => m.loadUiExtensions());
       setUser(u as User);
       i18n.changeLanguage(u.locale || "en");
       startRefreshTimer();

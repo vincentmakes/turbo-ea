@@ -29,6 +29,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { invalidateCache as invalidateMetamodel } from "@/hooks/useMetamodel";
+import { ExtensionBoundary, useExtensionUI } from "@/lib/extensionHost";
 
 interface EntitlementInfo {
   state: "active" | "grace" | "expired" | "unlicensed";
@@ -280,6 +281,11 @@ export default function ExtensionsAdmin() {
   const needsRestart = extensions.some((x) => x.status === "needs_restart");
   const isWorking = install ? !TERMINAL.has(install.status) : false;
   const report = install?.result || install?.diff || null;
+
+  const uiExtensions = useExtensionUI();
+  const adminPanels = uiExtensions.flatMap(({ key, plugin }) =>
+    (plugin.adminPanels ?? []).map((panel) => ({ extKey: key, panel })),
+  );
 
   const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString() : "");
 
@@ -621,6 +627,20 @@ export default function ExtensionsAdmin() {
           )}
         </CardContent>
       </Card>
+
+      {/* Extension-contributed admin panels (third UI extension point) */}
+      {adminPanels.map(({ extKey, panel }) => (
+        <Card variant="outlined" key={`${extKey}:${panel.id}`}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              {panel.label}
+            </Typography>
+            <ExtensionBoundary extensionKey={extKey}>
+              <panel.component />
+            </ExtensionBoundary>
+          </CardContent>
+        </Card>
+      ))}
 
       <Dialog open={uninstallKey !== null} onClose={() => setUninstallKey(null)}>
         <DialogTitle>{t("extensions.uninstall.title", "Uninstall extension?")}</DialogTitle>

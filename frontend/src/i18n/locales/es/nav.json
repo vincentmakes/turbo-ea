@@ -63,5 +63,7 @@
   "sponsorship.howHeading": "Cómo patrocinar",
   "sponsorship.howBody": "A través de GitHub Sponsors por ahora. Elige una donación única o una contribución mensual periódica:",
   "sponsorship.oneTime": "Único",
-  "sponsorship.monthly": "Mensual"
+  "sponsorship.monthly": "Mensual",
+  "extensionLicense.banner": "La licencia de extensión requiere atención: {{keys}}. Solicite un archivo de licencia renovado y aplíquelo en Admin → Extensiones.",
+  "extensionLicense.manage": "Gestionar"
 }

@@ -63,5 +63,7 @@
   "sponsorship.howHeading": "如何赞助",
   "sponsorship.howBody": "目前通过 GitHub Sponsors。可选择一次性捐赠或定期的每月贡献：",
   "sponsorship.oneTime": "一次性",
-  "sponsorship.monthly": "每月"
+  "sponsorship.monthly": "每月",
+  "extensionLicense.banner": "扩展许可证需要处理：{{keys}}。请索取续期的许可证文件，并在「管理 → 扩展」中应用。",
+  "extensionLicense.manage": "管理"
 }

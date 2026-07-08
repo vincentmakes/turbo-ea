@@ -350,5 +350,7 @@
   "dashboard.workspace.andMore_one": "و{{count}} آخر",
   "dashboard.workspace.andMore_other": "و{{count}} آخرون",
   "actions.undo": "تراجع",
-  "dashboard.workspace.favoriteRemoved": "تمت إزالة «{{name}}» من المفضّلة"
+  "dashboard.workspace.favoriteRemoved": "تمت إزالة «{{name}}» من المفضّلة",
+  "notFound.title": "الصفحة غير موجودة",
+  "notFound.extensionHint": "تعود هذه الصفحة إلى إضافة غير مثبّتة أو غير مفعّلة أو ما زالت قيد التحميل."
 }

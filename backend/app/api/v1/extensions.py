@@ -446,6 +446,93 @@ async def extensions_status(
     ]
 
 
+class UiExtensionOut(BaseModel):
+    key: str
+    version: str
+    entry: str
+    entitlement_state: str
+
+
+@status_router.get("/ui-manifest", response_model=list[UiExtensionOut])
+async def ui_manifest(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[UiExtensionOut]:
+    """UI bundles the frontend loader should import — THE entitlement gate
+    for extension UI. Only enabled extensions with a usable (active or
+    grace) entitlement and a frontend entry are listed."""
+    await extension_registry.refresh_from_db(db)
+    out: list[UiExtensionOut] = []
+    for info in extension_registry.all():
+        if not info.enabled or info.status in ("removed", "failed", "needs_restart"):
+            continue
+        entry = str(((info.manifest or {}).get("frontend") or {}).get("entry") or "")
+        if not entry:
+            continue
+        ent = extension_registry.entitlement(info.key)
+        if not ent.usable:
+            continue
+        rel = entry.removeprefix("frontend/")
+        out.append(
+            UiExtensionOut(
+                key=info.key,
+                version=info.version,
+                entry=f"/api/v1/ext-assets/{info.key}/{info.version}/{rel}",
+                entitlement_state=ent.state,
+            )
+        )
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Static UI assets (unauthenticated by design)
+# ---------------------------------------------------------------------------
+
+assets_router = APIRouter(prefix="/ext-assets", tags=["Extensions"])
+
+_ASSET_MEDIA_TYPES = {
+    ".js": "text/javascript",
+    ".mjs": "text/javascript",
+    ".css": "text/css",
+    ".map": "application/json",
+    ".json": "application/json",
+    ".svg": "image/svg+xml",
+    ".woff2": "font/woff2",
+}
+
+
+@assets_router.get("/{key}/{version}/{asset_path:path}")
+async def get_extension_asset(key: str, version: str, asset_path: str):
+    """Serve an extension's frontend bundle files.
+
+    Deliberately unauthenticated: dynamic ``import()`` cannot carry an
+    Authorization header, and extension code is not a secret — the
+    entitlement gate is the authenticated ``/extensions/ui-manifest``
+    plus every ``/ext/{key}/`` data API. Same-origin serving keeps the
+    strict ``script-src 'self'`` CSP intact. The version segment exists
+    for cache-busting (assets are served immutable).
+    """
+    from fastapi.responses import FileResponse
+
+    from app.services.extensions.installer import EXTENSIONS_DIR
+
+    info = extension_registry.get(key)
+    if info is None or not info.enabled or info.status == "removed":
+        raise HTTPException(status_code=404, detail="Not found")
+
+    base = (EXTENSIONS_DIR / key / "frontend").resolve()
+    target = (base / asset_path).resolve()
+    if not target.is_relative_to(base) or not target.is_file():
+        raise HTTPException(status_code=404, detail="Not found")
+
+    media_type = _ASSET_MEDIA_TYPES.get(target.suffix.lower())
+    return FileResponse(
+        target,
+        media_type=media_type,
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
+
+
 # ---------------------------------------------------------------------------
 # Background jobs
 # ---------------------------------------------------------------------------

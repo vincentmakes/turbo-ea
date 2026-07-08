@@ -350,5 +350,7 @@
   "dashboard.workspace.andMore_one": "et {{count}} de plus",
   "dashboard.workspace.andMore_other": "et {{count}} de plus",
   "actions.undo": "Annuler",
-  "dashboard.workspace.favoriteRemoved": "« {{name}} » retiré des favoris"
+  "dashboard.workspace.favoriteRemoved": "« {{name}} » retiré des favoris",
+  "notFound.title": "Page introuvable",
+  "notFound.extensionHint": "Cette page appartient à une extension qui n'est pas installée, pas activée ou encore en cours de chargement."
 }

@@ -63,5 +63,7 @@
   "sponsorship.howHeading": "كيفية الدعم",
   "sponsorship.howBody": "عبر GitHub Sponsors في الوقت الحالي. اختر تبرعًا لمرة واحدة أو مساهمة شهرية منتظمة:",
   "sponsorship.oneTime": "مرة واحدة",
-  "sponsorship.monthly": "شهري"
+  "sponsorship.monthly": "شهري",
+  "extensionLicense.banner": "ترخيص الإضافة يحتاج إلى انتباه: {{keys}}. اطلب ملف ترخيص مجددًا وطبّقه من الإدارة ← الإضافات.",
+  "extensionLicense.manage": "إدارة"
 }

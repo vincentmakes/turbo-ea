@@ -63,5 +63,7 @@
   "sponsorship.howHeading": "Sådan støtter du",
   "sponsorship.howBody": "Via GitHub Sponsors indtil videre. Vælg en engangsdonation eller et fast månedligt bidrag:",
   "sponsorship.oneTime": "Engangs",
-  "sponsorship.monthly": "Månedligt"
+  "sponsorship.monthly": "Månedligt",
+  "extensionLicense.banner": "Udvidelseslicens kræver opmærksomhed: {{keys}}. Anmod om en fornyet licensfil og anvend den under Admin → Udvidelser.",
+  "extensionLicense.manage": "Administrér"
 }
