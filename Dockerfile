@@ -38,7 +38,12 @@ COPY --from=backend-build /app/bpmn_templates ./bpmn_templates
 # pip is never executed at runtime — this only silences Trivy noise on the image.
 RUN pip install --no-cache-dir --upgrade 'pip>=26.1'
 
-RUN chown -R ${APP_UID}:${APP_GID} /app
+# /app/data is the mountpoint of the backend_data named volume (uploads,
+# installed extensions, workspace transfers). It MUST exist in the image
+# owned by appuser: Docker copies the mountpoint's ownership into a fresh
+# named volume, and without this the volume is created root-owned — the
+# non-root backend (cap_drop: ALL) then cannot write any upload.
+RUN mkdir -p /app/data && chown -R ${APP_UID}:${APP_GID} /app
 
 USER ${APP_UID}:${APP_GID}
 

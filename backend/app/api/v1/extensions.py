@@ -308,10 +308,23 @@ async def _persist_upload(
     db: AsyncSession, filename: str, raw: bytes, user_id: uuid.UUID
 ) -> ExtensionInstall:
     """Land bundle bytes on disk + create the install row (status=verifying)."""
-    _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     install_id = uuid.uuid4()
     storage_path = _UPLOAD_DIR / f"{install_id}.bin"
-    storage_path.write_bytes(raw)
+    try:
+        _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        storage_path.write_bytes(raw)
+    except OSError as exc:
+        # Most commonly a root-owned backend_data volume created by an image
+        # that predates the /app/data mkdir — surface it instead of a bare 500.
+        logger.error("Cannot write bundle to %s: %s", _UPLOAD_DIR, exc)
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"Cannot write to {_UPLOAD_DIR} — the data volume is not "
+                "writable by the backend user. Fix the volume ownership "
+                "(chown to the app user, UID 1000) and retry."
+            ),
+        ) from exc
 
     install = ExtensionInstall(
         id=install_id,

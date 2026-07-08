@@ -549,3 +549,23 @@ class TestStoreInstall:
             headers=auth_headers(member),
         )
         assert res.status_code == 403
+
+
+class TestUploadDirNotWritable:
+    async def test_unwritable_upload_dir_returns_actionable_500(
+        self, client, db, vendor, tmp_path, monkeypatch
+    ):
+        """A broken data volume must produce a diagnosable error, not a bare 500."""
+        blocker = tmp_path / "blocked"
+        blocker.write_text("a file where the upload dir should be")
+        monkeypatch.setattr(ext_api, "_UPLOAD_DIR", blocker)
+
+        admin = await make_admin(db)
+        raw = build_teax(vendor, files={"content/pack.json": json.dumps(CONTENT_PACK).encode()})
+        res = await client.post(
+            "/api/v1/admin/extensions/install",
+            files={"file": ("sample.teax", raw, "application/zip")},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 500
+        assert "not writable" in res.json()["detail"] or "Cannot write" in res.json()["detail"]
