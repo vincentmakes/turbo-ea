@@ -38,16 +38,12 @@ Cole o texto da licença recebido (ou carregue o ficheiro) no cartão **Licença
 
 Quando um direito ultrapassa a validade entra num **período de tolerância** (30 dias por predefinição): tudo continua a funcionar e os administradores veem um aviso. Após a tolerância, a extensão é **desativada suavemente** — as suas páginas desaparecem, a sua API recusa pedidos e as suas tarefas em segundo plano ficam em pausa. **Nunca são apagados dados.** Aplicar uma licença renovada restaura tudo de imediato, sem reinício.
 
-A renovação numa instância isolada resume-se, portanto, a pedir ao fornecedor um novo ficheiro de licença (por e-mail) e colá-lo — nada mais.
+As licenças compradas na Loja renovam-se sozinhas nas instâncias ligadas: após cada pagamento bem-sucedido, a sua instância obtém automaticamente a licença prolongada — nada a colar. Numa instância isolada, a renovação resume-se a colar o ficheiro de licença atualizado do e-mail de renovação (ou pedi-lo ao fornecedor) — nada mais.
 
 ## Ativar, desativar e desinstalar
 
 - O interruptor **Ativada** desativa a extensão de imediato (sem reinício) e pode ser revertido a qualquer momento.
 - **Desinstalar** remove os ficheiros da extensão. Os dados que ela criou — tipos de cartão, cartões e as suas próprias tabelas — são deliberadamente mantidos e reaparecem se reinstalar. É preciso um reinício para descarregar por completo o código de backend.
-
-## Loja online (opcional)
-
-Se o seu fornecedor operar uma loja de extensões online, pode ligar-se em vez de trocar ficheiros. Após uma compra recebe um **código de ativação** de utilização única: abra **Admin → Extensões → Loja**, introduza o URL da loja e o código. A sua instância lista então os pacotes a que tem direito com **instalação** num clique, e **Atualizar licença** capta renovações e novas compras de imediato — os pacotes descarregados passam exatamente pela mesma verificação de assinatura e pré-visualização dos carregamentos manuais. As instâncias isoladas simplesmente nunca se ligam; o fluxo por ficheiros continua totalmente suportado.
 
 ## Permissões
 

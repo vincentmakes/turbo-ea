@@ -38,7 +38,7 @@ Paste the license text you received (or upload the license file) in the **Licens
 
 When an entitlement passes its expiry it enters a **grace window** (30 days by default): everything keeps working and administrators see a warning banner. After grace the extension is **soft-disabled** — its pages disappear, its API refuses requests, and its background jobs pause. **No data is ever deleted.** Applying a renewed license file restores everything instantly, without a restart.
 
-Renewal on an air-gapped instance is therefore: request a new license file from your vendor (by email), then paste it in — nothing else.
+Licenses bought through the Store renew themselves on connected instances: after each successful payment, your instance fetches the extended license automatically — nothing to paste. Renewal on an air-gapped instance is: paste the updated license file from the renewal email (or request one from your vendor) — nothing else.
 
 ## Enabling, disabling, and uninstalling
 

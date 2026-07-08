@@ -38,16 +38,12 @@ Pegue el texto de licencia recibido (o suba el archivo) en la tarjeta **Licencia
 
 Cuando un derecho supera su caducidad entra en un **periodo de gracia** (30 días por defecto): todo sigue funcionando y los administradores ven un aviso. Tras la gracia, la extensión se **desactiva suavemente** — sus páginas desaparecen, su API rechaza peticiones y sus tareas en segundo plano se pausan. **Nunca se borran datos.** Aplicar una licencia renovada lo restaura todo al instante, sin reinicio.
 
-La renovación en una instancia aislada consiste, por tanto, en pedir al proveedor un nuevo archivo de licencia (por correo) y pegarlo — nada más.
+Las licencias compradas en la Tienda se renuevan solas en las instancias conectadas: tras cada pago correcto, tu instancia obtiene automáticamente la licencia ampliada — nada que pegar. En una instancia aislada, la renovación consiste en pegar el archivo de licencia actualizado del correo de renovación (o pedirlo al proveedor) — nada más.
 
 ## Habilitar, deshabilitar y desinstalar
 
 - El interruptor **Habilitada** desactiva la extensión de inmediato (sin reinicio) y puede revertirse en cualquier momento.
 - **Desinstalar** elimina los archivos de la extensión. Los datos que creó — tipos de tarjeta, tarjetas y sus propias tablas — se conservan deliberadamente y reaparecen si se reinstala. Se necesita un reinicio para descargar por completo el código de backend.
-
-## Tienda en línea (opcional)
-
-Si su proveedor opera una tienda de extensiones en línea, puede conectarse en lugar de intercambiar archivos. Tras una compra recibe un **código de activación** de un solo uso: abra **Admin → Extensiones → Tienda**, introduzca la URL de la tienda y el código. Su instancia lista entonces los paquetes con derecho de uso con **instalación** de un clic, y **Actualizar licencia** recoge renovaciones y nuevas compras al instante — los paquetes descargados pasan exactamente por la misma verificación de firma y vista previa que las subidas manuales. Las instancias aisladas simplemente nunca se conectan; el flujo basado en archivos sigue plenamente soportado.
 
 ## Permisos
 

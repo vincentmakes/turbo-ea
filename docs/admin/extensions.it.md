@@ -38,7 +38,7 @@ Incolla il testo della licenza ricevuto (o carica il file) nella scheda **Licenz
 
 Quando un diritto supera la scadenza entra in un **periodo di tolleranza** (30 giorni per impostazione predefinita): tutto continua a funzionare e gli amministratori vedono un avviso. Dopo la tolleranza l'estensione viene **disattivata dolcemente** — le sue pagine spariscono, la sua API rifiuta le richieste, i suoi processi in background si fermano. **Nessun dato viene mai cancellato.** Applicare una licenza rinnovata ripristina tutto all'istante, senza riavvio.
 
-Il rinnovo su un'istanza isolata è quindi: richiedere al fornitore un nuovo file di licenza (via e-mail) e incollarlo — nient'altro.
+Le licenze acquistate tramite lo Store si rinnovano da sole sulle istanze connesse: dopo ogni pagamento andato a buon fine, l'istanza recupera automaticamente la licenza estesa — niente da incollare. Su un'istanza isolata il rinnovo è: incollare il file di licenza aggiornato ricevuto via e-mail (o richiederlo al fornitore) — nient'altro.
 
 ## Abilitare, disabilitare e disinstallare
 

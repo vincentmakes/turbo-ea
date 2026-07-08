@@ -38,16 +38,12 @@ Collez le texte de licence reçu (ou téléversez le fichier) dans la carte **Li
 
 Quand un droit dépasse son échéance, il entre dans un **délai de grâce** (30 jours par défaut) : tout continue de fonctionner et les administrateurs voient un bandeau d'avertissement. Passé ce délai, l'extension est **désactivée en douceur** — ses pages disparaissent, son API refuse les requêtes, ses tâches d'arrière-plan se mettent en pause. **Aucune donnée n'est jamais supprimée.** L'application d'un fichier de licence renouvelé restaure tout instantanément, sans redémarrage.
 
-Le renouvellement sur une instance isolée se résume donc à : demander un nouveau fichier de licence à votre éditeur (par e-mail), puis le coller — rien de plus.
+Les licences achetées via la Boutique se renouvellent d'elles-mêmes sur les instances connectées : après chaque paiement réussi, votre instance récupère automatiquement la licence prolongée — rien à coller. Sur une instance isolée, le renouvellement se résume à coller le fichier de licence mis à jour reçu par e-mail (ou à le demander à votre éditeur) — rien de plus.
 
 ## Activer, désactiver et désinstaller
 
 - L'interrupteur **Activée** désactive l'extension immédiatement en douceur (sans redémarrage) et peut être réactivé à tout moment.
 - **Désinstaller** supprime les fichiers de l'extension. Les données qu'elle a créées — types de cartes, cartes et ses propres tables — sont volontairement conservées et réapparaissent en cas de réinstallation. Un redémarrage est nécessaire pour décharger complètement le code backend.
-
-## Boutique en ligne (optionnel)
-
-Si votre éditeur exploite une boutique d'extensions en ligne, vous pouvez vous y connecter au lieu d'échanger des fichiers. Après un achat, vous recevez un **code d'activation** à usage unique : ouvrez **Admin → Extensions → Boutique**, saisissez l'URL de la boutique et le code. Votre instance liste alors les paquets auxquels vous avez droit avec une **installation** en un clic, et le bouton **Actualiser la licence** prend en compte instantanément renouvellements et nouveaux achats — les paquets téléchargés passent par exactement la même vérification de signature et le même aperçu que les téléversements manuels. Les instances isolées ne se connectent simplement jamais ; le flux par fichiers ci-dessus reste entièrement pris en charge.
 
 ## Permissions
 

@@ -38,7 +38,7 @@ Fügen Sie den erhaltenen Lizenztext in der Karte **Lizenz** ein (oder laden Sie
 
 Überschreitet eine Berechtigung ihr Ablaufdatum, beginnt eine **Kulanzfrist** (standardmäßig 30 Tage): Alles funktioniert weiter, Administratoren sehen einen Warnhinweis. Danach wird die Erweiterung **weich deaktiviert** — ihre Seiten verschwinden, ihre API lehnt Anfragen ab, ihre Hintergrundjobs pausieren. **Es werden niemals Daten gelöscht.** Das Anwenden einer erneuerten Lizenzdatei stellt sofort alles wieder her, ohne Neustart.
 
-Die Verlängerung auf einer abgeschotteten Instanz ist damit: neue Lizenzdatei beim Anbieter anfordern (per E-Mail), einfügen — fertig.
+Über den Store gekaufte Lizenzen verlängern sich auf verbundenen Instanzen von selbst: Nach jeder erfolgreichen Zahlung holt Ihre Instanz die verlängerte Lizenz automatisch — nichts einzufügen. Auf einer abgeschotteten Instanz gilt: die aktualisierte Lizenzdatei aus der Verlängerungs-E-Mail einfügen (oder beim Anbieter anfordern) — fertig.
 
 ## Aktivieren, Deaktivieren und Deinstallieren
 
