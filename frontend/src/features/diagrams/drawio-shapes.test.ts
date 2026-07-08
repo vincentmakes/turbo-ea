@@ -4,6 +4,7 @@ import {
   applyCardTypeIcons,
   buildLdvDiagramXml,
   rollUpInto,
+  childEscapedParentBounds,
   type DiagramCardInput,
   type DiagramRelInput,
   type DiagramLayerInput,
@@ -419,5 +420,33 @@ describe("rollUpInto — re-parent existing vs insert new", () => {
     // count = 1 (current card only) → single column/row container.
     expect(container.geometry.width).toBe(204); // 1*180 + 0 + 2*12
     expect(container.geometry.height).toBe(102); // 28 + 12 + 50 + 12
+  });
+});
+
+describe("childEscapedParentBounds — collapse guard", () => {
+  const parent = { x: 0, y: 0, width: 204, height: 300 };
+
+  it("returns false for a child fully inside the parent", () => {
+    const child = { x: 12, y: 40, width: 180, height: 50 };
+    expect(childEscapedParentBounds(child, parent, false)).toBe(false);
+  });
+
+  it("returns true for a child escaping the bottom edge (real drag-out)", () => {
+    const child = { x: 12, y: 280, width: 180, height: 50 }; // 280 + 50 > 300
+    expect(childEscapedParentBounds(child, parent, false)).toBe(true);
+  });
+
+  it("returns true for a child escaping the right edge", () => {
+    const child = { x: 40, y: 40, width: 180, height: 50 }; // 40 + 180 > 204
+    expect(childEscapedParentBounds(child, parent, false)).toBe(true);
+  });
+
+  it("returns false when the parent is collapsed, even if bounds escape", () => {
+    // Folded swimlane: parent bounds shrank to header height; the child keeps
+    // its expanded-layout geometry so it looks escaped — must NOT detach.
+    const collapsedParent = { x: 0, y: 0, width: 204, height: 28 };
+    const child = { x: 12, y: 40, width: 180, height: 50 };
+    expect(childEscapedParentBounds(child, collapsedParent, false)).toBe(true); // sanity: escapes when treated as expanded
+    expect(childEscapedParentBounds(child, collapsedParent, true)).toBe(false); // guard: collapsed → no detach
   });
 });

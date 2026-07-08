@@ -2167,6 +2167,30 @@ export interface PendingParentChange {
   oldGeometry?: { x: number; y: number; width: number; height: number };
 }
 
+/**
+ * Decide whether a nested child cell has been dragged OUT of its parent's
+ * bounds and should be force-detached to the canvas root. mxGraph child
+ * geometry is relative to the parent, so "inside" means the child's box fits
+ * within `[0, parent.width] × [0, parent.height]`.
+ *
+ * A **collapsed / folded** parent is special-cased: mxGraph swaps a folded
+ * swimlane's geometry down to its header height while leaving the (now hidden)
+ * children at their full expanded-layout coordinates, so every child would
+ * falsely test as "escaped". You can't drag a hidden child out of a collapsed
+ * container anyway, so this returns `false` for a collapsed parent — preventing
+ * the spurious per-child detach prompts that fire on the next canvas click.
+ */
+export function childEscapedParentBounds(
+  cellGeo: { x: number; y: number; width: number; height: number },
+  parentGeo: { x: number; y: number; width: number; height: number },
+  parentCollapsed: boolean,
+): boolean {
+  if (parentCollapsed) return false;
+  const insideX = cellGeo.x >= 0 && cellGeo.x + cellGeo.width <= parentGeo.width;
+  const insideY = cellGeo.y >= 0 && cellGeo.y + cellGeo.height <= parentGeo.height;
+  return !(insideX && insideY);
+}
+
 export interface ParentChangeEvent {
   cellId: string;
   cardId: string | null;
@@ -2407,13 +2431,13 @@ export function attachParentChangeListener(
         const cellGeo = cell.getGeometry ? cell.getGeometry() : null;
         const parentGeo = parent.getGeometry ? parent.getGeometry() : null;
         if (!cellGeo || !parentGeo) continue;
-        // mxGraph children's geometry is RELATIVE to their parent.
-        // "Inside the parent" means 0 ≤ x and x + width ≤ parent.width.
-        const insideX =
-          cellGeo.x >= 0 && cellGeo.x + cellGeo.width <= parentGeo.width;
-        const insideY =
-          cellGeo.y >= 0 && cellGeo.y + cellGeo.height <= parentGeo.height;
-        if (insideX && insideY) continue;
+        // A folded swimlane reports its shrunken (header-height) bounds while
+        // its children keep their expanded-layout geometry — never treat those
+        // as escaped, or collapsing a container would detach every child.
+        const parentCollapsed =
+          parent.collapsed === true ||
+          (typeof model.isCollapsed === "function" && model.isCollapsed(parent));
+        if (!childEscapedParentBounds(cellGeo, parentGeo, parentCollapsed)) continue;
         // Escaped the parent — convert the cell's geometry to absolute
         // coordinates so it lands where the user dropped it after we
         // re-parent to root.

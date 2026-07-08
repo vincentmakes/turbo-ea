@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 - **Diagram roll-up "Roll up to parent only" no longer pulls in every sibling.** Rolling a card up with no siblings checked now creates the parent container holding just that card plus any of its siblings already on the diagram (re-parented in place), instead of inserting all of the parent's children as new cells. Checking siblings still adds those as new cells.
 - **The "Expand related cards" chevron on diagram cards is easier to click.** It now sits in the upper-right of the card with a larger hit area — clear of the card's connection handle — so clicking it opens the menu instead of starting a connection or selecting the card.
+- **Collapsing a diagram container no longer asks to detach its children.** Folding an expanded container and then clicking elsewhere used to pop a "detach child from parent?" prompt for every nested card; the collapse is now correctly recognised as a display action, not a hierarchy change.
 
 ## [1.69.0] - 2026-07-07
 
