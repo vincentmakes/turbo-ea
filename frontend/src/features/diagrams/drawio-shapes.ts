@@ -661,14 +661,15 @@ export function addExpandOverlay(
 
   graph.removeCellOverlays(cell);
 
-  // Nudge the affordance clear of the card's right edge (positive x with
-  // ALIGN_RIGHT) and enlarge the hit target so clicks reliably hit it.
+  // Sit on the card's right edge but lifted above the vertical centre, so the
+  // affordance clears mxGraph's East connection arrow while the enlarged hit
+  // target keeps it easy to click.
   const overlay = new win.mxCellOverlay(
     new win.mxImage(expanded ? MINUS_OVERLAY : PLUS_OVERLAY, 24, 24),
     expanded ? "Collapse" : "Expand related cards",
     win.mxConstants.ALIGN_RIGHT,
     win.mxConstants.ALIGN_MIDDLE,
-    new win.mxPoint(12, 0),
+    new win.mxPoint(0, -14),
   );
   overlay.cursor = "pointer";
   overlay.addListener(win.mxEvent.CLICK, () => onClick());
@@ -2546,15 +2547,15 @@ export function addChevronOverlay(
   if (!cell) return false;
 
   graph.removeCellOverlays(cell);
-  // Nudge the affordance clear of the card's right edge (positive x with
-  // ALIGN_RIGHT) and enlarge the hit target, so clicks open the menu instead
-  // of landing on the card body and selecting it.
+  // Sit on the card's right edge but lifted above the vertical centre, so the
+  // affordance clears mxGraph's East connection arrow (which lives at the
+  // right-middle border) while the enlarged hit target keeps it easy to click.
   const overlay = new win.mxCellOverlay(
     new win.mxImage(CHEVRON_OVERLAY, 24, 24),
     "Expand related cards",
     win.mxConstants.ALIGN_RIGHT,
     win.mxConstants.ALIGN_MIDDLE,
-    new win.mxPoint(12, 0),
+    new win.mxPoint(0, -14),
   );
   overlay.cursor = "pointer";
   overlay.addListener(win.mxEvent.CLICK, (_s: unknown, evt: { properties?: { event?: MouseEvent } }) => {
