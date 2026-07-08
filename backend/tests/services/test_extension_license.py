@@ -97,6 +97,7 @@ class TestParseAndVerify:
         private, public_b64 = make_keypair()
         monkeypatch.setattr(settings, "ENVIRONMENT", "production")
         monkeypatch.setattr(settings, "EXTENSION_VENDOR_PUBLIC_KEY", public_b64)
+        monkeypatch.setattr("app.core.extension_signing.DEFAULT_VENDOR_PUBLIC_KEYS", {})
         with pytest.raises(LicenseError, match="vendor key"):
             parse_and_verify(make_license(private, PAYLOAD))
 

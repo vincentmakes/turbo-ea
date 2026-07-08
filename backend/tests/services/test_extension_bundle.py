@@ -150,6 +150,7 @@ class TestReadBundle:
         private, public_b64 = make_keypair()
         monkeypatch.setattr(settings, "ENVIRONMENT", "production")
         monkeypatch.setattr(settings, "EXTENSION_VENDOR_PUBLIC_KEY", public_b64)
+        monkeypatch.setattr("app.core.extension_signing.DEFAULT_VENDOR_PUBLIC_KEYS", {})
         raw = build_teax(private, files={"content/pack.json": CONTENT})
         with pytest.raises(BundleError, match="no extension vendor key"):
             read_bundle(write_bundle(tmp_path, raw), core_version=CORE_VERSION)

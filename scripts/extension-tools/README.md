@@ -38,5 +38,5 @@ The full authoring guide (content packs, backend/UI SDK), signing/key
 custody, the CI release pipeline, and the license-issuance runbook live in
 the vendor's **private extensions repository** — not here. This directory
 ships only the tool and its formats. Customer-facing usage (installing
-extensions, licenses, the online store) is documented in the user manual:
+extensions and licenses) is documented in the user manual:
 [`docs/admin/extensions.md`](../../docs/admin/extensions.md).

@@ -11,12 +11,17 @@ vendor key may be installed or loaded. The trust anchor is the baked-in
 ``DEFAULT_VENDOR_PUBLIC_KEYS`` map below (``key_id`` → public key). Two
 key ids are reserved by convention:
 
-- ``vendor-1`` — the offline vendor key used for manually issued
-  bundles/licenses (enterprise deals, air-gapped customers),
-- ``store-1``  — the online store's issuing key, held by the hosted
-  store service so it can sign licenses after Stripe checkout without
-  ever touching the offline key. Compromise of the store key is
-  contained to that key id and rotated with a core release.
+- ``vendor-1`` — the primary vendor key used for signing extension
+  bundles and manually issued licenses,
+- ``store-1``  — a second license-signing key, kept separate from
+  ``vendor-1`` so licenses can be issued without ever touching the
+  bundle-signing key. Compromise of one key is contained to its key id
+  and rotated with a core release.
+
+Having two independent keys lets the vendor sign licenses and bundles
+with different keys and rotate either without a format change; the
+private halves and their custody are the vendor's concern and live
+outside this repo.
 
 The ``EXTENSION_VENDOR_PUBLIC_KEY`` env override exists for development
 and tests and is honored ONLY when ``ENVIRONMENT=development`` — a
@@ -40,14 +45,18 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from app.config import settings
 
 # The vendor's trusted Ed25519 public keys (base64, raw 32 bytes), keyed by
-# ``key_id``. Empty in the open-source tree: an operator shipping commercial
-# extensions generates keypairs with ``python -m extension_tools keygen``
-# (scripts/extension-tools) and bakes the public halves here before building
-# release images. While this is empty and no development override is active,
-# every bundle and license is refused — the Extension Store is dormant.
+# ``key_id``. Public keys only *verify* — they are safe to publish — so the
+# vendor's own keys are baked in here and ship in every release image. An
+# operator shipping their *own* commercial extensions from a fork generates
+# keypairs with ``python scripts/extension-tools/teax.py keygen`` and replaces
+# these. If this map is emptied and no development override is active, every
+# bundle and license is refused — the Extension Store is dormant.
 DEFAULT_VENDOR_PUBLIC_KEYS: dict[str, str] = {
-    # "vendor-1": "<base64 raw 32-byte Ed25519 public key>",
-    # "store-1": "<base64 raw 32-byte Ed25519 public key>",
+    # Primary vendor key — signs .teax bundles + manually issued licenses.
+    "vendor-1": "y+L5r+Pj6K0oc4mSA3dVWtGhW+PMoRkjCvEJkTryijg=",
+    # Secondary license-signing key, kept separate from vendor-1; never signs
+    # bundles. Rotates with a core release.
+    "store-1": "rfjoGjveWUvMnmwo72N2nufua1iEkpPcH/xd1gg/ZDQ=",
 }
 
 # Key id assumed for signed envelopes that carry no ``key_id`` of their own.
