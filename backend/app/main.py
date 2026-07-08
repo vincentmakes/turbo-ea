@@ -744,6 +744,12 @@ async def lifespan(app: FastAPI):
             else:
                 print(f"[seed_security] Skipped: {result.get('reason', 'unknown')}")
 
+    # ── Extension Store: reconcile statuses, load license/registry, run
+    # per-extension migrations, fire on_startup hooks, spawn job loops.
+    from app.services.extensions.startup import initialize_extensions
+
+    extension_job_tasks = await initialize_extensions(extension_load_report)
+
     # Auto-configure bundled Ollama AI when AI_AUTO_CONFIGURE=true
     ollama_task = None
     if settings.AI_AUTO_CONFIGURE:
@@ -778,6 +784,13 @@ async def lifespan(app: FastAPI):
     yield
 
     # Cancel background tasks on shutdown
+    for ext_task in extension_job_tasks:
+        ext_task.cancel()
+    for ext_task in extension_job_tasks:
+        try:
+            await ext_task
+        except asyncio.CancelledError:
+            pass
     purge_task.cancel()
     try:
         await purge_task
@@ -930,6 +943,21 @@ async def capture_request_origin(request, call_next):
 
 
 app.middleware("http")(capture_request_origin)
+
+# ── Extension Store: load vendor-signed extensions BEFORE mounting the API ──
+# Routes are static once the app serves, so extension routers must be mounted
+# here; activation (enabled + license entitlement) is enforced per-request by
+# require_extension. Every installed bundle's signature is re-verified on each
+# boot; a broken extension is quarantined and can never block core startup.
+from app.services.extensions.loader import (  # noqa: E402
+    load_extensions,
+    merge_extension_permissions,
+    mount_extension_routers,
+)
+
+extension_load_report = load_extensions()
+mount_extension_routers(api_router, extension_load_report)
+merge_extension_permissions(extension_load_report)
 
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
