@@ -21,6 +21,10 @@
 | **Cost Line** | A budget or actual cost entry (CapEx/OpEx) in a PPM initiative, used to track financial spending |
 | **Enterprise Architecture (EA)** | The discipline that organizes and documents an organization's business and technology structure |
 | **EOL (End of Life)** | The date when a technology product loses vendor support. Tracked via integration with endoflife.date |
+| **Extension** | A vendor-signed add-on installed via Admin → Extensions that adds customer-specific capabilities (content, integrations, pages) without changing the Turbo EA core. Requires a license entitlement to run |
+| **Extension Bundle (.teax)** | The signed zip file an extension is delivered as. Its Ed25519 signature is verified on upload and at every backend start; unsigned or tampered bundles are rejected |
+| **Entitlement** | One line of a signed extension license: the right to run a specific extension until an expiry date, followed by a grace window before soft-disable |
+| **Content Pack** | The data-only part of an extension: card types, tags, cards, and relations applied through the same idempotent engine as Workspace Transfer, with a dry-run preview |
 | **Gantt Chart** | A visual timeline with horizontal bars showing project schedule, duration, and progress for each work package and task |
 | **Initiative** | A project or program involving changes to the architecture |
 | **Lifecycle** | The five phases a component goes through: Plan, Phase In, Active, Phase Out, End of Life |

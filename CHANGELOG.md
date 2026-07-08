@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.70.0] - 2026-07-08
+
+### Added
+- **Extension Store (Admin → Extensions).** Install vendor-signed extensions that add customer-specific capabilities without changing the core: content packs (card types, tags, cards, relations applied with a dry-run preview through the proven workspace-transfer engine), backend plugins (API routes under `/api/v1/ext/{key}/`, their own `ext_*` tables via sequential extension migrations, background jobs), and UI plugins (new pages, card-detail tabs, and admin panels rendered from runtime-loaded bundles). Everything is delivered as files — a signed `.teax` bundle plus a signed license — so the full install/renewal workflow works on air-gapped instances with no online activation.
+- **Extension provenance enforcement.** Bundles are Ed25519-signed by the vendor key baked into the core; signatures are verified on upload and re-verified at every backend start, and unsigned, tampered, or third-party bundles are rejected. The development-only key override is ignored in production builds.
+- **Extension licensing with grace.** A pasted/uploaded signed license file lists per-extension entitlements with individual expiry dates. Expired entitlements get a 30-day default grace window with admin warning banners, then the extension is soft-disabled (pages hidden, API refused, jobs paused) — data is never deleted, and applying a renewed license restores everything instantly.
+- **`teax` vendor CLI** (`scripts/extension-tools/`) for generating signing keys, linting/packing/verifying extension bundles, and signing/verifying license files offline, plus an extension authoring guide covering the backend SDK, UI SDK, CI release workflow, and license issuance runbook.
+- New `admin.manage_extensions` permission gating the Extensions admin page and API.
+
+### Changed
+- The backend service in `docker-compose.yml` now mounts a persistent `backend_data` volume at `/app/data`, so installed extensions — and previously ephemeral workspace-transfer and migration upload snapshots — survive container upgrades.
 ## [1.69.2] - 2026-07-09
 
 ### Fixed

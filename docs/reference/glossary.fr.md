@@ -21,6 +21,10 @@
 | **DrawIO** | L'outil de création de diagrammes open source intégré utilisé pour les diagrammes d'architecture visuels |
 | **Architecture d'entreprise (EA)** | La discipline qui organise et documente la structure métier et technologique d'une organisation |
 | **EOL (Fin de vie)** | La date à laquelle un produit technologique perd le support du fournisseur. Suivi via l'intégration avec endoflife.date |
+| **Extension** | Un module complémentaire signé par l'éditeur, installé via Admin → Extensions, qui ajoute des capacités spécifiques au client (contenu, intégrations, pages) sans modifier le cœur de Turbo EA. Nécessite un droit de licence |
+| **Extension Bundle (.teax)** | Le fichier zip signé dans lequel une extension est livrée. Sa signature Ed25519 est vérifiée au téléversement et à chaque démarrage du backend ; les paquets non signés ou altérés sont refusés |
+| **Entitlement (droit)** | Une ligne d'une licence d'extension signée : le droit d'exécuter une extension donnée jusqu'à une date d'échéance, suivie d'un délai de grâce avant la désactivation douce |
+| **Content Pack (pack de contenu)** | La partie purement données d'une extension : types de cartes, étiquettes, cartes et relations appliqués via le même moteur idempotent que le transfert d'espace de travail, avec aperçu |
 | **Diagramme de Gantt** | Une chronologie visuelle avec des barres horizontales montrant le calendrier, la durée et l'avancement du projet |
 | **Initiative** | Un projet ou programme impliquant des modifications de l'architecture |
 | **Cycle de vie** | Les cinq phases par lesquelles passe un composant : Planification, Mise en service, Actif, Retrait progressif, Fin de vie |

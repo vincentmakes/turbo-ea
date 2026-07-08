@@ -21,6 +21,10 @@
 | **Omkostningslinje** | En budget- eller faktisk omkostningspost (CapEx/OpEx) i et PPM-initiativ, brugt til at spore økonomiske udgifter |
 | **Enterprise Architecture (EA)** | Disciplinen, der organiserer og dokumenterer en organisations forretnings- og teknologistruktur |
 | **EOL (End of Life)** | Datoen, hvor et teknologiprodukt mister leverandørsupport. Spores via integration med endoflife.date |
+| **Extension (udvidelse)** | Et leverandørsigneret tilføjelsesprogram, installeret via Admin → Udvidelser, der tilføjer kundespecifikke funktioner (indhold, integrationer, sider) uden at ændre Turbo EA's kerne. Kræver en licensrettighed |
+| **Extension Bundle (.teax)** | Den signerede zip-fil, en udvidelse leveres som. Ed25519-signaturen verificeres ved upload og ved hver backend-start; usignerede eller manipulerede pakker afvises |
+| **Entitlement (rettighed)** | Én linje i en signeret udvidelseslicens: retten til at køre en bestemt udvidelse indtil en udløbsdato, efterfulgt af en henstandsperiode før blød deaktivering |
+| **Content Pack (indholdspakke)** | Den rene datadel af en udvidelse: korttyper, tags, kort og relationer anvendt gennem samme idempotente motor som workspace-overførsel, med forhåndsvisning |
 | **Gantt-diagram** | En visuel tidslinje med vandrette bjælker, der viser projektplan, varighed og fremskridt for hver arbejdspakke og opgave |
 | **Initiativ** | Et projekt eller program, der involverer ændringer af arkitekturen |
 | **Livscyklus** | De fem faser, en komponent gennemgår: Planlægning, Indfasning, Aktiv, Udfasning, End of Life |

@@ -13001,6 +13001,34 @@
         "title": "TurboLensStatusOut",
         "type": "object"
       },
+      "UiExtensionOut": {
+        "properties": {
+          "entitlement_state": {
+            "title": "Entitlement State",
+            "type": "string"
+          },
+          "entry": {
+            "title": "Entry",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "version",
+          "entry",
+          "entitlement_state"
+        ],
+        "title": "UiExtensionOut",
+        "type": "object"
+      },
       "UiPreferencesUpdate": {
         "properties": {
           "dashboard_default_tab": {
@@ -21894,6 +21922,65 @@
         ]
       }
     },
+    "/api/v1/ext-assets/{key}/{version}/{asset_path}": {
+      "get": {
+        "description": "Serve an extension's frontend bundle files.\n\nDeliberately unauthenticated: dynamic ``import()`` cannot carry an\nAuthorization header, and extension code is not a secret \u2014 the\nentitlement gate is the authenticated ``/extensions/ui-manifest``\nplus every ``/ext/{key}/`` data API. Same-origin serving keeps the\nstrict ``script-src 'self'`` CSP intact. The version segment exists\nfor cache-busting (assets are served immutable).",
+        "operationId": "get_extension_asset_api_v1_ext_assets__key___version___asset_path__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "asset_path",
+            "required": true,
+            "schema": {
+              "title": "Asset Path",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Extension Asset",
+        "tags": [
+          "Extensions"
+        ]
+      }
+    },
     "/api/v1/extensions/status": {
       "get": {
         "description": "Least-privilege list of enabled extensions for any authenticated user.",
@@ -21915,6 +22002,32 @@
           }
         },
         "summary": "Extensions Status",
+        "tags": [
+          "Extensions"
+        ]
+      }
+    },
+    "/api/v1/extensions/ui-manifest": {
+      "get": {
+        "description": "UI bundles the frontend loader should import \u2014 THE entitlement gate\nfor extension UI. Only enabled extensions with a usable (active or\ngrace) entitlement and a frontend entry are listed.",
+        "operationId": "ui_manifest_api_v1_extensions_ui_manifest_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UiExtensionOut"
+                  },
+                  "title": "Response Ui Manifest Api V1 Extensions Ui Manifest Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ui Manifest",
         "tags": [
           "Extensions"
         ]

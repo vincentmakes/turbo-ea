@@ -172,6 +172,21 @@ workspace_io/
 
 **Routes** (`backend/app/api/v1/workspace.py`, prefix `/admin/workspace`): `GET /export` (streams the `.zip`, `?include_archived=`), `POST /import` (upload → background dry-run preview), `GET /import/{id}` (poll status + diff/result), `POST /import/{id}/apply` (background apply), `DELETE /import/{id}` (discard). Gated by the dedicated `admin.export_workspace` / `admin.import_workspace` permissions (in `core/permissions.py`). The async preview/apply lifecycle is tracked in the `workspace_transfers` table; the uploaded bundle binary lives on disk under `data/workspace_transfers/{id}.bin`. Frontend: `WorkspaceTransferAdmin.tsx`, surfaced as the second tab of `MigrationHub.tsx`.
 
+### Extension Store Conventions
+
+The **Extension Store** (Admin → Extensions) installs vendor-signed, licensed extensions — content packs, backend plugins, and UI plugins — without changing core ("clean core"). Delivery is file-based (signed `.teax` bundle + signed license text), fully offline/air-gapped capable. Vendor tooling + the authoring guide live in `scripts/extension-tools/` (`teax.py` CLI + README); the customer-facing page is `docs/admin/extensions.md`.
+
+**Module layout**: `backend/app/core/extension_signing.py` (Ed25519 verify + baked-in `DEFAULT_VENDOR_PUBLIC_KEY`), `backend/app/services/extensions/` (`license.py`, `registry.py` in-memory singleton, `gate.py` `require_extension()`, `bundle.py` `.teax` verifier, `installer.py`, `content_pack.py`, `sdk.py`, `loader.py`, `migrations.py`, `jobs.py`, `startup.py`), routes in `backend/app/api/v1/extensions.py`, admin UI `frontend/src/features/admin/ExtensionsAdmin.tsx`, UI host `frontend/src/lib/extensionHost.tsx` + `ExtensionRoutesOutlet.tsx`. Tables: `extensions`, `extension_licenses`, `extension_schema_versions`, `extension_installs` (migration 121). Uploads land in `data/extension_installs/`, installed extensions in `data/extensions/{key}/` — both persisted by the `backend_data` docker volume.
+
+**Invariants — do not weaken:**
+
+- **Provenance is non-bypassable in production.** Bundles and licenses verify against the baked-in vendor key; `EXTENSION_VENDOR_PUBLIC_KEY` is honored ONLY when `ENVIRONMENT=development`. The loader re-verifies every installed bundle's `manifest.sig` at each boot, so files dropped on the volume are never trusted. Signatures cover exact bytes (raw `manifest.json`; base64-decoded license payload) — never introduce a JSON-canonicalization step.
+- **Two independent gates**: signature = may it be installed/loaded; license entitlement (per-extension, expiry + grace, default 30 days) = may it run. Lapse ⇒ soft-disable via `require_extension` (404 not installed / 403 disabled-or-unlicensed) and per-tick job checks; **data is never deleted** on lapse or uninstall.
+- **SDK surface only.** Backend extensions may import exclusively from `app.services.extensions.sdk` (SDK 1.0, major-version checked at load). Extension tables are `ext_{key}_*` (tracked in `extension_schema_versions`, never in core Alembic), permission keys `ext.{key}.*` (namespace enforced by the loader), API routes mounted under `/api/v1/ext/{key}/` at import time in `app.main` (code install/uninstall ⇒ `needs_restart`).
+- **Content packs go through `workspace_io.apply_selected`** (the public facade) and reuse the workspace-transfer engine + guarantees; allowed sheets exclude `Users`/`Roles`/`Settings`. `ext_*` tables are excluded from workspace transfer.
+- **UI plugins**: assets served same-origin by `GET /ext-assets/...` (unauthenticated by design — entitlement gating is the authenticated `/extensions/ui-manifest` + the `/ext/{key}/` APIs; CSP stays `'self'`). Exactly three extension points (nav routes, card tabs, admin panels); every extension component renders inside `ExtensionBoundary`.
+- A broken extension must never block core boot or blank the SPA — quarantine + surface on the admin page.
+
 ### Frontend Conventions
 - Route-level pages use `lazy()` imports in `App.tsx` for code splitting.
 - Shared hooks in `src/hooks/`, shared components in `src/components/`.
