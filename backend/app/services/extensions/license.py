@@ -69,6 +69,11 @@ class LicenseDocument:
     entitlements: list[Entitlement] = field(default_factory=list)
     key_id: str = ""
     raw_text: str = ""
+    # Optional store-issued renewal credential. When present (together with
+    # customer_id), the instance may fetch a re-signed license from the
+    # extension store after a subscription renewal — no manual re-paste.
+    # Absent on manually issued (offline/enterprise) licenses.
+    renewal_key: str = ""
 
     def entitlement_for(self, extension_key: str) -> Entitlement | None:
         for ent in self.entitlements:
@@ -177,6 +182,7 @@ def parse_and_verify(text: str, *, public_key_b64: str | None = None) -> License
         entitlements=entitlements,
         key_id=str(envelope.get("key_id") or ""),
         raw_text=text,
+        renewal_key=str(payload.get("renewal_key") or ""),
     )
 
 

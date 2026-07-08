@@ -52,6 +52,7 @@ from app.services.extensions.content_pack import (
 )
 from app.services.extensions.installer import install_bundle, uninstall
 from app.services.extensions.license import LicenseError, parse_and_verify
+from app.services.extensions.license_refresh import persist_license
 from app.services.extensions.registry import extension_registry
 from app.services.permission_service import PermissionService
 
@@ -218,47 +219,15 @@ async def _apply_license_text(db: AsyncSession, text: str, user_id: uuid.UUID) -
     """Verify a license and make it the active one (supersede + registry refresh).
 
     A license may be pasted directly or read from an uploaded file; either
-    way it goes through the same signature verification here.
+    way it goes through the same signature verification here. The persist
+    step is shared with the automatic store renewal (license_refresh.py).
     """
     try:
         doc = parse_and_verify(text)
     except LicenseError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    # Supersede: deactivate previous active rows, keep them as audit history.
-    actives = (
-        (
-            await db.execute(
-                select(ExtensionLicense).where(ExtensionLicense.is_active == True)  # noqa: E712
-            )
-        )
-        .scalars()
-        .all()
-    )
-    for old in actives:
-        old.is_active = False
-    row = ExtensionLicense(
-        raw_text=doc.raw_text,
-        key_id=doc.key_id or None,
-        licensee=doc.licensee,
-        customer_id=doc.customer_id or None,
-        issued_at=doc.issued_at,
-        grace_days=doc.grace_days,
-        entitlements=[
-            {
-                "extension_key": ent.extension_key,
-                "plan": ent.plan,
-                "expires_at": ent.expires_at.isoformat() if ent.expires_at else None,
-            }
-            for ent in doc.entitlements
-        ],
-        is_active=True,
-        created_by=user_id,
-    )
-    db.add(row)
-    await db.commit()
-    await db.refresh(row)
-    await extension_registry.refresh_from_db(db)
+    row = await persist_license(db, doc, created_by=user_id)
     logger.info("Extension license updated: licensee=%s", doc.licensee)
     return LicenseOut(
         licensee=row.licensee,

@@ -272,6 +272,32 @@ async def _kpi_snapshot_loop() -> None:
             await asyncio.sleep(3600)
 
 
+async def _license_refresh_loop() -> None:
+    """Daily loop that auto-renews the extension license from the store.
+
+    Only acts when the active license carries a store-issued renewal
+    credential and an entitlement is close to expiry; a renewing Stripe
+    subscription then extends the license with no customer action. Silent
+    on air-gapped / offline installs (the fetch just fails debug-quietly),
+    and manually issued licenses are never touched. Runs shortly after
+    boot (catch-up after downtime) and then every 24h.
+    """
+    from app.database import async_session
+    from app.services.extensions.license_refresh import refresh_license_if_due
+
+    delay = 120  # first attempt shortly after boot, then daily
+    while True:
+        try:
+            await asyncio.sleep(delay)
+            delay = 24 * 3600
+            async with async_session() as db:
+                await refresh_license_if_due(db)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Error in extension license refresh loop")
+
+
 async def _promote_recurring_tasks_loop() -> None:
     """Daily background loop that flips eligible ``scheduled`` recurring
     items to ``open`` once their lead-time window opens.
@@ -774,6 +800,10 @@ async def lifespan(app: FastAPI):
     # scheduled cycles to open once their lead window opens.
     promote_task = asyncio.create_task(_promote_recurring_tasks_loop())
 
+    # Daily extension-license auto-renewal from the store (no-op for
+    # manually issued licenses and on air-gapped installs).
+    license_refresh_task = asyncio.create_task(_license_refresh_loop())
+
     # One-shot canonical data-quality rescore (guarded by a settings marker;
     # a no-op on every boot after the first successful run).
     dq_rescore_task = asyncio.create_task(_one_shot_data_quality_rescore())
@@ -809,6 +839,11 @@ async def lifespan(app: FastAPI):
     promote_task.cancel()
     try:
         await promote_task
+    except asyncio.CancelledError:
+        pass
+    license_refresh_task.cancel()
+    try:
+        await license_refresh_task
     except asyncio.CancelledError:
         pass
     ops_access_task.cancel()
