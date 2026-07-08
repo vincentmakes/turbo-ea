@@ -661,12 +661,14 @@ export function addExpandOverlay(
 
   graph.removeCellOverlays(cell);
 
+  // Nudge the affordance clear of the card's right edge (positive x with
+  // ALIGN_RIGHT) and enlarge the hit target so clicks reliably hit it.
   const overlay = new win.mxCellOverlay(
-    new win.mxImage(expanded ? MINUS_OVERLAY : PLUS_OVERLAY, 20, 20),
+    new win.mxImage(expanded ? MINUS_OVERLAY : PLUS_OVERLAY, 24, 24),
     expanded ? "Collapse" : "Expand related cards",
     win.mxConstants.ALIGN_RIGHT,
     win.mxConstants.ALIGN_MIDDLE,
-    new win.mxPoint(0, 0),
+    new win.mxPoint(12, 0),
   );
   overlay.cursor = "pointer";
   overlay.addListener(win.mxEvent.CLICK, () => onClick());
@@ -2544,12 +2546,15 @@ export function addChevronOverlay(
   if (!cell) return false;
 
   graph.removeCellOverlays(cell);
+  // Nudge the affordance clear of the card's right edge (positive x with
+  // ALIGN_RIGHT) and enlarge the hit target, so clicks open the menu instead
+  // of landing on the card body and selecting it.
   const overlay = new win.mxCellOverlay(
-    new win.mxImage(CHEVRON_OVERLAY, 20, 20),
+    new win.mxImage(CHEVRON_OVERLAY, 24, 24),
     "Expand related cards",
     win.mxConstants.ALIGN_RIGHT,
     win.mxConstants.ALIGN_MIDDLE,
-    new win.mxPoint(0, 0),
+    new win.mxPoint(12, 0),
   );
   overlay.cursor = "pointer";
   overlay.addListener(win.mxEvent.CLICK, (_s: unknown, evt: { properties?: { event?: MouseEvent } }) => {
@@ -3070,16 +3075,34 @@ export function rollUpInto(
     );
     model.add(containerVertex, current);
 
-    // Insert one cell per sibling. We always create a fresh cell — the
-    // sibling may not be on the canvas yet, and even if it is, the user
-    // explicitly asked to see it nested here.
-    siblings.forEach(({ card }, i) => {
+    // Place one cell per sibling. Two paths:
+    //   - `existingCellId` set → the sibling is already on the canvas; move
+    //     that cell into the container, preserving its identity, style and
+    //     chevron overlay. Mirrors how the current card is re-parented, so
+    //     (like the current card) it is NOT stamped `rollUpChild` and NOT
+    //     added to `inserted` — it's already registered by the caller.
+    //   - `existingCellId` null → the sibling isn't on the canvas yet; create
+    //     a fresh cell stamped `rollUpChild` and return it in `inserted`.
+    siblings.forEach(({ cellId: existingCellId, card }, i) => {
       const slot = i + 1;
       const r = Math.floor(slot / COLS);
       const c = slot % COLS;
       const x = PAD + c * (CHILD_W + GAP);
       const y = HEADER + PAD + r * (CHILD_H + GAP);
-      const cellId = `ruc-${card.id.slice(0, 8)}-${Date.now()}-${i}`;
+
+      if (existingCellId) {
+        const existing = model.getCell(existingCellId);
+        if (existing) {
+          graph.resizeCell(
+            existing,
+            new win.mxRectangle(x, y, CHILD_W, CHILD_H),
+          );
+          model.add(containerVertex, existing);
+        }
+        return;
+      }
+
+      const newCellId = `ruc-${card.id.slice(0, 8)}-${Date.now()}-${i}`;
       const childStroke = darken(card.color);
       const childStyle = [
         "rounded=1",
@@ -3102,7 +3125,7 @@ export function rollUpInto(
 
       graph.insertVertex(
         containerVertex,
-        cellId,
+        newCellId,
         childObj,
         x,
         y,
@@ -3110,7 +3133,7 @@ export function rollUpInto(
         CHILD_H,
         childStyle,
       );
-      inserted.push({ cellId, cardId: card.id });
+      inserted.push({ cellId: newCellId, cardId: card.id });
     });
   } finally {
     model.endUpdate();
