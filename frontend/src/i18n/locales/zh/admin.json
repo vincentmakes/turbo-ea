@@ -1731,18 +1731,5 @@
   "extensions.uninstall.title": "卸载扩展？",
   "extensions.uninstall.body": "扩展的文件将被移除，其功能将停止工作。它创建的数据（卡片类型、卡片及其自有表）会被保留，重新安装后会再次出现。",
   "extensions.uninstall.cancel": "取消",
-  "extensions.uninstall.confirm": "卸载",
-  "extensions.storeSection.title": "商店",
-  "extensions.storeSection.intro": "使用购买时获得的一次性激活码，将此实例连接到在线扩展商店。隔离环境可跳过此步骤，改为从文件安装。",
-  "extensions.storeSection.url": "商店 URL",
-  "extensions.storeSection.code": "激活码",
-  "extensions.storeSection.connect": "连接",
-  "extensions.storeSection.connectedTo": "已连接到 {{url}}",
-  "extensions.storeSection.refreshLicense": "刷新许可证",
-  "extensions.storeSection.refreshed": "已从商店刷新许可证。",
-  "extensions.storeSection.disconnect": "断开连接",
-  "extensions.storeSection.emptyCatalog": "尚未发布任何软件包。",
-  "extensions.storeSection.installed": "已安装 {{version}}",
-  "extensions.storeSection.install": "安装",
-  "extensions.storeSection.buy": "购买"
+  "extensions.uninstall.confirm": "卸载"
 }

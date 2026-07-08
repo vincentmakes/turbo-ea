@@ -8,8 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [1.71.0] - 2026-07-08
 
 ### Added
-- **Online Extension Store.** A new vendor-hosted store server (`store-server/`, deployed by the vendor — never part of a customer stack) sells extension subscriptions via Stripe, mints one-time activation codes, issues signed composite licenses regenerated live from subscription state, and serves `.teax` downloads. In Turbo EA, **Admin → Extensions → Store** connects an instance with the activation code from checkout; entitled packages then install with one click (through the exact same signature verification and dry-run preview as manual uploads), **Refresh license** picks up renewals and new purchases instantly, and **Buy** opens Stripe Checkout for packages not yet owned. Air-gapped instances are unaffected — the file-based flow remains fully supported.
-- **Multi-key extension trust.** Core now verifies extension bundles and licenses against a set of trusted vendor keys selected by `key_id` (with try-all fallback for older envelopes), so the online store signs with its own `store-1` key while the offline `vendor-1` key never leaves the operator's machine — and future key rotation needs no format change. `teax pack` gained `--key-id`.
+- **Multi-key extension trust.** Core now verifies extension bundles and licenses against a set of trusted vendor keys selected by `key_id` (with try-all fallback for older envelopes), so a vendor can sign licenses with a key separate from the one used to sign bundles while the primary key never leaves the operator's machine — and future key rotation needs no format change. `teax pack` gained `--key-id`.
 
 ## [1.70.0] - 2026-07-08
 

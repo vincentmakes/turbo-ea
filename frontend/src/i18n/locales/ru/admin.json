@@ -1731,18 +1731,5 @@
   "extensions.uninstall.title": "Удалить расширение?",
   "extensions.uninstall.body": "Файлы расширения будут удалены, и его функции перестанут работать. Созданные им данные (типы карточек, карточки, его собственные таблицы) сохраняются и снова появятся после переустановки.",
   "extensions.uninstall.cancel": "Отмена",
-  "extensions.uninstall.confirm": "Удалить",
-  "extensions.storeSection.title": "Магазин",
-  "extensions.storeSection.intro": "Подключите этот экземпляр к онлайн-магазину расширений с помощью одноразового кода активации из вашей покупки. Изолированные экземпляры пропускают этот шаг и устанавливают из файлов.",
-  "extensions.storeSection.url": "URL магазина",
-  "extensions.storeSection.code": "Код активации",
-  "extensions.storeSection.connect": "Подключить",
-  "extensions.storeSection.connectedTo": "Подключено к {{url}}",
-  "extensions.storeSection.refreshLicense": "Обновить лицензию",
-  "extensions.storeSection.refreshed": "Лицензия обновлена из магазина.",
-  "extensions.storeSection.disconnect": "Отключить",
-  "extensions.storeSection.emptyCatalog": "Пакеты ещё не опубликованы.",
-  "extensions.storeSection.installed": "Установлено {{version}}",
-  "extensions.storeSection.install": "Установить",
-  "extensions.storeSection.buy": "Купить"
+  "extensions.uninstall.confirm": "Удалить"
 }

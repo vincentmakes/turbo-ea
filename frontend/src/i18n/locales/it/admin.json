@@ -1731,18 +1731,5 @@
   "extensions.uninstall.title": "Disinstallare l'estensione?",
   "extensions.uninstall.body": "I file dell'estensione vengono rimossi e le sue funzionalità smettono di funzionare. I dati che ha creato (tipi di scheda, schede, le sue tabelle) vengono conservati e riappaiono in caso di reinstallazione.",
   "extensions.uninstall.cancel": "Annulla",
-  "extensions.uninstall.confirm": "Disinstalla",
-  "extensions.storeSection.title": "Store",
-  "extensions.storeSection.intro": "Collega questa istanza allo store online delle estensioni con il codice di attivazione monouso ricevuto con l'acquisto. Le istanze isolate saltano questo passaggio e installano da file.",
-  "extensions.storeSection.url": "URL dello store",
-  "extensions.storeSection.code": "Codice di attivazione",
-  "extensions.storeSection.connect": "Collega",
-  "extensions.storeSection.connectedTo": "Collegato a {{url}}",
-  "extensions.storeSection.refreshLicense": "Aggiorna licenza",
-  "extensions.storeSection.refreshed": "Licenza aggiornata dallo store.",
-  "extensions.storeSection.disconnect": "Scollega",
-  "extensions.storeSection.emptyCatalog": "Nessun pacchetto pubblicato.",
-  "extensions.storeSection.installed": "Installato {{version}}",
-  "extensions.storeSection.install": "Installa",
-  "extensions.storeSection.buy": "Acquista"
+  "extensions.uninstall.confirm": "Disinstalla"
 }

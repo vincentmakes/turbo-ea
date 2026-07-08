@@ -1731,18 +1731,5 @@
   "extensions.uninstall.title": "إزالة الإضافة؟",
   "extensions.uninstall.body": "تُحذف ملفات الإضافة وتتوقف ميزاتها عن العمل. تُحتفظ البيانات التي أنشأتها (أنواع البطاقات والبطاقات وجداولها الخاصة) وتظهر مجددًا عند إعادة التثبيت.",
   "extensions.uninstall.cancel": "إلغاء",
-  "extensions.uninstall.confirm": "إزالة",
-  "extensions.storeSection.title": "المتجر",
-  "extensions.storeSection.intro": "اربط هذا النظام بمتجر الإضافات عبر الإنترنت باستخدام رمز التفعيل ذي الاستخدام الواحد من عملية الشراء. الأنظمة المعزولة تتخطى هذه الخطوة وتثبّت من الملفات بدلًا من ذلك.",
-  "extensions.storeSection.url": "عنوان المتجر",
-  "extensions.storeSection.code": "رمز التفعيل",
-  "extensions.storeSection.connect": "اتصال",
-  "extensions.storeSection.connectedTo": "متصل بـ {{url}}",
-  "extensions.storeSection.refreshLicense": "تحديث الترخيص",
-  "extensions.storeSection.refreshed": "تم تحديث الترخيص من المتجر.",
-  "extensions.storeSection.disconnect": "قطع الاتصال",
-  "extensions.storeSection.emptyCatalog": "لم تُنشر أي حزم بعد.",
-  "extensions.storeSection.installed": "مثبّت {{version}}",
-  "extensions.storeSection.install": "تثبيت",
-  "extensions.storeSection.buy": "شراء"
+  "extensions.uninstall.confirm": "إزالة"
 }

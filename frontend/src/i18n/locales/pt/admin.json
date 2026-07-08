@@ -1731,18 +1731,5 @@
   "extensions.uninstall.title": "Desinstalar a extensão?",
   "extensions.uninstall.body": "Os ficheiros da extensão são removidos e as suas funcionalidades deixam de funcionar. Os dados que criou (tipos de cartão, cartões, as suas próprias tabelas) são mantidos e reaparecem se reinstalar.",
   "extensions.uninstall.cancel": "Cancelar",
-  "extensions.uninstall.confirm": "Desinstalar",
-  "extensions.storeSection.title": "Loja",
-  "extensions.storeSection.intro": "Ligue esta instância à loja de extensões online com o código de ativação único da sua compra. As instâncias isoladas ignoram este passo e instalam a partir de ficheiros.",
-  "extensions.storeSection.url": "URL da loja",
-  "extensions.storeSection.code": "Código de ativação",
-  "extensions.storeSection.connect": "Ligar",
-  "extensions.storeSection.connectedTo": "Ligado a {{url}}",
-  "extensions.storeSection.refreshLicense": "Atualizar licença",
-  "extensions.storeSection.refreshed": "Licença atualizada a partir da loja.",
-  "extensions.storeSection.disconnect": "Desligar",
-  "extensions.storeSection.emptyCatalog": "Ainda não há pacotes publicados.",
-  "extensions.storeSection.installed": "Instalado {{version}}",
-  "extensions.storeSection.install": "Instalar",
-  "extensions.storeSection.buy": "Comprar"
+  "extensions.uninstall.confirm": "Desinstalar"
 }
