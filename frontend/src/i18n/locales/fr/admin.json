@@ -1731,5 +1731,16 @@
   "extensions.uninstall.title": "Désinstaller l'extension ?",
   "extensions.uninstall.body": "Les fichiers de l'extension sont supprimés et ses fonctionnalités cessent de fonctionner. Les données qu'elle a créées (types de cartes, cartes, ses propres tables) sont conservées et réapparaissent en cas de réinstallation.",
   "extensions.uninstall.cancel": "Annuler",
-  "extensions.uninstall.confirm": "Désinstaller"
+  "extensions.uninstall.confirm": "Désinstaller",
+  "extensions.tabs.store": "Boutique",
+  "extensions.tabs.installed": "Installées",
+  "extensions.store.notConfigured": "Aucune boutique d'extensions n'est configurée sur cette instance. Installez les extensions à partir de fichiers dans l'onglet Installées — le flux basé sur les fichiers couvre tout ce que propose la boutique.",
+  "extensions.store.unreachable": "La boutique d'extensions est injoignable. Instance isolée ou hors ligne ? Installez plutôt à partir de fichiers dans l'onglet Installées.",
+  "extensions.store.empty": "Aucune extension publiée pour le moment.",
+  "extensions.store.installedChip": "Installée {{version}}",
+  "extensions.store.licensed": "Sous licence",
+  "extensions.store.buy": "Acheter",
+  "extensions.store.install": "Installer",
+  "extensions.store.update": "Mettre à jour vers {{version}}",
+  "extensions.store.afterPurchase": "Le paiement s'ouvre dans un nouvel onglet. Après l'achat, votre licence arrive par e-mail — collez-la dans l'onglet Installées, puis installez ici en un clic. Les paquets sont vérifiés contre la signature du fournisseur avant toute application."
 }

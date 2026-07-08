@@ -1731,5 +1731,16 @@
   "extensions.uninstall.title": "卸载扩展？",
   "extensions.uninstall.body": "扩展的文件将被移除，其功能将停止工作。它创建的数据（卡片类型、卡片及其自有表）会被保留，重新安装后会再次出现。",
   "extensions.uninstall.cancel": "取消",
-  "extensions.uninstall.confirm": "卸载"
+  "extensions.uninstall.confirm": "卸载",
+  "extensions.tabs.store": "商店",
+  "extensions.tabs.installed": "已安装",
+  "extensions.store.notConfigured": "此实例未配置扩展商店。请在「已安装」标签页中通过文件安装扩展——基于文件的流程涵盖商店的全部功能。",
+  "extensions.store.unreachable": "无法连接扩展商店。实例处于隔离或离线状态?请改为在「已安装」标签页中通过文件安装。",
+  "extensions.store.empty": "暂无已发布的扩展。",
+  "extensions.store.installedChip": "已安装 {{version}}",
+  "extensions.store.licensed": "已授权",
+  "extensions.store.buy": "购买",
+  "extensions.store.install": "安装",
+  "extensions.store.update": "更新到 {{version}}",
+  "extensions.store.afterPurchase": "支付将在新标签页中打开。购买后,许可证将通过电子邮件发送——请在「已安装」标签页中粘贴,然后在此处一键安装。软件包在应用前会根据供应商签名进行验证。"
 }

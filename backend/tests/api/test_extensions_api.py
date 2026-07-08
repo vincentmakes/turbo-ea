@@ -6,6 +6,7 @@ import base64
 import json
 from datetime import datetime, timedelta, timezone
 
+import httpx
 import pytest
 from sqlalchemy import select
 
@@ -353,3 +354,198 @@ class TestStatusEndpoint:
     async def test_status_requires_auth(self, client, db, vendor):
         res = await client.get("/api/v1/extensions/status")
         assert res.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Store (catalogue proxy + install-from-store)
+# ---------------------------------------------------------------------------
+
+STORE_URL = "https://extensions.example.com"
+
+
+def mock_store(monkeypatch, catalog: dict | None, bundles: dict[str, bytes] | None = None):
+    """Point EXTENSION_STORE_URL at a MockTransport-backed fake static host.
+
+    ``catalog=None`` simulates an unreachable host (connection error).
+    """
+    monkeypatch.setattr(settings, "EXTENSION_STORE_URL", STORE_URL)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if catalog is None:
+            raise httpx.ConnectError("boom", request=request)
+        if request.url.path == "/catalog.json":
+            return httpx.Response(200, json=catalog)
+        data = (bundles or {}).get(request.url.path)
+        if data is not None:
+            return httpx.Response(200, content=data)
+        return httpx.Response(404)
+
+    transport = httpx.MockTransport(handler)
+    real_client = httpx.AsyncClient
+
+    def factory(**kwargs):
+        kwargs.pop("timeout", None)
+        return real_client(transport=transport, **kwargs)
+
+    monkeypatch.setattr(ext_api.httpx, "AsyncClient", factory)
+
+
+def catalog_payload(**overrides) -> dict:
+    item = {
+        "key": "sample-ext",
+        "name": "Sample Extension",
+        "description": "Adds sample things",
+        "price": "990 EUR / year",
+        "payment_link": "https://buy.stripe.test/pl_1",
+        "version": "1.0.0",
+        "bundle_url": "/bundles/sample-ext-1.0.0.teax",
+    }
+    item.update(overrides)
+    return {"extensions": [item]}
+
+
+class TestStoreCatalog:
+    async def test_unconfigured_store(self, client, db, vendor, monkeypatch):
+        admin = await make_admin(db)
+        monkeypatch.setattr(settings, "EXTENSION_STORE_URL", "")
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        assert res.status_code == 200
+        assert res.json() == {
+            "configured": False,
+            "reachable": False,
+            "store_url": "",
+            "items": [],
+        }
+
+    async def test_unreachable_store_degrades_gracefully(self, client, db, vendor, monkeypatch):
+        admin = await make_admin(db)
+        mock_store(monkeypatch, catalog=None)
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        assert res.status_code == 200
+        body = res.json()
+        assert body["configured"] is True and body["reachable"] is False
+
+    async def test_catalog_annotated_with_license_and_install_state(
+        self, client, db, vendor, monkeypatch
+    ):
+        admin = await make_admin(db)
+        # Entitle sample-ext, install v0.9.0, and publish v1.0.0 in the catalogue.
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor)},
+            headers=auth_headers(admin),
+        )
+        install = await upload_and_preview(client, db, admin, vendor, version="0.9.0")
+        await ext_api.run_apply(db, install, admin)
+        mock_store(monkeypatch, catalog=catalog_payload())
+
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        assert res.status_code == 200
+        body = res.json()
+        assert body["configured"] and body["reachable"]
+        (item,) = body["items"]
+        assert item["key"] == "sample-ext"
+        assert item["price"] == "990 EUR / year"
+        assert item["payment_link"] == "https://buy.stripe.test/pl_1"
+        assert item["installed_version"] == "0.9.0"
+        assert item["update_available"] is True
+        assert item["entitlement_state"] == "active"
+
+    async def test_unlicensed_uninstalled_item(self, client, db, vendor, monkeypatch):
+        admin = await make_admin(db)
+        mock_store(monkeypatch, catalog=catalog_payload(key="other-ext", name="Other"))
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        (item,) = res.json()["items"]
+        assert item["installed_version"] is None
+        assert item["update_available"] is False
+        assert item["entitlement_state"] == "unlicensed"
+
+    async def test_member_cannot_read_catalog(self, client, db, vendor, monkeypatch):
+        member = await make_member(db)
+        mock_store(monkeypatch, catalog=catalog_payload())
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(member)
+        )
+        assert res.status_code == 403
+
+
+class TestStoreInstall:
+    async def test_install_from_store_lands_in_upload_pipeline(
+        self, client, db, vendor, monkeypatch
+    ):
+        admin = await make_admin(db)
+        raw = build_teax(vendor, files={"content/pack.json": json.dumps(CONTENT_PACK).encode()})
+        mock_store(
+            monkeypatch,
+            catalog=catalog_payload(),
+            bundles={"/bundles/sample-ext-1.0.0.teax": raw},
+        )
+        res = await client.post(
+            "/api/v1/admin/extensions/store/install",
+            json={"key": "sample-ext"},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 202, res.text
+        body = res.json()
+        assert body["status"] == "verifying"
+        assert body["filename"] == "sample-ext-1.0.0.teax"
+
+        # The downloaded bytes verify + preview exactly like a manual upload.
+        install = (
+            await db.execute(select(ExtensionInstall).where(ExtensionInstall.id == body["id"]))
+        ).scalar_one()
+        await ext_api.run_verify_and_preview(db, install, admin)
+        assert install.status == "previewed"
+        assert install.extension_key == "sample-ext"
+
+    async def test_off_origin_bundle_url_refused(self, client, db, vendor, monkeypatch):
+        admin = await make_admin(db)
+        mock_store(
+            monkeypatch,
+            catalog=catalog_payload(bundle_url="https://evil.example.net/x.teax"),
+        )
+        res = await client.post(
+            "/api/v1/admin/extensions/store/install",
+            json={"key": "sample-ext"},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 400
+        assert "origin" in res.json()["detail"]
+
+    async def test_unknown_key_404(self, client, db, vendor, monkeypatch):
+        admin = await make_admin(db)
+        mock_store(monkeypatch, catalog=catalog_payload())
+        res = await client.post(
+            "/api/v1/admin/extensions/store/install",
+            json={"key": "nope"},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 404
+
+    async def test_unconfigured_store_install_400(self, client, db, vendor, monkeypatch):
+        admin = await make_admin(db)
+        monkeypatch.setattr(settings, "EXTENSION_STORE_URL", "")
+        res = await client.post(
+            "/api/v1/admin/extensions/store/install",
+            json={"key": "sample-ext"},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 400
+
+    async def test_member_cannot_install_from_store(self, client, db, vendor, monkeypatch):
+        member = await make_member(db)
+        mock_store(monkeypatch, catalog=catalog_payload())
+        res = await client.post(
+            "/api/v1/admin/extensions/store/install",
+            json={"key": "sample-ext"},
+            headers=auth_headers(member),
+        )
+        assert res.status_code == 403

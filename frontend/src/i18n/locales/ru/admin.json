@@ -1731,5 +1731,16 @@
   "extensions.uninstall.title": "Удалить расширение?",
   "extensions.uninstall.body": "Файлы расширения будут удалены, и его функции перестанут работать. Созданные им данные (типы карточек, карточки, его собственные таблицы) сохраняются и снова появятся после переустановки.",
   "extensions.uninstall.cancel": "Отмена",
-  "extensions.uninstall.confirm": "Удалить"
+  "extensions.uninstall.confirm": "Удалить",
+  "extensions.tabs.store": "Магазин",
+  "extensions.tabs.installed": "Установленные",
+  "extensions.store.notConfigured": "Магазин расширений не настроен на этом экземпляре. Устанавливайте расширения из файлов на вкладке «Установленные» — файловый процесс покрывает всё, что предлагает магазин.",
+  "extensions.store.unreachable": "Магазин расширений недоступен. Изолированный или офлайн-экземпляр? Установите из файлов на вкладке «Установленные».",
+  "extensions.store.empty": "Расширения пока не опубликованы.",
+  "extensions.store.installedChip": "Установлено {{version}}",
+  "extensions.store.licensed": "Лицензировано",
+  "extensions.store.buy": "Купить",
+  "extensions.store.install": "Установить",
+  "extensions.store.update": "Обновить до {{version}}",
+  "extensions.store.afterPurchase": "Оплата откроется в новой вкладке. После покупки лицензия придёт по электронной почте — вставьте её на вкладке «Установленные», затем установите здесь одним щелчком. Пакеты проверяются по подписи поставщика перед применением."
 }

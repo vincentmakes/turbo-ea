@@ -1731,5 +1731,16 @@
   "extensions.uninstall.title": "إزالة الإضافة؟",
   "extensions.uninstall.body": "تُحذف ملفات الإضافة وتتوقف ميزاتها عن العمل. تُحتفظ البيانات التي أنشأتها (أنواع البطاقات والبطاقات وجداولها الخاصة) وتظهر مجددًا عند إعادة التثبيت.",
   "extensions.uninstall.cancel": "إلغاء",
-  "extensions.uninstall.confirm": "إزالة"
+  "extensions.uninstall.confirm": "إزالة",
+  "extensions.tabs.store": "المتجر",
+  "extensions.tabs.installed": "المثبَّتة",
+  "extensions.store.notConfigured": "لم يتم تكوين متجر ملحقات على هذا المثيل. ثبِّت الملحقات من الملفات في تبويب المثبَّتة — يغطي المسار المعتمد على الملفات كل ما يقدمه المتجر.",
+  "extensions.store.unreachable": "تعذّر الوصول إلى متجر الملحقات. هل المثيل معزول أو غير متصل؟ ثبِّت من الملفات في تبويب المثبَّتة بدلاً من ذلك.",
+  "extensions.store.empty": "لا توجد ملحقات منشورة بعد.",
+  "extensions.store.installedChip": "مثبَّت {{version}}",
+  "extensions.store.licensed": "مرخَّص",
+  "extensions.store.buy": "شراء",
+  "extensions.store.install": "تثبيت",
+  "extensions.store.update": "التحديث إلى {{version}}",
+  "extensions.store.afterPurchase": "تُفتح عملية الدفع في تبويب جديد. بعد الشراء تصلك الرخصة عبر البريد الإلكتروني — الصقها في تبويب المثبَّتة ثم ثبِّت من هنا بنقرة واحدة. يتم التحقق من الحزم مقابل توقيع المورّد قبل تطبيق أي شيء."
 }

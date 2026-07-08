@@ -11786,6 +11786,109 @@
         "title": "StakeholderRoleUpdate",
         "type": "object"
       },
+      "StoreCatalogOut": {
+        "properties": {
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "items": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/StoreItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "reachable": {
+            "default": false,
+            "title": "Reachable",
+            "type": "boolean"
+          },
+          "store_url": {
+            "default": "",
+            "title": "Store Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "configured"
+        ],
+        "title": "StoreCatalogOut",
+        "type": "object"
+      },
+      "StoreInstallIn": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key"
+        ],
+        "title": "StoreInstallIn",
+        "type": "object"
+      },
+      "StoreItemOut": {
+        "properties": {
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "entitlement_state": {
+            "default": "unlicensed",
+            "title": "Entitlement State",
+            "type": "string"
+          },
+          "installed_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Installed Version"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "payment_link": {
+            "default": "",
+            "title": "Payment Link",
+            "type": "string"
+          },
+          "price": {
+            "default": "",
+            "title": "Price",
+            "type": "string"
+          },
+          "update_available": {
+            "default": false,
+            "title": "Update Available",
+            "type": "boolean"
+          },
+          "version": {
+            "default": "",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "name"
+        ],
+        "title": "StoreItemOut",
+        "type": "object"
+      },
       "StructuredInsight": {
         "properties": {
           "observation": {
@@ -14382,6 +14485,69 @@
           }
         },
         "summary": "Put License",
+        "tags": [
+          "Extensions"
+        ]
+      }
+    },
+    "/api/v1/admin/extensions/store/catalog": {
+      "get": {
+        "operationId": "store_catalog_api_v1_admin_extensions_store_catalog_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoreCatalogOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Store Catalog",
+        "tags": [
+          "Extensions"
+        ]
+      }
+    },
+    "/api/v1/admin/extensions/store/install": {
+      "post": {
+        "description": "Download a catalogue bundle and run it through the upload pipeline.\n\nIdentical trust posture to a manual upload: the downloaded bytes are\nlanded in ``data/extension_installs/`` and the background job verifies\nthe vendor signature before anything is previewed or applied. Downloads\nare restricted to the configured store origin (SSRF guard) \u2014 a bundle\nhosted elsewhere must be installed via manual upload.",
+        "operationId": "install_from_store_api_v1_admin_extensions_store_install_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StoreInstallIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionInstallOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Install From Store",
         "tags": [
           "Extensions"
         ]

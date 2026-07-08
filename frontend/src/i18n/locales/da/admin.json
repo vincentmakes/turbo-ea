@@ -1731,5 +1731,16 @@
   "extensions.uninstall.title": "Afinstaller udvidelsen?",
   "extensions.uninstall.body": "Udvidelsens filer fjernes, og dens funktioner holder op med at virke. Data, den har oprettet (korttyper, kort, dens egne tabeller), bevares og dukker op igen ved geninstallation.",
   "extensions.uninstall.cancel": "Annuller",
-  "extensions.uninstall.confirm": "Afinstaller"
+  "extensions.uninstall.confirm": "Afinstaller",
+  "extensions.tabs.store": "Butik",
+  "extensions.tabs.installed": "Installerede",
+  "extensions.store.notConfigured": "Der er ikke konfigureret nogen udvidelsesbutik på denne instans. Installer udvidelser fra filer under fanen Installerede — det filbaserede forløb dækker alt, hvad butikken tilbyder.",
+  "extensions.store.unreachable": "Udvidelsesbutikken kunne ikke nås. Isoleret eller offline instans? Installer i stedet fra filer under fanen Installerede.",
+  "extensions.store.empty": "Ingen udvidelser er udgivet endnu.",
+  "extensions.store.installedChip": "Installeret {{version}}",
+  "extensions.store.licensed": "Licenseret",
+  "extensions.store.buy": "Køb",
+  "extensions.store.install": "Installer",
+  "extensions.store.update": "Opdater til {{version}}",
+  "extensions.store.afterPurchase": "Betalingen åbner i en ny fane. Efter købet modtager du din licens pr. e-mail — indsæt den under fanen Installerede, og installer derefter her med ét klik. Pakker verificeres mod leverandørens signatur, før noget anvendes."
 }

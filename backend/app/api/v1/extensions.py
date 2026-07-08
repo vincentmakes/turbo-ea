@@ -8,6 +8,8 @@
 ``GET    /admin/extensions/install/{id}``   — poll upload status + dry-run diff
 ``POST   /admin/extensions/install/{id}/apply`` — background install + content apply
 ``DELETE /admin/extensions/install/{id}``   — discard an upload
+``GET    /admin/extensions/store/catalog``  — proxy the vendor's public catalog.json
+``POST   /admin/extensions/store/install``  — download a catalogue bundle → upload pipeline
 ``PUT    /admin/extensions/{key}/enabled``  — enable/disable (soft, immediate)
 ``DELETE /admin/extensions/{key}``          — uninstall (files removed, data retained)
 ``GET    /extensions/status``               — non-admin: key/version/entitlement per extension
@@ -16,7 +18,9 @@ Admin routes are gated by ``admin.manage_extensions``. Bundles must be
 signed by the vendor key (verified in the background job and re-verified
 at every boot by the loader); applying additionally requires a usable
 license entitlement for the extension key. Everything works from files —
-no network — so air-gapped installs are first-class.
+no network — so air-gapped installs are first-class. The Store tab is a
+read-only convenience over public static vendor hosting (see the Store
+section below); leaving ``EXTENSION_STORE_URL`` unset hides it.
 """
 
 from __future__ import annotations
@@ -25,13 +29,16 @@ import logging
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urljoin, urlsplit
 
+import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.config import settings
 from app.database import async_session, get_db
 from app.models.extension import Extension, ExtensionInstall, ExtensionLicense
 from app.models.user import User
@@ -392,6 +399,175 @@ async def delete_install(
             logger.warning("Could not delete bundle upload %s", install.storage_path)
     await db.delete(install)
     await db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Store — read-only catalogue proxy + install-from-store
+#
+# The "store" is NOT a service the instance connects to: it is a static
+# catalog.json + public .teax bundles on vendor hosting
+# (settings.EXTENSION_STORE_URL). Bundles are inert without a signed
+# license, so no account, token, or auth is involved — the instance only
+# ever READS public files, and every downloaded bundle goes through the
+# exact same signature verification + dry-run preview pipeline as a manual
+# upload. Payment happens entirely outside (the catalogue's payment_link
+# opens in a new browser tab); the license still arrives as a pasted file.
+# Air-gapped installs leave EXTENSION_STORE_URL unset and nothing degrades.
+# ---------------------------------------------------------------------------
+
+_STORE_CATALOG_TIMEOUT = 6.0
+_STORE_BUNDLE_TIMEOUT = 120.0
+_STORE_BUNDLE_MAX_BYTES = 200 * 1024 * 1024  # generous; signature is the real gate
+
+
+class StoreItemOut(BaseModel):
+    key: str
+    name: str
+    description: str = ""
+    price: str = ""
+    payment_link: str = ""
+    version: str = ""
+    installed_version: str | None = None
+    update_available: bool = False
+    entitlement_state: str = "unlicensed"
+
+
+class StoreCatalogOut(BaseModel):
+    configured: bool
+    reachable: bool = False
+    store_url: str = ""
+    items: list[StoreItemOut] = []
+
+
+class StoreInstallIn(BaseModel):
+    key: str
+
+
+def _version_tuple(value: str) -> tuple[int, ...]:
+    try:
+        return tuple(int(p) for p in value.strip().split("."))
+    except (ValueError, AttributeError):
+        return ()
+
+
+async def _fetch_store_catalog(base_url: str) -> list[dict]:
+    """GET {base_url}/catalog.json and return its ``extensions`` list."""
+    url = base_url.rstrip("/") + "/catalog.json"
+    async with httpx.AsyncClient(timeout=_STORE_CATALOG_TIMEOUT) as client:
+        resp = await client.get(url)
+        resp.raise_for_status()
+        data = resp.json()
+    items = data.get("extensions") if isinstance(data, dict) else None
+    if not isinstance(items, list):
+        raise ValueError("catalog.json has no 'extensions' list")
+    return [item for item in items if isinstance(item, dict) and item.get("key")]
+
+
+@router.get("/store/catalog", response_model=StoreCatalogOut)
+async def store_catalog(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> StoreCatalogOut:
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    base_url = settings.EXTENSION_STORE_URL.strip()
+    if not base_url:
+        return StoreCatalogOut(configured=False)
+
+    try:
+        raw_items = await _fetch_store_catalog(base_url)
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.warning("Extension store catalogue unreachable (%s): %s", base_url, exc)
+        return StoreCatalogOut(configured=True, reachable=False, store_url=base_url)
+
+    installed = {
+        row.key: row.version
+        for row in (
+            await db.execute(select(Extension).where(Extension.status != "removed"))
+        ).scalars()
+    }
+    await extension_registry.refresh_from_db(db)
+
+    items: list[StoreItemOut] = []
+    for item in raw_items:
+        key = str(item["key"])
+        catalog_version = str(item.get("version") or "")
+        installed_version = installed.get(key)
+        items.append(
+            StoreItemOut(
+                key=key,
+                name=str(item.get("name") or key),
+                description=str(item.get("description") or ""),
+                price=str(item.get("price") or ""),
+                payment_link=str(item.get("payment_link") or ""),
+                version=catalog_version,
+                installed_version=installed_version,
+                update_available=bool(
+                    installed_version
+                    and catalog_version
+                    and _version_tuple(catalog_version) > _version_tuple(installed_version)
+                ),
+                entitlement_state=extension_registry.entitlement(key).state,
+            )
+        )
+    return StoreCatalogOut(configured=True, reachable=True, store_url=base_url, items=items)
+
+
+@router.post("/store/install", response_model=ExtensionInstallOut, status_code=202)
+async def install_from_store(
+    payload: StoreInstallIn,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ExtensionInstallOut:
+    """Download a catalogue bundle and run it through the upload pipeline.
+
+    Identical trust posture to a manual upload: the downloaded bytes are
+    landed in ``data/extension_installs/`` and the background job verifies
+    the vendor signature before anything is previewed or applied. Downloads
+    are restricted to the configured store origin (SSRF guard) — a bundle
+    hosted elsewhere must be installed via manual upload.
+    """
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    base_url = settings.EXTENSION_STORE_URL.strip()
+    if not base_url:
+        raise HTTPException(status_code=400, detail="No extension store is configured")
+
+    try:
+        raw_items = await _fetch_store_catalog(base_url)
+    except (httpx.HTTPError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail=f"Extension store unreachable: {exc}") from exc
+
+    item = next((i for i in raw_items if str(i.get("key")) == payload.key), None)
+    if item is None or not str(item.get("bundle_url") or "").strip():
+        raise HTTPException(
+            status_code=404, detail="This extension is not available from the store"
+        )
+
+    bundle_url = urljoin(base_url.rstrip("/") + "/", str(item["bundle_url"]).strip())
+    base_origin = urlsplit(base_url)
+    bundle_origin = urlsplit(bundle_url)
+    if (bundle_origin.scheme, bundle_origin.netloc) != (base_origin.scheme, base_origin.netloc):
+        raise HTTPException(
+            status_code=400,
+            detail="Bundle download refused: not hosted on the configured store origin",
+        )
+
+    try:
+        async with httpx.AsyncClient(timeout=_STORE_BUNDLE_TIMEOUT) as client:
+            resp = await client.get(bundle_url)
+            resp.raise_for_status()
+            raw = resp.content
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Bundle download failed: {exc}") from exc
+    if not raw:
+        raise HTTPException(status_code=502, detail="Bundle download was empty")
+    if len(raw) > _STORE_BUNDLE_MAX_BYTES:
+        raise HTTPException(status_code=502, detail="Bundle download exceeds the size limit")
+
+    filename = Path(urlsplit(bundle_url).path).name or f"{payload.key}.teax"
+    install = await _persist_upload(db, filename, raw, user.id)
+    background_tasks.add_task(_verify_and_preview_job, str(install.id), str(user.id))
+    return _install_out(install)
 
 
 # ---------------------------------------------------------------------------

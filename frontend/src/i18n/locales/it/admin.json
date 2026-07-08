@@ -1731,5 +1731,16 @@
   "extensions.uninstall.title": "Disinstallare l'estensione?",
   "extensions.uninstall.body": "I file dell'estensione vengono rimossi e le sue funzionalità smettono di funzionare. I dati che ha creato (tipi di scheda, schede, le sue tabelle) vengono conservati e riappaiono in caso di reinstallazione.",
   "extensions.uninstall.cancel": "Annulla",
-  "extensions.uninstall.confirm": "Disinstalla"
+  "extensions.uninstall.confirm": "Disinstalla",
+  "extensions.tabs.store": "Store",
+  "extensions.tabs.installed": "Installate",
+  "extensions.store.notConfigured": "Nessuno store di estensioni è configurato su questa istanza. Installa le estensioni da file nella scheda Installate: il flusso basato su file copre tutto ciò che offre lo store.",
+  "extensions.store.unreachable": "Impossibile raggiungere lo store delle estensioni. Istanza isolata o offline? Installa da file nella scheda Installate.",
+  "extensions.store.empty": "Nessuna estensione pubblicata al momento.",
+  "extensions.store.installedChip": "Installata {{version}}",
+  "extensions.store.licensed": "Con licenza",
+  "extensions.store.buy": "Acquista",
+  "extensions.store.install": "Installa",
+  "extensions.store.update": "Aggiorna a {{version}}",
+  "extensions.store.afterPurchase": "Il pagamento si apre in una nuova scheda. Dopo l'acquisto la licenza arriva via e-mail: incollala nella scheda Installate, poi installa qui con un clic. I pacchetti vengono verificati contro la firma del fornitore prima di applicare qualsiasi cosa."
 }

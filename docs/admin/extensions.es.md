@@ -4,12 +4,23 @@ La **tienda de extensiones** (Admin → Extensiones) instala extensiones firmada
 
 Todo se entrega como archivos: la extensión es un paquete `.teax` firmado y la licencia un archivo de texto firmado, ambos enviados normalmente por correo electrónico. No se requiere activación en línea, cuenta de tienda ni conexión saliente, por lo que el flujo funciona igual en instancias **aisladas (air-gapped)**.
 
+La página tiene dos pestañas: **Tienda** explora el catálogo de extensiones de tu proveedor con instalación en un clic (si la instancia tiene acceso a Internet), e **Instaladas** gestiona licencias e instala desde archivos.
+
 ## Cómo funciona la confianza
 
 Dos comprobaciones independientes protegen su instancia:
 
 1. **Procedencia (firma).** Cada paquete lleva una firma Ed25519 de la clave del proveedor. Turbo EA la verifica al subirlo *y de nuevo en cada arranque del backend*. Los paquetes sin firma, manipulados o de terceros se rechazan — una extensión instalada es exactamente lo que el proveedor construyó.
 2. **Activación (licencia).** Un archivo de licencia firmado enumera sus derechos — uno por extensión, cada uno con su propia caducidad. Una extensión instalada solo funciona mientras exista un derecho utilizable.
+
+## La pestaña Tienda
+
+Si tu operador ha configurado una URL de tienda (`EXTENSION_STORE_URL`), la pestaña **Tienda** lista las extensiones publicadas por el proveedor con descripción y precio:
+
+- **Comprar** abre la página de pago en una pestaña nueva del navegador. Tras la compra, tu licencia llega por correo electrónico: pégala en la pestaña Instaladas.
+- **Instalar** (o **Actualizar** cuando se publica una versión más reciente) descarga el paquete y lo somete exactamente a la misma verificación de firma y vista previa de simulación que una carga manual.
+
+La pestaña Tienda es de solo lectura y anónima: sin cuenta, sin token, y no se envía nada sobre tu instancia — solo se lee el catálogo público del proveedor. Las instancias aisladas dejan la tienda sin configurar y usan el flujo basado en archivos de abajo; el sitio web de la tienda del proveedor ofrece las mismas compras y descargas desde cualquier navegador con conexión a Internet.
 
 ## Instalar una extensión
 

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [1.71.0] - 2026-07-08
 
 ### Added
+- **In-product extension Store tab.** Admin → Extensions now opens on a **Store** tab that browses the vendor's extension catalogue: each package shows its description and price, **Buy** opens payment in a new browser tab, and **Install**/**Update** downloads the bundle server-side and runs it through the exact same signature verification and dry-run preview as a manual upload. No account, token, or store connection is involved — the instance only reads public static files (`EXTENSION_STORE_URL`), and the license still arrives by email and is pasted on the **Installed** tab, which keeps the full file-based flow for bespoke extensions and air-gapped instances (leave `EXTENSION_STORE_URL` unset and nothing degrades).
 - **Multi-key extension trust.** Core now verifies extension bundles and licenses against a set of trusted vendor keys selected by `key_id` (with try-all fallback for older envelopes), so a vendor can sign licenses with a key separate from the one used to sign bundles while the primary key never leaves the operator's machine — and future key rotation needs no format change. `teax pack` gained `--key-id`.
 
 ## [1.70.0] - 2026-07-08

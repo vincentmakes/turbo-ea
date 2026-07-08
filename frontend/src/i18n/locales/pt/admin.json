@@ -1731,5 +1731,16 @@
   "extensions.uninstall.title": "Desinstalar a extensão?",
   "extensions.uninstall.body": "Os ficheiros da extensão são removidos e as suas funcionalidades deixam de funcionar. Os dados que criou (tipos de cartão, cartões, as suas próprias tabelas) são mantidos e reaparecem se reinstalar.",
   "extensions.uninstall.cancel": "Cancelar",
-  "extensions.uninstall.confirm": "Desinstalar"
+  "extensions.uninstall.confirm": "Desinstalar",
+  "extensions.tabs.store": "Loja",
+  "extensions.tabs.installed": "Instaladas",
+  "extensions.store.notConfigured": "Nenhuma loja de extensões está configurada nesta instância. Instale extensões a partir de ficheiros no separador Instaladas — o fluxo baseado em ficheiros cobre tudo o que a loja oferece.",
+  "extensions.store.unreachable": "Não foi possível aceder à loja de extensões. Instância isolada ou offline? Instale a partir de ficheiros no separador Instaladas.",
+  "extensions.store.empty": "Ainda não há extensões publicadas.",
+  "extensions.store.installedChip": "Instalada {{version}}",
+  "extensions.store.licensed": "Com licença",
+  "extensions.store.buy": "Comprar",
+  "extensions.store.install": "Instalar",
+  "extensions.store.update": "Atualizar para {{version}}",
+  "extensions.store.afterPurchase": "O pagamento abre num novo separador. Após a compra, a sua licença chega por e-mail — cole-a no separador Instaladas e depois instale aqui com um clique. Os pacotes são verificados contra a assinatura do fornecedor antes de qualquer aplicação."
 }

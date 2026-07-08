@@ -4,12 +4,23 @@ The **Extension Store** (Admin → Extensions) installs vendor-signed extensions
 
 Everything is delivered as files: the extension is a signed `.teax` bundle and the license is a signed text file, both typically sent by email. No online activation, store account, or outbound connection is required, so the whole workflow works identically on **air-gapped** instances.
 
+The page has two tabs: **Store** browses your vendor's extension catalogue with one-click install (when your instance has internet access), and **Installed** manages licenses and installs from files.
+
 ## How trust works
 
 Two independent checks protect your instance:
 
 1. **Provenance (signature).** Every bundle carries an Ed25519 signature by the vendor's signing key. Turbo EA verifies it on upload *and again at every backend start*. Unsigned, tampered, or third-party bundles are rejected — an extension that installs is guaranteed to be exactly what the vendor built.
 2. **Activation (license).** A signed license file lists your entitlements — one per extension, each with its own expiry. An installed extension only runs while a usable entitlement exists.
+
+## The Store tab
+
+When your operator has configured a store URL (`EXTENSION_STORE_URL`), the **Store** tab lists the vendor's published extensions with description and price:
+
+- **Buy** opens the payment page in a new browser tab. After purchase, your license arrives by email — paste it on the Installed tab.
+- **Install** (or **Update** when a newer version is published) downloads the bundle and runs it through the exact same signature verification and dry-run preview as a manual upload.
+
+The Store tab is read-only and anonymous: no account, no token, and nothing about your instance is sent anywhere — it only reads the vendor's public catalogue. Air-gapped instances leave the store unconfigured and use the file-based flow below; the vendor's storefront website offers the same purchases and downloads from any internet-connected browser.
 
 ## Installing an extension
 

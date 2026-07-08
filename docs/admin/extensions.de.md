@@ -4,12 +4,23 @@ Der **Extension Store** (Admin → Erweiterungen) installiert vom Anbieter signi
 
 Alles wird als Datei geliefert: Die Erweiterung ist ein signiertes `.teax`-Paket, die Lizenz eine signierte Textdatei — beide typischerweise per E-Mail versandt. Es sind weder Online-Aktivierung noch Store-Konto noch ausgehende Verbindungen nötig; der gesamte Ablauf funktioniert daher identisch auf **abgeschotteten (air-gapped)** Instanzen.
 
+Die Seite hat zwei Tabs: **Store** durchsucht den Erweiterungskatalog Ihres Anbieters mit Ein-Klick-Installation (sofern die Instanz Internetzugang hat), **Installiert** verwaltet Lizenzen und installiert aus Dateien.
+
 ## So funktioniert das Vertrauensmodell
 
 Zwei unabhängige Prüfungen schützen Ihre Instanz:
 
 1. **Herkunft (Signatur).** Jedes Paket trägt eine Ed25519-Signatur des Anbieter-Schlüssels. Turbo EA prüft sie beim Hochladen *und erneut bei jedem Backend-Start*. Unsignierte, manipulierte oder fremde Pakete werden abgelehnt — eine installierte Erweiterung ist garantiert genau das, was der Anbieter gebaut hat.
 2. **Aktivierung (Lizenz).** Eine signierte Lizenzdatei enthält Ihre Berechtigungen — eine pro Erweiterung, jede mit eigenem Ablaufdatum. Eine installierte Erweiterung läuft nur, solange eine gültige Berechtigung existiert.
+
+## Der Store-Tab
+
+Wenn Ihr Betreiber eine Store-URL konfiguriert hat (`EXTENSION_STORE_URL`), listet der Tab **Store** die veröffentlichten Erweiterungen des Anbieters mit Beschreibung und Preis:
+
+- **Kaufen** öffnet die Zahlungsseite in einem neuen Browser-Tab. Nach dem Kauf erhalten Sie Ihre Lizenz per E-Mail — fügen Sie sie im Tab Installiert ein.
+- **Installieren** (bzw. **Aktualisieren**, wenn eine neuere Version veröffentlicht ist) lädt das Paket herunter und führt es durch exakt dieselbe Signaturprüfung und Dry-Run-Vorschau wie ein manueller Upload.
+
+Der Store-Tab ist schreibgeschützt und anonym: kein Konto, kein Token, und es werden keinerlei Informationen über Ihre Instanz übertragen — es wird nur der öffentliche Katalog des Anbieters gelesen. Abgeschottete Instanzen lassen den Store unkonfiguriert und nutzen den dateibasierten Ablauf unten; die Storefront-Website des Anbieters bietet dieselben Käufe und Downloads von jedem Browser mit Internetzugang.
 
 ## Eine Erweiterung installieren
 

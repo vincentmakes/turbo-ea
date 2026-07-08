@@ -99,6 +99,16 @@ class Settings:
     # repointed at a foreign signing key via configuration.
     EXTENSION_VENDOR_PUBLIC_KEY: str = os.getenv("EXTENSION_VENDOR_PUBLIC_KEY", "")
 
+    # Base URL of the vendor's extension catalogue (static hosting serving
+    # catalog.json + the public .teax bundles). Powers the in-product Store
+    # tab on Admin → Extensions: the backend proxies the catalogue and
+    # downloads bundles from here — read-only, no account, no token. Bundles
+    # are inert without a signed license, so this needs no auth. Empty =
+    # store tab shows the offline/file-based hint (air-gapped installs
+    # simply leave it unset). The signature check on install is unchanged —
+    # a hostile catalogue URL cannot smuggle in an untrusted bundle.
+    EXTENSION_STORE_URL: str = os.getenv("EXTENSION_STORE_URL", "")
+
     # AI / LLM (optional — disabled by default)
     AI_PROVIDER_URL: str = os.getenv("AI_PROVIDER_URL", "")
     AI_MODEL: str = os.getenv("AI_MODEL", "")

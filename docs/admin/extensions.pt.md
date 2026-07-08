@@ -4,12 +4,23 @@ A **loja de extensões** (Admin → Extensões) instala extensões assinadas pel
 
 Tudo é entregue como ficheiros: a extensão é um pacote `.teax` assinado e a licença um ficheiro de texto assinado, ambos normalmente enviados por e-mail. Não é necessária ativação online, conta de loja nem ligação de saída, pelo que o fluxo funciona de forma idêntica em instâncias **isoladas (air-gapped)**.
 
+A página tem dois separadores: **Loja** percorre o catálogo de extensões do fornecedor com instalação num clique (se a instância tiver acesso à Internet), e **Instaladas** gere licenças e instala a partir de ficheiros.
+
 ## Como funciona a confiança
 
 Duas verificações independentes protegem a sua instância:
 
 1. **Proveniência (assinatura).** Cada pacote tem uma assinatura Ed25519 da chave do fornecedor. O Turbo EA verifica-a no carregamento *e novamente em cada arranque do backend*. Pacotes não assinados, adulterados ou de terceiros são rejeitados — uma extensão instalada é exatamente o que o fornecedor construiu.
 2. **Ativação (licença).** Um ficheiro de licença assinado lista os seus direitos — um por extensão, cada um com a sua validade. Uma extensão instalada só funciona enquanto existir um direito utilizável.
+
+## O separador Loja
+
+Se o seu operador configurou um URL de loja (`EXTENSION_STORE_URL`), o separador **Loja** lista as extensões publicadas pelo fornecedor com descrição e preço:
+
+- **Comprar** abre a página de pagamento num novo separador do navegador. Após a compra, a sua licença chega por e-mail — cole-a no separador Instaladas.
+- **Instalar** (ou **Atualizar** quando uma versão mais recente é publicada) descarrega o pacote e submete-o exatamente à mesma verificação de assinatura e pré-visualização de simulação de um carregamento manual.
+
+O separador Loja é só de leitura e anónimo: sem conta, sem token, e nada sobre a sua instância é enviado — apenas o catálogo público do fornecedor é lido. As instâncias isoladas deixam a loja por configurar e usam o fluxo baseado em ficheiros abaixo; o site da loja do fornecedor oferece as mesmas compras e transferências a partir de qualquer navegador com ligação à Internet.
 
 ## Instalar uma extensão
 

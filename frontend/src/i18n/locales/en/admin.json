@@ -1731,5 +1731,16 @@
   "extensions.uninstall.title": "Uninstall extension?",
   "extensions.uninstall.body": "The extension's files are removed and its features stop working. Data it created (card types, cards, its own tables) is kept and reappears if you reinstall.",
   "extensions.uninstall.cancel": "Cancel",
-  "extensions.uninstall.confirm": "Uninstall"
+  "extensions.uninstall.confirm": "Uninstall",
+  "extensions.tabs.store": "Store",
+  "extensions.tabs.installed": "Installed",
+  "extensions.store.notConfigured": "No extension store is configured on this instance. Install extensions from files on the Installed tab — the file-based flow covers everything the store does.",
+  "extensions.store.unreachable": "The extension store could not be reached. Air-gapped or offline? Install from files on the Installed tab instead.",
+  "extensions.store.empty": "No extensions published yet.",
+  "extensions.store.installedChip": "Installed {{version}}",
+  "extensions.store.licensed": "Licensed",
+  "extensions.store.buy": "Buy",
+  "extensions.store.install": "Install",
+  "extensions.store.update": "Update to {{version}}",
+  "extensions.store.afterPurchase": "Payment opens in a new tab. After purchase your license arrives by email — paste it on the Installed tab, then install here with one click. Bundles are verified against the vendor signature before anything is applied."
 }

@@ -1731,5 +1731,16 @@
   "extensions.uninstall.title": "¿Desinstalar la extensión?",
   "extensions.uninstall.body": "Los archivos de la extensión se eliminan y sus funciones dejan de estar disponibles. Los datos que creó (tipos de tarjeta, tarjetas, sus propias tablas) se conservan y reaparecen si se reinstala.",
   "extensions.uninstall.cancel": "Cancelar",
-  "extensions.uninstall.confirm": "Desinstalar"
+  "extensions.uninstall.confirm": "Desinstalar",
+  "extensions.tabs.store": "Tienda",
+  "extensions.tabs.installed": "Instaladas",
+  "extensions.store.notConfigured": "No hay ninguna tienda de extensiones configurada en esta instancia. Instala extensiones desde archivos en la pestaña Instaladas: el flujo basado en archivos cubre todo lo que ofrece la tienda.",
+  "extensions.store.unreachable": "No se pudo acceder a la tienda de extensiones. ¿Instancia aislada o sin conexión? Instala desde archivos en la pestaña Instaladas.",
+  "extensions.store.empty": "Aún no se han publicado extensiones.",
+  "extensions.store.installedChip": "Instalada {{version}}",
+  "extensions.store.licensed": "Con licencia",
+  "extensions.store.buy": "Comprar",
+  "extensions.store.install": "Instalar",
+  "extensions.store.update": "Actualizar a {{version}}",
+  "extensions.store.afterPurchase": "El pago se abre en una pestaña nueva. Tras la compra, tu licencia llega por correo electrónico: pégala en la pestaña Instaladas y luego instala aquí con un clic. Los paquetes se verifican contra la firma del proveedor antes de aplicar nada."
 }

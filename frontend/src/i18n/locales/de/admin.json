@@ -1731,5 +1731,16 @@
   "extensions.uninstall.title": "Erweiterung deinstallieren?",
   "extensions.uninstall.body": "Die Dateien der Erweiterung werden entfernt und ihre Funktionen stehen nicht mehr zur Verfügung. Von ihr erstellte Daten (Kartentypen, Karten, eigene Tabellen) bleiben erhalten und erscheinen bei einer Neuinstallation wieder.",
   "extensions.uninstall.cancel": "Abbrechen",
-  "extensions.uninstall.confirm": "Deinstallieren"
+  "extensions.uninstall.confirm": "Deinstallieren",
+  "extensions.tabs.store": "Store",
+  "extensions.tabs.installed": "Installiert",
+  "extensions.store.notConfigured": "Auf dieser Instanz ist kein Erweiterungs-Store konfiguriert. Installieren Sie Erweiterungen über den Tab Installiert aus Dateien — der dateibasierte Ablauf deckt alles ab, was der Store bietet.",
+  "extensions.store.unreachable": "Der Erweiterungs-Store ist nicht erreichbar. Abgeschottet oder offline? Installieren Sie stattdessen aus Dateien im Tab Installiert.",
+  "extensions.store.empty": "Noch keine Erweiterungen veröffentlicht.",
+  "extensions.store.installedChip": "Installiert {{version}}",
+  "extensions.store.licensed": "Lizenziert",
+  "extensions.store.buy": "Kaufen",
+  "extensions.store.install": "Installieren",
+  "extensions.store.update": "Auf {{version}} aktualisieren",
+  "extensions.store.afterPurchase": "Die Zahlung öffnet sich in einem neuen Tab. Nach dem Kauf erhalten Sie Ihre Lizenz per E-Mail — fügen Sie sie im Tab Installiert ein und installieren Sie dann hier mit einem Klick. Pakete werden vor der Anwendung gegen die Anbieter-Signatur geprüft."
 }

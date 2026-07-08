@@ -4,12 +4,23 @@ Le **magasin d'extensions** (Admin → Extensions) installe des extensions sign�
 
 Tout est livré sous forme de fichiers : l'extension est un paquet `.teax` signé et la licence un fichier texte signé, tous deux généralement envoyés par e-mail. Aucune activation en ligne, aucun compte de magasin ni connexion sortante n'est nécessaire ; le flux fonctionne donc à l'identique sur des instances **isolées (air-gapped)**.
 
+La page comporte deux onglets : **Boutique** parcourt le catalogue d'extensions de votre fournisseur avec installation en un clic (si l'instance a accès à Internet), et **Installées** gère les licences et installe à partir de fichiers.
+
 ## Fonctionnement de la confiance
 
 Deux vérifications indépendantes protègent votre instance :
 
 1. **Provenance (signature).** Chaque paquet porte une signature Ed25519 de la clé de l'éditeur. Turbo EA la vérifie au téléversement *et à chaque démarrage du backend*. Les paquets non signés, altérés ou tiers sont refusés — une extension installée est garantie être exactement ce que l'éditeur a construit.
 2. **Activation (licence).** Un fichier de licence signé liste vos droits — un par extension, chacun avec sa propre échéance. Une extension installée ne fonctionne que tant qu'un droit utilisable existe.
+
+## L'onglet Boutique
+
+Si votre opérateur a configuré une URL de boutique (`EXTENSION_STORE_URL`), l'onglet **Boutique** liste les extensions publiées par le fournisseur avec description et prix :
+
+- **Acheter** ouvre la page de paiement dans un nouvel onglet du navigateur. Après l'achat, votre licence arrive par e-mail — collez-la dans l'onglet Installées.
+- **Installer** (ou **Mettre à jour** lorsqu'une version plus récente est publiée) télécharge le paquet et le fait passer par exactement la même vérification de signature et le même aperçu à blanc qu'un téléversement manuel.
+
+L'onglet Boutique est en lecture seule et anonyme : pas de compte, pas de jeton, et aucune information sur votre instance n'est transmise — seul le catalogue public du fournisseur est lu. Les instances isolées laissent la boutique non configurée et utilisent le flux basé sur les fichiers ci-dessous ; le site de la boutique du fournisseur offre les mêmes achats et téléchargements depuis n'importe quel navigateur connecté à Internet.
 
 ## Installer une extension
 

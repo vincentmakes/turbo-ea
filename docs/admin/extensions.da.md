@@ -4,12 +4,23 @@
 
 Alt leveres som filer: udvidelsen er en signeret `.teax`-pakke, og licensen er en signeret tekstfil, begge typisk sendt via e-mail. Der kræves hverken onlineaktivering, butikskonto eller udgående forbindelser, så hele arbejdsgangen fungerer identisk på **isolerede (air-gapped)** installationer.
 
+Siden har to faner: **Butik** gennemser leverandørens udvidelseskatalog med installation med ét klik (hvis instansen har internetadgang), og **Installerede** håndterer licenser og installerer fra filer.
+
 ## Sådan fungerer tilliden
 
 To uafhængige kontroller beskytter din installation:
 
 1. **Oprindelse (signatur).** Hver pakke bærer en Ed25519-signatur fra leverandørens nøgle. Turbo EA verificerer den ved upload *og igen ved hver backend-start*. Usignerede, manipulerede eller tredjepartspakker afvises — en installeret udvidelse er garanteret præcis det, leverandøren har bygget.
 2. **Aktivering (licens).** En signeret licensfil oplister dine rettigheder — én pr. udvidelse, hver med sin egen udløbsdato. En installeret udvidelse kører kun, så længe der findes en gyldig rettighed.
+
+## Fanen Butik
+
+Hvis din operatør har konfigureret en butiks-URL (`EXTENSION_STORE_URL`), viser fanen **Butik** leverandørens udgivne udvidelser med beskrivelse og pris:
+
+- **Køb** åbner betalingssiden i en ny browserfane. Efter købet modtager du din licens pr. e-mail — indsæt den under fanen Installerede.
+- **Installer** (eller **Opdater**, når en nyere version er udgivet) downloader pakken og kører den gennem præcis den samme signaturkontrol og prøvekørselsforhåndsvisning som en manuel upload.
+
+Fanen Butik er skrivebeskyttet og anonym: ingen konto, intet token, og intet om din instans sendes nogen steder hen — kun leverandørens offentlige katalog læses. Isolerede instanser lader butikken være ukonfigureret og bruger det filbaserede forløb nedenfor; leverandørens butikswebsted tilbyder de samme køb og downloads fra enhver browser med internetadgang.
 
 ## Installer en udvidelse
 

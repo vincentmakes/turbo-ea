@@ -14,11 +14,13 @@ import {
   LinearProgress,
   Stack,
   Switch,
+  Tab,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
+  Tabs,
   TextField,
   Tooltip,
   Typography,
@@ -93,6 +95,25 @@ interface ExtensionInstall {
   error_message?: string | null;
 }
 
+interface StoreItem {
+  key: string;
+  name: string;
+  description: string;
+  price: string;
+  payment_link: string;
+  version: string;
+  installed_version?: string | null;
+  update_available: boolean;
+  entitlement_state: EntitlementInfo["state"];
+}
+
+interface StoreCatalog {
+  configured: boolean;
+  reachable: boolean;
+  store_url: string;
+  items: StoreItem[];
+}
+
 const POLL_MS = 2000;
 const TERMINAL = new Set(["previewed", "installed", "failed"]);
 
@@ -116,8 +137,11 @@ const STATUS_COLOR: Record<string, "success" | "warning" | "error" | "default"> 
 export default function ExtensionsAdmin() {
   const { t } = useTranslation("admin");
 
+  const [tab, setTab] = useState<"store" | "installed">("store");
   const [extensions, setExtensions] = useState<ExtensionInfo[]>([]);
   const [license, setLicense] = useState<LicenseInfo | null>(null);
+  const [catalog, setCatalog] = useState<StoreCatalog | null>(null);
+  const [storeBusyKey, setStoreBusyKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -148,12 +172,14 @@ export default function ExtensionsAdmin() {
 
   const loadAll = useCallback(async () => {
     try {
-      const [exts, lic] = await Promise.all([
+      const [exts, lic, cat] = await Promise.all([
         api.get<ExtensionInfo[]>("/admin/extensions"),
         api.get<LicenseInfo>("/admin/extensions/license").catch(() => null),
+        api.get<StoreCatalog>("/admin/extensions/store/catalog").catch(() => null),
       ]);
       setExtensions(exts);
       setLicense(lic);
+      setCatalog(cat);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -228,6 +254,27 @@ export default function ExtensionsAdmin() {
     }
   };
 
+  const handleStoreInstall = async (item: StoreItem) => {
+    setStoreBusyKey(item.key);
+    setInstallError(null);
+    setInstall(null);
+    try {
+      const created = await api.post<ExtensionInstall>("/admin/extensions/store/install", {
+        key: item.key,
+      });
+      setInstall(created);
+      poll(created.id);
+    } catch (err) {
+      setInstallError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setStoreBusyKey(null);
+    }
+  };
+
+  const handleBuy = (item: StoreItem) => {
+    if (item.payment_link) window.open(item.payment_link, "_blank", "noopener");
+  };
+
   const handleApply = async () => {
     if (!install) return;
     setInstallBusy(true);
@@ -289,6 +336,101 @@ export default function ExtensionsAdmin() {
 
   const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString() : "");
 
+  // Shared install progress + preview + apply block. Rendered inside the
+  // Install-bundle card (Installed tab) and in its own card on the Store tab
+  // — one install pipeline, two entry points.
+  const installPanel = install && (
+    <Box sx={{ mt: 2 }}>
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+        <Typography variant="subtitle2">{install.filename}</Typography>
+        {install.extension_key && (
+          <Chip
+            size="small"
+            variant="outlined"
+            label={`${install.extension_key} ${install.extension_version ?? ""}`}
+          />
+        )}
+        <Chip size="small" label={install.status} />
+        <Button
+          size="small"
+          color="inherit"
+          onClick={() => void handleDiscard()}
+          disabled={install.status === "applying"}
+        >
+          {t("extensions.install.discard", "Discard")}
+        </Button>
+      </Stack>
+
+      {isWorking && <LinearProgress sx={{ mb: 2 }} />}
+
+      {install.error_message && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {install.error_message}
+        </Alert>
+      )}
+
+      {report?.totals && (
+        <Box sx={{ mb: 1 }}>
+          <Typography variant="body2" sx={{ mb: 0.5 }}>
+            {t("extensions.install.previewSummary", "Content preview")} —{" "}
+            {t("extensions.install.created", "Created")}: {report.totals.created},{" "}
+            {t("extensions.install.updated", "Updated")}: {report.totals.updated},{" "}
+            {t("extensions.install.skipped", "Skipped")}: {report.totals.skipped},{" "}
+            {t("extensions.install.failed", "Failed")}: {report.totals.failed}
+          </Typography>
+          <Table size="small">
+            <TableBody>
+              {(report.sections ?? [])
+                .filter((s) => s.created || s.updated || s.skipped || s.failed)
+                .map((s) => (
+                  <TableRow key={s.sheet}>
+                    <TableCell>{s.sheet}</TableCell>
+                    <TableCell align="right">
+                      {s.created
+                        ? t("extensions.install.nCreated", "{{n}} created", { n: s.created })
+                        : ""}
+                    </TableCell>
+                    <TableCell align="right">
+                      {s.updated
+                        ? t("extensions.install.nUpdated", "{{n}} updated", { n: s.updated })
+                        : ""}
+                    </TableCell>
+                    <TableCell align="right">
+                      {s.skipped
+                        ? t("extensions.install.nSkipped", "{{n}} skipped", { n: s.skipped })
+                        : ""}
+                    </TableCell>
+                    <TableCell align="right">
+                      {s.failed ? <Chip size="small" color="error" label={s.failed} /> : ""}
+                    </TableCell>
+                  </TableRow>
+                ))}
+            </TableBody>
+          </Table>
+        </Box>
+      )}
+
+      {install.status === "previewed" && (
+        <Button
+          variant="contained"
+          color="warning"
+          onClick={handleApply}
+          disabled={installBusy}
+          sx={{ mt: 1 }}
+          startIcon={<MaterialSymbol icon="extension" />}
+        >
+          {t("extensions.install.apply", "Install extension")}
+        </Button>
+      )}
+
+      {install.status === "installed" && (
+        <Alert severity="success" sx={{ mt: 1 }}>
+          {t("extensions.install.done", "Extension installed.")}
+        </Alert>
+      )}
+    </Box>
+  );
+
   const entitlementChip = (ent: EntitlementInfo) => {
     const label =
       ent.state === "active"
@@ -327,6 +469,134 @@ export default function ExtensionsAdmin() {
         </Alert>
       )}
 
+      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: "divider" }}>
+        <Tab value="store" label={t("extensions.tabs.store", "Store")} />
+        <Tab value="installed" label={t("extensions.tabs.installed", "Installed")} />
+      </Tabs>
+
+      {tab === "store" && (
+        <>
+          {loading ? (
+            <LinearProgress />
+          ) : !catalog?.configured ? (
+            <Alert severity="info">
+              {t(
+                "extensions.store.notConfigured",
+                "No extension store is configured on this instance. Install extensions from files on the Installed tab — the file-based flow covers everything the store does.",
+              )}
+            </Alert>
+          ) : !catalog.reachable ? (
+            <Alert severity="warning">
+              {t(
+                "extensions.store.unreachable",
+                "The extension store could not be reached. Air-gapped or offline? Install from files on the Installed tab instead.",
+              )}
+            </Alert>
+          ) : catalog.items.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              {t("extensions.store.empty", "No extensions published yet.")}
+            </Typography>
+          ) : (
+            <>
+              <Box
+                sx={{
+                  display: "grid",
+                  gap: 2,
+                  gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+                }}
+              >
+                {catalog.items.map((item) => (
+                  <Card variant="outlined" key={item.key}>
+                    <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 0.5 }}>
+                        <MaterialSymbol icon="extension" size={20} />
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                          {item.name}
+                        </Typography>
+                        {item.installed_version && (
+                          <Chip
+                            size="small"
+                            color="success"
+                            variant="outlined"
+                            label={t("extensions.store.installedChip", "Installed {{version}}", {
+                              version: item.installed_version,
+                            })}
+                          />
+                        )}
+                        {!item.installed_version && item.entitlement_state !== "unlicensed" && (
+                          <Chip
+                            size="small"
+                            color={ENTITLEMENT_COLOR[item.entitlement_state]}
+                            label={t("extensions.store.licensed", "Licensed")}
+                          />
+                        )}
+                      </Stack>
+                      <Typography variant="body2" color="text.secondary" sx={{ flex: 1, mb: 1.5 }}>
+                        {item.description}
+                      </Typography>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Typography variant="subtitle2" sx={{ flex: 1 }}>
+                          {item.price}
+                        </Typography>
+                        {item.payment_link && item.entitlement_state === "unlicensed" && (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            onClick={() => handleBuy(item)}
+                            startIcon={<MaterialSymbol icon="shopping_cart" size={18} />}
+                          >
+                            {t("extensions.store.buy", "Buy")}
+                          </Button>
+                        )}
+                        {(!item.installed_version || item.update_available) && (
+                          <Button
+                            size="small"
+                            variant={
+                              item.entitlement_state === "unlicensed" ? "outlined" : "contained"
+                            }
+                            disabled={storeBusyKey !== null || isWorking}
+                            onClick={() => void handleStoreInstall(item)}
+                            startIcon={
+                              storeBusyKey === item.key ? (
+                                <CircularProgress size={14} color="inherit" />
+                              ) : (
+                                <MaterialSymbol icon="download" size={18} />
+                              )
+                            }
+                          >
+                            {item.update_available
+                              ? t("extensions.store.update", "Update to {{version}}", {
+                                  version: item.version,
+                                })
+                              : t("extensions.store.install", "Install")}
+                          </Button>
+                        )}
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+              <Typography variant="caption" color="text.secondary">
+                {t(
+                  "extensions.store.afterPurchase",
+                  "Payment opens in a new tab. After purchase your license arrives by email — paste it on the Installed tab, then install here with one click. Bundles are verified against the vendor signature before anything is applied.",
+                )}
+              </Typography>
+            </>
+          )}
+
+          {installError && <Alert severity="error">{installError}</Alert>}
+
+          {install && (
+            <Card variant="outlined">
+              <CardContent>{installPanel}</CardContent>
+            </Card>
+          )}
+        </>
+      )}
+
+      {tab === "installed" && (
+        <>
       {/* License */}
       <Card variant="outlined">
         <CardContent>
@@ -444,11 +714,6 @@ export default function ExtensionsAdmin() {
                 ? t("extensions.install.uploading", "Uploading…")
                 : t("extensions.install.choose", "Choose bundle…")}
             </Button>
-            {install && (
-              <Button color="inherit" onClick={handleDiscard} disabled={install.status === "applying"}>
-                {t("extensions.install.discard", "Discard")}
-              </Button>
-            )}
           </Stack>
 
           {installError && (
@@ -457,89 +722,7 @@ export default function ExtensionsAdmin() {
             </Alert>
           )}
 
-          {install && (
-            <Box sx={{ mt: 2 }}>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                <Typography variant="subtitle2">{install.filename}</Typography>
-                {install.extension_key && (
-                  <Chip
-                    size="small"
-                    variant="outlined"
-                    label={`${install.extension_key} ${install.extension_version ?? ""}`}
-                  />
-                )}
-                <Chip size="small" label={install.status} />
-              </Stack>
-
-              {isWorking && <LinearProgress sx={{ mb: 2 }} />}
-
-              {install.error_message && (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                  {install.error_message}
-                </Alert>
-              )}
-
-              {report?.totals && (
-                <Box sx={{ mb: 1 }}>
-                  <Typography variant="body2" sx={{ mb: 0.5 }}>
-                    {t("extensions.install.previewSummary", "Content preview")} —{" "}
-                    {t("extensions.install.created", "Created")}: {report.totals.created},{" "}
-                    {t("extensions.install.updated", "Updated")}: {report.totals.updated},{" "}
-                    {t("extensions.install.skipped", "Skipped")}: {report.totals.skipped},{" "}
-                    {t("extensions.install.failed", "Failed")}: {report.totals.failed}
-                  </Typography>
-                  <Table size="small">
-                    <TableBody>
-                      {(report.sections ?? [])
-                        .filter((s) => s.created || s.updated || s.skipped || s.failed)
-                        .map((s) => (
-                          <TableRow key={s.sheet}>
-                            <TableCell>{s.sheet}</TableCell>
-                            <TableCell align="right">
-                              {s.created
-                                ? t("extensions.install.nCreated", "{{n}} created", { n: s.created })
-                                : ""}
-                            </TableCell>
-                            <TableCell align="right">
-                              {s.updated
-                                ? t("extensions.install.nUpdated", "{{n}} updated", { n: s.updated })
-                                : ""}
-                            </TableCell>
-                            <TableCell align="right">
-                              {s.skipped
-                                ? t("extensions.install.nSkipped", "{{n}} skipped", { n: s.skipped })
-                                : ""}
-                            </TableCell>
-                            <TableCell align="right">
-                              {s.failed ? <Chip size="small" color="error" label={s.failed} /> : ""}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                    </TableBody>
-                  </Table>
-                </Box>
-              )}
-
-              {install.status === "previewed" && (
-                <Button
-                  variant="contained"
-                  color="warning"
-                  onClick={handleApply}
-                  disabled={installBusy}
-                  sx={{ mt: 1 }}
-                  startIcon={<MaterialSymbol icon="extension" />}
-                >
-                  {t("extensions.install.apply", "Install extension")}
-                </Button>
-              )}
-
-              {install.status === "installed" && (
-                <Alert severity="success" sx={{ mt: 1 }}>
-                  {t("extensions.install.done", "Extension installed.")}
-                </Alert>
-              )}
-            </Box>
-          )}
+          {installPanel}
         </CardContent>
       </Card>
 
@@ -640,6 +823,8 @@ export default function ExtensionsAdmin() {
           </CardContent>
         </Card>
       ))}
+        </>
+      )}
 
       <Dialog open={uninstallKey !== null} onClose={() => setUninstallKey(null)}>
         <DialogTitle>{t("extensions.uninstall.title", "Uninstall extension?")}</DialogTitle>
