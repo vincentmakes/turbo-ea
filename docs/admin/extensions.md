@@ -20,7 +20,7 @@ The **Store** tab works out of the box and lists the vendor's published extensio
 - **Buy** opens the payment page in a new browser tab. After purchase, your license arrives by email — paste it on the Installed tab.
 - **Install** (or **Update** when a newer version is published) downloads the bundle and runs it through the exact same signature verification and dry-run preview as a manual upload.
 
-The Store tab is read-only and anonymous: no account, no token, and nothing about your instance is sent anywhere — it only reads the vendor's public catalogue. Air-gapped instances need no configuration — the tab degrades to a friendly hint (operators can also set `EXTENSION_STORE_URL=off` to suppress the outbound fetch) — and use the file-based flow below; the vendor's storefront website offers the same purchases and downloads from any internet-connected browser.
+The Store tab is read-only and anonymous: no account, no token, and nothing about your instance is sent anywhere — it only reads the vendor's public catalogue. Air-gapped instances need no configuration — the tab simply shows a friendly hint — and use the file-based flow below; the vendor's storefront website offers the same purchases and downloads from any internet-connected browser.
 
 ## Installing an extension
 

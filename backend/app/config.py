@@ -23,23 +23,14 @@ def _read_version() -> str:
 
 APP_VERSION = _read_version()
 
-# The vendor's extension catalogue — baked in so the Store tab on
-# Admin → Extensions works on every install with zero configuration.
-DEFAULT_EXTENSION_STORE_URL = "https://turbo-ea-extensions.pages.dev"
-
-
-def _parse_extension_store_url(raw: str) -> str:
-    """Resolve EXTENSION_STORE_URL: default when unset, '' when disabled.
-
-    Empty/unset → the baked-in default (the store is on by default);
-    ``off`` / ``none`` / ``disabled`` / ``false`` → "" (Store tab shows the
-    file-based hint and the backend never fetches the catalogue); anything
-    else is used verbatim (mirror / staging override).
-    """
-    value = raw.strip()
-    if value.lower() in {"off", "none", "disabled", "false"}:
-        return ""
-    return value or DEFAULT_EXTENSION_STORE_URL
+# The vendor's extension catalogue — a hard constant, deliberately NOT an
+# environment variable. The Store tab on Admin → Extensions is part of the
+# product on every install; there is no opt-in/opt-out configuration
+# (repointing it means forking, exactly like the trusted vendor keys in
+# app/core/extension_signing.py). Air-gapped instances need nothing: an
+# unreachable catalogue degrades to a friendly offline hint and the
+# file-based install flow is always fully functional.
+EXTENSION_STORE_URL = "https://turbo-ea-extensions.pages.dev"
 
 
 class Settings:
@@ -119,19 +110,11 @@ class Settings:
 
     # Base URL of the vendor's extension catalogue (static hosting serving
     # catalog.json + the public .teax bundles). Powers the in-product Store
-    # tab on Admin → Extensions: the backend proxies the catalogue and
-    # downloads bundles from here — read-only, no account, no token. Bundles
-    # are inert without a signed license, so this needs no auth, and the
-    # signature check on install is unchanged — a hostile catalogue URL
-    # cannot smuggle in an untrusted bundle.
-    #
-    # The default is baked in so every install ships with the Store tab
-    # working out of the box. Operators only touch the env var to point at a
-    # mirror, or to set it to "off" (also "none"/"disabled") to suppress the
-    # outbound catalogue fetch entirely — air-gapped installs don't have to,
-    # though: an unreachable store degrades to a friendly offline hint and
-    # the file-based install flow is always fully functional.
-    EXTENSION_STORE_URL: str = _parse_extension_store_url(os.getenv("EXTENSION_STORE_URL", ""))
+    # tab: the backend proxies the catalogue and downloads bundles from
+    # here — read-only, no account, no token, and every download goes
+    # through the same signature verification as a manual upload. A code
+    # constant by design (see the module-level comment) — no env override.
+    EXTENSION_STORE_URL: str = EXTENSION_STORE_URL
 
     # AI / LLM (optional — disabled by default)
     AI_PROVIDER_URL: str = os.getenv("AI_PROVIDER_URL", "")

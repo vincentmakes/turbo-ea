@@ -20,7 +20,7 @@ La scheda **Store** funziona senza alcuna configurazione ed elenca le estensioni
 - **Acquista** apre la pagina di pagamento in una nuova scheda del browser. Dopo l'acquisto la licenza arriva via e-mail: incollala nella scheda Installate.
 - **Installa** (o **Aggiorna** quando è pubblicata una versione più recente) scarica il pacchetto e lo sottopone esattamente alla stessa verifica della firma e alla stessa anteprima di simulazione di un caricamento manuale.
 
-La scheda Store è in sola lettura e anonima: nessun account, nessun token, e nulla della tua istanza viene inviato — viene letto solo il catalogo pubblico del fornitore. Le istanze isolate non richiedono alcuna configurazione — la scheda mostra allora un avviso cordiale (gli operatori possono anche impostare `EXTENSION_STORE_URL=off` per sopprimere la chiamata in uscita) — e usano il flusso basato su file qui sotto; il sito dello store del fornitore offre gli stessi acquisti e download da qualsiasi browser connesso a Internet.
+La scheda Store è in sola lettura e anonima: nessun account, nessun token, e nulla della tua istanza viene inviato — viene letto solo il catalogo pubblico del fornitore. Le istanze isolate non richiedono alcuna configurazione — la scheda mostra allora semplicemente un avviso cordiale — e usano il flusso basato su file qui sotto; il sito dello store del fornitore offre gli stessi acquisti e download da qualsiasi browser connesso a Internet.
 
 ## Installare un'estensione
 

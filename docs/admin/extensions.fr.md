@@ -20,7 +20,7 @@ L'onglet **Boutique** fonctionne sans aucune configuration et liste les extensio
 - **Acheter** ouvre la page de paiement dans un nouvel onglet du navigateur. Après l'achat, votre licence arrive par e-mail — collez-la dans l'onglet Installées.
 - **Installer** (ou **Mettre à jour** lorsqu'une version plus récente est publiée) télécharge le paquet et le fait passer par exactement la même vérification de signature et le même aperçu à blanc qu'un téléversement manuel.
 
-L'onglet Boutique est en lecture seule et anonyme : pas de compte, pas de jeton, et aucune information sur votre instance n'est transmise — seul le catalogue public du fournisseur est lu. Les instances isolées n'ont rien à configurer — l'onglet affiche alors une indication conviviale (les opérateurs peuvent aussi définir `EXTENSION_STORE_URL=off` pour supprimer l'appel sortant) — et utilisent le flux basé sur les fichiers ci-dessous ; le site de la boutique du fournisseur offre les mêmes achats et téléchargements depuis n'importe quel navigateur connecté à Internet.
+L'onglet Boutique est en lecture seule et anonyme : pas de compte, pas de jeton, et aucune information sur votre instance n'est transmise — seul le catalogue public du fournisseur est lu. Les instances isolées n'ont rien à configurer — l'onglet affiche alors simplement une indication conviviale — et utilisent le flux basé sur les fichiers ci-dessous ; le site de la boutique du fournisseur offre les mêmes achats et téléchargements depuis n'importe quel navigateur connecté à Internet.
 
 ## Installer une extension
 

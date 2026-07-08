@@ -20,7 +20,8 @@ at every boot by the loader); applying additionally requires a usable
 license entitlement for the extension key. Everything works from files —
 no network — so air-gapped installs are first-class. The Store tab is a
 read-only convenience over public static vendor hosting (see the Store
-section below); leaving ``EXTENSION_STORE_URL`` unset hides it.
+section below); its catalogue URL is a code constant, not configuration,
+and an unreachable store degrades to a friendly offline hint.
 """
 
 from __future__ import annotations
@@ -406,13 +407,15 @@ async def delete_install(
 #
 # The "store" is NOT a service the instance connects to: it is a static
 # catalog.json + public .teax bundles on vendor hosting
-# (settings.EXTENSION_STORE_URL). Bundles are inert without a signed
+# (settings.EXTENSION_STORE_URL — a baked-in code constant, deliberately
+# not configurable; see config.py). Bundles are inert without a signed
 # license, so no account, token, or auth is involved — the instance only
 # ever READS public files, and every downloaded bundle goes through the
 # exact same signature verification + dry-run preview pipeline as a manual
 # upload. Payment happens entirely outside (the catalogue's payment_link
 # opens in a new browser tab); the license still arrives as a pasted file.
-# Air-gapped installs leave EXTENSION_STORE_URL unset and nothing degrades.
+# Air-gapped installs need nothing: an unreachable store degrades to a
+# friendly offline hint and file-based installs are unaffected.
 # ---------------------------------------------------------------------------
 
 _STORE_CATALOG_TIMEOUT = 6.0

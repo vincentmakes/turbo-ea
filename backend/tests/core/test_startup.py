@@ -262,26 +262,18 @@ class TestAppVersion:
 
 
 class TestExtensionStoreUrl:
-    def test_unset_falls_back_to_baked_default(self):
-        from app.config import DEFAULT_EXTENSION_STORE_URL, _parse_extension_store_url
+    def test_store_url_is_a_baked_in_https_constant(self):
+        """The store is part of the product — a constant, not configuration.
 
-        assert _parse_extension_store_url("") == DEFAULT_EXTENSION_STORE_URL
-        assert _parse_extension_store_url("   ") == DEFAULT_EXTENSION_STORE_URL
+        Deliberately NOT env-driven: there is no opt-in/opt-out knob, and
+        repointing it means forking (same posture as the trusted vendor
+        keys). Air-gapped installs degrade to the offline hint.
+        """
+        import inspect
 
-    def test_explicit_url_overrides(self):
-        from app.config import _parse_extension_store_url
+        import app.config as config
 
-        assert (
-            _parse_extension_store_url("https://mirror.example.com") == "https://mirror.example.com"
-        )
-
-    def test_sentinels_disable_the_store(self):
-        from app.config import _parse_extension_store_url
-
-        for sentinel in ("off", "OFF", "none", "disabled", "false", " Off "):
-            assert _parse_extension_store_url(sentinel) == "", sentinel
-
-    def test_default_is_a_https_url(self):
-        from app.config import DEFAULT_EXTENSION_STORE_URL
-
-        assert DEFAULT_EXTENSION_STORE_URL.startswith("https://")
+        assert config.settings.EXTENSION_STORE_URL.startswith("https://")
+        assert config.settings.EXTENSION_STORE_URL == config.EXTENSION_STORE_URL
+        # Guard the invariant at the source level: no env lookup for it.
+        assert 'os.getenv("EXTENSION_STORE_URL"' not in inspect.getsource(config)
