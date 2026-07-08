@@ -9,6 +9,7 @@ from app.services.workspace_io.applier import (
     ApplyResult,
     SectionResult,
     apply_bundle,
+    apply_selected,
     diff_bundle,
 )
 from app.services.workspace_io.bundle import (
@@ -26,6 +27,7 @@ __all__ = [
     "BundleFormatError",
     "WorkspaceBundle",
     "apply_bundle",
+    "apply_selected",
     "diff_bundle",
     "parse_bundle",
     "build_bundle",

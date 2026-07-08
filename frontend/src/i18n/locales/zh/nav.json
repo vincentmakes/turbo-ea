@@ -24,6 +24,7 @@
   "admin.metamodel": "元模型",
   "admin.usersAndRoles": "用户与角色",
   "admin.surveys": "调查",
+  "admin.extensions": "扩展",
   "admin.settings": "设置",
   "userMenu.notificationSettings": "通知设置",
   "userMenu.darkMode": "深色模式",

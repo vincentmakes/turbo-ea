@@ -1,0 +1,575 @@
+"""Extension Store admin API + lightweight status endpoint.
+
+``GET    /admin/extensions``                — installed extensions + entitlement states
+``GET    /admin/extensions/license``        — active license summary
+``PUT    /admin/extensions/license``        — upload/paste a signed license (supersedes)
+``GET    /admin/extensions/install``        — recent bundle uploads
+``POST   /admin/extensions/install``        — upload a ``.teax``, background verify+preview
+``GET    /admin/extensions/install/{id}``   — poll upload status + dry-run diff
+``POST   /admin/extensions/install/{id}/apply`` — background install + content apply
+``DELETE /admin/extensions/install/{id}``   — discard an upload
+``PUT    /admin/extensions/{key}/enabled``  — enable/disable (soft, immediate)
+``DELETE /admin/extensions/{key}``          — uninstall (files removed, data retained)
+``GET    /extensions/status``               — non-admin: key/version/entitlement per extension
+
+Admin routes are gated by ``admin.manage_extensions``. Bundles must be
+signed by the vendor key (verified in the background job and re-verified
+at every boot by the loader); applying additionally requires a usable
+license entitlement for the extension key. Everything works from files —
+no network — so air-gapped installs are first-class.
+"""
+
+from __future__ import annotations
+
+import logging
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import get_current_user
+from app.database import async_session, get_db
+from app.models.extension import Extension, ExtensionInstall, ExtensionLicense
+from app.models.user import User
+from app.services.extensions.bundle import BundleError, read_bundle
+from app.services.extensions.content_pack import (
+    ContentPackError,
+    apply_content,
+    load_content_from_zip,
+    preview_content,
+)
+from app.services.extensions.installer import install_bundle, uninstall
+from app.services.extensions.license import LicenseError, parse_and_verify
+from app.services.extensions.registry import extension_registry
+from app.services.permission_service import PermissionService
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/admin/extensions", tags=["Extensions"])
+status_router = APIRouter(prefix="/extensions", tags=["Extensions"])
+
+_UPLOAD_DIR = Path("data/extension_installs")
+
+
+# ---------------------------------------------------------------------------
+# Response models
+# ---------------------------------------------------------------------------
+
+
+class EntitlementOut(BaseModel):
+    state: str  # active | grace | expired | unlicensed
+    plan: str = ""
+    expires_at: datetime | None = None
+    grace_until: datetime | None = None
+
+
+class ExtensionOut(BaseModel):
+    key: str
+    name: str
+    version: str
+    status: str
+    enabled: bool
+    capabilities: list[str] = []
+    last_error: str | None = None
+    entitlement: EntitlementOut
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class LicenseOut(BaseModel):
+    licensee: str
+    customer_id: str = ""
+    key_id: str = ""
+    issued_at: datetime | None = None
+    grace_days: int
+    entitlements: list[dict]
+    uploaded_at: datetime | None = None
+
+
+class LicenseIn(BaseModel):
+    text: str
+
+
+class ExtensionInstallOut(BaseModel):
+    id: str
+    filename: str
+    status: str
+    extension_key: str | None = None
+    extension_version: str | None = None
+    diff: dict | None = None
+    result: dict | None = None
+    error_message: str | None = None
+    created_at: datetime | None = None
+    previewed_at: datetime | None = None
+    applied_at: datetime | None = None
+
+
+class EnabledIn(BaseModel):
+    enabled: bool
+
+
+class ExtensionStatusOut(BaseModel):
+    key: str
+    version: str
+    entitlement_state: str
+
+
+def _extension_out(row: Extension) -> ExtensionOut:
+    ent = extension_registry.entitlement(row.key)
+    return ExtensionOut(
+        key=row.key,
+        name=row.name,
+        version=row.version,
+        status=row.status,
+        enabled=row.enabled,
+        capabilities=list(row.capabilities or []),
+        last_error=row.last_error,
+        entitlement=EntitlementOut(
+            state=ent.state,
+            plan=ent.plan,
+            expires_at=ent.expires_at,
+            grace_until=ent.grace_until,
+        ),
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def _install_out(row: ExtensionInstall) -> ExtensionInstallOut:
+    return ExtensionInstallOut(
+        id=str(row.id),
+        filename=row.filename,
+        status=row.status,
+        extension_key=row.extension_key,
+        extension_version=row.extension_version,
+        diff=row.diff or None,
+        result=row.result or None,
+        error_message=row.error_message,
+        created_at=row.created_at,
+        previewed_at=row.previewed_at,
+        applied_at=row.applied_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Installed extensions + license
+# ---------------------------------------------------------------------------
+
+
+@router.get("", response_model=list[ExtensionOut])
+async def list_extensions(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[ExtensionOut]:
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    await extension_registry.refresh_from_db(db)
+    rows = (
+        (
+            await db.execute(
+                select(Extension).where(Extension.status != "removed").order_by(Extension.key)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [_extension_out(row) for row in rows]
+
+
+@router.get("/license", response_model=LicenseOut)
+async def get_license(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> LicenseOut:
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    row = (
+        await db.execute(
+            select(ExtensionLicense)
+            .where(ExtensionLicense.is_active == True)  # noqa: E712
+            .order_by(ExtensionLicense.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="No license installed")
+    return LicenseOut(
+        licensee=row.licensee,
+        customer_id=row.customer_id or "",
+        key_id=row.key_id or "",
+        issued_at=row.issued_at,
+        grace_days=row.grace_days,
+        entitlements=list(row.entitlements or []),
+        uploaded_at=row.created_at,
+    )
+
+
+@router.put("/license", response_model=LicenseOut)
+async def put_license(
+    payload: LicenseIn,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> LicenseOut:
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    try:
+        doc = parse_and_verify(payload.text)
+    except LicenseError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # Supersede: deactivate previous active rows, keep them as audit history.
+    actives = (
+        (
+            await db.execute(
+                select(ExtensionLicense).where(ExtensionLicense.is_active == True)  # noqa: E712
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for old in actives:
+        old.is_active = False
+    row = ExtensionLicense(
+        raw_text=doc.raw_text,
+        key_id=doc.key_id or None,
+        licensee=doc.licensee,
+        customer_id=doc.customer_id or None,
+        issued_at=doc.issued_at,
+        grace_days=doc.grace_days,
+        entitlements=[
+            {
+                "extension_key": ent.extension_key,
+                "plan": ent.plan,
+                "expires_at": ent.expires_at.isoformat() if ent.expires_at else None,
+            }
+            for ent in doc.entitlements
+        ],
+        is_active=True,
+        created_by=user.id,
+    )
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    await extension_registry.refresh_from_db(db)
+    logger.info("Extension license updated: licensee=%s", doc.licensee)
+    return LicenseOut(
+        licensee=row.licensee,
+        customer_id=row.customer_id or "",
+        key_id=row.key_id or "",
+        issued_at=row.issued_at,
+        grace_days=row.grace_days,
+        entitlements=list(row.entitlements or []),
+        uploaded_at=row.created_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Bundle upload → verify/preview → apply
+# ---------------------------------------------------------------------------
+
+
+@router.get("/install", response_model=list[ExtensionInstallOut])
+async def list_installs(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[ExtensionInstallOut]:
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    rows = (
+        (
+            await db.execute(
+                select(ExtensionInstall).order_by(ExtensionInstall.created_at.desc()).limit(20)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [_install_out(row) for row in rows]
+
+
+@router.post("/install", response_model=ExtensionInstallOut, status_code=202)
+async def upload_bundle(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ExtensionInstallOut:
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Empty bundle file")
+
+    _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    install_id = uuid.uuid4()
+    storage_path = _UPLOAD_DIR / f"{install_id}.bin"
+    storage_path.write_bytes(raw)
+
+    install = ExtensionInstall(
+        id=install_id,
+        filename=file.filename or "extension.teax",
+        file_size=len(raw),
+        storage_path=str(storage_path),
+        status="verifying",
+        created_by=user.id,
+    )
+    db.add(install)
+    await db.commit()
+    await db.refresh(install)
+
+    background_tasks.add_task(_verify_and_preview_job, str(install.id), str(user.id))
+    return _install_out(install)
+
+
+@router.get("/install/{install_id}", response_model=ExtensionInstallOut)
+async def get_install(
+    install_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ExtensionInstallOut:
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    return _install_out(await _load_install(db, install_id))
+
+
+@router.post("/install/{install_id}/apply", response_model=ExtensionInstallOut, status_code=202)
+async def apply_install(
+    install_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ExtensionInstallOut:
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    install = await _load_install(db, install_id)
+    if install.status not in {"previewed", "failed"}:
+        raise HTTPException(
+            status_code=400, detail=f"Cannot apply an upload in status {install.status!r}"
+        )
+    # Second gate: installing an extension requires a usable entitlement for
+    # its key (a valid signature alone is provenance, not activation).
+    await extension_registry.refresh_from_db(db)
+    if install.extension_key and not extension_registry.entitlement(install.extension_key).usable:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "No usable license entitlement for this extension — upload the license file first"
+            ),
+        )
+    install.status = "applying"
+    await db.commit()
+    await db.refresh(install)
+    background_tasks.add_task(_apply_job, str(install.id), str(user.id))
+    return _install_out(install)
+
+
+@router.delete("/install/{install_id}", status_code=204)
+async def delete_install(
+    install_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> None:
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    install = await _load_install(db, install_id)
+    if install.storage_path:
+        try:
+            Path(install.storage_path).unlink(missing_ok=True)
+        except OSError:
+            logger.warning("Could not delete bundle upload %s", install.storage_path)
+    await db.delete(install)
+    await db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Enable / disable / uninstall
+# ---------------------------------------------------------------------------
+
+
+@router.put("/{key}/enabled", response_model=ExtensionOut)
+async def set_extension_enabled(
+    key: str,
+    payload: EnabledIn,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ExtensionOut:
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    row = (
+        await db.execute(
+            select(Extension).where(Extension.key == key, Extension.status != "removed")
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Extension not found")
+    row.enabled = payload.enabled
+    if row.status in {"installed", "disabled"}:
+        row.status = "installed" if payload.enabled else "disabled"
+    await db.commit()
+    await db.refresh(row)
+    await extension_registry.refresh_from_db(db)
+    return _extension_out(row)
+
+
+@router.delete("/{key}", response_model=ExtensionOut)
+async def uninstall_extension(
+    key: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ExtensionOut:
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    row = await uninstall(db, key)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Extension not found")
+    await db.commit()
+    await db.refresh(row)
+    await extension_registry.refresh_from_db(db)
+    return _extension_out(row)
+
+
+# ---------------------------------------------------------------------------
+# Non-admin status (consumed by the frontend extension loader)
+# ---------------------------------------------------------------------------
+
+
+@status_router.get("/status", response_model=list[ExtensionStatusOut])
+async def extensions_status(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[ExtensionStatusOut]:
+    """Least-privilege list of enabled extensions for any authenticated user."""
+    await extension_registry.refresh_from_db(db)
+    return [
+        ExtensionStatusOut(
+            key=info.key,
+            version=info.version,
+            entitlement_state=extension_registry.entitlement(info.key).state,
+        )
+        for info in extension_registry.all()
+        if info.enabled and info.status != "removed"
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Background jobs
+# ---------------------------------------------------------------------------
+
+
+async def _load_install(db: AsyncSession, install_id: uuid.UUID) -> ExtensionInstall:
+    install = (
+        await db.execute(select(ExtensionInstall).where(ExtensionInstall.id == install_id))
+    ).scalar_one_or_none()
+    if install is None:
+        raise HTTPException(status_code=404, detail="Extension upload not found")
+    return install
+
+
+async def run_verify_and_preview(db: AsyncSession, install: ExtensionInstall, user: User) -> None:
+    """Verify a bundle upload and dry-run its content pack.
+
+    Session-agnostic core of the background job (also driven directly by
+    tests under the savepoint fixture). Failures land on the install row,
+    never raise.
+    """
+    install_id = install.id  # captured before any rollback expires the instance
+    try:
+        bundle = read_bundle(Path(install.storage_path))
+        install.extension_key = bundle.key
+        install.extension_version = bundle.version
+        # "turboea-extension/1" -> "1" (column width mirrors workspace_transfers)
+        install.format_version = str(bundle.manifest.get("schema", "")).rsplit("/", 1)[-1][:16]
+        if "content" in bundle.capabilities:
+            sheets = load_content_from_zip(Path(install.storage_path), bundle.manifest)
+            result = await preview_content(db, sheets, user)
+            install.diff = result.as_dict()
+        else:
+            install.diff = {}
+        install.status = "previewed"
+        install.previewed_at = datetime.now(timezone.utc)
+        await db.commit()
+    except (BundleError, ContentPackError) as exc:
+        await db.rollback()
+        await _mark_failed(db, install_id, str(exc))
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("extension verify/preview failed")
+        await db.rollback()
+        await _mark_failed(db, install_id, str(exc)[:1000])
+
+
+async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> None:
+    """Install a verified bundle: apply its content pack, then extract files.
+
+    Content is applied first (straight from the verified zip; the
+    workspace engine commits on success) so a content failure leaves no
+    half-installed extension directory behind.
+    """
+    install_id = install.id  # captured before any rollback expires the instance
+    try:
+        # Re-verify from disk — the upload could predate a core upgrade.
+        bundle = read_bundle(Path(install.storage_path))
+
+        if "content" in bundle.capabilities:
+            sheets = load_content_from_zip(Path(install.storage_path), bundle.manifest)
+            result = await apply_content(db, sheets, user)
+            install.result = result.as_dict()
+            if result.total_failed:
+                install.status = "failed"
+                install.error_message = (
+                    f"{result.total_failed} content section error(s) — see result"
+                )
+                await db.commit()
+                return
+
+        extension = await install_bundle(db, bundle, user.id)
+        install.status = "installed"
+        install.applied_at = datetime.now(timezone.utc)
+        await db.commit()
+        await extension_registry.refresh_from_db(db)
+        logger.info(
+            "Extension %s %s installed via upload %s (status=%s)",
+            extension.key,
+            extension.version,
+            install.id,
+            extension.status,
+        )
+    except (BundleError, ContentPackError) as exc:
+        await db.rollback()
+        await _mark_failed(db, install_id, str(exc))
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("extension apply failed")
+        await db.rollback()
+        await _mark_failed(db, install_id, str(exc)[:1000])
+
+
+async def _mark_failed(db: AsyncSession, install_id: uuid.UUID, message: str) -> None:
+    install = (
+        await db.execute(select(ExtensionInstall).where(ExtensionInstall.id == install_id))
+    ).scalar_one_or_none()
+    if install is not None:
+        install.status = "failed"
+        install.error_message = message
+        await db.commit()
+
+
+async def _run_job(install_id_str: str, user_id_str: str, runner) -> None:
+    async with async_session() as db:
+        install = (
+            await db.execute(
+                select(ExtensionInstall).where(ExtensionInstall.id == uuid.UUID(install_id_str))
+            )
+        ).scalar_one_or_none()
+        if install is None:
+            return
+        user = (
+            await db.execute(select(User).where(User.id == uuid.UUID(user_id_str)))
+        ).scalar_one_or_none()
+        if user is None or not install.storage_path:
+            install.status = "failed"
+            install.error_message = "Upload user or bundle file no longer exists"
+            await db.commit()
+            return
+        await runner(db, install, user)
+
+
+async def _verify_and_preview_job(install_id_str: str, user_id_str: str) -> None:
+    await _run_job(install_id_str, user_id_str, run_verify_and_preview)
+
+
+async def _apply_job(install_id_str: str, user_id_str: str) -> None:
+    await _run_job(install_id_str, user_id_str, run_apply)

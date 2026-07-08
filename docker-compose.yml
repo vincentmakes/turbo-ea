@@ -67,6 +67,11 @@ services:
       start_period: 60s
     expose:
       - "8000"
+    volumes:
+      # Persistent app data: installed extensions plus workspace-transfer and
+      # migration upload snapshots. Without this the data/ tree lives in the
+      # container layer and is lost on every `docker compose pull` upgrade.
+      - backend_data:/app/data
 
   frontend:
     image: ghcr.io/vincentmakes/turbo-ea/frontend:${TURBO_EA_TAG:-latest}
@@ -167,3 +172,4 @@ services:
 volumes:
   postgres_data:
   ollama_models:
+  backend_data:

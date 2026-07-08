@@ -92,6 +92,13 @@ class Settings:
     # leave it empty and the ops API answers 404.
     OPS_PUBLIC_KEY: str = os.getenv("OPS_PUBLIC_KEY", "")
 
+    # Extension Store vendor key override (Ed25519 public key, base64 raw
+    # 32 bytes). Honored ONLY when ENVIRONMENT=development — production
+    # builds trust exclusively the key baked into
+    # app/core/extension_signing.py so extension provenance cannot be
+    # repointed at a foreign signing key via configuration.
+    EXTENSION_VENDOR_PUBLIC_KEY: str = os.getenv("EXTENSION_VENDOR_PUBLIC_KEY", "")
+
     # AI / LLM (optional — disabled by default)
     AI_PROVIDER_URL: str = os.getenv("AI_PROVIDER_URL", "")
     AI_MODEL: str = os.getenv("AI_MODEL", "")

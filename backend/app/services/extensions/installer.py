@@ -1,0 +1,174 @@
+"""Extension installation on the persistent extensions volume.
+
+Layout on disk (``data/extensions/`` — persisted via the ``backend_data``
+docker volume)::
+
+    data/extensions/
+      <key>/
+        manifest.json   # kept verbatim so the loader can re-verify at boot
+        manifest.sig
+        lib/            # extracted backend wheel contents (added to sys.path)
+        frontend/       # ESM bundle(s) served by /ext-assets
+        content/        # data payloads
+        docs/
+
+Wheels are installed by **zip extraction, not pip** — the backend
+container is non-root with all capabilities dropped and may be
+air-gapped, so pulling dependencies at install time is off the table.
+Only pure-Python ``py3-none-any`` wheels are accepted; an extension
+bundles any extra pure-Python dependency wheels alongside its own.
+
+Installation is atomic: everything is extracted into a ``.tmp-*``
+sibling first and swapped into place with ``os.replace`` so a crash
+mid-install can never leave a half-written extension directory.
+"""
+
+from __future__ import annotations
+
+import logging
+import shutil
+import uuid
+import zipfile
+from pathlib import Path
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.extension import Extension
+from app.services.extensions.bundle import (
+    MANIFEST_NAME,
+    SIGNATURE_NAME,
+    BundleError,
+    VerifiedBundle,
+    _safe_member_name,
+)
+
+logger = logging.getLogger(__name__)
+
+EXTENSIONS_DIR = Path("data/extensions")
+
+# Statuses that mean "there is extension code the running process has not
+# loaded (or not unloaded)" — surfaced as a restart banner in the admin UI.
+RUNTIME_CAPABILITIES = frozenset({"backend", "frontend"})
+
+
+def _extract_wheel(wheel_path: Path, lib_dir: Path) -> None:
+    """Extract a pure-Python wheel's packages into ``lib_dir``."""
+    name = wheel_path.name
+    if not name.endswith("py3-none-any.whl"):
+        raise BundleError(
+            f"Extension wheel {name} is not py3-none-any — only pure-Python wheels are supported"
+        )
+    with zipfile.ZipFile(wheel_path) as zf:
+        for member in zf.namelist():
+            if member.endswith("/"):
+                continue
+            if not _safe_member_name(member):
+                raise BundleError(f"Wheel {name} contains an unsafe path: {member}")
+            target = lib_dir / member
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(zf.read(member))
+
+
+def extract_bundle_to_dir(bundle: VerifiedBundle, target_dir: Path) -> None:
+    """Extract a verified bundle's members (and wheels) into ``target_dir``."""
+    target_dir.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(bundle.path) as zf:
+        for member in zf.namelist():
+            if member.endswith("/"):
+                continue
+            if member not in (MANIFEST_NAME, SIGNATURE_NAME) and not _safe_member_name(member):
+                raise BundleError(f"Bundle contains an unsafe path: {member}")
+            target = target_dir / member
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(zf.read(member))
+
+    lib_dir = target_dir / "lib"
+    for rel in (bundle.manifest.get("backend") or {}).get("wheels", []):
+        wheel_path = target_dir / str(rel)
+        if not wheel_path.is_file():
+            raise BundleError(f"Bundle manifest lists a missing wheel: {rel}")
+        _extract_wheel(wheel_path, lib_dir)
+
+
+async def install_bundle(
+    db: AsyncSession,
+    bundle: VerifiedBundle,
+    user_id: uuid.UUID | None,
+    *,
+    extensions_dir: Path | None = None,
+) -> Extension:
+    """Extract a verified bundle onto the volume and upsert its registry row.
+
+    The caller owns the transaction (flush only) and is responsible for
+    refreshing the in-memory registry afterwards.
+    """
+    key = bundle.key
+    extensions_dir = extensions_dir if extensions_dir is not None else EXTENSIONS_DIR
+    extensions_dir.mkdir(parents=True, exist_ok=True)
+    tmp_dir = extensions_dir / f".tmp-{uuid.uuid4().hex}"
+    try:
+        extract_bundle_to_dir(bundle, tmp_dir)
+        final_dir = extensions_dir / key
+        if final_dir.exists():
+            shutil.rmtree(final_dir)
+        tmp_dir.replace(final_dir)
+    except Exception:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise
+
+    has_runtime_code = bool(set(bundle.capabilities) & RUNTIME_CAPABILITIES)
+    status = "needs_restart" if has_runtime_code else "installed"
+
+    existing = (
+        await db.execute(select(Extension).where(Extension.key == key))
+    ).scalar_one_or_none()
+    if existing is None:
+        existing = Extension(
+            key=key,
+            name=str(bundle.manifest.get("name") or key),
+            version=bundle.version,
+            manifest=bundle.manifest,
+            capabilities=bundle.capabilities,
+            status=status,
+            enabled=True,
+            installed_by=user_id,
+        )
+        db.add(existing)
+    else:
+        existing.name = str(bundle.manifest.get("name") or key)
+        existing.version = bundle.version
+        existing.manifest = bundle.manifest
+        existing.capabilities = bundle.capabilities
+        existing.status = status
+        existing.last_error = None
+        existing.installed_by = user_id
+        # A re-install of a previously removed extension comes back enabled.
+        if existing.status != "disabled":
+            existing.enabled = True
+    await db.flush()
+    logger.info("Installed extension %s %s (status=%s)", key, bundle.version, status)
+    return existing
+
+
+async def uninstall(
+    db: AsyncSession, key: str, *, extensions_dir: Path | None = None
+) -> Extension | None:
+    """Remove an extension's files and mark its row ``removed``.
+
+    Extension data (``ext_{key}_*`` tables, content-pack card types, and
+    their cards) is deliberately left untouched — uninstalling must never
+    destroy customer data. If the extension had loaded runtime code the
+    process keeps serving it until the next restart; the API layer
+    surfaces that.
+    """
+    extensions_dir = extensions_dir if extensions_dir is not None else EXTENSIONS_DIR
+    row = (await db.execute(select(Extension).where(Extension.key == key))).scalar_one_or_none()
+    if row is None:
+        return None
+    shutil.rmtree(extensions_dir / key, ignore_errors=True)
+    row.status = "removed"
+    row.enabled = False
+    await db.flush()
+    logger.info("Uninstalled extension %s (files removed, data retained)", key)
+    return row

@@ -18,6 +18,7 @@ from app.api.v1 import (
     documents,
     eol,
     events,
+    extensions,
     favorites,
     file_attachments,
     metamodel,
@@ -84,6 +85,8 @@ api_router.include_router(calculations.router)
 api_router.include_router(servicenow.router)
 api_router.include_router(migration.router)
 api_router.include_router(workspace.router)
+api_router.include_router(extensions.router)
+api_router.include_router(extensions.status_router)
 api_router.include_router(turbolens.router)
 api_router.include_router(turbolens.cards_router)
 api_router.include_router(turbolens.compliance_router)

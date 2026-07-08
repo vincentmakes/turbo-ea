@@ -91,6 +91,7 @@ const ADMIN_ITEM_DEFS: NavItemDef[] = [
   { labelKey: "admin.metamodel", icon: "settings_suggest", path: "/admin/metamodel", permission: "admin.metamodel" },
   { labelKey: "admin.usersAndRoles", icon: "group", path: "/admin/users", permission: "admin.users" },
   { labelKey: "admin.surveys", icon: "assignment", path: "/admin/surveys", permission: "surveys.manage" },
+  { labelKey: "admin.extensions", icon: "extension", path: "/admin/extensions", permission: "admin.manage_extensions" },
   { labelKey: "admin.settings", icon: "settings", path: "/admin/settings", permission: "admin.settings" },
 ];
 

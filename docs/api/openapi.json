@@ -687,6 +687,20 @@
         "title": "Body_import_bpmn_api_v1_bpm_processes__process_id__diagram_import_post",
         "type": "object"
       },
+      "Body_upload_bundle_api_v1_admin_extensions_install_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_bundle_api_v1_admin_extensions_install_post",
+        "type": "object"
+      },
       "Body_upload_favicon_api_v1_settings_favicon_post": {
         "properties": {
           "file": {
@@ -4161,6 +4175,19 @@
         "title": "EmailSettingsPayload",
         "type": "object"
       },
+      "EnabledIn": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "EnabledIn",
+        "type": "object"
+      },
       "EnabledLocalesPayload": {
         "properties": {
           "locales": {
@@ -4175,6 +4202,48 @@
           "locales"
         ],
         "title": "EnabledLocalesPayload",
+        "type": "object"
+      },
+      "EntitlementOut": {
+        "properties": {
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "grace_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grace Until"
+          },
+          "plan": {
+            "default": "",
+            "title": "Plan",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "EntitlementOut",
         "type": "object"
       },
       "EolCycle": {
@@ -4333,6 +4402,225 @@
           "score"
         ],
         "title": "EolProductMatch",
+        "type": "object"
+      },
+      "ExtensionInstallOut": {
+        "properties": {
+          "applied_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applied At"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "diff": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diff"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "extension_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extension Key"
+          },
+          "extension_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extension Version"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "previewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previewed At"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "filename",
+          "status"
+        ],
+        "title": "ExtensionInstallOut",
+        "type": "object"
+      },
+      "ExtensionOut": {
+        "properties": {
+          "capabilities": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "entitlement": {
+            "$ref": "#/components/schemas/EntitlementOut"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "version",
+          "status",
+          "enabled",
+          "entitlement"
+        ],
+        "title": "ExtensionOut",
+        "type": "object"
+      },
+      "ExtensionStatusOut": {
+        "properties": {
+          "entitlement_state": {
+            "title": "Entitlement State",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "version",
+          "entitlement_state"
+        ],
+        "title": "ExtensionStatusOut",
         "type": "object"
       },
       "FieldMappingIn": {
@@ -4743,6 +5031,80 @@
           "catalogue_ids"
         ],
         "title": "ImportRequest",
+        "type": "object"
+      },
+      "LicenseIn": {
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "LicenseIn",
+        "type": "object"
+      },
+      "LicenseOut": {
+        "properties": {
+          "customer_id": {
+            "default": "",
+            "title": "Customer Id",
+            "type": "string"
+          },
+          "entitlements": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Entitlements",
+            "type": "array"
+          },
+          "grace_days": {
+            "title": "Grace Days",
+            "type": "integer"
+          },
+          "issued_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issued At"
+          },
+          "key_id": {
+            "default": "",
+            "title": "Key Id",
+            "type": "string"
+          },
+          "licensee": {
+            "title": "Licensee",
+            "type": "string"
+          },
+          "uploaded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uploaded At"
+          }
+        },
+        "required": [
+          "licensee",
+          "grace_days",
+          "entitlements"
+        ],
+        "title": "LicenseOut",
         "type": "object"
       },
       "LoginBrandingPayload": {
@@ -13728,6 +14090,369 @@
         "summary": "Health"
       }
     },
+    "/api/v1/admin/extensions": {
+      "get": {
+        "operationId": "list_extensions_api_v1_admin_extensions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ExtensionOut"
+                  },
+                  "title": "Response List Extensions Api V1 Admin Extensions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Extensions",
+        "tags": [
+          "Extensions"
+        ]
+      }
+    },
+    "/api/v1/admin/extensions/install": {
+      "get": {
+        "operationId": "list_installs_api_v1_admin_extensions_install_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ExtensionInstallOut"
+                  },
+                  "title": "Response List Installs Api V1 Admin Extensions Install Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Installs",
+        "tags": [
+          "Extensions"
+        ]
+      },
+      "post": {
+        "operationId": "upload_bundle_api_v1_admin_extensions_install_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_bundle_api_v1_admin_extensions_install_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionInstallOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Bundle",
+        "tags": [
+          "Extensions"
+        ]
+      }
+    },
+    "/api/v1/admin/extensions/install/{install_id}": {
+      "delete": {
+        "operationId": "delete_install_api_v1_admin_extensions_install__install_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "install_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Install Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Install",
+        "tags": [
+          "Extensions"
+        ]
+      },
+      "get": {
+        "operationId": "get_install_api_v1_admin_extensions_install__install_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "install_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Install Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionInstallOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Install",
+        "tags": [
+          "Extensions"
+        ]
+      }
+    },
+    "/api/v1/admin/extensions/install/{install_id}/apply": {
+      "post": {
+        "operationId": "apply_install_api_v1_admin_extensions_install__install_id__apply_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "install_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Install Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionInstallOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Apply Install",
+        "tags": [
+          "Extensions"
+        ]
+      }
+    },
+    "/api/v1/admin/extensions/license": {
+      "get": {
+        "operationId": "get_license_api_v1_admin_extensions_license_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LicenseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get License",
+        "tags": [
+          "Extensions"
+        ]
+      },
+      "put": {
+        "operationId": "put_license_api_v1_admin_extensions_license_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LicenseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LicenseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put License",
+        "tags": [
+          "Extensions"
+        ]
+      }
+    },
+    "/api/v1/admin/extensions/{key}": {
+      "delete": {
+        "operationId": "uninstall_extension_api_v1_admin_extensions__key__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Uninstall Extension",
+        "tags": [
+          "Extensions"
+        ]
+      }
+    },
+    "/api/v1/admin/extensions/{key}/enabled": {
+      "put": {
+        "operationId": "set_extension_enabled_api_v1_admin_extensions__key__enabled_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnabledIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Extension Enabled",
+        "tags": [
+          "Extensions"
+        ]
+      }
+    },
     "/api/v1/admin/workspace/export": {
       "get": {
         "operationId": "export_workspace_api_v1_admin_workspace_export_get",
@@ -21166,6 +21891,32 @@
         "summary": "Event Stream",
         "tags": [
           "events"
+        ]
+      }
+    },
+    "/api/v1/extensions/status": {
+      "get": {
+        "description": "Least-privilege list of enabled extensions for any authenticated user.",
+        "operationId": "extensions_status_api_v1_extensions_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ExtensionStatusOut"
+                  },
+                  "title": "Response Extensions Status Api V1 Extensions Status Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Extensions Status",
+        "tags": [
+          "Extensions"
         ]
       }
     },

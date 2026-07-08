@@ -24,6 +24,7 @@
   "admin.metamodel": "Metamodell",
   "admin.usersAndRoles": "Benutzer & Rollen",
   "admin.surveys": "Umfragen",
+  "admin.extensions": "Erweiterungen",
   "admin.settings": "Einstellungen",
   "userMenu.notificationSettings": "Benachrichtigungseinstellungen",
   "userMenu.darkMode": "Dunkelmodus",

@@ -24,6 +24,7 @@
   "admin.metamodel": "Метамодель",
   "admin.usersAndRoles": "Пользователи и роли",
   "admin.surveys": "Опросы",
+  "admin.extensions": "Расширения",
   "admin.settings": "Настройки",
   "userMenu.notificationSettings": "Настройки уведомлений",
   "userMenu.darkMode": "Тёмная тема",

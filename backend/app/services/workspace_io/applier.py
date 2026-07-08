@@ -156,8 +156,32 @@ async def diff_bundle(db: AsyncSession, bundle: WorkspaceBundle, user: User) -> 
     return await _run(db, bundle, user, dry_run=True)
 
 
+async def apply_selected(
+    db: AsyncSession,
+    bundle: WorkspaceBundle,
+    user: User,
+    *,
+    sheets: set[str],
+    dry_run: bool,
+) -> ApplyResult:
+    """Run the apply engine over a subset of sheets.
+
+    Public facade for callers outside workspace transfer (the Extension
+    Store's content packs) that reuse the idempotent upsert engine —
+    built-in protection, one-relation-type-per-pair enforcement,
+    topo-sorted cards, dry-run via savepoint — over an in-memory
+    :class:`WorkspaceBundle` carrying only the listed sheets.
+    """
+    return await _run(db, bundle, user, dry_run=dry_run, sheets=sheets)
+
+
 async def _run(
-    db: AsyncSession, bundle: WorkspaceBundle, user: User, *, dry_run: bool
+    db: AsyncSession,
+    bundle: WorkspaceBundle,
+    user: User,
+    *,
+    dry_run: bool,
+    sheets: set[str] | None = None,
 ) -> ApplyResult:
     result = ApplyResult(dry_run=dry_run)
 
@@ -168,6 +192,9 @@ async def _run(
     # relations/tags passes (a per-section savepoint that releases mid-run would
     # break that visibility under the test harness's savepoint-restart fixture).
     root = await db.begin_nested() if dry_run else None
+
+    def _wanted(sheet: str) -> bool:
+        return sheets is None or sheet in sheets
 
     sections = [
         (schema.SHEET_CARD_TYPES, _apply_card_types),
@@ -184,6 +211,8 @@ async def _run(
 
     try:
         for sheet, applier in sections:
+            if not _wanted(sheet):
+                continue
             sr = SectionResult(sheet=sheet)
             result.sections.append(sr)
             await applier(db, bundle, sr, dry_run)
@@ -191,29 +220,37 @@ async def _run(
         # --- Generic entity sections (module + card-context tables) -----
         # Built after the cards pass so every card FK resolves. Cards never
         # preserve UUIDs; module rows do, so intra-module FKs copy verbatim.
-        all_types = {str(k) for (k,) in (await db.execute(select(CardType.key))).all()}
-        ent_resolver = await CardResolver.load(db, all_types)
-        email_to_id = {
-            u.email.lower(): u.id for u in (await db.execute(select(User))).scalars().all()
-        }
-        for ent in ENTITY_SECTIONS:
+        wanted_entity_sections = [ent for ent in ENTITY_SECTIONS if _wanted(ent.sheet)]
+        needs_resolver = bool(wanted_entity_sections) or _wanted(SHEET_DIAGRAM_CARDS)
+        ent_resolver = None
+        email_to_id: dict[str, uuid.UUID] = {}
+        if needs_resolver or _wanted(SHEET_BOOKMARK_SHARES):
+            all_types = {str(k) for (k,) in (await db.execute(select(CardType.key))).all()}
+            ent_resolver = await CardResolver.load(db, all_types)
+            email_to_id = {
+                u.email.lower(): u.id for u in (await db.execute(select(User))).scalars().all()
+            }
+        for ent in wanted_entity_sections:
             sr = SectionResult(sheet=ent.sheet)
             result.sections.append(sr)
             await apply_entity_section(
                 db, ent, bundle, sr, ent_resolver, email_to_id, dry_run=dry_run
             )
 
-        sr = SectionResult(sheet=SHEET_DIAGRAM_CARDS)
-        result.sections.append(sr)
-        await _apply_diagram_cards(db, bundle, sr, ent_resolver)
+        if _wanted(SHEET_DIAGRAM_CARDS):
+            sr = SectionResult(sheet=SHEET_DIAGRAM_CARDS)
+            result.sections.append(sr)
+            await _apply_diagram_cards(db, bundle, sr, ent_resolver)
 
-        sr = SectionResult(sheet=SHEET_DIAGRAM_GROUP_MEMBERS)
-        result.sections.append(sr)
-        await _apply_diagram_group_members(db, bundle, sr)
+        if _wanted(SHEET_DIAGRAM_GROUP_MEMBERS):
+            sr = SectionResult(sheet=SHEET_DIAGRAM_GROUP_MEMBERS)
+            result.sections.append(sr)
+            await _apply_diagram_group_members(db, bundle, sr)
 
-        sr = SectionResult(sheet=SHEET_BOOKMARK_SHARES)
-        result.sections.append(sr)
-        await _apply_bookmark_shares(db, bundle, sr, email_to_id)
+        if _wanted(SHEET_BOOKMARK_SHARES):
+            sr = SectionResult(sheet=SHEET_BOOKMARK_SHARES)
+            result.sections.append(sr)
+            await _apply_bookmark_shares(db, bundle, sr, email_to_id)
 
         # --- Final calculation + data-quality pass --------------------------
         # Re-run calculated fields and rescore every active card, now that
@@ -223,8 +260,15 @@ async def _run(
         # score the relation/tag/stakeholder buckets as unfilled. Covering ALL
         # cards (not just imported ones) also heals rows mis-scored by earlier
         # importer versions. Runs in dry-run too (the savepoint rolls it back)
-        # so a preview exercises the same code path as an apply.
-        await _finalize_cards(db)
+        # so a preview exercises the same code path as an apply. Skipped for
+        # selective runs that touch no card-affecting sheet.
+        if sheets is None or sheets & {
+            schema.SHEET_CARDS,
+            schema.SHEET_CARD_TAGS,
+            schema.SHEET_RELATIONS,
+            schema.SHEET_CALCULATIONS,
+        }:
+            await _finalize_cards(db)
     finally:
         if dry_run:
             assert root is not None

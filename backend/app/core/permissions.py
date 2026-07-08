@@ -245,6 +245,11 @@ APP_PERMISSIONS: dict[str, dict] = {
                 "metamodel, configuration, settings, users, cards, and relations. "
                 "A dry-run preview is shown before anything is written."
             ),
+            "admin.manage_extensions": (
+                "Manage the Extension Store: upload and install vendor-signed "
+                "extension bundles, apply their content, upload license files, "
+                "and enable/disable or uninstall extensions."
+            ),
         },
     },
 }
@@ -384,6 +389,7 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "admin.impersonate": False,
     "admin.export_workspace": False,
     "admin.import_workspace": False,
+    "admin.manage_extensions": False,
 }
 
 MEMBER_PERMISSIONS: dict[str, bool] = {
@@ -461,6 +467,7 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "admin.impersonate": False,
     "admin.export_workspace": False,
     "admin.import_workspace": False,
+    "admin.manage_extensions": False,
 }
 
 VIEWER_PERMISSIONS: dict[str, bool] = {
@@ -538,6 +545,7 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "admin.impersonate": False,
     "admin.export_workspace": False,
     "admin.import_workspace": False,
+    "admin.manage_extensions": False,
 }
 
 # ---------------------------------------------------------------------------
