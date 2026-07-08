@@ -1731,5 +1731,18 @@
   "extensions.uninstall.title": "Erweiterung deinstallieren?",
   "extensions.uninstall.body": "Die Dateien der Erweiterung werden entfernt und ihre Funktionen stehen nicht mehr zur Verfügung. Von ihr erstellte Daten (Kartentypen, Karten, eigene Tabellen) bleiben erhalten und erscheinen bei einer Neuinstallation wieder.",
   "extensions.uninstall.cancel": "Abbrechen",
-  "extensions.uninstall.confirm": "Deinstallieren"
+  "extensions.uninstall.confirm": "Deinstallieren",
+  "extensions.storeSection.title": "Store",
+  "extensions.storeSection.intro": "Verbinden Sie diese Instanz über den einmaligen Aktivierungscode aus Ihrem Kauf mit dem Online-Erweiterungsstore. Abgeschottete Instanzen überspringen dies und installieren stattdessen aus Dateien.",
+  "extensions.storeSection.url": "Store-URL",
+  "extensions.storeSection.code": "Aktivierungscode",
+  "extensions.storeSection.connect": "Verbinden",
+  "extensions.storeSection.connectedTo": "Verbunden mit {{url}}",
+  "extensions.storeSection.refreshLicense": "Lizenz aktualisieren",
+  "extensions.storeSection.refreshed": "Lizenz aus dem Store aktualisiert.",
+  "extensions.storeSection.disconnect": "Trennen",
+  "extensions.storeSection.emptyCatalog": "Noch keine Pakete veröffentlicht.",
+  "extensions.storeSection.installed": "Installiert {{version}}",
+  "extensions.storeSection.install": "Installieren",
+  "extensions.storeSection.buy": "Kaufen"
 }

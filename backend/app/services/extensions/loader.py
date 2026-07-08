@@ -30,7 +30,7 @@ from typing import Any
 from fastapi import APIRouter, Depends
 
 from app.config import APP_VERSION
-from app.core.extension_signing import vendor_public_key, verify_bytes
+from app.core.extension_signing import trusted_public_keys, verify_with_trusted
 from app.services.extensions.bundle import (
     MANIFEST_NAME,
     SIGNATURE_NAME,
@@ -78,8 +78,8 @@ def _verify_installed_dir(ext_dir: Path) -> dict[str, Any]:
         raise BundleError("Installed extension is missing its signed manifest")
     manifest_bytes = manifest_path.read_bytes()
     signature_b64 = signature_path.read_text(encoding="ascii", errors="replace").strip()
-    key = vendor_public_key()
-    if not key or not verify_bytes(manifest_bytes, signature_b64, key):
+    trusted = trusted_public_keys()
+    if not trusted or not verify_with_trusted(manifest_bytes, signature_b64, None, trusted):
         raise BundleError("Installed extension failed signature re-verification — refusing to load")
     manifest = json.loads(manifest_bytes)
     if not isinstance(manifest, dict):

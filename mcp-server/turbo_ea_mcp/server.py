@@ -1676,7 +1676,9 @@ async def sign_adr(adr_id: str, comment: str = "", dry_run: bool = True) -> str:
     if (disabled := _writes_disabled_message()) is not None:
         return disabled
     if dry_run:
-        return _fmt({"dry_run": True, "would_sign": {"adr_id": adr_id, "comment": comment}})
+        return _fmt(
+            {"dry_run": True, "would_sign": {"adr_id": adr_id, "comment": comment}}
+        )
     client = TurboEAClient(token)
     try:
         data = await client.post(

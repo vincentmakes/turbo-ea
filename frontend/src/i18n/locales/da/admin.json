@@ -1731,5 +1731,18 @@
   "extensions.uninstall.title": "Afinstaller udvidelsen?",
   "extensions.uninstall.body": "Udvidelsens filer fjernes, og dens funktioner holder op med at virke. Data, den har oprettet (korttyper, kort, dens egne tabeller), bevares og dukker op igen ved geninstallation.",
   "extensions.uninstall.cancel": "Annuller",
-  "extensions.uninstall.confirm": "Afinstaller"
+  "extensions.uninstall.confirm": "Afinstaller",
+  "extensions.storeSection.title": "Butik",
+  "extensions.storeSection.intro": "Forbind denne installation til online-udvidelsesbutikken med den engangsaktiveringskode, du fik ved købet. Isolerede installationer springer dette over og installerer fra filer i stedet.",
+  "extensions.storeSection.url": "Butiks-URL",
+  "extensions.storeSection.code": "Aktiveringskode",
+  "extensions.storeSection.connect": "Forbind",
+  "extensions.storeSection.connectedTo": "Forbundet til {{url}}",
+  "extensions.storeSection.refreshLicense": "Opdater licens",
+  "extensions.storeSection.refreshed": "Licens opdateret fra butikken.",
+  "extensions.storeSection.disconnect": "Afbryd",
+  "extensions.storeSection.emptyCatalog": "Ingen pakker udgivet endnu.",
+  "extensions.storeSection.installed": "Installeret {{version}}",
+  "extensions.storeSection.install": "Installer",
+  "extensions.storeSection.buy": "Køb"
 }

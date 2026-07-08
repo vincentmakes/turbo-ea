@@ -34,6 +34,10 @@ La renovación en una instancia aislada consiste, por tanto, en pedir al proveed
 - El interruptor **Habilitada** desactiva la extensión de inmediato (sin reinicio) y puede revertirse en cualquier momento.
 - **Desinstalar** elimina los archivos de la extensión. Los datos que creó — tipos de tarjeta, tarjetas y sus propias tablas — se conservan deliberadamente y reaparecen si se reinstala. Se necesita un reinicio para descargar por completo el código de backend.
 
+## Tienda en línea (opcional)
+
+Si su proveedor opera una tienda de extensiones en línea, puede conectarse en lugar de intercambiar archivos. Tras una compra recibe un **código de activación** de un solo uso: abra **Admin → Extensiones → Tienda**, introduzca la URL de la tienda y el código. Su instancia lista entonces los paquetes con derecho de uso con **instalación** de un clic, y **Actualizar licencia** recoge renovaciones y nuevas compras al instante — los paquetes descargados pasan exactamente por la misma verificación de firma y vista previa que las subidas manuales. Las instancias aisladas simplemente nunca se conectan; el flujo basado en archivos sigue plenamente soportado.
+
 ## Permisos
 
 Toda la página y sus rutas de API están protegidas por el permiso dedicado `admin.manage_extensions` (concedido al rol Admin integrado). Las extensiones pueden definir sus propias claves de permiso (`ext.<nombre>.…`), que aparecen en **Admin → Usuarios y roles** una vez cargada la extensión.

@@ -34,6 +34,10 @@ Le renouvellement sur une instance isolée se résume donc à : demander un nouv
 - L'interrupteur **Activée** désactive l'extension immédiatement en douceur (sans redémarrage) et peut être réactivé à tout moment.
 - **Désinstaller** supprime les fichiers de l'extension. Les données qu'elle a créées — types de cartes, cartes et ses propres tables — sont volontairement conservées et réapparaissent en cas de réinstallation. Un redémarrage est nécessaire pour décharger complètement le code backend.
 
+## Boutique en ligne (optionnel)
+
+Si votre éditeur exploite une boutique d'extensions en ligne, vous pouvez vous y connecter au lieu d'échanger des fichiers. Après un achat, vous recevez un **code d'activation** à usage unique : ouvrez **Admin → Extensions → Boutique**, saisissez l'URL de la boutique et le code. Votre instance liste alors les paquets auxquels vous avez droit avec une **installation** en un clic, et le bouton **Actualiser la licence** prend en compte instantanément renouvellements et nouveaux achats — les paquets téléchargés passent par exactement la même vérification de signature et le même aperçu que les téléversements manuels. Les instances isolées ne se connectent simplement jamais ; le flux par fichiers ci-dessus reste entièrement pris en charge.
+
 ## Permissions
 
 La page entière et toutes ses routes d'API sont protégées par la permission dédiée `admin.manage_extensions` (accordée au rôle Admin intégré). Les extensions peuvent définir leurs propres clés de permission (`ext.<nom>.…`), qui apparaissent dans **Admin → Utilisateurs & Rôles** une fois l'extension chargée.

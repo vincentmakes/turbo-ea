@@ -32,9 +32,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.config import APP_VERSION
 from app.database import async_session, get_db
 from app.models.extension import Extension, ExtensionInstall, ExtensionLicense
 from app.models.user import User
+from app.services.extensions import store_client
 from app.services.extensions.bundle import BundleError, read_bundle
 from app.services.extensions.content_pack import (
     ContentPackError,
@@ -206,15 +208,15 @@ async def get_license(
     )
 
 
-@router.put("/license", response_model=LicenseOut)
-async def put_license(
-    payload: LicenseIn,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-) -> LicenseOut:
-    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+async def _apply_license_text(db: AsyncSession, text: str, user_id: uuid.UUID) -> LicenseOut:
+    """Verify a license and make it the active one (supersede + registry refresh).
+
+    Shared by the manual paste/upload route and the store connect/refresh
+    flows — a store-fetched license goes through the exact same signature
+    verification as a pasted one.
+    """
     try:
-        doc = parse_and_verify(payload.text)
+        doc = parse_and_verify(text)
     except LicenseError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -246,7 +248,7 @@ async def put_license(
             for ent in doc.entitlements
         ],
         is_active=True,
-        created_by=user.id,
+        created_by=user_id,
     )
     db.add(row)
     await db.commit()
@@ -262,6 +264,16 @@ async def put_license(
         entitlements=list(row.entitlements or []),
         uploaded_at=row.created_at,
     )
+
+
+@router.put("/license", response_model=LicenseOut)
+async def put_license(
+    payload: LicenseIn,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> LicenseOut:
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    return await _apply_license_text(db, payload.text, user.id)
 
 
 # ---------------------------------------------------------------------------
@@ -287,6 +299,29 @@ async def list_installs(
     return [_install_out(row) for row in rows]
 
 
+async def _persist_upload(
+    db: AsyncSession, filename: str, raw: bytes, user_id: uuid.UUID
+) -> ExtensionInstall:
+    """Land bundle bytes on disk + create the install row (status=verifying)."""
+    _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    install_id = uuid.uuid4()
+    storage_path = _UPLOAD_DIR / f"{install_id}.bin"
+    storage_path.write_bytes(raw)
+
+    install = ExtensionInstall(
+        id=install_id,
+        filename=filename,
+        file_size=len(raw),
+        storage_path=str(storage_path),
+        status="verifying",
+        created_by=user_id,
+    )
+    db.add(install)
+    await db.commit()
+    await db.refresh(install)
+    return install
+
+
 @router.post("/install", response_model=ExtensionInstallOut, status_code=202)
 async def upload_bundle(
     background_tasks: BackgroundTasks,
@@ -300,23 +335,7 @@ async def upload_bundle(
     if not raw:
         raise HTTPException(status_code=400, detail="Empty bundle file")
 
-    _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    install_id = uuid.uuid4()
-    storage_path = _UPLOAD_DIR / f"{install_id}.bin"
-    storage_path.write_bytes(raw)
-
-    install = ExtensionInstall(
-        id=install_id,
-        filename=file.filename or "extension.teax",
-        file_size=len(raw),
-        storage_path=str(storage_path),
-        status="verifying",
-        created_by=user.id,
-    )
-    db.add(install)
-    await db.commit()
-    await db.refresh(install)
-
+    install = await _persist_upload(db, file.filename or "extension.teax", raw, user.id)
     background_tasks.add_task(_verify_and_preview_job, str(install.id), str(user.id))
     return _install_out(install)
 
@@ -660,3 +679,161 @@ async def _verify_and_preview_job(install_id_str: str, user_id_str: str) -> None
 
 async def _apply_job(install_id_str: str, user_id_str: str) -> None:
     await _run_job(install_id_str, user_id_str, run_apply)
+
+
+# ---------------------------------------------------------------------------
+# Online store connection (optional — air-gapped installs never use this).
+# Own router so its literal paths register BEFORE the parametrized
+# /admin/extensions/{key} routes (see router.py include order).
+# ---------------------------------------------------------------------------
+
+store_router = APIRouter(prefix="/admin/extensions/store", tags=["Extensions"])
+
+
+class StoreStatusOut(BaseModel):
+    connected: bool
+    url: str = ""
+
+
+class StoreRedeemIn(BaseModel):
+    url: str
+    code: str
+
+
+class StoreInstallIn(BaseModel):
+    extension_key: str
+
+
+@store_router.get("", response_model=StoreStatusOut)
+async def store_status(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> StoreStatusOut:
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    config = await store_client.get_store_config(db)
+    if config is None:
+        return StoreStatusOut(connected=False)
+    return StoreStatusOut(connected=True, url=config[0])
+
+
+@store_router.post("/redeem", response_model=LicenseOut)
+async def store_redeem(
+    payload: StoreRedeemIn,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> LicenseOut:
+    """Connect this instance to the store: exchange the one-time purchase
+    code for an account token (stored encrypted), then pull + apply the
+    current license through the normal signature verification."""
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    url = payload.url.strip().rstrip("/")
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="Store URL must be http(s)")
+    try:
+        redeemed = await store_client.redeem_code(url, payload.code.strip())
+        token = str(redeemed.get("account_token") or "")
+        if not token:
+            raise store_client.StoreClientError("Store returned no account token")
+        license_text = await store_client.fetch_license(url, token)
+    except store_client.StoreClientError as exc:
+        raise store_client.as_http_error(exc) from exc
+    await store_client.save_store_config(db, url, token)
+    await db.commit()
+    return await _apply_license_text(db, license_text, user.id)
+
+
+@store_router.post("/refresh-license", response_model=LicenseOut)
+async def store_refresh_license(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> LicenseOut:
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    config = await store_client.get_store_config(db)
+    if config is None:
+        raise HTTPException(status_code=400, detail="Not connected to a store")
+    url, token = config
+    try:
+        license_text = await store_client.fetch_license(url, token)
+    except store_client.StoreClientError as exc:
+        raise store_client.as_http_error(exc) from exc
+    return await _apply_license_text(db, license_text, user.id)
+
+
+@store_router.get("/catalog")
+async def store_catalog(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[dict]:
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    config = await store_client.get_store_config(db)
+    if config is None:
+        raise HTTPException(status_code=400, detail="Not connected to a store")
+    url, token = config
+    try:
+        catalog = await store_client.fetch_catalog(url, token)
+    except store_client.StoreClientError as exc:
+        raise store_client.as_http_error(exc) from exc
+    await extension_registry.refresh_from_db(db)
+    for item in catalog:
+        info = extension_registry.get(str(item.get("key") or ""))
+        item["installed"] = bool(info and info.status != "removed")
+        item["installed_version"] = info.version if info else None
+    return catalog
+
+
+@store_router.post("/install", response_model=ExtensionInstallOut, status_code=202)
+async def store_install(
+    payload: StoreInstallIn,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ExtensionInstallOut:
+    """Download an entitled bundle from the store and feed it into the
+    normal upload pipeline — signature verification, dry-run preview, and
+    explicit apply all still happen exactly as for a manual upload."""
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    config = await store_client.get_store_config(db)
+    if config is None:
+        raise HTTPException(status_code=400, detail="Not connected to a store")
+    url, token = config
+    key = payload.extension_key.strip()
+    try:
+        raw = await store_client.download_bundle(url, token, key, APP_VERSION)
+    except store_client.StoreClientError as exc:
+        raise store_client.as_http_error(exc) from exc
+
+    install = await _persist_upload(db, f"{key}.teax", raw, user.id)
+    background_tasks.add_task(_verify_and_preview_job, str(install.id), str(user.id))
+    return _install_out(install)
+
+
+@store_router.post("/checkout")
+async def store_checkout(
+    payload: StoreInstallIn,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Proxy a checkout-session request so the browser can open Stripe
+    Checkout for a not-yet-entitled product without cross-origin calls."""
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    config = await store_client.get_store_config(db)
+    if config is None:
+        raise HTTPException(status_code=400, detail="Not connected to a store")
+    url, _token = config
+    try:
+        checkout_url = await store_client.create_checkout(url, payload.extension_key.strip())
+    except store_client.StoreClientError as exc:
+        raise store_client.as_http_error(exc) from exc
+    return {"checkout_url": checkout_url}
+
+
+@store_router.delete("", status_code=204)
+async def store_disconnect(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> None:
+    """Forget the store connection. The active license stays — the
+    instance keeps working offline until its entitlements expire."""
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    await store_client.clear_store_config(db)
+    await db.commit()

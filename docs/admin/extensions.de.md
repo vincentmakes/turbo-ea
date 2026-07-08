@@ -34,6 +34,10 @@ Die Verlängerung auf einer abgeschotteten Instanz ist damit: neue Lizenzdatei b
 - Der Schalter **Aktiviert** deaktiviert eine Erweiterung sofort weich (ohne Neustart) und lässt sich jederzeit zurückschalten.
 - **Deinstallieren** entfernt die Dateien der Erweiterung. Von ihr erzeugte Daten — Kartentypen, Karten und eigene Tabellen — bleiben bewusst erhalten und erscheinen bei einer Neuinstallation wieder. Zum vollständigen Entladen von Backend-Code ist ein Neustart nötig.
 
+## Online-Store (optional)
+
+Betreibt Ihr Anbieter einen Online-Erweiterungsstore, können Sie sich verbinden statt Dateien auszutauschen. Nach einem Kauf erhalten Sie einen einmaligen **Aktivierungscode**: Öffnen Sie **Admin → Erweiterungen → Store** und geben Sie Store-URL und Code ein. Ihre Instanz listet dann die lizenzierten Pakete mit Ein-Klick-**Installation**, und **Lizenz aktualisieren** übernimmt Verlängerungen und Neukäufe sofort — heruntergeladene Pakete durchlaufen exakt dieselbe Signaturprüfung und Vorschau wie manuelle Uploads. Abgeschottete Instanzen verbinden sich einfach nie; der dateibasierte Ablauf oben bleibt vollständig unterstützt.
+
 ## Berechtigungen
 
 Die gesamte Seite und alle zugehörigen API-Routen sind durch die dedizierte Berechtigung `admin.manage_extensions` geschützt (der eingebauten Admin-Rolle zugewiesen). Erweiterungen können eigene Berechtigungsschlüssel definieren (`ext.<name>.…`), die nach dem Laden der Erweiterung unter **Admin → Benutzer & Rollen** erscheinen.

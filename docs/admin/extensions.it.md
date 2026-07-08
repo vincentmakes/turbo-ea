@@ -34,6 +34,10 @@ Il rinnovo su un'istanza isolata è quindi: richiedere al fornitore un nuovo fil
 - L'interruttore **Abilitata** disattiva subito l'estensione (senza riavvio) e può essere riattivato in qualsiasi momento.
 - **Disinstalla** rimuove i file dell'estensione. I dati creati — tipi di scheda, schede e le sue tabelle — vengono deliberatamente conservati e ricompaiono in caso di reinstallazione. Serve un riavvio per scaricare completamente il codice backend.
 
+## Store online (opzionale)
+
+Se il fornitore gestisce uno store online delle estensioni, puoi collegarti invece di scambiare file. Dopo un acquisto ricevi un **codice di attivazione** monouso: apri **Admin → Estensioni → Store**, inserisci l'URL dello store e il codice. L'istanza elenca quindi i pacchetti a cui hai diritto con **installazione** a un clic, e **Aggiorna licenza** recepisce all'istante rinnovi e nuovi acquisti — i pacchetti scaricati passano esattamente per la stessa verifica della firma e la stessa anteprima dei caricamenti manuali. Le istanze isolate semplicemente non si collegano mai; il flusso basato su file resta pienamente supportato.
+
 ## Permessi
 
 L'intera pagina e tutte le sue rotte API sono protette dal permesso dedicato `admin.manage_extensions` (assegnato al ruolo Admin integrato). Le estensioni possono definire chiavi di permesso proprie (`ext.<nome>.…`), che compaiono in **Admin → Utenti e ruoli** una volta caricata l'estensione.

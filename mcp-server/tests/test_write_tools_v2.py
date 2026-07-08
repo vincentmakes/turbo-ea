@@ -138,9 +138,7 @@ class TestUpdateCardsBulk:
 
     @pytest.mark.asyncio
     async def test_missing_card_id_rejected(self, fake_token):
-        out = await server.update_cards_bulk(
-            updates=[{"name": "missing card_id"}]
-        )
+        out = await server.update_cards_bulk(updates=[{"name": "missing card_id"}])
         data = _parse(out)
         assert data["error"] == "missing_card_id"
 
@@ -150,7 +148,10 @@ class TestArchiveCards:
     async def test_dry_run_aggregates_impacts(self, fake_token):
         post, patch_, get, calls = _route_writes_through_batch(
             get_responses={
-                "/cards/c1/archive-impact": {"child_count": 1, "children": [{"id": "kid"}]},
+                "/cards/c1/archive-impact": {
+                    "child_count": 1,
+                    "children": [{"id": "kid"}],
+                },
                 "/cards/c2/archive-impact": {"child_count": 0},
             }
         )
@@ -234,7 +235,9 @@ class TestTransitionLifecycle:
     async def test_approve_action_posts(self, fake_token):
         post_mock = AsyncMock(return_value={"approval_status": "APPROVED"})
         with patch.object(server.TurboEAClient, "post", post_mock):
-            await server.transition_card_lifecycle(card_id="c1", target="approve", dry_run=False)
+            await server.transition_card_lifecycle(
+                card_id="c1", target="approve", dry_run=False
+            )
         path, body = post_mock.call_args[0][0], None
         assert "approval-status?action=approve" in path
 
@@ -243,7 +246,10 @@ class TestTransitionLifecycle:
         patch_mock = AsyncMock(return_value={"id": "c1"})
         with patch.object(server.TurboEAClient, "patch", patch_mock):
             await server.transition_card_lifecycle(
-                card_id="c1", target="phaseOut", effective_date="2026-12-31", dry_run=False
+                card_id="c1",
+                target="phaseOut",
+                effective_date="2026-12-31",
+                dry_run=False,
             )
         path = patch_mock.call_args[0][0]
         body = patch_mock.call_args[1]["json"]
@@ -326,7 +332,9 @@ class TestAnalyzeImpact:
             )
         data = _parse(out)
         # ITComponent node should be dropped along with the edge that touches it
-        all_node_ids = {n["id"] for nodes in data["nodes_by_depth"].values() for n in nodes}
+        all_node_ids = {
+            n["id"] for nodes in data["nodes_by_depth"].values() for n in nodes
+        }
         assert "n1" not in all_node_ids
 
 

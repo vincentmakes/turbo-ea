@@ -34,6 +34,10 @@ A renovação numa instância isolada resume-se, portanto, a pedir ao fornecedor
 - O interruptor **Ativada** desativa a extensão de imediato (sem reinício) e pode ser revertido a qualquer momento.
 - **Desinstalar** remove os ficheiros da extensão. Os dados que ela criou — tipos de cartão, cartões e as suas próprias tabelas — são deliberadamente mantidos e reaparecem se reinstalar. É preciso um reinício para descarregar por completo o código de backend.
 
+## Loja online (opcional)
+
+Se o seu fornecedor operar uma loja de extensões online, pode ligar-se em vez de trocar ficheiros. Após uma compra recebe um **código de ativação** de utilização única: abra **Admin → Extensões → Loja**, introduza o URL da loja e o código. A sua instância lista então os pacotes a que tem direito com **instalação** num clique, e **Atualizar licença** capta renovações e novas compras de imediato — os pacotes descarregados passam exatamente pela mesma verificação de assinatura e pré-visualização dos carregamentos manuais. As instâncias isoladas simplesmente nunca se ligam; o fluxo por ficheiros continua totalmente suportado.
+
 ## Permissões
 
 Toda a página e as suas rotas de API estão protegidas pela permissão dedicada `admin.manage_extensions` (atribuída ao papel Admin integrado). As extensões podem definir as suas próprias chaves de permissão (`ext.<nome>.…`), que aparecem em **Admin → Utilizadores e papéis** depois de a extensão ser carregada.

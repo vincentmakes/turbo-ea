@@ -93,6 +93,22 @@ interface ExtensionInstall {
   error_message?: string | null;
 }
 
+interface StoreStatus {
+  connected: boolean;
+  url: string;
+}
+
+interface StoreCatalogItem {
+  key: string;
+  name: string;
+  description?: string;
+  display_price?: string;
+  latest_version?: string | null;
+  entitled?: boolean;
+  installed?: boolean;
+  installed_version?: string | null;
+}
+
 const POLL_MS = 2000;
 const TERMINAL = new Set(["previewed", "installed", "failed"]);
 
@@ -137,6 +153,15 @@ export default function ExtensionsAdmin() {
   // Uninstall confirmation
   const [uninstallKey, setUninstallKey] = useState<string | null>(null);
 
+  // Online store connection
+  const [storeStatus, setStoreStatus] = useState<StoreStatus>({ connected: false, url: "" });
+  const [storeCatalog, setStoreCatalog] = useState<StoreCatalogItem[]>([]);
+  const [storeUrl, setStoreUrl] = useState("");
+  const [storeCode, setStoreCode] = useState("");
+  const [storeBusy, setStoreBusy] = useState(false);
+  const [storeError, setStoreError] = useState<string | null>(null);
+  const [storeNotice, setStoreNotice] = useState<string | null>(null);
+
   const clearPoll = useCallback(() => {
     if (pollRef.current) {
       clearTimeout(pollRef.current);
@@ -148,12 +173,24 @@ export default function ExtensionsAdmin() {
 
   const loadAll = useCallback(async () => {
     try {
-      const [exts, lic] = await Promise.all([
+      const [exts, lic, store] = await Promise.all([
         api.get<ExtensionInfo[]>("/admin/extensions"),
         api.get<LicenseInfo>("/admin/extensions/license").catch(() => null),
+        api
+          .get<StoreStatus>("/admin/extensions/store")
+          .catch(() => ({ connected: false, url: "" })),
       ]);
       setExtensions(exts);
       setLicense(lic);
+      setStoreStatus(store);
+      if (store.connected) {
+        api
+          .get<StoreCatalogItem[]>("/admin/extensions/store/catalog")
+          .then(setStoreCatalog)
+          .catch((e) => setStoreError(e instanceof Error ? e.message : String(e)));
+      } else {
+        setStoreCatalog([]);
+      }
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -263,6 +300,83 @@ export default function ExtensionsAdmin() {
       await loadAll();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const handleStoreConnect = async () => {
+    setStoreBusy(true);
+    setStoreError(null);
+    try {
+      await api.post("/admin/extensions/store/redeem", {
+        url: storeUrl.trim(),
+        code: storeCode.trim(),
+      });
+      setStoreCode("");
+      await loadAll();
+    } catch (e) {
+      setStoreError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setStoreBusy(false);
+    }
+  };
+
+  const handleStoreRefreshLicense = async () => {
+    setStoreBusy(true);
+    setStoreError(null);
+    setStoreNotice(null);
+    try {
+      await api.post("/admin/extensions/store/refresh-license");
+      setStoreNotice(t("extensions.storeSection.refreshed", "License refreshed from the store."));
+      await loadAll();
+    } catch (e) {
+      setStoreError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setStoreBusy(false);
+    }
+  };
+
+  const handleStoreDisconnect = async () => {
+    setStoreBusy(true);
+    setStoreError(null);
+    try {
+      await api.delete("/admin/extensions/store");
+      await loadAll();
+    } catch (e) {
+      setStoreError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setStoreBusy(false);
+    }
+  };
+
+  const handleStoreInstall = async (extensionKey: string) => {
+    setStoreBusy(true);
+    setStoreError(null);
+    setInstall(null);
+    try {
+      const created = await api.post<ExtensionInstall>("/admin/extensions/store/install", {
+        extension_key: extensionKey,
+      });
+      setInstall(created);
+      poll(created.id);
+    } catch (e) {
+      setStoreError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setStoreBusy(false);
+    }
+  };
+
+  const handleStoreBuy = async (extensionKey: string) => {
+    setStoreBusy(true);
+    setStoreError(null);
+    try {
+      const res = await api.post<{ checkout_url: string }>("/admin/extensions/store/checkout", {
+        extension_key: extensionKey,
+      });
+      if (res.checkout_url) window.open(res.checkout_url, "_blank", "noopener");
+    } catch (e) {
+      setStoreError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setStoreBusy(false);
     }
   };
 
@@ -409,6 +523,150 @@ export default function ExtensionsAdmin() {
           {licenseError && (
             <Alert severity="error" sx={{ mt: 2 }}>
               {licenseError}
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Online store */}
+      <Card variant="outlined">
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            {t("extensions.storeSection.title", "Store")}
+          </Typography>
+          {!storeStatus.connected ? (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t(
+                  "extensions.storeSection.intro",
+                  "Connect this instance to the online extension store with the one-time activation code from your purchase. Air-gapped instances skip this and install from files instead.",
+                )}
+              </Typography>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                <TextField
+                  size="small"
+                  label={t("extensions.storeSection.url", "Store URL")}
+                  placeholder="https://store.example.com"
+                  value={storeUrl}
+                  onChange={(e) => setStoreUrl(e.target.value)}
+                  sx={{ flex: 2 }}
+                />
+                <TextField
+                  size="small"
+                  label={t("extensions.storeSection.code", "Activation code")}
+                  placeholder="XXXX-XXXX-XXXX"
+                  value={storeCode}
+                  onChange={(e) => setStoreCode(e.target.value)}
+                  sx={{ flex: 1 }}
+                />
+                <Button
+                  variant="contained"
+                  disabled={storeBusy || !storeUrl.trim() || !storeCode.trim()}
+                  onClick={() => void handleStoreConnect()}
+                  startIcon={
+                    storeBusy ? (
+                      <CircularProgress size={16} color="inherit" />
+                    ) : (
+                      <MaterialSymbol icon="link" />
+                    )
+                  }
+                >
+                  {t("extensions.storeSection.connect", "Connect")}
+                </Button>
+              </Stack>
+            </>
+          ) : (
+            <>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }} flexWrap="wrap" useFlexGap>
+                <MaterialSymbol icon="storefront" size={20} />
+                <Typography variant="body2">
+                  {t("extensions.storeSection.connectedTo", "Connected to {{url}}", {
+                    url: storeStatus.url,
+                  })}
+                </Typography>
+                <Box sx={{ flex: 1 }} />
+                <Button
+                  size="small"
+                  variant="outlined"
+                  disabled={storeBusy}
+                  onClick={() => void handleStoreRefreshLicense()}
+                  startIcon={<MaterialSymbol icon="sync" size={18} />}
+                >
+                  {t("extensions.storeSection.refreshLicense", "Refresh license")}
+                </Button>
+                <Button
+                  size="small"
+                  color="inherit"
+                  disabled={storeBusy}
+                  onClick={() => void handleStoreDisconnect()}
+                >
+                  {t("extensions.storeSection.disconnect", "Disconnect")}
+                </Button>
+              </Stack>
+
+              {storeCatalog.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  {t("extensions.storeSection.emptyCatalog", "No packages published yet.")}
+                </Typography>
+              ) : (
+                <Table size="small">
+                  <TableBody>
+                    {storeCatalog.map((item) => (
+                      <TableRow key={item.key}>
+                        <TableCell>
+                          <Typography variant="body2">{item.name}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {item.description || item.key}
+                            {item.latest_version && ` · v${item.latest_version}`}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>{item.display_price}</TableCell>
+                        <TableCell align="right">
+                          {item.installed ? (
+                            <Chip
+                              size="small"
+                              color="success"
+                              label={t("extensions.storeSection.installed", "Installed {{version}}", {
+                                version: item.installed_version ?? "",
+                              })}
+                            />
+                          ) : item.entitled ? (
+                            <Button
+                              size="small"
+                              variant="contained"
+                              disabled={storeBusy || isWorking}
+                              onClick={() => void handleStoreInstall(item.key)}
+                              startIcon={<MaterialSymbol icon="download" size={18} />}
+                            >
+                              {t("extensions.storeSection.install", "Install")}
+                            </Button>
+                          ) : (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              disabled={storeBusy}
+                              onClick={() => void handleStoreBuy(item.key)}
+                              startIcon={<MaterialSymbol icon="shopping_cart" size={18} />}
+                            >
+                              {t("extensions.storeSection.buy", "Buy")}
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </>
+          )}
+          {storeNotice && (
+            <Alert severity="success" sx={{ mt: 2 }} onClose={() => setStoreNotice(null)}>
+              {storeNotice}
+            </Alert>
+          )}
+          {storeError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {storeError}
             </Alert>
           )}
         </CardContent>

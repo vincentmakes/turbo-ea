@@ -9,7 +9,12 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from app.config import settings
 from app.core import extension_signing
-from app.core.extension_signing import vendor_public_key, verify_bytes
+from app.core.extension_signing import (
+    trusted_public_keys,
+    vendor_public_key,
+    verify_bytes,
+    verify_with_trusted,
+)
 
 
 def make_keypair() -> tuple[Ed25519PrivateKey, str]:
@@ -64,6 +69,7 @@ class TestVendorPublicKey:
         monkeypatch.setattr(settings, "ENVIRONMENT", "development")
         monkeypatch.setattr(settings, "EXTENSION_VENDOR_PUBLIC_KEY", public_b64)
         assert vendor_public_key() == public_b64
+        assert trusted_public_keys() == {"dev": public_b64}
 
     def test_production_ignores_env_override(self, monkeypatch):
         """Provenance hard requirement: a production image cannot be
@@ -71,19 +77,52 @@ class TestVendorPublicKey:
         _, public_b64 = make_keypair()
         monkeypatch.setattr(settings, "ENVIRONMENT", "production")
         monkeypatch.setattr(settings, "EXTENSION_VENDOR_PUBLIC_KEY", public_b64)
-        assert vendor_public_key() == extension_signing.DEFAULT_VENDOR_PUBLIC_KEY
+        assert trusted_public_keys() == extension_signing.DEFAULT_VENDOR_PUBLIC_KEYS
 
-    def test_baked_constant_wins_in_production(self, monkeypatch):
+    def test_baked_keys_win_in_production(self, monkeypatch):
         _, baked = make_keypair()
         _, override = make_keypair()
-        monkeypatch.setattr(extension_signing, "DEFAULT_VENDOR_PUBLIC_KEY", baked)
+        monkeypatch.setattr(extension_signing, "DEFAULT_VENDOR_PUBLIC_KEYS", {"vendor-1": baked})
         monkeypatch.setattr(settings, "ENVIRONMENT", "production")
         monkeypatch.setattr(settings, "EXTENSION_VENDOR_PUBLIC_KEY", override)
+        assert trusted_public_keys() == {"vendor-1": baked}
         assert vendor_public_key() == baked
 
-    def test_development_without_override_uses_baked_constant(self, monkeypatch):
+    def test_development_without_override_uses_baked_keys(self, monkeypatch):
         _, baked = make_keypair()
-        monkeypatch.setattr(extension_signing, "DEFAULT_VENDOR_PUBLIC_KEY", baked)
+        monkeypatch.setattr(extension_signing, "DEFAULT_VENDOR_PUBLIC_KEYS", {"vendor-1": baked})
         monkeypatch.setattr(settings, "ENVIRONMENT", "development")
         monkeypatch.setattr(settings, "EXTENSION_VENDOR_PUBLIC_KEY", "")
         assert vendor_public_key() == baked
+
+
+class TestVerifyWithTrusted:
+    def test_selects_key_by_key_id(self):
+        vendor_priv, vendor_pub = make_keypair()
+        store_priv, store_pub = make_keypair()
+        trusted = {"vendor-1": vendor_pub, "store-1": store_pub}
+        payload = b"license payload"
+        assert verify_with_trusted(payload, sign(store_priv, payload), "store-1", trusted)
+        assert verify_with_trusted(payload, sign(vendor_priv, payload), "vendor-1", trusted)
+
+    def test_try_all_fallback_for_unknown_or_missing_key_id(self):
+        store_priv, store_pub = make_keypair()
+        _, vendor_pub = make_keypair()
+        trusted = {"vendor-1": vendor_pub, "store-1": store_pub}
+        payload = b"payload"
+        signature = sign(store_priv, payload)
+        # No key_id (legacy envelope) and a wrong key_id both still verify.
+        assert verify_with_trusted(payload, signature, None, trusted)
+        assert verify_with_trusted(payload, signature, "rotated-away", trusted)
+
+    def test_untrusted_signer_rejected(self):
+        attacker_priv, _ = make_keypair()
+        _, vendor_pub = make_keypair()
+        payload = b"payload"
+        assert not verify_with_trusted(
+            payload, sign(attacker_priv, payload), "vendor-1", {"vendor-1": vendor_pub}
+        )
+
+    def test_empty_trusted_set_fails_closed(self):
+        priv, _ = make_keypair()
+        assert not verify_with_trusted(b"p", sign(priv, b"p"), "vendor-1", {})

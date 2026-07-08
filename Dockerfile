@@ -596,3 +596,30 @@ USER ${APP_UID}:${APP_GID}
 
 EXPOSE 8001
 CMD ["python", "-m", "turbo_ea_mcp", "--host", "0.0.0.0", "--port", "8001"]
+
+
+# ---------------------------------------------------------------------------
+# Extension Store server (VENDOR deployment only — never part of a customer
+# stack). Sells extensions via Stripe, issues signed licenses, serves .teax
+# downloads to connected instances. See store-server/README.md.
+# ---------------------------------------------------------------------------
+FROM python:3.12-alpine AS store-server
+
+ARG APP_UID
+ARG APP_GID
+
+RUN apk upgrade --no-cache && rm -rf /var/cache/apk/*
+
+WORKDIR /app
+
+COPY VERSION ./VERSION
+COPY store-server/ ./
+RUN pip install --no-cache-dir --upgrade 'pip>=26.1' && \
+    pip install --no-cache-dir .
+
+RUN addgroup -g ${APP_GID} -S appgroup && adduser -S -D -u ${APP_UID} -G appgroup appuser && \
+    mkdir -p /app/data && chown -R ${APP_UID}:${APP_GID} /app
+USER ${APP_UID}:${APP_GID}
+
+EXPOSE 8010
+CMD ["python", "-m", "turbo_ea_store", "--host", "0.0.0.0", "--port", "8010"]

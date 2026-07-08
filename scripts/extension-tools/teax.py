@@ -53,7 +53,10 @@ try:
         Ed25519PublicKey,
     )
 except ImportError:  # pragma: no cover
-    print("teax requires the 'cryptography' package: pip install cryptography", file=sys.stderr)
+    print(
+        "teax requires the 'cryptography' package: pip install cryptography",
+        file=sys.stderr,
+    )
     sys.exit(2)
 
 TEAX_SCHEMA = "turboea-extension/1"
@@ -131,7 +134,9 @@ def cmd_keygen(_args) -> int:
     ).decode()
     print("# Keep the private key OFFLINE (or in a protected CI environment secret).")
     print("# Bake the public key into backend/app/core/extension_signing.py")
-    print("# (DEFAULT_VENDOR_PUBLIC_KEY) before building release images.")
+    print(
+        "# (DEFAULT_VENDOR_PUBLIC_KEYS, keyed by key id) before building release images."
+    )
     print(f"TEAX_PRIVATE_KEY={private_b64}")
     print(f"TEAX_PUBLIC_KEY={_b64_public(private)}")
     return 0
@@ -148,7 +153,9 @@ def _collect_files(src: Path) -> dict[str, Path]:
         if not path.is_file():
             continue
         rel = path.relative_to(src).as_posix()
-        if rel in (SOURCE_MANIFEST, MANIFEST_NAME, SIGNATURE_NAME) or rel.startswith("."):
+        if rel in (SOURCE_MANIFEST, MANIFEST_NAME, SIGNATURE_NAME) or rel.startswith(
+            "."
+        ):
             continue
         files[rel] = path
     return files
@@ -183,7 +190,9 @@ def _lint_source(src: Path) -> tuple[dict, dict[str, Path], list[str]]:
     files = _collect_files(src)
 
     if "content" in capabilities:
-        content = manifest.get("content") or [p for p in files if p.startswith("content/")]
+        content = manifest.get("content") or [
+            p for p in files if p.startswith("content/")
+        ]
         if not content:
             problems.append("content capability declared but no content/*.json present")
         for rel in content:
@@ -207,7 +216,9 @@ def _lint_source(src: Path) -> tuple[dict, dict[str, Path], list[str]]:
         backend = manifest.get("backend") or {}
         entrypoint = str(backend.get("entrypoint", ""))
         if ":" not in entrypoint:
-            problems.append('backend capability needs backend.entrypoint "pkg.module:attr"')
+            problems.append(
+                'backend capability needs backend.entrypoint "pkg.module:attr"'
+            )
         wheels = backend.get("wheels") or [p for p in files if p.startswith("wheels/")]
         if not wheels:
             problems.append("backend capability declared but no wheels/*.whl present")
@@ -215,7 +226,9 @@ def _lint_source(src: Path) -> tuple[dict, dict[str, Path], list[str]]:
             if rel not in files:
                 problems.append(f"wheel listed but missing: {rel}")
             elif not rel.endswith("py3-none-any.whl"):
-                problems.append(f"{rel}: only pure-Python py3-none-any wheels are installable")
+                problems.append(
+                    f"{rel}: only pure-Python py3-none-any wheels are installable"
+                )
         backend["wheels"] = wheels
         manifest["backend"] = backend
 
@@ -223,10 +236,14 @@ def _lint_source(src: Path) -> tuple[dict, dict[str, Path], list[str]]:
         frontend = manifest.get("frontend") or {}
         entry = str(frontend.get("entry", ""))
         if not entry:
-            candidates = [p for p in files if p.startswith("frontend/") and p.endswith(".js")]
+            candidates = [
+                p for p in files if p.startswith("frontend/") and p.endswith(".js")
+            ]
             entry = candidates[0] if len(candidates) == 1 else ""
         if not entry or entry not in files:
-            problems.append("frontend capability needs frontend.entry pointing at a bundled file")
+            problems.append(
+                "frontend capability needs frontend.entry pointing at a bundled file"
+            )
         else:
             frontend["entry"] = entry
             manifest["frontend"] = frontend
@@ -267,8 +284,11 @@ def cmd_pack(args) -> int:
     }
     manifest.setdefault("entitlement_key", manifest["key"])
     manifest.setdefault("sdk_version", "1.0")
+    if args.key_id:
+        manifest["key_id"] = args.key_id
     manifest["files"] = {
-        rel: hashlib.sha256(path.read_bytes()).hexdigest() for rel, path in files.items()
+        rel: hashlib.sha256(path.read_bytes()).hexdigest()
+        for rel, path in files.items()
     }
 
     manifest_bytes = json.dumps(manifest, indent=2, ensure_ascii=False).encode()
@@ -282,8 +302,10 @@ def cmd_pack(args) -> int:
         for rel, path in files.items():
             zf.writestr(rel, path.read_bytes())
     out.write_bytes(buf.getvalue())
-    print(f"packed {out} ({len(files)} file(s), signed with key id "
-          f"{manifest.get('key_id', 'default')})")
+    print(
+        f"packed {out} ({len(files)} file(s), signed with key id "
+        f"{manifest.get('key_id', 'default')})"
+    )
     print(f"public key for this signature: {_b64_public(private)}")
     return 0
 
@@ -319,7 +341,11 @@ def cmd_verify(args) -> int:
     if manifest.get("schema") != TEAX_SCHEMA:
         _fail(f"unsupported schema {manifest.get('schema')!r}")
     file_hashes: dict[str, str] = manifest.get("files") or {}
-    members = [n for n in names if n not in (MANIFEST_NAME, SIGNATURE_NAME) and not n.endswith("/")]
+    members = [
+        n
+        for n in names
+        if n not in (MANIFEST_NAME, SIGNATURE_NAME) and not n.endswith("/")
+    ]
     for member in members:
         if not _safe_member(member):
             _fail(f"unsafe path in bundle: {member}")
@@ -387,7 +413,9 @@ def cmd_verify_license(args) -> int:
     if not _verify_signature(payload_bytes, envelope.get("signature", ""), args.pubkey):
         _fail("license signature verification FAILED")
     payload = json.loads(payload_bytes)
-    print(f"OK: licensed to {payload.get('licensee')} (grace {payload.get('grace_days', 30)}d)")
+    print(
+        f"OK: licensed to {payload.get('licensee')} (grace {payload.get('grace_days', 30)}d)"
+    )
     for ent in payload.get("entitlements", []):
         expires = ent.get("expires_at") or "perpetual"
         print(f"  - {ent.get('extension_key')} [{ent.get('plan', '')}] until {expires}")
@@ -407,6 +435,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("source_dir")
     p.add_argument("--key", help="base64 raw Ed25519 private key")
     p.add_argument("--key-file", help="file containing the base64 private key")
+    p.add_argument(
+        "--key-id", default="vendor-1", help="trusted key id this bundle is signed with"
+    )
     p.add_argument("--out", help="output path (default: <key>-<version>.teax)")
 
     p = sub.add_parser("verify", help="verify a .teax bundle offline")

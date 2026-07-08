@@ -34,6 +34,10 @@ Fornyelse på en isoleret installation er derfor: anmod leverandøren om en ny l
 - Kontakten **Aktiveret** deaktiverer udvidelsen blødt med det samme (uden genstart) og kan altid slås til igen.
 - **Afinstaller** fjerner udvidelsens filer. Data, den har oprettet — korttyper, kort og dens egne tabeller — bevares bevidst og dukker op igen ved geninstallation. En genstart er nødvendig for helt at aflæsse backend-kode.
 
+## Onlinebutik (valgfrit)
+
+Hvis din leverandør driver en online-udvidelsesbutik, kan du forbinde dig i stedet for at udveksle filer. Efter et køb modtager du en engangs-**aktiveringskode**: åbn **Admin → Udvidelser → Butik**, indtast butikkens URL og koden. Din installation viser derefter de pakker, du har ret til, med **installation** med ét klik, og **Opdater licens** opfanger fornyelser og nye køb med det samme — downloadede pakker gennemgår nøjagtig samme signaturkontrol og forhåndsvisning som manuelle uploads. Isolerede installationer forbinder sig simpelthen aldrig; det filbaserede flow ovenfor er fortsat fuldt understøttet.
+
 ## Tilladelser
 
 Hele siden og alle dens API-ruter er beskyttet af den dedikerede tilladelse `admin.manage_extensions` (tildelt den indbyggede Admin-rolle). Udvidelser kan definere deres egne tilladelsesnøgler (`ext.<navn>.…`), som vises under **Admin → Brugere & roller**, når udvidelsen er indlæst.

@@ -192,7 +192,9 @@ class TestGetChangeHistory:
 def _make_jwt(claims: dict) -> str:
     """Build a syntactically-valid (unsigned) JWT for tests."""
     header = base64.urlsafe_b64encode(b'{"alg":"none"}').rstrip(b"=").decode()
-    payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=").decode()
+    payload = (
+        base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=").decode()
+    )
     return f"{header}.{payload}.signature"
 
 

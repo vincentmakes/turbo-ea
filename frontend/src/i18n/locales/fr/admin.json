@@ -1731,5 +1731,18 @@
   "extensions.uninstall.title": "Désinstaller l'extension ?",
   "extensions.uninstall.body": "Les fichiers de l'extension sont supprimés et ses fonctionnalités cessent de fonctionner. Les données qu'elle a créées (types de cartes, cartes, ses propres tables) sont conservées et réapparaissent en cas de réinstallation.",
   "extensions.uninstall.cancel": "Annuler",
-  "extensions.uninstall.confirm": "Désinstaller"
+  "extensions.uninstall.confirm": "Désinstaller",
+  "extensions.storeSection.title": "Boutique",
+  "extensions.storeSection.intro": "Connectez cette instance à la boutique d'extensions en ligne avec le code d'activation à usage unique reçu lors de votre achat. Les instances isolées ignorent cette étape et installent depuis des fichiers.",
+  "extensions.storeSection.url": "URL de la boutique",
+  "extensions.storeSection.code": "Code d'activation",
+  "extensions.storeSection.connect": "Connecter",
+  "extensions.storeSection.connectedTo": "Connecté à {{url}}",
+  "extensions.storeSection.refreshLicense": "Actualiser la licence",
+  "extensions.storeSection.refreshed": "Licence actualisée depuis la boutique.",
+  "extensions.storeSection.disconnect": "Déconnecter",
+  "extensions.storeSection.emptyCatalog": "Aucun paquet publié pour le moment.",
+  "extensions.storeSection.installed": "Installé {{version}}",
+  "extensions.storeSection.install": "Installer",
+  "extensions.storeSection.buy": "Acheter"
 }

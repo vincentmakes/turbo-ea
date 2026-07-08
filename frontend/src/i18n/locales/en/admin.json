@@ -1731,5 +1731,18 @@
   "extensions.uninstall.title": "Uninstall extension?",
   "extensions.uninstall.body": "The extension's files are removed and its features stop working. Data it created (card types, cards, its own tables) is kept and reappears if you reinstall.",
   "extensions.uninstall.cancel": "Cancel",
-  "extensions.uninstall.confirm": "Uninstall"
+  "extensions.uninstall.confirm": "Uninstall",
+  "extensions.storeSection.title": "Store",
+  "extensions.storeSection.intro": "Connect this instance to the online extension store with the one-time activation code from your purchase. Air-gapped instances skip this and install from files instead.",
+  "extensions.storeSection.url": "Store URL",
+  "extensions.storeSection.code": "Activation code",
+  "extensions.storeSection.connect": "Connect",
+  "extensions.storeSection.connectedTo": "Connected to {{url}}",
+  "extensions.storeSection.refreshLicense": "Refresh license",
+  "extensions.storeSection.refreshed": "License refreshed from the store.",
+  "extensions.storeSection.disconnect": "Disconnect",
+  "extensions.storeSection.emptyCatalog": "No packages published yet.",
+  "extensions.storeSection.installed": "Installed {{version}}",
+  "extensions.storeSection.install": "Install",
+  "extensions.storeSection.buy": "Buy"
 }

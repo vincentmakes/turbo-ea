@@ -40,7 +40,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
-from app.core.extension_signing import vendor_public_key, verify_bytes
+from app.core.extension_signing import trusted_public_keys, verify_with_trusted
 
 LICENSE_SCHEMA = "turboea-license/1"
 
@@ -95,11 +95,12 @@ def parse_and_verify(text: str, *, public_key_b64: str | None = None) -> License
     """Parse a license envelope, verify its signature, and return the document.
 
     Raises :class:`LicenseError` on any structural or cryptographic
-    problem. ``public_key_b64`` defaults to the deployment's trusted
-    vendor key; passing it explicitly is for tests only.
+    problem. The signature is checked against the deployment's trusted
+    key set (selected by the envelope's ``key_id``, with try-all
+    fallback); passing ``public_key_b64`` pins a single key — tests only.
     """
-    key = vendor_public_key() if public_key_b64 is None else public_key_b64
-    if not key:
+    trusted = {"test": public_key_b64} if public_key_b64 is not None else trusted_public_keys()
+    if not trusted:
         raise LicenseError(
             "This build has no extension vendor key configured — licenses cannot be verified"
         )
@@ -123,7 +124,8 @@ def parse_and_verify(text: str, *, public_key_b64: str | None = None) -> License
     except (binascii.Error, ValueError) as exc:
         raise LicenseError("Invalid license: payload is not valid base64") from exc
 
-    if not verify_bytes(payload_bytes, signature_b64, key):
+    key_id = str(envelope.get("key_id") or "") or None
+    if not verify_with_trusted(payload_bytes, signature_b64, key_id, trusted):
         raise LicenseError("Invalid license: signature verification failed")
 
     # Signature is good — only now do we trust the payload enough to parse it.

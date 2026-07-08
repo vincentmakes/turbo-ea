@@ -209,7 +209,9 @@ class TestUpsertRelationsBulk:
     async def test_upsert_dry_run(self, fake_token):
         patcher, mock = _patched_post(
             {
-                "results": [{"row_index": 0, "status": "upserted", "relation_id": "r1"}],
+                "results": [
+                    {"row_index": 0, "status": "upserted", "relation_id": "r1"}
+                ],
                 "upserted": 1,
                 "deleted": 0,
                 "failed": 0,
@@ -337,17 +339,13 @@ class TestCreateDiagram:
 
 class TestImportBpmn:
     @pytest.mark.asyncio
-    async def test_find_existing_dry_run_does_not_hit_flow_endpoints(
-        self, fake_token
-    ):
+    async def test_find_existing_dry_run_does_not_hit_flow_endpoints(self, fake_token):
         """Dry-run against an existing card: the tool returns a preview
         (estimated flow-node count + byte size) without calling any flow
         endpoint. No draft, no submit, no approve."""
         get_mock = AsyncMock(
             return_value={
-                "items": [
-                    {"id": "bp-1", "name": "Order to Cash", "parent_id": None}
-                ],
+                "items": [{"id": "bp-1", "name": "Order to Cash", "parent_id": None}],
                 "total": 1,
             }
         )
@@ -422,9 +420,7 @@ class TestImportBpmn:
         assert "NOT" in data["next_action"]
 
     @pytest.mark.asyncio
-    async def test_missing_card_returns_card_not_found_in_dry_run_too(
-        self, fake_token
-    ):
+    async def test_missing_card_returns_card_not_found_in_dry_run_too(self, fake_token):
         # dry_run defaults to True — verify the same card_not_found
         # error path fires in dry-run so the agent gets the same signal.
         get_mock = AsyncMock(return_value={"items": [], "total": 0})
@@ -636,9 +632,7 @@ class TestGuardrails:
         assert data["rejected_rows"] == [1]
 
     @pytest.mark.asyncio
-    async def test_relations_delete_allowed_when_flag_on(
-        self, fake_token, monkeypatch
-    ):
+    async def test_relations_delete_allowed_when_flag_on(self, fake_token, monkeypatch):
         monkeypatch.setattr(server, "MCP_ALLOW_RELATION_DELETE", True)
         ops = [
             {

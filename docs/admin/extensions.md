@@ -34,6 +34,10 @@ Renewal on an air-gapped instance is therefore: request a new license file from 
 - The **Enabled** switch soft-disables an extension immediately (no restart) and can be flipped back at any time.
 - **Uninstall** removes the extension's files. Data the extension created — card types, cards, and its own tables — is deliberately kept and reappears if you reinstall. A restart is needed to fully unload backend code.
 
+## Online store (optional)
+
+If your vendor operates an online extension store, you can connect instead of exchanging files. After a purchase you receive a one-time **activation code**: open **Admin → Extensions → Store**, enter the store URL and the code. Your instance then lists the packages you are entitled to with one-click **Install**, and a **Refresh license** button picks up renewals and new purchases instantly — the downloaded bundles go through exactly the same signature verification and preview as manual uploads. Air-gapped instances simply never connect; the file-based flow above remains fully supported.
+
 ## Permissions
 
 The whole page and all its API routes are gated by the dedicated `admin.manage_extensions` permission (granted to the built-in Admin role). Extensions can define their own permission keys (`ext.<name>.…`), which appear in **Admin → Users & Roles** once the extension is loaded.

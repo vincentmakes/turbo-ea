@@ -1,0 +1,41 @@
+# Standalone deployment file for the VENDOR-hosted Extension Store server.
+# This is YOUR infrastructure — it is never part of a customer's Turbo EA
+# stack. Run from the repo root:
+#
+#   docker compose -f store-server/docker-compose.store.yml up -d --build
+#
+# Put a TLS-terminating reverse proxy (Caddy, nginx, a PaaS) in front and
+# point STORE_PUBLIC_URL at the public https:// URL.
+
+name: turboea-store
+
+services:
+  store:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: store-server
+      args:
+        APP_UID: ${APP_UID:-1000}
+        APP_GID: ${APP_GID:-1000}
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      STORE_PUBLIC_URL: ${STORE_PUBLIC_URL:-http://localhost:8010}
+      STORE_DATABASE_URL: ${STORE_DATABASE_URL:-}
+      STRIPE_API_KEY: ${STRIPE_API_KEY:?set in .env}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?set in .env}
+      STORE_SIGNING_KEY: ${STORE_SIGNING_KEY:?set in .env}
+      STORE_SIGNING_KEY_ID: ${STORE_SIGNING_KEY_ID:-store-1}
+      STORE_ADMIN_TOKEN: ${STORE_ADMIN_TOKEN:?set in .env}
+      STORE_LICENSE_GRACE_DAYS: ${STORE_LICENSE_GRACE_DAYS:-30}
+    volumes:
+      - store_data:/app/data
+    ports:
+      - "${STORE_HOST_PORT:-8010}:8010"
+
+volumes:
+  store_data:

@@ -34,7 +34,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, BinaryIO
 
 from app.config import APP_VERSION
-from app.core.extension_signing import vendor_public_key, verify_bytes
+from app.core.extension_signing import trusted_public_keys, verify_with_trusted
 from app.services.catalogue_common import version_tuple
 
 TEAX_SCHEMA = "turboea-extension/1"
@@ -134,18 +134,20 @@ def _verify_zip(zf: zipfile.ZipFile, *, core_version: str) -> dict[str, Any]:
     if SIGNATURE_NAME not in names:
         raise BundleError(f"Bundle is missing {SIGNATURE_NAME} — refusing unsigned extension")
 
-    key = vendor_public_key()
-    if not key:
+    trusted = trusted_public_keys()
+    if not trusted:
         raise BundleError(
             "This build has no extension vendor key configured — bundles cannot be verified"
         )
 
     manifest_bytes = zf.read(MANIFEST_NAME)
     signature_b64 = zf.read(SIGNATURE_NAME).decode("ascii", errors="replace").strip()
-    if not verify_bytes(manifest_bytes, signature_b64, key):
+    # key_id lives inside the (not yet trusted) manifest; it is only a key
+    # SELECTOR — a wrong or forged value just makes verification fail.
+    if not verify_with_trusted(manifest_bytes, signature_b64, None, trusted):
         raise BundleError(
             "Bundle signature verification failed — this extension was not signed by "
-            "the trusted vendor key"
+            "a trusted vendor key"
         )
 
     # Signature verified — the manifest bytes are now trusted input.
