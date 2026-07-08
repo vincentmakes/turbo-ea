@@ -40,7 +40,7 @@ Ogni rilevazione deve essere circoscritta a una card specifica o all'intero paes
 
 ### Modificare una rilevazione
 
-Apri una rilevazione — dalla griglia Conformità o dalla scheda **Conformità** di una card — e fai clic su **Modifica** nel drawer per cambiare, dopo la creazione, il suo **stato** di conformità (ad esempio Conforme → Parziale), gravità, requisito, lacuna, evidenza, rimedio, articolo o card collegata. La modifica del contenuto non tocca la decisione del ciclo di vita della rilevazione; per quello usa la timeline del ciclo di vita. Richiede `compliance.manage`.
+Ogni riga della griglia Conformità ha un'icona **Modifica** (matita) in linea che apre la rilevazione per la modifica con un clic. Puoi anche aprire una rilevazione — dalla griglia Conformità o dalla scheda **Conformità** di una card — e fare clic su **Modifica** nel drawer per cambiare, dopo la creazione, il suo **stato** di conformità (ad esempio Conforme → Parziale), gravità, requisito, lacuna, evidenza, rimedio, articolo o card collegata. La modifica del contenuto non tocca la decisione del ciclo di vita della rilevazione; per quello usa la timeline del ciclo di vita. Richiede `compliance.manage`.
 
 ## Eseguire una scansione IA
 

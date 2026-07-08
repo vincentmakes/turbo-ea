@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.69.1] - 2026-07-08
+
+### Changed
+- **Compliance findings now have an inline Edit button in the findings table.** Each row in the GRC → Compliance table shows a pencil icon that opens the finding for editing in one click, so you no longer have to open the detail drawer first. Clicking a finding's Card name still jumps to that card.
+
 ## [1.69.0] - 2026-07-07
 
 ### Added

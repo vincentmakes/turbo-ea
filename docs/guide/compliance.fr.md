@@ -40,7 +40,7 @@ Chaque constat doit être rattaché soit à une carte spécifique, soit à l'ens
 
 ### Modifier un constat
 
-Ouvrez un constat — depuis la grille Conformité ou depuis l'onglet **Conformité** d'une fiche — et cliquez sur **Modifier** dans le tiroir pour changer, après sa création, son **statut** de conformité (par exemple Conforme → Partiel), sa sévérité, son exigence, son écart, sa preuve, sa remédiation, son article ou sa fiche liée. Modifier le contenu ne touche pas à la décision de cycle de vie du constat ; utilisez pour cela la chronologie du cycle de vie. Nécessite `compliance.manage`.
+Chaque ligne de la grille Conformité comporte une icône **Modifier** (crayon) en ligne qui ouvre le constat pour édition en un clic. Vous pouvez aussi ouvrir un constat — depuis la grille Conformité ou depuis l'onglet **Conformité** d'une fiche — et cliquer sur **Modifier** dans le tiroir pour changer, après sa création, son **statut** de conformité (par exemple Conforme → Partiel), sa sévérité, son exigence, son écart, sa preuve, sa remédiation, son article ou sa fiche liée. Modifier le contenu ne touche pas à la décision de cycle de vie du constat ; utilisez pour cela la chronologie du cycle de vie. Nécessite `compliance.manage`.
 
 ## Exécuter un scan IA
 

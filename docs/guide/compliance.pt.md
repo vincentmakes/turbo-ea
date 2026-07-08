@@ -40,7 +40,7 @@ Cada descoberta deve estar delimitada a um card específico ou a toda a paisagem
 
 ### Editar uma descoberta
 
-Abra uma descoberta — a partir da grade de Conformidade ou da aba **Conformidade** de um card — e clique em **Editar** no painel para alterar, após a criação, o seu **status** de conformidade (por exemplo Conforme → Parcial), severidade, requisito, lacuna, evidência, remediação, artigo ou card vinculado. Editar o conteúdo não altera a decisão de ciclo de vida da descoberta; use a linha do tempo do ciclo de vida para isso. Requer `compliance.manage`.
+Cada linha da grade de Conformidade tem um ícone **Editar** (lápis) em linha que abre a descoberta para edição com um clique. Você também pode abrir uma descoberta — a partir da grade de Conformidade ou da aba **Conformidade** de um card — e clicar em **Editar** no painel para alterar, após a criação, o seu **status** de conformidade (por exemplo Conforme → Parcial), severidade, requisito, lacuna, evidência, remediação, artigo ou card vinculado. Editar o conteúdo não altera a decisão de ciclo de vida da descoberta; use a linha do tempo do ciclo de vida para isso. Requer `compliance.manage`.
 
 ## Executar uma varredura IA
 

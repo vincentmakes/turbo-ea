@@ -39,7 +39,7 @@ Hvert fund skal afgrænses enten til et bestemt kort eller til hele landskabet �
 
 ### Rediger et fund
 
-Åbn et fund — fra Compliance-gitteret eller fra et korts **Compliance**-fane — og klik på **Rediger** i panelet for efter oprettelsen at ændre dets compliance-**status** (for eksempel Compliant → Delvis), alvorlighed, krav, mangel, dokumentation, afhjælpning, artikel eller tilknyttet kort. Redigering af indholdet rører ikke ved fundets livscyklusbeslutning; brug livscyklus-tidslinjen til det. Kræver `compliance.manage`.
+Hver række i Compliance-gitteret har et indlejret **Rediger**-ikon (blyant), der åbner fundet til redigering med ét klik. Du kan også åbne et fund — fra Compliance-gitteret eller fra et korts **Compliance**-fane — og klikke på **Rediger** i panelet for efter oprettelsen at ændre dets compliance-**status** (for eksempel Compliant → Delvis), alvorlighed, krav, mangel, dokumentation, afhjælpning, artikel eller tilknyttet kort. Redigering af indholdet rører ikke ved fundets livscyklusbeslutning; brug livscyklus-tidslinjen til det. Kræver `compliance.manage`.
 
 ## Køre en AI-scanning
 

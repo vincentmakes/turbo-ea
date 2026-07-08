@@ -39,7 +39,7 @@ Every finding must be scoped either to a specific card or to the whole landscape
 
 ### Editing a finding
 
-Open any finding — from the Compliance grid or from a card's **Compliance** tab — and click **Edit** in the drawer to change its compliance **status** (for example Compliant → Partial), severity, requirement, gap, evidence, remediation, article, or linked card after it was created. Editing the content leaves the finding's lifecycle decision untouched; use the lifecycle timeline for that. Requires `compliance.manage`.
+Every row in the Compliance grid carries an inline **Edit** (pencil) icon that opens the finding for editing in one click. You can also open any finding — from the Compliance grid or from a card's **Compliance** tab — and click **Edit** in the drawer. Either way you can change its compliance **status** (for example Compliant → Partial), severity, requirement, gap, evidence, remediation, article, or linked card after it was created. Editing the content leaves the finding's lifecycle decision untouched; use the lifecycle timeline for that. Requires `compliance.manage`.
 
 ## Running an AI scan
 

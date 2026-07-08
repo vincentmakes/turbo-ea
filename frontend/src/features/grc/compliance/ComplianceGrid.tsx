@@ -514,6 +514,39 @@ export default function ComplianceGrid({
       filter: "agDateColumnFilter",
       valueFormatter: (p) => (p.value ? formatDate(p.value as string) : ""),
     },
+    // Edit action — one-click path to the edit dialog so users don't have
+    // to open the detail drawer first (issue #774). Gated like delete;
+    // the dialog + its PATCH endpoint enforce compliance.manage.
+    ...(canManage && onEdit
+      ? [
+          {
+            headerName: "",
+            colId: "edit_action",
+            width: 56,
+            sortable: false,
+            filter: false,
+            resizable: false,
+            suppressMovable: true,
+            cellStyle: { cursor: "default" },
+            cellRenderer: (
+              p: ICellRendererParams<TurboLensComplianceFinding>,
+            ) =>
+              p.data ? (
+                <Tooltip title={tCommon("actions.edit")}>
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (p.data) onEdit(p.data);
+                    }}
+                  >
+                    <MaterialSymbol icon="edit" size={18} />
+                  </IconButton>
+                </Tooltip>
+              ) : null,
+          } as ColDef<TurboLensComplianceFinding>,
+        ]
+      : []),
     // Delete action — admin-grade (canManage gates rendering, the
     // endpoint additionally enforces compliance.manage).
     ...(canManage && onDelete
@@ -548,7 +581,7 @@ export default function ComplianceGrid({
           } as ColDef<TurboLensComplianceFinding>,
         ]
       : []),
-  ], [t, tCards, tCommon, theme, groupMode, sortedFindings, formatDate, canManage, onDelete]); // eslint-disable-line react-hooks/exhaustive-deps
+  ], [t, tCards, tCommon, theme, groupMode, sortedFindings, formatDate, canManage, onDelete, onEdit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Apply column visibility from prefs without rebuilding the colDef
   // factory closure on every toggle.
@@ -585,9 +618,9 @@ export default function ComplianceGrid({
 
   const onCellClicked = (e: CellClickedEvent<TurboLensComplianceFinding>) => {
     if (!e.data) return;
-    // Action cells (currently just delete) handle their own click and
-    // must not also open the finding drawer.
-    if (e.colDef.colId === "delete_action") return;
+    // Action cells (edit / delete) handle their own click and must not
+    // also open the finding drawer.
+    if (e.colDef.colId === "edit_action" || e.colDef.colId === "delete_action") return;
     // Click on the Card cell → open card panel only (single-drawer
     // discipline). Click anywhere else on the row → open finding drawer.
     if (e.colDef.field === "card_name") {

@@ -40,7 +40,7 @@ Cada hallazgo debe estar acotado a una tarjeta específica o a todo el paisaje �
 
 ### Editar un hallazgo
 
-Abra un hallazgo — desde la cuadrícula de Cumplimiento o desde la pestaña **Cumplimiento** de una tarjeta — y haga clic en **Editar** en el panel para cambiar, después de su creación, su **estado** de cumplimiento (por ejemplo Conforme → Parcial), severidad, requisito, brecha, evidencia, remediación, artículo o tarjeta vinculada. Editar el contenido no altera la decisión del ciclo de vida del hallazgo; use para ello la línea de tiempo del ciclo de vida. Requiere `compliance.manage`.
+Cada fila de la cuadrícula de Cumplimiento tiene un icono **Editar** (lápiz) en línea que abre el hallazgo para editarlo con un clic. También puede abrir un hallazgo — desde la cuadrícula de Cumplimiento o desde la pestaña **Cumplimiento** de una tarjeta — y hacer clic en **Editar** en el panel para cambiar, después de su creación, su **estado** de cumplimiento (por ejemplo Conforme → Parcial), severidad, requisito, brecha, evidencia, remediación, artículo o tarjeta vinculada. Editar el contenido no altera la decisión del ciclo de vida del hallazgo; use para ello la línea de tiempo del ciclo de vida. Requiere `compliance.manage`.
 
 ## Ejecutar un escaneo IA
 

@@ -40,7 +40,7 @@ Jeder Befund muss entweder auf eine bestimmte Karte oder auf die gesamte Landsch
 
 ### Einen Befund bearbeiten
 
-Öffnen Sie einen Befund — aus dem Compliance-Raster oder aus dem **Compliance**-Reiter einer Karte — und klicken Sie im Drawer auf **Bearbeiten**, um nach der Erstellung dessen Compliance-**Status** (zum Beispiel Konform → Teilweise), Schweregrad, Anforderung, Lücke, Nachweis, Behebung, Artikel oder verknüpfte Karte zu ändern. Das Bearbeiten des Inhalts lässt die Lebenszyklus-Entscheidung des Befunds unberührt; verwenden Sie dafür die Lebenszyklus-Zeitleiste. Erfordert `compliance.manage`.
+Jede Zeile im Compliance-Raster trägt ein Inline-Symbol **Bearbeiten** (Stift), das den Befund mit einem Klick zum Bearbeiten öffnet. Sie können auch einen Befund öffnen — aus dem Compliance-Raster oder aus dem **Compliance**-Reiter einer Karte — und im Drawer auf **Bearbeiten** klicken, um nach der Erstellung dessen Compliance-**Status** (zum Beispiel Konform → Teilweise), Schweregrad, Anforderung, Lücke, Nachweis, Behebung, Artikel oder verknüpfte Karte zu ändern. Das Bearbeiten des Inhalts lässt die Lebenszyklus-Entscheidung des Befunds unberührt; verwenden Sie dafür die Lebenszyklus-Zeitleiste. Erfordert `compliance.manage`.
 
 ## Einen KI-Scan ausführen
 
