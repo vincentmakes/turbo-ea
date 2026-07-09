@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.69.2] - 2026-07-09
+
+### Fixed
+- **Edge nginx no longer 502s under Podman.** Since 1.41.4 the reverse proxy resolved backend/frontend service names at request time through a hard-coded `resolver 127.0.0.11`, which is Docker's embedded DNS address. Podman (netavark/aardvark-dns) does not answer there, so every proxied request failed with `502 Bad Gateway` and `resolver: 127.0.0.11:53` connection-refused errors in the logs. The nginx entrypoint now detects the resolver from the container's own `/etc/resolv.conf` at startup (still `127.0.0.11` under Docker, the correct address under Podman) and disables IPv6 upstream lookups, so a single image works on both runtimes with no configuration. An optional `NGINX_RESOLVER` environment variable can override the detected address. **Requires rebuilding/repulling the `nginx` image to take effect.**
+
 ## [1.69.1] - 2026-07-08
 
 ### Fixed

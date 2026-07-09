@@ -170,6 +170,25 @@ case "$ipv6_enabled" in
         ;;
 esac
 
+# Pick the DNS resolver for request-time upstream resolution. Docker publishes its
+# embedded DNS at 127.0.0.11 and writes it into /etc/resolv.conf; Podman
+# (netavark/aardvark-dns) uses a different address and does NOT answer at 127.0.0.11,
+# so a hard-coded 127.0.0.11 makes every proxied request 502 under Podman (issue #789).
+# Read the first nameserver from the container's own resolv.conf so one image works on
+# both runtimes; allow an explicit NGINX_RESOLVER override.
+if [ -n "${NGINX_RESOLVER:-}" ]; then
+    resolver_addr="$NGINX_RESOLVER"
+else
+    resolver_addr=$(awk '$1 == "nameserver" { print $2; exit }' /etc/resolv.conf 2>/dev/null || true)
+    [ -n "$resolver_addr" ] || resolver_addr="127.0.0.11"
+fi
+# nginx requires IPv6 resolver addresses in bracket form.
+case "$resolver_addr" in
+    \[*\]) ;;
+    *:*) resolver_addr="[$resolver_addr]" ;;
+esac
+resolver_directive="resolver ${resolver_addr} valid=30s ipv6=off;"
+
 export NGINX_SERVER_NAME="${NGINX_SERVER_NAME:-$public_host}"
 export NGINX_FORWARDED_PROTO="${NGINX_FORWARDED_PROTO:-$public_scheme}"
 
@@ -219,10 +238,10 @@ ${nginx_https_ipv6_line}
     ssl_certificate ${NGINX_TLS_CERT_PATH};
     ssl_certificate_key ${NGINX_TLS_KEY_PATH};
 
-    resolver 127.0.0.11 valid=30s;
+    ${resolver_directive}
 
-    # Resolve service hostnames through Docker's embedded DNS at request time
-    # (the resolver above only re-resolves when the upstream is a variable).
+    # Resolve service hostnames through the container DNS resolver (Docker or Podman)
+    # at request time (the resolver above only re-resolves when the upstream is a variable).
     # A literal \"proxy_pass http://backend:8000\" caches the IP at startup, so
     # if backend/frontend are recreated (new IP) while this nginx keeps running
     # — e.g. after \"docker compose pull && up -d\" — every proxied request 502s
@@ -381,10 +400,10 @@ ${nginx_http_ipv6_line}
         proxy_read_timeout 86400s;
     }
 
-    resolver 127.0.0.11 valid=30s;
+    ${resolver_directive}
 
-    # Resolve service hostnames through Docker's embedded DNS at request time
-    # (the resolver above only re-resolves when the upstream is a variable).
+    # Resolve service hostnames through the container DNS resolver (Docker or Podman)
+    # at request time (the resolver above only re-resolves when the upstream is a variable).
     # A literal \"proxy_pass http://backend:8000\" caches the IP at startup, so
     # if backend/frontend are recreated (new IP) while this nginx keeps running
     # — e.g. after \"docker compose pull && up -d\" — every proxied request 502s
