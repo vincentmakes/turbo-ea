@@ -498,7 +498,10 @@ class TestStoreCatalog:
         )
         install = await upload_and_preview(client, db, admin, vendor, version="0.9.0")
         await ext_api.run_apply(db, install, admin)
-        mock_store(monkeypatch, catalog=catalog_payload())
+        mock_store(
+            monkeypatch,
+            catalog=catalog_payload(demo_url="https://youtu.be/demo"),
+        )
 
         res = await client.get(
             "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
@@ -510,6 +513,7 @@ class TestStoreCatalog:
         assert item["key"] == "sample-ext"
         assert item["price"] == "990 EUR / year"
         assert item["payment_link"] == "https://buy.stripe.test/pl_1"
+        assert item["demo_url"] == "https://youtu.be/demo"
         assert item["installed_version"] == "0.9.0"
         assert item["update_available"] is True
         assert item["entitlement_state"] == "active"

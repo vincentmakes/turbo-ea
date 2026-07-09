@@ -100,6 +100,7 @@ interface StoreItem {
   description: string;
   price: string;
   payment_link: string;
+  demo_url?: string;
   version: string;
   installed_version?: string | null;
   update_available: boolean;
@@ -744,6 +745,19 @@ export default function ExtensionsAdmin() {
                         <Typography variant="subtitle2" sx={{ flex: 1 }}>
                           {item.price}
                         </Typography>
+                        {item.demo_url && (
+                          <Button
+                            size="small"
+                            color="inherit"
+                            component="a"
+                            href={item.demo_url}
+                            target="_blank"
+                            rel="noopener"
+                            startIcon={<MaterialSymbol icon="play_circle" size={18} />}
+                          >
+                            {t("extensions.store.seeInAction", "See it in action")}
+                          </Button>
+                        )}
                         {item.payment_link &&
                           item.entitlement_state === "unlicensed" &&
                           claiming?.itemKey !== item.key && (

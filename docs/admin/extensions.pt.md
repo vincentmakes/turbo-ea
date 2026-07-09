@@ -18,7 +18,7 @@ Duas verificações independentes protegem a sua instância:
 O separador **Loja** funciona sem qualquer configuração e lista as extensões publicadas pelo fornecedor com descrição e preço:
 
 - **Comprar** abre a página de pagamento num novo separador do navegador. Assim que o pagamento é confirmado, a sua licença é aplicada automaticamente (uma cópia também chega por e-mail).
-- **Instalar** (ou **Atualizar** quando é publicada uma versão mais recente) verifica primeiro a sua licença — se a extensão ainda não tiver licença, um diálogo propõe comprá-la ou colar uma licença e depois continua automaticamente — e descarrega o pacote com exatamente a mesma verificação de assinatura e pré-visualização de simulação de um carregamento manual.
+- **Instalar** (ou **Atualizar** quando é publicada uma versão mais recente) verifica primeiro a sua licença — se a extensão ainda não tiver licença, um diálogo propõe comprá-la ou colar uma licença e depois continua automaticamente — e descarrega o pacote com exatamente a mesma verificação de assinatura e pré-visualização de simulação de um carregamento manual. As extensões com demonstração mostram uma ligação **Ver em ação**, e uma versão mais recente publicada transforma o botão em **Atualizar**.
 
 O separador Loja é só de leitura e anónimo: sem conta, sem token, e nada sobre a sua instância é enviado — apenas o catálogo público do fornecedor é lido. As instâncias isoladas não precisam de configuração — o separador mostra então simplesmente uma indicação amigável — e usam o fluxo baseado em ficheiros abaixo; o site da loja do fornecedor oferece as mesmas compras e transferências a partir de qualquer navegador com ligação à Internet.
 

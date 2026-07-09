@@ -368,6 +368,27 @@ describe("ExtensionsAdmin", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows a 'See it in action' demo link only when the item has a demo_url", async () => {
+    primeInitialLoad({
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [
+          { ...STORE_ITEM, demo_url: "https://youtu.be/demo" },
+          { ...STORE_ITEM, key: "no-demo", name: "No Demo Pack", demo_url: "" },
+        ],
+      },
+    });
+    render(<ExtensionsAdmin />);
+    await waitFor(() => expect(screen.getByText("No Demo Pack")).toBeInTheDocument());
+
+    const demoLinks = screen.getAllByText("See it in action");
+    expect(demoLinks).toHaveLength(1);
+    expect(demoLinks[0].closest("a")).toHaveAttribute("href", "https://youtu.be/demo");
+    expect(demoLinks[0].closest("a")).toHaveAttribute("target", "_blank");
+  });
+
   it("Buy opens the payment link with a claim token and starts polling", async () => {
     primeInitialLoad({
       catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },

@@ -1740,6 +1740,7 @@
   "extensions.store.installedChip": "Installed {{version}}",
   "extensions.store.licensed": "Licensed",
   "extensions.store.buy": "Buy",
+  "extensions.store.seeInAction": "See it in action",
   "extensions.store.install": "Install",
   "extensions.store.update": "Update to {{version}}",
   "extensions.store.afterPurchase": "Payment opens in a new tab and your license applies automatically once the payment is confirmed (a copy also arrives by email). Bundles are verified against the vendor signature before anything is applied.",

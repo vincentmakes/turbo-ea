@@ -11868,6 +11868,11 @@
       },
       "StoreItemOut": {
         "properties": {
+          "demo_url": {
+            "default": "",
+            "title": "Demo Url",
+            "type": "string"
+          },
           "description": {
             "default": "",
             "title": "Description",

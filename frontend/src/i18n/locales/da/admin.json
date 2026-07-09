@@ -1740,6 +1740,7 @@
   "extensions.store.installedChip": "Installeret {{version}}",
   "extensions.store.licensed": "Licenseret",
   "extensions.store.buy": "Køb",
+  "extensions.store.seeInAction": "Se det i praksis",
   "extensions.store.install": "Installer",
   "extensions.store.update": "Opdater til {{version}}",
   "extensions.store.afterPurchase": "Betalingen åbner i en ny fane, og din licens anvendes automatisk, så snart betalingen er bekræftet (en kopi ankommer også pr. e-mail). Pakker verificeres mod leverandørens signatur, før noget anvendes.",

@@ -1740,6 +1740,7 @@
   "extensions.store.installedChip": "Установлено {{version}}",
   "extensions.store.licensed": "Лицензировано",
   "extensions.store.buy": "Купить",
+  "extensions.store.seeInAction": "Посмотреть в действии",
   "extensions.store.install": "Установить",
   "extensions.store.update": "Обновить до {{version}}",
   "extensions.store.afterPurchase": "Оплата откроется в новой вкладке, и после подтверждения платежа лицензия применится автоматически (копия также придёт по почте). Пакеты проверяются по подписи поставщика перед применением.",

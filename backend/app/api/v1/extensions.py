@@ -414,6 +414,7 @@ class StoreItemOut(BaseModel):
     description: str = ""
     price: str = ""
     payment_link: str = ""
+    demo_url: str = ""
     version: str = ""
     installed_version: str | None = None
     update_available: bool = False
@@ -487,6 +488,7 @@ async def store_catalog(
                 description=str(item.get("description") or ""),
                 price=str(item.get("price") or ""),
                 payment_link=str(item.get("payment_link") or ""),
+                demo_url=str(item.get("demo_url") or ""),
                 version=catalog_version,
                 installed_version=installed_version,
                 update_available=bool(

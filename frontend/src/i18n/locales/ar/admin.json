@@ -1740,6 +1740,7 @@
   "extensions.store.installedChip": "مثبَّت {{version}}",
   "extensions.store.licensed": "مرخَّص",
   "extensions.store.buy": "شراء",
+  "extensions.store.seeInAction": "شاهدها أثناء العمل",
   "extensions.store.install": "تثبيت",
   "extensions.store.update": "التحديث إلى {{version}}",
   "extensions.store.afterPurchase": "تُفتح عملية الدفع في تبويب جديد ويُطبَّق ترخيصك تلقائيًا فور تأكيد الدفع (تصلك نسخة أيضًا عبر البريد الإلكتروني). يتم التحقق من الحزم مقابل توقيع المورّد قبل تطبيق أي شيء.",

@@ -18,7 +18,7 @@ Dos comprobaciones independientes protegen su instancia:
 La pestaña **Tienda** funciona sin configuración alguna y lista las extensiones publicadas por el proveedor con descripción y precio:
 
 - **Comprar** abre la página de pago en una pestaña nueva del navegador. En cuanto se confirma el pago, tu licencia se aplica automáticamente (también llega una copia por correo).
-- **Instalar** (o **Actualizar** cuando se publica una versión más reciente) comprueba primero tu licencia — si la extensión aún no tiene licencia, un diálogo ofrece comprarla o pegar una licencia y luego continúa automáticamente — y descarga el paquete con exactamente la misma verificación de firma y vista previa de simulación que una carga manual.
+- **Instalar** (o **Actualizar** cuando se publica una versión más reciente) comprueba primero tu licencia — si la extensión aún no tiene licencia, un diálogo ofrece comprarla o pegar una licencia y luego continúa automáticamente — y descarga el paquete con exactamente la misma verificación de firma y vista previa de simulación que una carga manual. Las extensiones con demo muestran un enlace **Verlo en acción**, y una versión más reciente publicada convierte el botón en **Actualizar**.
 
 La pestaña Tienda es de solo lectura y anónima: sin cuenta, sin token, y no se envía nada sobre tu instancia — solo se lee el catálogo público del proveedor. Las instancias aisladas no necesitan configuración — la pestaña muestra entonces simplemente un aviso amable — y usan el flujo basado en archivos de abajo; el sitio web de la tienda del proveedor ofrece las mismas compras y descargas desde cualquier navegador con conexión a Internet.
 

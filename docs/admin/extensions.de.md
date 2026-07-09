@@ -18,7 +18,7 @@ Zwei unabhängige Prüfungen schützen Ihre Instanz:
 Der Tab **Store** funktioniert ohne jede Konfiguration und listet die veröffentlichten Erweiterungen des Anbieters mit Beschreibung und Preis:
 
 - **Kaufen** öffnet die Zahlungsseite in einem neuen Browser-Tab. Sobald die Zahlung bestätigt ist, wird Ihre Lizenz automatisch angewendet (eine Kopie kommt zusätzlich per E-Mail).
-- **Installieren** (bzw. **Aktualisieren**, wenn eine neuere Version veröffentlicht ist) prüft zuerst Ihre Lizenz — fehlt sie, bietet ein Dialog Kauf oder Einfügen einer Lizenz an und fährt danach automatisch fort — und lädt das Paket durch exakt dieselbe Signaturprüfung und Dry-Run-Vorschau wie ein manueller Upload.
+- **Installieren** (bzw. **Aktualisieren**, wenn eine neuere Version veröffentlicht ist) prüft zuerst Ihre Lizenz — fehlt sie, bietet ein Dialog Kauf oder Einfügen einer Lizenz an und fährt danach automatisch fort — und lädt das Paket durch exakt dieselbe Signaturprüfung und Dry-Run-Vorschau wie ein manueller Upload. Erweiterungen mit Demo zeigen einen **In Aktion ansehen**-Link, und eine veröffentlichte neuere Version macht aus der Schaltfläche **Aktualisieren**.
 
 Der Store-Tab ist schreibgeschützt und anonym: kein Konto, kein Token, und es werden keinerlei Informationen über Ihre Instanz übertragen — es wird nur der öffentliche Katalog des Anbieters gelesen. Abgeschottete Instanzen brauchen keine Konfiguration — der Tab zeigt dann einfach einen freundlichen Hinweis — und nutzen den dateibasierten Ablauf unten; die Storefront-Website des Anbieters bietet dieselben Käufe und Downloads von jedem Browser mit Internetzugang.
 

@@ -1740,6 +1740,7 @@
   "extensions.store.installedChip": "Instalada {{version}}",
   "extensions.store.licensed": "Con licencia",
   "extensions.store.buy": "Comprar",
+  "extensions.store.seeInAction": "Verlo en acción",
   "extensions.store.install": "Instalar",
   "extensions.store.update": "Actualizar a {{version}}",
   "extensions.store.afterPurchase": "El pago se abre en una pestaña nueva y tu licencia se aplica automáticamente en cuanto se confirma el pago (también llega una copia por correo). Los paquetes se verifican contra la firma del proveedor antes de aplicar nada.",
