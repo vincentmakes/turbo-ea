@@ -11,7 +11,7 @@ Turbo EA 2.0 introduces the **Extension Store** — install vendor-signed extens
 
 ### Added
 - **Extension Store (Admin → Extensions).** Browse, install, license, and renew vendor-signed extensions — content packs, backend plugins, and UI plugins — delivered as signed files that also work fully offline/air-gapped. Includes an in-product store with one-click install and automatic license renewal for connected instances, plus a `teax` CLI for building and signing bundles.
-- **Extensions can extend the metamodel and UI.** Licensed extensions can add custom field types, collapsible field help text, card-detail tabs, admin panels, and their own pages (optionally under the Reports menu) — with signature + license enforcement, a 30-day grace window, and no data ever deleted on lapse.
+- **Extensions can extend the metamodel and UI.** Licensed extensions can add custom field types, collapsible field help text, their own field sections on existing card types (merged additively — admin customisations are never overwritten, and disabling brings the fields down without losing any values), card-detail tabs, admin panels, and their own pages (optionally under the Reports menu) — with signature + license enforcement, a 30-day grace window, and no data ever deleted on lapse.
 
 ### Changed
 - The backend now mounts a persistent `backend_data` volume at `/app/data` so installed extensions survive upgrades. Existing Docker installs pick this up from the updated `docker-compose.yml`.

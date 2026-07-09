@@ -53,6 +53,10 @@ from app.services.extensions.content_pack import (
     preview_content,
     set_content_visibility,
 )
+from app.services.extensions.field_contributions import (
+    apply_field_contributions,
+    remove_field_contributions,
+)
 from app.services.extensions.installer import install_bundle, uninstall
 from app.services.extensions.license import LicenseError, parse_and_verify
 from app.services.extensions.license_refresh import persist_license, refresh_license_if_due
@@ -659,6 +663,13 @@ async def set_extension_enabled(
     await set_content_visibility(
         db, ext_installer.EXTENSIONS_DIR / key, row.manifest or {}, not payload.enabled
     )
+    # Same soft semantics for manifest field contributions: strip the
+    # extension's sections/fields from card types on disable (attribute
+    # values untouched), re-merge them on enable.
+    if payload.enabled:
+        await apply_field_contributions(db, key, row.manifest or {})
+    else:
+        await remove_field_contributions(db, key)
     await db.commit()
     await db.refresh(row)
     await extension_registry.refresh_from_db(db)
@@ -868,6 +879,9 @@ async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> 
         await set_content_visibility(
             db, ext_installer.EXTENSIONS_DIR / extension.key, bundle.manifest, False
         )
+        # Merge manifest field contributions into their target card types
+        # (idempotent; updates re-sync the extension-owned sections).
+        await apply_field_contributions(db, extension.key, bundle.manifest)
         install.status = "installed"
         install.applied_at = datetime.now(timezone.utc)
         await db.commit()

@@ -41,7 +41,23 @@ TEAX_SCHEMA = "turboea-extension/1"
 MANIFEST_NAME = "manifest.json"
 SIGNATURE_NAME = "manifest.sig"
 
-VALID_CAPABILITIES = frozenset({"content", "backend", "frontend"})
+VALID_CAPABILITIES = frozenset({"content", "backend", "frontend", "metamodel"})
+
+# fields_schema field types an extension may contribute: the built-in set, or
+# a custom type namespaced under the extension's own key (ext.{key}.*).
+_BUILTIN_FIELD_TYPES = frozenset(
+    {
+        "text",
+        "multiline_text",
+        "number",
+        "cost",
+        "boolean",
+        "date",
+        "url",
+        "single_select",
+        "multiple_select",
+    }
+)
 KEY_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{1,63}$")
 
 
@@ -107,6 +123,12 @@ def _validate_manifest(manifest: dict[str, Any], core_version: str) -> None:
         frontend = manifest.get("frontend") or {}
         if not isinstance(frontend, dict) or not frontend.get("entry"):
             raise BundleError("Bundle declares the frontend capability but no entry file")
+    if "metamodel" in capabilities:
+        _validate_metamodel_block(manifest, key)
+    elif manifest.get("metamodel"):
+        raise BundleError(
+            "Bundle carries a metamodel block but does not declare the metamodel capability"
+        )
 
     files = manifest.get("files")
     if not isinstance(files, dict):
@@ -125,6 +147,44 @@ def _validate_manifest(manifest: dict[str, Any], core_version: str) -> None:
         raise BundleError(
             f"Extension supports Turbo EA < {max_exclusive} (this instance runs {core_version})"
         )
+
+
+def _validate_metamodel_block(manifest: dict[str, Any], ext_key: str) -> None:
+    """Shape-check ``manifest["metamodel"]["field_sections"]``.
+
+    Contributed field types must be built-in or namespaced under THIS
+    extension (``ext.{key}.*``) so one extension can never squat on
+    another's custom types.
+    """
+    block = manifest.get("metamodel")
+    if not isinstance(block, dict):
+        raise BundleError("metamodel capability requires a metamodel object in the manifest")
+    sections = block.get("field_sections")
+    if not isinstance(sections, list) or not sections:
+        raise BundleError("metamodel block must declare a non-empty field_sections list")
+    for i, contrib in enumerate(sections):
+        where = f"metamodel.field_sections[{i}]"
+        if not isinstance(contrib, dict):
+            raise BundleError(f"{where} must be an object")
+        for req in ("card_type", "section"):
+            if not isinstance(contrib.get(req), str) or not contrib[req].strip():
+                raise BundleError(f"{where} is missing {req}")
+        fields = contrib.get("fields")
+        if not isinstance(fields, list) or not fields:
+            raise BundleError(f"{where} must declare a non-empty fields list")
+        for j, f in enumerate(fields):
+            fw = f"{where}.fields[{j}]"
+            if not isinstance(f, dict):
+                raise BundleError(f"{fw} must be an object")
+            for req in ("key", "label", "type"):
+                if not isinstance(f.get(req), str) or not f[req].strip():
+                    raise BundleError(f"{fw} is missing {req}")
+            ftype = f["type"]
+            if ftype not in _BUILTIN_FIELD_TYPES and not ftype.startswith(f"ext.{ext_key}."):
+                raise BundleError(
+                    f"{fw}: type {ftype!r} must be a built-in field type or "
+                    f"namespaced ext.{ext_key}.*"
+                )
 
 
 def _verify_zip(zf: zipfile.ZipFile, *, core_version: str) -> dict[str, Any]:
