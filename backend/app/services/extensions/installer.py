@@ -26,6 +26,7 @@ mid-install can never leave a half-written extension directory.
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import uuid
 import zipfile
@@ -178,11 +179,12 @@ async def uninstall(
     hidden = await set_content_visibility(db, extensions_dir / key, row.manifest or {}, True)
     hidden += await remove_field_contributions(db, key)
     # The DB row lookup above already guarantees a legitimate key, but never
-    # hand a deletion sink a path that could have escaped the extensions
-    # root (defence in depth for the rmtree below).
-    root = extensions_dir.resolve()
-    ext_dir = (root / key).resolve()
-    if KEY_PATTERN.match(key) and ext_dir.is_relative_to(root):
+    # hand a deletion sink a path that could have escaped the extensions root.
+    # Realpath + os.sep-terminated prefix guard is the canonical containment
+    # barrier for the rmtree below.
+    root = os.path.realpath(str(extensions_dir))
+    ext_dir = os.path.realpath(os.path.join(root, key))
+    if KEY_PATTERN.match(key) and ext_dir.startswith(root + os.sep):
         shutil.rmtree(ext_dir, ignore_errors=True)
     else:
         logger.error("Refusing to remove suspicious extension directory for key %r", key)

@@ -782,6 +782,8 @@ async def get_extension_asset(key: str, version: str, asset_path: str):
     strict ``script-src 'self'`` CSP intact. The version segment exists
     for cache-busting (assets are served immutable).
     """
+    import os
+
     from fastapi.responses import FileResponse
 
     from app.services.extensions.bundle import KEY_PATTERN
@@ -797,16 +799,21 @@ async def get_extension_asset(key: str, version: str, asset_path: str):
     if info is None or not info.enabled or info.status == "removed":
         raise HTTPException(status_code=404, detail="Not found")
 
-    # Containment checks anchored on the UNTAINTED root: the key-derived base
-    # must stay inside EXTENSIONS_DIR, and the asset path must stay inside
-    # this extension's own frontend directory.
-    root = EXTENSIONS_DIR.resolve()
-    base = (root / key / "frontend").resolve()
-    target = (base / asset_path).resolve()
-    if not base.is_relative_to(root) or not target.is_relative_to(base) or not target.is_file():
+    # Path-traversal barrier: realpath both the key-derived base and the final
+    # target, then require each to sit under its untainted parent (prefix guard
+    # terminated by os.sep so a sibling like `<root>-evil` can't slip through).
+    # This is the canonical realpath + startswith form for path containment.
+    root = os.path.realpath(str(EXTENSIONS_DIR))
+    base = os.path.realpath(os.path.join(root, key, "frontend"))
+    target = os.path.realpath(os.path.join(base, asset_path))
+    if (
+        not base.startswith(root + os.sep)
+        or not target.startswith(base + os.sep)
+        or not os.path.isfile(target)
+    ):
         raise HTTPException(status_code=404, detail="Not found")
 
-    media_type = _ASSET_MEDIA_TYPES.get(target.suffix.lower())
+    media_type = _ASSET_MEDIA_TYPES.get(os.path.splitext(target)[1].lower())
     return FileResponse(
         target,
         media_type=media_type,
