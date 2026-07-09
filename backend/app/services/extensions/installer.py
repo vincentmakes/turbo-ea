@@ -156,19 +156,30 @@ async def uninstall(
 ) -> Extension | None:
     """Remove an extension's files and mark its row ``removed``.
 
-    Extension data (``ext_{key}_*`` tables, content-pack card types, and
-    their cards) is deliberately left untouched — uninstalling must never
-    destroy customer data. If the extension had loaded runtime code the
-    process keeps serving it until the next restart; the API layer
-    surfaces that.
+    Extension data (``ext_{key}_*`` tables, content-pack cards) is
+    deliberately left untouched — uninstalling must never destroy customer
+    data. Content-pack **card/relation types are soft-hidden** though, so
+    the metamodel visibly reflects the uninstall; reinstalling unhides
+    them and everything reappears. If the extension had loaded runtime
+    code the process keeps serving it until the next restart; the API
+    layer surfaces that.
     """
+    from app.services.extensions.content_pack import set_content_visibility
+
     extensions_dir = extensions_dir if extensions_dir is not None else EXTENSIONS_DIR
     row = (await db.execute(select(Extension).where(Extension.key == key))).scalar_one_or_none()
     if row is None:
         return None
+    # Hide the pack's metamodel entries BEFORE removing the files that
+    # declare them.
+    hidden = await set_content_visibility(db, extensions_dir / key, row.manifest or {}, True)
     shutil.rmtree(extensions_dir / key, ignore_errors=True)
     row.status = "removed"
     row.enabled = False
     await db.flush()
-    logger.info("Uninstalled extension %s (files removed, data retained)", key)
+    logger.info(
+        "Uninstalled extension %s (files removed, %d metamodel entries hidden, data retained)",
+        key,
+        hidden,
+    )
     return row

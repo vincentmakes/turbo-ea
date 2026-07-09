@@ -42,8 +42,8 @@ Wenden Sie eine Lizenz über **Lizenz eingeben…** im Tab Installiert an (Text 
 
 ## Aktivieren, Deaktivieren und Deinstallieren
 
-- Der Schalter **Aktiviert** deaktiviert eine Erweiterung sofort weich (ohne Neustart) und lässt sich jederzeit zurückschalten.
-- **Deinstallieren** entfernt die Dateien der Erweiterung. Von ihr erzeugte Daten — Kartentypen, Karten und eigene Tabellen — bleiben bewusst erhalten und erscheinen bei einer Neuinstallation wieder. Zum vollständigen Entladen von Backend-Code ist ein Neustart nötig.
+- Der Schalter **Aktiviert** deaktiviert eine Erweiterung sofort weich (ohne Neustart) und lässt sich jederzeit zurückschalten. Bei Inhaltspaketen werden dabei ihre Kartentypen im Metamodell ausgeblendet — Karten bleiben, wo sie sind.
+- **Deinstallieren** entfernt die Dateien der Erweiterung und blendet ihre Kartentypen im Metamodell aus. Karten und die eigenen Tabellen der Erweiterung bleiben bewusst erhalten, und bei einer Neuinstallation erscheint alles — Typen eingeschlossen — wieder.
 
 ## Berechtigungen
 

@@ -42,8 +42,8 @@ Le licenze acquistate tramite lo Store si rinnovano da sole sulle istanze connes
 
 ## Abilitare, disabilitare e disinstallare
 
-- L'interruttore **Abilitata** disattiva subito l'estensione (senza riavvio) e può essere riattivato in qualsiasi momento.
-- **Disinstalla** rimuove i file dell'estensione. I dati creati — tipi di scheda, schede e le sue tabelle — vengono deliberatamente conservati e ricompaiono in caso di reinstallazione. Serve un riavvio per scaricare completamente il codice backend.
+- L'interruttore **Abilitata** disattiva subito l'estensione (senza riavvio) e può essere riattivato in qualsiasi momento. Per i pacchetti di contenuto questo nasconde i loro tipi di scheda dal metamodello — le schede restano dove sono.
+- **Disinstalla** rimuove i file dell'estensione e nasconde i suoi tipi di scheda dal metamodello. Le schede e le tabelle proprie dell'estensione vengono deliberatamente conservate, e tutto — tipi inclusi — ricompare in caso di reinstallazione.
 
 ## Permessi
 

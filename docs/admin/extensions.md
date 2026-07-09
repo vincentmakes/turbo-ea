@@ -42,8 +42,8 @@ Licenses bought through the Store renew themselves on connected instances: after
 
 ## Enabling, disabling, and uninstalling
 
-- The **Enabled** switch soft-disables an extension immediately (no restart) and can be flipped back at any time.
-- **Uninstall** removes the extension's files. Data the extension created — card types, cards, and its own tables — is deliberately kept and reappears if you reinstall. A restart is needed to fully unload backend code.
+- The **Enabled** switch soft-disables an extension immediately (no restart) and can be flipped back at any time. For content packs this hides their card types from the metamodel — cards stay where they are.
+- **Uninstall** removes the extension's files and hides its card types from the metamodel. Cards and the extension's own tables are deliberately kept, and everything — types included — reappears if you reinstall.
 
 ## Permissions
 

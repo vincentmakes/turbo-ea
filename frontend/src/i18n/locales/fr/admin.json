@@ -1729,7 +1729,7 @@
   "extensions.status.failed": "Échec",
   "extensions.status.removed": "Supprimée",
   "extensions.uninstall.title": "Désinstaller l'extension ?",
-  "extensions.uninstall.body": "Les fichiers de l'extension sont supprimés et ses fonctionnalités cessent de fonctionner. Les données qu'elle a créées (types de cartes, cartes, ses propres tables) sont conservées et réapparaissent en cas de réinstallation.",
+  "extensions.uninstall.body": "Les fichiers de l'extension sont supprimés, ses fonctionnalités s'arrêtent et ses types de cartes sont masqués du métamodèle. Les cartes et données créées sont conservées — tout réapparaît en cas de réinstallation.",
   "extensions.uninstall.cancel": "Annuler",
   "extensions.uninstall.confirm": "Désinstaller",
   "extensions.tabs.store": "Boutique",

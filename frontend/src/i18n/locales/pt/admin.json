@@ -1729,7 +1729,7 @@
   "extensions.status.failed": "Falhada",
   "extensions.status.removed": "Removida",
   "extensions.uninstall.title": "Desinstalar a extensão?",
-  "extensions.uninstall.body": "Os ficheiros da extensão são removidos e as suas funcionalidades deixam de funcionar. Os dados que criou (tipos de cartão, cartões, as suas próprias tabelas) são mantidos e reaparecem se reinstalar.",
+  "extensions.uninstall.body": "Os ficheiros da extensão são removidos, as suas funcionalidades param e os seus tipos de cartão são ocultados do metamodelo. Os cartões e dados criados são mantidos — tudo reaparece se a reinstalar.",
   "extensions.uninstall.cancel": "Cancelar",
   "extensions.uninstall.confirm": "Desinstalar",
   "extensions.tabs.store": "Loja",

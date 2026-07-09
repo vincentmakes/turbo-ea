@@ -260,7 +260,7 @@ describe("ExtensionsAdmin", () => {
     await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
     await userEvent.click(screen.getByText("Uninstall", { selector: "button" }));
     expect(screen.getByText("Uninstall extension?")).toBeInTheDocument();
-    expect(screen.getByText(/Data it created/)).toBeInTheDocument();
+    expect(screen.getByText(/card types are hidden from the metamodel/)).toBeInTheDocument();
   });
 
   it("gates Install behind the license dialog for unlicensed items", async () => {

@@ -42,8 +42,8 @@ Las licencias compradas en la Tienda se renuevan solas en las instancias conecta
 
 ## Habilitar, deshabilitar y desinstalar
 
-- El interruptor **Habilitada** desactiva la extensión de inmediato (sin reinicio) y puede revertirse en cualquier momento.
-- **Desinstalar** elimina los archivos de la extensión. Los datos que creó — tipos de tarjeta, tarjetas y sus propias tablas — se conservan deliberadamente y reaparecen si se reinstala. Se necesita un reinicio para descargar por completo el código de backend.
+- El interruptor **Habilitada** desactiva una extensión inmediatamente de forma suave (sin reinicio) y puede revertirse en cualquier momento. Para los paquetes de contenido, esto oculta sus tipos de tarjeta del metamodelo — las tarjetas se quedan donde están.
+- **Desinstalar** elimina los archivos de la extensión y oculta sus tipos de tarjeta del metamodelo. Las tarjetas y las tablas propias de la extensión se conservan deliberadamente, y todo — tipos incluidos — reaparece si la reinstalas.
 
 ## Permisos
 

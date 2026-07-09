@@ -44,12 +44,14 @@ from app.config import settings
 from app.database import async_session, get_db
 from app.models.extension import Extension, ExtensionInstall, ExtensionLicense
 from app.models.user import User
+from app.services.extensions import installer as ext_installer
 from app.services.extensions.bundle import BundleError, read_bundle
 from app.services.extensions.content_pack import (
     ContentPackError,
     apply_content,
     load_content_from_zip,
     preview_content,
+    set_content_visibility,
 )
 from app.services.extensions.installer import install_bundle, uninstall
 from app.services.extensions.license import LicenseError, parse_and_verify
@@ -648,6 +650,12 @@ async def set_extension_enabled(
     row.enabled = payload.enabled
     if row.status in {"installed", "disabled"}:
         row.status = "installed" if payload.enabled else "disabled"
+    # A content pack's "features" ARE its metamodel entries — disabling
+    # must visibly deactivate them. Soft-hide the pack's card/relation
+    # types (never the cards/data); enabling flips them back.
+    await set_content_visibility(
+        db, ext_installer.EXTENSIONS_DIR / key, row.manifest or {}, not payload.enabled
+    )
     await db.commit()
     await db.refresh(row)
     await extension_registry.refresh_from_db(db)
@@ -851,6 +859,11 @@ async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> 
                 return
 
         extension = await install_bundle(db, bundle, user.id)
+        # Reinstalling after an uninstall/disable must bring the pack's
+        # soft-hidden card/relation types back.
+        await set_content_visibility(
+            db, ext_installer.EXTENSIONS_DIR / extension.key, bundle.manifest, False
+        )
         install.status = "installed"
         install.applied_at = datetime.now(timezone.utc)
         await db.commit()

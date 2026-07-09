@@ -42,8 +42,8 @@ Licenser købt via Butikken fornyer sig selv på forbundne instanser: efter hver
 
 ## Aktivér, deaktivér og afinstaller
 
-- Kontakten **Aktiveret** deaktiverer udvidelsen blødt med det samme (uden genstart) og kan altid slås til igen.
-- **Afinstaller** fjerner udvidelsens filer. Data, den har oprettet — korttyper, kort og dens egne tabeller — bevares bevidst og dukker op igen ved geninstallation. En genstart er nødvendig for helt at aflæsse backend-kode.
+- Kontakten **Aktiveret** deaktiverer en udvidelse blødt med det samme (ingen genstart) og kan slås til igen når som helst. For indholdspakker skjuler dette deres korttyper fra metamodellen — kort bliver, hvor de er.
+- **Afinstaller** fjerner udvidelsens filer og skjuler dens korttyper fra metamodellen. Kort og udvidelsens egne tabeller bevares bevidst, og alt — typer inklusive — dukker op igen, hvis du geninstallerer.
 
 ## Tilladelser
 

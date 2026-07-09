@@ -1729,7 +1729,7 @@
   "extensions.status.failed": "Fehlgeschlagen",
   "extensions.status.removed": "Entfernt",
   "extensions.uninstall.title": "Erweiterung deinstallieren?",
-  "extensions.uninstall.body": "Die Dateien der Erweiterung werden entfernt und ihre Funktionen stehen nicht mehr zur Verfügung. Von ihr erstellte Daten (Kartentypen, Karten, eigene Tabellen) bleiben erhalten und erscheinen bei einer Neuinstallation wieder.",
+  "extensions.uninstall.body": "Die Dateien der Erweiterung werden entfernt, ihre Funktionen stoppen und ihre Kartentypen werden im Metamodell ausgeblendet. Erstellte Karten und Daten bleiben erhalten — bei einer Neuinstallation erscheint alles wieder.",
   "extensions.uninstall.cancel": "Abbrechen",
   "extensions.uninstall.confirm": "Deinstallieren",
   "extensions.tabs.store": "Store",

@@ -1729,7 +1729,7 @@
   "extensions.status.failed": "فشلت",
   "extensions.status.removed": "أُزيلت",
   "extensions.uninstall.title": "إزالة الإضافة؟",
-  "extensions.uninstall.body": "تُحذف ملفات الإضافة وتتوقف ميزاتها عن العمل. تُحتفظ البيانات التي أنشأتها (أنواع البطاقات والبطاقات وجداولها الخاصة) وتظهر مجددًا عند إعادة التثبيت.",
+  "extensions.uninstall.body": "تُزال ملفات الإضافة وتتوقف ميزاتها وتُخفى أنواع بطاقاتها من النموذج الفوقي. تُحفظ البطاقات والبيانات التي أنشأتها — ويعود كل شيء عند إعادة التثبيت.",
   "extensions.uninstall.cancel": "إلغاء",
   "extensions.uninstall.confirm": "إزالة",
   "extensions.tabs.store": "المتجر",

@@ -132,3 +132,58 @@ async def apply_content(
     return await apply_selected(
         db, build_content_bundle(sheets), user, sheets=set(sheets), dry_run=False
     )
+
+
+async def set_content_visibility(
+    db: AsyncSession, ext_dir: Path, manifest: dict[str, Any], hidden: bool
+) -> int:
+    """Hide or unhide the metamodel entries a content pack declares.
+
+    Disabling or uninstalling a content pack must visibly deactivate it
+    without destroying anything: the pack's card types and relation types
+    are flipped to ``is_hidden`` (the metamodel's soft-delete, exactly what
+    Admin → Metamodel delete does), while cards and every other row stay
+    untouched. Enabling or reinstalling flips them back. Only non-built-in
+    rows matching the pack's declared keys are affected, so a pack can
+    never hide a core type. Returns the number of rows flipped; quietly
+    returns 0 when the pack files are already gone.
+    """
+    from sqlalchemy import update
+
+    from app.models.card_type import CardType
+    from app.models.relation_type import RelationType
+
+    try:
+        sheets = load_content(ext_dir, manifest)
+    except (ContentPackError, OSError):
+        return 0  # no content files (code-only extension) or already removed
+
+    flipped = 0
+    card_keys = [
+        str(row["key"])
+        for row in sheets.get(ws_schema.SHEET_CARD_TYPES, [])
+        if isinstance(row, dict) and row.get("key")
+    ]
+    if card_keys:
+        res = await db.execute(
+            update(CardType)
+            .where(CardType.key.in_(card_keys), CardType.built_in == False)  # noqa: E712
+            .values(is_hidden=hidden)
+        )
+        flipped += res.rowcount or 0
+
+    rel_keys = [
+        str(row["key"])
+        for row in sheets.get(ws_schema.SHEET_RELATION_TYPES, [])
+        if isinstance(row, dict) and row.get("key")
+    ]
+    if rel_keys:
+        res = await db.execute(
+            update(RelationType)
+            .where(RelationType.key.in_(rel_keys), RelationType.built_in == False)  # noqa: E712
+            .values(is_hidden=hidden)
+        )
+        flipped += res.rowcount or 0
+
+    await db.flush()
+    return flipped

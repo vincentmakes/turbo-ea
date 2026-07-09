@@ -1729,7 +1729,7 @@
   "extensions.status.failed": "Fallita",
   "extensions.status.removed": "Rimossa",
   "extensions.uninstall.title": "Disinstallare l'estensione?",
-  "extensions.uninstall.body": "I file dell'estensione vengono rimossi e le sue funzionalità smettono di funzionare. I dati che ha creato (tipi di scheda, schede, le sue tabelle) vengono conservati e riappaiono in caso di reinstallazione.",
+  "extensions.uninstall.body": "I file dell'estensione vengono rimossi, le sue funzionalità si fermano e i suoi tipi di scheda vengono nascosti dal metamodello. Le schede e i dati creati vengono conservati — tutto ricompare in caso di reinstallazione.",
   "extensions.uninstall.cancel": "Annulla",
   "extensions.uninstall.confirm": "Disinstalla",
   "extensions.tabs.store": "Store",

@@ -42,8 +42,8 @@ As licenças compradas na Loja renovam-se sozinhas nas instâncias ligadas: apó
 
 ## Ativar, desativar e desinstalar
 
-- O interruptor **Ativada** desativa a extensão de imediato (sem reinício) e pode ser revertido a qualquer momento.
-- **Desinstalar** remove os ficheiros da extensão. Os dados que ela criou — tipos de cartão, cartões e as suas próprias tabelas — são deliberadamente mantidos e reaparecem se reinstalar. É preciso um reinício para descarregar por completo o código de backend.
+- O interruptor **Ativada** desativa uma extensão imediatamente de forma suave (sem reinício) e pode ser revertido a qualquer momento. Para pacotes de conteúdo, isto oculta os seus tipos de cartão do metamodelo — os cartões ficam onde estão.
+- **Desinstalar** remove os ficheiros da extensão e oculta os seus tipos de cartão do metamodelo. Os cartões e as tabelas próprias da extensão são deliberadamente mantidos, e tudo — tipos incluídos — reaparece se a reinstalar.
 
 ## Permissões
 

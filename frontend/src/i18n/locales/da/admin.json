@@ -1729,7 +1729,7 @@
   "extensions.status.failed": "Fejlet",
   "extensions.status.removed": "Fjernet",
   "extensions.uninstall.title": "Afinstaller udvidelsen?",
-  "extensions.uninstall.body": "Udvidelsens filer fjernes, og dens funktioner holder op med at virke. Data, den har oprettet (korttyper, kort, dens egne tabeller), bevares og dukker op igen ved geninstallation.",
+  "extensions.uninstall.body": "Udvidelsens filer fjernes, dens funktioner stopper, og dens korttyper skjules fra metamodellen. Oprettede kort og data bevares — alt dukker op igen, hvis du geninstallerer.",
   "extensions.uninstall.cancel": "Annuller",
   "extensions.uninstall.confirm": "Afinstaller",
   "extensions.tabs.store": "Butik",

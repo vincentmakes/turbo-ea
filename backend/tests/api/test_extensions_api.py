@@ -314,7 +314,7 @@ class TestEnableDisableUninstall:
         )
         assert res.json()["status"] == "installed"
 
-    async def test_uninstall_keeps_data(self, client, db, vendor):
+    async def test_uninstall_keeps_data_but_hides_pack_types(self, client, db, vendor):
         admin = await make_admin(db)
         await self._install(client, db, admin, vendor)
         res = await client.delete(
@@ -322,14 +322,53 @@ class TestEnableDisableUninstall:
         )
         assert res.status_code == 200
         assert res.json()["status"] == "removed"
-        # Content-pack data survives the uninstall
+        # Content-pack data survives the uninstall — but the pack's card
+        # type is soft-hidden so the metamodel visibly reflects the removal.
         ct = (
             await db.execute(select(CardType).where(CardType.key == "EsgMetric"))
         ).scalar_one_or_none()
         assert ct is not None
+        assert ct.is_hidden is True
         # And the list no longer shows the extension
         res = await client.get("/api/v1/admin/extensions", headers=auth_headers(admin))
         assert res.json() == []
+
+    async def test_disable_hides_pack_types_and_enable_restores_them(self, client, db, vendor):
+        admin = await make_admin(db)
+        await self._install(client, db, admin, vendor)
+
+        res = await client.put(
+            "/api/v1/admin/extensions/sample-ext/enabled",
+            json={"enabled": False},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 200
+        ct = (await db.execute(select(CardType).where(CardType.key == "EsgMetric"))).scalar_one()
+        await db.refresh(ct)
+        assert ct.is_hidden is True
+
+        res = await client.put(
+            "/api/v1/admin/extensions/sample-ext/enabled",
+            json={"enabled": True},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 200
+        await db.refresh(ct)
+        assert ct.is_hidden is False
+
+    async def test_reinstall_after_uninstall_unhides_pack_types(self, client, db, vendor):
+        admin = await make_admin(db)
+        await self._install(client, db, admin, vendor)
+        await client.delete("/api/v1/admin/extensions/sample-ext", headers=auth_headers(admin))
+        ct = (await db.execute(select(CardType).where(CardType.key == "EsgMetric"))).scalar_one()
+        await db.refresh(ct)
+        assert ct.is_hidden is True
+
+        # Reinstall the same bundle — the pack's types come back.
+        install = await upload_and_preview(client, db, admin, vendor)
+        await ext_api.run_apply(db, install, admin)
+        await db.refresh(ct)
+        assert ct.is_hidden is False
 
     async def test_unknown_extension_404(self, client, db, vendor):
         admin = await make_admin(db)

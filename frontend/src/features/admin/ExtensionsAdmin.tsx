@@ -1065,7 +1065,7 @@ export default function ExtensionsAdmin() {
           <DialogContentText>
             {t(
               "extensions.uninstall.body",
-              "The extension's files are removed and its features stop working. Data it created (card types, cards, its own tables) is kept and reappears if you reinstall.",
+              "The extension's files are removed, its features stop working, and its card types are hidden from the metamodel. Cards and data it created are kept — everything reappears if you reinstall.",
             )}
           </DialogContentText>
         </DialogContent>

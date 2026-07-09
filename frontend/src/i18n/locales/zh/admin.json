@@ -1729,7 +1729,7 @@
   "extensions.status.failed": "失败",
   "extensions.status.removed": "已移除",
   "extensions.uninstall.title": "卸载扩展？",
-  "extensions.uninstall.body": "扩展的文件将被移除，其功能将停止工作。它创建的数据（卡片类型、卡片及其自有表）会被保留，重新安装后会再次出现。",
+  "extensions.uninstall.body": "扩展的文件将被删除，其功能停止工作，其卡片类型将从元模型中隐藏。其创建的卡片和数据会保留——重新安装后一切都会恢复。",
   "extensions.uninstall.cancel": "取消",
   "extensions.uninstall.confirm": "卸载",
   "extensions.tabs.store": "商店",

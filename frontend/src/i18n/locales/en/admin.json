@@ -1729,7 +1729,7 @@
   "extensions.status.failed": "Failed",
   "extensions.status.removed": "Removed",
   "extensions.uninstall.title": "Uninstall extension?",
-  "extensions.uninstall.body": "The extension's files are removed and its features stop working. Data it created (card types, cards, its own tables) is kept and reappears if you reinstall.",
+  "extensions.uninstall.body": "The extension's files are removed, its features stop working, and its card types are hidden from the metamodel. Cards and data it created are kept — everything reappears if you reinstall.",
   "extensions.uninstall.cancel": "Cancel",
   "extensions.uninstall.confirm": "Uninstall",
   "extensions.tabs.store": "Store",

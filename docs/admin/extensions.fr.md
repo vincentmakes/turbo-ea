@@ -42,8 +42,8 @@ Les licences achetées via la Boutique se renouvellent d'elles-mêmes sur les in
 
 ## Activer, désactiver et désinstaller
 
-- L'interrupteur **Activée** désactive l'extension immédiatement en douceur (sans redémarrage) et peut être réactivé à tout moment.
-- **Désinstaller** supprime les fichiers de l'extension. Les données qu'elle a créées — types de cartes, cartes et ses propres tables — sont volontairement conservées et réapparaissent en cas de réinstallation. Un redémarrage est nécessaire pour décharger complètement le code backend.
+- L'interrupteur **Activée** désactive une extension immédiatement en douceur (sans redémarrage) et peut être rebasculé à tout moment. Pour les packs de contenu, cela masque leurs types de cartes du métamodèle — les cartes restent en place.
+- **Désinstaller** supprime les fichiers de l'extension et masque ses types de cartes du métamodèle. Les cartes et les tables propres à l'extension sont délibérément conservées, et tout — types compris — réapparaît en cas de réinstallation.
 
 ## Permissions
 
