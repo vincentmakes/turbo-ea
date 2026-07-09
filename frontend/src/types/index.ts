@@ -688,6 +688,12 @@ export interface SurveyField {
   action: "maintain" | "confirm";
   translations?: TranslationMap;
   section_translations?: TranslationMap;
+  // Per-field settings for custom (ext.*) field types + collapsible help text,
+  // enriched from the live metamodel by the response-form endpoint so the survey
+  // form can render the same rating widget / guidance as the card detail.
+  config?: Record<string, unknown>;
+  help?: string;
+  helpTranslations?: TranslationMap;
   // Relation fields: when kind === "relation" the field surveys a relationship
   // rather than an attribute. The respondent's value is a list of SurveyRelationRef.
   kind?: "attribute" | "relation";

@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.1.0] - 2026-07-09
+
+### Added
+- **Surveys render extension field types and field help.** When a survey includes a field that uses an extension-contributed custom field type (e.g. a rating widget) or carries collapsible help text, the respondent now sees the same control and guidance as on the card detail instead of a plain text box. The custom type and its config/help are read from the live metamodel, and a field degrades gracefully to a text input when the extension is absent.
+
 ## [2.0.0] - 2026-07-09
 
 Turbo EA 2.0 introduces the **Extension Store** — install vendor-signed extensions to add capabilities without changing the core. A full announcement is in the GitHub Discussions.

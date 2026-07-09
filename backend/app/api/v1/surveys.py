@@ -935,6 +935,14 @@ async def get_response_form(
         if not enriched.get("translations") and meta_field.get("translations"):
             enriched["translations"] = meta_field["translations"]
 
+        # Custom field-type config + help text are not captured in the survey's
+        # field snapshot, so pull them from the live metamodel field. This lets
+        # the respond form render an extension field type (e.g. a rating widget)
+        # and its collapsible help, matching the card detail.
+        for prop in ("config", "help", "helpTranslations"):
+            if enriched.get(prop) is None and meta_field.get(prop) is not None:
+                enriched[prop] = meta_field[prop]
+
         # Section name translations
         section_tr = section_translations_by_name.get(field_def.get("section") or "")
         if section_tr and not enriched.get("section_translations"):

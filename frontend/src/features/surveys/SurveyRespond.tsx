@@ -28,6 +28,8 @@ import Tooltip from "@mui/material/Tooltip";
 import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionHost";
+import { FieldHelp } from "@/features/cards/sections/cardDetailUtils";
 import type { SurveyRespondForm, SurveyField } from "@/types";
 
 type OptionLabelResolver = (key: string, translations?: Record<string, string>) => string;
@@ -194,7 +196,8 @@ function RelationFieldEditor({
 }
 
 export default function SurveyRespond() {
-  const { t } = useTranslation(["admin", "common"]);
+  const { t, i18n } = useTranslation(["admin", "common"]);
+  const extFieldTypes = useExtensionFieldTypes();
   const rl = useResolveLabel();
   const rml = useResolveMetaLabel();
   const typeLabel = useTypeLabel();
@@ -317,6 +320,25 @@ export default function SurveyRespond() {
     }
 
     const value = resp.new_value ?? field.current_value ?? "";
+
+    // Extension-contributed custom field type (e.g. a rating widget): render its
+    // editor so a contributed field is answered with the same control as the
+    // card detail. When the extension is missing/disabled it's absent from the
+    // registry and we fall through to the built-in inputs (a plain text box).
+    const custom = extFieldTypes[field.type];
+    if (custom?.contribution.editor) {
+      const Editor = custom.contribution.editor;
+      return (
+        <ExtensionBoundary extensionKey={custom.extKey}>
+          <Editor
+            field={{ key: field.key, label: field.label, type: field.type, config: field.config }}
+            value={value === "" ? undefined : value}
+            config={field.config ?? custom.contribution.defaultConfig}
+            onChange={(v) => setNewValue(field.key, v)}
+          />
+        </ExtensionBoundary>
+      );
+    }
 
     if (field.type === "boolean") {
       return (
@@ -525,6 +547,12 @@ export default function SurveyRespond() {
                 </Typography>
               )}
             </Box>
+
+            {field.kind !== "relation" && (
+              <FieldHelp
+                text={(field.helpTranslations?.[i18n.language] as string) || field.help || ""}
+              />
+            )}
 
             {field.kind === "relation" && (
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>

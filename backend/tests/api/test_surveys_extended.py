@@ -399,6 +399,63 @@ class TestGetResponseForm:
         risk_field = next(f for f in data["fields"] if f["key"] == "riskLevel")
         assert risk_field["current_value"] == "medium"
 
+    async def test_response_form_enriches_custom_field_config_and_help(
+        self, client, db, survey_env
+    ):
+        """A contributed custom-typed field's config + help are pulled from the
+        live metamodel into the response form, even though the survey snapshot
+        omits them — so the respond UI can render the same rating widget +
+        guidance as the card detail."""
+        from sqlalchemy.orm.attributes import flag_modified
+
+        from app.models.card_type import CardType
+
+        admin = survey_env["admin"]
+        member = survey_env["member"]
+        card = survey_env["card"]
+
+        # Add a custom-typed field carrying config + help to the Application type.
+        ct = (await db.execute(select(CardType).where(CardType.key == "Application"))).scalar_one()
+        ct.fields_schema[0]["fields"].append(
+            {
+                "key": "autonomyRating",
+                "label": "Autonomy Rating",
+                "type": "ext.demo.rating",
+                "config": {"min": 1, "max": 5},
+                "help": "Score 1 (worst) to 5 (best).",
+                "helpTranslations": {"de": "Bewerten Sie 1 bis 5."},
+                "weight": 1,
+            }
+        )
+        flag_modified(ct, "fields_schema")
+        await db.flush()
+
+        # The survey snapshot deliberately omits config/help (the builder never
+        # captures them) — the response form must enrich from the metamodel.
+        fields = [
+            {
+                "key": "autonomyRating",
+                "label": "Autonomy Rating",
+                "type": "ext.demo.rating",
+                "action": "maintain",
+            }
+        ]
+        survey = await _create_draft_survey(client, admin, fields=fields)
+        send_resp = await client.post(
+            f"/api/v1/surveys/{survey['id']}/send", headers=auth_headers(admin)
+        )
+        assert send_resp.status_code == 200
+
+        resp = await client.get(
+            f"/api/v1/surveys/{survey['id']}/respond/{card.id}",
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 200
+        field = next(f for f in resp.json()["fields"] if f["key"] == "autonomyRating")
+        assert field["config"] == {"min": 1, "max": 5}
+        assert field["help"] == "Score 1 (worst) to 5 (best)."
+        assert field["helpTranslations"] == {"de": "Bewerten Sie 1 bis 5."}
+
     async def test_get_response_form_not_found_for_wrong_user(self, client, db, survey_env):
         """A user who is not targeted cannot access the response form."""
         admin = survey_env["admin"]
