@@ -309,7 +309,7 @@ describe("ExtensionsAdmin", () => {
     );
   });
 
-  it("installs directly when the item is already licensed", async () => {
+  it("one-click store install auto-applies straight through to installed", async () => {
     primeInitialLoad({
       license: LICENSE,
       catalog: {
@@ -319,7 +319,17 @@ describe("ExtensionsAdmin", () => {
         items: [{ ...STORE_ITEM, entitlement_state: "active" }],
       },
     });
-    mockPost.mockResolvedValue({ id: "s1", filename: "esg.teax", status: "verifying" });
+    // POST store/install → verifying; POST .../apply → applying.
+    mockPost.mockImplementation(async (path: string) => {
+      if (path === "/admin/extensions/store/install")
+        return { id: "s1", filename: "esg.teax", status: "verifying" };
+      if (path === "/admin/extensions/install/s1/apply")
+        return { id: "s1", filename: "esg.teax", status: "applying" };
+      throw new Error(`unexpected POST ${path}`);
+    });
+    // The install poll walks verifying → previewed → installed.
+    const statuses = ["previewed", "installed"];
+    let call = 0;
     mockGet.mockImplementation(async (path: string) => {
       if (path === "/admin/extensions") return [];
       if (path === "/admin/extensions/license") return LICENSE;
@@ -330,22 +340,32 @@ describe("ExtensionsAdmin", () => {
           store_url: "https://x",
           items: [{ ...STORE_ITEM, entitlement_state: "active" }],
         };
-      if (path.startsWith("/admin/extensions/install/"))
-        return { id: "s1", filename: "esg.teax", status: "previewed" };
+      if (path.startsWith("/admin/extensions/install/")) {
+        const status = statuses[Math.min(call++, statuses.length - 1)];
+        const diff =
+          status === "previewed"
+            ? { totals: { created: 1, updated: 0, skipped: 0, conflict: 0, failed: 0 } }
+            : null;
+        return { id: "s1", filename: "esg.teax", status, diff };
+      }
       throw new Error(`unexpected GET ${path}`);
     });
 
     render(<ExtensionsAdmin />);
     await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
-    // Licensed item shows no Buy button.
     expect(screen.queryByText("Buy", { selector: "button" })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByText("Install", { selector: "button" }));
-    await waitFor(() =>
-      expect(mockPost).toHaveBeenCalledWith("/admin/extensions/store/install", {
-        key: "esg-pack",
-      }),
+
+    // Auto-apply fires without a second click: the apply endpoint is hit…
+    await waitFor(
+      () => expect(mockPost).toHaveBeenCalledWith("/admin/extensions/install/s1/apply"),
+      { timeout: 5000 },
     );
+    // …and no manual "Install extension" apply button is ever shown.
+    expect(
+      screen.queryByText("Install extension", { selector: "button" }),
+    ).not.toBeInTheDocument();
   });
 
   it("Buy opens the payment link with a claim token and starts polling", async () => {

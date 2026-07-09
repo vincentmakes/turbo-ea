@@ -186,6 +186,12 @@ export default function ExtensionsAdmin() {
   // Continue an install automatically once its license arrives.
   const pendingInstallRef = useRef<string | null>(null);
 
+  // Store installs are one-click: a trusted, signed catalogue bundle
+  // auto-applies straight through "previewed" to "installed" (unless the
+  // dry-run preview reports failures). Manual .teax uploads keep the
+  // explicit preview → Install step, where reviewing the diff matters.
+  const autoApplyRef = useRef(false);
+
   const [uninstallKey, setUninstallKey] = useState<string | null>(null);
   const [renewBusy, setRenewBusy] = useState(false);
 
@@ -233,6 +239,27 @@ export default function ExtensionsAdmin() {
     void loadAll();
   }, [loadAll]);
 
+  const applyInstall = useCallback(
+    async (id: string) => {
+      setInstallBusy(true);
+      setInstallError(null);
+      try {
+        const updated = await api.post<ExtensionInstall>(
+          `/admin/extensions/install/${id}/apply`,
+        );
+        setInstall(updated);
+        poll(updated.id);
+      } catch (err) {
+        setInstallError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setInstallBusy(false);
+      }
+    },
+    // poll is defined below; referenced lazily via pollFnRef to avoid a cycle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
   const poll = useCallback(
     (id: string) => {
       clearPoll();
@@ -242,17 +269,30 @@ export default function ExtensionsAdmin() {
           setInstall(next);
           if (!TERMINAL.has(next.status)) {
             poll(id);
-          } else if (next.status === "installed") {
+            return;
+          }
+          if (next.status === "installed") {
+            autoApplyRef.current = false;
             // Content packs can add card types — refresh the metamodel cache.
             void invalidateMetamodel();
             void loadAll();
+          } else if (next.status === "previewed" && autoApplyRef.current) {
+            // One-click store install: apply automatically unless the
+            // dry-run flagged failures (then fall back to manual review).
+            if (next.diff?.totals?.failed) {
+              autoApplyRef.current = false;
+            } else {
+              void applyInstall(next.id);
+            }
+          } else if (next.status === "failed") {
+            autoApplyRef.current = false;
           }
         } catch (e) {
           setInstallError(e instanceof Error ? e.message : String(e));
         }
       }, POLL_MS);
     },
-    [clearPoll, loadAll],
+    [clearPoll, loadAll, applyInstall],
   );
 
   const startStoreInstall = useCallback(
@@ -260,6 +300,7 @@ export default function ExtensionsAdmin() {
       setStoreBusyKey(itemKey);
       setInstallError(null);
       setInstall(null);
+      autoApplyRef.current = true; // one-click through to installed
       try {
         const created = await api.post<ExtensionInstall>("/admin/extensions/store/install", {
           key: itemKey,
@@ -267,6 +308,7 @@ export default function ExtensionsAdmin() {
         setInstall(created);
         poll(created.id);
       } catch (err) {
+        autoApplyRef.current = false;
         setInstallError(err instanceof Error ? err.message : String(err));
       } finally {
         setStoreBusyKey(null);
@@ -394,19 +436,7 @@ export default function ExtensionsAdmin() {
 
   const handleApply = async () => {
     if (!install) return;
-    setInstallBusy(true);
-    setInstallError(null);
-    try {
-      const updated = await api.post<ExtensionInstall>(
-        `/admin/extensions/install/${install.id}/apply`,
-      );
-      setInstall(updated);
-      poll(updated.id);
-    } catch (err) {
-      setInstallError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setInstallBusy(false);
-    }
+    await applyInstall(install.id);
   };
 
   const handleDiscard = async () => {
@@ -471,6 +501,10 @@ export default function ExtensionsAdmin() {
 
   const needsRestart = extensions.some((x) => x.status === "needs_restart");
   const isWorking = install ? !TERMINAL.has(install.status) : false;
+  // During a one-click store install the "previewed" state is transient
+  // (auto-apply kicks in), so treat it as still-working for the UI.
+  const autoApplying =
+    autoApplyRef.current && install?.status === "previewed" && !install.diff?.totals?.failed;
   const report = install?.result || install?.diff || null;
 
   const uiExtensions = useExtensionUI();
@@ -511,18 +545,20 @@ export default function ExtensionsAdmin() {
             label={`${install.extension_key} ${install.extension_version ?? ""}`}
           />
         )}
-        <Chip size="small" label={install.status} />
-        <Button
-          size="small"
-          color="inherit"
-          onClick={() => void handleDiscard()}
-          disabled={install.status === "applying"}
-        >
-          {t("extensions.install.discard", "Discard")}
-        </Button>
+        <Chip size="small" label={autoApplying ? "installing" : install.status} />
+        {!autoApplying && (
+          <Button
+            size="small"
+            color="inherit"
+            onClick={() => void handleDiscard()}
+            disabled={install.status === "applying"}
+          >
+            {t("extensions.install.discard", "Discard")}
+          </Button>
+        )}
       </Stack>
 
-      {isWorking && <LinearProgress sx={{ mb: 2 }} />}
+      {(isWorking || autoApplying) && <LinearProgress sx={{ mb: 2 }} />}
 
       {install.error_message && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -571,7 +607,7 @@ export default function ExtensionsAdmin() {
         </Box>
       )}
 
-      {install.status === "previewed" && (
+      {install.status === "previewed" && !autoApplying && (
         <Button
           variant="contained"
           color="warning"
