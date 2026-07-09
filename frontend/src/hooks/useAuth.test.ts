@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 
 vi.mock("@/api/client", () => ({
+  // `api` is consumed by loadUiExtensions(), which useAuth fires and forgets
+  // after login; without this export the extension host's property access
+  // rejects as an unhandled error and fails the whole vitest run.
+  api: { get: vi.fn().mockResolvedValue([]), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
   auth: {
     login: vi.fn(),
     register: vi.fn(),

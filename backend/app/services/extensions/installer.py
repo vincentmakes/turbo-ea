@@ -36,6 +36,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.extension import Extension
 from app.services.extensions.bundle import (
+    KEY_PATTERN,
     MANIFEST_NAME,
     SIGNATURE_NAME,
     BundleError,
@@ -176,7 +177,15 @@ async def uninstall(
     # (attribute values stay in cards.attributes — reinstalling restores them).
     hidden = await set_content_visibility(db, extensions_dir / key, row.manifest or {}, True)
     hidden += await remove_field_contributions(db, key)
-    shutil.rmtree(extensions_dir / key, ignore_errors=True)
+    # The DB row lookup above already guarantees a legitimate key, but never
+    # hand a deletion sink a path that could have escaped the extensions
+    # root (defence in depth for the rmtree below).
+    root = extensions_dir.resolve()
+    ext_dir = (root / key).resolve()
+    if KEY_PATTERN.match(key) and ext_dir.is_relative_to(root):
+        shutil.rmtree(ext_dir, ignore_errors=True)
+    else:
+        logger.error("Refusing to remove suspicious extension directory for key %r", key)
     row.status = "removed"
     row.enabled = False
     await db.flush()

@@ -170,7 +170,7 @@ async def set_content_visibility(
             .where(CardType.key.in_(card_keys), CardType.built_in == False)  # noqa: E712
             .values(is_hidden=hidden)
         )
-        flipped += res.rowcount or 0
+        flipped += getattr(res, "rowcount", 0) or 0
 
     rel_keys = [
         str(row["key"])
@@ -183,7 +183,7 @@ async def set_content_visibility(
             .where(RelationType.key.in_(rel_keys), RelationType.built_in == False)  # noqa: E712
             .values(is_hidden=hidden)
         )
-        flipped += res.rowcount or 0
+        flipped += getattr(res, "rowcount", 0) or 0
 
     await db.flush()
     return flipped

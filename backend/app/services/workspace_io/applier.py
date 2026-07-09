@@ -231,6 +231,9 @@ async def _run(
                 u.email.lower(): u.id for u in (await db.execute(select(User))).scalars().all()
             }
         for ent in wanted_entity_sections:
+            # needs_resolver is True whenever this loop has items, so the
+            # resolver was loaded above.
+            assert ent_resolver is not None
             sr = SectionResult(sheet=ent.sheet)
             result.sections.append(sr)
             await apply_entity_section(

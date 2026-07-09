@@ -784,15 +784,26 @@ async def get_extension_asset(key: str, version: str, asset_path: str):
     """
     from fastapi.responses import FileResponse
 
+    from app.services.extensions.bundle import KEY_PATTERN
     from app.services.extensions.installer import EXTENSIONS_DIR
 
+    # The registry lookup already 404s unknown keys, but validate the raw URL
+    # segments BEFORE any path construction too (defence in depth): the key
+    # must match the bundle key grammar and the version must be a plain
+    # dotted token — neither may carry separators or traversal.
+    if not KEY_PATTERN.match(key) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", version):
+        raise HTTPException(status_code=404, detail="Not found")
     info = extension_registry.get(key)
     if info is None or not info.enabled or info.status == "removed":
         raise HTTPException(status_code=404, detail="Not found")
 
-    base = (EXTENSIONS_DIR / key / "frontend").resolve()
+    # Containment checks anchored on the UNTAINTED root: the key-derived base
+    # must stay inside EXTENSIONS_DIR, and the asset path must stay inside
+    # this extension's own frontend directory.
+    root = EXTENSIONS_DIR.resolve()
+    base = (root / key / "frontend").resolve()
     target = (base / asset_path).resolve()
-    if not target.is_relative_to(base) or not target.is_file():
+    if not base.is_relative_to(root) or not target.is_relative_to(base) or not target.is_file():
         raise HTTPException(status_code=404, detail="Not found")
 
     media_type = _ASSET_MEDIA_TYPES.get(target.suffix.lower())
@@ -826,13 +837,16 @@ async def run_verify_and_preview(db: AsyncSession, install: ExtensionInstall, us
     """
     install_id = install.id  # captured before any rollback expires the instance
     try:
-        bundle = read_bundle(Path(install.storage_path))
+        if not install.storage_path:
+            raise BundleError("Upload has no stored bundle file")
+        storage = Path(install.storage_path)
+        bundle = read_bundle(storage)
         install.extension_key = bundle.key
         install.extension_version = bundle.version
         # "turboea-extension/1" -> "1" (column width mirrors workspace_transfers)
         install.format_version = str(bundle.manifest.get("schema", "")).rsplit("/", 1)[-1][:16]
         if "content" in bundle.capabilities:
-            sheets = load_content_from_zip(Path(install.storage_path), bundle.manifest)
+            sheets = load_content_from_zip(storage, bundle.manifest)
             result = await preview_content(db, sheets, user)
             install.diff = result.as_dict()
         else:
@@ -858,11 +872,14 @@ async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> 
     """
     install_id = install.id  # captured before any rollback expires the instance
     try:
+        if not install.storage_path:
+            raise BundleError("Upload has no stored bundle file")
+        storage = Path(install.storage_path)
         # Re-verify from disk — the upload could predate a core upgrade.
-        bundle = read_bundle(Path(install.storage_path))
+        bundle = read_bundle(storage)
 
         if "content" in bundle.capabilities:
-            sheets = load_content_from_zip(Path(install.storage_path), bundle.manifest)
+            sheets = load_content_from_zip(storage, bundle.manifest)
             result = await apply_content(db, sheets, user)
             install.result = result.as_dict()
             if result.total_failed:

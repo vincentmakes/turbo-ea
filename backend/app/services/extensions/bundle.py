@@ -74,11 +74,11 @@ class VerifiedBundle:
 
     @property
     def key(self) -> str:
-        return self.manifest["key"]
+        return str(self.manifest["key"])
 
     @property
     def version(self) -> str:
-        return self.manifest["version"]
+        return str(self.manifest["version"])
 
     @property
     def capabilities(self) -> list[str]:

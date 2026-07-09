@@ -50,6 +50,7 @@ and remove, since contributed fields carry weights.
 from __future__ import annotations
 
 import logging
+from collections.abc import Set as AbstractSet
 from typing import Any
 
 from sqlalchemy import select
@@ -230,7 +231,7 @@ async def apply_field_contributions(
 
 
 async def remove_field_contributions(
-    db: AsyncSession, ext_key: str, *, except_types: set[str] = frozenset()
+    db: AsyncSession, ext_key: str, *, except_types: AbstractSet[str] = frozenset()
 ) -> int:
     """Strip this extension's stamped fields from every card type.
 
