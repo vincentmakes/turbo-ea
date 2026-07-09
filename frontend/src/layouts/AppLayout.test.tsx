@@ -1,9 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import AppLayout from "./AppLayout";
 import { AuthProvider } from "@/hooks/AuthContext";
+import {
+  registerExtension,
+  resetExtensionHost,
+  UI_SDK_VERSION,
+  type ExtensionNavGroup,
+} from "@/lib/extensionHost";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -232,5 +238,80 @@ describe("AppLayout", () => {
   it("renders search icon button", () => {
     renderLayout();
     expect(screen.getByRole("button", { name: /search/i })).toBeInTheDocument();
+  });
+});
+
+describe("AppLayout — extension nav placement", () => {
+  beforeEach(() => resetExtensionHost());
+  afterEach(() => resetExtensionHost());
+
+  it("places a reports-group extension route under the Reports menu, not top-level", async () => {
+    registerExtension("digital-autonomy", {
+      key: "digital-autonomy",
+      sdkVersion: UI_SDK_VERSION,
+      routes: [
+        {
+          id: "quadrant",
+          path: "/ext/digital-autonomy/quadrant",
+          label: "Autonomy Report",
+          icon: "scatter_plot",
+          navGroup: "reports",
+          component: () => null,
+        },
+      ],
+    });
+    const user = userEvent.setup();
+    renderLayout();
+
+    // Not a top-level nav item.
+    expect(screen.queryByRole("link", { name: /Autonomy Report/i })).not.toBeInTheDocument();
+
+    // Appears inside the Reports dropdown, linking to its /ext path.
+    await user.click(screen.getByRole("button", { name: /reports/i }));
+    const item = await screen.findByRole("menuitem", { name: /Autonomy Report/i });
+    expect(item).toHaveAttribute("href", "/ext/digital-autonomy/quadrant");
+  });
+
+  it("keeps a route without navGroup as a top-level nav item", () => {
+    registerExtension("legacy-ext", {
+      key: "legacy-ext",
+      sdkVersion: UI_SDK_VERSION,
+      routes: [
+        {
+          id: "page",
+          path: "/ext/legacy-ext/page",
+          label: "Legacy Page",
+          icon: "star",
+          component: () => null,
+        },
+      ],
+    });
+    renderLayout();
+    expect(screen.getByRole("link", { name: /Legacy Page/i })).toBeInTheDocument();
+  });
+
+  it("ignores a route whose navGroup is not whitelisted (no crash, no injection)", async () => {
+    registerExtension("bad-ext", {
+      key: "bad-ext",
+      sdkVersion: UI_SDK_VERSION,
+      routes: [
+        {
+          id: "x",
+          path: "/ext/bad-ext/x",
+          label: "Nowhere Report",
+          icon: "warning",
+          navGroup: "adminPanels" as ExtensionNavGroup,
+          component: () => null,
+        },
+      ],
+    });
+    const user = userEvent.setup();
+    renderLayout();
+
+    // Not a top-level item…
+    expect(screen.queryByRole("link", { name: /Nowhere Report/i })).not.toBeInTheDocument();
+    // …and not injected into Reports either.
+    await user.click(screen.getByRole("button", { name: /reports/i }));
+    expect(screen.queryByRole("menuitem", { name: /Nowhere Report/i })).not.toBeInTheDocument();
   });
 });

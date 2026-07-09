@@ -57,3 +57,7 @@ Alcune estensioni sbloccano modi avanzati di descrivere i tuoi dati che il core 
 - **Tipi di campo personalizzati** — nuovi tipi oltre a quelli integrati (ad esempio una valutazione configurabile da 1 a 5 o da 0 a 10).
 
 Queste opzioni compaiono nell'editor dei campi del metamodello **solo finché l'estensione che le fornisce è installata e provvista di licenza**. Se tale estensione viene in seguito disattivata o la sua licenza scade, i valori già inseriti continuano a essere mostrati come testo di sola lettura — nulla viene svuotato o eliminato — e le opzioni di modifica scompaiono semplicemente finché l'estensione non è di nuovo attiva.
+
+## Dove compaiono le pagine delle estensioni
+
+Le pagine delle estensioni compaiono nella navigazione una volta che l'estensione è installata e provvista di licenza — di solito come una propria voce di menu di primo livello, anche se alcuni report vengono collocati sotto il menu **Report** accanto a quelli integrati.

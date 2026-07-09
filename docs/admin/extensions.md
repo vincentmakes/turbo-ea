@@ -57,3 +57,7 @@ Some extensions unlock advanced ways to describe your data that the core does no
 - **Custom field types** — new kinds of field beyond the built-in set (for example a configurable rating from 1–5 or 0–10).
 
 These options appear in the metamodel field editor **only while the extension that provides them is installed and licensed**. If such an extension is later disabled or its license lapses, the values you already captured keep displaying as plain read-only text — nothing is blanked or deleted — and the authoring options simply disappear until the extension is active again.
+
+## Where extension pages appear
+
+Extension pages appear in the navigation once the extension is installed and licensed — usually as their own top-level menu item, though some reports are placed under the **Reports** menu alongside the built-in ones.

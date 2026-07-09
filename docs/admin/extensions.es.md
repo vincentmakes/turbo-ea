@@ -57,3 +57,7 @@ Algunas extensiones habilitan formas avanzadas de describir tus datos que el nú
 - **Tipos de campo personalizados** — nuevos tipos más allá del conjunto integrado (por ejemplo, una valoración configurable de 1 a 5 o de 0 a 10).
 
 Estas opciones aparecen en el editor de campos del metamodelo **solo mientras la extensión que las proporciona esté instalada y con licencia**. Si dicha extensión se deshabilita más tarde o su licencia caduca, los valores que ya capturaste se siguen mostrando como texto de solo lectura — nada se borra ni se elimina — y las opciones de edición simplemente desaparecen hasta que la extensión vuelva a estar activa.
+
+## Dónde aparecen las páginas de extensión
+
+Las páginas de extensión aparecen en la navegación una vez que la extensión está instalada y con licencia — normalmente como su propia entrada de menú de nivel superior, aunque algunos informes se colocan bajo el menú **Informes** junto a los integrados.

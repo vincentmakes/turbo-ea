@@ -11,12 +11,14 @@ import {
   getExtensionFieldTypes,
   getExtensionLoadErrors,
   getExtensionRoutes,
+  getExtensionRoutesForGroup,
   getRegisteredExtensions,
   initExtensionHost,
   loadUiExtensions,
   registerExtension,
   resetExtensionHost,
   UI_SDK_VERSION,
+  type ExtensionNavGroup,
 } from "./extensionHost";
 
 const mockGet = api.get as ReturnType<typeof vi.fn>;
@@ -123,6 +125,38 @@ describe("extensionHost", () => {
     expect(getExtensionFieldTypes()).toBe(getExtensionFieldTypes());
     resetExtensionHost();
     expect(getExtensionFieldTypes()).toEqual({});
+  });
+
+  it("returns only routes that requested a given nav group", () => {
+    registerExtension("rep", {
+      key: "rep",
+      sdkVersion: UI_SDK_VERSION,
+      routes: [
+        {
+          id: "grouped",
+          path: "/ext/rep/report",
+          label: "Report",
+          icon: "insights",
+          navGroup: "reports",
+          component: () => null,
+        },
+        { id: "top", path: "/ext/rep/page", label: "Page", icon: "star", component: () => null },
+        // Unrecognised group — must not surface under "reports".
+        {
+          id: "bad",
+          path: "/ext/rep/bad",
+          label: "Bad",
+          icon: "warning",
+          navGroup: "bogus" as ExtensionNavGroup,
+          component: () => null,
+        },
+      ],
+    });
+    const inReports = getExtensionRoutesForGroup("reports");
+    expect(inReports).toHaveLength(1);
+    expect(inReports[0].route.path).toBe("/ext/rep/report");
+    // All three routes are still registered/renderable via the wildcard outlet.
+    expect(getExtensionRoutes()).toHaveLength(3);
   });
 
   it("ExtensionBoundary catches a crashing component", () => {

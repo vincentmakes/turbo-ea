@@ -57,3 +57,7 @@ Nogle udvidelser låser op for avancerede måder at beskrive dine data på, som 
 - **Brugerdefinerede felttyper** — nye felttyper ud over det indbyggede sæt (for eksempel en konfigurerbar bedømmelse fra 1–5 eller 0–10).
 
 Disse valgmuligheder vises i metamodellens felteditor **kun, mens den udvidelse, der leverer dem, er installeret og licenseret**. Hvis en sådan udvidelse senere deaktiveres, eller dens licens udløber, vises de værdier, du allerede har indtastet, fortsat som almindelig skrivebeskyttet tekst — intet tømmes eller slettes — og redigeringsmulighederne forsvinder blot, indtil udvidelsen er aktiv igen.
+
+## Hvor udvidelsessider vises
+
+Udvidelsessider vises i navigationen, når udvidelsen er installeret og licenseret — normalt som deres eget menupunkt på øverste niveau, selvom nogle rapporter placeres under menuen **Rapporter** sammen med de indbyggede.

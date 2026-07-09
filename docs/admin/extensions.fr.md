@@ -57,3 +57,7 @@ Certaines extensions débloquent des façons avancées de décrire vos données 
 - **Types de champ personnalisés** — de nouveaux types au-delà de l'ensemble intégré (par exemple une note configurable de 1 à 5 ou de 0 à 10).
 
 Ces options n'apparaissent dans l'éditeur de champ du métamodèle **que tant que l'extension qui les fournit est installée et sous licence**. Si une telle extension est ensuite désactivée ou que sa licence expire, les valeurs déjà saisies continuent de s'afficher en texte simple, en lecture seule — rien n'est effacé ni supprimé — et les options d'édition disparaissent simplement jusqu'à ce que l'extension soit de nouveau active.
+
+## Où apparaissent les pages d'extension
+
+Les pages d'extension apparaissent dans la navigation une fois l'extension installée et sous licence — généralement comme leur propre entrée de menu de premier niveau, bien que certains rapports soient placés sous le menu **Rapports** aux côtés de ceux intégrés.

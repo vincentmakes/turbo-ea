@@ -57,3 +57,7 @@ Manche Erweiterungen schalten erweiterte Möglichkeiten frei, Ihre Daten zu besc
 - **Benutzerdefinierte Feldtypen** — neue Feldarten über den eingebauten Satz hinaus (zum Beispiel eine konfigurierbare Bewertung von 1–5 oder 0–10).
 
 Diese Optionen erscheinen im Feldeditor des Metamodells **nur, solange die bereitstellende Erweiterung installiert und lizenziert ist**. Wird eine solche Erweiterung später deaktiviert oder läuft ihre Lizenz ab, werden bereits erfasste Werte weiterhin als einfacher, schreibgeschützter Text angezeigt — nichts wird geleert oder gelöscht — und die Bearbeitungsoptionen verschwinden einfach, bis die Erweiterung wieder aktiv ist.
+
+## Wo Erweiterungsseiten erscheinen
+
+Erweiterungsseiten erscheinen in der Navigation, sobald die Erweiterung installiert und lizenziert ist — in der Regel als eigener Menüpunkt der obersten Ebene, wobei einige Berichte unter dem Menü **Berichte** neben den eingebauten platziert werden.

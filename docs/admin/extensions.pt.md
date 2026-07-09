@@ -57,3 +57,7 @@ Algumas extensões desbloqueiam maneiras avançadas de descrever seus dados que 
 - **Tipos de campo personalizados** — novos tipos além do conjunto integrado (por exemplo, uma avaliação configurável de 1 a 5 ou de 0 a 10).
 
 Essas opções aparecem no editor de campos do metamodelo **somente enquanto a extensão que as fornece estiver instalada e licenciada**. Se essa extensão for posteriormente desativada ou sua licença expirar, os valores que você já registrou continuam sendo exibidos como texto somente leitura — nada é apagado ou excluído — e as opções de edição simplesmente desaparecem até que a extensão esteja ativa novamente.
+
+## Onde as páginas de extensão aparecem
+
+As páginas de extensão aparecem na navegação assim que a extensão está instalada e licenciada — geralmente como seu próprio item de menu de nível superior, embora alguns relatórios sejam colocados no menu **Relatórios** ao lado dos integrados.

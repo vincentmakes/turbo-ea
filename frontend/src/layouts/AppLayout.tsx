@@ -38,7 +38,7 @@ import { useAppTitle } from "@/hooks/useAppTitle";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
 import SearchDialog from "@/components/SearchDialog";
-import { useExtensionUI } from "@/lib/extensionHost";
+import { getExtensionRoutesForGroup, useExtensionUI } from "@/lib/extensionHost";
 import CreateCardDialog from "@/components/CreateCardDialog";
 import type { BadgeCounts, Card } from "@/types";
 
@@ -203,10 +203,34 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       return can(perm);
     };
 
-    // Append pages contributed by installed UI extensions (labels are plain
-    // strings from the extension itself, so t() falls through to them).
+    // Inject extension routes that requested the Reports group as children of
+    // the Reports menu (desktop dropdown + mobile drawer both read `children`).
+    // Placed before the "saved" entry so they sit with the core reports. Labels
+    // are plain strings from the bundle, so t() falls through to them.
+    const reportExtChildren = getExtensionRoutesForGroup("reports").map(({ route }) => ({
+      labelKey: route.label,
+      icon: route.icon,
+      path: route.path,
+      permission: route.permission,
+    }));
+    if (reportExtChildren.length) {
+      items = items.map((item) => {
+        if (item.labelKey !== "reports") return item;
+        const kids = [...(item.children || [])];
+        const savedIdx = kids.findIndex((c) => c.path === "/reports/saved");
+        kids.splice(savedIdx >= 0 ? savedIdx : kids.length, 0, ...reportExtChildren);
+        return { ...item, children: kids };
+      });
+    }
+
+    // Append pages contributed by installed UI extensions as top-level entries.
+    // Routes that requested a core nav group (e.g. Reports, handled above) are
+    // skipped here; a route with an unrecognised navGroup surfaces nowhere in
+    // the nav (still reachable by URL). Labels are plain strings from the
+    // extension itself, so t() falls through to them.
     for (const { plugin } of uiExtensions) {
       for (const route of plugin.routes ?? []) {
+        if (route.navGroup) continue;
         items = [
           ...items,
           {

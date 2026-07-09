@@ -31,6 +31,14 @@ import * as tokens from "@/theme/tokens";
 
 export const UI_SDK_VERSION = "1.1";
 
+/**
+ * Core nav groups an extension route may request placement into (instead of the
+ * default top-level nav entry). Whitelisted on purpose so an extension can only
+ * land in sanctioned menus (never admin/arbitrary ones); extend deliberately.
+ */
+export const EXTENSION_NAV_GROUPS = ["reports"] as const;
+export type ExtensionNavGroup = (typeof EXTENSION_NAV_GROUPS)[number];
+
 export interface ExtensionRouteContribution {
   id: string;
   path: string; // mounted under /ext/{key}/... in the SPA router
@@ -38,6 +46,11 @@ export interface ExtensionRouteContribution {
   icon: string;
   permission?: string;
   component: React.ComponentType;
+  // Optional placement hint: render this route's nav entry inside a core menu
+  // group (e.g. "reports") rather than as a top-level item. The route path and
+  // rendering are unchanged — only where the menu entry appears. Omit for the
+  // current top-level behaviour. An unrecognised value shows nowhere in the nav.
+  navGroup?: ExtensionNavGroup;
 }
 
 export interface ExtensionCardTabContribution {
@@ -277,6 +290,17 @@ export async function loadUiExtensions(): Promise<void> {
 export function getExtensionRoutes(): { extKey: string; route: ExtensionRouteContribution }[] {
   return _registered.flatMap(({ key, plugin }) =>
     (plugin.routes ?? []).map((route) => ({ extKey: key, route })),
+  );
+}
+
+/** Extension routes that requested placement into a given core nav group. */
+export function getExtensionRoutesForGroup(
+  group: ExtensionNavGroup,
+): { extKey: string; route: ExtensionRouteContribution }[] {
+  return _registered.flatMap(({ key, plugin }) =>
+    (plugin.routes ?? [])
+      .filter((r) => r.navGroup === group)
+      .map((route) => ({ extKey: key, route })),
   );
 }
 
