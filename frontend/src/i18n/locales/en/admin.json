@@ -1742,5 +1742,18 @@
   "extensions.store.buy": "Buy",
   "extensions.store.install": "Install",
   "extensions.store.update": "Update to {{version}}",
-  "extensions.store.afterPurchase": "Payment opens in a new tab. After purchase your license arrives by email — paste it on the Installed tab, then install here with one click. Bundles are verified against the vendor signature before anything is applied."
+  "extensions.store.afterPurchase": "Payment opens in a new tab and your license applies automatically once the payment is confirmed (a copy also arrives by email). Bundles are verified against the vendor signature before anything is applied.",
+  "extensions.store.installFromFile": "Install from file…",
+  "extensions.store.installFromFileHint": "For bespoke extensions and air-gapped installs: upload a signed .teax bundle you received from the vendor.",
+  "extensions.store.waitingPayment": "Waiting for payment confirmation — complete the checkout in the other browser tab…",
+  "extensions.store.purchaseApplied": "Purchase confirmed — license applied.",
+  "extensions.store.claimTimeout": "No payment confirmation received. If you completed the checkout, paste the license from your email.",
+  "extensions.gate.title": "License required",
+  "extensions.gate.body": "{{name}} needs a license entitlement to run. Buy it now — your license applies automatically after payment — or paste a license you already received.",
+  "extensions.gate.buyFor": "Buy — {{price}}",
+  "extensions.license.dialogTitle": "Apply a license",
+  "extensions.rows.renew": "Renew",
+  "extensions.rows.enterLicense": "Enter license…",
+  "extensions.rows.renewed": "License refreshed from the store.",
+  "extensions.rows.nothingNew": "The store has no newer license — check your subscription, or paste a license file."
 }

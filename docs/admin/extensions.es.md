@@ -17,15 +17,15 @@ Dos comprobaciones independientes protegen su instancia:
 
 La pestaña **Tienda** funciona sin configuración alguna y lista las extensiones publicadas por el proveedor con descripción y precio:
 
-- **Comprar** abre la página de pago en una pestaña nueva del navegador. Tras la compra, tu licencia llega por correo electrónico: pégala en la pestaña Instaladas.
-- **Instalar** (o **Actualizar** cuando se publica una versión más reciente) descarga el paquete y lo somete exactamente a la misma verificación de firma y vista previa de simulación que una carga manual.
+- **Comprar** abre la página de pago en una pestaña nueva del navegador. En cuanto se confirma el pago, tu licencia se aplica automáticamente (también llega una copia por correo).
+- **Instalar** (o **Actualizar** cuando se publica una versión más reciente) comprueba primero tu licencia — si la extensión aún no tiene licencia, un diálogo ofrece comprarla o pegar una licencia y luego continúa automáticamente — y descarga el paquete con exactamente la misma verificación de firma y vista previa de simulación que una carga manual.
 
 La pestaña Tienda es de solo lectura y anónima: sin cuenta, sin token, y no se envía nada sobre tu instancia — solo se lee el catálogo público del proveedor. Las instancias aisladas no necesitan configuración — la pestaña muestra entonces simplemente un aviso amable — y usan el flujo basado en archivos de abajo; el sitio web de la tienda del proveedor ofrece las mismas compras y descargas desde cualquier navegador con conexión a Internet.
 
 ## Instalar una extensión
 
 1. Si aún no lo ha hecho, aplique primero su licencia (véase más abajo).
-2. Abra **Admin → Extensiones**, elija **Instalar extensión** y suba el archivo `.teax` recibido.
+2. Abre **Admin → Extensiones**, elige **Instalar desde archivo…** en la pestaña Tienda y sube el archivo `.teax` recibido.
 3. Turbo EA verifica la firma y muestra una **vista previa**: para extensiones con contenido es una simulación de cada tipo de tarjeta, grupo de etiquetas, tarjeta y relación que la extensión crearía o actualizaría — todavía no se escribe nada.
 4. Revise la vista previa y pulse **Instalar extensión**.
 5. Si la extensión incluye código de backend o de interfaz, un aviso pide reiniciar el contenedor del backend (`docker compose restart backend`). Las extensiones de solo contenido quedan activas de inmediato.
@@ -34,7 +34,7 @@ Subir el mismo paquete otra vez es seguro — la vista previa muestra todo como 
 
 ## Licencias y renovación
 
-Pegue el texto de licencia recibido (o suba el archivo) en la tarjeta **Licencia**. La página mostrará el titular y un distintivo por derecho con su fecha de caducidad.
+Aplica una licencia mediante **Introducir licencia…** en la pestaña Instaladas (pega el texto o sube el archivo); el botón también aparece en cada fila de extensión que la necesite. La página muestra entonces el titular y un distintivo por derecho con su fecha de caducidad.
 
 Cuando un derecho supera su caducidad entra en un **periodo de gracia** (30 días por defecto): todo sigue funcionando y los administradores ven un aviso. Tras la gracia, la extensión se **desactiva suavemente** — sus páginas desaparecen, su API rechaza peticiones y sus tareas en segundo plano se pausan. **Nunca se borran datos.** Aplicar una licencia renovada lo restaura todo al instante, sin reinicio.
 

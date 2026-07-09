@@ -17,15 +17,15 @@ Due verifiche indipendenti proteggono l'istanza:
 
 La scheda **Store** funziona senza alcuna configurazione ed elenca le estensioni pubblicate dal fornitore con descrizione e prezzo:
 
-- **Acquista** apre la pagina di pagamento in una nuova scheda del browser. Dopo l'acquisto la licenza arriva via e-mail: incollala nella scheda Installate.
-- **Installa** (o **Aggiorna** quando è pubblicata una versione più recente) scarica il pacchetto e lo sottopone esattamente alla stessa verifica della firma e alla stessa anteprima di simulazione di un caricamento manuale.
+- **Acquista** apre la pagina di pagamento in una nuova scheda del browser. Non appena il pagamento è confermato, la licenza viene applicata automaticamente (una copia arriva anche via e-mail).
+- **Installa** (o **Aggiorna** quando è pubblicata una versione più recente) verifica prima la licenza — se l'estensione non è ancora licenziata, una finestra propone di acquistarla o incollare una licenza, poi continua automaticamente — e scarica il pacchetto con esattamente la stessa verifica della firma e la stessa anteprima di simulazione di un caricamento manuale.
 
 La scheda Store è in sola lettura e anonima: nessun account, nessun token, e nulla della tua istanza viene inviato — viene letto solo il catalogo pubblico del fornitore. Le istanze isolate non richiedono alcuna configurazione — la scheda mostra allora semplicemente un avviso cordiale — e usano il flusso basato su file qui sotto; il sito dello store del fornitore offre gli stessi acquisti e download da qualsiasi browser connesso a Internet.
 
 ## Installare un'estensione
 
 1. Se non lo hai già fatto, applica prima la licenza (vedi sotto).
-2. Apri **Admin → Estensioni**, scegli **Installa estensione** e carica il file `.teax` ricevuto.
+2. Apri **Admin → Estensioni**, scegli **Installa da file…** nella scheda Store e carica il file `.teax` ricevuto.
 3. Turbo EA verifica la firma e mostra un'**anteprima**: per le estensioni con contenuti è una simulazione di ogni tipo di scheda, gruppo di tag, scheda e relazione che l'estensione creerebbe o aggiornerebbe — non viene ancora scritto nulla.
 4. Controlla l'anteprima e premi **Installa estensione**.
 5. Se l'estensione contiene codice backend o UI, un avviso chiede di riavviare il container backend (`docker compose restart backend`). Le estensioni di solo contenuto sono attive subito.
@@ -34,7 +34,7 @@ Caricare due volte lo stesso pacchetto è sicuro — l'anteprima mostra tutto co
 
 ## Licenze e rinnovo
 
-Incolla il testo della licenza ricevuto (o carica il file) nella scheda **Licenza**. La pagina mostra quindi l'intestatario e un badge per ogni diritto con la sua scadenza.
+Applica una licenza tramite **Inserisci licenza…** nella scheda Installate (incolla il testo o carica il file); il pulsante compare anche su ogni riga di estensione che ne ha bisogno. La pagina mostra quindi l'intestatario e un badge per ogni diritto con la sua scadenza.
 
 Quando un diritto supera la scadenza entra in un **periodo di tolleranza** (30 giorni per impostazione predefinita): tutto continua a funzionare e gli amministratori vedono un avviso. Dopo la tolleranza l'estensione viene **disattivata dolcemente** — le sue pagine spariscono, la sua API rifiuta le richieste, i suoi processi in background si fermano. **Nessun dato viene mai cancellato.** Applicare una licenza rinnovata ripristina tutto all'istante, senza riavvio.
 

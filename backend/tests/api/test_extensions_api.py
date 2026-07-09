@@ -71,7 +71,9 @@ async def _noop_job(*args, **kwargs):
     return None
 
 
-def make_license_text(private, *, extension_key="sample-ext", expires_at=EXPIRES) -> str:
+def make_license_text(
+    private, *, extension_key="sample-ext", expires_at=EXPIRES, renewal_key=""
+) -> str:
     payload = {
         "licensee": "ACME Corp",
         "customer_id": "cus_1",
@@ -81,6 +83,8 @@ def make_license_text(private, *, extension_key="sample-ext", expires_at=EXPIRES
             {"extension_key": extension_key, "plan": "enterprise", "expires_at": expires_at}
         ],
     }
+    if renewal_key:
+        payload["renewal_key"] = renewal_key
     payload_bytes = json.dumps(payload).encode()
     return json.dumps(
         {
@@ -363,10 +367,18 @@ class TestStatusEndpoint:
 STORE_URL = "https://extensions.example.com"
 
 
-def mock_store(monkeypatch, catalog: dict | None, bundles: dict[str, bytes] | None = None):
+def mock_store(
+    monkeypatch,
+    catalog: dict | None,
+    bundles: dict[str, bytes] | None = None,
+    claim: dict | None = None,
+    renew: dict | None = None,
+):
     """Point EXTENSION_STORE_URL at a MockTransport-backed fake static host.
 
     ``catalog=None`` simulates an unreachable host (connection error).
+    ``claim`` / ``renew`` are the JSON bodies of /account/claim and
+    /account/renew.
     """
     monkeypatch.setattr(settings, "EXTENSION_STORE_URL", STORE_URL)
 
@@ -375,6 +387,12 @@ def mock_store(monkeypatch, catalog: dict | None, bundles: dict[str, bytes] | No
             raise httpx.ConnectError("boom", request=request)
         if request.url.path == "/catalog.json":
             return httpx.Response(200, json=catalog)
+        if request.url.path == "/account/claim":
+            return httpx.Response(200, json=claim or {"status": "pending"})
+        if request.url.path == "/account/renew":
+            if renew is None:
+                return httpx.Response(403, json={"error": "invalid renewal credential"})
+            return httpx.Response(200, json=renew)
         data = (bundles or {}).get(request.url.path)
         if data is not None:
             return httpx.Response(200, content=data)
@@ -569,3 +587,109 @@ class TestUploadDirNotWritable:
         )
         assert res.status_code == 500
         assert "not writable" in res.json()["detail"] or "Cannot write" in res.json()["detail"]
+
+
+class TestStoreClaimAndRefresh:
+    async def test_claim_pending_until_checkout_completes(self, client, db, vendor, monkeypatch):
+        admin = await make_admin(db)
+        mock_store(monkeypatch, catalog=catalog_payload(), claim={"status": "pending"})
+        res = await client.post(
+            "/api/v1/admin/extensions/store/claim",
+            json={"token": "tok_1234567890abcdef"},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 200
+        assert res.json() == {"status": "pending", "license": None}
+        # Nothing applied yet.
+        res = await client.get("/api/v1/admin/extensions/license", headers=auth_headers(admin))
+        assert res.status_code == 404
+
+    async def test_claim_applies_license_when_checkout_found(self, client, db, vendor, monkeypatch):
+        admin = await make_admin(db)
+        text = make_license_text(vendor, renewal_key="rk_abcdefabcdefabcd")
+        mock_store(
+            monkeypatch,
+            catalog=catalog_payload(),
+            claim={"status": "applied", "license": text},
+        )
+        res = await client.post(
+            "/api/v1/admin/extensions/store/claim",
+            json={"token": "tok_1234567890abcdef"},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 200, res.text
+        body = res.json()
+        assert body["status"] == "applied"
+        assert body["license"]["licensee"] == "ACME Corp"
+        # The license is now the active one.
+        res = await client.get("/api/v1/admin/extensions/license", headers=auth_headers(admin))
+        assert res.status_code == 200
+
+    async def test_claim_rejects_malformed_token(self, client, db, vendor, monkeypatch):
+        admin = await make_admin(db)
+        mock_store(monkeypatch, catalog=catalog_payload())
+        res = await client.post(
+            "/api/v1/admin/extensions/store/claim",
+            json={"token": "short"},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 400
+
+    async def test_claim_never_applies_a_foreign_signed_license(
+        self, client, db, vendor, monkeypatch
+    ):
+        """A compromised store cannot push an untrusted license into the core."""
+        admin = await make_admin(db)
+        attacker, _ = make_keypair()
+        forged = make_license_text(attacker)
+        mock_store(
+            monkeypatch,
+            catalog=catalog_payload(),
+            claim={"status": "applied", "license": forged},
+        )
+        res = await client.post(
+            "/api/v1/admin/extensions/store/claim",
+            json={"token": "tok_1234567890abcdef"},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 400
+        assert "signature" in res.json()["detail"]
+
+    async def test_refresh_applies_extended_license(self, client, db, vendor, monkeypatch):
+        admin = await make_admin(db)
+        near = (datetime.now(timezone.utc) + timedelta(days=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        far = (datetime.now(timezone.utc) + timedelta(days=370)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        # Active store license (has a renewal credential) close to expiry.
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={
+                "text": make_license_text(
+                    vendor, expires_at=near, renewal_key="rk_0123456789abcdef"
+                )
+            },
+            headers=auth_headers(admin),
+        )
+        extended = make_license_text(vendor, expires_at=far, renewal_key="rk_0123456789abcdef")
+        mock_store(monkeypatch, catalog=catalog_payload(), renew={"license": extended})
+
+        res = await client.post(
+            "/api/v1/admin/extensions/store/refresh-license", headers=auth_headers(admin)
+        )
+        assert res.status_code == 200
+        assert res.json() == {"refreshed": True}
+        res = await client.get("/api/v1/admin/extensions/license", headers=auth_headers(admin))
+        assert res.json()["entitlements"][0]["expires_at"].startswith(far[:10])
+
+    async def test_refresh_noop_for_manual_license(self, client, db, vendor, monkeypatch):
+        admin = await make_admin(db)
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor)},  # no renewal_key
+            headers=auth_headers(admin),
+        )
+        mock_store(monkeypatch, catalog=catalog_payload())
+        res = await client.post(
+            "/api/v1/admin/extensions/store/refresh-license", headers=auth_headers(admin)
+        )
+        assert res.status_code == 200
+        assert res.json() == {"refreshed": False}

@@ -1742,5 +1742,18 @@
   "extensions.store.buy": "Comprar",
   "extensions.store.install": "Instalar",
   "extensions.store.update": "Atualizar para {{version}}",
-  "extensions.store.afterPurchase": "O pagamento abre num novo separador. Após a compra, a sua licença chega por e-mail — cole-a no separador Instaladas e depois instale aqui com um clique. Os pacotes são verificados contra a assinatura do fornecedor antes de qualquer aplicação."
+  "extensions.store.afterPurchase": "O pagamento abre num novo separador e a sua licença é aplicada automaticamente assim que o pagamento é confirmado (uma cópia também chega por e-mail). Os pacotes são verificados contra a assinatura do fornecedor antes de qualquer aplicação.",
+  "extensions.store.installFromFile": "Instalar a partir de ficheiro…",
+  "extensions.store.installFromFileHint": "Para extensões à medida e instâncias isoladas: carregue um pacote .teax assinado recebido do fornecedor.",
+  "extensions.store.waitingPayment": "A aguardar a confirmação do pagamento — conclua a compra no outro separador do navegador…",
+  "extensions.store.purchaseApplied": "Compra confirmada — licença aplicada.",
+  "extensions.store.claimTimeout": "Nenhuma confirmação de pagamento recebida. Se concluiu a compra, cole a licença do seu e-mail.",
+  "extensions.gate.title": "Licença necessária",
+  "extensions.gate.body": "{{name}} precisa de um direito de licença para funcionar. Compre agora — a licença é aplicada automaticamente após o pagamento — ou cole uma licença já recebida.",
+  "extensions.gate.buyFor": "Comprar — {{price}}",
+  "extensions.license.dialogTitle": "Aplicar uma licença",
+  "extensions.rows.renew": "Renovar",
+  "extensions.rows.enterLicense": "Introduzir licença…",
+  "extensions.rows.renewed": "Licença atualizada a partir da loja.",
+  "extensions.rows.nothingNew": "A loja não tem uma licença mais recente — verifique a sua subscrição ou cole um ficheiro de licença."
 }

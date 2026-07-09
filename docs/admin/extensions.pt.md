@@ -17,15 +17,15 @@ Duas verificações independentes protegem a sua instância:
 
 O separador **Loja** funciona sem qualquer configuração e lista as extensões publicadas pelo fornecedor com descrição e preço:
 
-- **Comprar** abre a página de pagamento num novo separador do navegador. Após a compra, a sua licença chega por e-mail — cole-a no separador Instaladas.
-- **Instalar** (ou **Atualizar** quando uma versão mais recente é publicada) descarrega o pacote e submete-o exatamente à mesma verificação de assinatura e pré-visualização de simulação de um carregamento manual.
+- **Comprar** abre a página de pagamento num novo separador do navegador. Assim que o pagamento é confirmado, a sua licença é aplicada automaticamente (uma cópia também chega por e-mail).
+- **Instalar** (ou **Atualizar** quando é publicada uma versão mais recente) verifica primeiro a sua licença — se a extensão ainda não tiver licença, um diálogo propõe comprá-la ou colar uma licença e depois continua automaticamente — e descarrega o pacote com exatamente a mesma verificação de assinatura e pré-visualização de simulação de um carregamento manual.
 
 O separador Loja é só de leitura e anónimo: sem conta, sem token, e nada sobre a sua instância é enviado — apenas o catálogo público do fornecedor é lido. As instâncias isoladas não precisam de configuração — o separador mostra então simplesmente uma indicação amigável — e usam o fluxo baseado em ficheiros abaixo; o site da loja do fornecedor oferece as mesmas compras e transferências a partir de qualquer navegador com ligação à Internet.
 
 ## Instalar uma extensão
 
 1. Se ainda não o fez, aplique primeiro a sua licença (ver abaixo).
-2. Abra **Admin → Extensões**, escolha **Instalar extensão** e carregue o ficheiro `.teax` recebido.
+2. Abra **Admin → Extensões**, escolha **Instalar a partir de ficheiro…** no separador Loja e carregue o ficheiro `.teax` recebido.
 3. O Turbo EA verifica a assinatura e mostra uma **pré-visualização**: para extensões com conteúdo é uma simulação de cada tipo de cartão, grupo de etiquetas, cartão e relação que a extensão criaria ou atualizaria — nada é escrito ainda.
 4. Reveja a pré-visualização e prima **Instalar extensão**.
 5. Se a extensão incluir código de backend ou de interface, um aviso pede o reinício do contentor do backend (`docker compose restart backend`). Extensões só de conteúdo ficam ativas de imediato.
@@ -34,7 +34,7 @@ Carregar o mesmo pacote outra vez é seguro — a pré-visualização mostra tud
 
 ## Licenças e renovação
 
-Cole o texto da licença recebido (ou carregue o ficheiro) no cartão **Licença**. A página mostra então o titular e um selo por direito com a respetiva validade.
+Aplique uma licença através de **Introduzir licença…** no separador Instaladas (cole o texto ou carregue o ficheiro); o botão também aparece em cada linha de extensão que precise dela. A página mostra então o titular e um distintivo por direito com a respetiva data de expiração.
 
 Quando um direito ultrapassa a validade entra num **período de tolerância** (30 dias por predefinição): tudo continua a funcionar e os administradores veem um aviso. Após a tolerância, a extensão é **desativada suavemente** — as suas páginas desaparecem, a sua API recusa pedidos e as suas tarefas em segundo plano ficam em pausa. **Nunca são apagados dados.** Aplicar uma licença renovada restaura tudo de imediato, sem reinício.
 

@@ -1742,5 +1742,18 @@
   "extensions.store.buy": "购买",
   "extensions.store.install": "安装",
   "extensions.store.update": "更新到 {{version}}",
-  "extensions.store.afterPurchase": "支付将在新标签页中打开。购买后,许可证将通过电子邮件发送——请在「已安装」标签页中粘贴,然后在此处一键安装。软件包在应用前会根据供应商签名进行验证。"
+  "extensions.store.afterPurchase": "支付将在新标签页中打开，付款确认后许可证会自动应用（副本也会通过电子邮件发送）。软件包在应用前会根据供应商签名进行验证。",
+  "extensions.store.installFromFile": "从文件安装…",
+  "extensions.store.installFromFileHint": "适用于定制扩展和隔离实例：上传从供应商处收到的已签名 .teax 包。",
+  "extensions.store.waitingPayment": "正在等待付款确认——请在另一个浏览器标签页中完成结账…",
+  "extensions.store.purchaseApplied": "购买已确认——许可证已应用。",
+  "extensions.store.claimTimeout": "未收到付款确认。如果您已完成结账，请粘贴邮件中的许可证。",
+  "extensions.gate.title": "需要许可证",
+  "extensions.gate.body": "{{name}} 需要许可证授权才能运行。立即购买——付款后许可证会自动应用——或粘贴您已收到的许可证。",
+  "extensions.gate.buyFor": "购买——{{price}}",
+  "extensions.license.dialogTitle": "应用许可证",
+  "extensions.rows.renew": "续期",
+  "extensions.rows.enterLicense": "输入许可证…",
+  "extensions.rows.renewed": "已从商店刷新许可证。",
+  "extensions.rows.nothingNew": "商店没有更新的许可证——请检查您的订阅，或粘贴许可证文件。"
 }

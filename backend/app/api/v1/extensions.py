@@ -27,6 +27,7 @@ and an unreachable store degrades to a friendly offline hint.
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -52,7 +53,7 @@ from app.services.extensions.content_pack import (
 )
 from app.services.extensions.installer import install_bundle, uninstall
 from app.services.extensions.license import LicenseError, parse_and_verify
-from app.services.extensions.license_refresh import persist_license
+from app.services.extensions.license_refresh import persist_license, refresh_license_if_due
 from app.services.extensions.registry import extension_registry
 from app.services.permission_service import PermissionService
 
@@ -495,6 +496,75 @@ async def store_catalog(
             )
         )
     return StoreCatalogOut(configured=True, reachable=True, store_url=base_url, items=items)
+
+
+class StoreClaimIn(BaseModel):
+    token: str
+
+
+class StoreClaimOut(BaseModel):
+    status: str  # applied | pending
+    license: LicenseOut | None = None
+
+
+_CLAIM_TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
+
+
+@router.post("/store/claim", response_model=StoreClaimOut)
+async def claim_store_purchase(
+    payload: StoreClaimIn,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> StoreClaimOut:
+    """Poll the store for the license of a just-completed purchase.
+
+    The Buy button generated ``token`` client-side and attached it to the
+    Stripe Payment Link as ``client_reference_id``; the store looks the
+    completed checkout up by it and returns the issued license, which is
+    verified against the trusted vendor keys before being applied — the
+    exact same gate as a manual paste. ``pending`` means the checkout has
+    not completed yet (the frontend keeps polling).
+    """
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    base_url = settings.EXTENSION_STORE_URL.strip()
+    if not base_url:
+        raise HTTPException(status_code=400, detail="No extension store is configured")
+    if not _CLAIM_TOKEN_RE.match(payload.token):
+        raise HTTPException(status_code=400, detail="Invalid claim token")
+
+    url = base_url.rstrip("/") + "/account/claim"
+    try:
+        async with httpx.AsyncClient(timeout=_STORE_CATALOG_TIMEOUT) as client:
+            resp = await client.get(url, params={"token": payload.token})
+            resp.raise_for_status()
+            data = resp.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail=f"Extension store unreachable: {exc}") from exc
+
+    if data.get("status") != "applied" or not data.get("license"):
+        return StoreClaimOut(status="pending")
+
+    license_out = await _apply_license_text(db, str(data["license"]), user.id)
+    return StoreClaimOut(status="applied", license=license_out)
+
+
+class StoreRefreshOut(BaseModel):
+    refreshed: bool
+
+
+@router.post("/store/refresh-license", response_model=StoreRefreshOut)
+async def refresh_store_license(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> StoreRefreshOut:
+    """Immediately refetch the license from the store (per-row Renew button,
+    and the instant pickup of an additional purchase by an existing
+    customer). Only works for store-issued licenses (renewal credential
+    present); returns ``refreshed: false`` when the store has nothing newer.
+    """
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    refreshed = await refresh_license_if_due(db, force=True)
+    return StoreRefreshOut(refreshed=refreshed)
 
 
 @router.post("/store/install", response_model=ExtensionInstallOut, status_code=202)

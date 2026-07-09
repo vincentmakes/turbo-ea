@@ -106,8 +106,14 @@ def should_refresh(doc: LicenseDocument, now: datetime | None = None) -> bool:
     return earliest <= now + timedelta(days=REFRESH_WINDOW_DAYS)
 
 
-async def refresh_license_if_due(db: AsyncSession, now: datetime | None = None) -> bool:
+async def refresh_license_if_due(
+    db: AsyncSession, now: datetime | None = None, force: bool = False
+) -> bool:
     """One renewal attempt. Returns True when a fresher license was applied.
+
+    ``force=True`` skips the expiry-window gate (the per-row Renew button
+    and the after-purchase refetch want an immediate check) but still
+    requires a store-issued license carrying a renewal credential.
 
     Never raises on network/store trouble — air-gapped and offline installs
     hit this daily and must stay silent (debug log only).
@@ -133,7 +139,10 @@ async def refresh_license_if_due(db: AsyncSession, now: datetime | None = None) 
         logger.warning("Active license no longer verifies — skipping auto-renewal")
         return False
 
-    if not should_refresh(current, now=now):
+    if force:
+        if not current.renewal_key or not current.customer_id:
+            return False
+    elif not should_refresh(current, now=now):
         return False
 
     url = store_url.rstrip("/") + "/account/renew"

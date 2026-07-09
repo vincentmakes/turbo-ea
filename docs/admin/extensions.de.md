@@ -17,15 +17,15 @@ Zwei unabhängige Prüfungen schützen Ihre Instanz:
 
 Der Tab **Store** funktioniert ohne jede Konfiguration und listet die veröffentlichten Erweiterungen des Anbieters mit Beschreibung und Preis:
 
-- **Kaufen** öffnet die Zahlungsseite in einem neuen Browser-Tab. Nach dem Kauf erhalten Sie Ihre Lizenz per E-Mail — fügen Sie sie im Tab Installiert ein.
-- **Installieren** (bzw. **Aktualisieren**, wenn eine neuere Version veröffentlicht ist) lädt das Paket herunter und führt es durch exakt dieselbe Signaturprüfung und Dry-Run-Vorschau wie ein manueller Upload.
+- **Kaufen** öffnet die Zahlungsseite in einem neuen Browser-Tab. Sobald die Zahlung bestätigt ist, wird Ihre Lizenz automatisch angewendet (eine Kopie kommt zusätzlich per E-Mail).
+- **Installieren** (bzw. **Aktualisieren**, wenn eine neuere Version veröffentlicht ist) prüft zuerst Ihre Lizenz — fehlt sie, bietet ein Dialog Kauf oder Einfügen einer Lizenz an und fährt danach automatisch fort — und lädt das Paket durch exakt dieselbe Signaturprüfung und Dry-Run-Vorschau wie ein manueller Upload.
 
 Der Store-Tab ist schreibgeschützt und anonym: kein Konto, kein Token, und es werden keinerlei Informationen über Ihre Instanz übertragen — es wird nur der öffentliche Katalog des Anbieters gelesen. Abgeschottete Instanzen brauchen keine Konfiguration — der Tab zeigt dann einfach einen freundlichen Hinweis — und nutzen den dateibasierten Ablauf unten; die Storefront-Website des Anbieters bietet dieselben Käufe und Downloads von jedem Browser mit Internetzugang.
 
 ## Eine Erweiterung installieren
 
 1. Falls noch nicht geschehen, wenden Sie zuerst Ihre Lizenz an (siehe unten).
-2. Öffnen Sie **Admin → Erweiterungen**, wählen Sie **Erweiterung installieren** und laden Sie die erhaltene `.teax`-Datei hoch.
+2. Öffnen Sie **Admin → Erweiterungen**, wählen Sie im Store-Tab **Aus Datei installieren…** und laden Sie die erhaltene `.teax`-Datei hoch.
 3. Turbo EA prüft die Signatur und zeigt eine **Vorschau**: Bei Erweiterungen mit Inhalten ist das ein Probelauf aller Kartentypen, Tag-Gruppen, Karten und Beziehungen, die die Erweiterung anlegen oder aktualisieren würde — es wird noch nichts geschrieben.
 4. Prüfen Sie die Vorschau und klicken Sie auf **Erweiterung installieren**.
 5. Enthält die Erweiterung Backend- oder UI-Code, fordert ein Banner zum Neustart des Backend-Containers auf (`docker compose restart backend`). Reine Inhaltserweiterungen sind sofort aktiv.
@@ -34,7 +34,7 @@ Das erneute Hochladen desselben Pakets ist unbedenklich — die Vorschau zeigt a
 
 ## Lizenzen und Verlängerung
 
-Fügen Sie den erhaltenen Lizenztext in der Karte **Lizenz** ein (oder laden Sie die Lizenzdatei hoch). Die Seite zeigt dann den Lizenznehmer sowie einen Chip pro Berechtigung mit Ablaufdatum.
+Wenden Sie eine Lizenz über **Lizenz eingeben…** im Tab Installiert an (Text einfügen oder Datei hochladen) — die Schaltfläche erscheint auch an jeder Erweiterungszeile, der eine Lizenz fehlt. Die Seite zeigt dann den Lizenznehmer sowie einen Chip pro Berechtigung mit Ablaufdatum.
 
 Überschreitet eine Berechtigung ihr Ablaufdatum, beginnt eine **Kulanzfrist** (standardmäßig 30 Tage): Alles funktioniert weiter, Administratoren sehen einen Warnhinweis. Danach wird die Erweiterung **weich deaktiviert** — ihre Seiten verschwinden, ihre API lehnt Anfragen ab, ihre Hintergrundjobs pausieren. **Es werden niemals Daten gelöscht.** Das Anwenden einer erneuerten Lizenzdatei stellt sofort alles wieder her, ohne Neustart.
 

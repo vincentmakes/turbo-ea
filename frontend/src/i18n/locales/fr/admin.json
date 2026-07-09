@@ -1742,5 +1742,18 @@
   "extensions.store.buy": "Acheter",
   "extensions.store.install": "Installer",
   "extensions.store.update": "Mettre à jour vers {{version}}",
-  "extensions.store.afterPurchase": "Le paiement s'ouvre dans un nouvel onglet. Après l'achat, votre licence arrive par e-mail — collez-la dans l'onglet Installées, puis installez ici en un clic. Les paquets sont vérifiés contre la signature du fournisseur avant toute application."
+  "extensions.store.afterPurchase": "Le paiement s'ouvre dans un nouvel onglet et votre licence s'applique automatiquement dès que le paiement est confirmé (une copie arrive aussi par e-mail). Les paquets sont vérifiés contre la signature du fournisseur avant toute application.",
+  "extensions.store.installFromFile": "Installer depuis un fichier…",
+  "extensions.store.installFromFileHint": "Pour les extensions sur mesure et les instances isolées : téléversez un paquet .teax signé reçu du fournisseur.",
+  "extensions.store.waitingPayment": "En attente de la confirmation du paiement — finalisez l'achat dans l'autre onglet du navigateur…",
+  "extensions.store.purchaseApplied": "Achat confirmé — licence appliquée.",
+  "extensions.store.claimTimeout": "Aucune confirmation de paiement reçue. Si vous avez finalisé l'achat, collez la licence reçue par e-mail.",
+  "extensions.gate.title": "Licence requise",
+  "extensions.gate.body": "{{name}} nécessite un droit de licence pour fonctionner. Achetez maintenant — la licence s'applique automatiquement après le paiement — ou collez une licence déjà reçue.",
+  "extensions.gate.buyFor": "Acheter — {{price}}",
+  "extensions.license.dialogTitle": "Appliquer une licence",
+  "extensions.rows.renew": "Renouveler",
+  "extensions.rows.enterLicense": "Saisir la licence…",
+  "extensions.rows.renewed": "Licence actualisée depuis la boutique.",
+  "extensions.rows.nothingNew": "La boutique n'a pas de licence plus récente — vérifiez votre abonnement ou collez un fichier de licence."
 }

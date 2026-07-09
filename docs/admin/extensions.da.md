@@ -17,15 +17,15 @@ To uafhængige kontroller beskytter din installation:
 
 Fanen **Butik** virker uden nogen konfiguration og viser leverandørens udgivne udvidelser med beskrivelse og pris:
 
-- **Køb** åbner betalingssiden i en ny browserfane. Efter købet modtager du din licens pr. e-mail — indsæt den under fanen Installerede.
-- **Installer** (eller **Opdater**, når en nyere version er udgivet) downloader pakken og kører den gennem præcis den samme signaturkontrol og prøvekørselsforhåndsvisning som en manuel upload.
+- **Køb** åbner betalingssiden i en ny browserfane. Så snart betalingen er bekræftet, anvendes din licens automatisk (en kopi ankommer også pr. e-mail).
+- **Installer** (eller **Opdater**, når en nyere version er udgivet) tjekker først din licens — hvis udvidelsen endnu ikke er licenseret, tilbyder en dialog at købe eller indsætte en licens og fortsætter derefter automatisk — og downloader pakken gennem præcis den samme signaturkontrol og prøvekørselsforhåndsvisning som en manuel upload.
 
 Fanen Butik er skrivebeskyttet og anonym: ingen konto, intet token, og intet om din instans sendes nogen steder hen — kun leverandørens offentlige katalog læses. Isolerede instanser behøver ingen konfiguration — fanen viser i stedet blot et venligt hint — og bruger det filbaserede forløb nedenfor; leverandørens butikswebsted tilbyder de samme køb og downloads fra enhver browser med internetadgang.
 
 ## Installer en udvidelse
 
 1. Hvis du ikke allerede har gjort det, skal du først anvende din licens (se nedenfor).
-2. Åbn **Admin → Udvidelser**, vælg **Installer udvidelse**, og upload den modtagne `.teax`-fil.
+2. Åbn **Admin → Udvidelser**, vælg **Installer fra fil…** under fanen Butik, og upload den `.teax`-fil, du har modtaget.
 3. Turbo EA verificerer signaturen og viser en **forhåndsvisning**: for indholdsbærende udvidelser er det en prøvekørsel af hver korttype, tag-gruppe, kort og relation, som udvidelsen ville oprette eller opdatere — intet skrives endnu.
 4. Gennemgå forhåndsvisningen, og tryk på **Installer udvidelse**.
 5. Hvis udvidelsen indeholder backend- eller UI-kode, beder et banner dig om at genstarte backend-containeren (`docker compose restart backend`). Rene indholdsudvidelser er aktive med det samme.
@@ -34,7 +34,7 @@ Det er sikkert at uploade den samme pakke igen — forhåndsvisningen viser alt 
 
 ## Licenser og fornyelse
 
-Indsæt den modtagne licenstekst (eller upload filen) i kortet **Licens**. Siden viser derefter licenstageren og et mærke pr. rettighed med udløbsdato.
+Anvend en licens via **Indtast licens…** under fanen Installerede (indsæt teksten eller upload filen) — knappen vises også på hver udvidelsesrække, der mangler en. Siden viser derefter licenstageren og en chip pr. rettighed med udløbsdato.
 
 Når en rettighed passerer sin udløbsdato, starter en **henstandsperiode** (30 dage som standard): alt fungerer fortsat, og administratorer ser et advarselsbanner. Efter henstanden bliver udvidelsen **blødt deaktiveret** — dens sider forsvinder, dens API afviser forespørgsler, og dens baggrundsjobs pauser. **Der slettes aldrig data.** Anvendelse af en fornyet licensfil gendanner alt med det samme, uden genstart.
 

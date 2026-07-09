@@ -11817,6 +11817,42 @@
         "title": "StoreCatalogOut",
         "type": "object"
       },
+      "StoreClaimIn": {
+        "properties": {
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "StoreClaimIn",
+        "type": "object"
+      },
+      "StoreClaimOut": {
+        "properties": {
+          "license": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LicenseOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "StoreClaimOut",
+        "type": "object"
+      },
       "StoreInstallIn": {
         "properties": {
           "key": {
@@ -11887,6 +11923,19 @@
           "name"
         ],
         "title": "StoreItemOut",
+        "type": "object"
+      },
+      "StoreRefreshOut": {
+        "properties": {
+          "refreshed": {
+            "title": "Refreshed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "refreshed"
+        ],
+        "title": "StoreRefreshOut",
         "type": "object"
       },
       "StructuredInsight": {
@@ -14511,6 +14560,48 @@
         ]
       }
     },
+    "/api/v1/admin/extensions/store/claim": {
+      "post": {
+        "description": "Poll the store for the license of a just-completed purchase.\n\nThe Buy button generated ``token`` client-side and attached it to the\nStripe Payment Link as ``client_reference_id``; the store looks the\ncompleted checkout up by it and returns the issued license, which is\nverified against the trusted vendor keys before being applied \u2014 the\nexact same gate as a manual paste. ``pending`` means the checkout has\nnot completed yet (the frontend keeps polling).",
+        "operationId": "claim_store_purchase_api_v1_admin_extensions_store_claim_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StoreClaimIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoreClaimOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Claim Store Purchase",
+        "tags": [
+          "Extensions"
+        ]
+      }
+    },
     "/api/v1/admin/extensions/store/install": {
       "post": {
         "description": "Download a catalogue bundle and run it through the upload pipeline.\n\nIdentical trust posture to a manual upload: the downloaded bytes are\nlanded in ``data/extension_installs/`` and the background job verifies\nthe vendor signature before anything is previewed or applied. Downloads\nare restricted to the configured store origin (SSRF guard) \u2014 a bundle\nhosted elsewhere must be installed via manual upload.",
@@ -14548,6 +14639,28 @@
           }
         },
         "summary": "Install From Store",
+        "tags": [
+          "Extensions"
+        ]
+      }
+    },
+    "/api/v1/admin/extensions/store/refresh-license": {
+      "post": {
+        "description": "Immediately refetch the license from the store (per-row Renew button,\nand the instant pickup of an additional purchase by an existing\ncustomer). Only works for store-issued licenses (renewal credential\npresent); returns ``refreshed: false`` when the store has nothing newer.",
+        "operationId": "refresh_store_license_api_v1_admin_extensions_store_refresh_license_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoreRefreshOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Refresh Store License",
         "tags": [
           "Extensions"
         ]

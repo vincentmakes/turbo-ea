@@ -17,15 +17,15 @@ Two independent checks protect your instance:
 
 The **Store** tab works out of the box and lists the vendor's published extensions with description and price:
 
-- **Buy** opens the payment page in a new browser tab. After purchase, your license arrives by email — paste it on the Installed tab.
-- **Install** (or **Update** when a newer version is published) downloads the bundle and runs it through the exact same signature verification and dry-run preview as a manual upload.
+- **Buy** opens the payment page in a new browser tab. Once the payment is confirmed, your license applies automatically (a copy also arrives by email).
+- **Install** (or **Update** when a newer version is published) checks your license first — if the extension isn't licensed yet, a dialog offers to buy it or paste a license, then continues automatically — and downloads the bundle through the exact same signature verification and dry-run preview as a manual upload.
 
 The Store tab is read-only and anonymous: no account, no token, and nothing about your instance is sent anywhere — it only reads the vendor's public catalogue. Air-gapped instances need no configuration — the tab simply shows a friendly hint — and use the file-based flow below; the vendor's storefront website offers the same purchases and downloads from any internet-connected browser.
 
 ## Installing an extension
 
 1. If you have not done so yet, apply your license first (see below).
-2. Open **Admin → Extensions**, choose **Install extension**, and upload the `.teax` file you received.
+2. Open **Admin → Extensions** and choose **Install from file…** on the Store tab, then upload the `.teax` file you received.
 3. Turbo EA verifies the signature and shows a **preview**: for content-carrying extensions this is a dry-run of every card type, tag group, card, and relation the extension would create or update — nothing is written yet.
 4. Review the preview and press **Install extension**.
 5. If the extension carries backend or UI code, a banner asks you to restart the backend container (`docker compose restart backend`). Content-only extensions are active immediately.
@@ -34,7 +34,7 @@ Uploading the same bundle again is safe — the preview shows everything as "ski
 
 ## Licenses and renewal
 
-Paste the license text you received (or upload the license file) in the **License** card. The page then shows the licensee and one chip per entitlement with its expiry date.
+Apply a license via **Enter license…** on the Installed tab (paste the text or upload the file) — the button also appears on each extension row that needs one. The page then shows the licensee and one chip per entitlement with its expiry date.
 
 When an entitlement passes its expiry it enters a **grace window** (30 days by default): everything keeps working and administrators see a warning banner. After grace the extension is **soft-disabled** — its pages disappear, its API refuses requests, and its background jobs pause. **No data is ever deleted.** Applying a renewed license file restores everything instantly, without a restart.
 

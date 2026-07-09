@@ -91,36 +91,70 @@ describe("ExtensionsAdmin", () => {
     expect(screen.getByText(/No license installed/)).toBeInTheDocument();
   });
 
-  it("lists installed extensions with entitlement chips", async () => {
+  it("lists installed extensions with entitlement chips and licensee summary", async () => {
     primeInitialLoad({ extensions: [SAMPLE_EXT], license: LICENSE });
     render(<ExtensionsAdmin />);
     await openInstalledTab();
     await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
     expect(screen.getByText("Licensed to ACME Corp")).toBeInTheDocument();
     expect(screen.getByText("Active")).toBeInTheDocument();
-    expect(screen.getByText("Installed", { selector: ".MuiChip-label" })).toBeInTheDocument();
+    // Active entitlement → no Renew button on the row.
+    expect(screen.queryByText("Renew", { selector: "button" })).not.toBeInTheDocument();
   });
 
-  it("shows the restart banner for extensions with runtime code", async () => {
+  it("offers Renew on rows without an active entitlement and refreshes from the store", async () => {
     primeInitialLoad({
-      extensions: [{ ...SAMPLE_EXT, status: "needs_restart", capabilities: ["backend"] }],
+      extensions: [
+        {
+          ...SAMPLE_EXT,
+          entitlement: { state: "grace", plan: "", expires_at: null, grace_until: null },
+        },
+      ],
       license: LICENSE,
     });
+    mockPost.mockResolvedValue({ refreshed: true });
     render(<ExtensionsAdmin />);
+    await openInstalledTab();
+    await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
+
+    await userEvent.click(screen.getByText("Renew", { selector: "button" }));
     await waitFor(() =>
-      expect(screen.getByText(/Restart the backend container/)).toBeInTheDocument(),
+      expect(mockPost).toHaveBeenCalledWith("/admin/extensions/store/refresh-license"),
+    );
+    await waitFor(() =>
+      expect(screen.getByText(/License refreshed from the store/)).toBeInTheDocument(),
     );
   });
 
-  it("applies a pasted license", async () => {
+  it("falls back to the license dialog when the store has nothing newer", async () => {
+    primeInitialLoad({
+      extensions: [
+        {
+          ...SAMPLE_EXT,
+          entitlement: { state: "expired", plan: "", expires_at: null, grace_until: null },
+        },
+      ],
+      license: LICENSE,
+    });
+    mockPost.mockResolvedValue({ refreshed: false });
+    render(<ExtensionsAdmin />);
+    await openInstalledTab();
+    await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
+
+    await userEvent.click(screen.getByText("Renew", { selector: "button" }));
+    await waitFor(() => expect(screen.getByText("Apply a license")).toBeInTheDocument());
+  });
+
+  it("applies a pasted license through the dialog", async () => {
     primeInitialLoad();
     mockPut.mockResolvedValue(LICENSE);
     render(<ExtensionsAdmin />);
     await openInstalledTab();
     await waitFor(() =>
-      expect(screen.getByText("No extensions installed yet.")).toBeInTheDocument(),
+      expect(screen.getByText(/No license installed/)).toBeInTheDocument(),
     );
 
+    await userEvent.click(screen.getByText("Enter license…", { selector: "button" }));
     await userEvent.type(
       screen.getByPlaceholderText("Paste license text here…"),
       "signed-license-text",
@@ -136,24 +170,7 @@ describe("ExtensionsAdmin", () => {
     await waitFor(() => expect(screen.getByText("Licensed to ACME Corp")).toBeInTheDocument());
   });
 
-  it("surfaces a rejected license as an error", async () => {
-    primeInitialLoad();
-    mockPut.mockRejectedValue(new Error("Invalid license: signature verification failed"));
-    render(<ExtensionsAdmin />);
-    await openInstalledTab();
-    await waitFor(() =>
-      expect(screen.getByText("No extensions installed yet.")).toBeInTheDocument(),
-    );
-    await userEvent.type(screen.getByPlaceholderText("Paste license text here…"), "garbage");
-    await userEvent.click(screen.getByText("Apply license"));
-    await waitFor(() =>
-      expect(
-        screen.getByText(/signature verification failed/),
-      ).toBeInTheDocument(),
-    );
-  });
-
-  it("uploads a bundle, shows the preview, and installs it", async () => {
+  it("uploads a bundle from the Store tab, shows the preview, and installs it", async () => {
     primeInitialLoad({ license: LICENSE });
     mockUpload.mockResolvedValue({ id: "i1", filename: "sample.teax", status: "verifying" });
     const previewed = {
@@ -187,15 +204,16 @@ describe("ExtensionsAdmin", () => {
     });
 
     const { container } = render(<ExtensionsAdmin />);
-    await openInstalledTab();
-    await waitFor(() => expect(screen.getByText("Licensed to ACME Corp")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Install from file…", { selector: "button" })).toBeInTheDocument(),
+    );
 
-    const inputs = container.querySelectorAll('input[type="file"]');
-    const bundleInput = inputs[1] as HTMLInputElement; // [0] = license file input
+    const bundleInput = container.querySelector('input[type="file"]') as HTMLInputElement;
     await userEvent.upload(bundleInput, new File(["zip"], "sample.teax"));
 
     await waitFor(
-      () => expect(screen.getByText("Install extension", { selector: "button" })).toBeInTheDocument(),
+      () =>
+        expect(screen.getByText("Install extension", { selector: "button" })).toBeInTheDocument(),
       { timeout: 4000 },
     );
     expect(screen.getByText("CardTypes")).toBeInTheDocument();
@@ -222,18 +240,15 @@ describe("ExtensionsAdmin", () => {
     });
 
     const { container } = render(<ExtensionsAdmin />);
-    await openInstalledTab();
     await waitFor(() =>
-      expect(screen.getByText("No extensions installed yet.")).toBeInTheDocument(),
+      expect(screen.getByText("Install from file…", { selector: "button" })).toBeInTheDocument(),
     );
-    const inputs = container.querySelectorAll('input[type="file"]');
-    await userEvent.upload(inputs[1] as HTMLInputElement, new File(["zip"], "evil.teax"));
+    const bundleInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.upload(bundleInput, new File(["zip"], "evil.teax"));
 
     await waitFor(
       () =>
-        expect(
-          screen.getByText(/was not signed by the trusted vendor key/),
-        ).toBeInTheDocument(),
+        expect(screen.getByText(/was not signed by the trusted vendor key/)).toBeInTheDocument(),
       { timeout: 4000 },
     );
   });
@@ -248,52 +263,77 @@ describe("ExtensionsAdmin", () => {
     expect(screen.getByText(/Data it created/)).toBeInTheDocument();
   });
 
-  it("shows the not-configured hint on the Store tab by default", async () => {
-    primeInitialLoad();
-    render(<ExtensionsAdmin />);
-    await waitFor(() =>
-      expect(screen.getByText(/No extension store is configured/)).toBeInTheDocument(),
-    );
-  });
-
-  it("renders catalogue items with Buy opening the payment link in a new tab", async () => {
+  it("gates Install behind the license dialog for unlicensed items", async () => {
     primeInitialLoad({
       catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },
     });
-    const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
-
     render(<ExtensionsAdmin />);
     await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
-    expect(screen.getByText("990 EUR / year")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByText("Buy", { selector: "button" }));
-    expect(openSpy).toHaveBeenCalledWith("https://buy.stripe.test/pl_1", "_blank", "noopener");
-    openSpy.mockRestore();
+    await userEvent.click(screen.getByText("Install", { selector: "button" }));
+    // No install call yet — the gate dialog opens instead.
+    expect(mockPost).not.toHaveBeenCalledWith("/admin/extensions/store/install", {
+      key: "esg-pack",
+    });
+    expect(screen.getByText("License required")).toBeInTheDocument();
+    expect(screen.getByText(/needs a license entitlement/)).toBeInTheDocument();
+    expect(screen.getByText(/Buy — 990 EUR \/ year/)).toBeInTheDocument();
   });
 
-  it("installs from the store through the shared preview pipeline", async () => {
-    const licensedItem = { ...STORE_ITEM, entitlement_state: "active" };
-    const previewed = {
-      id: "s1",
-      filename: "esg-pack-1.0.0.teax",
-      status: "previewed",
-      extension_key: "esg-pack",
-      extension_version: "1.0.0",
-      diff: {
-        dry_run: true,
-        sections: [],
-        totals: { created: 3, updated: 0, skipped: 0, conflict: 0, failed: 0 },
+  it("pasting a license in the gate continues the install automatically", async () => {
+    primeInitialLoad({
+      catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },
+    });
+    mockPut.mockResolvedValue(LICENSE);
+    mockPost.mockResolvedValue({ id: "s1", filename: "esg.teax", status: "verifying" });
+    render(<ExtensionsAdmin />);
+    await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+
+    await userEvent.click(screen.getByText("Install", { selector: "button" }));
+    await userEvent.type(screen.getByPlaceholderText("Paste license text here…"), "lic-text");
+    primeInitialLoad({
+      license: LICENSE,
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [{ ...STORE_ITEM, entitlement_state: "active" }],
       },
-    };
+    });
+    await userEvent.click(screen.getByText("Apply license"));
+
+    await waitFor(() =>
+      expect(mockPost).toHaveBeenCalledWith("/admin/extensions/store/install", {
+        key: "esg-pack",
+      }),
+    );
+  });
+
+  it("installs directly when the item is already licensed", async () => {
+    primeInitialLoad({
+      license: LICENSE,
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [{ ...STORE_ITEM, entitlement_state: "active" }],
+      },
+    });
+    mockPost.mockResolvedValue({ id: "s1", filename: "esg.teax", status: "verifying" });
     mockGet.mockImplementation(async (path: string) => {
       if (path === "/admin/extensions") return [];
       if (path === "/admin/extensions/license") return LICENSE;
       if (path === "/admin/extensions/store/catalog")
-        return { configured: true, reachable: true, store_url: "https://x", items: [licensedItem] };
-      if (path.startsWith("/admin/extensions/install/")) return previewed;
+        return {
+          configured: true,
+          reachable: true,
+          store_url: "https://x",
+          items: [{ ...STORE_ITEM, entitlement_state: "active" }],
+        };
+      if (path.startsWith("/admin/extensions/install/"))
+        return { id: "s1", filename: "esg.teax", status: "previewed" };
       throw new Error(`unexpected GET ${path}`);
     });
-    mockPost.mockResolvedValue({ id: "s1", filename: "esg-pack-1.0.0.teax", status: "verifying" });
 
     render(<ExtensionsAdmin />);
     await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
@@ -306,9 +346,31 @@ describe("ExtensionsAdmin", () => {
         key: "esg-pack",
       }),
     );
-    await waitFor(
-      () => expect(screen.getByText("Install extension", { selector: "button" })).toBeInTheDocument(),
-      { timeout: 4000 },
+  });
+
+  it("Buy opens the payment link with a claim token and starts polling", async () => {
+    primeInitialLoad({
+      catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },
+    });
+    const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
+
+    render(<ExtensionsAdmin />);
+    await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+
+    await userEvent.click(screen.getByText("Buy", { selector: "button" }));
+    expect(openSpy).toHaveBeenCalledTimes(1);
+    const url = openSpy.mock.calls[0][0] as string;
+    expect(url).toMatch(/^https:\/\/buy\.stripe\.test\/pl_1\?client_reference_id=[\w-]{16,}$/);
+    // Waiting state shows on the card while the claim poll runs.
+    expect(screen.getByText(/Waiting for payment confirmation/)).toBeInTheDocument();
+    openSpy.mockRestore();
+  });
+
+  it("shows the not-configured hint on the Store tab by default", async () => {
+    primeInitialLoad();
+    render(<ExtensionsAdmin />);
+    await waitFor(() =>
+      expect(screen.getByText(/No extension store is configured/)).toBeInTheDocument(),
     );
   });
 

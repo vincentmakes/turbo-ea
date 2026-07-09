@@ -1742,5 +1742,18 @@
   "extensions.store.buy": "Kaufen",
   "extensions.store.install": "Installieren",
   "extensions.store.update": "Auf {{version}} aktualisieren",
-  "extensions.store.afterPurchase": "Die Zahlung öffnet sich in einem neuen Tab. Nach dem Kauf erhalten Sie Ihre Lizenz per E-Mail — fügen Sie sie im Tab Installiert ein und installieren Sie dann hier mit einem Klick. Pakete werden vor der Anwendung gegen die Anbieter-Signatur geprüft."
+  "extensions.store.afterPurchase": "Die Zahlung öffnet sich in einem neuen Tab; nach bestätigter Zahlung wird Ihre Lizenz automatisch angewendet (eine Kopie kommt zusätzlich per E-Mail). Pakete werden vor der Anwendung gegen die Anbieter-Signatur geprüft.",
+  "extensions.store.installFromFile": "Aus Datei installieren…",
+  "extensions.store.installFromFileHint": "Für maßgeschneiderte Erweiterungen und abgeschottete Instanzen: Laden Sie ein signiertes .teax-Paket hoch, das Sie vom Anbieter erhalten haben.",
+  "extensions.store.waitingPayment": "Warten auf Zahlungsbestätigung — schließen Sie den Kauf im anderen Browser-Tab ab…",
+  "extensions.store.purchaseApplied": "Kauf bestätigt — Lizenz angewendet.",
+  "extensions.store.claimTimeout": "Keine Zahlungsbestätigung erhalten. Falls Sie den Kauf abgeschlossen haben, fügen Sie die Lizenz aus Ihrer E-Mail ein.",
+  "extensions.gate.title": "Lizenz erforderlich",
+  "extensions.gate.body": "{{name}} benötigt eine Lizenzberechtigung. Kaufen Sie jetzt — die Lizenz wird nach der Zahlung automatisch angewendet — oder fügen Sie eine bereits erhaltene Lizenz ein.",
+  "extensions.gate.buyFor": "Kaufen — {{price}}",
+  "extensions.license.dialogTitle": "Lizenz anwenden",
+  "extensions.rows.renew": "Verlängern",
+  "extensions.rows.enterLicense": "Lizenz eingeben…",
+  "extensions.rows.renewed": "Lizenz aus dem Store aktualisiert.",
+  "extensions.rows.nothingNew": "Der Store hat keine neuere Lizenz — prüfen Sie Ihr Abonnement oder fügen Sie eine Lizenzdatei ein."
 }

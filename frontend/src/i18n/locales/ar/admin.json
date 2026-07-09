@@ -1742,5 +1742,18 @@
   "extensions.store.buy": "شراء",
   "extensions.store.install": "تثبيت",
   "extensions.store.update": "التحديث إلى {{version}}",
-  "extensions.store.afterPurchase": "تُفتح عملية الدفع في تبويب جديد. بعد الشراء تصلك الرخصة عبر البريد الإلكتروني — الصقها في تبويب المثبَّتة ثم ثبِّت من هنا بنقرة واحدة. يتم التحقق من الحزم مقابل توقيع المورّد قبل تطبيق أي شيء."
+  "extensions.store.afterPurchase": "تُفتح عملية الدفع في تبويب جديد ويُطبَّق ترخيصك تلقائيًا فور تأكيد الدفع (تصلك نسخة أيضًا عبر البريد الإلكتروني). يتم التحقق من الحزم مقابل توقيع المورّد قبل تطبيق أي شيء.",
+  "extensions.store.installFromFile": "التثبيت من ملف…",
+  "extensions.store.installFromFileHint": "للملحقات المخصصة والمثيلات المعزولة: ارفع حزمة .teax موقعة تلقيتها من المورّد.",
+  "extensions.store.waitingPayment": "في انتظار تأكيد الدفع — أكمل عملية الشراء في تبويب المتصفح الآخر…",
+  "extensions.store.purchaseApplied": "تم تأكيد الشراء — طُبِّق الترخيص.",
+  "extensions.store.claimTimeout": "لم يصل تأكيد الدفع. إذا أكملت الشراء، فالصق الترخيص من بريدك الإلكتروني.",
+  "extensions.gate.title": "الترخيص مطلوب",
+  "extensions.gate.body": "يحتاج {{name}} إلى حق ترخيص للعمل. اشترِ الآن — يُطبَّق الترخيص تلقائيًا بعد الدفع — أو الصق ترخيصًا تلقيته من قبل.",
+  "extensions.gate.buyFor": "شراء — {{price}}",
+  "extensions.license.dialogTitle": "تطبيق ترخيص",
+  "extensions.rows.renew": "تجديد",
+  "extensions.rows.enterLicense": "إدخال الترخيص…",
+  "extensions.rows.renewed": "تم تحديث الترخيص من المتجر.",
+  "extensions.rows.nothingNew": "لا يوجد ترخيص أحدث في المتجر — تحقق من اشتراكك أو الصق ملف ترخيص."
 }

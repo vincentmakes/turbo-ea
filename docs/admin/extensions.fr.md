@@ -17,15 +17,15 @@ Deux vérifications indépendantes protègent votre instance :
 
 L'onglet **Boutique** fonctionne sans aucune configuration et liste les extensions publiées par le fournisseur avec description et prix :
 
-- **Acheter** ouvre la page de paiement dans un nouvel onglet du navigateur. Après l'achat, votre licence arrive par e-mail — collez-la dans l'onglet Installées.
-- **Installer** (ou **Mettre à jour** lorsqu'une version plus récente est publiée) télécharge le paquet et le fait passer par exactement la même vérification de signature et le même aperçu à blanc qu'un téléversement manuel.
+- **Acheter** ouvre la page de paiement dans un nouvel onglet du navigateur. Dès que le paiement est confirmé, votre licence s'applique automatiquement (une copie arrive aussi par e-mail).
+- **Installer** (ou **Mettre à jour** lorsqu'une version plus récente est publiée) vérifie d'abord votre licence — si l'extension n'est pas encore licenciée, une boîte de dialogue propose d'acheter ou de coller une licence, puis continue automatiquement — et télécharge le paquet via exactement la même vérification de signature et le même aperçu à blanc qu'un téléversement manuel.
 
 L'onglet Boutique est en lecture seule et anonyme : pas de compte, pas de jeton, et aucune information sur votre instance n'est transmise — seul le catalogue public du fournisseur est lu. Les instances isolées n'ont rien à configurer — l'onglet affiche alors simplement une indication conviviale — et utilisent le flux basé sur les fichiers ci-dessous ; le site de la boutique du fournisseur offre les mêmes achats et téléchargements depuis n'importe quel navigateur connecté à Internet.
 
 ## Installer une extension
 
 1. Si ce n'est pas déjà fait, appliquez d'abord votre licence (voir ci-dessous).
-2. Ouvrez **Admin → Extensions**, choisissez **Installer une extension** et téléversez le fichier `.teax` reçu.
+2. Ouvrez **Admin → Extensions**, choisissez **Installer depuis un fichier…** dans l'onglet Boutique et téléversez le fichier `.teax` reçu.
 3. Turbo EA vérifie la signature et affiche un **aperçu** : pour les extensions de contenu, il s'agit d'une simulation de chaque type de carte, groupe d'étiquettes, carte et relation que l'extension créerait ou mettrait à jour — rien n'est encore écrit.
 4. Vérifiez l'aperçu puis cliquez sur **Installer l'extension**.
 5. Si l'extension contient du code backend ou UI, un bandeau demande de redémarrer le conteneur backend (`docker compose restart backend`). Les extensions de contenu pur sont actives immédiatement.
@@ -34,7 +34,7 @@ Téléverser deux fois le même paquet est sans risque — l'aperçu montre tout
 
 ## Licences et renouvellement
 
-Collez le texte de licence reçu (ou téléversez le fichier) dans la carte **Licence**. La page affiche alors le titulaire et une puce par droit avec sa date d'échéance.
+Appliquez une licence via **Saisir la licence…** dans l'onglet Installées (collez le texte ou téléversez le fichier) — le bouton apparaît aussi sur chaque ligne d'extension qui en a besoin. La page affiche ensuite le titulaire et une pastille par droit avec sa date d'expiration.
 
 Quand un droit dépasse son échéance, il entre dans un **délai de grâce** (30 jours par défaut) : tout continue de fonctionner et les administrateurs voient un bandeau d'avertissement. Passé ce délai, l'extension est **désactivée en douceur** — ses pages disparaissent, son API refuse les requêtes, ses tâches d'arrière-plan se mettent en pause. **Aucune donnée n'est jamais supprimée.** L'application d'un fichier de licence renouvelé restaure tout instantanément, sans redémarrage.
 
