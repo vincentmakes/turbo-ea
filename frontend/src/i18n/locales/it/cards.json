@@ -72,6 +72,7 @@
   "utils.unknownOption": "Chiave opzione sconosciuta: {{key}}",
   "utils.urlError": "È necessario utilizzare lo schema http://, https:// o mailto:",
   "utils.costRestricted": "Limitato — non hai i permessi per visualizzare i costi di questa scheda",
+  "utils.fieldHelp": "Aiuto",
   "description.title": "Descrizione",
   "description.noDescription": "Nessuna descrizione fornita.",
   "lifecycle.title": "Ciclo di vita",

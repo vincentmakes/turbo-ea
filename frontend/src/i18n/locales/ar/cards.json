@@ -72,6 +72,7 @@
   "utils.unknownOption": "مفتاح خيار غير معروف: {{key}}",
   "utils.urlError": "يجب استخدام المخطط http:// أو https:// أو mailto:",
   "utils.costRestricted": "مقيّد — ليس لديك إذن لعرض التكاليف على هذه البطاقة",
+  "utils.fieldHelp": "مساعدة",
   "description.title": "الوصف",
   "description.noDescription": "لم يتم تقديم وصف.",
   "lifecycle.title": "دورة الحياة",

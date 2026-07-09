@@ -9,10 +9,14 @@
  * share the host's single React instance (the template repo's Vite
  * config externalizes them onto these globals).
  *
- * Exactly three extension points exist: nav routes (full pages),
- * card-detail tabs, and admin panels. Every extension-provided component
- * must be rendered inside <ExtensionBoundary> — a crashing extension
- * shows a fallback chip, never a white screen.
+ * Four extension points exist: nav routes (full pages), card-detail tabs,
+ * admin panels, and custom field types (SDK 1.1 — a renderer/editor for an
+ * `ext.{key}.*` field type used inside card attribute sections). Every
+ * extension-provided component must be rendered inside <ExtensionBoundary> —
+ * a crashing extension shows a fallback chip, never a white screen. A field
+ * type whose extension is missing, disabled, or unlicensed simply is not in
+ * the registry, so core falls back to a read-only text rendering of the
+ * stored value (the data is never lost).
  */
 
 import * as mui from "@mui/material";
@@ -25,7 +29,7 @@ import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import * as tokens from "@/theme/tokens";
 
-export const UI_SDK_VERSION = "1.0";
+export const UI_SDK_VERSION = "1.1";
 
 export interface ExtensionRouteContribution {
   id: string;
@@ -50,12 +54,46 @@ export interface ExtensionAdminPanelContribution {
   component: React.ComponentType;
 }
 
+/** Props handed to an extension field type's read-only display component. */
+export interface ExtensionFieldDisplayProps {
+  field: { key: string; label: string; type: string; config?: Record<string, unknown> };
+  value: unknown;
+  config?: Record<string, unknown>;
+}
+
+/** Props handed to an extension field type's inline editor component. */
+export interface ExtensionFieldEditorProps extends ExtensionFieldDisplayProps {
+  onChange: (value: unknown) => void;
+  error?: string;
+}
+
+/**
+ * A custom field type an extension contributes to card attribute editing.
+ * `type` MUST be namespaced `ext.{extensionKey}.*` (enforced at aggregation) so
+ * two extensions can never collide and core can tell a custom type from an
+ * unknown one. `config` is the per-field settings object (e.g. `{min,max}` for a
+ * rating), sourced from the field's `config` in the metamodel.
+ */
+export interface ExtensionFieldTypeContribution {
+  type: string;
+  label: string;
+  display?: React.ComponentType<ExtensionFieldDisplayProps>;
+  editor?: React.ComponentType<ExtensionFieldEditorProps>;
+  defaultConfig?: Record<string, unknown>;
+}
+
 export interface TurboExtensionUI {
   key: string;
   sdkVersion: string;
   routes?: ExtensionRouteContribution[];
   cardTabs?: ExtensionCardTabContribution[];
   adminPanels?: ExtensionAdminPanelContribution[];
+  fieldTypes?: ExtensionFieldTypeContribution[];
+}
+
+export interface RegisteredFieldType {
+  extKey: string;
+  contribution: ExtensionFieldTypeContribution;
 }
 
 export interface RegisteredExtension {
@@ -78,8 +116,12 @@ let _registered: RegisteredExtension[] = [];
 let _loadErrors: Record<string, string> = {};
 const _listeners = new Set<() => void>();
 let _loadStarted = false;
+// Cached, stable snapshot of the field-type registry — recomputed lazily and
+// invalidated on every notify() so useSyncExternalStore never loops.
+let _fieldTypesCache: Record<string, RegisteredFieldType> | null = null;
 
 function notify() {
+  _fieldTypesCache = null;
   _listeners.forEach((fn) => fn());
 }
 
@@ -122,11 +164,40 @@ export function useExtensionUI(): RegisteredExtension[] {
   return useSyncExternalStore(subscribe, getRegisteredExtensions, getRegisteredExtensions);
 }
 
+/**
+ * Map of every registered custom field type (`ext.{key}.*` → contribution).
+ * A contribution whose `type` is not namespaced under its own extension key is
+ * dropped (defence against collisions). The result is cached and only changes
+ * when the registry does, so it is safe as a useSyncExternalStore snapshot.
+ */
+export function getExtensionFieldTypes(): Record<string, RegisteredFieldType> {
+  if (_fieldTypesCache) return _fieldTypesCache;
+  const out: Record<string, RegisteredFieldType> = {};
+  for (const { key, plugin } of _registered) {
+    for (const ft of plugin.fieldTypes ?? []) {
+      if (!ft?.type || !ft.type.startsWith(`ext.${key}.`)) {
+        console.warn(
+          `[extension:${key}] field type "${ft?.type}" must be namespaced ext.${key}.* — ignored`,
+        );
+        continue;
+      }
+      out[ft.type] = { extKey: key, contribution: ft };
+    }
+  }
+  _fieldTypesCache = out;
+  return out;
+}
+
+export function useExtensionFieldTypes(): Record<string, RegisteredFieldType> {
+  return useSyncExternalStore(subscribe, getExtensionFieldTypes, getExtensionFieldTypes);
+}
+
 /** Test helper — wipe the registry between tests. */
 export function resetExtensionHost(): void {
   _registered = [];
   _loadErrors = {};
   _loadStarted = false;
+  _fieldTypesCache = null;
   notify();
 }
 

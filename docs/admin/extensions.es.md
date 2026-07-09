@@ -48,3 +48,12 @@ Las licencias compradas en la Tienda se renuevan solas en las instancias conecta
 ## Permisos
 
 Toda la página y sus rutas de API están protegidas por el permiso dedicado `admin.manage_extensions` (concedido al rol Admin integrado). Las extensiones pueden definir sus propias claves de permiso (`ext.<nombre>.…`), que aparecen en **Admin → Usuarios y roles** una vez cargada la extensión.
+
+## Funciones de campo avanzadas
+
+Algunas extensiones habilitan formas avanzadas de describir tus datos que el núcleo no ofrece por sí solo:
+
+- **Texto de ayuda del campo** — una guía plegable que se muestra debajo de un campo durante la entrada de datos, para que un formulario se explique solo.
+- **Tipos de campo personalizados** — nuevos tipos más allá del conjunto integrado (por ejemplo, una valoración configurable de 1 a 5 o de 0 a 10).
+
+Estas opciones aparecen en el editor de campos del metamodelo **solo mientras la extensión que las proporciona esté instalada y con licencia**. Si dicha extensión se deshabilita más tarde o su licencia caduca, los valores que ya capturaste se siguen mostrando como texto de solo lectura — nada se borra ni se elimina — y las opciones de edición simplemente desaparecen hasta que la extensión vuelva a estar activa.

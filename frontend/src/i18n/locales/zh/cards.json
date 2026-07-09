@@ -72,6 +72,7 @@
   "utils.unknownOption": "未知选项键：{{key}}",
   "utils.urlError": "必须使用 http://、https:// 或 mailto: 协议",
   "utils.costRestricted": "受限 — 您无权查看此卡片的成本",
+  "utils.fieldHelp": "帮助",
   "description.title": "描述",
   "description.noDescription": "未提供描述。",
   "lifecycle.title": "生命周期",

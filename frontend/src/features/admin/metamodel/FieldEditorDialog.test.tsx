@@ -1,13 +1,20 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import FieldEditorDialog from "./FieldEditorDialog";
+import { registerExtension, resetExtensionHost, UI_SDK_VERSION } from "@/lib/extensionHost";
 import type { FieldDef } from "@/types";
 
 // The dialog only calls the API for option-usage checks on removal, which this
 // test never triggers. Stub it so nothing reaches the network.
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn().mockResolvedValue({ card_count: 0 }) },
+}));
+
+// Control the unlocked-capabilities signal that gates the Help text input.
+const capsMock = vi.hoisted(() => ({ has: (_cap: string) => false }));
+vi.mock("@/hooks/useExtensionCapabilities", () => ({
+  useExtensionCapabilities: () => ({ has: capsMock.has, loaded: true }),
 }));
 
 describe("FieldEditorDialog — new select option color", () => {
@@ -220,5 +227,50 @@ describe("FieldEditorDialog — new select option color", () => {
     await user.type(newKey(), "second");
     expect(newKey()).toHaveAttribute("aria-invalid", "false");
     expect(saveButton).toBeEnabled();
+  });
+});
+
+describe("FieldEditorDialog — extension-gated capabilities", () => {
+  const baseField: FieldDef = { key: "score", label: "Score", type: "text" };
+
+  const renderDialog = () =>
+    render(
+      <FieldEditorDialog
+        open
+        field={baseField}
+        typeKey="Gadget"
+        fieldKey="score"
+        onClose={() => {}}
+        onSave={vi.fn()}
+      />,
+    );
+
+  beforeEach(() => {
+    resetExtensionHost();
+    capsMock.has = () => false;
+  });
+
+  it("hides the Help text input when metamodel.field_help is not granted", () => {
+    renderDialog();
+    expect(screen.queryByLabelText(/Help text/i)).not.toBeInTheDocument();
+  });
+
+  it("shows the Help text input when metamodel.field_help is granted", () => {
+    capsMock.has = (c) => c === "metamodel.field_help";
+    renderDialog();
+    expect(screen.getByLabelText(/Help text/i)).toBeInTheDocument();
+  });
+
+  it("lists extension-contributed field types in the Type dropdown", async () => {
+    const user = userEvent.setup();
+    registerExtension("plus", {
+      key: "plus",
+      sdkVersion: UI_SDK_VERSION,
+      fieldTypes: [{ type: "ext.plus.rating", label: "Rating (Plus)", display: () => null }],
+    });
+    renderDialog();
+    // Open the Type select; the custom type appears as an option.
+    await user.click(screen.getByRole("combobox"));
+    expect(screen.getByText("Rating (Plus)")).toBeInTheDocument();
   });
 });

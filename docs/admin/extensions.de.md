@@ -48,3 +48,12 @@ Wenden Sie eine Lizenz über **Lizenz eingeben…** im Tab Installiert an (Text 
 ## Berechtigungen
 
 Die gesamte Seite und alle zugehörigen API-Routen sind durch die dedizierte Berechtigung `admin.manage_extensions` geschützt (der eingebauten Admin-Rolle zugewiesen). Erweiterungen können eigene Berechtigungsschlüssel definieren (`ext.<name>.…`), die nach dem Laden der Erweiterung unter **Admin → Benutzer & Rollen** erscheinen.
+
+## Erweiterte Feldfunktionen
+
+Manche Erweiterungen schalten erweiterte Möglichkeiten frei, Ihre Daten zu beschreiben, die der Kern von sich aus nicht bietet:
+
+- **Feld-Hilfetext** — ein aufklappbarer Hinweis unter einem Feld, der bei der Dateneingabe angezeigt wird, sodass sich ein Formular selbst erklärt.
+- **Benutzerdefinierte Feldtypen** — neue Feldarten über den eingebauten Satz hinaus (zum Beispiel eine konfigurierbare Bewertung von 1–5 oder 0–10).
+
+Diese Optionen erscheinen im Feldeditor des Metamodells **nur, solange die bereitstellende Erweiterung installiert und lizenziert ist**. Wird eine solche Erweiterung später deaktiviert oder läuft ihre Lizenz ab, werden bereits erfasste Werte weiterhin als einfacher, schreibgeschützter Text angezeigt — nichts wird geleert oder gelöscht — und die Bearbeitungsoptionen verschwinden einfach, bis die Erweiterung wieder aktiv ist.

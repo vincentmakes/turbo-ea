@@ -1,6 +1,8 @@
+import { useState } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
+import Collapse from "@mui/material/Collapse";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import Checkbox from "@mui/material/Checkbox";
@@ -15,7 +17,57 @@ import { useTranslation } from "react-i18next";
 import type { CurrencyFormatter } from "@/hooks/useCurrency";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
+import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionHost";
 import type { FieldDef } from "@/types";
+
+// ── Field help text (localized, collapsible) ────────────────────
+/** Resolve a field's localized help text (helpTranslations[locale] || help). */
+export function useFieldHelp(): (field: FieldDef) => string {
+  const { i18n } = useTranslation();
+  const locale = i18n.language;
+  return (field: FieldDef) =>
+    (field.helpTranslations?.[locale] as string) || field.help || "";
+}
+
+/** Collapsible guidance rendered under a field during data entry. */
+export function FieldHelp({ text }: { text: string }) {
+  const { t } = useTranslation(["cards", "common"]);
+  const [open, setOpen] = useState(false);
+  if (!text) return null;
+  return (
+    <Box sx={{ mt: 0.25 }}>
+      <Box
+        component="button"
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        sx={{
+          all: "unset",
+          cursor: "pointer",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 0.25,
+          color: "primary.main",
+          "&:hover": { textDecoration: "underline" },
+        }}
+      >
+        <MaterialSymbol icon="help" size={14} />
+        <Typography variant="caption" component="span">
+          {t("cards:utils.fieldHelp")}
+        </Typography>
+        <MaterialSymbol icon={open ? "expand_less" : "expand_more"} size={14} />
+      </Box>
+      <Collapse in={open}>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: "block", mt: 0.25, whiteSpace: "pre-wrap" }}
+        >
+          {text}
+        </Typography>
+      </Collapse>
+    </Box>
+  );
+}
 
 // ── URL validation (matches backend _ALLOWED_URL_SCHEMES) ────────
 const ALLOWED_URL_SCHEMES = ["http://", "https://", "mailto:"];
@@ -138,6 +190,7 @@ export function FieldValue({
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const optLabel = useOptionLabel();
+  const extFieldTypes = useExtensionFieldTypes();
 
   // Cost fields the user is not allowed to see render as a redacted placeholder
   // regardless of whether the backend stripped the value (defence in depth + UX).
@@ -156,6 +209,23 @@ export function FieldValue({
 
   if (value == null || value === "") {
     return <Typography variant="body2" color="text.secondary">—</Typography>;
+  }
+
+  // Extension-contributed custom field type: render its display component.
+  // When the extension is missing/disabled/unlicensed it is absent from the
+  // registry and we fall through to the plain read-only rendering below.
+  const customDisplay = extFieldTypes[field.type];
+  if (customDisplay?.contribution.display) {
+    const Display = customDisplay.contribution.display;
+    return (
+      <ExtensionBoundary extensionKey={customDisplay.extKey}>
+        <Display
+          field={{ key: field.key, label: field.label, type: field.type, config: field.config }}
+          value={value}
+          config={field.config ?? customDisplay.contribution.defaultConfig}
+        />
+      </ExtensionBoundary>
+    );
   }
 
   // Guard: if value is an object/array and the field type doesn't expect it, coerce to string
@@ -257,12 +327,34 @@ export function FieldEditor({
   const { t } = useTranslation(["cards", "common"]);
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
+  const help = useFieldHelp()(field);
+  const extFieldTypes = useExtensionFieldTypes();
 
   // Sanitize: ensure value passed to MUI is always the expected primitive type
   const strVal = typeof value === "string" ? value : (value != null ? safeString(value) : "");
   const numVal = typeof value === "number" ? value : (value != null && value !== "" ? Number(value) : "");
 
-  switch (field.type) {
+  const custom = extFieldTypes[field.type];
+
+  const control = (() => {
+    // Extension-contributed field type: render its editor. Missing/disabled/
+    // unlicensed → not in the registry → falls through to the built-in switch
+    // (default text input), so the stored value stays editable, never lost.
+    if (custom?.contribution.editor) {
+      const Editor = custom.contribution.editor;
+      return (
+        <ExtensionBoundary extensionKey={custom.extKey}>
+          <Editor
+            field={{ key: field.key, label: fieldLabel(field), type: field.type, config: field.config }}
+            value={value}
+            config={field.config ?? custom.contribution.defaultConfig}
+            onChange={onChange}
+            error={error}
+          />
+        </ExtensionBoundary>
+      );
+    }
+    switch (field.type) {
     case "single_select":
       return (
         <FormControl size="small" sx={{ minWidth: 200 }}>
@@ -468,5 +560,13 @@ export function FieldEditor({
           sx={{ minWidth: 300 }}
         />
       );
-  }
+    }
+  })();
+
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column" }}>
+      {control}
+      <FieldHelp text={help} />
+    </Box>
+  );
 }

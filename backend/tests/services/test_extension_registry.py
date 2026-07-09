@@ -100,6 +100,54 @@ class TestRegistryEntitlement:
         assert {info.key for info in reg.all()} == {"sample-ext", "second-ext"}
 
 
+class TestGrantedCapabilities:
+    """Grants only count from enabled + licensed (usable) extensions."""
+
+    def _reg(self, *, enabled=True, status="installed", grants, licensed=True) -> ExtensionRegistry:
+        reg = ExtensionRegistry()
+        reg.load_installed([make_info(enabled=enabled, status=status, manifest={"grants": grants})])
+        if licensed:
+            reg.set_license(make_license(Entitlement(extension_key="sample-ext", expires_at=None)))
+        return reg
+
+    def test_active_extension_grants_capabilities(self):
+        reg = self._reg(grants=["metamodel.field_help", "metamodel.custom_field_types"])
+        assert reg.granted_capabilities(now=NOW) == {
+            "metamodel.field_help",
+            "metamodel.custom_field_types",
+        }
+        assert reg.grants_for("sample-ext", now=NOW) == [
+            "metamodel.field_help",
+            "metamodel.custom_field_types",
+        ]
+
+    def test_unlicensed_extension_grants_nothing(self):
+        reg = self._reg(grants=["metamodel.field_help"], licensed=False)
+        assert reg.granted_capabilities(now=NOW) == set()
+
+    def test_disabled_extension_grants_nothing(self):
+        reg = self._reg(grants=["metamodel.field_help"], enabled=False)
+        assert reg.granted_capabilities(now=NOW) == set()
+
+    def test_removed_extension_grants_nothing(self):
+        reg = self._reg(grants=["metamodel.field_help"], status="removed")
+        assert reg.granted_capabilities(now=NOW) == set()
+
+    def test_expired_extension_grants_nothing(self):
+        reg = ExtensionRegistry()
+        reg.load_installed([make_info(manifest={"grants": ["metamodel.field_help"]})])
+        reg.set_license(
+            make_license(
+                Entitlement(extension_key="sample-ext", expires_at=NOW - timedelta(days=40))
+            )
+        )
+        assert reg.granted_capabilities(now=NOW) == set()
+
+    def test_no_grants_declared(self):
+        reg = self._reg(grants=[])
+        assert reg.granted_capabilities(now=NOW) == set()
+
+
 @pytest.fixture
 def gate_app():
     app = FastAPI()

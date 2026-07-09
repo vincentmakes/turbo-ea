@@ -48,3 +48,12 @@ Les licences achetées via la Boutique se renouvellent d'elles-mêmes sur les in
 ## Permissions
 
 La page entière et toutes ses routes d'API sont protégées par la permission dédiée `admin.manage_extensions` (accordée au rôle Admin intégré). Les extensions peuvent définir leurs propres clés de permission (`ext.<nom>.…`), qui apparaissent dans **Admin → Utilisateurs & Rôles** une fois l'extension chargée.
+
+## Fonctionnalités de champ avancées
+
+Certaines extensions débloquent des façons avancées de décrire vos données que le cœur ne propose pas seul :
+
+- **Texte d'aide de champ** — une aide repliable affichée sous un champ pendant la saisie, pour qu'un formulaire s'explique de lui-même.
+- **Types de champ personnalisés** — de nouveaux types au-delà de l'ensemble intégré (par exemple une note configurable de 1 à 5 ou de 0 à 10).
+
+Ces options n'apparaissent dans l'éditeur de champ du métamodèle **que tant que l'extension qui les fournit est installée et sous licence**. Si une telle extension est ensuite désactivée ou que sa licence expire, les valeurs déjà saisies continuent de s'afficher en texte simple, en lecture seule — rien n'est effacé ni supprimé — et les options d'édition disparaissent simplement jusqu'à ce que l'extension soit de nouveau active.

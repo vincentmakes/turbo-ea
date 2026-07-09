@@ -72,6 +72,7 @@
   "utils.unknownOption": "Clé d’option inconnue : {{key}}",
   "utils.urlError": "Doit utiliser le schéma http://, https:// ou mailto:",
   "utils.costRestricted": "Restreint — vous n'avez pas l'autorisation de voir les coûts de cette carte",
+  "utils.fieldHelp": "Aide",
   "description.title": "Description",
   "description.noDescription": "Aucune description fournie.",
   "lifecycle.title": "Cycle de vie",

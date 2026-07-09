@@ -143,6 +143,34 @@ class ExtensionRegistry:
             grace_until=grace_until(ent, self._license.grace_days),
         )
 
+    def grants_for(self, key: str, now: datetime | None = None) -> list[str]:
+        """Core capabilities an extension *unlocks*, only while it is usable.
+
+        An extension declares ``"grants": ["metamodel.field_help", ...]`` in its
+        manifest to light up an otherwise-inert core capability (help text,
+        custom field types, …). Grants count only when the extension is enabled,
+        not failed/removed, and holds a usable (active or grace) entitlement — a
+        lapse withdraws the authoring affordance without touching stored data.
+        """
+        info = self._extensions.get(key)
+        if (
+            info is None
+            or not info.enabled
+            or info.status in ("removed", "failed", "needs_restart")
+        ):
+            return []
+        if not self.entitlement(key, now=now).usable:
+            return []
+        grants = (info.manifest or {}).get("grants") or []
+        return [str(g) for g in grants] if isinstance(grants, list) else []
+
+    def granted_capabilities(self, now: datetime | None = None) -> set[str]:
+        """Union of every core capability unlocked by an enabled, licensed extension."""
+        out: set[str] = set()
+        for key in self._extensions:
+            out.update(self.grants_for(key, now=now))
+        return out
+
     def clear(self) -> None:
         """Reset to empty — test helper."""
         self._extensions = {}

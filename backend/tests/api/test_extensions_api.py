@@ -391,7 +391,7 @@ class TestStatusEndpoint:
         res = await client.get("/api/v1/extensions/status", headers=auth_headers(member))
         assert res.status_code == 200
         assert res.json() == [
-            {"key": "sample-ext", "version": "1.0.0", "entitlement_state": "active"}
+            {"key": "sample-ext", "version": "1.0.0", "entitlement_state": "active", "grants": []}
         ]
 
     async def test_status_requires_auth(self, client, db, vendor):

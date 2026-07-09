@@ -72,6 +72,7 @@
   "utils.unknownOption": "Ukendt valgnøgle: {{key}}",
   "utils.urlError": "Skal bruge http://, https:// eller mailto:-skema",
   "utils.costRestricted": "Begrænset — du har ikke tilladelse til at se omkostninger på dette kort",
+  "utils.fieldHelp": "Hjælp",
   "description.title": "Beskrivelse",
   "description.noDescription": "Ingen beskrivelse angivet.",
   "lifecycle.title": "Livscyklus",

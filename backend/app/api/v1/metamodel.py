@@ -19,6 +19,7 @@ from app.models.relation_type import RelationType
 from app.models.resource_type import ResourceType
 from app.models.stakeholder import Stakeholder
 from app.models.user import User
+from app.services.extensions.registry import extension_registry
 from app.services.permission_service import PermissionService
 
 logger = logging.getLogger("turboea.metamodel")
@@ -40,6 +41,76 @@ def _scoring_signature(fields_schema: list | None, section_config: dict | None) 
                 field_weights[field["key"]] = field.get("weight", 1)
     dq_cfg = (section_config or {}).get("__dataQuality") or {}
     return {"fields": field_weights, "dq": dq_cfg}
+
+
+# ── Extension-gated field capabilities ─────────────────────────────────
+#
+# Two advanced field-authoring capabilities ship as INERT core plumbing: the
+# schema understands them and the card detail renders them unconditionally, but
+# an admin can only *author* them when an installed, enabled, licensed extension
+# grants the matching capability (see registry.grants_for). This is the
+# monetisation boundary — the free core never exposes a UI to create these, and
+# the API strips any attempt to add them without the grant. Rendering is never
+# gated (a licence lapse must never blank a card or delete data), and existing
+# values are grandfathered so a lapse can't block unrelated metamodel edits.
+CAP_FIELD_HELP = "metamodel.field_help"
+CAP_CUSTOM_FIELD_TYPES = "metamodel.custom_field_types"
+_BUILTIN_FIELD_TYPES = frozenset(
+    {
+        "text",
+        "multiline_text",
+        "number",
+        "cost",
+        "boolean",
+        "date",
+        "url",
+        "single_select",
+        "multiple_select",
+    }
+)
+
+
+def _enforce_field_gating(
+    new_schema: list | None, old_schema: list | None, granted: set[str]
+) -> list:
+    """Drop gated field attributes (help text, custom ``ext.*`` types) unless an
+    extension grants them. Grandfathers already-stored values verbatim so a
+    lapse never mutates card data or blocks an unrelated edit."""
+    new_schema = new_schema or []
+    help_granted = CAP_FIELD_HELP in granted
+    custom_granted = CAP_CUSTOM_FIELD_TYPES in granted
+    if help_granted and custom_granted:
+        return new_schema
+
+    old_fields: dict[str, dict] = {}
+    for section in old_schema or []:
+        for f in section.get("fields", []) if isinstance(section, dict) else []:
+            if isinstance(f, dict) and "key" in f:
+                old_fields[f["key"]] = f
+
+    for section in new_schema:
+        if not isinstance(section, dict):
+            continue
+        for f in section.get("fields", []):
+            if not isinstance(f, dict):
+                continue
+            old = old_fields.get(f.get("key")) or {}
+            if not help_granted:
+                # Grandfather only the exact stored help; drop anything new/changed.
+                for attr in ("help", "helpTranslations"):
+                    if f.get(attr) != old.get(attr):
+                        if old.get(attr) is None:
+                            f.pop(attr, None)
+                        else:
+                            f[attr] = old[attr]
+            if not custom_granted:
+                ftype = f.get("type")
+                if isinstance(ftype, str) and ftype.startswith("ext."):
+                    old_type = old.get("type")
+                    if old_type == ftype:
+                        continue  # grandfather an already-stored custom type
+                    f["type"] = old_type if old_type in _BUILTIN_FIELD_TYPES else "text"
+    return new_schema
 
 
 # ── Helpers ────────────────────────────────────────────────────────────
@@ -467,6 +538,10 @@ async def create_type(
         {"key": "responsible", "label": "Responsible"},
         {"key": "observer", "label": "Observer"},
     ]
+    await extension_registry.refresh_from_db(db)
+    fields_schema = _enforce_field_gating(
+        body.get("fields_schema", []), [], extension_registry.granted_capabilities()
+    )
     t = CardType(
         key=body["key"],
         label=body["label"],
@@ -477,7 +552,7 @@ async def create_type(
         has_hierarchy=body.get("has_hierarchy", False),
         has_successors=body.get("has_successors", False),
         subtypes=body.get("subtypes", []),
-        fields_schema=body.get("fields_schema", []),
+        fields_schema=fields_schema,
         stakeholder_roles=body.get("stakeholder_roles", default_roles),
         built_in=False,
         is_hidden=False,
@@ -534,6 +609,14 @@ async def update_type(
             key,
             t.fields_schema or [],
             body["fields_schema"] or [],
+        )
+        # Strip extension-gated field attributes (help text, custom types) that
+        # aren't unlocked by a licensed extension — grandfathering stored values.
+        await extension_registry.refresh_from_db(db)
+        body["fields_schema"] = _enforce_field_gating(
+            body["fields_schema"] or [],
+            t.fields_schema or [],
+            extension_registry.granted_capabilities(),
         )
 
     # Snapshot the data-quality-relevant config so we can re-score existing

@@ -48,3 +48,12 @@ Le licenze acquistate tramite lo Store si rinnovano da sole sulle istanze connes
 ## Permessi
 
 L'intera pagina e tutte le sue rotte API sono protette dal permesso dedicato `admin.manage_extensions` (assegnato al ruolo Admin integrato). Le estensioni possono definire chiavi di permesso proprie (`ext.<nome>.…`), che compaiono in **Admin → Utenti e ruoli** una volta caricata l'estensione.
+
+## Funzionalità di campo avanzate
+
+Alcune estensioni sbloccano modi avanzati di descrivere i tuoi dati che il core non offre da solo:
+
+- **Testo di aiuto del campo** — una guida comprimibile mostrata sotto un campo durante l'inserimento dei dati, così che un modulo si spieghi da sé.
+- **Tipi di campo personalizzati** — nuovi tipi oltre a quelli integrati (ad esempio una valutazione configurabile da 1 a 5 o da 0 a 10).
+
+Queste opzioni compaiono nell'editor dei campi del metamodello **solo finché l'estensione che le fornisce è installata e provvista di licenza**. Se tale estensione viene in seguito disattivata o la sua licenza scade, i valori già inseriti continuano a essere mostrati come testo di sola lettura — nulla viene svuotato o eliminato — e le opzioni di modifica scompaiono semplicemente finché l'estensione non è di nuovo attiva.

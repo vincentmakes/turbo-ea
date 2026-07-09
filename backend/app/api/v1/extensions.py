@@ -128,6 +128,7 @@ class ExtensionStatusOut(BaseModel):
     key: str
     version: str
     entitlement_state: str
+    grants: list[str] = []
 
 
 def _extension_out(row: Extension) -> ExtensionOut:
@@ -697,6 +698,7 @@ async def extensions_status(
             key=info.key,
             version=info.version,
             entitlement_state=extension_registry.entitlement(info.key).state,
+            grants=extension_registry.grants_for(info.key),
         )
         for info in extension_registry.all()
         if info.enabled and info.status != "removed"

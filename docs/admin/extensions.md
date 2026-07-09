@@ -48,3 +48,12 @@ Licenses bought through the Store renew themselves on connected instances: after
 ## Permissions
 
 The whole page and all its API routes are gated by the dedicated `admin.manage_extensions` permission (granted to the built-in Admin role). Extensions can define their own permission keys (`ext.<name>.…`), which appear in **Admin → Users & Roles** once the extension is loaded.
+
+## Advanced field capabilities
+
+Some extensions unlock advanced ways to describe your data that the core does not offer on its own:
+
+- **Field help text** — collapsible guidance shown under a field while people enter data, so a form explains itself.
+- **Custom field types** — new kinds of field beyond the built-in set (for example a configurable rating from 1–5 or 0–10).
+
+These options appear in the metamodel field editor **only while the extension that provides them is installed and licensed**. If such an extension is later disabled or its license lapses, the values you already captured keep displaying as plain read-only text — nothing is blanked or deleted — and the authoring options simply disappear until the extension is active again.

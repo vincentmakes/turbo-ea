@@ -8,6 +8,7 @@ vi.mock("@/api/client", () => ({
 import { api } from "@/api/client";
 import {
   ExtensionBoundary,
+  getExtensionFieldTypes,
   getExtensionLoadErrors,
   getExtensionRoutes,
   getRegisteredExtensions,
@@ -90,6 +91,38 @@ describe("extensionHost", () => {
     await loadUiExtensions();
     expect(getExtensionLoadErrors()["broken-ext"]).toBeTruthy();
     expect(getRegisteredExtensions()).toHaveLength(0);
+  });
+
+  it("registers namespaced field types and drops mis-namespaced ones", () => {
+    const Rating = () => <div>rating</div>;
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    registerExtension("plus", {
+      key: "plus",
+      sdkVersion: UI_SDK_VERSION,
+      fieldTypes: [
+        { type: "ext.plus.rating", label: "Rating", display: Rating, editor: Rating },
+        // Wrong namespace — must be ignored.
+        { type: "ext.other.bad", label: "Bad", display: Rating },
+        { type: "rating", label: "Unqualified", display: Rating },
+      ],
+    });
+    spy.mockRestore();
+    const types = getExtensionFieldTypes();
+    expect(Object.keys(types)).toEqual(["ext.plus.rating"]);
+    expect(types["ext.plus.rating"].extKey).toBe("plus");
+    expect(types["ext.plus.rating"].contribution.label).toBe("Rating");
+  });
+
+  it("returns a stable field-type snapshot until the registry changes", () => {
+    registerExtension("plus", {
+      key: "plus",
+      sdkVersion: UI_SDK_VERSION,
+      fieldTypes: [{ type: "ext.plus.rating", label: "Rating", display: () => null }],
+    });
+    // Same reference across calls (required for useSyncExternalStore).
+    expect(getExtensionFieldTypes()).toBe(getExtensionFieldTypes());
+    resetExtensionHost();
+    expect(getExtensionFieldTypes()).toEqual({});
   });
 
   it("ExtensionBoundary catches a crashing component", () => {

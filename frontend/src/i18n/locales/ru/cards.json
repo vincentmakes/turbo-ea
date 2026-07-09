@@ -72,6 +72,7 @@
   "utils.unknownOption": "Неизвестный ключ опции: {{key}}",
   "utils.urlError": "Необходимо использовать схему http://, https:// или mailto:",
   "utils.costRestricted": "Ограничено — у вас нет прав на просмотр расходов этой карточки",
+  "utils.fieldHelp": "Справка",
   "description.title": "Описание",
   "description.noDescription": "Описание не указано.",
   "lifecycle.title": "Жизненный цикл",

@@ -4606,6 +4606,14 @@
             "title": "Entitlement State",
             "type": "string"
           },
+          "grants": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Grants",
+            "type": "array"
+          },
           "key": {
             "title": "Key",
             "type": "string"

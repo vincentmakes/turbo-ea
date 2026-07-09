@@ -20,9 +20,13 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import ColorPicker from "@/components/ColorPicker";
 import KeyInput, { isValidKey } from "@/components/KeyInput";
 import { api } from "@/api/client";
+import { useExtensionCapabilities } from "@/hooks/useExtensionCapabilities";
 import { LOCALE_LABELS } from "@/i18n";
+import { useExtensionFieldTypes } from "@/lib/extensionHost";
 import type { FieldDef, FieldOption, TranslationMap } from "@/types";
 import { FIELD_TYPE_OPTIONS, DEFAULT_OPTION_COLOR } from "./constants";
+
+const CAP_FIELD_HELP = "metamodel.field_help";
 
 /** Remove empty-string entries from a TranslationMap. Returns undefined if all empty. */
 function cleanTranslationMap(map: TranslationMap | undefined): TranslationMap | undefined {
@@ -54,8 +58,32 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
   const locale = i18n.language;
   const [field, setField] = useState<FieldDef>(initial);
 
+  const caps = useExtensionCapabilities();
+  const helpGranted = caps.has(CAP_FIELD_HELP);
+  const extFieldTypes = useExtensionFieldTypes();
+
+  // Built-in field types plus any contributed by installed extensions.
+  const typeOptions = useMemo(
+    () => [
+      ...FIELD_TYPE_OPTIONS.map((o) => ({ value: o.value, label: t(o.tKey) })),
+      ...Object.values(extFieldTypes).map((rft) => ({
+        value: rft.contribution.type,
+        label: rft.contribution.label,
+      })),
+    ],
+    [extFieldTypes, t],
+  );
+  const customType = extFieldTypes[field.type];
+  // Config entries the admin can tune for a custom type (seeded from its
+  // defaultConfig), e.g. a rating's { min, max }.
+  const customConfigEntries = customType
+    ? Object.entries(field.config ?? customType.contribution.defaultConfig ?? {})
+    : [];
+
   // The label input reads/writes translations[currentLocale]
   const [displayLabel, setDisplayLabel] = useState("");
+  // Help text input reads/writes helpTranslations[currentLocale] (gated).
+  const [displayHelp, setDisplayHelp] = useState("");
 
   // Keys that appear on more than one option — flagged red, and block Save.
   // Keys must be unique within a select field's option list.
@@ -85,6 +113,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
         options: (initial.options || []).map((o) => ({ ...o, _original: true })),
       });
       setDisplayLabel(initial.translations?.[locale] || initial.label || "");
+      setDisplayHelp(initial.helpTranslations?.[locale] || initial.help || "");
       setDeleteOptConfirm(null);
     }
   }, [open, initial, locale]);
@@ -169,17 +198,50 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
             value={field.type}
             label={t("metamodel.fieldEditor.typeLabel")}
             disabled={!!isCalculated}
-            onChange={(e) =>
-              setField({ ...field, type: e.target.value as FieldDef["type"] })
-            }
+            onChange={(e) => {
+              const newType = e.target.value as FieldDef["type"];
+              const rft = extFieldTypes[newType];
+              // Seed config from the custom type's defaults on first selection.
+              setField({
+                ...field,
+                type: newType,
+                config: rft
+                  ? { ...(rft.contribution.defaultConfig ?? {}), ...(field.config ?? {}) }
+                  : field.config,
+              });
+            }}
           >
-            {FIELD_TYPE_OPTIONS.map((o) => (
+            {typeOptions.map((o) => (
               <MenuItem key={o.value} value={o.value}>
-                {t(o.tKey)}
+                {o.label}
               </MenuItem>
             ))}
           </Select>
         </FormControl>
+        {customConfigEntries.length > 0 && (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              {t("metamodel.fieldEditor.customConfig")}
+            </Typography>
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+              {customConfigEntries.map(([ck, cv]) => (
+                <TextField
+                  key={ck}
+                  size="small"
+                  label={ck}
+                  type={typeof cv === "number" ? "number" : "text"}
+                  value={cv as string | number}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    const next =
+                      typeof cv === "number" ? (raw === "" ? "" : Number(raw)) : raw;
+                    setField({ ...field, config: { ...(field.config ?? {}), [ck]: next } });
+                  }}
+                />
+              ))}
+            </Box>
+          </Box>
+        )}
         <Box sx={{ display: "flex", gap: 2, mb: 2, alignItems: "center" }}>
           <FormControlLabel
             control={
@@ -196,6 +258,19 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
             {t("metamodel.fieldEditor.weightMovedHint")}
           </Typography>
         </Box>
+        {helpGranted && (
+          <TextField
+            fullWidth
+            multiline
+            minRows={2}
+            maxRows={6}
+            label={`${t("metamodel.fieldEditor.helpLabel")} (${LOCALE_LABELS[locale as keyof typeof LOCALE_LABELS] || locale})`}
+            value={displayHelp}
+            onChange={(e) => setDisplayHelp(e.target.value)}
+            helperText={t("metamodel.fieldEditor.helpHint")}
+            sx={{ mb: 2 }}
+          />
+        )}
         {isSelect && (
           <>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
@@ -281,10 +356,14 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
           variant="contained"
           onClick={() => {
             const mergedTranslations = { ...field.translations, [locale]: displayLabel };
+            const mergedHelp = { ...field.helpTranslations, [locale]: displayHelp };
+            const cleanedHelp = helpGranted ? cleanTranslationMap(mergedHelp) : field.helpTranslations;
             const cleanedField: FieldDef = {
               ...field,
               label: displayLabel,
               translations: cleanTranslationMap(mergedTranslations),
+              help: helpGranted ? displayHelp.trim() || undefined : field.help,
+              helpTranslations: cleanedHelp,
               options: field.options?.map(({ _original, ...o }) => ({
                 ...o,
                 // Persist the default the picker displays so an option whose

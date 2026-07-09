@@ -48,3 +48,12 @@ As licenças compradas na Loja renovam-se sozinhas nas instâncias ligadas: apó
 ## Permissões
 
 Toda a página e as suas rotas de API estão protegidas pela permissão dedicada `admin.manage_extensions` (atribuída ao papel Admin integrado). As extensões podem definir as suas próprias chaves de permissão (`ext.<nome>.…`), que aparecem em **Admin → Utilizadores e papéis** depois de a extensão ser carregada.
+
+## Recursos de campo avançados
+
+Algumas extensões desbloqueiam maneiras avançadas de descrever seus dados que o núcleo não oferece sozinho:
+
+- **Texto de ajuda do campo** — uma orientação recolhível exibida abaixo de um campo durante a entrada de dados, para que um formulário se explique sozinho.
+- **Tipos de campo personalizados** — novos tipos além do conjunto integrado (por exemplo, uma avaliação configurável de 1 a 5 ou de 0 a 10).
+
+Essas opções aparecem no editor de campos do metamodelo **somente enquanto a extensão que as fornece estiver instalada e licenciada**. Se essa extensão for posteriormente desativada ou sua licença expirar, os valores que você já registrou continuam sendo exibidos como texto somente leitura — nada é apagado ou excluído — e as opções de edição simplesmente desaparecem até que a extensão esteja ativa novamente.
