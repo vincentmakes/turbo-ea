@@ -65,9 +65,13 @@ export interface DrillDownPick {
 export interface RollUpPick {
   mode: "roll_up";
   parent: { id: string; name: string; type: string };
-  /** Selected siblings (cards under the same parent) to nest alongside
-   *  the current card. */
+  /** Siblings the user explicitly checked — inserted as NEW cells
+   *  alongside the current card. Empty for "Roll up to parent only". */
   siblings: HierarchyChildRef[];
+  /** Every child of the parent (current card excluded). The editor uses
+   *  this to find siblings ALREADY on the canvas and re-parent them into
+   *  the new container, even when no siblings were checked. */
+  allSiblings: HierarchyChildRef[];
 }
 
 export type ExpandMenuPick = ShowDependencyPick | DrillDownPick | RollUpPick;
@@ -245,10 +249,12 @@ export default function ExpandMenu({ target, onClose, onPick }: Props) {
       name: hierarchy.parent_name,
       type: hierarchy.parent_type || "",
     };
-    const picks = selectedSiblings.size > 0
-      ? siblings.filter((s) => selectedSiblings.has(s.id))
-      : siblings;
-    onPick({ mode: "roll_up", parent, siblings: picks }, target);
+    // Only the explicitly checked siblings are inserted as new cells.
+    // "Roll up to parent only" (nothing checked) yields an empty list — the
+    // editor still re-parents any of `siblings` already on the canvas via
+    // `allSiblings`.
+    const selected = siblings.filter((s) => selectedSiblings.has(s.id));
+    onPick({ mode: "roll_up", parent, siblings: selected, allSiblings: siblings }, target);
     onClose();
   };
 

@@ -661,12 +661,15 @@ export function addExpandOverlay(
 
   graph.removeCellOverlays(cell);
 
+  // Sit on the card's right edge but lifted above the vertical centre, so the
+  // affordance clears mxGraph's East connection arrow while the enlarged hit
+  // target keeps it easy to click.
   const overlay = new win.mxCellOverlay(
-    new win.mxImage(expanded ? MINUS_OVERLAY : PLUS_OVERLAY, 20, 20),
+    new win.mxImage(expanded ? MINUS_OVERLAY : PLUS_OVERLAY, 24, 24),
     expanded ? "Collapse" : "Expand related cards",
     win.mxConstants.ALIGN_RIGHT,
     win.mxConstants.ALIGN_MIDDLE,
-    new win.mxPoint(0, 0),
+    new win.mxPoint(0, -14),
   );
   overlay.cursor = "pointer";
   overlay.addListener(win.mxEvent.CLICK, () => onClick());
@@ -2164,6 +2167,30 @@ export interface PendingParentChange {
   oldGeometry?: { x: number; y: number; width: number; height: number };
 }
 
+/**
+ * Decide whether a nested child cell has been dragged OUT of its parent's
+ * bounds and should be force-detached to the canvas root. mxGraph child
+ * geometry is relative to the parent, so "inside" means the child's box fits
+ * within `[0, parent.width] × [0, parent.height]`.
+ *
+ * A **collapsed / folded** parent is special-cased: mxGraph swaps a folded
+ * swimlane's geometry down to its header height while leaving the (now hidden)
+ * children at their full expanded-layout coordinates, so every child would
+ * falsely test as "escaped". You can't drag a hidden child out of a collapsed
+ * container anyway, so this returns `false` for a collapsed parent — preventing
+ * the spurious per-child detach prompts that fire on the next canvas click.
+ */
+export function childEscapedParentBounds(
+  cellGeo: { x: number; y: number; width: number; height: number },
+  parentGeo: { x: number; y: number; width: number; height: number },
+  parentCollapsed: boolean,
+): boolean {
+  if (parentCollapsed) return false;
+  const insideX = cellGeo.x >= 0 && cellGeo.x + cellGeo.width <= parentGeo.width;
+  const insideY = cellGeo.y >= 0 && cellGeo.y + cellGeo.height <= parentGeo.height;
+  return !(insideX && insideY);
+}
+
 export interface ParentChangeEvent {
   cellId: string;
   cardId: string | null;
@@ -2404,13 +2431,13 @@ export function attachParentChangeListener(
         const cellGeo = cell.getGeometry ? cell.getGeometry() : null;
         const parentGeo = parent.getGeometry ? parent.getGeometry() : null;
         if (!cellGeo || !parentGeo) continue;
-        // mxGraph children's geometry is RELATIVE to their parent.
-        // "Inside the parent" means 0 ≤ x and x + width ≤ parent.width.
-        const insideX =
-          cellGeo.x >= 0 && cellGeo.x + cellGeo.width <= parentGeo.width;
-        const insideY =
-          cellGeo.y >= 0 && cellGeo.y + cellGeo.height <= parentGeo.height;
-        if (insideX && insideY) continue;
+        // A folded swimlane reports its shrunken (header-height) bounds while
+        // its children keep their expanded-layout geometry — never treat those
+        // as escaped, or collapsing a container would detach every child.
+        const parentCollapsed =
+          parent.collapsed === true ||
+          (typeof model.isCollapsed === "function" && model.isCollapsed(parent));
+        if (!childEscapedParentBounds(cellGeo, parentGeo, parentCollapsed)) continue;
         // Escaped the parent — convert the cell's geometry to absolute
         // coordinates so it lands where the user dropped it after we
         // re-parent to root.
@@ -2544,12 +2571,15 @@ export function addChevronOverlay(
   if (!cell) return false;
 
   graph.removeCellOverlays(cell);
+  // Sit on the card's right edge but lifted above the vertical centre, so the
+  // affordance clears mxGraph's East connection arrow (which lives at the
+  // right-middle border) while the enlarged hit target keeps it easy to click.
   const overlay = new win.mxCellOverlay(
-    new win.mxImage(CHEVRON_OVERLAY, 20, 20),
+    new win.mxImage(CHEVRON_OVERLAY, 24, 24),
     "Expand related cards",
     win.mxConstants.ALIGN_RIGHT,
     win.mxConstants.ALIGN_MIDDLE,
-    new win.mxPoint(0, 0),
+    new win.mxPoint(0, -14),
   );
   overlay.cursor = "pointer";
   overlay.addListener(win.mxEvent.CLICK, (_s: unknown, evt: { properties?: { event?: MouseEvent } }) => {
@@ -3070,16 +3100,34 @@ export function rollUpInto(
     );
     model.add(containerVertex, current);
 
-    // Insert one cell per sibling. We always create a fresh cell — the
-    // sibling may not be on the canvas yet, and even if it is, the user
-    // explicitly asked to see it nested here.
-    siblings.forEach(({ card }, i) => {
+    // Place one cell per sibling. Two paths:
+    //   - `existingCellId` set → the sibling is already on the canvas; move
+    //     that cell into the container, preserving its identity, style and
+    //     chevron overlay. Mirrors how the current card is re-parented, so
+    //     (like the current card) it is NOT stamped `rollUpChild` and NOT
+    //     added to `inserted` — it's already registered by the caller.
+    //   - `existingCellId` null → the sibling isn't on the canvas yet; create
+    //     a fresh cell stamped `rollUpChild` and return it in `inserted`.
+    siblings.forEach(({ cellId: existingCellId, card }, i) => {
       const slot = i + 1;
       const r = Math.floor(slot / COLS);
       const c = slot % COLS;
       const x = PAD + c * (CHILD_W + GAP);
       const y = HEADER + PAD + r * (CHILD_H + GAP);
-      const cellId = `ruc-${card.id.slice(0, 8)}-${Date.now()}-${i}`;
+
+      if (existingCellId) {
+        const existing = model.getCell(existingCellId);
+        if (existing) {
+          graph.resizeCell(
+            existing,
+            new win.mxRectangle(x, y, CHILD_W, CHILD_H),
+          );
+          model.add(containerVertex, existing);
+        }
+        return;
+      }
+
+      const newCellId = `ruc-${card.id.slice(0, 8)}-${Date.now()}-${i}`;
       const childStroke = darken(card.color);
       const childStyle = [
         "rounded=1",
@@ -3102,7 +3150,7 @@ export function rollUpInto(
 
       graph.insertVertex(
         containerVertex,
-        cellId,
+        newCellId,
         childObj,
         x,
         y,
@@ -3110,7 +3158,7 @@ export function rollUpInto(
         CHILD_H,
         childStyle,
       );
-      inserted.push({ cellId, cardId: card.id });
+      inserted.push({ cellId: newCellId, cardId: card.id });
     });
   } finally {
     model.endUpdate();

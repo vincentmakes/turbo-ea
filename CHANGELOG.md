@@ -5,10 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [1.69.1] - 2026-07-08
+## [1.69.2] - 2026-07-09
 
 ### Changed
 - **Compliance findings now have an inline Edit button in the findings table.** Each row in the GRC → Compliance table shows a pencil icon that opens the finding for editing in one click, so you no longer have to open the detail drawer first. Clicking a finding's Card name still jumps to that card.
+
+## [1.69.1] - 2026-07-08
+
+### Fixed
+- **Diagram roll-up "Roll up to parent only" no longer pulls in every sibling.** Rolling a card up with no siblings checked now creates the parent container holding just that card plus any of its siblings already on the diagram (re-parented in place), instead of inserting all of the parent's children as new cells. Checking siblings still adds those as new cells.
+- **The "Expand related cards" chevron on diagram cards is easier to click.** It now sits in the upper-right of the card with a larger hit area — clear of the card's connection handle — so clicking it opens the menu instead of starting a connection or selecting the card.
+- **Collapsing a diagram container no longer asks to detach its children.** Folding an expanded container and then clicking elsewhere used to pop a "detach child from parent?" prompt for every nested card; the collapse is now correctly recognised as a display action, not a hierarchy change.
 
 ## [1.69.0] - 2026-07-07
 

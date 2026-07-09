@@ -1117,22 +1117,45 @@ export default function DiagramEditor() {
           return;
         }
         const parentColor = colorForType(pick.parent.type);
-        // Skip siblings already on the canvas — nesting a second cell
-        // with the same cardId would trigger our dedup. The user can
-        // remove the existing cell first if they want it inside the
-        // container.
-        const siblings = pick.siblings
-          .filter((s) => !findExistingCardCellId(frame, s.id))
-          .map((s) => ({
-            cellId: null,
-            card: {
-              id: s.id,
-              name: s.name,
-              type: s.type,
-              color: colorForType(s.type),
-              icon: iconForType(s.type),
-            },
-          }));
+        // Partition the parent's children into two buckets:
+        //   - already on the canvas as a top-level cell → RE-PARENT the
+        //     existing cell into the new container (keeps its identity so
+        //     dedup stays happy, and no duplicate cell is created).
+        //   - not on the canvas AND explicitly checked → INSERT a fresh cell.
+        // Everything else (not on canvas, not checked) is skipped — this is
+        // what makes "Roll up to parent only" wrap just the current card plus
+        // whatever siblings are already drawn, without pulling in the rest of
+        // the parent's children.
+        const selectedIds = new Set(pick.siblings.map((s) => s.id));
+        const siblings: Array<{
+          cellId: string | null;
+          card: {
+            id: string;
+            name: string;
+            type: string;
+            color: string;
+            icon?: string;
+          };
+        }> = [];
+        for (const s of pick.allSiblings) {
+          const existingId = findExistingCardCellId(frame, s.id);
+          const card = {
+            id: s.id,
+            name: s.name,
+            type: s.type,
+            color: colorForType(s.type),
+            icon: iconForType(s.type),
+          };
+          if (existingId) {
+            // Only re-parent top-level cells. A sibling already nested in
+            // another container is left where it is — moving it would
+            // double-nest and trip the dedup scan.
+            if (isInsideContainer(frame, existingId)) continue;
+            siblings.push({ cellId: existingId, card });
+          } else if (selectedIds.has(s.id)) {
+            siblings.push({ cellId: null, card });
+          }
+        }
         // Roll-up re-parents the current cell into the new container.
         // Suppress the parent-change dialog so we don't prompt the user
         // to confirm an operation they just explicitly requested.
