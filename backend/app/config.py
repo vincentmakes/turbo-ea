@@ -30,7 +30,7 @@ APP_VERSION = _read_version()
 # app/core/extension_signing.py). Air-gapped instances need nothing: an
 # unreachable catalogue degrades to a friendly offline hint and the
 # file-based install flow is always fully functional.
-EXTENSION_STORE_URL = "https://turbo-ea-extensions.pages.dev"
+EXTENSION_STORE_URL = "https://store.turbo-ea.org"
 
 
 class Settings:

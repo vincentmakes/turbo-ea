@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Extensions can ship ready-made draft surveys.** A content pack may include a `Surveys` sheet; each survey lands as a **draft** with its maintain fields pre-selected, so an admin can review the target and send it — an install can never send a survey or email subscribers on its own. The survey builder now flags a selected field whose custom (`ext.*`) type comes from an extension that isn't currently installed and active.
 - **Extensions can add "New from template" survey shortcuts.** A UI plugin may contribute survey templates (UI SDK 1.2) that appear as a **New from template** menu on the Surveys admin page; picking one mints a fresh prefilled **draft** survey and opens it in the builder for the admin to review and send.
 
+### Changed
+- The in-product Extension Store now points at the production catalogue at `store.turbo-ea.org`.
+
 ## [2.0.0] - 2026-07-09
 
 Turbo EA 2.0 introduces the **Extension Store** — install vendor-signed extensions to add capabilities without changing the core. A full announcement is in the GitHub Discussions.
