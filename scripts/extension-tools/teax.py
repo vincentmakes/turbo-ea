@@ -169,8 +169,9 @@ def _collect_files(src: Path) -> dict[str, Path]:
     return files
 
 
-def _lint_source(src: Path) -> tuple[dict, dict[str, Path], list[str]]:
+def _lint_source(src: Path) -> tuple[dict, dict[str, Path], list[str], list[str]]:
     problems: list[str] = []
+    warnings: list[str] = []
     manifest_path = src / SOURCE_MANIFEST
     if not manifest_path.is_file():
         _fail(f"{src} has no {SOURCE_MANIFEST}")
@@ -194,6 +195,15 @@ def _lint_source(src: Path) -> tuple[dict, dict[str, Path], list[str]]:
     core = manifest.get("core") or {}
     if not core.get("min"):
         problems.append("manifest is missing core.min (compatibility range)")
+    if core.get("max_exclusive"):
+        warnings.append(
+            "core.max_exclusive is set — an upper bound makes this extension "
+            "self-disable on Turbo EA "
+            f"{core['max_exclusive']} and every later release, even when the "
+            "extension contract did not change. Prefer core.min only, and raise "
+            "it when you adopt a new capability. Keep a ceiling ONLY for a known "
+            "incompatibility."
+        )
 
     files = _collect_files(src)
 
@@ -290,20 +300,26 @@ def _lint_source(src: Path) -> tuple[dict, dict[str, Path], list[str]]:
         if not _safe_member(rel):
             problems.append(f"unsafe file path: {rel}")
 
-    return manifest, files, problems
+    return manifest, files, problems, warnings
 
 
 def cmd_lint(args) -> int:
-    _, files, problems = _lint_source(Path(args.source_dir))
+    _, files, problems, warnings = _lint_source(Path(args.source_dir))
+    for w in warnings:
+        print(f"lint: warning: {w}")
     for p in problems:
         print(f"lint: {p}")
-    print(f"{len(files)} file(s) scanned, {len(problems)} problem(s)")
+    print(
+        f"{len(files)} file(s) scanned, {len(problems)} problem(s), {len(warnings)} warning(s)"
+    )
     return 1 if problems else 0
 
 
 def cmd_pack(args) -> int:
     src = Path(args.source_dir)
-    manifest, files, problems = _lint_source(src)
+    manifest, files, problems, warnings = _lint_source(src)
+    for w in warnings:
+        print(f"warning: {w}", file=sys.stderr)
     if problems:
         for p in problems:
             print(f"lint: {p}", file=sys.stderr)
