@@ -29,7 +29,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { api } from "@/api/client";
+import { api, ApiError } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { invalidateCache as invalidateMetamodel } from "@/hooks/useMetamodel";
 import { ExtensionBoundary, useExtensionUI } from "@/lib/extensionHost";
@@ -201,6 +201,14 @@ export default function ExtensionsAdmin() {
 
   const [uninstallKey, setUninstallKey] = useState<string | null>(null);
   const [renewBusy, setRenewBusy] = useState(false);
+  const [removeLicenseOpen, setRemoveLicenseOpen] = useState(false);
+  const [removeLicenseBusy, setRemoveLicenseBusy] = useState(false);
+  // When a file-uploaded extension can't be applied for lack of a license,
+  // remember which install to retry once the license lands (so the admin
+  // never has to leave the flow for the Installed tab). applyGate drives the
+  // dialog copy for that case.
+  const pendingApplyRef = useRef<string | null>(null);
+  const [applyGate, setApplyGate] = useState(false);
 
   const clearPoll = useCallback(() => {
     if (pollRef.current) {
@@ -259,7 +267,18 @@ export default function ExtensionsAdmin() {
         setInstall(updated);
         poll(updated.id);
       } catch (err) {
-        setInstallError(err instanceof Error ? err.message : String(err));
+        // Not-yet-licensed extension (backend 403): don't dump an error and
+        // send the admin to the Installed tab — open the license dialog right
+        // here and retry the apply automatically once the license is applied.
+        if (err instanceof ApiError && err.status === 403) {
+          pendingApplyRef.current = id;
+          setGateItem(null);
+          setLicenseError(null);
+          setApplyGate(true);
+          setLicenseDialogOpen(true);
+        } else {
+          setInstallError(err instanceof Error ? err.message : String(err));
+        }
       } finally {
         setInstallBusy(false);
       }
@@ -332,6 +351,8 @@ export default function ExtensionsAdmin() {
     setLicenseText("");
     setLicenseError(null);
     pendingInstallRef.current = null;
+    pendingApplyRef.current = null;
+    setApplyGate(false);
   }, []);
 
   const submitLicense = async (text: string) => {
@@ -342,10 +363,16 @@ export default function ExtensionsAdmin() {
       setLicenseText("");
       await loadAll();
       const continueKey = pendingInstallRef.current;
+      const continueApplyId = pendingApplyRef.current;
       setLicenseDialogOpen(false);
       setGateItem(null);
+      setApplyGate(false);
       pendingInstallRef.current = null;
-      if (continueKey) void startStoreInstall(continueKey);
+      pendingApplyRef.current = null;
+      // Resume whatever the license was needed for: a store install, or the
+      // just-uploaded file waiting to be applied.
+      if (continueApplyId) void applyInstall(continueApplyId);
+      else if (continueKey) void startStoreInstall(continueKey);
     } catch (e) {
       setLicenseError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -482,6 +509,25 @@ export default function ExtensionsAdmin() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setUninstallKey(null);
+    }
+  };
+
+  const handleRemoveLicense = async () => {
+    setRemoveLicenseBusy(true);
+    try {
+      await api.delete("/admin/extensions/license");
+      setNotice(
+        t(
+          "extensions.license.removed",
+          "License removed. Licensed extensions are disabled until a license is applied — no data was deleted.",
+        ),
+      );
+      await loadAll();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRemoveLicenseBusy(false);
+      setRemoveLicenseOpen(false);
     }
   };
 
@@ -932,6 +978,13 @@ export default function ExtensionsAdmin() {
               >
                 {t("extensions.rows.enterLicense", "Enter license…")}
               </Button>
+              <Button
+                size="small"
+                color="error"
+                onClick={() => setRemoveLicenseOpen(true)}
+              >
+                {t("extensions.license.remove", "Remove license")}
+              </Button>
             </Stack>
           )}
           {!license && (
@@ -1077,7 +1130,7 @@ export default function ExtensionsAdmin() {
       {/* License dialog — install gate (with Buy) or plain license entry. */}
       <Dialog open={licenseDialogOpen} onClose={closeLicenseDialog} fullWidth maxWidth="sm">
         <DialogTitle>
-          {gateItem
+          {gateItem || applyGate
             ? t("extensions.gate.title", "License required")
             : t("extensions.license.dialogTitle", "Apply a license")}
         </DialogTitle>
@@ -1088,6 +1141,14 @@ export default function ExtensionsAdmin() {
                 "extensions.gate.body",
                 "{{name}} needs a license entitlement to run. Buy it now — your license applies automatically after payment — or paste a license you already received.",
                 { name: gateItem.name },
+              )}
+            </DialogContentText>
+          )}
+          {applyGate && !gateItem && (
+            <DialogContentText sx={{ mb: 2 }}>
+              {t(
+                "extensions.gate.applyBody",
+                "This extension is verified but needs a license to finish installing. Paste the license you received (or upload the file) — the install continues automatically.",
               )}
             </DialogContentText>
           )}
@@ -1162,6 +1223,38 @@ export default function ExtensionsAdmin() {
             }
           >
             {t("extensions.license.apply", "Apply license")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={removeLicenseOpen} onClose={() => setRemoveLicenseOpen(false)}>
+        <DialogTitle>{t("extensions.license.removeTitle", "Remove license?")}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {t(
+              "extensions.license.removeBody",
+              "Licensed extensions will be disabled until you apply a license again — their pages stop working and their jobs pause. No data is deleted, and applying a license restores everything.",
+            )}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRemoveLicenseOpen(false)}>
+            {t("extensions.uninstall.cancel", "Cancel")}
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            disabled={removeLicenseBusy}
+            onClick={() => void handleRemoveLicense()}
+            startIcon={
+              removeLicenseBusy ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <MaterialSymbol icon="delete" />
+              )
+            }
+          >
+            {t("extensions.license.remove", "Remove license")}
           </Button>
         </DialogActions>
       </Dialog>

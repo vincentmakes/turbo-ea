@@ -186,6 +186,32 @@ class TestLicenseRoutes:
         )
         assert res.status_code == 403
 
+    async def test_delete_license_removes_it(self, client, db, vendor):
+        admin = await make_admin(db)
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor)},
+            headers=auth_headers(admin),
+        )
+        res = await client.delete("/api/v1/admin/extensions/license", headers=auth_headers(admin))
+        assert res.status_code == 204
+        # Gone from the summary and the in-memory registry.
+        got = await client.get("/api/v1/admin/extensions/license", headers=auth_headers(admin))
+        assert got.status_code == 404
+        assert extension_registry.license is None
+
+    async def test_delete_license_404_when_absent(self, client, db, vendor):
+        admin = await make_admin(db)
+        res = await client.delete("/api/v1/admin/extensions/license", headers=auth_headers(admin))
+        assert res.status_code == 404
+
+    async def test_member_cannot_remove_license(self, client, db, vendor):
+        member = await make_member(db)
+        res = await client.delete(
+            "/api/v1/admin/extensions/license", headers=auth_headers(member)
+        )
+        assert res.status_code == 403
+
 
 class TestInstallLifecycle:
     async def test_upload_verify_apply_flow(self, client, db, vendor):

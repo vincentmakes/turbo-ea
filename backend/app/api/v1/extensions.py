@@ -4,6 +4,7 @@
 ``GET    /admin/extensions/instance``       — this instance's licensing identity (TEA-…)
 ``GET    /admin/extensions/license``        — active license summary
 ``PUT    /admin/extensions/license``        — upload/paste a signed license (supersedes)
+``DELETE /admin/extensions/license``        — remove the license (soft-disable, no data loss)
 ``GET    /admin/extensions/install``        — recent bundle uploads
 ``POST   /admin/extensions/install``        — upload a ``.teax``, background verify+preview
 ``GET    /admin/extensions/install/{id}``   — poll upload status + dry-run diff
@@ -289,6 +290,37 @@ async def put_license(
 ) -> LicenseOut:
     await PermissionService.require_permission(db, user, "admin.manage_extensions")
     return await _apply_license_text(db, payload.text, user.id)
+
+
+@router.delete("/license", status_code=204)
+async def delete_license(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> None:
+    """Remove the installed license (deactivate it, keep the audit rows).
+
+    Extensions soft-disable exactly as on expiry — pages disappear, APIs
+    refuse, jobs pause — but **no data is deleted**, so applying a license
+    again restores everything. Idempotent-ish: 404 when there is nothing to
+    remove so the UI can tell the admin.
+    """
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    actives = (
+        (
+            await db.execute(
+                select(ExtensionLicense).where(ExtensionLicense.is_active == True)  # noqa: E712
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not actives:
+        raise HTTPException(status_code=404, detail="No license installed")
+    for row in actives:
+        row.is_active = False
+    await db.commit()
+    await extension_registry.refresh_from_db(db)
+    logger.info("Extension license removed by user %s", user.id)
 
 
 # ---------------------------------------------------------------------------

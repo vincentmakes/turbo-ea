@@ -14551,6 +14551,19 @@
       }
     },
     "/api/v1/admin/extensions/license": {
+      "delete": {
+        "description": "Remove the installed license (deactivate it, keep the audit rows).\n\nExtensions soft-disable exactly as on expiry \u2014 pages disappear, APIs\nrefuse, jobs pause \u2014 but **no data is deleted**, so applying a license\nagain restores everything. Idempotent-ish: 404 when there is nothing to\nremove so the UI can tell the admin.",
+        "operationId": "delete_license_api_v1_admin_extensions_license_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Delete License",
+        "tags": [
+          "Extensions"
+        ]
+      },
       "get": {
         "operationId": "get_license_api_v1_admin_extensions_license_get",
         "responses": {
