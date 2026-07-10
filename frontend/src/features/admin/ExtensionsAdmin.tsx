@@ -12,6 +12,7 @@ import {
   DialogContentText,
   DialogTitle,
   LinearProgress,
+  Link,
   Stack,
   Switch,
   Tab,
@@ -637,6 +638,17 @@ export default function ExtensionsAdmin() {
           "Install vendor-signed extensions to add customer-specific capabilities without changing the core. Extensions and licenses are delivered as files, so everything works on air-gapped instances.",
         )}
       </Typography>
+
+      <Alert severity="info" icon={<MaterialSymbol icon="handshake" />}>
+        {t(
+          "extensions.consulting",
+          "Extensions are built and signed by Turbo EA — they aren't self-built or open to third parties. We can build and tailor one to address your specific business needs.",
+        )}{" "}
+        <Link href="https://www.turbo-ea.org/consulting" target="_blank" rel="noopener noreferrer">
+          {t("extensions.consultingLink", "More info here")}
+        </Link>
+        .
+      </Alert>
 
       {error && <Alert severity="error">{error}</Alert>}
       {notice && (

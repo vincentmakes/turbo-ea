@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [2.2.0] - 2026-07-10
 
 ### Added
+- **Admin → Extensions** now notes that extensions are built and signed by Turbo EA (not self-built or third-party) and links to consulting for a tailored build.
 - **Extensions can extend Architecture Decision Records.** Two new UI extension points (UI SDK 1.3) let a licensed extension render its own panel on the ADR editor and preview pages — e.g. a value-savings form — and contribute extra sections to the ADR DOCX export so that data appears in the exported document. ADRs now also carry an `ext.*` attributes bag that extensions write to; it is frozen automatically once the decision is signed and carried into revisions and duplicates, so figures approved by the signatories stay accurate.
 
 ## [2.1.0] - 2026-07-09
