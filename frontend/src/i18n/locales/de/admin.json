@@ -816,6 +816,7 @@
   "surveyBuilder.validation.fieldsRequired": "Bitte wählen Sie mindestens ein Feld",
   "surveysAdmin.title": "Umfragen",
   "surveysAdmin.newSurvey": "Neue Umfrage",
+  "surveysAdmin.newFromTemplate": "Neu aus Vorlage",
   "surveysAdmin.tabs.all": "Alle ({{count}})",
   "surveysAdmin.tabs.draft": "Entwurf ({{count}})",
   "surveysAdmin.tabs.active": "Aktiv ({{count}})",

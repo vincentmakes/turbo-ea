@@ -816,6 +816,7 @@
   "surveyBuilder.validation.fieldsRequired": "Vælg venligst mindst ét felt",
   "surveysAdmin.title": "Undersøgelser",
   "surveysAdmin.newSurvey": "Ny undersøgelse",
+  "surveysAdmin.newFromTemplate": "Ny fra skabelon",
   "surveysAdmin.tabs.all": "Alle ({{count}})",
   "surveysAdmin.tabs.draft": "Kladde ({{count}})",
   "surveysAdmin.tabs.active": "Aktive ({{count}})",

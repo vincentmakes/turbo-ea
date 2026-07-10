@@ -816,6 +816,7 @@
   "surveyBuilder.validation.fieldsRequired": "请至少选择一个字段",
   "surveysAdmin.title": "调查",
   "surveysAdmin.newSurvey": "新建调查",
+  "surveysAdmin.newFromTemplate": "从模板新建",
   "surveysAdmin.tabs.all": "全部 ({{count}})",
   "surveysAdmin.tabs.draft": "草稿 ({{count}})",
   "surveysAdmin.tabs.active": "进行中 ({{count}})",

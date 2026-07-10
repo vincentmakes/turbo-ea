@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - **Surveys render extension field types and field help.** When a survey includes a field that uses an extension-contributed custom field type (e.g. a rating widget) or carries collapsible help text, the respondent now sees the same control and guidance as on the card detail instead of a plain text box. The custom type and its config/help are read from the live metamodel, and a field degrades gracefully to a text input when the extension is absent.
 - **Extensions can ship ready-made draft surveys.** A content pack may include a `Surveys` sheet; each survey lands as a **draft** with its maintain fields pre-selected, so an admin can review the target and send it — an install can never send a survey or email subscribers on its own. The survey builder now flags a selected field whose custom (`ext.*`) type comes from an extension that isn't currently installed and active.
+- **Extensions can add "New from template" survey shortcuts.** A UI plugin may contribute survey templates (UI SDK 1.2) that appear as a **New from template** menu on the Surveys admin page; picking one mints a fresh prefilled **draft** survey and opens it in the builder for the admin to review and send.
 
 ## [2.0.0] - 2026-07-09
 

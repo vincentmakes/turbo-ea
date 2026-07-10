@@ -12,6 +12,7 @@ import {
   getExtensionLoadErrors,
   getExtensionRoutes,
   getExtensionRoutesForGroup,
+  getExtensionSurveyTemplates,
   getRegisteredExtensions,
   initExtensionHost,
   loadUiExtensions,
@@ -157,6 +158,33 @@ describe("extensionHost", () => {
     expect(inReports[0].route.path).toBe("/ext/rep/report");
     // All three routes are still registered/renderable via the wildcard outlet.
     expect(getExtensionRoutes()).toHaveLength(3);
+  });
+
+  it("aggregates survey templates in order and drops invalid ones", () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    registerExtension("daaf", {
+      key: "daaf",
+      sdkVersion: UI_SDK_VERSION,
+      surveyTemplates: [
+        { id: "quarterly", label: "Quarterly review", icon: "event",
+          build: () => ({ name: "Q review", target_type_key: "Application" }) },
+        // invalid: no build
+        { id: "bad", label: "Bad" } as never,
+      ],
+    });
+    spy.mockRestore();
+    const tpls = getExtensionSurveyTemplates();
+    expect(tpls).toHaveLength(1);
+    expect(tpls[0].extKey).toBe("daaf");
+    expect(tpls[0].contribution.id).toBe("quarterly");
+    expect(tpls[0].contribution.build()).toEqual({
+      name: "Q review",
+      target_type_key: "Application",
+    });
+    // Stable snapshot until the registry changes.
+    expect(getExtensionSurveyTemplates()).toBe(getExtensionSurveyTemplates());
+    resetExtensionHost();
+    expect(getExtensionSurveyTemplates()).toEqual([]);
   });
 
   it("ExtensionBoundary catches a crashing component", () => {

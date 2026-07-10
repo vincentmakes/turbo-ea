@@ -12,9 +12,14 @@ import CircularProgress from "@mui/material/CircularProgress";
 import LinearProgress from "@mui/material/LinearProgress";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { useExtensionSurveyTemplates } from "@/lib/extensionHost";
 import type { Survey } from "@/types";
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> = {
@@ -31,6 +36,27 @@ export default function SurveysAdmin() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [tab, setTab] = useState(0); // 0=all, 1=draft, 2=active, 3=closed
+  const surveyTemplates = useExtensionSurveyTemplates();
+  const [templateMenu, setTemplateMenu] = useState<HTMLElement | null>(null);
+  const [creatingTemplate, setCreatingTemplate] = useState(false);
+
+  // Mint a fresh draft survey from an extension template, then open it in the
+  // builder for the admin to review and send. POST /surveys always creates a
+  // draft; the extension's build() runs at click time (guarded — it's ext code).
+  const createFromTemplate = async (tpl: (typeof surveyTemplates)[number]) => {
+    setTemplateMenu(null);
+    setCreatingTemplate(true);
+    setError("");
+    try {
+      const payload = tpl.contribution.build();
+      const created = await api.post<Survey>("/surveys", payload);
+      navigate(`/admin/surveys/${created.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setCreatingTemplate(false);
+    }
+  };
 
   const fetchSurveys = async () => {
     setLoading(true);
@@ -69,6 +95,40 @@ export default function SurveysAdmin() {
         <Typography variant="h5" sx={{ ml: 1, fontWeight: 700, flex: 1 }}>
           {t("surveysAdmin.title")}
         </Typography>
+        {surveyTemplates.length > 0 && (
+          <>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<MaterialSymbol icon="bolt" size={18} />}
+              endIcon={<MaterialSymbol icon="expand_more" size={18} />}
+              sx={{ textTransform: "none", mr: 1 }}
+              disabled={creatingTemplate}
+              onClick={(e) => setTemplateMenu(e.currentTarget)}
+            >
+              {t("surveysAdmin.newFromTemplate")}
+            </Button>
+            <Menu
+              anchorEl={templateMenu}
+              open={!!templateMenu}
+              onClose={() => setTemplateMenu(null)}
+            >
+              {surveyTemplates.map((tpl) => (
+                <MenuItem
+                  key={`${tpl.extKey}:${tpl.contribution.id}`}
+                  onClick={() => createFromTemplate(tpl)}
+                >
+                  {tpl.contribution.icon && (
+                    <ListItemIcon>
+                      <MaterialSymbol icon={tpl.contribution.icon} size={18} />
+                    </ListItemIcon>
+                  )}
+                  <ListItemText>{tpl.contribution.label}</ListItemText>
+                </MenuItem>
+              ))}
+            </Menu>
+          </>
+        )}
         <Button
           variant="contained"
           size="small"

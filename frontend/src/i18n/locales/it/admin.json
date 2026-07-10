@@ -816,6 +816,7 @@
   "surveyBuilder.validation.fieldsRequired": "Selezioni almeno un campo",
   "surveysAdmin.title": "Sondaggi",
   "surveysAdmin.newSurvey": "Nuovo sondaggio",
+  "surveysAdmin.newFromTemplate": "Nuovo da modello",
   "surveysAdmin.tabs.all": "Tutti ({{count}})",
   "surveysAdmin.tabs.draft": "Bozza ({{count}})",
   "surveysAdmin.tabs.active": "Attivi ({{count}})",

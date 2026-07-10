@@ -816,6 +816,7 @@
   "surveyBuilder.validation.fieldsRequired": "Выберите хотя бы одно поле",
   "surveysAdmin.title": "Опросы",
   "surveysAdmin.newSurvey": "Новый опрос",
+  "surveysAdmin.newFromTemplate": "Создать из шаблона",
   "surveysAdmin.tabs.all": "Все ({{count}})",
   "surveysAdmin.tabs.draft": "Черновики ({{count}})",
   "surveysAdmin.tabs.active": "Активные ({{count}})",

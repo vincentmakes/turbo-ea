@@ -816,6 +816,7 @@
   "surveyBuilder.validation.fieldsRequired": "Veuillez sélectionner au moins un champ",
   "surveysAdmin.title": "Enquêtes",
   "surveysAdmin.newSurvey": "Nouvelle enquête",
+  "surveysAdmin.newFromTemplate": "Nouveau depuis un modèle",
   "surveysAdmin.tabs.all": "Toutes ({{count}})",
   "surveysAdmin.tabs.draft": "Brouillons ({{count}})",
   "surveysAdmin.tabs.active": "Actives ({{count}})",

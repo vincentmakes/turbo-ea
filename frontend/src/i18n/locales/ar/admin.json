@@ -816,6 +816,7 @@
   "surveyBuilder.validation.fieldsRequired": "يرجى اختيار حقل واحد على الأقل",
   "surveysAdmin.title": "الاستبيانات",
   "surveysAdmin.newSurvey": "استبيان جديد",
+  "surveysAdmin.newFromTemplate": "جديد من قالب",
   "surveysAdmin.tabs.all": "الكل ({{count}})",
   "surveysAdmin.tabs.draft": "مسودّة ({{count}})",
   "surveysAdmin.tabs.active": "نشط ({{count}})",

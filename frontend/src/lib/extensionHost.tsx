@@ -29,7 +29,7 @@ import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import * as tokens from "@/theme/tokens";
 
-export const UI_SDK_VERSION = "1.1";
+export const UI_SDK_VERSION = "1.2";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -95,6 +95,30 @@ export interface ExtensionFieldTypeContribution {
   defaultConfig?: Record<string, unknown>;
 }
 
+/** The payload an extension survey template posts to `POST /surveys`. */
+export interface ExtensionSurveyTemplatePayload {
+  name: string;
+  description?: string;
+  message?: string;
+  target_type_key: string;
+  target_filters?: Record<string, unknown>;
+  target_roles?: string[];
+  fields?: Array<Record<string, unknown>>;
+}
+
+/**
+ * A "New from template" shortcut on the Surveys admin page. Clicking it mints a
+ * fresh **draft** survey from `build()`'s payload (POST /surveys always creates
+ * a draft) and opens it in the builder for the admin to review and send —
+ * `build()` runs at click time so it may compute dynamic values (dates, etc.).
+ */
+export interface ExtensionSurveyTemplateContribution {
+  id: string;
+  label: string;
+  icon?: string;
+  build: () => ExtensionSurveyTemplatePayload;
+}
+
 export interface TurboExtensionUI {
   key: string;
   sdkVersion: string;
@@ -102,11 +126,17 @@ export interface TurboExtensionUI {
   cardTabs?: ExtensionCardTabContribution[];
   adminPanels?: ExtensionAdminPanelContribution[];
   fieldTypes?: ExtensionFieldTypeContribution[];
+  surveyTemplates?: ExtensionSurveyTemplateContribution[];
 }
 
 export interface RegisteredFieldType {
   extKey: string;
   contribution: ExtensionFieldTypeContribution;
+}
+
+export interface RegisteredSurveyTemplate {
+  extKey: string;
+  contribution: ExtensionSurveyTemplateContribution;
 }
 
 export interface RegisteredExtension {
@@ -129,12 +159,14 @@ let _registered: RegisteredExtension[] = [];
 let _loadErrors: Record<string, string> = {};
 const _listeners = new Set<() => void>();
 let _loadStarted = false;
-// Cached, stable snapshot of the field-type registry — recomputed lazily and
-// invalidated on every notify() so useSyncExternalStore never loops.
+// Cached, stable snapshots — recomputed lazily and invalidated on every
+// notify() so useSyncExternalStore never loops.
 let _fieldTypesCache: Record<string, RegisteredFieldType> | null = null;
+let _surveyTemplatesCache: RegisteredSurveyTemplate[] | null = null;
 
 function notify() {
   _fieldTypesCache = null;
+  _surveyTemplatesCache = null;
   _listeners.forEach((fn) => fn());
 }
 
@@ -203,6 +235,35 @@ export function getExtensionFieldTypes(): Record<string, RegisteredFieldType> {
 
 export function useExtensionFieldTypes(): Record<string, RegisteredFieldType> {
   return useSyncExternalStore(subscribe, getExtensionFieldTypes, getExtensionFieldTypes);
+}
+
+/**
+ * Survey templates contributed by registered extensions, in registration order.
+ * A contribution missing `id`/`label`/`build` is dropped. Cached (stable
+ * reference) so it is safe as a useSyncExternalStore snapshot.
+ */
+export function getExtensionSurveyTemplates(): RegisteredSurveyTemplate[] {
+  if (_surveyTemplatesCache) return _surveyTemplatesCache;
+  const out: RegisteredSurveyTemplate[] = [];
+  for (const { key, plugin } of _registered) {
+    for (const tpl of plugin.surveyTemplates ?? []) {
+      if (!tpl?.id || !tpl.label || typeof tpl.build !== "function") {
+        console.warn(`[extension:${key}] invalid survey template — ignored`, tpl);
+        continue;
+      }
+      out.push({ extKey: key, contribution: tpl });
+    }
+  }
+  _surveyTemplatesCache = out;
+  return out;
+}
+
+export function useExtensionSurveyTemplates(): RegisteredSurveyTemplate[] {
+  return useSyncExternalStore(
+    subscribe,
+    getExtensionSurveyTemplates,
+    getExtensionSurveyTemplates,
+  );
 }
 
 /** Test helper — wipe the registry between tests. */
