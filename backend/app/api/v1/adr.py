@@ -86,6 +86,7 @@ async def _adr_to_dict(db: AsyncSession, adr: ArchitectureDecision) -> dict:
         "consequences": adr.consequences,
         "alternatives_considered": adr.alternatives_considered,
         "related_decisions": adr.related_decisions or [],
+        "attributes": adr.attributes or {},
         "created_by": str(adr.created_by) if adr.created_by else None,
         "creator_name": creator_name,
         "signatories": adr.signatories or [],
@@ -110,6 +111,7 @@ def _adr_to_summary(
         "title": adr.title,
         "status": adr.status,
         "decision": adr.decision,
+        "attributes": adr.attributes or {},
         "created_by": str(adr.created_by) if adr.created_by else None,
         "creator_name": creator_name,
         "signatories": adr.signatories or [],
@@ -325,6 +327,23 @@ async def update_adr(
     if body.related_decisions is not None:
         adr.related_decisions = body.related_decisions
         flag_modified(adr, "related_decisions")
+    if body.attributes is not None:
+        # Extension attributes bag: shallow-merge namespaced ``ext.*`` keys.
+        # A key set to null is removed. Core owns no native ADR attributes, so
+        # non-namespaced keys are rejected to keep extension data self-contained
+        # and collision-free. Signed ADRs never reach here (blocked above).
+        merged = dict(adr.attributes or {})
+        for key, value in body.attributes.items():
+            if not key.startswith("ext."):
+                raise HTTPException(
+                    400, f"ADR attribute keys must be namespaced 'ext.*' (got {key!r})"
+                )
+            if value is None:
+                merged.pop(key, None)
+            else:
+                merged[key] = value
+        adr.attributes = merged
+        flag_modified(adr, "attributes")
     if body.status is not None:
         if body.status == "signed":
             raise HTTPException(400, "Use the sign endpoint to sign a decision")
@@ -390,6 +409,7 @@ async def duplicate_adr(
         consequences=original.consequences,
         alternatives_considered=original.alternatives_considered,
         related_decisions=original.related_decisions or [],
+        attributes=dict(original.attributes or {}),
         created_by=user.id,
     )
     db.add(dup)
@@ -774,6 +794,7 @@ async def revise_adr(
         consequences=adr.consequences,
         alternatives_considered=adr.alternatives_considered,
         related_decisions=adr.related_decisions or [],
+        attributes=dict(adr.attributes or {}),
         created_by=user.id,
         revision_number=adr.revision_number + 1,
         parent_id=adr.id,

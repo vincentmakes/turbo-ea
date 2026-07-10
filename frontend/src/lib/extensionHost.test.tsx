@@ -8,6 +8,8 @@ vi.mock("@/api/client", () => ({
 import { api } from "@/api/client";
 import {
   ExtensionBoundary,
+  getExtensionAdrExportSections,
+  getExtensionAdrPanels,
   getExtensionFieldTypes,
   getExtensionLoadErrors,
   getExtensionRoutes,
@@ -185,6 +187,55 @@ describe("extensionHost", () => {
     expect(getExtensionSurveyTemplates()).toBe(getExtensionSurveyTemplates());
     resetExtensionHost();
     expect(getExtensionSurveyTemplates()).toEqual([]);
+  });
+
+  it("aggregates ADR panels in order and drops invalid ones", () => {
+    const Panel = () => <div>panel</div>;
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    registerExtension("daaf", {
+      key: "daaf",
+      sdkVersion: UI_SDK_VERSION,
+      adrPanels: [
+        { id: "savings", permission: "ext.daaf.view", component: Panel },
+        // invalid: no component
+        { id: "bad" } as never,
+      ],
+    });
+    spy.mockRestore();
+    const panels = getExtensionAdrPanels();
+    expect(panels).toHaveLength(1);
+    expect(panels[0].extKey).toBe("daaf");
+    expect(panels[0].contribution.id).toBe("savings");
+    expect(panels[0].contribution.permission).toBe("ext.daaf.view");
+    resetExtensionHost();
+    expect(getExtensionAdrPanels()).toEqual([]);
+  });
+
+  it("aggregates ADR export sections and drops invalid ones", () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    registerExtension("daaf", {
+      key: "daaf",
+      sdkVersion: UI_SDK_VERSION,
+      adrExportSections: [
+        {
+          id: "savings",
+          build: () => [{ heading: "Savings", paragraphs: ["Total: 50k"] }],
+        },
+        // invalid: no build
+        { id: "bad" } as never,
+      ],
+    });
+    spy.mockRestore();
+    const builders = getExtensionAdrExportSections();
+    expect(builders).toHaveLength(1);
+    expect(builders[0].extKey).toBe("daaf");
+    expect(builders[0].contribution.build({})).toEqual([
+      { heading: "Savings", paragraphs: ["Total: 50k"] },
+    ]);
+    // Stable snapshot until the registry changes.
+    expect(getExtensionAdrExportSections()).toBe(getExtensionAdrExportSections());
+    resetExtensionHost();
+    expect(getExtensionAdrExportSections()).toEqual([]);
   });
 
   it("ExtensionBoundary catches a crashing component", () => {

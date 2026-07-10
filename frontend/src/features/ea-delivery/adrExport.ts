@@ -16,6 +16,7 @@ import {
   convertInchesToTwip,
 } from "docx";
 import { saveAs } from "file-saver";
+import { getExtensionAdrExportSections } from "@/lib/extensionHost";
 import type { ArchitectureDecision } from "@/types";
 
 // ─── style constants (mirroring soawExport.ts) ──────────────────────────────
@@ -466,6 +467,48 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
         ),
       );
       children.push(new Paragraph({ spacing: { after: SPACING_AFTER_TABLE } }));
+    }
+
+    // Extension-contributed sections (SDK 1.3) — e.g. value savings. Each
+    // builder returns plain data that we render with the document's own styles;
+    // a throwing builder is skipped so a bad extension never breaks the export.
+    for (const { extKey, contribution } of getExtensionAdrExportSections()) {
+      let sections;
+      try {
+        sections = contribution.build(adr as unknown as Record<string, unknown>);
+      } catch (err) {
+        console.warn(`[extension:${extKey}] ADR export builder threw — skipped`, err);
+        continue;
+      }
+      for (const section of sections ?? []) {
+        if (!section?.heading) continue;
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: section.heading,
+                bold: true,
+                font: FONT,
+                size: SIZE_H2,
+                color: COLOR_H2,
+              }),
+            ],
+            spacing: { before: SPACING_H2_BEFORE, after: SPACING_AFTER_DEFAULT },
+          }),
+        );
+        for (const para of section.paragraphs ?? []) {
+          children.push(
+            new Paragraph({
+              children: [new TextRun({ text: para, font: FONT, size: SIZE_BODY, color: COLOR_BODY })],
+              spacing: { after: SPACING_AFTER_DEFAULT },
+            }),
+          );
+        }
+        if (section.table && section.table.headers.length > 0) {
+          children.push(buildDocxTable(section.table.headers, section.table.rows));
+          children.push(new Paragraph({ spacing: { after: SPACING_AFTER_TABLE } }));
+        }
+      }
     }
 
     // Signatures detail

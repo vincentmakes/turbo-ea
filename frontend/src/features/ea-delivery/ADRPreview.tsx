@@ -17,6 +17,9 @@ import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { useAuth } from "@/hooks/useAuth";
+import { hasPermission } from "@/components/RequirePermission";
+import { ExtensionBoundary, useExtensionAdrPanels } from "@/lib/extensionHost";
 import type { ArchitectureDecision } from "@/types";
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> = {
@@ -32,6 +35,8 @@ export default function ADRPreview() {
   const { formatDateTime } = useDateFormat();
   const theme = useTheme();
   const compact = useMediaQuery(theme.breakpoints.down("sm"));
+  const { user } = useAuth();
+  const adrPanels = useExtensionAdrPanels();
 
   const STATUS_LABELS: Record<string, string> = {
     draft: t("status.draft"),
@@ -215,6 +220,27 @@ export default function ADRPreview() {
             </Box>
           </Box>
         )}
+
+        {/* Extension ADR panels (SDK 1.3) — read-only on the preview page */}
+        {id &&
+          adrPanels
+            .filter(
+              ({ contribution }) =>
+                !contribution.permission ||
+                hasPermission(user?.permissions, contribution.permission),
+            )
+            .map(({ extKey, contribution }) => (
+              <Box key={`adrpanel:${extKey}:${contribution.id}`} sx={{ mb: 4 }}>
+                <ExtensionBoundary extensionKey={extKey}>
+                  <contribution.component
+                    adrId={id}
+                    status={adr.status}
+                    signed={adr.status === "signed"}
+                    readOnly
+                  />
+                </ExtensionBoundary>
+              </Box>
+            ))}
 
         {/* Signatories */}
         {(adr.signatories ?? []).length > 0 && (

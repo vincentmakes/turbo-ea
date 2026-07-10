@@ -27,6 +27,9 @@ import RichTextEditor from "./RichTextEditor";
 import SignatureRequestDialog from "./SignatureRequestDialog";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { useAuth } from "@/hooks/useAuth";
+import { hasPermission } from "@/components/RequirePermission";
+import { ExtensionBoundary, useExtensionAdrPanels } from "@/lib/extensionHost";
 import type { Card, ArchitectureDecision, SoAWSignatory } from "@/types";
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success"> = {
@@ -41,6 +44,8 @@ export default function ADREditor() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { formatDate } = useDateFormat();
+  const { user } = useAuth();
+  const adrPanels = useExtensionAdrPanels();
   const isNew = !id;
 
   // ADR state
@@ -645,6 +650,28 @@ export default function ADREditor() {
           )}
         </Paper>
       )}
+
+      {/* ── Extension ADR panels (SDK 1.3, e.g. value-savings) ── */}
+      {!isNew &&
+        id &&
+        adrPanels
+          .filter(
+            ({ contribution }) =>
+              !contribution.permission ||
+              hasPermission(user?.permissions, contribution.permission),
+          )
+          .map(({ extKey, contribution }) => (
+            <ExtensionBoundary key={`adrpanel:${extKey}:${contribution.id}`} extensionKey={extKey}>
+              <Paper sx={{ p: 3, mb: 3 }}>
+                <contribution.component
+                  adrId={id}
+                  status={status}
+                  signed={isSigned}
+                  readOnly={isSigned}
+                />
+              </Paper>
+            </ExtensionBoundary>
+          ))}
 
       {/* ── Signatories ── */}
       {signatories.length > 0 && (

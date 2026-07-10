@@ -25,6 +25,13 @@ class ArchitectureDecision(Base, UUIDMixin, TimestampMixin):
     alternatives_considered: Mapped[str | None] = mapped_column(Text)
     related_decisions: Mapped[list | None] = mapped_column(JSONB, default=list)
 
+    # Extension attributes bag. ADRs are not cards, so extensions cannot use the
+    # metamodel field-contribution capability here; instead they stash their own
+    # data under ``ext.<key>.*`` top-level keys (e.g. the value-savings extension
+    # writes ``ext.savings``). Frozen automatically once the ADR is signed
+    # (update_adr blocks edits on signed decisions) and carried into revisions.
+    attributes: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
+
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )

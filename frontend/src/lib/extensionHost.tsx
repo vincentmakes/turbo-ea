@@ -9,9 +9,13 @@
  * share the host's single React instance (the template repo's Vite
  * config externalizes them onto these globals).
  *
- * Four extension points exist: nav routes (full pages), card-detail tabs,
- * admin panels, and custom field types (SDK 1.1 — a renderer/editor for an
- * `ext.{key}.*` field type used inside card attribute sections). Every
+ * Seven extension points exist: nav routes (full pages), card-detail tabs,
+ * admin panels, custom field types (SDK 1.1 — a renderer/editor for an
+ * `ext.{key}.*` field type used inside card attribute sections), survey
+ * templates (SDK 1.2), and — SDK 1.3 — ADR panels (a component rendered on
+ * the Architecture Decision Record editor/preview, e.g. a value-savings form
+ * writing the ADR `ext.*` attributes bag) and ADR export sections (plain data
+ * a plugin contributes into the core ADR DOCX export). Every
  * extension-provided component must be rendered inside <ExtensionBoundary> —
  * a crashing extension shows a fallback chip, never a white screen. A field
  * type whose extension is missing, disabled, or unlicensed simply is not in
@@ -29,7 +33,7 @@ import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import * as tokens from "@/theme/tokens";
 
-export const UI_SDK_VERSION = "1.2";
+export const UI_SDK_VERSION = "1.3";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -119,6 +123,49 @@ export interface ExtensionSurveyTemplateContribution {
   build: () => ExtensionSurveyTemplatePayload;
 }
 
+/** Props every ADR panel component receives (SDK 1.3). */
+export interface ExtensionAdrPanelProps {
+  adrId: string;
+  status: string; // draft | in_review | signed
+  signed: boolean; // convenience: status === "signed" (attributes are frozen)
+  // The panel must not allow edits when true: it is either a signed (frozen)
+  // ADR or the read-only preview page. Editing is only offered on the editor
+  // page for an unsigned ADR.
+  readOnly: boolean;
+}
+
+/**
+ * A panel rendered on the ADR editor and preview pages (SDK 1.3). ADRs are not
+ * cards, so this is the sanctioned place to attach ADR-scoped UI — e.g. a
+ * value-savings form that reads/writes the ADR `ext.*` attributes bag via
+ * `PATCH /adr/{id}`. `appliesTo` has no analogue (there is only one ADR
+ * "type"); gate with `permission` if needed. Rendered read-only-friendly: the
+ * component should respect `signed` to disable editing once frozen.
+ */
+export interface ExtensionAdrPanelContribution {
+  id: string;
+  permission?: string;
+  component: React.ComponentType<ExtensionAdrPanelProps>;
+}
+
+/** A section a plugin contributes into the core ADR DOCX export (SDK 1.3). */
+export interface AdrExportSection {
+  heading: string;
+  paragraphs?: string[];
+  table?: { headers: string[]; rows: string[][] };
+}
+
+/**
+ * Contributes extra sections to the core ADR DOCX export (SDK 1.3). `build()`
+ * receives the full ADR (including its `attributes` bag) and returns plain data
+ * — core renders it with the document's own styles, so the plugin never touches
+ * the `docx` library. Runs at export time inside a guard; a throw is skipped.
+ */
+export interface ExtensionAdrExportContribution {
+  id: string;
+  build: (adr: Record<string, unknown>) => AdrExportSection[];
+}
+
 export interface TurboExtensionUI {
   key: string;
   sdkVersion: string;
@@ -127,6 +174,8 @@ export interface TurboExtensionUI {
   adminPanels?: ExtensionAdminPanelContribution[];
   fieldTypes?: ExtensionFieldTypeContribution[];
   surveyTemplates?: ExtensionSurveyTemplateContribution[];
+  adrPanels?: ExtensionAdrPanelContribution[];
+  adrExportSections?: ExtensionAdrExportContribution[];
 }
 
 export interface RegisteredFieldType {
@@ -137,6 +186,16 @@ export interface RegisteredFieldType {
 export interface RegisteredSurveyTemplate {
   extKey: string;
   contribution: ExtensionSurveyTemplateContribution;
+}
+
+export interface RegisteredAdrPanel {
+  extKey: string;
+  contribution: ExtensionAdrPanelContribution;
+}
+
+export interface RegisteredAdrExport {
+  extKey: string;
+  contribution: ExtensionAdrExportContribution;
 }
 
 export interface RegisteredExtension {
@@ -163,10 +222,12 @@ let _loadStarted = false;
 // notify() so useSyncExternalStore never loops.
 let _fieldTypesCache: Record<string, RegisteredFieldType> | null = null;
 let _surveyTemplatesCache: RegisteredSurveyTemplate[] | null = null;
+let _adrExportCache: RegisteredAdrExport[] | null = null;
 
 function notify() {
   _fieldTypesCache = null;
   _surveyTemplatesCache = null;
+  _adrExportCache = null;
   _listeners.forEach((fn) => fn());
 }
 
@@ -264,6 +325,53 @@ export function useExtensionSurveyTemplates(): RegisteredSurveyTemplate[] {
     getExtensionSurveyTemplates,
     getExtensionSurveyTemplates,
   );
+}
+
+/**
+ * ADR panels contributed by registered extensions, in registration order.
+ * Consumed via `useExtensionUI()` at the mount points (ADR editor/preview); a
+ * contribution missing `id`/`component` is dropped. Not cached — the caller
+ * already re-renders off `useExtensionUI`.
+ */
+export function getExtensionAdrPanels(): RegisteredAdrPanel[] {
+  const out: RegisteredAdrPanel[] = [];
+  for (const { key, plugin } of _registered) {
+    for (const panel of plugin.adrPanels ?? []) {
+      if (!panel?.id || typeof panel.component !== "function") {
+        console.warn(`[extension:${key}] invalid ADR panel — ignored`, panel);
+        continue;
+      }
+      out.push({ extKey: key, contribution: panel });
+    }
+  }
+  return out;
+}
+
+export function useExtensionAdrPanels(): RegisteredAdrPanel[] {
+  // Depend on the registry snapshot so mounts re-render on (un)register.
+  useSyncExternalStore(subscribe, getRegisteredExtensions, getRegisteredExtensions);
+  return getExtensionAdrPanels();
+}
+
+/**
+ * ADR DOCX export contributions, in registration order. A contribution missing
+ * `id`/`build` is dropped. Cached (stable reference) so the non-React exporter
+ * (`adrExport.ts`) can call it directly.
+ */
+export function getExtensionAdrExportSections(): RegisteredAdrExport[] {
+  if (_adrExportCache) return _adrExportCache;
+  const out: RegisteredAdrExport[] = [];
+  for (const { key, plugin } of _registered) {
+    for (const contribution of plugin.adrExportSections ?? []) {
+      if (!contribution?.id || typeof contribution.build !== "function") {
+        console.warn(`[extension:${key}] invalid ADR export contribution — ignored`, contribution);
+        continue;
+      }
+      out.push({ extKey: key, contribution });
+    }
+  }
+  _adrExportCache = out;
+  return out;
 }
 
 /** Test helper — wipe the registry between tests. */

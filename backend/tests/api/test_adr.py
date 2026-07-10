@@ -707,3 +707,122 @@ class TestCardLinking:
         titles = [a["title"] for a in resp.json()]
         assert "Card ADR 1" in titles
         assert "Card ADR 2" in titles
+
+
+# -------------------------------------------------------------------
+# Extension attributes bag (ext.* namespaced JSONB)
+# -------------------------------------------------------------------
+
+
+class TestAdrAttributes:
+    """The attributes bag that ADR extensions (e.g. value-savings) write to."""
+
+    async def test_default_is_empty_object(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        resp = await _create_adr(client, admin, title="Attr ADR")
+        assert resp.status_code == 201
+        assert resp.json()["attributes"] == {}
+
+    async def test_patch_stores_and_returns_namespaced_key(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        adr_id = (await _create_adr(client, admin, title="Attr ADR")).json()["id"]
+        payload = {"ext.savings": {"lines": [{"category": "hard", "amount": 50000}]}}
+        resp = await client.patch(
+            f"/api/v1/adr/{adr_id}",
+            json={"attributes": payload},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["attributes"] == payload
+        # Persisted — visible on a fresh GET and in the list summary.
+        got = await client.get(f"/api/v1/adr/{adr_id}", headers=auth_headers(admin))
+        assert got.json()["attributes"] == payload
+        listed = await client.get("/api/v1/adr", headers=auth_headers(admin))
+        row = next(a for a in listed.json() if a["id"] == adr_id)
+        assert row["attributes"] == payload
+
+    async def test_merge_preserves_other_extension_keys(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        adr_id = (await _create_adr(client, admin, title="Attr ADR")).json()["id"]
+        await client.patch(
+            f"/api/v1/adr/{adr_id}",
+            json={"attributes": {"ext.savings": {"amount": 1}}},
+            headers=auth_headers(admin),
+        )
+        resp = await client.patch(
+            f"/api/v1/adr/{adr_id}",
+            json={"attributes": {"ext.other": {"x": 2}}},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        attrs = resp.json()["attributes"]
+        assert attrs == {"ext.savings": {"amount": 1}, "ext.other": {"x": 2}}
+
+    async def test_null_value_removes_key(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        adr_id = (await _create_adr(client, admin, title="Attr ADR")).json()["id"]
+        await client.patch(
+            f"/api/v1/adr/{adr_id}",
+            json={"attributes": {"ext.savings": {"amount": 1}}},
+            headers=auth_headers(admin),
+        )
+        resp = await client.patch(
+            f"/api/v1/adr/{adr_id}",
+            json={"attributes": {"ext.savings": None}},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["attributes"] == {}
+
+    async def test_non_namespaced_key_rejected(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        adr_id = (await _create_adr(client, admin, title="Attr ADR")).json()["id"]
+        resp = await client.patch(
+            f"/api/v1/adr/{adr_id}",
+            json={"attributes": {"savings": {"amount": 1}}},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 400
+
+    async def test_frozen_once_signed(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        adr_id = (await _create_adr(client, admin, title="Attr ADR")).json()["id"]
+        await client.patch(
+            f"/api/v1/adr/{adr_id}",
+            json={"attributes": {"ext.savings": {"amount": 1}}},
+            headers=auth_headers(admin),
+        )
+        await _sign_adr(client, admin, [admin], adr_id)
+        resp = await client.patch(
+            f"/api/v1/adr/{adr_id}",
+            json={"attributes": {"ext.savings": {"amount": 999}}},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 403
+
+    async def test_carried_into_revision(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        adr_id = (await _create_adr(client, admin, title="Attr ADR")).json()["id"]
+        payload = {"ext.savings": {"amount": 42}}
+        await client.patch(
+            f"/api/v1/adr/{adr_id}",
+            json={"attributes": payload},
+            headers=auth_headers(admin),
+        )
+        await _sign_adr(client, admin, [admin], adr_id)
+        resp = await client.post(f"/api/v1/adr/{adr_id}/revise", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        assert resp.json()["attributes"] == payload
+
+    async def test_carried_into_duplicate(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        adr_id = (await _create_adr(client, admin, title="Attr ADR")).json()["id"]
+        payload = {"ext.savings": {"amount": 7}}
+        await client.patch(
+            f"/api/v1/adr/{adr_id}",
+            json={"attributes": payload},
+            headers=auth_headers(admin),
+        )
+        resp = await client.post(f"/api/v1/adr/{adr_id}/duplicate", headers=auth_headers(admin))
+        assert resp.status_code == 201
+        assert resp.json()["attributes"] == payload

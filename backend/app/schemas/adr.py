@@ -22,6 +22,9 @@ class ADRUpdate(BaseModel):
     alternatives_considered: str | None = None
     related_decisions: list[str] | None = None
     status: str | None = None
+    # Extension attributes bag — top-level keys must be namespaced ``ext.*``.
+    # Merged shallowly into the stored attributes; a key set to null is removed.
+    attributes: dict | None = None
 
 
 class ADRSignatureRequest(BaseModel):
@@ -55,6 +58,7 @@ class ADRResponse(BaseModel):
     consequences: str | None = None
     alternatives_considered: str | None = None
     related_decisions: list[str] = []
+    attributes: dict = {}
     created_by: str | None = None
     creator_name: str | None = None
     signatories: list[dict] = []

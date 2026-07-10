@@ -646,6 +646,9 @@ export interface ArchitectureDecision {
   consequences: string | null;
   alternatives_considered: string | null;
   related_decisions: string[];
+  // Extension attributes bag — keys are namespaced `ext.*` (e.g. `ext.savings`).
+  // Frozen once the ADR is signed; written by ADR panel extensions (SDK 1.3).
+  attributes?: Record<string, unknown>;
   created_by: string | null;
   creator_name?: string | null;
   signatories: SoAWSignatory[];

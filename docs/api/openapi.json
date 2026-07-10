@@ -135,6 +135,18 @@
             ],
             "title": "Alternatives Considered"
           },
+          "attributes": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attributes"
+          },
           "consequences": {
             "anyOf": [
               {
