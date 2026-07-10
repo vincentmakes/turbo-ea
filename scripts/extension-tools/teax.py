@@ -90,6 +90,7 @@ CONTENT_SHEETS = {
     "Cards",
     "CardTags",
     "Relations",
+    "Surveys",
 }
 
 

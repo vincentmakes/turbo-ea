@@ -788,6 +788,7 @@
   "surveyBuilder.fields.columns.action": "Handling",
   "surveyBuilder.fields.maintain": "Vedligehold",
   "surveyBuilder.fields.confirm": "Bekræft",
+  "surveyBuilder.fields.inactiveExtType": "Denne felttype kommer fra en udvidelse, der ikke er installeret og aktiv. Svar bruger et almindeligt inputfelt og vises ikke på kortet, før udvidelsen er aktiv.",
   "surveyBuilder.fields.selectedCount": "{{count}} felt(er) valgt ({{maintain}} vedligehold, {{confirm}} bekræft)",
   "surveyBuilder.relations.title": "Vælg relationer",
   "surveyBuilder.relations.description": "Vælg, hvilke relationer respondenterne skal vedligeholde eller bekræfte for hvert kort.",

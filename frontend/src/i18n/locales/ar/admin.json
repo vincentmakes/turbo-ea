@@ -788,6 +788,7 @@
   "surveyBuilder.fields.columns.action": "الإجراء",
   "surveyBuilder.fields.maintain": "تحديث",
   "surveyBuilder.fields.confirm": "تأكيد",
+  "surveyBuilder.fields.inactiveExtType": "يأتي نوع الحقل هذا من إضافة غير مثبَّتة وغير نشطة. ستستخدم الردود حقل إدخال عاديًا ولن تظهر على البطاقة حتى تصبح الإضافة نشطة.",
   "surveyBuilder.fields.selectedCount": "{{count}} حقل محدّد ({{maintain}} تحديث، {{confirm}} تأكيد)",
   "surveyBuilder.relations.title": "تحديد العلاقات",
   "surveyBuilder.relations.description": "اختر العلاقات التي يجب على المستجيبين الحفاظ عليها أو تأكيدها لكل بطاقة.",

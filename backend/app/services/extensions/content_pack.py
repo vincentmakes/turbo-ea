@@ -36,6 +36,11 @@ from app.models.user import User
 from app.services.workspace_io import ApplyResult, WorkspaceBundle, apply_selected
 from app.services.workspace_io import schema as ws_schema
 
+# Sheet name of the Survey EntitySection (declared in workspace_io.sections).
+# A pack may ship *surveys* (landed as drafts — see _enforce_survey_draft) but
+# never survey *responses*.
+SHEET_SURVEYS = "Surveys"
+
 CONTENT_ALLOWED_SHEETS: tuple[str, ...] = (
     ws_schema.SHEET_CARD_TYPES,
     ws_schema.SHEET_RELATION_TYPES,
@@ -49,7 +54,25 @@ CONTENT_ALLOWED_SHEETS: tuple[str, ...] = (
     ws_schema.SHEET_CARDS,
     ws_schema.SHEET_CARD_TAGS,
     ws_schema.SHEET_RELATIONS,
+    SHEET_SURVEYS,
 )
+
+
+def _enforce_survey_draft(sheets: dict[str, list[dict[str, Any]]]) -> None:
+    """Guardrail: a pack-shipped survey always lands as a reviewable DRAFT.
+
+    An extension must never be able to install a survey that is already
+    ``active`` — that would blast emails to card subscribers on install. We
+    clamp ``status`` to ``draft`` and clear the send/close timestamps in-place,
+    so the admin explicitly targets and sends it (the fields it ships arrive
+    pre-selected in the builder). Applied on both preview and apply so the
+    dry-run reflects exactly what lands.
+    """
+    for row in sheets.get(SHEET_SURVEYS, []):
+        if isinstance(row, dict):
+            row["status"] = "draft"
+            row["sent_at"] = None
+            row["closed_at"] = None
 
 
 class ContentPackError(ValueError):
@@ -113,6 +136,8 @@ def _parse_content(
 
 
 def build_content_bundle(sheets: dict[str, list[dict[str, Any]]]) -> WorkspaceBundle:
+    # Chokepoint for both preview and apply: pack surveys are forced to draft.
+    _enforce_survey_draft(sheets)
     return WorkspaceBundle(manifest={"format_version": ws_schema.FORMAT_VERSION}, sheets=sheets)
 
 

@@ -788,6 +788,7 @@
   "surveyBuilder.fields.columns.action": "Acción",
   "surveyBuilder.fields.maintain": "Mantener",
   "surveyBuilder.fields.confirm": "Confirmar",
+  "surveyBuilder.fields.inactiveExtType": "Este tipo de campo proviene de una extensión que no está instalada ni activa. Las respuestas usarán una entrada simple y no se mostrarán en la tarjeta hasta que la extensión esté activa.",
   "surveyBuilder.fields.selectedCount": "{{count}} campo(s) seleccionado(s) ({{maintain}} mantener, {{confirm}} confirmar)",
   "surveyBuilder.relations.title": "Seleccionar relaciones",
   "surveyBuilder.relations.description": "Elija qué relaciones deben mantener o confirmar los encuestados para cada tarjeta.",

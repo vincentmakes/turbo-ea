@@ -788,6 +788,7 @@
   "surveyBuilder.fields.columns.action": "Action",
   "surveyBuilder.fields.maintain": "Maintenir",
   "surveyBuilder.fields.confirm": "Confirmer",
+  "surveyBuilder.fields.inactiveExtType": "Ce type de champ provient d'une extension qui n'est pas installée et active. Les réponses utiliseront un champ simple et ne s'afficheront sur la carte que lorsque l'extension sera active.",
   "surveyBuilder.fields.selectedCount": "{{count}} champ(s) sélectionné(s) ({{maintain}} à maintenir, {{confirm}} à confirmer)",
   "surveyBuilder.relations.title": "Sélectionner les relations",
   "surveyBuilder.relations.description": "Choisissez les relations que les répondants doivent maintenir ou confirmer pour chaque fiche.",

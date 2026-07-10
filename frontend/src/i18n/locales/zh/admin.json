@@ -788,6 +788,7 @@
   "surveyBuilder.fields.columns.action": "操作",
   "surveyBuilder.fields.maintain": "维护",
   "surveyBuilder.fields.confirm": "确认",
+  "surveyBuilder.fields.inactiveExtType": "此字段类型来自一个尚未安装并启用的扩展。回复将使用普通输入框，且在该扩展启用之前不会显示在卡片上。",
   "surveyBuilder.fields.selectedCount": "已选择 {{count}} 个字段（{{maintain}} 个维护，{{confirm}} 个确认）",
   "surveyBuilder.relations.title": "选择关系",
   "surveyBuilder.relations.description": "选择受访者应为每张卡片维护或确认的关系。",

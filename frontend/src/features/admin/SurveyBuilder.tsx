@@ -26,6 +26,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useExtensionFieldTypes } from "@/lib/extensionHost";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import {
@@ -50,7 +51,13 @@ export default function SurveyBuilder() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { types, relationTypes } = useMetamodel();
+  const extFieldTypes = useExtensionFieldTypes();
   const typeLabel = useTypeLabel();
+  // An ext.* field whose extension isn't installed+enabled+licensed is absent
+  // from the registry — surveying it will degrade to a plain input (and, if the
+  // extension is uninstalled, collect into an orphan attribute). Warn the admin.
+  const isInactiveExtType = (fieldType: string) =>
+    fieldType.startsWith("ext.") && !extFieldTypes[fieldType];
   const relLabel = useRelationLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
@@ -838,7 +845,16 @@ export default function SurveyBuilder() {
                         </TableCell>
                         <TableCell>{f.label}</TableCell>
                         <TableCell>
-                          <Chip label={fieldTypeLabel(f.type)} size="small" variant="outlined" />
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                            <Chip label={fieldTypeLabel(f.type)} size="small" variant="outlined" />
+                            {isInactiveExtType(f.type) && (
+                              <Tooltip title={t("surveyBuilder.fields.inactiveExtType")}>
+                                <Box component="span" sx={{ display: "inline-flex" }}>
+                                  <MaterialSymbol icon="warning" size={16} color="#ed6c02" />
+                                </Box>
+                              </Tooltip>
+                            )}
+                          </Box>
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           {selected && (

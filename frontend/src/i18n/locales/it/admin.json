@@ -788,6 +788,7 @@
   "surveyBuilder.fields.columns.action": "Azione",
   "surveyBuilder.fields.maintain": "Mantieni",
   "surveyBuilder.fields.confirm": "Conferma",
+  "surveyBuilder.fields.inactiveExtType": "Questo tipo di campo proviene da un'estensione non installata e non attiva. Le risposte useranno un campo semplice e non compariranno sulla scheda finché l'estensione non è attiva.",
   "surveyBuilder.fields.selectedCount": "{{count}} campo/i selezionato/i ({{maintain}} da mantenere, {{confirm}} da confermare)",
   "surveyBuilder.relations.title": "Seleziona relazioni",
   "surveyBuilder.relations.description": "Scegli quali relazioni i rispondenti devono mantenere o confermare per ogni scheda.",

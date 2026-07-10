@@ -788,6 +788,7 @@
   "surveyBuilder.fields.columns.action": "Действие",
   "surveyBuilder.fields.maintain": "Поддерживать",
   "surveyBuilder.fields.confirm": "Подтвердить",
+  "surveyBuilder.fields.inactiveExtType": "Этот тип поля предоставляется расширением, которое не установлено и не активно. Ответы будут использовать обычное поле ввода и не отобразятся на карточке, пока расширение не будет активно.",
   "surveyBuilder.fields.selectedCount": "{{count}} полей выбрано ({{maintain}} поддержка, {{confirm}} подтверждение)",
   "surveyBuilder.relations.title": "Выбор связей",
   "surveyBuilder.relations.description": "Выберите, какие связи респонденты должны поддерживать или подтверждать для каждой карточки.",

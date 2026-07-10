@@ -788,6 +788,7 @@
   "surveyBuilder.fields.columns.action": "Aktion",
   "surveyBuilder.fields.maintain": "Pflegen",
   "surveyBuilder.fields.confirm": "Bestätigen",
+  "surveyBuilder.fields.inactiveExtType": "Dieser Feldtyp stammt von einer Erweiterung, die nicht installiert und aktiv ist. Antworten verwenden ein einfaches Eingabefeld und werden erst angezeigt, wenn die Erweiterung aktiv ist.",
   "surveyBuilder.fields.selectedCount": "{{count}} Feld(er) ausgewählt ({{maintain}} pflegen, {{confirm}} bestätigen)",
   "surveyBuilder.relations.title": "Beziehungen auswählen",
   "surveyBuilder.relations.description": "Wählen Sie aus, welche Beziehungen die Befragten für jede Karte pflegen oder bestätigen sollen.",

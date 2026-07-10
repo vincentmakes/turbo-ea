@@ -788,6 +788,7 @@
   "surveyBuilder.fields.columns.action": "Action",
   "surveyBuilder.fields.maintain": "Maintain",
   "surveyBuilder.fields.confirm": "Confirm",
+  "surveyBuilder.fields.inactiveExtType": "This field type comes from an extension that isn't installed and active. Responses will use a plain input and won't display on the card until the extension is active.",
   "surveyBuilder.fields.selectedCount": "{{count}} field(s) selected ({{maintain}} maintain, {{confirm}} confirm)",
   "surveyBuilder.relations.title": "Select Relations",
   "surveyBuilder.relations.description": "Choose which relationships respondents should maintain or confirm for each card.",
