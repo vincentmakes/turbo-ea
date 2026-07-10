@@ -207,9 +207,7 @@ class TestLicenseRoutes:
 
     async def test_member_cannot_remove_license(self, client, db, vendor):
         member = await make_member(db)
-        res = await client.delete(
-            "/api/v1/admin/extensions/license", headers=auth_headers(member)
-        )
+        res = await client.delete("/api/v1/admin/extensions/license", headers=auth_headers(member))
         assert res.status_code == 403
 
 
