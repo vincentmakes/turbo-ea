@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [2.0.0] - 2026-07-09
 
-Turbo EA 2.0 introduces the **Extension Store** — install vendor-signed extensions to add capabilities without changing the core. A full announcement is in the GitHub Discussions.
+Turbo EA 2.0 introduces the **Extension Store** — install vendor-signed extensions to add capabilities without changing the core. A full announcement will follow in the GitHub Discussions.
 
 ### Added
 - **Extension Store (Admin → Extensions).** Browse, install, license, and renew vendor-signed extensions — content packs, backend plugins, and UI plugins — delivered as signed files that also work fully offline/air-gapped. Includes an in-product store with one-click install and automatic license renewal for connected instances, plus a `teax` CLI for building and signing bundles.
