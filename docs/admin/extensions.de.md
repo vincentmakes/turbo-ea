@@ -2,9 +2,11 @@
 
 Der **Extension Store** (Admin → Erweiterungen) installiert vom Anbieter signierte Erweiterungen, die kundenspezifische Funktionen hinzufügen — zusätzliche Metamodell-Inhalte, Integrationen, Hintergrundjobs und sogar neue Seiten — ohne den Turbo-EA-Kern zu verändern („Clean Core“-Prinzip).
 
-Alles wird als Datei geliefert: Die Erweiterung ist ein signiertes `.teax`-Paket, die Lizenz eine signierte Textdatei — beide typischerweise per E-Mail versandt. Es sind weder Online-Aktivierung noch Store-Konto noch ausgehende Verbindungen nötig; der gesamte Ablauf funktioniert daher identisch auf **abgeschotteten (air-gapped)** Instanzen.
+Erweiterungen lassen sich auf zwei Wegen installieren: **mit einem Klick aus dem integrierten Store** (sofern die Instanz Internetzugang hat) oder durch **direktes Hochladen der Dateien** — die Erweiterung ist ein signiertes `.teax`-Paket, die Lizenz eine signierte Textdatei, beide typischerweise per E-Mail versandt. Der dateibasierte Weg benötigt weder Store-Konto noch ausgehende Verbindung, sodass der gesamte Ablauf identisch auf **abgeschotteten (air-gapped)** Instanzen funktioniert.
 
-Die Seite hat zwei Tabs: **Store** durchsucht den Erweiterungskatalog Ihres Anbieters mit Ein-Klick-Installation (sofern die Instanz Internetzugang hat), **Installiert** verwaltet Lizenzen und installiert aus Dateien.
+Die Seite hat zwei Tabs: **Store** durchsucht den Erweiterungskatalog Ihres Anbieters mit Ein-Klick-Installation, **Installiert** verwaltet Lizenzen und installiert aus Dateien.
+
+**Erweiterungen werden von Turbo EA erstellt und signiert** — sie sind nicht selbst erstellbar und nicht für Dritte offen. Wenn Sie eine auf Ihre Organisation zugeschnittene Funktion benötigen, erstellen und lizenzieren wir sie für Sie. Siehe [Turbo-EA-Beratung](https://www.turbo-ea.org/consulting).
 
 ## So funktioniert das Vertrauensmodell
 

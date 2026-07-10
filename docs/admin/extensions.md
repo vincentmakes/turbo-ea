@@ -2,9 +2,11 @@
 
 The **Extension Store** (Admin → Extensions) installs vendor-signed extensions that add customer-specific capabilities — extra metamodel content, integrations, background jobs, and even new pages — without changing the Turbo EA core ("clean core" principle).
 
-Everything is delivered as files: the extension is a signed `.teax` bundle and the license is a signed text file, both typically sent by email. No online activation, store account, or outbound connection is required, so the whole workflow works identically on **air-gapped** instances.
+Extensions can be installed two ways: **one click from the built-in Store** (when your instance has internet access), or by **uploading the files directly** — the extension is a signed `.teax` bundle and the license is a signed text file, both typically sent by email. The file-based flow needs no store account or outbound connection, so the whole workflow works identically on **air-gapped** instances.
 
-The page has two tabs: **Store** browses your vendor's extension catalogue with one-click install (when your instance has internet access), and **Installed** manages licenses and installs from files.
+The page has two tabs: **Store** browses your vendor's extension catalogue with one-click install, and **Installed** manages licenses and installs from files.
+
+**Extensions are built and signed by Turbo EA** — they are not self-built or open to third parties. If you need a capability tailored to your organisation, we can build and license it for you. See [Turbo EA consulting](https://www.turbo-ea.org/consulting).
 
 ## How trust works
 

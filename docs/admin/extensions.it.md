@@ -2,9 +2,11 @@
 
 Lo **store delle estensioni** (Admin → Estensioni) installa estensioni firmate dal fornitore che aggiungono funzionalità specifiche del cliente — contenuti aggiuntivi del metamodello, integrazioni, processi in background e persino nuove pagine — senza modificare il core di Turbo EA (principio «clean core»).
 
-Tutto viene consegnato come file: l'estensione è un pacchetto `.teax` firmato e la licenza un file di testo firmato, entrambi inviati tipicamente via e-mail. Non servono attivazione online, account dello store né connessioni in uscita: il flusso funziona quindi in modo identico su istanze **isolate (air-gapped)**.
+Le estensioni si installano in due modi: **con un clic dallo Store integrato** (se l'istanza ha accesso a Internet) oppure **caricando direttamente i file** — l'estensione è un pacchetto `.teax` firmato e la licenza un file di testo firmato, entrambi inviati tipicamente via e-mail. Il flusso basato su file non richiede account dello store né connessione in uscita, quindi funziona in modo identico su istanze **isolate (air-gapped)**.
 
-La pagina ha due schede: **Store** sfoglia il catalogo delle estensioni del fornitore con installazione a un clic (se l'istanza ha accesso a Internet), mentre **Installate** gestisce le licenze e installa da file.
+La pagina ha due schede: **Store** sfoglia il catalogo delle estensioni del fornitore con installazione a un clic, mentre **Installate** gestisce le licenze e installa da file.
+
+**Le estensioni sono realizzate e firmate da Turbo EA** — non sono auto-sviluppate né aperte a terzi. Se ti serve una funzionalità su misura per la tua organizzazione, possiamo realizzarla e concederla in licenza per te. Vedi [la consulenza Turbo EA](https://www.turbo-ea.org/consulting).
 
 ## Come funziona la fiducia
 

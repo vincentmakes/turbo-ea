@@ -2,9 +2,11 @@
 
 **Udvidelsesbutikken** (Admin → Udvidelser) installerer leverandørsignerede udvidelser, der tilføjer kundespecifikke funktioner — ekstra metamodel-indhold, integrationer, baggrundsjobs og endda nye sider — uden at ændre Turbo EA's kerne («clean core»-princippet).
 
-Alt leveres som filer: udvidelsen er en signeret `.teax`-pakke, og licensen er en signeret tekstfil, begge typisk sendt via e-mail. Der kræves hverken onlineaktivering, butikskonto eller udgående forbindelser, så hele arbejdsgangen fungerer identisk på **isolerede (air-gapped)** installationer.
+Udvidelser installeres på to måder: **med ét klik fra den indbyggede Butik** (hvis instansen har internetadgang) eller ved at **uploade filerne direkte** — udvidelsen er en signeret `.teax`-pakke, og licensen er en signeret tekstfil, begge typisk sendt via e-mail. Den filbaserede fremgangsmåde kræver hverken butikskonto eller udgående forbindelse, så hele arbejdsgangen fungerer identisk på **isolerede (air-gapped)** installationer.
 
-Siden har to faner: **Butik** gennemser leverandørens udvidelseskatalog med installation med ét klik (hvis instansen har internetadgang), og **Installerede** håndterer licenser og installerer fra filer.
+Siden har to faner: **Butik** gennemser leverandørens udvidelseskatalog med installation med ét klik, og **Installerede** håndterer licenser og installerer fra filer.
+
+**Udvidelser bygges og signeres af Turbo EA** — de er ikke selvbyggede eller åbne for tredjeparter. Hvis du har brug for en funktion, der er skræddersyet til din organisation, kan vi bygge og licensere den til dig. Se [Turbo EA-rådgivning](https://www.turbo-ea.org/consulting).
 
 ## Sådan fungerer tilliden
 

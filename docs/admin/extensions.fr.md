@@ -2,9 +2,11 @@
 
 Le **magasin d'extensions** (Admin → Extensions) installe des extensions signées par l'éditeur qui ajoutent des capacités spécifiques au client — contenu de métamodèle supplémentaire, intégrations, tâches d'arrière-plan et même de nouvelles pages — sans modifier le cœur de Turbo EA (principe « clean core »).
 
-Tout est livré sous forme de fichiers : l'extension est un paquet `.teax` signé et la licence un fichier texte signé, tous deux généralement envoyés par e-mail. Aucune activation en ligne, aucun compte de magasin ni connexion sortante n'est nécessaire ; le flux fonctionne donc à l'identique sur des instances **isolées (air-gapped)**.
+Les extensions s'installent de deux manières : **en un clic depuis la Boutique intégrée** (si l'instance a accès à Internet) ou en **téléversant directement les fichiers** — l'extension est un paquet `.teax` signé et la licence un fichier texte signé, tous deux généralement envoyés par e-mail. Le flux par fichiers ne nécessite ni compte de magasin ni connexion sortante ; il fonctionne donc à l'identique sur des instances **isolées (air-gapped)**.
 
-La page comporte deux onglets : **Boutique** parcourt le catalogue d'extensions de votre fournisseur avec installation en un clic (si l'instance a accès à Internet), et **Installées** gère les licences et installe à partir de fichiers.
+La page comporte deux onglets : **Boutique** parcourt le catalogue d'extensions de votre fournisseur avec installation en un clic, et **Installées** gère les licences et installe à partir de fichiers.
+
+**Les extensions sont conçues et signées par Turbo EA** — elles ne sont ni auto-développées ni ouvertes à des tiers. Si vous avez besoin d'une fonctionnalité adaptée à votre organisation, nous pouvons la développer et la licencier pour vous. Voir [le conseil Turbo EA](https://www.turbo-ea.org/consulting).
 
 ## Fonctionnement de la confiance
 

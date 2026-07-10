@@ -2,9 +2,11 @@
 
 A **loja de extensões** (Admin → Extensões) instala extensões assinadas pelo fornecedor que adicionam capacidades específicas do cliente — conteúdo adicional do metamodelo, integrações, tarefas em segundo plano e até novas páginas — sem alterar o núcleo do Turbo EA (princípio «clean core»).
 
-Tudo é entregue como ficheiros: a extensão é um pacote `.teax` assinado e a licença um ficheiro de texto assinado, ambos normalmente enviados por e-mail. Não é necessária ativação online, conta de loja nem ligação de saída, pelo que o fluxo funciona de forma idêntica em instâncias **isoladas (air-gapped)**.
+As extensões instalam-se de duas formas: **com um clique a partir da Loja integrada** (se a instância tiver acesso à Internet) ou **carregando os ficheiros diretamente** — a extensão é um pacote `.teax` assinado e a licença um ficheiro de texto assinado, ambos normalmente enviados por e-mail. O fluxo baseado em ficheiros não requer conta de loja nem ligação de saída, pelo que funciona de forma idêntica em instâncias **isoladas (air-gapped)**.
 
-A página tem dois separadores: **Loja** percorre o catálogo de extensões do fornecedor com instalação num clique (se a instância tiver acesso à Internet), e **Instaladas** gere licenças e instala a partir de ficheiros.
+A página tem dois separadores: **Loja** percorre o catálogo de extensões do fornecedor com instalação num clique, e **Instaladas** gere licenças e instala a partir de ficheiros.
+
+**As extensões são criadas e assinadas pela Turbo EA** — não são de criação própria nem abertas a terceiros. Se precisar de uma funcionalidade adaptada à sua organização, podemos criá-la e licenciá-la para si. Consulte [a consultoria da Turbo EA](https://www.turbo-ea.org/consulting).
 
 ## Como funciona a confiança
 

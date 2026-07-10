@@ -632,6 +632,13 @@ export default function ExtensionsAdmin() {
 
   return (
     <Stack spacing={3}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <MaterialSymbol icon="extension" size={28} color="#1976d2" />
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>
+          {t("extensions.title", "Extensions")}
+        </Typography>
+      </Box>
+
       <Typography variant="body2" color="text.secondary">
         {t(
           "extensions.intro",

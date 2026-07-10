@@ -2,9 +2,11 @@
 
 La **tienda de extensiones** (Admin → Extensiones) instala extensiones firmadas por el proveedor que añaden capacidades específicas del cliente — contenido adicional del metamodelo, integraciones, tareas en segundo plano e incluso páginas nuevas — sin cambiar el núcleo de Turbo EA (principio «clean core»).
 
-Todo se entrega como archivos: la extensión es un paquete `.teax` firmado y la licencia un archivo de texto firmado, ambos enviados normalmente por correo electrónico. No se requiere activación en línea, cuenta de tienda ni conexión saliente, por lo que el flujo funciona igual en instancias **aisladas (air-gapped)**.
+Las extensiones se instalan de dos maneras: **con un clic desde la Tienda integrada** (si la instancia tiene acceso a Internet) o **subiendo los archivos directamente** — la extensión es un paquete `.teax` firmado y la licencia un archivo de texto firmado, ambos enviados normalmente por correo electrónico. El flujo basado en archivos no requiere cuenta de tienda ni conexión saliente, por lo que funciona igual en instancias **aisladas (air-gapped)**.
 
-La página tiene dos pestañas: **Tienda** explora el catálogo de extensiones de tu proveedor con instalación en un clic (si la instancia tiene acceso a Internet), e **Instaladas** gestiona licencias e instala desde archivos.
+La página tiene dos pestañas: **Tienda** explora el catálogo de extensiones de tu proveedor con instalación en un clic, e **Instaladas** gestiona licencias e instala desde archivos.
+
+**Las extensiones las crea y firma Turbo EA** — no son de creación propia ni están abiertas a terceros. Si necesitas una funcionalidad adaptada a tu organización, podemos crearla y licenciarla para ti. Consulta [la consultoría de Turbo EA](https://www.turbo-ea.org/consulting).
 
 ## Cómo funciona la confianza
 
