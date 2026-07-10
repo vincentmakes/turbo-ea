@@ -635,7 +635,7 @@ export default function ExtensionsAdmin() {
       <Typography variant="body2" color="text.secondary">
         {t(
           "extensions.intro",
-          "Install vendor-signed extensions to add customer-specific capabilities without changing the core. Extensions and licenses are delivered as files, so everything works on air-gapped instances.",
+          "Add customer-specific capabilities without changing the core. Install vendor-signed extensions one click at a time from the built-in Store, or upload the extension and license files directly — the file-based flow needs no connection to the Store, so everything still works on air-gapped instances.",
         )}
       </Typography>
 
