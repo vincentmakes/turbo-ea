@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models.extension import ExtensionLicense
+from app.services.extensions.instance_id import get_instance_id, license_binding_problem
 from app.services.extensions.license import LicenseDocument, LicenseError, parse_and_verify
 from app.services.extensions.registry import extension_registry
 
@@ -139,6 +140,13 @@ async def refresh_license_if_due(
         logger.warning("Active license no longer verifies — skipping auto-renewal")
         return False
 
+    if license_binding_problem(current.instance_id):
+        # Bound to a different instance (restored DB, cloned volume) —
+        # renewing it would perpetuate the wrong identity. The admin
+        # banner explains; the vendor re-keys.
+        logger.warning("Active license is bound to another instance — skipping auto-renewal")
+        return False
+
     if force:
         if not current.renewal_key or not current.customer_id:
             return False
@@ -146,11 +154,16 @@ async def refresh_license_if_due(
         return False
 
     url = store_url.rstrip("/") + "/account/renew"
+    params = {"customer": current.customer_id, "key": current.renewal_key}
+    # Instance-keyed issuance (see the instance-id licensing design): the
+    # store resolves entitlements by instance ID; customer stays for
+    # cross-reference/back-compat.
+    instance = get_instance_id()
+    if instance:
+        params["instance"] = instance
     try:
         async with httpx.AsyncClient(timeout=_RENEW_TIMEOUT) as client:
-            resp = await client.get(
-                url, params={"customer": current.customer_id, "key": current.renewal_key}
-            )
+            resp = await client.get(url, params=params)
             resp.raise_for_status()
             text = resp.json().get("license", "")
     except (httpx.HTTPError, ValueError) as exc:
@@ -161,6 +174,10 @@ async def refresh_license_if_due(
         fresh = parse_and_verify(text)
     except LicenseError as exc:
         logger.warning("Store returned a license that does not verify: %s", exc)
+        return False
+
+    if license_binding_problem(fresh.instance_id):
+        logger.warning("Store returned a license bound to another instance — not applied")
         return False
 
     if fresh.customer_id != current.customer_id or not _extends(fresh, current):

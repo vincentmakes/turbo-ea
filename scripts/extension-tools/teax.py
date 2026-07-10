@@ -398,6 +398,20 @@ def cmd_verify(args) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _validate_instance_id(value: str) -> bool:
+    """TEA-XXXX-XXXX-XXXX, Crockford base32, last char a weighted mod-32
+    checksum — mirrors app/services/extensions/instance_id.py exactly."""
+    alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+    parts = value.split("-")
+    if len(parts) != 4 or parts[0] != "TEA" or any(len(p) != 4 for p in parts[1:]):
+        return False
+    body = "".join(parts[1:])
+    if any(ch not in alphabet for ch in body):
+        return False
+    total = sum((idx + 1) * alphabet.index(ch) for idx, ch in enumerate(body[:11]))
+    return alphabet[total % 32] == body[-1]
+
+
 def cmd_sign_license(args) -> int:
     payload_path = Path(args.payload)
     try:
@@ -409,6 +423,15 @@ def cmd_sign_license(args) -> int:
     for idx, ent in enumerate(payload.get("entitlements", [])):
         if not str(ent.get("extension_key", "")).strip():
             _fail(f"entitlement #{idx + 1} is missing extension_key")
+
+    # Licenses are BOUND to a Turbo EA instance — an unbound file is refused
+    # by production cores, so refuse to produce one here in the first place.
+    instance_id = str(getattr(args, "instance_id", None) or payload.get("instance_id") or "")
+    if not instance_id:
+        _fail("license payload needs an instance_id — pass --instance-id TEA-XXXX-XXXX-XXXX")
+    if not _validate_instance_id(instance_id):
+        _fail(f"invalid instance id {instance_id!r} (bad format or checksum)")
+    payload["instance_id"] = instance_id
 
     private = _load_private_key(args)
     payload_bytes = json.dumps(payload, ensure_ascii=False).encode()
@@ -473,6 +496,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--key", help="base64 raw Ed25519 private key")
     p.add_argument("--key-file", help="file containing the base64 private key")
     p.add_argument("--key-id", default="vendor-1")
+    p.add_argument(
+        "--instance-id",
+        help="Turbo EA instance this license is bound to (TEA-XXXX-XXXX-XXXX); "
+        "required unless the payload JSON already carries instance_id",
+    )
     p.add_argument("--out", help="write the license file here (default: stdout)")
 
     p = sub.add_parser("verify-license", help="verify a signed license file")

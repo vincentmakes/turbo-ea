@@ -63,6 +63,10 @@ class ExtensionRegistry:
     def __init__(self) -> None:
         self._extensions: dict[str, ExtensionInfo] = {}
         self._license: LicenseDocument | None = None
+        # Human-readable reason the stored license is not in effect (failed
+        # verification or bound to a different instance) — surfaced on the
+        # admin page so a restored/copied DB explains itself.
+        self._license_problem: str | None = None
 
     # ── population ──────────────────────────────────────────────────────
 
@@ -71,6 +75,7 @@ class ExtensionRegistry:
 
     def set_license(self, doc: LicenseDocument | None) -> None:
         self._license = doc
+        self._license_problem = None
 
     async def refresh_from_db(self, db: AsyncSession) -> None:
         """Reload extensions + active license from the database.
@@ -111,12 +116,30 @@ class ExtensionRegistry:
         ).scalar_one_or_none()
         if license_row is None:
             self._license = None
+            self._license_problem = None
             return
         try:
-            self._license = parse_and_verify(license_row.raw_text)
+            doc = parse_and_verify(license_row.raw_text)
         except LicenseError as exc:
             logger.error("Stored extension license failed verification: %s", exc)
             self._license = None
+            self._license_problem = str(exc)
+            return
+
+        # Instance binding: a license issued for another instance (e.g. a DB
+        # restored onto a fresh install with a new ID) is not in effect —
+        # everything evaluates as unlicensed until the vendor re-keys it.
+        # Data is never touched; same soft-disable semantics as expiry.
+        from app.services.extensions.instance_id import license_binding_problem
+
+        problem = license_binding_problem(doc.instance_id)
+        if problem:
+            logger.error("Stored extension license rejected: %s", problem)
+            self._license = None
+            self._license_problem = problem
+            return
+        self._license = doc
+        self._license_problem = None
 
     # ── queries ─────────────────────────────────────────────────────────
 
@@ -129,6 +152,10 @@ class ExtensionRegistry:
     @property
     def license(self) -> LicenseDocument | None:
         return self._license
+
+    @property
+    def license_problem(self) -> str | None:
+        return self._license_problem
 
     def entitlement(self, key: str, now: datetime | None = None) -> EntitlementStatus:
         if self._license is None:
@@ -175,6 +202,7 @@ class ExtensionRegistry:
         """Reset to empty — test helper."""
         self._extensions = {}
         self._license = None
+        self._license_problem = None
 
 
 extension_registry = ExtensionRegistry()

@@ -72,7 +72,7 @@ async def _noop_job(*args, **kwargs):
 
 
 def make_license_text(
-    private, *, extension_key="sample-ext", expires_at=EXPIRES, renewal_key=""
+    private, *, extension_key="sample-ext", expires_at=EXPIRES, renewal_key="", instance_id=""
 ) -> str:
     payload = {
         "licensee": "ACME Corp",
@@ -85,6 +85,8 @@ def make_license_text(
     }
     if renewal_key:
         payload["renewal_key"] = renewal_key
+    if instance_id:
+        payload["instance_id"] = instance_id
     payload_bytes = json.dumps(payload).encode()
     return json.dumps(
         {
@@ -736,3 +738,97 @@ class TestStoreClaimAndRefresh:
         )
         assert res.status_code == 200
         assert res.json() == {"refreshed": False}
+
+
+# ---------------------------------------------------------------------------
+# Instance ID + license binding
+# ---------------------------------------------------------------------------
+
+
+class TestInstanceBinding:
+    """Licenses are bound to the instance ID (TEA-XXXX-XXXX-XXXX)."""
+
+    @pytest.fixture(autouse=True)
+    def _instance(self):
+        from app.services.extensions.instance_id import generate_instance_id, set_instance_id
+
+        iid = generate_instance_id()
+        set_instance_id(iid)
+        yield iid
+        set_instance_id(None)
+
+    async def test_instance_endpoint_returns_id(self, client, db, vendor, _instance):
+        admin = await make_admin(db)
+        res = await client.get("/api/v1/admin/extensions/instance", headers=auth_headers(admin))
+        assert res.status_code == 200
+        assert res.json() == {"instance_id": _instance}
+
+    async def test_matching_license_is_accepted(self, client, db, vendor, _instance):
+        admin = await make_admin(db)
+        res = await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor, instance_id=_instance)},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 200
+        got = await client.get("/api/v1/admin/extensions/license", headers=auth_headers(admin))
+        assert got.json()["problem"] is None
+
+    async def test_mismatched_license_is_refused(self, client, db, vendor, _instance):
+        from app.services.extensions.instance_id import generate_instance_id
+
+        admin = await make_admin(db)
+        other = generate_instance_id()
+        res = await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor, instance_id=other)},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 400
+        assert other in res.json()["detail"] and _instance in res.json()["detail"]
+
+    async def test_unbound_license_refused_outside_development(
+        self, client, db, vendor, _instance, monkeypatch
+    ):
+        admin = await make_admin(db)
+        # In production the dev-key override is ignored, so trust the test key
+        # via the baked-in map — the point here is binding, not provenance.
+        import base64 as b64
+
+        from cryptography.hazmat.primitives import serialization
+
+        public_b64 = b64.b64encode(
+            vendor.public_key().public_bytes(
+                encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw
+            )
+        ).decode()
+        monkeypatch.setattr(
+            "app.core.extension_signing.DEFAULT_VENDOR_PUBLIC_KEYS", {"vendor-1": public_b64}
+        )
+        monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+        res = await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor)},  # no instance_id
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 400
+        assert "instance" in res.json()["detail"].lower()
+
+    async def test_stored_mismatch_soft_disables_with_problem(self, client, db, vendor, _instance):
+        """A license applied before a re-install (new ID) stops being effective."""
+        from app.services.extensions.instance_id import generate_instance_id, set_instance_id
+
+        admin = await make_admin(db)
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor, instance_id=_instance)},
+            headers=auth_headers(admin),
+        )
+        # Simulate the re-install: same DB row, different runtime instance ID.
+        set_instance_id(generate_instance_id())
+        await extension_registry.refresh_from_db(db)
+        assert extension_registry.license is None
+        assert extension_registry.license_problem is not None
+        got = await client.get("/api/v1/admin/extensions/license", headers=auth_headers(admin))
+        assert got.status_code == 200
+        assert _instance in (got.json()["problem"] or "")

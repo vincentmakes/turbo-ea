@@ -13,7 +13,13 @@ La página tiene dos pestañas: **Tienda** explora el catálogo de extensiones d
 Dos comprobaciones independientes protegen su instancia:
 
 1. **Procedencia (firma).** Cada paquete lleva una firma Ed25519 de la clave del proveedor. Turbo EA la verifica al subirlo *y de nuevo en cada arranque del backend*. Los paquetes sin firma, manipulados o de terceros se rechazan — una extensión instalada es exactamente lo que el proveedor construyó.
-2. **Activación (licencia).** Un archivo de licencia firmado enumera sus derechos — uno por extensión, cada uno con su propia caducidad. Una extensión instalada solo funciona mientras exista un derecho utilizable.
+2. **Activación (licencia).** Un archivo de licencia firmado enumera sus derechos — uno por extensión, cada uno con su propia caducidad. Una extensión instalada solo funciona mientras exista un derecho utilizable. Las licencias están **vinculadas al ID de su instancia** — una licencia emitida para otra instancia se rechaza.
+
+## El ID de su instancia
+
+Cada instalación genera una única vez un **ID de instancia** (`TEA-XXXX-XXXX-XXXX`), visible en la parte superior de Admin → Extensiones con un botón de copia. Es su identidad de licencia: indíquelo al comprar (la Tienda integrada lo envía automáticamente; el pago de la tienda en línea lo solicita) para que cada extensión comprada para esta instancia — por cualquier administrador, con cualquier correo — termine en una única licencia combinada. Solo identifica su instancia; nunca es una credencial, así que puede compartirlo con su proveedor sin riesgo.
+
+El ID viaja con una transferencia de espacio de trabajo, por lo que mudarse a un nuevo servidor mantiene la licencia válida. Tras una **reinstalación completa**, la instancia recibe un ID nuevo — pida a su proveedor que vuelva a emitir su licencia para él (un rápido «re-key» por su parte).
 
 ## La pestaña Tienda
 

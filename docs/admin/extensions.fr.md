@@ -13,7 +13,13 @@ La page comporte deux onglets : **Boutique** parcourt le catalogue d'extensions 
 Deux vérifications indépendantes protègent votre instance :
 
 1. **Provenance (signature).** Chaque paquet porte une signature Ed25519 de la clé de l'éditeur. Turbo EA la vérifie au téléversement *et à chaque démarrage du backend*. Les paquets non signés, altérés ou tiers sont refusés — une extension installée est garantie être exactement ce que l'éditeur a construit.
-2. **Activation (licence).** Un fichier de licence signé liste vos droits — un par extension, chacun avec sa propre échéance. Une extension installée ne fonctionne que tant qu'un droit utilisable existe.
+2. **Activation (licence).** Un fichier de licence signé liste vos droits — un par extension, chacun avec sa propre échéance. Une extension installée ne fonctionne que tant qu'un droit utilisable existe. Les licences sont **liées à l'ID de votre instance** — une licence émise pour une autre instance est refusée.
+
+## L'ID de votre instance
+
+Chaque installation génère une seule fois un **ID d'instance** unique (`TEA-XXXX-XXXX-XXXX`), affiché en haut d'Admin → Extensions avec un bouton de copie. C'est votre identité de licence : indiquez-le lors de l'achat (la Boutique intégrée l'envoie automatiquement ; le paiement de la boutique en ligne le demande) afin que chaque extension achetée pour cette instance — par n'importe quel administrateur, sous n'importe quelle adresse e-mail — aboutisse dans une licence unique combinée. Il identifie seulement votre instance ; ce n'est jamais un identifiant secret, vous pouvez donc le partager sans risque avec votre fournisseur.
+
+L'ID voyage avec un transfert d'espace de travail : une migration vers un nouvel hôte conserve donc une licence valide. Après une **réinstallation complète**, l'instance reçoit un nouvel ID — demandez à votre fournisseur de réémettre votre licence pour celui-ci (un simple « re-key » de son côté).
 
 ## L'onglet Boutique
 

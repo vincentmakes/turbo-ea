@@ -62,6 +62,9 @@ interface LicenseInfo {
     expires_at?: string | null;
   }[];
   uploaded_at?: string | null;
+  // Why the stored license is not in effect (bound to another instance,
+  // failed verification) — null/absent when everything is fine.
+  problem?: string | null;
 }
 
 interface InstallReport {
@@ -159,6 +162,8 @@ export default function ExtensionsAdmin() {
   const [extensions, setExtensions] = useState<ExtensionInfo[]>([]);
   const [license, setLicense] = useState<LicenseInfo | null>(null);
   const [catalog, setCatalog] = useState<StoreCatalog | null>(null);
+  const [instanceId, setInstanceId] = useState("");
+  const [instanceCopied, setInstanceCopied] = useState(false);
   const [storeBusyKey, setStoreBusyKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -221,14 +226,16 @@ export default function ExtensionsAdmin() {
 
   const loadAll = useCallback(async () => {
     try {
-      const [exts, lic, cat] = await Promise.all([
+      const [exts, lic, cat, inst] = await Promise.all([
         api.get<ExtensionInfo[]>("/admin/extensions"),
         api.get<LicenseInfo>("/admin/extensions/license").catch(() => null),
         api.get<StoreCatalog>("/admin/extensions/store/catalog").catch(() => null),
+        api.get<{ instance_id: string }>("/admin/extensions/instance").catch(() => null),
       ]);
       setExtensions(exts);
       setLicense(lic);
       setCatalog(cat);
+      setInstanceId(inst?.instance_id ?? "");
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -397,8 +404,12 @@ export default function ExtensionsAdmin() {
     if (!item.payment_link) return;
     const token = makeClaimToken();
     const sep = item.payment_link.includes("?") ? "&" : "?";
+    // The instance ID rides along so the store can key the purchase to this
+    // instance (composite licensing) — parsed off the end by the webhook
+    // (fixed TEA-XXXX-XXXX-XXXX shape). Stripe allows [A-Za-z0-9_-] here.
+    const ref = instanceId ? `${token}-${instanceId}` : token;
     window.open(
-      `${item.payment_link}${sep}client_reference_id=${token}`,
+      `${item.payment_link}${sep}client_reference_id=${ref}`,
       "_blank",
       "noopener",
     );
@@ -632,12 +643,39 @@ export default function ExtensionsAdmin() {
 
   return (
     <Stack spacing={3}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
         <MaterialSymbol icon="extension" size={28} color="#1976d2" />
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>
+        <Typography variant="h5" sx={{ fontWeight: 700, flex: 1 }}>
           {t("extensions.title", "Extensions")}
         </Typography>
+        {instanceId && (
+          <Tooltip
+            title={t(
+              "extensions.instanceIdHint",
+              "This instance's licensing identity. Quote it when purchasing or requesting a license — checkout asks for it.",
+            )}
+          >
+            <Chip
+              variant="outlined"
+              size="small"
+              icon={<MaterialSymbol icon={instanceCopied ? "check" : "content_copy"} size={16} />}
+              label={`${t("extensions.instanceId", "Instance ID")}: ${instanceId}`}
+              sx={{ fontFamily: "monospace" }}
+              onClick={() => {
+                void navigator.clipboard?.writeText(instanceId);
+                setInstanceCopied(true);
+                setTimeout(() => setInstanceCopied(false), 2000);
+              }}
+            />
+          </Tooltip>
+        )}
       </Box>
+
+      {license?.problem && (
+        <Alert severity="error" icon={<MaterialSymbol icon="report" />}>
+          {license.problem}
+        </Alert>
+      )}
 
       <Typography variant="body2" color="text.secondary">
         {t(

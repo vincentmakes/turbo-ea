@@ -770,10 +770,15 @@ async def lifespan(app: FastAPI):
             else:
                 print(f"[seed_security] Skipped: {result.get('reason', 'unknown')}")
 
-    # ── Extension Store: reconcile statuses, load license/registry, run
-    # per-extension migrations, fire on_startup hooks, spawn job loops.
+    # ── Extension Store: mint/load the instance ID (licensing identity —
+    # must exist before the registry evaluates license binding), then
+    # reconcile statuses, load license/registry, run per-extension
+    # migrations, fire on_startup hooks, spawn job loops.
+    from app.services.extensions.instance_id import ensure_instance_id
     from app.services.extensions.startup import initialize_extensions
 
+    async with async_session() as db:
+        await ensure_instance_id(db)
     extension_job_tasks = await initialize_extensions(extension_load_report)
 
     # Auto-configure bundled Ollama AI when AI_AUTO_CONFIGURE=true

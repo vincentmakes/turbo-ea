@@ -13,7 +13,13 @@ The page has two tabs: **Store** browses your vendor's extension catalogue with 
 Two independent checks protect your instance:
 
 1. **Provenance (signature).** Every bundle carries an Ed25519 signature by the vendor's signing key. Turbo EA verifies it on upload *and again at every backend start*. Unsigned, tampered, or third-party bundles are rejected — an extension that installs is guaranteed to be exactly what the vendor built.
-2. **Activation (license).** A signed license file lists your entitlements — one per extension, each with its own expiry. An installed extension only runs while a usable entitlement exists.
+2. **Activation (license).** A signed license file lists your entitlements — one per extension, each with its own expiry. An installed extension only runs while a usable entitlement exists. Licenses are **bound to your instance ID** — a license issued for a different instance is refused.
+
+## Your instance ID
+
+Every installation generates a unique **instance ID** (`TEA-XXXX-XXXX-XXXX`) once, shown at the top of Admin → Extensions with a copy button. It is your licensing identity: quote it when purchasing (the in-app Store sends it automatically; the storefront checkout asks for it) so that every extension bought for this instance — by any administrator, under any email — lands in one combined license. It identifies your instance only; it is never a credential, so it is safe to share with your vendor.
+
+The ID travels with a workspace transfer, so moving to a new host keeps your license working. After a **full reinstall** the instance gets a new ID — ask your vendor to re-issue your license for it (a quick "re-key" on their side).
 
 ## The Store tab
 

@@ -13,7 +13,13 @@ La pagina ha due schede: **Store** sfoglia il catalogo delle estensioni del forn
 Due verifiche indipendenti proteggono l'istanza:
 
 1. **Provenienza (firma).** Ogni pacchetto porta una firma Ed25519 della chiave del fornitore. Turbo EA la verifica al caricamento *e di nuovo a ogni avvio del backend*. I pacchetti non firmati, manomessi o di terzi vengono rifiutati — un'estensione installata è garantita essere esattamente ciò che il fornitore ha costruito.
-2. **Attivazione (licenza).** Un file di licenza firmato elenca i diritti — uno per estensione, ciascuno con la propria scadenza. Un'estensione installata funziona solo finché esiste un diritto utilizzabile.
+2. **Attivazione (licenza).** Un file di licenza firmato elenca i diritti — uno per estensione, ciascuno con la propria scadenza. Un'estensione installata funziona solo finché esiste un diritto utilizzabile. Le licenze sono **vincolate all'ID della tua istanza** — una licenza emessa per un'altra istanza viene rifiutata.
+
+## L'ID della tua istanza
+
+Ogni installazione genera una sola volta un **ID istanza** univoco (`TEA-XXXX-XXXX-XXXX`), mostrato in cima ad Admin → Estensioni con un pulsante di copia. È la tua identità di licenza: indicalo all'acquisto (lo Store integrato lo invia automaticamente; il checkout dello store online lo richiede) così ogni estensione acquistata per questa istanza — da qualsiasi amministratore, con qualsiasi e-mail — confluisce in un'unica licenza combinata. Identifica soltanto la tua istanza; non è mai una credenziale, quindi puoi condividerlo con il fornitore senza rischi.
+
+L'ID viaggia con un trasferimento del workspace, quindi il passaggio a un nuovo host mantiene valida la licenza. Dopo una **reinstallazione completa** l'istanza riceve un nuovo ID — chiedi al fornitore di riemettere la licenza per quello (un rapido «re-key» da parte sua).
 
 ## La scheda Store
 

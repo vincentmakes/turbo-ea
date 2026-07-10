@@ -74,6 +74,11 @@ class LicenseDocument:
     # extension store after a subscription renewal — no manual re-paste.
     # Absent on manually issued (offline/enterprise) licenses.
     renewal_key: str = ""
+    # The Turbo EA instance this license was issued for (TEA-XXXX-XXXX-XXXX).
+    # Core BINDS on it: a mismatch is refused at apply time and soft-disables
+    # at registry load (see instance_id.license_binding_problem). Empty only
+    # on development licenses — production issuance always stamps it.
+    instance_id: str = ""
 
     def entitlement_for(self, extension_key: str) -> Entitlement | None:
         for ent in self.entitlements:
@@ -183,6 +188,7 @@ def parse_and_verify(text: str, *, public_key_b64: str | None = None) -> License
         key_id=str(envelope.get("key_id") or ""),
         raw_text=text,
         renewal_key=str(payload.get("renewal_key") or ""),
+        instance_id=str(payload.get("instance_id") or "").strip(),
     )
 
 

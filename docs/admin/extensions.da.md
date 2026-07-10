@@ -13,7 +13,13 @@ Siden har to faner: **Butik** gennemser leverandørens udvidelseskatalog med ins
 To uafhængige kontroller beskytter din installation:
 
 1. **Oprindelse (signatur).** Hver pakke bærer en Ed25519-signatur fra leverandørens nøgle. Turbo EA verificerer den ved upload *og igen ved hver backend-start*. Usignerede, manipulerede eller tredjepartspakker afvises — en installeret udvidelse er garanteret præcis det, leverandøren har bygget.
-2. **Aktivering (licens).** En signeret licensfil oplister dine rettigheder — én pr. udvidelse, hver med sin egen udløbsdato. En installeret udvidelse kører kun, så længe der findes en gyldig rettighed.
+2. **Aktivering (licens).** En signeret licensfil oplister dine rettigheder — én pr. udvidelse, hver med sin egen udløbsdato. En installeret udvidelse kører kun, så længe der findes en gyldig rettighed. Licenser er **bundet til din instans-ID** — en licens udstedt til en anden instans afvises.
+
+## Din instans-ID
+
+Hver installation genererer én gang en unik **instans-ID** (`TEA-XXXX-XXXX-XXXX`), som vises øverst på Admin → Udvidelser med en kopieringsknap. Det er din licensidentitet: Oplys den ved køb (den indbyggede Butik sender den automatisk; webbutikkens betaling beder om den), så hver udvidelse købt til denne instans — af enhver administrator, med enhver e-mail — ender i én samlet licens. Den identificerer kun din instans; den er aldrig en adgangsnøgle, så den kan trygt deles med din leverandør.
+
+ID'et følger med en workspace-overførsel, så flytning til en ny vært holder licensen gyldig. Efter en **fuld geninstallation** får instansen et nyt ID — bed din leverandør om at genudstede licensen til det (et hurtigt «re-key» hos leverandøren).
 
 ## Fanen Butik
 

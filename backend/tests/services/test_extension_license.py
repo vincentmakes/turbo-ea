@@ -77,6 +77,13 @@ class TestParseAndVerify:
         assert doc.entitlement_for("sap-sync").expires_at is None
         assert doc.entitlement_for("unknown") is None
         assert doc.raw_text  # preserved byte-exact for storage/re-verification
+        assert doc.instance_id == ""  # not stamped in this fixture
+
+    def test_instance_id_is_surfaced(self):
+        private, public_b64 = make_keypair()
+        payload = dict(PAYLOAD, instance_id="TEA-0123-4567-89AB")
+        doc = parse_and_verify(make_license(private, payload), public_key_b64=public_b64)
+        assert doc.instance_id == "TEA-0123-4567-89AB"
 
     def test_tampered_payload_rejected(self):
         private, public_b64 = make_keypair()

@@ -5053,6 +5053,19 @@
         "title": "ImportRequest",
         "type": "object"
       },
+      "InstanceOut": {
+        "properties": {
+          "instance_id": {
+            "title": "Instance Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance_id"
+        ],
+        "title": "InstanceOut",
+        "type": "object"
+      },
       "LicenseIn": {
         "properties": {
           "text": {
@@ -5105,6 +5118,17 @@
           "licensee": {
             "title": "Licensee",
             "type": "string"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
           },
           "uploaded_at": {
             "anyOf": [
@@ -14499,6 +14523,28 @@
           }
         },
         "summary": "Apply Install",
+        "tags": [
+          "Extensions"
+        ]
+      }
+    },
+    "/api/v1/admin/extensions/instance": {
+      "get": {
+        "description": "This instance's licensing identity (TEA-XXXX-XXXX-XXXX).\n\nQuoted at purchase time (automatically by the in-app Buy button, or\npasted into the storefront's checkout field) so the store aggregates\nevery entitlement bought for this instance into one composite license.\nIdentity only \u2014 never a credential.",
+        "operationId": "get_instance_api_v1_admin_extensions_instance_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Instance",
         "tags": [
           "Extensions"
         ]

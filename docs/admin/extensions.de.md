@@ -13,7 +13,13 @@ Die Seite hat zwei Tabs: **Store** durchsucht den Erweiterungskatalog Ihres Anbi
 Zwei unabhängige Prüfungen schützen Ihre Instanz:
 
 1. **Herkunft (Signatur).** Jedes Paket trägt eine Ed25519-Signatur des Anbieter-Schlüssels. Turbo EA prüft sie beim Hochladen *und erneut bei jedem Backend-Start*. Unsignierte, manipulierte oder fremde Pakete werden abgelehnt — eine installierte Erweiterung ist garantiert genau das, was der Anbieter gebaut hat.
-2. **Aktivierung (Lizenz).** Eine signierte Lizenzdatei enthält Ihre Berechtigungen — eine pro Erweiterung, jede mit eigenem Ablaufdatum. Eine installierte Erweiterung läuft nur, solange eine gültige Berechtigung existiert.
+2. **Aktivierung (Lizenz).** Eine signierte Lizenzdatei enthält Ihre Berechtigungen — eine pro Erweiterung, jede mit eigenem Ablaufdatum. Eine installierte Erweiterung läuft nur, solange eine gültige Berechtigung existiert. Lizenzen sind **an Ihre Instanz-ID gebunden** — eine für eine andere Instanz ausgestellte Lizenz wird abgelehnt.
+
+## Ihre Instanz-ID
+
+Jede Installation erzeugt einmalig eine eindeutige **Instanz-ID** (`TEA-XXXX-XXXX-XXXX`), die oben auf Admin → Erweiterungen mit einem Kopier-Button angezeigt wird. Sie ist Ihre Lizenzidentität: Geben Sie sie beim Kauf an (der In-App-Store sendet sie automatisch; die Storefront-Kasse fragt danach), damit jede für diese Instanz gekaufte Erweiterung — von jedem Administrator, unter jeder E-Mail-Adresse — in einer gemeinsamen Lizenz landet. Sie identifiziert nur Ihre Instanz; sie ist niemals ein Zugangsschlüssel und kann daher bedenkenlos an Ihren Anbieter weitergegeben werden.
+
+Die ID wandert mit einem Workspace-Transfer mit, sodass ein Umzug auf einen neuen Host die Lizenz gültig lässt. Nach einer **Neuinstallation** erhält die Instanz eine neue ID — bitten Sie Ihren Anbieter, die Lizenz dafür neu auszustellen (ein schnelles „Re-Key" auf dessen Seite).
 
 ## Der Store-Tab
 

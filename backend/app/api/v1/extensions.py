@@ -1,6 +1,7 @@
 """Extension Store admin API + lightweight status endpoint.
 
 ``GET    /admin/extensions``                — installed extensions + entitlement states
+``GET    /admin/extensions/instance``       — this instance's licensing identity (TEA-…)
 ``GET    /admin/extensions/license``        — active license summary
 ``PUT    /admin/extensions/license``        — upload/paste a signed license (supersedes)
 ``GET    /admin/extensions/install``        — recent bundle uploads
@@ -58,6 +59,7 @@ from app.services.extensions.field_contributions import (
     remove_field_contributions,
 )
 from app.services.extensions.installer import install_bundle, uninstall
+from app.services.extensions.instance_id import get_instance_id, license_binding_problem
 from app.services.extensions.license import LicenseError, parse_and_verify
 from app.services.extensions.license_refresh import persist_license, refresh_license_if_due
 from app.services.extensions.registry import extension_registry
@@ -104,6 +106,13 @@ class LicenseOut(BaseModel):
     grace_days: int
     entitlements: list[dict]
     uploaded_at: datetime | None = None
+    # Why the stored license is not in effect (bound to another instance,
+    # failed verification) — None when everything is fine.
+    problem: str | None = None
+
+
+class InstanceOut(BaseModel):
+    instance_id: str
 
 
 class LicenseIn(BaseModel):
@@ -196,6 +205,22 @@ async def list_extensions(
     return [_extension_out(row) for row in rows]
 
 
+@router.get("/instance", response_model=InstanceOut)
+async def get_instance(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> InstanceOut:
+    """This instance's licensing identity (TEA-XXXX-XXXX-XXXX).
+
+    Quoted at purchase time (automatically by the in-app Buy button, or
+    pasted into the storefront's checkout field) so the store aggregates
+    every entitlement bought for this instance into one composite license.
+    Identity only — never a credential.
+    """
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    return InstanceOut(instance_id=get_instance_id() or "")
+
+
 @router.get("/license", response_model=LicenseOut)
 async def get_license(
     db: AsyncSession = Depends(get_db),
@@ -220,6 +245,7 @@ async def get_license(
         grace_days=row.grace_days,
         entitlements=list(row.entitlements or []),
         uploaded_at=row.created_at,
+        problem=extension_registry.license_problem,
     )
 
 
@@ -234,6 +260,13 @@ async def _apply_license_text(db: AsyncSession, text: str, user_id: uuid.UUID) -
         doc = parse_and_verify(text)
     except LicenseError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # Instance binding — a license issued for another instance is refused
+    # outright (the vendor re-keys it; see docs). Applies equally to pasted
+    # files, store claims, and auto-renew fetches.
+    binding = license_binding_problem(doc.instance_id)
+    if binding:
+        raise HTTPException(status_code=400, detail=binding)
 
     row = await persist_license(db, doc, created_by=user_id)
     logger.info("Extension license updated: licensee=%s", doc.licensee)

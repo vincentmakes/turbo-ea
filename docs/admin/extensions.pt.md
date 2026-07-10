@@ -13,7 +13,13 @@ A página tem dois separadores: **Loja** percorre o catálogo de extensões do f
 Duas verificações independentes protegem a sua instância:
 
 1. **Proveniência (assinatura).** Cada pacote tem uma assinatura Ed25519 da chave do fornecedor. O Turbo EA verifica-a no carregamento *e novamente em cada arranque do backend*. Pacotes não assinados, adulterados ou de terceiros são rejeitados — uma extensão instalada é exatamente o que o fornecedor construiu.
-2. **Ativação (licença).** Um ficheiro de licença assinado lista os seus direitos — um por extensão, cada um com a sua validade. Uma extensão instalada só funciona enquanto existir um direito utilizável.
+2. **Ativação (licença).** Um ficheiro de licença assinado lista os seus direitos — um por extensão, cada um com a sua validade. Uma extensão instalada só funciona enquanto existir um direito utilizável. As licenças estão **vinculadas ao ID da sua instância** — uma licença emitida para outra instância é recusada.
+
+## O ID da sua instância
+
+Cada instalação gera uma única vez um **ID de instância** (`TEA-XXXX-XXXX-XXXX`), mostrado no topo de Admin → Extensões com um botão de cópia. É a sua identidade de licenciamento: indique-o na compra (a Loja integrada envia-o automaticamente; o checkout da loja online pede-o) para que cada extensão comprada para esta instância — por qualquer administrador, com qualquer e-mail — acabe numa única licença combinada. Apenas identifica a sua instância; nunca é uma credencial, pelo que pode partilhá-lo com o fornecedor sem risco.
+
+O ID viaja com uma transferência de workspace, pelo que mudar para um novo servidor mantém a licença válida. Após uma **reinstalação completa**, a instância recebe um ID novo — peça ao fornecedor que reemita a licença para ele (um rápido «re-key» do lado dele).
 
 ## O separador Loja
 
