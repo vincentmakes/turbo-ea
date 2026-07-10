@@ -96,7 +96,7 @@ async def ensure_instance_id(db: AsyncSession) -> str:
     row = (await db.execute(select(AppSettings))).scalars().first()
     general = dict((row.general_settings if row else None) or {})
     current = general.get("instanceId")
-    if validate_instance_id(current):
+    if isinstance(current, str) and validate_instance_id(current):
         set_instance_id(current)
         return current
 
