@@ -23,11 +23,6 @@ with different keys and rotate either without a format change; the
 private halves and their custody are the vendor's concern and live
 outside this repo.
 
-The ``EXTENSION_VENDOR_PUBLIC_KEY`` env override exists for development
-and tests and is honored ONLY when ``ENVIRONMENT=development`` — a
-production deployment cannot be repointed at a foreign signing key
-without forking and rebuilding the image.
-
 Keys are base64 of the raw 32-byte Ed25519 public key; signatures are
 base64 of the raw signature — the same encoding ``ops_auth.py`` uses.
 Signatures always cover the *exact bytes as shipped* (raw
@@ -42,15 +37,13 @@ import base64
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
-from app.config import settings
-
 # The vendor's trusted Ed25519 public keys (base64, raw 32 bytes), keyed by
 # ``key_id``. Public keys only *verify* — they are safe to publish — so the
 # vendor's own keys are baked in here and ship in every release image. An
 # operator shipping their *own* commercial extensions from a fork generates
 # keypairs with ``python scripts/extension-tools/teax.py keygen`` and replaces
-# these. If this map is emptied and no development override is active, every
-# bundle and license is refused — the Extension Store is dormant.
+# these. If this map is emptied, every bundle and license is refused — the
+# Extension Store is dormant.
 DEFAULT_VENDOR_PUBLIC_KEYS: dict[str, str] = {
     # Primary vendor key — signs .teax bundles + manually issued licenses.
     "vendor-1": "y+L5r+Pj6K0oc4mSA3dVWtGhW+PMoRkjCvEJkTryijg=",
@@ -62,16 +55,12 @@ DEFAULT_VENDOR_PUBLIC_KEYS: dict[str, str] = {
 # Key id assumed for signed envelopes that carry no ``key_id`` of their own.
 DEFAULT_VENDOR_KEY_ID = "vendor-1"
 
-# Key id used for the development env override.
-DEV_OVERRIDE_KEY_ID = "dev"
-
 # Which artifact types each baked-in key is permitted to sign. This is what
 # makes the "store-1 never signs bundles" separation real: even though the
 # public key verifies any Ed25519 signature, a bundle signed with ``store-1``
 # is refused because ``store-1`` is not a bundle-signing key. A key id absent
-# from this map (the dev override, or a custom key set a fork/test supplies) is
-# permissive — it may sign any artifact — so only the vendor's own keys carry
-# the tighter grant.
+# from this map (a custom key a fork or test supplies) is permissive — it may
+# sign any artifact — so only the vendor's own keys carry the tighter grant.
 KEY_ROLES: dict[str, frozenset[str]] = {
     "vendor-1": frozenset({"bundle", "license"}),
     "store-1": frozenset({"license"}),
@@ -89,26 +78,22 @@ def _key_allows(key_id: str, artifact: str | None) -> bool:
 def trusted_public_keys() -> dict[str, str]:
     """Return the ``key_id`` → public-key map trusted by this deployment.
 
-    The env override is only honored in development so provenance cannot
-    be bypassed on production images. Returns ``{}`` when no key is
-    configured, which callers must treat as "refuse everything".
+    The trust anchor is the baked-in :data:`DEFAULT_VENDOR_PUBLIC_KEYS`.
+    Returns ``{}`` only if that map is empty, which callers must treat as
+    "refuse everything".
     """
-    if settings.ENVIRONMENT == "development" and settings.EXTENSION_VENDOR_PUBLIC_KEY:
-        return {DEV_OVERRIDE_KEY_ID: settings.EXTENSION_VENDOR_PUBLIC_KEY}
     return dict(DEFAULT_VENDOR_PUBLIC_KEYS)
 
 
 def vendor_public_key() -> str:
     """Backward-compatible single-key accessor.
 
-    Returns the development override or the first baked-in key. Prefer
+    Returns the primary baked-in key (or the first available). Prefer
     :func:`trusted_public_keys` + :func:`verify_with_trusted` in new code.
     """
     keys = trusted_public_keys()
     if not keys:
         return ""
-    if DEV_OVERRIDE_KEY_ID in keys:
-        return keys[DEV_OVERRIDE_KEY_ID]
     return keys.get(DEFAULT_VENDOR_KEY_ID) or next(iter(keys.values()))
 
 

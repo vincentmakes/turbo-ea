@@ -16,7 +16,6 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from app.config import settings
 from app.core import permissions as perm_registry
 from app.services.extensions.license import Entitlement, LicenseDocument
 from app.services.extensions.loader import (
@@ -26,7 +25,7 @@ from app.services.extensions.loader import (
 )
 from app.services.extensions.registry import ExtensionInfo, extension_registry
 from app.services.extensions.sdk import SDK_VERSION, sdk_compatible
-from tests.teax_helpers import build_manifest, build_wheel, make_keypair
+from tests.teax_helpers import build_manifest, build_wheel, make_keypair, trust_test_key
 
 
 def sample_source(key: str, *, sdk_version: str = SDK_VERSION, crash: bool = False) -> str:
@@ -125,8 +124,7 @@ def install_ext_dir(
 @pytest.fixture
 def vendor(monkeypatch):
     private, public_b64 = make_keypair()
-    monkeypatch.setattr(settings, "ENVIRONMENT", "development")
-    monkeypatch.setattr(settings, "EXTENSION_VENDOR_PUBLIC_KEY", public_b64)
+    trust_test_key(monkeypatch, public_b64)
     extension_registry.clear()
     yield private
     extension_registry.clear()

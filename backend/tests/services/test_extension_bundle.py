@@ -6,10 +6,9 @@ import json
 
 import pytest
 
-from app.config import settings
 from app.services.extensions.bundle import BundleError, read_bundle
 from app.services.extensions.installer import extract_bundle_to_dir
-from tests.teax_helpers import build_manifest, build_teax, build_wheel, make_keypair
+from tests.teax_helpers import build_manifest, build_teax, build_wheel, make_keypair, trust_test_key
 
 CORE_VERSION = "1.69.0"
 
@@ -18,10 +17,9 @@ CONTENT = json.dumps({"CardTypes": [{"key": "EsgMetric", "label": "ESG Metric"}]
 
 @pytest.fixture
 def keypair(monkeypatch):
-    """Trusted keypair: dev-mode env override points at the test key."""
+    """Trusted keypair: the test key replaces the baked-in trust map."""
     private, public_b64 = make_keypair()
-    monkeypatch.setattr(settings, "ENVIRONMENT", "development")
-    monkeypatch.setattr(settings, "EXTENSION_VENDOR_PUBLIC_KEY", public_b64)
+    trust_test_key(monkeypatch, public_b64)
     return private
 
 
@@ -49,8 +47,7 @@ class TestReadBundle:
         """A bundle signed by someone else's key never installs."""
         attacker_private, _ = make_keypair()
         _, trusted_public = make_keypair()
-        monkeypatch.setattr(settings, "ENVIRONMENT", "development")
-        monkeypatch.setattr(settings, "EXTENSION_VENDOR_PUBLIC_KEY", trusted_public)
+        trust_test_key(monkeypatch, trusted_public)
         raw = build_teax(attacker_private, files={"content/pack.json": CONTENT})
         with pytest.raises(BundleError, match="signature verification failed"):
             read_bundle(write_bundle(tmp_path, raw), core_version=CORE_VERSION)
@@ -146,10 +143,9 @@ class TestReadBundle:
         with pytest.raises(BundleError, match="entrypoint"):
             read_bundle(write_bundle(tmp_path, raw), core_version=CORE_VERSION)
 
-    def test_no_vendor_key_in_production_rejects_everything(self, tmp_path, monkeypatch):
-        private, public_b64 = make_keypair()
-        monkeypatch.setattr(settings, "ENVIRONMENT", "production")
-        monkeypatch.setattr(settings, "EXTENSION_VENDOR_PUBLIC_KEY", public_b64)
+    def test_empty_vendor_map_rejects_everything(self, tmp_path, monkeypatch):
+        """A build with an empty baked trust map refuses all bundles."""
+        private, _ = make_keypair()
         monkeypatch.setattr("app.core.extension_signing.DEFAULT_VENDOR_PUBLIC_KEYS", {})
         raw = build_teax(private, files={"content/pack.json": CONTENT})
         with pytest.raises(BundleError, match="no extension vendor key"):

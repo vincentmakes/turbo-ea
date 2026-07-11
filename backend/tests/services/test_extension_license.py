@@ -10,7 +10,6 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from app.config import settings
 from app.services.extensions.license import (
     LICENSE_SCHEMA,
     Entitlement,
@@ -100,10 +99,8 @@ class TestParseAndVerify:
             parse_and_verify(make_license(private, PAYLOAD), public_key_b64=other_public)
 
     def test_no_vendor_key_configured_rejected(self, monkeypatch):
-        """Production build without a baked key refuses all licenses."""
-        private, public_b64 = make_keypair()
-        monkeypatch.setattr(settings, "ENVIRONMENT", "production")
-        monkeypatch.setattr(settings, "EXTENSION_VENDOR_PUBLIC_KEY", public_b64)
+        """A build with an empty baked trust map refuses all licenses."""
+        private, _ = make_keypair()
         monkeypatch.setattr("app.core.extension_signing.DEFAULT_VENDOR_PUBLIC_KEYS", {})
         with pytest.raises(LicenseError, match="vendor key"):
             parse_and_verify(make_license(private, PAYLOAD))

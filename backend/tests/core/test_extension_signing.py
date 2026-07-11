@@ -64,36 +64,25 @@ class TestVerifyBytes:
 
 
 class TestVendorPublicKey:
-    def test_development_honors_env_override(self, monkeypatch):
-        _, public_b64 = make_keypair()
-        monkeypatch.setattr(settings, "ENVIRONMENT", "development")
-        monkeypatch.setattr(settings, "EXTENSION_VENDOR_PUBLIC_KEY", public_b64)
-        assert vendor_public_key() == public_b64
-        assert trusted_public_keys() == {"dev": public_b64}
+    """Trust is the baked-in ``DEFAULT_VENDOR_PUBLIC_KEYS`` map."""
 
-    def test_production_ignores_env_override(self, monkeypatch):
-        """Provenance hard requirement: a production image cannot be
-        repointed at a foreign signing key via configuration."""
-        _, public_b64 = make_keypair()
-        monkeypatch.setattr(settings, "ENVIRONMENT", "production")
-        monkeypatch.setattr(settings, "EXTENSION_VENDOR_PUBLIC_KEY", public_b64)
-        assert trusted_public_keys() == extension_signing.DEFAULT_VENDOR_PUBLIC_KEYS
-
-    def test_baked_keys_win_in_production(self, monkeypatch):
+    def test_trust_is_the_baked_map(self, monkeypatch):
         _, baked = make_keypair()
-        _, override = make_keypair()
         monkeypatch.setattr(extension_signing, "DEFAULT_VENDOR_PUBLIC_KEYS", {"vendor-1": baked})
-        monkeypatch.setattr(settings, "ENVIRONMENT", "production")
-        monkeypatch.setattr(settings, "EXTENSION_VENDOR_PUBLIC_KEY", override)
         assert trusted_public_keys() == {"vendor-1": baked}
         assert vendor_public_key() == baked
 
-    def test_development_without_override_uses_baked_keys(self, monkeypatch):
+    def test_environment_does_not_change_trust(self, monkeypatch):
         _, baked = make_keypair()
         monkeypatch.setattr(extension_signing, "DEFAULT_VENDOR_PUBLIC_KEYS", {"vendor-1": baked})
-        monkeypatch.setattr(settings, "ENVIRONMENT", "development")
-        monkeypatch.setattr(settings, "EXTENSION_VENDOR_PUBLIC_KEY", "")
-        assert vendor_public_key() == baked
+        for env in ("development", "production", "staging"):
+            monkeypatch.setattr(settings, "ENVIRONMENT", env)
+            assert trusted_public_keys() == {"vendor-1": baked}
+
+    def test_empty_baked_map_trusts_nothing(self, monkeypatch):
+        monkeypatch.setattr(extension_signing, "DEFAULT_VENDOR_PUBLIC_KEYS", {})
+        assert trusted_public_keys() == {}
+        assert vendor_public_key() == ""
 
 
 class TestVerifyWithTrusted:

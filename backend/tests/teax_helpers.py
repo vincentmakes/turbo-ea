@@ -17,6 +17,19 @@ from typing import Any
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from app.core import extension_signing
+
+
+def trust_test_key(monkeypatch, public_b64: str, *, key_id: str = "test") -> None:
+    """Make ``public_b64`` the sole trusted vendor key for the duration of a test.
+
+    Replaces the baked-in trust map in-process (the same seam a fork edits in
+    source). ``key_id`` defaults to a value with no role restriction (see
+    ``extension_signing.KEY_ROLES``), so a test key can sign either bundles or
+    licenses.
+    """
+    monkeypatch.setattr(extension_signing, "DEFAULT_VENDOR_PUBLIC_KEYS", {key_id: public_b64})
+
 
 def make_keypair() -> tuple[Ed25519PrivateKey, str]:
     private = Ed25519PrivateKey.generate()

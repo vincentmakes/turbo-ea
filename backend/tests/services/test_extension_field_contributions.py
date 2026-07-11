@@ -12,14 +12,13 @@ import json
 
 import pytest
 
-from app.config import settings
 from app.services.extensions.bundle import BundleError, read_bundle
 from app.services.extensions.field_contributions import (
     apply_field_contributions,
     remove_field_contributions,
 )
 from tests.conftest import create_card, create_card_type
-from tests.teax_helpers import build_manifest, build_teax, make_keypair
+from tests.teax_helpers import build_manifest, build_teax, make_keypair, trust_test_key
 
 EXT = "esg-pack"
 
@@ -196,8 +195,7 @@ class TestBundleValidation:
     @pytest.fixture
     def keypair(self, monkeypatch):
         private, public_b64 = make_keypair()
-        monkeypatch.setattr(settings, "ENVIRONMENT", "development")
-        monkeypatch.setattr(settings, "EXTENSION_VENDOR_PUBLIC_KEY", public_b64)
+        trust_test_key(monkeypatch, public_b64)
         return private
 
     def bundle(self, tmp_path, keypair, **extra):

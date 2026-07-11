@@ -17,7 +17,7 @@ from app.models.extension import Extension, ExtensionInstall
 from app.services.extensions import installer as ext_installer
 from app.services.extensions.registry import extension_registry
 from tests.conftest import auth_headers, create_role, create_user
-from tests.teax_helpers import build_teax, make_keypair
+from tests.teax_helpers import build_teax, make_keypair, trust_test_key
 
 EXPIRES = (datetime.now(timezone.utc) + timedelta(days=365)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -57,7 +57,7 @@ def vendor(monkeypatch, tmp_path):
     """Trusted test keypair + tmp dirs for uploads and installed extensions."""
     private, public_b64 = make_keypair()
     monkeypatch.setattr(settings, "ENVIRONMENT", "development")
-    monkeypatch.setattr(settings, "EXTENSION_VENDOR_PUBLIC_KEY", public_b64)
+    trust_test_key(monkeypatch, public_b64)
     monkeypatch.setattr(ext_api, "_UPLOAD_DIR", tmp_path / "uploads")
     monkeypatch.setattr(ext_installer, "EXTENSIONS_DIR", tmp_path / "extensions")
     # Background jobs open their own session outside the test savepoint —

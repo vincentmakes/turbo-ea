@@ -28,9 +28,8 @@ python scripts/extension-tools/teax.py verify-license acme.tealic --pubkey <pub>
 Signatures are verified in core against the public keys baked into
 `backend/app/core/extension_signing.py` (`DEFAULT_VENDOR_PUBLIC_KEYS`,
 keyed by `key_id`). Public keys are safe to keep in the repo — they only
-*verify*, never sign. In `ENVIRONMENT=development` the
-`EXTENSION_VENDOR_PUBLIC_KEY` env var can register a throwaway key (id
-`dev`) for local testing; it is ignored in production.
+*verify*, never sign. Shipping your own commercial extensions means
+forking — replace the keys in `DEFAULT_VENDOR_PUBLIC_KEYS` and rebuild.
 
 ## Authoring extensions & vendor operations
 

@@ -101,13 +101,6 @@ class Settings:
     # leave it empty and the ops API answers 404.
     OPS_PUBLIC_KEY: str = os.getenv("OPS_PUBLIC_KEY", "")
 
-    # Extension Store vendor key override (Ed25519 public key, base64 raw
-    # 32 bytes). Honored ONLY when ENVIRONMENT=development — production
-    # builds trust exclusively the key baked into
-    # app/core/extension_signing.py so extension provenance cannot be
-    # repointed at a foreign signing key via configuration.
-    EXTENSION_VENDOR_PUBLIC_KEY: str = os.getenv("EXTENSION_VENDOR_PUBLIC_KEY", "")
-
     # Base URL of the vendor's extension catalogue (static hosting serving
     # catalog.json + the public .teax bundles). Powers the in-product Store
     # tab: the backend proxies the catalogue and downloads bundles from
