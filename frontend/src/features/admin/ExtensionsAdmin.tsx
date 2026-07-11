@@ -37,7 +37,6 @@ import { ExtensionBoundary, useExtensionUI } from "@/lib/extensionHost";
 
 interface EntitlementInfo {
   state: "active" | "grace" | "expired" | "unlicensed";
-  plan: string;
   expires_at?: string | null;
   grace_until?: string | null;
 }
@@ -59,7 +58,6 @@ interface LicenseInfo {
   grace_days: number;
   entitlements: {
     extension_key: string;
-    plan: string;
     expires_at?: string | null;
   }[];
   uploaded_at?: string | null;

@@ -38,7 +38,6 @@ EntitlementStateWithUnlicensed = Literal["active", "grace", "expired", "unlicens
 @dataclass(frozen=True)
 class EntitlementStatus:
     state: EntitlementStateWithUnlicensed
-    plan: str = ""
     expires_at: datetime | None = None
     grace_until: datetime | None = None
 
@@ -165,7 +164,6 @@ class ExtensionRegistry:
             return EntitlementStatus(state="unlicensed")
         return EntitlementStatus(
             state=entitlement_state(ent, self._license.grace_days, now=now),
-            plan=ent.plan,
             expires_at=ent.expires_at,
             grace_until=grace_until(ent, self._license.grace_days),
         )

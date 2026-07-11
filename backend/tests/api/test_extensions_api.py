@@ -79,9 +79,7 @@ def make_license_text(
         "customer_id": "cus_1",
         "issued_at": "2026-01-01T00:00:00Z",
         "grace_days": 30,
-        "entitlements": [
-            {"extension_key": extension_key, "plan": "enterprise", "expires_at": expires_at}
-        ],
+        "entitlements": [{"extension_key": extension_key, "expires_at": expires_at}],
     }
     if renewal_key:
         payload["renewal_key"] = renewal_key

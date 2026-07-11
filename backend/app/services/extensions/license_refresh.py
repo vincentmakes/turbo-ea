@@ -64,7 +64,6 @@ async def persist_license(
         entitlements=[
             {
                 "extension_key": ent.extension_key,
-                "plan": ent.plan,
                 "expires_at": ent.expires_at.isoformat() if ent.expires_at else None,
             }
             for ent in doc.entitlements

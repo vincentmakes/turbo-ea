@@ -81,7 +81,6 @@ _UPLOAD_DIR = Path("data/extension_installs")
 
 class EntitlementOut(BaseModel):
     state: str  # active | grace | expired | unlicensed
-    plan: str = ""
     expires_at: datetime | None = None
     grace_until: datetime | None = None
 
@@ -157,7 +156,6 @@ def _extension_out(row: Extension) -> ExtensionOut:
         last_error=row.last_error,
         entitlement=EntitlementOut(
             state=ent.state,
-            plan=ent.plan,
             expires_at=ent.expires_at,
             grace_until=ent.grace_until,
         ),

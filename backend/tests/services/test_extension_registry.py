@@ -59,14 +59,12 @@ class TestRegistryEntitlement:
             make_license(
                 Entitlement(
                     extension_key="sample-ext",
-                    plan="enterprise",
                     expires_at=NOW + timedelta(days=90),
                 )
             )
         )
         status = reg.entitlement("sample-ext", now=NOW)
         assert status.state == "active"
-        assert status.plan == "enterprise"
         assert status.usable is True
         assert status.grace_until == NOW + timedelta(days=90) + timedelta(days=30)
 

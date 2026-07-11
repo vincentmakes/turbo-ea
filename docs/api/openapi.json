@@ -4242,11 +4242,6 @@
             ],
             "title": "Grace Until"
           },
-          "plan": {
-            "default": "",
-            "title": "Plan",
-            "type": "string"
-          },
           "state": {
             "title": "State",
             "type": "string"

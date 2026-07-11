@@ -48,6 +48,9 @@ PAYLOAD = {
     "customer_id": "cus_7f3a",
     "issued_at": "2026-07-01T00:00:00Z",
     "grace_days": 30,
+    # `plan` is intentionally left on these entitlements: it is a removed field,
+    # and a legacy signed license may still carry it — the parser must tolerate
+    # (ignore) it, which test_valid_license_parses asserts.
     "entitlements": [
         {
             "extension_key": "capability-benchmarks",
@@ -70,7 +73,10 @@ class TestParseAndVerify:
         assert doc.issued_at == datetime(2026, 7, 1, tzinfo=timezone.utc)
         assert len(doc.entitlements) == 2
         ent = doc.entitlement_for("capability-benchmarks")
-        assert ent is not None and ent.plan == "enterprise"
+        assert ent is not None
+        # `plan` was removed; a legacy license carrying it parses fine but the
+        # field is never surfaced.
+        assert not hasattr(ent, "plan")
         assert ent.expires_at == datetime(2027, 7, 1, tzinfo=timezone.utc)
         # Perpetual entitlement
         assert doc.entitlement_for("sap-sync").expires_at is None

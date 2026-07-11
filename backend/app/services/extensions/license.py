@@ -19,7 +19,6 @@ The payload is decoded and parsed only *after* the signature verifies:
       "grace_days": 30,
       "entitlements": [
         {"extension_key": "capability-benchmarks",
-         "plan": "enterprise",
          "expires_at": "2027-07-01T00:00:00Z"}
       ]
     }
@@ -56,7 +55,6 @@ class LicenseError(Exception):
 @dataclass(frozen=True)
 class Entitlement:
     extension_key: str
-    plan: str = ""
     expires_at: datetime | None = None  # None = perpetual
 
 
@@ -169,10 +167,10 @@ def parse_and_verify(text: str, *, public_key_b64: str | None = None) -> License
         ext_key = raw.get("extension_key")
         if not isinstance(ext_key, str) or not ext_key.strip():
             raise LicenseError(f"Invalid license: entitlement #{idx + 1} is missing extension_key")
+        # Any legacy ``plan`` key in an already-signed license is simply ignored.
         entitlements.append(
             Entitlement(
                 extension_key=ext_key.strip(),
-                plan=str(raw.get("plan") or ""),
                 expires_at=_parse_datetime(
                     raw.get("expires_at"), f"entitlement #{idx + 1} expires_at"
                 ),
