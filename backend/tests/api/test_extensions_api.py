@@ -259,6 +259,44 @@ class TestInstallLifecycle:
         assert listed[0]["key"] == "sample-ext"
         assert listed[0]["entitlement"]["state"] == "active"
 
+    async def test_post_content_failure_leaves_content_governed(
+        self, client, db, vendor, monkeypatch
+    ):
+        """A failure after content commits must not orphan ungoverned metamodel data.
+
+        The extension row is committed before the content pack, so even if a
+        later step (field contributions) blows up, the committed card type is
+        governed by an existing extension row rather than stranded.
+        """
+        admin = await make_admin(db)
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor)},
+            headers=auth_headers(admin),
+        )
+        install = await upload_and_preview(client, db, admin, vendor)
+
+        async def _boom(*args, **kwargs):
+            raise RuntimeError("contribution step failed")
+
+        monkeypatch.setattr(ext_api, "apply_field_contributions", _boom)
+        install_id = install.id
+        await ext_api.run_apply(db, install, admin)
+
+        refreshed = (
+            await db.execute(select(ExtensionInstall).where(ExtensionInstall.id == install_id))
+        ).scalar_one()
+        assert refreshed.status == "failed"
+        # The extension row exists — the committed card type is governed by it.
+        row = (
+            await db.execute(select(Extension).where(Extension.key == "sample-ext"))
+        ).scalar_one_or_none()
+        assert row is not None
+        ct = (
+            await db.execute(select(CardType).where(CardType.key == "EsgMetric"))
+        ).scalar_one_or_none()
+        assert ct is not None
+
     async def test_apply_without_entitlement_is_403(self, client, db, vendor):
         admin = await make_admin(db)
         install = await upload_and_preview(client, db, admin, vendor)

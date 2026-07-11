@@ -126,3 +126,31 @@ class TestVerifyWithTrusted:
     def test_empty_trusted_set_fails_closed(self):
         priv, _ = make_keypair()
         assert not verify_with_trusted(b"p", sign(priv, b"p"), "vendor-1", {})
+
+
+class TestArtifactRoleSeparation:
+    """The license-signing key (store-1) must never validate a bundle."""
+
+    def test_store_key_cannot_sign_bundles(self):
+        store_priv, store_pub = make_keypair()
+        vendor_priv, vendor_pub = make_keypair()
+        trusted = {"vendor-1": vendor_pub, "store-1": store_pub}
+        payload = b"malicious bundle manifest"
+        sig = sign(store_priv, payload)
+        # As a license, the store key is accepted...
+        assert verify_with_trusted(payload, sig, "store-1", trusted, artifact="license")
+        # ...but a bundle signed with it is refused even though the key is trusted.
+        assert not verify_with_trusted(payload, sig, "store-1", trusted, artifact="bundle")
+        # try-all fallback (no key_id) must not sneak the store key past either.
+        assert not verify_with_trusted(payload, sig, None, trusted, artifact="bundle")
+        # The vendor key still signs bundles.
+        vsig = sign(vendor_priv, payload)
+        assert verify_with_trusted(payload, vsig, "vendor-1", trusted, artifact="bundle")
+
+    def test_unknown_key_id_is_permissive(self):
+        """Custom / dev key sets (no role entry) may sign any artifact."""
+        priv, pub = make_keypair()
+        payload = b"payload"
+        sig = sign(priv, payload)
+        assert verify_with_trusted(payload, sig, "test", {"test": pub}, artifact="bundle")
+        assert verify_with_trusted(payload, sig, "test", {"test": pub}, artifact="license")

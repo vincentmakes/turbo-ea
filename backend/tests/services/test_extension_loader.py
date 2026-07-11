@@ -26,7 +26,7 @@ from app.services.extensions.loader import (
 )
 from app.services.extensions.registry import ExtensionInfo, extension_registry
 from app.services.extensions.sdk import SDK_VERSION, sdk_compatible
-from tests.teax_helpers import build_manifest, make_keypair
+from tests.teax_helpers import build_manifest, build_wheel, make_keypair
 
 
 def sample_source(key: str, *, sdk_version: str = SDK_VERSION, crash: bool = False) -> str:
@@ -91,16 +91,22 @@ def install_ext_dir(
     crash: bool = False,
     tamper_after_signing: bool = False,
 ) -> Path:
-    """Write an installed-extension directory the way the installer would."""
+    """Write an installed-extension directory the way the installer would.
+
+    Lays out a real wheel under ``wheels/`` (with its true sha256 in the signed
+    files map); ``lib/`` is left for the loader to (re)extract from that wheel,
+    exactly as the runtime does — so on-disk integrity checks are exercised.
+    """
     pkg = f"turbo_ext_{uuid.uuid4().hex[:10]}"
     module_source = (
         source if source is not None else sample_source(key, sdk_version=sdk_version, crash=crash)
     )
     wheel_rel = f"wheels/{pkg}-1.0.0-py3-none-any.whl"
+    wheel_bytes = build_wheel(pkg, module_source)
     manifest = build_manifest(
         key=key,
         capabilities=["backend"],
-        files={wheel_rel: b"placeholder"},
+        files={wheel_rel: wheel_bytes},
         backend={"entrypoint": f"{pkg}:extension", "wheels": [wheel_rel]},
     )
     manifest_bytes = json.dumps(manifest, indent=2).encode()
@@ -109,10 +115,10 @@ def install_ext_dir(
         manifest_bytes = manifest_bytes.replace(b'"Sample Extension"', b'"Evil Extension"')
 
     ext_dir = root / key
-    (ext_dir / "lib" / pkg).mkdir(parents=True)
+    (ext_dir / "wheels").mkdir(parents=True)
+    (ext_dir / "wheels" / f"{pkg}-1.0.0-py3-none-any.whl").write_bytes(wheel_bytes)
     (ext_dir / "manifest.json").write_bytes(manifest_bytes)
     (ext_dir / "manifest.sig").write_text(signature)
-    (ext_dir / "lib" / pkg / "__init__.py").write_text(module_source)
     return ext_dir
 
 
@@ -153,6 +159,27 @@ class TestLoadExtensions:
         report = load_extensions(tmp_path)
         assert report.loaded == []
         assert "signature re-verification" in report.failed[0].error
+
+    def test_tampered_wheel_on_disk_is_quarantined(self, tmp_path, vendor):
+        """Overwriting signed code on the volume (manifest intact) is detected."""
+        ext_dir = install_ext_dir(tmp_path, vendor)
+        wheel = next((ext_dir / "wheels").glob("*.whl"))
+        wheel.write_bytes(b"evil replacement wheel bytes")
+        report = load_extensions(tmp_path)
+        assert report.loaded == []
+        assert "hash mismatch" in report.failed[0].error
+
+    def test_tampered_lib_is_reextracted_from_verified_wheel(self, tmp_path, vendor):
+        """A tampered extracted lib/ is overwritten by verified wheel bytes at boot."""
+        ext_dir = install_ext_dir(tmp_path, vendor)
+        # First load extracts lib/ from the wheel.
+        assert len(load_extensions(tmp_path).loaded) == 1
+        init = next((ext_dir / "lib").glob("*/__init__.py"))
+        init.write_text("raise RuntimeError('tampered lib should be overwritten')\n")
+        # Second load must heal lib/ from the (still-valid) wheel and load cleanly.
+        report = load_extensions(tmp_path)
+        assert [f.error for f in report.failed] == []
+        assert len(report.loaded) == 1
 
     def test_import_crash_is_isolated(self, tmp_path, vendor):
         install_ext_dir(tmp_path, vendor, key="broken-ext", crash=True)

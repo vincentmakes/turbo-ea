@@ -72,9 +72,15 @@ class TestFormat:
 
 
 class TestBinding:
-    def test_uninitialised_instance_skips_binding(self):
+    def test_uninitialised_instance_skips_binding_in_dev(self):
         assert get_instance_id() is None
         assert license_binding_problem("TEA-0000-0000-0000") is None
+
+    def test_uninitialised_instance_fails_closed_in_production(self, monkeypatch):
+        set_instance_id(None)
+        monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+        # A silent init failure must not fail open into accepting a foreign ID.
+        assert license_binding_problem("TEA-0000-0000-0000") is not None
 
     def test_matching_id_is_fine(self):
         iid = generate_instance_id()

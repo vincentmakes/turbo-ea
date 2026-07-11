@@ -31,6 +31,7 @@ import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { invalidateExtensionCapabilities } from "@/hooks/useExtensionCapabilities";
 import { invalidateCache as invalidateMetamodel } from "@/hooks/useMetamodel";
 import { ExtensionBoundary, useExtensionUI } from "@/lib/extensionHost";
 
@@ -303,6 +304,10 @@ export default function ExtensionsAdmin() {
             autoApplyRef.current = false;
             // Content packs can add card types — refresh the metamodel cache.
             void invalidateMetamodel();
+            // A newly installed extension may grant metamodel authoring
+            // capabilities — drop the capability cache so they appear without
+            // a full page reload.
+            invalidateExtensionCapabilities();
             void loadAll();
           } else if (next.status === "previewed" && autoApplyRef.current) {
             // One-click store install: apply automatically unless the
@@ -361,6 +366,8 @@ export default function ExtensionsAdmin() {
     try {
       await api.put("/admin/extensions/license", { text });
       setLicenseText("");
+      // A new license can activate capability grants — drop the cache.
+      invalidateExtensionCapabilities();
       await loadAll();
       const continueKey = pendingInstallRef.current;
       const continueApplyId = pendingApplyRef.current;
@@ -494,6 +501,7 @@ export default function ExtensionsAdmin() {
   const handleToggle = async (ext: ExtensionInfo) => {
     try {
       await api.put(`/admin/extensions/${ext.key}/enabled`, { enabled: !ext.enabled });
+      invalidateExtensionCapabilities();
       await loadAll();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -504,6 +512,7 @@ export default function ExtensionsAdmin() {
     if (!uninstallKey) return;
     try {
       await api.delete(`/admin/extensions/${uninstallKey}`);
+      invalidateExtensionCapabilities();
       await loadAll();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -516,6 +525,7 @@ export default function ExtensionsAdmin() {
     setRemoveLicenseBusy(true);
     try {
       await api.delete("/admin/extensions/license");
+      invalidateExtensionCapabilities();
       setNotice(
         t(
           "extensions.license.removed",

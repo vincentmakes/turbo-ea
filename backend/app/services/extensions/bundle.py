@@ -60,6 +60,11 @@ _BUILTIN_FIELD_TYPES = frozenset(
 )
 KEY_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{1,63}$")
 
+# Largest single file we will read into memory while hashing (bundle members and
+# on-disk re-verification). Bounds the zip-bomb / tampered-file blast radius; no
+# legitimate extension member approaches this.
+MAX_HASHED_FILE_BYTES = 64 * 1024 * 1024
+
 
 class BundleError(ValueError):
     """Raised when a ``.teax`` bundle is unsigned, tampered, or malformed."""
@@ -93,6 +98,32 @@ def _safe_member_name(name: str) -> bool:
         return False
     parts = PurePosixPath(name).parts
     return bool(parts) and ".." not in parts and not PurePosixPath(name).is_absolute()
+
+
+def verify_files_on_disk(manifest: dict[str, Any], base_dir: Path) -> None:
+    """Re-hash every file in the signed ``files`` map against ``base_dir``.
+
+    The at-rest counterpart to the in-zip check in :func:`_verify_zip`: the
+    manifest signature only pins the *manifest* bytes, and the manifest in
+    turn pins each file's sha256 — so re-hashing the extracted files is what
+    makes tampering with code on the extensions volume detectable at boot.
+    Raises :class:`BundleError` on any missing file, unsafe path, oversized
+    member, or hash mismatch.
+    """
+    files = manifest.get("files")
+    if not isinstance(files, dict):
+        raise BundleError("Bundle manifest is missing the files hash map")
+    for member, expected in files.items():
+        if not isinstance(member, str) or not _safe_member_name(member):
+            raise BundleError(f"Bundle manifest lists an unsafe path: {member}")
+        target = base_dir / member
+        if not target.is_file():
+            raise BundleError(f"Installed extension is missing a signed file: {member}")
+        if target.stat().st_size > MAX_HASHED_FILE_BYTES:
+            raise BundleError(f"Installed extension file is implausibly large: {member}")
+        digest = hashlib.sha256(target.read_bytes()).hexdigest()
+        if digest != expected:
+            raise BundleError(f"Installed extension file hash mismatch (tampered?): {member}")
 
 
 def _validate_manifest(manifest: dict[str, Any], core_version: str) -> None:
@@ -189,6 +220,11 @@ def _validate_metamodel_block(manifest: dict[str, Any], ext_key: str) -> None:
 
 def _verify_zip(zf: zipfile.ZipFile, *, core_version: str) -> dict[str, Any]:
     names = zf.namelist()
+    # Duplicate entry names let a bundle carry two members with the same path;
+    # namelist() reports both while read(name) returns the last, so verify and
+    # extract could otherwise be tricked into disagreeing. Reject outright.
+    if len(names) != len(set(names)):
+        raise BundleError("Bundle contains duplicate entry names")
     if MANIFEST_NAME not in names:
         raise BundleError(f"Bundle is missing {MANIFEST_NAME}")
     if SIGNATURE_NAME not in names:
@@ -200,11 +236,17 @@ def _verify_zip(zf: zipfile.ZipFile, *, core_version: str) -> dict[str, Any]:
             "This build has no extension vendor key configured — bundles cannot be verified"
         )
 
+    # Bound the manifest's decompressed size before reading it — the manifest is
+    # the one member read pre-verification, so cap the deflate-bomb surface.
+    if zf.getinfo(MANIFEST_NAME).file_size > MAX_HASHED_FILE_BYTES:
+        raise BundleError("Bundle manifest is implausibly large")
     manifest_bytes = zf.read(MANIFEST_NAME)
     signature_b64 = zf.read(SIGNATURE_NAME).decode("ascii", errors="replace").strip()
     # key_id lives inside the (not yet trusted) manifest; it is only a key
-    # SELECTOR — a wrong or forged value just makes verification fail.
-    if not verify_with_trusted(manifest_bytes, signature_b64, None, trusted):
+    # SELECTOR — a wrong or forged value just makes verification fail. Only keys
+    # permitted to sign *bundles* are considered, so a license-only key (store-1)
+    # can never validate installable code.
+    if not verify_with_trusted(manifest_bytes, signature_b64, None, trusted, artifact="bundle"):
         raise BundleError(
             "Bundle signature verification failed — this extension was not signed by "
             "a trusted vendor key"

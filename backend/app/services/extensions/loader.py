@@ -36,9 +36,10 @@ from app.services.extensions.bundle import (
     SIGNATURE_NAME,
     BundleError,
     _validate_manifest,
+    verify_files_on_disk,
 )
 from app.services.extensions.gate import require_extension
-from app.services.extensions.installer import EXTENSIONS_DIR
+from app.services.extensions.installer import EXTENSIONS_DIR, extract_wheels_to_lib
 from app.services.extensions.sdk import SDK_VERSION, TurboExtension, sdk_compatible
 
 logger = logging.getLogger(__name__)
@@ -71,7 +72,14 @@ class LoadReport:
 
 
 def _verify_installed_dir(ext_dir: Path) -> dict[str, Any]:
-    """Re-verify an installed extension's manifest signature + compat."""
+    """Re-verify an installed extension's signature, compat, and on-disk files.
+
+    The signature only pins ``manifest.json``; the manifest in turn pins every
+    file's sha256. Re-hashing the extracted files (``verify_files_on_disk``) is
+    what makes tampering with code dropped onto the extensions volume
+    detectable — without it, a manifest-only re-check leaves the actual
+    imported bytes unverified.
+    """
     manifest_path = ext_dir / MANIFEST_NAME
     signature_path = ext_dir / SIGNATURE_NAME
     if not manifest_path.is_file() or not signature_path.is_file():
@@ -79,17 +87,25 @@ def _verify_installed_dir(ext_dir: Path) -> dict[str, Any]:
     manifest_bytes = manifest_path.read_bytes()
     signature_b64 = signature_path.read_text(encoding="ascii", errors="replace").strip()
     trusted = trusted_public_keys()
-    if not trusted or not verify_with_trusted(manifest_bytes, signature_b64, None, trusted):
+    if not trusted or not verify_with_trusted(
+        manifest_bytes, signature_b64, None, trusted, artifact="bundle"
+    ):
         raise BundleError("Installed extension failed signature re-verification — refusing to load")
     manifest = json.loads(manifest_bytes)
     if not isinstance(manifest, dict):
         raise BundleError("Installed extension manifest must be a JSON object")
     _validate_manifest(manifest, APP_VERSION)
+    verify_files_on_disk(manifest, ext_dir)
     return manifest
 
 
 def _resolve_entrypoint(ext_dir: Path, manifest: dict[str, Any]) -> TurboExtension:
+    # ``lib/`` is derived by extracting the (now signature-verified) wheels, so
+    # it is not itself in the signed files map. Re-extract it from the verified
+    # wheels on every boot so the imported bytes always match signed code — a
+    # tampered on-disk lib/ is overwritten rather than trusted.
     lib_dir = ext_dir / "lib"
+    extract_wheels_to_lib(ext_dir, manifest)
     lib_str = str(lib_dir.resolve())
     if lib_dir.is_dir() and lib_str not in sys.path:
         sys.path.insert(0, lib_str)

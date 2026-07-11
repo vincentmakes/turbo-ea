@@ -65,6 +65,26 @@ DEFAULT_VENDOR_KEY_ID = "vendor-1"
 # Key id used for the development env override.
 DEV_OVERRIDE_KEY_ID = "dev"
 
+# Which artifact types each baked-in key is permitted to sign. This is what
+# makes the "store-1 never signs bundles" separation real: even though the
+# public key verifies any Ed25519 signature, a bundle signed with ``store-1``
+# is refused because ``store-1`` is not a bundle-signing key. A key id absent
+# from this map (the dev override, or a custom key set a fork/test supplies) is
+# permissive — it may sign any artifact — so only the vendor's own keys carry
+# the tighter grant.
+KEY_ROLES: dict[str, frozenset[str]] = {
+    "vendor-1": frozenset({"bundle", "license"}),
+    "store-1": frozenset({"license"}),
+}
+
+
+def _key_allows(key_id: str, artifact: str | None) -> bool:
+    """True when ``key_id`` may sign ``artifact`` (or no artifact is required)."""
+    if artifact is None:
+        return True
+    roles = KEY_ROLES.get(key_id)
+    return roles is None or artifact in roles
+
 
 def trusted_public_keys() -> dict[str, str]:
     """Return the ``key_id`` → public-key map trusted by this deployment.
@@ -109,6 +129,8 @@ def verify_with_trusted(
     signature_b64: str,
     key_id: str | None = None,
     trusted: dict[str, str] | None = None,
+    *,
+    artifact: str | None = None,
 ) -> bool:
     """Verify ``payload`` against the trusted key set.
 
@@ -116,12 +138,17 @@ def verify_with_trusted(
     tried first; otherwise every trusted key is tried (the set is tiny —
     at most a handful of keys — and this keeps envelopes signed before a
     key rotation, or without a key_id at all, verifying). Fail closed.
+
+    ``artifact`` (``"bundle"`` / ``"license"``) restricts which keys are
+    even considered to those permitted to sign that artifact type (see
+    :data:`KEY_ROLES`), so a license-only key cannot validate a bundle.
     """
     keys = trusted_public_keys() if trusted is None else trusted
-    if not keys:
+    candidates = {k: v for k, v in keys.items() if _key_allows(k, artifact)}
+    if not candidates:
         return False
     ordered: list[str] = []
-    if key_id and key_id in keys:
-        ordered.append(keys[key_id])
-    ordered.extend(v for k, v in keys.items() if not (key_id and k == key_id))
+    if key_id and key_id in candidates:
+        ordered.append(candidates[key_id])
+    ordered.extend(v for k, v in candidates.items() if not (key_id and k == key_id))
     return any(verify_bytes(payload, signature_b64, key) for key in ordered)

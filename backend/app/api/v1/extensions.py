@@ -391,9 +391,14 @@ async def upload_bundle(
 ) -> ExtensionInstallOut:
     await PermissionService.require_permission(db, user, "admin.manage_extensions")
 
-    raw = await file.read()
+    # Bounded read so a huge upload can't exhaust memory before the signature
+    # gate even runs. Read one byte past the cap to detect overflow; the edge
+    # nginx body limit is a second line of defence, not the only one.
+    raw = await file.read(_STORE_BUNDLE_MAX_BYTES + 1)
     if not raw:
         raise HTTPException(status_code=400, detail="Empty bundle file")
+    if len(raw) > _STORE_BUNDLE_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="Bundle file is too large")
 
     install = await _persist_upload(db, file.filename or "extension.teax", raw, user.id)
     background_tasks.add_task(_verify_and_preview_job, str(install.id), str(user.id))
@@ -936,11 +941,15 @@ async def run_verify_and_preview(db: AsyncSession, install: ExtensionInstall, us
 
 
 async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> None:
-    """Install a verified bundle: apply its content pack, then extract files.
+    """Install a verified bundle: register the extension, then apply its content.
 
-    Content is applied first (straight from the verified zip; the
-    workspace engine commits on success) so a content failure leaves no
-    half-installed extension directory behind.
+    The extension row + files are committed **before** the content pack, so any
+    committed metamodel/card data is always governed by an existing extension
+    row (disable/uninstall can soft-hide it). Applying content first — as an
+    earlier version did — could leave committed card types with no governing row
+    if a later step failed. A content failure now leaves the extension installed
+    with its partial content governed (visible in the admin UI as failed), which
+    the admin can retry (idempotent) or uninstall.
     """
     install_id = install.id  # captured before any rollback expires the instance
     try:
@@ -949,6 +958,11 @@ async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> 
         storage = Path(install.storage_path)
         # Re-verify from disk — the upload could predate a core upgrade.
         bundle = read_bundle(storage)
+
+        # Register the extension (extract files + upsert row) and commit it first
+        # so the row exists to govern anything the content pack commits next.
+        extension = await install_bundle(db, bundle, user.id)
+        await db.commit()
 
         if "content" in bundle.capabilities:
             sheets = load_content_from_zip(storage, bundle.manifest)
@@ -960,9 +974,9 @@ async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> 
                     f"{result.total_failed} content section error(s) — see result"
                 )
                 await db.commit()
+                await extension_registry.refresh_from_db(db)
                 return
 
-        extension = await install_bundle(db, bundle, user.id)
         # Reinstalling after an uninstall/disable must bring the pack's
         # soft-hidden card/relation types back.
         await set_content_visibility(

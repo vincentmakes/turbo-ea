@@ -154,19 +154,21 @@ async def refresh_license_if_due(
         return False
 
     url = store_url.rstrip("/") + "/account/renew"
-    params = {"customer": current.customer_id, "key": current.renewal_key}
-    # Instance-keyed issuance (see the instance-id licensing design): the
-    # store resolves entitlements by instance ID; customer stays for
-    # cross-reference/back-compat.
+    # POST the renewal credential in the body rather than the query string so it
+    # never lands in store/proxy access logs. Instance-keyed issuance (see the
+    # instance-id licensing design): the store resolves entitlements by instance
+    # ID; customer stays for cross-reference/back-compat.
+    body = {"customer": current.customer_id, "key": current.renewal_key}
     instance = get_instance_id()
     if instance:
-        params["instance"] = instance
+        body["instance"] = instance
     try:
         async with httpx.AsyncClient(timeout=_RENEW_TIMEOUT) as client:
-            resp = await client.get(url, params=params)
+            resp = await client.post(url, json=body)
             resp.raise_for_status()
-            text = resp.json().get("license", "")
-    except (httpx.HTTPError, ValueError) as exc:
+            data = resp.json()
+            text = data.get("license", "") if isinstance(data, dict) else ""
+    except (httpx.HTTPError, ValueError, TypeError) as exc:
         logger.debug("License auto-renewal skipped (store unreachable): %s", exc)
         return False
 

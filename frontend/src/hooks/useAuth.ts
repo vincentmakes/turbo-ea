@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { auth, setToken, clearToken, setAuthenticated } from "@/api/client";
 import { primeBootstrap, resetBootstrap } from "@/api/bootstrap";
 import { stopEventStream } from "@/hooks/useEventStream";
+import { invalidateExtensionCapabilities } from "@/hooks/useExtensionCapabilities";
+import { resetExtensionHost } from "@/lib/extensionHost";
 import i18n from "@/i18n";
 import type { User } from "@/types";
 
@@ -95,6 +97,12 @@ export function useAuth() {
     stopEventStream();
     stopRefreshTimer();
     resetBootstrap();
+    // Clear per-user extension state so the next login in the same tab
+    // re-fetches its own entitlement-filtered bundles + capabilities rather
+    // than inheriting the previous user's (loadUiExtensions guards on a
+    // module-level _loadStarted flag that resetExtensionHost clears).
+    resetExtensionHost();
+    invalidateExtensionCapabilities();
     setUser(null);
   };
 

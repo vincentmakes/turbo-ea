@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Admin → Extensions** gains a page title and icon, an intro covering both install models (one-click Store and offline file upload), and a note that extensions are built and signed by Turbo EA (not self-built or third-party) with a link to consulting for a tailored build. Documented in the admin guide across all languages.
 - **Extensions can extend Architecture Decision Records.** Two new UI extension points (UI SDK 1.3) let a licensed extension render its own panel on the ADR editor and preview pages — e.g. a value-savings form — and contribute extra sections to the ADR DOCX export so that data appears in the exported document. ADRs now also carry an `ext.*` attributes bag that extensions write to; it is frozen automatically once the decision is signed and carried into revisions and duplicates, so figures approved by the signatories stay accurate.
 
+### Security
+- Installed extensions are now verified byte-for-byte at every startup, not just by their manifest signature: each file is re-hashed against the signed manifest and backend code is re-derived from the verified wheels, so tampering with extension code on the data volume is detected and quarantined instead of loaded.
+- The extension license-signing key can no longer be used to sign installable bundles — signing keys are now bound to their artifact type, so a compromised license key cannot forge extension code.
+- Automatic license renewal now sends its credential in the request body rather than the URL (keeping it out of server logs), and an uninitialised instance identity no longer fails open when checking whether a license is bound to this instance.
+
+### Fixed
+- Removing an extension-contributed field from a card type in the metamodel editor no longer deletes the stored values on existing cards — the data is preserved so re-enabling the extension restores it, matching the disable/uninstall behaviour.
+- A failure part-way through installing a content-pack extension can no longer leave card types or cards behind with no governing extension row; the extension is registered before its content is applied.
+- Logging out now clears loaded extensions and their capability grants, so a second user signing in on the same browser tab no longer briefly sees the previous user's extension pages and controls.
+- Newly installing, enabling, or licensing an extension now reflects its capability grants immediately instead of requiring a page reload.
+- Uploading an extension bundle enforces a size limit and rejects bundles with duplicate internal entries.
+
 ## [2.1.0] - 2026-07-09
 
 ### Added

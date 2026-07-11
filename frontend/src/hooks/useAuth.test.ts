@@ -22,6 +22,7 @@ vi.mock("@/api/client", () => ({
 }));
 
 import { auth, setToken, clearToken, setAuthenticated } from "@/api/client";
+import { registerExtension, getRegisteredExtensions } from "@/lib/extensionHost";
 import { useAuth } from "./useAuth";
 
 beforeEach(() => {
@@ -102,6 +103,10 @@ describe("useAuth", () => {
       expect(result.current.user).not.toBeNull();
     });
 
+    // Simulate the previous user's extension having registered a plugin.
+    registerExtension("prev-user-ext", { key: "prev-user-ext", sdkVersion: "1.3" });
+    expect(getRegisteredExtensions()).toHaveLength(1);
+
     await act(async () => {
       await result.current.logout();
     });
@@ -109,6 +114,8 @@ describe("useAuth", () => {
     expect(auth.logout).toHaveBeenCalled();
     expect(clearToken).toHaveBeenCalled();
     expect(result.current.user).toBeNull();
+    // The extension host is reset so the next login re-loads its own bundles.
+    expect(getRegisteredExtensions()).toHaveLength(0);
   });
 
   it("clears auth state when loadUser fails", async () => {

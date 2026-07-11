@@ -72,6 +72,27 @@ def _extract_wheel(wheel_path: Path, lib_dir: Path) -> None:
             target.write_bytes(zf.read(member))
 
 
+def extract_wheels_to_lib(ext_dir: Path, manifest: dict) -> None:
+    """(Re)build ``ext_dir/lib`` from the manifest's wheels, verified bytes only.
+
+    Idempotent: the existing ``lib/`` is discarded first so a tampered or stale
+    lib can never survive. Called at install time and again at every boot (from
+    the loader) so the imported code is always derived from signature-verified
+    wheels rather than whatever happens to be on the volume.
+    """
+    wheels = (manifest.get("backend") or {}).get("wheels", [])
+    if not wheels:
+        return
+    lib_dir = ext_dir / "lib"
+    if lib_dir.exists():
+        shutil.rmtree(lib_dir)
+    for rel in wheels:
+        wheel_path = ext_dir / str(rel)
+        if not wheel_path.is_file():
+            raise BundleError(f"Bundle manifest lists a missing wheel: {rel}")
+        _extract_wheel(wheel_path, lib_dir)
+
+
 def extract_bundle_to_dir(bundle: VerifiedBundle, target_dir: Path) -> None:
     """Extract a verified bundle's members (and wheels) into ``target_dir``."""
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -85,12 +106,7 @@ def extract_bundle_to_dir(bundle: VerifiedBundle, target_dir: Path) -> None:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(zf.read(member))
 
-    lib_dir = target_dir / "lib"
-    for rel in (bundle.manifest.get("backend") or {}).get("wheels", []):
-        wheel_path = target_dir / str(rel)
-        if not wheel_path.is_file():
-            raise BundleError(f"Bundle manifest lists a missing wheel: {rel}")
-        _extract_wheel(wheel_path, lib_dir)
+    extract_wheels_to_lib(target_dir, bundle.manifest)
 
 
 async def install_bundle(

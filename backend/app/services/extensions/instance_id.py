@@ -126,7 +126,12 @@ def license_binding_problem(license_instance_id: str) -> str | None:
     """
     ours = get_instance_id()
     if ours is None:
-        return None
+        # Our ID isn't initialised. In tests (no DB) binding cannot be evaluated
+        # and is skipped; in production a silent init failure must NOT fail open
+        # into accepting a foreign-bound license.
+        if settings.ENVIRONMENT == "development":
+            return None
+        return "Instance identity is not initialised — license binding cannot be verified."
     if not license_instance_id:
         if settings.ENVIRONMENT == "development":
             return None

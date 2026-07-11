@@ -12,7 +12,13 @@ from __future__ import annotations
 import pytest
 
 from app.services.extensions.registry import extension_registry
-from tests.conftest import auth_headers, create_card_type, create_role, create_user
+from tests.conftest import (
+    auth_headers,
+    create_card,
+    create_card_type,
+    create_role,
+    create_user,
+)
 
 BOTH_GRANTS = {"metamodel.field_help", "metamodel.custom_field_types"}
 
@@ -129,3 +135,37 @@ class TestGrandfathering:
         assert resp.status_code == 200
         f = _field(resp.json())
         assert f["help"] == "Rate 1 to 5."
+
+
+class TestContributedFieldRemovalPreservesData:
+    async def test_removing_ext_field_keeps_card_values(self, client, db, admin):
+        """Dropping an extension-owned field must not hard-delete card data."""
+        ext_schema = [
+            {
+                "section": "ESG Metrics",
+                "ext": "esg-pack",
+                "fields": [
+                    {
+                        "key": "esgRating",
+                        "label": "ESG Rating",
+                        "type": "number",
+                        "ext": "esg-pack",
+                    }
+                ],
+            }
+        ]
+        await create_card_type(db, key="Gadget", label="Gadget", fields_schema=ext_schema)
+        card = await create_card(db, card_type="Gadget", name="G1", attributes={"esgRating": 4})
+        await db.commit()
+
+        # Admin edits the type and drops the contributed field entirely.
+        resp = await client.patch(
+            "/api/v1/metamodel/types/Gadget",
+            headers=auth_headers(admin),
+            json={"fields_schema": [{"section": "ESG Metrics", "fields": []}]},
+        )
+        assert resp.status_code == 200
+
+        await db.refresh(card)
+        # The stored value survives so re-enabling the extension restores it.
+        assert card.attributes.get("esgRating") == 4

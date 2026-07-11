@@ -305,9 +305,22 @@ async def _cleanup_removed_fields_and_options(
         for f in section.get("fields", []):
             new_fields[f["key"]] = f
 
-    # 1) Removed fields — delete the key from attributes JSONB
+    # 1) Removed fields — delete the key from attributes JSONB.
+    #    Extension-contributed fields (stamped ``ext``) are exempt: an
+    #    extension's disable/uninstall path removes them from the schema *while
+    #    preserving the stored values* (see field_contributions.remove_field_
+    #    contributions), and a manual metamodel edit that drops the field must
+    #    honour the same contract rather than hard-deleting the data.
     removed_field_keys = set(old_fields.keys()) - set(new_fields.keys())
     for fk in removed_field_keys:
+        if old_fields[fk].get("ext"):
+            logger.info(
+                "Skipping data cleanup for extension-owned field '%s' on type '%s' "
+                "(values preserved for re-enable)",
+                fk,
+                type_key,
+            )
+            continue
         result = await db.execute(
             text(
                 "UPDATE cards SET attributes = attributes - :field_key "

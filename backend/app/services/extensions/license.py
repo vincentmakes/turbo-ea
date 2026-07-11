@@ -135,7 +135,7 @@ def parse_and_verify(text: str, *, public_key_b64: str | None = None) -> License
         raise LicenseError("Invalid license: payload is not valid base64") from exc
 
     key_id = str(envelope.get("key_id") or "") or None
-    if not verify_with_trusted(payload_bytes, signature_b64, key_id, trusted):
+    if not verify_with_trusted(payload_bytes, signature_b64, key_id, trusted, artifact="license"):
         raise LicenseError("Invalid license: signature verification failed")
 
     # Signature is good — only now do we trust the payload enough to parse it.
