@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Accordion from "@mui/material/Accordion";
@@ -52,6 +52,7 @@ function AttributeSection({
     card.attributes || {}
   );
   const [saveError, setSaveError] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setAttrs(card.attributes || {});
   }, [card.attributes]);
@@ -93,7 +94,20 @@ function AttributeSection({
     setSaveError(null);
     try {
       await onSave({ attributes: attrs });
+      // Collapsing the (tall) edit view to the compact read view — and the
+      // parent shrinking the page after setCard — would otherwise dump the user
+      // at the new page bottom. Capture this section's viewport offset, then
+      // after the reflow scroll by the delta so the section stays put. Generic:
+      // applies to every attribute section, and only nudges on save (never hooks
+      // scroll events) so it doesn't fight the scroll-to-top FAB.
+      const before = rootRef.current?.getBoundingClientRect().top ?? null;
       setEditing(false);
+      if (before != null) {
+        requestAnimationFrame(() => {
+          const after = rootRef.current?.getBoundingClientRect().top;
+          if (after != null) window.scrollBy(0, after - before);
+        });
+      }
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : String(err);
       setSaveError(msg);
@@ -215,7 +229,7 @@ function AttributeSection({
           return (
             <Box key={`group-${item.name}`} sx={{ mb: 1.5 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "text.secondary", borderBottom: 1, borderColor: "divider", pb: 0.5, mb: 1, mt: i > 0 ? 1 : 0 }}>
-                {item.name}
+                {rl(item.name, section.groupTranslations?.[item.name])}
               </Typography>
               {isEdit ? renderEditFields(item.fields) : renderReadGrid(item.fields)}
             </Box>
@@ -279,7 +293,7 @@ function AttributeSection({
   );
 
   return (
-    <Accordion defaultExpanded={expanded} disableGutters>
+    <Accordion ref={rootRef} defaultExpanded={expanded} disableGutters>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="tune" size={20} />

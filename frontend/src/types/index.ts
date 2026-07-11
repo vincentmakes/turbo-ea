@@ -206,6 +206,10 @@ export interface SectionDef {
   columns?: 1 | 2;
   groups?: string[];
   translations?: TranslationMap;
+  // Localized labels for subsection (group) headers, keyed by the raw group
+  // name → { locale → label }. Display-only and ungated; any metamodel section
+  // (core or extension) may supply it so group headers aren't English-only.
+  groupTranslations?: Record<string, TranslationMap>;
 }
 
 export interface StakeholderRoleDefinition {

@@ -203,6 +203,8 @@ async def apply_field_contributions(
             target["columns"] = contrib["columns"]
         if "translations" in contrib:
             target["translations"] = contrib["translations"]
+        if "groupTranslations" in contrib:
+            target["groupTranslations"] = contrib["groupTranslations"]
         # Replace our fields; keep admin-added (unstamped) fields in place.
         kept = [
             f for f in target.get("fields", []) if isinstance(f, dict) and f.get("ext") != ext_key

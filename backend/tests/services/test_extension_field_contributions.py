@@ -100,6 +100,16 @@ class TestApply:
             "type": "text",
         }
 
+    async def test_apply_copies_group_translations_onto_section(self, db):
+        ct = await create_card_type(db, key="Application", label="Application")
+        contrib = contribution(
+            fields=[{"key": "d1", "label": "D1", "type": "text", "group": "Dimension One"}]
+        )
+        contrib["groupTranslations"] = {"Dimension One": {"de": "Dimension Eins"}}
+        await apply_field_contributions(db, EXT, manifest_with([contrib]))
+        sec = section_named(ct, "ESG Metrics")
+        assert sec["groupTranslations"] == {"Dimension One": {"de": "Dimension Eins"}}
+
     async def test_apply_is_idempotent(self, db):
         ct = await create_card_type(db, key="Application", label="Application")
         m = manifest_with([contribution()])
