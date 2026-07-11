@@ -483,7 +483,7 @@ def cmd_verify_license(args) -> int:
     print(f"OK: licensed to {payload.get('licensee')} (grace {payload.get('grace_days', 30)}d)")
     for ent in payload.get("entitlements", []):
         expires = ent.get("expires_at") or "perpetual"
-        print(f"  - {ent.get('extension_key')} [{ent.get('plan', '')}] until {expires}")
+        print(f"  - {ent.get('extension_key')} until {expires}")
     return 0
 
 
