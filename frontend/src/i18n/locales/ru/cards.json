@@ -78,6 +78,7 @@
   "lifecycle.title": "Жизненный цикл",
   "attributes.calculated": "вычисляемое",
   "attributes.auto": "авто",
+  "attributes.filterAll": "Все",
   "hierarchy.title": "Иерархия",
   "hierarchy.level": "Уровень {{level}}",
   "hierarchy.path": "Путь",

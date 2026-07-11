@@ -78,6 +78,7 @@
   "lifecycle.title": "生命周期",
   "attributes.calculated": "计算值",
   "attributes.auto": "自动",
+  "attributes.filterAll": "全部",
   "hierarchy.title": "层级",
   "hierarchy.level": "第 {{level}} 级",
   "hierarchy.path": "路径",

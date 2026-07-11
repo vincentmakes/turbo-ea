@@ -14,6 +14,7 @@ import pytest
 
 from app.services.extensions.bundle import BundleError, read_bundle
 from app.services.extensions.field_contributions import (
+    _sanitize_field,
     apply_field_contributions,
     remove_field_contributions,
 )
@@ -50,6 +51,27 @@ def contribution(card_type="Application", section="ESG Metrics", fields=None):
 
 def section_named(ct, name):
     return next((s for s in (ct.fields_schema or []) if s.get("section") == name), None)
+
+
+class TestSanitizeField:
+    def test_badge_props_survive_and_are_stamped(self):
+        out = _sanitize_field(
+            EXT,
+            {
+                "key": "quickField",
+                "label": "Quick Field",
+                "type": "single_select",
+                "badge": "Quick",
+                "badgeTranslations": {"de": "Schnell", "fr": "Rapide"},
+            },
+        )
+        assert out["badge"] == "Quick"
+        assert out["badgeTranslations"] == {"de": "Schnell", "fr": "Rapide"}
+        assert out["ext"] == EXT
+
+    def test_unknown_props_are_dropped(self):
+        out = _sanitize_field(EXT, {"key": "f", "label": "F", "type": "text", "evil": "x"})
+        assert "evil" not in out
 
 
 class TestApply:

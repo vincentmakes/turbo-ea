@@ -6,6 +6,8 @@ import AccordionSummary from "@mui/material/AccordionSummary";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import IconButton from "@mui/material/IconButton";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import VendorField from "@/components/VendorField";
@@ -59,6 +61,21 @@ function AttributeSection({
     ? section.fields.filter((f) => !hiddenFieldKeys.has(f.key))
     : section.fields;
 
+  // Per-section badge filter (client-side only; not persisted). Distinct badges
+  // among the visible fields drive a compact [All] + badge toggle row; picking a
+  // badge narrows what renders. `null` = All. The filter value is the raw
+  // `badge` string (stable across locales); the button shows the localized label.
+  const [badgeFilter, setBadgeFilter] = useState<string | null>(null);
+  const badgeOptions = visibleFields.reduce<{ value: string; label: string }[]>((acc, f) => {
+    if (f.badge && !acc.some((b) => b.value === f.badge)) {
+      acc.push({ value: f.badge, label: rl(f.badge, f.badgeTranslations) });
+    }
+    return acc;
+  }, []);
+  const filteredFields = badgeFilter
+    ? visibleFields.filter((f) => f.badge === badgeFilter)
+    : visibleFields;
+
   // Compute URL validation errors for all url-type fields in this section
   const urlErrors: Record<string, string> = {};
   for (const f of visibleFields) {
@@ -104,14 +121,14 @@ function AttributeSection({
   const buildColumnItems = (colNum: 0 | 1): ColumnItem[] => {
     const items: ColumnItem[] = [];
     const seenGroups = new Set<string>();
-    for (const field of visibleFields) {
+    for (const field of filteredFields) {
       const fieldCol = is2Col ? (field.column ?? 0) : 0;
       if (fieldCol !== colNum) continue;
       if (field.group) {
         if (seenGroups.has(field.group)) continue;
         seenGroups.add(field.group);
         // Collect all fields in this group that belong to this column
-        const gFields = visibleFields.filter((f) => f.group === field.group && (is2Col ? (f.column ?? 0) : 0) === colNum);
+        const gFields = filteredFields.filter((f) => f.group === field.group && (is2Col ? (f.column ?? 0) : 0) === colNum);
         items.push({ kind: "group", name: field.group, fields: gFields });
       } else {
         items.push({ kind: "field", field });
@@ -137,6 +154,9 @@ function AttributeSection({
             ) : field.readonly ? (
               <Chip component="span" size="small" label={t("attributes.auto")} sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
             ) : null}
+            {field.badge ? (
+              <Chip component="span" size="small" color="primary" variant="outlined" label={rl(field.badge, field.badgeTranslations)} sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
+            ) : null}
           </Typography>
           <FieldValue field={field} value={(card.attributes || {})[field.key]} currencyFmt={fmt} canViewCosts={canViewCosts} />
         </Box>
@@ -153,6 +173,9 @@ function AttributeSection({
             <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>{fieldLabel(field)}</Typography>
             <FieldValue field={field} value={attrs[field.key]} currencyFmt={fmt} canViewCosts={canViewCosts} />
             <Chip size="small" label={calculatedFieldKeys.includes(field.key) ? t("attributes.calculated") : t("attributes.auto")} sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
+            {field.badge ? (
+              <Chip size="small" color="primary" variant="outlined" label={rl(field.badge, field.badgeTranslations)} sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
+            ) : null}
           </Box>
         ) : isVendorField(field) ? (
           <VendorField
@@ -164,15 +187,21 @@ function AttributeSection({
             onRelationChange={onRelationChange}
           />
         ) : (
-          <FieldEditor
-            key={field.key}
-            field={field}
-            value={attrs[field.key]}
-            onChange={(v) => setAttr(field.key, v)}
-            currencySymbol={symbol}
-            error={urlErrors[field.key]}
-            canViewCosts={canViewCosts}
-          />
+          <Box key={field.key} sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+            {field.badge ? (
+              <Box>
+                <Chip size="small" color="primary" variant="outlined" label={rl(field.badge, field.badgeTranslations)} sx={{ height: 18, fontSize: "0.6rem" }} />
+              </Box>
+            ) : null}
+            <FieldEditor
+              field={field}
+              value={attrs[field.key]}
+              onChange={(v) => setAttr(field.key, v)}
+              currencySymbol={symbol}
+              error={urlErrors[field.key]}
+              canViewCosts={canViewCosts}
+            />
+          </Box>
         )
       )}
     </Box>
@@ -201,18 +230,53 @@ function AttributeSection({
     </>
   );
 
-  // Render the full section body with column layout
-  const renderSectionBody = (isEdit: boolean) => {
-    if (!is2Col) return renderColumnItems(col0Items, isEdit);
-    return (
-      <Box sx={{ display: "flex", gap: 3, flexDirection: "column", "@container (min-width: 780px)": { flexDirection: "row" } }}>
-        <Box sx={{ flex: 1 }}>{renderColumnItems(col0Items, isEdit)}</Box>
-        {col1Items.length > 0 && (
-          <Box sx={{ flex: 1 }}>{renderColumnItems(col1Items, isEdit)}</Box>
-        )}
-      </Box>
+  // Compact [All] + badge filter row (only when the section has badged fields)
+  const renderBadgeFilter = () =>
+    badgeOptions.length === 0 ? null : (
+      <ToggleButtonGroup
+        size="small"
+        exclusive
+        value={badgeFilter ?? "__all__"}
+        onChange={(_e, val) => setBadgeFilter(val && val !== "__all__" ? val : null)}
+        sx={{
+          flexWrap: "wrap",
+          gap: 0.5,
+          mb: 2,
+          "& .MuiToggleButton-root": {
+            textTransform: "none",
+            py: 0.25,
+            px: 1.25,
+            fontSize: "0.7rem",
+            lineHeight: 1.4,
+            border: 1,
+            borderColor: "divider",
+            borderRadius: "16px !important",
+          },
+        }}
+      >
+        <ToggleButton value="__all__">{t("attributes.filterAll")}</ToggleButton>
+        {badgeOptions.map((b) => (
+          <ToggleButton key={b.value} value={b.value}>{b.label}</ToggleButton>
+        ))}
+      </ToggleButtonGroup>
     );
-  };
+
+  // Render the full section body with column layout
+  const renderSectionBody = (isEdit: boolean) => (
+    <>
+      {renderBadgeFilter()}
+      {!is2Col ? (
+        renderColumnItems(col0Items, isEdit)
+      ) : (
+        <Box sx={{ display: "flex", gap: 3, flexDirection: "column", "@container (min-width: 780px)": { flexDirection: "row" } }}>
+          <Box sx={{ flex: 1 }}>{renderColumnItems(col0Items, isEdit)}</Box>
+          {col1Items.length > 0 && (
+            <Box sx={{ flex: 1 }}>{renderColumnItems(col1Items, isEdit)}</Box>
+          )}
+        </Box>
+      )}
+    </>
+  );
 
   return (
     <Accordion defaultExpanded={expanded} disableGutters>

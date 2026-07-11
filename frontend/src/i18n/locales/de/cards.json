@@ -78,6 +78,7 @@
   "lifecycle.title": "Lebenszyklus",
   "attributes.calculated": "berechnet",
   "attributes.auto": "auto",
+  "attributes.filterAll": "Alle",
   "hierarchy.title": "Hierarchie",
   "hierarchy.level": "Ebene {{level}}",
   "hierarchy.path": "Pfad",

@@ -78,6 +78,7 @@
   "lifecycle.title": "دورة الحياة",
   "attributes.calculated": "محسوب",
   "attributes.auto": "تلقائي",
+  "attributes.filterAll": "الكل",
   "hierarchy.title": "التسلسل الهرمي",
   "hierarchy.level": "المستوى {{level}}",
   "hierarchy.path": "المسار",

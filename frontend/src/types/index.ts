@@ -173,6 +173,13 @@ export interface FieldDef {
   // locale → localized help.
   help?: string;
   helpTranslations?: TranslationMap;
+  // Optional visual "badge" chip shown next to the field label, and the basis
+  // for a per-section badge filter on the card. Purely a display/UX affordance
+  // — ungated, so any metamodel field (core or extension) may set it. `badge`
+  // is the base (English) string; `badgeTranslations` maps locale → localized
+  // badge.
+  badge?: string;
+  badgeTranslations?: TranslationMap;
   // Free-form per-field configuration for extension-contributed field types
   // (e.g. a rating field's `{ min, max }`). Ignored by built-in types.
   config?: Record<string, unknown>;

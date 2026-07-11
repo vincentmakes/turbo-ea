@@ -78,6 +78,7 @@
   "lifecycle.title": "Cycle de vie",
   "attributes.calculated": "calculé",
   "attributes.auto": "auto",
+  "attributes.filterAll": "Tous",
   "hierarchy.title": "Hiérarchie",
   "hierarchy.level": "Niveau {{level}}",
   "hierarchy.path": "Chemin",

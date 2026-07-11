@@ -78,6 +78,8 @@ _ALLOWED_FIELD_PROPS = (
     "translations",
     "help",
     "helpTranslations",
+    "badge",
+    "badgeTranslations",
 )
 
 
