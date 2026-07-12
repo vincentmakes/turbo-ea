@@ -513,15 +513,22 @@ async def validate_formula(formula: str, target_type_key: str, db: AsyncSession)
             for field in section.get("fields", []):
                 key = field["key"]
                 ftype = field.get("type", "text")
-                if ftype in ("number", "cost"):
-                    dummy_data[key] = 0
-                elif ftype == "boolean":
+                if ftype == "boolean":
                     dummy_data[key] = False
                 elif ftype in ("single_select", "multiple_select"):
                     opts = field.get("options", [])
                     dummy_data[key] = opts[0]["key"] if opts else None
                 else:
-                    dummy_data[key] = ""
+                    # Everything else — number/cost, text-ish, ext.* custom
+                    # types, unknowns — is seeded as a NON-ZERO number. The old
+                    # 0/"" seeds failed legitimate formulas: `3 * data.rating`
+                    # over an ext.* field hit 3 * "" → "" and blew up on the
+                    # next arithmetic op, and a ratio over numeric fields hit
+                    # 0/(0*0) → ZeroDivisionError. A dummy of 1 exercises the
+                    # same code paths with realistic input; the string builtins
+                    # (LOWER/UPPER/CONTAINS) are isinstance-guarded, so a
+                    # numeric dummy never crashes a string formula.
+                    dummy_data[key] = 1
 
         context = {
             "data": dummy_data,
