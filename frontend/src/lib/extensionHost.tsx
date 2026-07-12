@@ -27,7 +27,11 @@
  * `sdk.ReportShell` (frame + save/export/print), `sdk.FilterSelect`
  * (multi-select filter dropdown), and `sdk.CardDetailSidePanel` (card drawer)
  * — ReportShell/CardDetailSidePanel lazy-loaded with Suspense handled
- * internally. Every
+ * internally. Since SDK 1.8 the sdk also carries `useCurrency` (workspace
+ * currency formatting), `MetricCard` (KPI tile), `ReportLegend`,
+ * `UserMultiSelect` (shared multi-user picker over GET /users), and
+ * `loadRecharts` — an async loader returning the recharts module from core's
+ * code-split chunk, so extensions never bundle a charting library. Every
  * extension-provided component must be rendered inside <ExtensionBoundary> —
  * a crashing extension shows a fallback chip, never a white screen. A field
  * type whose extension is missing, disabled, or unlicensed simply is not in
@@ -44,13 +48,17 @@ import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
 import FilterSelect from "@/components/FilterSelect";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import UserMultiSelect from "@/components/UserMultiSelect";
+import MetricCard from "@/features/reports/MetricCard";
+import ReportLegend from "@/features/reports/ReportLegend";
 import SaveReportDialog from "@/features/reports/SaveReportDialog";
 import type { ReportShellProps } from "@/features/reports/ReportShell";
+import { useCurrency } from "@/hooks/useCurrency";
 import { useSavedReport as useCoreSavedReport } from "@/hooks/useSavedReport";
 import * as tokens from "@/theme/tokens";
 import type { Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.7";
+export const UI_SDK_VERSION = "1.8";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -566,6 +574,16 @@ export function initExtensionHost(): void {
       ReportShell: ExtensionReportShell,
       FilterSelect,
       CardDetailSidePanel: ExtensionCardDetailSidePanel,
+      // SDK 1.8 — dashboard-building additions: currency formatting, KPI tile,
+      // legend, the shared multi-user picker, and a lazy Recharts loader so
+      // extension charts reuse core's code-split chunk instead of bundling
+      // their own copy (a static import here would drag Recharts into the
+      // eager main bundle — same caveat as ReportShell above).
+      useCurrency,
+      MetricCard,
+      ReportLegend,
+      UserMultiSelect,
+      loadRecharts: () => import("recharts"),
     },
     register: registerExtension,
   };
