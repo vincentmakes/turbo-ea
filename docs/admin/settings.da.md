@@ -22,6 +22,10 @@ Resten af denne side dækker fanebladet **Generelt**.
 
 Upload et brugerdefineret logo, der vises i den øverste navigationslinje. Understøttede formater: PNG, JPEG, SVG, WebP, GIF. Klik på **Nulstil** for at vende tilbage til standard-Turbo EA-logoet.
 
+### Navigationslinjens stil
+
+Vælg baggrunds- og tekstfarve for den øverste navigationslinje. Den valgte stil gælder for **alle brugere** af instansen, på både desktop og mobil (inklusive den mobile sidemenu). Vælg en af de syv kuraterede forudindstillinger — Marineblå (standard), Lys, Koksgrå, Skifer, Blå, Skovgrøn eller Blomme — eller vælg **Brugerdefineret** for frit at angive baggrunds- og tekstfarve med farvevælgerne. En live-forhåndsvisning viser, hvordan navigationslinjen vil se ud, før du gemmer, og en advarsel vises, når kontrasten mellem tekst og baggrund er for lav (under WCAG AA). Klik på **Nulstil til standard** for at vende tilbage til standardstilen.
+
 ### Favicon
 
 Upload et brugerdefineret browserikon (favicon). Ændringen træder i kraft ved næste sideindlæsning. Klik på **Nulstil** for at vende tilbage til standardikonet.

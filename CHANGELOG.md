@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.4.0] - 2026-07-12
+
+### Added
+- **Admin → Settings: navigation bar colors.** Administrators can now style the top navigation bar for the whole instance — pick one of seven curated presets or set fully custom background and text colors with a live preview and an automatic low-contrast warning. The chosen style applies to every user, on desktop and mobile (including the mobile drawer menu).
+
 ## [2.3.1] - 2026-07-12
 
 ### Security

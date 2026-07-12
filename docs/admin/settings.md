@@ -22,6 +22,10 @@ The rest of this page covers the **General** tab.
 
 Upload a custom logo that appears in the top navigation bar. Supported formats: PNG, JPEG, SVG, WebP, GIF. Click **Reset** to revert to the default Turbo EA logo.
 
+### Navigation bar style
+
+Choose the background and text colors of the top navigation bar. The chosen style applies to **every user** of the instance, on desktop and mobile (including the mobile drawer menu). Pick one of the seven curated presets — Navy (default), Light, Charcoal, Slate, Blue, Forest, or Plum — or select **Custom** to set fully custom background and text colors with the color pickers. A live preview shows how the navigation bar will look before you save, and a warning appears when the contrast between text and background is too low to read comfortably (below WCAG AA). Click **Reset to default** to return to the navy default.
+
 ### Favicon
 
 Upload a custom browser icon (favicon). The change takes effect on the next page load. Click **Reset** to revert to the default icon.

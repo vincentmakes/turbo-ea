@@ -22,6 +22,10 @@ El resto de esta página cubre la pestaña **General**.
 
 Cargue un logotipo personalizado que aparecerá en la barra de navegación superior. Formatos compatibles: PNG, JPEG, SVG, WebP, GIF. Haga clic en **Restablecer** para volver al logotipo predeterminado de Turbo EA.
 
+### Estilo de la barra de navegación
+
+Elija los colores de fondo y de texto de la barra de navegación superior. El estilo elegido se aplica a **todos los usuarios** de la instancia, en escritorio y móvil (incluido el menú lateral móvil). Seleccione uno de los siete estilos predefinidos — Azul marino (predeterminado), Claro, Carbón, Pizarra, Azul, Verde bosque o Ciruela — o elija **Personalizado** para definir libremente los colores de fondo y de texto con los selectores de color. Una vista previa en vivo muestra cómo se verá la barra de navegación antes de guardar, y aparece una advertencia cuando el contraste entre el texto y el fondo es demasiado bajo (por debajo de WCAG AA). Haga clic en **Restablecer valores predeterminados** para volver al estilo predeterminado.
+
 ### Favicon
 
 Cargue un icono de navegador personalizado (favicon). El cambio se aplicará en la siguiente carga de página. Haga clic en **Restablecer** para volver al icono predeterminado.

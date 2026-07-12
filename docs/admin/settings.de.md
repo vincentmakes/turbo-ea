@@ -22,6 +22,10 @@ Der Rest dieser Seite behandelt den **Allgemein**-Reiter.
 
 Laden Sie ein benutzerdefiniertes Logo hoch, das in der oberen Navigationsleiste erscheint. Unterstützte Formate: PNG, JPEG, SVG, WebP, GIF. Klicken Sie auf **Zurücksetzen**, um zum Standard-Turbo-EA-Logo zurückzukehren.
 
+### Stil der Navigationsleiste
+
+Wählen Sie Hintergrund- und Textfarbe der oberen Navigationsleiste. Der gewählte Stil gilt für **alle Benutzer** der Instanz, auf Desktop und Mobilgeräten (einschließlich des mobilen Menüs). Wählen Sie eine der sieben kuratierten Voreinstellungen — Marineblau (Standard), Hell, Anthrazit, Schiefer, Blau, Waldgrün oder Pflaume — oder wählen Sie **Benutzerdefiniert**, um Hintergrund- und Textfarbe frei über die Farbwähler festzulegen. Eine Live-Vorschau zeigt vor dem Speichern, wie die Navigationsleiste aussehen wird, und eine Warnung erscheint, wenn der Kontrast zwischen Text und Hintergrund zu gering ist (unter WCAG AA). Klicken Sie auf **Auf Standard zurücksetzen**, um zum Standard zurückzukehren.
+
 ### Favicon
 
 Laden Sie ein benutzerdefiniertes Browser-Symbol (Favicon) hoch. Die Änderung wird beim nächsten Seitenaufruf wirksam. Klicken Sie auf **Zurücksetzen**, um zum Standardsymbol zurückzukehren.
