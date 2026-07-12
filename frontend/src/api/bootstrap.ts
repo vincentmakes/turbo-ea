@@ -32,6 +32,7 @@ import { invalidateArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays"
 import { invalidateFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
 import { invalidateEnabledLocalesGlobal } from "@/hooks/useEnabledLocales";
 import { invalidateLoginBranding } from "@/hooks/useLoginBranding";
+import { invalidateNavbarStyle } from "@/hooks/useNavbarStyle";
 import { SUPPORTED_LOCALES, type SupportedLocale } from "@/i18n";
 import type { ComplianceRegulation, ResourceType } from "@/types";
 
@@ -39,6 +40,8 @@ type BootstrapResponse = {
   currency: string;
   date_format: string;
   app_title: string;
+  navbar_bg: string;
+  navbar_fg: string;
   bpm_enabled: boolean;
   ppm_enabled: boolean;
   turbolens_enabled: boolean;
@@ -82,6 +85,9 @@ export function primeBootstrap(): Promise<void> {
       invalidateDateFormat(fmt);
 
       invalidateAppTitle(r.app_title);
+
+      // invalidateNavbarStyle validates the hex values itself.
+      invalidateNavbarStyle({ bg: r.navbar_bg, fg: r.navbar_fg });
 
       invalidateBpmEnabled(r.bpm_enabled);
       invalidatePpmEnabled(r.ppm_enabled);
