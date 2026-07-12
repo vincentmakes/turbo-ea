@@ -22,7 +22,9 @@
  * deletes stored values). Since SDK 1.6 extension reports can also participate
  * in Saved Reports: save with report_type "ext:{key}:{routeId}" via
  * `sdk.SaveReportDialog`, load via `sdk.useSavedReport`, and the gallery
- * resolves the namespaced type back to the registered route. Every
+ * resolves the namespaced type back to the registered route. Since SDK 1.7
+ * `sdk.CardDetailSidePanel` exposes the card-detail drawer core reports use
+ * (lazy-loaded, Suspense handled internally). Every
  * extension-provided component must be rendered inside <ExtensionBoundary> —
  * a crashing extension shows a fallback chip, never a white screen. A field
  * type whose extension is missing, disabled, or unlicensed simply is not in
@@ -43,7 +45,7 @@ import { useSavedReport as useCoreSavedReport } from "@/hooks/useSavedReport";
 import * as tokens from "@/theme/tokens";
 import type { Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.6";
+export const UI_SDK_VERSION = "1.7";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -400,6 +402,33 @@ export function useExtensionFieldVisibilityProviders(): RegisteredFieldVisibilit
 }
 
 /**
+ * SDK 1.7 — the card-detail side panel core reports use (PortfolioReport,
+ * CapabilityMapReport, ProcessMapReport, …): a self-contained drawer that
+ * fetches and renders a card by id. Ungated — RBAC is enforced server-side on
+ * its /cards/{id} + /my-permissions fetches. Exposed on
+ * `window.TurboEA.sdk.CardDetailSidePanel`.
+ *
+ * Deliberately LAZY: the panel pulls in the whole card-detail graph
+ * (CardDetailContent + tabs), which is code-split behind lazy routes today —
+ * a static import here would drag it into the eager main bundle AND create a
+ * module cycle (CardDetailContent imports this module). Suspense is handled
+ * internally so extensions just render the component.
+ */
+const LazyCardDetailSidePanel = React.lazy(() => import("@/components/CardDetailSidePanel"));
+
+export function ExtensionCardDetailSidePanel(props: {
+  cardId: string | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <React.Suspense fallback={null}>
+      <LazyCardDetailSidePanel {...props} />
+    </React.Suspense>
+  );
+}
+
+/**
  * SDK 1.6 — saved-report participation for extension reports.
  *
  * An extension report saves with `report_type: "ext:{key}:{routeId}"` (the
@@ -508,6 +537,8 @@ export function initExtensionHost(): void {
       // SDK 1.6 — saved-report participation (see useExtensionSavedReport).
       useSavedReport: useExtensionSavedReport,
       SaveReportDialog,
+      // SDK 1.7 — card-detail drawer (lazy; see ExtensionCardDetailSidePanel).
+      CardDetailSidePanel: ExtensionCardDetailSidePanel,
     },
     register: registerExtension,
   };

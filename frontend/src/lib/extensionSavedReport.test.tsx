@@ -18,10 +18,12 @@ beforeEach(() => {
 });
 
 describe("SDK saved-report participation (SDK 1.6)", () => {
-  it("exposes useSavedReport and SaveReportDialog on window.TurboEA.sdk", () => {
+  it("exposes useSavedReport, SaveReportDialog, and CardDetailSidePanel on window.TurboEA.sdk", () => {
     initExtensionHost();
     expect(window.TurboEA?.sdk.useSavedReport).toBeTypeOf("function");
     expect(window.TurboEA?.sdk.SaveReportDialog).toBeTypeOf("function");
+    // SDK 1.7 — the card-detail drawer (lazy wrapper, Suspense inside).
+    expect(window.TurboEA?.sdk.CardDetailSidePanel).toBeTypeOf("function");
   });
 
   it("useSavedReport loads the config for ?saved_report_id=", async () => {
