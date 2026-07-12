@@ -231,6 +231,25 @@ def _verify_id_token(token: str, client_id: str, jwks_uri: str, issuer: str) -> 
 # ---------------------------------------------------------------------------
 
 
+async def _default_role_key(db: AsyncSession) -> str:
+    """Return the admin-configured default role key, falling back to "member".
+
+    Prefers a non-archived role flagged ``is_default``. Mirrors the lookup the
+    roles admin UI writes via ``PATCH /roles/{key}`` (see ``api/v1/roles.py``),
+    which enforces at most one default role, so ``.first()`` is safe.
+    """
+    from app.models.role import Role
+
+    result = await db.execute(
+        select(Role).where(
+            Role.is_default == True,  # noqa: E712
+            Role.is_archived == False,  # noqa: E712
+        )
+    )
+    role = result.scalars().first()
+    return role.key if role else "member"
+
+
 @router.post("/register", response_model=TokenResponse)
 @limiter.limit("5/minute")
 async def register(
@@ -246,7 +265,7 @@ async def register(
     count_result = await db.execute(select(func.count(User.id)))
     user_count = count_result.scalar()
     is_first_user = user_count == 0
-    role = "admin" if is_first_user else "member"
+    role = "admin" if is_first_user else await _default_role_key(db)
 
     # Always allow first-user bootstrap registration
     if not is_first_user:
@@ -757,7 +776,7 @@ async def sso_callback(
         return TokenResponse(access_token=tk)
 
     # New user — check for an invitation to determine the role
-    role = "viewer"  # Default role for SSO users
+    role = await _default_role_key(db)  # admin-configured default for new SSO users
     inv_result = await db.execute(select(SsoInvitation).where(SsoInvitation.email == email))
     invitation = inv_result.scalar_one_or_none()
     if invitation:

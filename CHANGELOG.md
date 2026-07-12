@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.69.3] - 2026-07-10
+
+### Fixed
+- **Self-registration and SSO onboarding now honour the admin-configured default role.** New accounts created via self-registration were always assigned the built-in **Member** role, ignoring whichever role an admin had marked as the workspace default; new SSO users were likewise hardcoded to **Viewer**. Both paths now assign the configured default role (falling back to Member only when none is set). The first user still bootstraps as Admin, and explicit SSO invitations still take precedence.
+
 ## [1.69.2] - 2026-07-09
 
 ### Fixed
