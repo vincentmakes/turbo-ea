@@ -34,6 +34,10 @@ class SoAWCreate(BaseModel):
     version_history: list | None = None
     sections: dict | None = None
 
+    # Unknown keys must fail loudly: silently-ignored extras caused the
+    # ADR body/link loss in #800 and masked the SoAW field mismatch in #802.
+    model_config = {"extra": "forbid"}
+
 
 class SoAWUpdate(BaseModel):
     name: str | None = None
@@ -42,6 +46,8 @@ class SoAWUpdate(BaseModel):
     document_info: dict | None = None
     version_history: list | None = None
     sections: dict | None = None
+
+    model_config = {"extra": "forbid"}
 
 
 class SignatureRequest(BaseModel):

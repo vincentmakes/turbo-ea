@@ -15,6 +15,7 @@
         "type": "object"
       },
       "ADRCreate": {
+        "additionalProperties": false,
         "properties": {
           "alternatives_considered": {
             "anyOf": [
@@ -60,6 +61,20 @@
             ],
             "title": "Decision"
           },
+          "linked_card_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Card Ids"
+          },
           "related_decisions": {
             "default": [],
             "items": {
@@ -94,6 +109,25 @@
         "title": "ADRRejectRequest",
         "type": "object"
       },
+      "ADRSignRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          }
+        },
+        "title": "ADRSignRequest",
+        "type": "object"
+      },
       "ADRSignatureRequest": {
         "properties": {
           "message": {
@@ -123,6 +157,7 @@
         "type": "object"
       },
       "ADRUpdate": {
+        "additionalProperties": false,
         "properties": {
           "alternatives_considered": {
             "anyOf": [
@@ -179,6 +214,20 @@
               }
             ],
             "title": "Decision"
+          },
+          "linked_card_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Card Ids"
           },
           "related_decisions": {
             "anyOf": [
@@ -1432,6 +1481,18 @@
               }
             ],
             "title": "Child Strategy"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
           }
         },
         "required": [
@@ -11315,6 +11376,7 @@
         "type": "object"
       },
       "SoAWCreate": {
+        "additionalProperties": false,
         "properties": {
           "document_info": {
             "anyOf": [
@@ -11380,6 +11442,7 @@
         "type": "object"
       },
       "SoAWUpdate": {
+        "additionalProperties": false,
         "properties": {
           "document_info": {
             "anyOf": [
@@ -15824,6 +15887,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ADRSignRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {

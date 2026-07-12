@@ -12,6 +12,11 @@ class ADRCreate(BaseModel):
     consequences: str | None = None
     alternatives_considered: str | None = None
     related_decisions: list[str] = []
+    linked_card_ids: list[str] | None = None
+
+    # Unknown keys must fail loudly: silently-ignored extras caused the
+    # ADR body/link loss in #800.
+    model_config = {"extra": "forbid"}
 
 
 class ADRUpdate(BaseModel):
@@ -25,11 +30,24 @@ class ADRUpdate(BaseModel):
     # Extension attributes bag — top-level keys must be namespaced ``ext.*``.
     # Merged shallowly into the stored attributes; a key set to null is removed.
     attributes: dict | None = None
+    # Replace-set semantics: the full desired link list. None = leave links
+    # unchanged; [] = remove all links.
+    linked_card_ids: list[str] | None = None
+
+    model_config = {"extra": "forbid"}
 
 
 class ADRSignatureRequest(BaseModel):
     user_ids: list[str] = Field(..., min_length=1)
     message: str | None = None
+
+
+class ADRSignRequest(BaseModel):
+    # Optional note stored on the signer's signatory entry. Previously the
+    # MCP sign_adr tool sent this to a body-less endpoint and it was dropped.
+    comment: str | None = Field(default=None, max_length=2000)
+
+    model_config = {"extra": "forbid"}
 
 
 class ADRRejectRequest(BaseModel):

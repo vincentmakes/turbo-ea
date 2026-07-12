@@ -162,6 +162,33 @@ class TestBulkArchive:
         )
         assert resp.status_code == 422
 
+    async def test_reason_recorded_on_archive_events(self, client, db, env):
+        # `reason` used to be accepted-and-dropped; it must land in the
+        # card.archived event data (the MCP archive_cards tool sends it).
+        admin = env["admin"]
+        a = await create_card(db, name="Reasoned", user_id=admin.id)
+
+        resp = await client.post(
+            "/api/v1/cards/bulk-archive",
+            json={"card_ids": [str(a.id)], "reason": "superseded by NexaCore"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+
+        from app.models.event import Event
+
+        events = (
+            (
+                await db.execute(
+                    select(Event).where(Event.card_id == a.id, Event.event_type == "card.archived")
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(events) == 1
+        assert events[0].data.get("reason") == "superseded by NexaCore"
+
 
 class TestBulkDelete:
     async def test_deletes_independent_cards(self, client, db, env):

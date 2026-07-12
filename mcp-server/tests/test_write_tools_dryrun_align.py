@@ -73,7 +73,9 @@ class TestAddCardCommentDryRun:
         post.assert_not_called()
         data = _parse(out)
         assert data["dry_run"] is True
-        assert data["would_comment"]["body"] == "hello"
+        # The preview shows the translated backend payload — the schema
+        # field is `content`, not the tool's `body` parameter (#802 audit).
+        assert data["would_comment"]["content"] == "hello"
 
     @pytest.mark.asyncio
     async def test_commit_posts_comment(self, fake_token):

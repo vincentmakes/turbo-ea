@@ -2,9 +2,38 @@
 
 from __future__ import annotations
 
+import json as _json
+
 import httpx
 
 from turbo_ea_mcp.config import TURBO_EA_URL
+
+
+def _raise_for_status_with_detail(resp: httpx.Response) -> None:
+    """Like ``resp.raise_for_status()`` but with the backend's error body
+    appended to the exception message.
+
+    FastAPI 4xx responses carry a ``detail`` payload that names the failing
+    field (e.g. 422 validation errors). The bare ``HTTPStatusError`` message
+    is only the status line + URL, which made payload bugs like #802
+    undiagnosable from the MCP side. The original status text is preserved
+    at the start of the message — callers string-match on it (e.g. "403").
+    """
+    if resp.is_success:
+        return
+    detail: str
+    try:
+        detail = _json.dumps(resp.json().get("detail"))
+    except Exception:
+        detail = resp.text[:2000]
+    try:
+        resp.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        raise httpx.HTTPStatusError(
+            f"{exc}\nBackend detail: {detail}",
+            request=exc.request,
+            response=exc.response,
+        ) from None
 
 
 class TurboEAClient:
@@ -42,7 +71,7 @@ class TurboEAClient:
                 headers=self._headers(),
                 params=params,
             )
-            resp.raise_for_status()
+            _raise_for_status_with_detail(resp)
             if resp.status_code == 204:
                 return {}
             return resp.json()
@@ -54,7 +83,7 @@ class TurboEAClient:
                 headers=self._headers(),
                 json=json,
             )
-            resp.raise_for_status()
+            _raise_for_status_with_detail(resp)
             if resp.status_code == 204:
                 return {}
             return resp.json()
@@ -66,7 +95,7 @@ class TurboEAClient:
                 headers=self._headers(),
                 json=json,
             )
-            resp.raise_for_status()
+            _raise_for_status_with_detail(resp)
             if resp.status_code == 204:
                 return {}
             return resp.json()
@@ -78,7 +107,18 @@ class TurboEAClient:
                 headers=self._headers(),
                 json=json,
             )
-            resp.raise_for_status()
+            _raise_for_status_with_detail(resp)
+            if resp.status_code == 204:
+                return {}
+            return resp.json()
+
+    async def delete(self, path: str) -> dict | list:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.delete(
+                f"{self._base}{path}",
+                headers=self._headers(),
+            )
+            _raise_for_status_with_detail(resp)
             if resp.status_code == 204:
                 return {}
             return resp.json()

@@ -43,6 +43,99 @@ class TestRegister:
         )
         assert response.status_code == 200
 
+    async def test_second_user_respects_configured_default_role(self, client, db):
+        """A non-first registration gets the admin-configured default role (#798)."""
+        from sqlalchemy import select
+
+        from app.models.role import Role
+        from app.models.user import User
+
+        await create_user(db, email="admin@test.com", role="admin")
+        # Admin marks "viewer" (not member) as the workspace default.
+        db.add(
+            Role(
+                key="viewer",
+                label="Viewer",
+                permissions={},
+                is_system=False,
+                is_default=True,
+                color="#757575",
+            )
+        )
+        await db.flush()
+
+        response = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "second@test.com",
+                "display_name": "Second User",
+                "password": "ValidPassword1",
+            },
+        )
+        assert response.status_code == 200
+
+        created = (
+            await db.execute(select(User).where(User.email == "second@test.com"))
+        ).scalar_one()
+        assert created.role == "viewer"
+
+    async def test_second_user_falls_back_to_member_without_default(self, client, db):
+        """With no role flagged default, a non-first registration falls back to member."""
+        from sqlalchemy import select
+
+        from app.models.user import User
+
+        await create_user(db, email="admin@test.com", role="admin")
+
+        response = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "second@test.com",
+                "display_name": "Second User",
+                "password": "ValidPassword1",
+            },
+        )
+        assert response.status_code == 200
+
+        created = (
+            await db.execute(select(User).where(User.email == "second@test.com"))
+        ).scalar_one()
+        assert created.role == "member"
+
+    async def test_first_user_ignores_default_role(self, client, db):
+        """The very first user is always admin, regardless of the default flag."""
+        from sqlalchemy import select
+
+        from app.models.role import Role
+        from app.models.user import User
+
+        db.add(
+            Role(
+                key="viewer",
+                label="Viewer",
+                permissions={},
+                is_system=False,
+                is_default=True,
+                color="#757575",
+            )
+        )
+        await db.flush()
+
+        response = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "first@test.com",
+                "display_name": "First User",
+                "password": "ValidPassword1",
+            },
+        )
+        assert response.status_code == 200
+
+        created = (
+            await db.execute(select(User).where(User.email == "first@test.com"))
+        ).scalar_one()
+        assert created.role == "admin"
+
     async def test_duplicate_email_rejected(self, client, db):
         await create_user(db, email="existing@test.com")
 
@@ -67,6 +160,55 @@ class TestRegister:
             },
         )
         assert response.status_code == 422  # Pydantic validation error
+
+
+# ---------------------------------------------------------------------------
+# _default_role_key helper (shared by /register and the SSO callback)
+# ---------------------------------------------------------------------------
+
+
+class TestDefaultRoleKey:
+    async def test_returns_flagged_default_role(self, db):
+        from app.api.v1.auth import _default_role_key
+        from app.models.role import Role
+
+        db.add(
+            Role(
+                key="viewer",
+                label="Viewer",
+                permissions={},
+                is_system=False,
+                is_default=True,
+                color="#757575",
+            )
+        )
+        await db.flush()
+
+        assert await _default_role_key(db) == "viewer"
+
+    async def test_falls_back_to_member(self, db):
+        from app.api.v1.auth import _default_role_key
+
+        assert await _default_role_key(db) == "member"
+
+    async def test_ignores_archived_default_role(self, db):
+        from app.api.v1.auth import _default_role_key
+        from app.models.role import Role
+
+        db.add(
+            Role(
+                key="viewer",
+                label="Viewer",
+                permissions={},
+                is_system=False,
+                is_default=True,
+                is_archived=True,
+                color="#757575",
+            )
+        )
+        await db.flush()
+
+        assert await _default_role_key(db) == "member"
 
 
 # ---------------------------------------------------------------------------

@@ -474,6 +474,51 @@ class TestSignWorkflow:
         assert data["status"] == "signed"
         assert data["signed_at"] is not None
 
+    async def test_sign_with_comment_stores_it_on_signatory(self, client, db, adr_env):
+        # The optional comment body used to be posted to a body-less
+        # endpoint and silently dropped (#802 audit).
+        admin = adr_env["admin"]
+        member = adr_env["member"]
+
+        create_resp = await _create_adr(client, admin, title="Commented Sign")
+        adr_id = create_resp.json()["id"]
+
+        await client.post(
+            f"/api/v1/adr/{adr_id}/request-signatures",
+            json={"user_ids": [str(member.id)]},
+            headers=auth_headers(admin),
+        )
+
+        resp = await client.post(
+            f"/api/v1/adr/{adr_id}/sign",
+            json={"comment": "Approved with reservations about cost."},
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 200
+        sig = resp.json()["signatories"][0]
+        assert sig["status"] == "signed"
+        assert sig["comment"] == "Approved with reservations about cost."
+
+    async def test_sign_rejects_unknown_body_field(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        member = adr_env["member"]
+
+        create_resp = await _create_adr(client, admin, title="Strict Sign Body")
+        adr_id = create_resp.json()["id"]
+
+        await client.post(
+            f"/api/v1/adr/{adr_id}/request-signatures",
+            json={"user_ids": [str(member.id)]},
+            headers=auth_headers(admin),
+        )
+
+        resp = await client.post(
+            f"/api/v1/adr/{adr_id}/sign",
+            json={"note": "wrong field name"},
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 422
+
     async def test_non_signatory_cannot_sign(self, client, db, adr_env):
         admin = adr_env["admin"]
         member = adr_env["member"]
@@ -596,6 +641,140 @@ class TestReviseADR:
         assert len(revisions) == 2
         assert revisions[0]["id"] == adr_id
         assert revisions[1]["id"] == new_id
+
+
+# -------------------------------------------------------------------
+# linked_card_ids in the create/update body (#800)
+# -------------------------------------------------------------------
+
+
+class TestLinkedCardIdsInBody:
+    @pytest.fixture
+    async def card_env(self, db, adr_env):
+        await create_card_type(db, key="Application", label="Application")
+        card_a = await create_card(db, card_type="Application", name="App A")
+        card_b = await create_card(db, card_type="Application", name="App B")
+        return {**adr_env, "card_a": card_a, "card_b": card_b}
+
+    async def test_create_with_linked_card_ids(self, client, db, card_env):
+        admin = card_env["admin"]
+        resp = await _create_adr(
+            client,
+            admin,
+            title="Linked on create",
+            context="ctx",
+            linked_card_ids=[str(card_env["card_a"].id), str(card_env["card_b"].id)],
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["context"] == "ctx"
+        linked_ids = {c["id"] for c in data["linked_cards"]}
+        assert linked_ids == {str(card_env["card_a"].id), str(card_env["card_b"].id)}
+
+    async def test_create_with_unknown_card_returns_404(self, client, db, card_env):
+        admin = card_env["admin"]
+        resp = await _create_adr(
+            client,
+            admin,
+            title="Bad link",
+            linked_card_ids=[str(uuid.uuid4())],
+        )
+        assert resp.status_code == 404
+
+    async def test_create_with_invalid_uuid_returns_400(self, client, db, card_env):
+        admin = card_env["admin"]
+        resp = await _create_adr(
+            client,
+            admin,
+            title="Bad uuid",
+            linked_card_ids=["not-a-uuid"],
+        )
+        assert resp.status_code == 400
+
+    async def test_update_replaces_link_set(self, client, db, card_env):
+        admin = card_env["admin"]
+        create_resp = await _create_adr(
+            client,
+            admin,
+            title="Replace links",
+            linked_card_ids=[str(card_env["card_a"].id)],
+        )
+        adr_id = create_resp.json()["id"]
+
+        resp = await client.patch(
+            f"/api/v1/adr/{adr_id}",
+            json={"linked_card_ids": [str(card_env["card_b"].id)]},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        linked_ids = {c["id"] for c in resp.json()["linked_cards"]}
+        assert linked_ids == {str(card_env["card_b"].id)}
+
+    async def test_update_empty_list_clears_links(self, client, db, card_env):
+        admin = card_env["admin"]
+        create_resp = await _create_adr(
+            client,
+            admin,
+            title="Clear links",
+            linked_card_ids=[str(card_env["card_a"].id)],
+        )
+        adr_id = create_resp.json()["id"]
+
+        resp = await client.patch(
+            f"/api/v1/adr/{adr_id}",
+            json={"linked_card_ids": []},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["linked_cards"] == []
+
+    async def test_update_without_links_leaves_them_unchanged(self, client, db, card_env):
+        admin = card_env["admin"]
+        create_resp = await _create_adr(
+            client,
+            admin,
+            title="Keep links",
+            linked_card_ids=[str(card_env["card_a"].id)],
+        )
+        adr_id = create_resp.json()["id"]
+
+        resp = await client.patch(
+            f"/api/v1/adr/{adr_id}",
+            json={"title": "Keep links (renamed)"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        linked_ids = {c["id"] for c in resp.json()["linked_cards"]}
+        assert linked_ids == {str(card_env["card_a"].id)}
+
+
+# -------------------------------------------------------------------
+# Unknown body fields are rejected, not silently dropped (#800)
+# -------------------------------------------------------------------
+
+
+class TestUnknownFieldsRejected:
+    async def test_create_with_unknown_field_returns_422(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        resp = await _create_adr(
+            client,
+            admin,
+            title="Extra fields",
+            sections=[{"heading": "Context", "body": "x"}],
+        )
+        assert resp.status_code == 422
+
+    async def test_update_with_unknown_field_returns_422(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        create_resp = await _create_adr(client, admin, title="Extra on update")
+        adr_id = create_resp.json()["id"]
+
+        resp = await client.patch(
+            f"/api/v1/adr/{adr_id}",
+            json={"sections": [{"heading": "Context", "body": "x"}]},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 422
 
 
 # -------------------------------------------------------------------
