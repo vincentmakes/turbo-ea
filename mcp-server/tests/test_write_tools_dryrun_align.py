@@ -31,8 +31,9 @@ class TestTransitionCardLifecycleDryRun:
     async def test_dry_run_default_short_circuits(self, fake_token):
         post = AsyncMock()
         patch_ = AsyncMock()
-        with patch.object(server.TurboEAClient, "post", post), patch.object(
-            server.TurboEAClient, "patch", patch_
+        with (
+            patch.object(server.TurboEAClient, "post", post),
+            patch.object(server.TurboEAClient, "patch", patch_),
         ):
             out = await server.transition_card_lifecycle(card_id="c1", target="approve")
         post.assert_not_called()
@@ -46,7 +47,9 @@ class TestTransitionCardLifecycleDryRun:
     async def test_invalid_target_reported_in_dry_run(self, fake_token):
         post = AsyncMock()
         with patch.object(server.TurboEAClient, "post", post):
-            out = await server.transition_card_lifecycle(card_id="c1", target="nonsense")
+            out = await server.transition_card_lifecycle(
+                card_id="c1", target="nonsense"
+            )
         post.assert_not_called()
         assert _parse(out)["error"] == "invalid_target"
 
@@ -70,7 +73,9 @@ class TestAddCardCommentDryRun:
         post.assert_not_called()
         data = _parse(out)
         assert data["dry_run"] is True
-        assert data["would_comment"]["body"] == "hello"
+        # The preview shows the translated backend payload — the schema
+        # field is `content`, not the tool's `body` parameter (#802 audit).
+        assert data["would_comment"]["content"] == "hello"
 
     @pytest.mark.asyncio
     async def test_commit_posts_comment(self, fake_token):

@@ -39,6 +39,14 @@ class ADRSignatureRequest(BaseModel):
     message: str | None = None
 
 
+class ADRSignRequest(BaseModel):
+    # Optional note stored on the signer's signatory entry. Previously the
+    # MCP sign_adr tool sent this to a body-less endpoint and it was dropped.
+    comment: str | None = Field(default=None, max_length=2000)
+
+    model_config = {"extra": "forbid"}
+
+
 class ADRRejectRequest(BaseModel):
     comment: str
 

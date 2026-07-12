@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.69.5] - 2026-07-12
+
+### Fixed
+- **Statements of Architecture Work can now be created through the API/MCP** (#802). The MCP `create_soaw` tool sent a `title` field where the backend requires `name`, and sections as a list where the backend stores a keyed record — every call failed with an unexplained 422. The tool now translates its input onto the real backend payload (each `{heading, body}` entry becomes a custom section rendered alongside the TOGAF template), validates the status up-front against the real workflow states, and its dry-run preview shows the exact payload a commit would send.
+- **MCP diagram updates no longer write when previewing.** `update_diagram` forwarded a `dry_run` flag the backend ignored, so the default preview call silently overwrote the diagram. The preview is now a read-only fetch plus change summary; only an explicit `dry_run=false` commit persists.
+- **Card comments posted through MCP now work.** `add_card_comment` sent the comment under a field name the backend rejected, failing every call with a 422.
+- **Stakeholder assignment through MCP now works.** `assign_stakeholders` passed user and role as URL parameters instead of the JSON body the backend requires, failing every call with a 422; malformed operations are now also rejected in the dry-run preview.
+- **Risks created through MCP no longer silently lose their scoring.** `create_risks` documented numeric probability/impact and status fields the backend does not recognise — the values were dropped without error and every risk landed as medium/medium. The tool now maps aliases onto the real fields, validates the 4-point string scales and categories, rejects unknown fields loudly, and links cards in the same request.
+- **MCP lifecycle transitions no longer wipe existing phase dates.** `transition_card_lifecycle` replaced the card's whole lifecycle record with a marker nothing reads; it now merges the target phase's date into the existing record (and `plan` is accepted as a phase target).
+- **Archive reason is now recorded.** The `reason` passed to the MCP `archive_cards` tool (and `POST /cards/bulk-archive`) used to be accepted and dropped; it now lands on each `card.archived` audit event. Invalid `child_strategy` values are rejected in the preview instead of failing only on commit.
+- **ADR signing comments are now stored.** The optional comment on the MCP `sign_adr` tool was posted to an endpoint that ignored it; `POST /adr/{id}/sign` now records it on the signer's signatory entry.
+- **MCP tool errors now name the failing field.** Backend validation errors (422s and other 4xx responses) surface their detail through the MCP server instead of a bare status line, so payload problems are diagnosable from the calling agent.
+- **Unknown fields on SoAW create/update are rejected** with a validation error instead of being silently ignored — same hardening the ADR endpoints received in 1.69.4.
+
 ## [1.69.4] - 2026-07-12
 
 ### Fixed
