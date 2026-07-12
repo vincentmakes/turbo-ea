@@ -6637,6 +6637,24 @@
         "title": "MutationBatchOut",
         "type": "object"
       },
+      "NavbarStylePayload": {
+        "properties": {
+          "navbar_bg": {
+            "default": "#1a1a2e",
+            "pattern": "^#[0-9a-fA-F]{6}$",
+            "title": "Navbar Bg",
+            "type": "string"
+          },
+          "navbar_fg": {
+            "default": "#ffffff",
+            "pattern": "^#[0-9a-fA-F]{6}$",
+            "title": "Navbar Fg",
+            "type": "string"
+          }
+        },
+        "title": "NavbarStylePayload",
+        "type": "object"
+      },
       "NotificationPreferencesUpdate": {
         "properties": {
           "email": {
@@ -32068,6 +32086,64 @@
           }
         },
         "summary": "Get Mcp Status",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/navbar-style": {
+      "get": {
+        "description": "Public endpoint \u2014 returns the configured navbar colors.\n\nPublic because every authenticated user's shell needs the colors at boot\nand they are not sensitive. Falls back to the built-in navy defaults.",
+        "operationId": "get_navbar_style_api_v1_settings_navbar_style_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Navbar Style",
+        "tags": [
+          "settings"
+        ]
+      },
+      "patch": {
+        "description": "Admin endpoint \u2014 set the navbar background + text color for all users.",
+        "operationId": "update_navbar_style_api_v1_settings_navbar_style_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NavbarStylePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Navbar Style",
         "tags": [
           "settings"
         ]

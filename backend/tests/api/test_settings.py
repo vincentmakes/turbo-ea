@@ -432,6 +432,8 @@ class TestBootstrapSettings:
         assert data["currency"] == "USD"
         assert data["date_format"] == "DD MMM YYYY"
         assert data["app_title"] == "Turbo EA"
+        assert data["navbar_bg"] == "#1a1a2e"
+        assert data["navbar_fg"] == "#ffffff"
         assert data["bpm_enabled"] is True
         assert data["ppm_enabled"] is False
         assert data["turbolens_enabled"] is True
@@ -476,6 +478,72 @@ class TestBootstrapSettings:
         """Used during boot, before the user has a token — must not require auth."""
         resp = await client.get("/api/v1/settings/bootstrap")
         assert resp.status_code == 200
+
+
+# -------------------------------------------------------------------
+# GET /settings/navbar-style + PATCH /settings/navbar-style
+# -------------------------------------------------------------------
+
+
+class TestNavbarStyleSettings:
+    async def test_get_default_navbar_style(self, client, db, settings_env):
+        """Navbar style endpoint is public (no auth required)."""
+        resp = await client.get("/api/v1/settings/navbar-style")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["navbar_bg"] == "#1a1a2e"
+        assert data["navbar_fg"] == "#ffffff"
+
+    async def test_admin_can_set_navbar_style(self, client, db, settings_env):
+        admin = settings_env["admin"]
+        resp = await client.patch(
+            "/api/v1/settings/navbar-style",
+            json={"navbar_bg": "#1B5E20", "navbar_fg": "#FFFFFF"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        # Response echoes the saved (lowercased) values
+        data = resp.json()
+        assert data["navbar_bg"] == "#1b5e20"
+        assert data["navbar_fg"] == "#ffffff"
+
+        # Persisted and visible via GET + bootstrap
+        get_resp = await client.get("/api/v1/settings/navbar-style")
+        assert get_resp.json()["navbar_bg"] == "#1b5e20"
+        boot_resp = await client.get("/api/v1/settings/bootstrap")
+        assert boot_resp.json()["navbar_bg"] == "#1b5e20"
+        assert boot_resp.json()["navbar_fg"] == "#ffffff"
+
+    @pytest.mark.parametrize(
+        "bad_value",
+        ["red", "#12345", "#1234567", "#12345g", "", "1a1a2e"],
+    )
+    async def test_invalid_hex_rejected(self, client, db, settings_env, bad_value):
+        admin = settings_env["admin"]
+        resp = await client.patch(
+            "/api/v1/settings/navbar-style",
+            json={"navbar_bg": bad_value, "navbar_fg": "#ffffff"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 422
+
+    async def test_member_cannot_set_navbar_style(self, client, db, settings_env):
+        member = settings_env["member"]
+        resp = await client.patch(
+            "/api/v1/settings/navbar-style",
+            json={"navbar_bg": "#212121", "navbar_fg": "#ffffff"},
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 403
+
+    async def test_viewer_cannot_set_navbar_style(self, client, db, settings_env):
+        viewer = settings_env["viewer"]
+        resp = await client.patch(
+            "/api/v1/settings/navbar-style",
+            json={"navbar_bg": "#212121", "navbar_fg": "#ffffff"},
+            headers=auth_headers(viewer),
+        )
+        assert resp.status_code == 403
 
 
 # -------------------------------------------------------------------
