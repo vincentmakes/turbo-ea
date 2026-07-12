@@ -193,29 +193,153 @@ class TestArchiveCards:
 
 class TestAdrTools:
     @pytest.mark.asyncio
-    async def test_create_adr_dry_run(self, fake_token):
+    async def test_create_adr_dry_run_shows_translated_payload(self, fake_token):
         post_mock = AsyncMock()  # must not be called
         with patch.object(server.TurboEAClient, "post", post_mock):
             out = await server.create_adr(
-                title="Use Postgres", sections=[{"heading": "Context", "body": "x"}]
+                title="Use Postgres",
+                sections=[
+                    {"heading": "Context", "body": "We need a database."},
+                    {"heading": "Alternatives Considered", "body": "MySQL."},
+                ],
             )
         post_mock.assert_not_called()
         data = _parse(out)
         assert data["dry_run"] is True
+        # The preview is the exact backend payload — sections are already
+        # mapped onto the stored columns (#800).
         assert data["would_create"]["title"] == "Use Postgres"
+        assert data["would_create"]["context"] == "We need a database."
+        assert data["would_create"]["alternatives_considered"] == "MySQL."
+        assert "sections" not in data["would_create"]
 
     @pytest.mark.asyncio
-    async def test_create_adr_commit(self, fake_token):
+    async def test_create_adr_commit_sends_backend_fields(self, fake_token):
         post, patch_, get, calls = _route_writes_through_batch(
             write_responses={"/adr": {"id": "ADR-1", "title": "x"}}
         )
         with patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)):
             out = await server.create_adr(
-                title="x", sections=[{"heading": "h", "body": "b"}], dry_run=False
+                title="x",
+                sections=[
+                    {"heading": "context", "body": "ctx"},
+                    {"heading": "Decision", "body": "dec"},
+                ],
+                linked_card_ids=["c1", "c2"],
+                related_adr_ids=["ADR-000"],
+                dry_run=False,
             )
         data = _parse(out)
         assert data["id"] == "ADR-1"
         assert data["batch_id"] == "B-001"
+        adr_calls = [c for c in calls["post"] if c[0] == "/adr"]
+        assert len(adr_calls) == 1
+        body = adr_calls[0][1]
+        assert body["context"] == "ctx"
+        assert body["decision"] == "dec"
+        assert body["linked_card_ids"] == ["c1", "c2"]
+        assert body["related_decisions"] == ["ADR-000"]
+        assert "sections" not in body
+        assert "related_adr_ids" not in body
+
+    @pytest.mark.asyncio
+    async def test_create_adr_rejects_unknown_heading(self, fake_token):
+        post_mock = AsyncMock()
+        with patch.object(server.TurboEAClient, "post", post_mock):
+            out = await server.create_adr(
+                title="x",
+                sections=[{"heading": "Rationale", "body": "b"}],
+                dry_run=False,
+            )
+        post_mock.assert_not_called()
+        data = _parse(out)
+        assert data["error"] == "unknown_heading"
+        assert data["heading"] == "Rationale"
+        assert "Alternatives Considered" in data["supported_headings"]
+
+    @pytest.mark.asyncio
+    async def test_create_adr_rejects_workflow_status(self, fake_token):
+        post_mock = AsyncMock()
+        with patch.object(server.TurboEAClient, "post", post_mock):
+            out = await server.create_adr(
+                title="x",
+                sections=[{"heading": "Context", "body": "b"}],
+                status="in_review",
+                dry_run=False,
+            )
+        post_mock.assert_not_called()
+        data = _parse(out)
+        assert data["error"] == "invalid_status"
+
+    @pytest.mark.asyncio
+    async def test_create_adr_concatenates_repeated_headings(self, fake_token):
+        with patch.object(server.TurboEAClient, "post", AsyncMock()):
+            out = await server.create_adr(
+                title="x",
+                sections=[
+                    {"heading": "Context", "body": "First."},
+                    {"heading": "context", "body": "Second."},
+                ],
+            )
+        data = _parse(out)
+        assert data["would_create"]["context"] == "First.\n\nSecond."
+
+    @pytest.mark.asyncio
+    async def test_update_adr_commit_sends_backend_fields(self, fake_token):
+        post, patch_, get, calls = _route_writes_through_batch(
+            patch_responses={"/adr/A-1": {"id": "A-1", "title": "x"}}
+        )
+        with (
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)),
+            patch.object(server.TurboEAClient, "patch", AsyncMock(side_effect=patch_)),
+        ):
+            out = await server.update_adr(
+                adr_id="A-1",
+                sections=[{"heading": "Consequences", "body": "cons"}],
+                linked_card_ids=[],
+                dry_run=False,
+            )
+        data = _parse(out)
+        assert data["batch_id"] == "B-001"
+        assert len(calls["patch"]) == 1
+        body = calls["patch"][0][1]
+        assert body["consequences"] == "cons"
+        # Empty list means "remove all links" and must survive translation.
+        assert body["linked_card_ids"] == []
+        assert "sections" not in body
+
+    @pytest.mark.asyncio
+    async def test_update_adr_dry_run_shows_translated_payload(self, fake_token):
+        patch_mock = AsyncMock()  # must not be called
+        with patch.object(server.TurboEAClient, "patch", patch_mock):
+            out = await server.update_adr(
+                adr_id="A-1",
+                sections=[{"heading": "alternatives_considered", "body": "alt"}],
+            )
+        patch_mock.assert_not_called()
+        data = _parse(out)
+        assert data["dry_run"] is True
+        assert data["would_update"]["alternatives_considered"] == "alt"
+        assert "sections" not in data["would_update"]
+
+    @pytest.mark.asyncio
+    async def test_update_adr_rejects_signed_status(self, fake_token):
+        patch_mock = AsyncMock()
+        with patch.object(server.TurboEAClient, "patch", patch_mock):
+            out = await server.update_adr(adr_id="A-1", status="signed", dry_run=False)
+        patch_mock.assert_not_called()
+        data = _parse(out)
+        assert data["error"] == "invalid_status"
+        assert "sign_adr" in data["message"]
+
+    @pytest.mark.asyncio
+    async def test_update_adr_rejects_unknown_status(self, fake_token):
+        patch_mock = AsyncMock()
+        with patch.object(server.TurboEAClient, "patch", patch_mock):
+            out = await server.update_adr(adr_id="A-1", status="accepted", dry_run=False)
+        patch_mock.assert_not_called()
+        data = _parse(out)
+        assert data["error"] == "unknown_status"
 
     @pytest.mark.asyncio
     async def test_sign_adr_403_returns_pending_deep_link(self, fake_token):

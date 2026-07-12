@@ -12,6 +12,11 @@ class ADRCreate(BaseModel):
     consequences: str | None = None
     alternatives_considered: str | None = None
     related_decisions: list[str] = []
+    linked_card_ids: list[str] | None = None
+
+    # Unknown keys must fail loudly: silently-ignored extras caused the
+    # ADR body/link loss in #800.
+    model_config = {"extra": "forbid"}
 
 
 class ADRUpdate(BaseModel):
@@ -22,6 +27,11 @@ class ADRUpdate(BaseModel):
     alternatives_considered: str | None = None
     related_decisions: list[str] | None = None
     status: str | None = None
+    # Replace-set semantics: the full desired link list. None = leave links
+    # unchanged; [] = remove all links.
+    linked_card_ids: list[str] | None = None
+
+    model_config = {"extra": "forbid"}
 
 
 class ADRSignatureRequest(BaseModel):
