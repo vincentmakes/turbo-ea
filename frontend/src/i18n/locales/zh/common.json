@@ -352,5 +352,8 @@
   "actions.undo": "撤销",
   "dashboard.workspace.favoriteRemoved": "已将「{{name}}」从收藏中移除",
   "notFound.title": "页面未找到",
-  "notFound.extensionHint": "此页面属于某个未安装、未启用或仍在加载中的扩展。"
+  "notFound.extensionHint": "此页面属于某个未安装、未启用或仍在加载中的扩展。",
+  "actions.view": "查看",
+  "actions.moveUp": "上移",
+  "actions.moveDown": "下移"
 }

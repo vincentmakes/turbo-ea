@@ -183,6 +183,11 @@ export interface FieldDef {
   // Free-form per-field configuration for extension-contributed field types
   // (e.g. a rating field's `{ min, max }`). Ignored by built-in types.
   config?: Record<string, unknown>;
+  // Stamped `<extension key>` on fields contributed by an extension manifest
+  // (see backend field_contributions). Such fields are re-synced from the
+  // manifest on enable/update, so the admin UI shows their config/help
+  // read-only ("Managed by <ext>") rather than offering edits that won't stick.
+  ext?: string;
   // Set on built-in relation attribute "dimensions" (e.g. usageType,
   // flowDirection): the field definition is locked, but its options can be
   // managed. Custom relation dimensions are fully editable.

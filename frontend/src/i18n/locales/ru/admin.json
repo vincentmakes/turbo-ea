@@ -1761,5 +1761,13 @@
   "extensions.rows.renew": "Продлить",
   "extensions.rows.enterLicense": "Ввести лицензию…",
   "extensions.rows.renewed": "Лицензия обновлена из магазина.",
-  "extensions.rows.nothingNew": "В магазине нет более новой лицензии — проверьте подписку или вставьте файл лицензии."
+  "extensions.rows.nothingNew": "В магазине нет более новой лицензии — проверьте подписку или вставьте файл лицензии.",
+  "metamodel.fieldEditor.editJson": "Изменить…",
+  "metamodel.fieldEditor.jsonEditorTitle": "Изменить {{key}}",
+  "metamodel.fieldEditor.invalidJson": "Неверный JSON",
+  "metamodel.fieldEditor.addItem": "Добавить элемент",
+  "metamodel.fieldEditor.managedByExtension": "Управляется {{ext}}",
+  "cardLayout.editGroupTranslations": "Изменить переводы группы",
+  "cardLayout.groupTranslationsTitle": "Переводы для «{{group}}»",
+  "cardLayout.groupTranslationsHint": "Отображаемое имя этого подраздела для каждого языка. Оставьте пустым, чтобы использовать имя группы."
 }

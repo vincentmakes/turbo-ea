@@ -352,5 +352,8 @@
   "actions.undo": "Annulla",
   "dashboard.workspace.favoriteRemoved": "«{{name}}» rimosso dai preferiti",
   "notFound.title": "Pagina non trovata",
-  "notFound.extensionHint": "Questa pagina appartiene a un'estensione non installata, non abilitata o ancora in caricamento."
+  "notFound.extensionHint": "Questa pagina appartiene a un'estensione non installata, non abilitata o ancora in caricamento.",
+  "actions.view": "Visualizza",
+  "actions.moveUp": "Sposta su",
+  "actions.moveDown": "Sposta giù"
 }

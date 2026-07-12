@@ -1,5 +1,5 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import FieldEditorDialog from "./FieldEditorDialog";
 import { registerExtension, resetExtensionHost, UI_SDK_VERSION } from "@/lib/extensionHost";
@@ -272,5 +272,97 @@ describe("FieldEditorDialog — extension-gated capabilities", () => {
     // Open the Type select; the custom type appears as an option.
     await user.click(screen.getByRole("combobox"));
     expect(screen.getByText("Rating (Plus)")).toBeInTheDocument();
+  });
+});
+
+describe("FieldEditorDialog — type-aware config editor", () => {
+  const RATING = "ext.daaf.rating";
+  const registerRating = () =>
+    registerExtension("daaf", {
+      key: "daaf",
+      sdkVersion: UI_SDK_VERSION,
+      fieldTypes: [
+        {
+          type: RATING,
+          label: "Rating",
+          defaultConfig: { levels: ["low", "mid", "high"], rubric: { en: "How good?" } },
+        },
+      ],
+    });
+
+  const renderWith = (field: FieldDef, onSave = vi.fn()) => {
+    render(
+      <FieldEditorDialog
+        open
+        field={field}
+        typeKey="Application"
+        fieldKey={field.key}
+        onClose={() => {}}
+        onSave={onSave}
+      />,
+    );
+    return onSave;
+  };
+
+  beforeEach(() => {
+    resetExtensionHost();
+    capsMock.has = () => false;
+  });
+
+  it("renders type-aware editors for array/object config — never [object Object]", () => {
+    registerRating();
+    renderWith({ key: "score", label: "Score", type: RATING, config: { levels: ["low", "mid"], rubric: { en: "Q" } } });
+    // Array of scalars → editable rows with the values (not "[object Object]").
+    expect(screen.getByDisplayValue("low")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("mid")).toBeInTheDocument();
+    // Nested object → "Edit…" affordance.
+    expect(screen.getByRole("button", { name: /Edit…/ })).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("[object Object]")).not.toBeInTheDocument();
+  });
+
+  it("round-trips an object config edited through the JSON dialog", async () => {
+    const user = userEvent.setup();
+    const onSave = renderWith({
+      key: "score",
+      label: "Score",
+      type: RATING,
+      config: { levels: ["low"], rubric: { en: "Q" } },
+    });
+    await user.click(screen.getByRole("button", { name: /Edit…/ }));
+    const jsonBox = screen.getByDisplayValue(/"en": "Q"/);
+    await user.clear(jsonBox);
+    await user.type(jsonBox, '{{"en":"Better?"}');
+    const dialogs = screen.getAllByRole("dialog");
+    await user.click(within(dialogs[dialogs.length - 1]).getByRole("button", { name: /^Save$/ }));
+    await user.click(screen.getByRole("button", { name: /^Save$/ }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect((onSave.mock.calls[0][0] as FieldDef).config!.rubric).toEqual({ en: "Better?" });
+  });
+
+  it("shows an error for invalid JSON", async () => {
+    const user = userEvent.setup();
+    renderWith({ key: "score", label: "Score", type: RATING, config: { rubric: { en: "Q" } } });
+    await user.click(screen.getByRole("button", { name: /Edit…/ }));
+    const jsonBox = screen.getByDisplayValue(/"en": "Q"/);
+    await user.clear(jsonBox);
+    await user.type(jsonBox, "{{not json");
+    const dialogs = screen.getAllByRole("dialog");
+    await user.click(within(dialogs[dialogs.length - 1]).getByRole("button", { name: /^Save$/ }));
+    expect(screen.getByText("Invalid JSON")).toBeInTheDocument();
+  });
+
+  it("renders an extension-owned field's config read-only with a Managed-by caption", () => {
+    registerRating();
+    renderWith({
+      key: "score",
+      label: "Score",
+      type: RATING,
+      ext: "daaf",
+      config: { levels: ["low", "mid"], rubric: { en: "Q" } },
+    });
+    expect(screen.getByDisplayValue("low")).toBeDisabled();
+    // No editing affordances for owned config (view-only for the object).
+    expect(screen.queryByRole("button", { name: /Edit…/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Managed by daaf")).toBeInTheDocument();
   });
 });

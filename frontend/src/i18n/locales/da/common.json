@@ -352,5 +352,8 @@
   "actions.undo": "Fortryd",
   "dashboard.workspace.favoriteRemoved": "Fjernede «{{name}}» fra favoritter",
   "notFound.title": "Siden blev ikke fundet",
-  "notFound.extensionHint": "Denne side hører til en udvidelse, der ikke er installeret, ikke er aktiveret eller stadig indlæses."
+  "notFound.extensionHint": "Denne side hører til en udvidelse, der ikke er installeret, ikke er aktiveret eller stadig indlæses.",
+  "actions.view": "Vis",
+  "actions.moveUp": "Flyt op",
+  "actions.moveDown": "Flyt ned"
 }

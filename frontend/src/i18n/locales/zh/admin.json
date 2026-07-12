@@ -1761,5 +1761,13 @@
   "extensions.rows.renew": "续期",
   "extensions.rows.enterLicense": "输入许可证…",
   "extensions.rows.renewed": "已从商店刷新许可证。",
-  "extensions.rows.nothingNew": "商店没有更新的许可证——请检查您的订阅，或粘贴许可证文件。"
+  "extensions.rows.nothingNew": "商店没有更新的许可证——请检查您的订阅，或粘贴许可证文件。",
+  "metamodel.fieldEditor.editJson": "编辑…",
+  "metamodel.fieldEditor.jsonEditorTitle": "编辑 {{key}}",
+  "metamodel.fieldEditor.invalidJson": "JSON 无效",
+  "metamodel.fieldEditor.addItem": "添加项",
+  "metamodel.fieldEditor.managedByExtension": "由 {{ext}} 管理",
+  "cardLayout.editGroupTranslations": "编辑分组翻译",
+  "cardLayout.groupTranslationsTitle": "「{{group}}」的翻译",
+  "cardLayout.groupTranslationsHint": "此子分区标题的各语言显示名称。留空则回退到分组名称。"
 }

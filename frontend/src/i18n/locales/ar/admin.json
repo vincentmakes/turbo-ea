@@ -1761,5 +1761,13 @@
   "extensions.rows.renew": "تجديد",
   "extensions.rows.enterLicense": "إدخال الترخيص…",
   "extensions.rows.renewed": "تم تحديث الترخيص من المتجر.",
-  "extensions.rows.nothingNew": "لا يوجد ترخيص أحدث في المتجر — تحقق من اشتراكك أو الصق ملف ترخيص."
+  "extensions.rows.nothingNew": "لا يوجد ترخيص أحدث في المتجر — تحقق من اشتراكك أو الصق ملف ترخيص.",
+  "metamodel.fieldEditor.editJson": "تحرير…",
+  "metamodel.fieldEditor.jsonEditorTitle": "تحرير {{key}}",
+  "metamodel.fieldEditor.invalidJson": "JSON غير صالح",
+  "metamodel.fieldEditor.addItem": "إضافة عنصر",
+  "metamodel.fieldEditor.managedByExtension": "يُدار بواسطة {{ext}}",
+  "cardLayout.editGroupTranslations": "تحرير ترجمات المجموعة",
+  "cardLayout.groupTranslationsTitle": "ترجمات «{{group}}»",
+  "cardLayout.groupTranslationsHint": "الاسم المعروض لكل لغة لعنوان القسم الفرعي. اتركه فارغًا للرجوع إلى اسم المجموعة."
 }

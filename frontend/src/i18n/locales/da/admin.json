@@ -1761,5 +1761,13 @@
   "extensions.rows.renew": "Forny",
   "extensions.rows.enterLicense": "Indtast licens…",
   "extensions.rows.renewed": "Licens opdateret fra butikken.",
-  "extensions.rows.nothingNew": "Butikken har ingen nyere licens — tjek dit abonnement, eller indsæt en licensfil."
+  "extensions.rows.nothingNew": "Butikken har ingen nyere licens — tjek dit abonnement, eller indsæt en licensfil.",
+  "metamodel.fieldEditor.editJson": "Rediger…",
+  "metamodel.fieldEditor.jsonEditorTitle": "Rediger {{key}}",
+  "metamodel.fieldEditor.invalidJson": "Ugyldig JSON",
+  "metamodel.fieldEditor.addItem": "Tilføj element",
+  "metamodel.fieldEditor.managedByExtension": "Administreres af {{ext}}",
+  "cardLayout.editGroupTranslations": "Rediger gruppeoversættelser",
+  "cardLayout.groupTranslationsTitle": "Oversættelser for «{{group}}»",
+  "cardLayout.groupTranslationsHint": "Vist navn pr. sprog for denne underoverskrift. Lad feltet stå tomt for at bruge gruppenavnet."
 }

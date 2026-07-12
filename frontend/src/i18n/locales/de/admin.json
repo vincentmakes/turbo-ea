@@ -1761,5 +1761,13 @@
   "extensions.rows.renew": "Verlängern",
   "extensions.rows.enterLicense": "Lizenz eingeben…",
   "extensions.rows.renewed": "Lizenz aus dem Store aktualisiert.",
-  "extensions.rows.nothingNew": "Der Store hat keine neuere Lizenz — prüfen Sie Ihr Abonnement oder fügen Sie eine Lizenzdatei ein."
+  "extensions.rows.nothingNew": "Der Store hat keine neuere Lizenz — prüfen Sie Ihr Abonnement oder fügen Sie eine Lizenzdatei ein.",
+  "metamodel.fieldEditor.editJson": "Bearbeiten…",
+  "metamodel.fieldEditor.jsonEditorTitle": "{{key}} bearbeiten",
+  "metamodel.fieldEditor.invalidJson": "Ungültiges JSON",
+  "metamodel.fieldEditor.addItem": "Element hinzufügen",
+  "metamodel.fieldEditor.managedByExtension": "Verwaltet von {{ext}}",
+  "cardLayout.editGroupTranslations": "Gruppenübersetzungen bearbeiten",
+  "cardLayout.groupTranslationsTitle": "Übersetzungen für „{{group}}“",
+  "cardLayout.groupTranslationsHint": "Anzeigename dieser Unterabschnitts-Überschrift je Sprache. Leer lassen, um auf den Gruppennamen zurückzufallen."
 }

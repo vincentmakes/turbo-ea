@@ -22,9 +22,10 @@ import KeyInput, { isValidKey } from "@/components/KeyInput";
 import { api } from "@/api/client";
 import { useExtensionCapabilities } from "@/hooks/useExtensionCapabilities";
 import { LOCALE_LABELS } from "@/i18n";
-import { useExtensionFieldTypes } from "@/lib/extensionHost";
+import { useExtensionFieldTypes, ExtensionBoundary } from "@/lib/extensionHost";
 import type { FieldDef, FieldOption, TranslationMap } from "@/types";
 import { FIELD_TYPE_OPTIONS, DEFAULT_OPTION_COLOR } from "./constants";
+import ConfigEditor from "./ConfigEditor";
 
 const CAP_FIELD_HELP = "metamodel.field_help";
 
@@ -74,11 +75,22 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
     [extFieldTypes, t],
   );
   const customType = extFieldTypes[field.type];
-  // Config entries the admin can tune for a custom type (seeded from its
-  // defaultConfig), e.g. a rating's { min, max }.
-  const customConfigEntries = customType
-    ? Object.entries(field.config ?? customType.contribution.defaultConfig ?? {})
-    : [];
+  const CustomConfigEditor = customType?.contribution.configEditor;
+  // Extension-contributed fields are re-synced from their manifest, so their
+  // config/help are shown read-only ("Managed by <ext>") — edits wouldn't stick.
+  const extOwned = !!initial.ext;
+  const extOwner = initial.ext ?? "";
+  // The config object shown for a custom type, seeded from its defaultConfig
+  // when the field has none yet, e.g. a rating's { min, max }.
+  const configObj = (field.config ??
+    (customType ? customType.contribution.defaultConfig : undefined) ??
+    {}) as Record<string, unknown>;
+  const showConfig = !!customType || Object.keys(configObj).length > 0;
+  const localeLabel = LOCALE_LABELS[locale as keyof typeof LOCALE_LABELS] || locale;
+  // Show the help input when the grant is active, or (read-only) when an
+  // ext-owned field already carries help so it stays visible/discoverable.
+  const showHelp =
+    helpGranted || (extOwned && !!(initial.help || initial.helpTranslations?.[locale]));
 
   // The label input reads/writes translations[currentLocale]
   const [displayLabel, setDisplayLabel] = useState("");
@@ -218,28 +230,28 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
             ))}
           </Select>
         </FormControl>
-        {customConfigEntries.length > 0 && (
+        {showConfig && (
           <Box sx={{ mb: 2 }}>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
               {t("metamodel.fieldEditor.customConfig")}
             </Typography>
-            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-              {customConfigEntries.map(([ck, cv]) => (
-                <TextField
-                  key={ck}
-                  size="small"
-                  label={ck}
-                  type={typeof cv === "number" ? "number" : "text"}
-                  value={cv as string | number}
-                  onChange={(e) => {
-                    const raw = e.target.value;
-                    const next =
-                      typeof cv === "number" ? (raw === "" ? "" : Number(raw)) : raw;
-                    setField({ ...field, config: { ...(field.config ?? {}), [ck]: next } });
-                  }}
+            {extOwned ? (
+              <>
+                <ConfigEditor config={configObj} onChange={() => {}} readOnly />
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                  {t("metamodel.fieldEditor.managedByExtension", { ext: extOwner })}
+                </Typography>
+              </>
+            ) : CustomConfigEditor ? (
+              <ExtensionBoundary extensionKey={customType!.extKey}>
+                <CustomConfigEditor
+                  config={configObj}
+                  onChange={(c) => setField({ ...field, config: c })}
                 />
-              ))}
-            </Box>
+              </ExtensionBoundary>
+            ) : (
+              <ConfigEditor config={configObj} onChange={(c) => setField({ ...field, config: c })} />
+            )}
           </Box>
         )}
         <Box sx={{ display: "flex", gap: 2, mb: 2, alignItems: "center" }}>
@@ -258,16 +270,21 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
             {t("metamodel.fieldEditor.weightMovedHint")}
           </Typography>
         </Box>
-        {helpGranted && (
+        {showHelp && (
           <TextField
             fullWidth
             multiline
             minRows={2}
             maxRows={6}
-            label={`${t("metamodel.fieldEditor.helpLabel")} (${LOCALE_LABELS[locale as keyof typeof LOCALE_LABELS] || locale})`}
+            label={`${t("metamodel.fieldEditor.helpLabel")} (${localeLabel})`}
             value={displayHelp}
+            disabled={extOwned}
             onChange={(e) => setDisplayHelp(e.target.value)}
-            helperText={t("metamodel.fieldEditor.helpHint")}
+            helperText={
+              extOwned
+                ? t("metamodel.fieldEditor.managedByExtension", { ext: extOwner })
+                : t("metamodel.fieldEditor.helpHint")
+            }
             sx={{ mb: 2 }}
           />
         )}
@@ -362,8 +379,11 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
               ...field,
               label: displayLabel,
               translations: cleanTranslationMap(mergedTranslations),
-              help: helpGranted ? displayHelp.trim() || undefined : field.help,
-              helpTranslations: cleanedHelp,
+              // Extension-owned config/help are read-only in this dialog and
+              // re-synced from the manifest — never rewrite them here.
+              help: extOwned ? initial.help : helpGranted ? displayHelp.trim() || undefined : field.help,
+              helpTranslations: extOwned ? initial.helpTranslations : cleanedHelp,
+              config: extOwned ? initial.config : field.config,
               options: field.options?.map(({ _original, ...o }) => ({
                 ...o,
                 // Persist the default the picker displays so an option whose

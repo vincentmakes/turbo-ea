@@ -1761,5 +1761,13 @@
   "extensions.rows.renew": "Renew",
   "extensions.rows.enterLicense": "Enter license…",
   "extensions.rows.renewed": "License refreshed from the store.",
-  "extensions.rows.nothingNew": "The store has no newer license — check your subscription, or paste a license file."
+  "extensions.rows.nothingNew": "The store has no newer license — check your subscription, or paste a license file.",
+  "metamodel.fieldEditor.editJson": "Edit…",
+  "metamodel.fieldEditor.jsonEditorTitle": "Edit {{key}}",
+  "metamodel.fieldEditor.invalidJson": "Invalid JSON",
+  "metamodel.fieldEditor.addItem": "Add item",
+  "metamodel.fieldEditor.managedByExtension": "Managed by {{ext}}",
+  "cardLayout.editGroupTranslations": "Edit group translations",
+  "cardLayout.groupTranslationsTitle": "Translations for “{{group}}”",
+  "cardLayout.groupTranslationsHint": "Per-locale display name for this subsection header. Leave a locale blank to fall back to the group name."
 }

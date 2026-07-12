@@ -352,5 +352,8 @@
   "actions.undo": "Rückgängig",
   "dashboard.workspace.favoriteRemoved": "«{{name}}» aus Favoriten entfernt",
   "notFound.title": "Seite nicht gefunden",
-  "notFound.extensionHint": "Diese Seite gehört zu einer Erweiterung, die nicht installiert, nicht aktiviert oder noch nicht geladen ist."
+  "notFound.extensionHint": "Diese Seite gehört zu einer Erweiterung, die nicht installiert, nicht aktiviert oder noch nicht geladen ist.",
+  "actions.view": "Anzeigen",
+  "actions.moveUp": "Nach oben",
+  "actions.moveDown": "Nach unten"
 }

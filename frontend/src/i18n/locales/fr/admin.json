@@ -1761,5 +1761,13 @@
   "extensions.rows.renew": "Renouveler",
   "extensions.rows.enterLicense": "Saisir la licence…",
   "extensions.rows.renewed": "Licence actualisée depuis la boutique.",
-  "extensions.rows.nothingNew": "La boutique n'a pas de licence plus récente — vérifiez votre abonnement ou collez un fichier de licence."
+  "extensions.rows.nothingNew": "La boutique n'a pas de licence plus récente — vérifiez votre abonnement ou collez un fichier de licence.",
+  "metamodel.fieldEditor.editJson": "Modifier…",
+  "metamodel.fieldEditor.jsonEditorTitle": "Modifier {{key}}",
+  "metamodel.fieldEditor.invalidJson": "JSON invalide",
+  "metamodel.fieldEditor.addItem": "Ajouter un élément",
+  "metamodel.fieldEditor.managedByExtension": "Géré par {{ext}}",
+  "cardLayout.editGroupTranslations": "Modifier les traductions du groupe",
+  "cardLayout.groupTranslationsTitle": "Traductions pour « {{group}} »",
+  "cardLayout.groupTranslationsHint": "Nom d'affichage par langue pour cet en-tête de sous-section. Laissez vide pour utiliser le nom du groupe."
 }

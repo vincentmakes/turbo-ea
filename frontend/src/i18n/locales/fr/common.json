@@ -352,5 +352,8 @@
   "actions.undo": "Annuler",
   "dashboard.workspace.favoriteRemoved": "« {{name}} » retiré des favoris",
   "notFound.title": "Page introuvable",
-  "notFound.extensionHint": "Cette page appartient à une extension qui n'est pas installée, pas activée ou encore en cours de chargement."
+  "notFound.extensionHint": "Cette page appartient à une extension qui n'est pas installée, pas activée ou encore en cours de chargement.",
+  "actions.view": "Voir",
+  "actions.moveUp": "Monter",
+  "actions.moveDown": "Descendre"
 }

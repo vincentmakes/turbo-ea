@@ -11,7 +11,8 @@
  *
  * Eight extension points exist: nav routes (full pages), card-detail tabs,
  * admin panels, custom field types (SDK 1.1 — a renderer/editor for an
- * `ext.{key}.*` field type used inside card attribute sections), survey
+ * `ext.{key}.*` field type used inside card attribute sections, plus — SDK 1.5
+ * — an optional admin-side config editor for that type's config object), survey
  * templates (SDK 1.2), — SDK 1.3 — ADR panels (a component rendered on
  * the Architecture Decision Record editor/preview, e.g. a value-savings form
  * writing the ADR `ext.*` attributes bag) and ADR export sections (plain data
@@ -37,7 +38,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import * as tokens from "@/theme/tokens";
 import type { Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.4";
+export const UI_SDK_VERSION = "1.5";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -101,6 +102,15 @@ export interface ExtensionFieldTypeContribution {
   display?: React.ComponentType<ExtensionFieldDisplayProps>;
   editor?: React.ComponentType<ExtensionFieldEditorProps>;
   defaultConfig?: Record<string, unknown>;
+  // Optional admin-side editor for this type's `config` object (SDK 1.5). When
+  // present, the metamodel field editor mounts it (inside ExtensionBoundary)
+  // instead of the generic type-aware config editor — so an extension can offer
+  // a proper per-locale rubric/question editor. Falls back to the generic editor
+  // when absent.
+  configEditor?: React.ComponentType<{
+    config: Record<string, unknown>;
+    onChange: (config: Record<string, unknown>) => void;
+  }>;
 }
 
 /** The payload an extension survey template posts to `POST /surveys`. */

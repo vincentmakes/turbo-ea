@@ -352,5 +352,8 @@
   "actions.undo": "Undo",
   "dashboard.workspace.favoriteRemoved": "Removed «{{name}}» from favorites",
   "notFound.title": "Page not found",
-  "notFound.extensionHint": "This page belongs to an extension that is not installed, not enabled, or still loading."
+  "notFound.extensionHint": "This page belongs to an extension that is not installed, not enabled, or still loading.",
+  "actions.view": "View",
+  "actions.moveUp": "Move up",
+  "actions.moveDown": "Move down"
 }
