@@ -45,6 +45,28 @@ async def _next_reference_number(db: AsyncSession) -> str:
     return f"ADR-{num:03d}"
 
 
+async def _resolve_card_ids(db: AsyncSession, card_ids: list[str]) -> list[uuid.UUID]:
+    """Parse and verify a list of card UUIDs, raising 400/404 with the
+    offending values so a bad link list never silently no-ops."""
+    parsed: list[uuid.UUID] = []
+    seen: set[uuid.UUID] = set()
+    for cid in card_ids:
+        try:
+            parsed_id = uuid.UUID(cid)
+        except (ValueError, AttributeError, TypeError):
+            raise HTTPException(400, f"Invalid card id: {cid!r}") from None
+        if parsed_id not in seen:
+            seen.add(parsed_id)
+            parsed.append(parsed_id)
+    if parsed:
+        result = await db.execute(select(Card.id).where(Card.id.in_(parsed)))
+        found = set(result.scalars().all())
+        missing = [str(cid) for cid in parsed if cid not in found]
+        if missing:
+            raise HTTPException(404, f"Cards not found: {', '.join(missing)}")
+    return parsed
+
+
 async def _get_adr(db: AsyncSession, adr_id: str) -> ArchitectureDecision:
     result = await db.execute(
         select(ArchitectureDecision).where(ArchitectureDecision.id == uuid.UUID(adr_id))
@@ -271,6 +293,7 @@ async def create_adr(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "adr.manage")
+    card_ids = await _resolve_card_ids(db, body.linked_card_ids or [])
     ref_num = await _next_reference_number(db)
     adr = ArchitectureDecision(
         reference_number=ref_num,
@@ -283,6 +306,9 @@ async def create_adr(
         created_by=user.id,
     )
     db.add(adr)
+    await db.flush()
+    for cid in card_ids:
+        db.add(ArchitectureDecisionCard(architecture_decision_id=adr.id, card_id=cid))
     await db.commit()
     await db.refresh(adr)
     return await _adr_to_dict(db, adr)
@@ -339,6 +365,25 @@ async def update_adr(
                 "Use the recall-signatures endpoint to reset to draft",
             )
         adr.status = body.status
+
+    if body.linked_card_ids is not None:
+        desired = set(await _resolve_card_ids(db, body.linked_card_ids))
+        result = await db.execute(
+            select(ArchitectureDecisionCard).where(
+                ArchitectureDecisionCard.architecture_decision_id == adr.id
+            )
+        )
+        existing_links = {link.card_id: link for link in result.scalars().all()}
+        for card_id, link in existing_links.items():
+            if card_id not in desired:
+                await db.delete(link)
+        for card_id in desired - existing_links.keys():
+            db.add(
+                ArchitectureDecisionCard(
+                    architecture_decision_id=adr.id,
+                    card_id=card_id,
+                )
+            )
 
     await db.commit()
     await db.refresh(adr)

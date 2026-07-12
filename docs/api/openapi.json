@@ -15,6 +15,7 @@
         "type": "object"
       },
       "ADRCreate": {
+        "additionalProperties": false,
         "properties": {
           "alternatives_considered": {
             "anyOf": [
@@ -59,6 +60,20 @@
               }
             ],
             "title": "Decision"
+          },
+          "linked_card_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Card Ids"
           },
           "related_decisions": {
             "default": [],
@@ -123,6 +138,7 @@
         "type": "object"
       },
       "ADRUpdate": {
+        "additionalProperties": false,
         "properties": {
           "alternatives_considered": {
             "anyOf": [
@@ -167,6 +183,20 @@
               }
             ],
             "title": "Decision"
+          },
+          "linked_card_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Card Ids"
           },
           "related_decisions": {
             "anyOf": [

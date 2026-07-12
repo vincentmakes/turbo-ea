@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.69.4] - 2026-07-12
+
+### Fixed
+- **ADRs created or updated through the API/MCP now persist their section bodies and card links** (#800). The MCP `create_adr` / `update_adr` tools sent `sections` and `linked_card_ids` in a shape the backend did not recognise, and the unknown fields were silently ignored — only title and status ever persisted. The tools now map section headings (Context, Decision, Consequences, Alternatives Considered) onto the stored ADR fields, reject unknown headings with a clear error instead of dropping them, and the `POST`/`PATCH /adr` endpoints accept a `linked_card_ids` list directly (replace-set semantics on update). Dry-run previews now show the exact payload a commit would send, and unknown request fields are rejected with a validation error instead of being discarded.
+
 ## [1.69.3] - 2026-07-10
 
 ### Fixed
