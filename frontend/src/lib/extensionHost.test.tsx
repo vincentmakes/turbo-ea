@@ -11,6 +11,7 @@ import {
   getExtensionAdrExportSections,
   getExtensionAdrPanels,
   getExtensionFieldTypes,
+  getExtensionFieldVisibilityProviders,
   getExtensionLoadErrors,
   getExtensionRoutes,
   getExtensionRoutesForGroup,
@@ -187,6 +188,33 @@ describe("extensionHost", () => {
     expect(getExtensionSurveyTemplates()).toBe(getExtensionSurveyTemplates());
     resetExtensionHost();
     expect(getExtensionSurveyTemplates()).toEqual([]);
+  });
+
+  it("aggregates field-visibility providers in registration order and drops invalid ones", () => {
+    const ProviderA = () => null;
+    const ProviderB = () => null;
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    registerExtension("aaa", { key: "aaa", sdkVersion: UI_SDK_VERSION, fieldVisibility: ProviderA });
+    // Invalid: not a function → dropped.
+    registerExtension("bad", {
+      key: "bad",
+      sdkVersion: UI_SDK_VERSION,
+      fieldVisibility: {} as never,
+    });
+    registerExtension("bbb", { key: "bbb", sdkVersion: UI_SDK_VERSION, fieldVisibility: ProviderB });
+    spy.mockRestore();
+
+    const providers = getExtensionFieldVisibilityProviders();
+    expect(providers.map((p) => p.extKey)).toEqual(["aaa", "bbb"]);
+    expect(providers[0].provider).toBe(ProviderA);
+    expect(providers[1].provider).toBe(ProviderB);
+    // Extensions without a provider contribute nothing.
+    registerExtension("plain", { key: "plain", sdkVersion: UI_SDK_VERSION });
+    expect(getExtensionFieldVisibilityProviders().map((p) => p.extKey)).toEqual(["aaa", "bbb"]);
+    // Stable snapshot until the registry changes.
+    expect(getExtensionFieldVisibilityProviders()).toBe(getExtensionFieldVisibilityProviders());
+    resetExtensionHost();
+    expect(getExtensionFieldVisibilityProviders()).toEqual([]);
   });
 
   it("aggregates ADR panels in order and drops invalid ones", () => {

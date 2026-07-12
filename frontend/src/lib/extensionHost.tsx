@@ -9,13 +9,16 @@
  * share the host's single React instance (the template repo's Vite
  * config externalizes them onto these globals).
  *
- * Seven extension points exist: nav routes (full pages), card-detail tabs,
+ * Eight extension points exist: nav routes (full pages), card-detail tabs,
  * admin panels, custom field types (SDK 1.1 — a renderer/editor for an
  * `ext.{key}.*` field type used inside card attribute sections), survey
- * templates (SDK 1.2), and — SDK 1.3 — ADR panels (a component rendered on
+ * templates (SDK 1.2), — SDK 1.3 — ADR panels (a component rendered on
  * the Architecture Decision Record editor/preview, e.g. a value-savings form
  * writing the ADR `ext.*` attributes bag) and ADR export sections (plain data
- * a plugin contributes into the core ADR DOCX export). Every
+ * a plugin contributes into the core ADR DOCX export), and — SDK 1.4 — a
+ * headless field-visibility provider (hides specific card fields at render
+ * time from the extension's own, possibly async, logic; display-only, never
+ * deletes stored values). Every
  * extension-provided component must be rendered inside <ExtensionBoundary> —
  * a crashing extension shows a fallback chip, never a white screen. A field
  * type whose extension is missing, disabled, or unlicensed simply is not in
@@ -32,8 +35,9 @@ import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import * as tokens from "@/theme/tokens";
+import type { Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.3";
+export const UI_SDK_VERSION = "1.4";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -166,6 +170,17 @@ export interface ExtensionAdrExportContribution {
   build: (adr: Record<string, unknown>) => AdrExportSection[];
 }
 
+/** Props a headless field-visibility provider receives (SDK 1.4). */
+export interface ExtensionFieldVisibilityProps {
+  card: Card;
+  // Report which of the extension's own card fields to hide right now. Call on
+  // mount and whenever the provider's (possibly async) logic resolves or
+  // changes; reporting `[]` shows everything. `extKey` keys the report so
+  // multiple providers' hidden sets union without clobbering each other — pass
+  // the extension's own key (the same one it registered with).
+  report: (extKey: string, hiddenKeys: string[]) => void;
+}
+
 export interface TurboExtensionUI {
   key: string;
   sdkVersion: string;
@@ -176,6 +191,10 @@ export interface TurboExtensionUI {
   surveyTemplates?: ExtensionSurveyTemplateContribution[];
   adrPanels?: ExtensionAdrPanelContribution[];
   adrExportSections?: ExtensionAdrExportContribution[];
+  // Headless provider (renders null) that hides specific card fields at render
+  // time — display-only, ungated, never deletes stored values. Degrades to
+  // "show everything" when absent.
+  fieldVisibility?: React.ComponentType<ExtensionFieldVisibilityProps>;
 }
 
 export interface RegisteredFieldType {
@@ -196,6 +215,11 @@ export interface RegisteredAdrPanel {
 export interface RegisteredAdrExport {
   extKey: string;
   contribution: ExtensionAdrExportContribution;
+}
+
+export interface RegisteredFieldVisibility {
+  extKey: string;
+  provider: React.ComponentType<ExtensionFieldVisibilityProps>;
 }
 
 export interface RegisteredExtension {
@@ -223,11 +247,13 @@ let _loadStarted = false;
 let _fieldTypesCache: Record<string, RegisteredFieldType> | null = null;
 let _surveyTemplatesCache: RegisteredSurveyTemplate[] | null = null;
 let _adrExportCache: RegisteredAdrExport[] | null = null;
+let _fieldVisibilityCache: RegisteredFieldVisibility[] | null = null;
 
 function notify() {
   _fieldTypesCache = null;
   _surveyTemplatesCache = null;
   _adrExportCache = null;
+  _fieldVisibilityCache = null;
   _listeners.forEach((fn) => fn());
 }
 
@@ -324,6 +350,37 @@ export function useExtensionSurveyTemplates(): RegisteredSurveyTemplate[] {
     subscribe,
     getExtensionSurveyTemplates,
     getExtensionSurveyTemplates,
+  );
+}
+
+/**
+ * Headless field-visibility providers contributed by registered extensions, in
+ * registration order (one per extension at most). A non-function `fieldVisibility`
+ * is dropped. Cached (stable reference) so the mount point can render a fixed
+ * list of provider slots — each provider keeps its own hook order across
+ * re-renders — and so it is safe as a useSyncExternalStore snapshot.
+ */
+export function getExtensionFieldVisibilityProviders(): RegisteredFieldVisibility[] {
+  if (_fieldVisibilityCache) return _fieldVisibilityCache;
+  const out: RegisteredFieldVisibility[] = [];
+  for (const { key, plugin } of _registered) {
+    const provider = plugin.fieldVisibility;
+    if (provider === undefined) continue;
+    if (typeof provider !== "function") {
+      console.warn(`[extension:${key}] invalid fieldVisibility provider — ignored`, provider);
+      continue;
+    }
+    out.push({ extKey: key, provider });
+  }
+  _fieldVisibilityCache = out;
+  return out;
+}
+
+export function useExtensionFieldVisibilityProviders(): RegisteredFieldVisibility[] {
+  return useSyncExternalStore(
+    subscribe,
+    getExtensionFieldVisibilityProviders,
+    getExtensionFieldVisibilityProviders,
   );
 }
 

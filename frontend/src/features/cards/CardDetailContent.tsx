@@ -38,7 +38,11 @@ import {
 import { useAuthContext } from "@/hooks/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { hasPermission } from "@/components/RequirePermission";
-import { ExtensionBoundary, useExtensionUI } from "@/lib/extensionHost";
+import {
+  ExtensionBoundary,
+  useExtensionUI,
+  useExtensionFieldVisibilityProviders,
+} from "@/lib/extensionHost";
 import SoAWTab from "@/features/cards/sections/SoAWTab";
 import type {
   Card,
@@ -178,11 +182,38 @@ export default function CardDetailContent({
     sc[key]?.defaultExpanded !== false ? fallback : false;
   const secHidden = (key: string) => !!sc[key]?.hidden;
 
-  // Determine hidden fields based on card subtype
+  // Extensions may hide specific card fields at render time (display-only,
+  // ungated, never deletes stored values). Each registered provider renders as
+  // a headless slot below and reports its own hidden-key set, keyed by its
+  // extension. Stable provider list → each provider's own hooks keep a fixed
+  // order across re-renders.
+  const fieldVisibilityProviders = useExtensionFieldVisibilityProviders();
+  const [extHiddenByKey, setExtHiddenByKey] = useState<Record<string, string[]>>({});
+  const reportHiddenFields = useCallback((extKey: string, keys: string[]) => {
+    setExtHiddenByKey((prev) => {
+      const cur = prev[extKey];
+      if (cur && cur.length === keys.length && cur.every((k, i) => k === keys[i])) {
+        return prev; // no change — avoid needless re-render
+      }
+      return { ...prev, [extKey]: keys };
+    });
+  }, []);
+
+  // Determine hidden fields: subtype hidden_fields ∪ every currently-registered
+  // extension provider's reported keys. Reports from an extension that is no
+  // longer registered are ignored (its slot is gone).
   const hiddenFieldKeys: Set<string> = (() => {
-    if (!card.subtype || !typeConfig?.subtypes) return new Set<string>();
-    const st = typeConfig.subtypes.find((s) => s.key === card.subtype);
-    return new Set(st?.hidden_fields ?? []);
+    const set = new Set<string>();
+    if (card.subtype && typeConfig?.subtypes) {
+      const st = typeConfig.subtypes.find((s) => s.key === card.subtype);
+      for (const k of st?.hidden_fields ?? []) set.add(k);
+    }
+    const active = new Set(fieldVisibilityProviders.map((p) => p.extKey));
+    for (const [extKey, keys] of Object.entries(extHiddenByKey)) {
+      if (!active.has(extKey)) continue;
+      for (const k of keys) set.add(k);
+    }
+    return set;
   })();
 
   const customSections = (typeConfig?.fields_schema || []).filter(
@@ -447,6 +478,15 @@ export default function CardDetailContent({
 
   return (
     <>
+      {/* Headless extension field-visibility providers (render null). Stable
+          list + stable key per extension so each provider's hooks keep order.
+          Each runs inside ExtensionBoundary so a crash can't blank the card. */}
+      {fieldVisibilityProviders.map(({ extKey, provider: Provider }) => (
+        <ExtensionBoundary key={`fv-${extKey}`} extensionKey={extKey}>
+          <Provider card={card} report={reportHiddenFields} />
+        </ExtensionBoundary>
+      ))}
+
       {beforeTabs}
 
       <Tabs
