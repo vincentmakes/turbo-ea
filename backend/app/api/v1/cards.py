@@ -1495,9 +1495,12 @@ async def bulk_archive_cards(
     cascaded_card_ids = [str(cid) for cid in (descendants_set | related_set) if cid in flipped_ids]
 
     for fcard in flipped:
+        event_data = {"id": str(fcard.id), "type": fcard.type, "name": fcard.name}
+        if body.reason:
+            event_data["reason"] = body.reason
         await event_bus.publish(
             "card.archived",
-            {"id": str(fcard.id), "type": fcard.type, "name": fcard.name},
+            event_data,
             db=db,
             card_id=fcard.id,
             user_id=user.id,

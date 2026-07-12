@@ -82,6 +82,37 @@ class TestCreateSoAW:
         )
         assert resp.status_code == 403
 
+    async def test_unknown_field_rejected(self, client, db, soaw_env):
+        # extra="forbid": silently-ignored extras masked the field
+        # mismatch that made every MCP create_soaw call 422 (#802).
+        admin = soaw_env["admin"]
+        resp = await client.post(
+            "/api/v1/soaw",
+            json={"name": "X", "bogus_field": "y"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 422
+        assert "bogus_field" in str(resp.json()["detail"])
+
+    async def test_old_mcp_shape_rejected_naming_fields(self, client, db, soaw_env):
+        # The pre-fix MCP payload: `title` instead of `name`, list sections.
+        admin = soaw_env["admin"]
+        resp = await client.post(
+            "/api/v1/soaw",
+            json={
+                "initiative_id": str(uuid.uuid4()),
+                "title": "SoAW",
+                "sections": [{"heading": "Scope", "body": "b"}],
+                "status": "draft",
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 422
+        detail = str(resp.json()["detail"])
+        assert "title" in detail  # extra field named
+        assert "name" in detail  # missing required field named
+        assert "sections" in detail  # list-vs-dict type error named
+
 
 # -------------------------------------------------------------------
 # GET /soaw  (list)
@@ -174,6 +205,23 @@ class TestUpdateSoAW:
         )
         assert resp.status_code == 200
         assert resp.json()["name"] == "New Name"
+
+    async def test_update_unknown_field_rejected(self, client, db, soaw_env):
+        admin = soaw_env["admin"]
+        create_resp = await client.post(
+            "/api/v1/soaw",
+            json={"name": "Strict"},
+            headers=auth_headers(admin),
+        )
+        soaw_id = create_resp.json()["id"]
+
+        resp = await client.patch(
+            f"/api/v1/soaw/{soaw_id}",
+            json={"title": "renamed via wrong field"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 422
+        assert "title" in str(resp.json()["detail"])
 
     async def test_cannot_set_status_to_signed_via_update(self, client, db, soaw_env):
         admin = soaw_env["admin"]

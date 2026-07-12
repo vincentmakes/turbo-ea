@@ -20,6 +20,7 @@ from app.schemas.adr import (
     ADRCreate,
     ADRRejectRequest,
     ADRSignatureRequest,
+    ADRSignRequest,
     ADRUpdate,
 )
 from app.services import notification_service
@@ -543,6 +544,7 @@ async def request_signatures(
 @router.post("/{adr_id}/sign")
 async def sign_adr(
     adr_id: str,
+    body: ADRSignRequest | None = None,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -564,6 +566,8 @@ async def sign_adr(
                 raise HTTPException(400, "You have already signed this decision")
             sig["status"] = "signed"
             sig["signed_at"] = datetime.now(timezone.utc).isoformat()
+            if body and body.comment:
+                sig["comment"] = body.comment
             found = True
             break
 

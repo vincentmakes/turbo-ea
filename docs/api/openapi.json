@@ -109,6 +109,25 @@
         "title": "ADRRejectRequest",
         "type": "object"
       },
+      "ADRSignRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          }
+        },
+        "title": "ADRSignRequest",
+        "type": "object"
+      },
       "ADRSignatureRequest": {
         "properties": {
           "message": {
@@ -1436,6 +1455,18 @@
               }
             ],
             "title": "Child Strategy"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
           }
         },
         "required": [
@@ -10944,6 +10975,7 @@
         "type": "object"
       },
       "SoAWCreate": {
+        "additionalProperties": false,
         "properties": {
           "document_info": {
             "anyOf": [
@@ -11009,6 +11041,7 @@
         "type": "object"
       },
       "SoAWUpdate": {
+        "additionalProperties": false,
         "properties": {
           "document_info": {
             "anyOf": [
@@ -14743,6 +14776,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ADRSignRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {

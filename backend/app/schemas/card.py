@@ -251,6 +251,9 @@ class CardBulkArchiveRequest(BaseModel):
     card_ids: list[str] = Field(..., min_length=1, max_length=10000)
     child_strategy: ChildStrategy | None = None
     cascade_all_related: bool = False
+    # Free-text audit note recorded on each card.archived event (used by the
+    # MCP archive_cards tool; previously accepted-and-dropped — see #802 audit).
+    reason: str | None = Field(default=None, max_length=2000)
 
 
 CardBulkSkipReason = Literal["already_archived", "not_found"]

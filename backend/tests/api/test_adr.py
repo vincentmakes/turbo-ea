@@ -474,6 +474,51 @@ class TestSignWorkflow:
         assert data["status"] == "signed"
         assert data["signed_at"] is not None
 
+    async def test_sign_with_comment_stores_it_on_signatory(self, client, db, adr_env):
+        # The optional comment body used to be posted to a body-less
+        # endpoint and silently dropped (#802 audit).
+        admin = adr_env["admin"]
+        member = adr_env["member"]
+
+        create_resp = await _create_adr(client, admin, title="Commented Sign")
+        adr_id = create_resp.json()["id"]
+
+        await client.post(
+            f"/api/v1/adr/{adr_id}/request-signatures",
+            json={"user_ids": [str(member.id)]},
+            headers=auth_headers(admin),
+        )
+
+        resp = await client.post(
+            f"/api/v1/adr/{adr_id}/sign",
+            json={"comment": "Approved with reservations about cost."},
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 200
+        sig = resp.json()["signatories"][0]
+        assert sig["status"] == "signed"
+        assert sig["comment"] == "Approved with reservations about cost."
+
+    async def test_sign_rejects_unknown_body_field(self, client, db, adr_env):
+        admin = adr_env["admin"]
+        member = adr_env["member"]
+
+        create_resp = await _create_adr(client, admin, title="Strict Sign Body")
+        adr_id = create_resp.json()["id"]
+
+        await client.post(
+            f"/api/v1/adr/{adr_id}/request-signatures",
+            json={"user_ids": [str(member.id)]},
+            headers=auth_headers(admin),
+        )
+
+        resp = await client.post(
+            f"/api/v1/adr/{adr_id}/sign",
+            json={"note": "wrong field name"},
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 422
+
     async def test_non_signatory_cannot_sign(self, client, db, adr_env):
         admin = adr_env["admin"]
         member = adr_env["member"]
