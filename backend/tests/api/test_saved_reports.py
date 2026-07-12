@@ -107,6 +107,31 @@ class TestCreateSavedReport:
         )
         assert resp.status_code == 400
 
+    async def test_extension_report_type_accepted(self, client, db, reports_env):
+        admin = reports_env["admin"]
+        resp = await client.post(
+            "/api/v1/saved-reports",
+            json={
+                "name": "Autonomy Quadrant",
+                "report_type": "ext:digital-autonomy:quadrant",
+                "config": {"xAxis": "criticality"},
+                "visibility": "private",
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["report_type"] == "ext:digital-autonomy:quadrant"
+
+    async def test_malformed_extension_report_type_rejected(self, client, db, reports_env):
+        admin = reports_env["admin"]
+        for bad in ["ext:", "ext:daaf", "ext:DAAF:quadrant", "ext:daaf:", "ext:daaf:a b"]:
+            resp = await client.post(
+                "/api/v1/saved-reports",
+                json={"name": "Bad", "report_type": bad, "config": {}, "visibility": "private"},
+                headers=auth_headers(admin),
+            )
+            assert resp.status_code == 400, bad
+
     async def test_flexible_portfolio_report_type_accepted(self, client, db, reports_env):
         admin = reports_env["admin"]
         resp = await client.post(

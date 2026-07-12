@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -27,6 +28,19 @@ VALID_REPORT_TYPES = {
     "data-quality",
     "eol",
 }
+
+# Extension-contributed reports participate in Saved Reports with a namespaced
+# type "ext:{extension key}:{route id}" — the gallery resolves it back to the
+# extension's registered route. Ungated (reuses saved_reports.* permissions);
+# the shape is validated so arbitrary strings still can't land in the column.
+_EXT_REPORT_TYPE_RE = re.compile(r"^ext:[a-z0-9][a-z0-9-]{0,63}:[A-Za-z0-9_][A-Za-z0-9_-]{0,39}$")
+
+
+def _is_valid_report_type(value: str) -> bool:
+    if value in VALID_REPORT_TYPES:
+        return True
+    # The column is String(50); the regex parts alone could exceed that.
+    return len(value) <= 50 and bool(_EXT_REPORT_TYPE_RE.match(value))
 
 
 async def _load_report(db: AsyncSession, report_id: uuid.UUID) -> SavedReport | None:
@@ -131,9 +145,12 @@ async def create_saved_report(
 ):
     await PermissionService.require_permission(db, user, "saved_reports.create")
 
-    if body.report_type not in VALID_REPORT_TYPES:
+    if not _is_valid_report_type(body.report_type):
         raise HTTPException(
-            400, f"Invalid report_type. Must be one of: {', '.join(sorted(VALID_REPORT_TYPES))}"
+            400,
+            "Invalid report_type. Must be one of: "
+            f"{', '.join(sorted(VALID_REPORT_TYPES))}, or an extension report type "
+            "shaped 'ext:{extension-key}:{report-id}'",
         )
     if body.visibility not in ("private", "public", "shared"):
         raise HTTPException(400, "visibility must be private, public, or shared")

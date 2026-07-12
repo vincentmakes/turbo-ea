@@ -24,6 +24,7 @@ import Alert from "@mui/material/Alert";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import EditReportDialog from "./EditReportDialog";
 import { api } from "@/api/client";
+import { getExtensionRoutes, useExtensionUI } from "@/lib/extensionHost";
 import type { SavedReport } from "@/types";
 import {
   REPORT_TYPE_STYLE,
@@ -62,10 +63,29 @@ export default function SavedReportsPage() {
     fetchReports();
   }, [fetchReports]);
 
+  // Re-render when extension bundles finish loading (they register async after
+  // login) so ext:* saved reports resolve to their route/icon/label.
+  useExtensionUI();
+
+  // Extension reports save with report_type "ext:{extension key}:{route id}";
+  // resolve that back to the registered route. Null for core types, and for an
+  // extension that is not installed/enabled (its card degrades gracefully).
+  const extRouteFor = (reportType: string) => {
+    if (!reportType.startsWith("ext:")) return null;
+    const [, extKey, routeId] = reportType.split(":");
+    const match = getExtensionRoutes().find((r) => r.extKey === extKey && r.route.id === routeId);
+    return match?.route ?? null;
+  };
+
   const handleOpen = (report: SavedReport) => {
     const style = REPORT_TYPE_STYLE[report.report_type];
     if (style) {
       navigate(`${style.path}?saved_report_id=${report.id}`);
+      return;
+    }
+    const extRoute = extRouteFor(report.report_type);
+    if (extRoute) {
+      navigate(`${extRoute.path}?saved_report_id=${report.id}`);
     }
   };
 
@@ -128,12 +148,13 @@ export default function SavedReportsPage() {
       ) : (
         <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 2 }}>
           {reports.map((report) => {
-            const style = REPORT_TYPE_STYLE[report.report_type] || {
-              icon: "analytics",
-              color: "text.secondary",
-              path: "#",
-            };
-            const metaLabel = REPORT_TYPE_LABELS[report.report_type] || report.report_type;
+            const extRoute = extRouteFor(report.report_type);
+            const style = REPORT_TYPE_STYLE[report.report_type] ||
+              (extRoute
+                ? { icon: extRoute.icon, color: "#607d8b", path: extRoute.path }
+                : { icon: "analytics", color: "#90a4ae", path: "#" });
+            const metaLabel =
+              REPORT_TYPE_LABELS[report.report_type] || extRoute?.label || report.report_type;
             const visStyle = VISIBILITY_STYLE[report.visibility] || VISIBILITY_STYLE.private;
             const visLabel = VISIBILITY_LABELS[report.visibility] || VISIBILITY_LABELS.private;
 

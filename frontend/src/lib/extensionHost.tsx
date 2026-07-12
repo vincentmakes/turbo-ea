@@ -19,7 +19,10 @@
  * a plugin contributes into the core ADR DOCX export), and — SDK 1.4 — a
  * headless field-visibility provider (hides specific card fields at render
  * time from the extension's own, possibly async, logic; display-only, never
- * deletes stored values). Every
+ * deletes stored values). Since SDK 1.6 extension reports can also participate
+ * in Saved Reports: save with report_type "ext:{key}:{routeId}" via
+ * `sdk.SaveReportDialog`, load via `sdk.useSavedReport`, and the gallery
+ * resolves the namespaced type back to the registered route. Every
  * extension-provided component must be rendered inside <ExtensionBoundary> —
  * a crashing extension shows a fallback chip, never a white screen. A field
  * type whose extension is missing, disabled, or unlicensed simply is not in
@@ -35,10 +38,12 @@ import { useTranslation } from "react-i18next";
 
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import SaveReportDialog from "@/features/reports/SaveReportDialog";
+import { useSavedReport as useCoreSavedReport } from "@/hooks/useSavedReport";
 import * as tokens from "@/theme/tokens";
 import type { Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.5";
+export const UI_SDK_VERSION = "1.6";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -395,6 +400,31 @@ export function useExtensionFieldVisibilityProviders(): RegisteredFieldVisibilit
 }
 
 /**
+ * SDK 1.6 — saved-report participation for extension reports.
+ *
+ * An extension report saves with `report_type: "ext:{key}:{routeId}"` (the
+ * gallery resolves it back to the registered route) and uses this hook to load
+ * a saved configuration when opened via `?saved_report_id=`. Returns nulls
+ * when the page was opened without a saved report. Exposed on
+ * `window.TurboEA.sdk.useSavedReport`; pairs with `sdk.SaveReportDialog` (the
+ * core save/share dialog re-exported verbatim: name/description/visibility/
+ * share-with-users → POST /saved-reports). Ungated — permissions are the same
+ * `saved_reports.*` keys every core report uses, enforced server-side.
+ */
+export function useExtensionSavedReport(reportType: string): {
+  config: Record<string, unknown> | null;
+  savedReportId: string | null;
+  name: string | null;
+} {
+  const saved = useCoreSavedReport(reportType);
+  return {
+    config: (saved.savedReport?.config as Record<string, unknown> | undefined) ?? null,
+    savedReportId: saved.savedReport?.id ?? null,
+    name: saved.savedReportName,
+  };
+}
+
+/**
  * ADR panels contributed by registered extensions, in registration order.
  * Consumed via `useExtensionUI()` at the mount points (ADR editor/preview); a
  * contribution missing `id`/`component` is dropped. Not cached — the caller
@@ -475,6 +505,9 @@ export function initExtensionHost(): void {
       useTranslation,
       tokens,
       uiSdkVersion: UI_SDK_VERSION,
+      // SDK 1.6 — saved-report participation (see useExtensionSavedReport).
+      useSavedReport: useExtensionSavedReport,
+      SaveReportDialog,
     },
     register: registerExtension,
   };
