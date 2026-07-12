@@ -227,7 +227,11 @@ async def resend_invitation_by_invitation(
         import logging
 
         logging.getLogger(__name__).exception("Failed to resend invitation email to %s", inv.email)
-        raise HTTPException(502, f"Failed to send invitation email: {exc}") from exc
+        raise HTTPException(
+            502,
+            "Failed to send invitation email. Check the email settings and "
+            "server logs for details.",
+        ) from exc
 
     if not sent:
         raise HTTPException(
@@ -617,13 +621,14 @@ async def create_user(
                     "be sent. The account was created — configure an email "
                     "sending method in admin settings and re-send manually if needed."
                 )
-        except Exception as exc:
+        except Exception:
             import logging
 
             logging.getLogger(__name__).exception("Failed to send invitation email to %s", email)
             response["email_sent"] = False
             response["email_error"] = (
-                f"The account was created, but the invitation email could not be sent: {exc}"
+                "The account was created, but the invitation email could not be "
+                "sent. Check the email settings and server logs for details."
             )
 
     return response

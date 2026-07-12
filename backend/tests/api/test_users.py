@@ -572,6 +572,39 @@ class TestUpdateUser:
         assert resp.status_code == 200
         assert any(inv["email"] == "import-with-invite@test.com" for inv in resp.json())
 
+    async def test_invite_email_failure_does_not_leak_exception_details(
+        self, client, db, users_env, monkeypatch
+    ):
+        """When sending the invitation email raises, the response reports the
+        failure generically — exception text (which can carry SMTP hostnames
+        or connection details) must only reach the server logs, never the
+        API response (CodeQL py/stack-trace-exposure)."""
+        import app.services.email_service as email_service
+
+        async def _boom(**kwargs):
+            raise RuntimeError("smtp-secret-host boom")
+
+        monkeypatch.setattr(email_service, "send_notification_email", _boom)
+
+        admin = users_env["admin"]
+        resp = await client.post(
+            "/api/v1/users",
+            json={
+                "email": "invite-fail@test.com",
+                "display_name": "Invite Fail",
+                "password": "StrongPass1",
+                "role": "member",
+                "send_email": True,
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["email_sent"] is False
+        assert body["email_error"]
+        assert "boom" not in body["email_error"]
+        assert "smtp-secret-host" not in body["email_error"]
+
     async def test_create_user_sso_enabled_without_invite_skips_invitation(
         self, client, db, users_env
     ):

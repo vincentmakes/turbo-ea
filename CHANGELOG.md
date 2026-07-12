@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.3.1] - 2026-07-12
+
+### Security
+- User invitation email failures (create user and resend invitation) no longer include the raw exception text in the API response — details that could reveal SMTP hostnames or connection internals now go only to the server logs, and the response carries a generic message pointing admins there.
+
 ## [2.3.0] - 2026-07-12
 
 ### Added
