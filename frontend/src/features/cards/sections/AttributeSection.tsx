@@ -22,6 +22,11 @@ import type { Card, FieldDef, SectionDef } from "@/types";
 // ── Section: Type-specific attributes ───────────────────────────
 const VENDOR_ELIGIBLE_TYPES = ["ITComponent", "Application"];
 
+// The app's fixed AppBar is 64px tall; the section root carries this as
+// scroll-margin-top so a post-save scrollIntoView({block:"start"}) lands the
+// header just below the bar instead of under it.
+const SCROLL_MARGIN_TOP = 72;
+
 function AttributeSection({
   section,
   card,
@@ -89,42 +94,55 @@ function AttributeSection({
   }
   const hasValidationErrors = Object.keys(urlErrors).length > 0;
 
-  // Save-time scroll restore. After a save, TWO reflows can move this section:
-  // the edit→read collapse (our own setEditing) and the parent's setCard
-  // re-render (new card prop, recomputed sections/calc fields/visibility). A
-  // tall section would otherwise dump the user at the new page bottom. save()
-  // arms this ref with the section's pre-save viewport top; the layout effect
-  // below runs after each of those commits — in the frame the DOM actually
-  // settled, before paint — scrolls the section back to the captured top, and
-  // disarms once both the collapse and the card update have been observed.
-  // Save-only: no scroll listeners, so it never fights the scroll-to-top FAB.
+  // Save-time scroll restore: bring the section back into view. Saving a tall
+  // section happens with its Save button at the BOTTOM of the edit view —
+  // i.e. the section's top is scrolled far above the viewport. The Accordion
+  // stays expanded across save; the reflow is the edit→read CONTENT SWAP
+  // shrinking the section's inner height (plus the parent's setCard
+  // re-render), so preserving the old top offset (the previous approach)
+  // parks the whole (now short) section above the viewport and leaves the
+  // user staring at the content below it. Instead, once the DOM has settled,
+  // snap the section header to a predictable, visible position with
+  // scrollIntoView on the (always-mounted) Accordion root — height-tolerant,
+  // no measure-delta math. save() arms this ref; the layout effect fires on
+  // the settled commits (keyed on the card prop + editing so it survives both
+  // the content swap and the card update, in whichever order React commits
+  // them) and disarms after both were observed. The snap is skipped when the
+  // header is already visible (short sections never scrolled — don't yank the
+  // page), and the root carries scrollMarginTop so "start" lands below the
+  // fixed 64px app bar. Save-only: no scroll listeners, so it never fights
+  // the scroll-to-top FAB.
   const scrollRestoreRef = useRef<{
-    top: number;
     card: Card;
-    collapsed: boolean;
+    swapped: boolean;
     cardChanged: boolean;
   } | null>(null);
 
   useLayoutEffect(() => {
     const armed = scrollRestoreRef.current;
     if (!armed) return;
-    const current = rootRef.current?.getBoundingClientRect().top;
-    if (current != null && current !== armed.top) {
-      window.scrollBy(0, current - armed.top);
+    if (!editing) {
+      const el = rootRef.current;
+      if (el) {
+        const { top } = el.getBoundingClientRect();
+        // Only when the header is NOT already visibly positioned: above the
+        // fixed app bar line (its scroll-margin offset) or below the viewport.
+        if (top < SCROLL_MARGIN_TOP || top > window.innerHeight) {
+          el.scrollIntoView({ block: "start", behavior: "auto" });
+        }
+      }
+      armed.swapped = true;
     }
     if (card !== armed.card) armed.cardChanged = true;
-    if (!editing) armed.collapsed = true;
-    if (armed.cardChanged && armed.collapsed) scrollRestoreRef.current = null;
+    if (armed.swapped && armed.cardChanged) scrollRestoreRef.current = null;
   }, [card, editing]);
 
   const save = async () => {
     if (hasValidationErrors) return;
     setSaveError(null);
-    // Capture BEFORE the network round-trip: onSave calls the parent's
-    // setCard, whose re-render may commit before our continuation resumes.
-    const top = rootRef.current?.getBoundingClientRect().top;
-    scrollRestoreRef.current =
-      top != null ? { top, card, collapsed: false, cardChanged: false } : null;
+    // Arm BEFORE the network round-trip: onSave calls the parent's setCard,
+    // whose re-render may commit before our continuation resumes.
+    scrollRestoreRef.current = { card, swapped: false, cardChanged: false };
     try {
       await onSave({ attributes: attrs });
       setEditing(false);
@@ -314,7 +332,12 @@ function AttributeSection({
   );
 
   return (
-    <Accordion ref={rootRef} defaultExpanded={expanded} disableGutters>
+    <Accordion
+      ref={rootRef}
+      defaultExpanded={expanded}
+      disableGutters
+      sx={{ scrollMarginTop: `${SCROLL_MARGIN_TOP}px` }}
+    >
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="tune" size={20} />

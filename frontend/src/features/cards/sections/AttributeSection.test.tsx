@@ -82,22 +82,12 @@ describe("AttributeSection badge + filter", () => {
   });
 });
 
-describe("AttributeSection keeps the section in view after save", () => {
-  it("restores the section's pre-save viewport position across the parent's card re-render", async () => {
-    // Simulated viewport: the section header sits at top=400 before save. The
-    // save triggers the parent's setCard re-render + the edit→read collapse,
-    // which (in this simulation) shift the section to top=-800. scrollBy is
-    // mocked to move the simulated viewport, so a correct compensation brings
-    // the header back to exactly its pre-save position.
-    let top = 400;
-    const scrollBy = vi.fn((_x: number, y: number) => {
-      top -= y; // scrolling down by y moves element tops up by y
-    });
-    vi.stubGlobal("scrollBy", scrollBy);
-
+describe("AttributeSection brings the section back into view after save", () => {
+  // Mimics CardDetailContent.handleUpdate → setCard: the card prop gets a NEW
+  // object identity after save, re-rendering the whole card. `topRef` is the
+  // simulated viewport position of the section root.
+  function renderHarness(topRef: { value: number }) {
     function Harness() {
-      // Mimics CardDetailContent.handleUpdate → setCard: the card prop gets a
-      // NEW object identity after save, re-rendering the whole card.
       const [c, setC] = useState(card);
       return (
         <AttributeSection
@@ -105,27 +95,58 @@ describe("AttributeSection keeps the section in view after save", () => {
           card={c}
           canEdit
           onSave={async () => {
-            top = -800; // the post-save reflow moves the section off-screen
             setC((prev) => ({ ...prev }) as typeof prev);
           }}
         />
       );
     }
-
     const { container } = render(<Harness />);
     const root = container.querySelector(".MuiAccordion-root") as HTMLElement;
     vi.spyOn(root, "getBoundingClientRect").mockImplementation(
-      () => ({ top }) as unknown as DOMRect,
+      () => ({ top: topRef.value }) as unknown as DOMRect,
     );
+    // jsdom has no scrollIntoView; simulate a "start" snap landing the header
+    // at the root's scroll-margin offset (just below the fixed app bar).
+    const scrollIntoView = vi.fn(() => {
+      topRef.value = 72;
+    });
+    (root as HTMLElement & { scrollIntoView: typeof scrollIntoView }).scrollIntoView =
+      scrollIntoView;
+    return { scrollIntoView };
+  }
+
+  it("snaps a tall section (top scrolled above the viewport) back into view", async () => {
+    // The realistic case: the Save button of a tall edit view sits at the
+    // page bottom, so at save time the section's top is far ABOVE the
+    // viewport. After the edit→read content swap shrinks the section (the
+    // Accordion stays expanded) and the parent's card re-render settles, the
+    // (now short) section must be scrolled back into view — not left parked
+    // above the viewport.
+    const top = { value: -1200 };
+    const { scrollIntoView } = renderHarness(top);
 
     // Enter edit mode (the pencil IconButton renders the "edit" ligature).
     fireEvent.click(screen.getByText("edit"));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    // The layout-effect compensation scrolls by (current - before) = -1200…
-    await waitFor(() => expect(scrollBy).toHaveBeenCalledWith(0, -1200));
-    // …which puts the header back at its pre-save viewport position.
-    expect(top).toBe(400);
+    await waitFor(() =>
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "start", behavior: "auto" }),
+    );
+    // The header lands at/near the viewport top (below the fixed app bar).
+    expect(top.value).toBe(72);
+  });
+
+  it("does not yank the page when the section header is already visible", async () => {
+    const top = { value: 300 }; // comfortably in view
+    const { scrollIntoView } = renderHarness(top);
+
+    fireEvent.click(screen.getByText("edit"));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    // Save settles (section back in read mode) without any scroll.
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Save" })).toBeNull());
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    expect(top.value).toBe(300);
   });
 });
 
