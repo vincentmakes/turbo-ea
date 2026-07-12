@@ -36,7 +36,7 @@ The Store tab is read-only and anonymous: no account, no token, and nothing abou
 2. Open **Admin → Extensions** and choose **Install from file…** on the Store tab, then upload the `.teax` file you received.
 3. Turbo EA verifies the signature and shows a **preview**: for content-carrying extensions this is a dry-run of every card type, tag group, card, and relation the extension would create or update — nothing is written yet.
 4. Review the preview and press **Install extension**.
-5. If the extension carries backend or UI code, a banner asks you to restart the backend container (`docker compose restart backend`). Content-only extensions are active immediately.
+5. If the extension carries backend code, a banner asks you to restart the backend container (`docker compose restart backend`). Content and UI extensions are active immediately — users pick up new UI on their next page load.
 
 Uploading the same bundle again is safe — the preview shows everything as "skipped" and applying changes nothing.
 

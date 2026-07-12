@@ -1709,7 +1709,7 @@
   "auditLog.rollback.rollback": "Zurücknehmen",
   "users.create.passwordOptionalLocalHelperText": "Leer lassen, damit der Benutzer beim ersten Anmelden sein eigenes Passwort festlegt.",
   "extensions.intro": "Installieren Sie vom Anbieter signierte Erweiterungen, um kundenspezifische Funktionen hinzuzufügen, ohne den Kern zu verändern. Erweiterungen und Lizenzen werden als Dateien geliefert und funktionieren daher auch auf abgeschotteten (air-gapped) Instanzen.",
-  "extensions.needsRestart": "Mindestens eine Erweiterung enthält Backend- oder UI-Code, der beim Start geladen wird. Starten Sie den Backend-Container neu, um den Vorgang abzuschließen (docker compose restart backend).",
+  "extensions.needsRestart": "Mindestens eine Erweiterung enthält Backend-Code, der beim Start geladen wird. Starten Sie den Backend-Container neu, um den Vorgang abzuschließen (docker compose restart backend).",
   "extensions.license.title": "Lizenz",
   "extensions.license.licensedTo": "Lizenziert für {{name}}",
   "extensions.license.uploaded": "hochgeladen am {{date}}",

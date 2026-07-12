@@ -1709,7 +1709,7 @@
   "auditLog.rollback.rollback": "Reverter",
   "users.create.passwordOptionalLocalHelperText": "Deixe em branco para que o utilizador defina a palavra-passe no primeiro início de sessão.",
   "extensions.intro": "Instale extensões assinadas pelo fornecedor para adicionar capacidades específicas do cliente sem alterar o núcleo. Extensões e licenças são entregues como ficheiros, por isso tudo funciona em instâncias isoladas (air-gapped).",
-  "extensions.needsRestart": "Uma ou mais extensões contêm código de backend ou de interface carregado no arranque. Reinicie o contentor do backend para concluir (docker compose restart backend).",
+  "extensions.needsRestart": "Uma ou mais extensões contêm código de backend carregado no arranque. Reinicie o contentor do backend para concluir (docker compose restart backend).",
   "extensions.license.title": "Licença",
   "extensions.license.licensedTo": "Licenciado para {{name}}",
   "extensions.license.uploaded": "carregada em {{date}}",

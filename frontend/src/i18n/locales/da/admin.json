@@ -1709,7 +1709,7 @@
   "auditLog.rollback.rollback": "Rul tilbage",
   "users.create.passwordOptionalLocalHelperText": "Lad feltet være tomt, så brugeren selv angiver adgangskoden ved første login.",
   "extensions.intro": "Installer leverandørsignerede udvidelser for at tilføje kundespecifikke funktioner uden at ændre kernen. Udvidelser og licenser leveres som filer, så alt fungerer på isolerede (air-gapped) installationer.",
-  "extensions.needsRestart": "En eller flere udvidelser indeholder backend- eller UI-kode, der indlæses ved opstart. Genstart backend-containeren for at afslutte (docker compose restart backend).",
+  "extensions.needsRestart": "En eller flere udvidelser indeholder backend-kode, der indlæses ved opstart. Genstart backend-containeren for at afslutte (docker compose restart backend).",
   "extensions.license.title": "Licens",
   "extensions.license.licensedTo": "Licenseret til {{name}}",
   "extensions.license.uploaded": "uploadet {{date}}",

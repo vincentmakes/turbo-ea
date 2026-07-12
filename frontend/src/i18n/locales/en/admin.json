@@ -1709,7 +1709,7 @@
   "auditLog.rollback.rollback": "Roll back",
   "users.create.passwordOptionalLocalHelperText": "Leave blank to let the user set their own password on first login.",
   "extensions.intro": "Install vendor-signed extensions to add customer-specific capabilities without changing the core. Extensions and licenses are delivered as files, so everything works on air-gapped instances.",
-  "extensions.needsRestart": "One or more extensions carry backend or UI code that loads at startup. Restart the backend container to finish (docker compose restart backend).",
+  "extensions.needsRestart": "One or more extensions carry backend code that loads at startup. Restart the backend container to finish (docker compose restart backend).",
   "extensions.license.title": "License",
   "extensions.license.licensedTo": "Licensed to {{name}}",
   "extensions.license.uploaded": "uploaded {{date}}",

@@ -36,7 +36,7 @@ O separador Loja é só de leitura e anónimo: sem conta, sem token, e nada sobr
 2. Abra **Admin → Extensões**, escolha **Instalar a partir de ficheiro…** no separador Loja e carregue o ficheiro `.teax` recebido.
 3. O Turbo EA verifica a assinatura e mostra uma **pré-visualização**: para extensões com conteúdo é uma simulação de cada tipo de cartão, grupo de etiquetas, cartão e relação que a extensão criaria ou atualizaria — nada é escrito ainda.
 4. Reveja a pré-visualização e prima **Instalar extensão**.
-5. Se a extensão incluir código de backend ou de interface, um aviso pede o reinício do contentor do backend (`docker compose restart backend`). Extensões só de conteúdo ficam ativas de imediato.
+5. Se a extensão incluir código de backend, um aviso pede o reinício do contentor do backend (`docker compose restart backend`). Extensões de conteúdo e de interface ficam ativas de imediato — os utilizadores veem a nova interface no próximo carregamento da página.
 
 Carregar o mesmo pacote outra vez é seguro — a pré-visualização mostra tudo como «ignorado» e aplicar não altera nada.
 

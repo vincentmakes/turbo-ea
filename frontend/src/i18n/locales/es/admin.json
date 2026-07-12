@@ -1709,7 +1709,7 @@
   "auditLog.rollback.rollback": "Revertir",
   "users.create.passwordOptionalLocalHelperText": "Déjalo en blanco para que el usuario establezca su contraseña en el primer inicio de sesión.",
   "extensions.intro": "Instale extensiones firmadas por el proveedor para añadir capacidades específicas del cliente sin cambiar el núcleo. Las extensiones y licencias se entregan como archivos, por lo que todo funciona en instancias aisladas (air-gapped).",
-  "extensions.needsRestart": "Una o más extensiones contienen código de backend o de interfaz que se carga al iniciar. Reinicie el contenedor del backend para terminar (docker compose restart backend).",
+  "extensions.needsRestart": "Una o más extensiones contienen código de backend que se carga al iniciar. Reinicie el contenedor del backend para terminar (docker compose restart backend).",
   "extensions.license.title": "Licencia",
   "extensions.license.licensedTo": "Licencia otorgada a {{name}}",
   "extensions.license.uploaded": "subida el {{date}}",

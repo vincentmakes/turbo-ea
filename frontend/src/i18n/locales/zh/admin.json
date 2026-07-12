@@ -1709,7 +1709,7 @@
   "auditLog.rollback.rollback": "回滚",
   "users.create.passwordOptionalLocalHelperText": "留空以让用户在首次登录时自行设置密码。",
   "extensions.intro": "安装由供应商签名的扩展，在不更改核心的情况下添加客户专属功能。扩展和许可证均以文件形式交付，因此在隔离（air-gapped）环境中同样可用。",
-  "extensions.needsRestart": "一个或多个扩展包含在启动时加载的后端或界面代码。请重启后端容器以完成安装（docker compose restart backend）。",
+  "extensions.needsRestart": "一个或多个扩展包含在启动时加载的后端代码。请重启后端容器以完成安装（docker compose restart backend）。",
   "extensions.license.title": "许可证",
   "extensions.license.licensedTo": "授权给 {{name}}",
   "extensions.license.uploaded": "上传于 {{date}}",

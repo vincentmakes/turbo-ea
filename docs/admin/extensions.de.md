@@ -36,7 +36,7 @@ Der Store-Tab ist schreibgeschützt und anonym: kein Konto, kein Token, und es w
 2. Öffnen Sie **Admin → Erweiterungen**, wählen Sie im Store-Tab **Aus Datei installieren…** und laden Sie die erhaltene `.teax`-Datei hoch.
 3. Turbo EA prüft die Signatur und zeigt eine **Vorschau**: Bei Erweiterungen mit Inhalten ist das ein Probelauf aller Kartentypen, Tag-Gruppen, Karten und Beziehungen, die die Erweiterung anlegen oder aktualisieren würde — es wird noch nichts geschrieben.
 4. Prüfen Sie die Vorschau und klicken Sie auf **Erweiterung installieren**.
-5. Enthält die Erweiterung Backend- oder UI-Code, fordert ein Banner zum Neustart des Backend-Containers auf (`docker compose restart backend`). Reine Inhaltserweiterungen sind sofort aktiv.
+5. Enthält die Erweiterung Backend-Code, fordert ein Banner zum Neustart des Backend-Containers auf (`docker compose restart backend`). Inhalts- und UI-Erweiterungen sind sofort aktiv — Benutzer erhalten neue Oberflächen beim nächsten Laden der Seite.
 
 Das erneute Hochladen desselben Pakets ist unbedenklich — die Vorschau zeigt alles als „übersprungen“ und das Anwenden ändert nichts.
 

@@ -36,7 +36,7 @@ La pestaña Tienda es de solo lectura y anónima: sin cuenta, sin token, y no se
 2. Abre **Admin → Extensiones**, elige **Instalar desde archivo…** en la pestaña Tienda y sube el archivo `.teax` recibido.
 3. Turbo EA verifica la firma y muestra una **vista previa**: para extensiones con contenido es una simulación de cada tipo de tarjeta, grupo de etiquetas, tarjeta y relación que la extensión crearía o actualizaría — todavía no se escribe nada.
 4. Revise la vista previa y pulse **Instalar extensión**.
-5. Si la extensión incluye código de backend o de interfaz, un aviso pide reiniciar el contenedor del backend (`docker compose restart backend`). Las extensiones de solo contenido quedan activas de inmediato.
+5. Si la extensión incluye código de backend, un aviso pide reiniciar el contenedor del backend (`docker compose restart backend`). Las extensiones de contenido y de interfaz quedan activas de inmediato: los usuarios ven la nueva interfaz al recargar la página.
 
 Subir el mismo paquete otra vez es seguro — la vista previa muestra todo como «omitido» y aplicarlo no cambia nada.
 

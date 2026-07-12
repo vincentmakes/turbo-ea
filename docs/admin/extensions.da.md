@@ -36,7 +36,7 @@ Fanen Butik er skrivebeskyttet og anonym: ingen konto, intet token, og intet om 
 2. Åbn **Admin → Udvidelser**, vælg **Installer fra fil…** under fanen Butik, og upload den `.teax`-fil, du har modtaget.
 3. Turbo EA verificerer signaturen og viser en **forhåndsvisning**: for indholdsbærende udvidelser er det en prøvekørsel af hver korttype, tag-gruppe, kort og relation, som udvidelsen ville oprette eller opdatere — intet skrives endnu.
 4. Gennemgå forhåndsvisningen, og tryk på **Installer udvidelse**.
-5. Hvis udvidelsen indeholder backend- eller UI-kode, beder et banner dig om at genstarte backend-containeren (`docker compose restart backend`). Rene indholdsudvidelser er aktive med det samme.
+5. Hvis udvidelsen indeholder backend-kode, beder et banner dig om at genstarte backend-containeren (`docker compose restart backend`). Indholds- og UI-udvidelser er aktive med det samme — brugerne ser den nye brugerflade ved næste sideindlæsning.
 
 Det er sikkert at uploade den samme pakke igen — forhåndsvisningen viser alt som «sprunget over», og anvendelse ændrer intet.
 

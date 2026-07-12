@@ -36,7 +36,7 @@ La scheda Store è in sola lettura e anonima: nessun account, nessun token, e nu
 2. Apri **Admin → Estensioni**, scegli **Installa da file…** nella scheda Store e carica il file `.teax` ricevuto.
 3. Turbo EA verifica la firma e mostra un'**anteprima**: per le estensioni con contenuti è una simulazione di ogni tipo di scheda, gruppo di tag, scheda e relazione che l'estensione creerebbe o aggiornerebbe — non viene ancora scritto nulla.
 4. Controlla l'anteprima e premi **Installa estensione**.
-5. Se l'estensione contiene codice backend o UI, un avviso chiede di riavviare il container backend (`docker compose restart backend`). Le estensioni di solo contenuto sono attive subito.
+5. Se l'estensione contiene codice backend, un avviso chiede di riavviare il container backend (`docker compose restart backend`). Le estensioni di contenuto e di interfaccia sono attive subito — gli utenti vedono la nuova interfaccia al prossimo caricamento della pagina.
 
 Caricare due volte lo stesso pacchetto è sicuro — l'anteprima mostra tutto come «saltato» e l'applicazione non cambia nulla.
 

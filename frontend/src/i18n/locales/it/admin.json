@@ -1709,7 +1709,7 @@
   "auditLog.rollback.rollback": "Annulla",
   "users.create.passwordOptionalLocalHelperText": "Lascia vuoto per consentire all'utente di impostare la password al primo accesso.",
   "extensions.intro": "Installa estensioni firmate dal fornitore per aggiungere funzionalità specifiche del cliente senza modificare il core. Estensioni e licenze vengono consegnate come file, quindi tutto funziona anche su istanze isolate (air-gapped).",
-  "extensions.needsRestart": "Una o più estensioni contengono codice backend o UI caricato all'avvio. Riavvia il container backend per completare (docker compose restart backend).",
+  "extensions.needsRestart": "Una o più estensioni contengono codice backend caricato all'avvio. Riavvia il container backend per completare (docker compose restart backend).",
   "extensions.license.title": "Licenza",
   "extensions.license.licensedTo": "Concessa in licenza a {{name}}",
   "extensions.license.uploaded": "caricata il {{date}}",

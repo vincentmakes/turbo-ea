@@ -346,6 +346,76 @@ class TestInstallLifecycle:
         assert totals["created"] == 0
         assert totals["skipped"] >= 1
 
+    async def test_frontend_only_install_needs_no_restart(self, client, db, vendor):
+        """A UI-only extension is live immediately: `installed` status and
+        listed by /extensions/ui-manifest without a backend restart. Guard —
+        the Store's buy-and-install flow must not end in `needs_restart` for
+        extensions that carry no backend code."""
+        admin = await make_admin(db)
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor)},
+            headers=auth_headers(admin),
+        )
+        install = await upload_and_preview(
+            client,
+            db,
+            admin,
+            vendor,
+            files={"frontend/entry.js": b"window.TurboEA.register('sample-ext', {});"},
+            capabilities=["frontend"],
+            frontend={"entry": "frontend/entry.js"},
+        )
+        await ext_api.run_apply(db, install, admin)
+        assert install.status == "installed"
+
+        row = (
+            await db.execute(select(Extension).where(Extension.key == "sample-ext"))
+        ).scalar_one()
+        assert row.status == "installed"  # NOT needs_restart
+
+        res = await client.get("/api/v1/extensions/ui-manifest", headers=auth_headers(admin))
+        assert res.status_code == 200
+        entries = res.json()
+        assert [e["key"] for e in entries] == ["sample-ext"]
+        assert entries[0]["entry"].endswith("/ext-assets/sample-ext/1.0.0/entry.js")
+
+    async def test_backend_install_still_needs_restart(self, client, db, vendor):
+        """Backend code loads at import time — installing it must keep the
+        needs_restart gate (and stay off the ui-manifest until reboot)."""
+        from tests.teax_helpers import build_wheel
+
+        admin = await make_admin(db)
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor)},
+            headers=auth_headers(admin),
+        )
+        wheel_rel = "wheels/turbo_ext_sample_ext-1.0.0-py3-none-any.whl"
+        wheel = build_wheel("turbo_ext_sample_ext", "extension = None\n")
+        install = await upload_and_preview(
+            client,
+            db,
+            admin,
+            vendor,
+            files={
+                wheel_rel: wheel,
+                "frontend/entry.js": b"window.TurboEA.register('sample-ext', {});",
+            },
+            capabilities=["backend", "frontend"],
+            backend={"entrypoint": "turbo_ext_sample_ext:extension", "wheels": [wheel_rel]},
+            frontend={"entry": "frontend/entry.js"},
+        )
+        await ext_api.run_apply(db, install, admin)
+
+        row = (
+            await db.execute(select(Extension).where(Extension.key == "sample-ext"))
+        ).scalar_one()
+        assert row.status == "needs_restart"
+
+        res = await client.get("/api/v1/extensions/ui-manifest", headers=auth_headers(admin))
+        assert res.json() == []
+
 
 class TestEnableDisableUninstall:
     async def _install(self, client, db, admin, vendor):

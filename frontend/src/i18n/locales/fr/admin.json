@@ -1709,7 +1709,7 @@
   "auditLog.rollback.rollback": "Annuler",
   "users.create.passwordOptionalLocalHelperText": "Laissez vide pour que l'utilisateur définisse son mot de passe à la première connexion.",
   "extensions.intro": "Installez des extensions signées par l'éditeur pour ajouter des fonctionnalités spécifiques au client sans modifier le cœur. Les extensions et les licences sont livrées sous forme de fichiers et fonctionnent donc aussi sur des instances isolées (air-gapped).",
-  "extensions.needsRestart": "Au moins une extension contient du code backend ou UI chargé au démarrage. Redémarrez le conteneur backend pour terminer (docker compose restart backend).",
+  "extensions.needsRestart": "Au moins une extension contient du code backend chargé au démarrage. Redémarrez le conteneur backend pour terminer (docker compose restart backend).",
   "extensions.license.title": "Licence",
   "extensions.license.licensedTo": "Licence accordée à {{name}}",
   "extensions.license.uploaded": "téléversée le {{date}}",

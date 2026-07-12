@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.4.1] - 2026-07-12
+
+### Changed
+- Installing or updating an extension that carries only UI, content, or metamodel contributions no longer requires a backend restart — it is live immediately, and users see new extension pages and panels on their next page load. Only extensions with backend code still show the restart banner.
+
 ## [2.4.0] - 2026-07-12
 
 ### Added

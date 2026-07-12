@@ -760,7 +760,7 @@ export default function ExtensionsAdmin() {
         <Alert severity="warning" icon={<MaterialSymbol icon="restart_alt" />}>
           {t(
             "extensions.needsRestart",
-            "One or more extensions carry backend or UI code that loads at startup. Restart the backend container to finish (docker compose restart backend).",
+            "One or more extensions carry backend code that loads at startup. Restart the backend container to finish (docker compose restart backend).",
           )}
         </Alert>
       )}

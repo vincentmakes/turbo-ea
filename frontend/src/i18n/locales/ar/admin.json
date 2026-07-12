@@ -1709,7 +1709,7 @@
   "auditLog.rollback.rollback": "تراجع",
   "users.create.passwordOptionalLocalHelperText": "اتركه فارغًا ليقوم المستخدم بتعيين كلمة المرور الخاصة به عند أول تسجيل دخول.",
   "extensions.intro": "ثبّت إضافات موقّعة من المورّد لإضافة قدرات خاصة بالعميل دون تغيير النواة. تُسلَّم الإضافات والتراخيص كملفات، لذا يعمل كل شيء على الأنظمة المعزولة عن الإنترنت.",
-  "extensions.needsRestart": "تحتوي إضافة واحدة أو أكثر على شيفرة خلفية أو واجهة تُحمَّل عند بدء التشغيل. أعد تشغيل حاوية الخادم الخلفي لإكمال العملية (docker compose restart backend).",
+  "extensions.needsRestart": "تحتوي إضافة واحدة أو أكثر على شيفرة خلفية تُحمَّل عند بدء التشغيل. أعد تشغيل حاوية الخادم الخلفي لإكمال العملية (docker compose restart backend).",
   "extensions.license.title": "الترخيص",
   "extensions.license.licensedTo": "مرخّص لـ {{name}}",
   "extensions.license.uploaded": "رُفع في {{date}}",

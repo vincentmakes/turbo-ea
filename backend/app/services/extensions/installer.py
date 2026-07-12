@@ -49,9 +49,18 @@ logger = logging.getLogger(__name__)
 
 EXTENSIONS_DIR = Path("data/extensions")
 
-# Statuses that mean "there is extension code the running process has not
-# loaded (or not unloaded)" — surfaced as a restart banner in the admin UI.
-RUNTIME_CAPABILITIES = frozenset({"backend", "frontend"})
+# Capabilities whose code the running backend process loads at startup and
+# therefore cannot pick up without a restart (surfaced as the restart banner
+# in the admin UI). Only ``backend`` qualifies: routers mount at import time,
+# wheels go onto sys.path, permissions/migrations/jobs wire during startup.
+# ``frontend`` is deliberately NOT here — UI bundles are served straight from
+# disk per request (``GET /ext-assets/...``) and ``/extensions/ui-manifest``
+# refreshes the registry from the DB on every call, so a UI-only install is
+# live immediately (users pick it up on their next page load). The bundle was
+# signature-verified by this installer moments ago, so serving it without a
+# boot-time re-verification is safe; the boot re-check still guards against
+# volume tampering while the process was down.
+RUNTIME_CAPABILITIES = frozenset({"backend"})
 
 
 def _extract_wheel(wheel_path: Path, lib_dir: Path) -> None:

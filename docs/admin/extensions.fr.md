@@ -36,7 +36,7 @@ L'onglet Boutique est en lecture seule et anonyme : pas de compte, pas de jeton,
 2. Ouvrez **Admin → Extensions**, choisissez **Installer depuis un fichier…** dans l'onglet Boutique et téléversez le fichier `.teax` reçu.
 3. Turbo EA vérifie la signature et affiche un **aperçu** : pour les extensions de contenu, il s'agit d'une simulation de chaque type de carte, groupe d'étiquettes, carte et relation que l'extension créerait ou mettrait à jour — rien n'est encore écrit.
 4. Vérifiez l'aperçu puis cliquez sur **Installer l'extension**.
-5. Si l'extension contient du code backend ou UI, un bandeau demande de redémarrer le conteneur backend (`docker compose restart backend`). Les extensions de contenu pur sont actives immédiatement.
+5. Si l'extension contient du code backend, un bandeau demande de redémarrer le conteneur backend (`docker compose restart backend`). Les extensions de contenu et d'interface sont actives immédiatement — les utilisateurs voient la nouvelle interface au prochain chargement de page.
 
 Téléverser deux fois le même paquet est sans risque — l'aperçu montre tout comme « ignoré » et l'application ne change rien.
 
