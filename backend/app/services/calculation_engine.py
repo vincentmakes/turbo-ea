@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import ast
 import logging
+import math
 import re
 from datetime import datetime, timezone
 from typing import Any
@@ -72,6 +73,14 @@ def _ABS(value: float | None) -> float | None:  # noqa: N802
     if value is None:
         return None
     return abs(value)
+
+
+def _LN(value: float | None) -> float | None:  # noqa: N802
+    """Natural logarithm. Non-positive, None, and non-numeric input all yield
+    None (never raise) so a formula can't crash on empty/zero field values."""
+    if not isinstance(value, (int, float)) or value <= 0:
+        return None
+    return math.log(value)
 
 
 def _COALESCE(*args: Any) -> Any:  # noqa: N802
@@ -150,6 +159,7 @@ SAFE_FUNCTIONS = {
     "COUNT": _COUNT,
     "ROUND": _ROUND,
     "ABS": _ABS,
+    "LN": _LN,
     "COALESCE": _COALESCE,
     "LOWER": _LOWER,
     "UPPER": _UPPER,

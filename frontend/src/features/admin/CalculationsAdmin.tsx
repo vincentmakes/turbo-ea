@@ -52,7 +52,7 @@ interface Suggestion {
 // ── Syntax highlighting ───────────────────────────────────────────
 
 const FORMULA_FUNCTIONS = new Set([
-  "IF", "SUM", "AVG", "MIN", "MAX", "COUNT", "ROUND", "ABS",
+  "IF", "SUM", "AVG", "MIN", "MAX", "COUNT", "ROUND", "ABS", "LN",
   "COALESCE", "LOWER", "UPPER", "CONCAT", "CONTAINS", "PLUCK",
   "FILTER", "MAP_SCORE",
 ]);
@@ -201,6 +201,7 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
       ["COUNT", "COUNT(list)", "List length"],
       ["ROUND", "ROUND(num, decimals)", "Round number"],
       ["ABS", "ABS(num)", "Absolute value"],
+      ["LN", "LN(num)", "Natural log (null for \u2264 0)"],
       ["COALESCE", "COALESCE(v1, v2, ...)", "First non-null"],
       ["LOWER", "LOWER(s)", "Lowercase"],
       ["UPPER", "UPPER(s)", "Uppercase"],
@@ -622,6 +623,7 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
     { name: "COUNT(list)", desc: "Length of a list" },
     { name: "ROUND(num, decimals)", desc: "Round a number" },
     { name: "ABS(num)", desc: "Absolute value" },
+    { name: "LN(num)", desc: "Natural logarithm (null for values \u2264 0)" },
     { name: "COALESCE(v1, v2, ...)", desc: "First non-null value" },
     { name: "LOWER(s) / UPPER(s)", desc: "Case conversion" },
     { name: "CONCAT(s1, s2, ...)", desc: "String concatenation" },

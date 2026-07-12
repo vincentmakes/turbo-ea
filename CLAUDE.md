@@ -1419,7 +1419,7 @@ Admin-defined formulas that automatically compute field values when cards are sa
 
 ### Engine (`calculation_engine.py`)
 - Safe sandboxed evaluation using `simpleeval`
-- **Built-in functions**: IF, SUM, AVG, MIN, MAX, COUNT, ROUND, ABS, COALESCE, LOWER, UPPER, CONCAT, CONTAINS, PLUCK, FILTER, MAP_SCORE
+- **Built-in functions**: IF, SUM, AVG, MIN, MAX, COUNT, ROUND, ABS, LN, COALESCE, LOWER, UPPER, CONCAT, CONTAINS, PLUCK, FILTER, MAP_SCORE
 - **Context variables**: Card attributes, relations data, lifecycle info
 - Automatic execution on card save via `run_calculations_for_card()`
 - Dependency ordering via `execution_order` field

@@ -5,6 +5,8 @@ These tests do NOT require a database — they test the pure evaluation logic on
 
 from __future__ import annotations
 
+import math
+
 import pytest
 
 from app.services.calculation_engine import (
@@ -16,6 +18,7 @@ from app.services.calculation_engine import (
     _COUNT,
     _FILTER,
     _IF,
+    _LN,
     _LOWER,
     _MAP_SCORE,
     _MAX,
@@ -424,3 +427,25 @@ class TestEvaluateFormula:
         ctx = self._ctx()
         ctx["relation_count"] = _DotDict({"app_to_itc": 3})
         assert _evaluate_formula("relation_count.app_to_itc", ctx) == 3
+
+
+class TestLN:
+    def test_ln_positive(self):
+        assert _LN(1) == 0.0
+        assert _LN(math.e) == pytest.approx(1.0)
+        assert _LN(20.085536923187668) == pytest.approx(3.0)
+
+    def test_ln_non_positive_and_none_return_none(self):
+        assert _LN(0) is None
+        assert _LN(-1) is None
+        assert _LN(None) is None
+
+    def test_ln_non_numeric_returns_none(self):
+        assert _LN("abc") is None
+        assert _LN([2.0]) is None
+
+    def test_ln_inside_round_formula(self):
+        ctx = {"data": _DotDict({"x": 20.085536923187668, "zero": 0})}
+        assert _evaluate_formula("ROUND(LN(data.x), 2)", ctx) == pytest.approx(3.0)
+        # A zero field propagates None instead of crashing the formula.
+        assert _evaluate_formula("ROUND(LN(data.zero), 2)", ctx) is None
