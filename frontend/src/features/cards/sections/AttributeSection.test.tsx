@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -82,27 +83,49 @@ describe("AttributeSection badge + filter", () => {
 });
 
 describe("AttributeSection keeps the section in view after save", () => {
-  it("restores the section's viewport position on a successful save", async () => {
-    const scrollBy = vi.fn();
-    vi.stubGlobal("scrollBy", scrollBy);
-    // Run the rAF callback synchronously so we can assert without real frames.
-    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
-      cb(0);
-      return 0;
+  it("restores the section's pre-save viewport position across the parent's card re-render", async () => {
+    // Simulated viewport: the section header sits at top=400 before save. The
+    // save triggers the parent's setCard re-render + the edit→read collapse,
+    // which (in this simulation) shift the section to top=-800. scrollBy is
+    // mocked to move the simulated viewport, so a correct compensation brings
+    // the header back to exactly its pre-save position.
+    let top = 400;
+    const scrollBy = vi.fn((_x: number, y: number) => {
+      top -= y; // scrolling down by y moves element tops up by y
     });
+    vi.stubGlobal("scrollBy", scrollBy);
 
-    const onSave = vi.fn().mockResolvedValue(undefined);
-    render(<AttributeSection section={section} card={card} onSave={onSave} canEdit />);
+    function Harness() {
+      // Mimics CardDetailContent.handleUpdate → setCard: the card prop gets a
+      // NEW object identity after save, re-rendering the whole card.
+      const [c, setC] = useState(card);
+      return (
+        <AttributeSection
+          section={section}
+          card={c}
+          canEdit
+          onSave={async () => {
+            top = -800; // the post-save reflow moves the section off-screen
+            setC((prev) => ({ ...prev }) as typeof prev);
+          }}
+        />
+      );
+    }
+
+    const { container } = render(<Harness />);
+    const root = container.querySelector(".MuiAccordion-root") as HTMLElement;
+    vi.spyOn(root, "getBoundingClientRect").mockImplementation(
+      () => ({ top }) as unknown as DOMRect,
+    );
 
     // Enter edit mode (the pencil IconButton renders the "edit" ligature).
     fireEvent.click(screen.getByText("edit"));
-    // Save.
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() => expect(onSave).toHaveBeenCalled());
-    // The post-save reflow correction fires (jsdom rects are 0 → scrollBy(0, 0)),
-    // proving the position-restore path runs for every attribute section.
-    await waitFor(() => expect(scrollBy).toHaveBeenCalled());
+    // The layout-effect compensation scrolls by (current - before) = -1200…
+    await waitFor(() => expect(scrollBy).toHaveBeenCalledWith(0, -1200));
+    // …which puts the header back at its pre-save viewport position.
+    expect(top).toBe(400);
   });
 });
 

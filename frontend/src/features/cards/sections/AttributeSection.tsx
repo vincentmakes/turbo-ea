@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Accordion from "@mui/material/Accordion";
@@ -89,26 +89,47 @@ function AttributeSection({
   }
   const hasValidationErrors = Object.keys(urlErrors).length > 0;
 
+  // Save-time scroll restore. After a save, TWO reflows can move this section:
+  // the edit→read collapse (our own setEditing) and the parent's setCard
+  // re-render (new card prop, recomputed sections/calc fields/visibility). A
+  // tall section would otherwise dump the user at the new page bottom. save()
+  // arms this ref with the section's pre-save viewport top; the layout effect
+  // below runs after each of those commits — in the frame the DOM actually
+  // settled, before paint — scrolls the section back to the captured top, and
+  // disarms once both the collapse and the card update have been observed.
+  // Save-only: no scroll listeners, so it never fights the scroll-to-top FAB.
+  const scrollRestoreRef = useRef<{
+    top: number;
+    card: Card;
+    collapsed: boolean;
+    cardChanged: boolean;
+  } | null>(null);
+
+  useLayoutEffect(() => {
+    const armed = scrollRestoreRef.current;
+    if (!armed) return;
+    const current = rootRef.current?.getBoundingClientRect().top;
+    if (current != null && current !== armed.top) {
+      window.scrollBy(0, current - armed.top);
+    }
+    if (card !== armed.card) armed.cardChanged = true;
+    if (!editing) armed.collapsed = true;
+    if (armed.cardChanged && armed.collapsed) scrollRestoreRef.current = null;
+  }, [card, editing]);
+
   const save = async () => {
     if (hasValidationErrors) return;
     setSaveError(null);
+    // Capture BEFORE the network round-trip: onSave calls the parent's
+    // setCard, whose re-render may commit before our continuation resumes.
+    const top = rootRef.current?.getBoundingClientRect().top;
+    scrollRestoreRef.current =
+      top != null ? { top, card, collapsed: false, cardChanged: false } : null;
     try {
       await onSave({ attributes: attrs });
-      // Collapsing the (tall) edit view to the compact read view — and the
-      // parent shrinking the page after setCard — would otherwise dump the user
-      // at the new page bottom. Capture this section's viewport offset, then
-      // after the reflow scroll by the delta so the section stays put. Generic:
-      // applies to every attribute section, and only nudges on save (never hooks
-      // scroll events) so it doesn't fight the scroll-to-top FAB.
-      const before = rootRef.current?.getBoundingClientRect().top ?? null;
       setEditing(false);
-      if (before != null) {
-        requestAnimationFrame(() => {
-          const after = rootRef.current?.getBoundingClientRect().top;
-          if (after != null) window.scrollBy(0, after - before);
-        });
-      }
     } catch (err) {
+      scrollRestoreRef.current = null;
       const msg = err instanceof ApiError ? err.message : String(err);
       setSaveError(msg);
     }
