@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.3.0] - 2026-07-12
+
+### Added
+- **UI extension SDK 1.8 — dashboard-building kit.** Extensions can now reuse core's currency formatting (`useCurrency`), KPI tiles (`MetricCard`), chart legends (`ReportLegend`), a new shared multi-user picker (`UserMultiSelect`, also available to core features), and load core's charting library on demand (`loadRecharts`) instead of bundling their own — so extension dashboards look and behave exactly like core reports.
+
 ## [2.2.0] - 2026-07-10
 
 ### Added

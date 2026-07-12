@@ -42,6 +42,24 @@ describe("extensionHost", () => {
     expect(typeof window.TurboEA?.register).toBe("function");
   });
 
+  it("exposes the SDK 1.6–1.8 report/dashboard surface", () => {
+    initExtensionHost();
+    const sdk = window.TurboEA?.sdk as Record<string, unknown>;
+    // SDK 1.6 — saved reports
+    expect(typeof sdk.useSavedReport).toBe("function");
+    expect(sdk.SaveReportDialog).toBeDefined();
+    // SDK 1.7 — report-building kit
+    expect(sdk.ReportShell).toBeDefined();
+    expect(sdk.FilterSelect).toBeDefined();
+    expect(sdk.CardDetailSidePanel).toBeDefined();
+    // SDK 1.8 — dashboard-building additions
+    expect(typeof sdk.useCurrency).toBe("function");
+    expect(sdk.MetricCard).toBeDefined();
+    expect(sdk.ReportLegend).toBeDefined();
+    expect(sdk.UserMultiSelect).toBeDefined();
+    expect(typeof sdk.loadRecharts).toBe("function");
+  });
+
   it("registers a plugin and lists its routes", () => {
     const Page = () => <div>ext page</div>;
     registerExtension("sample-ext", {
