@@ -18,11 +18,14 @@ beforeEach(() => {
 });
 
 describe("SDK saved-report participation (SDK 1.6)", () => {
-  it("exposes useSavedReport, SaveReportDialog, and CardDetailSidePanel on window.TurboEA.sdk", () => {
+  it("exposes the saved-report + report-building kit on window.TurboEA.sdk", () => {
     initExtensionHost();
     expect(window.TurboEA?.sdk.useSavedReport).toBeTypeOf("function");
     expect(window.TurboEA?.sdk.SaveReportDialog).toBeTypeOf("function");
-    // SDK 1.7 — the card-detail drawer (lazy wrapper, Suspense inside).
+    // SDK 1.7 — report-building kit (ReportShell/CardDetailSidePanel are lazy
+    // wrappers with Suspense inside; FilterSelect is the plain component).
+    expect(window.TurboEA?.sdk.ReportShell).toBeTypeOf("function");
+    expect(window.TurboEA?.sdk.FilterSelect).toBeTypeOf("function");
     expect(window.TurboEA?.sdk.CardDetailSidePanel).toBeTypeOf("function");
   });
 

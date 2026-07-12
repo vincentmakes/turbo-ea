@@ -26,7 +26,7 @@ export interface PrintParam {
   value: string;
 }
 
-interface Props {
+export interface ReportShellProps {
   title: string;
   icon: string;
   iconColor?: string;
@@ -96,7 +96,7 @@ export default function ReportShell({
   disableExport,
   paginateRowSelector,
   children,
-}: Props) {
+}: ReportShellProps) {
   const { t } = useTranslation(["reports", "common"]);
   const navigate = useNavigate();
   const [exportMenu, setExportMenu] = useState<HTMLElement | null>(null);

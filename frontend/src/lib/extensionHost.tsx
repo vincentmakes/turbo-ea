@@ -22,9 +22,12 @@
  * deletes stored values). Since SDK 1.6 extension reports can also participate
  * in Saved Reports: save with report_type "ext:{key}:{routeId}" via
  * `sdk.SaveReportDialog`, load via `sdk.useSavedReport`, and the gallery
- * resolves the namespaced type back to the registered route. Since SDK 1.7
- * `sdk.CardDetailSidePanel` exposes the card-detail drawer core reports use
- * (lazy-loaded, Suspense handled internally). Every
+ * resolves the namespaced type back to the registered route. Since SDK 1.7 the
+ * sdk also carries the report-building kit core reports are made of —
+ * `sdk.ReportShell` (frame + save/export/print), `sdk.FilterSelect`
+ * (multi-select filter dropdown), and `sdk.CardDetailSidePanel` (card drawer)
+ * — ReportShell/CardDetailSidePanel lazy-loaded with Suspense handled
+ * internally. Every
  * extension-provided component must be rendered inside <ExtensionBoundary> —
  * a crashing extension shows a fallback chip, never a white screen. A field
  * type whose extension is missing, disabled, or unlicensed simply is not in
@@ -39,8 +42,10 @@ import ReactDOM from "react-dom";
 import { useTranslation } from "react-i18next";
 
 import { api } from "@/api/client";
+import FilterSelect from "@/components/FilterSelect";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import SaveReportDialog from "@/features/reports/SaveReportDialog";
+import type { ReportShellProps } from "@/features/reports/ReportShell";
 import { useSavedReport as useCoreSavedReport } from "@/hooks/useSavedReport";
 import * as tokens from "@/theme/tokens";
 import type { Card } from "@/types";
@@ -402,19 +407,30 @@ export function useExtensionFieldVisibilityProviders(): RegisteredFieldVisibilit
 }
 
 /**
- * SDK 1.7 — the card-detail side panel core reports use (PortfolioReport,
- * CapabilityMapReport, ProcessMapReport, …): a self-contained drawer that
- * fetches and renders a card by id. Ungated — RBAC is enforced server-side on
- * its /cards/{id} + /my-permissions fetches. Exposed on
- * `window.TurboEA.sdk.CardDetailSidePanel`.
+ * SDK 1.7 — the report-building kit core reports are made of, so an extension
+ * report gets the identical frame/UX with zero reimplementation. All ungated —
+ * RBAC stays server-side on whatever the pieces fetch. Exposed on
+ * `window.TurboEA.sdk` as `ReportShell`, `FilterSelect`, `CardDetailSidePanel`.
+ * All three work on /ext/* routes (they only need the SPA router + the
+ * `reports`/`common` i18n namespaces, both always loaded).
  *
- * Deliberately LAZY: the panel pulls in the whole card-detail graph
- * (CardDetailContent + tabs), which is code-split behind lazy routes today —
- * a static import here would drag it into the eager main bundle AND create a
- * module cycle (CardDetailContent imports this module). Suspense is handled
- * internally so extensions just render the component.
+ * - ReportShell — the report frame: title, saved-report banner, save button,
+ *   export/print, filters toolbar slot, actions slot, thumbnail chart ref.
+ * - FilterSelect — the shared multi-select filter dropdown.
+ * - CardDetailSidePanel — the self-contained card-detail drawer reports open
+ *   on node/row click ({cardId, open, onClose}).
+ *
+ * ReportShell and CardDetailSidePanel are deliberately LAZY: ReportShell pulls
+ * the export engine (xlsx / pptxgenjs / html-to-image) and the panel pulls the
+ * whole card-detail graph (CardDetailContent + tabs) — both are code-split
+ * behind lazy routes today, and a static import here would drag them into the
+ * eager main bundle (the panel would also create a module cycle:
+ * CardDetailContent imports this module). Suspense is handled internally so
+ * extensions just render the components. FilterSelect is MUI-only and is
+ * imported statically.
  */
 const LazyCardDetailSidePanel = React.lazy(() => import("@/components/CardDetailSidePanel"));
+const LazyReportShell = React.lazy(() => import("@/features/reports/ReportShell"));
 
 export function ExtensionCardDetailSidePanel(props: {
   cardId: string | null;
@@ -424,6 +440,14 @@ export function ExtensionCardDetailSidePanel(props: {
   return (
     <React.Suspense fallback={null}>
       <LazyCardDetailSidePanel {...props} />
+    </React.Suspense>
+  );
+}
+
+export function ExtensionReportShell(props: ReportShellProps) {
+  return (
+    <React.Suspense fallback={null}>
+      <LazyReportShell {...props} />
     </React.Suspense>
   );
 }
@@ -537,7 +561,10 @@ export function initExtensionHost(): void {
       // SDK 1.6 — saved-report participation (see useExtensionSavedReport).
       useSavedReport: useExtensionSavedReport,
       SaveReportDialog,
-      // SDK 1.7 — card-detail drawer (lazy; see ExtensionCardDetailSidePanel).
+      // SDK 1.7 — report-building kit (ReportShell/CardDetailSidePanel are
+      // lazy wrappers; see the doc block above ExtensionCardDetailSidePanel).
+      ReportShell: ExtensionReportShell,
+      FilterSelect,
       CardDetailSidePanel: ExtensionCardDetailSidePanel,
     },
     register: registerExtension,
