@@ -40,6 +40,8 @@ import {
   DEFAULT_ARCHIVE_RETENTION_DAYS,
 } from "@/hooks/useArchiveRetentionDays";
 import { invalidateLoginBranding } from "@/hooks/useLoginBranding";
+import { useNavbarStyle } from "@/hooks/useNavbarStyle";
+import NavbarStyleCard from "./NavbarStyleCard";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
@@ -174,6 +176,7 @@ function GeneralTab() {
   const [testing, setTesting] = useState(false);
   const [error, setError] = useState("");
   const [snack, setSnack] = useState("");
+  const navbarStyle = useNavbarStyle();
 
   // Logo state
   const [hasCustomLogo, setHasCustomLogo] = useState(false);
@@ -794,7 +797,8 @@ function GeneralTab() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              bgcolor: "#1a1a2e",
+              // Preview the logo on the configured navbar background.
+              bgcolor: navbarStyle.bg,
               p: 1,
             }}
           >
@@ -844,6 +848,9 @@ function GeneralTab() {
           </Box>
         </Box>
       </Paper>
+
+      {/* Navbar style */}
+      <NavbarStyleCard onSaved={setSnack} onError={setError} />
 
       {/* Favicon Settings */}
       <Paper sx={{ p: 3, mb: 3 }}>
