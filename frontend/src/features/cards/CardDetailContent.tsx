@@ -40,6 +40,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { hasPermission } from "@/components/RequirePermission";
 import {
   ExtensionBoundary,
+  ExtensionSlot,
   useExtensionUI,
   useExtensionFieldVisibilityProviders,
 } from "@/lib/extensionHost";
@@ -486,6 +487,13 @@ export default function CardDetailContent({
           <Provider card={card} report={reportHiddenFields} />
         </ExtensionBoundary>
       ))}
+
+      {/* Generic extension slot (SDK 1.12): any extension can render header
+          content on any card without a dedicated SDK extension point. */}
+      <ExtensionSlot
+        name="card.detail.header"
+        context={{ cardId: card.id, cardType: card.type }}
+      />
 
       {beforeTabs}
 

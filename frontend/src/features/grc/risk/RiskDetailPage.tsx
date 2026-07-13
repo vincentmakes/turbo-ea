@@ -42,6 +42,7 @@ import type {
   RiskProbability,
   RiskStatus,
 } from "@/types";
+import { ExtensionSlot } from "@/lib/extensionHost";
 import RiskMatrix from "./RiskMatrix";
 import MitigationTasksPanel, {
   type TaskSummary,
@@ -702,6 +703,11 @@ export default function RiskDetailPage() {
           currentUserId={currentUserId}
           onSummaryChange={setTaskSummary}
         />
+
+        {/* Generic extension slot (SDK 1.12): extensions can attach risk-scoped
+            panels here (e.g. value-at-risk quantification) without a dedicated
+            SDK extension point. */}
+        <ExtensionSlot name="risk.detail.panel" context={{ riskId: risk.id }} />
 
         {/* Residual assessment — stays manual per the scoring decision. */}
         <Paper variant="outlined" sx={{ p: 2 }}>

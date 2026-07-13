@@ -36,8 +36,19 @@
  * axis ticks, tooltip styling) core reports use, so extension charts match
  * core's look without hand-rolling it. Since SDK 1.11 `useThumbnailCapture`
  * captures a chart container as the PNG preview shown on saved-report cards
- * (html-to-image loads lazily on first capture). Every
- * extension-provided component must be rendered inside <ExtensionBoundary> —
+ * (html-to-image loads lazily on first capture).
+ *
+ * Since SDK 1.12 the preferred way to add a plug point is the GENERIC SLOT
+ * registry, not a new named extension point. An extension declares
+ * `slots: [{ slot, id, component | build, permission?, appliesTo?, order? }]`
+ * on its plugin; core exposes a location by dropping `<ExtensionSlot
+ * name="..." context={...} />` (component slots) or calling
+ * `getExtensionSlots(name)` and rendering the returned `build(ctx)` data
+ * itself (data slots — the adrGridColumns/adrExportSections philosophy). This
+ * means a NEW plug location no longer needs an SDK type/hook/version change —
+ * only a one-line `<ExtensionSlot>` in core with a fresh `slot` string. The
+ * named points above are retained for compatibility; new locations should use
+ * slots. Every extension-provided component must be rendered inside <ExtensionBoundary> —
  * a crashing extension shows a fallback chip, never a white screen. A field
  * type whose extension is missing, disabled, or unlicensed simply is not in
  * the registry, so core falls back to a read-only text rendering of the
@@ -53,6 +64,8 @@ import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
 import FilterSelect from "@/components/FilterSelect";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { hasPermission } from "@/components/RequirePermission";
+import { useAuthContext } from "@/hooks/AuthContext";
 import UserMultiSelect from "@/components/UserMultiSelect";
 import MetricCard from "@/features/reports/MetricCard";
 import ReportLegend from "@/features/reports/ReportLegend";
@@ -65,7 +78,7 @@ import { useSavedReport as useCoreSavedReport } from "@/hooks/useSavedReport";
 import * as tokens from "@/theme/tokens";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.11";
+export const UI_SDK_VERSION = "1.12";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -240,6 +253,29 @@ export interface ExtensionFieldVisibilityProps {
   report: (extKey: string, hiddenKeys: string[]) => void;
 }
 
+/**
+ * A generic slot contribution (SDK 1.12) — the forward path for adding plug
+ * points without an SDK edit per location. `slot` is the location id an
+ * extension targets (e.g. "card.detail.header", "risk.detail.panel"); core
+ * exposes each location once via `<ExtensionSlot name="..." />` (component
+ * slots) or `getExtensionSlots(name)` (data slots). A contribution supplies
+ * exactly ONE of `component` (rendered by core inside an ExtensionBoundary,
+ * receiving the slot's `context` as props) or `build` (returns plain data core
+ * renders itself). `permission` hides the slot from users who lack it (silently
+ * — never an access-denied page, unlike a full route); `appliesTo` optionally
+ * filters on the context's `cardType`/`type`; `order` sorts within a slot
+ * (default 0, ties keep registration order).
+ */
+export interface ExtensionSlotContribution {
+  slot: string;
+  id: string;
+  permission?: string;
+  appliesTo?: string[];
+  component?: React.ComponentType<Record<string, unknown>>;
+  build?: (context: Record<string, unknown>) => unknown;
+  order?: number;
+}
+
 export interface TurboExtensionUI {
   key: string;
   sdkVersion: string;
@@ -251,6 +287,9 @@ export interface TurboExtensionUI {
   adrPanels?: ExtensionAdrPanelContribution[];
   adrExportSections?: ExtensionAdrExportContribution[];
   adrGridColumns?: ExtensionAdrGridColumnContribution[];
+  // Generic slot contributions (SDK 1.12) — the preferred way to attach to any
+  // core-exposed location without a per-feature SDK extension point.
+  slots?: ExtensionSlotContribution[];
   // Headless provider (renders null) that hides specific card fields at render
   // time — display-only, ungated, never deletes stored values. Degrades to
   // "show everything" when absent.
@@ -260,6 +299,11 @@ export interface TurboExtensionUI {
 export interface RegisteredFieldType {
   extKey: string;
   contribution: ExtensionFieldTypeContribution;
+}
+
+export interface RegisteredSlot {
+  extKey: string;
+  contribution: ExtensionSlotContribution;
 }
 
 export interface RegisteredSurveyTemplate {
@@ -314,6 +358,9 @@ let _surveyTemplatesCache: RegisteredSurveyTemplate[] | null = null;
 let _adrExportCache: RegisteredAdrExport[] | null = null;
 let _adrGridColumnsCache: RegisteredAdrGridColumn[] | null = null;
 let _fieldVisibilityCache: RegisteredFieldVisibility[] | null = null;
+// Generic slots are cached per slot name — one stable snapshot array per name so
+// each `getExtensionSlots(name)` is safe as a useSyncExternalStore snapshot.
+let _slotsCache: Map<string, RegisteredSlot[]> | null = null;
 
 function notify() {
   _fieldTypesCache = null;
@@ -321,6 +368,7 @@ function notify() {
   _adrExportCache = null;
   _adrGridColumnsCache = null;
   _fieldVisibilityCache = null;
+  _slotsCache = null;
   _listeners.forEach((fn) => fn());
 }
 
@@ -595,12 +643,99 @@ export function useExtensionAdrGridColumns(): RegisteredAdrGridColumn[] {
   return useSyncExternalStore(subscribe, getExtensionAdrGridColumns, getExtensionAdrGridColumns);
 }
 
+/**
+ * Generic slot contributions for a given `slot` name (SDK 1.12), in `order`
+ * then registration order. A contribution without an `id`, or that does not
+ * supply exactly one of `component`/`build`, is dropped with a warning. Cached
+ * per slot name (stable array reference until the registry changes) so it is
+ * safe both as a useSyncExternalStore snapshot and for non-React data-slot
+ * consumers to call directly.
+ */
+export function getExtensionSlots(slot: string): RegisteredSlot[] {
+  if (!_slotsCache) _slotsCache = new Map();
+  const cached = _slotsCache.get(slot);
+  if (cached) return cached;
+  const out: RegisteredSlot[] = [];
+  for (const { key, plugin } of _registered) {
+    for (const contribution of plugin.slots ?? []) {
+      if (contribution?.slot !== slot) continue;
+      const hasComponent = typeof contribution.component === "function";
+      const hasBuild = typeof contribution.build === "function";
+      // Require an id and EXACTLY one of component/build (XOR).
+      if (!contribution.id || hasComponent === hasBuild) {
+        console.warn(
+          `[extension:${key}] invalid slot contribution for "${slot}" ` +
+            `(needs id + exactly one of component/build) — ignored`,
+          contribution,
+        );
+        continue;
+      }
+      out.push({ extKey: key, contribution });
+    }
+  }
+  out.sort((a, b) => (a.contribution.order ?? 0) - (b.contribution.order ?? 0));
+  _slotsCache.set(slot, out);
+  return out;
+}
+
+export function useExtensionSlots(slot: string): RegisteredSlot[] {
+  const getSnapshot = React.useCallback(() => getExtensionSlots(slot), [slot]);
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+}
+
+/**
+ * Renders every component slot registered for `name`, each inside an
+ * ExtensionBoundary, passing `context` as props. Core exposes a new pluggable
+ * location by dropping this once — no SDK type/hook/version change. A slot with
+ * a `permission` the viewer lacks is hidden silently (not an access-denied
+ * page); `appliesTo` filters on `context.cardType`/`context.type`. Data slots
+ * (a `build` instead of a `component`) are not rendered here — their core
+ * consumer calls `getExtensionSlots(name)` and renders the data itself.
+ */
+export function ExtensionSlot({
+  name,
+  context,
+}: {
+  name: string;
+  context?: Record<string, unknown>;
+}) {
+  const slots = useExtensionSlots(name);
+  const { user } = useAuthContext();
+  const typeKey = context?.cardType ?? context?.type;
+  return (
+    <>
+      {slots.map(({ extKey, contribution }) => {
+        const Component = contribution.component;
+        if (!Component) return null; // data slot — rendered by its own core consumer
+        if (
+          contribution.permission &&
+          !hasPermission(user?.permissions, contribution.permission)
+        ) {
+          return null;
+        }
+        if (
+          contribution.appliesTo &&
+          !(typeof typeKey === "string" && contribution.appliesTo.includes(typeKey))
+        ) {
+          return null;
+        }
+        return (
+          <ExtensionBoundary key={`${extKey}:${contribution.id}`} extensionKey={extKey}>
+            <Component {...(context ?? {})} />
+          </ExtensionBoundary>
+        );
+      })}
+    </>
+  );
+}
+
 /** Test helper — wipe the registry between tests. */
 export function resetExtensionHost(): void {
   _registered = [];
   _loadErrors = {};
   _loadStarted = false;
   _fieldTypesCache = null;
+  _slotsCache = null;
   notify();
 }
 

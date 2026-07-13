@@ -6,8 +6,11 @@ vi.mock("@/api/client", () => ({
 }));
 
 import { api } from "@/api/client";
+import { AuthProvider } from "@/hooks/AuthContext";
+import type { User } from "@/types";
 import {
   ExtensionBoundary,
+  ExtensionSlot,
   getExtensionAdrExportSections,
   getExtensionAdrGridColumns,
   getExtensionAdrPanels,
@@ -16,6 +19,7 @@ import {
   getExtensionLoadErrors,
   getExtensionRoutes,
   getExtensionRoutesForGroup,
+  getExtensionSlots,
   getExtensionSurveyTemplates,
   getRegisteredExtensions,
   initExtensionHost,
@@ -321,6 +325,68 @@ describe("extensionHost", () => {
     expect(getExtensionAdrGridColumns()).toBe(getExtensionAdrGridColumns());
     resetExtensionHost();
     expect(getExtensionAdrGridColumns()).toEqual([]);
+  });
+
+  it("pins the current UI SDK version", () => {
+    expect(UI_SDK_VERSION).toBe("1.12");
+  });
+
+  it("aggregates generic slots (component + data), sorts by order, drops invalid ones", () => {
+    const Panel = () => <div>panel</div>;
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    registerExtension("vs", {
+      key: "vs",
+      sdkVersion: UI_SDK_VERSION,
+      slots: [
+        { slot: "risk.detail.panel", id: "savings", component: Panel, order: 2 },
+        { slot: "risk.detail.panel", id: "early", component: Panel, order: 1 },
+        { slot: "adr.export.extra", id: "data", build: () => ({ heading: "S" }) },
+        // invalid: neither component nor build
+        { slot: "risk.detail.panel", id: "bad" } as never,
+        // invalid: both component and build (must be XOR)
+        { slot: "risk.detail.panel", id: "both", component: Panel, build: () => 1 } as never,
+        // invalid: no id
+        { slot: "risk.detail.panel", component: Panel } as never,
+      ],
+    });
+    spy.mockRestore();
+    // Only the two valid component slots survive, sorted by `order`.
+    const panels = getExtensionSlots("risk.detail.panel");
+    expect(panels.map((s) => s.contribution.id)).toEqual(["early", "savings"]);
+    expect(panels[0].extKey).toBe("vs");
+    // Data slot on a different name resolves independently and its build() runs.
+    const data = getExtensionSlots("adr.export.extra");
+    expect(data).toHaveLength(1);
+    expect(data[0].contribution.build?.({})).toEqual({ heading: "S" });
+    // Unknown slot name → empty.
+    expect(getExtensionSlots("nope")).toEqual([]);
+    // Stable snapshot per name until the registry changes (useSyncExternalStore).
+    expect(getExtensionSlots("risk.detail.panel")).toBe(getExtensionSlots("risk.detail.panel"));
+    resetExtensionHost();
+    expect(getExtensionSlots("risk.detail.panel")).toEqual([]);
+  });
+
+  it("ExtensionSlot renders permitted, matching component slots and hides the rest", () => {
+    const Chip = () => <div>slot-chip</div>;
+    registerExtension("vs", {
+      key: "vs",
+      sdkVersion: UI_SDK_VERSION,
+      slots: [
+        { slot: "card.detail.header", id: "open", component: Chip },
+        // Hidden: viewer lacks the permission.
+        { slot: "card.detail.header", id: "gated", permission: "ext.vs.view", component: Chip },
+        // Hidden: appliesTo does not match the context card type.
+        { slot: "card.detail.header", id: "typed", appliesTo: ["Application"], component: Chip },
+      ],
+    });
+    const user = { permissions: {} } as unknown as User;
+    render(
+      <AuthProvider user={user} refreshUser={async () => {}}>
+        <ExtensionSlot name="card.detail.header" context={{ cardType: "DataObject" }} />
+      </AuthProvider>,
+    );
+    // Only the ungated, type-agnostic "open" slot renders.
+    expect(screen.getAllByText("slot-chip")).toHaveLength(1);
   });
 
   it("ExtensionBoundary catches a crashing component", () => {

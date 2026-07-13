@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 - Removed AG Grid v32 row-selection deprecation warnings from the Users admin and Decisions grids by migrating them to the object-form `rowSelection` API (no change to selection behaviour).
 
+## [2.10.0] - 2026-07-13
+
+### Added
+- **UI extension SDK 1.12 — generic slots.** Extensions can attach UI to core-exposed locations through a single generic `slots` contribution rendered by `<ExtensionSlot>`, instead of core adding a bespoke named extension point per location. Component slots render an extension component (isolated by an error boundary, with optional permission/card-type gating); data slots contribute plain data core renders itself. Two locations ship enabled: a card-detail header slot and a risk-detail panel slot. Existing extensions that use named extension points are unaffected and need no rebuild.
+
 ## [2.9.0] - 2026-07-13
 
 ### Added
