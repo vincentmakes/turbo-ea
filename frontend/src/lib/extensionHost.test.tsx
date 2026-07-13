@@ -61,6 +61,7 @@ describe("extensionHost", () => {
     expect(typeof sdk.loadRecharts).toBe("function");
     // SDK 1.9 — theme-aware chart chrome
     expect(typeof sdk.useChartTheme).toBe("function");
+    expect(typeof sdk.useThumbnailCapture).toBe("function");
   });
 
   it("registers a plugin and lists its routes", () => {

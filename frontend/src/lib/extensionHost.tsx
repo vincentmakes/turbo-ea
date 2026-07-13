@@ -34,7 +34,9 @@
  * code-split chunk, so extensions never bundle a charting library. Since SDK
  * 1.9 `useChartTheme` returns the theme-aware Recharts chrome (grid stroke,
  * axis ticks, tooltip styling) core reports use, so extension charts match
- * core's look without hand-rolling it. Every
+ * core's look without hand-rolling it. Since SDK 1.11 `useThumbnailCapture`
+ * captures a chart container as the PNG preview shown on saved-report cards
+ * (html-to-image loads lazily on first capture). Every
  * extension-provided component must be rendered inside <ExtensionBoundary> —
  * a crashing extension shows a fallback chip, never a white screen. A field
  * type whose extension is missing, disabled, or unlicensed simply is not in
@@ -57,12 +59,13 @@ import ReportLegend from "@/features/reports/ReportLegend";
 import SaveReportDialog from "@/features/reports/SaveReportDialog";
 import type { ReportShellProps } from "@/features/reports/ReportShell";
 import { useChartTheme } from "@/hooks/useChartTheme";
+import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useSavedReport as useCoreSavedReport } from "@/hooks/useSavedReport";
 import * as tokens from "@/theme/tokens";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.10";
+export const UI_SDK_VERSION = "1.11";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -648,6 +651,7 @@ export function initExtensionHost(): void {
       // conventions core reports use, so extension charts cannot drift from
       // core's look in either light or dark mode.
       useChartTheme,
+      useThumbnailCapture,
     },
     register: registerExtension,
   };

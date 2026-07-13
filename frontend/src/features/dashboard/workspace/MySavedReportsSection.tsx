@@ -9,6 +9,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type { SavedReport } from "@/types";
 import { REPORT_TYPE_STYLE } from "@/features/reports/savedReportStyles";
+import { getExtensionRoutes, useExtensionUI } from "@/lib/extensionHost";
 import SectionPaper, { EmptyState, ViewAllLink } from "./SectionPaper";
 
 const MAX_VISIBLE = 6;
@@ -39,10 +40,28 @@ export default function MySavedReportsSection() {
     };
   }, []);
 
+  // Re-render once extension bundles finish registering so ext:* saved
+  // reports resolve to their route/icon (same pattern as SavedReportsPage).
+  useExtensionUI();
+
+  // "ext:{extension key}:{route id}" -> the registered extension route, or
+  // null for core types and for extensions that are not installed/enabled.
+  const extRouteFor = (reportType: string) => {
+    if (!reportType.startsWith("ext:")) return null;
+    const [, extKey, routeId] = reportType.split(":");
+    const match = getExtensionRoutes().find((r) => r.extKey === extKey && r.route.id === routeId);
+    return match?.route ?? null;
+  };
+
   const handleOpen = (report: SavedReport) => {
     const style = REPORT_TYPE_STYLE[report.report_type];
     if (style) {
       navigate(`${style.path}?saved_report_id=${report.id}`);
+      return;
+    }
+    const extRoute = extRouteFor(report.report_type);
+    if (extRoute) {
+      navigate(`${extRoute.path}?saved_report_id=${report.id}`);
     }
   };
 
@@ -67,20 +86,22 @@ export default function MySavedReportsSection() {
         >
           {reports.map((report) => {
             const style = REPORT_TYPE_STYLE[report.report_type];
-            const fallbackColor = style?.color ?? "#9e9e9e";
-            const fallbackIcon = style?.icon ?? "analytics";
+            const extRoute = style ? null : extRouteFor(report.report_type);
+            const openable = Boolean(style || extRoute);
+            const fallbackColor = style?.color ?? (extRoute ? "#607d8b" : "#9e9e9e");
+            const fallbackIcon = style?.icon ?? extRoute?.icon ?? "analytics";
             return (
               <Tooltip key={report.id} title={report.name} placement="top" arrow>
                 <Box
-                  onClick={() => style && handleOpen(report)}
+                  onClick={() => openable && handleOpen(report)}
                   sx={{
-                    cursor: style ? "pointer" : "default",
+                    cursor: openable ? "pointer" : "default",
                     borderRadius: 1,
                     overflow: "hidden",
                     border: "1px solid",
                     borderColor: "divider",
                     transition: "border-color 120ms, transform 120ms",
-                    "&:hover": style
+                    "&:hover": openable
                       ? { borderColor: fallbackColor, transform: "translateY(-1px)" }
                       : undefined,
                   }}

@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 - Removed AG Grid v32 row-selection deprecation warnings from the Users admin and Decisions grids by migrating them to the object-form `rowSelection` API (no change to selection behaviour).
 
+## [2.9.0] - 2026-07-13
+
+### Added
+- **UI extension SDK 1.11 — `useThumbnailCapture`.** Extension report pages can capture the same PNG preview core reports save with, so their saved-report cards show a thumbnail instead of a generic icon (the capture library loads lazily on first use).
+
+### Fixed
+- Saved reports from extensions are now clickable on the Dashboard's Workspace tab and show their extension's icon — previously only the Saved Reports gallery knew how to open them.
+
 ## [2.8.0] - 2026-07-13
 
 ### Added
