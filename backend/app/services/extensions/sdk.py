@@ -34,7 +34,29 @@ from typing import Any, Protocol, runtime_checkable
 from fastapi import APIRouter
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
-SDK_VERSION = "1.0"
+# --- SDK 1.1 — route dependencies -------------------------------------------
+# Sanctioned FastAPI dependencies for extension route handlers, re-exported so
+# extensions never import core internals directly:
+#
+# - ``get_db`` — request-scoped AsyncSession (``db: AsyncSession = Depends(get_db)``).
+#   Use it ONLY on the extension's own ``ext_{key}_*`` tables; core tables stay
+#   off-limits (no core model imports — see the write-bridge plan for the
+#   future sanctioned path to core data).
+# - ``get_current_user`` — the authenticated user. Treat it as an opaque
+#   record; the supported attributes are ``id``, ``email``, ``display_name``,
+#   and ``role_key``.
+# - ``require_permission("ext.{key}.something")`` — dependency factory
+#   enforcing an app-level permission. Works with the extension's own
+#   ``ext.{key}.*`` keys (registered via ``get_permissions()``) and with core
+#   keys (e.g. gate a read on ``adr.view``).
+#
+# Every extension route is additionally gated by ``require_extension(key)``
+# at mount time (enabled + usable entitlement), so handlers only need the
+# permission/user dependencies above.
+from app.api.deps import get_current_user, require_permission  # noqa: F401
+from app.database import get_db  # noqa: F401
+
+SDK_VERSION = "1.1"
 
 
 @dataclass(frozen=True)

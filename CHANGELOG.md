@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.7.0] - 2026-07-13
+
+### Added
+- **Backend extension SDK 1.1 — route dependencies.** Extension API routes can now authenticate the current user, enforce app-level permissions (including their own `ext.*` keys), and open database sessions through the SDK — the missing pieces for extensions that store and approve their own records server-side.
+
 ## [2.6.0] - 2026-07-13
 
 ### Added
