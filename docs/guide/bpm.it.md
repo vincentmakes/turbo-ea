@@ -17,6 +17,8 @@ Il **Navigatore dei processi** organizza i processi in tre categorie principali:
 
 **Filtri:** Tipo, Maturità (Initial / Defined / Managed / Optimized), Livello di automazione, Rischio (Low / Medium / High / Critical), Profondità (L1 / L2 / L3).
 
+Le schede con un diagramma BPMN pubblicato mostrano un'**icona di flusso**: fai clic su di essa per aprire il diagramma a schermo intero senza lasciare il navigatore (o per passare da lì all'editor di flusso completo).
+
 ## Dashboard BPM
 
 ![Dashboard BPM con statistiche](../assets/img/it/15_bpm_dashboard.png)

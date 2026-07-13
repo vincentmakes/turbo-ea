@@ -17,6 +17,8 @@ Le **Navigateur de processus** organise les processus en trois catégories princ
 
 **Filtres :** Type, Maturité (Initial / Défini / Géré / Optimisé), Niveau d'automatisation, Risque (Faible / Moyen / Élevé / Critique), Profondeur (L1 / L2 / L3).
 
+Les cartes disposant d'un diagramme BPMN publié affichent une **icône de flux** — cliquez dessus pour ouvrir le diagramme en plein écran sans quitter le navigateur (ou pour accéder de là à l'éditeur de flux complet).
+
 ## Tableau de bord BPM
 
 ![Tableau de bord BPM avec statistiques](../assets/img/fr/15_bpm_tableau_de_bord.png)

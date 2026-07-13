@@ -10,6 +10,8 @@ import {
   useMemo,
   useCallback,
   useRef,
+  lazy,
+  Suspense,
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -41,12 +43,20 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Skeleton from "@mui/material/Skeleton";
 import Autocomplete from "@mui/material/Autocomplete";
 import Checkbox from "@mui/material/Checkbox";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import AppBar from "@mui/material/AppBar";
+import Toolbar from "@mui/material/Toolbar";
+import Button from "@mui/material/Button";
 import DOMPurify from "dompurify";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { useAuth } from "@/hooks/useAuth";
+import type { ProcessElement, ProcessFlowVersion } from "@/types";
+
+const LazyBpmnViewer = lazy(() => import("./BpmnViewer"));
 
 /* ================================================================== */
 /*  Types                                                              */
@@ -326,6 +336,7 @@ function HouseCard({
   rowType,
   onOpen,
   onDrill,
+  onViewFlow,
   dragRef,
   onDragDrop,
 }: {
@@ -337,6 +348,7 @@ function HouseCard({
   rowType?: string;
   onOpen: (n: ProcNode) => void;
   onDrill: (id: string) => void;
+  onViewFlow: (n: ProcNode) => void;
   dragRef?: React.MutableRefObject<{ id: string; rowType: string } | null>;
   onDragDrop?: (dragId: string, dropId: string, rowType: string) => void;
 }) {
@@ -508,8 +520,32 @@ function HouseCard({
             </Tooltip>
           )}
           {hasDiagram && (
-            <Tooltip title={t("navigator.hasBpmnDiagram")}>
-              <Box sx={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+            <Tooltip title={t("navigator.viewFlow")}>
+              <Box
+                role="button"
+                tabIndex={0}
+                aria-label={t("navigator.viewFlow")}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewFlow(node);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onViewFlow(node);
+                  }
+                }}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  flexShrink: 0,
+                  cursor: "pointer",
+                  borderRadius: 1,
+                  p: 0.25,
+                  "&:hover": { bgcolor: "action.hover" },
+                }}
+              >
                 <MaterialSymbol icon="schema" size={14} color="#7b1fa2" />
               </Box>
             </Tooltip>
@@ -656,8 +692,34 @@ function HouseCard({
           )}
           <Box sx={{ flex: 1 }} />
           {(hasDiagram || hasElements) && (
-            <Tooltip title={hasDiagram ? t("navigator.hasProcessFlow", { count: node.element_count ?? 0 }) : t("navigator.bpmnElementCount", { count: node.element_count })}>
-              <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.25, opacity: 0.85, flexShrink: 0 }}>
+            <Tooltip title={hasDiagram ? t("navigator.viewFlow") : t("navigator.bpmnElementCount", { count: node.element_count })}>
+              <Box
+                role={hasDiagram ? "button" : undefined}
+                tabIndex={hasDiagram ? 0 : undefined}
+                aria-label={hasDiagram ? t("navigator.viewFlow") : undefined}
+                onClick={hasDiagram ? (e) => {
+                  e.stopPropagation();
+                  onViewFlow(node);
+                } : undefined}
+                onKeyDown={hasDiagram ? (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onViewFlow(node);
+                  }
+                } : undefined}
+                sx={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 0.25,
+                  opacity: 0.85,
+                  flexShrink: 0,
+                  borderRadius: 1,
+                  p: 0.25,
+                  cursor: hasDiagram ? "pointer" : "default",
+                  ...(hasDiagram && { "&:hover": { bgcolor: "rgba(255,255,255,0.2)", opacity: 1 } }),
+                }}
+              >
                 <MaterialSymbol icon="schema" size={16} />
                 {hasElements && (
                   <Typography variant="caption" sx={{ fontSize: "0.6rem", color: "#fff", fontWeight: 600, lineHeight: 1 }}>
@@ -712,6 +774,7 @@ function HouseCard({
               rowType={node.id}
               onOpen={onOpen}
               onDrill={onDrill}
+              onViewFlow={onViewFlow}
               dragRef={dragRef}
               onDragDrop={onDragDrop}
             />
@@ -1310,6 +1373,114 @@ function DrawerFlow({
 }
 
 /* ================================================================== */
+/*  Fullscreen Flow Preview Dialog                                     */
+/* ================================================================== */
+
+function FlowPreviewDialog({
+  node,
+  onClose,
+  onNavigate,
+}: {
+  node: ProcNode;
+  onClose: () => void;
+  onNavigate: (path: string) => void;
+}) {
+  const { t } = useTranslation(["bpm", "common"]);
+  const [loading, setLoading] = useState(true);
+  const [bpmnXml, setBpmnXml] = useState<string | null>(null);
+  const [elements, setElements] = useState<ProcessElement[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setBpmnXml(null);
+    setElements([]);
+    Promise.all([
+      api
+        .get<ProcessFlowVersion | null>(`/bpm/processes/${node.id}/flow/published`)
+        .catch(() => null),
+      api
+        .get<ProcessElement[]>(`/bpm/processes/${node.id}/elements`)
+        .catch(() => [] as ProcessElement[]),
+    ])
+      .then(([pub, els]) => {
+        if (cancelled) return;
+        setBpmnXml(pub?.bpmn_xml ?? null);
+        setElements(els ?? []);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [node.id]);
+
+  const openFlowEditor = () => onNavigate(`/cards/${node.id}?tab=1`);
+
+  return (
+    <Dialog open onClose={onClose} fullScreen>
+      <AppBar position="relative" color="default" elevation={1}>
+        <Toolbar>
+          <IconButton edge="start" onClick={onClose} aria-label={t("common:actions.close")}>
+            <MaterialSymbol icon="close" />
+          </IconButton>
+          <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div" noWrap>
+            {node.name} &mdash; {t("navigator.flow")}
+          </Typography>
+          <Button
+            color="inherit"
+            startIcon={<MaterialSymbol icon="open_in_new" />}
+            onClick={openFlowEditor}
+          >
+            {t("navigator.viewFlow")}
+          </Button>
+        </Toolbar>
+      </AppBar>
+      <DialogContent sx={{ p: 0, display: "flex", flexDirection: "column" }}>
+        {loading ? (
+          <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", py: 6 }}>
+            <CircularProgress size={40} />
+          </Box>
+        ) : !bpmnXml ? (
+          <Box sx={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", py: 6 }}>
+            <MaterialSymbol icon="schema" size={48} color="#ccc" />
+            <Typography color="text.secondary" sx={{ mt: 1 }}>
+              {t("navigator.noProcessFlow")}
+            </Typography>
+            <Chip
+              size="small"
+              icon={<MaterialSymbol icon="open_in_new" size={14} />}
+              label={t("navigator.goToProcessFlow")}
+              onClick={openFlowEditor}
+              color="primary"
+              sx={{ mt: 1.5, cursor: "pointer" }}
+            />
+          </Box>
+        ) : (
+          <Box sx={{ flex: 1, minHeight: 0 }}>
+            <Suspense
+              fallback={
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "calc(100vh - 116px)" }}>
+                  <CircularProgress size={40} />
+                </Box>
+              }
+            >
+              <LazyBpmnViewer
+                bpmnXml={bpmnXml}
+                elements={elements}
+                onElementClick={() => {}}
+                height="calc(100vh - 116px)"
+              />
+            </Suspense>
+          </Box>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ================================================================== */
 /*  Drawer Tab: Apps                                                   */
 /* ================================================================== */
 
@@ -1892,6 +2063,7 @@ export default function ProcessNavigator() {
   const [overlay, setOverlay] = useState<ColorOverlay>(overlayParam);
   const [zoomNodeId, setZoomNodeId] = useState<string | null>(zoomParam);
   const [drawerNode, setDrawerNode] = useState<ProcNode | null>(null);
+  const [flowNode, setFlowNode] = useState<ProcNode | null>(null);
   const [orgFilter, setOrgFilter] = useState<RefItem[]>([]);
 
   // ── Load data ──
@@ -2015,6 +2187,8 @@ export default function ProcessNavigator() {
     (node: ProcNode) => setDrawerNode(node),
     [],
   );
+
+  const handleViewFlow = useCallback((node: ProcNode) => setFlowNode(node), []);
 
   const handleDrill = useCallback((id: string) => {
     setZoomNodeId(id);
@@ -2465,6 +2639,7 @@ export default function ProcessNavigator() {
                               rowType={rowType}
                               onOpen={handleOpenDrawer}
                               onDrill={handleDrill}
+                              onViewFlow={handleViewFlow}
                               dragRef={dragRef}
                               onDragDrop={handleDragDrop}
                             />
@@ -2494,6 +2669,7 @@ export default function ProcessNavigator() {
                               rowType={rowType}
                               onOpen={handleOpenDrawer}
                               onDrill={handleDrill}
+                              onViewFlow={handleViewFlow}
                               dragRef={dragRef}
                               onDragDrop={handleDragDrop}
                             />
@@ -2537,6 +2713,15 @@ export default function ProcessNavigator() {
           />
         )}
       </Drawer>
+
+      {/* ── Fullscreen Flow Preview ── */}
+      {flowNode && (
+        <FlowPreviewDialog
+          node={flowNode}
+          onClose={() => setFlowNode(null)}
+          onNavigate={handleNavigate}
+        />
+      )}
     </Box>
   );
 }

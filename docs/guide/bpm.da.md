@@ -17,6 +17,8 @@
 
 **Filtre:** Type, Modenhed (Initial / Defineret / Styret / Optimeret), Automatiseringsniveau, Risiko (Lav / Middel / Høj / Kritisk), Dybde (L1 / L2 / L3).
 
+Kort med et publiceret BPMN-diagram viser et **flow-ikon** — klik på det for at åbne diagrammet i fuld skærm uden at forlade navigatoren (eller for at springe derfra til den fulde flow-editor).
+
 ## BPM-dashboard
 
 ![BPM-dashboard med statistik](../assets/img/en/15_bpm_dashboard.png)

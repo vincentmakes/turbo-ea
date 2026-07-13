@@ -17,6 +17,8 @@ Der **Prozessnavigator** organisiert Prozesse in drei Hauptkategorien:
 
 **Filter:** Typ, Reifegrad (Initial / Definiert / Gesteuert / Optimiert), Automatisierungsgrad, Risiko (Niedrig / Mittel / Hoch / Kritisch), Tiefe (L1 / L2 / L3).
 
+Karten mit einem veröffentlichten BPMN-Diagramm zeigen ein **Ablaufsymbol** — klicken Sie darauf, um das Diagramm im Vollbild zu öffnen, ohne den Navigator zu verlassen (oder von dort zum vollständigen Ablauf-Editor zu springen).
+
 ## BPM-Dashboard
 
 ![BPM-Dashboard mit Statistiken](../assets/img/de/15_bpm_dashboard.png)

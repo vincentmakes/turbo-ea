@@ -17,6 +17,8 @@ The **Process Navigator** organizes processes into three main categories:
 
 **Filters:** Type, Maturity (Initial / Defined / Managed / Optimized), Automation level, Risk (Low / Medium / High / Critical), Depth (L1 / L2 / L3).
 
+Cards with a published BPMN diagram show a **flow icon** — click it to open the diagram full-screen without leaving the navigator (or jump from there to the full flow editor).
+
 ## BPM Dashboard
 
 ![BPM Dashboard with Statistics](../assets/img/en/15_bpm_dashboard.png)

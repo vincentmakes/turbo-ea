@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.8.0] - 2026-07-13
+
+### Added
+- **BPM Process Navigator: view a process flow inline.** The "has process flow" icon on process cards is now a button — click it (or focus it and press Enter) to open the published BPMN diagram full-screen without leaving the navigator. The dialog also links straight to the full flow editor. The icon stays a passive indicator for processes that only have extracted steps but no published flow.
+
 ## [2.7.0] - 2026-07-13
 
 ### Added

@@ -17,6 +17,8 @@ El **Navegador de Procesos** organiza los procesos en tres categorías principal
 
 **Filtros:** Tipo, Madurez (Inicial / Definido / Gestionado / Optimizado), Nivel de automatización, Riesgo (Bajo / Medio / Alto / Crítico), Profundidad (L1 / L2 / L3).
 
+Las tarjetas con un diagrama BPMN publicado muestran un **icono de flujo**: haga clic en él para abrir el diagrama en pantalla completa sin salir del navegador (o para saltar desde allí al editor de flujo completo).
+
 ## Panel de Control BPM
 
 ![Panel de Control BPM con Estadísticas](../assets/img/es/15_bpm_panel_control.png)
