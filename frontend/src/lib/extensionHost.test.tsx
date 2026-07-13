@@ -58,6 +58,8 @@ describe("extensionHost", () => {
     expect(sdk.ReportLegend).toBeDefined();
     expect(sdk.UserMultiSelect).toBeDefined();
     expect(typeof sdk.loadRecharts).toBe("function");
+    // SDK 1.9 — theme-aware chart chrome
+    expect(typeof sdk.useChartTheme).toBe("function");
   });
 
   it("registers a plugin and lists its routes", () => {

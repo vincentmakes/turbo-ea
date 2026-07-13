@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [2.4.1] - 2026-07-12
 
+### Added
+- **UI extension SDK 1.9 — `useChartTheme`.** Extensions get the exact theme-aware chart styling (grid, axis ticks, tooltip) core reports use, in light and dark mode, from one hook — so extension charts match core's look without reimplementing it.
+
 ### Changed
 - Installing or updating an extension that carries only UI, content, or metamodel contributions no longer requires a backend restart — it is live immediately, and users see new extension pages and panels on their next page load. Only extensions with backend code still show the restart banner.
 

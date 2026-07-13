@@ -31,7 +31,10 @@
  * currency formatting), `MetricCard` (KPI tile), `ReportLegend`,
  * `UserMultiSelect` (shared multi-user picker over GET /users), and
  * `loadRecharts` — an async loader returning the recharts module from core's
- * code-split chunk, so extensions never bundle a charting library. Every
+ * code-split chunk, so extensions never bundle a charting library. Since SDK
+ * 1.9 `useChartTheme` returns the theme-aware Recharts chrome (grid stroke,
+ * axis ticks, tooltip styling) core reports use, so extension charts match
+ * core's look without hand-rolling it. Every
  * extension-provided component must be rendered inside <ExtensionBoundary> —
  * a crashing extension shows a fallback chip, never a white screen. A field
  * type whose extension is missing, disabled, or unlicensed simply is not in
@@ -53,12 +56,13 @@ import MetricCard from "@/features/reports/MetricCard";
 import ReportLegend from "@/features/reports/ReportLegend";
 import SaveReportDialog from "@/features/reports/SaveReportDialog";
 import type { ReportShellProps } from "@/features/reports/ReportShell";
+import { useChartTheme } from "@/hooks/useChartTheme";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useSavedReport as useCoreSavedReport } from "@/hooks/useSavedReport";
 import * as tokens from "@/theme/tokens";
 import type { Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.8";
+export const UI_SDK_VERSION = "1.9";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -584,6 +588,10 @@ export function initExtensionHost(): void {
       ReportLegend,
       UserMultiSelect,
       loadRecharts: () => import("recharts"),
+      // SDK 1.9 — theme-aware Recharts chrome (grid/axis/tooltip), the same
+      // conventions core reports use, so extension charts cannot drift from
+      // core's look in either light or dark mode.
+      useChartTheme,
     },
     register: registerExtension,
   };
