@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - **Matrix Report: translucent frozen first column.** The sticky row-header column (and other frozen header/total cells) were semi-transparent, so the grid showed through them while scrolling. Their backgrounds are now opaque in both light and dark themes.
+- **Matrix Report: sort dropdowns showed raw keys.** The "Sort Rows" / "Sort Columns" options displayed their translation keys (e.g. `matrix.sortAlpha`) instead of the labels (A → Z, By count, Hierarchy) due to a key mismatch. They now show the translated labels in every locale.
 
 ## [2.8.1] - 2026-07-13
 

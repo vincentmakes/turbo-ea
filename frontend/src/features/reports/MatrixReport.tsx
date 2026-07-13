@@ -455,7 +455,7 @@ export default function MatrixReport() {
   const rowLabel = typeLabel(rowMeta) || rowType;
   const colLabel = typeLabel(colMeta) || colType;
 
-  const sortModeLabel = (m: SortMode) => m === "alpha" ? t("matrix.sortAlpha") : m === "count" ? t("matrix.sortByCount") : t("matrix.sortHierarchy");
+  const sortModeLabel = (m: SortMode) => m === "alpha" ? t("matrix.alphaSort") : m === "count" ? t("matrix.byCount") : t("matrix.hierarchy");
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
     params.push({ label: t("matrix.rows"), value: rowLabel });
@@ -499,14 +499,14 @@ export default function MatrixReport() {
             <MenuItem value="count">{t("matrix.countHeatmap")}</MenuItem>
           </TextField>
           <TextField select size="small" label={t("matrix.sortRows")} value={sortRows} onChange={(e) => setSortRows(e.target.value as SortMode)} sx={{ minWidth: 130 }}>
-            <MenuItem value="alpha">{t("matrix.sortAlpha")}</MenuItem>
-            <MenuItem value="count">{t("matrix.sortByCount")}</MenuItem>
-            {rowHasHierarchy && <MenuItem value="hierarchy">{t("matrix.sortHierarchy")}</MenuItem>}
+            <MenuItem value="alpha">{t("matrix.alphaSort")}</MenuItem>
+            <MenuItem value="count">{t("matrix.byCount")}</MenuItem>
+            {rowHasHierarchy && <MenuItem value="hierarchy">{t("matrix.hierarchy")}</MenuItem>}
           </TextField>
           <TextField select size="small" label={t("matrix.sortColumns")} value={sortCols} onChange={(e) => setSortCols(e.target.value as SortMode)} sx={{ minWidth: 130 }}>
-            <MenuItem value="alpha">{t("matrix.sortAlpha")}</MenuItem>
-            <MenuItem value="count">{t("matrix.sortByCount")}</MenuItem>
-            {colHasHierarchy && <MenuItem value="hierarchy">{t("matrix.sortHierarchy")}</MenuItem>}
+            <MenuItem value="alpha">{t("matrix.alphaSort")}</MenuItem>
+            <MenuItem value="count">{t("matrix.byCount")}</MenuItem>
+            {colHasHierarchy && <MenuItem value="hierarchy">{t("matrix.hierarchy")}</MenuItem>}
           </TextField>
           <FormControlLabel
             control={<Switch size="small" checked={hideEmpty} onChange={(e) => setHideEmpty(e.target.checked)} />}
