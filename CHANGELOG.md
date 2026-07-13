@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - **Matrix Report: hide unrelated cards.** A new toggle removes rows and columns for cards that have no relationships, keeping only the cards that participate in at least one relationship — useful for trimming large, sparse matrices down to what matters. The full view showing every card remains the default, and the setting is saved with the report configuration.
 
+### Fixed
+- **Matrix Report: translucent frozen first column.** The sticky row-header column (and other frozen header/total cells) were semi-transparent, so the grid showed through them while scrolling. Their backgrounds are now opaque in both light and dark themes.
+
 ## [2.8.1] - 2026-07-13
 
 ### Fixed

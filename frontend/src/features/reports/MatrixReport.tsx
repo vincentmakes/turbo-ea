@@ -109,6 +109,10 @@ export default function MatrixReport() {
     theme.palette.background.paper,
   ];
   // Theme-aware highlight colors
+  // Sticky cells paint over whatever scrolls beneath them, so their background must be
+  // fully opaque. MUI action.* overlays (and the dark-mode highlight) are translucent, so
+  // composite the tint over the opaque paper surface to keep the shade without bleed-through.
+  const opaqueBg = (tint: string) => `linear-gradient(0deg, ${tint}, ${tint}), ${theme.palette.background.paper}`;
   const highlightBg = isDark ? "rgba(25, 118, 210, 0.18)" : "#e3f2fd";
   const highlightBgStrong = isDark ? "rgba(25, 118, 210, 0.28)" : "#bbdefb";
   const diagonalHighlight = isDark ? "rgba(69, 39, 160, 0.18)" : "#e8eaf6";
@@ -551,7 +555,7 @@ export default function MatrixReport() {
                           left: 0,
                           top: 0,
                           zIndex: 4,
-                          background: theme.palette.action.selected,
+                          background: opaqueBg(theme.palette.action.selected),
                           padding: `6px ${isHierarchyColMode ? 34 : 8}px ${isHierarchyRowMode ? 30 : 6}px 8px`,
                           borderBottom: cellBorder,
                           borderRight: cellBorder,
@@ -643,7 +647,7 @@ export default function MatrixReport() {
                             position: "sticky",
                             top: stickyTop,
                             zIndex: 3,
-                            background: isHighlighted ? highlightBg : (levelColors[levelIdx] || theme.palette.background.paper),
+                            background: opaqueBg(isHighlighted ? highlightBg : (levelColors[levelIdx] || theme.palette.background.paper)),
                             padding: isLeafCell ? "6px 3px" : "4px 6px",
                             borderBottom: cellBorder,
                             borderRight: cellBorder,
@@ -683,7 +687,7 @@ export default function MatrixReport() {
                           position: "sticky",
                           top: 0,
                           zIndex: 3,
-                          background: theme.palette.action.selected,
+                          background: opaqueBg(theme.palette.action.selected),
                           padding: "6px 6px",
                           borderBottom: cellBorder,
                           borderRight: cellBorder,
@@ -723,7 +727,7 @@ export default function MatrixReport() {
                             position: "sticky",
                             left: colIdx * ROW_HEADER_COL_WIDTH,
                             zIndex: 1,
-                            background: isHighlighted ? highlightBg : (levelColors[colIdx] || theme.palette.background.paper),
+                            background: opaqueBg(isHighlighted ? highlightBg : (levelColors[colIdx] || theme.palette.background.paper)),
                             borderRight: cellBorder,
                             borderBottom: cellBorder,
                             fontWeight: cell.isLeaf ? 500 : 700,
@@ -848,7 +852,7 @@ export default function MatrixReport() {
                     position: "sticky",
                     left: 0,
                     zIndex: 1,
-                    background: theme.palette.action.selected,
+                    background: opaqueBg(theme.palette.action.selected),
                     padding: "4px 8px",
                     borderRight: cellBorder,
                     borderBottom: cellBorder,
