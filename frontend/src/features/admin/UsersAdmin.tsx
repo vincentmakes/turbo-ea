@@ -575,20 +575,6 @@ export default function UsersAdmin() {
   const columnDefs = useMemo<ColDef<User>[]>(
     () => [
       {
-        headerName: "",
-        field: "id",
-        checkboxSelection: true,
-        headerCheckboxSelection: true,
-        headerCheckboxSelectionFilteredOnly: true,
-        width: 44,
-        pinned: "left",
-        sortable: false,
-        filter: false,
-        resizable: false,
-        suppressMovable: true,
-        suppressHeaderMenuButton: true,
-      },
-      {
         field: "display_name",
         headerName: t("users.columns.name"),
         minWidth: 280,
@@ -905,6 +891,19 @@ export default function UsersAdmin() {
     () => ({ sortable: true, filter: true, resizable: true }),
     [],
   );
+  // AG Grid v32 multi-select API — the checkbox selection column is
+  // auto-generated. ``selectAll: "filtered"`` makes the header checkbox respect
+  // the active filters (matching the old headerCheckboxSelectionFilteredOnly).
+  const rowSelection = useMemo(
+    () =>
+      ({
+        mode: "multiRow" as const,
+        enableClickSelection: false,
+        headerCheckbox: true,
+        selectAll: "filtered" as const,
+      }),
+    [],
+  );
   const getRowId = useCallback((p: { data: User }) => p.data.id, []);
   const getRowStyle = useCallback(
     (p: { data?: User }) =>
@@ -1061,8 +1060,7 @@ export default function UsersAdmin() {
                 loading={loading}
                 animateRows
                 rowHeight={48}
-                rowSelection="multiple"
-                suppressRowClickSelection
+                rowSelection={rowSelection}
                 onGridReady={(params) => {
                   gridApiRef.current = params.api;
                 }}

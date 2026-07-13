@@ -175,24 +175,23 @@ export default function AdrGrid({
     [],
   );
 
+  // AG Grid v32 multi-select API — the checkbox selection column is
+  // auto-generated. ``enableClickSelection: false`` keeps row clicks for opening
+  // the ADR (selection is checkbox-only); ``selectAll: "filtered"`` makes the
+  // header checkbox respect the active filters.
+  const rowSelection = useMemo(
+    () =>
+      ({
+        mode: "multiRow" as const,
+        enableClickSelection: false,
+        headerCheckbox: true,
+        selectAll: "filtered" as const,
+      }),
+    [],
+  );
+
   const columnDefs = useMemo<ColDef<ArchitectureDecision>[]>(
     () => [
-      {
-        headerName: "",
-        colId: "__select",
-        field: "__select" as never,
-        checkboxSelection: true,
-        headerCheckboxSelection: true,
-        headerCheckboxSelectionFilteredOnly: true,
-        width: 44,
-        minWidth: 44,
-        maxWidth: 44,
-        sortable: false,
-        resizable: false,
-        filter: false,
-        suppressMovable: true,
-        pinned: "left",
-      },
       {
         headerName: t("adr.grid.reference"),
         colId: "reference",
@@ -676,8 +675,7 @@ export default function AdrGrid({
             includeHiddenColumnsInQuickFilter
             loading={loading}
             onRowClicked={onRowClicked}
-            rowSelection="multiple"
-            suppressRowClickSelection
+            rowSelection={rowSelection}
             onSelectionChanged={onSelectionChanged}
             onGridReady={() => setGridReady(true)}
             onFilterChanged={handleFilterChanged}
