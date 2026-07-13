@@ -1,0 +1,155 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import type { ColDef } from "ag-grid-community";
+
+// ---------------------------------------------------------------------------
+// Mocks
+// ---------------------------------------------------------------------------
+
+vi.mock("@/api/client", () => ({
+  api: { get: vi.fn().mockResolvedValue({}), patch: vi.fn(), post: vi.fn(), delete: vi.fn() },
+}));
+
+vi.mock("@/hooks/useThemeMode", () => ({
+  useThemeMode: () => ({ mode: "light" }),
+}));
+
+vi.mock("@/hooks/useDateFormat", () => ({
+  useDateFormat: () => ({ formatDate: (v: string | null) => v ?? "" }),
+}));
+
+vi.mock("@/hooks/useIsRtl", () => ({
+  useIsRtl: () => false,
+}));
+
+// AG Grid is complex in jsdom — capture the props AdrGrid feeds it instead.
+let capturedColumnDefs: ColDef[] = [];
+vi.mock("ag-grid-react", () => ({
+  AgGridReact: vi.fn((props: { columnDefs: ColDef[] }) => {
+    capturedColumnDefs = props.columnDefs;
+    return <div data-testid="ag-grid" />;
+  }),
+}));
+
+// Stub CSS imports
+vi.mock("ag-grid-community/styles/ag-grid.css", () => ({}));
+vi.mock("ag-grid-community/styles/ag-theme-quartz.css", () => ({}));
+
+import AdrGrid from "./AdrGrid";
+import { registerExtension, resetExtensionHost, UI_SDK_VERSION } from "@/lib/extensionHost";
+import type { ArchitectureDecision } from "@/types";
+
+// ---------------------------------------------------------------------------
+// Test data
+// ---------------------------------------------------------------------------
+
+const ADR: ArchitectureDecision = {
+  id: "adr-1",
+  reference_number: "ADR-001",
+  title: "Adopt the thing",
+  status: "draft",
+  context: null,
+  decision: null,
+  consequences: null,
+  alternatives_considered: null,
+  related_decisions: [],
+  attributes: { "ext.vs.savings": { total: 125000 } },
+  created_by: null,
+  signatories: [],
+  signed_at: null,
+  revision_number: 1,
+  parent_id: null,
+  linked_cards: [],
+  created_at: null,
+  updated_at: null,
+};
+
+function renderGrid() {
+  return render(
+    <MemoryRouter>
+      <AdrGrid
+        adrs={[ADR]}
+        metamodelTypes={[]}
+        loading={false}
+        onEdit={vi.fn()}
+        onPreview={vi.fn()}
+        onDuplicate={vi.fn()}
+        onDelete={vi.fn()}
+        onExport={vi.fn()}
+        quickFilterText=""
+        onQuickFilterChange={vi.fn()}
+      />
+    </MemoryRouter>,
+  );
+}
+
+describe("AdrGrid extension columns (UI SDK 1.10)", () => {
+  beforeEach(() => {
+    resetExtensionHost();
+    capturedColumnDefs = [];
+  });
+
+  it("renders no extension column when none is registered", () => {
+    renderGrid();
+    expect(capturedColumnDefs.some((c) => c.colId?.startsWith("ext-"))).toBe(false);
+  });
+
+  it("appends a native ColDef built from a registered contribution", () => {
+    registerExtension("vs", {
+      key: "vs",
+      sdkVersion: UI_SDK_VERSION,
+      adrGridColumns: [
+        {
+          id: "savings",
+          label: "Savings",
+          align: "right",
+          value: (adr) => {
+            const block = adr.attributes?.["ext.vs.savings"] as { total: number } | undefined;
+            return block ? `€${block.total}` : null;
+          },
+          sortValue: (adr) =>
+            (adr.attributes?.["ext.vs.savings"] as { total: number } | undefined)?.total ?? null,
+        },
+      ],
+    });
+    renderGrid();
+
+    const col = capturedColumnDefs.find((c) => c.colId === "ext-vs-savings");
+    expect(col).toBeDefined();
+    expect(col?.headerName).toBe("Savings");
+    expect(col?.type).toBe("rightAligned");
+    // The ColDef is plain data + guarded callbacks — exercise them the way
+    // AG Grid would: valueGetter drives sorting, valueFormatter the cell text.
+    const getter = col?.valueGetter as (p: { data?: ArchitectureDecision }) => unknown;
+    const formatter = col?.valueFormatter as (p: { data?: ArchitectureDecision }) => string;
+    expect(getter({ data: ADR })).toBe(125000);
+    expect(formatter({ data: ADR })).toBe("€125000");
+    expect(getter({ data: undefined })).toBeNull();
+    expect(formatter({ data: undefined })).toBe("");
+  });
+
+  it("a throwing value() degrades to an empty cell, never a crash", () => {
+    registerExtension("vs", {
+      key: "vs",
+      sdkVersion: UI_SDK_VERSION,
+      adrGridColumns: [
+        {
+          id: "boom",
+          label: "Boom",
+          value: () => {
+            throw new Error("kaboom");
+          },
+        },
+      ],
+    });
+    renderGrid();
+
+    const col = capturedColumnDefs.find((c) => c.colId === "ext-vs-boom");
+    expect(col).toBeDefined();
+    const getter = col?.valueGetter as (p: { data?: ArchitectureDecision }) => unknown;
+    const formatter = col?.valueFormatter as (p: { data?: ArchitectureDecision }) => string;
+    expect(formatter({ data: ADR })).toBe("");
+    expect(getter({ data: ADR })).toBeNull();
+  });
+});

@@ -21,6 +21,10 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useIsRtl } from "@/hooks/useIsRtl";
+import {
+  useExtensionAdrGridColumns,
+  type RegisteredAdrGridColumn,
+} from "@/lib/extensionHost";
 import type { ArchitectureDecision, CardType } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
@@ -30,6 +34,36 @@ function stripHtml(html: string | null | undefined): string {
   if (!html) return "";
   const doc = new DOMParser().parseFromString(html, "text/html");
   return (doc.body.textContent ?? "").trim();
+}
+
+/**
+ * Guarded display text for an extension-contributed column (UI SDK 1.10) —
+ * a throwing `value()` yields an empty cell, never a broken grid.
+ */
+function extColumnText(
+  col: RegisteredAdrGridColumn,
+  adr: ArchitectureDecision | undefined,
+): string {
+  if (!adr) return "";
+  try {
+    return col.contribution.value(adr) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/** Guarded sort value: `sortValue()` when provided, else the display text. */
+function extColumnSortValue(
+  col: RegisteredAdrGridColumn,
+  adr: ArchitectureDecision | undefined,
+): number | string | null {
+  if (!adr) return null;
+  try {
+    if (col.contribution.sortValue) return col.contribution.sortValue(adr);
+    return col.contribution.value(adr) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 interface Props {
@@ -81,6 +115,7 @@ export default function AdrGrid({
   const { mode } = useThemeMode();
   const isRtl = useIsRtl();
   const { formatDate } = useDateFormat();
+  const extColumns = useExtensionAdrGridColumns();
   const gridRef = useRef<AgGridReact>(null);
 
   const [contextMenu, setContextMenu] = useState<{
@@ -301,8 +336,27 @@ export default function AdrGrid({
           );
         },
       },
+      // Extension-contributed columns (UI SDK 1.10, plain data). Core builds
+      // the ColDefs, so they share defaultColDef/theme/sorting/quick-filter
+      // with the built-in columns; the guarded helpers keep a throwing
+      // extension from ever breaking the grid.
+      ...extColumns.map(
+        (col): ColDef<ArchitectureDecision> => ({
+          headerName: col.contribution.label,
+          colId: `ext-${col.extKey}-${col.contribution.id}`,
+          width: 150,
+          minWidth: 120,
+          type: col.contribution.align === "right" ? "rightAligned" : undefined,
+          valueGetter: (params: { data: ArchitectureDecision | undefined }) =>
+            extColumnSortValue(col, params.data),
+          valueFormatter: (params: { data: ArchitectureDecision | undefined }) =>
+            extColumnText(col, params.data),
+          getQuickFilterText: (params: { data: ArchitectureDecision | undefined }) =>
+            extColumnText(col, params.data),
+        }),
+      ),
     ],
-    [t, typeColorMap, formatDate],
+    [t, typeColorMap, formatDate, extColumns],
   );
 
   const onRowClicked = useCallback(

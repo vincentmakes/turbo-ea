@@ -60,9 +60,9 @@ import { useChartTheme } from "@/hooks/useChartTheme";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useSavedReport as useCoreSavedReport } from "@/hooks/useSavedReport";
 import * as tokens from "@/theme/tokens";
-import type { Card } from "@/types";
+import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.9";
+export const UI_SDK_VERSION = "1.10";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -204,6 +204,28 @@ export interface ExtensionAdrExportContribution {
   build: (adr: Record<string, unknown>) => AdrExportSection[];
 }
 
+/**
+ * A plain-data column appended to the shared ADR grid (SDK 1.10) — the list
+ * used by EA Delivery → Decisions and GRC → Governance → Decisions. Core
+ * builds a native AG Grid ColDef from it, so the column is indistinguishable
+ * from the built-in ones (theme, sorting, quick filter, resize, dark mode) and
+ * a broken extension can never take the grid down: `value()`/`sortValue()`
+ * run inside a guard — a throw yields an empty cell. `value()` returns the
+ * display text (the ADR list summaries already carry the `attributes` bag, so
+ * a column over `ext.*` data costs zero extra requests); `sortValue()`
+ * optionally supplies the raw sortable value (e.g. a number behind a
+ * currency-formatted string). Deliberately NOT a component — extensions
+ * contribute data, core owns the rendering, same philosophy as
+ * `adrExportSections`.
+ */
+export interface ExtensionAdrGridColumnContribution {
+  id: string;
+  label: string; // header text — the extension localizes it at registration time
+  align?: "left" | "right";
+  value: (adr: ArchitectureDecision) => string | null;
+  sortValue?: (adr: ArchitectureDecision) => number | string | null;
+}
+
 /** Props a headless field-visibility provider receives (SDK 1.4). */
 export interface ExtensionFieldVisibilityProps {
   card: Card;
@@ -225,6 +247,7 @@ export interface TurboExtensionUI {
   surveyTemplates?: ExtensionSurveyTemplateContribution[];
   adrPanels?: ExtensionAdrPanelContribution[];
   adrExportSections?: ExtensionAdrExportContribution[];
+  adrGridColumns?: ExtensionAdrGridColumnContribution[];
   // Headless provider (renders null) that hides specific card fields at render
   // time — display-only, ungated, never deletes stored values. Degrades to
   // "show everything" when absent.
@@ -249,6 +272,11 @@ export interface RegisteredAdrPanel {
 export interface RegisteredAdrExport {
   extKey: string;
   contribution: ExtensionAdrExportContribution;
+}
+
+export interface RegisteredAdrGridColumn {
+  extKey: string;
+  contribution: ExtensionAdrGridColumnContribution;
 }
 
 export interface RegisteredFieldVisibility {
@@ -281,12 +309,14 @@ let _loadStarted = false;
 let _fieldTypesCache: Record<string, RegisteredFieldType> | null = null;
 let _surveyTemplatesCache: RegisteredSurveyTemplate[] | null = null;
 let _adrExportCache: RegisteredAdrExport[] | null = null;
+let _adrGridColumnsCache: RegisteredAdrGridColumn[] | null = null;
 let _fieldVisibilityCache: RegisteredFieldVisibility[] | null = null;
 
 function notify() {
   _fieldTypesCache = null;
   _surveyTemplatesCache = null;
   _adrExportCache = null;
+  _adrGridColumnsCache = null;
   _fieldVisibilityCache = null;
   _listeners.forEach((fn) => fn());
 }
@@ -534,6 +564,32 @@ export function getExtensionAdrExportSections(): RegisteredAdrExport[] {
   }
   _adrExportCache = out;
   return out;
+}
+
+/**
+ * ADR grid column contributions (SDK 1.10), in registration order. A
+ * contribution missing `id`/`label`/`value` is dropped. Cached (stable
+ * reference) so it is safe as a useSyncExternalStore snapshot — the grid's
+ * memoized columnDefs only rebuild when the registry actually changes.
+ */
+export function getExtensionAdrGridColumns(): RegisteredAdrGridColumn[] {
+  if (_adrGridColumnsCache) return _adrGridColumnsCache;
+  const out: RegisteredAdrGridColumn[] = [];
+  for (const { key, plugin } of _registered) {
+    for (const contribution of plugin.adrGridColumns ?? []) {
+      if (!contribution?.id || !contribution.label || typeof contribution.value !== "function") {
+        console.warn(`[extension:${key}] invalid ADR grid column — ignored`, contribution);
+        continue;
+      }
+      out.push({ extKey: key, contribution });
+    }
+  }
+  _adrGridColumnsCache = out;
+  return out;
+}
+
+export function useExtensionAdrGridColumns(): RegisteredAdrGridColumn[] {
+  return useSyncExternalStore(subscribe, getExtensionAdrGridColumns, getExtensionAdrGridColumns);
 }
 
 /** Test helper — wipe the registry between tests. */

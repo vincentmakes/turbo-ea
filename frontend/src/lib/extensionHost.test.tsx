@@ -9,6 +9,7 @@ import { api } from "@/api/client";
 import {
   ExtensionBoundary,
   getExtensionAdrExportSections,
+  getExtensionAdrGridColumns,
   getExtensionAdrPanels,
   getExtensionFieldTypes,
   getExtensionFieldVisibilityProviders,
@@ -284,6 +285,41 @@ describe("extensionHost", () => {
     expect(getExtensionAdrExportSections()).toBe(getExtensionAdrExportSections());
     resetExtensionHost();
     expect(getExtensionAdrExportSections()).toEqual([]);
+  });
+
+  it("aggregates ADR grid columns and drops invalid ones", () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    registerExtension("vs", {
+      key: "vs",
+      sdkVersion: UI_SDK_VERSION,
+      adrGridColumns: [
+        {
+          id: "savings",
+          label: "Savings",
+          align: "right",
+          value: (adr) => (adr.attributes?.["ext.vs.total"] as string) ?? null,
+          sortValue: () => 1200,
+        },
+        // invalid: no value()
+        { id: "bad", label: "Bad" } as never,
+        // invalid: no label
+        { id: "worse", value: () => "x" } as never,
+      ],
+    });
+    spy.mockRestore();
+    const cols = getExtensionAdrGridColumns();
+    expect(cols).toHaveLength(1);
+    expect(cols[0].extKey).toBe("vs");
+    expect(cols[0].contribution.id).toBe("savings");
+    expect(cols[0].contribution.align).toBe("right");
+    expect(
+      cols[0].contribution.value({ attributes: { "ext.vs.total": "€1.2k" } } as never),
+    ).toBe("€1.2k");
+    expect(cols[0].contribution.sortValue?.({} as never)).toBe(1200);
+    // Stable snapshot until the registry changes.
+    expect(getExtensionAdrGridColumns()).toBe(getExtensionAdrGridColumns());
+    resetExtensionHost();
+    expect(getExtensionAdrGridColumns()).toEqual([]);
   });
 
   it("ExtensionBoundary catches a crashing component", () => {
