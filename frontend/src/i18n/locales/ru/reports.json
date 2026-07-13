@@ -232,6 +232,8 @@
   "matrix.expandRows": "Развернуть строки",
   "matrix.collapseColumns": "Свернуть столбцы",
   "matrix.expandColumns": "Развернуть столбцы",
+  "matrix.hideUnrelated": "Скрыть несвязанные карточки",
+  "matrix.on": "Вкл.",
   "matrix.sigmaTotal": "Σ Итого",
   "matrix.relations_one": "{{count}} связь",
   "matrix.relations_other": "{{count}} связей",

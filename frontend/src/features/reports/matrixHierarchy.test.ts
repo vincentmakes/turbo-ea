@@ -9,6 +9,7 @@ import {
   aggregateCount,
   getEffectiveLeafIds,
   buildAllNodesMap,
+  filterRelatedSubtrees,
   type MatrixItem,
 } from "./matrixHierarchy";
 
@@ -314,5 +315,74 @@ describe("buildAllNodesMap", () => {
     expect(map.size).toBe(2);
     expect(map.has("r")).toBe(true);
     expect(map.has("c")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// filterRelatedSubtrees
+// ---------------------------------------------------------------------------
+describe("filterRelatedSubtrees", () => {
+  it("drops flat leaves that are not in the related set", () => {
+    const items: MatrixItem[] = [
+      { id: "a", name: "Alpha", parent_id: null },
+      { id: "b", name: "Beta", parent_id: null },
+      { id: "c", name: "Gamma", parent_id: null },
+    ];
+    const { roots } = buildTree(items);
+    const filtered = filterRelatedSubtrees(roots, new Set(["a", "c"]));
+    expect(filtered.map((n) => n.item.id)).toEqual(["a", "c"]);
+  });
+
+  it("keeps a parent when at least one descendant is related", () => {
+    const items: MatrixItem[] = [
+      { id: "root", name: "Root", parent_id: null },
+      { id: "c1", name: "Child A", parent_id: "root" },
+      { id: "c2", name: "Child B", parent_id: "root" },
+    ];
+    const { roots } = buildTree(items);
+    const filtered = filterRelatedSubtrees(roots, new Set(["c1"]));
+    expect(filtered).toHaveLength(1);
+    // Only the related child survives, and leafCount/leafDescendants are recomputed
+    expect(filtered[0].item.id).toBe("root");
+    expect(filtered[0].children.map((c) => c.item.id)).toEqual(["c1"]);
+    expect(filtered[0].leafCount).toBe(1);
+    expect(filtered[0].leafDescendants).toEqual(["c1"]);
+  });
+
+  it("drops an entire branch when no descendant is related", () => {
+    const items: MatrixItem[] = [
+      { id: "r1", name: "Root 1", parent_id: null },
+      { id: "r1c", name: "R1 Child", parent_id: "r1" },
+      { id: "r2", name: "Root 2", parent_id: null },
+      { id: "r2c", name: "R2 Child", parent_id: "r2" },
+    ];
+    const { roots } = buildTree(items);
+    const filtered = filterRelatedSubtrees(roots, new Set(["r2c"]));
+    expect(filtered.map((n) => n.item.id)).toEqual(["r2"]);
+  });
+
+  it("keeps a pruned group leaf if any aggregated card is related", () => {
+    const items: MatrixItem[] = [
+      { id: "root", name: "Root", parent_id: null },
+      { id: "c1", name: "Child A", parent_id: "root" },
+      { id: "c2", name: "Child B", parent_id: "root" },
+    ];
+    const { roots } = buildTree(items);
+    // Prune to depth 0 so the root becomes a group leaf aggregating c1 + c2
+    const pruned = pruneTreeToDepth(roots, 0);
+    expect(pruned[0].isPrunedGroup).toBe(true);
+    // Related set only contains a child hidden inside the group
+    const filtered = filterRelatedSubtrees(pruned, new Set(["c2"]));
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].isPrunedGroup).toBe(true);
+  });
+
+  it("returns an empty array when nothing is related", () => {
+    const items: MatrixItem[] = [
+      { id: "a", name: "Alpha", parent_id: null },
+      { id: "b", name: "Beta", parent_id: null },
+    ];
+    const { roots } = buildTree(items);
+    expect(filterRelatedSubtrees(roots, new Set())).toEqual([]);
   });
 });

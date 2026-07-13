@@ -232,6 +232,8 @@
   "matrix.expandRows": "Expand rows",
   "matrix.collapseColumns": "Collapse columns",
   "matrix.expandColumns": "Expand columns",
+  "matrix.hideUnrelated": "Hide unrelated cards",
+  "matrix.on": "On",
   "matrix.sigmaTotal": "Σ Total",
   "matrix.relations_one": "{{count}} relation",
   "matrix.relations_other": "{{count}} relations",

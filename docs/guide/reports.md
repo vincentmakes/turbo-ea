@@ -157,6 +157,8 @@ The **Matrix Report** creates a **cross-reference grid** between two card types.
 
 This is useful for identifying coverage gaps (capabilities with no supporting applications) or redundancies (capabilities supported by too many applications).
 
+Use the **Hide unrelated cards** toggle to hide rows and columns for cards that have no relationships, keeping only the cards that participate in at least one relationship. The full view showing every card remains the default.
+
 ## Data Quality Report
 
 ![Data Quality Report](../assets/img/en/33_report_data_quality.png)

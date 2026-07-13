@@ -157,6 +157,8 @@ Tidslinjeskyderen, Cost Source-valget og andre filtre bevares, mens du driller, 
 
 Dette er nyttigt til at identificere dækningshuller (kompetencer uden understøttende applikationer) eller redundanser (kompetencer understøttet af for mange applikationer).
 
+Brug kontakten **Skjul ikke-relaterede kort** for at skjule rækker og kolonner for kort uden relationer, så kun kort, der indgår i mindst én relation, vises. Den fulde visning med alle kort forbliver standardindstillingen.
+
 ## Datakvalitetsrapport
 
 ![Datakvalitetsrapport](../assets/img/en/33_report_data_quality.png)

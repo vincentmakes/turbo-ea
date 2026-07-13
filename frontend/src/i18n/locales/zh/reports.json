@@ -232,6 +232,8 @@
   "matrix.expandRows": "展开行",
   "matrix.collapseColumns": "收起列",
   "matrix.expandColumns": "展开列",
+  "matrix.hideUnrelated": "隐藏无关联的卡片",
+  "matrix.on": "开启",
   "matrix.sigmaTotal": "Σ 合计",
   "matrix.relations_one": "{{count}} 个关系",
   "matrix.relations_other": "{{count}} 个关系",

@@ -157,6 +157,8 @@ O **Relatório de Matriz** cria uma **grade de referência cruzada** entre dois 
 
 Isso é útil para identificar lacunas de cobertura (capacidades sem aplicações de suporte) ou redundâncias (capacidades suportadas por muitas aplicações).
 
+Utilize o botão **Ocultar cartões sem relações** para ocultar linhas e colunas de cards que não têm relações, mantendo apenas os cards que participam em pelo menos uma relação. A visualização completa que mostra todos os cards continua a ser o comportamento predefinido.
+
 ## Relatório de Qualidade dos Dados
 
 ![Relatório de Qualidade dos Dados](../assets/img/pt/33_relatorio_qualidade_dados.png)

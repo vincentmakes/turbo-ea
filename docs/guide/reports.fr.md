@@ -157,6 +157,8 @@ Le **Rapport Matrice** crée une **grille de références croisées** entre deux
 
 Ceci est utile pour identifier les lacunes de couverture (capacités sans applications de support) ou les redondances (capacités supportées par trop d'applications).
 
+Utilisez l'option **Masquer les cartes sans relation** pour masquer les lignes et colonnes des fiches qui n'ont aucune relation, en ne conservant que les fiches participant à au moins une relation. La vue complète affichant toutes les fiches reste le comportement par défaut.
+
 ## Rapport Qualité des données
 
 ![Rapport Qualité des données](../assets/img/fr/33_rapport_qualite_donnees.png)

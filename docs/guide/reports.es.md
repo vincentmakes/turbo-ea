@@ -157,6 +157,8 @@ El **Informe de Matriz** crea una **cuadrícula de referencias cruzadas** entre 
 
 Esto es útil para identificar brechas de cobertura (capacidades sin aplicaciones de soporte) o redundancias (capacidades soportadas por demasiadas aplicaciones).
 
+Utilice el interruptor **Ocultar tarjetas sin relación** para ocultar las filas y columnas de las fichas que no tienen relaciones, conservando solo las fichas que participan en al menos una relación. La vista completa que muestra todas las fichas sigue siendo el comportamiento predeterminado.
+
 ## Informe de Calidad de Datos
 
 ![Informe de Calidad de Datos](../assets/img/es/33_informe_calidad_datos.png)

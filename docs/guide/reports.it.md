@@ -157,6 +157,8 @@ Il **Report Matrice** crea una **griglia di riferimento incrociato** tra due tip
 
 Questo è utile per identificare lacune di copertura (capability senza applicazioni di supporto) o ridondanze (capability supportate da troppe applicazioni).
 
+Utilizza l'interruttore **Nascondi le schede senza relazioni** per nascondere righe e colonne delle card prive di relazioni, mantenendo solo le card che partecipano ad almeno una relazione. La vista completa che mostra tutte le card rimane l'impostazione predefinita.
+
 ## Report Qualità dei Dati
 
 ![Report Qualità dei Dati](../assets/img/it/33_report_qualita_dati.png)

@@ -13,6 +13,8 @@ import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
 import Tooltip from "@mui/material/Tooltip";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Switch from "@mui/material/Switch";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
@@ -34,6 +36,7 @@ import {
   aggregateCount,
   getEffectiveLeafIds,
   buildAllNodesMap,
+  filterRelatedSubtrees,
 } from "./matrixHierarchy";
 
 interface MatrixData {
@@ -124,6 +127,7 @@ export default function MatrixReport() {
   const [data, setData] = useState<MatrixData | null>(null);
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
   const [cellMode, setCellMode] = useState<CellMode>("exists");
+  const [hideEmpty, setHideEmpty] = useState(false);
   const [sortRows, setSortRows] = useState<SortMode>("hierarchy");
   const [sortCols, setSortCols] = useState<SortMode>("hierarchy");
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
@@ -174,6 +178,7 @@ export default function MatrixReport() {
       if (cfg.rowType) setRowType(cfg.rowType as string);
       if (cfg.colType) setColType(cfg.colType as string);
       if (cfg.cellMode) setCellMode(cfg.cellMode as CellMode);
+      if (cfg.hideEmpty !== undefined) setHideEmpty(cfg.hideEmpty as boolean);
       if (cfg.sortRows) setSortRows(cfg.sortRows as SortMode);
       if (cfg.sortCols) setSortCols(cfg.sortCols as SortMode);
       if (cfg.rowExpandedDepth !== undefined) setRowExpandedDepth(cfg.rowExpandedDepth as number);
@@ -182,7 +187,7 @@ export default function MatrixReport() {
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getConfig = () => ({
-    rowType, colType, cellMode, sortRows, sortCols,
+    rowType, colType, cellMode, hideEmpty, sortRows, sortCols,
     rowExpandedDepth: effectiveRowDepth,
     colExpandedDepth: effectiveColDepth,
   });
@@ -190,7 +195,7 @@ export default function MatrixReport() {
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [rowType, colType, cellMode, sortRows, sortCols, rowExpandedDepth, colExpandedDepth]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rowType, colType, cellMode, hideEmpty, sortRows, sortCols, rowExpandedDepth, colExpandedDepth]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -198,6 +203,7 @@ export default function MatrixReport() {
     setRowType("Application");
     setColType("BusinessCapability");
     setCellMode("exists");
+    setHideEmpty(false);
     setSortRows("hierarchy");
     setSortCols("hierarchy");
     setRowExpandedDepth(Infinity);
@@ -234,6 +240,20 @@ export default function MatrixReport() {
     return m;
   }, [data]);
 
+  // Ids of cards that participate in at least one real relationship (self-diagonal
+  // excluded), used by the "hide unrelated cards" toggle. Global to the report, so
+  // hidden rows and hidden columns never depend on each other.
+  const { relatedRowIds, relatedColIds } = useMemo(() => {
+    const rows = new Set<string>();
+    const cols = new Set<string>();
+    for (const i of data?.intersections || []) {
+      if (i.row_id === i.col_id) continue; // self-diagonal is not a relationship
+      rows.add(i.row_id);
+      cols.add(i.col_id);
+    }
+    return { relatedRowIds: rows, relatedColIds: cols };
+  }, [data]);
+
   // Build trees from raw data
   const rowTreeFull = useMemo(() => data ? buildTree(data.rows) : null, [data]);
   const colTreeFull = useMemo(() => data ? buildTree(data.columns) : null, [data]);
@@ -255,19 +275,21 @@ export default function MatrixReport() {
   // Pruned trees based on visible depth (only in hierarchy mode)
   const prunedRowRoots = useMemo(() => {
     if (!rowTreeFull || sortRows !== "hierarchy") return null;
-    return pruneTreeToDepth(rowTreeFull.roots, effectiveRowDepth);
-  }, [rowTreeFull, effectiveRowDepth, sortRows]);
+    const pruned = pruneTreeToDepth(rowTreeFull.roots, effectiveRowDepth);
+    return hideEmpty ? filterRelatedSubtrees(pruned, relatedRowIds) : pruned;
+  }, [rowTreeFull, effectiveRowDepth, sortRows, hideEmpty, relatedRowIds]);
 
   const prunedColRoots = useMemo(() => {
     if (!colTreeFull || sortCols !== "hierarchy") return null;
-    return pruneTreeToDepth(colTreeFull.roots, effectiveColDepth);
-  }, [colTreeFull, effectiveColDepth, sortCols]);
+    const pruned = pruneTreeToDepth(colTreeFull.roots, effectiveColDepth);
+    return hideEmpty ? filterRelatedSubtrees(pruned, relatedColIds) : pruned;
+  }, [colTreeFull, effectiveColDepth, sortCols, hideEmpty, relatedColIds]);
 
   // Get pruned leaf nodes
   const leafRowNodes = useMemo(() => {
     if (prunedRowRoots) return getLeafNodes(prunedRowRoots);
     if (!data) return [];
-    const items = [...data.rows];
+    const items = hideEmpty ? data.rows.filter((r) => relatedRowIds.has(r.id)) : [...data.rows];
     if (sortRows === "count") {
       const rc = new Map<string, number>();
       for (const r of data.rows) {
@@ -285,12 +307,12 @@ export default function MatrixReport() {
       item, children: [], depth: 0, leafCount: 1,
       leafDescendants: [item.id], isPrunedGroup: false, originalLeafCount: 1,
     }));
-  }, [prunedRowRoots, data, sortRows, intersectionMap]);
+  }, [prunedRowRoots, data, sortRows, intersectionMap, hideEmpty, relatedRowIds]);
 
   const leafColNodes = useMemo(() => {
     if (prunedColRoots) return getLeafNodes(prunedColRoots);
     if (!data) return [];
-    const items = [...data.columns];
+    const items = hideEmpty ? data.columns.filter((c) => relatedColIds.has(c.id)) : [...data.columns];
     if (sortCols === "count") {
       const cc = new Map<string, number>();
       for (const c of data.columns) {
@@ -308,7 +330,7 @@ export default function MatrixReport() {
       item, children: [], depth: 0, leafCount: 1,
       leafDescendants: [item.id], isPrunedGroup: false, originalLeafCount: 1,
     }));
-  }, [prunedColRoots, data, sortCols, intersectionMap]);
+  }, [prunedColRoots, data, sortCols, intersectionMap, hideEmpty, relatedColIds]);
 
   // Node maps for aggregation lookups
   const allRowNodesMap = useMemo(
@@ -396,9 +418,11 @@ export default function MatrixReport() {
     return total;
   }, [rowTotals]);
 
-  // Stats
+  // Stats — counts reflect the visible (filtered) set when hiding unrelated cards
   const totalIntersections = data?.intersections.length || 0;
-  const maxPossible = (data?.rows.length || 0) * (data?.columns.length || 0);
+  const visibleRowCount = hideEmpty ? relatedRowIds.size : (data?.rows.length || 0);
+  const visibleColCount = hideEmpty ? relatedColIds.size : (data?.columns.length || 0);
+  const maxPossible = visibleRowCount * visibleColCount;
   const coverage = maxPossible > 0 ? ((totalIntersections / maxPossible) * 100).toFixed(1) : "0";
 
   // Hover helpers
@@ -435,8 +459,9 @@ export default function MatrixReport() {
     params.push({ label: t("matrix.cell"), value: cellMode === "exists" ? t("matrix.existsDot") : t("matrix.countHeatmap") });
     params.push({ label: t("matrix.sortRows"), value: sortModeLabel(sortRows) });
     params.push({ label: t("matrix.sortColumns"), value: sortModeLabel(sortCols) });
+    if (hideEmpty) params.push({ label: t("matrix.hideUnrelated"), value: t("matrix.on") });
     return params;
-  }, [rowLabel, colLabel, cellMode, sortRows, sortCols, t]);
+  }, [rowLabel, colLabel, cellMode, sortRows, sortCols, hideEmpty, t]);
 
   if (ml || data === null)
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
@@ -479,18 +504,22 @@ export default function MatrixReport() {
             <MenuItem value="count">{t("matrix.sortByCount")}</MenuItem>
             {colHasHierarchy && <MenuItem value="hierarchy">{t("matrix.sortHierarchy")}</MenuItem>}
           </TextField>
+          <FormControlLabel
+            control={<Switch size="small" checked={hideEmpty} onChange={(e) => setHideEmpty(e.target.checked)} />}
+            label={t("matrix.hideUnrelated")}
+          />
         </>
       }
     >
       {/* Summary strip */}
       <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
-        <MetricCard label={rowLabel} value={data.rows.length} icon={rowMeta?.icon || "table_rows"} iconColor={rowMeta?.color} color={rowMeta?.color} />
-        <MetricCard label={colLabel} value={data.columns.length} icon={colMeta?.icon || "view_column"} iconColor={colMeta?.color} color={colMeta?.color} />
+        <MetricCard label={rowLabel} value={visibleRowCount} icon={rowMeta?.icon || "table_rows"} iconColor={rowMeta?.color} color={rowMeta?.color} />
+        <MetricCard label={colLabel} value={visibleColCount} icon={colMeta?.icon || "view_column"} iconColor={colMeta?.color} color={colMeta?.color} />
         <MetricCard label={t("matrix.relations")} value={totalIntersections} icon="link" iconColor="#6a1b9a" color="#6a1b9a" />
         <MetricCard label={t("matrix.coverage")} value={`${coverage}%`} icon="percent" />
       </Box>
 
-      {data.rows.length === 0 || data.columns.length === 0 ? (
+      {leafRowNodes.length === 0 || leafColNodes.length === 0 ? (
         <Box sx={{ py: 8, textAlign: "center" }}>
           <Typography color="text.secondary">{t("matrix.noData")}</Typography>
         </Box>

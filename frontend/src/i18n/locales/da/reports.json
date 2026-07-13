@@ -232,6 +232,8 @@
   "matrix.expandRows": "Udvid rækker",
   "matrix.collapseColumns": "Skjul kolonner",
   "matrix.expandColumns": "Udvid kolonner",
+  "matrix.hideUnrelated": "Skjul ikke-relaterede kort",
+  "matrix.on": "Til",
   "matrix.sigmaTotal": "Σ total",
   "matrix.relations_one": "{{count}} relation",
   "matrix.relations_other": "{{count}} relationer",

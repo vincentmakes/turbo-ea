@@ -151,6 +151,39 @@ export function pruneTreeToDepth(roots: TreeNode[], visibleDepth: number): TreeN
 }
 
 // ---------------------------------------------------------------------------
+// filterRelatedSubtrees – drop branches whose leaves are all "unrelated"
+// ---------------------------------------------------------------------------
+
+/**
+ * Return a copy of the tree keeping only nodes that have at least one leaf
+ * descendant in `relatedIds`. Ancestor chains of surviving leaves are kept so
+ * merged parent-group headers stay consistent with the visible leaves; a leaf
+ * (or pruned group) survives if any of its aggregated cards is related, and
+ * `leafCount` / `leafDescendants` are recomputed from the surviving subtree.
+ * Returns `null` for a node that is entirely unrelated (so callers filter it out).
+ */
+export function filterRelatedSubtrees(roots: TreeNode[], relatedIds: Set<string>): TreeNode[] {
+  const filter = (node: TreeNode): TreeNode | null => {
+    if (node.children.length === 0) {
+      // Leaf or pruned group: keep if any aggregated card is related
+      const survives = node.leafDescendants.some((id) => relatedIds.has(id));
+      return survives ? { ...node, leafDescendants: [...node.leafDescendants] } : null;
+    }
+    const keptChildren = node.children
+      .map(filter)
+      .filter((c): c is TreeNode => c !== null);
+    if (keptChildren.length === 0) return null;
+    return {
+      ...node,
+      children: keptChildren,
+      leafCount: keptChildren.reduce((sum, c) => sum + c.leafCount, 0),
+      leafDescendants: keptChildren.flatMap((c) => c.leafDescendants),
+    };
+  };
+  return roots.map(filter).filter((n): n is TreeNode => n !== null);
+}
+
+// ---------------------------------------------------------------------------
 // getLeafOrder – ordered leaf IDs from the tree (replaces hierarchySort)
 // ---------------------------------------------------------------------------
 

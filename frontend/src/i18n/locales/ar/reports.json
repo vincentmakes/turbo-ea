@@ -232,6 +232,8 @@
   "matrix.expandRows": "توسيع الصفوف",
   "matrix.collapseColumns": "طي الأعمدة",
   "matrix.expandColumns": "توسيع الأعمدة",
+  "matrix.hideUnrelated": "إخفاء البطاقات غير المرتبطة",
+  "matrix.on": "مُفعّل",
   "matrix.sigmaTotal": "Σ الإجمالي",
   "matrix.relations_one": "علاقة {{count}}",
   "matrix.relations_other": "{{count}} علاقة",

@@ -232,6 +232,8 @@
   "matrix.expandRows": "Zeilen aufklappen",
   "matrix.collapseColumns": "Spalten einklappen",
   "matrix.expandColumns": "Spalten aufklappen",
+  "matrix.hideUnrelated": "Nicht verknüpfte Karten ausblenden",
+  "matrix.on": "Ein",
   "matrix.sigmaTotal": "Σ Gesamt",
   "matrix.relations_one": "{{count}} Beziehung",
   "matrix.relations_other": "{{count}} Beziehungen",

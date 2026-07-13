@@ -157,6 +157,8 @@ Der **Matrixbericht** erstellt ein **Kreuzreferenzraster** zwischen zwei Kartent
 
 Dies ist nützlich zur Identifizierung von Abdeckungslücken (Fähigkeiten ohne unterstützende Anwendungen) oder Redundanzen (Fähigkeiten, die von zu vielen Anwendungen unterstützt werden).
 
+Verwenden Sie den Schalter **Nicht verknüpfte Karten ausblenden**, um Zeilen und Spalten für Karten ohne Beziehungen auszublenden, sodass nur Karten angezeigt werden, die an mindestens einer Beziehung beteiligt sind. Die vollständige Ansicht mit allen Karten bleibt die Standardeinstellung.
+
 ## Datenqualitätsbericht
 
 ![Datenqualitätsbericht](../assets/img/de/33_bericht_datenqualitaet.png)

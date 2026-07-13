@@ -232,6 +232,8 @@
   "matrix.expandRows": "Espandi righe",
   "matrix.collapseColumns": "Comprimi colonne",
   "matrix.expandColumns": "Espandi colonne",
+  "matrix.hideUnrelated": "Nascondi le schede senza relazioni",
+  "matrix.on": "Attivo",
   "matrix.sigmaTotal": "Σ Totale",
   "matrix.relations_one": "{{count}} relazione",
   "matrix.relations_other": "{{count}} relazioni",
