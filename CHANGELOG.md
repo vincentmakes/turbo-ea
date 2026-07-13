@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - **BPM Process Navigator: view a process flow inline.** The "has process flow" icon on process cards is now a button — click it (or focus it and press Enter) to open the published BPMN diagram full-screen without leaving the navigator. The dialog also links straight to the full flow editor. The icon stays a passive indicator for processes that only have extracted steps but no published flow.
+- **Standalone todos.** `POST /todos` creates a todo without a card — assignable to any user, with an optional in-app deep link (relative paths only) so integrations and extensions can point a todo at an ADR, a risk, or one of their own pages. Card todos accept the same `link` field. The assignee is notified as usual.
 
 ## [2.7.0] - 2026-07-13
 
