@@ -96,13 +96,20 @@ async def list_card_todos(
     return [_todo_to_dict(t) for t in result.scalars().all()]
 
 
-@router.post("/cards/{card_id}/todos", status_code=201)
-async def create_todo(
-    card_id: str,
-    body: TodoCreate,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
+def _validated_link(link: str | None) -> str | None:
+    """Todos may deep-link only within the app — relative paths, never an
+    external URL (a todo assigned to someone else must not become a
+    click-through to an arbitrary site)."""
+    if link is None or link == "":
+        return None
+    if not link.startswith("/") or link.startswith("//"):
+        raise HTTPException(400, "link must be a relative in-app path starting with /")
+    return link
+
+
+async def _create_todo(
+    db: AsyncSession, user: User, body: TodoCreate, card_id: uuid.UUID | None
+) -> dict:
     recurring = body.recurrence_unit != "none"
     # First occurrence always opens immediately — the user just created the
     # todo intending to act on it. Lead-time gating only applies to the
@@ -113,8 +120,9 @@ async def create_todo(
         else default_lead_time_days(body.recurrence_unit, body.recurrence_interval)
     )
     todo = Todo(
-        card_id=uuid.UUID(card_id),
+        card_id=card_id,
         description=body.description,
+        link=_validated_link(body.link),
         assigned_to=uuid.UUID(body.assigned_to) if body.assigned_to else None,
         created_by=user.id,
         due_date=date.fromisoformat(body.due_date) if body.due_date else None,
@@ -135,8 +143,8 @@ async def create_todo(
             title="Todo Assigned",
             message=f'{user.display_name} assigned you a todo: "{body.description[:80]}"',
             link="/todos",
-            data={"todo_id": str(todo.id), "card_id": card_id},
-            card_id=uuid.UUID(card_id),
+            data={"todo_id": str(todo.id), "card_id": str(card_id) if card_id else None},
+            card_id=card_id,
         )
 
     await db.commit()
@@ -145,8 +153,29 @@ async def create_todo(
         .where(Todo.id == todo.id)
         .options(selectinload(Todo.card), selectinload(Todo.assignee))
     )
-    todo = result.scalar_one()
-    return _todo_to_dict(todo)
+    return _todo_to_dict(result.scalar_one())
+
+
+@router.post("/cards/{card_id}/todos", status_code=201)
+async def create_todo(
+    card_id: str,
+    body: TodoCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return await _create_todo(db, user, body, uuid.UUID(card_id))
+
+
+@router.post("/todos", status_code=201)
+async def create_standalone_todo(
+    body: TodoCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Create a todo that is not attached to a card — e.g. pointing at an
+    ADR, a risk, or an extension page via ``link``. Same shape and rules as
+    card todos (assignment notification included), just without a card."""
+    return await _create_todo(db, user, body, None)
 
 
 @router.patch("/todos/{todo_id}")

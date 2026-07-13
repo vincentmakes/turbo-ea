@@ -94,6 +94,56 @@ class TestCreateTodo:
         assert resp.json()["due_date"] == "2026-06-01"
 
 
+class TestCreateStandaloneTodo:
+    async def test_create_standalone_todo_with_link_and_assignee(self, client, db, todos_env):
+        admin = todos_env["admin"]
+        viewer = todos_env["viewer"]
+        resp = await client.post(
+            "/api/v1/todos",
+            json={
+                "description": "Approve realized value",
+                "assigned_to": str(viewer.id),
+                "link": "/ea-delivery/adr/123/preview",
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["card_id"] is None
+        assert data["link"] == "/ea-delivery/adr/123/preview"
+        assert data["assigned_to"] == str(viewer.id)
+        assert data["status"] == "open"
+        # The assignee sees it in their list and can complete it.
+        listing = await client.get("/api/v1/todos?assigned_only=true", headers=auth_headers(viewer))
+        assert data["id"] in [t["id"] for t in listing.json()]
+        done = await client.patch(
+            f"/api/v1/todos/{data['id']}",
+            json={"status": "done"},
+            headers=auth_headers(viewer),
+        )
+        assert done.status_code == 200
+        assert done.json()["status"] == "done"
+
+    async def test_link_must_be_relative_in_app_path(self, client, db, todos_env):
+        admin = todos_env["admin"]
+        card = todos_env["card"]
+        for bad in ("https://evil.example/x", "//evil.example/x", "javascript:alert(1)"):
+            resp = await client.post(
+                "/api/v1/todos",
+                json={"description": "x", "link": bad},
+                headers=auth_headers(admin),
+            )
+            assert resp.status_code == 400, bad
+        # Card todos accept the (validated) link too.
+        resp = await client.post(
+            f"/api/v1/cards/{card.id}/todos",
+            json={"description": "with link", "link": "/inventory"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["link"] == "/inventory"
+
+
 # ---------------------------------------------------------------
 # GET /cards/{id}/todos  (list per card)
 # ---------------------------------------------------------------

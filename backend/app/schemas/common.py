@@ -39,6 +39,10 @@ class TodoCreate(BaseModel):
     description: str
     assigned_to: str | None = None
     due_date: str | None = None
+    # Optional in-app deep link rendered on the todo (e.g. an ADR page).
+    # Relative paths only ("/…") — validated in the route so a todo can
+    # never carry an external URL.
+    link: str | None = Field(default=None, max_length=500)
     # Recurrence (card todos only). ``recurrence_unit == "none"`` (the
     # default) creates an ordinary one-shot todo. ``lead_time_days`` is
     # optional — when omitted on a recurring todo the server picks a smart

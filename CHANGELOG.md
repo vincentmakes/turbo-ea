@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.8.0] - 2026-07-13
+
+### Added
+- **Standalone todos.** `POST /todos` creates a todo without a card — assignable to any user, with an optional in-app deep link (relative paths only) so integrations and extensions can point a todo at an ADR, a risk, or one of their own pages. Card todos accept the same `link` field. The assignee is notified as usual.
+
 ## [2.7.0] - 2026-07-13
 
 ### Added

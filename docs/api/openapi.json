@@ -12668,6 +12668,18 @@
             ],
             "title": "Lead Time Days"
           },
+          "link": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          },
           "recurrence_interval": {
             "default": 1,
             "maximum": 365.0,
@@ -34090,6 +34102,44 @@
           }
         },
         "summary": "List All Todos",
+        "tags": [
+          "todos"
+        ]
+      },
+      "post": {
+        "description": "Create a todo that is not attached to a card \u2014 e.g. pointing at an\nADR, a risk, or an extension page via ``link``. Same shape and rules as\ncard todos (assignment notification included), just without a card.",
+        "operationId": "create_standalone_todo_api_v1_todos_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TodoCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Standalone Todo",
         "tags": [
           "todos"
         ]
