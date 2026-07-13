@@ -27,8 +27,8 @@ class ArchitectureDecision(Base, UUIDMixin, TimestampMixin):
 
     # Extension attributes bag. ADRs are not cards, so extensions cannot use the
     # metamodel field-contribution capability here; instead they stash their own
-    # data under ``ext.<key>.*`` top-level keys (e.g. the value-savings extension
-    # writes ``ext.savings``). Frozen automatically once the ADR is signed
+    # data under ``ext.<key>.*`` top-level keys (an extension writes, e.g.,
+    # ``ext.savings``). Frozen automatically once the ADR is signed
     # (update_adr blocks edits on signed decisions) and carried into revisions.
     attributes: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
 

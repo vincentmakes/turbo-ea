@@ -42,7 +42,7 @@ describe("exportAdrsToDocx — extension sections", () => {
 
   it("invokes registered export builders with the ADR and still saves the file", async () => {
     const build = vi.fn(() => [
-      { heading: "Value Savings", paragraphs: ["Total: 50,000"], table: { headers: ["A"], rows: [["1"]] } },
+      { heading: "Extra Section", paragraphs: ["Total: 50,000"], table: { headers: ["A"], rows: [["1"]] } },
     ]);
     registerExtension("daaf", {
       key: "daaf",
