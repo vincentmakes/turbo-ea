@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - "Signed by" pills in the decisions grid are no longer cut off at the cell edge — they now wrap onto extra lines, like the Linked Cards column.
+- Demo ADR and SoAW signatories now carry distinct per-persona ids instead of a shared placeholder, so the decisions grid's Signed By filter lists each demo signatory separately (and the signer chips no longer share React keys). Demo ADRs also credit the admin user as creator when one exists at seed time, matching the SoAW behaviour.
 
 ## [2.5.0] - 2026-07-13
 

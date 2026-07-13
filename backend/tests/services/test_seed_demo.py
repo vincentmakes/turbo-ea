@@ -467,6 +467,32 @@ class TestExtraAdrsDemoData:
         actual = {a["reference_number"] for a in DEMO_ADRS_EXTRA}
         assert actual == expected, f"Expected {expected}, got {actual}"
 
+    def test_signatory_user_ids_distinct_and_persona_stable(self):
+        """Signatory user_ids must be unique within a document (they key the
+        UI's signer chips and the signed-by filter facet) and each persona
+        (display_name) must reuse the same id across all documents so the
+        signed-by facet dedups to one entry per persona."""
+        from app.services.seed_demo import DEMO_ADRS
+
+        persona_ids: dict[str, str] = {}
+        errors = []
+        for doc in DEMO_ADRS + DEMO_ADRS_EXTRA + DEMO_SOAWS:
+            ref = doc.get("reference_number") or doc.get("title")
+            sigs = doc.get("signatories", [])
+            ids = [s["user_id"] for s in sigs]
+            if len(ids) != len(set(ids)):
+                errors.append(f"{ref}: duplicate signatory user_ids {ids}")
+            for s in sigs:
+                if s["user_id"] == "demo-placeholder":
+                    errors.append(f"{ref}: signatory still uses demo-placeholder")
+                known = persona_ids.setdefault(s["display_name"], s["user_id"])
+                if known != s["user_id"]:
+                    errors.append(
+                        f"{ref}: persona '{s['display_name']}' has id "
+                        f"{s['user_id']!r}, expected {known!r}"
+                    )
+        assert not errors, "\n".join(errors)
+
 
 # ===========================================================================
 # Tests — extras demo data (seed_demo_extras.py)

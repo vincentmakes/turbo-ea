@@ -4668,7 +4668,7 @@ DEMO_ADRS = [
         "related_decisions": [],
         "signatories": [
             {
-                "user_id": "demo-placeholder",
+                "user_id": "demo-sig-cto-office",
                 "display_name": "CTO Office",
                 "email": "cto@nexatech.demo",
                 "status": "signed",
@@ -4706,7 +4706,7 @@ DEMO_ADRS = [
         "related_decisions": ["ADR-001"],
         "signatories": [
             {
-                "user_id": "demo-placeholder",
+                "user_id": "demo-sig-enterprise-architect",
                 "display_name": "Enterprise Architect",
                 "email": "ea@nexatech.demo",
                 "status": "signed",
@@ -4798,14 +4798,14 @@ DEMO_ADRS_EXTRA = [
         "related_decisions": ["ADR-001"],
         "signatories": [
             {
-                "user_id": "demo-placeholder",
+                "user_id": "demo-sig-ciso-office",
                 "display_name": "CISO Office",
                 "email": "ciso@nexatech.demo",
                 "status": "signed",
                 "signed_at": "2025-11-10T09:00:00Z",
             },
             {
-                "user_id": "demo-placeholder",
+                "user_id": "demo-sig-enterprise-architect",
                 "display_name": "Enterprise Architect",
                 "email": "ea@nexatech.demo",
                 "status": "signed",
@@ -4851,7 +4851,7 @@ DEMO_ADRS_EXTRA = [
         "related_decisions": ["ADR-001", "ADR-002"],
         "signatories": [
             {
-                "user_id": "demo-placeholder",
+                "user_id": "demo-sig-cto-office",
                 "display_name": "CTO Office",
                 "email": "cto@nexatech.demo",
                 "status": "signed",
@@ -4897,14 +4897,14 @@ DEMO_ADRS_EXTRA = [
         "related_decisions": ["ADR-001", "ADR-005"],
         "signatories": [
             {
-                "user_id": "demo-placeholder",
+                "user_id": "demo-sig-data-architecture-lead",
                 "display_name": "Data Architecture Lead",
                 "email": "data-arch@nexatech.demo",
                 "status": "pending",
                 "signed_at": None,
             },
             {
-                "user_id": "demo-placeholder",
+                "user_id": "demo-sig-enterprise-architect",
                 "display_name": "Enterprise Architect",
                 "email": "ea@nexatech.demo",
                 "status": "pending",
@@ -5281,14 +5281,14 @@ DEMO_SOAW_DTP = {
     "revision_number": 1,
     "signatories": [
         {
-            "user_id": "demo-placeholder",
+            "user_id": "demo-sig-cto-office",
             "display_name": "CTO Office",
             "email": "cto@nexatech.demo",
             "status": "signed",
             "signed_at": "2025-08-20T10:00:00Z",
         },
         {
-            "user_id": "demo-placeholder",
+            "user_id": "demo-sig-enterprise-architect",
             "display_name": "Enterprise Architect",
             "email": "ea@nexatech.demo",
             "status": "signed",
@@ -5473,14 +5473,14 @@ DEMO_SOAW_SAP = {
     "revision_number": 1,
     "signatories": [
         {
-            "user_id": "demo-placeholder",
+            "user_id": "demo-sig-enterprise-architect",
             "display_name": "Enterprise Architect",
             "email": "ea@nexatech.demo",
             "status": "pending",
             "signed_at": None,
         },
         {
-            "user_id": "demo-placeholder",
+            "user_id": "demo-sig-sap-solution-architect",
             "display_name": "SAP Solution Architect",
             "email": "sap-arch@nexatech.demo",
             "status": "pending",
@@ -5709,9 +5709,19 @@ async def seed_demo_data(db: AsyncSession) -> dict:
                 db.add(CardTag(card_id=_id(ref), tag_id=t["id"]))
     await db.flush()
 
+    # ADRs and SoAWs credit the first admin as creator when one exists
+    # (seeding on a fresh install runs before any user registers, so
+    # created_by stays NULL there — the FK only accepts real users).
+    from app.models.user import User
+
+    admin_result = await db.execute(select(User.id).where(User.role == "admin").limit(1))
+    admin_id = admin_result.scalar_one_or_none()
+
     # Insert demo Architecture Decision Records
     for adr_def in DEMO_ADRS + DEMO_ADRS_EXTRA:
         adr_data = {k: v for k, v in adr_def.items()}
+        if admin_id:
+            adr_data["created_by"] = admin_id
         db.add(ArchitectureDecision(**adr_data))
     await db.flush()
 
@@ -5724,12 +5734,7 @@ async def seed_demo_data(db: AsyncSession) -> dict:
         )
     await db.flush()
 
-    # Insert demo SoAW documents (need admin user for created_by)
-    from app.models.user import User
-
-    admin_result = await db.execute(select(User.id).where(User.role == "admin").limit(1))
-    admin_id = admin_result.scalar_one_or_none()
-
+    # Insert demo SoAW documents
     for soaw_def in DEMO_SOAWS:
         soaw_data = {k: v for k, v in soaw_def.items()}
         if admin_id:
