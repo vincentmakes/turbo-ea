@@ -1,4 +1,4 @@
-// Shared AG Grid date-column filter config for the Inventory grid.
+// Shared AG Grid date-column filter config (Inventory grid, ADR/Decisions grid).
 //
 // Datetime columns (created_at / updated_at) and custom `date` fields store
 // their value as an ISO string (e.g. "2026-04-27T10:00:00Z" for datetimes,

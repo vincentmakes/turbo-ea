@@ -33,22 +33,30 @@ La grille ADR reprend la disposition de la grille Inventaire :
 
 | Colonne | Description |
 |---------|-------------|
-| **N° de réf.** | Numéro de référence généré automatiquement (ADR-001, ADR-002, …) |
-| **Titre** | Titre de l'ADR |
+| **N° de réf.** | Numéro de référence généré automatiquement (ADR-001, ADR-002, …) avec un point de statut |
 | **Statut** | Puce colorée — Brouillon, En revue ou Signé |
+| **Titre** | Titre de l'ADR |
+| **Décision** | Extrait en texte brut de la décision |
 | **Cartes liées** | Pilules colorées correspondant à la couleur du type de chaque carte liée |
+| **Créé par** | Auteur de l'ADR |
 | **Créé** | Date de création |
 | **Modifié** | Date de dernière modification |
 | **Signé** | Date de signature |
-| **Révision** | Numéro de révision |
+| **Signé par** | Une pilule par signataire ayant signé |
+
+Chaque colonne dispose d'un **filtre d'en-tête** — filtres textuels sur les colonnes de texte, filtres de date sur les colonnes de date — chacun avec son propre bouton **Réinitialiser**. Dès qu'un filtre de colonne est actif, un bouton **Effacer les filtres de colonne** apparaît dans la barre d'outils de la grille pour tous les effacer d'un coup. La largeur, l'ordre et le tri des colonnes ainsi que les filtres actifs sont mémorisés par navigateur.
 
 #### Barre latérale de filtres
 
-Une barre latérale de filtres persistante à gauche propose :
+La barre latérale persistante à gauche comporte deux onglets :
 
-- **Types de carte** — cases à cocher avec des points colorés filtrant par types de cartes liées
-- **Statut** — Brouillon / En revue / Signé
-- **Date de création** / **Date de modification** / **Date de signature** — plages de dates de/à
+- **Filtres** — filtres à facettes sur la liste des ADR :
+    - **Types de carte** — cases à cocher avec des points colorés filtrant par types de cartes liées
+    - **Cartes liées** — filtrer par cartes liées spécifiques
+    - **Statut** — Brouillon / En revue / Signé
+    - **Signé par** — filtrer par signataire
+    - **Date de création** / **Date de modification** / **Date de signature** — plages de dates de/à
+- **Colonnes** — choisir les colonnes visibles de la grille. **N° de réf.** et **Titre** sont toujours affichés ; **Réinitialiser** restaure la sélection par défaut. Votre choix est mémorisé par navigateur.
 
 Utilisez la barre de **filtre rapide** pour une recherche en texte intégral. Faites un clic droit sur n'importe quelle ligne pour un menu contextuel (**Modifier**, **Aperçu**, **Dupliquer**, **Supprimer**).
 

@@ -33,22 +33,30 @@ A grade de ADR espelha o layout da grade de Inventário:
 
 | Coluna | Descrição |
 |--------|-----------|
-| **N.º de ref.** | Número de referência gerado automaticamente (ADR-001, ADR-002, …) |
-| **Título** | Título do ADR |
+| **N.º de ref.** | Número de referência gerado automaticamente (ADR-001, ADR-002, …) com um ponto de status |
 | **Status** | Chip colorido — Rascunho, Em Revisão ou Assinado |
+| **Título** | Título do ADR |
+| **Decisão** | Trecho em texto simples da decisão |
 | **Cards vinculados** | Pílulas coloridas correspondentes à cor do tipo de cada card vinculado |
+| **Criado por** | Autor do ADR |
 | **Criado** | Data de criação |
 | **Modificado** | Data da última modificação |
 | **Assinado** | Data de assinatura |
-| **Revisão** | Número de revisão |
+| **Assinado por** | Uma pílula por signatário que assinou |
+
+Cada coluna possui um **filtro de cabeçalho** — filtros de texto nas colunas de texto, filtros de data nas colunas de data — cada um com seu próprio botão **Redefinir**. Assim que algum filtro de coluna está ativo, um botão **Limpar filtros de coluna** aparece na barra de ferramentas da grade para limpá-los todos de uma vez. Largura, ordem e ordenação das colunas e os filtros ativos são lembrados por navegador.
 
 #### Barra lateral de filtros
 
-A barra lateral de filtros persistente à esquerda oferece:
+A barra lateral persistente à esquerda tem duas abas:
 
-- **Tipos de card** — caixas de seleção com pontos coloridos que filtram por tipos de cards vinculados
-- **Status** — Rascunho / Em Revisão / Assinado
-- **Data de criação / modificação / assinatura** — intervalos de datas de/até
+- **Filtros** — filtros de facetas sobre a lista de ADRs:
+    - **Tipos de card** — caixas de seleção com pontos coloridos que filtram por tipos de cards vinculados
+    - **Cards vinculados** — filtrar por cards vinculados específicos
+    - **Status** — Rascunho / Em Revisão / Assinado
+    - **Assinado por** — filtrar por signatário
+    - **Data de criação / modificação / assinatura** — intervalos de datas de/até
+- **Colunas** — escolha quais colunas da grade ficam visíveis. **N.º de ref.** e **Título** são sempre exibidos; **Redefinir** restaura a seleção padrão. Sua escolha é lembrada por navegador.
 
 Use a barra de **filtro rápido** para pesquisa de texto completo. Clique com o botão direito em qualquer linha para um menu de contexto (**Editar**, **Pré-visualizar**, **Duplicar**, **Excluir**).
 

@@ -37,22 +37,30 @@ The ADR grid mirrors the Inventory grid layout:
 
 | Column | Description |
 |--------|-------------|
-| **Reference #** | Auto-generated reference number (ADR-001, ADR-002, …) |
-| **Title** | ADR title |
+| **Reference #** | Auto-generated reference number (ADR-001, ADR-002, …) with a status dot |
 | **Status** | Coloured chip — Draft, In Review, or Signed |
+| **Title** | ADR title |
+| **Decision** | Plain-text excerpt of the decision |
 | **Linked Cards** | Coloured pills matching each linked card's type colour |
+| **Created By** | Author of the ADR |
 | **Created** | Creation date |
 | **Modified** | Last-modified date |
 | **Signed** | Date the ADR was signed |
-| **Revision** | Revision number |
+| **Signed By** | One pill per signatory who has signed |
+
+Every column has a **header filter** — text filters on text columns, date filters on the date columns — each with its own **Reset** button. As soon as any column filter is active, a **Clear column filters** button appears in the grid toolbar to clear them all at once. Column widths, order, sorting, and active filters are remembered per browser.
 
 #### Filter sidebar
 
-A persistent filter sidebar on the left exposes:
+The persistent sidebar on the left has two tabs:
 
-- **Card Types** — checkboxes with coloured dots that filter by linked card types
-- **Status** — Draft / In Review / Signed
-- **Date Created** / **Date Modified** / **Date Signed** — from/to date ranges
+- **Filters** — facet filters over the ADR list:
+    - **Card Types** — checkboxes with coloured dots that filter by linked card types
+    - **Linked Cards** — filter by specific linked cards
+    - **Status** — Draft / In Review / Signed
+    - **Signed By** — filter by signatory
+    - **Date Created** / **Date Modified** / **Date Signed** — from/to date ranges
+- **Columns** — choose which grid columns are visible. **Reference #** and **Title** are always shown; **Reset** restores the default set. Your selection is remembered per browser.
 
 Use the **quick filter** search bar for full-text search across all ADRs. Right-click any row for a context menu (**Edit**, **Preview**, **Duplicate**, **Delete**).
 

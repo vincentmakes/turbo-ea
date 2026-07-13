@@ -33,22 +33,30 @@ La cuadrícula de ADR refleja el diseño de la cuadrícula de Inventario:
 
 | Columna | Descripción |
 |---------|-------------|
-| **N.º de referencia** | Número de referencia generado automáticamente (ADR-001, ADR-002, …) |
-| **Título** | Título del ADR |
+| **N.º de referencia** | Número de referencia generado automáticamente (ADR-001, ADR-002, …) con un punto de estado |
 | **Estado** | Chip de color — Borrador, En Revisión o Firmado |
+| **Título** | Título del ADR |
+| **Decisión** | Extracto en texto plano de la decisión |
 | **Tarjetas vinculadas** | Píldoras de color que coinciden con el color del tipo de cada tarjeta vinculada |
+| **Creado por** | Autor del ADR |
 | **Creado** | Fecha de creación |
 | **Modificado** | Fecha de última modificación |
 | **Firmado** | Fecha de firma |
-| **Revisión** | Número de revisión |
+| **Firmado por** | Una píldora por cada firmante que ha firmado |
+
+Cada columna dispone de un **filtro de encabezado** — filtros de texto en las columnas de texto, filtros de fecha en las columnas de fecha — cada uno con su propio botón **Restablecer**. En cuanto algún filtro de columna está activo, aparece un botón **Borrar filtros de columna** en la barra de herramientas de la cuadrícula para borrarlos todos a la vez. El ancho, el orden y la ordenación de las columnas, así como los filtros activos, se recuerdan por navegador.
 
 #### Barra lateral de filtros
 
-Una barra lateral de filtros persistente a la izquierda ofrece:
+La barra lateral persistente a la izquierda tiene dos pestañas:
 
-- **Tipos de tarjeta** — casillas con puntos coloreados que filtran por tipos de tarjetas vinculadas
-- **Estado** — Borrador / En Revisión / Firmado
-- **Fecha de creación** / **modificación** / **firma** — rangos de fechas desde/hasta
+- **Filtros** — filtros de facetas sobre la lista de ADR:
+    - **Tipos de tarjeta** — casillas con puntos coloreados que filtran por tipos de tarjetas vinculadas
+    - **Tarjetas vinculadas** — filtrar por tarjetas vinculadas específicas
+    - **Estado** — Borrador / En Revisión / Firmado
+    - **Firmado por** — filtrar por firmante
+    - **Fecha de creación** / **modificación** / **firma** — rangos de fechas desde/hasta
+- **Columnas** — elegir qué columnas de la cuadrícula son visibles. **N.º de referencia** y **Título** se muestran siempre; **Restablecer** restaura la selección predeterminada. Su elección se recuerda por navegador.
 
 Use la barra de **filtro rápido** para búsqueda de texto completo. Haga clic derecho en cualquier fila para un menú contextual (**Editar**, **Vista previa**, **Duplicar**, **Eliminar**).
 

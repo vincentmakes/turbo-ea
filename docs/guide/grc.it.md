@@ -33,22 +33,30 @@ La griglia ADR rispecchia il layout della griglia Inventario:
 
 | Colonna | Descrizione |
 |---------|-------------|
-| **N. rif.** | Numero di riferimento generato automaticamente (ADR-001, ADR-002, …) |
-| **Titolo** | Titolo dell'ADR |
+| **N. rif.** | Numero di riferimento generato automaticamente (ADR-001, ADR-002, …) con un punto di stato |
 | **Stato** | Chip colorato — Bozza, In Revisione o Firmato |
+| **Titolo** | Titolo dell'ADR |
+| **Decisione** | Estratto in testo semplice della decisione |
 | **Card collegate** | Pillole colorate corrispondenti al colore del tipo di ogni card collegata |
+| **Creato da** | Autore dell'ADR |
 | **Creato** | Data di creazione |
 | **Modificato** | Data di ultima modifica |
 | **Firmato** | Data di firma |
-| **Revisione** | Numero di revisione |
+| **Firmato da** | Una pillola per ogni firmatario che ha firmato |
+
+Ogni colonna dispone di un **filtro di intestazione** — filtri di testo sulle colonne testuali, filtri di data sulle colonne di data — ciascuno con il proprio pulsante **Ripristina**. Non appena un filtro di colonna è attivo, nella barra degli strumenti della griglia compare il pulsante **Cancella filtri di colonna** per cancellarli tutti in una volta. Larghezza, ordine e ordinamento delle colonne e i filtri attivi vengono memorizzati per browser.
 
 #### Barra laterale dei filtri
 
-La barra laterale dei filtri persistente a sinistra offre:
+La barra laterale persistente a sinistra ha due schede:
 
-- **Tipi di card** — caselle di controllo con punti colorati che filtrano per tipi di card collegate
-- **Stato** — Bozza / In Revisione / Firmato
-- **Data di creazione / modifica / firma** — intervalli di date da/a
+- **Filtri** — filtri a faccette sull'elenco degli ADR:
+    - **Tipi di card** — caselle di controllo con punti colorati che filtrano per tipi di card collegate
+    - **Card collegate** — filtra per card collegate specifiche
+    - **Stato** — Bozza / In Revisione / Firmato
+    - **Firmato da** — filtra per firmatario
+    - **Data di creazione / modifica / firma** — intervalli di date da/a
+- **Colonne** — scegliete quali colonne della griglia sono visibili. **N. rif.** e **Titolo** sono sempre mostrati; **Ripristina** ripristina la selezione predefinita. La scelta viene memorizzata per browser.
 
 Usate la barra del **filtro rapido** per la ricerca full-text. Fate clic destro su una riga per un menu contestuale (**Modifica**, **Anteprima**, **Duplica**, **Elimina**).
 

@@ -37,22 +37,30 @@ ADR-gitteret afspejler Inventar-gitter-layoutet:
 
 | Kolonne | Beskrivelse |
 |---------|-------------|
-| **Reference #** | Autogenereret referencenummer (ADR-001, ADR-002, …) |
-| **Title** | ADR-titel |
+| **Reference #** | Autogenereret referencenummer (ADR-001, ADR-002, …) med en statusprik |
 | **Status** | Farvet chip — Draft, In Review eller Signed |
+| **Title** | ADR-titel |
+| **Decision** | Uddrag af beslutningen i ren tekst |
 | **Linked Cards** | Farvede piller, der matcher hver linket korts type-farve |
+| **Created By** | ADR'ens forfatter |
 | **Created** | Oprettelsesdato |
 | **Modified** | Sidst-ændret-dato |
 | **Signed** | Datoen ADR'en blev underskrevet |
-| **Revision** | Revisionsnummer |
+| **Signed By** | Én pille pr. underskriver, der har underskrevet |
+
+Hver kolonne har et **kolonnefilter** — tekstfiltre på tekstkolonner, datofiltre på datokolonnerne — hver med sin egen **Reset**-knap. Så snart et kolonnefilter er aktivt, vises knappen **Ryd kolonnefiltre** i gitterets værktøjslinje, som rydder dem alle på én gang. Kolonnebredder, rækkefølge, sortering og aktive filtre huskes pr. browser.
 
 #### Filtersidepanel
 
-Et vedvarende filtersidepanel til venstre eksponerer:
+Det vedvarende sidepanel til venstre har to faner:
 
-- **Card Types** — afkrydsningsfelter med farvede prikker, der filtrerer efter linkede korttyper
-- **Status** — Draft / In Review / Signed
-- **Date Created** / **Date Modified** / **Date Signed** — fra/til-datointervaller
+- **Filtre** — facetfiltre over ADR-listen:
+    - **Card Types** — afkrydsningsfelter med farvede prikker, der filtrerer efter linkede korttyper
+    - **Linked Cards** — filtrér efter specifikke linkede kort
+    - **Status** — Draft / In Review / Signed
+    - **Signed By** — filtrér efter underskriver
+    - **Date Created** / **Date Modified** / **Date Signed** — fra/til-datointervaller
+- **Kolonner** — vælg, hvilke gitterkolonner der er synlige. **Reference #** og **Title** vises altid; **Nulstil** gendanner standardsættet. Dit valg huskes pr. browser.
 
 Brug **quick filter**-søgelinjen til fuldtekstsøgning på tværs af alle ADR'er. Højreklik på enhver række for en kontekstmenu (**Edit**, **Preview**, **Duplicate**, **Delete**).
 

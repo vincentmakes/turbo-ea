@@ -15,8 +15,13 @@ import AdrFilterSidebar, {
   EMPTY_ADR_FILTERS,
 } from "@/features/ea-delivery/AdrFilterSidebar";
 import { exportAdrsToDocx } from "@/features/ea-delivery/adrExport";
+import {
+  loadAdrGridPrefs,
+  updateAdrGridPrefs,
+} from "@/features/ea-delivery/adrGridPrefs";
 import CreateAdrDialog from "@/features/ea-delivery/CreateAdrDialog";
 import { useAuthContext } from "@/hooks/AuthContext";
+import { useExtensionAdrGridColumns } from "@/lib/extensionHost";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import type { ArchitectureDecision } from "@/types";
@@ -38,6 +43,26 @@ export default function DecisionsPanel() {
   const [adrSidebarWidth, setAdrSidebarWidth] = useState(280);
   const [createOpen, setCreateOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Grid column visibility (sidebar Columns tab), persisted alongside the
+  // grid's own filter/layout prefs in localStorage.
+  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(
+    () => new Set(loadAdrGridPrefs()?.hiddenColumns ?? []),
+  );
+  const handleHiddenColumnsChange = useCallback((next: Set<string>) => {
+    setHiddenColumns(next);
+    updateAdrGridPrefs({ hiddenColumns: [...next] });
+  }, []);
+
+  const extGridColumns = useExtensionAdrGridColumns();
+  const extensionColumns = useMemo(
+    () =>
+      extGridColumns.map((c) => ({
+        colId: `ext-${c.extKey}-${c.contribution.id}`,
+        label: c.contribution.label,
+      })),
+    [extGridColumns],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -262,6 +287,9 @@ export default function DecisionsPanel() {
               availableCardTypes={availableCardTypes}
               availableLinkedCards={availableLinkedCards}
               availableSignatories={availableSignatories}
+              hiddenColumns={hiddenColumns}
+              onHiddenColumnsChange={handleHiddenColumnsChange}
+              extensionColumns={extensionColumns}
             />
           </Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -271,6 +299,7 @@ export default function DecisionsPanel() {
               loading={false}
               quickFilterText={adrSearch}
               onQuickFilterChange={setAdrSearch}
+              hiddenColumns={hiddenColumns}
               onEdit={(adr) => navigate(`/ea-delivery/adr/${adr.id}`)}
               onPreview={(adr) => navigate(`/ea-delivery/adr/${adr.id}/preview`)}
               onDuplicate={handleDuplicate}

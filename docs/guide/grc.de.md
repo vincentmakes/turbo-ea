@@ -33,22 +33,30 @@ Das ADR-Grid orientiert sich am Layout des Inventar-Grids:
 
 | Spalte | Beschreibung |
 |--------|-------------|
-| **Referenznr.** | Automatisch generierte Referenznummer (ADR-001, ADR-002, …) |
-| **Titel** | ADR-Titel |
+| **Referenznr.** | Automatisch generierte Referenznummer (ADR-001, ADR-002, …) mit Statuspunkt |
 | **Status** | Farbiger Chip — Entwurf, In Überprüfung oder Unterschrieben |
+| **Titel** | ADR-Titel |
+| **Entscheidung** | Klartext-Auszug der Entscheidung |
 | **Verknüpfte Karten** | Farbige Pillen passend zur Farbe des jeweiligen Kartentyps |
+| **Erstellt von** | Autor des ADR |
 | **Erstellt** | Erstellungsdatum |
 | **Geändert** | Datum der letzten Änderung |
 | **Unterschrieben** | Datum der Unterschrift |
-| **Revision** | Revisionsnummer |
+| **Unterschrieben von** | Eine Pille je Unterzeichner, der unterschrieben hat |
+
+Jede Spalte besitzt einen **Spaltenfilter** — Textfilter auf Textspalten, Datumsfilter auf den Datumsspalten — jeweils mit eigener **Zurücksetzen**-Schaltfläche. Sobald ein Spaltenfilter aktiv ist, erscheint in der Werkzeugleiste des Grids die Schaltfläche **Spaltenfilter löschen**, die alle auf einmal entfernt. Spaltenbreiten, Reihenfolge, Sortierung und aktive Filter werden pro Browser gespeichert.
 
 #### Filterseitenleiste
 
-Die dauerhafte Filterseitenleiste links bietet:
+Die dauerhafte Seitenleiste links hat zwei Registerkarten:
 
-- **Kartentypen** — Kontrollkästchen mit farbigen Punkten zum Filtern nach verknüpften Kartentypen
-- **Status** — Entwurf / In Überprüfung / Unterschrieben
-- **Erstellungs-/Änderungs-/Unterschriftsdatum** — Von/Bis-Datumsbereich
+- **Filter** — Facettenfilter über die ADR-Liste:
+    - **Kartentypen** — Kontrollkästchen mit farbigen Punkten zum Filtern nach verknüpften Kartentypen
+    - **Verknüpfte Karten** — nach bestimmten verknüpften Karten filtern
+    - **Status** — Entwurf / In Überprüfung / Unterschrieben
+    - **Unterschrieben von** — nach Unterzeichner filtern
+    - **Erstellungs-/Änderungs-/Unterschriftsdatum** — Von/Bis-Datumsbereiche
+- **Spalten** — auswählen, welche Spalten des Grids sichtbar sind. **Referenznr.** und **Titel** werden immer angezeigt; **Zurücksetzen** stellt die Standardauswahl wieder her. Die Auswahl wird pro Browser gespeichert.
 
 Verwende die **Schnellfilter**-Suchleiste für die Volltextsuche über alle ADRs. Rechtsklick auf eine Zeile öffnet ein Kontextmenü (**Bearbeiten**, **Vorschau**, **Duplizieren**, **Löschen**).
 
