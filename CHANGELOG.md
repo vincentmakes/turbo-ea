@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.5.0] - 2026-07-13
+
+### Added
+- **UI extension SDK 1.10 — ADR grid columns.** Extensions can contribute plain-data columns (`adrGridColumns`: label, display text, optional sort value) to the shared decisions grid on EA Delivery and GRC → Governance. Core renders them as native grid columns — same styling, sorting, and quick-filter search as the built-in ones — and a faulty extension column degrades to empty cells instead of breaking the grid.
+
 ## [2.4.1] - 2026-07-12
 
 ### Added
