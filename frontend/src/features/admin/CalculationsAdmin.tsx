@@ -641,6 +641,14 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
     { name: 'MAP_SCORE(val, {"a":1,...})', desc: "Map key to score" },
   ];
 
+  const contextVars = [
+    { name: "parent", desc: t("calculations.ctxParent") },
+    { name: "parent.attributes.<key>", desc: t("calculations.ctxParentAttributes") },
+    { name: "hierarchy_level", desc: t("calculations.ctxHierarchyLevel") },
+    { name: "children", desc: t("calculations.ctxChildren") },
+    { name: "children_count", desc: t("calculations.ctxChildrenCount") },
+  ];
+
   return (
     <Accordion sx={{ mt: 2 }}>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
@@ -701,38 +709,18 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
             <Typography variant="caption" fontWeight={600} gutterBottom>
               {t("calculations.contextVariables")}
             </Typography>
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 0.5 }}>
-              <Chip
-                size="small"
-                label="parent"
-                variant="outlined"
-                title={t("calculations.ctxParent")}
-              />
-              <Chip
-                size="small"
-                label="parent.attributes.<key>"
-                variant="outlined"
-                title={t("calculations.ctxParentAttributes")}
-              />
-              <Chip
-                size="small"
-                label="hierarchy_level"
-                variant="outlined"
-                title={t("calculations.ctxHierarchyLevel")}
-              />
-              <Chip
-                size="small"
-                label="children"
-                variant="outlined"
-                title={t("calculations.ctxChildren")}
-              />
-              <Chip
-                size="small"
-                label="children_count"
-                variant="outlined"
-                title={t("calculations.ctxChildrenCount")}
-              />
-            </Box>
+            <Table size="small" sx={{ mt: 0.5 }}>
+              <TableBody>
+                {contextVars.map((cv) => (
+                  <TableRow key={cv.name}>
+                    <TableCell sx={{ fontFamily: "monospace", fontSize: "0.75rem", py: 0.25, whiteSpace: "nowrap" }}>
+                      {cv.name}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: "0.75rem", py: 0.25 }}>{cv.desc}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </Box>
 
           <Box>
