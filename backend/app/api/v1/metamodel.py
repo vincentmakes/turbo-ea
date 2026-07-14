@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import logging
 import uuid
 
@@ -20,6 +21,11 @@ from app.models.resource_type import ResourceType
 from app.models.stakeholder import Stakeholder
 from app.models.user import User
 from app.services.extensions.registry import extension_registry
+from app.services.hierarchy import (
+    HIERARCHY_LEVEL_KEY,
+    backfill_hierarchy_levels_for_type,
+    hierarchy_level_field_def,
+)
 from app.services.permission_service import PermissionService
 
 logger = logging.getLogger("turboea.metamodel")
@@ -534,6 +540,55 @@ async def get_option_usage(
     }
 
 
+def _has_hierarchy_level_field(schema: list) -> bool:
+    return any(
+        isinstance(s, dict) and f.get("key") == HIERARCHY_LEVEL_KEY
+        for s in (schema or [])
+        for f in s.get("fields", [])
+    )
+
+
+def _inject_hierarchy_level_field(schema: list) -> list:
+    """Return a copy of ``schema`` with the readonly ``hierarchyLevel`` field.
+
+    No-op copy when a field keyed ``hierarchyLevel`` already exists anywhere
+    (never hijack an admin-authored field). Appends to the first section,
+    creating a ``General`` section when the schema is empty. Always returns a
+    fresh list so a caller reassigning to a JSONB column triggers dirty tracking.
+    """
+    schema = copy.deepcopy(schema or [])
+    if _has_hierarchy_level_field(schema):
+        return schema
+    if schema:
+        schema[0].setdefault("fields", []).append(hierarchy_level_field_def())
+    else:
+        schema = [{"section": "General", "fields": [hierarchy_level_field_def()]}]
+    return schema
+
+
+def _remove_injected_hierarchy_level_field(schema: list) -> list:
+    """Return a copy of ``schema`` without the auto-injected ``hierarchyLevel`` def.
+
+    Only strips the injected shape (readonly number keyed ``hierarchyLevel``);
+    leaves a non-matching admin-authored field alone and never touches stored
+    card attribute values.
+    """
+    schema = copy.deepcopy(schema or [])
+    for section in schema:
+        if not isinstance(section, dict):
+            continue
+        section["fields"] = [
+            f
+            for f in section.get("fields", [])
+            if not (
+                f.get("key") == HIERARCHY_LEVEL_KEY
+                and f.get("readonly")
+                and f.get("type") == "number"
+            )
+        ]
+    return schema
+
+
 @router.post("/types", status_code=201)
 async def create_type(
     body: dict, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
@@ -555,6 +610,10 @@ async def create_type(
     fields_schema = _enforce_field_gating(
         body.get("fields_schema", []), [], extension_registry.granted_capabilities()
     )
+    # Auto-add the readonly hierarchyLevel field for hierarchical types (after
+    # gating, which only strips help/ext.* fields — a plain number field is safe).
+    if body.get("has_hierarchy"):
+        fields_schema = _inject_hierarchy_level_field(fields_schema)
     t = CardType(
         key=body["key"],
         label=body["label"],
@@ -636,6 +695,7 @@ async def update_type(
     # cards if (and only if) the admin changed field weights or the built-in
     # contributor weights.
     old_signature = _scoring_signature(t.fields_schema, t.section_config)
+    old_has_hierarchy = t.has_hierarchy
 
     updatable = [
         "label",
@@ -663,6 +723,21 @@ async def update_type(
     # relation type — on their next save.
     if t.has_successors:
         await _ensure_successor_relation_type(db, t.key)
+
+    # Keep the auto-injected hierarchyLevel field in sync with has_hierarchy.
+    # Runs on the final merged state so it self-heals older hierarchical types
+    # on any save (idempotent — same style as _ensure_successor_relation_type).
+    if t.has_hierarchy:
+        if not _has_hierarchy_level_field(t.fields_schema or []):
+            t.fields_schema = _inject_hierarchy_level_field(t.fields_schema or [])
+        if not old_has_hierarchy:
+            # Newly hierarchical — backfill existing cards so the column/filter
+            # is populated immediately instead of lazily per card edit.
+            await backfill_hierarchy_levels_for_type(db, key)
+    else:
+        # Hierarchy disabled — drop the injected field def but KEEP card
+        # attribute values (invisible without a def, meaningful again on re-enable).
+        t.fields_schema = _remove_injected_hierarchy_level_field(t.fields_schema or [])
 
     await db.commit()
     await db.refresh(t)

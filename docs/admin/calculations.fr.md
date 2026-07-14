@@ -33,6 +33,11 @@ Les formules utilisent un langage d'expression sécurisé et isolé. Vous pouvez
 | `fieldKey` | N'importe quel attribut de la fiche courante | `businessCriticality` |
 | `related_{type_key}` | Tableau de fiches liées d'un type donné | `related_applications` |
 | `lifecycle_plan`, `lifecycle_active`, etc. | Valeurs de dates du cycle de vie | `lifecycle_endOfLife` |
+| `parent` | La fiche parente (objet avec `id`, `name`, `type`, `subtype`, `attributes`), ou `None` pour une fiche racine | `IF(parent, parent.attributes.businessCriticality, data.businessCriticality)` |
+| `hierarchy_level` | Profondeur de la fiche actuelle dans sa hiérarchie parent-enfant (`1` = racine, non plafonnée). `1` pour les types de fiches non hiérarchiques | `hierarchy_level * 10` |
+
+!!! note "Remarque"
+    Les valeurs dérivées de `parent` et `hierarchy_level` sont actualisées lorsqu'une fiche est rattachée à un nouveau parent (tout son sous-arbre est recalculé) et lorsque vous lancez **Tout recalculer** pour le type — pas à chaque modification de la fiche parente. Protégez toujours une référence à `parent` avec `IF(parent, …)` afin que les fiches racines (où `parent` vaut `None`) ne génèrent pas d'erreur.
 
 ### Fonctions intégrées
 

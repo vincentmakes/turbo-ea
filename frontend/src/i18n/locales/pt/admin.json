@@ -707,7 +707,7 @@
   "calculations.formulaReference": "Referência de fórmulas",
   "calculations.availableFields": "Campos disponíveis (data.<fieldKey>)",
   "calculations.relationTypes": "Tipos de relação",
-  "calculations.alsoRelationCount": "Também: relation_count.<key>, children, children_count",
+  "calculations.alsoRelationCount": "Também: relation_count.<key>, children, children_count, parent, hierarchy_level",
   "calculations.builtInFunctions": "Funções nativas",
   "calculations.exampleFormulas": "Fórmulas de exemplo",
   "calculations.insertHint": "Tab ou Enter para inserir · Esc para dispensar",

@@ -707,7 +707,7 @@
   "calculations.formulaReference": "Справочник формул",
   "calculations.availableFields": "Доступные поля (data.<fieldKey>)",
   "calculations.relationTypes": "Типы связей",
-  "calculations.alsoRelationCount": "Также: relation_count.<key>, children, children_count",
+  "calculations.alsoRelationCount": "Также: relation_count.<key>, children, children_count, parent, hierarchy_level",
   "calculations.builtInFunctions": "Встроенные функции",
   "calculations.exampleFormulas": "Примеры формул",
   "calculations.insertHint": "Tab или Enter для вставки · Esc для закрытия",

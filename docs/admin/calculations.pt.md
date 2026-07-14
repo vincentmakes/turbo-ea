@@ -33,6 +33,11 @@ Fórmulas usam uma linguagem de expressão segura e isolada. Você pode referenc
 | `fieldKey` | Qualquer atributo do card atual | `businessCriticality` |
 | `related_{type_key}` | Array de cards relacionados de um determinado tipo | `related_applications` |
 | `lifecycle_plan`, `lifecycle_active`, etc. | Valores de data do ciclo de vida | `lifecycle_endOfLife` |
+| `parent` | O card pai (objeto com `id`, `name`, `type`, `subtype`, `attributes`), ou `None` para um card raiz | `IF(parent, parent.attributes.businessCriticality, data.businessCriticality)` |
+| `hierarchy_level` | Profundidade do card atual na sua hierarquia pai-filho (`1` = raiz, sem limite). `1` para tipos de card não hierárquicos | `hierarchy_level * 10` |
+
+!!! note "Nota"
+    Os valores derivados de `parent` e `hierarchy_level` são atualizados quando um card é reatribuído a outro pai (toda a sua subárvore é recalculada) e quando você executa **Recalcular tudo** para o tipo — não a cada edição do card pai. Proteja sempre uma referência a `parent` com `IF(parent, …)` para que cards raiz (onde `parent` é `None`) não gerem erro.
 
 ### Funções Incorporadas
 

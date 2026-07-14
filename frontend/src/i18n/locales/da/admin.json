@@ -707,7 +707,7 @@
   "calculations.formulaReference": "Formelreference",
   "calculations.availableFields": "Tilgængelige felter (data.<fieldKey>)",
   "calculations.relationTypes": "Relationstyper",
-  "calculations.alsoRelationCount": "Også: relation_count.<key>, children, children_count",
+  "calculations.alsoRelationCount": "Også: relation_count.<key>, children, children_count, parent, hierarchy_level",
   "calculations.builtInFunctions": "Indbyggede funktioner",
   "calculations.exampleFormulas": "Eksempelformler",
   "calculations.insertHint": "Tab eller Enter for at indsætte · Esc for at lukke",

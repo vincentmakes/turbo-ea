@@ -133,13 +133,19 @@ async def apply_child_strategy(
             result.approval_broken_ids.append(child.id)
         result.disconnected_ids.append(child.id)
 
-    # Recompute capabilityLevel for any reparented BusinessCapability child.
-    # Imported lazily to avoid a circular import with the cards router module.
-    from app.api.v1.cards import _sync_capability_level  # noqa: PLC0415
+    # Recompute hierarchy levels for reparented children (hierarchyLevel for any
+    # hierarchical type, capabilityLevel for BusinessCapability) and re-run
+    # calculations for every card whose level moved, so hierarchy_level / parent
+    # formulas stay correct after the subtree move. Imported lazily to avoid a
+    # circular import with the cards router module.
+    from app.api.v1.cards import (  # noqa: PLC0415
+        _recalc_changed_descendants,
+        _sync_hierarchy_levels,
+    )
 
     for child in children:
-        if child.type == "BusinessCapability":
-            await _sync_capability_level(db, child)
+        changed = await _sync_hierarchy_levels(db, child)
+        await _recalc_changed_descendants(db, changed, primary.id)
 
     return result
 

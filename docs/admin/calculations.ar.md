@@ -33,6 +33,11 @@
 | `fieldKey` | أي سمة من البطاقة الحالية | `businessCriticality` |
 | `related_{type_key}` | مصفوفة من البطاقات ذات الصلة من نوع معيّن | `related_applications` |
 | `lifecycle_plan`, `lifecycle_active`, etc. | قيم تواريخ دورة الحياة | `lifecycle_endOfLife` |
+| `parent` | البطاقة الأصل (كائن يحتوي على `id` و`name` و`type` و`subtype` و`attributes`)، أو `None` للبطاقة الجذرية | `IF(parent, parent.attributes.businessCriticality, data.businessCriticality)` |
+| `hierarchy_level` | عمق البطاقة الحالية في تسلسلها الهرمي أصل-فرع (`1` = الجذر، غير محدود). `1` لأنواع البطاقات غير الهرمية | `hierarchy_level * 10` |
+
+!!! note "ملاحظة"
+    تُحدَّث القيم المشتقة من `parent` و`hierarchy_level` عند إعادة إسناد البطاقة إلى أصل جديد (يُعاد حساب شجرتها الفرعية بالكامل) وعند تشغيل **إعادة حساب الكل** للنوع — وليس عند كل تعديل للبطاقة الأصل. احْمِ دائمًا مرجع `parent` بـ `IF(parent, …)` كي لا تُسبِّب البطاقات الجذرية (حيث تكون `parent` بقيمة `None`) خطأً.
 
 ### الدوال المدمجة
 

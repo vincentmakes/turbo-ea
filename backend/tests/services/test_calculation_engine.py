@@ -316,10 +316,48 @@ class TestEvaluateFormula:
             "relation_count": _DotDict(),
             "children": [],
             "children_count": 0,
+            "parent": None,
+            "hierarchy_level": 1,
             "None": None,
             "True": True,
             "False": False,
         }
+
+    def test_parent_none_short_circuits(self):
+        ctx = self._ctx(businessCriticality=5)
+        # A root card has parent=None; IF must short-circuit to the else branch.
+        assert (
+            _evaluate_formula(
+                "IF(parent, parent.attributes.businessCriticality, data.businessCriticality)",
+                ctx,
+            )
+            == 5
+        )
+
+    def test_parent_attribute_access(self):
+        ctx = self._ctx(businessCriticality=1)
+        ctx["parent"] = _DotDict(
+            {
+                "id": "x",
+                "name": "P",
+                "type": "Application",
+                "subtype": None,
+                "attributes": _DotDict({"businessCriticality": 9}),
+            }
+        )
+        assert (
+            _evaluate_formula(
+                "IF(parent, parent.attributes.businessCriticality, data.businessCriticality)",
+                ctx,
+            )
+            == 9
+        )
+
+    def test_hierarchy_level_arithmetic(self):
+        ctx = self._ctx()
+        ctx["hierarchy_level"] = 3
+        assert _evaluate_formula("hierarchy_level * 10", ctx) == 30
+        assert _evaluate_formula("IF(hierarchy_level == 1, 100, 0)", ctx) == 0
 
     def test_simple_expression(self):
         ctx = self._ctx(cost=100)

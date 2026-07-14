@@ -73,6 +73,7 @@ from app.services.card_uniqueness import check_sibling_name_unique
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.data_quality import calc_data_quality
 from app.services.event_bus import event_bus
+from app.services.hierarchy import HIERARCHY_LEVEL_KEY
 from app.services.permission_service import PermissionService
 
 # Fields that PPM budget/cost lines manage — calculations must not overwrite these.
@@ -250,44 +251,92 @@ async def _check_hierarchy_depth(
         )
 
 
-async def _sync_capability_level(db: AsyncSession, card: Card) -> None:
-    """Auto-compute capabilityLevel for BusinessCapability based on parent depth.
+async def _sync_hierarchy_levels(db: AsyncSession, card: Card) -> list[Card]:
+    """Recompute hierarchy-level attributes for a card and its ACTIVE subtree.
 
-    Macros are pinned: a card whose own ``capabilityLevel`` is ``"Macro"``
-    keeps that value regardless of where it sits. For everyone else, if the
-    chain root is a macro, we subtract one from the depth so the macro
-    occupies position 0 and its children correctly resolve to L1, L2, …
-    Cascades to children recursively.
+    For any ``has_hierarchy`` card type, writes ``attributes.hierarchyLevel``
+    (raw tree depth, 1 = root, not capped). For BusinessCapability it *also*
+    maintains ``attributes.capabilityLevel`` (macro-aware, capped L1..L5) —
+    macros stay pinned to ``"Macro"`` and never get their capabilityLevel
+    recomputed, but do receive a raw ``hierarchyLevel`` like every node.
+
+    Cascades into ACTIVE descendants and returns every visited card whose level
+    value actually changed, so callers can re-run calculations only where the
+    tree position moved.
     """
-    if card.type != "BusinessCapability":
-        return
+    hier_cache: dict[str, bool] = {}
 
-    own_attrs = card.attributes or {}
-    if own_attrs.get("capabilityLevel") == MACRO_CAPABILITY_LEVEL_KEY:
-        # Macros are roots — refresh nothing, but still cascade so children
-        # that just got re-parented to this macro pick up the right level.
-        children_result = await db.execute(
-            select(Card).where(Card.parent_id == card.id, Card.status == "ACTIVE")
-        )
-        for child in children_result.scalars().all():
-            await _sync_capability_level(db, child)
+    async def _is_hierarchical(type_key: str) -> bool:
+        if type_key not in hier_cache:
+            hier_cache[type_key] = bool(
+                await db.scalar(select(CardType.has_hierarchy).where(CardType.key == type_key))
+            )
+        return hier_cache[type_key]
+
+    changed: list[Card] = []
+    await _sync_hierarchy_node(db, card, changed, _is_hierarchical)
+    return changed
+
+
+async def _sync_hierarchy_node(
+    db: AsyncSession,
+    card: Card,
+    changed: list[Card],
+    is_hierarchical,
+) -> None:
+    hier = await is_hierarchical(card.type)
+    is_bizcap = card.type == "BusinessCapability"
+    # Nothing to compute for a card that is neither hierarchical nor a
+    # BusinessCapability (capabilityLevel is maintained for BusinessCapability
+    # regardless of the has_hierarchy flag — preserving pre-existing behaviour).
+    if not hier and not is_bizcap:
         return
 
     depth, root_is_macro = await _walk_ancestor_chain(db, card.parent_id, exclude={card.id})
+    attrs = dict(card.attributes or {})
+    dirty = False
 
-    logical_depth = max(depth - 1, 0) if root_is_macro else depth
-    level_key = f"L{min(logical_depth + 1, 5)}"
-    attrs = dict(own_attrs)
-    if attrs.get("capabilityLevel") != level_key:
-        attrs["capabilityLevel"] = level_key
+    if hier:
+        raw_level = depth + 1  # NOT macro-aware, NOT capped
+        if attrs.get(HIERARCHY_LEVEL_KEY) != raw_level:
+            attrs[HIERARCHY_LEVEL_KEY] = raw_level
+            dirty = True
+
+    if is_bizcap:
+        # Macros are pinned — keep "Macro", never recompute their capabilityLevel.
+        if attrs.get("capabilityLevel") != MACRO_CAPABILITY_LEVEL_KEY:
+            logical_depth = max(depth - 1, 0) if root_is_macro else depth
+            level_key = f"L{min(logical_depth + 1, 5)}"
+            if attrs.get("capabilityLevel") != level_key:
+                attrs["capabilityLevel"] = level_key
+                dirty = True
+
+    if dirty:
         card.attributes = attrs
+        changed.append(card)
 
-    # Cascade to direct children
+    # Cascade to ACTIVE direct children
     children_result = await db.execute(
         select(Card).where(Card.parent_id == card.id, Card.status == "ACTIVE")
     )
     for child in children_result.scalars().all():
-        await _sync_capability_level(db, child)
+        await _sync_hierarchy_node(db, child, changed, is_hierarchical)
+
+
+async def _recalc_changed_descendants(
+    db: AsyncSession, changed: list[Card], primary_card_id: uuid.UUID
+) -> None:
+    """Re-run calculations for descendants whose hierarchy level moved.
+
+    Keeps formulas that reference ``hierarchy_level`` / ``parent`` correct after
+    a subtree is re-parented. The primary card is skipped — its caller runs
+    calculations for it separately (so ordering stays parent-before-children).
+    """
+    for c in changed:
+        if c.id == primary_card_id:
+            continue
+        excl = await _get_ppm_exclusions(db, c)
+        await run_calculations_for_card(db, c, exclude_fields=excl)
 
 
 def _card_to_response(card: Card, *, strip_cost_keys: frozenset[str] = frozenset()) -> CardResponse:
@@ -719,8 +768,9 @@ async def create_card(
     if card.parent_id:
         await _check_hierarchy_depth(db, card, card.parent_id)
 
-    # Auto-set capability level for BusinessCapability
-    await _sync_capability_level(db, card)
+    # Auto-set hierarchy levels (hierarchyLevel for any hierarchical type;
+    # capabilityLevel for BusinessCapability)
+    changed_levels = await _sync_hierarchy_levels(db, card)
 
     # Compute data quality score
     card.data_quality = await calc_data_quality(db, card)
@@ -728,6 +778,7 @@ async def create_card(
     # Run calculated fields (skip PPM-managed cost fields if PPM data exists)
     ppm_excl = await _get_ppm_exclusions(db, card)
     await run_calculations_for_card(db, card, exclude_fields=ppm_excl)
+    await _recalc_changed_descendants(db, changed_levels, card.id)
 
     await event_bus.publish(
         "card.created",
@@ -966,10 +1017,11 @@ async def bulk_create_cards(
 
             if card.parent_id:
                 await _check_hierarchy_depth(db, card, card.parent_id)
-            await _sync_capability_level(db, card)
+            changed_levels = await _sync_hierarchy_levels(db, card)
             card.data_quality = await calc_data_quality(db, card)
             ppm_excl = await _get_ppm_exclusions(db, card)
             await run_calculations_for_card(db, card, exclude_fields=ppm_excl)
+            await _recalc_changed_descendants(db, changed_levels, card.id)
 
             if not body.dry_run:
                 await event_bus.publish(
@@ -1897,11 +1949,17 @@ async def update_card(
             if status_breaking & changes.keys():
                 card.approval_status = "BROKEN"
 
-        # Auto-sync capability level when parent changes or level is missing
-        if "parent_id" in changes or (
-            card.type == "BusinessCapability" and not (card.attributes or {}).get("capabilityLevel")
+        # Auto-sync hierarchy levels when the parent changes or a level is
+        # missing (lazy heal). Covers hierarchyLevel for any hierarchical type
+        # and capabilityLevel for BusinessCapability.
+        current_attrs = card.attributes or {}
+        changed_levels: list[Card] = []
+        if (
+            "parent_id" in changes
+            or current_attrs.get(HIERARCHY_LEVEL_KEY) is None
+            or (card.type == "BusinessCapability" and not current_attrs.get("capabilityLevel"))
         ):
-            await _sync_capability_level(db, card)
+            changed_levels = await _sync_hierarchy_levels(db, card)
 
         # Recalculate completion
         card.data_quality = await calc_data_quality(db, card)
@@ -1909,6 +1967,9 @@ async def update_card(
         # Run calculated fields (skip PPM-managed cost fields if PPM data exists)
         ppm_excl = await _get_ppm_exclusions(db, card)
         await run_calculations_for_card(db, card, exclude_fields=ppm_excl)
+        # Re-run calcs for descendants whose level moved (after the card's own
+        # run, so a child formula reading a parent's computed field sees it fresh)
+        await _recalc_changed_descendants(db, changed_levels, card.id)
 
         def _serialize_val(v: object) -> object:
             """Convert a value to something JSON-serialisable."""

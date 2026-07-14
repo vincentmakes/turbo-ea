@@ -51,3 +51,14 @@ class TestValidateFormulaDummySeeding:
             'IF(data.flag, 1, IF(data.tier == "gold", 2, 3))', "Application", db
         )
         assert result["valid"] is True, result
+
+    async def test_parent_and_hierarchy_level_validate(self, db):
+        await create_card_type(db, key="Application", fields_schema=FIELDS_SCHEMA)
+        # The dummy context supplies a populated parent + hierarchy_level, so a
+        # formula referencing parent attributes and the level validates cleanly.
+        result = await validate_formula(
+            "IF(parent, parent.attributes.mit, data.mit) + hierarchy_level",
+            "Application",
+            db,
+        )
+        assert result["valid"] is True, result

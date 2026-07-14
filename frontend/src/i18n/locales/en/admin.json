@@ -707,7 +707,7 @@
   "calculations.formulaReference": "Formula Reference",
   "calculations.availableFields": "Available Fields (data.<fieldKey>)",
   "calculations.relationTypes": "Relation Types",
-  "calculations.alsoRelationCount": "Also: relation_count.<key>, children, children_count",
+  "calculations.alsoRelationCount": "Also: relation_count.<key>, children, children_count, parent, hierarchy_level",
   "calculations.builtInFunctions": "Built-in Functions",
   "calculations.exampleFormulas": "Example Formulas",
   "calculations.insertHint": "Tab or Enter to insert · Esc to dismiss",

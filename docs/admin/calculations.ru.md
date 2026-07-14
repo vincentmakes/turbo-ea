@@ -33,6 +33,11 @@
 | `fieldKey` | Любой атрибут текущей карточки | `businessCriticality` |
 | `related_{type_key}` | Массив связанных карточек данного типа | `related_applications` |
 | `lifecycle_plan`, `lifecycle_active` и т.д. | Значения дат жизненного цикла | `lifecycle_endOfLife` |
+| `parent` | Родительская карточка (объект с `id`, `name`, `type`, `subtype`, `attributes`) или `None` для корневой карточки | `IF(parent, parent.attributes.businessCriticality, data.businessCriticality)` |
+| `hierarchy_level` | Глубина текущей карточки в иерархии «родитель-потомок» (`1` = корень, без ограничения). `1` для неиерархических типов карточек | `hierarchy_level * 10` |
+
+!!! note "Примечание"
+    Значения, производные от `parent` и `hierarchy_level`, обновляются при смене родителя карточки (пересчитывается всё её поддерево) и при запуске **Пересчитать всё** для типа — а не при каждом редактировании родительской карточки. Всегда защищайте ссылку на `parent` через `IF(parent, …)`, чтобы корневые карточки (где `parent` равен `None`) не вызывали ошибку.
 
 ### Встроенные функции
 

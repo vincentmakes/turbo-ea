@@ -85,6 +85,8 @@ class TestEvaluateFormulaExtended:
             "relation_count": _DotDict(),
             "children": [],
             "children_count": 0,
+            "parent": None,
+            "hierarchy_level": 1,
             "None": None,
             "True": True,
             "False": False,

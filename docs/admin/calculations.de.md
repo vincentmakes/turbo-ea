@@ -33,6 +33,11 @@ Formeln verwenden eine sichere, sandboxed Ausdruckssprache. Sie können Kartenat
 | `feldSchlüssel` | Beliebiges Attribut der aktuellen Karte | `businessCriticality` |
 | `related_{typ_schlüssel}` | Array verwandter Karten eines bestimmten Typs | `related_applications` |
 | `lifecycle_plan`, `lifecycle_active` usw. | Lebenszyklus-Datumswerte | `lifecycle_endOfLife` |
+| `parent` | Die übergeordnete Karte (Objekt mit `id`, `name`, `type`, `subtype`, `attributes`) oder `None` bei einer Wurzelkarte | `IF(parent, parent.attributes.businessCriticality, data.businessCriticality)` |
+| `hierarchy_level` | Tiefe der aktuellen Karte in ihrer Eltern-Kind-Hierarchie (`1` = Wurzel, nicht begrenzt). `1` für nicht-hierarchische Kartentypen | `hierarchy_level * 10` |
+
+!!! note "Hinweis"
+    Von `parent` und `hierarchy_level` abgeleitete Werte werden aktualisiert, wenn eine Karte neu zugeordnet wird (der gesamte Teilbaum wird neu berechnet) und wenn Sie **Alle neu berechnen** für den Typ ausführen — nicht bei jeder Bearbeitung der übergeordneten Karte. Sichern Sie eine `parent`-Referenz immer mit `IF(parent, …)` ab, damit Wurzelkarten (bei denen `parent` `None` ist) keinen Fehler verursachen.
 
 ### Eingebaute Funktionen
 

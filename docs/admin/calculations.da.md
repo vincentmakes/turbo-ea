@@ -33,6 +33,11 @@ Formler bruger et sikkert, sandboxet udtrykssprog. Du kan referere til kortegens
 | `fieldKey` | Enhver egenskab fra det nuværende kort | `businessCriticality` |
 | `related_{type_key}` | Array af relaterede kort af en given type | `related_applications` |
 | `lifecycle_plan`, `lifecycle_active`, osv. | Livscyklus-datoværdier | `lifecycle_endOfLife` |
+| `parent` | Overordnet kort (objekt med `id`, `name`, `type`, `subtype`, `attributes`) eller `None` for et rodkort | `IF(parent, parent.attributes.businessCriticality, data.businessCriticality)` |
+| `hierarchy_level` | Dybden af det aktuelle kort i dets forælder-barn-hierarki (`1` = rod, ikke begrænset). `1` for ikke-hierarkiske korttyper | `hierarchy_level * 10` |
+
+!!! note "Bemærk"
+    Værdier afledt af `parent` og `hierarchy_level` opdateres, når et kort får en ny forælder (hele dets undertræ genberegnes), og når du kører **Genberegn alle** for typen — ikke ved hver redigering af det overordnede kort. Beskyt altid en `parent`-reference med `IF(parent, …)`, så rodkort (hvor `parent` er `None`) ikke giver fejl.
 
 ### Indbyggede funktioner
 

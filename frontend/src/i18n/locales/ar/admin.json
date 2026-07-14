@@ -707,7 +707,7 @@
   "calculations.formulaReference": "مرجع الصيغة",
   "calculations.availableFields": "الحقول المتاحة (data.<fieldKey>)",
   "calculations.relationTypes": "أنواع العلاقات",
-  "calculations.alsoRelationCount": "أيضًا: relation_count.<key>، children، children_count",
+  "calculations.alsoRelationCount": "أيضًا: relation_count.<key>، children، children_count، parent، hierarchy_level",
   "calculations.builtInFunctions": "الدوال المدمجة",
   "calculations.exampleFormulas": "أمثلة على الصيغ",
   "calculations.insertHint": "Tab أو Enter للإدراج · Esc للإغلاق",

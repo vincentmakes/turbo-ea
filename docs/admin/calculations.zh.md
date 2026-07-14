@@ -33,6 +33,11 @@
 | `fieldKey` | 当前卡片的任何属性 | `businessCriticality` |
 | `related_{type_key}` | 给定类型的关联卡片数组 | `related_applications` |
 | `lifecycle_plan`、`lifecycle_active` 等 | 生命周期日期值 | `lifecycle_endOfLife` |
+| `parent` | 父卡片（包含 `id`、`name`、`type`、`subtype`、`attributes` 的对象），根卡片则为 `None` | `IF(parent, parent.attributes.businessCriticality, data.businessCriticality)` |
+| `hierarchy_level` | 当前卡片在其父子层级中的深度（`1` = 根，无上限）。非层级卡片类型为 `1` | `hierarchy_level * 10` |
+
+!!! note "注意"
+    `parent` 和 `hierarchy_level` 派生的值会在卡片被重新指定父级时刷新（其整个子树会被重新计算），以及在您对该类型运行**全部重新计算**时刷新——而非在每次编辑父卡片时刷新。请始终用 `IF(parent, …)` 保护 `parent` 引用，以免根卡片（此时 `parent` 为 `None`）报错。
 
 ### 内置函数
 

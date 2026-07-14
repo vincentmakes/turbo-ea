@@ -33,6 +33,15 @@ Formulas use a safe, sandboxed expression language. You can reference card attri
 | `fieldKey` | Any attribute from the current card | `businessCriticality` |
 | `related_{type_key}` | Array of related cards of a given type | `related_applications` |
 | `lifecycle_plan`, `lifecycle_active`, etc. | Lifecycle date values | `lifecycle_endOfLife` |
+| `parent` | The parent card (object with `id`, `name`, `type`, `subtype`, `attributes`), or `None` for a root card | `IF(parent, parent.attributes.businessCriticality, data.businessCriticality)` |
+| `hierarchy_level` | Depth of the current card in its parent-child hierarchy (`1` = root, not capped). `1` for non-hierarchical card types | `hierarchy_level * 10` |
+
+!!! note
+    `parent`-derived and `hierarchy_level`-derived values refresh when a card is
+    re-parented (its whole subtree is recomputed) and when you run **Recalculate
+    all** for the type — not on every edit of the parent card. Always guard a
+    `parent` reference with `IF(parent, …)` so root cards (where `parent` is
+    `None`) don't error.
 
 ### Built-in Functions
 

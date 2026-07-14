@@ -5758,6 +5758,12 @@ async def seed_demo_data(db: AsyncSession) -> dict:
 
     await recompute_all_data_quality(db)
 
+    # Populate the built-in hierarchyLevel attribute for every hierarchical demo
+    # card (they were inserted with hand-set attrs, so the value is missing).
+    from app.services.hierarchy import backfill_hierarchy_levels
+
+    await backfill_hierarchy_levels(db)
+
     await db.commit()
     return {
         "cards": len(all_fs),

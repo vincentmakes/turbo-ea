@@ -5,7 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.14.0] - 2026-07-14
+## [2.15.0] - 2026-07-14
+
+### Added
+- **Hierarchy Level is now a built-in attribute on every hierarchical card type.** Any card type with parent-child hierarchy enabled (built-in or admin-created) now carries a readonly `Hierarchy Level` number (1 = root), so you can filter, sort, and report by depth directly in the inventory — not just for Business Capabilities. Existing cards are backfilled automatically on upgrade. (#810)
+- **Calculated fields can reference the parent card and hierarchy level.** Formulas now expose `parent` (the parent card object, or `None` for a root) and `hierarchy_level` (depth in the tree, 1 = root), alongside the existing `children` / `children_count`. Re-parenting a card recomputes these for its whole subtree. (#812)
 
 ### Added
 - **Extension ADR grid columns accept width hints.** An `adrGridColumns` contribution may set optional `width` / `minWidth` (px) so a wider header/value isn't clipped; both default to the previous 150 / 120.

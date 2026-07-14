@@ -121,7 +121,7 @@ function highlightLine(line: string): string {
         result += `<span class="hl-constant">${escapeHtml(word)}</span>`;
       } else if (FORMULA_KEYWORDS.has(word)) {
         result += `<span class="hl-keyword">${escapeHtml(word)}</span>`;
-      } else if (word === "data" || word === "relations" || word === "relation_count" || word === "children" || word === "children_count") {
+      } else if (word === "data" || word === "relations" || word === "relation_count" || word === "children" || word === "children_count" || word === "parent" || word === "hierarchy_level") {
         result += `<span class="hl-context">${escapeHtml(word)}</span>`;
       } else {
         result += escapeHtml(word);
@@ -186,6 +186,8 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
       { insert: "relation_count", label: "relation_count", detail: "Relation counts by type", category: "Context" },
       { insert: "children", label: "children", detail: "Child cards list", category: "Context" },
       { insert: "children_count", label: "children_count", detail: "Number of children", category: "Context" },
+      { insert: "parent", label: "parent", detail: "Parent card object (or None)", category: "Context" },
+      { insert: "hierarchy_level", label: "hierarchy_level", detail: "Depth in hierarchy (1 = root)", category: "Context" },
       { insert: "None", label: "None", detail: "Null value", category: "Constants" },
       { insert: "True", label: "True", detail: "Boolean true", category: "Constants" },
       { insert: "False", label: "False", detail: "Boolean false", category: "Constants" },

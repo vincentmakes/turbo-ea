@@ -33,6 +33,11 @@ Las fórmulas utilizan un lenguaje de expresiones seguro y aislado. Puede hacer 
 | `fieldKey` | Cualquier atributo de la ficha actual | `businessCriticality` |
 | `related_{type_key}` | Matriz de fichas relacionadas de un tipo dado | `related_applications` |
 | `lifecycle_plan`, `lifecycle_active`, etc. | Valores de fechas del ciclo de vida | `lifecycle_endOfLife` |
+| `parent` | La ficha principal (objeto con `id`, `name`, `type`, `subtype`, `attributes`), o `None` para una ficha raíz | `IF(parent, parent.attributes.businessCriticality, data.businessCriticality)` |
+| `hierarchy_level` | Profundidad de la ficha actual en su jerarquía padre-hijo (`1` = raíz, sin límite). `1` para tipos de ficha no jerárquicos | `hierarchy_level * 10` |
+
+!!! note "Nota"
+    Los valores derivados de `parent` y `hierarchy_level` se actualizan cuando una ficha se reasigna a otro padre (se recalcula todo su subárbol) y cuando ejecuta **Recalcular todo** para el tipo, no en cada edición de la ficha principal. Proteja siempre una referencia a `parent` con `IF(parent, …)` para que las fichas raíz (donde `parent` es `None`) no den error.
 
 ### Funciones Incorporadas
 

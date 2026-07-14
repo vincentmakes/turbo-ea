@@ -33,6 +33,11 @@ Le formule utilizzano un linguaggio di espressioni sicuro e sandboxed. Potete fa
 | `fieldKey` | Qualsiasi attributo dalla card corrente | `businessCriticality` |
 | `related_{type_key}` | Array di card correlate di un dato tipo | `related_applications` |
 | `lifecycle_plan`, `lifecycle_active`, ecc. | Valori delle date del ciclo di vita | `lifecycle_endOfLife` |
+| `parent` | La card padre (oggetto con `id`, `name`, `type`, `subtype`, `attributes`), oppure `None` per una card radice | `IF(parent, parent.attributes.businessCriticality, data.businessCriticality)` |
+| `hierarchy_level` | Profondità della card corrente nella sua gerarchia padre-figlio (`1` = radice, senza limite). `1` per i tipi di card non gerarchici | `hierarchy_level * 10` |
+
+!!! note "Nota"
+    I valori derivati da `parent` e `hierarchy_level` si aggiornano quando una card viene riassegnata a un nuovo padre (l'intero sottoalbero viene ricalcolato) e quando esegui **Ricalcola tutto** per il tipo, non a ogni modifica della card padre. Proteggi sempre un riferimento a `parent` con `IF(parent, …)` in modo che le card radice (dove `parent` è `None`) non generino errori.
 
 ### Funzioni predefinite
 

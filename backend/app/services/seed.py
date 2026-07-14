@@ -21,6 +21,7 @@ from app.models.relation_type import RelationType
 from app.models.resource_type import ResourceType
 from app.models.role import Role
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
+from app.services.hierarchy import HIERARCHY_LEVEL_KEY, hierarchy_level_field_def
 
 # ── Reusable option lists ──────────────────────────────────────────────
 
@@ -5615,6 +5616,48 @@ def _inject_english_translations_type(type_def: dict) -> dict:
     return t
 
 
+def _inject_hierarchy_level_into_type(type_def: dict) -> dict:
+    """Append the readonly ``hierarchyLevel`` field to a hierarchical type.
+
+    No-op for non-hierarchical types and for types that already carry a
+    ``hierarchyLevel`` field (never hijack an existing key). Appends to the
+    first section, creating a ``General`` section when the schema is empty.
+    """
+    if not type_def.get("has_hierarchy"):
+        return type_def
+    schema = type_def.get("fields_schema") or []
+    already = any(
+        f.get("key") == HIERARCHY_LEVEL_KEY
+        for s in schema
+        if isinstance(s, dict)
+        for f in s.get("fields", [])
+    )
+    if already:
+        return type_def
+    if schema:
+        schema[0].setdefault("fields", []).append(hierarchy_level_field_def())
+    else:
+        schema = [
+            {
+                "section": "General",
+                "translations": {
+                    "de": "Allgemein",
+                    "fr": "Général",
+                    "es": "General",
+                    "it": "Generale",
+                    "pt": "Geral",
+                    "zh": "常规",
+                    "ru": "Общие",
+                    "da": "Generelt",
+                    "ar": "عام",
+                },
+                "fields": [hierarchy_level_field_def()],
+            }
+        ]
+    type_def["fields_schema"] = schema
+    return type_def
+
+
 def _inject_english_translations_relation(rel_def: dict) -> dict:
     """Copy English labels into the translations JSONB for a relation type."""
     r = rel_def
@@ -5713,6 +5756,12 @@ async def seed_metamodel(db: AsyncSession) -> None:
     existing_rels_result = await db.execute(select(RelationType))
     existing_rels_list = existing_rels_result.scalars().all()
     existing_rels = {r.key for r in existing_rels_list}
+
+    # Inject the built-in hierarchyLevel field into every hierarchical type
+    # (before English-translation injection so the field's "en" label is stamped
+    # like any other field). Existing installs pick it up via migration 123.
+    for t in TYPES:
+        _inject_hierarchy_level_into_type(t)
 
     # Ensure English labels are present in all translation dicts
     for t in TYPES:

@@ -706,7 +706,7 @@ def _make_cards_applier(user: User):
     async def _apply(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: bool) -> None:
         from app.api.v1.cards import (
             _check_hierarchy_depth,
-            _sync_capability_level,
+            _sync_hierarchy_levels,
             _validate_url_attributes,
         )
         from app.services.event_bus import event_bus
@@ -784,7 +784,7 @@ def _make_cards_applier(user: User):
                 await db.flush()
                 if card.parent_id:
                     await _check_hierarchy_depth(db, card, card.parent_id)
-                await _sync_capability_level(db, card)
+                await _sync_hierarchy_levels(db, card)
                 # Calculations and data_quality run in the final pass, once the
                 # card's relations/tags/stakeholders/PPM data have landed too —
                 # running them here would evaluate relation-dependent formulas
