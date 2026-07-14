@@ -84,6 +84,7 @@ Viser alle forbindelser til andre kort, grupperet efter relations­type. For hve
 - **Relations­type** — Forbindelsens karakter (f.eks. "uses", "runs on", "depends on")
 - **Tilføj relation** — Klik på **+** for at oprette en ny relation; vælgeren viser matchende kort, så snart den åbnes (sorteret efter navn, flere indlæses, når du ruller), og indtastning filtrerer listen
 - **Fjern relation** — Klik på slet-ikonet for at fjerne en relation
+- **Gruppér efter undertype** — Når en relationssektion har mange relaterede kort, grupperes de automatisk i sammenklappelige undertype-grupper (hver med et antal), med en afsluttende **Ingen undertype**-gruppe til uklassificerede kort. Brug gruppe/liste-knappen i sektionsoverskriften for at skifte mellem den grupperede og den flade visning.
 
 ### Tags-sektion
 

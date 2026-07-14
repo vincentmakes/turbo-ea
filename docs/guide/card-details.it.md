@@ -84,6 +84,7 @@ Mostra tutte le connessioni con altre card, raggruppate per tipo di relazione. P
 - **Tipo di relazione** — La natura della connessione (es. "utilizza", "funziona su", "dipende da")
 - **Aggiungi relazione** — Cliccate su **+** per creare una nuova relazione; il selettore mostra le card corrispondenti non appena viene aperto (ordinate per nome, altre si caricano scorrendo) e digitando si filtra l'elenco
 - **Rimuovi relazione** — Cliccate sull'icona di eliminazione per rimuovere una relazione
+- **Raggruppa per sottotipo** — Quando una sezione di relazioni contiene molte card correlate, vengono raggruppate automaticamente in gruppi di sottotipo comprimibili (ciascuno con un conteggio), con un gruppo finale **Nessun sottotipo** per le card non classificate. Usate il pulsante di attivazione nell'intestazione della sezione per passare dalla vista raggruppata all'elenco semplice.
 
 ### Sezione Tag
 

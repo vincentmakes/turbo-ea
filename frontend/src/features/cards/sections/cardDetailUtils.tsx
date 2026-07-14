@@ -18,7 +18,83 @@ import type { CurrencyFormatter } from "@/hooks/useCurrency";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionHost";
-import type { FieldDef } from "@/types";
+import type { FieldDef, Relation } from "@/types";
+
+// ── Subtype grouping for the Relations panel (#792) ─────────────
+export const SUBTYPE_GROUP_MIN = 8;
+export const NO_SUBTYPE_KEY = "__none__";
+
+export interface SubtypeBucket {
+  /** Subtype key, or the NO_SUBTYPE_KEY sentinel for the trailing bucket. */
+  key: string;
+  isNoSubtype: boolean;
+  rels: Relation[];
+}
+
+/**
+ * Bucket a relation-type's related cards by the "other" card's subtype.
+ *
+ * `subtypeKeysInOrder` is the target card type's metamodel subtype order;
+ * buckets are emitted in that order (empty ones skipped). A trailing
+ * no-subtype bucket collects cards whose subtype is falsy OR references a key
+ * no longer in the metamodel, so stale-key cards never silently vanish. Cards
+ * within a bucket are sorted alphabetically by name. Label resolution is
+ * intentionally left to the caller so this stays React/i18n-free and easy to
+ * unit-test.
+ */
+export function bucketRelationsBySubtype(
+  rels: Relation[],
+  fsId: string,
+  subtypeKeysInOrder: string[],
+): SubtypeBucket[] {
+  const known = new Set(subtypeKeysInOrder);
+  const groups = new Map<string, Relation[]>();
+  const noSubtype: Relation[] = [];
+  const other = (r: Relation) => (r.source_id === fsId ? r.target : r.source);
+  for (const r of rels) {
+    const st = other(r)?.subtype;
+    if (st && known.has(st)) {
+      const arr = groups.get(st) ?? [];
+      arr.push(r);
+      groups.set(st, arr);
+    } else {
+      noSubtype.push(r);
+    }
+  }
+  const byName = (a: Relation, b: Relation) =>
+    (other(a)?.name ?? "").localeCompare(other(b)?.name ?? "", undefined, {
+      sensitivity: "base",
+    });
+  const buckets: SubtypeBucket[] = [];
+  for (const key of subtypeKeysInOrder) {
+    const arr = groups.get(key);
+    if (arr && arr.length > 0) {
+      buckets.push({ key, isNoSubtype: false, rels: [...arr].sort(byName) });
+    }
+  }
+  if (noSubtype.length > 0) {
+    buckets.push({
+      key: NO_SUBTYPE_KEY,
+      isNoSubtype: true,
+      rels: [...noSubtype].sort(byName),
+    });
+  }
+  return buckets;
+}
+
+/**
+ * Whether subtype grouping is worth showing for a relation section: at least
+ * two real-subtype buckets AND a total large enough that a flat list is hard
+ * to scan.
+ */
+export function shouldGroupBySubtype(
+  buckets: SubtypeBucket[],
+  totalCount: number,
+  min: number = SUBTYPE_GROUP_MIN,
+): boolean {
+  const realBuckets = buckets.filter((b) => !b.isNoSubtype).length;
+  return realBuckets >= 2 && totalCount >= min;
+}
 
 // ── Field help text (localized, collapsible) ────────────────────
 /** Resolve a field's localized help text (helpTranslations[locale] || help). */

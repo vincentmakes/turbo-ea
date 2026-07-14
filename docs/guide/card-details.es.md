@@ -84,6 +84,7 @@ Muestra todas las conexiones con otras fichas, agrupadas por tipo de relación. 
 - **Tipo de relación** — La naturaleza de la conexión (por ejemplo, «utiliza», «se ejecuta en», «depende de»)
 - **Agregar relación** — Haga clic en **+** para crear una nueva relación; el selector muestra las fichas coincidentes en cuanto se abre (ordenadas por nombre, se cargan más al desplazarse) y al escribir se filtra la lista
 - **Eliminar relación** — Haga clic en el icono de eliminar para quitar una relación
+- **Agrupar por subtipo** — Cuando una sección de relaciones tiene muchas fichas relacionadas, se agrupan automáticamente en grupos de subtipo plegables (cada uno con un recuento), con un grupo final **Sin subtipo** para las fichas sin clasificar. Utilice el botón de alternancia en el encabezado de la sección para cambiar entre la vista agrupada y la vista de lista.
 
 ### Sección de Etiquetas
 

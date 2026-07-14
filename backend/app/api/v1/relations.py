@@ -124,10 +124,24 @@ def _rel_to_response(
     r: Relation, *, strip_cost_keys: frozenset[str] = frozenset()
 ) -> RelationResponse:
     source_ref = (
-        CardRef(id=str(r.source.id), type=r.source.type, name=r.source.name) if r.source else None
+        CardRef(
+            id=str(r.source.id),
+            type=r.source.type,
+            name=r.source.name,
+            subtype=r.source.subtype,
+        )
+        if r.source
+        else None
     )
     target_ref = (
-        CardRef(id=str(r.target.id), type=r.target.type, name=r.target.name) if r.target else None
+        CardRef(
+            id=str(r.target.id),
+            type=r.target.type,
+            name=r.target.name,
+            subtype=r.target.subtype,
+        )
+        if r.target
+        else None
     )
     attrs = r.attributes
     if strip_cost_keys and attrs:

@@ -393,6 +393,7 @@ export interface RelationRef {
   id: string;
   type: string;
   name: string;
+  subtype?: string;
 }
 
 export interface Relation {

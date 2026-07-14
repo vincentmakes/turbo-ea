@@ -174,6 +174,41 @@ class TestListRelations:
         )
         assert resp.status_code == 200
 
+    async def test_list_includes_target_subtype(self, client, db, rel_env):
+        """The relation payload embeds the source/target card's `subtype` so
+        the card-detail Relations panel can group related cards by subtype
+        (#792). A target without a subtype still exposes the key as null."""
+        admin = rel_env["admin"]
+        typed_target = await create_card(
+            db,
+            card_type="ITComponent",
+            name="Typed ITC",
+            subtype="Software",
+            user_id=admin.id,
+        )
+        await create_relation(
+            db,
+            type_key="app_to_itc",
+            source_id=rel_env["source"].id,
+            target_id=typed_target.id,
+        )
+        await create_relation(
+            db,
+            type_key="app_to_itc",
+            source_id=rel_env["source"].id,
+            target_id=rel_env["target"].id,
+        )
+        resp = await client.get(
+            f"/api/v1/relations?card_id={rel_env['source'].id}",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        by_name = {r["target"]["name"]: r["target"] for r in resp.json()}
+        assert by_name["Typed ITC"]["subtype"] == "Software"
+        # Card created without a subtype: key present, value null.
+        assert "subtype" in by_name["Target ITC"]
+        assert by_name["Target ITC"]["subtype"] is None
+
 
 # ---------------------------------------------------------------
 # PATCH /relations/{id}  (update)

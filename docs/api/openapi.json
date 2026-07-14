@@ -2218,6 +2218,17 @@
             "title": "Name",
             "type": "string"
           },
+          "subtype": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtype"
+          },
           "type": {
             "title": "Type",
             "type": "string"

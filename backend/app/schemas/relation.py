@@ -23,6 +23,7 @@ class CardRef(BaseModel):
     id: str
     type: str
     name: str
+    subtype: str | None = None
 
     model_config = {"from_attributes": True}
 

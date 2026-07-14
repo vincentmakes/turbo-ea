@@ -84,6 +84,7 @@ Affiche toutes les connexions avec d'autres fiches, groupées par type de relati
 - **Type de relation** -- La nature de la connexion (par ex. « utilise », « s'exécute sur », « dépend de »)
 - **Ajouter une relation** -- Cliquez sur **+** pour créer une nouvelle relation ; le sélecteur affiche les fiches correspondantes dès son ouverture (triées par nom, d'autres se chargent au défilement), et la saisie filtre la liste
 - **Supprimer une relation** -- Cliquez sur l'icône de suppression pour retirer une relation
+- **Grouper par sous-type** — Lorsqu'une section de relations contient de nombreuses fiches liées, elles sont automatiquement regroupées en groupes de sous-types repliables (chacun avec un décompte), avec un groupe final **Aucun sous-type** pour les fiches non classées. Utilisez le bouton de bascule dans l'en-tête de la section pour passer de la vue groupée à la vue en liste.
 
 ### Section Tags
 

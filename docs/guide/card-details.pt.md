@@ -84,6 +84,7 @@ Mostra todas as conexões com outros cards, agrupadas por tipo de relacionamento
 - **Tipo de relacionamento** — A natureza da conexão (ex.: "utiliza", "roda em", "depende de")
 - **Adicionar relacionamento** — Clique em **+** para criar um novo relacionamento; o seletor lista os cards correspondentes assim que é aberto (ordenados por nome, mais são carregados ao rolar) e digitar filtra a lista
 - **Remover relacionamento** — Clique no ícone de exclusão para remover um relacionamento
+- **Agrupar por subtipo** — Quando uma seção de relacionamentos tem muitos cards relacionados, eles são agrupados automaticamente em grupos de subtipo recolhíveis (cada um com uma contagem), com um grupo final **Sem subtipo** para os cards não classificados. Use o botão de alternância no cabeçalho da seção para alternar entre a visualização agrupada e a lista simples.
 
 ### Seção de Tags
 

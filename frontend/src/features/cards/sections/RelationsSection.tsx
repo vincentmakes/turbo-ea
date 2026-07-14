@@ -23,19 +23,30 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Tooltip from "@mui/material/Tooltip";
 import Popover from "@mui/material/Popover";
+import Collapse from "@mui/material/Collapse";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker from "@/components/CardPicker";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveLabel, useTypeLabel, useRelationLabel } from "@/hooks/useResolveLabel";
+import {
+  useResolveLabel,
+  useTypeLabel,
+  useRelationLabel,
+  useSubtypeLabel,
+} from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
-import type { Relation, RelationType } from "@/types";
+import type { Relation, RelationType, SubtypeDef } from "@/types";
 import RelationAttributesEditor, {
   flowDirectionBadge,
   relationAttributeBadges,
   hasRelationSubtypes,
   type RelationAttributes,
 } from "./RelationAttributesEditor";
+import {
+  bucketRelationsBySubtype,
+  shouldGroupBySubtype,
+  type SubtypeBucket,
+} from "./cardDetailUtils";
 
 /* ── helpers ────────────────────────────────────────────────── */
 
@@ -281,6 +292,7 @@ function RelationGroup({
   const rl = useResolveLabel();
   const typeLabel = useTypeLabel();
   const relLabel = useRelationLabel();
+  const subtypeLabel = useSubtypeLabel();
   const { getType } = useMetamodel();
   const navigate = useNavigate();
   const [inlineAddOpen, setInlineAddOpen] = useState(false);
@@ -292,6 +304,46 @@ function RelationGroup({
   const otherTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
   const otherType = getType(otherTypeKey);
   const verb = isSource ? relLabel(rt) : relLabel(rt, true);
+
+  // Subtype grouping (#792): group the related cards by the target card
+  // type's subtype when the section is large and diverse enough to benefit.
+  // Only applies on the flat-list path — flowDirection types keep their
+  // Provider/Consumer buckets (see below).
+  const subtypeDefs = useMemo<SubtypeDef[]>(() => otherType?.subtypes ?? [], [otherType]);
+  const subtypeBuckets = useMemo(
+    () =>
+      bucketRelationsBySubtype(
+        rels,
+        fsId,
+        subtypeDefs.map((s) => s.key),
+      ),
+    [rels, fsId, subtypeDefs],
+  );
+  const canGroupBySubtype = shouldGroupBySubtype(subtypeBuckets, rels.length);
+  // The manual toggle is offered whenever the type has subtypes and at least
+  // two are actually present, even below the auto-group threshold.
+  const realSubtypeBucketCount = subtypeBuckets.filter((b) => !b.isNoSubtype).length;
+  const canToggleGrouping = subtypeDefs.length > 0 && realSubtypeBucketCount >= 2;
+  const [grouped, setGrouped] = useState(canGroupBySubtype);
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  // Re-sync the auto-decision when the underlying relation set changes
+  // (e.g. after adding/removing a relation) unless the user has toggled.
+  const [userToggled, setUserToggled] = useState(false);
+  useEffect(() => {
+    if (!userToggled) setGrouped(canGroupBySubtype);
+  }, [canGroupBySubtype, userToggled]);
+  const toggleGrouped = () => {
+    setUserToggled(true);
+    setGrouped((g) => !g);
+  };
+  const toggleBucketCollapsed = (key: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const handleDelete = async (relId: string) => {
     await api.delete(`/relations/${relId}`);
@@ -459,6 +511,65 @@ function RelationGroup({
     );
   };
 
+  // Collapsible subtype group (#792). Header label resolves the whole
+  // SubtypeDef (never the key — see useResolveLabel #661 caveat); the
+  // trailing no-subtype bucket uses a dedicated i18n label.
+  const renderSubtypeBucket = (bucket: SubtypeBucket) => {
+    const isOpen = !collapsed.has(bucket.key);
+    const def = bucket.isNoSubtype
+      ? undefined
+      : subtypeDefs.find((s) => s.key === bucket.key);
+    const label = bucket.isNoSubtype
+      ? t("relations.subtype.noSubtype")
+      : def
+        ? subtypeLabel(def)
+        : bucket.key;
+    return (
+      <Box key={bucket.key}>
+        <Box
+          component="button"
+          onClick={() => toggleBucketCollapsed(bucket.key)}
+          sx={{
+            all: "unset",
+            boxSizing: "border-box",
+            width: "100%",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 0.75,
+            px: 1.5,
+            py: 0.5,
+            bgcolor: "background.default",
+            borderTop: "1px solid",
+            borderColor: "divider",
+            "&:hover": { bgcolor: "action.hover" },
+          }}
+        >
+          <MaterialSymbol icon={isOpen ? "expand_more" : "chevron_right"} size={16} />
+          <Typography
+            variant="caption"
+            fontWeight={600}
+            color={bucket.isNoSubtype ? "text.disabled" : "text.secondary"}
+            sx={{ flex: 1, fontStyle: bucket.isNoSubtype ? "italic" : "normal" }}
+          >
+            {label}
+          </Typography>
+          <Chip
+            size="small"
+            label={bucket.rels.length}
+            variant="outlined"
+            sx={{ height: 18, fontSize: "0.65rem" }}
+          />
+        </Box>
+        <Collapse in={isOpen} unmountOnExit>
+          <List dense disablePadding sx={{ px: 0.5 }}>
+            {bucket.rels.map(renderRow)}
+          </List>
+        </Collapse>
+      </Box>
+    );
+  };
+
   return (
     <Box
       sx={{
@@ -508,6 +619,24 @@ function RelationGroup({
           variant="outlined"
           sx={{ height: 20, fontSize: "0.65rem" }}
         />
+        {!hasFlowDirection && canToggleGrouping && (
+          <Tooltip
+            title={t(
+              grouped ? "relations.subtype.ungroupTooltip" : "relations.subtype.groupTooltip",
+            )}
+          >
+            <IconButton
+              size="small"
+              onClick={toggleGrouped}
+              color={grouped ? "primary" : "default"}
+            >
+              <MaterialSymbol
+                icon={grouped ? "format_list_bulleted" : "account_tree"}
+                size={18}
+              />
+            </IconButton>
+          </Tooltip>
+        )}
         {canManageRelations && !inlineAddOpen && (
           <Tooltip title={t("relations.addSpecific", {
             type: typeLabel(otherType) || otherTypeKey,
@@ -524,8 +653,12 @@ function RelationGroup({
       </Box>
 
       {/* Related cards list — bucketed by role when the relation type
-          carries flowDirection, otherwise a flat list. */}
-      {rels.length > 0 && !hasFlowDirection && (
+          carries flowDirection, grouped by subtype when toggled/auto, else
+          a flat list. */}
+      {rels.length > 0 && !hasFlowDirection && grouped && canToggleGrouping && (
+        <Box>{subtypeBuckets.map(renderSubtypeBucket)}</Box>
+      )}
+      {rels.length > 0 && !hasFlowDirection && !(grouped && canToggleGrouping) && (
         <List dense disablePadding sx={{ px: 0.5 }}>
           {rels.map(renderRow)}
         </List>
