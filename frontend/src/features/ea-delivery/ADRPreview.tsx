@@ -19,7 +19,7 @@ import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useAuth } from "@/hooks/useAuth";
 import { hasPermission } from "@/components/RequirePermission";
-import { ExtensionBoundary, useExtensionAdrPanels } from "@/lib/extensionHost";
+import { ExtensionBoundary, ExtensionSlot, useExtensionAdrPanels } from "@/lib/extensionHost";
 import type { ArchitectureDecision } from "@/types";
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> = {
@@ -133,6 +133,17 @@ export default function ADRPreview() {
           size="small"
           color={STATUS_COLORS[adr.status] ?? "default"}
         />
+        {id && (
+          <ExtensionSlot
+            name="adr.header"
+            context={{
+              adrId: id,
+              status: adr.status,
+              signed: adr.status === "signed",
+              attributes: adr.attributes ?? {},
+            }}
+          />
+        )}
         <Tooltip title={t("preview.copyLink")}>
           <IconButton onClick={handleCopyLink}>
             <MaterialSymbol icon="link" size={20} />
@@ -321,6 +332,22 @@ export default function ADRPreview() {
               ))}
             </Box>
           </>
+        )}
+
+        {/* Generic extension slot below the signature block — post-decision,
+            ADR-scoped content (e.g. value-realization tracking). Read-only on
+            the preview page. Renders nothing when no extension contributes. */}
+        {id && (
+          <ExtensionSlot
+            name="adr.signature.footer"
+            context={{
+              adrId: id,
+              status: adr.status,
+              signed: adr.status === "signed",
+              readOnly: true,
+              attributes: adr.attributes ?? {},
+            }}
+          />
         )}
       </Box>
 

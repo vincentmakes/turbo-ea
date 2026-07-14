@@ -29,7 +29,7 @@ import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useAuth } from "@/hooks/useAuth";
 import { hasPermission } from "@/components/RequirePermission";
-import { ExtensionBoundary, useExtensionAdrPanels } from "@/lib/extensionHost";
+import { ExtensionBoundary, ExtensionSlot, useExtensionAdrPanels } from "@/lib/extensionHost";
 import type { Card, ArchitectureDecision, SoAWSignatory } from "@/types";
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success"> = {
@@ -59,6 +59,10 @@ export default function ADREditor() {
   const [revisionNumber, setRevisionNumber] = useState(1);
   const [signatories, setSignatories] = useState<SoAWSignatory[]>([]);
   const [signedAt, setSignedAt] = useState<string | null>(null);
+  // The ADR attributes bag (`ext.*` keys). Passed verbatim to the extension
+  // slots so a contribution can gate itself (e.g. show a jump button only when
+  // it has data) without an extra fetch. Core owns the bag; it is generic here.
+  const [attributes, setAttributes] = useState<Record<string, unknown>>({});
   const [linkedCards, setLinkedCards] = useState<
     { id: string; name: string; type: string }[]
   >([]);
@@ -126,6 +130,7 @@ export default function ADREditor() {
         setRevisionNumber(adr.revision_number);
         setSignatories(adr.signatories || []);
         setSignedAt(adr.signed_at);
+        setAttributes(adr.attributes || {});
         setLinkedCards(adr.linked_cards || []);
       })
       .catch(() => setError(t("adr.editor.error.loadFailed")))
@@ -395,6 +400,16 @@ export default function ADREditor() {
           color={STATUS_COLORS[status] || "default"}
           size="small"
         />
+
+        {/* Generic extension slot: header-level affordances (e.g. a jump link to
+            an extension section further down the page). Renders nothing when no
+            extension contributes. */}
+        {!isNew && id && (
+          <ExtensionSlot
+            name="adr.header"
+            context={{ adrId: id, status, signed: isSigned, attributes }}
+          />
+        )}
       </Box>
 
       {/* ── Signed Banner ── */}
@@ -707,6 +722,17 @@ export default function ADREditor() {
             ))}
           </List>
         </Paper>
+      )}
+
+      {/* Generic extension slot below the signature block: the sanctioned place
+          for post-decision, ADR-scoped content that belongs after sign-off
+          (e.g. value-realization tracking). Renders nothing when no extension
+          contributes. */}
+      {!isNew && id && (
+        <ExtensionSlot
+          name="adr.signature.footer"
+          context={{ adrId: id, status, signed: isSigned, readOnly: false, attributes }}
+        />
       )}
 
       {/* ── Sign Dialog ── */}

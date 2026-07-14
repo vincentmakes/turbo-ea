@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.13.0] - 2026-07-14
+
+### Added
+- **Two new generic UI extension slots on Architecture Decision Records.** `adr.header` (in the ADR title/actions row) and `adr.signature.footer` (below the signatories block) let an extension attach header-level affordances and post-decision, below-signature content to ADRs — on both the editor and the read-only preview — without core adding a bespoke extension point. Both are wired through the existing `<ExtensionSlot>` registry and pass `{adrId, status, signed, attributes}` context (the footer also `readOnly`). No behaviour change when no extension contributes.
+
 ## [2.12.0] - 2026-07-13
 
 ### Added
