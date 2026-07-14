@@ -2,8 +2,8 @@
 
 ADRs are not cards, so extensions cannot extend them through the metamodel
 field-contribution capability. This JSONB column lets extensions stash their
-own data under ``ext.<key>.*`` top-level keys (e.g. the value-savings
-extension writes ``ext.savings``). It is frozen once the ADR is signed and
+own data under ``ext.<key>.*`` top-level keys (an extension might write, e.g.,
+``ext.savings``). It is frozen once the ADR is signed and
 carried into revisions by the API layer.
 
 Revision ID: 122

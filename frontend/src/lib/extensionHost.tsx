@@ -14,7 +14,7 @@
  * `ext.{key}.*` field type used inside card attribute sections, plus — SDK 1.5
  * — an optional admin-side config editor for that type's config object), survey
  * templates (SDK 1.2), — SDK 1.3 — ADR panels (a component rendered on
- * the Architecture Decision Record editor/preview, e.g. a value-savings form
+ * the Architecture Decision Record editor/preview, e.g. a custom form
  * writing the ADR `ext.*` attributes bag) and ADR export sections (plain data
  * a plugin contributes into the core ADR DOCX export), and — SDK 1.4 — a
  * headless field-visibility provider (hides specific card fields at render
@@ -78,7 +78,7 @@ import { useSavedReport as useCoreSavedReport } from "@/hooks/useSavedReport";
 import * as tokens from "@/theme/tokens";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.12";
+export const UI_SDK_VERSION = "1.13";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -191,7 +191,7 @@ export interface ExtensionAdrPanelProps {
 /**
  * A panel rendered on the ADR editor and preview pages (SDK 1.3). ADRs are not
  * cards, so this is the sanctioned place to attach ADR-scoped UI — e.g. a
- * value-savings form that reads/writes the ADR `ext.*` attributes bag via
+ * custom form that reads/writes the ADR `ext.*` attributes bag via
  * `PATCH /adr/{id}`. `appliesTo` has no analogue (there is only one ADR
  * "type"); gate with `permission` if needed. Rendered read-only-friendly: the
  * component should respect `signed` to disable editing once frozen.
@@ -556,17 +556,32 @@ export function ExtensionReportShell(props: ReportShellProps) {
  * core save/share dialog re-exported verbatim: name/description/visibility/
  * share-with-users → POST /saved-reports). Ungated — permissions are the same
  * `saved_reports.*` keys every core report uses, enforced server-side.
+ *
+ * SDK 1.13 additionally re-exports the core hook's **localStorage
+ * auto-persist** layer — `consumeConfig` / `persistConfig` / `resetAll` — so an
+ * extension report keeps its filters + selection across a page refresh exactly
+ * like a core report (same three-tier priority: URL saved report > localStorage
+ * > component defaults). `consumeConfig()` is called once on mount to restore,
+ * `persistConfig(config)` on every change to auto-save, and `resetAll()` clears
+ * both localStorage and the URL saved report. See any core report
+ * (`CostReport.tsx`) for the canonical usage.
  */
 export function useExtensionSavedReport(reportType: string): {
   config: Record<string, unknown> | null;
   savedReportId: string | null;
   name: string | null;
+  consumeConfig: () => Record<string, unknown> | null;
+  persistConfig: (config: Record<string, unknown>) => void;
+  resetAll: () => void;
 } {
   const saved = useCoreSavedReport(reportType);
   return {
     config: (saved.savedReport?.config as Record<string, unknown> | undefined) ?? null,
     savedReportId: saved.savedReport?.id ?? null,
     name: saved.savedReportName,
+    consumeConfig: saved.consumeConfig,
+    persistConfig: saved.persistConfig,
+    resetAll: saved.resetAll,
   };
 }
 

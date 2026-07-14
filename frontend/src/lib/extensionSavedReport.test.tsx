@@ -29,6 +29,25 @@ describe("SDK saved-report participation (SDK 1.6)", () => {
     expect(window.TurboEA?.sdk.CardDetailSidePanel).toBeTypeOf("function");
   });
 
+  it("useSavedReport exposes the SDK 1.13 localStorage-persistence layer", () => {
+    // consumeConfig / persistConfig / resetAll let an extension report keep its
+    // filters + selection across a refresh exactly like a core report.
+    function Probe() {
+      const saved = useExtensionSavedReport("ext:daaf:quadrant");
+      const ok =
+        typeof saved.consumeConfig === "function" &&
+        typeof saved.persistConfig === "function" &&
+        typeof saved.resetAll === "function";
+      return <div>{ok ? "has-persistence" : "missing"}</div>;
+    }
+    render(
+      <MemoryRouter initialEntries={["/ext/daaf/quadrant"]}>
+        <Probe />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("has-persistence")).toBeInTheDocument();
+  });
+
   it("useSavedReport loads the config for ?saved_report_id=", async () => {
     vi.mocked(api.get).mockResolvedValue({
       id: "r1",

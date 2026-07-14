@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.12.0] - 2026-07-13
+
+### Added
+- **UI extension SDK 1.13 — saved-report localStorage persistence for extension reports.** The `useSavedReport` SDK hook now re-exports the core hook's `consumeConfig` / `persistConfig` / `resetAll` layer, so an extension report page keeps its filters and selection across a browser refresh exactly like a core report (URL saved report > localStorage > defaults).
+
 ## [2.11.0] - 2026-07-13
 
 ### Added
@@ -88,7 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Admin → Extensions: remove a license, and a smoother file install.** The Installed tab now has a **Remove license** action (soft-disables licensed extensions until a license is re-applied — no data is deleted). Installing an unlicensed extension from a file no longer dead-ends with an error pointing at the Installed tab: the license dialog opens inline and the install continues automatically once the license is applied.
 - **Instance-bound extension licensing.** Every installation now mints a unique instance ID (`TEA-XXXX-XXXX-XXXX`, shown on Admin → Extensions with a copy button) that identifies it for licensing: purchases carry it automatically from the in-app Store (and the storefront checkout asks for it), so every extension bought for the instance — by any administrator, under any email — lands in one combined license. Licenses are bound to the ID: one issued for a different instance is refused with a clear message, and a restored/copied database explains itself with a banner instead of silently mis-licensing. The ID identifies only — it is never a credential — and it travels with workspace transfer so host migrations keep licenses working.
 - **Admin → Extensions** gains a page title and icon, an intro covering both install models (one-click Store and offline file upload), and a note that extensions are built and signed by Turbo EA (not self-built or third-party) with a link to consulting for a tailored build. Documented in the admin guide across all languages.
-- **Extensions can extend Architecture Decision Records.** Two new UI extension points (UI SDK 1.3) let a licensed extension render its own panel on the ADR editor and preview pages — e.g. a value-savings form — and contribute extra sections to the ADR DOCX export so that data appears in the exported document. ADRs now also carry an `ext.*` attributes bag that extensions write to; it is frozen automatically once the decision is signed and carried into revisions and duplicates, so figures approved by the signatories stay accurate.
+- **Extensions can extend Architecture Decision Records.** Two new UI extension points (UI SDK 1.3) let a licensed extension render its own panel on the ADR editor and preview pages, and contribute extra sections to the ADR DOCX export so that data appears in the exported document. ADRs now also carry an `ext.*` attributes bag that extensions write to; it is frozen automatically once the decision is signed and carried into revisions and duplicates, so figures approved by the signatories stay accurate.
 
 ### Security
 - Installed extensions are now verified byte-for-byte at every startup, not just by their manifest signature: each file is re-hashed against the signed manifest and backend code is re-derived from the verified wheels, so tampering with extension code on the data volume is detected and quarantined instead of loaded.

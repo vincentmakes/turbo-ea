@@ -328,7 +328,7 @@ describe("extensionHost", () => {
   });
 
   it("pins the current UI SDK version", () => {
-    expect(UI_SDK_VERSION).toBe("1.12");
+    expect(UI_SDK_VERSION).toBe("1.13");
   });
 
   it("aggregates generic slots (component + data), sorts by order, drops invalid ones", () => {

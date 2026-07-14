@@ -651,7 +651,7 @@ export default function ADREditor() {
         </Paper>
       )}
 
-      {/* ── Extension ADR panels (SDK 1.3, e.g. value-savings) ── */}
+      {/* ── Extension ADR panels (SDK 1.3) ── */}
       {!isNew &&
         id &&
         adrPanels

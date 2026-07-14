@@ -469,7 +469,7 @@ export async function exportAdrsToDocx(adrs: ArchitectureDecision[]): Promise<vo
       children.push(new Paragraph({ spacing: { after: SPACING_AFTER_TABLE } }));
     }
 
-    // Extension-contributed sections (SDK 1.3) — e.g. value savings. Each
+    // Extension-contributed sections (SDK 1.3). Each
     // builder returns plain data that we render with the document's own styles;
     // a throwing builder is skipped so a bad extension never breaks the export.
     for (const { extKey, contribution } of getExtensionAdrExportSections()) {

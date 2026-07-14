@@ -894,7 +894,7 @@ class TestCardLinking:
 
 
 class TestAdrAttributes:
-    """The attributes bag that ADR extensions (e.g. value-savings) write to."""
+    """The attributes bag that ADR extensions write to."""
 
     async def test_default_is_empty_object(self, client, db, adr_env):
         admin = adr_env["admin"]
