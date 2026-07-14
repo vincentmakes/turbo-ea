@@ -241,7 +241,10 @@ export default function ADRPreview() {
                 hasPermission(user?.permissions, contribution.permission),
             )
             .map(({ extKey, contribution }) => (
-              <Box key={`adrpanel:${extKey}:${contribution.id}`} sx={{ mb: 4 }}>
+              <Box
+                key={`adrpanel:${extKey}:${contribution.id}`}
+                sx={{ mb: 4, "&:empty": { display: "none" } }}
+              >
                 <ExtensionBoundary extensionKey={extKey}>
                   <contribution.component
                     adrId={id}

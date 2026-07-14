@@ -433,8 +433,8 @@ export default function AdrGrid({
         (col): ColDef<ArchitectureDecision> => ({
           headerName: col.contribution.label,
           colId: `ext-${col.extKey}-${col.contribution.id}`,
-          width: 150,
-          minWidth: 120,
+          width: col.contribution.width ?? 150,
+          minWidth: col.contribution.minWidth ?? 120,
           hide: hiddenColumns.has(`ext-${col.extKey}-${col.contribution.id}`),
           type: col.contribution.align === "right" ? "rightAligned" : undefined,
           valueGetter: (params: { data: ArchitectureDecision | undefined }) =>

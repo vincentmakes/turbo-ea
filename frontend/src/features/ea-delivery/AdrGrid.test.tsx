@@ -141,6 +141,24 @@ describe("AdrGrid extension columns (UI SDK 1.10)", () => {
     expect(formatter({ data: undefined })).toBe("");
   });
 
+  it("applies width/minWidth hints, falling back to the defaults when omitted", () => {
+    registerExtension("vs", {
+      key: "vs",
+      sdkVersion: UI_SDK_VERSION,
+      adrGridColumns: [
+        { id: "wide", label: "Wide", width: 220, minWidth: 180, value: () => "x" },
+        { id: "plain", label: "Plain", value: () => "y" },
+      ],
+    });
+    renderGrid();
+    const wide = capturedColumnDefs.find((c) => c.colId === "ext-vs-wide");
+    expect(wide?.width).toBe(220);
+    expect(wide?.minWidth).toBe(180);
+    const plain = capturedColumnDefs.find((c) => c.colId === "ext-vs-plain");
+    expect(plain?.width).toBe(150);
+    expect(plain?.minWidth).toBe(120);
+  });
+
   it("a throwing value() degrades to an empty cell, never a crash", () => {
     registerExtension("vs", {
       key: "vs",

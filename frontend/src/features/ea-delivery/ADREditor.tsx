@@ -400,16 +400,6 @@ export default function ADREditor() {
           color={STATUS_COLORS[status] || "default"}
           size="small"
         />
-
-        {/* Generic extension slot: header-level affordances (e.g. a jump link to
-            an extension section further down the page). Renders nothing when no
-            extension contributes. */}
-        {!isNew && id && (
-          <ExtensionSlot
-            name="adr.header"
-            context={{ adrId: id, status, signed: isSigned, attributes }}
-          />
-        )}
       </Box>
 
       {/* ── Signed Banner ── */}
@@ -508,6 +498,17 @@ export default function ADREditor() {
           >
             {t("adr.editor.duplicate")}
           </Button>
+        )}
+
+        {/* Generic extension slot in the action row — header-level affordances
+            in line with the buttons above (e.g. a jump to an extension section
+            lower on the page, with at-a-glance chips). Renders nothing when no
+            extension contributes. */}
+        {!isNew && id && (
+          <ExtensionSlot
+            name="adr.header"
+            context={{ adrId: id, status, signed: isSigned, attributes }}
+          />
         )}
       </Box>
 
@@ -677,7 +678,10 @@ export default function ADREditor() {
           )
           .map(({ extKey, contribution }) => (
             <ExtensionBoundary key={`adrpanel:${extKey}:${contribution.id}`} extensionKey={extKey}>
-              <Paper sx={{ p: 3, mb: 3 }}>
+              {/* Collapse the wrapper when the panel renders nothing (e.g. a
+                  phase-gated panel that hides itself once the ADR is signed) so
+                  it never leaves an empty card behind. */}
+              <Paper sx={{ p: 3, mb: 3, "&:empty": { display: "none" } }}>
                 <contribution.component
                   adrId={id}
                   status={status}

@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.14.0] - 2026-07-14
+
+### Added
+- **Extension ADR grid columns accept width hints.** An `adrGridColumns` contribution may set optional `width` / `minWidth` (px) so a wider header/value isn't clipped; both default to the previous 150 / 120.
+
+### Fixed
+- **No empty card is left behind by a self-hiding ADR extension panel.** An `adrPanels` contribution that renders nothing (e.g. a phase-gated panel that hides once the ADR is signed) no longer leaves an empty bordered card — the wrapper collapses when its panel is empty, on both the ADR editor and preview.
+
+### Changed
+- **The `adr.header` extension slot renders in the ADR action-button row** (alongside Duplicate / New revision) instead of the title row, so a contributed button sits in line with the built-in actions.
+
 ## [2.13.0] - 2026-07-14
 
 ### Added
