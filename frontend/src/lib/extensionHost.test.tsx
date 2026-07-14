@@ -389,6 +389,35 @@ describe("extensionHost", () => {
     expect(screen.getAllByText("slot-chip")).toHaveLength(1);
   });
 
+  it("renders contributions at the seeded adr.header and adr.signature.footer slots", () => {
+    // Guards the two ADR slot names ADREditor/ADRPreview drop; a contribution
+    // receives the location's context (adrId/signed/attributes) as props.
+    const Seen = (props: { signed?: boolean }) => (
+      <div>{props.signed ? "signed-footer" : "footer"}</div>
+    );
+    const Jump = () => <div>jump</div>;
+    registerExtension("vs", {
+      key: "vs",
+      sdkVersion: UI_SDK_VERSION,
+      slots: [
+        { slot: "adr.header", id: "jump", component: Jump },
+        { slot: "adr.signature.footer", id: "realization", component: Seen },
+      ],
+    });
+    const user = { permissions: {} } as unknown as User;
+    render(
+      <AuthProvider user={user} refreshUser={async () => {}}>
+        <ExtensionSlot name="adr.header" context={{ adrId: "a1", signed: true }} />
+        <ExtensionSlot
+          name="adr.signature.footer"
+          context={{ adrId: "a1", signed: true, attributes: {} }}
+        />
+      </AuthProvider>,
+    );
+    expect(screen.getByText("jump")).toBeInTheDocument();
+    expect(screen.getByText("signed-footer")).toBeInTheDocument();
+  });
+
   it("ExtensionBoundary catches a crashing component", () => {
     const Bomb = () => {
       throw new Error("kaboom");
