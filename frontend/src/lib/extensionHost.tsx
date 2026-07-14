@@ -238,6 +238,10 @@ export interface ExtensionAdrGridColumnContribution {
   id: string;
   label: string; // header text — the extension localizes it at registration time
   align?: "left" | "right";
+  // Optional sizing hints for the AG Grid column (px). Default 150 / 120 when
+  // omitted. The user can still resize; these set the initial width.
+  width?: number;
+  minWidth?: number;
   value: (adr: ArchitectureDecision) => string | null;
   sortValue?: (adr: ArchitectureDecision) => number | string | null;
 }
