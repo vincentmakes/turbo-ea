@@ -532,6 +532,12 @@ COALESCE(data.budgetCapEx, 0) + COALESCE(data.budgetOpEx, 0)
 # Count related applications
 relation_count.relAppToITC
 
+# Inherit a value from the parent card (fall back to own value at the root)
+IF(parent, parent.attributes.businessCriticality, data.businessCriticality)
+
+# Score by depth in the hierarchy (1 = root)
+hierarchy_level * 10
+
 # Weighted score
 scores = {"perfect": 4, "good": 3, "adequate": 2, "poor": 1}
 MAP_SCORE(data.stability, scores) * 0.5 + MAP_SCORE(data.security, scores) * 0.5
@@ -690,6 +696,44 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
               </Typography>
             </Box>
           )}
+
+          <Box>
+            <Typography variant="caption" fontWeight={600} gutterBottom>
+              {t("calculations.contextVariables")}
+            </Typography>
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 0.5 }}>
+              <Chip
+                size="small"
+                label="parent"
+                variant="outlined"
+                title={t("calculations.ctxParent")}
+              />
+              <Chip
+                size="small"
+                label="parent.attributes.<key>"
+                variant="outlined"
+                title={t("calculations.ctxParentAttributes")}
+              />
+              <Chip
+                size="small"
+                label="hierarchy_level"
+                variant="outlined"
+                title={t("calculations.ctxHierarchyLevel")}
+              />
+              <Chip
+                size="small"
+                label="children"
+                variant="outlined"
+                title={t("calculations.ctxChildren")}
+              />
+              <Chip
+                size="small"
+                label="children_count"
+                variant="outlined"
+                title={t("calculations.ctxChildrenCount")}
+              />
+            </Box>
+          </Box>
 
           <Box>
             <Typography variant="caption" fontWeight={600} gutterBottom>
