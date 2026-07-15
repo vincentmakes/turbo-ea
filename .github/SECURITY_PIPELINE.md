@@ -40,16 +40,29 @@ Two scanners covering the same layer is deliberate — different vuln DBs have d
 5. **Trivy gate** (CRITICAL only, `exit-code: 1`, `ignore-unfixed: true`) — fails the publish on any CRITICAL not in [`.github/trivy-allowlist`](trivy-allowlist). Introduced after CVE-2026-42945 ("NGINX Rift") slipped through the observe-only setup.
 6. **Scout observe** (`only-severities: critical,high`, `exit-code: false`) — SARIF → Security tab under `scout-<image>`. Gated on `DOCKERHUB_PAT` secret presence so the workflow stays green if credentials are removed.
 
-> **apk fixes stick on every build, not just no-cache runs.** `no-cache: true`
-> is only set on `schedule` / `workflow_dispatch`, but the build step also sets
-> `no-cache-filter: backend,db,frontend,nginx,mcp-server` so the runtime stages
-> (the ones running `apk upgrade --no-cache`) are rebuilt against the live alpine
-> repos on **every** build, including cached `push` builds. Without this, a clean
-> republish that pulled a fresh apk fix was silently reverted by the next
-> push-to-`main`, which reused the cached (unpatched) `apk upgrade` layer and
-> overwrote `:latest` — the failure mode behind the persistent curl 8.19.0-r0
-> findings in July 2026. The expensive `frontend-build` / `backend-build` stages
-> are deliberately excluded from the filter, so push builds stay fast.
+> **`:latest` publishing + apk freshness — the two things to know.**
+> 1. **What publishes `:latest`.** `latest=auto` + the two explicit `type=raw`
+>    entries mean `:latest` is retagged on **semver tag pushes** (`v*.*.*`
+>    releases), on **`workflow_dispatch` from `main`**, and on the **weekly
+>    `schedule`**. A plain merge to `main` publishes `:main` + `:sha-XXX` only —
+>    **not** `:latest`. So `:latest` (what docker-compose and the daily security
+>    scan consume) tracks releases + the weekly rebuild, not every commit.
+> 2. **Keeping cached builds apk-fresh.** `no-cache: true` is only set on
+>    `schedule` / `workflow_dispatch`; branch **and tag** pushes are `push`
+>    events, so they build **cached**. Because a `v*.*.*` tag push is cached yet
+>    publishes `:latest`, a release could otherwise ship `:latest` with a stale
+>    apk layer. The build step therefore also sets
+>    `no-cache-filters: backend,db,frontend,nginx,mcp-server` (plural — the
+>    singular form is silently ignored), which forces just the runtime stages
+>    (the ones running `apk upgrade --no-cache`) to rebuild against the live
+>    alpine repos on **every** build, cached ones included, while the expensive
+>    `frontend-build` / `backend-build` stages stay cached. This closes the curl
+>    8.19.0-r0 → 8.20.0-r0 gap seen in July 2026, where `:latest` kept shipping a
+>    cached, unpatched curl.
+>
+> To force a fresh `:latest` on demand (e.g. right after an alpine CVE fix lands
+> in the repo), run `docker-publish.yml` via **`workflow_dispatch` from `main`**
+> — it is `no-cache: true` and tags `:latest`.
 
 ### Weekly — Monday 06:00 UTC
 [`docker-publish.yml`](workflows/docker-publish.yml) re-runs with `no-cache: true` for cron events. The runtime Dockerfile stages each run `apk upgrade --no-cache`, so a forced rebuild against fresh alpine repos automatically picks up apk-package CVEs in pinned bases — no human in the loop.
