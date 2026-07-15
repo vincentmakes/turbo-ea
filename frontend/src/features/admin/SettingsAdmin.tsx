@@ -1113,6 +1113,37 @@ function GeneralTab() {
         </Box>
       </Paper>
 
+      {/* Fiscal Year Start */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="calendar_month" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.fiscal.title")}
+          </Typography>
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("settings.fiscal.description")}
+        </Typography>
+        <TextField
+          select
+          size="small"
+          label={t("settings.fiscal.startMonth")}
+          value={fiscalYearStart}
+          onChange={(e) => handleFiscalYearSave(Number(e.target.value))}
+          disabled={savingFiscal}
+          sx={{ minWidth: 220 }}
+        >
+          {Array.from({ length: 12 }, (_, i) => {
+            const d = new Date(2000, i, 1);
+            return (
+              <MenuItem key={i + 1} value={i + 1}>
+                {d.toLocaleString(undefined, { month: "long" })} ({i + 1})
+              </MenuItem>
+            );
+          })}
+        </TextField>
+      </Paper>
+
       {/* Enabled Languages */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
@@ -1157,37 +1188,6 @@ function GeneralTab() {
         >
           {savingLocales ? t("common:labels.loading") : t("common:actions.save")}
         </Button>
-      </Paper>
-
-      {/* Fiscal Year Start */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
-          <MaterialSymbol icon="calendar_month" size={22} color="#555" />
-          <Typography variant="h6" fontWeight={600}>
-            {t("settings.fiscal.title")}
-          </Typography>
-        </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {t("settings.fiscal.description")}
-        </Typography>
-        <TextField
-          select
-          size="small"
-          label={t("settings.fiscal.startMonth")}
-          value={fiscalYearStart}
-          onChange={(e) => handleFiscalYearSave(Number(e.target.value))}
-          disabled={savingFiscal}
-          sx={{ minWidth: 220 }}
-        >
-          {Array.from({ length: 12 }, (_, i) => {
-            const d = new Date(2000, i, 1);
-            return (
-              <MenuItem key={i + 1} value={i + 1}>
-                {d.toLocaleString(undefined, { month: "long" })} ({i + 1})
-              </MenuItem>
-            );
-          })}
-        </TextField>
       </Paper>
 
       {/* File Uploads Toggle */}
