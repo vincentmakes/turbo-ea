@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.20.0] - 2026-07-15
+
+### Changed
+- **The GRC page now remembers your last active tab.** When you reopen GRC, it reopens on the tab you last used — including the Governance sub-tab, so leaving on Governance → Decisions brings you back to Decisions. An explicit link with a tab in its address still takes priority.
+
 ## [2.19.0] - 2026-07-15
 
 ### Added

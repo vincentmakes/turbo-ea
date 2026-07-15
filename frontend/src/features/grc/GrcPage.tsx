@@ -18,6 +18,17 @@ const ComplianceTab = lazy(() => import("./compliance/ComplianceTab"));
 const TAB_KEYS = ["governance", "risk", "compliance"] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
+const STORAGE_KEY = "turboea.grc.tab";
+
+function readStoredTab(): TabKey | null {
+  try {
+    const v = localStorage.getItem(STORAGE_KEY);
+    return v && TAB_KEYS.includes(v as TabKey) ? (v as TabKey) : null;
+  } catch {
+    return null;
+  }
+}
+
 const TAB_ICONS: Record<TabKey, string> = {
   governance: "gavel",
   risk: "warning",
@@ -36,12 +47,27 @@ export default function GrcPage() {
   const { t } = useTranslation("grc");
   const [searchParams, setSearchParams] = useSearchParams();
   const paramTab = searchParams.get("tab") as TabKey | null;
-  const resolvedTab = paramTab && TAB_KEYS.includes(paramTab) ? paramTab : "governance";
-  const [tab, setTab] = useState<TabKey>(resolvedTab);
+  const validParam = paramTab && TAB_KEYS.includes(paramTab) ? paramTab : null;
+  // Priority: valid URL param > localStorage > default. localStorage is read
+  // only once (lazy initializer) so it never fights a subsequent tab click.
+  const [tab, setTab] = useState<TabKey>(
+    () => validParam ?? readStoredTab() ?? "governance",
+  );
 
+  // Sync only from a present, valid URL param (deep link / back-forward).
+  // When the param is absent we leave the restored/clicked state untouched.
   useEffect(() => {
-    if (resolvedTab !== tab) setTab(resolvedTab);
-  }, [resolvedTab]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (validParam && validParam !== tab) setTab(validParam);
+  }, [validParam]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Remember the last active tab across visits.
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, tab);
+    } catch {
+      /* ignore storage errors (private mode / disabled) */
+    }
+  }, [tab]);
 
   const handleChange = (_: React.SyntheticEvent, val: string) => {
     const next = val as TabKey;
