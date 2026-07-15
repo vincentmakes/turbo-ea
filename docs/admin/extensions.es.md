@@ -15,6 +15,10 @@ Dos comprobaciones independientes protegen su instancia:
 1. **Procedencia (firma).** Cada paquete lleva una firma Ed25519 de la clave del proveedor. Turbo EA la verifica al subirlo *y de nuevo en cada arranque del backend*. Los paquetes sin firma, manipulados o de terceros se rechazan — una extensión instalada es exactamente lo que el proveedor construyó.
 2. **Activación (licencia).** Un archivo de licencia firmado enumera sus derechos — uno por extensión, cada uno con su propia caducidad. Una extensión instalada solo funciona mientras exista un derecho utilizable. Las licencias están **vinculadas al ID de su instancia** — una licencia emitida para otra instancia se rechaza.
 
+## Extensiones gratuitas
+
+Algunas extensiones son **gratuitas** y no requieren ninguna licencia. Se instalan y se ejecutan de inmediato: no hay paso de compra ni archivo de licencia que pegar. Las extensiones gratuitas se marcan con una insignia **Gratis** en las pestañas Tienda e Instaladas, y las acciones **Comprar** y **Renovar** quedan ocultas para ellas. La comprobación de firma se sigue aplicando igual que en las extensiones de pago (una extensión gratuita también está firmada por el proveedor), por lo que la procedencia está garantizada en cualquier caso. Como no necesitan ninguna licencia, las extensiones gratuitas nunca caducan ni entran en un periodo de gracia.
+
 ## El ID de su instancia
 
 Cada instalación genera una única vez un **ID de instancia** (`TEA-XXXX-XXXX-XXXX`), visible en la parte superior de Admin → Extensiones con un botón de copia. Es su identidad de licencia: indíquelo al comprar (la Tienda integrada lo envía automáticamente; el pago de la tienda en línea lo solicita) para que cada extensión comprada para esta instancia — por cualquier administrador, con cualquier correo — termine en una única licencia combinada. Solo identifica su instancia; nunca es una credencial, así que puede compartirlo con su proveedor sin riesgo.

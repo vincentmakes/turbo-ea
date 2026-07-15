@@ -89,6 +89,11 @@ class VerifiedBundle:
     def capabilities(self) -> list[str]:
         return list(self.manifest.get("capabilities", []))
 
+    @property
+    def free(self) -> bool:
+        """Whether this extension runs without a license entitlement."""
+        return self.manifest.get("free") is True
+
 
 def _safe_member_name(name: str) -> bool:
     """Reject absolute paths, drive letters, backslashes, and ``..`` segments."""
@@ -143,6 +148,11 @@ def _validate_manifest(manifest: dict[str, Any], core_version: str) -> None:
     unknown = set(capabilities) - VALID_CAPABILITIES
     if unknown:
         raise BundleError(f"Bundle declares unknown capabilities: {sorted(unknown)}")
+
+    # Optional ``free`` flag: a free extension needs no license entitlement to
+    # run. Orthogonal to capabilities. When present it must be a real boolean.
+    if "free" in manifest and not isinstance(manifest["free"], bool):
+        raise BundleError("Bundle manifest field `free` must be a boolean")
 
     if "content" in capabilities and not manifest.get("content"):
         raise BundleError("Bundle declares the content capability but lists no content files")

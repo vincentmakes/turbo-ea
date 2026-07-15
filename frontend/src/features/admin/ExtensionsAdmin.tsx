@@ -36,7 +36,7 @@ import { invalidateCache as invalidateMetamodel } from "@/hooks/useMetamodel";
 import { ExtensionBoundary, useExtensionUI } from "@/lib/extensionHost";
 
 interface EntitlementInfo {
-  state: "active" | "grace" | "expired" | "unlicensed";
+  state: "active" | "grace" | "expired" | "unlicensed" | "free";
   expires_at?: string | null;
   grace_until?: string | null;
 }
@@ -108,6 +108,7 @@ interface StoreItem {
   installed_version?: string | null;
   update_available: boolean;
   entitlement_state: EntitlementInfo["state"];
+  free?: boolean;
 }
 
 interface StoreCatalog {
@@ -129,12 +130,13 @@ const TERMINAL = new Set(["previewed", "installed", "failed"]);
 
 const ENTITLEMENT_COLOR: Record<
   EntitlementInfo["state"],
-  "success" | "warning" | "error" | "default"
+  "success" | "warning" | "error" | "default" | "info"
 > = {
   active: "success",
   grace: "warning",
   expired: "error",
   unlicensed: "default",
+  free: "info",
 };
 
 const STATUS_COLOR: Record<string, "success" | "warning" | "error" | "default"> = {
@@ -451,7 +453,14 @@ export default function ExtensionsAdmin() {
   };
 
   const handleInstallClick = (item: StoreItem) => {
-    if (item.entitlement_state === "active" || item.entitlement_state === "grace") {
+    if (
+      item.free ||
+      item.entitlement_state === "free" ||
+      item.entitlement_state === "active" ||
+      item.entitlement_state === "grace"
+    ) {
+      // Free extensions (and already-entitled ones) install straight away —
+      // no license needed.
       void startStoreInstall(item.key);
       return;
     }
@@ -583,19 +592,21 @@ export default function ExtensionsAdmin() {
 
   const entitlementChip = (ent: EntitlementInfo) => {
     const label =
-      ent.state === "active"
-        ? ent.expires_at
-          ? t("extensions.entitlement.activeUntil", "Active until {{date}}", {
-              date: fmtDate(ent.expires_at),
-            })
-          : t("extensions.entitlement.active", "Active")
-        : ent.state === "grace"
-          ? t("extensions.entitlement.grace", "Grace until {{date}}", {
-              date: fmtDate(ent.grace_until),
-            })
-          : ent.state === "expired"
-            ? t("extensions.entitlement.expired", "Expired")
-            : t("extensions.entitlement.unlicensed", "Unlicensed");
+      ent.state === "free"
+        ? t("extensions.entitlement.free", "Free")
+        : ent.state === "active"
+          ? ent.expires_at
+            ? t("extensions.entitlement.activeUntil", "Active until {{date}}", {
+                date: fmtDate(ent.expires_at),
+              })
+            : t("extensions.entitlement.active", "Active")
+          : ent.state === "grace"
+            ? t("extensions.entitlement.grace", "Grace until {{date}}", {
+                date: fmtDate(ent.grace_until),
+              })
+            : ent.state === "expired"
+              ? t("extensions.entitlement.expired", "Expired")
+              : t("extensions.entitlement.unlicensed", "Unlicensed");
     return <Chip size="small" color={ENTITLEMENT_COLOR[ent.state]} label={label} />;
   };
 
@@ -830,13 +841,22 @@ export default function ExtensionsAdmin() {
                             })}
                           />
                         )}
-                        {!item.installed_version && item.entitlement_state !== "unlicensed" && (
+                        {!item.installed_version && item.free && (
                           <Chip
                             size="small"
-                            color={ENTITLEMENT_COLOR[item.entitlement_state]}
-                            label={t("extensions.store.licensed", "Licensed")}
+                            color="info"
+                            label={t("extensions.entitlement.free", "Free")}
                           />
                         )}
+                        {!item.installed_version &&
+                          !item.free &&
+                          item.entitlement_state !== "unlicensed" && (
+                            <Chip
+                              size="small"
+                              color={ENTITLEMENT_COLOR[item.entitlement_state]}
+                              label={t("extensions.store.licensed", "Licensed")}
+                            />
+                          )}
                       </Stack>
                       <Typography variant="body2" color="text.secondary" sx={{ flex: 1, mb: 1.5 }}>
                         {item.description}
@@ -869,7 +889,8 @@ export default function ExtensionsAdmin() {
                             {t("extensions.store.seeInAction", "See it in action")}
                           </Button>
                         )}
-                        {item.payment_link &&
+                        {!item.free &&
+                          item.payment_link &&
                           item.entitlement_state === "unlicensed" &&
                           claiming?.itemKey !== item.key && (
                             <Button
@@ -885,7 +906,9 @@ export default function ExtensionsAdmin() {
                           <Button
                             size="small"
                             variant={
-                              item.entitlement_state === "unlicensed" ? "outlined" : "contained"
+                              !item.free && item.entitlement_state === "unlicensed"
+                                ? "outlined"
+                                : "contained"
                             }
                             disabled={storeBusyKey !== null || isWorking}
                             onClick={() => handleInstallClick(item)}
@@ -1084,7 +1107,7 @@ export default function ExtensionsAdmin() {
                           />
                         </TableCell>
                         <TableCell align="right">
-                          {ext.entitlement.state !== "active" && (
+                          {!["active", "free"].includes(ext.entitlement.state) && (
                             <Button
                               size="small"
                               onClick={() => void handleRenew()}

@@ -427,15 +427,26 @@ async def apply_install(
             status_code=400, detail=f"Cannot apply an upload in status {install.status!r}"
         )
     # Second gate: installing an extension requires a usable entitlement for
-    # its key (a valid signature alone is provenance, not activation).
+    # its key (a valid signature alone is provenance, not activation) — UNLESS
+    # the bundle is free. The extension row does not exist yet at apply time, so
+    # the registry can't see the manifest's free flag; re-read the on-disk
+    # bundle (which re-verifies the signature) to honour it here.
     await extension_registry.refresh_from_db(db)
     if install.extension_key and not extension_registry.entitlement(install.extension_key).usable:
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                "No usable license entitlement for this extension — upload the license file first"
-            ),
-        )
+        is_free = False
+        if install.storage_path:
+            try:
+                is_free = read_bundle(Path(install.storage_path)).free
+            except BundleError:
+                is_free = False
+        if not is_free:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "No usable license entitlement for this extension — "
+                    "upload the license file first"
+                ),
+            )
     install.status = "applying"
     await db.commit()
     await db.refresh(install)
@@ -492,6 +503,7 @@ class StoreItemOut(BaseModel):
     installed_version: str | None = None
     update_available: bool = False
     entitlement_state: str = "unlicensed"
+    free: bool = False
 
 
 class StoreCatalogOut(BaseModel):
@@ -570,6 +582,7 @@ async def store_catalog(
                     and _version_tuple(catalog_version) > _version_tuple(installed_version)
                 ),
                 entitlement_state=extension_registry.entitlement(key).state,
+                free=item.get("free") is True,
             )
         )
     return StoreCatalogOut(configured=True, reachable=True, store_url=base_url, items=items)

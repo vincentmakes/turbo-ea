@@ -15,6 +15,10 @@ Zwei unabhängige Prüfungen schützen Ihre Instanz:
 1. **Herkunft (Signatur).** Jedes Paket trägt eine Ed25519-Signatur des Anbieter-Schlüssels. Turbo EA prüft sie beim Hochladen *und erneut bei jedem Backend-Start*. Unsignierte, manipulierte oder fremde Pakete werden abgelehnt — eine installierte Erweiterung ist garantiert genau das, was der Anbieter gebaut hat.
 2. **Aktivierung (Lizenz).** Eine signierte Lizenzdatei enthält Ihre Berechtigungen — eine pro Erweiterung, jede mit eigenem Ablaufdatum. Eine installierte Erweiterung läuft nur, solange eine gültige Berechtigung existiert. Lizenzen sind **an Ihre Instanz-ID gebunden** — eine für eine andere Instanz ausgestellte Lizenz wird abgelehnt.
 
+## Kostenlose Erweiterungen
+
+Manche Erweiterungen sind **kostenlos** und benötigen überhaupt keine Lizenz. Sie werden sofort installiert und ausgeführt — es gibt keinen Kaufschritt und keine einzufügende Lizenzdatei. Kostenlose Erweiterungen sind auf den Reitern „Store“ und „Installiert“ mit einem **Kostenlos**-Abzeichen gekennzeichnet, und die Aktionen **Kaufen** und **Erneuern** sind für sie ausgeblendet. Die Signaturprüfung gilt weiterhin genauso wie bei kostenpflichtigen Erweiterungen (eine kostenlose Erweiterung ist ebenfalls vom Anbieter signiert), sodass die Herkunft in jedem Fall garantiert ist. Da sie keine Berechtigung benötigen, laufen kostenlose Erweiterungen nie ab und treten nie in eine Kulanzfrist ein.
+
 ## Ihre Instanz-ID
 
 Jede Installation erzeugt einmalig eine eindeutige **Instanz-ID** (`TEA-XXXX-XXXX-XXXX`), die oben auf Admin → Erweiterungen mit einem Kopier-Button angezeigt wird. Sie ist Ihre Lizenzidentität: Geben Sie sie beim Kauf an (der In-App-Store sendet sie automatisch; die Storefront-Kasse fragt danach), damit jede für diese Instanz gekaufte Erweiterung — von jedem Administrator, unter jeder E-Mail-Adresse — in einer gemeinsamen Lizenz landet. Sie identifiziert nur Ihre Instanz; sie ist niemals ein Zugangsschlüssel und kann daher bedenkenlos an Ihren Anbieter weitergegeben werden.

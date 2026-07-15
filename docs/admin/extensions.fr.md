@@ -15,6 +15,10 @@ Deux vérifications indépendantes protègent votre instance :
 1. **Provenance (signature).** Chaque paquet porte une signature Ed25519 de la clé de l'éditeur. Turbo EA la vérifie au téléversement *et à chaque démarrage du backend*. Les paquets non signés, altérés ou tiers sont refusés — une extension installée est garantie être exactement ce que l'éditeur a construit.
 2. **Activation (licence).** Un fichier de licence signé liste vos droits — un par extension, chacun avec sa propre échéance. Une extension installée ne fonctionne que tant qu'un droit utilisable existe. Les licences sont **liées à l'ID de votre instance** — une licence émise pour une autre instance est refusée.
 
+## Extensions gratuites
+
+Certaines extensions sont **gratuites** et ne nécessitent aucune licence. Elles s'installent et s'exécutent immédiatement : aucune étape d'achat, aucun fichier de licence à coller. Les extensions gratuites sont signalées par un badge **Gratuit** dans les onglets Boutique et Installées, et les actions **Acheter** et **Renouveler** sont masquées pour elles. La vérification de signature s'applique toujours exactement comme pour les extensions payantes (une extension gratuite est elle aussi signée par l'éditeur), de sorte que la provenance est garantie dans tous les cas. Comme elles ne requièrent aucun droit, les extensions gratuites n'expirent jamais et n'entrent jamais dans une période de grâce.
+
 ## L'ID de votre instance
 
 Chaque installation génère une seule fois un **ID d'instance** unique (`TEA-XXXX-XXXX-XXXX`), affiché en haut d'Admin → Extensions avec un bouton de copie. C'est votre identité de licence : indiquez-le lors de l'achat (la Boutique intégrée l'envoie automatiquement ; le paiement de la boutique en ligne le demande) afin que chaque extension achetée pour cette instance — par n'importe quel administrateur, sous n'importe quelle adresse e-mail — aboutisse dans une licence unique combinée. Il identifie seulement votre instance ; ce n'est jamais un identifiant secret, vous pouvez donc le partager sans risque avec votre fournisseur.

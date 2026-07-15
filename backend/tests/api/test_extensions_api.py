@@ -305,6 +305,25 @@ class TestInstallLifecycle:
         assert res.status_code == 403
         assert "entitlement" in res.json()["detail"]
 
+    async def test_free_extension_applies_without_license(self, client, db, vendor):
+        """A free bundle installs with no license — the free flag is honoured
+        at the apply gate even though the extension row does not exist yet."""
+        admin = await make_admin(db)
+        install = await upload_and_preview(client, db, admin, vendor, free=True)
+        res = await client.post(
+            f"/api/v1/admin/extensions/install/{install.id}/apply",
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 202, res.text
+        await ext_api.run_apply(db, install, admin)
+        assert install.status == "installed"
+
+        # Listed with a "free" entitlement (usable, no license present)
+        res = await client.get("/api/v1/admin/extensions", headers=auth_headers(admin))
+        listed = res.json()
+        assert listed[0]["key"] == "sample-ext"
+        assert listed[0]["entitlement"]["state"] == "free"
+
     async def test_tampered_bundle_fails_preview(self, client, db, vendor):
         admin = await make_admin(db)
         install = await upload_and_preview(
@@ -660,6 +679,20 @@ class TestStoreCatalog:
         assert item["installed_version"] is None
         assert item["update_available"] is False
         assert item["entitlement_state"] == "unlicensed"
+        assert item["free"] is False
+
+    async def test_free_catalog_item_flag_surfaced(self, client, db, vendor, monkeypatch):
+        admin = await make_admin(db)
+        mock_store(
+            monkeypatch,
+            catalog=catalog_payload(key="free-ext", name="Free", free=True, payment_link=""),
+        )
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        (item,) = res.json()["items"]
+        assert item["free"] is True
+        assert item["payment_link"] == ""
 
     async def test_member_cannot_read_catalog(self, client, db, vendor, monkeypatch):
         member = await make_member(db)
