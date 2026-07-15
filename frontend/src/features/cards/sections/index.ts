@@ -1,5 +1,6 @@
 export {
   DataQualityPill,
+  CardIdPill,
   PHASES,
   PHASE_LABELS,
   safeString,

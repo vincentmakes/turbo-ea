@@ -62,13 +62,21 @@ CARD_TYPE_COLUMNS = (
     "fields_schema",
     "stakeholder_roles",
     "section_config",
+    "reference_config",
     "built_in",
     "is_hidden",
     "sort_order",
     "translations",
 )
 CARD_TYPE_JSON = frozenset(
-    {"subtypes", "fields_schema", "stakeholder_roles", "section_config", "translations"}
+    {
+        "subtypes",
+        "fields_schema",
+        "stakeholder_roles",
+        "section_config",
+        "reference_config",
+        "translations",
+    }
 )
 
 RELATION_TYPE_COLUMNS = (
@@ -104,6 +112,7 @@ CARD_COLUMNS = (
     "subtype",
     "description",
     "external_id",
+    "reference",
     "alias",
     "approval_status",
     "status",

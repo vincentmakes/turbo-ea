@@ -65,7 +65,7 @@ from app.schemas.card import (
     StakeholderRef,
     TagRef,
 )
-from app.services import card_lifecycle, notification_service
+from app.services import card_lifecycle, card_reference, notification_service
 from app.services.calculation_engine import run_calculations_for_card
 from app.services.card_completeness import missing_mandatory
 from app.services.card_resolver import CardResolver
@@ -101,6 +101,16 @@ async def _get_ppm_exclusions(db: AsyncSession, card: Card) -> set[str]:
 router = APIRouter(prefix="/cards", tags=["cards"])
 
 _ALLOWED_URL_SCHEMES = ("http://", "https://", "mailto:")
+
+
+async def _assign_reference_on_create(
+    db: AsyncSession, card: Card, card_type: CardType | None
+) -> None:
+    """Populate ``card.reference`` at creation for ``auto``-mode types (else NULL)."""
+    if card_type is None:
+        return
+    if card_reference.get_mode(card_type) == "auto":
+        card.reference = await card_reference.next_reference(db, card_type)
 
 
 async def _validate_url_attributes(db: AsyncSession, card_type: str, attributes: dict) -> None:
@@ -377,6 +387,7 @@ def _card_to_response(card: Card, *, strip_cost_keys: frozenset[str] = frozenset
         approval_status=card.approval_status,
         data_quality=card.data_quality,
         external_id=card.external_id,
+        reference=card.reference,
         alias=card.alias,
         archived_at=card.archived_at,
         created_by=str(card.created_by) if card.created_by else None,
@@ -764,6 +775,12 @@ async def create_card(
     db.add(card)
     await db.flush()
 
+    # Assign the human-readable reference (auto-generated or manual) per type config.
+    card_type_row = (
+        await db.execute(select(CardType).where(CardType.key == body.type))
+    ).scalar_one_or_none()
+    await _assign_reference_on_create(db, card, card_type_row)
+
     # Guard: hierarchy depth limit for BusinessCapability
     if card.parent_id:
         await _check_hierarchy_depth(db, card, card.parent_id)
@@ -939,6 +956,31 @@ async def bulk_create_cards(
     # child rows in the same batch can resolve their parent.
     created_path_to_id: dict[str, uuid.UUID] = {}
 
+    # Per-type config cache + running per-PREFIX counters (global series). The
+    # number is always system-generated; counters are keyed by prefix so cards
+    # sharing a prefix stay contiguous, each seeded once via a global scan.
+    # Rolled-back rows leave gaps, which is acceptable by design.
+    _ref_types: dict[str, CardType | None] = {}
+    _ref_next: dict[str, int] = {}
+
+    async def _bulk_assign_reference(card: Card, row) -> None:
+        if row.type not in _ref_types:
+            _ref_types[row.type] = (
+                await db.execute(select(CardType).where(CardType.key == row.type))
+            ).scalar_one_or_none()
+        ct = _ref_types[row.type]
+        if ct is None or card_reference.get_mode(ct) != "auto":
+            return
+        cfg = ct.reference_config or {}
+        prefix = str(cfg.get("prefix", "") or "")
+        start = int(cfg.get("start", card_reference.DEFAULT_START))
+        padding = int(cfg.get("padding", card_reference.DEFAULT_PADDING))
+        if prefix not in _ref_next:
+            _ref_next[prefix] = await card_reference.scan_highest_for_prefix(db, prefix, start)
+        n = _ref_next[prefix] + 1
+        _ref_next[prefix] = n
+        card.reference = card_reference.format_reference(prefix, padding, n)
+
     for row_idx in order:
         r = rows_by_index[row_idx]
         # Per-row savepoint so a row that fails at flush time (e.g. a database
@@ -1014,6 +1056,8 @@ async def bulk_create_cards(
             )
             db.add(card)
             await db.flush()
+
+            await _bulk_assign_reference(card, r)
 
             if card.parent_id:
                 await _check_hierarchy_depth(db, card, card.parent_id)
@@ -1344,6 +1388,9 @@ async def bulk_update(
     sheets = list(result.scalars().all())
     updates = body.updates.model_dump(exclude_unset=True)
     strict_attrs = updates.pop("strict_attributes", False)
+    # The human-readable reference is per-card and uniqueness-gated; it is never
+    # editable in bulk (auto refs are write-once, manual refs must stay unique).
+    updates.pop("reference", None)
     if "attributes" in updates and updates["attributes"]:
         # Strict-attribute validation runs per distinct type because
         # `fields_schema` is per-type.
@@ -1858,6 +1905,9 @@ async def update_card(
     updates = body.model_dump(exclude_unset=True)
     # `strict_attributes` is a request-side flag, not a column.
     strict_attrs = updates.pop("strict_attributes", False)
+    # The human-readable reference is write-once & immutable — never editable via
+    # update (defensive: CardUpdate no longer carries it, but drop any stray).
+    updates.pop("reference", None)
 
     # Validate URL-typed attributes
     if "attributes" in updates and updates["attributes"]:

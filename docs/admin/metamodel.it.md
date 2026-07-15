@@ -61,6 +61,17 @@ I campi sono organizzati in **sezioni** nella pagina di dettaglio della card. Po
 
 Il nome speciale di sezione `__description` aggiunge campi alla sezione Descrizione della pagina di dettaglio della card.
 
+#### ID scheda
+
+Attiva la **generazione ID scheda** per assegnare alle schede di questo tipo un ID stabile e leggibile (ad esempio `APP-00001`). L'ID appare come pillola copiabile accanto al tipo della scheda, come colonna opzionale (ordinabile e filtrabile) nell'inventario, nelle esportazioni Excel e nelle formule dei campi calcolati (tramite `data.reference`).
+
+Il **numero è sempre generato automaticamente**; puoi controllare solo il **prefisso**. All'attivazione viene mostrato come testo un prefisso suggerito (derivato dal nome del tipo, es. `APP-`) — clicca la matita per modificarlo. Due impostazioni regolano il numero:
+
+- **Inizia da** — il primo numero della serie (predefinito `1`).
+- **Cifre min.** — larghezza del riempimento con zeri (predefinito `5`), così `1` diventa `00001`. È un minimo; i numeri si allungano una volta superato. Un **Esempio** mostra in tempo reale il primo ID.
+
+Gli ID sono **univoci a livello globale, di sola lettura e non vengono mai riutilizzati o modificati**. La sequenza numerica è tracciata **per prefisso in tutto il workspace**, quindi due tipi che condividono un prefisso formano un'unica serie continua e senza collisioni. Una volta che una scheda di questo tipo ha un ID, l'intero formato — prefisso, inizio e cifre min. — è bloccato (i campi diventano di sola lettura); puoi comunque disattivare la generazione. Il salvataggio non assegna mai ID alle schede esistenti; usa il pulsante dedicato **Genera ID** per colmare l'arretrato su richiesta (con barra di avanzamento e conferma).
+
 #### Punteggio di qualità dei dati
 
 Il punteggio di **qualità dei dati** di una card misura in modo ponderato quanto è completa. Ogni fattore che contribuisce — ogni campo e cinque fattori integrati — è gestito in un unico posto: la scheda **Qualità dei dati** dell'editor del tipo di card. (L'editor è organizzato in schede – Generale, Relazioni, Ruoli degli stakeholder e Qualità dei dati – le traduzioni sono disponibili dall'icona nell'intestazione.)

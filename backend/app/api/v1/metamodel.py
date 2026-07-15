@@ -20,6 +20,7 @@ from app.models.relation_type import RelationType
 from app.models.resource_type import ResourceType
 from app.models.stakeholder import Stakeholder
 from app.models.user import User
+from app.services import card_reference
 from app.services.extensions.registry import extension_registry
 from app.services.hierarchy import (
     HIERARCHY_LEVEL_KEY,
@@ -136,6 +137,7 @@ def _serialize_type(t: CardType) -> dict:
         "fields_schema": t.fields_schema or [],
         "stakeholder_roles": t.stakeholder_roles or [],
         "section_config": t.section_config or {},
+        "reference_config": t.reference_config or {},
         "built_in": t.built_in,
         "is_hidden": t.is_hidden,
         "sort_order": t.sort_order,
@@ -454,6 +456,67 @@ async def get_field_usage(
     return {"field_key": field_key, "card_count": count_result.scalar() or 0}
 
 
+@router.get("/types/{key}/reference-usage")
+async def get_reference_usage(
+    key: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Report card ID coverage for the metamodel editor (#811).
+
+    - ``count``   — cards of this type that already have an ID.
+    - ``missing`` — cards with no ID yet (what the Generate button would fill).
+    - ``locked``  — once ``count`` > 0 the prefix / start / min-digits are frozen.
+    """
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    result = await db.execute(select(CardType).where(CardType.key == key))
+    if not result.scalar_one_or_none():
+        raise HTTPException(404, "Card type not found")
+
+    count = (
+        await db.execute(
+            select(func.count())
+            .select_from(Card)
+            .where(Card.type == key, Card.reference.isnot(None))
+        )
+    ).scalar() or 0
+    missing = (
+        await db.execute(
+            select(func.count()).select_from(Card).where(Card.type == key, Card.reference.is_(None))
+        )
+    ).scalar() or 0
+    return {"count": count, "missing": missing, "locked": count > 0}
+
+
+@router.post("/types/{key}/generate-references")
+async def generate_references(
+    key: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Assign IDs to existing cards of this type that don't have one yet (#811).
+
+    Explicit, on-demand counterpart to the type Save (which never backfills).
+    Fill-only + idempotent — re-running only fills newly-missing cards, so it
+    never rewrites an existing ID. Uses the stored config, so save the format
+    first.
+
+    (A future "regenerate all" would compose from the same primitive:
+    ``UPDATE cards SET reference = NULL WHERE type = key`` then
+    ``backfill_references_for_type`` — deliberately not built here.)
+    """
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    result = await db.execute(select(CardType).where(CardType.key == key))
+    card_type = result.scalar_one_or_none()
+    if not card_type:
+        raise HTTPException(404, "Card type not found")
+    if card_reference.get_mode(card_type) != "auto":
+        raise HTTPException(400, "Card ID generation is not enabled for this type.")
+    generated = await card_reference.backfill_references_for_type(db, card_type)
+    await db.commit()
+    return {"generated": generated}
+
+
 @router.get("/types/{key}/section-usage")
 async def get_section_usage(
     key: str,
@@ -614,6 +677,10 @@ async def create_type(
     # gating, which only strips help/ext.* fields — a plain number field is safe).
     if body.get("has_hierarchy"):
         fields_schema = _inject_hierarchy_level_field(fields_schema)
+    try:
+        reference_config = card_reference.validate_reference_config(body.get("reference_config"))
+    except card_reference.ReferenceConfigError as exc:
+        raise HTTPException(400, str(exc)) from exc
     t = CardType(
         key=body["key"],
         label=body["label"],
@@ -626,6 +693,7 @@ async def create_type(
         subtypes=body.get("subtypes", []),
         fields_schema=fields_schema,
         stakeholder_roles=body.get("stakeholder_roles", default_roles),
+        reference_config=reference_config,
         built_in=False,
         is_hidden=False,
         sort_order=body.get("sort_order", next_order),
@@ -696,6 +764,7 @@ async def update_type(
     # contributor weights.
     old_signature = _scoring_signature(t.fields_schema, t.section_config)
     old_has_hierarchy = t.has_hierarchy
+    old_reference_config = dict(t.reference_config or {})
 
     updatable = [
         "label",
@@ -738,6 +807,36 @@ async def update_type(
         # Hierarchy disabled — drop the injected field def but KEEP card
         # attribute values (invisible without a def, meaningful again on re-enable).
         t.fields_schema = _remove_injected_hierarchy_level_field(t.fields_schema or [])
+
+    # ── Human-readable reference config (discussion #811) ──
+    if "reference_config" in body:
+        try:
+            new_ref_cfg = card_reference.validate_reference_config(body["reference_config"])
+        except card_reference.ReferenceConfigError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        old_ref_cfg = card_reference.validate_reference_config(old_reference_config)
+        # The ID FORMAT (prefix + number series) is frozen once any card of this
+        # type carries a reference — generated IDs must stay unique, never reused,
+        # and stable for the card's lifetime. Only the on/off mode may still change
+        # (turning it off pauses generation; existing IDs are untouched either way).
+        has_refs = (
+            await db.execute(
+                select(Card.id).where(Card.type == key, Card.reference.isnot(None)).limit(1)
+            )
+        ).first() is not None
+        if has_refs and any(
+            new_ref_cfg[f] != old_ref_cfg[f] for f in ("prefix", "start", "padding")
+        ):
+            raise HTTPException(
+                400,
+                "The card ID format is locked because cards of this type already have IDs.",
+            )
+        t.reference_config = new_ref_cfg
+        # NB: saving the config never backfills existing cards — that bulk,
+        # permanent mutation is deliberately a separate, explicit action
+        # (POST /types/{key}/generate-references), so an unrelated type Save can
+        # never mint thousands of IDs by surprise. New cards still auto-generate
+        # on create; only the historical backlog is generated on demand.
 
     await db.commit()
     await db.refresh(t)

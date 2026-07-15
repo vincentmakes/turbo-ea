@@ -628,5 +628,7 @@
   "todos.recurrence.months_one": "Hver måned",
   "todos.recurrence.months_other": "Hver {{count}}. måned",
   "todos.recurrence.years_one": "Hvert år",
-  "todos.recurrence.years_other": "Hvert {{count}}. år"
+  "todos.recurrence.years_other": "Hvert {{count}}. år",
+  "utils.cardId.tooltip": "Klik for at kopiere",
+  "utils.cardId.copied": "Kopieret!"
 }

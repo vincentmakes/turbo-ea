@@ -210,6 +210,7 @@ async def _build_context(db: AsyncSession, card: Card) -> dict[str, Any]:
             "status": card.status,
             "approval_status": card.approval_status,
             "subtype": card.subtype,
+            "reference": card.reference,
             "lifecycle": _DotDict(card.lifecycle or {}),
             **attrs,
         }

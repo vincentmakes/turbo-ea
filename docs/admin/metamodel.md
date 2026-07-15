@@ -61,6 +61,19 @@ Fields are organized into **sections** on the card detail page. You can:
 
 The special section name `__description` adds fields to the Description section of the card detail page.
 
+#### Card ID
+
+Toggle **Card ID generation** on to give cards of this type a stable, human-readable ID (for example `APP-00001`). The ID shows as a copy-to-clipboard pill next to the card's type on the detail page, as an optional sortable/filterable column in the inventory, in Excel exports, and in calculated-field formulas (via `data.reference`).
+
+The **number is always generated automatically**; you only control the **prefix**. When you turn the toggle on, a suggested prefix (derived from the type name, e.g. `APP-`) is shown as text — click the pencil to change it. Two settings tune the number:
+
+- **Start at** — the first number in the series (default `1`).
+- **Min digits** — zero-padding width (default `5`), so `1` renders as `00001`. It's a minimum; numbers widen once they exceed it. A live **Example** shows the first ID as you type.
+
+IDs are **globally unique, read-only, and never reused or changed** once assigned. The number sequence is tracked **per prefix across the whole workspace**, so two card types that share a prefix form one continuous, collision-free series. **Once any card of the type has an ID, the whole format — prefix, start, and min digits — is locked** (the fields become read-only), so existing IDs can never drift; you can still turn generation off.
+
+**Saving the type never assigns IDs to existing cards** — that bulk action is deliberately separate. New cards get their ID automatically on creation; to fill the existing backlog, use the dedicated **Generate IDs** button in the ID section (it shows how many cards still need one, runs on demand with a progress bar, and confirms when done). It is fill-only and idempotent — it only assigns IDs to cards that don't have one yet, never rewriting an existing ID.
+
 #### Data quality scoring
 
 A card's **data quality** score is a weighted measure of how complete it is. Every contributing factor — each field plus five built-in factors — is managed in one place: the **Data quality** tab of the card-type editor. (The editor is organised into tabs — Main, Relations, Stakeholder roles, and Data quality — with translations available from the icon in the header.)

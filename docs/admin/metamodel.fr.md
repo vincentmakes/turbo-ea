@@ -61,6 +61,17 @@ Les champs sont organisés en **sections** sur la page de détail des fiches. Vo
 
 Le nom de section special `__description` ajoute les champs à la section Description de la page de détail des fiches.
 
+#### ID de carte
+
+Activez la **génération d'ID de carte** pour attribuer aux cartes de ce type un ID stable et lisible (par exemple `APP-00001`). L'ID apparaît sous forme de pastille copiable à côté du type de la carte, comme colonne optionnelle (triable et filtrable) dans l'inventaire, dans les exports Excel et dans les formules des champs calculés (via `data.reference`).
+
+Le **numéro est toujours généré automatiquement** ; vous ne contrôlez que le **préfixe**. À l'activation, un préfixe suggéré (dérivé du nom du type, ex. `APP-`) s'affiche sous forme de texte — cliquez sur le crayon pour le modifier. Deux réglages ajustent le numéro :
+
+- **Début** — le premier numéro de la série (par défaut `1`).
+- **Chiffres min.** — largeur du remplissage par des zéros (par défaut `5`), donc `1` s'affiche `00001`. C'est un minimum ; les numéros s'allongent une fois dépassés. Un **Exemple** affiche en direct le premier ID.
+
+Les ID sont **uniques globalement, en lecture seule, jamais réutilisés ni modifiés**. La séquence de numéros est suivie **par préfixe sur tout l'espace de travail** : deux types partageant un préfixe forment une seule série continue et sans collision. Dès qu'une carte de ce type a un ID, tout le format — préfixe, début et chiffres min. — est verrouillé (les champs deviennent en lecture seule) ; vous pouvez encore désactiver la génération. L'enregistrement n'attribue jamais d'ID aux cartes existantes ; utilisez le bouton dédié **Générer les ID** pour combler le retard à la demande (avec barre de progression et confirmation).
+
 #### Évaluation de la qualité des données
 
 Le score de **qualité des données** d'une fiche mesure de manière pondérée son niveau de complétude. Chaque facteur contributeur – chaque champ ainsi que cinq facteurs intégrés – est géré au même endroit : l'onglet **Qualité des données** de l'éditeur de type de fiche. (L'éditeur est organisé en onglets – Principal, Relations, Rôles des parties prenantes et Qualité des données – les traductions sont accessibles via l'icône de l'en-tête.)

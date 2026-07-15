@@ -61,6 +61,17 @@ Felder werden in **Abschnitte** auf der Kartendetailseite organisiert. Sie könn
 
 Der spezielle Abschnittsname `__description` fügt Felder zum Beschreibungsabschnitt der Kartendetailseite hinzu.
 
+#### Karten-ID
+
+Aktivieren Sie **Karten-ID-Generierung**, um Karten dieses Typs eine stabile, lesbare ID zu geben (z. B. `APP-00001`). Die ID erscheint als Pille zum Kopieren neben dem Kartentyp auf der Detailseite, als optionale sortier- und filterbare Spalte im Inventar, in Excel-Exporten und in Formeln berechneter Felder (über `data.reference`).
+
+Die **Nummer wird immer automatisch erzeugt**; steuern lässt sich nur das **Präfix**. Beim Einschalten wird ein vorgeschlagenes Präfix (aus dem Typnamen abgeleitet, z. B. `APP-`) als Text angezeigt – zum Ändern auf den Stift klicken. Zwei Einstellungen steuern die Nummer:
+
+- **Beginn bei** – die erste Nummer der Serie (Standard `1`).
+- **Min. Stellen** – Breite der Nullauffüllung (Standard `5`), sodass `1` als `00001` erscheint. Es ist ein Minimum; die Nummern werden länger, sobald sie es überschreiten. Ein **Beispiel** zeigt live die erste ID.
+
+IDs sind **global eindeutig, schreibgeschützt und werden nie wiederverwendet oder geändert**. Die Nummernfolge wird **je Präfix workspaceweit** geführt, sodass Typen mit gleichem Präfix eine durchgehende, kollisionsfreie Serie bilden. Sobald Karten dieses Typs IDs haben, ist das gesamte Format – Präfix, Beginn und Min. Stellen – gesperrt (die Felder werden schreibgeschützt); nur das Ausschalten bleibt möglich. Das Speichern weist bestehenden Karten nie IDs zu; nutzen Sie die separate Schaltfläche **IDs generieren**, um den Rückstand bei Bedarf zu füllen (mit Fortschrittsanzeige und Bestätigung).
+
 #### Datenqualitätsbewertung
 
 Der **Datenqualitätswert** einer Karte ist ein gewichtetes Maß für ihre Vollständigkeit. Jeder beitragende Faktor – jedes Feld sowie fünf integrierte Faktoren – wird an einer Stelle verwaltet: im **Datenqualität**-Tab des Kartentyp-Editors. (Der Editor ist in Registerkarten unterteilt – Allgemein, Beziehungen, Stakeholder-Rollen und Datenqualität – Übersetzungen sind über das Symbol in der Kopfzeile verfügbar.)

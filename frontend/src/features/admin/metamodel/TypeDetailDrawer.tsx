@@ -18,6 +18,7 @@ import Snackbar from "@mui/material/Snackbar";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import CircularProgress from "@mui/material/CircularProgress";
+import LinearProgress from "@mui/material/LinearProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColorPicker from "@/components/ColorPicker";
 import IconPicker from "@/components/IconPicker";
@@ -40,6 +41,18 @@ import TranslationDialog from "./TranslationDialog";
 /* ------------------------------------------------------------------ */
 /*  Type Detail Dialog (full-width, 2-panel layout)                    */
 /* ------------------------------------------------------------------ */
+
+/** Render a preview of the first generated card ID from the current config. */
+function formatIdExample(prefix: string, start: number, padding: number): string {
+  const n = Number.isFinite(start) ? Math.max(0, Math.trunc(start)) : 0;
+  return padding > 0 ? `${prefix}${String(n).padStart(padding, "0")}` : `${prefix}${n}`;
+}
+
+/** Suggested default ID prefix for a card type, e.g. "Application" → "APP-". */
+function defaultPrefixForType(key: string): string {
+  const base = (key || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 3).toUpperCase();
+  return base ? `${base}-` : "";
+}
 
 type TabKey = "main" | "relations" | "stakeholders" | "dataQuality";
 
@@ -74,6 +87,18 @@ export default function TypeDetailDrawer({
   const [icon, setIcon] = useState("category");
   const [hasHierarchy, setHasHierarchy] = useState(false);
   const [hasSuccessors, setHasSuccessors] = useState(false);
+  /* --- Human-readable card ID config (#811) --- */
+  const [idEnabled, setIdEnabled] = useState(false);
+  const [idPrefix, setIdPrefix] = useState("");
+  const [idStart, setIdStart] = useState(1);
+  const [idPadding, setIdPadding] = useState(5);
+  const [editingPrefix, setEditingPrefix] = useState(false);
+  // Locked once any card of this type already has an ID — the format (prefix /
+  // start / min-digits) is then frozen so generated IDs stay stable & unique.
+  const [idLocked, setIdLocked] = useState(false);
+  const [idMissing, setIdMissing] = useState(0); // cards of this type with no ID yet
+  const [generating, setGenerating] = useState(false);
+  const [generateConfirm, setGenerateConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [snack, setSnack] = useState("");
@@ -132,7 +157,22 @@ export default function TypeDetailDrawer({
       .get<Record<string, string[]>>("/calculations/calculated-fields")
       .then((map) => setCalculatedFieldKeys(map[cardTypeKey.key] || []))
       .catch(() => setCalculatedFieldKeys([]));
+    setIdLocked(false);
+    setIdMissing(0);
+    refreshReferenceUsage(cardTypeKey.key);
   }, [open, cardTypeKey]);
+
+  const refreshReferenceUsage = (key: string) =>
+    api
+      .get<{ locked: boolean; missing: number }>(`/metamodel/types/${key}/reference-usage`)
+      .then((r) => {
+        setIdLocked(!!r.locked);
+        setIdMissing(r.missing ?? 0);
+      })
+      .catch(() => {
+        setIdLocked(false);
+        setIdMissing(0);
+      });
 
   /* Initialise local state from the type whenever the dialog opens or the type changes */
   useEffect(() => {
@@ -144,6 +184,12 @@ export default function TypeDetailDrawer({
       setIcon(cardTypeKey.icon);
       setHasHierarchy(cardTypeKey.has_hierarchy);
       setHasSuccessors(cardTypeKey.has_successors);
+      const rc = cardTypeKey.reference_config || {};
+      setIdEnabled(rc.mode === "auto");
+      setIdPrefix(rc.prefix || "");
+      setIdStart(rc.start ?? 1);
+      setIdPadding(rc.padding ?? 5);
+      setEditingPrefix(false);
       setError(null);
       setAddSubOpen(false);
       setEditingSubtypeKey(null);
@@ -177,6 +223,9 @@ export default function TypeDetailDrawer({
         icon,
         has_hierarchy: hasHierarchy,
         has_successors: hasSuccessors,
+        reference_config: idEnabled
+          ? { mode: "auto", prefix: idPrefix, start: idStart, padding: idPadding }
+          : { mode: "off" },
         translations: mergedTranslations,
       });
       onRefresh();
@@ -186,6 +235,33 @@ export default function TypeDetailDrawer({
       setError(e instanceof Error ? e.message : t("metamodel.typeDrawer.failedToSave"));
     } finally {
       setSaving(false);
+    }
+  };
+
+  /* --- Card ID generation (explicit backfill of existing cards, #811) --- */
+  const savedRc = cardTypeKey.reference_config || {};
+  const idConfigDirty =
+    idEnabled !== (savedRc.mode === "auto") ||
+    (idEnabled &&
+      (idPrefix !== (savedRc.prefix || "") ||
+        idStart !== (savedRc.start ?? 1) ||
+        idPadding !== (savedRc.padding ?? 5)));
+
+  const handleGenerate = async () => {
+    setGenerateConfirm(false);
+    setGenerating(true);
+    try {
+      const r = await api.post<{ generated: number }>(
+        `/metamodel/types/${cardTypeKey.key}/generate-references`,
+        {},
+      );
+      await refreshReferenceUsage(cardTypeKey.key);
+      setError(null);
+      setSnack(t("metamodel.typeDrawer.cardId.generated", { count: r.generated }));
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : t("metamodel.typeDrawer.failedToSave"));
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -543,6 +619,129 @@ export default function TypeDetailDrawer({
               control={<Switch checked={hasSuccessors} onChange={(e) => setHasSuccessors(e.target.checked)} />}
               label={t("metamodel.typeDrawer.supportsSuccessors")}
             />
+            {/* -- Human-readable card ID (#811) -- */}
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={idEnabled}
+                    onChange={(e) => {
+                      const on = e.target.checked;
+                      setIdEnabled(on);
+                      if (on && !idPrefix) setIdPrefix(defaultPrefixForType(cardTypeKey.key));
+                      if (!on) setEditingPrefix(false);
+                    }}
+                  />
+                }
+                label={t("metamodel.typeDrawer.cardId.label")}
+              />
+              {idEnabled && (
+                <Typography variant="caption" color="text.secondary" sx={{ mt: -0.5, mb: 0.5 }}>
+                  {idLocked
+                    ? t("metamodel.typeDrawer.cardId.locked")
+                    : t("metamodel.typeDrawer.cardId.help")}
+                </Typography>
+              )}
+              {idEnabled && !idLocked && (
+                <Alert severity="warning" variant="outlined" sx={{ py: 0, mb: 0.5 }}>
+                  {t("metamodel.typeDrawer.cardId.oneTimeSetup")}
+                </Alert>
+              )}
+              {idEnabled && (
+                <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", alignItems: "center" }}>
+                  {/* Prefix — shown as text, editable via the pencil (locked once IDs exist) */}
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      {t("metamodel.typeDrawer.cardId.prefix")}
+                    </Typography>
+                    {editingPrefix && !idLocked ? (
+                      <TextField
+                        size="small"
+                        autoFocus
+                        value={idPrefix}
+                        onChange={(e) => setIdPrefix(e.target.value)}
+                        onBlur={() => setEditingPrefix(false)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === "Escape") setEditingPrefix(false);
+                        }}
+                        sx={{ width: 120, "& input": { fontFamily: "monospace" } }}
+                      />
+                    ) : (
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+                        <Typography sx={{ fontFamily: "monospace", fontWeight: 700 }}>
+                          {idPrefix || "—"}
+                        </Typography>
+                        {!idLocked && (
+                          <Tooltip title={t("common:actions.edit")}>
+                            <IconButton size="small" onClick={() => setEditingPrefix(true)}>
+                              <MaterialSymbol icon="edit" size={15} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    )}
+                  </Box>
+                  <TextField
+                    size="small"
+                    type="number"
+                    label={t("metamodel.typeDrawer.cardId.start")}
+                    value={idStart}
+                    disabled={idLocked}
+                    onChange={(e) => setIdStart(Number(e.target.value))}
+                    sx={{ width: 90 }}
+                  />
+                  <TextField
+                    size="small"
+                    type="number"
+                    label={t("metamodel.typeDrawer.cardId.padding")}
+                    value={idPadding}
+                    disabled={idLocked}
+                    onChange={(e) => setIdPadding(Number(e.target.value))}
+                    sx={{ width: 90 }}
+                  />
+                  <Box sx={{ ml: { sm: "auto" }, textAlign: { sm: "right" } }}>
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      {t("metamodel.typeDrawer.cardId.example")}
+                    </Typography>
+                    <Typography
+                      sx={{ fontFamily: "monospace", fontWeight: 700, color, lineHeight: 1.3 }}
+                    >
+                      {formatIdExample(idPrefix, idStart, idPadding)}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+              {/* Generate — explicit backfill of existing cards, separate from Save */}
+              {idEnabled && (
+                <Box sx={{ mt: 0.5 }}>
+                  {generating && <LinearProgress sx={{ mb: 0.75, maxWidth: 260 }} />}
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      disabled={generating || idConfigDirty || idMissing === 0}
+                      onClick={() => setGenerateConfirm(true)}
+                      startIcon={
+                        generating ? (
+                          <CircularProgress size={14} />
+                        ) : (
+                          <MaterialSymbol icon="autorenew" size={16} />
+                        )
+                      }
+                    >
+                      {idMissing > 0
+                        ? t("metamodel.typeDrawer.cardId.generateN", { count: idMissing })
+                        : t("metamodel.typeDrawer.cardId.generateNone")}
+                    </Button>
+                    {idConfigDirty && (
+                      <Typography variant="caption" color="text.secondary">
+                        {t("metamodel.typeDrawer.cardId.saveFirst")}
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
+              )}
+            </Box>
           </Box>
         </Box>
 
@@ -734,6 +933,24 @@ export default function TypeDetailDrawer({
       </Box>
 
       {/* --- Field deletion confirmation dialog --- */}
+      <Dialog open={generateConfirm} onClose={() => setGenerateConfirm(false)} maxWidth="xs" fullWidth disableRestoreFocus>
+        <DialogTitle>{t("metamodel.typeDrawer.cardId.generateConfirmTitle")}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 1.5 }}>
+            {t("metamodel.typeDrawer.cardId.generateConfirmBody", { count: idMissing })}
+          </Typography>
+          <Typography variant="body2" sx={{ fontFamily: "monospace", fontWeight: 700, color }}>
+            {t("metamodel.typeDrawer.cardId.example")}: {formatIdExample(idPrefix, idStart, idPadding)}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setGenerateConfirm(false)}>{t("common:actions.cancel")}</Button>
+          <Button variant="contained" onClick={handleGenerate}>
+            {t("metamodel.typeDrawer.cardId.generateConfirmAction")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={!!deleteFieldConfirm} onClose={() => setDeleteFieldConfirm(null)} maxWidth="xs" fullWidth disableRestoreFocus>
         <DialogTitle>{t("metamodel.typeDrawer.deleteField")}</DialogTitle>
         <DialogContent>

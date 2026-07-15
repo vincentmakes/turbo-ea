@@ -230,5 +230,6 @@
   "export.allFieldsHint": "Jeu de données complet, réimportable",
   "export.currentView": "Exporter la vue actuelle",
   "export.currentViewHint": "Reflète la grille affichée — non réimportable",
-  "export.viewSheetName": "Vue"
+  "export.viewSheetName": "Vue",
+  "columns.id": "ID"
 }

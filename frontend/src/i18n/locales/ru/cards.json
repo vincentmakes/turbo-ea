@@ -628,5 +628,7 @@
   "todos.recurrence.months_one": "Каждый месяц",
   "todos.recurrence.months_other": "Каждые {{count}} мес.",
   "todos.recurrence.years_one": "Каждый год",
-  "todos.recurrence.years_other": "Каждые {{count}} лет"
+  "todos.recurrence.years_other": "Каждые {{count}} лет",
+  "utils.cardId.tooltip": "Нажмите, чтобы скопировать",
+  "utils.cardId.copied": "Скопировано!"
 }

@@ -13,6 +13,7 @@ import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import InputAdornment from "@mui/material/InputAdornment";
+import { lighten, useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import type { CurrencyFormatter } from "@/hooks/useCurrency";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -202,6 +203,71 @@ export function DataQualityPill({ value }: { value: number }) {
           }}
         >
           {v}%
+        </Typography>
+      </Box>
+    </Tooltip>
+  );
+}
+
+// ── Card ID Pill (human-readable reference, #811) ────────────────
+/** Read-only, copy-to-clipboard pill. Colored in the card type's light tint —
+ * the same scheme the Layered Dependency View uses for its nodes (raw hex text in
+ * light mode / lightened in dark, over a low-alpha tint of the type color). */
+export function CardIdPill({
+  reference,
+  typeColor,
+}: {
+  reference: string | null | undefined;
+  typeColor?: string;
+}) {
+  const { t } = useTranslation(["cards", "common"]);
+  const theme = useTheme();
+  const [copied, setCopied] = useState(false);
+
+  if (!reference) return null;
+
+  const isDark = theme.palette.mode === "dark";
+  // Guard non-hex metamodel colors (mirrors LayeredDependencyView's fallback).
+  const hex = /^#[0-9a-fA-F]{6}$/.test(typeColor || "") ? (typeColor as string) : "#9e9e9e";
+  const accent = isDark ? lighten(hex, 0.45) : hex;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const bg = `rgba(${r},${g},${b},${isDark ? 0.18 : 0.12})`;
+
+  const copy = () => {
+    void navigator.clipboard?.writeText(reference).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    });
+  };
+
+  return (
+    <Tooltip title={copied ? t("utils.cardId.copied") : t("utils.cardId.tooltip")}>
+      <Box
+        onClick={copy}
+        sx={{
+          height: 22,
+          borderRadius: "11px",
+          border: `1px solid ${accent}`,
+          bgcolor: bg,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 0.375,
+          px: 0.75,
+          cursor: "pointer",
+          boxSizing: "border-box",
+          maxWidth: "100%",
+        }}
+      >
+        <MaterialSymbol icon="tag" size={12} color={accent} />
+        <Typography
+          variant="caption"
+          fontWeight={700}
+          noWrap
+          sx={{ color: accent, lineHeight: 1, fontSize: "0.7rem", fontFamily: "monospace" }}
+        >
+          {reference}
         </Typography>
       </Box>
     </Tooltip>

@@ -230,5 +230,6 @@
   "export.allFieldsHint": "Conjunto de datos completo, reimportable",
   "export.currentView": "Exportar vista actual",
   "export.currentViewHint": "Refleja la cuadrícula en pantalla: no apta para reimportar",
-  "export.viewSheetName": "Vista"
+  "export.viewSheetName": "Vista",
+  "columns.id": "ID"
 }

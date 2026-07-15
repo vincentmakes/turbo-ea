@@ -2603,6 +2603,17 @@
             ],
             "title": "Parent Id"
           },
+          "reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          },
           "stakeholders": {
             "default": [],
             "items": {
@@ -23786,6 +23797,47 @@
         ]
       }
     },
+    "/api/v1/metamodel/types/{key}/generate-references": {
+      "post": {
+        "description": "Assign IDs to existing cards of this type that don't have one yet (#811).\n\nExplicit, on-demand counterpart to the type Save (which never backfills).\nFill-only + idempotent \u2014 re-running only fills newly-missing cards, so it\nnever rewrites an existing ID. Uses the stored config, so save the format\nfirst.\n\n(A future \"regenerate all\" would compose from the same primitive:\n``UPDATE cards SET reference = NULL WHERE type = key`` then\n``backfill_references_for_type`` \u2014 deliberately not built here.)",
+        "operationId": "generate_references_api_v1_metamodel_types__key__generate_references_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Generate References",
+        "tags": [
+          "metamodel"
+        ]
+      }
+    },
     "/api/v1/metamodel/types/{key}/option-usage": {
       "get": {
         "description": "Return how many active cards use a specific option value.",
@@ -23844,6 +23896,47 @@
           }
         },
         "summary": "Get Option Usage",
+        "tags": [
+          "metamodel"
+        ]
+      }
+    },
+    "/api/v1/metamodel/types/{key}/reference-usage": {
+      "get": {
+        "description": "Report card ID coverage for the metamodel editor (#811).\n\n- ``count``   \u2014 cards of this type that already have an ID.\n- ``missing`` \u2014 cards with no ID yet (what the Generate button would fill).\n- ``locked``  \u2014 once ``count`` > 0 the prefix / start / min-digits are frozen.",
+        "operationId": "get_reference_usage_api_v1_metamodel_types__key__reference_usage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Reference Usage",
         "tags": [
           "metamodel"
         ]

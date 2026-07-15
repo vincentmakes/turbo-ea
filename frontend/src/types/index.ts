@@ -252,10 +252,21 @@ export interface CardType {
   fields_schema: SectionDef[];
   stakeholder_roles?: StakeholderRoleDefinition[];
   section_config?: Record<string, SectionConfig>;
+  reference_config?: ReferenceConfig;
   built_in: boolean;
   is_hidden: boolean;
   sort_order: number;
   translations?: MetamodelTranslations;
+}
+
+/** Per-type human-readable card ID config (discussion #811). When enabled
+ * (`mode: "auto"`) the system generates `{prefix}{number}`; the number is always
+ * auto and the prefix is set by the admin. */
+export interface ReferenceConfig {
+  mode?: "off" | "auto";
+  prefix?: string;
+  start?: number;
+  padding?: number;
 }
 
 export interface RelationType {
@@ -306,6 +317,7 @@ export interface Card {
   approval_status: string;
   data_quality: number;
   external_id?: string;
+  reference?: string | null;
   alias?: string;
   archived_at?: string;
   created_by?: string;
