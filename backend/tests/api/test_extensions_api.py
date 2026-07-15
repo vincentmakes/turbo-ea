@@ -685,8 +685,10 @@ class TestStoreCatalog:
                 license="MIT",
                 license_url="https://example.com/license",
                 screenshots=[
-                    "https://store.test/img/a.png",
-                    "https://store.test/img/b.png",
+                    "/screenshots/sample-ext/a.png",
+                    "//evil.example.net/x.png",  # protocol-relative → dropped
+                    "https://evil.example.net/y.png",  # off-origin → dropped
+                    "/screenshots/sample-ext/b.png",
                 ],
             ),
         )
@@ -699,9 +701,12 @@ class TestStoreCatalog:
         assert item["homepage"] == "https://example.com/ext"
         assert item["license"] == "MIT"
         assert item["license_url"] == "https://example.com/license"
+        # Only same-origin, /-rooted paths survive, resolved to absolute store URLs
+        # so the in-product <img> loads from the store origin rather than 404-ing
+        # against the Turbo EA instance's own origin.
         assert item["screenshots"] == [
-            "https://store.test/img/a.png",
-            "https://store.test/img/b.png",
+            f"{STORE_URL}/screenshots/sample-ext/a.png",
+            f"{STORE_URL}/screenshots/sample-ext/b.png",
         ]
 
     async def test_unlicensed_uninstalled_item(self, client, db, vendor, monkeypatch):

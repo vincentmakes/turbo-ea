@@ -529,6 +529,32 @@ def _version_tuple(value: str) -> tuple[int, ...]:
         return ()
 
 
+def _resolve_screenshots(base_url: str, raw: object) -> list[str]:
+    """Resolve catalogue screenshot paths to absolute, same-origin URLs.
+
+    The catalogue stores same-origin ``/screenshots/<key>/…`` paths. We
+    prefix each with the store base URL so the in-product ``<img src>``
+    resolves against the store origin (a relative path would otherwise
+    resolve against the Turbo EA instance's own origin and 404), and we
+    reject anything that is not a ``/``-rooted relative path — an off-origin
+    absolute URL, or a protocol-relative ``//host`` path — mirroring the
+    same-origin ``bundle_url`` guard so a tampered catalogue can never point
+    the browser at an arbitrary host.
+    """
+    if not isinstance(raw, list):
+        return []
+    base = base_url.rstrip("/")
+    out: list[str] = []
+    for entry in raw:
+        if not isinstance(entry, str):
+            continue
+        path = entry.strip()
+        if not path.startswith("/") or path.startswith("//"):
+            continue
+        out.append(base + path)
+    return out
+
+
 async def _fetch_store_catalog(base_url: str) -> list[dict]:
     """GET {base_url}/catalog.json and return its ``extensions`` list."""
     url = base_url.rstrip("/") + "/catalog.json"
@@ -583,9 +609,7 @@ async def store_catalog(
                 homepage=str(item.get("homepage") or ""),
                 license=str(item.get("license") or ""),
                 license_url=str(item.get("license_url") or ""),
-                screenshots=[
-                    str(s) for s in (item.get("screenshots") or []) if isinstance(s, str) and s
-                ],
+                screenshots=_resolve_screenshots(base_url, item.get("screenshots")),
                 version=catalog_version,
                 installed_version=installed_version,
                 update_available=bool(
