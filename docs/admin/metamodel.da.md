@@ -61,6 +61,17 @@ Felter er organiseret i **sektioner** på kortdetaljesiden. Du kan:
 
 Det særlige sektionsnavn `__description` tilføjer felter til Beskrivelsessektionen af kortdetaljesiden.
 
+#### Kort-ID
+
+Slå **generering af kort-ID** til for at give kort af denne type et stabilt, læsbart ID (for eksempel `APP-00001`). ID'et vises som en kopiér-pille ved siden af kortets type på detaljesiden, som en valgfri (sorterbar og filtrerbar) kolonne i inventaret, i Excel-eksporter og i formler for beregnede felter (via `data.reference`).
+
+**Nummeret genereres altid automatisk**; du styrer kun **præfikset**. Når du slår til, vises et foreslået præfiks (udledt af typenavnet, f.eks. `APP-`) som tekst — klik på blyanten for at ændre det. To indstillinger justerer nummeret:
+
+- **Start ved** — det første nummer i serien (standard `1`).
+- **Min. cifre** — bredden af nuludfyldningen (standard `5`), så `1` vises som `00001`. Det er et minimum; numrene bliver længere, når de overstiger det. Et **Eksempel** viser live det første ID.
+
+ID'er er **globalt unikke, skrivebeskyttede og genbruges eller ændres aldrig**. Nummersekvensen føres **pr. præfiks på tværs af hele arbejdsområdet**, så to typer med samme præfiks danner én sammenhængende, kollisionsfri serie. Når et kort af denne type har et ID, låses hele formatet — præfiks, start og min. cifre — (felterne bliver skrivebeskyttede); du kan stadig slå generering fra. Lagring tildeler aldrig ID'er til eksisterende kort; brug den dedikerede **Generér ID'er**-knap til at udfylde efterslæbet efter behov (med statuslinje og bekræftelse).
+
 #### Datakvalitetsscore
 
 Et korts **datakvalitetsscore** er et vægtet mål for, hvor komplet det er. Hver bidragende faktor – hvert felt samt fem indbyggede faktorer – håndteres ét sted: fanen **Datakvalitet** i korttypeeditoren. (Editoren er organiseret i faner – Generelt, Relationer, Interessentroller og Datakvalitet – oversættelser er tilgængelige via ikonet i headeren.)

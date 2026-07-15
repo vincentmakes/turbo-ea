@@ -26,6 +26,10 @@ class CardType(Base, UUIDMixin, TimestampMixin):
     section_config: Mapped[dict | None] = mapped_column(
         JSONB, default=dict
     )  # {sectionKey: {defaultExpanded, hidden}}
+    # Human-readable card ID config: {mode: "off"|"auto", prefix, start, padding}.
+    # "auto" = system-generated {prefix}{number}. Empty dict means the feature is
+    # off (mode defaults to "off").
+    reference_config: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
     built_in: Mapped[bool] = mapped_column(Boolean, default=True)
     is_hidden: Mapped[bool] = mapped_column(Boolean, default=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)

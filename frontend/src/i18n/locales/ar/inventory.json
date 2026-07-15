@@ -230,5 +230,6 @@
   "export.allFieldsHint": "مجموعة بيانات كاملة، قابلة لإعادة الاستيراد",
   "export.currentView": "تصدير العرض الحالي",
   "export.currentViewHint": "يطابق الجدول المعروض — غير مناسب لإعادة الاستيراد",
-  "export.viewSheetName": "عرض"
+  "export.viewSheetName": "عرض",
+  "columns.id": "المعرّف"
 }

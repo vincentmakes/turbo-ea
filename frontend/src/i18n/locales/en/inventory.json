@@ -230,5 +230,6 @@
   "export.allFieldsHint": "Full data set, re-importable",
   "export.currentView": "Export current view",
   "export.currentViewHint": "Mirrors the on-screen grid — not for re-import",
-  "export.viewSheetName": "View"
+  "export.viewSheetName": "View",
+  "columns.id": "ID"
 }

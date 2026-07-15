@@ -41,6 +41,7 @@ from app.models.relation_type import RelationType
 from app.models.role import Role
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
+from app.services import card_reference
 from app.services.card_resolver import CardResolver
 from app.services.email_backends.runtime import apply_email_settings_to_runtime
 from app.services.workspace_io import exporter as exp
@@ -765,6 +766,32 @@ def _make_cards_applier(user: User):
 
             try:
                 await _validate_url_attributes(db, type_key, data.get("attributes") or {})
+                # Carry the human-readable reference verbatim so IDs stay stable
+                # across a move/restore. On a unique-index collision, regenerate
+                # from the type config (auto/custom) else drop it, keeping the card
+                # importable.
+                resolved_reference = data.get("reference") or None
+                if resolved_reference:
+                    clash = (
+                        await db.execute(
+                            select(Card.id).where(Card.reference == resolved_reference).limit(1)
+                        )
+                    ).first() is not None
+                    if clash:
+                        ct = (
+                            await db.execute(select(CardType).where(CardType.key == type_key))
+                        ).scalar_one_or_none()
+                        mode = card_reference.get_mode(ct) if ct is not None else "off"
+                        if mode != "off":
+                            cfg = ct.reference_config or {}
+                            resolved_reference = await card_reference.next_reference_for_prefix(
+                                db,
+                                str(cfg.get("prefix", "") or ""),
+                                int(cfg.get("start", card_reference.DEFAULT_START)),
+                                int(cfg.get("padding", card_reference.DEFAULT_PADDING)),
+                            )
+                        else:
+                            resolved_reference = None
                 card = Card(
                     type=type_key,
                     subtype=data.get("subtype"),
@@ -774,6 +801,7 @@ def _make_cards_applier(user: User):
                     lifecycle=data.get("lifecycle") or {},
                     attributes=data.get("attributes") or {},
                     external_id=external_id,
+                    reference=resolved_reference,
                     alias=data.get("alias"),
                     status=data.get("status") or "ACTIVE",
                     approval_status=data.get("approval_status") or "DRAFT",

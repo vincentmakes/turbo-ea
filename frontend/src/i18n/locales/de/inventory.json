@@ -230,5 +230,6 @@
   "export.allFieldsHint": "Vollständiger Datensatz, reimportierbar",
   "export.currentView": "Aktuelle Ansicht exportieren",
   "export.currentViewHint": "Entspricht der angezeigten Tabelle – nicht für den Reimport",
-  "export.viewSheetName": "Ansicht"
+  "export.viewSheetName": "Ansicht",
+  "columns.id": "ID"
 }

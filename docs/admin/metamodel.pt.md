@@ -61,6 +61,17 @@ Campos são organizados em **seções** na página de detalhe do card. Você pod
 
 O nome de seção especial `__description` adiciona campos à seção de Descrição da página de detalhe do card.
 
+#### ID do cartão
+
+Ative a **geração de ID do cartão** para atribuir aos cartões deste tipo um ID estável e legível (por exemplo `APP-00001`). O ID aparece como uma etiqueta copiável ao lado do tipo do cartão, como coluna opcional (ordenável e filtrável) no inventário, nas exportações para Excel e nas fórmulas de campos calculados (via `data.reference`).
+
+O **número é sempre gerado automaticamente**; você só controla o **prefixo**. Ao ativar, um prefixo sugerido (derivado do nome do tipo, ex. `APP-`) é mostrado como texto — clique no lápis para alterá-lo. Duas definições ajustam o número:
+
+- **Começar em** — o primeiro número da série (padrão `1`).
+- **Dígitos mín.** — largura do preenchimento com zeros (padrão `5`), então `1` aparece como `00001`. É um mínimo; os números aumentam ao ultrapassá-lo. Um **Exemplo** mostra ao vivo o primeiro ID.
+
+Os IDs são **globalmente únicos, somente leitura e nunca reutilizados ou alterados**. A sequência numérica é mantida **por prefixo em todo o workspace**, portanto dois tipos que partilham um prefixo formam uma única série contínua e sem colisões. Assim que um cartão deste tipo tem um ID, todo o formato — prefixo, início e dígitos mín. — fica bloqueado (os campos ficam somente leitura); ainda pode desativar a geração. Salvar nunca atribui IDs aos cartões existentes; use o botão dedicado **Gerar IDs** para preencher o backlog sob demanda (com barra de progresso e confirmação).
+
 #### Pontuação de qualidade dos dados
 
 A pontuação de **qualidade dos dados** de um card mede de forma ponderada o quão completo ele está. Cada fator que contribui — cada campo e cinco fatores integrados — é gerido em um único lugar: a aba **Qualidade dos dados** do editor de tipo de card. (O editor é organizado em abas — Geral, Relações, Papéis das partes interessadas e Qualidade dos dados — as traduções estão disponíveis no ícone do cabeçalho.)

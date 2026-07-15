@@ -11,6 +11,7 @@ import type { FieldDef, Relation } from "@/types";
 
 import {
   bucketRelationsBySubtype,
+  CardIdPill,
   FieldEditor,
   FieldValue,
   NO_SUBTYPE_KEY,
@@ -181,5 +182,25 @@ describe("shouldGroupBySubtype", () => {
     const buckets = bucketRelationsBySubtype(rels, FS, order);
     // Only one real subtype ("team") → no grouping even though total >= 8.
     expect(shouldGroupBySubtype(buckets, rels.length)).toBe(false);
+  });
+});
+
+describe("CardIdPill (#811)", () => {
+  it("renders nothing when there is no reference", () => {
+    const { container } = render(<CardIdPill reference={null} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("renders the reference when present", () => {
+    render(<CardIdPill reference="APP-10000" typeColor="#0f7eb5" />);
+    expect(screen.getByText("APP-10000")).toBeInTheDocument();
+  });
+
+  it("copies the reference to the clipboard on click", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(<CardIdPill reference="APP-10000" typeColor="#0f7eb5" />);
+    fireEvent.click(screen.getByText("APP-10000"));
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith("APP-10000"));
   });
 });

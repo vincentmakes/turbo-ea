@@ -61,6 +61,17 @@ Los campos se organizan en **secciones** en la página de detalle de la ficha. P
 
 El nombre de sección especial `__description` agrega campos a la sección Descripción de la página de detalle.
 
+#### ID de tarjeta
+
+Active la **generación de ID de tarjeta** para asignar a las tarjetas de este tipo un ID estable y legible (por ejemplo `APP-00001`). El ID aparece como una etiqueta copiable junto al tipo de la tarjeta, como columna opcional (ordenable y filtrable) en el inventario, en las exportaciones a Excel y en las fórmulas de campos calculados (mediante `data.reference`).
+
+El **número siempre se genera automáticamente**; solo controla el **prefijo**. Al activarlo, se muestra como texto un prefijo sugerido (derivado del nombre del tipo, p. ej. `APP-`) — haga clic en el lápiz para cambiarlo. Dos ajustes definen el número:
+
+- **Empezar en** — el primer número de la serie (predeterminado `1`).
+- **Dígitos mín.** — ancho del relleno con ceros (predeterminado `5`), de modo que `1` se muestra `00001`. Es un mínimo; los números se amplían al superarlo. Un **Ejemplo** muestra en vivo el primer ID.
+
+Los ID son **únicos globalmente, de solo lectura y nunca se reutilizan ni cambian**. La secuencia numérica se lleva **por prefijo en todo el espacio de trabajo**, de modo que dos tipos que comparten prefijo forman una única serie continua y sin colisiones. Una vez que una tarjeta de este tipo tiene un ID, todo el formato — prefijo, inicio y dígitos mín. — se bloquea (los campos quedan de solo lectura); aún puede desactivar la generación. Guardar nunca asigna ID a las tarjetas existentes; use el botón dedicado **Generar ID** para completar el backlog bajo demanda (con barra de progreso y confirmación).
+
 #### Puntuación de calidad de datos
 
 La puntuación de **calidad de datos** de una tarjeta mide de forma ponderada cuán completa está. Cada factor que contribuye —cada campo y cinco factores integrados— se gestiona en un solo lugar: la pestaña **Calidad de datos** del editor del tipo de tarjeta. (El editor se organiza en pestañas: General, Relaciones, Roles de partes interesadas y Calidad de datos; las traducciones están disponibles desde el icono del encabezado.)

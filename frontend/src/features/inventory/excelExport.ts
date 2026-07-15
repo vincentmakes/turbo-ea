@@ -233,6 +233,7 @@ function buildCardRowForType(
     subtype: card.subtype ?? "",
     parent_path: buildParentPath(card, byId),
     external_id: card.external_id ?? "",
+    reference: card.reference ?? "",
     alias: card.alias ?? "",
     approval_status: card.approval_status ?? "",
     tags: (card.tags || [])

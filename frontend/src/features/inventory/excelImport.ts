@@ -550,7 +550,7 @@ export function validateImport(
   // Warn about unrecognised columns
   const knownCoreCols = new Set([
     "id", "type", "name", "description", "subtype", "parent_id", "parent_path",
-    "external_id", "alias", "approval_status", "tags",
+    "external_id", "reference", "alias", "approval_status", "tags",
     ...LIFECYCLE_PHASES.map((p) => `lifecycle_${p}`),
   ]);
   // Build set of all known attribute columns across all types

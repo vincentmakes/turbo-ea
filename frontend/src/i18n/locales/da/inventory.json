@@ -230,5 +230,6 @@
   "export.allFieldsHint": "Komplet datasæt, kan genimporteres",
   "export.currentView": "Eksportér aktuel visning",
   "export.currentViewHint": "Afspejler tabellen på skærmen — ikke egnet til genimport",
-  "export.viewSheetName": "Visning"
+  "export.viewSheetName": "Visning",
+  "columns.id": "ID"
 }

@@ -628,5 +628,7 @@
   "todos.recurrence.months_one": "每月",
   "todos.recurrence.months_other": "每 {{count}} 月",
   "todos.recurrence.years_one": "每年",
-  "todos.recurrence.years_other": "每 {{count}} 年"
+  "todos.recurrence.years_other": "每 {{count}} 年",
+  "utils.cardId.tooltip": "点击复制",
+  "utils.cardId.copied": "已复制"
 }

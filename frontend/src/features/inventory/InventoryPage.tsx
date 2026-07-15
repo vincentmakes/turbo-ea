@@ -1471,6 +1471,15 @@ export default function InventoryPage() {
             },
       },
       {
+        colId: "core_reference",
+        field: "reference",
+        headerName: t("columns.id"),
+        width: 130,
+        sortable: true,
+        hide: !selectedColumns.has("core_reference"),
+        cellStyle: { fontFamily: "monospace", color: "var(--mui-palette-text-secondary)" },
+      },
+      {
         colId: "core_path",
         headerName: t("columns.path"),
         flex: 1,

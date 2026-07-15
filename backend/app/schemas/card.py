@@ -137,6 +137,7 @@ class CardResponse(BaseModel):
     approval_status: str
     data_quality: float
     external_id: str | None = None
+    reference: str | None = None
     alias: str | None = None
     archived_at: datetime | None = None
     created_by: str | None = None

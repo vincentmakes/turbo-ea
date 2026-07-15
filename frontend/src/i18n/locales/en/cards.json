@@ -628,5 +628,7 @@
   "todos.recurrence.months_one": "Every month",
   "todos.recurrence.months_other": "Every {{count}} months",
   "todos.recurrence.years_one": "Every year",
-  "todos.recurrence.years_other": "Every {{count}} years"
+  "todos.recurrence.years_other": "Every {{count}} years",
+  "utils.cardId.tooltip": "Click to copy",
+  "utils.cardId.copied": "Copied!"
 }

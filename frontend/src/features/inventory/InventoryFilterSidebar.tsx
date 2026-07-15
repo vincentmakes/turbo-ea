@@ -1841,6 +1841,7 @@ const METADATA_COLUMNS = [
 export const CORE_COLUMNS = [
   { key: "core_type", icon: "category", tKey: "common:labels.type" as const },
   { key: "core_name", icon: "label", tKey: "common:labels.name" as const },
+  { key: "core_reference", icon: "tag", tKey: "columns.id" as const },
   { key: "core_path", icon: "account_tree", tKey: "columns.path" as const },
   { key: "core_description", icon: "description", tKey: "common:labels.description" as const },
   { key: "core_subtype", icon: "subdirectory_arrow_right", tKey: "common:labels.subtype" as const },

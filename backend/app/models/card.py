@@ -26,6 +26,11 @@ class Card(Base, UUIDMixin, TimestampMixin):
     approval_status: Mapped[str] = mapped_column(String(20), default="DRAFT")
     data_quality: Mapped[float] = mapped_column(Float, default=0.0)
     external_id: Mapped[str | None] = mapped_column(String(500))
+    # Human-readable, stable reference (e.g. "APP-00001"). Optional, globally
+    # unique, system-generated (write-once, never edited). Populated for card
+    # types whose ``reference_config.mode`` is "auto". NULL for types with the
+    # feature off. Distinct from ``external_id`` (import identity).
+    reference: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
     alias: Mapped[str | None] = mapped_column(String(500))
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     created_by: Mapped[uuid.UUID | None] = mapped_column(

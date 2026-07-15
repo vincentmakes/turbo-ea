@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.18.0] - 2026-07-15
+
+### Added
+- **Cards can now have a human-readable ID (e.g. `APP-00001`).** Toggle it on per card type — in Admin → Metamodel → the type editor — to give its cards a stable, human-readable ID. The number is always system-generated (configurable start + zero-padding); you only set the prefix (a suggested prefix is pre-filled from the type name and editable). IDs are globally unique, read-only, and never reused or changed once assigned; once a type has any ID, its format (prefix/start/min-digits) is locked so existing IDs can never drift. They appear as a copy-to-clipboard pill (tinted in the card type's color) beside the card's type on the detail page, as an optional sortable/filterable column in the inventory grid, in Excel exports, and are available in calculated-field formulas via `data.reference`. A dedicated **Generate IDs** button assigns IDs to existing cards on demand (the type Save button never backfills). (#811)
+
 ## [2.17.1] - 2026-07-15
 
 ### Changed

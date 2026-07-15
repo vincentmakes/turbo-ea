@@ -628,5 +628,7 @@
   "todos.recurrence.months_one": "Todos os meses",
   "todos.recurrence.months_other": "A cada {{count}} meses",
   "todos.recurrence.years_one": "Todos os anos",
-  "todos.recurrence.years_other": "A cada {{count}} anos"
+  "todos.recurrence.years_other": "A cada {{count}} anos",
+  "utils.cardId.tooltip": "Clique para copiar",
+  "utils.cardId.copied": "Copiado!"
 }

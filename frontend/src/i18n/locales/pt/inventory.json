@@ -230,5 +230,6 @@
   "export.allFieldsHint": "Conjunto de dados completo, reimportável",
   "export.currentView": "Exportar vista atual",
   "export.currentViewHint": "Espelha a grade exibida — não adequada para reimportação",
-  "export.viewSheetName": "Vista"
+  "export.viewSheetName": "Vista",
+  "columns.id": "ID"
 }

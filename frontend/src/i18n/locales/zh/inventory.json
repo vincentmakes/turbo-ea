@@ -230,5 +230,6 @@
   "export.allFieldsHint": "完整数据集，可重新导入",
   "export.currentView": "导出当前视图",
   "export.currentViewHint": "与屏幕上的表格一致 — 不适合重新导入",
-  "export.viewSheetName": "视图"
+  "export.viewSheetName": "视图",
+  "columns.id": "ID"
 }
