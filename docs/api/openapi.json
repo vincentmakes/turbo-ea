@@ -12030,6 +12030,11 @@
             "title": "Free",
             "type": "boolean"
           },
+          "homepage": {
+            "default": "",
+            "title": "Homepage",
+            "type": "string"
+          },
           "installed_version": {
             "anyOf": [
               {
@@ -12045,6 +12050,21 @@
             "title": "Key",
             "type": "string"
           },
+          "license": {
+            "default": "",
+            "title": "License",
+            "type": "string"
+          },
+          "license_url": {
+            "default": "",
+            "title": "License Url",
+            "type": "string"
+          },
+          "long_description": {
+            "default": "",
+            "title": "Long Description",
+            "type": "string"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -12058,6 +12078,14 @@
             "default": "",
             "title": "Price",
             "type": "string"
+          },
+          "screenshots": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Screenshots",
+            "type": "array"
           },
           "update_available": {
             "default": false,

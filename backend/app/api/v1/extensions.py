@@ -496,9 +496,14 @@ class StoreItemOut(BaseModel):
     key: str
     name: str
     description: str = ""
+    long_description: str = ""
     price: str = ""
     payment_link: str = ""
     demo_url: str = ""
+    homepage: str = ""
+    license: str = ""
+    license_url: str = ""
+    screenshots: list[str] = []
     version: str = ""
     installed_version: str | None = None
     update_available: bool = False
@@ -571,9 +576,16 @@ async def store_catalog(
                 key=key,
                 name=str(item.get("name") or key),
                 description=str(item.get("description") or ""),
+                long_description=str(item.get("long_description") or ""),
                 price=str(item.get("price") or ""),
                 payment_link=str(item.get("payment_link") or ""),
                 demo_url=str(item.get("demo_url") or ""),
+                homepage=str(item.get("homepage") or ""),
+                license=str(item.get("license") or ""),
+                license_url=str(item.get("license_url") or ""),
+                screenshots=[
+                    str(s) for s in (item.get("screenshots") or []) if isinstance(s, str) and s
+                ],
                 version=catalog_version,
                 installed_version=installed_version,
                 update_available=bool(
