@@ -155,6 +155,21 @@ class TestReadBundle:
         with pytest.raises(BundleError, match="bad zip"):
             read_bundle(write_bundle(tmp_path, b"definitely not a zip"), core_version=CORE_VERSION)
 
+    def test_free_flag_exposed(self, tmp_path, keypair):
+        raw = build_teax(keypair, files={"content/pack.json": CONTENT}, free=True)
+        bundle = read_bundle(write_bundle(tmp_path, raw), core_version=CORE_VERSION)
+        assert bundle.free is True
+
+    def test_absent_free_flag_defaults_false(self, tmp_path, keypair):
+        raw = build_teax(keypair, files={"content/pack.json": CONTENT})
+        bundle = read_bundle(write_bundle(tmp_path, raw), core_version=CORE_VERSION)
+        assert bundle.free is False
+
+    def test_non_bool_free_flag_rejected(self, tmp_path, keypair):
+        raw = build_teax(keypair, files={"content/pack.json": CONTENT}, free="yes")
+        with pytest.raises(BundleError, match="free"):
+            read_bundle(write_bundle(tmp_path, raw), core_version=CORE_VERSION)
+
 
 class TestExtractBundle:
     def test_extracts_files_and_wheel(self, tmp_path, keypair):

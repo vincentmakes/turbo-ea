@@ -32,7 +32,7 @@ from app.services.extensions.license import (
 
 logger = logging.getLogger(__name__)
 
-EntitlementStateWithUnlicensed = Literal["active", "grace", "expired", "unlicensed"]
+EntitlementStateWithUnlicensed = Literal["active", "grace", "expired", "unlicensed", "free"]
 
 
 @dataclass(frozen=True)
@@ -43,8 +43,8 @@ class EntitlementStatus:
 
     @property
     def usable(self) -> bool:
-        """Whether the extension may run (grace still counts as licensed)."""
-        return self.state in ("active", "grace")
+        """Whether the extension may run (grace and free both count as usable)."""
+        return self.state in ("active", "grace", "free")
 
 
 @dataclass
@@ -157,6 +157,13 @@ class ExtensionRegistry:
         return self._license_problem
 
     def entitlement(self, key: str, now: datetime | None = None) -> EntitlementStatus:
+        # Free extensions require no license: the manifest's ``free`` flag rides
+        # inside the Ed25519-signed bundle, so this is anchored to verified
+        # provenance, not spoofable config. Checked before the license path so a
+        # free extension is usable even on an instance with no license at all.
+        info = self._extensions.get(key)
+        if info is not None and (info.manifest or {}).get("free") is True:
+            return EntitlementStatus(state="free")
         if self._license is None:
             return EntitlementStatus(state="unlicensed")
         ent = self._license.entitlement_for(key)

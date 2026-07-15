@@ -12014,6 +12014,11 @@
             "title": "Entitlement State",
             "type": "string"
           },
+          "free": {
+            "default": false,
+            "title": "Free",
+            "type": "boolean"
+          },
           "installed_version": {
             "anyOf": [
               {

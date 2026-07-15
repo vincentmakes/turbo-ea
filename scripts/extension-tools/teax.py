@@ -296,6 +296,9 @@ def _lint_source(src: Path) -> tuple[dict, dict[str, Path], list[str], list[str]
         if not str(perm).startswith(f"ext.{key}."):
             problems.append(f"permission {perm!r} must be namespaced ext.{key}.*")
 
+    if "free" in manifest and not isinstance(manifest["free"], bool):
+        problems.append("free must be a boolean (true = no license required to run)")
+
     for rel in files:
         if not _safe_member(rel):
             problems.append(f"unsafe file path: {rel}")

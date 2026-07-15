@@ -1728,6 +1728,7 @@
   "extensions.entitlement.grace": "Henstandsperiode indtil {{date}}",
   "extensions.entitlement.expired": "Udløbet",
   "extensions.entitlement.unlicensed": "Uden licens",
+  "extensions.entitlement.free": "Gratis",
   "extensions.install.title": "Installer udvidelse",
   "extensions.install.help": "Upload en signeret .teax-pakke. Signaturen verificeres, og der vises et eksempel, før noget anvendes — usignerede eller manipulerede pakker afvises.",
   "extensions.install.uploading": "Uploader…",

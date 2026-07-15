@@ -97,6 +97,28 @@ class TestRegistryEntitlement:
         assert reg.get("missing") is None
         assert {info.key for info in reg.all()} == {"sample-ext", "second-ext"}
 
+    def test_free_manifest_is_usable_without_license(self):
+        reg = ExtensionRegistry()
+        reg.load_installed([make_info(manifest={"free": True})])
+        status = reg.entitlement("sample-ext", now=NOW)
+        assert status.state == "free"
+        assert status.usable is True
+
+    def test_free_flag_overrides_absent_entitlement(self):
+        # A free extension is usable even when a license is present but does not
+        # entitle it — the free flag is checked before the license path.
+        reg = ExtensionRegistry()
+        reg.load_installed([make_info(manifest={"free": True})])
+        reg.set_license(make_license(Entitlement(extension_key="other-ext")))
+        assert reg.entitlement("sample-ext", now=NOW).usable is True
+
+    def test_non_bool_free_flag_is_not_treated_as_free(self):
+        # Defence in depth — bundle.py rejects a non-bool free at verify time,
+        # but the registry must not treat a truthy non-True value as free.
+        reg = ExtensionRegistry()
+        reg.load_installed([make_info(manifest={"free": "yes"})])
+        assert reg.entitlement("sample-ext").state == "unlicensed"
+
 
 class TestGrantedCapabilities:
     """Grants only count from enabled + licensed (usable) extensions."""
@@ -197,6 +219,10 @@ class TestRequireExtensionGate:
         extension_registry.set_license(
             make_license(Entitlement(extension_key="sample-ext", expires_at=None))
         )
+        assert await _get(gate_app) == 200
+
+    async def test_free_extension_passes_without_license(self, gate_app):
+        extension_registry.load_installed([make_info(manifest={"free": True})])
         assert await _get(gate_app) == 200
 
     async def test_grace_passes(self, gate_app):

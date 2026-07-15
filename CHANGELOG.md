@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.17.0] - 2026-07-15
+
+### Added
+- **Extensions can now be published as free.** A free extension installs and runs with no license — no purchase, no license file to paste. Free extensions are marked with a **Free** badge in Admin → Extensions and its Store tab, and the Buy/Renew actions are hidden for them. Signature verification is unchanged: a free extension is still vendor-signed. (Paid extensions continue to require a license exactly as before.)
+
 ## [2.16.0] - 2026-07-14
 
 ### Added

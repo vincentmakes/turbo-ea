@@ -1728,6 +1728,7 @@
   "extensions.entitlement.grace": "فترة سماح حتى {{date}}",
   "extensions.entitlement.expired": "منتهي الصلاحية",
   "extensions.entitlement.unlicensed": "غير مرخّص",
+  "extensions.entitlement.free": "مجاني",
   "extensions.install.title": "تثبيت إضافة",
   "extensions.install.help": "ارفع حزمة ‎.teax موقّعة. يتم التحقق من التوقيع وعرض معاينة قبل تطبيق أي شيء — تُرفض الحزم غير الموقّعة أو المعدّلة.",
   "extensions.install.uploading": "جارٍ الرفع…",

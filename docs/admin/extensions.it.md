@@ -15,6 +15,10 @@ Due verifiche indipendenti proteggono l'istanza:
 1. **Provenienza (firma).** Ogni pacchetto porta una firma Ed25519 della chiave del fornitore. Turbo EA la verifica al caricamento *e di nuovo a ogni avvio del backend*. I pacchetti non firmati, manomessi o di terzi vengono rifiutati — un'estensione installata è garantita essere esattamente ciò che il fornitore ha costruito.
 2. **Attivazione (licenza).** Un file di licenza firmato elenca i diritti — uno per estensione, ciascuno con la propria scadenza. Un'estensione installata funziona solo finché esiste un diritto utilizzabile. Le licenze sono **vincolate all'ID della tua istanza** — una licenza emessa per un'altra istanza viene rifiutata.
 
+## Estensioni gratuite
+
+Alcune estensioni sono **gratuite** e non richiedono alcuna licenza. Si installano e funzionano subito: nessun passaggio di acquisto e nessun file di licenza da incollare. Le estensioni gratuite sono contrassegnate da un'etichetta **Gratis** nelle schede Store e Installate, e le azioni **Acquista** e **Rinnova** sono nascoste per esse. Il controllo della firma continua ad applicarsi esattamente come per le estensioni a pagamento (anche un'estensione gratuita è firmata dal fornitore), quindi la provenienza è garantita in ogni caso. Poiché non richiedono alcun diritto, le estensioni gratuite non scadono mai e non entrano mai in un periodo di tolleranza.
+
 ## L'ID della tua istanza
 
 Ogni installazione genera una sola volta un **ID istanza** univoco (`TEA-XXXX-XXXX-XXXX`), mostrato in cima ad Admin → Estensioni con un pulsante di copia. È la tua identità di licenza: indicalo all'acquisto (lo Store integrato lo invia automaticamente; il checkout dello store online lo richiede) così ogni estensione acquistata per questa istanza — da qualsiasi amministratore, con qualsiasi e-mail — confluisce in un'unica licenza combinata. Identifica soltanto la tua istanza; non è mai una credenziale, quindi puoi condividerlo con il fornitore senza rischi.

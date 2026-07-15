@@ -1728,6 +1728,7 @@
   "extensions.entitlement.grace": "Kulanzfrist bis {{date}}",
   "extensions.entitlement.expired": "Abgelaufen",
   "extensions.entitlement.unlicensed": "Nicht lizenziert",
+  "extensions.entitlement.free": "Kostenlos",
   "extensions.install.title": "Erweiterung installieren",
   "extensions.install.help": "Laden Sie ein signiertes .teax-Paket hoch. Die Signatur wird geprüft und vor der Anwendung eine Vorschau angezeigt — unsignierte oder manipulierte Pakete werden abgelehnt.",
   "extensions.install.uploading": "Wird hochgeladen…",

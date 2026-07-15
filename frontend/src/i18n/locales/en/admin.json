@@ -1728,6 +1728,7 @@
   "extensions.entitlement.grace": "Grace until {{date}}",
   "extensions.entitlement.expired": "Expired",
   "extensions.entitlement.unlicensed": "Unlicensed",
+  "extensions.entitlement.free": "Free",
   "extensions.install.title": "Install extension",
   "extensions.install.help": "Upload a signed .teax bundle. The signature is verified and a preview is shown before anything is applied — unsigned or tampered bundles are rejected.",
   "extensions.install.uploading": "Uploading…",
