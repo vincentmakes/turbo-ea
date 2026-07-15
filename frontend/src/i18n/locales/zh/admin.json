@@ -1728,6 +1728,7 @@
   "extensions.entitlement.grace": "宽限期至 {{date}}",
   "extensions.entitlement.expired": "已过期",
   "extensions.entitlement.unlicensed": "未授权",
+  "extensions.entitlement.free": "免费",
   "extensions.install.title": "安装扩展",
   "extensions.install.help": "上传已签名的 .teax 包。系统会验证签名并在应用前显示预览——未签名或被篡改的包会被拒绝。",
   "extensions.install.uploading": "上传中…",

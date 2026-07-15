@@ -1728,6 +1728,7 @@
   "extensions.entitlement.grace": "Periodo de gracia hasta {{date}}",
   "extensions.entitlement.expired": "Caducada",
   "extensions.entitlement.unlicensed": "Sin licencia",
+  "extensions.entitlement.free": "Gratis",
   "extensions.install.title": "Instalar extensión",
   "extensions.install.help": "Suba un paquete .teax firmado. La firma se verifica y se muestra una vista previa antes de aplicar nada — los paquetes sin firma o manipulados se rechazan.",
   "extensions.install.uploading": "Subiendo…",

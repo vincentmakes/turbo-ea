@@ -1728,6 +1728,7 @@
   "extensions.entitlement.grace": "Délai de grâce jusqu'au {{date}}",
   "extensions.entitlement.expired": "Expirée",
   "extensions.entitlement.unlicensed": "Sans licence",
+  "extensions.entitlement.free": "Gratuit",
   "extensions.install.title": "Installer une extension",
   "extensions.install.help": "Téléversez un paquet .teax signé. La signature est vérifiée et un aperçu est affiché avant toute application — les paquets non signés ou altérés sont refusés.",
   "extensions.install.uploading": "Téléversement…",

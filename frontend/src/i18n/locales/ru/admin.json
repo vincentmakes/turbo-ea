@@ -1728,6 +1728,7 @@
   "extensions.entitlement.grace": "Льготный период до {{date}}",
   "extensions.entitlement.expired": "Истекла",
   "extensions.entitlement.unlicensed": "Без лицензии",
+  "extensions.entitlement.free": "Бесплатно",
   "extensions.install.title": "Установить расширение",
   "extensions.install.help": "Загрузите подписанный пакет .teax. Подпись проверяется, и перед применением показывается предпросмотр — неподписанные или изменённые пакеты отклоняются.",
   "extensions.install.uploading": "Загрузка…",
