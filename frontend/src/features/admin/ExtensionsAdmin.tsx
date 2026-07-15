@@ -182,6 +182,8 @@ export default function ExtensionsAdmin() {
 
   // Store item "Details" dialog (long description, screenshots, credits).
   const [detailsItem, setDetailsItem] = useState<StoreItem | null>(null);
+  // Full-size screenshot lightbox (nested inside the Details dialog).
+  const [zoomSrc, setZoomSrc] = useState<string | null>(null);
   const [licenseText, setLicenseText] = useState("");
   const [licenseBusy, setLicenseBusy] = useState(false);
   const [licenseError, setLicenseError] = useState<string | null>(null);
@@ -1302,11 +1304,13 @@ export default function ExtensionsAdmin() {
                       src={src}
                       alt=""
                       loading="lazy"
+                      onClick={() => setZoomSrc(src)}
                       sx={{
                         width: "100%",
                         borderRadius: 1,
                         border: "1px solid",
                         borderColor: "divider",
+                        cursor: "zoom-in",
                       }}
                     />
                   ))}
@@ -1353,6 +1357,36 @@ export default function ExtensionsAdmin() {
             {t("extensions.store.close", "Close")}
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Full-size screenshot lightbox — nested inside the Details dialog.
+          Closes on click (image or backdrop) or Escape. */}
+      <Dialog
+        open={zoomSrc !== null}
+        onClose={() => setZoomSrc(null)}
+        disableRestoreFocus
+        maxWidth={false}
+        slotProps={{
+          paper: {
+            sx: { bgcolor: "transparent", boxShadow: "none", m: 0, cursor: "zoom-out" },
+          },
+        }}
+      >
+        {zoomSrc && (
+          <Box
+            component="img"
+            src={zoomSrc}
+            alt=""
+            onClick={() => setZoomSrc(null)}
+            sx={{
+              display: "block",
+              maxWidth: "90vw",
+              maxHeight: "90vh",
+              borderRadius: 1,
+              cursor: "zoom-out",
+            }}
+          />
+        )}
       </Dialog>
 
       <Dialog open={removeLicenseOpen} onClose={() => setRemoveLicenseOpen(false)}>
