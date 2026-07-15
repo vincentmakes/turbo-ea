@@ -97,6 +97,15 @@ jobs:
           # actually re-runs against fresh alpine repos. Regular push builds
           # keep the cache for speed (~1m vs ~14m).
           no-cache: ${{ github.event_name != 'push' }}
+          # ...but even on cached push builds, always rebuild the runtime stages
+          # so `apk upgrade --no-cache` re-runs against the live alpine repos and
+          # `:latest` can never regress to a stale cached apk layer. Without this,
+          # a clean workflow_dispatch/schedule republish that pulls a fresh apk
+          # fix is silently overwritten by the very next push-to-main, which
+          # reuses the cached (unpatched) `apk upgrade` layer. The expensive
+          # build stages (frontend-build npm ci/build, backend-build pip) are NOT
+          # listed here, so they stay cached and push builds stay fast.
+          no-cache-filter: backend,db,frontend,nginx,mcp-server
           provenance: true
           sbom: true
 
