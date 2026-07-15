@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.19.0] - 2026-07-15
+
+### Added
+- **Extension store listings can now show a Details view.** A store card with extra metadata gains a **Details** button that opens a dialog with a longer description, a screenshot gallery, and source/licence credits. Listings without this metadata are unchanged.
+
 ## [2.18.0] - 2026-07-15
 
 ### Added

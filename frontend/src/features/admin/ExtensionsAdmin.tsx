@@ -101,9 +101,14 @@ interface StoreItem {
   key: string;
   name: string;
   description: string;
+  long_description?: string;
   price: string;
   payment_link: string;
   demo_url?: string;
+  homepage?: string;
+  license?: string;
+  license_url?: string;
+  screenshots?: string[];
   version: string;
   installed_version?: string | null;
   update_available: boolean;
@@ -174,6 +179,11 @@ export default function ExtensionsAdmin() {
   // or from per-row "Enter license…" (gateItem null).
   const [licenseDialogOpen, setLicenseDialogOpen] = useState(false);
   const [gateItem, setGateItem] = useState<StoreItem | null>(null);
+
+  // Store item "Details" dialog (long description, screenshots, credits).
+  const [detailsItem, setDetailsItem] = useState<StoreItem | null>(null);
+  // Full-size screenshot lightbox (nested inside the Details dialog).
+  const [zoomSrc, setZoomSrc] = useState<string | null>(null);
   const [licenseText, setLicenseText] = useState("");
   const [licenseBusy, setLicenseBusy] = useState(false);
   const [licenseError, setLicenseError] = useState<string | null>(null);
@@ -876,6 +886,19 @@ export default function ExtensionsAdmin() {
                         <Typography variant="subtitle2" sx={{ flex: 1 }}>
                           {item.price}
                         </Typography>
+                        {(item.long_description ||
+                          item.homepage ||
+                          item.license ||
+                          (item.screenshots?.length ?? 0) > 0) && (
+                          <Button
+                            size="small"
+                            color="inherit"
+                            onClick={() => setDetailsItem(item)}
+                            startIcon={<MaterialSymbol icon="info" size={18} />}
+                          >
+                            {t("extensions.store.details", "Details")}
+                          </Button>
+                        )}
                         {item.demo_url && (
                           <Button
                             size="small"
@@ -1256,6 +1279,114 @@ export default function ExtensionsAdmin() {
             {t("extensions.license.apply", "Apply license")}
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Store item "Details" dialog — long description, screenshots, credits. */}
+      <Dialog
+        open={detailsItem !== null}
+        onClose={() => setDetailsItem(null)}
+        fullWidth
+        maxWidth="md"
+      >
+        <DialogTitle>{detailsItem?.name}</DialogTitle>
+        <DialogContent>
+          {detailsItem && (
+            <>
+              <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
+                {detailsItem.long_description || detailsItem.description}
+              </Typography>
+              {(detailsItem.screenshots?.length ?? 0) > 0 && (
+                <Stack spacing={1.5} sx={{ mt: 2 }}>
+                  {detailsItem.screenshots?.map((src) => (
+                    <Box
+                      key={src}
+                      component="img"
+                      src={src}
+                      alt=""
+                      loading="lazy"
+                      onClick={() => setZoomSrc(src)}
+                      sx={{
+                        width: "100%",
+                        borderRadius: 1,
+                        border: "1px solid",
+                        borderColor: "divider",
+                        cursor: "zoom-in",
+                      }}
+                    />
+                  ))}
+                </Stack>
+              )}
+              {(detailsItem.homepage || detailsItem.license) && (
+                <Stack
+                  direction="row"
+                  spacing={2}
+                  alignItems="center"
+                  flexWrap="wrap"
+                  useFlexGap
+                  sx={{ mt: 2, color: "text.secondary" }}
+                >
+                  {detailsItem.homepage && (
+                    <Link
+                      href={detailsItem.homepage}
+                      target="_blank"
+                      rel="noopener"
+                      variant="body2"
+                    >
+                      {t("extensions.store.source", "Source")}
+                    </Link>
+                  )}
+                  {detailsItem.license && (
+                    <Typography variant="body2">
+                      {t("extensions.store.licenseLabel", "License")}:{" "}
+                      {detailsItem.license_url ? (
+                        <Link href={detailsItem.license_url} target="_blank" rel="noopener">
+                          {detailsItem.license}
+                        </Link>
+                      ) : (
+                        detailsItem.license
+                      )}
+                    </Typography>
+                  )}
+                </Stack>
+              )}
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDetailsItem(null)}>
+            {t("extensions.store.close", "Close")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Full-size screenshot lightbox — nested inside the Details dialog.
+          Closes on click (image or backdrop) or Escape. */}
+      <Dialog
+        open={zoomSrc !== null}
+        onClose={() => setZoomSrc(null)}
+        disableRestoreFocus
+        maxWidth={false}
+        slotProps={{
+          paper: {
+            sx: { bgcolor: "transparent", boxShadow: "none", m: 0, cursor: "zoom-out" },
+          },
+        }}
+      >
+        {zoomSrc && (
+          <Box
+            component="img"
+            src={zoomSrc}
+            alt=""
+            onClick={() => setZoomSrc(null)}
+            sx={{
+              display: "block",
+              maxWidth: "90vw",
+              maxHeight: "90vh",
+              borderRadius: 1,
+              cursor: "zoom-out",
+            }}
+          />
+        )}
       </Dialog>
 
       <Dialog open={removeLicenseOpen} onClose={() => setRemoveLicenseOpen(false)}>
