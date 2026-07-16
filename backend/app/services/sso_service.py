@@ -16,6 +16,7 @@ what they do with the verified claims.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import httpx
 import jwt
@@ -47,13 +48,16 @@ async def get_general_settings(db: AsyncSession) -> dict:
     """Read general_settings from app_settings."""
     result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
     row = result.scalar_one_or_none()
-    return (row.general_settings if row else None) or {}
+    if row is None or not row.general_settings:
+        return {}
+    return dict(row.general_settings)
 
 
 async def get_sso_config(db: AsyncSession) -> dict:
     """Read SSO configuration from app_settings."""
     general = await get_general_settings(db)
-    return general.get("sso", {})
+    sso = general.get("sso") or {}
+    return sso if isinstance(sso, dict) else {}
 
 
 # ---------------------------------------------------------------------------
@@ -85,7 +89,7 @@ async def discover_oidc(issuer_url: str) -> dict:
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.get(discovery_url)
         resp.raise_for_status()
-        doc = resp.json()
+        doc: dict = resp.json()
         _oidc_discovery_cache[issuer_url] = doc
         return doc
 
@@ -113,7 +117,7 @@ def get_provider_config(sso: dict) -> dict:
             "subject_claim": "oid",  # fallback to "sub"
         }
     elif provider == "google":
-        cfg = {
+        cfg: dict[str, Any] = {
             "authorization_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
             "token_endpoint": "https://oauth2.googleapis.com/token",
             "jwks_uri": "https://www.googleapis.com/oauth2/v3/certs",
