@@ -12,6 +12,24 @@ Les portails web sont utiles pour partager des informations d'architecture avec 
 - **Annuaire de services** -- Publier les services IT et leurs responsables
 - **Carte de capacités** -- Fournir une vue publique des capacités métier
 
+## Protection de l'accès
+
+Chaque portail possède un **mode d'accès** qui détermine qui peut l'ouvrir :
+
+| Mode | Comportement |
+|------|--------------|
+| **Toute personne disposant du lien** | Une fois publié, le portail est lisible par tous — toute personne connaissant l'URL peut le consulter. C'est le mode par défaut et le comportement historique. |
+| **Se connecter via SSO** | Les visiteurs doivent s'authentifier auprès du fournisseur d'identité de votre organisation avant qu'aucune donnée ne s'affiche. |
+
+Le **mode SSO** réutilise l'authentification unique déjà configurée sous **Admin > Paramètres > Authentification** et protège les portails **sans** gérer d'utilisateurs supplémentaires :
+
+- Les visiteurs se connectent via votre fournisseur d'identité, mais ne sont **jamais créés comme utilisateurs Turbo EA** — aucun compte, aucun rôle, aucune licence.
+- Le visiteur obtient une session éphémère, propre au portail. Rien n'est affiché avant la connexion.
+- Vous pouvez éventuellement définir une liste de **domaines de messagerie autorisés** pour restreindre l'accès à certains domaines (par ex. `entreprise.com`). Laissez vide pour autoriser tout utilisateur authentifié par votre fournisseur d'identité.
+
+!!! note
+    **Se connecter via SSO** n'est disponible qu'une fois l'authentification unique configurée. Enregistrez `https://votre-domaine-turbo-ea/portal/sso-callback` comme URI de redirection autorisée auprès de votre fournisseur d'identité. Dépublier un portail révoque immédiatement l'accès dans tous les modes.
+
 ## Création d'un portail
 
 1. Naviguez vers **Admin > Paramètres > Portails web**

@@ -1817,5 +1817,15 @@
   "metamodel.typeDrawer.cardId.generateConfirmBody_other": "为 {{count}} 张现有卡片分配 ID？ID 是永久性的，无法更改。",
   "metamodel.typeDrawer.cardId.generateConfirmAction": "生成",
   "metamodel.typeDrawer.cardId.generated_one": "已生成 {{count}} 个 ID",
-  "metamodel.typeDrawer.cardId.generated_other": "已生成 {{count}} 个 ID"
+  "metamodel.typeDrawer.cardId.generated_other": "已生成 {{count}} 个 ID",
+  "webPortals.access.title": "访问保护",
+  "webPortals.access.modeLabel": "谁可以查看此门户",
+  "webPortals.access.modePublic": "任何拥有链接的人",
+  "webPortals.access.modeSso": "使用 SSO 登录",
+  "webPortals.access.publicHint": "门户发布后即可被所有人读取——任何拥有链接的人都可以查看。",
+  "webPortals.access.ssoHint": "访问者必须使用贵组织的身份提供商登录。不会创建账户，也不会占用许可证。",
+  "webPortals.access.ssoNotConfigured": "必须先配置单点登录，才能将门户限制为 SSO。",
+  "webPortals.access.domainsLabel": "允许的电子邮件域（可选）",
+  "webPortals.access.domainsPlaceholder": "company.com",
+  "webPortals.access.domainsHint": "将访问限制为这些电子邮件域。留空则允许身份提供商认证的任何用户。按回车键添加。"
 }

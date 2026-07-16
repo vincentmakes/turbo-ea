@@ -12,6 +12,24 @@ Webportaler er nyttige til at dele arkitekturinformation med interessenter, der 
 - **Servicekatalog** — Publicér IT-tjenester og deres ejere
 - **Capability-kort** — Tilbyd en offentlig visning af forretningskompetencer
 
+## Adgangsbeskyttelse
+
+Hver portal har en **adgangstilstand**, der styrer, hvem der kan åbne den:
+
+| Tilstand | Adfærd |
+|----------|--------|
+| **Alle med linket** | Når portalen er udgivet, er den offentligt læsbar — alle, der kender URL'en, kan se den. Dette er standard og den hidtidige adfærd. |
+| **Log ind med SSO** | Besøgende skal godkendes hos din organisations identitetsudbyder, før nogen portaldata vises. |
+
+**SSO-tilstand** genbruger det single sign-on, du allerede har konfigureret under **Admin > Indstillinger > Godkendelse**, og beskytter portaler **uden** at administrere ekstra brugere:
+
+- Besøgende logger ind via din identitetsudbyder, men **oprettes aldrig som Turbo EA-brugere** — ingen konto, ingen rolle, ingen licens.
+- Den besøgende får en kortvarig, portalspecifik session. Intet vises, før login er gennemført.
+- Du kan eventuelt angive en liste over **tilladte e-maildomæner** for at begrænse adgangen til bestemte domæner (f.eks. `virksomhed.com`). Lad feltet stå tomt for at tillade enhver bruger, som din identitetsudbyder godkender.
+
+!!! note
+    **Log ind med SSO** kan først vælges, når single sign-on er konfigureret. Registrér `https://dit-turbo-ea-domæne/portal/sso-callback` som en tilladt redirect-URI hos din identitetsudbyder. Afpublicering af en portal tilbagekalder øjeblikkeligt adgangen i alle tilstande.
+
 ## Oprettelse af en portal
 
 1. Naviger til **Admin > Indstillinger > Webportaler**

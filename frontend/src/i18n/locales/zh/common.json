@@ -355,5 +355,10 @@
   "notFound.extensionHint": "此页面属于某个未安装、未启用或仍在加载中的扩展。",
   "actions.view": "查看",
   "actions.moveUp": "上移",
-  "actions.moveDown": "下移"
+  "actions.moveDown": "下移",
+  "portal.signInHint": "此门户受限。请使用您的组织账户登录以查看。",
+  "portal.signInButton": "使用 {{provider}} 登录",
+  "portal.ssoUnavailable": "此门户目前无法使用单点登录。请联系门户管理员。",
+  "portal.signInError": "登录失败。请重试。",
+  "portal.signingIn": "正在登录…"
 }

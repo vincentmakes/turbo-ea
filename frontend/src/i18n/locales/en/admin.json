@@ -1817,5 +1817,15 @@
   "metamodel.typeDrawer.cardId.generateConfirmBody_other": "Assign IDs to {{count}} existing cards? IDs are permanent and can't be changed.",
   "metamodel.typeDrawer.cardId.generateConfirmAction": "Generate",
   "metamodel.typeDrawer.cardId.generated_one": "Generated {{count}} ID",
-  "metamodel.typeDrawer.cardId.generated_other": "Generated {{count}} IDs"
+  "metamodel.typeDrawer.cardId.generated_other": "Generated {{count}} IDs",
+  "webPortals.access.title": "Access protection",
+  "webPortals.access.modeLabel": "Who can view this portal",
+  "webPortals.access.modePublic": "Anyone with the link",
+  "webPortals.access.modeSso": "Sign in with SSO",
+  "webPortals.access.publicHint": "The portal is world-readable once published — anyone with the link can view it.",
+  "webPortals.access.ssoHint": "Visitors must sign in with your organization's identity provider. No account is created and no license is used.",
+  "webPortals.access.ssoNotConfigured": "Single sign-on must be configured before you can restrict a portal to SSO.",
+  "webPortals.access.domainsLabel": "Allowed email domains (optional)",
+  "webPortals.access.domainsPlaceholder": "company.com",
+  "webPortals.access.domainsHint": "Restrict access to these email domains. Leave empty to allow any user your identity provider authenticates. Press Enter to add."
 }

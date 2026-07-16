@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.21.0] - 2026-07-16
+
+### Added
+- **Web portals can now be protected with single sign-on.** Each portal now has an access mode: **Anyone with the link** (the previous behaviour) or **Sign in with SSO**. In SSO mode, visitors must authenticate with your organization's identity provider before they can see any portal data — but they are never provisioned as Turbo EA users, so there is no account to manage, no role to assign, and no license consumed. You can optionally restrict an SSO-gated portal to specific email domains. Configure it per portal in Admin → Settings → Web Portals.
+
+### Security
+- **Published web portals are no longer unavoidably world-readable.** SSO-gated portals return no card data until the visitor completes sign-in; the visitor session is a short-lived, per-portal, account-less cookie, and unpublishing a portal instantly revokes access in every mode.
+
 ## [2.20.0] - 2026-07-15
 
 ### Changed

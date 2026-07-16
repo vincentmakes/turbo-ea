@@ -1,15 +1,21 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from pydantic import BaseModel
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.types import Text
 
 from app.api.deps import get_current_user
+from app.api.v1.auth import _is_secure_request
+from app.config import settings
+from app.core.rate_limit import limiter
+from app.core.security import create_portal_token, decode_portal_token
 from app.database import get_db
 from app.models.card import Card
 from app.models.card_type import CardType
@@ -20,12 +26,70 @@ from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.models.web_portal import WebPortal
 from app.schemas.common import WebPortalCreate, WebPortalUpdate
+from app.services import sso_service
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/web-portals", tags=["web-portals"])
+logger = logging.getLogger(__name__)
 
 _SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+_ACCESS_MODES = ("public", "sso")
+
+# Ephemeral portal-session cookie. Path-scoped per portal (see
+# ``_portal_cookie_path``) so a visitor's session for one portal is never sent
+# to another and never clobbers it.
+PORTAL_COOKIE = "portal_access"
+
+
+def _portal_cookie_path(slug: str) -> str:
+    return f"/api/v1/web-portals/public/{slug}"
+
+
+def _set_portal_cookie(response: Response, token: str, *, slug: str, secure: bool) -> None:
+    """Set the httpOnly, per-portal session cookie.
+
+    - httponly: not readable from JS
+    - samesite "lax": set on the same-origin SPA POST to the callback
+    - secure: HTTPS only (auto-detected from the request)
+    - path: scoped to this one portal's public endpoints
+    """
+    response.set_cookie(
+        key=PORTAL_COOKIE,
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=secure,
+        path=_portal_cookie_path(slug),
+        max_age=settings.PORTAL_TOKEN_EXPIRE_MINUTES * 60,
+    )
+
+
+async def _validate_access(
+    db: AsyncSession, access_mode: str | None, allowed_email_domains: list[str] | None
+) -> tuple[str, list[str] | None]:
+    """Normalise + validate the portal access config.
+
+    Returns ``(mode, domains)``. ``domains`` is a cleaned lowercase list for
+    ``sso`` mode, or ``None`` (public mode always yields ``None``). Rejects an
+    ``sso`` mode when org SSO is not enabled.
+    """
+    mode = access_mode or "public"
+    if mode not in _ACCESS_MODES:
+        raise HTTPException(400, f"Invalid access_mode: {mode!r}")
+    if mode != "sso":
+        return mode, None
+    sso = await sso_service.get_sso_config(db)
+    if not sso.get("enabled"):
+        raise HTTPException(
+            400,
+            "SSO is not enabled. Configure single sign-on before creating an SSO-gated portal.",
+        )
+    domains = None
+    if allowed_email_domains:
+        cleaned = [d.lower().strip() for d in allowed_email_domains if d and d.strip()]
+        domains = cleaned or None
+    return mode, domains
 
 
 def _portal_to_dict(p: WebPortal) -> dict:
@@ -39,6 +103,8 @@ def _portal_to_dict(p: WebPortal) -> dict:
         "display_fields": p.display_fields,
         "card_config": p.card_config,
         "is_published": p.is_published,
+        "access_mode": p.access_mode or "public",
+        "allowed_email_domains": p.allowed_email_domains,
         "created_by": str(p.created_by) if p.created_by else None,
         "created_at": p.created_at.isoformat() if p.created_at else None,
         "updated_at": p.updated_at.isoformat() if p.updated_at else None,
@@ -79,6 +145,10 @@ async def create_portal(
     if not fst.scalar_one_or_none():
         raise HTTPException(400, f"Card type '{body.card_type}' not found")
 
+    access_mode, allowed_domains = await _validate_access(
+        db, body.access_mode, body.allowed_email_domains
+    )
+
     portal = WebPortal(
         name=body.name,
         slug=body.slug,
@@ -88,6 +158,8 @@ async def create_portal(
         display_fields=body.display_fields,
         card_config=body.card_config,
         is_published=body.is_published,
+        access_mode=access_mode,
+        allowed_email_domains=allowed_domains,
         created_by=user.id,
     )
     db.add(portal)
@@ -140,6 +212,16 @@ async def update_portal(
         if dup.scalar_one_or_none():
             raise HTTPException(400, "A portal with this slug already exists")
 
+    # Re-validate access whenever the mode or the domain list is touched. Compute
+    # the effective mode/domains from the incoming patch layered over the current
+    # row, then normalise (clears the allowlist when switching away from sso).
+    if "access_mode" in updates or "allowed_email_domains" in updates:
+        eff_mode = updates.get("access_mode", portal.access_mode)
+        eff_domains = updates.get("allowed_email_domains", portal.allowed_email_domains)
+        mode, domains = await _validate_access(db, eff_mode, eff_domains)
+        updates["access_mode"] = mode
+        updates["allowed_email_domains"] = domains
+
     for field, value in updates.items():
         setattr(portal, field, value)
 
@@ -163,21 +245,145 @@ async def delete_portal(
     await db.commit()
 
 
-# ── Public endpoints (no auth) ──────────────────────────────────────────
+# ── Public endpoints ────────────────────────────────────────────────────
+#
+# A published portal is either `public` (world-readable, historical behaviour)
+# or `sso` (visitor must authenticate against the org IdP for an account-less
+# session). The `/gate` endpoint is always public and leaks only name + mode +
+# SSO-initiation config; every data endpoint sits behind `require_portal_access`
+# so nothing else serves data pre-auth.
 
 
-@router.get("/public/{slug}")
-async def get_public_portal(
-    slug: str,
-    db: AsyncSession = Depends(get_db),
-):
+async def _load_published_portal(slug: str, db: AsyncSession) -> WebPortal:
     result = await db.execute(
         select(WebPortal).where(WebPortal.slug == slug, WebPortal.is_published == True)  # noqa: E712
     )
     portal = result.scalar_one_or_none()
     if not portal:
         raise HTTPException(404, "Portal not found")
+    return portal
 
+
+async def require_portal_access(
+    slug: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> WebPortal:
+    """Resolve a published portal and enforce its access mode.
+
+    Public portals pass straight through. SSO-gated portals require a valid
+    portal-session cookie bound to this portal (``psid``); otherwise raise a
+    machine-readable ``401 portal_locked`` so the frontend shows the sign-in
+    gate instead of a generic error.
+    """
+    portal = await _load_published_portal(slug, db)
+    if (portal.access_mode or "public") != "sso":
+        return portal
+    token = request.cookies.get(PORTAL_COOKIE, "")
+    claims = decode_portal_token(token) if token else None
+    if not claims or claims.get("typ") != "portal" or claims.get("psid") != str(portal.id):
+        raise HTTPException(401, detail="portal_locked")
+    return portal
+
+
+@router.get("/public/{slug}/gate")
+async def get_portal_gate(
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Always-public gate metadata: which access mode a portal uses, and — for
+    SSO — the config the viewer needs to start the IdP redirect. Returns only
+    name + mode + SSO-initiation fields; never description, filters, or cards."""
+    portal = await _load_published_portal(slug, db)
+    out: dict = {"access_mode": portal.access_mode or "public", "name": portal.name}
+
+    if (portal.access_mode or "public") == "sso":
+        sso = await sso_service.get_sso_config(db)
+        if sso.get("enabled"):
+            try:
+                cfg = sso_service.get_provider_config(sso)
+                auth_endpoint = cfg["authorization_endpoint"]
+                if cfg.get("discovery_required"):
+                    discovery = await sso_service.discover_oidc(sso.get("issuer_url", ""))
+                    auth_endpoint = discovery["authorization_endpoint"]
+                provider = sso.get("provider", "microsoft")
+                sso_out = {
+                    "provider": provider,
+                    "provider_name": sso_service.PROVIDER_LABELS.get(provider, provider),
+                    "client_id": sso.get("client_id", ""),
+                    "authorization_endpoint": auth_endpoint,
+                    "scopes": cfg["scopes"],
+                }
+                if cfg.get("extra_auth_params"):
+                    sso_out["extra_auth_params"] = cfg["extra_auth_params"]
+                out["sso"] = sso_out
+            except Exception:
+                # SSO misconfigured / IdP unreachable — omit the initiation
+                # config; the frontend shows an "SSO unavailable" message
+                # rather than a broken sign-in button.
+                logger.exception("Failed to build SSO gate config for portal %s", slug)
+
+    return out
+
+
+class PortalSsoCallbackRequest(BaseModel):
+    code: str
+    redirect_uri: str
+
+
+@router.post("/public/{slug}/sso/callback")
+@limiter.limit("20/minute")
+async def portal_sso_callback(
+    slug: str,
+    request: Request,
+    response: Response,
+    body: PortalSsoCallbackRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Exchange an SSO authorization code for an account-less portal session.
+
+    Verifies the id_token against the org IdP, enforces email verification, the
+    Google hosted-domain rule, and the portal's optional email-domain allowlist,
+    then mints a portal-session cookie. Creates NO user account.
+    """
+    portal = await _load_published_portal(slug, db)
+    if (portal.access_mode or "public") != "sso":
+        raise HTTPException(400, "This portal does not use SSO access")
+
+    claims, sso, provider = await sso_service.exchange_code_for_claims(
+        db, body.code, body.redirect_uri
+    )
+
+    email = (claims.get("email") or claims.get("preferred_username") or "").lower().strip()
+    if not email:
+        raise HTTPException(401, "No email claim in SSO token. Ensure email scope is granted.")
+    # Reject only an explicit false — many providers omit the claim entirely.
+    if claims.get("email_verified") is False:
+        raise HTTPException(403, "Your email address is not verified with the identity provider.")
+
+    # Google hosted-domain enforcement (mirrors the login callback).
+    if provider == "google" and sso.get("domain") and claims.get("hd", "") != sso["domain"]:
+        raise HTTPException(403, f"Sign-in restricted to {sso['domain']} accounts.")
+
+    # Per-portal email-domain allowlist (derived from the signature-verified
+    # email claim — not client input). Empty ⇒ any user the IdP authenticates.
+    domains = portal.allowed_email_domains or []
+    if domains:
+        allowed = {d.lower().strip() for d in domains if d}
+        if email.split("@")[-1] not in allowed:
+            raise HTTPException(403, "Your account is not allowed to access this portal.")
+
+    token = create_portal_token(portal.id, slug, email)
+    _set_portal_cookie(response, token, slug=slug, secure=_is_secure_request(request))
+    return {"ok": True}
+
+
+@router.get("/public/{slug}")
+async def get_public_portal(
+    slug: str,
+    portal: WebPortal = Depends(require_portal_access),
+    db: AsyncSession = Depends(get_db),
+):
     # Also return the type metadata so frontend can render properly
     fst_result = await db.execute(select(CardType).where(CardType.key == portal.card_type))
     fst = fst_result.scalar_one_or_none()
@@ -304,6 +510,7 @@ async def get_public_portal(
 async def get_public_portal_relation_options(
     slug: str,
     type_key: str = Query(...),
+    portal: WebPortal = Depends(require_portal_access),
     db: AsyncSession = Depends(get_db),
 ):
     """Return card name/id pairs for a given type, for filter dropdowns.
@@ -311,13 +518,6 @@ async def get_public_portal_relation_options(
     M-7: Only returns cards that are actually related to at least one card
     visible through the portal (matching the portal's card_type and filters).
     """
-    result = await db.execute(
-        select(WebPortal).where(WebPortal.slug == slug, WebPortal.is_published == True)  # noqa: E712
-    )
-    portal = result.scalar_one_or_none()
-    if not portal:
-        raise HTTPException(404, "Portal not found")
-
     # Build a subquery for portal-visible card IDs (apply portal filters)
     visible_q = select(Card.id).where(
         Card.type == portal.card_type,
@@ -370,16 +570,10 @@ async def get_public_portal_cards(
     page_size: int = Query(24, ge=1, le=100),
     sort_by: str = Query("name"),
     sort_dir: str = Query("asc"),
+    portal: WebPortal = Depends(require_portal_access),
     db: AsyncSession = Depends(get_db),
 ):
     """Public endpoint: returns cards for a published portal with optional filtering."""
-    result = await db.execute(
-        select(WebPortal).where(WebPortal.slug == slug, WebPortal.is_published == True)  # noqa: E712
-    )
-    portal = result.scalar_one_or_none()
-    if not portal:
-        raise HTTPException(404, "Portal not found")
-
     q = select(Card).where(
         Card.type == portal.card_type,
         Card.status == "ACTIVE",

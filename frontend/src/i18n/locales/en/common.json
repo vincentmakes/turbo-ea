@@ -355,5 +355,10 @@
   "notFound.extensionHint": "This page belongs to an extension that is not installed, not enabled, or still loading.",
   "actions.view": "View",
   "actions.moveUp": "Move up",
-  "actions.moveDown": "Move down"
+  "actions.moveDown": "Move down",
+  "portal.signInHint": "This portal is restricted. Sign in with your organization account to view it.",
+  "portal.signInButton": "Sign in with {{provider}}",
+  "portal.ssoUnavailable": "Single sign-on isn't available for this portal right now. Please contact the portal administrator.",
+  "portal.signInError": "Sign-in failed. Please try again.",
+  "portal.signingIn": "Signing you in…"
 }

@@ -1817,5 +1817,15 @@
   "metamodel.typeDrawer.cardId.generateConfirmBody_other": "Attribuer des ID à {{count}} cartes existantes ? Les ID sont permanents et non modifiables.",
   "metamodel.typeDrawer.cardId.generateConfirmAction": "Générer",
   "metamodel.typeDrawer.cardId.generated_one": "{{count}} ID généré",
-  "metamodel.typeDrawer.cardId.generated_other": "{{count}} ID générés"
+  "metamodel.typeDrawer.cardId.generated_other": "{{count}} ID générés",
+  "webPortals.access.title": "Protection de l'accès",
+  "webPortals.access.modeLabel": "Qui peut consulter ce portail",
+  "webPortals.access.modePublic": "Toute personne disposant du lien",
+  "webPortals.access.modeSso": "Se connecter via SSO",
+  "webPortals.access.publicHint": "Une fois publié, le portail est lisible par tous — toute personne disposant du lien peut le consulter.",
+  "webPortals.access.ssoHint": "Les visiteurs doivent se connecter avec le fournisseur d'identité de votre organisation. Aucun compte n'est créé et aucune licence n'est utilisée.",
+  "webPortals.access.ssoNotConfigured": "L'authentification unique doit être configurée avant de pouvoir restreindre un portail au SSO.",
+  "webPortals.access.domainsLabel": "Domaines de messagerie autorisés (facultatif)",
+  "webPortals.access.domainsPlaceholder": "entreprise.com",
+  "webPortals.access.domainsHint": "Restreint l'accès à ces domaines de messagerie. Laisser vide pour autoriser tout utilisateur authentifié par votre fournisseur d'identité. Appuyez sur Entrée pour ajouter."
 }

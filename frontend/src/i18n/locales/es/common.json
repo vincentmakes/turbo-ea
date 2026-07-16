@@ -355,5 +355,10 @@
   "notFound.extensionHint": "Esta página pertenece a una extensión que no está instalada, no está habilitada o aún se está cargando.",
   "actions.view": "Ver",
   "actions.moveUp": "Subir",
-  "actions.moveDown": "Bajar"
+  "actions.moveDown": "Bajar",
+  "portal.signInHint": "Este portal está restringido. Inicia sesión con tu cuenta de la organización para verlo.",
+  "portal.signInButton": "Iniciar sesión con {{provider}}",
+  "portal.ssoUnavailable": "El inicio de sesión único no está disponible para este portal en este momento. Ponte en contacto con el administrador del portal.",
+  "portal.signInError": "Error al iniciar sesión. Inténtalo de nuevo.",
+  "portal.signingIn": "Iniciando sesión…"
 }

@@ -12,6 +12,24 @@ I portali web sono utili per condividere informazioni architetturali con stakeho
 - **Directory dei servizi** — Pubblicate i servizi IT e i loro responsabili
 - **Mappa delle capability** — Fornite una vista pubblica delle business capability
 
+## Protezione dell'accesso
+
+Ogni portale ha una **modalità di accesso** che controlla chi può aprirlo:
+
+| Modalità | Comportamento |
+|----------|---------------|
+| **Chiunque abbia il link** | Una volta pubblicato, il portale è leggibile da tutti: chiunque conosca l'URL può visualizzarlo. È la modalità predefinita e il comportamento storico. |
+| **Accedi con SSO** | I visitatori devono autenticarsi con il provider di identità della tua organizzazione prima che vengano mostrati i dati. |
+
+La **modalità SSO** riutilizza il Single Sign-On già configurato in **Admin > Impostazioni > Autenticazione** e protegge i portali **senza** gestire utenti aggiuntivi:
+
+- I visitatori accedono tramite il tuo provider di identità, ma **non vengono mai creati come utenti Turbo EA**: nessun account, nessun ruolo, nessuna licenza.
+- Il visitatore ottiene una sessione temporanea, specifica del portale. Nulla viene mostrato prima dell'accesso.
+- Facoltativamente, imposta un elenco di **domini email consentiti** per limitare l'accesso a domini specifici (es. `azienda.com`). Lascia vuoto per consentire qualsiasi utente autenticato dal tuo provider di identità.
+
+!!! note
+    **Accedi con SSO** è selezionabile solo quando il Single Sign-On è configurato. Registra `https://il-tuo-dominio-turbo-ea/portal/sso-callback` come URI di reindirizzamento consentito presso il tuo provider di identità. Annullare la pubblicazione di un portale revoca immediatamente l'accesso in ogni modalità.
+
 ## Creazione di un portale
 
 1. Navigate su **Admin > Impostazioni > Portali web**

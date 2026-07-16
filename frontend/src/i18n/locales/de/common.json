@@ -355,5 +355,10 @@
   "notFound.extensionHint": "Diese Seite gehört zu einer Erweiterung, die nicht installiert, nicht aktiviert oder noch nicht geladen ist.",
   "actions.view": "Anzeigen",
   "actions.moveUp": "Nach oben",
-  "actions.moveDown": "Nach unten"
+  "actions.moveDown": "Nach unten",
+  "portal.signInHint": "Dieses Portal ist geschützt. Melden Sie sich mit Ihrem Organisationskonto an, um es anzusehen.",
+  "portal.signInButton": "Mit {{provider}} anmelden",
+  "portal.ssoUnavailable": "Single Sign-On ist für dieses Portal derzeit nicht verfügbar. Bitte wenden Sie sich an den Portal-Administrator.",
+  "portal.signInError": "Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.",
+  "portal.signingIn": "Sie werden angemeldet …"
 }

@@ -1817,5 +1817,15 @@
   "metamodel.typeDrawer.cardId.generateConfirmBody_other": "Assegnare ID a {{count}} schede esistenti? Gli ID sono permanenti e non modificabili.",
   "metamodel.typeDrawer.cardId.generateConfirmAction": "Genera",
   "metamodel.typeDrawer.cardId.generated_one": "{{count}} ID generato",
-  "metamodel.typeDrawer.cardId.generated_other": "{{count}} ID generati"
+  "metamodel.typeDrawer.cardId.generated_other": "{{count}} ID generati",
+  "webPortals.access.title": "Protezione dell'accesso",
+  "webPortals.access.modeLabel": "Chi può visualizzare questo portale",
+  "webPortals.access.modePublic": "Chiunque abbia il link",
+  "webPortals.access.modeSso": "Accedi con SSO",
+  "webPortals.access.publicHint": "Una volta pubblicato, il portale è leggibile da tutti: chiunque abbia il link può visualizzarlo.",
+  "webPortals.access.ssoHint": "I visitatori devono accedere con il provider di identità della tua organizzazione. Non viene creato alcun account né utilizzata alcuna licenza.",
+  "webPortals.access.ssoNotConfigured": "Il Single Sign-On deve essere configurato prima di poter limitare un portale al SSO.",
+  "webPortals.access.domainsLabel": "Domini email consentiti (facoltativo)",
+  "webPortals.access.domainsPlaceholder": "azienda.com",
+  "webPortals.access.domainsHint": "Limita l'accesso a questi domini email. Lascia vuoto per consentire qualsiasi utente autenticato dal tuo provider di identità. Premi Invio per aggiungere."
 }

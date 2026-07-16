@@ -1817,5 +1817,15 @@
   "metamodel.typeDrawer.cardId.generateConfirmBody_other": "Присвоить ID {{count}} существующим карточкам? ID постоянны и не могут быть изменены.",
   "metamodel.typeDrawer.cardId.generateConfirmAction": "Сгенерировать",
   "metamodel.typeDrawer.cardId.generated_one": "Сгенерирован {{count}} ID",
-  "metamodel.typeDrawer.cardId.generated_other": "Сгенерировано {{count}} ID"
+  "metamodel.typeDrawer.cardId.generated_other": "Сгенерировано {{count}} ID",
+  "webPortals.access.title": "Защита доступа",
+  "webPortals.access.modeLabel": "Кто может просматривать этот портал",
+  "webPortals.access.modePublic": "Любой, у кого есть ссылка",
+  "webPortals.access.modeSso": "Войти через SSO",
+  "webPortals.access.publicHint": "После публикации портал доступен для чтения всем — любой, у кого есть ссылка, может его просматривать.",
+  "webPortals.access.ssoHint": "Посетители должны войти через поставщик удостоверений вашей организации. Учётная запись не создаётся и лицензия не расходуется.",
+  "webPortals.access.ssoNotConfigured": "Прежде чем ограничивать портал через SSO, необходимо настроить единый вход.",
+  "webPortals.access.domainsLabel": "Разрешённые почтовые домены (необязательно)",
+  "webPortals.access.domainsPlaceholder": "company.com",
+  "webPortals.access.domainsHint": "Ограничивает доступ этими почтовыми доменами. Оставьте пустым, чтобы разрешить любого пользователя, прошедшего аутентификацию в поставщике удостоверений. Нажмите Enter, чтобы добавить."
 }

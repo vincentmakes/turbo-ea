@@ -355,5 +355,10 @@
   "notFound.extensionHint": "Denne side hører til en udvidelse, der ikke er installeret, ikke er aktiveret eller stadig indlæses.",
   "actions.view": "Vis",
   "actions.moveUp": "Flyt op",
-  "actions.moveDown": "Flyt ned"
+  "actions.moveDown": "Flyt ned",
+  "portal.signInHint": "Denne portal er begrænset. Log ind med din organisationskonto for at se den.",
+  "portal.signInButton": "Log ind med {{provider}}",
+  "portal.ssoUnavailable": "Single sign-on er ikke tilgængelig for denne portal lige nu. Kontakt portaladministratoren.",
+  "portal.signInError": "Login mislykkedes. Prøv igen.",
+  "portal.signingIn": "Logger dig ind…"
 }

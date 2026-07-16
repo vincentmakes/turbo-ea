@@ -355,5 +355,10 @@
   "notFound.extensionHint": "Esta página pertence a uma extensão que não está instalada, não está ativada ou ainda está a carregar.",
   "actions.view": "Ver",
   "actions.moveUp": "Mover para cima",
-  "actions.moveDown": "Mover para baixo"
+  "actions.moveDown": "Mover para baixo",
+  "portal.signInHint": "Este portal é restrito. Entre com a sua conta da organização para vê-lo.",
+  "portal.signInButton": "Entrar com {{provider}}",
+  "portal.ssoUnavailable": "O logon único não está disponível para este portal no momento. Entre em contato com o administrador do portal.",
+  "portal.signInError": "Falha ao entrar. Tente novamente.",
+  "portal.signingIn": "Entrando…"
 }

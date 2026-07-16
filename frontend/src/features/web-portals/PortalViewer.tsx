@@ -6,6 +6,7 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
+import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import CardActionArea from "@mui/material/CardActionArea";
@@ -39,6 +40,7 @@ import type {
   PublicPortal,
   PortalCard,
   PortalCardListResponse,
+  PortalGate,
   TagGroup,
 } from "@/types";
 
@@ -81,11 +83,17 @@ function isVisible(
   return defaults[key] ?? fallback;
 }
 
+type ApiError = Error & { status?: number };
+
 async function publicGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`);
+  // credentials: "same-origin" so the httpOnly portal-session cookie is sent
+  // to the path-scoped public endpoints of an SSO-gated portal.
+  const res = await fetch(`${BASE}${path}`, { credentials: "same-origin" });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || res.statusText);
+    const e = new Error(err.detail || res.statusText) as ApiError;
+    e.status = res.status;
+    throw e;
   }
   return res.json();
 }
@@ -261,6 +269,8 @@ export default function PortalViewer() {
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const [portal, setPortal] = useState<PublicPortal | null>(null);
+  const [gate, setGate] = useState<PortalGate | null>(null);
+  const [locked, setLocked] = useState(false);
   const [cards, setCards] = useState<PortalCard[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -282,12 +292,66 @@ export default function PortalViewer() {
 
   useEffect(() => {
     if (!slug) return;
+    let cancelled = false;
     setLoading(true);
-    publicGet<PublicPortal>(`/web-portals/public/${slug}`)
-      .then(setPortal)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+    setError("");
+    setLocked(false);
+    (async () => {
+      try {
+        // The gate endpoint is always public: it tells us the access mode and,
+        // for SSO, the config needed to start the IdP redirect.
+        const g = await publicGet<PortalGate>(`/web-portals/public/${slug}/gate`);
+        if (cancelled) return;
+        setGate(g);
+        try {
+          // Works for public portals, and for SSO portals when a valid
+          // session cookie is already present.
+          const p = await publicGet<PublicPortal>(`/web-portals/public/${slug}`);
+          if (!cancelled) setPortal(p);
+        } catch (e) {
+          const status = (e as ApiError).status;
+          if (g.access_mode === "sso" && status === 401) {
+            if (!cancelled) setLocked(true);
+          } else {
+            throw e;
+          }
+        }
+      } catch (e) {
+        if (!cancelled) setError((e as Error).message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [slug]);
+
+  const handlePortalSsoLogin = useCallback(() => {
+    const sso = gate?.sso;
+    if (!sso?.authorization_endpoint || !sso.client_id || !slug) return;
+    // state carries the slug + a random nonce (stored for CSRF validation on
+    // return by PortalSsoCallback).
+    const nonce =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : String(Date.now());
+    const state = btoa(JSON.stringify({ slug, nonce }));
+    sessionStorage.setItem("portal_sso_state", state);
+    const redirectUri = `${window.location.origin}/portal/sso-callback`;
+    const params = new URLSearchParams({
+      client_id: sso.client_id,
+      response_type: "code",
+      redirect_uri: redirectUri,
+      scope: sso.scopes || "openid email profile",
+      response_mode: "query",
+      state,
+    });
+    if (sso.extra_auth_params) {
+      Object.entries(sso.extra_auth_params).forEach(([k, v]) => params.set(k, v));
+    }
+    window.location.href = `${sso.authorization_endpoint}?${params.toString()}`;
+  }, [gate, slug]);
 
   // Derive visible relation types from card_config toggles (rel:key entries)
   const relToggles = portal?.card_config
@@ -422,6 +486,61 @@ export default function PortalViewer() {
         }}
       >
         <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (locked && gate) {
+    const providerName = gate.sso?.provider_name || "SSO";
+    const canSignIn = Boolean(gate.sso?.authorization_endpoint && gate.sso?.client_id);
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "100vh",
+          bgcolor: "background.default",
+          gap: 2,
+          px: 3,
+          textAlign: "center",
+        }}
+      >
+        <Box
+          sx={{
+            width: 64,
+            height: 64,
+            borderRadius: 2,
+            bgcolor: TOOLBAR_COLOR,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Icon name="lock" size={32} color="#fff" />
+        </Box>
+        <Typography variant="h5" fontWeight={700}>
+          {gate.name}
+        </Typography>
+        <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 420 }}>
+          {t("portal.signInHint")}
+        </Typography>
+        {canSignIn ? (
+          <Button
+            variant="contained"
+            size="large"
+            onClick={handlePortalSsoLogin}
+            startIcon={<Icon name="login" size={20} color="#fff" />}
+            sx={{ mt: 1, textTransform: "none" }}
+          >
+            {t("portal.signInButton", { provider: providerName })}
+          </Button>
+        ) : (
+          <Typography variant="body2" color="text.disabled" sx={{ maxWidth: 420 }}>
+            {t("portal.ssoUnavailable")}
+          </Typography>
+        )}
       </Box>
     );
   }

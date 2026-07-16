@@ -106,6 +106,10 @@ export default function WebPortalsAdmin() {
   const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
   const [showLogo, setShowLogo] = useState(true);
+  const [accessMode, setAccessMode] = useState<"public" | "sso">("public");
+  const [allowedDomains, setAllowedDomains] = useState<string[]>([]);
+  const [domainInput, setDomainInput] = useState("");
+  const [ssoEnabled, setSsoEnabled] = useState(false);
 
   const visibleTypes = types.filter((tp) => !tp.is_hidden);
 
@@ -124,6 +128,10 @@ export default function WebPortalsAdmin() {
       .get<TagGroup[]>("/tag-groups")
       .then(setTagGroups)
       .catch(() => setTagGroups([]));
+    api
+      .get<{ enabled: boolean }>("/auth/sso/config")
+      .then((cfg) => setSsoEnabled(cfg.enabled === true))
+      .catch(() => setSsoEnabled(false));
   }, []);
 
   const resetForm = () => {
@@ -137,6 +145,9 @@ export default function WebPortalsAdmin() {
     setFilterSubtypes([]);
     setFilterTagIds([]);
     setShowLogo(true);
+    setAccessMode("public");
+    setAllowedDomains([]);
+    setDomainInput("");
     setError("");
     setEditingPortal(null);
   };
@@ -166,6 +177,9 @@ export default function WebPortalsAdmin() {
     setFilterTagIds(
       ((portal.filters as Record<string, unknown>)?.tag_ids as string[]) || []
     );
+    setAccessMode(portal.access_mode === "sso" ? "sso" : "public");
+    setAllowedDomains(portal.allowed_email_domains || []);
+    setDomainInput("");
     setError("");
     setDialogOpen(true);
   };
@@ -207,16 +221,36 @@ export default function WebPortalsAdmin() {
     return tp ? typeLabel(tp) : otherKey;
   };
 
+  const commitDomainInput = (raw: string): string[] => {
+    const parts = raw
+      .split(/[\s,;]+/)
+      .map((d) => d.trim().toLowerCase())
+      .filter(Boolean);
+    if (!parts.length) return allowedDomains;
+    const next = Array.from(new Set([...allowedDomains, ...parts]));
+    setAllowedDomains(next);
+    setDomainInput("");
+    return next;
+  };
+
   const handleSave = async () => {
     setError("");
     const hasToggles = Object.keys(toggles).length > 0;
     const hasCardConfig = hasToggles || !showLogo;
+    // Fold any un-committed text in the domain input into the list on save.
+    const effectiveDomains =
+      accessMode === "sso" && domainInput.trim()
+        ? commitDomainInput(domainInput)
+        : allowedDomains;
     const body = {
       name,
       slug,
       description: description || null,
       card_type: cardType,
       is_published: isPublished,
+      access_mode: accessMode,
+      allowed_email_domains:
+        accessMode === "sso" && effectiveDomains.length > 0 ? effectiveDomains : null,
       display_fields: null,
       filters:
         filterSubtypes.length > 0 || filterTagIds.length > 0
@@ -774,6 +808,74 @@ export default function WebPortalsAdmin() {
                 </TableBody>
               </Table>
             </>
+          )}
+
+          <Divider sx={{ my: 3 }} />
+
+          {/* ── Section: Access protection ── */}
+          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+            {t("webPortals.access.title")}
+          </Typography>
+          <TextField
+            select
+            fullWidth
+            size="small"
+            label={t("webPortals.access.modeLabel")}
+            value={accessMode}
+            onChange={(e) => setAccessMode(e.target.value as "public" | "sso")}
+            helperText={
+              accessMode === "sso"
+                ? t("webPortals.access.ssoHint")
+                : t("webPortals.access.publicHint")
+            }
+          >
+            <MenuItem value="public">{t("webPortals.access.modePublic")}</MenuItem>
+            <MenuItem value="sso" disabled={!ssoEnabled}>
+              {t("webPortals.access.modeSso")}
+            </MenuItem>
+          </TextField>
+          {!ssoEnabled && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: "block", mt: 0.5 }}
+            >
+              {t("webPortals.access.ssoNotConfigured")}
+            </Typography>
+          )}
+          {accessMode === "sso" && (
+            <Box sx={{ mt: 2 }}>
+              <TextField
+                fullWidth
+                size="small"
+                label={t("webPortals.access.domainsLabel")}
+                placeholder={t("webPortals.access.domainsPlaceholder")}
+                value={domainInput}
+                onChange={(e) => setDomainInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === ",") {
+                    e.preventDefault();
+                    commitDomainInput(domainInput);
+                  }
+                }}
+                onBlur={() => domainInput.trim() && commitDomainInput(domainInput)}
+                helperText={t("webPortals.access.domainsHint")}
+              />
+              {allowedDomains.length > 0 && (
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 1 }}>
+                  {allowedDomains.map((d) => (
+                    <Chip
+                      key={d}
+                      label={d}
+                      onDelete={() =>
+                        setAllowedDomains(allowedDomains.filter((x) => x !== d))
+                      }
+                      size="small"
+                    />
+                  ))}
+                </Box>
+              )}
+            </Box>
           )}
 
           <Divider sx={{ my: 3 }} />

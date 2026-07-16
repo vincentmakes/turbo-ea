@@ -59,6 +59,12 @@ class Settings:
     SECRET_KEY: str = os.getenv("SECRET_KEY", "change-me-in-production")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
 
+    # Lifetime of an SSO-gated web-portal visitor session (account-less). Kept
+    # shorter than a user session: portal tokens are stateless, so the TTL is
+    # the revocation granularity for a de-provisioned visitor (unpublishing the
+    # portal is the instant kill switch). Default 8h.
+    PORTAL_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("PORTAL_TOKEN_EXPIRE_MINUTES", "480"))
+
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
 
     ALLOWED_ORIGINS: list[str] = [

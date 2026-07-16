@@ -1817,5 +1817,15 @@
   "metamodel.typeDrawer.cardId.generateConfirmBody_other": "Atribuir IDs a {{count}} cartões existentes? Os IDs são permanentes e não podem ser alterados.",
   "metamodel.typeDrawer.cardId.generateConfirmAction": "Gerar",
   "metamodel.typeDrawer.cardId.generated_one": "{{count}} ID gerado",
-  "metamodel.typeDrawer.cardId.generated_other": "{{count}} IDs gerados"
+  "metamodel.typeDrawer.cardId.generated_other": "{{count}} IDs gerados",
+  "webPortals.access.title": "Proteção de acesso",
+  "webPortals.access.modeLabel": "Quem pode ver este portal",
+  "webPortals.access.modePublic": "Qualquer pessoa com o link",
+  "webPortals.access.modeSso": "Entrar com SSO",
+  "webPortals.access.publicHint": "Depois de publicado, o portal fica legível publicamente — qualquer pessoa com o link pode vê-lo.",
+  "webPortals.access.ssoHint": "Os visitantes precisam entrar com o provedor de identidade da sua organização. Nenhuma conta é criada e nenhuma licença é usada.",
+  "webPortals.access.ssoNotConfigured": "O logon único precisa estar configurado antes de restringir um portal ao SSO.",
+  "webPortals.access.domainsLabel": "Domínios de e-mail permitidos (opcional)",
+  "webPortals.access.domainsPlaceholder": "empresa.com",
+  "webPortals.access.domainsHint": "Restringe o acesso a esses domínios de e-mail. Deixe vazio para permitir qualquer usuário autenticado pelo seu provedor de identidade. Pressione Enter para adicionar."
 }

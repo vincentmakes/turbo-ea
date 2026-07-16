@@ -355,5 +355,10 @@
   "notFound.extensionHint": "Cette page appartient à une extension qui n'est pas installée, pas activée ou encore en cours de chargement.",
   "actions.view": "Voir",
   "actions.moveUp": "Monter",
-  "actions.moveDown": "Descendre"
+  "actions.moveDown": "Descendre",
+  "portal.signInHint": "Ce portail est restreint. Connectez-vous avec votre compte professionnel pour le consulter.",
+  "portal.signInButton": "Se connecter avec {{provider}}",
+  "portal.ssoUnavailable": "L'authentification unique n'est pas disponible pour ce portail actuellement. Veuillez contacter l'administrateur du portail.",
+  "portal.signInError": "Échec de la connexion. Veuillez réessayer.",
+  "portal.signingIn": "Connexion en cours…"
 }

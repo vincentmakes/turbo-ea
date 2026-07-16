@@ -1817,5 +1817,15 @@
   "metamodel.typeDrawer.cardId.generateConfirmBody_other": "Tildel ID'er til {{count}} eksisterende kort? ID'er er permanente og kan ikke ændres.",
   "metamodel.typeDrawer.cardId.generateConfirmAction": "Generér",
   "metamodel.typeDrawer.cardId.generated_one": "{{count}} ID genereret",
-  "metamodel.typeDrawer.cardId.generated_other": "{{count}} ID'er genereret"
+  "metamodel.typeDrawer.cardId.generated_other": "{{count}} ID'er genereret",
+  "webPortals.access.title": "Adgangsbeskyttelse",
+  "webPortals.access.modeLabel": "Hvem kan se denne portal",
+  "webPortals.access.modePublic": "Alle med linket",
+  "webPortals.access.modeSso": "Log ind med SSO",
+  "webPortals.access.publicHint": "Portalen er offentligt læsbar, når den er udgivet — alle med linket kan se den.",
+  "webPortals.access.ssoHint": "Besøgende skal logge ind med din organisations identitetsudbyder. Der oprettes ingen konto, og der bruges ingen licens.",
+  "webPortals.access.ssoNotConfigured": "Single sign-on skal konfigureres, før en portal kan begrænses til SSO.",
+  "webPortals.access.domainsLabel": "Tilladte e-maildomæner (valgfrit)",
+  "webPortals.access.domainsPlaceholder": "virksomhed.com",
+  "webPortals.access.domainsHint": "Begrænser adgangen til disse e-maildomæner. Lad feltet stå tomt for at tillade enhver bruger, som din identitetsudbyder godkender. Tryk på Enter for at tilføje."
 }

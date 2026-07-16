@@ -12,6 +12,24 @@ Web-Portale sind nützlich, um Architekturinformationen mit Stakeholdern zu teil
 - **Serviceverzeichnis** — IT-Services und ihre Eigentümer veröffentlichen
 - **Fähigkeitskarte** — Eine öffentliche Ansicht der Geschäftsfähigkeiten bereitstellen
 
+## Zugriffsschutz
+
+Jedes Portal hat einen **Zugriffsmodus**, der steuert, wer es öffnen darf:
+
+| Modus | Verhalten |
+|-------|-----------|
+| **Jeder mit dem Link** | Das Portal ist nach der Veröffentlichung öffentlich lesbar — jeder, der die URL kennt, kann es ansehen. Dies ist der Standard und das bisherige Verhalten. |
+| **Mit SSO anmelden** | Besucher müssen sich mit dem Identitätsanbieter Ihrer Organisation anmelden, bevor Portaldaten angezeigt werden. |
+
+Der **SSO-Modus** nutzt das bereits unter **Admin > Einstellungen > Authentifizierung** konfigurierte Single Sign-On und schützt Portale, **ohne** zusätzliche Benutzer zu verwalten:
+
+- Besucher melden sich über Ihren Identitätsanbieter an, werden aber **nie als Turbo-EA-Benutzer angelegt** — kein Konto, keine Rolle, keine Lizenz.
+- Der Besucher erhält eine kurzlebige, portalspezifische Sitzung. Vor der Anmeldung wird nichts angezeigt.
+- Optional können Sie mit **Erlaubte E-Mail-Domänen** den Zugriff auf bestimmte Domänen beschränken (z. B. `firma.com`). Leer lassen, um jeden vom Identitätsanbieter authentifizierten Benutzer zuzulassen.
+
+!!! note
+    **Mit SSO anmelden** ist erst wählbar, wenn Single Sign-On konfiguriert ist. Registrieren Sie `https://ihre-turbo-ea-domain/portal/sso-callback` als erlaubte Redirect-URI bei Ihrem Identitätsanbieter. Das Aufheben der Veröffentlichung entzieht den Zugriff in jedem Modus sofort.
+
 ## Ein Portal erstellen
 
 1. Navigieren Sie zu **Admin > Einstellungen > Web-Portale**

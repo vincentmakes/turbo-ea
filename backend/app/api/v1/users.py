@@ -9,13 +9,13 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.api.v1.auth import _get_sso_config
 from app.core.security import hash_password
 from app.database import get_db
 from app.models.role import Role
 from app.models.sso_invitation import SsoInvitation
 from app.models.user import DEFAULT_NOTIFICATION_PREFERENCES, DEFAULT_UI_PREFERENCES, User
 from app.services.permission_service import PermissionService
+from app.services.sso_service import get_sso_config
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -213,7 +213,7 @@ async def resend_invitation_by_invitation(
     user_result = await db.execute(select(User).where(User.email == inv.email))
     matching_user = user_result.scalar_one_or_none()
 
-    sso_cfg = await _get_sso_config(db)
+    sso_cfg = await get_sso_config(db)
     sso_enabled = sso_cfg.get("enabled", False)
     title, message, link = _build_invite_email(
         app_title=_get_app_title(),
@@ -524,7 +524,7 @@ async def create_user(
     # explicit value (e.g. the import flow forwarding the `auth_provider`
     # column from the sheet), honour it; otherwise fall back to the legacy
     # heuristic (local iff a password is supplied).
-    sso_cfg = await _get_sso_config(db)
+    sso_cfg = await get_sso_config(db)
     sso_enabled = sso_cfg.get("enabled", False)
 
     if body.auth_provider == "local":

@@ -355,5 +355,10 @@
   "notFound.extensionHint": "تعود هذه الصفحة إلى إضافة غير مثبّتة أو غير مفعّلة أو ما زالت قيد التحميل.",
   "actions.view": "عرض",
   "actions.moveUp": "نقل لأعلى",
-  "actions.moveDown": "نقل لأسفل"
+  "actions.moveDown": "نقل لأسفل",
+  "portal.signInHint": "هذه البوابة مقيّدة. سجّل الدخول باستخدام حساب مؤسستك لعرضها.",
+  "portal.signInButton": "تسجيل الدخول عبر {{provider}}",
+  "portal.ssoUnavailable": "الدخول الموحّد غير متاح لهذه البوابة حاليًا. يرجى الاتصال بمسؤول البوابة.",
+  "portal.signInError": "فشل تسجيل الدخول. يرجى المحاولة مرة أخرى.",
+  "portal.signingIn": "جارٍ تسجيل دخولك…"
 }

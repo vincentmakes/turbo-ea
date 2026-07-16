@@ -355,5 +355,10 @@
   "notFound.extensionHint": "Questa pagina appartiene a un'estensione non installata, non abilitata o ancora in caricamento.",
   "actions.view": "Visualizza",
   "actions.moveUp": "Sposta su",
-  "actions.moveDown": "Sposta giù"
+  "actions.moveDown": "Sposta giù",
+  "portal.signInHint": "Questo portale è riservato. Accedi con il tuo account aziendale per visualizzarlo.",
+  "portal.signInButton": "Accedi con {{provider}}",
+  "portal.ssoUnavailable": "L'accesso Single Sign-On non è al momento disponibile per questo portale. Contatta l'amministratore del portale.",
+  "portal.signInError": "Accesso non riuscito. Riprova.",
+  "portal.signingIn": "Accesso in corso…"
 }

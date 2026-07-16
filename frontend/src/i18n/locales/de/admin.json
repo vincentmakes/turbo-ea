@@ -1817,5 +1817,15 @@
   "metamodel.typeDrawer.cardId.generateConfirmBody_other": "{{count}} bestehenden Karten IDs zuweisen? IDs sind dauerhaft und können nicht geändert werden.",
   "metamodel.typeDrawer.cardId.generateConfirmAction": "Generieren",
   "metamodel.typeDrawer.cardId.generated_one": "{{count}} ID generiert",
-  "metamodel.typeDrawer.cardId.generated_other": "{{count}} IDs generiert"
+  "metamodel.typeDrawer.cardId.generated_other": "{{count}} IDs generiert",
+  "webPortals.access.title": "Zugriffsschutz",
+  "webPortals.access.modeLabel": "Wer dieses Portal ansehen darf",
+  "webPortals.access.modePublic": "Jeder mit dem Link",
+  "webPortals.access.modeSso": "Mit SSO anmelden",
+  "webPortals.access.publicHint": "Das Portal ist nach der Veröffentlichung öffentlich lesbar — jeder mit dem Link kann es ansehen.",
+  "webPortals.access.ssoHint": "Besucher müssen sich mit dem Identitätsanbieter Ihrer Organisation anmelden. Es wird kein Konto angelegt und keine Lizenz verbraucht.",
+  "webPortals.access.ssoNotConfigured": "Single Sign-On muss konfiguriert sein, bevor ein Portal auf SSO beschränkt werden kann.",
+  "webPortals.access.domainsLabel": "Erlaubte E-Mail-Domänen (optional)",
+  "webPortals.access.domainsPlaceholder": "firma.com",
+  "webPortals.access.domainsHint": "Beschränkt den Zugriff auf diese E-Mail-Domänen. Leer lassen, um jeden vom Identitätsanbieter authentifizierten Benutzer zuzulassen. Zum Hinzufügen die Eingabetaste drücken."
 }

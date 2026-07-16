@@ -20,6 +20,13 @@ class WebPortal(Base, UUIDMixin, TimestampMixin):
     display_fields: Mapped[list | None] = mapped_column(JSONB, default=list)
     card_config: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     is_published: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Access protection. "public" (world-readable when published, the historical
+    # behaviour) or "sso" (visitor must authenticate against the org's configured
+    # SSO IdP — an ephemeral, account-less portal session, no users row created).
+    access_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="public")
+    # Optional per-portal email-domain allowlist for "sso" mode. NULL / [] means
+    # any user the IdP authenticates. Lowercase domains, e.g. ["company.com"].
+    allowed_email_domains: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

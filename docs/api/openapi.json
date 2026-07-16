@@ -6729,6 +6729,24 @@
         "title": "OccurrenceCompleteRequest",
         "type": "object"
       },
+      "PortalSsoCallbackRequest": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "redirect_uri": {
+            "title": "Redirect Uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "redirect_uri"
+        ],
+        "title": "PortalSsoCallbackRequest",
+        "type": "object"
+      },
       "PortfolioInsightsRequest": {
         "description": "Summary data for AI portfolio analysis.",
         "properties": {
@@ -13958,6 +13976,31 @@
       },
       "WebPortalCreate": {
         "properties": {
+          "access_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access Mode"
+          },
+          "allowed_email_domains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Email Domains"
+          },
           "card_config": {
             "anyOf": [
               {
@@ -14033,6 +14076,31 @@
       },
       "WebPortalUpdate": {
         "properties": {
+          "access_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access Mode"
+          },
+          "allowed_email_domains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Email Domains"
+          },
           "card_config": {
             "anyOf": [
               {
@@ -36246,6 +36314,47 @@
         ]
       }
     },
+    "/api/v1/web-portals/public/{slug}/gate": {
+      "get": {
+        "description": "Always-public gate metadata: which access mode a portal uses, and \u2014 for\nSSO \u2014 the config the viewer needs to start the IdP redirect. Returns only\nname + mode + SSO-initiation fields; never description, filters, or cards.",
+        "operationId": "get_portal_gate_api_v1_web_portals_public__slug__gate_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Portal Gate",
+        "tags": [
+          "web-portals"
+        ]
+      }
+    },
     "/api/v1/web-portals/public/{slug}/relation-options": {
       "get": {
         "description": "Return card name/id pairs for a given type, for filter dropdowns.\n\nM-7: Only returns cards that are actually related to at least one card\nvisible through the portal (matching the portal's card_type and filters).",
@@ -36291,6 +36400,57 @@
           }
         },
         "summary": "Get Public Portal Relation Options",
+        "tags": [
+          "web-portals"
+        ]
+      }
+    },
+    "/api/v1/web-portals/public/{slug}/sso/callback": {
+      "post": {
+        "description": "Exchange an SSO authorization code for an account-less portal session.\n\nVerifies the id_token against the org IdP, enforces email verification, the\nGoogle hosted-domain rule, and the portal's optional email-domain allowlist,\nthen mints a portal-session cookie. Creates NO user account.",
+        "operationId": "portal_sso_callback_api_v1_web_portals_public__slug__sso_callback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PortalSsoCallbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Portal Sso Callback",
         "tags": [
           "web-portals"
         ]

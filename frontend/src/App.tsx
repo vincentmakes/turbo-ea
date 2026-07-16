@@ -60,6 +60,7 @@ const SurveyBuilder = lazy(() => import("@/features/admin/SurveyBuilder"));
 const SurveyResults = lazy(() => import("@/features/admin/SurveyResults"));
 const SurveyRespond = lazy(() => import("@/features/surveys/SurveyRespond"));
 const PortalViewer = lazy(() => import("@/features/web-portals/PortalViewer"));
+const PortalSsoCallback = lazy(() => import("@/features/web-portals/PortalSsoCallback"));
 const BpmDashboard = lazy(() => import("@/features/bpm/BpmDashboard"));
 const ProcessFlowEditorPage = lazy(() => import("@/features/bpm/ProcessFlowEditorPage"));
 const PpmHome = lazy(() => import("@/features/ppm/PpmHome"));
@@ -119,7 +120,8 @@ function AppRoutes() {
   if (!user) {
     return (
       <Routes>
-        {/* Public portal route — accessible without login */}
+        {/* Public portal routes — accessible without login */}
+        <Route path="/portal/sso-callback" element={<Suspense fallback={<PageLoader />}><PortalSsoCallback /></Suspense>} />
         <Route path="/portal/:slug" element={<Suspense fallback={<PageLoader />}><PortalViewer /></Suspense>} />
         {/* SSO callback route */}
         <Route path="/auth/callback" element={<SsoCallback onSsoCallback={ssoCallback} />} />
@@ -142,7 +144,8 @@ function AppRoutes() {
 
   return (
     <Routes>
-      {/* Public portal route — also accessible when logged in */}
+      {/* Public portal routes — also accessible when logged in */}
+      <Route path="/portal/sso-callback" element={<Suspense fallback={<PageLoader />}><PortalSsoCallback /></Suspense>} />
       <Route path="/portal/:slug" element={<Suspense fallback={<PageLoader />}><PortalViewer /></Suspense>} />
       {/* Authenticated routes */}
       <Route

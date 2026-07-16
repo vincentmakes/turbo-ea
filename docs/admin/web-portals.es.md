@@ -12,6 +12,24 @@ Los portales web son útiles para compartir información de arquitectura con par
 - **Directorio de servicios** — Publique los servicios de TI y sus responsables
 - **Mapa de capacidades** — Proporcione una vista pública de las capacidades de negocio
 
+## Protección de acceso
+
+Cada portal tiene un **modo de acceso** que controla quién puede abrirlo:
+
+| Modo | Comportamiento |
+|------|----------------|
+| **Cualquiera con el enlace** | Una vez publicado, el portal es de lectura pública: cualquiera que conozca la URL puede verlo. Es el modo predeterminado y el comportamiento histórico. |
+| **Iniciar sesión con SSO** | Los visitantes deben autenticarse con el proveedor de identidad de tu organización antes de mostrar cualquier dato. |
+
+El **modo SSO** reutiliza el inicio de sesión único ya configurado en **Admin > Configuración > Autenticación** y protege los portales **sin** gestionar usuarios adicionales:
+
+- Los visitantes inician sesión con tu proveedor de identidad, pero **nunca se crean como usuarios de Turbo EA**: sin cuenta, sin rol y sin licencia.
+- El visitante obtiene una sesión efímera, propia del portal. No se muestra nada hasta completar el inicio de sesión.
+- Opcionalmente, define una lista de **dominios de correo permitidos** para restringir el acceso a dominios concretos (p. ej. `empresa.com`). Déjala vacía para permitir cualquier usuario que autentique tu proveedor de identidad.
+
+!!! note
+    **Iniciar sesión con SSO** solo se puede elegir cuando el inicio de sesión único está configurado. Registra `https://tu-dominio-turbo-ea/portal/sso-callback` como URI de redirección permitida en tu proveedor de identidad. Despublicar un portal revoca el acceso de inmediato en todos los modos.
+
 ## Creación de un Portal
 
 1. Navegue a **Administrador > Configuración > Portales Web**
