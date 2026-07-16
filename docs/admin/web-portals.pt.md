@@ -28,7 +28,7 @@ O **modo SSO** reutiliza o logon único já configurado em **Admin > Configuraç
 - Opcionalmente, defina uma lista de **domínios de e-mail permitidos** para restringir o acesso a domínios específicos (ex.: `empresa.com`). Deixe vazio para permitir qualquer usuário autenticado pelo seu provedor de identidade.
 
 !!! note
-    **Entrar com SSO** só pode ser selecionado quando o logon único está configurado. Registre `https://seu-dominio-turbo-ea/portal/sso-callback` como URI de redirecionamento permitido no seu provedor de identidade. Cancelar a publicação de um portal revoga o acesso imediatamente em todos os modos.
+    **Entrar com SSO** só pode ser selecionado quando o logon único está configurado. Reutiliza a mesma URI de redirecionamento do login normal (`/auth/callback`) no seu provedor de identidade, portanto **nenhuma configuração adicional é necessária** — se o login funciona, o SSO do portal funciona. Visitantes com uma sessão ativa no provedor de identidade entram automaticamente, sem clique. Cancelar a publicação de um portal revoga o acesso imediatamente em todos os modos.
 
 ## Criando um Portal
 

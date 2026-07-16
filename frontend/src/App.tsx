@@ -60,7 +60,6 @@ const SurveyBuilder = lazy(() => import("@/features/admin/SurveyBuilder"));
 const SurveyResults = lazy(() => import("@/features/admin/SurveyResults"));
 const SurveyRespond = lazy(() => import("@/features/surveys/SurveyRespond"));
 const PortalViewer = lazy(() => import("@/features/web-portals/PortalViewer"));
-const PortalSsoCallback = lazy(() => import("@/features/web-portals/PortalSsoCallback"));
 const BpmDashboard = lazy(() => import("@/features/bpm/BpmDashboard"));
 const ProcessFlowEditorPage = lazy(() => import("@/features/bpm/ProcessFlowEditorPage"));
 const PpmHome = lazy(() => import("@/features/ppm/PpmHome"));
@@ -120,10 +119,9 @@ function AppRoutes() {
   if (!user) {
     return (
       <Routes>
-        {/* Public portal routes — accessible without login */}
-        <Route path="/portal/sso-callback" element={<Suspense fallback={<PageLoader />}><PortalSsoCallback /></Suspense>} />
+        {/* Public portal route — accessible without login */}
         <Route path="/portal/:slug" element={<Suspense fallback={<PageLoader />}><PortalViewer /></Suspense>} />
-        {/* SSO callback route */}
+        {/* SSO callback route — shared by user login and SSO-gated portals */}
         <Route path="/auth/callback" element={<SsoCallback onSsoCallback={ssoCallback} />} />
         {/* Password setup route (for invited users) */}
         <Route path="/auth/set-password" element={<SetPasswordPage onSetPassword={setPassword} />} />
@@ -144,9 +142,11 @@ function AppRoutes() {
 
   return (
     <Routes>
-      {/* Public portal routes — also accessible when logged in */}
-      <Route path="/portal/sso-callback" element={<Suspense fallback={<PageLoader />}><PortalSsoCallback /></Suspense>} />
+      {/* Public portal route — also accessible when logged in */}
       <Route path="/portal/:slug" element={<Suspense fallback={<PageLoader />}><PortalViewer /></Suspense>} />
+      {/* SSO callback — reachable while logged in too, so an admin previewing an
+          SSO portal completes the portal sign-in on the same shared route. */}
+      <Route path="/auth/callback" element={<SsoCallback onSsoCallback={ssoCallback} />} />
       {/* Authenticated routes */}
       <Route
         path="*"

@@ -28,7 +28,7 @@ El **modo SSO** reutiliza el inicio de sesión único ya configurado en **Admin 
 - Opcionalmente, define una lista de **dominios de correo permitidos** para restringir el acceso a dominios concretos (p. ej. `empresa.com`). Déjala vacía para permitir cualquier usuario que autentique tu proveedor de identidad.
 
 !!! note
-    **Iniciar sesión con SSO** solo se puede elegir cuando el inicio de sesión único está configurado. Registra `https://tu-dominio-turbo-ea/portal/sso-callback` como URI de redirección permitida en tu proveedor de identidad. Despublicar un portal revoca el acceso de inmediato en todos los modos.
+    **Iniciar sesión con SSO** solo se puede elegir cuando el inicio de sesión único está configurado. Reutiliza la misma URI de redirección que el inicio de sesión normal (`/auth/callback`) en tu proveedor de identidad, por lo que **no se necesita configuración adicional** — si funciona el inicio de sesión, funciona el SSO del portal. Los visitantes con una sesión activa en el proveedor de identidad inician sesión automáticamente, sin hacer clic. Despublicar un portal revoca el acceso de inmediato en todos los modos.
 
 ## Creación de un Portal
 

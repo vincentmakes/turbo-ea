@@ -28,7 +28,7 @@ Le **mode SSO** réutilise l'authentification unique déjà configurée sous **A
 - Vous pouvez éventuellement définir une liste de **domaines de messagerie autorisés** pour restreindre l'accès à certains domaines (par ex. `entreprise.com`). Laissez vide pour autoriser tout utilisateur authentifié par votre fournisseur d'identité.
 
 !!! note
-    **Se connecter via SSO** n'est disponible qu'une fois l'authentification unique configurée. Enregistrez `https://votre-domaine-turbo-ea/portal/sso-callback` comme URI de redirection autorisée auprès de votre fournisseur d'identité. Dépublier un portail révoque immédiatement l'accès dans tous les modes.
+    **Se connecter via SSO** n'est disponible qu'une fois l'authentification unique configurée. Il réutilise la même URI de redirection que la connexion normale (`/auth/callback`) auprès de votre fournisseur d'identité, donc **aucune configuration supplémentaire n'est nécessaire** — si la connexion fonctionne, le SSO du portail fonctionne. Les visiteurs disposant d'une session active auprès du fournisseur d'identité sont connectés automatiquement, sans clic. Dépublier un portail révoque immédiatement l'accès dans tous les modes.
 
 ## Création d'un portail
 

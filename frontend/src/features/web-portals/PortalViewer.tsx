@@ -98,6 +98,48 @@ async function publicGet<T>(path: string): Promise<T> {
   return res.json();
 }
 
+// Portal SSO reuses the app's existing /auth/callback redirect URI (already
+// registered with the IdP for login), so an SSO-gated portal needs no IdP
+// reconfiguration. The OAuth `state` carries the portal slug so the shared
+// callback can tell a portal sign-in apart from a normal login.
+const PORTAL_SSO_REDIRECT_PATH = "/auth/callback";
+
+function portalSilentKey(slug: string): string {
+  return `portal_silent_${slug}`;
+}
+
+// Send the browser to the IdP to authenticate a portal visitor. `silent` adds
+// prompt=none for a no-UI attempt that only completes if the visitor already
+// has an active IdP session; on any interaction requirement the IdP bounces
+// straight back with an error and we fall back to an explicit sign-in button.
+function doSsoRedirect(
+  sso: NonNullable<PortalGate["sso"]>,
+  slug: string,
+  silent: boolean,
+): void {
+  if (!sso.authorization_endpoint || !sso.client_id) return;
+  const nonce =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : String(Date.now());
+  sessionStorage.setItem("portal_sso_nonce", nonce);
+  const state = btoa(JSON.stringify({ t: "portal", slug, nonce, silent }));
+  const redirectUri = `${window.location.origin}${PORTAL_SSO_REDIRECT_PATH}`;
+  const params = new URLSearchParams({
+    client_id: sso.client_id,
+    response_type: "code",
+    redirect_uri: redirectUri,
+    scope: sso.scopes || "openid email profile",
+    response_mode: "query",
+    state,
+  });
+  if (silent) params.set("prompt", "none");
+  if (sso.extra_auth_params) {
+    Object.entries(sso.extra_auth_params).forEach(([k, v]) => params.set(k, v));
+  }
+  window.location.href = `${sso.authorization_endpoint}?${params.toString()}`;
+}
+
 function Icon({
   name,
   size = 20,
@@ -271,6 +313,7 @@ export default function PortalViewer() {
   const [portal, setPortal] = useState<PublicPortal | null>(null);
   const [gate, setGate] = useState<PortalGate | null>(null);
   const [locked, setLocked] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
   const [cards, setCards] = useState<PortalCard[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -296,6 +339,7 @@ export default function PortalViewer() {
     setLoading(true);
     setError("");
     setLocked(false);
+    setSigningIn(false);
     (async () => {
       try {
         // The gate endpoint is always public: it tells us the access mode and,
@@ -311,6 +355,19 @@ export default function PortalViewer() {
         } catch (e) {
           const status = (e as ApiError).status;
           if (g.access_mode === "sso" && status === 401) {
+            const canSso = Boolean(g.sso?.authorization_endpoint && g.sso?.client_id);
+            const tried = sessionStorage.getItem(portalSilentKey(slug));
+            // First hit: try a silent (prompt=none) sign-in so a visitor who is
+            // already signed in with the IdP lands on the portal without any
+            // click. The shared /auth/callback marks the attempt "failed" and
+            // sends them back here if interaction is required, so we only ever
+            // auto-redirect once per session.
+            if (canSso && !tried) {
+              sessionStorage.setItem(portalSilentKey(slug), "pending");
+              if (!cancelled) setSigningIn(true);
+              doSsoRedirect(g.sso!, slug, true);
+              return;
+            }
             if (!cancelled) setLocked(true);
           } else {
             throw e;
@@ -328,29 +385,7 @@ export default function PortalViewer() {
   }, [slug]);
 
   const handlePortalSsoLogin = useCallback(() => {
-    const sso = gate?.sso;
-    if (!sso?.authorization_endpoint || !sso.client_id || !slug) return;
-    // state carries the slug + a random nonce (stored for CSRF validation on
-    // return by PortalSsoCallback).
-    const nonce =
-      typeof crypto !== "undefined" && crypto.randomUUID
-        ? crypto.randomUUID()
-        : String(Date.now());
-    const state = btoa(JSON.stringify({ slug, nonce }));
-    sessionStorage.setItem("portal_sso_state", state);
-    const redirectUri = `${window.location.origin}/portal/sso-callback`;
-    const params = new URLSearchParams({
-      client_id: sso.client_id,
-      response_type: "code",
-      redirect_uri: redirectUri,
-      scope: sso.scopes || "openid email profile",
-      response_mode: "query",
-      state,
-    });
-    if (sso.extra_auth_params) {
-      Object.entries(sso.extra_auth_params).forEach(([k, v]) => params.set(k, v));
-    }
-    window.location.href = `${sso.authorization_endpoint}?${params.toString()}`;
+    if (gate?.sso && slug) doSsoRedirect(gate.sso, slug, false);
   }, [gate, slug]);
 
   // Derive visible relation types from card_config toggles (rel:key entries)
@@ -474,18 +509,25 @@ export default function PortalViewer() {
     Object.values(relationFilters).some((v) => v !== "") ||
     tagFilter.length > 0;
 
-  if (loading) {
+  if (loading || signingIn) {
     return (
       <Box
         sx={{
           display: "flex",
+          flexDirection: "column",
           justifyContent: "center",
           alignItems: "center",
           minHeight: "100vh",
           bgcolor: "background.default",
+          gap: 2,
         }}
       >
         <CircularProgress />
+        {signingIn && (
+          <Typography variant="body2" color="text.secondary">
+            {t("portal.signingIn")}
+          </Typography>
+        )}
       </Box>
     );
   }

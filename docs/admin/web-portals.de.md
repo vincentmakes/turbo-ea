@@ -28,7 +28,7 @@ Der **SSO-Modus** nutzt das bereits unter **Admin > Einstellungen > Authentifizi
 - Optional können Sie mit **Erlaubte E-Mail-Domänen** den Zugriff auf bestimmte Domänen beschränken (z. B. `firma.com`). Leer lassen, um jeden vom Identitätsanbieter authentifizierten Benutzer zuzulassen.
 
 !!! note
-    **Mit SSO anmelden** ist erst wählbar, wenn Single Sign-On konfiguriert ist. Registrieren Sie `https://ihre-turbo-ea-domain/portal/sso-callback` als erlaubte Redirect-URI bei Ihrem Identitätsanbieter. Das Aufheben der Veröffentlichung entzieht den Zugriff in jedem Modus sofort.
+    **Mit SSO anmelden** ist erst wählbar, wenn Single Sign-On konfiguriert ist. Es verwendet dieselbe Redirect-URI beim Identitätsanbieter wie die normale Anmeldung (`/auth/callback`), sodass **keine zusätzliche Konfiguration beim Anbieter nötig ist** — wenn die Anmeldung funktioniert, funktioniert auch Portal-SSO. Besucher mit einer aktiven Sitzung beim Identitätsanbieter werden ohne Klick automatisch angemeldet. Das Aufheben der Veröffentlichung entzieht den Zugriff in jedem Modus sofort.
 
 ## Ein Portal erstellen
 

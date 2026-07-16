@@ -28,7 +28,7 @@ Hver portal har en **adgangstilstand**, der styrer, hvem der kan åbne den:
 - Du kan eventuelt angive en liste over **tilladte e-maildomæner** for at begrænse adgangen til bestemte domæner (f.eks. `virksomhed.com`). Lad feltet stå tomt for at tillade enhver bruger, som din identitetsudbyder godkender.
 
 !!! note
-    **Log ind med SSO** kan først vælges, når single sign-on er konfigureret. Registrér `https://dit-turbo-ea-domæne/portal/sso-callback` som en tilladt redirect-URI hos din identitetsudbyder. Afpublicering af en portal tilbagekalder øjeblikkeligt adgangen i alle tilstande.
+    **Log ind med SSO** kan først vælges, når single sign-on er konfigureret. Den genbruger den samme redirect-URI hos din identitetsudbyder som normalt login (`/auth/callback`), så **der kræves ingen ekstra konfiguration** — hvis login virker, virker portal-SSO. Besøgende med en aktiv session hos identitetsudbyderen logges ind automatisk uden klik. Afpublicering af en portal tilbagekalder øjeblikkeligt adgangen i alle tilstande.
 
 ## Oprettelse af en portal
 

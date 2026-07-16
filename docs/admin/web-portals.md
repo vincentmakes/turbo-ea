@@ -56,11 +56,12 @@ Each portal has an **access mode** that controls who can open it:
 **SSO mode** reuses the single sign-on you've already configured under **Admin > Settings > Authentication**. It is designed for protecting portals **without** managing extra users:
 
 - Visitors sign in through your identity provider, but are **never provisioned as Turbo EA users** — no account is created, no role is assigned, and no license is consumed.
+- **Transparent sign-in.** A visitor who already has an active session with your identity provider is signed in **automatically, with no prompt** — they just see the portal. Only when interaction is required (no active session yet) do they get a one-click **Sign in** button.
 - The visitor gets a short-lived, per-portal session. Nothing is shown until sign-in completes.
 - Optionally set an **Allowed email domains** list to restrict access to specific domains (e.g. `company.com`). Leave it empty to allow any user your identity provider authenticates.
 
 !!! note
-    **Sign in with SSO** is only selectable once single sign-on is configured. Register `https://your-turbo-ea-domain/portal/sso-callback` as an allowed redirect URI with your identity provider so the sign-in redirect can complete.
+    **Sign in with SSO** is only selectable once single sign-on is configured. It reuses the **same identity-provider redirect URI as normal login** (`/auth/callback`), so **no extra provider configuration is needed** — if login works, portal SSO works.
 
 Unpublishing a portal immediately revokes access in every mode.
 

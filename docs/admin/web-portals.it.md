@@ -28,7 +28,7 @@ La **modalità SSO** riutilizza il Single Sign-On già configurato in **Admin > 
 - Facoltativamente, imposta un elenco di **domini email consentiti** per limitare l'accesso a domini specifici (es. `azienda.com`). Lascia vuoto per consentire qualsiasi utente autenticato dal tuo provider di identità.
 
 !!! note
-    **Accedi con SSO** è selezionabile solo quando il Single Sign-On è configurato. Registra `https://il-tuo-dominio-turbo-ea/portal/sso-callback` come URI di reindirizzamento consentito presso il tuo provider di identità. Annullare la pubblicazione di un portale revoca immediatamente l'accesso in ogni modalità.
+    **Accedi con SSO** è selezionabile solo quando il Single Sign-On è configurato. Riutilizza lo stesso URI di reindirizzamento dell'accesso normale (`/auth/callback`) presso il tuo provider di identità, quindi **non è necessaria alcuna configurazione aggiuntiva** — se l'accesso funziona, funziona anche il SSO del portale. I visitatori con una sessione attiva presso il provider di identità accedono automaticamente, senza clic. Annullare la pubblicazione di un portale revoca immediatamente l'accesso in ogni modalità.
 
 ## Creazione di un portale
 
