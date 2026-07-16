@@ -1,5 +1,6 @@
 {
   "detail.title": "Detalle de ficha",
+  "detail.unsavedLeaveConfirm": "Tiene cambios sin guardar. ¿Salir sin guardar?",
   "detail.backToTop": "Volver arriba",
   "detail.archivedBanner": "Esta ficha está archivada.",
   "detail.purgeWarning_one": "Será eliminada permanentemente en {{count}} día.",

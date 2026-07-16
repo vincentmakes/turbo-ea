@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import MuiCard from "@mui/material/Card";
@@ -74,6 +74,8 @@ interface Props {
   onAiSuggest?: () => void;
   /** Whether an AI suggestion is currently in flight (disables the button) */
   aiBusy?: boolean;
+  /** Notified when any editable section has unsaved changes (for a leave guard) */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 export default function CardDetailContent({
@@ -89,6 +91,7 @@ export default function CardDetailContent({
   showLdvSection = true,
   onAiSuggest,
   aiBusy = false,
+  onDirtyChange,
 }: Props) {
   const { t } = useTranslation("cards");
   const navigate = useNavigate();
@@ -272,6 +275,40 @@ export default function CardDetailContent({
     [card.id, onCardUpdate],
   );
 
+  // Track which sections have unsaved edits so the page can warn on navigation
+  // (#843). Each editable section reports its dirty state under a stable key;
+  // we bubble a single boolean up whenever the "any dirty" state flips.
+  // `onDirtyChange` is read through a ref so `registerDirty` (and the per-key
+  // callbacks derived from it) keep a stable identity and don't re-trigger each
+  // section's dirty-reporting effect on every render.
+  const onDirtyChangeRef = useRef(onDirtyChange);
+  useEffect(() => {
+    onDirtyChangeRef.current = onDirtyChange;
+  }, [onDirtyChange]);
+  const dirtySectionsRef = useRef<Set<string>>(new Set());
+  const dirtyCbCacheRef = useRef<Map<string, (dirty: boolean) => void>>(
+    new Map(),
+  );
+  const registerDirty = useCallback((key: string, dirty: boolean) => {
+    const set = dirtySectionsRef.current;
+    const wasEmpty = set.size === 0;
+    if (dirty) set.add(key);
+    else set.delete(key);
+    const isEmpty = set.size === 0;
+    if (wasEmpty !== isEmpty) onDirtyChangeRef.current?.(!isEmpty);
+  }, []);
+  const dirtyCb = useCallback(
+    (key: string) => {
+      let cb = dirtyCbCacheRef.current.get(key);
+      if (!cb) {
+        cb = (dirty: boolean) => registerDirty(key, dirty);
+        dirtyCbCacheRef.current.set(key, cb);
+      }
+      return cb;
+    },
+    [registerDirty],
+  );
+
   const renderSection = (key: string) => {
     if (secHidden(key)) return null;
     const exp = secExpanded(key, key === "relations" ? false : true);
@@ -290,6 +327,7 @@ export default function CardDetailContent({
             currencyFmt={currencyFmt}
             onAiSuggest={onAiSuggest}
             aiBusy={aiBusy}
+            onDirtyChange={dirtyCb("description")}
           />
         </ErrorBoundary>
       );
@@ -313,6 +351,7 @@ export default function CardDetailContent({
             onSave={handleUpdate}
             canEdit={perms.can_edit}
             initialExpanded={exp}
+            onDirtyChange={dirtyCb("lifecycle")}
           />
         </ErrorBoundary>
       );
@@ -391,6 +430,7 @@ export default function CardDetailContent({
             initialExpanded={exp}
             hiddenFieldKeys={hiddenFieldKeys}
             canViewCosts={perms.can_view_costs}
+            onDirtyChange={dirtyCb(key)}
           />
         </ErrorBoundary>
       );

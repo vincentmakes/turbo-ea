@@ -1,5 +1,6 @@
 {
   "detail.title": "Détail de la fiche",
+  "detail.unsavedLeaveConfirm": "Vous avez des modifications non enregistrées. Quitter sans enregistrer ?",
   "detail.backToTop": "Retour en haut",
   "detail.archivedBanner": "Cette fiche est archivée.",
   "detail.purgeWarning_one": "Elle sera définitivement supprimée dans {{count}} jour.",

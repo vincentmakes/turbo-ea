@@ -37,6 +37,7 @@ function AttributeSection({
   initialExpanded,
   hiddenFieldKeys,
   canViewCosts = true,
+  onDirtyChange,
 }: {
   section: SectionDef & { defaultExpanded?: boolean; columns?: 1 | 2 };
   card: Card;
@@ -47,6 +48,7 @@ function AttributeSection({
   initialExpanded?: boolean;
   hiddenFieldKeys?: Set<string>;
   canViewCosts?: boolean;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const { fmt, symbol } = useCurrency();
@@ -58,9 +60,22 @@ function AttributeSection({
   );
   const [saveError, setSaveError] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  // Re-sync the draft from the card prop only while NOT editing. Saving any
+  // other section replaces the whole card object in the parent (setCard), which
+  // would otherwise clobber this section's in-progress draft (issue #843). While
+  // this section is being edited we keep the user's draft; on save/cancel
+  // `editing` flips false and the draft resyncs to the fresh card values.
   useEffect(() => {
-    setAttrs(card.attributes || {});
-  }, [card.attributes]);
+    if (!editing) setAttrs(card.attributes || {});
+  }, [card.attributes, editing]);
+
+  // Report unsaved-changes state up so the page can warn on navigation (#843).
+  const dirty =
+    editing && JSON.stringify(attrs) !== JSON.stringify(card.attributes || {});
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+    return () => onDirtyChange?.(false);
+  }, [dirty, onDirtyChange]);
 
   // Filter out hidden fields for the active subtype
   const visibleFields = hiddenFieldKeys?.size

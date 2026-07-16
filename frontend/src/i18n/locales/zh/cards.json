@@ -1,5 +1,6 @@
 {
   "detail.title": "卡片详情",
+  "detail.unsavedLeaveConfirm": "您有未保存的更改。不保存就离开吗？",
   "detail.backToTop": "返回顶部",
   "detail.archivedBanner": "此卡片已归档。",
   "detail.purgeWarning_one": "将在 {{count}} 天后被永久删除。",

@@ -1,5 +1,6 @@
 {
   "detail.title": "Карточка",
+  "detail.unsavedLeaveConfirm": "Есть несохранённые изменения. Уйти без сохранения?",
   "detail.backToTop": "Наверх",
   "detail.archivedBanner": "Эта карточка архивирована.",
   "detail.purgeWarning_one": "Она будет безвозвратно удалена через {{count}} день.",

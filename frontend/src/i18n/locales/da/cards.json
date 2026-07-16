@@ -1,5 +1,6 @@
 {
   "detail.title": "Kortdetaljer",
+  "detail.unsavedLeaveConfirm": "Du har ugemte ændringer. Vil du forlade siden uden at gemme?",
   "detail.backToTop": "Tilbage til toppen",
   "detail.archivedBanner": "Dette kort er arkiveret.",
   "detail.purgeWarning_one": "Det slettes permanent om {{count}} dag.",

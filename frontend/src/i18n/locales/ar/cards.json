@@ -1,5 +1,6 @@
 {
   "detail.title": "تفاصيل البطاقة",
+  "detail.unsavedLeaveConfirm": "لديك تغييرات غير محفوظة. هل تريد المغادرة دون حفظ؟",
   "detail.backToTop": "العودة إلى الأعلى",
   "detail.archivedBanner": "هذه البطاقة مؤرشفة.",
   "detail.purgeWarning_one": "سيتم حذفها نهائيًا خلال {{count}} يوم.",

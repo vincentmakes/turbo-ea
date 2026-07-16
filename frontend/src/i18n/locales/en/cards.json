@@ -1,5 +1,6 @@
 {
   "detail.title": "Card Detail",
+  "detail.unsavedLeaveConfirm": "You have unsaved changes. Leave without saving?",
   "detail.backToTop": "Back to top",
   "detail.archivedBanner": "This card is archived.",
   "detail.purgeWarning_one": "It will be permanently deleted in {{count}} day.",

@@ -150,6 +150,56 @@ describe("AttributeSection brings the section back into view after save", () => 
   });
 });
 
+describe("AttributeSection preserves in-progress edits across a card refresh (#843)", () => {
+  // Simulates CardDetailContent: saving another section replaces the whole card
+  // object (new identity), which must NOT clobber this section's unsaved draft
+  // while it is being edited.
+  function DirtyHarness() {
+    const [c, setC] = useState(card);
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() =>
+            // New card + new attributes identity, value of `a` changed —
+            // exactly what the server returns after an unrelated save.
+            setC((prev) => ({
+              ...prev,
+              attributes: { ...(prev.attributes || {}), a: "server-value" },
+            }) as typeof prev)
+          }
+        >
+          ext-update
+        </button>
+        <AttributeSection section={section} card={c} canEdit onSave={async () => {}} />
+      </>
+    );
+  }
+
+  it("keeps the typed draft when the card prop is replaced mid-edit", () => {
+    render(<DirtyHarness />);
+    fireEvent.click(screen.getByText("edit"));
+
+    const input = screen.getByDisplayValue("x");
+    fireEvent.change(input, { target: { value: "typed-draft" } });
+    expect(screen.getByDisplayValue("typed-draft")).toBeInTheDocument();
+
+    // A parent card refresh lands (e.g. another section saved).
+    fireEvent.click(screen.getByText("ext-update"));
+
+    // Draft survives — it is NOT reset to the server value.
+    expect(screen.getByDisplayValue("typed-draft")).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("server-value")).not.toBeInTheDocument();
+  });
+
+  it("does resync from the card prop when the section is not editing", () => {
+    render(<DirtyHarness />);
+    // Read mode: a card refresh must reflect the new server value.
+    fireEvent.click(screen.getByText("ext-update"));
+    expect(screen.getByText("server-value")).toBeInTheDocument();
+  });
+});
+
 describe("AttributeSection group header translation", () => {
   const groupedSection: SectionDef & { columns?: 1 | 2 } = {
     section: "Dimensions",

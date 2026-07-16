@@ -27,6 +27,7 @@ function DescriptionSection({
   currencyFmt,
   onAiSuggest,
   aiBusy = false,
+  onDirtyChange,
 }: {
   card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
@@ -36,6 +37,7 @@ function DescriptionSection({
   currencyFmt?: CurrencyFormatter;
   onAiSuggest?: () => void;
   aiBusy?: boolean;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const fieldLabel = useFieldLabel();
@@ -44,10 +46,25 @@ function DescriptionSection({
   const [attrs, setAttrs] = useState<Record<string, unknown>>(card.attributes || {});
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Re-sync the draft from the card prop only while NOT editing, so saving
+  // another section (which replaces the whole card object in the parent) can't
+  // clobber this section's in-progress draft (issue #843).
   useEffect(() => {
-    setDescription(card.description || "");
-    setAttrs(card.attributes || {});
-  }, [card.description, card.attributes]);
+    if (!editing) {
+      setDescription(card.description || "");
+      setAttrs(card.attributes || {});
+    }
+  }, [card.description, card.attributes, editing]);
+
+  // Report unsaved-changes state up so the page can warn on navigation (#843).
+  const dirty =
+    editing &&
+    (description !== (card.description || "") ||
+      JSON.stringify(attrs) !== JSON.stringify(card.attributes || {}));
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+    return () => onDirtyChange?.(false);
+  }, [dirty, onDirtyChange]);
 
   // URL validation for extra fields
   const urlErrors: Record<string, string> = {};

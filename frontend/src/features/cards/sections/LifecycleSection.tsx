@@ -29,11 +29,13 @@ function LifecycleSection({
   onSave,
   canEdit = true,
   initialExpanded = true,
+  onDirtyChange,
 }: {
   card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
   canEdit?: boolean;
   initialExpanded?: boolean;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const theme = useTheme();
@@ -44,9 +46,21 @@ function LifecycleSection({
     card.lifecycle || {}
   );
 
+  // Re-sync the draft from the card prop only while NOT editing, so saving
+  // another section (which replaces the whole card object in the parent) can't
+  // clobber this section's in-progress draft (issue #843).
   useEffect(() => {
-    setLifecycle(card.lifecycle || {});
-  }, [card.lifecycle]);
+    if (!editing) setLifecycle(card.lifecycle || {});
+  }, [card.lifecycle, editing]);
+
+  // Report unsaved-changes state up so the page can warn on navigation (#843).
+  const dirty =
+    editing &&
+    JSON.stringify(lifecycle) !== JSON.stringify(card.lifecycle || {});
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+    return () => onDirtyChange?.(false);
+  }, [dirty, onDirtyChange]);
 
   const save = async () => {
     await onSave({ lifecycle });

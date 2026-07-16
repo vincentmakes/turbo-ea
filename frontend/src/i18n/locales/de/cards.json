@@ -1,5 +1,6 @@
 {
   "detail.title": "Kartendetail",
+  "detail.unsavedLeaveConfirm": "Sie haben ungespeicherte Änderungen. Ohne Speichern verlassen?",
   "detail.backToTop": "Nach oben",
   "detail.archivedBanner": "Diese Karte ist archiviert.",
   "detail.purgeWarning_one": "Sie wird in {{count}} Tag endgültig gelöscht.",

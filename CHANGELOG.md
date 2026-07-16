@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.22.0] - 2026-07-16
+
+### Fixed
+- **Editing several card sections at once no longer loses your work.** When you had the edit pencil open on more than one section of a card and typed into each, saving one section used to silently clear the unsaved text in the others. Each section now keeps its in-progress edits until you save or cancel it. (#843)
+
+### Added
+- **Turbo EA now warns you before leaving a card with unsaved edits.** If you try to reload, close the tab, click to another page, or use the browser Back button while a card section (or the card title) is still being edited, you'll be asked to confirm so you don't accidentally lose your changes.
+
 ## [2.21.0] - 2026-07-16
 
 ### Added
