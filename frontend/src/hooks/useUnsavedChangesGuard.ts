@@ -1,30 +1,38 @@
-import { useEffect } from "react";
+import { useContext, useEffect, useRef } from "react";
+import { UNSAFE_NavigationContext } from "react-router-dom";
 
 /**
  * Warn the user before they navigate away while there are unsaved changes.
  *
  * The app is mounted under a `BrowserRouter` (component form), not a data
  * router, so React Router's `useBlocker` / `usePrompt` are unavailable. This
- * hook guards the realistic "leave" surfaces without any router-internal APIs:
+ * hook guards every realistic "leave" surface without a router migration:
  *
  *  1. **beforeunload** — reload, tab close, and hard navigation (same shape as
  *     the DiagramEditor unsaved-changes guard).
- *  2. **In-app link clicks** — a capture-phase document listener intercepts
- *     left-clicks on same-origin, in-app `<a href>` links (React Router
- *     `<Link>` renders these). Cancelling keeps the user on the page. Running
- *     in the capture phase means we can `stopPropagation()` before React
- *     Router's own click handler fires.
+ *  2. **In-app navigation** — both `<Link>` clicks AND programmatic
+ *     `navigate()` calls go through the router's shared `navigator`
+ *     (`push` / `replace`), so patching those catches everything the SPA does,
+ *     including clicking a related card in the Relations section (which uses
+ *     `navigate()`, not an `<a href>`). Cancelling keeps the user on the page.
  *  3. **Back / forward** — a `popstate` guard backed by a history sentinel, so
- *     the browser Back button prompts instead of silently discarding edits.
- *
- * Known limitation: purely programmatic `navigate()` calls from button handlers
- * are not intercepted (they don't go through a link click or popstate). The
- * three mechanisms above cover the common leave paths on the card detail page.
+ *     the browser Back/Forward buttons prompt instead of silently discarding
+ *     edits.
  *
  * @param dirty   Whether there are unsaved changes right now.
  * @param message The confirmation prompt shown for in-app navigation.
  */
 export function useUnsavedChangesGuard(dirty: boolean, message: string): void {
+  const { navigator } = useContext(UNSAFE_NavigationContext);
+
+  // Read the latest dirty/message through refs so the navigator patch can be
+  // installed once for the component's lifetime and stay transparent (pass
+  // through) whenever there are no unsaved changes.
+  const dirtyRef = useRef(dirty);
+  const messageRef = useRef(message);
+  dirtyRef.current = dirty;
+  messageRef.current = message;
+
   // 1. Browser unload (reload / tab close / hard nav).
   useEffect(() => {
     if (!dirty) return;
@@ -38,47 +46,29 @@ export function useUnsavedChangesGuard(dirty: boolean, message: string): void {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [dirty]);
 
-  // 2. In-app link clicks (React Router <Link> renders <a href>).
+  // 2. In-app navigation — patch the shared router navigator's push/replace.
+  //    Covers React Router <Link> clicks and every programmatic navigate().
   useEffect(() => {
-    if (!dirty) return;
-    const onClickCapture = (e: MouseEvent) => {
-      // Only left-clicks without modifier keys are single-page navigations;
-      // modified clicks / middle-clicks open a new tab and don't leave.
-      if (
-        e.defaultPrevented ||
-        e.button !== 0 ||
-        e.metaKey ||
-        e.ctrlKey ||
-        e.shiftKey ||
-        e.altKey
-      ) {
-        return;
-      }
-      const anchor = (e.target as HTMLElement | null)?.closest?.("a");
-      if (!anchor) return;
-      const href = anchor.getAttribute("href");
-      if (!href || href.startsWith("#")) return;
-      // New-tab / download / non-same-origin links don't unload this page here
-      // (a same-tab external link is caught by the beforeunload guard instead).
-      if (anchor.target && anchor.target !== "_self") return;
-      if (anchor.hasAttribute("download")) return;
-      let url: URL;
-      try {
-        url = new URL(href, window.location.href);
-      } catch {
-        return;
-      }
-      if (url.origin !== window.location.origin) return;
-      // Navigating to the exact same URL is a no-op — don't nag.
-      if (url.href === window.location.href) return;
-      if (!window.confirm(message)) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
+    const nav = navigator as unknown as {
+      push: (...args: unknown[]) => void;
+      replace: (...args: unknown[]) => void;
     };
-    document.addEventListener("click", onClickCapture, true);
-    return () => document.removeEventListener("click", onClickCapture, true);
-  }, [dirty, message]);
+    if (!nav?.push || !nav?.replace) return;
+    const originalPush = nav.push;
+    const originalReplace = nav.replace;
+    const guarded =
+      (original: (...args: unknown[]) => void) =>
+      (...args: unknown[]) => {
+        if (dirtyRef.current && !window.confirm(messageRef.current)) return;
+        return original.apply(nav, args);
+      };
+    nav.push = guarded(originalPush);
+    nav.replace = guarded(originalReplace);
+    return () => {
+      nav.push = originalPush;
+      nav.replace = originalReplace;
+    };
+  }, [navigator]);
 
   // 3. Back / forward. Push a same-URL sentinel so a Back press lands here and
   //    can be confirmed instead of silently navigating away.
