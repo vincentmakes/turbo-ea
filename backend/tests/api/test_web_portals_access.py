@@ -123,7 +123,11 @@ class TestGate:
         assert data["access_mode"] == "sso"
         assert data["sso"]["provider"] == "microsoft"
         assert data["sso"]["client_id"] == "test-client-id"
-        assert data["sso"]["authorization_endpoint"].startswith("https://login.microsoftonline.com")
+        # Exact match (not a substring/prefix check) — the tenant is "common".
+        assert (
+            data["sso"]["authorization_endpoint"]
+            == "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+        )
         # No portal data / secrets leak through the gate
         assert "description" not in data
         assert "filters" not in data
