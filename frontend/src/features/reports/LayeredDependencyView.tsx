@@ -403,8 +403,11 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         />
       )}
       {/* Hierarchy markers: a chevron hint when the card has a parent (above)
-          or children (below) that aren't on the diagram yet. Decorative only —
-          tagged `ldv-hierarchy-marker` so image export drops the font glyph. */}
+          or children (below) that aren't on the diagram yet. Decorative only.
+          Drawn as inline SVG (not a Material Symbols font glyph) so they
+          rasterise identically in the live view and in PNG/SVG image export —
+          `skipFonts: true` during export means a font ligature would otherwise
+          leak through as its raw icon name ("expand_less"/"expand_more"). */}
       {hiddenParent && (
         <Box
           className="ldv-hierarchy-marker"
@@ -420,7 +423,7 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
             pointerEvents: "none",
           }}
         >
-          <MaterialSymbol icon="expand_less" size={15} color={accent} />
+          <LdvChevron dir="up" color={accent} />
         </Box>
       )}
       {hiddenChildren && (
@@ -438,7 +441,7 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
             pointerEvents: "none",
           }}
         >
-          <MaterialSymbol icon="expand_more" size={15} color={accent} />
+          <LdvChevron dir="down" color={accent} />
         </Box>
       )}
       {/* Proposed "NEW" badge */}
@@ -634,6 +637,31 @@ const LdvDirectionArrow = memo(
   ),
 );
 LdvDirectionArrow.displayName = "LdvDirectionArrow";
+
+/**
+ * Hierarchy hint chevron (▲ hidden parent / ▼ hidden children) drawn as a
+ * vector SVG rather than a Material Symbols font glyph, so it rasterises
+ * identically in the live view and in PNG/SVG image export (export runs with
+ * `skipFonts: true`, so a font ligature would leak through as its raw icon
+ * name). Same rationale as `LdvDirectionArrow`.
+ */
+const LdvChevron = memo(({ dir, color }: { dir: "up" | "down"; color: string }) => (
+  <svg
+    width={14}
+    height={8}
+    viewBox="0 0 14 8"
+    fill="none"
+    stroke={color}
+    strokeWidth={1.6}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{ flexShrink: 0 }}
+    aria-hidden
+  >
+    <polyline points={dir === "up" ? "1,6 7,2 13,6" : "1,2 7,6 13,2"} />
+  </svg>
+));
+LdvChevron.displayName = "LdvChevron";
 
 const LdvEdgeComponent = memo(
   ({
