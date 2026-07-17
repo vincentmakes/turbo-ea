@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.23.1] - 2026-07-17
+
+### Security
+- **Frontend build toolchain upgraded from End-of-Life Node.js 20 to Node.js 24 LTS.** The `frontend-build` Docker stage now uses `node:24-alpine` and the frontend CI jobs run on Node 24. Node.js 20 reached End of Life on April 30, 2026; Node 24 is the Active LTS line, supported until April 2028. Node is build-time only — the shipped frontend image (nginx + static assets) is unchanged. (#853)
+
 ## [2.23.0] - 2026-07-17
 
 ### Added
