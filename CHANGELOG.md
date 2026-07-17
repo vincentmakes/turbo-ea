@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.22.1] - 2026-07-17
+
+### Fixed
+- **Exporting a dependency diagram (Layered Dependency View) to PNG or SVG no longer shows `expand_less` / `expand_more` as raw text.** The small up/down hierarchy hint chevrons (shown when a card has a hidden parent or hidden children) now render as real chevrons in the exported image instead of leaking through as their icon names.
+
 ## [2.22.0] - 2026-07-16
 
 ### Fixed
