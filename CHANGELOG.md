@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - The Compliance filter sidebar, Capability Map, and Process Map now use the metamodel colors for Application, IT Component, Data Object, and Business Capability instead of hardcoded defaults, so admin color customizations show up consistently.
+- **The notification bell now inherits the custom navigation bar text color** (#852). With a light custom navbar the bell was hardcoded white and nearly invisible; it now follows the configured text color like every other top-bar icon, while the red unread badge keeps its status color.
 
 ## [2.22.4] - 2026-07-17
 

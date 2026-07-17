@@ -795,7 +795,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           )}
 
           {/* Notification bell */}
-          <NotificationBell userId={user.id} />
+          <NotificationBell userId={user.id} color={nav.fg} />
 
           {/* User menu */}
           <IconButton
