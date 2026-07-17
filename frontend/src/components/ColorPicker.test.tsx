@@ -38,39 +38,3 @@ describe("ColorPicker warnLowContrast", () => {
     expect(onChange).toHaveBeenCalledWith("#FFFFB5");
   });
 });
-
-describe("ColorPicker presetGroups", () => {
-  const archimate = {
-    label: "ArchiMate",
-    colors: [
-      { value: "#FFFFB5", title: "Business — #FFFFB5" },
-      { value: "#B5FFFF", title: "Application — #B5FFFF" },
-    ],
-  };
-
-  it("renders the group label and its swatches", () => {
-    render(<ColorPicker value="#0f7eb5" onChange={() => {}} presetGroups={[archimate]} />);
-    openPopover();
-    expect(screen.getByText("ArchiMate")).toBeInTheDocument();
-    expect(screen.getByLabelText("Business — #FFFFB5")).toBeInTheDocument();
-    expect(screen.getByLabelText("Application — #B5FFFF")).toBeInTheDocument();
-  });
-
-  it("clicking a swatch then Save applies its color", () => {
-    const onChange = vi.fn();
-    render(<ColorPicker value="#0f7eb5" onChange={onChange} presetGroups={[archimate]} />);
-    openPopover();
-    fireEvent.click(screen.getByLabelText("Business — #FFFFB5"));
-    fireEvent.click(screen.getByText("actions.save"));
-    expect(onChange).toHaveBeenCalledWith("#FFFFB5");
-  });
-
-  it("still shows the contrast hint for a low-contrast curated swatch", () => {
-    render(
-      <ColorPicker value="#0f7eb5" onChange={() => {}} presetGroups={[archimate]} warnLowContrast />,
-    );
-    openPopover();
-    fireEvent.click(screen.getByLabelText("Business — #FFFFB5"));
-    expect(screen.getByText("colorPicker.contrastWarning")).toBeInTheDocument();
-  });
-});

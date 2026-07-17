@@ -178,21 +178,6 @@ export const CARD_TYPE_COLORS = {
   System: "#5B738B",
 } as const;
 
-// ── ArchiMate layer palette (metamodel color picker swatch) ─────────────
-// The ArchiMate spec leaves colors informal, but this per-layer pastel
-// palette is the de-facto standard — used by the spec's own diagrams and by
-// the Archi tool's defaults (AbstractArchimateElementUIProvider.java).
-// Physical elements conventionally share the Technology green.
-
-export const ARCHIMATE_LAYER_COLORS = [
-  { key: "strategy", color: "#F5DEAA" },
-  { key: "business", color: "#FFFFB5" },
-  { key: "application", color: "#B5FFFF" },
-  { key: "technology", color: "#C9E7B7" },
-  { key: "motivation", color: "#CCCCFF" },
-  { key: "implementation", color: "#FFE0E0" },
-] as const;
-
 // ── EA layers (Layered Dependency View, capability map, dependency report) ─
 
 export const LAYER_COLORS = {

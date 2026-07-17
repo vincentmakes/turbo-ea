@@ -9,7 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - **Card type colors are now fully customizable — including the built-in types** (discussion #740). The metamodel admin's color picker is no longer locked for built-in types, so you can align Turbo EA with TOGAF/ArchiMate visual conventions (business elements in yellow/orange, applications in blue, …). A **reset to default color** button appears whenever a built-in type's color differs from the standard palette, and the picker warns (without blocking) when a chosen color would be nearly invisible against light or dark backgrounds. The API now validates type colors as `#rrggbb` hex values.
-- **The color picker offers the standard ArchiMate layer palette as a dedicated swatch row** when editing a card type — Strategy, Business, Application, Technology, Motivation, and Implementation & Migration in the de-facto standard pastels used by the ArchiMate specification's diagrams and the Archi tool, each labeled with its layer name.
 - **Text on colored chips and diagram shapes now picks black or white automatically for readability.** Card-type, tag, select-option, and related-card chips across the inventory, card detail, reports, and filter sidebars — as well as newly inserted DrawIO card shapes — compute their text color from the background instead of always using white, so pale custom colors stay legible in both light and dark mode. Dark mode no longer washes out pale type colors in the dependency views.
 
 ### Fixed

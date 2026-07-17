@@ -42,8 +42,6 @@
 - 当内置类型的颜色与 Turbo EA 默认值不同时，色块旁会显示**重置**按钮，随时可以恢复标准配色。
 - 显示在类型颜色上的文字（标签、图表形状）会自动在黑白之间切换以保证可读性，浅色和深色模式均适用。
 
-颜色选择器包含一个专门的 **ArchiMate** 色板行，提供事实上的标准分层配色（规范中为非正式约定，但其示意图和 Archi 工具的默认值均采用）：战略 `#F5DEAA`、业务 `#FFFFB5`、应用 `#B5FFFF`、技术 `#C9E7B7`、动机 `#CCCCFF`、实施与迁移 `#FFE0E0`。与 Turbo EA 分层的典型对应：Strategy & Transformation 类型 → 战略色（Objective 可用动机色），Business Architecture 类型 → 业务黄，Application & Data 类型 → 应用蓝，Technical Architecture 类型 → 技术绿。
-
 #### 字段
 
 字段定义此类型卡片上可用的自定义属性。每个字段具有：

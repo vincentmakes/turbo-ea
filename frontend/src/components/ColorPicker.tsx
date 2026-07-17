@@ -49,17 +49,6 @@ function saveRecent(colors: string[]) {
   localStorage.setItem(RECENT_KEY, JSON.stringify(colors.slice(0, MAX_RECENT)));
 }
 
-export interface PresetSwatch {
-  value: string;
-  /** Tooltip text (e.g. "Business — #FFFFB5"). */
-  title: string;
-}
-
-export interface PresetGroup {
-  label: string;
-  colors: PresetSwatch[];
-}
-
 interface ColorPickerProps {
   value: string;
   onChange: (color: string) => void;
@@ -74,58 +63,6 @@ interface ColorPickerProps {
    * paint large surfaces (card types, tags).
    */
   warnLowContrast?: boolean;
-  /**
-   * Curated, labeled swatch rows rendered above the Sketch picker (same look
-   * as the Recent row) — e.g. the standard ArchiMate layer palette for card
-   * types. Clicking a swatch sets the draft; Save still applies it.
-   */
-  presetGroups?: PresetGroup[];
-}
-
-/** Caption + row of small clickable swatches (shared by Recent + preset groups). */
-function SwatchRow({
-  label,
-  swatches,
-  draft,
-  onPick,
-}: {
-  label: string;
-  swatches: PresetSwatch[];
-  draft: string;
-  onPick: (event: React.MouseEvent, color: string) => void;
-}) {
-  return (
-    <Box sx={{ px: 1.5, pt: 1.5, pb: 0.5 }}>
-      <Typography
-        variant="caption"
-        color="text.secondary"
-        sx={{ display: "block", mb: 0.5, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: 0.5 }}
-      >
-        {label}
-      </Typography>
-      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
-        {swatches.map((s) => (
-          <Tooltip key={s.value} title={s.title} placement="top" arrow>
-            <Box
-              aria-label={s.title}
-              onClick={(e) => onPick(e, s.value)}
-              sx={{
-                width: 18,
-                height: 18,
-                borderRadius: 0.5,
-                bgcolor: s.value,
-                cursor: "pointer",
-                border: s.value === draft ? "2px solid" : "1px solid",
-                borderColor: s.value === draft ? "primary.main" : "divider",
-                transition: "transform 0.1s",
-                "&:hover": { transform: "scale(1.2)" },
-              }}
-            />
-          </Tooltip>
-        ))}
-      </Box>
-    </Box>
-  );
 }
 
 export default function ColorPicker({
@@ -135,7 +72,6 @@ export default function ColorPicker({
   compact,
   label,
   warnLowContrast,
-  presetGroups,
 }: ColorPickerProps) {
   const { t } = useTranslation("common");
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
@@ -249,25 +185,37 @@ export default function ColorPicker({
         slotProps={{ paper: { sx: { p: 0, overflow: "visible" } } }}
       >
         <Box sx={{ display: "flex", flexDirection: "column" }}>
-          {/* Curated preset groups (e.g. the ArchiMate layer palette) */}
-          {presetGroups?.map((g) => (
-            <SwatchRow
-              key={g.label}
-              label={g.label}
-              swatches={g.colors}
-              draft={draft}
-              onPick={handleRecentClick}
-            />
-          ))}
-
           {/* Recent colors row */}
           {recent.length > 0 && (
-            <SwatchRow
-              label={t("colorPicker.recent")}
-              swatches={recent.map((c) => ({ value: c, title: c }))}
-              draft={draft}
-              onPick={handleRecentClick}
-            />
+            <Box sx={{ px: 1.5, pt: 1.5, pb: 0.5 }}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: "block", mb: 0.5, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: 0.5 }}
+              >
+                {t("colorPicker.recent")}
+              </Typography>
+              <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+                {recent.map((c) => (
+                  <Tooltip key={c} title={c} placement="top" arrow>
+                    <Box
+                      onClick={(e) => handleRecentClick(e, c)}
+                      sx={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: 0.5,
+                        bgcolor: c,
+                        cursor: "pointer",
+                        border: c === draft ? "2px solid" : "1px solid",
+                        borderColor: c === draft ? "primary.main" : "divider",
+                        transition: "transform 0.1s",
+                        "&:hover": { transform: "scale(1.2)" },
+                      }}
+                    />
+                  </Tooltip>
+                ))}
+              </Box>
+            </Box>
           )}
 
           {/* Sketch picker */}

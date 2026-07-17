@@ -42,8 +42,6 @@ Jeder Kartentyp — auch die vordefinierten — hat eine anpassbare Farbe, die i
 - Vordefinierte Typen zeigen neben dem Farbfeld eine **Zurücksetzen**-Schaltfläche, sobald die Farbe vom Turbo-EA-Standard abweicht — Sie können also jederzeit zur Standardpalette zurückkehren.
 - Text auf Typfarben (Chips, Diagrammformen) wechselt für die Lesbarkeit automatisch zwischen Schwarz und Weiß, sowohl im hellen als auch im dunklen Modus.
 
-Der Farbwähler enthält eine eigene **ArchiMate**-Farbreihe mit der De-facto-Standardpalette der Ebenen (in der Spezifikation informell, aber in deren Diagrammen und in den Archi-Standardwerten verwendet): Strategie `#F5DEAA`, Geschäft `#FFFFB5`, Anwendung `#B5FFFF`, Technologie `#C9E7B7`, Motivation `#CCCCFF`, Implementierung & Migration `#FFE0E0`. Eine typische Zuordnung zu den Turbo-EA-Ebenen: Typen aus Strategy & Transformation → Strategie (bzw. Motivation für Objectives), Business-Architecture-Typen → Geschäftsgelb, Application-&-Data-Typen → Anwendungsblau, Technical-Architecture-Typen → Technologiegrün.
-
 #### Felder
 
 Felder definieren die benutzerdefinierten Attribute, die auf Karten dieses Typs verfügbar sind. Jedes Feld hat:

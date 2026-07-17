@@ -42,8 +42,6 @@ Every card type — including the built-in ones — has a customizable color use
 - Built-in types show a **reset** button next to the color swatch whenever the color differs from the Turbo EA default, so you can always return to the standard palette.
 - Text rendered on top of type colors (chips, diagram shapes) automatically switches between black and white for readability, in both light and dark mode.
 
-The color picker includes a dedicated **ArchiMate** swatch row with the de-facto standard layer palette (informal in the spec, but used by its diagrams and by the Archi tool's defaults): Strategy `#F5DEAA`, Business `#FFFFB5`, Application `#B5FFFF`, Technology `#C9E7B7`, Motivation `#CCCCFF`, Implementation & Migration `#FFE0E0`. A typical mapping to Turbo EA's layers: Strategy & Transformation types → Strategy (or Motivation for Objectives), Business Architecture types → Business yellow, Application & Data types → Application blue, Technical Architecture types → Technology green.
-
 #### Fields
 
 Fields define the custom attributes available on cards of this type. Each field has:
