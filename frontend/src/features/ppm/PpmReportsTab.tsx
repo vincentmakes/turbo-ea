@@ -68,28 +68,43 @@ export default function PpmReportsTab({ initiativeId, reports, onRefresh }: Prop
                 <Typography variant="subtitle1" fontWeight={600}>
                   {formatDate(report.report_date)}
                 </Typography>
-                <Box display="flex" gap={0.75}>
+                <Box display="flex" gap={1.5} flexWrap="wrap">
                   {(
                     [
                       ["schedule_health", t("health_schedule")],
                       ["cost_health", t("health_cost")],
                       ["scope_health", t("health_scope")],
                     ] as const
-                  ).map(([key, label]) => (
-                    <Box
-                      key={key}
-                      sx={{
-                        width: 16,
-                        height: 16,
-                        borderRadius: "50%",
-                        bgcolor:
-                          RAG_COLORS[
-                            report[key as keyof PpmStatusReport] as string
-                          ] || "#bdbdbd",
-                      }}
-                      title={label}
-                    />
-                  ))}
+                  ).map(([key, label]) => {
+                    const value = report[key as keyof PpmStatusReport] as
+                      | string
+                      | undefined;
+                    const statusLabel = value
+                      ? t(`health_${value}`, { defaultValue: value })
+                      : t("health_noReport");
+                    return (
+                      <Box
+                        key={key}
+                        display="flex"
+                        alignItems="center"
+                        gap={0.5}
+                      >
+                        <Box
+                          sx={{
+                            width: 12,
+                            height: 12,
+                            borderRadius: "50%",
+                            flexShrink: 0,
+                            bgcolor: RAG_COLORS[value || ""] || "#bdbdbd",
+                          }}
+                          title={statusLabel}
+                        />
+                        <Typography variant="caption" color="text.secondary">
+                          {label}
+                        </Typography>
+                      </Box>
+                    );
+                  })}
                 </Box>
                 {report.reporter && (
                   <Typography variant="caption" color="text.secondary">

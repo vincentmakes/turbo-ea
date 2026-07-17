@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.22.4] - 2026-07-17
+
+### Fixed
+- **PPM status reports now label each health indicator.** In an Initiative's Status Reports tab, the three colored dots (Schedule, Cost, Scope) now show their dimension name next to each dot, with the RAG status (On Track / At Risk / Off Track) in the tooltip. Previously the indicators relied on color and position alone, which was ambiguous and inaccessible to users with color-vision deficiencies. (#849)
+
 ## [2.22.3] - 2026-07-17
 
 ### Fixed
