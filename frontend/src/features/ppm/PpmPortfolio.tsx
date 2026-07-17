@@ -1130,24 +1130,13 @@ export default function PpmPortfolio() {
                 return (
                   <Box key={field} display="flex" alignItems="center" gap={0.5}>
                     {ragDot(value, 14)}
-                    <Box>
-                      <Typography
-                        variant="caption"
-                        sx={{ fontSize: "0.7rem", display: "block", lineHeight: 1.2 }}
-                      >
-                        {label}
-                      </Typography>
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          fontSize: "0.65rem",
-                          color: RAG[value] || "text.secondary",
-                          fontWeight: 600,
-                        }}
-                      >
-                        {t(RAG_LABEL[value] || "health_noReport")}
-                      </Typography>
-                    </Box>
+                    <Typography
+                      variant="caption"
+                      sx={{ fontSize: "0.7rem", lineHeight: 1.2 }}
+                      title={t(RAG_LABEL[value] || "health_noReport")}
+                    >
+                      {label}
+                    </Typography>
                   </Box>
                 );
               })}
