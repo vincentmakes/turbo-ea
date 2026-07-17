@@ -42,6 +42,8 @@ Ogni tipo di scheda — inclusi quelli predefiniti — ha un colore personalizza
 - I tipi predefiniti mostrano un pulsante di **ripristino** accanto al campione di colore quando il colore differisce dal valore predefinito di Turbo EA, così è sempre possibile tornare alla palette standard.
 - Il testo mostrato sopra i colori del tipo (chip, forme dei diagrammi) passa automaticamente dal nero al bianco per la leggibilità, sia in modalità chiara sia in modalità scura.
 
+Il selettore dei colori include una riga di campioni **ArchiMate** dedicata con la palette dei livelli standard de facto (informale nella specifica, ma usata nei suoi diagrammi e nei valori predefiniti dello strumento Archi): Strategia `#F5DEAA`, Business `#FFFFB5`, Applicazione `#B5FFFF`, Tecnologia `#C9E7B7`, Motivazione `#CCCCFF`, Implementazione e migrazione `#FFE0E0`. Una mappatura tipica sui livelli di Turbo EA: tipi di Strategy & Transformation → Strategia (o Motivazione per gli Objectives), tipi di Business Architecture → giallo Business, tipi di Application & Data → blu Applicazione, tipi di Technical Architecture → verde Tecnologia.
+
 #### Campi
 
 I campi definiscono gli attributi personalizzati disponibili sulle card di questo tipo. Ogni campo ha:

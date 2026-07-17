@@ -42,6 +42,8 @@ Cada tipo de tarjeta — incluidos los integrados — tiene un color personaliza
 - Los tipos integrados muestran un botón de **restablecer** junto a la muestra de color cuando el color difiere del predeterminado de Turbo EA, para poder volver siempre a la paleta estándar.
 - El texto mostrado sobre los colores de tipo (chips, formas de diagrama) cambia automáticamente entre negro y blanco para mantener la legibilidad, tanto en modo claro como oscuro.
 
+El selector de colores incluye una fila de muestras **ArchiMate** dedicada con la paleta de capas estándar de facto (informal en la especificación, pero usada en sus diagramas y en los valores predeterminados de la herramienta Archi): Estrategia `#F5DEAA`, Negocio `#FFFFB5`, Aplicación `#B5FFFF`, Tecnología `#C9E7B7`, Motivación `#CCCCFF`, Implementación y migración `#FFE0E0`. Una correspondencia típica con las capas de Turbo EA: tipos de Strategy & Transformation → Estrategia (o Motivación para los Objectives), tipos de Business Architecture → amarillo de Negocio, tipos de Application & Data → azul de Aplicación, tipos de Technical Architecture → verde de Tecnología.
+
 #### Campos
 
 Los campos definen los atributos personalizados disponibles en fichas de este tipo. Cada campo tiene:

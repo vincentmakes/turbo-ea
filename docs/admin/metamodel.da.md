@@ -42,6 +42,8 @@ Hver korttype — inklusive de indbyggede — har en farve, der kan tilpasses, o
 - Indbyggede typer viser en **nulstil**-knap ved siden af farveprøven, når farven afviger fra Turbo EA-standarden, så du altid kan vende tilbage til standardpaletten.
 - Tekst oven på typefarver (chips, diagramformer) skifter automatisk mellem sort og hvid for læsbarhed, både i lys og mørk tilstand.
 
+Farvevælgeren indeholder en dedikeret **ArchiMate**-farverække med de facto-standardpaletten for lagene (uformel i specifikationen, men brugt i dens diagrammer og i Archi-værktøjets standardværdier): Strategi `#F5DEAA`, Forretning `#FFFFB5`, Applikation `#B5FFFF`, Teknologi `#C9E7B7`, Motivation `#CCCCFF`, Implementering & migrering `#FFE0E0`. En typisk mapping til Turbo EA's lag: Strategy & Transformation-typer → Strategi (eller Motivation for Objectives), Business Architecture-typer → Forretningsgul, Application & Data-typer → Applikationsblå, Technical Architecture-typer → Teknologigrøn.
+
 #### Felter
 
 Felter definerer de brugerdefinerede egenskaber, der er tilgængelige på kort af denne type. Hvert felt har:

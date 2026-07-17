@@ -21,6 +21,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import LinearProgress from "@mui/material/LinearProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColorPicker from "@/components/ColorPicker";
+import { ARCHIMATE_LAYER_COLORS } from "@/theme";
 import IconPicker from "@/components/IconPicker";
 import KeyInput, { isValidKey } from "@/components/KeyInput";
 import CardLayoutEditor from "@/features/admin/CardLayoutEditor";
@@ -611,6 +612,15 @@ export default function TypeDetailDrawer({
                 onChange={setColor}
                 label={t("metamodel.typeDrawer.color")}
                 warnLowContrast
+                presetGroups={[
+                  {
+                    label: t("common:colorPicker.archimate"),
+                    colors: ARCHIMATE_LAYER_COLORS.map((l) => ({
+                      value: l.color,
+                      title: `${t(`common:colorPicker.archimateLayers.${l.key}`)} — ${l.color}`,
+                    })),
+                  },
+                ]}
               />
               {cardTypeKey?.default_color &&
                 color.toLowerCase() !== cardTypeKey.default_color.toLowerCase() && (

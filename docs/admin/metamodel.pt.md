@@ -42,6 +42,8 @@ Cada tipo de cartão — incluindo os nativos — tem uma cor personalizável us
 - Os tipos nativos mostram um botão de **redefinir** ao lado da amostra de cor sempre que a cor difere do padrão do Turbo EA, para que seja sempre possível voltar à paleta padrão.
 - O texto exibido sobre as cores do tipo (chips, formas de diagrama) alterna automaticamente entre preto e branco para manter a legibilidade, tanto no modo claro quanto no escuro.
 
+O seletor de cores inclui uma linha de amostras **ArchiMate** dedicada com a paleta de camadas padrão de facto (informal na especificação, mas usada nos seus diagramas e nos padrões da ferramenta Archi): Estratégia `#F5DEAA`, Negócio `#FFFFB5`, Aplicação `#B5FFFF`, Tecnologia `#C9E7B7`, Motivação `#CCCCFF`, Implementação e migração `#FFE0E0`. Um mapeamento típico para as camadas do Turbo EA: tipos de Strategy & Transformation → Estratégia (ou Motivação para Objectives), tipos de Business Architecture → amarelo de Negócio, tipos de Application & Data → azul de Aplicação, tipos de Technical Architecture → verde de Tecnologia.
+
 #### Campos
 
 Campos definem os atributos personalizados disponíveis nos cards deste tipo. Cada campo possui:

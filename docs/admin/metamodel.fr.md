@@ -42,6 +42,8 @@ Chaque type de carte — y compris les types intégrés — possède une couleur
 - Les types intégrés affichent un bouton de **réinitialisation** à côté de la pastille dès que la couleur diffère de la valeur par défaut de Turbo EA, afin de toujours pouvoir revenir à la palette standard.
 - Le texte affiché sur les couleurs de type (puces, formes de diagramme) bascule automatiquement entre noir et blanc pour rester lisible, en mode clair comme en mode sombre.
 
+Le sélecteur de couleurs comprend une rangée de pastilles **ArchiMate** dédiée avec la palette de couches standard de facto (informelle dans la spécification, mais utilisée dans ses diagrammes et par les valeurs par défaut de l'outil Archi) : Stratégie `#F5DEAA`, Métier `#FFFFB5`, Application `#B5FFFF`, Technologie `#C9E7B7`, Motivation `#CCCCFF`, Implémentation & migration `#FFE0E0`. Correspondance typique avec les couches Turbo EA : types Strategy & Transformation → Stratégie (ou Motivation pour les Objectives), types Business Architecture → jaune Métier, types Application & Data → bleu Application, types Technical Architecture → vert Technologie.
+
 #### Champs
 
 Les champs définissent les attributs personnalisés disponibles sur les fiches de ce type. Chaque champ possède :
