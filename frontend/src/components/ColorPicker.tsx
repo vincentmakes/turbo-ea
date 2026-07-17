@@ -63,6 +63,12 @@ interface ColorPickerProps {
    * paint large surfaces (card types, tags).
    */
   warnLowContrast?: boolean;
+  /**
+   * Live sample panel rendered beside the picker inside the popover, called
+   * with the current draft color on every change — e.g. the card-type
+   * light/dark preview (`TypeColorPreview`). Omit for the plain picker.
+   */
+  renderPreview?: (draft: string) => React.ReactNode;
 }
 
 export default function ColorPicker({
@@ -72,6 +78,7 @@ export default function ColorPicker({
   compact,
   label,
   warnLowContrast,
+  renderPreview,
 }: ColorPickerProps) {
   const { t } = useTranslation("common");
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
@@ -184,6 +191,7 @@ export default function ColorPicker({
         transformOrigin={{ vertical: "top", horizontal: "left" }}
         slotProps={{ paper: { sx: { p: 0, overflow: "visible" } } }}
       >
+        <Box sx={{ display: "flex", flexDirection: "row", alignItems: "stretch" }}>
         <Box sx={{ display: "flex", flexDirection: "column" }}>
           {/* Recent colors row */}
           {recent.length > 0 && (
@@ -255,6 +263,22 @@ export default function ColorPicker({
               {t("actions.save")}
             </Button>
           </Box>
+        </Box>
+
+        {/* Live sample panel (e.g. card-type light/dark preview) */}
+        {renderPreview && (
+          <Box
+            sx={{
+              borderLeft: "1px solid",
+              borderColor: "divider",
+              p: 1.5,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {renderPreview(draft)}
+          </Box>
+        )}
         </Box>
       </Popover>
     </>

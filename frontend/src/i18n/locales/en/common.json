@@ -257,6 +257,8 @@
   "colorPicker.pickColor": "Pick color",
   "colorPicker.recent": "Recent",
   "colorPicker.contrastWarning": "Low contrast: this color may be hard to see in light or dark mode",
+  "colorPicker.previewLight": "Light",
+  "colorPicker.previewDark": "Dark",
   "timelineSlider.timeTravel": "Time Travel",
   "timelineSlider.past": "Past",
   "timelineSlider.future": "Future",

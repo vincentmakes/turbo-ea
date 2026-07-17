@@ -41,6 +41,7 @@ Cada tipo de cartão — incluindo os nativos — tem uma cor personalizável us
 - Escolha uma cor com a amostra de cor no painel. Um aviso aparece quando a cor escolhida tem contraste muito baixo sobre fundos claros ou escuros.
 - Os tipos nativos mostram um botão de **redefinir** ao lado da amostra de cor sempre que a cor difere do padrão do Turbo EA, para que seja sempre possível voltar à paleta padrão.
 - O texto exibido sobre as cores do tipo (chips, formas de diagrama) alterna automaticamente entre preto e branco para manter a legibilidade, tanto no modo claro quanto no escuro.
+- O seletor mostra uma **pré-visualização ao vivo** ao lado da paleta: o nome do tipo, o chip, o ícone do cartão, o subtipo, a pílula de ID do cartão e um nó da vista de dependências, renderizados uma vez no modo claro e outra no modo escuro, atualizando-se durante a escolha.
 
 #### Campos
 

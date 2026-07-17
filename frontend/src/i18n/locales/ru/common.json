@@ -181,6 +181,8 @@
   "colorPicker.pickColor": "Выбрать цвет",
   "colorPicker.recent": "Недавние",
   "colorPicker.contrastWarning": "Низкая контрастность: этот цвет может быть плохо различим в светлой или тёмной теме",
+  "colorPicker.previewLight": "Светлая",
+  "colorPicker.previewDark": "Тёмная",
   "timelineSlider.timeTravel": "Путешествие во времени",
   "timelineSlider.past": "Прошлое",
   "timelineSlider.future": "Будущее",

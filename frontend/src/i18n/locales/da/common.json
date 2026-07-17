@@ -257,6 +257,8 @@
   "colorPicker.pickColor": "Vælg farve",
   "colorPicker.recent": "Seneste",
   "colorPicker.contrastWarning": "Lav kontrast: denne farve kan være svær at se i lys eller mørk tilstand",
+  "colorPicker.previewLight": "Lys",
+  "colorPicker.previewDark": "Mørk",
   "timelineSlider.timeTravel": "Tidsrejse",
   "timelineSlider.past": "Fortid",
   "timelineSlider.future": "Fremtid",

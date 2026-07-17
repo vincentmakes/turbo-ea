@@ -33,6 +33,8 @@ import type {
   SectionDef,
 } from "@/types";
 import { emptyField } from "./helpers";
+import TypeColorPreview from "./TypeColorPreview";
+import { useSubtypeLabel } from "@/hooks/useResolveLabel";
 import FieldEditorDialog from "./FieldEditorDialog";
 import DataQualityPanel from "./DataQualityPanel";
 import StakeholderRolePanel from "./StakeholderRolePanel";
@@ -77,6 +79,7 @@ export default function TypeDetailDrawer({
 }: TypeDrawerProps) {
   const { t, i18n } = useTranslation(["admin", "common"]);
   const locale = i18n.language;
+  const stLabel = useSubtypeLabel();
   const cardTypeKey = types.find((ct) => ct.key === typeKey) || null;
 
   /* --- Editable header state --- */
@@ -611,6 +614,18 @@ export default function TypeDetailDrawer({
                 onChange={setColor}
                 label={t("metamodel.typeDrawer.color")}
                 warnLowContrast
+                renderPreview={(draft) => (
+                  <TypeColorPreview
+                    color={draft}
+                    icon={icon}
+                    typeLabel={label || cardTypeKey?.key || ""}
+                    subtypeLabel={
+                      cardTypeKey?.subtypes?.length
+                        ? stLabel(cardTypeKey.subtypes[0])
+                        : undefined
+                    }
+                  />
+                )}
               />
               {cardTypeKey?.default_color &&
                 color.toLowerCase() !== cardTypeKey.default_color.toLowerCase() && (

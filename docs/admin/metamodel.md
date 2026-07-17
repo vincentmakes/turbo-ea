@@ -41,6 +41,7 @@ Every card type — including the built-in ones — has a customizable color use
 - Pick a color with the color swatch in the drawer. A hint appears when the chosen color has very low contrast against light or dark backgrounds.
 - Built-in types show a **reset** button next to the color swatch whenever the color differs from the Turbo EA default, so you can always return to the standard palette.
 - Text rendered on top of type colors (chips, diagram shapes) automatically switches between black and white for readability, in both light and dark mode.
+- The picker shows a **live preview** beside the palette: the type name, chip, card icon, subtype, card ID pill, and a dependency-view node, rendered once for the light theme and once for the dark theme, updating as you pick.
 
 #### Fields
 

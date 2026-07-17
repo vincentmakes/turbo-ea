@@ -181,6 +181,8 @@
   "colorPicker.pickColor": "Scegli colore",
   "colorPicker.recent": "Recenti",
   "colorPicker.contrastWarning": "Contrasto basso: questo colore potrebbe essere difficile da vedere in modalità chiara o scura",
+  "colorPicker.previewLight": "Chiaro",
+  "colorPicker.previewDark": "Scuro",
   "timelineSlider.timeTravel": "Viaggio nel tempo",
   "timelineSlider.past": "Passato",
   "timelineSlider.future": "Futuro",

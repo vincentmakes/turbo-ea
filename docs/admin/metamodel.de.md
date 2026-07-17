@@ -41,6 +41,7 @@ Jeder Kartentyp — auch die vordefinierten — hat eine anpassbare Farbe, die i
 - Wählen Sie eine Farbe über das Farbfeld im Drawer. Ein Hinweis erscheint, wenn die gewählte Farbe einen sehr geringen Kontrast zu hellen oder dunklen Hintergründen hat.
 - Vordefinierte Typen zeigen neben dem Farbfeld eine **Zurücksetzen**-Schaltfläche, sobald die Farbe vom Turbo-EA-Standard abweicht — Sie können also jederzeit zur Standardpalette zurückkehren.
 - Text auf Typfarben (Chips, Diagrammformen) wechselt für die Lesbarkeit automatisch zwischen Schwarz und Weiß, sowohl im hellen als auch im dunklen Modus.
+- Der Farbwähler zeigt neben der Palette eine **Live-Vorschau**: Typname, Chip, Kartensymbol, Subtyp, Karten-ID-Pill und ein Abhängigkeitsdiagramm-Knoten, jeweils einmal im hellen und einmal im dunklen Modus, die sich bei der Auswahl live aktualisiert.
 
 #### Felder
 

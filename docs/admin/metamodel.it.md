@@ -41,6 +41,7 @@ Ogni tipo di scheda — inclusi quelli predefiniti — ha un colore personalizza
 - Scegliere un colore con il campione di colore nel pannello. Un avviso appare quando il colore scelto ha un contrasto molto basso su sfondi chiari o scuri.
 - I tipi predefiniti mostrano un pulsante di **ripristino** accanto al campione di colore quando il colore differisce dal valore predefinito di Turbo EA, così è sempre possibile tornare alla palette standard.
 - Il testo mostrato sopra i colori del tipo (chip, forme dei diagrammi) passa automaticamente dal nero al bianco per la leggibilità, sia in modalità chiara sia in modalità scura.
+- Il selettore mostra un'**anteprima dal vivo** accanto alla palette: nome del tipo, chip, icona della scheda, sottotipo, pillola dell'ID scheda e un nodo della vista delle dipendenze, resi una volta in modalità chiara e una in modalità scura, aggiornati durante la selezione.
 
 #### Campi
 

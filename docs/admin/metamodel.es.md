@@ -41,6 +41,7 @@ Cada tipo de tarjeta — incluidos los integrados — tiene un color personaliza
 - Elija un color con la muestra de color del panel. Aparece un aviso cuando el color elegido tiene muy poco contraste sobre fondos claros u oscuros.
 - Los tipos integrados muestran un botón de **restablecer** junto a la muestra de color cuando el color difiere del predeterminado de Turbo EA, para poder volver siempre a la paleta estándar.
 - El texto mostrado sobre los colores de tipo (chips, formas de diagrama) cambia automáticamente entre negro y blanco para mantener la legibilidad, tanto en modo claro como oscuro.
+- El selector muestra una **vista previa en vivo** junto a la paleta: el nombre del tipo, el chip, el icono de la tarjeta, el subtipo, la píldora de ID de tarjeta y un nodo de la vista de dependencias, renderizados una vez en modo claro y otra en modo oscuro, actualizándose mientras elige.
 
 #### Campos
 

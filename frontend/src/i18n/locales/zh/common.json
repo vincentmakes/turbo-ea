@@ -181,6 +181,8 @@
   "colorPicker.pickColor": "选择颜色",
   "colorPicker.recent": "最近使用",
   "colorPicker.contrastWarning": "对比度低：此颜色在浅色或深色模式下可能难以看清",
+  "colorPicker.previewLight": "浅色",
+  "colorPicker.previewDark": "深色",
   "timelineSlider.timeTravel": "时间穿梭",
   "timelineSlider.past": "过去",
   "timelineSlider.future": "未来",

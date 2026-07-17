@@ -38,3 +38,23 @@ describe("ColorPicker warnLowContrast", () => {
     expect(onChange).toHaveBeenCalledWith("#FFFFB5");
   });
 });
+
+describe("ColorPicker renderPreview", () => {
+  it("renders the preview panel with the current draft color", () => {
+    render(
+      <ColorPicker
+        value="#0f7eb5"
+        onChange={() => {}}
+        renderPreview={(draft) => <div data-testid="preview">{draft}</div>}
+      />,
+    );
+    openPopover();
+    expect(screen.getByTestId("preview")).toHaveTextContent("#0f7eb5");
+  });
+
+  it("does not render a preview panel when the prop is omitted", () => {
+    render(<ColorPicker value="#0f7eb5" onChange={() => {}} />);
+    openPopover();
+    expect(screen.queryByTestId("preview")).toBeNull();
+  });
+});

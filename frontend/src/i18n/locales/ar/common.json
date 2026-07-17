@@ -257,6 +257,8 @@
   "colorPicker.pickColor": "اختر لونًا",
   "colorPicker.recent": "الأخيرة",
   "colorPicker.contrastWarning": "تباين منخفض: قد يصعب رؤية هذا اللون في الوضع الفاتح أو الداكن",
+  "colorPicker.previewLight": "فاتح",
+  "colorPicker.previewDark": "داكن",
   "timelineSlider.timeTravel": "السفر عبر الزمن",
   "timelineSlider.past": "الماضي",
   "timelineSlider.future": "المستقبل",

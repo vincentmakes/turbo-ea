@@ -41,6 +41,7 @@ Hver korttype — inklusive de indbyggede — har en farve, der kan tilpasses, o
 - Vælg en farve med farveprøven i panelet. Der vises et hint, når den valgte farve har meget lav kontrast mod lyse eller mørke baggrunde.
 - Indbyggede typer viser en **nulstil**-knap ved siden af farveprøven, når farven afviger fra Turbo EA-standarden, så du altid kan vende tilbage til standardpaletten.
 - Tekst oven på typefarver (chips, diagramformer) skifter automatisk mellem sort og hvid for læsbarhed, både i lys og mørk tilstand.
+- Vælgeren viser en **live-forhåndsvisning** ved siden af paletten: typenavn, chip, kortikon, undertype, kort-ID-pille og en afhængighedsvisningsnode, gengivet én gang i lys og én gang i mørk tilstand, og opdateret mens du vælger.
 
 #### Felter
 

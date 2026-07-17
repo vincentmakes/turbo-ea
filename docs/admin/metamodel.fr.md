@@ -41,6 +41,7 @@ Chaque type de carte — y compris les types intégrés — possède une couleur
 - Choisissez une couleur avec la pastille de couleur du panneau. Un avertissement apparaît lorsque la couleur choisie offre un contraste très faible sur fond clair ou sombre.
 - Les types intégrés affichent un bouton de **réinitialisation** à côté de la pastille dès que la couleur diffère de la valeur par défaut de Turbo EA, afin de toujours pouvoir revenir à la palette standard.
 - Le texte affiché sur les couleurs de type (puces, formes de diagramme) bascule automatiquement entre noir et blanc pour rester lisible, en mode clair comme en mode sombre.
+- Le sélecteur affiche un **aperçu en direct** à côté de la palette : nom du type, puce, icône de carte, sous-type, pastille d'ID de carte et nœud de vue de dépendances, rendus une fois en mode clair et une fois en mode sombre, mis à jour au fil de la sélection.
 
 #### Champs
 
