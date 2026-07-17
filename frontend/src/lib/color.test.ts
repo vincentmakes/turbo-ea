@@ -70,7 +70,13 @@ describe("readableTextColor", () => {
   it("picks black text on pale colors (ArchiMate yellows etc.)", () => {
     expect(readableTextColor("#FFFFB5")).toBe("#000000");
     expect(readableTextColor("#fde68a")).toBe("#000000");
-    expect(readableTextColor("#ffa31f")).toBe("#000000"); // Provider orange
+    expect(readableTextColor("#90EE90")).toBe("#000000"); // light green
+  });
+
+  it("keeps white text on every seed default, including Provider orange", () => {
+    for (const hex of ["#ffa31f", "#d29270", "#33cc58", "#02afa4", "#fe6690"]) {
+      expect(readableTextColor(hex)).toBe("#ffffff");
+    }
   });
 
   it("falls back to white for invalid input (historical default)", () => {

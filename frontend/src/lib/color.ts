@@ -51,14 +51,16 @@ export function contrastRatio(hexA: string, hexB: string): number {
  * higher contrast: the default card-type palette is mid-toned (Application
  * `#0f7eb5` has ~4.5:1 vs white but ~4.7:1 vs black) and has always rendered
  * white text, so a pure max-contrast pick would flip half the defaults to
- * black for no legibility gain. The 0.45 luminance cutoff keeps white until
- * white text genuinely fails (≈ below 2:1 — pale ArchiMate yellows, light
- * greys), then flips to black. Invalid input falls back to white — the
- * historical hardcoded default — so legacy non-hex values render as before.
+ * black for no legibility gain. The 0.6 luminance cutoff keeps EVERY seed
+ * color — including Provider orange `#ffa31f` (~0.48) — on white text, and
+ * flips to black only for genuinely light colors (pale ArchiMate yellows,
+ * light greens/greys, ~0.7+) where white text is unreadable. Invalid input
+ * falls back to white — the historical hardcoded default — so legacy non-hex
+ * values render as before.
  */
 export function readableTextColor(bg: string): "#ffffff" | "#000000" {
   if (!isHexColor(bg)) return "#ffffff";
-  return relativeLuminance(bg) <= 0.45 ? "#ffffff" : "#000000";
+  return relativeLuminance(bg) <= 0.6 ? "#ffffff" : "#000000";
 }
 
 /**
