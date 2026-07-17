@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.22.2] - 2026-07-17
+
+### Fixed
+- **The Matrix report no longer misaligns rows that have children.** When a card type with a parent/child hierarchy is used for the matrix rows and **Sort Rows** is set to **Hierarchy**, the data cells of the nested child rows now line up correctly under their column headers instead of drifting out of the grid.
+
 ## [2.22.1] - 2026-07-17
 
 ### Fixed

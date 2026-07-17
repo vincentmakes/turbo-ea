@@ -540,6 +540,19 @@ export default function MatrixReport() {
             borderSpacing: 0,
             width: "max-content",
           }}>
+            {/* Fixed column widths so the sticky row-header offsets
+                (left: colIdx * ROW_HEADER_COL_WIDTH) always match the real
+                column widths — otherwise multi-column (hierarchical) row
+                headers drift out of alignment with the column grid. */}
+            <colgroup>
+              {Array.from({ length: numRowHeaderCols }).map((_, i) => (
+                <col key={`rhcol-${i}`} style={{ width: ROW_HEADER_COL_WIDTH }} />
+              ))}
+              {leafColNodes.map((colNode) => (
+                <col key={colNode.item.id} style={{ width: 32 }} />
+              ))}
+              <col style={{ width: 44 }} />
+            </colgroup>
             <thead ref={theadRef}>
               {columnHeaderRows.map((row, levelIdx) => {
                 const stickyTop = headerTopOffsets[levelIdx] ?? 0;
@@ -563,7 +576,10 @@ export default function MatrixReport() {
                           fontSize: 11,
                           textAlign: "left",
                           verticalAlign: "top",
+                          boxSizing: "border-box",
+                          width: numRowHeaderCols * ROW_HEADER_COL_WIDTH,
                           minWidth: numRowHeaderCols * ROW_HEADER_COL_WIDTH,
+                          maxWidth: numRowHeaderCols * ROW_HEADER_COL_WIDTH,
                         }}
                       >
                         {/* Label at top-left */}
@@ -717,6 +733,7 @@ export default function MatrixReport() {
 
                       const isShallowLeaf = cell.isLeaf && colIdx < numRowHeaderCols - 1;
                       const colSpan = isShallowLeaf ? numRowHeaderCols - colIdx : 1;
+                      const cellW = colSpan * ROW_HEADER_COL_WIDTH;
 
                       return (
                         <td
@@ -733,10 +750,10 @@ export default function MatrixReport() {
                             fontWeight: cell.isLeaf ? 500 : 700,
                             fontSize: 12,
                             padding: "4px 6px",
-                            maxWidth: colSpan > 1 ? colSpan * ROW_HEADER_COL_WIDTH : ROW_HEADER_COL_WIDTH,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
+                            boxSizing: "border-box",
+                            width: cellW,
+                            minWidth: cellW,
+                            maxWidth: cellW,
                             cursor: "pointer",
                             verticalAlign: "top",
                             transition: "background-color 0.15s",
@@ -746,7 +763,12 @@ export default function MatrixReport() {
                           onClick={() => setSidePanelCardId(cell.node.item.id)}
                         >
                           <Tooltip title={cell.node.item.name} placement="right">
-                            <span>
+                            <span style={{
+                              display: "block",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}>
                               {cell.node.item.name}
                               {cell.isPrunedGroup && (
                                 <span style={{ opacity: 0.6, fontSize: 10, marginLeft: 4 }}>

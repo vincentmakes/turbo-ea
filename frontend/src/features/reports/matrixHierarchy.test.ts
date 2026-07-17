@@ -251,6 +251,64 @@ describe("buildRowHeaderLayout", () => {
     // Second row has null for column 0 (spanned)
     expect(layout[1][0]).toBeNull();
   });
+
+  it("mixed flat + hierarchical roots: every leaf row covers exactly numRowHeaderCols columns", () => {
+    // Regression guard for the Matrix hierarchical-row misalignment: when a flat
+    // root (no children) and a parent-with-children coexist, each rendered <tr>
+    // must occupy the same number of table columns as the header grid, otherwise
+    // the nested rows' data cells drift out of alignment.
+    const items: MatrixItem[] = [
+      { id: "flat", name: "Alpha App", parent_id: null },
+      { id: "p", name: "Parent", parent_id: null },
+      { id: "c1", name: "Child One", parent_id: "p" },
+      { id: "c2", name: "Child Two", parent_id: "p" },
+    ];
+    const { roots, maxDepth } = buildTree(items);
+    const layout = buildRowHeaderLayout(roots, maxDepth);
+    const numRowHeaderCols = layout[0].length;
+
+    expect(maxDepth).toBe(1);
+    expect(numRowHeaderCols).toBe(2);
+    // Leaves in DFS order: Alpha App, Child One, Child Two
+    expect(layout).toHaveLength(3);
+    // Every layout row has exactly numRowHeaderCols slots
+    expect(layout.every((row) => row.length === numRowHeaderCols)).toBe(true);
+
+    // Row 0 (flat leaf): shallow leaf at col0, col1 null (it will colSpan to fill)
+    expect(layout[0][0]?.node.item.id).toBe("flat");
+    expect(layout[0][0]?.isLeaf).toBe(true);
+    expect(layout[0][1]).toBeNull();
+
+    // Row 1 (first child): parent group at col0 (rowspan 2), child at col1
+    expect(layout[1][0]?.node.item.id).toBe("p");
+    expect(layout[1][0]?.isLeaf).toBe(false);
+    expect(layout[1][0]?.rowspan).toBe(2);
+    expect(layout[1][1]?.node.item.id).toBe("c1");
+    expect(layout[1][1]?.isLeaf).toBe(true);
+
+    // Row 2 (second child): col0 covered by the parent's rowspan, child at col1
+    expect(layout[2][0]).toBeNull();
+    expect(layout[2][1]?.node.item.id).toBe("c2");
+
+    // Column-coverage invariant: simulate the rendered occupancy grid using the
+    // exact rowSpan (from layout) and colSpan (shallow-leaf rule from MatrixReport)
+    // and assert every slot of every row is covered — no gap that would shift a
+    // nested row's data cells out of the column grid.
+    const occupied: boolean[][] = layout.map(() => Array(numRowHeaderCols).fill(false));
+    layout.forEach((row, rowIdx) => {
+      row.forEach((cell, colIdx) => {
+        if (!cell) return;
+        const isShallowLeaf = cell.isLeaf && colIdx < numRowHeaderCols - 1;
+        const colSpan = isShallowLeaf ? numRowHeaderCols - colIdx : 1;
+        for (let r = 0; r < cell.rowspan; r++) {
+          for (let c = 0; c < colSpan; c++) {
+            occupied[rowIdx + r][colIdx + c] = true;
+          }
+        }
+      });
+    });
+    occupied.forEach((row) => expect(row.every(Boolean)).toBe(true));
+  });
 });
 
 // ---------------------------------------------------------------------------
