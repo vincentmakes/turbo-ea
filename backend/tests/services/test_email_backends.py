@@ -14,6 +14,7 @@ from app.services.email_backends import EmailConfig, get_backend, oauth
 from app.services.email_service import send_email
 
 SMTP_PATCH_TARGET = "app.services.email_backends.smtp.smtplib.SMTP"
+SMTP_SSL_PATCH_TARGET = "app.services.email_backends.smtp.smtplib.SMTP_SSL"
 
 
 @pytest.fixture(autouse=True)
@@ -368,6 +369,99 @@ class TestXOAuth2Backend:
                 await send_email("to@x.com", "Subj", "<p>Body</p>", "Body")
 
         mock_smtp.sendmail.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Implicit TLS (port 465) transport selection — issue #847
+# ---------------------------------------------------------------------------
+
+
+def _configure_smtp_basic(monkeypatch, port: int, tls: bool = True):
+    overrides = {
+        "EMAIL_METHOD": "smtp_basic",
+        "SMTP_HOST": "mail.company.com",
+        "SMTP_PORT": port,
+        "SMTP_TLS": tls,
+        "SMTP_USER": "user@company.com",
+        "SMTP_PASSWORD": "pw",
+        "SMTP_FROM": "noreply@company.com",
+    }
+    for key, value in overrides.items():
+        monkeypatch.setattr(real_settings, key, value, raising=False)
+
+
+class TestImplicitTls:
+    async def test_port_465_uses_smtp_ssl_and_skips_starttls(self, monkeypatch):
+        """Port 465 expects the TLS handshake immediately — a plain connection
+        is dropped before the banner, and starttls() on an already-encrypted
+        connection would fail."""
+        _configure_smtp_basic(monkeypatch, port=465)
+        mock_ssl = MagicMock()
+        with (
+            patch(SMTP_SSL_PATCH_TARGET, return_value=mock_ssl) as ssl_ctor,
+            patch(SMTP_PATCH_TARGET) as plain_ctor,
+        ):
+            result = await send_email("to@x.com", "Subj", "<p>Body</p>", "Body")
+
+        assert result is True
+        ssl_ctor.assert_called_once_with("mail.company.com", 465)
+        plain_ctor.assert_not_called()
+        mock_ssl.starttls.assert_not_called()
+        mock_ssl.login.assert_called_once_with("user@company.com", "pw")
+        mock_ssl.sendmail.assert_called_once()
+
+    async def test_port_587_keeps_starttls_path(self, monkeypatch):
+        """Regression guard: other ports keep the plain-connect + STARTTLS flow."""
+        _configure_smtp_basic(monkeypatch, port=587)
+        mock_smtp = MagicMock()
+        with (
+            patch(SMTP_PATCH_TARGET, return_value=mock_smtp) as plain_ctor,
+            patch(SMTP_SSL_PATCH_TARGET) as ssl_ctor,
+        ):
+            result = await send_email("to@x.com", "Subj", "<p>Body</p>", "Body")
+
+        assert result is True
+        plain_ctor.assert_called_once_with("mail.company.com", 587)
+        ssl_ctor.assert_not_called()
+        mock_smtp.starttls.assert_called_once()
+        mock_smtp.login.assert_called_once_with("user@company.com", "pw")
+
+    async def test_xoauth2_on_port_465_uses_smtp_ssl(self, monkeypatch):
+        """Both SMTP backends share _send_sync — implicit TLS covers XOAUTH2 too."""
+        overrides = {
+            "EMAIL_METHOD": "smtp_oauth",
+            "SMTP_HOST": "smtp.office365.com",
+            "SMTP_PORT": 465,
+            "SMTP_TLS": True,
+            "SMTP_USER": "mailbox@company.com",
+            "SMTP_FROM": "mailbox@company.com",
+            "EMAIL_OAUTH_PROVIDER": "microsoft",
+            "EMAIL_OAUTH_TENANT_ID": "t",
+            "EMAIL_OAUTH_CLIENT_ID": "c",
+            "EMAIL_OAUTH_CLIENT_SECRET": "s",
+            "EMAIL_OAUTH_SCOPE": "",
+            "EMAIL_GRAPH_SENDER": "",
+            "EMAIL_SERVICE_ACCOUNT_JSON": "",
+        }
+        for key, value in overrides.items():
+            monkeypatch.setattr(real_settings, key, value, raising=False)
+
+        mock_ssl = MagicMock()
+        with (
+            patch(
+                "app.services.email_backends.oauth.get_client_credentials_token",
+                AsyncMock(return_value="XO_TOKEN"),
+            ),
+            patch(SMTP_SSL_PATCH_TARGET, return_value=mock_ssl) as ssl_ctor,
+            patch(SMTP_PATCH_TARGET) as plain_ctor,
+        ):
+            result = await send_email("to@x.com", "Subj", "<p>Body</p>", "Body")
+
+        assert result is True
+        ssl_ctor.assert_called_once_with("smtp.office365.com", 465)
+        plain_ctor.assert_not_called()
+        mock_ssl.starttls.assert_not_called()
+        mock_ssl.auth.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

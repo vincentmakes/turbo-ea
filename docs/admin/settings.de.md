@@ -100,10 +100,10 @@ Turbo EA versendet Einladungs-E-Mails, Umfrage-Benachrichtigungen, Passwort-Zur�
 | Feld | Beschreibung |
 |------|--------------|
 | **SMTP-Host** | Hostname Ihres Mailservers (z. B. `smtp.gmail.com`) |
-| **SMTP-Port** | Server-Port (체blicherweise 587 f체r TLS) |
+| **SMTP-Port** | Server-Port (587 f체r STARTTLS, 465 f체r implizites TLS/SSL) |
 | **SMTP-Benutzer** | Authentifizierungs-Benutzername |
 | **SMTP-Passwort** | Authentifizierungspasswort (verschl체sselt gespeichert) |
-| **TLS verwenden** | STARTTLS-Verschl체sselung aktivieren (empfohlen) |
+| **TLS verwenden** | STARTTLS-Verschl체sselung aktivieren (empfohlen). Wird bei Port 465 ignoriert, der immer implizites TLS/SSL verwendet |
 
 ### Microsoft Graph API (empfohlen f체r Microsoft 365)
 

@@ -18,6 +18,10 @@ from app.services.email_backends.base import (
 
 logger = logging.getLogger(__name__)
 
+# SMTPS: servers on this port expect the TLS handshake immediately (implicit
+# TLS), so a plain connection is dropped before the banner (issue #847).
+IMPLICIT_TLS_PORT = 465
+
 
 def _build_message(to: str, subject: str, body_html: str, body_text: str, from_addr: str) -> str:
     msg = MIMEMultipart("alternative")
@@ -46,9 +50,14 @@ def _send_sync(
     step, so transport-level fixes land in one place.
     """
     try:
-        server = smtplib.SMTP(cfg.smtp_host, cfg.smtp_port)
-        if cfg.smtp_tls:
-            server.starttls()
+        if cfg.smtp_port == IMPLICIT_TLS_PORT:
+            # Already encrypted from the first byte — starttls() would fail,
+            # and the smtp_tls flag only governs the STARTTLS upgrade path.
+            server: smtplib.SMTP = smtplib.SMTP_SSL(cfg.smtp_host, cfg.smtp_port)
+        else:
+            server = smtplib.SMTP(cfg.smtp_host, cfg.smtp_port)
+            if cfg.smtp_tls:
+                server.starttls()
         # starttls() resets the EHLO state; re-EHLO so AUTH is accepted. On the
         # non-TLS path this is the first EHLO. Harmless before login(), which
         # skips its own EHLO when one already succeeded.

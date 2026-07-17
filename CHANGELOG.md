@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.22.3] - 2026-07-17
+
+### Fixed
+- **Email sending now works with SMTP servers that require implicit TLS/SSL on port 465.** Previously the SMTP backends always opened a plain connection (upgraded via STARTTLS), which servers expecting an immediate TLS handshake dropped before authentication ("Connection unexpectedly closed"). Port 465 now connects with implicit TLS automatically — for both the password and OAuth2 SMTP methods; port 587 with STARTTLS is unchanged.
+
 ## [2.22.2] - 2026-07-17
 
 ### Fixed

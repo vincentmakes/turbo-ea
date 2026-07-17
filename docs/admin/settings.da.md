@@ -100,10 +100,10 @@ Turbo EA sender invitations-e-mails, undersøgelsesnotifikationer, nulstillinger
 | Felt | Beskrivelse |
 |------|-------------|
 | **SMTP-vært** | Værtsnavnet på din mailserver (f.eks. `smtp.gmail.com`) |
-| **SMTP-port** | Serverporten (typisk 587 for TLS) |
+| **SMTP-port** | Serverporten (587 for STARTTLS, 465 for implicit TLS/SSL) |
 | **SMTP-bruger** | Brugernavnet til godkendelse |
 | **SMTP-adgangskode** | Adgangskoden til godkendelse (gemmes krypteret) |
-| **Brug TLS** | Aktivér STARTTLS-kryptering (anbefales) |
+| **Brug TLS** | Aktivér STARTTLS-kryptering (anbefales). Ignoreres på port 465, som altid bruger implicit TLS/SSL |
 
 ### Microsoft Graph API (anbefales til Microsoft 365)
 

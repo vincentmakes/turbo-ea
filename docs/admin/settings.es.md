@@ -100,10 +100,10 @@ Turbo EA envía correos de invitación, notificaciones de encuestas, restablecim
 | Campo | Descripción |
 |-------|-------------|
 | **Host SMTP** | El nombre de host de su servidor de correo (p. ej., `smtp.gmail.com`) |
-| **Puerto SMTP** | El puerto del servidor (normalmente 587 para TLS) |
+| **Puerto SMTP** | El puerto del servidor (587 para STARTTLS, 465 para TLS/SSL implícito) |
 | **Usuario SMTP** | El nombre de usuario de autenticación |
 | **Contraseña SMTP** | La contraseña de autenticación (almacenada cifrada) |
-| **Usar TLS** | Habilitar el cifrado STARTTLS (recomendado) |
+| **Usar TLS** | Habilitar el cifrado STARTTLS (recomendado). Se ignora en el puerto 465, que siempre usa TLS/SSL implícito |
 
 ### API de Microsoft Graph (recomendada para Microsoft 365)
 
