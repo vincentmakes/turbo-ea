@@ -417,7 +417,7 @@ For active development with hot-reload on both frontend and backend.
 ### Prerequisites
 
 - Python 3.12+
-- Node.js 20+
+- Node.js 24+ (LTS)
 - PostgreSQL (running and accessible)
 
 ### Backend

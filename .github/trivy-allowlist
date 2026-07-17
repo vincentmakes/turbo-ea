@@ -69,9 +69,10 @@ CVE-2026-33846
 CVE-2026-40200
 
 # -----------------------------------------------------------------------------
-# Build-stage-only — `node:20-alpine` used in the `frontend-build` stage
+# Build-stage-only — `node:24-alpine` used in the `frontend-build` stage
 # -----------------------------------------------------------------------------
-# Reviewed 2026-05-06 — these are Node.js-bundled npm dependencies
+# Reviewed 2026-05-06; base image bumped node:20 → node:24 (Active LTS)
+# on 2026-07-17 for #853 — these are Node.js-bundled npm dependencies
 # (cross-spawn, glob, tar, minimatch) that are present in `node_modules`
 # during `npm ci && npm run build`. The runtime `frontend` image is
 # `nginx:alpine` plus the built static `dist/` and the drawio webapp —
@@ -79,8 +80,9 @@ CVE-2026-40200
 # after the build stage. None of these packages are shipped or executed
 # at runtime, so an exploit chain via tar/minimatch/glob/cross-spawn
 # requires write access to our build environment, which is the GitHub
-# Actions runner. Re-eval 2026-Q3 — Node 22 LTS will likely ship a
-# refreshed bundled-npm set.
+# Actions runner. Node 24 bundles npm 11, which refreshes the bundled
+# dependency set — the trivy-reconcile job will prune any of these
+# entries that stop matching.
 CVE-2024-21538
 CVE-2025-64756
 CVE-2026-23745

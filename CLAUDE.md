@@ -1933,7 +1933,7 @@ All container images are built from one `/Dockerfile` at the repo root using mul
 | `backend-build` | `python:3.12-alpine` | Compile-time wheel/deps builder for backend |
 | `backend` | `python:3.12-alpine` | Final backend image — copies `VERSION` + `backend/`, runs as non-root `appuser` |
 | `db` | `postgres:18-alpine` | Bundled PostgreSQL image |
-| `frontend-build` | `node:20-alpine` | Vite build of `frontend/` (consumes `VERSION` for `__APP_VERSION__`) |
+| `frontend-build` | `node:24-alpine` | Vite build of `frontend/` (consumes `VERSION` for `__APP_VERSION__`) |
 | `drawio` | `alpine/git:v2.47.2` | Clones jgraph/drawio v26.0.9 |
 | `frontend` | `nginx:alpine` | Final frontend image — built SPA + DrawIO assets, runs as non-root `nginx` |
 | `nginx` | `nginx:alpine` | Edge nginx (public entrypoint, proxies `/api`, `/mcp`, `/drawio`, `/`) — config from `nginx/default.conf` |
