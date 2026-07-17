@@ -34,6 +34,14 @@ Klicken Sie auf **+ Neuer Typ**, um einen benutzerdefinierten Kartentyp zu erste
 
 Klicken Sie auf einen beliebigen Typ, um die **Typ-Detail-Schublade** zu öffnen. Hier können Sie konfigurieren:
 
+#### Typfarbe
+
+Jeder Kartentyp — auch die vordefinierten — hat eine anpassbare Farbe, die im Inventar, in Berichten, Abhängigkeitsansichten und Diagrammen verwendet wird. So können Sie Turbo EA an die visuellen Konventionen Ihrer Organisation anpassen (z. B. TOGAF/ArchiMate-Paletten: Geschäftselemente in Gelb/Orange, Anwendungen in Blau).
+
+- Wählen Sie eine Farbe über das Farbfeld im Drawer. Ein Hinweis erscheint, wenn die gewählte Farbe einen sehr geringen Kontrast zu hellen oder dunklen Hintergründen hat.
+- Vordefinierte Typen zeigen neben dem Farbfeld eine **Zurücksetzen**-Schaltfläche, sobald die Farbe vom Turbo-EA-Standard abweicht — Sie können also jederzeit zur Standardpalette zurückkehren.
+- Text auf Typfarben (Chips, Diagrammformen) wechselt für die Lesbarkeit automatisch zwischen Schwarz und Weiß, sowohl im hellen als auch im dunklen Modus.
+
 #### Felder
 
 Felder definieren die benutzerdefinierten Attribute, die auf Karten dieses Typs verfügbar sind. Jedes Feld hat:

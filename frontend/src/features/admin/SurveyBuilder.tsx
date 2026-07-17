@@ -36,6 +36,7 @@ import {
   useOptionLabel,
 } from "@/hooks/useResolveLabel";
 import { FIELD_TYPE_OPTIONS } from "@/features/admin/metamodel/constants";
+import { readableTextColor } from "@/lib/color";
 import type {
   Survey,
   SurveyField,
@@ -663,7 +664,7 @@ export default function SurveyBuilder() {
                   key={v.id}
                   label={v.name}
                   size="small"
-                  sx={v.color ? { bgcolor: v.color, color: "#fff" } : undefined}
+                  sx={v.color ? { bgcolor: v.color, color: readableTextColor(v.color) } : undefined}
                 />
               ))
             }

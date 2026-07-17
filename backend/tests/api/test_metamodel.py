@@ -135,6 +135,85 @@ class TestUpdateType:
         assert response.status_code == 404
 
 
+class TestTypeColor:
+    async def test_recolor_builtin_type(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Application", label="Application", built_in=True)
+
+        response = await client.patch(
+            "/api/v1/metamodel/types/Application",
+            json={"color": "#B5D5FF"},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        assert response.json()["color"] == "#B5D5FF"
+
+    @pytest.mark.parametrize("bad", ["blue", "#12345", "#12345g", "#1234567", 123, None])
+    async def test_invalid_color_rejected_on_update(self, client, db, metamodel_env, bad):
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Application", label="Application", built_in=True)
+
+        response = await client.patch(
+            "/api/v1/metamodel/types/Application",
+            json={"color": bad},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 400
+
+    async def test_invalid_color_rejected_on_create(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        response = await client.post(
+            "/api/v1/metamodel/types",
+            json={"key": "BadColor", "label": "Bad Color", "color": "not-a-color"},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 400
+
+    async def test_default_color_serialized_for_builtin(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Application", label="Application", built_in=True)
+
+        response = await client.get(
+            "/api/v1/metamodel/types/Application",
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        # Seed default for Application, regardless of the current color
+        assert response.json()["default_color"] == "#0f7eb5"
+
+    async def test_default_color_none_for_custom_type(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        response = await client.post(
+            "/api/v1/metamodel/types",
+            json={"key": "CustomWidget", "label": "Custom Widget", "color": "#123456"},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 201
+        assert response.json()["default_color"] is None
+
+    async def test_reset_roundtrip(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Application", label="Application", built_in=True)
+
+        await client.patch(
+            "/api/v1/metamodel/types/Application",
+            json={"color": "#FFFFB5"},
+            headers=auth_headers(admin),
+        )
+        response = await client.get(
+            "/api/v1/metamodel/types/Application", headers=auth_headers(admin)
+        )
+        default = response.json()["default_color"]
+
+        response = await client.patch(
+            "/api/v1/metamodel/types/Application",
+            json={"color": default},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        assert response.json()["color"] == "#0f7eb5"
+
+
 class TestDeleteType:
     async def test_soft_delete_builtin(self, client, db, metamodel_env):
         admin = metamodel_env["admin"]

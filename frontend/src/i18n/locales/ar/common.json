@@ -256,6 +256,7 @@
   "dashboard.activity.action.soaw.signatures_recalled": "سحب توقيعات SoAW",
   "colorPicker.pickColor": "اختر لونًا",
   "colorPicker.recent": "الأخيرة",
+  "colorPicker.contrastWarning": "تباين منخفض: قد يصعب رؤية هذا اللون في الوضع الفاتح أو الداكن",
   "timelineSlider.timeTravel": "السفر عبر الزمن",
   "timelineSlider.past": "الماضي",
   "timelineSlider.future": "المستقبل",

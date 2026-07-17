@@ -256,6 +256,7 @@
   "dashboard.activity.action.soaw.signatures_recalled": "recalled SoAW signatures",
   "colorPicker.pickColor": "Pick color",
   "colorPicker.recent": "Recent",
+  "colorPicker.contrastWarning": "Low contrast: this color may be hard to see in light or dark mode",
   "timelineSlider.timeTravel": "Time Travel",
   "timelineSlider.past": "Past",
   "timelineSlider.future": "Future",

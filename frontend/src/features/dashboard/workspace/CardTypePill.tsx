@@ -1,6 +1,7 @@
 import Chip from "@mui/material/Chip";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
+import { readableTextColor } from "@/lib/color";
 
 interface Props {
   typeKey: string;
@@ -24,7 +25,7 @@ export default function CardTypePill({ typeKey }: Props) {
       label={label}
       sx={{
         bgcolor: color,
-        color: "#fff",
+        color: readableTextColor(color),
         height: 20,
         fontSize: 11,
         fontWeight: 500,

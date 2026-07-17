@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { contrastRatio, isHexColor } from "./color";
+import {
+  contrastRatio,
+  isHexColor,
+  readableTextColor,
+  readableTypeColor,
+  relativeLuminance,
+} from "./color";
 
 describe("isHexColor", () => {
   it("accepts 6-digit hex colors", () => {
@@ -51,5 +57,62 @@ describe("contrastRatio", () => {
   it("returns 1 for invalid input", () => {
     expect(contrastRatio("red", "#ffffff")).toBe(1);
     expect(contrastRatio("#ffffff", "")).toBe(1);
+  });
+});
+
+describe("readableTextColor", () => {
+  it("picks white text on dark type colors", () => {
+    expect(readableTextColor("#003399")).toBe("#ffffff"); // BusinessCapability navy
+    expect(readableTextColor("#0f7eb5")).toBe("#ffffff"); // Application blue
+    expect(readableTextColor("#774fcc")).toBe("#ffffff"); // DataObject purple
+  });
+
+  it("picks black text on pale colors (ArchiMate yellows etc.)", () => {
+    expect(readableTextColor("#FFFFB5")).toBe("#000000");
+    expect(readableTextColor("#fde68a")).toBe("#000000");
+    expect(readableTextColor("#ffa31f")).toBe("#000000"); // Provider orange
+  });
+
+  it("falls back to white for invalid input (historical default)", () => {
+    expect(readableTextColor("red")).toBe("#ffffff");
+    expect(readableTextColor("")).toBe("#ffffff");
+  });
+});
+
+describe("readableTypeColor", () => {
+  it("lightens dark colors in dark mode", () => {
+    expect(readableTypeColor("#003399", true)).not.toBe("#003399");
+  });
+
+  it("passes pale colors through untouched in dark mode (no washout)", () => {
+    expect(readableTypeColor("#fde68a", true)).toBe("#fde68a");
+    expect(readableTypeColor("#FFFFB5", true)).toBe("#FFFFB5");
+  });
+
+  it("passes the default palette through untouched in light mode", () => {
+    for (const hex of ["#003399", "#0f7eb5", "#ffa31f", "#33cc58"]) {
+      expect(readableTypeColor(hex, false)).toBe(hex);
+    }
+  });
+
+  it("darkens near-white colors in light mode so accents stay visible", () => {
+    expect(readableTypeColor("#FFFFB5", false)).not.toBe("#FFFFB5");
+  });
+
+  it("returns invalid input unchanged", () => {
+    expect(readableTypeColor("red", true)).toBe("red");
+    expect(readableTypeColor("", false)).toBe("");
+  });
+});
+
+describe("relativeLuminance", () => {
+  it("orders black < mid < white", () => {
+    const black = relativeLuminance("#000000");
+    const mid = relativeLuminance("#808080");
+    const white = relativeLuminance("#ffffff");
+    expect(black).toBe(0);
+    expect(white).toBeCloseTo(1, 5);
+    expect(mid).toBeGreaterThan(black);
+    expect(mid).toBeLessThan(white);
   });
 });

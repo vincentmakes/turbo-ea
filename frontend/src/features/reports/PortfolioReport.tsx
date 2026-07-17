@@ -35,6 +35,7 @@ import type { TagGroup } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
+import { readableTextColor } from "@/lib/color";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
@@ -122,15 +123,6 @@ interface DrawerData {
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
-
-function isLightColor(hex: string): boolean {
-  const c = hex.replace("#", "");
-  if (c.length < 6) return true;
-  const r = parseInt(c.substring(0, 2), 16);
-  const g = parseInt(c.substring(2, 4), 16);
-  const b = parseInt(c.substring(4, 6), 16);
-  return (r * 299 + g * 587 + b * 114) / 1000 > 160;
-}
 
 /* ------------------------------------------------------------------ */
 /*  Grouping logic                                                     */
@@ -222,7 +214,7 @@ function AppChip({
 }) {
   const color = getAppColor(app, colorRes, colorLabels, colorMemberId);
   const colorLabel = getAppColorLabel(app, colorRes, colorLabels, colorMemberId);
-  const light = isLightColor(color);
+  const light = readableTextColor(color) === "#000000";
   const tip = colorLabel ? `${app.name} \u2014 ${colorLabel}` : app.name;
 
   return (

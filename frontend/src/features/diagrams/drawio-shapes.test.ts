@@ -88,6 +88,19 @@ describe("buildCardCellData — card-type icon", () => {
   });
 });
 
+describe("buildCardCellData — contrast-aware font color", () => {
+  it("uses white text on a dark type color", () => {
+    const { style } = buildCardCellData(base); // #0f7eb5
+    expect(style).toContain("fontColor=#ffffff");
+  });
+
+  it("uses black text on a pale type color (e.g. ArchiMate yellow)", () => {
+    const { style } = buildCardCellData({ ...base, color: "#FFFFB5" });
+    expect(style).toContain("fontColor=#000000");
+    expect(style).not.toContain("fontColor=#ffffff");
+  });
+});
+
 describe("applyCardTypeIcons — upgrade existing cards", () => {
   const PLAIN = "rounded=1;whiteSpace=wrap;html=1;fillColor=#0f7eb5;fontColor=#ffffff;strokeColor=#0a5a82;fontSize=12";
   const iconByType = new Map([["Application", "apps"]]);

@@ -20,6 +20,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import type { Card, CardType } from "@/types";
 import { useCardSearch } from "@/hooks/useCardSearch";
+import { readableTextColor } from "@/lib/color";
 
 interface CountsResponse {
   by_type: { type: string; count: number }[];
@@ -354,14 +355,14 @@ export default function InsertCardsDialog({
                             height: 24,
                             borderRadius: "4px",
                             bgcolor: ct.color,
-                            color: "#fff",
+                            color: readableTextColor(ct.color),
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
                             flexShrink: 0,
                           }}
                         >
-                          <MaterialSymbol icon={ct.icon} size={14} color="#fff" />
+                          <MaterialSymbol icon={ct.icon} size={14} color={readableTextColor(ct.color)} />
                         </Box>
                       )}
                       <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -387,7 +388,7 @@ export default function InsertCardsDialog({
                             height: 20,
                             fontSize: "0.7rem",
                             bgcolor: ct.color,
-                            color: "#fff",
+                            color: readableTextColor(ct.color),
                           }}
                         />
                       )}

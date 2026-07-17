@@ -8,6 +8,7 @@
  */
 
 import { ICON_PATHS } from "./iconPaths";
+import { readableTextColor } from "@/lib/color";
 
 /** Escape a string for safe inclusion in XML attribute/text content. */
 function escapeXml(value: string): string {
@@ -144,7 +145,7 @@ export function buildCardCellData(opts: InsertCardOpts): CardCellData {
     "whiteSpace=wrap",
     "html=1",
     `fillColor=${color}`,
-    "fontColor=#ffffff",
+    `fontColor=${readableTextColor(color)}`,
     `strokeColor=${stroke}`,
     "fontSize=12",
     "fontStyle=1",
@@ -269,7 +270,7 @@ function buildPendingStyle(color: string, icon?: string): string {
   const stroke = darken(color);
   return [
     "rounded=1", "whiteSpace=wrap", "html=1",
-    `fillColor=${color}`, "fontColor=#ffffff",
+    `fillColor=${color}`, `fontColor=${readableTextColor(color)}`,
     `strokeColor=${stroke}`, "fontSize=12",
     "fontStyle=1", "arcSize=12",
     "dashed=1", "dashPattern=5 3",
@@ -282,7 +283,7 @@ function buildSyncedStyle(color: string, icon?: string): string {
   const stroke = darken(color);
   return [
     "rounded=1", "whiteSpace=wrap", "html=1",
-    `fillColor=${color}`, "fontColor=#ffffff",
+    `fillColor=${color}`, `fontColor=${readableTextColor(color)}`,
     `strokeColor=${stroke}`, "fontSize=12",
     "fontStyle=1", "arcSize=12", "shadow=1",
     ...iconStyleParts(icon),
@@ -736,7 +737,7 @@ export function expandCardGroup(
       const stroke = darken(ch.color);
       const style = [
         "rounded=1", "whiteSpace=wrap", "html=1",
-        `fillColor=${ch.color}`, "fontColor=#ffffff",
+        `fillColor=${ch.color}`, `fontColor=${readableTextColor(ch.color)}`,
         `strokeColor=${stroke}`, "fontSize=11",
         "fontStyle=1", "arcSize=12",
         ...iconStyleParts(ch.icon),
@@ -1976,7 +1977,7 @@ export function relinkCell(
         .concat([
           `fillColor=${opts.color}`,
           `strokeColor=${stroke}`,
-          "fontColor=#ffffff",
+          `fontColor=${readableTextColor(opts.color)}`,
         ])
         .join(";");
       model.setStyle(cell, next);
@@ -2124,7 +2125,7 @@ export function convertShapeToContainer(
         "startSize=28",
         "horizontal=1",
         `fillColor=${fill}`,
-        "fontColor=#ffffff",
+        `fontColor=${readableTextColor(fill)}`,
         `strokeColor=${stroke}`,
         "fontSize=12",
         "fontStyle=1",
@@ -2728,7 +2729,7 @@ function insertChildVertex(
     "whiteSpace=wrap",
     "html=1",
     `fillColor=${ch.color}`,
-    "fontColor=#ffffff",
+    `fontColor=${readableTextColor(ch.color)}`,
     `strokeColor=${stroke}`,
     "fontSize=11",
     "fontStyle=1",
@@ -2948,7 +2949,7 @@ export function drillDownInto(
           "startSize=" + HEADER,
           "horizontal=1",
           `fillColor=${parentColor}`,
-          "fontColor=#ffffff",
+          `fontColor=${readableTextColor(parentColor)}`,
           `strokeColor=${stroke}`,
           "fontSize=12",
           "fontStyle=1",
@@ -2977,7 +2978,7 @@ export function drillDownInto(
         "whiteSpace=wrap",
         "html=1",
         `fillColor=${ch.color}`,
-        "fontColor=#ffffff",
+        `fontColor=${readableTextColor(ch.color)}`,
         `strokeColor=${childStroke}`,
         "fontSize=11",
         "fontStyle=1",
@@ -3081,7 +3082,7 @@ export function rollUpInto(
         "startSize=" + HEADER,
         "horizontal=1",
         `fillColor=${parent.color}`,
-        "fontColor=#ffffff",
+        `fontColor=${readableTextColor(parent.color)}`,
         `strokeColor=${parentStroke}`,
         "fontSize=12",
         "fontStyle=1",
@@ -3134,7 +3135,7 @@ export function rollUpInto(
         "whiteSpace=wrap",
         "html=1",
         `fillColor=${card.color}`,
-        "fontColor=#ffffff",
+        `fontColor=${readableTextColor(card.color)}`,
         `strokeColor=${childStroke}`,
         "fontSize=11",
         "fontStyle=1",

@@ -55,6 +55,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { useAuth } from "@/hooks/useAuth";
 import type { ProcessElement, ProcessFlowVersion } from "@/types";
+import { readableTextColor } from "@/lib/color";
 
 const LazyBpmnViewer = lazy(() => import("./BpmnViewer"));
 
@@ -837,7 +838,7 @@ function DrawerOverview({
             <Chip size="small" label={drawerSubtypeLabel} variant="outlined" />
           )}
           {attrChips.map((c) => (
-            <Chip key={c.label} size="small" label={c.label} sx={{ bgcolor: c.color, color: "#fff" }} />
+            <Chip key={c.label} size="small" label={c.label} sx={{ bgcolor: c.color, color: readableTextColor(c.color) }} />
           ))}
         </Box>
       )}
@@ -1026,7 +1027,7 @@ function DrawerOverview({
                   key={tag.id}
                   size="small"
                   label={tag.name}
-                  sx={tag.color ? { bgcolor: tag.color, color: "#fff" } : {}}
+                  sx={tag.color ? { bgcolor: tag.color, color: readableTextColor(tag.color) } : {}}
                   variant={tag.color ? "filled" : "outlined"}
                 />
               ))}

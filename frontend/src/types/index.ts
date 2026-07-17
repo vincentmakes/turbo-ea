@@ -257,6 +257,9 @@ export interface CardType {
   is_hidden: boolean;
   sort_order: number;
   translations?: MetamodelTranslations;
+  /** Seed default color for built-in types (null for custom types) — powers
+   * the admin "reset to default color" affordance (discussion #740). */
+  default_color?: string | null;
 }
 
 /** Per-type human-readable card ID config (discussion #811). When enabled

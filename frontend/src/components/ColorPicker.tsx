@@ -6,6 +6,7 @@ import Popover from "@mui/material/Popover";
 import Typography from "@mui/material/Typography";
 import Tooltip from "@mui/material/Tooltip";
 import Sketch from "@uiw/react-color-sketch";
+import { contrastRatio, isHexColor } from "@/lib/color";
 
 /**
  * Curated preset colors for the Sketch picker bottom row.
@@ -55,6 +56,13 @@ interface ColorPickerProps {
   /** Compact mode — smaller swatch trigger, no label. For inline option rows. */
   compact?: boolean;
   label?: string;
+  /**
+   * Show an advisory (never blocking) caption when the draft color is nearly
+   * invisible against the light or dark theme paper — mirrors the navbar
+   * style card's contrast hint. Opt-in for admin-facing pickers whose colors
+   * paint large surfaces (card types, tags).
+   */
+  warnLowContrast?: boolean;
 }
 
 export default function ColorPicker({
@@ -63,6 +71,7 @@ export default function ColorPicker({
   disabled,
   compact,
   label,
+  warnLowContrast,
 }: ColorPickerProps) {
   const { t } = useTranslation("common");
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
@@ -106,6 +115,13 @@ export default function ColorPicker({
     event.stopPropagation();
     setDraft(color);
   };
+
+  // Advisory only — a color this close to pure white or the dark-theme paper
+  // renders near-invisible accents (borders, chips) in that theme.
+  const lowContrast =
+    !!warnLowContrast &&
+    isHexColor(draft) &&
+    (contrastRatio(draft, "#ffffff") < 1.6 || contrastRatio(draft, "#121212") < 1.6);
 
   return (
     <>
@@ -209,6 +225,17 @@ export default function ColorPicker({
             presetColors={PRESET_COLORS}
             onChange={(color) => setDraft(color.hex)}
           />
+
+          {/* Advisory contrast hint (never blocks saving) */}
+          {lowContrast && (
+            <Typography
+              variant="caption"
+              color="warning.main"
+              sx={{ px: 1.5, pt: 0.75, maxWidth: 220 }}
+            >
+              {t("colorPicker.contrastWarning")}
+            </Typography>
+          )}
 
           {/* Save / Cancel buttons */}
           <Box

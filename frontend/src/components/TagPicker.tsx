@@ -6,6 +6,7 @@ import Box from "@mui/material/Box";
 import { useTranslation } from "react-i18next";
 import type { SxProps, Theme } from "@mui/material/styles";
 import type { TagGroup } from "@/types";
+import { readableTextColor } from "@/lib/color";
 
 interface TagOption {
   id: string;
@@ -163,7 +164,7 @@ export default function TagPicker({
                 ...(size === "small"
                   ? { height: 20, fontSize: "0.7rem", fontWeight: 500, maxWidth: 180 }
                   : {}),
-                ...(option.color ? { bgcolor: option.color, color: "#fff" } : {}),
+                ...(option.color ? { bgcolor: option.color, color: readableTextColor(option.color) } : {}),
               }}
               {...chipProps}
             />

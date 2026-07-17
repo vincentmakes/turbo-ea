@@ -180,6 +180,7 @@
   "dashboard.activity.action.soaw.signatures_recalled": "a rappelé les signatures d'un SoAW",
   "colorPicker.pickColor": "Choisir une couleur",
   "colorPicker.recent": "Récentes",
+  "colorPicker.contrastWarning": "Contraste faible : cette couleur peut être difficile à voir en mode clair ou sombre",
   "timelineSlider.timeTravel": "Voyage dans le temps",
   "timelineSlider.past": "Passé",
   "timelineSlider.future": "Futur",

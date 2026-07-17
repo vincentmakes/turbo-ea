@@ -34,6 +34,14 @@ Klik på **+ Ny type** for at oprette en brugerdefineret korttype. Konfigurer:
 
 Klik på en hvilken som helst type for at åbne **Typedetaljepanelet**. Her kan du konfigurere:
 
+#### Typefarve
+
+Hver korttype — inklusive de indbyggede — har en farve, der kan tilpasses, og som bruges i inventaret, rapporter, afhængighedsvisninger og diagrammer. Det gør det muligt at tilpasse Turbo EA til organisationens visuelle konventioner (for eksempel TOGAF/ArchiMate-paletter: forretningselementer i gul/orange, applikationer i blå).
+
+- Vælg en farve med farveprøven i panelet. Der vises et hint, når den valgte farve har meget lav kontrast mod lyse eller mørke baggrunde.
+- Indbyggede typer viser en **nulstil**-knap ved siden af farveprøven, når farven afviger fra Turbo EA-standarden, så du altid kan vende tilbage til standardpaletten.
+- Tekst oven på typefarver (chips, diagramformer) skifter automatisk mellem sort og hvid for læsbarhed, både i lys og mørk tilstand.
+
 #### Felter
 
 Felter definerer de brugerdefinerede egenskaber, der er tilgængelige på kort af denne type. Hvert felt har:

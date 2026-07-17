@@ -28,6 +28,9 @@ import FilterSelect from "@/components/FilterSelect";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
+import { readableTextColor } from "@/lib/color";
+import { useMetamodel } from "@/hooks/useMetamodel";
+import { CARD_TYPE_COLORS } from "@/theme";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useSavedReport } from "@/hooks/useSavedReport";
 
@@ -351,6 +354,13 @@ function ProcessCard({
   const val = metricValue(attrs, metric, node.deepAppCount, node.deepCost);
   const label = metricLabel(attrs, metric, node.deepAppCount, fmtCost, node.deepCost, tr);
   const isLeaf = node.level >= displayLevel || node.children.length === 0;
+  // Related-card chips carry the metamodel color of their card type
+  // (admin-editable), with the static token as fallback.
+  const { getType } = useMetamodel();
+  const relatedChipColor =
+    showRelated === "apps"
+      ? getType("Application")?.color || CARD_TYPE_COLORS.Application
+      : getType("DataObject")?.color || CARD_TYPE_COLORS.DataObject;
 
   const visibleApps = useMemo(
     () => (showRelated === "apps" ? getVisibleApps(node, displayLevel) : []),
@@ -426,8 +436,8 @@ function ProcessCard({
                       fontSize: "0.7rem",
                       maxWidth: 160,
                       cursor: "pointer",
-                      bgcolor: showRelated === "apps" ? "#0f7eb5" : "#774fcc",
-                      color: "#fff",
+                      bgcolor: relatedChipColor,
+                      color: readableTextColor(relatedChipColor),
                       "&:hover": { opacity: 0.85 },
                     }}
                   />
@@ -485,8 +495,8 @@ function ProcessCard({
                     fontSize: "0.7rem",
                     maxWidth: 160,
                     cursor: "pointer",
-                    bgcolor: showRelated === "apps" ? "#0f7eb5" : "#774fcc",
-                    color: "#fff",
+                    bgcolor: relatedChipColor,
+                    color: readableTextColor(relatedChipColor),
                     "&:hover": { opacity: 0.85 },
                   }}
                 />

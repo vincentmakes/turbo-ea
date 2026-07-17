@@ -50,6 +50,7 @@ import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import RelationCellPopover from "./RelationCellPopover";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel, useRelationLabel, useFieldLabel, useOptionLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
+import { readableTextColor } from "@/lib/color";
 import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useIsRtl } from "@/hooks/useIsRtl";
@@ -1388,7 +1389,7 @@ export default function InventoryPage() {
             <Chip
               size="small"
               label={typeLabel(tp)}
-              sx={{ bgcolor: tp.color, color: "#fff", fontWeight: 500 }}
+              sx={{ bgcolor: tp.color, color: readableTextColor(tp.color), fontWeight: 500 }}
             />
           ) : (
             p.value

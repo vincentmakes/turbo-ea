@@ -8,6 +8,7 @@ import type {
   RelationType as RType,
 } from "@/types";
 import { truncate } from "./helpers";
+import { readableTextColor } from "@/lib/color";
 import {
   CATEGORIES,
   LAYER_ORDER,
@@ -700,7 +701,8 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
                 y={pos.y + NODE_H / 2 + 7}
                 fontFamily="Material Symbols Outlined"
                 fontSize={22}
-                fill="rgba(255,255,255,0.92)"
+                fill={readableTextColor(t.color)}
+                opacity={0.92}
               >
                 {t.icon}
               </text>
@@ -710,7 +712,7 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
                 y={pos.y + NODE_H / 2 + 5}
                 fontSize={12}
                 fontWeight={600}
-                fill="#fff"
+                fill={readableTextColor(t.color)}
                 fontFamily="Inter, Roboto, system-ui, sans-serif"
               >
                 {truncate(t.label, 14)}

@@ -30,11 +30,12 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
-import { lighten, useTheme } from "@mui/material/styles";
+import { useTheme } from "@mui/material/styles";
 import { toBlob, toSvg } from "html-to-image";
 import { saveAs } from "file-saver";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
+import { readableTypeColor } from "@/lib/color";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { getCurrentPhase } from "@/components/LifecycleBadge";
 import {
@@ -183,22 +184,9 @@ function buildFieldCatalog(types: CardType[], presentTypeKeys: Set<string>): Fie
 
 const LP_CIRCUMFERENCE = 2 * Math.PI * 15; // ~94.25
 
-/**
- * Returns a card-type color that reads cleanly against the active theme.
- * Card-type metamodel colors (e.g. `#003399` for BusinessCapability,
- * `#774fcc` for DataObject) are tuned for white-ish backgrounds — on the
- * dark theme paper they fall below 4.5:1 contrast and the borders / type
- * labels become unreadable. We lighten them to a fixed brightness in dark
- * mode while passing the original through untouched in light mode.
- */
-export function readableTypeColor(hex: string, isDark: boolean): string {
-  if (!isDark) return hex;
-  try {
-    return lighten(hex, 0.45);
-  } catch {
-    return hex;
-  }
-}
+// Shared with every other card-type color consumer — see lib/color.ts for the
+// luminance-gating rationale. Re-exported for existing importers.
+export { readableTypeColor };
 
 const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   const typeLabel = useTypeLabel();

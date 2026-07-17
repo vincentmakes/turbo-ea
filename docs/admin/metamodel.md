@@ -34,6 +34,14 @@ Click **+ New Type** to create a custom card type. Configure:
 
 Click any type to open the **Type Detail Drawer**. Here you can configure:
 
+#### Type Color
+
+Every card type — including the built-in ones — has a customizable color used across the inventory, reports, dependency views, and diagrams. This lets you align Turbo EA with your organization's visual conventions (for example TOGAF/ArchiMate palettes: business elements in yellow/orange, applications in blue).
+
+- Pick a color with the color swatch in the drawer. A hint appears when the chosen color has very low contrast against light or dark backgrounds.
+- Built-in types show a **reset** button next to the color swatch whenever the color differs from the Turbo EA default, so you can always return to the standard palette.
+- Text rendered on top of type colors (chips, diagram shapes) automatically switches between black and white for readability, in both light and dark mode.
+
 #### Fields
 
 Fields define the custom attributes available on cards of this type. Each field has:

@@ -13,9 +13,10 @@ import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import InputAdornment from "@mui/material/InputAdornment";
-import { lighten, useTheme } from "@mui/material/styles";
+import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import type { CurrencyFormatter } from "@/hooks/useCurrency";
+import { readableTextColor, readableTypeColor } from "@/lib/color";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionHost";
@@ -229,7 +230,7 @@ export function CardIdPill({
   const isDark = theme.palette.mode === "dark";
   // Guard non-hex metamodel colors (mirrors LayeredDependencyView's fallback).
   const hex = /^#[0-9a-fA-F]{6}$/.test(typeColor || "") ? (typeColor as string) : "#9e9e9e";
-  const accent = isDark ? lighten(hex, 0.45) : hex;
+  const accent = readableTypeColor(hex, isDark);
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
@@ -380,7 +381,7 @@ export function FieldValue({
     const strVal = typeof value === "string" ? value : safeString(value);
     const opt = field.options.find((o) => o.key === strVal);
     return opt ? (
-      <Chip size="small" label={optLabel(opt)} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
+      <Chip size="small" label={optLabel(opt)} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: readableTextColor(opt.color) } : {}) }} />
     ) : (
       <Tooltip title={t("utils.unknownOption", { key: strVal })}>
         <Chip size="small" label={strVal} variant="outlined" color="warning" sx={{ ...SELECT_CHIP_BASE, width: w }} />
@@ -397,7 +398,7 @@ export function FieldValue({
           const key = typeof v === "string" ? v : safeString(v);
           const opt = field.options!.find((o) => o.key === key);
           return opt ? (
-            <Chip key={key + i} size="small" label={optLabel(opt)} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
+            <Chip key={key + i} size="small" label={optLabel(opt)} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: readableTextColor(opt.color) } : {}) }} />
           ) : (
             <Chip key={key + i} size="small" label={key} variant="outlined" color="warning" sx={{ ...SELECT_CHIP_BASE, width: w }} />
           );
@@ -566,7 +567,13 @@ export function FieldEditor({
                         onDelete={() => onChange(arrVal.filter((v) => v !== key))}
                         sx={{
                           height: 22,
-                          ...(opt?.color ? { bgcolor: opt.color, color: "#fff", "& .MuiChip-deleteIcon": { color: "rgba(255,255,255,0.85)" } } : {}),
+                          ...(opt?.color
+                            ? {
+                                bgcolor: opt.color,
+                                color: readableTextColor(opt.color),
+                                "& .MuiChip-deleteIcon": { color: readableTextColor(opt.color), opacity: 0.85 },
+                              }
+                            : {}),
                         }}
                       />
                     );

@@ -24,6 +24,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import type { CardType, Tag, TagGroup } from "@/types";
+import { readableTextColor } from "@/lib/color";
 
 type DeleteTarget =
   | { kind: "group"; id: string; name: string }
@@ -199,7 +200,7 @@ export default function TagsAdmin() {
                   key={tag.id}
                   label={tag.name}
                   title={tag.description || undefined}
-                  sx={tag.color ? { bgcolor: tag.color, color: "#fff" } : {}}
+                  sx={tag.color ? { bgcolor: tag.color, color: readableTextColor(tag.color) } : {}}
                   onClick={() => openEditTag(tag)}
                   onDelete={() => setDeleteTarget({ kind: "tag", id: tag.id, groupId: g.id, name: tag.name })}
                 />

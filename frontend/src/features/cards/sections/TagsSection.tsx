@@ -17,6 +17,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import TagPicker from "@/components/TagPicker";
 import { api } from "@/api/client";
 import type { Card, TagGroup, TagRef } from "@/types";
+import { readableTextColor } from "@/lib/color";
 
 interface Props {
   card: Card;
@@ -129,7 +130,7 @@ export default function TagsSection({
                             key={tag.id}
                             label={tag.name}
                             size="small"
-                            sx={tag.color ? { bgcolor: tag.color, color: "#fff" } : {}}
+                            sx={tag.color ? { bgcolor: tag.color, color: readableTextColor(tag.color) } : {}}
                           />
                         ))}
                       </Box>

@@ -34,6 +34,14 @@ Cliccate su **+ Nuovo tipo** per creare un tipo di card personalizzato. Configur
 
 Cliccate su qualsiasi tipo per aprire il **Cassetto dettaglio tipo**. Qui potete configurare:
 
+#### Colore del tipo
+
+Ogni tipo di scheda — inclusi quelli predefiniti — ha un colore personalizzabile usato nell'inventario, nei report, nelle viste delle dipendenze e nei diagrammi. Questo consente di allineare Turbo EA alle convenzioni visive della propria organizzazione (ad esempio le palette TOGAF/ArchiMate: elementi di business in giallo/arancione, applicazioni in blu).
+
+- Scegliere un colore con il campione di colore nel pannello. Un avviso appare quando il colore scelto ha un contrasto molto basso su sfondi chiari o scuri.
+- I tipi predefiniti mostrano un pulsante di **ripristino** accanto al campione di colore quando il colore differisce dal valore predefinito di Turbo EA, così è sempre possibile tornare alla palette standard.
+- Il testo mostrato sopra i colori del tipo (chip, forme dei diagrammi) passa automaticamente dal nero al bianco per la leggibilità, sia in modalità chiara sia in modalità scura.
+
 #### Campi
 
 I campi definiscono gli attributi personalizzati disponibili sulle card di questo tipo. Ogni campo ha:

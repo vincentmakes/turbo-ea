@@ -30,6 +30,7 @@ import Tabs from "@mui/material/Tabs";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useMetamodel } from "@/hooks/useMetamodel";
 import {
   CARD_TYPE_COLORS,
   COMPLIANCE_LIFECYCLE_COLORS,
@@ -132,11 +133,6 @@ const SEVERITY_HEX: Record<TurboLensComplianceFinding["severity"], string> = {
   info: STATUS_COLORS.info,
 };
 
-const CARD_TYPE_HEX: Record<"Application" | "ITComponent", string> = {
-  Application: CARD_TYPE_COLORS.Application,
-  ITComponent: CARD_TYPE_COLORS.ITComponent,
-};
-
 const CARD_TYPE_ICONS: Record<"Application" | "ITComponent", string> = {
   Application: "apps",
   ITComponent: "memory",
@@ -154,6 +150,10 @@ export default function ComplianceFilterSidebar({
 }: Props) {
   const { t } = useTranslation("admin");
   const { t: tCards } = useTranslation("cards");
+  const { getType } = useMetamodel();
+  // Metamodel color (admin-editable) first, static token as fallback.
+  const cardTypeColor = (ct: "Application" | "ITComponent") =>
+    getType(ct)?.color || CARD_TYPE_COLORS[ct];
 
   const [tab, setTab] = useState<0 | 1>(0);
   const [expanded, setExpanded] = useState({
@@ -388,7 +388,7 @@ export default function ComplianceFilterSidebar({
             items={CARD_TYPES.map((ct) => ({
               key: ct,
               label: ct,
-              color: CARD_TYPE_HEX[ct],
+              color: cardTypeColor(ct),
               icon: CARD_TYPE_ICONS[ct],
               checked: filters.cardTypes.has(ct),
               onToggle: () =>

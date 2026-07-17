@@ -42,6 +42,7 @@ import RelationAttributesEditor, {
   hasRelationSubtypes,
   type RelationAttributes,
 } from "./RelationAttributesEditor";
+import { readableTextColor } from "@/lib/color";
 import {
   bucketRelationsBySubtype,
   shouldGroupBySubtype,
@@ -417,7 +418,7 @@ function RelationGroup({
                 sx={{
                   height: 20,
                   fontSize: "0.7rem",
-                  ...(b.color ? { bgcolor: b.color, color: "#fff" } : {}),
+                  ...(b.color ? { bgcolor: b.color, color: readableTextColor(b.color) } : {}),
                 }}
               />
             ))}

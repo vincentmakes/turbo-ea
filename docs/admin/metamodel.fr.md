@@ -34,6 +34,14 @@ Cliquez sur **+ Nouveau type** pour créer un type de fiche personnalisé. Confi
 
 Cliquez sur n'importe quel type pour ouvrir le **Tiroir de détail du type**. Vous pouvez y configurer :
 
+#### Couleur du type
+
+Chaque type de carte — y compris les types intégrés — possède une couleur personnalisable utilisée dans l'inventaire, les rapports, les vues de dépendances et les diagrammes. Vous pouvez ainsi aligner Turbo EA sur les conventions visuelles de votre organisation (par exemple les palettes TOGAF/ArchiMate : éléments métier en jaune/orange, applications en bleu).
+
+- Choisissez une couleur avec la pastille de couleur du panneau. Un avertissement apparaît lorsque la couleur choisie offre un contraste très faible sur fond clair ou sombre.
+- Les types intégrés affichent un bouton de **réinitialisation** à côté de la pastille dès que la couleur diffère de la valeur par défaut de Turbo EA, afin de toujours pouvoir revenir à la palette standard.
+- Le texte affiché sur les couleurs de type (puces, formes de diagramme) bascule automatiquement entre noir et blanc pour rester lisible, en mode clair comme en mode sombre.
+
 #### Champs
 
 Les champs définissent les attributs personnalisés disponibles sur les fiches de ce type. Chaque champ possède :

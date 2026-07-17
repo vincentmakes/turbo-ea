@@ -34,6 +34,14 @@ Haga clic en **+ Nuevo Tipo** para crear un tipo de ficha personalizado. Configu
 
 Haga clic en cualquier tipo para abrir el **Panel de Detalle del Tipo**. Aquí puede configurar:
 
+#### Color del tipo
+
+Cada tipo de tarjeta — incluidos los integrados — tiene un color personalizable que se usa en el inventario, los informes, las vistas de dependencias y los diagramas. Esto permite alinear Turbo EA con las convenciones visuales de su organización (por ejemplo, paletas TOGAF/ArchiMate: elementos de negocio en amarillo/naranja, aplicaciones en azul).
+
+- Elija un color con la muestra de color del panel. Aparece un aviso cuando el color elegido tiene muy poco contraste sobre fondos claros u oscuros.
+- Los tipos integrados muestran un botón de **restablecer** junto a la muestra de color cuando el color difiere del predeterminado de Turbo EA, para poder volver siempre a la paleta estándar.
+- El texto mostrado sobre los colores de tipo (chips, formas de diagrama) cambia automáticamente entre negro y blanco para mantener la legibilidad, tanto en modo claro como oscuro.
+
 #### Campos
 
 Los campos definen los atributos personalizados disponibles en fichas de este tipo. Cada campo tiene:

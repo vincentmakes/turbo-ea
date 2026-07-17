@@ -23,6 +23,8 @@ import type { TagGroup } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
+import { readableTextColor } from "@/lib/color";
+import { CARD_TYPE_COLORS } from "@/theme";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
@@ -162,8 +164,9 @@ function getAppColor(
   app: AppData,
   colorBy: string,
   selectFields: FieldDef[],
+  defaultColor: string = CARD_TYPE_COLORS.Application,
 ): string {
-  if (!colorBy || colorBy === "none") return "#0f7eb5";
+  if (!colorBy || colorBy === "none") return defaultColor;
   const val = (app.attributes || {})[colorBy] as string | undefined;
   if (!val) return UNSET_COLOR;
   const fd = selectFields.find((f) => f.key === colorBy);
@@ -182,16 +185,6 @@ function getAppColorLabel(
   const fd = selectFields.find((f) => f.key === colorBy);
   const opt = fd?.options?.find((o) => o.key === val);
   return opt?.label || val;
-}
-
-/** Compute perceived luminance to decide text color */
-function isLightColor(hex: string): boolean {
-  const c = hex.replace("#", "");
-  if (c.length < 6) return true;
-  const r = parseInt(c.substring(0, 2), 16);
-  const g = parseInt(c.substring(2, 4), 16);
-  const b = parseInt(c.substring(4, 6), 16);
-  return (r * 299 + g * 587 + b * 114) / 1000 > 160;
 }
 
 /** Filter an app based on active attribute, relation and tag filters */
@@ -387,9 +380,12 @@ function AppChip({
   selectFields: FieldDef[];
   onClick: () => void;
 }) {
-  const color = getAppColor(app, colorBy, selectFields);
+  // Metamodel Application color (admin-editable) when not coloring by field.
+  const { getType } = useMetamodel();
+  const appDefault = getType("Application")?.color || CARD_TYPE_COLORS.Application;
+  const color = getAppColor(app, colorBy, selectFields, appDefault);
   const colorLabel = getAppColorLabel(app, colorBy, selectFields);
-  const light = isLightColor(color);
+  const light = readableTextColor(color) === "#000000";
   const tip = colorLabel ? `${app.name} \u2014 ${colorLabel}` : app.name;
 
   return (
@@ -892,7 +888,10 @@ export default function CapabilityMapReport() {
     <ReportShell
       title={t("capabilityMap.title")}
       icon="grid_view"
-      iconColor="#003399"
+      iconColor={
+        metamodelTypes.find((tp) => tp.key === "BusinessCapability")?.color ||
+        CARD_TYPE_COLORS.BusinessCapability
+      }
       hasTableToggle={false}
       paginateRowSelector="[data-export-row]"
       chartRef={chartRef}

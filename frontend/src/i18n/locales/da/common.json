@@ -256,6 +256,7 @@
   "dashboard.activity.action.soaw.signatures_recalled": "tilbagekaldte SoAW-underskrifter",
   "colorPicker.pickColor": "Vælg farve",
   "colorPicker.recent": "Seneste",
+  "colorPicker.contrastWarning": "Lav kontrast: denne farve kan være svær at se i lys eller mørk tilstand",
   "timelineSlider.timeTravel": "Tidsrejse",
   "timelineSlider.past": "Fortid",
   "timelineSlider.future": "Fremtid",

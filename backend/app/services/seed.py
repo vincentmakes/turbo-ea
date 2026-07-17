@@ -3933,6 +3933,11 @@ TYPES = [
     },
 ]
 
+# Canonical default color per built-in card type, derived from TYPES so it can
+# never drift from the seed. Serialized as `default_color` on metamodel types to
+# power the admin "reset to default color" affordance (custom types have none).
+DEFAULT_TYPE_COLORS: dict[str, str] = {t["key"]: t.get("color", "#1976d2") for t in TYPES}
+
 
 # ── Relations (from Meta_Model.xml — verbs are the edge labels) ────────
 

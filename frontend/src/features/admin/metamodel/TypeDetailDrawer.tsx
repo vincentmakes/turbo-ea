@@ -605,12 +605,26 @@ export default function TypeDetailDrawer({
             rows={2}
           />
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-            <ColorPicker
-              value={color}
-              onChange={setColor}
-              disabled={!!cardTypeKey?.built_in}
-              label={cardTypeKey?.built_in ? t("metamodel.typeDrawer.colorBuiltIn") : t("metamodel.typeDrawer.color")}
-            />
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <ColorPicker
+                value={color}
+                onChange={setColor}
+                label={t("metamodel.typeDrawer.color")}
+                warnLowContrast
+              />
+              {cardTypeKey?.default_color &&
+                color.toLowerCase() !== cardTypeKey.default_color.toLowerCase() && (
+                  <Tooltip title={t("metamodel.typeDrawer.resetColor")}>
+                    <IconButton
+                      size="small"
+                      aria-label={t("metamodel.typeDrawer.resetColor")}
+                      onClick={() => setColor(cardTypeKey.default_color as string)}
+                    >
+                      <MaterialSymbol icon="restart_alt" size={18} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+            </Box>
             <FormControlLabel
               control={<Switch checked={hasHierarchy} onChange={(e) => setHasHierarchy(e.target.checked)} />}
               label={t("metamodel.typeDrawer.supportsHierarchy")}

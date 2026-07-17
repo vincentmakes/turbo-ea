@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import logging
+import re
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -28,10 +29,26 @@ from app.services.hierarchy import (
     hierarchy_level_field_def,
 )
 from app.services.permission_service import PermissionService
+from app.services.seed import DEFAULT_TYPE_COLORS
 
 logger = logging.getLogger("turboea.metamodel")
 
 router = APIRouter(prefix="/metamodel", tags=["metamodel"])
+
+_HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def _validate_color(body: dict) -> None:
+    """Reject a ``color`` that isn't a #rrggbb hex value.
+
+    Only enforced when the key is present so color-less creates/patches keep
+    working. The column is a plain string — without this guard any value up to
+    20 chars would be persisted and break every consumer that parses the hex.
+    """
+    if "color" in body and not (
+        isinstance(body["color"], str) and _HEX_COLOR_RE.match(body["color"])
+    ):
+        raise HTTPException(400, "color must be a hex value in #rrggbb format")
 
 
 def _scoring_signature(fields_schema: list | None, section_config: dict | None) -> dict:
@@ -142,6 +159,9 @@ def _serialize_type(t: CardType) -> dict:
         "is_hidden": t.is_hidden,
         "sort_order": t.sort_order,
         "translations": t.translations or {},
+        # Seed default for built-in types (None for custom types) — powers the
+        # admin "reset to default color" affordance.
+        "default_color": DEFAULT_TYPE_COLORS.get(t.key),
     }
 
 
@@ -657,6 +677,7 @@ async def create_type(
     body: dict, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
 ):
     await PermissionService.require_permission(db, user, "admin.metamodel")
+    _validate_color(body)
     existing = await db.execute(select(CardType).where(CardType.key == body.get("key", "")))
     if existing.scalar_one_or_none():
         raise HTTPException(400, "Type key already exists")
@@ -714,6 +735,7 @@ async def update_type(
     key: str, body: dict, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
 ):
     await PermissionService.require_permission(db, user, "admin.metamodel")
+    _validate_color(body)
     result = await db.execute(select(CardType).where(CardType.key == key))
     t = result.scalar_one_or_none()
     if not t:
