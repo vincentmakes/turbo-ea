@@ -115,6 +115,7 @@ plugins:
             Platform Migration: Migración de plataforma
             Workspace Transfer: Transferencia de espacio de trabajo
             Extensions: Extensiones
+            Operations & Upgrades: Operaciones y actualizaciones
             Supply Chain: Cadena de suministro
             Reference: Referencia
             Glossary: Glosario
@@ -178,6 +179,7 @@ plugins:
             Platform Migration: Plattform-Migration
             Workspace Transfer: Workspace-Transfer
             Extensions: Erweiterungen
+            Operations & Upgrades: Betrieb & Upgrades
             Supply Chain: Lieferkette
             Reference: Referenz
             Glossary: Glossar
@@ -241,6 +243,7 @@ plugins:
             Platform Migration: Migration de plateforme
             Workspace Transfer: Transfert d'espace de travail
             Extensions: Extensions
+            Operations & Upgrades: Exploitation et mises à niveau
             Supply Chain: Chaîne d'approvisionnement
             Reference: Référence
             Glossary: Glossaire
@@ -304,6 +307,7 @@ plugins:
             Platform Migration: Migrazione di piattaforma
             Workspace Transfer: Trasferimento workspace
             Extensions: Estensioni
+            Operations & Upgrades: Operazioni e aggiornamenti
             Supply Chain: Catena di approvvigionamento
             Reference: Riferimenti
             Glossary: Glossario
@@ -367,6 +371,7 @@ plugins:
             Platform Migration: Migração de plataforma
             Workspace Transfer: Transferência de workspace
             Extensions: Extensões
+            Operations & Upgrades: Operações e atualizações
             Supply Chain: Cadeia de suprimentos
             Reference: Referência
             Glossary: Glossário
@@ -430,6 +435,7 @@ plugins:
             Platform Migration: 平台迁移
             Workspace Transfer: 工作区迁移
             Extensions: 扩展
+            Operations & Upgrades: 运维与升级
             Supply Chain: 供应链
             Reference: 参考
             Glossary: 术语表
@@ -493,6 +499,7 @@ plugins:
             Platform Migration: Миграция платформы
             Workspace Transfer: Перенос рабочей области
             Extensions: Расширения
+            Operations & Upgrades: Эксплуатация и обновления
             Supply Chain: Цепочка поставок
             Reference: Справочник
             Glossary: Глоссарий
@@ -556,6 +563,7 @@ plugins:
             Platform Migration: Platformsmigrering
             Workspace Transfer: Workspace-overførsel
             Extensions: Udvidelser
+            Operations & Upgrades: Drift og opgraderinger
             Supply Chain: Forsyningskæde
             Reference: Reference
             Glossary: Ordliste
@@ -619,6 +627,7 @@ plugins:
             Platform Migration: ترحيل المنصة
             Workspace Transfer: نقل مساحة العمل
             Extensions: الإضافات
+            Operations & Upgrades: العمليات والترقيات
             Supply Chain: سلسلة التوريد
             Reference: المرجع
             Glossary: المسرد
@@ -711,6 +720,7 @@ nav:
       - Platform Migration: admin/migration.md
       - Workspace Transfer: admin/workspace-transfer.md
       - Extensions: admin/extensions.md
+      - Operations & Upgrades: admin/operations.md
       - Supply Chain: admin/supply-chain.md
   - Reference:
       - Glossary: reference/glossary.md
