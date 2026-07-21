@@ -14,6 +14,18 @@ TURBO_EA_TAG=2.23.1
 
 基础用法见[锁定版本](../getting-started/setup.md)，完整的标签树和预发布渠道策略见[版本发布](../reference/releases.md)。
 
+## 托管 PostgreSQL
+
+在能够使用托管 PostgreSQL 服务的企业环境中——Azure Database for PostgreSQL、Amazon RDS / Aurora、Google Cloud SQL 或同类产品——让 Turbo EA 直接使用该服务是推荐的配置。自带的 `db` 容器只是一个零依赖的默认选项，并非必需：通过 `POSTGRES_*` 变量把后端指向你的实例，并跳过自带服务即可（见[使用现有 PostgreSQL](../getting-started/setup.md)）。
+
+托管服务替你承担的事情：
+
+- **备份与时间点恢复（PITR）**——自动化、保留期受管、可恢复到任意时刻，正是下文回滚策略所需要的。
+- **高可用与故障转移**——可用区或跨区域冗余，无需自行运维复制。
+- **引擎补丁、静态加密、网络隔离**——按贵组织的合规基线处理（私有终结点、IAM 集成）。
+
+三件**不会**改变的事：后端在启动时仍会自行执行 Alembic 迁移（本页的升级模型完全相同）；`backend_data` 卷仍需要单独备份（文件附件和扩展不存放在 PostgreSQL 中）；`SECRET_KEY` 的保管责任仍在你。自带镜像搭载 PostgreSQL 18——你的服务商提供的任何较新的主版本都可以。
+
 ## 升级如何工作：Alembic 迁移
 
 数据库模式的兼容性由 [Alembic](https://alembic.sqlalchemy.org/) 自动处理。后端在启动时执行 `alembic upgrade head`，因此当前模式与新版本之间所有待执行的迁移都会——按顺序——在应用开始提供服务之前完成。
@@ -61,7 +73,7 @@ TURBO_EA_TAG=2.23.1
 docker compose exec db pg_dump -U turboea turboea > backup-$(date +%F).sql
 ```
 
-如果你修改过 `POSTGRES_USER` / `POSTGRES_DB`，请相应调整用户名和数据库名。对 `postgres_data` 卷做快照是等效的替代方案。
+如果你修改过 `POSTGRES_USER` / `POSTGRES_DB`，请相应调整用户名和数据库名。对 `postgres_data` 卷做快照是等效的替代方案。若使用托管 PostgreSQL 服务（见上文「托管 PostgreSQL」一节），应优先使用服务商的自动备份和时间点恢复，而不是手工转储——不过偶尔做一次 `pg_dump` 作为可移植、不依赖服务商的副本仍然值得。
 
 同时备份 **`backend_data`** 卷——它保存着文件附件、已安装的扩展和工作区传输包，这些都不存放在 PostgreSQL 中。
 
@@ -75,7 +87,7 @@ docker compose exec db pg_dump -U turboea turboea > backup-$(date +%F).sql
 在生产环境中，模式迁移实际上是**只进不退的**：虽然 Alembic 技术上支持降级，但携带数据的迁移并不总能无损逆转，而且应用从不自动执行降级。可靠的回滚策略是：
 
 1. 停止整个服务栈。
-2. 恢复升级前做的数据库备份。
+2. 恢复升级前做的数据库备份（托管 PostgreSQL：时间点恢复到升级前的那一刻）。
 3. 将 `TURBO_EA_TAG` 改回上一个版本。
 4. `docker compose up -d`——恢复后的数据库与旧代码的模式匹配，一切保持一致。
 
@@ -95,7 +107,7 @@ docker compose exec db pg_dump -U turboea turboea > backup-$(date +%F).sql
 把真实数据引入预发环境的两种好方法：
 
 - **[工作区传输](workspace-transfer.md)**：将生产工作区导出为 `.zip` 包并导入预发环境。密钥（SMTP、SSO、AI、ServiceNow 凭据）按设计被剥离，绝不离开实例。
-- **数据库恢复**：把生产的 `pg_dump` 恢复到预发数据库。数据库中的加密密钥派生自 `SECRET_KEY`，因此预发环境要么使用相同的 `SECRET_KEY`，要么在那里重新录入集成凭据。
+- **数据库恢复**：把生产的 `pg_dump` 恢复到预发数据库（在托管服务上，克隆或对生产实例做时间点恢复同样很好用）。数据库中的加密密钥派生自 `SECRET_KEY`，因此预发环境要么使用相同的 `SECRET_KEY`，要么在那里重新录入集成凭据。
 
 治理层面：
 

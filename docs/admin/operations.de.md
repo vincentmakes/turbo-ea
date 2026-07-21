@@ -14,6 +14,18 @@ TURBO_EA_TAG=2.23.1
 
 Siehe [Eine Version pinnen](../getting-started/setup.md) für die Grundlagen und [Releases](../reference/releases.md) für den vollständigen Tag-Baum und die Pre-Release-Kanalpolitik.
 
+## Verwaltetes PostgreSQL
+
+In Unternehmensumgebungen mit Zugang zu einem verwalteten PostgreSQL-Dienst — Azure Database for PostgreSQL, Amazon RDS / Aurora, Google Cloud SQL oder Vergleichbares — ist der Betrieb von Turbo EA gegen diesen Dienst die empfohlene Konfiguration. Der mitgelieferte `db`-Container ist ein abhängigkeitsfreier Standard, keine Voraussetzung: Verweisen Sie das Backend über die `POSTGRES_*`-Variablen auf Ihre Instanz und lassen Sie den mitgelieferten Dienst weg (siehe [Ein bestehendes PostgreSQL verwenden](../getting-started/setup.md)).
+
+Was der verwaltete Dienst Ihnen abnimmt:
+
+- **Backups und Point-in-Time-Recovery** — automatisiert, mit verwalteter Aufbewahrung und auf jeden Zeitpunkt wiederherstellbar; genau das, was die Rollback-Strategie weiter unten braucht.
+- **Hochverfügbarkeit und Failover** — zonale oder regionale Redundanz ohne eigene Replikation.
+- **Engine-Patching, Verschlüsselung im Ruhezustand, Netzwerkisolation** — nach der Compliance-Vorgabe Ihrer Organisation (private Endpunkte, IAM-Integration).
+
+Drei Dinge ändern sich **nicht**: Das Backend führt seine Alembic-Migrationen beim Start weiterhin selbst aus (das Upgrade-Modell dieser Seite bleibt identisch), das Volume `backend_data` braucht weiterhin ein eigenes Backup (Dateianhänge und Erweiterungen liegen nicht in PostgreSQL), und die Verwahrung des `SECRET_KEY` bleibt Ihre Aufgabe. Das mitgelieferte Image liefert PostgreSQL 18 — jede aktuelle Major-Version Ihres Anbieters funktioniert.
+
 ## Wie Upgrades funktionieren: Alembic-Migrationen
 
 Die Kompatibilität des Datenbankschemas wird automatisch über [Alembic](https://alembic.sqlalchemy.org/) gehandhabt. Beim Start führt das Backend `alembic upgrade head` aus, sodass jede ausstehende Migration zwischen Ihrem aktuellen Schema und der neuen Version — in Reihenfolge — angewendet wird, bevor die App Anfragen bedient.
@@ -61,7 +73,7 @@ Erstellen Sie **vor jedem Upgrade** ein Backup und automatisieren Sie unabhängi
 docker compose exec db pg_dump -U turboea turboea > backup-$(date +%F).sql
 ```
 
-Passen Sie Benutzer- und Datenbanknamen an, falls Sie `POSTGRES_USER` / `POSTGRES_DB` geändert haben. Ein Snapshot des Volumes `postgres_data` ist eine gleichwertige Alternative.
+Passen Sie Benutzer- und Datenbanknamen an, falls Sie `POSTGRES_USER` / `POSTGRES_DB` geändert haben. Ein Snapshot des Volumes `postgres_data` ist eine gleichwertige Alternative. Bei einem [verwalteten PostgreSQL-Dienst](#verwaltetes-postgresql) bevorzugen Sie dessen automatisierte Backups und Point-in-Time-Recovery statt handgestrickter Dumps — ein gelegentlicher `pg_dump` als portable, anbieterunabhängige Kopie lohnt sich trotzdem.
 
 Sichern Sie außerdem das Volume **`backend_data`** — es enthält Dateianhänge, installierte Erweiterungen und Workspace-Transfer-Bundles, die nicht in PostgreSQL liegen.
 
@@ -75,7 +87,7 @@ Zwei weitere Punkte zur Wiederherstellungsstrategie:
 Schemamigrationen sind in Produktion effektiv **nur vorwärts gerichtet**: Alembic unterstützt Downgrades zwar technisch, aber datentragende Migrationen lassen sich nicht immer verlustfrei umkehren, und die App führt Downgrades nie automatisch aus. Die zuverlässige Rollback-Strategie ist:
 
 1. Stack stoppen.
-2. Das vor dem Upgrade erstellte Datenbank-Backup wiederherstellen.
+2. Das vor dem Upgrade erstellte Datenbank-Backup wiederherstellen (bei verwaltetem PostgreSQL: Point-in-Time-Restore auf den Zeitpunkt unmittelbar vor dem Upgrade).
 3. `TURBO_EA_TAG` auf die vorherige Version zurücksetzen.
 4. `docker compose up -d` — die wiederhergestellte Datenbank passt zum Schema des alten Codes, alles ist konsistent.
 
@@ -95,7 +107,7 @@ Für die meisten Organisationen reichen **zwei Umgebungen** (Staging + Produktio
 Zwei gute Wege, realistische Daten nach Staging zu bringen:
 
 - **[Workspace Transfer](workspace-transfer.md)**: Exportieren Sie den Produktions-Workspace als `.zip`-Bundle und importieren Sie ihn in Staging. Geheimnisse (SMTP-, SSO-, KI-, ServiceNow-Zugangsdaten) werden konzeptbedingt entfernt und verlassen die Instanz nie.
-- **Datenbank-Restore**: Stellen Sie einen Produktions-`pg_dump` in der Staging-Datenbank wieder her. Verschlüsselte Geheimnisse in der Datenbank sind vom `SECRET_KEY` abgeleitet, daher braucht Staging entweder denselben `SECRET_KEY`, oder Sie geben die Integrations-Zugangsdaten dort neu ein.
+- **Datenbank-Restore**: Stellen Sie einen Produktions-`pg_dump` in der Staging-Datenbank wieder her (bei einem verwalteten Dienst eignet sich auch ein Klon oder Point-in-Time-Restore der Produktionsinstanz). Verschlüsselte Geheimnisse in der Datenbank sind vom `SECRET_KEY` abgeleitet, daher braucht Staging entweder denselben `SECRET_KEY`, oder Sie geben die Integrations-Zugangsdaten dort neu ein.
 
 Zur Governance:
 

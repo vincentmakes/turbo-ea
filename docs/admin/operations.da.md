@@ -14,6 +14,18 @@ TURBO_EA_TAG=2.23.1
 
 Se [Fastlåsning af en version](../getting-started/setup.md) for det grundlæggende og [Udgivelser](../reference/releases.md) for det fulde tag-træ og politikken for prærelease-kanaler.
 
+## Administreret PostgreSQL
+
+I virksomhedsmiljøer med adgang til en administreret PostgreSQL-tjeneste — Azure Database for PostgreSQL, Amazon RDS / Aurora, Google Cloud SQL eller lignende — er det den anbefalede opsætning at køre Turbo EA mod den. Den medfølgende `db`-container er en afhængighedsfri standard, ikke et krav: peg backenden på jeres instans med `POSTGRES_*`-variablerne, og spring den medfølgende tjeneste over (se [Brug en eksisterende PostgreSQL](../getting-started/setup.md)).
+
+Hvad den administrerede tjeneste tager fra jer:
+
+- **Backup og punkt-i-tid-gendannelse (PITR)** — automatiseret, med styret opbevaring og gendannelse til ethvert tidspunkt; præcis hvad rollback-strategien nedenfor har brug for.
+- **Høj tilgængelighed og failover** — zonal eller regional redundans uden selv at drive replikering.
+- **Motor-patching, kryptering i hvile, netværksisolation** — håndteret efter jeres organisations compliance-baseline (private endpoints, IAM-integration).
+
+Tre ting, der **ikke** ændrer sig: backenden kører stadig selv sine Alembic-migrationer ved opstart (opgraderingsmodellen på denne side er identisk), volumen `backend_data` har stadig brug for sin egen backup (filvedhæftninger og udvidelser ligger ikke i PostgreSQL), og ansvaret for `SECRET_KEY` er stadig jeres. Det medfølgende image leverer PostgreSQL 18 — enhver nyere major-version fra jeres udbyder fungerer.
+
 ## Sådan fungerer opgraderinger: Alembic-migrationer
 
 Databaseskemaets kompatibilitet håndteres automatisk via [Alembic](https://alembic.sqlalchemy.org/). Ved opstart kører backenden `alembic upgrade head`, så alle ventende migrationer mellem dit nuværende skema og den nye version anvendes — i rækkefølge — før appen betjener trafik.
@@ -61,7 +73,7 @@ Tag en backup **før hver opgradering**, og automatiser under alle omstændighed
 docker compose exec db pg_dump -U turboea turboea > backup-$(date +%F).sql
 ```
 
-Justér bruger- og databasenavnet, hvis du har ændret `POSTGRES_USER` / `POSTGRES_DB`. Et snapshot af volumen `postgres_data` er et ligeværdigt alternativ.
+Justér bruger- og databasenavnet, hvis du har ændret `POSTGRES_USER` / `POSTGRES_DB`. Et snapshot af volumen `postgres_data` er et ligeværdigt alternativ. På en [administreret PostgreSQL-tjeneste](#administreret-postgresql) bør I foretrække udbyderens automatiske backup og punkt-i-tid-gendannelse frem for håndlavede dumps — et lejlighedsvist `pg_dump` er stadig værd at have som en portabel kopi uafhængig af udbyderen.
 
 Tag også backup af volumen **`backend_data`** — den rummer filvedhæftninger, installerede udvidelser og workspace-transfer-bundter, som ikke ligger i PostgreSQL.
 
@@ -75,7 +87,7 @@ To punkter mere om beredskabet:
 Skemamigrationer er reelt **kun fremadrettede i produktion**: Alembic understøtter teknisk set nedgraderinger, men databærende migrationer kan ikke altid vendes tabsfrit, og appen kører aldrig nedgraderinger automatisk. Den pålidelige rollback-strategi er:
 
 1. Stop stakken.
-2. Gendan databasebackuppen taget før opgraderingen.
+2. Gendan databasebackuppen taget før opgraderingen (på administreret PostgreSQL: punkt-i-tid-gendannelse til lige før opgraderingen).
 3. Sæt `TURBO_EA_TAG` tilbage til den forrige version.
 4. `docker compose up -d` — den gendannede database matcher den gamle kodes skema, så alt er konsistent.
 
@@ -95,7 +107,7 @@ For de fleste organisationer er **to miljøer** (staging + produktion) nok, ford
 To gode måder at få realistiske data ind i staging:
 
 - **[Workspace-overførsel](workspace-transfer.md)**: eksportér produktionsarbejdsområdet som et `.zip`-bundt og importér det i staging. Hemmeligheder (SMTP-, SSO-, AI-, ServiceNow-legitimationsoplysninger) fjernes by design og forlader aldrig instansen.
-- **Databasegendannelse**: gendan et produktions-`pg_dump` i staging-databasen. Krypterede hemmeligheder i databasen er afledt af `SECRET_KEY`, så staging skal enten bruge samme `SECRET_KEY`, eller også skal integrationslegitimationsoplysningerne indtastes igen dér.
+- **Databasegendannelse**: gendan et produktions-`pg_dump` i staging-databasen (på en administreret tjeneste fungerer en klon eller punkt-i-tid-gendannelse af produktionsinstansen også fint). Krypterede hemmeligheder i databasen er afledt af `SECRET_KEY`, så staging skal enten bruge samme `SECRET_KEY`, eller også skal integrationslegitimationsoplysningerne indtastes igen dér.
 
 Hvad angår styring:
 

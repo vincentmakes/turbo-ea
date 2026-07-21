@@ -14,6 +14,18 @@ TURBO_EA_TAG=2.23.1
 
 See [Pinning a version](../getting-started/setup.md#pinning-a-version) for the basics and [Releases](../reference/releases.md) for the full tag tree and pre-release channel policy.
 
+## Managed PostgreSQL
+
+In corporate environments with access to a managed PostgreSQL service — Azure Database for PostgreSQL, Amazon RDS / Aurora, Google Cloud SQL, or similar — running Turbo EA against it is the recommended setup. The bundled `db` container is a zero-dependency default, not a requirement: point the backend at your instance with the `POSTGRES_*` variables and skip the bundled service (see [Use an existing PostgreSQL](../getting-started/setup.md)).
+
+What the managed service takes off your plate:
+
+- **Backups and point-in-time recovery** — automated, retention-managed, and restorable to any moment, which is exactly what the rollback strategy below needs.
+- **High availability and failover** — zonal or regional redundancy without running your own replication.
+- **Engine patching, encryption at rest, network isolation** — handled to your organization's compliance baseline (private endpoints, IAM integration).
+
+Three things that do **not** change: the backend still runs its own Alembic migrations on startup (the upgrade model on this page is identical), the `backend_data` volume still needs its own backup (file attachments and extensions don't live in PostgreSQL), and `SECRET_KEY` custody is still yours. The bundled image ships PostgreSQL 18 — any recent major version your provider offers works.
+
 ## How upgrades work: Alembic migrations
 
 Database schema compatibility is handled automatically via [Alembic](https://alembic.sqlalchemy.org/). On startup, the backend runs `alembic upgrade head`, so every pending migration between your current schema and the new version is applied — in order — before the app serves traffic.
@@ -61,7 +73,7 @@ Take a backup **before every upgrade**, and automate a nightly one regardless:
 docker compose exec db pg_dump -U turboea turboea > backup-$(date +%F).sql
 ```
 
-Adjust the user and database name if you changed `POSTGRES_USER` / `POSTGRES_DB`. Snapshotting the `postgres_data` volume is an equivalent alternative.
+Adjust the user and database name if you changed `POSTGRES_USER` / `POSTGRES_DB`. Snapshotting the `postgres_data` volume is an equivalent alternative. On a [managed PostgreSQL service](#managed-postgresql), prefer the provider's automated backups and point-in-time recovery over hand-rolled dumps — keeping an occasional `pg_dump` as a portable, provider-independent copy is still worthwhile.
 
 Also back up the **`backend_data`** volume — it holds file attachments, installed extensions, and workspace-transfer bundles that don't live in PostgreSQL.
 
@@ -75,7 +87,7 @@ Two more points on recovery posture:
 Schema migrations are effectively **forward-only in production**: while Alembic technically supports downgrades, data-bearing migrations can't always be reversed losslessly, and the app never runs downgrades automatically. The reliable rollback strategy is:
 
 1. Stop the stack.
-2. Restore the database backup taken before the upgrade.
+2. Restore the database backup taken before the upgrade (on managed PostgreSQL: point-in-time restore to just before the upgrade).
 3. Set `TURBO_EA_TAG` back to the previous version.
 4. `docker compose up -d` — the restored database matches the old code's schema, so everything is consistent.
 
@@ -95,7 +107,7 @@ For most organizations, **two environments** (Staging + Production) are enough, 
 Two good ways to get realistic data into staging:
 
 - **[Workspace Transfer](workspace-transfer.md)**: export the production workspace as a `.zip` bundle and import it into staging. Secrets (SMTP, SSO, AI, ServiceNow credentials) are stripped by design and never leave the instance.
-- **Database restore**: restore a production `pg_dump` into the staging database. Encrypted secrets in the database are derived from `SECRET_KEY`, so staging either needs the same `SECRET_KEY` or you re-enter integration credentials there.
+- **Database restore**: restore a production `pg_dump` into the staging database (on a managed service, a clone or point-in-time restore of the production instance works well). Encrypted secrets in the database are derived from `SECRET_KEY`, so staging either needs the same `SECRET_KEY` or you re-enter integration credentials there.
 
 Governance-wise:
 

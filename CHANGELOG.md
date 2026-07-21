@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [2.23.2] - 2026-07-20
 
 ### Documentation
-- **New "Operations & Upgrades" admin guide** (discussion #855). Documents how to run Turbo EA in production: GHCR images and version pinning, the automatic Alembic migration model (sequential, cumulative, forward-only), the upgrade procedure, backup and restore of `postgres_data` / `backend_data`, the rollback strategy (restore backup + previous tag together), recommended environments (staging seeded via Workspace Transfer or database restore), release governance, and common pitfalls. Available in all 10 documentation languages.
+- **New "Operations & Upgrades" admin guide** (discussion #855). Documents how to run Turbo EA in production: GHCR images and version pinning, a managed-PostgreSQL recommendation for corporate deployments (Azure Database for PostgreSQL, Amazon RDS/Aurora, Google Cloud SQL — with provider backups and point-in-time recovery folded into the backup and rollback guidance), the automatic Alembic migration model (sequential, cumulative, forward-only), the upgrade procedure, backup and restore of `postgres_data` / `backend_data`, the rollback strategy (restore backup + previous tag together), recommended environments (staging seeded via Workspace Transfer or database restore), release governance, and common pitfalls. Available in all 10 documentation languages.
 
 ## [2.23.1] - 2026-07-17
 

@@ -14,6 +14,18 @@ TURBO_EA_TAG=2.23.1
 
 Veja [Fixar uma versão](../getting-started/setup.md) para o básico e [Lançamentos](../reference/releases.md) para a árvore completa de tags e a política de canais de pré-lançamento.
 
+## PostgreSQL gerenciado
+
+Em ambientes corporativos com acesso a um serviço de PostgreSQL gerenciado — Azure Database for PostgreSQL, Amazon RDS / Aurora, Google Cloud SQL ou similar —, executar o Turbo EA contra esse serviço é a configuração recomendada. O contêiner `db` incluído é um padrão sem dependências, não um requisito: aponte o backend para a sua instância com as variáveis `POSTGRES_*` e dispense o serviço incluído (veja [Usar um PostgreSQL existente](../getting-started/setup.md)).
+
+O que o serviço gerenciado tira do seu caminho:
+
+- **Backups e recuperação a um ponto no tempo (PITR)** — automatizados, com retenção gerenciada e restauráveis a qualquer momento; exatamente o que a estratégia de reversão abaixo precisa.
+- **Alta disponibilidade e failover** — redundância zonal ou regional sem operar a sua própria replicação.
+- **Patches do motor, criptografia em repouso, isolamento de rede** — cuidados conforme a linha de base de conformidade da sua organização (endpoints privados, integração com IAM).
+
+Três coisas que **não** mudam: o backend continua executando as próprias migrações do Alembic na inicialização (o modelo de atualização desta página é idêntico), o volume `backend_data` continua precisando de backup próprio (anexos e extensões não vivem no PostgreSQL), e a guarda do `SECRET_KEY` continua sendo sua. A imagem incluída traz o PostgreSQL 18 — qualquer versão principal recente oferecida pelo seu provedor serve.
+
 ## Como funcionam as atualizações: migrações do Alembic
 
 A compatibilidade do esquema do banco de dados é tratada automaticamente via [Alembic](https://alembic.sqlalchemy.org/). Na inicialização, o backend executa `alembic upgrade head`, de modo que cada migração pendente entre o seu esquema atual e a nova versão é aplicada — em ordem — antes de a aplicação servir tráfego.
@@ -61,7 +73,7 @@ Faça um backup **antes de cada atualização**, e automatize um backup noturno 
 docker compose exec db pg_dump -U turboea turboea > backup-$(date +%F).sql
 ```
 
-Ajuste o usuário e o nome do banco se você alterou `POSTGRES_USER` / `POSTGRES_DB`. Um snapshot do volume `postgres_data` é uma alternativa equivalente.
+Ajuste o usuário e o nome do banco se você alterou `POSTGRES_USER` / `POSTGRES_DB`. Um snapshot do volume `postgres_data` é uma alternativa equivalente. Em um [serviço de PostgreSQL gerenciado](#postgresql-gerenciado), prefira os backups automatizados e a recuperação a um ponto no tempo do provedor aos dumps manuais — um `pg_dump` ocasional continua valendo a pena como cópia portátil e independente do provedor.
 
 Faça backup também do volume **`backend_data`** — ele guarda os anexos de arquivo, as extensões instaladas e os bundles de transferência de espaço de trabalho que não residem no PostgreSQL.
 
@@ -75,7 +87,7 @@ Mais dois pontos sobre a postura de recuperação:
 As migrações de esquema são, na prática, **apenas para frente em produção**: embora o Alembic tecnicamente suporte downgrades, migrações que carregam dados nem sempre podem ser revertidas sem perdas, e a aplicação nunca executa downgrades automaticamente. A estratégia de reversão confiável é:
 
 1. Pare a pilha.
-2. Restaure o backup do banco de dados feito antes da atualização.
+2. Restaure o backup do banco de dados feito antes da atualização (no PostgreSQL gerenciado: restauração a um ponto no tempo imediatamente anterior à atualização).
 3. Volte o `TURBO_EA_TAG` para a versão anterior.
 4. `docker compose up -d` — o banco restaurado corresponde ao esquema do código antigo, então tudo fica consistente.
 
@@ -95,7 +107,7 @@ Para a maioria das organizações, **dois ambientes** (Staging + Produção) bas
 Duas boas formas de levar dados realistas para o staging:
 
 - **[Transferência de espaço de trabalho](workspace-transfer.md)**: exporte o espaço de trabalho de produção como um bundle `.zip` e importe-o no staging. Os segredos (credenciais SMTP, SSO, IA, ServiceNow) são removidos por concepção e nunca saem da instância.
-- **Restauração de banco de dados**: restaure um `pg_dump` de produção no banco de staging. Os segredos criptografados no banco derivam do `SECRET_KEY`, então o staging precisa do mesmo `SECRET_KEY`, ou você reinsere lá as credenciais de integração.
+- **Restauração de banco de dados**: restaure um `pg_dump` de produção no banco de staging (em um serviço gerenciado, um clone ou uma restauração a um ponto no tempo da instância de produção também funciona bem). Os segredos criptografados no banco derivam do `SECRET_KEY`, então o staging precisa do mesmo `SECRET_KEY`, ou você reinsere lá as credenciais de integração.
 
 Quanto à governança:
 
