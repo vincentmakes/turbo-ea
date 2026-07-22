@@ -692,6 +692,89 @@ export interface ArchitectureDecision {
   updated_at: string | null;
 }
 
+/* ---- Architecture Planning (manual before/after plans) ---- */
+
+/** A not-yet-existing card proposed by a plan. `tempId` ("tmp:<uuid>") makes it
+ *  addressable by later change ops and by the commit id-map. */
+export interface PlanProposedCard {
+  tempId: string;
+  name: string;
+  cardTypeKey: string;
+  subtype?: string;
+  description?: string;
+}
+
+export type PlanCardRef = { existingCardId: string } | { proposed: PlanProposedCard };
+
+export type PlanChangeOp =
+  | { op: "add_card"; card: PlanCardRef }
+  | { op: "remove_card"; cardId: string }
+  | { op: "replace_card"; predecessorId: string; successor: PlanCardRef }
+  | { op: "add_relation"; sourceId: string; targetId: string; relationType: string }
+  | { op: "remove_relation"; sourceId: string; targetId: string; relationType: string };
+
+export interface PlanScope {
+  cardIds?: string[];
+  depth?: number;
+  objectiveIds?: string[];
+}
+
+export interface PlanBaseline {
+  nodes: GNodeLike[];
+  edges: GEdgeLike[];
+}
+
+/** Structural copies of the LDV GNode/GEdge shapes — declared here so the
+ *  types module doesn't import from a feature module. */
+export interface GNodeLike {
+  id: string;
+  name: string;
+  type: string;
+  lifecycle?: Record<string, string>;
+  attributes?: Record<string, unknown>;
+  parent_id?: string | null;
+}
+
+export interface GEdgeLike {
+  source: string;
+  target: string;
+  type: string;
+  label?: string;
+  reverse_label?: string;
+  attributes?: Record<string, unknown>;
+}
+
+export interface PlanData {
+  baseline?: PlanBaseline;
+  changes?: PlanChangeOp[];
+  baselineCapturedAt?: string;
+}
+
+export interface ArchitecturePlan {
+  id: string;
+  title: string;
+  description: string | null;
+  status: "draft" | "committed";
+  scope: PlanScope;
+  initiative_id: string | null;
+  created_by: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  change_count: number;
+  /** Present on the detail endpoint only — the list endpoint omits it. */
+  plan_data?: PlanData;
+}
+
+export interface PlanCommitResult {
+  initiative_id: string;
+  initiative_name: string;
+  card_count: number;
+  relation_count: number;
+  retired_count: number;
+  adr_id: string | null;
+  adr_reference: string | null;
+}
+
 export interface FileAttachment {
   id: string;
   card_id: string;

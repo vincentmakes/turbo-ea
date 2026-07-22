@@ -4,6 +4,10 @@
 
 Når PPM er aktiveret — den typiske konfiguration — lever EA Delivery **inde i PPM-modulet**: åbn **PPM** i topnavigationen, og skift til fanen **EA Delivery** (`/ppm?tab=ea-delivery`). Når PPM er deaktiveret, vises **EA Delivery** som et dedikeret topniveau-nav-element, der linker til `/reports/ea-delivery`. Den ældre URL `/ea-delivery` virker fortsat som en omdirigering uanset, så eksisterende bogmærker stadig fungerer.
 
+
+!!! tip
+    Planlægger I en ændring af landskabet (udskifte en applikation, udfase et system, indføre en platform)? Værktøjet [Arkitekturplanlægning](architecture-planning.md) producerer en før/efter-visning, som kan knyttes til et initiativ og overføres i ét trin.
+
 ![EA Delivery-styring](../assets/img/en/17_ea_delivery.png)
 
 ## Initiativ-arbejdsområde

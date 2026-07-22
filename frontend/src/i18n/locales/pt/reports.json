@@ -193,6 +193,8 @@
   "dependency.background_dots": "pontos",
   "dependency.background_none": "nenhum",
   "dependency.proposedBadge": "NOVO",
+  "dependency.removedBadge": "REMOVIDO",
+  "dependency.changedBadge": "TROCA",
   "dependency.highlightMode": "Modo destaque: clique num cartão para destacar as suas conexões",
   "cost.title": "Análise de custos",
   "cost.cardType": "Tipo de ficha",

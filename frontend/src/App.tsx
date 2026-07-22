@@ -46,6 +46,8 @@ const SoAWEditor = lazy(() => import("@/features/ea-delivery/SoAWEditor"));
 const SoAWPreview = lazy(() => import("@/features/ea-delivery/SoAWPreview"));
 const ADREditor = lazy(() => import("@/features/ea-delivery/ADREditor"));
 const ADRPreview = lazy(() => import("@/features/ea-delivery/ADRPreview"));
+const PlanEditor = lazy(() => import("@/features/ea-delivery/plans/PlanEditor"));
+const PlanPreview = lazy(() => import("@/features/ea-delivery/plans/PlanPreview"));
 const RiskDetailPage = lazy(
   () => import("@/features/grc/risk/RiskDetailPage"),
 );
@@ -187,6 +189,9 @@ function AppRoutes() {
                 <Route path="/ea-delivery/adr/new" element={<ADREditor />} />
                 <Route path="/ea-delivery/adr/:id/preview" element={<ADRPreview />} />
                 <Route path="/ea-delivery/adr/:id" element={<ADREditor />} />
+                <Route path="/ea-delivery/plans/new" element={<PlanEditor />} />
+                <Route path="/ea-delivery/plans/:id/preview" element={<PlanPreview />} />
+                <Route path="/ea-delivery/plans/:id" element={<PlanEditor />} />
                 <Route path="/ea-delivery/risks" element={<Navigate to="/grc?tab=risk" replace />} />
                 <Route path="/ea-delivery/risks/:id" element={<LegacyRiskDetailRedirect />} />
                 <Route path="/grc" element={<ModuleGate module="grc"><GrcPage /></ModuleGate>} />

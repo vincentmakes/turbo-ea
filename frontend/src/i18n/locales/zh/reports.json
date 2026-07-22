@@ -193,6 +193,8 @@
   "dependency.background_dots": "圆点",
   "dependency.background_none": "无",
   "dependency.proposedBadge": "新",
+  "dependency.removedBadge": "移除",
+  "dependency.changedBadge": "替换",
   "dependency.highlightMode": "高亮模式：点击卡片以高亮显示其连接",
   "cost.title": "成本分析",
   "cost.cardType": "卡片类型",

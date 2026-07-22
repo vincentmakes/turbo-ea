@@ -193,6 +193,8 @@
   "dependency.background_dots": "Punkte",
   "dependency.background_none": "keiner",
   "dependency.proposedBadge": "NEU",
+  "dependency.removedBadge": "ENTFERNT",
+  "dependency.changedBadge": "TAUSCH",
   "dependency.highlightMode": "Hervorhebungsmodus: Klicken Sie auf eine Karte, um ihre Verbindungen hervorzuheben",
   "cost.title": "Kostenanalyse",
   "cost.cardType": "Kartentyp",

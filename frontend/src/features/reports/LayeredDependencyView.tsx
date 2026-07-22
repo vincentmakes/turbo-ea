@@ -81,6 +81,7 @@ import {
   type LdvNodeData,
   type LdvGroupData,
   type LdvEdgeData,
+  type LdvChangeState,
 } from "./layeredDependencyLayout";
 
 /* ------------------------------------------------------------------ */
@@ -212,6 +213,14 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
 
   const name = data.name.length > 26 ? data.name.slice(0, 25) + "\u2026" : data.name;
 
+  // Diff decorations for the before/after view (Architecture Planning):
+  // removed = red dashed + \u2715 badge, added = green NEW/+ badge (shares the
+  // proposed treatment), changed = blue solid + swap badge.
+  const changeState = data.changeState;
+  const isRemoved = changeState === "removed";
+  const isChanged = changeState === "changed";
+  const isAddedLike = data.proposed || changeState === "added";
+
   // Display extensions injected by the parent (see rfNodes memo)
   const lifecyclePhase = (data.lifecyclePhase as string | null | undefined) ?? null;
   const extraLines = (data.extraLines as DisplayLine[] | undefined) ?? [];
@@ -337,8 +346,21 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         width: LDV_NODE_W,
         height: LDV_NODE_H,
         borderRadius: "8px",
-        border: data.proposed ? `2px dashed ${accent}` : `1.5px solid ${accent}`,
-        bgcolor: data.proposed ? (isDark ? `rgba(${r},${g},${b},0.06)` : `rgba(${r},${g},${b},0.06)`) : bg,
+        border: isRemoved
+          ? `2px dashed ${LDV_CHANGE_COLORS.removed}`
+          : isChanged
+            ? `2px solid ${LDV_CHANGE_COLORS.changed}`
+            : isAddedLike
+              ? `2px dashed ${accent}`
+              : `1.5px solid ${accent}`,
+        bgcolor: isRemoved
+          ? (isDark ? "rgba(211,47,47,0.08)" : "rgba(211,47,47,0.05)")
+          : isChanged
+            ? (isDark ? "rgba(25,118,210,0.10)" : "rgba(25,118,210,0.06)")
+            : isAddedLike
+              ? `rgba(${r},${g},${b},0.06)`
+              : bg,
+        opacity: isRemoved ? 0.65 : 1,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -432,16 +454,28 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           <LdvChevron dir="down" color={accent} />
         </Box>
       )}
-      {/* Proposed "NEW" badge */}
-      {data.proposed && (
+      {/* Diff / proposed badge: ✕ REMOVED (red), ⇄ SWAP (blue), NEW (green,
+          with a + glyph when it comes from an "add" change op). */}
+      {(isRemoved || isChanged || isAddedLike) && (
         <Box sx={{
           position: "absolute", top: -8, left: 8,
-          bgcolor: "#4caf50", color: "#fff",
+          bgcolor: isRemoved
+            ? LDV_CHANGE_COLORS.removed
+            : isChanged
+              ? LDV_CHANGE_COLORS.changed
+              : "#4caf50",
+          color: "#fff",
           fontSize: 9, fontWeight: 700, lineHeight: 1,
           px: 0.7, py: 0.25, borderRadius: "4px",
           textTransform: "uppercase", letterSpacing: 0.5,
+          display: "flex", alignItems: "center", gap: 0.4,
         }}>
-          {t("dependency.proposedBadge")}
+          {changeState && <LdvChangeGlyph kind={changeState} color="#fff" size={9} />}
+          {isRemoved
+            ? t("dependency.removedBadge")
+            : isChanged
+              ? t("dependency.changedBadge")
+              : t("dependency.proposedBadge")}
         </Box>
       )}
       {/* Long-press radial progress ring */}
@@ -651,6 +685,61 @@ const LdvChevron = memo(({ dir, color }: { dir: "up" | "down"; color: string }) 
 ));
 LdvChevron.displayName = "LdvChevron";
 
+/** Diff-indicator colors for the before/after view (Architecture Planning). */
+export const LDV_CHANGE_COLORS: Record<LdvChangeState, string> = {
+  added: "#2e7d32",
+  removed: "#d32f2f",
+  changed: "#1976d2",
+};
+
+/**
+ * Change-state glyph (✕ removed / + added / ⇄ changed) drawn as a vector SVG
+ * — never a Material Symbols font glyph — so it rasterises identically in the
+ * live view and in PNG/SVG image export. Same rationale as `LdvDirectionArrow`.
+ */
+const LdvChangeGlyph = memo(
+  ({ kind, color = "currentColor", size = 10 }: {
+    kind: LdvChangeState;
+    color?: string;
+    size?: number;
+  }) => (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 12 12"
+      fill="none"
+      stroke={color}
+      strokeWidth={1.6}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ flexShrink: 0 }}
+      aria-hidden
+    >
+      {kind === "removed" && (
+        <>
+          <line x1={2.5} y1={2.5} x2={9.5} y2={9.5} />
+          <line x1={9.5} y1={2.5} x2={2.5} y2={9.5} />
+        </>
+      )}
+      {kind === "added" && (
+        <>
+          <line x1={6} y1={2} x2={6} y2={10} />
+          <line x1={2} y1={6} x2={10} y2={6} />
+        </>
+      )}
+      {kind === "changed" && (
+        <>
+          <line x1={2} y1={3.5} x2={10} y2={3.5} />
+          <polyline points="7.5,1.5 10,3.5 7.5,5.5" />
+          <line x1={10} y1={8.5} x2={2} y2={8.5} />
+          <polyline points="4.5,6.5 2,8.5 4.5,10.5" />
+        </>
+      )}
+    </svg>
+  ),
+);
+LdvChangeGlyph.displayName = "LdvChangeGlyph";
+
 const LdvEdgeComponent = memo(
   ({
     id,
@@ -674,9 +763,17 @@ const LdvEdgeComponent = memo(
       ? connectedToHovered
       : isHovered || connectedToHovered;
     const isDark = theme.palette.mode === "dark";
+    // Diff decoration wins over the neutral palette so the before/after
+    // reading survives hover/highlight interaction.
+    const changeState = edgeData?.changeState;
+    const changeColor = changeState
+      ? isDark
+        ? { added: "#66bb6a", removed: "#ef5350", changed: "#42a5f5" }[changeState]
+        : LDV_CHANGE_COLORS[changeState]
+      : undefined;
     const baseColor = isDark ? "#aaa" : "#777";
     const hoverColor = isDark ? "#4fc3f7" : "#1976d2";
-    const color = active ? hoverColor : baseColor;
+    const color = changeColor ?? (active ? hoverColor : baseColor);
 
     const rawOffset = edgeData?.pathOffset ?? 20;
     const minOffset = edgeData?.minOffset ?? 0;
@@ -698,12 +795,12 @@ const LdvEdgeComponent = memo(
     const label = edgeData?.relLabel || "";
     const labelT = edgeData?.labelT ?? 0.5;
     const labelBg = isDark ? "#121212" : "#ffffff";
-    const labelColor = active
-      ? (isDark ? "#4fc3f7" : "#1976d2")
-      : (isDark ? "#aaa" : "#666");
-    const labelBorder = active
-      ? (isDark ? "#4fc3f7" : "#1976d2")
-      : (isDark ? "#444" : "#ccc");
+    const labelColor =
+      changeColor ??
+      (active ? (isDark ? "#4fc3f7" : "#1976d2") : isDark ? "#aaa" : "#666");
+    const labelBorder =
+      changeColor ??
+      (active ? (isDark ? "#4fc3f7" : "#1976d2") : isDark ? "#444" : "#ccc");
 
     // Node + group-label bounding boxes for label-overlap avoidance, computed
     // once in the parent and shared via context (see LdvObstaclesContext).
@@ -718,7 +815,7 @@ const LdvEdgeComponent = memo(
     const displayLabel = label.length > maxChars
       ? label.slice(0, maxChars - 1) + "\u2026"
       : label;
-    const labelW = displayLabel.length * 6.5 + 16 + (flowDir ? 17 : 0);
+    const labelW = displayLabel.length * 6.5 + 16 + (flowDir ? 17 : 0) + (changeState ? 14 : 0);
     const labelH = 20;
     const margin = 6;
 
@@ -792,8 +889,17 @@ const LdvEdgeComponent = memo(
           markerStart={markerStart}
           style={{
             stroke: color,
-            strokeWidth: active ? 2 : 1.2,
-            strokeDasharray: active ? "none" : "5 3",
+            strokeWidth: changeState ? 1.6 : active ? 2 : 1.2,
+            // removed = always dashed (red); added/changed = always solid so
+            // the diff reading doesn't depend on hover state.
+            strokeDasharray:
+              changeState === "removed"
+                ? "4 4"
+                : changeState
+                  ? "none"
+                  : active
+                    ? "none"
+                    : "5 3",
             transition: "stroke 0.15s, stroke-width 0.15s",
           }}
         />
@@ -820,6 +926,7 @@ const LdvEdgeComponent = memo(
                 gap: 3,
               }}
             >
+              {changeState && <LdvChangeGlyph kind={changeState} color={changeColor} />}
               {flowDir && <LdvDirectionArrow dir={flowDir} />}
               <span>{displayLabel}</span>
             </div>

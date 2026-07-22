@@ -4,6 +4,10 @@
 
 当启用 PPM（典型配置）时，EA 交付**位于 PPM 模块内**：在顶部导航中打开 **PPM**，并切换到 **EA Delivery** 标签页（`/ppm?tab=ea-delivery`）。当禁用 PPM 时，**EA 交付**会作为一个独立的顶级导航项出现，链接到 `/reports/ea-delivery`。无论哪种情况，旧的 `/ea-delivery` 链接都仍以重定向方式工作，因此现有书签仍可解析。
 
+
+!!! tip
+    正在规划版图变更（替换应用、退役系统、引入平台）？[架构规划](architecture-planning.md)工具可生成变更前/后对比视图，可附加到举措并一步提交。
+
 ![EA 交付管理](../assets/img/zh/17_ea_delivery.png)
 
 ## 举措工作区

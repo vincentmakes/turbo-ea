@@ -89,6 +89,7 @@ plugins:
             TurboLens AI: TurboLens IA
             Diagrams: Diagramas
             EA Delivery: Entrega EA
+            Architecture Planning: Planificación de arquitectura
             GRC: GRC
             Risk Register: Registro de riesgos
             Tasks & Surveys: Tareas y encuestas
@@ -153,6 +154,7 @@ plugins:
             TurboLens AI: TurboLens KI
             Diagrams: Diagramme
             EA Delivery: EA-Bereitstellung
+            Architecture Planning: Architekturplanung
             GRC: GRC
             Risk Register: Risikoregister
             Tasks & Surveys: Aufgaben und Umfragen
@@ -217,6 +219,7 @@ plugins:
             TurboLens AI: TurboLens IA
             Diagrams: Diagrammes
             EA Delivery: Livraison EA
+            Architecture Planning: Planification d’architecture
             GRC: GRC
             Risk Register: Registre des risques
             Tasks & Surveys: Tâches et enquêtes
@@ -281,6 +284,7 @@ plugins:
             TurboLens AI: TurboLens IA
             Diagrams: Diagrammi
             EA Delivery: Consegna EA
+            Architecture Planning: Pianificazione dell’architettura
             GRC: GRC
             Risk Register: Registro dei rischi
             Tasks & Surveys: Attività e sondaggi
@@ -345,6 +349,7 @@ plugins:
             TurboLens AI: TurboLens IA
             Diagrams: Diagramas
             EA Delivery: Entrega EA
+            Architecture Planning: Planeamento de arquitetura
             GRC: GRC
             Risk Register: Registro de riscos
             Tasks & Surveys: Tarefas e pesquisas
@@ -409,6 +414,7 @@ plugins:
             TurboLens AI: TurboLens AI 智能
             Diagrams: 图表
             EA Delivery: EA 交付
+            Architecture Planning: 架构规划
             GRC: GRC
             Risk Register: 风险登记册
             Tasks & Surveys: 任务与调查
@@ -473,6 +479,7 @@ plugins:
             TurboLens AI: TurboLens ИИ
             Diagrams: Диаграммы
             EA Delivery: Поставка EA
+            Architecture Planning: Архитектурное планирование
             GRC: GRC
             Risk Register: Реестр рисков
             Tasks & Surveys: Задачи и опросы
@@ -537,6 +544,7 @@ plugins:
             TurboLens AI: TurboLens AI
             Diagrams: Diagrammer
             EA Delivery: EA-levering
+            Architecture Planning: Arkitekturplanlægning
             GRC: GRC
             Risk Register: Risikoregister
             Tasks & Surveys: Opgaver og undersøgelser
@@ -601,6 +609,7 @@ plugins:
             TurboLens AI: TurboLens AI
             Diagrams: المخططات
             EA Delivery: تسليم هندسة المؤسسة
+            Architecture Planning: تخطيط البنية
             GRC: GRC
             Risk Register: سجل المخاطر
             Tasks & Surveys: المهام والاستبيانات
@@ -691,6 +700,7 @@ nav:
           - PPM: guide/ppm.md
           - BPM: guide/bpm.md
           - EA Delivery: guide/delivery.md
+          - Architecture Planning: guide/architecture-planning.md
           - GRC:
               - Overview: guide/grc.md
               - Risk Register: guide/risks.md

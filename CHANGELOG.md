@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.24.0] - 2026-07-22
+
+### Added
+- **Architecture Planning** — a manual (no-AI) planning tool in EA Delivery for modelling landscape changes as a single before/after diagram. Optionally name the business objectives the change supports, pick scope cards (an Organization, a Capability, applications), capture a snapshotted baseline of the surrounding landscape, then plan changes: add or remove cards, replace an application with a successor (which inherits its relations), and add or cut relations. The Layered Dependency View renders the merged before/after picture with change indicators — red cross for removals, green plus for additions, blue swap arrows for replacements. Plans live in the Initiative workspace's Deliverables section and can be committed: one click creates the Initiative, the proposed cards and relations, an optional draft Architecture Decision Record documenting the change, and stamps an end-of-life lifecycle date on removed/replaced cards so the roadmap reflects the plan (nothing is archived or deleted). New `arch_plans.view` / `arch_plans.manage` / `arch_plans.commit` permissions; plans transfer with Workspace Transfer.
+
 ## [2.23.2] - 2026-07-20
 
 ### Documentation

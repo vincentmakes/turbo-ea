@@ -1,0 +1,46 @@
+# Architekturplanung
+
+Die Architekturplanung ist ein manuelles Planungswerkzeug in **EA Delivery**, mit dem Sie Änderungen an Ihrer Landschaft modellieren — eine Anwendung für eine bestimmte Organisation durch eine andere ersetzen, ein Altsystem stilllegen oder eine neue Plattform einführen — und sie als **ein einziges Vorher-Nachher-Diagramm** kommunizieren. Sie bietet ein ähnliches Ergebnis wie der TurboLens Architect, jedoch ganz ohne KI: Sie behalten die volle Kontrolle über jede vorgeschlagene Änderung.
+
+Das Ergebnis ist eine Layered Dependency View, die den aktuellen und den geplanten Zustand in einem Bild zeigt, mit Änderungsindikatoren:
+
+- **Rotes Kreuz** — eine zur Entfernung markierte Karte oder Beziehung
+- **Grünes Plus** — eine neu hinzugefügte Karte oder Beziehung
+- **Blaue Tauschpfeile** — ein Ersatz: die Nachfolgerkarte und die von ihr geerbten Verbindungen
+
+## Einen Plan erstellen
+
+Öffnen Sie **EA Delivery** und wählen Sie **Hinzufügen → Neuer Architekturplan** an einer Initiative (oder erstellen Sie einen unverknüpften Plan und verknüpfen Sie ihn später). Ein Plan entsteht in vier Schritten:
+
+1. **Geschäftsziele** *(optional)* — benennen Sie die Objective-Karten, die diese Änderung unterstützt. Sie erscheinen in der Strategie-Ebene des Diagramms, sodass jeder Stakeholder das *Warum* neben dem *Was* sieht, und sie füllen die Initiative-Verknüpfungen beim Übernehmen vor.
+2. **Scope & Baseline** — wählen Sie eine oder mehrere Scope-Karten (eine Organisation, eine Business Capability, einzelne Anwendungen, …) und eine Abhängigkeitstiefe (1–3). **Baseline erfassen** erstellt einen Schnappschuss der umgebenden Landschaft als Vorher-Bild. Der Schnappschuss hält das Diagramm stabil, auch wenn sich das Inventar ändert; mit **Baseline aktualisieren** erfassen Sie sie später neu — geplante Änderungen, deren Ziel verschwunden ist, werden markiert.
+3. **Geplante Änderungen** — wenden Sie Änderungsoperationen aus der Toolbox an:
+    - **Karte hinzufügen** — holen Sie eine vorhandene Karte ins Bild oder schlagen Sie eine ganz neue vor (Name + Typ).
+    - **Karte entfernen** — markieren Sie eine Karte zur Stilllegung. Ihre Verbindungen werden rot.
+    - **Karte ersetzen** — wählen Sie die zu ersetzende Karte und ihren Nachfolger (vorhanden oder neu vorgeschlagen). Der Nachfolger erbt die Beziehungen des Vorgängers, dargestellt als blaue Tauschkanten; einzelne geerbte Beziehungen trennen Sie mit **Beziehung entfernen**.
+    - **Beziehung hinzufügen / entfernen** — ziehen Sie neue Verbindungen oder trennen Sie bestehende. Beziehungstypen werden gegen das Metamodell validiert.
+4. **Live-Vorschau** — das zusammengeführte Vorher-Nachher-Diagramm aktualisiert sich während der Planung. Speichern Sie den Plan jederzeit; er erscheint im Bereich **Deliverables** der Initiative.
+
+## Einen Plan übernehmen
+
+Ein Planentwurf kann **übernommen** werden (erfordert die Berechtigung *Architekturpläne übernehmen*). Das Übernehmen:
+
+- erstellt eine **Initiative**-Karte (mit dem gewählten Namen und Start-/Enddatum), verknüpft mit den unterstützten Zielen,
+- erstellt die ausgewählten **vorgeschlagenen Karten** und **Beziehungen** und verknüpft jede neue Karte mit der Initiative,
+- setzt ein **End-of-Life**-Datum (das Enddatum der Initiative) auf entfernte und ersetzte Karten, sodass Lifecycle-Berichte und Roadmaps den Plan widerspiegeln,
+- erstellt optional einen **Entwurf eines Architecture Decision Record**, der jede Änderung dokumentiert — einschließlich getrennter Beziehungen, die nur dokumentiert und niemals gelöscht werden.
+
+!!! note
+    Das Übernehmen archiviert oder löscht niemals etwas. Entfernte Karten erhalten ein End-of-Life-Datum; die tatsächliche Stilllegung bleibt ein bewusster, menschlicher Schritt über die normalen Inventar-Workflows.
+
+Nach der Übernahme wird der Plan schreibgeschützt und verweist auf die erstellte Initiative.
+
+## Berechtigungen
+
+| Berechtigung | Gewährt |
+|--------------|---------|
+| `arch_plans.view` | Architekturpläne ansehen |
+| `arch_plans.manage` | Pläne erstellen, bearbeiten und löschen |
+| `arch_plans.commit` | Einen Plan übernehmen (Initiative, Karten, Beziehungen, ADR-Entwurf erstellen, End-of-Life-Daten setzen) |
+
+Mitglieder können Pläne standardmäßig ansehen, verwalten und übernehmen; Betrachter können sie nur ansehen.

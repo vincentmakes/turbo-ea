@@ -14,6 +14,7 @@ import sqlalchemy as sa
 
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
+from app.models.architecture_plan import ArchitecturePlan
 from app.models.bookmark import Bookmark
 from app.models.comment import Comment
 from app.models.diagram import Diagram
@@ -192,6 +193,16 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         card_fk_columns=("initiative_id",),
         user_fk_columns=("created_by",),
         self_parent_column="parent_id",
+    ),
+    # Card UUIDs embedded inside the plan_data/scope JSONB are NOT remapped
+    # cross-instance (the baseline snapshot carries names, so a transferred
+    # plan still renders; only re-committing against remapped cards could
+    # reference stale ids — same caveat as card `attributes`).
+    EntitySection(
+        "ArchitecturePlans",
+        ArchitecturePlan,
+        card_fk_columns=("initiative_id",),
+        user_fk_columns=("created_by",),
     ),
     # --- Saved views + surveys -------------------------------------------
     EntitySection("SavedReports", SavedReport, user_fk_columns=("owner_id",)),

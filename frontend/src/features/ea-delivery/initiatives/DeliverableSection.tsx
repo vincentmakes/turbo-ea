@@ -12,11 +12,12 @@ import { CARD_TYPE_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import { SOAW_STATUS_COLORS } from "./constants";
 import type {
   ArchitectureDecision,
+  ArchitecturePlan,
   DiagramSummary,
   SoAW,
 } from "@/types";
 
-export type DeliverableKind = "soaw" | "diagram" | "adr";
+export type DeliverableKind = "soaw" | "diagram" | "adr" | "plan";
 
 interface BaseProps {
   initiativeId?: string;
@@ -41,7 +42,12 @@ interface AdrProps extends BaseProps {
   items: ArchitectureDecision[];
 }
 
-type Props = SoawProps | DiagramProps | AdrProps;
+interface PlanProps extends BaseProps {
+  kind: "plan";
+  items: ArchitecturePlan[];
+}
+
+type Props = SoawProps | DiagramProps | AdrProps | PlanProps;
 
 const KIND_META: Record<
   DeliverableKind,
@@ -50,6 +56,7 @@ const KIND_META: Record<
   soaw: { icon: "description", color: "#e65100" },
   diagram: { icon: "schema", color: CARD_TYPE_COLORS.Application },
   adr: { icon: "gavel", color: STATUS_COLORS.info },
+  plan: { icon: "route", color: "#6a1b9a" },
 };
 
 /**
@@ -66,6 +73,7 @@ export default function DeliverableSection(props: Props) {
     soaw: "artefactGroup.soaws",
     diagram: "artefactGroup.diagrams",
     adr: "artefactGroup.adrs",
+    plan: "artefactGroup.plans",
   }[kind];
   const addKey = `deliverable.add.${kind}` as const;
   const emptyKey = `deliverable.empty.${kind}` as const;
@@ -158,6 +166,11 @@ export default function DeliverableSection(props: Props) {
       {kind === "adr" &&
         (items as ArchitectureDecision[]).map((a) => (
           <AdrRow key={a.id} adr={a} color={meta.color} />
+        ))}
+
+      {kind === "plan" &&
+        (items as ArchitecturePlan[]).map((p) => (
+          <PlanRow key={p.id} plan={p} color={meta.color} />
         ))}
 
       {/* Diagram-link affordance — kept distinct from the create flow */}
@@ -325,6 +338,41 @@ export default function DeliverableSection(props: Props) {
           color={SOAW_STATUS_COLORS[adr.status] ?? "default"}
           sx={{ height: 22 }}
         />
+      </CompactRow>
+    );
+  }
+
+  function PlanRow({ plan, color }: { plan: ArchitecturePlan; color: string }) {
+    const isDraft = plan.status === "draft";
+    return (
+      <CompactRow
+        icon={<MaterialSymbol icon="route" size={18} color={color} />}
+        onClick={() =>
+          navigate(
+            isDraft ? `/ea-delivery/plans/${plan.id}` : `/ea-delivery/plans/${plan.id}/preview`,
+          )
+        }
+      >
+        <Typography sx={{ fontSize: "0.9rem", flex: 1, minWidth: 0 }} noWrap>
+          {plan.title}
+        </Typography>
+        <Chip
+          label={isDraft ? t("plan.status.draft") : t("plan.status.committed")}
+          size="small"
+          color={isDraft ? "default" : "success"}
+          sx={{ height: 22 }}
+        />
+        <Tooltip title={t("plan.previewTooltip")}>
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/ea-delivery/plans/${plan.id}/preview`);
+            }}
+          >
+            <MaterialSymbol icon="visibility" size={18} />
+          </IconButton>
+        </Tooltip>
       </CompactRow>
     );
   }

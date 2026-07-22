@@ -19,6 +19,14 @@ import type { CardType, RelationType, FieldOption } from "@/types";
 /*  Input types (same as DependencyReport)                             */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Diff decoration for the before/after view used by Architecture Planning.
+ * `added` renders green (plus badge), `removed` red-dashed (cross badge),
+ * `changed` blue (swap badge — e.g. a replacement's successor or an edge
+ * inherited from a replaced card). Absent = neutral (no diff decoration).
+ */
+export type LdvChangeState = "added" | "removed" | "changed";
+
 export interface GNode {
   id: string;
   name: string;
@@ -28,6 +36,7 @@ export interface GNode {
   parent_id?: string | null;
   path?: string[];
   proposed?: boolean;
+  changeState?: LdvChangeState;
   /** Whether this card has any child card in the full dataset (set by the
    *  consumer, which holds the whole graph). Drives the "has hidden children"
    *  hierarchy marker — the view only sees the visible slice, so it can't
@@ -43,6 +52,7 @@ export interface GEdge {
   reverse_label?: string;
   description?: string;
   attributes?: Record<string, unknown>;
+  changeState?: LdvChangeState;
 }
 
 /**
@@ -78,7 +88,13 @@ export function filterEndOfLifeNodes(
   centerId?: string,
 ): { nodes: GNode[]; edges: GEdge[] } {
   const visible = nodes.filter(
-    (n) => n.id === centerId || n.proposed || getCurrentPhase(n.lifecycle) !== "endOfLife",
+    (n) =>
+      n.id === centerId ||
+      n.proposed ||
+      // Diff-decorated nodes must stay visible — a removed card is often at
+      // or near end-of-life, and hiding it would erase the "before" half.
+      n.changeState !== undefined ||
+      getCurrentPhase(n.lifecycle) !== "endOfLife",
   );
   const ids = new Set(visible.map((n) => n.id));
   return {
@@ -104,6 +120,7 @@ export interface LdvNodeData {
   dimmed?: boolean;
   usedHandles?: string[];
   proposed?: boolean;
+  changeState?: LdvChangeState;
   [key: string]: unknown;
 }
 
@@ -132,6 +149,7 @@ export interface LdvEdgeData {
   labelT?: number;
   onHover?: () => void;
   onLeave?: () => void;
+  changeState?: LdvChangeState;
   [key: string]: unknown;
 }
 
@@ -423,6 +441,7 @@ export function buildLdvFlow(
           typeIcon: typeIcon(nd.type, types),
           category: gl.cat,
           proposed: nd.proposed,
+          changeState: nd.changeState,
         } satisfies LdvNodeData,
         style: { width: LDV_NODE_W, height: LDV_NODE_H },
         draggable: false,
@@ -463,6 +482,11 @@ export function buildLdvFlow(
       // flowDirection captured per pair, in pair-normalised orientation
       // (i.e. relative to lo→hi, not the relation's metamodel direction).
       flowDirection?: FlowDir;
+      // Diff decoration for the pair. Edges between the same pair merge into
+      // one rendered edge, so the pair only keeps a changeState when every
+      // merged edge agrees — a mixed pair renders neutral (v1 limitation).
+      changeState?: LdvChangeState;
+      changeStateMixed?: boolean;
     }
   >();
   const readFlowDir = (attrs: Record<string, unknown> | undefined): FlowDir | undefined => {
@@ -499,12 +523,14 @@ export function buildLdvFlow(
       if (fd && existing.flowDirection !== fd) {
         existing.flowDirection = existing.flowDirection ? "bidirectional" : fd;
       }
+      if (existing.changeState !== e.changeState) existing.changeStateMixed = true;
     } else {
       edgePairMap.set(key, {
         fwdLabels: [fwdLbl],
         revLabels: [revLbl],
         description: e.description,
         flowDirection: fd,
+        changeState: e.changeState,
       });
     }
   }
@@ -533,6 +559,7 @@ export function buildLdvFlow(
     flipped: boolean;
     /** flowDirection re-oriented to the relation's metamodel source→target axis */
     flowDirection?: FlowDir;
+    changeState?: LdvChangeState;
   }
   const oriented: OrientedEdge[] = dedupedEdges.map((e) => {
     const [lo, hi] = e.source < e.target ? [e.source, e.target] : [e.target, e.source];
@@ -564,6 +591,7 @@ export function buildLdvFlow(
       description: merged.description,
       flipped,
       flowDirection: fd,
+      changeState: merged.changeStateMixed ? undefined : merged.changeState,
     };
   });
 
@@ -938,7 +966,15 @@ export function buildLdvFlow(
     //  - reverse: arrow at source end only — data flows target → source
     //  - bidirectional: arrows on both ends
     //  - unset: keep the historical default (markerEnd only)
-    const arrow = { type: "arrowclosed" as const, color: "#888" };
+    const arrowColor =
+      e.changeState === "removed"
+        ? "#d32f2f"
+        : e.changeState === "added"
+          ? "#2e7d32"
+          : e.changeState === "changed"
+            ? "#1976d2"
+            : "#888";
+    const arrow = { type: "arrowclosed" as const, color: arrowColor };
     const markerStart =
       e.flowDirection === "reverse" || e.flowDirection === "bidirectional" ? arrow : undefined;
     const markerEnd =
@@ -958,6 +994,7 @@ export function buildLdvFlow(
         pathOffset: pathOffsets[i],
         minOffset: edgeHandles[i].minOffset,
         labelT: labelTs[i],
+        changeState: e.changeState,
       } satisfies LdvEdgeData,
       animated: false,
       ...(markerStart ? { markerStart } : {}),

@@ -4,6 +4,10 @@ El módulo de **Entrega EA** gestiona las **iniciativas de arquitectura y sus ar
 
 Cuando PPM está habilitado — la configuración habitual — Entrega EA vive **dentro del módulo PPM**: abra **PPM** en la navegación superior y cambie a la pestaña **EA Delivery** (`/ppm?tab=ea-delivery`). Cuando PPM está deshabilitado, **Entrega EA** aparece como un elemento de navegación de nivel superior dedicado, enlazando a `/reports/ea-delivery`. La URL legada `/ea-delivery` sigue funcionando como redirección en ambos casos, de modo que los marcadores existentes se resuelven.
 
+
+!!! tip
+    ¿Planifica un cambio del panorama (reemplazar una aplicación, retirar un sistema, introducir una plataforma)? La herramienta de [planificación de arquitectura](architecture-planning.md) produce una vista antes/después que puede adjuntar a una iniciativa y confirmar en un solo paso.
+
 ![Gestión de Entrega EA](../assets/img/es/17_entrega_ea.png)
 
 ## Espacio de trabajo de Iniciativas
