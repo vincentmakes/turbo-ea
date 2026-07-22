@@ -20,7 +20,7 @@ import type { CardType, RelationType, FieldOption } from "@/types";
 /* ------------------------------------------------------------------ */
 
 /**
- * Diff decoration for the before/after view used by Architecture Planning.
+ * Diff decoration for the before/after view used by Transition Planning.
  * `added` renders green (plus badge), `removed` red-dashed (cross badge),
  * `changed` blue (swap badge — e.g. a replacement's successor or an edge
  * inherited from a replaced card). Absent = neutral (no diff decoration).

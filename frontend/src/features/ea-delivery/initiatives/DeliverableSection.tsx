@@ -12,7 +12,7 @@ import { CARD_TYPE_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import { SOAW_STATUS_COLORS } from "./constants";
 import type {
   ArchitectureDecision,
-  ArchitecturePlan,
+  TransitionPlan,
   DiagramSummary,
   SoAW,
 } from "@/types";
@@ -44,7 +44,8 @@ interface AdrProps extends BaseProps {
 
 interface PlanProps extends BaseProps {
   kind: "plan";
-  items: ArchitecturePlan[];
+  items: TransitionPlan[];
+  onPlanContextMenu?: (anchor: HTMLElement, plan: TransitionPlan) => void;
 }
 
 type Props = SoawProps | DiagramProps | AdrProps | PlanProps;
@@ -169,8 +170,13 @@ export default function DeliverableSection(props: Props) {
         ))}
 
       {kind === "plan" &&
-        (items as ArchitecturePlan[]).map((p) => (
-          <PlanRow key={p.id} plan={p} color={meta.color} />
+        (items as TransitionPlan[]).map((p) => (
+          <PlanRow
+            key={p.id}
+            plan={p}
+            color={meta.color}
+            onContextMenu={(props as PlanProps).onPlanContextMenu}
+          />
         ))}
 
       {/* Diagram-link affordance — kept distinct from the create flow */}
@@ -342,7 +348,15 @@ export default function DeliverableSection(props: Props) {
     );
   }
 
-  function PlanRow({ plan, color }: { plan: ArchitecturePlan; color: string }) {
+  function PlanRow({
+    plan,
+    color,
+    onContextMenu,
+  }: {
+    plan: TransitionPlan;
+    color: string;
+    onContextMenu?: (a: HTMLElement, p: TransitionPlan) => void;
+  }) {
     const isDraft = plan.status === "draft";
     return (
       <CompactRow
@@ -373,6 +387,17 @@ export default function DeliverableSection(props: Props) {
             <MaterialSymbol icon="visibility" size={18} />
           </IconButton>
         </Tooltip>
+        {onContextMenu && (
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              onContextMenu(e.currentTarget, plan);
+            }}
+          >
+            <MaterialSymbol icon="more_vert" size={18} />
+          </IconButton>
+        )}
       </CompactRow>
     );
   }

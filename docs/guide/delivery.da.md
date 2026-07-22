@@ -6,7 +6,7 @@ Når PPM er aktiveret — den typiske konfiguration — lever EA Delivery **inde
 
 
 !!! tip
-    Planlægger I en ændring af landskabet (udskifte en applikation, udfase et system, indføre en platform)? Værktøjet [Arkitekturplanlægning](architecture-planning.md) producerer en før/efter-visning, som kan knyttes til et initiativ og overføres i ét trin.
+    Planlægger I en ændring af landskabet (udskifte en applikation, udfase et system, indføre en platform)? Værktøjet [Overgangsplanlægning](transition-planning.md) producerer en før/efter-visning, som kan knyttes til et initiativ og overføres i ét trin.
 
 ![EA Delivery-styring](../assets/img/en/17_ea_delivery.png)
 

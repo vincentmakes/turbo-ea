@@ -1,6 +1,6 @@
-# Arkitekturplanlægning
+# Overgangsplanlægning
 
-Arkitekturplanlægning er et manuelt planlægningsværktøj i **EA Delivery** til at modellere ændringer i jeres landskab — udskifte én applikation med en anden for en bestemt organisation, udfase et ældre system eller indføre en ny platform — og formidle dem som **ét samlet før/efter-diagram**. Det giver et resultat, der ligner TurboLens Architect, men helt uden AI: I bevarer fuld kontrol over hver foreslået ændring.
+Overgangsplanlægning er et manuelt planlægningsværktøj i **EA Delivery** til at modellere ændringer i jeres landskab — udskifte én applikation med en anden for en bestemt organisation, udfase et ældre system eller indføre en ny platform — og formidle dem som **ét samlet før/efter-diagram**. Det giver et resultat, der ligner TurboLens Architect, men helt uden AI: I bevarer fuld kontrol over hver foreslået ændring.
 
 Resultatet er en Layered Dependency View, der viser den nuværende og den planlagte tilstand i ét billede, med ændringsindikatorer:
 
@@ -10,7 +10,7 @@ Resultatet er en Layered Dependency View, der viser den nuværende og den planla
 
 ## Opret en plan
 
-Åbn **EA Delivery** og brug **Tilføj → Ny arkitekturplan** på et initiativ (eller opret en fritstående plan og tilknyt den senere). En plan bygges i fire trin:
+Åbn **EA Delivery** og brug **Tilføj → Ny overgangsplan** på et initiativ (eller opret en fritstående plan og tilknyt den senere). En plan bygges i fire trin:
 
 1. **Forretningsmål** *(valgfrit)* — angiv de målkort, som denne ændring understøtter. De vises i diagrammets strategilag, så alle interessenter ser *hvorfor* ved siden af *hvad*, og de forudfylder initiativets links, når planen overføres.
 2. **Omfang og baseline** — vælg et eller flere omfangskort (en organisation, en forretningskapabilitet, enkelte applikationer, …) og en afhængighedsdybde (1–3). **Tag baseline** tager et øjebliksbillede af det omgivende landskab som før-billedet. Øjebliksbilledet holder diagrammet stabilt, selv når beholdningen ændrer sig; brug **Opdater baseline** for at tage det igen senere — planlagte ændringer, hvis mål er forsvundet, markeres.
@@ -23,7 +23,7 @@ Resultatet er en Layered Dependency View, der viser den nuværende og den planla
 
 ## Forstå konsekvenserne
 
-Arkitekturplanlægning er mere end en diagrameditor — mens I planlægger, gør et **Konsekvenser**-panel den arkitektoniske påvirkning synlig. De samme tal vises i den delbare forhåndsvisning og indgår i den overførte ADR:
+Overgangsplanlægning er mere end en diagrameditor — mens I planlægger, gør et **Konsekvenser**-panel den arkitektoniske påvirkning synlig. De samme tal vises i den delbare forhåndsvisning og indgår i den overførte ADR:
 
 - **Gap-analyse** — en TOGAF-agtig oversigt Tilføjet / Fjernet / Ændret / Bevaret.
 - **Påvirkning / effektradius** — at fjerne eller erstatte et kort viser, hvad der afhænger af det (»*N applikationer, M grænseflader afhænger af dette*«), ud fra kortets egen konsekvensanalyse.
@@ -32,7 +32,7 @@ Arkitekturplanlægning er mere end en diagrameditor — mens I planlægger, gør
 
 ## Overfør en plan
 
-Et planudkast kan **overføres** (kræver tilladelsen *Overfør arkitekturplaner*). Overførslen:
+Et planudkast kan **overføres** (kræver tilladelsen *Overfør overgangsplaner*). Overførslen:
 
 - opretter et **initiativkort** (med det valgte navn og start-/slutdato) knyttet til de understøttede mål,
 - opretter de valgte **foreslåede kort** og **relationer** og knytter hvert nyt kort til initiativet,
@@ -48,8 +48,8 @@ Efter overførslen bliver planen skrivebeskyttet og linker til det oprettede ini
 
 | Tilladelse | Giver |
 |------------|-------|
-| `arch_plans.view` | Se arkitekturplaner |
-| `arch_plans.manage` | Oprette, redigere og slette planer |
-| `arch_plans.commit` | Overføre en plan (oprette initiativ, kort, relationer, ADR-kladde, stemple udløbsdatoer) |
+| `transition_plans.view` | Se overgangsplaner |
+| `transition_plans.manage` | Oprette, redigere og slette planer |
+| `transition_plans.commit` | Overføre en plan (oprette initiativ, kort, relationer, ADR-kladde, stemple udløbsdatoer) |
 
 Medlemmer kan som standard se, administrere og overføre planer; læsere kan kun se dem.

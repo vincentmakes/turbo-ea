@@ -1,6 +1,6 @@
-# Pianificazione dell’architettura
+# Pianificazione della transizione
 
-La pianificazione dell’architettura è uno strumento di pianificazione manuale in **EA Delivery** per modellare i cambiamenti del vostro panorama — sostituire un’applicazione con un’altra per una certa organizzazione, dismettere un sistema legacy o introdurre una nuova piattaforma — e comunicarli come un **unico diagramma prima/dopo**. Offre un risultato simile al TurboLens Architect, ma senza alcuna IA: mantenete il pieno controllo di ogni cambiamento proposto.
+La pianificazione della transizione è uno strumento di pianificazione manuale in **EA Delivery** per modellare i cambiamenti del vostro panorama — sostituire un’applicazione con un’altra per una certa organizzazione, dismettere un sistema legacy o introdurre una nuova piattaforma — e comunicarli come un **unico diagramma prima/dopo**. Offre un risultato simile al TurboLens Architect, ma senza alcuna IA: mantenete il pieno controllo di ogni cambiamento proposto.
 
 Il risultato è una Layered Dependency View che mostra lo stato attuale e quello pianificato in un’unica immagine, con indicatori di cambiamento:
 
@@ -10,7 +10,7 @@ Il risultato è una Layered Dependency View che mostra lo stato attuale e quello
 
 ## Creare un piano
 
-Aprite **EA Delivery** e usate **Aggiungi → Nuovo piano di architettura** su un’iniziativa (oppure create un piano non collegato e collegatelo in seguito). Un piano si costruisce in quattro passi:
+Aprite **EA Delivery** e usate **Aggiungi → Nuovo piano di transizione** su un’iniziativa (oppure create un piano non collegato e collegatelo in seguito). Un piano si costruisce in quattro passi:
 
 1. **Obiettivi di business** *(facoltativo)* — indicate le card Obiettivo che questo cambiamento supporta. Appaiono nel livello Strategia del diagramma, così ogni stakeholder vede il *perché* accanto al *cosa*, e precompilano i collegamenti dell’iniziativa alla conferma del piano.
 2. **Ambito e baseline** — scegliete una o più card di ambito (un’organizzazione, una business capability, singole applicazioni, …) e una profondità delle dipendenze (1–3). **Cattura baseline** scatta un’istantanea del panorama circostante come immagine «prima». Lo snapshot mantiene stabile il diagramma anche se l’inventario cambia; usate **Aggiorna baseline** per ricatturarla in seguito — ogni cambiamento pianificato il cui bersaglio è scomparso viene segnalato.
@@ -23,7 +23,7 @@ Aprite **EA Delivery** e usate **Aggiungi → Nuovo piano di architettura** su u
 
 ## Comprendere le conseguenze
 
-La pianificazione dell’architettura è più di un editor di diagrammi: mentre pianificate, un pannello **Conseguenze** rende visibile l’impatto architetturale. Gli stessi numeri appaiono nell’anteprima condivisibile e confluiscono nell’ADR confermato:
+La pianificazione della transizione è più di un editor di diagrammi: mentre pianificate, un pannello **Conseguenze** rende visibile l’impatto architetturale. Gli stessi numeri appaiono nell’anteprima condivisibile e confluiscono nell’ADR confermato:
 
 - **Analisi dei gap** — un riepilogo in stile TOGAF Aggiunto / Rimosso / Modificato / Mantenuto.
 - **Impatto / raggio d’azione** — rimuovere o sostituire una card mostra cosa dipende da essa (« *N applicazioni, M interfacce dipendono da questa* »), dall’analisi d’impatto della card.
@@ -32,7 +32,7 @@ La pianificazione dell’architettura è più di un editor di diagrammi: mentre 
 
 ## Confermare un piano
 
-Un piano in bozza può essere **confermato** (richiede il permesso *Conferma piani di architettura*). La conferma:
+Un piano in bozza può essere **confermato** (richiede il permesso *Conferma piani di transizione*). La conferma:
 
 - crea una card **Iniziativa** (con il nome e le date di inizio/fine scelti) collegata agli obiettivi supportati,
 - crea le **card proposte** e le **relazioni** selezionate, collegando ogni nuova card all’iniziativa,
@@ -48,8 +48,8 @@ Dopo la conferma il piano diventa di sola lettura e rimanda all’iniziativa cre
 
 | Permesso | Concede |
 |----------|---------|
-| `arch_plans.view` | Vedere i piani di architettura |
-| `arch_plans.manage` | Creare, modificare ed eliminare i piani |
-| `arch_plans.commit` | Confermare un piano (creare iniziativa, card, relazioni, bozza ADR, imprimere le date di fine vita) |
+| `transition_plans.view` | Vedere i piani di transizione |
+| `transition_plans.manage` | Creare, modificare ed eliminare i piani |
+| `transition_plans.commit` | Confermare un piano (creare iniziativa, card, relazioni, bozza ADR, imprimere le date di fine vita) |
 
 I membri possono vedere, gestire e confermare i piani per impostazione predefinita; i visualizzatori possono solo consultarli.

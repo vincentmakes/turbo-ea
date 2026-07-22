@@ -1,6 +1,6 @@
-# Architecture Planning
+# Transition Planning
 
-Architecture Planning is a manual planning tool in **EA Delivery** for modelling changes to your landscape — replacing an application with another for a certain organization, decommissioning a legacy system, or introducing a new platform — and communicating them as a **single before/after diagram**. It offers a similar outcome to the TurboLens Architect, but without any AI: you stay in full control of every proposed change.
+Transition Planning is a manual planning tool in **EA Delivery** for modelling changes to your landscape — replacing an application with another for a certain organization, decommissioning a legacy system, or introducing a new platform — and communicating them as a **single before/after diagram**. It offers a similar outcome to the TurboLens Architect, but without any AI: you stay in full control of every proposed change.
 
 The result is a Layered Dependency View showing the current and the planned state in one picture, with change indicators:
 
@@ -10,7 +10,7 @@ The result is a Layered Dependency View showing the current and the planned stat
 
 ## Creating a plan
 
-Open **EA Delivery** and use **Add → New architecture plan** on an initiative (or create an unlinked plan and attach it later). A plan is built in four steps:
+Open **EA Delivery** and use **Add → New transition plan** on an initiative (or create an unlinked plan and attach it later). A plan is built in four steps:
 
 1. **Business objectives** *(optional)* — name the Objective cards this change supports. They appear in the Strategy layer of the diagram, so every stakeholder sees the *why* alongside the *what*, and they pre-populate the Initiative links when the plan is committed. **Derive scope from objectives** walks the strategy top-down — objective → the capabilities it drives → the applications supporting them — and pulls that slice straight into the baseline, so you plan from strategy rather than hunting for cards.
 2. **Scope & baseline** — pick one or more scope cards (an Organization, a Business Capability, individual Applications, …) and a dependency depth (1–3). **Capture baseline** snapshots the surrounding landscape as the *before* picture. The snapshot keeps the diagram stable even as the live inventory changes; use **Refresh baseline** to re-capture it later — any planned change whose target has disappeared is flagged.
@@ -23,7 +23,7 @@ Open **EA Delivery** and use **Add → New architecture plan** on an initiative 
 
 ## Understanding the consequences
 
-Architecture Planning is more than a diagram editor — as you plan, a **Consequences** panel makes the change's architectural impact visible, and the same figures render on the shareable preview and are folded into the committed ADR:
+Transition Planning is more than a diagram editor — as you plan, a **Consequences** panel makes the change's architectural impact visible, and the same figures render on the shareable preview and are folded into the committed ADR:
 
 - **Gap analysis** — a TOGAF-style Added / Removed / Changed / Retained summary of the change.
 - **Impact / blast-radius** — removing or replacing a card surfaces what depends on it ("*N applications, M interfaces depend on this*"), drawn from the card's own impact analysis, so a removal is a considered decision.
@@ -32,7 +32,7 @@ Architecture Planning is more than a diagram editor — as you plan, a **Consequ
 
 ## Committing a plan
 
-A draft plan can be **committed** (requires the *Commit architecture plans* permission). Committing:
+A draft plan can be **committed** (requires the *Commit transition plans* permission). Committing:
 
 - creates an **Initiative** card (with your chosen name and start/end dates) linked to the supported Objectives,
 - creates the selected **proposed cards** and **relations**, linking each new card to the Initiative,
@@ -48,8 +48,8 @@ After the commit, the plan becomes read-only and links to the created Initiative
 
 | Permission | Grants |
 |------------|--------|
-| `arch_plans.view` | View architecture plans |
-| `arch_plans.manage` | Create, edit, and delete plans |
-| `arch_plans.commit` | Commit a plan (create Initiative, cards, relations, draft ADR, stamp end-of-life dates) |
+| `transition_plans.view` | View transition plans |
+| `transition_plans.manage` | Create, edit, and delete plans |
+| `transition_plans.commit` | Commit a plan (create Initiative, cards, relations, draft ADR, stamp end-of-life dates) |
 
 Members can view, manage, and commit plans by default; viewers can only view them.

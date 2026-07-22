@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
 import type {
   ArchitectureDecision,
-  ArchitecturePlan,
+  TransitionPlan,
   Card,
   DiagramSummary,
   SoAW,
@@ -14,7 +14,7 @@ export interface InitiativeGroup {
   diagrams: DiagramSummary[];
   soaws: SoAW[];
   adrs: ArchitectureDecision[];
-  plans: ArchitecturePlan[];
+  plans: TransitionPlan[];
 }
 
 export interface InitiativeTreeNode {
@@ -24,7 +24,7 @@ export interface InitiativeTreeNode {
   diagrams: DiagramSummary[];
   soaws: SoAW[];
   adrs: ArchitectureDecision[];
-  plans: ArchitecturePlan[];
+  plans: TransitionPlan[];
 }
 
 type StatusFilter = "ACTIVE" | "ARCHIVED" | "";
@@ -67,7 +67,7 @@ interface UseInitiativeDataResult {
   diagrams: DiagramSummary[];
   soaws: SoAW[];
   adrs: ArchitectureDecision[];
-  plans: ArchitecturePlan[];
+  plans: TransitionPlan[];
   filteredInitiatives: Card[];
   search: string;
   setSearch: (s: string) => void;
@@ -80,7 +80,7 @@ interface UseInitiativeDataResult {
   unlinkedSoaws: SoAW[];
   unlinkedDiagrams: DiagramSummary[];
   unlinkedAdrs: ArchitectureDecision[];
-  unlinkedPlans: ArchitecturePlan[];
+  unlinkedPlans: TransitionPlan[];
 }
 
 function buildTree(
@@ -88,7 +88,7 @@ function buildTree(
   diagrams: DiagramSummary[],
   soaws: SoAW[],
   adrs: ArchitectureDecision[],
-  plans: ArchitecturePlan[],
+  plans: TransitionPlan[],
 ): InitiativeTreeNode[] {
   const initIds = new Set(initiatives.map((i) => i.id));
   const nodeMap = new Map<string, InitiativeTreeNode>();
@@ -146,7 +146,7 @@ export function useInitiativeData(): UseInitiativeDataResult {
   const [diagrams, setDiagrams] = useState<DiagramSummary[]>([]);
   const [soaws, setSoaws] = useState<SoAW[]>([]);
   const [adrs, setAdrs] = useState<ArchitectureDecision[]>([]);
-  const [plans, setPlans] = useState<ArchitecturePlan[]>([]);
+  const [plans, setPlans] = useState<TransitionPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -192,7 +192,7 @@ export function useInitiativeData(): UseInitiativeDataResult {
         api.get<DiagramSummary[]>("/diagrams"),
         api.get<SoAW[]>("/soaw"),
         api.get<ArchitectureDecision[]>("/adr"),
-        api.get<ArchitecturePlan[]>("/architecture-plans"),
+        api.get<TransitionPlan[]>("/transition-plans"),
       ]);
       setInitiatives(initRes.items);
       setDiagrams(diagRes);

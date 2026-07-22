@@ -1,6 +1,6 @@
-"""Add the architecture_plans table.
+"""Add the transition_plans table.
 
-One row per manual architecture plan (the no-AI planning tool in EA Delivery).
+One row per manual transition plan (the no-AI planning tool in EA Delivery).
 ``plan_data`` JSONB holds the snapshotted baseline subgraph plus the ordered
 change-operation list; ``scope`` records the snapshot provenance (scope card
 ids, BFS depth, supported business-objective ids). ``initiative_id`` links a
@@ -25,7 +25,7 @@ depends_on: Union[str, None] = None
 
 def upgrade() -> None:
     op.create_table(
-        "architecture_plans",
+        "transition_plans",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("title", sa.String(length=500), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
@@ -51,9 +51,9 @@ def upgrade() -> None:
             "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
         ),
     )
-    op.create_index("ix_architecture_plans_initiative_id", "architecture_plans", ["initiative_id"])
+    op.create_index("ix_transition_plans_initiative_id", "transition_plans", ["initiative_id"])
 
 
 def downgrade() -> None:
-    op.drop_index("ix_architecture_plans_initiative_id", table_name="architecture_plans")
-    op.drop_table("architecture_plans")
+    op.drop_index("ix_transition_plans_initiative_id", table_name="transition_plans")
+    op.drop_table("transition_plans")

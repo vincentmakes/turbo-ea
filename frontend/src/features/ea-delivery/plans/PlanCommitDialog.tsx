@@ -1,5 +1,5 @@
 /**
- * Commit dialog for an architecture plan. Simplified from the TurboLens
+ * Commit dialog for a transition plan. Simplified from the TurboLens
  * `CommitInitiativeDialog`: the commit is synchronous (no AI, no run polling).
  * Creates the Initiative, the selected proposed cards/relations, an optional
  * draft ADR, and stamps an end-of-life date on removed/replaced cards.
@@ -23,11 +23,11 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import type { CardOption } from "@/components/CardPicker";
 import { api } from "@/api/client";
-import type { ArchitecturePlan, PlanChangeOp, PlanCommitResult } from "@/types";
+import type { TransitionPlan, PlanChangeOp, PlanCommitResult } from "@/types";
 import MultiCardPicker from "./MultiCardPicker";
 
 interface Props {
-  plan: ArchitecturePlan;
+  plan: TransitionPlan;
   /** Human-readable one-liner per change op (from the preview page). */
   describeOp: (op: PlanChangeOp) => string;
   onClose: () => void;
@@ -85,7 +85,7 @@ export default function PlanCommitDialog({ plan, describeOp, onClose, onCommitte
     setCommitting(true);
     setError("");
     try {
-      const res = await api.post<PlanCommitResult>(`/architecture-plans/${plan.id}/commit`, {
+      const res = await api.post<PlanCommitResult>(`/transition-plans/${plan.id}/commit`, {
         initiative_name: initiativeName.trim(),
         start_date: startDate,
         end_date: endDate,

@@ -1,5 +1,5 @@
-"""Architecture-plan commit service — creates the Initiative, proposed cards,
-relations, and an optional draft ADR from a manual architecture plan, and
+"""Transition-plan commit service — creates the Initiative, proposed cards,
+relations, and an optional draft ADR from a manual transition plan, and
 stamps an end-of-life lifecycle date on removed/replaced cards.
 
 Synchronous by design: unlike the TurboLens commit (which is a background task
@@ -19,11 +19,11 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
-from app.models.architecture_plan import ArchitecturePlan
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
+from app.models.transition_plan import TransitionPlan
 from app.services.data_quality import calc_data_quality
 from app.services.turbolens_commit import (
     INITIATIVE_RELATION_MAP,
@@ -248,7 +248,7 @@ def _compute_plan_insights(
 
 async def execute_plan_commit(
     db: AsyncSession,
-    plan: ArchitecturePlan,
+    plan: TransitionPlan,
     data: dict[str, Any],
     user_id: uuid.UUID,
 ) -> dict[str, Any]:
@@ -609,7 +609,7 @@ async def execute_plan_commit(
             context="\n\n".join(context_parts) or None,
             decision="\n".join(change_lines) or None,
             consequences="\n".join(consequences_parts) or None,
-            related_decisions=[{"type": "architecture_plan", "id": str(plan.id)}],
+            related_decisions=[{"type": "transition_plan", "id": str(plan.id)}],
             created_by=user_id,
         )
         db.add(adr)

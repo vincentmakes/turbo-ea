@@ -6,7 +6,7 @@ Lorsque PPM est activé — la configuration habituelle — EA Delivery vit **à
 
 
 !!! tip
-    Vous planifiez un changement du paysage (remplacer une application, décommissionner un système, introduire une plateforme) ? L’outil de [planification d’architecture](architecture-planning.md) produit une vue avant/après que vous pouvez rattacher à une initiative et valider en une étape.
+    Vous planifiez un changement du paysage (remplacer une application, décommissionner un système, introduire une plateforme) ? L’outil de [planification de transition](transition-planning.md) produit une vue avant/après que vous pouvez rattacher à une initiative et valider en une étape.
 
 ![Gestion EA Delivery](../assets/img/fr/17_livraison_ea.png)
 

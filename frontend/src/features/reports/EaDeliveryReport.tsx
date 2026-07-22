@@ -19,7 +19,7 @@ import NewArtefactSplitButton, {
 } from "@/features/ea-delivery/initiatives/NewArtefactSplitButton";
 import { UNLINKED_KEY } from "@/features/ea-delivery/initiatives/InitiativeTreeSidebar";
 import CreateDiagramDialog from "@/features/diagrams/CreateDiagramDialog";
-import type { DiagramSummary, SoAW } from "@/types";
+import type { DiagramSummary, SoAW, TransitionPlan } from "@/types";
 import type { useInitiativeData } from "@/features/ea-delivery/initiatives";
 
 /**
@@ -72,6 +72,12 @@ export default function EaDeliveryReport() {
   const [ctxMenu, setCtxMenu] = useState<{
     anchor: HTMLElement;
     soaw: SoAW;
+  } | null>(null);
+
+  // ── Transition-plan context menu ────────────────────────────────────────
+  const [planCtxMenu, setPlanCtxMenu] = useState<{
+    anchor: HTMLElement;
+    plan: TransitionPlan;
   } | null>(null);
 
   const [error, setError] = useState("");
@@ -179,6 +185,26 @@ export default function EaDeliveryReport() {
     setCtxMenu({ anchor, soaw });
   }, []);
 
+  // ── Transition-plan delete + context menu ──────────────────────────────
+
+  const handleDeletePlan = async (id: string) => {
+    if (!confirm(t("confirm.deletePlan"))) return;
+    try {
+      await api.delete(`/transition-plans/${id}`);
+      dataRef.current?.refetch();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("error.deletePlan"));
+    }
+    setPlanCtxMenu(null);
+  };
+
+  const handlePlanContextMenu = useCallback(
+    (anchor: HTMLElement, plan: TransitionPlan) => {
+      setPlanCtxMenu({ anchor, plan });
+    },
+    [],
+  );
+
   // ── Single dispatcher for the "+ New artefact" button ──────────────────
 
   const handleCreateArtefact = useCallback(
@@ -267,6 +293,7 @@ export default function EaDeliveryReport() {
         onLinkDiagrams={openLinkDialog}
         onUnlinkDiagram={handleUnlinkDiagram}
         onSoawContextMenu={handleSoawContextMenu}
+        onPlanContextMenu={handlePlanContextMenu}
         onDataReady={handleDataReady}
       />
 
@@ -296,6 +323,52 @@ export default function EaDeliveryReport() {
         </MenuItem>
         <MenuItem
           onClick={() => ctxMenu && handleDeleteSoaw(ctxMenu.soaw.id)}
+          sx={{ color: "error.main" }}
+        >
+          <ListItemIcon>
+            <MaterialSymbol icon="delete" size={18} color="#d32f2f" />
+          </ListItemIcon>
+          <ListItemText>{t("menu.delete")}</ListItemText>
+        </MenuItem>
+      </Menu>
+
+      {/* Transition-plan context menu (three-dot on a plan row in the workspace) */}
+      <Menu
+        anchorEl={planCtxMenu?.anchor}
+        open={!!planCtxMenu}
+        onClose={() => setPlanCtxMenu(null)}
+      >
+        <MenuItem
+          onClick={() => {
+            if (planCtxMenu) navigate(`/ea-delivery/plans/${planCtxMenu.plan.id}/preview`);
+            setPlanCtxMenu(null);
+          }}
+        >
+          <ListItemIcon>
+            <MaterialSymbol icon="visibility" size={18} />
+          </ListItemIcon>
+          <ListItemText>{t("menu.preview")}</ListItemText>
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            if (planCtxMenu) {
+              // Committed plans are read-only — fall back to the preview.
+              navigate(
+                planCtxMenu.plan.status === "draft"
+                  ? `/ea-delivery/plans/${planCtxMenu.plan.id}`
+                  : `/ea-delivery/plans/${planCtxMenu.plan.id}/preview`,
+              );
+            }
+            setPlanCtxMenu(null);
+          }}
+        >
+          <ListItemIcon>
+            <MaterialSymbol icon="edit" size={18} />
+          </ListItemIcon>
+          <ListItemText>{t("menu.edit")}</ListItemText>
+        </MenuItem>
+        <MenuItem
+          onClick={() => planCtxMenu && handleDeletePlan(planCtxMenu.plan.id)}
           sx={{ color: "error.main" }}
         >
           <ListItemIcon>

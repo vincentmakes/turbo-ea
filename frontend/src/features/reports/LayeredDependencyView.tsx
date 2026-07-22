@@ -213,7 +213,7 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
 
   const name = data.name.length > 26 ? data.name.slice(0, 25) + "\u2026" : data.name;
 
-  // Diff decorations for the before/after view (Architecture Planning):
+  // Diff decorations for the before/after view (Transition Planning):
   // removed = red dashed + \u2715 badge, added = green NEW/+ badge (shares the
   // proposed treatment), changed = blue solid + swap badge.
   const changeState = data.changeState;
@@ -685,7 +685,7 @@ const LdvChevron = memo(({ dir, color }: { dir: "up" | "down"; color: string }) 
 ));
 LdvChevron.displayName = "LdvChevron";
 
-/** Diff-indicator colors for the before/after view (Architecture Planning). */
+/** Diff-indicator colors for the before/after view (Transition Planning). */
 export const LDV_CHANGE_COLORS: Record<LdvChangeState, string> = {
   added: "#2e7d32",
   removed: "#d32f2f",

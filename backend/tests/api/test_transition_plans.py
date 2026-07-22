@@ -1,4 +1,4 @@
-"""Integration tests for the /architecture-plans endpoints.
+"""Integration tests for the /transition-plans endpoints.
 
 These tests require a PostgreSQL test database and an HTTP test client.
 """
@@ -139,7 +139,7 @@ def _replace_plan_data(env, *, remove_relation: bool = False) -> dict:
 
 async def _create_plan(client, env, plan_data: dict, user_key: str = "admin") -> dict:
     resp = await client.post(
-        "/api/v1/architecture-plans",
+        "/api/v1/transition-plans",
         json={"title": "Test plan", "description": "Plan description", "plan_data": plan_data},
         headers=auth_headers(env[user_key]),
     )
@@ -168,13 +168,13 @@ class TestCrud:
 
     async def test_member_can_create_viewer_cannot(self, client, db, plan_env):
         resp = await client.post(
-            "/api/v1/architecture-plans",
+            "/api/v1/transition-plans",
             json={"title": "Member plan"},
             headers=auth_headers(plan_env["member"]),
         )
         assert resp.status_code == 201
         resp = await client.post(
-            "/api/v1/architecture-plans",
+            "/api/v1/transition-plans",
             json={"title": "Blocked"},
             headers=auth_headers(plan_env["viewer"]),
         )
@@ -182,7 +182,7 @@ class TestCrud:
 
     async def test_unknown_field_rejected(self, client, db, plan_env):
         resp = await client.post(
-            "/api/v1/architecture-plans",
+            "/api/v1/transition-plans",
             json={"title": "X", "bogus_field": "y"},
             headers=auth_headers(plan_env["admin"]),
         )
@@ -193,14 +193,14 @@ class TestCrud:
         initiative = await create_card(db, card_type="Initiative", name="Init")
         await db.commit()
         resp = await client.patch(
-            f"/api/v1/architecture-plans/{plan['id']}",
+            f"/api/v1/transition-plans/{plan['id']}",
             json={"initiative_id": str(initiative.id)},
             headers=auth_headers(plan_env["admin"]),
         )
         assert resp.status_code == 200
 
         resp = await client.get(
-            "/api/v1/architecture-plans", headers=auth_headers(plan_env["viewer"])
+            "/api/v1/transition-plans", headers=auth_headers(plan_env["viewer"])
         )
         assert resp.status_code == 200
         rows = resp.json()
@@ -209,12 +209,12 @@ class TestCrud:
         assert rows[0]["change_count"] == 1
 
         resp = await client.get(
-            f"/api/v1/architecture-plans?initiative_id={initiative.id}",
+            f"/api/v1/transition-plans?initiative_id={initiative.id}",
             headers=auth_headers(plan_env["admin"]),
         )
         assert len(resp.json()) == 1
         resp = await client.get(
-            f"/api/v1/architecture-plans?initiative_id={uuid.uuid4()}",
+            f"/api/v1/transition-plans?initiative_id={uuid.uuid4()}",
             headers=auth_headers(plan_env["admin"]),
         )
         assert len(resp.json()) == 0
@@ -222,7 +222,7 @@ class TestCrud:
     async def test_get_returns_full_plan_data(self, client, db, plan_env):
         plan = await _create_plan(client, plan_env, _replace_plan_data(plan_env))
         resp = await client.get(
-            f"/api/v1/architecture-plans/{plan['id']}",
+            f"/api/v1/transition-plans/{plan['id']}",
             headers=auth_headers(plan_env["viewer"]),
         )
         assert resp.status_code == 200
@@ -231,19 +231,19 @@ class TestCrud:
     async def test_delete(self, client, db, plan_env):
         plan = await _create_plan(client, plan_env, {})
         resp = await client.delete(
-            f"/api/v1/architecture-plans/{plan['id']}",
+            f"/api/v1/transition-plans/{plan['id']}",
             headers=auth_headers(plan_env["admin"]),
         )
         assert resp.status_code == 204
         resp = await client.get(
-            f"/api/v1/architecture-plans/{plan['id']}",
+            f"/api/v1/transition-plans/{plan['id']}",
             headers=auth_headers(plan_env["admin"]),
         )
         assert resp.status_code == 404
 
     async def test_get_unknown_id_404(self, client, db, plan_env):
         resp = await client.get(
-            "/api/v1/architecture-plans/not-a-uuid",
+            "/api/v1/transition-plans/not-a-uuid",
             headers=auth_headers(plan_env["admin"]),
         )
         assert resp.status_code == 404
@@ -276,7 +276,7 @@ class TestCommit:
         }
         plan = await _create_plan(client, plan_env, plan_data)
         resp = await client.post(
-            f"/api/v1/architecture-plans/{plan['id']}/commit",
+            f"/api/v1/transition-plans/{plan['id']}/commit",
             json={**COMMIT_BODY, "objective_ids": [str(plan_env["objective"].id)]},
             headers=auth_headers(plan_env["admin"]),
         )
@@ -311,7 +311,7 @@ class TestCommit:
 
         # Plan flipped to committed and linked
         resp = await client.get(
-            f"/api/v1/architecture-plans/{plan['id']}",
+            f"/api/v1/transition-plans/{plan['id']}",
             headers=auth_headers(plan_env["admin"]),
         )
         body = resp.json()
@@ -327,7 +327,7 @@ class TestCommit:
         }
         plan = await _create_plan(client, plan_env, plan_data)
         resp = await client.post(
-            f"/api/v1/architecture-plans/{plan['id']}/commit",
+            f"/api/v1/transition-plans/{plan['id']}/commit",
             json=COMMIT_BODY,
             headers=auth_headers(plan_env["admin"]),
         )
@@ -349,7 +349,7 @@ class TestCommit:
 
         plan = await _create_plan(client, plan_env, _replace_plan_data(plan_env))
         resp = await client.post(
-            f"/api/v1/architecture-plans/{plan['id']}/commit",
+            f"/api/v1/transition-plans/{plan['id']}/commit",
             json=COMMIT_BODY,
             headers=auth_headers(plan_env["admin"]),
         )
@@ -383,7 +383,7 @@ class TestCommit:
             client, plan_env, _replace_plan_data(plan_env, remove_relation=True)
         )
         resp = await client.post(
-            f"/api/v1/architecture-plans/{plan['id']}/commit",
+            f"/api/v1/transition-plans/{plan['id']}/commit",
             json=COMMIT_BODY,
             headers=auth_headers(plan_env["admin"]),
         )
@@ -413,7 +413,7 @@ class TestCommit:
         }
         plan = await _create_plan(client, plan_env, plan_data)
         resp = await client.post(
-            f"/api/v1/architecture-plans/{plan['id']}/commit",
+            f"/api/v1/transition-plans/{plan['id']}/commit",
             json=COMMIT_BODY,
             headers=auth_headers(plan_env["admin"]),
         )
@@ -425,7 +425,7 @@ class TestCommit:
 
         plan = await _create_plan(client, plan_env, _replace_plan_data(plan_env))
         resp = await client.post(
-            f"/api/v1/architecture-plans/{plan['id']}/commit",
+            f"/api/v1/transition-plans/{plan['id']}/commit",
             json={**COMMIT_BODY, "create_adr": False},
             headers=auth_headers(plan_env["admin"]),
         )
@@ -441,7 +441,7 @@ class TestCommit:
             client, plan_env, _replace_plan_data(plan_env, remove_relation=True)
         )
         resp = await client.post(
-            f"/api/v1/architecture-plans/{plan['id']}/commit",
+            f"/api/v1/transition-plans/{plan['id']}/commit",
             json=COMMIT_BODY,
             headers=auth_headers(plan_env["admin"]),
         )
@@ -452,7 +452,7 @@ class TestCommit:
         assert adr.status == "draft"
         assert "Replace 'Legacy CRM' with 'New CRM'" in (adr.decision or "")
         assert "Cut relation" in (adr.decision or "")
-        assert adr.related_decisions[0]["type"] == "architecture_plan"
+        assert adr.related_decisions[0]["type"] == "transition_plan"
         assert adr.related_decisions[0]["id"] == plan["id"]
         # v1.1: the ADR now carries the gap analysis + cost insight lines.
         assert "Gap analysis" in (adr.consequences or "")
@@ -481,7 +481,7 @@ class TestCommit:
         }
         plan = await _create_plan(client, plan_env, plan_data)
         resp = await client.post(
-            f"/api/v1/architecture-plans/{plan['id']}/commit",
+            f"/api/v1/transition-plans/{plan['id']}/commit",
             json=COMMIT_BODY,
             headers=auth_headers(plan_env["admin"]),
         )
@@ -515,7 +515,7 @@ class TestCommit:
         }
         plan = await _create_plan(client, plan_env, plan_data)
         resp = await client.post(
-            f"/api/v1/architecture-plans/{plan['id']}/commit",
+            f"/api/v1/transition-plans/{plan['id']}/commit",
             json=COMMIT_BODY,
             headers=auth_headers(plan_env["admin"]),
         )
@@ -527,7 +527,7 @@ class TestCommit:
     async def test_viewer_cannot_commit(self, client, db, plan_env):
         plan = await _create_plan(client, plan_env, _replace_plan_data(plan_env))
         resp = await client.post(
-            f"/api/v1/architecture-plans/{plan['id']}/commit",
+            f"/api/v1/transition-plans/{plan['id']}/commit",
             json=COMMIT_BODY,
             headers=auth_headers(plan_env["viewer"]),
         )
@@ -536,13 +536,13 @@ class TestCommit:
     async def test_second_commit_conflicts(self, client, db, plan_env):
         plan = await _create_plan(client, plan_env, _replace_plan_data(plan_env))
         resp = await client.post(
-            f"/api/v1/architecture-plans/{plan['id']}/commit",
+            f"/api/v1/transition-plans/{plan['id']}/commit",
             json=COMMIT_BODY,
             headers=auth_headers(plan_env["admin"]),
         )
         assert resp.status_code == 200
         resp = await client.post(
-            f"/api/v1/architecture-plans/{plan['id']}/commit",
+            f"/api/v1/transition-plans/{plan['id']}/commit",
             json=COMMIT_BODY,
             headers=auth_headers(plan_env["admin"]),
         )
@@ -551,13 +551,13 @@ class TestCommit:
     async def test_patch_committed_plan_conflicts(self, client, db, plan_env):
         plan = await _create_plan(client, plan_env, _replace_plan_data(plan_env))
         resp = await client.post(
-            f"/api/v1/architecture-plans/{plan['id']}/commit",
+            f"/api/v1/transition-plans/{plan['id']}/commit",
             json=COMMIT_BODY,
             headers=auth_headers(plan_env["admin"]),
         )
         assert resp.status_code == 200
         resp = await client.patch(
-            f"/api/v1/architecture-plans/{plan['id']}",
+            f"/api/v1/transition-plans/{plan['id']}",
             json={"title": "Nope"},
             headers=auth_headers(plan_env["admin"]),
         )
@@ -566,7 +566,7 @@ class TestCommit:
     async def test_commit_without_changes_rejected(self, client, db, plan_env):
         plan = await _create_plan(client, plan_env, {"baseline": _baseline(plan_env)})
         resp = await client.post(
-            f"/api/v1/architecture-plans/{plan['id']}/commit",
+            f"/api/v1/transition-plans/{plan['id']}/commit",
             json=COMMIT_BODY,
             headers=auth_headers(plan_env["admin"]),
         )

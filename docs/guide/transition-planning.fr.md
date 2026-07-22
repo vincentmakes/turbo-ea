@@ -1,6 +1,6 @@
-# Planification d’architecture
+# Planification de transition
 
-La planification d’architecture est un outil de planification manuel dans **EA Delivery** pour modéliser les changements de votre paysage — remplacer une application par une autre pour une organisation donnée, décommissionner un système hérité ou introduire une nouvelle plateforme — et les communiquer sous la forme d’un **unique diagramme avant/après**. Elle offre un résultat similaire au TurboLens Architect, mais sans aucune IA : vous gardez le contrôle total de chaque changement proposé.
+La planification de transition est un outil de planification manuel dans **EA Delivery** pour modéliser les changements de votre paysage — remplacer une application par une autre pour une organisation donnée, décommissionner un système hérité ou introduire une nouvelle plateforme — et les communiquer sous la forme d’un **unique diagramme avant/après**. Elle offre un résultat similaire au TurboLens Architect, mais sans aucune IA : vous gardez le contrôle total de chaque changement proposé.
 
 Le résultat est une Layered Dependency View montrant l’état actuel et l’état planifié dans une seule image, avec des indicateurs de changement :
 
@@ -10,7 +10,7 @@ Le résultat est une Layered Dependency View montrant l’état actuel et l’é
 
 ## Créer un plan
 
-Ouvrez **EA Delivery** et utilisez **Ajouter → Nouveau plan d’architecture** sur une initiative (ou créez un plan non lié et rattachez-le plus tard). Un plan se construit en quatre étapes :
+Ouvrez **EA Delivery** et utilisez **Ajouter → Nouveau plan de transition** sur une initiative (ou créez un plan non lié et rattachez-le plus tard). Un plan se construit en quatre étapes :
 
 1. **Objectifs métier** *(optionnel)* — nommez les cartes Objectif que ce changement soutient. Elles apparaissent dans la couche Stratégie du diagramme, afin que chaque partie prenante voie le *pourquoi* à côté du *quoi*, et elles préremplissent les liens de l’initiative lors de la validation du plan.
 2. **Périmètre et référence** — choisissez une ou plusieurs cartes de périmètre (une organisation, une capacité métier, des applications individuelles, …) et une profondeur de dépendances (1–3). **Capturer la référence** prend un instantané du paysage environnant comme image « avant ». L’instantané garde le diagramme stable même si l’inventaire évolue ; utilisez **Actualiser la référence** pour la recapturer plus tard — tout changement planifié dont la cible a disparu est signalé.
@@ -23,7 +23,7 @@ Ouvrez **EA Delivery** et utilisez **Ajouter → Nouveau plan d’architecture**
 
 ## Comprendre les conséquences
 
-La planification d’architecture est plus qu’un éditeur de diagramme — pendant que vous planifiez, un panneau **Conséquences** rend l’impact architectural visible. Les mêmes chiffres apparaissent sur l’aperçu partageable et sont intégrés à l’ADR validé :
+La planification de transition est plus qu’un éditeur de diagramme — pendant que vous planifiez, un panneau **Conséquences** rend l’impact architectural visible. Les mêmes chiffres apparaissent sur l’aperçu partageable et sont intégrés à l’ADR validé :
 
 - **Analyse des écarts** — un récapitulatif façon TOGAF Ajouté / Retiré / Modifié / Conservé.
 - **Impact / rayon d’effet** — retirer ou remplacer une carte fait apparaître ce qui en dépend (« *N applications, M interfaces en dépendent* »), à partir de l’analyse d’impact de la carte.
@@ -32,7 +32,7 @@ La planification d’architecture est plus qu’un éditeur de diagramme — pen
 
 ## Valider un plan
 
-Un plan en brouillon peut être **validé** (nécessite la permission *Valider les plans d’architecture*). La validation :
+Un plan en brouillon peut être **validé** (nécessite la permission *Valider les plans de transition*). La validation :
 
 - crée une carte **Initiative** (avec le nom et les dates de début/fin choisis), liée aux objectifs soutenus,
 - crée les **cartes proposées** et **relations** sélectionnées, en liant chaque nouvelle carte à l’initiative,
@@ -48,8 +48,8 @@ Après la validation, le plan devient en lecture seule et pointe vers l’initia
 
 | Permission | Accorde |
 |------------|---------|
-| `arch_plans.view` | Voir les plans d’architecture |
-| `arch_plans.manage` | Créer, modifier et supprimer des plans |
-| `arch_plans.commit` | Valider un plan (créer l’initiative, les cartes, les relations, le brouillon d’ADR, apposer les dates de fin de vie) |
+| `transition_plans.view` | Voir les plans de transition |
+| `transition_plans.manage` | Créer, modifier et supprimer des plans |
+| `transition_plans.commit` | Valider un plan (créer l’initiative, les cartes, les relations, le brouillon d’ADR, apposer les dates de fin de vie) |
 
 Les membres peuvent voir, gérer et valider les plans par défaut ; les observateurs peuvent uniquement les consulter.

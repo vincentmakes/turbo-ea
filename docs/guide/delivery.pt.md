@@ -6,7 +6,7 @@ Quando o PPM está habilitado — a configuração típica — Entregas de EA vi
 
 
 !!! tip
-    Está a planear uma alteração do panorama (substituir uma aplicação, descontinuar um sistema, introduzir uma plataforma)? A ferramenta de [planeamento de arquitetura](architecture-planning.md) produz uma vista antes/depois que pode associar a uma iniciativa e confirmar num só passo.
+    Está a planear uma alteração do panorama (substituir uma aplicação, descontinuar um sistema, introduzir uma plataforma)? A ferramenta de [planeamento de transição](transition-planning.md) produz uma vista antes/depois que pode associar a uma iniciativa e confirmar num só passo.
 
 ![Gestão de Entregas de EA](../assets/img/pt/17_entrega_ea.png)
 

@@ -15,7 +15,7 @@ import DeliverableSection, {
 import NewArtefactSplitButton from "./NewArtefactSplitButton";
 import type {
   ArchitectureDecision,
-  ArchitecturePlan,
+  TransitionPlan,
   DiagramSummary,
   SoAW,
 } from "@/types";
@@ -26,7 +26,7 @@ interface UnlinkedSelection {
   soaws: SoAW[];
   diagrams: DiagramSummary[];
   adrs: ArchitectureDecision[];
-  plans: ArchitecturePlan[];
+  plans: TransitionPlan[];
 }
 
 interface InitiativeSelection {
@@ -43,6 +43,7 @@ interface Props {
   onLinkDiagrams: (initiativeId: string) => void;
   onUnlinkDiagram: (diagram: DiagramSummary, initiativeId: string) => void;
   onSoawContextMenu: (anchor: HTMLElement, soaw: SoAW) => void;
+  onPlanContextMenu: (anchor: HTMLElement, plan: TransitionPlan) => void;
   isFavorite: (id: string) => boolean;
   onToggleFavorite: (id: string) => void;
 }
@@ -60,6 +61,7 @@ export default function InitiativeWorkspace({
   onLinkDiagrams,
   onUnlinkDiagram,
   onSoawContextMenu,
+  onPlanContextMenu,
   isFavorite,
   onToggleFavorite,
 }: Props) {
@@ -88,7 +90,11 @@ export default function InitiativeWorkspace({
         />
         <DeliverableSection kind="diagram" items={selection.diagrams} />
         <DeliverableSection kind="adr" items={selection.adrs} />
-        <DeliverableSection kind="plan" items={selection.plans} />
+        <DeliverableSection
+          kind="plan"
+          items={selection.plans}
+          onPlanContextMenu={onPlanContextMenu}
+        />
       </Box>
     );
   }
@@ -101,6 +107,7 @@ export default function InitiativeWorkspace({
       onLinkDiagrams={onLinkDiagrams}
       onUnlinkDiagram={onUnlinkDiagram}
       onSoawContextMenu={onSoawContextMenu}
+      onPlanContextMenu={onPlanContextMenu}
       isFavorite={isFavorite}
       onToggleFavorite={onToggleFavorite}
     />
@@ -116,6 +123,7 @@ function InitiativeView({
   onLinkDiagrams,
   onUnlinkDiagram,
   onSoawContextMenu,
+  onPlanContextMenu,
   isFavorite,
   onToggleFavorite,
 }: {
@@ -125,6 +133,7 @@ function InitiativeView({
   onLinkDiagrams: (initiativeId: string) => void;
   onUnlinkDiagram: (diagram: DiagramSummary, initiativeId: string) => void;
   onSoawContextMenu: (anchor: HTMLElement, soaw: SoAW) => void;
+  onPlanContextMenu: (anchor: HTMLElement, plan: TransitionPlan) => void;
   isFavorite: (id: string) => boolean;
   onToggleFavorite: (id: string) => void;
 }) {
@@ -251,6 +260,7 @@ function InitiativeView({
           items={plans}
           initiativeId={initiative.id}
           onAdd={onCreateArtefact}
+          onPlanContextMenu={onPlanContextMenu}
         />
       </Box>
 
