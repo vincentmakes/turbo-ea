@@ -230,6 +230,64 @@ describe("FieldEditorDialog — new select option color", () => {
   });
 });
 
+describe("FieldEditorDialog — locale-aware option labels (issue #857 follow-up)", () => {
+  // Seeded built-in options carry a fully-populated translations map. Renaming
+  // one used to write only `label`, so the stale translation for the admin's
+  // current locale kept shadowing the new name everywhere option labels are
+  // resolved (translations[locale] || label). The label input must read and
+  // write the current locale's translation alongside the base label — the same
+  // contract the field label input already honours.
+  const initial: FieldDef = {
+    key: "processType",
+    label: "Process Type",
+    type: "single_select",
+    options: [
+      {
+        key: "management",
+        label: "Management",
+        color: "#9c27b0",
+        translations: { en: "Management", fr: "Gestion" },
+      },
+    ],
+  };
+
+  const renderDialog = (onSave = vi.fn()) => {
+    render(
+      <FieldEditorDialog
+        open
+        field={initial}
+        typeKey="BusinessProcess"
+        fieldKey="processType"
+        onClose={() => {}}
+        onSave={onSave}
+      />,
+    );
+    return onSave;
+  };
+
+  it("displays the current locale's translation when one exists", () => {
+    renderDialog();
+    // Tests run with locale "en"; translations.en wins over the base label.
+    expect(screen.getAllByLabelText("Label").at(-1)).toHaveValue("Management");
+  });
+
+  it("writes a rename to both label and translations[locale], preserving other locales", async () => {
+    const user = userEvent.setup();
+    const onSave = renderDialog();
+
+    const optionLabel = screen.getAllByLabelText("Label").at(-1)!;
+    await user.clear(optionLabel);
+    await user.type(optionLabel, "Strategic");
+    await user.click(screen.getByRole("button", { name: /^Save$/ }));
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const saved = onSave.mock.calls[0][0] as FieldDef;
+    const opt = saved.options![0];
+    expect(opt.label).toBe("Strategic");
+    expect(opt.translations).toEqual({ en: "Strategic", fr: "Gestion" });
+  });
+});
+
 describe("FieldEditorDialog — extension-gated capabilities", () => {
   const baseField: FieldDef = { key: "score", label: "Score", type: "text" };
 
