@@ -106,12 +106,12 @@ APP_PERMISSIONS: dict[str, dict] = {
             "adr.delete": "Delete architecture decisions",
         },
     },
-    "arch_plans": {
-        "label": "Architecture Plans",
+    "transition_plans": {
+        "label": "Transition Plans",
         "permissions": {
-            "arch_plans.view": "View architecture plans",
-            "arch_plans.manage": "Create, edit, and delete architecture plans",
-            "arch_plans.commit": (
+            "transition_plans.view": "View transition plans",
+            "transition_plans.manage": "Create, edit, and delete transition plans",
+            "transition_plans.commit": (
                 "Commit a plan — create the Initiative, cards, relations, and draft ADR, "
                 "and stamp end-of-life dates on removed cards"
             ),
@@ -365,9 +365,9 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "adr.manage": True,
     "adr.sign": True,
     "adr.delete": False,
-    "arch_plans.view": True,
-    "arch_plans.manage": True,
-    "arch_plans.commit": True,
+    "transition_plans.view": True,
+    "transition_plans.manage": True,
+    "transition_plans.commit": True,
     "tags.manage": True,
     "bookmarks.manage": True,
     "bookmarks.share": True,
@@ -446,9 +446,9 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "adr.manage": True,
     "adr.sign": True,
     "adr.delete": False,
-    "arch_plans.view": True,
-    "arch_plans.manage": True,
-    "arch_plans.commit": True,
+    "transition_plans.view": True,
+    "transition_plans.manage": True,
+    "transition_plans.commit": True,
     "tags.manage": True,
     "bookmarks.manage": True,
     "bookmarks.share": True,
@@ -527,9 +527,9 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "adr.manage": False,
     "adr.sign": False,
     "adr.delete": False,
-    "arch_plans.view": True,
-    "arch_plans.manage": False,
-    "arch_plans.commit": False,
+    "transition_plans.view": True,
+    "transition_plans.manage": False,
+    "transition_plans.commit": False,
     "tags.manage": False,
     "bookmarks.manage": True,
     "bookmarks.share": False,

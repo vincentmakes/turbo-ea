@@ -1,5 +1,5 @@
 /**
- * Strategy-driven scoping for Architecture Planning: derive the affected
+ * Strategy-driven scoping for Transition Planning: derive the affected
  * landscape top-down from the business objectives a change supports, instead of
  * hand-picking scope cards. Walks Objective → BusinessCapability → Application
  * via the dependency graph (`GET /reports/dependencies` at depth 2 reaches

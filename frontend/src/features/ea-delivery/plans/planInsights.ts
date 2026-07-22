@@ -1,5 +1,5 @@
 /**
- * Pure insight helpers for Architecture Planning — the "consequences" engine.
+ * Pure insight helpers for Transition Planning — the "consequences" engine.
  * All functions are side-effect free and computed from the merged before/after
  * graph (`buildPlanGraph`) so they can be unit-tested and shared by the editor,
  * the preview, and (mirrored in Python) the committed ADR.

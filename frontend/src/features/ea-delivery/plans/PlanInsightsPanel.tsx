@@ -1,5 +1,5 @@
 /**
- * The "consequences" panel for an architecture plan: a TOGAF-style gap analysis
+ * The "consequences" panel for a transition plan: a TOGAF-style gap analysis
  * (Added / Removed / Changed / Retained), an impact strip (cost delta, risk on
  * affected cards), and capability-coverage warnings. Rendered in both the editor
  * (live) and the read-only preview so a plan reads as an architecture decision,

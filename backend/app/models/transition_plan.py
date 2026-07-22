@@ -9,8 +9,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
-class ArchitecturePlan(Base, UUIDMixin, TimestampMixin):
-    """A manual architecture plan — a before/after landscape change proposal.
+class TransitionPlan(Base, UUIDMixin, TimestampMixin):
+    """A manual transition plan — a before/after landscape change proposal.
 
     ``plan_data`` holds a snapshotted baseline subgraph plus an ordered list of
     change operations; the merged before/after Layered Dependency View is
@@ -19,7 +19,7 @@ class ArchitecturePlan(Base, UUIDMixin, TimestampMixin):
     end-of-life lifecycle date on removed/replaced cards.
     """
 
-    __tablename__ = "architecture_plans"
+    __tablename__ = "transition_plans"
 
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)

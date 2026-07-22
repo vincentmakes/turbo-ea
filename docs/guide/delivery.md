@@ -6,7 +6,7 @@ When PPM is enabled — the typical configuration — EA Delivery lives **inside
 
 
 !!! tip
-    Planning a landscape change (replace an application, decommission a system, introduce a platform)? The [Architecture Planning](architecture-planning.md) tool produces a before/after Layered Dependency View you can attach to an initiative and commit in one step.
+    Planning a landscape change (replace an application, decommission a system, introduce a platform)? The [Transition Planning](transition-planning.md) tool produces a before/after Layered Dependency View you can attach to an initiative and commit in one step.
 
 ![EA Delivery Management](../assets/img/en/17_ea_delivery.png)
 

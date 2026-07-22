@@ -16370,262 +16370,6 @@
         ]
       }
     },
-    "/api/v1/architecture-plans": {
-      "get": {
-        "operationId": "list_plans_api_v1_architecture_plans_get",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "initiative_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Initiative Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "List Plans",
-        "tags": [
-          "architecture-plans"
-        ]
-      },
-      "post": {
-        "operationId": "create_plan_api_v1_architecture_plans_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PlanCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Create Plan",
-        "tags": [
-          "architecture-plans"
-        ]
-      }
-    },
-    "/api/v1/architecture-plans/{plan_id}": {
-      "delete": {
-        "operationId": "delete_plan_api_v1_architecture_plans__plan_id__delete",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "plan_id",
-            "required": true,
-            "schema": {
-              "title": "Plan Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Delete Plan",
-        "tags": [
-          "architecture-plans"
-        ]
-      },
-      "get": {
-        "operationId": "get_plan_api_v1_architecture_plans__plan_id__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "plan_id",
-            "required": true,
-            "schema": {
-              "title": "Plan Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Get Plan",
-        "tags": [
-          "architecture-plans"
-        ]
-      },
-      "patch": {
-        "operationId": "update_plan_api_v1_architecture_plans__plan_id__patch",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "plan_id",
-            "required": true,
-            "schema": {
-              "title": "Plan Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PlanUpdate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Update Plan",
-        "tags": [
-          "architecture-plans"
-        ]
-      }
-    },
-    "/api/v1/architecture-plans/{plan_id}/commit": {
-      "post": {
-        "description": "Commit a plan: create the Initiative, proposed cards and relations,\nan optional draft ADR, and stamp end-of-life dates on removed cards.\n\nSynchronous \u2014 a manual plan commit is a handful of inserts (no AI), so\nthere is no background run to poll.",
-        "operationId": "commit_plan_api_v1_architecture_plans__plan_id__commit_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "plan_id",
-            "required": true,
-            "schema": {
-              "title": "Plan Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PlanCommitRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Commit Plan",
-        "tags": [
-          "architecture-plans"
-        ]
-      }
-    },
     "/api/v1/auth/forgot-password": {
       "post": {
         "description": "Initiate a password reset \u2014 or first-time password setup \u2014 for a local account.\n\nAnti-enumeration: always returns `{\"ok\": True}` regardless of whether the\nemail matches a user. An email is only sent for an active local account when\nSMTP is configured, and its shape depends on the account's state:\n\n- The account already has a password \u2192 a one-hour **reset** link.\n- The account has no password but a setup token (created without a\n  password, e.g. via a stakeholder invite left un-emailed) \u2192 a **set-password**\n  link so the user can self-serve on first login. A missing setup token is\n  minted here so the account is never permanently locked out.\n\nSSO-only accounts (no password, marked `auth_provider=\"sso\"`) get nothing.",
@@ -34910,6 +34654,262 @@
         "summary": "Promote Todo",
         "tags": [
           "todos"
+        ]
+      }
+    },
+    "/api/v1/transition-plans": {
+      "get": {
+        "operationId": "list_plans_api_v1_transition_plans_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "initiative_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Initiative Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Plans",
+        "tags": [
+          "transition-plans"
+        ]
+      },
+      "post": {
+        "operationId": "create_plan_api_v1_transition_plans_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Plan",
+        "tags": [
+          "transition-plans"
+        ]
+      }
+    },
+    "/api/v1/transition-plans/{plan_id}": {
+      "delete": {
+        "operationId": "delete_plan_api_v1_transition_plans__plan_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "title": "Plan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Plan",
+        "tags": [
+          "transition-plans"
+        ]
+      },
+      "get": {
+        "operationId": "get_plan_api_v1_transition_plans__plan_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "title": "Plan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Plan",
+        "tags": [
+          "transition-plans"
+        ]
+      },
+      "patch": {
+        "operationId": "update_plan_api_v1_transition_plans__plan_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "title": "Plan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Plan",
+        "tags": [
+          "transition-plans"
+        ]
+      }
+    },
+    "/api/v1/transition-plans/{plan_id}/commit": {
+      "post": {
+        "description": "Commit a plan: create the Initiative, proposed cards and relations,\nan optional draft ADR, and stamp end-of-life dates on removed cards.\n\nSynchronous \u2014 a manual plan commit is a handful of inserts (no AI), so\nthere is no background run to poll.",
+        "operationId": "commit_plan_api_v1_transition_plans__plan_id__commit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "title": "Plan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanCommitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Commit Plan",
+        "tags": [
+          "transition-plans"
         ]
       }
     },

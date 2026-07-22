@@ -14,7 +14,6 @@ import sqlalchemy as sa
 
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
-from app.models.architecture_plan import ArchitecturePlan
 from app.models.bookmark import Bookmark
 from app.models.comment import Comment
 from app.models.diagram import Diagram
@@ -40,6 +39,7 @@ from app.models.soaw import SoAW
 from app.models.stakeholder import Stakeholder
 from app.models.survey import Survey, SurveyResponse
 from app.models.todo import Todo
+from app.models.transition_plan import TransitionPlan
 from app.models.turbolens import TurboLensAnalysisRun, TurboLensComplianceFinding
 from app.models.web_portal import WebPortal
 from app.services.workspace_io.entities import EntitySection
@@ -199,8 +199,8 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
     # plan still renders; only re-committing against remapped cards could
     # reference stale ids — same caveat as card `attributes`).
     EntitySection(
-        "ArchitecturePlans",
-        ArchitecturePlan,
+        "TransitionPlans",
+        TransitionPlan,
         card_fk_columns=("initiative_id",),
         user_fk_columns=("created_by",),
     ),

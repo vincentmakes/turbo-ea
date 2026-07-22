@@ -692,7 +692,7 @@ export interface ArchitectureDecision {
   updated_at: string | null;
 }
 
-/* ---- Architecture Planning (manual before/after plans) ---- */
+/* ---- Transition Planning (manual before/after plans) ---- */
 
 /** A not-yet-existing card proposed by a plan. `tempId` ("tmp:<uuid>") makes it
  *  addressable by later change ops and by the commit id-map. */
@@ -753,7 +753,7 @@ export interface PlanData {
   baselineCapturedAt?: string;
 }
 
-export interface ArchitecturePlan {
+export interface TransitionPlan {
   id: string;
   title: string;
   description: string | null;

@@ -1,8 +1,8 @@
 /**
- * Read-only architecture-plan preview — the shareable deliverable. Renders the
+ * Read-only transition-plan preview — the shareable deliverable. Renders the
  * plan header, the supported business objectives, the grouped change list, and
  * the merged before/after Layered Dependency View. Drafts can be committed
- * from here (gated on `arch_plans.commit`).
+ * from here (gated on `transition_plans.commit`).
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -25,7 +25,7 @@ import LayeredDependencyView, {
 } from "@/features/reports/LayeredDependencyView";
 import type { GEdge, GNode } from "@/features/reports/layeredDependencyLayout";
 import type {
-  ArchitecturePlan,
+  TransitionPlan,
   PlanCardRef,
   PlanChangeOp,
   PlanCommitResult,
@@ -50,7 +50,7 @@ export default function PlanPreview() {
   const { user } = useAuth();
   const { can } = usePermissions(user);
 
-  const [plan, setPlan] = useState<ArchitecturePlan | null>(null);
+  const [plan, setPlan] = useState<TransitionPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [commitOpen, setCommitOpen] = useState(false);
@@ -59,7 +59,7 @@ export default function PlanPreview() {
     if (!id) return;
     setLoading(true);
     api
-      .get<ArchitecturePlan>(`/architecture-plans/${id}`)
+      .get<TransitionPlan>(`/transition-plans/${id}`)
       .then(setPlan)
       .catch((err) => setError(err.message || "Failed to load plan"))
       .finally(() => setLoading(false));
@@ -151,7 +151,7 @@ export default function PlanPreview() {
           {t("plan.backToDelivery")}
         </Button>
         <Box sx={{ flex: 1 }} />
-        {isDraft && can("arch_plans.manage") && (
+        {isDraft && can("transition_plans.manage") && (
           <Button
             size="small"
             variant="outlined"
@@ -161,7 +161,7 @@ export default function PlanPreview() {
             {t("common:actions.edit")}
           </Button>
         )}
-        {isDraft && can("arch_plans.commit") && changes.length > 0 && (
+        {isDraft && can("transition_plans.commit") && changes.length > 0 && (
           <Button
             size="small"
             variant="contained"

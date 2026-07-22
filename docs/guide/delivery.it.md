@@ -6,7 +6,7 @@ Quando PPM è abilitato — la configurazione tipica — EA Delivery vive **dent
 
 
 !!! tip
-    State pianificando un cambiamento del panorama (sostituire un’applicazione, dismettere un sistema, introdurre una piattaforma)? Lo strumento di [pianificazione dell’architettura](architecture-planning.md) produce una vista prima/dopo che potete collegare a un’iniziativa e confermare in un solo passo.
+    State pianificando un cambiamento del panorama (sostituire un’applicazione, dismettere un sistema, introdurre una piattaforma)? Lo strumento di [pianificazione della transizione](transition-planning.md) produce una vista prima/dopo che potete collegare a un’iniziativa e confermare in un solo passo.
 
 ![Gestione EA Delivery](../assets/img/it/17_consegna_ea.png)
 

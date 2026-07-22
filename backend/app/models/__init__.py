@@ -1,7 +1,6 @@
 from app.models.app_settings import AppSettings
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
-from app.models.architecture_plan import ArchitecturePlan
 from app.models.base import Base
 from app.models.bookmark import Bookmark
 from app.models.calculation import Calculation
@@ -63,6 +62,7 @@ from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.survey import Survey, SurveyResponse
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.todo import Todo
+from app.models.transition_plan import TransitionPlan
 from app.models.turbolens import (
     TurboLensAnalysisRun,
     TurboLensAssessment,
@@ -87,7 +87,7 @@ __all__ = [
     "TurboLensVendorHierarchy",
     "ArchitectureDecision",
     "ArchitectureDecisionCard",
-    "ArchitecturePlan",
+    "TransitionPlan",
     "Base",
     "FileAttachment",
     "User",

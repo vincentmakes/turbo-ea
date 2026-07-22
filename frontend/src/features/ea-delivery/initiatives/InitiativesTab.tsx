@@ -22,7 +22,7 @@ import {
   type InitiativeTreeNode,
 } from "./useInitiativeData";
 import type { DeliverableKind } from "./DeliverableSection";
-import type { DiagramSummary, SoAW } from "@/types";
+import type { DiagramSummary, SoAW, TransitionPlan } from "@/types";
 
 const SIDEBAR_WIDTH_KEY = "turboea-delivery-sidebar-width";
 const SIDEBAR_COLLAPSED_KEY = "turboea-delivery-sidebar-collapsed";
@@ -56,6 +56,7 @@ interface Props {
   onLinkDiagrams: (initiativeId: string) => void;
   onUnlinkDiagram: (diagram: DiagramSummary, initiativeId: string) => void;
   onSoawContextMenu: (anchor: HTMLElement, soaw: SoAW) => void;
+  onPlanContextMenu: (anchor: HTMLElement, plan: TransitionPlan) => void;
   onDataReady?: (data: ReturnType<typeof useInitiativeData>) => void;
 }
 
@@ -68,6 +69,7 @@ export default function InitiativesTab({
   onLinkDiagrams,
   onUnlinkDiagram,
   onSoawContextMenu,
+  onPlanContextMenu,
   onDataReady,
 }: Props) {
   const { t } = useTranslation(["delivery", "common"]);
@@ -370,6 +372,7 @@ export default function InitiativesTab({
                   onLinkDiagrams={onLinkDiagrams}
                   onUnlinkDiagram={onUnlinkDiagram}
                   onSoawContextMenu={onSoawContextMenu}
+                  onPlanContextMenu={onPlanContextMenu}
                   isFavorite={(id) => favorites.has(id)}
                   onToggleFavorite={toggleFavorite}
                 />

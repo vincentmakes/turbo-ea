@@ -1,5 +1,5 @@
 /**
- * Risk fan-out for Architecture Planning. There is no bulk "risk counts for
+ * Risk fan-out for Transition Planning. There is no bulk "risk counts for
  * these cards" endpoint, so we fan out `GET /cards/{id}/risks` across the
  * (small) set of real cards the plan touches and dedupe client-side. Kept in
  * its own module so the pure `summarizeRisks` in planInsights stays testable.

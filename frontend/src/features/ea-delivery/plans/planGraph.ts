@@ -1,5 +1,5 @@
 /**
- * Pure merge engine for Architecture Planning: replays a plan's ordered
+ * Pure merge engine for Transition Planning: replays a plan's ordered
  * change-operation list against the snapshotted baseline subgraph and returns
  * the merged before/after graph for the Layered Dependency View.
  *

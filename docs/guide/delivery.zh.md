@@ -6,7 +6,7 @@
 
 
 !!! tip
-    正在规划版图变更（替换应用、退役系统、引入平台）？[架构规划](architecture-planning.md)工具可生成变更前/后对比视图，可附加到举措并一步提交。
+    正在规划版图变更（替换应用、退役系统、引入平台）？[过渡规划](transition-planning.md)工具可生成变更前/后对比视图，可附加到举措并一步提交。
 
 ![EA 交付管理](../assets/img/zh/17_ea_delivery.png)
 

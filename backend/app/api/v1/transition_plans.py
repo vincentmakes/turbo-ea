@@ -9,12 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.models.architecture_plan import ArchitecturePlan
+from app.models.transition_plan import TransitionPlan
 from app.models.user import User
-from app.services.architecture_plan_commit import execute_plan_commit
 from app.services.permission_service import PermissionService
+from app.services.transition_plan_commit import execute_plan_commit
 
-router = APIRouter(prefix="/architecture-plans", tags=["architecture-plans"])
+router = APIRouter(prefix="/transition-plans", tags=["transition-plans"])
 
 
 # ---------------------------------------------------------------------------
@@ -59,7 +59,7 @@ class PlanCommitRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _row_to_dict(p: ArchitecturePlan, full: bool = True) -> dict:
+def _row_to_dict(p: TransitionPlan, full: bool = True) -> dict:
     data = {
         "id": str(p.id),
         "title": p.title,
@@ -77,15 +77,15 @@ def _row_to_dict(p: ArchitecturePlan, full: bool = True) -> dict:
     return data
 
 
-async def _get_plan(db: AsyncSession, plan_id: str) -> ArchitecturePlan:
+async def _get_plan(db: AsyncSession, plan_id: str) -> TransitionPlan:
     try:
         plan_uuid = uuid.UUID(plan_id)
     except (ValueError, TypeError):
-        raise HTTPException(404, "Architecture plan not found") from None
-    result = await db.execute(select(ArchitecturePlan).where(ArchitecturePlan.id == plan_uuid))
+        raise HTTPException(404, "Transition plan not found") from None
+    result = await db.execute(select(TransitionPlan).where(TransitionPlan.id == plan_uuid))
     p = result.scalar_one_or_none()
     if not p:
-        raise HTTPException(404, "Architecture plan not found")
+        raise HTTPException(404, "Transition plan not found")
     return p
 
 
@@ -100,10 +100,10 @@ async def list_plans(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, "arch_plans.view")
-    stmt = select(ArchitecturePlan).order_by(ArchitecturePlan.updated_at.desc())
+    await PermissionService.require_permission(db, user, "transition_plans.view")
+    stmt = select(TransitionPlan).order_by(TransitionPlan.updated_at.desc())
     if initiative_id:
-        stmt = stmt.where(ArchitecturePlan.initiative_id == uuid.UUID(initiative_id))
+        stmt = stmt.where(TransitionPlan.initiative_id == uuid.UUID(initiative_id))
     result = await db.execute(stmt)
     rows = result.scalars().all()
     # Summary serializer: the baseline snapshot can be large, so the list
@@ -117,8 +117,8 @@ async def create_plan(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, "arch_plans.manage")
-    p = ArchitecturePlan(
+    await PermissionService.require_permission(db, user, "transition_plans.manage")
+    p = TransitionPlan(
         title=body.title,
         description=body.description,
         initiative_id=uuid.UUID(body.initiative_id) if body.initiative_id else None,
@@ -138,7 +138,7 @@ async def get_plan(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, "arch_plans.view")
+    await PermissionService.require_permission(db, user, "transition_plans.view")
     p = await _get_plan(db, plan_id)
     return _row_to_dict(p)
 
@@ -150,7 +150,7 @@ async def update_plan(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, "arch_plans.manage")
+    await PermissionService.require_permission(db, user, "transition_plans.manage")
     p = await _get_plan(db, plan_id)
 
     if p.status == "committed":
@@ -177,7 +177,7 @@ async def delete_plan(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, "arch_plans.manage")
+    await PermissionService.require_permission(db, user, "transition_plans.manage")
     p = await _get_plan(db, plan_id)
     await db.delete(p)
     await db.commit()
@@ -201,7 +201,7 @@ async def commit_plan(
     Synchronous — a manual plan commit is a handful of inserts (no AI), so
     there is no background run to poll.
     """
-    await PermissionService.require_permission(db, user, "arch_plans.commit")
+    await PermissionService.require_permission(db, user, "transition_plans.commit")
     p = await _get_plan(db, plan_id)
 
     if p.status == "committed":

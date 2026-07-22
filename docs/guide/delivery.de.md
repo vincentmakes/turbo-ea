@@ -6,7 +6,7 @@ Wenn PPM aktiviert ist — die übliche Konfiguration — lebt EA Delivery **inn
 
 
 !!! tip
-    Sie planen eine Landschaftsänderung (Anwendung ersetzen, System stilllegen, Plattform einführen)? Das Werkzeug [Architekturplanung](architecture-planning.md) erzeugt eine Vorher-Nachher-Ansicht, die Sie an eine Initiative anhängen und in einem Schritt übernehmen können.
+    Sie planen eine Landschaftsänderung (Anwendung ersetzen, System stilllegen, Plattform einführen)? Das Werkzeug [Übergangsplanung](transition-planning.md) erzeugt eine Vorher-Nachher-Ansicht, die Sie an eine Initiative anhängen und in einem Schritt übernehmen können.
 
 ![EA Delivery-Verwaltung](../assets/img/de/17_ea_lieferung.png)
 

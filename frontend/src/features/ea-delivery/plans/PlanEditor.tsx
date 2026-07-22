@@ -1,5 +1,5 @@
 /**
- * Architecture Planning editor — the manual (no-AI) counterpart of the
+ * Transition Planning editor — the manual (no-AI) counterpart of the
  * TurboLens Architect. The architect optionally names the business objectives
  * the change supports, picks scope cards, captures a snapshotted baseline of
  * the surrounding landscape, then applies change operations (add / remove /
@@ -38,7 +38,7 @@ import LayeredDependencyView, {
 } from "@/features/reports/LayeredDependencyView";
 import type { GEdge, GNode } from "@/features/reports/layeredDependencyLayout";
 import type {
-  ArchitecturePlan,
+  TransitionPlan,
   PlanBaseline,
   PlanCardRef,
   PlanChangeOp,
@@ -109,7 +109,7 @@ export default function PlanEditor() {
     if (!id) return;
     setLoading(true);
     api
-      .get<ArchitecturePlan>(`/architecture-plans/${id}`)
+      .get<TransitionPlan>(`/transition-plans/${id}`)
       .then((p) => {
         if (p.status === "committed") {
           navigate(`/ea-delivery/plans/${p.id}/preview`, { replace: true });
@@ -281,9 +281,9 @@ export default function PlanEditor() {
     };
     try {
       if (planId) {
-        await api.patch(`/architecture-plans/${planId}`, payload);
+        await api.patch(`/transition-plans/${planId}`, payload);
       } else {
-        const created = await api.post<ArchitecturePlan>("/architecture-plans", payload);
+        const created = await api.post<TransitionPlan>("/transition-plans", payload);
         setPlanId(created.id);
         navigate(`/ea-delivery/plans/${created.id}`, { replace: true });
       }
