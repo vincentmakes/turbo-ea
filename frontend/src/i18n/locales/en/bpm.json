@@ -208,9 +208,7 @@
   "navigator.totalProcesses_other": "{{count}} processes",
   "navigator.allProcesses": "All Processes",
   "navigator.noProcessesFound": "No Business Processes found. Add processes to see the Process House.",
-  "navigator.managementProcesses": "Management Processes",
-  "navigator.coreProcesses": "Core Processes",
-  "navigator.supportProcesses": "Support Processes",
+  "navigator.processRow": "{{type}} Processes",
   "navigator.noProcessesDefined": "No {{type}} defined",
 
   "modeler.save": "Save",

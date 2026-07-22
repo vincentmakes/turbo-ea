@@ -29,6 +29,24 @@ vi.mock("@/components/CardDetailSidePanel", () => ({
   default: ({ cardId, open }: { cardId: string | null; open: boolean; onClose: () => void }) =>
     open ? <div data-testid="card-side-panel" data-card-id={cardId}>SidePanel</div> : null,
 }));
+// Metamodel-driven process-type resolution (issue #857): the pie chart must
+// show the admin-customized option labels/colors, not the raw stored keys.
+vi.mock("./useProcessTypeOptions", () => {
+  const LABELS: Record<string, string> = {
+    Core: "Core",
+    Support: "Support",
+    Management: "Strategic",
+  };
+  return {
+    useProcessTypeOptions: () => ({
+      options: [],
+      byKey: new Map(),
+      defaultKey: "core",
+      loading: false,
+      resolve: (key: string) => ({ key, label: LABELS[key] ?? key, color: "#00aa55" }),
+    }),
+  };
+});
 
 import { api } from "@/api/client";
 import BpmDashboard from "./BpmDashboard";
@@ -116,6 +134,16 @@ describe("BpmDashboard", () => {
       expect(screen.getByText("By Process Type")).toBeInTheDocument();
       expect(screen.getByText("Maturity Distribution")).toBeInTheDocument();
       expect(screen.getByText("Automation Level")).toBeInTheDocument();
+    });
+  });
+
+  it("labels the process-type pie with resolved metamodel labels, not raw keys (issue #857)", async () => {
+    renderPage();
+    await userEvent.click(screen.getByText("Dashboard"));
+
+    await waitFor(() => {
+      // "Management" resolves to the customized label "Strategic".
+      expect(screen.getByTestId("pie")).toHaveTextContent("Core,Support,Strategic");
     });
   });
 

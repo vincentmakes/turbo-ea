@@ -15,11 +15,39 @@ vi.mock("./BpmnViewer", () => ({
   ),
 }));
 
+// The BusinessProcess type carries the admin-customizable processType
+// options the navigator must render from (issue #857): "management" is
+// renamed to "Strategic" with a custom color, and a fourth admin-added
+// option ("innovation") exists beyond the seeded three.
 vi.mock("@/hooks/useMetamodel", () => ({
   useMetamodel: () => ({
+    loading: false,
     getType: (key: string) =>
       key === "BusinessProcess"
-        ? { key, icon: "route", color: "#028f00", subtypes: [] }
+        ? {
+            key,
+            icon: "route",
+            color: "#028f00",
+            subtypes: [],
+            fields_schema: [
+              {
+                section: "Process Classification",
+                fields: [
+                  {
+                    key: "processType",
+                    label: "Process Type",
+                    type: "single_select",
+                    options: [
+                      { key: "core", label: "Core", color: "#1976d2" },
+                      { key: "support", label: "Support", color: "#607d8b" },
+                      { key: "management", label: "Strategic", color: "#00aa55" },
+                      { key: "innovation", label: "Innovation", color: "#ff8800" },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }
         : undefined,
   }),
 }));
@@ -28,6 +56,12 @@ vi.mock("@/hooks/useAuth", () => ({
 }));
 vi.mock("@/hooks/useResolveLabel", () => ({
   useSubtypeLabel: () => () => "",
+  useFieldLabel:
+    () => (e: { label?: string; key?: string } | null | undefined) =>
+      e?.label ?? e?.key ?? "",
+  useOptionLabel:
+    () => (e: { label?: string; key?: string } | null | undefined) =>
+      e?.label ?? e?.key ?? "",
 }));
 
 const mockNavigate = vi.fn();
@@ -184,5 +218,93 @@ describe("ProcessNavigator — clickable process-flow icon", () => {
     renderNavigator();
     await screen.findByText("Order to Cash");
     expect(screen.queryByRole("button", { name: "View Flow" })).not.toBeInTheDocument();
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────
+ * Issue #857 — rows, legend, and colors must follow the metamodel's
+ * processType options (labels, translations, colors), not hardcoded maps.
+ * ──────────────────────────────────────────────────────────────── */
+
+function makeItem(id: string, name: string, processType?: string) {
+  return {
+    id,
+    name,
+    subtype: undefined,
+    parent_id: null,
+    attributes: processType ? { processType } : {},
+    lifecycle: {},
+    app_count: 0,
+    total_cost: 0,
+    apps: [],
+    data_objects: [],
+    org_ids: [],
+    ctx_ids: [],
+    has_diagram: false,
+    element_count: 0,
+  };
+}
+
+describe("ProcessNavigator — metamodel-driven process types (issue #857)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders row headers with the customized option label, not the hardcoded one", async () => {
+    mockApi({
+      items: [makeItem("p1", "Order to Cash", "core"), makeItem("p2", "Budgeting", "management")],
+      organizations: [],
+      business_contexts: [],
+    });
+    renderNavigator();
+    await screen.findByText("Order to Cash");
+
+    // "management" was renamed to "Strategic" in the (mocked) metamodel.
+    expect(screen.getByText("Strategic Processes")).toBeInTheDocument();
+    expect(screen.queryByText("Management Processes")).not.toBeInTheDocument();
+  });
+
+  it("adds a row for an admin-added fourth option even when absent from the persisted row order", async () => {
+    mockApi({
+      items: [makeItem("p1", "Order to Cash", "core")],
+      organizations: [],
+      business_contexts: [],
+    });
+    renderNavigator();
+    await screen.findByText("Order to Cash");
+
+    // The mocked /settings/bpm-row-order only knows management/core/support;
+    // the "innovation" option still gets its own row (appended).
+    expect(screen.getByText("Innovation Processes")).toBeInTheDocument();
+  });
+
+  it("renders the overlay legend from the metamodel options", async () => {
+    mockApi({
+      items: [makeItem("p1", "Order to Cash", "core")],
+      organizations: [],
+      business_contexts: [],
+    });
+    renderNavigator();
+    await screen.findByText("Order to Cash");
+
+    for (const label of ["Core", "Support", "Strategic", "Innovation"]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.getByText("Not set")).toBeInTheDocument();
+    expect(screen.queryByText("Management")).not.toBeInTheDocument();
+  });
+
+  it("keeps a card whose processType no longer exists visible in its own row", async () => {
+    mockApi({
+      items: [makeItem("p1", "Order to Cash", "core"), makeItem("p2", "Old Timer", "legacy")],
+      organizations: [],
+      business_contexts: [],
+    });
+    renderNavigator();
+    await screen.findByText("Order to Cash");
+
+    // Unknown key → synthetic row titled with the raw key, card still shown.
+    expect(screen.getByText("legacy Processes")).toBeInTheDocument();
+    expect(screen.getByText("Old Timer")).toBeInTheDocument();
   });
 });

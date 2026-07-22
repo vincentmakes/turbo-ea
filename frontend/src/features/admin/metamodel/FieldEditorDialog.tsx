@@ -314,8 +314,19 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
                   <TextField
                     size="small"
                     label={t("metamodel.fieldEditor.optionLabelLabel")}
-                    value={opt.label}
-                    onChange={(e) => updateOption(idx, { label: e.target.value })}
+                    // Locale-aware, mirroring the field label input above: show the
+                    // current locale's translation when one exists, and write edits to
+                    // BOTH `label` and `translations[locale]`. Without the translation
+                    // write, renaming a seeded option (whose translations map is fully
+                    // populated) had no visible effect in non-English locales — the
+                    // stale translation kept shadowing the new label (issue #857).
+                    value={opt.translations?.[locale] ?? opt.label}
+                    onChange={(e) =>
+                      updateOption(idx, {
+                        label: e.target.value,
+                        translations: { ...opt.translations, [locale]: e.target.value },
+                      })
+                    }
                     sx={{ flex: 1 }}
                     helperText=" "
                   />

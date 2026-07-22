@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.23.3] - 2026-07-22
+
+### Fixed
+- **Renaming a select-field option now takes effect in the admin's current language** (#857 follow-up). The metamodel field editor's option label input is locale-aware: it shows the current locale's translation and writes edits to both the base label and that translation — previously a rename only changed the base label, so seeded options (which ship with a full translations map) kept showing their old translated name in non-English locales. Other locales' translations are preserved and remain editable via the type's Translations dialog.
+- **BPM views now reflect customized Process Type labels, translations, and colors** (#857). The BPM Process Navigator (rows, legend, card colors, detail chips), the Process Map report (chips + legend), and the BPM dashboard pie chart resolve the Business Process → Process Type options from the metamodel instead of hardcoded copies — renaming an option (e.g. Management → Strategic) or changing its color now shows up everywhere. Admin-added process types get their own navigator row, and cards whose process type option was deleted stay visible in a neutral row instead of being silently filed under Core. Default installs now show the metamodel's seeded option colors consistently across all BPM views.
+
 ## [2.23.2] - 2026-07-20
 
 ### Documentation

@@ -30,6 +30,7 @@ import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 import { readableTextColor } from "@/lib/color";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useProcessTypeOptions } from "@/features/bpm/useProcessTypeOptions";
 import { CARD_TYPE_COLORS } from "@/theme";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useSavedReport } from "@/hooks/useSavedReport";
@@ -107,12 +108,6 @@ const RISK_MAP: Record<string, { order: number; tKey: string; color: string }> =
   medium: { order: 2, tKey: "processMap.riskMedium", color: "#fbc02d" },
   high: { order: 3, tKey: "processMap.riskHigh", color: "#f57c00" },
   critical: { order: 4, tKey: "processMap.riskCritical", color: "#d32f2f" },
-};
-
-const PROCESS_TYPE_MAP: Record<string, { tKey: string; color: string }> = {
-  core: { tKey: "processMap.processTypeCore", color: "#1976d2" },
-  support: { tKey: "processMap.processTypeSupport", color: "#7b1fa2" },
-  management: { tKey: "processMap.processTypeManagement", color: "#00695c" },
 };
 
 const SUBTYPE_TKEYS: Record<string, string> = {
@@ -372,7 +367,8 @@ function ProcessCard({
   );
 
   const subtypeTKey = SUBTYPE_TKEYS[node.subtype || ""] || null;
-  const processType = PROCESS_TYPE_MAP[attrs.processType as string];
+  const { resolve: resolveProcessType } = useProcessTypeOptions();
+  const processType = attrs.processType ? resolveProcessType(attrs.processType as string) : null;
   const isHighContrast = val > maxVal * 0.65 && maxVal > 0;
 
   const relatedChips = showRelated === "apps" ? visibleApps : showRelated === "data_objects" ? visibleDOs : [];
@@ -414,8 +410,8 @@ function ProcessCard({
             <Chip size="small" label={tr(subtypeTKey)} sx={{ height: 18, fontSize: "0.65rem", bgcolor: "rgba(255,255,255,0.6)" }} />
           )}
           {processType && (
-            <Chip size="small" label={tr(processType.tKey)}
-              sx={{ height: 18, fontSize: "0.65rem", bgcolor: processType.color, color: "#fff" }} />
+            <Chip size="small" label={processType.label}
+              sx={{ height: 18, fontSize: "0.65rem", bgcolor: processType.color, color: readableTextColor(processType.color) }} />
           )}
           <Chip size="small" label={label}
             sx={{ height: 20, fontSize: "0.7rem", bgcolor: "rgba(255,255,255,0.7)" }} />
@@ -533,6 +529,7 @@ function ProcessCard({
 export default function ProcessMapReport() {
   const { t } = useTranslation(["reports", "common"]);
   const { fmtShort } = useCurrency();
+  const { options: processTypeOptions, resolve: resolveProcessType } = useProcessTypeOptions();
   const saved = useSavedReport("process-map");
 
   // Data
@@ -820,10 +817,10 @@ export default function ProcessMapReport() {
           {/* Process type legend */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, ml: 2 }}>
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{t("processMap.typeLabel")}</Typography>
-            {Object.values(PROCESS_TYPE_MAP).map((pt) => (
-              <Box key={pt.tKey} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            {processTypeOptions.map((pt) => (
+              <Box key={pt.key} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                 <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: pt.color, flexShrink: 0 }} />
-                <Typography variant="caption" color="text.secondary">{t(pt.tKey)}</Typography>
+                <Typography variant="caption" color="text.secondary">{pt.label}</Typography>
               </Box>
             ))}
           </Box>
@@ -929,12 +926,14 @@ export default function ProcessMapReport() {
               {drawer.subtype && SUBTYPE_TKEYS[drawer.subtype] && (
                 <Chip size="small" label={t(SUBTYPE_TKEYS[drawer.subtype])} variant="outlined" />
               )}
-              {PROCESS_TYPE_MAP[(drawer.attributes?.processType as string) || ""] && (
+              {!!drawer.attributes?.processType && (
                 <Chip size="small"
-                  label={t(PROCESS_TYPE_MAP[(drawer.attributes?.processType as string) || ""].tKey)}
+                  label={resolveProcessType(drawer.attributes.processType as string).label}
                   sx={{
-                    bgcolor: PROCESS_TYPE_MAP[(drawer.attributes?.processType as string) || ""].color,
-                    color: "#fff",
+                    bgcolor: resolveProcessType(drawer.attributes.processType as string).color,
+                    color: readableTextColor(
+                      resolveProcessType(drawer.attributes.processType as string).color,
+                    ),
                   }}
                 />
               )}

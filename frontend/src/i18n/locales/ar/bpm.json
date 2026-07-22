@@ -208,9 +208,7 @@
   "navigator.totalProcesses_other": "{{count}} عمليات",
   "navigator.allProcesses": "جميع العمليات",
   "navigator.noProcessesFound": "لم يتم العثور على عمليات تجارية. أضِف عمليات لرؤية بيت العمليات.",
-  "navigator.managementProcesses": "عمليات الإدارة",
-  "navigator.coreProcesses": "العمليات الأساسية",
-  "navigator.supportProcesses": "عمليات الدعم",
+  "navigator.processRow": "عمليات {{type}}",
   "navigator.noProcessesDefined": "لم يتم تعريف {{type}}",
 
   "modeler.save": "حفظ",
