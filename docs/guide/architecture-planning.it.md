@@ -21,6 +21,15 @@ Aprite **EA Delivery** e usate **Aggiungi → Nuovo piano di architettura** su u
     - **Aggiungi / rimuovi relazione** — tracciate nuove connessioni o tagliate quelle esistenti. I tipi di relazione sono validati rispetto al metamodello.
 4. **Anteprima dal vivo** — il diagramma prima/dopo unito si aggiorna mentre pianificate. Salvate il piano in qualsiasi momento; appare nella sezione **Deliverable** dell’iniziativa.
 
+## Comprendere le conseguenze
+
+La pianificazione dell’architettura è più di un editor di diagrammi: mentre pianificate, un pannello **Conseguenze** rende visibile l’impatto architetturale. Gli stessi numeri appaiono nell’anteprima condivisibile e confluiscono nell’ADR confermato:
+
+- **Analisi dei gap** — un riepilogo in stile TOGAF Aggiunto / Rimosso / Modificato / Mantenuto.
+- **Impatto / raggio d’azione** — rimuovere o sostituire una card mostra cosa dipende da essa (« *N applicazioni, M interfacce dipendono da questa* »), dall’analisi d’impatto della card.
+- **Lacune di copertura delle capability** — se una business capability perde *tutte* le sue applicazioni di supporto nello stato target, viene segnalata.
+- **Differenze di costo e rischio** — il costo annuo stimato prima → dopo (con la differenza) e il numero di rischi aperti sulle card interessate. Le card proposte contribuiscono con il loro costo stimato, scritto anche sulla card creata alla conferma.
+
 ## Confermare un piano
 
 Un piano in bozza può essere **confermato** (richiede il permesso *Conferma piani di architettura*). La conferma:

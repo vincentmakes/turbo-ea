@@ -31,16 +31,34 @@ async def plan_env(db):
     member = await create_user(db, email="member@test.com", role="member")
     viewer = await create_user(db, email="viewer@test.com", role="viewer")
 
-    await create_card_type(db, key="Application", label="Application")
+    await create_card_type(
+        db,
+        key="Application",
+        label="Application",
+        fields_schema=[
+            {
+                "section": "Costs",
+                "fields": [{"key": "costTotalAnnual", "label": "Cost", "type": "cost"}],
+            }
+        ],
+    )
     await create_card_type(db, key="ITComponent", label="IT Component")
     await create_card_type(db, key="Initiative", label="Initiative")
     await create_card_type(db, key="Objective", label="Objective")
+    await create_card_type(db, key="BusinessCapability", label="Business Capability")
     await create_relation_type(
         db,
         key="relAppToITC",
         label="uses",
         source_type_key="Application",
         target_type_key="ITComponent",
+    )
+    await create_relation_type(
+        db,
+        key="relAppToBC",
+        label="supports",
+        source_type_key="Application",
+        target_type_key="BusinessCapability",
     )
     await create_relation_type(
         db,
@@ -436,6 +454,75 @@ class TestCommit:
         assert "Cut relation" in (adr.decision or "")
         assert adr.related_decisions[0]["type"] == "architecture_plan"
         assert adr.related_decisions[0]["id"] == plan["id"]
+        # v1.1: the ADR now carries the gap analysis + cost insight lines.
+        assert "Gap analysis" in (adr.consequences or "")
+        assert "Estimated annual cost" in (adr.consequences or "")
+
+    async def test_commit_proposed_estimated_cost_lands_on_card(self, client, db, plan_env):
+        from app.models.card import Card
+
+        # The Application type carries a `costTotalAnnual` cost field (see fixture),
+        # so the proposed card's estimate lands on that attribute at commit.
+        plan_data = {
+            "baseline": _baseline(plan_env),
+            "changes": [
+                {
+                    "op": "add_card",
+                    "card": {
+                        "proposed": {
+                            "tempId": "tmp:new",
+                            "name": "Estimated App",
+                            "cardTypeKey": "Application",
+                            "estimatedCost": 42000,
+                        }
+                    },
+                }
+            ],
+        }
+        plan = await _create_plan(client, plan_env, plan_data)
+        resp = await client.post(
+            f"/api/v1/architecture-plans/{plan['id']}/commit",
+            json=COMMIT_BODY,
+            headers=auth_headers(plan_env["admin"]),
+        )
+        assert resp.status_code == 200
+        row = await db.execute(select(Card).where(Card.name == "Estimated App"))
+        card = row.scalar_one()
+        assert card.attributes.get("costTotalAnnual") == 42000
+
+    async def test_commit_adr_flags_capability_coverage_gap(self, client, db, plan_env):
+        from app.models.architecture_decision import ArchitectureDecision
+
+        cap = await create_card(db, card_type="BusinessCapability", name="Billing")
+        await db.commit()
+        plan_data = {
+            "baseline": {
+                "nodes": [
+                    {"id": str(plan_env["app_a"].id), "name": "Legacy CRM", "type": "Application"},
+                    {"id": str(cap.id), "name": "Billing", "type": "BusinessCapability"},
+                ],
+                "edges": [
+                    {
+                        "source": str(plan_env["app_a"].id),
+                        "target": str(cap.id),
+                        "type": "relAppToBC",
+                        "label": "supports",
+                    }
+                ],
+            },
+            # Decommission the only application supporting the Billing capability.
+            "changes": [{"op": "remove_card", "cardId": str(plan_env["app_a"].id)}],
+        }
+        plan = await _create_plan(client, plan_env, plan_data)
+        resp = await client.post(
+            f"/api/v1/architecture-plans/{plan['id']}/commit",
+            json=COMMIT_BODY,
+            headers=auth_headers(plan_env["admin"]),
+        )
+        assert resp.status_code == 200
+        adr = await db.get(ArchitectureDecision, uuid.UUID(resp.json()["adr_id"]))
+        assert "Capability coverage gap" in (adr.consequences or "")
+        assert "Billing" in (adr.consequences or "")
 
     async def test_viewer_cannot_commit(self, client, db, plan_env):
         plan = await _create_plan(client, plan_env, _replace_plan_data(plan_env))

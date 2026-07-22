@@ -21,6 +21,7 @@ from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.architecture_plan import ArchitecturePlan
 from app.models.card import Card
+from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.services.data_quality import calc_data_quality
@@ -47,6 +48,202 @@ class _RelationTypeIndex:
             )
             self._by_key[key] = result.scalar_one_or_none()
         return self._by_key[key]
+
+
+def _cost_field_keys(fields_schema: list | None) -> list[str]:
+    """Cost-field keys of a card type (fields declared ``type == "cost"``)."""
+    keys: list[str] = []
+    for section in fields_schema or []:
+        for field in section.get("fields", []) if isinstance(section, dict) else []:
+            if field.get("type") == "cost":
+                keys.append(field["key"])
+    return keys
+
+
+class _CardTypeIndex:
+    """Small cache of card types keyed by type key (for cost-field lookup)."""
+
+    def __init__(self) -> None:
+        self._by_key: dict[str, CardType | None] = {}
+
+    async def get(self, db: AsyncSession, key: str) -> CardType | None:
+        if key not in self._by_key:
+            result = await db.execute(select(CardType).where(CardType.key == key))
+            self._by_key[key] = result.scalar_one_or_none()
+        return self._by_key[key]
+
+    async def cost_keys(self, db: AsyncSession, key: str) -> list[str]:
+        ct = await self.get(db, key)
+        return _cost_field_keys(ct.fields_schema if ct else None)
+
+
+def _compute_plan_insights(
+    baseline: dict, changes: list[dict], cost_keys_by_type: dict[str, list[str]]
+) -> dict:
+    """Server-side mirror of the frontend planInsights: gap counts, cost delta,
+    and capability-coverage gaps computed from the snapshot + change ops, so the
+    committed ADR carries the same figures the UI showed. Pure and deterministic.
+    """
+    nodes: dict[str, dict] = {}
+    names: dict[str, str] = {}
+    for n in baseline.get("nodes", []):
+        if not isinstance(n, dict) or not n.get("id"):
+            continue
+        nodes[n["id"]] = {
+            "type": n.get("type", ""),
+            "attributes": n.get("attributes"),
+            "changeState": None,
+        }
+        names[n["id"]] = n.get("name", n["id"])
+    baseline_edges = [
+        {"source": e.get("source"), "target": e.get("target"), "type": e.get("type")}
+        for e in baseline.get("edges", [])
+        if isinstance(e, dict)
+    ]
+    edges = [dict(e, changeState=None) for e in baseline_edges]
+    estimates: dict[str, float] = {}
+    remove_rel = [c for c in changes if c.get("op") == "remove_relation"]
+
+    def _rel_removed(s: str, t: str, ty: str) -> bool:
+        return any(
+            r.get("sourceId") == s and r.get("targetId") == t and r.get("relationType") == ty
+            for r in remove_rel
+        )
+
+    def _add_node(ref: dict, change_state: str) -> str | None:
+        proposed = ref.get("proposed")
+        if proposed:
+            tid = proposed.get("tempId") or f"tmp:{uuid.uuid4()}"
+            nodes[tid] = {
+                "type": proposed.get("cardTypeKey", ""),
+                "attributes": None,
+                "changeState": change_state,
+            }
+            names[tid] = proposed.get("name", tid)
+            est = proposed.get("estimatedCost")
+            if isinstance(est, (int, float)):
+                estimates[tid] = float(est)
+            return tid
+        existing = ref.get("existingCardId")
+        if existing:
+            node = nodes.setdefault(existing, {"type": "", "attributes": None, "changeState": None})
+            node["changeState"] = change_state
+            return existing
+        return None
+
+    for c in changes:
+        op = c.get("op")
+        if op == "add_card":
+            _add_node(c.get("card") or {}, "added")
+        elif op == "remove_card":
+            cid = c.get("cardId")
+            if cid in nodes:
+                nodes[cid]["changeState"] = "removed"
+            for e in edges:
+                if e["source"] == cid or e["target"] == cid:
+                    e["changeState"] = "removed"
+        elif op == "replace_card":
+            pid = c.get("predecessorId")
+            sid = _add_node(c.get("successor") or {}, "changed")
+            if sid:
+                for be in baseline_edges:
+                    if be["source"] != pid and be["target"] != pid:
+                        continue
+                    ns = sid if be["source"] == pid else be["source"]
+                    nt = sid if be["target"] == pid else be["target"]
+                    if _rel_removed(be["source"], be["target"], be["type"]) or _rel_removed(
+                        ns, nt, be["type"]
+                    ):
+                        continue
+                    other = be["target"] if be["source"] == pid else be["source"]
+                    if nodes.get(other, {}).get("changeState") == "removed":
+                        continue
+                    edges.append(
+                        {"source": ns, "target": nt, "type": be["type"], "changeState": "changed"}
+                    )
+            if pid in nodes:
+                nodes[pid]["changeState"] = "removed"
+            for e in edges:
+                if (e["source"] == pid or e["target"] == pid) and e["changeState"] is None:
+                    e["changeState"] = "removed"
+        elif op == "add_relation":
+            edges.append(
+                {
+                    "source": c.get("sourceId"),
+                    "target": c.get("targetId"),
+                    "type": c.get("relationType"),
+                    "changeState": "added",
+                }
+            )
+        elif op == "remove_relation":
+            for e in edges:
+                if (
+                    e["source"] == c.get("sourceId")
+                    and e["target"] == c.get("targetId")
+                    and e["type"] == c.get("relationType")
+                ):
+                    e["changeState"] = "removed"
+
+    added = sum(1 for n in nodes.values() if n["changeState"] == "added")
+    removed = sum(1 for n in nodes.values() if n["changeState"] == "removed")
+    changed = sum(1 for n in nodes.values() if n["changeState"] == "changed")
+    retained = sum(1 for n in nodes.values() if n["changeState"] is None)
+
+    before = after = 0.0
+    approximate = False
+    for nid, n in nodes.items():
+        if str(nid).startswith("tmp:"):
+            est = estimates.get(nid)
+            cost, known = (est or 0.0), est is not None
+        else:
+            keys = cost_keys_by_type.get(n["type"], [])
+            attrs = n["attributes"]
+            if attrs is None:
+                cost, known = 0.0, len(keys) == 0
+            else:
+                cost = sum(v for k in keys if isinstance((v := attrs.get(k)), (int, float)))
+                known = True
+        if not known:
+            approximate = True
+        cs = n["changeState"]
+        if cs is None or cs == "removed":
+            before += cost
+        if cs is None or cs in ("added", "changed"):
+            after += cost
+
+    coverage_gaps: list[tuple[str, int]] = []
+    for cid, cnode in nodes.items():
+        if cnode["type"] != "BusinessCapability":
+            continue
+        base_apps: set[str] = set()
+        target_apps: set[str] = set()
+        for e in edges:
+            app_id = (
+                e["target"] if e["source"] == cid else e["source"] if e["target"] == cid else None
+            )
+            if not app_id:
+                continue
+            an = nodes.get(app_id)
+            if not an or an["type"] != "Application":
+                continue
+            if an["changeState"] != "added" and e["changeState"] != "added":
+                base_apps.add(app_id)
+            if an["changeState"] != "removed" and e["changeState"] != "removed":
+                target_apps.add(app_id)
+        if base_apps and not target_apps:
+            coverage_gaps.append((names.get(cid, cid), len(base_apps)))
+
+    return {
+        "added": added,
+        "removed": removed,
+        "changed": changed,
+        "retained": retained,
+        "cost_before": before,
+        "cost_after": after,
+        "cost_delta": after - before,
+        "approximate": approximate,
+        "coverage_gaps": coverage_gaps,
+    }
 
 
 async def execute_plan_commit(
@@ -84,6 +281,7 @@ async def execute_plan_commit(
         changes = [c for i, c in enumerate(all_changes) if i in wanted]
 
     rel_types = _RelationTypeIndex()
+    card_types = _CardTypeIndex()
     # temp_id / existing-card-id -> real UUID
     id_map: dict[str, uuid.UUID] = {}
     # card-type key per plan-local id, for relation endpoint validation
@@ -153,13 +351,21 @@ async def execute_plan_commit(
             temp_id = proposed.get("tempId") or f"tmp:{uuid.uuid4()}"
             name = renamed_cards.get(temp_id) or proposed.get("name") or "Unnamed"
             type_key = proposed.get("cardTypeKey", "Application")
+            # Carry the planning cost estimate onto the created card's first
+            # cost attribute so the roadmap/cost reports reflect the plan.
+            attributes: dict[str, Any] = {}
+            est = proposed.get("estimatedCost")
+            if isinstance(est, (int, float)):
+                cost_keys = await card_types.cost_keys(db, type_key)
+                if cost_keys:
+                    attributes[cost_keys[0]] = est
             new_card = Card(
                 id=uuid.uuid4(),
                 type=type_key,
                 subtype=proposed.get("subtype"),
                 name=name,
                 description=proposed.get("description") or "",
-                attributes={},
+                attributes=attributes,
                 lifecycle={"phaseIn": start_date, "active": end_date},
                 status="ACTIVE",
                 approval_status="DRAFT",
@@ -358,15 +564,40 @@ async def execute_plan_commit(
             context_parts.append(plan.description)
         if scope_names:
             context_parts.append("Scope: " + ", ".join(scope_names))
-        consequences_parts = []
-        if created_card_ids:
-            consequences_parts.append(f"New cards introduced: {len(created_card_ids)}")
-        if relations_created:
-            consequences_parts.append(f"New relations created: {relations_created}")
+        # Gap analysis + cost/coverage insights, mirroring the plan editor/preview,
+        # so the ADR captures the architectural rationale, not just the change list.
+        type_keys: set[str] = {n.get("type", "") for n in baseline.get("nodes", [])}
+        for c in all_changes:
+            spec = c.get("card") or c.get("successor") or {}
+            proposed = spec.get("proposed")
+            if proposed and proposed.get("cardTypeKey"):
+                type_keys.add(proposed["cardTypeKey"])
+        cost_keys_by_type = {tk: await card_types.cost_keys(db, tk) for tk in type_keys if tk}
+        insights = _compute_plan_insights(baseline, changes, cost_keys_by_type)
+
+        consequences_parts = [
+            "Gap analysis — added: {added}, removed: {removed}, "
+            "modified: {changed}, retained: {retained}.".format(**insights)
+        ]
+        est = " (estimated)" if insights["approximate"] else ""
+        consequences_parts.append(
+            "Estimated annual cost{est}: {before:,.0f} → {after:,.0f} "
+            "(delta {delta:+,.0f}).".format(
+                est=est,
+                before=insights["cost_before"],
+                after=insights["cost_after"],
+                delta=insights["cost_delta"],
+            )
+        )
         if retired:
             consequences_parts.append(
                 "Cards scheduled for decommissioning (end-of-life "
                 f"{end_date}): " + ", ".join(retired)
+            )
+        for cap_name, base_apps in insights["coverage_gaps"]:
+            consequences_parts.append(
+                f"Capability coverage gap: '{cap_name}' loses all "
+                f"{base_apps} supporting application(s)."
             )
 
         ref_number = await _next_adr_reference(db)

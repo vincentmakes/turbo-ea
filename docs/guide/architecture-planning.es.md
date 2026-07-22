@@ -21,6 +21,15 @@ Abra **EA Delivery** y use **Añadir → Nuevo plan de arquitectura** en una ini
     - **Añadir / quitar relación** — trace nuevas conexiones o corte las existentes. Los tipos de relación se validan contra el metamodelo.
 4. **Vista previa en vivo** — el diagrama antes/después fusionado se actualiza mientras planifica. Guarde el plan en cualquier momento; aparece en la sección **Entregables** de la iniciativa.
 
+## Entender las consecuencias
+
+La planificación de arquitectura es más que un editor de diagramas: mientras planifica, un panel de **Consecuencias** hace visible el impacto arquitectónico. Las mismas cifras aparecen en la vista previa compartible y se integran en el ADR confirmado:
+
+- **Análisis de brechas** — un resumen estilo TOGAF Añadido / Eliminado / Modificado / Conservado.
+- **Impacto / radio de afectación** — quitar o reemplazar una tarjeta muestra qué depende de ella («*N aplicaciones, M interfaces dependen de esto*»), a partir del análisis de impacto de la tarjeta.
+- **Brechas de cobertura de capacidades** — si una capacidad de negocio pierde *todas* sus aplicaciones de soporte en el estado objetivo, se señala.
+- **Diferencias de coste y riesgo** — el coste anual estimado antes → después (con la diferencia) y el número de riesgos abiertos en las tarjetas afectadas. Las tarjetas propuestas aportan su coste estimado, que también se escribe en la tarjeta creada al confirmar.
+
 ## Confirmar un plan
 
 Un plan en borrador puede **confirmarse** (requiere el permiso *Confirmar planes de arquitectura*). La confirmación:

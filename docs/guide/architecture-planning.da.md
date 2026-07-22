@@ -21,6 +21,15 @@ Resultatet er en Layered Dependency View, der viser den nuværende og den planla
     - **Tilføj / fjern relation** — tegn nye forbindelser eller afbryd eksisterende. Relationstyper valideres mod metamodellen.
 4. **Live-forhåndsvisning** — det sammenflettede før/efter-diagram opdateres, mens I planlægger. Gem planen når som helst; den vises i initiativets sektion **Leverancer**.
 
+## Forstå konsekvenserne
+
+Arkitekturplanlægning er mere end en diagrameditor — mens I planlægger, gør et **Konsekvenser**-panel den arkitektoniske påvirkning synlig. De samme tal vises i den delbare forhåndsvisning og indgår i den overførte ADR:
+
+- **Gap-analyse** — en TOGAF-agtig oversigt Tilføjet / Fjernet / Ændret / Bevaret.
+- **Påvirkning / effektradius** — at fjerne eller erstatte et kort viser, hvad der afhænger af det (»*N applikationer, M grænseflader afhænger af dette*«), ud fra kortets egen konsekvensanalyse.
+- **Huller i kapabilitetsdækning** — hvis en forretningskapabilitet mister *alle* sine understøttende applikationer i måltilstanden, markeres den.
+- **Omkostnings- og risikoforskelle** — de anslåede årlige omkostninger før → efter (med forskellen) og antallet af åbne risici på de berørte kort. Foreslåede kort bidrager med deres anslåede omkostning, som også skrives på det oprettede kort ved overførsel.
+
 ## Overfør en plan
 
 Et planudkast kan **overføres** (kræver tilladelsen *Overfør arkitekturplaner*). Overførslen:
