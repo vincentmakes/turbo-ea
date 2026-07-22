@@ -29,21 +29,13 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
-import { brand, SEVERITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
+import { SEVERITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import { useIsRtl } from "@/hooks/useIsRtl";
 import { makeRtlAxisTick, rtlLegendItemStyle, rtlTooltipStyle } from "@/lib/rechartsRtl";
 import type { BpmDashboardData } from "@/types";
+import { useProcessTypeOptions } from "./useProcessTypeOptions";
 import ProcessNavigator from "./ProcessNavigator";
 import BpmReportsContent from "./BpmReportPage";
-
-const COLORS = [
-  brand.primary,
-  "#607d8b",
-  "#9c27b0",
-  STATUS_COLORS.success,
-  STATUS_COLORS.warning,
-  STATUS_COLORS.error,
-];
 
 // Maturity is a 5-step CMMI scale; reuses severity hues to convey progression
 // from worst (red) to best (deep green).
@@ -69,6 +61,7 @@ function BpmDashboardContent() {
   const theme = useTheme();
   const isRtl = useIsRtl();
   const rtlAxisTick = makeRtlAxisTick(theme.palette.text.secondary);
+  const { resolve: resolveProcessType } = useProcessTypeOptions();
   const [data, setData] = useState<BpmDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
@@ -85,7 +78,7 @@ function BpmDashboardContent() {
 
   const typeData = Object.entries(data.by_process_type)
     .filter(([k]) => k !== "unknown")
-    .map(([k, v]) => ({ name: k, value: v }));
+    .map(([k, v]) => ({ key: k, name: resolveProcessType(k).label, value: v }));
   const maturityData = Object.entries(data.by_maturity)
     .filter(([k]) => k !== "unknown")
     .map(([k, v]) => ({ name: k, value: v }));
@@ -168,12 +161,12 @@ function BpmDashboardContent() {
                     label
                     style={{ cursor: "pointer" }}
                     onClick={(_data, idx) => {
-                      const name = typeData[idx]?.name;
-                      if (name) navigate(`/inventory?type=BusinessProcess&attr_processType=${encodeURIComponent(name)}`);
+                      const key = typeData[idx]?.key;
+                      if (key) navigate(`/inventory?type=BusinessProcess&attr_processType=${encodeURIComponent(key)}`);
                     }}
                   >
-                    {typeData.map((_, i) => (
-                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    {typeData.map((entry, i) => (
+                      <Cell key={i} fill={resolveProcessType(entry.key).color} />
                     ))}
                   </Pie>
                   <Tooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary, ...rtlTooltipStyle(isRtl) }} />

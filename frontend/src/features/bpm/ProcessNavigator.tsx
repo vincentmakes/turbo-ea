@@ -54,6 +54,8 @@ import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { useAuth } from "@/hooks/useAuth";
+import { useProcessTypeOptions } from "./useProcessTypeOptions";
+import type { ProcessTypeOption } from "./useProcessTypeOptions";
 import type { ProcessElement, ProcessFlowVersion } from "@/types";
 import { readableTextColor } from "@/lib/color";
 
@@ -143,13 +145,10 @@ const OVERLAY_OPTIONS: { key: ColorOverlay; labelKey: string; icon: string }[] =
 
 // Exported for the issue #762 regression test (key parity with the seeded
 // automationLevel options); it is a plain constant, not a component.
+// processType is deliberately absent: its labels/colors are admin-editable
+// metamodel data, resolved via useProcessTypeOptions (issue #857).
 // eslint-disable-next-line react-refresh/only-export-components
 export const ATTR_COLORS: Record<string, Record<string, { label: string; color: string }>> = {
-  processType: {
-    core: { label: "Core", color: "#1565c0" },
-    support: { label: "Support", color: "#7b1fa2" },
-    management: { label: "Management", color: "#00695c" },
-  },
   maturity: {
     initial: { label: "1-Initial", color: "#d32f2f" },
     managed: { label: "2-Managed", color: "#f57c00" },
@@ -168,17 +167,6 @@ export const ATTR_COLORS: Record<string, Record<string, { label: string; color: 
     high: { label: "High", color: "#f57c00" },
     critical: { label: "Critical", color: "#d32f2f" },
   },
-};
-
-const PROCESS_TYPE_ROW_LABEL_KEYS: Record<string, string> = {
-  management: "navigator.managementProcesses",
-  core: "navigator.coreProcesses",
-  support: "navigator.supportProcesses",
-};
-const PROCESS_TYPE_ROW_COLORS: Record<string, string> = {
-  management: "#00695c",
-  core: "#1565c0",
-  support: "#7b1fa2",
 };
 
 const ELEMENT_TYPE_ICONS: Record<string, { icon: string; color: string }> = {
@@ -318,9 +306,14 @@ function flatCollect(nodes: ProcNode[]): ProcNode[] {
   return result;
 }
 
-function getCardColor(node: ProcNode, overlay: ColorOverlay): string {
+function getCardColor(
+  node: ProcNode,
+  overlay: ColorOverlay,
+  resolveProcessType: (key: string | null | undefined) => ProcessTypeOption,
+): string {
   const val = (node.attributes || {})[overlay] as string | undefined;
   if (!val) return "#bdbdbd";
+  if (overlay === "processType") return resolveProcessType(val).color;
   return ATTR_COLORS[overlay]?.[val]?.color ?? "#bdbdbd";
 }
 
@@ -335,6 +328,7 @@ function HouseCard({
   search,
   isAdmin,
   rowType,
+  inProcessRow,
   onOpen,
   onDrill,
   onViewFlow,
@@ -347,6 +341,8 @@ function HouseCard({
   search: string;
   isAdmin?: boolean;
   rowType?: string;
+  /** True when rowType is a process-type row key (not a parent card UUID). */
+  inProcessRow?: boolean;
   onOpen: (n: ProcNode) => void;
   onDrill: (id: string) => void;
   onViewFlow: (n: ProcNode) => void;
@@ -356,7 +352,8 @@ function HouseCard({
   const { t } = useTranslation(["bpm", "common"]);
   const stLabel = useSubtypeLabel();
   const { getType } = useMetamodel();
-  const color = getCardColor(node, overlay);
+  const { resolve: resolveProcessType } = useProcessTypeOptions();
+  const color = getCardColor(node, overlay, resolveProcessType);
   const isLeaf = node.level >= displayLevel || node.children.length === 0;
   const childCount = node.children.length;
   const hasElements = (node.element_count ?? 0) > 0;
@@ -370,8 +367,8 @@ function HouseCard({
     !search || node.name.toLowerCase().includes(search.toLowerCase());
   const opacity = search && !matchesSearch ? 0.3 : 1;
 
-  // A card is nested if rowType is a parent UUID (not a process-type row name)
-  const isNested = rowType ? !["management", "core", "support"].includes(rowType) : false;
+  // A card is nested if rowType is a parent UUID (not a process-type row key)
+  const isNested = rowType ? !inProcessRow : false;
   const canDrag = isAdmin && dragRef && onDragDrop && rowType;
   const dragHandleActive = useRef(false);
   const [hovered, setHovered] = useState(false);
@@ -806,6 +803,7 @@ function DrawerOverview({
   const { t } = useTranslation(["bpm", "common"]);
   const stLabel = useSubtypeLabel();
   const { getType } = useMetamodel();
+  const { resolve: resolveProcessType } = useProcessTypeOptions();
   const [card, setCard] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -822,7 +820,14 @@ function DrawerOverview({
   const attrChips: { label: string; color: string }[] = [];
   for (const opt of OVERLAY_OPTIONS) {
     const val = (node.attributes || {})[opt.key] as string | undefined;
-    const info = val ? ATTR_COLORS[opt.key]?.[val] : null;
+    const info =
+      opt.key === "processType"
+        ? val
+          ? resolveProcessType(val)
+          : null
+        : val
+          ? ATTR_COLORS[opt.key]?.[val]
+          : null;
     if (info) attrChips.push({ label: `${t(opt.labelKey)}: ${info.label}`, color: info.color });
   }
   const bpType = getType("BusinessProcess");
@@ -982,7 +987,7 @@ function DrawerOverview({
                   px: 1.5,
                   py: 0.75,
                   borderRadius: 1,
-                  bgcolor: getCardColor(ch, overlay),
+                  bgcolor: getCardColor(ch, overlay, resolveProcessType),
                   color: "#fff",
                   cursor: "pointer",
                   "&:hover": { boxShadow: 2 },
@@ -1975,12 +1980,16 @@ function LevelIndicator({
 
 function OverlayLegend({ overlay }: { overlay: ColorOverlay }) {
   const { t } = useTranslation(["bpm", "common"]);
-  const items = ATTR_COLORS[overlay];
-  if (!items) return null;
+  const { options: processTypeOptions } = useProcessTypeOptions();
+  const items =
+    overlay === "processType"
+      ? processTypeOptions.map(({ label, color }) => ({ label, color }))
+      : Object.values(ATTR_COLORS[overlay] ?? {});
+  if (items.length === 0) return null;
 
   return (
     <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
-      {Object.values(items).map((item) => (
+      {items.map((item) => (
         <Box key={item.label} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           <Box
             sx={{
@@ -2213,18 +2222,50 @@ export default function ProcessNavigator() {
     setDrawerNode(n);
   }, []);
 
+  // ── Process House rows: metamodel-driven grouping by processType ──
+  const {
+    options: ptOptions,
+    defaultKey: ptDefaultKey,
+    resolve: resolveProcessType,
+  } = useProcessTypeOptions();
+
+  const houseRows = useMemo(() => {
+    const rows: Record<string, ProcNode[]> = {};
+    for (const opt of ptOptions) rows[opt.key] = [];
+    if (!rows[ptDefaultKey]) rows[ptDefaultKey] = [];
+    for (const node of displayTree) {
+      const pType = (node.attributes?.processType as string) || ptDefaultKey;
+      // Unknown / hidden keys get their own synthetic row instead of being
+      // silently folded into the default row.
+      if (!rows[pType]) rows[pType] = [];
+      rows[pType].push(node);
+    }
+    return rows;
+  }, [displayTree, ptOptions, ptDefaultKey]);
+
+  // Persisted order first (stale keys dropped), then any option or
+  // data-derived row key it doesn't cover yet, in metamodel order.
+  const effectiveRowOrder = useMemo(() => {
+    const known = new Set(Object.keys(houseRows));
+    const order: string[] = [];
+    for (const key of [...rowOrder, ...ptOptions.map((o) => o.key), ...Object.keys(houseRows)]) {
+      if (known.has(key) && !order.includes(key)) order.push(key);
+    }
+    return order;
+  }, [rowOrder, ptOptions, houseRows]);
+
   // ── Drag-and-drop reorder for cards (admin only) ──
   const dragRef = useRef<{ id: string; rowType: string } | null>(null);
   const handleDragDrop = useCallback(
     async (dragId: string, dropId: string, rowType: string) => {
       if (!data || reordering || dragId === dropId) return;
 
-      // rowType is either a process-type row ("management"/"core"/"support")
+      // rowType is either a process-type row key (e.g. "management")
       // or a parent node ID (for leaf cards inside a container).
-      const isProcessRow = ["management", "core", "support"].includes(rowType);
+      const isProcessRow = effectiveRowOrder.includes(rowType);
       const siblings = data
         .filter((d) => isProcessRow
-          ? (!d.parent_id && ((d.attributes?.processType as string) || "core") === rowType)
+          ? (!d.parent_id && ((d.attributes?.processType as string) || ptDefaultKey) === rowType)
           : d.parent_id === rowType)
         .sort((a, b) => {
           const oa = (a.attributes?.sortOrder as number) ?? 999;
@@ -2257,16 +2298,16 @@ export default function ProcessNavigator() {
         setReordering(false);
       }
     },
-    [data, reordering, loadData],
+    [data, reordering, loadData, effectiveRowOrder, ptDefaultKey],
   );
 
   // ── Row reorder (admin) ──
   const handleMoveRow = useCallback(
     async (rowType: string, direction: "up" | "down") => {
-      const idx = rowOrder.indexOf(rowType);
+      const idx = effectiveRowOrder.indexOf(rowType);
       const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-      if (idx < 0 || swapIdx < 0 || swapIdx >= rowOrder.length) return;
-      const newOrder = [...rowOrder];
+      if (idx < 0 || swapIdx < 0 || swapIdx >= effectiveRowOrder.length) return;
+      const newOrder = [...effectiveRowOrder];
       [newOrder[idx], newOrder[swapIdx]] = [newOrder[swapIdx], newOrder[idx]];
       setRowOrder(newOrder);
       // Persist to backend
@@ -2276,27 +2317,8 @@ export default function ProcessNavigator() {
         console.error("Failed to save row order", e);
       }
     },
-    [rowOrder],
+    [effectiveRowOrder],
   );
-
-  // ── Process House: group roots by processType ──
-  const houseRows = useMemo(() => {
-    const rows: Record<string, ProcNode[]> = {
-      management: [],
-      core: [],
-      support: [],
-    };
-    const source = displayTree;
-    for (const node of source) {
-      const pType = (node.attributes?.processType as string) || "core";
-      if (rows[pType]) {
-        rows[pType].push(node);
-      } else {
-        rows.core.push(node); // Default to core
-      }
-    }
-    return rows;
-  }, [displayTree]);
 
   // ── Search filter for house view ──
   const searchLower = search.toLowerCase();
@@ -2538,9 +2560,10 @@ export default function ProcessNavigator() {
             </Box>
           ) : (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
-              {rowOrder.map((rowType, rowIdx) => {
+              {effectiveRowOrder.map((rowType, rowIdx) => {
                 const nodes = houseRows[rowType] || [];
                 if (nodes.length === 0 && search) return null;
+                const rowOption = resolveProcessType(rowType);
                 return (
                   <Box key={rowType}>
                     {/* Row header */}
@@ -2558,25 +2581,25 @@ export default function ProcessNavigator() {
                           width: 4,
                           height: 20,
                           borderRadius: 2,
-                          bgcolor: PROCESS_TYPE_ROW_COLORS[rowType],
+                          bgcolor: rowOption.color,
                         }}
                       />
                       <Typography
                         variant="subtitle2"
                         sx={{
                           fontWeight: 700,
-                          color: PROCESS_TYPE_ROW_COLORS[rowType],
+                          color: rowOption.color,
                           textTransform: "uppercase",
                           letterSpacing: 0.5,
                           fontSize: "0.75rem",
                         }}
                       >
-                        {t(PROCESS_TYPE_ROW_LABEL_KEYS[rowType])}
+                        {t("navigator.processRow", { type: rowOption.label })}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         ({nodes.length})
                       </Typography>
-                      {isAdmin && rowOrder.length > 1 && (
+                      {isAdmin && effectiveRowOrder.length > 1 && (
                         <Box sx={{ display: "flex", ml: 0.5 }}>
                           <IconButton
                             size="small"
@@ -2588,7 +2611,7 @@ export default function ProcessNavigator() {
                           </IconButton>
                           <IconButton
                             size="small"
-                            disabled={rowIdx === rowOrder.length - 1}
+                            disabled={rowIdx === effectiveRowOrder.length - 1}
                             onClick={() => handleMoveRow(rowType, "down")}
                             sx={{ p: 0.25 }}
                           >
@@ -2611,7 +2634,7 @@ export default function ProcessNavigator() {
                         }}
                       >
                         <Typography variant="body2" color="text.secondary">
-                          {t("navigator.noProcessesDefined", { type: t(PROCESS_TYPE_ROW_LABEL_KEYS[rowType]).toLowerCase() })}
+                          {t("navigator.noProcessesDefined", { type: t("navigator.processRow", { type: rowOption.label }) })}
                         </Typography>
                       </Box>
                     ) : (() => {
@@ -2638,6 +2661,7 @@ export default function ProcessNavigator() {
                               search={search}
                               isAdmin={isAdmin}
                               rowType={rowType}
+                              inProcessRow
                               onOpen={handleOpenDrawer}
                               onDrill={handleDrill}
                               onViewFlow={handleViewFlow}
@@ -2668,6 +2692,7 @@ export default function ProcessNavigator() {
                               search={search}
                               isAdmin={isAdmin}
                               rowType={rowType}
+                              inProcessRow
                               onOpen={handleOpenDrawer}
                               onDrill={handleDrill}
                               onViewFlow={handleViewFlow}
