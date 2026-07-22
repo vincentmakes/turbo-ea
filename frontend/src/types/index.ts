@@ -702,6 +702,9 @@ export interface PlanProposedCard {
   cardTypeKey: string;
   subtype?: string;
   description?: string;
+  /** Optional planning estimate for the card's annual cost — feeds the plan's
+   *  cost delta and is carried into the created card's cost attribute on commit. */
+  estimatedCost?: number;
 }
 
 export type PlanCardRef = { existingCardId: string } | { proposed: PlanProposedCard };

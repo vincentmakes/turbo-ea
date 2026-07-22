@@ -21,6 +21,15 @@ Ouvrez **EA Delivery** et utilisez **Ajouter → Nouveau plan d’architecture**
     - **Ajouter / retirer une relation** — tracez de nouvelles connexions ou coupez des connexions existantes. Les types de relation sont validés contre le métamodèle.
 4. **Aperçu en direct** — le diagramme avant/après fusionné se met à jour au fil de la planification. Enregistrez le plan à tout moment ; il apparaît dans la section **Livrables** de l’initiative.
 
+## Comprendre les conséquences
+
+La planification d’architecture est plus qu’un éditeur de diagramme — pendant que vous planifiez, un panneau **Conséquences** rend l’impact architectural visible. Les mêmes chiffres apparaissent sur l’aperçu partageable et sont intégrés à l’ADR validé :
+
+- **Analyse des écarts** — un récapitulatif façon TOGAF Ajouté / Retiré / Modifié / Conservé.
+- **Impact / rayon d’effet** — retirer ou remplacer une carte fait apparaître ce qui en dépend (« *N applications, M interfaces en dépendent* »), à partir de l’analyse d’impact de la carte.
+- **Lacunes de couverture des capacités** — si une capacité métier perd *toutes* ses applications de support dans l’état cible, elle est signalée.
+- **Écarts de coût et de risque** — le coût annuel estimé avant → après (avec l’écart) et le nombre de risques ouverts sur les cartes concernées. Les cartes proposées apportent leur coût estimé, également inscrit sur la carte créée lors de la validation.
+
 ## Valider un plan
 
 Un plan en brouillon peut être **validé** (nécessite la permission *Valider les plans d’architecture*). La validation :

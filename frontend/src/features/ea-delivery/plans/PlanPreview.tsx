@@ -31,6 +31,7 @@ import type {
   PlanCommitResult,
 } from "@/types";
 import PlanCommitDialog from "./PlanCommitDialog";
+import PlanInsightsPanel from "./PlanInsightsPanel";
 import { buildPlanGraph } from "./planGraph";
 
 const OP_META: Record<PlanChangeOp["op"], { icon: string; color: string }> = {
@@ -227,6 +228,12 @@ export default function PlanPreview() {
             ))}
           </Stack>
         </Paper>
+      )}
+
+      {baseline && changes.length > 0 && (
+        <Box sx={{ mb: 2 }}>
+          <PlanInsightsPanel graph={merged} changes={changes} />
+        </Box>
       )}
 
       {baseline && (

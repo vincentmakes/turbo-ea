@@ -45,8 +45,11 @@ import type {
   PlanProposedCard,
   RelationType,
 } from "@/types";
+import BlastRadiusNotice from "./BlastRadiusNotice";
 import MultiCardPicker from "./MultiCardPicker";
+import PlanInsightsPanel from "./PlanInsightsPanel";
 import { buildPlanGraph, validatePlanOps } from "./planGraph";
+import { deriveScopeFromObjectives } from "./planScope";
 
 const OP_META: Record<PlanChangeOp["op"], { icon: string; color: string }> = {
   add_card: { icon: "add_circle", color: LDV_CHANGE_COLORS.added },
@@ -96,6 +99,7 @@ export default function PlanEditor() {
   const [changes, setChanges] = useState<PlanChangeOp[]>([]);
   const [cardRefs, setCardRefs] = useState<CardRefMap>({});
   const [capturing, setCapturing] = useState(false);
+  const [deriving, setDeriving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
   const [openDialog, setOpenDialog] = useState<PlanChangeOp["op"] | null>(null);
@@ -186,6 +190,29 @@ export default function PlanEditor() {
       setCapturing(false);
     }
   }, [scopeCards, depth, objectives]);
+
+  // ── Strategy-driven scope: derive the affected landscape from objectives ──
+  const deriveScope = useCallback(async () => {
+    if (objectives.length === 0) return;
+    setDeriving(true);
+    setError("");
+    try {
+      const { baseline: derived } = await deriveScopeFromObjectives(objectives, depth);
+      setBaseline(derived);
+      setBaselineCapturedAt(new Date().toISOString());
+      // Record the objectives as the scope provenance so a later Refresh works.
+      setScopeCards((prev) => {
+        const byId = new Map(prev.map((c) => [c.id, c]));
+        for (const o of objectives) if (!byId.has(o.id)) byId.set(o.id, o);
+        return [...byId.values()];
+      });
+      setDirty(true);
+    } catch (err) {
+      setError((err as Error).message || "Failed to derive scope");
+    } finally {
+      setDeriving(false);
+    }
+  }, [objectives, depth]);
 
   // ── Merged graph + validation ─────────────────────────────────────────
   const cardLookup = useMemo(() => {
@@ -415,6 +442,24 @@ export default function PlanEditor() {
           }}
           label={t("plan.objectivesStep.placeholder")}
         />
+        {objectives.length > 0 && (
+          <Box sx={{ mt: 1.5 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={deriveScope}
+              disabled={deriving}
+              startIcon={
+                deriving ? <CircularProgress size={16} /> : <MaterialSymbol icon="account_tree" size={18} />
+              }
+            >
+              {t("plan.derive.button")}
+            </Button>
+            <Typography variant="caption" color="text.secondary" sx={{ ml: 1.5 }}>
+              {t("plan.derive.hint")}
+            </Typography>
+          </Box>
+        )}
       </Paper>
 
       {/* Step 2: scope + baseline capture */}
@@ -548,6 +593,12 @@ export default function PlanEditor() {
             )}
           </Paper>
 
+          {changes.length > 0 && (
+            <Box sx={{ mb: 2 }}>
+              <PlanInsightsPanel graph={merged} changes={changes} />
+            </Box>
+          )}
+
           <Paper sx={{ height: 560, mb: 2, overflow: "hidden" }}>
             <LayeredDependencyView
               nodes={merged.nodes}
@@ -584,6 +635,7 @@ export default function PlanEditor() {
             .filter((n) => !n.proposed && n.changeState !== "removed")
             .map((n) => ({ id: n.id, name: n.name, type: n.type }))}
           typeLabelOf={(tk) => typeLabel(types.find((x) => x.key === tk) ?? { key: tk, label: tk })}
+          showImpact
           onClose={() => setOpenDialog(null)}
           onConfirm={(node) => {
             addChange({ op: "remove_card", cardId: node.id });
@@ -732,6 +784,15 @@ function CardRefForm({
               ))}
             </TextField>
           )}
+          <TextField
+            label={t("plan.dialog.estimatedCost")}
+            value={value.estimatedCost}
+            onChange={(e) => onChange({ ...value, estimatedCost: e.target.value })}
+            size="small"
+            fullWidth
+            type="number"
+            helperText={t("plan.dialog.estimatedCostHint")}
+          />
         </>
       )}
     </Stack>
@@ -744,6 +805,7 @@ interface RefForm {
   name: string;
   typeKey: string;
   subtype: string;
+  estimatedCost: string;
 }
 
 const EMPTY_REF_FORM: RefForm = {
@@ -752,6 +814,7 @@ const EMPTY_REF_FORM: RefForm = {
   name: "",
   typeKey: "Application",
   subtype: "",
+  estimatedCost: "",
 };
 
 function refFromForm(form: RefForm): {
@@ -766,11 +829,13 @@ function refFromForm(form: RefForm): {
     };
   }
   if (!form.name.trim()) return null;
+  const est = form.estimatedCost.trim() === "" ? undefined : Number(form.estimatedCost);
   const proposed: PlanProposedCard = {
     tempId: newTempId(),
     name: form.name.trim(),
     cardTypeKey: form.typeKey,
     ...(form.subtype ? { subtype: form.subtype } : {}),
+    ...(est !== undefined && Number.isFinite(est) ? { estimatedCost: est } : {}),
   };
   return { ref: { proposed } };
 }
@@ -818,6 +883,7 @@ function NodeSelectDialog({
   label,
   options,
   typeLabelOf,
+  showImpact,
   onClose,
   onConfirm,
 }: {
@@ -825,6 +891,7 @@ function NodeSelectDialog({
   label: string;
   options: NodeOption[];
   typeLabelOf: (typeKey: string) => string;
+  showImpact?: boolean;
   onClose: () => void;
   onConfirm: (node: NodeOption) => void;
 }) {
@@ -842,6 +909,9 @@ function NodeSelectDialog({
           typeLabelOf={typeLabelOf}
           autoFocus
         />
+        {showImpact && value && !value.id.startsWith("tmp:") && (
+          <BlastRadiusNotice cardId={value.id} />
+        )}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>{t("actions.cancel")}</Button>
@@ -927,6 +997,9 @@ function ReplaceCardDialog({
           typeLabelOf={typeLabelOf}
           autoFocus
         />
+        {predecessor && !predecessor.id.startsWith("tmp:") && (
+          <BlastRadiusNotice cardId={predecessor.id} />
+        )}
         <Typography variant="subtitle2" sx={{ mt: 2 }}>
           {t("plan.dialog.successor")}
         </Typography>

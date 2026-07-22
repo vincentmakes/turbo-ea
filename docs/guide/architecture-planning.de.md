@@ -21,6 +21,15 @@ Das Ergebnis ist eine Layered Dependency View, die den aktuellen und den geplant
     - **Beziehung hinzufügen / entfernen** — ziehen Sie neue Verbindungen oder trennen Sie bestehende. Beziehungstypen werden gegen das Metamodell validiert.
 4. **Live-Vorschau** — das zusammengeführte Vorher-Nachher-Diagramm aktualisiert sich während der Planung. Speichern Sie den Plan jederzeit; er erscheint im Bereich **Deliverables** der Initiative.
 
+## Auswirkungen verstehen
+
+Architekturplanung ist mehr als ein Diagramm-Editor — während Sie planen, macht ein **Konsequenzen**-Panel die architektonische Auswirkung sichtbar. Dieselben Kennzahlen erscheinen in der teilbaren Vorschau und fließen in den übernommenen ADR ein:
+
+- **Gap-Analyse** — eine TOGAF-artige Zusammenfassung Hinzugefügt / Entfernt / Geändert / Beibehalten.
+- **Auswirkung / Blast-Radius** — beim Entfernen oder Ersetzen einer Karte wird angezeigt, was von ihr abhängt (»*N Anwendungen, M Schnittstellen hängen davon ab*«), abgeleitet aus der Impact-Analyse der Karte.
+- **Lücken in der Capability-Abdeckung** — verliert eine Business Capability im Zielzustand *alle* unterstützenden Anwendungen, wird sie markiert.
+- **Kosten- und Risiko-Differenzen** — die geschätzten Jahreskosten vorher → nachher (mit Differenz) sowie die Anzahl offener Risiken auf den betroffenen Karten. Vorgeschlagene Karten steuern ihre geschätzten Kosten bei, die beim Übernehmen auf die erstellte Karte geschrieben werden.
+
 ## Einen Plan übernehmen
 
 Ein Planentwurf kann **übernommen** werden (erfordert die Berechtigung *Architekturpläne übernehmen*). Das Übernehmen:

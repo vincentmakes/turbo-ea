@@ -21,6 +21,15 @@ Abra **EA Delivery** e use **Adicionar → Novo plano de arquitetura** numa inic
     - **Adicionar / remover relação** — trace novas ligações ou corte as existentes. Os tipos de relação são validados contra o metamodelo.
 4. **Pré-visualização ao vivo** — o diagrama antes/depois fundido atualiza-se enquanto planeia. Guarde o plano em qualquer altura; aparece na secção **Entregáveis** da iniciativa.
 
+## Compreender as consequências
+
+O planeamento de arquitetura é mais do que um editor de diagramas — enquanto planeia, um painel de **Consequências** torna o impacto arquitetural visível. Os mesmos números aparecem na pré-visualização partilhável e são integrados no ADR confirmado:
+
+- **Análise de lacunas** — um resumo ao estilo TOGAF Adicionado / Removido / Modificado / Mantido.
+- **Impacto / raio de afetação** — remover ou substituir um cartão mostra o que depende dele (« *N aplicações, M interfaces dependem deste* »), a partir da análise de impacto do cartão.
+- **Lacunas de cobertura de capacidades** — se uma capacidade de negócio perde *todas* as suas aplicações de suporte no estado alvo, é assinalada.
+- **Diferenças de custo e risco** — o custo anual estimado antes → depois (com a diferença) e o número de riscos abertos nos cartões afetados. Os cartões propostos contribuem com o seu custo estimado, também escrito no cartão criado ao confirmar.
+
 ## Confirmar um plano
 
 Um plano em rascunho pode ser **confirmado** (requer a permissão *Confirmar planos de arquitetura*). A confirmação:
