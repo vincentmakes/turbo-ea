@@ -445,6 +445,7 @@
   "plan.previewTooltip": "Abrir vista previa",
   "plan.saved": "Plan guardado",
   "plan.notFound": "Plan de transición no encontrado",
+  "plan.lockedNotice": "Crear y editar planes de transición requiere una extensión instalada y con licencia. Los planes existentes siguen siendo visibles. Consulte Admin → Extensiones.",
   "plan.linkedInitiative": "Este plan se ha confirmado en una iniciativa.",
   "plan.status.draft": "Borrador",
   "plan.status.committed": "Confirmado",

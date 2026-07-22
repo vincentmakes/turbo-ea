@@ -8,6 +8,9 @@ Resultatet er en Layered Dependency View, der viser den nuværende og den planla
 - **Grønt plus** — et nytilføjet kort eller en nytilføjet relation
 - **Blå skiftepile** — en udskiftning: efterfølgerkortet og de forbindelser, det arver
 
+!!! info "Tilgængelighed"
+    Oprettelse, redigering og overførsel af overgangsplaner låses op af en installeret, licenseret udvidelse (se **Admin → Udvidelser**). Visning af eksisterende planer er altid tilgængelig — hvis udvidelsen fjernes, eller licensen udløber, forbliver planerne læsbare, og intet slettes.
+
 ## Opret en plan
 
 Åbn **EA Delivery** og brug **Tilføj → Ny overgangsplan** på et initiativ (eller opret en fritstående plan og tilknyt den senere). En plan bygges i fire trin:

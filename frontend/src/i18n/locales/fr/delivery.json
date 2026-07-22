@@ -445,6 +445,7 @@
   "plan.previewTooltip": "Ouvrir l’aperçu",
   "plan.saved": "Plan enregistré",
   "plan.notFound": "Plan de transition introuvable",
+  "plan.lockedNotice": "La création et la modification des plans de transition nécessitent une extension installée et sous licence. Les plans existants restent consultables. Voir Admin → Extensions.",
   "plan.linkedInitiative": "Ce plan a été validé dans une initiative.",
   "plan.status.draft": "Brouillon",
   "plan.status.committed": "Validé",

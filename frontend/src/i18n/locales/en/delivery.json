@@ -445,6 +445,7 @@
   "plan.previewTooltip": "Open preview",
   "plan.saved": "Plan saved",
   "plan.notFound": "Transition plan not found",
+  "plan.lockedNotice": "Creating and editing Transition Plans requires an installed, licensed extension. Existing plans remain viewable. See Admin → Extensions.",
   "plan.linkedInitiative": "This plan has been committed to an Initiative.",
   "plan.status.draft": "Draft",
   "plan.status.committed": "Committed",

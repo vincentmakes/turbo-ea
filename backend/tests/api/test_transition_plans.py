@@ -10,7 +10,9 @@ import uuid
 import pytest
 from sqlalchemy import select
 
+from app.api.v1.transition_plans import CAP_TRANSITION_PLANNING
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
+from app.services.extensions.registry import extension_registry
 from tests.conftest import (
     auth_headers,
     create_card,
@@ -19,6 +21,17 @@ from tests.conftest import (
     create_role,
     create_user,
 )
+
+
+@pytest.fixture(autouse=True)
+def _grant_transition_planning(monkeypatch):
+    """Authoring is extension-gated (see test_transition_plan_gating.py); the
+    behavioural tests here run with the grant active."""
+    monkeypatch.setattr(
+        extension_registry,
+        "granted_capabilities",
+        lambda now=None: {CAP_TRANSITION_PLANNING},
+    )
 
 
 @pytest.fixture

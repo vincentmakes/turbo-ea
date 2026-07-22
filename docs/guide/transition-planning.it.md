@@ -8,6 +8,9 @@ Il risultato è una Layered Dependency View che mostra lo stato attuale e quello
 - **Più verde** — una card o relazione appena aggiunta
 - **Frecce di scambio blu** — una sostituzione: la card successore e le connessioni che eredita
 
+!!! info "Disponibilità"
+    La creazione, la modifica e la conferma dei piani di transizione sono sbloccate da un'estensione installata e con licenza (vedi **Admin → Estensioni**). La visualizzazione dei piani esistenti è sempre disponibile: se l'estensione viene rimossa o la licenza scade, i piani restano leggibili e nulla viene eliminato.
+
 ## Creare un piano
 
 Aprite **EA Delivery** e usate **Aggiungi → Nuovo piano di transizione** su un’iniziativa (oppure create un piano non collegato e collegatelo in seguito). Un piano si costruisce in quattro passi:

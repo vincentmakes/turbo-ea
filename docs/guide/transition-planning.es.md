@@ -8,6 +8,9 @@ El resultado es una Layered Dependency View que muestra el estado actual y el pl
 - **Más verde** — una tarjeta o relación recién añadida
 - **Flechas de intercambio azules** — un reemplazo: la tarjeta sucesora y las conexiones que hereda
 
+!!! info "Disponibilidad"
+    La creación, edición y confirmación de planes de transición se desbloquea mediante una extensión instalada y con licencia (véase **Admin → Extensiones**). Ver los planes existentes siempre está disponible: si la extensión se elimina o su licencia caduca, los planes siguen siendo legibles y no se borra nada.
+
 ## Crear un plan
 
 Abra **EA Delivery** y use **Añadir → Nuevo plan de transición** en una iniciativa (o cree un plan sin vincular y adjúntelo más tarde). Un plan se construye en cuatro pasos:

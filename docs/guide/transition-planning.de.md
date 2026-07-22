@@ -8,6 +8,9 @@ Das Ergebnis ist eine Layered Dependency View, die den aktuellen und den geplant
 - **Grünes Plus** — eine neu hinzugefügte Karte oder Beziehung
 - **Blaue Tauschpfeile** — ein Ersatz: die Nachfolgerkarte und die von ihr geerbten Verbindungen
 
+!!! info "Verfügbarkeit"
+    Das Erstellen, Bearbeiten und Übernehmen von Übergangsplänen wird durch eine installierte, lizenzierte Erweiterung freigeschaltet (siehe **Admin → Erweiterungen**). Das Ansehen vorhandener Pläne ist immer möglich — wird die Erweiterung entfernt oder läuft die Lizenz ab, bleiben die Pläne lesbar und nichts wird gelöscht.
+
 ## Einen Plan erstellen
 
 Öffnen Sie **EA Delivery** und wählen Sie **Hinzufügen → Neuer Übergangsplan** an einer Initiative (oder erstellen Sie einen unverknüpften Plan und verknüpfen Sie ihn später). Ein Plan entsteht in vier Schritten:

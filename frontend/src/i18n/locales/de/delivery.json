@@ -445,6 +445,7 @@
   "plan.previewTooltip": "Vorschau öffnen",
   "plan.saved": "Plan gespeichert",
   "plan.notFound": "Übergangsplan nicht gefunden",
+  "plan.lockedNotice": "Das Erstellen und Bearbeiten von Übergangsplänen erfordert eine installierte, lizenzierte Erweiterung. Vorhandene Pläne bleiben einsehbar. Siehe Admin → Erweiterungen.",
   "plan.linkedInitiative": "Dieser Plan wurde in eine Initiative überführt.",
   "plan.status.draft": "Entwurf",
   "plan.status.committed": "Übernommen",

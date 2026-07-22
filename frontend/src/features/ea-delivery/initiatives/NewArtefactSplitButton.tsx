@@ -8,6 +8,7 @@ import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useTransitionPlanningGranted } from "@/features/ea-delivery/plans/planCapability";
 import { CARD_TYPE_COLORS, STATUS_COLORS } from "@/theme/tokens";
 
 export type ArtefactKind = "soaw" | "diagram" | "adr" | "plan";
@@ -46,6 +47,11 @@ export default function NewArtefactSplitButton({
   const { t } = useTranslation(["delivery", "common"]);
   const anchorRef = useRef<HTMLButtonElement | null>(null);
   const [open, setOpen] = useState(false);
+  // Plan authoring is extension-gated: without the grant the "New plan"
+  // entry is absent everywhere this menu appears (viewing existing plans
+  // stays ungated — see planCapability.ts).
+  const { granted: planGranted } = useTransitionPlanningGranted();
+  const visibleKinds = kinds.filter((k) => k !== "plan" || planGranted);
 
   const meta: Record<
     ArtefactKind,
@@ -117,7 +123,7 @@ export default function NewArtefactSplitButton({
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         transformOrigin={{ vertical: "top", horizontal: "right" }}
       >
-        {kinds.map((kind) => {
+        {visibleKinds.map((kind) => {
           const m = meta[kind];
           return (
             <MenuItem key={kind} onClick={() => handleSelect(kind)}>

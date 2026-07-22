@@ -445,6 +445,7 @@
   "plan.previewTooltip": "Åbn forhåndsvisning",
   "plan.saved": "Plan gemt",
   "plan.notFound": "Overgangsplan ikke fundet",
+  "plan.lockedNotice": "Oprettelse og redigering af overgangsplaner kræver en installeret, licenseret udvidelse. Eksisterende planer kan fortsat ses. Se Admin → Udvidelser.",
   "plan.linkedInitiative": "Denne plan er overført til et initiativ.",
   "plan.status.draft": "Kladde",
   "plan.status.committed": "Overført",

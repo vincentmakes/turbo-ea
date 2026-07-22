@@ -445,6 +445,7 @@
   "plan.previewTooltip": "打开预览",
   "plan.saved": "规划已保存",
   "plan.notFound": "未找到过渡计划",
+  "plan.lockedNotice": "创建和编辑过渡计划需要已安装并获得许可的扩展。现有计划仍可查看。请参阅「管理 → 扩展」。",
   "plan.linkedInitiative": "此规划已提交到一个举措。",
   "plan.status.draft": "草稿",
   "plan.status.committed": "已提交",
