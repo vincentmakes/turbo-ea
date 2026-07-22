@@ -49,8 +49,17 @@ Ogni card Business Process può avere un **diagramma del flusso di processo BPMN
 Gli elementi BPMN possono essere **collegati alle card EA**. Ad esempio, collegate un'attività nel vostro diagramma di processo all'Application che la supporta. Questo crea una connessione tracciabile tra il vostro modello di processo e il panorama architetturale:
 
 - Selezionate qualsiasi attività, evento o gateway nel diagramma BPMN
-- Il pannello **Element Linker** mostra le card corrispondenti (Application, Data Object, IT Component)
+- Il pannello **Element Linker** mostra le card corrispondenti (Application, Data Object, IT Component, Organization)
 - Collegate l'elemento a una card — la connessione è memorizzata e visibile sia nel flusso di processo che nelle relazioni della card
+
+### Collegare le organizzazioni (corsie e passaggi)
+
+La responsabilità organizzativa viene catturata a livello di flusso in due modi complementari:
+
+- **Assegnazione delle corsie** — Collegate una volta una corsia BPMN a una card Organization, dal pannello *Assegnazione delle corsie* sopra la tabella dei passaggi oppure selezionando la corsia nel modeler. Ogni passaggio della corsia eredita automaticamente quell'organizzazione.
+- **Sovrascrittura per passaggio** — La colonna *Organizzazione* della tabella dei passaggi consente di collegare un singolo passaggio a un'organizzazione diversa. Un'organizzazione ereditata appare come chip con contorno; una sovrascrittura esplicita appare come chip pieno e ha la precedenza.
+
+I nomi delle corsie restano testo libero nel diagramma — collegare una corsia a una card Organization è facoltativo. L'organizzazione effettiva di un passaggio viene sempre calcolata (la propria sovrascrittura se impostata, altrimenti il collegamento della corsia), quindi nulla viene mantenuto due volte e i collegamenti di corsie e passaggi non possono mai contraddirsi. Le organizzazioni collegate creano una relazione Business Process → Organization visibile su entrambe le card e nei report delle dipendenze.
 
 ### Workflow di approvazione
 

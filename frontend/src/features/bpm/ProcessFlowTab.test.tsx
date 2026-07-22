@@ -325,6 +325,75 @@ describe("ProcessFlowTab", () => {
     });
   });
 
+  describe("Lane assignments", () => {
+    const mockLanes = [
+      { lane_name: "Sales", organization_id: "org-1", organization_name: "Sales Department" },
+    ];
+
+    function mockWithLanes(elements = mockElements) {
+      vi.mocked(api.get).mockImplementation((url: string) => {
+        if (url.includes("/flow/permissions")) return Promise.resolve(mockPerms);
+        if (url.includes("/flow/published")) return Promise.resolve(mockPublished);
+        if (url.includes("/draft-lanes")) return Promise.resolve([]);
+        if (url.includes("/lanes")) return Promise.resolve(mockLanes);
+        if (url.includes("/elements")) return Promise.resolve(elements);
+        if (url.includes("/flow/drafts")) return Promise.resolve(mockDrafts);
+        if (url.includes("/flow/archived")) return Promise.resolve(mockArchived);
+        return Promise.reject(new Error(`no mock for ${url}`));
+      });
+    }
+
+    it("shows the lane assignments panel with the bound organization", async () => {
+      mockWithLanes();
+      renderTab();
+      await waitFor(() => {
+        expect(screen.getByText("Lane assignments")).toBeInTheDocument();
+      });
+      // Inherited: the org name shows in the panel AND on the step row chip.
+      expect(screen.getAllByText("Sales Department")).toHaveLength(2);
+    });
+
+    it("shows an Organization column in the elements table", async () => {
+      mockWithLanes();
+      renderTab();
+      await waitFor(() => {
+        expect(screen.getByText("Organization")).toBeInTheDocument();
+      });
+    });
+
+    it("shows the explicit organization when a step has an override", async () => {
+      mockWithLanes([
+        { ...mockElements[0], organization_id: "org-2", organization_name: "Finance Dept" },
+      ]);
+      renderTab();
+      await waitFor(() => {
+        expect(screen.getByText("Finance Dept")).toBeInTheDocument();
+      });
+      // The lane's own org only shows once (panel) — the step shows its override.
+      expect(screen.getAllByText("Sales Department")).toHaveLength(1);
+    });
+
+    it("saves a cleared lane binding via the lane-links endpoint", async () => {
+      mockWithLanes();
+      vi.mocked(api.put).mockResolvedValue({ lane_name: "Sales", organization_id: null });
+      renderTab();
+      await waitFor(() => {
+        expect(screen.getByText("Lane assignments")).toBeInTheDocument();
+      });
+      // Delete the binding chip in the panel (the deletable chip's cancel icon).
+      const panelChip = screen.getAllByText("Sales Department")[0].closest(".MuiChip-root")!;
+      const deleteIcon = panelChip.querySelector(".MuiChip-deleteIcon");
+      expect(deleteIcon).not.toBeNull();
+      await userEvent.click(deleteIcon as Element);
+      await waitFor(() => {
+        expect(api.put).toHaveBeenCalledWith(
+          "/bpm/processes/proc-1/lane-links",
+          { lane_name: "Sales", organization_id: null },
+        );
+      });
+    });
+  });
+
   it("hides Drafts and Archived tabs when no draft access", async () => {
     vi.mocked(api.get).mockImplementation((url: string) => {
       if (url.includes("/flow/permissions"))

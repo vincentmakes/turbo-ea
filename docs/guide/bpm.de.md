@@ -49,8 +49,17 @@ Jede Geschäftsprozess-Karte kann ein **BPMN 2.0 Prozessflussdiagramm** haben. D
 BPMN-Elemente können mit **EA-Karten verknüpft** werden. Verknüpfen Sie beispielsweise eine Aufgabe in Ihrem Prozessdiagramm mit der Anwendung, die sie unterstützt. Dies schafft eine nachvollziehbare Verbindung zwischen Ihrem Prozessmodell und Ihrer Architekturlandschaft:
 
 - Wählen Sie eine beliebige Aufgabe, ein Ereignis oder ein Gateway im BPMN-Diagramm
-- Das **Elementverknüpfungs**-Panel zeigt passende Karten (Anwendung, Datenobjekt, IT-Komponente)
+- Das **Elementverknüpfungs**-Panel zeigt passende Karten (Anwendung, Datenobjekt, IT-Komponente, Organisation)
 - Verknüpfen Sie das Element mit einer Karte — die Verbindung wird gespeichert und ist sowohl im Prozessfluss als auch in den Beziehungen der Karte sichtbar
+
+### Organisationen verknüpfen (Lanes & Schritte)
+
+Organisatorische Verantwortung wird auf Flussebene auf zwei sich ergänzende Arten erfasst:
+
+- **Lane-Zuordnungen** — Ordnen Sie einer BPMN-Lane einmalig eine Organisationskarte zu, entweder über das Panel *Lane-Zuordnungen* oberhalb der Schritttabelle oder durch Auswahl der Lane im Modeler. Jeder Schritt in der Lane erbt diese Organisation automatisch.
+- **Überschreiben pro Schritt** — Über die Spalte *Organisation* in der Schritttabelle lässt sich ein einzelner Schritt mit einer anderen Organisation verknüpfen. Eine geerbte Organisation erscheint als umrandeter Chip; ein explizites Überschreiben erscheint als gefüllter Chip und hat Vorrang.
+
+Lane-Namen bleiben Freitext im Diagramm — die Zuordnung einer Lane zu einer Organisationskarte ist optional. Die effektive Organisation eines Schritts wird immer berechnet (das eigene Überschreiben, falls gesetzt, andernfalls die Zuordnung der Lane). So wird nichts doppelt gepflegt, und Lane-Zuordnungen und Schrittverknüpfungen können sich nie widersprechen. Verknüpfte Organisationen erzeugen eine Beziehung Geschäftsprozess → Organisation, die auf beiden Karten und in den Abhängigkeitsberichten sichtbar ist.
 
 ### Genehmigungsworkflow
 

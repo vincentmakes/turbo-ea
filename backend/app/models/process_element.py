@@ -46,6 +46,13 @@ class ProcessElement(Base, UUIDMixin, TimestampMixin):
         UUID(as_uuid=True),
         ForeignKey("cards.id", ondelete="SET NULL"),
     )
+    # Explicit per-step Organization override. When NULL the step inherits the
+    # Organization bound to its lane (see ProcessLaneLink) — never copy the
+    # lane's org here, or the two stores can contradict each other.
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("cards.id", ondelete="SET NULL"),
+    )
 
     custom_fields: Mapped[dict | None] = mapped_column(JSONB, default=dict)
 
@@ -53,3 +60,4 @@ class ProcessElement(Base, UUIDMixin, TimestampMixin):
     application = relationship("Card", foreign_keys=[application_id], lazy="noload")
     data_object = relationship("Card", foreign_keys=[data_object_id], lazy="noload")
     it_component = relationship("Card", foreign_keys=[it_component_id], lazy="noload")
+    organization = relationship("Card", foreign_keys=[organization_id], lazy="noload")

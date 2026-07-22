@@ -49,8 +49,17 @@ Cada ficha de Proceso de Negocio puede tener un **diagrama de flujo de proceso B
 Los elementos BPMN pueden ser **vinculados a fichas de EA**. Por ejemplo, vincule una tarea en su diagrama de proceso a la Aplicación que la soporta. Esto crea una conexión trazable entre su modelo de proceso y su panorama de arquitectura:
 
 - Seleccione cualquier tarea, evento o compuerta en el diagrama BPMN
-- El panel de **Vinculador de Elementos** muestra fichas coincidentes (Aplicación, Objeto de Datos, Componente TI)
+- El panel de **Vinculador de Elementos** muestra fichas coincidentes (Aplicación, Objeto de Datos, Componente TI, Organización)
 - Vincule el elemento a una ficha — la conexión se almacena y es visible tanto en el flujo de proceso como en las relaciones de la ficha
+
+### Vincular Organizaciones (Carriles y Pasos)
+
+La responsabilidad organizacional se captura a nivel de flujo de dos maneras complementarias:
+
+- **Asignación de carriles** — Vincule una vez un carril BPMN a una ficha de Organización, ya sea desde el panel *Asignación de carriles* encima de la tabla de pasos o seleccionando el carril en el modelador. Cada paso del carril hereda esa organización automáticamente.
+- **Sobrescritura por paso** — La columna *Organización* de la tabla de pasos permite vincular un paso individual a una organización diferente. Una organización heredada aparece como un chip con contorno; una sobrescritura explícita aparece como un chip relleno y tiene prioridad.
+
+Los nombres de los carriles siguen siendo texto libre en el diagrama — vincular un carril a una ficha de Organización es opcional. La organización efectiva de un paso siempre se calcula (su propia sobrescritura si está definida, de lo contrario la vinculación del carril), por lo que nada se mantiene dos veces y las vinculaciones de carriles y los enlaces de pasos nunca pueden contradecirse. Las organizaciones vinculadas crean una relación Proceso de Negocio → Organización visible en ambas fichas y en los informes de dependencias.
 
 ### Flujo de Aprobación
 

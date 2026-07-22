@@ -32,6 +32,7 @@ from app.models.process_assessment import ProcessAssessment
 from app.models.process_diagram import ProcessDiagram
 from app.models.process_element import ProcessElement
 from app.models.process_flow_version import ProcessFlowVersion
+from app.models.process_lane_link import ProcessLaneLink
 from app.models.risk import Risk, RiskCard
 from app.models.risk_mitigation_task import RiskMitigationTask, RiskMitigationTaskOccurrence
 from app.models.saved_report import SavedReport
@@ -103,7 +104,18 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
     EntitySection(
         "ProcessElements",
         ProcessElement,
-        card_fk_columns=("process_id", "application_id", "data_object_id", "it_component_id"),
+        card_fk_columns=(
+            "process_id",
+            "application_id",
+            "data_object_id",
+            "it_component_id",
+            "organization_id",
+        ),
+    ),
+    EntitySection(
+        "ProcessLaneLinks",
+        ProcessLaneLink,
+        card_fk_columns=("process_id", "organization_id"),
     ),
     EntitySection(
         "ProcessFlowVersions",

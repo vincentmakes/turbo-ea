@@ -49,8 +49,17 @@ Chaque fiche Processus Métier peut avoir un **diagramme de flux de processus BP
 Les éléments BPMN peuvent être **liés à des fiches EA**. Par exemple, lier une tâche dans votre diagramme de processus à l'Application qui la supporte. Cela crée une connexion traçable entre votre modèle de processus et votre paysage d'architecture :
 
 - Sélectionnez n'importe quelle tâche, événement ou passerelle dans le diagramme BPMN
-- Le panneau **Liaison d'éléments** affiche les fiches correspondantes (Application, Objet de Données, Composant IT)
+- Le panneau **Liaison d'éléments** affiche les fiches correspondantes (Application, Objet de Données, Composant IT, Organisation)
 - Liez l'élément à une fiche -- la connexion est stockée et visible à la fois dans le flux de processus et dans les relations de la fiche
+
+### Lier des organisations (couloirs et étapes)
+
+La responsabilité organisationnelle est capturée au niveau du flux de deux manières complémentaires :
+
+- **Affectation des couloirs** — Associez une fois un couloir BPMN à une fiche Organisation, soit depuis le panneau *Affectation des couloirs* au-dessus du tableau des étapes, soit en sélectionnant le couloir dans le modeleur. Chaque étape du couloir hérite automatiquement de cette organisation.
+- **Remplacement par étape** — La colonne *Organisation* du tableau des étapes permet de lier une étape individuelle à une autre organisation. Une organisation héritée apparaît sous forme de puce avec contour ; un remplacement explicite apparaît sous forme de puce pleine et a la priorité.
+
+Les noms de couloirs restent du texte libre dans le diagramme — l'association d'un couloir à une fiche Organisation est facultative. L'organisation effective d'une étape est toujours calculée (son propre remplacement s'il est défini, sinon l'association du couloir) : rien n'est maintenu en double et les associations de couloirs et les liens d'étapes ne peuvent jamais se contredire. Les organisations liées créent une relation Processus Métier → Organisation visible sur les deux fiches et dans les rapports de dépendances.
 
 ### Workflow d'approbation
 

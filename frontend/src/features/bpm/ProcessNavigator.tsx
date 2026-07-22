@@ -126,6 +126,8 @@ interface ProcessElementData {
   data_object_name?: string;
   it_component_id?: string;
   it_component_name?: string;
+  organization_id?: string;
+  organization_name?: string;
   custom_fields?: Record<string, unknown>;
 }
 
@@ -1056,15 +1058,31 @@ function DrawerSteps({
 }) {
   const { t } = useTranslation(["bpm", "common"]);
   const [elements, setElements] = useState<ProcessElementData[]>([]);
+  const [laneOrgs, setLaneOrgs] = useState<Record<string, { id: string; name: string }>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     setLoading(true);
     setError("");
-    api
-      .get<ProcessElementData[]>(`/bpm/processes/${processId}/elements`)
-      .then(setElements)
+    Promise.all([
+      api.get<ProcessElementData[]>(`/bpm/processes/${processId}/elements`),
+      api
+        .get<{ lane_name: string; organization_id?: string | null; organization_name?: string | null }[]>(
+          `/bpm/processes/${processId}/lanes`
+        )
+        .catch(() => []),
+    ])
+      .then(([els, laneData]) => {
+        setElements(els);
+        const map: Record<string, { id: string; name: string }> = {};
+        for (const lane of laneData) {
+          if (lane.organization_id && lane.organization_name) {
+            map[lane.lane_name] = { id: lane.organization_id, name: lane.organization_name };
+          }
+        }
+        setLaneOrgs(map);
+      })
       .catch((err) => setError(err?.message || "Failed to load elements"))
       .finally(() => setLoading(false));
   }, [processId]);
@@ -1098,9 +1116,26 @@ function DrawerSteps({
       {Array.from(lanes.entries()).map(([laneName, laneElements]) => (
         <Box key={laneName} sx={{ mb: 2 }}>
           {lanes.size > 1 && (
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.75, color: "text.secondary" }}>
-              {laneName}
-            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.75 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "text.secondary" }}>
+                {laneName}
+              </Typography>
+              {laneOrgs[laneName] && (
+                <Chip
+                  size="small"
+                  icon={<MaterialSymbol icon="corporate_fare" size={12} />}
+                  label={laneOrgs[laneName].name}
+                  onClick={() => onNavigate(laneOrgs[laneName].id)}
+                  sx={{
+                    height: 20,
+                    fontSize: "0.65rem",
+                    cursor: "pointer",
+                    bgcolor: "action.hover",
+                    "&:hover": { bgcolor: "action.selected" },
+                  }}
+                />
+              )}
+            </Box>
           )}
           <Box sx={{ display: "flex", flexDirection: "column", gap: 0 }}>
             {laneElements.map((el, idx) => {
@@ -1208,6 +1243,21 @@ function DrawerSteps({
                             icon={<MaterialSymbol icon="memory" size={12} />}
                             label={el.it_component_name}
                             onClick={() => el.it_component_id && onNavigate(el.it_component_id)}
+                            sx={{
+                              height: 20,
+                              fontSize: "0.65rem",
+                              cursor: "pointer",
+                              bgcolor: "action.hover",
+                              "&:hover": { bgcolor: "action.selected" },
+                            }}
+                          />
+                        )}
+                        {el.organization_name && (
+                          <Chip
+                            size="small"
+                            icon={<MaterialSymbol icon="corporate_fare" size={12} />}
+                            label={el.organization_name}
+                            onClick={() => el.organization_id && onNavigate(el.organization_id)}
                             sx={{
                               height: 20,
                               fontSize: "0.65rem",

@@ -309,6 +309,54 @@ async def test_module_entities_roundtrip_and_recreate(db):
     ).scalar_one().content == "hello"
 
 
+async def test_process_lane_links_roundtrip(db):
+    """Lane → Organization bindings and the per-step organization FK export
+    and re-import with both card FKs resolved by ref."""
+    from app.models.process_element import ProcessElement
+    from app.models.process_lane_link import ProcessLaneLink
+
+    user = await create_user(db, email="bpm-owner@test.com", role="admin")
+    await create_card_type(db, key="BusinessProcess", label="Business Process")
+    await create_card_type(db, key="Organization", label="Organization")
+    process = await create_card(db, card_type="BusinessProcess", name="O2C", user_id=user.id)
+    org = await create_card(db, card_type="Organization", name="Sales", user_id=user.id)
+
+    elem = ProcessElement(
+        process_id=process.id,
+        bpmn_element_id="task_1",
+        element_type="task",
+        name="Create Quote",
+        lane_name="Sales",
+        organization_id=org.id,
+        sequence_order=0,
+    )
+    lane_link = ProcessLaneLink(process_id=process.id, lane_name="Sales", organization_id=org.id)
+    db.add_all([elem, lane_link])
+    await db.flush()
+    elem_id, lane_link_id = elem.id, lane_link.id
+
+    raw = await build_bundle(db)
+
+    # Delete the module rows, then re-apply: same ids, card FKs re-resolved.
+    await db.execute(delete(ProcessLaneLink).where(ProcessLaneLink.id == lane_link_id))
+    await db.execute(delete(ProcessElement).where(ProcessElement.id == elem_id))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    restored_link = (
+        await db.execute(select(ProcessLaneLink).where(ProcessLaneLink.id == lane_link_id))
+    ).scalar_one()
+    assert restored_link.process_id == process.id
+    assert restored_link.organization_id == org.id
+    assert restored_link.lane_name == "Sales"
+    restored_elem = (
+        await db.execute(select(ProcessElement).where(ProcessElement.id == elem_id))
+    ).scalar_one()
+    assert restored_elem.organization_id == org.id
+
+
 async def test_large_json_blob_survives_export_import(db):
     """A card whose attributes exceed Excel's 32k cell limit round-trips intact
     (regression for the 'Unterminated string' import error)."""

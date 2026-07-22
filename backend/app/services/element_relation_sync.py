@@ -19,12 +19,46 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.relation import Relation
 
 # Mapping from ProcessElement FK field → relation type key
-# All three have source = BusinessProcess, target = the linked type.
+# All four have source = BusinessProcess, target = the linked type.
 ELEMENT_LINK_RELATION_MAP: dict[str, str] = {
     "application_id": "relProcessToApp",
     "data_object_id": "relProcessToDataObj",
     "it_component_id": "relProcessToITC",
+    "organization_id": "relProcessToOrg",
 }
+
+
+def collect_effective_org_ids(
+    elements: list,
+    lane_links: dict[str, uuid.UUID | str | None],
+) -> set[uuid.UUID]:
+    """Compute the effective Organization ids for a set of process elements.
+
+    A step's effective organization is its explicit ``organization_id`` when
+    set, otherwise the Organization bound to its lane. Elements without either
+    contribute nothing.
+
+    Args:
+        elements: ProcessElement rows (or any objects with ``organization_id``
+                  and ``lane_name`` attributes).
+        lane_links: Mapping of lane name → Organization card UUID (str or
+                    UUID; ``None``/empty values are ignored).
+
+    Returns:
+        Set of Organization card UUIDs.
+    """
+    normalized: dict[str, uuid.UUID] = {}
+    for lane_name, org_id in (lane_links or {}).items():
+        if org_id:
+            normalized[lane_name] = org_id if isinstance(org_id, uuid.UUID) else uuid.UUID(org_id)
+
+    org_ids: set[uuid.UUID] = set()
+    for el in elements:
+        if el.organization_id:
+            org_ids.add(el.organization_id)
+        elif el.lane_name and el.lane_name in normalized:
+            org_ids.add(normalized[el.lane_name])
+    return org_ids
 
 
 async def sync_element_relations(

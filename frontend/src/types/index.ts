@@ -1037,7 +1037,16 @@ export interface ProcessElement {
   data_object_name?: string;
   it_component_id?: string;
   it_component_name?: string;
+  organization_id?: string;
+  organization_name?: string;
   custom_fields?: Record<string, unknown>;
+}
+
+/** A BPMN lane (free-text name) optionally bound to an Organization card. */
+export interface ProcessLaneLink {
+  lane_name: string;
+  organization_id?: string | null;
+  organization_name?: string | null;
 }
 
 export interface ProcessAssessment {
@@ -1100,8 +1109,11 @@ export interface ProcessFlowVersion {
     application_id?: string;
     data_object_id?: string;
     it_component_id?: string;
+    organization_id?: string;
     custom_fields?: Record<string, unknown>;
   }>;
+  /** Draft-stage lane → Organization bindings, keyed by lane name. */
+  draft_lane_links?: Record<string, string>;
 }
 
 export interface ProcessFlowPermissions {

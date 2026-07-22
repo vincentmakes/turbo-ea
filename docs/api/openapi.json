@@ -4179,6 +4179,17 @@
               }
             ],
             "title": "It Component Id"
+          },
+          "organization_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization Id"
           }
         },
         "title": "ElementUpdate",
@@ -5142,6 +5153,31 @@
           "instance_id"
         ],
         "title": "InstanceOut",
+        "type": "object"
+      },
+      "LaneLinkUpdate": {
+        "description": "Bind (or clear) the Organization card for a BPMN lane of a process.",
+        "properties": {
+          "lane_name": {
+            "title": "Lane Name",
+            "type": "string"
+          },
+          "organization_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization Id"
+          }
+        },
+        "required": [
+          "lane_name"
+        ],
+        "title": "LaneLinkUpdate",
         "type": "object"
       },
       "LicenseIn": {
@@ -18008,6 +18044,116 @@
         ]
       }
     },
+    "/api/v1/bpm/processes/{process_id}/flow/versions/{version_id}/draft-lane-links": {
+      "put": {
+        "description": "Bind (or clear) a lane's Organization on a draft version. Applied to\nthe live process_lane_links table when the version is published.",
+        "operationId": "update_draft_lane_link_api_v1_bpm_processes__process_id__flow_versions__version_id__draft_lane_links_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "process_id",
+            "required": true,
+            "schema": {
+              "title": "Process Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LaneLinkUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Draft Lane Link",
+        "tags": [
+          "bpm-workflow"
+        ]
+      }
+    },
+    "/api/v1/bpm/processes/{process_id}/flow/versions/{version_id}/draft-lanes": {
+      "get": {
+        "description": "Distinct lanes parsed from a draft version's BPMN XML, merged with the\nversion's draft lane \u2192 Organization bindings (mirrors GET /lanes).",
+        "operationId": "get_draft_lanes_api_v1_bpm_processes__process_id__flow_versions__version_id__draft_lanes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "process_id",
+            "required": true,
+            "schema": {
+              "title": "Process Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Draft Lanes",
+        "tags": [
+          "bpm-workflow"
+        ]
+      }
+    },
     "/api/v1/bpm/processes/{process_id}/flow/versions/{version_id}/reject": {
       "post": {
         "description": "Reject a pending process flow, returning it to draft status.",
@@ -18105,6 +18251,98 @@
         "summary": "Submit For Approval",
         "tags": [
           "bpm-workflow"
+        ]
+      }
+    },
+    "/api/v1/bpm/processes/{process_id}/lane-links": {
+      "put": {
+        "description": "Bind a lane to an Organization card, or clear the binding.\n\nSteps in the lane without an explicit per-step organization inherit this\nbinding. Binding additively syncs a BusinessProcess \u2192 Organization\nrelation (same convention as element links \u2014 never auto-deleted).",
+        "operationId": "update_lane_link_api_v1_bpm_processes__process_id__lane_links_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "process_id",
+            "required": true,
+            "schema": {
+              "title": "Process Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LaneLinkUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Lane Link",
+        "tags": [
+          "bpm"
+        ]
+      }
+    },
+    "/api/v1/bpm/processes/{process_id}/lanes": {
+      "get": {
+        "description": "Distinct BPMN lanes of the process with their Organization bindings.\n\nLane names come from the extracted elements (free text from the diagram);\na lane appears here whether or not it is bound to an Organization card.",
+        "operationId": "list_lanes_api_v1_bpm_processes__process_id__lanes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "process_id",
+            "required": true,
+            "schema": {
+              "title": "Process Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Lanes",
+        "tags": [
+          "bpm"
         ]
       }
     },

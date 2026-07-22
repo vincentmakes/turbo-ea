@@ -46,7 +46,7 @@ import BpmnViewer from "./BpmnViewer";
 import BpmnTemplateChooser from "./BpmnTemplateChooser";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
-import type { ProcessFlowVersion, ProcessFlowPermissions, ProcessElement } from "@/types";
+import type { ProcessFlowVersion, ProcessFlowPermissions, ProcessElement, ProcessLaneLink } from "@/types";
 
 interface Props {
   processId: string;
@@ -90,6 +90,10 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
   // Process elements (steps / lanes table for published view)
   const [elements, setElements] = useState<ProcessElement[]>([]);
 
+  // Lane → Organization bindings (published view + per-draft)
+  const [lanes, setLanes] = useState<ProcessLaneLink[]>([]);
+  const [draftLanes, setDraftLanes] = useState<Record<string, ProcessLaneLink[]>>({});
+
   // Draft preview state
   const [expandedDraft, setExpandedDraft] = useState<string | null>(null);
   const [draftDetails, setDraftDetails] = useState<Record<string, ProcessFlowVersion>>({});
@@ -116,14 +120,16 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
   const loadInitial = useCallback(async () => {
     setLoadingPub(true);
     try {
-      const [permsData, pubData, elemData] = await Promise.all([
+      const [permsData, pubData, elemData, laneData] = await Promise.all([
         api.get<ProcessFlowPermissions>(`/bpm/processes/${processId}/flow/permissions`),
         api.get<ProcessFlowVersion | null>(`/bpm/processes/${processId}/flow/published`),
         api.get<ProcessElement[]>(`/bpm/processes/${processId}/elements`).catch(() => [] as ProcessElement[]),
+        api.get<ProcessLaneLink[]>(`/bpm/processes/${processId}/lanes`).catch(() => [] as ProcessLaneLink[]),
       ]);
       setPerms(permsData);
       setPublished(pubData);
       setElements(elemData);
+      setLanes(laneData);
 
       // Eagerly load drafts so the Published empty state can show draft availability
       if (permsData.can_view_drafts) {
@@ -192,6 +198,56 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       setSnack(t("flowTab.elementUpdated"));
     } catch {
       setSnack(t("flowTab.elementUpdateFailed"));
+    }
+    setEditingCell(null);
+  };
+
+  const handleLaneLinkUpdate = async (laneName: string, organizationId: string | null) => {
+    try {
+      await api.put(`/bpm/processes/${processId}/lane-links`, {
+        lane_name: laneName,
+        organization_id: organizationId || null,
+      });
+      // Reload lanes + elements: binding a lane normalizes redundant per-step
+      // overrides back to inherited, so the table must refresh too.
+      const [laneData, elemData] = await Promise.all([
+        api.get<ProcessLaneLink[]>(`/bpm/processes/${processId}/lanes`).catch(() => [] as ProcessLaneLink[]),
+        api.get<ProcessElement[]>(`/bpm/processes/${processId}/elements`).catch(() => [] as ProcessElement[]),
+      ]);
+      setLanes(laneData);
+      setElements(elemData);
+      setSnack(t("flowTab.laneLinkUpdated"));
+    } catch {
+      setSnack(t("flowTab.laneLinkUpdateFailed"));
+    }
+    setEditingCell(null);
+  };
+
+  const loadDraftLanes = async (draftId: string) => {
+    try {
+      const data = await api.get<ProcessLaneLink[]>(
+        `/bpm/processes/${processId}/flow/versions/${draftId}/draft-lanes`
+      );
+      setDraftLanes((prev) => ({ ...prev, [draftId]: data }));
+    } catch {
+      setDraftLanes((prev) => ({ ...prev, [draftId]: [] }));
+    }
+  };
+
+  const handleDraftLaneLinkUpdate = async (
+    draftId: string,
+    laneName: string,
+    organizationId: string | null,
+  ) => {
+    try {
+      await api.put(`/bpm/processes/${processId}/flow/versions/${draftId}/draft-lane-links`, {
+        lane_name: laneName,
+        organization_id: organizationId || null,
+      });
+      await loadDraftLanes(draftId);
+      setSnack(t("flowTab.laneLinkUpdated"));
+    } catch {
+      setSnack(t("flowTab.laneLinkUpdateFailed"));
     }
     setEditingCell(null);
   };
@@ -328,9 +384,12 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
         console.error("Failed to load draft detail:", err);
       }
     }
-    // Load draft elements
+    // Load draft elements + lanes
     if (!draftElements[draftId]) {
       loadDraftElements(draftId);
+    }
+    if (!draftLanes[draftId]) {
+      loadDraftLanes(draftId);
     }
   };
 
@@ -494,6 +553,125 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     );
   };
 
+  const renderOrgCell = (
+    element: ProcessElement,
+    laneOrgs: Record<string, { id: string; name: string }>,
+    onUpdate: (id: string, updates: Record<string, unknown>) => void,
+    elementId: string,
+  ) => {
+    const isEditing = editingCell?.elementId === elementId && editingCell?.field === "organization";
+    const inherited = element.lane_name ? laneOrgs[element.lane_name] : undefined;
+
+    if (isEditing) {
+      return (
+        <CardPicker
+          types="Organization"
+          value={null}
+          onChange={(val) => onUpdate(elementId, { organization_id: val?.id || "" })}
+          onBlur={() => setEditingCell(null)}
+          enabled={isEditing}
+          autoFocus
+          sx={{ minWidth: 160 }}
+          placeholder={t("flowTab.searchCardType", { type: "Organization" })}
+        />
+      );
+    }
+
+    return (
+      <Box onClick={() => setEditingCell({ elementId, field: "organization" })} sx={linkCellSx}>
+        {element.organization_name ? (
+          <Chip
+            label={element.organization_name}
+            size="small"
+            color="info"
+            onDelete={() => onUpdate(elementId, { organization_id: "" })}
+            sx={{ maxWidth: 160 }}
+          />
+        ) : inherited ? (
+          <Tooltip title={t("flowTab.inheritedFromLane", { lane: element.lane_name })}>
+            <Chip
+              label={inherited.name}
+              size="small"
+              color="info"
+              variant="outlined"
+              icon={<MaterialSymbol icon="view_agenda" size={14} />}
+              sx={{ maxWidth: 160 }}
+            />
+          </Tooltip>
+        ) : (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <MaterialSymbol icon="add_link" size={14} color="#bbb" />
+            <Typography variant="caption" color="text.disabled">{t("flowTab.linkCardType", { type: "Organization" })}</Typography>
+          </Box>
+        )}
+      </Box>
+    );
+  };
+
+  const renderLaneAssignments = (
+    laneList: ProcessLaneLink[],
+    onBind: (laneName: string, organizationId: string | null) => void,
+  ) => {
+    if (laneList.length === 0) return null;
+
+    return (
+      <Box sx={{ mt: 2 }}>
+        <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+          {t("flowTab.laneAssignments")}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>
+          {t("flowTab.laneAssignmentsSubtitle")}
+        </Typography>
+        <Paper variant="outlined" sx={{ p: 1.5, display: "flex", flexWrap: "wrap", gap: 2 }}>
+          {laneList.map((lane) => {
+            const cellKey = `lane:${lane.lane_name}`;
+            const isEditing = editingCell?.elementId === cellKey && editingCell?.field === "lane_org";
+            return (
+              <Box key={lane.lane_name} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <MaterialSymbol icon="view_agenda" size={16} color="#999" />
+                <Typography variant="body2" fontWeight={500}>{lane.lane_name}</Typography>
+                {isEditing ? (
+                  <CardPicker
+                    types="Organization"
+                    value={null}
+                    onChange={(val) => onBind(lane.lane_name, val?.id || null)}
+                    onBlur={() => setEditingCell(null)}
+                    enabled={isEditing}
+                    autoFocus
+                    sx={{ minWidth: 180 }}
+                    placeholder={t("flowTab.searchCardType", { type: "Organization" })}
+                  />
+                ) : (
+                  <Box
+                    onClick={() => setEditingCell({ elementId: cellKey, field: "lane_org" })}
+                    sx={linkCellSx}
+                  >
+                    {lane.organization_name ? (
+                      <Chip
+                        label={lane.organization_name}
+                        size="small"
+                        color="info"
+                        onDelete={() => onBind(lane.lane_name, null)}
+                        sx={{ maxWidth: 180 }}
+                      />
+                    ) : (
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                        <MaterialSymbol icon="add_link" size={14} color="#bbb" />
+                        <Typography variant="caption" color="text.disabled">
+                          {t("flowTab.linkCardType", { type: "Organization" })}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                )}
+              </Box>
+            );
+          })}
+        </Paper>
+      </Box>
+    );
+  };
+
   const renderTCodeCell = (
     element: ProcessElement,
     onUpdate: (id: string, updates: Record<string, unknown>) => void,
@@ -549,7 +727,14 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     idField: "id" | "bpmn_element_id" = "id",
     title = t("flowTab.processStepsAndElements"),
     subtitle = t("flowTab.elementsTableSubtitle"),
+    laneList: ProcessLaneLink[] = [],
   ) => {
+    const laneOrgs: Record<string, { id: string; name: string }> = {};
+    for (const lane of laneList) {
+      if (lane.organization_id && lane.organization_name) {
+        laneOrgs[lane.lane_name] = { id: lane.organization_id, name: lane.organization_name };
+      }
+    }
     const namedElements = elems.filter((e) => e.name);
     if (namedElements.length === 0) return null;
 
@@ -578,6 +763,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                 <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.application")}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.dataObject")}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.itComponent")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.organization")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -602,6 +788,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                     <TableCell>{renderEditableCell(e, "application", "Application", onUpdate, elemKey)}</TableCell>
                     <TableCell>{renderEditableCell(e, "data_object", "DataObject", onUpdate, elemKey)}</TableCell>
                     <TableCell>{renderEditableCell(e, "it_component", "ITComponent", onUpdate, elemKey)}</TableCell>
+                    <TableCell>{renderOrgCell(e, laneOrgs, onUpdate, elemKey)}</TableCell>
                   </TableRow>
                 );
               })}
@@ -726,8 +913,18 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
           />
         )}
 
+        {/* Lane → Organization assignments */}
+        {renderLaneAssignments(lanes, handleLaneLinkUpdate)}
+
         {/* Editable process elements table */}
-        {renderElementsTable(elements, handleElementUpdate)}
+        {renderElementsTable(
+          elements,
+          handleElementUpdate,
+          "id",
+          t("flowTab.processStepsAndElements"),
+          t("flowTab.elementsTableSubtitle"),
+          lanes,
+        )}
       </Box>
     );
   };
@@ -911,6 +1108,12 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                       </Typography>
                     )}
 
+                    {/* Draft lane → Organization pre-linking */}
+                    {d.status === "draft" && perms.can_edit_draft && draftLanes[d.id] &&
+                      renderLaneAssignments(draftLanes[d.id], (laneName, orgId) =>
+                        handleDraftLaneLinkUpdate(d.id, laneName, orgId)
+                      )}
+
                     {/* Draft element pre-linking table */}
                     {draftElementsLoading[d.id] ? (
                       <Typography color="text.secondary" sx={{ mt: 2 }}>{t("flowTab.loadingElements")}</Typography>
@@ -921,6 +1124,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                         "bpmn_element_id",
                         t("flowTab.preLinkElements"),
                         t("flowTab.preLinkElementsSubtitle"),
+                        draftLanes[d.id] || [],
                       )
                     ) : draftElements[d.id] ? (
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>

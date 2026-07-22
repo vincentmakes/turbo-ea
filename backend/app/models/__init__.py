@@ -37,6 +37,7 @@ from app.models.process_assessment import ProcessAssessment
 from app.models.process_diagram import ProcessDiagram
 from app.models.process_element import ProcessElement
 from app.models.process_flow_version import ProcessFlowVersion
+from app.models.process_lane_link import ProcessLaneLink
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.resource_type import ResourceType
@@ -143,6 +144,7 @@ __all__ = [
     "ProcessElement",
     "ProcessAssessment",
     "ProcessFlowVersion",
+    "ProcessLaneLink",
     "SsoInvitation",
     "WebPortal",
     "SnowConnection",

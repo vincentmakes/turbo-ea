@@ -49,8 +49,17 @@ Each Business Process card can have a **BPMN 2.0 process flow diagram**. The edi
 BPMN elements can be **linked to EA cards**. For example, link a task in your process diagram to the Application that supports it. This creates a traceable connection between your process model and your architecture landscape:
 
 - Select any task, event, or gateway in the BPMN diagram
-- The **Element Linker** panel shows matching cards (Application, Data Object, IT Component)
+- The **Element Linker** panel shows matching cards (Application, Data Object, IT Component, Organization)
 - Link the element to a card — the connection is stored and visible in both the process flow and the card's relations
+
+### Linking Organizations (Lanes & Steps)
+
+Organizational responsibility is captured at the flow level in two complementary ways:
+
+- **Lane assignments** — Bind a BPMN swim lane to an Organization card once, either from the *Lane assignments* panel above the step table or by selecting the lane in the modeler. Every step in the lane inherits that organization automatically.
+- **Per-step override** — The *Organization* column in the step table links an individual step to a different organization. An inherited organization appears as an outlined chip; an explicit override appears as a filled chip and takes precedence.
+
+Lane names stay free text in the diagram — binding a lane to an Organization card is optional. The effective organization of a step is always computed (its own override if set, otherwise the lane's binding), so nothing is maintained twice and lane bindings and step links can never contradict each other. Linked organizations create a BusinessProcess → Organization relation that is visible on both cards and in the dependency reports.
 
 ### Approval Workflow
 

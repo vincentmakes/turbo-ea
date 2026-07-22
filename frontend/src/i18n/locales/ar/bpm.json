@@ -36,6 +36,10 @@
   "flowTab.application": "التطبيق",
   "flowTab.dataObject": "كائن البيانات",
   "flowTab.itComponent": "مكوّن تقنية المعلومات",
+  "flowTab.organization": "المؤسّسة",
+  "flowTab.laneAssignments": "تعيينات المسارات",
+  "flowTab.laneAssignmentsSubtitle": "اربط كل مسار BPMN ببطاقة مؤسّسة. ترث خطوات المسار مؤسّسته ما لم يتم تجاوزها لكل خطوة.",
+  "flowTab.inheritedFromLane": "موروث من المسار «{{lane}}»",
   "flowTab.loadingPublished": "جارٍ تحميل التدفّق المنشور...",
   "flowTab.noPublishedYet": "لا يوجد تدفّق عمليات منشور بعد",
   "flowTab.draftsAvailable_one": "تتوفّر مسودّة واحدة ({{count}}).",
@@ -84,6 +88,8 @@
   "flowTab.drafts": "المسودّات",
   "flowTab.elementUpdated": "تم تحديث العنصر",
   "flowTab.elementUpdateFailed": "تعذّر تحديث العنصر",
+  "flowTab.laneLinkUpdated": "تم تحديث تعيين المسار",
+  "flowTab.laneLinkUpdateFailed": "فشل تحديث تعيين المسار",
 
   "assessment.title": "تقييمات العمليات",
   "assessment.newAssessment": "تقييم جديد",
@@ -129,6 +135,7 @@
   "linker.application": "التطبيق",
   "linker.dataObject": "كائن البيانات",
   "linker.itComponent": "مكوّن تقنية المعلومات",
+  "linker.organization": "المؤسّسة",
   "linker.saving": "جارٍ الحفظ...",
 
   "reports.processMap": "خريطة العمليات",
@@ -230,5 +237,12 @@
   "modeler.draftSaved": "تم حفظ المسودّة",
   "modeler.saveFailed": "فشل الحفظ",
   "modeler.importSuccess": "تم استيراد BPMN بنجاح",
-  "modeler.importInvalid": "ملف BPMN غير صالح"
+  "modeler.importInvalid": "ملف BPMN غير صالح",
+  "modeler.laneOrgTitle": "المسار: {{lane}}",
+  "modeler.laneOrgUnnamed": "مسار بدون اسم",
+  "modeler.laneOrgLabel": "المؤسّسة",
+  "modeler.laneOrgHint": "ترث خطوات هذا المسار هذه المؤسّسة ما لم يتم تجاوزها في جدول الخطوات.",
+  "modeler.laneOrgNameFirst": "قم بتسمية هذا المسار أولاً لربطه بمؤسّسة.",
+  "modeler.laneOrgSaved": "تم حفظ مؤسّسة المسار",
+  "modeler.laneOrgSaveFailed": "فشل حفظ مؤسّسة المسار"
 }

@@ -49,8 +49,17 @@ Cada card de Processo de Negócio pode ter um **diagrama de fluxo de processo BP
 Elementos BPMN podem ser **vinculados a cards de EA**. Por exemplo, vincule uma tarefa no seu diagrama de processo à Aplicação que a suporta. Isso cria uma conexão rastreável entre seu modelo de processo e seu cenário de arquitetura:
 
 - Selecione qualquer tarefa, evento ou gateway no diagrama BPMN
-- O painel **Vinculador de Elementos** mostra cards correspondentes (Aplicação, Objeto de Dados, Componente de TI)
+- O painel **Vinculador de Elementos** mostra cards correspondentes (Aplicação, Objeto de Dados, Componente de TI, Organização)
 - Vincule o elemento a um card — a conexão é armazenada e visível tanto no fluxo de processo quanto nos relacionamentos do card
+
+### Vincular Organizações (Raias e Etapas)
+
+A responsabilidade organizacional é capturada no nível do fluxo de duas maneiras complementares:
+
+- **Atribuição de raias** — Vincule uma vez uma raia BPMN a um card de Organização, seja no painel *Atribuição de raias* acima da tabela de etapas ou selecionando a raia no modelador. Cada etapa da raia herda essa organização automaticamente.
+- **Substituição por etapa** — A coluna *Organização* da tabela de etapas permite vincular uma etapa individual a uma organização diferente. Uma organização herdada aparece como um chip com contorno; uma substituição explícita aparece como um chip preenchido e tem prioridade.
+
+Os nomes das raias continuam sendo texto livre no diagrama — vincular uma raia a um card de Organização é opcional. A organização efetiva de uma etapa é sempre calculada (sua própria substituição, se definida, caso contrário a vinculação da raia), portanto nada é mantido em duplicidade e as vinculações de raias e os links de etapas nunca podem se contradizer. Organizações vinculadas criam uma relação Processo de Negócio → Organização visível em ambos os cards e nos relatórios de dependências.
 
 ### Fluxo de Aprovação
 

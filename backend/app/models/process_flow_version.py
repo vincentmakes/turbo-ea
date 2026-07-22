@@ -62,8 +62,13 @@ class ProcessFlowVersion(Base, UUIDMixin, TimestampMixin):
     # Draft-stage element links: pre-linked EA references before publishing.
     # Dict keyed by bpmn_element_id:
     #   {"Task_1": {"application_id": "uuid", "data_object_id": "uuid",
-    #               "it_component_id": "uuid", "custom_fields": {"tcode": "SE16"}}}
+    #               "it_component_id": "uuid", "organization_id": "uuid",
+    #               "custom_fields": {"tcode": "SE16"}}}
     draft_element_links: Mapped[dict | None] = mapped_column(JSONB, default=dict)
+
+    # Draft-stage lane → Organization bindings, applied to process_lane_links
+    # on publish. Dict keyed by lane name: {"Sales": "org-card-uuid"}
+    draft_lane_links: Mapped[dict | None] = mapped_column(JSONB, default=dict)
 
     process = relationship("Card", lazy="noload")
     creator = relationship("User", foreign_keys=[created_by], lazy="noload")

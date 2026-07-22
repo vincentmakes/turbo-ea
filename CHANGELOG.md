@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.24.0] - 2026-07-22
+
+### Added
+- **Organizations can now be linked at process-flow level** — a hybrid lane + step model inspired by how the major BPM suites bind swim lanes to governed org objects. Bind a BPMN lane to an Organization card once (from the new *Lane assignments* panel above the flow's step table, or by selecting the lane in the BPMN modeler) and every step in that lane inherits the organization automatically; the new *Organization* column in the step table shows inherited organizations as outlined chips and lets you override individual steps, mirroring the existing Application / Data Object / IT Component linking. Effective organizations are always computed (override wins, else lane binding), so lane bindings and step links can never contradict each other, and each link additively syncs the existing BusinessProcess → Organization relation so it shows up on both cards and in dependency reports. Lane names remain free text — binding is optional and existing diagrams are unaffected. Draft flows support lane pre-linking with the bindings applied on publish, the Process Navigator shows lane/step organization chips, and lane bindings transfer with workspace export/import.
+
 ## [2.23.3] - 2026-07-22
 
 ### Fixed

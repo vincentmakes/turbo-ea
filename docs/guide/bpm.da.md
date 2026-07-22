@@ -49,8 +49,17 @@ Hvert forretningsproceskort kan have et **BPMN 2.0-procesflowdiagram**. Editoren
 BPMN-elementer kan **linkes til EA-kort**. For eksempel kan du linke en opgave i dit procesdiagram til den applikation, der understøtter den. Det skaber en sporbar forbindelse mellem din procesmodel og dit arkitekturlandskab:
 
 - Vælg en opgave, hændelse eller gateway i BPMN-diagrammet
-- Panelet **Element Linker** viser matchende kort (Application, Data Object, IT Component)
+- Panelet **Element Linker** viser matchende kort (Application, Data Object, IT Component, Organization)
 - Link elementet til et kort — forbindelsen gemmes og er synlig i både procesflowet og kortets relationer
+
+### Link organisationer (baner og trin)
+
+Organisatorisk ansvar registreres på flow-niveau på to komplementære måder:
+
+- **Banetildelinger** — Knyt en BPMN-bane til et organisationskort én gang, enten fra panelet *Banetildelinger* over trintabellen eller ved at vælge banen i modelleringsværktøjet. Hvert trin i banen arver automatisk den organisation.
+- **Tilsidesættelse pr. trin** — Kolonnen *Organisation* i trintabellen kan linke et enkelt trin til en anden organisation. En arvet organisation vises som en chip med kontur; en eksplicit tilsidesættelse vises som en udfyldt chip og har forrang.
+
+Banenavne forbliver fri tekst i diagrammet — det er valgfrit at knytte en bane til et organisationskort. Et trins effektive organisation beregnes altid (dets egen tilsidesættelse, hvis den er sat, ellers banens tilknytning), så intet vedligeholdes to gange, og banetilknytninger og trinlinks kan aldrig modsige hinanden. Linkede organisationer opretter en relation Forretningsproces → Organisation, som er synlig på begge kort og i afhængighedsrapporterne.
 
 ### Godkendelses­arbejdsproces
 

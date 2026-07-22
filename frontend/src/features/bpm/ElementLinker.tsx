@@ -1,6 +1,6 @@
 /**
  * ElementLinker — Dialog for linking BPMN elements to EA cards.
- * Search for Applications, Data Objects, IT Components and assign them.
+ * Search for Applications, Data Objects, IT Components, Organizations and assign them.
  */
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -34,6 +34,7 @@ export default function ElementLinker({ open, onClose, element, processId, onSav
   const [selectedApp, setSelectedApp] = useState<CardOption | null>(null);
   const [selectedData, setSelectedData] = useState<CardOption | null>(null);
   const [selectedItc, setSelectedItc] = useState<CardOption | null>(null);
+  const [selectedOrg, setSelectedOrg] = useState<CardOption | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -41,6 +42,7 @@ export default function ElementLinker({ open, onClose, element, processId, onSav
     setSelectedApp(element.application_id ? { id: element.application_id, name: element.application_name || "", type: "Application" } : null);
     setSelectedData(element.data_object_id ? { id: element.data_object_id, name: element.data_object_name || "", type: "DataObject" } : null);
     setSelectedItc(element.it_component_id ? { id: element.it_component_id, name: element.it_component_name || "", type: "ITComponent" } : null);
+    setSelectedOrg(element.organization_id ? { id: element.organization_id, name: element.organization_name || "", type: "Organization" } : null);
   }, [element]);
 
   const handleSave = async () => {
@@ -51,6 +53,7 @@ export default function ElementLinker({ open, onClose, element, processId, onSav
         application_id: selectedApp?.id || "",
         data_object_id: selectedData?.id || "",
         it_component_id: selectedItc?.id || "",
+        organization_id: selectedOrg?.id || "",
       });
       onSaved();
       onClose();
@@ -102,6 +105,17 @@ export default function ElementLinker({ open, onClose, element, processId, onSav
           fullWidth
           sx={{ my: 1 }}
           label={t("linker.itComponent")}
+        />
+
+        <CardPicker
+          types="Organization"
+          value={selectedOrg}
+          onChange={setSelectedOrg}
+          enabled={open}
+          size="medium"
+          fullWidth
+          sx={{ my: 1 }}
+          label={t("linker.organization")}
         />
       </DialogContent>
       <DialogActions>
