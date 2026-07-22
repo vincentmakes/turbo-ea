@@ -47,6 +47,7 @@ import type {
 } from "@/types";
 import BlastRadiusNotice from "./BlastRadiusNotice";
 import MultiCardPicker from "./MultiCardPicker";
+import { useTransitionPlanningGranted } from "./planCapability";
 import PlanInsightsPanel from "./PlanInsightsPanel";
 import { buildPlanGraph, validatePlanOps } from "./planGraph";
 import { deriveScopeFromObjectives } from "./planScope";
@@ -103,6 +104,15 @@ export default function PlanEditor() {
   const [dirty, setDirty] = useState(false);
 
   const [openDialog, setOpenDialog] = useState<PlanChangeOp["op"] | null>(null);
+
+  // Authoring is extension-gated: an existing plan opened without the grant
+  // bounces to its read-only preview; the blank editor shows a locked notice.
+  const { granted: planGranted, loaded: planCapLoaded } = useTransitionPlanningGranted();
+  useEffect(() => {
+    if (planCapLoaded && !planGranted && id) {
+      navigate(`/ea-delivery/plans/${id}/preview`, { replace: true });
+    }
+  }, [planCapLoaded, planGranted, id, navigate]);
 
   // ── Load an existing plan ─────────────────────────────────────────────
   useEffect(() => {
@@ -344,6 +354,14 @@ export default function PlanEditor() {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
         <CircularProgress size={28} />
+      </Box>
+    );
+  }
+
+  if (planCapLoaded && !planGranted) {
+    return (
+      <Box sx={{ maxWidth: 700, mx: "auto", py: 6 }}>
+        <Alert severity="info">{t("plan.lockedNotice")}</Alert>
       </Box>
     );
   }

@@ -8,6 +8,9 @@ Le résultat est une Layered Dependency View montrant l’état actuel et l’é
 - **Plus vert** — une carte ou une relation nouvellement ajoutée
 - **Flèches d’échange bleues** — un remplacement : la carte successeur et les connexions dont elle hérite
 
+!!! info "Disponibilité"
+    La création, la modification et la validation des plans de transition sont déverrouillées par une extension installée et sous licence (voir **Admin → Extensions**). La consultation des plans existants reste toujours possible — si l'extension est retirée ou que sa licence expire, les plans restent lisibles et rien n'est supprimé.
+
 ## Créer un plan
 
 Ouvrez **EA Delivery** et utilisez **Ajouter → Nouveau plan de transition** sur une initiative (ou créez un plan non lié et rattachez-le plus tard). Un plan se construit en quatre étapes :

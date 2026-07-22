@@ -11,10 +11,31 @@ from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.transition_plan import TransitionPlan
 from app.models.user import User
+from app.services.extensions.registry import extension_registry
 from app.services.permission_service import PermissionService
 from app.services.transition_plan_commit import execute_plan_commit
 
 router = APIRouter(prefix="/transition-plans", tags=["transition-plans"])
+
+# ── Extension-gated authoring ───────────────────────────────────────────
+#
+# Transition Planning ships as INERT core plumbing: the schema, the commit
+# engine, and the read/render paths are always present, but *authoring* a plan
+# (create, edit, commit) is unlocked only while an installed, enabled, licensed
+# extension declares the matching grant (see registry.grants_for). This is the
+# monetisation boundary — same shape as the gated metamodel field capabilities
+# in metamodel.py. Rendering is never gated: existing plans stay viewable and
+# deletable after a lapse, so a lapse never traps or destroys data.
+CAP_TRANSITION_PLANNING = "delivery.transition_planning"
+
+
+def _require_transition_grant() -> None:
+    if CAP_TRANSITION_PLANNING not in extension_registry.granted_capabilities():
+        raise HTTPException(
+            403,
+            "Transition Planning authoring requires an installed, licensed "
+            "extension granting this capability",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -117,6 +138,7 @@ async def create_plan(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    _require_transition_grant()
     await PermissionService.require_permission(db, user, "transition_plans.manage")
     p = TransitionPlan(
         title=body.title,
@@ -150,6 +172,7 @@ async def update_plan(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    _require_transition_grant()
     await PermissionService.require_permission(db, user, "transition_plans.manage")
     p = await _get_plan(db, plan_id)
 
@@ -201,6 +224,7 @@ async def commit_plan(
     Synchronous — a manual plan commit is a handful of inserts (no AI), so
     there is no background run to poll.
     """
+    _require_transition_grant()
     await PermissionService.require_permission(db, user, "transition_plans.commit")
     p = await _get_plan(db, plan_id)
 

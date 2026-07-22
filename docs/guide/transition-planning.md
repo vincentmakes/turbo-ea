@@ -8,6 +8,9 @@ The result is a Layered Dependency View showing the current and the planned stat
 - **Green plus** — a newly added card or relation
 - **Blue swap arrows** — a replacement: the successor card and the connections it inherits
 
+!!! info "Availability"
+    Creating, editing, and committing transition plans is unlocked by an installed, licensed extension (see **Admin → Extensions**). Viewing existing plans is always available — if the extension is removed or its licence lapses, plans stay readable and nothing is deleted.
+
 ## Creating a plan
 
 Open **EA Delivery** and use **Add → New transition plan** on an initiative (or create an unlinked plan and attach it later). A plan is built in four steps:

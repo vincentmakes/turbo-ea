@@ -18,6 +18,7 @@ import NewArtefactSplitButton, {
   type ArtefactKind,
 } from "@/features/ea-delivery/initiatives/NewArtefactSplitButton";
 import { UNLINKED_KEY } from "@/features/ea-delivery/initiatives/InitiativeTreeSidebar";
+import { useTransitionPlanningGranted } from "@/features/ea-delivery/plans/planCapability";
 import CreateDiagramDialog from "@/features/diagrams/CreateDiagramDialog";
 import type { DiagramSummary, SoAW, TransitionPlan } from "@/types";
 import type { useInitiativeData } from "@/features/ea-delivery/initiatives";
@@ -79,6 +80,8 @@ export default function EaDeliveryReport() {
     anchor: HTMLElement;
     plan: TransitionPlan;
   } | null>(null);
+  // Plan authoring (edit) is extension-gated; preview + delete stay open.
+  const { granted: planGranted } = useTransitionPlanningGranted();
 
   const [error, setError] = useState("");
 
@@ -349,24 +352,26 @@ export default function EaDeliveryReport() {
           </ListItemIcon>
           <ListItemText>{t("menu.preview")}</ListItemText>
         </MenuItem>
-        <MenuItem
-          onClick={() => {
-            if (planCtxMenu) {
-              // Committed plans are read-only — fall back to the preview.
-              navigate(
-                planCtxMenu.plan.status === "draft"
-                  ? `/ea-delivery/plans/${planCtxMenu.plan.id}`
-                  : `/ea-delivery/plans/${planCtxMenu.plan.id}/preview`,
-              );
-            }
-            setPlanCtxMenu(null);
-          }}
-        >
-          <ListItemIcon>
-            <MaterialSymbol icon="edit" size={18} />
-          </ListItemIcon>
-          <ListItemText>{t("menu.edit")}</ListItemText>
-        </MenuItem>
+        {planGranted && (
+          <MenuItem
+            onClick={() => {
+              if (planCtxMenu) {
+                // Committed plans are read-only — fall back to the preview.
+                navigate(
+                  planCtxMenu.plan.status === "draft"
+                    ? `/ea-delivery/plans/${planCtxMenu.plan.id}`
+                    : `/ea-delivery/plans/${planCtxMenu.plan.id}/preview`,
+                );
+              }
+              setPlanCtxMenu(null);
+            }}
+          >
+            <ListItemIcon>
+              <MaterialSymbol icon="edit" size={18} />
+            </ListItemIcon>
+            <ListItemText>{t("menu.edit")}</ListItemText>
+          </MenuItem>
+        )}
         <MenuItem
           onClick={() => planCtxMenu && handleDeletePlan(planCtxMenu.plan.id)}
           sx={{ color: "error.main" }}

@@ -32,6 +32,7 @@ import type {
 } from "@/types";
 import PlanCommitDialog from "./PlanCommitDialog";
 import PlanInsightsPanel from "./PlanInsightsPanel";
+import { useTransitionPlanningGranted } from "./planCapability";
 import { buildPlanGraph } from "./planGraph";
 
 const OP_META: Record<PlanChangeOp["op"], { icon: string; color: string }> = {
@@ -49,6 +50,8 @@ export default function PlanPreview() {
   const { types, relationTypes } = useMetamodel();
   const { user } = useAuth();
   const { can } = usePermissions(user);
+  // Committing is extension-gated (matches the backend gate); viewing is not.
+  const { granted: planGranted } = useTransitionPlanningGranted();
 
   const [plan, setPlan] = useState<TransitionPlan | null>(null);
   const [loading, setLoading] = useState(true);
@@ -151,7 +154,7 @@ export default function PlanPreview() {
           {t("plan.backToDelivery")}
         </Button>
         <Box sx={{ flex: 1 }} />
-        {isDraft && can("transition_plans.manage") && (
+        {isDraft && planGranted && can("transition_plans.manage") && (
           <Button
             size="small"
             variant="outlined"
@@ -161,7 +164,7 @@ export default function PlanPreview() {
             {t("common:actions.edit")}
           </Button>
         )}
-        {isDraft && can("transition_plans.commit") && changes.length > 0 && (
+        {isDraft && planGranted && can("transition_plans.commit") && changes.length > 0 && (
           <Button
             size="small"
             variant="contained"

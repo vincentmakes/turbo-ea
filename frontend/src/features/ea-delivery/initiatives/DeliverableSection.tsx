@@ -8,6 +8,7 @@ import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useTransitionPlanningGranted } from "@/features/ea-delivery/plans/planCapability";
 import { CARD_TYPE_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import { SOAW_STATUS_COLORS } from "./constants";
 import type {
@@ -69,6 +70,12 @@ export default function DeliverableSection(props: Props) {
   const navigate = useNavigate();
 
   const { kind, items, initiativeId, onAdd } = props;
+  // Plan authoring is extension-gated: without the grant the empty plan group
+  // disappears entirely and the "+ Add" affordances are suppressed. Existing
+  // plans always render (read-only authoring lives behind the same gate).
+  const { granted: planGranted } = useTransitionPlanningGranted();
+  const gatedAdd = kind === "plan" && !planGranted ? undefined : onAdd;
+  if (kind === "plan" && !planGranted && items.length === 0) return null;
   const meta = KIND_META[kind];
   const labelKey = {
     soaw: "artefactGroup.soaws",
@@ -81,11 +88,11 @@ export default function DeliverableSection(props: Props) {
 
   const renderEmpty = () => (
     <Box sx={{ pl: 1, py: 0.5 }}>
-      {onAdd ? (
+      {gatedAdd ? (
         <Button
           size="small"
           startIcon={<MaterialSymbol icon="add" size={16} />}
-          onClick={() => onAdd(kind, initiativeId)}
+          onClick={() => gatedAdd(kind, initiativeId)}
           sx={{ textTransform: "none", color: "text.secondary" }}
         >
           {t(addKey)}
@@ -126,12 +133,12 @@ export default function DeliverableSection(props: Props) {
           sx={{ height: 20, fontSize: "0.7rem" }}
         />
         <Box sx={{ flex: 1 }} />
-        {onAdd && items.length > 0 && (
+        {gatedAdd && items.length > 0 && (
           <Tooltip title={t(addKey)}>
             <Button
               size="small"
               startIcon={<MaterialSymbol icon="add" size={16} />}
-              onClick={() => onAdd(kind, initiativeId)}
+              onClick={() => gatedAdd(kind, initiativeId)}
               sx={{ textTransform: "none" }}
             >
               {t("common:actions.add")}
