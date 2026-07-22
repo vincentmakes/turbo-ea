@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
-import type { Card, SoAW, DiagramSummary, ArchitectureDecision } from "@/types";
+import type {
+  ArchitectureDecision,
+  ArchitecturePlan,
+  Card,
+  DiagramSummary,
+  SoAW,
+} from "@/types";
 
 export interface InitiativeGroup {
   initiative: Card;
   diagrams: DiagramSummary[];
   soaws: SoAW[];
   adrs: ArchitectureDecision[];
+  plans: ArchitecturePlan[];
 }
 
 export interface InitiativeTreeNode {
@@ -17,6 +24,7 @@ export interface InitiativeTreeNode {
   diagrams: DiagramSummary[];
   soaws: SoAW[];
   adrs: ArchitectureDecision[];
+  plans: ArchitecturePlan[];
 }
 
 type StatusFilter = "ACTIVE" | "ARCHIVED" | "";
@@ -59,6 +67,7 @@ interface UseInitiativeDataResult {
   diagrams: DiagramSummary[];
   soaws: SoAW[];
   adrs: ArchitectureDecision[];
+  plans: ArchitecturePlan[];
   filteredInitiatives: Card[];
   search: string;
   setSearch: (s: string) => void;
@@ -71,6 +80,7 @@ interface UseInitiativeDataResult {
   unlinkedSoaws: SoAW[];
   unlinkedDiagrams: DiagramSummary[];
   unlinkedAdrs: ArchitectureDecision[];
+  unlinkedPlans: ArchitecturePlan[];
 }
 
 function buildTree(
@@ -78,6 +88,7 @@ function buildTree(
   diagrams: DiagramSummary[],
   soaws: SoAW[],
   adrs: ArchitectureDecision[],
+  plans: ArchitecturePlan[],
 ): InitiativeTreeNode[] {
   const initIds = new Set(initiatives.map((i) => i.id));
   const nodeMap = new Map<string, InitiativeTreeNode>();
@@ -90,6 +101,7 @@ function buildTree(
       diagrams: diagrams.filter((d) => d.card_ids.includes(init.id)),
       soaws: soaws.filter((s) => s.initiative_id === init.id),
       adrs: adrs.filter((a) => (a.linked_cards ?? []).some((c) => c.id === init.id)),
+      plans: plans.filter((p) => p.initiative_id === init.id),
     });
   }
 
@@ -134,6 +146,7 @@ export function useInitiativeData(): UseInitiativeDataResult {
   const [diagrams, setDiagrams] = useState<DiagramSummary[]>([]);
   const [soaws, setSoaws] = useState<SoAW[]>([]);
   const [adrs, setAdrs] = useState<ArchitectureDecision[]>([]);
+  const [plans, setPlans] = useState<ArchitecturePlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -172,18 +185,20 @@ export function useInitiativeData(): UseInitiativeDataResult {
       // Status is narrowed client-side in `filteredInitiatives` so that picking
       // "Archived" (or any status with no matches) can never unmount the filter
       // controls and trap the user — see issue #659.
-      const [initRes, diagRes, soawRes, adrRes] = await Promise.all([
+      const [initRes, diagRes, soawRes, adrRes, planRes] = await Promise.all([
         api.get<{ items: Card[] }>(
           "/cards?type=Initiative&page_size=500&status=ACTIVE,ARCHIVED",
         ),
         api.get<DiagramSummary[]>("/diagrams"),
         api.get<SoAW[]>("/soaw"),
         api.get<ArchitectureDecision[]>("/adr"),
+        api.get<ArchitecturePlan[]>("/architecture-plans"),
       ]);
       setInitiatives(initRes.items);
       setDiagrams(diagRes);
       setSoaws(soawRes);
       setAdrs(adrRes);
+      setPlans(planRes);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("error.loadData"));
     } finally {
@@ -219,16 +234,27 @@ export function useInitiativeData(): UseInitiativeDataResult {
         const hasAdr = adrs.some((a) =>
           (a.linked_cards ?? []).some((c) => c.id === init.id),
         );
-        const hasAny = hasSoaw || hasDiagram || hasAdr;
+        const hasPlan = plans.some((p) => p.initiative_id === init.id);
+        const hasAny = hasSoaw || hasDiagram || hasAdr || hasPlan;
         return artefactFilter === "with" ? hasAny : !hasAny;
       });
     }
     return list;
-  }, [initiatives, statusFilter, search, subtypeFilter, artefactFilter, soaws, diagrams, adrs]);
+  }, [
+    initiatives,
+    statusFilter,
+    search,
+    subtypeFilter,
+    artefactFilter,
+    soaws,
+    diagrams,
+    adrs,
+    plans,
+  ]);
 
   const tree = useMemo(
-    () => buildTree(filteredInitiatives, diagrams, soaws, adrs),
-    [filteredInitiatives, diagrams, soaws, adrs],
+    () => buildTree(filteredInitiatives, diagrams, soaws, adrs, plans),
+    [filteredInitiatives, diagrams, soaws, adrs, plans],
   );
 
   const flatGroups: InitiativeGroup[] = useMemo(
@@ -238,8 +264,9 @@ export function useInitiativeData(): UseInitiativeDataResult {
         diagrams: diagrams.filter((d) => d.card_ids.includes(init.id)),
         soaws: soaws.filter((s) => s.initiative_id === init.id),
         adrs: adrs.filter((a) => (a.linked_cards ?? []).some((c) => c.id === init.id)),
+        plans: plans.filter((p) => p.initiative_id === init.id),
       })),
-    [filteredInitiatives, diagrams, soaws, adrs],
+    [filteredInitiatives, diagrams, soaws, adrs, plans],
   );
 
   const unlinkedSoaws = useMemo(
@@ -254,6 +281,7 @@ export function useInitiativeData(): UseInitiativeDataResult {
     () => adrs.filter((a) => !(a.linked_cards ?? []).some((c) => c.type === "Initiative")),
     [adrs],
   );
+  const unlinkedPlans = useMemo(() => plans.filter((p) => !p.initiative_id), [plans]);
 
   return {
     tree,
@@ -266,6 +294,7 @@ export function useInitiativeData(): UseInitiativeDataResult {
     diagrams,
     soaws,
     adrs,
+    plans,
     filteredInitiatives,
     search,
     setSearch,
@@ -278,5 +307,6 @@ export function useInitiativeData(): UseInitiativeDataResult {
     unlinkedSoaws,
     unlinkedDiagrams,
     unlinkedAdrs,
+    unlinkedPlans,
   };
 }

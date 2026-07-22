@@ -193,6 +193,8 @@
   "dependency.background_dots": "prikker",
   "dependency.background_none": "ingen",
   "dependency.proposedBadge": "NY",
+  "dependency.removedBadge": "FJERNET",
+  "dependency.changedBadge": "SKIFT",
   "dependency.highlightMode": "Fremhævningstilstand: klik på et kort for at fremhæve dets forbindelser",
   "cost.title": "Omkostningsanalyse",
   "cost.cardType": "Korttype",

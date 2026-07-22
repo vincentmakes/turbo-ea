@@ -193,6 +193,8 @@
   "dependency.background_dots": "points",
   "dependency.background_none": "aucun",
   "dependency.proposedBadge": "NOUVEAU",
+  "dependency.removedBadge": "SUPPRIMÉ",
+  "dependency.changedBadge": "REMPL.",
   "dependency.highlightMode": "Mode surbrillance : cliquez sur une carte pour mettre en évidence ses connexions",
   "cost.title": "Analyse des coûts",
   "cost.cardType": "Type de fiche",

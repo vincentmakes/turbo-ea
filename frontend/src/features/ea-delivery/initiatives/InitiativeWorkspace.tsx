@@ -15,6 +15,7 @@ import DeliverableSection, {
 import NewArtefactSplitButton from "./NewArtefactSplitButton";
 import type {
   ArchitectureDecision,
+  ArchitecturePlan,
   DiagramSummary,
   SoAW,
 } from "@/types";
@@ -25,6 +26,7 @@ interface UnlinkedSelection {
   soaws: SoAW[];
   diagrams: DiagramSummary[];
   adrs: ArchitectureDecision[];
+  plans: ArchitecturePlan[];
 }
 
 interface InitiativeSelection {
@@ -86,6 +88,7 @@ export default function InitiativeWorkspace({
         />
         <DeliverableSection kind="diagram" items={selection.diagrams} />
         <DeliverableSection kind="adr" items={selection.adrs} />
+        <DeliverableSection kind="plan" items={selection.plans} />
       </Box>
     );
   }
@@ -128,7 +131,7 @@ function InitiativeView({
   const { t } = useTranslation(["delivery", "common"]);
   const [previewOpen, setPreviewOpen] = useState(false);
 
-  const { initiative, children, soaws, diagrams, adrs } = node;
+  const { initiative, children, soaws, diagrams, adrs, plans } = node;
   const attrs = (initiative.attributes ?? {}) as Record<string, unknown>;
   const initStatus = attrs.initiativeStatus as string | undefined;
   const isArchived = initiative.status === "ARCHIVED";
@@ -240,6 +243,12 @@ function InitiativeView({
         <DeliverableSection
           kind="adr"
           items={adrs}
+          initiativeId={initiative.id}
+          onAdd={onCreateArtefact}
+        />
+        <DeliverableSection
+          kind="plan"
+          items={plans}
           initiativeId={initiative.id}
           onAdd={onCreateArtefact}
         />

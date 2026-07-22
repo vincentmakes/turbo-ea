@@ -10,7 +10,7 @@ import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { CARD_TYPE_COLORS, STATUS_COLORS } from "@/theme/tokens";
 
-export type ArtefactKind = "soaw" | "diagram" | "adr";
+export type ArtefactKind = "soaw" | "diagram" | "adr" | "plan";
 
 interface Props {
   /** When set, the dispatched create handler will pre-link to this initiative. */
@@ -28,7 +28,7 @@ interface Props {
   kinds?: ArtefactKind[];
 }
 
-const ALL_KINDS: ArtefactKind[] = ["soaw", "diagram", "adr"];
+const ALL_KINDS: ArtefactKind[] = ["soaw", "diagram", "adr", "plan"];
 
 /**
  * Reusable trigger that opens a menu of artefact creation options
@@ -65,6 +65,11 @@ export default function NewArtefactSplitButton({
       icon: "gavel",
       color: STATUS_COLORS.info,
       labelKey: "header.newAdr",
+    },
+    plan: {
+      icon: "route",
+      color: "#6a1b9a",
+      labelKey: "header.newPlan",
     },
   };
 

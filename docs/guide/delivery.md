@@ -4,6 +4,10 @@ The **EA Delivery** module manages **architecture initiatives and their artifact
 
 When PPM is enabled — the typical configuration — EA Delivery lives **inside the PPM module**: open **PPM** in the top nav and switch to the **EA Delivery** tab (`/ppm?tab=ea-delivery`). When PPM is disabled, **EA Delivery** appears as a dedicated top-level nav item linking to `/reports/ea-delivery`. The legacy `/ea-delivery` URL keeps working as a redirect either way, so existing bookmarks still resolve.
 
+
+!!! tip
+    Planning a landscape change (replace an application, decommission a system, introduce a platform)? The [Architecture Planning](architecture-planning.md) tool produces a before/after Layered Dependency View you can attach to an initiative and commit in one step.
+
 ![EA Delivery Management](../assets/img/en/17_ea_delivery.png)
 
 ## Initiatives workspace

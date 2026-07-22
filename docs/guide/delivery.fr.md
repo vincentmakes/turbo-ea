@@ -4,6 +4,10 @@ Le module **EA Delivery** gère les **initiatives d'architecture et leurs artefa
 
 Lorsque PPM est activé — la configuration habituelle — EA Delivery vit **à l'intérieur du module PPM** : ouvrez **PPM** dans la barre de navigation et basculez sur l'onglet **EA Delivery** (`/ppm?tab=ea-delivery`). Lorsque PPM est désactivé, **EA Delivery** apparaît comme un élément de navigation de premier niveau dédié, liant à `/reports/ea-delivery`. L'ancienne URL `/ea-delivery` continue à fonctionner comme redirection dans les deux cas, de sorte que les marque-pages existants restent valides.
 
+
+!!! tip
+    Vous planifiez un changement du paysage (remplacer une application, décommissionner un système, introduire une plateforme) ? L’outil de [planification d’architecture](architecture-planning.md) produit une vue avant/après que vous pouvez rattacher à une initiative et valider en une étape.
+
 ![Gestion EA Delivery](../assets/img/fr/17_livraison_ea.png)
 
 ## Espace de travail des initiatives

@@ -1,6 +1,7 @@
 from app.models.app_settings import AppSettings
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
+from app.models.architecture_plan import ArchitecturePlan
 from app.models.base import Base
 from app.models.bookmark import Bookmark
 from app.models.calculation import Calculation
@@ -86,6 +87,7 @@ __all__ = [
     "TurboLensVendorHierarchy",
     "ArchitectureDecision",
     "ArchitectureDecisionCard",
+    "ArchitecturePlan",
     "Base",
     "FileAttachment",
     "User",

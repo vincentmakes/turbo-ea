@@ -4,6 +4,10 @@ Das **EA Delivery**-Modul verwaltet **Architekturinitiativen und deren Artefakte
 
 Wenn PPM aktiviert ist — die übliche Konfiguration — lebt EA Delivery **innerhalb des PPM-Moduls**: Öffnen Sie **PPM** in der Top-Navigation und wechseln Sie auf den Reiter **EA Delivery** (`/ppm?tab=ea-delivery`). Wenn PPM deaktiviert ist, erscheint **EA Delivery** als eigener Top-Level-Eintrag mit Link zu `/reports/ea-delivery`. Die alte URL `/ea-delivery` funktioniert in beiden Fällen weiterhin als Weiterleitung, sodass bestehende Lesezeichen erhalten bleiben.
 
+
+!!! tip
+    Sie planen eine Landschaftsänderung (Anwendung ersetzen, System stilllegen, Plattform einführen)? Das Werkzeug [Architekturplanung](architecture-planning.md) erzeugt eine Vorher-Nachher-Ansicht, die Sie an eine Initiative anhängen und in einem Schritt übernehmen können.
+
 ![EA Delivery-Verwaltung](../assets/img/de/17_ea_lieferung.png)
 
 ## Initiativen-Arbeitsbereich

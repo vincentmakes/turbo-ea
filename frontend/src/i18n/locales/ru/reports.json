@@ -193,6 +193,8 @@
   "dependency.background_dots": "точки",
   "dependency.background_none": "нет",
   "dependency.proposedBadge": "НОВ.",
+  "dependency.removedBadge": "УДАЛ.",
+  "dependency.changedBadge": "ЗАМЕНА",
   "dependency.highlightMode": "Режим подсветки: нажмите на карточку, чтобы подсветить её связи",
   "cost.title": "Анализ стоимости",
   "cost.cardType": "Тип карточки",

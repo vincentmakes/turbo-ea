@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -70,6 +71,7 @@ export default function InitiativesTab({
   onDataReady,
 }: Props) {
   const { t } = useTranslation(["delivery", "common"]);
+  const navigate = useNavigate();
   const theme = useTheme();
   const compact = useMediaQuery(theme.breakpoints.down("sm"));
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -93,6 +95,7 @@ export default function InitiativesTab({
     unlinkedSoaws,
     unlinkedDiagrams,
     unlinkedAdrs,
+    unlinkedPlans,
   } = data;
 
   useEffect(() => {
@@ -225,6 +228,7 @@ export default function InitiativesTab({
         soaws: unlinkedSoaws,
         diagrams: unlinkedDiagrams,
         adrs: unlinkedAdrs,
+        plans: unlinkedPlans,
       };
     }
     if (selectedInitiativeId) {
@@ -238,6 +242,7 @@ export default function InitiativesTab({
     unlinkedSoaws,
     unlinkedDiagrams,
     unlinkedAdrs,
+    unlinkedPlans,
   ]);
 
   const handleSelect = useCallback(
@@ -278,6 +283,12 @@ export default function InitiativesTab({
           }
         }
         onCreateAdr([]);
+      } else if (kind === "plan") {
+        navigate(
+          isInitiative
+            ? `/ea-delivery/plans/new?initiative=${target}`
+            : "/ea-delivery/plans/new",
+        );
       }
     },
     [
@@ -286,6 +297,7 @@ export default function InitiativesTab({
       onCreateSoaw,
       onCreateAdr,
       onCreateDiagram,
+      navigate,
     ],
   );
 
@@ -339,7 +351,8 @@ export default function InitiativesTab({
                 unlinkedCount={
                   unlinkedSoaws.length +
                   unlinkedDiagrams.length +
-                  unlinkedAdrs.length
+                  unlinkedAdrs.length +
+                  unlinkedPlans.length
                 }
               />
             );
