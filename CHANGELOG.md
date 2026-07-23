@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.23.4] - 2026-07-23
+
+### Fixed
+- **SSO login with Okta (and other strict OIDC providers) no longer fails with `invalid_request`** (#860). The login flow now sends the OAuth `state` parameter on the authorize request — Okta mandates it — and the callback validates the echoed value against the one stored before redirecting, adding standard CSRF protection to sign-in. Providers that already worked (Microsoft Entra ID, Google, Authentik, Keycloak, …) are unaffected: echoing `state` is mandatory OAuth 2.0 behavior.
+
 ## [2.23.3] - 2026-07-22
 
 ### Fixed
