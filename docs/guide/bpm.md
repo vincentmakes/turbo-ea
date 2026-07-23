@@ -54,12 +54,12 @@ BPMN elements can be **linked to EA cards**. For example, link a task in your pr
 
 ### Linking Organizations (Lanes & Steps)
 
-Organizational responsibility is captured at the flow level in two complementary ways:
+The *Organization* column in the step table links steps to Organization cards, right next to Application / Data Object / IT Component:
 
-- **Lane assignments** — Bind a BPMN swim lane to an Organization card once, either from the *Lane assignments* panel above the step table or by selecting the lane in the modeler. Every step in the lane inherits that organization automatically.
-- **Per-step override** — The *Organization* column in the step table links an individual step to a different organization. An inherited organization appears as an outlined chip; an explicit override appears as a filled chip and takes precedence.
+- **Steps in a lane** — All steps in a BPMN swim lane share one organization: linking, changing, or removing the organization on any step applies to the whole lane. The same binding can also be set by selecting the lane in the modeler.
+- **Steps without a lane** — The organization is linked to that individual step.
 
-Lane names stay free text in the diagram — binding a lane to an Organization card is optional. The effective organization of a step is always computed (its own override if set, otherwise the lane's binding), so nothing is maintained twice and lane bindings and step links can never contradict each other. Linked organizations create a BusinessProcess → Organization relation that is visible on both cards and in the dependency reports.
+Lane names stay free text in the diagram — linking a lane to an Organization card is optional, and existing diagrams are unaffected. Linked organizations create a BusinessProcess → Organization relation that is visible on both cards and in the dependency reports. To involve several organizations in one process, use one lane per organization — that is exactly what BPMN lanes are for.
 
 ### Approval Workflow
 

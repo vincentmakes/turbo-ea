@@ -557,17 +557,23 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     element: ProcessElement,
     laneOrgs: Record<string, { id: string; name: string }>,
     onUpdate: (id: string, updates: Record<string, unknown>) => void,
+    onLaneBind: (laneName: string, organizationId: string | null) => void,
     elementId: string,
   ) => {
     const isEditing = editingCell?.elementId === elementId && editingCell?.field === "organization";
-    const inherited = element.lane_name ? laneOrgs[element.lane_name] : undefined;
+    const lane = element.lane_name;
+    const laneOrg = lane ? laneOrgs[lane] : undefined;
 
     if (isEditing) {
       return (
         <CardPicker
           types="Organization"
           value={null}
-          onChange={(val) => onUpdate(elementId, { organization_id: val?.id || "" })}
+          onChange={(val) =>
+            lane
+              ? onLaneBind(lane, val?.id || null)
+              : onUpdate(elementId, { organization_id: val?.id || "" })
+          }
           onBlur={() => setEditingCell(null)}
           enabled={isEditing}
           autoFocus
@@ -577,97 +583,35 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       );
     }
 
-    return (
-      <Box onClick={() => setEditingCell({ elementId, field: "organization" })} sx={linkCellSx}>
-        {element.organization_name ? (
-          <Chip
-            label={element.organization_name}
-            size="small"
-            color="info"
-            onDelete={() => onUpdate(elementId, { organization_id: "" })}
-            sx={{ maxWidth: 160 }}
-          />
-        ) : inherited ? (
-          <Tooltip title={t("flowTab.inheritedFromLane", { lane: element.lane_name })}>
-            <Chip
-              label={inherited.name}
-              size="small"
-              color="info"
-              variant="outlined"
-              icon={<MaterialSymbol icon="view_agenda" size={14} />}
-              sx={{ maxWidth: 160 }}
-            />
-          </Tooltip>
-        ) : (
-          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-            <MaterialSymbol icon="add_link" size={14} color="#bbb" />
-            <Typography variant="caption" color="text.disabled">{t("flowTab.linkCardType", { type: "Organization" })}</Typography>
-          </Box>
-        )}
+    // Laned steps share one organization per lane: the chip shows the lane's
+    // binding, and editing/removing it applies to every step in the lane.
+    const shownName = lane ? laneOrg?.name : element.organization_name;
+    const chip = shownName ? (
+      <Chip
+        label={shownName}
+        size="small"
+        color="info"
+        onDelete={() =>
+          lane ? onLaneBind(lane, null) : onUpdate(elementId, { organization_id: "" })
+        }
+        sx={{ maxWidth: 160 }}
+      />
+    ) : (
+      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+        <MaterialSymbol icon="add_link" size={14} color="#bbb" />
+        <Typography variant="caption" color="text.disabled">{t("flowTab.linkCardType", { type: "Organization" })}</Typography>
       </Box>
     );
-  };
-
-  const renderLaneAssignments = (
-    laneList: ProcessLaneLink[],
-    onBind: (laneName: string, organizationId: string | null) => void,
-  ) => {
-    if (laneList.length === 0) return null;
 
     return (
-      <Box sx={{ mt: 2 }}>
-        <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-          {t("flowTab.laneAssignments")}
-        </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>
-          {t("flowTab.laneAssignmentsSubtitle")}
-        </Typography>
-        <Paper variant="outlined" sx={{ p: 1.5, display: "flex", flexWrap: "wrap", gap: 2 }}>
-          {laneList.map((lane) => {
-            const cellKey = `lane:${lane.lane_name}`;
-            const isEditing = editingCell?.elementId === cellKey && editingCell?.field === "lane_org";
-            return (
-              <Box key={lane.lane_name} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <MaterialSymbol icon="view_agenda" size={16} color="#999" />
-                <Typography variant="body2" fontWeight={500}>{lane.lane_name}</Typography>
-                {isEditing ? (
-                  <CardPicker
-                    types="Organization"
-                    value={null}
-                    onChange={(val) => onBind(lane.lane_name, val?.id || null)}
-                    onBlur={() => setEditingCell(null)}
-                    enabled={isEditing}
-                    autoFocus
-                    sx={{ minWidth: 180 }}
-                    placeholder={t("flowTab.searchCardType", { type: "Organization" })}
-                  />
-                ) : (
-                  <Box
-                    onClick={() => setEditingCell({ elementId: cellKey, field: "lane_org" })}
-                    sx={linkCellSx}
-                  >
-                    {lane.organization_name ? (
-                      <Chip
-                        label={lane.organization_name}
-                        size="small"
-                        color="info"
-                        onDelete={() => onBind(lane.lane_name, null)}
-                        sx={{ maxWidth: 180 }}
-                      />
-                    ) : (
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                        <MaterialSymbol icon="add_link" size={14} color="#bbb" />
-                        <Typography variant="caption" color="text.disabled">
-                          {t("flowTab.linkCardType", { type: "Organization" })}
-                        </Typography>
-                      </Box>
-                    )}
-                  </Box>
-                )}
-              </Box>
-            );
-          })}
-        </Paper>
+      <Box onClick={() => setEditingCell({ elementId, field: "organization" })} sx={linkCellSx}>
+        {lane ? (
+          <Tooltip title={t("flowTab.appliesToLane", { lane })}>
+            <span>{chip}</span>
+          </Tooltip>
+        ) : (
+          chip
+        )}
       </Box>
     );
   };
@@ -728,6 +672,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     title = t("flowTab.processStepsAndElements"),
     subtitle = t("flowTab.elementsTableSubtitle"),
     laneList: ProcessLaneLink[] = [],
+    onLaneBind: (laneName: string, organizationId: string | null) => void = handleLaneLinkUpdate,
   ) => {
     const laneOrgs: Record<string, { id: string; name: string }> = {};
     for (const lane of laneList) {
@@ -788,7 +733,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                     <TableCell>{renderEditableCell(e, "application", "Application", onUpdate, elemKey)}</TableCell>
                     <TableCell>{renderEditableCell(e, "data_object", "DataObject", onUpdate, elemKey)}</TableCell>
                     <TableCell>{renderEditableCell(e, "it_component", "ITComponent", onUpdate, elemKey)}</TableCell>
-                    <TableCell>{renderOrgCell(e, laneOrgs, onUpdate, elemKey)}</TableCell>
+                    <TableCell>{renderOrgCell(e, laneOrgs, onUpdate, onLaneBind, elemKey)}</TableCell>
                   </TableRow>
                 );
               })}
@@ -913,9 +858,6 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
           />
         )}
 
-        {/* Lane → Organization assignments */}
-        {renderLaneAssignments(lanes, handleLaneLinkUpdate)}
-
         {/* Editable process elements table */}
         {renderElementsTable(
           elements,
@@ -924,6 +866,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
           t("flowTab.processStepsAndElements"),
           t("flowTab.elementsTableSubtitle"),
           lanes,
+          handleLaneLinkUpdate,
         )}
       </Box>
     );
@@ -1108,12 +1051,6 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                       </Typography>
                     )}
 
-                    {/* Draft lane → Organization pre-linking */}
-                    {d.status === "draft" && perms.can_edit_draft && draftLanes[d.id] &&
-                      renderLaneAssignments(draftLanes[d.id], (laneName, orgId) =>
-                        handleDraftLaneLinkUpdate(d.id, laneName, orgId)
-                      )}
-
                     {/* Draft element pre-linking table */}
                     {draftElementsLoading[d.id] ? (
                       <Typography color="text.secondary" sx={{ mt: 2 }}>{t("flowTab.loadingElements")}</Typography>
@@ -1125,6 +1062,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                         t("flowTab.preLinkElements"),
                         t("flowTab.preLinkElementsSubtitle"),
                         draftLanes[d.id] || [],
+                        (laneName, orgId) => handleDraftLaneLinkUpdate(d.id, laneName, orgId),
                       )
                     ) : draftElements[d.id] ? (
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>

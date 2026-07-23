@@ -54,12 +54,12 @@ BPMN-elementer kan **linkes til EA-kort**. For eksempel kan du linke en opgave i
 
 ### Link organisationer (baner og trin)
 
-Organisatorisk ansvar registreres på flow-niveau på to komplementære måder:
+Kolonnen *Organisation* i trintabellen linker trin til organisationskort, lige ved siden af Application / Data Object / IT Component:
 
-- **Banetildelinger** — Knyt en BPMN-bane til et organisationskort én gang, enten fra panelet *Banetildelinger* over trintabellen eller ved at vælge banen i modelleringsværktøjet. Hvert trin i banen arver automatisk den organisation.
-- **Tilsidesættelse pr. trin** — Kolonnen *Organisation* i trintabellen kan linke et enkelt trin til en anden organisation. En arvet organisation vises som en chip med kontur; en eksplicit tilsidesættelse vises som en udfyldt chip og har forrang.
+- **Trin i en bane** — Alle trin i en BPMN-bane deler én organisation: at linke, ændre eller fjerne organisationen på et hvilket som helst trin gælder for hele banen. Den samme tilknytning kan også sættes ved at vælge banen i modelleringsværktøjet.
+- **Trin uden bane** — Organisationen linkes til det enkelte trin.
 
-Banenavne forbliver fri tekst i diagrammet — det er valgfrit at knytte en bane til et organisationskort. Et trins effektive organisation beregnes altid (dets egen tilsidesættelse, hvis den er sat, ellers banens tilknytning), så intet vedligeholdes to gange, og banetilknytninger og trinlinks kan aldrig modsige hinanden. Linkede organisationer opretter en relation Forretningsproces → Organisation, som er synlig på begge kort og i afhængighedsrapporterne.
+Banenavne forbliver fri tekst i diagrammet — det er valgfrit at knytte en bane til et organisationskort, og eksisterende diagrammer påvirkes ikke. Linkede organisationer opretter en relation Forretningsproces → Organisation, som er synlig på begge kort og i afhængighedsrapporterne. For at involvere flere organisationer i én proces skal du bruge én bane pr. organisation — det er præcis, hvad BPMN-baner er til.
 
 ### Godkendelses­arbejdsproces
 

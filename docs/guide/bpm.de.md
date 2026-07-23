@@ -54,12 +54,12 @@ BPMN-Elemente können mit **EA-Karten verknüpft** werden. Verknüpfen Sie beisp
 
 ### Organisationen verknüpfen (Lanes & Schritte)
 
-Organisatorische Verantwortung wird auf Flussebene auf zwei sich ergänzende Arten erfasst:
+Die Spalte *Organisation* in der Schritttabelle verknüpft Schritte mit Organisationskarten, direkt neben Anwendung / Datenobjekt / IT-Komponente:
 
-- **Lane-Zuordnungen** — Ordnen Sie einer BPMN-Lane einmalig eine Organisationskarte zu, entweder über das Panel *Lane-Zuordnungen* oberhalb der Schritttabelle oder durch Auswahl der Lane im Modeler. Jeder Schritt in der Lane erbt diese Organisation automatisch.
-- **Überschreiben pro Schritt** — Über die Spalte *Organisation* in der Schritttabelle lässt sich ein einzelner Schritt mit einer anderen Organisation verknüpfen. Eine geerbte Organisation erscheint als umrandeter Chip; ein explizites Überschreiben erscheint als gefüllter Chip und hat Vorrang.
+- **Schritte in einer Lane** — Alle Schritte einer BPMN-Lane teilen sich eine Organisation: Das Verknüpfen, Ändern oder Entfernen der Organisation an einem beliebigen Schritt wirkt auf die gesamte Lane. Dieselbe Zuordnung kann auch durch Auswahl der Lane im Modeler gesetzt werden.
+- **Schritte ohne Lane** — Die Organisation wird mit dem einzelnen Schritt verknüpft.
 
-Lane-Namen bleiben Freitext im Diagramm — die Zuordnung einer Lane zu einer Organisationskarte ist optional. Die effektive Organisation eines Schritts wird immer berechnet (das eigene Überschreiben, falls gesetzt, andernfalls die Zuordnung der Lane). So wird nichts doppelt gepflegt, und Lane-Zuordnungen und Schrittverknüpfungen können sich nie widersprechen. Verknüpfte Organisationen erzeugen eine Beziehung Geschäftsprozess → Organisation, die auf beiden Karten und in den Abhängigkeitsberichten sichtbar ist.
+Lane-Namen bleiben Freitext im Diagramm — die Verknüpfung einer Lane mit einer Organisationskarte ist optional, bestehende Diagramme bleiben unberührt. Verknüpfte Organisationen erzeugen eine Beziehung Geschäftsprozess → Organisation, die auf beiden Karten und in den Abhängigkeitsberichten sichtbar ist. Um mehrere Organisationen an einem Prozess zu beteiligen, verwenden Sie eine Lane pro Organisation — genau dafür sind BPMN-Lanes gedacht.
 
 ### Genehmigungsworkflow
 

@@ -54,12 +54,12 @@ Los elementos BPMN pueden ser **vinculados a fichas de EA**. Por ejemplo, vincul
 
 ### Vincular Organizaciones (Carriles y Pasos)
 
-La responsabilidad organizacional se captura a nivel de flujo de dos maneras complementarias:
+La columna *Organización* de la tabla de pasos vincula los pasos a fichas de Organización, justo al lado de Aplicación / Objeto de Datos / Componente TI:
 
-- **Asignación de carriles** — Vincule una vez un carril BPMN a una ficha de Organización, ya sea desde el panel *Asignación de carriles* encima de la tabla de pasos o seleccionando el carril en el modelador. Cada paso del carril hereda esa organización automáticamente.
-- **Sobrescritura por paso** — La columna *Organización* de la tabla de pasos permite vincular un paso individual a una organización diferente. Una organización heredada aparece como un chip con contorno; una sobrescritura explícita aparece como un chip relleno y tiene prioridad.
+- **Pasos en un carril** — Todos los pasos de un carril BPMN comparten una misma organización: vincular, cambiar o eliminar la organización en cualquier paso se aplica a todo el carril. La misma vinculación también puede definirse seleccionando el carril en el modelador.
+- **Pasos sin carril** — La organización se vincula al paso individual.
 
-Los nombres de los carriles siguen siendo texto libre en el diagrama — vincular un carril a una ficha de Organización es opcional. La organización efectiva de un paso siempre se calcula (su propia sobrescritura si está definida, de lo contrario la vinculación del carril), por lo que nada se mantiene dos veces y las vinculaciones de carriles y los enlaces de pasos nunca pueden contradecirse. Las organizaciones vinculadas crean una relación Proceso de Negocio → Organización visible en ambas fichas y en los informes de dependencias.
+Los nombres de los carriles siguen siendo texto libre en el diagrama — vincular un carril a una ficha de Organización es opcional y los diagramas existentes no se ven afectados. Las organizaciones vinculadas crean una relación Proceso de Negocio → Organización visible en ambas fichas y en los informes de dependencias. Para involucrar a varias organizaciones en un mismo proceso, use un carril por organización — para eso existen exactamente los carriles BPMN.
 
 ### Flujo de Aprobación
 

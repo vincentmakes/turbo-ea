@@ -343,16 +343,6 @@ describe("ProcessFlowTab", () => {
       });
     }
 
-    it("shows the lane assignments panel with the bound organization", async () => {
-      mockWithLanes();
-      renderTab();
-      await waitFor(() => {
-        expect(screen.getByText("Lane assignments")).toBeInTheDocument();
-      });
-      // Inherited: the org name shows in the panel AND on the step row chip.
-      expect(screen.getAllByText("Sales Department")).toHaveLength(2);
-    });
-
     it("shows an Organization column in the elements table", async () => {
       mockWithLanes();
       renderTab();
@@ -361,28 +351,40 @@ describe("ProcessFlowTab", () => {
       });
     });
 
-    it("shows the explicit organization when a step has an override", async () => {
+    it("shows the lane's bound organization on the step row", async () => {
+      mockWithLanes();
+      renderTab();
+      await waitFor(() => {
+        expect(screen.getByText("Sales Department")).toBeInTheDocument();
+      });
+    });
+
+    it("shows a per-step organization for steps without a lane", async () => {
       mockWithLanes([
-        { ...mockElements[0], organization_id: "org-2", organization_name: "Finance Dept" },
+        {
+          ...mockElements[0],
+          lane_name: null,
+          organization_id: "org-2",
+          organization_name: "Finance Dept",
+        },
       ]);
       renderTab();
       await waitFor(() => {
         expect(screen.getByText("Finance Dept")).toBeInTheDocument();
       });
-      // The lane's own org only shows once (panel) — the step shows its override.
-      expect(screen.getAllByText("Sales Department")).toHaveLength(1);
+      // No laned step shows the lane binding.
+      expect(screen.queryByText("Sales Department")).not.toBeInTheDocument();
     });
 
-    it("saves a cleared lane binding via the lane-links endpoint", async () => {
+    it("removing the org chip on a laned step clears the whole lane binding", async () => {
       mockWithLanes();
       vi.mocked(api.put).mockResolvedValue({ lane_name: "Sales", organization_id: null });
       renderTab();
       await waitFor(() => {
-        expect(screen.getByText("Lane assignments")).toBeInTheDocument();
+        expect(screen.getByText("Sales Department")).toBeInTheDocument();
       });
-      // Delete the binding chip in the panel (the deletable chip's cancel icon).
-      const panelChip = screen.getAllByText("Sales Department")[0].closest(".MuiChip-root")!;
-      const deleteIcon = panelChip.querySelector(".MuiChip-deleteIcon");
+      const chip = screen.getByText("Sales Department").closest(".MuiChip-root")!;
+      const deleteIcon = chip.querySelector(".MuiChip-deleteIcon");
       expect(deleteIcon).not.toBeNull();
       await userEvent.click(deleteIcon as Element);
       await waitFor(() => {

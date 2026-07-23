@@ -446,20 +446,49 @@ async def update_element(
         elem.data_object_id = uuid.UUID(body.data_object_id) if body.data_object_id else None
     if body.it_component_id is not None:
         elem.it_component_id = uuid.UUID(body.it_component_id) if body.it_component_id else None
+    lane_bound_org: uuid.UUID | None = None
     if body.organization_id is not None:
         new_org = uuid.UUID(body.organization_id) if body.organization_id else None
-        # Normalize: an explicit org identical to the lane's binding is stored
-        # as NULL (inherited), so lane re-binding keeps working for this step.
-        if new_org and elem.lane_name:
-            lane_link = await db.execute(
-                select(ProcessLaneLink.organization_id).where(
+        if elem.lane_name:
+            # Lane-wide semantics: all steps in a BPMN lane share one
+            # organization, so changing it on any step re-binds the lane
+            # itself (and thereby every step in it). The per-step column
+            # stays NULL for laned steps.
+            if new_org:
+                org_result = await db.execute(
+                    select(Card.id).where(
+                        Card.id == new_org,
+                        Card.type == "Organization",
+                        Card.status == "ACTIVE",
+                    )
+                )
+                if org_result.scalar_one_or_none() is None:
+                    raise HTTPException(404, "Organization card not found")
+            existing_link = await db.execute(
+                select(ProcessLaneLink).where(
                     ProcessLaneLink.process_id == pid,
                     ProcessLaneLink.lane_name == elem.lane_name,
                 )
             )
-            if lane_link.scalar_one_or_none() == new_org:
-                new_org = None
-        elem.organization_id = new_org
+            link = existing_link.scalar_one_or_none()
+            if new_org is None:
+                if link:
+                    await db.delete(link)
+            elif link:
+                link.organization_id = new_org
+            else:
+                db.add(
+                    ProcessLaneLink(
+                        process_id=pid,
+                        lane_name=elem.lane_name,
+                        organization_id=new_org,
+                    )
+                )
+            elem.organization_id = None
+            lane_bound_org = new_org
+        else:
+            # No lane — the organization is linked to this step alone.
+            elem.organization_id = new_org
     if body.custom_fields is not None:
         elem.custom_fields = body.custom_fields
 
@@ -478,9 +507,8 @@ async def update_element(
         link_ids["it_component_id"].add(elem.it_component_id)
     if elem.organization_id:
         link_ids["organization_id"].add(elem.organization_id)
-    elif body.organization_id:
-        # Normalized to inherited — still make sure the relation exists.
-        link_ids["organization_id"].add(uuid.UUID(body.organization_id))
+    if lane_bound_org:
+        link_ids["organization_id"].add(lane_bound_org)
     await sync_element_relations(db, pid, link_ids)
 
     await db.commit()

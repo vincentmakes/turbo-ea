@@ -976,6 +976,28 @@ async def update_draft_element_link(
     links = dict(version.draft_element_links or {})
     existing = links.get(bpmn_element_id, {})
 
+    from sqlalchemy.orm.attributes import flag_modified
+
+    # Lane-wide organization semantics: all steps in a BPMN lane share one
+    # organization, so an organization edit on a laned element is routed to
+    # the draft's lane bindings instead of the per-element link.
+    if "organization_id" in body and version.bpmn_xml:
+        extracted = parse_bpmn_xml(version.bpmn_xml)
+        lane = next(
+            (e.lane_name for e in extracted if e.bpmn_element_id == bpmn_element_id),
+            None,
+        )
+        if lane:
+            val = body.pop("organization_id")
+            lane_links = dict(version.draft_lane_links or {})
+            if val:
+                lane_links[lane] = val
+            else:
+                lane_links.pop(lane, None)
+            version.draft_lane_links = lane_links
+            flag_modified(version, "draft_lane_links")
+            existing.pop("organization_id", None)
+
     # Merge updates into existing link
     for key in (
         "application_id",
@@ -998,8 +1020,6 @@ async def update_draft_element_link(
 
     version.draft_element_links = links
     # Force SQLAlchemy to detect the JSONB change
-    from sqlalchemy.orm.attributes import flag_modified
-
     flag_modified(version, "draft_element_links")
 
     await db.commit()

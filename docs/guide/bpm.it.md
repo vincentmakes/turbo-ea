@@ -54,12 +54,12 @@ Gli elementi BPMN possono essere **collegati alle card EA**. Ad esempio, collega
 
 ### Collegare le organizzazioni (corsie e passaggi)
 
-La responsabilità organizzativa viene catturata a livello di flusso in due modi complementari:
+La colonna *Organizzazione* della tabella dei passaggi collega i passaggi alle card Organization, accanto ad Application / Data Object / IT Component:
 
-- **Assegnazione delle corsie** — Collegate una volta una corsia BPMN a una card Organization, dal pannello *Assegnazione delle corsie* sopra la tabella dei passaggi oppure selezionando la corsia nel modeler. Ogni passaggio della corsia eredita automaticamente quell'organizzazione.
-- **Sovrascrittura per passaggio** — La colonna *Organizzazione* della tabella dei passaggi consente di collegare un singolo passaggio a un'organizzazione diversa. Un'organizzazione ereditata appare come chip con contorno; una sovrascrittura esplicita appare come chip pieno e ha la precedenza.
+- **Passaggi in una corsia** — Tutti i passaggi di una corsia BPMN condividono una stessa organizzazione: collegare, modificare o rimuovere l'organizzazione su un passaggio qualsiasi si applica all'intera corsia. Lo stesso collegamento può essere impostato anche selezionando la corsia nel modeler.
+- **Passaggi senza corsia** — L'organizzazione viene collegata al singolo passaggio.
 
-I nomi delle corsie restano testo libero nel diagramma — collegare una corsia a una card Organization è facoltativo. L'organizzazione effettiva di un passaggio viene sempre calcolata (la propria sovrascrittura se impostata, altrimenti il collegamento della corsia), quindi nulla viene mantenuto due volte e i collegamenti di corsie e passaggi non possono mai contraddirsi. Le organizzazioni collegate creano una relazione Business Process → Organization visibile su entrambe le card e nei report delle dipendenze.
+I nomi delle corsie restano testo libero nel diagramma — collegare una corsia a una card Organization è facoltativo e i diagrammi esistenti non ne risentono. Le organizzazioni collegate creano una relazione Business Process → Organization visibile su entrambe le card e nei report delle dipendenze. Per coinvolgere più organizzazioni in un processo, usate una corsia per organizzazione — è esattamente lo scopo delle corsie BPMN.
 
 ### Workflow di approvazione
 

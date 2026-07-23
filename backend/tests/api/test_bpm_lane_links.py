@@ -247,11 +247,92 @@ class TestLaneLinkUpdate:
         assert resp.status_code == 403
 
 
-class TestElementOrganizationOverride:
-    async def test_explicit_org_link(self, client, db, lane_env):
-        process, org, elem = lane_env["process"], lane_env["org_finance"], lane_env["elem_quote"]
-        process_id, org_id, elem_id = process.id, org.id, elem.id
+class TestElementOrganizationLaneSemantics:
+    async def test_org_on_laned_step_binds_whole_lane(self, client, db, lane_env):
+        """Setting the org on a laned step re-binds the lane, not the step."""
+        process, org, elem = lane_env["process"], lane_env["org_sales"], lane_env["elem_quote"]
+        process_id, org_id = process.id, org.id
         headers = auth_headers(lane_env["admin"])
+        resp = await client.put(
+            f"/api/v1/bpm/processes/{process_id}/elements/{elem.id}",
+            json={"organization_id": str(org_id)},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+
+        # The step's own column stays NULL — the binding lives on the lane.
+        await db.refresh(elem)
+        assert elem.organization_id is None
+        link = (
+            await db.execute(
+                select(ProcessLaneLink).where(
+                    ProcessLaneLink.process_id == process_id,
+                    ProcessLaneLink.lane_name == "Sales",
+                )
+            )
+        ).scalar_one()
+        assert link.organization_id == org_id
+
+        # And the lanes endpoint reflects it for every step in that lane.
+        lanes = (
+            await client.get(f"/api/v1/bpm/processes/{process_id}/lanes", headers=headers)
+        ).json()
+        sales = next(lane for lane in lanes if lane["lane_name"] == "Sales")
+        assert sales["organization_id"] == str(org_id)
+
+        rel = await db.execute(
+            select(Relation).where(
+                Relation.type == "relProcessToOrg",
+                Relation.source_id == process_id,
+                Relation.target_id == org_id,
+            )
+        )
+        assert rel.scalar_one_or_none() is not None
+
+    async def test_clear_org_on_laned_step_clears_lane_binding(self, client, db, lane_env):
+        process, org, elem = lane_env["process"], lane_env["org_sales"], lane_env["elem_quote"]
+        headers = auth_headers(lane_env["admin"])
+        await client.put(
+            f"/api/v1/bpm/processes/{process.id}/lane-links",
+            json={"lane_name": "Sales", "organization_id": str(org.id)},
+            headers=headers,
+        )
+        resp = await client.put(
+            f"/api/v1/bpm/processes/{process.id}/elements/{elem.id}",
+            json={"organization_id": ""},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        links = await db.execute(
+            select(ProcessLaneLink).where(ProcessLaneLink.process_id == process.id)
+        )
+        assert links.scalars().all() == []
+
+    async def test_org_on_laned_step_rejects_non_organization(self, client, lane_env):
+        resp = await client.put(
+            f"/api/v1/bpm/processes/{lane_env['process'].id}/elements/{lane_env['elem_quote'].id}",
+            json={"organization_id": str(lane_env["app"].id)},
+            headers=auth_headers(lane_env["admin"]),
+        )
+        assert resp.status_code == 404
+
+    async def test_org_on_laneless_step_is_per_step(self, client, db, lane_env):
+        """Steps without a lane keep an individual organization link."""
+        process, org = lane_env["process"], lane_env["org_finance"]
+        process_id, org_id = process.id, org.id
+        headers = auth_headers(lane_env["admin"])
+        elem = ProcessElement(
+            process_id=process_id,
+            bpmn_element_id="task_free",
+            element_type="task",
+            name="Free Step",
+            lane_name=None,
+            sequence_order=2,
+        )
+        db.add(elem)
+        await db.flush()
+        elem_id = elem.id
+
         resp = await client.put(
             f"/api/v1/bpm/processes/{process_id}/elements/{elem_id}",
             json={"organization_id": str(org_id)},
@@ -263,68 +344,29 @@ class TestElementOrganizationOverride:
         # the (noload) organization relationship on the identity-mapped row.
         db.expire_all()
         elems = (
-            await client.get(
-                f"/api/v1/bpm/processes/{process_id}/elements",
-                headers=headers,
-            )
+            await client.get(f"/api/v1/bpm/processes/{process_id}/elements", headers=headers)
         ).json()
-        quote = next(e for e in elems if e["bpmn_element_id"] == "task_quote")
-        assert quote["organization_id"] == str(org_id)
-        assert quote["organization_name"] == "Finance"
+        free = next(e for e in elems if e["bpmn_element_id"] == "task_free")
+        assert free["organization_id"] == str(org_id)
+        assert free["organization_name"] == "Finance"
 
-        rel = await db.execute(
-            select(Relation).where(
-                Relation.type == "relProcessToOrg",
-                Relation.source_id == process_id,
-                Relation.target_id == org_id,
-            )
+        # No lane binding was created.
+        links = await db.execute(
+            select(ProcessLaneLink).where(ProcessLaneLink.process_id == process_id)
         )
-        assert rel.scalar_one_or_none() is not None
+        assert links.scalars().all() == []
 
-    async def test_org_equal_to_lane_binding_normalized_to_inherited(self, client, db, lane_env):
-        process, org, elem = lane_env["process"], lane_env["org_sales"], lane_env["elem_quote"]
-        headers = auth_headers(lane_env["admin"])
-        await client.put(
-            f"/api/v1/bpm/processes/{process.id}/lane-links",
-            json={"lane_name": "Sales", "organization_id": str(org.id)},
-            headers=headers,
-        )
+        # Clearing works per step too.
         resp = await client.put(
-            f"/api/v1/bpm/processes/{process.id}/elements/{elem.id}",
-            json={"organization_id": str(org.id)},
-            headers=headers,
-        )
-        assert resp.status_code == 200
-
-        await db.refresh(elem)
-        assert elem.organization_id is None  # stored as inherited, not duplicated
-
-        # The relation still exists even though the override was normalized.
-        rel = await db.execute(
-            select(Relation).where(
-                Relation.type == "relProcessToOrg",
-                Relation.source_id == process.id,
-                Relation.target_id == org.id,
-            )
-        )
-        assert rel.scalar_one_or_none() is not None
-
-    async def test_clear_explicit_org(self, client, db, lane_env):
-        process, org, elem = lane_env["process"], lane_env["org_finance"], lane_env["elem_quote"]
-        headers = auth_headers(lane_env["admin"])
-        await client.put(
-            f"/api/v1/bpm/processes/{process.id}/elements/{elem.id}",
-            json={"organization_id": str(org.id)},
-            headers=headers,
-        )
-        resp = await client.put(
-            f"/api/v1/bpm/processes/{process.id}/elements/{elem.id}",
+            f"/api/v1/bpm/processes/{process_id}/elements/{elem_id}",
             json={"organization_id": ""},
             headers=headers,
         )
         assert resp.status_code == 200
-        await db.refresh(elem)
-        assert elem.organization_id is None
+        refreshed = (
+            await db.execute(select(ProcessElement).where(ProcessElement.id == elem_id))
+        ).scalar_one()
+        assert refreshed.organization_id is None
 
 
 class TestLaneLinkPruningOnDiagramSave:

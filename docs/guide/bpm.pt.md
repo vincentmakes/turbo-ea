@@ -54,12 +54,12 @@ Elementos BPMN podem ser **vinculados a cards de EA**. Por exemplo, vincule uma 
 
 ### Vincular Organizações (Raias e Etapas)
 
-A responsabilidade organizacional é capturada no nível do fluxo de duas maneiras complementares:
+A coluna *Organização* da tabela de etapas vincula as etapas a cards de Organização, ao lado de Aplicação / Objeto de Dados / Componente de TI:
 
-- **Atribuição de raias** — Vincule uma vez uma raia BPMN a um card de Organização, seja no painel *Atribuição de raias* acima da tabela de etapas ou selecionando a raia no modelador. Cada etapa da raia herda essa organização automaticamente.
-- **Substituição por etapa** — A coluna *Organização* da tabela de etapas permite vincular uma etapa individual a uma organização diferente. Uma organização herdada aparece como um chip com contorno; uma substituição explícita aparece como um chip preenchido e tem prioridade.
+- **Etapas em uma raia** — Todas as etapas de uma raia BPMN compartilham uma mesma organização: vincular, alterar ou remover a organização em qualquer etapa aplica-se à raia inteira. A mesma vinculação também pode ser definida selecionando a raia no modelador.
+- **Etapas sem raia** — A organização é vinculada à etapa individual.
 
-Os nomes das raias continuam sendo texto livre no diagrama — vincular uma raia a um card de Organização é opcional. A organização efetiva de uma etapa é sempre calculada (sua própria substituição, se definida, caso contrário a vinculação da raia), portanto nada é mantido em duplicidade e as vinculações de raias e os links de etapas nunca podem se contradizer. Organizações vinculadas criam uma relação Processo de Negócio → Organização visível em ambos os cards e nos relatórios de dependências.
+Os nomes das raias continuam sendo texto livre no diagrama — vincular uma raia a um card de Organização é opcional e os diagramas existentes não são afetados. Organizações vinculadas criam uma relação Processo de Negócio → Organização visível em ambos os cards e nos relatórios de dependências. Para envolver várias organizações em um mesmo processo, use uma raia por organização — é exatamente para isso que servem as raias BPMN.
 
 ### Fluxo de Aprovação
 
