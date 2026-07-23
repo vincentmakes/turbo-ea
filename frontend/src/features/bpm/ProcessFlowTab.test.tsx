@@ -325,17 +325,11 @@ describe("ProcessFlowTab", () => {
     });
   });
 
-  describe("Lane assignments", () => {
-    const mockLanes = [
-      { lane_name: "Sales", organization_id: "org-1", organization_name: "Sales Department" },
-    ];
-
-    function mockWithLanes(elements = mockElements) {
+  describe("Organization links (m:n)", () => {
+    function mockWithOrgs(elements = mockElements) {
       vi.mocked(api.get).mockImplementation((url: string) => {
         if (url.includes("/flow/permissions")) return Promise.resolve(mockPerms);
         if (url.includes("/flow/published")) return Promise.resolve(mockPublished);
-        if (url.includes("/draft-lanes")) return Promise.resolve([]);
-        if (url.includes("/lanes")) return Promise.resolve(mockLanes);
         if (url.includes("/elements")) return Promise.resolve(elements);
         if (url.includes("/flow/drafts")) return Promise.resolve(mockDrafts);
         if (url.includes("/flow/archived")) return Promise.resolve(mockArchived);
@@ -343,42 +337,34 @@ describe("ProcessFlowTab", () => {
       });
     }
 
+    const elementWithOrgs = {
+      ...mockElements[0],
+      organizations: [
+        { id: "org-1", name: "Sales Department" },
+        { id: "org-2", name: "Finance Dept" },
+      ],
+    };
+
     it("shows an Organization column in the elements table", async () => {
-      mockWithLanes();
+      mockWithOrgs();
       renderTab();
       await waitFor(() => {
         expect(screen.getByText("Organization")).toBeInTheDocument();
       });
     });
 
-    it("shows the lane's bound organization on the step row", async () => {
-      mockWithLanes();
+    it("shows one chip per linked organization on a step", async () => {
+      mockWithOrgs([elementWithOrgs]);
       renderTab();
       await waitFor(() => {
         expect(screen.getByText("Sales Department")).toBeInTheDocument();
-      });
-    });
-
-    it("shows a per-step organization for steps without a lane", async () => {
-      mockWithLanes([
-        {
-          ...mockElements[0],
-          lane_name: null,
-          organization_id: "org-2",
-          organization_name: "Finance Dept",
-        },
-      ]);
-      renderTab();
-      await waitFor(() => {
         expect(screen.getByText("Finance Dept")).toBeInTheDocument();
       });
-      // No laned step shows the lane binding.
-      expect(screen.queryByText("Sales Department")).not.toBeInTheDocument();
     });
 
-    it("removing the org chip on a laned step clears the whole lane binding", async () => {
-      mockWithLanes();
-      vi.mocked(api.put).mockResolvedValue({ lane_name: "Sales", organization_id: null });
+    it("removing a chip sends the remaining organization_ids", async () => {
+      mockWithOrgs([elementWithOrgs]);
+      vi.mocked(api.put).mockResolvedValue({ id: "el1", status: "updated" });
       renderTab();
       await waitFor(() => {
         expect(screen.getByText("Sales Department")).toBeInTheDocument();
@@ -389,8 +375,8 @@ describe("ProcessFlowTab", () => {
       await userEvent.click(deleteIcon as Element);
       await waitFor(() => {
         expect(api.put).toHaveBeenCalledWith(
-          "/bpm/processes/proc-1/lane-links",
-          { lane_name: "Sales", organization_id: null },
+          "/bpm/processes/proc-1/elements/el1",
+          { organization_ids: ["org-2"] },
         );
       });
     });

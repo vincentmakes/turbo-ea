@@ -34,7 +34,6 @@
   "flowTab.dataObject": "Objeto de Dados",
   "flowTab.itComponent": "Componente de TI",
   "flowTab.organization": "Organização",
-  "flowTab.appliesToLane": "Aplica-se a todas as etapas da raia «{{lane}}» — alterá-la ou removê-la atualiza a raia inteira",
   "flowTab.loadingPublished": "Carregando fluxo publicado...",
   "flowTab.noPublishedYet": "Nenhum fluxo de processo publicado ainda",
   "flowTab.draftsAvailable_one": "{{count}} rascunho disponível.",
@@ -83,8 +82,6 @@
   "flowTab.drafts": "Rascunhos",
   "flowTab.elementUpdated": "Elemento atualizado",
   "flowTab.elementUpdateFailed": "Falha ao atualizar elemento",
-  "flowTab.laneLinkUpdated": "Atribuição da raia atualizada",
-  "flowTab.laneLinkUpdateFailed": "Falha ao atualizar a atribuição da raia",
   "assessment.title": "Avaliações de Processo",
   "assessment.newAssessment": "Nova Avaliação",
   "assessment.assessor": "Avaliador",
@@ -126,7 +123,6 @@
   "linker.application": "Aplicação",
   "linker.dataObject": "Objeto de Dados",
   "linker.itComponent": "Componente de TI",
-  "linker.organization": "Organização",
   "linker.saving": "Salvando...",
   "reports.processMap": "Mapa de Processos",
   "reports.capabilityProcess": "Capacidade × Processo",
@@ -225,12 +221,5 @@
   "modeler.draftSaved": "Rascunho salvo",
   "modeler.saveFailed": "Falha ao salvar",
   "modeler.importSuccess": "BPMN importado com sucesso",
-  "modeler.importInvalid": "Arquivo BPMN inválido",
-  "modeler.laneOrgTitle": "Raia: {{lane}}",
-  "modeler.laneOrgUnnamed": "Raia sem nome",
-  "modeler.laneOrgLabel": "Organização",
-  "modeler.laneOrgHint": "Aplica-se a todas as etapas desta raia — a mesma vinculação também pode ser editada na tabela de etapas.",
-  "modeler.laneOrgNameFirst": "Dê primeiro um nome a esta raia para vinculá-la a uma organização.",
-  "modeler.laneOrgSaved": "Organização da raia salva",
-  "modeler.laneOrgSaveFailed": "Falha ao salvar a organização da raia"
+  "modeler.importInvalid": "Arquivo BPMN inválido"
 }

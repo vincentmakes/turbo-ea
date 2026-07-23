@@ -52,14 +52,9 @@ BPMN-Elemente können mit **EA-Karten verknüpft** werden. Verknüpfen Sie beisp
 - Das **Elementverknüpfungs**-Panel zeigt passende Karten (Anwendung, Datenobjekt, IT-Komponente, Organisation)
 - Verknüpfen Sie das Element mit einer Karte — die Verbindung wird gespeichert und ist sowohl im Prozessfluss als auch in den Beziehungen der Karte sichtbar
 
-### Organisationen verknüpfen (Lanes & Schritte)
+### Organisationen verknüpfen
 
-Die Spalte *Organisation* in der Schritttabelle verknüpft Schritte mit Organisationskarten, direkt neben Anwendung / Datenobjekt / IT-Komponente:
-
-- **Schritte in einer Lane** — Alle Schritte einer BPMN-Lane teilen sich eine Organisation: Das Verknüpfen, Ändern oder Entfernen der Organisation an einem beliebigen Schritt wirkt auf die gesamte Lane. Dieselbe Zuordnung kann auch durch Auswahl der Lane im Modeler gesetzt werden.
-- **Schritte ohne Lane** — Die Organisation wird mit dem einzelnen Schritt verknüpft.
-
-Lane-Namen bleiben Freitext im Diagramm — die Verknüpfung einer Lane mit einer Organisationskarte ist optional, bestehende Diagramme bleiben unberührt. Verknüpfte Organisationen erzeugen eine Beziehung Geschäftsprozess → Organisation, die auf beiden Karten und in den Abhängigkeitsberichten sichtbar ist. Um mehrere Organisationen an einem Prozess zu beteiligen, verwenden Sie eine Lane pro Organisation — genau dafür sind BPMN-Lanes gedacht.
+Die Spalte *Organisation* in der Schritttabelle verknüpft Schritte mit Organisationskarten, direkt neben Anwendung / Datenobjekt / IT-Komponente. Anders als diese Einzelverknüpfungen kann ein Schritt mit **mehreren** Organisationen verknüpft werden — wählen Sie sie einzeln aus und entfernen Sie sie einzeln. Jede Verknüpfung erzeugt additiv eine Beziehung Geschäftsprozess → Organisation, die auf beiden Karten und in den Abhängigkeitsberichten sichtbar ist. Lane-Namen bleiben reiner Freitext aus dem Diagramm und sind nicht mit Organisationskarten verbunden.
 
 ### Genehmigungsworkflow
 

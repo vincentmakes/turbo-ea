@@ -34,7 +34,6 @@
   "flowTab.dataObject": "Objet de données",
   "flowTab.itComponent": "Composant IT",
   "flowTab.organization": "Organisation",
-  "flowTab.appliesToLane": "S'applique à toutes les étapes du couloir « {{lane}} » — toute modification ou suppression met à jour le couloir entier",
   "flowTab.loadingPublished": "Chargement du flux publié…",
   "flowTab.noPublishedYet": "Aucun flux de processus publié pour le moment",
   "flowTab.draftsAvailable_one": "{{count}} brouillon disponible.",
@@ -83,8 +82,6 @@
   "flowTab.drafts": "Brouillons",
   "flowTab.elementUpdated": "Élément mis à jour",
   "flowTab.elementUpdateFailed": "Échec de la mise à jour de l’élément",
-  "flowTab.laneLinkUpdated": "Affectation du couloir mise à jour",
-  "flowTab.laneLinkUpdateFailed": "Échec de la mise à jour de l'affectation du couloir",
   "assessment.title": "Évaluations des processus",
   "assessment.newAssessment": "Nouvelle évaluation",
   "assessment.assessor": "Évaluateur",
@@ -126,7 +123,6 @@
   "linker.application": "Application",
   "linker.dataObject": "Objet de données",
   "linker.itComponent": "Composant IT",
-  "linker.organization": "Organisation",
   "linker.saving": "Enregistrement…",
   "reports.processMap": "Carte des processus",
   "reports.capabilityProcess": "Capacité × Processus",
@@ -225,12 +221,5 @@
   "modeler.draftSaved": "Brouillon enregistré",
   "modeler.saveFailed": "Échec de l’enregistrement",
   "modeler.importSuccess": "BPMN importé avec succès",
-  "modeler.importInvalid": "Fichier BPMN invalide",
-  "modeler.laneOrgTitle": "Couloir : {{lane}}",
-  "modeler.laneOrgUnnamed": "Couloir sans nom",
-  "modeler.laneOrgLabel": "Organisation",
-  "modeler.laneOrgHint": "S'applique à toutes les étapes de ce couloir — la même association peut aussi être modifiée depuis le tableau des étapes.",
-  "modeler.laneOrgNameFirst": "Nommez d'abord ce couloir pour lui associer une organisation.",
-  "modeler.laneOrgSaved": "Organisation du couloir enregistrée",
-  "modeler.laneOrgSaveFailed": "Échec de l'enregistrement de l'organisation du couloir"
+  "modeler.importInvalid": "Fichier BPMN invalide"
 }

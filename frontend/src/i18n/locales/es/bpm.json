@@ -34,7 +34,6 @@
   "flowTab.dataObject": "Objeto de Datos",
   "flowTab.itComponent": "Componente TI",
   "flowTab.organization": "Organización",
-  "flowTab.appliesToLane": "Se aplica a todos los pasos del carril «{{lane}}» — cambiarlo o eliminarlo actualiza todo el carril",
   "flowTab.loadingPublished": "Cargando flujo publicado...",
   "flowTab.noPublishedYet": "Aún no hay un flujo de proceso publicado",
   "flowTab.draftsAvailable_one": "{{count}} borrador disponible.",
@@ -83,8 +82,6 @@
   "flowTab.drafts": "Borradores",
   "flowTab.elementUpdated": "Elemento actualizado",
   "flowTab.elementUpdateFailed": "No se pudo actualizar el elemento",
-  "flowTab.laneLinkUpdated": "Asignación de carril actualizada",
-  "flowTab.laneLinkUpdateFailed": "Error al actualizar la asignación del carril",
   "assessment.title": "Evaluaciones de Proceso",
   "assessment.newAssessment": "Nueva Evaluación",
   "assessment.assessor": "Evaluador",
@@ -126,7 +123,6 @@
   "linker.application": "Aplicación",
   "linker.dataObject": "Objeto de Datos",
   "linker.itComponent": "Componente TI",
-  "linker.organization": "Organización",
   "linker.saving": "Guardando...",
   "reports.processMap": "Mapa de Procesos",
   "reports.capabilityProcess": "Capacidad × Proceso",
@@ -225,12 +221,5 @@
   "modeler.draftSaved": "Borrador guardado",
   "modeler.saveFailed": "Error al guardar",
   "modeler.importSuccess": "BPMN importado correctamente",
-  "modeler.importInvalid": "Archivo BPMN no válido",
-  "modeler.laneOrgTitle": "Carril: {{lane}}",
-  "modeler.laneOrgUnnamed": "Carril sin nombre",
-  "modeler.laneOrgLabel": "Organización",
-  "modeler.laneOrgHint": "Se aplica a todos los pasos de este carril — la misma vinculación también puede editarse desde la tabla de pasos.",
-  "modeler.laneOrgNameFirst": "Primero asigne un nombre a este carril para vincularlo a una organización.",
-  "modeler.laneOrgSaved": "Organización del carril guardada",
-  "modeler.laneOrgSaveFailed": "Error al guardar la organización del carril"
+  "modeler.importInvalid": "Archivo BPMN no válido"
 }

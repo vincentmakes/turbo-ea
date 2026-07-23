@@ -6,26 +6,22 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Body, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
-from app.models.process_element import ProcessElement
+from app.models.process_element import ProcessElement, ProcessElementOrganization
 from app.models.process_flow_version import ProcessFlowVersion
-from app.models.process_lane_link import ProcessLaneLink
 from app.models.stakeholder import Stakeholder
 from app.models.todo import Todo
 from app.models.user import User
-from app.schemas.bpm import LaneLinkUpdate, ProcessFlowVersionCreate, ProcessFlowVersionUpdate
+from app.schemas.bpm import ProcessFlowVersionCreate, ProcessFlowVersionUpdate
 from app.services import notification_service
 from app.services.bpmn_parser import parse_bpmn_xml
-from app.services.element_relation_sync import (
-    collect_effective_org_ids,
-    sync_element_relations,
-)
+from app.services.element_relation_sync import sync_element_relations
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -99,7 +95,6 @@ def _version_response(v: ProcessFlowVersion) -> dict:
         "archived_at": v.archived_at.isoformat() if v.archived_at else None,
         "based_on_id": str(v.based_on_id) if v.based_on_id else None,
         "draft_element_links": v.draft_element_links,
-        "draft_lane_links": v.draft_lane_links,
     }
 
 
@@ -111,12 +106,15 @@ def _version_summary(v: ProcessFlowVersion) -> dict:
 
 
 def _apply_draft_link(elem: ProcessElement, link: dict, valid_card_ids: set[str]) -> None:
-    """Apply draft element link data to a ProcessElement, skipping stale references."""
+    """Apply draft element link data to a ProcessElement, skipping stale references.
+
+    The M:N ``organization_ids`` list is applied separately after flush (the
+    junction rows need the element's PK) — see the publish path.
+    """
     for attr, key in (
         ("application_id", "application_id"),
         ("data_object_id", "data_object_id"),
         ("it_component_id", "it_component_id"),
-        ("organization_id", "organization_id"),
     ):
         val = link.get(key)
         if val and val in valid_card_ids:
@@ -209,7 +207,6 @@ async def create_draft(
     svg_thumbnail = body.svg_thumbnail
     based_on_id = None
     draft_links_clone = None
-    draft_lane_links_clone = None
 
     if body.based_on_id:
         based_on_id = uuid.UUID(body.based_on_id)
@@ -233,7 +230,9 @@ async def create_draft(
         draft_links_clone = base_version.draft_element_links
         if not draft_links_clone:
             existing_elems = await db.execute(
-                select(ProcessElement).where(ProcessElement.process_id == pid)
+                select(ProcessElement)
+                .options(selectinload(ProcessElement.organizations))
+                .where(ProcessElement.process_id == pid)
             )
             links_from_elements: dict = {}
             for elem in existing_elems.scalars().all():
@@ -244,28 +243,14 @@ async def create_draft(
                     link["data_object_id"] = str(elem.data_object_id)
                 if elem.it_component_id:
                     link["it_component_id"] = str(elem.it_component_id)
-                if elem.organization_id:
-                    link["organization_id"] = str(elem.organization_id)
+                if elem.organizations:
+                    link["organization_ids"] = [str(o.id) for o in elem.organizations]
                 if elem.custom_fields:
                     link["custom_fields"] = elem.custom_fields
                 if link:
                     links_from_elements[elem.bpmn_element_id] = link
             if links_from_elements:
                 draft_links_clone = links_from_elements
-        # Clone lane → Organization bindings the same way: from the base
-        # version's draft store, else from the live process_lane_links table.
-        draft_lane_links_clone = base_version.draft_lane_links
-        if not draft_lane_links_clone:
-            live_lane_links = await db.execute(
-                select(ProcessLaneLink).where(ProcessLaneLink.process_id == pid)
-            )
-            lanes_from_live = {
-                ll.lane_name: str(ll.organization_id)
-                for ll in live_lane_links.scalars().all()
-                if ll.organization_id
-            }
-            if lanes_from_live:
-                draft_lane_links_clone = lanes_from_live
 
     # Determine next revision number
     latest = await db.execute(
@@ -286,7 +271,6 @@ async def create_draft(
         created_by=user.id,
         based_on_id=based_on_id,
         draft_element_links=draft_links_clone,
-        draft_lane_links=draft_lane_links_clone,
     )
     db.add(version)
     await db.commit()
@@ -561,18 +545,15 @@ async def approve_version(
     if version.bpmn_xml:
         extracted = parse_bpmn_xml(version.bpmn_xml)
         draft_links = version.draft_element_links or {}
-        draft_lane_links = version.draft_lane_links or {}
 
         # Validate draft-linked cards still exist
         linked_card_ids: set[str] = set()
         for link_data in draft_links.values():
-            for key in ("application_id", "data_object_id", "it_component_id", "organization_id"):
+            for key in ("application_id", "data_object_id", "it_component_id"):
                 val = link_data.get(key)
                 if val:
                     linked_card_ids.add(val)
-        for val in draft_lane_links.values():
-            if val:
-                linked_card_ids.add(val)
+            linked_card_ids.update(link_data.get("organization_ids") or [])
 
         valid_card_ids: set[str] = set()
         if linked_card_ids:
@@ -604,34 +585,6 @@ async def approve_version(
         for old_id, old_elem in old_by_bpmn_id.items():
             if old_id not in new_bpmn_ids:
                 await db.delete(old_elem)
-        # Lane → Organization bindings from the draft become the live bindings:
-        # only lanes that still exist in the XML and orgs that are still valid.
-        current_lanes = {e.lane_name for e in extracted if e.lane_name}
-        applied_lane_links: dict[str, str] = {
-            lane: org_id
-            for lane, org_id in draft_lane_links.items()
-            if org_id and lane in current_lanes and org_id in valid_card_ids
-        }
-        existing_lane_links = await db.execute(
-            select(ProcessLaneLink).where(ProcessLaneLink.process_id == pid)
-        )
-        seen_lanes: set[str] = set()
-        for lane_link in existing_lane_links.scalars().all():
-            if lane_link.lane_name in applied_lane_links:
-                lane_link.organization_id = uuid.UUID(applied_lane_links[lane_link.lane_name])
-                seen_lanes.add(lane_link.lane_name)
-            else:
-                await db.delete(lane_link)
-        for lane, org_id in applied_lane_links.items():
-            if lane not in seen_lanes:
-                db.add(
-                    ProcessLaneLink(
-                        process_id=pid,
-                        lane_name=lane,
-                        organization_id=uuid.UUID(org_id),
-                    )
-                )
-
         for ext in extracted:
             draft_link = draft_links.get(ext.bpmn_element_id, {})
             if ext.bpmn_element_id in old_by_bpmn_id:
@@ -645,7 +598,6 @@ async def approve_version(
                 # Apply draft links (only if the linked card is still valid)
                 if draft_link:
                     _apply_draft_link(old, draft_link, valid_card_ids)
-                target_elem = old
             else:
                 elem = ProcessElement(
                     process_id=pid,
@@ -661,15 +613,6 @@ async def approve_version(
                 if draft_link:
                     _apply_draft_link(elem, draft_link, valid_card_ids)
                 db.add(elem)
-                target_elem = elem
-            # Normalize: an explicit org equal to the lane's binding is stored
-            # as NULL (inherited) so lane re-binding keeps flowing through.
-            if (
-                target_elem.organization_id
-                and ext.lane_name
-                and applied_lane_links.get(ext.lane_name) == str(target_elem.organization_id)
-            ):
-                target_elem.organization_id = None
 
         # Sync element EA links → relations table (additive only)
         await db.flush()  # ensure new ProcessElements get their FK values
@@ -677,6 +620,25 @@ async def approve_version(
             select(ProcessElement).where(ProcessElement.process_id == pid)
         )
         elements_list = all_elements.scalars().all()
+
+        # Apply the drafts' M:N organization links (junction rows need the
+        # element PKs, hence after the flush above).
+        for el in elements_list:
+            draft_link = draft_links.get(el.bpmn_element_id, {})
+            if "organization_ids" not in draft_link:
+                continue
+            valid_orgs = [
+                oid for oid in (draft_link.get("organization_ids") or []) if oid in valid_card_ids
+            ]
+            await db.execute(
+                delete(ProcessElementOrganization).where(
+                    ProcessElementOrganization.element_id == el.id
+                )
+            )
+            for oid in valid_orgs:
+                db.add(ProcessElementOrganization(element_id=el.id, organization_id=uuid.UUID(oid)))
+        await db.flush()
+
         link_ids: dict[str, set[uuid.UUID]] = {
             "application_id": set(),
             "data_object_id": set(),
@@ -689,8 +651,12 @@ async def approve_version(
                 link_ids["data_object_id"].add(el.data_object_id)
             if el.it_component_id:
                 link_ids["it_component_id"].add(el.it_component_id)
-        # Organizations: explicit per-step overrides plus lane-inherited ones.
-        link_ids["organization_id"] = collect_effective_org_ids(elements_list, applied_lane_links)
+        org_rows = await db.execute(
+            select(ProcessElementOrganization.organization_id)
+            .join(ProcessElement, ProcessElement.id == ProcessElementOrganization.element_id)
+            .where(ProcessElement.process_id == pid)
+        )
+        link_ids["organization_id"] = {row[0] for row in org_rows.all()}
         await sync_element_relations(db, pid, link_ids)
 
     # Auto-complete system approval todos for this process
@@ -901,10 +867,11 @@ async def get_draft_elements(
     # Collect all linked card IDs to resolve names in one query
     card_ids: set[str] = set()
     for link_data in links.values():
-        for key in ("application_id", "data_object_id", "it_component_id", "organization_id"):
+        for key in ("application_id", "data_object_id", "it_component_id"):
             val = link_data.get(key)
             if val:
                 card_ids.add(val)
+        card_ids.update(link_data.get("organization_ids") or [])
 
     # Resolve names
     name_map: dict[str, str] = {}
@@ -921,7 +888,7 @@ async def get_draft_elements(
         app_id = link.get("application_id")
         do_id = link.get("data_object_id")
         itc_id = link.get("it_component_id")
-        org_id = link.get("organization_id")
+        org_ids = link.get("organization_ids") or []
         elements.append(
             {
                 "bpmn_element_id": ext.bpmn_element_id,
@@ -937,8 +904,7 @@ async def get_draft_elements(
                 "data_object_name": name_map.get(do_id, "") if do_id else None,
                 "it_component_id": itc_id,
                 "it_component_name": name_map.get(itc_id, "") if itc_id else None,
-                "organization_id": org_id,
-                "organization_name": name_map.get(org_id, "") if org_id else None,
+                "organizations": [{"id": oid, "name": name_map.get(oid, "")} for oid in org_ids],
                 "custom_fields": link.get("custom_fields"),
             }
         )
@@ -978,37 +944,18 @@ async def update_draft_element_link(
 
     from sqlalchemy.orm.attributes import flag_modified
 
-    # Lane-wide organization semantics: all steps in a BPMN lane share one
-    # organization, so an organization edit on a laned element is routed to
-    # the draft's lane bindings instead of the per-element link.
-    if "organization_id" in body and version.bpmn_xml:
-        extracted = parse_bpmn_xml(version.bpmn_xml)
-        lane = next(
-            (e.lane_name for e in extracted if e.bpmn_element_id == bpmn_element_id),
-            None,
-        )
-        if lane:
-            val = body.pop("organization_id")
-            lane_links = dict(version.draft_lane_links or {})
-            if val:
-                lane_links[lane] = val
-            else:
-                lane_links.pop(lane, None)
-            version.draft_lane_links = lane_links
-            flag_modified(version, "draft_lane_links")
-            existing.pop("organization_id", None)
-
-    # Merge updates into existing link
+    # Merge updates into existing link. `organization_ids` is a list (M:N);
+    # an empty list clears the step's organizations, like "" for the FKs.
     for key in (
         "application_id",
         "data_object_id",
         "it_component_id",
-        "organization_id",
+        "organization_ids",
         "custom_fields",
     ):
         if key in body:
             val = body[key]
-            if val == "" or val is None:
+            if val == "" or val is None or val == []:
                 existing.pop(key, None)
             else:
                 existing[key] = val
@@ -1024,113 +971,6 @@ async def update_draft_element_link(
 
     await db.commit()
     return {"status": "updated", "bpmn_element_id": bpmn_element_id}
-
-
-# ── Draft lane → Organization pre-linking ──────────────────────────────
-
-
-@router.get("/processes/{process_id}/flow/versions/{version_id}/draft-lanes")
-async def get_draft_lanes(
-    process_id: str,
-    version_id: str,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    """Distinct lanes parsed from a draft version's BPMN XML, merged with the
-    version's draft lane → Organization bindings (mirrors GET /lanes)."""
-    pid = uuid.UUID(process_id)
-    vid = uuid.UUID(version_id)
-    await _get_process_or_404(db, pid)
-    if not await _can_view_drafts(db, user, pid):
-        raise HTTPException(403, "Insufficient permissions")
-
-    result = await db.execute(
-        select(ProcessFlowVersion).where(
-            ProcessFlowVersion.id == vid,
-            ProcessFlowVersion.process_id == pid,
-        )
-    )
-    version = result.scalar_one_or_none()
-    if not version:
-        raise HTTPException(404, "Version not found")
-    if not version.bpmn_xml:
-        return []
-
-    extracted = parse_bpmn_xml(version.bpmn_xml)
-    lane_names = sorted({e.lane_name for e in extracted if e.lane_name})
-    lane_links = version.draft_lane_links or {}
-
-    org_ids = {v for v in lane_links.values() if v}
-    name_map: dict[str, str] = {}
-    if org_ids:
-        card_result = await db.execute(
-            select(Card.id, Card.name).where(Card.id.in_([uuid.UUID(cid) for cid in org_ids]))
-        )
-        for row in card_result.all():
-            name_map[str(row[0])] = row[1]
-
-    return [
-        {
-            "lane_name": lane,
-            "organization_id": lane_links.get(lane),
-            "organization_name": name_map.get(lane_links.get(lane, ""), None),
-        }
-        for lane in lane_names
-    ]
-
-
-@router.put("/processes/{process_id}/flow/versions/{version_id}/draft-lane-links")
-async def update_draft_lane_link(
-    process_id: str,
-    version_id: str,
-    body: LaneLinkUpdate,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    """Bind (or clear) a lane's Organization on a draft version. Applied to
-    the live process_lane_links table when the version is published."""
-    pid = uuid.UUID(process_id)
-    vid = uuid.UUID(version_id)
-    await _get_process_or_404(db, pid)
-    if not await _can_edit_draft(db, user, pid):
-        raise HTTPException(403, "Insufficient permissions")
-
-    result = await db.execute(
-        select(ProcessFlowVersion).where(
-            ProcessFlowVersion.id == vid,
-            ProcessFlowVersion.process_id == pid,
-        )
-    )
-    version = result.scalar_one_or_none()
-    if not version:
-        raise HTTPException(404, "Version not found")
-    if version.status not in ("draft", "pending"):
-        raise HTTPException(400, "Lane links can only be edited on draft or pending versions")
-
-    if body.organization_id:
-        org_result = await db.execute(
-            select(Card.id).where(
-                Card.id == uuid.UUID(body.organization_id),
-                Card.type == "Organization",
-                Card.status == "ACTIVE",
-            )
-        )
-        if org_result.scalar_one_or_none() is None:
-            raise HTTPException(404, "Organization card not found")
-
-    lane_links = dict(version.draft_lane_links or {})
-    if body.organization_id:
-        lane_links[body.lane_name] = body.organization_id
-    else:
-        lane_links.pop(body.lane_name, None)
-
-    version.draft_lane_links = lane_links
-    from sqlalchemy.orm.attributes import flag_modified
-
-    flag_modified(version, "draft_lane_links")
-
-    await db.commit()
-    return {"lane_name": body.lane_name, "organization_id": body.organization_id or None}
 
 
 # ── Permission check endpoint (for frontend) ───────────────────────────

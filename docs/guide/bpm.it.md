@@ -52,14 +52,9 @@ Gli elementi BPMN possono essere **collegati alle card EA**. Ad esempio, collega
 - Il pannello **Element Linker** mostra le card corrispondenti (Application, Data Object, IT Component, Organization)
 - Collegate l'elemento a una card — la connessione è memorizzata e visibile sia nel flusso di processo che nelle relazioni della card
 
-### Collegare le organizzazioni (corsie e passaggi)
+### Collegare le organizzazioni
 
-La colonna *Organizzazione* della tabella dei passaggi collega i passaggi alle card Organization, accanto ad Application / Data Object / IT Component:
-
-- **Passaggi in una corsia** — Tutti i passaggi di una corsia BPMN condividono una stessa organizzazione: collegare, modificare o rimuovere l'organizzazione su un passaggio qualsiasi si applica all'intera corsia. Lo stesso collegamento può essere impostato anche selezionando la corsia nel modeler.
-- **Passaggi senza corsia** — L'organizzazione viene collegata al singolo passaggio.
-
-I nomi delle corsie restano testo libero nel diagramma — collegare una corsia a una card Organization è facoltativo e i diagrammi esistenti non ne risentono. Le organizzazioni collegate creano una relazione Business Process → Organization visibile su entrambe le card e nei report delle dipendenze. Per coinvolgere più organizzazioni in un processo, usate una corsia per organizzazione — è esattamente lo scopo delle corsie BPMN.
+La colonna *Organizzazione* della tabella dei passaggi collega i passaggi alle card Organization, accanto ad Application / Data Object / IT Component. A differenza di quei collegamenti a valore singolo, un passaggio può essere collegato a **più** organizzazioni — sceglietele una alla volta e rimuovetele singolarmente. Ogni collegamento crea in modo additivo una relazione Business Process → Organization visibile su entrambe le card e nei report delle dipendenze. I nomi delle corsie restano semplice testo libero del diagramma e non sono collegati alle card Organization.
 
 ### Workflow di approvazione
 

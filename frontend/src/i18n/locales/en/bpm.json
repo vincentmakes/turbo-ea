@@ -37,7 +37,6 @@
   "flowTab.dataObject": "Data Object",
   "flowTab.itComponent": "IT Component",
   "flowTab.organization": "Organization",
-  "flowTab.appliesToLane": "Applies to all steps in lane “{{lane}}” — changing or removing it updates the whole lane",
   "flowTab.loadingPublished": "Loading published flow...",
   "flowTab.noPublishedYet": "No published process flow yet",
   "flowTab.draftsAvailable_one": "{{count}} draft available.",
@@ -86,8 +85,6 @@
   "flowTab.drafts": "Drafts",
   "flowTab.elementUpdated": "Element updated",
   "flowTab.elementUpdateFailed": "Failed to update element",
-  "flowTab.laneLinkUpdated": "Lane assignment updated",
-  "flowTab.laneLinkUpdateFailed": "Failed to update lane assignment",
 
   "assessment.title": "Process Assessments",
   "assessment.newAssessment": "New Assessment",
@@ -133,7 +130,6 @@
   "linker.application": "Application",
   "linker.dataObject": "Data Object",
   "linker.itComponent": "IT Component",
-  "linker.organization": "Organization",
   "linker.saving": "Saving...",
 
   "reports.processMap": "Process Map",
@@ -235,12 +231,5 @@
   "modeler.draftSaved": "Draft saved",
   "modeler.saveFailed": "Save failed",
   "modeler.importSuccess": "BPMN imported successfully",
-  "modeler.importInvalid": "Invalid BPMN file",
-  "modeler.laneOrgTitle": "Lane: {{lane}}",
-  "modeler.laneOrgUnnamed": "Unnamed lane",
-  "modeler.laneOrgLabel": "Organization",
-  "modeler.laneOrgHint": "Applies to all steps in this lane — the same binding can be edited from the step table.",
-  "modeler.laneOrgNameFirst": "Name this lane first to bind it to an organization.",
-  "modeler.laneOrgSaved": "Lane organization saved",
-  "modeler.laneOrgSaveFailed": "Failed to save lane organization"
+  "modeler.importInvalid": "Invalid BPMN file"
 }

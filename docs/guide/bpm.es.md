@@ -52,14 +52,9 @@ Los elementos BPMN pueden ser **vinculados a fichas de EA**. Por ejemplo, vincul
 - El panel de **Vinculador de Elementos** muestra fichas coincidentes (Aplicación, Objeto de Datos, Componente TI, Organización)
 - Vincule el elemento a una ficha — la conexión se almacena y es visible tanto en el flujo de proceso como en las relaciones de la ficha
 
-### Vincular Organizaciones (Carriles y Pasos)
+### Vincular Organizaciones
 
-La columna *Organización* de la tabla de pasos vincula los pasos a fichas de Organización, justo al lado de Aplicación / Objeto de Datos / Componente TI:
-
-- **Pasos en un carril** — Todos los pasos de un carril BPMN comparten una misma organización: vincular, cambiar o eliminar la organización en cualquier paso se aplica a todo el carril. La misma vinculación también puede definirse seleccionando el carril en el modelador.
-- **Pasos sin carril** — La organización se vincula al paso individual.
-
-Los nombres de los carriles siguen siendo texto libre en el diagrama — vincular un carril a una ficha de Organización es opcional y los diagramas existentes no se ven afectados. Las organizaciones vinculadas crean una relación Proceso de Negocio → Organización visible en ambas fichas y en los informes de dependencias. Para involucrar a varias organizaciones en un mismo proceso, use un carril por organización — para eso existen exactamente los carriles BPMN.
+La columna *Organización* de la tabla de pasos vincula los pasos a fichas de Organización, justo al lado de Aplicación / Objeto de Datos / Componente TI. A diferencia de esos vínculos de valor único, un paso puede vincularse a **varias** organizaciones — elíjalas una a una y elimínelas individualmente. Cada vínculo crea de forma aditiva una relación Proceso de Negocio → Organización visible en ambas fichas y en los informes de dependencias. Los nombres de los carriles siguen siendo texto libre del diagrama y no están conectados a fichas de Organización.
 
 ### Flujo de Aprobación
 

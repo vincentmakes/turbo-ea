@@ -34,7 +34,6 @@
   "flowTab.dataObject": "Dataobjekt",
   "flowTab.itComponent": "IT-komponent",
   "flowTab.organization": "Organisation",
-  "flowTab.appliesToLane": "Gælder for alle trin i banen «{{lane}}» — ændring eller fjernelse opdaterer hele banen",
   "flowTab.loadingPublished": "Indlæser udgivet flow...",
   "flowTab.noPublishedYet": "Intet udgivet procesflow endnu",
   "flowTab.draftsAvailable_one": "{{count}} kladde tilgængelig.",
@@ -83,8 +82,6 @@
   "flowTab.drafts": "Kladder",
   "flowTab.elementUpdated": "Element opdateret",
   "flowTab.elementUpdateFailed": "Kunne ikke opdatere element",
-  "flowTab.laneLinkUpdated": "Banetildeling opdateret",
-  "flowTab.laneLinkUpdateFailed": "Kunne ikke opdatere banetildelingen",
   "assessment.title": "Procesvurderinger",
   "assessment.newAssessment": "Ny vurdering",
   "assessment.assessor": "Vurderer",
@@ -126,7 +123,6 @@
   "linker.application": "Applikation",
   "linker.dataObject": "Dataobjekt",
   "linker.itComponent": "IT-komponent",
-  "linker.organization": "Organisation",
   "linker.saving": "Gemmer...",
   "reports.processMap": "Proceskort",
   "reports.capabilityProcess": "Kompetence × proces",
@@ -225,12 +221,5 @@
   "modeler.draftSaved": "Kladde gemt",
   "modeler.saveFailed": "Lagring mislykkedes",
   "modeler.importSuccess": "BPMN importeret",
-  "modeler.importInvalid": "Ugyldig BPMN-fil",
-  "modeler.laneOrgTitle": "Bane: {{lane}}",
-  "modeler.laneOrgUnnamed": "Unavngiven bane",
-  "modeler.laneOrgLabel": "Organisation",
-  "modeler.laneOrgHint": "Gælder for alle trin i denne bane — den samme tilknytning kan også redigeres fra trintabellen.",
-  "modeler.laneOrgNameFirst": "Giv først banen et navn for at knytte den til en organisation.",
-  "modeler.laneOrgSaved": "Banens organisation gemt",
-  "modeler.laneOrgSaveFailed": "Kunne ikke gemme banens organisation"
+  "modeler.importInvalid": "Ugyldig BPMN-fil"
 }

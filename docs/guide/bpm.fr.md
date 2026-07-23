@@ -52,14 +52,9 @@ Les éléments BPMN peuvent être **liés à des fiches EA**. Par exemple, lier 
 - Le panneau **Liaison d'éléments** affiche les fiches correspondantes (Application, Objet de Données, Composant IT, Organisation)
 - Liez l'élément à une fiche -- la connexion est stockée et visible à la fois dans le flux de processus et dans les relations de la fiche
 
-### Lier des organisations (couloirs et étapes)
+### Lier des organisations
 
-La colonne *Organisation* du tableau des étapes lie les étapes à des fiches Organisation, juste à côté d'Application / Objet de Données / Composant IT :
-
-- **Étapes dans un couloir** — Toutes les étapes d'un couloir BPMN partagent une même organisation : lier, modifier ou supprimer l'organisation sur n'importe quelle étape s'applique au couloir entier. La même association peut aussi être définie en sélectionnant le couloir dans le modeleur.
-- **Étapes sans couloir** — L'organisation est liée à l'étape individuelle.
-
-Les noms de couloirs restent du texte libre dans le diagramme — lier un couloir à une fiche Organisation est facultatif et les diagrammes existants ne sont pas affectés. Les organisations liées créent une relation Processus Métier → Organisation visible sur les deux fiches et dans les rapports de dépendances. Pour impliquer plusieurs organisations dans un même processus, utilisez un couloir par organisation — c'est exactement à cela que servent les couloirs BPMN.
+La colonne *Organisation* du tableau des étapes lie les étapes à des fiches Organisation, juste à côté d'Application / Objet de Données / Composant IT. Contrairement à ces liens à valeur unique, une étape peut être liée à **plusieurs** organisations — choisissez-les une à une et supprimez-les individuellement. Chaque lien crée de manière additive une relation Processus Métier → Organisation visible sur les deux fiches et dans les rapports de dépendances. Les noms de couloirs restent du simple texte libre issu du diagramme et ne sont pas connectés aux fiches Organisation.
 
 ### Workflow d'approbation
 

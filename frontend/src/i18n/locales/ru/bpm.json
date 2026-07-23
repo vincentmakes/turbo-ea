@@ -34,7 +34,6 @@
   "flowTab.dataObject": "Объект данных",
   "flowTab.itComponent": "ИТ-компонент",
   "flowTab.organization": "Организация",
-  "flowTab.appliesToLane": "Применяется ко всем шагам дорожки «{{lane}}» — изменение или удаление обновляет всю дорожку",
   "flowTab.loadingPublished": "Загрузка опубликованного потока...",
   "flowTab.noPublishedYet": "Опубликованный поток процесса пока отсутствует",
   "flowTab.draftsAvailable_one": "{{count}} черновик доступен.",
@@ -83,8 +82,6 @@
   "flowTab.drafts": "Черновики",
   "flowTab.elementUpdated": "Элемент обновлён",
   "flowTab.elementUpdateFailed": "Не удалось обновить элемент",
-  "flowTab.laneLinkUpdated": "Назначение дорожки обновлено",
-  "flowTab.laneLinkUpdateFailed": "Не удалось обновить назначение дорожки",
   "assessment.title": "Оценки процессов",
   "assessment.newAssessment": "Новая оценка",
   "assessment.assessor": "Оценщик",
@@ -126,7 +123,6 @@
   "linker.application": "Приложение",
   "linker.dataObject": "Объект данных",
   "linker.itComponent": "ИТ-компонент",
-  "linker.organization": "Организация",
   "linker.saving": "Сохранение...",
   "reports.processMap": "Карта процессов",
   "reports.capabilityProcess": "Возможность × Процесс",
@@ -225,12 +221,5 @@
   "modeler.draftSaved": "Черновик сохранён",
   "modeler.saveFailed": "Не удалось сохранить",
   "modeler.importSuccess": "BPMN успешно импортирован",
-  "modeler.importInvalid": "Некорректный файл BPMN",
-  "modeler.laneOrgTitle": "Дорожка: {{lane}}",
-  "modeler.laneOrgUnnamed": "Дорожка без названия",
-  "modeler.laneOrgLabel": "Организация",
-  "modeler.laneOrgHint": "Применяется ко всем шагам этой дорожки — эту же привязку можно изменить и в таблице шагов.",
-  "modeler.laneOrgNameFirst": "Сначала назовите дорожку, чтобы связать её с организацией.",
-  "modeler.laneOrgSaved": "Организация дорожки сохранена",
-  "modeler.laneOrgSaveFailed": "Не удалось сохранить организацию дорожки"
+  "modeler.importInvalid": "Некорректный файл BPMN"
 }

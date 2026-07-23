@@ -52,14 +52,9 @@ BPMN-elementer kan **linkes til EA-kort**. For eksempel kan du linke en opgave i
 - Panelet **Element Linker** viser matchende kort (Application, Data Object, IT Component, Organization)
 - Link elementet til et kort — forbindelsen gemmes og er synlig i både procesflowet og kortets relationer
 
-### Link organisationer (baner og trin)
+### Link organisationer
 
-Kolonnen *Organisation* i trintabellen linker trin til organisationskort, lige ved siden af Application / Data Object / IT Component:
-
-- **Trin i en bane** — Alle trin i en BPMN-bane deler én organisation: at linke, ændre eller fjerne organisationen på et hvilket som helst trin gælder for hele banen. Den samme tilknytning kan også sættes ved at vælge banen i modelleringsværktøjet.
-- **Trin uden bane** — Organisationen linkes til det enkelte trin.
-
-Banenavne forbliver fri tekst i diagrammet — det er valgfrit at knytte en bane til et organisationskort, og eksisterende diagrammer påvirkes ikke. Linkede organisationer opretter en relation Forretningsproces → Organisation, som er synlig på begge kort og i afhængighedsrapporterne. For at involvere flere organisationer i én proces skal du bruge én bane pr. organisation — det er præcis, hvad BPMN-baner er til.
+Kolonnen *Organisation* i trintabellen linker trin til organisationskort, lige ved siden af Application / Data Object / IT Component. I modsætning til disse enkeltværdi-links kan et trin linkes til **flere** organisationer — vælg dem én ad gangen, og fjern dem enkeltvis. Hvert link opretter additivt en relation Forretningsproces → Organisation, som er synlig på begge kort og i afhængighedsrapporterne. Banenavne forbliver ren fri tekst fra diagrammet og er ikke forbundet med organisationskort.
 
 ### Godkendelses­arbejdsproces
 

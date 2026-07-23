@@ -46,7 +46,7 @@ import BpmnViewer from "./BpmnViewer";
 import BpmnTemplateChooser from "./BpmnTemplateChooser";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
-import type { ProcessFlowVersion, ProcessFlowPermissions, ProcessElement, ProcessLaneLink } from "@/types";
+import type { ProcessFlowVersion, ProcessFlowPermissions, ProcessElement } from "@/types";
 
 interface Props {
   processId: string;
@@ -90,10 +90,6 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
   // Process elements (steps / lanes table for published view)
   const [elements, setElements] = useState<ProcessElement[]>([]);
 
-  // Lane → Organization bindings (published view + per-draft)
-  const [lanes, setLanes] = useState<ProcessLaneLink[]>([]);
-  const [draftLanes, setDraftLanes] = useState<Record<string, ProcessLaneLink[]>>({});
-
   // Draft preview state
   const [expandedDraft, setExpandedDraft] = useState<string | null>(null);
   const [draftDetails, setDraftDetails] = useState<Record<string, ProcessFlowVersion>>({});
@@ -120,16 +116,14 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
   const loadInitial = useCallback(async () => {
     setLoadingPub(true);
     try {
-      const [permsData, pubData, elemData, laneData] = await Promise.all([
+      const [permsData, pubData, elemData] = await Promise.all([
         api.get<ProcessFlowPermissions>(`/bpm/processes/${processId}/flow/permissions`),
         api.get<ProcessFlowVersion | null>(`/bpm/processes/${processId}/flow/published`),
         api.get<ProcessElement[]>(`/bpm/processes/${processId}/elements`).catch(() => [] as ProcessElement[]),
-        api.get<ProcessLaneLink[]>(`/bpm/processes/${processId}/lanes`).catch(() => [] as ProcessLaneLink[]),
       ]);
       setPerms(permsData);
       setPublished(pubData);
       setElements(elemData);
-      setLanes(laneData);
 
       // Eagerly load drafts so the Published empty state can show draft availability
       if (permsData.can_view_drafts) {
@@ -198,56 +192,6 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       setSnack(t("flowTab.elementUpdated"));
     } catch {
       setSnack(t("flowTab.elementUpdateFailed"));
-    }
-    setEditingCell(null);
-  };
-
-  const handleLaneLinkUpdate = async (laneName: string, organizationId: string | null) => {
-    try {
-      await api.put(`/bpm/processes/${processId}/lane-links`, {
-        lane_name: laneName,
-        organization_id: organizationId || null,
-      });
-      // Reload lanes + elements: binding a lane normalizes redundant per-step
-      // overrides back to inherited, so the table must refresh too.
-      const [laneData, elemData] = await Promise.all([
-        api.get<ProcessLaneLink[]>(`/bpm/processes/${processId}/lanes`).catch(() => [] as ProcessLaneLink[]),
-        api.get<ProcessElement[]>(`/bpm/processes/${processId}/elements`).catch(() => [] as ProcessElement[]),
-      ]);
-      setLanes(laneData);
-      setElements(elemData);
-      setSnack(t("flowTab.laneLinkUpdated"));
-    } catch {
-      setSnack(t("flowTab.laneLinkUpdateFailed"));
-    }
-    setEditingCell(null);
-  };
-
-  const loadDraftLanes = async (draftId: string) => {
-    try {
-      const data = await api.get<ProcessLaneLink[]>(
-        `/bpm/processes/${processId}/flow/versions/${draftId}/draft-lanes`
-      );
-      setDraftLanes((prev) => ({ ...prev, [draftId]: data }));
-    } catch {
-      setDraftLanes((prev) => ({ ...prev, [draftId]: [] }));
-    }
-  };
-
-  const handleDraftLaneLinkUpdate = async (
-    draftId: string,
-    laneName: string,
-    organizationId: string | null,
-  ) => {
-    try {
-      await api.put(`/bpm/processes/${processId}/flow/versions/${draftId}/draft-lane-links`, {
-        lane_name: laneName,
-        organization_id: organizationId || null,
-      });
-      await loadDraftLanes(draftId);
-      setSnack(t("flowTab.laneLinkUpdated"));
-    } catch {
-      setSnack(t("flowTab.laneLinkUpdateFailed"));
     }
     setEditingCell(null);
   };
@@ -384,12 +328,9 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
         console.error("Failed to load draft detail:", err);
       }
     }
-    // Load draft elements + lanes
+    // Load draft elements
     if (!draftElements[draftId]) {
       loadDraftElements(draftId);
-    }
-    if (!draftLanes[draftId]) {
-      loadDraftLanes(draftId);
     }
   };
 
@@ -555,25 +496,26 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
   const renderOrgCell = (
     element: ProcessElement,
-    laneOrgs: Record<string, { id: string; name: string }>,
     onUpdate: (id: string, updates: Record<string, unknown>) => void,
-    onLaneBind: (laneName: string, organizationId: string | null) => void,
     elementId: string,
   ) => {
+    const orgs = element.organizations || [];
     const isEditing = editingCell?.elementId === elementId && editingCell?.field === "organization";
-    const lane = element.lane_name;
-    const laneOrg = lane ? laneOrgs[lane] : undefined;
 
     if (isEditing) {
+      // Picking a card adds it to the step's organizations (M:N).
       return (
         <CardPicker
           types="Organization"
           value={null}
-          onChange={(val) =>
-            lane
-              ? onLaneBind(lane, val?.id || null)
-              : onUpdate(elementId, { organization_id: val?.id || "" })
-          }
+          excludeIds={orgs.map((o) => o.id)}
+          onChange={(val) => {
+            if (val) {
+              onUpdate(elementId, { organization_ids: [...orgs.map((o) => o.id), val.id] });
+            } else {
+              setEditingCell(null);
+            }
+          }}
           onBlur={() => setEditingCell(null)}
           enabled={isEditing}
           autoFocus
@@ -583,34 +525,31 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       );
     }
 
-    // Laned steps share one organization per lane: the chip shows the lane's
-    // binding, and editing/removing it applies to every step in the lane.
-    const shownName = lane ? laneOrg?.name : element.organization_name;
-    const chip = shownName ? (
-      <Chip
-        label={shownName}
-        size="small"
-        color="info"
-        onDelete={() =>
-          lane ? onLaneBind(lane, null) : onUpdate(elementId, { organization_id: "" })
-        }
-        sx={{ maxWidth: 160 }}
-      />
-    ) : (
-      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-        <MaterialSymbol icon="add_link" size={14} color="#bbb" />
-        <Typography variant="caption" color="text.disabled">{t("flowTab.linkCardType", { type: "Organization" })}</Typography>
-      </Box>
-    );
-
     return (
-      <Box onClick={() => setEditingCell({ elementId, field: "organization" })} sx={linkCellSx}>
-        {lane ? (
-          <Tooltip title={t("flowTab.appliesToLane", { lane })}>
-            <span>{chip}</span>
-          </Tooltip>
+      <Box
+        onClick={() => setEditingCell({ elementId, field: "organization" })}
+        sx={{ ...linkCellSx, height: "auto", flexWrap: "wrap", gap: 0.5, py: 0.25 }}
+      >
+        {orgs.length > 0 ? (
+          orgs.map((org) => (
+            <Chip
+              key={org.id}
+              label={org.name}
+              size="small"
+              color="info"
+              onDelete={() =>
+                onUpdate(elementId, {
+                  organization_ids: orgs.filter((o) => o.id !== org.id).map((o) => o.id),
+                })
+              }
+              sx={{ maxWidth: 160 }}
+            />
+          ))
         ) : (
-          chip
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <MaterialSymbol icon="add_link" size={14} color="#bbb" />
+            <Typography variant="caption" color="text.disabled">{t("flowTab.linkCardType", { type: "Organization" })}</Typography>
+          </Box>
         )}
       </Box>
     );
@@ -671,15 +610,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     idField: "id" | "bpmn_element_id" = "id",
     title = t("flowTab.processStepsAndElements"),
     subtitle = t("flowTab.elementsTableSubtitle"),
-    laneList: ProcessLaneLink[] = [],
-    onLaneBind: (laneName: string, organizationId: string | null) => void = handleLaneLinkUpdate,
   ) => {
-    const laneOrgs: Record<string, { id: string; name: string }> = {};
-    for (const lane of laneList) {
-      if (lane.organization_id && lane.organization_name) {
-        laneOrgs[lane.lane_name] = { id: lane.organization_id, name: lane.organization_name };
-      }
-    }
     const namedElements = elems.filter((e) => e.name);
     if (namedElements.length === 0) return null;
 
@@ -733,7 +664,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                     <TableCell>{renderEditableCell(e, "application", "Application", onUpdate, elemKey)}</TableCell>
                     <TableCell>{renderEditableCell(e, "data_object", "DataObject", onUpdate, elemKey)}</TableCell>
                     <TableCell>{renderEditableCell(e, "it_component", "ITComponent", onUpdate, elemKey)}</TableCell>
-                    <TableCell>{renderOrgCell(e, laneOrgs, onUpdate, onLaneBind, elemKey)}</TableCell>
+                    <TableCell>{renderOrgCell(e, onUpdate, elemKey)}</TableCell>
                   </TableRow>
                 );
               })}
@@ -859,15 +790,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
         )}
 
         {/* Editable process elements table */}
-        {renderElementsTable(
-          elements,
-          handleElementUpdate,
-          "id",
-          t("flowTab.processStepsAndElements"),
-          t("flowTab.elementsTableSubtitle"),
-          lanes,
-          handleLaneLinkUpdate,
-        )}
+        {renderElementsTable(elements, handleElementUpdate)}
       </Box>
     );
   };
@@ -1061,8 +984,6 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                         "bpmn_element_id",
                         t("flowTab.preLinkElements"),
                         t("flowTab.preLinkElementsSubtitle"),
-                        draftLanes[d.id] || [],
-                        (laneName, orgId) => handleDraftLaneLinkUpdate(d.id, laneName, orgId),
                       )
                     ) : draftElements[d.id] ? (
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>

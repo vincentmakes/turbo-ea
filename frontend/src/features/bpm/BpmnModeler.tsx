@@ -23,12 +23,9 @@ import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import ToggleButton from "@mui/material/ToggleButton";
-import Paper from "@mui/material/Paper";
-import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import CardPicker from "@/components/CardPicker";
 import { api } from "@/api/client";
-import type { ProcessFlowVersion, BpmnTemplate, ProcessLaneLink } from "@/types";
+import type { ProcessFlowVersion, BpmnTemplate } from "@/types";
 import { bpmnCanvasSx } from "./bpmnStyles";
 
 // bpmn-js CSS
@@ -54,10 +51,6 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
   const [snack, setSnack] = useState<{ msg: string; severity: "success" | "error" } | null>(null);
   const [mode, setMode] = useState<"simple" | "full">("full");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Lane → Organization binding (shown when a lane is selected on the canvas)
-  const [selectedLane, setSelectedLane] = useState<string | null>(null);
-  const [laneLinks, setLaneLinks] = useState<Record<string, ProcessLaneLink>>({});
 
   // Track which version we're editing (stable ref for save callback)
   const versionIdRef = useRef(versionId);
@@ -141,16 +134,6 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
           handleSave(modeler);
         }, 5000);
       });
-
-      // Lane selection → show the Organization binding panel
-      eventBus.on("selection.changed", (e: any) => {
-        const el = e.newSelection?.[0];
-        if (el && el.type === "bpmn:Lane") {
-          setSelectedLane(el.businessObject?.name || "");
-        } else {
-          setSelectedLane(null);
-        }
-      });
     }
 
     init();
@@ -165,48 +148,6 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [processId, versionId]);
-
-  // Load the draft's lane → Organization bindings (for the lane panel)
-  useEffect(() => {
-    if (!versionId) return;
-    let cancelled = false;
-    api
-      .get<ProcessLaneLink[]>(
-        `/bpm/processes/${processId}/flow/versions/${versionId}/draft-lanes`
-      )
-      .then((data) => {
-        if (cancelled) return;
-        const map: Record<string, ProcessLaneLink> = {};
-        for (const lane of data) map[lane.lane_name] = lane;
-        setLaneLinks(map);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [processId, versionId]);
-
-  const handleLaneOrgChange = async (laneName: string, org: { id: string; name: string } | null) => {
-    const vid = versionIdRef.current;
-    if (!vid) return;
-    try {
-      await api.put(`/bpm/processes/${processId}/flow/versions/${vid}/draft-lane-links`, {
-        lane_name: laneName,
-        organization_id: org?.id || null,
-      });
-      setLaneLinks((prev) => ({
-        ...prev,
-        [laneName]: {
-          lane_name: laneName,
-          organization_id: org?.id || null,
-          organization_name: org?.name || null,
-        },
-      }));
-      setSnack({ msg: t("modeler.laneOrgSaved"), severity: "success" });
-    } catch {
-      setSnack({ msg: t("modeler.laneOrgSaveFailed"), severity: "error" });
-    }
-  };
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -398,81 +339,25 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
       </Box>
 
       {/* Canvas */}
-      <Box sx={{ flex: 1, position: "relative", minHeight: 0, display: "flex" }}>
-        <Box
-          ref={containerRef}
-          sx={{
-            flex: 1,
-            bgcolor: "action.hover",
-            ...bpmnCanvasSx,
-            // Simple mode: hide advanced palette entries
-            ...(mode === "simple" && {
-              // Hide sub-process, data store, data object, group, participant/pool
-              '& .djs-palette [data-action="create.subprocess-expanded"]': { display: "none" },
-              '& .djs-palette [data-action="create.data-object"]': { display: "none" },
-              '& .djs-palette [data-action="create.data-store"]': { display: "none" },
-              '& .djs-palette [data-action="create.group"]': { display: "none" },
-              '& .djs-palette [data-action="create.participant-expanded"]': { display: "none" },
-              // Hide intermediate events (keep start/end only)
-              '& .djs-palette [data-action="create.intermediate-event"]': { display: "none" },
-            }),
-          }}
-        />
-
-        {/* Lane → Organization binding panel (shown while a lane is selected) */}
-        {versionId && selectedLane !== null && (
-          <Paper
-            elevation={3}
-            sx={{
-              position: "absolute",
-              top: 12,
-              right: 12,
-              width: 300,
-              p: 1.5,
-              zIndex: 10,
-            }}
-          >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-              <MaterialSymbol icon="corporate_fare" size={18} color="#2889ff" />
-              <Typography variant="subtitle2" sx={{ flex: 1 }} noWrap>
-                {selectedLane
-                  ? t("modeler.laneOrgTitle", { lane: selectedLane })
-                  : t("modeler.laneOrgUnnamed")}
-              </Typography>
-              <IconButton size="small" onClick={() => setSelectedLane(null)}>
-                <MaterialSymbol icon="close" size={16} />
-              </IconButton>
-            </Box>
-            {selectedLane ? (
-              <>
-                <CardPicker
-                  types="Organization"
-                  value={
-                    laneLinks[selectedLane]?.organization_id
-                      ? {
-                          id: laneLinks[selectedLane].organization_id as string,
-                          name: laneLinks[selectedLane].organization_name || "",
-                          type: "Organization",
-                        }
-                      : null
-                  }
-                  onChange={(val) => handleLaneOrgChange(selectedLane, val)}
-                  enabled
-                  fullWidth
-                  label={t("modeler.laneOrgLabel")}
-                />
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.75, display: "block" }}>
-                  {t("modeler.laneOrgHint")}
-                </Typography>
-              </>
-            ) : (
-              <Typography variant="caption" color="text.secondary">
-                {t("modeler.laneOrgNameFirst")}
-              </Typography>
-            )}
-          </Paper>
-        )}
-      </Box>
+      <Box
+        ref={containerRef}
+        sx={{
+          flex: 1,
+          bgcolor: "action.hover",
+          ...bpmnCanvasSx,
+          // Simple mode: hide advanced palette entries
+          ...(mode === "simple" && {
+            // Hide sub-process, data store, data object, group, participant/pool
+            '& .djs-palette [data-action="create.subprocess-expanded"]': { display: "none" },
+            '& .djs-palette [data-action="create.data-object"]': { display: "none" },
+            '& .djs-palette [data-action="create.data-store"]': { display: "none" },
+            '& .djs-palette [data-action="create.group"]': { display: "none" },
+            '& .djs-palette [data-action="create.participant-expanded"]': { display: "none" },
+            // Hide intermediate events (keep start/end only)
+            '& .djs-palette [data-action="create.intermediate-event"]': { display: "none" },
+          }),
+        }}
+      />
 
       {/* Snackbar */}
       <Snackbar

@@ -52,14 +52,9 @@ Elementos BPMN podem ser **vinculados a cards de EA**. Por exemplo, vincule uma 
 - O painel **Vinculador de Elementos** mostra cards correspondentes (Aplicação, Objeto de Dados, Componente de TI, Organização)
 - Vincule o elemento a um card — a conexão é armazenada e visível tanto no fluxo de processo quanto nos relacionamentos do card
 
-### Vincular Organizações (Raias e Etapas)
+### Vincular Organizações
 
-A coluna *Organização* da tabela de etapas vincula as etapas a cards de Organização, ao lado de Aplicação / Objeto de Dados / Componente de TI:
-
-- **Etapas em uma raia** — Todas as etapas de uma raia BPMN compartilham uma mesma organização: vincular, alterar ou remover a organização em qualquer etapa aplica-se à raia inteira. A mesma vinculação também pode ser definida selecionando a raia no modelador.
-- **Etapas sem raia** — A organização é vinculada à etapa individual.
-
-Os nomes das raias continuam sendo texto livre no diagrama — vincular uma raia a um card de Organização é opcional e os diagramas existentes não são afetados. Organizações vinculadas criam uma relação Processo de Negócio → Organização visível em ambos os cards e nos relatórios de dependências. Para envolver várias organizações em um mesmo processo, use uma raia por organização — é exatamente para isso que servem as raias BPMN.
+A coluna *Organização* da tabela de etapas vincula as etapas a cards de Organização, ao lado de Aplicação / Objeto de Dados / Componente de TI. Diferentemente desses vínculos de valor único, uma etapa pode ser vinculada a **várias** organizações — escolha-as uma a uma e remova-as individualmente. Cada vínculo cria de forma aditiva uma relação Processo de Negócio → Organização visível em ambos os cards e nos relatórios de dependências. Os nomes das raias continuam sendo texto livre do diagrama e não estão conectados a cards de Organização.
 
 ### Fluxo de Aprovação
 

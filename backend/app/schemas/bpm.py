@@ -19,15 +19,9 @@ class ElementUpdate(BaseModel):
     application_id: str | None = None
     data_object_id: str | None = None
     it_component_id: str | None = None
-    organization_id: str | None = None
+    # Full replacement set for the step's M:N Organization links.
+    organization_ids: list[str] | None = None
     custom_fields: dict | None = None
-
-
-class LaneLinkUpdate(BaseModel):
-    """Bind (or clear) the Organization card for a BPMN lane of a process."""
-
-    lane_name: str
-    organization_id: str | None = None
 
 
 class ProcessAssessmentCreate(BaseModel):

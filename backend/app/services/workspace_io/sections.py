@@ -30,9 +30,8 @@ from app.models.ppm_task_comment import PpmTaskComment
 from app.models.ppm_wbs import PpmWbs
 from app.models.process_assessment import ProcessAssessment
 from app.models.process_diagram import ProcessDiagram
-from app.models.process_element import ProcessElement
+from app.models.process_element import ProcessElement, ProcessElementOrganization
 from app.models.process_flow_version import ProcessFlowVersion
-from app.models.process_lane_link import ProcessLaneLink
 from app.models.risk import Risk, RiskCard
 from app.models.risk_mitigation_task import RiskMitigationTask, RiskMitigationTaskOccurrence
 from app.models.saved_report import SavedReport
@@ -104,18 +103,14 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
     EntitySection(
         "ProcessElements",
         ProcessElement,
-        card_fk_columns=(
-            "process_id",
-            "application_id",
-            "data_object_id",
-            "it_component_id",
-            "organization_id",
-        ),
+        card_fk_columns=("process_id", "application_id", "data_object_id", "it_component_id"),
     ),
+    # After ProcessElements so the junction's element_id (an intra-module FK,
+    # preserved verbatim) resolves; organization_id is remapped by card ref.
     EntitySection(
-        "ProcessLaneLinks",
-        ProcessLaneLink,
-        card_fk_columns=("process_id", "organization_id"),
+        "ProcessElementOrgs",
+        ProcessElementOrganization,
+        card_fk_columns=("organization_id",),
     ),
     EntitySection(
         "ProcessFlowVersions",

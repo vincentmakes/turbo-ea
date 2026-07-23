@@ -1,15 +1,10 @@
-"""Link Organizations at process-flow level (hybrid lane + step model).
+"""Link Organizations to process-flow steps.
 
-Three additive changes, no data backfill:
-
-1. ``process_elements.organization_id`` — explicit per-step Organization
-   override, mirroring the existing application/data-object/IT-component FKs.
-2. New ``process_lane_links`` table — binds a BPMN lane (free-text name, per
-   process) to an Organization card. Steps without an explicit override
-   inherit their lane's organization; the effective value is always computed,
-   never copied, so the two stores cannot contradict each other.
-3. ``process_flow_versions.draft_lane_links`` — draft-stage lane bindings
-   (JSONB, keyed by lane name), applied to ``process_lane_links`` on publish.
+One additive table, no data backfill: ``process_element_organizations`` — an
+M:N junction between BPMN process elements and Organization cards, mirroring
+the existing per-step application/data-object/IT-component links but allowing
+several Organizations per step. Lane names stay plain free text on
+``process_elements.lane_name`` and are not connected to Organization cards.
 
 Revision ID: 126
 Revises: 125
@@ -29,47 +24,23 @@ depends_on: Union[str, None] = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "process_elements",
+    op.create_table(
+        "process_element_organizations",
+        sa.Column(
+            "element_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("process_elements.id", ondelete="CASCADE"),
+            primary_key=True,
+        ),
         sa.Column(
             "organization_id",
-            postgresql.UUID(as_uuid=True),
-            sa.ForeignKey("cards.id", ondelete="SET NULL"),
-            nullable=True,
-        ),
-    )
-    op.create_table(
-        "process_lane_links",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column(
-            "process_id",
             postgresql.UUID(as_uuid=True),
             sa.ForeignKey("cards.id", ondelete="CASCADE"),
-            nullable=False,
+            primary_key=True,
             index=True,
-        ),
-        sa.Column("lane_name", sa.String(length=200), nullable=False),
-        sa.Column(
-            "organization_id",
-            postgresql.UUID(as_uuid=True),
-            sa.ForeignKey("cards.id", ondelete="SET NULL"),
-            nullable=True,
-        ),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.UniqueConstraint("process_id", "lane_name", name="uq_process_lane"),
-    )
-    op.add_column(
-        "process_flow_versions",
-        sa.Column(
-            "draft_lane_links",
-            postgresql.JSONB(astext_type=sa.Text()),
-            nullable=True,
         ),
     )
 
 
 def downgrade() -> None:
-    op.drop_column("process_flow_versions", "draft_lane_links")
-    op.drop_table("process_lane_links")
-    op.drop_column("process_elements", "organization_id")
+    op.drop_table("process_element_organizations")

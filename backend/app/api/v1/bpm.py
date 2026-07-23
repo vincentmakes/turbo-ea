@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -13,10 +13,9 @@ from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
 from app.models.process_diagram import ProcessDiagram
-from app.models.process_element import ProcessElement
-from app.models.process_lane_link import ProcessLaneLink
+from app.models.process_element import ProcessElement, ProcessElementOrganization
 from app.models.user import User
-from app.schemas.bpm import DiagramSave, ElementUpdate, LaneLinkUpdate
+from app.schemas.bpm import DiagramSave, ElementUpdate
 from app.services.bpmn_parser import parse_bpmn_xml
 from app.services.element_relation_sync import sync_element_relations
 from app.services.event_bus import event_bus
@@ -182,14 +181,6 @@ async def save_diagram(
                     sequence_order=ext.sequence_order,
                 )
             )
-
-    # Prune lane → Organization bindings whose lane no longer exists in the
-    # XML (matches the element-deletion behaviour above).
-    current_lanes = {ext.lane_name for ext in extracted if ext.lane_name}
-    stale_links = await db.execute(select(ProcessLaneLink).where(ProcessLaneLink.process_id == pid))
-    for lane_link in stale_links.scalars().all():
-        if lane_link.lane_name not in current_lanes:
-            await db.delete(lane_link)
 
     # Publish event — skipped in dry-run mode since nothing is persisted.
     if not body.dry_run:
@@ -388,7 +379,7 @@ async def list_elements(
             selectinload(ProcessElement.application),
             selectinload(ProcessElement.data_object),
             selectinload(ProcessElement.it_component),
-            selectinload(ProcessElement.organization),
+            selectinload(ProcessElement.organizations),
         )
         .where(ProcessElement.process_id == pid)
         .order_by(ProcessElement.sequence_order)
@@ -411,8 +402,7 @@ async def list_elements(
             "data_object_name": e.data_object.name if e.data_object else None,
             "it_component_id": str(e.it_component_id) if e.it_component_id else None,
             "it_component_name": e.it_component.name if e.it_component else None,
-            "organization_id": str(e.organization_id) if e.organization_id else None,
-            "organization_name": e.organization.name if e.organization else None,
+            "organizations": [{"id": str(o.id), "name": o.name} for o in e.organizations],
             "custom_fields": e.custom_fields,
         }
         for e in elements
@@ -446,49 +436,27 @@ async def update_element(
         elem.data_object_id = uuid.UUID(body.data_object_id) if body.data_object_id else None
     if body.it_component_id is not None:
         elem.it_component_id = uuid.UUID(body.it_component_id) if body.it_component_id else None
-    lane_bound_org: uuid.UUID | None = None
-    if body.organization_id is not None:
-        new_org = uuid.UUID(body.organization_id) if body.organization_id else None
-        if elem.lane_name:
-            # Lane-wide semantics: all steps in a BPMN lane share one
-            # organization, so changing it on any step re-binds the lane
-            # itself (and thereby every step in it). The per-step column
-            # stays NULL for laned steps.
-            if new_org:
-                org_result = await db.execute(
-                    select(Card.id).where(
-                        Card.id == new_org,
-                        Card.type == "Organization",
-                        Card.status == "ACTIVE",
-                    )
-                )
-                if org_result.scalar_one_or_none() is None:
-                    raise HTTPException(404, "Organization card not found")
-            existing_link = await db.execute(
-                select(ProcessLaneLink).where(
-                    ProcessLaneLink.process_id == pid,
-                    ProcessLaneLink.lane_name == elem.lane_name,
+    org_ids: set[uuid.UUID] = set()
+    if body.organization_ids is not None:
+        # Full replacement of the step's M:N Organization links.
+        org_ids = {uuid.UUID(o) for o in body.organization_ids if o}
+        if org_ids:
+            found = await db.execute(
+                select(Card.id).where(
+                    Card.id.in_(org_ids),
+                    Card.type == "Organization",
+                    Card.status == "ACTIVE",
                 )
             )
-            link = existing_link.scalar_one_or_none()
-            if new_org is None:
-                if link:
-                    await db.delete(link)
-            elif link:
-                link.organization_id = new_org
-            else:
-                db.add(
-                    ProcessLaneLink(
-                        process_id=pid,
-                        lane_name=elem.lane_name,
-                        organization_id=new_org,
-                    )
-                )
-            elem.organization_id = None
-            lane_bound_org = new_org
-        else:
-            # No lane — the organization is linked to this step alone.
-            elem.organization_id = new_org
+            if {row[0] for row in found.all()} != org_ids:
+                raise HTTPException(404, "Organization card not found")
+        await db.execute(
+            delete(ProcessElementOrganization).where(
+                ProcessElementOrganization.element_id == elem.id
+            )
+        )
+        for oid in org_ids:
+            db.add(ProcessElementOrganization(element_id=elem.id, organization_id=oid))
     if body.custom_fields is not None:
         elem.custom_fields = body.custom_fields
 
@@ -497,7 +465,7 @@ async def update_element(
         "application_id": set(),
         "data_object_id": set(),
         "it_component_id": set(),
-        "organization_id": set(),
+        "organization_id": org_ids,
     }
     if elem.application_id:
         link_ids["application_id"].add(elem.application_id)
@@ -505,140 +473,11 @@ async def update_element(
         link_ids["data_object_id"].add(elem.data_object_id)
     if elem.it_component_id:
         link_ids["it_component_id"].add(elem.it_component_id)
-    if elem.organization_id:
-        link_ids["organization_id"].add(elem.organization_id)
-    if lane_bound_org:
-        link_ids["organization_id"].add(lane_bound_org)
     await sync_element_relations(db, pid, link_ids)
 
     await db.commit()
     await db.refresh(elem)
     return {"id": str(elem.id), "status": "updated"}
-
-
-# ── Lane endpoints ───────────────────────────────────────────────────────
-
-
-@router.get("/processes/{process_id}/lanes")
-async def list_lanes(
-    process_id: str,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    """Distinct BPMN lanes of the process with their Organization bindings.
-
-    Lane names come from the extracted elements (free text from the diagram);
-    a lane appears here whether or not it is bound to an Organization card.
-    """
-    await PermissionService.require_permission(db, user, "bpm.view")
-    pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
-
-    lanes_result = await db.execute(
-        select(ProcessElement.lane_name)
-        .where(ProcessElement.process_id == pid, ProcessElement.lane_name.is_not(None))
-        .distinct()
-        .order_by(ProcessElement.lane_name)
-    )
-    lane_names = [row[0] for row in lanes_result.all() if row[0]]
-
-    links_result = await db.execute(
-        select(ProcessLaneLink)
-        .options(selectinload(ProcessLaneLink.organization))
-        .where(ProcessLaneLink.process_id == pid)
-    )
-    links_by_lane = {link.lane_name: link for link in links_result.scalars().all()}
-
-    lanes = []
-    for lane_name in lane_names:
-        link = links_by_lane.get(lane_name)
-        lanes.append(
-            {
-                "lane_name": lane_name,
-                "organization_id": (
-                    str(link.organization_id) if link and link.organization_id else None
-                ),
-                "organization_name": (
-                    link.organization.name if link and link.organization else None
-                ),
-            }
-        )
-    return lanes
-
-
-@router.put("/processes/{process_id}/lane-links")
-async def update_lane_link(
-    process_id: str,
-    body: LaneLinkUpdate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Bind a lane to an Organization card, or clear the binding.
-
-    Steps in the lane without an explicit per-step organization inherit this
-    binding. Binding additively syncs a BusinessProcess → Organization
-    relation (same convention as element links — never auto-deleted).
-    """
-    await PermissionService.require_permission(db, current_user, "bpm.edit")
-    pid = uuid.UUID(process_id)
-    await _get_process_or_404(db, pid)
-
-    lane_exists = await db.execute(
-        select(ProcessElement.id)
-        .where(
-            ProcessElement.process_id == pid,
-            ProcessElement.lane_name == body.lane_name,
-        )
-        .limit(1)
-    )
-    if lane_exists.scalar_one_or_none() is None:
-        raise HTTPException(404, "Lane not found on this process")
-
-    existing = await db.execute(
-        select(ProcessLaneLink).where(
-            ProcessLaneLink.process_id == pid,
-            ProcessLaneLink.lane_name == body.lane_name,
-        )
-    )
-    link = existing.scalar_one_or_none()
-
-    org_id = uuid.UUID(body.organization_id) if body.organization_id else None
-    if org_id is None:
-        if link:
-            await db.delete(link)
-        await db.commit()
-        return {"lane_name": body.lane_name, "organization_id": None}
-
-    org_result = await db.execute(
-        select(Card).where(
-            Card.id == org_id,
-            Card.type == "Organization",
-            Card.status == "ACTIVE",
-        )
-    )
-    if org_result.scalar_one_or_none() is None:
-        raise HTTPException(404, "Organization card not found")
-
-    if link:
-        link.organization_id = org_id
-    else:
-        db.add(ProcessLaneLink(process_id=pid, lane_name=body.lane_name, organization_id=org_id))
-
-    # Steps that explicitly carry the newly bound org are redundant overrides
-    # now — normalize them back to inherited so future re-binds flow through.
-    override_elems = await db.execute(
-        select(ProcessElement).where(
-            ProcessElement.process_id == pid,
-            ProcessElement.lane_name == body.lane_name,
-            ProcessElement.organization_id == org_id,
-        )
-    )
-    for elem in override_elems.scalars().all():
-        elem.organization_id = None
-
-    await sync_element_relations(db, pid, {"organization_id": {org_id}})
-    await db.commit()
-    return {"lane_name": body.lane_name, "organization_id": str(org_id)}
 
 
 # ── Template endpoints ───────────────────────────────────────────────────
