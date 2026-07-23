@@ -54,7 +54,7 @@ Los elementos BPMN pueden ser **vinculados a fichas de EA**. Por ejemplo, vincul
 
 ### Vincular Organizaciones
 
-La columna *Organización* de la tabla de pasos vincula los pasos a fichas de Organización, justo al lado de Aplicación / Objeto de Datos / Componente TI. A diferencia de esos vínculos de valor único, un paso puede vincularse a **varias** organizaciones — elíjalas una a una y elimínelas individualmente. Cada vínculo crea de forma aditiva una relación Proceso de Negocio → Organización visible en ambas fichas y en los informes de dependencias. Los nombres de los carriles siguen siendo texto libre del diagrama y no están conectados a fichas de Organización.
+La columna *Organización* de la tabla de pasos vincula los pasos a fichas de Organización, justo al lado de Aplicación / Objeto de Datos / Componente TI. A diferencia de esos vínculos de valor único, un paso puede vincularse a **varias** organizaciones — elíjalas una a una y elimínelas individualmente. Los vínculos de pasos son solo informativos — documentan qué organizaciones participan en un paso sin crear ninguna relación entre las fichas; las relaciones Proceso de Negocio ↔ Organización se gestionan por separado en la pestaña Relaciones de la ficha. Los nombres de los carriles siguen siendo texto libre del diagrama y no están conectados a fichas de Organización.
 
 ### Flujo de Aprobación
 

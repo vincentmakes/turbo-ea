@@ -34,6 +34,7 @@
   "flowTab.dataObject": "Dataobjekt",
   "flowTab.itComponent": "IT-komponent",
   "flowTab.organization": "Organisation",
+  "flowTab.organizationTooltip": "Kun informativt — dokumenterer, hvilke organisationer der er involveret i et trin. I modsætning til de andre kolonner opretter dette ikke en relation mellem kortene.",
   "flowTab.loadingPublished": "Indlæser udgivet flow...",
   "flowTab.noPublishedYet": "Intet udgivet procesflow endnu",
   "flowTab.draftsAvailable_one": "{{count}} kladde tilgængelig.",

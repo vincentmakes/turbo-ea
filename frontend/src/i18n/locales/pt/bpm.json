@@ -34,6 +34,7 @@
   "flowTab.dataObject": "Objeto de Dados",
   "flowTab.itComponent": "Componente de TI",
   "flowTab.organization": "Organização",
+  "flowTab.organizationTooltip": "Apenas informativo — documenta quais organizações participam de uma etapa. Diferentemente das outras colunas, isso não cria uma relação entre os cards.",
   "flowTab.loadingPublished": "Carregando fluxo publicado...",
   "flowTab.noPublishedYet": "Nenhum fluxo de processo publicado ainda",
   "flowTab.draftsAvailable_one": "{{count}} rascunho disponível.",

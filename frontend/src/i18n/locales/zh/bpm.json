@@ -34,6 +34,7 @@
   "flowTab.dataObject": "数据对象",
   "flowTab.itComponent": "IT 组件",
   "flowTab.organization": "组织",
+  "flowTab.organizationTooltip": "仅供参考 —— 记录哪些组织参与某个步骤。与其他列不同，这不会在卡片之间创建关系。",
   "flowTab.loadingPublished": "正在加载已发布的流程...",
   "flowTab.noPublishedYet": "尚无已发布的流程图",
   "flowTab.draftsAvailable_one": "{{count}} 个草稿可用。",

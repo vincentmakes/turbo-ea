@@ -54,7 +54,7 @@ Elementos BPMN podem ser **vinculados a cards de EA**. Por exemplo, vincule uma 
 
 ### Vincular Organizações
 
-A coluna *Organização* da tabela de etapas vincula as etapas a cards de Organização, ao lado de Aplicação / Objeto de Dados / Componente de TI. Diferentemente desses vínculos de valor único, uma etapa pode ser vinculada a **várias** organizações — escolha-as uma a uma e remova-as individualmente. Cada vínculo cria de forma aditiva uma relação Processo de Negócio → Organização visível em ambos os cards e nos relatórios de dependências. Os nomes das raias continuam sendo texto livre do diagrama e não estão conectados a cards de Organização.
+A coluna *Organização* da tabela de etapas vincula as etapas a cards de Organização, ao lado de Aplicação / Objeto de Dados / Componente de TI. Diferentemente desses vínculos de valor único, uma etapa pode ser vinculada a **várias** organizações — escolha-as uma a uma e remova-as individualmente. Os vínculos de etapas são apenas informativos — documentam quais organizações participam de uma etapa sem criar nenhuma relação entre os cards; as relações Processo de Negócio ↔ Organização são gerenciadas separadamente na aba Relações do card. Os nomes das raias continuam sendo texto livre do diagrama e não estão conectados a cards de Organização.
 
 ### Fluxo de Aprovação
 

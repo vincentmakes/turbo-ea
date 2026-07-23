@@ -1,8 +1,8 @@
 """Integration tests for the BPMN element → EA relation sync service.
 
 Tests sync_element_relations() — creating additive-only relations between
-BusinessProcess cards and linked Application/DataObject/ITComponent/
-Organization cards. Requires a PostgreSQL test database.
+BusinessProcess cards and linked Application/DataObject/ITComponent cards.
+Requires a PostgreSQL test database.
 """
 
 from __future__ import annotations
@@ -33,7 +33,6 @@ async def _setup_types(db):
     await create_card_type(db, key="Application", label="Application")
     await create_card_type(db, key="DataObject", label="Data Object")
     await create_card_type(db, key="ITComponent", label="IT Component")
-    await create_card_type(db, key="Organization", label="Organization")
 
     await create_relation_type(
         db,
@@ -55,13 +54,6 @@ async def _setup_types(db):
         label="Process to IT Component",
         source_type_key="BusinessProcess",
         target_type_key="ITComponent",
-    )
-    await create_relation_type(
-        db,
-        key="relProcessToOrg",
-        label="Process to Organization",
-        source_type_key="BusinessProcess",
-        target_type_key="Organization",
     )
     return user
 
@@ -140,7 +132,6 @@ class TestSyncElementRelations:
         app = await create_card(db, card_type="Application", name="CRM", user_id=user.id)
         data = await create_card(db, card_type="DataObject", name="Customer", user_id=user.id)
         itc = await create_card(db, card_type="ITComponent", name="Server", user_id=user.id)
-        org = await create_card(db, card_type="Organization", name="Sales", user_id=user.id)
 
         count = await sync_element_relations(
             db,
@@ -149,19 +140,13 @@ class TestSyncElementRelations:
                 "application_id": {app.id},
                 "data_object_id": {data.id},
                 "it_component_id": {itc.id},
-                "organization_id": {org.id},
             },
         )
 
-        assert count == 4
+        assert count == 3
 
         # Check each relation type
-        for rel_type in (
-            "relProcessToApp",
-            "relProcessToDataObj",
-            "relProcessToITC",
-            "relProcessToOrg",
-        ):
+        for rel_type in ("relProcessToApp", "relProcessToDataObj", "relProcessToITC"):
             result = await db.execute(
                 select(Relation).where(
                     Relation.type == rel_type,
@@ -236,7 +221,6 @@ class TestSyncElementRelations:
             "application_id": "relProcessToApp",
             "data_object_id": "relProcessToDataObj",
             "it_component_id": "relProcessToITC",
-            "organization_id": "relProcessToOrg",
         }
 
     async def test_additive_only_does_not_delete(self, db):

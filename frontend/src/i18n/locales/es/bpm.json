@@ -34,6 +34,7 @@
   "flowTab.dataObject": "Objeto de Datos",
   "flowTab.itComponent": "Componente TI",
   "flowTab.organization": "Organización",
+  "flowTab.organizationTooltip": "Solo informativo — documenta qué organizaciones participan en un paso. A diferencia de las demás columnas, esto no crea una relación entre las fichas.",
   "flowTab.loadingPublished": "Cargando flujo publicado...",
   "flowTab.noPublishedYet": "Aún no hay un flujo de proceso publicado",
   "flowTab.draftsAvailable_one": "{{count}} borrador disponible.",

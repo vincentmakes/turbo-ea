@@ -18,15 +18,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.relation import Relation
 
-# Mapping from ProcessElement link field → relation type key
-# All four have source = BusinessProcess, target = the linked type.
-# `organization_id` covers the M:N step ↔ Organization junction — the sync
-# helper only needs the set of target ids, however they are stored.
+# Mapping from ProcessElement FK field → relation type key
+# All three have source = BusinessProcess, target = the linked type.
+# The M:N step ↔ Organization links are deliberately NOT in this map:
+# they are informative only and never create card-to-card relations
+# (process ↔ Organization relations are managed on the card itself).
 ELEMENT_LINK_RELATION_MAP: dict[str, str] = {
     "application_id": "relProcessToApp",
     "data_object_id": "relProcessToDataObj",
     "it_component_id": "relProcessToITC",
-    "organization_id": "relProcessToOrg",
 }
 
 

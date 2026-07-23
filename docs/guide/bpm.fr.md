@@ -54,7 +54,7 @@ Les éléments BPMN peuvent être **liés à des fiches EA**. Par exemple, lier 
 
 ### Lier des organisations
 
-La colonne *Organisation* du tableau des étapes lie les étapes à des fiches Organisation, juste à côté d'Application / Objet de Données / Composant IT. Contrairement à ces liens à valeur unique, une étape peut être liée à **plusieurs** organisations — choisissez-les une à une et supprimez-les individuellement. Chaque lien crée de manière additive une relation Processus Métier → Organisation visible sur les deux fiches et dans les rapports de dépendances. Les noms de couloirs restent du simple texte libre issu du diagramme et ne sont pas connectés aux fiches Organisation.
+La colonne *Organisation* du tableau des étapes lie les étapes à des fiches Organisation, juste à côté d'Application / Objet de Données / Composant IT. Contrairement à ces liens à valeur unique, une étape peut être liée à **plusieurs** organisations — choisissez-les une à une et supprimez-les individuellement. Les liens d'étapes sont purement informatifs — ils documentent quelles organisations sont impliquées dans une étape sans créer de relation entre les fiches ; les relations Processus Métier ↔ Organisation se gèrent séparément dans l'onglet Relations de la fiche. Les noms de couloirs restent du simple texte libre issu du diagramme et ne sont pas connectés aux fiches Organisation.
 
 ### Workflow d'approbation
 

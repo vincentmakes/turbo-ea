@@ -54,7 +54,7 @@ BPMN elements can be **linked to EA cards**. For example, link a task in your pr
 
 ### Linking Organizations
 
-The *Organization* column in the step table links steps to Organization cards, right next to Application / Data Object / IT Component. Unlike those single-value links, a step can be linked to **several** organizations — pick them one at a time and remove them individually. Each link additively creates a BusinessProcess → Organization relation that is visible on both cards and in the dependency reports. Lane names remain plain free text from the diagram and are not connected to Organization cards.
+The *Organization* column in the step table links steps to Organization cards, right next to Application / Data Object / IT Component. Unlike those single-value links, a step can be linked to **several** organizations — pick them one at a time and remove them individually. Step links are informative only — they document which organizations are involved in a step without creating any relation between the cards; Business Process ↔ Organization relations are managed separately on the card's Relations tab. Lane names remain plain free text from the diagram and are not connected to Organization cards.
 
 ### Approval Workflow
 

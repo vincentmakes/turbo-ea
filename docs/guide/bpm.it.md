@@ -54,7 +54,7 @@ Gli elementi BPMN possono essere **collegati alle card EA**. Ad esempio, collega
 
 ### Collegare le organizzazioni
 
-La colonna *Organizzazione* della tabella dei passaggi collega i passaggi alle card Organization, accanto ad Application / Data Object / IT Component. A differenza di quei collegamenti a valore singolo, un passaggio può essere collegato a **più** organizzazioni — sceglietele una alla volta e rimuovetele singolarmente. Ogni collegamento crea in modo additivo una relazione Business Process → Organization visibile su entrambe le card e nei report delle dipendenze. I nomi delle corsie restano semplice testo libero del diagramma e non sono collegati alle card Organization.
+La colonna *Organizzazione* della tabella dei passaggi collega i passaggi alle card Organization, accanto ad Application / Data Object / IT Component. A differenza di quei collegamenti a valore singolo, un passaggio può essere collegato a **più** organizzazioni — sceglietele una alla volta e rimuovetele singolarmente. I collegamenti dei passaggi sono puramente informativi — documentano quali organizzazioni sono coinvolte in un passaggio senza creare alcuna relazione tra le card; le relazioni Business Process ↔ Organization si gestiscono separatamente nella scheda Relazioni della card. I nomi delle corsie restano semplice testo libero del diagramma e non sono collegati alle card Organization.
 
 ### Workflow di approvazione
 

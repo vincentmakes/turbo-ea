@@ -34,6 +34,7 @@
   "flowTab.dataObject": "Datenobjekt",
   "flowTab.itComponent": "IT-Komponente",
   "flowTab.organization": "Organisation",
+  "flowTab.organizationTooltip": "Rein informativ — dokumentiert, welche Organisationen an einem Schritt beteiligt sind. Anders als die anderen Spalten erzeugt dies keine Beziehung zwischen den Karten.",
   "flowTab.loadingPublished": "Veröffentlichter Ablauf wird geladen...",
   "flowTab.noPublishedYet": "Noch kein veröffentlichter Prozessablauf",
   "flowTab.draftsAvailable_one": "{{count}} Entwurf verfügbar.",

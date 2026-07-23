@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [2.24.0] - 2026-07-22
 
 ### Added
-- **Organizations can now be linked to process-flow steps** — a new *Organization* column in the flow's step table, right next to the existing Application / Data Object / IT Component linking. Unlike those single-value links, a step can be linked to several organizations (m:n). Each link additively syncs the existing BusinessProcess → Organization relation so it shows up on both cards and in dependency reports, and the Process Navigator and diagram viewer show the linked organizations as chips. Lane names remain plain free text from the diagram. Draft flows support organization pre-linking applied on publish, and the step ↔ organization links transfer with workspace export/import.
+- **Organizations can now be linked to process-flow steps** — a new *Organization* column in the flow's step table, right next to the existing Application / Data Object / IT Component linking. Unlike those single-value links, a step can be linked to several organizations (m:n). Step links are informative only: they document which organizations are involved in a step without creating any relation between the Business Process and Organization cards (card relations are managed separately on the Relations tab). The Process Navigator and diagram viewer show the linked organizations as chips, lane names remain plain free text from the diagram, draft flows support organization pre-linking applied on publish, and the step ↔ organization links transfer with workspace export/import.
 
 ## [2.23.3] - 2026-07-22
 

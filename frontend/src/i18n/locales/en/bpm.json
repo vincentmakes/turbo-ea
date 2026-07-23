@@ -37,6 +37,7 @@
   "flowTab.dataObject": "Data Object",
   "flowTab.itComponent": "IT Component",
   "flowTab.organization": "Organization",
+  "flowTab.organizationTooltip": "Informative only — documents which organizations are involved in a step. Unlike the other columns, this does not create a relation between the cards.",
   "flowTab.loadingPublished": "Loading published flow...",
   "flowTab.noPublishedYet": "No published process flow yet",
   "flowTab.draftsAvailable_one": "{{count}} draft available.",

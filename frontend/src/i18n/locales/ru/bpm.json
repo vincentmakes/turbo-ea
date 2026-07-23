@@ -34,6 +34,7 @@
   "flowTab.dataObject": "Объект данных",
   "flowTab.itComponent": "ИТ-компонент",
   "flowTab.organization": "Организация",
+  "flowTab.organizationTooltip": "Только для информации — документирует, какие организации участвуют в шаге. В отличие от других столбцов, связь между карточками не создаётся.",
   "flowTab.loadingPublished": "Загрузка опубликованного потока...",
   "flowTab.noPublishedYet": "Опубликованный поток процесса пока отсутствует",
   "flowTab.draftsAvailable_one": "{{count}} черновик доступен.",

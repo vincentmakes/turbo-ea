@@ -436,9 +436,10 @@ async def update_element(
         elem.data_object_id = uuid.UUID(body.data_object_id) if body.data_object_id else None
     if body.it_component_id is not None:
         elem.it_component_id = uuid.UUID(body.it_component_id) if body.it_component_id else None
-    org_ids: set[uuid.UUID] = set()
     if body.organization_ids is not None:
-        # Full replacement of the step's M:N Organization links.
+        # Full replacement of the step's M:N Organization links. Informative
+        # only — unlike the FK links below, this never creates a card-to-card
+        # relation (process ↔ Organization relations are managed on the card).
         org_ids = {uuid.UUID(o) for o in body.organization_ids if o}
         if org_ids:
             found = await db.execute(
@@ -465,7 +466,6 @@ async def update_element(
         "application_id": set(),
         "data_object_id": set(),
         "it_component_id": set(),
-        "organization_id": org_ids,
     }
     if elem.application_id:
         link_ids["application_id"].add(elem.application_id)

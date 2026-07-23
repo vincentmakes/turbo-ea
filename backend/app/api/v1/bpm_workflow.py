@@ -622,7 +622,8 @@ async def approve_version(
         elements_list = all_elements.scalars().all()
 
         # Apply the drafts' M:N organization links (junction rows need the
-        # element PKs, hence after the flush above).
+        # element PKs, hence after the flush above). Informative only — no
+        # card-to-card relation is created for organizations.
         for el in elements_list:
             draft_link = draft_links.get(el.bpmn_element_id, {})
             if "organization_ids" not in draft_link:
@@ -637,7 +638,6 @@ async def approve_version(
             )
             for oid in valid_orgs:
                 db.add(ProcessElementOrganization(element_id=el.id, organization_id=uuid.UUID(oid)))
-        await db.flush()
 
         link_ids: dict[str, set[uuid.UUID]] = {
             "application_id": set(),
@@ -651,12 +651,6 @@ async def approve_version(
                 link_ids["data_object_id"].add(el.data_object_id)
             if el.it_component_id:
                 link_ids["it_component_id"].add(el.it_component_id)
-        org_rows = await db.execute(
-            select(ProcessElementOrganization.organization_id)
-            .join(ProcessElement, ProcessElement.id == ProcessElementOrganization.element_id)
-            .where(ProcessElement.process_id == pid)
-        )
-        link_ids["organization_id"] = {row[0] for row in org_rows.all()}
         await sync_element_relations(db, pid, link_ids)
 
     # Auto-complete system approval todos for this process

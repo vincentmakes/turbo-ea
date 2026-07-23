@@ -54,7 +54,7 @@ BPMN-elementer kan **linkes til EA-kort**. For eksempel kan du linke en opgave i
 
 ### Link organisationer
 
-Kolonnen *Organisation* i trintabellen linker trin til organisationskort, lige ved siden af Application / Data Object / IT Component. I modsætning til disse enkeltværdi-links kan et trin linkes til **flere** organisationer — vælg dem én ad gangen, og fjern dem enkeltvis. Hvert link opretter additivt en relation Forretningsproces → Organisation, som er synlig på begge kort og i afhængighedsrapporterne. Banenavne forbliver ren fri tekst fra diagrammet og er ikke forbundet med organisationskort.
+Kolonnen *Organisation* i trintabellen linker trin til organisationskort, lige ved siden af Application / Data Object / IT Component. I modsætning til disse enkeltværdi-links kan et trin linkes til **flere** organisationer — vælg dem én ad gangen, og fjern dem enkeltvis. Trinlinks er kun informative — de dokumenterer, hvilke organisationer der er involveret i et trin, uden at oprette nogen relation mellem kortene; relationer mellem Forretningsproces og Organisation håndteres separat på kortets Relationer-fane. Banenavne forbliver ren fri tekst fra diagrammet og er ikke forbundet med organisationskort.
 
 ### Godkendelses­arbejdsproces
 

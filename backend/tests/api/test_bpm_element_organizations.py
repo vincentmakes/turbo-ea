@@ -2,9 +2,11 @@
 
 Covers:
 - PUT /bpm/processes/{id}/elements/{element_id} with organization_ids
-  (set, extend, clear, validation, relation sync)
+  (set, extend, clear, validation)
 - GET /bpm/processes/{id}/elements serialization of `organizations`
 - Draft pre-linking (draft-elements PUT/GET) and publish applying the links
+- Step ↔ Organization links are informative only: no relProcessToOrg
+  card-to-card relation is ever created from them
 """
 
 from __future__ import annotations
@@ -122,16 +124,15 @@ class TestElementOrganizationLinks:
         quote = next(e for e in elems if e["bpmn_element_id"] == "task_quote")
         assert {o["name"] for o in quote["organizations"]} == {"Sales", "Finance"}
 
-        # Both relations synced additively.
-        for org_id in (sales_id, finance_id):
-            rel = await db.execute(
-                select(Relation).where(
-                    Relation.type == "relProcessToOrg",
-                    Relation.source_id == process_id,
-                    Relation.target_id == org_id,
-                )
+        # Informative only: linking a step never creates a card-to-card
+        # relation (process <-> Organization relations live on the card).
+        rels = await db.execute(
+            select(Relation).where(
+                Relation.type == "relProcessToOrg",
+                Relation.source_id == process_id,
             )
-            assert rel.scalar_one_or_none() is not None
+        )
+        assert rels.scalars().all() == []
 
     async def test_replace_and_clear_org_links(self, client, db, org_env):
         process, elem = org_env["process"], org_env["elem"]
@@ -160,15 +161,6 @@ class TestElementOrganizationLinks:
         )
         assert resp.status_code == 200
         assert await _junction_org_ids(db, elem.id) == set()
-
-        # Relations are additive-only — clearing links keeps them.
-        rels = await db.execute(
-            select(Relation).where(
-                Relation.type == "relProcessToOrg",
-                Relation.source_id == process.id,
-            )
-        )
-        assert len(rels.scalars().all()) == 2
 
     async def test_non_organization_card_404(self, client, db, org_env):
         resp = await client.put(
@@ -261,12 +253,12 @@ class TestDraftOrganizationPreLinking:
         quote = next(e for e in elems if e["bpmn_element_id"] == "task_quote")
         assert {o["name"] for o in quote["organizations"]} == {"Sales", "Finance"}
 
-        for org_id in (sales_id, finance_id):
-            rel = await db.execute(
-                select(Relation).where(
-                    Relation.type == "relProcessToOrg",
-                    Relation.source_id == process_id,
-                    Relation.target_id == org_id,
-                )
+        # Publishing applies the informative step links but never creates
+        # card-to-card relations for organizations.
+        rels = await db.execute(
+            select(Relation).where(
+                Relation.type == "relProcessToOrg",
+                Relation.source_id == process_id,
             )
-            assert rel.scalar_one_or_none() is not None
+        )
+        assert rels.scalars().all() == []

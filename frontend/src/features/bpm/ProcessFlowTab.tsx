@@ -639,7 +639,14 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                 <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.application")}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.dataObject")}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.itComponent")}</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.organization")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>
+                  <Tooltip title={t("flowTab.organizationTooltip")}>
+                    <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+                      {t("flowTab.organization")}
+                      <MaterialSymbol icon="info" size={14} color="#999" />
+                    </Box>
+                  </Tooltip>
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
