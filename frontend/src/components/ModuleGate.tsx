@@ -4,7 +4,7 @@
  * admin has turned the module off, instead of letting the page load and
  * issue API calls that would fail or render an empty shell.
  */
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";

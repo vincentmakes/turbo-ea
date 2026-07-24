@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { useParams } from "react-router-dom";
+import { useParams } from "react-router";
 import DOMPurify from "dompurify";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";

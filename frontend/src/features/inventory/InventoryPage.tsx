@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Link as RouterLink, useNavigate, useSearchParams } from "react-router-dom";
+import { Link as RouterLink, useNavigate, useSearchParams } from "react-router";
 import { AgGridReact } from "ag-grid-react";
 import type { ColDef, CellValueChangedEvent, SelectionChangedEvent, RowClickedEvent, SortChangedEvent, GridReadyEvent, ColumnState } from "ag-grid-community";
 import Box from "@mui/material/Box";

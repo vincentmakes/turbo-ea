@@ -427,7 +427,7 @@ npx tsx capture.ts --dry-run # Preview without saving files
 ```
 ┌───────────────────────────────────────────────────────────┐
 │  Browser                                                  │
-│  React 18 + MUI 6 + React Router 7 + Recharts + AG Grid  │
+│  React 19 + MUI 6 + React Router 8 + Recharts + AG Grid  │
 │  Vite dev server (port 5173) / Nginx in production        │
 └──────────────────────────┬────────────────────────────────┘
                            │  /api/* (proxy)
@@ -1181,9 +1181,9 @@ Base path: `/api/v1`. All endpoints except auth and public portals require `Auth
 ## Frontend Architecture
 
 ### Tech Stack
-- **React 18** with TypeScript
+- **React 19** with TypeScript
 - **MUI 6** (Material UI) for component library
-- **React Router 7** for client-side routing
+- **React Router 8** for client-side routing
 - **AG Grid** for data tables (inventory page)
 - **Recharts** for charts (portfolio, cost, lifecycle reports)
 - **bpmn-js** for BPMN 2.0 diagram editing
@@ -1883,7 +1883,7 @@ Set `RESET_DB=true` to drop all tables and re-seed on next startup.
 - ruff for linting (target: Python 3.11+, line-length: 100)
 
 **Frontend:**
-- React 18 + TypeScript 5.6
+- React 19 + TypeScript 5.6
 - MUI 6 + Emotion for styling
 - AG Grid for data tables
 - Recharts for visualizations

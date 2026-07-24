@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";

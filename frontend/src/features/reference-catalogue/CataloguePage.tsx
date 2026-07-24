@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Fab from "@mui/material/Fab";
 import Fade from "@mui/material/Fade";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Paper from "@mui/material/Paper";

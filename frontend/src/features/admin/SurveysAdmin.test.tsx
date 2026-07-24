@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const navigate = vi.fn();
-vi.mock("react-router-dom", () => ({ useNavigate: () => navigate }));
+vi.mock("react-router", () => ({ useNavigate: () => navigate }));
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn().mockResolvedValue([]), post: vi.fn() },
 }));

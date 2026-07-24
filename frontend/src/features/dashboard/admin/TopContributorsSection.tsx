@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import Box from "@mui/material/Box";
 import LinearProgress from "@mui/material/LinearProgress";
 import Typography from "@mui/material/Typography";

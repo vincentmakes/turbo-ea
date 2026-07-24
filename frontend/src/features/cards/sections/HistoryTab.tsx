@@ -5,7 +5,7 @@ import Link from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
 import { alpha, useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink } from "react-router";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { getPhaseLabels } from "@/features/cards/sections/cardDetailUtils";

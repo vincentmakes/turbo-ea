@@ -16,7 +16,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme, alpha } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -222,7 +222,7 @@ export default function PpmPortfolio() {
   // ── Report hover popover state ──
   const [reportAnchorEl, setReportAnchorEl] = useState<HTMLElement | null>(null);
   const [hoveredReport, setHoveredReport] = useState<PpmStatusReport | null>(null);
-  const leaveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const timelineRef = useRef<HTMLDivElement>(null);
 
   // After every render / resize, hide quarter labels that overlap

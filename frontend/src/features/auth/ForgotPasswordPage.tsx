@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import TextField from "@mui/material/TextField";
