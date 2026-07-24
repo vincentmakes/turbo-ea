@@ -164,8 +164,9 @@ describe("BpmReportsContent", () => {
         expect(screen.getByText("2 steps")).toBeInTheDocument();
         expect(screen.getByText("1 step")).toBeInTheDocument();
       });
-      // Org appears as both a filter chip and a column header.
-      expect(screen.getAllByText("Sales").length).toBeGreaterThanOrEqual(2);
+      expect(screen.getByText("Sales")).toBeInTheDocument(); // column header
+      expect(screen.getByLabelText("Organizations")).toBeInTheDocument();
+      expect(screen.getByLabelText("Processes")).toBeInTheDocument();
     });
 
     it("shows empty state when no data", async () => {
@@ -193,19 +194,57 @@ describe("BpmReportsContent", () => {
       });
     });
 
-    it("filters processes by organization", async () => {
+    it("filters via the organization multi-select dropdown", async () => {
       vi.mocked(api.get).mockResolvedValue(mockOrgMatrix);
       renderPage();
       await userEvent.click(screen.getByRole("tab", { name: "Process × Organization" }));
       await waitFor(() => {
         expect(screen.getByText("Order to Cash")).toBeInTheDocument();
       });
-      // Click the Finance filter chip (first occurrence, above the table).
-      await userEvent.click(screen.getAllByText("Finance")[0]);
+      await userEvent.click(screen.getByLabelText("Organizations"));
+      await userEvent.click(await screen.findByRole("option", { name: "Finance" }));
 
       await waitFor(() => {
         expect(screen.queryByText("Order to Cash")).not.toBeInTheDocument();
         expect(screen.getByText("Procure to Pay")).toBeInTheDocument();
+      });
+    });
+
+    it("filters via the process multi-select dropdown", async () => {
+      vi.mocked(api.get).mockResolvedValue(mockOrgMatrix);
+      renderPage();
+      await userEvent.click(screen.getByRole("tab", { name: "Process × Organization" }));
+      await waitFor(() => {
+        expect(screen.getByText("Procure to Pay")).toBeInTheDocument();
+      });
+      await userEvent.click(screen.getByLabelText("Processes"));
+      await userEvent.click(await screen.findByRole("option", { name: "Order to Cash" }));
+      await userEvent.keyboard("{Escape}"); // close the still-open listbox
+
+      await waitFor(() => {
+        expect(screen.queryByText("Procure to Pay")).not.toBeInTheDocument();
+        // Appears as the Autocomplete tag chip AND the table row.
+        expect(screen.getAllByText("Order to Cash").length).toBeGreaterThanOrEqual(2);
+      });
+    });
+
+    it("text filter matches step names and narrows counts, rows, and columns", async () => {
+      vi.mocked(api.get).mockResolvedValue(mockOrgMatrix);
+      renderPage();
+      await userEvent.click(screen.getByRole("tab", { name: "Process × Organization" }));
+      await waitFor(() => {
+        expect(screen.getByText("2 steps")).toBeInTheDocument();
+      });
+      await userEvent.type(screen.getByPlaceholderText("Filter steps..."), "Create Quote");
+
+      await waitFor(() => {
+        // Only the matching step remains: count drops from 2 to 1...
+        expect(screen.getAllByText("1 step")).toHaveLength(1);
+        expect(screen.queryByText("2 steps")).not.toBeInTheDocument();
+        // ...the non-matching process row disappears...
+        expect(screen.queryByText("Procure to Pay")).not.toBeInTheDocument();
+        // ...and the org column without matches (Finance) is dropped.
+        expect(screen.queryByText("Finance")).not.toBeInTheDocument();
       });
     });
   });

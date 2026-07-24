@@ -22,6 +22,8 @@ import Collapse from "@mui/material/Collapse";
 import IconButton from "@mui/material/IconButton";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
+import Autocomplete from "@mui/material/Autocomplete";
+import InputAdornment from "@mui/material/InputAdornment";
 import LinearProgress from "@mui/material/LinearProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
@@ -198,8 +200,9 @@ function ProcessOrgMatrix({ onOpenCard }: { onOpenCard: (id: string) => void }) 
   const { t } = useTranslation(["bpm", "common"]);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [orgFilter, setOrgFilter] = useState<Set<string>>(new Set());
-  const [search, setSearch] = useState("");
+  const [orgFilter, setOrgFilter] = useState<string[]>([]);
+  const [procFilter, setProcFilter] = useState<string[]>([]);
+  const [stepSearch, setStepSearch] = useState("");
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   useEffect(() => {
@@ -210,34 +213,52 @@ function ProcessOrgMatrix({ onOpenCard }: { onOpenCard: (id: string) => void }) 
   }, []);
 
   const toggleOrg = (orgId: string) => {
-    setOrgFilter((prev) => {
-      const next = new Set(prev);
-      if (next.has(orgId)) next.delete(orgId);
-      else next.add(orgId);
-      return next;
-    });
+    setOrgFilter((prev) =>
+      prev.includes(orgId) ? prev.filter((id) => id !== orgId) : [...prev, orgId]
+    );
   };
+
+  const term = stepSearch.trim().toLowerCase();
+  const matchingSteps = (cell: any) =>
+    term
+      ? cell.steps.filter((s: any) => (s.element_name || "").toLowerCase().includes(term))
+      : cell.steps;
 
   const { columns, rows } = useMemo(() => {
     if (!data) return { columns: [], rows: [] };
-    const visibleColumns =
-      orgFilter.size > 0
-        ? data.columns.filter((c: any) => orgFilter.has(c.id))
-        : data.columns;
+    const orgSel = new Set(orgFilter);
+    let visibleColumns =
+      orgSel.size > 0 ? data.columns.filter((c: any) => orgSel.has(c.id)) : data.columns;
     const columnIds = new Set(visibleColumns.map((c: any) => c.id));
-    const term = search.trim().toLowerCase();
+
+    const cellVisible = (cell: any) =>
+      columnIds.has(cell.organization_id) && matchingSteps(cell).length > 0;
+
+    const procSel = new Set(procFilter);
     const visibleRows = data.rows.filter((r: any) => {
-      if (term && !r.name.toLowerCase().includes(term)) return false;
-      // With an org filter active, only keep processes that org executes in.
-      if (orgFilter.size > 0) {
-        return data.cells.some(
-          (x: any) => x.process_id === r.id && columnIds.has(x.organization_id)
-        );
+      if (procSel.size > 0 && !procSel.has(r.id)) return false;
+      // With an org or step filter active, only keep processes with matches.
+      if (orgSel.size > 0 || term) {
+        return data.cells.some((x: any) => x.process_id === r.id && cellVisible(x));
       }
       return true;
     });
+
+    // A step filter also drops org columns without any matching step.
+    if (term) {
+      const rowIds = new Set(visibleRows.map((r: any) => r.id));
+      visibleColumns = visibleColumns.filter((c: any) =>
+        data.cells.some(
+          (x: any) =>
+            x.organization_id === c.id &&
+            rowIds.has(x.process_id) &&
+            matchingSteps(x).length > 0
+        )
+      );
+    }
     return { columns: visibleColumns, rows: visibleRows };
-  }, [data, orgFilter, search]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, orgFilter, procFilter, term]);
 
   if (loading) return <LinearProgress />;
   if (!data || !data.rows.length) {
@@ -255,34 +276,54 @@ function ProcessOrgMatrix({ onOpenCard }: { onOpenCard: (id: string) => void }) 
           {t("reports.processOrganizationSubtitle")}
         </Typography>
 
-        {/* Filters: process name search + org chips */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5, flexWrap: "wrap" }}>
+        {/* Filters: org + process multi-selects, step-name search */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2, flexWrap: "wrap" }}>
+          <Autocomplete
+            multiple
+            size="small"
+            limitTags={2}
+            disableCloseOnSelect
+            options={data.columns}
+            getOptionLabel={(o: any) => o.name}
+            isOptionEqualToValue={(a: any, b: any) => a.id === b.id}
+            value={data.columns.filter((c: any) => orgFilter.includes(c.id))}
+            onChange={(_, v: any[]) => setOrgFilter(v.map((x) => x.id))}
+            renderInput={(params) => (
+              <TextField {...params} label={t("reports.filterOrganizations")} />
+            )}
+            sx={{ minWidth: 240, maxWidth: 360 }}
+          />
+          <Autocomplete
+            multiple
+            size="small"
+            limitTags={2}
+            disableCloseOnSelect
+            options={data.rows}
+            getOptionLabel={(o: any) => o.name}
+            isOptionEqualToValue={(a: any, b: any) => a.id === b.id}
+            value={data.rows.filter((r: any) => procFilter.includes(r.id))}
+            onChange={(_, v: any[]) => setProcFilter(v.map((x) => x.id))}
+            renderInput={(params) => (
+              <TextField {...params} label={t("reports.filterProcesses")} />
+            )}
+            sx={{ minWidth: 240, maxWidth: 360 }}
+          />
           <TextField
             size="small"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("reports.filterProcesses")}
-            sx={{ minWidth: 200 }}
+            value={stepSearch}
+            onChange={(e) => setStepSearch(e.target.value)}
+            placeholder={t("reports.filterSteps")}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <MaterialSymbol icon="search" size={18} color="#999" />
+                  </InputAdornment>
+                ),
+              },
+            }}
+            sx={{ minWidth: 220 }}
           />
-          {data.columns.map((c: any) => (
-            <Chip
-              key={c.id}
-              label={c.name}
-              size="small"
-              color={orgFilter.has(c.id) ? "info" : "default"}
-              variant={orgFilter.has(c.id) ? "filled" : "outlined"}
-              onClick={() => toggleOrg(c.id)}
-            />
-          ))}
-          {orgFilter.size > 0 && (
-            <Chip
-              label={t("reports.clearOrgFilter")}
-              size="small"
-              variant="outlined"
-              onDelete={() => setOrgFilter(new Set())}
-              onClick={() => setOrgFilter(new Set())}
-            />
-          )}
         </Box>
 
         <TableContainer sx={{ maxHeight: 500 }}>
@@ -307,8 +348,11 @@ function ProcessOrgMatrix({ onOpenCard }: { onOpenCard: (id: string) => void }) 
               {rows.map((r: any) => {
                 const expanded = expandedRow === r.id;
                 const rowCells = columns
-                  .map((c: any) => ({ org: c, cell: cellFor(r.id, c.id) }))
-                  .filter((x: any) => x.cell);
+                  .map((c: any) => {
+                    const cell = cellFor(r.id, c.id);
+                    return { org: c, steps: cell ? matchingSteps(cell) : [] };
+                  })
+                  .filter((x: any) => x.steps.length > 0);
                 return (
                   <Fragment key={r.id}>
                     <TableRow hover>
@@ -329,16 +373,17 @@ function ProcessOrgMatrix({ onOpenCard }: { onOpenCard: (id: string) => void }) 
                       </TableCell>
                       {columns.map((c: any) => {
                         const cell = cellFor(r.id, c.id);
+                        const steps = cell ? matchingSteps(cell) : [];
                         return (
                           <TableCell key={c.id} align="center">
-                            {cell ? (
+                            {steps.length > 0 ? (
                               <Tooltip
-                                title={cell.steps
+                                title={steps
                                   .map((s: any) => s.element_name || t("viewer.unnamed"))
                                   .join(", ")}
                               >
                                 <Chip
-                                  label={t("reports.stepsCount", { count: cell.steps.length })}
+                                  label={t("reports.stepsCount", { count: steps.length })}
                                   size="small"
                                   color="info"
                                   onClick={() => setExpandedRow(expanded ? null : r.id)}
@@ -355,7 +400,7 @@ function ProcessOrgMatrix({ onOpenCard }: { onOpenCard: (id: string) => void }) 
                       <TableCell colSpan={columns.length + 2} sx={{ p: 0, border: 0 }}>
                         <Collapse in={expanded} timeout="auto" unmountOnExit>
                           <Box sx={{ px: 2, py: 1.5, bgcolor: "action.hover" }}>
-                            {rowCells.map(({ org, cell }: any) => (
+                            {rowCells.map(({ org, steps }: any) => (
                               <Box key={org.id} sx={{ mb: 1 }}>
                                 <Typography
                                   variant="caption"
@@ -365,7 +410,7 @@ function ProcessOrgMatrix({ onOpenCard }: { onOpenCard: (id: string) => void }) 
                                   {org.name}
                                 </Typography>
                                 <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.25 }}>
-                                  {cell.steps.map((s: any) => (
+                                  {steps.map((s: any) => (
                                     <Chip
                                       key={s.element_id}
                                       size="small"
