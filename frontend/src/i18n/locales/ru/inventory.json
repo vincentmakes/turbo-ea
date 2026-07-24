@@ -26,6 +26,7 @@
   "columns.metadata": "Метаданные",
   "columns.attributes": "Атрибуты",
   "columns.relations": "Связи",
+  "columns.relationsLoading": "Загрузка связей…",
   "columns.stakeholders": "Заинтересованные стороны",
   "columns.stakeholderRole": "Заинтересованные стороны: {{role}}",
   "columns.reset": "Сбросить",
@@ -238,6 +239,7 @@
   "export.allFieldsHint": "Полный набор данных, пригоден для повторного импорта",
   "export.currentView": "Экспортировать текущий вид",
   "export.currentViewHint": "Отражает таблицу на экране — не подходит для повторного импорта",
+  "export.waitingForRelations": "Ожидание загрузки столбцов связей…",
   "export.viewSheetName": "Вид",
   "columns.id": "ID"
 }

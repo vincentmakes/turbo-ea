@@ -27763,6 +27763,60 @@
               ],
               "title": "Type"
             }
+          },
+          {
+            "description": "Card-type key. Keeps relations whose source **or** target card is of this type \u2014 what the inventory grid needs to populate the relation columns of the selected type in one round trip.",
+            "in": "query",
+            "name": "card_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Card-type key. Keeps relations whose source **or** target card is of this type \u2014 what the inventory grid needs to populate the relation columns of the selected type in one round trip.",
+              "title": "Card Type"
+            }
+          },
+          {
+            "description": "Comma-separated relation-type keys. Superset of `type`, which stays for backwards compatibility.",
+            "in": "query",
+            "name": "types",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated relation-type keys. Superset of `type`, which stays for backwards compatibility.",
+              "title": "Types"
+            }
+          },
+          {
+            "description": "Comma-separated card UUIDs. Keeps relations whose source **or** target is one of them. At most 500 ids per request \u2014 chunk larger sets client-side.",
+            "in": "query",
+            "name": "card_ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated card UUIDs. Keeps relations whose source **or** target is one of them. At most 500 ids per request \u2014 chunk larger sets client-side.",
+              "title": "Card Ids"
+            }
           }
         ],
         "responses": {

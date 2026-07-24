@@ -26,6 +26,7 @@
   "columns.metadata": "البيانات الوصفية",
   "columns.attributes": "السمات",
   "columns.relations": "العلاقات",
+  "columns.relationsLoading": "جارٍ تحميل العلاقات…",
   "columns.stakeholders": "أصحاب المصلحة",
   "columns.stakeholderRole": "أصحاب المصلحة: {{role}}",
   "columns.reset": "إعادة تعيين",
@@ -238,6 +239,7 @@
   "export.allFieldsHint": "مجموعة بيانات كاملة، قابلة لإعادة الاستيراد",
   "export.currentView": "تصدير العرض الحالي",
   "export.currentViewHint": "يطابق الجدول المعروض — غير مناسب لإعادة الاستيراد",
+  "export.waitingForRelations": "في انتظار انتهاء تحميل أعمدة العلاقات…",
   "export.viewSheetName": "عرض",
   "columns.id": "المعرّف"
 }

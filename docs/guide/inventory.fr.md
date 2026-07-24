@@ -183,4 +183,4 @@ Quelques précisions sur l'import :
 
 Cliquez sur **Exporter**. Le filtre courant détermine le contenu : avec un filtre mono-type, une seule feuille de cartes ; sans filtre, une feuille par type présent. Dans tous les cas, le classeur inclut `Relations` et `_Meta` et peut être réimporté sans perdre les attributs spécifiques au type.
 
-Vous pouvez aussi choisir **Exporter la vue actuelle** dans le menu Exporter — un instantané plat sur une seule feuille qui reflète ce qui est affiché (uniquement les colonnes visibles, dans leur ordre actuel, pour les lignes filtrées). Il est destiné au partage et **ne convient pas à la réimportation**.
+Vous pouvez aussi choisir **Exporter la vue actuelle** dans le menu Exporter — un instantané plat sur une seule feuille qui reflète ce qui est affiché (uniquement les colonnes visibles, dans leur ordre actuel, pour les lignes filtrées). Il est destiné au partage et **ne convient pas à la réimportation**. Si les colonnes de relations sont encore en cours de chargement, l'export les attend : elles ne peuvent donc jamais être vides.

@@ -594,7 +594,7 @@ describe("buildExportWorkbook", () => {
       name: "DB",
     });
     getMock.mockImplementation(async (url: string): Promise<unknown> => {
-      if (url === "/relations") {
+      if (url.startsWith("/relations?")) {
         return [
           {
             id: "rel1",
@@ -633,7 +633,7 @@ describe("buildExportWorkbook", () => {
       name: "ERP",
     });
     getMock.mockImplementation(async (url: string): Promise<unknown> => {
-      if (url === "/relations") {
+      if (url.startsWith("/relations?")) {
         return [
           {
             id: "rel1",
@@ -665,6 +665,94 @@ describe("buildExportWorkbook", () => {
     expect(rows[0]["rel:depends_on"]).toBe("DB");
   });
 
+  it("scopes the relations request to the exported cards instead of fetching every relation", async () => {
+    // Regression guard: this used to be a bare `GET /relations`, pulling the
+    // whole instance and filtering client-side.
+    const app: Card = makeCard({
+      id: "11111111-1111-1111-1111-111111111111",
+      type: "Application",
+      name: "ERP",
+    });
+    const relationUrls: string[] = [];
+    getMock.mockImplementation(async (url: string): Promise<unknown> => {
+      if (url.startsWith("/relations")) {
+        relationUrls.push(url);
+        return [];
+      }
+      if (url.startsWith("/cards?ids=")) return { items: [] };
+      return [];
+    });
+
+    await buildExportWorkbook([app], APP_TYPE, [APP_TYPE, ITC_TYPE], [DEPENDS_ON_TYPE]);
+
+    expect(relationUrls).toHaveLength(1);
+    expect(relationUrls[0]).toContain("card_ids=");
+    expect(relationUrls[0]).toContain(app.id);
+    // Never the unfiltered form.
+    expect(relationUrls).not.toContain("/relations");
+  });
+
+  it("aborts the export when a relations chunk fails, rather than shipping a partial one", async () => {
+    // Half the relations is worse than none: the workbook would look complete
+    // while quietly missing edges. Same all-or-nothing contract the previous
+    // single-request implementation had.
+    const app: Card = makeCard({
+      id: "11111111-1111-1111-1111-111111111111",
+      type: "Application",
+      name: "ERP",
+    });
+    getMock.mockImplementation(async (url: string): Promise<unknown> => {
+      if (url.startsWith("/relations")) throw new Error("network blip");
+      return [];
+    });
+
+    await expect(
+      buildExportWorkbook([app], APP_TYPE, [APP_TYPE, ITC_TYPE], [DEPENDS_ON_TYPE]),
+    ).rejects.toThrow("network blip");
+  });
+
+  it("dedups a relation returned by two card_ids chunks", async () => {
+    // `card_ids` matches source OR target, so an edge whose endpoints land in
+    // different chunks comes back twice. Without id-dedup the exported cell
+    // would repeat the target name.
+    const app: Card = makeCard({
+      id: "11111111-1111-1111-1111-111111111111",
+      type: "Application",
+      name: "ERP",
+    });
+    const other: Card = makeCard({
+      id: "33333333-3333-3333-3333-333333333333",
+      type: "Application",
+      name: "CRM",
+    });
+    const APP_TO_APP: RelationType = { ...DEPENDS_ON_TYPE, target_type_key: "Application" };
+    const duplicated = {
+      id: "shared-rel",
+      type: "depends_on",
+      source_id: app.id,
+      target_id: other.id,
+      source: { id: app.id, type: app.type, name: app.name },
+      target: { id: other.id, type: other.type, name: other.name },
+    };
+    getMock.mockImplementation(async (url: string): Promise<unknown> => {
+      // Both cards fit in one chunk here; returning the row twice simulates
+      // the cross-chunk overlap in a single response the same way.
+      if (url.startsWith("/relations")) return [duplicated, { ...duplicated }];
+      if (url.startsWith("/cards?ids=")) return { items: [other] };
+      return [];
+    });
+
+    const wb = await buildExportWorkbook(
+      [app, other],
+      APP_TYPE,
+      [APP_TYPE, ITC_TYPE],
+      [APP_TO_APP],
+    );
+    const rows = rowsOf(wb, APP_TYPE.label);
+    const erp = rows.find((r) => r.name === "ERP")!;
+    expect(erp["rel:depends_on"]).toBe("CRM");
+  });
+
   it("separates multiple targets with semicolons, so comma-bearing names survive", async () => {
     // The whole reason for `;` over `,`: card names commonly contain commas
     // ("Acme, Inc."). Emitting them comma-separated would silently re-parse
@@ -685,7 +773,7 @@ describe("buildExportWorkbook", () => {
       name: "DB",
     });
     getMock.mockImplementation(async (url: string): Promise<unknown> => {
-      if (url === "/relations") {
+      if (url.startsWith("/relations?")) {
         return [
           {
             id: "r1",
@@ -804,7 +892,7 @@ describe("buildExportWorkbook", () => {
       name: "SAP S/4HANA",
     });
     getMock.mockImplementation(async (url: string): Promise<unknown> => {
-      if (url === "/relations") {
+      if (url.startsWith("/relations?")) {
         return [
           {
             id: "rdep",
@@ -946,7 +1034,7 @@ describe("buildExportWorkbook", () => {
       ],
     };
     getMock.mockImplementation(async (url: string): Promise<unknown> => {
-      if (url === "/relations") {
+      if (url.startsWith("/relations?")) {
         return [
           {
             id: "r1",

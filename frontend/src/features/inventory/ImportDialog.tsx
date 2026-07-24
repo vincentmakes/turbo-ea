@@ -95,13 +95,34 @@ export default function ImportDialog({
     try {
       const buffer = await file.arrayBuffer();
       const parsed = parseWorkbookSheets(buffer, allTypes);
-      // Fetch existing relations so we can compute relation diffs.
-      // We pull all relations once — bulk filter happens client-side.
+      const typeKeysInFile = new Set<string>();
+      for (const sheet of parsed.sheets) {
+        if (sheet.typeHint) typeKeysInFile.add(sheet.typeHint);
+        for (const row of sheet.rows) {
+          const rowType = String(row["type"] ?? row["Type"] ?? "").trim();
+          if (rowType && allTypes.some((ct) => ct.key === rowType)) typeKeysInFile.add(rowType);
+        }
+      }
+      if (preSelectedType) typeKeysInFile.add(preSelectedType);
+      // Fetch existing relations so we can compute relation diffs — scoped to
+      // the relation types that can touch a card type present in the workbook.
+      // That's a superset of what the diff needs, so the outcome is unchanged;
+      // it just no longer pulls every relation in the instance.
+      const relevantRelTypeKeys = relationTypes
+        .filter(
+          (rt) =>
+            typeKeysInFile.has(rt.source_type_key) || typeKeysInFile.has(rt.target_type_key),
+        )
+        .map((rt) => rt.key);
       let existingRelations: Relation[] = [];
-      try {
-        existingRelations = await api.get<Relation[]>("/relations");
-      } catch {
-        existingRelations = [];
+      if (relevantRelTypeKeys.length > 0) {
+        try {
+          existingRelations = await api.get<Relation[]>(
+            `/relations?types=${encodeURIComponent(relevantRelTypeKeys.join(","))}`,
+          );
+        } catch {
+          existingRelations = [];
+        }
       }
       // Users + per-type stakeholder roles resolve `stakeholder:<role>`
       // columns. Fetch failures degrade to "no stakeholder sync" (unresolved
@@ -112,15 +133,6 @@ export default function ImportDialog({
       } catch {
         users = [];
       }
-      const typeKeysInFile = new Set<string>();
-      for (const sheet of parsed.sheets) {
-        if (sheet.typeHint) typeKeysInFile.add(sheet.typeHint);
-        for (const row of sheet.rows) {
-          const rowType = String(row["type"] ?? row["Type"] ?? "").trim();
-          if (rowType && allTypes.some((ct) => ct.key === rowType)) typeKeysInFile.add(rowType);
-        }
-      }
-      if (preSelectedType) typeKeysInFile.add(preSelectedType);
       const stakeholderRolesByType: StakeholderRolesByType = {};
       await Promise.all(
         [...typeKeysInFile].map((key) =>

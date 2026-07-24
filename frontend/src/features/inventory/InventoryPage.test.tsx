@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import InventoryPage from "./InventoryPage";
 
@@ -27,8 +28,28 @@ vi.mock("ag-grid-react", () => ({
 }));
 
 // Stub sub-components not under test
+// Stubbed, but with escape hatches so tests can drive filter changes the way a
+// user would — the page has no toolbar search box, all filtering flows through
+// this sidebar.
 vi.mock("./InventoryFilterSidebar", () => ({
-  default: () => <div data-testid="filter-sidebar" />,
+  default: ({
+    filters,
+    onFiltersChange,
+  }: {
+    filters: Record<string, unknown>;
+    onFiltersChange: (f: Record<string, unknown>) => void;
+  }) => (
+    <div data-testid="filter-sidebar">
+      <button
+        data-testid="apply-search"
+        onClick={() => onFiltersChange({ ...filters, search: "SAP" })}
+      />
+      <button
+        data-testid="select-itcomponent"
+        onClick={() => onFiltersChange({ ...filters, types: ["ITComponent"] })}
+      />
+    </div>
+  ),
   CORE_COLUMNS: [],
   CORE_COLUMN_KEYS: [],
   LOCKED_COLUMN_KEYS: new Set<string>(),
@@ -253,5 +274,151 @@ describe("InventoryPage", () => {
 
     // Grid should still be rendered (with empty initial data)
     expect(screen.getByTestId("ag-grid")).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Relation column loading
+//
+// Relation columns used to be filled by one instance-wide `GET /relations?type=`
+// per relation type, re-run on every card reload. They are now a single request
+// scoped server-side to the selected card type, keyed only on that type.
+// ---------------------------------------------------------------------------
+
+const MOCK_REL_TYPES = [
+  {
+    key: "app_to_itc",
+    label: "uses",
+    reverse_label: "used by",
+    source_type_key: "Application",
+    target_type_key: "ITComponent",
+    cardinality: "n:m",
+    attributes_schema: [],
+    built_in: true,
+    is_hidden: false,
+    sort_order: 0,
+  },
+  {
+    key: "app_to_obj",
+    label: "supports",
+    reverse_label: "supported by",
+    source_type_key: "Application",
+    target_type_key: "Objective",
+    cardinality: "n:m",
+    attributes_schema: [],
+    built_in: true,
+    is_hidden: false,
+    sort_order: 1,
+  },
+];
+
+describe("InventoryPage relation loading", () => {
+  function relationCalls() {
+    return vi
+      .mocked(api.get)
+      .mock.calls.map((c) => c[0] as string)
+      .filter((p) => p.startsWith("/relations"));
+  }
+
+  beforeEach(() => {
+    vi.mocked(useMetamodel).mockReturnValue({
+      types: [
+        ...MOCK_TYPES,
+        {
+          key: "ITComponent",
+          label: "IT Component",
+          icon: "memory",
+          color: "#d29270",
+          category: "Technical Architecture",
+          has_hierarchy: false,
+          subtypes: [],
+          fields_schema: [],
+          is_hidden: false,
+        },
+      ],
+      relationTypes: MOCK_REL_TYPES,
+      loading: false,
+      getType: (key: string) => MOCK_TYPES.find((t) => t.key === key),
+      getRelationsForType: () => MOCK_REL_TYPES,
+      invalidateCache: vi.fn(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+  });
+
+  it("issues exactly one scoped relations request for the selected type", async () => {
+    renderInventory("/inventory?type=Application");
+
+    await waitFor(() => expect(relationCalls().length).toBeGreaterThan(0));
+    // Give any stray extra fetches a chance to land before asserting the count.
+    await waitFor(() => expect(screen.getByTestId("ag-grid")).toBeInTheDocument());
+
+    const calls = relationCalls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain("card_type=Application");
+    // Both relation types touching Application, in one request.
+    expect(decodeURIComponent(calls[0])).toContain("types=app_to_itc,app_to_obj");
+    // Never the old per-type form.
+    expect(calls[0]).not.toMatch(/[?&]type=/);
+  });
+
+  it("does not refetch relations when the card list reloads", async () => {
+    // The relation set is filtered server-side by card_type, so it does not
+    // depend on which cards are loaded. Keying the fetch on `data` meant a full
+    // refetch on every search keystroke and filter toggle.
+    renderInventory("/inventory?type=Application");
+    await waitFor(() => expect(relationCalls()).toHaveLength(1));
+
+    const cardCalls = () =>
+      vi.mocked(api.get).mock.calls.filter((c) => (c[0] as string).startsWith("/cards"))
+        .length;
+    const cardCallsBefore = cardCalls();
+
+    await userEvent.click(screen.getByTestId("apply-search"));
+
+    await waitFor(() => expect(cardCalls()).toBeGreaterThan(cardCallsBefore));
+    // Cards reloaded; relations did not.
+    expect(relationCalls()).toHaveLength(1);
+  });
+
+  it("discards a superseded relations response", async () => {
+    // `api.get` has no AbortSignal, so a slow response for type A must not
+    // overwrite a newer one for type B.
+    let resolveSlow: (v: unknown) => void = () => {};
+    const slow = new Promise((r) => {
+      resolveSlow = r;
+    });
+    let relCall = 0;
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve(MOCK_CARDS);
+      if (path.startsWith("/bookmarks")) return Promise.resolve([]);
+      if (path.startsWith("/relations")) {
+        relCall += 1;
+        // First request (Application) hangs; the second (ITComponent) wins.
+        return relCall === 1 ? (slow as Promise<unknown>) : Promise.resolve([]);
+      }
+      return Promise.resolve({});
+    });
+
+    renderInventory("/inventory?type=Application");
+    await waitFor(() => expect(relationCalls()).toHaveLength(1));
+
+    await userEvent.click(screen.getByTestId("select-itcomponent"));
+    await waitFor(() => expect(relationCalls().length).toBeGreaterThan(1));
+
+    // The stale first response lands last — it must be ignored, not applied.
+    resolveSlow([
+      {
+        id: "stale",
+        type: "app_to_itc",
+        source_id: "c1",
+        target_id: "c9",
+        source: { id: "c1", type: "Application", name: "SAP ERP" },
+        target: { id: "c9", type: "ITComponent", name: "Stale Target" },
+      },
+    ]);
+    await slow;
+
+    // No crash, grid intact — the generation guard dropped the stale payload.
+    await waitFor(() => expect(screen.getByTestId("ag-grid")).toBeInTheDocument());
   });
 });

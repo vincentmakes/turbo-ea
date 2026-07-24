@@ -26,6 +26,7 @@
   "columns.metadata": "元数据",
   "columns.attributes": "属性",
   "columns.relations": "关系",
+  "columns.relationsLoading": "正在加载关系…",
   "columns.stakeholders": "干系人",
   "columns.stakeholderRole": "干系人：{{role}}",
   "columns.reset": "重置",
@@ -238,6 +239,7 @@
   "export.allFieldsHint": "完整数据集，可重新导入",
   "export.currentView": "导出当前视图",
   "export.currentViewHint": "与屏幕上的表格一致 — 不适合重新导入",
+  "export.waitingForRelations": "正在等待关系列加载完成…",
   "export.viewSheetName": "视图",
   "columns.id": "ID"
 }

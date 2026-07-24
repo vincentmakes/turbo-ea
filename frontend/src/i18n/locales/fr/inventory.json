@@ -26,6 +26,7 @@
   "columns.metadata": "Métadonnées",
   "columns.attributes": "Attributs",
   "columns.relations": "Relations",
+  "columns.relationsLoading": "Chargement des relations…",
   "columns.stakeholders": "Parties prenantes",
   "columns.stakeholderRole": "Parties prenantes : {{role}}",
   "columns.reset": "Réinitialiser",
@@ -238,6 +239,7 @@
   "export.allFieldsHint": "Jeu de données complet, réimportable",
   "export.currentView": "Exporter la vue actuelle",
   "export.currentViewHint": "Reflète la grille affichée — non réimportable",
+  "export.waitingForRelations": "En attente du chargement des colonnes de relations…",
   "export.viewSheetName": "Vue",
   "columns.id": "ID"
 }

@@ -26,6 +26,7 @@
   "columns.metadata": "Metadados",
   "columns.attributes": "Atributos",
   "columns.relations": "Relações",
+  "columns.relationsLoading": "A carregar relações…",
   "columns.stakeholders": "Partes interessadas",
   "columns.stakeholderRole": "Partes interessadas: {{role}}",
   "columns.reset": "Redefinir",
@@ -238,6 +239,7 @@
   "export.allFieldsHint": "Conjunto de dados completo, reimportável",
   "export.currentView": "Exportar vista atual",
   "export.currentViewHint": "Espelha a grade exibida — não adequada para reimportação",
+  "export.waitingForRelations": "A aguardar o carregamento das colunas de relações…",
   "export.viewSheetName": "Vista",
   "columns.id": "ID"
 }

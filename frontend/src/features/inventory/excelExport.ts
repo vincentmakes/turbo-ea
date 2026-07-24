@@ -40,6 +40,9 @@ import type { Card, CardType, Relation, RelationType, StakeholderRoleOption } fr
 const FORMAT_VERSION = "2";
 const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"] as const;
 const MAX_PATH_DEPTH = 8;
+// Card ids per `GET /relations?card_ids=` / `GET /cards?ids=` request. Keeps
+// URLs reasonable and stays under the endpoint's 500-id cap.
+const RELATION_ID_CHUNK = 200;
 const META_SHEET_NAME = "_Meta";
 const RELATIONS_SHEET_NAME = "Relations";
 
@@ -153,16 +156,36 @@ function sheetNameForType(type: CardType, taken: Set<string>): string {
 }
 
 /**
- * Fetch every active relation in one round-trip and filter client-side to
- * outgoing edges from the export's source set. Replaces an earlier per-card
- * loop that was both O(N) HTTP calls and silently swallowed any single
- * failure into an empty list — making the workbook ship with empty `rel:`
- * columns when the network blipped on any one request.
+ * Fetch the relations touching the export's source set and filter to the
+ * outgoing edges.
+ *
+ * Scoped server-side via `GET /relations?card_ids=`, chunked like
+ * `enrichMissingTargets` below — this used to pull *every* relation in the
+ * instance and filter client-side, which grew linearly with the landscape no
+ * matter how small the export. (An earlier version before that did one request
+ * per card, which was O(N) HTTP calls and silently swallowed any single
+ * failure into an empty list.)
+ *
+ * `card_ids` matches source **or** target, so a relation whose two endpoints
+ * land in different chunks comes back twice — dedup by relation id before
+ * filtering.
+ *
+ * A failing chunk is deliberately NOT swallowed: half the relations is worse
+ * than none, because the workbook would look complete while quietly missing
+ * edges. Letting it throw aborts the download, exactly as the single-request
+ * version did. (Contrast `enrichMissingTargets`, which does skip failed
+ * chunks — it degrades a ref to a bare name, it never drops a row.)
  */
 async function fetchOutgoingRelations(sourceIds: Set<string>): Promise<Relation[]> {
   if (sourceIds.size === 0) return [];
-  const rels = await api.get<Relation[]>("/relations");
-  return rels.filter((r) => sourceIds.has(r.source_id));
+  const ids = [...sourceIds];
+  const byId = new Map<string, Relation>();
+  for (let i = 0; i < ids.length; i += RELATION_ID_CHUNK) {
+    const chunk = ids.slice(i, i + RELATION_ID_CHUNK);
+    const rels = await api.get<Relation[]>(`/relations?card_ids=${chunk.join(",")}`);
+    for (const rel of rels) byId.set(rel.id, rel);
+  }
+  return [...byId.values()].filter((r) => sourceIds.has(r.source_id));
 }
 
 /**

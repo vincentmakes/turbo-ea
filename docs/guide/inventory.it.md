@@ -183,4 +183,4 @@ Alcune precisazioni sull'importazione:
 
 Cliccate su **Esporta**. Il filtro corrente determina il contenuto: con un filtro per tipo singolo, un foglio per quel tipo; senza filtro, un foglio per ogni tipo presente. In ogni caso la cartella di lavoro include `Relations` e `_Meta` e può essere reimportata senza perdere gli attributi specifici del tipo.
 
-Potete anche scegliere **Esporta vista corrente** dal menu Esporta: un'istantanea piatta su un unico foglio che rispecchia ciò che è a schermo (solo le colonne visibili, nel loro ordine corrente, per le righe filtrate). È pensata per la condivisione e **non è adatta al reimport**.
+Potete anche scegliere **Esporta vista corrente** dal menu Esporta: un'istantanea piatta su un unico foglio che rispecchia ciò che è a schermo (solo le colonne visibili, nel loro ordine corrente, per le righe filtrate). È pensata per la condivisione e **non è adatta al reimport**. Se le colonne delle relazioni sono ancora in caricamento, l'esportazione le attende, quindi non possono mai risultare vuote.

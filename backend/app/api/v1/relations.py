@@ -3,9 +3,9 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import aliased, selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
@@ -31,6 +31,12 @@ from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/relations", tags=["relations"])
+
+# Upper bound on `GET /relations?card_ids=`. Callers that need more (the Excel
+# exporter walks the whole filtered inventory) chunk client-side; rejecting is
+# deliberate so an over-long list can never be silently truncated into a
+# partial answer that reads as complete.
+MAX_CARD_IDS_PER_QUERY = 500
 
 
 async def _resolve_relation_labels(
@@ -121,28 +127,35 @@ async def _emit_relation_events(
 
 
 def _rel_to_response(
-    r: Relation, *, strip_cost_keys: frozenset[str] = frozenset()
+    r: Relation,
+    *,
+    strip_cost_keys: frozenset[str] = frozenset(),
+    source_ref: CardRef | None = None,
+    target_ref: CardRef | None = None,
 ) -> RelationResponse:
-    source_ref = (
-        CardRef(
+    """Serialise a relation.
+
+    ``source_ref`` / ``target_ref`` let a caller supply the card refs it already
+    selected (see ``list_relations``, which joins the two cards and pulls only
+    the four ``CardRef`` columns). When omitted we fall back to the eagerly
+    loaded ``r.source`` / ``r.target`` relationships — note both are
+    ``lazy="noload"``, so an un-eager-loaded relation yields ``None`` rather
+    than emitting a query.
+    """
+    if source_ref is None and r.source:
+        source_ref = CardRef(
             id=str(r.source.id),
             type=r.source.type,
             name=r.source.name,
             subtype=r.source.subtype,
         )
-        if r.source
-        else None
-    )
-    target_ref = (
-        CardRef(
+    if target_ref is None and r.target:
+        target_ref = CardRef(
             id=str(r.target.id),
             type=r.target.type,
             name=r.target.name,
             subtype=r.target.subtype,
         )
-        if r.target
-        else None
-    )
     attrs = r.attributes
     if strip_cost_keys and attrs:
         attrs = {k: v for k, v in attrs.items() if k not in strip_cost_keys}
@@ -201,31 +214,119 @@ async def list_relations(
     user: User = Depends(get_current_user),
     card_id: str | None = Query(None),
     type: str | None = Query(None),
+    card_type: str | None = Query(
+        None,
+        description=(
+            "Card-type key. Keeps relations whose source **or** target card is "
+            "of this type — what the inventory grid needs to populate the "
+            "relation columns of the selected type in one round trip."
+        ),
+    ),
+    types: str | None = Query(
+        None,
+        description=(
+            "Comma-separated relation-type keys. Superset of `type`, which "
+            "stays for backwards compatibility."
+        ),
+    ),
+    card_ids: str | None = Query(
+        None,
+        description=(
+            "Comma-separated card UUIDs. Keeps relations whose source **or** "
+            f"target is one of them. At most {MAX_CARD_IDS_PER_QUERY} ids per "
+            "request — chunk larger sets client-side."
+        ),
+    ),
 ):
-    q = select(Relation)
-
-    # Exclude relations involving cards of hidden types
+    # Join both endpoint cards up front. Every visibility guard below then
+    # becomes a predicate on an already-joined row (reached by primary key)
+    # instead of a `NOT IN (SELECT ...)` subplan — Postgres cannot turn those
+    # into anti-joins, and `cards.status` is unindexed, so the previous form
+    # scanned the whole card table twice per request.
+    #
+    # The joins also let us select just the four `CardRef` columns instead of
+    # `selectinload`-ing two complete `Card` rows (whose `attributes` /
+    # `lifecycle` JSONB and `description` were fetched, hydrated and then
+    # discarded), and they carry the `card_type` filter for free.
+    #
+    # INNER JOIN is safe: `source_id` / `target_id` are NOT NULL FKs with
+    # ON DELETE CASCADE, so a relation without both cards cannot exist.
+    src = aliased(Card)
+    tgt = aliased(Card)
     hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
-    src_fs = select(Card.id).where(Card.type.in_(hidden_types_sq))
-    q = q.where(Relation.source_id.not_in(src_fs), Relation.target_id.not_in(src_fs))
 
-    # Hide relations whose source or target is archived. Rows are kept on
-    # archive so they reappear on restore; hard-delete and the 30-day
-    # auto-purge clean them up.
-    archived_sq = select(Card.id).where(Card.status == "ARCHIVED")
-    q = q.where(Relation.source_id.not_in(archived_sq), Relation.target_id.not_in(archived_sq))
+    q = (
+        select(
+            Relation,
+            src.id,
+            src.type,
+            src.name,
+            src.subtype,
+            tgt.id,
+            tgt.type,
+            tgt.name,
+            tgt.subtype,
+        )
+        .join(src, Relation.source_id == src.id)
+        .join(tgt, Relation.target_id == tgt.id)
+        # Exclude relations involving cards of hidden types.
+        .where(src.type.not_in(hidden_types_sq), tgt.type.not_in(hidden_types_sq))
+        # Hide relations whose source or target is archived. Rows are kept on
+        # archive so they reappear on restore; hard-delete and the 30-day
+        # auto-purge clean them up.
+        .where(src.status != "ARCHIVED", tgt.status != "ARCHIVED")
+    )
 
     if card_id:
         uid = uuid.UUID(card_id)
         q = q.where((Relation.source_id == uid) | (Relation.target_id == uid))
     if type:
         q = q.where(Relation.type == type)
+    if card_type:
+        q = q.where(or_(src.type == card_type, tgt.type == card_type))
+    if types is not None:
+        type_list = [t.strip() for t in types.split(",") if t.strip()]
+        if not type_list:
+            return []
+        if len(type_list) == 1:
+            q = q.where(Relation.type == type_list[0])
+        else:
+            q = q.where(Relation.type.in_(type_list))
+    if card_ids is not None:
+        raw_ids = [c.strip() for c in card_ids.split(",") if c.strip()]
+        if len(raw_ids) > MAX_CARD_IDS_PER_QUERY:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"card_ids accepts at most {MAX_CARD_IDS_PER_QUERY} ids per request "
+                    f"(got {len(raw_ids)}). Split the set into smaller batches."
+                ),
+            )
+        # Skip silently-malformed UUIDs so a single bad id doesn't 500 a batch,
+        # matching `GET /cards?ids=`.
+        id_list: list[uuid.UUID] = []
+        for raw in raw_ids:
+            try:
+                id_list.append(uuid.UUID(raw))
+            except ValueError:
+                continue
+        if not id_list:
+            return []
+        q = q.where(or_(Relation.source_id.in_(id_list), Relation.target_id.in_(id_list)))
 
-    q = q.options(selectinload(Relation.source), selectinload(Relation.target))
     result = await db.execute(q)
-    rels = list(result.scalars().all())
+    rows = result.all()
+    rels = [row[0] for row in rows]
     redact = await _relation_cost_redaction(db, user, rels)
-    return [_rel_to_response(r, strip_cost_keys=redact.get(r.id, frozenset())) for r in rels]
+    return [
+        _rel_to_response(
+            row[0],
+            strip_cost_keys=redact.get(row[0].id, frozenset()),
+            source_ref=CardRef(id=str(row[1]), type=row[2], name=row[3], subtype=row[4]),
+            target_ref=CardRef(id=str(row[5]), type=row[6], name=row[7], subtype=row[8]),
+        )
+        for row in rows
+    ]
 
 
 @router.post("", response_model=RelationResponse, status_code=201)

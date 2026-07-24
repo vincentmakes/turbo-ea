@@ -211,7 +211,7 @@ Klik på **Export** i værktøjslinjen. Det aktuelle gitter-filter bestemmer ind
 - **Single-type-filter aktivt** → ét kort-ark for den type, plus Relations-arket for eventuelle egenskabs-bærende relationer, plus `_Meta`.
 - **Intet filter eller multi-type-filter** → ét ark pr. type til stede, plus Relations-arket, plus `_Meta`. Projektmappen er fuldt redigerbar og kan re-importeres uden at miste pr.-type-egenskaber.
 
-Du kan også vælge **Eksportér aktuel visning** i Export-menuen — et fladt enkelt-ark-øjebliksbillede, der afspejler det viste (kun de synlige kolonner, i deres aktuelle rækkefølge, for de filtrerede rækker). Det er beregnet til deling og er **ikke egnet til genimport**.
+Du kan også vælge **Eksportér aktuel visning** i Export-menuen — et fladt enkelt-ark-øjebliksbillede, der afspejler det viste (kun de synlige kolonner, i deres aktuelle rækkefølge, for de filtrerede rækker). Det er beregnet til deling og er **ikke egnet til genimport**. Hvis relationskolonnerne stadig indlæses, venter eksporten på dem, så de aldrig kan ende med at være tomme.
 
 ### Round-trip-tips
 

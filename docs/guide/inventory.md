@@ -220,7 +220,7 @@ Click **Export** in the toolbar and choose one of two options:
 - **Export all fields** — the full, re-importable workbook described below. The current grid filter determines the contents:
     - **Single-type filter active** → one card sheet for that type, plus the Relations sheet for any attribute-bearing relations, plus `_Meta`.
     - **No filter or multi-type filter** → one sheet per type present, plus the Relations sheet, plus `_Meta`. The workbook is fully editable and can be re-imported without losing per-type attributes.
-- **Export current view** — a flat, single-sheet snapshot that mirrors exactly what's on screen: only the **visible columns**, in their current **left-to-right order**, with the displayed column headers, for the **filtered rows**. Use this to share an organized view with stakeholders. This format carries no card IDs and only the columns you chose, so it is **not suitable for re-import** — use *Export all fields* when you intend to edit and re-import.
+- **Export current view** — a flat, single-sheet snapshot that mirrors exactly what's on screen: only the **visible columns**, in their current **left-to-right order**, with the displayed column headers, for the **filtered rows**. Use this to share an organized view with stakeholders. This format carries no card IDs and only the columns you chose, so it is **not suitable for re-import** — use *Export all fields* when you intend to edit and re-import. If relation columns are still loading, the export waits for them, so they can never come out blank.
 
 ### Round-trip tips
 

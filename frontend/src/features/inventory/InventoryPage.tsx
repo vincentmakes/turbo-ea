@@ -13,6 +13,7 @@ import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import Menu from "@mui/material/Menu";
 import ListItemText from "@mui/material/ListItemText";
+import CircularProgress from "@mui/material/CircularProgress";
 import Divider from "@mui/material/Divider";
 import TextField from "@mui/material/TextField";
 import Chip from "@mui/material/Chip";
@@ -680,41 +681,81 @@ export default function InventoryPage() {
     return keys;
   }, [relTypeGroupMap]);
 
-  // Fetch and index relations for each relevant relation type
+  // True while the relation request is in flight. Relation cells render a
+  // placeholder instead of looking empty — an empty cell is indistinguishable
+  // from "no relations", which is what made slow loads read as missing data
+  // (and made "Export current view" silently lossy).
+  const [relationsLoading, setRelationsLoading] = useState(false);
+  // Monotonic request id. `api.get` exposes no AbortSignal, so a superseded
+  // response is discarded by comparing generations — otherwise a slow request
+  // for type A can land after a fast one for type B and overwrite it.
+  const relationsGenRef = useRef(0);
+  // The in-flight fetch, so "Export current view" can await it.
+  const relationsInflightRef = useRef<Promise<void> | null>(null);
+
+  // Fetch and index every relation touching the selected card type.
+  //
+  // One request, filtered server-side to `card_type` + the relation types this
+  // grid actually renders. This used to be N parallel `?type=<key>` requests
+  // (10+ for Application), each returning every relation of that type in the
+  // instance, of which `buildRelationIndex` kept only the edges touching the
+  // selected type.
   const fetchRelations = useCallback(async () => {
+    const gen = ++relationsGenRef.current;
     if (!selectedType || allRelTypeKeys.length === 0) {
+      relationsInflightRef.current = null;
       setRelationsMap(new Map());
+      setRelationsLoading(false);
       return;
     }
 
-    // Fetch all relation types (including grouped duplicates)
-    const allRts = allRelTypeKeys.map((key) => relationTypes.find((rt) => rt.key === key)!).filter(Boolean);
-    const newMap = new Map<string, Map<string, string[]>>();
-    const results = await Promise.all(
-      allRts.map((rt) =>
-        api.get<Relation[]>(`/relations?type=${rt.key}`).catch(() => [] as Relation[])
-      )
-    );
+    setRelationsLoading(true);
+    const run = (async () => {
+      let rels: Relation[] = [];
+      try {
+        const params = new URLSearchParams({
+          card_type: selectedType,
+          types: allRelTypeKeys.join(","),
+        });
+        rels = await api.get<Relation[]>(`/relations?${params}`);
+      } catch {
+        rels = [];
+      }
+      // A newer fetch has started; its result wins and it owns the flags.
+      if (gen !== relationsGenRef.current) return;
 
-    for (let i = 0; i < allRts.length; i++) {
-      const rt = allRts[i];
-      const rels = results[i];
-      newMap.set(rt.key, buildRelationIndex(rels, rt, selectedType));
-    }
-    setRelationsMap(newMap);
+      // Bucket the flat response per relation type, then index each bucket
+      // exactly as before — `relationsMap` keeps its shape, so the column
+      // defs, sidebar filters and relation popover are unaffected.
+      const byType = new Map<string, Relation[]>();
+      for (const rel of rels) {
+        const bucket = byType.get(rel.type);
+        if (bucket) bucket.push(rel);
+        else byType.set(rel.type, [rel]);
+      }
+      const newMap = new Map<string, Map<string, string[]>>();
+      for (const key of allRelTypeKeys) {
+        const rt = relationTypes.find((r) => r.key === key);
+        if (!rt) continue;
+        newMap.set(key, buildRelationIndex(byType.get(key) ?? [], rt, selectedType));
+      }
+      setRelationsMap(newMap);
+      setRelationsLoading(false);
+      relationsInflightRef.current = null;
+    })();
+    relationsInflightRef.current = run;
+    await run;
   }, [selectedType, allRelTypeKeys, relationTypes]);
 
-  // Fetch relations when data or relevant types change
+  // Relations depend only on the selected type and its relation types — the
+  // server filters by `card_type`, so the result is the same regardless of
+  // which cards happen to be loaded. Deliberately NOT keyed on `data`: that
+  // dependency re-fetched every relation in the instance on each search
+  // keystroke, filter toggle, archive and inline edit. Explicit refreshes
+  // after a relation edit still call `fetchRelations()` directly.
   useEffect(() => {
-    if (data.length === 0) {
-      setRelationsMap(new Map());
-      return;
-    }
-
-    let cancelled = false;
-    fetchRelations().then(() => { if (cancelled) return; });
-    return () => { cancelled = true; };
-  }, [fetchRelations, data]);
+    fetchRelations();
+  }, [fetchRelations]);
 
   // Pre-computed hierarchy display paths (id → "Parent / Child").
   // Built once from raw API data; completely detached from the mutable row objects
@@ -988,7 +1029,19 @@ export default function InventoryPage() {
   // after filtering — in sort order. WYSIWYG, not importable. Values are read
   // straight from the grid (via valueGetters/valueFormatters) so relation,
   // lifecycle, path and date columns come out exactly as displayed.
-  const handleExportCurrentView = useCallback(() => {
+  const handleExportCurrentView = useCallback(async () => {
+    // Relation columns read from `relationsMap`, which is populated
+    // asynchronously. Exporting mid-fetch used to emit blank relation cells
+    // that looked like real "no relations" data, so wait for the in-flight
+    // request first. Grid values are read after the await, never before.
+    if (relationsInflightRef.current) {
+      try {
+        await relationsInflightRef.current;
+      } catch {
+        // A failed relation fetch already degrades to an empty map; export
+        // what we have rather than blocking the download.
+      }
+    }
     const api = gridRef.current?.api;
     if (!api) return;
     // Exclude AG Grid's auto-generated columns (the row-selection / controls
@@ -1977,15 +2030,29 @@ export default function InventoryPage() {
                 <Typography
                   variant="body2"
                   sx={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}
-                  title={p.value}
+                  title={relationsLoading && !p.value ? t("columns.relationsLoading") : p.value}
                 >
-                  {p.value || <span style={{ opacity: 0.5 }}>{t("columns.clickToEdit")}</span>}
+                  {p.value ||
+                    (relationsLoading ? (
+                      <span style={{ opacity: 0.5 }}>…</span>
+                    ) : (
+                      <span style={{ opacity: 0.5 }}>{t("columns.clickToEdit")}</span>
+                    ))}
                 </Typography>
                 <MaterialSymbol icon="edit" size={14} />
               </Box>
             );
           }
-          if (!p.value) return "";
+          if (!p.value) {
+            // Distinguish "still loading" from "no relations" — an empty cell
+            // during the fetch window reads as missing data.
+            if (!relationsLoading) return "";
+            return (
+              <span style={{ opacity: 0.5 }} title={t("columns.relationsLoading")}>
+                …
+              </span>
+            );
+          }
           return (
             <Box
               sx={{
@@ -2127,7 +2194,7 @@ export default function InventoryPage() {
     );
 
     return cols;
-  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, selectedType, parentPaths, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, tagGroups, stakeholderRoles, typeLabel]);
+  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, relationsLoading, selectedType, parentPaths, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, tagGroups, stakeholderRoles, typeLabel]);
 
   // Restore the saved column layout (order/width/pinning/sort) onto the grid.
   // Keyed on `columnDefs` so it re-applies each time the column *set* changes —
@@ -2560,8 +2627,13 @@ export default function InventoryPage() {
           >
             <ListItemText
               primary={t("export.currentView")}
-              secondary={t("export.currentViewHint")}
+              secondary={
+                relationsLoading
+                  ? t("export.waitingForRelations")
+                  : t("export.currentViewHint")
+              }
             />
+            {relationsLoading && <CircularProgress size={14} sx={{ ml: 1 }} />}
           </MenuItem>
         </Menu>
 

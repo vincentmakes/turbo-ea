@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.27.0] - 2026-07-24
+
+### Changed
+- **Relation columns in the inventory load in one request instead of one per relation type.** Selecting a card type used to fire a separate request for every relation type touching it (10+ for Application), each returning every relation of that type in the whole landscape — of which the grid kept only a fraction. It is now a single request scoped server-side to the selected type, and it no longer re-runs every time the card list reloads (searching, filtering or editing a cell used to trigger a full reload of every relation in the instance).
+- **Relation cells now show a loading indicator while they load**, so a cell that is still loading is no longer indistinguishable from a card that genuinely has no relations.
+- **`GET /relations` gained `card_type`, `types` and `card_ids` filters** so callers can fetch only the edges they need. The endpoint is also substantially faster in its own right: it no longer scans the card table to hide archived and hidden-type rows, and it no longer loads complete card records (custom attributes, lifecycle, description) just to return each endpoint's name.
+
+### Fixed
+- **«Export current view» no longer produces empty relation columns** when started before relation data has finished loading. The export now waits for the in-flight request, so the spreadsheet can never silently contain blank relation cells that look like real "no relations" data.
+
 ## [2.26.0] - 2026-07-24
 
 ### Added
