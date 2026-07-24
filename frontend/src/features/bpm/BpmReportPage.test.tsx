@@ -47,6 +47,34 @@ const mockElementMap = [
   },
 ];
 
+const mockOrgMatrix = {
+  rows: [
+    { id: "p1", name: "Order to Cash" },
+    { id: "p2", name: "Procure to Pay" },
+  ],
+  columns: [
+    { id: "o1", name: "Sales" },
+    { id: "o2", name: "Finance" },
+  ],
+  cells: [
+    {
+      process_id: "p1",
+      organization_id: "o1",
+      steps: [
+        { element_id: "e1", element_name: "Create Quote", element_type: "task", lane_name: "Sales" },
+        { element_id: "e2", element_name: "Confirm Order", element_type: "task", lane_name: null },
+      ],
+    },
+    {
+      process_id: "p2",
+      organization_id: "o2",
+      steps: [
+        { element_id: "e3", element_name: "Send Invoice", element_type: "task", lane_name: null },
+      ],
+    },
+  ],
+};
+
 function renderPage() {
   return render(
     <MemoryRouter>
@@ -61,11 +89,12 @@ beforeEach(() => {
 });
 
 describe("BpmReportsContent", () => {
-  it("shows five sub-tabs", () => {
+  it("shows six sub-tabs", () => {
     renderPage();
     expect(screen.getByText("Process Map")).toBeInTheDocument();
     expect(screen.getByText("Capability × Process")).toBeInTheDocument();
     expect(screen.getByText("Process × Application")).toBeInTheDocument();
+    expect(screen.getByText("Process × Organization")).toBeInTheDocument();
     expect(screen.getByText("Process Dependencies")).toBeInTheDocument();
     expect(screen.getByText("Element-Application Map")).toBeInTheDocument();
   });
@@ -119,6 +148,64 @@ describe("BpmReportsContent", () => {
 
       await waitFor(() => {
         expect(screen.getByText(/No data.*Link processes to applications/)).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe("Process × Organization tab", () => {
+    it("shows the execution matrix with step counts", async () => {
+      vi.mocked(api.get).mockResolvedValue(mockOrgMatrix);
+      renderPage();
+      await userEvent.click(screen.getByRole("tab", { name: "Process × Organization" }));
+
+      await waitFor(() => {
+        expect(screen.getByText("Process × Organization Matrix (Execution)")).toBeInTheDocument();
+        expect(screen.getByText("Order to Cash")).toBeInTheDocument();
+        expect(screen.getByText("2 steps")).toBeInTheDocument();
+        expect(screen.getByText("1 step")).toBeInTheDocument();
+      });
+      // Org appears as both a filter chip and a column header.
+      expect(screen.getAllByText("Sales").length).toBeGreaterThanOrEqual(2);
+    });
+
+    it("shows empty state when no data", async () => {
+      vi.mocked(api.get).mockResolvedValue({ rows: [], columns: [], cells: [] });
+      renderPage();
+      await userEvent.click(screen.getByRole("tab", { name: "Process × Organization" }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/No data.*Link Organizations/)).toBeInTheDocument();
+      });
+    });
+
+    it("expands a row to show the executed steps", async () => {
+      vi.mocked(api.get).mockResolvedValue(mockOrgMatrix);
+      renderPage();
+      await userEvent.click(screen.getByRole("tab", { name: "Process × Organization" }));
+      await waitFor(() => {
+        expect(screen.getByTestId("expand-p1")).toBeInTheDocument();
+      });
+      await userEvent.click(screen.getByTestId("expand-p1"));
+
+      await waitFor(() => {
+        expect(screen.getByText("Create Quote (Sales)")).toBeInTheDocument();
+        expect(screen.getByText("Confirm Order")).toBeInTheDocument();
+      });
+    });
+
+    it("filters processes by organization", async () => {
+      vi.mocked(api.get).mockResolvedValue(mockOrgMatrix);
+      renderPage();
+      await userEvent.click(screen.getByRole("tab", { name: "Process × Organization" }));
+      await waitFor(() => {
+        expect(screen.getByText("Order to Cash")).toBeInTheDocument();
+      });
+      // Click the Finance filter chip (first occurrence, above the table).
+      await userEvent.click(screen.getAllByText("Finance")[0]);
+
+      await waitFor(() => {
+        expect(screen.queryByText("Order to Cash")).not.toBeInTheDocument();
+        expect(screen.getByText("Procure to Pay")).toBeInTheDocument();
       });
     });
   });

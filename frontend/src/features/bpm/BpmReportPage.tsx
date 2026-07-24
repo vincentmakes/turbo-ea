@@ -1,8 +1,8 @@
 /**
  * BpmReportsContent — Sub-tabbed BPM report views embedded in BpmDashboard.
- * Tabs: Process Map, Capability×Process, Process×App, Dependencies, Element-App Map
+ * Tabs: Process Map, Capability×Process, Process×App, Process×Org, Dependencies, Element-App Map
  */
-import { useState, useEffect } from "react";
+import { Fragment, useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -18,6 +18,10 @@ import TableRow from "@mui/material/TableRow";
 import TableContainer from "@mui/material/TableContainer";
 import Paper from "@mui/material/Paper";
 import Chip from "@mui/material/Chip";
+import Collapse from "@mui/material/Collapse";
+import IconButton from "@mui/material/IconButton";
+import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import LinearProgress from "@mui/material/LinearProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
@@ -41,6 +45,7 @@ export default function BpmReportsContent() {
         <Tab label={t("reports.processMap")} icon={<MaterialSymbol icon="account_tree" size={18} />} iconPosition="start" />
         <Tab label={t("reports.capabilityProcess")} />
         <Tab label={t("reports.processApplication")} />
+        <Tab label={t("reports.processOrganization")} />
         <Tab label={t("reports.processDependencies")} />
         <Tab label={t("reports.elementApplicationMap")} />
       </Tabs>
@@ -48,8 +53,9 @@ export default function BpmReportsContent() {
       {tab === 0 && <ProcessMapReport />}
       {tab === 1 && <CapabilityProcessMatrix onOpenCard={setSidePanelCardId} />}
       {tab === 2 && <ProcessAppMatrix onOpenCard={setSidePanelCardId} />}
-      {tab === 3 && <ProcessDependencies onOpenCard={setSidePanelCardId} />}
-      {tab === 4 && <ElementAppMap onOpenCard={setSidePanelCardId} />}
+      {tab === 3 && <ProcessOrgMatrix onOpenCard={setSidePanelCardId} />}
+      {tab === 4 && <ProcessDependencies onOpenCard={setSidePanelCardId} />}
+      {tab === 5 && <ElementAppMap onOpenCard={setSidePanelCardId} />}
       <CardDetailSidePanel
         cardId={sidePanelCardId}
         open={!!sidePanelCardId}
@@ -176,6 +182,212 @@ function ProcessAppMatrix({ onOpenCard }: { onOpenCard: (id: string) => void }) 
                   })}
                 </TableRow>
               ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ================================================================== */
+/*  Process × Organization Matrix (execution — from step links)        */
+/* ================================================================== */
+
+function ProcessOrgMatrix({ onOpenCard }: { onOpenCard: (id: string) => void }) {
+  const { t } = useTranslation(["bpm", "common"]);
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [orgFilter, setOrgFilter] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.get<any>("/reports/bpm/process-organization-matrix")
+      .then(setData)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const toggleOrg = (orgId: string) => {
+    setOrgFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(orgId)) next.delete(orgId);
+      else next.add(orgId);
+      return next;
+    });
+  };
+
+  const { columns, rows } = useMemo(() => {
+    if (!data) return { columns: [], rows: [] };
+    const visibleColumns =
+      orgFilter.size > 0
+        ? data.columns.filter((c: any) => orgFilter.has(c.id))
+        : data.columns;
+    const columnIds = new Set(visibleColumns.map((c: any) => c.id));
+    const term = search.trim().toLowerCase();
+    const visibleRows = data.rows.filter((r: any) => {
+      if (term && !r.name.toLowerCase().includes(term)) return false;
+      // With an org filter active, only keep processes that org executes in.
+      if (orgFilter.size > 0) {
+        return data.cells.some(
+          (x: any) => x.process_id === r.id && columnIds.has(x.organization_id)
+        );
+      }
+      return true;
+    });
+    return { columns: visibleColumns, rows: visibleRows };
+  }, [data, orgFilter, search]);
+
+  if (loading) return <LinearProgress />;
+  if (!data || !data.rows.length) {
+    return <Typography color="text.secondary">{t("reports.noDataLinkOrganizations")}</Typography>;
+  }
+
+  const cellFor = (processId: string, orgId: string) =>
+    data.cells.find((x: any) => x.process_id === processId && x.organization_id === orgId);
+
+  return (
+    <Card>
+      <CardContent>
+        <Typography variant="subtitle2" gutterBottom>{t("reports.processOrganizationMatrix")}</Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
+          {t("reports.processOrganizationSubtitle")}
+        </Typography>
+
+        {/* Filters: process name search + org chips */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5, flexWrap: "wrap" }}>
+          <TextField
+            size="small"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t("reports.filterProcesses")}
+            sx={{ minWidth: 200 }}
+          />
+          {data.columns.map((c: any) => (
+            <Chip
+              key={c.id}
+              label={c.name}
+              size="small"
+              color={orgFilter.has(c.id) ? "info" : "default"}
+              variant={orgFilter.has(c.id) ? "filled" : "outlined"}
+              onClick={() => toggleOrg(c.id)}
+            />
+          ))}
+          {orgFilter.size > 0 && (
+            <Chip
+              label={t("reports.clearOrgFilter")}
+              size="small"
+              variant="outlined"
+              onDelete={() => setOrgFilter(new Set())}
+              onClick={() => setOrgFilter(new Set())}
+            />
+          )}
+        </Box>
+
+        <TableContainer sx={{ maxHeight: 500 }}>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: "bold" }} />
+                <TableCell sx={{ fontWeight: "bold" }}>{t("reports.process")}</TableCell>
+                {columns.map((c: any) => (
+                  <TableCell
+                    key={c.id}
+                    align="center"
+                    sx={{ fontWeight: "bold", whiteSpace: "nowrap", cursor: "pointer" }}
+                    onClick={() => toggleOrg(c.id)}
+                  >
+                    {c.name}
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {rows.map((r: any) => {
+                const expanded = expandedRow === r.id;
+                const rowCells = columns
+                  .map((c: any) => ({ org: c, cell: cellFor(r.id, c.id) }))
+                  .filter((x: any) => x.cell);
+                return (
+                  <Fragment key={r.id}>
+                    <TableRow hover>
+                      <TableCell sx={{ width: 34, p: 0.5 }}>
+                        <IconButton
+                          size="small"
+                          onClick={() => setExpandedRow(expanded ? null : r.id)}
+                          data-testid={`expand-${r.id}`}
+                        >
+                          <MaterialSymbol icon={expanded ? "expand_less" : "expand_more"} size={18} />
+                        </IconButton>
+                      </TableCell>
+                      <TableCell
+                        sx={{ cursor: "pointer", color: "primary.main" }}
+                        onClick={() => onOpenCard(r.id)}
+                      >
+                        {r.name}
+                      </TableCell>
+                      {columns.map((c: any) => {
+                        const cell = cellFor(r.id, c.id);
+                        return (
+                          <TableCell key={c.id} align="center">
+                            {cell ? (
+                              <Tooltip
+                                title={cell.steps
+                                  .map((s: any) => s.element_name || t("viewer.unnamed"))
+                                  .join(", ")}
+                              >
+                                <Chip
+                                  label={t("reports.stepsCount", { count: cell.steps.length })}
+                                  size="small"
+                                  color="info"
+                                  onClick={() => setExpandedRow(expanded ? null : r.id)}
+                                />
+                              </Tooltip>
+                            ) : (
+                              ""
+                            )}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                    <TableRow>
+                      <TableCell colSpan={columns.length + 2} sx={{ p: 0, border: 0 }}>
+                        <Collapse in={expanded} timeout="auto" unmountOnExit>
+                          <Box sx={{ px: 2, py: 1.5, bgcolor: "action.hover" }}>
+                            {rowCells.map(({ org, cell }: any) => (
+                              <Box key={org.id} sx={{ mb: 1 }}>
+                                <Typography
+                                  variant="caption"
+                                  sx={{ fontWeight: 600, cursor: "pointer", color: "primary.main" }}
+                                  onClick={() => onOpenCard(org.id)}
+                                >
+                                  {org.name}
+                                </Typography>
+                                <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.25 }}>
+                                  {cell.steps.map((s: any) => (
+                                    <Chip
+                                      key={s.element_id}
+                                      size="small"
+                                      variant="outlined"
+                                      label={
+                                        s.lane_name
+                                          ? `${s.element_name || t("viewer.unnamed")} (${s.lane_name})`
+                                          : s.element_name || t("viewer.unnamed")
+                                      }
+                                      sx={{ height: 22 }}
+                                    />
+                                  ))}
+                                </Box>
+                              </Box>
+                            ))}
+                          </Box>
+                        </Collapse>
+                      </TableCell>
+                    </TableRow>
+                  </Fragment>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>

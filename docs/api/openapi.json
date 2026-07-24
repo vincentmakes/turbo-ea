@@ -28028,6 +28028,26 @@
         ]
       }
     },
+    "/api/v1/reports/bpm/process-organization-matrix": {
+      "get": {
+        "description": "Process \u00d7 Organization execution grid, built from the informative\nstep \u2194 Organization links (never from card relations).\n\nOne cell per (process, organization) pair with the executed steps\nembedded, so the frontend can render both the matrix and the per-process\ndrill-down from a single call.",
+        "operationId": "process_organization_matrix_api_v1_reports_bpm_process_organization_matrix_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Process Organization Matrix",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/api/v1/reports/bpm/value-stream-matrix": {
       "get": {
         "description": "Value-stream \u00d7 Organization matrix with processes at intersections.\n\nOnly shows BusinessContext items with subtype 'valueStream' as columns.\nIncludes related apps and parent_id for nested process display.",

@@ -54,7 +54,7 @@ Los elementos BPMN pueden ser **vinculados a fichas de EA**. Por ejemplo, vincul
 
 ### Vincular Organizaciones
 
-La columna *Organización* de la tabla de pasos vincula los pasos a fichas de Organización, justo al lado de Aplicación / Objeto de Datos / Componente TI. A diferencia de esos vínculos de valor único, un paso puede vincularse a **varias** organizaciones — elíjalas una a una y elimínelas individualmente. Los vínculos de pasos son solo informativos — documentan qué organizaciones participan en un paso sin crear ninguna relación entre las fichas; las relaciones Proceso de Negocio ↔ Organización se gestionan por separado en la pestaña Relaciones de la ficha. Los nombres de los carriles siguen siendo texto libre del diagrama y no están conectados a fichas de Organización.
+La columna *Organización* de la tabla de pasos vincula los pasos a fichas de Organización, justo al lado de Aplicación / Objeto de Datos / Componente TI. A diferencia de esos vínculos de valor único, un paso puede vincularse a **varias** organizaciones — elíjalas una a una y elimínelas individualmente. Los vínculos de pasos son solo informativos — documentan qué organizaciones participan en un paso sin crear ninguna relación entre las fichas; las relaciones Proceso de Negocio ↔ Organización se gestionan por separado en la pestaña Relaciones de la ficha. Los nombres de los carriles siguen siendo texto libre del diagrama y no están conectados a fichas de Organización. La **Matriz Proceso × Organización** de los Informes BPM agrega estos vínculos en todos los procesos.
 
 ### Flujo de Aprobación
 
@@ -86,3 +86,4 @@ Tres informes especializados están disponibles desde el Panel de Control BPM:
 - **Informe de Madurez** — Distribución de procesos por nivel de madurez, tendencias a lo largo del tiempo
 - **Informe de Riesgos** — Vista general de la evaluación de riesgos, destacando los procesos que necesitan atención
 - **Informe de Automatización** — Análisis de los niveles de automatización en todo el panorama de procesos
+- **Matriz Proceso × Organización** — Qué organizaciones ejecutan pasos en qué procesos, con filtrado por organización y desglose de pasos por proceso (a partir de los vínculos informativos de pasos; las relaciones entre fichas no se incluyen)
