@@ -11769,6 +11769,167 @@
         "title": "SsoSettingsPayload",
         "type": "object"
       },
+      "StakeholderBulkOperation": {
+        "description": "One add/remove of a (card, user, role) stakeholder assignment.\n\nThe user may be referenced by ``user_id`` or by ``user_email`` (resolved\ncase-insensitively server-side) \u2014 the spreadsheet importer round-trips\nemails, the grid editor already holds ids.",
+        "properties": {
+          "action": {
+            "default": "add",
+            "enum": [
+              "add",
+              "remove"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "card_id": {
+            "title": "Card Id",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "row_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Row Index"
+          },
+          "user_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Email"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "card_id",
+          "role"
+        ],
+        "title": "StakeholderBulkOperation",
+        "type": "object"
+      },
+      "StakeholderBulkRequest": {
+        "properties": {
+          "dry_run": {
+            "default": false,
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "operations": {
+            "items": {
+              "$ref": "#/components/schemas/StakeholderBulkOperation"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Operations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "operations"
+        ],
+        "title": "StakeholderBulkRequest",
+        "type": "object"
+      },
+      "StakeholderBulkResponse": {
+        "properties": {
+          "added": {
+            "title": "Added",
+            "type": "integer"
+          },
+          "dry_run": {
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "removed": {
+            "title": "Removed",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/StakeholderBulkResult"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "results",
+          "added",
+          "removed",
+          "failed",
+          "dry_run"
+        ],
+        "title": "StakeholderBulkResponse",
+        "type": "object"
+      },
+      "StakeholderBulkResult": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "row_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Row Index"
+          },
+          "status": {
+            "enum": [
+              "added",
+              "removed",
+              "noop",
+              "error"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "StakeholderBulkResult",
+        "type": "object"
+      },
       "StakeholderCreate": {
         "properties": {
           "role": {
@@ -33308,6 +33469,48 @@
         "summary": "Card Permissions Schema",
         "tags": [
           "stakeholder-roles"
+        ]
+      }
+    },
+    "/api/v1/stakeholders/bulk": {
+      "post": {
+        "description": "Batched add/remove of stakeholder role assignments.\n\nUsed by the spreadsheet importer to apply `stakeholder:<role>` columns in\none round-trip instead of two calls per row. Mirrors `POST /relations/bulk`:\neach operation independently succeeds or fails, `dry_run=true` validates\neverything inside a savepoint that is rolled back.\n\nPermission: `stakeholders.manage` (or the card-level\n`card.manage_stakeholders` grant), checked per referenced card.",
+        "operationId": "bulk_stakeholders_api_v1_stakeholders_bulk_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StakeholderBulkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StakeholderBulkResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Stakeholders",
+        "tags": [
+          "stakeholders"
         ]
       }
     },

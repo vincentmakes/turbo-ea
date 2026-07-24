@@ -590,3 +590,208 @@ class TestSelfObserve:
             headers=auth_headers(viewer),
         )
         assert delete_resp.status_code == 204
+
+
+# ---------------------------------------------------------------------------
+# POST /stakeholders/bulk  (batched add/remove, spreadsheet importer)
+# ---------------------------------------------------------------------------
+
+
+class TestBulkStakeholders:
+    async def test_bulk_add_by_id_and_email(self, client, db, stakeholders_env):
+        """Ops may reference the user by user_id or (case-insensitive) email."""
+        admin = stakeholders_env["admin"]
+        member = stakeholders_env["member"]
+        viewer = stakeholders_env["viewer"]
+        card = stakeholders_env["card"]
+        resp = await client.post(
+            "/api/v1/stakeholders/bulk",
+            json={
+                "operations": [
+                    {"card_id": str(card.id), "user_id": str(member.id), "role": "responsible"},
+                    {"card_id": str(card.id), "user_email": "VIEWER@test.com", "role": "observer"},
+                ]
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["added"] == 2
+        assert data["removed"] == 0
+        assert data["failed"] == 0
+        assert data["dry_run"] is False
+        assert [r["status"] for r in data["results"]] == ["added", "added"]
+
+        list_resp = await client.get(
+            f"/api/v1/cards/{card.id}/stakeholders", headers=auth_headers(admin)
+        )
+        by_user = {s["user_id"]: s["role"] for s in list_resp.json()}
+        assert by_user[str(member.id)] == "responsible"
+        assert by_user[str(viewer.id)] == "observer"
+
+    async def test_bulk_add_duplicate_is_noop(self, client, db, stakeholders_env):
+        """Adding an assignment that already exists reports noop, not error."""
+        admin = stakeholders_env["admin"]
+        member = stakeholders_env["member"]
+        card = stakeholders_env["card"]
+        op = {"card_id": str(card.id), "user_id": str(member.id), "role": "responsible"}
+        first = await client.post(
+            "/api/v1/stakeholders/bulk",
+            json={"operations": [op]},
+            headers=auth_headers(admin),
+        )
+        assert first.json()["added"] == 1
+
+        second = await client.post(
+            "/api/v1/stakeholders/bulk",
+            json={"operations": [op]},
+            headers=auth_headers(admin),
+        )
+        data = second.json()
+        assert data["added"] == 0
+        assert data["results"][0]["status"] == "noop"
+
+    async def test_bulk_remove(self, client, db, stakeholders_env):
+        """Remove deletes an existing assignment; removing again is a noop."""
+        admin = stakeholders_env["admin"]
+        member = stakeholders_env["member"]
+        card = stakeholders_env["card"]
+        add = {"card_id": str(card.id), "user_id": str(member.id), "role": "responsible"}
+        await client.post(
+            "/api/v1/stakeholders/bulk",
+            json={"operations": [add]},
+            headers=auth_headers(admin),
+        )
+
+        remove = {**add, "action": "remove"}
+        resp = await client.post(
+            "/api/v1/stakeholders/bulk",
+            json={"operations": [remove]},
+            headers=auth_headers(admin),
+        )
+        data = resp.json()
+        assert data["removed"] == 1
+        assert data["results"][0]["status"] == "removed"
+
+        again = await client.post(
+            "/api/v1/stakeholders/bulk",
+            json={"operations": [remove]},
+            headers=auth_headers(admin),
+        )
+        assert again.json()["results"][0]["status"] == "noop"
+
+        list_resp = await client.get(
+            f"/api/v1/cards/{card.id}/stakeholders", headers=auth_headers(admin)
+        )
+        assert list_resp.json() == []
+
+    async def test_bulk_mixed_batch_partial_success(self, client, db, stakeholders_env):
+        """Bad rows fail individually without rolling back good rows."""
+        admin = stakeholders_env["admin"]
+        member = stakeholders_env["member"]
+        card = stakeholders_env["card"]
+        resp = await client.post(
+            "/api/v1/stakeholders/bulk",
+            json={
+                "operations": [
+                    {
+                        "row_index": 10,
+                        "card_id": str(card.id),
+                        "user_id": str(member.id),
+                        "role": "responsible",
+                    },
+                    {
+                        "row_index": 11,
+                        "card_id": str(card.id),
+                        "user_id": str(member.id),
+                        "role": "nonexistent_role",
+                    },
+                    {
+                        "row_index": 12,
+                        "card_id": str(card.id),
+                        "user_email": "ghost@test.com",
+                        "role": "observer",
+                    },
+                    {
+                        "row_index": 13,
+                        "card_id": str(uuid.uuid4()),
+                        "user_id": str(member.id),
+                        "role": "responsible",
+                    },
+                ]
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["added"] == 1
+        assert data["failed"] == 3
+        by_row = {r["row_index"]: r for r in data["results"]}
+        assert by_row[10]["status"] == "added"
+        assert "Invalid role" in by_row[11]["error"]
+        assert "User not found" in by_row[12]["error"]
+        assert by_row[13]["error"] == "Card not found"
+
+        list_resp = await client.get(
+            f"/api/v1/cards/{card.id}/stakeholders", headers=auth_headers(admin)
+        )
+        assert len(list_resp.json()) == 1
+
+    async def test_bulk_dry_run_persists_nothing(self, client, db, stakeholders_env):
+        """dry_run validates and reports but rolls everything back."""
+        admin = stakeholders_env["admin"]
+        member = stakeholders_env["member"]
+        card = stakeholders_env["card"]
+        resp = await client.post(
+            "/api/v1/stakeholders/bulk",
+            json={
+                "operations": [
+                    {"card_id": str(card.id), "user_id": str(member.id), "role": "responsible"}
+                ],
+                "dry_run": True,
+            },
+            headers=auth_headers(admin),
+        )
+        data = resp.json()
+        assert data["dry_run"] is True
+        assert data["added"] == 1
+
+        list_resp = await client.get(
+            f"/api/v1/cards/{card.id}/stakeholders", headers=auth_headers(admin)
+        )
+        assert list_resp.json() == []
+
+    async def test_bulk_viewer_gets_per_op_permission_errors(self, client, db, stakeholders_env):
+        """A caller without stakeholders.manage fails per-op, changes nothing."""
+        admin = stakeholders_env["admin"]
+        viewer = stakeholders_env["viewer"]
+        card = stakeholders_env["card"]
+        resp = await client.post(
+            "/api/v1/stakeholders/bulk",
+            json={
+                "operations": [
+                    {"card_id": str(card.id), "user_id": str(viewer.id), "role": "observer"}
+                ]
+            },
+            headers=auth_headers(viewer),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["failed"] == 1
+        assert data["results"][0]["error"] == "Not enough permissions"
+
+        list_resp = await client.get(
+            f"/api/v1/cards/{card.id}/stakeholders", headers=auth_headers(admin)
+        )
+        assert list_resp.json() == []
+
+    async def test_bulk_requires_user_reference(self, client, db, stakeholders_env):
+        """An op with neither user_id nor user_email is rejected at validation."""
+        admin = stakeholders_env["admin"]
+        card = stakeholders_env["card"]
+        resp = await client.post(
+            "/api/v1/stakeholders/bulk",
+            json={"operations": [{"card_id": str(card.id), "role": "responsible"}]},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 422

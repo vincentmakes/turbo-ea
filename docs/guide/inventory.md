@@ -34,7 +34,7 @@ The **Columns** tab in the side panel lets you choose which additional columns t
 - **Multiple types selected** — Only fields that are **common across all selected types** are available
 - **No type selected** — A hint message prompts you to select a card type first
 
-Columns are grouped into four categories:
+Columns are grouped into five categories:
 
 | Category | Description |
 |----------|-------------|
@@ -42,6 +42,7 @@ Columns are grouped into four categories:
 | **Metadata** | Created, Modified, Created by, Modified by |
 | **Attributes** | Custom fields defined in the metamodel (text, number, cost, date, select, etc.) |
 | **Relations** | Related card types (e.g., Applications linked to a Business Capability) |
+| **Stakeholders** | One column per stakeholder role defined for the selected card type (e.g. *Stakeholders: Responsible*), showing the assigned users as chips. In grid edit mode, double-click a cell to assign or remove users for that role directly from the grid (requires the *manage stakeholders* permission). |
 
 The **Path** column shows the card's hierarchy breadcrumb (e.g. `North America / Sales / Inside Sales`) without including the card's own name, so you can keep both Name and Path on screen at once.
 
@@ -149,7 +150,7 @@ Inventory exports and imports use a **multi-sheet Excel workbook** that round-tr
 
 A single export produces:
 
-- **One sheet per card type** present in the export (Application, Business Capability, IT Component, …). Each sheet carries the type's core columns, its custom `attr_<field_key>` columns, its lifecycle columns, and its `rel:<relation_type_key>` relation columns.
+- **One sheet per card type** present in the export (Application, Business Capability, IT Component, …). Each sheet carries the type's core columns, its custom `attr_<field_key>` columns, its lifecycle columns, its `rel:<relation_type_key>` relation columns, and its `stakeholder:<role_key>` stakeholder columns.
 - **A `Relations` sheet** for relation types that carry attributes (e.g. cost, description). Simple relations live inline on the card sheet; attribute-bearing relations live here.
 - **A `_Meta` sheet** carrying the workbook format version. The importer reads it to detect older formats and prints a banner.
 
@@ -177,6 +178,19 @@ Semicolons (not commas) separate targets because card names commonly contain `,`
 Cells are **declarative**: the set of targets in the cell becomes the complete set of outgoing relations of that type from that source after import. **Removing a target from the list drops that relation**; emptying the cell drops them all. Omitting the column entirely (no `rel:supports` column at all) leaves existing relations untouched.
 
 For backwards compatibility, the importer also accepts comma-separated cells (workbooks exported before this convention). A cell containing any `;` is always treated as semicolon-separated.
+
+### Stakeholder cells
+
+On every card sheet, `stakeholder:<role_key>` columns carry the users assigned to each stakeholder role, as **semicolon-separated email addresses** (the same convention as LeanIX's `subscriptions:<RoleType>` export columns):
+
+```text
+stakeholder:responsible  →  ada@corp.com; bob@corp.com
+stakeholder:observer     →  carol@corp.com
+```
+
+The **email address is the only accepted user reference** — display names can collide, so they are never used for matching. A `Name <email>` entry is tolerated in hand-authored files (the bracketed email is used); a bare display name produces a warning and is skipped.
+
+Like relation cells, stakeholder cells are **declarative per role**: the users listed in the cell become the complete assignment set for that role after import. Removing a user from the list unassigns them; emptying the cell clears the role; omitting the column entirely leaves that role's assignments untouched. Entries that don't match any user produce a warning and are skipped — they never block the import.
 
 ### Relations sheet
 

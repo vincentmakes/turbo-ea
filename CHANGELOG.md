@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.26.0] - 2026-07-24
+
+### Added
+- **Stakeholder columns in the inventory** — the grid now offers one dynamic column per stakeholder role of the selected card type («Stakeholders: Responsible», «Stakeholders: Observer», …), showing the assigned users as chips. The columns are toggled from a new *Stakeholders* section in the sidebar column picker, participate in saved views / persisted layouts like every other column, and are editable in grid edit mode via a user picker (RBAC-enforced: `stakeholders.manage` plus the per-card `card.manage_stakeholders` grant).
+- **Stakeholders round-trip through Excel import/export** — full-workbook exports carry one `stakeholder:<role_key>` column per role with semicolon-separated **email addresses** (the same convention as LeanIX's `subscriptions:` columns; emails are the only accepted user reference since display names can collide). The importer previews per-role changes and applies them declaratively (the cell content becomes the role's complete assignment set; absent columns leave assignments untouched). The current-view export and the CSV export include stakeholders too.
+- **`POST /stakeholders/bulk`** — batched add/remove of stakeholder role assignments with per-operation results and dry-run support, mirroring `/relations/bulk`. Used by the spreadsheet importer and the grid editor; permission checks (`stakeholders.manage` / `card.manage_stakeholders`) are enforced per referenced card.
+
 ## [2.25.1] - 2026-07-24
 
 ### Security

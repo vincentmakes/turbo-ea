@@ -55,6 +55,10 @@ interface Props {
   disabled?: boolean;
   size?: "small" | "medium";
   excludeIds?: string[];
+  // Render the dropdown inline instead of in a body-level portal. Needed when
+  // the picker lives inside an AG Grid popup cell editor, where a portalled
+  // popper counts as an outside click and cancels the edit.
+  disablePortal?: boolean;
 }
 
 export default function UserMultiSelect({
@@ -65,6 +69,7 @@ export default function UserMultiSelect({
   disabled = false,
   size = "small",
   excludeIds,
+  disablePortal = false,
 }: Props) {
   const [options, setOptions] = useState<UserOption[]>(_cache ?? []);
   const [loading, setLoading] = useState(false);
@@ -99,6 +104,7 @@ export default function UserMultiSelect({
     <Autocomplete
       multiple
       size={size}
+      disablePortal={disablePortal}
       open={open}
       onOpen={() => setOpen(true)}
       onClose={() => setOpen(false)}
