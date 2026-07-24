@@ -49,8 +49,12 @@ Jede Geschäftsprozess-Karte kann ein **BPMN 2.0 Prozessflussdiagramm** haben. D
 BPMN-Elemente können mit **EA-Karten verknüpft** werden. Verknüpfen Sie beispielsweise eine Aufgabe in Ihrem Prozessdiagramm mit der Anwendung, die sie unterstützt. Dies schafft eine nachvollziehbare Verbindung zwischen Ihrem Prozessmodell und Ihrer Architekturlandschaft:
 
 - Wählen Sie eine beliebige Aufgabe, ein Ereignis oder ein Gateway im BPMN-Diagramm
-- Das **Elementverknüpfungs**-Panel zeigt passende Karten (Anwendung, Datenobjekt, IT-Komponente)
+- Das **Elementverknüpfungs**-Panel zeigt passende Karten (Anwendung, Datenobjekt, IT-Komponente, Organisation)
 - Verknüpfen Sie das Element mit einer Karte — die Verbindung wird gespeichert und ist sowohl im Prozessfluss als auch in den Beziehungen der Karte sichtbar
+
+### Organisationen verknüpfen
+
+Die Spalte *Organisation* in der Schritttabelle verknüpft Schritte mit Organisationskarten, direkt neben Anwendung / Datenobjekt / IT-Komponente. Anders als diese Einzelverknüpfungen kann ein Schritt mit **mehreren** Organisationen verknüpft werden — wählen Sie sie einzeln aus und entfernen Sie sie einzeln. Schrittverknüpfungen sind rein informativ — sie dokumentieren, welche Organisationen an einem Schritt beteiligt sind, ohne eine Beziehung zwischen den Karten zu erzeugen; Beziehungen zwischen Geschäftsprozess und Organisation werden separat im Reiter „Beziehungen“ der Karte gepflegt. Lane-Namen bleiben reiner Freitext aus dem Diagramm und sind nicht mit Organisationskarten verbunden. Die **Prozess-×-Organisation-Matrix** in den BPM-Berichten aggregiert diese Verknüpfungen über alle Prozesse hinweg.
 
 ### Genehmigungsworkflow
 
@@ -82,3 +86,4 @@ Drei spezialisierte Berichte sind über das BPM-Dashboard verfügbar:
 - **Reifegradbericht** — Verteilung der Prozesse nach Reifegrad, Trends über die Zeit
 - **Risikobericht** — Risikobewertungsübersicht, Hervorhebung von Prozessen, die Aufmerksamkeit erfordern
 - **Automatisierungsbericht** — Analyse der Automatisierungsgrade in der Prozesslandschaft
+- **Prozess-×-Organisation-Matrix** — Welche Organisationen Schritte in welchen Prozessen ausführen, mit Filterung pro Organisation und Schritt-Drill-down pro Prozess (auf Basis der informativen Schrittverknüpfungen; Kartenbeziehungen sind nicht enthalten)

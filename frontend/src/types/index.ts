@@ -1037,6 +1037,8 @@ export interface ProcessElement {
   data_object_name?: string;
   it_component_id?: string;
   it_component_name?: string;
+  /** M:N — a step can be linked to several Organization cards. */
+  organizations?: { id: string; name: string }[];
   custom_fields?: Record<string, unknown>;
 }
 
@@ -1100,6 +1102,7 @@ export interface ProcessFlowVersion {
     application_id?: string;
     data_object_id?: string;
     it_component_id?: string;
+    organization_ids?: string[];
     custom_fields?: Record<string, unknown>;
   }>;
 }

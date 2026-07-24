@@ -49,8 +49,12 @@ Hvert forretningsproceskort kan have et **BPMN 2.0-procesflowdiagram**. Editoren
 BPMN-elementer kan **linkes til EA-kort**. For eksempel kan du linke en opgave i dit procesdiagram til den applikation, der understøtter den. Det skaber en sporbar forbindelse mellem din procesmodel og dit arkitekturlandskab:
 
 - Vælg en opgave, hændelse eller gateway i BPMN-diagrammet
-- Panelet **Element Linker** viser matchende kort (Application, Data Object, IT Component)
+- Panelet **Element Linker** viser matchende kort (Application, Data Object, IT Component, Organization)
 - Link elementet til et kort — forbindelsen gemmes og er synlig i både procesflowet og kortets relationer
+
+### Link organisationer
+
+Kolonnen *Organisation* i trintabellen linker trin til organisationskort, lige ved siden af Application / Data Object / IT Component. I modsætning til disse enkeltværdi-links kan et trin linkes til **flere** organisationer — vælg dem én ad gangen, og fjern dem enkeltvis. Trinlinks er kun informative — de dokumenterer, hvilke organisationer der er involveret i et trin, uden at oprette nogen relation mellem kortene; relationer mellem Forretningsproces og Organisation håndteres separat på kortets Relationer-fane. Banenavne forbliver ren fri tekst fra diagrammet og er ikke forbundet med organisationskort. **Proces × Organisation-matrixen** i BPM-rapporterne aggregerer disse links på tværs af alle processer.
 
 ### Godkendelses­arbejdsproces
 
@@ -82,3 +86,4 @@ Tre specialiserede rapporter er tilgængelige fra BPM-dashboardet:
 - **Modenhedsrapport** — Fordeling af processer efter modenhedsniveau, tendenser over tid
 - **Risikorapport** — Risikovurderings­overblik, der fremhæver processer, der kræver opmærksomhed
 - **Automatiseringsrapport** — Analyse af automatiseringsniveauer på tværs af proceslandskabet
+- **Proces × Organisation-matrix** — Hvilke organisationer udfører trin i hvilke processer, med filtrering pr. organisation og trin-drill-down pr. proces (baseret på de informative trinlinks; kortrelationer indgår ikke)

@@ -6,14 +6,14 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Body, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
-from app.models.process_element import ProcessElement
+from app.models.process_element import ProcessElement, ProcessElementOrganization
 from app.models.process_flow_version import ProcessFlowVersion
 from app.models.stakeholder import Stakeholder
 from app.models.todo import Todo
@@ -106,7 +106,11 @@ def _version_summary(v: ProcessFlowVersion) -> dict:
 
 
 def _apply_draft_link(elem: ProcessElement, link: dict, valid_card_ids: set[str]) -> None:
-    """Apply draft element link data to a ProcessElement, skipping stale references."""
+    """Apply draft element link data to a ProcessElement, skipping stale references.
+
+    The M:N ``organization_ids`` list is applied separately after flush (the
+    junction rows need the element's PK) — see the publish path.
+    """
     for attr, key in (
         ("application_id", "application_id"),
         ("data_object_id", "data_object_id"),
@@ -226,7 +230,9 @@ async def create_draft(
         draft_links_clone = base_version.draft_element_links
         if not draft_links_clone:
             existing_elems = await db.execute(
-                select(ProcessElement).where(ProcessElement.process_id == pid)
+                select(ProcessElement)
+                .options(selectinload(ProcessElement.organizations))
+                .where(ProcessElement.process_id == pid)
             )
             links_from_elements: dict = {}
             for elem in existing_elems.scalars().all():
@@ -237,6 +243,8 @@ async def create_draft(
                     link["data_object_id"] = str(elem.data_object_id)
                 if elem.it_component_id:
                     link["it_component_id"] = str(elem.it_component_id)
+                if elem.organizations:
+                    link["organization_ids"] = [str(o.id) for o in elem.organizations]
                 if elem.custom_fields:
                     link["custom_fields"] = elem.custom_fields
                 if link:
@@ -545,6 +553,7 @@ async def approve_version(
                 val = link_data.get(key)
                 if val:
                     linked_card_ids.add(val)
+            linked_card_ids.update(link_data.get("organization_ids") or [])
 
         valid_card_ids: set[str] = set()
         if linked_card_ids:
@@ -610,12 +619,32 @@ async def approve_version(
         all_elements = await db.execute(
             select(ProcessElement).where(ProcessElement.process_id == pid)
         )
+        elements_list = all_elements.scalars().all()
+
+        # Apply the drafts' M:N organization links (junction rows need the
+        # element PKs, hence after the flush above). Informative only — no
+        # card-to-card relation is created for organizations.
+        for el in elements_list:
+            draft_link = draft_links.get(el.bpmn_element_id, {})
+            if "organization_ids" not in draft_link:
+                continue
+            valid_orgs = [
+                oid for oid in (draft_link.get("organization_ids") or []) if oid in valid_card_ids
+            ]
+            await db.execute(
+                delete(ProcessElementOrganization).where(
+                    ProcessElementOrganization.element_id == el.id
+                )
+            )
+            for oid in valid_orgs:
+                db.add(ProcessElementOrganization(element_id=el.id, organization_id=uuid.UUID(oid)))
+
         link_ids: dict[str, set[uuid.UUID]] = {
             "application_id": set(),
             "data_object_id": set(),
             "it_component_id": set(),
         }
-        for el in all_elements.scalars().all():
+        for el in elements_list:
             if el.application_id:
                 link_ids["application_id"].add(el.application_id)
             if el.data_object_id:
@@ -836,6 +865,7 @@ async def get_draft_elements(
             val = link_data.get(key)
             if val:
                 card_ids.add(val)
+        card_ids.update(link_data.get("organization_ids") or [])
 
     # Resolve names
     name_map: dict[str, str] = {}
@@ -852,6 +882,7 @@ async def get_draft_elements(
         app_id = link.get("application_id")
         do_id = link.get("data_object_id")
         itc_id = link.get("it_component_id")
+        org_ids = link.get("organization_ids") or []
         elements.append(
             {
                 "bpmn_element_id": ext.bpmn_element_id,
@@ -867,6 +898,7 @@ async def get_draft_elements(
                 "data_object_name": name_map.get(do_id, "") if do_id else None,
                 "it_component_id": itc_id,
                 "it_component_name": name_map.get(itc_id, "") if itc_id else None,
+                "organizations": [{"id": oid, "name": name_map.get(oid, "")} for oid in org_ids],
                 "custom_fields": link.get("custom_fields"),
             }
         )
@@ -904,11 +936,20 @@ async def update_draft_element_link(
     links = dict(version.draft_element_links or {})
     existing = links.get(bpmn_element_id, {})
 
-    # Merge updates into existing link
-    for key in ("application_id", "data_object_id", "it_component_id", "custom_fields"):
+    from sqlalchemy.orm.attributes import flag_modified
+
+    # Merge updates into existing link. `organization_ids` is a list (M:N);
+    # an empty list clears the step's organizations, like "" for the FKs.
+    for key in (
+        "application_id",
+        "data_object_id",
+        "it_component_id",
+        "organization_ids",
+        "custom_fields",
+    ):
         if key in body:
             val = body[key]
-            if val == "" or val is None:
+            if val == "" or val is None or val == []:
                 existing.pop(key, None)
             else:
                 existing[key] = val
@@ -920,8 +961,6 @@ async def update_draft_element_link(
 
     version.draft_element_links = links
     # Force SQLAlchemy to detect the JSONB change
-    from sqlalchemy.orm.attributes import flag_modified
-
     flag_modified(version, "draft_element_links")
 
     await db.commit()

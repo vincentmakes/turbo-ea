@@ -53,3 +53,27 @@ class ProcessElement(Base, UUIDMixin, TimestampMixin):
     application = relationship("Card", foreign_keys=[application_id], lazy="noload")
     data_object = relationship("Card", foreign_keys=[data_object_id], lazy="noload")
     it_component = relationship("Card", foreign_keys=[it_component_id], lazy="noload")
+    organizations = relationship("Card", secondary="process_element_organizations", lazy="noload")
+
+
+class ProcessElementOrganization(Base):
+    """M:N junction between :class:`ProcessElement` and Organization cards.
+
+    Unlike the single application/data-object/IT-component FKs, a step can be
+    performed by / involve several Organizations. Composite PK on
+    (element_id, organization_id); cascade-deleted in both directions.
+    """
+
+    __tablename__ = "process_element_organizations"
+
+    element_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("process_elements.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("cards.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+    )

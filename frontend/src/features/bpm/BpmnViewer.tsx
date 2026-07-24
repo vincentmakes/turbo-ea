@@ -148,6 +148,9 @@ export default function BpmnViewer({ bpmnXml, elements, onElementClick, height =
               {popover.element.data_object_name && (
                 <Chip label={popover.element.data_object_name} size="small" color="secondary" />
               )}
+              {(popover.element.organizations || []).map((org) => (
+                <Chip key={org.id} label={org.name} size="small" color="info" />
+              ))}
             </Box>
           </Box>
         )}

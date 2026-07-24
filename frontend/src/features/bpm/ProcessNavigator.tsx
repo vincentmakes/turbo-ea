@@ -126,6 +126,7 @@ interface ProcessElementData {
   data_object_name?: string;
   it_component_id?: string;
   it_component_name?: string;
+  organizations?: { id: string; name: string }[];
   custom_fields?: Record<string, unknown>;
 }
 
@@ -1217,6 +1218,22 @@ function DrawerSteps({
                             }}
                           />
                         )}
+                        {(el.organizations || []).map((org) => (
+                          <Chip
+                            key={org.id}
+                            size="small"
+                            icon={<MaterialSymbol icon="corporate_fare" size={12} />}
+                            label={org.name}
+                            onClick={() => onNavigate(org.id)}
+                            sx={{
+                              height: 20,
+                              fontSize: "0.65rem",
+                              cursor: "pointer",
+                              bgcolor: "action.hover",
+                              "&:hover": { bgcolor: "action.selected" },
+                            }}
+                          />
+                        ))}
                       </Box>
                     </Box>
                   </Box>

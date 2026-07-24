@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -13,7 +13,7 @@ from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
 from app.models.process_diagram import ProcessDiagram
-from app.models.process_element import ProcessElement
+from app.models.process_element import ProcessElement, ProcessElementOrganization
 from app.models.user import User
 from app.schemas.bpm import DiagramSave, ElementUpdate
 from app.services.bpmn_parser import parse_bpmn_xml
@@ -379,6 +379,7 @@ async def list_elements(
             selectinload(ProcessElement.application),
             selectinload(ProcessElement.data_object),
             selectinload(ProcessElement.it_component),
+            selectinload(ProcessElement.organizations),
         )
         .where(ProcessElement.process_id == pid)
         .order_by(ProcessElement.sequence_order)
@@ -401,6 +402,7 @@ async def list_elements(
             "data_object_name": e.data_object.name if e.data_object else None,
             "it_component_id": str(e.it_component_id) if e.it_component_id else None,
             "it_component_name": e.it_component.name if e.it_component else None,
+            "organizations": [{"id": str(o.id), "name": o.name} for o in e.organizations],
             "custom_fields": e.custom_fields,
         }
         for e in elements
@@ -434,6 +436,28 @@ async def update_element(
         elem.data_object_id = uuid.UUID(body.data_object_id) if body.data_object_id else None
     if body.it_component_id is not None:
         elem.it_component_id = uuid.UUID(body.it_component_id) if body.it_component_id else None
+    if body.organization_ids is not None:
+        # Full replacement of the step's M:N Organization links. Informative
+        # only — unlike the FK links below, this never creates a card-to-card
+        # relation (process ↔ Organization relations are managed on the card).
+        org_ids = {uuid.UUID(o) for o in body.organization_ids if o}
+        if org_ids:
+            found = await db.execute(
+                select(Card.id).where(
+                    Card.id.in_(org_ids),
+                    Card.type == "Organization",
+                    Card.status == "ACTIVE",
+                )
+            )
+            if {row[0] for row in found.all()} != org_ids:
+                raise HTTPException(404, "Organization card not found")
+        await db.execute(
+            delete(ProcessElementOrganization).where(
+                ProcessElementOrganization.element_id == elem.id
+            )
+        )
+        for oid in org_ids:
+            db.add(ProcessElementOrganization(element_id=elem.id, organization_id=oid))
     if body.custom_fields is not None:
         elem.custom_fields = body.custom_fields
 

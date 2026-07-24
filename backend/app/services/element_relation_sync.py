@@ -20,6 +20,9 @@ from app.models.relation import Relation
 
 # Mapping from ProcessElement FK field → relation type key
 # All three have source = BusinessProcess, target = the linked type.
+# The M:N step ↔ Organization links are deliberately NOT in this map:
+# they are informative only and never create card-to-card relations
+# (process ↔ Organization relations are managed on the card itself).
 ELEMENT_LINK_RELATION_MAP: dict[str, str] = {
     "application_id": "relProcessToApp",
     "data_object_id": "relProcessToDataObj",

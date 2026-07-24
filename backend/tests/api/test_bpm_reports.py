@@ -435,6 +435,95 @@ class TestCapabilityHeatmap:
 # ---------------------------------------------------------------------------
 
 
+class TestProcessOrganizationMatrix:
+    async def test_empty_matrix(self, client, bpm_env):
+        resp = await client.get(
+            "/api/v1/reports/bpm/process-organization-matrix",
+            headers=auth_headers(bpm_env["admin"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"rows": [], "columns": [], "cells": []}
+
+    async def test_matrix_from_step_links(self, client, db, bpm_env):
+        """Cells come from the M:N step ↔ Organization junction, grouped per
+        (process, org) pair with the executed steps embedded."""
+        from app.models.process_element import ProcessElement, ProcessElementOrganization
+
+        admin = bpm_env["admin"]
+        proc = await create_card(db, card_type="BusinessProcess", name="O2C", user_id=admin.id)
+        sales = await create_card(db, card_type="Organization", name="Sales", user_id=admin.id)
+        finance = await create_card(db, card_type="Organization", name="Finance", user_id=admin.id)
+
+        quote = ProcessElement(
+            process_id=proc.id,
+            bpmn_element_id="task_quote",
+            element_type="task",
+            name="Create Quote",
+            lane_name="Sales",
+            sequence_order=0,
+        )
+        invoice = ProcessElement(
+            process_id=proc.id,
+            bpmn_element_id="task_invoice",
+            element_type="task",
+            name="Send Invoice",
+            sequence_order=1,
+        )
+        db.add_all([quote, invoice])
+        await db.flush()
+        db.add_all(
+            [
+                ProcessElementOrganization(element_id=quote.id, organization_id=sales.id),
+                ProcessElementOrganization(element_id=quote.id, organization_id=finance.id),
+                ProcessElementOrganization(element_id=invoice.id, organization_id=finance.id),
+            ]
+        )
+        await db.flush()
+
+        resp = await client.get(
+            "/api/v1/reports/bpm/process-organization-matrix",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+
+        assert [r["name"] for r in data["rows"]] == ["O2C"]
+        assert [c["name"] for c in data["columns"]] == ["Finance", "Sales"]
+        assert len(data["cells"]) == 2  # one per (process, org) pair
+
+        by_org = {c["organization_id"]: c for c in data["cells"]}
+        finance_cell = by_org[str(finance.id)]
+        assert {s["element_name"] for s in finance_cell["steps"]} == {
+            "Create Quote",
+            "Send Invoice",
+        }
+        sales_cell = by_org[str(sales.id)]
+        assert [s["element_name"] for s in sales_cell["steps"]] == ["Create Quote"]
+        assert sales_cell["steps"][0]["lane_name"] == "Sales"
+
+    async def test_card_relations_are_ignored(self, client, db, bpm_env):
+        """Only step links feed the matrix — a relProcessToOrg card relation
+        alone yields no rows (execution-only report)."""
+        admin = bpm_env["admin"]
+        proc = await create_card(db, card_type="BusinessProcess", name="Flow", user_id=admin.id)
+        org = await create_card(db, card_type="Organization", name="Sales", user_id=admin.id)
+        await create_relation(db, type_key="relProcessToOrg", source_id=proc.id, target_id=org.id)
+
+        resp = await client.get(
+            "/api/v1/reports/bpm/process-organization-matrix",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"rows": [], "columns": [], "cells": []}
+
+    async def test_permission_denied(self, client, bpm_env):
+        resp = await client.get(
+            "/api/v1/reports/bpm/process-organization-matrix",
+            headers=auth_headers(bpm_env["viewer"]),
+        )
+        assert resp.status_code == 403
+
+
 class TestElementApplicationMap:
     async def test_empty_map(self, client, bpm_env):
         resp = await client.get(

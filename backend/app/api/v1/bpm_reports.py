@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
-from app.models.process_element import ProcessElement
+from app.models.process_element import ProcessElement, ProcessElementOrganization
 from app.models.process_flow_version import ProcessFlowVersion
 from app.models.relation import Relation
 from app.models.user import User
@@ -285,6 +285,77 @@ async def capability_heatmap(
         )
 
     return {"metric": metric, "items": items}
+
+
+@router.get("/process-organization-matrix")
+async def process_organization_matrix(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Process × Organization execution grid, built from the informative
+    step ↔ Organization links (never from card relations).
+
+    One cell per (process, organization) pair with the executed steps
+    embedded, so the frontend can render both the matrix and the per-process
+    drill-down from a single call.
+    """
+    await PermissionService.require_permission(db, user, "reports.bpm_dashboard")
+
+    result = await db.execute(
+        select(ProcessElement, ProcessElementOrganization.organization_id)
+        .join(
+            ProcessElementOrganization,
+            ProcessElementOrganization.element_id == ProcessElement.id,
+        )
+        .order_by(ProcessElement.process_id, ProcessElement.sequence_order)
+    )
+    links = result.all()
+
+    process_ids: set = set()
+    org_ids: set = set()
+    steps_by_pair: dict[tuple, list[dict]] = {}
+    for elem, org_id in links:
+        process_ids.add(elem.process_id)
+        org_ids.add(org_id)
+        steps_by_pair.setdefault((elem.process_id, org_id), []).append(
+            {
+                "element_id": str(elem.id),
+                "element_name": elem.name,
+                "element_type": elem.element_type,
+                "lane_name": elem.lane_name,
+            }
+        )
+
+    all_ids = process_ids | org_ids
+    if not all_ids:
+        return {"rows": [], "columns": [], "cells": []}
+
+    card_result = await db.execute(
+        select(Card).where(Card.id.in_(all_ids), Card.status == "ACTIVE")
+    )
+    card_map = {card.id: card for card in card_result.scalars().all()}
+
+    rows = [
+        {"id": str(pid), "name": card_map[pid].name}
+        for pid in sorted(process_ids, key=lambda i: card_map[i].name if i in card_map else "")
+        if pid in card_map
+    ]
+    columns = [
+        {"id": str(oid), "name": card_map[oid].name}
+        for oid in sorted(org_ids, key=lambda i: card_map[i].name if i in card_map else "")
+        if oid in card_map
+    ]
+    cells = [
+        {
+            "process_id": str(pid),
+            "organization_id": str(oid),
+            "steps": steps,
+        }
+        for (pid, oid), steps in steps_by_pair.items()
+        if pid in card_map and oid in card_map
+    ]
+
+    return {"rows": rows, "columns": columns, "cells": cells}
 
 
 @router.get("/element-application-map")

@@ -325,6 +325,73 @@ describe("ProcessFlowTab", () => {
     });
   });
 
+  describe("Organization links (m:n)", () => {
+    function mockWithOrgs(elements = mockElements) {
+      vi.mocked(api.get).mockImplementation((url: string) => {
+        if (url.includes("/flow/permissions")) return Promise.resolve(mockPerms);
+        if (url.includes("/flow/published")) return Promise.resolve(mockPublished);
+        if (url.includes("/elements")) return Promise.resolve(elements);
+        if (url.includes("/flow/drafts")) return Promise.resolve(mockDrafts);
+        if (url.includes("/flow/archived")) return Promise.resolve(mockArchived);
+        return Promise.reject(new Error(`no mock for ${url}`));
+      });
+    }
+
+    const elementWithOrgs = {
+      ...mockElements[0],
+      organizations: [
+        { id: "org-1", name: "Sales Department" },
+        { id: "org-2", name: "Finance Dept" },
+      ],
+    };
+
+    it("shows an Organization column in the elements table", async () => {
+      mockWithOrgs();
+      renderTab();
+      await waitFor(() => {
+        expect(screen.getByText("Organization")).toBeInTheDocument();
+      });
+    });
+
+    it("shows the highlighted informative-only note above the table", async () => {
+      mockWithOrgs();
+      renderTab();
+      await waitFor(() => {
+        expect(
+          screen.getByText(/informative only and independent of card relationships/)
+        ).toBeInTheDocument();
+      });
+    });
+
+    it("shows one chip per linked organization on a step", async () => {
+      mockWithOrgs([elementWithOrgs]);
+      renderTab();
+      await waitFor(() => {
+        expect(screen.getByText("Sales Department")).toBeInTheDocument();
+        expect(screen.getByText("Finance Dept")).toBeInTheDocument();
+      });
+    });
+
+    it("removing a chip sends the remaining organization_ids", async () => {
+      mockWithOrgs([elementWithOrgs]);
+      vi.mocked(api.put).mockResolvedValue({ id: "el1", status: "updated" });
+      renderTab();
+      await waitFor(() => {
+        expect(screen.getByText("Sales Department")).toBeInTheDocument();
+      });
+      const chip = screen.getByText("Sales Department").closest(".MuiChip-root")!;
+      const deleteIcon = chip.querySelector(".MuiChip-deleteIcon");
+      expect(deleteIcon).not.toBeNull();
+      await userEvent.click(deleteIcon as Element);
+      await waitFor(() => {
+        expect(api.put).toHaveBeenCalledWith(
+          "/bpm/processes/proc-1/elements/el1",
+          { organization_ids: ["org-2"] },
+        );
+      });
+    });
+  });
+
   it("hides Drafts and Archived tabs when no draft access", async () => {
     vi.mocked(api.get).mockImplementation((url: string) => {
       if (url.includes("/flow/permissions"))

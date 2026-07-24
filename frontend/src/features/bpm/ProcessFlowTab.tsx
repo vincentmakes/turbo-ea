@@ -494,6 +494,67 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     );
   };
 
+  const renderOrgCell = (
+    element: ProcessElement,
+    onUpdate: (id: string, updates: Record<string, unknown>) => void,
+    elementId: string,
+  ) => {
+    const orgs = element.organizations || [];
+    const isEditing = editingCell?.elementId === elementId && editingCell?.field === "organization";
+
+    if (isEditing) {
+      // Picking a card adds it to the step's organizations (M:N).
+      return (
+        <CardPicker
+          types="Organization"
+          value={null}
+          excludeIds={orgs.map((o) => o.id)}
+          onChange={(val) => {
+            if (val) {
+              onUpdate(elementId, { organization_ids: [...orgs.map((o) => o.id), val.id] });
+            } else {
+              setEditingCell(null);
+            }
+          }}
+          onBlur={() => setEditingCell(null)}
+          enabled={isEditing}
+          autoFocus
+          sx={{ minWidth: 160 }}
+          placeholder={t("flowTab.searchCardType", { type: "Organization" })}
+        />
+      );
+    }
+
+    return (
+      <Box
+        onClick={() => setEditingCell({ elementId, field: "organization" })}
+        sx={{ ...linkCellSx, height: "auto", flexWrap: "wrap", gap: 0.5, py: 0.25 }}
+      >
+        {orgs.length > 0 ? (
+          orgs.map((org) => (
+            <Chip
+              key={org.id}
+              label={org.name}
+              size="small"
+              color="info"
+              onDelete={() =>
+                onUpdate(elementId, {
+                  organization_ids: orgs.filter((o) => o.id !== org.id).map((o) => o.id),
+                })
+              }
+              sx={{ maxWidth: 160 }}
+            />
+          ))
+        ) : (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <MaterialSymbol icon="add_link" size={14} color="#bbb" />
+            <Typography variant="caption" color="text.disabled">{t("flowTab.linkCardType", { type: "Organization" })}</Typography>
+          </Box>
+        )}
+      </Box>
+    );
+  };
+
   const renderTCodeCell = (
     element: ProcessElement,
     onUpdate: (id: string, updates: Record<string, unknown>) => void,
@@ -561,6 +622,13 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
         <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>
           {subtitle}
         </Typography>
+        <Alert
+          severity="info"
+          icon={<MaterialSymbol icon="info" size={18} />}
+          sx={{ mb: 1, py: 0, "& .MuiAlert-message": { py: 0.75 } }}
+        >
+          {t("flowTab.organizationLinkNote")}
+        </Alert>
         <TableContainer component={Paper} variant="outlined">
           <Table size="small">
             <TableHead>
@@ -578,6 +646,14 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                 <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.application")}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.dataObject")}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.itComponent")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>
+                  <Tooltip title={t("flowTab.organizationTooltip")}>
+                    <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+                      {t("flowTab.organization")}
+                      <MaterialSymbol icon="info" size={14} color="#999" />
+                    </Box>
+                  </Tooltip>
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -602,6 +678,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                     <TableCell>{renderEditableCell(e, "application", "Application", onUpdate, elemKey)}</TableCell>
                     <TableCell>{renderEditableCell(e, "data_object", "DataObject", onUpdate, elemKey)}</TableCell>
                     <TableCell>{renderEditableCell(e, "it_component", "ITComponent", onUpdate, elemKey)}</TableCell>
+                    <TableCell>{renderOrgCell(e, onUpdate, elemKey)}</TableCell>
                   </TableRow>
                 );
               })}

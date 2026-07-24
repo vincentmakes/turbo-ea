@@ -49,8 +49,12 @@ Ogni card Business Process può avere un **diagramma del flusso di processo BPMN
 Gli elementi BPMN possono essere **collegati alle card EA**. Ad esempio, collegate un'attività nel vostro diagramma di processo all'Application che la supporta. Questo crea una connessione tracciabile tra il vostro modello di processo e il panorama architetturale:
 
 - Selezionate qualsiasi attività, evento o gateway nel diagramma BPMN
-- Il pannello **Element Linker** mostra le card corrispondenti (Application, Data Object, IT Component)
+- Il pannello **Element Linker** mostra le card corrispondenti (Application, Data Object, IT Component, Organization)
 - Collegate l'elemento a una card — la connessione è memorizzata e visibile sia nel flusso di processo che nelle relazioni della card
+
+### Collegare le organizzazioni
+
+La colonna *Organizzazione* della tabella dei passaggi collega i passaggi alle card Organization, accanto ad Application / Data Object / IT Component. A differenza di quei collegamenti a valore singolo, un passaggio può essere collegato a **più** organizzazioni — sceglietele una alla volta e rimuovetele singolarmente. I collegamenti dei passaggi sono puramente informativi — documentano quali organizzazioni sono coinvolte in un passaggio senza creare alcuna relazione tra le card; le relazioni Business Process ↔ Organization si gestiscono separatamente nella scheda Relazioni della card. I nomi delle corsie restano semplice testo libero del diagramma e non sono collegati alle card Organization. La **Matrice Processo × Organizzazione** nei Report BPM aggrega questi collegamenti su tutti i processi.
 
 ### Workflow di approvazione
 
@@ -82,3 +86,4 @@ Tre report specializzati sono disponibili dalla Dashboard BPM:
 - **Report Maturità** — Distribuzione dei processi per livello di maturità, tendenze nel tempo
 - **Report Rischio** — Panoramica della valutazione del rischio, evidenziando i processi che necessitano attenzione
 - **Report Automazione** — Analisi dei livelli di automazione nel panorama dei processi
+- **Matrice Processo × Organizzazione** — Quali organizzazioni eseguono passaggi in quali processi, con filtro per organizzazione e drill-down dei passaggi per processo (in base ai collegamenti informativi dei passaggi; le relazioni tra card non sono incluse)

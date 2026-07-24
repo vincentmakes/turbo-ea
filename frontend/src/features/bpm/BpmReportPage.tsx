@@ -1,8 +1,8 @@
 /**
  * BpmReportsContent — Sub-tabbed BPM report views embedded in BpmDashboard.
- * Tabs: Process Map, Capability×Process, Process×App, Dependencies, Element-App Map
+ * Tabs: Process Map, Capability×Process, Process×App, Process×Org, Dependencies, Element-App Map
  */
-import { useState, useEffect } from "react";
+import { Fragment, useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -18,6 +18,12 @@ import TableRow from "@mui/material/TableRow";
 import TableContainer from "@mui/material/TableContainer";
 import Paper from "@mui/material/Paper";
 import Chip from "@mui/material/Chip";
+import Collapse from "@mui/material/Collapse";
+import IconButton from "@mui/material/IconButton";
+import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
+import Autocomplete from "@mui/material/Autocomplete";
+import InputAdornment from "@mui/material/InputAdornment";
 import LinearProgress from "@mui/material/LinearProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
@@ -41,6 +47,7 @@ export default function BpmReportsContent() {
         <Tab label={t("reports.processMap")} icon={<MaterialSymbol icon="account_tree" size={18} />} iconPosition="start" />
         <Tab label={t("reports.capabilityProcess")} />
         <Tab label={t("reports.processApplication")} />
+        <Tab label={t("reports.processOrganization")} />
         <Tab label={t("reports.processDependencies")} />
         <Tab label={t("reports.elementApplicationMap")} />
       </Tabs>
@@ -48,8 +55,9 @@ export default function BpmReportsContent() {
       {tab === 0 && <ProcessMapReport />}
       {tab === 1 && <CapabilityProcessMatrix onOpenCard={setSidePanelCardId} />}
       {tab === 2 && <ProcessAppMatrix onOpenCard={setSidePanelCardId} />}
-      {tab === 3 && <ProcessDependencies onOpenCard={setSidePanelCardId} />}
-      {tab === 4 && <ElementAppMap onOpenCard={setSidePanelCardId} />}
+      {tab === 3 && <ProcessOrgMatrix onOpenCard={setSidePanelCardId} />}
+      {tab === 4 && <ProcessDependencies onOpenCard={setSidePanelCardId} />}
+      {tab === 5 && <ElementAppMap onOpenCard={setSidePanelCardId} />}
       <CardDetailSidePanel
         cardId={sidePanelCardId}
         open={!!sidePanelCardId}
@@ -176,6 +184,255 @@ function ProcessAppMatrix({ onOpenCard }: { onOpenCard: (id: string) => void }) 
                   })}
                 </TableRow>
               ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ================================================================== */
+/*  Process × Organization Matrix (execution — from step links)        */
+/* ================================================================== */
+
+function ProcessOrgMatrix({ onOpenCard }: { onOpenCard: (id: string) => void }) {
+  const { t } = useTranslation(["bpm", "common"]);
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [orgFilter, setOrgFilter] = useState<string[]>([]);
+  const [procFilter, setProcFilter] = useState<string[]>([]);
+  const [stepSearch, setStepSearch] = useState("");
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.get<any>("/reports/bpm/process-organization-matrix")
+      .then(setData)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const toggleOrg = (orgId: string) => {
+    setOrgFilter((prev) =>
+      prev.includes(orgId) ? prev.filter((id) => id !== orgId) : [...prev, orgId]
+    );
+  };
+
+  const term = stepSearch.trim().toLowerCase();
+  const matchingSteps = (cell: any) =>
+    term
+      ? cell.steps.filter((s: any) => (s.element_name || "").toLowerCase().includes(term))
+      : cell.steps;
+
+  const { columns, rows } = useMemo(() => {
+    if (!data) return { columns: [], rows: [] };
+    const orgSel = new Set(orgFilter);
+    let visibleColumns =
+      orgSel.size > 0 ? data.columns.filter((c: any) => orgSel.has(c.id)) : data.columns;
+    const columnIds = new Set(visibleColumns.map((c: any) => c.id));
+
+    const cellVisible = (cell: any) =>
+      columnIds.has(cell.organization_id) && matchingSteps(cell).length > 0;
+
+    const procSel = new Set(procFilter);
+    const visibleRows = data.rows.filter((r: any) => {
+      if (procSel.size > 0 && !procSel.has(r.id)) return false;
+      // With an org or step filter active, only keep processes with matches.
+      if (orgSel.size > 0 || term) {
+        return data.cells.some((x: any) => x.process_id === r.id && cellVisible(x));
+      }
+      return true;
+    });
+
+    // A step filter also drops org columns without any matching step.
+    if (term) {
+      const rowIds = new Set(visibleRows.map((r: any) => r.id));
+      visibleColumns = visibleColumns.filter((c: any) =>
+        data.cells.some(
+          (x: any) =>
+            x.organization_id === c.id &&
+            rowIds.has(x.process_id) &&
+            matchingSteps(x).length > 0
+        )
+      );
+    }
+    return { columns: visibleColumns, rows: visibleRows };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, orgFilter, procFilter, term]);
+
+  if (loading) return <LinearProgress />;
+  if (!data || !data.rows.length) {
+    return <Typography color="text.secondary">{t("reports.noDataLinkOrganizations")}</Typography>;
+  }
+
+  const cellFor = (processId: string, orgId: string) =>
+    data.cells.find((x: any) => x.process_id === processId && x.organization_id === orgId);
+
+  return (
+    <Card>
+      <CardContent>
+        <Typography variant="subtitle2" gutterBottom>{t("reports.processOrganizationMatrix")}</Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
+          {t("reports.processOrganizationSubtitle")}
+        </Typography>
+
+        {/* Filters: org + process multi-selects, step-name search */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2, flexWrap: "wrap" }}>
+          <Autocomplete
+            multiple
+            size="small"
+            limitTags={2}
+            disableCloseOnSelect
+            options={data.columns}
+            getOptionLabel={(o: any) => o.name}
+            isOptionEqualToValue={(a: any, b: any) => a.id === b.id}
+            value={data.columns.filter((c: any) => orgFilter.includes(c.id))}
+            onChange={(_, v: any[]) => setOrgFilter(v.map((x) => x.id))}
+            renderInput={(params) => (
+              <TextField {...params} label={t("reports.filterOrganizations")} />
+            )}
+            sx={{ minWidth: 240, maxWidth: 360 }}
+          />
+          <Autocomplete
+            multiple
+            size="small"
+            limitTags={2}
+            disableCloseOnSelect
+            options={data.rows}
+            getOptionLabel={(o: any) => o.name}
+            isOptionEqualToValue={(a: any, b: any) => a.id === b.id}
+            value={data.rows.filter((r: any) => procFilter.includes(r.id))}
+            onChange={(_, v: any[]) => setProcFilter(v.map((x) => x.id))}
+            renderInput={(params) => (
+              <TextField {...params} label={t("reports.filterProcesses")} />
+            )}
+            sx={{ minWidth: 240, maxWidth: 360 }}
+          />
+          <TextField
+            size="small"
+            value={stepSearch}
+            onChange={(e) => setStepSearch(e.target.value)}
+            placeholder={t("reports.filterSteps")}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <MaterialSymbol icon="search" size={18} color="#999" />
+                  </InputAdornment>
+                ),
+              },
+            }}
+            sx={{ minWidth: 220 }}
+          />
+        </Box>
+
+        <TableContainer sx={{ maxHeight: 500 }}>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: "bold" }} />
+                <TableCell sx={{ fontWeight: "bold" }}>{t("reports.process")}</TableCell>
+                {columns.map((c: any) => (
+                  <TableCell
+                    key={c.id}
+                    align="center"
+                    sx={{ fontWeight: "bold", whiteSpace: "nowrap", cursor: "pointer" }}
+                    onClick={() => toggleOrg(c.id)}
+                  >
+                    {c.name}
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {rows.map((r: any) => {
+                const expanded = expandedRow === r.id;
+                const rowCells = columns
+                  .map((c: any) => {
+                    const cell = cellFor(r.id, c.id);
+                    return { org: c, steps: cell ? matchingSteps(cell) : [] };
+                  })
+                  .filter((x: any) => x.steps.length > 0);
+                return (
+                  <Fragment key={r.id}>
+                    <TableRow hover>
+                      <TableCell sx={{ width: 34, p: 0.5 }}>
+                        <IconButton
+                          size="small"
+                          onClick={() => setExpandedRow(expanded ? null : r.id)}
+                          data-testid={`expand-${r.id}`}
+                        >
+                          <MaterialSymbol icon={expanded ? "expand_less" : "expand_more"} size={18} />
+                        </IconButton>
+                      </TableCell>
+                      <TableCell
+                        sx={{ cursor: "pointer", color: "primary.main" }}
+                        onClick={() => onOpenCard(r.id)}
+                      >
+                        {r.name}
+                      </TableCell>
+                      {columns.map((c: any) => {
+                        const cell = cellFor(r.id, c.id);
+                        const steps = cell ? matchingSteps(cell) : [];
+                        return (
+                          <TableCell key={c.id} align="center">
+                            {steps.length > 0 ? (
+                              <Tooltip
+                                title={steps
+                                  .map((s: any) => s.element_name || t("viewer.unnamed"))
+                                  .join(", ")}
+                              >
+                                <Chip
+                                  label={t("reports.stepsCount", { count: steps.length })}
+                                  size="small"
+                                  color="info"
+                                  onClick={() => setExpandedRow(expanded ? null : r.id)}
+                                />
+                              </Tooltip>
+                            ) : (
+                              ""
+                            )}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                    <TableRow>
+                      <TableCell colSpan={columns.length + 2} sx={{ p: 0, border: 0 }}>
+                        <Collapse in={expanded} timeout="auto" unmountOnExit>
+                          <Box sx={{ px: 2, py: 1.5, bgcolor: "action.hover" }}>
+                            {rowCells.map(({ org, steps }: any) => (
+                              <Box key={org.id} sx={{ mb: 1 }}>
+                                <Typography
+                                  variant="caption"
+                                  sx={{ fontWeight: 600, cursor: "pointer", color: "primary.main" }}
+                                  onClick={() => onOpenCard(org.id)}
+                                >
+                                  {org.name}
+                                </Typography>
+                                <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.25 }}>
+                                  {steps.map((s: any) => (
+                                    <Chip
+                                      key={s.element_id}
+                                      size="small"
+                                      variant="outlined"
+                                      label={
+                                        s.lane_name
+                                          ? `${s.element_name || t("viewer.unnamed")} (${s.lane_name})`
+                                          : s.element_name || t("viewer.unnamed")
+                                      }
+                                      sx={{ height: 22 }}
+                                    />
+                                  ))}
+                                </Box>
+                              </Box>
+                            ))}
+                          </Box>
+                        </Collapse>
+                      </TableCell>
+                    </TableRow>
+                  </Fragment>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>

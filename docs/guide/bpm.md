@@ -49,8 +49,12 @@ Each Business Process card can have a **BPMN 2.0 process flow diagram**. The edi
 BPMN elements can be **linked to EA cards**. For example, link a task in your process diagram to the Application that supports it. This creates a traceable connection between your process model and your architecture landscape:
 
 - Select any task, event, or gateway in the BPMN diagram
-- The **Element Linker** panel shows matching cards (Application, Data Object, IT Component)
+- The **Element Linker** panel shows matching cards (Application, Data Object, IT Component, Organization)
 - Link the element to a card — the connection is stored and visible in both the process flow and the card's relations
+
+### Linking Organizations
+
+The *Organization* column in the step table links steps to Organization cards, right next to Application / Data Object / IT Component. Unlike those single-value links, a step can be linked to **several** organizations — pick them one at a time and remove them individually. Step links are informative only — they document which organizations are involved in a step without creating any relation between the cards; Business Process ↔ Organization relations are managed separately on the card's Relations tab. Lane names remain plain free text from the diagram and are not connected to Organization cards. The **Process × Organization Matrix** in BPM Reports aggregates these links across all processes.
 
 ### Approval Workflow
 
@@ -82,3 +86,4 @@ Three specialized reports are available from the BPM Dashboard:
 - **Maturity Report** — Distribution of processes by maturity level, trends over time
 - **Risk Report** — Risk assessment overview, highlighting processes that need attention
 - **Automation Report** — Analysis of automation levels across the process landscape
+- **Process × Organization Matrix** — Which organizations execute steps in which processes, with per-organization filtering and a per-process step drill-down (built from the informative step links; card relations are not included)

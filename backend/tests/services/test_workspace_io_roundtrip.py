@@ -309,6 +309,55 @@ async def test_module_entities_roundtrip_and_recreate(db):
     ).scalar_one().content == "hello"
 
 
+async def test_process_element_organizations_roundtrip(db):
+    """The M:N step ↔ Organization junction exports and re-imports with the
+    element FK preserved verbatim and the organization card FK resolved by ref."""
+    from app.models.process_element import ProcessElement, ProcessElementOrganization
+
+    user = await create_user(db, email="bpm-owner@test.com", role="admin")
+    await create_card_type(db, key="BusinessProcess", label="Business Process")
+    await create_card_type(db, key="Organization", label="Organization")
+    process = await create_card(db, card_type="BusinessProcess", name="O2C", user_id=user.id)
+    org_a = await create_card(db, card_type="Organization", name="Sales", user_id=user.id)
+    org_b = await create_card(db, card_type="Organization", name="Finance", user_id=user.id)
+
+    elem = ProcessElement(
+        process_id=process.id,
+        bpmn_element_id="task_1",
+        element_type="task",
+        name="Create Quote",
+        lane_name="Sales",
+        sequence_order=0,
+    )
+    db.add(elem)
+    await db.flush()
+    elem_id = elem.id
+    db.add(ProcessElementOrganization(element_id=elem_id, organization_id=org_a.id))
+    db.add(ProcessElementOrganization(element_id=elem_id, organization_id=org_b.id))
+    await db.flush()
+
+    raw = await build_bundle(db)
+
+    # Delete the module rows, then re-apply: same ids, card FKs re-resolved.
+    await db.execute(
+        delete(ProcessElementOrganization).where(ProcessElementOrganization.element_id == elem_id)
+    )
+    await db.execute(delete(ProcessElement).where(ProcessElement.id == elem_id))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    restored = (
+        await db.execute(
+            select(ProcessElementOrganization.organization_id).where(
+                ProcessElementOrganization.element_id == elem_id
+            )
+        )
+    ).all()
+    assert {row[0] for row in restored} == {org_a.id, org_b.id}
+
+
 async def test_large_json_blob_survives_export_import(db):
     """A card whose attributes exceed Excel's 32k cell limit round-trips intact
     (regression for the 'Unterminated string' import error)."""

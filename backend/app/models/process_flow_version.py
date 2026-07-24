@@ -62,7 +62,8 @@ class ProcessFlowVersion(Base, UUIDMixin, TimestampMixin):
     # Draft-stage element links: pre-linked EA references before publishing.
     # Dict keyed by bpmn_element_id:
     #   {"Task_1": {"application_id": "uuid", "data_object_id": "uuid",
-    #               "it_component_id": "uuid", "custom_fields": {"tcode": "SE16"}}}
+    #               "it_component_id": "uuid", "organization_ids": ["uuid", ...],
+    #               "custom_fields": {"tcode": "SE16"}}}
     draft_element_links: Mapped[dict | None] = mapped_column(JSONB, default=dict)
 
     process = relationship("Card", lazy="noload")
