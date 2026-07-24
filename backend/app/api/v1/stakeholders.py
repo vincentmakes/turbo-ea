@@ -490,9 +490,13 @@ async def bulk_stakeholders(
     if body.dry_run:
         assert dry_run_savepoint is not None
         await dry_run_savepoint.rollback()
-    elif failed > 0 and added == 0 and removed == 0:
-        await db.rollback()
     else:
+        # A plain commit is correct even when every op failed: each op ran
+        # inside its own savepoint and failures already rolled themselves
+        # back, so an all-failed batch has nothing pending. Never call
+        # session.rollback() here — it tears down the whole request
+        # transaction (and, under the test harness's savepoint-rollback
+        # pattern, the test fixture data with it).
         await db.commit()
 
     return StakeholderBulkResponse(
