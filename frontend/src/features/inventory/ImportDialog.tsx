@@ -27,6 +27,8 @@ import {
   validateMultiSheet,
   type ImportReport,
   type ImportResult,
+  type StakeholderRolesByType,
+  type UserRef,
 } from "./excelImport";
 
 interface ImportDialogProps {
@@ -101,6 +103,37 @@ export default function ImportDialog({
       } catch {
         existingRelations = [];
       }
+      // Users + per-type stakeholder roles resolve `stakeholder:<role>`
+      // columns. Fetch failures degrade to "no stakeholder sync" (unresolved
+      // entries surface as warnings), never a blocked import.
+      let users: UserRef[] = [];
+      try {
+        users = await api.get<UserRef[]>("/users");
+      } catch {
+        users = [];
+      }
+      const typeKeysInFile = new Set<string>();
+      for (const sheet of parsed.sheets) {
+        if (sheet.typeHint) typeKeysInFile.add(sheet.typeHint);
+        for (const row of sheet.rows) {
+          const rowType = String(row["type"] ?? row["Type"] ?? "").trim();
+          if (rowType && allTypes.some((ct) => ct.key === rowType)) typeKeysInFile.add(rowType);
+        }
+      }
+      if (preSelectedType) typeKeysInFile.add(preSelectedType);
+      const stakeholderRolesByType: StakeholderRolesByType = {};
+      await Promise.all(
+        [...typeKeysInFile].map((key) =>
+          api
+            .get<{ key: string; label: string }[]>(
+              `/stakeholder-roles?type_key=${encodeURIComponent(key)}`,
+            )
+            .then((roles) => {
+              stakeholderRolesByType[key] = roles;
+            })
+            .catch(() => {}),
+        ),
+      );
       const rpt = await validateMultiSheet(
         parsed,
         existingCards,
@@ -110,6 +143,8 @@ export default function ImportDialog({
         preSelectedType,
         tagGroups,
         calculatedFields,
+        users,
+        stakeholderRolesByType,
       );
       setReport(rpt);
       setStep("report");
@@ -384,7 +419,10 @@ export default function ImportDialog({
                                 </TableCell>
                               ) : null}
                               <TableCell sx={{ whiteSpace: "nowrap", color: "text.secondary" }}>
-                                {field.replace(/^attr_/, "").replace(/^lifecycle_/, "lifecycle: ")}
+                                {field
+                                  .replace(/^attr_/, "")
+                                  .replace(/^lifecycle_/, "lifecycle: ")
+                                  .replace(/^stakeholder_/, "stakeholder: ")}
                               </TableCell>
                               <TableCell sx={{ color: "text.secondary", wordBreak: "break-word", maxWidth: 200 }}>
                                 <span style={{ textDecoration: "line-through", opacity: 0.6 }}>
@@ -478,10 +516,30 @@ export default function ImportDialog({
                   icon={<MaterialSymbol icon="link_off" size={14} />}
                 />
               )}
-              {(result.failed > 0 || result.relationsFailed > 0) && (
+              {result.stakeholdersAdded > 0 && (
+                <Chip
+                  label={t("import.stakeholdersAddedCount", { count: result.stakeholdersAdded })}
+                  color="success"
+                  size="small"
+                  icon={<MaterialSymbol icon="person_add" size={14} />}
+                />
+              )}
+              {result.stakeholdersRemoved > 0 && (
+                <Chip
+                  label={t("import.stakeholdersRemovedCount", {
+                    count: result.stakeholdersRemoved,
+                  })}
+                  color="warning"
+                  size="small"
+                  icon={<MaterialSymbol icon="person_remove" size={14} />}
+                />
+              )}
+              {(result.failed > 0 ||
+                result.relationsFailed > 0 ||
+                result.stakeholdersFailed > 0) && (
                 <Chip
                   label={t("import.failedCount", {
-                    count: result.failed + result.relationsFailed,
+                    count: result.failed + result.relationsFailed + result.stakeholdersFailed,
                   })}
                   color="error"
                   size="small"

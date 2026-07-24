@@ -12,11 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [2.25.0] - 2026-07-24
 
+<<<<<<< HEAD
 ### Changed
 - Upgraded the frontend to React 19 and React Router 8. This is a dependency migration with no functional changes — every page, editor, and report behaves exactly as before.
 
 ### Security
 - Fixed GHSA-qwww-vcr4-c8h2 (high severity) in react-router by moving to the patched 8.x line. `npm audit --omit=dev` now reports zero vulnerabilities.
+=======
+### Added
+- **Stakeholder columns in the inventory** — the grid now offers one dynamic column per stakeholder role of the selected card type («Stakeholders: Responsible», «Stakeholders: Observer», …), showing the assigned users as chips. The columns are toggled from a new *Stakeholders* section in the sidebar column picker, participate in saved views / persisted layouts like every other column, and are editable in grid edit mode via a user picker (RBAC-enforced: `stakeholders.manage` plus the per-card `card.manage_stakeholders` grant).
+- **Stakeholders round-trip through Excel import/export** — full-workbook exports carry one `stakeholder:<role_key>` column per role with `Name <email>` entries; the importer resolves entries by email (or unambiguous display name), previews per-role changes, and applies them declaratively (the cell content becomes the role's complete assignment set; absent columns leave assignments untouched). The current-view export and the CSV export include stakeholders too.
+- **`POST /stakeholders/bulk`** — batched add/remove of stakeholder role assignments with per-operation results and dry-run support, mirroring `/relations/bulk`. Used by the spreadsheet importer and the grid editor; permission checks (`stakeholders.manage` / `card.manage_stakeholders`) are enforced per referenced card.
+>>>>>>> d662e0e (Add per-role stakeholder columns to the inventory grid, export, and import)
 
 ## [2.24.1] - 2026-07-24
 

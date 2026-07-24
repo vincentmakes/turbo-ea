@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.schemas.risk_mitigation_task import MAX_LEAD_TIME_DAYS, RecurrenceUnitLiteral
 
@@ -10,6 +11,47 @@ from app.schemas.risk_mitigation_task import MAX_LEAD_TIME_DAYS, RecurrenceUnitL
 class StakeholderCreate(BaseModel):
     user_id: str
     role: str  # responsible/accountable/observer
+
+
+class StakeholderBulkOperation(BaseModel):
+    """One add/remove of a (card, user, role) stakeholder assignment.
+
+    The user may be referenced by ``user_id`` or by ``user_email`` (resolved
+    case-insensitively server-side) — the spreadsheet importer round-trips
+    emails, the grid editor already holds ids.
+    """
+
+    row_index: int | None = None
+    action: Literal["add", "remove"] = "add"
+    card_id: str
+    user_id: str | None = None
+    user_email: str | None = None
+    role: str
+
+    @model_validator(mode="after")
+    def _require_user_ref(self) -> StakeholderBulkOperation:
+        if not self.user_id and not self.user_email:
+            raise ValueError("Either user_id or user_email is required")
+        return self
+
+
+class StakeholderBulkRequest(BaseModel):
+    operations: list[StakeholderBulkOperation] = Field(..., min_length=1, max_length=1000)
+    dry_run: bool = False
+
+
+class StakeholderBulkResult(BaseModel):
+    row_index: int | None = None
+    status: Literal["added", "removed", "noop", "error"]
+    error: str | None = None
+
+
+class StakeholderBulkResponse(BaseModel):
+    results: list[StakeholderBulkResult]
+    added: int
+    removed: int
+    failed: int
+    dry_run: bool
 
 
 class CommentCreate(BaseModel):

@@ -115,6 +115,17 @@ export interface StakeholderRoleDef {
   translations?: MetamodelTranslations;
 }
 
+/**
+ * Minimal stakeholder-role payload returned by
+ * `GET /stakeholder-roles?type_key=…` — powers the per-role
+ * "Stakeholders: <role>" inventory columns.
+ */
+export interface StakeholderRoleOption {
+  key: string;
+  label: string;
+  translations?: MetamodelTranslations;
+}
+
 /** Locale-keyed translations for a single property (e.g., label). */
 export type TranslationMap = Record<string, string>;
 

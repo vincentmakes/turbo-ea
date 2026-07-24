@@ -3,7 +3,7 @@ import * as XLSX from "xlsx";
 import { api } from "@/api/client";
 import i18n from "@/i18n";
 import { typeLabel } from "@/hooks/useResolveLabel";
-import type { Card, CardType, Relation, RelationType } from "@/types";
+import type { Card, CardType, Relation, RelationType, StakeholderRoleOption } from "@/types";
 
 /**
  * Excel export — LeanIX-style multi-sheet workbook.
@@ -19,6 +19,12 @@ import type { Card, CardType, Relation, RelationType } from "@/types";
  *   - `rel:<relation_type_key>` columns for relation types whose source is
  *     this card type and whose `attributes_schema` is empty (the simple
  *     case that fits in a comma-separated cell)
+ *   - `stakeholder:<role_key>` columns — one per stakeholder role of the
+ *     sheet's type, cells like `Ada Lovelace <ada@corp.com>; Bob <bob@…>`.
+ *     Emails are the canonical importable reference (display names are
+ *     cosmetic and may collide); `serializeStakeholderCell` /
+ *     `parseStakeholderEntry` in excelImport.ts are the two halves of the
+ *     round-trip.
  *
  * The `Relations` sheet captures relation rows for relation types that
  * carry attributes (cost, description, etc.) — these need a column per
@@ -76,6 +82,27 @@ function buildCardRef(
   const parentPath = buildParentPath(card, byId);
   if (!parentPath) return safeName;
   return `${parentPath} / ${safeName}`;
+}
+
+/**
+ * Serialize one role's stakeholders to a cell: `Name <email>` entries joined
+ * with `; `. The email in angle brackets is what the importer resolves by;
+ * a stakeholder without an email (shouldn't happen — users always have one)
+ * degrades to the bare display name.
+ */
+export function serializeStakeholderCell(
+  card: Card,
+  roleKey: string,
+): string {
+  return (card.stakeholders || [])
+    .filter((s) => s.role === roleKey)
+    .map((s) => {
+      const name = s.user_display_name?.trim();
+      const email = s.user_email?.trim();
+      if (name && email) return `${name} <${email}>`;
+      return email || name || s.user_id;
+    })
+    .join("; ");
 }
 
 function exportTimestamp(now: Date = new Date()): string {
@@ -224,6 +251,7 @@ function buildCardRowForType(
   attrFieldKeys: string[],
   attrIsCost: Map<string, boolean>,
   canViewCosts: boolean,
+  stakeholderRoleKeys: string[] = [],
 ): Record<string, unknown> {
   const row: Record<string, unknown> = {
     id: card.id,
@@ -261,6 +289,10 @@ function buildCardRowForType(
     row[`rel:${rt.key}`] = targets
       .map((t) => buildTargetRef(t, byId, nameAmbiguity))
       .join("; ");
+  }
+
+  for (const roleKey of stakeholderRoleKeys) {
+    row[`stakeholder:${roleKey}`] = serializeStakeholderCell(card, roleKey);
   }
 
   // Type is the same across the sheet; keep the column for clarity but
@@ -402,6 +434,20 @@ export async function buildExportWorkbook(
     // types and attribute-bearing types are excluded.
     const inlineForType = inlineRelTypes.filter((rt) => rt.source_type_key === type.key);
 
+    // Stakeholder roles for this type — one `stakeholder:<role>` column each.
+    // Fetched from /stakeholder-roles (the authoritative source; the JSONB
+    // copy on CardType can lag behind the role-definition table). A fetch
+    // failure degrades to a workbook without stakeholder columns.
+    let stakeholderRoleKeys: string[] = [];
+    try {
+      const roles = await api.get<StakeholderRoleOption[]>(
+        `/stakeholder-roles?type_key=${encodeURIComponent(type.key)}`,
+      );
+      stakeholderRoleKeys = roles.map((r) => r.key);
+    } catch {
+      stakeholderRoleKeys = [];
+    }
+
     const rows: Record<string, unknown>[] = [];
     for (const card of cardsOfType) {
       const outgoing =
@@ -417,6 +463,7 @@ export async function buildExportWorkbook(
           attrFieldKeys.filter((k) => !attrIsCost.get(k) || canViewCosts),
           attrIsCost,
           canViewCosts,
+          stakeholderRoleKeys,
         ),
       );
     }
@@ -448,6 +495,7 @@ export async function buildExportWorkbook(
             attrFieldKeys,
             attrIsCost,
             canViewCosts,
+            stakeholderRoleKeys,
           ),
         ];
     const ws = XLSX.utils.json_to_sheet(headerSeed);

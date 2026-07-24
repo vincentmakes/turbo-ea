@@ -34,7 +34,7 @@ La scheda **Colonne** nel pannello laterale consente di scegliere quali colonne 
 - **Più tipi selezionati** — Sono disponibili solo i campi **comuni a tutti i tipi selezionati**
 - **Nessun tipo selezionato** — Un messaggio suggerisce di selezionare prima un tipo di scheda
 
-Le colonne sono raggruppate in quattro categorie:
+Le colonne sono raggruppate in cinque categorie:
 
 | Categoria | Descrizione |
 |-----------|-------------|
@@ -42,6 +42,7 @@ Le colonne sono raggruppate in quattro categorie:
 | **Metadati** | Creato, Modificato, Creato da, Modificato da |
 | **Attributi** | Campi personalizzati definiti nel metamodello (testo, numero, costo, data, selezione, ecc.) |
 | **Relazioni** | Tipi di schede correlati (ad es., Applicazioni collegate a una Capacità Aziendale) |
+| **Stakeholder** | Una colonna per ogni ruolo stakeholder definito per il tipo selezionato (ad es. *Stakeholder: Responsible*), che mostra gli utenti assegnati come chip. In modalità modifica griglia, fai doppio clic su una cella per assegnare o rimuovere utenti per quel ruolo direttamente dalla griglia (richiede il permesso di gestione degli stakeholder). |
 
 La colonna **Percorso** mostra la gerarchia della scheda (per es. «Nord America / Vendite / Vendite interne») senza il nome della scheda stessa, così puoi tenere Nome e Percorso visibili contemporaneamente.
 
@@ -145,7 +146,7 @@ Le importazioni ed esportazioni dell'inventario usano una **cartella di lavoro E
 
 ### Struttura della cartella di lavoro
 
-- **Un foglio per ogni tipo di scheda** (Application, Business Capability, IT Component, …) con le colonne principali, le colonne `attr_<campo>`, le colonne di ciclo di vita e le colonne di relazione `rel:<tipo_di_relazione>`.
+- **Un foglio per ogni tipo di scheda** (Application, Business Capability, IT Component, …) con le colonne principali, le colonne `attr_<campo>`, le colonne di ciclo di vita le colonne di relazione `rel:<tipo_di_relazione>` e le colonne stakeholder `stakeholder:<chiave_ruolo>`.
 - **Un foglio `Relations`** per i tipi di relazione che portano attributi (costo, descrizione, …). Le relazioni semplici restano in linea sul foglio della scheda di origine.
 - **Un foglio `_Meta`** con la versione del formato della cartella di lavoro.
 
@@ -160,6 +161,10 @@ Poiché le schede sono identificate per nome + percorso, **due schede dello stes
 ### Celle di relazione in linea
 
 Ogni colonna `rel:<tipo_di_relazione>` esprime le relazioni in uscita come elenco **separato da punti e virgola** (per esempio `NexaCore ERP; BillingApp`). Punto e virgola invece di virgola perché i nomi delle schede contengono spesso virgole (`Acme, Inc.`). All'interno di un nome, `/` e `\` vengono fatti precedere dall'escape `\/` e `\\` — l'esportatore lo gestisce automaticamente (es. `SAP S/4HANA` → `SAP S\/4HANA`). Le celle sono **dichiarative**: il loro contenuto sostituisce l'insieme delle relazioni in uscita di quel tipo dalla sorgente. Rimuovere un target elimina la relazione corrispondente; svuotare la cella le elimina tutte. Per retrocompatibilità, anche le celle separate da virgole (formato precedente) vengono accettate.
+
+### Celle stakeholder
+
+Su ogni foglio di schede, le colonne `stakeholder:<chiave_ruolo>` contengono gli utenti assegnati a ciascun ruolo stakeholder, come voci **separate da punto e virgola**, ad es. `Ada Lovelace <ada@corp.com>; bob@corp.com`. L'**indirizzo email è il riferimento autoritativo** — i nomi visualizzati vengono risolti solo quando esattamente un utente porta quel nome. Come le celle di relazione, le celle stakeholder sono **dichiarative per ruolo**: gli utenti elencati diventano l'insieme completo delle assegnazioni di quel ruolo dopo l'importazione. Rimuovere un utente lo disassegna; svuotare la cella svuota il ruolo; omettere la colonna lascia intatte le assegnazioni. Le voci senza utente corrispondente producono un avviso e vengono ignorate — non bloccano mai l'importazione.
 
 ### Foglio `Relations`
 

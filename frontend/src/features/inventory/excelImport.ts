@@ -30,6 +30,18 @@ export interface ImportWarning {
   message: string;
 }
 
+/** Minimal user record used to resolve `stakeholder:<role>` cells. Shape of
+ * `GET /users` (the lite payload every authenticated caller receives). */
+export interface UserRef {
+  id: string;
+  display_name: string;
+  email: string;
+}
+
+/** Stakeholder roles per card type, keyed by type key. Shape of
+ * `GET /stakeholder-roles?type_key=…` per type. */
+export type StakeholderRolesByType = Record<string, { key: string; label: string }[]>;
+
 export interface ParsedRow {
   /** Per-sheet visible row number (`i + 2`) — used for user-facing display. */
   rowIndex: number;
@@ -64,6 +76,12 @@ export interface ParsedRow {
   changes?: Record<string, { old: unknown; new: unknown }>;
   /** Resolved tag ids to assign (undefined = `tags` column absent / not supplied) */
   tagIds?: string[];
+  /**
+   * Resolved stakeholder user ids per role key, from `stakeholder:<role>`
+   * columns. A role key present with an empty array means "clear this role";
+   * an absent role key (or `undefined` entirely) means "don't touch".
+   */
+  stakeholders?: Record<string, string[]>;
 }
 
 /**
@@ -147,6 +165,10 @@ export interface ImportResult {
   relationsUpserted: number;
   relationsDeleted: number;
   relationsFailed: number;
+  /** Stakeholder assignment sync — populated by `stakeholder:<role>` columns. */
+  stakeholdersAdded: number;
+  stakeholdersRemoved: number;
+  stakeholdersFailed: number;
   failedDetails: { row: number; message: string }[];
 }
 
@@ -225,6 +247,25 @@ function splitRelationCell(cell: string): string[] {
     .split(sep)
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+/**
+ * Parse one entry of a `stakeholder:<role>` cell. The canonical export form
+ * is `Display Name <email>` (see `serializeStakeholderCell` in
+ * `excelExport.ts`); a bare email and a bare display name are accepted too
+ * for hand-authored files. The email — when present — is the authoritative
+ * reference; display names are resolved only when unambiguous.
+ */
+export function parseStakeholderEntry(entry: string): { email?: string; name?: string } {
+  const bracket = entry.match(/<([^<>]+)>\s*$/);
+  if (bracket) {
+    const email = bracket[1].trim();
+    if (email) return { email };
+  }
+  const bare = entry.trim();
+  // A bare token containing `@` and no whitespace is an email address.
+  if (bare.includes("@") && !/\s/.test(bare)) return { email: bare };
+  return { name: bare };
 }
 
 /**
@@ -498,6 +539,8 @@ export function validateImport(
   preSelectedType?: string,
   tagGroups: TagGroup[] = [],
   calculatedFields: CalculatedFieldsMap = {},
+  users: UserRef[] = [],
+  stakeholderRolesByType: StakeholderRolesByType = {},
 ): ImportReport {
   const errors: ImportError[] = [];
   const warnings: ImportWarning[] = [];
@@ -566,8 +609,9 @@ export function validateImport(
     // `rel:<relation_type_key>` columns are the inline relation cells —
     // recognised and parsed by `validateMultiSheet()`'s second pass. The
     // legacy per-sheet validator must not warn about them just because
-    // it doesn't itself process them.
-    if (h.startsWith("rel:")) continue;
+    // it doesn't itself process them. `stakeholder:<role>` columns are
+    // parsed below in this same pass.
+    if (h.startsWith("rel:") || h.startsWith("stakeholder:")) continue;
     if (
       !knownCoreCols.has(h) &&
       !knownCoreCols.has(h.toLowerCase()) &&
@@ -621,6 +665,19 @@ export function validateImport(
   }
 
   const typeKeys = new Set(allTypes.filter((t) => !t.is_hidden).map((t) => t.key));
+
+  // User lookup for `stakeholder:<role>` cells: email (lowercased) → user,
+  // and display name (lowercased) → user or null when the name is ambiguous.
+  const userByEmail = new Map<string, UserRef>();
+  const userByName = new Map<string, UserRef | null>();
+  for (const u of users) {
+    if (u.email) userByEmail.set(u.email.trim().toLowerCase(), u);
+    const nm = (u.display_name || "").trim().toLowerCase();
+    if (nm) userByName.set(nm, userByName.has(nm) ? null : u);
+  }
+  const stakeholderCols = headers.filter((h) => h.startsWith("stakeholder:"));
+  // Warn once per (type, role) about unknown roles, not once per row.
+  const warnedUnknownRoles = new Set<string>();
 
   // Tag lookup: "group_name|tag_name" (lowercased) → id. Also allow bare "tag_name"
   // when the tag name is unique across groups so exports that didn't carry the
@@ -1021,6 +1078,62 @@ export function validateImport(
       }
     }
 
+    // Parse optional `stakeholder:<role>` columns: entries like
+    // "Ada Lovelace <ada@corp.com>; bob@corp.com" resolved to user ids.
+    let parsedStakeholders: Record<string, string[]> | undefined;
+    for (const col of stakeholderCols) {
+      const roleKey = col.slice("stakeholder:".length).trim();
+      if (!roleKey) continue;
+      const rolesForType = stakeholderRolesByType[type];
+      if (rolesForType && !rolesForType.some((r) => r.key === roleKey)) {
+        const warnKey = `${type}|${roleKey}`;
+        if (!warnedUnknownRoles.has(warnKey)) {
+          warnedUnknownRoles.add(warnKey);
+          warnings.push({
+            column: col,
+            message: t("import.warnings.unknownStakeholderRole", { role: roleKey, type }),
+          });
+        }
+        continue;
+      }
+      const cell = str(raw[col]);
+      const ids: string[] = [];
+      if (cell !== "") {
+        for (const entry of splitRelationCell(cell)) {
+          const ref = parseStakeholderEntry(entry);
+          let resolved: UserRef | undefined;
+          if (ref.email) {
+            resolved = userByEmail.get(ref.email.toLowerCase());
+          } else if (ref.name) {
+            const byName = userByName.get(ref.name.toLowerCase());
+            if (byName === null) {
+              warnings.push({
+                row: rowNum,
+                column: col,
+                message: t("import.warnings.ambiguousStakeholderUser", {
+                  row: rowNum,
+                  value: entry,
+                }),
+              });
+              continue;
+            }
+            resolved = byName ?? undefined;
+          }
+          if (!resolved) {
+            warnings.push({
+              row: rowNum,
+              column: col,
+              message: t("import.warnings.unknownStakeholderUser", { row: rowNum, value: entry }),
+            });
+          } else if (!ids.includes(resolved.id)) {
+            ids.push(resolved.id);
+          }
+        }
+      }
+      // Present column (even when empty) → sync this role. Empty = clear.
+      (parsedStakeholders ??= {})[roleKey] = ids;
+    }
+
     // Build the data payload
     const data: Record<string, unknown> = {
       type,
@@ -1043,12 +1156,13 @@ export function validateImport(
       parentPathKey,
       ownPathKey: pathKey(type, parentSegments ? [...parentSegments, name] : [name]),
       tagIds: parsedTagIds,
+      stakeholders: parsedStakeholders,
     };
 
     if (id && matchedExisting) {
       parsed.id = id;
       parsed.existing = matchedExisting;
-      // Classify as update when either regular fields or tags actually changed
+      // Classify as update when regular fields, tags, or stakeholders changed
       const { patch, changes } = buildPatch(data, matchedExisting);
       const tagsChanged =
         parsedTagIds !== undefined &&
@@ -1056,7 +1170,30 @@ export function validateImport(
           parsedTagIds,
           (matchedExisting.tags || []).map((tg) => tg.id),
         );
-      if (Object.keys(patch).length > 0 || tagsChanged) {
+      // Per-role stakeholder diff. Only roles whose column is present are
+      // compared — an absent column never counts as a change.
+      const stakeholderChanges: Record<string, { old: unknown; new: unknown }> = {};
+      if (parsedStakeholders) {
+        for (const [roleKey, ids] of Object.entries(parsedStakeholders)) {
+          const existingRefs = (matchedExisting.stakeholders || []).filter(
+            (s) => s.role === roleKey,
+          );
+          if (sameTagSet(ids, existingRefs.map((s) => s.user_id))) continue;
+          stakeholderChanges[`stakeholder_${roleKey}`] = {
+            old: existingRefs
+              .map((s) => s.user_display_name || s.user_email || s.user_id)
+              .join(", "),
+            new: ids
+              .map((uid) => {
+                const u = users.find((x) => x.id === uid);
+                return u ? u.display_name || u.email : uid;
+              })
+              .join(", "),
+          };
+        }
+      }
+      const stakeholdersChanged = Object.keys(stakeholderChanges).length > 0;
+      if (Object.keys(patch).length > 0 || tagsChanged || stakeholdersChanged) {
         parsed.changes = changes;
         if (tagsChanged && parsedTagIds) {
           const newTagIds = parsedTagIds;
@@ -1075,6 +1212,9 @@ export function validateImport(
                 .join(", "),
             },
           };
+        }
+        if (stakeholdersChanged) {
+          parsed.changes = { ...(parsed.changes || {}), ...stakeholderChanges };
         }
         updates.push(parsed);
       } else {
@@ -1114,6 +1254,8 @@ export async function validateMultiSheet(
   preSelectedType?: string,
   tagGroups: TagGroup[] = [],
   calculatedFields: CalculatedFieldsMap = {},
+  users: UserRef[] = [],
+  stakeholderRolesByType: StakeholderRolesByType = {},
 ): Promise<ImportReport> {
   const errors: ImportError[] = [];
   const warnings: ImportWarning[] = [];
@@ -1147,6 +1289,8 @@ export async function validateMultiSheet(
       sheet.typeHint ?? preSelectedType,
       tagGroups,
       calculatedFields,
+      users,
+      stakeholderRolesByType,
     );
     errors.push(
       ...sheetReport.errors.map((e) => ({
@@ -1894,6 +2038,11 @@ export async function executeImport(
     relationsUpserted,
     relationsDeleted,
     relationsFailed,
+    // Legacy path: `stakeholder:<role>` columns are only applied by
+    // `executeMultiSheetImport` (the live import path).
+    stakeholdersAdded: 0,
+    stakeholdersRemoved: 0,
+    stakeholdersFailed: 0,
     failedDetails,
   };
 }
@@ -1941,6 +2090,9 @@ export async function executeMultiSheetImport(
   let relationsUpserted = 0;
   let relationsDeleted = 0;
   let relationsFailed = 0;
+  let stakeholdersAdded = 0;
+  let stakeholdersRemoved = 0;
+  let stakeholdersFailed = 0;
   const failedDetails: { row: number; message: string }[] = [];
 
   // Record a failure using the per-sheet visible row number for `row` and
@@ -2125,6 +2277,101 @@ export async function executeMultiSheetImport(
     onProgress?.(done, total);
   }
 
+  // ----- Stakeholder assignments ----------------------------------------
+  // Applied last, once every card id is known. Creates: every resolved
+  // (role, user) becomes an add. Updates: per-role diff against the existing
+  // card's assignments — a present-but-empty role clears it; roles whose
+  // column was absent are never touched.
+  type StakeholderWireOp = {
+    row_index: number;
+    action: "add" | "remove";
+    card_id: string;
+    user_id: string;
+    role: string;
+  };
+  const stakeholderOps: StakeholderWireOp[] = [];
+  const stakeholderOpSource = new Map<number, ParsedRow>();
+  for (const row of sortedCreates) {
+    if (!row.stakeholders) continue;
+    const serverId = row.ownPathKey ? pathToId.get(row.ownPathKey) : undefined;
+    if (!serverId) continue; // create failed — its failure is already counted
+    const wire = row.wireRow ?? row.rowIndex;
+    stakeholderOpSource.set(wire, row);
+    for (const [role, ids] of Object.entries(row.stakeholders)) {
+      for (const uid of ids) {
+        stakeholderOps.push({
+          row_index: wire,
+          action: "add",
+          card_id: serverId,
+          user_id: uid,
+          role,
+        });
+      }
+    }
+  }
+  for (const row of report.updates) {
+    if (!row.stakeholders || !row.id || !row.existing) continue;
+    const wire = row.wireRow ?? row.rowIndex;
+    stakeholderOpSource.set(wire, row);
+    for (const [role, ids] of Object.entries(row.stakeholders)) {
+      const existingIds = new Set(
+        (row.existing.stakeholders || []).filter((s) => s.role === role).map((s) => s.user_id),
+      );
+      const newIds = new Set(ids);
+      for (const uid of newIds) {
+        if (!existingIds.has(uid)) {
+          stakeholderOps.push({
+            row_index: wire,
+            action: "add",
+            card_id: row.id,
+            user_id: uid,
+            role,
+          });
+        }
+      }
+      for (const uid of existingIds) {
+        if (!newIds.has(uid)) {
+          stakeholderOps.push({
+            row_index: wire,
+            action: "remove",
+            card_id: row.id,
+            user_id: uid,
+            role,
+          });
+        }
+      }
+    }
+  }
+  for (let i = 0; i < stakeholderOps.length; i += CHUNK) {
+    const chunk = stakeholderOps.slice(i, i + CHUNK);
+    try {
+      const resp = await api.post<{
+        results: { row_index: number | null; status: string; error?: string }[];
+      }>("/stakeholders/bulk", { operations: chunk });
+      for (const r of resp.results) {
+        if (r.status === "added") stakeholdersAdded++;
+        else if (r.status === "removed") stakeholdersRemoved++;
+        else if (r.status === "error") {
+          stakeholdersFailed++;
+          const src = r.row_index != null ? stakeholderOpSource.get(r.row_index) : undefined;
+          pushFailure(
+            src ?? { rowIndex: r.row_index ?? 0 },
+            r.error ?? t("import.errors.unknown"),
+          );
+        }
+      }
+    } catch (e) {
+      for (const op of chunk) {
+        stakeholdersFailed++;
+        const src = stakeholderOpSource.get(op.row_index);
+        pushFailure(
+          src ?? { rowIndex: op.row_index },
+          e instanceof Error ? e.message : t("import.errors.unknown"),
+        );
+      }
+    }
+  }
+
   return {
     created,
     updated,
@@ -2132,6 +2379,9 @@ export async function executeMultiSheetImport(
     relationsUpserted,
     relationsDeleted,
     relationsFailed,
+    stakeholdersAdded,
+    stakeholdersRemoved,
+    stakeholdersFailed,
     failedDetails,
   };
 }

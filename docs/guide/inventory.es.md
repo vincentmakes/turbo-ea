@@ -34,7 +34,7 @@ La pestaña **Columnas** en el panel lateral le permite elegir qué columnas adi
 - **Varios tipos seleccionados** — Solo los campos que son **comunes a todos los tipos seleccionados** están disponibles
 - **Ningún tipo seleccionado** — Un mensaje de ayuda le solicita seleccionar primero un tipo de tarjeta
 
-Las columnas se agrupan en cuatro categorías:
+Las columnas se agrupan en cinco categorías:
 
 | Categoría | Descripción |
 |-----------|-------------|
@@ -42,6 +42,7 @@ Las columnas se agrupan en cuatro categorías:
 | **Metadatos** | Creado, Modificado, Creado por, Modificado por |
 | **Atributos** | Campos personalizados definidos en el metamodelo (texto, número, coste, fecha, selección, etc.) |
 | **Relaciones** | Tipos de tarjetas relacionados (p. ej., Aplicaciones vinculadas a una Capacidad de Negocio) |
+| **Partes interesadas** | Una columna por cada rol de parte interesada definido para el tipo seleccionado (p. ej. *Partes interesadas: Responsible*), mostrando los usuarios asignados como chips. En el modo de edición de cuadrícula, haga doble clic en una celda para asignar o quitar usuarios de ese rol directamente desde la cuadrícula (requiere el permiso de gestión de partes interesadas). |
 
 La columna **Ruta** muestra la jerarquía de la ficha (p. ej. «América del Norte / Ventas / Ventas internas») sin incluir el nombre de la propia ficha, para que pueda ver Nombre y Ruta a la vez.
 
@@ -145,7 +146,7 @@ Las importaciones y exportaciones del inventario usan un **libro Excel multi-hoj
 
 ### Estructura del libro
 
-- **Una hoja por tipo de ficha** (Application, Business Capability, IT Component, …) con sus columnas principales, sus columnas `attr_<campo>`, las columnas de ciclo de vida y las columnas de relaciones `rel:<tipo_de_relación>`.
+- **Una hoja por tipo de ficha** (Application, Business Capability, IT Component, …) con sus columnas principales, sus columnas `attr_<campo>`, las columnas de ciclo de vida las columnas de relaciones `rel:<tipo_de_relación>` y las columnas de partes interesadas `stakeholder:<clave_de_rol>`.
 - **Una hoja `Relations`** para los tipos de relación que llevan atributos (coste, descripción…). Las relaciones simples permanecen en línea en la hoja de la ficha origen.
 - **Una hoja `_Meta`** con la versión del formato del libro.
 
@@ -160,6 +161,10 @@ Como las fichas se identifican por nombre + ruta, **dos fichas del mismo tipo no
 ### Celdas de relación en línea
 
 Cada columna `rel:<tipo_de_relación>` expresa las relaciones salientes como una lista **separada por punto y coma** (por ejemplo `NexaCore ERP; BillingApp`). Punto y coma en lugar de coma, porque los nombres de las fichas suelen contener comas (`Acme, Inc.`). Dentro de un nombre, `/` y `\` se escapan como `\/` y `\\` — el exportador lo hace automáticamente (p. ej. `SAP S/4HANA` → `SAP S\/4HANA`). Las celdas son **declarativas**: su contenido reemplaza el conjunto de relaciones salientes de ese tipo desde el origen. Eliminar un destino elimina la relación correspondiente; vaciar la celda elimina todas. Por compatibilidad, las celdas separadas por comas (formato antiguo) también se aceptan.
+
+### Celdas de partes interesadas
+
+En cada hoja de fichas, las columnas `stakeholder:<clave_de_rol>` llevan los usuarios asignados a cada rol de parte interesada, como entradas **separadas por punto y coma**, p. ej. `Ada Lovelace <ada@corp.com>; bob@corp.com`. La **dirección de correo es la referencia autoritativa** — los nombres solo se resuelven cuando exactamente un usuario lleva ese nombre. Como las celdas de relaciones, las celdas de partes interesadas son **declarativas por rol**: los usuarios listados se convierten en el conjunto completo de asignaciones de ese rol tras la importación. Quitar un usuario lo desasigna; vaciar la celda vacía el rol; omitir la columna deja las asignaciones intactas. Las entradas sin usuario coincidente producen una advertencia y se omiten — nunca bloquean la importación.
 
 ### Hoja `Relations`
 

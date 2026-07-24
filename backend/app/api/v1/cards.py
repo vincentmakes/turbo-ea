@@ -2859,16 +2859,41 @@ async def export_csv(
     type: str | None = Query(None),
 ):
     await PermissionService.require_permission(db, user, "inventory.export")
-    q = select(Card).where(Card.status == "ACTIVE")
+    q = (
+        select(Card)
+        .where(Card.status == "ACTIVE")
+        .options(selectinload(Card.stakeholders).selectinload(Stakeholder.user))
+    )
     if type:
         q = q.where(Card.type == type)
     result = await db.execute(q)
     sheets = list(result.scalars().all())
     redact = await _cost_redaction_map(db, user, sheets)
 
+    # Role-key → label map for the stakeholders column, one query for all
+    # (type, role) pairs present in the export.
+    role_rows = await db.execute(
+        select(
+            StakeholderRoleDefinition.card_type_key,
+            StakeholderRoleDefinition.key,
+            StakeholderRoleDefinition.label,
+        ).where(StakeholderRoleDefinition.is_archived == False)  # noqa: E712
+    )
+    role_labels = {(row[0], row[1]): row[2] for row in role_rows.all()}
+
+    def _stakeholders_cell(card: Card) -> str:
+        parts = []
+        for s in sorted(card.stakeholders or [], key=lambda s: s.role):
+            who = (s.user.display_name or s.user.email) if s.user else str(s.user_id)
+            label = role_labels.get((card.type, s.role), s.role)
+            parts.append(f"{label}: {who}")
+        return "; ".join(parts)
+
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["id", "type", "name", "description", "status", "lifecycle", "attributes"])
+    writer.writerow(
+        ["id", "type", "name", "description", "status", "lifecycle", "attributes", "stakeholders"]
+    )
     for card in sheets:
         attrs = card.attributes or {}
         strip = redact.get(card.id)
@@ -2883,6 +2908,7 @@ async def export_csv(
                 card.status,
                 str(card.lifecycle),
                 str(attrs),
+                _stakeholders_cell(card),
             ]
         )
     output.seek(0)

@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -14,7 +14,12 @@ from app.models.card_type import CardType
 from app.models.stakeholder import Stakeholder
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.user import User
-from app.schemas.common import StakeholderCreate
+from app.schemas.common import (
+    StakeholderBulkRequest,
+    StakeholderBulkResponse,
+    StakeholderBulkResult,
+    StakeholderCreate,
+)
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -273,6 +278,226 @@ async def update_stakeholder(
         "role": stakeholder.role,
         "role_label": labels.get(stakeholder.role, stakeholder.role),
     }
+
+
+@router.post("/stakeholders/bulk", response_model=StakeholderBulkResponse)
+async def bulk_stakeholders(
+    body: StakeholderBulkRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Batched add/remove of stakeholder role assignments.
+
+    Used by the spreadsheet importer to apply `stakeholder:<role>` columns in
+    one round-trip instead of two calls per row. Mirrors `POST /relations/bulk`:
+    each operation independently succeeds or fails, `dry_run=true` validates
+    everything inside a savepoint that is rolled back.
+
+    Permission: `stakeholders.manage` (or the card-level
+    `card.manage_stakeholders` grant), checked per referenced card.
+    """
+    dry_run_savepoint = await db.begin_nested() if body.dry_run else None
+
+    # ---- Preload everything the ops reference in a handful of queries. ----
+    card_ids: set[uuid.UUID] = set()
+    user_ids: set[uuid.UUID] = set()
+    emails: set[str] = set()
+    parse_errors: dict[int, str] = {}
+    for i, op in enumerate(body.operations):
+        try:
+            card_ids.add(uuid.UUID(op.card_id))
+        except ValueError:
+            parse_errors[i] = f"Invalid card_id: {op.card_id}"
+            continue
+        if op.user_id:
+            try:
+                user_ids.add(uuid.UUID(op.user_id))
+            except ValueError:
+                parse_errors[i] = f"Invalid user_id: {op.user_id}"
+        elif op.user_email:
+            emails.add(op.user_email.strip().lower())
+
+    card_type_by_id: dict[uuid.UUID, str] = {}
+    if card_ids:
+        rows = await db.execute(select(Card.id, Card.type).where(Card.id.in_(card_ids)))
+        card_type_by_id = {row[0]: row[1] for row in rows.all()}
+
+    users_by_id: dict[uuid.UUID, User] = {}
+    users_by_email: dict[str, User] = {}
+    if user_ids:
+        rows = await db.execute(select(User).where(User.id.in_(user_ids)))
+        users_by_id = {u.id: u for u in rows.scalars().all()}
+    if emails:
+        rows = await db.execute(select(User).where(func.lower(User.email).in_(emails)))
+        users_by_email = {u.email.lower(): u for u in rows.scalars().all()}
+
+    roles_by_type: dict[str, dict[str, str]] = {}
+    for type_key in set(card_type_by_id.values()):
+        roles_by_type[type_key] = _role_labels(await _roles_for_type(db, type_key))
+
+    perm_by_card: dict[uuid.UUID, bool] = {}
+
+    async def _can_manage(card_uuid: uuid.UUID) -> bool:
+        if card_uuid not in perm_by_card:
+            perm_by_card[card_uuid] = await PermissionService.check_permission(
+                db, user, "stakeholders.manage", card_uuid, "card.manage_stakeholders"
+            )
+        return perm_by_card[card_uuid]
+
+    results: list[StakeholderBulkResult] = []
+    added = 0
+    removed = 0
+    failed = 0
+    # (event_type, payload, card_id) collected and published after the loop so
+    # SSE fan-out only ever happens for ops that actually succeeded.
+    events_to_emit: list[tuple[str, dict, uuid.UUID]] = []
+
+    for i, op in enumerate(body.operations):
+        row_index = op.row_index if op.row_index is not None else i
+        if i in parse_errors:
+            results.append(
+                StakeholderBulkResult(row_index=row_index, status="error", error=parse_errors[i])
+            )
+            failed += 1
+            continue
+
+        card_uuid = uuid.UUID(op.card_id)
+        type_key = card_type_by_id.get(card_uuid)
+        if type_key is None:
+            results.append(
+                StakeholderBulkResult(row_index=row_index, status="error", error="Card not found")
+            )
+            failed += 1
+            continue
+        if not await _can_manage(card_uuid):
+            results.append(
+                StakeholderBulkResult(
+                    row_index=row_index, status="error", error="Not enough permissions"
+                )
+            )
+            failed += 1
+            continue
+
+        target: User | None
+        if op.user_id:
+            target = users_by_id.get(uuid.UUID(op.user_id))
+        else:
+            target = users_by_email.get((op.user_email or "").strip().lower())
+        if target is None:
+            ref = op.user_id or op.user_email
+            results.append(
+                StakeholderBulkResult(
+                    row_index=row_index, status="error", error=f"User not found: {ref}"
+                )
+            )
+            failed += 1
+            continue
+
+        labels = roles_by_type.get(type_key, {})
+        if op.role not in labels:
+            results.append(
+                StakeholderBulkResult(
+                    row_index=row_index,
+                    status="error",
+                    error=(
+                        f"Invalid role '{op.role}' for {type_key}. Valid: {sorted(labels.keys())}"
+                    ),
+                )
+            )
+            failed += 1
+            continue
+
+        role_label = labels.get(op.role, op.role)
+        user_name = target.display_name or target.email
+
+        existing_result = await db.execute(
+            select(Stakeholder).where(
+                Stakeholder.card_id == card_uuid,
+                Stakeholder.user_id == target.id,
+                Stakeholder.role == op.role,
+            )
+        )
+        existing = existing_result.scalar_one_or_none()
+
+        # Per-op savepoint so one failing flush rolls back only itself instead
+        # of poisoning the whole session transaction (see relations bulk).
+        op_sp = await db.begin_nested()
+        op_result: StakeholderBulkResult
+        op_event: tuple[str, dict, uuid.UUID] | None = None
+        try:
+            if op.action == "remove":
+                if existing is None:
+                    op_result = StakeholderBulkResult(row_index=row_index, status="noop")
+                else:
+                    op_event = (
+                        "stakeholder.removed",
+                        {
+                            "stakeholder_id": str(existing.id),
+                            "user_id": str(existing.user_id),
+                            "user_display_name": target.display_name,
+                            "role": existing.role,
+                            "role_label": role_label,
+                            "summary": f"{user_name} · {role_label}",
+                        },
+                        card_uuid,
+                    )
+                    await db.delete(existing)
+                    await db.flush()
+                    op_result = StakeholderBulkResult(row_index=row_index, status="removed")
+            else:
+                if existing is not None:
+                    op_result = StakeholderBulkResult(row_index=row_index, status="noop")
+                else:
+                    stakeholder = Stakeholder(card_id=card_uuid, user_id=target.id, role=op.role)
+                    db.add(stakeholder)
+                    await db.flush()
+                    op_event = (
+                        "stakeholder.added",
+                        {
+                            "stakeholder_id": str(stakeholder.id),
+                            "user_id": str(stakeholder.user_id),
+                            "user_display_name": target.display_name,
+                            "role": stakeholder.role,
+                            "role_label": role_label,
+                            "summary": f"{user_name} · {role_label}",
+                        },
+                        card_uuid,
+                    )
+                    op_result = StakeholderBulkResult(row_index=row_index, status="added")
+            await op_sp.commit()
+        except Exception:
+            await op_sp.rollback()
+            results.append(
+                StakeholderBulkResult(row_index=row_index, status="error", error="Operation failed")
+            )
+            failed += 1
+            continue
+
+        results.append(op_result)
+        if op_result.status == "added":
+            added += 1
+        elif op_result.status == "removed":
+            removed += 1
+        if op_event is not None:
+            events_to_emit.append(op_event)
+
+    if not body.dry_run:
+        for event_type, payload, event_card_id in events_to_emit:
+            await event_bus.publish(
+                event_type, payload, db=db, card_id=event_card_id, user_id=user.id
+            )
+
+    if body.dry_run:
+        assert dry_run_savepoint is not None
+        await dry_run_savepoint.rollback()
+    elif failed > 0 and added == 0 and removed == 0:
+        await db.rollback()
+    else:
+        await db.commit()
+
+    return StakeholderBulkResponse(
+        results=results, added=added, removed=removed, failed=failed, dry_run=body.dry_run
+    )
 
 
 @router.get("/cards/{card_id}/me/observe")

@@ -59,11 +59,19 @@ import { api, ApiError } from "@/api/client";
 import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
 import TagPicker from "@/components/TagPicker";
 import TagsCellEditor from "@/features/inventory/TagsCellEditor";
-import type { Card, CardListResponse, ColumnLayoutItem, FieldDef, Relation, RelationType, TagGroup, TagRef } from "@/types";
+import StakeholdersCellEditor from "@/features/inventory/StakeholdersCellEditor";
+import type { Card, CardListResponse, ColumnLayoutItem, FieldDef, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
 
 const DEFAULT_SIDEBAR_WIDTH = 300;
+
+/** Display names for one role's stakeholder refs, joined for filter/export. */
+function stakeholdersToText(refs?: StakeholderRef[]): string {
+  return (refs || [])
+    .map((s) => s.user_display_name || s.user_email || s.user_id)
+    .join("; ");
+}
 
 function getLifecyclePhase(card: Card): string {
   const lc = card.lifecycle || {};
@@ -202,6 +210,7 @@ export default function InventoryPage() {
   const canShareBookmarks = !!(user?.permissions?.["*"] || user?.permissions?.["bookmarks.share"]);
   const canOdataBookmarks = !!(user?.permissions?.["*"] || user?.permissions?.["bookmarks.odata"]);
   const canViewCostsGlobally = !!(user?.permissions?.["*"] || user?.permissions?.["costs.view"]);
+  const canManageStakeholders = !!(user?.permissions?.["*"] || user?.permissions?.["stakeholders.manage"]);
   const gridRef = useRef<AgGridReact>(null);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -322,6 +331,13 @@ export default function InventoryPage() {
       })
       .catch(() => setUserNameMap({}));
   }, []);
+
+  // Stakeholder roles for the selected type — drives the per-role
+  // "Stakeholders: <role>" columns. Fetched from /stakeholder-roles (the
+  // authoritative source: role-definition table first, legacy JSONB fallback,
+  // then the built-in Responsible/Observer defaults) rather than
+  // typeConfig.stakeholder_roles, which can lag behind the table.
+  const [stakeholderRoles, setStakeholderRoles] = useState<StakeholderRoleOption[]>([]);
 
   // Dynamic column visibility: set of column keys the user has opted to show
   // Initialized from localStorage if available, otherwise defaults to all when type selected
@@ -472,6 +488,27 @@ export default function InventoryPage() {
   const selectedType = filters.types.length === 1 ? filters.types[0] : "";
   const typeConfig = types.find((t) => t.key === selectedType);
 
+  // Load the selected type's stakeholder roles (per-role columns follow the
+  // same single-type rule as attribute/relation columns).
+  useEffect(() => {
+    if (!selectedType) {
+      setStakeholderRoles([]);
+      return;
+    }
+    let cancelled = false;
+    api
+      .get<StakeholderRoleOption[]>(`/stakeholder-roles?type_key=${encodeURIComponent(selectedType)}`)
+      .then((roles) => {
+        if (!cancelled) setStakeholderRoles(Array.isArray(roles) ? roles : []);
+      })
+      .catch(() => {
+        if (!cancelled) setStakeholderRoles([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedType]);
+
   // Common fields across multiple selected types (for dynamic columns)
   const commonFields = useMemo<FieldDef[]>(() => {
     if (filters.types.length <= 1) return [];
@@ -564,8 +601,11 @@ export default function InventoryPage() {
         rt.source_type_key === selectedType ? rt.target_type_key : rt.source_type_key;
       cols.add(`rel_${otherKey}`);
     }
+    for (const role of stakeholderRoles) {
+      cols.add(`stakeholder_${role.key}`);
+    }
     return cols;
-  }, [typeConfig, commonFields, relevantRelTypes, selectedType]);
+  }, [typeConfig, commonFields, relevantRelTypes, selectedType, stakeholderRoles]);
 
   // Auto-populate columns with all-checked defaults when type changes (and not yet initialized)
   useEffect(() => {
@@ -826,6 +866,31 @@ export default function InventoryPage() {
       }
       for (const id of toRemove) {
         await api.delete(`/cards/${card.id}/tags/${id}`);
+      }
+    } else if (field.startsWith("stakeholder_")) {
+      const role = field.slice("stakeholder_".length);
+      const oldUserIds = new Set(
+        (event.oldValue as StakeholderRef[] | undefined ?? []).map((s) => s.user_id),
+      );
+      const newUserIds = new Set(
+        (event.newValue as StakeholderRef[] | undefined ?? []).map((s) => s.user_id),
+      );
+      const operations = [
+        ...[...newUserIds]
+          .filter((id) => !oldUserIds.has(id))
+          .map((id) => ({ action: "add", card_id: card.id, user_id: id, role })),
+        ...[...oldUserIds]
+          .filter((id) => !newUserIds.has(id))
+          .map((id) => ({ action: "remove", card_id: card.id, user_id: id, role })),
+      ];
+      if (operations.length > 0) {
+        try {
+          const res = await api.post<{ failed: number }>("/stakeholders/bulk", { operations });
+          if (res.failed > 0) loadData();
+        } catch {
+          // Revert the optimistic row state (e.g. a per-card permission denial).
+          loadData();
+        }
       }
     }
   };
@@ -1934,6 +1999,78 @@ export default function InventoryPage() {
       });
     }
 
+    // Stakeholder columns — one per stakeholder role of the selected type.
+    // The cell value is the card's StakeholderRef[] filtered to that role
+    // (already part of the /cards list payload — no extra fetch), rendered as
+    // person chips and edited via StakeholdersCellEditor in grid-edit mode.
+    for (const role of stakeholderRoles) {
+      const roleKey = role.key;
+      const roleLabel = typeLabel(role);
+      const colKey = `stakeholder_${roleKey}`;
+      cols.push({
+        colId: colKey,
+        field: colKey,
+        headerName: t("columns.stakeholderRole", { role: roleLabel }),
+        width: 180,
+        hide: !selectedColumns.has(colKey),
+        editable: gridEditMode && canManageStakeholders,
+        cellEditor: StakeholdersCellEditor,
+        cellEditorPopup: true,
+        cellEditorParams: { roleKey, roleLabel },
+        valueGetter: (p: { data?: Card }) =>
+          (p.data?.stakeholders || []).filter((s) => s.role === roleKey),
+        valueSetter: (p: { data: Card; newValue: StakeholderRef[] }) => {
+          const others = (p.data.stakeholders || []).filter((s) => s.role !== roleKey);
+          p.data.stakeholders = [...others, ...(p.newValue || [])];
+          return true;
+        },
+        // The raw value is a StakeholderRef[]; filter/sort/export on the
+        // joined display names instead (same pattern as the Tags column).
+        filterValueGetter: (p: { data?: Card }) =>
+          stakeholdersToText((p.data?.stakeholders || []).filter((s) => s.role === roleKey)),
+        valueFormatter: (p: { value?: StakeholderRef[] }) => stakeholdersToText(p.value),
+        comparator: (a: StakeholderRef[], b: StakeholderRef[]) =>
+          stakeholdersToText(a).localeCompare(stakeholdersToText(b)),
+        cellRenderer: (p: { value: StakeholderRef[] }) => {
+          const refs = p.value || [];
+          if (refs.length === 0) return "";
+          const visible = refs.slice(0, 3);
+          const overflow = refs.length - visible.length;
+          return (
+            <Box
+              sx={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 0.25,
+                rowGap: "2px",
+                alignItems: "center",
+                lineHeight: 1,
+              }}
+            >
+              {visible.map((s) => (
+                <Chip
+                  key={s.user_id}
+                  icon={<MaterialSymbol icon="person" size={12} />}
+                  label={s.user_display_name || s.user_email || s.user_id}
+                  size="small"
+                  variant="outlined"
+                  sx={{ height: 16, fontSize: 11, "& .MuiChip-label": { px: 0.75 } }}
+                />
+              ))}
+              {overflow > 0 && (
+                <Chip
+                  label={`+${overflow}`}
+                  size="small"
+                  variant="outlined"
+                  sx={{ height: 16, fontSize: 11, "& .MuiChip-label": { px: 0.75 } }}
+                />
+              )}
+            </Box>
+          );
+        },
+      });
+    }
+
     // Metadata columns (always defined, shown/hidden via selectedColumns)
     cols.push(
       {
@@ -1975,7 +2112,7 @@ export default function InventoryPage() {
     );
 
     return cols;
-  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, selectedType, parentPaths, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally, tagGroups]);
+  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, selectedType, parentPaths, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, tagGroups, stakeholderRoles, typeLabel]);
 
   // Restore the saved column layout (order/width/pinning/sort) onto the grid.
   // Keyed on `columnDefs` so it re-applies each time the column *set* changes —
@@ -2225,6 +2362,7 @@ export default function InventoryPage() {
             width={300}
             onWidthChange={() => {}}
             relevantRelTypes={relevantRelTypes}
+            stakeholderRoles={stakeholderRoles}
             relationsMap={relationsMap}
             tagGroups={tagGroups}
             canArchive={canArchive}
@@ -2251,6 +2389,7 @@ export default function InventoryPage() {
           width={sidebarWidth}
           onWidthChange={setSidebarWidth}
           relevantRelTypes={relevantRelTypes}
+          stakeholderRoles={stakeholderRoles}
           relationsMap={relationsMap}
           tagGroups={tagGroups}
           canArchive={canArchive}
