@@ -7,6 +7,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { DateField } from "@/components/DateField";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -200,14 +201,12 @@ export default function MitigationTaskDialog({
               )}
               sx={{ flex: 1 }}
             />
-            <TextField
+            <DateField
               label={t("risks.tasks.field.dueDate")}
-              type="date"
               size="small"
               value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
+              onChange={(v) => setDueDate(v)}
               disabled={submitting}
-              InputLabelProps={{ shrink: true }}
               sx={{ flex: 1 }}
             />
           </Stack>

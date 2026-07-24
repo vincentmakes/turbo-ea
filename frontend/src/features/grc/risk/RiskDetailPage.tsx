@@ -34,6 +34,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import StakeholderHoverCard from "@/components/StakeholderHoverCard";
+import { DateField } from "@/components/DateField";
 import { api, ApiError } from "@/api/client";
 import type {
   Risk,
@@ -523,16 +524,14 @@ export default function RiskDetailPage() {
                   ))}
                 </Select>
               </FormControl>
-              <TextField
+              <DateField
                 label={t("risks.field.targetDate")}
-                type="date"
                 size="small"
                 value={risk.target_resolution_date ?? ""}
-                onChange={(e) =>
-                  patch({ target_resolution_date: e.target.value || null })
+                onChange={(v) =>
+                  patch({ target_resolution_date: v || null })
                 }
                 disabled={lockInput}
-                InputLabelProps={{ shrink: true }}
                 sx={{ flex: 1 }}
               />
             </Stack>

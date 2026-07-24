@@ -21,6 +21,7 @@ import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
 import { useTranslation } from "react-i18next";
+import { DateField } from "@/components/DateField";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type { RecurrenceUnit, Todo, User } from "@/types";
@@ -255,13 +256,11 @@ function TodosTab({ fsId }: { fsId: string }) {
               )}
               size="small"
             />
-            <TextField
+            <DateField
               label={t("todos.dueDate")}
-              type="date"
               size="small"
-              InputLabelProps={{ shrink: true }}
               value={newDueDate}
-              onChange={(e) => setNewDueDate(e.target.value)}
+              onChange={(v) => setNewDueDate(v)}
             />
           </Box>
 

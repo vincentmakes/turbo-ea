@@ -18,6 +18,7 @@ import Alert from "@mui/material/Alert";
 import Divider from "@mui/material/Divider";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
+import { DateField } from "@/components/DateField";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -262,23 +263,19 @@ export default function PpmTaskDialog({
           />
 
           <Box display="flex" gap={2}>
-            <TextField
+            <DateField
               label={t("taskStartDate")}
-              type="date"
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={(v) => setStartDate(v)}
               fullWidth
               size="small"
-              slotProps={{ inputLabel: { shrink: true } }}
             />
-            <TextField
+            <DateField
               label={t("taskDueDate")}
-              type="date"
               value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
+              onChange={(v) => setDueDate(v)}
               fullWidth
               size="small"
-              slotProps={{ inputLabel: { shrink: true } }}
             />
           </Box>
 

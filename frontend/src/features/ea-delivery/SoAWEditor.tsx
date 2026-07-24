@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { DateField } from "@/components/DateField";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -705,14 +706,12 @@ export default function SoAWEditor() {
             }
             disabled={isSigned}
           />
-          <TextField
+          <DateField
             label={t("editor.reviewDate")}
             fullWidth
-            type="date"
-            InputLabelProps={{ shrink: true }}
             value={docInfo.review_date}
-            onChange={(e) =>
-              setDocInfo((p) => ({ ...p, review_date: e.target.value }))
+            onChange={(v) =>
+              setDocInfo((p) => ({ ...p, review_date: v }))
             }
             disabled={isSigned}
           />
@@ -790,18 +789,14 @@ export default function SoAWEditor() {
                   />
                 </TableCell>
                 <TableCell sx={{ p: 0.5 }}>
-                  <TextField
+                  <DateField
                     size="small"
                     fullWidth
                     disabled={isSigned}
-                    type="date"
                     value={row.date}
-                    onChange={(e) =>
-                      updateVersionRow(idx, "date", e.target.value)
-                    }
+                    onChange={(v) => updateVersionRow(idx, "date", v)}
                     variant="standard"
                     InputProps={{ disableUnderline: true }}
-                    InputLabelProps={{ shrink: true }}
                     sx={{ px: 1 }}
                   />
                 </TableCell>

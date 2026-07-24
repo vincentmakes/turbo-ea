@@ -30,6 +30,7 @@ import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { DateField } from "@/components/DateField";
 import type {
   RiskCategory,
   RiskLevel,
@@ -613,21 +614,17 @@ export default function RiskFilterSidebar({
           />
           <Collapse in={expandedSections.target}>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1, my: 0.5 }}>
-              <TextField
+              <DateField
                 size="small"
-                type="date"
                 label={t("risks.filter.from")}
                 value={filters.dateTargetFrom}
-                onChange={(e) => setField("dateTargetFrom", e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                onChange={(v) => setField("dateTargetFrom", v)}
               />
-              <TextField
+              <DateField
                 size="small"
-                type="date"
                 label={t("risks.filter.to")}
                 value={filters.dateTargetTo}
-                onChange={(e) => setField("dateTargetTo", e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                onChange={(v) => setField("dateTargetTo", v)}
               />
               <FormControlLabel
                 control={

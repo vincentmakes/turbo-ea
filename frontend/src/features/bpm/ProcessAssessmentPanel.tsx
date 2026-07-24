@@ -4,6 +4,7 @@
  */
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { DateField } from "@/components/DateField";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
@@ -236,14 +237,12 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{t("assessment.newAssessment")}</DialogTitle>
         <DialogContent>
-          <TextField
+          <DateField
             label={t("common:labels.date")}
-            type="date"
             fullWidth
             margin="normal"
             value={form.assessment_date}
-            onChange={(e) => setForm({ ...form, assessment_date: e.target.value })}
-            slotProps={{ inputLabel: { shrink: true } }}
+            onChange={(v) => setForm({ ...form, assessment_date: v })}
           />
           {DIMENSIONS.map((d) => (
             <Box key={d.key} sx={{ mt: 2 }}>
