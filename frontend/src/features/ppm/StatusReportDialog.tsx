@@ -11,6 +11,7 @@ import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
+import { DateField } from "@/components/DateField";
 import { api } from "@/api/client";
 import type { PpmStatusReport, PpmHealthValue } from "@/types";
 
@@ -124,13 +125,11 @@ export default function StatusReportDialog({
       <DialogTitle>{isEdit ? t("editReport") : t("addReport")}</DialogTitle>
       <DialogContent>
         <Box display="flex" flexDirection="column" gap={2.5} mt={1}>
-          <TextField
+          <DateField
             label={t("reportDate")}
-            type="date"
             value={reportDate}
-            onChange={(e) => setReportDate(e.target.value)}
+            onChange={(v) => setReportDate(v)}
             size="small"
-            slotProps={{ inputLabel: { shrink: true } }}
             sx={{ maxWidth: 200 }}
           />
 

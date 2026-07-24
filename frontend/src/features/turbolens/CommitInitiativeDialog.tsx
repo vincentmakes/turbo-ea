@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { DateField } from "@/components/DateField";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -381,21 +382,17 @@ export default function CommitInitiativeDialog({
             />
 
             <Stack direction="row" spacing={2}>
-              <TextField
+              <DateField
                 label={t("turbolens_commit_start_date")}
-                type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                onChange={(v) => setStartDate(v)}
                 fullWidth
                 required
               />
-              <TextField
+              <DateField
                 label={t("turbolens_commit_end_date")}
-                type="date"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                onChange={(v) => setEndDate(v)}
                 fullWidth
                 required
               />

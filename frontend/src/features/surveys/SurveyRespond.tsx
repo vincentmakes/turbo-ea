@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { DateField } from "@/components/DateField";
 import { useNavigate, useParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -409,13 +410,11 @@ export default function SurveyRespond() {
 
     if (field.type === "date") {
       return (
-        <TextField
-          type="date"
+        <DateField
           size="small"
           fullWidth
-          value={value || ""}
-          onChange={(e) => setNewValue(field.key, e.target.value)}
-          slotProps={{ inputLabel: { shrink: true } }}
+          value={typeof value === "string" ? value : ""}
+          onChange={(v) => setNewValue(field.key, v)}
         />
       );
     }

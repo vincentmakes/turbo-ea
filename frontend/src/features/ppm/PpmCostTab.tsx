@@ -22,6 +22,7 @@ import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import Divider from "@mui/material/Divider";
 import { useTranslation } from "react-i18next";
+import { DateField } from "@/components/DateField";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -479,15 +480,11 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
                   <MenuItem value="opex">{t("opex")}</MenuItem>
                 </Select>
               </FormControl>
-              <TextField
+              <DateField
                 label={t("date")}
-                type="date"
                 value={costForm.date}
-                onChange={(e) =>
-                  setCostForm({ ...costForm, date: e.target.value })
-                }
+                onChange={(v) => setCostForm({ ...costForm, date: v })}
                 size="small"
-                slotProps={{ inputLabel: { shrink: true } }}
               />
               <TextField
                 label={t("amount")}

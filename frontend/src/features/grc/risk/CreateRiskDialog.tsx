@@ -11,6 +11,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { DateField } from "@/components/DateField";
 import Alert from "@mui/material/Alert";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
@@ -188,14 +189,12 @@ export default function CreateRiskDialog({ open, seed, onClose, onCreated }: Pro
               </Select>
             </FormControl>
 
-            <TextField
+            <DateField
               label={t("risks.field.targetDate")}
-              type="date"
               size="small"
               value={target}
-              onChange={(e) => setTarget(e.target.value)}
+              onChange={(v) => setTarget(v)}
               disabled={submitting}
-              InputLabelProps={{ shrink: true }}
               sx={{ flex: 1 }}
             />
           </Stack>

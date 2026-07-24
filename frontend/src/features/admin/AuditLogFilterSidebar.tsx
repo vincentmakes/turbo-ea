@@ -9,6 +9,7 @@
  */
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { DateField } from "@/components/DateField";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
@@ -470,21 +471,17 @@ export default function AuditLogFilterSidebar({
               />
               <Collapse in={expandedSections.date}>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 1, my: 0.5 }}>
-                  <TextField
+                  <DateField
                     size="small"
-                    type="date"
                     label={t("auditLog.filters.dateFrom")}
                     value={filters.dateFrom}
-                    onChange={(e) => setField("dateFrom", e.target.value)}
-                    InputLabelProps={{ shrink: true }}
+                    onChange={(v) => setField("dateFrom", v)}
                   />
-                  <TextField
+                  <DateField
                     size="small"
-                    type="date"
                     label={t("auditLog.filters.dateTo")}
                     value={filters.dateTo}
-                    onChange={(e) => setField("dateTo", e.target.value)}
-                    InputLabelProps={{ shrink: true }}
+                    onChange={(v) => setField("dateTo", v)}
                   />
                 </Box>
               </Collapse>

@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.24.1] - 2026-07-24
+
+### Fixed
+- **Date fields can now be typed with the keyboard again** (#865). On the GRC Risk detail page the "Target resolution date" saved on every keystroke and fed the server response straight back into the input, which reset the control mid-edit and made it impossible to type the year (the calendar picker still worked). All native date inputs across the app now share a common `DateField` component that keeps your in-progress edit while focused and commits once when you leave the field, so this class of bug cannot recur.
+
 ## [2.24.0] - 2026-07-22
 
 ### Added

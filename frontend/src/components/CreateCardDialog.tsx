@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { DateField } from "@/components/DateField";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -423,14 +424,12 @@ export default function CreateCardDialog({
 
       case "date":
         return (
-          <TextField
+          <DateField
             key={field.key}
             fullWidth
             label={fieldLabel(field)}
-            type="date"
             value={(attributes[field.key] as string) ?? ""}
-            onChange={(e) => setAttr(field.key, e.target.value || undefined)}
-            InputLabelProps={{ shrink: true }}
+            onChange={(v) => setAttr(field.key, v || undefined)}
             sx={{ mb: 2 }}
           />
         );

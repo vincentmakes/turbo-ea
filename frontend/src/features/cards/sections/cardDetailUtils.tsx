@@ -15,6 +15,7 @@ import Tooltip from "@mui/material/Tooltip";
 import InputAdornment from "@mui/material/InputAdornment";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
+import { DateField } from "@/components/DateField";
 import type { CurrencyFormatter } from "@/hooks/useCurrency";
 import { readableTextColor, readableTypeColor } from "@/lib/color";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -661,13 +662,11 @@ export function FieldEditor({
       );
     case "date":
       return (
-        <TextField
+        <DateField
           size="small"
           label={fieldLabel(field)}
-          type="date"
           value={strVal}
-          onChange={(e) => onChange(e.target.value || undefined)}
-          InputLabelProps={{ shrink: true }}
+          onChange={(v) => onChange(v || undefined)}
           sx={{ minWidth: 200 }}
         />
       );

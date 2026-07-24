@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { DateField } from "@/components/DateField";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import List from "@mui/material/List";
@@ -734,23 +735,19 @@ export default function AdrFilterSidebar({
           />
           <Collapse in={expandedSections.dateCreated}>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 1.5, mt: 0.5 }}>
-              <TextField
-                type="date"
+              <DateField
                 size="small"
                 fullWidth
                 label={t("adr.filter.from")}
                 value={filters.dateCreatedFrom}
-                onChange={(e) => setDateField("dateCreatedFrom", e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                onChange={(v) => setDateField("dateCreatedFrom", v)}
               />
-              <TextField
-                type="date"
+              <DateField
                 size="small"
                 fullWidth
                 label={t("adr.filter.to")}
                 value={filters.dateCreatedTo}
-                onChange={(e) => setDateField("dateCreatedTo", e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                onChange={(v) => setDateField("dateCreatedTo", v)}
               />
             </Box>
           </Collapse>
@@ -766,23 +763,19 @@ export default function AdrFilterSidebar({
           />
           <Collapse in={expandedSections.dateModified}>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 1.5, mt: 0.5 }}>
-              <TextField
-                type="date"
+              <DateField
                 size="small"
                 fullWidth
                 label={t("adr.filter.from")}
                 value={filters.dateModifiedFrom}
-                onChange={(e) => setDateField("dateModifiedFrom", e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                onChange={(v) => setDateField("dateModifiedFrom", v)}
               />
-              <TextField
-                type="date"
+              <DateField
                 size="small"
                 fullWidth
                 label={t("adr.filter.to")}
                 value={filters.dateModifiedTo}
-                onChange={(e) => setDateField("dateModifiedTo", e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                onChange={(v) => setDateField("dateModifiedTo", v)}
               />
             </Box>
           </Collapse>
@@ -798,23 +791,19 @@ export default function AdrFilterSidebar({
           />
           <Collapse in={expandedSections.dateSigned}>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 1.5, mt: 0.5 }}>
-              <TextField
-                type="date"
+              <DateField
                 size="small"
                 fullWidth
                 label={t("adr.filter.from")}
                 value={filters.dateSignedFrom}
-                onChange={(e) => setDateField("dateSignedFrom", e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                onChange={(v) => setDateField("dateSignedFrom", v)}
               />
-              <TextField
-                type="date"
+              <DateField
                 size="small"
                 fullWidth
                 label={t("adr.filter.to")}
                 value={filters.dateSignedTo}
-                onChange={(e) => setDateField("dateSignedTo", e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                onChange={(v) => setDateField("dateSignedTo", v)}
               />
             </Box>
           </Collapse>

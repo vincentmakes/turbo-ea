@@ -18,6 +18,7 @@ import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
+import { DateField } from "@/components/DateField";
 import { api } from "@/api/client";
 import type { PpmWbs } from "@/types";
 
@@ -194,24 +195,20 @@ export default function PpmWbsDialog({
             label={t("milestone")}
           />
           <Box display="flex" gap={2}>
-            <TextField
+            <DateField
               label={isMilestone ? t("milestoneDate") : t("wbsStartDate")}
-              type="date"
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={(v) => setStartDate(v)}
               fullWidth
               size="small"
-              slotProps={{ inputLabel: { shrink: true } }}
             />
             {!isMilestone && (
-              <TextField
+              <DateField
                 label={t("wbsEndDate")}
-                type="date"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={(v) => setEndDate(v)}
                 fullWidth
                 size="small"
-                slotProps={{ inputLabel: { shrink: true } }}
               />
             )}
           </Box>

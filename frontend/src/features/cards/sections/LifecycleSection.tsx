@@ -4,11 +4,11 @@ import Typography from "@mui/material/Typography";
 import Accordion from "@mui/material/Accordion";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import AccordionDetails from "@mui/material/AccordionDetails";
-import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
+import { DateField } from "@/components/DateField";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { PHASE_ICONS } from "@/components/LifecycleBadge";
 import { PHASES, getPhaseLabels } from "@/features/cards/sections/cardDetailUtils";
@@ -235,16 +235,14 @@ function LifecycleSection({
           <Box>
             <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 2 }}>
               {PHASES.map((phase) => (
-                <TextField
+                <DateField
                   key={phase}
                   label={phaseLabels[phase]}
-                  type="date"
                   size="small"
                   value={lifecycle[phase] || ""}
-                  onChange={(e) =>
-                    setLifecycle({ ...lifecycle, [phase]: e.target.value })
+                  onChange={(v) =>
+                    setLifecycle({ ...lifecycle, [phase]: v })
                   }
-                  InputLabelProps={{ shrink: true }}
                   sx={{ width: 170 }}
                 />
               ))}
