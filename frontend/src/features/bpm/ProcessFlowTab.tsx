@@ -8,7 +8,7 @@
  */
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import DOMPurify from "dompurify";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";

@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef } from "react";
-import { UNSAFE_NavigationContext } from "react-router-dom";
+import { UNSAFE_NavigationContext } from "react-router";
 
 /**
  * Warn the user before they navigate away while there are unsaved changes.

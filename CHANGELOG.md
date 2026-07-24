@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.25.0] - 2026-07-24
+
+### Changed
+- Upgraded the frontend to React 19 and React Router 8. This is a dependency migration with no functional changes — every page, editor, and report behaves exactly as before.
+
+### Security
+- Fixed GHSA-qwww-vcr4-c8h2 (high severity) in react-router by moving to the patched 8.x line. `npm audit --omit=dev` now reports zero vulnerabilities.
+
 ## [2.24.1] - 2026-07-24
 
 ### Fixed

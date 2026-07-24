@@ -5,7 +5,7 @@
  * Reads ?versionId= query param to edit a specific draft version.
  * Reads ?returnSubTab= to know which sub-tab to return to on back/save.
  */
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router";
 import BpmnModeler from "./BpmnModeler";
 
 export default function ProcessFlowEditorPage() {

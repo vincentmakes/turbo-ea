@@ -33,7 +33,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { useTheme } from "@mui/material/styles";
 import { toBlob, toSvg } from "html-to-image";
 import { saveAs } from "file-saver";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { api } from "@/api/client";
 import { readableTypeColor } from "@/lib/color";
 import MaterialSymbol from "@/components/MaterialSymbol";

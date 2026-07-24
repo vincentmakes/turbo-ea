@@ -5,7 +5,7 @@ import NotificationBell from "./NotificationBell";
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
 }));
-vi.mock("react-router-dom", () => ({
+vi.mock("react-router", () => ({
   useNavigate: () => vi.fn(),
 }));
 vi.mock("@/api/client", () => ({

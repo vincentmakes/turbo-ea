@@ -46,7 +46,7 @@ import {
   RiskDialogSeed,
   seedFromCompliance,
 } from "@/features/grc/risk/riskDefaults";
-import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router";
 import { useAuthContext } from "@/hooks/AuthContext";
 import ComplianceScanCard from "./ComplianceScanCard";
 import { useAnalysisPolling } from "@/features/turbolens/useAnalysisPolling";

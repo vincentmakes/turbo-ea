@@ -9,7 +9,7 @@ import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
-import { matchPath, useLocation } from "react-router-dom";
+import { matchPath, useLocation } from "react-router";
 
 import RequirePermission from "@/components/RequirePermission";
 import { ExtensionBoundary, useExtensionUI } from "@/lib/extensionHost";
