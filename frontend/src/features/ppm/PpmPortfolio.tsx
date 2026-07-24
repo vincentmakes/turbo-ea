@@ -222,7 +222,7 @@ export default function PpmPortfolio() {
   // ── Report hover popover state ──
   const [reportAnchorEl, setReportAnchorEl] = useState<HTMLElement | null>(null);
   const [hoveredReport, setHoveredReport] = useState<PpmStatusReport | null>(null);
-  const leaveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const timelineRef = useRef<HTMLDivElement>(null);
 
   // After every render / resize, hide quarter labels that overlap

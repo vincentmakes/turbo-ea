@@ -81,7 +81,7 @@ export default function CommitInitiativeDialog({
     null,
   );
   const [error, setError] = useState("");
-  const pollRef = useRef<ReturnType<typeof setInterval>>();
+  const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   // Only show non-disabled new cards
   const newCards = useMemo(

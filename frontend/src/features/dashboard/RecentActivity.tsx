@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 import Box from "@mui/material/Box";
@@ -82,8 +82,8 @@ export default function RecentActivity({ events, maxRows = 12 }: Props) {
 /*  Rendering                                                          */
 /* ------------------------------------------------------------------ */
 
-function renderRows(groups: ActivityGroup[], t: ReturnType<typeof useTranslation>["t"]): JSX.Element[] {
-  const rows: JSX.Element[] = [];
+function renderRows(groups: ActivityGroup[], t: ReturnType<typeof useTranslation>["t"]): ReactElement[] {
+  const rows: ReactElement[] = [];
   let lastBucketKey: string | null = null;
 
   groups.forEach((group, idx) => {
