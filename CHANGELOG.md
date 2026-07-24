@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Process × Organization matrix report** — a new tab in BPM Reports answering «which organizations execute steps in which processes». Built exclusively from the informative step ↔ organization links (card relations are not included): rows are processes, columns are executing organizations, cells show the step count with a tooltip, each row expands to the actual steps per organization, and the matrix is filtered via organization and process multi-select dropdowns plus a step-name text filter (which narrows counts, rows, and columns to matching steps).
 - **Organizations can now be linked to process-flow steps** — a new *Organization* column in the flow's step table, right next to the existing Application / Data Object / IT Component linking. Unlike those single-value links, a step can be linked to several organizations (m:n). Step links are informative only: they document which organizations are involved in a step without creating any relation between the Business Process and Organization cards (card relations are managed separately on the Relations tab). The Process Navigator and diagram viewer show the linked organizations as chips, lane names remain plain free text from the diagram, draft flows support organization pre-linking applied on publish, and the step ↔ organization links transfer with workspace export/import.
 
+## [2.23.4] - 2026-07-23
+
+### Fixed
+- **SSO login with Okta (and other strict OIDC providers) no longer fails with `invalid_request`** (#860). The login flow now sends the OAuth `state` parameter on the authorize request — Okta mandates it — and the callback validates the echoed value against the one stored before redirecting, adding standard CSRF protection to sign-in. Providers that already worked (Microsoft Entra ID, Google, Authentik, Keycloak, …) are unaffected: echoing `state` is mandatory OAuth 2.0 behavior.
+
 ## [2.23.3] - 2026-07-22
 
 ### Fixed

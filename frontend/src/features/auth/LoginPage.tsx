@@ -123,6 +123,15 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
       }
     }
 
+    // CSRF protection — Okta rejects authorize requests without `state` (#860).
+    // Set after extra_auth_params so a configured extra param can never clobber it.
+    const state =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : String(Date.now());
+    sessionStorage.setItem("sso_login_state", state);
+    params.set("state", state);
+
     window.location.href = `${ssoConfig.authorization_endpoint}?${params.toString()}`;
   };
 
