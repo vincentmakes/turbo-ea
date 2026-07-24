@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.25.1] - 2026-07-24
+
+### Security
+- Raised the frontend build-tooling floors for js-yaml (≥ 5.2.2) and postcss (≥ 8.5.18) to clear two high-severity development-scoped advisories (js-yaml flow-collection DoS; PostCSS source-map path traversal). Build tooling only — the shipped application bundle contains neither package.
+
 ## [2.25.0] - 2026-07-24
 
 ### Changed
