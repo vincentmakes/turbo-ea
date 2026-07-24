@@ -353,6 +353,16 @@ describe("ProcessFlowTab", () => {
       });
     });
 
+    it("shows the highlighted informative-only note above the table", async () => {
+      mockWithOrgs();
+      renderTab();
+      await waitFor(() => {
+        expect(
+          screen.getByText(/informative only and independent of card relationships/)
+        ).toBeInTheDocument();
+      });
+    });
+
     it("shows one chip per linked organization on a step", async () => {
       mockWithOrgs([elementWithOrgs]);
       renderTab();

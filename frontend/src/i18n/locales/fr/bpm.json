@@ -35,6 +35,7 @@
   "flowTab.itComponent": "Composant IT",
   "flowTab.organization": "Organisation",
   "flowTab.organizationTooltip": "Purement informatif — documente quelles organisations sont impliquées dans une étape. Contrairement aux autres colonnes, cela ne crée pas de relation entre les fiches.",
+  "flowTab.organizationLinkNote": "Les liens d'organisations sur les étapes sont purement informatifs et indépendants des relations entre fiches. Ces données sont visualisées exclusivement dans le rapport Processus × Organisation des rapports BPM.",
   "flowTab.loadingPublished": "Chargement du flux publié…",
   "flowTab.noPublishedYet": "Aucun flux de processus publié pour le moment",
   "flowTab.draftsAvailable_one": "{{count}} brouillon disponible.",

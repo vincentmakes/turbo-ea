@@ -38,6 +38,7 @@
   "flowTab.itComponent": "IT Component",
   "flowTab.organization": "Organization",
   "flowTab.organizationTooltip": "Informative only — documents which organizations are involved in a step. Unlike the other columns, this does not create a relation between the cards.",
+  "flowTab.organizationLinkNote": "Organization links on steps are informative only and independent of card relationships. This data is visualized exclusively in the Process × Organization report under BPM Reports.",
   "flowTab.loadingPublished": "Loading published flow...",
   "flowTab.noPublishedYet": "No published process flow yet",
   "flowTab.draftsAvailable_one": "{{count}} draft available.",

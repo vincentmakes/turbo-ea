@@ -35,6 +35,7 @@
   "flowTab.itComponent": "IT 组件",
   "flowTab.organization": "组织",
   "flowTab.organizationTooltip": "仅供参考 —— 记录哪些组织参与某个步骤。与其他列不同，这不会在卡片之间创建关系。",
+  "flowTab.organizationLinkNote": "步骤上的组织链接仅供参考，与卡片关系相互独立。这些数据仅在 BPM 报告的「流程 × 组织」报告中可视化。",
   "flowTab.loadingPublished": "正在加载已发布的流程...",
   "flowTab.noPublishedYet": "尚无已发布的流程图",
   "flowTab.draftsAvailable_one": "{{count}} 个草稿可用。",

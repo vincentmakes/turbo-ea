@@ -38,6 +38,7 @@
   "flowTab.itComponent": "مكوّن تقنية المعلومات",
   "flowTab.organization": "المؤسّسة",
   "flowTab.organizationTooltip": "معلوماتي فقط — يوثّق المؤسّسات المشارِكة في الخطوة. وخلافًا للأعمدة الأخرى، لا يُنشئ هذا علاقة بين البطاقات.",
+  "flowTab.organizationLinkNote": "روابط المؤسّسات على الخطوات معلوماتية فقط ومستقلة عن علاقات البطاقات. تُعرض هذه البيانات حصريًا في تقرير «العملية × المؤسّسة» ضمن تقارير BPM.",
   "flowTab.loadingPublished": "جارٍ تحميل التدفّق المنشور...",
   "flowTab.noPublishedYet": "لا يوجد تدفّق عمليات منشور بعد",
   "flowTab.draftsAvailable_one": "تتوفّر مسودّة واحدة ({{count}}).",

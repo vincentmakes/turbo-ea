@@ -35,6 +35,7 @@
   "flowTab.itComponent": "Componente de TI",
   "flowTab.organization": "Organização",
   "flowTab.organizationTooltip": "Apenas informativo — documenta quais organizações participam de uma etapa. Diferentemente das outras colunas, isso não cria uma relação entre os cards.",
+  "flowTab.organizationLinkNote": "Os vínculos de organizações nas etapas são apenas informativos e independentes das relações entre cards. Esses dados são visualizados exclusivamente no relatório Processo × Organização nos Relatórios de BPM.",
   "flowTab.loadingPublished": "Carregando fluxo publicado...",
   "flowTab.noPublishedYet": "Nenhum fluxo de processo publicado ainda",
   "flowTab.draftsAvailable_one": "{{count}} rascunho disponível.",

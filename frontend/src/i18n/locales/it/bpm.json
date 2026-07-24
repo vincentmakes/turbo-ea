@@ -35,6 +35,7 @@
   "flowTab.itComponent": "Componente IT",
   "flowTab.organization": "Organizzazione",
   "flowTab.organizationTooltip": "Puramente informativo — documenta quali organizzazioni sono coinvolte in un passaggio. A differenza delle altre colonne, non crea una relazione tra le card.",
+  "flowTab.organizationLinkNote": "I collegamenti delle organizzazioni sui passaggi sono puramente informativi e indipendenti dalle relazioni tra card. Questi dati sono visualizzati esclusivamente nel report Processo × Organizzazione nei Report BPM.",
   "flowTab.loadingPublished": "Caricamento flusso pubblicato...",
   "flowTab.noPublishedYet": "Nessun flusso di processo pubblicato",
   "flowTab.draftsAvailable_one": "{{count}} bozza disponibile.",

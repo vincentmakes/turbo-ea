@@ -622,6 +622,13 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
         <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>
           {subtitle}
         </Typography>
+        <Alert
+          severity="info"
+          icon={<MaterialSymbol icon="info" size={18} />}
+          sx={{ mb: 1, py: 0, "& .MuiAlert-message": { py: 0.75 } }}
+        >
+          {t("flowTab.organizationLinkNote")}
+        </Alert>
         <TableContainer component={Paper} variant="outlined">
           <Table size="small">
             <TableHead>

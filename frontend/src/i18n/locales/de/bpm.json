@@ -35,6 +35,7 @@
   "flowTab.itComponent": "IT-Komponente",
   "flowTab.organization": "Organisation",
   "flowTab.organizationTooltip": "Rein informativ — dokumentiert, welche Organisationen an einem Schritt beteiligt sind. Anders als die anderen Spalten erzeugt dies keine Beziehung zwischen den Karten.",
+  "flowTab.organizationLinkNote": "Organisationsverknüpfungen an Schritten sind rein informativ und unabhängig von Kartenbeziehungen. Diese Daten werden ausschließlich in der Prozess-×-Organisation-Matrix unter BPM-Berichte visualisiert.",
   "flowTab.loadingPublished": "Veröffentlichter Ablauf wird geladen...",
   "flowTab.noPublishedYet": "Noch kein veröffentlichter Prozessablauf",
   "flowTab.draftsAvailable_one": "{{count}} Entwurf verfügbar.",

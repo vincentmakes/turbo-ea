@@ -35,6 +35,7 @@
   "flowTab.itComponent": "IT-komponent",
   "flowTab.organization": "Organisation",
   "flowTab.organizationTooltip": "Kun informativt — dokumenterer, hvilke organisationer der er involveret i et trin. I modsætning til de andre kolonner opretter dette ikke en relation mellem kortene.",
+  "flowTab.organizationLinkNote": "Organisationslinks på trin er kun informative og uafhængige af kortrelationer. Disse data visualiseres udelukkende i rapporten Proces × Organisation under BPM-rapporter.",
   "flowTab.loadingPublished": "Indlæser udgivet flow...",
   "flowTab.noPublishedYet": "Intet udgivet procesflow endnu",
   "flowTab.draftsAvailable_one": "{{count}} kladde tilgængelig.",
