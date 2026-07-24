@@ -20,9 +20,10 @@ import type { Card, CardType, Relation, RelationType, StakeholderRoleOption } fr
  *     this card type and whose `attributes_schema` is empty (the simple
  *     case that fits in a comma-separated cell)
  *   - `stakeholder:<role_key>` columns — one per stakeholder role of the
- *     sheet's type, cells like `Ada Lovelace <ada@corp.com>; Bob <bob@…>`.
- *     Emails are the canonical importable reference (display names are
- *     cosmetic and may collide); `serializeStakeholderCell` /
+ *     sheet's type, cells of semicolon-separated email addresses
+ *     (`ada@corp.com; bob@corp.com`), mirroring LeanIX's
+ *     `subscriptions:<RoleType>` convention. Emails are the only user
+ *     reference (display names collide); `serializeStakeholderCell` /
  *     `parseStakeholderEntry` in excelImport.ts are the two halves of the
  *     round-trip.
  *
@@ -85,10 +86,12 @@ function buildCardRef(
 }
 
 /**
- * Serialize one role's stakeholders to a cell: `Name <email>` entries joined
- * with `; `. The email in angle brackets is what the importer resolves by;
- * a stakeholder without an email (shouldn't happen — users always have one)
- * degrades to the bare display name.
+ * Serialize one role's stakeholders to a cell: plain email addresses joined
+ * with `; ` — the same convention as LeanIX's `subscriptions:<RoleType>`
+ * export columns. Emails are the only stable, unambiguous user reference
+ * (display names collide); a stakeholder without an email (shouldn't happen
+ * — users always have one) degrades to the display name so the data is at
+ * least visible in the sheet.
  */
 export function serializeStakeholderCell(
   card: Card,
@@ -96,12 +99,7 @@ export function serializeStakeholderCell(
 ): string {
   return (card.stakeholders || [])
     .filter((s) => s.role === roleKey)
-    .map((s) => {
-      const name = s.user_display_name?.trim();
-      const email = s.user_email?.trim();
-      if (name && email) return `${name} <${email}>`;
-      return email || name || s.user_id;
-    })
+    .map((s) => s.user_email?.trim() || s.user_display_name?.trim() || s.user_id)
     .join("; ");
 }
 

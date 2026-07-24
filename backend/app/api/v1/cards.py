@@ -2882,9 +2882,11 @@ async def export_csv(
     role_labels = {(row[0], row[1]): row[2] for row in role_rows.all()}
 
     def _stakeholders_cell(card: Card) -> str:
+        # Emails, not display names — the only unambiguous user reference
+        # (mirrors the Excel exporter and LeanIX's subscriptions columns).
         parts = []
         for s in sorted(card.stakeholders or [], key=lambda s: s.role):
-            who = (s.user.display_name or s.user.email) if s.user else str(s.user_id)
+            who = s.user.email if s.user else str(s.user_id)
             label = role_labels.get((card.type, s.role), s.role)
             parts.append(f"{label}: {who}")
         return "; ".join(parts)

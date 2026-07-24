@@ -181,7 +181,7 @@ For bagudkompatibilitet accepterer importøren også komma-separerede celler (pr
 
 ### Interessent-celler
 
-På hvert kort-ark bærer `stakeholder:<role_key>`-kolonner de brugere, der er tildelt hver interessentrolle, som **semikolon-separerede** poster, f.eks. `Ada Lovelace <ada@corp.com>; bob@corp.com`. **E-mailadressen er den autoritative reference** — visningsnavne opløses kun, når præcis én bruger bærer navnet. Ligesom relations-celler er interessent-celler **deklarative pr. rolle**: De anførte brugere bliver det komplette sæt af tildelinger for rollen efter importen. Fjernes en bruger fra listen, fjernes tildelingen; en tom celle rydder rollen; udelades kolonnen helt, forbliver tildelingerne urørte. Poster uden matchende bruger giver en advarsel og springes over — de blokerer aldrig importen.
+På hvert kort-ark bærer `stakeholder:<role_key>`-kolonner de brugere, der er tildelt hver interessentrolle, som **semikolon-separerede e-mailadresser** (samme konvention som LeanIX' `subscriptions:<RoleType>`-kolonner), f.eks. `ada@corp.com; bob@corp.com`. **E-mailadressen er den eneste accepterede brugerreference** — visningsnavne kan kollidere og bruges aldrig til opslag; en post på formen `Navn <email>` tolereres (e-mailen i vinkelparenteser bruges), et navn alene giver en advarsel og springes over. Ligesom relations-celler er interessent-celler **deklarative pr. rolle**: De anførte brugere bliver det komplette sæt af tildelinger for rollen efter importen. Fjernes en bruger fra listen, fjernes tildelingen; en tom celle rydder rollen; udelades kolonnen helt, forbliver tildelingerne urørte. Poster uden matchende bruger giver en advarsel og springes over — de blokerer aldrig importen.
 
 ### Relations-ark
 

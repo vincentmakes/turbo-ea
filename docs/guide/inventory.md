@@ -181,14 +181,14 @@ For backwards compatibility, the importer also accepts comma-separated cells (wo
 
 ### Stakeholder cells
 
-On every card sheet, `stakeholder:<role_key>` columns carry the users assigned to each stakeholder role, as **semicolon-separated** entries:
+On every card sheet, `stakeholder:<role_key>` columns carry the users assigned to each stakeholder role, as **semicolon-separated email addresses** (the same convention as LeanIX's `subscriptions:<RoleType>` export columns):
 
 ```text
-stakeholder:responsible  →  Ada Lovelace <ada@corp.com>; Bob Builder <bob@corp.com>
+stakeholder:responsible  →  ada@corp.com; bob@corp.com
 stakeholder:observer     →  carol@corp.com
 ```
 
-The **email address is the authoritative reference** — display names are cosmetic and are only resolved when exactly one user carries that name. A bare email or a bare display name is accepted in hand-authored files.
+The **email address is the only accepted user reference** — display names can collide, so they are never used for matching. A `Name <email>` entry is tolerated in hand-authored files (the bracketed email is used); a bare display name produces a warning and is skipped.
 
 Like relation cells, stakeholder cells are **declarative per role**: the users listed in the cell become the complete assignment set for that role after import. Removing a user from the list unassigns them; emptying the cell clears the role; omitting the column entirely leaves that role's assignments untouched. Entries that don't match any user produce a warning and are skipped — they never block the import.
 

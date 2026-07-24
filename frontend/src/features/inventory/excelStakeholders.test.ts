@@ -81,7 +81,7 @@ beforeEach(() => {
 });
 
 describe("serializeStakeholderCell / parseStakeholderEntry round-trip", () => {
-  it("serializes one role's refs as Name <email> joined with semicolons", () => {
+  it("serializes one role's refs as plain emails joined with semicolons", () => {
     const card = makeCard({
       id: "c1",
       type: "Application",
@@ -92,42 +92,40 @@ describe("serializeStakeholderCell / parseStakeholderEntry round-trip", () => {
         { id: "s3", user_id: "u-ada", user_display_name: "Ada Lovelace", user_email: "ada@corp.com", role: "observer" },
       ],
     });
-    expect(serializeStakeholderCell(card, "responsible")).toBe(
-      "Ada Lovelace <ada@corp.com>; Bob Builder <bob@corp.com>",
-    );
-    expect(serializeStakeholderCell(card, "observer")).toBe("Ada Lovelace <ada@corp.com>");
+    expect(serializeStakeholderCell(card, "responsible")).toBe("ada@corp.com; bob@corp.com");
+    expect(serializeStakeholderCell(card, "observer")).toBe("ada@corp.com");
     expect(serializeStakeholderCell(card, "unused_role")).toBe("");
   });
 
-  it("degrades to the bare email when there is no display name", () => {
+  it("degrades to the display name only when the email is missing", () => {
     const card = makeCard({
       id: "c1",
       type: "Application",
       name: "App",
       stakeholders: [
-        { id: "s1", user_id: "u-x", user_email: "x@corp.com", role: "responsible" },
+        { id: "s1", user_id: "u-x", user_display_name: "No Mail", role: "responsible" },
       ],
     });
-    expect(serializeStakeholderCell(card, "responsible")).toBe("x@corp.com");
+    expect(serializeStakeholderCell(card, "responsible")).toBe("No Mail");
   });
 
-  it("parses the three accepted entry forms", () => {
+  it("accepts emails (bare or bracketed); a bare name never resolves", () => {
+    expect(parseStakeholderEntry("ada@corp.com")).toEqual({ email: "ada@corp.com" });
     expect(parseStakeholderEntry("Ada Lovelace <ada@corp.com>")).toEqual({
       email: "ada@corp.com",
     });
-    expect(parseStakeholderEntry("ada@corp.com")).toEqual({ email: "ada@corp.com" });
-    expect(parseStakeholderEntry("Ada Lovelace")).toEqual({ name: "Ada Lovelace" });
+    expect(parseStakeholderEntry("Ada Lovelace")).toEqual({});
   });
 });
 
 describe("validateMultiSheet — stakeholder columns", () => {
-  it("resolves users by email and by unique display name on creates", async () => {
+  it("resolves users by email on creates (bracketed form tolerated)", async () => {
     const buf = buildWorkbook(
       [
         {
           name: "New App",
           type: "Application",
-          "stakeholder:responsible": "Ada Lovelace <ada@corp.com>; Bob Builder",
+          "stakeholder:responsible": "Ada Lovelace <ada@corp.com>; bob@corp.com",
         },
       ],
       "Application",
@@ -151,13 +149,15 @@ describe("validateMultiSheet — stakeholder columns", () => {
     });
   });
 
-  it("warns on unknown users and ambiguous display names", async () => {
+  it("warns on unknown emails and on bare display names (never resolved)", async () => {
     const buf = buildWorkbook(
       [
         {
           name: "New App",
           type: "Application",
-          "stakeholder:responsible": "ghost@corp.com; Sam Smith",
+          // "Ada Lovelace" IS a real user's display name — it must still be
+          // warned-and-skipped: emails are the only accepted reference.
+          "stakeholder:responsible": "ghost@corp.com; Ada Lovelace",
         },
       ],
       "Application",
@@ -177,7 +177,7 @@ describe("validateMultiSheet — stakeholder columns", () => {
     expect(report.creates[0].stakeholders).toEqual({ responsible: [] });
     const messages = report.warnings.map((w) => w.message).join("\n");
     expect(messages).toContain("ghost@corp.com");
-    expect(messages).toContain("Sam Smith");
+    expect(messages).toContain("Ada Lovelace");
   });
 
   it("ignores columns for roles the type does not define, with one warning", async () => {

@@ -250,13 +250,15 @@ function splitRelationCell(cell: string): string[] {
 }
 
 /**
- * Parse one entry of a `stakeholder:<role>` cell. The canonical export form
- * is `Display Name <email>` (see `serializeStakeholderCell` in
- * `excelExport.ts`); a bare email and a bare display name are accepted too
- * for hand-authored files. The email — when present — is the authoritative
- * reference; display names are resolved only when unambiguous.
+ * Parse one entry of a `stakeholder:<role>` cell. The canonical form is a
+ * plain email address (`ada@corp.com` — see `serializeStakeholderCell` in
+ * `excelExport.ts`, mirroring LeanIX's `subscriptions:` columns). A
+ * `Display Name <email>` entry is tolerated for hand-authored files — the
+ * bracketed email is extracted. Emails are the ONLY accepted user
+ * reference: display names collide, so an entry without an email never
+ * resolves (it surfaces as an "unknown user" warning instead of guessing).
  */
-export function parseStakeholderEntry(entry: string): { email?: string; name?: string } {
+export function parseStakeholderEntry(entry: string): { email?: string } {
   const bracket = entry.match(/<([^<>]+)>\s*$/);
   if (bracket) {
     const email = bracket[1].trim();
@@ -265,7 +267,7 @@ export function parseStakeholderEntry(entry: string): { email?: string; name?: s
   const bare = entry.trim();
   // A bare token containing `@` and no whitespace is an email address.
   if (bare.includes("@") && !/\s/.test(bare)) return { email: bare };
-  return { name: bare };
+  return {};
 }
 
 /**
@@ -666,14 +668,11 @@ export function validateImport(
 
   const typeKeys = new Set(allTypes.filter((t) => !t.is_hidden).map((t) => t.key));
 
-  // User lookup for `stakeholder:<role>` cells: email (lowercased) → user,
-  // and display name (lowercased) → user or null when the name is ambiguous.
+  // User lookup for `stakeholder:<role>` cells: email (lowercased) → user.
+  // Emails are the only accepted reference — display names collide.
   const userByEmail = new Map<string, UserRef>();
-  const userByName = new Map<string, UserRef | null>();
   for (const u of users) {
     if (u.email) userByEmail.set(u.email.trim().toLowerCase(), u);
-    const nm = (u.display_name || "").trim().toLowerCase();
-    if (nm) userByName.set(nm, userByName.has(nm) ? null : u);
   }
   const stakeholderCols = headers.filter((h) => h.startsWith("stakeholder:"));
   // Warn once per (type, role) about unknown roles, not once per row.
@@ -1101,24 +1100,7 @@ export function validateImport(
       if (cell !== "") {
         for (const entry of splitRelationCell(cell)) {
           const ref = parseStakeholderEntry(entry);
-          let resolved: UserRef | undefined;
-          if (ref.email) {
-            resolved = userByEmail.get(ref.email.toLowerCase());
-          } else if (ref.name) {
-            const byName = userByName.get(ref.name.toLowerCase());
-            if (byName === null) {
-              warnings.push({
-                row: rowNum,
-                column: col,
-                message: t("import.warnings.ambiguousStakeholderUser", {
-                  row: rowNum,
-                  value: entry,
-                }),
-              });
-              continue;
-            }
-            resolved = byName ?? undefined;
-          }
+          const resolved = ref.email ? userByEmail.get(ref.email.toLowerCase()) : undefined;
           if (!resolved) {
             warnings.push({
               row: rowNum,
