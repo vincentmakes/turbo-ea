@@ -66,10 +66,22 @@ import "ag-grid-community/styles/ag-theme-quartz.css";
 
 const DEFAULT_SIDEBAR_WIDTH = 300;
 
-/** Display names for one role's stakeholder refs, joined for filter/export. */
+/** Display names for one role's stakeholder refs, joined — used for
+ * sorting and (together with emails) column filtering, matching the chips
+ * the user sees. */
 function stakeholdersToText(refs?: StakeholderRef[]): string {
   return (refs || [])
     .map((s) => s.user_display_name || s.user_email || s.user_id)
+    .join("; ");
+}
+
+/** Emails for one role's stakeholder refs, joined — the export/copy value
+ * (valueFormatter). Emails are the only unambiguous user reference, so the
+ * current-view export and clipboard carry them, mirroring the full-workbook
+ * `stakeholder:<role>` cells and LeanIX's subscriptions columns. */
+function stakeholdersToEmails(refs?: StakeholderRef[]): string {
+  return (refs || [])
+    .map((s) => s.user_email || s.user_display_name || s.user_id)
     .join("; ");
 }
 
@@ -2024,11 +2036,14 @@ export default function InventoryPage() {
           p.data.stakeholders = [...others, ...(p.newValue || [])];
           return true;
         },
-        // The raw value is a StakeholderRef[]; filter/sort/export on the
-        // joined display names instead (same pattern as the Tags column).
-        filterValueGetter: (p: { data?: Card }) =>
-          stakeholdersToText((p.data?.stakeholders || []).filter((s) => s.role === roleKey)),
-        valueFormatter: (p: { value?: StakeholderRef[] }) => stakeholdersToText(p.value),
+        // The raw value is a StakeholderRef[]. Filter on names AND emails
+        // (either should match what the user types); sort on the visible
+        // names; export/copy (valueFormatter) carries emails only.
+        filterValueGetter: (p: { data?: Card }) => {
+          const refs = (p.data?.stakeholders || []).filter((s) => s.role === roleKey);
+          return `${stakeholdersToText(refs)}; ${stakeholdersToEmails(refs)}`;
+        },
+        valueFormatter: (p: { value?: StakeholderRef[] }) => stakeholdersToEmails(p.value),
         comparator: (a: StakeholderRef[], b: StakeholderRef[]) =>
           stakeholdersToText(a).localeCompare(stakeholdersToText(b)),
         cellRenderer: (p: { value: StakeholderRef[] }) => {
