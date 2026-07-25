@@ -27,8 +27,10 @@ import ListItemButton from "@mui/material/ListItemButton";
 import Pagination from "@mui/material/Pagination";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { isHexColor, readableTypeColor } from "@/lib/color";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel, useRelationLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
 import type {
@@ -54,6 +56,8 @@ export default function DescendantRelationsDrawer({
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
   const { getType } = useMetamodel();
   const typeLabel = useTypeLabel();
   const relLabel = useRelationLabel();
@@ -202,20 +206,40 @@ export default function DescendantRelationsDrawer({
                       <Typography variant="caption" color="text.secondary">
                         {t("relations.rollup.via")}
                       </Typography>
-                      {row.via.map((v) => (
-                        <Tooltip key={v.id} title={t("relations.rollup.viaTooltip")}>
-                          <Chip
-                            size="small"
-                            label={v.name}
-                            variant="outlined"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              goTo(v.id);
-                            }}
-                            sx={{ height: 18, fontSize: "0.65rem", cursor: "pointer" }}
-                          />
-                        </Tooltip>
-                      ))}
+                      {row.via.map((v) => {
+                        // Accent the chip with the sub-item's card-type colour
+                        // so it reads as a card, not a tag. `readableTypeColor`
+                        // keeps admin-picked colours legible in both themes —
+                        // never paint a raw type colour as text.
+                        const viaHex = getType(v.type)?.color;
+                        const accent =
+                          viaHex && isHexColor(viaHex)
+                            ? readableTypeColor(viaHex, isDark)
+                            : undefined;
+                        return (
+                          <Tooltip key={v.id} title={t("relations.rollup.viaTooltip")}>
+                            <Chip
+                              size="small"
+                              label={v.name}
+                              variant="outlined"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                goTo(v.id);
+                              }}
+                              sx={{
+                                height: 18,
+                                fontSize: "0.65rem",
+                                cursor: "pointer",
+                                ...(accent && {
+                                  color: accent,
+                                  borderColor: alpha(accent, 0.5),
+                                  "&:hover": { bgcolor: alpha(accent, 0.08) },
+                                }),
+                              }}
+                            />
+                          </Tooltip>
+                        );
+                      })}
                     </Box>
                   </Box>
                 </ListItemButton>
