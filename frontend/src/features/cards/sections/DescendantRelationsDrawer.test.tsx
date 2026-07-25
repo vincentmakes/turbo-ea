@@ -51,29 +51,27 @@ const rt = {
   cardinality: "n:m",
 } as unknown as RelationType;
 
+/** Build a row; rows are returned pre-sorted by the server. */
+function row(
+  id: string,
+  name: string,
+  subtype: string | null,
+  lifecycle: Record<string, string>,
+  via = [{ id: "s1", name: "Card Payments", type: "BusinessCapability" }],
+) {
+  return { id, name, type: "Application", subtype, lifecycle, via };
+}
+
+/** No subtypes, no lifecycle — both grouping levels are skipped. */
 const payload = {
   total: 2,
   via_total: 2,
   rows: [
-    {
-      id: "a1",
-      name: "Billing Engine",
-      type: "Application",
-      subtype: null,
-      lifecycle: { active: "2020-01-01" },
-      via: [{ id: "s1", name: "Card Payments", type: "BusinessCapability" }],
-    },
-    {
-      id: "a2",
-      name: "Payments Gateway",
-      type: "Application",
-      subtype: null,
-      lifecycle: {},
-      via: [
-        { id: "s1", name: "Card Payments", type: "BusinessCapability" },
-        { id: "s2", name: "Direct Debit", type: "BusinessCapability" },
-      ],
-    },
+    row("a1", "Billing Engine", null, {}),
+    row("a2", "Payments Gateway", null, {}, [
+      { id: "s1", name: "Card Payments", type: "BusinessCapability" },
+      { id: "s2", name: "Direct Debit", type: "BusinessCapability" },
+    ]),
   ],
 };
 
@@ -131,46 +129,85 @@ describe("DescendantRelationsDrawer", () => {
     );
   });
 
-  it("shows a lifecycle badge only for cards that have a dated phase", async () => {
-    vi.mocked(api.get).mockResolvedValue(payload);
+  it("gives undated cards their own 'Not Set' group when others have a phase", async () => {
+    const mixed = {
+      total: 2,
+      via_total: 1,
+      rows: [
+        row("m1", "Alpha", null, { active: "2020-01-01" }),
+        row("m2", "Bravo", null, {}),
+      ],
+    };
+    vi.mocked(api.get).mockResolvedValue(mixed);
     renderDrawer();
-    // "Billing Engine" is active; "Payments Gateway" has no lifecycle at all,
-    // so exactly one badge renders.
-    await waitFor(() => expect(screen.getByText("Billing Engine")).toBeInTheDocument());
-    expect(screen.getAllByText(/^Active$/i)).toHaveLength(1);
+    await waitFor(() => expect(screen.getByText("Active")).toBeInTheDocument());
+    expect(screen.getByText("Not Set")).toBeInTheDocument();
   });
 
-  it("groups by subtype once the list is big and diverse enough", async () => {
-    // 8 rows across two real subtypes — the same threshold the relations list
-    // uses, so the two surfaces behave alike.
+  it("groups by subtype, then by lifecycle phase", async () => {
     const many = {
-      total: 8,
+      total: 4,
       via_total: 1,
-      rows: Array.from({ length: 8 }, (_, i) => ({
-        id: `x${i}`,
-        name: `App ${i}`,
-        type: "Application",
-        subtype: i < 5 ? "businessApplication" : "microservice",
-        lifecycle: {},
-        via: [{ id: "s1", name: "Card Payments", type: "BusinessCapability" }],
-      })),
+      rows: [
+        row("b1", "Alpha", "businessApplication", { endOfLife: "2020-01-01" }),
+        row("b2", "Bravo", "businessApplication", { active: "2020-01-01" }),
+        row("b3", "Charlie", "businessApplication", { active: "2020-01-01" }),
+        row("m1", "Delta", "microservice", { active: "2020-01-01" }),
+      ],
     };
     vi.mocked(api.get).mockResolvedValue(many);
     renderDrawer();
 
     await waitFor(() => expect(screen.getByText("Business Application")).toBeInTheDocument());
     expect(screen.getByText("Microservice")).toBeInTheDocument();
-    // Bucket counts, not just labels.
-    expect(screen.getByText("5")).toBeInTheDocument();
-    expect(screen.getByText("3")).toBeInTheDocument();
+    // Lifecycle sub-headers inside the buckets.
+    expect(screen.getByText("End of Life")).toBeInTheDocument();
+    expect(screen.getAllByText("Active").length).toBe(2); // one per subtype bucket
   });
 
-  it("stays flat below the grouping threshold", async () => {
-    vi.mocked(api.get).mockResolvedValue(payload); // 2 rows
+  it("groups a uniform subtype too — one header beats N identical chips", async () => {
+    // The old threshold refused to group here, which is exactly the case
+    // where grouping pays most: 3 rows carrying the same chip.
+    const uniform = {
+      total: 3,
+      via_total: 1,
+      rows: [
+        row("u1", "Alpha", "businessApplication", { active: "2020-01-01" }),
+        row("u2", "Bravo", "businessApplication", { active: "2020-01-01" }),
+        row("u3", "Charlie", "businessApplication", { active: "2020-01-01" }),
+      ],
+    };
+    vi.mocked(api.get).mockResolvedValue(uniform);
+    renderDrawer();
+    await waitFor(() => expect(screen.getByText("Business Application")).toBeInTheDocument());
+    expect(screen.getByText("Active")).toBeInTheDocument();
+  });
+
+  it("carries no subtype or lifecycle chips on the rows themselves", async () => {
+    const uniform = {
+      total: 2,
+      via_total: 1,
+      rows: [
+        row("u1", "Alpha", "businessApplication", { active: "2020-01-01" }),
+        row("u2", "Bravo", "businessApplication", { active: "2020-01-01" }),
+      ],
+    };
+    vi.mocked(api.get).mockResolvedValue(uniform);
+    renderDrawer();
+    await waitFor(() => expect(screen.getByText("Alpha")).toBeInTheDocument());
+    // Each label appears exactly once — in its header, never repeated per row.
+    expect(screen.getAllByText("Business Application")).toHaveLength(1);
+    expect(screen.getAllByText("Active")).toHaveLength(1);
+  });
+
+  it("skips a level entirely when no row carries a value for it", async () => {
+    // No subtypes and no lifecycle anywhere: neither header nor chip.
+    vi.mocked(api.get).mockResolvedValue(payload);
     renderDrawer();
     await waitFor(() => expect(screen.getByText("Billing Engine")).toBeInTheDocument());
-    // No bucket headers — two rows do not need structure.
     expect(screen.queryByText("Business Application")).not.toBeInTheDocument();
+    expect(screen.queryByText("No subtype")).not.toBeInTheDocument();
+    expect(screen.queryByText("Not Set")).not.toBeInTheDocument();
   });
 
   it("preserves the server's row order", async () => {
@@ -180,9 +217,9 @@ describe("DescendantRelationsDrawer", () => {
       total: 3,
       via_total: 1,
       rows: [
-        { id: "c1", name: "Zeta", type: "Application", subtype: null, lifecycle: { endOfLife: "2020-01-01" }, via: [{ id: "s1", name: "Sub", type: "BusinessCapability" }] },
-        { id: "c2", name: "Alpha", type: "Application", subtype: null, lifecycle: { phaseOut: "2020-01-01" }, via: [{ id: "s1", name: "Sub", type: "BusinessCapability" }] },
-        { id: "c3", name: "Beta", type: "Application", subtype: null, lifecycle: {}, via: [{ id: "s1", name: "Sub", type: "BusinessCapability" }] },
+        row("c1", "Zeta", null, { endOfLife: "2020-01-01" }),
+        row("c2", "Alpha", null, { phaseOut: "2020-01-01" }),
+        row("c3", "Beta", null, {}),
       ],
     };
     vi.mocked(api.get).mockResolvedValue(ordered);

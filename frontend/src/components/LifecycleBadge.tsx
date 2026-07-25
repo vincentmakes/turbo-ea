@@ -4,7 +4,10 @@ import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 
-const PHASE_COLORS: Record<string, "default" | "primary" | "success" | "warning" | "error"> = {
+export const PHASE_COLORS: Record<
+  string,
+  "default" | "primary" | "success" | "warning" | "error"
+> = {
   plan: "default",
   phaseIn: "primary",
   active: "success",

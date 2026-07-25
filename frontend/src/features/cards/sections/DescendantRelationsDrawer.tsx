@@ -30,11 +30,10 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import LifecycleBadge from "@/components/LifecycleBadge";
+import { PHASE_COLORS, getCurrentPhase } from "@/components/LifecycleBadge";
 import { api } from "@/api/client";
 import { isHexColor, readableTypeColor } from "@/lib/color";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { SUBTYPE_GROUP_MIN } from "./cardDetailUtils";
 import { useTypeLabel, useRelationLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
 import type {
   DescendantRelationRow,
@@ -46,6 +45,9 @@ const PAGE_SIZE = 50;
 
 /** Bucket key for rows whose card carries no subtype — always sorted last. */
 const NO_SUBTYPE = "__none__";
+
+/** Inner-group key for rows whose card has no dated lifecycle phase. */
+const NO_PHASE = "__nophase__";
 
 export default function DescendantRelationsDrawer({
   open,
@@ -112,26 +114,51 @@ export default function DescendantRelationsDrawer({
     navigate(`/cards/${id}`);
   };
 
-  // Subtype grouping, mirroring the relations list (#792): collapsible buckets
-  // with counts, "No subtype" trailing. The server already sorts rows by
-  // subtype (metamodel order) then lifecycle then name, so a plain contiguous
-  // group-by preserves both orderings and keeps buckets whole across pages.
+  // Two-level grouping: subtype (outer, collapsible) → lifecycle phase (inner,
+  // label only). Both levels exist to STRIP CHIPS off the rows — a header
+  // saying "Business Application · 8" replaces eight identical chips, so a
+  // uniform value is the best case for a header, not a reason to skip it.
+  // That is why there is no row-count threshold here, unlike the relations
+  // list: that is a working surface where a header costs more than a chip;
+  // this is a reading surface where it costs less.
+  //
+  // The server sorts subtype (metamodel order) → lifecycle → name, so a plain
+  // contiguous scan reproduces both levels and keeps buckets whole across
+  // pages — no client-side sorting, which would undo the server's ordering.
   const peerType = otherType;
+
+  // A level is skipped entirely when NO row carries a value for it: nothing to
+  // say, so neither a header nor a chip appears.
+  const hasAnySubtype = useMemo(() => rows.some((r) => !!r.subtype), [rows]);
+  const hasAnyLifecycle = useMemo(
+    () => rows.some((r) => !!getCurrentPhase(r.lifecycle)),
+    [rows],
+  );
+
   const buckets = useMemo(() => {
-    const out: { key: string; isNoSubtype: boolean; rows: DescendantRelationRow[] }[] = [];
+    type Phase = { key: string; phase: string | null; rows: DescendantRelationRow[] };
+    type Bucket = { key: string; isNoSubtype: boolean; count: number; phases: Phase[] };
+    const out: Bucket[] = [];
     for (const row of rows) {
-      const key = row.subtype || NO_SUBTYPE;
-      const last = out[out.length - 1];
-      if (last && last.key === key) last.rows.push(row);
-      else out.push({ key, isNoSubtype: !row.subtype, rows: [row] });
+      const subKey = row.subtype || NO_SUBTYPE;
+      let bucket = out[out.length - 1];
+      if (!bucket || bucket.key !== subKey) {
+        bucket = { key: subKey, isNoSubtype: !row.subtype, count: 0, phases: [] };
+        out.push(bucket);
+      }
+      bucket.count += 1;
+
+      const phase = getCurrentPhase(row.lifecycle);
+      const phaseKey = phase || NO_PHASE;
+      let group = bucket.phases[bucket.phases.length - 1];
+      if (!group || group.key !== phaseKey) {
+        group = { key: phaseKey, phase, rows: [] };
+        bucket.phases.push(group);
+      }
+      group.rows.push(row);
     }
     return out;
   }, [rows]);
-
-  // Same threshold as the relations list, so the two surfaces behave alike:
-  // group only when the split actually buys readability.
-  const grouped =
-    buckets.filter((b) => !b.isNoSubtype).length >= 2 && rows.length >= SUBTYPE_GROUP_MIN;
 
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const toggleBucket = (key: string) =>
@@ -144,12 +171,6 @@ export default function DescendantRelationsDrawer({
 
   const renderRow = (row: DescendantRelationRow) => {
     const rowType = getType(row.type);
-    // In grouped mode the bucket header already names the subtype, so the
-    // per-row chip would just repeat it.
-    const subDef =
-      !grouped && row.subtype
-        ? rowType?.subtypes?.find((s) => s.key === row.subtype)
-        : undefined;
     return (
     <ListItemButton
       key={row.id}
@@ -172,17 +193,8 @@ export default function DescendantRelationsDrawer({
           <Typography variant="body2" fontWeight={500} noWrap>
             {row.name}
           </Typography>
-          {subDef && (
-            <Chip
-              size="small"
-              label={subtypeLabel(subDef)}
-              variant="outlined"
-              sx={{ height: 18, fontSize: "0.65rem" }}
-            />
-          )}
-          {/* Renders nothing when the card has no dated phase, so
-              rows without lifecycle data stay clean. */}
-          <LifecycleBadge lifecycle={row.lifecycle} />
+          {/* No subtype chip and no lifecycle badge: both moved up into the
+              group headers, which is the whole point of grouping here. */}
         </Box>
         <Box
           sx={{
@@ -308,70 +320,113 @@ export default function DescendantRelationsDrawer({
 
         {!loading && !error && rows.length > 0 && (
           <Box sx={{ overflowY: "auto" }}>
-            {grouped
-              ? buckets.map((b) => {
-                  const isOpen = !collapsed.has(b.key);
-                  const def = b.isNoSubtype
-                    ? undefined
-                    : peerType?.subtypes?.find((s) => s.key === b.key);
-                  const label = b.isNoSubtype
-                    ? t("relations.subtype.noSubtype")
-                    : def
-                      ? subtypeLabel(def)
-                      : b.key;
-                  return (
-                    <Box key={b.key}>
+            {buckets.map((b) => {
+              const isOpen = !collapsed.has(b.key);
+              const def = b.isNoSubtype
+                ? undefined
+                : peerType?.subtypes?.find((s) => s.key === b.key);
+              const label = b.isNoSubtype
+                ? t("relations.subtype.noSubtype")
+                : def
+                  ? subtypeLabel(def)
+                  : b.key;
+
+              // Inner level: one label row per lifecycle phase. Not
+              // collapsible — the outer header already gives you the fold, and
+              // two levels of collapse on a read-only list is fussy.
+              const phaseGroups = b.phases.map((g) => (
+                <Box key={g.key}>
+                  {hasAnyLifecycle && (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.75,
+                        pl: hasAnySubtype ? 4.5 : 2,
+                        pr: 2,
+                        py: 0.25,
+                      }}
+                    >
                       <Box
-                        component="button"
-                        onClick={() => toggleBucket(b.key)}
                         sx={{
-                          all: "unset",
-                          boxSizing: "border-box",
-                          width: "100%",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 0.75,
-                          px: 2,
-                          py: 0.5,
-                          bgcolor: "background.default",
-                          borderTop: "1px solid",
-                          borderColor: "divider",
-                          "&:hover": { bgcolor: "action.hover" },
+                          width: 6,
+                          height: 6,
+                          borderRadius: "50%",
+                          flexShrink: 0,
+                          bgcolor: g.phase
+                            ? PHASE_COLORS[g.phase] === "default"
+                              ? "text.disabled"
+                              : `${PHASE_COLORS[g.phase]}.main`
+                            : "text.disabled",
                         }}
+                      />
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ flex: 1, fontStyle: g.phase ? "normal" : "italic" }}
                       >
-                        <MaterialSymbol
-                          icon={isOpen ? "expand_more" : "chevron_right"}
-                          size={16}
-                        />
-                        <Typography
-                          variant="caption"
-                          fontWeight={600}
-                          color={b.isNoSubtype ? "text.disabled" : "text.secondary"}
-                          sx={{ flex: 1, fontStyle: b.isNoSubtype ? "italic" : "normal" }}
-                        >
-                          {label}
-                        </Typography>
-                        <Chip
-                          size="small"
-                          label={b.rows.length}
-                          variant="outlined"
-                          sx={{ height: 18, fontSize: "0.65rem" }}
-                        />
-                      </Box>
-                      <Collapse in={isOpen} unmountOnExit>
-                        <List dense disablePadding>
-                          {b.rows.map(renderRow)}
-                        </List>
-                      </Collapse>
+                        {g.phase
+                          ? t(`common:lifecycle.${g.phase}`)
+                          : t("common:lifecycle.notSet")}
+                      </Typography>
+                      <Typography variant="caption" color="text.disabled">
+                        {g.rows.length}
+                      </Typography>
                     </Box>
-                  );
-                })
-              : (
-                <List dense disablePadding>
-                  {rows.map(renderRow)}
-                </List>
-              )}
+                  )}
+                  <List dense disablePadding>
+                    {g.rows.map(renderRow)}
+                  </List>
+                </Box>
+              ));
+
+              // Skip the subtype level entirely when no row carries one —
+              // nothing to say, so no header and no chip.
+              if (!hasAnySubtype) return <Box key={b.key}>{phaseGroups}</Box>;
+
+              return (
+                <Box key={b.key}>
+                  <Box
+                    component="button"
+                    onClick={() => toggleBucket(b.key)}
+                    sx={{
+                      all: "unset",
+                      boxSizing: "border-box",
+                      width: "100%",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 0.75,
+                      px: 2,
+                      py: 0.5,
+                      bgcolor: "background.default",
+                      borderTop: "1px solid",
+                      borderColor: "divider",
+                      "&:hover": { bgcolor: "action.hover" },
+                    }}
+                  >
+                    <MaterialSymbol icon={isOpen ? "expand_more" : "chevron_right"} size={16} />
+                    <Typography
+                      variant="caption"
+                      fontWeight={600}
+                      color={b.isNoSubtype ? "text.disabled" : "text.secondary"}
+                      sx={{ flex: 1, fontStyle: b.isNoSubtype ? "italic" : "normal" }}
+                    >
+                      {label}
+                    </Typography>
+                    <Chip
+                      size="small"
+                      label={b.count}
+                      variant="outlined"
+                      sx={{ height: 18, fontSize: "0.65rem" }}
+                    />
+                  </Box>
+                  <Collapse in={isOpen} unmountOnExit>
+                    {phaseGroups}
+                  </Collapse>
+                </Box>
+              );
+            })}
           </Box>
         )}
 
