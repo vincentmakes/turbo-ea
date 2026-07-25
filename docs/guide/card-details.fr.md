@@ -87,6 +87,10 @@ Affiche toutes les connexions avec d'autres fiches, groupées par type de relati
 - **Grouper par sous-type** — Lorsqu'une section de relations contient de nombreuses fiches liées, elles sont automatiquement regroupées en groupes de sous-types repliables (chacun avec un décompte), avec un groupe final **Aucun sous-type** pour les fiches non classées. Utilisez le bouton de bascule dans l'en-tête de la section pour passer de la vue groupée à la vue en liste.
 - **Fiches liées aux sous-éléments** — Lorsqu'une fiche possède des sous-éléments, chaque groupe de relations affiche une puce **+N dans les sous-éléments** comptant les fiches liées plus bas dans la hiérarchie — par exemple les applications rattachées aux sous-capacités d'une capacité. Un clic ouvre une liste en lecture seule où chaque ligne nomme le sous-élément qui porte le lien (une fiche atteinte via plusieurs sous-éléments apparaît une seule fois, avec chacun d'eux listé). Le décompte n'inclut que les fiches absentes du groupe ci-dessus. Pour modifier un lien, ouvrez le sous-élément qui le détient. La liste est organisée en sections de sous-types repliables : le sous-type est ainsi indiqué une fois par section plutôt que sur chaque ligne. Au sein d'une section, les fiches dont la phase de cycle de vie demande une attention particulière apparaissent en premier (fin de vie, puis retrait progressif), et la phase de chaque fiche est signalée par une pastille de couleur à côté de son nom — survolez-la pour afficher le nom de la phase.
 
+![Groupes de relations affichant la puce des sous-éléments](../assets/img/fr/59_fiche_sous_elements_puce.png)
+
+![Fiches liées via les sous-éléments, regroupées par sous-type](../assets/img/fr/60_fiche_sous_elements_relations.png)
+
 ### Section Tags
 
 Appliquez des tags à partir des [groupes de tags](../admin/tags.md) configurés. Selon le mode du groupe, vous pouvez sélectionner un tag (sélection unique) ou plusieurs tags (sélection multiple).

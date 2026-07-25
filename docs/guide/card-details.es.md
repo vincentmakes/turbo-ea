@@ -87,6 +87,10 @@ Muestra todas las conexiones con otras fichas, agrupadas por tipo de relación. 
 - **Agrupar por subtipo** — Cuando una sección de relaciones tiene muchas fichas relacionadas, se agrupan automáticamente en grupos de subtipo plegables (cada uno con un recuento), con un grupo final **Sin subtipo** para las fichas sin clasificar. Utilice el botón de alternancia en el encabezado de la sección para cambiar entre la vista agrupada y la vista de lista.
 - **Fichas vinculadas a subelementos** — Cuando una ficha tiene subelementos, cada grupo de relaciones muestra una etiqueta **+N en subelementos** que cuenta las fichas vinculadas más abajo en la jerarquía — por ejemplo, las aplicaciones asociadas a las subcapacidades de una capacidad. Al hacer clic se abre una lista de solo lectura en la que cada fila nombra el subelemento que contiene el vínculo (una ficha alcanzada a través de varios subelementos aparece una sola vez, con todos ellos indicados). El recuento solo incluye fichas que no figuran ya en el grupo superior. Para cambiar un vínculo, abra el subelemento que lo contiene. La lista se organiza en secciones de subtipo plegables, de modo que el subtipo se indica una vez por sección en lugar de en cada fila. Dentro de una sección aparecen primero las fichas cuya fase de ciclo de vida requiere atención (fin de vida, luego retirada progresiva), y la fase de cada ficha se muestra como un punto de color junto a su nombre; pase el ratón por encima para ver el nombre de la fase.
 
+![Grupos de relaciones con la etiqueta de subelementos](../assets/img/es/59_ficha_subelementos_etiqueta.png)
+
+![Fichas vinculadas a través de subelementos, agrupadas por subtipo](../assets/img/es/60_ficha_subelementos_relaciones.png)
+
 ### Sección de Etiquetas
 
 Aplique etiquetas de los [grupos de etiquetas](../admin/tags.es.md) configurados. Dependiendo del modo del grupo, puede seleccionar una etiqueta (selección única) o múltiples etiquetas (selección múltiple).

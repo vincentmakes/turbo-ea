@@ -519,8 +519,15 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Launch browser
-  const browser: Browser = await chromium.launch({ headless: true });
+  // Launch browser.
+  //
+  // `PLAYWRIGHT_EXECUTABLE_PATH` points at an already-present Chromium instead
+  // of the build this Playwright version would download — needed on images
+  // that ship a pinned browser (e.g. /opt/pw-browsers/chromium) whose revision
+  // does not match the npm dependency. Unset everywhere else, so the normal
+  // `npm run install-browsers` flow is unchanged.
+  const executablePath = process.env.PLAYWRIGHT_EXECUTABLE_PATH || undefined;
+  const browser: Browser = await chromium.launch({ headless: true, executablePath });
   const context = await browser.newContext({
     viewport: config.viewport,
     deviceScaleFactor: 2, // Retina-quality screenshots

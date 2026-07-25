@@ -87,6 +87,10 @@ Shows all connections to other cards, grouped by relation type. For each relatio
 - **Group by subtype** — When a relation section has many related cards, they are automatically grouped into collapsible subtype buckets (each with a count), with a trailing **No subtype** bucket for unclassified cards. Use the group/list toggle in the section header to switch between the grouped and flat views.
 - **Cards linked to sub-items** — When a card has sub-items, each relation group shows a **+N in sub-items** chip counting the cards linked further down the hierarchy — for example, the applications attached to a capability's sub-capabilities. Click it to open a read-only list where each row names the sub-item holding the link (a card reached through several sub-items appears once, with each one listed). The count only includes cards that are not already listed in the group above it. To change a link, open the sub-item that owns it. The list is grouped into collapsible subtype sections, so the subtype is named once per section instead of on every row. Within a section, cards whose lifecycle phase needs attention come first (end of life, then phasing out), and each card's phase is shown as a coloured dot next to its name — hover it for the phase name.
 
+![Relation groups showing the sub-items roll-up chip](../assets/img/en/59_card_subitem_chip.png)
+
+![Cards linked through sub-items, grouped by subtype](../assets/img/en/60_card_subitem_relations.png)
+
 ### Tags Section
 
 Apply tags from the configured [tag groups](../admin/tags.md). Depending on the group mode, you can select one tag (single select) or multiple tags (multi select).

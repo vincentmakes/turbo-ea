@@ -87,6 +87,10 @@ Mostra tutte le connessioni con altre card, raggruppate per tipo di relazione. P
 - **Raggruppa per sottotipo** — Quando una sezione di relazioni contiene molte card correlate, vengono raggruppate automaticamente in gruppi di sottotipo comprimibili (ciascuno con un conteggio), con un gruppo finale **Nessun sottotipo** per le card non classificate. Usate il pulsante di attivazione nell'intestazione della sezione per passare dalla vista raggruppata all'elenco semplice.
 - **Card collegate ai sottoelementi** — Quando una card ha sottoelementi, ogni gruppo di relazioni mostra un chip **+N nei sottoelementi** che conta le card collegate più in basso nella gerarchia — per esempio le applicazioni associate alle sottocapacità di una capacità. Un clic apre un elenco di sola lettura in cui ogni riga indica il sottoelemento che detiene il collegamento (una card raggiunta tramite più sottoelementi compare una sola volta, con tutti elencati). Il conteggio include solo le card non già presenti nel gruppo soprastante. Per modificare un collegamento, aprite il sottoelemento che lo detiene. L'elenco è organizzato in sezioni di sottotipo comprimibili, così il sottotipo compare una volta per sezione anziché su ogni riga. All'interno di una sezione vengono prima le card la cui fase del ciclo di vita richiede attenzione (fine vita, poi dismissione) e la fase di ciascuna card è indicata da un pallino colorato accanto al nome: passateci sopra il mouse per leggerne il nome.
 
+![Gruppi di relazioni con il chip dei sottoelementi](../assets/img/it/59_scheda_sottoelementi_chip.png)
+
+![Card collegate tramite i sottoelementi, raggruppate per sottotipo](../assets/img/it/60_scheda_sottoelementi_relazioni.png)
+
 ### Sezione Tag
 
 Applicate tag dai [gruppi di tag](../admin/tags.md) configurati. A seconda della modalità del gruppo, potete selezionare un tag (selezione singola) o più tag (selezione multipla).

@@ -87,6 +87,10 @@ Mostra todas as conexões com outros cards, agrupadas por tipo de relacionamento
 - **Agrupar por subtipo** — Quando uma seção de relacionamentos tem muitos cards relacionados, eles são agrupados automaticamente em grupos de subtipo recolhíveis (cada um com uma contagem), com um grupo final **Sem subtipo** para os cards não classificados. Use o botão de alternância no cabeçalho da seção para alternar entre a visualização agrupada e a lista simples.
 - **Cards ligados a subelementos** — Quando um card tem subelementos, cada grupo de relacionamentos exibe um chip **+N em subelementos** que conta os cards ligados mais abaixo na hierarquia — por exemplo, as aplicações associadas às subcapacidades de uma capacidade. Ao clicar, abre-se uma lista somente leitura em que cada linha indica o subelemento que detém a ligação (um card alcançado por vários subelementos aparece uma única vez, com todos listados). A contagem inclui apenas cards que ainda não constam do grupo acima. Para alterar uma ligação, abra o subelemento que a detém. A lista está organizada em secções de subtipo recolhíveis, pelo que o subtipo é indicado uma vez por secção em vez de em cada linha. Dentro de uma secção surgem primeiro os cards cuja fase do ciclo de vida exige atenção (fim de vida, depois descontinuação), e a fase de cada card é apresentada como um ponto colorido junto ao nome — passe o rato por cima para ver o nome da fase.
 
+![Grupos de relacionamentos com o chip de subelementos](../assets/img/pt/59_ficha_subelementos_chip.png)
+
+![Cards ligados através de subelementos, agrupados por subtipo](../assets/img/pt/60_ficha_subelementos_relacoes.png)
+
 ### Seção de Tags
 
 Aplique tags dos [grupos de tags](../admin/tags.md) configurados. Dependendo do modo do grupo, você pode selecionar uma tag (seleção única) ou múltiplas tags (seleção múltipla).

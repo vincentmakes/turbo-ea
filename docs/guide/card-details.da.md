@@ -87,6 +87,10 @@ Viser alle forbindelser til andre kort, grupperet efter relations­type. For hve
 - **Gruppér efter undertype** — Når en relationssektion har mange relaterede kort, grupperes de automatisk i sammenklappelige undertype-grupper (hver med et antal), med en afsluttende **Ingen undertype**-gruppe til uklassificerede kort. Brug gruppe/liste-knappen i sektionsoverskriften for at skifte mellem den grupperede og den flade visning.
 - **Kort forbundet til underelementer** — Når et kort har underelementer, viser hver relationsgruppe en **+N i underelementer**-chip, der tæller de kort, som er forbundet længere nede i hierarkiet — for eksempel de applikationer, der er knyttet til en kapabilitets underkapabiliteter. Et klik åbner en skrivebeskyttet liste, hvor hver række angiver det underelement, der indeholder forbindelsen (et kort, der nås via flere underelementer, vises én gang med dem alle angivet). Tællingen omfatter kun kort, der ikke allerede står i gruppen ovenfor. Åbn det underelement, der ejer forbindelsen, for at ændre den. Listen er inddelt i sammenklappelige undertype-afsnit, så undertypen nævnes én gang pr. afsnit i stedet for på hver række. Inden for et afsnit vises kort, hvis livscyklusfase kræver opmærksomhed, først (slutning på levetid, derefter udfasning), og hvert korts fase vises som en farvet prik ved siden af navnet — hold musen over den for at se fasens navn.
 
+![Relationsgrupper med chippen for underelementer](../assets/img/en/59_card_subitem_chip.png)
+
+![Kort forbundet via underelementer, grupperet efter undertype](../assets/img/en/60_card_subitem_relations.png)
+
 ### Tags-sektion
 
 Anvend tags fra de konfigurerede [tag-grupper](../admin/tags.md). Afhængigt af gruppe-tilstanden kan du vælge ét tag (single select) eller flere tags (multi select).
