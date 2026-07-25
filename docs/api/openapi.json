@@ -3865,6 +3865,113 @@
         "title": "DateFormatPayload",
         "type": "object"
       },
+      "DescendantRelationRow": {
+        "description": "One rolled-up peer card, deduped across every descendant that links it.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "subtype": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtype"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "via": {
+            "items": {
+              "$ref": "#/components/schemas/DescendantRelationVia"
+            },
+            "title": "Via",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type",
+          "via"
+        ],
+        "title": "DescendantRelationRow",
+        "type": "object"
+      },
+      "DescendantRelationSummaryEntry": {
+        "description": "One row of the descendant-relation summary \u2014 how many *additional*\ndistinct cards are reachable through this card's descendants for a given\nrelation type.\n\nPowers the \"+N in sub-items\" chip on the Relations section. The count\nexcludes peers the card is already directly related to, so the chip only\never advertises rows the user cannot already see in the list above it.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "relation_type_key": {
+            "title": "Relation Type Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "relation_type_key",
+          "count"
+        ],
+        "title": "DescendantRelationSummaryEntry",
+        "type": "object"
+      },
+      "DescendantRelationVia": {
+        "description": "The descendant that actually owns the relation \u2014 the provenance chip.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type"
+        ],
+        "title": "DescendantRelationVia",
+        "type": "object"
+      },
+      "DescendantRelationsResponse": {
+        "properties": {
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/DescendantRelationRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rows",
+          "total"
+        ],
+        "title": "DescendantRelationsResponse",
+        "type": "object"
+      },
       "DiagramCreate": {
         "properties": {
           "card_ids": {
@@ -20102,6 +20209,130 @@
         "summary": "List Card Compliance Findings",
         "tags": [
           "TurboLens"
+        ]
+      }
+    },
+    "/api/v1/cards/{card_id}/descendant-relations": {
+      "get": {
+        "description": "The rolled-up peer cards for one relation type, with provenance.\n\nEach row is a distinct peer card plus the descendants that link it, so a\ncard reachable through two sub-capabilities appears once with two `via`\nentries. Read-only by design \u2014 there is no matching write route.",
+        "operationId": "descendant_relations_api_v1_cards__card_id__descendant_relations_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Relation type key to roll up",
+            "in": "query",
+            "name": "relation_type",
+            "required": true,
+            "schema": {
+              "description": "Relation type key to roll up",
+              "title": "Relation Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DescendantRelationsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Descendant Relations",
+        "tags": [
+          "cards"
+        ]
+      }
+    },
+    "/api/v1/cards/{card_id}/descendant-relations/summary": {
+      "get": {
+        "description": "Per-relation-type count of cards reachable only through descendants.\n\nPowers the \"+N in sub-items\" chip on the Relations section. Returns an\nempty list for leaf cards and for non-hierarchical types.",
+        "operationId": "descendant_relation_summary_api_v1_cards__card_id__descendant_relations_summary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DescendantRelationSummaryEntry"
+                  },
+                  "title": "Response Descendant Relation Summary Api V1 Cards  Card Id  Descendant Relations Summary Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Descendant Relation Summary",
+        "tags": [
+          "cards"
         ]
       }
     },

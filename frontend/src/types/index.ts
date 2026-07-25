@@ -434,6 +434,37 @@ export interface Relation {
   created_at?: string;
 }
 
+/**
+ * Descendant relation roll-up (discussion #863) — cards related to this
+ * card's descendants rather than to the card itself. Surfaced read-only in a
+ * drawer behind the "+N in sub-items" chip on the Relations section; these
+ * rows are deliberately absent from the inventory grid, matrix report and
+ * exports, where they would double counts.
+ */
+export interface DescendantRelationSummaryEntry {
+  relation_type_key: string;
+  count: number;
+}
+
+export interface DescendantRelationVia {
+  id: string;
+  name: string;
+  type: string;
+}
+
+export interface DescendantRelationRow {
+  id: string;
+  name: string;
+  type: string;
+  subtype?: string | null;
+  via: DescendantRelationVia[];
+}
+
+export interface DescendantRelationsResponse {
+  rows: DescendantRelationRow[];
+  total: number;
+}
+
 export interface Comment {
   id: string;
   card_id: string;

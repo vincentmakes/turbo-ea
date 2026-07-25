@@ -60,6 +60,10 @@ from app.schemas.card import (
     CardRestoreResponse,
     CardTypeCount,
     CardUpdate,
+    DescendantRelationRow,
+    DescendantRelationsResponse,
+    DescendantRelationSummaryEntry,
+    DescendantRelationVia,
     RestoreImpactPassenger,
     RestoreImpactResponse,
     StakeholderRef,
@@ -1374,6 +1378,197 @@ async def relation_summary(
         parent_type=parent_type,
     )
     return CardRelationSummaryResponse(by_type=entries, hierarchy=hierarchy)
+
+
+# ── Descendant relation roll-up (discussion #863) ─────────────────────
+#
+# "Show me the applications hanging off this capability's sub-capabilities
+# without maintaining the link twice." Deliberately a *read-only view*: the
+# rolled-up rows are never editable from the parent, so `relations` stays the
+# single source of truth for every edge. Scoped to card detail — these rows do
+# not leak into the inventory grid, the matrix report or exports, where they
+# would double counts.
+
+# Belt-and-braces cap on the relation fan-out. `collect_descendants` already
+# caps the subtree at 10k nodes; this bounds the edge count on a subtree that
+# is small but densely connected.
+_MAX_DESCENDANT_RELATIONS = 20_000
+
+
+async def _descendant_relation_map(
+    db: AsyncSession,
+    root: Card,
+    *,
+    relation_type: str | None = None,
+) -> dict[str, dict[uuid.UUID, list[Card]]]:
+    """Map ``relation_type_key -> {peer_card_id: [descendants linking it]}``.
+
+    Rules (all three agreed on discussion #863):
+
+    - **Full descendant subtree**, not just direct children — an L1 capability
+      rolling up only L2 would miss the applications, which sit at L3+.
+    - **Peers already directly linked to the root are excluded**, per relation
+      type, so the "+N" chip only ever advertises rows the user cannot already
+      see in the list above it.
+    - **Peers inside the subtree are excluded** — a relation between two
+      descendants is internal to the tree, not an additional related card.
+
+    Archived cards and cards of hidden types are filtered on both ends, so the
+    roll-up matches what ``GET /relations`` would show the same user.
+    """
+    try:
+        descendant_ids = await card_lifecycle.collect_descendants(db, root.id)
+    except HTTPException:
+        # subtree_too_large — degrade to "no roll-up" rather than breaking the
+        # whole Relations section on a pathological tree.
+        return {}
+    if not descendant_ids:
+        return {}
+
+    # ACTIVE descendants only, mirroring the hierarchy section + relation-summary.
+    desc_rows = await db.execute(
+        select(Card).where(Card.id.in_(descendant_ids), Card.status == "ACTIVE")
+    )
+    descendants = {c.id: c for c in desc_rows.scalars().all()}
+    if not descendants:
+        return {}
+
+    # Same hidden-type / archived exclusion as relation_summary, so a peer the
+    # user could not open never shows up in the count.
+    hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
+    excluded_card_sq = select(Card.id).where(
+        or_(Card.type.in_(hidden_types_sq), Card.status == "ARCHIVED")
+    )
+
+    desc_id_list = list(descendants.keys())
+    rel_q = select(Relation).where(
+        or_(Relation.source_id.in_(desc_id_list), Relation.target_id.in_(desc_id_list)),
+        Relation.source_id.not_in(excluded_card_sq),
+        Relation.target_id.not_in(excluded_card_sq),
+    )
+    if relation_type:
+        rel_q = rel_q.where(Relation.type == relation_type)
+    rel_rows = await db.execute(rel_q.limit(_MAX_DESCENDANT_RELATIONS))
+    relations = list(rel_rows.scalars().all())
+    if not relations:
+        return {}
+
+    # Edges the root already owns — (relation_type, peer_id) pairs to suppress.
+    direct_q = select(Relation).where(
+        or_(Relation.source_id == root.id, Relation.target_id == root.id)
+    )
+    if relation_type:
+        direct_q = direct_q.where(Relation.type == relation_type)
+    direct_rows = await db.execute(direct_q)
+    already_linked: set[tuple[str, uuid.UUID]] = set()
+    for r in direct_rows.scalars().all():
+        peer_id = r.target_id if r.source_id == root.id else r.source_id
+        already_linked.add((r.type, peer_id))
+
+    inside_tree = set(descendants.keys()) | {root.id}
+    out: dict[str, dict[uuid.UUID, list[Card]]] = {}
+    for r in relations:
+        # Resolve which end is the descendant and which is the peer. A relation
+        # with both ends inside the subtree is skipped by the `inside_tree`
+        # check below regardless of which end we pick here.
+        if r.source_id in descendants:
+            owner_id, peer_id = r.source_id, r.target_id
+        else:
+            owner_id, peer_id = r.target_id, r.source_id
+        if peer_id in inside_tree:
+            continue
+        if (r.type, peer_id) in already_linked:
+            continue
+        owner = descendants.get(owner_id)
+        if owner is None:
+            continue
+        by_peer = out.setdefault(r.type, {})
+        vias = by_peer.setdefault(peer_id, [])
+        # Dedup provenance: one descendant may link the same peer more than
+        # once if the metamodel ever allows parallel edges.
+        if not any(v.id == owner.id for v in vias):
+            vias.append(owner)
+    return out
+
+
+@router.get("/{card_id}/descendant-relations/summary")
+async def descendant_relation_summary(
+    card_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[DescendantRelationSummaryEntry]:
+    """Per-relation-type count of cards reachable only through descendants.
+
+    Powers the "+N in sub-items" chip on the Relations section. Returns an
+    empty list for leaf cards and for non-hierarchical types.
+    """
+    uid = uuid.UUID(card_id)
+    await PermissionService.require_permission(
+        db, user, "inventory.view", card_id=uid, card_permission="card.view"
+    )
+    card = await db.get(Card, uid)
+    if not card:
+        raise HTTPException(404, "Card not found")
+
+    by_type = await _descendant_relation_map(db, card)
+    entries = [
+        DescendantRelationSummaryEntry(relation_type_key=rt_key, count=len(peers))
+        for rt_key, peers in by_type.items()
+        if peers
+    ]
+    entries.sort(key=lambda e: e.relation_type_key)
+    return entries
+
+
+@router.get("/{card_id}/descendant-relations", response_model=DescendantRelationsResponse)
+async def descendant_relations(
+    card_id: str,
+    relation_type: str = Query(..., description="Relation type key to roll up"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """The rolled-up peer cards for one relation type, with provenance.
+
+    Each row is a distinct peer card plus the descendants that link it, so a
+    card reachable through two sub-capabilities appears once with two `via`
+    entries. Read-only by design — there is no matching write route.
+    """
+    uid = uuid.UUID(card_id)
+    await PermissionService.require_permission(
+        db, user, "inventory.view", card_id=uid, card_permission="card.view"
+    )
+    card = await db.get(Card, uid)
+    if not card:
+        raise HTTPException(404, "Card not found")
+
+    by_type = await _descendant_relation_map(db, card, relation_type=relation_type)
+    peers = by_type.get(relation_type, {})
+    if not peers:
+        return DescendantRelationsResponse(rows=[], total=0)
+
+    peer_rows = await db.execute(select(Card).where(Card.id.in_(list(peers.keys()))))
+    peer_cards = sorted(peer_rows.scalars().all(), key=lambda c: c.name.lower())
+
+    total = len(peer_cards)
+    start = (page - 1) * page_size
+    window = peer_cards[start : start + page_size]
+
+    rows = [
+        DescendantRelationRow(
+            id=str(p.id),
+            name=p.name,
+            type=p.type,
+            subtype=p.subtype,
+            via=[
+                DescendantRelationVia(id=str(d.id), name=d.name, type=d.type)
+                for d in sorted(peers.get(p.id, []), key=lambda d: d.name.lower())
+            ],
+        )
+        for p in window
+    ]
+    return DescendantRelationsResponse(rows=rows, total=total)
 
 
 @router.patch("/bulk")

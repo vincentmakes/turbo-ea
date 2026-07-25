@@ -185,6 +185,43 @@ class CardRelationSummaryResponse(BaseModel):
     hierarchy: CardRelationSummaryHierarchy
 
 
+class DescendantRelationSummaryEntry(BaseModel):
+    """One row of the descendant-relation summary — how many *additional*
+    distinct cards are reachable through this card's descendants for a given
+    relation type.
+
+    Powers the "+N in sub-items" chip on the Relations section. The count
+    excludes peers the card is already directly related to, so the chip only
+    ever advertises rows the user cannot already see in the list above it.
+    """
+
+    relation_type_key: str
+    count: int
+
+
+class DescendantRelationVia(BaseModel):
+    """The descendant that actually owns the relation — the provenance chip."""
+
+    id: str
+    name: str
+    type: str
+
+
+class DescendantRelationRow(BaseModel):
+    """One rolled-up peer card, deduped across every descendant that links it."""
+
+    id: str
+    name: str
+    type: str
+    subtype: str | None = None
+    via: list[DescendantRelationVia]
+
+
+class DescendantRelationsResponse(BaseModel):
+    rows: list[DescendantRelationRow]
+    total: int
+
+
 class CardTypeCount(BaseModel):
     type: str
     count: int

@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.28.0] - 2026-07-25
+
+### Added
+- **See the cards linked to a card's sub-items without maintaining the link twice.** Relation groups on a card with sub-items now show a "+N in sub-items" chip; clicking it opens a drawer listing every card linked further down the hierarchy — an application attached to a sub-capability now shows on the parent capability. Each row names the sub-item that holds the link, and a card reached through several sub-items appears once. The list is read-only (links are still edited on the sub-item that owns them) and counts cards you cannot already see in the group above it.
+
 ## [2.27.0] - 2026-07-24
 
 ### Changed
