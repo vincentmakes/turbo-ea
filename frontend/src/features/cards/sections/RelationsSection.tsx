@@ -631,12 +631,15 @@ function RelationGroup({
           sx={{ height: 20, fontSize: "0.65rem" }}
         />
         {/* Descendant roll-up (#863): one chip, full list in a drawer. Hidden
-            entirely at 0 so leaf cards look exactly as they did before. */}
+            entirely at 0 so leaf cards look exactly as they did before.
+            Deliberately text-only — this header row already carries the
+            subtype-grouping toggle, whose icon is `account_tree`, and the
+            label says everything a glyph would. The info colour is what
+            separates it from the neutral cardinality chip beside it. */}
         {rollupCount > 0 && (
           <Tooltip title={t("relations.rollup.chipTooltip")}>
             <Chip
               size="small"
-              icon={<MaterialSymbol icon="account_tree" size={14} />}
               label={t("relations.rollup.chip", { count: rollupCount })}
               variant="outlined"
               color="info"

@@ -106,7 +106,11 @@ export default function DescendantRelationsDrawer({
     <Drawer anchor="right" open={open} onClose={onClose}>
       <Box sx={{ width: { xs: "100vw", sm: 460 }, display: "flex", flexDirection: "column" }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 2, py: 1.5 }}>
-          <MaterialSymbol icon="account_tree" size={20} />
+          {/* Not `account_tree` — that glyph belongs to the subtype-grouping
+              toggle on the relation group header. `subdirectory_arrow_right`
+              is the app's existing "nested one level down" mark (EolReport,
+              PortfolioReport), which is exactly what this drawer shows. */}
+          <MaterialSymbol icon="subdirectory_arrow_right" size={20} />
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography fontWeight={600} noWrap>
               {t("relations.rollup.title", {
