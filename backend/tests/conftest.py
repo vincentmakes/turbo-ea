@@ -281,6 +281,7 @@ async def create_card_type(
         icon=kwargs.get("icon", "apps"),
         color=kwargs.get("color", "#0f7eb5"),
         fields_schema=fields_schema if fields_schema is not None else [],
+        subtypes=kwargs.get("subtypes", []),
         has_hierarchy=kwargs.get("has_hierarchy", False),
         built_in=kwargs.get("built_in", False),
         is_hidden=kwargs.get("is_hidden", False),

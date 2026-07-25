@@ -32,6 +32,7 @@ from app.services.kpi_snapshot_service import (
     compute_trend_block,
     get_comparison_snapshot,
 )
+from app.services.lifecycle import current_lifecycle_phase
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -40,29 +41,13 @@ log = logging.getLogger(__name__)
 
 
 def _current_lifecycle_phase(lifecycle: dict | None) -> str | None:
-    """Determine which lifecycle phase a card is currently in based on dates."""
-    if not lifecycle:
-        return None
-    phases = ["endOfLife", "phaseOut", "active", "phaseIn", "plan"]
-    today = datetime.now(timezone.utc).date()
-    for phase in phases:
-        date_str = lifecycle.get(phase)
-        if date_str:
-            try:
-                d = (
-                    datetime.fromisoformat(date_str).date()
-                    if "T" in str(date_str)
-                    else datetime.strptime(str(date_str), "%Y-%m-%d").date()
-                )
-                if d <= today:
-                    return phase
-            except (ValueError, TypeError):
-                continue
-    # If all dates are in the future, return the earliest set phase
-    for phase in ["plan", "phaseIn", "active", "phaseOut", "endOfLife"]:
-        if lifecycle.get(phase):
-            return phase
-    return None
+    """Determine which lifecycle phase a card is currently in based on dates.
+
+    Thin alias kept for the call sites in this module — the implementation
+    moved to `services/lifecycle.py` when the descendant relation roll-up
+    needed the same phase precedence to sort by.
+    """
+    return current_lifecycle_phase(lifecycle)
 
 
 @router.get("/dashboard")

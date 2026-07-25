@@ -78,6 +78,7 @@ from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.data_quality import calc_data_quality
 from app.services.event_bus import event_bus
 from app.services.hierarchy import HIERARCHY_LEVEL_KEY
+from app.services.lifecycle import lifecycle_rank
 from app.services.permission_service import PermissionService
 
 # Fields that PPM budget/cost lines manage — calculations must not overwrite these.
@@ -1549,7 +1550,29 @@ async def descendant_relations(
         return DescendantRelationsResponse(rows=[], total=0, via_total=0)
 
     peer_rows = await db.execute(select(Card).where(Card.id.in_(list(peers.keys()))))
-    peer_cards = sorted(peer_rows.scalars().all(), key=lambda c: c.name.lower())
+    peer_cards = list(peer_rows.scalars().all())
+
+    # Order: subtype (metamodel order) → lifecycle urgency → name. Sorting
+    # server-side keeps subtype buckets contiguous across pages — grouping only
+    # the current page would split a bucket in half at the page boundary.
+    subtype_order: dict[str, int] = {}
+    if peer_cards:
+        peer_type = await db.scalar(
+            select(CardType).where(CardType.key == peer_cards[0].type).limit(1)
+        )
+        for idx, sub in enumerate(peer_type.subtypes or [] if peer_type else []):
+            if isinstance(sub, dict) and sub.get("key"):
+                subtype_order[sub["key"]] = idx
+
+    def _sort_key(c: Card) -> tuple[int, int, str]:
+        # Unknown / missing subtype sorts last, mirroring the trailing
+        # "No subtype" bucket in the relations list.
+        sub_idx = (
+            subtype_order.get(c.subtype, len(subtype_order)) if c.subtype else len(subtype_order)
+        )
+        return (sub_idx, lifecycle_rank(c.lifecycle), c.name.lower())
+
+    peer_cards.sort(key=_sort_key)
 
     total = len(peer_cards)
     # Counted across every peer, not just the current page — the header states

@@ -37,7 +37,15 @@ async def rollup_env(db):
     await create_card_type(
         db, key="BusinessCapability", label="Business Capability", has_hierarchy=True
     )
-    await create_card_type(db, key="Application", label="Application", has_hierarchy=True)
+    await create_card_type(
+        db,
+        key="Application",
+        label="Application",
+        has_hierarchy=True,
+        # Declared in metamodel order — the roll-up sorts subtype buckets by
+        # this order, not alphabetically.
+        subtypes=[{"key": "biz", "label": "Business"}, {"key": "micro", "label": "Micro"}],
+    )
     await create_relation_type(
         db,
         key="capToApp",
@@ -219,6 +227,34 @@ class TestDescendantRelationRows:
         assert by_name["App1"]["lifecycle"] == {"active": "2020-01-01"}
         # Cards without lifecycle data serialise as {}, never null.
         assert by_name["App2"]["lifecycle"] == {}
+
+    async def test_rows_sort_by_subtype_then_lifecycle_then_name(self, client, db, rollup_env):
+        """Ordering contract the drawer's grouping relies on.
+
+        Subtype in metamodel order first (so buckets stay contiguous across
+        pages), then lifecycle urgency (end-of-life first), then name.
+        """
+        # App1: 2nd subtype. App2/App3: 1st subtype, differing lifecycle.
+        rollup_env["app1"].subtype = "micro"
+        rollup_env["app2"].subtype = "biz"
+        rollup_env["app2"].lifecycle = {"active": "2020-01-01"}
+        rollup_env["app3"].subtype = "biz"
+        rollup_env["app3"].lifecycle = {"endOfLife": "2020-01-01"}
+        await db.flush()
+
+        r = await _rows(client, rollup_env["root"], rollup_env["admin"])
+        assert r.status_code == 200, r.text
+        names = [row["name"] for row in r.json()["rows"]]
+        # biz bucket first (App3 end-of-life above App2 active), then micro.
+        assert names == ["App3", "App2", "App1"]
+
+    async def test_cards_without_subtype_sort_last(self, client, db, rollup_env):
+        rollup_env["app2"].subtype = "biz"
+        await db.flush()
+        r = await _rows(client, rollup_env["root"], rollup_env["admin"])
+        names = [row["name"] for row in r.json()["rows"]]
+        # App2 carries the only subtype, so it leads; the rest trail by name.
+        assert names[0] == "App2"
 
     async def test_rows_are_paginated(self, client, db, rollup_env):
         r = await client.get(
