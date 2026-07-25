@@ -46,9 +46,6 @@ const PAGE_SIZE = 50;
 /** Bucket key for rows whose card carries no subtype — always sorted last. */
 const NO_SUBTYPE = "__none__";
 
-/** Inner-group key for rows whose card has no dated lifecycle phase. */
-const NO_PHASE = "__nophase__";
-
 export default function DescendantRelationsDrawer({
   open,
   onClose,
@@ -127,35 +124,17 @@ export default function DescendantRelationsDrawer({
   // pages — no client-side sorting, which would undo the server's ordering.
   const peerType = otherType;
 
-  // A level is skipped entirely when NO row carries a value for it: nothing to
+  // The subtype level is skipped entirely when NO row carries one: nothing to
   // say, so neither a header nor a chip appears.
   const hasAnySubtype = useMemo(() => rows.some((r) => !!r.subtype), [rows]);
-  const hasAnyLifecycle = useMemo(
-    () => rows.some((r) => !!getCurrentPhase(r.lifecycle)),
-    [rows],
-  );
 
   const buckets = useMemo(() => {
-    type Phase = { key: string; phase: string | null; rows: DescendantRelationRow[] };
-    type Bucket = { key: string; isNoSubtype: boolean; count: number; phases: Phase[] };
-    const out: Bucket[] = [];
+    const out: { key: string; isNoSubtype: boolean; rows: DescendantRelationRow[] }[] = [];
     for (const row of rows) {
-      const subKey = row.subtype || NO_SUBTYPE;
-      let bucket = out[out.length - 1];
-      if (!bucket || bucket.key !== subKey) {
-        bucket = { key: subKey, isNoSubtype: !row.subtype, count: 0, phases: [] };
-        out.push(bucket);
-      }
-      bucket.count += 1;
-
-      const phase = getCurrentPhase(row.lifecycle);
-      const phaseKey = phase || NO_PHASE;
-      let group = bucket.phases[bucket.phases.length - 1];
-      if (!group || group.key !== phaseKey) {
-        group = { key: phaseKey, phase, rows: [] };
-        bucket.phases.push(group);
-      }
-      group.rows.push(row);
+      const key = row.subtype || NO_SUBTYPE;
+      const last = out[out.length - 1];
+      if (last && last.key === key) last.rows.push(row);
+      else out.push({ key, isNoSubtype: !row.subtype, rows: [row] });
     }
     return out;
   }, [rows]);
@@ -171,6 +150,7 @@ export default function DescendantRelationsDrawer({
 
   const renderRow = (row: DescendantRelationRow) => {
     const rowType = getType(row.type);
+    const phase = getCurrentPhase(row.lifecycle);
     return (
     <ListItemButton
       key={row.id}
@@ -193,8 +173,27 @@ export default function DescendantRelationsDrawer({
           <Typography variant="body2" fontWeight={500} noWrap>
             {row.name}
           </Typography>
-          {/* No subtype chip and no lifecycle badge: both moved up into the
-              group headers, which is the whole point of grouping here. */}
+          {/* Lifecycle as a colour dot rather than a badge — the phase name
+              lives in the tooltip, so the row keeps its information without
+              carrying a second chip. Nothing renders when the card has no
+              dated phase. The subtype is named once in the group header. */}
+          {phase && (
+            <Tooltip title={t(`common:lifecycle.${phase}`)}>
+              <Box
+                aria-label={t(`common:lifecycle.${phase}`)}
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  flexShrink: 0,
+                  bgcolor:
+                    PHASE_COLORS[phase] === "default"
+                      ? "text.disabled"
+                      : `${PHASE_COLORS[phase]}.main`,
+                }}
+              />
+            </Tooltip>
+          )}
         </Box>
         <Box
           sx={{
@@ -331,58 +330,15 @@ export default function DescendantRelationsDrawer({
                   ? subtypeLabel(def)
                   : b.key;
 
-              // Inner level: one label row per lifecycle phase. Not
-              // collapsible — the outer header already gives you the fold, and
-              // two levels of collapse on a read-only list is fussy.
-              const phaseGroups = b.phases.map((g) => (
-                <Box key={g.key}>
-                  {hasAnyLifecycle && (
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 0.75,
-                        pl: hasAnySubtype ? 4.5 : 2,
-                        pr: 2,
-                        py: 0.25,
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: "50%",
-                          flexShrink: 0,
-                          bgcolor: g.phase
-                            ? PHASE_COLORS[g.phase] === "default"
-                              ? "text.disabled"
-                              : `${PHASE_COLORS[g.phase]}.main`
-                            : "text.disabled",
-                        }}
-                      />
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{ flex: 1, fontStyle: g.phase ? "normal" : "italic" }}
-                      >
-                        {g.phase
-                          ? t(`common:lifecycle.${g.phase}`)
-                          : t("common:lifecycle.notSet")}
-                      </Typography>
-                      <Typography variant="caption" color="text.disabled">
-                        {g.rows.length}
-                      </Typography>
-                    </Box>
-                  )}
-                  <List dense disablePadding>
-                    {g.rows.map(renderRow)}
-                  </List>
-                </Box>
-              ));
+              const list = (
+                <List dense disablePadding>
+                  {b.rows.map(renderRow)}
+                </List>
+              );
 
               // Skip the subtype level entirely when no row carries one —
               // nothing to say, so no header and no chip.
-              if (!hasAnySubtype) return <Box key={b.key}>{phaseGroups}</Box>;
+              if (!hasAnySubtype) return <Box key={b.key}>{list}</Box>;
 
               return (
                 <Box key={b.key}>
@@ -416,13 +372,13 @@ export default function DescendantRelationsDrawer({
                     </Typography>
                     <Chip
                       size="small"
-                      label={b.count}
+                      label={b.rows.length}
                       variant="outlined"
                       sx={{ height: 18, fontSize: "0.65rem" }}
                     />
                   </Box>
                   <Collapse in={isOpen} unmountOnExit>
-                    {phaseGroups}
+                    {list}
                   </Collapse>
                 </Box>
               );

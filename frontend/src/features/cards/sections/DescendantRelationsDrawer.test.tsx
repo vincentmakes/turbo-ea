@@ -129,7 +129,7 @@ describe("DescendantRelationsDrawer", () => {
     );
   });
 
-  it("gives undated cards their own 'Not Set' group when others have a phase", async () => {
+  it("marks lifecycle with a labelled dot, and nothing when undated", async () => {
     const mixed = {
       total: 2,
       via_total: 1,
@@ -140,11 +140,14 @@ describe("DescendantRelationsDrawer", () => {
     };
     vi.mocked(api.get).mockResolvedValue(mixed);
     renderDrawer();
-    await waitFor(() => expect(screen.getByText("Active")).toBeInTheDocument());
-    expect(screen.getByText("Not Set")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Alpha")).toBeInTheDocument());
+    // The phase name lives on the dot's accessible label / tooltip, not in a
+    // chip — and the undated card gets no dot at all.
+    expect(screen.getAllByLabelText("Active")).toHaveLength(1);
+    expect(screen.queryByLabelText("Not Set")).not.toBeInTheDocument();
   });
 
-  it("groups by subtype, then by lifecycle phase", async () => {
+  it("groups by subtype, with lifecycle shown per row as a dot", async () => {
     const many = {
       total: 4,
       via_total: 1,
@@ -160,9 +163,9 @@ describe("DescendantRelationsDrawer", () => {
 
     await waitFor(() => expect(screen.getByText("Business Application")).toBeInTheDocument());
     expect(screen.getByText("Microservice")).toBeInTheDocument();
-    // Lifecycle sub-headers inside the buckets.
-    expect(screen.getByText("End of Life")).toBeInTheDocument();
-    expect(screen.getAllByText("Active").length).toBe(2); // one per subtype bucket
+    // Lifecycle is a per-row dot, not a heading — no phase-grouping rows.
+    expect(screen.getAllByLabelText("Active")).toHaveLength(3);
+    expect(screen.getAllByLabelText("End of Life")).toHaveLength(1);
   });
 
   it("groups a uniform subtype too — one header beats N identical chips", async () => {
@@ -180,7 +183,8 @@ describe("DescendantRelationsDrawer", () => {
     vi.mocked(api.get).mockResolvedValue(uniform);
     renderDrawer();
     await waitFor(() => expect(screen.getByText("Business Application")).toBeInTheDocument());
-    expect(screen.getByText("Active")).toBeInTheDocument();
+    // One heading for all three rows, rather than three identical chips.
+    expect(screen.getAllByText("Business Application")).toHaveLength(1);
   });
 
   it("carries no subtype or lifecycle chips on the rows themselves", async () => {
@@ -195,19 +199,18 @@ describe("DescendantRelationsDrawer", () => {
     vi.mocked(api.get).mockResolvedValue(uniform);
     renderDrawer();
     await waitFor(() => expect(screen.getByText("Alpha")).toBeInTheDocument());
-    // Each label appears exactly once — in its header, never repeated per row.
+    // The subtype is named once in the heading, never repeated per row, and
+    // the phase is a dot rather than a chip with a visible label.
     expect(screen.getAllByText("Business Application")).toHaveLength(1);
-    expect(screen.getAllByText("Active")).toHaveLength(1);
+    expect(screen.queryByText("Active")).not.toBeInTheDocument();
   });
 
-  it("skips a level entirely when no row carries a value for it", async () => {
-    // No subtypes and no lifecycle anywhere: neither header nor chip.
+  it("skips the subtype heading when no row carries one", async () => {
     vi.mocked(api.get).mockResolvedValue(payload);
     renderDrawer();
     await waitFor(() => expect(screen.getByText("Billing Engine")).toBeInTheDocument());
     expect(screen.queryByText("Business Application")).not.toBeInTheDocument();
     expect(screen.queryByText("No subtype")).not.toBeInTheDocument();
-    expect(screen.queryByText("Not Set")).not.toBeInTheDocument();
   });
 
   it("preserves the server's row order", async () => {
