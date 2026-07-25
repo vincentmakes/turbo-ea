@@ -153,6 +153,8 @@
   "relations.rollup.chip_one": "+{{count}} num subelemento",
   "relations.rollup.chip_other": "+{{count}} em subelementos",
   "relations.rollup.chipTooltip": "Mostrar os cartões ligados aos subelementos deste cartão",
+  "relations.rollup.countLine_one": "{{count}} card · via {{vias}} subelementos",
+  "relations.rollup.countLine_other": "{{count}} cards · via {{vias}} subelementos",
   "relations.rollup.title": "{{type}} em subelementos",
   "relations.rollup.explainer": "Estes cartões estão ligados a subelementos deste cartão, não ao próprio cartão. Abra um subelemento para alterar as suas ligações.",
   "relations.rollup.via": "via",

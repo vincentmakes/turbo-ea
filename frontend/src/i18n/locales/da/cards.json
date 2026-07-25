@@ -153,6 +153,8 @@
   "relations.rollup.chip_one": "+{{count}} i underelement",
   "relations.rollup.chip_other": "+{{count}} i underelementer",
   "relations.rollup.chipTooltip": "Vis kort, der er knyttet til dette korts underelementer",
+  "relations.rollup.countLine_one": "{{count}} kort · via {{vias}} underelementer",
+  "relations.rollup.countLine_other": "{{count}} kort · via {{vias}} underelementer",
   "relations.rollup.title": "{{type}} i underelementer",
   "relations.rollup.explainer": "Disse kort er knyttet til underelementer af dette kort, ikke til selve kortet. Åbn et underelement for at ændre dets forbindelser.",
   "relations.rollup.via": "via",

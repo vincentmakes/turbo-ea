@@ -153,6 +153,8 @@
   "relations.rollup.chip_one": "+{{count}} dans un sous-élément",
   "relations.rollup.chip_other": "+{{count}} dans les sous-éléments",
   "relations.rollup.chipTooltip": "Afficher les cartes liées aux sous-éléments de cette carte",
+  "relations.rollup.countLine_one": "{{count}} fiche · via {{vias}} sous-éléments",
+  "relations.rollup.countLine_other": "{{count}} fiches · via {{vias}} sous-éléments",
   "relations.rollup.title": "{{type}} dans les sous-éléments",
   "relations.rollup.explainer": "Ces cartes sont liées aux sous-éléments de cette carte, et non à la carte elle-même. Ouvrez un sous-élément pour modifier ses liens.",
   "relations.rollup.via": "via",

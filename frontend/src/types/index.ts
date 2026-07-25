@@ -457,12 +457,15 @@ export interface DescendantRelationRow {
   name: string;
   type: string;
   subtype?: string | null;
+  lifecycle?: Record<string, string>;
   via: DescendantRelationVia[];
 }
 
 export interface DescendantRelationsResponse {
   rows: DescendantRelationRow[];
   total: number;
+  /** Distinct sub-items across the whole result set, not just this page. */
+  via_total: number;
 }
 
 export interface Comment {

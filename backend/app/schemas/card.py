@@ -214,12 +214,17 @@ class DescendantRelationRow(BaseModel):
     name: str
     type: str
     subtype: str | None = None
+    lifecycle: dict[str, str] = Field(default_factory=dict)
     via: list[DescendantRelationVia]
 
 
 class DescendantRelationsResponse(BaseModel):
     rows: list[DescendantRelationRow]
     total: int
+    # Distinct sub-items contributing across the WHOLE result set, not just the
+    # current page — it powers the "N cards · via M sub-items" header, which
+    # would be misleading if it only counted the visible rows.
+    via_total: int = 0
 
 
 class CardTypeCount(BaseModel):

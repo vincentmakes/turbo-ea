@@ -196,6 +196,30 @@ class TestDescendantRelationRows:
         assert [v["name"] for v in by_name["App1"]["via"]] == ["LeafA"]
         assert by_name["App1"]["type"] == "Application"
 
+    async def test_via_total_counts_whole_result_set(self, client, db, rollup_env):
+        """The header count must not be a per-page number."""
+        r = await client.get(
+            f"/api/v1/cards/{rollup_env['root'].id}/descendant-relations"
+            "?relation_type=capToApp&page=1&page_size=1",
+            headers=auth_headers(rollup_env["admin"]),
+        )
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert len(body["rows"]) == 1  # one row on this page…
+        assert body["total"] == 3
+        # …but LeafA + SubB both contribute across the full set.
+        assert body["via_total"] == 2
+
+    async def test_rows_carry_lifecycle(self, client, db, rollup_env):
+        rollup_env["app1"].lifecycle = {"active": "2020-01-01"}
+        await db.flush()
+        r = await _rows(client, rollup_env["root"], rollup_env["admin"])
+        assert r.status_code == 200, r.text
+        by_name = {row["name"]: row for row in r.json()["rows"]}
+        assert by_name["App1"]["lifecycle"] == {"active": "2020-01-01"}
+        # Cards without lifecycle data serialise as {}, never null.
+        assert by_name["App2"]["lifecycle"] == {}
+
     async def test_rows_are_paginated(self, client, db, rollup_env):
         r = await client.get(
             f"/api/v1/cards/{rollup_env['root'].id}/descendant-relations"
@@ -211,7 +235,7 @@ class TestDescendantRelationRows:
     async def test_unknown_relation_type_returns_empty(self, client, db, rollup_env):
         r = await _rows(client, rollup_env["root"], rollup_env["admin"], rel_type="nope")
         assert r.status_code == 200, r.text
-        assert r.json() == {"rows": [], "total": 0}
+        assert r.json() == {"rows": [], "total": 0, "via_total": 0}
 
     async def test_viewer_can_read(self, client, db, rollup_env):
         viewer = await create_user(db, email="viewer@test.com", role="viewer")

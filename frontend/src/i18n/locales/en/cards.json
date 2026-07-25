@@ -153,6 +153,8 @@
   "relations.rollup.chip_one": "+{{count}} in sub-item",
   "relations.rollup.chip_other": "+{{count}} in sub-items",
   "relations.rollup.chipTooltip": "Show cards linked to this card's sub-items",
+  "relations.rollup.countLine_one": "{{count}} card · via {{vias}} sub-items",
+  "relations.rollup.countLine_other": "{{count}} cards · via {{vias}} sub-items",
   "relations.rollup.title": "{{type}} in sub-items",
   "relations.rollup.explainer": "These cards are linked to sub-items of this card, not to the card itself. Open a sub-item to change its links.",
   "relations.rollup.via": "via",

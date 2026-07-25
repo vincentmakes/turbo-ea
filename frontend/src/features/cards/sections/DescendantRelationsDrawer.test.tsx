@@ -45,13 +45,22 @@ const rt = {
 
 const payload = {
   total: 2,
+  via_total: 2,
   rows: [
-    { id: "a1", name: "Billing Engine", type: "Application", subtype: null, via: [{ id: "s1", name: "Card Payments", type: "BusinessCapability" }] },
+    {
+      id: "a1",
+      name: "Billing Engine",
+      type: "Application",
+      subtype: null,
+      lifecycle: { active: "2020-01-01" },
+      via: [{ id: "s1", name: "Card Payments", type: "BusinessCapability" }],
+    },
     {
       id: "a2",
       name: "Payments Gateway",
       type: "Application",
       subtype: null,
+      lifecycle: {},
       via: [
         { id: "s1", name: "Card Payments", type: "BusinessCapability" },
         { id: "s2", name: "Direct Debit", type: "BusinessCapability" },
@@ -103,6 +112,24 @@ describe("DescendantRelationsDrawer", () => {
     expect(vi.mocked(api.get).mock.calls[0][0]).toContain(
       "/cards/root-1/descendant-relations?relation_type=capToApp",
     );
+  });
+
+  it("states how concentrated the roll-up is", async () => {
+    vi.mocked(api.get).mockResolvedValue(payload);
+    renderDrawer();
+    // Counted over the whole result set, not just the visible page.
+    await waitFor(() =>
+      expect(screen.getByText(/2 cards · via 2 sub-items/i)).toBeInTheDocument(),
+    );
+  });
+
+  it("shows a lifecycle badge only for cards that have a dated phase", async () => {
+    vi.mocked(api.get).mockResolvedValue(payload);
+    renderDrawer();
+    // "Billing Engine" is active; "Payments Gateway" has no lifecycle at all,
+    // so exactly one badge renders.
+    await waitFor(() => expect(screen.getByText("Billing Engine")).toBeInTheDocument());
+    expect(screen.getAllByText(/^Active$/i)).toHaveLength(1);
   });
 
   it("offers no write affordances", async () => {

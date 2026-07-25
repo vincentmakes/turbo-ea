@@ -153,6 +153,8 @@
   "relations.rollup.chip_one": "子项中另有 {{count}} 个",
   "relations.rollup.chip_other": "子项中另有 {{count}} 个",
   "relations.rollup.chipTooltip": "显示与此卡片子项关联的卡片",
+  "relations.rollup.countLine_one": "{{count}} 张卡片 · 经由 {{vias}} 个子项",
+  "relations.rollup.countLine_other": "{{count}} 张卡片 · 经由 {{vias}} 个子项",
   "relations.rollup.title": "子项中的「{{type}}」",
   "relations.rollup.explainer": "这些卡片关联到此卡片的子项，而非卡片本身。如需更改关联，请打开对应的子项。",
   "relations.rollup.via": "经由",

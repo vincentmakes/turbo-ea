@@ -1546,12 +1546,15 @@ async def descendant_relations(
     by_type = await _descendant_relation_map(db, card, relation_type=relation_type)
     peers = by_type.get(relation_type, {})
     if not peers:
-        return DescendantRelationsResponse(rows=[], total=0)
+        return DescendantRelationsResponse(rows=[], total=0, via_total=0)
 
     peer_rows = await db.execute(select(Card).where(Card.id.in_(list(peers.keys()))))
     peer_cards = sorted(peer_rows.scalars().all(), key=lambda c: c.name.lower())
 
     total = len(peer_cards)
+    # Counted across every peer, not just the current page — the header states
+    # how concentrated the roll-up is over the whole result set.
+    via_total = len({d.id for owners in peers.values() for d in owners})
     start = (page - 1) * page_size
     window = peer_cards[start : start + page_size]
 
@@ -1561,6 +1564,7 @@ async def descendant_relations(
             name=p.name,
             type=p.type,
             subtype=p.subtype,
+            lifecycle=p.lifecycle or {},
             via=[
                 DescendantRelationVia(id=str(d.id), name=d.name, type=d.type)
                 for d in sorted(peers.get(p.id, []), key=lambda d: d.name.lower())
@@ -1568,7 +1572,7 @@ async def descendant_relations(
         )
         for p in window
     ]
-    return DescendantRelationsResponse(rows=rows, total=total)
+    return DescendantRelationsResponse(rows=rows, total=total, via_total=via_total)
 
 
 @router.patch("/bulk")

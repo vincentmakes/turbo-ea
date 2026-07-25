@@ -153,6 +153,8 @@
   "relations.rollup.chip_one": "+{{count}} in un sottoelemento",
   "relations.rollup.chip_other": "+{{count}} nei sottoelementi",
   "relations.rollup.chipTooltip": "Mostra le schede collegate ai sottoelementi di questa scheda",
+  "relations.rollup.countLine_one": "{{count}} card · tramite {{vias}} sottoelementi",
+  "relations.rollup.countLine_other": "{{count}} card · tramite {{vias}} sottoelementi",
   "relations.rollup.title": "{{type}} nei sottoelementi",
   "relations.rollup.explainer": "Queste schede sono collegate ai sottoelementi di questa scheda, non alla scheda stessa. Apri un sottoelemento per modificarne i collegamenti.",
   "relations.rollup.via": "tramite",

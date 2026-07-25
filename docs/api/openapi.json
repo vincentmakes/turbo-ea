@@ -3872,6 +3872,13 @@
             "title": "Id",
             "type": "string"
           },
+          "lifecycle": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Lifecycle",
+            "type": "object"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -3962,6 +3969,11 @@
           },
           "total": {
             "title": "Total",
+            "type": "integer"
+          },
+          "via_total": {
+            "default": 0,
+            "title": "Via Total",
             "type": "integer"
           }
         },

@@ -153,6 +153,8 @@
   "relations.rollup.chip_one": "+{{count}} in Unterelement",
   "relations.rollup.chip_other": "+{{count}} in Unterelementen",
   "relations.rollup.chipTooltip": "Karten anzeigen, die mit den Unterelementen dieser Karte verknüpft sind",
+  "relations.rollup.countLine_one": "{{count}} Karte · über {{vias}} Unterelemente",
+  "relations.rollup.countLine_other": "{{count}} Karten · über {{vias}} Unterelemente",
   "relations.rollup.title": "{{type}} in Unterelementen",
   "relations.rollup.explainer": "Diese Karten sind mit Unterelementen dieser Karte verknüpft, nicht mit der Karte selbst. Öffnen Sie ein Unterelement, um dessen Verknüpfungen zu ändern.",
   "relations.rollup.via": "über",

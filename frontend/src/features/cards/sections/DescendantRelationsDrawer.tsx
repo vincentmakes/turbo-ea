@@ -29,6 +29,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import LifecycleBadge from "@/components/LifecycleBadge";
 import { api } from "@/api/client";
 import { isHexColor, readableTypeColor } from "@/lib/color";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -65,6 +66,7 @@ export default function DescendantRelationsDrawer({
 
   const [rows, setRows] = useState<DescendantRelationRow[]>([]);
   const [total, setTotal] = useState(0);
+  const [viaTotal, setViaTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -83,6 +85,7 @@ export default function DescendantRelationsDrawer({
       .then((res) => {
         setRows(res.rows);
         setTotal(res.total);
+        setViaTotal(res.via_total ?? 0);
       })
       .catch((e) => setError(e instanceof Error ? e.message : t("relations.rollup.error")))
       .finally(() => setLoading(false));
@@ -132,6 +135,18 @@ export default function DescendantRelationsDrawer({
         <Divider />
 
         <Box sx={{ px: 2, py: 1.25, bgcolor: "action.hover" }}>
+          {/* How concentrated the roll-up is: 12 cards spread over 5 sub-items
+              reads very differently from 12 all hanging off one. */}
+          {total > 0 && (
+            <Typography
+              variant="caption"
+              fontWeight={600}
+              component="div"
+              sx={{ mb: 0.25 }}
+            >
+              {t("relations.rollup.countLine", { count: total, vias: viaTotal })}
+            </Typography>
+          )}
           <Typography variant="caption" color="text.secondary">
             {t("relations.rollup.explainer")}
           </Typography>
@@ -193,6 +208,9 @@ export default function DescendantRelationsDrawer({
                           sx={{ height: 18, fontSize: "0.65rem" }}
                         />
                       )}
+                      {/* Renders nothing when the card has no dated phase, so
+                          rows without lifecycle data stay clean. */}
+                      <LifecycleBadge lifecycle={row.lifecycle} />
                     </Box>
                     <Box
                       sx={{
@@ -203,9 +221,15 @@ export default function DescendantRelationsDrawer({
                         mt: 0.5,
                       }}
                     >
-                      <Typography variant="caption" color="text.secondary">
-                        {t("relations.rollup.via")}
-                      </Typography>
+                      {/* The drawer's own "nested one level down" glyph stands
+                          in for the word "via" — the header explainer already
+                          states what these chips are, and dropping the word
+                          gives the chips the horizontal room. */}
+                      <Tooltip title={t("relations.rollup.via")}>
+                        <Box component="span" sx={{ display: "inline-flex", color: "text.disabled" }}>
+                          <MaterialSymbol icon="subdirectory_arrow_right" size={14} />
+                        </Box>
+                      </Tooltip>
                       {row.via.map((v) => {
                         // Accent the chip with the sub-item's card-type colour
                         // so it reads as a card, not a tag. `readableTypeColor`

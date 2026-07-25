@@ -153,6 +153,8 @@
   "relations.rollup.chip_one": "+{{count}} في عنصر فرعي",
   "relations.rollup.chip_other": "+{{count}} في العناصر الفرعية",
   "relations.rollup.chipTooltip": "عرض البطاقات المرتبطة بالعناصر الفرعية لهذه البطاقة",
+  "relations.rollup.countLine_one": "بطاقة واحدة ({{count}}) · عبر {{vias}} عنصرًا فرعيًا",
+  "relations.rollup.countLine_other": "{{count}} بطاقة · عبر {{vias}} عنصرًا فرعيًا",
   "relations.rollup.title": "{{type}} في العناصر الفرعية",
   "relations.rollup.explainer": "هذه البطاقات مرتبطة بالعناصر الفرعية لهذه البطاقة وليس بالبطاقة نفسها. افتح عنصرًا فرعيًا لتغيير روابطه.",
   "relations.rollup.via": "عبر",

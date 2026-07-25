@@ -153,6 +153,8 @@
   "relations.rollup.chip_one": "+{{count}} в дочернем элементе",
   "relations.rollup.chip_other": "+{{count}} в дочерних элементах",
   "relations.rollup.chipTooltip": "Показать карточки, связанные с дочерними элементами этой карточки",
+  "relations.rollup.countLine_one": "{{count}} карточка · через {{vias}} дочерних элементов",
+  "relations.rollup.countLine_other": "{{count}} карточек · через {{vias}} дочерних элементов",
   "relations.rollup.title": "«{{type}}» в дочерних элементах",
   "relations.rollup.explainer": "Эти карточки связаны с дочерними элементами данной карточки, а не с ней самой. Чтобы изменить связи, откройте дочерний элемент.",
   "relations.rollup.via": "через",
