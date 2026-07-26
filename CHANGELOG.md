@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 - **A card section's "collapsed by default" setting is now respected.** The Relations section stayed collapsed no matter what the metamodel said, and on a freshly loaded page every other section ignored the setting in the opposite direction — opening expanded even when configured to start collapsed. Description, Lifecycle, End of Life, Hierarchy, Lineage, Tags, Relations and custom sections all now open in the state the Card Layout editor specifies, on first paint and after a refresh.
 - **Card sections in the inventory side panel and the PPM initiative Details tab now reset when you switch cards**, instead of carrying the previously viewed card's expanded/collapsed sections over.
+- **The Card Layout editor's "collapsed by default" switch now shows the Relations section's real state.** Relations starts collapsed, but with nothing configured the switch read as "not collapsed" — so it took two clicks to change it, and the first click appeared to do nothing. The switch now matches what the card does, and one click flips it.
 - **Custom sections configured before the current layout format are readable again** — a collapse or hide setting saved against the section's name (rather than its position) was shown in the Card Layout editor but ignored on the card itself.
 
 ## [2.28.0] - 2026-07-25

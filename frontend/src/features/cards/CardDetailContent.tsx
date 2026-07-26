@@ -45,7 +45,10 @@ import {
   useExtensionFieldVisibilityProviders,
 } from "@/lib/extensionHost";
 import SoAWTab from "@/features/cards/sections/SoAWTab";
-import { makeSectionConfigReader } from "@/features/cards/sectionConfig";
+import {
+  makeSectionConfigReader,
+  sectionDefaultExpanded,
+} from "@/features/cards/sectionConfig";
 import type {
   Card,
   CardEffectivePermissions,
@@ -314,7 +317,7 @@ export default function CardDetailContent({
 
   const renderSection = (key: string) => {
     if (secHidden(key)) return null;
-    const exp = secExpanded(key, key === "relations" ? false : true);
+    const exp = secExpanded(key, sectionDefaultExpanded(key));
 
     if (key === "description") {
       return (

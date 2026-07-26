@@ -49,6 +49,7 @@ import { CSS } from "@dnd-kit/utilities";
 
 import type { CardType, SectionDef, FieldDef, SectionConfig, TranslationMap } from "@/types";
 import { useResolveLabel, useFieldLabel } from "@/hooks/useResolveLabel";
+import { isSectionCollapsedByDefault } from "@/features/cards/sectionConfig";
 import { LOCALE_LABELS, SUPPORTED_LOCALES } from "@/i18n";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -1089,7 +1090,7 @@ function SortableSectionItem({
         </Box>
         <Tooltip title={t("cardLayout.collapsedByDefault")}>
           <FormControlLabel
-            control={<Switch size="small" checked={cfg.defaultExpanded === false} disabled={!!cfg.hidden} onChange={onToggleCollapsed} />}
+            control={<Switch size="small" checked={isSectionCollapsedByDefault(cfg, sectionKey)} disabled={!!cfg.hidden} onChange={onToggleCollapsed} />}
             label={<Typography variant="caption" color="text.secondary">{t("cardLayout.collapsedByDefault")}</Typography>}
             sx={{ mr: 0, ml: 0 }}
           />
@@ -1231,7 +1232,10 @@ export default function CardLayoutEditor({
                 key={key} id={key} sectionKey={key} info={info} cfg={cfgForSection}
                 expanded={expandedSections.has(key)}
                 onToggleExpand={() => toggleExpand(key)}
-                onToggleCollapsed={() => updateSectionProp(key, { defaultExpanded: cfgForSection.defaultExpanded === false })}
+                // The switch means "collapsed", so a click writes the negation
+                // of the *effective* current state — which, for a section that
+                // was never configured, depends on that section's own default.
+                onToggleCollapsed={() => updateSectionProp(key, { defaultExpanded: isSectionCollapsedByDefault(cfgForSection, key) })}
                 onToggleHidden={() => updateSectionProp(key, { hidden: !cfgForSection.hidden })}
                 onDelete={info.isCustom && promptDeleteSection && schemaIdx >= 0 ? () => promptDeleteSection(schemaIdx) : undefined}
                 dqWeight={DQ_SECTION_KEYS.has(key) ? (dqConfig[key] ?? 1) : undefined}
