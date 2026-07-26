@@ -1,8 +1,10 @@
 /**
  * RiskFilterSidebar — left-hand collapsible filter panel for the Risk
- * Register, mirroring the ADR filter sidebar pattern exactly (same
- * resize handle behaviour, collapsed rail, "Filters / N" header,
- * **Clear filters** button, and expandable sections).
+ * Register. Shares its section header + checkbox-list primitives with the
+ * Compliance sidebar (``components/FilterSidebarSection``), which itself
+ * follows the Inventory sidebar pattern: iconed section headers with a
+ * per-section count chip, and dense checkbox rows with a small coloured
+ * dot where a value carries a semantic colour — deliberately not chips.
  *
  * The filter state is a single :type:`RiskFilters` object that the
  * parent (``RiskRegisterPage``) owns and passes down — one callback
@@ -13,16 +15,10 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import Collapse from "@mui/material/Collapse";
-import Divider from "@mui/material/Divider";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import IconButton from "@mui/material/IconButton";
-import List from "@mui/material/List";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemIcon from "@mui/material/ListItemIcon";
-import ListItemText from "@mui/material/ListItemText";
 import Switch from "@mui/material/Switch";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
@@ -32,6 +28,11 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import type { CardOption } from "@/components/CardPicker";
 import { DateField } from "@/components/DateField";
+import {
+  FilterCheckboxList,
+  FilterSectionHeader,
+} from "@/components/FilterSidebarSection";
+import { SEVERITY_COLORS } from "@/theme/tokens";
 import type {
   RiskCategory,
   RiskLevel,
@@ -131,47 +132,10 @@ const CATEGORIES: RiskCategory[] = [
   "strategic",
 ];
 const LEVELS: RiskLevel[] = ["critical", "high", "medium", "low"];
-const SOURCES: RiskSourceType[] = ["manual", "compliance"];
+const SOURCES: RiskSourceType[] = ["manual", "compliance", "ppm"];
 
 const MIN_WIDTH = 220;
 const MAX_WIDTH = 500;
-
-// ---------------------------------------------------------------------------
-// Section header
-// ---------------------------------------------------------------------------
-
-function SectionHeader({
-  label,
-  expanded,
-  onToggle,
-}: {
-  label: string;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <Box
-      onClick={onToggle}
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        cursor: "pointer",
-        py: 0.5,
-        userSelect: "none",
-        "&:hover": { bgcolor: "action.hover", borderRadius: 1 },
-      }}
-    >
-      <MaterialSymbol
-        icon={expanded ? "expand_more" : "chevron_right"}
-        size={18}
-        style={{ marginRight: 4 }}
-      />
-      <Typography variant="subtitle2" sx={{ fontSize: 13, fontWeight: 600 }}>
-        {label}
-      </Typography>
-    </Box>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -434,10 +398,12 @@ export default function RiskFilterSidebar({
           )}
 
           {/* Search */}
-          <SectionHeader
+          <FilterSectionHeader
             label={t("risks.filter.search")}
+            icon="search"
             expanded={expandedSections.search}
             onToggle={() => toggleSection("search")}
+            count={filters.search.trim() ? 1 : 0}
           />
           <Collapse in={expandedSections.search}>
             <TextField
@@ -446,122 +412,76 @@ export default function RiskFilterSidebar({
               placeholder={t("risks.filter.searchPlaceholder")}
               value={filters.search}
               onChange={(e) => setField("search", e.target.value)}
-              sx={{ my: 0.5, "& input": { fontSize: 12, height: 16 } }}
+              sx={{ mb: 1, "& .MuiInputBase-root": { fontSize: 13 } }}
             />
           </Collapse>
 
-          <Divider sx={{ my: 1 }} />
-
           {/* Status */}
-          <SectionHeader
+          <FilterSectionHeader
             label={t("risks.filter.status")}
+            icon="route"
             expanded={expandedSections.status}
             onToggle={() => toggleSection("status")}
+            count={filters.statuses.length}
           />
           <Collapse in={expandedSections.status}>
-            <List dense disablePadding>
-              {STATUSES.map((s) => (
-                <ListItemButton
-                  key={s}
-                  dense
-                  onClick={() => toggleInList("statuses", s)}
-                  sx={{ py: 0, px: 0.5 }}
-                >
-                  <ListItemIcon sx={{ minWidth: 28 }}>
-                    <Checkbox
-                      edge="start"
-                      size="small"
-                      checked={filters.statuses.includes(s)}
-                      tabIndex={-1}
-                      disableRipple
-                    />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={t(`risks.status.${s}`)}
-                    primaryTypographyProps={{ fontSize: 12 }}
-                  />
-                </ListItemButton>
-              ))}
-            </List>
+            <FilterCheckboxList
+              items={STATUSES.map((s) => ({
+                key: s,
+                label: t(`risks.status.${s}`),
+                checked: filters.statuses.includes(s),
+                onToggle: () => toggleInList("statuses", s),
+              }))}
+            />
           </Collapse>
-
-          <Divider sx={{ my: 1 }} />
 
           {/* Category */}
-          <SectionHeader
+          <FilterSectionHeader
             label={t("risks.filter.category")}
+            icon="label"
             expanded={expandedSections.category}
             onToggle={() => toggleSection("category")}
+            count={filters.categories.length}
           />
           <Collapse in={expandedSections.category}>
-            <List dense disablePadding>
-              {CATEGORIES.map((c) => (
-                <ListItemButton
-                  key={c}
-                  dense
-                  onClick={() => toggleInList("categories", c)}
-                  sx={{ py: 0, px: 0.5 }}
-                >
-                  <ListItemIcon sx={{ minWidth: 28 }}>
-                    <Checkbox
-                      edge="start"
-                      size="small"
-                      checked={filters.categories.includes(c)}
-                      tabIndex={-1}
-                      disableRipple
-                    />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={t(`risks.category.${c}`)}
-                    primaryTypographyProps={{ fontSize: 12 }}
-                  />
-                </ListItemButton>
-              ))}
-            </List>
+            <FilterCheckboxList
+              items={CATEGORIES.map((c) => ({
+                key: c,
+                label: t(`risks.category.${c}`),
+                checked: filters.categories.includes(c),
+                onToggle: () => toggleInList("categories", c),
+              }))}
+            />
           </Collapse>
 
-          <Divider sx={{ my: 1 }} />
-
-          {/* Level */}
-          <SectionHeader
+          {/* Level — severity colours as dots, same as the Compliance
+              sidebar's Severity section. */}
+          <FilterSectionHeader
             label={t("risks.filter.level")}
+            icon="flag"
             expanded={expandedSections.level}
             onToggle={() => toggleSection("level")}
+            count={filters.levels.length}
           />
           <Collapse in={expandedSections.level}>
-            <List dense disablePadding>
-              {LEVELS.map((l) => (
-                <ListItemButton
-                  key={l}
-                  dense
-                  onClick={() => toggleInList("levels", l)}
-                  sx={{ py: 0, px: 0.5 }}
-                >
-                  <ListItemIcon sx={{ minWidth: 28 }}>
-                    <Checkbox
-                      edge="start"
-                      size="small"
-                      checked={filters.levels.includes(l)}
-                      tabIndex={-1}
-                      disableRipple
-                    />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={t(`risks.level.${l}`)}
-                    primaryTypographyProps={{ fontSize: 12 }}
-                  />
-                </ListItemButton>
-              ))}
-            </List>
+            <FilterCheckboxList
+              items={LEVELS.map((l) => ({
+                key: l,
+                label: t(`risks.level.${l}`),
+                color: SEVERITY_COLORS[l],
+                checked: filters.levels.includes(l),
+                onToggle: () => toggleInList("levels", l),
+              }))}
+            />
           </Collapse>
 
-          <Divider sx={{ my: 1 }} />
-
           {/* Owner */}
-          <SectionHeader
+          <FilterSectionHeader
             label={t("risks.filter.owner")}
+            icon="person"
             expanded={expandedSections.owner}
             onToggle={() => toggleSection("owner")}
+            count={filters.owners.length}
           />
           <Collapse in={expandedSections.owner}>
             <TextField
@@ -570,109 +490,70 @@ export default function RiskFilterSidebar({
               placeholder={t("risks.filter.ownerSearchPlaceholder")}
               value={ownerSearch}
               onChange={(e) => setOwnerSearch(e.target.value)}
-              sx={{ my: 0.5, "& input": { fontSize: 12, height: 16 } }}
+              sx={{ mb: 0.5, "& .MuiInputBase-root": { fontSize: 13 } }}
             />
             {filteredOwners.length === 0 ? (
               <Typography
-                variant="caption"
+                variant="body2"
                 color="text.secondary"
-                sx={{ display: "block", px: 0.5, py: 1 }}
+                sx={{ px: 1, py: 0.5, fontSize: 12 }}
               >
                 {t("risks.filter.noOwners")}
               </Typography>
             ) : (
-              <List dense disablePadding sx={{ maxHeight: 240, overflowY: "auto" }}>
-                {filteredOwners.map((o) => (
-                  <ListItemButton
-                    key={o.id}
-                    dense
-                    onClick={() => toggleInList("owners", o.id)}
-                    sx={{ py: 0, px: 0.5 }}
-                  >
-                    <ListItemIcon sx={{ minWidth: 28 }}>
-                      <Checkbox
-                        edge="start"
-                        size="small"
-                        checked={filters.owners.includes(o.id)}
-                        tabIndex={-1}
-                        disableRipple
-                      />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={o.display_name}
-                      secondary={o.email}
-                      primaryTypographyProps={{ fontSize: 12 }}
-                      secondaryTypographyProps={{ fontSize: 10 }}
-                    />
-                  </ListItemButton>
-                ))}
-              </List>
+              <Box sx={{ maxHeight: 240, overflowY: "auto" }}>
+                <FilterCheckboxList
+                  items={filteredOwners.map((o) => ({
+                    key: o.id,
+                    label: o.display_name,
+                    secondary: o.email,
+                    checked: filters.owners.includes(o.id),
+                    onToggle: () => toggleInList("owners", o.id),
+                  }))}
+                />
+              </Box>
             )}
           </Collapse>
 
-          <Divider sx={{ my: 1 }} />
-
           {/* Card type — narrows both the risk list and the Affected cards
-              options below, mirroring the ADR sidebar's Card types section. */}
-          <SectionHeader
+              options below. */}
+          <FilterSectionHeader
             label={t("risks.filter.cardType")}
+            icon="category"
             expanded={expandedSections.cardTypes}
             onToggle={() => toggleSection("cardTypes")}
+            count={filters.cardTypes.length}
           />
           <Collapse in={expandedSections.cardTypes}>
-            <List dense disablePadding sx={{ mb: 1 }}>
-              {availableCardTypes.map((ct) => (
-                <ListItemButton
-                  key={ct.key}
-                  dense
-                  onClick={() => toggleInList("cardTypes", ct.key)}
-                  sx={{ py: 0, borderRadius: 1 }}
-                >
-                  <ListItemIcon sx={{ minWidth: 32 }}>
-                    <Checkbox
-                      edge="start"
-                      size="small"
-                      checked={filters.cardTypes.includes(ct.key)}
-                      tabIndex={-1}
-                      disableRipple
-                    />
-                  </ListItemIcon>
-                  <Box
-                    sx={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: "50%",
-                      bgcolor: ct.color,
-                      mr: 1,
-                      flexShrink: 0,
-                    }}
-                  />
-                  <ListItemText
-                    primary={ct.label}
-                    primaryTypographyProps={{ fontSize: 13 }}
-                  />
-                </ListItemButton>
-              ))}
-              {availableCardTypes.length === 0 && (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ px: 1, py: 0.5, fontSize: 12 }}
-                >
-                  {t("risks.filter.noCardTypes")}
-                </Typography>
-              )}
-            </List>
+            {availableCardTypes.length === 0 ? (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ px: 1, py: 0.5, fontSize: 12 }}
+              >
+                {t("risks.filter.noCardTypes")}
+              </Typography>
+            ) : (
+              <FilterCheckboxList
+                items={availableCardTypes.map((ct) => ({
+                  key: ct.key,
+                  label: ct.label,
+                  color: ct.color,
+                  checked: filters.cardTypes.includes(ct.key),
+                  onToggle: () => toggleInList("cardTypes", ct.key),
+                }))}
+              />
+            )}
           </Collapse>
 
-          <Divider sx={{ my: 1 }} />
-
-          {/* Affected cards — checkbox list of the cards linked to at least
-              one risk, mirroring the ADR sidebar's Linked cards section. */}
-          <SectionHeader
+          {/* Affected cards — the cards linked to at least one loaded risk,
+              searchable by name. */}
+          <FilterSectionHeader
             label={t("risks.filter.cards")}
+            icon="style"
             expanded={expandedSections.cards}
             onToggle={() => toggleSection("cards")}
+            count={filters.cards.length}
           />
           <Collapse in={expandedSections.cards}>
             <TextField
@@ -681,101 +562,67 @@ export default function RiskFilterSidebar({
               placeholder={t("risks.filter.cardsPlaceholder")}
               value={cardSearch}
               onChange={(e) => setCardSearch(e.target.value)}
-              sx={{ mb: 0.5, "& .MuiInputBase-root": { fontSize: 12, height: 30 } }}
+              sx={{ mb: 0.5, "& .MuiInputBase-root": { fontSize: 13 } }}
             />
-            <List dense disablePadding sx={{ mb: 1, maxHeight: 240, overflow: "auto" }}>
-              {availableCards
-                .filter(
-                  (card) =>
-                    !cardSearch ||
-                    card.name.toLowerCase().includes(cardSearch.toLowerCase()),
-                )
-                .map((card) => (
-                  <ListItemButton
-                    key={card.id}
-                    dense
-                    onClick={() => toggleCard(card)}
-                    sx={{ py: 0, borderRadius: 1 }}
-                  >
-                    <ListItemIcon sx={{ minWidth: 32 }}>
-                      <Checkbox
-                        edge="start"
-                        size="small"
-                        checked={filters.cards.some((c) => c.id === card.id)}
-                        tabIndex={-1}
-                        disableRipple
-                      />
-                    </ListItemIcon>
-                    <Box
-                      sx={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: "50%",
-                        bgcolor: card.color,
-                        mr: 1,
-                        flexShrink: 0,
-                      }}
-                    />
-                    <ListItemText
-                      primary={card.name}
-                      primaryTypographyProps={{ fontSize: 13 }}
-                    />
-                  </ListItemButton>
-                ))}
-              {availableCards.length === 0 && (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ px: 1, py: 0.5, fontSize: 12 }}
-                >
-                  {t("risks.filter.noCards")}
-                </Typography>
-              )}
-            </List>
+            {availableCards.length === 0 ? (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ px: 1, py: 0.5, fontSize: 12 }}
+              >
+                {t("risks.filter.noCards")}
+              </Typography>
+            ) : (
+              <Box sx={{ maxHeight: 240, overflowY: "auto" }}>
+                <FilterCheckboxList
+                  items={availableCards
+                    .filter(
+                      (card) =>
+                        !cardSearch ||
+                        card.name.toLowerCase().includes(cardSearch.toLowerCase()),
+                    )
+                    .map((card) => ({
+                      key: card.id,
+                      label: card.name,
+                      color: card.color,
+                      checked: filters.cards.some((c) => c.id === card.id),
+                      onToggle: () => toggleCard(card),
+                    }))}
+                />
+              </Box>
+            )}
           </Collapse>
-
-          <Divider sx={{ my: 1 }} />
 
           {/* Source */}
-          <SectionHeader
+          <FilterSectionHeader
             label={t("risks.filter.source")}
+            icon="input"
             expanded={expandedSections.source}
             onToggle={() => toggleSection("source")}
+            count={filters.sources.length}
           />
           <Collapse in={expandedSections.source}>
-            <List dense disablePadding>
-              {SOURCES.map((s) => (
-                <ListItemButton
-                  key={s}
-                  dense
-                  onClick={() => toggleInList("sources", s)}
-                  sx={{ py: 0, px: 0.5 }}
-                >
-                  <ListItemIcon sx={{ minWidth: 28 }}>
-                    <Checkbox
-                      edge="start"
-                      size="small"
-                      checked={filters.sources.includes(s)}
-                      tabIndex={-1}
-                      disableRipple
-                    />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={t(`risks.source.${s}`)}
-                    primaryTypographyProps={{ fontSize: 12 }}
-                  />
-                </ListItemButton>
-              ))}
-            </List>
+            <FilterCheckboxList
+              items={SOURCES.map((s) => ({
+                key: s,
+                label: t(`risks.source.${s}`),
+                checked: filters.sources.includes(s),
+                onToggle: () => toggleInList("sources", s),
+              }))}
+            />
           </Collapse>
 
-          <Divider sx={{ my: 1 }} />
-
           {/* Target date + overdue */}
-          <SectionHeader
+          <FilterSectionHeader
             label={t("risks.filter.target")}
+            icon="event"
             expanded={expandedSections.target}
             onToggle={() => toggleSection("target")}
+            count={
+              (filters.dateTargetFrom ? 1 : 0) +
+              (filters.dateTargetTo ? 1 : 0) +
+              (filters.overdueOnly ? 1 : 0)
+            }
           />
           <Collapse in={expandedSections.target}>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1, my: 0.5 }}>
@@ -833,34 +680,15 @@ export default function RiskFilterSidebar({
                 </Button>
               )}
             </Box>
-            <List dense disablePadding sx={{ mb: 1 }}>
-              {RISK_GRID_COLUMNS.map((c) => {
-                const locked = LOCKED_RISK_COLUMNS.has(c.id);
-                return (
-                  <ListItemButton
-                    key={c.id}
-                    dense
-                    disabled={locked}
-                    onClick={() => toggleColumn(c.id)}
-                    sx={{ py: 0.25, px: 1, borderRadius: 1 }}
-                  >
-                    <ListItemIcon sx={{ minWidth: 28 }}>
-                      <Checkbox
-                        size="small"
-                        checked={visibleColumns.has(c.id)}
-                        disabled={locked}
-                        disableRipple
-                        sx={{ p: 0 }}
-                      />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={t(c.labelKey)}
-                      primaryTypographyProps={{ fontSize: 13, ml: 0.75, noWrap: true }}
-                    />
-                  </ListItemButton>
-                );
-              })}
-            </List>
+            <FilterCheckboxList
+              items={RISK_GRID_COLUMNS.map((c) => ({
+                key: c.id,
+                label: t(c.labelKey),
+                checked: visibleColumns.has(c.id),
+                onToggle: () => toggleColumn(c.id),
+                disabled: LOCKED_RISK_COLUMNS.has(c.id),
+              }))}
+            />
           </Box>
         )}
         </Box>
