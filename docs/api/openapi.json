@@ -29225,7 +29225,7 @@
     },
     "/api/v1/risks": {
       "get": {
-        "description": "Paginated, filterable risk list. ``status`` / ``category`` /\n``level`` / ``source_type`` are repeatable query params (e.g.\n``?status=identified&status=analysed``).",
+        "description": "Paginated, filterable risk list. ``status`` / ``category`` /\n``level`` / ``source_type`` / ``card_id`` / ``card_type`` are repeatable\nquery params (e.g. ``?status=identified&status=analysed``). Repeated\nvalues OR within a dimension and AND across dimensions, so\n``?card_id=a&card_id=b&card_type=Application`` reads as \"risks affecting\ncard a or b, that also touch at least one Application\".",
         "operationId": "list_risks_api_v1_risks_get",
         "parameters": [
           {
@@ -29308,13 +29308,35 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
                 },
                 {
                   "type": "null"
                 }
               ],
               "title": "Card Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "card_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Card Type"
             }
           },
           {
@@ -29600,13 +29622,35 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
                 },
                 {
                   "type": "null"
                 }
               ],
               "title": "Card Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "card_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Card Type"
             }
           },
           {
@@ -29768,13 +29812,35 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
                 },
                 {
                   "type": "null"
                 }
               ],
               "title": "Card Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "card_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Card Type"
             }
           },
           {

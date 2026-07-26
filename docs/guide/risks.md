@@ -41,8 +41,10 @@ The same plumbing fires independently for **each mitigation task** on the risk, 
 
 Risks are **many-to-many** with Cards. A risk can affect multiple Applications or IT Components, and a Card can have multiple risks linked to it:
 
-- From the risk detail page: **Affected cards** panel → search and add. Click an `×` to unlink.
+- From the risk detail page: **Affected cards** panel → pick a card and add it. Click an `×` to unlink. The picker opens a browsable list straight away (no need to type first), pages in more cards as you scroll, and hides cards that are already linked.
 - From any Card detail page: new **Risks** tab lists every risk linked to that card, with a one-click path back to the register.
+
+Linked cards are **grouped by card type**, ordered alphabetically inside each group, and colour-coded with the card type's own colour, so a risk touching a dozen cards across several types stays readable at a glance. The same ordering and colours apply to the **Cards** column of the register grid — the `+N` chip's tooltip lists the remaining cards under their type headings.
 
 ## Mitigation tasks
 
@@ -108,6 +110,17 @@ Both the TurboLens Security Overview and the Risk Register page render a 4×4 pr
 ## Register grid
 
 The register is an AG Grid that mirrors the [Inventory](inventory.md) standards: sortable, filterable, resizable columns with per-user persistent preferences (visible columns, sort order, sidebar state). A toolbar **+ New risk** opens the manual create dialog. The toolbar **Export** button writes a two-sheet `.xlsx` carrying the filtered risk grid on sheet 1 and one row per mitigation-task cycle on sheet 2 — see [Mitigation tasks → Export](#export) for the column shape.
+
+### Filtering by affected cards
+
+The left-hand filter sidebar has an **Affected cards** section that answers the landscape questions the column filter cannot:
+
+- **Cards** — pick one or more specific cards to see every risk that affects *any* of them ("show all risks affecting Applications A, B and C"). The picker browses the whole inventory, so you never have to guess a name.
+- **Card type** — tick one or more card types to see every risk touching *any* card of those types ("show all risks affecting an Application"), without naming individual cards.
+
+Each list matches **any of** its own selections; the two lists combine with **and**. Ticking `Application` and picking the card *Payments Gateway* therefore returns risks that affect Payments Gateway **and** touch at least one Application.
+
+Like every other filter in the sidebar, these narrow the whole page at once — the KPI tiles, the 4×4 matrix, the grid, and both sheets of the `.xlsx` export all follow the active selection.
 
 ## Risk ↔ Finding propagation
 

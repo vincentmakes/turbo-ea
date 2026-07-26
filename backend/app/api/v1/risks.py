@@ -234,14 +234,19 @@ async def load_filtered_risks(
     category: list[str] | None,
     level: list[str] | None,
     owner_id: str | None,
-    card_id: str | None,
+    card_ids: list[str] | None,
+    card_types: list[str] | None,
     source_type: list[str] | None,
     search: str | None,
     overdue: bool,
 ) -> list[Risk]:
-    """Shared filter pipeline used by both ``GET /risks`` and
-    ``GET /risks/metrics`` so the KPI tiles + matrix always reflect
-    whatever the user has filtered to.
+    """Shared filter pipeline used by ``GET /risks``, ``GET /risks/metrics``
+    and the mitigation-task export so the KPI tiles + matrix + both export
+    sheets always reflect whatever the user has filtered to.
+
+    ``card_ids`` and ``card_types`` are OR-ed within themselves and AND-ed
+    with each other (and with every other dimension), matching how the
+    status / category / level multi-selects already behave.
     """
     stmt = select(Risk)
     if status:
@@ -273,12 +278,22 @@ async def load_filtered_risks(
                 Risk.reference.ilike(needle),
             )
         )
-    if card_id:
+    if card_ids:
         try:
-            cid = uuid.UUID(card_id)
+            cids = [uuid.UUID(c) for c in card_ids]
         except ValueError as exc:
             raise HTTPException(400, "Invalid card_id") from exc
-        stmt = stmt.where(Risk.id.in_(select(RiskCard.risk_id).where(RiskCard.card_id == cid)))
+        stmt = stmt.where(Risk.id.in_(select(RiskCard.risk_id).where(RiskCard.card_id.in_(cids))))
+    if card_types:
+        # "Every risk touching at least one card of these types." Unknown
+        # type keys simply match nothing — card types are data, not an enum.
+        stmt = stmt.where(
+            Risk.id.in_(
+                select(RiskCard.risk_id)
+                .join(Card, Card.id == RiskCard.card_id)
+                .where(Card.type.in_(card_types))
+            )
+        )
 
     rows = list((await db.execute(stmt)).scalars().all())
 
@@ -300,7 +315,8 @@ async def list_risks(
     category: list[str] | None = Query(None),
     level: list[str] | None = Query(None),
     owner_id: str | None = None,
-    card_id: str | None = None,
+    card_id: list[str] | None = Query(None),
+    card_type: list[str] | None = Query(None),
     source_type: list[str] | None = Query(None),
     search: str | None = None,
     overdue: bool = False,
@@ -312,8 +328,11 @@ async def list_risks(
     user: User = Depends(get_current_user),
 ) -> RiskListPage:
     """Paginated, filterable risk list. ``status`` / ``category`` /
-    ``level`` / ``source_type`` are repeatable query params (e.g.
-    ``?status=identified&status=analysed``).
+    ``level`` / ``source_type`` / ``card_id`` / ``card_type`` are repeatable
+    query params (e.g. ``?status=identified&status=analysed``). Repeated
+    values OR within a dimension and AND across dimensions, so
+    ``?card_id=a&card_id=b&card_type=Application`` reads as "risks affecting
+    card a or b, that also touch at least one Application".
     """
     await PermissionService.require_permission(db, user, "risks.view")
 
@@ -323,7 +342,8 @@ async def list_risks(
         category=category,
         level=level,
         owner_id=owner_id,
-        card_id=card_id,
+        card_ids=card_id,
+        card_types=card_type,
         source_type=source_type,
         search=search,
         overdue=overdue,
@@ -351,7 +371,8 @@ async def risk_metrics(
     category: list[str] | None = Query(None),
     level: list[str] | None = Query(None),
     owner_id: str | None = None,
-    card_id: str | None = None,
+    card_id: list[str] | None = Query(None),
+    card_type: list[str] | None = Query(None),
     source_type: list[str] | None = Query(None),
     search: str | None = None,
     overdue: bool = False,
@@ -368,7 +389,8 @@ async def risk_metrics(
         category=category,
         level=level,
         owner_id=owner_id,
-        card_id=card_id,
+        card_ids=card_id,
+        card_types=card_type,
         source_type=source_type,
         search=search,
         overdue=overdue,

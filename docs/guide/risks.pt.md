@@ -38,8 +38,10 @@ A mesma mecânica é acionada de forma independente para **cada tarefa de mitiga
 
 Os riscos são **muitos-para-muitos** com os cards. Um risco pode afetar várias Aplicações ou Componentes de TI, e um card pode ter vários riscos ligados:
 
-- A partir da página de detalhe do risco: painel **Cards afetados** → procurar e adicionar. Clique num `×` para desligar.
+- A partir da página de detalhe do risco: painel **Fichas afetadas** → escolha uma ficha e adicione-a. Clique num `×` para desligar. O seletor mostra logo uma lista navegável (não é preciso escrever), carrega mais fichas ao percorrer e esconde as que já estão associadas.
 - A partir de qualquer página de detalhe de card: o novo separador **Riscos** lista cada risco ligado a esse card, com um regresso em um clique ao registo.
+
+As fichas associadas são **agrupadas por tipo de ficha**, ordenadas alfabeticamente dentro de cada grupo e coloridas com a cor do próprio tipo, pelo que um risco que toca uma dúzia de fichas de vários tipos continua legível num relance. A mesma ordenação e as mesmas cores aplicam-se à coluna **Fichas** da grelha do registo — a dica do chip `+N` lista as fichas restantes sob os respetivos cabeçalhos de tipo.
 
 ## Tarefas de mitigação {: #mitigation-tasks }
 
@@ -105,6 +107,17 @@ Tanto a Visão Geral de Segurança do TurboLens como a página do Registo de Ris
 ## Grelha do registo
 
 O registo é um AG Grid que segue os padrões da página [Inventário](inventory.md): colunas ordenáveis, filtráveis e redimensionáveis com preferências por utilizador persistidas (colunas visíveis, ordenação, estado da barra lateral). Um botão **+ Novo risco** na barra de ferramentas abre o diálogo de criação manual. O botão **Exportar** da barra de ferramentas escreve um `.xlsx` de duas folhas com a grelha de riscos filtrada na folha 1 e uma linha por ciclo de tarefa de mitigação na folha 2 — ver [Tarefas de mitigação → Exportação](#export) para o formato de colunas.
+
+### Filtrar por fichas afetadas
+
+A barra lateral de filtros à esquerda tem uma secção **Fichas afetadas** que responde às perguntas de paisagem que o filtro de coluna não cobre:
+
+- **Fichas** — escolha uma ou mais fichas concretas para ver todos os riscos que afetam *qualquer uma* delas («mostrar todos os riscos que afetam as aplicações A, B e C»). O seletor percorre todo o inventário, pelo que não tem de adivinhar nenhum nome.
+- **Tipo de ficha** — marque um ou mais tipos para ver todos os riscos que tocam *qualquer* ficha desses tipos («mostrar todos os riscos que afetam uma aplicação»), sem nomear fichas individuais.
+
+Cada lista corresponde a **qualquer uma** das suas próprias seleções; as duas listas combinam-se com **e**. Marcar `Application` e escolher a ficha *Payments Gateway* devolve portanto os riscos que afetam Payments Gateway **e** tocam pelo menos uma aplicação.
+
+Tal como qualquer outro filtro da barra lateral, estes restringem a página inteira — os mosaicos de KPI, a matriz 4×4, a grelha e ambas as folhas da exportação `.xlsx` seguem a seleção ativa.
 
 ## Propagação Risco ↔ Constatação
 

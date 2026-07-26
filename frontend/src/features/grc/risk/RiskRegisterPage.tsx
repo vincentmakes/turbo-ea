@@ -29,6 +29,7 @@ import Stack from "@mui/material/Stack";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
+import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import StakeholderHoverCard from "@/components/StakeholderHoverCard";
 import MetricCard from "@/features/reports/MetricCard";
@@ -46,6 +47,10 @@ import Tooltip from "@mui/material/Tooltip";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useIsRtl } from "@/hooks/useIsRtl";
+import { useMetamodel } from "@/hooks/useMetamodel";
+import { typeLabel } from "@/hooks/useResolveLabel";
+import { isHexColor, readableTypeColor } from "@/lib/color";
+import { compareAffectedCards, groupCardsByType } from "./affectedCards";
 import CreateRiskDialog from "./CreateRiskDialog";
 import RiskImportDialog from "./RiskImportDialog";
 import RiskFilterSidebar, {
@@ -251,6 +256,10 @@ export default function RiskRegisterPage() {
       filters.levels.forEach((l) => params.append("level", l));
       filters.sources.forEach((s) => params.append("source_type", s));
       filters.owners.forEach((o) => params.append("owner_id", o));
+      // Affected cards: any-of within each of the two dimensions, AND
+      // between them (the backend ANDs the two subquery predicates).
+      filters.cards.forEach((c) => params.append("card_id", c.id));
+      filters.cardTypes.forEach((k) => params.append("card_type", k));
       if (filters.overdueOnly) params.set("overdue", "true");
       return params;
     },
@@ -794,41 +803,73 @@ function topLevel(byLevel: Record<string, number> | undefined): string | null {
 }
 
 /** Renders the M:N affected cards as a compact stack of chips —
- *  first 2 names inline, an ``+N`` overflow chip with the full list in a
- *  tooltip when there are more. Keeps the column width tight and the
- *  information scent high.
+ *  first 2 names inline, an ``+N`` overflow chip with the rest grouped by
+ *  card type in a tooltip. Chips are ordered and colour-coded by card type,
+ *  matching the risk detail page (discussion #876).
  */
 function StackedCards({ cards }: { cards: RiskCardLink[] }) {
   const VISIBLE = 2;
-  const visible = cards.slice(0, VISIBLE);
-  const overflow = cards.slice(VISIBLE);
+  const { i18n } = useTranslation("grc");
+  const { types, getType } = useMetamodel();
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+
+  const ordered = useMemo(
+    () => [...cards].sort(compareAffectedCards(types, i18n.language)),
+    [cards, types, i18n.language],
+  );
+  const visible = ordered.slice(0, VISIBLE);
+  const overflow = ordered.slice(VISIBLE);
+  const overflowGroups = useMemo(
+    () => groupCardsByType(overflow, types, i18n.language),
+    [overflow, types, i18n.language],
+  );
+
+  const label = (typeKey: string) => {
+    const conf = getType(typeKey);
+    return conf ? typeLabel(conf, i18n.language) : typeKey;
+  };
+
   return (
     <Stack direction="row" spacing={0.5} alignItems="center" sx={{ overflow: "hidden" }}>
-      {visible.map((c) => (
-        <Tooltip key={c.card_id} title={`${c.card_name} · ${c.card_type}`}>
-          <Chip
-            size="small"
-            variant="outlined"
-            label={c.card_name}
-            sx={{
-              maxWidth: 110,
-              "& .MuiChip-label": {
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              },
-            }}
-          />
-        </Tooltip>
-      ))}
+      {visible.map((c) => {
+        // Guard + readability-adjust before painting an admin-editable colour.
+        const raw = getType(c.card_type)?.color;
+        const color = isHexColor(raw) ? readableTypeColor(raw, isDark) : undefined;
+        return (
+          <Tooltip key={c.card_id} title={`${c.card_name} · ${label(c.card_type)}`}>
+            <Chip
+              size="small"
+              variant="outlined"
+              label={c.card_name}
+              sx={{
+                maxWidth: 110,
+                ...(color ? { borderColor: color, bgcolor: alpha(color, 0.08) } : {}),
+                "& .MuiChip-label": {
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                },
+              }}
+            />
+          </Tooltip>
+        );
+      })}
       {overflow.length > 0 && (
         <Tooltip
           title={
-            <Box component="ul" sx={{ m: 0, pl: 2 }}>
-              {overflow.map((c) => (
-                <li key={c.card_id}>
-                  {c.card_name} · {c.card_type}
-                </li>
+            <Box sx={{ m: 0 }}>
+              {overflowGroups.map((group) => (
+                <Box key={group.typeKey} sx={{ mb: 0.5 }}>
+                  <Typography variant="caption" fontWeight={700} component="div">
+                    {group.label}
+                  </Typography>
+                  <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                    {group.cards.map((c) => (
+                      <li key={c.card_id}>{c.card_name}</li>
+                    ))}
+                  </Box>
+                </Box>
               ))}
             </Box>
           }

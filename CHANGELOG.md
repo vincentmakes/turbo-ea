@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.29.0] - 2026-07-26
+
+### Added
+- **Filter the Risk Register by the cards a risk affects.** A new **Affected cards** section in the filter sidebar answers the questions the Cards column filter could not: pick specific cards to see every risk affecting any of them ("all risks affecting Applications A, B and C"), or tick whole card types to see every risk touching an Application, an IT Component, and so on. Each list matches any of its own selections and the two combine with "and". Like every other filter, it narrows the KPI tiles, the 4×4 matrix, the grid and both sheets of the `.xlsx` export at once.
+- **`GET /risks` and `GET /risks/metrics` accept repeatable `card_id` values and a new `card_type` filter** (also on `GET /risks/mitigation-tasks/export` and the `list_risks` MCP tool). The existing single-value `?card_id=` form is unchanged.
+
+### Changed
+- **A risk's affected cards are now grouped by card type**, sorted alphabetically within each group and colour-coded with the card type's colour, instead of a flat row of identical grey chips. The register grid's Cards column follows the same ordering and colours, and its `+N` tooltip lists the remaining cards under type headings.
+- **The Affected cards picker on a risk browses the inventory instead of demanding a search term.** It opens with a list ready to scroll, pages in more cards as you go, and hides cards that are already linked — matching every other card picker in the app.
+
+### Fixed
+- **Affected-card chips on a risk showed the card type's internal key** (`BusinessCapability`) rather than its display name, and ignored any translation configured for the type.
+
 ## [2.28.1] - 2026-07-26
 
 ### Added

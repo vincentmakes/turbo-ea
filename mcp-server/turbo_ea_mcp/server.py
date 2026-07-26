@@ -281,6 +281,7 @@ async def list_risks(
     level: str = "",
     owner_id: str = "",
     card_id: str = "",
+    card_type: str = "",
     source_type: str = "",
     search: str = "",
     overdue: bool = False,
@@ -298,6 +299,9 @@ async def list_risks(
             'low', 'medium', 'high', 'critical'.
         owner_id: Filter to risks owned by a specific user UUID.
         card_id: Filter to risks linked to a specific card UUID.
+        card_type: Filter to risks linked to at least one card of this type
+            (e.g. 'Application', 'ITComponent'). Combines with card_id via
+            AND — use it to answer "which risks affect any Application?".
         source_type: How the risk was raised — 'manual',
             'compliance'.
         search: Free-text search across title, description and reference.
@@ -319,6 +323,7 @@ async def list_risks(
                 "level": level,
                 "owner_id": owner_id,
                 "card_id": card_id,
+                "card_type": card_type,
                 "source_type": source_type,
                 "search": search,
                 "overdue": "true" if overdue else None,

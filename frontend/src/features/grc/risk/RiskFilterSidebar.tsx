@@ -29,8 +29,14 @@ import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import CardMultiSelect from "@/components/CardMultiSelect";
+import type { CardOption } from "@/components/CardPicker";
 import { DateField } from "@/components/DateField";
+import { useMetamodel } from "@/hooks/useMetamodel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
+import { isHexColor, readableTypeColor } from "@/lib/color";
 import type {
   RiskCategory,
   RiskLevel,
@@ -52,6 +58,11 @@ export interface RiskFilters {
   categories: RiskCategory[];
   levels: RiskLevel[];
   owners: string[]; // user ids
+  /** Affected cards. Full options (not just ids) so the chips render
+   *  their names without a second round-trip. Any-of semantics. */
+  cards: CardOption[];
+  /** Affected card types — "risks touching any Application". Any-of. */
+  cardTypes: string[];
   sources: RiskSourceType[];
   dateTargetFrom: string;
   dateTargetTo: string;
@@ -64,6 +75,8 @@ export const EMPTY_RISK_FILTERS: RiskFilters = {
   categories: [],
   levels: [],
   owners: [],
+  cards: [],
+  cardTypes: [],
   sources: [],
   dateTargetFrom: "",
   dateTargetTo: "",
@@ -168,6 +181,9 @@ export default function RiskFilterSidebar({
   onResetColumns,
 }: Props) {
   const { t } = useTranslation(["grc", "common"]);
+  const { types } = useMetamodel();
+  const typeLabelOf = useTypeLabel();
+  const isDark = useTheme().palette.mode === "dark";
 
   const [tab, setTab] = useState<0 | 1>(0);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -176,6 +192,7 @@ export default function RiskFilterSidebar({
     category: true,
     level: true,
     owner: false,
+    cards: false,
     source: false,
     target: false,
   });
@@ -222,6 +239,8 @@ export default function RiskFilterSidebar({
       filters.categories.length +
       filters.levels.length +
       filters.owners.length +
+      filters.cards.length +
+      filters.cardTypes.length +
       filters.sources.length +
       (filters.dateTargetFrom ? 1 : 0) +
       (filters.dateTargetTo ? 1 : 0) +
@@ -260,6 +279,17 @@ export default function RiskFilterSidebar({
         || o.email.toLowerCase().includes(q),
     );
   }, [availableOwners, ownerSearch]);
+
+  // ── Card types for the "affected card type" filter. Hidden types are
+  //    excluded; ordering follows the metamodel's own sort_order. ────
+  const cardTypeOptions = useMemo(
+    () =>
+      types
+        .filter((ct) => !ct.is_hidden)
+        .slice()
+        .sort((a, b) => a.sort_order - b.sort_order),
+    [types],
+  );
 
   // ── Collapsed rail ──────────────────────────────────────────────
   if (collapsed) {
@@ -562,6 +592,81 @@ export default function RiskFilterSidebar({
                       secondary={o.email}
                       primaryTypographyProps={{ fontSize: 12 }}
                       secondaryTypographyProps={{ fontSize: 10 }}
+                    />
+                  </ListItemButton>
+                ))}
+              </List>
+            )}
+          </Collapse>
+
+          <Divider sx={{ my: 1 }} />
+
+          {/* Affected cards — pick individual cards and/or whole card types.
+              Both are any-of; the two combine with AND server-side. */}
+          <SectionHeader
+            label={t("risks.filter.cards")}
+            expanded={expandedSections.cards}
+            onToggle={() => toggleSection("cards")}
+          />
+          <Collapse in={expandedSections.cards}>
+            <Box sx={{ my: 0.5 }}>
+              <CardMultiSelect
+                value={filters.cards}
+                onChange={(next) => setField("cards", next)}
+                enabled={expandedSections.cards}
+                placeholder={t("risks.filter.cardsPlaceholder")}
+              />
+            </Box>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: "block", px: 0.5, pt: 0.5 }}
+            >
+              {t("risks.filter.cardType")}
+            </Typography>
+            {cardTypeOptions.length === 0 ? (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: "block", px: 0.5, py: 1 }}
+              >
+                {t("risks.filter.noCardTypes")}
+              </Typography>
+            ) : (
+              <List dense disablePadding sx={{ maxHeight: 240, overflowY: "auto" }}>
+                {cardTypeOptions.map((ct) => (
+                  <ListItemButton
+                    key={ct.key}
+                    dense
+                    onClick={() => toggleInList("cardTypes", ct.key)}
+                    sx={{ py: 0, px: 0.5 }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 28 }}>
+                      <Checkbox
+                        edge="start"
+                        size="small"
+                        checked={filters.cardTypes.includes(ct.key)}
+                        tabIndex={-1}
+                        disableRipple
+                      />
+                    </ListItemIcon>
+                    <Box
+                      sx={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: "50%",
+                        // Admin-editable colour: validate, then adjust for the
+                        // active theme instead of painting the raw hex.
+                        bgcolor: isHexColor(ct.color)
+                          ? readableTypeColor(ct.color, isDark)
+                          : "text.disabled",
+                        flexShrink: 0,
+                        mr: 0.75,
+                      }}
+                    />
+                    <ListItemText
+                      primary={typeLabelOf(ct)}
+                      primaryTypographyProps={{ fontSize: 12 }}
                     />
                   </ListItemButton>
                 ))}

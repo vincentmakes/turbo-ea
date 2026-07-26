@@ -38,8 +38,10 @@ La misma mecánica se activa de forma independiente para **cada tarea de mitigac
 
 Los riesgos son **muchos-a-muchos** con las fichas. Un riesgo puede afectar a varias Aplicaciones o Componentes de TI, y una ficha puede tener varios riesgos vinculados:
 
-- Desde la página de detalle del riesgo: panel **Fichas afectadas** → busque y añada. Haga clic en `×` para desvincular.
+- Desde la página de detalle del riesgo: panel **Fichas afectadas** → elija una ficha y añádala. Haga clic en `×` para desvincular. El selector muestra de inmediato una lista navegable (no hace falta escribir), carga más fichas al desplazarse y oculta las que ya están vinculadas.
 - Desde cualquier página de detalle de ficha: la nueva pestaña **Riesgos** lista cada riesgo vinculado a esa ficha, con un camino de un clic de vuelta al registro.
+
+Las fichas vinculadas se **agrupan por tipo de ficha**, se ordenan alfabéticamente dentro de cada grupo y se colorean con el color propio del tipo, de modo que un riesgo que toca una docena de fichas de varios tipos sigue leyéndose de un vistazo. El mismo orden y los mismos colores se aplican a la columna **Fichas** de la cuadrícula del registro — la información emergente del chip `+N` lista las fichas restantes bajo sus encabezados de tipo.
 
 ## Tareas de mitigación {: #mitigation-tasks }
 
@@ -105,6 +107,17 @@ Tanto el Resumen de Seguridad de TurboLens como la página del Registro de Riesg
 ## Cuadrícula del registro
 
 El registro es una cuadrícula AG Grid que sigue los estándares de la página [Inventario](inventory.md): columnas ordenables, filtrables y redimensionables con preferencias por usuario persistidas (columnas visibles, orden, estado de la barra lateral). Un botón **+ Nuevo riesgo** en la barra de herramientas abre el diálogo de creación manual. El botón **Exportar** de la barra de herramientas escribe un `.xlsx` de dos hojas con la cuadrícula de riesgos filtrada en la hoja 1 y una fila por ciclo de tarea de mitigación en la hoja 2 — véase [Tareas de mitigación → Exportación](#export) para el formato de columnas.
+
+### Filtrar por fichas afectadas
+
+La barra lateral de filtros de la izquierda tiene una sección **Fichas afectadas** que responde a las preguntas de paisaje que el filtro de columna no cubre:
+
+- **Fichas** — elija una o varias fichas concretas para ver todos los riesgos que afectan a *cualquiera* de ellas («mostrar todos los riesgos que afectan a las aplicaciones A, B y C»). El selector recorre todo el inventario, así que no tiene que adivinar ningún nombre.
+- **Tipo de ficha** — marque uno o varios tipos para ver todos los riesgos que tocan *cualquier* ficha de esos tipos («mostrar todos los riesgos que afectan a una aplicación»), sin nombrar fichas individuales.
+
+Cada lista coincide con **cualquiera** de sus propias selecciones; las dos listas se combinan con **y**. Marcar `Application` y elegir la ficha *Payments Gateway* devuelve por tanto los riesgos que afectan a Payments Gateway **y** tocan al menos una aplicación.
+
+Como cualquier otro filtro de la barra lateral, estos acotan la página entera: los indicadores, la matriz 4×4, la cuadrícula y ambas hojas de la exportación `.xlsx` siguen la selección activa.
 
 ## Propagación Riesgo ↔ Hallazgo
 

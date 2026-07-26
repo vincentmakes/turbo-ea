@@ -38,8 +38,10 @@ La même mécanique se déclenche indépendamment pour **chaque tâche de mitiga
 
 Les risques sont **plusieurs-à-plusieurs** avec les fiches. Un risque peut affecter plusieurs Applications ou Composants informatiques, et une fiche peut avoir plusieurs risques associés :
 
-- Depuis la page de détail du risque : panneau **Fiches affectées** → rechercher et ajouter. Cliquez sur un `×` pour délier.
+- Depuis la page de détail du risque : panneau **Fiches concernées** → choisissez une fiche et ajoutez-la. Cliquez sur un `×` pour délier. Le sélecteur affiche d'emblée une liste parcourable (inutile de taper), charge d'autres fiches au défilement et masque celles qui sont déjà liées.
 - Depuis n'importe quelle page de détail de fiche : un nouvel onglet **Risques** liste chaque risque associé à cette fiche, avec un retour en un clic vers le registre.
+
+Les fiches liées sont **regroupées par type de fiche**, triées alphabétiquement dans chaque groupe et colorées avec la couleur propre au type. Un risque touchant une douzaine de fiches de plusieurs types reste ainsi lisible d'un coup d'œil. Le même ordre et les mêmes couleurs s'appliquent à la colonne **Fiches** de la grille du registre — l'infobulle de la puce `+N` liste les fiches restantes sous leurs en-têtes de type.
 
 ## Tâches de mitigation {: #mitigation-tasks }
 
@@ -105,6 +107,17 @@ La Vue d'ensemble Sécurité de TurboLens comme la page du Registre des risques 
 ## Grille du registre
 
 Le registre est une grille AG Grid qui reprend les standards de la page [Inventaire](inventory.md) : colonnes triables, filtrables et redimensionnables avec préférences utilisateur persistées (colonnes visibles, ordre de tri, état de la barre latérale). Un bouton **+ Nouveau risque** dans la barre d'outils ouvre le dialogue de création manuelle. Le bouton **Exporter** de la barre d'outils écrit un `.xlsx` à deux feuilles avec la grille de risques filtrée sur la feuille 1 et une ligne par cycle de tâche de mitigation sur la feuille 2 — voir [Tâches de mitigation → Export](#export) pour le format des colonnes.
+
+### Filtrer par fiches concernées
+
+La barre latérale de filtres à gauche comporte une section **Fiches concernées** qui répond aux questions de paysage que le filtre de colonne ne peut pas traiter :
+
+- **Fiches** — choisissez une ou plusieurs fiches précises pour voir tous les risques affectant *l'une quelconque* d'entre elles («afficher tous les risques affectant les applications A, B et C»). Le sélecteur parcourt tout l'inventaire, vous n'avez donc aucun nom à deviner.
+- **Type de fiche** — cochez un ou plusieurs types pour voir tous les risques touchant *une quelconque* fiche de ces types («afficher tous les risques affectant une application»), sans nommer de fiche individuelle.
+
+Chaque liste retient **l'une quelconque** de ses propres sélections ; les deux listes se combinent avec **et**. Cocher `Application` et choisir la fiche *Payments Gateway* renvoie donc les risques qui affectent Payments Gateway **et** touchent au moins une application.
+
+Comme tous les autres filtres de la barre latérale, ils restreignent la page entière — les tuiles d'indicateurs, la matrice 4×4, la grille et les deux feuilles de l'export `.xlsx` suivent la sélection active.
 
 ## Propagation Risque ↔ Constat
 

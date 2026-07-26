@@ -41,8 +41,10 @@ Det samme system affyres uafhængigt for **hver afhjælpningsopgave** på risiko
 
 Risici er **mange-til-mange** med kort. En risiko kan påvirke flere applikationer eller IT-komponenter, og et kort kan have flere risici linket til sig:
 
-- Fra risikodetaljesiden: **Affected cards**-panelet → søg og tilføj. Klik på et `×` for at afkoble.
+- Fra risikodetaljesiden: **Affected cards**-panelet → vælg et kort og tilføj det. Klik på et `×` for at afkoble. Vælgeren viser straks en liste, du kan gennemse (du behøver ikke skrive først), henter flere kort, når du ruller, og skjuler kort, der allerede er tilknyttet.
 - Fra enhver Kortdetaljeside: en ny **Risks**-fane viser hver risiko linket til det kort med en ét-klik-vej tilbage til registret.
+
+Tilknyttede kort **grupperes efter korttype**, sorteres alfabetisk inden for hver gruppe og farvelægges med korttypens egen farve, så en risiko med et dusin kort på tværs af flere typer stadig kan læses på et øjeblik. Samme rækkefølge og farver gælder for kolonnen **Cards** i registergitteret — værktøjstippet på `+N`-chippen viser de resterende kort under deres typeoverskrifter.
 
 ## Afhjælpningsopgaver
 
@@ -108,6 +110,17 @@ Både TurboLens Security Overview og Risikoregister-siden gengiver et 4×4 sands
 ## Register-gitter
 
 Registret er et AG Grid, der spejler [Inventar](inventory.md)-standarderne: sorterbare, filterbare, størrelses-justerbare kolonner med vedvarende pr.-bruger-præferencer (synlige kolonner, sorteringsrækkefølge, sidepanel-tilstand). En værktøjslinje **+ New risk** åbner dialogen til manuel oprettelse. Værktøjslinjens **Export**-knap skriver et to-arks `.xlsx` med det filtrerede risikogitter på ark 1 og én række pr. afhjælpningsopgave-cyklus på ark 2 — se [Afhjælpningsopgaver → Eksport](#export) for kolonneformen.
+
+### Filtrering efter berørte kort
+
+Filterpanelet til venstre har en **Affected cards**-sektion, der besvarer de landskabsspørgsmål, kolonnefilteret ikke kan:
+
+- **Cards** — vælg et eller flere konkrete kort for at se alle risici, der berører *et hvilket som helst* af dem («vis alle risici, der berører applikation A, B og C»). Vælgeren gennemser hele inventaret, så du skal ikke gætte et navn.
+- **Card type** — sæt flueben ved en eller flere korttyper for at se alle risici, der berører *et hvilket som helst* kort af de typer («vis alle risici, der berører en applikation»), uden at navngive enkelte kort.
+
+Hver liste matcher **et hvilket som helst** af sine egne valg; de to lister kombineres med **og**. At sætte flueben ved `Application` og vælge kortet *Payments Gateway* giver derfor risici, der berører Payments Gateway **og** rører mindst én applikation.
+
+Som alle andre filtre i panelet indsnævrer de hele siden — KPI-felterne, 4×4-matricen, gitteret og begge ark i `.xlsx`-eksporten følger det aktive valg.
 
 ## Risiko ↔ Fund-propagering
 
