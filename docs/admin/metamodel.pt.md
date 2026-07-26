@@ -239,7 +239,7 @@ O scanner de conformidade e o fluxo de promoção para Risco funcionam **mesmo s
 
 Para cada tipo de card, a seção **Layout** no painel do tipo controla como a página de detalhe do card é estruturada:
 
-- **Ordem das seções** — Arraste seções (Descrição, EOL, Ciclo de Vida, Hierarquia, Relacionamentos e seções personalizadas) para reordená-las
+- **Ordem das seções** — Arraste seções (Descrição, EOL, Ciclo de Vida, Hierarquia, Etiquetas, Relacionamentos e seções personalizadas) para reordená-las
 - **Visibilidade** — Oculte seções que não são relevantes para um tipo
 - **Expansão padrão** — Escolha se cada seção começa expandida ou recolhida
 - **Layout de colunas** — Defina 1 ou 2 colunas por seção personalizada

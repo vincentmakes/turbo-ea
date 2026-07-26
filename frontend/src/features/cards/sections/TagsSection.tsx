@@ -15,6 +15,7 @@ import DialogActions from "@mui/material/DialogActions";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import TagPicker from "@/components/TagPicker";
+import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import { api } from "@/api/client";
 import type { Card, TagGroup, TagRef } from "@/types";
 import { readableTextColor } from "@/lib/color";
@@ -33,6 +34,7 @@ export default function TagsSection({
   initialExpanded = true,
 }: Props) {
   const { t } = useTranslation(["cards", "common"]);
+  const [expanded, setExpanded] = useSyncedExpanded(initialExpanded);
   const [groups, setGroups] = useState<TagGroup[]>([]);
   const [editOpen, setEditOpen] = useState(false);
   const [draftIds, setDraftIds] = useState<string[]>([]);
@@ -88,7 +90,7 @@ export default function TagsSection({
   };
 
   return (
-    <Accordion defaultExpanded={initialExpanded} sx={{ mb: 2 }}>
+    <Accordion expanded={expanded} onChange={(_, v) => setExpanded(v)} sx={{ mb: 2 }}>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <Typography variant="subtitle1" fontWeight={600}>

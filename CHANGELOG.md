@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.28.1] - 2026-07-26
+
+### Added
+- **The Tags section can now be configured in the Card Layout editor**, like every other built-in section — reorder it, collapse it by default, or hide it from card detail.
+
+### Fixed
+- **A card section's "collapsed by default" setting is now respected.** The Relations section stayed collapsed no matter what the metamodel said, and on a freshly loaded page every other section ignored the setting in the opposite direction — opening expanded even when configured to start collapsed. Description, Lifecycle, End of Life, Hierarchy, Lineage, Tags, Relations and custom sections all now open in the state the Card Layout editor specifies, on first paint and after a refresh.
+- **Card sections in the inventory side panel and the PPM initiative Details tab now reset when you switch cards**, instead of carrying the previously viewed card's expanded/collapsed sections over.
+- **Custom sections configured before the current layout format are readable again** — a collapse or hide setting saved against the section's name (rather than its position) was shown in the Card Layout editor but ignored on the card itself.
+
 ## [2.28.0] - 2026-07-25
 
 ### Added

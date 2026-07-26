@@ -915,6 +915,7 @@
   "cardLayout.builtinSections.lifecycle": "Livscyklus",
   "cardLayout.builtinSections.hierarchy": "Hierarki",
   "cardLayout.builtinSections.successors": "Slægtskab",
+  "cardLayout.builtinSections.tags": "Tags",
   "cardLayout.builtinSections.relations": "Relationer",
   "webPortals.description": "Web-portaler er offentligt vendte sider, der viser kort til slutbrugere uden at kræve autentificering. Konfigurér, hvilken korttype der skal vises, anvend filtre og tilpas kortlayoutet.",
   "webPortals.createPortal": "Opret portal",

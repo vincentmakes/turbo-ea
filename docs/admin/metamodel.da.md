@@ -239,7 +239,7 @@ Compliance-scanneren og risiko-forfremmelsesflowet fungerer, **selv når ingen A
 
 For hver korttype styrer afsnittet **Layout** i typepanelet, hvordan kortdetaljesiden er struktureret:
 
-- **Sektionsrækkefølge** — Træk sektioner (Beskrivelse, EOL, Livscyklus, Hierarki, Relationer og brugerdefinerede sektioner) for at omarrangere dem
+- **Sektionsrækkefølge** — Træk sektioner (Beskrivelse, EOL, Livscyklus, Hierarki, Tags, Relationer og brugerdefinerede sektioner) for at omarrangere dem
 - **Synlighed** — Skjul sektioner, der ikke er relevante for en type
 - **Standardudvidelse** — Vælg, om hver sektion starter udvidet eller sammenklappet
 - **Kolonnelayout** — Indstil 1 eller 2 kolonner pr. brugerdefineret sektion

@@ -23,6 +23,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
+import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import { api } from "@/api/client";
 import type { Card, Relation, RelationType } from "@/types";
 
@@ -60,6 +61,7 @@ function SuccessorsSection({
 
   const successorRT = findSuccessorRelationType(relationTypes, card.type);
 
+  const [expanded, setExpanded] = useSyncedExpanded(initialExpanded);
   const [relations, setRelations] = useState<Relation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -180,7 +182,7 @@ function SuccessorsSection({
   const totalCount = successors.length + predecessors.length;
 
   return (
-    <Accordion defaultExpanded={initialExpanded} disableGutters>
+    <Accordion expanded={expanded} onChange={(_, v) => setExpanded(v)} disableGutters>
       <AccordionSummary
         expandIcon={<MaterialSymbol icon="expand_more" size={20} />}
       >

@@ -13,6 +13,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { PHASE_ICONS } from "@/components/LifecycleBadge";
 import { PHASES, getPhaseLabels } from "@/features/cards/sections/cardDetailUtils";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import type { Card } from "@/types";
 
 const PHASE_PALETTE: Record<string, string> = {
@@ -41,6 +42,7 @@ function LifecycleSection({
   const theme = useTheme();
   const { formatDate } = useDateFormat();
   const phaseLabels = getPhaseLabels(t);
+  const [expanded, setExpanded] = useSyncedExpanded(initialExpanded);
   const [editing, setEditing] = useState(false);
   const [lifecycle, setLifecycle] = useState<Record<string, string>>(
     card.lifecycle || {}
@@ -68,7 +70,7 @@ function LifecycleSection({
   };
 
   return (
-    <Accordion defaultExpanded={initialExpanded} disableGutters>
+    <Accordion expanded={expanded} onChange={(_, v) => setExpanded(v)} disableGutters>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="timeline" size={20} />

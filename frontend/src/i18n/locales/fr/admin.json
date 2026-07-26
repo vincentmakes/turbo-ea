@@ -915,6 +915,7 @@
   "cardLayout.builtinSections.lifecycle": "Cycle de vie",
   "cardLayout.builtinSections.hierarchy": "Hiérarchie",
   "cardLayout.builtinSections.successors": "Lignée",
+  "cardLayout.builtinSections.tags": "Étiquettes",
   "cardLayout.builtinSections.relations": "Relations",
   "webPortals.description": "Les portails web sont des pages publiques qui affichent des fiches aux utilisateurs finaux sans nécessiter d’authentification. Configurez le type de fiche à afficher, appliquez des filtres et personnalisez la mise en page.",
   "webPortals.createPortal": "Créer un portail",

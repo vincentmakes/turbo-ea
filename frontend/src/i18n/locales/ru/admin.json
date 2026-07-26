@@ -915,6 +915,7 @@
   "cardLayout.builtinSections.lifecycle": "Жизненный цикл",
   "cardLayout.builtinSections.hierarchy": "Иерархия",
   "cardLayout.builtinSections.successors": "Преемственность",
+  "cardLayout.builtinSections.tags": "Теги",
   "cardLayout.builtinSections.relations": "Связи",
   "webPortals.description": "Веб-порталы — это общедоступные страницы, отображающие карточки для конечных пользователей без аутентификации. Настройте тип отображаемых карточек, примените фильтры и настройте макет карточки.",
   "webPortals.createPortal": "Создать портал",

@@ -915,6 +915,7 @@
   "cardLayout.builtinSections.lifecycle": "生命周期",
   "cardLayout.builtinSections.hierarchy": "层级",
   "cardLayout.builtinSections.successors": "谱系",
+  "cardLayout.builtinSections.tags": "标签",
   "cardLayout.builtinSections.relations": "关系",
   "webPortals.description": "Web 门户是面向公众的页面，无需认证即可向终端用户展示卡片。配置要显示的卡片类型、应用筛选条件并自定义卡片布局。",
   "webPortals.createPortal": "创建门户",

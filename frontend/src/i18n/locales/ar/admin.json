@@ -915,6 +915,7 @@
   "cardLayout.builtinSections.lifecycle": "دورة الحياة",
   "cardLayout.builtinSections.hierarchy": "التسلسل الهرمي",
   "cardLayout.builtinSections.successors": "النسب",
+  "cardLayout.builtinSections.tags": "الوسوم",
   "cardLayout.builtinSections.relations": "العلاقات",
   "webPortals.description": "البوابات الإلكترونية هي صفحات عامة تعرض البطاقات للمستخدمين النهائيين دون الحاجة إلى مصادقة. هيّئ نوع البطاقة المراد عرضه، وطبّق المرشّحات، وخصّص تخطيط البطاقة.",
   "webPortals.createPortal": "إنشاء بوابة",

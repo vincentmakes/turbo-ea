@@ -241,7 +241,7 @@ The **Layered Dependency View (LDV)** is Turbo EA's house notation for showing d
 - The **Card Detail** dependency section (the immediate neighbourhood of one card)
 - The **TurboLens Architect** target architecture (existing + proposed cards)
 
-It is implemented by `C4DiagramView` and `c4Layout` (file names retained for backwards compatibility — the public name of the view is **Layered Dependency View**).
+It is implemented by `LayeredDependencyView` and `layeredDependencyLayout` (card-detail wrapper: `LayeredDependencySection`). The one remaining `c4` identifier is the toggle-button / saved-report `chartMode` value `"c4"`, kept so existing saved reports keep resolving — leave it alone, and don't reintroduce `C4*` names elsewhere.
 
 **Grouping — the four EA layers, fixed order**
 
@@ -258,7 +258,7 @@ Layer order is invariant. Layer color = `LAYER_COLORS[layer]` from `theme/tokens
 
 | Property | Convention |
 | --- | --- |
-| Shape | Rounded rectangle, 200 × 72 px (`C4_NODE_W`, `C4_NODE_H` in `c4Layout.ts`) |
+| Shape | Rounded rectangle, 200 × 72 px (`LDV_NODE_W`, `LDV_NODE_H` in `layeredDependencyLayout.ts`) |
 | Color | Card type color from the metamodel (`CARD_TYPE_COLORS` / type record) |
 | Label | Card name (top, semibold) + card-type label (bottom, italic) |
 | Border — existing | 1.5 px solid, type color |
@@ -324,7 +324,7 @@ These are presentation/interaction concerns layered in the component — they do
 ❌ Don't
 - Don't introduce a fifth layer or reorder the four. Layer identity is part of the standard.
 - Don't reuse this view for runtime / deployment / sequence diagrams — it is a *dependency* view of the EA metamodel, not a behavioural diagram.
-- Don't substitute another graph library (vis.js, Cytoscape, mermaid) for the Layered Dependency View. Mermaid is still fine for one-off illustrative diagrams (e.g. ArchitectureDiagram in TurboLens reports), but the canonical interactive dependency view is React Flow + `c4Layout`.
+- Don't substitute another graph library (vis.js, Cytoscape, mermaid) for the Layered Dependency View. Mermaid is still fine for one-off illustrative diagrams (e.g. ArchitectureDiagram in TurboLens reports), but the canonical interactive dependency view is React Flow + `layeredDependencyLayout`.
 
 ---
 

@@ -61,6 +61,7 @@ const BUILTIN_SECTIONS: { key: string; labelKey: string; icon: string; onlyIf?: 
   { key: "lifecycle", labelKey: "cardLayout.builtinSections.lifecycle", icon: "timeline" },
   { key: "hierarchy", labelKey: "cardLayout.builtinSections.hierarchy", icon: "account_tree", onlyIf: (ct) => ct.has_hierarchy },
   { key: "successors", labelKey: "cardLayout.builtinSections.successors", icon: "arrow_forward", onlyIf: (ct) => ct.has_successors },
+  { key: "tags", labelKey: "cardLayout.builtinSections.tags", icon: "sell" },
   { key: "relations", labelKey: "cardLayout.builtinSections.relations", icon: "hub" },
 ];
 
@@ -68,7 +69,7 @@ const BUILTIN_SECTIONS: { key: string; labelKey: string; icon: string; onlyIf?: 
 // header shows the same weight badge as fields (mirrors __dataQuality buckets).
 const DQ_SECTION_KEYS = new Set(["description", "lifecycle", "relations"]);
 
-const DEFAULT_ORDER = ["description", "eol", "lifecycle", "__custom__", "hierarchy", "successors", "relations"];
+const DEFAULT_ORDER = ["description", "eol", "lifecycle", "__custom__", "hierarchy", "successors", "tags", "relations"];
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -84,6 +85,14 @@ function getSectionOrder(cfg: Record<string, SectionConfig>, customSections: Sec
       const relIdx = result.indexOf("relations");
       if (relIdx >= 0) result.splice(relIdx, 0, "successors");
       else result.push("successors");
+    }
+    // Same for "tags" — it postdates the saved orders of existing installs, and
+    // CardDetailContent injects it the same way, so the editor must list it or
+    // the card would render a section the admin cannot see or configure.
+    if (!existing.has("tags")) {
+      const relIdx = result.indexOf("relations");
+      if (relIdx >= 0) result.splice(relIdx, 0, "tags");
+      else result.push("tags");
     }
     return result.filter((k) => {
       if (k === "hierarchy" && !hasHierarchy) return false;

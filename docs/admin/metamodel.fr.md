@@ -239,7 +239,7 @@ Le scanner de conformité et le flux de promotion en risque fonctionnent **même
 
 Pour chaque type de fiche, la section **Mise en page** dans le tiroir du type contrôle la structure de la page de détail des fiches :
 
-- **Ordre des sections** -- Glissez les sections (Description, EOL, Cycle de vie, Hiérarchie, Relations et sections personnalisées) pour les réorganiser
+- **Ordre des sections** -- Glissez les sections (Description, EOL, Cycle de vie, Hiérarchie, Étiquettes, Relations et sections personnalisées) pour les réorganiser
 - **Visibilité** -- Masquez les sections non pertinentes pour un type
 - **Développement par défaut** -- Choisissez si chaque section commence développée ou repliée
 - **Disposition en colonnes** -- Définissez 1 ou 2 colonnes par section personnalisée

@@ -22,6 +22,7 @@ import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import LinearProgress from "@mui/material/LinearProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import { api } from "@/api/client";
 import { STATUS_COLORS } from "@/theme/tokens";
 import type { Card, EolProduct, EolCycle, EolProductMatch } from "@/types";
@@ -502,6 +503,10 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
   const [error, setError] = useState("");
   const [linking, setLinking] = useState(false);
   const [pickerResetKey, setPickerResetKey] = useState(0);
+  // No explicit setting from the metamodel → expand only when a product is
+  // actually linked. Either way the value can change after mount, so the
+  // accordion is controlled rather than relying on `defaultExpanded`.
+  const [expanded, setExpanded] = useSyncedExpanded(initialExpanded ?? isLinked);
 
   // Fetch cycle data when linked
   const fetchCycleData = useCallback(async () => {
@@ -556,7 +561,7 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
   };
 
   return (
-    <Accordion disableGutters defaultExpanded={initialExpanded ?? isLinked}>
+    <Accordion disableGutters expanded={expanded} onChange={(_, v) => setExpanded(v)}>
       <AccordionSummary
         expandIcon={<MaterialSymbol icon="expand_more" size={20} />}
       >

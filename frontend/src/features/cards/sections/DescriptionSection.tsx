@@ -14,6 +14,7 @@ import type { CurrencyFormatter } from "@/hooks/useCurrency";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { FieldValue, FieldEditor, isValidUrl, getUrlErrorMsg } from "@/features/cards/sections/cardDetailUtils";
 import { useFieldLabel } from "@/hooks/useResolveLabel";
+import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import { ApiError } from "@/api/client";
 import type { Card, FieldDef } from "@/types";
 
@@ -41,6 +42,7 @@ function DescriptionSection({
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const fieldLabel = useFieldLabel();
+  const [expanded, setExpanded] = useSyncedExpanded(initialExpanded);
   const [editing, setEditing] = useState(false);
   const [description, setDescription] = useState(card.description || "");
   const [attrs, setAttrs] = useState<Record<string, unknown>>(card.attributes || {});
@@ -97,7 +99,7 @@ function DescriptionSection({
   };
 
   return (
-    <Accordion defaultExpanded={initialExpanded} disableGutters>
+    <Accordion expanded={expanded} onChange={(_, v) => setExpanded(v)} disableGutters>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="description" size={20} />

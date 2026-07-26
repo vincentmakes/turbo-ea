@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import { FieldValue, FieldEditor, isValidUrl, getUrlErrorMsg } from "@/features/cards/sections/cardDetailUtils";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useResolveLabel, useFieldLabel } from "@/hooks/useResolveLabel";
+import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import { ApiError } from "@/api/client";
 import type { Card, FieldDef, SectionDef } from "@/types";
 
@@ -208,7 +209,9 @@ function AttributeSection({
   const col0Items = buildColumnItems(0);
   const col1Items = is2Col ? buildColumnItems(1) : [];
 
-  const expanded = initialExpanded ?? (section.defaultExpanded !== false);
+  const [expanded, setExpanded] = useSyncedExpanded(
+    initialExpanded ?? section.defaultExpanded !== false,
+  );
 
   // Read-only field grid
   const renderReadGrid = (fields: FieldDef[]) => (
@@ -349,7 +352,8 @@ function AttributeSection({
   return (
     <Accordion
       ref={rootRef}
-      defaultExpanded={expanded}
+      expanded={expanded}
+      onChange={(_, v) => setExpanded(v)}
       disableGutters
       sx={{ scrollMarginTop: `${SCROLL_MARGIN_TOP}px` }}
     >

@@ -28,6 +28,7 @@ import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker from "@/components/CardPicker";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import {
   useResolveLabel,
   useTypeLabel,
@@ -807,17 +808,13 @@ function RelationsSection({
   // descendants at all, and the fetch is deferred until the section is
   // actually expanded — a collapsed Relations section costs nothing, and a
   // leaf card gets one cheap query that returns [].
-  const [expanded, setExpanded] = useState(initialExpanded);
+  // The accordion is controlled (so the roll-up fetch can be deferred until it
+  // opens), and `useSyncedExpanded` re-syncs when `initialExpanded` changes —
+  // the metamodel's section_config arrives asynchronously, so a config that
+  // lands after mount still opens the section.
+  const [expanded, setExpanded] = useSyncedExpanded(initialExpanded);
   const [rollup, setRollup] = useState<Record<string, number>>({});
   const isHierarchical = getType(cardTypeKey)?.has_hierarchy ?? false;
-
-  // The accordion is controlled (so the roll-up fetch can be deferred until it
-  // opens), but `initialExpanded` is derived from the metamodel's
-  // section_config, which arrives asynchronously. Re-sync when it actually
-  // changes so a late-arriving config still opens the section.
-  useEffect(() => {
-    setExpanded(initialExpanded);
-  }, [initialExpanded]);
 
   useEffect(() => {
     if (!expanded || !isHierarchical) return;

@@ -257,7 +257,7 @@ A built-in **Contract** link type ships enabled by default. Both lists are inclu
 
 For each card type, the **Layout** section in the type drawer controls how the card detail page is structured:
 
-- **Section order** — Drag sections (Description, EOL, Lifecycle, Hierarchy, Relations, and custom sections) to reorder them
+- **Section order** — Drag sections (Description, EOL, Lifecycle, Hierarchy, Tags, Relations, and custom sections) to reorder them
 - **Visibility** — Hide sections that are not relevant for a type
 - **Default expansion** — Choose whether each section starts expanded or collapsed
 - **Column layout** — Set 1 or 2 columns per custom section

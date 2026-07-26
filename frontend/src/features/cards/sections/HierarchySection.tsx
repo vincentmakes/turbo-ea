@@ -23,6 +23,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
+import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import { api } from "@/api/client";
 import type { Card, HierarchyData } from "@/types";
 
@@ -45,6 +46,7 @@ function HierarchySection({
   const { getType } = useMetamodel();
   const typeLabel = useTypeLabel();
   const typeConfig = getType(card.type);
+  const [expanded, setExpanded] = useSyncedExpanded(initialExpanded);
   const [hierarchy, setHierarchy] = useState<HierarchyData | null>(null);
 
   // Parent picker state
@@ -150,7 +152,7 @@ function HierarchySection({
   const levelColor = LEVEL_COLORS[Math.min(level - 1, LEVEL_COLORS.length - 1)];
 
   return (
-    <Accordion defaultExpanded={initialExpanded} disableGutters>
+    <Accordion expanded={expanded} onChange={(_, v) => setExpanded(v)} disableGutters>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="account_tree" size={20} />

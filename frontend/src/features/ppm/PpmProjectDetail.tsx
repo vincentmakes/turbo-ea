@@ -198,6 +198,7 @@ export default function PpmProjectDetail() {
       {tab === 5 && <PpmGanttTab initiativeId={id!} card={card ?? undefined} />}
       {tab === 6 && (
         <CardDetailContent
+          key={card.id}
           card={card}
           perms={perms}
           onCardUpdate={(updated) => setCard(updated)}

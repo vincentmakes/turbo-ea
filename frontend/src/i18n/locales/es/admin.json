@@ -915,6 +915,7 @@
   "cardLayout.builtinSections.lifecycle": "Ciclo de vida",
   "cardLayout.builtinSections.hierarchy": "Jerarquía",
   "cardLayout.builtinSections.successors": "Linaje",
+  "cardLayout.builtinSections.tags": "Etiquetas",
   "cardLayout.builtinSections.relations": "Relaciones",
   "webPortals.description": "Los portales web son páginas públicas que muestran fichas a los usuarios finales sin requerir autenticación. Configure qué tipo de ficha mostrar, aplique filtros y personalice el diseño de las fichas.",
   "webPortals.createPortal": "Crear portal",

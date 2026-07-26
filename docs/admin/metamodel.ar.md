@@ -239,7 +239,7 @@
 
 لكل نوع بطاقة، يتحكم قسم **Layout** في لوحة النوع في كيفية بناء صفحة تفاصيل البطاقة:
 
-- **Section order** — اسحب الأقسام (Description، EOL، Lifecycle، Hierarchy، Relations، والأقسام المخصّصة) لإعادة ترتيبها
+- **Section order** — اسحب الأقسام (Description، EOL، Lifecycle، Hierarchy، Tags، Relations، والأقسام المخصّصة) لإعادة ترتيبها
 - **Visibility** — أخفِ الأقسام غير ذات الصلة لنوع معيّن
 - **Default expansion** — اختر ما إذا كان كل قسم يبدأ موسّعًا أو مطويًا
 - **Column layout** — اضبط عمودًا واحدًا أو عمودين لكل قسم مخصّص

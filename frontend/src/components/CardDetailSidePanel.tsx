@@ -257,6 +257,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
         {!card && !error && <LinearProgress />}
         {card && (
           <CardDetailContent
+            key={card.id}
             card={card}
             perms={perms}
             onCardUpdate={setCard}

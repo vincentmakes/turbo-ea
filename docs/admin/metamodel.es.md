@@ -239,7 +239,7 @@ El escáner de cumplimiento y el flujo de promoción a Riesgo funcionan **inclus
 
 Para cada tipo de ficha, la sección **Diseño** en el panel del tipo controla cómo se estructura la página de detalle:
 
-- **Orden de secciones** — Arrastre secciones (Descripción, EOL, Ciclo de Vida, Jerarquía, Relaciones y secciones personalizadas) para reordenarlas
+- **Orden de secciones** — Arrastre secciones (Descripción, EOL, Ciclo de Vida, Jerarquía, Etiquetas, Relaciones y secciones personalizadas) para reordenarlas
 - **Visibilidad** — Oculte secciones que no sean relevantes para un tipo
 - **Expansión predeterminada** — Elija si cada sección comienza expandida o colapsada
 - **Diseño de columnas** — Configure 1 o 2 columnas por sección personalizada

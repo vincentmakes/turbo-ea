@@ -915,6 +915,7 @@
   "cardLayout.builtinSections.lifecycle": "Lebenszyklus",
   "cardLayout.builtinSections.hierarchy": "Hierarchie",
   "cardLayout.builtinSections.successors": "Abstammung",
+  "cardLayout.builtinSections.tags": "Tags",
   "cardLayout.builtinSections.relations": "Beziehungen",
   "webPortals.description": "Web-Portale sind öffentlich zugängliche Seiten, die Karten für Endbenutzer ohne Authentifizierung anzeigen. Konfigurieren Sie, welcher Kartentyp angezeigt wird, wenden Sie Filter an und passen Sie das Kartenlayout an.",
   "webPortals.createPortal": "Portal erstellen",

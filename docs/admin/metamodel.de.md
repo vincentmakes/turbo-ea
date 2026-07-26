@@ -239,7 +239,7 @@ Der Compliance-Scanner und der Risk-Promotion-Flow funktionieren **auch ohne kon
 
 Für jeden Kartentyp steuert der **Layout**-Bereich in der Typ-Schublade, wie die Kartendetailseite aufgebaut ist:
 
-- **Abschnittsreihenfolge** — Abschnitte (Beschreibung, EOL, Lebenszyklus, Hierarchie, Beziehungen und benutzerdefinierte Abschnitte) per Drag & Drop neu anordnen
+- **Abschnittsreihenfolge** — Abschnitte (Beschreibung, EOL, Lebenszyklus, Hierarchie, Tags, Beziehungen und benutzerdefinierte Abschnitte) per Drag & Drop neu anordnen
 - **Sichtbarkeit** — Abschnitte ausblenden, die für einen Typ nicht relevant sind
 - **Standarderweiterung** — Wählen, ob jeder Abschnitt standardmäßig erweitert oder eingeklappt startet
 - **Spaltenlayout** — 1 oder 2 Spalten pro benutzerdefiniertem Abschnitt festlegen

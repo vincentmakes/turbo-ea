@@ -239,7 +239,7 @@ Lo scanner di conformità e il flusso di promozione a Rischio funzionano **anche
 
 Per ogni tipo di card, la sezione **Layout** nel cassetto del tipo controlla come è strutturata la pagina di dettaglio della card:
 
-- **Ordine delle sezioni** — Trascinate le sezioni (Descrizione, EOL, Ciclo di vita, Gerarchia, Relazioni e sezioni personalizzate) per riordinarle
+- **Ordine delle sezioni** — Trascinate le sezioni (Descrizione, EOL, Ciclo di vita, Gerarchia, Tag, Relazioni e sezioni personalizzate) per riordinarle
 - **Visibilità** — Nascondete le sezioni che non sono rilevanti per un tipo
 - **Espansione predefinita** — Scegliete se ogni sezione inizia espansa o compressa
 - **Layout colonne** — Impostate 1 o 2 colonne per sezione personalizzata

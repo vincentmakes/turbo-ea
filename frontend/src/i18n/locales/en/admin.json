@@ -915,6 +915,7 @@
   "cardLayout.builtinSections.lifecycle": "Lifecycle",
   "cardLayout.builtinSections.hierarchy": "Hierarchy",
   "cardLayout.builtinSections.successors": "Lineage",
+  "cardLayout.builtinSections.tags": "Tags",
   "cardLayout.builtinSections.relations": "Relations",
   "webPortals.description": "Web portals are public-facing pages that display cards to end users without requiring authentication. Configure which card type to display, apply filters, and customize the card layout.",
   "webPortals.createPortal": "Create Portal",
