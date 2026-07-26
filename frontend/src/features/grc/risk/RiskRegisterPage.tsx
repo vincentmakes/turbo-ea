@@ -29,7 +29,7 @@ import Stack from "@mui/material/Stack";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
-import { alpha, useTheme } from "@mui/material/styles";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import StakeholderHoverCard from "@/components/StakeholderHoverCard";
 import MetricCard from "@/features/reports/MetricCard";
@@ -48,9 +48,8 @@ import { useThemeMode } from "@/hooks/useThemeMode";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useIsRtl } from "@/hooks/useIsRtl";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { typeLabel } from "@/hooks/useResolveLabel";
-import { isHexColor, readableTypeColor } from "@/lib/color";
-import { compareAffectedCards, groupCardsByType } from "./affectedCards";
+import { readableTypeColor } from "@/lib/color";
+import { groupCardsByType } from "./affectedCards";
 import CreateRiskDialog from "./CreateRiskDialog";
 import RiskImportDialog from "./RiskImportDialog";
 import RiskFilterSidebar, {
@@ -473,8 +472,8 @@ export default function RiskRegisterPage() {
       {
         headerName: t("risks.col.cards"),
         colId: "cards",
-        width: 260,
-        minWidth: 200,
+        width: 320,
+        minWidth: 220,
         filter: "agTextColumnFilter",
         // String value so the built-in text filter matches card names.
         valueGetter: (p) =>
@@ -802,81 +801,74 @@ function topLevel(byLevel: Record<string, number> | undefined): string | null {
   return null;
 }
 
-/** Renders the M:N affected cards as a compact stack of chips —
- *  first 2 names inline, an ``+N`` overflow chip with the rest grouped by
- *  card type in a tooltip. Chips are ordered and colour-coded by card type,
- *  matching the risk detail page (discussion #876).
+/** Renders the M:N affected cards the way the inventory grid renders its
+ *  relation cells (`features/inventory/InventoryPage.tsx`): the card-type
+ *  icons in their type colour, then the card names on one line using the
+ *  full column width and ellipsising only at the cell edge. Names are
+ *  ordered by card type then alphabetically (discussion #876), and the
+ *  tooltip spells the full set out grouped under type headings.
+ *
+ *  Deliberately not chips: every other place the app lists related cards
+ *  uses icon-plus-text, and fixed-width chips truncated names far earlier
+ *  than the column actually required.
  */
 function StackedCards({ cards }: { cards: RiskCardLink[] }) {
-  const VISIBLE = 2;
   const { i18n } = useTranslation("grc");
-  const { types, getType } = useMetamodel();
-  const theme = useTheme();
-  const isDark = theme.palette.mode === "dark";
+  const { types } = useMetamodel();
+  const isDark = useTheme().palette.mode === "dark";
 
-  const ordered = useMemo(
-    () => [...cards].sort(compareAffectedCards(types, i18n.language)),
+  const groups = useMemo(
+    () => groupCardsByType(cards, types, i18n.language),
     [cards, types, i18n.language],
   );
-  const visible = ordered.slice(0, VISIBLE);
-  const overflow = ordered.slice(VISIBLE);
-  const overflowGroups = useMemo(
-    () => groupCardsByType(overflow, types, i18n.language),
-    [overflow, types, i18n.language],
+  const names = useMemo(
+    () => groups.flatMap((g) => g.cards.map((c) => c.card_name)).join("; "),
+    [groups],
   );
 
-  const label = (typeKey: string) => {
-    const conf = getType(typeKey);
-    return conf ? typeLabel(conf, i18n.language) : typeKey;
-  };
-
   return (
-    <Stack direction="row" spacing={0.5} alignItems="center" sx={{ overflow: "hidden" }}>
-      {visible.map((c) => {
-        // Guard + readability-adjust before painting an admin-editable colour.
-        const raw = getType(c.card_type)?.color;
-        const color = isHexColor(raw) ? readableTypeColor(raw, isDark) : undefined;
-        return (
-          <Tooltip key={c.card_id} title={`${c.card_name} · ${label(c.card_type)}`}>
-            <Chip
-              size="small"
-              variant="outlined"
-              label={c.card_name}
-              sx={{
-                maxWidth: 110,
-                ...(color ? { borderColor: color, bgcolor: alpha(color, 0.08) } : {}),
-                "& .MuiChip-label": {
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                },
-              }}
-            />
-          </Tooltip>
-        );
-      })}
-      {overflow.length > 0 && (
-        <Tooltip
-          title={
-            <Box sx={{ m: 0 }}>
-              {overflowGroups.map((group) => (
-                <Box key={group.typeKey} sx={{ mb: 0.5 }}>
-                  <Typography variant="caption" fontWeight={700} component="div">
-                    {group.label}
-                  </Typography>
-                  <Box component="ul" sx={{ m: 0, pl: 2 }}>
-                    {group.cards.map((c) => (
-                      <li key={c.card_id}>{c.card_name}</li>
-                    ))}
-                  </Box>
-                </Box>
-              ))}
+    <Tooltip
+      title={
+        <Box sx={{ m: 0 }}>
+          {groups.map((group) => (
+            <Box key={group.typeKey} sx={{ mb: 0.5 }}>
+              <Typography variant="caption" fontWeight={700} component="div">
+                {group.label}
+              </Typography>
+              <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                {group.cards.map((c) => (
+                  <li key={c.card_id}>{c.card_name}</li>
+                ))}
+              </Box>
             </Box>
-          }
+          ))}
+        </Box>
+      }
+    >
+      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, overflow: "hidden" }}>
+        {groups.map((group) =>
+          group.icon ? (
+            <MaterialSymbol
+              key={group.typeKey}
+              icon={group.icon}
+              size={14}
+              // Admin-editable colour, already hex-guarded by groupCardsByType.
+              color={group.color ? readableTypeColor(group.color, isDark) : undefined}
+            />
+          ) : null,
+        )}
+        <Typography
+          variant="body2"
+          sx={{
+            fontSize: 13,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
         >
-          <Chip size="small" color="primary" label={`+${overflow.length}`} />
-        </Tooltip>
-      )}
-    </Stack>
+          {names}
+        </Typography>
+      </Box>
+    </Tooltip>
   );
 }

@@ -23,6 +23,8 @@ export interface AffectedCardGroup {
    *  is not a valid hex — callers must still run it through
    *  `readableTypeColor` before painting it against the theme paper. */
   color?: string;
+  /** Metamodel icon name, or undefined for a type that no longer exists. */
+  icon?: string;
   cards: RiskCardLink[];
 }
 
@@ -32,23 +34,6 @@ const UNKNOWN_TYPE_ORDER = Number.MAX_SAFE_INTEGER;
 function typeOrder(types: CardType[], key: string): number {
   const t = types.find((x) => x.key === key);
   return t ? t.sort_order : UNKNOWN_TYPE_ORDER;
-}
-
-/**
- * Comparator for a flat list of affected cards: metamodel type order first,
- * then card name alphabetically. Used by the register grid, where the chips
- * stay flat but should still order consistently with the detail page.
- */
-export function compareAffectedCards(
-  types: CardType[],
-  locale?: string,
-): (a: RiskCardLink, b: RiskCardLink) => number {
-  return (a, b) => {
-    const byType = typeOrder(types, a.card_type) - typeOrder(types, b.card_type);
-    if (byType !== 0) return byType;
-    if (a.card_type !== b.card_type) return a.card_type.localeCompare(b.card_type);
-    return (a.card_name || "").localeCompare(b.card_name || "", locale);
-  };
 }
 
 /**
@@ -80,6 +65,7 @@ export function groupCardsByType(
       // empty translations map) from leaking their slug into the UI.
       label: conf ? typeLabel(conf, locale) : typeKey,
       color: isHexColor(conf?.color) ? conf.color : undefined,
+      icon: conf?.icon,
       cards: [...groupCards].sort((a, b) =>
         (a.card_name || "").localeCompare(b.card_name || "", locale),
       ),

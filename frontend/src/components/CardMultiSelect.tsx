@@ -19,6 +19,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
+import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useCardSearch } from "@/hooks/useCardSearch";
 import { isHexColor, readableTypeColor } from "@/lib/color";
@@ -149,19 +150,26 @@ export default function CardMultiSelect({
       }}
       renderTags={(selected, getTagProps) =>
         selected.map((opt, index) => {
-          // Card-type colours are admin-editable, so validate before painting
-          // and adjust for the active theme rather than using the raw hex.
-          const raw = getType(opt.type)?.color;
-          const accent = isHexColor(raw) ? readableTypeColor(raw, isDark) : undefined;
+          // Card chips carry the card-type icon in the type colour — the same
+          // treatment RelationCellPopover uses. Colours are admin-editable, so
+          // validate and theme-adjust rather than painting the raw hex.
+          const tConf = getType(opt.type);
+          const accent = isHexColor(tConf?.color)
+            ? readableTypeColor(tConf.color, isDark)
+            : undefined;
           const { key, ...tagProps } = getTagProps({ index });
           return (
             <Chip
               {...tagProps}
               key={key}
               size="small"
-              variant="outlined"
               label={opt.name}
-              sx={accent ? { borderColor: accent } : undefined}
+              icon={
+                tConf ? (
+                  <MaterialSymbol icon={tConf.icon} size={14} color={accent} />
+                ) : undefined
+              }
+              sx={{ maxWidth: "100%" }}
             />
           );
         })

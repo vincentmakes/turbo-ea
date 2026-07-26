@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { compareAffectedCards, groupCardsByType } from "./affectedCards";
+import { groupCardsByType } from "./affectedCards";
 import type { CardType, RiskCardLink } from "@/types";
 
 function cardType(key: string, sort_order: number, extra: Partial<CardType> = {}): CardType {
@@ -54,15 +54,23 @@ describe("groupCardsByType", () => {
     expect(groups[0].cards.map((c) => c.card_name)).toEqual(["alpha", "Mike", "Zulu"]);
   });
 
-  it("carries the type colour and translated label", () => {
+  it("carries the type colour, icon and translated label", () => {
     const localized = [
       cardType("Application", 1, {
+        icon: "apps",
         translations: { label: { de: "Anwendung" } },
       }),
     ];
     const [group] = groupCardsByType([link("Alpha", "Application")], localized, "de");
     expect(group.label).toBe("Anwendung");
     expect(group.color).toBe("#000001");
+    expect(group.icon).toBe("apps");
+  });
+
+  it("drops a colour that is not a valid hex rather than painting it", () => {
+    const broken = [cardType("Application", 1, { color: "not-a-colour" })];
+    const [group] = groupCardsByType([link("Alpha", "Application")], broken);
+    expect(group.color).toBeUndefined();
   });
 
   it("falls back to the raw key and sorts last for an unknown type", () => {
@@ -85,30 +93,30 @@ describe("groupCardsByType", () => {
   });
 });
 
-describe("compareAffectedCards", () => {
-  it("orders by type first, then name", () => {
-    const sorted = [
-      link("Zebra", "Objective"),
-      link("Apple", "ITComponent"),
-      link("Mango", "Application"),
-      link("Apricot", "Objective"),
-    ].sort(compareAffectedCards(TYPES));
+describe("flattened order", () => {
+  // The register grid renders one line of names built by flattening the
+  // groups, so the flat reading order must be type-then-name.
+  const flatten = (cards: RiskCardLink[]) =>
+    groupCardsByType(cards, TYPES).flatMap((g) => g.cards.map((c) => c.card_name));
 
-    expect(sorted.map((c) => `${c.card_type}/${c.card_name}`)).toEqual([
-      "Objective/Apricot",
-      "Objective/Zebra",
-      "Application/Mango",
-      "ITComponent/Apple",
-    ]);
+  it("reads type first, then name", () => {
+    expect(
+      flatten([
+        link("Zebra", "Objective"),
+        link("Apple", "ITComponent"),
+        link("Mango", "Application"),
+        link("Apricot", "Objective"),
+      ]),
+    ).toEqual(["Apricot", "Zebra", "Mango", "Apple"]);
   });
 
   it("keeps unknown types together at the end", () => {
-    const sorted = [
-      link("Ghost", "Unknown"),
-      link("Mango", "Application"),
-      link("Aardvark", "Unknown"),
-    ].sort(compareAffectedCards(TYPES));
-
-    expect(sorted.map((c) => c.card_name)).toEqual(["Mango", "Aardvark", "Ghost"]);
+    expect(
+      flatten([
+        link("Ghost", "Unknown"),
+        link("Mango", "Application"),
+        link("Aardvark", "Unknown"),
+      ]),
+    ).toEqual(["Mango", "Aardvark", "Ghost"]);
   });
 });
