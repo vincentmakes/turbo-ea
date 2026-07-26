@@ -43,7 +43,7 @@ I rischi sono **molti-a-molti** con le card. Un rischio può interessare più Ap
 - Dalla pagina di dettaglio del rischio: pannello **Schede interessate** → scegliete una scheda e aggiungetela. Cliccate una `×` per scollegare. Il selettore mostra subito un elenco navigabile (senza dover digitare), carica altre schede scorrendo e nasconde quelle già collegate.
 - Da qualsiasi pagina di dettaglio card: la nuova scheda **Rischi** elenca ogni rischio collegato a quella card, con un ritorno in un clic al registro.
 
-Le schede collegate sono **raggruppate per tipo di scheda**, ordinate alfabeticamente all'interno di ogni gruppo e colorate con il colore proprio del tipo, così un rischio che tocca una dozzina di schede di più tipi resta leggibile a colpo d'occhio. Lo stesso ordinamento e gli stessi colori valgono per la colonna **Schede** della griglia del registro — il tooltip del chip `+N` elenca le schede rimanenti sotto le rispettive intestazioni di tipo.
+Le schede collegate sono **raggruppate per tipo di scheda**, ordinate alfabeticamente all'interno di ogni gruppo e colorate con il colore proprio del tipo, così un rischio che tocca una dozzina di schede di più tipi resta leggibile a colpo d'occhio. Lo stesso ordinamento e gli stessi colori valgono per la colonna **Schede** della griglia del registro, dove ogni scheda appare come chip nel colore del suo tipo — il tooltip della cella elenca l'insieme completo sotto le intestazioni di tipo.
 
 ## Attività di mitigazione {: #mitigation-tasks }
 
@@ -114,7 +114,7 @@ Il registro è un AG Grid che segue gli standard della pagina [Inventario](inven
 
 La barra laterale dei filtri a sinistra ha una sezione **Schede interessate** che risponde alle domande di paesaggio che il filtro di colonna non copre:
 
-- **Schede** — scegliete una o più schede specifiche per vedere ogni rischio che interessa *una qualsiasi* di esse («mostra tutti i rischi che interessano le applicazioni A, B e C»). Il selettore sfoglia l'intero inventario, quindi non dovete indovinare alcun nome.
+- **Schede** — scegliete una o più schede specifiche per vedere ogni rischio che interessa *una qualsiasi* di esse («mostra tutti i rischi che interessano le applicazioni A, B e C»). L'elenco offre ogni scheda collegata ad almeno un rischio, ricercabile per nome.
 - **Tipo di scheda** — spuntate uno o più tipi per vedere ogni rischio che tocca *una qualsiasi* scheda di quei tipi («mostra tutti i rischi che interessano un'applicazione»), senza nominare singole schede.
 
 Ogni elenco soddisfa **una qualsiasi** delle proprie selezioni; i due elenchi si combinano con **e**. Spuntare `Application` e scegliere la scheda *Payments Gateway* restituisce quindi i rischi che interessano Payments Gateway **e** toccano almeno un'applicazione.

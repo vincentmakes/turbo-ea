@@ -10,8 +10,9 @@
  * register grid's Cards column share one ordering and it can be unit-tested
  * without a DOM.
  */
+import type { SxProps } from "@mui/material/styles";
 import { typeLabel } from "@/hooks/useResolveLabel";
-import { isHexColor } from "@/lib/color";
+import { isHexColor, readableTextColor } from "@/lib/color";
 import type { CardType, RiskCardLink } from "@/types";
 
 export interface AffectedCardGroup {
@@ -26,6 +27,26 @@ export interface AffectedCardGroup {
   /** Metamodel icon name, or undefined for a type that no longer exists. */
   icon?: string;
   cards: RiskCardLink[];
+}
+
+/**
+ * Solid card-chip styling — the app's card chip is a `Chip` filled with the
+ * card type's colour and readable text on top, exactly as the Decisions
+ * grid's Cards column renders `linked_cards` (`AdrGrid.tsx`) and the
+ * inventory renders its Type chip. Unknown/invalid colours fall back to the
+ * same neutral grey AdrGrid uses.
+ */
+export function cardChipSx(color?: string): SxProps {
+  const bg = isHexColor(color) ? color : "#9e9e9e";
+  const fg = readableTextColor(bg);
+  return {
+    bgcolor: bg,
+    color: fg,
+    fontWeight: 500,
+    // The default delete-icon grey is invisible on dark fills.
+    "& .MuiChip-deleteIcon": { color: fg, opacity: 0.7, "&:hover": { color: fg, opacity: 1 } },
+    "&:hover": { bgcolor: bg },
+  };
 }
 
 /** Types the caller hasn't loaded yet (or that were deleted) sort last. */

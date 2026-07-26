@@ -192,6 +192,7 @@
   "risks.filter.cardsPlaceholder": "搜索卡片…",
   "risks.filter.cardType": "卡片类型",
   "risks.filter.noCardTypes": "没有可用的卡片类型。",
+  "risks.filter.noCards": "没有已关联的卡片。",
   "risks.filter.source": "来源",
   "risks.filter.target": "目标日期",
   "risks.filter.from": "从",

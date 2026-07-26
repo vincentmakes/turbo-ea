@@ -29,7 +29,6 @@ import Stack from "@mui/material/Stack";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
-import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import StakeholderHoverCard from "@/components/StakeholderHoverCard";
 import MetricCard from "@/features/reports/MetricCard";
@@ -48,11 +47,12 @@ import { useThemeMode } from "@/hooks/useThemeMode";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useIsRtl } from "@/hooks/useIsRtl";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { readableTypeColor } from "@/lib/color";
-import { groupCardsByType } from "./affectedCards";
+import { typeLabel } from "@/hooks/useResolveLabel";
+import { cardChipSx, groupCardsByType } from "./affectedCards";
 import CreateRiskDialog from "./CreateRiskDialog";
 import RiskImportDialog from "./RiskImportDialog";
 import RiskFilterSidebar, {
+  CardFilterOption,
   EMPTY_RISK_FILTERS,
   OwnerOption,
   RiskFilters,
@@ -164,7 +164,8 @@ function saveRiskPrefs(p: RiskPrefs) {
 // ---------------------------------------------------------------------------
 
 export default function RiskRegisterPage() {
-  const { t } = useTranslation("grc");
+  const { t, i18n } = useTranslation("grc");
+  const { types: metamodelTypes } = useMetamodel();
   const navigate = useNavigate();
   const { mode } = useThemeMode();
   const isRtl = useIsRtl();
@@ -242,6 +243,47 @@ export default function RiskRegisterPage() {
       .then(setAvailableOwners)
       .catch(() => setAvailableOwners([]));
   }, []);
+
+  // ── Filter options for the sidebar's Card type / Affected cards
+  //    sections, derived from the loaded rows exactly the way the
+  //    Decisions panel derives its lists (DecisionsPanel.tsx). Rows are
+  //    fetched with the active filters applied, so current selections are
+  //    unioned in — an active filter must never hide its own checkbox. ──
+  const availableCardTypes = useMemo(() => {
+    const keys = new Set<string>();
+    for (const r of rows) for (const c of r.cards ?? []) keys.add(c.card_type);
+    for (const k of filters.cardTypes) keys.add(k);
+    return [...keys]
+      .map((key) => {
+        const mt = metamodelTypes.find((x) => x.key === key);
+        return {
+          key,
+          label: mt ? typeLabel(mt, i18n.language) : key,
+          color: mt?.color ?? "#666",
+        };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label, i18n.language));
+  }, [rows, filters.cardTypes, metamodelTypes, i18n.language]);
+
+  const availableCards = useMemo(() => {
+    const seen = new Map<string, CardFilterOption>();
+    const add = (id: string, name: string, type: string) => {
+      if (seen.has(id)) return;
+      const mt = metamodelTypes.find((x) => x.key === type);
+      seen.set(id, { id, name, type, color: mt?.color ?? "#666" });
+    };
+    for (const r of rows) {
+      for (const c of r.cards ?? []) {
+        // Selected card types narrow the card list, per the ADR sidebar.
+        if (filters.cardTypes.length > 0 && !filters.cardTypes.includes(c.card_type)) {
+          continue;
+        }
+        add(c.card_id, c.card_name, c.card_type);
+      }
+    }
+    for (const sel of filters.cards) add(sel.id, sel.name, sel.type);
+    return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name, i18n.language));
+  }, [rows, filters.cards, filters.cardTypes, metamodelTypes, i18n.language]);
 
   // ── Shared URLSearchParams builder. Multi-valued filters ride as
   //    repeat keys (``?status=identified&status=analysed``) — both the
@@ -474,6 +516,7 @@ export default function RiskRegisterPage() {
         colId: "cards",
         width: 320,
         minWidth: 220,
+        autoHeight: true,
         filter: "agTextColumnFilter",
         // String value so the built-in text filter matches card names.
         valueGetter: (p) =>
@@ -676,6 +719,8 @@ export default function RiskRegisterPage() {
           width={sidebarWidth}
           onWidthChange={setSidebarWidth}
           availableOwners={availableOwners}
+          availableCardTypes={availableCardTypes}
+          availableCards={availableCards}
           visibleColumns={visibleColumns}
           onVisibleColumnsChange={setVisibleColumns}
           onResetColumns={resetVisibleColumns}
@@ -801,33 +846,26 @@ function topLevel(byLevel: Record<string, number> | undefined): string | null {
   return null;
 }
 
-/** Renders the M:N affected cards the way the inventory grid renders its
- *  relation cells (`features/inventory/InventoryPage.tsx`): the card-type
- *  icons in their type colour, then the card names on one line using the
- *  full column width and ellipsising only at the cell edge. Names are
- *  ordered by card type then alphabetically (discussion #876), and the
- *  tooltip spells the full set out grouped under type headings.
- *
- *  Deliberately not chips: every other place the app lists related cards
- *  uses icon-plus-text, and fixed-width chips truncated names far earlier
- *  than the column actually required.
+/** Renders the M:N affected cards exactly like the Decisions grid's Cards
+ *  column (`AdrGrid.tsx`): solid chips filled with each card type's colour,
+ *  the card name as label, wrapping inside an auto-height cell. Cards are
+ *  ordered by card type then alphabetically (discussion #876); the tooltip
+ *  spells the full set out grouped under type headings and only appears
+ *  when there are more than two cards, matching AdrGrid's threshold.
  */
 function StackedCards({ cards }: { cards: RiskCardLink[] }) {
   const { i18n } = useTranslation("grc");
   const { types } = useMetamodel();
-  const isDark = useTheme().palette.mode === "dark";
 
   const groups = useMemo(
     () => groupCardsByType(cards, types, i18n.language),
     [cards, types, i18n.language],
   );
-  const names = useMemo(
-    () => groups.flatMap((g) => g.cards.map((c) => c.card_name)).join("; "),
-    [groups],
-  );
 
   return (
     <Tooltip
+      enterDelay={400}
+      disableHoverListener={cards.length <= 2}
       title={
         <Box sx={{ m: 0 }}>
           {groups.map((group) => (
@@ -845,29 +883,36 @@ function StackedCards({ cards }: { cards: RiskCardLink[] }) {
         </Box>
       }
     >
-      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, overflow: "hidden" }}>
-        {groups.map((group) =>
-          group.icon ? (
-            <MaterialSymbol
-              key={group.typeKey}
-              icon={group.icon}
-              size={14}
-              // Admin-editable colour, already hex-guarded by groupCardsByType.
-              color={group.color ? readableTypeColor(group.color, isDark) : undefined}
+      <Box
+        sx={{
+          display: "flex",
+          gap: 0.5,
+          alignItems: "center",
+          flexWrap: "wrap",
+          overflow: "hidden",
+          py: 0.5,
+        }}
+      >
+        {groups.flatMap((group) =>
+          group.cards.map((c) => (
+            <Chip
+              key={c.card_id}
+              label={c.card_name}
+              size="small"
+              sx={{
+                ...cardChipSx(group.color),
+                fontSize: 11,
+                height: 20,
+                maxWidth: 120,
+                "& .MuiChip-label": {
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  px: 0.75,
+                },
+              }}
             />
-          ) : null,
+          )),
         )}
-        <Typography
-          variant="body2"
-          sx={{
-            fontSize: 13,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {names}
-        </Typography>
       </Box>
     </Tooltip>
   );

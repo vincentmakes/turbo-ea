@@ -193,6 +193,7 @@
   "risks.filter.cardsPlaceholder": "Søg kort…",
   "risks.filter.cardType": "Korttype",
   "risks.filter.noCardTypes": "Ingen korttyper tilgængelige.",
+  "risks.filter.noCards": "Ingen tilknyttede kort.",
   "risks.filter.source": "Kilde",
   "risks.filter.target": "Måldato",
   "risks.filter.from": "Fra",

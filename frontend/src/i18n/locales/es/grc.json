@@ -192,6 +192,7 @@
   "risks.filter.cardsPlaceholder": "Buscar fichas…",
   "risks.filter.cardType": "Tipo de ficha",
   "risks.filter.noCardTypes": "No hay tipos de ficha disponibles.",
+  "risks.filter.noCards": "No hay fichas vinculadas.",
   "risks.filter.source": "Origen",
   "risks.filter.target": "Fecha objetivo",
   "risks.filter.from": "Desde",

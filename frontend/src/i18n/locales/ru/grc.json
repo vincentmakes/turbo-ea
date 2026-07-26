@@ -192,6 +192,7 @@
   "risks.filter.cardsPlaceholder": "Поиск карточек…",
   "risks.filter.cardType": "Тип карточки",
   "risks.filter.noCardTypes": "Нет доступных типов карточек.",
+  "risks.filter.noCards": "Нет связанных карточек.",
   "risks.filter.source": "Источник",
   "risks.filter.target": "Целевая дата",
   "risks.filter.from": "С",

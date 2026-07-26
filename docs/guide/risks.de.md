@@ -43,7 +43,7 @@ Risiken stehen in einer **M:N-Beziehung** mit Karten. Ein Risiko kann mehrere An
 - Von der Risikodetailseite aus: Panel **Betroffene Karten** → Karte auswählen und hinzufügen. Klicken Sie auf ein `×`, um die Verknüpfung zu lösen. Die Auswahl zeigt sofort eine durchsuchbare Liste (kein Tippen nötig), lädt beim Scrollen weitere Karten nach und blendet bereits verknüpfte Karten aus.
 - Von jeder Kartendetailseite aus: ein neuer **Risiken**-Tab listet jedes mit dieser Karte verknüpfte Risiko, mit einem Ein-Klick-Weg zurück ins Register.
 
-Verknüpfte Karten werden **nach Kartentyp gruppiert**, innerhalb jeder Gruppe alphabetisch sortiert und mit der Farbe des jeweiligen Kartentyps eingefärbt. So bleibt auch ein Risiko mit einem Dutzend Karten über mehrere Typen hinweg auf einen Blick lesbar. Dieselbe Sortierung und Farbgebung gilt für die Spalte **Karten** im Register-Grid — der Tooltip des `+N`-Chips listet die übrigen Karten unter ihren Typüberschriften auf.
+Verknüpfte Karten werden **nach Kartentyp gruppiert**, innerhalb jeder Gruppe alphabetisch sortiert und mit der Farbe des jeweiligen Kartentyps eingefärbt. So bleibt auch ein Risiko mit einem Dutzend Karten über mehrere Typen hinweg auf einen Blick lesbar. Dieselbe Sortierung und Farbgebung gilt für die Spalte **Karten** im Register-Grid, wo jede Karte als Chip in ihrer Typfarbe erscheint — der Tooltip der Zelle listet die vollständige Liste unter Typüberschriften auf.
 
 ## Minderungsmaßnahmen {: #mitigation-tasks }
 
@@ -114,7 +114,7 @@ Das Register ist ein AG-Grid, das den Standards der [Inventar](inventory.md)-Sei
 
 Die linke Filterleiste enthält einen Abschnitt **Betroffene Karten**, der die Landschaftsfragen beantwortet, die der Spaltenfilter nicht abdeckt:
 
-- **Karten** — wählen Sie eine oder mehrere konkrete Karten, um jedes Risiko zu sehen, das *irgendeine* davon betrifft («alle Risiken zu den Anwendungen A, B und C anzeigen»). Die Auswahl durchsucht das gesamte Inventar, Sie müssen also keinen Namen erraten.
+- **Karten** — wählen Sie eine oder mehrere konkrete Karten, um jedes Risiko zu sehen, das *irgendeine* davon betrifft («alle Risiken zu den Anwendungen A, B und C anzeigen»). Die Liste bietet jede Karte an, die mit mindestens einem Risiko verknüpft ist, durchsuchbar nach Name.
 - **Kartentyp** — kreuzen Sie einen oder mehrere Kartentypen an, um jedes Risiko zu sehen, das *irgendeine* Karte dieser Typen berührt («alle Risiken anzeigen, die eine Anwendung betreffen»), ohne einzelne Karten zu benennen.
 
 Jede Liste erfüllt **eine beliebige** ihrer eigenen Auswahlen; beide Listen werden mit **und** kombiniert. `Application` anzukreuzen und die Karte *Payments Gateway* auszuwählen liefert daher Risiken, die Payments Gateway betreffen **und** mindestens eine Anwendung berühren.

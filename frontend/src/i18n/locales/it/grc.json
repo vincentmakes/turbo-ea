@@ -192,6 +192,7 @@
   "risks.filter.cardsPlaceholder": "Cerca schede…",
   "risks.filter.cardType": "Tipo di scheda",
   "risks.filter.noCardTypes": "Nessun tipo di scheda disponibile.",
+  "risks.filter.noCards": "Nessuna scheda collegata.",
   "risks.filter.source": "Origine",
   "risks.filter.target": "Data prevista",
   "risks.filter.from": "Da",

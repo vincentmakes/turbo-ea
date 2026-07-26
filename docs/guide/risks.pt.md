@@ -43,7 +43,7 @@ Os riscos são **muitos-para-muitos** com os cards. Um risco pode afetar várias
 - A partir da página de detalhe do risco: painel **Fichas afetadas** → escolha uma ficha e adicione-a. Clique num `×` para desligar. O seletor mostra logo uma lista navegável (não é preciso escrever), carrega mais fichas ao percorrer e esconde as que já estão associadas.
 - A partir de qualquer página de detalhe de card: o novo separador **Riscos** lista cada risco ligado a esse card, com um regresso em um clique ao registo.
 
-As fichas associadas são **agrupadas por tipo de ficha**, ordenadas alfabeticamente dentro de cada grupo e coloridas com a cor do próprio tipo, pelo que um risco que toca uma dúzia de fichas de vários tipos continua legível num relance. A mesma ordenação e as mesmas cores aplicam-se à coluna **Fichas** da grelha do registo — a dica do chip `+N` lista as fichas restantes sob os respetivos cabeçalhos de tipo.
+As fichas associadas são **agrupadas por tipo de ficha**, ordenadas alfabeticamente dentro de cada grupo e coloridas com a cor do próprio tipo, pelo que um risco que toca uma dúzia de fichas de vários tipos continua legível num relance. A mesma ordenação e as mesmas cores aplicam-se à coluna **Fichas** da grelha do registo, onde cada ficha surge como um chip na cor do seu tipo — a dica da célula lista o conjunto completo sob cabeçalhos de tipo.
 
 ## Tarefas de mitigação {: #mitigation-tasks }
 
@@ -114,7 +114,7 @@ O registo é um AG Grid que segue os padrões da página [Inventário](inventory
 
 A barra lateral de filtros à esquerda tem uma secção **Fichas afetadas** que responde às perguntas de paisagem que o filtro de coluna não cobre:
 
-- **Fichas** — escolha uma ou mais fichas concretas para ver todos os riscos que afetam *qualquer uma* delas («mostrar todos os riscos que afetam as aplicações A, B e C»). O seletor percorre todo o inventário, pelo que não tem de adivinhar nenhum nome.
+- **Fichas** — escolha uma ou mais fichas concretas para ver todos os riscos que afetam *qualquer uma* delas («mostrar todos os riscos que afetam as aplicações A, B e C»). A lista oferece cada ficha associada a pelo menos um risco, pesquisável por nome.
 - **Tipo de ficha** — marque um ou mais tipos para ver todos os riscos que tocam *qualquer* ficha desses tipos («mostrar todos os riscos que afetam uma aplicação»), sem nomear fichas individuais.
 
 Cada lista corresponde a **qualquer uma** das suas próprias seleções; as duas listas combinam-se com **e**. Marcar `Application` e escolher a ficha *Payments Gateway* devolve portanto os riscos que afetam Payments Gateway **e** tocam pelo menos uma aplicação.

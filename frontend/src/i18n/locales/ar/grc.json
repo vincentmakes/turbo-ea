@@ -193,6 +193,7 @@
   "risks.filter.cardsPlaceholder": "ابحث عن بطاقات…",
   "risks.filter.cardType": "نوع البطاقة",
   "risks.filter.noCardTypes": "لا توجد أنواع بطاقات متاحة.",
+  "risks.filter.noCards": "لا توجد بطاقات مرتبطة.",
   "risks.filter.source": "المصدر",
   "risks.filter.target": "التاريخ المستهدف",
   "risks.filter.from": "من",

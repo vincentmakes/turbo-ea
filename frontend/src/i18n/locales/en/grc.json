@@ -193,6 +193,7 @@
   "risks.filter.cardsPlaceholder": "Search cards…",
   "risks.filter.cardType": "Card type",
   "risks.filter.noCardTypes": "No card types available.",
+  "risks.filter.noCards": "No linked cards.",
   "risks.filter.source": "Source",
   "risks.filter.target": "Target date",
   "risks.filter.from": "From",

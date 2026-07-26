@@ -16,9 +16,9 @@ import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import Collapse from "@mui/material/Collapse";
+import Divider from "@mui/material/Divider";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import IconButton from "@mui/material/IconButton";
-import InputAdornment from "@mui/material/InputAdornment";
 import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
@@ -29,15 +29,9 @@ import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import CardMultiSelect from "@/components/CardMultiSelect";
 import type { CardOption } from "@/components/CardPicker";
 import { DateField } from "@/components/DateField";
-import { useMetamodel } from "@/hooks/useMetamodel";
-import { useTypeLabel } from "@/hooks/useResolveLabel";
-import { isHexColor, readableTypeColor } from "@/lib/color";
-import { SEVERITY_COLORS } from "@/theme/tokens";
 import type {
   RiskCategory,
   RiskLevel,
@@ -90,6 +84,16 @@ export interface OwnerOption {
   email: string;
 }
 
+/** A card offered by the Affected cards filter — pre-resolved by the parent
+ *  from the loaded rows (name + type colour), like the ADR sidebar's
+ *  `availableLinkedCards`. */
+export interface CardFilterOption {
+  id: string;
+  name: string;
+  type: string;
+  color: string;
+}
+
 interface Props {
   filters: RiskFilters;
   onFiltersChange: (f: RiskFilters) => void;
@@ -98,6 +102,10 @@ interface Props {
   width: number;
   onWidthChange: (w: number) => void;
   availableOwners: OwnerOption[];
+  /** Card types occurring on the loaded risks' linked cards. */
+  availableCardTypes: { key: string; label: string; color: string }[];
+  /** Cards linked to at least one loaded risk (narrowed by cardTypes). */
+  availableCards: CardFilterOption[];
   visibleColumns: Set<string>;
   onVisibleColumnsChange: (next: Set<string>) => void;
   onResetColumns?: () => void;
@@ -123,7 +131,7 @@ const CATEGORIES: RiskCategory[] = [
   "strategic",
 ];
 const LEVELS: RiskLevel[] = ["critical", "high", "medium", "low"];
-const SOURCES: RiskSourceType[] = ["manual", "compliance", "ppm"];
+const SOURCES: RiskSourceType[] = ["manual", "compliance"];
 
 const MIN_WIDTH = 220;
 const MAX_WIDTH = 500;
@@ -132,20 +140,14 @@ const MAX_WIDTH = 500;
 // Section header
 // ---------------------------------------------------------------------------
 
-/** Mirrors the Inventory sidebar's SectionHeader exactly — chevron, section
- *  icon, label, and a primary count chip when the section has active values. */
 function SectionHeader({
   label,
-  icon,
   expanded,
   onToggle,
-  count,
 }: {
   label: string;
-  icon: string;
   expanded: boolean;
   onToggle: () => void;
-  count?: number;
 }) {
   return (
     <Box
@@ -153,26 +155,20 @@ function SectionHeader({
       sx={{
         display: "flex",
         alignItems: "center",
-        gap: 0.75,
-        py: 0.5,
-        px: 0.5,
         cursor: "pointer",
-        borderRadius: 1,
+        py: 0.5,
         userSelect: "none",
-        "&:hover": { bgcolor: "action.hover" },
+        "&:hover": { bgcolor: "action.hover", borderRadius: 1 },
       }}
     >
       <MaterialSymbol
         icon={expanded ? "expand_more" : "chevron_right"}
-        size={16}
+        size={18}
+        style={{ marginRight: 4 }}
       />
-      <MaterialSymbol icon={icon} size={16} />
-      <Typography variant="body2" fontWeight={600} fontSize={13} sx={{ flex: 1 }}>
+      <Typography variant="subtitle2" sx={{ fontSize: 13, fontWeight: 600 }}>
         {label}
       </Typography>
-      {count != null && count > 0 && (
-        <Chip label={count} size="small" color="primary" sx={{ height: 18, fontSize: 11 }} />
-      )}
     </Box>
   );
 }
@@ -189,14 +185,13 @@ export default function RiskFilterSidebar({
   width,
   onWidthChange,
   availableOwners,
+  availableCardTypes,
+  availableCards,
   visibleColumns,
   onVisibleColumnsChange,
   onResetColumns,
 }: Props) {
   const { t } = useTranslation(["grc", "common"]);
-  const { types } = useMetamodel();
-  const typeLabelOf = useTypeLabel();
-  const isDark = useTheme().palette.mode === "dark";
 
   const [tab, setTab] = useState<0 | 1>(0);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -205,11 +200,13 @@ export default function RiskFilterSidebar({
     category: true,
     level: true,
     owner: false,
+    cardTypes: false,
     cards: false,
     source: false,
     target: false,
   });
   const [ownerSearch, setOwnerSearch] = useState("");
+  const [cardSearch, setCardSearch] = useState("");
 
   const hiddenColumnCount = RISK_GRID_COLUMNS.length - visibleColumns.size;
   const columnsChanged = hiddenColumnCount > 0;
@@ -293,15 +290,16 @@ export default function RiskFilterSidebar({
     );
   }, [availableOwners, ownerSearch]);
 
-  // ── Card types for the "affected card type" filter. Hidden types are
-  //    excluded; ordering follows the metamodel's own sort_order. ────
-  const cardTypeOptions = useMemo(
-    () =>
-      types
-        .filter((ct) => !ct.is_hidden)
-        .slice()
-        .sort((a, b) => a.sort_order - b.sort_order),
-    [types],
+  // ── Affected-cards toggle — stores the full option (id + name + type)
+  //    so the active filter chips/labels never need a refetch. ──────
+  const toggleCard = useCallback(
+    (card: CardFilterOption) => {
+      const next = filters.cards.some((c) => c.id === card.id)
+        ? filters.cards.filter((c) => c.id !== card.id)
+        : [...filters.cards, { id: card.id, name: card.name, type: card.type }];
+      onFiltersChange({ ...filters, cards: next });
+    },
+    [filters, onFiltersChange],
   );
 
   // ── Collapsed rail ──────────────────────────────────────────────
@@ -435,13 +433,11 @@ export default function RiskFilterSidebar({
             </Button>
           )}
 
-          {/* Search — start adornment + clear button, per Inventory. */}
+          {/* Search */}
           <SectionHeader
             label={t("risks.filter.search")}
-            icon="search"
             expanded={expandedSections.search}
             onToggle={() => toggleSection("search")}
-            count={filters.search.trim() ? 1 : 0}
           />
           <Collapse in={expandedSections.search}>
             <TextField
@@ -450,112 +446,122 @@ export default function RiskFilterSidebar({
               placeholder={t("risks.filter.searchPlaceholder")}
               value={filters.search}
               onChange={(e) => setField("search", e.target.value)}
-              sx={{ mb: 2 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <MaterialSymbol icon="search" size={16} />
-                  </InputAdornment>
-                ),
-                ...(filters.search
-                  ? {
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton size="small" onClick={() => setField("search", "")}>
-                            <MaterialSymbol icon="close" size={14} />
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }
-                  : {}),
-              }}
+              sx={{ my: 0.5, "& input": { fontSize: 12, height: 16 } }}
             />
           </Collapse>
 
-          {/* Status — toggle-chip cloud, per Inventory's enum sections. */}
+          <Divider sx={{ my: 1 }} />
+
+          {/* Status */}
           <SectionHeader
             label={t("risks.filter.status")}
-            icon="flag"
             expanded={expandedSections.status}
             onToggle={() => toggleSection("status")}
-            count={filters.statuses.length}
           />
           <Collapse in={expandedSections.status}>
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
+            <List dense disablePadding>
               {STATUSES.map((s) => (
-                <Chip
+                <ListItemButton
                   key={s}
-                  label={t(`risks.status.${s}`)}
-                  size="small"
+                  dense
                   onClick={() => toggleInList("statuses", s)}
-                  variant={filters.statuses.includes(s) ? "filled" : "outlined"}
-                  color={filters.statuses.includes(s) ? "primary" : "default"}
-                />
+                  sx={{ py: 0, px: 0.5 }}
+                >
+                  <ListItemIcon sx={{ minWidth: 28 }}>
+                    <Checkbox
+                      edge="start"
+                      size="small"
+                      checked={filters.statuses.includes(s)}
+                      tabIndex={-1}
+                      disableRipple
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={t(`risks.status.${s}`)}
+                    primaryTypographyProps={{ fontSize: 12 }}
+                  />
+                </ListItemButton>
               ))}
-            </Box>
+            </List>
           </Collapse>
+
+          <Divider sx={{ my: 1 }} />
 
           {/* Category */}
           <SectionHeader
             label={t("risks.filter.category")}
-            icon="category"
             expanded={expandedSections.category}
             onToggle={() => toggleSection("category")}
-            count={filters.categories.length}
           />
           <Collapse in={expandedSections.category}>
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
+            <List dense disablePadding>
               {CATEGORIES.map((c) => (
-                <Chip
+                <ListItemButton
                   key={c}
-                  label={t(`risks.category.${c}`)}
-                  size="small"
+                  dense
                   onClick={() => toggleInList("categories", c)}
-                  variant={filters.categories.includes(c) ? "filled" : "outlined"}
-                  color={filters.categories.includes(c) ? "primary" : "default"}
-                />
+                  sx={{ py: 0, px: 0.5 }}
+                >
+                  <ListItemIcon sx={{ minWidth: 28 }}>
+                    <Checkbox
+                      edge="start"
+                      size="small"
+                      checked={filters.categories.includes(c)}
+                      tabIndex={-1}
+                      disableRipple
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={t(`risks.category.${c}`)}
+                    primaryTypographyProps={{ fontSize: 12 }}
+                  />
+                </ListItemButton>
               ))}
-            </Box>
+            </List>
           </Collapse>
 
-          {/* Level — severity-coloured chips, like Inventory's lifecycle. */}
+          <Divider sx={{ my: 1 }} />
+
+          {/* Level */}
           <SectionHeader
             label={t("risks.filter.level")}
-            icon="warning"
             expanded={expandedSections.level}
             onToggle={() => toggleSection("level")}
-            count={filters.levels.length}
           />
           <Collapse in={expandedSections.level}>
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
-              {LEVELS.map((l) => {
-                const color = SEVERITY_COLORS[l];
-                const selected = filters.levels.includes(l);
-                return (
-                  <Chip
-                    key={l}
-                    label={t(`risks.level.${l}`)}
-                    size="small"
-                    onClick={() => toggleInList("levels", l)}
-                    variant={selected ? "filled" : "outlined"}
-                    sx={
-                      selected
-                        ? { bgcolor: color, color: "#fff", borderColor: color }
-                        : { borderColor: color, color }
-                    }
+            <List dense disablePadding>
+              {LEVELS.map((l) => (
+                <ListItemButton
+                  key={l}
+                  dense
+                  onClick={() => toggleInList("levels", l)}
+                  sx={{ py: 0, px: 0.5 }}
+                >
+                  <ListItemIcon sx={{ minWidth: 28 }}>
+                    <Checkbox
+                      edge="start"
+                      size="small"
+                      checked={filters.levels.includes(l)}
+                      tabIndex={-1}
+                      disableRipple
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={t(`risks.level.${l}`)}
+                    primaryTypographyProps={{ fontSize: 12 }}
                   />
-                );
-              })}
-            </Box>
+                </ListItemButton>
+              ))}
+            </List>
           </Collapse>
+
+          <Divider sx={{ my: 1 }} />
 
           {/* Owner */}
           <SectionHeader
             label={t("risks.filter.owner")}
-            icon="person"
             expanded={expandedSections.owner}
             onToggle={() => toggleSection("owner")}
-            count={filters.owners.length}
           />
           <Collapse in={expandedSections.owner}>
             <TextField
@@ -564,14 +570,7 @@ export default function RiskFilterSidebar({
               placeholder={t("risks.filter.ownerSearchPlaceholder")}
               value={ownerSearch}
               onChange={(e) => setOwnerSearch(e.target.value)}
-              sx={{ mb: 1 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <MaterialSymbol icon="search" size={16} />
-                  </InputAdornment>
-                ),
-              }}
+              sx={{ my: 0.5, "& input": { fontSize: 12, height: 16 } }}
             />
             {filteredOwners.length === 0 ? (
               <Typography
@@ -582,27 +581,28 @@ export default function RiskFilterSidebar({
                 {t("risks.filter.noOwners")}
               </Typography>
             ) : (
-              <List dense disablePadding sx={{ mb: 1, maxHeight: 240, overflowY: "auto" }}>
+              <List dense disablePadding sx={{ maxHeight: 240, overflowY: "auto" }}>
                 {filteredOwners.map((o) => (
                   <ListItemButton
                     key={o.id}
                     dense
                     onClick={() => toggleInList("owners", o.id)}
-                    sx={{ py: 0.25, px: 1, borderRadius: 1 }}
+                    sx={{ py: 0, px: 0.5 }}
                   >
-                    <ListItemIcon sx={{ minWidth: 32 }}>
+                    <ListItemIcon sx={{ minWidth: 28 }}>
                       <Checkbox
+                        edge="start"
                         size="small"
                         checked={filters.owners.includes(o.id)}
+                        tabIndex={-1}
                         disableRipple
-                        sx={{ p: 0 }}
                       />
                     </ListItemIcon>
                     <ListItemText
                       primary={o.display_name}
                       secondary={o.email}
-                      primaryTypographyProps={{ fontSize: 14, noWrap: true }}
-                      secondaryTypographyProps={{ fontSize: 11, noWrap: true }}
+                      primaryTypographyProps={{ fontSize: 12 }}
+                      secondaryTypographyProps={{ fontSize: 10 }}
                     />
                   </ListItemButton>
                 ))}
@@ -610,111 +610,172 @@ export default function RiskFilterSidebar({
             )}
           </Collapse>
 
-          {/* Affected cards — pick individual cards and/or whole card types.
-              Both are any-of; the two combine with AND server-side. */}
+          <Divider sx={{ my: 1 }} />
+
+          {/* Card type — narrows both the risk list and the Affected cards
+              options below, mirroring the ADR sidebar's Card types section. */}
+          <SectionHeader
+            label={t("risks.filter.cardType")}
+            expanded={expandedSections.cardTypes}
+            onToggle={() => toggleSection("cardTypes")}
+          />
+          <Collapse in={expandedSections.cardTypes}>
+            <List dense disablePadding sx={{ mb: 1 }}>
+              {availableCardTypes.map((ct) => (
+                <ListItemButton
+                  key={ct.key}
+                  dense
+                  onClick={() => toggleInList("cardTypes", ct.key)}
+                  sx={{ py: 0, borderRadius: 1 }}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <Checkbox
+                      edge="start"
+                      size="small"
+                      checked={filters.cardTypes.includes(ct.key)}
+                      tabIndex={-1}
+                      disableRipple
+                    />
+                  </ListItemIcon>
+                  <Box
+                    sx={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      bgcolor: ct.color,
+                      mr: 1,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <ListItemText
+                    primary={ct.label}
+                    primaryTypographyProps={{ fontSize: 13 }}
+                  />
+                </ListItemButton>
+              ))}
+              {availableCardTypes.length === 0 && (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ px: 1, py: 0.5, fontSize: 12 }}
+                >
+                  {t("risks.filter.noCardTypes")}
+                </Typography>
+              )}
+            </List>
+          </Collapse>
+
+          <Divider sx={{ my: 1 }} />
+
+          {/* Affected cards — checkbox list of the cards linked to at least
+              one risk, mirroring the ADR sidebar's Linked cards section. */}
           <SectionHeader
             label={t("risks.filter.cards")}
-            icon="style"
             expanded={expandedSections.cards}
             onToggle={() => toggleSection("cards")}
-            count={filters.cards.length + filters.cardTypes.length}
           />
           <Collapse in={expandedSections.cards}>
-            <Box sx={{ mb: 1, px: 0.5 }}>
-              <CardMultiSelect
-                value={filters.cards}
-                onChange={(next) => setField("cards", next)}
-                enabled={expandedSections.cards}
-                placeholder={t("risks.filter.cardsPlaceholder")}
-              />
-            </Box>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: "block", px: 0.5, pt: 0.5 }}
-            >
-              {t("risks.filter.cardType")}
-            </Typography>
-            {cardTypeOptions.length === 0 ? (
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ display: "block", px: 0.5, py: 1 }}
-              >
-                {t("risks.filter.noCardTypes")}
-              </Typography>
-            ) : (
-              <List dense disablePadding sx={{ mb: 1, maxHeight: 240, overflowY: "auto" }}>
-                {cardTypeOptions.map((ct) => (
+            <TextField
+              size="small"
+              fullWidth
+              placeholder={t("risks.filter.cardsPlaceholder")}
+              value={cardSearch}
+              onChange={(e) => setCardSearch(e.target.value)}
+              sx={{ mb: 0.5, "& .MuiInputBase-root": { fontSize: 12, height: 30 } }}
+            />
+            <List dense disablePadding sx={{ mb: 1, maxHeight: 240, overflow: "auto" }}>
+              {availableCards
+                .filter(
+                  (card) =>
+                    !cardSearch ||
+                    card.name.toLowerCase().includes(cardSearch.toLowerCase()),
+                )
+                .map((card) => (
                   <ListItemButton
-                    key={ct.key}
+                    key={card.id}
                     dense
-                    onClick={() => toggleInList("cardTypes", ct.key)}
-                    sx={{ py: 0.25, px: 1, borderRadius: 1 }}
+                    onClick={() => toggleCard(card)}
+                    sx={{ py: 0, borderRadius: 1 }}
                   >
                     <ListItemIcon sx={{ minWidth: 32 }}>
                       <Checkbox
+                        edge="start"
                         size="small"
-                        checked={filters.cardTypes.includes(ct.key)}
+                        checked={filters.cards.some((c) => c.id === card.id)}
+                        tabIndex={-1}
                         disableRipple
-                        sx={{ p: 0 }}
                       />
                     </ListItemIcon>
-                    {/* Type icon in the type colour — identical to the
-                        Inventory sidebar's Card Types rows. */}
-                    <MaterialSymbol
-                      icon={ct.icon}
-                      size={16}
-                      color={
-                        isHexColor(ct.color)
-                          ? readableTypeColor(ct.color, isDark)
-                          : undefined
-                      }
+                    <Box
+                      sx={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: "50%",
+                        bgcolor: card.color,
+                        mr: 1,
+                        flexShrink: 0,
+                      }}
                     />
                     <ListItemText
-                      primary={typeLabelOf(ct)}
-                      primaryTypographyProps={{ fontSize: 14, ml: 0.75, noWrap: true }}
+                      primary={card.name}
+                      primaryTypographyProps={{ fontSize: 13 }}
                     />
                   </ListItemButton>
                 ))}
-              </List>
-            )}
+              {availableCards.length === 0 && (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ px: 1, py: 0.5, fontSize: 12 }}
+                >
+                  {t("risks.filter.noCards")}
+                </Typography>
+              )}
+            </List>
           </Collapse>
+
+          <Divider sx={{ my: 1 }} />
 
           {/* Source */}
           <SectionHeader
             label={t("risks.filter.source")}
-            icon="input"
             expanded={expandedSections.source}
             onToggle={() => toggleSection("source")}
-            count={filters.sources.length}
           />
           <Collapse in={expandedSections.source}>
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
+            <List dense disablePadding>
               {SOURCES.map((s) => (
-                <Chip
+                <ListItemButton
                   key={s}
-                  label={t(`risks.source.${s}`)}
-                  size="small"
+                  dense
                   onClick={() => toggleInList("sources", s)}
-                  variant={filters.sources.includes(s) ? "filled" : "outlined"}
-                  color={filters.sources.includes(s) ? "primary" : "default"}
-                />
+                  sx={{ py: 0, px: 0.5 }}
+                >
+                  <ListItemIcon sx={{ minWidth: 28 }}>
+                    <Checkbox
+                      edge="start"
+                      size="small"
+                      checked={filters.sources.includes(s)}
+                      tabIndex={-1}
+                      disableRipple
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={t(`risks.source.${s}`)}
+                    primaryTypographyProps={{ fontSize: 12 }}
+                  />
+                </ListItemButton>
               ))}
-            </Box>
+            </List>
           </Collapse>
+
+          <Divider sx={{ my: 1 }} />
 
           {/* Target date + overdue */}
           <SectionHeader
             label={t("risks.filter.target")}
-            icon="event"
             expanded={expandedSections.target}
             onToggle={() => toggleSection("target")}
-            count={
-              (filters.dateTargetFrom ? 1 : 0) +
-              (filters.dateTargetTo ? 1 : 0) +
-              (filters.overdueOnly ? 1 : 0)
-            }
           />
           <Collapse in={expandedSections.target}>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1, my: 0.5 }}>

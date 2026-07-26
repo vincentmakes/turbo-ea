@@ -46,7 +46,7 @@ Risici er **mange-til-mange** med kort. En risiko kan påvirke flere applikation
 - Fra risikodetaljesiden: **Affected cards**-panelet → vælg et kort og tilføj det. Klik på et `×` for at afkoble. Vælgeren viser straks en liste, du kan gennemse (du behøver ikke skrive først), henter flere kort, når du ruller, og skjuler kort, der allerede er tilknyttet.
 - Fra enhver Kortdetaljeside: en ny **Risks**-fane viser hver risiko linket til det kort med en ét-klik-vej tilbage til registret.
 
-Tilknyttede kort **grupperes efter korttype**, sorteres alfabetisk inden for hver gruppe og farvelægges med korttypens egen farve, så en risiko med et dusin kort på tværs af flere typer stadig kan læses på et øjeblik. Samme rækkefølge og farver gælder for kolonnen **Cards** i registergitteret — værktøjstippet på `+N`-chippen viser de resterende kort under deres typeoverskrifter.
+Tilknyttede kort **grupperes efter korttype**, sorteres alfabetisk inden for hver gruppe og farvelægges med korttypens egen farve, så en risiko med et dusin kort på tværs af flere typer stadig kan læses på et øjeblik. Samme rækkefølge og farver gælder for kolonnen **Cards** i registergitteret, hvor hvert kort vises som en chip i sin typefarve — cellens værktøjstip viser hele listen under typeoverskrifter.
 
 ## Afhjælpningsopgaver
 
@@ -117,7 +117,7 @@ Registret er et AG Grid, der spejler [Inventar](inventory.md)-standarderne: sort
 
 Filterpanelet til venstre har en **Affected cards**-sektion, der besvarer de landskabsspørgsmål, kolonnefilteret ikke kan:
 
-- **Cards** — vælg et eller flere konkrete kort for at se alle risici, der berører *et hvilket som helst* af dem («vis alle risici, der berører applikation A, B og C»). Vælgeren gennemser hele inventaret, så du skal ikke gætte et navn.
+- **Cards** — vælg et eller flere konkrete kort for at se alle risici, der berører *et hvilket som helst* af dem («vis alle risici, der berører applikation A, B og C»). Listen tilbyder hvert kort, der er knyttet til mindst én risiko, søgbar efter navn.
 - **Card type** — sæt flueben ved en eller flere korttyper for at se alle risici, der berører *et hvilket som helst* kort af de typer («vis alle risici, der berører en applikation»), uden at navngive enkelte kort.
 
 Hver liste matcher **et hvilket som helst** af sine egne valg; de to lister kombineres med **og**. At sætte flueben ved `Application` og vælge kortet *Payments Gateway* giver derfor risici, der berører Payments Gateway **og** rører mindst én applikation.
