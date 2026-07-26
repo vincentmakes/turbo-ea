@@ -156,7 +156,7 @@ async def link_cards(
 
 
 # ---------------------------------------------------------------------------
-# Promotion from TurboLens findings
+# Promotion from TurboLens findings / PPM project risks
 # ---------------------------------------------------------------------------
 
 
@@ -167,6 +167,17 @@ _COMPLIANCE_SEVERITY_TO_IMPACT: dict[str, str] = {
     "low": "low",
     "info": "low",
 }
+
+# PPM risks score on 1-5 integer scales; the register uses 4-value
+# vocabularies. 1-2 collapse to low — a 4x4 matrix has no "very low".
+_PPM_SCORE_TO_PROBABILITY: dict[int, str] = {
+    1: "low",
+    2: "low",
+    3: "medium",
+    4: "high",
+    5: "very_high",
+}
+_PPM_SCORE_TO_IMPACT: dict[int, str] = {1: "low", 2: "low", 3: "medium", 4: "high", 5: "critical"}
 
 
 def _safe_probability(value: str | None) -> str:
@@ -275,6 +286,99 @@ async def promote_compliance_finding(
             title=task_title[:500],
             description=remediation,
             owner_id=overrides.get("owner_id"),
+            due_date=overrides.get("target_resolution_date"),
+            recurrence_unit="none",
+            recurrence_interval=1,
+            actor_id=user_id,
+        )
+
+    return risk
+
+
+async def promote_ppm_risk(
+    db: AsyncSession,
+    ppm_risk_id: uuid.UUID,
+    user_id: uuid.UUID | None,
+    *,
+    overrides: dict[str, Any] | None = None,
+) -> Risk:
+    """Escalate a PPM project risk into the landscape register, or return the
+    already-promoted one.
+
+    The back-link deliberately lives on the register side as
+    ``source_type="ppm"`` / ``source_ref=<ppm risk id>`` — no column on
+    ``ppm_risks`` — so deleting the register risk self-heals the link and
+    workspace-transfer section ordering stays untouched.
+
+    Seeds:
+    * category = ``operational`` (project risks are delivery risks by default)
+    * title / description / owner from the PPM row
+    * initial probability & impact mapped from the 1-5 scales
+    * links the initiative card
+
+    When the PPM risk carries a ``mitigation`` string, it is spawned as a
+    one-shot mitigation task on the new risk so the guidance becomes owned
+    work rather than inert text — mirroring the compliance promotion.
+    """
+    from app.models.ppm_risk import PpmRisk
+
+    ppm_risk = await db.get(PpmRisk, ppm_risk_id)
+    if ppm_risk is None:
+        raise LookupError("PPM risk not found")
+
+    existing = (
+        await db.execute(
+            select(Risk).where(Risk.source_type == "ppm", Risk.source_ref == str(ppm_risk.id))
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        return existing
+
+    overrides = overrides or {}
+    probability = _safe_probability(
+        overrides.get("initial_probability") or _PPM_SCORE_TO_PROBABILITY.get(ppm_risk.probability)
+    )
+    impact = _safe_impact(
+        overrides.get("initial_impact") or _PPM_SCORE_TO_IMPACT.get(ppm_risk.impact)
+    )
+
+    title = overrides.get("title") or ppm_risk.title
+    description = overrides.get("description") or (ppm_risk.description or "")
+    owner_id = overrides.get("owner_id") or ppm_risk.owner_id
+
+    risk = Risk(
+        id=uuid.uuid4(),
+        reference=await next_reference(db),
+        title=title[:500],
+        description=description,
+        category=overrides.get("category", "operational"),
+        source_type="ppm",
+        source_ref=str(ppm_risk.id),
+        initial_probability=probability,
+        initial_impact=impact,
+        initial_level=derive_level(probability, impact) or "medium",
+        owner_id=owner_id,
+        target_resolution_date=overrides.get("target_resolution_date"),
+        status="identified",
+        created_by=user_id,
+    )
+    db.add(risk)
+    await db.flush()
+    await link_cards(db, risk.id, [ppm_risk.initiative_id])
+
+    mitigation = (ppm_risk.mitigation or "").strip()
+    if mitigation and user_id is not None:
+        # Lazy import — same circular-import avoidance as the compliance path.
+        from app.services.risk_mitigation_task_service import (
+            create_task_with_first_occurrence,
+        )
+
+        await create_task_with_first_occurrence(
+            db,
+            risk=risk,
+            title=f"Mitigate: {ppm_risk.title}"[:500],
+            description=mitigation,
+            owner_id=owner_id,
             due_date=overrides.get("target_resolution_date"),
             recurrence_unit="none",
             recurrence_interval=1,

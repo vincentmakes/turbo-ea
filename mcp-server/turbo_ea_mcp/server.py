@@ -302,8 +302,8 @@ async def list_risks(
         card_type: Filter to risks linked to at least one card of this type
             (e.g. 'Application', 'ITComponent'). Combines with card_id via
             AND — use it to answer "which risks affect any Application?".
-        source_type: How the risk was raised — 'manual',
-            'compliance'.
+        source_type: How the risk was raised — 'manual', 'compliance', or
+            'ppm' (escalated from a PPM project risk).
         search: Free-text search across title, description and reference.
         overdue: When true, only return risks past their target resolution
             date that aren't already closed/accepted.

@@ -83,6 +83,10 @@ Risikoregistret sporer projektrisici med:
 | **Afhjælpning** | Planlagte afhjælpningshandlinger |
 | **Ejer** | Bruger ansvarlig for at håndtere risikoen |
 
+Når GRC-modulet er aktiveret, viser fanen to blokke: **Projektrisici** (tabellen ovenfor) og **Landskabsrisici** — en skrivebeskyttet liste over de poster i [risikoregistret](risks.md), der er knyttet til dette initiativkort, så projektets samlede risikobillede findes på én fane. Projektrisici og landskabsrisici forbliver bevidst adskilte registre: det ene lever og dør med projektet, det andet bærer TOGAF-governance-livscyklussen.
+
+En projektrisiko, der viser sig at være et landskabsanliggende, kan eskaleres med handlingen **Overfør til risikoregistret** på dens række (kræver `risks.manage`). Dette opretter en registerrisiko ud fra projektrisikoen — titel, beskrivelse, ejer, oversatte scorer, det tilknyttede initiativkort, og afhjælpningstekst bliver til en afhjælpningsopgave. Handlingen er idempotent; når risikoen er overført, viser rækken i stedet en **Åbn risiko R-000123**-chip, og projektrisikoen forbliver fuldt redigerbar.
+
 ### Tasks-fane
 
 ![PPM Opgavetavle](../assets/img/en/45_ppm_task_board.png)

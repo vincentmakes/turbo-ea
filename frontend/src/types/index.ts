@@ -1322,6 +1322,9 @@ export interface PpmRisk {
   owner_id: string | null;
   owner_name: string | null;
   status: "open" | "mitigating" | "mitigated" | "closed" | "accepted";
+  /** Set when this project risk has been escalated to the GRC register. */
+  promoted_risk_id: string | null;
+  promoted_risk_reference: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1653,7 +1656,7 @@ export type RiskCategory =
   | "reputational"
   | "strategic";
 
-export type RiskSourceType = "manual" | "compliance";
+export type RiskSourceType = "manual" | "compliance" | "ppm";
 
 export type RiskLevel = "critical" | "high" | "medium" | "low";
 

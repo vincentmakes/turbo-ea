@@ -83,6 +83,10 @@ Das Risikoregister verfolgt Projektrisiken mit:
 | **Minderung** | Geplante Minderungsmaßnahmen |
 | **Verantwortlicher** | Benutzer, der für die Risikoverwaltung verantwortlich ist |
 
+Wenn das GRC-Modul aktiviert ist, zeigt der Tab zwei Blöcke: **Projektrisiken** (die Tabelle oben) und **Landschaftsrisiken** — eine schreibgeschützte Liste der mit dieser Initiative-Karte verknüpften Einträge des [Risikoregisters](risks.md), sodass das vollständige Risikobild eines Projekts auf einem Tab liegt. Projektrisiken und Landschaftsrisiken bleiben bewusst getrennte Register: das eine lebt und stirbt mit dem Projekt, das andere trägt den TOGAF-Governance-Lebenszyklus.
+
+Ein Projektrisiko, das sich als Landschaftsthema herausstellt, lässt sich über die Aktion **In das Risikoregister überführen** in seiner Zeile eskalieren (erfordert `risks.manage`). Dabei entsteht ein Register-Risiko aus dem Projektrisiko — Titel, Beschreibung, Eigentümer, abgebildete Bewertungen, die verknüpfte Initiative-Karte, und Minderungstext wird zu einer Minderungsmaßnahme. Die Aktion ist idempotent; nach der Überführung zeigt die Zeile stattdessen einen **Risiko R-000123 öffnen**-Chip, und das Projektrisiko bleibt voll editierbar.
+
 ### Aufgaben-Tab
 
 ![PPM Aufgaben-Board](../assets/img/de/45_ppm_aufgaben_board.png)

@@ -23,6 +23,8 @@ Alle drei Varianten enthalten die Felder **Eigentümer**, **Kategorie** und **Zi
 
 Die Überführung ist **idempotent** — sobald ein Befund überführt wurde, ändert sich seine Schaltfläche zu **Risiko R-000123 öffnen** und navigiert direkt zur Risikodetailseite.
 
+Risiken lassen sich auch aus **PPM-Projektrisiken** überführen: Auf dem Tab **Risiken** einer PPM-Initiative erzeugt die Aktion **In das Risikoregister überführen** ein Landschaftsrisiko direkt aus dem Projektrisiko — Titel, Beschreibung und Eigentümer werden übernommen, die 1–5-Bewertungen auf das Vokabular des Registers abgebildet und die Initiative-Karte als betroffene Karte verknüpft. Minderungstext wird zu einer einmaligen Minderungsmaßnahme. Auch diese Überführung ist idempotent, und das Projektrisiko bleibt in PPM voll editierbar — die beiden Datensätze behalten bewusst unabhängige Lebenszyklen.
+
 ## Eigentümerschaft → Todo + Benachrichtigung
 
 Einem Risiko einen **Eigentümer** zuzuweisen (sei es beim Anlegen oder später) bewirkt automatisch:

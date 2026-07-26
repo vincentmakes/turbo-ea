@@ -83,6 +83,10 @@ El registro de riesgos rastrea los riesgos del proyecto con:
 | **Mitigación** | Acciones de mitigación planificadas |
 | **Responsable** | Usuario responsable de gestionar el riesgo |
 
+Cuando el módulo GRC está activado, la pestaña muestra dos bloques: **Riesgos del proyecto** (la tabla anterior) y **Riesgos del paisaje** — una lista de solo lectura de las entradas del [Registro de riesgos](risks.md) vinculadas a esta ficha de Iniciativa, de modo que el panorama de riesgos completo de un proyecto vive en una sola pestaña. Los riesgos de proyecto y los riesgos de paisaje se mantienen deliberadamente como registros separados: uno vive y muere con el proyecto, el otro lleva el ciclo de vida de gobernanza TOGAF.
+
+Un riesgo de proyecto que resulta ser una cuestión de paisaje puede escalarse con la acción **Promover al registro de riesgos** en su fila (requiere `risks.manage`). Esto crea un riesgo del registro a partir del riesgo de proyecto — título, descripción, propietario, puntuaciones convertidas, la ficha de Iniciativa vinculada, y el texto de mitigación convertido en una tarea de mitigación. La acción es idempotente; una vez promovido, la fila muestra en su lugar un chip **Abrir riesgo R-000123**, y el riesgo de proyecto sigue siendo totalmente editable.
+
 ### Pestaña de tareas
 
 ![Tablero de tareas PPM](../assets/img/es/45_ppm_tablero_tareas.png)

@@ -139,6 +139,10 @@ class PpmRiskOut(BaseModel):
     owner_id: str | None
     owner_name: str | None = None
     status: str
+    # Back-link to the landscape register when this project risk has been
+    # promoted (GET /risks/promote/ppm/{id}); resolved from the GRC side.
+    promoted_risk_id: str | None = None
+    promoted_risk_reference: str | None = None
     created_at: datetime
     updated_at: datetime
 

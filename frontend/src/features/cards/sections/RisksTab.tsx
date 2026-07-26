@@ -33,9 +33,14 @@ import {
 
 interface Props {
   cardId: string;
+  /** Override the panel title (defaults to the card-tab heading). Lets the
+   *  PPM Risks tab reuse this component as its "Landscape risks" block. */
+  heading?: string;
+  /** Override the empty-state copy. */
+  emptyText?: string;
 }
 
-export default function RisksTab({ cardId }: Props) {
+export default function RisksTab({ cardId, heading, emptyText }: Props) {
   const { t } = useTranslation("grc");
   const navigate = useNavigate();
 
@@ -77,7 +82,7 @@ export default function RisksTab({ cardId }: Props) {
         sx={{ mb: 2 }}
       >
         <Typography variant="subtitle1" fontWeight={700}>
-          {t("risks.cardTab.title")}
+          {heading ?? t("risks.cardTab.title")}
         </Typography>
         <Stack direction="row" spacing={1}>
           <Button
@@ -106,7 +111,7 @@ export default function RisksTab({ cardId }: Props) {
 
       {risks.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
-          {t("risks.cardTab.empty")}
+          {emptyText ?? t("risks.cardTab.empty")}
         </Typography>
       ) : (
         <Table size="small">

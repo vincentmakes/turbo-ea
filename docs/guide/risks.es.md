@@ -23,6 +23,8 @@ Las tres variantes incluyen los campos **Propietario**, **Categoría** y **Fecha
 
 La promoción es **idempotente** — una vez que un hallazgo ha sido promovido, su botón cambia a **Abrir riesgo R-000123** y navega directamente a la página de detalle del riesgo.
 
+Un riesgo también puede promoverse desde un **riesgo de proyecto PPM**: en la pestaña **Riesgos** de una iniciativa PPM, la acción **Promover al registro de riesgos** crea un riesgo de paisaje directamente a partir del riesgo de proyecto — el título, la descripción y el propietario se trasladan, las puntuaciones 1–5 se convierten al vocabulario del registro y la ficha de Iniciativa se vincula como ficha afectada. El texto de mitigación se convierte en una tarea de mitigación puntual. Esta promoción también es idempotente, y el riesgo de proyecto sigue siendo totalmente editable en PPM — ambos registros mantienen deliberadamente ciclos de vida independientes.
+
 ## Propietario → Todo + notificación
 
 Asignar un **propietario** (ya sea al crear o después) automáticamente:

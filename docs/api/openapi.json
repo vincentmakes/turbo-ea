@@ -7729,6 +7729,28 @@
             "title": "Probability",
             "type": "integer"
           },
+          "promoted_risk_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promoted Risk Id"
+          },
+          "promoted_risk_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promoted Risk Reference"
+          },
           "risk_score": {
             "title": "Risk Score",
             "type": "integer"
@@ -10720,7 +10742,8 @@
           "source_type": {
             "enum": [
               "manual",
-              "compliance"
+              "compliance",
+              "ppm"
             ],
             "title": "Source Type",
             "type": "string"
@@ -29975,6 +29998,66 @@
           }
         },
         "summary": "Promote Compliance",
+        "tags": [
+          "Risks"
+        ]
+      }
+    },
+    "/api/v1/risks/promote/ppm/{ppm_risk_id}": {
+      "post": {
+        "description": "Escalate a PPM project risk into the landscape register.\n\nIdempotent \u2014 a risk already promoted from this PPM row is returned\nas-is. The PPM risk keeps its own lifecycle; the two records stay\ndeliberately independent after promotion.",
+        "operationId": "promote_ppm_api_v1_risks_promote_ppm__ppm_risk_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ppm_risk_id",
+            "required": true,
+            "schema": {
+              "title": "Ppm Risk Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RiskPromoteRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiskOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Promote Ppm",
         "tags": [
           "Risks"
         ]

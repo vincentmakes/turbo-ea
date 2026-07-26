@@ -83,6 +83,10 @@ The risk register tracks project risks with:
 | **Mitigation** | Planned mitigation actions |
 | **Owner** | User responsible for managing the risk |
 
+When the GRC module is enabled, the tab shows two blocks: **Project risks** (the table above) and **Landscape risks** — a read-only list of the [Risk Register](risks.md) entries linked to this Initiative card, so the full risk picture of a project lives on one tab. Project risks and landscape risks deliberately stay separate registers: one lives and dies with the project, the other carries the TOGAF governance lifecycle.
+
+A project risk that turns out to be a landscape concern can be escalated with the **Promote to risk register** action on its row (requires `risks.manage`). This creates a register risk seeded from the project risk — title, description, owner, mapped scores, the Initiative card linked, and any mitigation text turned into a mitigation task. The action is idempotent; once promoted, the row shows an **Open risk R-000123** chip instead, and the project risk itself stays fully editable.
+
 ### Tasks Tab
 
 ![PPM Task Board](../assets/img/en/45_ppm_task_board.png)

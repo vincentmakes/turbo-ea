@@ -26,6 +26,8 @@ Begge varianter inkluderer felterne **Owner**, **Category** og **Target resoluti
 
 Promovering er **idempotent** — når et fund er blevet promoveret, skifter dets knap til **Open risk R-000123** og navigerer direkte til risikodetaljesiden.
 
+En risiko kan også overføres fra en **PPM-projektrisiko**: på et PPM-initiativs fane **Risici** opretter handlingen **Overfør til risikoregistret** en landskabsrisiko direkte fra projektrisikoen — titel, beskrivelse og ejer følger med, 1–5-scorerne oversættes til registrets vokabular, og initiativkortet tilknyttes som berørt kort. Afhjælpningstekst bliver til en engangsafhjælpningsopgave. Denne overførsel er også idempotent, og projektrisikoen forbliver fuldt redigerbar i PPM — de to poster beholder bevidst uafhængige livscyklusser.
+
 ## Ejerskab → Todo + notifikation
 
 At tildele en **ejer** til risikoen (enten ved oprettelse eller senere) gør automatisk:
