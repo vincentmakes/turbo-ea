@@ -28,11 +28,17 @@ vi.mock("ag-grid-react", () => ({
     ({
       rowData,
       onSelectionChanged,
+      loading,
     }: {
       rowData: unknown[];
       onSelectionChanged?: (event: { api: { getSelectedRows: () => unknown[] } }) => void;
+      loading?: boolean;
     }) => (
-      <div data-testid="ag-grid" data-row-count={rowData?.length ?? 0}>
+      <div
+        data-testid="ag-grid"
+        data-row-count={rowData?.length ?? 0}
+        data-loading={String(Boolean(loading))}
+      >
         <button
           data-testid="select-all-rows"
           onClick={() =>
@@ -246,6 +252,7 @@ describe("InventoryPage", () => {
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith(
         expect.stringContaining("/cards?"),
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
     });
   });
@@ -273,6 +280,7 @@ describe("InventoryPage", () => {
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith(
         expect.stringContaining("type=Application"),
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
     });
   });
@@ -283,6 +291,7 @@ describe("InventoryPage", () => {
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith(
         expect.stringContaining("search=SAP"),
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
     });
   });

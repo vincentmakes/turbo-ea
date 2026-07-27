@@ -8,6 +8,7 @@ import {
   isAuthenticated,
   setAuthenticated,
   auth,
+  isAbortError,
 } from "./client";
 
 // ---------------------------------------------------------------------------
@@ -292,5 +293,64 @@ describe("auth helpers", () => {
     await auth.logout();
 
     expect(mockFetch.mock.calls[0][0]).toBe("/api/v1/auth/logout");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Request cancellation (#882)
+// ---------------------------------------------------------------------------
+
+describe("AbortSignal support", () => {
+  it("forwards a signal from api.get into fetch", async () => {
+    mockFetch.mockReturnValueOnce(jsonResponse({ ok: true }));
+    const ctrl = new AbortController();
+
+    await api.get("/cards", { signal: ctrl.signal });
+
+    const init = mockFetch.mock.calls[0][1];
+    expect(init.signal).toBe(ctrl.signal);
+    // The signal must not displace the standard request configuration.
+    expect(init.credentials).toBe("same-origin");
+    expect(init.headers["X-Turbo-EA-Origin"]).toBe("web");
+  });
+
+  it("forwards a signal from api.getRaw into fetch", async () => {
+    mockFetch.mockReturnValueOnce(jsonResponse({ ok: true }));
+    const ctrl = new AbortController();
+
+    await api.getRaw("/cards/export/csv", { signal: ctrl.signal });
+
+    expect(mockFetch.mock.calls[0][1].signal).toBe(ctrl.signal);
+  });
+
+  it("omits the signal when no options are passed", async () => {
+    mockFetch.mockReturnValueOnce(jsonResponse({ ok: true }));
+
+    await api.get("/cards");
+
+    expect(mockFetch.mock.calls[0][1].signal).toBeUndefined();
+  });
+
+  it("propagates the abort rejection rather than swallowing it", async () => {
+    // `request()` must reject so `finally { setLoading(false) }` still runs.
+    // Only call sites that opted in by passing a signal can ever observe this.
+    const abortErr = new DOMException("The user aborted a request.", "AbortError");
+    mockFetch.mockReturnValueOnce(Promise.reject(abortErr));
+
+    await expect(api.get("/cards", { signal: new AbortController().signal })).rejects.toBe(
+      abortErr,
+    );
+  });
+
+  it("isAbortError recognises an abort and nothing else", () => {
+    expect(isAbortError(new DOMException("aborted", "AbortError"))).toBe(true);
+    // Duck-typed on purpose — jsdom/undici and test doubles may not be DOMException.
+    expect(isAbortError({ name: "AbortError" })).toBe(true);
+
+    expect(isAbortError(new ApiError("boom", 500, null))).toBe(false);
+    expect(isAbortError(new Error("network"))).toBe(false);
+    expect(isAbortError("AbortError")).toBe(false);
+    expect(isAbortError(null)).toBe(false);
+    expect(isAbortError(undefined)).toBe(false);
   });
 });

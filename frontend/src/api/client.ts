@@ -1,5 +1,28 @@
 const BASE = "/api/v1";
 
+/**
+ * Options accepted by the read helpers. Deliberately narrower than `RequestInit`
+ * so call sites can't override method / credentials / headers.
+ */
+export interface GetOptions {
+  signal?: AbortSignal;
+}
+
+/**
+ * True for a fetch aborted via an AbortSignal. A superseded request is not an
+ * error — never surface one to the user.
+ *
+ * Matches on `name` rather than `instanceof DOMException` so it also holds under
+ * jsdom/undici and for anything a test double throws.
+ */
+export function isAbortError(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { name?: unknown }).name === "AbortError"
+  );
+}
+
 /** Error with HTTP status and structured detail from the API. */
 export class ApiError extends Error {
   status: number;
@@ -92,8 +115,16 @@ async function requestRaw(path: string, options: RequestInit = {}): Promise<Resp
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>(path),
-  getRaw: (path: string) => requestRaw(path),
+  // Passing a `signal` means you own the resulting AbortError rejection.
+  // Prefer the request hooks in `src/hooks/` (`useApiQuery`,
+  // `useAbortableEffect`, `useLatestRequest`) — they abort the predecessor,
+  // discard superseded responses and swallow the abort for you.
+  //
+  // Deliberately not offered on the mutating helpers: aborting a POST/PATCH
+  // does not undo it server-side, so exposing `signal` there would advertise a
+  // cancellation guarantee we cannot make.
+  get: <T>(path: string, opts?: GetOptions) => request<T>(path, opts),
+  getRaw: (path: string, opts?: GetOptions) => requestRaw(path, opts),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "POST", body: JSON.stringify(body) }),
   patch: <T>(path: string, body?: unknown) =>

@@ -59,7 +59,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useIsRtl } from "@/hooks/useIsRtl";
 import { useDateFormat } from "@/hooks/useDateFormat";
-import { api, ApiError } from "@/api/client";
+import { useLatestRequest } from "@/hooks/useLatestRequest";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { api, ApiError, isAbortError } from "@/api/client";
 import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
 import TagPicker from "@/components/TagPicker";
 import TagsCellEditor from "@/features/inventory/TagsCellEditor";
@@ -396,6 +398,7 @@ export default function InventoryPage() {
   const [data, setData] = useState<Card[]>([]);
   const [, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [gridEditMode, setGridEditMode] = useState(false);
@@ -727,31 +730,56 @@ export default function InventoryPage() {
     });
   }, [filters, selectedColumns, sortModel, columnState, columnFilterModel]);
 
+  // Free-text search is debounced; every other filter stays instant. Typing
+  // "SAP ERP" used to fire seven whole-repository requests, one per keystroke.
+  // `filters.search` itself is left untouched so the sidebar text field and the
+  // localStorage persistence keep their current behaviour.
+  const [debouncedSearch, searchPending] = useDebouncedValue(filters.search, 300);
+
+  // Only the newest card request may write the grid. Clearing the type filter
+  // fetches the whole repository, so it can easily land after a later, narrower
+  // request and overwrite it — that was #882.
+  const cardsRequest = useLatestRequest();
+
   const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (filters.types.length === 1) params.set("type", filters.types[0]);
-      if (filters.search) params.set("search", filters.search);
-      if (filters.approvalStatuses.length > 0) {
-        params.set("approval_status", filters.approvalStatuses.join(","));
+    await cardsRequest.run(async ({ signal, isCurrent }) => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams();
+        if (filters.types.length === 1) params.set("type", filters.types[0]);
+        if (debouncedSearch) params.set("search", debouncedSearch);
+        if (filters.approvalStatuses.length > 0) {
+          params.set("approval_status", filters.approvalStatuses.join(","));
+        }
+        if (filters.showArchived) {
+          params.set("status", "ARCHIVED");
+        }
+        if (filters.mineScope) {
+          params.set("mine", filters.mineScope);
+        }
+        params.set("page_size", "10000");
+        const res = await api.get<CardListResponse>(`/cards?${params}`, { signal });
+        if (!isCurrent()) return; // superseded — the newer request owns the grid
+        setData(res.items);
+        setTotal(res.total);
+        setLoadError(false);
+      } catch (err) {
+        if (!isCurrent() || isAbortError(err)) return;
+        setLoadError(true);
+      } finally {
+        // Only the winner clears the spinner. An aborted predecessor rejecting
+        // first would otherwise flash "done" over the previous filter's rows.
+        if (isCurrent()) setLoading(false);
       }
-      if (filters.showArchived) {
-        params.set("status", "ARCHIVED");
-      }
-      if (filters.mineScope) {
-        params.set("mine", filters.mineScope);
-      }
-      params.set("page_size", "10000");
-      const res = await api.get<CardListResponse>(
-        `/cards?${params}`
-      );
-      setData(res.items);
-      setTotal(res.total);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters.types, filters.search, filters.approvalStatuses, filters.showArchived, filters.mineScope]);
+    });
+  }, [
+    cardsRequest,
+    filters.types,
+    debouncedSearch,
+    filters.approvalStatuses,
+    filters.showArchived,
+    filters.mineScope,
+  ]);
 
   useEffect(() => {
     loadData();
@@ -771,10 +799,9 @@ export default function InventoryPage() {
   // from "no relations", which is what made slow loads read as missing data
   // (and made "Export current view" silently lossy).
   const [relationsLoading, setRelationsLoading] = useState(false);
-  // Monotonic request id. `api.get` exposes no AbortSignal, so a superseded
-  // response is discarded by comparing generations — otherwise a slow request
-  // for type A can land after a fast one for type B and overwrite it.
-  const relationsGenRef = useRef(0);
+  // Only the newest relations request may write `relationsMap` — otherwise a
+  // slow request for type A lands after a fast one for type B and overwrites it.
+  const relationsRequest = useLatestRequest();
   // The in-flight fetch, so "Export current view" can await it.
   const relationsInflightRef = useRef<Promise<void> | null>(null);
 
@@ -786,8 +813,8 @@ export default function InventoryPage() {
   // instance, of which `buildRelationIndex` kept only the edges touching the
   // selected type.
   const fetchRelations = useCallback(async () => {
-    const gen = ++relationsGenRef.current;
     if (!selectedType || allRelTypeKeys.length === 0) {
+      relationsRequest.cancel();
       relationsInflightRef.current = null;
       setRelationsMap(new Map());
       setRelationsLoading(false);
@@ -795,19 +822,19 @@ export default function InventoryPage() {
     }
 
     setRelationsLoading(true);
-    const run = (async () => {
+    const run = relationsRequest.run(async ({ signal, isCurrent }) => {
       let rels: Relation[] = [];
       try {
         const params = new URLSearchParams({
           card_type: selectedType,
           types: allRelTypeKeys.join(","),
         });
-        rels = await api.get<Relation[]>(`/relations?${params}`);
+        rels = await api.get<Relation[]>(`/relations?${params}`, { signal });
       } catch {
         rels = [];
       }
       // A newer fetch has started; its result wins and it owns the flags.
-      if (gen !== relationsGenRef.current) return;
+      if (!isCurrent()) return;
 
       // Bucket the flat response per relation type, then index each bucket
       // exactly as before — `relationsMap` keeps its shape, so the column
@@ -827,10 +854,10 @@ export default function InventoryPage() {
       setRelationsMap(newMap);
       setRelationsLoading(false);
       relationsInflightRef.current = null;
-    })();
+    });
     relationsInflightRef.current = run;
     await run;
-  }, [selectedType, allRelTypeKeys, relationTypes]);
+  }, [selectedType, allRelTypeKeys, relationTypes, relationsRequest]);
 
   // Relations depend only on the selected type and its relation types — the
   // server filters by `card_type`, so the result is the same regardless of
@@ -2988,6 +3015,22 @@ export default function InventoryPage() {
           </Box>
         )}
 
+        {/* A failed load leaves the previous rows on screen behind the alert —
+            blanking the grid would lose the user's context for no benefit. */}
+        {loadError && (
+          <Alert
+            severity="error"
+            sx={{ mb: 1 }}
+            action={
+              <Button color="inherit" size="small" onClick={() => loadData()}>
+                {t("common:actions.retry")}
+              </Button>
+            }
+          >
+            {t("common:errors.occurred")}
+          </Alert>
+        )}
+
         {/* AG Grid */}
         <Box
           className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
@@ -2999,7 +3042,9 @@ export default function InventoryPage() {
             ref={gridRef}
             rowData={filteredData}
             columnDefs={columnDefs}
-            loading={loading}
+            // `searchPending` covers the debounce window too, so the grid never
+            // looks settled while it is still showing the previous query's rows.
+            loading={loading || searchPending}
             rowSelection={rowSelection}
             onSelectionChanged={handleSelectionChanged}
             onCellValueChanged={handleCellEdit}
