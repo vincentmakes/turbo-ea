@@ -28,6 +28,8 @@ import TableRow from "@mui/material/TableRow";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useExtensionFieldTypes } from "@/lib/extensionHost";
 import { api } from "@/api/client";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import {
   useTypeLabel,
@@ -144,43 +146,51 @@ export default function SurveyBuilder() {
     api.get<StakeholderRoleDef[]>("/stakeholder-roles").then(setRoles).catch(() => {});
   }, []);
 
-  // Search cards for related filter
-  useEffect(() => {
-    if (!relatedSearch || relatedSearch.length < 2) {
-      setRelatedOptions([]);
-      return;
-    }
-    const timer = setTimeout(async () => {
+  // Search cards for related filter. `clearTimeout` only cancelled the timer —
+  // once a request was dispatched nothing stopped a stale response from
+  // replacing newer results (#882).
+  const [debouncedRelatedSearch] = useDebouncedValue(relatedSearch, 300);
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      if (!debouncedRelatedSearch || debouncedRelatedSearch.length < 2) {
+        setRelatedOptions([]);
+        return;
+      }
       try {
         const res = await api.get<{ items: Card[] }>(
-          `/cards?search=${encodeURIComponent(relatedSearch)}&page_size=20`,
+          `/cards?search=${encodeURIComponent(debouncedRelatedSearch)}&page_size=20`,
+          { signal },
         );
+        if (!isCurrent()) return;
         setRelatedOptions(res.items);
       } catch {
-        // ignore
+        // ignore — empty option list
       }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [relatedSearch]);
+    },
+    [debouncedRelatedSearch],
+  );
 
   // Search cards for the "specific cards" picker — restricted to the target type
-  useEffect(() => {
-    if (!targetTypeKey || !cardSearch || cardSearch.length < 2) {
-      setCardOptions([]);
-      return;
-    }
-    const timer = setTimeout(async () => {
+  const [debouncedCardSearch] = useDebouncedValue(cardSearch, 300);
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      if (!targetTypeKey || !debouncedCardSearch || debouncedCardSearch.length < 2) {
+        setCardOptions([]);
+        return;
+      }
       try {
         const res = await api.get<{ items: Card[] }>(
-          `/cards?type=${encodeURIComponent(targetTypeKey)}&search=${encodeURIComponent(cardSearch)}&page_size=20`,
+          `/cards?type=${encodeURIComponent(targetTypeKey)}&search=${encodeURIComponent(debouncedCardSearch)}&page_size=20`,
+          { signal },
         );
+        if (!isCurrent()) return;
         setCardOptions(res.items);
       } catch {
-        // ignore
+        // ignore — empty option list
       }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [cardSearch, targetTypeKey]);
+    },
+    [debouncedCardSearch, targetTypeKey],
+  );
 
   // Hydrate selected items so autocomplete chips render names when editing an existing survey
   useEffect(() => {

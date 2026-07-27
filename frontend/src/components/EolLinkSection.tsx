@@ -24,6 +24,8 @@ import LinearProgress from "@mui/material/LinearProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import { api } from "@/api/client";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { STATUS_COLORS } from "@/theme/tokens";
 import type { Card, EolProduct, EolCycle, EolProductMatch } from "@/types";
 
@@ -129,53 +131,64 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
   }, [resetKey]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-fuzzy-search using card name (mirrors CreateCardDialog pattern)
-  useEffect(() => {
-    const trimmed = (cardName || "").trim();
-    if (!trimmed || trimmed.length < 2 || selectedProduct) {
-      setEolSuggestions([]);
-      setEolAutoSearchDone(false);
-      return;
-    }
-    if (productSearch && productSearch !== trimmed) return;
-    const timer = setTimeout(async () => {
+  const [debouncedCardName] = useDebouncedValue(cardName, 600);
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      const trimmed = (debouncedCardName || "").trim();
+      if (!trimmed || trimmed.length < 2 || selectedProduct) {
+        setEolSuggestions([]);
+        setEolAutoSearchDone(false);
+        setEolSearching(false);
+        return;
+      }
+      if (productSearch && productSearch !== trimmed) return;
       setEolSearching(true);
       try {
         const res = await api.get<EolProductMatch[]>(
           `/eol/products/fuzzy?search=${encodeURIComponent(trimmed)}&limit=5`,
+          { signal },
         );
+        if (!isCurrent()) return;
         setEolSuggestions(res);
         setEolAutoSearchDone(true);
       } catch {
+        if (!isCurrent()) return;
         setEolSuggestions([]);
         setEolAutoSearchDone(true);
       } finally {
-        setEolSearching(false);
+        if (isCurrent()) setEolSearching(false);
       }
-    }, 600);
-    return () => clearTimeout(timer);
-  }, [cardName, productSearch, selectedProduct]);
+    },
+    [debouncedCardName, productSearch, selectedProduct],
+  );
 
-  // Search products
-  useEffect(() => {
-    if (productSearch.length < 2) {
-      setProductOptions([]);
-      return;
-    }
-    const timer = setTimeout(async () => {
+  // Search products. The timer was cancelled on each keystroke but a dispatched
+  // request was not, so a stale response could replace newer options (#882).
+  const [debouncedProductSearch] = useDebouncedValue(productSearch, 300);
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      if (debouncedProductSearch.length < 2) {
+        setProductOptions([]);
+        setProductLoading(false);
+        return;
+      }
       setProductLoading(true);
       try {
         const res = await api.get<EolProduct[]>(
-          `/eol/products?search=${encodeURIComponent(productSearch)}`
+          `/eol/products?search=${encodeURIComponent(debouncedProductSearch)}`,
+          { signal },
         );
+        if (!isCurrent()) return;
         setProductOptions(res);
       } catch {
+        if (!isCurrent()) return;
         setProductOptions([]);
       } finally {
-        setProductLoading(false);
+        if (isCurrent()) setProductLoading(false);
       }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [productSearch]);
+    },
+    [debouncedProductSearch],
+  );
 
   // Fetch cycles when product is selected
   useEffect(() => {

@@ -36,6 +36,8 @@ import {
   useSubtypeLabel,
 } from "@/hooks/useResolveLabel";
 import { useAiStatus } from "@/hooks/useAiStatus";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { api, ApiError } from "@/api/client";
 import type {
   FieldDef,
@@ -201,33 +203,41 @@ export default function CreateCardDialog({
     }
   }, [open, initialType]);
 
-  // Auto-search EOL when name changes (debounced)
-  useEffect(() => {
-    if (!isEolEligible || !name.trim() || name.trim().length < 2) {
-      setEolSuggestions([]);
-      setEolAutoSearchDone(false);
-      return;
-    }
-    // Don't auto-search if already linked
-    if (eolProduct && eolCycle) return;
+  // Auto-search EOL when name changes (debounced). Cancelling the timer never
+  // cancelled a dispatched request, so suggestions for a half-typed name could
+  // land last and replace the ones for the finished name (#882).
+  const [debouncedName] = useDebouncedValue(name, 600);
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      const trimmed = debouncedName.trim();
+      if (!isEolEligible || !trimmed || trimmed.length < 2) {
+        setEolSuggestions([]);
+        setEolAutoSearchDone(false);
+        setEolSearching(false);
+        return;
+      }
+      // Don't auto-search if already linked
+      if (eolProduct && eolCycle) return;
 
-    const timer = setTimeout(async () => {
       setEolSearching(true);
       try {
         const results = await api.get<EolProductMatch[]>(
-          `/eol/products/fuzzy?search=${encodeURIComponent(name.trim())}&limit=5`
+          `/eol/products/fuzzy?search=${encodeURIComponent(trimmed)}&limit=5`,
+          { signal },
         );
+        if (!isCurrent()) return;
         setEolSuggestions(results);
         setEolAutoSearchDone(true);
       } catch {
+        if (!isCurrent()) return;
         setEolSuggestions([]);
         setEolAutoSearchDone(true);
       } finally {
-        setEolSearching(false);
+        if (isCurrent()) setEolSearching(false);
       }
-    }, 600);
-    return () => clearTimeout(timer);
-  }, [name, isEolEligible, eolProduct, eolCycle]);
+    },
+    [debouncedName, isEolEligible, eolProduct, eolCycle],
+  );
 
   const setAttr = (key: string, value: unknown) => {
     setAttributes((prev) => ({ ...prev, [key]: value }));

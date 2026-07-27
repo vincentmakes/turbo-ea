@@ -35,6 +35,8 @@ import Autocomplete from "@mui/material/Autocomplete";
 import CodeEditor from "react-simple-code-editor";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel, useRelationLabel, useFieldLabel } from "@/hooks/useResolveLabel";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -976,27 +978,33 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
     }
   }, [open]);
 
-  // Debounced card search
-  useEffect(() => {
-    if (!searchInput || searchInput.length < 2 || !calculation?.target_type_key) {
-      setOptions([]);
-      return;
-    }
-    setSearchLoading(true);
-    const timer = setTimeout(async () => {
+  // Debounced card search. `clearTimeout` cancelled the timer but never the
+  // request, so a stale response could replace newer options (#882).
+  const [debouncedSearchInput, searchDebouncePending] = useDebouncedValue(searchInput, 300);
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      if (!debouncedSearchInput || debouncedSearchInput.length < 2 || !calculation?.target_type_key) {
+        setOptions([]);
+        setSearchLoading(false);
+        return;
+      }
+      setSearchLoading(true);
       try {
         const res = await api.get<{ items: CardItem[] }>(
-          `/cards?type=${encodeURIComponent(calculation.target_type_key)}&search=${encodeURIComponent(searchInput)}&page_size=15`,
+          `/cards?type=${encodeURIComponent(calculation.target_type_key)}&search=${encodeURIComponent(debouncedSearchInput)}&page_size=15`,
+          { signal },
         );
+        if (!isCurrent()) return;
         setOptions(res.items);
       } catch {
+        if (!isCurrent()) return;
         setOptions([]);
       } finally {
-        setSearchLoading(false);
+        if (isCurrent()) setSearchLoading(false);
       }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchInput, calculation?.target_type_key]);
+    },
+    [debouncedSearchInput, calculation?.target_type_key],
+  );
 
   const handleTest = async () => {
     if (!calculation || !selectedCard) return;
@@ -1042,7 +1050,7 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
             filterOptions={(x) => x}
             getOptionLabel={(opt) => opt.name}
             isOptionEqualToValue={(opt, val) => opt.id === val.id}
-            loading={searchLoading}
+            loading={searchLoading || searchDebouncePending}
             noOptionsText={searchInput.length < 2 ? t("calculations.typeToSearch") : t("calculations.noCardsFound")}
             renderOption={({ key, ...optProps }, option) => (
               <li key={option.id} {...optProps}>
@@ -1066,7 +1074,7 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
                     ...params.InputProps,
                     endAdornment: (
                       <>
-                        {searchLoading ? <CircularProgress color="inherit" size={16} /> : null}
+                        {searchLoading || searchDebouncePending ? <CircularProgress color="inherit" size={16} /> : null}
                         {params.InputProps.endAdornment}
                       </>
                     ),
