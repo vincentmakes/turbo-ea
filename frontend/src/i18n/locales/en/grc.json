@@ -128,7 +128,6 @@
   "risks.status.closed": "Closed",
   "risks.source.manual": "Manual",
   "risks.source.compliance": "Compliance scan",
-  "risks.source.ppm": "Project risk",
   "risks.section.identification": "Identification",
   "risks.section.assessment": "Initial assessment",
   "risks.section.residual": "Residual assessment",

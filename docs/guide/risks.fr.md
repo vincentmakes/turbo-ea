@@ -23,8 +23,6 @@ Les trois variantes incluent les champs **Propriétaire**, **Catégorie** et **D
 
 La promotion est **idempotente** — une fois qu'un constat a été promu, son bouton bascule en **Ouvrir le risque R-000123** et navigue directement vers la page de détail du risque.
 
-Un risque peut aussi être promu depuis un **risque projet PPM** : sur l'onglet **Risques** d'une initiative PPM, l'action **Promouvoir au registre des risques** crée un risque de paysage directement à partir du risque projet — le titre, la description et le propriétaire sont repris, les scores 1–5 sont convertis dans le vocabulaire du registre et la fiche Initiative est liée comme fiche concernée. Le texte de mitigation devient une tâche de mitigation ponctuelle. Cette promotion est également idempotente, et le risque projet reste entièrement modifiable dans PPM — les deux enregistrements conservent délibérément des cycles de vie indépendants.
-
 ## Propriétaire → Todo + notification
 
 Attribuer un **propriétaire** (à la création ou ultérieurement) crée automatiquement :

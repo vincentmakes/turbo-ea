@@ -5,13 +5,6 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.30.0] - 2026-07-26
-
-### Added
-- **The PPM Risks tab now shows the landscape risks touching the project.** Below the project-risk table, a read-only **Landscape risks** block lists the GRC Risk Register entries linked to that Initiative card, so the full risk picture of a project lives on one tab. Shown only when the GRC module is enabled and the user can view the register.
-- **Promote a project risk to the Risk Register.** A project risk that turns out to be a landscape concern can be escalated in one click: the register risk is seeded from the project risk (title, description, owner, 1–5 scores mapped onto the register's probability/impact scales), the Initiative card is linked as an affected card, and mitigation text becomes a mitigation task. The action is idempotent — once promoted, the row shows an **Open risk R-000123** link instead, and the project risk stays fully editable with its own lifecycle.
-- **Risks promoted from PPM are filterable by origin** — the register's Source filter gains a **Project risk** option, and the `list_risks` API/MCP filter accepts `source_type=ppm`.
-
 ## [2.29.0] - 2026-07-26
 
 ### Added

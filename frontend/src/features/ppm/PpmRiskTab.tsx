@@ -1,12 +1,9 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
-import Tooltip from "@mui/material/Tooltip";
-import Alert from "@mui/material/Alert";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -27,12 +24,8 @@ import Slider from "@mui/material/Slider";
 import Autocomplete from "@mui/material/Autocomplete";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { api, ApiError } from "@/api/client";
-import { useAuthContext } from "@/hooks/AuthContext";
-import { useGrcEnabled } from "@/hooks/useGrcEnabled";
-import { usePermissions } from "@/hooks/usePermissions";
-import RisksTab from "@/features/cards/sections/RisksTab";
-import type { PpmRisk, Risk } from "@/types";
+import { api } from "@/api/client";
+import type { PpmRisk } from "@/types";
 
 interface UserOption {
   id: string;
@@ -62,17 +55,9 @@ interface Props {
 
 export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
   const { t } = useTranslation("ppm");
-  const navigate = useNavigate();
-  const { grcEnabled } = useGrcEnabled();
-  const { user } = useAuthContext();
-  const { can } = usePermissions(user);
-  const canViewRegister = grcEnabled && can("risks.view");
-  const canPromote = grcEnabled && can("risks.manage");
   const [dialog, setDialog] = useState<{ open: boolean; item?: PpmRisk }>({
     open: false,
   });
-  const [promotingId, setPromotingId] = useState<string | null>(null);
-  const [promoteError, setPromoteError] = useState<string | null>(null);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [form, setForm] = useState({
     title: "",
@@ -136,35 +121,8 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
     onRefresh();
   };
 
-  // Escalate a project risk into the GRC landscape register. Idempotent
-  // server-side; the row keeps its own lifecycle and gains a back-link.
-  const handlePromote = async (id: string) => {
-    setPromotingId(id);
-    setPromoteError(null);
-    try {
-      const risk = await api.post<Risk>(`/risks/promote/ppm/${id}`, {});
-      onRefresh();
-      navigate(`/grc/risks/${risk.id}`);
-    } catch (e) {
-      setPromoteError(e instanceof ApiError ? e.message : String(e));
-    } finally {
-      setPromotingId(null);
-    }
-  };
-
   return (
     <Box>
-      {/* Project risks — the initiative-scoped log. */}
-      <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
-        {t("projectRisks")}
-      </Typography>
-
-      {promoteError && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setPromoteError(null)}>
-          {promoteError}
-        </Alert>
-      )}
-
       {/* Summary */}
       <Paper
         sx={{
@@ -233,7 +191,7 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
               <TableCell>{t("riskStatus")}</TableCell>
               <TableCell>{t("riskOwner")}</TableCell>
               <TableCell>{t("mitigation")}</TableCell>
-              <TableCell width={150} />
+              <TableCell width={80} />
             </TableRow>
           </TableHead>
           <TableBody>
@@ -284,35 +242,7 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
                   </Typography>
                 </TableCell>
                 <TableCell>
-                  <Box display="flex" gap={0.5} alignItems="center">
-                    {risk.promoted_risk_id ? (
-                      canViewRegister && (
-                        <Tooltip title={t("openRisk")}>
-                          <Chip
-                            size="small"
-                            clickable
-                            variant="outlined"
-                            color="primary"
-                            label={risk.promoted_risk_reference}
-                            onClick={() =>
-                              navigate(`/grc/risks/${risk.promoted_risk_id}`)
-                            }
-                          />
-                        </Tooltip>
-                      )
-                    ) : (
-                      canPromote && (
-                        <Tooltip title={t("promoteToRegister")}>
-                          <IconButton
-                            size="small"
-                            disabled={promotingId === risk.id}
-                            onClick={() => handlePromote(risk.id)}
-                          >
-                            <MaterialSymbol icon="move_up" size={16} />
-                          </IconButton>
-                        </Tooltip>
-                      )
-                    )}
+                  <Box display="flex" gap={0.5}>
                     <IconButton size="small" onClick={() => handleOpen(risk)}>
                       <MaterialSymbol icon="edit" size={16} />
                     </IconButton>
@@ -338,21 +268,6 @@ export default function PpmRiskTab({ initiativeId, risks, onRefresh }: Props) {
           </TableBody>
         </Table>
       </TableContainer>
-
-      {/* Landscape risks — GRC register entries linked to this Initiative
-          card. Read-only surfacing of the other register, deliberately NOT a
-          merge: project risks above live and die with the project, these
-          carry the TOGAF governance lifecycle. Hidden when the GRC module is
-          off or the user lacks risks.view. */}
-      {canViewRegister && (
-        <Box sx={{ mt: 3 }}>
-          <RisksTab
-            cardId={initiativeId}
-            heading={t("landscapeRisks")}
-            emptyText={t("landscapeRisksEmpty")}
-          />
-        </Box>
-      )}
 
       {/* Dialog */}
       {dialog.open && (

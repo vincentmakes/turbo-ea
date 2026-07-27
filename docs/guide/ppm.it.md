@@ -83,10 +83,6 @@ Il registro dei rischi monitora i rischi del progetto con:
 | **Mitigazione** | Azioni di mitigazione pianificate |
 | **Responsabile** | Utente responsabile della gestione del rischio |
 
-Quando il modulo GRC è attivo, la scheda mostra due blocchi: **Rischi di progetto** (la tabella sopra) e **Rischi di paesaggio** — un elenco in sola lettura delle voci del [Registro dei rischi](risks.md) collegate a questa scheda Iniziativa, così l'intero quadro dei rischi di un progetto vive in un'unica scheda. Rischi di progetto e rischi di paesaggio restano deliberatamente registri separati: uno vive e muore con il progetto, l'altro porta il ciclo di vita di governance TOGAF.
-
-Un rischio di progetto che si rivela una questione di paesaggio può essere escalato con l'azione **Promuovi nel registro dei rischi** sulla sua riga (richiede `risks.manage`). Questo crea un rischio del registro a partire dal rischio di progetto — titolo, descrizione, proprietario, punteggi convertiti, la scheda Iniziativa collegata, e il testo di mitigazione trasformato in un'attività di mitigazione. L'azione è idempotente; una volta promosso, la riga mostra invece un chip **Apri rischio R-000123**, e il rischio di progetto resta pienamente modificabile.
-
 ### Scheda Attività
 
 ![Board Attività PPM](../assets/img/it/45_ppm_board_attivita.png)

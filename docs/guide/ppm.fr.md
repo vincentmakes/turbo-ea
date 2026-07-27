@@ -83,10 +83,6 @@ Le registre des risques suit les risques du projet avec :
 | **Atténuation** | Actions d'atténuation planifiées |
 | **Responsable** | Utilisateur responsable de la gestion du risque |
 
-Lorsque le module GRC est activé, l'onglet affiche deux blocs : **Risques projet** (le tableau ci-dessus) et **Risques du paysage** — une liste en lecture seule des entrées du [Registre des risques](risks.md) liées à cette fiche Initiative, afin que le panorama de risques complet d'un projet tienne sur un seul onglet. Risques projet et risques du paysage restent délibérément des registres distincts : l'un vit et meurt avec le projet, l'autre porte le cycle de vie de gouvernance TOGAF.
-
-Un risque projet qui s'avère être un enjeu de paysage peut être escaladé via l'action **Promouvoir au registre des risques** sur sa ligne (nécessite `risks.manage`). Cela crée un risque du registre à partir du risque projet — titre, description, propriétaire, scores convertis, la fiche Initiative liée, et le texte de mitigation transformé en tâche de mitigation. L'action est idempotente ; une fois promu, la ligne affiche à la place une puce **Ouvrir le risque R-000123**, et le risque projet reste entièrement modifiable.
-
 ### Onglet Tâches
 
 ![Tableau de tâches PPM](../assets/img/fr/45_ppm_tableau_taches.png)

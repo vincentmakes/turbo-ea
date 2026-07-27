@@ -17,15 +17,14 @@ The register implements the Architecture Risk Management process from **TOGAF AD
 
 ## Creating a risk
 
-Three paths all land in the same register — the two dialog variants prefill different fields so you can edit and submit:
+Two paths both land in the same **Create risk** dialog — each variant prefills different fields so you can edit and submit:
 
 1. **Manual** — Risks tab → **+ New risk**. Blank form.
 2. **From a compliance finding** — GRC → Compliance → **Create risk** on a non-compliant finding. Pre-fills category `compliance`, probability/impact from regulation severity + status, description from requirement + gap.
-3. **From a PPM project risk** — a PPM initiative's **Risks** tab → **Promote to risk register** on a project risk. Creates the landscape risk directly: title, description and owner carry over, the 1–5 probability × impact scores map onto the register's vocabulary, and the Initiative card is linked as an affected card. Mitigation text on the project risk becomes a one-shot mitigation task.
 
-The dialog variants include **Owner**, **Category**, and **Target resolution date** fields so you can assign accountability at creation time — no need to re-open the risk to add them.
+Both variants include **Owner**, **Category**, and **Target resolution date** fields so you can assign accountability at creation time — no need to re-open the risk to add them.
 
-Promotion is **idempotent** — once a finding or project risk has been promoted its action flips to **Open risk R-000123** and navigates straight to the risk detail page. A promoted project risk stays fully editable in PPM: the two records deliberately keep independent lifecycles (the project log tracks delivery impact, the register tracks landscape governance).
+Promotion is **idempotent** — once a finding has been promoted its button flips to **Open risk R-000123** and navigates straight to the risk detail page.
 
 ## Ownership → Todo + notification
 

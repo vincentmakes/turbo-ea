@@ -20,7 +20,6 @@ from app.models.ppm_status_report import PpmStatusReport
 from app.models.ppm_task import PpmTask
 from app.models.ppm_task_comment import PpmTaskComment
 from app.models.ppm_wbs import PpmWbs
-from app.models.risk import Risk
 from app.models.todo import Todo
 from app.models.user import User
 from app.schemas.ppm import (
@@ -443,7 +442,7 @@ async def has_costs(
 # ── Risks ──────────────────────────────────────────────────────────
 
 
-async def _risk_to_out(db: AsyncSession, risk: PpmRisk, promoted: Risk | None = None) -> PpmRiskOut:
+async def _risk_to_out(db: AsyncSession, risk: PpmRisk) -> PpmRiskOut:
     owner_name = None
     if risk.owner_id:
         u_result = await db.execute(select(User).where(User.id == risk.owner_id))
@@ -462,8 +461,6 @@ async def _risk_to_out(db: AsyncSession, risk: PpmRisk, promoted: Risk | None = 
         owner_id=str(risk.owner_id) if risk.owner_id else None,
         owner_name=owner_name,
         status=risk.status,
-        promoted_risk_id=str(promoted.id) if promoted else None,
-        promoted_risk_reference=promoted.reference if promoted else None,
         created_at=risk.created_at,
         updated_at=risk.updated_at,
     )
@@ -482,24 +479,7 @@ async def list_risks(
         .where(PpmRisk.initiative_id == initiative_id)
         .order_by(PpmRisk.risk_score.desc(), PpmRisk.created_at)
     )
-    rows = list(result.scalars().all())
-    # Back-links to the landscape register live on the GRC side
-    # (source_type="ppm" / source_ref=<ppm risk id>) — one query for the
-    # whole page, never one per row.
-    promoted: dict[str | None, Risk] = {}
-    if rows:
-        promoted = {
-            r.source_ref: r
-            for r in (
-                await db.execute(
-                    select(Risk).where(
-                        Risk.source_type == "ppm",
-                        Risk.source_ref.in_([str(x.id) for x in rows]),
-                    )
-                )
-            ).scalars()
-        }
-    return [await _risk_to_out(db, r, promoted.get(str(r.id))) for r in rows]
+    return [await _risk_to_out(db, r) for r in result.scalars().all()]
 
 
 @router.post("/initiatives/{initiative_id}/risks", response_model=PpmRiskOut)

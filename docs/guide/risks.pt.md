@@ -23,8 +23,6 @@ As três variantes incluem os campos **Proprietário**, **Categoria** e **Data-a
 
 A promoção é **idempotente** — depois que um achado é promovido, o seu botão passa a **Abrir risco R-000123** e navega diretamente para a página de detalhe do risco.
 
-Um risco também pode ser promovido a partir de um **risco de projeto PPM**: no separador **Riscos** de uma iniciativa PPM, a ação **Promover para o registo de riscos** cria um risco de paisagem diretamente a partir do risco de projeto — o título, a descrição e o proprietário transitam, as pontuações 1–5 são convertidas para o vocabulário do registo e a ficha de Iniciativa é associada como ficha afetada. O texto de mitigação torna-se uma tarefa de mitigação pontual. Esta promoção também é idempotente, e o risco de projeto continua totalmente editável no PPM — os dois registos mantêm deliberadamente ciclos de vida independentes.
-
 ## Propriedade → Todo + notificação
 
 Atribuir um **proprietário** (na criação ou mais tarde) gera automaticamente:
