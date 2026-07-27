@@ -84,6 +84,6 @@ Det **centrale ADR-register** — hvor hver ADR på tværs af landskabet filtrer
 
 Kort indeholder nu en **Resources**-fane, der konsoliderer:
 
-- **Architecture Decisions** — ADR'er linket til dette kort, vist som farvede piller, der matcher deres korttypefarver. Du kan linke eksisterende ADR'er eller oprette en ny ADR direkte fra Resources-fanen — den nye ADR linkes automatisk til kortet.
+- **Architecture Decisions** — ADR'er vises ikke længere her. Hvert kort har nu sin egen **ADRs**-fane; se [Kortdetaljer](card-details.md) for hvad den viser, og hvordan du tilknytter, opretter eller frakobler beslutninger fra et kort.
 - **Filvedhæftninger** — Upload og administrer filer (PDF, DOCX, XLSX, billeder, op til 10 MB). Når du uploader, skal du vælge en **dokumentkategori** fra: Architecture, Security, Compliance, Operations, Meeting Notes, Design eller Other. Kategorien vises som en chip ved siden af hver fil.
 - **Dokumentlinks** — URL-baserede dokumentreferencer. Når du tilføjer et link, skal du vælge en **linktype** fra: Documentation, Security, Compliance, Architecture, Operations, Support eller Other. Linktypen vises som en chip ved siden af hvert link, og ikonet skifter baseret på den valgte type.

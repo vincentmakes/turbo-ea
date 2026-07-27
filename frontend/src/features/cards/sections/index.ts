@@ -21,6 +21,7 @@ export { default as CommentsTab } from "@/features/cards/sections/CommentsTab";
 export { default as TodosTab } from "@/features/cards/sections/TodosTab";
 export { default as StakeholdersTab } from "@/features/cards/sections/StakeholdersTab";
 export { default as ResourcesTab } from "@/features/cards/sections/ResourcesTab";
+export { default as AdrsTab } from "@/features/cards/sections/AdrsTab";
 export { default as HistoryTab } from "@/features/cards/sections/HistoryTab";
 export { default as RisksTab } from "@/features/cards/sections/RisksTab";
 export { default as ComplianceTab } from "@/features/cards/sections/ComplianceTab";

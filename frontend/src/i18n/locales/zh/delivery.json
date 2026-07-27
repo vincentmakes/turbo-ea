@@ -400,6 +400,8 @@
   "adr.editor.revised": "已创建新修订版",
   "adr.editor.linkCard": "关联卡片",
   "adr.editor.unlinkCard": "取消关联",
+  "adr.editor.noLinkedCards": "没有卡片关联到此决策。",
+  "adr.editor.alreadyLinked": "已关联",
   "adr.editor.addCard": "添加卡片",
   "adr.editor.searchCards": "搜索卡片...",
   "adr.editor.signDialog.title": "请求签署",

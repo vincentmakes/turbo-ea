@@ -84,6 +84,6 @@ Il **registro principale degli ADR** — dove ogni ADR a livello di landscape vi
 
 Le card ora includono una scheda **Risorse** che consolida:
 
-- **Decisioni architetturali** — ADR collegati a questa card, visualizzati come pillole colorate corrispondenti ai colori del tipo di card. È possibile collegare ADR esistenti o crearne uno nuovo direttamente dalla scheda Risorse — il nuovo ADR viene collegato automaticamente alla card.
+- **Decisioni architetturali** — gli ADR non sono più elencati qui. Ogni card dispone ora di una propria scheda **ADR**; vedere [Dettaglio della card](card-details.md) per sapere che cosa mostra e come collegare, creare o scollegare decisioni da una card.
 - **Allegati file** — Caricate e gestite file (PDF, DOCX, XLSX, immagini, fino a 10 MB). Durante il caricamento, selezionate una **categoria documento** tra: Architettura, Sicurezza, Conformità, Operazioni, Note di riunione, Design o Altro. La categoria viene visualizzata come chip accanto a ogni file.
 - **Link ai documenti** — Riferimenti a documenti basati su URL. Quando aggiungete un link, selezionate un **tipo di link** tra: Documentazione, Sicurezza, Conformità, Architettura, Operazioni, Supporto o Altro. Il tipo di link viene visualizzato come chip accanto a ogni link e l'icona cambia in base al tipo selezionato.

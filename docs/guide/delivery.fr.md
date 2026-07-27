@@ -84,6 +84,6 @@ Le **registre principal des ADR** — où chaque ADR à l'échelle du paysage es
 
 Les cartes incluent désormais un onglet **Ressources** qui regroupe :
 
-- **Décisions d'architecture** -- ADR liés à cette carte, affichés sous forme de pilules colorées correspondant aux couleurs du type de carte. Vous pouvez lier des ADR existants ou en créer un nouveau directement depuis l'onglet Ressources -- le nouvel ADR est automatiquement lié à la carte.
+- **Décisions d'architecture** — les ADR ne sont plus listées ici. Chaque fiche dispose désormais de son propre onglet **ADR** ; voir [Détail d'une fiche](card-details.md) pour ce qu'il affiche et comment lier, créer ou dissocier des décisions depuis une fiche.
 - **Pièces jointes** -- Téléchargez et gérez des fichiers (PDF, DOCX, XLSX, images, jusqu'à 10 Mo). Lors du téléchargement, sélectionnez une **catégorie de document** parmi : Architecture, Sécurité, Conformité, Opérations, Notes de réunion, Design ou Autre. La catégorie s'affiche sous forme de puce à côté de chaque fichier.
 - **Liens de documents** -- Références de documents basées sur des URL. Lors de l'ajout d'un lien, sélectionnez un **type de lien** parmi : Documentation, Sécurité, Conformité, Architecture, Opérations, Support ou Autre. Le type de lien s'affiche sous forme de puce à côté de chaque lien, et l'icône change en fonction du type sélectionné.

@@ -400,6 +400,8 @@
   "adr.editor.revised": "Nuova revisione creata",
   "adr.editor.linkCard": "Collega scheda",
   "adr.editor.unlinkCard": "Scollega",
+  "adr.editor.noLinkedCards": "Nessuna scheda collegata a questa decisione.",
+  "adr.editor.alreadyLinked": "Già collegata",
   "adr.editor.addCard": "Aggiungi scheda",
   "adr.editor.searchCards": "Cerca schede...",
   "adr.editor.signDialog.title": "Richiedi firme",

@@ -400,6 +400,8 @@
   "adr.editor.revised": "Ny revision oprettet",
   "adr.editor.linkCard": "Tilknyt kort",
   "adr.editor.unlinkCard": "Frakobl",
+  "adr.editor.noLinkedCards": "Ingen kort tilknyttet denne beslutning.",
+  "adr.editor.alreadyLinked": "Allerede tilknyttet",
   "adr.editor.addCard": "Tilføj kort",
   "adr.editor.searchCards": "Søg kort...",
   "adr.editor.signDialog.title": "Anmod om underskrifter",

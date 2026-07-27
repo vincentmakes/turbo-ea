@@ -54,6 +54,7 @@ vi.mock("@/features/cards/sections", async () => {
     TodosTab: stub,
     StakeholdersTab: stub,
     ResourcesTab: stub,
+    AdrsTab: stub,
     HistoryTab: stub,
     RisksTab: stub,
     ComplianceTab: stub,

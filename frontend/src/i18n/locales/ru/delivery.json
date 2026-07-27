@@ -400,6 +400,8 @@
   "adr.editor.revised": "Новая редакция создана",
   "adr.editor.linkCard": "Привязать карточку",
   "adr.editor.unlinkCard": "Отвязать",
+  "adr.editor.noLinkedCards": "К этому решению не привязано ни одной карточки.",
+  "adr.editor.alreadyLinked": "Уже привязано",
   "adr.editor.addCard": "Добавить карточку",
   "adr.editor.searchCards": "Поиск карточек...",
   "adr.editor.signDialog.title": "Запрос подписей",

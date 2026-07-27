@@ -17,27 +17,11 @@ vi.mock("@/api/client", () => ({
     upload: vi.fn(),
   },
 }));
-vi.mock("@/hooks/useMetamodel", () => ({
-  useMetamodel: () => ({ types: [], relationTypes: [], invalidateCache: vi.fn() }),
-}));
 
 import { api } from "@/api/client";
 import ResourcesTab from "./ResourcesTab";
 
 const CARD_ID = "card-123";
-
-const mockAdrs = [
-  {
-    id: "adr-1",
-    reference_number: "ADR-001",
-    title: "Adopt Cloud-First Strategy",
-    status: "signed",
-    signatories: [],
-    linked_cards: [],
-    revision_number: 1,
-    created_at: "2025-09-01T10:00:00Z",
-  },
-];
 
 const mockFiles = [
   {
@@ -65,17 +49,13 @@ const mockDocs = [
 
 function renderTab(props?: {
   canManageDocuments?: boolean;
-  canManageAdrLinks?: boolean;
   canManageDiagramLinks?: boolean;
 }) {
   return render(
     <MemoryRouter>
       <ResourcesTab
         fsId={CARD_ID}
-        cardName="Test Card"
-        cardType="Application"
         canManageDocuments={props?.canManageDocuments ?? true}
-        canManageAdrLinks={props?.canManageAdrLinks ?? true}
         canManageDiagramLinks={props?.canManageDiagramLinks ?? true}
       />
     </MemoryRouter>,
@@ -95,32 +75,31 @@ const mockDiagrams = [
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.get).mockImplementation((url: string) => {
-    if (url === `/adr/by-card/${CARD_ID}`) return Promise.resolve(mockAdrs);
     if (url === `/cards/${CARD_ID}/file-attachments`) return Promise.resolve(mockFiles);
     if (url === `/cards/${CARD_ID}/documents`) return Promise.resolve(mockDocs);
     if (url === `/diagrams?card_id=${CARD_ID}`) return Promise.resolve(mockDiagrams);
-    if (url.startsWith("/adr")) return Promise.resolve([]);
     return Promise.reject(new Error(`no mock for ${url}`));
   });
 });
 
 describe("ResourcesTab", () => {
-  it("renders four accordion sections", async () => {
+  it("renders the three accordion sections", async () => {
     renderTab();
     await waitFor(() => {
-      expect(screen.getByText(/Architecture Decisions/)).toBeInTheDocument();
       expect(screen.getByText(/File Attachments/)).toBeInTheDocument();
       expect(screen.getByText(/Document Links/)).toBeInTheDocument();
       expect(screen.getByText(/Diagrams/)).toBeInTheDocument();
     });
   });
 
-  it("displays linked ADRs", async () => {
+  it("no longer renders the Architecture Decisions section", async () => {
     renderTab();
     await waitFor(() => {
-      expect(screen.getByText("ADR-001")).toBeInTheDocument();
-      expect(screen.getByText("Adopt Cloud-First Strategy")).toBeInTheDocument();
+      expect(screen.getByText(/File Attachments/)).toBeInTheDocument();
     });
+    // ADRs moved to their own card tab — see AdrsTab.
+    expect(screen.queryByText(/Architecture Decisions/)).not.toBeInTheDocument();
+    expect(api.get).not.toHaveBeenCalledWith(`/adr/by-card/${CARD_ID}`);
   });
 
   it("displays file attachments with size", async () => {
@@ -138,13 +117,6 @@ describe("ResourcesTab", () => {
     });
   });
 
-  it("shows ADR status chip", async () => {
-    renderTab();
-    await waitFor(() => {
-      expect(screen.getByText("signed")).toBeInTheDocument();
-    });
-  });
-
   it("displays linked diagrams", async () => {
     renderTab();
     await waitFor(() => {
@@ -155,7 +127,6 @@ describe("ResourcesTab", () => {
   it("fetches data on mount including diagrams", async () => {
     renderTab();
     await waitFor(() => {
-      expect(api.get).toHaveBeenCalledWith(`/adr/by-card/${CARD_ID}`);
       expect(api.get).toHaveBeenCalledWith(`/cards/${CARD_ID}/file-attachments`);
       expect(api.get).toHaveBeenCalledWith(`/cards/${CARD_ID}/documents`);
       expect(api.get).toHaveBeenCalledWith(`/diagrams?card_id=${CARD_ID}`);
@@ -166,7 +137,7 @@ describe("ResourcesTab", () => {
     vi.mocked(api.get).mockResolvedValue([]);
     renderTab();
     await waitFor(() => {
-      expect(screen.getByText(/No architecture decisions/)).toBeInTheDocument();
+      expect(screen.getByText(/No file attachments/)).toBeInTheDocument();
     });
   });
 });

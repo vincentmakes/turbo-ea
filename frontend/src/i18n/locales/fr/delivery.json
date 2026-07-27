@@ -400,6 +400,8 @@
   "adr.editor.revised": "Nouvelle révision créée",
   "adr.editor.linkCard": "Lier une fiche",
   "adr.editor.unlinkCard": "Délier",
+  "adr.editor.noLinkedCards": "Aucune fiche liée à cette décision.",
+  "adr.editor.alreadyLinked": "Déjà liée",
   "adr.editor.addCard": "Ajouter une fiche",
   "adr.editor.searchCards": "Rechercher des fiches…",
   "adr.editor.signDialog.title": "Demander des signatures",

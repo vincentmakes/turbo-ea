@@ -68,6 +68,31 @@ async def _resolve_card_ids(db: AsyncSession, card_ids: list[str]) -> list[uuid.
     return parsed
 
 
+async def _publish_adr_card_event(
+    db: AsyncSession,
+    adr: ArchitectureDecision,
+    event_type: str,
+    card_id: uuid.UUID,
+    *,
+    actor_id: uuid.UUID,
+) -> None:
+    """Fan an ADR link/unlink out to the affected card so the decision shows up
+    in that card's history timeline (and drives the ADRs tab activity dot)."""
+    await event_bus.publish(
+        event_type,
+        {
+            "adr_id": str(adr.id),
+            "reference_number": adr.reference_number,
+            "title": adr.title,
+            "status": adr.status,
+            "link": f"/ea-delivery/adr/{adr.id}",
+        },
+        db=db,
+        card_id=card_id,
+        user_id=actor_id,
+    )
+
+
 async def _get_adr(db: AsyncSession, adr_id: str) -> ArchitectureDecision:
     result = await db.execute(
         select(ArchitectureDecision).where(ArchitectureDecision.id == uuid.UUID(adr_id))
@@ -945,6 +970,8 @@ async def link_card(
     )
     db.add(link)
     await db.commit()
+
+    await _publish_adr_card_event(db, adr, "adr.linked", uuid.UUID(body.card_id), actor_id=user.id)
     return await _adr_to_dict(db, adr)
 
 
@@ -957,9 +984,12 @@ async def unlink_card(
 ):
     """Unlink an ADR from a card."""
     await PermissionService.require_permission(db, user, "adr.manage")
+    # Read the ADR up front — after the delete + commit its reference/title are
+    # still needed for the card-history event.
+    adr = await _get_adr(db, adr_id)
     result = await db.execute(
         select(ArchitectureDecisionCard).where(
-            ArchitectureDecisionCard.architecture_decision_id == uuid.UUID(adr_id),
+            ArchitectureDecisionCard.architecture_decision_id == adr.id,
             ArchitectureDecisionCard.card_id == uuid.UUID(card_id),
         )
     )
@@ -968,6 +998,8 @@ async def unlink_card(
         raise HTTPException(404, "Link not found")
     await db.delete(link)
     await db.commit()
+
+    await _publish_adr_card_event(db, adr, "adr.unlinked", uuid.UUID(card_id), actor_id=user.id)
 
 
 # ---------------------------------------------------------------------------
@@ -983,13 +1015,17 @@ async def list_adrs_for_card(
 ):
     """Get all ADRs linked to a specific card."""
     await PermissionService.require_permission(db, user, "adr.view")
+    try:
+        cid = uuid.UUID(card_id)
+    except ValueError as exc:
+        raise HTTPException(400, "Invalid card id") from exc
     stmt = (
         select(ArchitectureDecision)
         .join(
             ArchitectureDecisionCard,
             ArchitectureDecisionCard.architecture_decision_id == ArchitectureDecision.id,
         )
-        .where(ArchitectureDecisionCard.card_id == uuid.UUID(card_id))
+        .where(ArchitectureDecisionCard.card_id == cid)
         .order_by(ArchitectureDecision.reference_number)
     )
     result = await db.execute(stmt)

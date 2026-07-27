@@ -400,6 +400,8 @@
   "adr.editor.revised": "New revision created",
   "adr.editor.linkCard": "Link Card",
   "adr.editor.unlinkCard": "Unlink",
+  "adr.editor.noLinkedCards": "No cards linked to this decision.",
+  "adr.editor.alreadyLinked": "Already linked",
   "adr.editor.addCard": "Add Card",
   "adr.editor.searchCards": "Search cards...",
   "adr.editor.signDialog.title": "Request Signatures",

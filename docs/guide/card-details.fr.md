@@ -99,7 +99,6 @@ Appliquez des tags à partir des [groupes de tags](../admin/tags.md) configurés
 
 L'onglet **Ressources** regroupe tous les documents de support d'une fiche :
 
-- **Décisions d'architecture** -- ADR liés à cette fiche, affichés sous forme de pilules colorées correspondant aux couleurs du type de carte (par ex. bleu pour Application, violet pour Objet de données). Vous pouvez lier des ADR existants ou en créer un nouveau directement depuis l'onglet Ressources -- le nouvel ADR est automatiquement lié à la fiche.
 - **Pièces jointes** -- Téléchargez et gérez des fichiers (PDF, DOCX, XLSX, images, jusqu'à 10 Mo). Lors du téléchargement, sélectionnez une **catégorie de document** parmi : Architecture, Sécurité, Conformité, Opérations, Notes de réunion, Design ou Autre. La catégorie s'affiche sous forme de puce à côté de chaque fichier.
 - **Liens de documents** -- Références de documents basées sur des URL. Lors de l'ajout d'un lien, sélectionnez un **type de lien** parmi : Documentation, Sécurité, Conformité, Architecture, Opérations, Support ou Autre. Le type de lien s'affiche sous forme de puce à côté de chaque lien, et l'icône change en fonction du type sélectionné.
 - **Diagrammes** -- Liez des [diagrammes](diagrams.fr.md) existants à cette fiche. Les diagrammes liés s'affichent sous forme de miniatures que vous pouvez cliquer pour ouvrir dans l'éditeur de diagrammes. Utilisez le bouton **Lier un diagramme** pour rechercher et attacher un diagramme existant, ou cliquez sur l'icône de déliaison pour supprimer l'association.
@@ -155,6 +154,12 @@ Le chemin d'invitation nécessite la permission **`users.invite`**, une forme d�
 ![Historique des modifications de la fiche](../assets/img/fr/08_fiche_historique.png)
 
 Affiche la **piste d'audit complète** des modifications apportées à la fiche : **qui** a effectué la modification, **quand** elle a été effectuée, et **ce qui** a été modifié (valeur précédente vs nouvelle valeur). Cela permet une traçabilité complète de toutes les modifications au fil du temps.
+
+## Onglet ADR
+
+Chaque fiche dispose d'un onglet **ADR** qui répertorie les [décisions d'architecture](delivery.md) qui lui sont liées, avec la référence, le titre, le statut, toutes les fiches liées et la date de dernière modification. Cliquez sur une ligne pour ouvrir la décision.
+
+Si vous êtes autorisé à gérer les liens ADR, l'onglet propose également **Lier une ADR** pour rattacher une décision existante et **Créer une ADR** pour en créer une déjà liée à cette fiche, ainsi qu'une action de dissociation sur chaque ligne. Sur les fiches sans décision liée, l'onglet est masqué sauf si vous disposez de cette permission : les utilisateurs en lecture seule ne voient donc jamais d'onglet vide.
 
 ## Onglet Risques (GRC activé, le cas échéant)
 

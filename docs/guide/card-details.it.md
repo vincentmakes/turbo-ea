@@ -99,7 +99,6 @@ Applicate tag dai [gruppi di tag](../admin/tags.md) configurati. A seconda della
 
 La scheda **Risorse** consolida tutti i materiali di supporto per una card:
 
-- **Decisioni architetturali** — ADR collegati a questa card, visualizzati come pillole colorate corrispondenti ai colori del tipo di card (es. blu per Applicazione, viola per Oggetto Dati). È possibile collegare ADR esistenti o crearne uno nuovo direttamente dalla scheda Risorse — il nuovo ADR viene collegato automaticamente alla card.
 - **Allegati file** — Caricate e gestite file (PDF, DOCX, XLSX, immagini, fino a 10 MB). Durante il caricamento, selezionate una **categoria documento** tra: Architettura, Sicurezza, Conformità, Operazioni, Note di riunione, Design o Altro. La categoria viene visualizzata come chip accanto a ogni file.
 - **Link ai documenti** — Riferimenti a documenti basati su URL. Quando aggiungete un link, selezionate un **tipo di link** tra: Documentazione, Sicurezza, Conformità, Architettura, Operazioni, Supporto o Altro. Il tipo di link viene visualizzato come chip accanto a ogni link e l'icona cambia in base al tipo selezionato.
 - **Diagrammi** — Collegate [diagrammi](diagrams.it.md) esistenti a questa card. I diagrammi collegati vengono visualizzati come anteprime in miniatura che potete cliccare per aprire nell'editor di diagrammi. Usate il pulsante **Collega diagramma** per cercare e allegare un diagramma esistente, oppure cliccate sull'icona di scollegamento per rimuovere l'associazione.
@@ -155,6 +154,12 @@ Il percorso di invito richiede il permesso **`users.invite`**, una forma delegat
 ![Cronologia modifiche della card](../assets/img/it/08_scheda_cronologia.png)
 
 Mostra il **registro di audit completo** delle modifiche apportate alla card: **chi** ha effettuato la modifica, **quando** è stata fatta e **cosa** è stato modificato (valore precedente vs. nuovo valore). Questo consente la completa tracciabilità di tutte le modifiche nel tempo.
+
+## Scheda ADR
+
+Ogni card dispone di una scheda **ADR** che elenca le [decisioni architetturali](delivery.md) collegate, mostrando riferimento, titolo, stato, tutte le card collegate e la data dell'ultima modifica. Fare clic su una riga per aprire la decisione.
+
+Se si è autorizzati a gestire i collegamenti ADR, la scheda offre anche **Collega ADR** per allegare una decisione esistente e **Crea ADR** per crearne una già collegata a questa card, oltre a un'azione di scollegamento su ogni riga. Sulle card prive di decisioni collegate la scheda resta nascosta a meno che non si disponga di tale autorizzazione, così gli utenti in sola lettura non vedono mai una scheda vuota.
 
 ## Scheda Rischi (GRC abilitato, quando presente)
 

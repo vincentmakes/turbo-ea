@@ -887,6 +887,43 @@ class TestCardLinking:
         assert "Card ADR 1" in titles
         assert "Card ADR 2" in titles
 
+    async def test_list_adrs_for_card_rejects_malformed_id(self, client, db, card_env):
+        """A non-UUID card id is a 400, not an unhandled ValueError → 500."""
+        resp = await client.get(
+            "/api/v1/adr/by-card/not-a-uuid",
+            headers=auth_headers(card_env["admin"]),
+        )
+        assert resp.status_code == 400
+
+    async def test_link_and_unlink_land_in_card_history(self, client, db, card_env):
+        """Linking/unlinking fans out to the card timeline so the card's ADRs
+        tab can surface new activity."""
+        admin = card_env["admin"]
+        card = card_env["card"]
+
+        adr_id = (await _create_adr(client, admin, title="History ADR")).json()["id"]
+
+        await client.post(
+            f"/api/v1/adr/{adr_id}/cards",
+            json={"card_id": str(card.id)},
+            headers=auth_headers(admin),
+        )
+        resp = await client.get(f"/api/v1/cards/{card.id}/history", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        linked = [e for e in resp.json() if e["event_type"] == "adr.linked"]
+        assert len(linked) == 1
+        assert linked[0]["data"]["adr_id"] == adr_id
+        assert linked[0]["data"]["reference_number"] == "ADR-001"
+
+        await client.delete(
+            f"/api/v1/adr/{adr_id}/cards/{card.id}",
+            headers=auth_headers(admin),
+        )
+        resp = await client.get(f"/api/v1/cards/{card.id}/history", headers=auth_headers(admin))
+        unlinked = [e for e in resp.json() if e["event_type"] == "adr.unlinked"]
+        assert len(unlinked) == 1
+        assert unlinked[0]["data"]["adr_id"] == adr_id
+
 
 # -------------------------------------------------------------------
 # Extension attributes bag (ext.* namespaced JSONB)

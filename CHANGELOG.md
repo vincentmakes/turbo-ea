@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.32.0] - 2026-07-27
+
+### Added
+- **An ADRs tab on every card.** Architecture Decision Records linked to a card now have their own tab, next to Resources, listing each decision's reference, title, status, all of its linked cards and when it was last modified. Click a row to open the decision. Previously ADRs were an accordion buried inside the Resources tab, sharing space with files, links and diagrams — the same visibility Risks already had for the risk register.
+- **Link, create and unlink decisions from the card.** The tab offers **Link ADR** to attach an existing decision and **Create ADR** to start a new one pre-linked to the card, plus an unlink action on each row. The tab stays visible on a card with no decisions when you are allowed to manage ADR links, so the first decision is always one click away; users who can only read never see an empty tab.
+- **ADR links now appear in the card's History tab.** Linking or unlinking a decision is recorded against the affected card, and the ADRs tab carries the same "new activity" dot as Comments, Stakeholders and Risks.
+
+### Changed
+- **Architecture Decisions moved out of the Resources tab.** Resources now covers file attachments, document links, diagrams and ServiceNow links only.
+
+### Fixed
+- **The ADR editor showed raw translation keys** where it should have said "No cards linked to this decision" and "Already linked" — both strings were being looked up in the wrong namespace.
+- **`GET /adr/by-card/{id}` returned a server error for a malformed card id** instead of a 400.
+
 ## [2.31.0] - 2026-07-27
 
 ### Added

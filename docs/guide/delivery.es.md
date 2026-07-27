@@ -84,6 +84,6 @@ El **registro maestro de ADR** — donde cada ADR del paisaje se filtra, busca, 
 
 Las tarjetas ahora incluyen una pestaña de **Recursos** que consolida:
 
-- **Decisiones de Arquitectura** — ADR vinculados a esta tarjeta, mostrados como píldoras de color que coinciden con los colores del tipo de tarjeta. Puede vincular ADR existentes o crear uno nuevo directamente desde la pestaña de Recursos — el nuevo ADR se vincula automáticamente a la tarjeta.
+- **Decisiones de Arquitectura** — los ADR ya no se listan aquí. Ahora cada ficha tiene su propia pestaña **ADR**; consulte [Detalle de la ficha](card-details.md) para ver qué muestra y cómo vincular, crear o desvincular decisiones desde una ficha.
 - **Archivos Adjuntos** — Cargue y gestione archivos (PDF, DOCX, XLSX, imágenes, hasta 10 MB). Al cargar, seleccione una **categoría de documento** entre: Arquitectura, Seguridad, Compliance, Operaciones, Notas de Reunión, Diseño u Otro. La categoría aparece como un chip junto a cada archivo.
 - **Enlaces de Documentos** — Referencias de documentos basadas en URL. Al agregar un enlace, seleccione un **tipo de enlace** entre: Documentación, Seguridad, Compliance, Arquitectura, Operaciones, Soporte u Otro. El tipo de enlace aparece como un chip junto a cada enlace, y el icono cambia según el tipo seleccionado.

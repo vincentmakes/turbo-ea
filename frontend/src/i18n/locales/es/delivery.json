@@ -400,6 +400,8 @@
   "adr.editor.revised": "Nueva revisión creada",
   "adr.editor.linkCard": "Vincular ficha",
   "adr.editor.unlinkCard": "Desvincular",
+  "adr.editor.noLinkedCards": "No hay fichas vinculadas a esta decisión.",
+  "adr.editor.alreadyLinked": "Ya vinculada",
   "adr.editor.addCard": "Agregar ficha",
   "adr.editor.searchCards": "Buscar fichas...",
   "adr.editor.signDialog.title": "Solicitar firmas",

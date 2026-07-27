@@ -400,6 +400,8 @@
   "adr.editor.revised": "Neue Revision erstellt",
   "adr.editor.linkCard": "Karte verknüpfen",
   "adr.editor.unlinkCard": "Verknüpfung aufheben",
+  "adr.editor.noLinkedCards": "Keine Karten mit dieser Entscheidung verknüpft.",
+  "adr.editor.alreadyLinked": "Bereits verknüpft",
   "adr.editor.addCard": "Karte hinzufügen",
   "adr.editor.searchCards": "Karten suchen...",
   "adr.editor.signDialog.title": "Unterschriften anfordern",

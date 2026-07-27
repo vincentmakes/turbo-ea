@@ -626,7 +626,7 @@ export default function ADREditor() {
           </Box>
           {linkedCards.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
-              {t("resources.emptyAdr")}
+              {t("adr.editor.noLinkedCards")}
             </Typography>
           ) : (
             <List dense>
@@ -782,7 +782,7 @@ export default function ADREditor() {
                   />
                   {alreadyLinked && (
                     <Chip
-                      label={t("resources.linkAdrDialog.alreadyLinked")}
+                      label={t("adr.editor.alreadyLinked")}
                       size="small"
                       variant="outlined"
                     />

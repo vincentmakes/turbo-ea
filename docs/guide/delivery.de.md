@@ -84,6 +84,6 @@ Das **zentrale ADR-Register** — wo alle ADRs landschaftsweit gefiltert, durchs
 
 Karten enthalten jetzt eine **Ressourcen**-Registerkarte, die Folgendes zusammenfasst:
 
-- **Architekturentscheidungen** — mit dieser Karte verknüpfte ADRs, dargestellt als farbige Pillen, die den Kartentypfarben entsprechen. Sie können bestehende ADRs verknüpfen oder ein neues ADR direkt über die Ressourcen-Registerkarte erstellen — das neue ADR wird automatisch mit der Karte verknüpft.
+- **Architekturentscheidungen** — ADRs werden hier nicht mehr aufgeführt. Jede Karte besitzt jetzt einen eigenen **ADRs**-Tab; siehe [Kartendetails](card-details.md) dazu, was er anzeigt und wie Sie Entscheidungen mit einer Karte verknüpfen, erstellen oder die Verknüpfung aufheben.
 - **Dateianhänge** — Dateien hochladen und verwalten (PDF, DOCX, XLSX, Bilder, bis zu 10 MB). Beim Hochladen wählen Sie eine **Dokumentenkategorie** aus: Architektur, Sicherheit, Compliance, Betrieb, Besprechungsnotizen, Design oder Sonstiges. Die Kategorie wird als Chip neben jeder Datei angezeigt.
 - **Dokumentenlinks** — URL-basierte Dokumentenverweise. Beim Hinzufügen eines Links wählen Sie einen **Linktyp** aus: Dokumentation, Sicherheit, Compliance, Architektur, Betrieb, Support oder Sonstiges. Der Linktyp wird als Chip neben jedem Link angezeigt, und das Symbol ändert sich je nach ausgewähltem Typ.

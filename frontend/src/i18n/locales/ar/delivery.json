@@ -400,6 +400,8 @@
   "adr.editor.revised": "تم إنشاء مراجعة جديدة",
   "adr.editor.linkCard": "ربط بطاقة",
   "adr.editor.unlinkCard": "إلغاء الربط",
+  "adr.editor.noLinkedCards": "لا توجد بطاقات مرتبطة بهذا القرار.",
+  "adr.editor.alreadyLinked": "مرتبط بالفعل",
   "adr.editor.addCard": "إضافة بطاقة",
   "adr.editor.searchCards": "البحث في البطاقات...",
   "adr.editor.signDialog.title": "طلب التوقيعات",

@@ -18,6 +18,8 @@ const EVENT_TAB_MAP: Record<string, string> = {
   "risk.added": "risks",
   "risk.updated": "risks",
   "risk.removed": "risks",
+  "adr.linked": "adrs",
+  "adr.unlinked": "adrs",
   "document.added": "resources",
   "document.removed": "resources",
   "file.uploaded": "resources",

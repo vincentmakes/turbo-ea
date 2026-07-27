@@ -99,7 +99,6 @@ Apply tags from the configured [tag groups](../admin/tags.md). Depending on the 
 
 The **Resources** tab consolidates all supporting materials for a card:
 
-- **Architecture Decisions** — ADRs linked to this card, displayed as colored pills matching their card type colors (e.g., blue for Application, purple for Data Object). You can link existing ADRs or create a new ADR directly from the Resources tab — the new ADR is automatically linked to the card.
 - **File Attachments** — Upload and manage files (PDF, DOCX, XLSX, images, up to 10 MB). When uploading, select a **document category** from: Architecture, Security, Compliance, Operations, Meeting Notes, Design, or Other. The category appears as a chip next to each file.
 - **Document Links** — URL-based document references. When adding a link, select a **link type** from: Documentation, Security, Compliance, Architecture, Operations, Support, or Other. The link type appears as a chip next to each link, and the icon changes based on the selected type.
 - **Diagrams** — Link existing [diagrams](diagrams.md) to this card. Linked diagrams appear as thumbnail previews that you can click to open in the diagram editor. Use the **Link Diagram** button to search for and attach an existing diagram, or click the unlink icon to remove the association.
@@ -155,6 +154,12 @@ The invite path requires the **`users.invite`** permission, a delegated form of 
 ![Card Change History](../assets/img/en/08_card_history.png)
 
 Shows the **complete audit trail** of changes made to the card: **who** made the change, **when** it was made, and **what** was modified (previous value vs. new value). This enables full traceability of all modifications over time.
+
+## ADRs Tab
+
+Every card carries an **ADRs** tab listing the [Architecture Decision Records](delivery.md) linked to it, showing each decision's reference, title, status, all of its linked cards, and when it was last modified. Click a row to open the decision.
+
+If you are allowed to manage ADR links, the tab also offers **Link ADR** to attach an existing decision and **Create ADR** to start a new one that is pre-linked to this card, plus an unlink action on every row. On cards with no linked decisions the tab is hidden unless you hold that permission, so read-only users never see an empty tab.
 
 ## Risks Tab (GRC enabled, when present)
 

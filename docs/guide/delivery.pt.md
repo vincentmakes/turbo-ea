@@ -84,6 +84,6 @@ O **registo principal de ADR** — onde cada ADR a nível do panorama é filtrad
 
 Os cards agora incluem uma aba de **Recursos** que consolida:
 
-- **Decisões de Arquitetura** — ADR vinculados a este card, exibidos como pílulas coloridas correspondentes às cores do tipo de card. Você pode vincular ADRs existentes ou criar um novo diretamente a partir da aba Recursos — o novo ADR é vinculado automaticamente ao card.
+- **Decisões de Arquitetura** — os ADR não são mais listados aqui. Agora cada card tem sua própria aba **ADR**; consulte [Detalhe do card](card-details.md) para ver o que ela mostra e como vincular, criar ou desvincular decisões a partir de um card.
 - **Anexos de Arquivos** — Carregue e gerencie arquivos (PDF, DOCX, XLSX, imagens, até 10 MB). Ao carregar, selecione uma **categoria de documento** entre: Arquitetura, Segurança, Conformidade, Operações, Notas de Reunião, Design ou Outro. A categoria aparece como um chip ao lado de cada arquivo.
 - **Links de Documentos** — Referências de documentos baseadas em URL. Ao adicionar um link, selecione um **tipo de link** entre: Documentação, Segurança, Conformidade, Arquitetura, Operações, Suporte ou Outro. O tipo de link aparece como um chip ao lado de cada link, e o ícone muda de acordo com o tipo selecionado.
