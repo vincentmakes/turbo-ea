@@ -29,9 +29,7 @@ depends_on: Union[str, None] = None
 
 
 def upgrade() -> None:
-    op.execute(
-        sa.text("UPDATE risks SET source_type = 'manual' WHERE source_type = 'ppm'")
-    )
+    op.execute(sa.text("UPDATE risks SET source_type = 'manual' WHERE source_type = 'ppm'"))
 
 
 def downgrade() -> None:
