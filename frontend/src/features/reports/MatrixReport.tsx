@@ -23,8 +23,8 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
+import { useApiQuery } from "@/hooks/useApiQuery";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
-import { api } from "@/api/client";
 import {
   type MatrixItem,
   type TreeNode,
@@ -128,7 +128,6 @@ export default function MatrixReport() {
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [rowType, setRowType] = useState("Application");
   const [colType, setColType] = useState("BusinessCapability");
-  const [data, setData] = useState<MatrixData | null>(null);
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
   const [cellMode, setCellMode] = useState<CellMode>("exists");
   const [hideEmpty, setHideEmpty] = useState(false);
@@ -214,9 +213,16 @@ export default function MatrixReport() {
     setColExpandedDepth(Infinity);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    api.get<MatrixData>(`/reports/matrix?row_type=${rowType}&col_type=${colType}`).then(setData);
-  }, [rowType, colType]);
+  // The axis labels below render from `rowType`/`colType`, so data for the
+  // previous axes must never survive a switch — it would draw a complete,
+  // convincing matrix under the wrong headers with nothing to signal it.
+  // `keepPreviousData: false` falls back to the existing spinner instead, and
+  // the hook discards a superseded response outright (#882).
+  const { data: matrixData, loading: matrixLoading } = useApiQuery<MatrixData>(
+    `/reports/matrix?row_type=${rowType}&col_type=${colType}`,
+    { keepPreviousData: false },
+  );
+  const data = matrixData ?? null;
 
   // Reset depth when switching types
   useEffect(() => {
@@ -467,7 +473,7 @@ export default function MatrixReport() {
     return params;
   }, [rowLabel, colLabel, cellMode, sortRows, sortCols, hideEmpty, t]);
 
-  if (ml || data === null)
+  if (ml || matrixLoading || data === null)
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
 
   const isHierarchyRowMode = sortRows === "hierarchy" && rowHasHierarchy && rowTreeFull !== null && rowTreeFull.maxDepth > 0;

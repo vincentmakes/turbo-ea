@@ -14,9 +14,10 @@ vi.mock("react-router", async () => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
-vi.mock("@/api/client", () => ({
-  api: { get: vi.fn(), post: vi.fn() },
-}));
+vi.mock("@/api/client", async () => {
+  const actual = await vi.importActual<typeof import("@/api/client")>("@/api/client");
+  return { ...actual, api: { get: vi.fn(), post: vi.fn() } };
+});
 
 vi.mock("@/hooks/useMetamodel", () => ({
   useMetamodel: vi.fn(),
@@ -192,8 +193,23 @@ describe("PortfolioReport", () => {
     renderPortfolio();
 
     await waitFor(() => {
-      expect(api.get).toHaveBeenCalledWith("/reports/app-portfolio?type=Application");
+      expect(api.get).toHaveBeenCalledWith(
+        "/reports/app-portfolio?type=Application",
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      );
     });
+  });
+
+  it("shows an error instead of spinning forever when the fetch fails", async () => {
+    // The report cleared `data` on every type switch and never caught a
+    // failure, so a failed request left it on the spinner permanently.
+    vi.mocked(api.get).mockRejectedValueOnce(new Error("boom"));
+    renderPortfolio();
+
+    await waitFor(() => {
+      expect(screen.getByText("An error occurred")).toBeInTheDocument();
+    });
+    expect(document.querySelector(".MuiCircularProgress-root")).toBeNull();
   });
 
   it("renders app chips in chart view", async () => {

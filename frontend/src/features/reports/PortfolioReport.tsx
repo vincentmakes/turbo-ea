@@ -34,10 +34,11 @@ import TagPicker from "@/components/TagPicker";
 import type { TagGroup } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
-import { api } from "@/api/client";
+import { api, isAbortError } from "@/api/client";
 import { readableTextColor } from "@/lib/color";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTimeline } from "@/hooks/useTimeline";
 import {
@@ -562,6 +563,7 @@ export default function PortfolioReport({
   // gate the defaults- and persist-effects so they don't fire while data is
   // stale (between picking a new type and the fresh fetch resolving).
   const [dataCardType, setDataCardType] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [drawer, setDrawer] = useState<DrawerData | null>(null);
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
   const [view, setView] = useState<"chart" | "table">("chart");
@@ -673,24 +675,33 @@ export default function PortfolioReport({
   }, [saved, initialCardType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch data — refetches whenever the user picks a different card type.
-  useEffect(() => {
-    let cancelled = false;
-    const fetchedFor = cardType;
-    setData(null);
-    setDataCardType(null);
-    setAiInsights(null);
-    setAiOpen(false);
-    api
-      .get<ApiResponse>(`/reports/app-portfolio?type=${encodeURIComponent(cardType)}`)
-      .then((r) => {
-        if (cancelled) return;
+  // A superseded request is aborted and its response discarded, so switching
+  // types quickly can't leave the chart showing the previous type (#882).
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      const fetchedFor = cardType;
+      setData(null);
+      setDataCardType(null);
+      setLoadFailed(false);
+      setAiInsights(null);
+      setAiOpen(false);
+      try {
+        const r = await api.get<ApiResponse>(
+          `/reports/app-portfolio?type=${encodeURIComponent(cardType)}`,
+          { signal },
+        );
+        if (!isCurrent()) return;
         setData(r);
         setDataCardType(fetchedFor);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [cardType]);
+      } catch (err) {
+        if (!isCurrent() || isAbortError(err)) return;
+        // Without this the report spun forever: `data` stayed null and nothing
+        // ever reset it.
+        setLoadFailed(true);
+      }
+    },
+    [cardType],
+  );
 
   // Switching card types invalidates field/relation/tag selections because
   // the keys they reference don't exist on the new type. Clear them so the
@@ -1242,6 +1253,13 @@ export default function PortfolioReport({
     if (activeFilterCount > 0) params.push({ label: t("common.filters"), value: t("common.filtersActive", { count: activeFilterCount }) });
     return params;
   }, [groupByLabel, nestedActive, depthLabel, colorBy, colorByLabel, search, tl.printParam, view, activeFilterCount, t]);
+
+  if (loadFailed)
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+        <Alert severity="error">{t("common:errors.occurred")}</Alert>
+      </Box>
+    );
 
   if (!data)
     return (
