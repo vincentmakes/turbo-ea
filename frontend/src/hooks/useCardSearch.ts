@@ -51,7 +51,12 @@ export function useCardSearch({ types, search, enabled, pageSize = 1000 }: Optio
 
   const fetchPage = useCallback(
     async (pageNum: number, append: boolean) => {
-      if (inflight.current) return;
+      // Only a duplicate scroll-sentinel `loadMore` may be dropped. Dropping a
+      // *filter* change was a bug: the request was discarded and never retried,
+      // so the picker kept showing results for the query the user had already
+      // replaced. A fresh page-1 request supersedes instead — the token check
+      // below discards whichever response loses.
+      if (append && inflight.current) return;
       inflight.current = true;
       const token = ++requestToken.current;
       setLoading(true);
@@ -81,8 +86,12 @@ export function useCardSearch({ types, search, enabled, pageSize = 1000 }: Optio
           setTotal(0);
         }
       } finally {
-        if (token === requestToken.current) setLoading(false);
-        inflight.current = false;
+        // Only the winner owns the flags — a superseded request settling first
+        // must not report "idle" while the current one is still running.
+        if (token === requestToken.current) {
+          setLoading(false);
+          inflight.current = false;
+        }
       }
     },
     [typeKey, trimmedSearch, pageSize],

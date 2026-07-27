@@ -132,3 +132,45 @@ describe("useCardSearch", () => {
     expect(result.current.items.map((c) => c.id)).toEqual(["1", "2", "3"]);
   });
 });
+
+describe("useCardSearch superseding", () => {
+  beforeEach(() => {
+    vi.mocked(api.get).mockReset();
+  });
+
+  it("refetches when the query changes mid-flight instead of dropping it", async () => {
+    // The in-flight guard used to drop the new query outright and never retry,
+    // so the picker kept showing results for the query the user had already
+    // replaced. This backs CardPicker, VendorField and the diagram card
+    // sidebar, so it was reachable from nearly every picker in the app.
+    let releaseFirst: (v: unknown) => void = () => {};
+    const first = new Promise((r) => {
+      releaseFirst = r;
+    });
+    vi.mocked(api.get)
+      .mockImplementationOnce(() => first as Promise<never>)
+      .mockResolvedValue(page([{ id: "b", name: "Beta", type: "Application" }], 1));
+
+    const { result, rerender } = renderHook(
+      ({ search }) => useCardSearch({ types: ["Application"], search, enabled: true }),
+      { initialProps: { search: "al" } },
+    );
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(1));
+
+    rerender({ search: "beta" });
+
+    // The second query must actually be issued, not swallowed.
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(api.get).mock.calls[1][0]).toContain("search=beta");
+    await waitFor(() => expect(result.current.items).toHaveLength(1));
+    expect(result.current.items[0].name).toBe("Beta");
+
+    // The superseded response landing last must not replace the fresh results.
+    await act(async () => {
+      releaseFirst(page([{ id: "a", name: "Alpha", type: "Application" }], 1));
+      await first;
+    });
+    expect(result.current.items[0].name).toBe("Beta");
+    expect(result.current.loading).toBe(false);
+  });
+});

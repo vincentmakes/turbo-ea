@@ -20,6 +20,7 @@ import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { formatRecurrence } from "@/lib/recurrence/recurrenceLabel";
 import type { RecurrenceUnit, Todo, MySurveyItem } from "@/types";
@@ -60,15 +61,22 @@ function TodosPanel() {
   const currentStatus = tab === 0 ? assignedStatus : createdStatus;
   const setCurrentStatus = tab === 0 ? setAssignedStatus : setCreatedStatus;
 
-  useEffect(() => {
-    const scope = tab === 0 ? "assigned_only=true" : "created_only=true";
-    // "upcoming" maps to the dormant scheduled state; "all" omits the filter.
-    const statusParam =
-      currentStatus === "all"
-        ? ""
-        : `&status=${currentStatus === "upcoming" ? "scheduled" : currentStatus}`;
-    api.get<Todo[]>(`/todos?${scope}${statusParam}`).then(setTodos);
-  }, [tab, currentStatus]);
+  // Flipping tab or status filter quickly must not let the earlier request
+  // land last and show the wrong list (#882).
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      const scope = tab === 0 ? "assigned_only=true" : "created_only=true";
+      // "upcoming" maps to the dormant scheduled state; "all" omits the filter.
+      const statusParam =
+        currentStatus === "all"
+          ? ""
+          : `&status=${currentStatus === "upcoming" ? "scheduled" : currentStatus}`;
+      const res = await api.get<Todo[]>(`/todos?${scope}${statusParam}`, { signal });
+      if (!isCurrent()) return;
+      setTodos(res);
+    },
+    [tab, currentStatus],
+  );
 
   const sortedTodos = useMemo(() => [...todos].sort(compareByDueDateAsc), [todos]);
   const showAssignee = tab === 1;

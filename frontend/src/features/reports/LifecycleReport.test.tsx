@@ -190,7 +190,10 @@ describe("LifecycleReport", () => {
     renderLifecycle();
 
     await waitFor(() => {
-      expect(api.get).toHaveBeenCalledWith("/reports/roadmap");
+      expect(api.get).toHaveBeenCalledWith(
+        "/reports/roadmap",
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      );
     });
   });
 
@@ -247,7 +250,10 @@ describe("LifecycleReport", () => {
 
     // Initially fetches without type
     await waitFor(() => {
-      expect(api.get).toHaveBeenCalledWith("/reports/roadmap");
+      expect(api.get).toHaveBeenCalledWith(
+        "/reports/roadmap",
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      );
     });
   });
 });

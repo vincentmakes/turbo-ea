@@ -19,6 +19,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -283,18 +284,25 @@ export default function PpmPortfolio() {
     api.get<PpmGroupOption[]>("/reports/ppm/group-options").then(setGroupOptions);
   }, []);
 
-  useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      api.get<PpmGanttItem[]>(`/reports/ppm/gantt?group_by=${groupBy}`),
-      api.get<PpmDashboardData>("/reports/ppm/dashboard"),
-    ])
-      .then(([g, d]) => {
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      setLoading(true);
+      try {
+        const [g, d] = await Promise.all([
+          api.get<PpmGanttItem[]>(`/reports/ppm/gantt?group_by=${groupBy}`, { signal }),
+          api.get<PpmDashboardData>("/reports/ppm/dashboard", { signal }),
+        ]);
+        if (!isCurrent()) return;
         setItems(g);
         setDashboard(d);
-      })
-      .finally(() => setLoading(false));
-  }, [groupBy]);
+      } finally {
+        // Only the winner owns the spinner — changing grouping twice quickly
+        // used to let the first response settle the UI (#882).
+        if (isCurrent()) setLoading(false);
+      }
+    },
+    [groupBy],
+  );
 
 
   const typeConfig = getType("Initiative");

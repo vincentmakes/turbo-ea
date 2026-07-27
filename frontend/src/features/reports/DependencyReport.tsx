@@ -32,6 +32,7 @@ import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTypeLabel, typeLabel as resolveTypeLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import type { CardType } from "@/types";
 
 /* ------------------------------------------------------------------ */
@@ -459,18 +460,27 @@ export default function DependencyReport() {
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch data — in LDV mode skip type filter to preserve cross-layer edges
-  useEffect(() => {
-    setLoading(true);
-    const p = new URLSearchParams();
-    if (cardTypeKey && chartMode !== "c4") p.set("type", cardTypeKey);
-    api
-      .get<{ nodes: GNode[]; edges: GEdge[] }>(`/reports/dependencies?${p}`)
-      .then((r) => {
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      setLoading(true);
+      const p = new URLSearchParams();
+      if (cardTypeKey && chartMode !== "c4") p.set("type", cardTypeKey);
+      try {
+        const r = await api.get<{ nodes: GNode[]; edges: GEdge[] }>(
+          `/reports/dependencies?${p}`,
+          { signal },
+        );
+        if (!isCurrent()) return;
         setNodes(r.nodes);
         setEdges(r.edges);
-        setLoading(false);
-      });
-  }, [cardTypeKey, chartMode]);
+      } finally {
+        // Previously only cleared inside `.then`, so a failed request span
+        // forever; and only the winner may clear it (#882).
+        if (isCurrent()) setLoading(false);
+      }
+    },
+    [cardTypeKey, chartMode],
+  );
 
   // Adjacency map
   const adjMap = useMemo(() => {

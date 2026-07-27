@@ -27,6 +27,7 @@ import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -206,10 +207,17 @@ export default function LifecycleReport() {
     }
   }, [hasDateFields]);
 
-  useEffect(() => {
-    const params = cardTypeKey ? `?type=${cardTypeKey}` : "";
-    api.get<{ items: RoadmapItem[] }>(`/reports/roadmap${params}`).then((r) => setData(r.items));
-  }, [cardTypeKey]);
+  // Switching card type must not let the previous type's response land last
+  // and repopulate the timeline (#882).
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      const params = cardTypeKey ? `?type=${cardTypeKey}` : "";
+      const r = await api.get<{ items: RoadmapItem[] }>(`/reports/roadmap${params}`, { signal });
+      if (!isCurrent()) return;
+      setData(r.items);
+    },
+    [cardTypeKey],
+  );
 
   const { items, totalMin, totalRange, viewMin, contentPct, todayPct, eolCount } = useMemo(() => {
     if (!data || !data.length) return { items: [], totalMin: 0, totalRange: 1, viewMin: 0, contentPct: 100, todayPct: 50, eolCount: 0 };
