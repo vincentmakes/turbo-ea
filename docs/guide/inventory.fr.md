@@ -95,6 +95,33 @@ L'inventaire utilise un tableau de données **AG Grid** avec des fonctionnalité
 3. Optionnellement, cliquez sur **Suggérer avec l'IA** pour générer automatiquement une description (voir [Suggestions de description par IA](#suggestions-de-description-par-ia) ci-dessous)
 4. Cliquez sur **CREER**
 
+## Édition en masse { #mass-edit }
+
+Cochez deux lignes ou plus à l'aide des cases de la colonne de gauche, puis cliquez sur **Édition en masse** dans la barre de sélection. La boîte de dialogue applique une seule modification à chaque carte sélectionnée.
+
+La liste déroulante **Champ** regroupe les éléments modifiables :
+
+- **Général** — statut d'approbation, sous-type, étiquettes et parent
+- **Attributs** — tout champ modifiable défini pour le type de carte sélectionné
+- **Relations** — une entrée par type de relation et par direction (par exemple *s'exécute sur → Composant informatique*)
+
+Les étiquettes, les relations et le parent proposent chacun un bouton **ajouter / retirer**, afin d'étendre ou de réduire les valeurs existantes plutôt que de les remplacer.
+
+### Restructurer la hiérarchie { #mass-edit-parent }
+
+Le champ **Parent** apparaît dès que la grille est filtrée sur un seul type de carte prenant en charge la hiérarchie. Une carte n'a qu'un seul parent : ce champ unique couvre donc les deux sens d'une restructuration.
+
+- **Définir le parent** — choisissez une carte du même type ; toutes les cartes sélectionnées sont placées en dessous. C'est ainsi que l'on rattache plusieurs cartes à un même parent.
+- **Supprimer le parent** — toutes les cartes sélectionnées remontent au niveau supérieur.
+
+Les cartes sont déplacées une par une : un déplacement refusé ne bloque donc que la carte concernée. La boîte de dialogue reste ouverte et indique quelles cartes ont été bloquées et pourquoi. Les motifs habituels sont :
+
+- Une carte du même nom se trouve déjà sous le parent cible.
+- Le parent choisi est un descendant de l'une des cartes déplacées, ce qui créerait une boucle.
+- Le déplacement porterait une capacité métier au-delà du maximum de cinq niveaux.
+
+Une carte emporte ses propres enfants lors du déplacement, et les cartes approuvées repassent à **Rompu** afin que la modification soit réexaminée.
+
 ## Suggestions de description par IA { #ai-description-suggestions }
 
 Turbo EA peut utiliser l'**IA pour générer une description** pour n'importe quelle fiche. Cela fonctionne aussi bien dans la boîte de dialogue de création de fiche que sur les pages de détail des fiches existantes.

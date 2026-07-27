@@ -377,6 +377,326 @@ class TestBulkUpdate:
 
 
 # ===========================================================================
+# PATCH /cards/bulk — parent / hierarchy
+# ===========================================================================
+
+
+class TestBulkUpdateParent:
+    """Bulk re-parenting must clear the same bar as the per-card PATCH.
+
+    The endpoint has always accepted `parent_id` (it is a plain `CardUpdate`
+    field) but used to apply it with no validation at all — no cycle check, no
+    depth check, no sibling-name check, and no level re-sync. It is reachable
+    from the MCP `update_cards_bulk` tool as well as the inventory Mass Edit
+    dialog, so a bad payload could silently corrupt the tree.
+    """
+
+    async def test_bulk_reparent_sets_parent_and_syncs_levels(self, client, db, env):
+        """Re-parenting refreshes hierarchyLevel on the moved card and its subtree."""
+        admin = env["admin"]
+        root = await create_card(db, card_type="Organization", name="Root", user_id=admin.id)
+        mover = await create_card(db, card_type="Organization", name="Mover", user_id=admin.id)
+        child = await create_card(
+            db,
+            card_type="Organization",
+            name="Child",
+            user_id=admin.id,
+            parent_id=mover.id,
+        )
+
+        response = await client.patch(
+            "/api/v1/cards/bulk",
+            json={"ids": [str(mover.id)], "updates": {"parent_id": str(root.id)}},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+
+        await db.refresh(mover)
+        await db.refresh(child)
+        assert mover.parent_id == root.id
+        # Mover drops from L1 to L2, and the cascade must carry its child to L3.
+        assert (mover.attributes or {}).get("hierarchyLevel") == 2
+        assert (child.attributes or {}).get("hierarchyLevel") == 3
+
+    async def test_bulk_reparent_clears_parent(self, client, db, env):
+        """parent_id: null detaches the selected cards to the top level."""
+        admin = env["admin"]
+        root = await create_card(db, card_type="Organization", name="Root", user_id=admin.id)
+        child = await create_card(
+            db, card_type="Organization", name="Child", user_id=admin.id, parent_id=root.id
+        )
+
+        response = await client.patch(
+            "/api/v1/cards/bulk",
+            json={"ids": [str(child.id)], "updates": {"parent_id": None}},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+
+        await db.refresh(child)
+        assert child.parent_id is None
+        assert (child.attributes or {}).get("hierarchyLevel") == 1
+
+    async def test_bulk_reparent_rejects_self_as_parent(self, client, db, env):
+        """A card in the selection can never be its own parent."""
+        admin = env["admin"]
+        card = await create_card(db, card_type="Organization", name="Solo", user_id=admin.id)
+
+        response = await client.patch(
+            "/api/v1/cards/bulk",
+            json={"ids": [str(card.id)], "updates": {"parent_id": str(card.id)}},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 400
+        assert "own parent" in response.json()["detail"]
+
+        await db.refresh(card)
+        assert card.parent_id is None
+
+    async def test_bulk_reparent_rejects_cycle(self, client, db, env):
+        """Moving a card under its own descendant would orphan the branch."""
+        admin = env["admin"]
+        parent = await create_card(db, card_type="Organization", name="Parent", user_id=admin.id)
+        child = await create_card(
+            db, card_type="Organization", name="Child", user_id=admin.id, parent_id=parent.id
+        )
+        grandchild = await create_card(
+            db, card_type="Organization", name="Grandchild", user_id=admin.id, parent_id=child.id
+        )
+
+        response = await client.patch(
+            "/api/v1/cards/bulk",
+            json={"ids": [str(parent.id)], "updates": {"parent_id": str(grandchild.id)}},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 400
+        assert "cycle" in response.json()["detail"].lower()
+
+        await db.refresh(parent)
+        assert parent.parent_id is None
+
+    async def test_bulk_reparent_rejects_existing_sibling_name(self, client, db, env):
+        """Landing next to a same-named sibling already in the DB is a 409."""
+        admin = env["admin"]
+        target = await create_card(db, card_type="Organization", name="Target", user_id=admin.id)
+        await create_card(
+            db, card_type="Organization", name="Finance", user_id=admin.id, parent_id=target.id
+        )
+        mover = await create_card(db, card_type="Organization", name="Finance", user_id=admin.id)
+
+        response = await client.patch(
+            "/api/v1/cards/bulk",
+            json={"ids": [str(mover.id)], "updates": {"parent_id": str(target.id)}},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 409
+
+        await db.refresh(mover)
+        assert mover.parent_id is None
+
+    async def test_bulk_reparent_rejects_in_batch_sibling_name(self, client, db, env):
+        """Two selected cards of the same name cannot become siblings.
+
+        `check_sibling_name_unique` only sees committed rows, so this collision
+        is invisible to it — the handler needs its own in-batch check.
+        """
+        admin = env["admin"]
+        target = await create_card(db, card_type="Organization", name="Target", user_id=admin.id)
+        a_parent = await create_card(db, card_type="Organization", name="A", user_id=admin.id)
+        b_parent = await create_card(db, card_type="Organization", name="B", user_id=admin.id)
+        dup_a = await create_card(
+            db, card_type="Organization", name="Ops", user_id=admin.id, parent_id=a_parent.id
+        )
+        dup_b = await create_card(
+            db, card_type="Organization", name="Ops", user_id=admin.id, parent_id=b_parent.id
+        )
+
+        response = await client.patch(
+            "/api/v1/cards/bulk",
+            json={
+                "ids": [str(dup_a.id), str(dup_b.id)],
+                "updates": {"parent_id": str(target.id)},
+            },
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 409
+
+        await db.refresh(dup_a)
+        await db.refresh(dup_b)
+        assert dup_a.parent_id == a_parent.id
+        assert dup_b.parent_id == b_parent.id
+
+    async def test_bulk_reparent_checks_the_incoming_name(self, client, db, env):
+        """A rename in the same payload is what the collision check must use."""
+        admin = env["admin"]
+        target = await create_card(db, card_type="Organization", name="Target", user_id=admin.id)
+        await create_card(
+            db, card_type="Organization", name="Shared", user_id=admin.id, parent_id=target.id
+        )
+        mover = await create_card(db, card_type="Organization", name="Distinct", user_id=admin.id)
+
+        # The card's current name would not collide; the name it is being
+        # renamed to does.
+        response = await client.patch(
+            "/api/v1/cards/bulk",
+            json={
+                "ids": [str(mover.id)],
+                "updates": {"name": "Shared", "parent_id": str(target.id)},
+            },
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 409
+
+        await db.refresh(mover)
+        assert mover.parent_id is None
+        assert mover.name == "Distinct"
+
+    async def test_bulk_reparent_breaks_approval(self, client, db, env):
+        """An approved card that moves in the tree drops to BROKEN."""
+        admin = env["admin"]
+        root = await create_card(db, card_type="Organization", name="Root", user_id=admin.id)
+        mover = await create_card(
+            db,
+            card_type="Organization",
+            name="Mover",
+            user_id=admin.id,
+            approval_status="APPROVED",
+        )
+
+        response = await client.patch(
+            "/api/v1/cards/bulk",
+            json={"ids": [str(mover.id)], "updates": {"parent_id": str(root.id)}},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+
+        await db.refresh(mover)
+        assert mover.approval_status == "BROKEN"
+
+    async def test_bulk_reparent_dry_run_persists_nothing(self, client, db, env):
+        """dry_run previews the diff without touching the tree."""
+        admin = env["admin"]
+        root = await create_card(db, card_type="Organization", name="Root", user_id=admin.id)
+        mover = await create_card(db, card_type="Organization", name="Mover", user_id=admin.id)
+
+        response = await client.patch(
+            "/api/v1/cards/bulk",
+            json={
+                "ids": [str(mover.id)],
+                "updates": {"parent_id": str(root.id)},
+                "dry_run": True,
+            },
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["dry_run"] is True
+        assert body["would_update"] == 1
+        assert body["results"][0]["after"]["parent_id"] == str(root.id)
+
+        refetched = await client.get(f"/api/v1/cards/{mover.id}", headers=auth_headers(admin))
+        assert refetched.json()["parent_id"] is None
+
+    async def test_bulk_reparent_enforces_capability_depth(self, client, db, env):
+        """The L1..L5 capability limit applies in bulk, not just per card."""
+        admin = env["admin"]
+        await create_card_type(db, key="BusinessCapability", label="Business Capability")
+
+        # Build a 5-deep chain: L1 → L2 → L3 → L4 → L5
+        parent_id = None
+        chain = []
+        for level in range(1, 6):
+            node = await create_card(
+                db,
+                card_type="BusinessCapability",
+                name=f"L{level}",
+                user_id=admin.id,
+                parent_id=parent_id,
+            )
+            chain.append(node)
+            parent_id = node.id
+
+        orphan = await create_card(
+            db, card_type="BusinessCapability", name="Extra", user_id=admin.id
+        )
+
+        # Hanging Extra off L5 would make it L6.
+        response = await client.patch(
+            "/api/v1/cards/bulk",
+            json={"ids": [str(orphan.id)], "updates": {"parent_id": str(chain[-1].id)}},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 400
+        assert "maximum depth" in response.json()["detail"]
+
+        await db.refresh(orphan)
+        assert orphan.parent_id is None
+
+    async def test_bulk_update_emits_card_updated_events(self, client, db, env):
+        """Bulk edits must land in the event log, or History and audit go blind."""
+        from sqlalchemy import select
+
+        from app.models.event import Event
+
+        admin = env["admin"]
+        card = await create_card(db, card_type="Application", name="Evented", user_id=admin.id)
+
+        response = await client.patch(
+            "/api/v1/cards/bulk",
+            json={"ids": [str(card.id)], "updates": {"name": "Renamed"}},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+
+        events = (
+            (
+                await db.execute(
+                    select(Event).where(
+                        Event.card_id == card.id, Event.event_type == "card.updated"
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(events) == 1
+        assert events[0].data["changes"]["name"]["new"] == "Renamed"
+
+    async def test_bulk_update_dry_run_emits_no_events(self, client, db, env):
+        """A preview must not leak events."""
+        from sqlalchemy import select
+
+        from app.models.event import Event
+
+        admin = env["admin"]
+        card = await create_card(db, card_type="Application", name="Quiet", user_id=admin.id)
+
+        response = await client.patch(
+            "/api/v1/cards/bulk",
+            json={
+                "ids": [str(card.id)],
+                "updates": {"name": "Renamed"},
+                "dry_run": True,
+            },
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+
+        events = (
+            (
+                await db.execute(
+                    select(Event).where(
+                        Event.card_id == card.id, Event.event_type == "card.updated"
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert events == []
+
+
+# ===========================================================================
 # GET /cards/export/csv
 # ===========================================================================
 

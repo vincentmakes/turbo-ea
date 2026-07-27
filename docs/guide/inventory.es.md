@@ -95,6 +95,33 @@ El inventario utiliza una tabla de datos **AG Grid** con funciones avanzadas:
 3. Opcionalmente, haga clic en **Sugerir con IA** para generar una descripción automáticamente (consulte [Sugerencias de Descripción con IA](#sugerencias-de-descripcion-con-ia) a continuación)
 4. Haga clic en **CREAR**
 
+## Edición masiva { #mass-edit }
+
+Marque dos o más filas con las casillas de la columna izquierda y haga clic en **Edición masiva** en la barra de selección. El cuadro de diálogo aplica un único cambio a todas las tarjetas seleccionadas.
+
+La lista desplegable **Campo** agrupa lo que se puede modificar:
+
+- **General** — estado de aprobación, subtipo, etiquetas y padre
+- **Atributos** — cualquier campo editable definido para el tipo de tarjeta seleccionado
+- **Relaciones** — una entrada por tipo de relación y dirección (por ejemplo *se ejecuta en → Componente de TI*)
+
+Las etiquetas, las relaciones y el padre ofrecen un conmutador **añadir / quitar**, de modo que amplíe o reduzca los valores existentes en lugar de sustituirlos.
+
+### Reestructurar la jerarquía { #mass-edit-parent }
+
+El campo **Padre** aparece cuando ha filtrado la cuadrícula a un único tipo de tarjeta que admite jerarquía. Una tarjeta tiene exactamente un padre, así que este único campo cubre ambos sentidos de una reestructuración:
+
+- **Establecer padre** — elija una tarjeta del mismo tipo; todas las tarjetas seleccionadas se mueven debajo de ella. Así se convierten muchas tarjetas en hijas de un mismo padre.
+- **Quitar padre** — todas las tarjetas seleccionadas vuelven al nivel superior.
+
+Las tarjetas se mueven de una en una, por lo que un movimiento no permitido solo bloquea esa tarjeta. El cuadro de diálogo permanece abierto e indica qué tarjetas se bloquearon y por qué. Los motivos habituales son:
+
+- Ya existe una tarjeta con el mismo nombre bajo el padre de destino.
+- El padre elegido es descendiente de una de las tarjetas que se mueven, lo que crearía un bucle.
+- El movimiento llevaría una capacidad de negocio más allá del máximo de cinco niveles.
+
+Una tarjeta arrastra consigo a sus hijas al moverse, y las tarjetas aprobadas vuelven a **Roto** para que el cambio se revise de nuevo.
+
 ## Sugerencias de Descripción con IA { #ai-description-suggestions }
 
 Turbo EA puede usar **IA para generar una descripción** para cualquier ficha. Esto funciona tanto en el diálogo de creación de fichas como en las páginas de detalle de fichas existentes.

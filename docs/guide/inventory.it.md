@@ -95,6 +95,33 @@ L'inventario utilizza una tabella dati **AG Grid** con funzionalità avanzate:
 3. Opzionalmente, cliccate su **Suggerisci con AI** per generare automaticamente una descrizione (vedi [Suggerimenti di descrizione AI](#suggerimenti-di-descrizione-ai) di seguito)
 4. Cliccate su **CREA**
 
+## Modifica di massa { #mass-edit }
+
+Selezionate due o più righe con le caselle nella colonna di sinistra, quindi fate clic su **Modifica di massa** nella barra di selezione. La finestra applica una singola modifica a ogni scheda selezionata.
+
+Il menu a discesa **Campo** raggruppa ciò che è possibile modificare:
+
+- **Generale** — stato di approvazione, sottotipo, tag e padre
+- **Attributi** — qualsiasi campo modificabile definito per il tipo di scheda selezionato
+- **Relazioni** — una voce per ogni tipo di relazione e direzione (ad esempio *è eseguito su → Componente IT*)
+
+Tag, relazioni e padre offrono ciascuno un interruttore **aggiungi / rimuovi**, così da estendere o ridurre i valori esistenti invece di sostituirli.
+
+### Ristrutturare la gerarchia { #mass-edit-parent }
+
+Il campo **Padre** compare quando la griglia è filtrata su un unico tipo di scheda che supporta la gerarchia. Una scheda ha esattamente un padre, quindi questo singolo campo copre entrambe le direzioni di una ristrutturazione:
+
+- **Imposta padre** — scegliete una scheda dello stesso tipo; tutte le schede selezionate vengono spostate sotto di essa. È così che si rendono molte schede figlie di un unico padre.
+- **Rimuovi padre** — tutte le schede selezionate tornano al livello principale.
+
+Le schede vengono spostate una alla volta, quindi uno spostamento non consentito blocca solo quella scheda. La finestra resta aperta ed elenca quali schede sono state bloccate e perché. I motivi più comuni sono:
+
+- Sotto il padre di destinazione esiste già una scheda con lo stesso nome.
+- Il padre scelto è un discendente di una delle schede spostate, il che creerebbe un ciclo.
+- Lo spostamento porterebbe una capacità di business oltre il massimo di cinque livelli.
+
+Una scheda porta con sé le proprie schede figlie e le schede approvate tornano a **Non valido**, in modo che la modifica venga riesaminata.
+
 ## Suggerimenti di descrizione AI { #ai-description-suggestions }
 
 Turbo EA può utilizzare l'**AI per generare una descrizione** per qualsiasi card. Questo funziona sia nella finestra di creazione card che nelle pagine di dettaglio delle card esistenti.

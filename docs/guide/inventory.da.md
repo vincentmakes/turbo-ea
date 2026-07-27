@@ -97,6 +97,33 @@ Lageret bruger en **AG Grid**-datatabel med kraftfulde funktioner:
 3. Klik eventuelt på **Suggest with AI** for at generere en beskrivelse automatisk (se [AI-beskrivelsesforslag](#ai-description-suggestions) nedenfor)
 4. Klik på **CREATE**
 
+## Masseredigering { #mass-edit }
+
+Markér to eller flere rækker med afkrydsningsfelterne i venstre kolonne, og klik derefter på **Masseredigering** i markeringsværktøjslinjen. Dialogen anvender én ændring på hvert markeret kort.
+
+Rullelisten **Felt** grupperer det, du kan ændre:
+
+- **Generelt** — godkendelsesstatus, undertype, tags og overordnet
+- **Attributter** — ethvert redigerbart felt, der er defineret for den valgte korttype
+- **Relationer** — én post pr. relationstype og retning (for eksempel *kører på → It-komponent*)
+
+Tags, relationer og overordnet har hver en **tilføj / fjern**-knap, så du udvider eller beskærer eksisterende værdier i stedet for at erstatte dem.
+
+### Omstrukturering af hierarkiet { #mass-edit-parent }
+
+Feltet **Overordnet** vises, når du har filtreret tabellen til én korttype, der understøtter hierarki. Et kort har præcis ét overordnet kort, så dette ene felt dækker begge retninger af en omstrukturering:
+
+- **Angiv overordnet** — vælg et kort af samme type; alle markerede kort flyttes ind under det. Sådan gør du mange kort til underordnede af ét overordnet kort.
+- **Fjern overordnet** — alle markerede kort flyttes tilbage til øverste niveau.
+
+Kortene flyttes ét ad gangen, så en flytning, der ikke er tilladt, blokerer kun det pågældende kort. Dialogen forbliver åben og viser, hvilke kort der blev blokeret og hvorfor. De almindelige årsager er:
+
+- Der findes allerede et kort med samme navn under det valgte overordnede kort.
+- Det valgte overordnede kort er en efterkommer af et af de kort, der flyttes, hvilket ville skabe en løkke.
+- Flytningen ville føre en forretningsevne ud over grænsen på fem niveauer.
+
+Et kort tager sine egne underordnede kort med sig, når det flyttes, og godkendte kort falder tilbage til **Brudt**, så ændringen bliver gennemgået igen.
+
 ## AI-beskrivelsesforslag { #ai-description-suggestions }
 
 Turbo EA kan bruge **AI til at generere en beskrivelse** for ethvert kort. Dette virker på både Opret kort-dialogen og eksisterende kortdetaljesider.

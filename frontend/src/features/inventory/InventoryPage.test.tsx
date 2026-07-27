@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import InventoryPage from "./InventoryPage";
@@ -20,11 +20,28 @@ vi.mock("@/hooks/useAuth", () => ({
   useAuth: vi.fn(),
 }));
 
-// AG Grid is complex in jsdom — stub it to avoid layout engine issues
+// AG Grid is complex in jsdom — stub it to avoid layout engine issues.
+// The `select-all-rows` escape hatch lets tests drive row selection the way a
+// user would, since the mass-edit toolbar only appears once rows are selected.
 vi.mock("ag-grid-react", () => ({
-  AgGridReact: vi.fn(({ rowData }: { rowData: unknown[] }) => (
-    <div data-testid="ag-grid" data-row-count={rowData?.length ?? 0} />
-  )),
+  AgGridReact: vi.fn(
+    ({
+      rowData,
+      onSelectionChanged,
+    }: {
+      rowData: unknown[];
+      onSelectionChanged?: (event: { api: { getSelectedRows: () => unknown[] } }) => void;
+    }) => (
+      <div data-testid="ag-grid" data-row-count={rowData?.length ?? 0}>
+        <button
+          data-testid="select-all-rows"
+          onClick={() =>
+            onSelectionChanged?.({ api: { getSelectedRows: () => rowData ?? [] } })
+          }
+        />
+      </div>
+    ),
+  ),
 }));
 
 // Stub sub-components not under test
@@ -47,6 +64,14 @@ vi.mock("./InventoryFilterSidebar", () => ({
       <button
         data-testid="select-itcomponent"
         onClick={() => onFiltersChange({ ...filters, types: ["ITComponent"] })}
+      />
+      <button
+        data-testid="select-application"
+        onClick={() => onFiltersChange({ ...filters, types: ["Application"] })}
+      />
+      <button
+        data-testid="select-objective"
+        onClick={() => onFiltersChange({ ...filters, types: ["Objective"] })}
       />
     </div>
   ),
@@ -420,5 +445,85 @@ describe("InventoryPage relation loading", () => {
 
     // No crash, grid intact — the generation guard dropped the stale payload.
     await waitFor(() => expect(screen.getByTestId("ag-grid")).toBeInTheDocument());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Mass edit — parent / hierarchy
+// ---------------------------------------------------------------------------
+
+describe("InventoryPage mass edit parent", () => {
+  /** Filter to one type, select every row, and open the Mass Edit dialog. */
+  async function openMassEdit(typeTestId: string) {
+    renderInventory();
+    await waitFor(() => expect(screen.getByTestId("ag-grid")).toBeInTheDocument());
+
+    await userEvent.click(screen.getByTestId(typeTestId));
+    await userEvent.click(screen.getByTestId("select-all-rows"));
+
+    await userEvent.click(await screen.findByRole("button", { name: /mass edit/i }));
+    return screen.findByRole("dialog");
+  }
+
+  /** Open the dialog's "Field" dropdown. MUI leaves the Select unnamed in
+   *  jsdom, and it is the dialog's first combobox either way. */
+  async function openFieldMenu() {
+    const dialog = screen.getByRole("dialog");
+    await userEvent.click(within(dialog).getAllByRole("combobox")[0]);
+    return screen.findByRole("listbox");
+  }
+
+  /** Pick an entry from the dialog's "Field" dropdown by visible label. */
+  async function chooseField(name: RegExp) {
+    await openFieldMenu();
+    await userEvent.click(await screen.findByRole("option", { name }));
+  }
+
+  it("offers Parent for a hierarchical type", async () => {
+    await openMassEdit("select-application");
+
+    const listbox = await openFieldMenu();
+    expect(within(listbox).getByRole("option", { name: /^parent$/i })).toBeInTheDocument();
+  });
+
+  it("hides Parent for a non-hierarchical type", async () => {
+    // Objective has has_hierarchy: false, so re-parenting is meaningless.
+    await openMassEdit("select-objective");
+
+    const listbox = await openFieldMenu();
+    expect(within(listbox).queryByRole("option", { name: /^parent$/i })).not.toBeInTheDocument();
+  });
+
+  it("clears the parent on every selected card", async () => {
+    vi.mocked(api.patch).mockResolvedValue({});
+    await openMassEdit("select-application");
+    await chooseField(/^parent$/i);
+
+    // "Clear parent" needs no target card, so the whole flow stays in-dialog.
+    await userEvent.click(screen.getByRole("button", { name: /clear parent/i }));
+    await userEvent.click(screen.getByRole("button", { name: /apply to/i }));
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith("/cards/c1", { parent_id: null });
+      expect(api.patch).toHaveBeenCalledWith("/cards/c2", { parent_id: null });
+    });
+  });
+
+  it("reports per-card failures instead of failing the whole batch", async () => {
+    // A sibling-name collision 409s for one card; the other still moves.
+    vi.mocked(api.patch).mockImplementation((path: string) =>
+      path === "/cards/c2"
+        ? Promise.reject(new Error("Name already used under that parent"))
+        : Promise.resolve({}),
+    );
+    await openMassEdit("select-application");
+    await chooseField(/^parent$/i);
+
+    await userEvent.click(screen.getByRole("button", { name: /clear parent/i }));
+    await userEvent.click(screen.getByRole("button", { name: /apply to/i }));
+
+    // Dialog stays open and names the blocked card, rather than aborting both.
+    expect(await screen.findByText(/1 updated, 1 blocked/i)).toBeInTheDocument();
+    expect(screen.getByText("Cloud Migration")).toBeInTheDocument();
   });
 });

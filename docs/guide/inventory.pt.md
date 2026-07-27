@@ -95,6 +95,33 @@ O inventário usa uma tabela de dados **AG Grid** com recursos poderosos:
 3. Opcionalmente, clique em **Sugerir com IA** para gerar uma descrição automaticamente (veja [Sugestões de Descrição com IA](#sugestoes-de-descricao-com-ia) abaixo)
 4. Clique em **CRIAR**
 
+## Edição em massa { #mass-edit }
+
+Marque duas ou mais linhas com as caixas de seleção da coluna à esquerda e clique em **Edição em massa** na barra de seleção. A caixa de diálogo aplica uma única alteração a todos os cartões selecionados.
+
+A lista **Campo** agrupa o que pode ser alterado:
+
+- **Geral** — estado de aprovação, subtipo, etiquetas e pai
+- **Atributos** — qualquer campo editável definido para o tipo de cartão selecionado
+- **Relações** — uma entrada por tipo de relação e direção (por exemplo *é executado em → Componente de TI*)
+
+Etiquetas, relações e pai oferecem um botão **adicionar / remover**, para que amplie ou reduza os valores existentes em vez de os substituir.
+
+### Reestruturar a hierarquia { #mass-edit-parent }
+
+O campo **Pai** aparece quando a grelha está filtrada por um único tipo de cartão com suporte a hierarquia. Um cartão tem exatamente um pai, por isso este único campo cobre os dois sentidos de uma reestruturação:
+
+- **Definir pai** — escolha um cartão do mesmo tipo; todos os cartões selecionados passam para baixo dele. É assim que se tornam vários cartões filhos de um mesmo pai.
+- **Remover pai** — todos os cartões selecionados voltam ao nível superior.
+
+Os cartões são movidos um a um, pelo que um movimento não permitido bloqueia apenas esse cartão. A caixa de diálogo permanece aberta e indica quais os cartões bloqueados e porquê. Os motivos habituais são:
+
+- Já existe um cartão com o mesmo nome sob o pai de destino.
+- O pai escolhido é descendente de um dos cartões que estão a ser movidos, o que criaria um ciclo.
+- O movimento levaria uma capacidade de negócio para além do máximo de cinco níveis.
+
+Um cartão leva consigo os seus próprios filhos ao mover-se, e os cartões aprovados voltam a **Quebrado** para que a alteração seja revista.
+
 ## Sugestões de Descrição com IA { #ai-description-suggestions }
 
 O Turbo EA pode usar **IA para gerar uma descrição** para qualquer card. Isso funciona tanto no diálogo de Criação de Card quanto nas páginas de detalhe de cards existentes.

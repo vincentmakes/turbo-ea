@@ -36,6 +36,7 @@ import LifecycleBadge from "@/components/LifecycleBadge";
 import ArchiveDeleteDialog from "@/features/cards/ArchiveDeleteDialog";
 import BulkRestoreDialog from "@/features/cards/BulkRestoreDialog";
 import CreateCardDialog from "@/components/CreateCardDialog";
+import CardPicker, { type CardOption } from "@/components/CardPicker";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import InventoryFilterSidebar, {
   CORE_COLUMN_KEYS,
@@ -50,6 +51,7 @@ import { exportToExcel, exportCurrentViewToExcel } from "./excelExport";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import RelationCellPopover from "./RelationCellPopover";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useCardSearch } from "@/hooks/useCardSearch";
 import { useTypeLabel, useRelationLabel, useFieldLabel, useOptionLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { readableTextColor } from "@/lib/color";
 import { useAuth } from "@/hooks/useAuth";
@@ -464,11 +466,14 @@ export default function InventoryPage() {
     }[]
   >([]);
   const [massEditSucceeded, setMassEditSucceeded] = useState(0);
-  // Relation mass-edit state
+  // Relation mass-edit state. `massEditRelMode` is shared by the relation,
+  // tag and parent fields — all three are add/remove (set/clear) toggles.
   const [massEditRelMode, setMassEditRelMode] = useState<"add" | "remove">("add");
   const [massEditRelTargets, setMassEditRelTargets] = useState<{ id: string; name: string; type: string }[]>([]);
   const [massEditRelSearch, setMassEditRelSearch] = useState("");
-  const [massEditRelOptions, setMassEditRelOptions] = useState<{ id: string; name: string; type: string }[]>([]);
+  const [massEditRelSearchDebounced, setMassEditRelSearchDebounced] = useState("");
+  // Parent mass-edit state
+  const [massEditParent, setMassEditParent] = useState<CardOption | null>(null);
 
   // Mass archive / delete state
   const [massArchiveOpen, setMassArchiveOpen] = useState(false);
@@ -1113,6 +1118,13 @@ export default function InventoryPage() {
       fields.push({ key: "subtype", label: t("common:labels.subtype"), group: "core" });
     }
     fields.push({ key: "tags", label: t("columns.tags"), group: "core" });
+    // Parent needs one concrete type to pick from (parent is same-type by
+    // convention everywhere else), so it follows the same single-type rule as
+    // the relation fields below. A card has exactly one parent, so setting the
+    // parent of the selection is also how you make N cards children of X.
+    if (selectedType && typeConfig?.has_hierarchy) {
+      fields.push({ key: "parent", label: t("massEdit.parent.label"), group: "core" });
+    }
     if (typeConfig) {
       for (const section of typeConfig.fields_schema) {
         for (const field of section.fields) {
@@ -1173,28 +1185,38 @@ export default function InventoryPage() {
 
   const currentMassField = massEditableFields.find((f) => f.key === massEditField);
 
-  // Search for relation targets when the user is in relation mass-edit mode.
-  // Excludes the cards being mass-edited so users can't accidentally link a card to itself.
+  // Relation-target search runs on the shared `useCardSearch` engine, same as
+  // CardPicker and the diagram Insert-Cards dialog. It browses on open (no
+  // "type to search" gate), pages in more results as the listbox scrolls, and
+  // drops stale responses via the hook's request token.
   useEffect(() => {
-    if (!massEditOpen || !currentMassField?.relInfo) return;
-    if (massEditRelSearch.length < 1) {
-      setMassEditRelOptions([]);
-      return;
-    }
-    const otherTypeKey = currentMassField.relInfo.otherTypeKey;
-    const selectedSet = new Set(selectedIds);
-    const timer = setTimeout(() => {
-      api
-        .get<{ items: { id: string; name: string; type: string }[] }>(
-          `/cards?type=${otherTypeKey}&search=${encodeURIComponent(massEditRelSearch)}&page_size=20`,
-        )
-        .then((res) => {
-          setMassEditRelOptions(res.items.filter((item) => !selectedSet.has(item.id)));
-        })
-        .catch(() => setMassEditRelOptions([]));
-    }, 250);
+    const timer = setTimeout(() => setMassEditRelSearchDebounced(massEditRelSearch), 250);
     return () => clearTimeout(timer);
-  }, [massEditRelSearch, massEditOpen, currentMassField, selectedIds]);
+  }, [massEditRelSearch]);
+
+  const relSearchTypes = useMemo(
+    () => (currentMassField?.relInfo ? [currentMassField.relInfo.otherTypeKey] : []),
+    [currentMassField],
+  );
+  const {
+    items: massEditRelItems,
+    loading: massEditRelLoading,
+    hasMore: massEditRelHasMore,
+    loadMore: massEditRelLoadMore,
+  } = useCardSearch({
+    types: relSearchTypes,
+    search: massEditRelSearchDebounced,
+    enabled: massEditOpen && !!currentMassField?.relInfo,
+    pageSize: 50,
+  });
+
+  // Exclude the cards being mass-edited so a card can't be linked to itself.
+  const massEditRelOptions = useMemo(() => {
+    const selectedSet = new Set(selectedIds);
+    return massEditRelItems
+      .filter((item) => !selectedSet.has(item.id))
+      .map((item) => ({ id: item.id, name: item.name, type: item.type }));
+  }, [massEditRelItems, selectedIds]);
 
   const handleMassEdit = async () => {
     if (selectedIds.length === 0 || !massEditField) return;
@@ -1375,6 +1397,50 @@ export default function InventoryPage() {
           setMassEditValue("");
           setMassEditRelTargets([]);
           setMassEditRelSearch("");
+          return;
+        }
+        setMassEditSucceeded(succeeded);
+        setMassEditBlockers(blockers);
+        return;
+      }
+
+      if (massEditField === "parent") {
+        const newParentId = massEditRelMode === "add" ? massEditParent?.id ?? null : null;
+        if (massEditRelMode === "add" && !newParentId) {
+          setMassEditError(t("massEdit.parent.pickOne"));
+          return;
+        }
+        // Per-card PATCH rather than /cards/bulk: re-parenting fails per card
+        // (a name collision under the new parent, a capability depth limit),
+        // and the blocker list below reports exactly which ones. One bulk
+        // transaction would abort every move because of a single collision.
+        const targets = selectedIds.filter((id) => id !== newParentId);
+        const results = await Promise.allSettled(
+          targets.map((id) => api.patch(`/cards/${id}`, { parent_id: newParentId })),
+        );
+        const blockers: typeof massEditBlockers = [];
+        let succeeded = 0;
+        results.forEach((r, i) => {
+          if (r.status === "fulfilled") {
+            succeeded += 1;
+            return;
+          }
+          const id = targets[i];
+          const card = data.find((d) => d.id === id);
+          blockers.push({
+            id,
+            name: card?.name ?? id,
+            missingRelations: [],
+            missingTagGroups: [],
+            message: r.reason instanceof Error ? r.reason.message : t("massEdit.failed"),
+          });
+        });
+        await loadData();
+        if (blockers.length === 0) {
+          setMassEditOpen(false);
+          setMassEditField("");
+          setMassEditValue("");
+          setMassEditParent(null);
           return;
         }
         setMassEditSucceeded(succeeded);
@@ -2301,6 +2367,46 @@ export default function InventoryPage() {
       );
     }
 
+    if (massEditField === "parent") {
+      const ownLabel = typeConfig ? typeLabel(typeConfig) : selectedType;
+      return (
+        <Box>
+          <ToggleButtonGroup
+            value={massEditRelMode}
+            exclusive
+            size="small"
+            onChange={(_, val) => { if (val) setMassEditRelMode(val); }}
+            sx={{ mb: 2 }}
+          >
+            <ToggleButton value="add" sx={{ textTransform: "none", px: 2 }}>
+              <MaterialSymbol icon="account_tree" size={16} style={{ marginRight: 6 }} />
+              {t("massEdit.parent.set")}
+            </ToggleButton>
+            <ToggleButton value="remove" sx={{ textTransform: "none", px: 2 }}>
+              <MaterialSymbol icon="link_off" size={16} style={{ marginRight: 6 }} />
+              {t("massEdit.parent.clear")}
+            </ToggleButton>
+          </ToggleButtonGroup>
+          {massEditRelMode === "add" && (
+            <CardPicker
+              types={selectedType}
+              value={massEditParent}
+              onChange={setMassEditParent}
+              excludeIds={selectedIds}
+              enabled={massEditOpen}
+              fullWidth
+              label={t("massEdit.parent.pick", { type: ownLabel })}
+            />
+          )}
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: "block" }}>
+            {massEditRelMode === "add"
+              ? t("massEdit.parent.setHint", { count: selectedIds.length })
+              : t("massEdit.parent.clearHint", { count: selectedIds.length })}
+          </Typography>
+        </Box>
+      );
+    }
+
     if (currentMassField.relInfo) {
       const otherType = types.find((tp) => tp.key === currentMassField.relInfo!.otherTypeKey);
       const otherLabel = otherType
@@ -2336,6 +2442,18 @@ export default function InventoryPage() {
             inputValue={massEditRelSearch}
             onInputChange={(_, val) => setMassEditRelSearch(val)}
             filterOptions={(x) => x}
+            loading={massEditRelLoading}
+            openOnFocus
+            slotProps={{
+              listbox: {
+                onScroll: (event) => {
+                  const el = event.currentTarget;
+                  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
+                    if (massEditRelHasMore && !massEditRelLoading) massEditRelLoadMore();
+                  }
+                },
+              },
+            }}
             renderOption={(props, opt) => {
               const tConf = types.find((tp) => tp.key === opt.type);
               return (
@@ -2366,9 +2484,7 @@ export default function InventoryPage() {
               />
             )}
             noOptionsText={
-              massEditRelSearch
-                ? t("common:labels.noResults")
-                : t("massEdit.rel.typeToSearch", { type: otherLabel })
+              massEditRelLoading ? t("common:labels.loading") : t("common:labels.noResults")
             }
           />
           <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: "block" }}>
@@ -2882,7 +2998,9 @@ export default function InventoryPage() {
                 setMassEditValue("");
                 setMassEditRelTargets([]);
                 setMassEditRelSearch("");
+                setMassEditRelSearchDebounced("");
                 setMassEditRelMode("add");
+                setMassEditParent(null);
                 setMassEditError("");
               }}
             >

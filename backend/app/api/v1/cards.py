@@ -236,6 +236,42 @@ async def _walk_ancestor_chain(
     return depth, root_is_macro
 
 
+async def _check_parent_not_descendant(
+    db: AsyncSession, card_ids: set[uuid.UUID], new_parent_id: uuid.UUID | None
+) -> None:
+    """Raise HTTPException if re-parenting ``card_ids`` under ``new_parent_id`` cycles.
+
+    Walks up the ancestor chain from the proposed parent: meeting any of the
+    cards being moved means that parent sits inside that card's own subtree,
+    so the move would detach the whole branch into an unreachable loop.
+
+    Note that nothing else in the card API guards this — ``_walk_ancestor_chain``
+    and friends merely cycle-*guard* their own traversal with a ``seen`` set and
+    never raise. Mass re-parenting makes the mistake easy to hit, and the
+    client cannot practically exclude the descendants of N cards up front.
+    """
+    if new_parent_id is None:
+        return  # detaching to root can never cycle
+    if new_parent_id in card_ids:
+        raise HTTPException(400, "Cannot set a card as its own parent")
+
+    current: uuid.UUID | None = new_parent_id
+    seen: set[uuid.UUID] = set()
+    while current and current not in seen:
+        seen.add(current)
+        res = await db.execute(select(Card.parent_id).where(Card.id == current))
+        row = res.first()
+        if row is None:
+            return
+        current = row[0]
+        if current is not None and current in card_ids:
+            raise HTTPException(
+                400,
+                "Cannot set parent: the chosen parent is a descendant of a card "
+                "being moved, which would create a hierarchy cycle",
+            )
+
+
 async def _check_hierarchy_depth(
     db: AsyncSession, card: Card, new_parent_id: uuid.UUID | None
 ) -> None:
@@ -1633,9 +1669,58 @@ async def bulk_update(
         if "attributes" in updates and updates["attributes"]
         else {}
     )
+
+    # Guard: a bulk re-parent has to clear the same bar as the per-card PATCH.
+    # Without this the endpoint happily builds cycles, blows past the capability
+    # depth limit and leaves hierarchyLevel/capabilityLevel stale — and it is
+    # reachable from the MCP `update_cards_bulk` tool, not just the UI.
+    moved: list[Card] = []
+    if "parent_id" in updates:
+        new_pid = uuid.UUID(updates["parent_id"]) if updates["parent_id"] else None
+        moved = [c for c in sheets if c.parent_id != new_pid]
+        await _check_parent_not_descendant(db, {c.id for c in moved}, new_pid)
+
+        # The payload may rename in the same call, so check the name the card
+        # will actually land with, not the one it has now.
+        def _target_name(card: Card) -> str:
+            return updates["name"] if "name" in updates else card.name
+
+        # Collisions against cards already in the DB.
+        for card in moved:
+            await _check_hierarchy_depth(db, card, new_pid)
+            await check_sibling_name_unique(
+                db,
+                type_key=card.type,
+                parent_id=new_pid,
+                name=_target_name(card),
+                exclude_card_id=card.id,
+            )
+        # Collisions *within* the batch — two selected cards of the same type
+        # and name landing under one parent. `check_sibling_name_unique` reads
+        # committed rows, so it cannot see the siblings we are about to move.
+        batch_slots: set[tuple[str, str]] = set()
+        for card in moved:
+            name = _target_name(card)
+            slot = (card.type, (name or "").strip().lower())
+            if not slot[1]:
+                continue
+            if slot in batch_slots:
+                raise HTTPException(
+                    409,
+                    f'Cannot set parent: two selected cards are both named "{name}" '
+                    "and would become siblings under the same parent",
+                )
+            batch_slots.add(slot)
+
     # Capture per-card before/after diff so the MCP dry-run preview can
     # surface field-level changes the agent will commit. Also lets
     # `rollback_batch` reverse the update by replaying the snapshots.
+    #
+    # A preview computes the diff but never writes: leaving the session clean
+    # is what makes the dry run genuinely side-effect free. The previous
+    # mutate-then-`db.rollback()` shape discarded the *caller's* entire
+    # transaction, and a savepoint rollback still left expired ORM objects
+    # behind for the next statement to trip over.
     diffs: list[dict] = []
     for card in sheets:
         before: dict = {}
@@ -1655,15 +1740,14 @@ async def bulk_update(
             if old_val != value:
                 before[field] = str(old_val) if field == "parent_id" and old_val else old_val
                 after[field] = str(value) if field == "parent_id" and value else value
-            setattr(card, field, value)
+            if not body.dry_run:
+                setattr(card, field, value)
         if before:
             diffs.append({"id": str(card.id), "before": before, "after": after})
-        card.updated_by = user.id
+        if not body.dry_run:
+            card.updated_by = user.id
 
     if body.dry_run:
-        # Roll back so the preview never persists; return the diffs the
-        # agent can show the user before committing.
-        await db.rollback()
         return {
             "dry_run": True,
             "results": [
@@ -1674,6 +1758,31 @@ async def bulk_update(
             "would_update": len(diffs),
         }
 
+    # A parent change moves the whole subtree, so hierarchyLevel /
+    # capabilityLevel have to be recomputed for the moved card and every
+    # descendant — same cascade update_card runs. Do this before the
+    # data-quality pass so scores see the fresh level attributes.
+    changed_levels_by_card: list[tuple[Card, list[Card]]] = []
+    for card in moved:
+        changed_levels_by_card.append((card, await _sync_hierarchy_levels(db, card)))
+
+    # Mirror update_card: substantive edits break an approved card.
+    status_breaking = {
+        "name",
+        "description",
+        "lifecycle",
+        "attributes",
+        "subtype",
+        "alias",
+        "parent_id",
+    }
+    for diff in diffs:
+        if not (status_breaking & set(diff["after"].keys())):
+            continue
+        card = next((c for c in sheets if str(c.id) == diff["id"]), None)
+        if card is not None and card.approval_status == "APPROVED":
+            card.approval_status = "BROKEN"
+
     # Recompute completeness score and calculated fields per card, mirroring
     # create_card / bulk_create_cards / update_card. Without this a bulk edit
     # persists the new values but leaves data_quality and calculated fields
@@ -1682,6 +1791,29 @@ async def bulk_update(
         card.data_quality = await calc_data_quality(db, card)
         ppm_excl = await _get_ppm_exclusions(db, card)
         await run_calculations_for_card(db, card, exclude_fields=ppm_excl)
+
+    # Re-run calcs for descendants whose level moved, after each card's own run.
+    for card, changed_levels in changed_levels_by_card:
+        await _recalc_changed_descendants(db, changed_levels, card.id)
+
+    # Emit an event per changed card. Without this a bulk edit is invisible in
+    # the card History tab and in the mutation-batch audit ledger — the batch
+    # id / origin stamping in event_bus.publish is what lets an admin
+    # reconstruct (or roll back) an MCP-driven bulk write.
+    for diff in diffs:
+        await event_bus.publish(
+            "card.updated",
+            {
+                "id": diff["id"],
+                "changes": {
+                    field: {"old": diff["before"].get(field), "new": diff["after"].get(field)}
+                    for field in diff["after"]
+                },
+            },
+            db=db,
+            card_id=uuid.UUID(diff["id"]),
+            user_id=user.id,
+        )
 
     await db.commit()
     result = await db.execute(
@@ -2167,10 +2299,11 @@ async def update_card(
                     new_attrs[key] = old_attrs[key]
             updates["attributes"] = new_attrs
 
-    # Guard: hierarchy depth limit before applying parent change
+    # Guard: cycle + hierarchy depth limit before applying parent change
     if "parent_id" in updates:
         new_pid = uuid.UUID(updates["parent_id"]) if updates["parent_id"] else None
         if new_pid != card.parent_id:
+            await _check_parent_not_descendant(db, {card.id}, new_pid)
             await _check_hierarchy_depth(db, card, new_pid)
 
     # Guard: sibling-name uniqueness when name or parent changes. Only
