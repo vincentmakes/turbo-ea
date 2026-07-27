@@ -79,6 +79,10 @@ export default function AdrsTab({
   const [linkLoading, setLinkLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [allAdrs, setAllAdrs] = useState<ArchitectureDecision[]>([]);
+  // Rows are click-to-link, so a stray click would otherwise attach a decision
+  // outright. Hold the candidate here and confirm before writing.
+  const [pendingLink, setPendingLink] = useState<ArchitectureDecision | null>(null);
+  const [linking, setLinking] = useState(false);
 
   // Create-new dialog
   const [createOpen, setCreateOpen] = useState(false);
@@ -120,13 +124,19 @@ export default function AdrsTab({
     }
   };
 
-  const handleLink = async (adrId: string) => {
+  const confirmLink = async () => {
+    if (!pendingLink) return;
+    setLinking(true);
     try {
-      await api.post(`/adr/${adrId}/cards`, { card_id: cardId });
+      await api.post(`/adr/${pendingLink.id}/cards`, { card_id: cardId });
       load();
+      setPendingLink(null);
       setLinkOpen(false);
     } catch {
       setError(t("cards:resources.error.linkFailed"));
+      setPendingLink(null);
+    } finally {
+      setLinking(false);
     }
   };
 
@@ -352,7 +362,7 @@ export default function AdrsTab({
                   // never slide underneath a trailing control.
                   <ListItemButton
                     key={adr.id}
-                    onClick={() => handleLink(adr.id)}
+                    onClick={() => setPendingLink(adr)}
                     sx={{ display: "flex", alignItems: "center", gap: 1 }}
                   >
                     <Chip
@@ -386,6 +396,34 @@ export default function AdrsTab({
         <DialogActions>
           <Button onClick={() => setLinkOpen(false)}>
             {t("common:actions.cancel")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Confirm the link (nested inside the picker) ── */}
+      <Dialog
+        open={Boolean(pendingLink)}
+        onClose={() => setPendingLink(null)}
+        maxWidth="xs"
+        fullWidth
+        disableRestoreFocus
+      >
+        <DialogTitle>{t("cards:adrs.confirmLink.title")}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            {t("cards:adrs.confirmLink.body", {
+              reference: pendingLink?.reference_number ?? "",
+              title: pendingLink?.title ?? "",
+              card: cardName,
+            })}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingLink(null)} disabled={linking}>
+            {t("common:actions.cancel")}
+          </Button>
+          <Button variant="contained" onClick={confirmLink} disabled={linking}>
+            {t("cards:adrs.linkAdr")}
           </Button>
         </DialogActions>
       </Dialog>

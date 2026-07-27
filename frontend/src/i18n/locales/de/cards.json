@@ -288,6 +288,8 @@
   "resources.confirmDeleteFile": "Diesen Dateianhang löschen?",
   "resources.confirmDeleteLink": "Diesen Dokumentlink löschen?",
   "adrs.confirmUnlink": "Verknüpfung zu dieser Architekturentscheidung aufheben?",
+  "adrs.confirmLink.title": "Diese Entscheidung verknüpfen?",
+  "adrs.confirmLink.body": "{{reference}} — «{{title}}» wird mit «{{card}}» verknüpft.",
   "adrs.linkDialog.title": "Architekturentscheidung verknüpfen",
   "adrs.linkDialog.search": "Entscheidungen suchen...",
   "adrs.linkDialog.empty": "Keine Architekturentscheidungen zum Verknüpfen verfügbar.",

@@ -288,6 +288,8 @@
   "resources.confirmDeleteFile": "Удалить это вложение?",
   "resources.confirmDeleteLink": "Удалить эту ссылку на документ?",
   "adrs.confirmUnlink": "Отвязать это архитектурное решение?",
+  "adrs.confirmLink.title": "Привязать это решение?",
+  "adrs.confirmLink.body": "{{reference}} — «{{title}}» будет привязано к «{{card}}».",
   "adrs.linkDialog.title": "Привязать архитектурное решение",
   "adrs.linkDialog.search": "Поиск решений...",
   "adrs.linkDialog.empty": "Нет доступных архитектурных решений для привязки.",

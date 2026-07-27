@@ -288,6 +288,8 @@
   "resources.confirmDeleteFile": "¿Eliminar este archivo adjunto?",
   "resources.confirmDeleteLink": "¿Eliminar este enlace de documento?",
   "adrs.confirmUnlink": "¿Desvincular esta decisión de arquitectura?",
+  "adrs.confirmLink.title": "¿Vincular esta decisión?",
+  "adrs.confirmLink.body": "{{reference}} — «{{title}}» se vinculará a «{{card}}».",
   "adrs.linkDialog.title": "Vincular decisión de arquitectura",
   "adrs.linkDialog.search": "Buscar decisiones...",
   "adrs.linkDialog.empty": "No hay decisiones de arquitectura disponibles para vincular.",

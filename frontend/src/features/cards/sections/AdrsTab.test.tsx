@@ -138,14 +138,39 @@ describe("AdrsTab", () => {
       await user.click(screen.getByRole("button", { name: /Link ADR/ }));
     }
 
-    it("links an ADR when its row is clicked", async () => {
+    it("asks for confirmation before linking, then links on confirm", async () => {
       const user = userEvent.setup();
       mockUnlinked();
       vi.mocked(api.post).mockResolvedValue({});
       await openPicker(user);
       await waitFor(() => expect(screen.getByText("ADR-001")).toBeInTheDocument());
+
       await user.click(screen.getByText("Adopt Cloud-First Strategy"));
+      // The row click must not write on its own.
+      expect(api.post).not.toHaveBeenCalled();
+      expect(screen.getByText(/Link this decision\?/)).toBeInTheDocument();
+      // The prompt names both the decision and the card being linked.
+      expect(screen.getByText(/ADR-001.*Adopt Cloud-First Strategy.*NexaCore ERP/)).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /^Link ADR$/ }));
       expect(api.post).toHaveBeenCalledWith("/adr/adr-1/cards", { card_id: CARD_ID });
+    });
+
+    it("does not link when the confirmation is cancelled", async () => {
+      const user = userEvent.setup();
+      mockUnlinked();
+      await openPicker(user);
+      await waitFor(() => expect(screen.getByText("ADR-001")).toBeInTheDocument());
+
+      await user.click(screen.getByText("Adopt Cloud-First Strategy"));
+      await user.click(screen.getByRole("button", { name: /Cancel/ }));
+
+      expect(api.post).not.toHaveBeenCalled();
+      await waitFor(() =>
+        expect(screen.queryByText(/Link this decision\?/)).not.toBeInTheDocument(),
+      );
+      // The picker stays open so another decision can be chosen.
+      expect(screen.getByPlaceholderText(/Search decisions/)).toBeInTheDocument();
     });
 
     it("orders rows by reference, not by the API's recency order", async () => {

@@ -325,6 +325,8 @@
   "resources.confirmDeleteFile": "حذف مرفق الملف هذا؟",
   "resources.confirmDeleteLink": "حذف رابط المستند هذا؟",
   "adrs.confirmUnlink": "إلغاء ربط قرار المعمارية هذا؟",
+  "adrs.confirmLink.title": "ربط هذا القرار؟",
+  "adrs.confirmLink.body": "{{reference}} — «{{title}}» سيتم ربطه بـ «{{card}}».",
   "adrs.linkDialog.title": "ربط قرار معمارية",
   "adrs.linkDialog.search": "البحث عن قرارات...",
   "adrs.linkDialog.empty": "لا توجد قرارات معمارية متاحة للربط.",

@@ -325,6 +325,8 @@
   "resources.confirmDeleteFile": "Slet denne filvedhæftning?",
   "resources.confirmDeleteLink": "Slet dette dokumentlink?",
   "adrs.confirmUnlink": "Frakobl denne arkitekturbeslutning?",
+  "adrs.confirmLink.title": "Tilknyt denne beslutning?",
+  "adrs.confirmLink.body": "{{reference}} — «{{title}}» vil blive tilknyttet «{{card}}».",
   "adrs.linkDialog.title": "Tilknyt arkitekturbeslutning",
   "adrs.linkDialog.search": "Søg beslutninger...",
   "adrs.linkDialog.empty": "Ingen arkitekturbeslutninger tilgængelige at tilknytte.",

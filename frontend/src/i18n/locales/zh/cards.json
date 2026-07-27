@@ -288,6 +288,8 @@
   "resources.confirmDeleteFile": "删除此文件附件？",
   "resources.confirmDeleteLink": "删除此文档链接？",
   "adrs.confirmUnlink": "取消关联此架构决策？",
+  "adrs.confirmLink.title": "关联此决策？",
+  "adrs.confirmLink.body": "{{reference}} —— 「{{title}}」将关联到「{{card}}」。",
   "adrs.linkDialog.title": "关联架构决策",
   "adrs.linkDialog.search": "搜索决策...",
   "adrs.linkDialog.empty": "没有可关联的架构决策。",

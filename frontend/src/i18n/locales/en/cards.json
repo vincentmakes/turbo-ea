@@ -325,6 +325,8 @@
   "resources.confirmDeleteFile": "Delete this file attachment?",
   "resources.confirmDeleteLink": "Delete this document link?",
   "adrs.confirmUnlink": "Unlink this architecture decision?",
+  "adrs.confirmLink.title": "Link this decision?",
+  "adrs.confirmLink.body": "{{reference}} — «{{title}}» will be linked to «{{card}}».",
   "adrs.linkDialog.title": "Link Architecture Decision",
   "adrs.linkDialog.search": "Search decisions...",
   "adrs.linkDialog.empty": "No architecture decisions available to link.",

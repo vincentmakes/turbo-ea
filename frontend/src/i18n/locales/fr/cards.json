@@ -288,6 +288,8 @@
   "resources.confirmDeleteFile": "Supprimer cette pièce jointe ?",
   "resources.confirmDeleteLink": "Supprimer ce lien de document ?",
   "adrs.confirmUnlink": "Délier cette décision d’architecture ?",
+  "adrs.confirmLink.title": "Lier cette décision ?",
+  "adrs.confirmLink.body": "{{reference}} — «{{title}}» sera liée à «{{card}}».",
   "adrs.linkDialog.title": "Lier une décision d’architecture",
   "adrs.linkDialog.search": "Rechercher des décisions…",
   "adrs.linkDialog.empty": "Aucune décision d’architecture disponible à lier.",
