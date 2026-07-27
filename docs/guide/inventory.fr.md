@@ -44,6 +44,8 @@ Les colonnes sont regroupées en cinq catégories :
 | **Relations** | Types de cartes liés (par ex., Applications liées à une Capacité Métier) |
 | **Parties prenantes** | Une colonne par rôle de partie prenante défini pour le type sélectionné (par ex. *Parties prenantes : Responsible*), affichant les utilisateurs assignés sous forme de puces. En mode édition de grille, double-cliquez sur une cellule pour assigner ou retirer des utilisateurs pour ce rôle directement depuis la grille (nécessite la permission de gestion des parties prenantes). |
 
+La colonne **Parent** n'affiche que la carte située directement au-dessus, alors que **Chemin** affiche toute la chaîne. En mode d'édition de la grille, double-cliquez sur une cellule Parent pour déplacer la carte, ou videz le champ pour la remonter au niveau supérieur. La colonne n'est modifiable que si la grille est filtrée sur un seul type de carte prenant en charge la hiérarchie. Si un déplacement est refusé — parce qu'il créerait une boucle, entrerait en conflit avec une carte du même nom sous la cible, ou dépasserait la profondeur maximale —, le motif s'affiche en bas de l'écran et la cellule revient à son état précédent.
+
 La colonne **Chemin** affiche le fil d'Ariane hiérarchique (par ex. « Amérique du Nord / Ventes / Ventes internes ») sans le nom de la fiche elle-même, ce qui vous permet d'afficher Nom et Chemin en même temps.
 
 Chaque catégorie dispose d'une case à cocher **Tout sélectionner** pour activer ou désactiver rapidement toutes les colonnes du groupe. Un champ de recherche en haut permet de trouver des colonnes spécifiques par nom. Le badge sur chaque en-tête de section indique combien de colonnes de ce groupe sont actuellement visibles.

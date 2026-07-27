@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [2.30.0] - 2026-07-27
 
 ### Added
+- **A Parent column in the inventory grid, editable inline.** It shows the card directly above in the hierarchy, where the existing Path column shows the whole chain. In Grid Edit mode, double-click a Parent cell to move a single card, or clear it to move the card to the top level — no need to open Mass Edit or the card detail page. Available from the Columns tab; on by default for new column selections.
 - **Mass Edit can now restructure the hierarchy.** A new **Parent** field re-parents every selected card in one action, or clears the parent to move them back to the top level. Because a card has exactly one parent, this also covers the other direction — to make fifty applications the children of one card, select the fifty and set their parent. The field appears once the grid is filtered to a single card type that supports hierarchy. Re-parenting no longer requires an Excel import or the API.
 - **Mass Edit reports hierarchy problems per card instead of failing the whole batch.** A card whose name collides under the target parent, or a move that would create a loop or exceed the capability depth limit, is listed by name in the dialog while every other card still moves.
 
@@ -15,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **The relation target picker in Mass Edit now browses the inventory instead of demanding a search term.** It opens with a list ready to scroll and pages in more cards as you go, rather than showing nothing until you typed and then capping the results at 20 — matching every other card picker in the app.
 
 ### Fixed
+- **The action buttons in the inventory selection bar lost contrast on hover.** Mass Edit, Archive, Restore and Delete permanently used a translucent hover colour, so the blue bar showed through and the button's own coloured text became unreadable — Mass Edit turned blue-on-blue. The hover shade is now opaque and derived from the surface colour, in light and dark mode alike.
 - **Bulk-updating a card's parent skipped every hierarchy safeguard.** `PATCH /cards/bulk` accepted a `parent_id` but applied it without checking depth limits or sibling-name uniqueness, and left `hierarchyLevel` / `capabilityLevel` stale on the moved cards and their descendants. It now runs the same validation and level cascade as a single-card edit. This also affected the `update_cards_bulk` MCP tool.
 - **A card could be moved underneath its own descendant**, silently detaching the whole branch into an unreachable loop. Both the single-card and bulk paths now reject the move.
 - **Bulk card edits emitted no events**, leaving them invisible in a card's History tab and in the mutation-batch audit ledger used to review and roll back MCP-driven writes.

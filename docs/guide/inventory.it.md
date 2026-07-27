@@ -44,6 +44,8 @@ Le colonne sono raggruppate in cinque categorie:
 | **Relazioni** | Tipi di schede correlati (ad es., Applicazioni collegate a una Capacità Aziendale) |
 | **Stakeholder** | Una colonna per ogni ruolo stakeholder definito per il tipo selezionato (ad es. *Stakeholder: Responsible*), che mostra gli utenti assegnati come chip. In modalità modifica griglia, fai doppio clic su una cella per assegnare o rimuovere utenti per quel ruolo direttamente dalla griglia (richiede il permesso di gestione degli stakeholder). |
 
+La colonna **Padre** mostra solo la scheda immediatamente superiore, mentre **Percorso** mostra l'intera catena. In modalità di modifica della griglia, fate doppio clic su una cella Padre per spostare la scheda, oppure svuotate il campo per portarla al livello principale. La colonna è modificabile solo quando la griglia è filtrata su un unico tipo di scheda che supporta la gerarchia. Se uno spostamento viene rifiutato — perché creerebbe un ciclo, entrerebbe in conflitto con una scheda omonima sotto la destinazione o supererebbe la profondità massima —, il motivo compare in fondo allo schermo e la cella torna allo stato precedente.
+
 La colonna **Percorso** mostra la gerarchia della scheda (per es. «Nord America / Vendite / Vendite interne») senza il nome della scheda stessa, così puoi tenere Nome e Percorso visibili contemporaneamente.
 
 Ogni categoria ha una casella di controllo **Seleziona tutto** per attivare o disattivare rapidamente tutte le colonne di quel gruppo. Un campo di ricerca in alto consente di trovare colonne specifiche per nome. Il badge su ogni intestazione di sezione mostra quante colonne di quel gruppo sono attualmente visibili.

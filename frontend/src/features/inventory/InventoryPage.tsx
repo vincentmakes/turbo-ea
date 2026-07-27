@@ -23,6 +23,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Alert from "@mui/material/Alert";
+import Snackbar from "@mui/material/Snackbar";
 import Drawer from "@mui/material/Drawer";
 import Tooltip from "@mui/material/Tooltip";
 import ListSubheader from "@mui/material/ListSubheader";
@@ -30,7 +31,7 @@ import Autocomplete from "@mui/material/Autocomplete";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { useTheme } from "@mui/material/styles";
+import { useTheme, darken, lighten, type Theme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import LifecycleBadge from "@/components/LifecycleBadge";
 import ArchiveDeleteDialog from "@/features/cards/ArchiveDeleteDialog";
@@ -62,6 +63,7 @@ import { api, ApiError } from "@/api/client";
 import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
 import TagPicker from "@/components/TagPicker";
 import TagsCellEditor from "@/features/inventory/TagsCellEditor";
+import ParentCellEditor from "@/features/inventory/ParentCellEditor";
 import StakeholdersCellEditor from "@/features/inventory/StakeholdersCellEditor";
 import type { Card, CardListResponse, ColumnLayoutItem, FieldDef, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
@@ -96,6 +98,29 @@ function getLifecyclePhase(card: Card): string {
   }
   return "";
 }
+
+/**
+ * Shared styling for the action buttons in the selection bar.
+ *
+ * Those buttons sit on a `primary.main` (blue) bar and carry their own text
+ * colour on a `background.paper` chip. The hover state must therefore be an
+ * *opaque* colour: `action.selected` is a translucent overlay, so it let the
+ * blue bar show through and the button's own coloured text lost contrast —
+ * most visibly on Mass Edit, whose blue text ended up on a blue background.
+ * Deriving the hover shade from the real paper colour keeps the same
+ * text-contrast relationship as the resting state, in light and dark alike.
+ */
+const SELECTION_BAR_BUTTON_SX = {
+  bgcolor: "background.paper",
+  textTransform: "none",
+  whiteSpace: "nowrap",
+  "&:hover": {
+    bgcolor: (theme: Theme) =>
+      theme.palette.mode === "dark"
+        ? lighten(theme.palette.background.paper, 0.12)
+        : darken(theme.palette.background.paper, 0.08),
+  },
+} as const;
 
 /**
  * Pre-compute the breadcrumb path *up to* each card's parent (i.e. excluding
@@ -140,6 +165,58 @@ function buildParentPaths(items: Card[]): Map<string, string> {
     parentOnly.set(card.id, resolveFull(parentId, new Set([card.id])));
   }
   return parentOnly;
+}
+
+/**
+ * Map each card to its *immediate* parent, for the Parent column. The Path
+ * column shows the whole ancestor chain; this is just the one card directly
+ * above. Parents outside the loaded page resolve to null — the inventory
+ * pages at 10 000 rows, so in practice the parent is always present.
+ */
+function buildParentRefs(items: Card[]): Map<string, CardOption | null> {
+  const byId = new Map(items.map((card) => [card.id, card]));
+  const refs = new Map<string, CardOption | null>();
+  for (const card of items) {
+    const parent = card.parent_id ? byId.get(card.parent_id) : undefined;
+    refs.set(
+      card.id,
+      parent ? { id: parent.id, name: parent.name, type: parent.type } : null,
+    );
+  }
+  return refs;
+}
+
+/**
+ * Map each card to itself plus every descendant, so the parent picker can hide
+ * the choices that would obviously cycle. The server rejects cycles regardless
+ * (it is the only place that can see the full tree), but excluding them here
+ * avoids offering a choice that is guaranteed to fail.
+ */
+function buildDescendantIndex(items: Card[]): Map<string, string[]> {
+  const childrenOf = new Map<string, string[]>();
+  for (const card of items) {
+    if (!card.parent_id) continue;
+    const siblings = childrenOf.get(card.parent_id);
+    if (siblings) siblings.push(card.id);
+    else childrenOf.set(card.parent_id, [card.id]);
+  }
+
+  const index = new Map<string, string[]>();
+  for (const card of items) {
+    const collected: string[] = [card.id];
+    // Iterative walk with a seen-set: a pre-existing cycle in the data must
+    // not hang the grid.
+    const seen = new Set<string>([card.id]);
+    for (let i = 0; i < collected.length; i++) {
+      for (const childId of childrenOf.get(collected[i]) ?? []) {
+        if (seen.has(childId)) continue;
+        seen.add(childId);
+        collected.push(childId);
+      }
+    }
+    index.set(card.id, collected);
+  }
+  return index;
 }
 
 /**
@@ -474,6 +551,9 @@ export default function InventoryPage() {
   const [massEditRelSearchDebounced, setMassEditRelSearchDebounced] = useState("");
   // Parent mass-edit state
   const [massEditParent, setMassEditParent] = useState<CardOption | null>(null);
+  // Inline (Grid Edit) failures that the user needs a reason for — a rejected
+  // re-parent is the first, since the server owns every hierarchy rule.
+  const [cellEditError, setCellEditError] = useState("");
 
   // Mass archive / delete state
   const [massArchiveOpen, setMassArchiveOpen] = useState(false);
@@ -766,6 +846,8 @@ export default function InventoryPage() {
   // Built once from raw API data; completely detached from the mutable row objects
   // that AG Grid holds, so grid-internal writes to data[field] cannot corrupt paths.
   const parentPaths = useMemo(() => buildParentPaths(data), [data]);
+  const parentRefs = useMemo(() => buildParentRefs(data), [data]);
+  const descendantIndex = useMemo(() => buildDescendantIndex(data), [data]);
 
   // Client-side filtering
   const filteredData = useMemo(() => {
@@ -914,6 +996,19 @@ export default function InventoryPage() {
       if (fieldDef?.readonly) return;
       const attrs = { ...card.attributes, [key]: event.newValue };
       await api.patch(`/cards/${card.id}`, { attributes: attrs });
+    } else if (field === "parent_id") {
+      const newParent = event.newValue as CardOption | null;
+      try {
+        await api.patch(`/cards/${card.id}`, { parent_id: newParent?.id ?? null });
+      } catch (err) {
+        // The server owns the hierarchy rules — a cycle, a name collision under
+        // the new parent, or a capability depth limit all land here. Surface the
+        // reason rather than silently snapping the cell back.
+        setCellEditError(err instanceof Error ? err.message : t("gridEdit.parentFailed"));
+      }
+      // Reload either way: a success cascades levels (and the Path column) down
+      // the subtree, a failure has to revert the optimistic row state.
+      loadData();
     } else if (field === "tags") {
       const oldIds = new Set<string>((event.oldValue as TagRef[] | undefined ?? []).map((t) => t.id));
       const newIds = new Set<string>((event.newValue as TagRef[] | undefined ?? []).map((t) => t.id));
@@ -1688,6 +1783,41 @@ export default function InventoryPage() {
         cellStyle: { color: "var(--mui-palette-text-secondary)" },
       },
       {
+        // The immediate parent, as opposed to core_path's full ancestor chain.
+        // Editable in Grid Edit mode so a one-off move needs neither Mass Edit
+        // nor a trip to the card detail page. Only offered for a single
+        // hierarchical type, matching the Mass Edit Parent field: the picker
+        // needs one concrete type to browse.
+        colId: "core_parent",
+        field: "parent_id",
+        headerName: t("columns.parent"),
+        flex: 1,
+        minWidth: 160,
+        sortable: true,
+        hide: !selectedColumns.has("core_parent"),
+        editable: gridEditMode && !!selectedType && !!typeConfig?.has_hierarchy,
+        cellEditor: ParentCellEditor,
+        cellEditorPopup: true,
+        cellEditorParams: (p: { data: Card }) => ({
+          cardId: p.data.id,
+          typeKey: p.data.type,
+          excludeIds: descendantIndex.get(p.data.id) ?? [p.data.id],
+        }),
+        valueGetter: (p: { data?: Card }) =>
+          p.data ? parentRefs.get(p.data.id) ?? null : null,
+        valueSetter: (p: { data: Card; newValue: CardOption | null }) => {
+          p.data.parent_id = p.newValue?.id ?? undefined;
+          return true;
+        },
+        // The cell value is a CardOption; without this the column-header text
+        // filter and the sort comparator both see "[object Object]".
+        filterValueGetter: (p: { data?: Card }) =>
+          (p.data ? parentRefs.get(p.data.id)?.name : "") ?? "",
+        comparator: (a: CardOption | null, b: CardOption | null) =>
+          (a?.name ?? "").localeCompare(b?.name ?? ""),
+        cellRenderer: (p: { value: CardOption | null }) => p.value?.name ?? "",
+      },
+      {
         colId: "core_description",
         field: "description",
         headerName: t("common:labels.description"),
@@ -2260,7 +2390,7 @@ export default function InventoryPage() {
     );
 
     return cols;
-  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, relationsLoading, selectedType, parentPaths, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, tagGroups, stakeholderRoles, typeLabel]);
+  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, relationsLoading, selectedType, parentPaths, parentRefs, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, tagGroups, stakeholderRoles, typeLabel]);
 
   // Restore the saved column layout (order/width/pinning/sort) onto the grid.
   // Keyed on `columnDefs` so it re-applies each time the column *set* changes —
@@ -2783,13 +2913,7 @@ export default function InventoryPage() {
               size="small"
               variant="contained"
               color="inherit"
-              sx={{
-                color: "primary.main",
-                bgcolor: "background.paper",
-                textTransform: "none",
-                whiteSpace: "nowrap",
-                "&:hover": { bgcolor: "action.selected" },
-              }}
+              sx={{ color: "primary.main", ...SELECTION_BAR_BUTTON_SX }}
               startIcon={<MaterialSymbol icon="edit" size={16} />}
               onClick={() => {
                 setMassEditOpen(true);
@@ -2810,13 +2934,7 @@ export default function InventoryPage() {
                 size="small"
                 variant="contained"
                 color="inherit"
-                sx={{
-                  color: "#e65100",
-                  bgcolor: "background.paper",
-                  textTransform: "none",
-                  whiteSpace: "nowrap",
-                  "&:hover": { bgcolor: "action.selected" },
-                }}
+                sx={{ color: "#e65100", ...SELECTION_BAR_BUTTON_SX }}
                 startIcon={<MaterialSymbol icon="archive" size={16} />}
                 onClick={() => setMassArchiveOpen(true)}
               >
@@ -2828,13 +2946,7 @@ export default function InventoryPage() {
                 size="small"
                 variant="contained"
                 color="inherit"
-                sx={{
-                  color: "#2e7d32",
-                  bgcolor: "background.paper",
-                  textTransform: "none",
-                  whiteSpace: "nowrap",
-                  "&:hover": { bgcolor: "action.selected" },
-                }}
+                sx={{ color: "#2e7d32", ...SELECTION_BAR_BUTTON_SX }}
                 startIcon={<MaterialSymbol icon="restore" size={16} />}
                 onClick={() => setMassRestoreOpen(true)}
               >
@@ -2846,13 +2958,7 @@ export default function InventoryPage() {
                 size="small"
                 variant="contained"
                 color="inherit"
-                sx={{
-                  color: "#c62828",
-                  bgcolor: "background.paper",
-                  textTransform: "none",
-                  whiteSpace: "nowrap",
-                  "&:hover": { bgcolor: "action.selected" },
-                }}
+                sx={{ color: "#c62828", ...SELECTION_BAR_BUTTON_SX }}
                 startIcon={<MaterialSymbol icon="delete_forever" size={16} />}
                 onClick={() => setMassDeleteOpen(true)}
               >
@@ -2917,6 +3023,18 @@ export default function InventoryPage() {
           />
         </Box>
       </Box>
+
+      {/* Inline-edit failures (rejected re-parent, …) */}
+      <Snackbar
+        open={!!cellEditError}
+        autoHideDuration={8000}
+        onClose={() => setCellEditError("")}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert severity="error" variant="filled" onClose={() => setCellEditError("")}>
+          {cellEditError}
+        </Alert>
+      </Snackbar>
 
       {/* Mass Edit Dialog */}
       <Dialog open={massEditOpen} onClose={() => setMassEditOpen(false)} maxWidth="sm" fullWidth>

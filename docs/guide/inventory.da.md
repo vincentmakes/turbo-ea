@@ -44,6 +44,8 @@ Kolonner er grupperet i fem kategorier:
 | **Relationer** | Relaterede korttyper (f.eks. applikationer linket til en Business Capability) |
 | **Interessenter** | Én kolonne pr. interessentrolle defineret for den valgte korttype (f.eks. *Interessenter: Responsible*), der viser de tildelte brugere som chips. I gitter-redigeringstilstand kan du dobbeltklikke på en celle for at tildele eller fjerne brugere for rollen direkte fra gitteret (kræver tilladelsen til at administrere interessenter). |
 
+Kolonnen **Overordnet** viser kun kortet lige ovenover, mens **Path** viser hele kæden. I gitterredigeringstilstand kan du dobbeltklikke på en Overordnet-celle for at flytte kortet eller rydde feltet for at flytte det til øverste niveau. Kolonnen kan kun redigeres, når gitteret er filtreret til én korttype, der understøtter hierarki. Hvis en flytning afvises — fordi den ville skabe en løkke, kollidere med et kort med samme navn under målet eller overskride den maksimale dybde — vises årsagen nederst på skærmen, og cellen føres tilbage.
+
 Kolonnen **Path** viser kortets hierarki-brødkrumme (f.eks. `North America / Sales / Inside Sales`) uden at inkludere kortets eget navn, så du kan beholde både Name og Path på skærmen samtidig.
 
 Hver kategori har et **Vælg alle**-afkrydsningsfelt til hurtigt at skifte alle kolonner i den gruppe. Et søgefelt øverst lader dig finde specifikke kolonner efter navn. Badget på hver sektionsoverskrift viser, hvor mange kolonner fra den gruppe der aktuelt er synlige.

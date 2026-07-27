@@ -44,6 +44,8 @@ Columns are grouped into five categories:
 | **Relations** | Related card types (e.g., Applications linked to a Business Capability) |
 | **Stakeholders** | One column per stakeholder role defined for the selected card type (e.g. *Stakeholders: Responsible*), showing the assigned users as chips. In grid edit mode, double-click a cell to assign or remove users for that role directly from the grid (requires the *manage stakeholders* permission). |
 
+The **Parent** column shows just the card directly above it in the hierarchy, where **Path** shows the whole chain. In grid edit mode, double-click a Parent cell to move the card somewhere else, or clear the field to move it to the top level. The column is editable only when the grid is filtered to a single card type that supports hierarchy. If a move is refused — because it would create a loop, collide with a same-named card under the target, or exceed the maximum capability depth — the reason appears at the bottom of the screen and the cell reverts.
+
 The **Path** column shows the card's hierarchy breadcrumb (e.g. `North America / Sales / Inside Sales`) without including the card's own name, so you can keep both Name and Path on screen at once.
 
 Each category has a **Select all** checkbox to quickly toggle all columns in that group. A search field at the top lets you find specific columns by name. The badge on each section header shows how many columns from that group are currently visible.

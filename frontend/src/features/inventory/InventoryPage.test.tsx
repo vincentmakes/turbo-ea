@@ -101,8 +101,17 @@ vi.mock("ag-grid-community/styles/ag-grid.css", () => ({}));
 vi.mock("ag-grid-community/styles/ag-theme-quartz.css", () => ({}));
 
 import { api } from "@/api/client";
+import { AgGridReact } from "ag-grid-react";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useAuth } from "@/hooks/useAuth";
+
+/** Just the slice of a colDef the parent-column tests assert on. */
+interface ColDefLike {
+  colId?: string;
+  headerName?: string;
+  editable?: boolean;
+  valueGetter?: (params: { data?: unknown }) => unknown;
+}
 
 // ---------------------------------------------------------------------------
 // Test data
@@ -525,5 +534,146 @@ describe("InventoryPage mass edit parent", () => {
     // Dialog stays open and names the blocked card, rather than aborting both.
     expect(await screen.findByText(/1 updated, 1 blocked/i)).toBeInTheDocument();
     expect(screen.getByText("Cloud Migration")).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Parent column (inline editing)
+// ---------------------------------------------------------------------------
+
+describe("InventoryPage parent column", () => {
+  // A parent/child pair of the hierarchical type, so the column has something
+  // to resolve. Kept local so the shared row-count assertions stay valid.
+  const HIER_CARDS = {
+    items: [
+      { ...MOCK_CARDS.items[0], id: "p1", name: "Finance Suite", type: "Application" },
+      {
+        ...MOCK_CARDS.items[0],
+        id: "c9",
+        name: "Ledger",
+        type: "Application",
+        parent_id: "p1",
+      },
+    ],
+    total: 2,
+    page: 1,
+    page_size: 500,
+  };
+
+  /** The colDefs AG Grid was last rendered with. */
+  function columnDefs() {
+    const calls = vi.mocked(AgGridReact).mock.calls;
+    return (calls[calls.length - 1][0] as { columnDefs: ColDefLike[] }).columnDefs;
+  }
+
+  function parentCol() {
+    return columnDefs().find((c) => c.colId === "core_parent");
+  }
+
+  beforeEach(() => {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve(HIER_CARDS);
+      if (path.startsWith("/relations")) return Promise.resolve([]);
+      if (path.startsWith("/bookmarks")) return Promise.resolve([]);
+      return Promise.resolve({});
+    });
+  });
+
+  it("exposes a Parent column", async () => {
+    renderInventory();
+    await waitFor(() => expect(parentCol()).toBeDefined());
+    expect(parentCol()!.headerName).toBe("Parent");
+  });
+
+  it("resolves the immediate parent, not the whole path", async () => {
+    renderInventory();
+    await waitFor(() => expect(parentCol()).toBeDefined());
+
+    const child = HIER_CARDS.items[1];
+    const root = HIER_CARDS.items[0];
+    expect(parentCol()!.valueGetter!({ data: child })).toMatchObject({
+      id: "p1",
+      name: "Finance Suite",
+    });
+    // A root card has no parent — the cell stays empty rather than showing itself.
+    expect(parentCol()!.valueGetter!({ data: root })).toBeNull();
+  });
+
+  it("is read-only until Grid Edit mode is on", async () => {
+    renderInventory();
+    await waitFor(() => expect(parentCol()).toBeDefined());
+    expect(parentCol()!.editable).toBe(false);
+
+    await userEvent.click(screen.getByTestId("select-application"));
+    await userEvent.click(await screen.findByRole("button", { name: /grid edit/i }));
+    await waitFor(() => expect(parentCol()!.editable).toBe(true));
+  });
+
+  it("persists a re-parent through the card endpoint", async () => {
+    vi.mocked(api.patch).mockResolvedValue({});
+    renderInventory();
+    await waitFor(() => expect(parentCol()).toBeDefined());
+
+    const calls = vi.mocked(AgGridReact).mock.calls;
+    const onCellValueChanged = (
+      calls[calls.length - 1][0] as {
+        onCellValueChanged: (e: unknown) => Promise<void>;
+      }
+    ).onCellValueChanged;
+
+    await onCellValueChanged({
+      data: HIER_CARDS.items[1],
+      colDef: { field: "parent_id" },
+      newValue: { id: "p1", name: "Finance Suite", type: "Application" },
+      oldValue: null,
+    });
+
+    expect(api.patch).toHaveBeenCalledWith("/cards/c9", { parent_id: "p1" });
+  });
+
+  it("clears the parent when the picker is emptied", async () => {
+    vi.mocked(api.patch).mockResolvedValue({});
+    renderInventory();
+    await waitFor(() => expect(parentCol()).toBeDefined());
+
+    const calls = vi.mocked(AgGridReact).mock.calls;
+    const onCellValueChanged = (
+      calls[calls.length - 1][0] as {
+        onCellValueChanged: (e: unknown) => Promise<void>;
+      }
+    ).onCellValueChanged;
+
+    await onCellValueChanged({
+      data: HIER_CARDS.items[1],
+      colDef: { field: "parent_id" },
+      newValue: null,
+      oldValue: { id: "p1", name: "Finance Suite", type: "Application" },
+    });
+
+    expect(api.patch).toHaveBeenCalledWith("/cards/c9", { parent_id: null });
+  });
+
+  it("surfaces the server's reason when a move is rejected", async () => {
+    vi.mocked(api.patch).mockRejectedValue(
+      new Error("Cannot set parent: would create a hierarchy cycle"),
+    );
+    renderInventory();
+    await waitFor(() => expect(parentCol()).toBeDefined());
+
+    const calls = vi.mocked(AgGridReact).mock.calls;
+    const onCellValueChanged = (
+      calls[calls.length - 1][0] as {
+        onCellValueChanged: (e: unknown) => Promise<void>;
+      }
+    ).onCellValueChanged;
+
+    await onCellValueChanged({
+      data: HIER_CARDS.items[1],
+      colDef: { field: "parent_id" },
+      newValue: { id: "x", name: "Descendant", type: "Application" },
+      oldValue: null,
+    });
+
+    expect(await screen.findByText(/would create a hierarchy cycle/i)).toBeInTheDocument();
   });
 });
