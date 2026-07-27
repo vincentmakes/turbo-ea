@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import InventoryPage from "./InventoryPage";
@@ -426,8 +426,9 @@ describe("InventoryPage relation loading", () => {
   });
 
   it("discards a superseded relations response", async () => {
-    // `api.get` has no AbortSignal, so a slow response for type A must not
-    // overwrite a newer one for type B.
+    // A slow response for type A must not overwrite a newer one for type B.
+    // The abort saves the download; the generation token is what guarantees
+    // ordering, since an already-resolved response cannot be aborted.
     let resolveSlow: (v: unknown) => void = () => {};
     const slow = new Promise((r) => {
       resolveSlow = r;
@@ -465,6 +466,97 @@ describe("InventoryPage relation loading", () => {
 
     // No crash, grid intact — the generation guard dropped the stale payload.
     await waitFor(() => expect(screen.getByTestId("ag-grid")).toBeInTheDocument());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Out-of-order card responses (#882)
+// ---------------------------------------------------------------------------
+
+describe("InventoryPage card list race", () => {
+  function cardCalls() {
+    return vi
+      .mocked(api.get)
+      .mock.calls.map((c) => c[0] as string)
+      .filter((p) => p.startsWith("/cards"));
+  }
+
+  const APP_ONLY = { items: [MOCK_CARDS.items[0]], total: 1, page: 1, page_size: 10000 };
+
+  /**
+   * Mocks `/cards` so the first request hangs until the returned `release` is
+   * called, and every later one answers immediately with `fresh`.
+   */
+  function hangFirstCardRequest(fresh: unknown) {
+    let release: (v: unknown) => void = () => {};
+    const slow = new Promise((r) => {
+      release = r;
+    });
+    let call = 0;
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) {
+        call += 1;
+        return call === 1 ? (slow as Promise<unknown>) : Promise.resolve(fresh);
+      }
+      if (path.startsWith("/bookmarks")) return Promise.resolve([]);
+      if (path.startsWith("/relations")) return Promise.resolve([]);
+      return Promise.resolve({});
+    });
+    return {
+      /** Resolve the hung request and let React flush whatever it triggers. */
+      async landStaleResponse(payload: unknown) {
+        await act(async () => {
+          release(payload);
+          await slow;
+        });
+      },
+    };
+  }
+
+  it("ignores a stale card response that lands after a newer one", async () => {
+    // The reported scenario: clearing the filter fetches the whole repository
+    // and is slow; picking a narrower type straight afterwards returns first.
+    // The slow response must not overwrite the grid when it finally arrives.
+    const { landStaleResponse } = hangFirstCardRequest(APP_ONLY);
+    const rowCount = () => screen.getByTestId("ag-grid").getAttribute("data-row-count");
+
+    renderInventory();
+    await waitFor(() => expect(cardCalls().length).toBeGreaterThan(0));
+
+    await userEvent.click(screen.getByTestId("select-application"));
+    await waitFor(() => expect(rowCount()).toBe("1"));
+
+    await landStaleResponse(MOCK_CARDS); // whole-repository payload, arriving last
+
+    expect(rowCount()).toBe("1");
+  });
+
+  it("keeps the loading state until the winning request settles", async () => {
+    // A superseded request clearing the spinner would flash "done" over the
+    // previous filter's rows while the real request is still in flight.
+    const { landStaleResponse } = hangFirstCardRequest(
+      new Promise(() => {}), // the winner never settles in this test
+    );
+    const isLoading = () => screen.getByTestId("ag-grid").getAttribute("data-loading");
+
+    renderInventory();
+    await waitFor(() => expect(cardCalls().length).toBeGreaterThan(0));
+    await userEvent.click(screen.getByTestId("select-application"));
+    await waitFor(() => expect(cardCalls().length).toBeGreaterThan(1));
+
+    await landStaleResponse(MOCK_CARDS);
+
+    expect(isLoading()).toBe("true");
+  });
+
+  it("forwards an abort signal on the card request", async () => {
+    renderInventory();
+
+    await waitFor(() => expect(cardCalls().length).toBeGreaterThan(0));
+    const call = vi
+      .mocked(api.get)
+      .mock.calls.find((c) => (c[0] as string).startsWith("/cards"));
+    expect(call?.[1]?.signal).toBeInstanceOf(AbortSignal);
   });
 });
 
