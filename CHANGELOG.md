@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.32.1] - 2026-07-27
+
+### Fixed
+- **Changing an inventory filter while a slower request was still running could leave the grid showing the wrong cards.** Clearing the type filter fetches the whole repository; picking a specific type straight afterwards came back first, and then the slow response landed and overwrote the grid — so the grid listed every card while the sidebar said «Application». Filter-driven requests are now cancelled when a newer one starts, and a superseded response is discarded instead of applied.
+- **The Matrix report could draw one pair of card types under the labels of another.** It never cleared the previous data, so after switching an axis the old grid stayed on screen beneath the new row and column headings, with nothing to indicate the two disagreed. Switching axes now shows the loading indicator until the matching data arrives.
+- **Typing in the inventory search box fired a full repository request per keystroke.** The search term now settles for a moment before it is sent, and the grid keeps its loading indicator from the very first keystroke, so it never looks finished while it is still showing results for what you typed before. Type, approval and archived toggles stay instant.
+- **The same stale-result problem affected the Cost, Dependency, Capability Map and Lifecycle reports, the Todos list and the PPM portfolio.** Every view whose data reloads when you change a picker now discards results for a selection you have moved on from.
+- **The portfolio reports could sit on a loading spinner forever.** Switching card type cleared the chart before the new data arrived, and a request that failed left nothing to bring it back. A failure now shows an error message instead.
+- **Card pickers could get stuck showing results for a search you had already replaced.** Changing the type filter or search term while a request was in flight dropped the new request outright and never retried it. This affected relation, parent and vendor pickers throughout the app, and the search fields in the survey builder, calculation tester, survey response form and End-of-Life linking.
+
 ## [2.32.0] - 2026-07-27
 
 ### Added

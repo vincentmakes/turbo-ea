@@ -227,6 +227,12 @@ Always render status through one of these:
 
 Skeleton loaders are not used today — that's a deliberate choice. If introduced, add a section here.
 
+**Control-driven surfaces** (a grid or chart whose data reloads when a picker, tab or search box changes) have three additional rules — see the request-hook conventions in `CLAUDE.md` for the mechanics:
+
+- **The loading indicator starts when the control changes, not when the request does.** If the input is debounced, the debounce window is part of the loading state. A surface that looks settled while it is still showing the previous query's rows reads as a wrong answer, not a pending one.
+- **A failed fetch renders an `<Alert severity="error">`, never an endless spinner.** Keep the previous data behind the alert where there is any; blanking the view loses the user's context for no benefit.
+- **Don't blank to a spinner on every picker change when the previous render is still meaningful.** The exception is a view whose labels are drawn from the *current* selection while the body comes from the response — a matrix, a cross-tab — where showing the previous payload under the new headers is worse than a spinner, because nothing on screen signals the mismatch.
+
 ### 3.9 Icons
 
 - Use `<MaterialSymbol icon="..." size={...} color={...}/>` — never raw SVG.
