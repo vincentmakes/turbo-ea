@@ -11,6 +11,9 @@ La pagina **Impostazioni** sotto **Admin → Impostazioni** (`/admin/settings`) 
 | **Portali web** | `/admin/settings?tab=web-portals` | Slug di portali pubblici in sola lettura, filtri di visibilità | [Portali web](web-portals.md) |
 | **ServiceNow** | `/admin/settings?tab=servicenow` | Connessione ServiceNow, configurazione di sincronizzazione, mappatura identità | [Integrazione ServiceNow](servicenow.md) |
 | **TurboLens** | `/admin/settings?tab=turbolens` | Interruttori specifici di TurboLens, normative abilitate, polling delle analisi | Vedi sezione [Impostazioni TurboLens](#impostazioni-turbolens) sotto |
+| **Migrazione** | `/admin/settings?tab=migration` | Importazioni da altre piattaforme EA e trasferimento completo del workspace tra istanze Turbo EA | [Migrazione di piattaforma](migration.md) |
+| **Registro di audit** | `/admin/settings?tab=audit-log` | Registro delle modifiche — chi ha cambiato cosa e se proviene dall'interfaccia web, dall'API o da uno strumento IA | — |
+| **Risorse** | `/admin/settings?tab=resources` | Tutti i file e i collegamenti allegati a una scheda, con statistiche di archiviazione e pulizia in massa | [Risorse](resources.md) |
 
 Il resto di questa pagina copre la scheda **Generale**.
 

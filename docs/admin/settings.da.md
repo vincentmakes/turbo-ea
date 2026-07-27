@@ -11,6 +11,9 @@ Siden **Indstillinger** under **Admin → Indstillinger** (`/admin/settings`) er
 | **Webportaler** | `/admin/settings?tab=web-portals` | Offentlige skrivebeskyttede portal-slugs, synlighedsfiltre | [Webportaler](web-portals.md) |
 | **ServiceNow** | `/admin/settings?tab=servicenow` | ServiceNow-forbindelse, synkroniseringskonfiguration, identitetskortlægning | [ServiceNow-integration](servicenow.md) |
 | **TurboLens** | `/admin/settings?tab=turbolens` | TurboLens-specifikke kontakter, aktiverede reguleringer, analysepolling | Se afsnittet [TurboLens-indstillinger](#turbolens-indstillinger) nedenfor |
+| **Migrering** | `/admin/settings?tab=migration` | Import fra andre EA-platforme og fuld overførsel af arbejdsområde mellem Turbo EA-instanser | [Platformsmigrering](migration.md) |
+| **Revisionslog** | `/admin/settings?tab=audit-log` | Ændringsregister — hvem der ændrede hvad, og om det kom fra webgrænsefladen, API'et eller et AI-værktøj | — |
+| **Ressourcer** | `/admin/settings?tab=resources` | Alle filer og links, der er vedhæftet et kort, med lagerstatistik og masseoprydning | [Ressourcer](resources.md) |
 
 Resten af denne side dækker fanebladet **Generelt**.
 

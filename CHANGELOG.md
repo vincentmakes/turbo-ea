@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.31.0] - 2026-07-27
+
+### Added
+- **Repository-wide resource management.** A new **Resources** tab under Admin → Settings lists every file attachment and document link in the workspace in one AG Grid, instead of making you open cards one at a time. Search by file name, card name or URL; filter by kind, card type, category or link type, file type, card, uploader, archived state and date; sort any column across the whole repository. Files download in a click and links open in a new tab.
+- **Storage and usage statistics for resources.** The Resources tab reports how many files and links exist, how much database storage the attachments consume, and how many cards carry resources — with breakdowns by category, by card type, and a list of the ten largest files. The figures follow the active filters, so they always describe what you are looking at.
+- **Bulk clean-up of resources.** Select any mix of files and links and delete them in one action, with a confirmation showing the count and the storage it frees. Each row is permission-checked individually: resources on cards you may not manage are skipped and listed back to you rather than failing the whole operation, and every deletion is recorded on the affected card's History tab.
+- **`GET /resources`, `GET /resources/stats` and `POST /resources/bulk-delete`.** Paginated, filterable, sortable access to the same data. Reading requires `documents.view`; deleting requires `documents.manage` or the card-level `card.manage_documents` — exactly the permissions the per-card endpoints already use, so no new authority is introduced.
+
+- **Demo data now includes file attachments.** `SEED_DEMO=true` seeds eight files across the NexaTech applications, IT components and initiatives, so the Resources tab and its storage statistics have something to show on a demo install. Demo document links also carry a real link type instead of a raw `link` value that rendered as its own key.
+
+### Changed
+- **The Settings tab table in the user manual now lists every tab.** Migration and Audit log were missing from it alongside the new Resources entry.
+- **Grid filter sidebars are now specified in the design system.** `frontend/UI_GUIDELINES.md` § 3.11 documents the anatomy every AG Grid filter panel must follow — section glyphs and count chips, option rows that carry the entity's own icon and colour, coloured chips for mutually-exclusive states, and the column picker's per-column glyphs, Select all row and locked-column tooltips.
+
 ## [2.30.0] - 2026-07-27
 
 ### Added

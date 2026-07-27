@@ -102,6 +102,7 @@ plugins:
             Metamodel: Metamodelo
             Calculations: Cálculos
             Tags: Etiquetas
+            Resources: Recursos
             Users & Roles: Usuarios y roles
             Authentication & SSO: Autenticación y SSO
             AI Capabilities: Capacidades de IA
@@ -166,6 +167,7 @@ plugins:
             Metamodel: Metamodell
             Calculations: Berechnungen
             Tags: Tags
+            Resources: Ressourcen
             Users & Roles: Benutzer und Rollen
             Authentication & SSO: Authentifizierung und SSO
             AI Capabilities: KI-Funktionen
@@ -230,6 +232,7 @@ plugins:
             Metamodel: Métamodèle
             Calculations: Calculs
             Tags: Tags
+            Resources: Ressources
             Users & Roles: Utilisateurs et rôles
             Authentication & SSO: Authentification et SSO
             AI Capabilities: Fonctionnalités IA
@@ -294,6 +297,7 @@ plugins:
             Metamodel: Metamodello
             Calculations: Calcoli
             Tags: Tag
+            Resources: Risorse
             Users & Roles: Utenti e ruoli
             Authentication & SSO: Autenticazione e SSO
             AI Capabilities: Funzionalità IA
@@ -358,6 +362,7 @@ plugins:
             Metamodel: Metamodelo
             Calculations: Cálculos
             Tags: Tags
+            Resources: Recursos
             Users & Roles: Usuários e papéis
             Authentication & SSO: Autenticação e SSO
             AI Capabilities: Funcionalidades de IA
@@ -422,6 +427,7 @@ plugins:
             Metamodel: 元模型
             Calculations: 计算
             Tags: 标签
+            Resources: 资源
             Users & Roles: 用户与角色
             Authentication & SSO: 认证与 SSO
             AI Capabilities: AI 功能
@@ -486,6 +492,7 @@ plugins:
             Metamodel: Метамодель
             Calculations: Вычисления
             Tags: Теги
+            Resources: Ресурсы
             Users & Roles: Пользователи и роли
             Authentication & SSO: Аутентификация и SSO
             AI Capabilities: Возможности ИИ
@@ -550,6 +557,7 @@ plugins:
             Metamodel: Metamodel
             Calculations: Beregninger
             Tags: Tags
+            Resources: Ressourcer
             Users & Roles: Brugere og roller
             Authentication & SSO: Autentificering og SSO
             AI Capabilities: AI-funktioner
@@ -614,6 +622,7 @@ plugins:
             Metamodel: النموذج الفوقي
             Calculations: الحسابات
             Tags: الوسوم
+            Resources: الموارد
             Users & Roles: المستخدمون والأدوار
             Authentication & SSO: المصادقة والدخول الموحّد
             AI Capabilities: قدرات الذكاء الاصطناعي
@@ -707,6 +716,7 @@ nav:
       - Metamodel: admin/metamodel.md
       - Calculations: admin/calculations.md
       - Tags: admin/tags.md
+      - Resources: admin/resources.md
       - Users & Roles: admin/users.md
       - Authentication & SSO: admin/sso.md
       - AI Capabilities: admin/ai.md

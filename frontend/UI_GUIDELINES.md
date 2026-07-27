@@ -326,6 +326,55 @@ These are presentation/interaction concerns layered in the component — they do
 - Don't reuse this view for runtime / deployment / sequence diagrams — it is a *dependency* view of the EA metamodel, not a behavioural diagram.
 - Don't substitute another graph library (vis.js, Cytoscape, mermaid) for the Layered Dependency View. Mermaid is still fine for one-off illustrative diagrams (e.g. ArchitectureDiagram in TurboLens reports), but the canonical interactive dependency view is React Flow + `layeredDependencyLayout`.
 
+### 3.11 Grid Filter Sidebar
+
+Every AG Grid page that filters server-side uses the same left-hand sidebar. The reference implementation is the **Inventory** sidebar (`features/inventory/InventoryFilterSidebar.tsx`); `AuditLogFilterSidebar`, `RiskFilterSidebar` and `ResourcesFilterSidebar` follow it. Reuse the shape — a sidebar that only *works* like the inventory but doesn't *look* like it is a bug.
+
+**Structure** — collapsed rail (44 px, chevron + active-filter count chip) · tabbed header (**Filters** / **Columns**, each with an 8 px primary dot when it has changes) · scrollable body of collapsible sections · 4 px drag resize handle (`MIN_WIDTH` 220 / `MAX_WIDTH` 480).
+
+**Every section header carries a glyph and a count.** Never a bare label:
+
+```tsx
+<SectionHeader
+  label={t("filter.types")}
+  icon="category"          // section glyph, size 16 — required
+  expanded={expandedSections.types}
+  onToggle={() => toggleSection("types")}
+  count={filters.types.length}   // primary Chip, height 18, hidden when 0
+/>
+```
+
+**Options are never plain checkbox rows.** Each row must carry the visual identity the entity has everywhere else in the app:
+
+| Option kind | Rendering |
+| --- | --- |
+| Card type | Checkbox + `<MaterialSymbol icon={type.icon} size={16} color={type.color}/>` + label resolved via `useTypeLabel()` |
+| Resource type / tag / other icon-bearing metamodel entity | Checkbox + its own `icon` (fall back to a sensible default, never nothing) |
+| Select option with a colour but no icon | Checkbox + a 10 px `borderRadius: "50%"` dot in that colour |
+| Mutually-exclusive state (approval, lifecycle, archived, severity) | A wrapped row of selectable `<Chip>`s — filled `bgcolor: color, color: "#fff"` when selected, outlined `borderColor/color: color` when not |
+| "No value" / empty | Italic `EmptyChip` (`text.secondary`, `fontStyle: "italic"`) |
+
+Take colours from `theme/tokens.ts` (`STATUS_COLORS`, `SEVERITY_COLORS`, `LAYER_COLORS`, …) or the entity's own `color` — never a fresh hex.
+
+**Search fields** get a `search` start adornment and, once non-empty, a `close` end-adornment button that clears them.
+
+**The Columns tab** mirrors the Filters tab, plus:
+
+- One `<MaterialSymbol>` per column in a second `<ListItemIcon>` (`minWidth: 24`) — the column picker is a list of glyph + label, not bare text.
+- An italic **Select all** row with an `indeterminate` checkbox.
+- A selected-count caption and a **Reset** button with a `restart_alt` icon.
+- Locked columns render checked + `disabled`, wrapped in a `<Tooltip placement="right">` explaining why, with `"&.Mui-disabled": { opacity: 0.7 }` so they stay readable.
+
+**Filter/column state is persisted** under a `turboea.<page>.prefs` localStorage key through a defensive loader that validates every field and falls back to defaults — a malformed or stale entry must never break the page.
+
+✅ Do
+- Give each new section a glyph and a count, even when the section holds a single control.
+- Keep the sidebar fully controlled: it receives `filters` / `visibleColumns` and their setters, plus pre-built option lists. It fetches nothing itself.
+
+❌ Don't
+- Don't ship a section header without an icon, or an option row that is just a checkbox and text.
+- Don't filter client-side over the fetched page when the grid pages server-side — that narrows one page, not the result set.
+
 ---
 
 ## 4. Internationalization

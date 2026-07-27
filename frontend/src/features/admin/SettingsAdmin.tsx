@@ -54,6 +54,7 @@ const AiAdmin = lazy(() => import("./AiAdmin"));
 const TurboLensAdmin = lazy(() => import("./TurboLensAdmin"));
 const MigrationHub = lazy(() => import("./MigrationHub"));
 const AuditLogAdmin = lazy(() => import("./AuditLogAdmin"));
+const ResourcesAdmin = lazy(() => import("./ResourcesAdmin"));
 
 const TAB_KEYS = [
   "general",
@@ -65,6 +66,7 @@ const TAB_KEYS = [
   "turbolens",
   "migration",
   "audit-log",
+  "resources",
 ];
 
 function TabLoader() {
@@ -1737,6 +1739,7 @@ export default function SettingsAdmin() {
     t("settings.tabs.turbolens"),
     t("settings.tabs.migration"),
     t("settings.tabs.auditLog", "Audit log"),
+    t("settings.tabs.resources"),
   ];
 
   const handleTabChange = (_: React.SyntheticEvent, newIndex: number) => {
@@ -1808,6 +1811,11 @@ export default function SettingsAdmin() {
       {tabIndex === 8 && (
         <Suspense fallback={<TabLoader />}>
           <AuditLogAdmin />
+        </Suspense>
+      )}
+      {tabIndex === 9 && (
+        <Suspense fallback={<TabLoader />}>
+          <ResourcesAdmin />
         </Suspense>
       )}
     </Box>

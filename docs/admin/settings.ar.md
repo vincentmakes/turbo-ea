@@ -11,6 +11,9 @@
 | **Web Portals** | `/admin/settings?tab=web-portals` | معرّفات البوابات العامة للقراءة فقط، مرشّحات الظهور | [البوابات الإلكترونية](web-portals.md) |
 | **ServiceNow** | `/admin/settings?tab=servicenow` | اتصال ServiceNow، تهيئة المزامنة، ربط الهوية | [تكامل ServiceNow](servicenow.md) |
 | **TurboLens** | `/admin/settings?tab=turbolens` | مفاتيح التبديل الخاصة بـ TurboLens، اللوائح المُفعّلة، استطلاع التحليل | انظر قسم [إعدادات TurboLens](#turbolens-settings) أدناه |
+| **Migration** | `/admin/settings?tab=migration` | الاستيراد من منصات EA أخرى، ونقل مساحة العمل بالكامل بين نسخ Turbo EA | [ترحيل المنصات](migration.md) |
+| **Audit log** | `/admin/settings?tab=audit-log` | سجل التغييرات — من غيّر ماذا، وما إذا كان مصدره واجهة الويب أو واجهة البرمجة أو أداة ذكاء اصطناعي | — |
+| **Resources** | `/admin/settings?tab=resources` | جميع الملفات والروابط المرفقة ببطاقة، مع إحصاءات التخزين والتنظيف بالجملة | [الموارد](resources.md) |
 
 تغطّي بقية هذه الصفحة تبويب **General**.
 

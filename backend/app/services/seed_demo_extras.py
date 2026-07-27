@@ -24,6 +24,7 @@ from app.models.diagram import Diagram, diagram_cards
 from app.models.document import Document
 from app.models.ea_principle import EAPrinciple
 from app.models.event import Event
+from app.models.file_attachment import FileAttachment
 from app.models.saved_report import SavedReport
 from app.models.stakeholder import Stakeholder
 from app.models.survey import Survey, SurveyResponse
@@ -582,6 +583,47 @@ TODO_DEFS: list[tuple[str | None, str, str, int | None]] = [
     (CARD_SAP_ARIBA, "Review supplier catalog data migration from legacy system", "open", 25),
     (CARD_KAFKA, "Migrate legacy topics to Avro schema format", "open", 60),
 ]
+
+# ---------------------------------------------------------------------------
+# File attachment definitions: (card_name, filename, mime_type, category, kb)
+#
+# The bytes are generated filler (see ``_demo_file_bytes``) — the demo needs
+# plausible names, categories and sizes so the Resources tab and its storage
+# statistics have something to show, not real documents. Keep the sizes small:
+# they are stored as blobs in the database.
+# ---------------------------------------------------------------------------
+
+# Office MIME types are long enough to hurt the table's readability inline.
+_DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+_XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+_PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+
+FILE_ATTACHMENT_DEFS: list[tuple[str, str, str, str, int]] = [
+    (CARD_SAP_S4, "S4HANA Target Architecture.pdf", "application/pdf", "architecture", 320),
+    (CARD_SAP_S4, "ABAP Remediation Backlog.xlsx", _XLSX_MIME, "operations", 96),
+    (CARD_SF_SALES, "Sales Cloud Data Model.png", "image/png", "design", 210),
+    (CARD_SF_SALES, "CRM Security Assessment.pdf", "application/pdf", "security", 145),
+    (CARD_KAFKA, "Kafka Topic Naming Standard.docx", _DOCX_MIME, "operations", 58),
+    (CARD_ITC_POSTGRES, "PostgreSQL Backup Runbook.txt", "text/plain", "operations", 12),
+    (CARD_OKTA, "SSO Access Review Q1.xlsx", _XLSX_MIME, "compliance", 74),
+    (CARD_INIT_SAP, "Migration Steering Deck.pptx", _PPTX_MIME, "meeting_notes", 480),
+]
+
+
+def _demo_file_bytes(file_name: str, kilobytes: int) -> bytes:
+    """Deterministic filler bytes of the requested size.
+
+    Re-seeding a demo instance must produce byte-identical attachments, so the
+    payload is derived from the filename rather than randomised. The content is
+    plainly labelled as demo filler — these are not real documents and are not
+    meant to open in Word or Acrobat.
+    """
+    header = f"Turbo EA demo file: {file_name}\n".encode()
+    filler = b"Demo content. This file exists so the Resources tab has data.\n"
+    target = max(len(header), kilobytes * 1024)
+    body = filler * ((target - len(header)) // len(filler) + 1)
+    return (header + body)[:target]
+
 
 # ---------------------------------------------------------------------------
 # Document (URL attachment) definitions: (card_name, name, url)
@@ -1285,6 +1327,29 @@ async def seed_extras_demo_data(db: AsyncSession) -> dict:
     await db.flush()
     counts["todos"] = todo_count
 
+    # ----- File attachments (binary uploads) -----
+    file_count = 0
+    for card_name, file_name, mime_type, category, kb in FILE_ATTACHMENT_DEFS:
+        card_id = name_to_id.get(card_name)
+        if not card_id:
+            continue
+        payload = _demo_file_bytes(file_name, kb)
+        db.add(
+            FileAttachment(
+                id=uuid.uuid4(),
+                card_id=card_id,
+                name=file_name,
+                mime_type=mime_type,
+                size=len(payload),
+                data=payload,
+                category=category,
+                created_by=admin_id,
+            )
+        )
+        file_count += 1
+    await db.flush()
+    counts["file_attachments"] = file_count
+
     # ----- Documents (URL attachments) -----
     doc_count = 0
     for card_name, doc_name, url in DOCUMENT_DEFS:
@@ -1297,7 +1362,10 @@ async def seed_extras_demo_data(db: AsyncSession) -> dict:
                 card_id=card_id,
                 name=doc_name,
                 url=url,
-                type="link",
+                # Every demo link is a product/help page, and "documentation"
+                # is a seeded link type — a raw "link" would render as its own
+                # key wherever link types are resolved for display.
+                type="documentation",
                 created_by=admin_id,
             )
         )

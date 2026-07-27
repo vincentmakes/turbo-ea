@@ -750,6 +750,80 @@ export interface FileAttachment {
 }
 
 // ---------------------------------------------------------------------------
+// Repository-wide resources (Admin → Settings → Resources)
+//
+// The union of the two card-owned resource kinds: `file` rows come from
+// `file_attachments`, `link` rows from `documents`. Served by `GET /resources`.
+// ---------------------------------------------------------------------------
+
+export type ResourceKind = "file" | "link";
+
+export interface RepositoryResource {
+  id: string;
+  kind: ResourceKind;
+  card_id: string;
+  card_name: string;
+  card_type: string;
+  card_archived: boolean;
+  name: string;
+  /** File category (files) or link type (links) — both are `resource_types` keys. */
+  category: string | null;
+  /** Files only. */
+  mime_type: string | null;
+  /** Files only, in bytes. */
+  size: number | null;
+  /** Links only. */
+  url: string | null;
+  created_by: string | null;
+  creator_name: string | null;
+  created_at: string | null;
+}
+
+export interface ResourceListPage {
+  items: RepositoryResource[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface ResourceBucket {
+  key: string | null;
+  count: number;
+  bytes: number;
+}
+
+export interface ResourceCardTypeBucket {
+  key: string;
+  file_count: number;
+  link_count: number;
+  bytes: number;
+}
+
+export interface ResourceLargestFile {
+  id: string;
+  name: string;
+  size: number;
+  card_id: string;
+  card_name: string;
+}
+
+export interface ResourceStats {
+  file_count: number;
+  link_count: number;
+  total_bytes: number;
+  card_count: number;
+  by_category: ResourceBucket[];
+  by_link_type: ResourceBucket[];
+  by_card_type: ResourceCardTypeBucket[];
+  largest_files: ResourceLargestFile[];
+}
+
+export interface ResourceBulkDeleteResult {
+  deleted: number;
+  skipped: { id: string; kind: ResourceKind; reason: string }[];
+}
+
+// ---------------------------------------------------------------------------
 // Surveys
 // ---------------------------------------------------------------------------
 

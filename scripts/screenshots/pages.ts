@@ -1486,6 +1486,27 @@ export const DOC_PAGES: PageDef[] = [
     },
   },
 
+  // ── Admin Settings: Resources (repository-wide file & link management) ──
+  // Wait for the AG Grid root rather than a Paper: the grid mounts after the
+  // /resources + /resources/stats round-trips, and the stat tiles above it
+  // are Papers that would satisfy a `.MuiPaper-root` wait too early.
+  {
+    id: "61_admin_settings_resources",
+    route: "/admin/settings?tab=resources",
+    waitFor: ".ag-root",
+    actions: [{ type: "wait", ms: 900 }],
+    filenames: {
+      en: "61_admin_settings_resources",
+      de: "61_admin_einstellungen_ressourcen",
+      fr: "61_admin_parametres_ressources",
+      es: "61_admin_config_recursos",
+      it: "61_admin_impostazioni_risorse",
+      pt: "61_admin_config_recursos",
+      zh: "61_admin_settings_resources",
+      ru: "61_admin_nastroyki_resursy",
+    },
+  },
+
 ];
 
 // ---------------------------------------------------------------------------

@@ -1,8 +1,5 @@
 import { useTranslation } from "react-i18next";
-import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import Chip from "@mui/material/Chip";
-import MaterialSymbol from "@/components/MaterialSymbol";
+import BulkSelectionBar, { BulkSelectionAction } from "@/components/BulkSelectionBar";
 
 interface BulkActionsToolbarProps {
   selectedCount: number;
@@ -14,6 +11,11 @@ interface BulkActionsToolbarProps {
   busy?: boolean;
 }
 
+/**
+ * User-management bulk actions. The bar chrome lives in the shared
+ * `BulkSelectionBar`; this file owns only the four user-specific actions
+ * and their `users.bulk.*` keys.
+ */
 export default function BulkActionsToolbar({
   selectedCount,
   onChangeRole,
@@ -24,77 +26,38 @@ export default function BulkActionsToolbar({
   busy = false,
 }: BulkActionsToolbarProps) {
   const { t } = useTranslation(["admin", "common"]);
-  if (selectedCount === 0) return null;
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: 1,
-        p: 1,
-        mb: 1.5,
-        borderRadius: 1,
-        bgcolor: "primary.main",
-        color: "primary.contrastText",
-        flexWrap: "wrap",
-      }}
+    <BulkSelectionBar
+      selectedCount={selectedCount}
+      label={t("users.bulk.selected", { count: selectedCount })}
+      onClear={onClear}
+      clearTitle={t("users.bulk.clear")}
     >
-      <Chip
-        size="small"
-        label={t("users.bulk.selected", { count: selectedCount })}
-        sx={{ bgcolor: "primary.contrastText", color: "primary.main", fontWeight: 600 }}
-      />
-      <Box sx={{ flex: 1 }} />
-      <Button
-        size="small"
-        variant="outlined"
-        disabled={busy}
+      <BulkSelectionAction
+        label={t("users.bulk.changeRole")}
+        icon="badge"
         onClick={onChangeRole}
-        startIcon={<MaterialSymbol icon="badge" size={18} />}
-        sx={{ color: "inherit", borderColor: "currentColor" }}
-      >
-        {t("users.bulk.changeRole")}
-      </Button>
-      <Button
-        size="small"
-        variant="outlined"
         disabled={busy}
+      />
+      <BulkSelectionAction
+        label={t("users.bulk.activate")}
+        icon="person"
         onClick={onActivate}
-        startIcon={<MaterialSymbol icon="person" size={18} />}
-        sx={{ color: "inherit", borderColor: "currentColor" }}
-      >
-        {t("users.bulk.activate")}
-      </Button>
-      <Button
-        size="small"
-        variant="outlined"
         disabled={busy}
+      />
+      <BulkSelectionAction
+        label={t("users.bulk.deactivate")}
+        icon="person_off"
         onClick={onDeactivate}
-        startIcon={<MaterialSymbol icon="person_off" size={18} />}
-        sx={{ color: "inherit", borderColor: "currentColor" }}
-      >
-        {t("users.bulk.deactivate")}
-      </Button>
-      <Button
-        size="small"
-        variant="outlined"
         disabled={busy}
+      />
+      <BulkSelectionAction
+        label={t("users.bulk.delete")}
+        icon="delete"
         onClick={onDelete}
-        startIcon={<MaterialSymbol icon="delete" size={18} />}
-        sx={{ color: "inherit", borderColor: "currentColor" }}
-      >
-        {t("users.bulk.delete")}
-      </Button>
-      <Button
-        size="small"
         disabled={busy}
-        onClick={onClear}
-        sx={{ color: "inherit", minWidth: 0 }}
-        title={t("users.bulk.clear")}
-      >
-        <MaterialSymbol icon="close" size={18} />
-      </Button>
-    </Box>
+      />
+    </BulkSelectionBar>
   );
 }

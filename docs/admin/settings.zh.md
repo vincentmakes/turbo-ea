@@ -11,6 +11,9 @@
 | **Web 门户** | `/admin/settings?tab=web-portals` | 公共只读门户的 slug、可见性过滤器 | [Web 门户](web-portals.md) |
 | **ServiceNow** | `/admin/settings?tab=servicenow` | ServiceNow 连接、同步配置、身份映射 | [ServiceNow 集成](servicenow.md) |
 | **TurboLens** | `/admin/settings?tab=turbolens` | TurboLens 特定开关、已启用的法规、分析轮询 | 见下方[TurboLens 设置](#turbolens-1) |
+| **迁移** | `/admin/settings?tab=migration` | 从其他 EA 平台导入，以及在 Turbo EA 实例之间完整传输工作区 | [平台迁移](migration.md) |
+| **审计日志** | `/admin/settings?tab=audit-log` | 变更记录账本——谁改了什么，以及变更来自 Web 界面、API 还是 AI 工具 | — |
+| **资源** | `/admin/settings?tab=resources` | 附加到卡片的所有文件和链接，含存储统计与批量清理 | [资源](resources.md) |
 
 本页的其余部分介绍 **常规** 标签页。
 

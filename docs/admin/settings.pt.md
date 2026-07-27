@@ -11,6 +11,9 @@ A página de **Configurações** em **Admin → Configurações** (`/admin/setti
 | **Portais web** | `/admin/settings?tab=web-portals` | Slugs de portais públicos somente leitura, filtros de visibilidade | [Portais web](web-portals.md) |
 | **ServiceNow** | `/admin/settings?tab=servicenow` | Conexão ServiceNow, configuração de sincronização, mapeamento de identidade | [Integração com ServiceNow](servicenow.md) |
 | **TurboLens** | `/admin/settings?tab=turbolens` | Alternâncias específicas de TurboLens, regulamentações habilitadas, polling de análises | Veja a seção [Configurações do TurboLens](#configuracoes-do-turbolens) abaixo |
+| **Migração** | `/admin/settings?tab=migration` | Importações de outras plataformas EA e transferência completa do espaço de trabalho entre instâncias do Turbo EA | [Migração de plataforma](migration.md) |
+| **Registro de auditoria** | `/admin/settings?tab=audit-log` | Registro de alterações — quem mudou o quê e se veio da interface web, da API ou de uma ferramenta de IA | — |
+| **Recursos** | `/admin/settings?tab=resources` | Todos os arquivos e links anexados a um cartão, com estatísticas de armazenamento e limpeza em massa | [Recursos](resources.md) |
 
 O restante desta página cobre a aba **Geral**.
 
