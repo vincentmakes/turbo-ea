@@ -321,7 +321,13 @@ async def risk_to_dict(db: AsyncSession, risk: Risk) -> dict[str, Any]:
         "title": risk.title,
         "description": risk.description,
         "category": risk.category,
-        "source_type": risk.source_type,
+        # Coerce values outside the current vocabulary (e.g. the retired
+        # pre-release 'ppm' source) to 'manual' instead of letting one
+        # legacy row fail response validation and 500 the entire list.
+        # Migration 127 rewrites such rows; this guards anything it missed.
+        "source_type": risk.source_type
+        if risk.source_type in ("manual", "compliance")
+        else "manual",
         "source_ref": risk.source_ref,
         "initial_probability": risk.initial_probability,
         "initial_impact": risk.initial_impact,

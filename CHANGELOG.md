@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - **Affected-card chips on a risk showed the card type's internal key** (`BusinessCapability`) rather than its display name, and ignored any translation configured for the type.
+- **A risk carrying an out-of-vocabulary source value no longer empties the whole Risk Register.** Risks created via the short-lived (pre-release) PPM promotion carried a `ppm` source that the API rejected after the feature's removal, failing the entire list response — the register looked empty although every risk was intact. A migration renormalises those rows to `manual`, and the API now degrades a single unexpected value gracefully instead of failing the list.
 
 ## [2.28.1] - 2026-07-26
 

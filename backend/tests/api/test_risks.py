@@ -495,3 +495,44 @@ async def test_mitigation_task_export_honours_the_card_filters(client, db, env, 
     )
     assert resp.status_code == 200
     assert resp.json() == []
+
+
+async def test_legacy_source_type_never_blanks_the_register(client, db, env):
+    """A row carrying a retired source_type (the pre-release 'ppm' value)
+    must not fail response validation and 500 the whole list — the
+    register looked empty to users even though every row was intact.
+    Migration 127 rewrites such rows; risk_to_dict coerces stragglers."""
+    from app.services.risk_service import next_reference
+
+    good = Risk(
+        reference=await next_reference(db),
+        title="Normal risk",
+        description="",
+        category="operational",
+        source_type="manual",
+        initial_probability="medium",
+        initial_impact="medium",
+        initial_level="medium",
+        status="identified",
+    )
+    db.add(good)
+    await db.flush()
+    legacy = Risk(
+        reference=await next_reference(db),
+        title="Promoted long ago",
+        description="",
+        category="operational",
+        source_type="ppm",
+        initial_probability="medium",
+        initial_impact="medium",
+        initial_level="medium",
+        status="identified",
+    )
+    db.add(legacy)
+    await db.flush()
+
+    resp = await client.get("/api/v1/risks", headers=auth_headers(env["admin"]))
+    assert resp.status_code == 200, resp.text
+    rows = {r["title"]: r for r in resp.json()["items"]}
+    assert "Normal risk" in rows and "Promoted long ago" in rows
+    assert rows["Promoted long ago"]["source_type"] == "manual"
