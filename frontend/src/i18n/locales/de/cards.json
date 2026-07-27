@@ -291,6 +291,8 @@
   "adrs.linkDialog.title": "Architekturentscheidung verknüpfen",
   "adrs.linkDialog.search": "Entscheidungen suchen...",
   "adrs.linkDialog.empty": "Keine Architekturentscheidungen zum Verknüpfen verfügbar.",
+  "adrs.linkDialog.noMatch": "Keine Entscheidungen entsprechen Ihrer Suche.",
+  "adrs.linkDialog.clearSearch": "Suche löschen",
   "resources.addLinkDialog.title": "Dokumentlink hinzufügen",
   "resources.addLinkDialog.name": "Name",
   "resources.addLinkDialog.url": "URL",

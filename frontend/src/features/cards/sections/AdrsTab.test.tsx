@@ -122,22 +122,96 @@ describe("AdrsTab", () => {
     expect(api.delete).toHaveBeenCalledWith(`/adr/adr-1/cards/${CARD_ID}`);
   });
 
-  it("links an existing ADR through the picker dialog", async () => {
-    const user = userEvent.setup();
-    // Card starts with no linked ADRs so the picker has something to offer.
-    vi.mocked(api.get).mockImplementation((url: string) =>
-      url === `/adr/by-card/${CARD_ID}` ? Promise.resolve([]) : Promise.resolve(mockAdrs),
-    );
-    vi.mocked(api.post).mockResolvedValue({});
-    renderTab();
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: /Link ADR/ })).toBeInTheDocument(),
-    );
-    await user.click(screen.getByRole("button", { name: /Link ADR/ }));
-    await waitFor(() => expect(screen.getByText("ADR-001")).toBeInTheDocument());
-    const dialogLinkButtons = screen.getAllByRole("button", { name: /Link ADR/ });
-    await user.click(dialogLinkButtons[dialogLinkButtons.length - 1]);
-    expect(api.post).toHaveBeenCalledWith("/adr/adr-1/cards", { card_id: CARD_ID });
+  describe("link picker dialog", () => {
+    /** Card has no linked ADRs, so everything in /adr is offered by the picker. */
+    function mockUnlinked(rows = mockAdrs) {
+      vi.mocked(api.get).mockImplementation((url: string) =>
+        url === `/adr/by-card/${CARD_ID}` ? Promise.resolve([]) : Promise.resolve(rows),
+      );
+    }
+
+    async function openPicker(user: ReturnType<typeof userEvent.setup>) {
+      renderTab();
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: /Link ADR/ })).toBeInTheDocument(),
+      );
+      await user.click(screen.getByRole("button", { name: /Link ADR/ }));
+    }
+
+    it("links an ADR when its row is clicked", async () => {
+      const user = userEvent.setup();
+      mockUnlinked();
+      vi.mocked(api.post).mockResolvedValue({});
+      await openPicker(user);
+      await waitFor(() => expect(screen.getByText("ADR-001")).toBeInTheDocument());
+      await user.click(screen.getByText("Adopt Cloud-First Strategy"));
+      expect(api.post).toHaveBeenCalledWith("/adr/adr-1/cards", { card_id: CARD_ID });
+    });
+
+    it("orders rows by reference, not by the API's recency order", async () => {
+      const user = userEvent.setup();
+      // /adr returns updated_at desc — deliberately out of reference order.
+      mockUnlinked([
+        { ...mockAdrs[0], id: "adr-9", reference_number: "ADR-009", title: "Nine" },
+        { ...mockAdrs[0], id: "adr-11", reference_number: "ADR-011", title: "Eleven" },
+        { ...mockAdrs[0], id: "adr-3", reference_number: "ADR-003", title: "Three" },
+      ]);
+      await openPicker(user);
+      await waitFor(() => expect(screen.getByText("ADR-003")).toBeInTheDocument());
+      const refs = screen
+        .getAllByText(/^ADR-\d{3}$/)
+        .map((el) => el.textContent);
+      expect(refs).toEqual(["ADR-003", "ADR-009", "ADR-011"]);
+    });
+
+    it("shows a status chip on each row", async () => {
+      const user = userEvent.setup();
+      mockUnlinked([
+        { ...mockAdrs[0], id: "adr-d", reference_number: "ADR-020", status: "draft" },
+      ]);
+      await openPicker(user);
+      await waitFor(() => expect(screen.getByText("ADR-020")).toBeInTheDocument());
+      expect(screen.getByText("Draft")).toBeInTheDocument();
+    });
+
+    it("shows a spinner instead of an empty state while loading", async () => {
+      const user = userEvent.setup();
+      let release: (v: unknown) => void = () => {};
+      const pending = new Promise((res) => {
+        release = res;
+      });
+      vi.mocked(api.get).mockImplementation((url: string) =>
+        url === `/adr/by-card/${CARD_ID}` ? Promise.resolve([]) : (pending as Promise<never>),
+      );
+      await openPicker(user);
+      // The "nothing available" copy must not flash before the list arrives.
+      expect(screen.queryByText(/No architecture decisions available/)).not.toBeInTheDocument();
+      expect(screen.getByRole("progressbar")).toBeInTheDocument();
+      release(mockAdrs);
+      await waitFor(() => expect(screen.getByText("ADR-001")).toBeInTheDocument());
+    });
+
+    it("distinguishes 'no search match' from 'nothing left to link'", async () => {
+      const user = userEvent.setup();
+      mockUnlinked();
+      await openPicker(user);
+      await waitFor(() => expect(screen.getByText("ADR-001")).toBeInTheDocument());
+      await user.type(screen.getByPlaceholderText(/Search decisions/), "zzzz");
+      await waitFor(() =>
+        expect(screen.getByText(/No decisions match your search/)).toBeInTheDocument(),
+      );
+      expect(screen.queryByText(/No architecture decisions available/)).not.toBeInTheDocument();
+    });
+
+    it("says nothing is available when every ADR is already linked", async () => {
+      const user = userEvent.setup();
+      // by-card returns the same rows /adr does → nothing left to offer.
+      vi.mocked(api.get).mockResolvedValue(mockAdrs);
+      await openPicker(user);
+      await waitFor(() =>
+        expect(screen.getByText(/No architecture decisions available/)).toBeInTheDocument(),
+      );
+    });
   });
 
   it("opens the create dialog", async () => {

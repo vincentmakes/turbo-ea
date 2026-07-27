@@ -10,12 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - **An ADRs tab on every card.** Architecture Decision Records linked to a card now have their own tab, next to Resources, listing each decision's reference, title, status, all of its linked cards and when it was last modified. Click a row to open the decision. Previously ADRs were an accordion buried inside the Resources tab, sharing space with files, links and diagrams — the same visibility Risks already had for the risk register.
 - **Link, create and unlink decisions from the card.** The tab offers **Link ADR** to attach an existing decision and **Create ADR** to start a new one pre-linked to the card, plus an unlink action on each row. The tab stays visible on a card with no decisions when you are allowed to manage ADR links, so the first decision is always one click away; users who can only read never see an empty tab.
+- **The Link ADR picker lists decisions in reference order with their status.** Click anywhere on a row to link it. The search box gained a clear button, the list scrolls inside the dialog instead of stretching it, and a search that matches nothing now says so rather than claiming there is nothing left to link.
 - **ADR links now appear in the card's History tab.** Linking or unlinking a decision is recorded against the affected card, and the ADRs tab carries the same "new activity" dot as Comments, Stakeholders and Risks.
 
 ### Changed
 - **Architecture Decisions moved out of the Resources tab.** Resources now covers file attachments, document links, diagrams and ServiceNow links only.
 
 ### Fixed
+- **Long decision titles ran underneath the button in the Link ADR picker, and short references like «ADR-009» wrapped onto two lines.** The row is now laid out so every element stays in flow and the reference can never wrap; the dialog is also wider so full titles fit.
+- **The Link ADR picker briefly claimed there were no decisions to link** while it was still loading them.
 - **The ADR editor showed raw translation keys** where it should have said "No cards linked to this decision" and "Already linked" — both strings were being looked up in the wrong namespace.
 - **`GET /adr/by-card/{id}` returned a server error for a malformed card id** instead of a 400.
 

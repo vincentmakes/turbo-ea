@@ -328,6 +328,8 @@
   "adrs.linkDialog.title": "ربط قرار معمارية",
   "adrs.linkDialog.search": "البحث عن قرارات...",
   "adrs.linkDialog.empty": "لا توجد قرارات معمارية متاحة للربط.",
+  "adrs.linkDialog.noMatch": "لا توجد قرارات تطابق بحثك.",
+  "adrs.linkDialog.clearSearch": "مسح البحث",
   "resources.addLinkDialog.title": "إضافة رابط مستند",
   "resources.addLinkDialog.name": "الاسم",
   "resources.addLinkDialog.url": "URL",

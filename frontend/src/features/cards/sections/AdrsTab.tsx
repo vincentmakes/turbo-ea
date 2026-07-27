@@ -18,9 +18,9 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import IconButton from "@mui/material/IconButton";
+import InputAdornment from "@mui/material/InputAdornment";
 import List from "@mui/material/List";
-import ListItem from "@mui/material/ListItem";
-import ListItemText from "@mui/material/ListItemText";
+import ListItemButton from "@mui/material/ListItemButton";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
@@ -76,6 +76,7 @@ export default function AdrsTab({
 
   // Link-existing dialog
   const [linkOpen, setLinkOpen] = useState(false);
+  const [linkLoading, setLinkLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [allAdrs, setAllAdrs] = useState<ArchitectureDecision[]>([]);
 
@@ -107,10 +108,15 @@ export default function AdrsTab({
   const openLink = async () => {
     setLinkOpen(true);
     setSearch("");
+    // Guard the fetch so the dialog shows a spinner rather than flashing
+    // "nothing available to link" before the list has arrived.
+    setLinkLoading(true);
     try {
       setAllAdrs(await api.get<ArchitectureDecision[]>("/adr"));
     } catch {
-      /* the dialog simply shows its empty state */
+      /* the dialog falls back to its empty state */
+    } finally {
+      setLinkLoading(false);
     }
   };
 
@@ -135,13 +141,18 @@ export default function AdrsTab({
   };
 
   const linkedIds = new Set(adrs.map((a) => a.id));
-  const term = search.toLowerCase();
-  const linkable = allAdrs.filter(
-    (a) =>
-      !linkedIds.has(a.id) &&
-      (a.title.toLowerCase().includes(term) ||
-        a.reference_number.toLowerCase().includes(term)),
-  );
+  const term = search.trim().toLowerCase();
+  // `GET /adr` comes back most-recently-updated first; sort by reference so the
+  // picker reads in the same order as the tab's own table.
+  const linkable = allAdrs
+    .filter((a) => !linkedIds.has(a.id))
+    .filter(
+      (a) =>
+        a.title.toLowerCase().includes(term) ||
+        a.reference_number.toLowerCase().includes(term),
+    )
+    .sort((a, b) => a.reference_number.localeCompare(b.reference_number));
+  const nothingToLink = allAdrs.every((a) => linkedIds.has(a.id));
 
   if (loading) {
     return (
@@ -269,10 +280,12 @@ export default function AdrsTab({
       )}
 
       {/* ── Link existing ADR ── */}
+      {/* `md` rather than `sm`: decision titles are long sentences, and at
+          `sm` most of them ellipsise away to nothing useful. */}
       <Dialog
         open={linkOpen}
         onClose={() => setLinkOpen(false)}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
       >
         <DialogTitle>{t("cards:adrs.linkDialog.title")}</DialogTitle>
@@ -284,45 +297,91 @@ export default function AdrsTab({
             size="small"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <MaterialSymbol icon="search" size={20} />
+                  </InputAdornment>
+                ),
+                endAdornment: search ? (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      aria-label={t("cards:adrs.linkDialog.clearSearch")}
+                      onClick={() => setSearch("")}
+                    >
+                      <MaterialSymbol icon="close" size={18} />
+                    </IconButton>
+                  </InputAdornment>
+                ) : undefined,
+              },
+            }}
             sx={{ mt: 1, mb: 2 }}
           />
-          <List dense>
-            {linkable.map((adr) => (
-              <ListItem
-                key={adr.id}
-                secondaryAction={
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={() => handleLink(adr.id)}
-                    sx={{ textTransform: "none" }}
-                  >
-                    {t("cards:adrs.linkAdr")}
-                  </Button>
-                }
-              >
-                <ListItemText
-                  primary={
-                    <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                      <Typography variant="body2" fontWeight={600}>
-                        {adr.reference_number}
-                      </Typography>
-                      <Typography variant="body2">{adr.title}</Typography>
-                    </Box>
-                  }
-                />
-              </ListItem>
-            ))}
-            {linkable.length === 0 && (
+          {/* The list is unpaginated, so cap it and scroll inside the dialog. */}
+          <Box
+            sx={{
+              maxHeight: 360,
+              overflow: "auto",
+              border: 1,
+              borderColor: "divider",
+              borderRadius: 1,
+            }}
+          >
+            {linkLoading ? (
+              <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+                <CircularProgress size={28} />
+              </Box>
+            ) : linkable.length === 0 ? (
               <Typography
                 variant="body2"
                 color="text.secondary"
-                sx={{ py: 2, textAlign: "center" }}
+                sx={{ py: 4, textAlign: "center" }}
               >
-                {t("cards:adrs.linkDialog.empty")}
+                {nothingToLink
+                  ? t("cards:adrs.linkDialog.empty")
+                  : t("cards:adrs.linkDialog.noMatch")}
               </Typography>
+            ) : (
+              <List dense disablePadding>
+                {linkable.map((adr) => (
+                  // Whole-row click links the decision. Laying the row out as a
+                  // flex container — rather than a ListItem `secondaryAction` —
+                  // keeps every element in normal flow, so a long title can
+                  // never slide underneath a trailing control.
+                  <ListItemButton
+                    key={adr.id}
+                    onClick={() => handleLink(adr.id)}
+                    sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                  >
+                    <Chip
+                      label={adr.reference_number}
+                      size="small"
+                      variant="outlined"
+                      sx={{
+                        fontFamily: "monospace",
+                        fontSize: "0.7rem",
+                        height: 22,
+                        flexShrink: 0,
+                      }}
+                    />
+                    <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} noWrap>
+                      {adr.title}
+                    </Typography>
+                    <Chip
+                      label={t(
+                        `delivery:${STATUS_LABEL_KEYS[adr.status] ?? "status.draft"}`,
+                      )}
+                      size="small"
+                      color={STATUS_COLORS[adr.status] || "default"}
+                      sx={{ height: 22, flexShrink: 0 }}
+                    />
+                  </ListItemButton>
+                ))}
+              </List>
             )}
-          </List>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setLinkOpen(false)}>

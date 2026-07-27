@@ -291,6 +291,8 @@
   "adrs.linkDialog.title": "Привязать архитектурное решение",
   "adrs.linkDialog.search": "Поиск решений...",
   "adrs.linkDialog.empty": "Нет доступных архитектурных решений для привязки.",
+  "adrs.linkDialog.noMatch": "Нет решений, соответствующих запросу.",
+  "adrs.linkDialog.clearSearch": "Очистить поиск",
   "resources.addLinkDialog.title": "Добавить ссылку на документ",
   "resources.addLinkDialog.name": "Название",
   "resources.addLinkDialog.url": "URL",
