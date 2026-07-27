@@ -168,22 +168,22 @@ function buildParentPaths(items: Card[]): Map<string, string> {
 }
 
 /**
- * Map each card to its *immediate* parent, for the Parent column. The Path
- * column shows the whole ancestor chain; this is just the one card directly
- * above. Parents outside the loaded page resolve to null — the inventory
- * pages at 10 000 rows, so in practice the parent is always present.
+ * Index the loaded rows by id, so the Parent column can resolve a `parent_id`
+ * to a display name. Parents outside the loaded page resolve to an empty
+ * label — the inventory pages at 10 000 rows, so in practice the parent of a
+ * same-typed card is always present.
+ *
+ * The Parent column deliberately keeps the raw `parent_id` as its *cell
+ * value* and resolves the name only at render time. An earlier version had
+ * `valueGetter` return a `{id, name}` object out of a `data`-keyed memo while
+ * `valueSetter` mutated the row in place: the array reference never changed,
+ * so the memo never recomputed, and AG Grid's post-setter re-read handed
+ * `onCellValueChanged` the stale value. The move then "applied" the parent the
+ * card already had. Keeping the value primitive makes getter and setter
+ * consistent by construction.
  */
-function buildParentRefs(items: Card[]): Map<string, CardOption | null> {
-  const byId = new Map(items.map((card) => [card.id, card]));
-  const refs = new Map<string, CardOption | null>();
-  for (const card of items) {
-    const parent = card.parent_id ? byId.get(card.parent_id) : undefined;
-    refs.set(
-      card.id,
-      parent ? { id: parent.id, name: parent.name, type: parent.type } : null,
-    );
-  }
-  return refs;
+function buildCardIndex(items: Card[]): Map<string, Card> {
+  return new Map(items.map((card) => [card.id, card]));
 }
 
 /**
@@ -846,8 +846,13 @@ export default function InventoryPage() {
   // Built once from raw API data; completely detached from the mutable row objects
   // that AG Grid holds, so grid-internal writes to data[field] cannot corrupt paths.
   const parentPaths = useMemo(() => buildParentPaths(data), [data]);
-  const parentRefs = useMemo(() => buildParentRefs(data), [data]);
+  const cardsById = useMemo(() => buildCardIndex(data), [data]);
   const descendantIndex = useMemo(() => buildDescendantIndex(data), [data]);
+  const parentNameOf = useCallback(
+    (parentId: string | null | undefined) =>
+      (parentId ? cardsById.get(parentId)?.name : "") ?? "",
+    [cardsById],
+  );
 
   // Client-side filtering
   const filteredData = useMemo(() => {
@@ -997,9 +1002,9 @@ export default function InventoryPage() {
       const attrs = { ...card.attributes, [key]: event.newValue };
       await api.patch(`/cards/${card.id}`, { attributes: attrs });
     } else if (field === "parent_id") {
-      const newParent = event.newValue as CardOption | null;
+      const newParentId = (event.newValue as string | null) ?? null;
       try {
-        await api.patch(`/cards/${card.id}`, { parent_id: newParent?.id ?? null });
+        await api.patch(`/cards/${card.id}`, { parent_id: newParentId });
       } catch (err) {
         // The server owns the hierarchy rules — a cycle, a name collision under
         // the new parent, or a capability depth limit all land here. Surface the
@@ -1799,23 +1804,25 @@ export default function InventoryPage() {
         cellEditor: ParentCellEditor,
         cellEditorPopup: true,
         cellEditorParams: (p: { data: Card }) => ({
-          cardId: p.data.id,
           typeKey: p.data.type,
           excludeIds: descendantIndex.get(p.data.id) ?? [p.data.id],
+          currentParent: p.data.parent_id
+            ? cardsById.get(p.data.parent_id) ?? null
+            : null,
         }),
-        valueGetter: (p: { data?: Card }) =>
-          p.data ? parentRefs.get(p.data.id) ?? null : null,
-        valueSetter: (p: { data: Card; newValue: CardOption | null }) => {
-          p.data.parent_id = p.newValue?.id ?? undefined;
+        // The cell value is the raw parent id — see buildCardIndex for why it
+        // must not be an object resolved out of a memo.
+        valueGetter: (p: { data?: Card }) => p.data?.parent_id ?? null,
+        valueSetter: (p: { data: Card; newValue: string | null }) => {
+          p.data.parent_id = p.newValue ?? undefined;
           return true;
         },
-        // The cell value is a CardOption; without this the column-header text
-        // filter and the sort comparator both see "[object Object]".
-        filterValueGetter: (p: { data?: Card }) =>
-          (p.data ? parentRefs.get(p.data.id)?.name : "") ?? "",
-        comparator: (a: CardOption | null, b: CardOption | null) =>
-          (a?.name ?? "").localeCompare(b?.name ?? ""),
-        cellRenderer: (p: { value: CardOption | null }) => p.value?.name ?? "",
+        // The value is an opaque id, so the header text filter and the sort
+        // comparator both have to work off the resolved name instead.
+        filterValueGetter: (p: { data?: Card }) => parentNameOf(p.data?.parent_id),
+        comparator: (a: string | null, b: string | null) =>
+          parentNameOf(a).localeCompare(parentNameOf(b)),
+        cellRenderer: (p: { value: string | null }) => parentNameOf(p.value),
       },
       {
         colId: "core_description",
@@ -2390,7 +2397,7 @@ export default function InventoryPage() {
     );
 
     return cols;
-  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, relationsLoading, selectedType, parentPaths, parentRefs, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, tagGroups, stakeholderRoles, typeLabel]);
+  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, tagGroups, stakeholderRoles, typeLabel]);
 
   // Restore the saved column layout (order/width/pinning/sort) onto the grid.
   // Keyed on `columnDefs` so it re-applies each time the column *set* changes —

@@ -110,7 +110,9 @@ interface ColDefLike {
   colId?: string;
   headerName?: string;
   editable?: boolean;
-  valueGetter?: (params: { data?: unknown }) => unknown;
+  valueGetter?: (params: { data?: never }) => unknown;
+  valueSetter?: (params: { data: never; newValue: never }) => boolean;
+  cellRenderer?: (params: { value: never }) => unknown;
 }
 
 // ---------------------------------------------------------------------------
@@ -585,18 +587,35 @@ describe("InventoryPage parent column", () => {
     expect(parentCol()!.headerName).toBe("Parent");
   });
 
-  it("resolves the immediate parent, not the whole path", async () => {
+  it("renders the immediate parent's name, not the whole path", async () => {
     renderInventory();
     await waitFor(() => expect(parentCol()).toBeDefined());
 
     const child = HIER_CARDS.items[1];
     const root = HIER_CARDS.items[0];
-    expect(parentCol()!.valueGetter!({ data: child })).toMatchObject({
-      id: "p1",
-      name: "Finance Suite",
-    });
+    // The cell *value* is the raw parent id; the name is resolved at render.
+    expect(parentCol()!.valueGetter!({ data: child })).toBe("p1");
+    expect(parentCol()!.cellRenderer!({ value: "p1" })).toBe("Finance Suite");
     // A root card has no parent — the cell stays empty rather than showing itself.
     expect(parentCol()!.valueGetter!({ data: root })).toBeNull();
+    expect(parentCol()!.cellRenderer!({ value: null })).toBe("");
+  });
+
+  it("reads back what the setter wrote", async () => {
+    // Regression: the value used to be a {id,name} object resolved from a
+    // `data`-keyed memo, while the setter mutated the row in place. The array
+    // reference never changed, so the memo never recomputed and AG Grid's
+    // post-setter re-read handed onCellValueChanged the *old* parent — the
+    // move silently re-applied the parent the card already had.
+    renderInventory();
+    await waitFor(() => expect(parentCol()).toBeDefined());
+
+    const row = { ...HIER_CARDS.items[1] };
+    parentCol()!.valueSetter!({ data: row, newValue: "p2" });
+    expect(parentCol()!.valueGetter!({ data: row })).toBe("p2");
+
+    parentCol()!.valueSetter!({ data: row, newValue: null });
+    expect(parentCol()!.valueGetter!({ data: row })).toBeNull();
   });
 
   it("is read-only until Grid Edit mode is on", async () => {
@@ -624,7 +643,7 @@ describe("InventoryPage parent column", () => {
     await onCellValueChanged({
       data: HIER_CARDS.items[1],
       colDef: { field: "parent_id" },
-      newValue: { id: "p1", name: "Finance Suite", type: "Application" },
+      newValue: "p1",
       oldValue: null,
     });
 

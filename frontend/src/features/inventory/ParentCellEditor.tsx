@@ -14,26 +14,38 @@ import CardPicker, { type CardOption } from "@/components/CardPicker";
 //   stores it internally and returns it from `getValue()` when edit ends
 // — `props.stopEditing()` ends the edit and commits the latest value
 // — `props.api.stopEditing(true)` ends the edit AND discards changes
+// The cell value is the parent's **id**, not a card object: the column's
+// valueGetter reads `data.parent_id` straight off the row, so AG Grid's
+// post-setter re-read stays consistent with what the setter wrote. The
+// human-readable current parent arrives separately, via `currentParent`.
 interface Params {
-  value: CardOption | null | undefined;
-  /** The row being edited — its own id can never be its parent. */
-  cardId: string;
+  value: string | null | undefined;
   /** Card type to browse. Parent is same-type by convention throughout. */
   typeKey: string;
   /** Self + descendants, so the picker can't offer an obvious cycle. */
   excludeIds: string[];
+  /** Resolved current parent, for the picker's initial display. */
+  currentParent: { id: string; name: string; type: string } | null;
   stopEditing?: (suppressNavigateAfterEdit?: boolean) => void;
-  onValueChange: (value: CardOption | null) => void;
+  onValueChange: (value: string | null) => void;
   api: GridApi;
 }
 
 export default function ParentCellEditor(props: Params) {
   const { t } = useTranslation(["inventory", "common"]);
-  const [parent, setParent] = useState<CardOption | null>(props.value ?? null);
+  const [parent, setParent] = useState<CardOption | null>(
+    props.currentParent
+      ? {
+          id: props.currentParent.id,
+          name: props.currentParent.name,
+          type: props.currentParent.type,
+        }
+      : null,
+  );
 
   const handleChange = (next: CardOption | null) => {
     setParent(next);
-    props.onValueChange(next);
+    props.onValueChange(next?.id ?? null);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
