@@ -543,13 +543,15 @@ async def bulk_delete_resources(
     if file_ids:
         # Entity load is required here (we delete the ORM object), but the
         # set is capped at 500 refs and only the selected rows are touched.
-        result = await db.execute(select(FileAttachment).where(FileAttachment.id.in_(file_ids)))
-        files = {f.id: f for f in result.scalars().all()}
+        file_result = await db.execute(
+            select(FileAttachment).where(FileAttachment.id.in_(file_ids))
+        )
+        files = {f.id: f for f in file_result.scalars().all()}
 
     links: dict[uuid.UUID, Document] = {}
     if link_ids:
-        result = await db.execute(select(Document).where(Document.id.in_(link_ids)))
-        links = {d.id: d for d in result.scalars().all()}
+        link_result = await db.execute(select(Document).where(Document.id.in_(link_ids)))
+        links = {d.id: d for d in link_result.scalars().all()}
 
     # Fast path: a holder of the app-level permission needs no per-card
     # lookups at all. Otherwise memoise per card, not per row, so deleting
@@ -584,8 +586,10 @@ async def bulk_delete_resources(
 
         # Emit the identical event the single-row DELETE emits so the
         # card's History timeline stays complete and any consumer keyed on
-        # these payload names keeps working.
-        if ref.kind == "file":
+        # these payload names keeps working. Branch on the row's own type
+        # rather than ``ref.kind`` — the two always agree (each dict only
+        # holds one model), but only isinstance narrows the union.
+        if isinstance(row, FileAttachment):
             await event_bus.publish(
                 "file.deleted",
                 {
