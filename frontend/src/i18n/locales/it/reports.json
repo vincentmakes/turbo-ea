@@ -218,6 +218,7 @@
   "matrix.rows": "Righe",
   "matrix.columns": "Colonne",
   "matrix.cellDisplay": "Visualizzazione cella",
+  "matrix.cell": "Cella",
   "matrix.existsDot": "Esistenza (punto)",
   "matrix.countHeatmap": "Conteggio (heatmap)",
   "matrix.sortRows": "Ordina righe",

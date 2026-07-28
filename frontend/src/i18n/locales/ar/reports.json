@@ -218,6 +218,7 @@
   "matrix.rows": "الصفوف",
   "matrix.columns": "الأعمدة",
   "matrix.cellDisplay": "عرض الخلية",
+  "matrix.cell": "خلية",
   "matrix.existsDot": "موجود (نقطة)",
   "matrix.countHeatmap": "العدد (خريطة حرارية)",
   "matrix.sortRows": "ترتيب الصفوف",

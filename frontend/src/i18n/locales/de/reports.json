@@ -218,6 +218,7 @@
   "matrix.rows": "Zeilen",
   "matrix.columns": "Spalten",
   "matrix.cellDisplay": "Zellenanzeige",
+  "matrix.cell": "Zelle",
   "matrix.existsDot": "Vorhanden (Punkt)",
   "matrix.countHeatmap": "Anzahl (Heatmap)",
   "matrix.sortRows": "Zeilen sortieren",

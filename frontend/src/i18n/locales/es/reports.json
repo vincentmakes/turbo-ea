@@ -218,6 +218,7 @@
   "matrix.rows": "Filas",
   "matrix.columns": "Columnas",
   "matrix.cellDisplay": "Visualización de celda",
+  "matrix.cell": "Celda",
   "matrix.existsDot": "Existe (punto)",
   "matrix.countHeatmap": "Cantidad (mapa de calor)",
   "matrix.sortRows": "Ordenar filas",

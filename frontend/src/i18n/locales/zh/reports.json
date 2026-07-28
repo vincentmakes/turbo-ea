@@ -218,6 +218,7 @@
   "matrix.rows": "行",
   "matrix.columns": "列",
   "matrix.cellDisplay": "单元格显示",
+  "matrix.cell": "单元格",
   "matrix.existsDot": "存在（点）",
   "matrix.countHeatmap": "计数（热力图）",
   "matrix.sortRows": "行排序",

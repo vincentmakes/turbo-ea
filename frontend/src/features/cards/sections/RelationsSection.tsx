@@ -46,7 +46,7 @@ import DescendantRelationsDrawer from "./DescendantRelationsDrawer";
 import RelationAttributesEditor, {
   flowDirectionBadge,
   relationAttributeBadges,
-  hasRelationSubtypes,
+  hasEditableRelationAttributes,
   type RelationAttributes,
 } from "./RelationAttributesEditor";
 import { readableTextColor } from "@/lib/color";
@@ -311,7 +311,7 @@ function RelationGroup({
   const [attrsRelation, setAttrsRelation] = useState<Relation | null>(null);
   const [rollupOpen, setRollupOpen] = useState(false);
 
-  const rtHasSubtypes = hasRelationSubtypes(rt);
+  const rtHasAttributes = hasEditableRelationAttributes(rt);
 
   const otherTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
   const otherType = getType(otherTypeKey);
@@ -410,9 +410,12 @@ function RelationGroup({
       ? t(`relations.flowDirection.${flowBadge.value}`)
       : attrBadges.length > 0
         ? attrBadges
-            .map(
-              (b) =>
-                `${rl(b.fieldLabel, b.fieldTranslations)}: ${rl(b.optionLabel, b.optionTranslations)}`,
+            .map((b) =>
+              // A flag has no option entity — its label IS the value, so
+              // printing "field: value" would read "Create: Create".
+              b.isFlag
+                ? rl(b.fieldLabel, b.fieldTranslations)
+                : `${rl(b.fieldLabel, b.fieldTranslations)}: ${rl(b.optionLabel, b.optionTranslations)}`,
             )
             .join(", ")
         : t("relations.editAttributes");
@@ -433,7 +436,7 @@ function RelationGroup({
                 }}
               />
             ))}
-            {rtHasSubtypes && canManageRelations && (
+            {rtHasAttributes && canManageRelations && (
               <Tooltip title={editTooltip}>
                 <IconButton
                   size="small"
@@ -726,7 +729,7 @@ function RelationGroup({
         />
       )}
 
-      {rtHasSubtypes && attrsRelation && (
+      {rtHasAttributes && attrsRelation && (
         <RelationAttrsPopover
           anchorEl={attrsAnchor}
           open={Boolean(attrsAnchor)}
@@ -1083,7 +1086,7 @@ function RelationsSection({
                   type: typeLabel(dialogTargetConfig) || dialogTargetTypeKey,
                 })}
               </Button>
-              {selectedRT && hasRelationSubtypes(selectedRT) && (
+              {selectedRT && hasEditableRelationAttributes(selectedRT) && (
                 <Box sx={{ mt: 2, p: 1.5, border: "1px dashed", borderColor: "divider", borderRadius: 1 }}>
                   <Typography variant="caption" fontWeight={600} sx={{ display: "block", mb: 1 }}>
                     {t("relations.optionalDetails")}

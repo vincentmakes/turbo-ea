@@ -218,6 +218,7 @@
   "matrix.rows": "Rækker",
   "matrix.columns": "Kolonner",
   "matrix.cellDisplay": "Cellevisning",
+  "matrix.cell": "Celle",
   "matrix.existsDot": "Eksisterer (prik)",
   "matrix.countHeatmap": "Antal (varmekort)",
   "matrix.sortRows": "Sortér rækker",

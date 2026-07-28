@@ -218,6 +218,7 @@
   "matrix.rows": "Строки",
   "matrix.columns": "Столбцы",
   "matrix.cellDisplay": "Отображение ячеек",
+  "matrix.cell": "Ячейка",
   "matrix.existsDot": "Наличие (точка)",
   "matrix.countHeatmap": "Количество (тепловая карта)",
   "matrix.sortRows": "Сортировка строк",

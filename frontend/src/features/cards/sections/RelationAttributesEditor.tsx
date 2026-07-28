@@ -1,5 +1,7 @@
 import Box from "@mui/material/Box";
+import Checkbox from "@mui/material/Checkbox";
 import FormControl from "@mui/material/FormControl";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import InputLabel from "@mui/material/InputLabel";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
@@ -21,10 +23,11 @@ interface Props {
 
 /**
  * Renders the editable inputs declared by a relation type's
- * `attributes_schema`. Only the field types actually used by built-in
- * relation types are wired here (single_select today). The flow-direction
- * field renders option labels using the relation type's own forward /
- * reverse labels so the user reads concrete wording, not generic
+ * `attributes_schema` — `single_select` pickers and `boolean` flags. Nothing
+ * here is keyed to a particular attribute: the inputs are derived from the
+ * schema, so an admin-defined dimension renders exactly like a built-in one.
+ * The flow-direction field renders option labels using the relation type's own
+ * forward / reverse labels so the user reads concrete wording, not generic
  * "forward / reverse" keys.
  */
 export default function RelationAttributesEditor({
@@ -42,32 +45,67 @@ export default function RelationAttributesEditor({
   const schema = relationType.attributes_schema ?? [];
   if (schema.length === 0) return null;
 
+  const setField = (field: FieldDef) => (next: unknown) => {
+    const merged = { ...value };
+    if (next === undefined || next === "" || next === null) {
+      delete merged[field.key];
+    } else {
+      merged[field.key] = next;
+    }
+    onChange(merged);
+  };
+
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: compact ? 1 : 1.5 }}>
-      {schema.map((field) => (
-        <FieldInput
-          key={field.key}
-          field={field}
-          relationType={relationType}
-          value={value[field.key]}
-          onChange={(next) => {
-            const merged = { ...value };
-            if (next === undefined || next === "" || next === null) {
-              delete merged[field.key];
-            } else {
-              merged[field.key] = next;
-            }
-            onChange(merged);
-          }}
-          fieldLabel={fieldLabel}
-          optLabel={optLabel}
-          relLabel={relLabel}
-          t={t}
-          disabled={disabled}
-        />
-      ))}
+      {groupFields(schema).map((group, gi) =>
+        group.flags ? (
+          // Consecutive flags render as one wrapping row of checkboxes so a set
+          // of them reads as a single control group rather than a tall stack.
+          <Box key={`flags-${gi}`} sx={{ display: "flex", flexWrap: "wrap", columnGap: 1.5 }}>
+            {group.fields.map((field) => (
+              <FieldInput
+                key={field.key}
+                field={field}
+                relationType={relationType}
+                value={value[field.key]}
+                onChange={setField(field)}
+                fieldLabel={fieldLabel}
+                optLabel={optLabel}
+                relLabel={relLabel}
+                t={t}
+                disabled={disabled}
+              />
+            ))}
+          </Box>
+        ) : (
+          <FieldInput
+            key={group.fields[0].key}
+            field={group.fields[0]}
+            relationType={relationType}
+            value={value[group.fields[0].key]}
+            onChange={setField(group.fields[0])}
+            fieldLabel={fieldLabel}
+            optLabel={optLabel}
+            relLabel={relLabel}
+            t={t}
+            disabled={disabled}
+          />
+        ),
+      )}
     </Box>
   );
+}
+
+/** Collapse runs of consecutive `boolean` fields into one group; everything else stays alone. */
+function groupFields(schema: FieldDef[]): { flags: boolean; fields: FieldDef[] }[] {
+  const groups: { flags: boolean; fields: FieldDef[] }[] = [];
+  for (const field of schema) {
+    const flags = field.type === "boolean";
+    const last = groups[groups.length - 1];
+    if (flags && last?.flags) last.fields.push(field);
+    else groups.push({ flags, fields: [field] });
+  }
+  return groups;
 }
 
 interface FieldInputProps {
@@ -113,7 +151,28 @@ function FieldInput({ field, relationType, value, onChange, fieldLabel, optLabel
     );
   }
 
-  // Other field types (text, boolean, etc.) can be added here as relation
+  if (field.type === "boolean") {
+    return (
+      <FormControlLabel
+        disabled={disabled}
+        control={
+          <Checkbox
+            size="small"
+            checked={value === true}
+            // A relation attribute is tri-state in storage: true / false /
+            // absent. Unticking writes `undefined`, which the parent deletes
+            // from the bag, so "never ticked" and "ticked then unticked" look
+            // identical to every reader (badges, filters, export).
+            onChange={(e) => onChange(e.target.checked ? true : undefined)}
+          />
+        }
+        label={<Typography variant="body2">{label}</Typography>}
+        sx={{ mr: 0 }}
+      />
+    );
+  }
+
+  // Other field types (text, number, date, …) can be added here as relation
   // attribute schemas grow. We deliberately keep this thin until needed.
   return null;
 }
@@ -197,17 +256,22 @@ export function hasRelationAttributes(relationType: RelationType | undefined): b
 }
 
 /**
- * Returns true only when a relation type declares at least one editable
- * "subtype" — a single_select field with options. Stricter than
- * {@link hasRelationAttributes} (which is true for any schema entry, even an
- * options-less field), so UI gates don't surface an empty attribute editor /
- * "label" icon for relations that have no actual subtypes to pick.
+ * Returns true only when a relation type declares at least one attribute the
+ * user can actually edit — a `single_select` with options, or a `boolean` flag.
+ * Stricter than {@link hasRelationAttributes} (which is true for any schema
+ * entry, even an options-less or unrenderable field), so UI gates don't surface
+ * an empty attribute editor for relations with nothing to set.
+ *
+ * Booleans count: a relation type whose only dimensions are flags (the seeded
+ * CRUD pairs, say) still needs the editor, and gating on `single_select` alone
+ * is what made those values unsettable.
  */
-export function hasRelationSubtypes(relationType: RelationType | undefined): boolean {
+export function hasEditableRelationAttributes(relationType: RelationType | undefined): boolean {
   return (
     !!relationType &&
     (relationType.attributes_schema ?? []).some(
-      (f) => f.type === "single_select" && (f.options ?? []).length > 0,
+      (f) =>
+        f.type === "boolean" || (f.type === "single_select" && (f.options ?? []).length > 0),
     )
   );
 }
@@ -220,16 +284,23 @@ export interface RelationAttributeBadge {
   optionLabel: string;
   optionTranslations?: { [k: string]: string };
   color?: string;
+  /**
+   * True for a `boolean` dimension that is switched on. A flag has no option
+   * entity, so `optionLabel` mirrors the field label — callers that print
+   * "field: value" should print just the label for these.
+   */
+  isFlag?: boolean;
 }
 
 /**
- * Generic counterpart to {@link flowDirectionBadge}: returns EVERY
- * `single_select` attribute (other than `flowDirection`, which renders as a
- * directional icon) that has a value set, so the caller can render one labelled
- * chip per value (e.g. both `usageType` and `criticality` on a
- * BusinessProcess→Application relation). Labels are returned raw (with their
- * `translations`) so the caller resolves them with the locale-aware label
- * resolver. Returns an empty array when nothing is set.
+ * Generic counterpart to {@link flowDirectionBadge}: returns EVERY attribute
+ * that carries a value — `single_select` values (other than `flowDirection`,
+ * which renders as a directional icon) and `boolean` flags that are on — so the
+ * caller can render one labelled chip each (e.g. both `usageType` and
+ * `criticality` on a BusinessProcess→Application relation, or the flags on a
+ * CRUD-style relation). Labels are returned raw (with their `translations`) so
+ * the caller resolves them with the locale-aware label resolver. Returns an
+ * empty array when nothing is set.
  */
 export function relationAttributeBadges(
   relationType: RelationType | undefined,
@@ -238,8 +309,24 @@ export function relationAttributeBadges(
   if (!relationType) return [];
   const badges: RelationAttributeBadge[] = [];
   for (const field of relationType.attributes_schema ?? []) {
-    if (field.type !== "single_select" || field.key === "flowDirection") continue;
+    if (field.key === "flowDirection") continue;
     const v = attributes?.[field.key];
+
+    if (field.type === "boolean") {
+      if (v !== true) continue;
+      badges.push({
+        fieldKey: field.key,
+        fieldLabel: field.label,
+        fieldTranslations: field.translations,
+        optionKey: "true",
+        optionLabel: field.label,
+        optionTranslations: field.translations,
+        isFlag: true,
+      });
+      continue;
+    }
+
+    if (field.type !== "single_select") continue;
     if (typeof v !== "string" || !v) continue;
     const opt = (field.options ?? []).find((o) => o.key === v);
     if (!opt) continue;

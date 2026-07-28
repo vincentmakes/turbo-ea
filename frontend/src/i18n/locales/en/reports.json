@@ -218,6 +218,7 @@
   "matrix.rows": "Rows",
   "matrix.columns": "Columns",
   "matrix.cellDisplay": "Cell Display",
+  "matrix.cell": "Cell",
   "matrix.existsDot": "Exists (dot)",
   "matrix.countHeatmap": "Count (heatmap)",
   "matrix.sortRows": "Sort Rows",
