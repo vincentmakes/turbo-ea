@@ -254,6 +254,7 @@
   "matrix.alphaSort": "А → Я",
   "matrix.byCount": "По количеству",
   "matrix.hierarchy": "Иерархия",
+  "matrix.selfRow": "(сам)",
   "matrix.relations": "Связи",
   "matrix.coverage": "Покрытие",
   "matrix.noData": "Данные для этой комбинации не найдены.",

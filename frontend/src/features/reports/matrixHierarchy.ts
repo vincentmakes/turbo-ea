@@ -18,7 +18,16 @@ export interface TreeNode {
   leafDescendants: string[];
   isPrunedGroup: boolean;
   originalLeafCount: number;
+  /**
+   * A synthetic row/column standing for a parent card itself rather than for
+   * its children — see {@link addSelfNodes}. Its `item.id` is synthetic; the
+   * card it stands for is `leafDescendants[0]`, or {@link cardIdOf}.
+   */
+  isSelfNode?: boolean;
 }
+
+/** Prefix marking a synthetic self node's id apart from any real card id. */
+const SELF_NODE_PREFIX = "__self__:";
 
 export interface ColumnHeaderCell {
   node: TreeNode;
@@ -155,24 +164,28 @@ export function pruneTreeToDepth(roots: TreeNode[], visibleDepth: number): TreeN
 // ---------------------------------------------------------------------------
 
 /**
- * Return a copy of the tree keeping only nodes that have at least one leaf
- * descendant in `relatedIds`. Ancestor chains of surviving leaves are kept so
- * merged parent-group headers stay consistent with the visible leaves; a leaf
- * (or pruned group) survives if any of its aggregated cards is related, and
+ * Return a copy of the tree keeping only nodes that are related, or that have a
+ * related descendant. Ancestor chains of surviving leaves are kept so merged
+ * parent-group headers stay consistent with the visible leaves, and
  * `leafCount` / `leafDescendants` are recomputed from the surviving subtree.
  * Returns `null` for a node that is entirely unrelated (so callers filter it out).
+ *
+ * A node's **own** id counts, not just its descendants'. A card can carry
+ * relations of its own while none of its children do; testing descendants alone
+ * made the hide-unrelated toggle remove a card that is, in fact, related.
  */
 export function filterRelatedSubtrees(roots: TreeNode[], relatedIds: Set<string>): TreeNode[] {
   const filter = (node: TreeNode): TreeNode | null => {
+    const selfRelated = relatedIds.has(node.item.id);
     if (node.children.length === 0) {
       // Leaf or pruned group: keep if any aggregated card is related
-      const survives = node.leafDescendants.some((id) => relatedIds.has(id));
+      const survives = selfRelated || node.leafDescendants.some((id) => relatedIds.has(id));
       return survives ? { ...node, leafDescendants: [...node.leafDescendants] } : null;
     }
     const keptChildren = node.children
       .map(filter)
       .filter((c): c is TreeNode => c !== null);
-    if (keptChildren.length === 0) return null;
+    if (keptChildren.length === 0) return selfRelated ? { ...node, children: [] } : null;
     return {
       ...node,
       children: keptChildren,
@@ -181,6 +194,59 @@ export function filterRelatedSubtrees(roots: TreeNode[], relatedIds: Set<string>
     };
   };
   return roots.map(filter).filter((n): n is TreeNode => n !== null);
+}
+
+// ---------------------------------------------------------------------------
+// addSelfNodes – give a parent card a row/column of its own
+// ---------------------------------------------------------------------------
+
+/**
+ * Insert a synthetic leaf under every node that still has children and whose
+ * own id is in `ids`, so a card that carries relations of its own has somewhere
+ * to show them.
+ *
+ * Without this a parent is only a group header spanning its children: it has no
+ * cell row, its id never reaches the cell index, and every relation attached to
+ * the card itself is dropped without trace — while the toggles and the metrics,
+ * which read raw card ids, still count it.
+ *
+ * The self node sits at the same depth as its siblings, so the tree's maximum
+ * depth — and the depth stepper built from it — is unchanged. Only parents that
+ * actually carry their own relations get one, so a model without parent-level
+ * relations renders exactly as before.
+ *
+ * Call it *after* pruning: a collapsed parent is already a leaf that stands for
+ * itself (see {@link getEffectiveLeafIds}) and needs no extra row.
+ */
+export function addSelfNodes(roots: TreeNode[], ids: Set<string>): TreeNode[] {
+  const visit = (node: TreeNode): TreeNode => {
+    if (node.children.length === 0) return node;
+    const children = node.children.map(visit);
+    if (ids.has(node.item.id)) {
+      children.unshift({
+        // A distinct id, parented to the card it stands for: the header layout
+        // keys nodes by `item.id` and rebuilds ancestry from `item.parent_id`,
+        // so reusing the parent's item would make the self node overwrite its
+        // own parent and erase the group header. The real card id lives on
+        // `leafDescendants`, which is what the cell index and `cardIdOf` read.
+        item: { id: `${SELF_NODE_PREFIX}${node.item.id}`, name: node.item.name, parent_id: node.item.id },
+        children: [],
+        depth: node.depth + 1,
+        leafCount: 1,
+        leafDescendants: [node.item.id],
+        isPrunedGroup: false,
+        originalLeafCount: 1,
+        isSelfNode: true,
+      });
+    }
+    return {
+      ...node,
+      children,
+      leafCount: children.reduce((sum, c) => sum + c.leafCount, 0),
+      leafDescendants: children.flatMap((c) => c.leafDescendants),
+    };
+  };
+  return roots.map(visit);
 }
 
 // ---------------------------------------------------------------------------
@@ -391,10 +457,20 @@ export function buildRowHeaderLayout(
 // ---------------------------------------------------------------------------
 
 export function getEffectiveLeafIds(node: TreeNode): string[] {
+  // A self node's `item.id` is synthetic; the card it stands for is on
+  // `leafDescendants`.
+  if (node.isSelfNode) return node.leafDescendants;
   if (node.isPrunedGroup) {
-    return node.leafDescendants;
+    // A collapsed group stands for the card itself as well as everything under
+    // it, so relations attached to the parent are counted rather than lost.
+    return [node.item.id, ...node.leafDescendants];
   }
   return node.children.length === 0 ? [node.item.id] : node.leafDescendants;
+}
+
+/** The card a node stands for — a self node's own `item.id` is synthetic. */
+export function cardIdOf(node: TreeNode): string {
+  return node.isSelfNode ? node.leafDescendants[0] : node.item.id;
 }
 
 // ---------------------------------------------------------------------------

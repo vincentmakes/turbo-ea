@@ -170,6 +170,8 @@ El control **Visualización de celda** ofrece cuatro opciones:
 
 Las letras y los nombres provienen de los atributos que declaran sus tipos de relación, en su propio idioma. Una relación CRUD se lee `C R U D`; una relación de propiedad muestra sus propios valores. Añada un valor a un tipo de relación en el [metamodelo](../admin/metamodel.md) y aparecerá aquí sin más configuración. Una celda de grupo contraído siempre muestra un recuento, porque puede abarcar muchos valores distintos: expanda un nivel para verlos.
 
+Una ficha con hijos en la jerarquía también puede tener relaciones propias. Cuando así ocurre, recibe una fila (o columna) propia etiquetada **(él mismo)** justo debajo de su encabezado de grupo, de modo que esas relaciones tengan dónde mostrarse en lugar de perderse entre el padre y sus hijos. Al contraer el nivel se cuentan en la celda del grupo junto con las de sus hijos.
+
 ### Filtrar por relación
 
 La barra de filtros sobre la cuadrícula limita la matriz a las relaciones que le interesan:

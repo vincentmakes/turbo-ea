@@ -170,6 +170,8 @@ The **Cell Display** control offers four options:
 
 The letters and names come from the attributes your relation types declare, in your own language. A CRUD relation reads `C R U D`; an ownership relation reads its own values. Add a value to a relation type in the [metamodel](../admin/metamodel.md) and it shows up here with no further setup. A collapsed group cell always shows a count, because it can span many different values — expand a level to see them.
 
+A card that has children below it in the hierarchy can also carry relations of its own. When it does, it gets a row (or column) of its own labelled **(itself)** directly under its group heading, so those relations have somewhere to appear rather than being lost between the parent and its children. Collapse the level and they are counted in the group's cell along with its children's.
+
 ### Filtering by relation
 
 The filter bar above the grid narrows the matrix to the relations you care about:

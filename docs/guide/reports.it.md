@@ -170,6 +170,8 @@ Il controllo **Visualizzazione cella** offre quattro opzioni:
 
 Lettere e nomi provengono dagli attributi dichiarati dai tuoi tipi di relazione, nella tua lingua. Una relazione CRUD si legge `C R U D`; una relazione di proprietà mostra i propri valori. Aggiungi un valore a un tipo di relazione nel [metamodello](../admin/metamodel.md) e comparirà qui senza altra configurazione. Una cella di gruppo compresso mostra sempre un conteggio, perché può abbracciare molti valori diversi: espandi un livello per vederli.
 
+Una card con figli nella gerarchia può avere anche relazioni proprie. In tal caso riceve una riga (o colonna) tutta sua, etichettata **(esso stesso)**, subito sotto la sua intestazione di gruppo, così quelle relazioni hanno dove comparire invece di perdersi tra il padre e i figli. Comprimendo il livello vengono conteggiate nella cella del gruppo insieme a quelle dei figli.
+
 ### Filtrare per relazione
 
 La barra dei filtri sopra la griglia restringe la matrice alle relazioni che ti interessano:

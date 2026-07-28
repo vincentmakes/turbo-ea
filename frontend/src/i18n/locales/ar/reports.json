@@ -254,6 +254,7 @@
   "matrix.alphaSort": "أ → ي",
   "matrix.byCount": "حسب العدد",
   "matrix.hierarchy": "التسلسل الهرمي",
+  "matrix.selfRow": "(نفسه)",
   "matrix.relations": "العلاقات",
   "matrix.coverage": "التغطية",
   "matrix.noData": "لم يتم العثور على بيانات لهذا المزيج.",

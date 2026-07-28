@@ -254,6 +254,7 @@
   "matrix.alphaSort": "A → Z",
   "matrix.byCount": "按数量",
   "matrix.hierarchy": "层级",
+  "matrix.selfRow": "（自身）",
   "matrix.relations": "关系",
   "matrix.coverage": "覆盖率",
   "matrix.noData": "此组合未找到数据。",

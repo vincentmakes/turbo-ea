@@ -170,6 +170,8 @@ O controlo **Exibição da célula** oferece quatro opções:
 
 As letras e os nomes vêm dos atributos que os seus tipos de relação declaram, no seu próprio idioma. Uma relação CRUD lê-se `C R U D`; uma relação de propriedade mostra os seus próprios valores. Adicione um valor a um tipo de relação no [metamodelo](../admin/metamodel.md) e ele aparece aqui sem mais configuração. Uma célula de grupo recolhido mostra sempre uma contagem, porque pode abranger muitos valores diferentes — expanda um nível para os ver.
 
+Um card com filhos na hierarquia pode também ter relações próprias. Quando tem, recebe uma linha (ou coluna) só sua, com o rótulo **(ele próprio)**, logo abaixo do seu cabeçalho de grupo, para que essas relações tenham onde aparecer em vez de se perderem entre o pai e os filhos. Ao recolher o nível, passam a ser contadas na célula do grupo juntamente com as dos filhos.
+
 ### Filtrar por relação
 
 A barra de filtros acima da grelha restringe a matriz às relações que lhe interessam:

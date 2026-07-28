@@ -614,8 +614,12 @@ class TestMatrixFilters:
 
         data = await _matrix(client, e["admin"], relation_types="app_to_do")
 
-        assert data["relation_types"] == ["app_to_do"]
-        assert len(_cell(data, e["app_a"].id, e["do_x"].id)["e"]) == 1
+        # `relation_types` is the index space the edges refer into, not the
+        # filtered set — it always lists the types declared for the pair.
+        assert data["relation_types"] == ["app_to_do", "do_to_app"]
+        edges = _cell(data, e["app_a"].id, e["do_x"].id)["e"]
+        assert len(edges) == 1
+        assert data["relation_types"][edges[0][0]] == "app_to_do"
         assert all(
             not ix["e"] for ix in data["intersections"] if ix["row_id"] == str(e["app_b"].id)
         )
@@ -788,17 +792,121 @@ class TestMatrixFilters:
         )
         assert resp.status_code == 400
 
-    async def test_unknown_relation_type_filter_is_rejected(self, client, db, matrix_env):
+    async def test_relation_type_filter_naming_no_real_type_is_rejected(
+        self, client, db, matrix_env
+    ):
+        """A key that exists nowhere is a typo; one declared elsewhere is not."""
         resp = await client.get(
             "/api/v1/reports/matrix",
             params={
                 "row_type": "Application",
                 "col_type": "DataObject",
-                "relation_types": "app_to_itc",
+                "relation_types": "not_a_real_relation_type",
             },
             headers=auth_headers(matrix_env["admin"]),
         )
         assert resp.status_code == 400
+
+    async def test_relation_type_filter_accepts_a_type_declared_for_another_pair(
+        self, client, db, matrix_env
+    ):
+        # `app_to_itc` is declared Application -> ITComponent, but a relation of
+        # that type between an Application and a Data Object still connects the
+        # two axes, so filtering on it is a legitimate question, not an error.
+        e = matrix_env
+        await create_relation(
+            db, type_key="app_to_itc", source_id=e["app_a"].id, target_id=e["do_x"].id
+        )
+
+        data = await _matrix(client, e["admin"], relation_types="app_to_itc")
+
+        assert sum(len(ix["e"]) for ix in data["intersections"]) == 1
+
+
+class TestMatrixRelationTypeCoverage:
+    """Which relations belong in the grid is decided by the cards they connect.
+
+    Restricting to the relation types the metamodel declares for the axis pair
+    silently drops relations whose type was renamed, imported, or declared for
+    another pair — they connect the two cards all the same.
+    """
+
+    async def test_includes_a_relation_whose_type_is_not_declared_for_the_pair(
+        self, client, db, matrix_env
+    ):
+        e = matrix_env
+        await create_relation(
+            db, type_key="app_to_itc", source_id=e["app_a"].id, target_id=e["do_x"].id
+        )
+
+        data = await _matrix(client, e["admin"])
+
+        edges = _cell(data, e["app_a"].id, e["do_x"].id)["e"]
+        assert len(edges) == 1
+        assert data["relation_types"][edges[0][0]] == "app_to_itc"
+
+    async def test_lists_declared_types_first_then_the_ones_found_in_the_data(
+        self, client, db, matrix_env
+    ):
+        e = matrix_env
+        await create_relation(
+            db, type_key="app_to_itc", source_id=e["app_a"].id, target_id=e["do_x"].id
+        )
+
+        data = await _matrix(client, e["admin"])
+
+        assert data["relation_types"][:2] == ["app_to_do", "do_to_app"]
+        assert "app_to_itc" in data["relation_types"]
+
+    async def test_includes_relations_when_the_metamodel_declares_none_for_the_pair(
+        self, client, db, env
+    ):
+        """A pair the metamodel says nothing about still shows what is there."""
+        admin = env["admin"]
+        app = await create_card(db, card_type="Application", name="App", user_id=admin.id)
+        itc = await create_card(db, card_type="ITComponent", name="Component", user_id=admin.id)
+        # ITComponent has no declared relation type back to Application.
+        await create_relation(db, type_key="app_to_itc", source_id=app.id, target_id=itc.id)
+
+        resp = await client.get(
+            "/api/v1/reports/matrix",
+            params={"row_type": "ITComponent", "col_type": "Application"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+
+        edges = _cell(data, itc.id, app.id)["e"]
+        assert len(edges) == 1
+        assert data["relation_types"][edges[0][0]] == "app_to_itc"
+        # The row card is the relation's target, so the row reads as reverse.
+        assert edges[0][1] == "r"
+
+    async def test_attributes_are_read_through_the_relations_own_schema(
+        self, client, db, matrix_env
+    ):
+        """Even for a type not declared for this pair."""
+        e = matrix_env
+        await create_relation_type(
+            db,
+            key="app_to_do_legacy",
+            label="legacy",
+            source_type_key="Application",
+            target_type_key="ITComponent",
+            attributes_schema=[{"key": "legacyFlag", "label": "Legacy", "type": "boolean"}],
+        )
+        await create_relation(
+            db,
+            type_key="app_to_do_legacy",
+            source_id=e["app_a"].id,
+            target_id=e["do_x"].id,
+            attributes={"legacyFlag": True, "unknownKey": "x"},
+        )
+
+        data = await _matrix(client, e["admin"])
+
+        edges = _cell(data, e["app_a"].id, e["do_x"].id)["e"]
+        assert data["attr_sets"][edges[0][2]] == {"legacyFlag": True}
 
 
 # ---------------------------------------------------------------------------

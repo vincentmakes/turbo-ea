@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.33.1] - 2026-07-28
+
+### Fixed
+- **Relations attached to a card that has children were missing from the Matrix report.** A card with sub-cards was only a heading spanning them, with no row or column of its own, so anything linked to the card itself had nowhere to appear — the card showed on the axis, the intersection stayed blank, and the relation was still counted in the totals. In the demo dataset that hid 17 of the 25 Organization–Application relations. Such a card now gets its own line labelled «(itself)» under its heading, and a collapsed group counts its own relations along with its children's.
+- **«Hide unrelated cards» could hide a card that was related.** A card whose own relations were its only ones — none on its sub-cards — was dropped by the very toggle meant to keep it.
+- **The Matrix report stopped showing relations whose type is not the one the metamodel declares for those two card types.** Relations left behind by a renamed relation type, brought in by an import, or declared for another pair were silently dropped, and a pair the metamodel says nothing about showed an empty grid. What belongs in the grid is decided by the cards a relation connects, as it was before 2.33.0.
+
 ## [2.33.0] - 2026-07-28
 
 ### Added

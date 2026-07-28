@@ -254,6 +254,7 @@
   "matrix.alphaSort": "A → Z",
   "matrix.byCount": "Per conteggio",
   "matrix.hierarchy": "Gerarchia",
+  "matrix.selfRow": "(esso stesso)",
   "matrix.relations": "Relazioni",
   "matrix.coverage": "Copertura",
   "matrix.noData": "Nessun dato trovato per questa combinazione.",

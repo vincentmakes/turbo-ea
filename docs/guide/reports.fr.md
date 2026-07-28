@@ -170,6 +170,8 @@ Le contrôle **Affichage des cellules** propose quatre options :
 
 Les lettres et les noms proviennent des attributs déclarés par vos types de relation, dans votre langue. Une relation CRUD se lit `C R U D` ; une relation de propriété affiche ses propres valeurs. Ajoutez une valeur à un type de relation dans le [métamodèle](../admin/metamodel.md) et elle apparaît ici sans autre configuration. Une cellule de groupe replié affiche toujours un nombre, car elle peut couvrir de nombreuses valeurs différentes — développez d'un niveau pour les voir.
 
+Une fiche ayant des enfants dans la hiérarchie peut également porter ses propres relations. Le cas échéant, elle reçoit une ligne (ou une colonne) qui lui est propre, intitulée **(lui-même)**, directement sous son en-tête de groupe : ces relations ont ainsi un endroit où s'afficher au lieu de se perdre entre le parent et ses enfants. Repliez le niveau et elles sont comptées dans la cellule du groupe avec celles de ses enfants.
+
 ### Filtrer par relation
 
 La barre de filtres au-dessus de la grille restreint la matrice aux relations qui vous intéressent :

@@ -1256,39 +1256,41 @@ async def matrix(
         if key not in known_types:
             raise HTTPException(status_code=400, detail=f"Unknown card type {key!r}")
 
-    # Relation types able to connect the two axes. The metamodel allows one per
-    # ordered pair, so this is at most two (one per orientation), or one when
-    # both axes are the same type.
-    pair_rows = (
+    # The whole relation-type table: small, and needed twice over. `declared`
+    # is the subset the metamodel says connects these two axes — at most two,
+    # one per orientation — which is what the attribute filters are validated
+    # against. `all_schemas` interprets the attributes of whatever type a
+    # relation actually carries, which is not always a declared one.
+    rt_rows = (
         await db.execute(
-            select(RelationType.key, RelationType.attributes_schema)
-            .where(
-                or_(
-                    and_(
-                        RelationType.source_type_key == row_type,
-                        RelationType.target_type_key == col_type,
-                    ),
-                    and_(
-                        RelationType.source_type_key == col_type,
-                        RelationType.target_type_key == row_type,
-                    ),
-                )
-            )
-            .order_by(RelationType.sort_order, RelationType.key)
+            select(
+                RelationType.key,
+                RelationType.attributes_schema,
+                RelationType.source_type_key,
+                RelationType.target_type_key,
+            ).order_by(RelationType.sort_order, RelationType.key)
         )
     ).all()
-    pair_schemas = {key: (schema or []) for key, schema in pair_rows}
-    rt_keys = [key for key, _ in pair_rows]
+    all_schemas = {key: (schema or []) for key, schema, _, _ in rt_rows}
+    declared_keys = [
+        key
+        for key, _, src, tgt in rt_rows
+        if (src == row_type and tgt == col_type) or (src == col_type and tgt == row_type)
+    ]
+    pair_schemas = {key: all_schemas[key] for key in declared_keys}
 
+    # An explicit filter is checked against the real relation-type keys rather
+    # than against the ones declared for this pair: a relation whose type was
+    # declared elsewhere, renamed, or imported still connects these two cards
+    # and still belongs in the grid. Only a key that exists nowhere is a typo.
+    requested_types: set[str] | None = None
     if relation_types is not None:
-        requested = {k.strip() for k in relation_types.split(",") if k.strip()}
-        unknown = requested - set(rt_keys)
+        requested_types = {k.strip() for k in relation_types.split(",") if k.strip()}
+        unknown = requested_types - set(all_schemas)
         if unknown:
             raise HTTPException(
-                status_code=400,
-                detail=f"Relation type(s) not valid for these axes: {sorted(unknown)}",
+                status_code=400, detail=f"Unknown relation type(s): {sorted(unknown)}"
             )
-        rt_keys = [key for key in rt_keys if key in requested]
 
     attr_filters = _parse_matrix_attr_filters(attr, pair_schemas)
 
@@ -1303,9 +1305,13 @@ async def matrix(
     )
 
     edges: list[tuple[str, str, str, str, dict]] = []
-    if rt_keys and rows and cols:
-        # Join on the endpoint card types rather than binding two lists of card
-        # UUIDs: the only IN list left holds at most two relation-type keys.
+    if rows and cols:
+        # Matched on the endpoint card types, not on the relation type: what
+        # makes a relation belong in this grid is that it connects one card of
+        # each axis. Restricting to the types the metamodel declares for the
+        # pair would silently drop relations left behind by a renamed type, or
+        # brought in by an import, and would empty the grid entirely for a pair
+        # the metamodel says nothing about.
         src_card, tgt_card = aliased(Card), aliased(Card)
         stmt = (
             select(Relation.type, Relation.source_id, Relation.target_id, Relation.attributes)
@@ -1314,13 +1320,14 @@ async def matrix(
             .where(
                 src_card.status == "ACTIVE",
                 tgt_card.status == "ACTIVE",
-                Relation.type.in_(rt_keys),
                 or_(
                     and_(src_card.type == row_type, tgt_card.type == col_type),
                     and_(src_card.type == col_type, tgt_card.type == row_type),
                 ),
             )
         )
+        if requested_types is not None:
+            stmt = stmt.where(Relation.type.in_(sorted(requested_types)))
         for (rt_key, field_key), (field_type, values) in attr_filters.items():
             clauses = [_matrix_attr_clause(field_key, field_type, v) for v in sorted(values)]
             # Scoped to its own relation type so a filter on one type never
@@ -1338,7 +1345,9 @@ async def matrix(
                 continue
             if direction == "reverse" and orientation != "r":
                 continue
-            declared = {f.get("key") for f in pair_schemas.get(rel_type, [])}
+            # Attributes are read through the relation's own schema, whichever
+            # type it is; a type the metamodel no longer knows contributes none.
+            declared = {f.get("key") for f in all_schemas.get(rel_type, [])}
             kept = {k: v for k, v in (attributes or {}).items() if k in declared and v is not None}
             edges.append((row_id, col_id, rel_type, orientation, kept))
 
@@ -1351,6 +1360,13 @@ async def matrix(
     # index keeps the payload proportional to the *variety*, not the volume.
     attr_sets: list[dict] = [{}]
     attr_index: dict[str, int] = {"{}": 0}
+
+    # Index space for the edges: the types the metamodel declares for this pair,
+    # then any other type the data actually turned up, so every edge can name
+    # its type even when the metamodel has moved on.
+    rt_keys = declared_keys + sorted(
+        {rel_type for _, _, rel_type, _, _ in edges} - set(declared_keys)
+    )
     rt_index = {key: i for i, key in enumerate(rt_keys)}
 
     cells: dict[tuple[str, str], list[list]] = {}

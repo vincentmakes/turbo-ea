@@ -8,7 +8,7 @@ import {
   type MatrixPayload,
 } from "./matrixCells";
 import { buildValueIndex } from "./matrixDimensions";
-import { buildTree, pruneTreeToDepth, getLeafNodes } from "./matrixHierarchy";
+import { addSelfNodes, buildTree, pruneTreeToDepth, getLeafNodes } from "./matrixHierarchy";
 import type { FieldDef, FieldOption, RelationType } from "@/types";
 
 const rt: RelationType = {
@@ -216,6 +216,52 @@ describe("buildCellMatrix", () => {
 
     expect(collapsed).toHaveLength(1);
     expect(getCell(m, 0, 0).count).toBe(2);
+  });
+});
+
+describe("every relation lands in a cell", () => {
+  // The invariant that was missing. The totals and the hide-unrelated toggle
+  // are computed from raw card ids, so any edge the grid cannot place shows up
+  // as a visible card with empty cells and a count that does not add up.
+  const total = (p: MatrixPayload) =>
+    p.intersections.reduce((sum, i) => sum + (i.e ?? []).length, 0);
+
+  it("places a relation attached to a parent card, once it has a row of its own", () => {
+    const items = [
+      { id: "p", name: "Parent", parent_id: null },
+      { id: "c1", name: "Child", parent_id: "p" },
+    ];
+    const rowNodes = getLeafNodes(addSelfNodes(buildTree(items).roots, new Set(["p"])));
+    const data = payload([{ row_id: "p", col_id: "c1", e: [[0, "f", 0]] }]);
+
+    const m = buildCellMatrix(rowNodes, leaves(["c1"]), data, valueIndex);
+
+    expect(m.droppedEdges).toBe(0);
+    expect(m.grandTotal).toBe(total(data));
+    // The parent's own row, not one of its children.
+    const selfIdx = rowNodes.findIndex((n) => n.isSelfNode);
+    expect(getCell(m, selfIdx, 0).count).toBe(1);
+  });
+
+  it("places a relation attached to a collapsed parent", () => {
+    const items = [
+      { id: "p", name: "Parent", parent_id: null },
+      { id: "c1", name: "Child", parent_id: "p" },
+    ];
+    const collapsed = getLeafNodes(pruneTreeToDepth(buildTree(items).roots, 0));
+    const data = payload([{ row_id: "p", col_id: "c1", e: [[0, "f", 0]] }]);
+
+    const m = buildCellMatrix(collapsed, leaves(["c1"]), data, valueIndex);
+
+    expect(m.droppedEdges).toBe(0);
+    expect(getCell(m, 0, 0).count).toBe(1);
+  });
+
+  it("counts an edge it cannot place instead of losing it silently", () => {
+    const data = payload([{ row_id: "nowhere", col_id: "c1", e: [[0, "f", 0]] }]);
+    const m = buildCellMatrix(leaves(["r1"]), leaves(["c1"]), data, valueIndex);
+    expect(m.droppedEdges).toBe(1);
+    expect(m.grandTotal).toBe(0);
   });
 });
 

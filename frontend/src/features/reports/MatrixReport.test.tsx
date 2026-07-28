@@ -39,8 +39,8 @@ import { createRef } from "react";
 // path an admin-defined dimension would.
 // ---------------------------------------------------------------------------
 
-const CARD_TYPES = [
-  { key: "Application", label: "Application", icon: "apps", color: "#0f7eb5", has_hierarchy: false },
+const cardTypes = (hierarchical = false) => [
+  { key: "Application", label: "Application", icon: "apps", color: "#0f7eb5", has_hierarchy: hierarchical },
   { key: "BusinessCapability", label: "Business Capability", icon: "account_tree", color: "#003399", has_hierarchy: false },
 ];
 
@@ -81,15 +81,17 @@ const PAYLOAD = {
 };
 
 let metamodelRelationTypes: unknown[] = [ATTRIBUTED_RELATION];
+let metamodelCardTypes: unknown[] = cardTypes();
 
 beforeEach(() => {
   vi.clearAllMocks();
   metamodelRelationTypes = [ATTRIBUTED_RELATION];
+  metamodelCardTypes = cardTypes();
 
   vi.mocked(useMetamodel).mockImplementation(
     () =>
       ({
-        types: CARD_TYPES,
+        types: metamodelCardTypes,
         relationTypes: metamodelRelationTypes,
         loading: false,
         getType: () => undefined,
@@ -330,6 +332,55 @@ describe("MatrixReport", () => {
         expect.anything(),
       );
     });
+  });
+
+  it("shows a relation attached to a parent card, on a row of its own", async () => {
+    // The reported bug: the app column was there, the intersection was blank
+    // and the total read 0, because the parent org was only a group header
+    // spanning its children and had no row to put the dot in.
+    metamodelCardTypes = cardTypes(true);
+    vi.mocked(api.get).mockResolvedValue({
+      ...PAYLOAD,
+      rows: [
+        { id: "app-parent", name: "Parent App", parent_id: null },
+        { id: "app-child", name: "Child App", parent_id: "app-parent" },
+      ],
+      intersections: [{ row_id: "app-parent", col_id: "bc-1", e: [[0, "f", 0]] }],
+    });
+    renderMatrix();
+
+    await screen.findByText("Parent App");
+    // The parent keeps its group header and gains its own line beneath it.
+    expect(screen.getByText("(itself)")).toBeInTheDocument();
+    // One relation in the payload, one in the grid.
+    await waitFor(() => {
+      expect(metricCard("Relations")).toHaveTextContent("1");
+    });
+    const table = document.querySelector("table") as HTMLElement;
+    expect(within(table).getAllByText("1").length).toBeGreaterThan(0);
+  });
+
+  it("keeps a related parent whose children are unrelated when hiding unrelated cards", async () => {
+    const user = userEvent.setup();
+    metamodelCardTypes = cardTypes(true);
+    vi.mocked(api.get).mockResolvedValue({
+      ...PAYLOAD,
+      rows: [
+        { id: "app-parent", name: "Parent App", parent_id: null },
+        { id: "app-child", name: "Child App", parent_id: "app-parent" },
+      ],
+      intersections: [{ row_id: "app-parent", col_id: "bc-1", e: [[0, "f", 0]] }],
+    });
+    renderMatrix();
+    await screen.findByText("Parent App");
+
+    await user.click(screen.getByRole("checkbox", { name: /Hide unrelated cards/ }));
+
+    // The toggle keeps related cards — the parent is related, so it stays.
+    await waitFor(() => {
+      expect(screen.getByText("Parent App")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("Child App")).not.toBeInTheDocument();
   });
 
   it("loads a config saved before the filters existed", async () => {

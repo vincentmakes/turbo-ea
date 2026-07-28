@@ -9,6 +9,8 @@ import {
   getEffectiveLeafIds,
   buildAllNodesMap,
   filterRelatedSubtrees,
+  addSelfNodes,
+  cardIdOf,
   type MatrixItem,
 } from "./matrixHierarchy";
 
@@ -335,6 +337,64 @@ describe("getEffectiveLeafIds", () => {
     expect(ids).toContain("c1");
     expect(ids).toContain("c2");
   });
+
+  it("includes the collapsed group's own id", () => {
+    // A card can carry relations of its own. Returning only its descendants
+    // meant those relations had no cell to land in and were dropped.
+    const items: MatrixItem[] = [
+      { id: "r", name: "Root", parent_id: null },
+      { id: "c1", name: "A", parent_id: "r" },
+    ];
+    const pruned = pruneTreeToDepth(buildTree(items).roots, 0);
+    expect(getEffectiveLeafIds(pruned[0])).toEqual(["r", "c1"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// addSelfNodes
+// ---------------------------------------------------------------------------
+describe("addSelfNodes", () => {
+  const family: MatrixItem[] = [
+    { id: "p", name: "Parent", parent_id: null },
+    { id: "c1", name: "Child One", parent_id: "p" },
+    { id: "c2", name: "Child Two", parent_id: "p" },
+  ];
+
+  it("gives a parent a leaf of its own", () => {
+    const roots = addSelfNodes(buildTree(family).roots, new Set(["p"]));
+    const leaves = getLeafNodes(roots);
+
+    expect(leaves.map(cardIdOf)).toEqual(["p", "c1", "c2"]);
+    expect(leaves[0].isSelfNode).toBe(true);
+    expect(getEffectiveLeafIds(leaves[0])).toEqual(["p"]);
+  });
+
+  it("leaves the tree alone when the parent carries nothing of its own", () => {
+    const roots = addSelfNodes(buildTree(family).roots, new Set(["c1"]));
+    expect(getLeafNodes(roots).map((n) => n.item.id)).toEqual(["c1", "c2"]);
+  });
+
+  it("keeps leafCount consistent so the header spans stay correct", () => {
+    const roots = addSelfNodes(buildTree(family).roots, new Set(["p"]));
+    expect(roots[0].leafCount).toBe(3);
+    expect(roots[0].leafDescendants).toEqual(["p", "c1", "c2"]);
+    // Its own node key is distinct so it cannot collide with its parent in the
+    // header layout, which indexes nodes by `item.id`.
+    expect(roots[0].children[0].item.id).not.toBe("p");
+    expect(roots[0].children[0].item.parent_id).toBe("p");
+  });
+
+  it("sits at the same depth as its siblings, so maxDepth is unchanged", () => {
+    const tree = buildTree(family);
+    const roots = addSelfNodes(tree.roots, new Set(["p"]));
+    expect(roots[0].children[0].depth).toBe(1);
+    expect(Math.max(...getLeafNodes(roots).map((n) => n.depth))).toBe(tree.maxDepth);
+  });
+
+  it("does nothing to a childless node", () => {
+    const roots = addSelfNodes(buildTree([{ id: "a", name: "A", parent_id: null }]).roots, new Set(["a"]));
+    expect(roots[0].children).toHaveLength(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -358,6 +418,28 @@ describe("buildAllNodesMap", () => {
 // filterRelatedSubtrees
 // ---------------------------------------------------------------------------
 describe("filterRelatedSubtrees", () => {
+  it("keeps a related parent whose children are all unrelated", () => {
+    // The toggle is meant to keep related cards. Testing only descendants
+    // removed a card that is itself related.
+    const items: MatrixItem[] = [
+      { id: "p", name: "Parent", parent_id: null },
+      { id: "c1", name: "Child", parent_id: "p" },
+    ];
+    const kept = filterRelatedSubtrees(buildTree(items).roots, new Set(["p"]));
+    expect(kept).toHaveLength(1);
+    expect(kept[0].item.id).toBe("p");
+  });
+
+  it("keeps a self node when its parent is related", () => {
+    const items: MatrixItem[] = [
+      { id: "p", name: "Parent", parent_id: null },
+      { id: "c1", name: "Child", parent_id: "p" },
+    ];
+    const withSelf = addSelfNodes(buildTree(items).roots, new Set(["p"]));
+    const kept = filterRelatedSubtrees(withSelf, new Set(["p"]));
+    expect(getLeafNodes(kept).map(cardIdOf)).toEqual(["p"]);
+  });
+
   it("drops flat leaves that are not in the related set", () => {
     const items: MatrixItem[] = [
       { id: "a", name: "Alpha", parent_id: null },

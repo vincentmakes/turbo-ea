@@ -59,6 +59,13 @@ export interface CellMatrix {
   /** Row / column indices with no relation at all — the coverage gaps. */
   emptyRowIndices: Set<number>;
   emptyColIndices: Set<number>;
+  /**
+   * Edges whose cards could not be placed in the grid. Should always be zero:
+   * every card in the payload has a row or column, so anything counted here is
+   * a relation the user is being shown a total for but no cell to explain it.
+   * Asserted in the tests rather than surfaced in the UI.
+   */
+  droppedEdges: number;
 }
 
 const EMPTY_CELL: CellDatum = { count: 0, dirMask: 0, valueIds: [], relationTypeKeys: [] };
@@ -95,6 +102,7 @@ export function buildCellMatrix(
     grandTotal: 0,
     emptyRowIndices: new Set(),
     emptyColIndices: new Set(),
+    droppedEdges: 0,
   };
   if (!payload || numRows === 0 || numCols === 0) return matrix;
 
@@ -117,12 +125,18 @@ export function buildCellMatrix(
   };
 
   for (const intersection of payload.intersections) {
-    const r = rowIndex.get(intersection.row_id);
-    const c = colIndex.get(intersection.col_id);
-    if (r === undefined || c === undefined) continue;
-
     const edges = intersection.e ?? [];
     if (edges.length === 0) continue; // structural diagonal — not a relationship
+
+    const r = rowIndex.get(intersection.row_id);
+    const c = colIndex.get(intersection.col_id);
+    if (r === undefined || c === undefined) {
+      // A card the grid has no row or column for. The totals and the toggles
+      // read raw card ids, so silently skipping here is what produced a visible
+      // card with empty cells and a count that did not add up.
+      matrix.droppedEdges += edges.length;
+      continue;
+    }
 
     const key = r * numCols + c;
     let cell = matrix.cells.get(key);

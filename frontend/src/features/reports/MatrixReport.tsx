@@ -40,6 +40,8 @@ import { readableTextColor } from "@/lib/color";
 import type { ReportExportData } from "./reportExport";
 import {
   type TreeNode,
+  addSelfNodes,
+  cardIdOf,
   buildTree,
   pruneTreeToDepth,
   getLeafNodes,
@@ -475,18 +477,50 @@ export default function MatrixReport() {
     [data, relatedColIds, searchedColIds, hideEmpty, showOnlyGaps], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  // Pruned trees based on visible depth (only in hierarchy mode)
+  // Cards that carry relations of their own AND have children. A card like that
+  // is otherwise only a group header spanning its children, with no cell row of
+  // its own, so its relations would have nowhere to land.
+  const parentsWithOwnRelations = (
+    tree: ReturnType<typeof buildTree> | null,
+    related: Set<string>,
+  ): Set<string> => {
+    const ids = new Set<string>();
+    if (!tree) return ids;
+    for (const id of related) {
+      if ((tree.allNodes.get(id)?.children.length ?? 0) > 0) ids.add(id);
+    }
+    return ids;
+  };
+
+  const rowSelfIds = useMemo(
+    () => parentsWithOwnRelations(rowTreeFull, relatedRowIds),
+    [rowTreeFull, relatedRowIds], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const colSelfIds = useMemo(
+    () => parentsWithOwnRelations(colTreeFull, relatedColIds),
+    [colTreeFull, relatedColIds], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  // Pruned trees based on visible depth (only in hierarchy mode). Self rows are
+  // added after pruning: a collapsed parent is already a leaf that stands for
+  // itself, so only a parent still showing its children needs one.
   const prunedRowRoots = useMemo(() => {
     if (!rowTreeFull || sortRows !== "hierarchy") return null;
-    const pruned = pruneTreeToDepth(rowTreeFull.roots, effectiveRowDepth);
-    return visibleRowIds ? filterRelatedSubtrees(pruned, visibleRowIds) : pruned;
-  }, [rowTreeFull, effectiveRowDepth, sortRows, visibleRowIds]);
+    const withSelf = addSelfNodes(
+      pruneTreeToDepth(rowTreeFull.roots, effectiveRowDepth),
+      rowSelfIds,
+    );
+    return visibleRowIds ? filterRelatedSubtrees(withSelf, visibleRowIds) : withSelf;
+  }, [rowTreeFull, effectiveRowDepth, sortRows, visibleRowIds, rowSelfIds]);
 
   const prunedColRoots = useMemo(() => {
     if (!colTreeFull || sortCols !== "hierarchy") return null;
-    const pruned = pruneTreeToDepth(colTreeFull.roots, effectiveColDepth);
-    return visibleColIds ? filterRelatedSubtrees(pruned, visibleColIds) : pruned;
-  }, [colTreeFull, effectiveColDepth, sortCols, visibleColIds]);
+    const withSelf = addSelfNodes(
+      pruneTreeToDepth(colTreeFull.roots, effectiveColDepth),
+      colSelfIds,
+    );
+    return visibleColIds ? filterRelatedSubtrees(withSelf, visibleColIds) : withSelf;
+  }, [colTreeFull, effectiveColDepth, sortCols, visibleColIds, colSelfIds]);
 
   // Get pruned leaf nodes
   const leafRowNodes = useMemo(() => {
@@ -606,7 +640,7 @@ export default function MatrixReport() {
     cell: CellDatum,
   ) => {
     if (cell.count > 0) {
-      setPopover({ el: e.currentTarget, rowId: rowNode.item.id, colId: colNode.item.id });
+      setPopover({ el: e.currentTarget, rowId: cardIdOf(rowNode), colId: cardIdOf(colNode) });
     }
   };
 
@@ -1245,13 +1279,18 @@ export default function MatrixReport() {
                           }}
                           onMouseEnter={() => setHoveredCol(cell.node.item.id)}
                           onMouseLeave={() => setHoveredCol(null)}
-                          onClick={() => setSidePanelCardId(cell.node.item.id)}
+                          onClick={() => setSidePanelCardId(cardIdOf(cell.node))}
                         >
-                          {isLeafCell
-                            ? (cell.node.item.name.length > maxChars
-                              ? cell.node.item.name.slice(0, maxChars - 1) + "\u2026"
-                              : cell.node.item.name)
-                            : cell.node.item.name}
+                          {/* A self column repeats its parent's name directly
+                              under that parent's header, so the marker alone
+                              reads clearly and saves the space. */}
+                          {cell.node.isSelfNode
+                            ? t("matrix.selfRow")
+                            : isLeafCell
+                              ? (cell.node.item.name.length > maxChars
+                                ? cell.node.item.name.slice(0, maxChars - 1) + "\u2026"
+                                : cell.node.item.name)
+                              : cell.node.item.name}
                           {cell.isPrunedGroup && (
                             <span style={{ opacity: 0.6, fontSize: 9, marginLeft: 2 }}>
                               ({cell.node.originalLeafCount})
@@ -1325,7 +1364,7 @@ export default function MatrixReport() {
                           }}
                           onMouseEnter={() => setHoveredRow(cell.node.item.id)}
                           onMouseLeave={() => setHoveredRow(null)}
-                          onClick={() => setSidePanelCardId(cell.node.item.id)}
+                          onClick={() => setSidePanelCardId(cardIdOf(cell.node))}
                         >
                           <Tooltip title={cell.node.item.name} placement="right">
                             <span style={{
@@ -1333,8 +1372,13 @@ export default function MatrixReport() {
                               overflow: "hidden",
                               textOverflow: "ellipsis",
                               whiteSpace: "nowrap",
+                              // A self row sits directly under its own group
+                              // header, so it is the parent's own line rather
+                              // than another child.
+                              fontStyle: cell.node.isSelfNode ? "italic" : undefined,
+                              opacity: cell.node.isSelfNode ? 0.8 : undefined,
                             }}>
-                              {cell.node.item.name}
+                              {cell.node.isSelfNode ? t("matrix.selfRow") : cell.node.item.name}
                               {cell.isPrunedGroup && (
                                 <span style={{ opacity: 0.6, fontSize: 10, marginLeft: 4 }}>
                                   ({cell.node.originalLeafCount})
@@ -1508,8 +1552,8 @@ export default function MatrixReport() {
         {popover && (() => {
           const row = data?.rows.find((r) => r.id === popover.rowId);
           const col = data?.columns.find((c) => c.id === popover.colId);
-          const rowIdx = leafRowNodes.findIndex((n) => n.item.id === popover.rowId);
-          const colIdx = leafColNodes.findIndex((n) => n.item.id === popover.colId);
+          const rowIdx = leafRowNodes.findIndex((n) => cardIdOf(n) === popover.rowId);
+          const colIdx = leafColNodes.findIndex((n) => cardIdOf(n) === popover.colId);
           const cell = rowIdx >= 0 && colIdx >= 0
             ? getCell(cellMatrix, rowIdx, colIdx)
             : { count: 0, dirMask: 0, valueIds: [], relationTypeKeys: [] };

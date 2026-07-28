@@ -170,6 +170,8 @@ Die Steuerung **Zellenanzeige** bietet vier Optionen:
 
 Buchstaben und Namen stammen aus den Attributen, die Ihre Beziehungstypen deklarieren, in Ihrer eigenen Sprache. Eine CRUD-Beziehung liest sich als `C R U D`; eine Eigentumsbeziehung zeigt ihre eigenen Werte. Fügen Sie im [Metamodell](../admin/metamodel.md) einem Beziehungstyp einen Wert hinzu, erscheint er hier ohne weitere Einrichtung. Eine eingeklappte Gruppenzelle zeigt immer eine Anzahl, da sie viele verschiedene Werte umfassen kann — klappen Sie eine Ebene aus, um sie zu sehen.
 
+Eine Karte mit untergeordneten Elementen kann auch eigene Beziehungen haben. In diesem Fall erhält sie direkt unter ihrer Gruppenüberschrift eine eigene Zeile (bzw. Spalte) mit der Beschriftung **(selbst)**, damit diese Beziehungen einen Platz haben und nicht zwischen der übergeordneten Karte und ihren untergeordneten Elementen verloren gehen. Klappen Sie die Ebene ein, werden sie zusammen mit denen der untergeordneten Elemente in der Gruppenzelle gezählt.
+
 ### Nach Beziehung filtern
 
 Die Filterleiste über dem Raster grenzt die Matrix auf die Beziehungen ein, die Sie interessieren:

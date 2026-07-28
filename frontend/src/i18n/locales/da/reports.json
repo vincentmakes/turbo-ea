@@ -254,6 +254,7 @@
   "matrix.alphaSort": "A → Å",
   "matrix.byCount": "Efter antal",
   "matrix.hierarchy": "Hierarki",
+  "matrix.selfRow": "(selv)",
   "matrix.relations": "Relationer",
   "matrix.coverage": "Dækning",
   "matrix.noData": "Ingen data fundet for denne kombination.",

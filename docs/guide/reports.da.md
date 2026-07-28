@@ -170,6 +170,8 @@ Kontrollen **Cellevisning** tilbyder fire muligheder:
 
 Bogstaverne og navnene kommer fra de attributter, dine relationstyper erklærer, og vises på dit eget sprog. En CRUD-relation læses `C R U D`; en ejerskabsrelation viser sine egne værdier. Tilføj en værdi til en relationstype i [metamodellen](../admin/metamodel.md), så dukker den op her uden yderligere opsætning. En sammenklappet gruppecelle viser altid et antal, fordi den kan spænde over mange forskellige værdier — udvid et niveau for at se dem.
 
+Et kort med underliggende kort i hierarkiet kan også bære sine egne relationer. Når det gør, får det sin egen række (eller kolonne) med etiketten **(selv)** lige under sin gruppeoverskrift, så de relationer har et sted at vise sig i stedet for at gå tabt mellem forælderen og dens børn. Klap niveauet sammen, og de tælles med i gruppens celle sammen med børnenes.
+
 ### Filtrering på relation
 
 Filterlinjen over gitteret indsnævrer matricen til de relationer, du er interesseret i:
