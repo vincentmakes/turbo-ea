@@ -6,7 +6,6 @@ import {
   getLeafNodes,
   buildColumnHeaderRows,
   buildRowHeaderLayout,
-  aggregateCount,
   getEffectiveLeafIds,
   buildAllNodesMap,
   filterRelatedSubtrees,
@@ -308,27 +307,6 @@ describe("buildRowHeaderLayout", () => {
       });
     });
     occupied.forEach((row) => expect(row.every(Boolean)).toBe(true));
-  });
-});
-
-// ---------------------------------------------------------------------------
-// aggregateCount
-// ---------------------------------------------------------------------------
-describe("aggregateCount", () => {
-  it("sums intersections for given row and col leaf IDs", () => {
-    const map = new Map<string, string[]>();
-    map.set("r1:c1", ["x", "y"]);
-    map.set("r1:c2", ["z"]);
-    map.set("r2:c1", ["w"]);
-
-    expect(aggregateCount(["r1"], ["c1"], map)).toBe(2);
-    expect(aggregateCount(["r1"], ["c1", "c2"], map)).toBe(3);
-    expect(aggregateCount(["r1", "r2"], ["c1"], map)).toBe(3);
-  });
-
-  it("returns 0 for no intersections", () => {
-    const map = new Map<string, string[]>();
-    expect(aggregateCount(["r1"], ["c1"], map)).toBe(0);
   });
 });
 

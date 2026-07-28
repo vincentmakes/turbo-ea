@@ -202,6 +202,30 @@ export const TIMELINE_COLORS = {
   reset: "#ef6c00",
 } as const;
 
+// ── Categorical series ──────────────────────────────────────────────────
+
+/**
+ * Qualitative palette for values that have no colour of their own — an
+ * admin-defined select option left uncoloured, a boolean flag, a series the
+ * metamodel says nothing about. Assign by a stable hash of the value's key so
+ * the same value keeps the same colour across renders, reports and sessions.
+ *
+ * Hues are spread far enough apart to stay distinguishable next to each other
+ * and legible on both the light and dark paper surfaces.
+ */
+export const CATEGORICAL_COLORS = [
+  "#1976d2",
+  "#7b1fa2",
+  "#00897b",
+  "#ef6c00",
+  "#c2185b",
+  "#3949ab",
+  "#00838f",
+  "#5d4037",
+  "#558b2f",
+  "#d32f2f",
+] as const;
+
 // ── Non-color tokens ────────────────────────────────────────────────────
 
 /** Border radius scale (px). MUI's `borderRadius` `sx` prop also accepts numbers from the spacing scale. */

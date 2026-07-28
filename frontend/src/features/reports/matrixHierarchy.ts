@@ -387,25 +387,6 @@ export function buildRowHeaderLayout(
 }
 
 // ---------------------------------------------------------------------------
-// aggregateCount – sum intersections for a (possibly pruned) node pair
-// ---------------------------------------------------------------------------
-
-export function aggregateCount(
-  rowLeafIds: string[],
-  colLeafIds: string[],
-  intersectionMap: Map<string, string[]>,
-): number {
-  let count = 0;
-  for (const rId of rowLeafIds) {
-    for (const cId of colLeafIds) {
-      const k = `${rId}:${cId}`;
-      count += intersectionMap.get(k)?.length || 0;
-    }
-  }
-  return count;
-}
-
-// ---------------------------------------------------------------------------
 // getEffectiveLeafIds – get leaf IDs for a node (handles pruned groups)
 // ---------------------------------------------------------------------------
 
