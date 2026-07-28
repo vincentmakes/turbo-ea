@@ -29307,7 +29307,7 @@
     },
     "/api/v1/reports/matrix": {
       "get": {
-        "description": "Matrix report: cross-reference grid.",
+        "description": "Matrix report: cross-reference grid between two card types.\n\nEach intersection carries the relations behind it \u2014 their relation type,\ntheir orientation relative to the row axis, and their attribute values \u2014 so\nthe grid can show what the link *means*, not merely that one exists.\n\n``direction`` is structural: ``forward`` keeps relations whose source is the\nrow card, ``reverse`` those whose target is. Semantic notions of direction\nthat a metamodel may express as a relation attribute are just attribute\nvalues, filtered through ``attr`` like any other.\n\nOnly the *edges* are filtered server-side; the row and column card lists are\nalways complete. Pruning cards here would break their ``parent_id`` chains\nand silently flatten the hierarchy the client rebuilds \u2014 the client already\nhides cards with no surviving edge, and can do so without a refetch.",
         "operationId": "matrix_api_v1_reports_matrix_get",
         "parameters": [
           {
@@ -29327,6 +29327,49 @@
             "schema": {
               "default": "BusinessCapability",
               "title": "Col Type",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Comma-separated relation-type keys to restrict the grid to",
+            "in": "query",
+            "name": "relation_types",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated relation-type keys to restrict the grid to",
+              "title": "Relation Types"
+            }
+          },
+          {
+            "description": "Attribute filter, `relationTypeKey.fieldKey:value`. Repeatable.",
+            "in": "query",
+            "name": "attr",
+            "required": false,
+            "schema": {
+              "description": "Attribute filter, `relationTypeKey.fieldKey:value`. Repeatable.",
+              "items": {
+                "type": "string"
+              },
+              "title": "Attr",
+              "type": "array"
+            }
+          },
+          {
+            "in": "query",
+            "name": "direction",
+            "required": false,
+            "schema": {
+              "default": "any",
+              "pattern": "^(any|forward|reverse)$",
+              "title": "Direction",
               "type": "string"
             }
           }

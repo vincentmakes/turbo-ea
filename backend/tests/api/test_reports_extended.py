@@ -416,6 +416,390 @@ class TestMatrix:
         )
         assert resp.status_code == 403
 
+    async def test_matrix_unknown_card_type(self, client, db, env):
+        """An axis naming a card type that does not exist is a 400, not an empty grid."""
+        resp = await client.get(
+            "/api/v1/reports/matrix",
+            params={"row_type": "Application", "col_type": "NoSuchType"},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Matrix — relation semantics (type, direction, attributes) and filtering
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+async def matrix_env(db, env):
+    """Adds attributed relation types and a small App x DataObject landscape.
+
+    The attribute keys here are deliberately arbitrary: the endpoint reads them
+    out of each relation type's ``attributes_schema``, so these tests would pass
+    just the same with any other admin-defined dimension.
+    """
+    admin = env["admin"]
+    await create_card_type(db, key="DataObject", label="Data Object")
+
+    await create_relation_type(
+        db,
+        key="app_to_do",
+        label="uses",
+        source_type_key="Application",
+        target_type_key="DataObject",
+        attributes_schema=[
+            {"key": "flagA", "label": "Flag A", "type": "boolean"},
+            {"key": "flagB", "label": "Flag B", "type": "boolean"},
+            {
+                "key": "usage",
+                "label": "Usage",
+                "type": "single_select",
+                "options": [{"key": "owner", "label": "Owner"}, {"key": "user", "label": "User"}],
+            },
+        ],
+    )
+    # The reverse ordered pair is a distinct relation type — the metamodel
+    # allows one per *ordered* pair, so an axis pair can involve two.
+    await create_relation_type(
+        db,
+        key="do_to_app",
+        label="feeds",
+        source_type_key="DataObject",
+        target_type_key="Application",
+    )
+
+    app_a = await create_card(db, card_type="Application", name="App A", user_id=admin.id)
+    app_b = await create_card(db, card_type="Application", name="App B", user_id=admin.id)
+    do_x = await create_card(db, card_type="DataObject", name="DO X", user_id=admin.id)
+    do_y = await create_card(db, card_type="DataObject", name="DO Y", user_id=admin.id)
+    return {**env, "app_a": app_a, "app_b": app_b, "do_x": do_x, "do_y": do_y}
+
+
+async def _matrix(client, user, **params):
+    resp = await client.get(
+        "/api/v1/reports/matrix",
+        params={"row_type": "Application", "col_type": "DataObject", **params},
+        headers=auth_headers(user),
+    )
+    assert resp.status_code == 200, resp.text
+    return resp.json()
+
+
+def _cell(data, row_id, col_id):
+    for ix in data["intersections"]:
+        if ix["row_id"] == str(row_id) and ix["col_id"] == str(col_id):
+            return ix
+    raise AssertionError(f"no cell for {row_id} x {col_id}")
+
+
+class TestMatrixRelationSemantics:
+    async def test_edge_carries_relation_type_direction_and_attributes(
+        self, client, db, matrix_env
+    ):
+        e = matrix_env
+        await create_relation(
+            db,
+            type_key="app_to_do",
+            source_id=e["app_a"].id,
+            target_id=e["do_x"].id,
+            attributes={"flagA": True, "usage": "owner"},
+        )
+
+        data = await _matrix(client, e["admin"])
+
+        assert data["relation_types"] == ["app_to_do", "do_to_app"]
+        edges = _cell(data, e["app_a"].id, e["do_x"].id)["e"]
+        assert len(edges) == 1
+        rt_idx, orientation, attr_idx = edges[0]
+        assert data["relation_types"][rt_idx] == "app_to_do"
+        assert orientation == "f"  # the row card is the relation's source
+        assert data["attr_sets"][attr_idx] == {"flagA": True, "usage": "owner"}
+
+    async def test_reverse_orientation_when_row_card_is_the_target(self, client, db, matrix_env):
+        e = matrix_env
+        await create_relation(
+            db, type_key="do_to_app", source_id=e["do_x"].id, target_id=e["app_a"].id
+        )
+
+        data = await _matrix(client, e["admin"])
+
+        _, orientation, attr_idx = _cell(data, e["app_a"].id, e["do_x"].id)["e"][0]
+        assert orientation == "r"
+        assert data["attr_sets"][attr_idx] == {}
+
+    async def test_counts_every_relation_between_the_same_pair(self, client, db, matrix_env):
+        """Two relation types linking the same two cards are two edges, not one.
+
+        The endpoint used to collapse intersections into a set, so a cell could
+        never report more than one relation.
+        """
+        e = matrix_env
+        await create_relation(
+            db, type_key="app_to_do", source_id=e["app_a"].id, target_id=e["do_x"].id
+        )
+        await create_relation(
+            db, type_key="do_to_app", source_id=e["do_x"].id, target_id=e["app_a"].id
+        )
+
+        data = await _matrix(client, e["admin"])
+
+        assert len(_cell(data, e["app_a"].id, e["do_x"].id)["e"]) == 2
+
+    async def test_attribute_sets_are_interned(self, client, db, matrix_env):
+        """Repeated attribute bags are stored once and referenced by index."""
+        e = matrix_env
+        for target in (e["do_x"].id, e["do_y"].id):
+            await create_relation(
+                db,
+                type_key="app_to_do",
+                source_id=e["app_a"].id,
+                target_id=target,
+                attributes={"usage": "owner"},
+            )
+        await create_relation(
+            db,
+            type_key="app_to_do",
+            source_id=e["app_b"].id,
+            target_id=e["do_x"].id,
+            attributes={"usage": "owner"},
+        )
+
+        data = await _matrix(client, e["admin"])
+
+        # index 0 is the always-present empty bag, index 1 the shared one
+        assert data["attr_sets"] == [{}, {"usage": "owner"}]
+        indices = {ix["e"][0][2] for ix in data["intersections"] if ix["e"]}
+        assert indices == {1}
+
+    async def test_attributes_not_declared_in_the_schema_are_dropped(self, client, db, matrix_env):
+        e = matrix_env
+        await create_relation(
+            db,
+            type_key="app_to_do",
+            source_id=e["app_a"].id,
+            target_id=e["do_x"].id,
+            attributes={"usage": "user", "strayKey": "leftover"},
+        )
+
+        data = await _matrix(client, e["admin"])
+
+        attr_idx = _cell(data, e["app_a"].id, e["do_x"].id)["e"][0][2]
+        assert data["attr_sets"][attr_idx] == {"usage": "user"}
+
+    async def test_self_matrix_diagonal_carries_no_edges(self, client, db, env):
+        """The diagonal of a same-type matrix is structure, not a relationship."""
+        admin = env["admin"]
+        solo = await create_card(db, card_type="Application", name="Solo", user_id=admin.id)
+
+        resp = await client.get(
+            "/api/v1/reports/matrix",
+            params={"row_type": "Application", "col_type": "Application"},
+            headers=auth_headers(admin),
+        )
+        data = resp.json()
+
+        assert _cell(data, solo.id, solo.id)["e"] == []
+
+
+class TestMatrixFilters:
+    async def test_filter_by_relation_type(self, client, db, matrix_env):
+        e = matrix_env
+        await create_relation(
+            db, type_key="app_to_do", source_id=e["app_a"].id, target_id=e["do_x"].id
+        )
+        await create_relation(
+            db, type_key="do_to_app", source_id=e["do_y"].id, target_id=e["app_b"].id
+        )
+
+        data = await _matrix(client, e["admin"], relation_types="app_to_do")
+
+        assert data["relation_types"] == ["app_to_do"]
+        assert len(_cell(data, e["app_a"].id, e["do_x"].id)["e"]) == 1
+        assert all(
+            not ix["e"] for ix in data["intersections"] if ix["row_id"] == str(e["app_b"].id)
+        )
+
+    async def test_filter_by_select_value(self, client, db, matrix_env):
+        e = matrix_env
+        await create_relation(
+            db,
+            type_key="app_to_do",
+            source_id=e["app_a"].id,
+            target_id=e["do_x"].id,
+            attributes={"usage": "owner"},
+        )
+        await create_relation(
+            db,
+            type_key="app_to_do",
+            source_id=e["app_b"].id,
+            target_id=e["do_y"].id,
+            attributes={"usage": "user"},
+        )
+
+        data = await _matrix(client, e["admin"], attr="app_to_do.usage:owner")
+
+        rows_with_edges = {ix["row_id"] for ix in data["intersections"] if ix["e"]}
+        assert rows_with_edges == {str(e["app_a"].id)}
+
+    async def test_filter_by_several_values_of_one_field_ors_them(self, client, db, matrix_env):
+        e = matrix_env
+        await create_relation(
+            db,
+            type_key="app_to_do",
+            source_id=e["app_a"].id,
+            target_id=e["do_x"].id,
+            attributes={"usage": "owner"},
+        )
+        await create_relation(
+            db,
+            type_key="app_to_do",
+            source_id=e["app_b"].id,
+            target_id=e["do_y"].id,
+            attributes={"usage": "user"},
+        )
+
+        resp = await client.get(
+            "/api/v1/reports/matrix",
+            params=[
+                ("row_type", "Application"),
+                ("col_type", "DataObject"),
+                ("attr", "app_to_do.usage:owner"),
+                ("attr", "app_to_do.usage:user"),
+            ],
+            headers=auth_headers(e["admin"]),
+        )
+        data = resp.json()
+
+        rows_with_edges = {ix["row_id"] for ix in data["intersections"] if ix["e"]}
+        assert rows_with_edges == {str(e["app_a"].id), str(e["app_b"].id)}
+
+    async def test_filter_by_boolean_value(self, client, db, matrix_env):
+        e = matrix_env
+        await create_relation(
+            db,
+            type_key="app_to_do",
+            source_id=e["app_a"].id,
+            target_id=e["do_x"].id,
+            attributes={"flagA": True},
+        )
+        await create_relation(
+            db,
+            type_key="app_to_do",
+            source_id=e["app_b"].id,
+            target_id=e["do_x"].id,
+            attributes={"flagA": False},
+        )
+
+        data = await _matrix(client, e["admin"], attr="app_to_do.flagA:true")
+
+        rows_with_edges = {ix["row_id"] for ix in data["intersections"] if ix["e"]}
+        assert rows_with_edges == {str(e["app_a"].id)}
+
+    async def test_filter_on_unset_value(self, client, db, matrix_env):
+        e = matrix_env
+        await create_relation(
+            db,
+            type_key="app_to_do",
+            source_id=e["app_a"].id,
+            target_id=e["do_x"].id,
+            attributes={"usage": "owner"},
+        )
+        await create_relation(
+            db, type_key="app_to_do", source_id=e["app_b"].id, target_id=e["do_x"].id
+        )
+
+        data = await _matrix(client, e["admin"], attr="app_to_do.usage:__empty__")
+
+        rows_with_edges = {ix["row_id"] for ix in data["intersections"] if ix["e"]}
+        assert rows_with_edges == {str(e["app_b"].id)}
+
+    async def test_filter_is_scoped_to_its_own_relation_type(self, client, db, matrix_env):
+        """A filter on one relation type must not discard the other type's edges."""
+        e = matrix_env
+        await create_relation(
+            db,
+            type_key="app_to_do",
+            source_id=e["app_a"].id,
+            target_id=e["do_x"].id,
+            attributes={"usage": "user"},
+        )
+        await create_relation(
+            db, type_key="do_to_app", source_id=e["do_y"].id, target_id=e["app_b"].id
+        )
+
+        data = await _matrix(client, e["admin"], attr="app_to_do.usage:owner")
+
+        rows_with_edges = {ix["row_id"] for ix in data["intersections"] if ix["e"]}
+        assert rows_with_edges == {str(e["app_b"].id)}
+
+    async def test_filter_by_direction(self, client, db, matrix_env):
+        e = matrix_env
+        await create_relation(
+            db, type_key="app_to_do", source_id=e["app_a"].id, target_id=e["do_x"].id
+        )
+        await create_relation(
+            db, type_key="do_to_app", source_id=e["do_y"].id, target_id=e["app_b"].id
+        )
+
+        forward = await _matrix(client, e["admin"], direction="forward")
+        reverse = await _matrix(client, e["admin"], direction="reverse")
+
+        assert {ix["row_id"] for ix in forward["intersections"] if ix["e"]} == {str(e["app_a"].id)}
+        assert {ix["row_id"] for ix in reverse["intersections"] if ix["e"]} == {str(e["app_b"].id)}
+
+    async def test_filters_never_prune_the_card_lists(self, client, db, matrix_env):
+        """Cards always ship in full — pruning them would break the parent chain.
+
+        The client hides cards with no surviving edge; it cannot rebuild a
+        hierarchy whose intermediate nodes the server dropped.
+        """
+        e = matrix_env
+        await create_relation(
+            db,
+            type_key="app_to_do",
+            source_id=e["app_a"].id,
+            target_id=e["do_x"].id,
+            attributes={"usage": "owner"},
+        )
+
+        data = await _matrix(client, e["admin"], attr="app_to_do.usage:user")
+
+        assert len(data["rows"]) == 2
+        assert len(data["columns"]) == 2
+        assert all(not ix["e"] for ix in data["intersections"])
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            "no-separators",
+            "app_to_do.usage",  # missing :value
+            "usage:owner",  # missing relation-type prefix
+            "not_a_type.usage:owner",  # relation type not on these axes
+            "app_to_do.notAField:owner",  # field not declared on that type
+        ],
+    )
+    async def test_malformed_attribute_filter_is_rejected(self, client, db, matrix_env, bad):
+        """A typo must fail loudly — silently widening the result set is worse."""
+        resp = await client.get(
+            "/api/v1/reports/matrix",
+            params={"row_type": "Application", "col_type": "DataObject", "attr": bad},
+            headers=auth_headers(matrix_env["admin"]),
+        )
+        assert resp.status_code == 400
+
+    async def test_unknown_relation_type_filter_is_rejected(self, client, db, matrix_env):
+        resp = await client.get(
+            "/api/v1/reports/matrix",
+            params={
+                "row_type": "Application",
+                "col_type": "DataObject",
+                "relation_types": "app_to_itc",
+            },
+            headers=auth_headers(matrix_env["admin"]),
+        )
+        assert resp.status_code == 400
+
 
 # ---------------------------------------------------------------------------
 # Roadmap
