@@ -159,6 +159,43 @@ Dies ist nützlich zur Identifizierung von Abdeckungslücken (Fähigkeiten ohne 
 
 Verwenden Sie den Schalter **Nicht verknüpfte Karten ausblenden**, um Zeilen und Spalten für Karten ohne Beziehungen auszublenden, sodass nur Karten angezeigt werden, die an mindestens einer Beziehung beteiligt sind. Die vollständige Ansicht mit allen Karten bleibt die Standardeinstellung.
 
+### Was eine Zelle zeigt
+
+Die Steuerung **Zellenanzeige** bietet vier Optionen:
+
+- **Vorhanden (Punkt)** — ein Punkt überall dort, wo eine Beziehung besteht.
+- **Anzahl (Heatmap)** — wie viele Beziehungen es gibt, nach Dichte eingefärbt.
+- **Werte (Kürzel)** — ein farbcodierter Buchstabe je Beziehungswert, mit einer Legende über dem Raster. Am besten für große Matrizen.
+- **Werte (Beschriftungen)** — die Wertenamen vollständig. Die Spalten werden breiter, daher eignet sich das für kleinere Matrizen.
+
+Buchstaben und Namen stammen aus den Attributen, die Ihre Beziehungstypen deklarieren, in Ihrer eigenen Sprache. Eine CRUD-Beziehung liest sich als `C R U D`; eine Eigentumsbeziehung zeigt ihre eigenen Werte. Fügen Sie im [Metamodell](../admin/metamodel.md) einem Beziehungstyp einen Wert hinzu, erscheint er hier ohne weitere Einrichtung. Eine eingeklappte Gruppenzelle zeigt immer eine Anzahl, da sie viele verschiedene Werte umfassen kann — klappen Sie eine Ebene aus, um sie zu sehen.
+
+### Nach Beziehung filtern
+
+Die Filterleiste über dem Raster grenzt die Matrix auf die Beziehungen ein, die Sie interessieren:
+
+- **Beziehungstyp** — wenn die beiden Kartentypen in beide Richtungen verbunden sind.
+- **Richtung** — ob die Zeilenkarte Quelle oder Ziel der Beziehung ist.
+- **Werte** — ein Filter je Attribut, das die Beziehungstypen deklarieren, einschließlich «(leer)» für Beziehungen, bei denen der Wert nie gesetzt wurde.
+
+Beim Filtern leeren sich die Zellen der Karten, die nicht mehr passen; der Schalter **Nicht passende Karten ausblenden** lässt dann nur die passenden übrig. Einige Beispiele:
+
+- Anwendung × Datenobjekt, gefiltert auf *Anlegen* — welche Anwendungen das führende System für ein Datenobjekt sind.
+- Anwendung × Schnittstelle, nach Richtung gefiltert — wer eine Schnittstelle bereitstellt und wer sie konsumiert.
+- Organisation × Anwendung, gefiltert auf *Eigentümer* — die Eigentümerlandkarte, ohne dass die Nutzer sie überladen.
+
+### Abdeckungslücken finden
+
+Zwei Kacheln zählen die Karten je Achse, die überhaupt keine Beziehung haben. **Nur Lücken anzeigen** reduziert das Raster auf genau diese — die Fähigkeiten, die niemand unterstützt, die Datenobjekte, die niemand pflegt.
+
+### Sich in einer großen Matrix zurechtfinden
+
+**Zeile suchen** und **Spalte suchen** filtern die Achsen nach Namen; ein übergeordnetes Element bleibt sichtbar, wenn eines seiner untergeordneten Elemente passt. Die Tauschschaltfläche in der Titelleiste vertauscht die beiden Achsen.
+
+### Exportieren
+
+Der Excel-Export erzeugt zwei Blätter: das Raster wie auf dem Bildschirm und eine Zeile je Beziehung mit ihren Werten in Spalten — das Blatt zum Pivotieren. Der PowerPoint-Export erfasst das Bild.
+
 ## Datenqualitätsbericht
 
 ![Datenqualitätsbericht](../assets/img/de/33_bericht_datenqualitaet.png)

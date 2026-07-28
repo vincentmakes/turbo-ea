@@ -899,7 +899,9 @@ export const DOC_PAGES: PageDef[] = [
     id: "35_report_matrix",
     route: "/reports/matrix",
     waitFor: ".MuiPaper-root",
-    actions: [{ type: "wait", ms: 800 }],
+    // Longer than most: the filter bar and the gap tiles settle after the
+    // metamodel and the matrix payload have both landed.
+    actions: [{ type: "wait", ms: 1200 }],
     filenames: {
       en: "35_report_matrix",
       de: "35_bericht_matrix",
@@ -911,7 +913,6 @@ export const DOC_PAGES: PageDef[] = [
       ru: "35_otchet_matritsa",
     },
   },
-
   // ── Saved Reports ───────────────────────────────────────────────────────
   {
     id: "36_saved_reports",

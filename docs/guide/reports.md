@@ -159,6 +159,43 @@ This is useful for identifying coverage gaps (capabilities with no supporting ap
 
 Use the **Hide unrelated cards** toggle to hide rows and columns for cards that have no relationships, keeping only the cards that participate in at least one relationship. The full view showing every card remains the default.
 
+### What each cell shows
+
+The **Cell Display** control offers four options:
+
+- **Exists (dot)** — a dot wherever a relation exists.
+- **Count (heatmap)** — how many relations there are, shaded by density.
+- **Values (codes)** — one colour-coded letter per relation value, with a legend above the grid. Best for a large matrix.
+- **Values (labels)** — the value names in full. The columns widen, so this suits a smaller matrix.
+
+The letters and names come from the attributes your relation types declare, in your own language. A CRUD relation reads `C R U D`; an ownership relation reads its own values. Add a value to a relation type in the [metamodel](../admin/metamodel.md) and it shows up here with no further setup. A collapsed group cell always shows a count, because it can span many different values — expand a level to see them.
+
+### Filtering by relation
+
+The filter bar above the grid narrows the matrix to the relations you care about:
+
+- **Relation type** — when the two card types are connected in both directions.
+- **Direction** — whether the row card is the source or the target of the relation.
+- **Values** — one filter per attribute the relation types declare, including «(empty)» for relations where the value was never set.
+
+Filtering empties the cells of the cards that no longer match, so switching on **Hide non-matching cards** leaves only the cards that do. Some examples:
+
+- Application × Data Object, filtered to *Create* — which applications are the system of record for each data object.
+- Application × Interface, filtered by direction — who publishes an interface and who consumes it.
+- Organization × Application, filtered to *Owner* — the ownership map, without the users cluttering it.
+
+### Finding coverage gaps
+
+Two tiles count the cards on each axis that have no relation at all. **Show only gaps** reduces the grid to exactly those — the capabilities nobody supports, the data objects nobody maintains.
+
+### Finding your way around a large matrix
+
+**Find row** and **Find column** filter the axes by name; a parent stays visible when one of its children matches. The swap button in the title bar exchanges the two axes.
+
+### Exporting
+
+Excel export produces two sheets: the grid as it appears on screen, and one row per relation with its values spread across columns — the sheet to pivot on. PowerPoint export captures the picture.
+
 ## Data Quality Report
 
 ![Data Quality Report](../assets/img/en/33_report_data_quality.png)

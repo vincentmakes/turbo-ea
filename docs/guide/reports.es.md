@@ -159,6 +159,43 @@ Esto es útil para identificar brechas de cobertura (capacidades sin aplicacione
 
 Utilice el interruptor **Ocultar tarjetas sin relación** para ocultar las filas y columnas de las fichas que no tienen relaciones, conservando solo las fichas que participan en al menos una relación. La vista completa que muestra todas las fichas sigue siendo el comportamiento predeterminado.
 
+### Qué muestra cada celda
+
+El control **Visualización de celda** ofrece cuatro opciones:
+
+- **Existe (punto)** — un punto allí donde exista una relación.
+- **Recuento (mapa de calor)** — cuántas relaciones hay, sombreado según la densidad.
+- **Valores (códigos)** — una letra con color por cada valor de relación, con una leyenda sobre la cuadrícula. Ideal para una matriz grande.
+- **Valores (etiquetas)** — los nombres de los valores completos. Las columnas se ensanchan, así que conviene a una matriz más pequeña.
+
+Las letras y los nombres provienen de los atributos que declaran sus tipos de relación, en su propio idioma. Una relación CRUD se lee `C R U D`; una relación de propiedad muestra sus propios valores. Añada un valor a un tipo de relación en el [metamodelo](../admin/metamodel.md) y aparecerá aquí sin más configuración. Una celda de grupo contraído siempre muestra un recuento, porque puede abarcar muchos valores distintos: expanda un nivel para verlos.
+
+### Filtrar por relación
+
+La barra de filtros sobre la cuadrícula limita la matriz a las relaciones que le interesan:
+
+- **Tipo de relación** — cuando los dos tipos de ficha están conectados en ambos sentidos.
+- **Dirección** — si la ficha de la fila es el origen o el destino de la relación.
+- **Valores** — un filtro por cada atributo que declaren los tipos de relación, incluido «(vacío)» para las relaciones cuyo valor nunca se estableció.
+
+Al filtrar se vacían las celdas de las fichas que ya no coinciden, de modo que activar **Ocultar tarjetas que no coinciden** deja solo las que sí. Algunos ejemplos:
+
+- Aplicación × Objeto de datos, filtrado por *Crear*: qué aplicaciones son el sistema de referencia de cada objeto de datos.
+- Aplicación × Interfaz, filtrado por dirección: quién publica una interfaz y quién la consume.
+- Organización × Aplicación, filtrado por *Propietario*: el mapa de propiedad, sin que los usuarios lo saturen.
+
+### Encontrar brechas de cobertura
+
+Dos tarjetas cuentan las fichas de cada eje que no tienen ninguna relación. **Mostrar solo brechas** reduce la cuadrícula exactamente a esas: las capacidades que nadie soporta, los objetos de datos que nadie mantiene.
+
+### Moverse por una matriz grande
+
+**Buscar fila** y **Buscar columna** filtran los ejes por nombre; un elemento padre permanece visible cuando alguno de sus hijos coincide. El botón de intercambio de la barra de título permuta los dos ejes.
+
+### Exportar
+
+La exportación a Excel genera dos hojas: la cuadrícula tal como aparece en pantalla y una fila por relación con sus valores repartidos en columnas, la hoja sobre la que construir una tabla dinámica. La exportación a PowerPoint captura la imagen.
+
 ## Informe de Calidad de Datos
 
 ![Informe de Calidad de Datos](../assets/img/es/33_informe_calidad_datos.png)

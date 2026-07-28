@@ -159,6 +159,43 @@ Ceci est utile pour identifier les lacunes de couverture (capacités sans applic
 
 Utilisez l'option **Masquer les cartes sans relation** pour masquer les lignes et colonnes des fiches qui n'ont aucune relation, en ne conservant que les fiches participant à au moins une relation. La vue complète affichant toutes les fiches reste le comportement par défaut.
 
+### Ce qu'affiche chaque cellule
+
+Le contrôle **Affichage des cellules** propose quatre options :
+
+- **Existe (point)** — un point partout où une relation existe.
+- **Nombre (carte de chaleur)** — combien de relations, nuancé selon la densité.
+- **Valeurs (codes)** — une lettre colorée par valeur de relation, avec une légende au-dessus de la grille. Idéal pour une grande matrice.
+- **Valeurs (libellés)** — les noms des valeurs en entier. Les colonnes s'élargissent, ce qui convient à une matrice plus petite.
+
+Les lettres et les noms proviennent des attributs déclarés par vos types de relation, dans votre langue. Une relation CRUD se lit `C R U D` ; une relation de propriété affiche ses propres valeurs. Ajoutez une valeur à un type de relation dans le [métamodèle](../admin/metamodel.md) et elle apparaît ici sans autre configuration. Une cellule de groupe replié affiche toujours un nombre, car elle peut couvrir de nombreuses valeurs différentes — développez d'un niveau pour les voir.
+
+### Filtrer par relation
+
+La barre de filtres au-dessus de la grille restreint la matrice aux relations qui vous intéressent :
+
+- **Type de relation** — lorsque les deux types de fiches sont reliés dans les deux sens.
+- **Sens** — si la fiche de la ligne est la source ou la cible de la relation.
+- **Valeurs** — un filtre par attribut déclaré par les types de relation, y compris «(vide)» pour les relations dont la valeur n'a jamais été renseignée.
+
+Le filtrage vide les cellules des fiches qui ne correspondent plus ; l'option **Masquer les cartes non correspondantes** ne laisse alors que celles qui correspondent. Quelques exemples :
+
+- Application × Objet de données, filtré sur *Créer* — quelles applications font référence pour chaque objet de données.
+- Application × Interface, filtré par sens — qui publie une interface et qui la consomme.
+- Organisation × Application, filtré sur *Propriétaire* — la carte des propriétaires, sans que les utilisateurs l'encombrent.
+
+### Repérer les lacunes de couverture
+
+Deux tuiles comptent les fiches de chaque axe qui n'ont aucune relation. **Afficher seulement les manques** réduit la grille à celles-ci — les capacités que personne ne soutient, les objets de données que personne n'entretient.
+
+### S'orienter dans une grande matrice
+
+**Trouver une ligne** et **Trouver une colonne** filtrent les axes par nom ; un parent reste visible si l'un de ses enfants correspond. Le bouton de permutation dans la barre de titre échange les deux axes.
+
+### Exporter
+
+L'export Excel produit deux feuilles : la grille telle qu'elle apparaît à l'écran, et une ligne par relation avec ses valeurs réparties en colonnes — la feuille sur laquelle construire un tableau croisé. L'export PowerPoint capture l'image.
+
 ## Rapport Qualité des données
 
 ![Rapport Qualité des données](../assets/img/fr/33_rapport_qualite_donnees.png)

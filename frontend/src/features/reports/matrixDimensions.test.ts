@@ -116,13 +116,15 @@ describe("shortCode", () => {
 });
 
 describe("fallbackColor", () => {
-  it("is stable for a given seed", () => {
-    expect(fallbackColor("relFlags.alpha")).toBe(fallbackColor("relFlags.alpha"));
+  it("gives consecutive positions distinct colours", () => {
+    // Values of one relation type sit side by side in a cell and in the
+    // legend, so neighbours must not look alike.
+    const colors = [0, 1, 2, 3].map(fallbackColor);
+    expect(new Set(colors).size).toBe(4);
   });
 
-  it("spreads different seeds across the palette", () => {
-    const seeds = ["a", "b", "c", "d", "e", "f", "g", "h"];
-    expect(new Set(seeds.map(fallbackColor)).size).toBeGreaterThan(1);
+  it("wraps around once the palette runs out", () => {
+    expect(fallbackColor(0)).toBe(fallbackColor(10));
   });
 });
 
@@ -130,6 +132,7 @@ describe("buildValueIndex", () => {
   it("emits one value per flag, coded from the localized field label", () => {
     const index = buildValueIndex([flags], resolvers);
     expect(index.values.map((v) => v.code)).toEqual(["C", "R", "U", "D"]);
+    expect(new Set(index.values.map((v) => v.color)).size).toBe(4);
     expect(index.values.map((v) => v.label)).toEqual(["Create", "Read", "Update", "Delete"]);
     expect(index.values.every((v) => v.kind === "flag")).toBe(true);
   });
@@ -138,8 +141,8 @@ describe("buildValueIndex", () => {
     const index = buildValueIndex([selects], resolvers);
     expect(index.values.map((v) => v.optionKey)).toEqual(["owner", "user"]);
     expect(index.values[0].color).toBe("#1976d2");
-    // No colour in the metamodel — assigned a stable one rather than left blank.
-    expect(index.values[1].color).toBe(fallbackColor("relSelects.usage:user"));
+    // No colour in the metamodel — assigned one by position rather than left blank.
+    expect(index.values[1].color).toBe(fallbackColor(1));
   });
 
   it("drops hidden options", () => {

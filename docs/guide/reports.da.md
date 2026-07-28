@@ -159,6 +159,43 @@ Dette er nyttigt til at identificere dækningshuller (kompetencer uden understø
 
 Brug kontakten **Skjul ikke-relaterede kort** for at skjule rækker og kolonner for kort uden relationer, så kun kort, der indgår i mindst én relation, vises. Den fulde visning med alle kort forbliver standardindstillingen.
 
+### Hvad hver celle viser
+
+Kontrollen **Cellevisning** tilbyder fire muligheder:
+
+- **Findes (prik)** — en prik alle steder, hvor der findes en relation.
+- **Antal (heatmap)** — hvor mange relationer der er, tonet efter tæthed.
+- **Værdier (koder)** — ét farvekodet bogstav pr. relationsværdi med en signaturforklaring over gitteret. Bedst til en stor matrix.
+- **Værdier (etiketter)** — værdinavnene i fuld længde. Kolonnerne bliver bredere, så det passer til en mindre matrix.
+
+Bogstaverne og navnene kommer fra de attributter, dine relationstyper erklærer, og vises på dit eget sprog. En CRUD-relation læses `C R U D`; en ejerskabsrelation viser sine egne værdier. Tilføj en værdi til en relationstype i [metamodellen](../admin/metamodel.md), så dukker den op her uden yderligere opsætning. En sammenklappet gruppecelle viser altid et antal, fordi den kan spænde over mange forskellige værdier — udvid et niveau for at se dem.
+
+### Filtrering på relation
+
+Filterlinjen over gitteret indsnævrer matricen til de relationer, du er interesseret i:
+
+- **Relationstype** — når de to korttyper er forbundet i begge retninger.
+- **Retning** — om rækkens kort er relationens kilde eller mål.
+- **Værdier** — ét filter pr. attribut, som relationstyperne erklærer, inklusive «(tom)» for relationer, hvor værdien aldrig blev sat.
+
+Filtrering tømmer cellerne for de kort, der ikke længere matcher, så **Skjul kort uden match** efterlader kun dem, der gør. Nogle eksempler:
+
+- Applikation × Dataobjekt filtreret på *Opret* — hvilke applikationer der er kildesystem for hvert dataobjekt.
+- Applikation × Grænseflade filtreret på retning — hvem der udstiller en grænseflade, og hvem der forbruger den.
+- Organisation × Applikation filtreret på *Ejer* — ejerskabskortet, uden at brugerne fylder det op.
+
+### At finde huller i dækningen
+
+To felter tæller de kort på hver akse, der slet ingen relation har. **Vis kun huller** reducerer gitteret til netop dem — de kapabiliteter, ingen understøtter, og de dataobjekter, ingen vedligeholder.
+
+### At finde rundt i en stor matrix
+
+**Find række** og **Find kolonne** filtrerer akserne på navn; et overordnet element forbliver synligt, når et af dets underelementer matcher. Byt-knappen i titellinjen bytter om på de to akser.
+
+### Eksport
+
+Excel-eksport giver to ark: gitteret, som det ser ud på skærmen, og én række pr. relation med værdierne fordelt på kolonner — arket, du laver pivot på. PowerPoint-eksport fanger billedet.
+
 ## Datakvalitetsrapport
 
 ![Datakvalitetsrapport](../assets/img/en/33_report_data_quality.png)

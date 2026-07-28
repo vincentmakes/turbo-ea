@@ -159,6 +159,43 @@ Questo è utile per identificare lacune di copertura (capability senza applicazi
 
 Utilizza l'interruttore **Nascondi le schede senza relazioni** per nascondere righe e colonne delle card prive di relazioni, mantenendo solo le card che partecipano ad almeno una relazione. La vista completa che mostra tutte le card rimane l'impostazione predefinita.
 
+### Che cosa mostra ogni cella
+
+Il controllo **Visualizzazione cella** offre quattro opzioni:
+
+- **Esiste (punto)** — un punto ovunque esista una relazione.
+- **Conteggio (heatmap)** — quante relazioni ci sono, sfumate in base alla densità.
+- **Valori (codici)** — una lettera colorata per ogni valore della relazione, con una legenda sopra la griglia. Ideale per una matrice grande.
+- **Valori (etichette)** — i nomi dei valori per esteso. Le colonne si allargano, quindi si presta a una matrice più piccola.
+
+Lettere e nomi provengono dagli attributi dichiarati dai tuoi tipi di relazione, nella tua lingua. Una relazione CRUD si legge `C R U D`; una relazione di proprietà mostra i propri valori. Aggiungi un valore a un tipo di relazione nel [metamodello](../admin/metamodel.md) e comparirà qui senza altra configurazione. Una cella di gruppo compresso mostra sempre un conteggio, perché può abbracciare molti valori diversi: espandi un livello per vederli.
+
+### Filtrare per relazione
+
+La barra dei filtri sopra la griglia restringe la matrice alle relazioni che ti interessano:
+
+- **Tipo di relazione** — quando i due tipi di card sono collegati in entrambe le direzioni.
+- **Direzione** — se la card della riga è l'origine o la destinazione della relazione.
+- **Valori** — un filtro per ogni attributo dichiarato dai tipi di relazione, incluso «(vuoto)» per le relazioni in cui il valore non è mai stato impostato.
+
+Il filtro svuota le celle delle card che non corrispondono più, così attivando **Nascondi le schede non corrispondenti** restano solo quelle che corrispondono. Alcuni esempi:
+
+- Application × Data Object, filtrato su *Crea*: quali applicazioni sono il sistema di riferimento per ciascun oggetto dati.
+- Application × Interface, filtrato per direzione: chi pubblica un'interfaccia e chi la consuma.
+- Organization × Application, filtrato su *Proprietario*: la mappa della proprietà, senza che gli utenti la affollino.
+
+### Individuare le lacune di copertura
+
+Due riquadri contano le card di ciascun asse che non hanno alcuna relazione. **Mostra solo le lacune** riduce la griglia esattamente a quelle: le capability che nessuno supporta, gli oggetti dati che nessuno mantiene.
+
+### Orientarsi in una matrice grande
+
+**Trova riga** e **Trova colonna** filtrano gli assi per nome; un elemento padre resta visibile quando uno dei figli corrisponde. Il pulsante di scambio nella barra del titolo inverte i due assi.
+
+### Esportare
+
+L'esportazione in Excel produce due fogli: la griglia così come appare a schermo e una riga per relazione con i suoi valori distribuiti in colonne, il foglio su cui costruire una tabella pivot. L'esportazione in PowerPoint cattura l'immagine.
+
 ## Report Qualità dei Dati
 
 ![Report Qualità dei Dati](../assets/img/it/33_report_qualita_dati.png)

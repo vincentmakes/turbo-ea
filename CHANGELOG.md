@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.33.0] - 2026-07-28
+
+### Added
+- **The Matrix report can show what a relation means, not just that one exists.** Two new cell displays put the relation's own values in the grid: compact colour-coded letters in the dense view, or the value names in full in a widened one, both with a legend. What appears comes from the attributes your relation types declare, in your language — CRUD flags read C R U D, an ownership relation shows Owner and User, and a value you add in the metamodel appears with no further setup.
+- **The Matrix report can be filtered by relation.** A filter bar narrows the grid to a relation type, a direction (whether the row card is the source or the target), or particular attribute values — including relations where a value was never set. Cards that no longer match empty out, so the existing hide-toggle leaves only the ones that do.
+- **The Matrix report points at coverage gaps.** Two tiles count the cards on each axis with no relation at all, and a Show-only-gaps view reduces the grid to exactly those — the capabilities nobody supports, the data objects nobody maintains.
+- **Matrix report usability.** Find-row and find-column search, a button to swap the two axes, relation details in the cell popover, and tooltips on the column headers.
+- **The Matrix report exports to Excel.** Two sheets: the grid as it appears on screen, and one row per relation with its values spread across columns.
+
+### Fixed
+- **Boolean attributes on a relation could never be set.** The relation attribute editor only rendered dropdown values, so any flag a relation type declared — the built-in Create / Read / Update / Delete pairs among them — was invisible and unusable. Flags now render as checkboxes and appear as badges on the relation.
+- **The Matrix report under-reported its relation count.** Several relations between the same two cards were counted as one, so a cell could never show more than a single link and the totals were low. The count on a same-type matrix also included each card's own diagonal.
+- **Three Matrix report labels showed a raw translation key** instead of the translated text.
+
 ## [2.32.1] - 2026-07-27
 
 ### Fixed

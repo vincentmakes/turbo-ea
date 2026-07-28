@@ -105,11 +105,17 @@ export function shortCode(label: string, taken: Set<string>): string {
   }
 }
 
-/** Stable colour for a value the metamodel left uncoloured. */
-export function fallbackColor(seed: string): string {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) | 0;
-  return CATEGORICAL_COLORS[Math.abs(hash) % CATEGORICAL_COLORS.length];
+/**
+ * Colour for a value the metamodel left uncoloured, by its position within its
+ * relation type.
+ *
+ * Assigning by position rather than by hashing the key is deliberate: the
+ * values of one relation type are read side by side in a cell and in the
+ * legend, so what matters is that neighbours look different. A hash gives two
+ * of four CRUD flags near-identical reds often enough to matter.
+ */
+export function fallbackColor(index: number): string {
+  return CATEGORICAL_COLORS[index % CATEGORICAL_COLORS.length];
 }
 
 /**
@@ -144,7 +150,7 @@ export function buildValueIndex(
           kind: "flag",
           code,
           label,
-          color: fallbackColor(dim.id),
+          color: fallbackColor(forType.length),
         });
       } else if (dim.kind === "enum") {
         for (const option of dim.field.options ?? []) {
@@ -161,7 +167,7 @@ export function buildValueIndex(
             kind: "enum",
             code,
             label,
-            color: option.color || fallbackColor(`${dim.id}:${option.key}`),
+            color: option.color || fallbackColor(forType.length),
           });
         }
       }
