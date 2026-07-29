@@ -24,60 +24,170 @@ Cliccate su **+ Nuovo calcolo** e configurate:
 
 ## Sintassi delle formule
 
-Le formule utilizzano un linguaggio di espressioni sicuro e sandboxed. Potete fare riferimento agli attributi della card, ai dati delle card correlate e alle informazioni sul ciclo di vita.
+Le formule utilizzano un linguaggio di espressioni sicuro e sandboxed. Potete fare riferimento ai campi della card corrente, alle card correlate e figlie, alla card padre e alle date del ciclo di vita.
+
+!!! warning "Usate la chiave del campo, non la sua etichetta"
+    I campi si referenziano tramite la loro **chiave**, di solito in camelCase
+    (`costTotalAnnual`), non tramite l'etichetta mostrata sulla card (`Costo annuale totale`).
+    Un nome inesistente viene risolto in `None`, e qualsiasi operazione aritmetica su `None`
+    fallisce con un **errore di valutazione** generico.
+
+    Potete trovare la chiave in **Admin > Metamodello >** *(tipo di card)* aprendo il campo e
+    leggendone la **Chiave**. Più semplice: nell'editor delle formule, i chip sotto il riquadro
+    della formula elencano `data.<chiave>` per ogni campo del tipo selezionato, e digitando
+    `data.` si apre il completamento automatico.
 
 ### Variabili di contesto
 
 | Variabile | Descrizione | Esempio |
 |-----------|-------------|---------|
-| `fieldKey` | Qualsiasi attributo dalla card corrente | `businessCriticality` |
-| `related_{type_key}` | Array di card correlate di un dato tipo | `related_applications` |
-| `lifecycle_plan`, `lifecycle_active`, ecc. | Valori delle date del ciclo di vita | `lifecycle_endOfLife` |
+| `data.<chiaveCampo>` | Qualsiasi campo personalizzato della card corrente, tramite la sua chiave | `data.costTotalAnnual` |
+| `data.name`, `data.description`, `data.status`, `data.subtype`, `data.approval_status`, `data.reference` | Proprietà predefinite della card | `data.subtype` |
+| `data.lifecycle.<fase>` | Date del ciclo di vita, dove la fase è `plan`, `phaseIn`, `active`, `phaseOut` o `endOfLife` | `data.lifecycle.endOfLife` |
+| `relations.<chiaveTipoRelazione>` | Array delle card collegate da quel tipo di relazione, in entrambe le direzioni | `relations.relAppToITC` |
+| `relation_count.<chiaveTipoRelazione>` | Numero di card collegate da quel tipo di relazione | `relation_count.relAppToITC` |
+| `children` | Array delle card figlie dirette (tipi gerarchici) | `SUM(PLUCK(children, "attributes.costTotalAnnual"))` |
+| `children_count` | Numero di figli diretti | `children_count` |
 | `parent` | La card padre (oggetto con `id`, `name`, `type`, `subtype`, `attributes`), oppure `None` per una card radice | `IF(parent, parent.attributes.businessCriticality, data.businessCriticality)` |
 | `hierarchy_level` | Profondità della card corrente nella sua gerarchia padre-figlio (`1` = radice, senza limite). `1` per i tipi di card non gerarchici | `hierarchy_level * 10` |
 
-!!! note "Nota"
-    I valori derivati da `parent` e `hierarchy_level` si aggiornano quando una card viene riassegnata a un nuovo padre (l'intero sottoalbero viene ricalcolato) e quando esegui **Ricalcola tutto** per il tipo, non a ogni modifica della card padre. Proteggi sempre un riferimento a `parent` con `IF(parent, …)` in modo che le card radice (dove `parent` è `None`) non generino errori.
+La chiave del tipo di relazione è quella riportata in **Admin > Metamodello > Relazioni**, ad
+esempio `relAppToITC` o `relInitiativeToApp`. La direzione non conta: una card trova un tipo
+di relazione sotto la stessa chiave sia che si trovi all'estremità sorgente sia a quella di
+destinazione. Le card archiviate sono escluse da `relations`, `relation_count` e `children`.
+
+### Leggere i campi di una card correlata
+
+Ogni elemento di `relations.<chiaveTipoRelazione>` e di `children` è un oggetto
+contenitore, non direttamente i campi della card correlata:
+
+```json
+{
+  "id": "8f1c…",
+  "name": "NexaCore ERP",
+  "type": "Application",
+  "attributes":     { "costTotalAnnual": 45000, "businessCriticality": "missionCritical" },
+  "rel_attributes": { "costTotalAnnual": 12000 }
+}
+```
+
+* `attributes` contiene i valori dei campi propri della card correlata.
+* `rel_attributes` contiene i valori memorizzati **sul collegamento stesso**, se il tipo di
+  relazione definisce uno schema di attributi. Ad esempio, `relAppToITC` porta con sé un
+  proprio `costTotalAnnual`, così potete registrare quanto una singola applicazione spende per
+  un singolo componente IT.
+
+Questo conta per `PLUCK` e `FILTER`, che accettano un percorso di chiave e quindi richiedono
+il prefisso `attributes.` per raggiungere un campo:
+
+```
+# Somma il costo annuale dei componenti IT usati da questa applicazione
+SUM(PLUCK(relations.relAppToITC, "attributes.costTotalAnnual"))
+
+# Somma invece il costo registrato su ogni collegamento applicazione-componente
+SUM(PLUCK(relations.relAppToITC, "rel_attributes.costTotalAnnual"))
+```
+
+Estrarre una chiave semplice come `"costTotalAnnual"` la cerca sull'oggetto contenitore, non
+trova nulla e restituisce un elenco di `None`, che `SUM` riporta come `0`. Una formula sulle
+relazioni che restituisce ostinatamente `0` è quasi sempre un prefisso `attributes.` mancante.
+
+### Gestire i valori vuoti
+
+Un campo senza valore viene risolto in `None`, e `None` in un'espressione aritmetica genera un
+errore. Racchiudete in `COALESCE` ogni campo che potrebbe essere vuoto:
+
+```
+COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.infraCost, 0)
+```
+
+`SUM`, `AVG`, `MIN` e `MAX` ignorano già le voci non numeriche, quindi non richiedono
+protezione.
+
+### Dati PPM sulle card Initiative
+
+Le righe di budget e di costo del modulo PPM non fanno parte del contesto delle formule, ma i
+loro totali vengono consolidati sulla card Initiative come normali attributi, così una formula
+può leggerli:
+
+* `data.costBudget` è la somma di tutte le righe di budget PPM dell'iniziativa.
+* `data.costActual` è la somma dei consuntivi di tutte le righe di costo PPM.
+
+Entrambi sono totali che combinano capex e opex. La suddivisione per categoria e per esercizio
+resta nelle tabelle PPM e non è esposta alle formule. Poiché PPM possiede questi due campi non
+appena l'iniziativa ha righe di budget o di costo, potete leggerli ma non usarli come campo
+target di un calcolo.
+
+Da un'altra card, leggeteli tramite la relazione come di consueto:
+
+```
+SUM(PLUCK(relations.relInitiativeToApp, "attributes.costBudget"))
+```
+
+!!! warning "Le modifiche PPM non attivano un ricalcolo"
+    Aggiungere o modificare una riga di budget o di costo PPM aggiorna `costBudget` /
+    `costActual` sull'iniziativa, ma non riesegue i calcoli che li leggono. Salvate la card,
+    oppure eseguite il calcolo per il tipo, per aggiornare tutto ciò che deriva da questi due
+    campi.
 
 ### Funzioni predefinite
 
 | Funzione | Descrizione | Esempio |
 |----------|-------------|---------|
-| `IF(condizione, val_vero, val_falso)` | Logica condizionale | `IF(riskLevel == "critical", 100, 25)` |
-| `SUM(array)` | Somma dei valori numerici | `SUM(PLUCK(related_applications, "costTotalAnnual"))` |
-| `AVG(array)` | Media dei valori numerici | `AVG(PLUCK(related_applications, "dataQuality"))` |
-| `MIN(array)` | Valore minimo | `MIN(PLUCK(related_itcomponents, "riskScore"))` |
-| `MAX(array)` | Valore massimo | `MAX(PLUCK(related_itcomponents, "costAnnual"))` |
-| `COUNT(array)` | Numero di elementi | `COUNT(related_interfaces)` |
-| `ROUND(valore, decimali)` | Arrotonda un numero | `ROUND(avgCost, 2)` |
-| `ABS(valore)` | Valore assoluto | `ABS(delta)` |
-| `COALESCE(a, b, ...)` | Primo valore non nullo | `COALESCE(customScore, 0)` |
-| `LOWER(testo)` | Testo in minuscolo | `LOWER(status)` |
-| `UPPER(testo)` | Testo in maiuscolo | `UPPER(category)` |
-| `CONCAT(a, b, ...)` | Unisce stringhe | `CONCAT(firstName, " ", lastName)` |
-| `CONTAINS(testo, ricerca)` | Verifica se il testo contiene una sottostringa | `CONTAINS(description, "legacy")` |
-| `PLUCK(array, chiave)` | Estrae un campo da ogni elemento | `PLUCK(related_applications, "name")` |
-| `FILTER(array, chiave, valore)` | Filtra gli elementi per valore del campo | `FILTER(related_interfaces, "status", "ACTIVE")` |
-| `MAP_SCORE(valore, mappatura)` | Mappa valori categorici a punteggi | `MAP_SCORE(criticality, {"high": 3, "medium": 2, "low": 1})` |
+| `IF(condizione, val_vero, val_falso)` | Logica condizionale. Viene valutato solo il ramo scelto | `IF(data.businessCriticality == "missionCritical", 100, 25)` |
+| `SUM(array)` | Somma dei valori numerici | `SUM(PLUCK(relations.relAppToITC, "attributes.costTotalAnnual"))` |
+| `AVG(array)` | Media dei valori numerici | `AVG(PLUCK(children, "attributes.numberOfUsers"))` |
+| `MIN(array)` | Valore minimo | `MIN(PLUCK(relations.relAppToITC, "attributes.costTotalAnnual"))` |
+| `MAX(array)` | Valore massimo | `MAX(PLUCK(relations.relAppToITC, "attributes.costTotalAnnual"))` |
+| `COUNT(array)` | Numero di elementi | `COUNT(relations.relAppToInterface)` |
+| `ROUND(valore, decimali)` | Arrotonda un numero | `ROUND(data.costTotalAnnual / 12, 2)` |
+| `ABS(valore)` | Valore assoluto | `ABS(data.budgetVariance)` |
+| `LN(valore)` | Logaritmo naturale. Restituisce `None` per zero, valori negativi e input non numerici | `LN(data.numberOfUsers)` |
+| `COALESCE(a, b, ...)` | Primo valore non nullo | `COALESCE(data.customScore, 0)` |
+| `LOWER(testo)` | Testo in minuscolo | `LOWER(data.productName)` |
+| `UPPER(testo)` | Testo in maiuscolo | `UPPER(data.subtype)` |
+| `CONCAT(a, b, ...)` | Unisce stringhe | `CONCAT(data.name, " (", data.subtype, ")")` |
+| `CONTAINS(testo, ricerca)` | Verifica se il testo contiene una sottostringa | `CONTAINS(data.description, "legacy")` |
+| `PLUCK(array, percorso)` | Estrae un percorso di chiave da ogni elemento | `PLUCK(relations.relAppToITC, "attributes.costTotalAnnual")` |
+| `FILTER(array, percorso, valore)` | Mantiene gli elementi il cui percorso di chiave è uguale a un valore | `FILTER(relations.relOrgToApp, "attributes.hostingType", "onPremise")` |
+| `MAP_SCORE(valore, mappatura)` | Mappa valori categorici a punteggi | `MAP_SCORE(data.businessCriticality, {"missionCritical": 3, "businessCritical": 2})` |
+
+Sono disponibili anche le funzioni Python sicure `len`, `str`, `int`, `float`, `bool`, `abs`,
+`round`, `min`, `max` e `sum`, oltre ai consueti operatori e confronti.
 
 ### Formule di esempio { #example-formulas }
 
-**Costo annuale totale dalle applicazioni correlate:**
+**Somma di più campi di costo sulla stessa card:**
 ```
-SUM(PLUCK(related_applications, "costTotalAnnual"))
+COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.infraCost, 0)
+```
+
+**Costo annuale totale dei componenti IT usati da un'applicazione:**
+```
+SUM(PLUCK(relations.relAppToITC, "attributes.costTotalAnnual"))
 ```
 
 **Punteggio di rischio basato sulla criticità:**
 ```
-IF(riskLevel == "critical", 100, IF(riskLevel == "high", 75, IF(riskLevel == "medium", 50, 25)))
+IF(data.businessCriticality == "missionCritical", 100, IF(data.businessCriticality == "businessCritical", 75, 25))
 ```
 
-**Conteggio delle interfacce attive:**
+**Conteggio delle interfacce correlate:**
 ```
-COUNT(FILTER(related_interfaces, "status", "ACTIVE"))
+relation_count.relAppToInterface
 ```
 
-**Posizionamento TIME Model (Tolerate / Invest / Migrate / Eliminate)** — lo stesso esempio che si vedrà nel pannello **Formula Reference** all'interno di **Admin → Metamodello → Calcoli** quando si crea un nuovo calcolo. Tipo target = `Application`, campo target = `timeModel`. Si presuppone di aver aggiunto due campi `single_select` denominati `businessFit` e `technicalFit` con opzioni `excellent`, `adequate`, `insufficient`, `unreasonable`:
+**Conteggio delle applicazioni on-premise in un'organizzazione:**
+```
+COUNT(FILTER(relations.relOrgToApp, "attributes.hostingType", "onPremise"))
+```
+
+**Consolidare un costo dalle card figlie:**
+```
+SUM(PLUCK(children, "attributes.costTotalAnnual"))
+```
+
+**Posizionamento TIME Model (Tolerate / Invest / Migrate / Eliminate)**, lo stesso esempio che si vedrà nel pannello **Formula Reference** all'interno di **Admin → Metamodello → Calcoli** quando si crea un nuovo calcolo. Tipo target = `Application`, campo target = `timeModel`. Si presuppone di aver aggiunto due campi `single_select` denominati `businessFit` e `technicalFit` con opzioni `excellent`, `adequate`, `insufficient`, `unreasonable`:
 ```
 # ── TIME Model (Tolerate / Invest / Migrate / Eliminate) ──
 # Assumes single_select fields: businessFit and technicalFit
@@ -98,22 +208,56 @@ tf = MAP_SCORE(data.technicalFit, {"excellent": 4, "adequate": 3, "insufficient"
 IF(bf is None or tf is None, None, IF(bf >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))
 ```
 
+Come mostra l'esempio, una formula può occupare più righe. Una riga nella forma
+`nome = espressione` memorizza un valore intermedio riutilizzabile dalle righe successive, e
+il valore dell'ultima riga è quello scritto nel campo target.
+
 Questo è anche l'esempio funzionante referenziato dalla [Guida per principianti EA](../beginners-guide/customise-the-metamodel.md#option-derive-a-field-automatically-with-a-calculation).
 
 **I commenti** sono supportati utilizzando `#`:
 ```
 # Calcola il punteggio di rischio ponderato
-IF(businessCriticality == "missionCritical", riskScore * 2, riskScore)
+IF(data.businessCriticality == "missionCritical", data.riskScore * 2, data.riskScore)
 ```
 
-## Esecuzione dei calcoli
+## Validare e testare
 
-I calcoli vengono eseguiti automaticamente quando una card viene salvata. Potete anche attivare manualmente un calcolo per eseguirlo su tutte le card del tipo target:
+L'editor delle formule offre due controlli distinti, che si comportano in modo diverso:
 
-1. Trovate il calcolo nell'elenco
-2. Cliccate sul pulsante **Esegui**
-3. La formula viene valutata per ogni card corrispondente e i risultati vengono salvati
+* **Valida** esegue la formula su una card sintetica. Ogni campo numerico riceve il valore
+  fittizio `1`, e la card **non ha relazioni, né figli, né dati propri del padre**. Conferma
+  che la sintassi viene analizzata correttamente e che i nomi usati esistono, ma una formula
+  che aggrega su `relations` o `children` mostrerà sempre `0` o un risultato vuoto in questa
+  sede. È il comportamento atteso e non indica una formula difettosa.
+* **Testa**, disponibile su un calcolo salvato, viene eseguito su una card reale a vostra
+  scelta. È l'opzione da usare per tutto ciò che coinvolge relazioni, figli o la card padre.
+  Nulla viene scritto sulla card, il risultato viene soltanto mostrato.
+
+## Quando vengono eseguiti i calcoli
+
+I calcoli di una card vengono rivalutati quando:
+
+* la card viene creata o salvata;
+* una relazione che tocca la card viene creata, modificata o eliminata (entrambe le estremità
+  della relazione vengono ricalcolate);
+* la card viene riassegnata a un nuovo padre, il che ricalcola l'intero sottoalbero;
+* eseguite il calcolo manualmente dall'elenco, il che lo valuta per ogni card del tipo target
+  e ne salva i risultati.
+
+**Non** vengono rivalutati quando viene modificata un'altra card da cui la formula legge. Se
+cambiate un costo su un componente IT, l'applicazione che lo aggrega non si muoverà finché
+quell'applicazione non viene salvata, non cambia una sua relazione o non eseguite il calcolo
+per il tipo. Per le aggregazioni su dati mantenuti da altri, eseguite il calcolo
+periodicamente o dopo un'importazione massiva.
+
+!!! note "Nota"
+    Lo stesso vale per i valori derivati da `parent` e `hierarchy_level`: si aggiornano alla
+    riassegnazione del padre e a un'esecuzione manuale, non a ogni modifica della card padre.
+    Proteggete sempre un riferimento a `parent` con `IF(parent, …)` in modo che le card
+    radice, dove `parent` è `None`, non generino errori.
 
 ## Ordine di esecuzione
 
-Quando più calcoli mirano allo stesso tipo di card, vengono eseguiti nell'ordine specificato dal loro valore di **ordine di esecuzione**. Questo è importante quando un calcolo dipende dal risultato di un altro — impostate la dipendenza per essere eseguita per prima (numero inferiore).
+Quando più calcoli mirano allo stesso tipo di card, vengono eseguiti nell'ordine specificato dal loro valore di **ordine di esecuzione**. Questo è importante quando un calcolo dipende dal risultato di un altro: impostate la dipendenza per essere eseguita per prima (numero inferiore).
+
+Turbo EA rifiuta un insieme di calcoli che formerebbe un ciclo, ad esempio un campo A calcolato a partire dal campo B mentre B è calcolato a partire da A.

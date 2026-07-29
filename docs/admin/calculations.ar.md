@@ -24,60 +24,163 @@
 
 ## بنية الصيغة
 
-تستخدم الصيغ لغة تعبير آمنة ومعزولة في بيئة محمية. يمكنك الإشارة إلى سمات البطاقة، وبيانات البطاقات ذات الصلة، ومعلومات دورة الحياة.
+تستخدم الصيغ لغة تعبير آمنة ومعزولة في بيئة محمية. يمكنك الإشارة إلى حقول البطاقة الحالية، والبطاقات ذات الصلة والبطاقات الفرعية، والبطاقة الأصل، وتواريخ دورة الحياة.
+
+!!! warning "استخدم مفتاح الحقل لا تسميته"
+    يُشار إلى الحقول عبر **مفتاحها**، وهو عادةً بصيغة camelCase (`costTotalAnnual`)، لا عبر
+    التسمية الظاهرة على البطاقة (`إجمالي التكلفة السنوية`). أي اسم غير موجود يُحلّ إلى `None`،
+    وأي عملية حسابية على `None` تفشل مع **خطأ تقييم** عام.
+
+    يمكنك معرفة المفتاح من **Admin > Metamodel >** *(نوع البطاقة)* بفتح الحقل وقراءة
+    **Key** الخاص به. والأسهل: في محرر الصيغ، تسرد الشارات أسفل مربع الصيغة `data.<المفتاح>`
+    لكل حقل من حقول النوع المحدد، وكتابة `data.` تفتح الإكمال التلقائي.
 
 ### متغيرات السياق
 
 | المتغير | الوصف | مثال |
 |----------|-------------|---------|
-| `fieldKey` | أي سمة من البطاقة الحالية | `businessCriticality` |
-| `related_{type_key}` | مصفوفة من البطاقات ذات الصلة من نوع معيّن | `related_applications` |
-| `lifecycle_plan`, `lifecycle_active`, etc. | قيم تواريخ دورة الحياة | `lifecycle_endOfLife` |
+| `data.<مفتاح الحقل>` | أي حقل مخصص من البطاقة الحالية، عبر مفتاحه | `data.costTotalAnnual` |
+| `data.name`، `data.description`، `data.status`، `data.subtype`، `data.approval_status`، `data.reference` | خصائص البطاقة المدمجة | `data.subtype` |
+| `data.lifecycle.<المرحلة>` | تواريخ دورة الحياة، والمرحلة إحدى `plan` أو `phaseIn` أو `active` أو `phaseOut` أو `endOfLife` | `data.lifecycle.endOfLife` |
+| `relations.<مفتاح نوع العلاقة>` | مصفوفة البطاقات المرتبطة بذلك النوع من العلاقات، في كلا الاتجاهين | `relations.relAppToITC` |
+| `relation_count.<مفتاح نوع العلاقة>` | عدد البطاقات المرتبطة بذلك النوع من العلاقات | `relation_count.relAppToITC` |
+| `children` | مصفوفة البطاقات الفرعية المباشرة (الأنواع الهرمية) | `SUM(PLUCK(children, "attributes.costTotalAnnual"))` |
+| `children_count` | عدد البطاقات الفرعية المباشرة | `children_count` |
 | `parent` | البطاقة الأصل (كائن يحتوي على `id` و`name` و`type` و`subtype` و`attributes`)، أو `None` للبطاقة الجذرية | `IF(parent, parent.attributes.businessCriticality, data.businessCriticality)` |
 | `hierarchy_level` | عمق البطاقة الحالية في تسلسلها الهرمي أصل-فرع (`1` = الجذر، غير محدود). `1` لأنواع البطاقات غير الهرمية | `hierarchy_level * 10` |
 
-!!! note "ملاحظة"
-    تُحدَّث القيم المشتقة من `parent` و`hierarchy_level` عند إعادة إسناد البطاقة إلى أصل جديد (يُعاد حساب شجرتها الفرعية بالكامل) وعند تشغيل **إعادة حساب الكل** للنوع — وليس عند كل تعديل للبطاقة الأصل. احْمِ دائمًا مرجع `parent` بـ `IF(parent, …)` كي لا تُسبِّب البطاقات الجذرية (حيث تكون `parent` بقيمة `None`) خطأً.
+مفتاح نوع العلاقة هو المفتاح الظاهر في **Admin > Metamodel > Relations**، مثل `relAppToITC`
+أو `relInitiativeToApp`. والاتجاه لا يهم: تجد البطاقة نوع العلاقة تحت المفتاح نفسه سواء كانت
+في طرف المصدر أو في طرف الهدف. والبطاقات المؤرشفة مستبعدة من `relations` و`relation_count`
+و`children`.
+
+### قراءة حقول بطاقة ذات صلة
+
+كل عنصر في `relations.<مفتاح نوع العلاقة>` وفي `children` هو كائن غلاف، وليس حقول البطاقة
+ذات الصلة مباشرةً:
+
+```json
+{
+  "id": "8f1c…",
+  "name": "NexaCore ERP",
+  "type": "Application",
+  "attributes":     { "costTotalAnnual": 45000, "businessCriticality": "missionCritical" },
+  "rel_attributes": { "costTotalAnnual": 12000 }
+}
+```
+
+* يحتوي `attributes` على قيم حقول البطاقة ذات الصلة نفسها.
+* ويحتوي `rel_attributes` على القيم المخزَّنة **على الرابط نفسه**، إن كان نوع العلاقة يعرّف
+  مخطط سمات. فمثلًا يحمل `relAppToITC` حقل `costTotalAnnual` خاصًا به، فيمكنك تسجيل ما ينفقه
+  تطبيق واحد على مكوّن تقني واحد.
+
+وهذا مهم لـ `PLUCK` و`FILTER`، إذ تأخذان مسار مفتاح، ولذلك تحتاجان إلى البادئة `attributes.`
+للوصول إلى الحقل:
+
+```
+# جمع التكلفة السنوية للمكوّنات التقنية التي يستخدمها هذا التطبيق
+SUM(PLUCK(relations.relAppToITC, "attributes.costTotalAnnual"))
+
+# أو بدلًا من ذلك جمع التكلفة المسجَّلة على كل رابط بين التطبيق والمكوّن
+SUM(PLUCK(relations.relAppToITC, "rel_attributes.costTotalAnnual"))
+```
+
+استخراج مفتاح مجرَّد مثل `"costTotalAnnual"` يبحث عنه في كائن الغلاف، فلا يجد شيئًا ويعيد
+قائمة من `None`، فتظهر عبر `SUM` بقيمة `0`. وأي صيغة على العلاقات تُصرّ على إعادة `0` تعني
+غالبًا بادئة `attributes.` مفقودة.
+
+### التعامل مع القيم الفارغة
+
+الحقل بلا قيمة يُحلّ إلى `None`، ووجود `None` في تعبير حسابي يُطلق خطأً. لذا غلِّف بـ
+`COALESCE` كل حقل قد يكون فارغًا:
+
+```
+COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.infraCost, 0)
+```
+
+أما `SUM` و`AVG` و`MIN` و`MAX` فهي تتجاهل أصلًا العناصر غير الرقمية ولا تحتاج إلى حماية.
+
+### بيانات PPM على بطاقات Initiative
+
+لا تُعدّ سطور الميزانية والتكلفة في وحدة PPM جزءًا من سياق الصيغ، غير أن إجمالياتها تُجمَّع على
+بطاقة Initiative كسمات عادية، فيمكن للصيغة قراءتها:
+
+* `data.costBudget` هو مجموع كل سطور ميزانية PPM الخاصة بالمبادرة.
+* `data.costActual` هو مجموع القيم الفعلية في كل سطور تكلفة PPM.
+
+وكلاهما إجمالي يجمع capex و opex معًا. أما التفصيل حسب الفئة وحسب السنة المالية فيبقى في جداول
+PPM ولا يُتاح للصيغ. ولأن PPM يملك هذين الحقلين ما دامت المبادرة تحتوي على سطور ميزانية أو
+تكلفة، يمكنك قراءتهما لكن لا يمكنك جعلهما حقلًا مستهدفًا لحساب.
+
+ومن بطاقة أخرى، اقرأهما عبر العلاقة كالمعتاد:
+
+```
+SUM(PLUCK(relations.relInitiativeToApp, "attributes.costBudget"))
+```
+
+!!! warning "تعديلات PPM لا تُطلق إعادة حساب"
+    إضافة سطر ميزانية أو تكلفة في PPM أو تعديله يُحدِّث `costBudget` / `costActual` على
+    المبادرة، لكنه لا يعيد تشغيل الحسابات التي تقرأهما. احفظ البطاقة، أو شغّل الحساب للنوع،
+    لتحديث كل ما يُشتق من هذين الحقلين.
 
 ### الدوال المدمجة
 
 | الدالة | الوصف | مثال |
 |----------|-------------|---------|
-| `IF(condition, true_val, false_val)` | منطق شرطي | `IF(riskLevel == "critical", 100, 25)` |
-| `SUM(array)` | مجموع القيم الرقمية | `SUM(PLUCK(related_applications, "costTotalAnnual"))` |
-| `AVG(array)` | متوسط القيم الرقمية | `AVG(PLUCK(related_applications, "dataQuality"))` |
-| `MIN(array)` | القيمة الدنيا | `MIN(PLUCK(related_itcomponents, "riskScore"))` |
-| `MAX(array)` | القيمة العليا | `MAX(PLUCK(related_itcomponents, "costAnnual"))` |
-| `COUNT(array)` | عدد العناصر | `COUNT(related_interfaces)` |
-| `ROUND(value, decimals)` | تقريب رقم | `ROUND(avgCost, 2)` |
-| `ABS(value)` | القيمة المطلقة | `ABS(delta)` |
-| `COALESCE(a, b, ...)` | أول قيمة غير فارغة | `COALESCE(customScore, 0)` |
-| `LOWER(text)` | نص بأحرف صغيرة | `LOWER(status)` |
-| `UPPER(text)` | نص بأحرف كبيرة | `UPPER(category)` |
-| `CONCAT(a, b, ...)` | دمج السلاسل النصية | `CONCAT(firstName, " ", lastName)` |
-| `CONTAINS(text, search)` | التحقق مما إذا كان النص يحتوي على سلسلة فرعية | `CONTAINS(description, "legacy")` |
-| `PLUCK(array, key)` | استخراج حقل من كل عنصر | `PLUCK(related_applications, "name")` |
-| `FILTER(array, key, value)` | تصفية العناصر بحسب قيمة الحقل | `FILTER(related_interfaces, "status", "ACTIVE")` |
-| `MAP_SCORE(value, mapping)` | تعيين القيم الفئوية إلى درجات | `MAP_SCORE(criticality, {"high": 3, "medium": 2, "low": 1})` |
+| `IF(condition, true_val, false_val)` | منطق شرطي. يُقيَّم الفرع المختار فقط | `IF(data.businessCriticality == "missionCritical", 100, 25)` |
+| `SUM(array)` | مجموع القيم الرقمية | `SUM(PLUCK(relations.relAppToITC, "attributes.costTotalAnnual"))` |
+| `AVG(array)` | متوسط القيم الرقمية | `AVG(PLUCK(children, "attributes.numberOfUsers"))` |
+| `MIN(array)` | القيمة الدنيا | `MIN(PLUCK(relations.relAppToITC, "attributes.costTotalAnnual"))` |
+| `MAX(array)` | القيمة العليا | `MAX(PLUCK(relations.relAppToITC, "attributes.costTotalAnnual"))` |
+| `COUNT(array)` | عدد العناصر | `COUNT(relations.relAppToInterface)` |
+| `ROUND(value, decimals)` | تقريب رقم | `ROUND(data.costTotalAnnual / 12, 2)` |
+| `ABS(value)` | القيمة المطلقة | `ABS(data.budgetVariance)` |
+| `LN(value)` | اللوغاريتم الطبيعي. يعيد `None` للصفر والقيم السالبة والمدخلات غير الرقمية | `LN(data.numberOfUsers)` |
+| `COALESCE(a, b, ...)` | أول قيمة غير فارغة | `COALESCE(data.customScore, 0)` |
+| `LOWER(text)` | نص بأحرف صغيرة | `LOWER(data.productName)` |
+| `UPPER(text)` | نص بأحرف كبيرة | `UPPER(data.subtype)` |
+| `CONCAT(a, b, ...)` | دمج السلاسل النصية | `CONCAT(data.name, " (", data.subtype, ")")` |
+| `CONTAINS(text, search)` | التحقق مما إذا كان النص يحتوي على سلسلة فرعية | `CONTAINS(data.description, "legacy")` |
+| `PLUCK(array, مسار المفتاح)` | استخراج مسار مفتاح من كل عنصر | `PLUCK(relations.relAppToITC, "attributes.costTotalAnnual")` |
+| `FILTER(array, مسار المفتاح, value)` | الإبقاء على العناصر التي يساوي مسار مفتاحها قيمة معينة | `FILTER(relations.relOrgToApp, "attributes.hostingType", "onPremise")` |
+| `MAP_SCORE(value, mapping)` | تعيين القيم الفئوية إلى درجات | `MAP_SCORE(data.businessCriticality, {"missionCritical": 3, "businessCritical": 2})` |
+
+كما تتوفر دوال بايثون المدمجة الآمنة `len` و`str` و`int` و`float` و`bool` و`abs` و`round`
+و`min` و`max` و`sum`، إضافة إلى المعاملات والمقارنات المعتادة.
 
 ### أمثلة على الصيغ { #example-formulas }
 
-**إجمالي التكلفة السنوية من التطبيقات ذات الصلة:**
+**جمع عدة حقول تكلفة على البطاقة نفسها:**
 ```
-SUM(PLUCK(related_applications, "costTotalAnnual"))
+COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.infraCost, 0)
+```
+
+**إجمالي التكلفة السنوية للمكوّنات التقنية التي يستخدمها تطبيق:**
+```
+SUM(PLUCK(relations.relAppToITC, "attributes.costTotalAnnual"))
 ```
 
 **درجة المخاطرة بناءً على الأهمية الحرجة:**
 ```
-IF(riskLevel == "critical", 100, IF(riskLevel == "high", 75, IF(riskLevel == "medium", 50, 25)))
+IF(data.businessCriticality == "missionCritical", 100, IF(data.businessCriticality == "businessCritical", 75, 25))
 ```
 
-**عدد الواجهات النشطة:**
+**عدد الواجهات المرتبطة:**
 ```
-COUNT(FILTER(related_interfaces, "status", "ACTIVE"))
+relation_count.relAppToInterface
 ```
 
-**التموضع وفق نموذج TIME (Tolerate / Invest / Migrate / Eliminate)** — وهو المثال نفسه الذي ستراه في لوحة **Formula Reference** داخل **Admin → Metamodel → Calculations** عند إنشاء حساب جديد. النوع المستهدف = `Application`، الحقل المستهدف = `timeModel`. يفترض أنك أضفت حقلَي `single_select` باسمَي `businessFit` و`technicalFit` بالخيارات `excellent` و`adequate` و`insufficient` و`unreasonable`:
+**عدد التطبيقات المستضافة محليًا في مؤسسة:**
+```
+COUNT(FILTER(relations.relOrgToApp, "attributes.hostingType", "onPremise"))
+```
+
+**تجميع تكلفة من البطاقات الفرعية:**
+```
+SUM(PLUCK(children, "attributes.costTotalAnnual"))
+```
+
+**التموضع وفق نموذج TIME (Tolerate / Invest / Migrate / Eliminate)**، وهو المثال نفسه الذي ستراه في لوحة **Formula Reference** داخل **Admin → Metamodel → Calculations** عند إنشاء حساب جديد. النوع المستهدف = `Application`، الحقل المستهدف = `timeModel`. يفترض أنك أضفت حقلَي `single_select` باسمَي `businessFit` و`technicalFit` بالخيارات `excellent` و`adequate` و`insufficient` و`unreasonable`:
 ```
 # ── TIME Model (Tolerate / Invest / Migrate / Eliminate) ──
 # Assumes single_select fields: businessFit and technicalFit
@@ -98,22 +201,50 @@ tf = MAP_SCORE(data.technicalFit, {"excellent": 4, "adequate": 3, "insufficient"
 IF(bf is None or tf is None, None, IF(bf >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))
 ```
 
+وكما يبيّن المثال، يمكن أن تمتد الصيغة على عدة أسطر. والسطر بصيغة `اسم = تعبير` يخزّن قيمة
+وسيطة تستطيع الأسطر اللاحقة إعادة استخدامها، وقيمة السطر الأخير هي ما يُكتب في الحقل المستهدف.
+
 وهذا أيضًا المثال العملي المُشار إليه في [دليل المبتدئين في هندسة المؤسسة](../beginners-guide/customise-the-metamodel.md#option-derive-a-field-automatically-with-a-calculation).
 
 **التعليقات** مدعومة باستخدام `#`:
 ```
 # Calculate weighted risk score
-IF(businessCriticality == "missionCritical", riskScore * 2, riskScore)
+IF(data.businessCriticality == "missionCritical", data.riskScore * 2, data.riskScore)
 ```
 
-## تشغيل الحسابات
+## التحقق والاختبار
 
-تُنفَّذ الحسابات تلقائيًا عند حفظ البطاقة. يمكنك أيضًا تشغيل حساب يدويًا ليُنفَّذ على جميع البطاقات من النوع المستهدف:
+يوفّر محرر الصيغ فحصين مختلفين، وسلوكهما ليس واحدًا:
 
-1. ابحث عن الحساب في القائمة
-2. انقر زر **Run**
-3. تُقيَّم الصيغة لكل بطاقة مطابقة وتُحفظ النتائج
+* **Validate** ينفّذ الصيغة على بطاقة اصطناعية. يُمنَح كل حقل رقمي القيمة الوهمية `1`، ولا
+  تملك البطاقة **أي علاقات ولا بطاقات فرعية ولا بيانات أصل خاصة بها**. وهو يؤكد أن البنية
+  النحوية سليمة وأن الأسماء المستخدمة موجودة، لكن أي صيغة تجمع عبر `relations` أو `children`
+  ستُظهر هنا دائمًا `0` أو نتيجة فارغة. وهذا سلوك متوقَّع ولا يدل على خلل في الصيغة.
+* **Test**، وهو متاح على حساب محفوظ، يُنفَّذ على بطاقة حقيقية تختارها أنت. وهو الخيار الصحيح
+  لكل ما يتعلق بالعلاقات أو البطاقات الفرعية أو البطاقة الأصل. ولا يُكتب شيء في البطاقة، بل
+  تُعرض عليك النتيجة فقط.
+
+## متى تُنفَّذ الحسابات
+
+يُعاد تقييم حسابات البطاقة عندما:
+
+* تُنشأ البطاقة أو تُحفظ؛
+* تُنشأ علاقة تمسّ البطاقة أو تُعدَّل أو تُحذف (يُعاد حساب طرفَي العلاقة كليهما)؛
+* تُسنَد البطاقة إلى أصل جديد، فيُعاد حساب شجرتها الفرعية بالكامل؛
+* تُشغِّل الحساب يدويًا من القائمة، فيُقيَّم لكل بطاقة من النوع المستهدف وتُحفظ النتائج.
+
+ولا **يُعاد** تقييمها عند تعديل بطاقة أخرى تقرأ منها الصيغة. فإذا غيّرت تكلفة على مكوّن تقني،
+فلن يتغيّر التطبيق الذي يجمعها إلا بعد حفظ ذلك التطبيق، أو تغيّر إحدى علاقاته، أو تشغيلك
+الحساب للنوع. وللتجميعات على بيانات يتولاها آخرون، شغّل الحساب دوريًا أو بعد استيراد جماعي.
+
+!!! note "ملاحظة"
+    وينطبق الأمر نفسه على القيم المشتقة من `parent` و`hierarchy_level`: فهي تُحدَّث عند إعادة
+    الإسناد إلى أصل جديد وعند التشغيل اليدوي، لا عند كل تعديل للبطاقة الأصل. احْمِ دائمًا مرجع
+    `parent` بـ `IF(parent, …)` كي لا تُسبِّب البطاقات الجذرية، حيث تكون `parent` بقيمة
+    `None`، خطأً.
 
 ## ترتيب التنفيذ
 
-عندما تستهدف حسابات متعددة نفس نوع البطاقة، تُنفَّذ بالترتيب المحدد بقيمة **execution order** الخاصة بها. وهذا مهم عندما يعتمد حساب على نتيجة حساب آخر — اضبط الحساب الذي يُعتمد عليه ليُنفَّذ أولًا (رقم أقل).
+عندما تستهدف حسابات متعددة نفس نوع البطاقة، تُنفَّذ بالترتيب المحدد بقيمة **execution order** الخاصة بها. وهذا مهم عندما يعتمد حساب على نتيجة حساب آخر: اضبط الحساب الذي يُعتمد عليه ليُنفَّذ أولًا (رقم أقل).
+
+ويرفض Turbo EA أي مجموعة حسابات تُشكِّل حلقة مغلقة، مثل حقل A يُحسب من الحقل B بينما يُحسب B من A.

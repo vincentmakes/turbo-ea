@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.34.0] - 2026-07-29
+
+### Fixed
+- **The Calculations documentation described a formula language that does not exist.** It referenced card fields as bare `fieldKey` instead of `data.fieldKey`, an array variable `related_{type_key}` that the engine never provided (the real one is `relations.<relationTypeKey>`), `lifecycle_endOfLife` instead of `data.lifecycle.endOfLife`, and `PLUCK` examples missing the `attributes.` prefix needed to reach a related card's own fields — so a formula copied from the page either errored or silently returned `0`. The page now documents the real context variables, explains the shape of a related-card entry, covers `LN`, and adds sections on guarding empty values with `COALESCE`, on what Validate and Test each actually run against, on when calculations are re-evaluated, and on reading PPM budget and cost totals from an Initiative card.
+
 ## [2.33.2] - 2026-07-29
 
 ### Fixed

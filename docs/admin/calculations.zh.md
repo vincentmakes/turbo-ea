@@ -24,60 +24,159 @@
 
 ## 公式语法
 
-公式使用安全的沙箱表达式语言。您可以引用卡片属性、关联卡片数据和生命周期信息。
+公式使用安全的沙箱表达式语言。您可以引用当前卡片的字段、关联卡片与子卡片、父卡片以及生命周期日期。
+
+!!! warning "请使用字段键，而非字段标签"
+    字段通过其**键**引用，通常为驼峰式（`costTotalAnnual`），而不是卡片上显示的标签
+    （`年度总成本`）。不存在的名称会解析为 `None`，对 `None` 做任何算术运算都会失败，
+    并返回一个笼统的**求值错误**。
+
+    您可以在**管理 > 元模型 >** *（卡片类型）* 中打开该字段，查看它的**键**。更简单的方式：
+    在公式编辑器中，公式输入框下方的标签列出了所选类型每个字段的 `data.<键>`，输入
+    `data.` 即可打开自动补全。
 
 ### 上下文变量
 
 | 变量 | 描述 | 示例 |
 |------|------|------|
-| `fieldKey` | 当前卡片的任何属性 | `businessCriticality` |
-| `related_{type_key}` | 给定类型的关联卡片数组 | `related_applications` |
-| `lifecycle_plan`、`lifecycle_active` 等 | 生命周期日期值 | `lifecycle_endOfLife` |
+| `data.<字段键>` | 当前卡片的任何自定义字段，通过其键引用 | `data.costTotalAnnual` |
+| `data.name`、`data.description`、`data.status`、`data.subtype`、`data.approval_status`、`data.reference` | 卡片的内置属性 | `data.subtype` |
+| `data.lifecycle.<阶段>` | 生命周期日期，阶段为 `plan`、`phaseIn`、`active`、`phaseOut` 或 `endOfLife` | `data.lifecycle.endOfLife` |
+| `relations.<关系类型键>` | 通过该关系类型连接的卡片数组，两个方向均包含 | `relations.relAppToITC` |
+| `relation_count.<关系类型键>` | 通过该关系类型连接的卡片数量 | `relation_count.relAppToITC` |
+| `children` | 直接子卡片数组（层级类型） | `SUM(PLUCK(children, "attributes.costTotalAnnual"))` |
+| `children_count` | 直接子卡片数量 | `children_count` |
 | `parent` | 父卡片（包含 `id`、`name`、`type`、`subtype`、`attributes` 的对象），根卡片则为 `None` | `IF(parent, parent.attributes.businessCriticality, data.businessCriticality)` |
 | `hierarchy_level` | 当前卡片在其父子层级中的深度（`1` = 根，无上限）。非层级卡片类型为 `1` | `hierarchy_level * 10` |
 
-!!! note "注意"
-    `parent` 和 `hierarchy_level` 派生的值会在卡片被重新指定父级时刷新（其整个子树会被重新计算），以及在您对该类型运行**全部重新计算**时刷新——而非在每次编辑父卡片时刷新。请始终用 `IF(parent, …)` 保护 `parent` 引用，以免根卡片（此时 `parent` 为 `None`）报错。
+关系类型键即**管理 > 元模型 > 关系**中显示的键，例如 `relAppToITC` 或
+`relInitiativeToApp`。方向无关紧要：无论卡片位于源端还是目标端，都能通过同一个键找到该关系
+类型。已归档的卡片不会出现在 `relations`、`relation_count` 和 `children` 中。
+
+### 读取关联卡片上的字段
+
+`relations.<关系类型键>` 和 `children` 中的每一项都是一个包装对象，而不是关联卡片字段本身：
+
+```json
+{
+  "id": "8f1c…",
+  "name": "NexaCore ERP",
+  "type": "Application",
+  "attributes":     { "costTotalAnnual": 45000, "businessCriticality": "missionCritical" },
+  "rel_attributes": { "costTotalAnnual": 12000 }
+}
+```
+
+* `attributes` 保存关联卡片自身的字段值。
+* `rel_attributes` 保存**存放在连接本身上**的值，前提是该关系类型定义了属性模式。例如
+  `relAppToITC` 自带一个 `costTotalAnnual`，因此您可以记录某个应用在某个 IT 组件上的支出。
+
+这对 `PLUCK` 和 `FILTER` 很关键：它们接收的是键路径，因此需要 `attributes.` 前缀才能取到
+字段：
+
+```
+# 汇总该应用所使用 IT 组件的年度成本
+SUM(PLUCK(relations.relAppToITC, "attributes.costTotalAnnual"))
+
+# 改为汇总记录在每条「应用—组件」连接上的成本
+SUM(PLUCK(relations.relAppToITC, "rel_attributes.costTotalAnnual"))
+```
+
+直接提取 `"costTotalAnnual"` 这样的裸键，会在包装对象上查找，结果什么都找不到，返回一个全
+是 `None` 的列表，而 `SUM` 会把它汇报为 `0`。一条关系公式若顽固地返回 `0`，几乎总是缺少
+`attributes.` 前缀。
+
+### 处理空值
+
+没有值的字段会解析为 `None`，而算术表达式中的 `None` 会引发错误。请用 `COALESCE` 包裹每个
+可能为空的字段：
+
+```
+COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.infraCost, 0)
+```
+
+`SUM`、`AVG`、`MIN` 和 `MAX` 本身就会跳过非数值项，因此无需额外保护。
+
+### Initiative 卡片上的 PPM 数据
+
+PPM 模块的预算行与成本行本身不属于公式上下文，但它们的合计会以普通属性的形式汇总到
+Initiative 卡片上，因此公式可以读取：
+
+* `data.costBudget` 是该举措所有 PPM 预算行的合计。
+* `data.costActual` 是所有 PPM 成本行实际值的合计。
+
+两者都是 capex 与 opex 合并后的总额。按类别和按财年的明细仍保留在 PPM 表中，公式无法访问。
+由于举措一旦存在预算行或成本行，这两个字段就归 PPM 所有，因此您可以读取它们，但不能把它们
+设为计算的目标字段。
+
+在其他卡片上，照常通过关系读取：
+
+```
+SUM(PLUCK(relations.relInitiativeToApp, "attributes.costBudget"))
+```
+
+!!! warning "PPM 的编辑不会触发重新计算"
+    新增或修改 PPM 预算行、成本行会更新举措上的 `costBudget` / `costActual`，但不会重新运行
+    读取它们的计算。请保存该卡片，或为该类型运行一次计算，以刷新由这两个字段派生出的内容。
 
 ### 内置函数
 
 | 函数 | 描述 | 示例 |
 |------|------|------|
-| `IF(condition, true_val, false_val)` | 条件逻辑 | `IF(riskLevel == "critical", 100, 25)` |
-| `SUM(array)` | 数值求和 | `SUM(PLUCK(related_applications, "costTotalAnnual"))` |
-| `AVG(array)` | 数值平均 | `AVG(PLUCK(related_applications, "dataQuality"))` |
-| `MIN(array)` | 最小值 | `MIN(PLUCK(related_itcomponents, "riskScore"))` |
-| `MAX(array)` | 最大值 | `MAX(PLUCK(related_itcomponents, "costAnnual"))` |
-| `COUNT(array)` | 项目数量 | `COUNT(related_interfaces)` |
-| `ROUND(value, decimals)` | 四舍五入 | `ROUND(avgCost, 2)` |
-| `ABS(value)` | 绝对值 | `ABS(delta)` |
-| `COALESCE(a, b, ...)` | 第一个非空值 | `COALESCE(customScore, 0)` |
-| `LOWER(text)` | 文本转小写 | `LOWER(status)` |
-| `UPPER(text)` | 文本转大写 | `UPPER(category)` |
-| `CONCAT(a, b, ...)` | 连接字符串 | `CONCAT(firstName, " ", lastName)` |
-| `CONTAINS(text, search)` | 检查文本是否包含子串 | `CONTAINS(description, "legacy")` |
-| `PLUCK(array, key)` | 从每项中提取字段 | `PLUCK(related_applications, "name")` |
-| `FILTER(array, key, value)` | 按字段值筛选项目 | `FILTER(related_interfaces, "status", "ACTIVE")` |
-| `MAP_SCORE(value, mapping)` | 将分类值映射为分数 | `MAP_SCORE(criticality, {"high": 3, "medium": 2, "low": 1})` |
+| `IF(condition, true_val, false_val)` | 条件逻辑。只有被选中的分支会被求值 | `IF(data.businessCriticality == "missionCritical", 100, 25)` |
+| `SUM(array)` | 数值求和 | `SUM(PLUCK(relations.relAppToITC, "attributes.costTotalAnnual"))` |
+| `AVG(array)` | 数值平均 | `AVG(PLUCK(children, "attributes.numberOfUsers"))` |
+| `MIN(array)` | 最小值 | `MIN(PLUCK(relations.relAppToITC, "attributes.costTotalAnnual"))` |
+| `MAX(array)` | 最大值 | `MAX(PLUCK(relations.relAppToITC, "attributes.costTotalAnnual"))` |
+| `COUNT(array)` | 项目数量 | `COUNT(relations.relAppToInterface)` |
+| `ROUND(value, decimals)` | 四舍五入 | `ROUND(data.costTotalAnnual / 12, 2)` |
+| `ABS(value)` | 绝对值 | `ABS(data.budgetVariance)` |
+| `LN(value)` | 自然对数。对零、负数和非数值输入返回 `None` | `LN(data.numberOfUsers)` |
+| `COALESCE(a, b, ...)` | 第一个非空值 | `COALESCE(data.customScore, 0)` |
+| `LOWER(text)` | 文本转小写 | `LOWER(data.productName)` |
+| `UPPER(text)` | 文本转大写 | `UPPER(data.subtype)` |
+| `CONCAT(a, b, ...)` | 连接字符串 | `CONCAT(data.name, " (", data.subtype, ")")` |
+| `CONTAINS(text, search)` | 检查文本是否包含子串 | `CONTAINS(data.description, "legacy")` |
+| `PLUCK(array, 键路径)` | 从每项中提取一个键路径 | `PLUCK(relations.relAppToITC, "attributes.costTotalAnnual")` |
+| `FILTER(array, 键路径, value)` | 保留键路径等于指定值的项目 | `FILTER(relations.relOrgToApp, "attributes.hostingType", "onPremise")` |
+| `MAP_SCORE(value, mapping)` | 将分类值映射为分数 | `MAP_SCORE(data.businessCriticality, {"missionCritical": 3, "businessCritical": 2})` |
+
+安全的 Python 内置函数 `len`、`str`、`int`、`float`、`bool`、`abs`、`round`、`min`、`max`
+和 `sum` 同样可用，常规运算符和比较运算符也可以使用。
 
 ### 公式示例 { #example-formulas }
 
-**关联应用程序的年度总成本：**
+**同一张卡片上多个成本字段求和：**
 ```
-SUM(PLUCK(related_applications, "costTotalAnnual"))
+COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.infraCost, 0)
+```
+
+**某个应用所使用 IT 组件的年度总成本：**
+```
+SUM(PLUCK(relations.relAppToITC, "attributes.costTotalAnnual"))
 ```
 
 **基于关键性的风险评分：**
 ```
-IF(riskLevel == "critical", 100, IF(riskLevel == "high", 75, IF(riskLevel == "medium", 50, 25)))
+IF(data.businessCriticality == "missionCritical", 100, IF(data.businessCriticality == "businessCritical", 75, 25))
 ```
 
-**活跃接口数量：**
+**关联接口数量：**
 ```
-COUNT(FILTER(related_interfaces, "status", "ACTIVE"))
+relation_count.relAppToInterface
 ```
 
-**TIME 模型定位（Tolerate / Invest / Migrate / Eliminate）**——与您在新建计算时于**管理员 → 元模型 → 计算**中的**公式参考**面板看到的示例相同。目标类型 = `Application`，目标字段 = `timeModel`。假定您已添加两个名为 `businessFit` 和 `technicalFit` 的 `single_select` 字段，选项为 `excellent`、`adequate`、`insufficient`、`unreasonable`：
+**某个组织中本地部署应用的数量：**
+```
+COUNT(FILTER(relations.relOrgToApp, "attributes.hostingType", "onPremise"))
+```
+
+**从子卡片汇总成本：**
+```
+SUM(PLUCK(children, "attributes.costTotalAnnual"))
+```
+
+**TIME 模型定位（Tolerate / Invest / Migrate / Eliminate）**，与您在新建计算时于**管理员 → 元模型 → 计算**中的**公式参考**面板看到的示例相同。目标类型 = `Application`，目标字段 = `timeModel`。假定您已添加两个名为 `businessFit` 和 `technicalFit` 的 `single_select` 字段，选项为 `excellent`、`adequate`、`insufficient`、`unreasonable`：
 ```
 # ── TIME Model (Tolerate / Invest / Migrate / Eliminate) ──
 # Assumes single_select fields: businessFit and technicalFit
@@ -98,22 +197,48 @@ tf = MAP_SCORE(data.technicalFit, {"excellent": 4, "adequate": 3, "insufficient"
 IF(bf is None or tf is None, None, IF(bf >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))
 ```
 
+如示例所示，公式可以跨多行书写。形如 `名称 = 表达式` 的一行会保存一个中间值供后续行复用，
+而最后一行的值就是写入目标字段的结果。
+
 这也是 [EA 新手指南](../beginners-guide/customise-the-metamodel.md#option-derive-a-field-automatically-with-a-calculation)所引用的工作示例。
 
 支持使用 `#` 添加**注释**：
 ```
 # Calculate weighted risk score
-IF(businessCriticality == "missionCritical", riskScore * 2, riskScore)
+IF(data.businessCriticality == "missionCritical", data.riskScore * 2, data.riskScore)
 ```
 
-## 运行计算
+## 验证与测试
 
-计算在卡片保存时自动运行。您也可以手动触发计算在目标类型的所有卡片上运行：
+公式编辑器提供两种不同的检查，两者行为并不相同：
 
-1. 在列表中找到计算
-2. 点击**运行**按钮
-3. 公式对每张匹配的卡片求值并保存结果
+* **验证**在一张合成卡片上运行公式。每个数值字段都会被赋予虚拟值 `1`，而且这张卡片
+  **没有关系、没有子卡片、也没有自己的父卡片数据**。它可以确认语法能够解析、所用名称确实存
+  在，但聚合 `relations` 或 `children` 的公式在这里始终显示 `0` 或空结果。这是预期行为，并
+  不代表公式有问题。
+* **测试**在已保存的计算上可用，它针对您选定的真实卡片运行。凡是涉及关系、子卡片或父卡片的
+  情况都应使用它。测试不会写入卡片，结果只展示给您。
+
+## 计算何时运行
+
+在以下情况下，卡片的计算会被重新求值：
+
+* 卡片被创建或保存；
+* 涉及该卡片的关系被创建、修改或删除（关系两端都会重新计算）；
+* 卡片被重新指定父级，此时其整个子树都会重新计算；
+* 您从列表中手动运行该计算，此时它会对目标类型的每张卡片求值并保存结果。
+
+当公式所读取的**另一张**卡片被编辑时，计算**不会**重新求值。如果您修改了某个 IT 组件上的成
+本，聚合该成本的应用不会随之变化，直到该应用被保存、它的某个关系发生变化，或您为该类型运行
+了这项计算。对于聚合他人维护数据的场景，请定期运行计算，或在批量导入之后运行。
+
+!!! note "注意"
+    `parent` 和 `hierarchy_level` 派生的值同理：它们在重新指定父级时以及手动运行时刷新，而
+    非在每次编辑父卡片时刷新。请始终用 `IF(parent, …)` 保护 `parent` 引用，以免根卡片
+    （此时 `parent` 为 `None`）报错。
 
 ## 执行顺序
 
-当多个计算针对同一卡片类型时，它们按**执行顺序**值指定的顺序运行。当一个计算依赖于另一个计算的结果时，这很重要 —— 将依赖项设置为先运行（较小的数字）。
+当多个计算针对同一卡片类型时，它们按**执行顺序**值指定的顺序运行。当一个计算依赖于另一个计算的结果时，这很重要：将依赖项设置为先运行（较小的数字）。
+
+Turbo EA 会拒绝形成循环的计算组合，例如字段 A 由字段 B 计算得出，而 B 又由 A 计算得出。
