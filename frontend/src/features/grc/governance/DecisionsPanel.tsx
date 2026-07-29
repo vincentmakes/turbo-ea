@@ -54,6 +54,26 @@ export default function DecisionsPanel() {
     updateAdrGridPrefs({ hiddenColumns: [...next] });
   }, []);
 
+  // Frozen (pinned) columns, owned here for the same reason visibility is:
+  // the column chooser lives in the sidebar, a sibling of the grid.
+  const [frozenColumns, setFrozenColumns] = useState<string[]>(
+    () => loadAdrGridPrefs()?.frozenColumns ?? [],
+  );
+  const handleFrozenColumnsChange = useCallback((next: string[]) => {
+    setFrozenColumns(next);
+    updateAdrGridPrefs({ frozenColumns: next });
+  }, []);
+  const frozenColumnSet = useMemo(() => new Set(frozenColumns), [frozenColumns]);
+  const toggleFrozenColumn = useCallback(
+    (colId: string) =>
+      handleFrozenColumnsChange(
+        frozenColumns.includes(colId)
+          ? frozenColumns.filter((id) => id !== colId)
+          : [...frozenColumns, colId],
+      ),
+    [frozenColumns, handleFrozenColumnsChange],
+  );
+
   const extGridColumns = useExtensionAdrGridColumns();
   const extensionColumns = useMemo(
     () =>
@@ -289,6 +309,8 @@ export default function DecisionsPanel() {
               availableSignatories={availableSignatories}
               hiddenColumns={hiddenColumns}
               onHiddenColumnsChange={handleHiddenColumnsChange}
+              frozenColumns={frozenColumnSet}
+              onToggleFrozen={toggleFrozenColumn}
               extensionColumns={extensionColumns}
             />
           </Box>
@@ -300,6 +322,8 @@ export default function DecisionsPanel() {
               quickFilterText={adrSearch}
               onQuickFilterChange={setAdrSearch}
               hiddenColumns={hiddenColumns}
+              frozenColumns={frozenColumns}
+              onFrozenColumnsChange={handleFrozenColumnsChange}
               onEdit={(adr) => navigate(`/ea-delivery/adr/${adr.id}`)}
               onPreview={(adr) => navigate(`/ea-delivery/adr/${adr.id}/preview`)}
               onDuplicate={handleDuplicate}

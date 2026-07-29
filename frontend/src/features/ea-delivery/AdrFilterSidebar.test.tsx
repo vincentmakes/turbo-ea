@@ -6,6 +6,8 @@ import { ADR_COLUMN_DEFS } from "./adrGridPrefs";
 function renderSidebar(overrides: {
   hiddenColumns?: Set<string>;
   onHiddenColumnsChange?: (next: Set<string>) => void;
+  frozenColumns?: Set<string>;
+  onToggleFrozen?: (colId: string) => void;
   extensionColumns?: { colId: string; label: string }[];
 } = {}) {
   return render(
@@ -21,6 +23,8 @@ function renderSidebar(overrides: {
       availableSignatories={[]}
       hiddenColumns={overrides.hiddenColumns ?? new Set()}
       onHiddenColumnsChange={overrides.onHiddenColumnsChange ?? vi.fn()}
+      frozenColumns={overrides.frozenColumns ?? new Set()}
+      onToggleFrozen={overrides.onToggleFrozen ?? vi.fn()}
       extensionColumns={overrides.extensionColumns ?? []}
     />,
   );

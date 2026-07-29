@@ -702,6 +702,8 @@ export default function ComplianceGrid({
         onToggleCollapsed={() => setFiltersCollapsed((v) => !v)}
         visibleColumns={visibleColumns}
         onVisibleColumnsChange={setVisibleColumns}
+        frozenColumns={columnFreeze.frozenColumns}
+        onToggleFrozen={columnFreeze.toggleFrozen}
         onResetColumns={resetVisibleColumns}
       />
 

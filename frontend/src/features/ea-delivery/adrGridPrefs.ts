@@ -39,6 +39,12 @@ export const ADR_COLUMN_DEFS: { key: string; tKey: string }[] = [
 export interface AdrGridPrefs {
   /** colIds the user unchecked in the column chooser. Absent = all visible. */
   hiddenColumns?: string[];
+  /**
+   * colIds frozen to the leading edge. Owned by the panel (like
+   * `hiddenColumns`) rather than read back out of `columnState`, because the
+   * column chooser lives in a sibling component of the grid.
+   */
+  frozenColumns?: string[];
   /** AG Grid getColumnState() snapshot — order/width/pinning/sort. */
   columnState?: ColumnState[];
   /** AG Grid getFilterModel() snapshot — active per-column filters. */

@@ -750,6 +750,8 @@ export default function RiskRegisterPage() {
           availableCards={availableCards}
           visibleColumns={visibleColumns}
           onVisibleColumnsChange={setVisibleColumns}
+          frozenColumns={columnFreeze.frozenColumns}
+          onToggleFrozen={columnFreeze.toggleFrozen}
           onResetColumns={resetVisibleColumns}
         />
 

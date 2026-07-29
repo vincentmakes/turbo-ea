@@ -450,6 +450,8 @@ export default function AuditLogAdmin() {
           width={sidebarWidth}
           onWidthChange={setSidebarWidth}
           visibleColumns={visibleColumns}
+          frozenColumns={columnFreeze.frozenColumns}
+          onToggleFrozen={columnFreeze.toggleFrozen}
           onVisibleColumnsChange={setVisibleColumns}
           onResetColumns={resetVisibleColumns}
         />

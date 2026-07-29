@@ -21,6 +21,7 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 
 export function FilterSectionHeader({
   label,
@@ -79,18 +80,30 @@ export interface FilterCheckboxItem {
   /** Second line under the label (e.g. a user's email). */
   secondary?: string;
   disabled?: boolean;
+  /**
+   * Column rows only: pass `onToggleFrozen` to render a freeze pin beside
+   * the row (the sidebar twin of the pin on the grid's column header).
+   */
+  frozen?: boolean;
+  onToggleFrozen?: () => void;
 }
 
 export function FilterCheckboxList({ items }: { items: FilterCheckboxItem[] }) {
   return (
     <List dense disablePadding sx={{ mb: 1 }}>
-      {items.map((item) => (
+      {items.map((item) => {
+        const row = (
         <ListItemButton
           key={item.key}
           dense
           disabled={item.disabled}
           onClick={item.onToggle}
-          sx={{ py: 0.25, px: 1, borderRadius: 1 }}
+          sx={{
+            py: 0.25,
+            px: 1,
+            borderRadius: 1,
+            ...(item.onToggleFrozen ? { flex: 1, minWidth: 0 } : {}),
+          }}
         >
           <ListItemIcon sx={{ minWidth: 28 }}>
             <Checkbox
@@ -125,7 +138,19 @@ export function FilterCheckboxList({ items }: { items: FilterCheckboxItem[] }) {
             secondaryTypographyProps={{ fontSize: 11, ml: 0.75, noWrap: true }}
           />
         </ListItemButton>
-      ))}
+        );
+        // The pin sits *beside* the row button, never inside it: a disabled
+        // (locked) row would otherwise swallow its clicks, and a locked
+        // column is exactly the one worth freezing.
+        return item.onToggleFrozen ? (
+          <Box key={item.key} sx={{ display: "flex", alignItems: "center" }}>
+            {row}
+            <ColumnFreezeToggle frozen={!!item.frozen} onToggle={item.onToggleFrozen} />
+          </Box>
+        ) : (
+          row
+        );
+      })}
     </List>
   );
 }

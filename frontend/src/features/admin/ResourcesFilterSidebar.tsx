@@ -34,6 +34,7 @@ import Typography from "@mui/material/Typography";
 import { DateField } from "@/components/DateField";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 import { LAYER_COLORS, STATUS_COLORS } from "@/theme";
 import type { ResourceKind } from "@/types";
 
@@ -163,6 +164,9 @@ interface Props {
   onWidthChange: (w: number) => void;
   visibleColumns: Set<string>;
   onVisibleColumnsChange: (next: Set<string>) => void;
+  /** colIds frozen to the leading edge; the pin on each row toggles one. */
+  frozenColumns: Set<string>;
+  onToggleFrozen: (colId: string) => void;
   onResetColumns?: () => void;
   cardTypeOptions: FilterOption[];
   categoryOptions: FilterOption[];
@@ -282,6 +286,8 @@ export default function ResourcesFilterSidebar({
   onWidthChange,
   visibleColumns,
   onVisibleColumnsChange,
+  frozenColumns,
+  onToggleFrozen,
   onResetColumns,
   cardTypeOptions,
   categoryOptions,
@@ -797,7 +803,6 @@ export default function ResourcesFilterSidebar({
                   const locked = LOCKED_RESOURCE_COLUMNS.has(c.id);
                   const row = (
                     <ListItemButton
-                      key={c.id}
                       dense
                       disabled={locked}
                       onClick={() => toggleColumn(c.id)}
@@ -828,12 +833,28 @@ export default function ResourcesFilterSidebar({
                       />
                     </ListItemButton>
                   );
-                  return locked ? (
-                    <Tooltip key={c.id} title={t("resources.filters.alwaysVisible")} placement="right">
-                      <span>{row}</span>
-                    </Tooltip>
-                  ) : (
-                    row
+                  // The pin is a sibling of the row button, never a child: a
+                  // locked row disables its button (which would swallow the
+                  // click), and a locked column is the one worth freezing.
+                  return (
+                    <Box key={c.id} sx={{ display: "flex", alignItems: "center" }}>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        {locked ? (
+                          <Tooltip
+                            title={t("resources.filters.alwaysVisible")}
+                            placement="right"
+                          >
+                            <span>{row}</span>
+                          </Tooltip>
+                        ) : (
+                          row
+                        )}
+                      </Box>
+                      <ColumnFreezeToggle
+                        frozen={frozenColumns.has(c.id)}
+                        onToggle={() => onToggleFrozen(c.id)}
+                      />
+                    </Box>
                   );
                 })}
               </List>

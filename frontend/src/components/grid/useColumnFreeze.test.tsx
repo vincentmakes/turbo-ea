@@ -202,6 +202,31 @@ describe("useColumnFreeze", () => {
     expect(cols.every((c) => c.pinned === undefined)).toBe(true);
   });
 
+  it("exposes the frozen set and a toggle for the sidebar's Columns tab", () => {
+    const columns: FakeColumn[] = [
+      { colId: "name", pinned: "left" },
+      { colId: "type", pinned: null },
+    ];
+    const { api, setColumnsPinned } = makeApi(columns);
+    const onFrozenChange = vi.fn();
+    const freezeRef = { current: null as ColumnFreeze | null };
+    render(
+      <Harness
+        api={api}
+        columns={columns}
+        onFrozenChange={onFrozenChange}
+        freezeRef={freezeRef}
+      />,
+    );
+
+    expect([...freezeRef.current!.frozenColumns]).toEqual(["name"]);
+
+    // The sidebar pin runs the exact code path the header pin does.
+    freezeRef.current!.toggleFrozen("type");
+    expect(setColumnsPinned).toHaveBeenCalledWith(["type"], "left");
+    expect(onFrozenChange).toHaveBeenCalledWith(["name", "type"]);
+  });
+
   it("leaves column defs alone when the grid persists AG Grid's own state", () => {
     const columns: FakeColumn[] = [{ colId: "name", pinned: null }];
     const { api } = makeApi(columns);

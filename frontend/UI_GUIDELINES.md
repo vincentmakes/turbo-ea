@@ -391,12 +391,13 @@ Take colours from `theme/tokens.ts` (`STATUS_COLORS`, `SEVERITY_COLORS`, `LAYER_
 - An italic **Select all** row with an `indeterminate` checkbox.
 - A selected-count caption and a **Reset** button with a `restart_alt` icon.
 - Locked columns render checked + `disabled`, wrapped in a `<Tooltip placement="right">` explaining why, with `"&.Mui-disabled": { opacity: 0.7 }` so they stay readable.
+- **A freeze pin on every row** — `<ColumnFreezeToggle frozen onToggle/>` (`src/components/grid/ColumnFreezeToggle.tsx`), fed by the page's `columnFreeze.frozenColumns` / `toggleFrozen` (§3.6). It is the discoverable twin of the pin on the column header, and it must be a **sibling** of the `ListItemButton` inside a `Box sx={{ display: "flex" }}` — never a child, because a locked row disables its button and would swallow the pin's click, and a locked column is exactly the one worth freezing. Rows built with the shared `FilterCheckboxList` get it by passing `frozen` / `onToggleFrozen` on the item.
 
 **Filter/column state is persisted** under a `turboea.<page>.prefs` localStorage key through a defensive loader that validates every field and falls back to defaults — a malformed or stale entry must never break the page.
 
 ✅ Do
 - Give each new section a glyph and a count, even when the section holds a single control.
-- Keep the sidebar fully controlled: it receives `filters` / `visibleColumns` and their setters, plus pre-built option lists. It fetches nothing itself.
+- Keep the sidebar fully controlled: it receives `filters` / `visibleColumns` / `frozenColumns` and their setters, plus pre-built option lists. It fetches nothing itself.
 
 ❌ Don't
 - Don't ship a section header without an icon, or an option row that is just a checkbox and text.

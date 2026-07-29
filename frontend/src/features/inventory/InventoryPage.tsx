@@ -311,9 +311,6 @@ export default function InventoryPage() {
   const canViewCostsGlobally = !!(user?.permissions?.["*"] || user?.permissions?.["costs.view"]);
   const canManageStakeholders = !!(user?.permissions?.["*"] || user?.permissions?.["stakeholders.manage"]);
   const gridRef = useRef<AgGridReact>(null);
-  // Per-column freeze toggles in the header. Uncontrolled: the pinned flag is
-  // part of AG Grid's column state, which this page already persists.
-  const columnFreeze = useColumnFreeze(gridRef);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
@@ -506,6 +503,21 @@ export default function InventoryPage() {
     setColumnState(layout ?? undefined);
     setLayoutNonce((n) => n + 1);
   }, []);
+
+  // Per-column freeze, in the header and in the sidebar's Columns tab. The
+  // frozen set is *read* from the layout above rather than kept in a second
+  // piece of state, so it stays right through a saved view being applied:
+  // toggle → setColumnsPinned → onColumnPinned → captureColumnState →
+  // columnState → this list → the sidebar's pins. No `applyFrozen()` here —
+  // `pinned` belongs to the layout this page already persists.
+  const frozenColumns = useMemo(
+    () =>
+      (columnState ?? [])
+        .filter((c) => c.pinned === "left" && c.colId)
+        .map((c) => c.colId),
+    [columnState],
+  );
+  const columnFreeze = useColumnFreeze(gridRef, { frozen: frozenColumns });
 
   // --- Column filters (AG Grid filter model) --------------------------------
   // The grid's own column-filter model, persisted to localStorage and saved
@@ -2807,6 +2819,8 @@ export default function InventoryPage() {
             onSelectedColumnsChange={setSelectedColumns}
             defaultColumns={defaultColumns}
             onResetColumns={handleResetColumns}
+            frozenColumns={columnFreeze.frozenColumns}
+            onToggleFrozen={columnFreeze.toggleFrozen}
             columnState={columnState}
             onApplyColumnState={applyColumnLayout}
             onApplyColumnFilters={applyColumnFilters}
@@ -2834,6 +2848,8 @@ export default function InventoryPage() {
           onSelectedColumnsChange={setSelectedColumns}
           defaultColumns={defaultColumns}
           onResetColumns={handleResetColumns}
+          frozenColumns={columnFreeze.frozenColumns}
+          onToggleFrozen={columnFreeze.toggleFrozen}
           columnState={columnState}
           onApplyColumnState={applyColumnLayout}
           onApplyColumnFilters={applyColumnFilters}

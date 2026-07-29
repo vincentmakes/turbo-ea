@@ -20,11 +20,20 @@
  *      swallowing the preceding `mousedown`) is what stops the same click
  *      from also sorting the column or starting a column drag.
  *
- * Persistence is the caller's: grids that already store a full AG Grid
- * `getColumnState()` snapshot (Inventory, ADR) get pinning persisted for free
- * and pass no options. Grids that only persist a slice of prefs pass
- * `frozen` + `onFrozenChange` and run their column defs through
- * `applyFrozen()`.
+ * The same toggle is offered a second way — a pin on every row of the grid's
+ * Columns tab (`ColumnFreezeToggle`), fed by the `frozenColumns` /
+ * `toggleFrozen` members returned here — so the feature is findable without
+ * hovering a header.
+ *
+ * Persistence is the caller's, in one of two shapes:
+ *
+ *   - **The page already persists a full `getColumnState()` snapshot**
+ *     (Inventory). `pinned` rides along in it, so pass `frozen` derived from
+ *     that snapshot, omit `onFrozenChange`, and do NOT call `applyFrozen()` —
+ *     the page's existing `onColumnPinned` capture closes the loop.
+ *   - **The page persists only a slice of prefs** (Risk, Compliance, Users,
+ *     Resources, Audit log, ADR). Pass `frozen` + `onFrozenChange` and run the
+ *     column defs through `applyFrozen()`, which stamps `pinned` from `frozen`.
  */
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { RefObject } from "react";
@@ -123,13 +132,15 @@ export const columnFreezeSx: SxProps<Theme> = {
 
 export interface UseColumnFreezeOptions {
   /**
-   * Controlled mode: colIds currently frozen to the leading edge. Omit for
-   * grids that persist AG Grid's own column state (they already carry
-   * `pinned`), in which case the hook just toggles the grid and lets the
-   * page's existing `onColumnPinned` capture do the persisting.
+   * colIds currently frozen to the leading edge. Feeds `frozenColumns` (which
+   * the sidebar's pins render from) and `applyFrozen`.
    */
   frozen?: string[];
-  /** Called with the new frozen list after a toggle. Controlled mode only. */
+  /**
+   * Called with the new frozen list after a toggle. Omit when the page
+   * persists AG Grid's own column state — its `onColumnPinned` capture
+   * already records `pinned`, and a second writer would fight it.
+   */
   onFrozenChange?: (frozen: string[]) => void;
 }
 
@@ -142,6 +153,13 @@ export interface ColumnFreeze {
   sx: SxProps<Theme>;
   /** Controlled mode: stamps `pinned` onto column defs from `frozen`. */
   applyFrozen: <T extends ColDef>(cols: T[]) => T[];
+  /** Currently frozen colIds — feeds the sidebar's Columns tab. */
+  frozenColumns: Set<string>;
+  /**
+   * Freeze / unfreeze one column. The header pin runs through this, and so
+   * does the sidebar's per-column pin, so the two can never diverge.
+   */
+  toggleFrozen: (colId: string) => void;
 }
 
 /** Stable id of a column def — what AG Grid reports back as `colId`. */
@@ -176,20 +194,10 @@ export function useColumnFreeze<TData = unknown>(
     [t],
   );
 
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const handler = (event: MouseEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (!target?.closest?.(`.${FREEZE_TOGGLE_CLASS}`)) return;
-      // Keep the click off AG Grid's own header handlers: `mousedown` would
-      // start a column drag, `click` would progress the sort.
-      event.preventDefault();
-      event.stopPropagation();
-      if (event.type !== "click") return;
-
-      const colId = target.closest(".ag-header-cell")?.getAttribute("col-id");
+  // The one place a column's frozen state flips — the header pin and the
+  // sidebar's Columns tab both come through here.
+  const toggleFrozen = useCallback(
+    (colId: string) => {
       const api = apiOf(gridRef.current);
       if (!colId || !api) return;
       const column = api.getColumn(colId);
@@ -206,6 +214,25 @@ export function useColumnFreeze<TData = unknown>(
             .map((c) => c.colId as string),
         );
       }
+    },
+    [gridRef],
+  );
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const handler = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest?.(`.${FREEZE_TOGGLE_CLASS}`)) return;
+      // Keep the click off AG Grid's own header handlers: `mousedown` would
+      // start a column drag, `click` would progress the sort.
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.type !== "click") return;
+
+      const colId = target.closest(".ag-header-cell")?.getAttribute("col-id");
+      if (colId) toggleFrozen(colId);
     };
 
     el.addEventListener("mousedown", handler, true);
@@ -214,11 +241,15 @@ export function useColumnFreeze<TData = unknown>(
       el.removeEventListener("mousedown", handler, true);
       el.removeEventListener("click", handler, true);
     };
-  }, [gridRef]);
+  }, [toggleFrozen]);
 
   // Key on the *contents* of `frozen`, not the array identity — callers hold
   // it in state and would otherwise hand us a fresh array on every render.
   const frozenKey = options.frozen ? JSON.stringify(options.frozen) : null;
+  const frozenColumns = useMemo(
+    () => new Set<string>(frozenKey === null ? [] : (JSON.parse(frozenKey) as string[])),
+    [frozenKey],
+  );
   const applyFrozen = useCallback(
     <T extends ColDef>(cols: T[]): T[] => {
       if (frozenKey === null) return cols;
@@ -232,7 +263,14 @@ export function useColumnFreeze<TData = unknown>(
   // their column defs, and a new object every render would rebuild — and
   // re-hand AG Grid — the whole column set on each one.
   return useMemo(
-    () => ({ containerRef, headerComponentParams, sx: columnFreezeSx, applyFrozen }),
-    [headerComponentParams, applyFrozen],
+    () => ({
+      containerRef,
+      headerComponentParams,
+      sx: columnFreezeSx,
+      applyFrozen,
+      frozenColumns,
+      toggleFrozen,
+    }),
+    [headerComponentParams, applyFrozen, frozenColumns, toggleFrozen],
   );
 }

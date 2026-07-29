@@ -77,7 +77,7 @@ L'inventaire utilise un tableau de données **AG Grid** avec des fonctionnalité
 - **Sélection multiple** -- Sélectionnez plusieurs lignes pour des opérations en masse
 - **Affichage hiérarchique** -- Les relations parent/enfant sont affichées sous forme de chemins de navigation
 - **Configuration des colonnes** -- Afficher, masquer et réorganiser les colonnes
-- **Figer une colonne** -- Survolez l'en-tête d'une colonne et cliquez sur l'icône d'épingle pour figer cette colonne sur le bord gauche, afin qu'elle reste visible lors du défilement horizontal. Cliquez à nouveau sur l'épingle pour la libérer. Les colonnes figées sont mémorisées par tableau, et le même contrôle est disponible dans tous les tableaux de Turbo EA (Registre des risques, Décisions, Constats de conformité, Utilisateurs, Ressources, Journal d'audit).
+- **Figer une colonne** -- Survolez l'en-tête d'une colonne et cliquez sur l'icône d'épingle pour figer cette colonne sur le bord gauche, afin qu'elle reste visible lors du défilement horizontal. Cliquez à nouveau sur l'épingle pour la libérer. Chaque colonne porte également cette épingle dans l'onglet **Colonnes** du panneau de filtres, ce qui permet de figer une colonne sans chercher son en-tête. Les colonnes figées sont mémorisées par tableau, et le même contrôle est disponible dans tous les tableaux de Turbo EA (Registre des risques, Décisions, Constats de conformité, Utilisateurs, Ressources, Journal d'audit).
 
 ### Barre d'outils
 

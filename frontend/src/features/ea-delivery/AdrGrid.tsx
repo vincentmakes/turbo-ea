@@ -86,6 +86,9 @@ interface Props {
    * Locked columns (reference, title) ignore it.
    */
   hiddenColumns: Set<string>;
+  /** colIds frozen to the leading edge — owned by the parent, like `hiddenColumns`. */
+  frozenColumns?: string[];
+  onFrozenColumnsChange?: (next: string[]) => void;
   /**
    * When true, the grid sizes itself to its rows instead of filling a fixed
    * parent height, and the page scroll becomes the single scroll context.
@@ -118,6 +121,8 @@ export default function AdrGrid({
   quickFilterText,
   onQuickFilterChange,
   hiddenColumns,
+  frozenColumns,
+  onFrozenColumnsChange,
   autoHeight = false,
 }: Props) {
   const { t } = useTranslation("delivery");
@@ -127,9 +132,14 @@ export default function AdrGrid({
   const { formatDate } = useDateFormat();
   const extColumns = useExtensionAdrGridColumns();
   const gridRef = useRef<AgGridReact>(null);
-  // Per-column freeze toggles in the header. Uncontrolled: the pinned flag
-  // rides along in the column state `captureColumnState` already persists.
-  const columnFreeze = useColumnFreeze(gridRef);
+  // Per-column freeze, in the header and in the sidebar's Columns tab. The
+  // frozen set is owned by the parent (the chooser is a sibling component),
+  // so `pinned` is stamped on from `applyFrozen` and stripped from the
+  // restored column-state snapshot below — one owner, no tug of war.
+  const columnFreeze = useColumnFreeze(gridRef, {
+    frozen: frozenColumns ?? [],
+    onFrozenChange: (next) => onFrozenColumnsChange?.(next),
+  });
 
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
@@ -457,6 +467,11 @@ export default function AdrGrid({
     [t, typeColorMap, formatDate, extColumns, hiddenColumns],
   );
 
+  const frozenColumnDefs = useMemo(
+    () => columnFreeze.applyFrozen(columnDefs),
+    [columnDefs, columnFreeze],
+  );
+
   // Reflect the grid's column-filter model into `hasColumnFilters` (drives
   // the toolbar "Clear column filters" button) and persist it. Skips the
   // persist while our own restore runs, so re-applying a model that
@@ -503,15 +518,15 @@ export default function AdrGrid({
 
   // Restore the saved column layout. Keyed on `columnDefs` so it re-applies
   // when the column set changes — extension columns register after the grid
-  // is ready. `hide` is stripped: visibility keeps flowing from
-  // `hiddenColumns`.
+  // is ready. `hide` and `pinned` are stripped: visibility keeps flowing from
+  // `hiddenColumns` and freezing from `frozenColumns`.
   useEffect(() => {
     if (!gridReady || !restorePendingRef.current) return;
     const layout = columnStateRef.current;
     if (!layout || layout.length === 0) return;
     const api = gridRef.current?.api;
     if (!api) return;
-    const state = layout.map(({ hide: _hide, ...rest }) => rest);
+    const state = layout.map(({ hide: _hide, pinned: _pinned, ...rest }) => rest);
     applyingLayoutRef.current = true;
     api.applyColumnState({ state, applyOrder: true });
     applyingLayoutRef.current = false;
@@ -676,7 +691,7 @@ export default function AdrGrid({
             enableRtl={isRtl}
             ref={gridRef}
             rowData={adrs}
-            columnDefs={columnDefs}
+            columnDefs={frozenColumnDefs}
             defaultColDef={defaultColDef}
             quickFilterText={quickFilterText}
             includeHiddenColumnsInQuickFilter

@@ -109,6 +109,9 @@ interface Props {
   availableCards: CardFilterOption[];
   visibleColumns: Set<string>;
   onVisibleColumnsChange: (next: Set<string>) => void;
+  /** colIds frozen to the leading edge; the pin on each row toggles one. */
+  frozenColumns: Set<string>;
+  onToggleFrozen: (colId: string) => void;
   onResetColumns?: () => void;
 }
 
@@ -153,6 +156,8 @@ export default function RiskFilterSidebar({
   availableCards,
   visibleColumns,
   onVisibleColumnsChange,
+  frozenColumns,
+  onToggleFrozen,
   onResetColumns,
 }: Props) {
   const { t } = useTranslation(["grc", "common"]);
@@ -687,6 +692,8 @@ export default function RiskFilterSidebar({
                 checked: visibleColumns.has(c.id),
                 onToggle: () => toggleColumn(c.id),
                 disabled: LOCKED_RISK_COLUMNS.has(c.id),
+                frozen: frozenColumns.has(c.id),
+                onToggleFrozen: () => onToggleFrozen(c.id),
               }))}
             />
           </Box>

@@ -956,6 +956,8 @@ export default function UsersAdmin() {
       onWidthChange={isMobile ? () => {} : setSidebarWidth}
       selectedColumns={selectedColumns}
       onSelectedColumnsChange={setSelectedColumns}
+      frozenColumns={columnFreeze.frozenColumns}
+      onToggleFrozen={columnFreeze.toggleFrozen}
       onResetColumns={handleResetColumns}
     />
   );

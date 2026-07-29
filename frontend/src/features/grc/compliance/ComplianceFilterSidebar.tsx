@@ -84,6 +84,9 @@ interface Props {
   /** Visible column ids; columns not in this set are hidden. */
   visibleColumns: Set<string>;
   onVisibleColumnsChange: (next: Set<string>) => void;
+  /** colIds frozen to the leading edge; the pin on each row toggles one. */
+  frozenColumns: Set<string>;
+  onToggleFrozen: (colId: string) => void;
   /** Reset visible columns to the default (all columns). */
   onResetColumns?: () => void;
   width?: number;
@@ -148,6 +151,8 @@ export default function ComplianceFilterSidebar({
   onToggleCollapsed,
   visibleColumns,
   onVisibleColumnsChange,
+  frozenColumns,
+  onToggleFrozen,
   onResetColumns,
   width = DEFAULT_WIDTH,
 }: Props) {
@@ -477,6 +482,8 @@ export default function ComplianceFilterSidebar({
               checked: visibleColumns.has(c.id),
               onToggle: () => toggleColumn(c.id),
               disabled: LOCKED_COMPLIANCE_COLUMNS.has(c.id),
+              frozen: frozenColumns.has(c.id),
+              onToggleFrozen: () => onToggleFrozen(c.id),
             }))}
           />
         </Box>
