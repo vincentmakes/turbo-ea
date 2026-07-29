@@ -101,29 +101,58 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 
 `SUM`, `AVG`, `MIN` and `MAX` already skip non-numeric entries, so they need no guarding.
 
+Where a blank genuinely means zero across a whole formula, switch on **Treat blank numbers as
+zero** on the calculation instead. Empty fields then evaluate as `0` in arithmetic and in
+`<`, `<=`, `>`, `>=` comparisons, while `==`, `!=` and `is None` keep their normal meaning so
+`COALESCE` and `IF(x is None, …)` still behave. It is off by default, and worth two thoughts
+before turning it on: the result is *stored*, so a field that used to stay empty now holds a
+`0` and counts towards the card's completeness score.
+
 ### PPM Data on Initiative Cards
 
-The PPM module's budget and cost lines are not part of the formula context, but their totals
-are rolled up onto the Initiative card as ordinary attributes, so a formula can read them:
+The `ppm` root exposes the PPM module's budget and cost lines to formulas, split by capex and
+opex and broken down by fiscal year — detail the rolled-up `data.costBudget` /
+`data.costActual` attributes on the card cannot give you.
 
-* `data.costBudget` is the sum of all PPM budget lines for the initiative.
-* `data.costActual` is the sum of the actuals on all PPM cost lines.
+| Variable | Description |
+|----------|-------------|
+| `ppm.capexBudget`, `ppm.opexBudget`, `ppm.totalBudget` | Planned budget, from the PPM budget lines |
+| `ppm.capexPlanned`, `ppm.opexPlanned`, `ppm.totalPlanned` | Planned amounts on the PPM cost lines |
+| `ppm.capexActual`, `ppm.opexActual`, `ppm.totalActual` | Actuals on the PPM cost lines |
+| `ppm.byYear` | The same nine measures per fiscal year, as a list of `{year, capexBudget, …}` |
+| `ppm.currentFiscalYear` | The fiscal year today falls in |
+| `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Cost lines with no date, which count towards the totals but belong to no year |
 
-Both are totals across capex and opex. The per-category and per-fiscal-year breakdown stays in
-the PPM tables and is not exposed to formulas. Because PPM owns these two fields whenever the
-initiative has budget or cost lines, you can read them but you cannot target them with a
-calculation.
-
-From another card, read them through the relation as usual:
+`byYear` is a list rather than a year-keyed object so the ordinary `FILTER` and `PLUCK`
+functions work on it:
 
 ```
-SUM(PLUCK(relations.relInitiativeToApp, "attributes.costBudget"))
+# Total capex budget across all years
+ppm.capexBudget
+
+# Just this fiscal year's capex budget
+SUM(PLUCK(FILTER(ppm.byYear, "year", ppm.currentFiscalYear), "capexBudget"))
+
+# Capex budget of every Initiative linked to this card
+SUM(PLUCK(relations.relInitiativeToApp, "ppm.capexBudget"))
 ```
 
-!!! warning "PPM edits do not trigger a recalculation"
-    Adding or editing a PPM budget or cost line updates `costBudget` / `costActual` on the
-    initiative, but it does not re-run the calculations that read them. Save the card, or run
-    the calculation for the type, to refresh anything derived from these two fields.
+A few rules worth knowing:
+
+* **Fiscal years are named after the calendar year they end in.** With the Fiscal Year Start
+  set to October, 15 Oct 2025 falls in FY2026 and 30 Sep 2025 in FY2025. With the default
+  January start a fiscal year is simply the calendar year.
+* **Budget lines and cost lines get their year from different places.** A budget line carries
+  the fiscal year you typed into it; a cost line's year is derived from its date. If your
+  organisation labels budget lines by the year the period *starts*, the two will disagree.
+* `total*` is the sum of every line, not `capex + opex`. A line whose category is neither
+  (from an import, say) still counts towards the total.
+* A card that is not an Initiative reads every `ppm` measure as `0` with an empty `byYear`, so
+  a formula on the wrong card type returns zero rather than failing.
+
+Editing a PPM budget or cost line re-runs the initiative's calculations, so anything derived
+from this data updates straight away. Cards that read *another* card's PPM data through a
+relation are not refreshed — see [When Calculations Run](#when-calculations-run).
 
 ### Built-in Functions
 
@@ -228,6 +257,17 @@ The formula editor offers two different checks, and they behave differently:
   is the one to use for anything involving relations, children or the parent. Nothing is
   written to the card, the result is only shown to you.
 
+Two more checks run without you asking:
+
+* **A field key that does not exist is refused when you save.** The error names the key and
+  suggests the nearest real one, so `data.LicenseCost` is caught before it reaches a card
+  rather than failing on every one of them. Only the formula and target type are checked, and
+  only when you change them, so an older calculation can still be renamed or reordered.
+* **A `PLUCK` or `FILTER` key that cannot match produces a warning.** Reading a related card's
+  field without the `attributes.` prefix raises no error at all — it quietly returns `0`
+  forever — so a warning is the only way to find out. Warnings never block saving; they appear
+  under the formula and as a chip in the calculations list.
+
 ## When Calculations Run
 
 Calculations for a card are re-evaluated when:
@@ -239,11 +279,14 @@ Calculations for a card are re-evaluated when:
 * you run the calculation manually from the list, which evaluates it for every card of the
   target type and saves the results.
 
+* a PPM budget or cost line on the card changes, for an Initiative.
+
 They are **not** re-evaluated when a different card that this formula reads from is edited.
 If you change a cost on an IT Component, an application that aggregates it will not move
 until that application is saved, a relation on it changes, or you run the calculation for
-the type. For aggregates over data other people maintain, run the calculation periodically
-or after a bulk import.
+the type. The same applies to a card reading a *related* Initiative's `ppm` data. For
+aggregates over data other people maintain, run the calculation periodically or after a bulk
+import.
 
 !!! note
     The same applies to `parent`-derived and `hierarchy_level`-derived values: they refresh

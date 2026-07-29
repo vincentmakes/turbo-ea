@@ -7,8 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [2.34.0] - 2026-07-29
 
+### Added
+- **Calculations can read PPM budget and cost data.** A new `ppm` root exposes an Initiative's capex, opex and total figures for budget, planned and actual spend, both as overall totals and broken down per fiscal year (`ppm.byYear`, a list so the existing `FILTER` and `PLUCK` functions work on it). Cost lines are assigned to a fiscal year using the Fiscal Year Start setting, with a year named after the calendar year it ends in. Related Initiatives expose the same data, so a card can sum the capex of every initiative linked to it. Editing a PPM budget or cost line now re-runs the initiative's calculations, so derived fields no longer wait for the card to be saved by hand.
+- **A calculation can treat blank numbers as zero.** An opt-in switch per calculation, off by default: empty numeric fields then evaluate as `0` in arithmetic and in `<`/`>` comparisons, while `==`, `!=` and `is None` keep their normal meaning. Intended for cost roll-ups where some inputs are simply not filled in yet.
+
 ### Fixed
+- **A formula that referenced a field that does not exist used to fail on every card with a bare «Evaluation error».** Saving such a formula is now refused outright, with a message naming the key and suggesting the nearest real one — the most common cause being the field's *label* used where its *key* was needed.
+- **Formula errors now say what went wrong.** Undefined names and functions are named, an empty field used in arithmetic is identified by key with a pointer to `COALESCE`, and reading `parent` on a root card suggests the `IF(parent, …)` guard. The Test dialog no longer replaces all of this with «Calculation failed».
+- **Reading a related card's field without the `attributes.` prefix now warns.** `SUM(PLUCK(relations.relInitiativeToApp, "CAPEX"))` matches nothing and quietly returns 0 forever; no error is possible on that path, so the calculations list and the formula editor now flag it and suggest the correct key.
+- **Formulas are re-evaluated once per card instead of once per calculation.** Relations, children, the parent and the hierarchy level were rebuilt for every calculation on a card, so a type with six calculations issued six copies of the same queries on every save and on every bulk recalculation.
 - **The Calculations documentation described a formula language that does not exist.** It referenced card fields as bare `fieldKey` instead of `data.fieldKey`, an array variable `related_{type_key}` that the engine never provided (the real one is `relations.<relationTypeKey>`), `lifecycle_endOfLife` instead of `data.lifecycle.endOfLife`, and `PLUCK` examples missing the `attributes.` prefix needed to reach a related card's own fields — so a formula copied from the page either errored or silently returned `0`. The page now documents the real context variables, explains the shape of a related-card entry, covers `LN`, and adds sections on guarding empty values with `COALESCE`, on what Validate and Test each actually run against, on when calculations are re-evaluated, and on reading PPM budget and cost totals from an Initiative card.
+
+### Security
+- **Listing calculations required only a login, not a permission.** Any authenticated user could read every formula and its last error; both now require `admin.metamodel`, in line with the rest of the metamodel configuration. The `calculated-fields` endpoint that non-admin pages depend on stays open.
 
 ## [2.33.2] - 2026-07-29
 

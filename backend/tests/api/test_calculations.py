@@ -306,3 +306,183 @@ class TestActivateDeactivate:
         )
         assert resp2.status_code == 200
         assert resp2.json()["is_active"] is False
+
+
+# -------------------------------------------------------------------
+# Save-time field validation, warnings and blanks-as-zero  (#886)
+# -------------------------------------------------------------------
+
+
+BASE = "/api/v1/calculations"
+
+
+def _payload(**overrides):
+    body = {
+        "name": "Test calc",
+        "target_type_key": "Application",
+        "target_field_key": "costTotalAnnual",
+        "formula": "data.costTotalAnnual * 2",
+    }
+    body.update(overrides)
+    return body
+
+
+class TestUnknownFieldValidation:
+    async def test_unknown_key_is_rejected_and_named(self, client, db, calc_env):
+        # The exact shape reported in #886: the field *label* used where the
+        # *key* was needed. This used to save fine and fail on every card with
+        # a bare "Evaluation error".
+        resp = await client.post(
+            BASE,
+            json=_payload(formula="data.CostTotalAnnual * 2"),
+            headers=auth_headers(calc_env["admin"]),
+        )
+        assert resp.status_code == 400
+        detail = resp.json()["detail"]
+        assert "CostTotalAnnual" in detail
+        assert "costTotalAnnual" in detail  # the suggestion
+
+    async def test_known_key_is_accepted(self, client, db, calc_env):
+        resp = await client.post(BASE, json=_payload(), headers=auth_headers(calc_env["admin"]))
+        assert resp.status_code == 201
+        assert resp.json()["warnings"] == []
+
+    async def test_builtin_card_properties_are_accepted(self, client, db, calc_env):
+        resp = await client.post(
+            BASE,
+            json=_payload(formula='IF(data.status == "ACTIVE", 1, 0)'),
+            headers=auth_headers(calc_env["admin"]),
+        )
+        assert resp.status_code == 201
+
+    async def test_reference_is_accepted(self, client, db, calc_env):
+        # `reference` is supplied by the real context but was missing from the
+        # validator's dummy card, so it would have been rejected on day one.
+        resp = await client.post(
+            BASE,
+            json=_payload(formula="CONCAT(data.reference, data.name)"),
+            headers=auth_headers(calc_env["admin"]),
+        )
+        assert resp.status_code == 201
+
+    async def test_another_calculations_target_field_is_accepted(self, client, db, calc_env):
+        headers = auth_headers(calc_env["admin"])
+        first = await client.post(
+            BASE,
+            json=_payload(name="Derived", target_field_key="derivedScore", formula="1"),
+            headers=headers,
+        )
+        assert first.status_code == 201
+        # Chaining one calculation onto another's output is the case
+        # detect_cycles already assumes exists, so it must not be rejected.
+        second = await client.post(
+            BASE,
+            json=_payload(name="Uses derived", formula="data.derivedScore + 1"),
+            headers=headers,
+        )
+        assert second.status_code == 201
+
+    async def test_renaming_a_grandfathered_calculation_still_works(self, client, db, calc_env):
+        from app.models.calculation import Calculation
+
+        # A row saved before this check existed, or whose field was later
+        # removed from the metamodel. Editing anything other than the formula
+        # must not be blocked.
+        calc = Calculation(
+            name="Legacy",
+            target_type_key="Application",
+            target_field_key="costTotalAnnual",
+            formula="data.longGoneField + 1",
+        )
+        db.add(calc)
+        await db.flush()
+
+        resp = await client.patch(
+            f"{BASE}/{calc.id}",
+            json={"name": "Renamed"},
+            headers=auth_headers(calc_env["admin"]),
+        )
+        assert resp.status_code == 200
+
+    async def test_changing_the_formula_to_an_unknown_key_is_rejected(self, client, db, calc_env):
+        headers = auth_headers(calc_env["admin"])
+        created = await client.post(BASE, json=_payload(), headers=headers)
+        calc_id = created.json()["id"]
+
+        resp = await client.patch(
+            f"{BASE}/{calc_id}", json={"formula": "data.nope + 1"}, headers=headers
+        )
+        assert resp.status_code == 400
+        assert "nope" in resp.json()["detail"]
+
+
+class TestFormulaWarnings:
+    async def test_bare_pluck_key_warns_without_blocking(self, client, db, calc_env):
+        # #886's second formula: no error is possible on this path, it just
+        # sums to 0 forever. A warning is the only way the author can find out.
+        resp = await client.post(
+            BASE,
+            json=_payload(formula='SUM(PLUCK(relations.relAppToITC, "costTotalAnnual"))'),
+            headers=auth_headers(calc_env["admin"]),
+        )
+        assert resp.status_code == 201
+        warnings = resp.json()["warnings"]
+        assert len(warnings) == 1
+        assert "attributes.costTotalAnnual" in warnings[0]
+
+    async def test_validate_endpoint_reports_warnings(self, client, db, calc_env):
+        resp = await client.post(
+            f"{BASE}/validate",
+            json={
+                "formula": 'SUM(PLUCK(children, "costTotalAnnual"))',
+                "target_type_key": "Application",
+            },
+            headers=auth_headers(calc_env["admin"]),
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["valid"] is True
+        assert len(body["warnings"]) == 1
+
+    async def test_validate_reports_an_unknown_key(self, client, db, calc_env):
+        resp = await client.post(
+            f"{BASE}/validate",
+            json={"formula": "data.nope + 1", "target_type_key": "Application"},
+            headers=auth_headers(calc_env["admin"]),
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["valid"] is False
+        assert "nope" in body["error"]
+
+
+class TestBlanksAsZero:
+    async def test_defaults_to_off(self, client, db, calc_env):
+        resp = await client.post(BASE, json=_payload(), headers=auth_headers(calc_env["admin"]))
+        assert resp.json()["blanks_as_zero"] is False
+
+    async def test_round_trips_through_create_and_patch(self, client, db, calc_env):
+        headers = auth_headers(calc_env["admin"])
+        created = await client.post(BASE, json=_payload(blanks_as_zero=True), headers=headers)
+        assert created.json()["blanks_as_zero"] is True
+
+        calc_id = created.json()["id"]
+        patched = await client.patch(
+            f"{BASE}/{calc_id}", json={"blanks_as_zero": False}, headers=headers
+        )
+        assert patched.json()["blanks_as_zero"] is False
+
+
+class TestCalculationReadPermissions:
+    async def test_viewer_cannot_list_calculations(self, client, db, calc_env):
+        # Formulas and their error text are admin-only configuration.
+        resp = await client.get(BASE, headers=auth_headers(calc_env["viewer"]))
+        assert resp.status_code == 403
+
+    async def test_viewer_can_still_read_calculated_fields(self, client, db, calc_env):
+        # Non-admin surfaces (the card detail "calc" badge, the type drawer)
+        # depend on this one staying open.
+        resp = await client.get(
+            f"{BASE}/calculated-fields", headers=auth_headers(calc_env["viewer"])
+        )
+        assert resp.status_code == 200

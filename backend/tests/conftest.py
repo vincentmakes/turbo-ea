@@ -314,6 +314,48 @@ async def create_card(db, *, card_type="Application", name="Test Card", user_id=
     return card
 
 
+async def create_budget_line(db, *, initiative_id, fiscal_year=2025, category="capex", amount=0.0):
+    """Insert a PPM budget line (planned spend for one fiscal year)."""
+    from app.models.ppm_cost_line import PpmBudgetLine
+
+    line = PpmBudgetLine(
+        initiative_id=initiative_id,
+        fiscal_year=fiscal_year,
+        category=category,
+        amount=amount,
+    )
+    db.add(line)
+    await db.flush()
+    return line
+
+
+async def create_cost_line(
+    db,
+    *,
+    initiative_id,
+    category="capex",
+    description="Cost line",
+    planned=0.0,
+    actual=0.0,
+    date=None,
+):
+    """Insert a PPM cost line. ``date`` may be None — such a row counts towards
+    the totals but belongs to no fiscal year."""
+    from app.models.ppm_cost_line import PpmCostLine
+
+    line = PpmCostLine(
+        initiative_id=initiative_id,
+        description=description,
+        category=category,
+        planned=planned,
+        actual=actual,
+        date=date,
+    )
+    db.add(line)
+    await db.flush()
+    return line
+
+
 async def create_relation_type(
     db,
     *,

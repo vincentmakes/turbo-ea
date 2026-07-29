@@ -1156,6 +1156,11 @@
       },
       "CalculationCreate": {
         "properties": {
+          "blanks_as_zero": {
+            "default": false,
+            "title": "Blanks As Zero",
+            "type": "boolean"
+          },
           "description": {
             "anyOf": [
               {
@@ -1204,6 +1209,11 @@
       },
       "CalculationResponse": {
         "properties": {
+          "blanks_as_zero": {
+            "default": false,
+            "title": "Blanks As Zero",
+            "type": "boolean"
+          },
           "created_at": {
             "anyOf": [
               {
@@ -1297,6 +1307,13 @@
               }
             ],
             "title": "Updated At"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
           }
         },
         "required": [
@@ -1313,6 +1330,17 @@
       },
       "CalculationUpdate": {
         "properties": {
+          "blanks_as_zero": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blanks As Zero"
+          },
           "description": {
             "anyOf": [
               {

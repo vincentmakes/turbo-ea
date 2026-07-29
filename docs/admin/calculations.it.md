@@ -106,29 +106,36 @@ protezione.
 
 ### Dati PPM sulle card Initiative
 
-Le righe di budget e di costo del modulo PPM non fanno parte del contesto delle formule, ma i
-loro totali vengono consolidati sulla card Initiative come normali attributi, così una formula
-può leggerli:
+La radice `ppm` espone alle formule le righe di budget e di costo del modulo PPM, divise tra capex e opex e ripartite per esercizio — un dettaglio che gli attributi consolidati `data.costBudget` / `data.costActual` sulla card non possono fornire.
 
-* `data.costBudget` è la somma di tutte le righe di budget PPM dell'iniziativa.
-* `data.costActual` è la somma dei consuntivi di tutte le righe di costo PPM.
+| Variabile | Descrizione |
+|----------|-------------|
+| `ppm.capexBudget`, `ppm.opexBudget`, `ppm.totalBudget` | Budget previsto, dalle righe di budget PPM |
+| `ppm.capexPlanned`, `ppm.opexPlanned`, `ppm.totalPlanned` | Importi previsti sulle righe di costo PPM |
+| `ppm.capexActual`, `ppm.opexActual`, `ppm.totalActual` | Consuntivi sulle righe di costo PPM |
+| `ppm.byYear` | Le stesse nove misure per esercizio, come elenco `{year, capexBudget, …}` |
+| `ppm.currentFiscalYear` | L'esercizio in cui cade la data odierna |
+| `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Righe di costo senza data: contano nei totali, ma non appartengono ad alcun esercizio |
 
-Entrambi sono totali che combinano capex e opex. La suddivisione per categoria e per esercizio
-resta nelle tabelle PPM e non è esposta alle formule. Poiché PPM possiede questi due campi non
-appena l'iniziativa ha righe di budget o di costo, potete leggerli ma non usarli come campo
-target di un calcolo.
-
-Da un'altra card, leggeteli tramite la relazione come di consueto:
+`byYear` è un elenco e non un oggetto indicizzato per anno, così le consuete funzioni `FILTER` e `PLUCK` vi funzionano sopra:
 
 ```
-SUM(PLUCK(relations.relInitiativeToApp, "attributes.costBudget"))
+# Budget capex totale su tutti gli esercizi
+ppm.capexBudget
+
+# Solo il budget capex dell'esercizio corrente
+SUM(PLUCK(FILTER(ppm.byYear, "year", ppm.currentFiscalYear), "capexBudget"))
+
+# Budget capex di ogni Iniziativa collegata a questa card
+SUM(PLUCK(relations.relInitiativeToApp, "ppm.capexBudget"))
 ```
 
-!!! warning "Le modifiche PPM non attivano un ricalcolo"
-    Aggiungere o modificare una riga di budget o di costo PPM aggiorna `costBudget` /
-    `costActual` sull'iniziativa, ma non riesegue i calcoli che li leggono. Salvate la card,
-    oppure eseguite il calcolo per il tipo, per aggiornare tutto ciò che deriva da questi due
-    campi.
+* **Un esercizio prende il nome dall'anno solare in cui termina.** Con inizio a ottobre, il 15 ott 2025 ricade nell'esercizio 2026 e il 30 set 2025 nel 2025. Con l'inizio a gennaio predefinito l'esercizio coincide con l'anno solare.
+* **Righe di budget e righe di costo ricavano l'esercizio da fonti diverse.** Una riga di budget porta l'esercizio che avete inserito; quello di una riga di costo è dedotto dalla sua data. Se la vostra organizzazione denomina gli esercizi dall'anno di *inizio*, i due divergeranno.
+* `total*` è la somma di tutte le righe, non `capex + opex`. Una riga la cui categoria non è né l'una né l'altra (da un'importazione, per esempio) conta comunque nel totale.
+* Una card che non è un'Iniziativa legge tutte le misure `ppm` come `0` con `byYear` vuoto: una formula sul tipo sbagliato restituisce zero anziché fallire.
+
+Modificare una riga di budget o di costo PPM riesegue i calcoli dell'iniziativa, quindi tutto ciò che ne deriva si aggiorna subito. Le card che leggono i dati PPM di *un'altra* card tramite una relazione non vengono aggiornate.
 
 ### Funzioni predefinite
 

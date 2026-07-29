@@ -105,28 +105,36 @@ ingen beskyttelse.
 
 ### PPM-data på Initiative-kort
 
-PPM-modulets budget- og omkostningslinjer indgår ikke i formelkonteksten, men deres totaler
-rulles op på Initiative-kortet som almindelige egenskaber, så en formel kan læse dem:
+Roden `ppm` gør PPM-modulets budget- og omkostningslinjer tilgængelige for formler, opdelt i capex og opex og fordelt på regnskabsår — detaljer, som de sammenlagte attributter `data.costBudget` / `data.costActual` på kortet ikke kan give.
 
-* `data.costBudget` er summen af alle PPM-budgetlinjer for initiativet.
-* `data.costActual` er summen af de faktiske beløb på alle PPM-omkostningslinjer.
+| Variabel | Beskrivelse |
+|----------|-------------|
+| `ppm.capexBudget`, `ppm.opexBudget`, `ppm.totalBudget` | Planlagt budget, fra PPM-budgetlinjerne |
+| `ppm.capexPlanned`, `ppm.opexPlanned`, `ppm.totalPlanned` | Planlagte beløb på PPM-omkostningslinjerne |
+| `ppm.capexActual`, `ppm.opexActual`, `ppm.totalActual` | Faktiske beløb på PPM-omkostningslinjerne |
+| `ppm.byYear` | De samme ni mål pr. regnskabsår, som en liste `{year, capexBudget, …}` |
+| `ppm.currentFiscalYear` | Det regnskabsår, dagens dato falder i |
+| `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Omkostningslinjer uden dato: tæller med i totalerne, men hører til intet år |
 
-Begge er totaler på tværs af capex og opex. Opdelingen pr. kategori og pr. regnskabsår bliver i
-PPM-tabellerne og er ikke tilgængelig for formler. Fordi PPM ejer disse to felter, så snart
-initiativet har budget- eller omkostningslinjer, kan du læse dem, men ikke bruge dem som
-målfelt for en beregning.
-
-Fra et andet kort læser du dem via relationen som sædvanlig:
+`byYear` er en liste og ikke et objekt indekseret efter år, så de sædvanlige funktioner `FILTER` og `PLUCK` virker på den:
 
 ```
-SUM(PLUCK(relations.relInitiativeToApp, "attributes.costBudget"))
+# Samlet capex-budget på tvaers af alle aar
+ppm.capexBudget
+
+# Kun indevaerende regnskabsaars capex-budget
+SUM(PLUCK(FILTER(ppm.byYear, "year", ppm.currentFiscalYear), "capexBudget"))
+
+# Capex-budget for hvert initiativ, der er knyttet til dette kort
+SUM(PLUCK(relations.relInitiativeToApp, "ppm.capexBudget"))
 ```
 
-!!! warning "PPM-ændringer udløser ikke en genberegning"
-    Når du tilføjer eller ændrer en PPM-budget- eller omkostningslinje, opdateres
-    `costBudget` / `costActual` på initiativet, men de beregninger, der læser dem, køres ikke
-    igen. Gem kortet, eller kør beregningen for typen, for at opdatere alt, der udledes af
-    disse to felter.
+* **Et regnskabsår har navn efter det kalenderår, det slutter i.** Med start i oktober falder 15. okt. 2025 i RÅ2026 og 30. sep. 2025 i RÅ2025. Med standardstarten i januar er regnskabsåret blot kalenderåret.
+* **Budgetlinjer og omkostningslinjer henter deres år fra hver sin kilde.** En budgetlinje bærer det regnskabsår, du har indtastet; en omkostningslinjes år udledes af dens dato. Navngiver din organisation regnskabsår efter *startåret*, vil de to være uenige.
+* `total*` er summen af alle linjer, ikke `capex + opex`. En linje med en anden kategori (fra en import, for eksempel) tæller stadig med i totalen.
+* Et kort, der ikke er et initiativ, læser alle `ppm`-mål som `0` med et tomt `byYear`, så en formel på den forkerte korttype returnerer nul i stedet for at fejle.
+
+Redigering af en PPM-budget- eller omkostningslinje kører initiativets beregninger igen, så alt afledt heraf opdateres med det samme. Kort, der læser et *andet* korts PPM-data via en relation, opdateres ikke.
 
 ### Indbyggede funktioner
 

@@ -107,29 +107,36 @@ protección.
 
 ### Datos de PPM en fichas de Iniciativa
 
-Las líneas de presupuesto y de costo del módulo PPM no forman parte del contexto de las
-fórmulas, pero sus totales se consolidan en la ficha de Iniciativa como atributos normales, de
-modo que una fórmula puede leerlos:
+La raíz `ppm` expone a las fórmulas las líneas de presupuesto y de costo del módulo PPM, separadas entre capex y opex y desglosadas por ejercicio fiscal: un detalle que los atributos consolidados `data.costBudget` / `data.costActual` de la ficha no pueden dar.
 
-* `data.costBudget` es la suma de todas las líneas de presupuesto PPM de la iniciativa.
-* `data.costActual` es la suma de los reales de todas las líneas de costo PPM.
+| Variable | Descripción |
+|----------|-------------|
+| `ppm.capexBudget`, `ppm.opexBudget`, `ppm.totalBudget` | Presupuesto previsto, de las líneas de presupuesto de PPM |
+| `ppm.capexPlanned`, `ppm.opexPlanned`, `ppm.totalPlanned` | Importes previstos en las líneas de costo de PPM |
+| `ppm.capexActual`, `ppm.opexActual`, `ppm.totalActual` | Reales en las líneas de costo de PPM |
+| `ppm.byYear` | Las mismas nueve medidas por ejercicio fiscal, como lista `{year, capexBudget, …}` |
+| `ppm.currentFiscalYear` | El ejercicio fiscal en el que cae la fecha de hoy |
+| `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Líneas de costo sin fecha: cuentan en los totales, pero no pertenecen a ningún ejercicio |
 
-Ambos son totales que combinan capex y opex. El desglose por categoría y por ejercicio fiscal
-permanece en las tablas de PPM y no se expone a las fórmulas. Como PPM es propietario de estos
-dos campos en cuanto la iniciativa tiene líneas de presupuesto o de costo, puede leerlos pero
-no puede usarlos como campo objetivo de un cálculo.
-
-Desde otra ficha, léalos a través de la relación como de costumbre:
+`byYear` es una lista y no un objeto indexado por año, de modo que las funciones habituales `FILTER` y `PLUCK` funcionan sobre ella:
 
 ```
-SUM(PLUCK(relations.relInitiativeToApp, "attributes.costBudget"))
+# Presupuesto capex total de todos los ejercicios
+ppm.capexBudget
+
+# Solo el presupuesto capex del ejercicio actual
+SUM(PLUCK(FILTER(ppm.byYear, "year", ppm.currentFiscalYear), "capexBudget"))
+
+# Presupuesto capex de cada Iniciativa vinculada a esta ficha
+SUM(PLUCK(relations.relInitiativeToApp, "ppm.capexBudget"))
 ```
 
-!!! warning "Las ediciones de PPM no disparan un recálculo"
-    Agregar o editar una línea de presupuesto o de costo PPM actualiza `costBudget` /
-    `costActual` en la iniciativa, pero no vuelve a ejecutar los cálculos que los leen. Guarde
-    la ficha, o ejecute el cálculo para el tipo, para actualizar todo lo que derive de estos
-    dos campos.
+* **Un ejercicio fiscal lleva el nombre del año natural en el que termina.** Con inicio en octubre, el 15 oct 2025 cae en el EF2026 y el 30 sep 2025 en el EF2025. Con el inicio en enero por defecto, el ejercicio es simplemente el año natural.
+* **Las líneas de presupuesto y de costo obtienen su ejercicio de fuentes distintas.** Una línea de presupuesto lleva el ejercicio que usted escribió; el de una línea de costo se deduce de su fecha. Si su organización nombra los ejercicios por el año de *inicio*, ambos discreparán.
+* `total*` es la suma de todas las líneas, no `capex + opex`. Una línea cuya categoría no sea ninguna de las dos (de una importación, por ejemplo) sigue contando en el total.
+* Una ficha que no es una Iniciativa lee todas las medidas `ppm` como `0` con `byYear` vacío, así que una fórmula en el tipo equivocado devuelve cero en lugar de fallar.
+
+Editar una línea de presupuesto o de costo de PPM vuelve a ejecutar los cálculos de la iniciativa, así que todo lo derivado se actualiza de inmediato. Las fichas que leen los datos de PPM de *otra* ficha a través de una relación no se refrescan.
 
 ### Funciones Incorporadas
 

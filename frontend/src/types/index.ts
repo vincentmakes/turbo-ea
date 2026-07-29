@@ -351,6 +351,11 @@ export interface Calculation {
   formula: string;
   is_active: boolean;
   execution_order: number;
+  /** Treat an empty numeric field as 0 instead of failing. Opt-in per calculation. */
+  blanks_as_zero?: boolean;
+  /** Advisory: things the formula will do that are probably not intended, and
+   *  that raise no error at runtime (e.g. a PLUCK key missing `attributes.`). */
+  warnings?: string[];
   last_error?: string;
   last_run_at?: string;
   created_by?: string;

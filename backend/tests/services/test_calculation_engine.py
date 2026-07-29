@@ -29,6 +29,7 @@ from app.services.calculation_engine import (
     _UPPER,
     _DotDict,
     _evaluate_formula,
+    base_context_roots,
 )
 
 # ---------------------------------------------------------------------------
@@ -309,19 +310,13 @@ class TestDotDict:
 
 class TestEvaluateFormula:
     def _ctx(self, **data_fields):
-        """Build a minimal context with the given data fields."""
-        return {
-            "data": _DotDict(data_fields),
-            "relations": _DotDict(),
-            "relation_count": _DotDict(),
-            "children": [],
-            "children_count": 0,
-            "parent": None,
-            "hierarchy_level": 1,
-            "None": None,
-            "True": True,
-            "False": False,
-        }
+        """Build a minimal context with the given data fields.
+
+        Uses the engine's own root factory rather than a hand-written literal,
+        so adding a context root cannot leave these tests evaluating against a
+        shape production never sees.
+        """
+        return base_context_roots(data=_DotDict(data_fields))
 
     def test_parent_none_short_circuits(self):
         ctx = self._ctx(businessCriticality=5)

@@ -17,8 +17,10 @@ from app.services.calculation_engine import (
     detect_cycles,
     execute_calculation,
     run_calculations_for_type,
+    unknown_fields_message,
     validate_formula,
 )
+from app.services.calculation_lint import lint_formula
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/calculations", tags=["calculations"])
@@ -34,6 +36,7 @@ class CalculationCreate(BaseModel):
     target_field_key: str = Field(..., max_length=200)
     formula: str = Field(..., max_length=MAX_FORMULA_LENGTH)
     execution_order: int = 0
+    blanks_as_zero: bool = False
 
 
 class CalculationUpdate(BaseModel):
@@ -43,6 +46,7 @@ class CalculationUpdate(BaseModel):
     target_field_key: str | None = Field(None, max_length=200)
     formula: str | None = Field(None, max_length=MAX_FORMULA_LENGTH)
     execution_order: int | None = None
+    blanks_as_zero: bool | None = None
 
 
 class CalculationResponse(BaseModel):
@@ -54,6 +58,11 @@ class CalculationResponse(BaseModel):
     formula: str
     is_active: bool
     execution_order: int
+    blanks_as_zero: bool = False
+    # Advisory only: things the formula will do that are probably not what the
+    # author meant, and that produce no error at runtime. Computed from the
+    # formula text alone (no DB), so it is cheap enough for the list endpoint.
+    warnings: list[str] = Field(default_factory=list)
     last_error: str | None = None
     last_run_at: str | None = None
     created_by: str | None = None
@@ -83,6 +92,8 @@ def _to_response(calc: Calculation) -> CalculationResponse:
         formula=calc.formula,
         is_active=calc.is_active,
         execution_order=calc.execution_order,
+        blanks_as_zero=bool(calc.blanks_as_zero),
+        warnings=list(lint_formula(calc.formula)),
         last_error=calc.last_error,
         last_run_at=calc.last_run_at.isoformat() if calc.last_run_at else None,
         created_by=str(calc.created_by) if calc.created_by else None,
@@ -97,9 +108,14 @@ def _to_response(calc: Calculation) -> CalculationResponse:
 @router.get("", response_model=list[CalculationResponse])
 async def list_calculations(
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     type_key: str | None = Query(None),
 ):
+    # Formulas and their error text are admin-only configuration, and the error
+    # text now names real field keys — authenticated is not authorized. The
+    # non-admin surfaces that need to know *which* fields are calculated use
+    # /calculations/calculated-fields, which stays open.
+    await PermissionService.require_permission(db, user, "admin.metamodel")
     q = select(Calculation).order_by(Calculation.target_type_key, Calculation.execution_order)
     if type_key:
         q = q.where(Calculation.target_type_key == type_key)
@@ -131,8 +147,9 @@ async def get_calculated_fields(
 async def get_calculation(
     calc_id: str,
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "admin.metamodel")
     result = await db.execute(select(Calculation).where(Calculation.id == uuid.UUID(calc_id)))
     calc = result.scalar_one_or_none()
     if not calc:
@@ -147,6 +164,15 @@ async def create_calculation(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "admin.metamodel")
+
+    # Reject a formula that reads a field the target type does not have. This
+    # is the check that would have caught #886's first formula outright, and it
+    # is what makes `blanks_as_zero` safe: once a typo cannot be saved, an empty
+    # value at evaluation time can only mean an empty field.
+    problem = await unknown_fields_message(db, body.formula, body.target_type_key)
+    if problem:
+        raise HTTPException(400, problem)
+
     calc = Calculation(
         name=body.name,
         description=body.description,
@@ -154,6 +180,7 @@ async def create_calculation(
         target_field_key=body.target_field_key,
         formula=body.formula,
         execution_order=body.execution_order,
+        blanks_as_zero=body.blanks_as_zero,
         is_active=False,
         created_by=user.id,
     )
@@ -183,6 +210,22 @@ async def update_calculation(
     target_changed = (
         "target_field_key" in updates and updates["target_field_key"] != calc.target_field_key
     )
+    type_changed = (
+        "target_type_key" in updates and updates["target_type_key"] != calc.target_type_key
+    )
+
+    # Only re-validate field references when the formula or the type it runs
+    # against actually changed. A calculation saved before this check existed
+    # can still be renamed or reordered; it is only asked to be correct when
+    # someone edits the part that determines correctness.
+    if formula_changed or type_changed:
+        problem = await unknown_fields_message(
+            db,
+            updates.get("formula", calc.formula),
+            updates.get("target_type_key", calc.target_type_key),
+        )
+        if problem:
+            raise HTTPException(400, problem)
 
     for field, value in updates.items():
         setattr(calc, field, value)
@@ -296,11 +339,12 @@ async def test_calculation(
     # Roll back changes (don't persist)
     await db.rollback()
 
-    # Sanitize error to avoid exposing internal exception details
-    safe_error = "Calculation failed" if error else None
+    # The engine's message is already composed for an admin audience — passing
+    # it through is the whole point of the Test dialog. Replacing it with
+    # "Calculation failed" here is what made #886 impossible to diagnose.
     return {
         "success": success,
-        "error": safe_error,
+        "error": error,
         "computed_value": computed_value,
         "card_name": card_name,
     }

@@ -99,25 +99,36 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 
 ### Initiative 卡片上的 PPM 数据
 
-PPM 模块的预算行与成本行本身不属于公式上下文，但它们的合计会以普通属性的形式汇总到
-Initiative 卡片上，因此公式可以读取：
+`ppm` 根将 PPM 模块的预算行与成本行开放给公式，按 capex 与 opex 拆分并按财年细分 —— 这是卡片上汇总后的 `data.costBudget` / `data.costActual` 属性无法提供的细节。
 
-* `data.costBudget` 是该举措所有 PPM 预算行的合计。
-* `data.costActual` 是所有 PPM 成本行实际值的合计。
+| 变量 | 描述 |
+|----------|-------------|
+| `ppm.capexBudget`, `ppm.opexBudget`, `ppm.totalBudget` | 计划预算，来自 PPM 预算行 |
+| `ppm.capexPlanned`, `ppm.opexPlanned`, `ppm.totalPlanned` | PPM 成本行上的计划金额 |
+| `ppm.capexActual`, `ppm.opexActual`, `ppm.totalActual` | PPM 成本行上的实际金额 |
+| `ppm.byYear` | 按财年划分的同样九项指标，形式为列表 `{year, capexBudget, …}` |
+| `ppm.currentFiscalYear` | 今天所属的财年 |
+| `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | 没有日期的成本行：计入合计，但不属于任何财年 |
 
-两者都是 capex 与 opex 合并后的总额。按类别和按财年的明细仍保留在 PPM 表中，公式无法访问。
-由于举措一旦存在预算行或成本行，这两个字段就归 PPM 所有，因此您可以读取它们，但不能把它们
-设为计算的目标字段。
-
-在其他卡片上，照常通过关系读取：
+`byYear` 是列表而非以年份为键的对象，因此常规的 `FILTER` 和 `PLUCK` 函数可直接作用于它：
 
 ```
-SUM(PLUCK(relations.relInitiativeToApp, "attributes.costBudget"))
+# 所有年度的 capex 预算合计
+ppm.capexBudget
+
+# 仅当前财年的 capex 预算
+SUM(PLUCK(FILTER(ppm.byYear, "year", ppm.currentFiscalYear), "capexBudget"))
+
+# 与此卡片关联的每个举措的 capex 预算
+SUM(PLUCK(relations.relInitiativeToApp, "ppm.capexBudget"))
 ```
 
-!!! warning "PPM 的编辑不会触发重新计算"
-    新增或修改 PPM 预算行、成本行会更新举措上的 `costBudget` / `costActual`，但不会重新运行
-    读取它们的计算。请保存该卡片，或为该类型运行一次计算，以刷新由这两个字段派生出的内容。
+* **财年以其结束所在的日历年命名。** 若财年起始月为 10 月，则 2025 年 10 月 15 日属于 FY2026，2025 年 9 月 30 日属于 FY2025。使用默认的 1 月起始时，财年就等于日历年。
+* **预算行与成本行的年份来源不同。** 预算行携带的是您填写的财年；成本行的年份由其日期推导。若贵组织按期间*开始*的年份为财年命名，两者就会不一致。
+* `total*` 是所有行的合计，而非 `capex + opex`。类别不属于两者之一的行（例如来自导入）仍计入合计。
+* 非举措类型的卡片读取所有 `ppm` 指标均为 `0`，且 `byYear` 为空，因此在错误类型上的公式返回零而不是报错。
+
+编辑 PPM 预算行或成本行会重新运行该举措的计算，因此由此派生的一切会立即更新。通过关系读取*另一张*卡片 PPM 数据的卡片则不会刷新。
 
 ### 内置函数
 

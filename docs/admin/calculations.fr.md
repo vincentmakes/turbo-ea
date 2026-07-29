@@ -107,29 +107,50 @@ besoin de protection.
 
 ### Données PPM sur les fiches Initiative
 
-Les lignes de budget et de coût du module PPM ne font pas partie du contexte des formules, mais
-leurs totaux sont remontés sur la fiche Initiative sous forme d'attributs ordinaires, ce qui
-permet à une formule de les lire :
+La racine `ppm` expose au moteur de formules les lignes de budget et de coût du module PPM,
+ventilées entre capex et opex et réparties par exercice — un détail que les attributs
+`data.costBudget` / `data.costActual` consolidés sur la fiche ne peuvent pas donner.
 
-* `data.costBudget` correspond à la somme de toutes les lignes de budget PPM de l'initiative.
-* `data.costActual` correspond à la somme des réalisés de toutes les lignes de coût PPM.
+| Variable | Description |
+|----------|-------------|
+| `ppm.capexBudget`, `ppm.opexBudget`, `ppm.totalBudget` | Budget prévu, d'après les lignes de budget PPM |
+| `ppm.capexPlanned`, `ppm.opexPlanned`, `ppm.totalPlanned` | Montants prévus sur les lignes de coût PPM |
+| `ppm.capexActual`, `ppm.opexActual`, `ppm.totalActual` | Réalisés sur les lignes de coût PPM |
+| `ppm.byYear` | Les mêmes neuf mesures par exercice, sous forme de liste `{year, capexBudget, …}` |
+| `ppm.currentFiscalYear` | L'exercice dans lequel tombe la date du jour |
+| `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Lignes de coût sans date : comptées dans les totaux, rattachées à aucun exercice |
 
-Les deux sont des totaux capex et opex confondus. La ventilation par catégorie et par exercice
-reste dans les tables PPM et n'est pas exposée aux formules. Comme PPM est propriétaire de ces
-deux champs dès que l'initiative possède des lignes de budget ou de coût, vous pouvez les lire
-mais pas les cibler avec un calcul.
-
-Depuis une autre fiche, lisez-les via la relation comme d'habitude :
+`byYear` est une liste et non un objet indexé par année, afin que les fonctions `FILTER` et
+`PLUCK` habituelles fonctionnent dessus :
 
 ```
-SUM(PLUCK(relations.relInitiativeToApp, "attributes.costBudget"))
+# Budget capex total, tous exercices confondus
+ppm.capexBudget
+
+# Budget capex du seul exercice en cours
+SUM(PLUCK(FILTER(ppm.byYear, "year", ppm.currentFiscalYear), "capexBudget"))
+
+# Budget capex de chaque initiative liée à cette fiche
+SUM(PLUCK(relations.relInitiativeToApp, "ppm.capexBudget"))
 ```
 
-!!! warning "Les modifications PPM ne déclenchent pas de recalcul"
-    L'ajout ou la modification d'une ligne de budget ou de coût PPM met à jour `costBudget` /
-    `costActual` sur l'initiative, mais ne relance pas les calculs qui les lisent. Sauvegardez
-    la fiche, ou exécutez le calcul pour le type, afin d'actualiser tout ce qui dérive de ces
-    deux champs.
+Quelques règles à connaître :
+
+* **Un exercice porte le nom de l'année civile où il se termine.** Avec un début d'exercice en
+  octobre, le 15 oct. 2025 relève de l'exercice 2026 et le 30 sept. 2025 de l'exercice 2025.
+  Avec le début en janvier par défaut, l'exercice correspond simplement à l'année civile.
+* **Les lignes de budget et de coût tirent leur exercice de sources différentes.** Une ligne de
+  budget porte l'exercice que vous avez saisi ; celui d'une ligne de coût est déduit de sa
+  date. Si votre organisation nomme les exercices d'après leur année de *début*, les deux
+  divergeront.
+* `total*` est la somme de toutes les lignes, pas `capex + opex`. Une ligne dont la catégorie
+  n'est ni l'une ni l'autre (issue d'un import, par exemple) compte quand même dans le total.
+* Une fiche qui n'est pas une Initiative lit toutes les mesures `ppm` à `0` avec un `byYear`
+  vide : une formule sur le mauvais type de fiche renvoie zéro au lieu d'échouer.
+
+Modifier une ligne de budget ou de coût PPM relance les calculs de l'initiative, si bien que
+tout ce qui en dérive est mis à jour immédiatement. Les fiches qui lisent les données PPM d'une
+*autre* fiche via une relation ne sont pas rafraîchies.
 
 ### Fonctions intégrées
 

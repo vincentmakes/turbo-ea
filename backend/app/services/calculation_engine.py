@@ -14,7 +14,12 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
-from simpleeval import EvalWithCompoundTypes, FunctionNotDefined, NameNotDefined
+from simpleeval import (
+    DEFAULT_OPERATORS,
+    EvalWithCompoundTypes,
+    InvalidExpression,
+    NameNotDefined,
+)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,6 +28,21 @@ from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
+from app.services.calculation_lint import (
+    data_refs,
+    lint_formula,
+    split_formula_lines,
+    suggest_field,
+    unknown_field_refs,
+)
+from app.services.calculation_ppm import (
+    INITIATIVE_TYPE,
+    build_ppm_map,
+    empty_ppm,
+    fiscal_year_for,
+    get_fiscal_year_start,
+    needs_ppm,
+)
 from app.services.hierarchy import compute_hierarchy_level
 
 logger = logging.getLogger("turboea.calculations")
@@ -199,11 +219,19 @@ class _DotDict(dict):
         self[key] = value
 
 
-async def _build_context(db: AsyncSession, card: Card) -> dict[str, Any]:
-    """Build the data context dict for a card's formula evaluation."""
-    # Base card data
-    attrs = dict(card.attributes or {})
-    data = _DotDict(
+def card_data(card: Card) -> _DotDict:
+    """The ``data`` root: the card's own fields and built-in properties.
+
+    Cheap and pure, and deliberately re-derived for every calculation rather
+    than shared: one calculation routinely reads a field an earlier one just
+    wrote (which is exactly what ``detect_cycles`` guards), so this view has to
+    reflect writes made moments ago.
+
+    Keys must stay in step with ``calculation_lint.BUILTIN_CARD_PROPS`` — that
+    constant is what the save-time validator accepts, so a property provided
+    here but missing there would be rejected in a formula that works.
+    """
+    return _DotDict(
         {
             "name": card.name,
             "description": card.description,
@@ -212,10 +240,30 @@ async def _build_context(db: AsyncSession, card: Card) -> dict[str, Any]:
             "subtype": card.subtype,
             "reference": card.reference,
             "lifecycle": _DotDict(card.lifecycle or {}),
-            **attrs,
+            **dict(card.attributes or {}),
         }
     )
 
+
+async def build_shared_context(
+    db: AsyncSession,
+    card: Card,
+    *,
+    needs_ppm_data: bool = False,
+    fiscal_year_start: int | None = None,
+) -> dict[str, Any]:
+    """Everything in the context that does NOT change between calculations.
+
+    Relations, children, the parent and the hierarchy level are the same for
+    every calculation on a card, but the old code rebuilt them once per
+    calculation — so a type with six calculations issued six copies of the same
+    queries, on a path that ``workspace_io`` walks over every card in the
+    database. Splitting the invariant part out lets ``run_calculations_for_card``
+    pay for it once.
+
+    ``needs_ppm_data`` gates the PPM aggregation so workspaces with no PPM
+    formulas pay nothing for it.
+    """
     # Relations data — group by relation type key
     relations = _DotDict()
     relation_count = _DotDict()
@@ -241,6 +289,10 @@ async def _build_context(db: AsyncSession, card: Card) -> dict[str, Any]:
         relations[rt_key] = []
         relation_count[rt_key] = 0
 
+    # Wrapper entries paired with the card they describe, so the PPM pass below
+    # can find the Initiatives without re-querying.
+    wrappers: list[tuple[_DotDict, Card]] = []
+
     for rel in all_rels:
         if rel.type not in rel_types:
             continue
@@ -260,6 +312,7 @@ async def _build_context(db: AsyncSession, card: Card) -> dict[str, Any]:
                 "rel_attributes": _DotDict(rel.attributes or {}),
             }
         )
+        wrappers.append((entry, other_card))
         if rel.type not in relations:
             relations[rel.type] = []
         relations[rel.type].append(entry)
@@ -270,8 +323,9 @@ async def _build_context(db: AsyncSession, card: Card) -> dict[str, Any]:
         select(Card).where(Card.parent_id == card.id, Card.status == "ACTIVE")
     )
     children_cards = children_result.scalars().all()
-    children = [
-        _DotDict(
+    children = []
+    for c in children_cards:
+        entry = _DotDict(
             {
                 "id": str(c.id),
                 "name": c.name,
@@ -280,8 +334,8 @@ async def _build_context(db: AsyncSession, card: Card) -> dict[str, Any]:
                 "attributes": _DotDict(c.attributes or {}),
             }
         )
-        for c in children_cards
-    ]
+        wrappers.append((entry, c))
+        children.append(entry)
 
     # Parent card (same ACTIVE filter as children/relations). None — not an
     # empty dict — when absent so `IF(parent, parent.attributes.x, …)` and
@@ -301,14 +355,33 @@ async def _build_context(db: AsyncSession, card: Card) -> dict[str, Any]:
                     "attributes": _DotDict(parent_card.attributes or {}),
                 }
             )
+            wrappers.append((parent, parent_card))
 
     # Hierarchy depth (1 = root). Computed live so it's independent of the
     # persisted attributes.hierarchyLevel (immune to sync/backfill ordering)
     # and defined for non-hierarchical types too (always 1).
     hierarchy_level = await compute_hierarchy_level(db, card.parent_id, exclude={card.id})
 
+    # PPM budget/cost aggregates — the card's own under `ppm`, and every
+    # related/child/parent Initiative's under that wrapper's `ppm` key, so
+    # `PLUCK(relations.relInitiativeToApp, "ppm.capexBudget")` resolves. Two
+    # grouped queries for all of them together, never one per card.
+    ppm: dict[str, Any] = empty_ppm()
+    if needs_ppm_data:
+        if fiscal_year_start is None:
+            fiscal_year_start = await get_fiscal_year_start(db)
+        initiative_ids = [c.id for _entry, c in wrappers if c.type == INITIATIVE_TYPE]
+        if card.type == INITIATIVE_TYPE:
+            initiative_ids.append(card.id)
+        aggregates = await build_ppm_map(db, initiative_ids, start_month=fiscal_year_start)
+        blank = empty_ppm(fiscal_year_for(datetime.now(timezone.utc).date(), fiscal_year_start))
+        for entry, other in wrappers:
+            if other.type == INITIATIVE_TYPE:
+                entry["ppm"] = aggregates.get(str(other.id), blank)
+        ppm = aggregates.get(str(card.id), blank)
+
     return {
-        "data": data,
+        "ppm": _DotDict(ppm),
         "relations": relations,
         "relation_count": relation_count,
         "children": children,
@@ -319,6 +392,50 @@ async def _build_context(db: AsyncSession, card: Card) -> dict[str, Any]:
         "True": True,
         "False": False,
     }
+
+
+def base_context_roots(**overrides: Any) -> dict[str, Any]:
+    """Every root the evaluator expects, with inert defaults.
+
+    The single source of truth for the context *shape*. ``validate_formula``'s
+    dummy context and the unit-test helpers build on this, so adding a root can
+    never again leave one of them raising ``NameNotDefined`` for a formula that
+    works in production.
+    """
+    roots: dict[str, Any] = {
+        "data": _DotDict(),
+        "relations": _DotDict(),
+        "relation_count": _DotDict(),
+        "children": [],
+        "children_count": 0,
+        "parent": None,
+        "hierarchy_level": 1,
+        "ppm": _DotDict(empty_ppm()),
+        "None": None,
+        "True": True,
+        "False": False,
+    }
+    roots.update(overrides)
+    return roots
+
+
+def compose_context(shared: dict[str, Any], card: Card) -> dict[str, Any]:
+    """Shared roots plus this card's own (possibly just-written) field values."""
+    return {**shared, "data": card_data(card)}
+
+
+async def _build_context(
+    db: AsyncSession,
+    card: Card,
+    *,
+    needs_ppm_data: bool = False,
+    fiscal_year_start: int | None = None,
+) -> dict[str, Any]:
+    """Full evaluation context for a single card."""
+    shared = await build_shared_context(
+        db, card, needs_ppm_data=needs_ppm_data, fiscal_year_start=fiscal_year_start
+    )
+    return compose_context(shared, card)
 
 
 # ── Evaluation engine ────────────────────────────────────────────────
@@ -344,7 +461,77 @@ class _LazyIfEval(EvalWithCompoundTypes):
         return super()._eval_call(node)
 
 
-def _evaluate_formula(formula: str, context: dict[str, Any]) -> Any:
+# ── blanks-as-zero operator table ────────────────────────────────────
+#
+# Opt-in per calculation. Implemented as a replacement *operator table* passed
+# to the evaluator's constructor rather than by overriding `_eval_binop`:
+# simpleeval routes binary ops, unary ops and comparisons through the same
+# `self.operators` mapping, so one table covers all three. Overriding only
+# `_eval_binop` would silently miss `-data.x` and every `>` / `<` comparison.
+#
+# Only ARITHMETIC and the ORDERING comparisons are wrapped. `==` / `!=` / `is`
+# / `in` stay object-identical to the defaults, so `IF(data.x is None, …)` and
+# `COALESCE` keep meaning exactly what they mean today.
+#
+# The wrappers close over DEFAULT_OPERATORS' own functions, not `operator.add`
+# — `safe_add` and `safe_mult` carry simpleeval's IterableTooLong guards, and
+# rebuilding the table from the stdlib would quietly drop them.
+_COERCED_BINARY = (
+    ast.Add,
+    ast.Sub,
+    ast.Mult,
+    ast.Div,
+    ast.FloorDiv,
+    ast.Mod,
+    ast.Pow,
+    ast.Lt,
+    ast.LtE,
+    ast.Gt,
+    ast.GtE,
+)
+_COERCED_UNARY = (ast.UAdd, ast.USub)
+
+
+def _zero_like(other: Any) -> Any:
+    """The additive identity matching the surviving operand's kind."""
+    if isinstance(other, str):
+        return ""
+    if isinstance(other, (list, tuple)):
+        return type(other)()
+    return 0
+
+
+def _null_safe_binary(fn):
+    def wrapped(a, b):
+        if a is None:
+            a = _zero_like(b)
+        if b is None:
+            b = _zero_like(a)
+        return fn(a, b)
+
+    return wrapped
+
+
+def _null_safe_unary(fn):
+    def wrapped(a):
+        return fn(0 if a is None else a)
+
+    return wrapped
+
+
+NULL_SAFE_OPERATORS = {
+    **DEFAULT_OPERATORS,
+    **{op: _null_safe_binary(DEFAULT_OPERATORS[op]) for op in _COERCED_BINARY},
+    **{op: _null_safe_unary(DEFAULT_OPERATORS[op]) for op in _COERCED_UNARY},
+}
+
+
+def _evaluate_formula(
+    formula: str,
+    context: dict[str, Any],
+    *,
+    blanks_as_zero: bool = False,
+) -> Any:
     """Evaluate a formula string in a sandboxed environment.
 
     Supports multi-line formulas with intermediate variable assignments::
@@ -357,9 +544,14 @@ def _evaluate_formula(formula: str, context: dict[str, Any]) -> Any:
     subsequent lines can reference them.  The value of the *last* line is
     returned as the formula result.  ``IF()`` calls are lazily evaluated
     (only the taken branch is computed).
+
+    With ``blanks_as_zero`` the evaluator reads an empty field as ``0`` in
+    arithmetic and ordering comparisons — see ``_BlanksAsZeroEval``.
     """
-    lines = [ln.strip() for ln in formula.strip().splitlines()]
-    lines = [ln for ln in lines if ln and not ln.startswith("#")]
+    # Line splitting lives in calculation_lint so the static checks analyse
+    # exactly what this loop executes, rather than a second interpretation of
+    # the same text that can drift out of sync.
+    lines = split_formula_lines(formula)
 
     if not lines:
         raise ValueError("Empty formula")
@@ -367,47 +559,106 @@ def _evaluate_formula(formula: str, context: dict[str, Any]) -> Any:
     evaluator = _LazyIfEval(
         names=dict(context),  # copy — assignments mutate this
         functions=SAFE_FUNCTIONS,
+        operators=NULL_SAFE_OPERATORS if blanks_as_zero else None,  # None → defaults
     )
 
     result = None
-    for line in lines:
-        # Detect assignment: ``varname = expression``  (but NOT ``==``)
-        # Uses string operations instead of regex to avoid polynomial
-        # backtracking on adversarial input.
-        var_name = None
-        expression = None
-        eq_idx = line.find("=")
-        if eq_idx > 0 and (eq_idx + 1 >= len(line) or line[eq_idx + 1] != "="):
-            # Also reject ``!=`` — check char before ``=``
-            if line[eq_idx - 1] != "!":
-                candidate = line[:eq_idx].rstrip()
-                rest = line[eq_idx + 1 :].lstrip()
-                if candidate.isidentifier() and rest:
-                    var_name = candidate
-                    expression = rest
-        if var_name and expression:
-            value = evaluator.eval(expression)
+    for var_name, expression in lines:
+        value = evaluator.eval(expression)
+        if var_name:
             evaluator.names[var_name] = value
-            result = value
-        else:
-            result = evaluator.eval(line)
+        result = value
 
     return result
+
+
+_MAX_NAMED_BLANKS = 5
+
+
+def _blank_data_refs(formula: str, context: dict[str, Any] | None) -> list[str]:
+    """Field keys the formula reads that are empty on this card."""
+    data = (context or {}).get("data") or {}
+    return sorted(ref for ref in data_refs(formula) if data.get(ref) is None)
+
+
+def describe_error(exc: Exception, formula: str, context: dict[str, Any] | None) -> str:
+    """Turn an evaluation failure into something an author can act on.
+
+    Both callers are gated on ``admin.metamodel``, so naming the offending
+    identifier or field discloses nothing the caller cannot already read.
+
+    ``InvalidExpression`` subclasses are passed through verbatim: simpleeval
+    interpolates only the *formula text* into those, which is admin-authored,
+    never card data. Everything else is composed here, and an unrecognised
+    exception yields its class name alone — so a stray ``RuntimeError``
+    carrying a connection string can never reach the UI.
+
+    This exists because "Evaluation error" told the author of #886 nothing at
+    all, when the engine knew exactly which field was missing.
+    """
+    if isinstance(exc, NameNotDefined):
+        name = getattr(exc, "name", "") or ""
+        data = (context or {}).get("data") or {}
+        if name and name in data:
+            return f"Unknown name '{name}' — card fields are read as 'data.{name}'"
+        return f"Unknown name '{name}' in formula" if name else str(exc)
+
+    if isinstance(exc, ZeroDivisionError):
+        return "Division by zero"
+
+    none_typed = isinstance(exc, TypeError) and "NoneType" in str(exc)
+    if none_typed and "attribute" in str(exc).lower():
+        return (
+            "The formula reads an attribute of something empty — most often "
+            "'parent' on a root card. Guard it with IF(parent, …)."
+        )
+    if none_typed:
+        blanks = _blank_data_refs(formula, context)
+        shown = ", ".join(f"'{b}'" for b in blanks[:_MAX_NAMED_BLANKS])
+        if len(blanks) > _MAX_NAMED_BLANKS:
+            shown += f" and {len(blanks) - _MAX_NAMED_BLANKS} more"
+        subject = f"Field(s) {shown} are empty on this card" if blanks else "An empty value is used"
+        return (
+            f"{subject} and the formula does arithmetic on them. Wrap them in "
+            "COALESCE(field, 0), or switch on 'Treat blank numbers as zero'."
+        )
+
+    if isinstance(exc, InvalidExpression):
+        # Covers FunctionNotDefined, AttributeDoesNotExist, OperatorNotDefined,
+        # FeatureNotAvailable, NumberTooHigh, IterableTooLong — all of which
+        # quote only the formula back at the author.
+        return str(exc)
+
+    if isinstance(exc, ValueError) and str(exc) == "Empty formula":
+        return "Formula is empty"
+
+    return f"Evaluation error ({type(exc).__name__})"
 
 
 async def execute_calculation(
     db: AsyncSession,
     calc: Calculation,
     card: Card,
+    *,
+    shared: dict[str, Any] | None = None,
 ) -> tuple[bool, str | None]:
     """Execute a single calculation for a single card.
 
     Returns (success: bool, error_message: str | None).
     Updates the card's attributes in-place (caller must commit).
+
+    ``shared`` lets a caller running several calculations over one card build
+    the invariant roots once (see ``run_calculations_for_card``). Omitted, this
+    builds its own — so single-calculation callers such as the Test endpoint
+    need no special handling.
     """
+    context: dict[str, Any] | None = None
     try:
-        context = await _build_context(db, card)
-        result = _evaluate_formula(calc.formula, context)
+        if shared is None:
+            context = await _build_context(db, card, needs_ppm_data=needs_ppm(calc.formula))
+        else:
+            context = compose_context(shared, card)
+        result = _evaluate_formula(calc.formula, context, blanks_as_zero=bool(calc.blanks_as_zero))
 
         # Write result to card attributes
         attrs = dict(card.attributes or {})
@@ -419,12 +670,7 @@ async def execute_calculation(
 
         return True, None
 
-    except (NameNotDefined, FunctionNotDefined) as e:
-        logger.warning("Calculation '%s' failed for card %s: %s", calc.name, card.id, e)
-        return False, "Formula references an undefined name or function"
-
     except Exception as e:
-        # Log full error internally but return sanitized message
         logger.warning(
             "Calculation '%s' failed for card %s: %s: %s",
             calc.name,
@@ -432,7 +678,7 @@ async def execute_calculation(
             type(e).__name__,
             e,
         )
-        return False, "Evaluation error"
+        return False, describe_error(e, calc.formula, context)
 
 
 async def run_calculations_for_card(
@@ -441,6 +687,7 @@ async def run_calculations_for_card(
     *,
     exclude_field: str | None = None,
     exclude_fields: set[str] | None = None,
+    fiscal_year_start: int | None = None,
 ) -> list[dict]:
     """Run all active calculations for a card's type, in execution_order.
 
@@ -450,6 +697,8 @@ async def run_calculations_for_card(
         exclude_field: skip calculations targeting this field (loop prevention)
         exclude_fields: skip calculations targeting any of these fields
                         (e.g. PPM-managed cost fields)
+        fiscal_year_start: pre-fetched setting, so a bulk caller looping over
+                        thousands of cards reads it once rather than per card
 
     Returns list of {calculation_id, name, success, error} dicts.
     """
@@ -461,20 +710,37 @@ async def run_calculations_for_card(
         )
         .order_by(Calculation.execution_order, Calculation.created_at)
     )
-    calcs = result.scalars().all()
+    calcs = [
+        calc
+        for calc in result.scalars().all()
+        if not (exclude_field and calc.target_field_key == exclude_field)
+        and not (exclude_fields and calc.target_field_key in exclude_fields)
+    ]
+    if not calcs:
+        return []
+
+    # Relations, children, parent, hierarchy level and PPM aggregates are the
+    # same for every calculation on this card, so they are built once here
+    # rather than once per calculation. Only `data` is re-derived per
+    # calculation, because one calculation may read what an earlier one wrote.
+    shared = await build_shared_context(
+        db,
+        card,
+        needs_ppm_data=any(needs_ppm(calc.formula) for calc in calcs),
+        fiscal_year_start=fiscal_year_start,
+    )
 
     results = []
     for calc in calcs:
-        if exclude_field and calc.target_field_key == exclude_field:
-            continue
-        if exclude_fields and calc.target_field_key in exclude_fields:
-            continue
+        success, error = await execute_calculation(db, calc, card, shared=shared)
 
-        success, error = await execute_calculation(db, calc, card)
-
-        # Update calculation metadata
+        # Update calculation metadata. `last_error` is only assigned when it
+        # actually changes: these rows are shared by every card of the type, and
+        # a rewrite on each card save turns a bulk recalculation into needless
+        # row contention.
         calc.last_run_at = datetime.now(timezone.utc)
-        calc.last_error = error
+        if calc.last_error != error:
+            calc.last_error = error
 
         results.append(
             {
@@ -504,8 +770,11 @@ async def run_calculations_for_type(
     error_count = 0
     errors = []
 
+    # One settings read for the whole run rather than one per card.
+    fiscal_year_start = await get_fiscal_year_start(db)
+
     for card in cards:
-        results = await run_calculations_for_card(db, card)
+        results = await run_calculations_for_card(db, card, fiscal_year_start=fiscal_year_start)
         for r in results:
             if r["success"]:
                 success_count += 1
@@ -522,19 +791,74 @@ async def run_calculations_for_type(
     }
 
 
+async def calculation_target_fields(db: AsyncSession, target_type_key: str) -> set[str]:
+    """Field keys other calculations write on this type.
+
+    A calculation's target need not be a declared schema field, and one
+    calculation routinely reads another's output — the very dependency
+    ``detect_cycles`` exists to police. So these count as known keys for the
+    save-time validation, or chaining two calculations would be rejected.
+    """
+    rows = await db.execute(
+        select(Calculation.target_field_key).where(Calculation.target_type_key == target_type_key)
+    )
+    return {key for key in rows.scalars().all() if key}
+
+
+async def unknown_fields_message(
+    db: AsyncSession, formula: str, target_type_key: str
+) -> str | None:
+    """Complaint about field keys the formula reads that cannot exist, or None.
+
+    This is the check that would have caught #886's first formula immediately:
+    ``data.LicenseCost`` where the key is ``licenseCost``. It runs at save time
+    so the mistake never reaches a card, and it is what lets ``blanks_as_zero``
+    assume a ``None`` means "empty" rather than "misspelt".
+    """
+    type_result = await db.execute(select(CardType).where(CardType.key == target_type_key))
+    card_type = type_result.scalar_one_or_none()
+    if not card_type:
+        return f"Card type '{target_type_key}' not found"
+
+    extra = await calculation_target_fields(db, target_type_key)
+    unknown = unknown_field_refs(formula, card_type.fields_schema, extra=extra)
+    if not unknown:
+        return None
+
+    parts = []
+    for key in unknown:
+        hint = suggest_field(key, card_type.fields_schema, extra=extra)
+        parts.append(f"'{key}' (did you mean '{hint}'?)" if hint else f"'{key}'")
+    return (
+        f"Formula reads {', '.join(parts)}, which "
+        f"{'does' if len(parts) == 1 else 'do'} not exist on {target_type_key}. "
+        "Fields are referenced by key, not by the label shown on the card."
+    )
+
+
 async def validate_formula(formula: str, target_type_key: str, db: AsyncSession) -> dict:
     """Validate a formula without executing it on real data."""
+    warnings = list(lint_formula(formula))
     try:
         if len(formula) > MAX_FORMULA_LENGTH:
             return {
                 "valid": False,
                 "error": f"Formula exceeds maximum length of {MAX_FORMULA_LENGTH} characters",
+                "warnings": warnings,
             }
 
         type_result = await db.execute(select(CardType).where(CardType.key == target_type_key))
         card_type = type_result.scalar_one_or_none()
         if not card_type:
-            return {"valid": False, "error": f"Card type '{target_type_key}' not found"}
+            return {
+                "valid": False,
+                "error": f"Card type '{target_type_key}' not found",
+                "warnings": warnings,
+            }
+
+        unknown = await unknown_fields_message(db, formula, target_type_key)
+        if unknown:
+            return {"valid": False, "error": unknown, "warnings": warnings}
 
         # Build dummy data from fields_schema
         dummy_data = _DotDict(
@@ -544,6 +868,7 @@ async def validate_formula(formula: str, target_type_key: str, db: AsyncSession)
                 "status": "ACTIVE",
                 "approval_status": "DRAFT",
                 "subtype": None,
+                "reference": "TEST-1",
                 "lifecycle": _DotDict({}),
             }
         )
@@ -581,28 +906,21 @@ async def validate_formula(formula: str, target_type_key: str, db: AsyncSession)
             }
         )
 
-        context = {
-            "data": dummy_data,
-            "relations": _DotDict(),
-            "relation_count": _DotDict(),
-            "children": [],
-            "children_count": 0,
-            "parent": dummy_parent,
-            "hierarchy_level": 2,
-            "None": None,
-            "True": True,
-            "False": False,
-        }
+        # Built from the shared root factory so a newly added context root can
+        # never be present in production but missing here — which would report
+        # a working formula as invalid.
+        context = base_context_roots(
+            data=dummy_data,
+            parent=dummy_parent,
+            hierarchy_level=2,
+        )
 
         result = _evaluate_formula(formula, context)
-        return {"valid": True, "error": None, "preview_result": result}
+        return {"valid": True, "error": None, "preview_result": result, "warnings": warnings}
 
-    except (NameNotDefined, FunctionNotDefined):
-        return {"valid": False, "error": "Formula references an undefined name or function"}
     except Exception as e:
-        # Log full error internally but return sanitized message
         logger.warning("Formula validation failed: %s: %s", type(e).__name__, e)
-        return {"valid": False, "error": "Formula validation failed"}
+        return {"valid": False, "error": describe_error(e, formula, None), "warnings": warnings}
 
 
 async def detect_cycles(db: AsyncSession, new_calc: Calculation) -> list[str] | None:

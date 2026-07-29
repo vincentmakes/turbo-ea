@@ -13,6 +13,7 @@ from app.services.calculation_engine import (
     _PLUCK,
     _DotDict,
     _evaluate_formula,
+    base_context_roots,
 )
 
 # ---------------------------------------------------------------------------
@@ -79,18 +80,7 @@ class TestFilterEdgeCases:
 
 class TestEvaluateFormulaExtended:
     def _ctx(self, **data_fields):
-        return {
-            "data": _DotDict(data_fields),
-            "relations": _DotDict(),
-            "relation_count": _DotDict(),
-            "children": [],
-            "children_count": 0,
-            "parent": None,
-            "hierarchy_level": 1,
-            "None": None,
-            "True": True,
-            "False": False,
-        }
+        return base_context_roots(data=_DotDict(data_fields))
 
     def test_assignment_then_use(self):
         """Variable assigned on one line should be available on the next."""

@@ -21,6 +21,10 @@ class Calculation(Base, UUIDMixin, TimestampMixin):
     target_field_key: Mapped[str] = mapped_column(String(200), nullable=False)
     formula: Mapped[str] = mapped_column(Text, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Opt-in: treat an empty numeric field as 0 rather than raising. Safe only
+    # because unknown field keys are rejected at save time, so a None can no
+    # longer be a typo — see services/calculation_lint.py.
+    blanks_as_zero: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     execution_order: Mapped[int] = mapped_column(Integer, default=0)
     last_error: Mapped[str | None] = mapped_column(Text)
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

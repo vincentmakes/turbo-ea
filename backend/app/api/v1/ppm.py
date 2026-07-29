@@ -49,6 +49,7 @@ from app.schemas.ppm import (
     ReporterOut,
 )
 from app.services import notification_service
+from app.services.calculation_engine import run_calculations_for_card
 from app.services.data_quality import calc_data_quality
 from app.services.permission_service import PermissionService
 
@@ -96,8 +97,21 @@ async def _sync_initiative_costs(db: AsyncSession, initiative_id: str) -> None:
     attrs["costActual"] = total_actual if total_actual else None
     card.attributes = attrs
 
+    # Re-run the initiative's calculations so anything derived from PPM data
+    # (a formula over `ppm.capexBudget`, or over the rolled-up totals above)
+    # reflects the edit immediately, rather than waiting for the card to be
+    # saved by hand. `_get_ppm_exclusions` keeps a calculation from writing back
+    # over the two fields PPM owns — without it the rollup and the formula would
+    # overwrite each other on alternate edits. It is computed here, after the
+    # caller's commit, so deleting the last budget line correctly releases
+    # `costBudget` back to calculations.
+    from app.api.v1.cards import _get_ppm_exclusions
+
+    await run_calculations_for_card(db, card, exclude_fields=await _get_ppm_exclusions(db, card))
+
     # Recalculate data quality via the canonical scorer (honours per-type
-    # field weights and the admin-tuned built-in contributor weights).
+    # field weights and the admin-tuned built-in contributor weights). Must run
+    # *after* the calculations, or the score is always one edit stale.
     card.data_quality = await calc_data_quality(db, card)
 
     await db.commit()

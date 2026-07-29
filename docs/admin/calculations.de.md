@@ -107,29 +107,36 @@ brauchen keine Absicherung.
 
 ### PPM-Daten auf Initiative-Karten
 
-Die Budget- und Kostenzeilen des PPM-Moduls gehören nicht zum Formelkontext, aber ihre Summen
-werden als gewöhnliche Attribute auf die Initiative-Karte hochgerollt, sodass eine Formel sie
-lesen kann:
+Die Wurzel `ppm` macht die Budget- und Kostenzeilen des PPM-Moduls für Formeln zugänglich, getrennt nach Capex und Opex und aufgeschlüsselt nach Geschäftsjahr — Detail, das die auf der Karte zusammengefassten Attribute `data.costBudget` / `data.costActual` nicht liefern können.
 
-* `data.costBudget` ist die Summe aller PPM-Budgetzeilen der Initiative.
-* `data.costActual` ist die Summe der Ist-Werte aller PPM-Kostenzeilen.
+| Variable | Beschreibung |
+|----------|-------------|
+| `ppm.capexBudget`, `ppm.opexBudget`, `ppm.totalBudget` | Geplantes Budget, aus den PPM-Budgetzeilen |
+| `ppm.capexPlanned`, `ppm.opexPlanned`, `ppm.totalPlanned` | Geplante Beträge auf den PPM-Kostenzeilen |
+| `ppm.capexActual`, `ppm.opexActual`, `ppm.totalActual` | Ist-Werte auf den PPM-Kostenzeilen |
+| `ppm.byYear` | Dieselben neun Kennzahlen je Geschäftsjahr, als Liste `{year, capexBudget, …}` |
+| `ppm.currentFiscalYear` | Das Geschäftsjahr, in das der heutige Tag fällt |
+| `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Kostenzeilen ohne Datum: zählen zu den Summen, gehören aber zu keinem Jahr |
 
-Beides sind Gesamtwerte über Capex und Opex hinweg. Die Aufschlüsselung nach Kategorie und
-Geschäftsjahr bleibt in den PPM-Tabellen und steht Formeln nicht zur Verfügung. Da PPM diese
-beiden Felder besitzt, sobald die Initiative Budget- oder Kostenzeilen hat, können Sie sie
-lesen, aber nicht mit einer Berechnung als Zielfeld verwenden.
-
-Von einer anderen Karte aus lesen Sie sie wie gewohnt über die Beziehung:
+`byYear` ist eine Liste statt eines nach Jahr indizierten Objekts, damit die gewohnten Funktionen `FILTER` und `PLUCK` darauf arbeiten:
 
 ```
-SUM(PLUCK(relations.relInitiativeToApp, "attributes.costBudget"))
+# Gesamtes Capex-Budget über alle Jahre
+ppm.capexBudget
+
+# Nur das Capex-Budget des laufenden Geschäftsjahres
+SUM(PLUCK(FILTER(ppm.byYear, "year", ppm.currentFiscalYear), "capexBudget"))
+
+# Capex-Budget jeder mit dieser Karte verknüpften Initiative
+SUM(PLUCK(relations.relInitiativeToApp, "ppm.capexBudget"))
 ```
 
-!!! warning "PPM-Änderungen lösen keine Neuberechnung aus"
-    Das Anlegen oder Ändern einer PPM-Budget- oder Kostenzeile aktualisiert `costBudget` /
-    `costActual` auf der Initiative, führt aber die Berechnungen, die davon lesen, nicht erneut
-    aus. Speichern Sie die Karte oder führen Sie die Berechnung für den Typ aus, um alles zu
-    aktualisieren, was aus diesen beiden Feldern abgeleitet ist.
+* **Ein Geschäftsjahr trägt den Namen des Kalenderjahres, in dem es endet.** Bei einem Beginn im Oktober fällt der 15.10.2025 in GJ2026 und der 30.09.2025 in GJ2025. Beim voreingestellten Januar-Beginn entspricht das Geschäftsjahr schlicht dem Kalenderjahr.
+* **Budget- und Kostenzeilen beziehen ihr Jahr aus unterschiedlichen Quellen.** Eine Budgetzeile trägt das Geschäftsjahr, das Sie eingetragen haben; das einer Kostenzeile wird aus ihrem Datum abgeleitet. Benennt Ihre Organisation Geschäftsjahre nach dem *Startjahr*, weichen beide voneinander ab.
+* `total*` ist die Summe aller Zeilen, nicht `capex + opex`. Eine Zeile mit einer anderen Kategorie (etwa aus einem Import) zählt trotzdem zur Summe.
+* Eine Karte, die keine Initiative ist, liest alle `ppm`-Kennzahlen als `0` mit leerem `byYear` — eine Formel auf dem falschen Kartentyp liefert also Null statt zu scheitern.
+
+Das Bearbeiten einer PPM-Budget- oder Kostenzeile führt die Berechnungen der Initiative erneut aus, sodass alles daraus Abgeleitete sofort aktuell ist. Karten, die die PPM-Daten einer *anderen* Karte über eine Beziehung lesen, werden nicht aktualisiert.
 
 ### Eingebaute Funktionen
 
