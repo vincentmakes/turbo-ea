@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.33.2] - 2026-07-29
+
+### Fixed
+- **«Export current view» wrote internal values instead of what the grid shows.** Parent carried a long record identifier — or nothing at all for a card with no parent — and card type, subtype, lifecycle, approval status, tags and any dropdown or multiple-choice field came out as the codes Turbo EA stores rather than the names on screen. Data quality exported a raw number instead of a percentage. Every column now exports its displayed text, in your language. «Export all fields» was never affected and is unchanged.
+- **Grid Edit dropdowns listed internal codes.** Picking a subtype or a single-choice field offered values like `business_app`; they now read as the names shown everywhere else.
+- **A card whose only lifecycle date is in the future counted as having no lifecycle.** It showed a «Plan» badge in the grid but the Lifecycle filter listed it as empty, and it sorted and exported as blank. The badge, the filter, the column and the export now agree.
+
 ## [2.33.1] - 2026-07-28
 
 ### Fixed

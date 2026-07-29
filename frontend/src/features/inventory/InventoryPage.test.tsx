@@ -23,68 +23,131 @@ vi.mock("@/hooks/useAuth", () => ({
 // AG Grid is complex in jsdom — stub it to avoid layout engine issues.
 // The `select-all-rows` escape hatch lets tests drive row selection the way a
 // user would, since the mass-edit toolbar only appears once rows are selected.
-vi.mock("ag-grid-react", () => ({
-  AgGridReact: vi.fn(
-    ({
-      rowData,
-      onSelectionChanged,
-      loading,
-    }: {
-      rowData: unknown[];
-      onSelectionChanged?: (event: { api: { getSelectedRows: () => unknown[] } }) => void;
-      loading?: boolean;
-    }) => (
-      <div
-        data-testid="ag-grid"
-        data-row-count={rowData?.length ?? 0}
-        data-loading={String(Boolean(loading))}
-      >
-        <button
-          data-testid="select-all-rows"
-          onClick={() =>
-            onSelectionChanged?.({ api: { getSelectedRows: () => rowData ?? [] } })
-          }
-        />
-      </div>
+vi.mock("ag-grid-react", () => {
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  /**
+   * The slice of AG Grid's api the page actually calls, faithful enough to
+   * drive "Export current view" — which reads its values back *out of the
+   * grid*, not from `rowData`. `getCellValue` reproduces ValueService: run the
+   * valueGetter, then the valueFormatter, then fall back to the raw value.
+   * That fallback is the whole of issue #887, so the double has to keep it.
+   *
+   * Anything not modelled here answers with a no-op, so a code path that
+   * happens to reach for another api method can't fail the test that isn't
+   * about it.
+   */
+  function makeGridApi(columnDefs: any[], rowData: any[]) {
+    const cols = (columnDefs ?? []).map((def) => ({
+      def,
+      getColId: () => def.colId ?? def.field,
+    }));
+    const stubs: Record<string, any> = {
+      getDisplayedRowCount: () => (rowData ?? []).length,
+      getAllDisplayedColumns: () => cols.filter((c) => !c.def.hide),
+      getDisplayNameForColumn: (c: any) => c.def.headerName,
+      forEachNodeAfterFilterAndSort: (fn: any) =>
+        (rowData ?? []).forEach((data) => fn({ data })),
+      getCellValue: ({ rowNode, colKey, useFormatter }: any) => {
+        const def = colKey.def;
+        const value = def.valueGetter
+          ? def.valueGetter({ data: rowNode.data })
+          : rowNode.data?.[def.field];
+        if (!useFormatter) return value;
+        const formatted = def.valueFormatter?.({ value, data: rowNode.data });
+        return formatted ?? (Array.isArray(value) ? value.join(", ") : value);
+      },
+      getSelectedRows: () => rowData ?? [],
+      getFilterModel: () => ({}),
+    };
+    return new Proxy(stubs, {
+      get: (target, prop: string) => target[prop] ?? (() => undefined),
+    });
+  }
+
+  return {
+    AgGridReact: vi.fn(
+      ({
+        rowData,
+        columnDefs,
+        onSelectionChanged,
+        loading,
+        ref,
+      }: {
+        rowData: unknown[];
+        columnDefs?: unknown[];
+        onSelectionChanged?: (event: {
+          api: { getSelectedRows: () => unknown[] };
+        }) => void;
+        loading?: boolean;
+        ref?: { current: unknown };
+      }) => {
+        // React 19 hands `ref` to a function component as an ordinary prop.
+        if (ref && typeof ref === "object") {
+          ref.current = { api: makeGridApi(columnDefs as any[], rowData) };
+        }
+        return (
+          <div
+            data-testid="ag-grid"
+            data-row-count={rowData?.length ?? 0}
+            data-loading={String(Boolean(loading))}
+          >
+            <button
+              data-testid="select-all-rows"
+              onClick={() =>
+                onSelectionChanged?.({ api: { getSelectedRows: () => rowData ?? [] } })
+              }
+            />
+          </div>
+        );
+      },
     ),
-  ),
-}));
+  };
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+});
 
 // Stub sub-components not under test
 // Stubbed, but with escape hatches so tests can drive filter changes the way a
 // user would — the page has no toolbar search box, all filtering flows through
 // this sidebar.
-vi.mock("./InventoryFilterSidebar", () => ({
-  default: ({
-    filters,
-    onFiltersChange,
-  }: {
-    filters: Record<string, unknown>;
-    onFiltersChange: (f: Record<string, unknown>) => void;
-  }) => (
-    <div data-testid="filter-sidebar">
-      <button
-        data-testid="apply-search"
-        onClick={() => onFiltersChange({ ...filters, search: "SAP" })}
-      />
-      <button
-        data-testid="select-itcomponent"
-        onClick={() => onFiltersChange({ ...filters, types: ["ITComponent"] })}
-      />
-      <button
-        data-testid="select-application"
-        onClick={() => onFiltersChange({ ...filters, types: ["Application"] })}
-      />
-      <button
-        data-testid="select-objective"
-        onClick={() => onFiltersChange({ ...filters, types: ["Objective"] })}
-      />
-    </div>
-  ),
-  CORE_COLUMNS: [],
-  CORE_COLUMN_KEYS: [],
-  LOCKED_COLUMN_KEYS: new Set<string>(),
-}));
+// Only the component is stubbed. The module's data exports (CORE_COLUMN_KEYS,
+// tagsToFilterText, …) are the real ones — the page derives its default column
+// visibility from them, and the export tests assert on the columns that
+// visibility produces, so a hand-written stand-in would test a grid nobody has.
+vi.mock("./InventoryFilterSidebar", async () => {
+  const actual =
+    await vi.importActual<typeof import("./InventoryFilterSidebar")>(
+      "./InventoryFilterSidebar",
+    );
+  return {
+    ...actual,
+    default: ({
+      filters,
+      onFiltersChange,
+    }: {
+      filters: Record<string, unknown>;
+      onFiltersChange: (f: Record<string, unknown>) => void;
+    }) => (
+      <div data-testid="filter-sidebar">
+        <button
+          data-testid="apply-search"
+          onClick={() => onFiltersChange({ ...filters, search: "SAP" })}
+        />
+        <button
+          data-testid="select-itcomponent"
+          onClick={() => onFiltersChange({ ...filters, types: ["ITComponent"] })}
+        />
+        <button
+          data-testid="select-application"
+          onClick={() => onFiltersChange({ ...filters, types: ["Application"] })}
+        />
+        <button
+          data-testid="select-objective"
+          onClick={() => onFiltersChange({ ...filters, types: ["Objective"] })}
+        />
+      </div>
+    ),
+  };
+});
 
 vi.mock("@/components/CreateCardDialog", () => ({
   default: () => null,
@@ -100,6 +163,7 @@ vi.mock("./RelationCellPopover", () => ({
 
 vi.mock("./excelExport", () => ({
   exportToExcel: vi.fn(),
+  exportCurrentViewToExcel: vi.fn(),
 }));
 
 // Stub CSS imports
@@ -110,15 +174,30 @@ import { api } from "@/api/client";
 import { AgGridReact } from "ag-grid-react";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useAuth } from "@/hooks/useAuth";
+import { exportCurrentViewToExcel } from "./excelExport";
 
-/** Just the slice of a colDef the parent-column tests assert on. */
+/** Just the slice of a colDef the column tests assert on. */
 interface ColDefLike {
   colId?: string;
+  /** Attribute and relation columns are declared with `field`, not `colId`. */
+  field?: string;
   headerName?: string;
   editable?: boolean;
   valueGetter?: (params: { data?: never }) => unknown;
   valueSetter?: (params: { data: never; newValue: never }) => boolean;
+  valueFormatter?: (params: { value?: unknown }) => string;
   cellRenderer?: (params: { value: never }) => unknown;
+}
+
+/** The colDefs AG Grid was last rendered with. */
+function columnDefs(): ColDefLike[] {
+  const calls = vi.mocked(AgGridReact).mock.calls;
+  return (calls[calls.length - 1][0] as { columnDefs: ColDefLike[] }).columnDefs;
+}
+
+/** Look a column up by `colId`, falling back to `field`. */
+function col(id: string): ColDefLike | undefined {
+  return columnDefs().find((c) => c.colId === id || c.field === id);
 }
 
 // ---------------------------------------------------------------------------
@@ -185,6 +264,10 @@ const MOCK_CARDS = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // The page persists its filters, column selection and sort to localStorage,
+  // which jsdom keeps for the whole file — so without this a test inherits
+  // whichever columns the previous one happened to leave behind.
+  localStorage.clear();
 
   vi.mocked(useMetamodel).mockReturnValue({
     types: MOCK_TYPES,
@@ -663,14 +746,8 @@ describe("InventoryPage parent column", () => {
     page_size: 500,
   };
 
-  /** The colDefs AG Grid was last rendered with. */
-  function columnDefs() {
-    const calls = vi.mocked(AgGridReact).mock.calls;
-    return (calls[calls.length - 1][0] as { columnDefs: ColDefLike[] }).columnDefs;
-  }
-
   function parentCol() {
-    return columnDefs().find((c) => c.colId === "core_parent");
+    return col("core_parent");
   }
 
   beforeEach(() => {
@@ -700,6 +777,19 @@ describe("InventoryPage parent column", () => {
     // A root card has no parent — the cell stays empty rather than showing itself.
     expect(parentCol()!.valueGetter!({ data: root })).toBeNull();
     expect(parentCol()!.cellRenderer!({ value: null })).toBe("");
+  });
+
+  it("exports the parent's name, not the raw id (issue #887)", async () => {
+    // "Export current view" reads cells through getCellValue({useFormatter}),
+    // which never consults cellRenderer — so the workbook showed the parent's
+    // UUID for a child card and nothing at all for a root one.
+    renderInventory();
+    await waitFor(() => expect(parentCol()).toBeDefined());
+
+    expect(parentCol()!.valueFormatter!({ value: "p1" })).toBe("Finance Suite");
+    expect(parentCol()!.valueFormatter!({ value: null })).toBe("");
+    // An id that resolves to nothing must not leak into the sheet either.
+    expect(parentCol()!.valueFormatter!({ value: "gone" })).toBe("");
   });
 
   it("reads back what the setter wrote", async () => {
@@ -795,5 +885,311 @@ describe("InventoryPage parent column", () => {
     });
 
     expect(await screen.findByText(/would create a hierarchy cycle/i)).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Exported cell values — "Export current view" (issue #887)
+// ---------------------------------------------------------------------------
+
+/**
+ * That export reads every cell with AG Grid's
+ * `getCellValue({ useFormatter: true })`, which returns the column's
+ * `valueFormatter` output or, failing that, the RAW value — it never consults
+ * `cellRenderer`. So each column that renders a key as a label needs a matching
+ * formatter, or the workbook carries internal keys and record ids.
+ *
+ * These tests call the formatters directly, the way `:renders the immediate
+ * parent's name` calls `valueGetter`/`cellRenderer`.
+ */
+describe("InventoryPage exported cell values", () => {
+  // The shared MOCK_TYPES has `label === key` and an empty fields_schema, so it
+  // cannot tell a leaked key apart from a resolved label. This fixture makes
+  // every label differ from its key.
+  const FMT_TYPES = [
+    {
+      key: "Application",
+      label: "Applications & Services",
+      icon: "apps",
+      color: "#0f7eb5",
+      category: "Application & Data",
+      has_hierarchy: true,
+      subtypes: [{ key: "business_app", label: "Customer Facing" }],
+      fields_schema: [
+        {
+          section: "Details",
+          fields: [
+            {
+              key: "criticality",
+              label: "Criticality",
+              type: "single_select",
+              options: [
+                { key: "high", label: "Business Critical" },
+                { key: "low", label: "Nice To Have" },
+              ],
+            },
+            {
+              key: "regions",
+              label: "Regions",
+              type: "multiple_select",
+              options: [
+                { key: "emea", label: "EMEA" },
+                { key: "apac", label: "APAC" },
+              ],
+            },
+          ],
+        },
+      ],
+      is_hidden: false,
+    },
+  ];
+
+  beforeEach(() => {
+    vi.mocked(useMetamodel).mockReturnValue({
+      types: FMT_TYPES,
+      relationTypes: [],
+      loading: false,
+      getType: (key: string) => FMT_TYPES.find((t) => t.key === key),
+      getRelationsForType: () => [],
+      invalidateCache: vi.fn(),
+    });
+  });
+
+  /** Render and narrow to Application, so the subtype and attribute columns
+   * (which only exist for a single selected type) get pushed. */
+  async function renderTyped(path = "/inventory") {
+    renderInventory(path);
+    await userEvent.click(screen.getByTestId("select-application"));
+    await waitFor(() => expect(col("core_subtype")).toBeDefined());
+  }
+
+  it("exports the card type's label, not its key", async () => {
+    await renderTyped();
+    const fmt = col("core_type")!.valueFormatter!;
+    expect(fmt({ value: "Application" })).toBe("Applications & Services");
+    // A type that is no longer in the metamodel degrades to its key rather
+    // than to an empty cell — the key is still more use than nothing.
+    expect(fmt({ value: "Retired" })).toBe("Retired");
+    expect(fmt({ value: undefined })).toBe("");
+  });
+
+  it("exports the subtype's label, not its key", async () => {
+    await renderTyped();
+    const fmt = col("core_subtype")!.valueFormatter!;
+    expect(fmt({ value: "business_app" })).toBe("Customer Facing");
+    expect(fmt({ value: "" })).toBe("");
+    expect(fmt({ value: "unknown_subtype" })).toBe("unknown_subtype");
+  });
+
+  it("exports the lifecycle phase as its translated name", async () => {
+    await renderTyped();
+    const lifecycle = col("core_lifecycle")!;
+    expect(lifecycle.valueGetter!({ data: { lifecycle: { active: "2020-01-01" } } })).toBe(
+      "active",
+    );
+    expect(lifecycle.valueFormatter!({ value: "active" })).toBe("Active");
+    expect(lifecycle.valueGetter!({ data: { lifecycle: {} } })).toBe("");
+    expect(lifecycle.valueFormatter!({ value: "" })).toBe("");
+  });
+
+  it("counts a plan date in the future as Plan, like the badge does", async () => {
+    // The column used to run its own phase walk, which — unlike the
+    // LifecycleBadge it renders — ignored a plan date that hadn't arrived yet.
+    // Invisible while only the badge was on screen; once the cell value is
+    // exported, such a card showed «Plan» and exported a blank cell.
+    await renderTyped();
+    const lifecycle = col("core_lifecycle")!;
+    expect(lifecycle.valueGetter!({ data: { lifecycle: { plan: "2099-01-01" } } })).toBe(
+      "plan",
+    );
+    expect(lifecycle.valueFormatter!({ value: "plan" })).toBe("Plan");
+  });
+
+  it("exports the approval status as its translated name", async () => {
+    await renderTyped();
+    const fmt = col("core_approval_status")!.valueFormatter!;
+    expect(fmt({ value: "APPROVED" })).toBe("Approved");
+    expect(fmt({ value: "DRAFT" })).toBe("Draft");
+    // The chip renders nothing for a status it has no colour for, so neither
+    // does the sheet.
+    expect(fmt({ value: "NONSENSE" })).toBe("");
+    expect(fmt({ value: undefined })).toBe("");
+  });
+
+  it("exports data quality as the percentage the bar is labelled with", async () => {
+    await renderTyped();
+    const fmt = col("core_data_quality")!.valueFormatter!;
+    expect(fmt({ value: 84.6 })).toBe("85%");
+    expect(fmt({ value: 0 })).toBe("0%");
+    expect(fmt({ value: undefined })).toBe("0%");
+  });
+
+  it("exports tag names rather than [object Object]", async () => {
+    await renderTyped();
+    const fmt = col("core_tags")!.valueFormatter!;
+    expect(fmt({ value: [{ name: "Critical" }, { name: "PII" }] })).toBe("Critical, PII");
+    expect(fmt({ value: [] })).toBe("");
+    expect(fmt({ value: undefined })).toBe("");
+  });
+
+  it("exports the archived status as its translated name", async () => {
+    renderInventory("/inventory?show_archived=true");
+    await waitFor(() => expect(col("core_status")).toBeDefined());
+    const fmt = col("core_status")!.valueFormatter!;
+    expect(fmt({ value: "ARCHIVED" })).toBe("Archived");
+    expect(fmt({ value: "ACTIVE" })).toBe("Active");
+  });
+
+  it("exports select-attribute options as their labels", async () => {
+    await renderTyped();
+    const single = col("attr_criticality")!.valueFormatter!;
+    expect(single({ value: "high" })).toBe("Business Critical");
+    expect(single({ value: "" })).toBe("");
+    expect(single({ value: undefined })).toBe("");
+    // An option removed from the metamodel still shows its stored key.
+    expect(single({ value: "retired_option" })).toBe("retired_option");
+
+    const multi = col("attr_regions")!.valueFormatter!;
+    expect(multi({ value: ["emea", "apac"] })).toBe("EMEA, APAC");
+    expect(multi({ value: ["emea"] })).toBe("EMEA");
+    // The valueGetter defaults a missing attribute to "" — not an array.
+    expect(multi({ value: "" })).toBe("");
+    expect(multi({ value: undefined })).toBe("");
+  });
+
+  it("never returns a nullish cell, whatever the column", async () => {
+    // A formatter that returns null or undefined hands AG Grid back the RAW
+    // value, which is the bug these formatters exist to fix. Empty means "",
+    // never nothing.
+    await renderTyped();
+    for (const id of [
+      "core_type",
+      "core_parent",
+      "core_subtype",
+      "core_lifecycle",
+      "core_approval_status",
+      "core_data_quality",
+      "core_tags",
+      "attr_criticality",
+      "attr_regions",
+    ]) {
+      expect(typeof col(id)!.valueFormatter!({ value: undefined })).toBe("string");
+    }
+  });
+
+  it("formats a select editor's options without a row", async () => {
+    // agSelectCellEditor builds its dropdown with
+    // `formatValue(column, null, value)` — no row node, so `params.data` is
+    // null. A formatter that reached for the row would throw and break inline
+    // editing, so the ones behind a select editor must work off `params.value`
+    // alone. (Which is also why the dropdown now lists names, not keys.)
+    await renderTyped();
+    expect(col("core_subtype")!.valueFormatter!({ value: "business_app" })).toBe(
+      "Customer Facing",
+    );
+    expect(col("attr_criticality")!.valueFormatter!({ value: "low" })).toBe(
+      "Nice To Have",
+    );
+    // The editor's leading "" entry (its "clear" option) must stay blank.
+    expect(col("core_subtype")!.valueFormatter!({ value: "" })).toBe("");
+    expect(col("attr_criticality")!.valueFormatter!({ value: "" })).toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// "Export current view" — the wiring between the grid and the workbook
+// ---------------------------------------------------------------------------
+
+describe("InventoryPage current-view export", () => {
+  const HIER_CARDS = {
+    items: [
+      {
+        id: "p1",
+        name: "Finance Suite",
+        type: "Application",
+        subtype: "business_app",
+        status: "ACTIVE",
+        approval_status: "APPROVED",
+        data_quality: 84.6,
+        lifecycle: { active: "2020-01-01" },
+        attributes: {},
+        tags: [{ id: "t1", name: "Critical" }],
+      },
+      {
+        id: "c9",
+        name: "Ledger",
+        type: "Application",
+        parent_id: "p1",
+        status: "ACTIVE",
+        approval_status: "DRAFT",
+        data_quality: 40,
+        lifecycle: {},
+        attributes: {},
+        tags: [],
+      },
+    ],
+    total: 2,
+    page: 1,
+    page_size: 500,
+  };
+
+  beforeEach(() => {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve(HIER_CARDS);
+      if (path.startsWith("/relations")) return Promise.resolve([]);
+      if (path.startsWith("/bookmarks")) return Promise.resolve([]);
+      return Promise.resolve({});
+    });
+  });
+
+  /** The `rows` argument of the last export call, keyed by colId. */
+  async function exportRows(): Promise<Record<string, unknown>[]> {
+    renderInventory();
+    await userEvent.click(screen.getByTestId("select-application"));
+    await waitFor(() => expect(col("core_parent")).toBeDefined());
+
+    await userEvent.click(await screen.findByRole("button", { name: /export/i }));
+    await userEvent.click(await screen.findByText("Export current view"));
+
+    await waitFor(() => expect(exportCurrentViewToExcel).toHaveBeenCalled());
+    const [rows] = vi.mocked(exportCurrentViewToExcel).mock.calls.at(-1)!;
+    return rows;
+  }
+
+  it("hands the workbook displayed text, not internal values (issue #887)", async () => {
+    // The regression this guards: the export reads cells back out of the grid
+    // with useFormatter, so a column whose renderer resolves a key — but that
+    // has no valueFormatter — silently ships its raw key or id instead.
+    const rows = await exportRows();
+    const child = rows.find((r) => r.core_name === "Ledger")!;
+
+    expect(child.core_parent).toBe("Finance Suite");
+    expect(child.core_parent).not.toBe("p1");
+    expect(child.core_type).toBe("Application");
+    expect(child.core_approval_status).toBe("Draft");
+    expect(child.core_data_quality).toBe("40%");
+  });
+
+  it("passes the visible columns and their displayed headers", async () => {
+    renderInventory();
+    await userEvent.click(screen.getByTestId("select-application"));
+    await waitFor(() => expect(col("core_parent")).toBeDefined());
+
+    await userEvent.click(await screen.findByRole("button", { name: /export/i }));
+    await userEvent.click(await screen.findByText("Export current view"));
+
+    await waitFor(() => expect(exportCurrentViewToExcel).toHaveBeenCalled());
+    const [rows, columns] = vi.mocked(exportCurrentViewToExcel).mock.calls.at(-1)!;
+
+    // One entry per row, and every column carries a header — a blank header
+    // would collapse onto the colId in the sheet.
+    expect(rows).toHaveLength(2);
+    expect(columns.length).toBeGreaterThan(0);
+    expect(columns.every((c) => Boolean(c.headerName))).toBe(true);
+    // Headers and values are keyed off the same column list, so every column
+    // must be present on every row — that is what keeps the sheet aligned.
+    for (const row of rows) {
+      for (const c of columns) expect(c.colId in row).toBe(true);
+    }
   });
 });

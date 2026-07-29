@@ -612,7 +612,14 @@ export async function buildExportWorkbook(
 
 /** Render a single grid cell value to a flat string for the current-view
  * export. Mirrors what the grid shows: arrays join with ", ", tag refs
- * collapse to "Group: Tag", and plain objects fall back to their `name`. */
+ * collapse to "Group: Tag", and plain objects fall back to their `name`.
+ *
+ * The array/object branches are a safety net, not the main path: the caller
+ * reads cells through AG Grid's `getCellValue({ useFormatter: true })`, which
+ * has already applied each column's `valueFormatter` (and joined any leftover
+ * array) by the time we see the value. Display text is a column's
+ * responsibility — a column that needs a label instead of a key gets a
+ * `valueFormatter`, it does not get special-cased here. */
 function stringifyViewCell(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (Array.isArray(value)) {
@@ -656,13 +663,19 @@ export function buildCurrentViewWorkbook(
   columns: { colId: string; headerName: string }[],
   options: CurrentViewOptions = {},
 ): XLSX.WorkBook {
-  // Build unique, stable header labels (two columns can share a display name;
-  // object keys can't collide, so disambiguate with the colId on conflict).
+  // Build unique, stable header labels. Two columns can share a display name,
+  // but `json_to_sheet` addresses cells by `header.indexOf(key)`, so two equal
+  // headers would resolve to the same column and silently collapse one of
+  // them. The colId suffix settles the ordinary clash; the counter covers the
+  // case where that suffixed name is itself another column's literal header.
   const usedHeaders = new Set<string>();
   const headerFor = new Map<string, string>();
   for (const col of columns) {
     let header = col.headerName?.trim() || col.colId;
     if (usedHeaders.has(header)) header = `${header} (${col.colId})`;
+    for (let n = 2; usedHeaders.has(header); n++) {
+      header = `${col.headerName?.trim() || col.colId} (${col.colId} ${n})`;
+    }
     usedHeaders.add(header);
     headerFor.set(col.colId, header);
   }

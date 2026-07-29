@@ -138,10 +138,15 @@ export const EMPTY_VALUE = "__empty__";
 export const tagEmptyToken = (groupId: string) => `${EMPTY_VALUE}:${groupId}`;
 
 /**
- * Flatten a card's tags to a plain searchable string (tag names joined).
- * Used as the AG Grid `filterValueGetter` for the Tags column: the cell value
- * is a `TagRef[]`, and AG Grid's default text filter would otherwise stringify
- * it to "[object Object]" and never match a typed tag name (issue #728).
+ * Flatten a card's tags to a plain string (tag names joined) — the text the
+ * Tags column's chips spell out.
+ *
+ * Used twice on that column, for the same underlying reason: as its
+ * `filterValueGetter`, because the cell value is a `TagRef[]` and AG Grid's
+ * default text filter would stringify it to "[object Object]" and never match
+ * a typed tag name (issue #728); and as its `valueFormatter`, because
+ * "Export current view" would otherwise write that same "[object Object]" into
+ * the workbook (issue #887).
  */
 export function tagsToFilterText(tags?: { name: string }[]): string {
   return (tags || []).map((t) => t.name).join(", ");
