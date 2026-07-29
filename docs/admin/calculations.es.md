@@ -242,6 +242,27 @@ El editor de fórmulas ofrece dos comprobaciones distintas, y se comportan de fo
   elige. Es la opción adecuada para todo lo que involucre relaciones, hijos o la ficha
   principal. No se escribe nada en la ficha, el resultado solo se le muestra a usted.
 
+## Leer los resultados de una ejecución manual
+
+Ejecutar un cálculo desde la lista lo evalúa para todas las fichas del tipo de destino e informa
+de lo ocurrido, no solo de cuántas fichas se procesaron. **Ver detalles** en el aviso de
+resultado abre el desglose:
+
+* **Un bloque por cálculo**, con el número de fichas calculadas sin errores y el número de
+  fallidas. Todos los cálculos activos del tipo se ejecutan juntos, así que esto es lo que
+  indica cuál es el culpable.
+* **Una fila por cada error distinto**, con el número de fichas afectadas. Una fórmula
+  incorrecta lo es de la misma manera en todas partes: veintiún fallos suelen ser una sola
+  corrección, no veintiuna.
+* **Las fichas en sí**, listadas bajo cada error y enlazadas, para abrir una y ver los datos que
+  la rompieron. Se listan como máximo diez por error; si hubo más, el resto se muestra como un
+  recuento.
+
+**Copiar informe** coloca todo el desglose en el portapapeles como texto plano.
+
+El indicador de estado en la lista de cálculos refleja la misma ejecución: rojo si alguna ficha
+falló, verde solo cuando todas se calcularon.
+
 ## Cuándo se ejecutan los cálculos
 
 Los cálculos de una ficha se reevalúan cuando:

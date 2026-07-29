@@ -9323,6 +9323,125 @@
         "title": "ProcessFlowVersionUpdate",
         "type": "object"
       },
+      "RecalcCalculationReport": {
+        "properties": {
+          "calculation_id": {
+            "title": "Calculation Id",
+            "type": "string"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "failures": {
+            "items": {
+              "$ref": "#/components/schemas/RecalcFailureGroup"
+            },
+            "title": "Failures",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "succeeded": {
+            "title": "Succeeded",
+            "type": "integer"
+          },
+          "target_field": {
+            "title": "Target Field",
+            "type": "string"
+          }
+        },
+        "required": [
+          "calculation_id",
+          "name",
+          "target_field",
+          "succeeded",
+          "failed"
+        ],
+        "title": "RecalcCalculationReport",
+        "type": "object"
+      },
+      "RecalcCardRef": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "RecalcCardRef",
+        "type": "object"
+      },
+      "RecalcFailureGroup": {
+        "description": "One distinct error message, and the cards it was raised on.\n\nGrouped rather than one row per card: a formula that is wrong is wrong the\nsame way on every card, and a list of twenty-one identical messages hides\nthat it is a single fix.",
+        "properties": {
+          "cards": {
+            "items": {
+              "$ref": "#/components/schemas/RecalcCardRef"
+            },
+            "title": "Cards",
+            "type": "array"
+          },
+          "cards_truncated": {
+            "default": false,
+            "title": "Cards Truncated",
+            "type": "boolean"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "error": {
+            "title": "Error",
+            "type": "string"
+          }
+        },
+        "required": [
+          "error",
+          "count"
+        ],
+        "title": "RecalcFailureGroup",
+        "type": "object"
+      },
+      "RecalcReport": {
+        "properties": {
+          "calculations": {
+            "items": {
+              "$ref": "#/components/schemas/RecalcCalculationReport"
+            },
+            "title": "Calculations",
+            "type": "array"
+          },
+          "calculations_failed": {
+            "title": "Calculations Failed",
+            "type": "integer"
+          },
+          "calculations_succeeded": {
+            "title": "Calculations Succeeded",
+            "type": "integer"
+          },
+          "cards_processed": {
+            "title": "Cards Processed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cards_processed",
+          "calculations_succeeded",
+          "calculations_failed"
+        ],
+        "title": "RecalcReport",
+        "type": "object"
+      },
       "RegisterRequest": {
         "properties": {
           "display_name": {
@@ -19007,7 +19126,7 @@
     },
     "/api/v1/calculations/recalculate/{type_key}": {
       "post": {
-        "description": "Bulk recalculate all cards of a type.",
+        "description": "Bulk recalculate all cards of a type.\n\nReports per calculation how many cards succeeded and failed, and for each\ndistinct error the cards it was raised on \u2014 so a failed run can be acted on\nwithout testing the formula against every card by hand.",
         "operationId": "recalculate_type_api_v1_calculations_recalculate__type_key__post",
         "parameters": [
           {
@@ -19024,7 +19143,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RecalcReport"
+                }
               }
             },
             "description": "Successful Response"

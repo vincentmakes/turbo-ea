@@ -240,6 +240,25 @@ Formeleditoren tilbyder to forskellige kontroller, og de opfører sig ikke ens:
   er den kontrol, du skal bruge til alt, der involverer relationer, underkort eller det
   overordnede kort. Der skrives intet til kortet, resultatet vises kun for dig.
 
+## Sådan læser du resultatet af en manuel kørsel
+
+At køre en beregning fra listen evaluerer den for hvert kort af måltypen og rapporterer, hvad
+der skete — ikke bare hvor mange kort den berørte. **Vis detaljer** i resultatbanneret åbner
+opdelingen:
+
+* **Én blok pr. beregning**, med antallet af kort der blev beregnet uden fejl og antallet der
+  mislykkedes. Alle aktive beregninger på typen kører sammen, så det er her, du kan se hvilken
+  der fejler.
+* **Én række pr. distinkt fejl**, med antallet af kort den optrådte på. En forkert formel er
+  forkert på samme måde overalt, så enogtyve fejl er som regel én rettelse, ikke enogtyve.
+* **Selve kortene**, angivet under hver fejl som links, så du kan åbne et og se de data der fik
+  det til at fejle. Højst ti angives pr. fejl; er der flere, vises resten som et antal.
+
+**Kopiér rapport** lægger hele opdelingen i udklipsholderen som almindelig tekst.
+
+Statusmarkeringen på beregningslisten afspejler samme kørsel: rød hvis blot ét kort mislykkedes,
+grøn kun når alle blev beregnet.
+
 ## Hvornår beregninger kører
 
 Et korts beregninger evalueres igen, når:

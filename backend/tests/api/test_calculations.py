@@ -12,6 +12,7 @@ import pytest
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
 from tests.conftest import (
     auth_headers,
+    create_card,
     create_card_type,
     create_role,
     create_user,
@@ -486,3 +487,129 @@ class TestCalculationReadPermissions:
             f"{BASE}/calculated-fields", headers=auth_headers(calc_env["viewer"])
         )
         assert resp.status_code == 200
+
+
+# -------------------------------------------------------------------
+# POST /calculations/recalculate/{type_key}
+# -------------------------------------------------------------------
+
+
+async def _activate(client, headers, **overrides):
+    """Create and activate a calculation, returning its id.
+
+    Writes to `doubledCost` rather than the field it reads — a calculation whose
+    target is also its input is refused as a dependency cycle.
+    """
+    payload = _payload(target_field_key="doubledCost", **overrides)
+    created = await client.post(BASE, json=payload, headers=headers)
+    assert created.status_code == 201, created.text
+    calc_id = created.json()["id"]
+    activated = await client.post(f"{BASE}/{calc_id}/activate", headers=headers)
+    assert activated.status_code == 200, activated.text
+    return calc_id
+
+
+class TestRecalculateReport:
+    """A manual run has to say which cards failed and why.
+
+    Discussion #886: the counts alone left an admin re-testing the formula
+    against every card by hand to find the twenty-one that broke.
+    """
+
+    async def test_reports_per_calculation_and_names_the_failing_card(self, client, db, calc_env):
+        headers = auth_headers(calc_env["admin"])
+        # `data.costTotalAnnual * 2` succeeds where the field is filled in and
+        # raises on an empty one, which is exactly the reported situation.
+        calc_id = await _activate(client, headers)
+        await create_card(db, name="Filled", attributes={"costTotalAnnual": 10})
+        await create_card(db, name="Empty", attributes={})
+
+        resp = await client.post(f"{BASE}/recalculate/Application", headers=headers)
+        assert resp.status_code == 200, resp.text
+        report = resp.json()
+
+        assert report["cards_processed"] == 2
+        assert report["calculations_succeeded"] == 1
+        assert report["calculations_failed"] == 1
+
+        assert len(report["calculations"]) == 1
+        entry = report["calculations"][0]
+        assert entry["calculation_id"] == calc_id
+        assert entry["target_field"] == "doubledCost"
+        assert entry["succeeded"] == 1
+        assert entry["failed"] == 1
+
+        assert len(entry["failures"]) == 1
+        group = entry["failures"][0]
+        assert group["count"] == 1
+        assert group["cards_truncated"] is False
+        assert [c["name"] for c in group["cards"]] == ["Empty"]
+        # The engine's diagnosis travels through, not a bare "failed".
+        assert "costTotalAnnual" in group["error"]
+
+    async def test_identical_errors_collapse_into_one_group(self, client, db, calc_env):
+        headers = auth_headers(calc_env["admin"])
+        await _activate(client, headers)
+        for i in range(3):
+            await create_card(db, name=f"Empty {i}", attributes={})
+
+        resp = await client.post(f"{BASE}/recalculate/Application", headers=headers)
+        entry = resp.json()["calculations"][0]
+
+        assert entry["failed"] == 3
+        # One formula, one way of being wrong — one row to act on, not three.
+        assert len(entry["failures"]) == 1
+        assert entry["failures"][0]["count"] == 3
+        assert len(entry["failures"][0]["cards"]) == 3
+
+    async def test_card_samples_are_capped_and_flagged(self, client, db, calc_env):
+        headers = auth_headers(calc_env["admin"])
+        await _activate(client, headers)
+        for i in range(12):
+            await create_card(db, name=f"Empty {i}", attributes={})
+
+        resp = await client.post(f"{BASE}/recalculate/Application", headers=headers)
+        group = resp.json()["calculations"][0]["failures"][0]
+
+        assert group["count"] == 12
+        assert len(group["cards"]) == 10
+        # Never a silent truncation: the UI needs to be able to say "and 2 more".
+        assert group["cards_truncated"] is True
+
+    async def test_last_error_reflects_the_failures_not_the_last_card(self, client, db, calc_env):
+        # `run_calculations_for_card` rewrites last_error per card, so a run
+        # that failed on most cards used to end up green whenever the final
+        # card happened to succeed.
+        headers = auth_headers(calc_env["admin"])
+        calc_id = await _activate(client, headers)
+        for i in range(3):
+            await create_card(db, name=f"Empty {i}", attributes={})
+        await create_card(db, name="Filled", attributes={"costTotalAnnual": 10})
+
+        await client.post(f"{BASE}/recalculate/Application", headers=headers)
+
+        row = await client.get(f"{BASE}/{calc_id}", headers=headers)
+        assert row.json()["last_error"]
+        assert "costTotalAnnual" in row.json()["last_error"]
+
+    async def test_clean_run_clears_last_error(self, client, db, calc_env):
+        headers = auth_headers(calc_env["admin"])
+        calc_id = await _activate(client, headers)
+        empty = await create_card(db, name="Empty", attributes={})
+        await client.post(f"{BASE}/recalculate/Application", headers=headers)
+        assert (await client.get(f"{BASE}/{calc_id}", headers=headers)).json()["last_error"]
+
+        # Remove the offending card and run again — the row must go back to OK.
+        await db.delete(empty)
+        await db.flush()
+        await create_card(db, name="Filled", attributes={"costTotalAnnual": 10})
+
+        resp = await client.post(f"{BASE}/recalculate/Application", headers=headers)
+        assert resp.json()["calculations_failed"] == 0
+        assert (await client.get(f"{BASE}/{calc_id}", headers=headers)).json()["last_error"] is None
+
+    async def test_member_cannot_recalculate(self, client, db, calc_env):
+        resp = await client.post(
+            f"{BASE}/recalculate/Application", headers=auth_headers(calc_env["member"])
+        )
+        assert resp.status_code == 403

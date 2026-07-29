@@ -363,6 +363,40 @@ export interface Calculation {
   updated_at?: string;
 }
 
+export interface CalculationRunCardRef {
+  id: string;
+  name: string;
+}
+
+/** One distinct error message from a manual run, and the cards it was raised on.
+ *  Grouped rather than one row per card: a wrong formula fails the same way on
+ *  every card, so the count is what matters, not a repeated list. */
+export interface CalculationRunFailureGroup {
+  error: string;
+  count: number;
+  cards: CalculationRunCardRef[];
+  /** More cards hit this error than `cards` lists. */
+  cards_truncated: boolean;
+}
+
+export interface CalculationRunCalculation {
+  calculation_id: string;
+  name: string;
+  target_field: string;
+  succeeded: number;
+  failed: number;
+  failures: CalculationRunFailureGroup[];
+}
+
+/** Result of POST /calculations/recalculate/{type_key}. */
+export interface CalculationRunReport {
+  cards_processed: number;
+  calculations_succeeded: number;
+  calculations_failed: number;
+  /** Only calculations that actually ran, in execution order. */
+  calculations: CalculationRunCalculation[];
+}
+
 export interface EAPrinciple {
   id: string;
   title: string;

@@ -240,6 +240,27 @@ L'editor delle formule offre due controlli distinti, che si comportano in modo d
   scelta. È l'opzione da usare per tutto ciò che coinvolge relazioni, figli o la card padre.
   Nulla viene scritto sulla card, il risultato viene soltanto mostrato.
 
+## Leggere i risultati di un'esecuzione manuale
+
+Eseguire un calcolo dall'elenco lo valuta per ogni scheda del tipo di destinazione e riferisce
+che cosa è successo, non solo quante schede sono state elaborate. **Vedi dettagli** nel banner
+del risultato apre il dettaglio:
+
+* **Un blocco per calcolo**, con il numero di schede calcolate senza errori e quelle non
+  riuscite. Tutti i calcoli attivi del tipo vengono eseguiti insieme, quindi è questo a indicare
+  quale sia in difetto.
+* **Una riga per ogni errore distinto**, con il numero di schede su cui si è verificato. Una
+  formula sbagliata lo è allo stesso modo ovunque: ventuno errori sono di solito una sola
+  correzione, non ventuno.
+* **Le schede stesse**, elencate sotto ciascun errore e collegate, così da aprirne una e vedere
+  i dati che l'hanno fatta fallire. Ne sono elencate al massimo dieci per errore; se sono di
+  più, il resto è indicato come conteggio.
+
+**Copia il rapporto** mette l'intero dettaglio negli appunti come testo semplice.
+
+Il chip di stato nell'elenco dei calcoli riflette la stessa esecuzione: rosso se una scheda non
+è riuscita, verde solo quando tutte sono state calcolate.
+
 ## Quando vengono eseguiti i calcoli
 
 I calcoli di una card vengono rivalutati quando:

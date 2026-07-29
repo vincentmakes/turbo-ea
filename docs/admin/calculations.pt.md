@@ -241,6 +241,27 @@ diferente:
   você. É a opção certa para tudo que envolva relações, filhos ou o card pai. Nada é gravado
   no card, o resultado é apenas exibido.
 
+## Ler os resultados de uma execução manual
+
+Executar um cálculo a partir da lista avalia-o para todas as fichas do tipo de destino e relata
+o que aconteceu, não apenas quantas fichas foram processadas. **Ver detalhes** no aviso de
+resultado abre o detalhamento:
+
+* **Um bloco por cálculo**, com o número de fichas calculadas sem erros e o número com falha.
+  Todos os cálculos ativos do tipo são executados juntos, por isso é isto que indica qual deles
+  está em falta.
+* **Uma linha por erro distinto**, com o número de fichas em que ocorreu. Uma fórmula errada
+  está errada da mesma forma em todo o lado: vinte e uma falhas são normalmente uma única
+  correção, não vinte e uma.
+* **As próprias fichas**, listadas sob cada erro e com ligação, para abrir uma e ver os dados
+  que a quebraram. São listadas no máximo dez por erro; havendo mais, o restante é mostrado como
+  uma contagem.
+
+**Copiar relatório** coloca todo o detalhamento na área de transferência como texto simples.
+
+O indicador de estado na lista de cálculos reflete a mesma execução: vermelho se alguma ficha
+falhou, verde apenas quando todas foram calculadas.
+
 ## Quando os cálculos são executados
 
 Os cálculos de um card são reavaliados quando:

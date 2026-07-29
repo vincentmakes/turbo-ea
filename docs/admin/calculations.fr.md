@@ -255,6 +255,27 @@ L'éditeur de formules propose deux vérifications distinctes, au comportement d
   choix. C'est l'option à utiliser dès qu'il est question de relations, d'enfants ou de la
   fiche parente. Rien n'est écrit sur la fiche, le résultat vous est seulement affiché.
 
+## Lire les résultats d'une exécution manuelle
+
+Exécuter un calcul depuis la liste l'évalue pour toutes les fiches du type cible et rend compte
+de ce qui s'est passé, pas seulement du nombre de fiches traitées. **Voir le détail** dans le
+bandeau de résultat ouvre la ventilation :
+
+* **Un bloc par calcul**, avec le nombre de fiches calculées sans erreur et le nombre en échec.
+  Tous les calculs actifs du type s'exécutent ensemble : c'est donc ce qui indique lequel est en
+  cause.
+* **Une ligne par erreur distincte**, avec le nombre de fiches concernées. Une formule fausse
+  l'est de la même façon partout ; vingt et un échecs correspondent donc généralement à une
+  seule correction, pas à vingt et une.
+* **Les fiches elles-mêmes**, listées sous chaque erreur et cliquables, pour ouvrir l'une
+  d'elles et examiner les données en cause. Dix au maximum sont listées par erreur ; au-delà, le
+  reste est indiqué sous forme de nombre.
+
+**Copier le rapport** place l'ensemble de la ventilation dans le presse-papiers, en texte brut.
+
+La pastille de statut dans la liste des calculs reflète la même exécution : rouge dès qu'une
+fiche a échoué, verte seulement si toutes ont été calculées.
+
 ## Quand les calculs s'exécutent
 
 Les calculs d'une fiche sont réévalués lorsque :

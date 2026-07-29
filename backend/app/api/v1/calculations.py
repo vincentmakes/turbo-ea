@@ -70,6 +70,44 @@ class CalculationResponse(BaseModel):
     updated_at: str | None = None
 
 
+class RecalcCardRef(BaseModel):
+    id: str
+    name: str
+
+
+class RecalcFailureGroup(BaseModel):
+    """One distinct error message, and the cards it was raised on.
+
+    Grouped rather than one row per card: a formula that is wrong is wrong the
+    same way on every card, and a list of twenty-one identical messages hides
+    that it is a single fix.
+    """
+
+    error: str
+    count: int
+    cards: list[RecalcCardRef] = Field(default_factory=list)
+    # True when more cards hit this error than are listed above, so the UI can
+    # say "and N more" rather than implying the sample is the whole set.
+    cards_truncated: bool = False
+
+
+class RecalcCalculationReport(BaseModel):
+    calculation_id: str
+    name: str
+    target_field: str
+    succeeded: int
+    failed: int
+    failures: list[RecalcFailureGroup] = Field(default_factory=list)
+
+
+class RecalcReport(BaseModel):
+    cards_processed: int
+    calculations_succeeded: int
+    calculations_failed: int
+    # Only calculations that actually ran, in execution order.
+    calculations: list[RecalcCalculationReport] = Field(default_factory=list)
+
+
 class ValidateRequest(BaseModel):
     formula: str = Field(..., max_length=MAX_FORMULA_LENGTH)
     target_type_key: str
@@ -360,12 +398,17 @@ async def validate_formula_endpoint(
     return await validate_formula(body.formula, body.target_type_key, db)
 
 
-@router.post("/recalculate/{type_key}")
+@router.post("/recalculate/{type_key}", response_model=RecalcReport)
 async def recalculate_type(
     type_key: str,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Bulk recalculate all cards of a type."""
+    """Bulk recalculate all cards of a type.
+
+    Reports per calculation how many cards succeeded and failed, and for each
+    distinct error the cards it was raised on — so a failed run can be acted on
+    without testing the formula against every card by hand.
+    """
     await PermissionService.require_permission(db, user, "admin.metamodel")
     return await run_calculations_for_type(db, type_key)

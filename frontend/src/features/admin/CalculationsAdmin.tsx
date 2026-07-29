@@ -30,6 +30,8 @@ import Accordion from "@mui/material/Accordion";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import CircularProgress from "@mui/material/CircularProgress";
+import Divider from "@mui/material/Divider";
+import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Popper from "@mui/material/Popper";
 import Autocomplete from "@mui/material/Autocomplete";
@@ -41,7 +43,16 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel, useRelationLabel, useFieldLabel } from "@/hooks/useResolveLabel";
 import { useDateFormat } from "@/hooks/useDateFormat";
-import type { Calculation, Card as CardItem, CardType, FieldDef, RelationType } from "@/types";
+import { STATUS_COLORS } from "@/theme";
+import { formatRunReport } from "./calculationRunReport";
+import type {
+  Calculation,
+  CalculationRunReport,
+  Card as CardItem,
+  CardType,
+  FieldDef,
+  RelationType,
+} from "@/types";
 
 // ── Suggestion types ───────────────────────────────────────────────
 
@@ -1160,6 +1171,133 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
   );
 }
 
+// ── Recalculation results ──────────────────────────────────────────
+
+interface RecalcResultDialogProps {
+  open: boolean;
+  report: CalculationRunReport | null;
+  typeName: string;
+  onClose: () => void;
+}
+
+function RecalcResultDialog({ open, report, typeName, onClose }: RecalcResultDialogProps) {
+  const { t } = useTranslation(["admin", "common"]);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (open) setCopied(false);
+  }, [open]);
+
+  if (!report) return null;
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(formatRunReport(report, typeName));
+      setCopied(true);
+    } catch {
+      // Clipboard permission denied or unavailable — the report is still on
+      // screen, so there is nothing useful to say about it.
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <DialogTitle>{t("calculations.recalcDialogTitle", { type: typeName })}</DialogTitle>
+      <DialogContent dividers>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("calculations.recalcResult", {
+            cards: report.cards_processed,
+            succeeded: report.calculations_succeeded,
+            failed: report.calculations_failed,
+          })}
+        </Typography>
+
+        {report.calculations.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            {t("calculations.recalcNothingRan")}
+          </Typography>
+        ) : (
+          report.calculations.map((calc, idx) => (
+            <Box key={calc.calculation_id} sx={{ mb: 2 }}>
+              {idx > 0 && <Divider sx={{ mb: 2 }} />}
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mb: 1 }}>
+                <Typography variant="body2" fontWeight={600}>
+                  {calc.name}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {calc.target_field}
+                </Typography>
+                <Box sx={{ flex: 1 }} />
+                <Chip
+                  size="small"
+                  color="success"
+                  variant={calc.succeeded ? "filled" : "outlined"}
+                  label={t("calculations.recalcOkCount", { count: calc.succeeded })}
+                />
+                {calc.failed > 0 && (
+                  <Chip
+                    size="small"
+                    color="error"
+                    label={t("calculations.recalcFailedCount", { count: calc.failed })}
+                  />
+                )}
+              </Box>
+
+              {calc.failures.length === 0 ? (
+                <Typography variant="caption" color="text.secondary">
+                  {t("calculations.recalcAllClean")}
+                </Typography>
+              ) : (
+                calc.failures.map((group) => (
+                  <Paper key={group.error} variant="outlined" sx={{ p: 1.5, mb: 1 }}>
+                    <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+                      <MaterialSymbol icon="error" size={18} color={STATUS_COLORS.error} />
+                      <Typography variant="body2" sx={{ flex: 1 }}>
+                        {group.error}
+                      </Typography>
+                      <Chip size="small" label={group.count} />
+                    </Box>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 1, pl: 3.5 }}>
+                      {group.cards.map((card) => (
+                        <Link
+                          key={card.id}
+                          href={`/cards/${card.id}`}
+                          target="_blank"
+                          rel="noopener"
+                          variant="caption"
+                        >
+                          {card.name}
+                        </Link>
+                      ))}
+                      {group.cards_truncated && (
+                        <Typography variant="caption" color="text.secondary">
+                          {t("calculations.recalcMoreCards", {
+                            count: group.count - group.cards.length,
+                          })}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Paper>
+                ))
+              )}
+            </Box>
+          ))
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button
+          onClick={handleCopy}
+          startIcon={<MaterialSymbol icon={copied ? "check" : "content_copy"} size={18} />}
+        >
+          {copied ? t("calculations.recalcCopied") : t("calculations.recalcCopy")}
+        </Button>
+        <Box sx={{ flex: 1 }} />
+        <Button onClick={onClose}>{t("common:actions.close")}</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────
 
 export default function CalculationsAdmin() {
@@ -1176,7 +1314,12 @@ export default function CalculationsAdmin() {
   const [testOpen, setTestOpen] = useState(false);
   const [testCalc, setTestCalc] = useState<Calculation | null>(null);
   const [recalculating, setRecalculating] = useState<string | null>(null);
-  const [recalcResult, setRecalcResult] = useState<{ type: string; message: string } | null>(null);
+  const [recalcResult, setRecalcResult] = useState<{
+    type: string;
+    report: CalculationRunReport | null;
+    message?: string;
+  } | null>(null);
+  const [recalcDetailOpen, setRecalcDetailOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<Calculation | null>(null);
   const [filterType, setFilterType] = useState<string>("");
 
@@ -1242,18 +1385,18 @@ export default function CalculationsAdmin() {
   const handleRecalculate = async (typeKey: string) => {
     setRecalculating(typeKey);
     setRecalcResult(null);
+    setRecalcDetailOpen(false);
     try {
-      const res = await api.post<{
-        cards_processed: number;
-        calculations_succeeded: number;
-        calculations_failed: number;
-      }>(`/calculations/recalculate/${typeKey}`, {});
-      setRecalcResult({
-        type: typeKey,
-        message: t("calculations.recalcResult", { cards: res.cards_processed, succeeded: res.calculations_succeeded, failed: res.calculations_failed }),
-      });
+      const report = await api.post<CalculationRunReport>(
+        `/calculations/recalculate/${typeKey}`,
+        {},
+      );
+      setRecalcResult({ type: typeKey, report });
+      // The list's per-row Error/OK chip is settled by the run, so pull the
+      // rows back rather than leaving a stale status next to fresh results.
+      await fetchCalculations();
     } catch (e: unknown) {
-      setRecalcResult({ type: typeKey, message: `Error: ${String(e)}` });
+      setRecalcResult({ type: typeKey, report: null, message: `Error: ${String(e)}` });
     } finally {
       setRecalculating(null);
     }
@@ -1322,11 +1465,35 @@ export default function CalculationsAdmin() {
 
       {recalcResult && (
         <Alert
-          severity="info"
+          severity={
+            !recalcResult.report
+              ? "error"
+              : recalcResult.report.calculations_failed > 0
+                ? "warning"
+                : "success"
+          }
           sx={{ mb: 2 }}
           onClose={() => setRecalcResult(null)}
+          action={
+            recalcResult.report && recalcResult.report.calculations.length > 0 ? (
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => setRecalcDetailOpen(true)}
+              >
+                {t("calculations.recalcViewDetails")}
+              </Button>
+            ) : undefined
+          }
         >
-          <strong>{getTypeLabel(recalcResult.type)}:</strong> {recalcResult.message}
+          <strong>{getTypeLabel(recalcResult.type)}:</strong>{" "}
+          {recalcResult.report
+            ? t("calculations.recalcResult", {
+                cards: recalcResult.report.cards_processed,
+                succeeded: recalcResult.report.calculations_succeeded,
+                failed: recalcResult.report.calculations_failed,
+              })
+            : recalcResult.message}
         </Alert>
       )}
 
@@ -1480,6 +1647,13 @@ export default function CalculationsAdmin() {
         open={testOpen}
         calculation={testCalc}
         onClose={() => setTestOpen(false)}
+      />
+
+      <RecalcResultDialog
+        open={recalcDetailOpen}
+        report={recalcResult?.report ?? null}
+        typeName={recalcResult ? getTypeLabel(recalcResult.type) : ""}
+        onClose={() => setRecalcDetailOpen(false)}
       />
 
       {/* Delete confirmation */}

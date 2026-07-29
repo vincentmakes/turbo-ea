@@ -243,6 +243,27 @@ Der Formeleditor bietet zwei verschiedene Prüfungen, die sich unterschiedlich v
   übergeordnete Karte betrifft. Es wird nichts auf die Karte geschrieben, das Ergebnis wird
   Ihnen nur angezeigt.
 
+## Die Ergebnisse einer manuellen Ausführung lesen
+
+Eine Berechnung aus der Liste auszuführen wertet sie für jede Karte des Zieltyps aus und
+berichtet, was passiert ist — nicht nur, wie viele Karten berührt wurden. **Details anzeigen**
+im Ergebnisbanner öffnet die Aufschlüsselung:
+
+* **Ein Block pro Berechnung**, mit der Anzahl fehlerfrei berechneter und fehlgeschlagener
+  Karten. Alle aktiven Berechnungen des Typs laufen gemeinsam, daher zeigt dies, welche davon
+  das Problem verursacht.
+* **Eine Zeile pro eindeutigem Fehler**, mit der Anzahl der betroffenen Karten. Eine fehlerhafte
+  Formel ist überall auf dieselbe Weise fehlerhaft, einundzwanzig Fehlschläge sind also meist
+  eine einzige Korrektur, nicht einundzwanzig.
+* **Die Karten selbst**, unter jedem Fehler aufgeführt und verlinkt, sodass Sie eine öffnen und
+  die verursachenden Daten ansehen können. Pro Fehler werden höchstens zehn aufgeführt; sind es
+  mehr, wird der Rest als Anzahl angezeigt.
+
+**Bericht kopieren** legt die gesamte Aufschlüsselung als Text in die Zwischenablage.
+
+Der Status-Chip in der Berechnungsliste spiegelt dieselbe Ausführung wider: rot, sobald eine
+Karte fehlgeschlagen ist, grün nur, wenn alle berechnet wurden.
+
 ## Wann Berechnungen ausgeführt werden
 
 Die Berechnungen einer Karte werden neu ausgewertet, wenn:

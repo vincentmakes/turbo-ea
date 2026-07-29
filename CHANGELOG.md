@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.35.0] - 2026-07-29
+
+### Added
+- **A manual calculation run now says which cards failed, and why.** Running a calculation from the list used to report only «Processed 22 cards: 1 succeeded, 21 failed», leaving the failures to be found by testing the formula against every card by hand. The result banner now offers **View details**: a breakdown per calculation of how many cards computed and how many failed, and under each one the distinct errors with the number of cards they were raised on and links to those cards. Identical errors are grouped, since one wrong formula is one fix rather than twenty-one; up to ten cards are listed per error with the remainder shown as a count. **Copy report** puts the whole breakdown on the clipboard.
+
+### Fixed
+- **The status of a calculation was decided by whichever card happened to be processed last.** A bulk run that failed on twenty-one cards and succeeded on the twenty-second cleared the error and left a green **OK** chip in the calculations list. The chip now reflects the run as a whole: the most common failure when any card failed, and OK only when every card computed.
+
 ## [2.34.0] - 2026-07-29
 
 ### Added

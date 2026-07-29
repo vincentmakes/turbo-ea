@@ -11,6 +11,7 @@ import ast
 import logging
 import math
 import re
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -755,11 +756,21 @@ async def run_calculations_for_card(
     return results
 
 
+MAX_SAMPLE_CARDS = 10
+
+
 async def run_calculations_for_type(
     db: AsyncSession,
     target_type_key: str,
 ) -> dict:
-    """Bulk recalculate all cards of a given type. Returns summary stats."""
+    """Bulk recalculate all cards of a given type.
+
+    The report is grouped rather than flat: per calculation, how many cards
+    succeeded and failed, and within that, one entry per *distinct* error
+    message with the cards it hit. Twenty-one cards failing the same way is one
+    thing to fix, not twenty-one — and the old flat list said neither, because
+    it was truncated at fifty with no indication that it had been.
+    """
     cards_result = await db.execute(
         select(Card).where(Card.type == target_type_key, Card.status == "ACTIVE")
     )
@@ -768,7 +779,13 @@ async def run_calculations_for_type(
     total = len(cards)
     success_count = 0
     error_count = 0
-    errors = []
+
+    # calculation_id -> report. Insertion-ordered, and `run_calculations_for_card`
+    # yields results in execution_order, so the report comes out in execution
+    # order without a second sort.
+    reports: dict[str, dict[str, Any]] = {}
+    # calculation_id -> error message -> {count, cards}
+    failures: dict[str, dict[str, dict[str, Any]]] = {}
 
     # One settings read for the whole run rather than one per card.
     fiscal_year_start = await get_fiscal_year_start(db)
@@ -776,18 +793,64 @@ async def run_calculations_for_type(
     for card in cards:
         results = await run_calculations_for_card(db, card, fiscal_year_start=fiscal_year_start)
         for r in results:
+            calc_id = r["calculation_id"]
+            report = reports.get(calc_id)
+            if report is None:
+                report = reports[calc_id] = {
+                    "calculation_id": calc_id,
+                    "name": r["name"],
+                    "target_field": r["target_field"],
+                    "succeeded": 0,
+                    "failed": 0,
+                    "failures": [],
+                }
+                failures[calc_id] = {}
+
             if r["success"]:
                 success_count += 1
+                report["succeeded"] += 1
+                continue
+
+            error_count += 1
+            report["failed"] += 1
+            message = r["error"] or "Evaluation error"
+            group = failures[calc_id].get(message)
+            if group is None:
+                group = failures[calc_id][message] = {
+                    "error": message,
+                    "count": 0,
+                    "cards": [],
+                    "cards_truncated": False,
+                }
+                report["failures"].append(group)
+            group["count"] += 1
+            if len(group["cards"]) < MAX_SAMPLE_CARDS:
+                group["cards"].append({"id": str(card.id), "name": card.name})
             else:
-                error_count += 1
-                errors.append({"card_id": str(card.id), "card_name": card.name, **r})
+                group["cards_truncated"] = True
+
+    # `run_calculations_for_card` rewrites `last_error` on every card, so after a
+    # bulk run the row carried whichever card happened to be processed last — a
+    # run that failed twenty-one times and then succeeded once showed a green OK
+    # chip. Settle it on the dominant failure instead, once, at the end.
+    if reports:
+        calcs_result = await db.execute(
+            select(Calculation).where(
+                Calculation.id.in_([uuid.UUID(cid) for cid in reports]),
+            )
+        )
+        for calc in calcs_result.scalars().all():
+            groups = failures.get(str(calc.id)) or {}
+            dominant = max(groups.values(), key=lambda g: g["count"])["error"] if groups else None
+            if calc.last_error != dominant:
+                calc.last_error = dominant
 
     await db.commit()
     return {
         "cards_processed": total,
         "calculations_succeeded": success_count,
         "calculations_failed": error_count,
-        "errors": errors[:50],
+        "calculations": list(reports.values()),
     }
 
 

@@ -268,6 +268,27 @@ Two more checks run without you asking:
   forever — so a warning is the only way to find out. Warnings never block saving; they appear
   under the formula and as a chip in the calculations list.
 
+## Reading the Results of a Manual Run
+
+Running a calculation from the list evaluates it for every card of the target type and reports
+what happened, not just how many cards it touched. **View details** on the result banner opens
+the breakdown:
+
+* **One block per calculation**, with the number of cards that computed cleanly and the number
+  that failed. Every active calculation on the type runs together, so this is what tells you
+  which one is at fault.
+* **One row per distinct error**, with the number of cards it was raised on. A formula that is
+  wrong is wrong the same way everywhere, so twenty-one failures are usually one fix, not
+  twenty-one.
+* **The cards themselves**, listed under each error and linked, so you can open one and look at
+  the data that broke it. At most ten are listed per error; when more were hit, the rest are
+  shown as a count.
+
+**Copy report** puts the whole breakdown on the clipboard as plain text.
+
+The status chip in the calculations list reflects the same run: red when any card failed, green
+only when every one of them computed.
+
 ## When Calculations Run
 
 Calculations for a card are re-evaluated when:
