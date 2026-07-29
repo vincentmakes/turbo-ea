@@ -363,5 +363,7 @@
   "portal.signInButton": "Accedi con {{provider}}",
   "portal.ssoUnavailable": "L'accesso Single Sign-On non è al momento disponibile per questo portale. Contatta l'amministratore del portale.",
   "portal.signInError": "Accesso non riuscito. Riprova.",
-  "portal.signingIn": "Accesso in corso…"
+  "portal.signingIn": "Accesso in corso…",
+  "grid.freezeColumn": "Blocca colonna",
+  "grid.unfreezeColumn": "Sblocca colonna"
 }

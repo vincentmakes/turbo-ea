@@ -203,6 +203,27 @@ Always include `startIcon={<MaterialSymbol icon="…" size={iconSize.sm} />}` ra
 
 For MUI tables, table headers use `bgcolor: "action.hover"` for subtle distinction.
 
+**Every AG Grid gets column freeze.** Users must be able to pin a column to the
+leading edge so it stays readable while scrolling sideways. AG Grid Community
+renders pinned columns but ships no UI to pin one, so the affordance lives in
+`useColumnFreeze` (`src/components/grid/useColumnFreeze.ts`) and is wired into
+each grid in three lines:
+
+```tsx
+const columnFreeze = useColumnFreeze(gridRef);            // or { frozen, onFrozenChange }
+const defaultColDef = useMemo(() => ({ …, headerComponentParams: columnFreeze.headerComponentParams }), [columnFreeze.headerComponentParams]);
+<Box ref={columnFreeze.containerRef} sx={{ …, ...columnFreeze.sx }}>
+```
+
+The hook feeds the *stock* header component a template with two extra pins
+(freeze on hover, unfreeze while frozen) — never hand-roll a `headerComponent`
+for this, as that loses sorting, the sort indicator, and the filter button.
+Pass `frozen` / `onFrozenChange` and run the column defs through
+`applyFrozen()` when the page persists only a slice of grid state; omit them
+when it already persists a full `getColumnState()` snapshot (Inventory, ADR),
+which carries `pinned` on its own. A frozen column is a per-user preference and
+must survive a reload like column visibility and width do.
+
 ### 3.7 Status Representation
 
 Always render status through one of these:

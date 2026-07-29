@@ -363,5 +363,7 @@
   "portal.signInButton": "Войти через {{provider}}",
   "portal.ssoUnavailable": "Единый вход сейчас недоступен для этого портала. Обратитесь к администратору портала.",
   "portal.signInError": "Не удалось войти. Повторите попытку.",
-  "portal.signingIn": "Выполняется вход…"
+  "portal.signingIn": "Выполняется вход…",
+  "grid.freezeColumn": "Закрепить столбец",
+  "grid.unfreezeColumn": "Открепить столбец"
 }

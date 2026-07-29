@@ -363,5 +363,7 @@
   "portal.signInButton": "تسجيل الدخول عبر {{provider}}",
   "portal.ssoUnavailable": "الدخول الموحّد غير متاح لهذه البوابة حاليًا. يرجى الاتصال بمسؤول البوابة.",
   "portal.signInError": "فشل تسجيل الدخول. يرجى المحاولة مرة أخرى.",
-  "portal.signingIn": "جارٍ تسجيل دخولك…"
+  "portal.signingIn": "جارٍ تسجيل دخولك…",
+  "grid.freezeColumn": "تثبيت العمود",
+  "grid.unfreezeColumn": "إلغاء تثبيت العمود"
 }

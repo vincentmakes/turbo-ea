@@ -31,6 +31,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import StakeholderHoverCard from "@/components/StakeholderHoverCard";
+import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
 import MetricCard from "@/features/reports/MetricCard";
 import { api, ApiError } from "@/api/client";
 import type {
@@ -110,6 +111,8 @@ const RISK_PREFS_STORAGE_KEY = "turboea_grc_risks_prefs";
 interface RiskPrefs {
   filtersCollapsed: boolean;
   visibleColumns: string[];
+  /** colIds frozen to the leading edge via the header pin. */
+  frozenColumns: string[];
   sortModel: { colId: string; sort: "asc" | "desc" }[];
 }
 
@@ -117,6 +120,7 @@ function loadRiskPrefs(): RiskPrefs {
   const defaults: RiskPrefs = {
     filtersCollapsed: false,
     visibleColumns: ALL_RISK_COLUMN_IDS,
+    frozenColumns: [],
     sortModel: [],
   };
   try {
@@ -137,6 +141,12 @@ function loadRiskPrefs(): RiskPrefs {
               ]),
             )
           : ALL_RISK_COLUMN_IDS,
+      frozenColumns: Array.isArray(parsed.frozenColumns)
+        ? parsed.frozenColumns.filter(
+            (id): id is string =>
+              typeof id === "string" && ALL_RISK_COLUMN_IDS.includes(id),
+          )
+        : [],
       sortModel: Array.isArray(parsed.sortModel)
         ? parsed.sortModel.filter(
             (s): s is { colId: string; sort: "asc" | "desc" } =>
@@ -189,18 +199,32 @@ export default function RiskRegisterPage() {
   const [sortModel, setSortModel] = useState<
     { colId: string; sort: "asc" | "desc" }[]
   >(initialPrefs.sortModel);
+  const [frozenColumns, setFrozenColumns] = useState<string[]>(
+    initialPrefs.frozenColumns,
+  );
 
   const persistRiskPrefs = useCallback(
     (next: Partial<RiskPrefs>) => {
       saveRiskPrefs({
         filtersCollapsed: sidebarCollapsed,
         visibleColumns: Array.from(visibleColumns),
+        frozenColumns,
         sortModel,
         ...next,
       });
     },
-    [sidebarCollapsed, visibleColumns, sortModel],
+    [sidebarCollapsed, visibleColumns, frozenColumns, sortModel],
   );
+
+  // Per-column freeze toggles in the header, persisted with the other grid
+  // prefs (this grid stores a slice of state, not a full AG Grid snapshot).
+  const columnFreeze = useColumnFreeze<Risk>(gridRef, {
+    frozen: frozenColumns,
+    onFrozenChange: (next) => {
+      setFrozenColumns(next);
+      persistRiskPrefs({ frozenColumns: next });
+    },
+  });
 
   const setSidebarCollapsed = useCallback(
     (updater: boolean | ((prev: boolean) => boolean)) => {
@@ -387,8 +411,9 @@ export default function RiskRegisterPage() {
       sortable: true,
       filter: true,
       resizable: true,
+      headerComponentParams: columnFreeze.headerComponentParams,
     }),
-    [],
+    [columnFreeze.headerComponentParams],
   );
 
   const columnDefs: ColDef<Risk>[] = useMemo(
@@ -552,11 +577,13 @@ export default function RiskRegisterPage() {
   // or `colId`) to RISK_GRID_COLUMNS membership.
   const visibleColumnDefs = useMemo<ColDef<Risk>[]>(
     () =>
-      columnDefs.map((c) => {
-        const id = c.field ?? c.colId ?? "";
-        return { ...c, hide: id ? !visibleColumns.has(id) : false };
-      }),
-    [columnDefs, visibleColumns],
+      columnFreeze.applyFrozen(
+        columnDefs.map((c) => {
+          const id = c.field ?? c.colId ?? "";
+          return { ...c, hide: id ? !visibleColumns.has(id) : false };
+        }),
+      ),
+    [columnDefs, visibleColumns, columnFreeze],
   );
 
   const onSortChanged = useCallback(() => {
@@ -788,8 +815,9 @@ export default function RiskRegisterPage() {
             </Stack>
           </Stack>
           <Box
+            ref={columnFreeze.containerRef}
             className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
-            sx={{ flex: 1, width: "100%", minHeight: 0 }}
+            sx={{ flex: 1, width: "100%", minHeight: 0, ...columnFreeze.sx }}
           >
             <AgGridReact<Risk>
               key={isRtl ? "rtl" : "ltr"}

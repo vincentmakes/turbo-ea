@@ -79,6 +79,7 @@ Lageret bruger en **AG Grid**-datatabel med kraftfulde funktioner:
 - **Hurtig forhåndsvisning** — Brug øje-ikonet ved siden af et navn for at åbne kortdetaljen i et sidepanel
 - **Åbn i ny fane** — Ctrl/Cmd-klik på et navn for at åbne kortet i en ny browser-fane; hoved-nav-links understøtter dette også
 - **Kolonne-konfiguration** — Vis, skjul og omarrangér kolonner (inklusive de altid-aktive standardkolonner)
+- **Frys en kolonne** — Hold musen over en kolonneoverskrift og klik på nåle-ikonet for at fryse kolonnen til venstre kant, så den bliver stående, mens du ruller til siden. Klik på nålen igen for at frigive den. Frosne kolonner huskes pr. tabel, og den samme funktion findes i alle datatabeller i Turbo EA (Risikoregister, Beslutninger, Compliance-fund, Brugere, Ressourcer, Auditlog).
 
 ### Værktøjslinje
 

@@ -64,6 +64,7 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { api, ApiError, isAbortError } from "@/api/client";
 import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
 import TagPicker from "@/components/TagPicker";
+import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
 import TagsCellEditor from "@/features/inventory/TagsCellEditor";
 import ParentCellEditor from "@/features/inventory/ParentCellEditor";
 import StakeholdersCellEditor from "@/features/inventory/StakeholdersCellEditor";
@@ -310,6 +311,9 @@ export default function InventoryPage() {
   const canViewCostsGlobally = !!(user?.permissions?.["*"] || user?.permissions?.["costs.view"]);
   const canManageStakeholders = !!(user?.permissions?.["*"] || user?.permissions?.["stakeholders.manage"]);
   const gridRef = useRef<AgGridReact>(null);
+  // Per-column freeze toggles in the header. Uncontrolled: the pinned flag is
+  // part of AG Grid's column state, which this page already persists.
+  const columnFreeze = useColumnFreeze(gridRef);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
@@ -1214,8 +1218,20 @@ export default function InventoryPage() {
     exportCurrentViewToExcel(rows, columns, { sheetLabel });
   }, [typeConfig, typeLabel, t]);
 
-  // Stable AG Grid config objects — prevents unnecessary grid re-renders
-  const defaultColDef = useMemo(() => ({ sortable: true, filter: true, resizable: true, filterParams: { buttons: ["reset"] } }), []);
+  // Stable AG Grid config objects — prevents unnecessary grid re-renders.
+  // `columnFreeze.headerComponentParams` adds the freeze pin to every column
+  // header; the resulting pinned state rides along in the column layout that
+  // `captureColumnState` already persists (localStorage + saved views).
+  const defaultColDef = useMemo(
+    () => ({
+      sortable: true,
+      filter: true,
+      resizable: true,
+      filterParams: { buttons: ["reset"] },
+      headerComponentParams: columnFreeze.headerComponentParams,
+    }),
+    [columnFreeze.headerComponentParams],
+  );
   const rowSelection = useMemo(() => ({ mode: "multiRow" as const, enableClickSelection: false, headerCheckbox: true, selectAll: "filtered" as const }), []);
   const getRowId = useCallback((p: { data: Card }) => p.data.id, []);
   const getRowStyle = useCallback((p: { data?: Card }) => p.data?.status === "ARCHIVED" ? { opacity: 0.6 } : undefined, []);
@@ -3089,8 +3105,9 @@ export default function InventoryPage() {
 
         {/* AG Grid */}
         <Box
+          ref={columnFreeze.containerRef}
           className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
-          sx={{ flex: 1, width: "100%", minHeight: 0 }}
+          sx={{ flex: 1, width: "100%", minHeight: 0, ...columnFreeze.sx }}
         >
           <AgGridReact
             key={isRtl ? "rtl" : "ltr"}

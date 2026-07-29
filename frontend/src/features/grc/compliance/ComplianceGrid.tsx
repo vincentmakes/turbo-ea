@@ -25,7 +25,7 @@
  *   finding drawer and opens the card panel in the same slot
  *   (single-drawer discipline).
  */
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AgGridReact } from "ag-grid-react";
 import type {
@@ -56,6 +56,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
 import { RAG_COLORS } from "@/theme";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useThemeMode } from "@/hooks/useThemeMode";
@@ -126,16 +127,21 @@ interface CompliancePrefs {
   groupMode: GroupMode;
   filtersCollapsed: boolean;
   visibleColumns: string[];
+  /** colIds frozen to the leading edge via the header pin. */
+  frozenColumns: string[];
   sortModel: { colId: string; sort: "asc" | "desc" }[];
 }
 
 const ALL_COLUMN_IDS = COMPLIANCE_GRID_COLUMNS.map((c) => c.id);
+/** Frozen out of the box — the Card column is what identifies each row. */
+const DEFAULT_FROZEN_COLUMNS = ["card_name"];
 
 function loadPrefs(): CompliancePrefs {
   const defaults: CompliancePrefs = {
     groupMode: "by_card",
     filtersCollapsed: false,
     visibleColumns: ALL_COLUMN_IDS,
+    frozenColumns: [...DEFAULT_FROZEN_COLUMNS],
     sortModel: [],
   };
   try {
@@ -157,6 +163,15 @@ function loadPrefs(): CompliancePrefs {
               ]),
             )
           : ALL_COLUMN_IDS,
+      // A pref written before columns could be frozen has no key at all —
+      // fall back to the default so the Card column stays frozen for
+      // existing users, exactly as it was when it was hard-pinned.
+      frozenColumns: Array.isArray(parsed.frozenColumns)
+        ? parsed.frozenColumns.filter(
+            (id): id is string =>
+              typeof id === "string" && ALL_COLUMN_IDS.includes(id),
+          )
+        : [...DEFAULT_FROZEN_COLUMNS],
       sortModel: Array.isArray(parsed.sortModel)
         ? parsed.sortModel.filter(
             (s): s is { colId: string; sort: "asc" | "desc" } =>
@@ -208,6 +223,7 @@ export default function ComplianceGrid({
     useState<TurboLensComplianceFinding | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const gridRef = useRef<AgGridReact<TurboLensComplianceFinding> | null>(null);
   const initialPrefs = useMemo(loadPrefs, []);
   const [groupMode, setGroupModeRaw] = useState<GroupMode>(initialPrefs.groupMode);
   const [filtersCollapsed, setFiltersCollapsedRaw] = useState(
@@ -215,6 +231,9 @@ export default function ComplianceGrid({
   );
   const [visibleColumns, setVisibleColumnsRaw] = useState<Set<string>>(
     () => new Set(initialPrefs.visibleColumns),
+  );
+  const [frozenColumns, setFrozenColumns] = useState<string[]>(
+    initialPrefs.frozenColumns,
   );
   const [sortModel, setSortModel] = useState<
     { colId: string; sort: "asc" | "desc" }[]
@@ -271,10 +290,22 @@ export default function ComplianceGrid({
       groupMode,
       filtersCollapsed,
       visibleColumns: Array.from(visibleColumns),
+      frozenColumns,
       sortModel,
       ...next,
     });
   };
+
+  // Per-column freeze toggles in the header, persisted alongside the other
+  // grid prefs (this grid stores a slice of state, not a full AG Grid
+  // snapshot).
+  const columnFreeze = useColumnFreeze<TurboLensComplianceFinding>(gridRef, {
+    frozen: frozenColumns,
+    onFrozenChange: (next) => {
+      setFrozenColumns(next);
+      persist({ frozenColumns: next });
+    },
+  });
 
   const setGroupMode = (next: GroupMode) => {
     setGroupModeRaw(next);
@@ -337,7 +368,6 @@ export default function ComplianceGrid({
       field: "card_name",
       width: 280,
       minWidth: 200,
-      pinned: "left",
       cellClassRules: {
         "compliance-grid--group-start": (p) =>
           groupMode === "by_card" && isFirstOfCardGroup(p.data),
@@ -554,11 +584,13 @@ export default function ComplianceGrid({
   // factory closure on every toggle.
   const visibleColumnDefs = useMemo<ColDef<TurboLensComplianceFinding>[]>(
     () =>
-      columnDefs.map((c) => ({
-        ...c,
-        hide: c.field ? !visibleColumns.has(c.field) : false,
-      })),
-    [columnDefs, visibleColumns],
+      columnFreeze.applyFrozen(
+        columnDefs.map((c) => ({
+          ...c,
+          hide: c.field ? !visibleColumns.has(c.field) : false,
+        })),
+      ),
+    [columnDefs, visibleColumns, columnFreeze],
   );
 
   // Match the Inventory grid's defaults so the GRC table feels the same:
@@ -567,8 +599,13 @@ export default function ComplianceGrid({
   // decision / ai) use a 'set' filter type so the user picks from valid
   // values rather than typing free-form text.
   const defaultColDef = useMemo<ColDef>(
-    () => ({ sortable: true, resizable: true, filter: true }),
-    [],
+    () => ({
+      sortable: true,
+      resizable: true,
+      filter: true,
+      headerComponentParams: columnFreeze.headerComponentParams,
+    }),
+    [columnFreeze.headerComponentParams],
   );
 
   const onSortChanged = (e: SortChangedEvent<TurboLensComplianceFinding>) => {
@@ -816,8 +853,10 @@ export default function ComplianceGrid({
         )}
 
         <Box
+          ref={columnFreeze.containerRef}
           className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
           sx={{
+            ...columnFreeze.sx,
             width: "100%",
             // Visual grouping: emphasise the first row of each card
             // cluster and put a clean divider above it. Continuation
@@ -837,6 +876,7 @@ export default function ComplianceGrid({
           }}
         >
           <AgGridReact<TurboLensComplianceFinding>
+            ref={gridRef}
             key={isRtl ? "rtl" : "ltr"}
             enableRtl={isRtl}
             rowData={sortedFindings}

@@ -77,6 +77,7 @@ L'inventario utilizza una tabella dati **AG Grid** con funzionalità avanzate:
 - **Selezione multipla** — Selezionate più righe per operazioni in blocco
 - **Visualizzazione gerarchica** — Le relazioni genitore/figlio sono mostrate come percorsi breadcrumb
 - **Configurazione colonne** — Mostrate, nascondete e riordinate le colonne
+- **Blocca una colonna** — Passate il mouse sull'intestazione di una colonna e cliccate sull'icona a puntina per bloccare quella colonna sul bordo sinistro, così resta visibile mentre scorrete lateralmente. Cliccate di nuovo sulla puntina per sbloccarla. Le colonne bloccate vengono ricordate per ogni tabella e lo stesso comando è disponibile in tutte le tabelle dati di Turbo EA (Registro dei rischi, Decisioni, Rilievi di conformità, Utenti, Risorse, Log di audit).
 
 ### Barra degli strumenti
 

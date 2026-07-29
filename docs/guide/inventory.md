@@ -79,6 +79,7 @@ The inventory uses an **AG Grid** data table with powerful features:
 - **Quick preview** — Use the eye icon next to any name to open the card detail in a side panel
 - **Open in new tab** — Ctrl/Cmd-click a name to open the card in a new browser tab; main-nav links also support this
 - **Column configuration** — Show, hide, and reorder columns (including the always-on default columns)
+- **Freeze a column** — Hover a column header and click the pin icon to freeze that column to the left edge, so it stays in view while you scroll sideways. Click the pin again to release it. Your frozen columns are remembered per table, and the same control is available on every data table in Turbo EA (Risk Register, Decisions, Compliance findings, Users, Resources, Audit log).
 
 ### Toolbar
 

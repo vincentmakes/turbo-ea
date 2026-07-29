@@ -363,5 +363,7 @@
   "portal.signInButton": "Log ind med {{provider}}",
   "portal.ssoUnavailable": "Single sign-on er ikke tilgængelig for denne portal lige nu. Kontakt portaladministratoren.",
   "portal.signInError": "Login mislykkedes. Prøv igen.",
-  "portal.signingIn": "Logger dig ind…"
+  "portal.signingIn": "Logger dig ind…",
+  "grid.freezeColumn": "Frys kolonne",
+  "grid.unfreezeColumn": "Frigiv kolonne"
 }

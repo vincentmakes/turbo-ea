@@ -42,6 +42,7 @@ import Typography from "@mui/material/Typography";
 import { api } from "@/api/client";
 import BulkSelectionBar, { BulkSelectionAction } from "@/components/BulkSelectionBar";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
 import { hasPermission } from "@/components/RequirePermission";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -82,6 +83,8 @@ interface ResourcePrefs {
   filtersCollapsed: boolean;
   sidebarWidth: number;
   visibleColumns: string[];
+  /** colIds frozen to the leading edge via the header pin. */
+  frozenColumns: string[];
   pageSize: number;
   statsExpanded: boolean;
 }
@@ -91,6 +94,7 @@ function loadPrefs(): ResourcePrefs {
     filtersCollapsed: false,
     sidebarWidth: 280,
     visibleColumns: ALL_COLUMN_IDS,
+    frozenColumns: [],
     pageSize: DEFAULT_PAGE_SIZE,
     statsExpanded: false,
   };
@@ -112,6 +116,11 @@ function loadPrefs(): ResourcePrefs {
               ]),
             )
           : ALL_COLUMN_IDS,
+      frozenColumns: Array.isArray(parsed.frozenColumns)
+        ? parsed.frozenColumns.filter(
+            (id): id is string => typeof id === "string" && ALL_COLUMN_IDS.includes(id),
+          )
+        : [],
       pageSize:
         typeof parsed.pageSize === "number" &&
         (PAGE_SIZE_OPTIONS as readonly number[]).includes(parsed.pageSize)
@@ -171,6 +180,12 @@ export default function ResourcesAdmin() {
     new Set(initialPrefs.visibleColumns),
   );
   const [statsExpanded, setStatsExpanded] = useState(initialPrefs.statsExpanded);
+  const [frozenColumns, setFrozenColumns] = useState<string[]>(initialPrefs.frozenColumns);
+  // Per-column freeze toggles in the header, persisted with the other prefs.
+  const columnFreeze = useColumnFreeze<RepositoryResource>(gridApiRef, {
+    frozen: frozenColumns,
+    onFrozenChange: setFrozenColumns,
+  });
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(initialPrefs.pageSize);
@@ -189,10 +204,18 @@ export default function ResourcesAdmin() {
       filtersCollapsed: sidebarCollapsed,
       sidebarWidth,
       visibleColumns: Array.from(visibleColumns),
+      frozenColumns,
       pageSize,
       statsExpanded,
     });
-  }, [sidebarCollapsed, sidebarWidth, visibleColumns, pageSize, statsExpanded]);
+  }, [
+    sidebarCollapsed,
+    sidebarWidth,
+    visibleColumns,
+    frozenColumns,
+    pageSize,
+    statsExpanded,
+  ]);
 
   // Reset to page 1 whenever a filter, sort or page size changes —
   // otherwise the user can land on "page 5 of 3 results".
@@ -383,8 +406,13 @@ export default function ResourcesAdmin() {
 
   // ── AG Grid wiring ────────────────────────────────────────────────────
   const defaultColDef: ColDef = useMemo(
-    () => ({ sortable: true, filter: false, resizable: true }),
-    [],
+    () => ({
+      sortable: true,
+      filter: false,
+      resizable: true,
+      headerComponentParams: columnFreeze.headerComponentParams,
+    }),
+    [columnFreeze.headerComponentParams],
   );
 
   const columnDefs: ColDef<RepositoryResource>[] = useMemo(
@@ -572,11 +600,13 @@ export default function ResourcesAdmin() {
 
   const visibleColumnDefs = useMemo(
     () =>
-      columnDefs.map((c) => ({
-        ...c,
-        hide: !visibleColumns.has((c.colId ?? c.field) as string),
-      })),
-    [columnDefs, visibleColumns],
+      columnFreeze.applyFrozen(
+        columnDefs.map((c) => ({
+          ...c,
+          hide: !visibleColumns.has((c.colId ?? c.field) as string),
+        })),
+      ),
+    [columnDefs, visibleColumns, columnFreeze],
   );
 
   const rowSelection = useMemo(
@@ -734,8 +764,9 @@ export default function ResourcesAdmin() {
           </BulkSelectionBar>
 
           <Box
+            ref={columnFreeze.containerRef}
             className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
-            sx={{ flex: 1, width: "100%", minHeight: 0 }}
+            sx={{ flex: 1, width: "100%", minHeight: 0, ...columnFreeze.sx }}
           >
             <AgGridReact<RepositoryResource>
               key={isRtl ? "rtl" : "ltr"}

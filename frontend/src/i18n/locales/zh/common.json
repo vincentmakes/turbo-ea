@@ -363,5 +363,7 @@
   "portal.signInButton": "使用 {{provider}} 登录",
   "portal.ssoUnavailable": "此门户目前无法使用单点登录。请联系门户管理员。",
   "portal.signInError": "登录失败。请重试。",
-  "portal.signingIn": "正在登录…"
+  "portal.signingIn": "正在登录…",
+  "grid.freezeColumn": "冻结列",
+  "grid.unfreezeColumn": "取消冻结列"
 }

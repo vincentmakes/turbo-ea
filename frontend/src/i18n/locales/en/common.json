@@ -363,5 +363,7 @@
   "portal.signInButton": "Sign in with {{provider}}",
   "portal.ssoUnavailable": "Single sign-on isn't available for this portal right now. Please contact the portal administrator.",
   "portal.signInError": "Sign-in failed. Please try again.",
-  "portal.signingIn": "Signing you in…"
+  "portal.signingIn": "Signing you in…",
+  "grid.freezeColumn": "Freeze column",
+  "grid.unfreezeColumn": "Unfreeze column"
 }

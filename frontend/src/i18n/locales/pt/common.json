@@ -363,5 +363,7 @@
   "portal.signInButton": "Entrar com {{provider}}",
   "portal.ssoUnavailable": "O logon único não está disponível para este portal no momento. Entre em contato com o administrador do portal.",
   "portal.signInError": "Falha ao entrar. Tente novamente.",
-  "portal.signingIn": "Entrando…"
+  "portal.signingIn": "Entrando…",
+  "grid.freezeColumn": "Fixar coluna",
+  "grid.unfreezeColumn": "Libertar coluna"
 }

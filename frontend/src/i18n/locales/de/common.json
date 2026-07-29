@@ -363,5 +363,7 @@
   "portal.signInButton": "Mit {{provider}} anmelden",
   "portal.ssoUnavailable": "Single Sign-On ist für dieses Portal derzeit nicht verfügbar. Bitte wenden Sie sich an den Portal-Administrator.",
   "portal.signInError": "Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.",
-  "portal.signingIn": "Sie werden angemeldet …"
+  "portal.signingIn": "Sie werden angemeldet …",
+  "grid.freezeColumn": "Spalte fixieren",
+  "grid.unfreezeColumn": "Spalte lösen"
 }

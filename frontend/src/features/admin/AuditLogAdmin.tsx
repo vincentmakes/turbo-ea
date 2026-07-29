@@ -31,6 +31,7 @@ import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useThemeMode } from "@/hooks/useThemeMode";
@@ -60,6 +61,8 @@ interface AuditPrefs {
   filtersCollapsed: boolean;
   sidebarWidth: number;
   visibleColumns: string[];
+  /** colIds frozen to the leading edge via the header pin. */
+  frozenColumns: string[];
   pageSize: number;
 }
 
@@ -68,6 +71,7 @@ function loadAuditPrefs(): AuditPrefs {
     filtersCollapsed: false,
     sidebarWidth: 280,
     visibleColumns: ALL_AUDIT_COLUMN_IDS,
+    frozenColumns: [],
     pageSize: DEFAULT_PAGE_SIZE,
   };
   try {
@@ -90,6 +94,12 @@ function loadAuditPrefs(): AuditPrefs {
               ]),
             )
           : ALL_AUDIT_COLUMN_IDS,
+      frozenColumns: Array.isArray(parsed.frozenColumns)
+        ? parsed.frozenColumns.filter(
+            (id): id is string =>
+              typeof id === "string" && ALL_AUDIT_COLUMN_IDS.includes(id),
+          )
+        : [],
       pageSize:
         typeof parsed.pageSize === "number" &&
         (PAGE_SIZE_OPTIONS as readonly number[]).includes(parsed.pageSize)
@@ -135,6 +145,14 @@ export default function AuditLogAdmin() {
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
     new Set(initialPrefs.visibleColumns),
   );
+  const [frozenColumns, setFrozenColumns] = useState<string[]>(
+    initialPrefs.frozenColumns,
+  );
+  // Per-column freeze toggles in the header, persisted with the other prefs.
+  const columnFreeze = useColumnFreeze<AuditBatch>(gridRef, {
+    frozen: frozenColumns,
+    onFrozenChange: setFrozenColumns,
+  });
 
   // Server-side pagination. AG Grid Community lacks the enterprise
   // server-side row model, so we drive page changes ourselves and let
@@ -150,9 +168,10 @@ export default function AuditLogAdmin() {
       filtersCollapsed: sidebarCollapsed,
       sidebarWidth,
       visibleColumns: Array.from(visibleColumns),
+      frozenColumns,
       pageSize,
     });
-  }, [sidebarCollapsed, sidebarWidth, visibleColumns, pageSize]);
+  }, [sidebarCollapsed, sidebarWidth, visibleColumns, frozenColumns, pageSize]);
 
   const resetVisibleColumns = useCallback(() => {
     setVisibleColumns(new Set(ALL_AUDIT_COLUMN_IDS));
@@ -231,8 +250,13 @@ export default function AuditLogAdmin() {
 
   // ── AG Grid wiring ────────────────────────────────────────────────────
   const defaultColDef: ColDef = useMemo(
-    () => ({ sortable: true, filter: true, resizable: true }),
-    [],
+    () => ({
+      sortable: true,
+      filter: true,
+      resizable: true,
+      headerComponentParams: columnFreeze.headerComponentParams,
+    }),
+    [columnFreeze.headerComponentParams],
   );
 
   const columnDefs: ColDef<AuditBatch>[] = useMemo(
@@ -377,11 +401,13 @@ export default function AuditLogAdmin() {
 
   const visibleColumnDefs = useMemo<ColDef<AuditBatch>[]>(
     () =>
-      columnDefs.map((c) => {
-        const id = c.colId ?? c.field ?? "";
-        return { ...c, hide: id ? !visibleColumns.has(id) : false };
-      }),
-    [columnDefs, visibleColumns],
+      columnFreeze.applyFrozen(
+        columnDefs.map((c) => {
+          const id = c.colId ?? c.field ?? "";
+          return { ...c, hide: id ? !visibleColumns.has(id) : false };
+        }),
+      ),
+    [columnDefs, visibleColumns, columnFreeze],
   );
 
   return (
@@ -487,8 +513,9 @@ export default function AuditLogAdmin() {
           </Stack>
 
           <Box
+            ref={columnFreeze.containerRef}
             className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
-            sx={{ flex: 1, width: "100%", minHeight: 0 }}
+            sx={{ flex: 1, width: "100%", minHeight: 0, ...columnFreeze.sx }}
           >
             <AgGridReact<AuditBatch>
               key={isRtl ? "rtl" : "ltr"}

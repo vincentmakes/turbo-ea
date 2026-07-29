@@ -19,6 +19,7 @@ import MenuItem from "@mui/material/MenuItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useIsRtl } from "@/hooks/useIsRtl";
@@ -126,6 +127,9 @@ export default function AdrGrid({
   const { formatDate } = useDateFormat();
   const extColumns = useExtensionAdrGridColumns();
   const gridRef = useRef<AgGridReact>(null);
+  // Per-column freeze toggles in the header. Uncontrolled: the pinned flag
+  // rides along in the column state `captureColumnState` already persists.
+  const columnFreeze = useColumnFreeze(gridRef);
 
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
@@ -171,8 +175,9 @@ export default function AdrGrid({
       filter: true,
       // Reset button in every column's filter popup (per-filter clear).
       filterParams: { buttons: ["reset"] },
+      headerComponentParams: columnFreeze.headerComponentParams,
     }),
-    [],
+    [columnFreeze.headerComponentParams],
   );
 
   // AG Grid v32 multi-select API — the checkbox selection column is
@@ -647,8 +652,10 @@ export default function AdrGrid({
         </Box>
 
         <Box
+          ref={columnFreeze.containerRef}
           className={isDark ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
           sx={{
+            ...columnFreeze.sx,
             flex: autoHeight ? "none" : 1,
             minHeight: 0,
             // Rows are clickable (open ADR detail) — surface that affordance:

@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.36.0] - 2026-07-29
+
+### Added
+- **Any column can now be frozen in place while you scroll sideways.** Hover a column header and click the pin: the column moves to the leading edge and stays there, so a wide table no longer leaves you guessing which row you are reading ([#890](https://github.com/vincentmakes/turbo-ea/discussions/890)). Click the pin again to release it. Frozen columns are remembered per table in your browser — on the Inventory grid they also travel with a saved view, like column order and width already do. The control is on every data table in Turbo EA: Inventory, Risk Register, Decisions, Compliance findings, Users, Resources and the Audit log.
+
+### Changed
+- **The Card column on Compliance findings and the Name column on Users can now be unfrozen.** Both were permanently pinned; they stay frozen by default and are now releasable like any other column.
+
 ## [2.35.0] - 2026-07-29
 
 ### Added
