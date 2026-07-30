@@ -89,7 +89,6 @@ plugins:
             TurboLens AI: TurboLens IA
             Diagrams: Diagramas
             EA Delivery: Entrega EA
-            Transition Planning: Planificación de transición
             GRC: GRC
             Risk Register: Registro de riesgos
             Tasks & Surveys: Tareas y encuestas
@@ -155,7 +154,6 @@ plugins:
             TurboLens AI: TurboLens KI
             Diagrams: Diagramme
             EA Delivery: EA-Bereitstellung
-            Transition Planning: Übergangsplanung
             GRC: GRC
             Risk Register: Risikoregister
             Tasks & Surveys: Aufgaben und Umfragen
@@ -221,7 +219,6 @@ plugins:
             TurboLens AI: TurboLens IA
             Diagrams: Diagrammes
             EA Delivery: Livraison EA
-            Transition Planning: Planification de transition
             GRC: GRC
             Risk Register: Registre des risques
             Tasks & Surveys: Tâches et enquêtes
@@ -287,7 +284,6 @@ plugins:
             TurboLens AI: TurboLens IA
             Diagrams: Diagrammi
             EA Delivery: Consegna EA
-            Transition Planning: Pianificazione della transizione
             GRC: GRC
             Risk Register: Registro dei rischi
             Tasks & Surveys: Attività e sondaggi
@@ -353,7 +349,6 @@ plugins:
             TurboLens AI: TurboLens IA
             Diagrams: Diagramas
             EA Delivery: Entrega EA
-            Transition Planning: Planeamento de transição
             GRC: GRC
             Risk Register: Registro de riscos
             Tasks & Surveys: Tarefas e pesquisas
@@ -419,7 +414,6 @@ plugins:
             TurboLens AI: TurboLens AI 智能
             Diagrams: 图表
             EA Delivery: EA 交付
-            Transition Planning: 过渡规划
             GRC: GRC
             Risk Register: 风险登记册
             Tasks & Surveys: 任务与调查
@@ -485,7 +479,6 @@ plugins:
             TurboLens AI: TurboLens ИИ
             Diagrams: Диаграммы
             EA Delivery: Поставка EA
-            Transition Planning: Планирование перехода
             GRC: GRC
             Risk Register: Реестр рисков
             Tasks & Surveys: Задачи и опросы
@@ -551,7 +544,6 @@ plugins:
             TurboLens AI: TurboLens AI
             Diagrams: Diagrammer
             EA Delivery: EA-levering
-            Transition Planning: Overgangsplanlægning
             GRC: GRC
             Risk Register: Risikoregister
             Tasks & Surveys: Opgaver og undersøgelser
@@ -617,7 +609,6 @@ plugins:
             TurboLens AI: TurboLens AI
             Diagrams: المخططات
             EA Delivery: تسليم هندسة المؤسسة
-            Transition Planning: تخطيط الانتقال
             GRC: GRC
             Risk Register: سجل المخاطر
             Tasks & Surveys: المهام والاستبيانات
@@ -709,7 +700,6 @@ nav:
           - PPM: guide/ppm.md
           - BPM: guide/bpm.md
           - EA Delivery: guide/delivery.md
-          - Transition Planning: guide/transition-planning.md
           - GRC:
               - Overview: guide/grc.md
               - Risk Register: guide/risks.md

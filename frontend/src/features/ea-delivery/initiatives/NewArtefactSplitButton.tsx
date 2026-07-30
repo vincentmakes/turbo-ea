@@ -8,10 +8,9 @@ import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { useTransitionPlanningGranted } from "@/features/ea-delivery/plans/planCapability";
 import { CARD_TYPE_COLORS, STATUS_COLORS } from "@/theme/tokens";
 
-export type ArtefactKind = "soaw" | "diagram" | "adr" | "plan";
+export type ArtefactKind = "soaw" | "diagram" | "adr";
 
 interface Props {
   /** When set, the dispatched create handler will pre-link to this initiative. */
@@ -29,7 +28,7 @@ interface Props {
   kinds?: ArtefactKind[];
 }
 
-const ALL_KINDS: ArtefactKind[] = ["soaw", "diagram", "adr", "plan"];
+const ALL_KINDS: ArtefactKind[] = ["soaw", "diagram", "adr"];
 
 /**
  * Reusable trigger that opens a menu of artefact creation options
@@ -47,11 +46,6 @@ export default function NewArtefactSplitButton({
   const { t } = useTranslation(["delivery", "common"]);
   const anchorRef = useRef<HTMLButtonElement | null>(null);
   const [open, setOpen] = useState(false);
-  // Plan authoring is extension-gated: without the grant the "New plan"
-  // entry is absent everywhere this menu appears (viewing existing plans
-  // stays ungated — see planCapability.ts).
-  const { granted: planGranted } = useTransitionPlanningGranted();
-  const visibleKinds = kinds.filter((k) => k !== "plan" || planGranted);
 
   const meta: Record<
     ArtefactKind,
@@ -71,11 +65,6 @@ export default function NewArtefactSplitButton({
       icon: "gavel",
       color: STATUS_COLORS.info,
       labelKey: "header.newAdr",
-    },
-    plan: {
-      icon: "route",
-      color: "#6a1b9a",
-      labelKey: "header.newPlan",
     },
   };
 
@@ -123,7 +112,7 @@ export default function NewArtefactSplitButton({
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         transformOrigin={{ vertical: "top", horizontal: "right" }}
       >
-        {visibleKinds.map((kind) => {
+        {kinds.map((kind) => {
           const m = meta[kind];
           return (
             <MenuItem key={kind} onClick={() => handleSelect(kind)}>

@@ -39,7 +39,6 @@ from app.models.soaw import SoAW
 from app.models.stakeholder import Stakeholder
 from app.models.survey import Survey, SurveyResponse
 from app.models.todo import Todo
-from app.models.transition_plan import TransitionPlan
 from app.models.turbolens import TurboLensAnalysisRun, TurboLensComplianceFinding
 from app.models.web_portal import WebPortal
 from app.services.workspace_io.entities import EntitySection
@@ -200,16 +199,6 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         card_fk_columns=("initiative_id",),
         user_fk_columns=("created_by",),
         self_parent_column="parent_id",
-    ),
-    # Card UUIDs embedded inside the plan_data/scope JSONB are NOT remapped
-    # cross-instance (the baseline snapshot carries names, so a transferred
-    # plan still renders; only re-committing against remapped cards could
-    # reference stale ids — same caveat as card `attributes`).
-    EntitySection(
-        "TransitionPlans",
-        TransitionPlan,
-        card_fk_columns=("initiative_id",),
-        user_fk_columns=("created_by",),
     ),
     # --- Saved views + surveys -------------------------------------------
     EntitySection("SavedReports", SavedReport, user_fk_columns=("owner_id",)),

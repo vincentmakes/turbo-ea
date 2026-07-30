@@ -106,17 +106,6 @@ APP_PERMISSIONS: dict[str, dict] = {
             "adr.delete": "Delete architecture decisions",
         },
     },
-    "transition_plans": {
-        "label": "Transition Plans",
-        "permissions": {
-            "transition_plans.view": "View transition plans",
-            "transition_plans.manage": "Create, edit, and delete transition plans",
-            "transition_plans.commit": (
-                "Commit a plan — create the Initiative, cards, relations, and draft ADR, "
-                "and stamp end-of-life dates on removed cards"
-            ),
-        },
-    },
     "tags": {
         "label": "Tags",
         "permissions": {
@@ -365,9 +354,6 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "adr.manage": True,
     "adr.sign": True,
     "adr.delete": False,
-    "transition_plans.view": True,
-    "transition_plans.manage": True,
-    "transition_plans.commit": True,
     "tags.manage": True,
     "bookmarks.manage": True,
     "bookmarks.share": True,
@@ -446,9 +432,6 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "adr.manage": True,
     "adr.sign": True,
     "adr.delete": False,
-    "transition_plans.view": True,
-    "transition_plans.manage": True,
-    "transition_plans.commit": True,
     "tags.manage": True,
     "bookmarks.manage": True,
     "bookmarks.share": True,
@@ -527,9 +510,6 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "adr.manage": False,
     "adr.sign": False,
     "adr.delete": False,
-    "transition_plans.view": True,
-    "transition_plans.manage": False,
-    "transition_plans.commit": False,
     "tags.manage": False,
     "bookmarks.manage": True,
     "bookmarks.share": False,

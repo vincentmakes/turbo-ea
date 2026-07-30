@@ -8,17 +8,15 @@ import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { useTransitionPlanningGranted } from "@/features/ea-delivery/plans/planCapability";
 import { CARD_TYPE_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import { SOAW_STATUS_COLORS } from "./constants";
 import type {
   ArchitectureDecision,
-  TransitionPlan,
   DiagramSummary,
   SoAW,
 } from "@/types";
 
-export type DeliverableKind = "soaw" | "diagram" | "adr" | "plan";
+export type DeliverableKind = "soaw" | "diagram" | "adr";
 
 interface BaseProps {
   initiativeId?: string;
@@ -43,13 +41,7 @@ interface AdrProps extends BaseProps {
   items: ArchitectureDecision[];
 }
 
-interface PlanProps extends BaseProps {
-  kind: "plan";
-  items: TransitionPlan[];
-  onPlanContextMenu?: (anchor: HTMLElement, plan: TransitionPlan) => void;
-}
-
-type Props = SoawProps | DiagramProps | AdrProps | PlanProps;
+type Props = SoawProps | DiagramProps | AdrProps;
 
 const KIND_META: Record<
   DeliverableKind,
@@ -58,7 +50,6 @@ const KIND_META: Record<
   soaw: { icon: "description", color: "#e65100" },
   diagram: { icon: "schema", color: CARD_TYPE_COLORS.Application },
   adr: { icon: "gavel", color: STATUS_COLORS.info },
-  plan: { icon: "route", color: "#6a1b9a" },
 };
 
 /**
@@ -70,29 +61,22 @@ export default function DeliverableSection(props: Props) {
   const navigate = useNavigate();
 
   const { kind, items, initiativeId, onAdd } = props;
-  // Plan authoring is extension-gated: without the grant the empty plan group
-  // disappears entirely and the "+ Add" affordances are suppressed. Existing
-  // plans always render (read-only authoring lives behind the same gate).
-  const { granted: planGranted } = useTransitionPlanningGranted();
-  const gatedAdd = kind === "plan" && !planGranted ? undefined : onAdd;
-  if (kind === "plan" && !planGranted && items.length === 0) return null;
   const meta = KIND_META[kind];
   const labelKey = {
     soaw: "artefactGroup.soaws",
     diagram: "artefactGroup.diagrams",
     adr: "artefactGroup.adrs",
-    plan: "artefactGroup.plans",
   }[kind];
   const addKey = `deliverable.add.${kind}` as const;
   const emptyKey = `deliverable.empty.${kind}` as const;
 
   const renderEmpty = () => (
     <Box sx={{ pl: 1, py: 0.5 }}>
-      {gatedAdd ? (
+      {onAdd ? (
         <Button
           size="small"
           startIcon={<MaterialSymbol icon="add" size={16} />}
-          onClick={() => gatedAdd(kind, initiativeId)}
+          onClick={() => onAdd(kind, initiativeId)}
           sx={{ textTransform: "none", color: "text.secondary" }}
         >
           {t(addKey)}
@@ -133,12 +117,12 @@ export default function DeliverableSection(props: Props) {
           sx={{ height: 20, fontSize: "0.7rem" }}
         />
         <Box sx={{ flex: 1 }} />
-        {gatedAdd && items.length > 0 && (
+        {onAdd && items.length > 0 && (
           <Tooltip title={t(addKey)}>
             <Button
               size="small"
               startIcon={<MaterialSymbol icon="add" size={16} />}
-              onClick={() => gatedAdd(kind, initiativeId)}
+              onClick={() => onAdd(kind, initiativeId)}
               sx={{ textTransform: "none" }}
             >
               {t("common:actions.add")}
@@ -174,16 +158,6 @@ export default function DeliverableSection(props: Props) {
       {kind === "adr" &&
         (items as ArchitectureDecision[]).map((a) => (
           <AdrRow key={a.id} adr={a} color={meta.color} />
-        ))}
-
-      {kind === "plan" &&
-        (items as TransitionPlan[]).map((p) => (
-          <PlanRow
-            key={p.id}
-            plan={p}
-            color={meta.color}
-            onContextMenu={(props as PlanProps).onPlanContextMenu}
-          />
         ))}
 
       {/* Diagram-link affordance — kept distinct from the create flow */}
@@ -351,60 +325,6 @@ export default function DeliverableSection(props: Props) {
           color={SOAW_STATUS_COLORS[adr.status] ?? "default"}
           sx={{ height: 22 }}
         />
-      </CompactRow>
-    );
-  }
-
-  function PlanRow({
-    plan,
-    color,
-    onContextMenu,
-  }: {
-    plan: TransitionPlan;
-    color: string;
-    onContextMenu?: (a: HTMLElement, p: TransitionPlan) => void;
-  }) {
-    const isDraft = plan.status === "draft";
-    return (
-      <CompactRow
-        icon={<MaterialSymbol icon="route" size={18} color={color} />}
-        onClick={() =>
-          navigate(
-            isDraft ? `/ea-delivery/plans/${plan.id}` : `/ea-delivery/plans/${plan.id}/preview`,
-          )
-        }
-      >
-        <Typography sx={{ fontSize: "0.9rem", flex: 1, minWidth: 0 }} noWrap>
-          {plan.title}
-        </Typography>
-        <Chip
-          label={isDraft ? t("plan.status.draft") : t("plan.status.committed")}
-          size="small"
-          color={isDraft ? "default" : "success"}
-          sx={{ height: 22 }}
-        />
-        <Tooltip title={t("plan.previewTooltip")}>
-          <IconButton
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/ea-delivery/plans/${plan.id}/preview`);
-            }}
-          >
-            <MaterialSymbol icon="visibility" size={18} />
-          </IconButton>
-        </Tooltip>
-        {onContextMenu && (
-          <IconButton
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              onContextMenu(e.currentTarget, plan);
-            }}
-          >
-            <MaterialSymbol icon="more_vert" size={18} />
-          </IconButton>
-        )}
       </CompactRow>
     );
   }
