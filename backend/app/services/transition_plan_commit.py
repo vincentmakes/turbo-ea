@@ -94,9 +94,17 @@ def _compute_plan_insights(
             "attributes": n.get("attributes"),
             "changeState": None,
         }
-        names[n["id"]] = n.get("name", n["id"])
-    baseline_edges = [
-        {"source": e.get("source"), "target": e.get("target"), "type": e.get("type")}
+        names[n["id"]] = str(n.get("name") or n["id"])
+    # The snapshot is untyped JSONB, so coerce the three edge keys to str up
+    # front: everything downstream (_rel_removed, nodes.get) is keyed by str,
+    # and a malformed edge missing a key would otherwise compare None == None
+    # and match a different malformed edge.
+    baseline_edges: list[dict[str, str]] = [
+        {
+            "source": str(e.get("source") or ""),
+            "target": str(e.get("target") or ""),
+            "type": str(e.get("type") or ""),
+        }
         for e in baseline.get("edges", [])
         if isinstance(e, dict)
     ]
@@ -113,7 +121,7 @@ def _compute_plan_insights(
     def _add_node(ref: dict, change_state: str) -> str | None:
         proposed = ref.get("proposed")
         if proposed:
-            tid = proposed.get("tempId") or f"tmp:{uuid.uuid4()}"
+            tid = str(proposed.get("tempId") or f"tmp:{uuid.uuid4()}")
             nodes[tid] = {
                 "type": proposed.get("cardTypeKey", ""),
                 "attributes": None,
@@ -126,9 +134,10 @@ def _compute_plan_insights(
             return tid
         existing = ref.get("existingCardId")
         if existing:
-            node = nodes.setdefault(existing, {"type": "", "attributes": None, "changeState": None})
+            eid = str(existing)
+            node = nodes.setdefault(eid, {"type": "", "attributes": None, "changeState": None})
             node["changeState"] = change_state
-            return existing
+            return eid
         return None
 
     for c in changes:
