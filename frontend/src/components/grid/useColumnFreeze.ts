@@ -44,6 +44,14 @@ import { useTranslation } from "react-i18next";
 
 /** Marker class on both pins — the click delegate keys on it. */
 export const FREEZE_TOGGLE_CLASS = "tea-freeze";
+/**
+ * AG Grid's auto-generated row-selection column (`CONTROLS_COLUMN_ID_PREFIX`).
+ * It is `lockPosition: "left"`, which only orders it within its own region —
+ * so as soon as the user freezes a column, the checkboxes end up *after* the
+ * pinned region. Pinning it too keeps it genuinely first; see
+ * `selectionColumnDef` below.
+ */
+const CONTROLS_COLUMN_SELECTOR = '[col-id^="ag-Grid-ControlsColumn"]';
 /** Shown on hover over a column that is not frozen. */
 const FREEZE_ACTION_CLASS = "tea-freeze-do";
 /** Shown permanently on a frozen column. */
@@ -128,7 +136,31 @@ export const columnFreezeSx: SxProps<Theme> = {
   "@media print": {
     [`& .${FREEZE_TOGGLE_CLASS}`]: { display: "none" },
   },
+  // The row-selection column is pinned permanently (see `selectionColumnDef`)
+  // so it can never be pushed right of a frozen column. On a grid where the
+  // user has frozen nothing that would still draw AG Grid's pinned-region
+  // divider after the checkboxes, which reads as a frozen column that isn't
+  // one — so drop the divider while the pinned region holds nothing else.
+  [`& .ag-pinned-left-header:not(:has(.ag-header-cell:not(${CONTROLS_COLUMN_SELECTOR})))`]: {
+    borderRight: "none",
+  },
+  [`& .ag-pinned-left-cols-container:not(:has(.ag-cell:not(${CONTROLS_COLUMN_SELECTOR}))) .ag-cell.ag-cell-last-left-pinned`]:
+    { borderRight: "none" },
 };
+
+/**
+ * Spread into `<AgGridReact selectionColumnDef=…>` on any grid with row
+ * selection. Pinning the checkbox column is what keeps it leftmost once the
+ * user freezes something: pinned columns render in their own region, ahead of
+ * everything unpinned, so an unpinned checkbox column would sit *after* the
+ * frozen columns. `lockPosition: "left"` (AG Grid's own default for this
+ * column) then holds it first within the pinned region.
+ *
+ * Static rather than derived from the frozen set: AG Grid rebuilds the
+ * selection column only when its colId changes, so a `selectionColumnDef`
+ * flipped at runtime would not take effect.
+ */
+export const freezeSelectionColumnDef: ColDef = { pinned: "left" };
 
 export interface UseColumnFreezeOptions {
   /**
@@ -147,6 +179,11 @@ export interface UseColumnFreezeOptions {
 export interface ColumnFreeze {
   /** Attach to the element wrapping `<AgGridReact>`. */
   containerRef: RefObject<HTMLDivElement | null>;
+  /**
+   * Pass to `<AgGridReact selectionColumnDef=…>` on grids with row selection,
+   * so the checkbox column stays left of every frozen column.
+   */
+  selectionColumnDef: ColDef;
   /** Spread into `defaultColDef`. */
   headerComponentParams: { template: string };
   /** Spread into the wrapper's `sx`. */
@@ -265,6 +302,7 @@ export function useColumnFreeze<TData = unknown>(
   return useMemo(
     () => ({
       containerRef,
+      selectionColumnDef: freezeSelectionColumnDef,
       headerComponentParams,
       sx: columnFreezeSx,
       applyFrozen,

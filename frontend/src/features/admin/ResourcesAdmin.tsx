@@ -781,6 +781,8 @@ export default function ResourcesAdmin() {
               // Ids come from two tables — the kind prefix keeps them unique.
               getRowId={(p) => rowKey(p.data)}
               rowSelection={rowSelection}
+              // Keeps the checkbox column left of every frozen column.
+              selectionColumnDef={columnFreeze.selectionColumnDef}
               onGridReady={(e) => {
                 gridApiRef.current = e.api;
               }}

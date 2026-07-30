@@ -1091,6 +1091,8 @@ export default function UsersAdmin() {
                 animateRows
                 rowHeight={48}
                 rowSelection={rowSelection}
+                // Keeps the checkbox column left of every frozen column.
+                selectionColumnDef={columnFreeze.selectionColumnDef}
                 onGridReady={(params) => {
                   gridApiRef.current = params.api;
                 }}

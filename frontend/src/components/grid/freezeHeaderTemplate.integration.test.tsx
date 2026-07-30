@@ -28,6 +28,7 @@ function FreezableGrid() {
         ref={gridRef}
         rowData={[{ name: "NexaCore ERP" }]}
         rowSelection={{ mode: "multiRow", headerCheckbox: true }}
+        selectionColumnDef={freeze.selectionColumnDef}
         columnDefs={[
           { field: "name", headerName: "Name" },
           { field: "owner", headerName: "Owner" },
@@ -122,5 +123,32 @@ describe("freeze header template + AG Grid", () => {
     await waitFor(() =>
       expect(container.querySelector('.ag-pinned-left-header [col-id="name"]')).toBeNull(),
     );
+  });
+
+  it("keeps the row-selection checkboxes ahead of a frozen column", async () => {
+    const { container } = render(<FreezableGrid />);
+
+    const header = await waitFor(() => {
+      const el = container.querySelector('.ag-header-cell[col-id="name"]');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+
+    // The selection column is pinned from the start, so it is already the
+    // only thing in the pinned region.
+    const pinnedIds = () =>
+      [...container.querySelectorAll(".ag-pinned-left-header .ag-header-cell")].map((el) =>
+        el.getAttribute("col-id"),
+      );
+    expect(pinnedIds()).toEqual([expect.stringContaining("ag-Grid-ControlsColumn")]);
+
+    const pin = header.querySelector(".tea-freeze-do") as HTMLElement;
+    pin.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+    pin.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    // Freezing a column must not push the checkboxes to its right.
+    await waitFor(() => expect(pinnedIds()).toHaveLength(2));
+    expect(pinnedIds()[0]).toContain("ag-Grid-ControlsColumn");
+    expect(pinnedIds()[1]).toBe("name");
   });
 });

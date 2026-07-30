@@ -3135,6 +3135,8 @@ export default function InventoryPage() {
             // looks settled while it is still showing the previous query's rows.
             loading={loading || searchPending}
             rowSelection={rowSelection}
+            // Keeps the checkbox column left of every frozen column.
+            selectionColumnDef={columnFreeze.selectionColumnDef}
             onSelectionChanged={handleSelectionChanged}
             onCellValueChanged={handleCellEdit}
             onRowClicked={onRowClicked}

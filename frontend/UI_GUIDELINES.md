@@ -210,10 +210,13 @@ renders pinned columns but ships no UI to pin one, so the affordance lives in
 each grid in three lines:
 
 ```tsx
-const columnFreeze = useColumnFreeze(gridRef);            // or { frozen, onFrozenChange }
+const columnFreeze = useColumnFreeze(gridRef, { frozen, onFrozenChange });
 const defaultColDef = useMemo(() => ({ …, headerComponentParams: columnFreeze.headerComponentParams }), [columnFreeze.headerComponentParams]);
 <Box ref={columnFreeze.containerRef} sx={{ …, ...columnFreeze.sx }}>
+  <AgGridReact … selectionColumnDef={columnFreeze.selectionColumnDef} />   // grids with row selection
 ```
+
+`selectionColumnDef` pins the checkbox column. Without it a frozen column renders to the *left* of the checkboxes — AG Grid draws the entire pinned region ahead of everything unpinned, and the selection column's `lockPosition: "left"` only orders it within its own region.
 
 The hook feeds the *stock* header component a template with two extra pins
 (freeze on hover, unfreeze while frozen) — never hand-roll a `headerComponent`

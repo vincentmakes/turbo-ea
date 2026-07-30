@@ -888,6 +888,8 @@ export default function ComplianceGrid({
             onCellClicked={onCellClicked}
             onSortChanged={onSortChanged}
             rowSelection={canManage ? rowSelection : undefined}
+            // Keeps the checkbox column left of every frozen column.
+            selectionColumnDef={columnFreeze.selectionColumnDef}
             onSelectionChanged={canManage ? handleSelectionChanged : undefined}
             animateRows
             getRowId={(p) => p.data.id}

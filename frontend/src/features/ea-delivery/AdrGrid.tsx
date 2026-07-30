@@ -698,6 +698,8 @@ export default function AdrGrid({
             loading={loading}
             onRowClicked={onRowClicked}
             rowSelection={rowSelection}
+            // Keeps the checkbox column left of every frozen column.
+            selectionColumnDef={columnFreeze.selectionColumnDef}
             onSelectionChanged={onSelectionChanged}
             onGridReady={() => setGridReady(true)}
             onFilterChanged={handleFilterChanged}
