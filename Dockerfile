@@ -34,9 +34,27 @@ COPY --from=backend-build /app/alembic ./alembic
 COPY --from=backend-build /app/alembic.ini ./alembic.ini
 COPY --from=backend-build /app/bpmn_templates ./bpmn_templates
 
-# Upgrade the bundled pip past CVE-2025-8869 / CVE-2026-1703 / CVE-2026-6357.
-# pip is never executed at runtime — this only silences Trivy noise on the image.
-RUN pip install --no-cache-dir --upgrade 'pip>=26.1'
+# Remove pip from the runtime image entirely. The backend never shells out to
+# pip (its packages arrive via the `COPY --from=backend-build /install` above,
+# and the extension loader imports modules from disk rather than installing
+# them), so pip is dead weight here — and it is not inert weight: pip ships a
+# CycloneDX SBOM of its own VENDORED dependency tree at
+# `pip/_vendor/bom.cdx.json`, which Trivy reads. Every CVE in pip's vendored
+# setuptools / msgpack / requests therefore surfaced as a finding on an image
+# that never executes pip. Upgrading pip does NOT fix that — pip 26.2 still
+# vendors setuptools 70.3.0 (CVE-2025-47273, CVE-2026-59890) and msgpack 1.1.2
+# (GHSA-6v7p-g79w-8964) — which is why the previous `--upgrade 'pip>=26.1'`
+# line is gone: deleting pip removes the whole surface instead of re-triaging
+# it on every pip re-vendor. `python -m ensurepip` restores pip if a debugging
+# session needs it.
+# The trailing `import pip` check is deliberate: no CI job builds these images,
+# so a base-image layout change that silently stopped matching would otherwise
+# ship pip back into the runtime image unnoticed. Fail the build instead.
+RUN { python -m pip uninstall -y pip 2>/dev/null || true; } && \
+    find /usr/local/lib -maxdepth 3 \( -name 'pip' -o -name 'pip-*.dist-info' \) \
+        -prune -exec rm -rf {} + && \
+    rm -f /usr/local/bin/pip /usr/local/bin/pip3 /usr/local/bin/pip3.* && \
+    ! python -c 'import pip' 2>/dev/null
 
 # /app/data is the mountpoint of the backend_data named volume (uploads,
 # installed extensions, workspace transfers). It MUST exist in the image
@@ -589,11 +607,22 @@ WORKDIR /app
 
 COPY VERSION ./VERSION
 COPY mcp-server/ ./
-# Upgrade the bundled pip past CVE-2025-8869 / CVE-2026-1703 / CVE-2026-6357
-# before installing the app. pip is never executed at runtime — this only
-# silences Trivy noise on the published image.
-RUN pip install --no-cache-dir --upgrade 'pip>=26.1' && \
-    pip install --no-cache-dir .
+# Install the app, then remove pip from the image. Unlike the backend stage
+# this stage does use pip at build time, so the uninstall happens in the same
+# layer immediately afterwards. Rationale is identical to the backend stage:
+# pip ships a CycloneDX SBOM of its vendored dependency tree
+# (`pip/_vendor/bom.cdx.json`) that Trivy reads, so pip's vendored setuptools /
+# msgpack CVEs surfaced on an image that never executes pip. Upgrading pip
+# cannot fix it (pip 26.2 still vendors setuptools 70.3.0 / msgpack 1.1.2), so
+# the former `--upgrade 'pip>=26.1'` step is gone. `python -m ensurepip`
+# restores pip for debugging.
+# Same self-verifying `import pip` check as the backend stage — see there.
+RUN pip install --no-cache-dir . && \
+    { python -m pip uninstall -y pip 2>/dev/null || true; } && \
+    find /usr/local/lib -maxdepth 3 \( -name 'pip' -o -name 'pip-*.dist-info' \) \
+        -prune -exec rm -rf {} + && \
+    rm -f /usr/local/bin/pip /usr/local/bin/pip3 /usr/local/bin/pip3.* && \
+    ! python -c 'import pip' 2>/dev/null
 
 RUN addgroup -g ${APP_GID} -S appgroup && adduser -S -D -u ${APP_UID} -G appgroup appuser && \
     chown -R ${APP_UID}:${APP_GID} /app

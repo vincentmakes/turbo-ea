@@ -139,6 +139,38 @@ you republish the image.
    observe once the image is patched, but the reconcile closes them immediately
    too.
 
+### A Python finding names a package we don't depend on
+
+Symptom: a Trivy alert on the `backend` or `mcp-server` image, location
+`Python:1`, for a package that appears nowhere in `backend/pyproject.toml` or
+`mcp-server/pyproject.toml` — `setuptools`, `msgpack`, `requests`, `urllib3`,
+`certifi`, `distlib`, `rich`…
+
+Those are **pip's vendored dependencies**. pip ships a CycloneDX SBOM of its
+`_vendor/` tree at `pip/_vendor/bom.cdx.json`, and Trivy reads it, so pip's
+vendored package versions are reported as if they were installed packages.
+Confirm with `pip install --target /tmp/p 'pip>=26.1' && cat
+/tmp/p/pip/_vendor/vendor.txt` — the reported version will match a pin there.
+
+**Do not "fix" this by upgrading pip.** That was the original approach and it
+does not work: pip 26.2 still vendors `setuptools 70.3.0` and `msgpack 1.1.2`,
+both below their patched versions. Worse, upgrading pip is what introduced the
+findings in the first place — newer pip carries the SBOM that Trivy reads.
+
+**The runtime images therefore ship no pip at all.** The `backend` and
+`mcp-server` stages of the root `Dockerfile` delete it (`python -m pip
+uninstall -y pip` + `rm -rf …/site-packages/pip*`) after the app is installed.
+Neither image executes pip at runtime — the backend receives its packages via
+`COPY --from=backend-build /install /usr/local`, and the extension loader
+imports modules from disk rather than installing them. `python -m ensurepip`
+restores pip inside a container if a debugging session needs it.
+
+**Keep it that way.** If a future pip CVE tempts you to add an
+`--upgrade 'pip>=X'` line back into either runtime stage, don't — that
+reintroduces the vendored-SBOM surface. See the 2026-07-30 block in
+[`.github/trivy-allowlist`](trivy-allowlist) for the worked example
+(CVE-2025-47273, CVE-2026-59890, GHSA-6v7p-g79w-8964).
+
 ### The Trivy allowlist file
 
 Lives at [`.github/trivy-allowlist`](trivy-allowlist). **No `.yaml` / `.yml` extension by design** — Trivy 0.65+ infers the schema from the filename, and a YAML extension would force the YAML-schema parser, which rejects bare `CVE-XXXX-YYYYY` lines. If you rename it, drop the extension or use `.trivyignore`.

@@ -170,3 +170,38 @@ CVE-2026-32289
 # carrying the patch. Remove this entry once a follow-up scan confirms
 # the runtime images report no nghttp2 finding.
 CVE-2026-27135
+
+# -----------------------------------------------------------------------------
+# Transient — pip's VENDORED dependency tree in the `backend` / `mcp-server`
+# images (remove once a rebuilt `:latest` confirms the alerts have cleared)
+# -----------------------------------------------------------------------------
+# Reviewed 2026-07-30 (VV) — none of these three are Turbo EA dependencies.
+# They are pip's own vendored packages: pip ships a CycloneDX SBOM of its
+# `_vendor/` tree at `pip/_vendor/bom.cdx.json`, and Trivy reads it, so
+# `setuptools 70.3.0` and `msgpack 1.1.2` (pinned in pip's `vendor.txt`)
+# surfaced as findings on the two python images. Upgrading pip does not help —
+# pip 26.2, the current latest, still vendors exactly those versions.
+#
+# Not exploitable in Turbo EA's usage path, and now moot:
+#   - CVE-2025-47273 (setuptools, HIGH, fixed 78.1.1) — path traversal in
+#     `PackageIndex.download`, i.e. the deprecated easy_install code path.
+#     Requires running pip/easy_install against a hostile index in-container.
+#   - CVE-2026-59890 (setuptools, MEDIUM, fixed 83.0.0) — MANIFEST.in exclusion
+#     bypass when building an sdist on macOS APFS/HFS+. We build no sdists and
+#     the runtime is Linux; structurally inapplicable.
+#   - GHSA-6v7p-g79w-8964 (msgpack, HIGH, fixed 1.2.1) — `Unpacker` crash on
+#     reuse after a caught error. pip vendors msgpack only for CacheControl's
+#     index HTTP cache; same precondition as above.
+# Neither image executes pip at runtime (no `subprocess` / `sys.executable` /
+# pip call anywhere in `backend/app/` or `mcp-server/turbo_ea_mcp/`; the
+# extension loader imports modules from disk rather than installing them), and
+# both run non-root with `cap_drop: ALL`.
+#
+# The real fix shipped with this entry: the `backend` and `mcp-server` stages
+# of the root Dockerfile now DELETE pip after the app is installed, which
+# removes the vendored-SBOM surface entirely. These IDs are listed only as a
+# transitional safety net covering the window until a rebuilt `:latest` is
+# published and scanned. Drop this whole block once that scan is clean.
+CVE-2025-47273
+CVE-2026-59890
+GHSA-6v7p-g79w-8964
