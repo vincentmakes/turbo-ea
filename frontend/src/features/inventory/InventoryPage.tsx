@@ -262,6 +262,10 @@ interface InventoryPrefs {
   // AG Grid column layout (order/width/pinning), captured via getColumnState().
   // Visibility still flows from `columns` → `selectedColumns` → colDef `hide`.
   columnState?: ColumnLayoutItem[];
+  // Frozen colIds. Owned separately from `columnState` because the layout's
+  // restore only runs until the user first rearranges a column, which is not
+  // a window a freeze can depend on.
+  frozenColumns?: string[];
   // AG Grid column-filter model (api.getFilterModel()), a layer separate from
   // `filters` (the sidebar filters). Persisted so column filters survive reload.
   columnFilterModel?: Record<string, unknown>;
@@ -479,6 +483,16 @@ export default function InventoryPage() {
   const [columnState, setColumnState] = useState<ColumnLayoutItem[] | undefined>(
     () => savedPrefsRef.current?.columnState,
   );
+  // Frozen colIds. Seeded from their own pref, falling back to the `pinned`
+  // flags of a layout saved before freezing had one, so an existing user's
+  // frozen columns carry over.
+  const [frozenColumns, setFrozenColumns] = useState<string[]>(
+    () =>
+      savedPrefsRef.current?.frozenColumns ??
+      (savedPrefsRef.current?.columnState ?? [])
+        .filter((c) => c.pinned === "left" && c.colId)
+        .map((c) => c.colId),
+  );
   // Mirror of the latest columnState for the apply effect (which keys on
   // columnDefs, not columnState, to avoid re-applying on every capture).
   const columnStateRef = useRef(columnState);
@@ -501,23 +515,26 @@ export default function InventoryPage() {
   const applyColumnLayout = useCallback((layout: ColumnLayoutItem[] | null) => {
     restorePendingRef.current = true;
     setColumnState(layout ?? undefined);
+    // A view carries its freezes inside the layout's `pinned`; hand them to
+    // `frozenColumns`, which is what actually drives the grid.
+    setFrozenColumns(
+      (layout ?? []).filter((c) => c.pinned === "left" && c.colId).map((c) => c.colId),
+    );
     setLayoutNonce((n) => n + 1);
   }, []);
 
-  // Per-column freeze, in the header and in the sidebar's Columns tab. The
-  // frozen set is *read* from the layout above rather than kept in a second
-  // piece of state, so it stays right through a saved view being applied:
-  // toggle → setColumnsPinned → onColumnPinned → captureColumnState →
-  // columnState → this list → the sidebar's pins. No `applyFrozen()` here —
-  // `pinned` belongs to the layout this page already persists.
-  const frozenColumns = useMemo(
-    () =>
-      (columnState ?? [])
-        .filter((c) => c.pinned === "left" && c.colId)
-        .map((c) => c.colId),
-    [columnState],
-  );
-  const columnFreeze = useColumnFreeze(gridRef, { frozen: frozenColumns });
+  // --- Frozen (pinned) columns ----------------------------------------------
+  // Kept as their own list of colIds and stamped onto the column defs by
+  // `applyFrozen()`, rather than read back out of the layout snapshot above.
+  // The snapshot is the wrong owner: its restore stops re-applying the moment
+  // the user drags or resizes anything (`restorePendingRef`), so a freeze made
+  // after that was persisted but never restored on the next load. A colDef
+  // carries `pinned` from the first render, with no restore window to miss —
+  // the same shape every other grid uses.
+  const columnFreeze = useColumnFreeze(gridRef, {
+    frozen: frozenColumns,
+    onFrozenChange: setFrozenColumns,
+  });
 
   // --- Column filters (AG Grid filter model) --------------------------------
   // The grid's own column-filter model, persisted to localStorage and saved
@@ -744,11 +761,12 @@ export default function InventoryPage() {
       filters,
       columns: Array.from(selectedColumns),
       columnState,
+      frozenColumns,
       columnFilterModel,
       sortModel,
       coreTagsMerged: true,
     });
-  }, [filters, selectedColumns, sortModel, columnState, columnFilterModel]);
+  }, [filters, selectedColumns, sortModel, columnState, frozenColumns, columnFilterModel]);
 
   // Free-text search is debounced; every other filter stays instant. Typing
   // "SAP ERP" used to fire seven whole-repository requests, one per keystroke.
@@ -2507,14 +2525,13 @@ export default function InventoryPage() {
       }
     );
 
-    return cols;
-  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, tagGroups, stakeholderRoles, typeLabel]);
+    return columnFreeze.applyFrozen(cols);
+  }, [columnFreeze, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, tagGroups, stakeholderRoles, typeLabel]);
 
   // Restore the saved column layout (order/width/pinning/sort) onto the grid.
   // Keyed on `columnDefs` so it re-applies each time the column *set* changes —
   // crucially when attribute/relation columns arrive after the metamodel loads,
-  // which happens *after* the grid is ready. We strip `hide` so visibility keeps
-  // flowing from `selectedColumns`. `restorePendingRef` stops the restore once
+  // which happens *after* the grid is ready. `restorePendingRef` stops the restore once
   // the user manually rearranges; `applyingLayoutRef` guards against capturing
   // the events this apply fires. Without re-applying on columnDefs changes, a
   // one-shot restore at grid-ready loses the late-arriving columns' positions.
@@ -2524,7 +2541,11 @@ export default function InventoryPage() {
     if (!layout || layout.length === 0) return;
     const api = gridRef.current?.api;
     if (!api) return;
-    const state: ColumnState[] = layout.map(({ hide: _hide, ...rest }) => rest);
+    // `hide` and `pinned` are stripped: visibility flows from
+    // `selectedColumns` and freezing from `frozenColumns`, both via colDefs.
+    const state: ColumnState[] = layout.map(
+      ({ hide: _hide, pinned: _pinned, ...rest }) => rest,
+    );
     applyingLayoutRef.current = true;
     api.applyColumnState({ state, applyOrder: true });
     applyingLayoutRef.current = false;

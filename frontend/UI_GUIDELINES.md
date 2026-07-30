@@ -221,14 +221,13 @@ const defaultColDef = useMemo(() => ({ …, headerComponentParams: columnFreeze.
 The hook feeds the *stock* header component a template with two extra pins
 (freeze on hover, unfreeze while frozen) — never hand-roll a `headerComponent`
 for this, as that loses sorting, the sort indicator, and the filter button.
-Pass `frozen` **and** `onFrozenChange` and run the column defs through
-`applyFrozen()` when the page persists only a slice of grid state (Risk,
-Compliance, Users, Resources, Audit log, ADR). When the page already persists a
-full `getColumnState()` snapshot, which carries `pinned` on its own
-(Inventory), derive `frozen` from that snapshot, omit `onFrozenChange`, and do
-not call `applyFrozen()` — its `onColumnPinned` capture is already the writer.
-A frozen column is a per-user preference and must survive a reload like column
-visibility and width do. The same `frozenColumns` / `toggleFrozen` feed the
+Persist the frozen colIds as **their own pref** and stamp them on with
+`applyFrozen()` — on every grid, including one that also stores a full
+`getColumnState()` snapshot. A snapshot is the wrong owner: its restore stops
+re-applying once the user drags or resizes a column, so a freeze made after
+that is saved and never restored. Strip `pinned` from the restored snapshot so
+the two can't fight. A frozen column is a per-user preference and must survive
+a reload like column visibility and width do. The same `frozenColumns` / `toggleFrozen` feed the
 per-row pin in the page's Columns tab (§3.11).
 
 ### 3.7 Status Representation
