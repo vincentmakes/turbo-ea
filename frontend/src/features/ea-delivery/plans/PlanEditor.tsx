@@ -7,7 +7,7 @@
  * the merged before/after diagram with diff indicators.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Autocomplete from "@mui/material/Autocomplete";

@@ -3,7 +3,15 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 
 vi.mock("@/api/client", () => ({
-  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+  // Resolved promises, not bare fns: the page's extension-capability hook
+  // chains .then on api.get during mount (vi.clearAllMocks keeps these
+  // implementations — it only clears call history).
+  api: {
+    get: vi.fn(() => Promise.resolve([])),
+    post: vi.fn(() => Promise.resolve({})),
+    patch: vi.fn(() => Promise.resolve({})),
+    delete: vi.fn(() => Promise.resolve(undefined)),
+  },
 }));
 
 // InitiativesTab pulls its own data + has a sidebar + AG-Grid-like layout —
