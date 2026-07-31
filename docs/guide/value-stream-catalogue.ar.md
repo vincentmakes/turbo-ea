@@ -4,7 +4,7 @@
 
 تتيح لك صفحة كتالوج تدفّق القيمة تصفّح هذا المرجع وإنشاء بطاقات `BusinessContext` المطابقة (النوع الفرعي **Value Stream**) بالجملة.
 
-![كتالوج تدفّق القيمة](../assets/img/en/49_value_stream_catalogue.png)
+![كتالوج تدفّق القيمة](../assets/img/ar/49_value_stream_catalogue.png)
 
 ## فتح الصفحة
 

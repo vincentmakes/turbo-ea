@@ -74,7 +74,7 @@ Turbo EA 包含强大的**可视化报告**模块，允许从不同角度分析�
 
 ### Layered Dependency View（分层依赖视图）
 
-![Layered Dependency View](../assets/img/en/13b_dependencies_c4.png)
+![Layered Dependency View](../assets/img/zh/13b_dependencies_c4.png)
 
 使用工具栏中的视图模式按钮切换到 **Layered Dependency View**。这是 Turbo EA 用于在四个 EA 层之间展示卡片之间依赖关系的自有表示法——受 ArchiMate 分层原则和 C4 模型「良好默认值」理念的启发，但与两者均不相同。同一视图也在卡片详情页面（显示该卡片的即时依赖邻域）和 [TurboLens Architect](turbolens.md#architecture-ai) 向导中复用，因此依赖关系在各处显示一致。
 

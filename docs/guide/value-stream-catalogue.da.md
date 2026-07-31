@@ -4,7 +4,7 @@ Turbo EA leveres med **Reference­katalog for værdistrømme** — et kurateret 
 
 Siden Værdistrømskatalog lader dig gennemse denne reference og oprette tilsvarende `BusinessContext`-kort (undertype **Value Stream**) i bulk.
 
-![Værdistrømskatalog](../assets/img/en/49_value_stream_catalogue.png)
+![Værdistrømskatalog](../assets/img/da/49_value_stream_catalogue.png)
 
 ## Åbning af siden
 

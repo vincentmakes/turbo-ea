@@ -48,7 +48,7 @@ const DEFAULT_CONFIG: Config = {
   baseUrl: process.env.BASE_URL || "http://localhost:8920",
   email: process.env.SCREENSHOT_EMAIL || "admin@turboea.demo",
   password: process.env.SCREENSHOT_PASSWORD || "TurboEA!2025",
-  locales: ["en", "de", "fr", "es", "it", "pt", "zh", "ru"],
+  locales: ["en", "de", "fr", "es", "it", "pt", "zh", "ru", "da", "ar"],
   captureDocs: true,
   captureMarketing: false,
   only: [],
@@ -117,7 +117,7 @@ Options:
   --base-url <url>     App base URL (default: http://localhost:8920)
   --email <email>      Login email (default: admin@turboea.demo)
   --password <pw>      Login password (default: TurboEA!2025)
-  --locale <code>      Capture only this locale (default: all 7 supported)
+  --locale <code>      Capture only this locale (default: all 10 supported)
   --marketing          Capture marketing screenshots
   --docs               Capture documentation screenshots (default)
   --all                Capture both docs and marketing
@@ -370,8 +370,7 @@ async function capturePage(
   outputPath: string,
   cardIds: Record<string, string>,
   config: Config,
-  locale: string,
-  token?: string
+  locale: string
 ): Promise<boolean> {
   // Resolve route
   const route = interpolateRoute(pageDef.route, cardIds);
@@ -386,11 +385,19 @@ async function capturePage(
   const vp = pageDef.viewport || config.viewport;
   await page.setViewportSize(vp);
 
-  // For login page, clear the session token so the app renders the login form
+  // For the login page, log the browser out so the app renders the login form
   // instead of redirecting to the dashboard.
+  //
+  // Auth is an httpOnly `access_token` cookie set by the backend (see
+  // `AUTH_COOKIE` in backend/app/api/v1/auth.py); the frontend's `setToken` is a
+  // no-op that only flips an in-memory flag. Clearing sessionStorage therefore
+  // does NOT log the SPA out — doing so silently captured the dashboard under
+  // the name `24_login.png`. The cookie is httpOnly, so it can only be dropped
+  // from the Playwright context, not from page JS.
   const isLoginPage = route === "/login";
+  const savedCookies = isLoginPage ? await page.context().cookies() : null;
   if (isLoginPage) {
-    await page.evaluate(() => sessionStorage.removeItem("token"));
+    await page.context().clearCookies();
   }
 
   // Reset persisted UI state before navigating so every screenshot starts from
@@ -459,9 +466,10 @@ async function capturePage(
     await page.screenshot({ path: fullPath, fullPage: false, type: "png" });
   }
 
-  // Restore token after login page screenshot so subsequent captures work
-  if (isLoginPage && token) {
-    await page.evaluate((t: string) => sessionStorage.setItem("token", t), token);
+  // Restore the auth cookie after the login-page screenshot so subsequent
+  // captures are authenticated again.
+  if (savedCookies) {
+    await page.context().addCookies(savedCookies);
   }
 
   return true;
@@ -565,7 +573,7 @@ async function main(): Promise<void> {
         process.stdout.write(`  Capturing ${filename}...`);
 
         const ok = await capturePage(
-          page, pageDef, outDir, cardIds, config, locale, token
+          page, pageDef, outDir, cardIds, config, locale
         );
 
         if (ok) {
@@ -596,7 +604,7 @@ async function main(): Promise<void> {
         process.stdout.write(`  Capturing ${filename}...`);
 
         const ok = await capturePage(
-          page, pageDef, outDir, cardIds, config, "en", token
+          page, pageDef, outDir, cardIds, config, "en"
         );
 
         if (ok) {

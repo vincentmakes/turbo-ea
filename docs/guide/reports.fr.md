@@ -74,7 +74,7 @@ Le **Rapport Dépendances** visualise les **connexions entre composants** sous f
 
 ### Layered Dependency View (vue de dépendances par couches)
 
-![Layered Dependency View](../assets/img/en/13b_dependencies_c4.png)
+![Layered Dependency View](../assets/img/fr/13b_dependances_c4.png)
 
 Basculez vers la **Layered Dependency View** à l'aide des boutons de mode d'affichage dans la barre d'outils. Il s'agit de la notation maison de Turbo EA pour représenter les dépendances entre fiches selon les quatre couches EA — inspirée du principe de stratification d'ArchiMate et de la philosophie « bons défauts » du modèle C4, mais distincte des deux. La même vue est réutilisée sur la page de détail de fiche (montrant le voisinage de dépendances immédiat de la fiche) et dans l'assistant [TurboLens Architect](turbolens.md#architecture-ai), afin que les dépendances apparaissent de la même manière partout.
 

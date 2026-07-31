@@ -2,7 +2,7 @@
 
 ## Log på
 
-![Loginskærm](../assets/img/en/24_login.png)
+![Loginskærm](../assets/img/da/24_login.png)
 
 Når du tilgår platformen, vises loginskærmen, hvor du skal indtaste din e-mailadresse og adgangskode.
 

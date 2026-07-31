@@ -7,7 +7,7 @@
 
 ## لوحة معلومات المحفظة
 
-![لوحة معلومات محفظة PPM](../assets/img/en/40_ppm_portfolio.png)
+![لوحة معلومات محفظة PPM](../assets/img/ar/40_ppm_portfolio.png)
 
 **لوحة معلومات المحفظة** هي نقطة الدخول الرئيسية إلى PPM. وهي توفّر:
 
@@ -32,7 +32,7 @@
 
 ### علامة تبويب النظرة العامة
 
-![نظرة عامة على مبادرة PPM](../assets/img/en/41_ppm_overview.png)
+![نظرة عامة على مبادرة PPM](../assets/img/ar/41_ppm_overview.png)
 
 تُظهر النظرة العامة ملخصًا لصحة المبادرة وأوضاعها المالية:
 
@@ -42,7 +42,7 @@
 
 ### علامة تبويب تقارير الحالة
 
-![تقارير حالة PPM](../assets/img/en/42_ppm_status_reports.png)
+![تقارير حالة PPM](../assets/img/ar/42_ppm_status_reports.png)
 
 تتتبع تقارير الحالة الشهرية صحة المشروع عبر الزمن. يتضمن كل تقرير:
 
@@ -58,7 +58,7 @@
 
 ### علامة تبويب الميزانية والتكاليف
 
-![ميزانية وتكاليف PPM](../assets/img/en/43_ppm_budget_costs.png)
+![ميزانية وتكاليف PPM](../assets/img/ar/43_ppm_budget_costs.png)
 
 تتبّع البيانات المالية بنوعين من بنود السطور:
 
@@ -69,7 +69,7 @@
 
 ### علامة تبويب إدارة المخاطر
 
-![إدارة مخاطر PPM](../assets/img/en/44_ppm_risk_management.png)
+![إدارة مخاطر PPM](../assets/img/ar/44_ppm_risk_management.png)
 
 يتتبع سجل المخاطر مخاطر المشروع عبر:
 
@@ -85,7 +85,7 @@
 
 ### علامة تبويب المهام
 
-![لوحة مهام PPM](../assets/img/en/45_ppm_task_board.png)
+![لوحة مهام PPM](../assets/img/ar/45_ppm_task_board.png)
 
 يدعم مدير المهام كلًا من عرض **لوحة Kanban** وعرض **القائمة** بأربعة أعمدة حالة:
 
@@ -106,7 +106,7 @@
 
 ### علامة تبويب Gantt
 
-![مخطط Gantt في PPM](../assets/img/en/46_ppm_gantt.png)
+![مخطط Gantt في PPM](../assets/img/ar/46_ppm_gantt.png)
 
 يصوّر مخطط Gantt الجدول الزمني للمشروع عبر:
 

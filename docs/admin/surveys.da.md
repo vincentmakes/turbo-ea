@@ -2,7 +2,7 @@
 
 Modulet **Undersøgelser** (**Admin > Undersøgelser**) gør det muligt for administratorer at oprette **datavedligeholdelses-undersøgelser**, der indsamler strukturerede oplysninger fra interessenter om specifikke kort.
 
-![Undersøgelses-administration](../assets/img/en/37_admin_surveys.png)
+![Undersøgelses-administration](../assets/img/da/37_admin_surveys.png)
 
 ## Anvendelsesscenarie
 

@@ -2,7 +2,7 @@
 
 Dashboardet er den første skærm, du ser efter login. Det giver et **hurtigt overblik** over hele enterprise-arkitekturstatussen.
 
-![Dashboard - topvisning](../assets/img/en/01_dashboard.png)
+![Dashboard - topvisning](../assets/img/da/01_dashboard.png)
 
 ## Topnavigationslinje
 
@@ -32,7 +32,7 @@ Hovedsektionen af dashboardet viser **oversigtskort**, der angiver:
 
 Ved at klikke på et typekort navigeres til [Lager](inventory.md) forfiltreret til den type.
 
-![Dashboard - bundvisning med diagrammer](../assets/img/en/02_dashboard_bottom.png)
+![Dashboard - bundvisning med diagrammer](../assets/img/da/02_dashboard_bottom.png)
 
 ## Diagrammer og statistik
 

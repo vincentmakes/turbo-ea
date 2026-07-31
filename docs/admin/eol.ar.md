@@ -2,7 +2,7 @@
 
 تساعدك صفحة إدارة **EOL** (**Admin > Settings > EOL**) على تتبّع دورات حياة المنتجات التقنية عبر ربط بطاقاتك بقاعدة البيانات العامة [endoflife.date](https://endoflife.date/).
 
-![إدارة EOL](../assets/img/en/29_admin_settings_eol.png)
+![إدارة EOL](../assets/img/ar/29_admin_settings_eol.png)
 
 ## لماذا تتبّع EOL؟
 

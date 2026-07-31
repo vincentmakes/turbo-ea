@@ -4,7 +4,7 @@ Fanebladet **Ressourcer** (**Admin → Indstillinger → Ressourcer**, `/admin/s
 
 Ressourcer tilføjes og administreres normalt ét kort ad gangen fra kortets eget faneblad **Ressourcer**. Det gør oprydning besværligt: der er ingen måde at se det hele på én gang, finde ud af hvor meget lagerplads vedhæftningerne bruger, eller rydde op i massevis. Denne side besvarer de spørgsmål fra ét enkelt gitter.
 
-![Ressourcer](../assets/img/en/61_admin_settings_resources.png)
+![Ressourcer](../assets/img/da/61_admin_settings_resources.png)
 
 ## Hvad den dækker
 

@@ -1,6 +1,6 @@
 # Brugere og roller
 
-![Bruger- og rolleadministration](../assets/img/en/21_admin_users.png)
+![Bruger- og rolleadministration](../assets/img/da/21_admin_users.png)
 
 Siden **Brugere og roller** har to faneblade: **Brugere** (administrer konti) og **Roller** (administrer tilladelser).
 
@@ -106,7 +106,7 @@ Under brugertabellen viser et afsnit **Afventende invitationer** alle invitation
 
 #### Roller
 
-![Rolle- og tilladelsesadministration](../assets/img/en/39_admin_roles.png)
+![Rolle- og tilladelsesadministration](../assets/img/da/39_admin_roles.png)
 
 Fanebladet **Roller** giver mulighed for at administrere applikationsroller. Hver rolle definerer et sæt tilladelser, der styrer, hvad brugere med den rolle kan gøre. Standardroller:
 

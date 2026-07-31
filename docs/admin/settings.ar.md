@@ -17,7 +17,7 @@
 
 تغطّي بقية هذه الصفحة تبويب **General**.
 
-![الإعدادات العامة](../assets/img/en/28_admin_settings_general.png)
+![الإعدادات العامة](../assets/img/ar/28_admin_settings_general.png)
 
 ## المظهر
 

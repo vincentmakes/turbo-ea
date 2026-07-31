@@ -2,7 +2,7 @@
 
 Administrationssiden **EOL** (**Admin > Indstillinger > EOL**) hjælper dig med at spore teknologi-produktlivscyklusser ved at tilknytte dine kort til den offentlige [endoflife.date](https://endoflife.date/)-database.
 
-![EOL-administration](../assets/img/en/29_admin_settings_eol.png)
+![EOL-administration](../assets/img/da/29_admin_settings_eol.png)
 
 ## Hvorfor spore EOL?
 

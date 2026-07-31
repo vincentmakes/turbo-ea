@@ -2,7 +2,7 @@
 
 Fanen **Compliance** i [GRC-modulet](grc.md) på `/grc?tab=compliance` er et **dobbelt-kilde-register**: hvert fund er enten forfattet af en reviewer eller produceret af en AI-scanning mod en regulering, og begge typer fund lever og triagéres side om side i samme gitter.
 
-![GRC — Compliance-register](../assets/img/en/54_grc_compliance.png)
+![GRC — Compliance-register](../assets/img/da/54_grc_compliance.png)
 
 !!! note
     Seks reguleringer leveres aktiveret som standard — **EU AI Act**, **GDPR**, **NIS2**, **DORA**, **SOC 2**, **ISO/IEC 27001**. Administratorer kan aktivere, deaktivere eller tilføje brugerdefinerede reguleringer (f.eks. HIPAA, interne politik­rammer) under [**Administration → Metamodel → Regulations**](../admin/metamodel.md#compliance-regulations).
@@ -106,7 +106,7 @@ Compliance-fanen viser også en **samlet compliance-KPI** øverst på siden og e
 
 ## Compliance på et enkelt kort
 
-![Kortdetalje — Compliance-fane](../assets/img/en/56_card_compliance_tab.png)
+![Kortdetalje — Compliance-fane](../assets/img/da/56_card_compliance_tab.png)
 
 Kort, der er i scope for et fund, viser også en **Compliance**-fane på deres detaljeside (gated på `compliance.view`). Den viser hvert fund, der aktuelt er linket til kortet, med de samme Acknowledge / Accept / **Create risk** / **Open risk**-handlinger som GRC-visningen, så en Application-ejer kan triagere sine egne fund uden at forlade kortet. Den samme auto-skjul-regel gælder for **Risks**-fanen på Kortdetalje: begge faner vises kun, når kortet faktisk har linkede elementer, så kort uden GRC-aktivitet ikke bærer tomme faner.
 

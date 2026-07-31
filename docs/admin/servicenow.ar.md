@@ -2,7 +2,7 @@
 
 يتيح تكامل ServiceNow (**الإدارة > الإعدادات > ServiceNow**) المزامنة ثنائية الاتجاه بين Turbo EA وقاعدة بيانات الإدارة (CMDB) في ServiceNow الخاصة بك. يغطي هذا الدليل كل شيء بدءًا من الإعداد الأولي وصولًا إلى الوصفات المتقدمة وأفضل الممارسات التشغيلية.
 
-![إعدادات تكامل ServiceNow](../assets/img/en/31_admin_settings_servicenow.png)
+![إعدادات تكامل ServiceNow](../assets/img/ar/31_admin_settings_servicenow.png)
 
 ## لماذا تُدمج ServiceNow مع Turbo EA؟
 

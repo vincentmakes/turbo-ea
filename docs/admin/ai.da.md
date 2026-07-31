@@ -1,6 +1,6 @@
 # AI-funktioner
 
-![AI-indstillinger](../assets/img/en/26_admin_settings_ai.png)
+![AI-indstillinger](../assets/img/da/26_admin_settings_ai.png)
 
 Turbo EA inkluderer AI-drevne funktioner, der bruger en **Large Language Model (LLM)** til at hjælpe brugere. Alle AI-funktioner deler en enkelt **AI-udbyderkonfiguration** — opsæt én gang, brug overalt.
 
@@ -127,7 +127,7 @@ For Ollama viser admin-UI'et alle modeller, der i øjeblikket er downloadet på 
 
 ## Brug af AI-forslag
 
-![AI-forslagspanel på kortdetalje](../assets/img/en/27_ai_suggest_panel.png)
+![AI-forslagspanel på kortdetalje](../assets/img/da/27_ai_suggest_panel.png)
 
 Når det er konfigureret af en admin, vil brugere med tilladelsen `ai.suggest` (tildelt Admin-, BPM Admin- og Member-roller som standard) se en sparkle-knap på kortdetaljesider og i opret-kort-dialogen.
 

@@ -7,7 +7,7 @@
 
 ## Portefølje-dashboard
 
-![PPM Portefølje-dashboard](../assets/img/en/40_ppm_portfolio.png)
+![PPM Portefølje-dashboard](../assets/img/da/40_ppm_portfolio.png)
 
 **Portefølje-dashboardet** er hovedindgangspunktet for PPM. Det tilbyder:
 
@@ -32,7 +32,7 @@ Klik på et initiativ for at åbne dets detaljeside med syv faner:
 
 ### Overview-fane
 
-![PPM Initiativ-overblik](../assets/img/en/41_ppm_overview.png)
+![PPM Initiativ-overblik](../assets/img/da/41_ppm_overview.png)
 
 Overblikket viser et resumé af initiativets sundhed og økonomi:
 
@@ -42,7 +42,7 @@ Overblikket viser et resumé af initiativets sundhed og økonomi:
 
 ### Statusrapporter-fane
 
-![PPM Statusrapporter](../assets/img/en/42_ppm_status_reports.png)
+![PPM Statusrapporter](../assets/img/da/42_ppm_status_reports.png)
 
 Månedlige statusrapporter sporer projektsundhed over tid. Hver rapport indeholder:
 
@@ -58,7 +58,7 @@ Månedlige statusrapporter sporer projektsundhed over tid. Hver rapport indehold
 
 ### Budget og omkostninger-fane
 
-![PPM Budget og omkostninger](../assets/img/en/43_ppm_budget_costs.png)
+![PPM Budget og omkostninger](../assets/img/da/43_ppm_budget_costs.png)
 
 Spor finansielle data med to typer af linjeposter:
 
@@ -69,7 +69,7 @@ Budget- og omkostnings­totaler rulles automatisk op til Initiative-kortets egen
 
 ### Risikostyring-fane
 
-![PPM Risikostyring](../assets/img/en/44_ppm_risk_management.png)
+![PPM Risikostyring](../assets/img/da/44_ppm_risk_management.png)
 
 Risikoregistret sporer projektrisici med:
 
@@ -85,7 +85,7 @@ Risikoregistret sporer projektrisici med:
 
 ### Tasks-fane
 
-![PPM Opgavetavle](../assets/img/en/45_ppm_task_board.png)
+![PPM Opgavetavle](../assets/img/da/45_ppm_task_board.png)
 
 Opgavestyringen understøtter både **Kanban-tavle**- og **liste**-visninger med fire status-kolonner:
 
@@ -106,7 +106,7 @@ Visningsfiltre (visningstilstand, WBS-filter, gruppér-efter-skifter) vedvarer i
 
 ### Gantt-fane
 
-![PPM Gantt-diagram](../assets/img/en/46_ppm_gantt.png)
+![PPM Gantt-diagram](../assets/img/da/46_ppm_gantt.png)
 
 Gantt-diagrammet visualiserer projekttidslinjen med:
 

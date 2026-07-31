@@ -2,7 +2,7 @@
 
 Turbo EA leveres med **EA Principles Reference Catalogue** — et kurateret sæt af arkitekturprincipper hentet fra TOGAF og tilstødende branchereferencer, vedligeholdt sammen med kompetence-, proces- og værdistrømskatalogerne på [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities). Principkatalog-siden lader dig gennemse denne reference og importere matchende principper til din egen metamodel i bulk i stedet for at indtaste hver udtalelse, rationale og sæt af implikationer i hånden.
 
-![Principkatalog](../assets/img/en/50_principles_catalogue.png)
+![Principkatalog](../assets/img/da/50_principles_catalogue.png)
 
 ## Åbning af siden
 

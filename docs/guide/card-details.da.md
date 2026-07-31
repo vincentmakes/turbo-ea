@@ -2,7 +2,7 @@
 
 Når du klikker på et kort i lageret, åbnes **detaljevisningen**, hvor du kan se og redigere alle oplysninger om komponenten.
 
-![Kortdetalje­visning](../assets/img/en/04_card_detail.png)
+![Kortdetalje­visning](../assets/img/da/04_card_detail.png)
 
 ## Kortets sidehoved
 
@@ -87,9 +87,9 @@ Viser alle forbindelser til andre kort, grupperet efter relations­type. For hve
 - **Gruppér efter undertype** — Når en relationssektion har mange relaterede kort, grupperes de automatisk i sammenklappelige undertype-grupper (hver med et antal), med en afsluttende **Ingen undertype**-gruppe til uklassificerede kort. Brug gruppe/liste-knappen i sektionsoverskriften for at skifte mellem den grupperede og den flade visning.
 - **Kort forbundet til underelementer** — Når et kort har underelementer, viser hver relationsgruppe en **+N i underelementer**-chip, der tæller de kort, som er forbundet længere nede i hierarkiet — for eksempel de applikationer, der er knyttet til en kapabilitets underkapabiliteter. Et klik åbner en skrivebeskyttet liste, hvor hver række angiver det underelement, der indeholder forbindelsen (et kort, der nås via flere underelementer, vises én gang med dem alle angivet). Tællingen omfatter kun kort, der ikke allerede står i gruppen ovenfor. Åbn det underelement, der ejer forbindelsen, for at ændre den. Listen er inddelt i sammenklappelige undertype-afsnit, så undertypen nævnes én gang pr. afsnit i stedet for på hver række. Inden for et afsnit vises kort, hvis livscyklusfase kræver opmærksomhed, først (slutning på levetid, derefter udfasning), og hvert korts fase vises som en farvet prik ved siden af navnet — hold musen over den for at se fasens navn.
 
-![Relationsgrupper med chippen for underelementer](../assets/img/en/59_card_subitem_chip.png)
+![Relationsgrupper med chippen for underelementer](../assets/img/da/59_card_subitem_chip.png)
 
-![Kort forbundet via underelementer, grupperet efter undertype](../assets/img/en/60_card_subitem_relations.png)
+![Kort forbundet via underelementer, grupperet efter undertype](../assets/img/da/60_card_subitem_relations.png)
 
 ### Tags-sektion
 
@@ -113,7 +113,7 @@ Hvis kortet er linket til et [endoflife.date](https://endoflife.date/)-produkt (
 
 ## Kommentarer-fane
 
-![Kortets kommentar­sektion](../assets/img/en/05_card_comments.png)
+![Kortets kommentar­sektion](../assets/img/da/05_card_comments.png)
 
 - **Tilføj kommentarer** — Efterlad noter, spørgsmål eller beslutninger om komponenten
 - **Trådede svar** — Svar på specifikke kommentarer for at oprette samtaletråde
@@ -121,7 +121,7 @@ Hvis kortet er linket til et [endoflife.date](https://endoflife.date/)-produkt (
 
 ## Todos-fane
 
-![Todos tilknyttet et kort](../assets/img/en/06_card_todos.png)
+![Todos tilknyttet et kort](../assets/img/da/06_card_todos.png)
 
 - **Opret todos** — Tilføj opgaver linket til dette specifikke kort
 - **Tildel** — Sæt en ansvarlig person for hver opgave
@@ -131,7 +131,7 @@ Hvis kortet er linket til et [endoflife.date](https://endoflife.date/)-produkt (
 
 ## Stakeholders-fane
 
-![Kortets interessenter](../assets/img/en/07_card_stakeholders.png)
+![Kortets interessenter](../assets/img/da/07_card_stakeholders.png)
 
 Interessenter er personer med en specifik **rolle** på dette kort. De tilgængelige roller afhænger af korttypen (konfigureret i [metamodellen](../admin/metamodel.md)). Almindelige roller inkluderer:
 
@@ -151,7 +151,7 @@ Invitations-stien kræver tilladelsen **`users.invite`**, en delegeret form af `
 
 ## History-fane
 
-![Kortets ændringshistorik](../assets/img/en/08_card_history.png)
+![Kortets ændringshistorik](../assets/img/da/08_card_history.png)
 
 Viser det **komplette audit-spor** over ændringer foretaget på kortet: **hvem** der foretog ændringen, **hvornår** den blev foretaget, og **hvad** der blev ændret (tidligere værdi vs. ny værdi). Dette giver fuld sporbarhed over alle ændringer over tid.
 

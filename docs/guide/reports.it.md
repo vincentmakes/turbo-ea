@@ -74,7 +74,7 @@ Il **Report Dipendenze** visualizza le **connessioni tra componenti** come un gr
 
 ### Layered Dependency View (vista delle dipendenze a livelli)
 
-![Layered Dependency View](../assets/img/en/13b_dependencies_c4.png)
+![Layered Dependency View](../assets/img/it/13b_dipendenze_c4.png)
 
 Passate alla **Layered Dependency View** usando i pulsanti di modalità di visualizzazione nella barra degli strumenti. È la notazione interna di Turbo EA per mostrare le dipendenze tra le schede sui quattro livelli EA — ispirata al principio di stratificazione di ArchiMate e alla filosofia dei «buoni valori predefiniti» del modello C4, ma distinta da entrambi. La stessa vista viene riutilizzata nella pagina di dettaglio della scheda (mostrando il vicinato di dipendenze immediato della scheda) e nell'assistente [TurboLens Architect](turbolens.md#architecture-ai), così le dipendenze appaiono uguali ovunque.
 

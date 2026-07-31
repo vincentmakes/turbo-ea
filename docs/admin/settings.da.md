@@ -17,7 +17,7 @@ Siden **Indstillinger** under **Admin → Indstillinger** (`/admin/settings`) er
 
 Resten af denne side dækker fanebladet **Generelt**.
 
-![Generelle indstillinger](../assets/img/en/28_admin_settings_general.png)
+![Generelle indstillinger](../assets/img/da/28_admin_settings_general.png)
 
 ## Udseende
 

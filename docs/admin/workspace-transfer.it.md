@@ -2,7 +2,7 @@
 
 Il Trasferimento del workspace (**Amministrazione → Impostazioni → Migrazione → Trasferimento del workspace**) sposta un intero workspace di Turbo EA da un'istanza a un'altra come un unico bundle autocontenuto. Il caso d'uso principale: costruite un workspace su un'istanza **locale** e dovete promuovere tutto in **Produzione**.
 
-![Trasferimento del workspace](../assets/img/it/58_workspace_transfer.png)
+![Trasferimento del workspace](../assets/img/it/58_trasferimento_workspace.png)
 
 ## Cosa è incluso
 

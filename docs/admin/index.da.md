@@ -1,6 +1,6 @@
 # Administration
 
-![Brugermenu med administrationsmuligheder](../assets/img/en/19_user_menu.png)
+![Brugermenu med administrationsmuligheder](../assets/img/da/19_user_menu.png)
 
 **Admin**-sektionen er tilgængelig for brugere med **Admin**-rollen. Den tilbyder værktøjer til at konfigurere platformens datamodel, brugeradgang, integrationer og systemdækkende indstillinger.
 

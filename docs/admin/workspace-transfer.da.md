@@ -2,7 +2,7 @@
 
 Overførsel af arbejdsområde (**Admin → Indstillinger → Migrering → Overførsel af arbejdsområde**) flytter et helt Turbo EA-arbejdsområde fra én instans til en anden som ét enkelt, selvstændigt bundt. Den drivende anvendelse: du opbygger et arbejdsområde på en **lokal** instans og har brug for at forfremme alt til **produktion**.
 
-![Overførsel af arbejdsområde](../assets/img/en/58_workspace_transfer.png)
+![Overførsel af arbejdsområde](../assets/img/da/58_workspace_transfer.png)
 
 ## Hvad er inkluderet
 

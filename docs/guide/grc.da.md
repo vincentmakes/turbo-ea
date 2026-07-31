@@ -13,7 +13,7 @@ GRC har tre faner:
 
 Du kan deep-linke en hvilken som helst fane via `/grc?tab=governance`, `/grc?tab=risk` eller `/grc?tab=compliance`.
 
-![GRC — Governance-fane](../assets/img/en/52_grc_governance.png)
+![GRC — Governance-fane](../assets/img/da/52_grc_governance.png)
 
 ## Governance
 
@@ -25,7 +25,7 @@ Skrivebeskyttet browser over EA-principper offentliggjort i metamodellen (statem
 
 ### Decisions
 
-![GRC — Decisions-underfane](../assets/img/en/52a_grc_decisions.png)
+![GRC — Decisions-underfane](../assets/img/da/52a_grc_decisions.png)
 
 Decisions-underfanen er **hovedregistret over Architecture Decision Records (ADR'er)** — hver ADR på tværs af landskabet, uanset hvilket initiativ den er linket til. Den erstatter den gamle EA Delivery → Decisions-fane, der blev opløst, da GRC blev introduceret.
 
@@ -104,7 +104,7 @@ Klik på preview-ikonet for at se en skrivebeskyttet, formateret version af ADR'
 
 ## Risk
 
-![GRC — Risikoregister](../assets/img/en/53_grc_risk_register.png)
+![GRC — Risikoregister](../assets/img/da/53_grc_risk_register.png)
 
 Indlejrer TOGAF Fase G **Risikoregistret**. Den fulde livscyklus, status­arbejdsproces, matrix-skifter og ejerskabsadfærd er dokumenteret i [Risikoregister-guiden](risks.md). De mest relevante punkter:
 
@@ -114,7 +114,7 @@ Indlejrer TOGAF Fase G **Risikoregistret**. Den fulde livscyklus, status­arbejd
 
 ## Compliance
 
-![GRC — Compliance-register](../assets/img/en/54_grc_compliance.png)
+![GRC — Compliance-register](../assets/img/da/54_grc_compliance.png)
 
 Compliance-fanen er et dobbelt-kilde-register — fund kan **forfattes manuelt** af en reviewer **eller** produceres af en on-demand **AI-scanning** mod en hvilken som helst af de aktiverede reguleringer (EU AI Act, GDPR, NIS2, DORA, SOC 2, ISO 27001 leveres aktiveret som standard). Begge typer fund deler samme livscyklus, kan promoveres til en risiko og er masse-handlingsbare fra gitteret. Se [Compliance-guiden](compliance.md) for den fulde livscyklus, dialogen til manuel oprettelse, scanningsarbejdsprocessen, EU AI Act's semantiske detektor og promovering-til-risiko-løkken.
 

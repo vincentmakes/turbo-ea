@@ -2,7 +2,7 @@
 
 يأتي Turbo EA مزوّدًا بـ **[كتالوج قدرات الأعمال المرجعي](https://catalog.turbo-ea.org)** — وهو كتالوج مفتوح ومنسَّق لقدرات الأعمال تتم صيانته على [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities). تتيح لك صفحة كتالوج القدرات تصفّح هذا المرجع وإنشاء بطاقات `BusinessCapability` المطابقة بالجملة، بدلًا من كتابتها واحدة تلو الأخرى.
 
-![كتالوج القدرات](../assets/img/en/51_capability_catalogue.png)
+![كتالوج القدرات](../assets/img/ar/51_capability_catalogue.png)
 
 ## فتح الصفحة
 

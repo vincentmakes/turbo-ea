@@ -2,7 +2,7 @@
 
 Перенос workspace (**Администрирование → Настройки → Миграция → Перенос workspace**) перемещает целый workspace Turbo EA из одного экземпляра в другой в виде единого самодостаточного пакета. Основной сценарий: вы выстраиваете workspace на **локальном** экземпляре и вам нужно перенести всё в **Production**.
 
-![Перенос workspace](../assets/img/ru/58_workspace_transfer.png)
+![Перенос workspace](../assets/img/ru/58_perenos_rabochey_oblasti.png)
 
 ## Что включается
 

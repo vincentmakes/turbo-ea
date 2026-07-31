@@ -2,7 +2,7 @@
 
 ينقل نقل مساحة العمل (**Admin → Settings → Migration → Workspace Transfer**) مساحة عمل Turbo EA بأكملها من نسخة إلى أخرى كحزمة واحدة قائمة بذاتها. حالة الاستخدام الدافعة: تبني مساحة عمل على نسخة **محلية** وتحتاج إلى ترقية كل شيء إلى بيئة **الإنتاج**.
 
-![نقل مساحة العمل](../assets/img/en/58_workspace_transfer.png)
+![نقل مساحة العمل](../assets/img/ar/58_workspace_transfer.png)
 
 ## ما المتضمَّن
 

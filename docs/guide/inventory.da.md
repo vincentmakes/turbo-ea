@@ -2,7 +2,7 @@
 
 **Lageret** er hjertet i Turbo EA. Her listes alle **kort** (komponenter) i virksomheds­arkitekturen: applikationer, processer, forretningskompetencer, organisationer, leverandører, grænseflader og mere.
 
-![Lager-visning med filterpanel](../assets/img/en/23_inventory_filters.png)
+![Lager-visning med filterpanel](../assets/img/da/23_inventory_filters.png)
 
 ## Lager-skærmens struktur
 
@@ -88,7 +88,7 @@ Lageret bruger en **AG Grid**-datatabel med kraftfulde funktioner:
 - **Import** — Bulk-upload data fra Excel-filer
 - **+ Create** — Opret et nyt kort
 
-![Opret kort-dialog](../assets/img/en/22_create_card.png)
+![Opret kort-dialog](../assets/img/da/22_create_card.png)
 
 ## Sådan opretter du et nyt kort
 

@@ -2,7 +2,7 @@
 
 **Metamodellen** definerer hele platformens datastruktur — hvilke typer kort der findes, hvilke felter de har, hvordan de relaterer til hinanden, og hvordan kortdetaljesider er opbygget. Alt er **datadrevet**: du konfigurerer metamodellen gennem admin-UI'et, ikke ved at ændre kode.
 
-![Metamodel-konfiguration](../assets/img/en/20_admin_metamodel.png)
+![Metamodel-konfiguration](../assets/img/da/20_admin_metamodel.png)
 
 Naviger til **Admin > Metamodel** for at få adgang til metamodel-editoren. Den har syv faneblade: **Korttyper**, **Relationstyper**, **Beregninger**, **Tags**, **Metamodel-graf**, **EA-principper** og **Compliance-reguleringer**.
 
@@ -209,7 +209,7 @@ For eksempel ville et "Køb SaaS"-princip få AI'en til at flage on-premise- ell
 
 ## Metamodel-graf
 
-![Metamodel-grafvisualisering](../assets/img/en/38_metamodel_graph.png)
+![Metamodel-grafvisualisering](../assets/img/da/38_metamodel_graph.png)
 
 Fanebladet **Metamodel-graf** viser et visuelt SVG-diagram over alle korttyper og deres relationstyper. Dette er en skrivebeskyttet visualisering, der hjælper dig med at forstå forbindelserne i din metamodel ved et blik.
 

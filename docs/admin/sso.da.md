@@ -1,6 +1,6 @@
 # Godkendelse og SSO
 
-![Indstillinger for godkendelse og SSO](../assets/img/en/25_admin_settings_auth.png)
+![Indstillinger for godkendelse og SSO](../assets/img/da/25_admin_settings_auth.png)
 
 Fanen **Godkendelse** i Indstillinger giver administratorer mulighed for at konfigurere, hvordan brugere logger på platformen.
 

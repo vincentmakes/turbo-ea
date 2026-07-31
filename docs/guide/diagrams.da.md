@@ -2,7 +2,7 @@
 
 **Diagrammer**-modulet lader dig oprette **visuelle arkitekturdiagrammer** ved hjælp af en indlejret [DrawIO](https://www.drawio.com/)-editor — fuldt integreret med dit kortlager. Træk kort ind på lærredet, forbind dem med relationer, dril dig ned i hierarkier, og farv dem efter en hvilken som helst egenskab — diagrammet forbliver synkroniseret med dine EA-data.
 
-![Diagramgalleri](../assets/img/en/16_diagrams.png)
+![Diagramgalleri](../assets/img/da/16_diagrams.png)
 
 ## Diagramgalleri
 

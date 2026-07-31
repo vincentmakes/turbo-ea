@@ -2,7 +2,7 @@
 
 يأتي Turbo EA مزوّدًا بـ **كتالوج عمليات الأعمال المرجعي** — وهو شجرة عمليات مرتكزة على APQC-PCF تتم صيانتها إلى جانب كتالوج القدرات على [github.com/vincentmakes/turbo-ea-capabilities](https://github.com/vincentmakes/turbo-ea-capabilities). تتيح لك صفحة كتالوج العمليات تصفّح هذا المرجع وإنشاء بطاقات `BusinessProcess` المطابقة بالجملة.
 
-![كتالوج العمليات](../assets/img/en/48_process_catalogue.png)
+![كتالوج العمليات](../assets/img/ar/48_process_catalogue.png)
 
 ## فتح الصفحة
 

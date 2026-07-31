@@ -2,7 +2,7 @@
 
 **Opgaver**-siden centraliserer alle ventende arbejdsemner på ét sted. Den har to faner: **Mine todos** og **Mine undersøgelser**.
 
-![Mine opgaver-sektion](../assets/img/en/18_tasks.png)
+![Mine opgaver-sektion](../assets/img/da/18_tasks.png)
 
 ## Mine opgaver
 

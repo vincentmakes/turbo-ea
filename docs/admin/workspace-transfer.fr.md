@@ -2,7 +2,7 @@
 
 Le transfert de workspace (**Administration → Paramètres → Migration → Transfert de workspace**) déplace un workspace Turbo EA entier d'une instance vers une autre sous forme d'un bundle unique et autonome. Le cas d'usage principal : vous étoffez un workspace sur une instance **locale** et devez tout promouvoir vers la **Production**.
 
-![Transfert de workspace](../assets/img/fr/58_workspace_transfer.png)
+![Transfert de workspace](../assets/img/fr/58_transfert_espace_travail.png)
 
 ## Ce qui est inclus
 

@@ -2,7 +2,7 @@
 
 Funktionen **Webportaler** (**Admin > Indstillinger > Webportaler**) lader dig oprette **offentlige, skrivebeskyttede visninger** af udvalgte kortdata — tilgængelige uden autentificering via en unik URL.
 
-![Webportal-administration](../assets/img/en/30_admin_settings_web_portals.png)
+![Webportal-administration](../assets/img/da/30_admin_settings_web_portals.png)
 
 ## Anvendelsesscenarie
 

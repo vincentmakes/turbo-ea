@@ -2,7 +2,7 @@
 
 La Transferencia de workspace (**Administración → Configuración → Migración → Transferencia de workspace**) traslada un workspace completo de Turbo EA de una instancia a otra como un único paquete autocontenido. El caso de uso principal: construye un workspace en una instancia **local** y necesita promover todo a **Producción**.
 
-![Transferencia de workspace](../assets/img/es/58_workspace_transfer.png)
+![Transferencia de workspace](../assets/img/es/58_transferencia_espacio_trabajo.png)
 
 ## Qué se incluye
 

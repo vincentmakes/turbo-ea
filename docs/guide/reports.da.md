@@ -2,11 +2,11 @@
 
 Turbo EA indeholder et kraftfuldt **visuelt rapporteringsmodul**, der gør det muligt at analysere virksomheds­arkitekturen fra forskellige perspektiver. Alle rapporter kan [gemmes til genbrug](saved-reports.md) med deres aktuelle filter- og akse­konfiguration.
 
-![Menu over tilgængelige rapporter](../assets/img/en/09_reports_menu.png)
+![Menu over tilgængelige rapporter](../assets/img/da/09_reports_menu.png)
 
 ## Porteføljerapport
 
-![Porteføljerapport](../assets/img/en/10_report_portfolio.png)
+![Porteføljerapport](../assets/img/da/10_report_portfolio.png)
 
 **Porteføljerapporten** viser et konfigurerbart **boblediagram** (eller scatter plot) over dine kort. Du vælger, hvad hver akse repræsenterer:
 
@@ -23,7 +23,7 @@ Når AI er konfigureret, og porteføljeindsigter er aktiveret af en administrato
 
 ## Fleksibel portefølje
 
-![Fleksibel portefølje — Data Object-portefølje grupperet efter Application, farvet efter Data Sensitivity](../assets/img/en/57_report_flexible_portfolio.png)
+![Fleksibel portefølje — Data Object-portefølje grupperet efter Application, farvet efter Data Sensitivity](../assets/img/da/57_report_flexible_portfolio.png)
 
 **Fleksibel portefølje** bruger samme kontroller som Application Portfolio, men tilføjer en **Card type**-vælger øverst i værktøjslinjen. Brug den til at analysere en portefølje af Business Capabilities, Initiatives, IT Components eller en hvilken som helst anden synlig korttype med samme grupperings-, farvelægnings- og filteroplevelse.
 
@@ -41,7 +41,7 @@ Når du grupperer efter en relateret korttype, der understøtter hierarki (såso
 
 ## Kompetencekort
 
-![Forretningskompetencekort](../assets/img/en/11_capability_map.png)
+![Forretningskompetencekort](../assets/img/da/11_capability_map.png)
 
 **Kompetencekortet** viser et hierarkisk **heatmap** over organisationens forretningskompetencer. Hver blok repræsenterer en kompetence med:
 
@@ -51,7 +51,7 @@ Når du grupperer efter en relateret korttype, der understøtter hierarki (såso
 
 ## Livscyklusrapport
 
-![Livscyklusrapport](../assets/img/en/12_lifecycle.png)
+![Livscyklusrapport](../assets/img/da/12_lifecycle.png)
 
 **Livscyklusrapporten** viser en **tidslinje­visualisering** af, hvornår teknologikomponenter blev introduceret, og hvornår de er planlagt til at blive pensioneret. Kritisk for:
 
@@ -63,7 +63,7 @@ Komponenter vises som vandrette bjælker, der spænder over deres livscyklus-fas
 
 ## Afhængighedsrapport
 
-![Afhængighedsrapport](../assets/img/en/13_dependencies.png)
+![Afhængighedsrapport](../assets/img/da/13_dependencies.png)
 
 **Afhængighedsrapporten** visualiserer **forbindelser mellem komponenter** som en netværksgraf. Noder repræsenterer kort, og kanter repræsenterer relationer. Funktioner:
 
@@ -74,7 +74,7 @@ Komponenter vises som vandrette bjælker, der spænder over deres livscyklus-fas
 
 ### Lagdelt afhængighedsvisning
 
-![Lagdelt afhængighedsvisning](../assets/img/en/13b_dependencies_c4.png)
+![Lagdelt afhængighedsvisning](../assets/img/da/13b_dependencies_c4.png)
 
 Skift til **lagdelt afhængighedsvisning** ved hjælp af view-mode-knapperne i værktøjslinjen. Dette er Turbo EA's husnotation til at vise afhængigheder mellem kort på tværs af de fire EA-lag — inspireret af ArchiMate's lagdeling og C4-modellens »good defaults«-filosofi, men adskilt fra begge. Den samme visning genbruges på Kortdetalje-siden (viser kortets umiddelbare afhængigheds­nabolag) og i [TurboLens Architect](turbolens.md#architecture-ai)-guiden, så afhængigheder ser ens ud overalt.
 
@@ -107,7 +107,7 @@ Skift til **lagdelt afhængighedsvisning** ved hjælp af view-mode-knapperne i v
 
 ## Omkostningsrapport
 
-![Omkostningsrapport](../assets/img/en/34_report_cost.png)
+![Omkostningsrapport](../assets/img/da/34_report_cost.png)
 
 **Omkostningsrapporten** giver finansiel analyse af dit teknologilandskab:
 
@@ -147,7 +147,7 @@ Tidslinjeskyderen, Cost Source-valget og andre filtre bevares, mens du driller, 
 
 ## Matrixrapport
 
-![Matrixrapport](../assets/img/en/35_report_matrix.png)
+![Matrixrapport](../assets/img/da/35_report_matrix.png)
 
 **Matrixrapporten** opretter et **krydsreference­gitter** mellem to korttyper. For eksempel:
 
@@ -200,7 +200,7 @@ Excel-eksport giver to ark: gitteret, som det ser ud på skærmen, og én række
 
 ## Datakvalitetsrapport
 
-![Datakvalitetsrapport](../assets/img/en/33_report_data_quality.png)
+![Datakvalitetsrapport](../assets/img/da/33_report_data_quality.png)
 
 **Datakvalitetsrapporten** er et **fuldstændigheds-dashboard**, der viser, hvor godt dine arkitekturdata er udfyldt. Baseret på de vigtighedsniveauer, der er konfigureret i fanen **Datakvalitet** for hver korttype (hvert felt plus de indbyggede faktorer Beskrivelse, Livscyklus, obligatoriske relationer og obligatoriske tags):
 
@@ -210,7 +210,7 @@ Excel-eksport giver to ark: gitteret, som det ser ud på skærmen, og én række
 
 ## End of Life (EOL)-rapport
 
-![End of Life-rapport](../assets/img/en/32_report_eol.png)
+![End of Life-rapport](../assets/img/da/32_report_eol.png)
 
 **EOL-rapporten** viser support-status for teknologiprodukter linket via funktionen [EOL-administration](../admin/eol.md):
 
@@ -220,7 +220,7 @@ Excel-eksport giver to ark: gitteret, som det ser ud på skærmen, og én række
 
 ## Gemte rapporter
 
-![Galleri af gemte rapporter](../assets/img/en/36_saved_reports.png)
+![Galleri af gemte rapporter](../assets/img/da/36_saved_reports.png)
 
 Gem en hvilken som helst rapportkonfiguration til hurtig adgang senere. Gemte rapporter inkluderer en miniature og kan deles på tværs af organisationen.
 
