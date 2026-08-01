@@ -9,7 +9,12 @@ description = "MCP server for Turbo EA — AI tool access to EA data plus artifa
 license = "FSL-1.1-MIT"
 requires-python = ">=3.11"
 dependencies = [
-    "mcp>=1.9.0",
+    # Capped below 2.0: the SDK's 2.0 release deleted the whole
+    # `mcp.server.fastmcp` subpackage, which `server.py` is built on. The
+    # unbounded floor let `pip install .` resolve to 2.0.0, breaking both the
+    # CI test job and the mcp-server image (the Dockerfile installs unpinned).
+    # Lift the cap only together with a port off FastMCP.
+    "mcp>=1.9.0,<2",
     "httpx>=0.28.0",
     "pyjwt>=2.9.0",
     "starlette>=0.45.0",

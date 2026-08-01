@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.37.2] - 2026-08-01
+
+### Fixed
+- **The MCP server no longer fails to start after a fresh build.** Its dependency on the MCP SDK had no upper bound, so new builds picked up the SDK's 2.0 release, which removed the module the server is built on — leaving the container unable to start. The dependency is now capped below 2.0.
+
 ## [2.37.1] - 2026-07-30
 
 ### Changed
