@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.37.3] - 2026-08-01
+
+### Security
+- **Published images can no longer pick up a breaking dependency release on a rebuild.** The backend and MCP server installed their Python dependencies with no upper version bound, so a weekly image rebuild could pull in a new major release of a core library — with no code change and no test run against it — and ship it. Four such libraries are now bounded to the major version the product is tested against. No dependency versions change today; this only prevents an untested future one from arriving unannounced.
+
 ## [2.37.2] - 2026-08-01
 
 ### Fixed

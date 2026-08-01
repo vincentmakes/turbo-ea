@@ -17,7 +17,9 @@ dependencies = [
     "mcp>=1.9.0,<2",
     "httpx>=0.28.0",
     "pyjwt>=2.9.0",
-    "starlette>=0.45.0",
+    # Same reasoning as the cap above: starlette crossed 0.x -> 1.x, and this
+    # image installs unpinned at build time.
+    "starlette>=0.45.0,<2",
     "uvicorn>=0.34.0",
 ]
 
