@@ -35,7 +35,7 @@ jobs:
       matrix:
         image: [db, backend, frontend, nginx, mcp-server]
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Observe step — surfaces HIGH + CRITICAL, including unfixed advisories
       # (`ignore-unfixed: false`) so actively-exploited zero-days appear here
@@ -79,7 +79,7 @@ jobs:
         if: always() && env.DOCKERHUB_PAT != ''
         env:
           DOCKERHUB_PAT: ${{ secrets.DOCKERHUB_PAT }}
-        uses: docker/scout-action@v1.23.1
+        uses: docker/scout-action@2688993af7bafd6ba8c6a74ec652442be91dd82b # v1.23.1
         with:
           command: cves
           image: ghcr.io/${{ github.repository }}/${{ matrix.image }}:latest
