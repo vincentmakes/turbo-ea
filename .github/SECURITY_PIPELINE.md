@@ -53,12 +53,19 @@ Two scanners covering the same layer is deliberate — different vuln DBs have d
 >    publishes `:latest`, a release could otherwise ship `:latest` with a stale
 >    apk layer. The build step therefore also sets
 >    `no-cache-filters: backend,db,frontend,nginx,mcp-server` (plural — the
->    singular form is silently ignored), which forces just the runtime stages
->    (the ones running `apk upgrade --no-cache`) to rebuild against the live
->    alpine repos on **every** build, cached ones included, while the expensive
->    `frontend-build` / `backend-build` stages stay cached. This closes the curl
->    8.19.0-r0 → 8.20.0-r0 gap seen in July 2026, where `:latest` kept shipping a
->    cached, unpatched curl.
+>    singular form is silently ignored) **on `push` events only**, which forces
+>    just the runtime stages (the ones running `apk upgrade --no-cache`) to
+>    rebuild against the live alpine repos on every cached build, while the
+>    expensive `frontend-build` / `backend-build` stages stay cached. This
+>    closes the curl 8.19.0-r0 → 8.20.0-r0 gap seen in July 2026, where
+>    `:latest` kept shipping a cached, unpatched curl.
+>
+>    The `push`-only condition is **not** cosmetic: buildx hard-rejects
+>    `--no-cache` and `--no-cache-filter` in the same invocation (*"cannot
+>    currently be used together"*). Emitting both killed every `schedule` and
+>    `workflow_dispatch` run for three weeks in 2026-07. Scheduled and manual
+>    runs don't need the filters anyway — their full `--no-cache` already
+>    rebuilds every stage.
 >
 > To force a fresh `:latest` on demand (e.g. right after an alpine CVE fix lands
 > in the repo), run `docker-publish.yml` via **`workflow_dispatch` from `main`**
@@ -124,12 +131,13 @@ you republish the image.
    the **installed** version is still the old one, the image itself is stale —
    go to step 2. If it already shows the fixed version, the alert is just stale
    in the tab — skip to step 3.
-2. **Republish so `:latest` carries the fix.** Since the build step sets
-   `no-cache-filter` on the runtime stages, any publish (a merge to `main`, or a
-   `workflow_dispatch` run of `docker-publish.yml`) now rebuilds `apk upgrade`
-   against the live alpine repos, so `:latest` picks up the fix and stays patched
-   across subsequent pushes. (Before that filter existed, a cached push would
-   overwrite the patched `:latest` right back to the stale layer.)
+2. **Republish so `:latest` carries the fix.** Any publish rebuilds `apk
+   upgrade` against the live alpine repos, so `:latest` picks up the fix and
+   stays patched across subsequent pushes — a cached push via the
+   `no-cache-filters` on the runtime stages, a `workflow_dispatch` run of
+   `docker-publish.yml` via its full `no-cache`. (Before those filters existed,
+   a cached push would overwrite the patched `:latest` right back to the stale
+   layer.)
 3. **Close stale `<=medium` alerts.** The routine observe scans are
    `HIGH,CRITICAL` only, so a MEDIUM alert created by an earlier all-severity
    scan never auto-closes on rebuild. Run `trivy-reconcile.yml` with

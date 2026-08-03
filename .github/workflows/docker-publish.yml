@@ -106,9 +106,23 @@ jobs:
           # cached apk layer (the curl 8.19.0-r0 vs 8.20.0-r0 gap in July 2026).
           # The expensive build stages (frontend-build npm ci/build,
           # backend-build pip) are NOT listed, so they stay cached and builds
-          # stay fast. NOTE: the input is `no-cache-filters` (plural) —
-          # build-push-action silently ignores the singular form.
-          no-cache-filters: backend,db,frontend,nginx,mcp-server
+          # stay fast.
+          #
+          # ⚠️ THE `push` GUARD BELOW IS LOAD-BEARING — DO NOT MAKE THIS
+          # UNCONDITIONAL. buildx hard-rejects `--no-cache` and
+          # `--no-cache-filter` in the same invocation ("cannot currently be
+          # used together"), so the filters may only be emitted on the events
+          # where `no-cache` above is false, i.e. `push`. On `schedule` /
+          # `workflow_dispatch` the full `--no-cache` already rebuilds every
+          # stage, so the filters would be redundant there anyway. Setting
+          # both broke every scheduled and manual run from 2026-07-15 (when
+          # the singular→plural typo fix in #837 made this input take effect)
+          # until it was caught three weeks later.
+          #
+          # NOTE: the input is `no-cache-filters` (plural) — build-push-action
+          # silently ignores the singular form. An empty string is parsed as an
+          # empty list, so no `--no-cache-filter` flag is emitted at all.
+          no-cache-filters: ${{ github.event_name == 'push' && 'backend,db,frontend,nginx,mcp-server' || '' }}
           provenance: true
           sbom: true
 
@@ -153,8 +167,11 @@ jobs:
           # fail on the bare CVE lines.
           trivyignores: .github/trivy-allowlist
 
+      # Guarded on the file existing, not just `always()`: when the build step
+      # fails there is no SARIF, and an unguarded upload adds a second red
+      # "Path does not exist" error that buries the real build failure.
       - name: Upload Trivy SARIF to Security tab
-        if: always()
+        if: always() && hashFiles(format('trivy-{0}.sarif', matrix.image)) != ''
         uses: github/codeql-action/upload-sarif@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
         with:
           sarif_file: trivy-${{ matrix.image }}.sarif
