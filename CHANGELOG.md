@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.38.1] - 2026-08-03
+
+### Fixed
+- **Long-running background work no longer holds a database connection for its whole duration.** AI analyses (vendor categorisation and resolution, duplicate detection, modernization assessment) kept one connection open — inside an uncommitted transaction — for every AI round-trip from the start of the run to the end, and workspace imports and platform migrations kept one open while they read and parsed the entire uploaded file. On a large landscape that is minutes at a time. Because those transactions write, they also stopped the database from reclaiming space for as long as they ran. Each of these now releases its connection before the slow part and takes a fresh one for the writes, which the 2.38.0 fix to the live-update stream did for browser tabs.
+- **Vendor analysis no longer discards everything it categorised if it fails part-way.** Results were written only at the very end, so a failure on the last batch lost the whole run. Each batch is now saved as it completes; re-running is unchanged and still updates every vendor.
+
 ## [2.38.0] - 2026-08-03
 
 ### Fixed

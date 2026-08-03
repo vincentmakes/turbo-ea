@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.encryption import decrypt_value
+from app.database import async_session
 from app.models.app_settings import AppSettings
 from app.services.ai_service import DEFAULT_AZURE_API_VERSION
 
@@ -92,7 +93,6 @@ def is_ai_configured(ai_config: dict[str, str]) -> bool:
 
 
 async def call_ai(
-    db: AsyncSession,
     prompt: str,
     max_tokens: int = 2048,
     system_prompt: str = "",
@@ -100,8 +100,19 @@ async def call_ai(
     """Call the configured LLM and return {text, truncated}.
 
     Supports Claude, OpenAI, DeepSeek, Gemini via direct HTTP.
+
+    Deliberately takes **no** session. It used to read the AI config on the
+    caller's session, which left that session's pooled connection checked out —
+    in an open transaction — for the whole LLM round-trip. Callers are typically
+    background jobs looping over dozens of batches, so one connection stayed
+    pinned (and held back the vacuum horizon) for the entire analysis. It cannot
+    release the caller's session either: a helper must never commit or roll back
+    a session it was handed, since it cannot know what the caller has pending.
+    So it opens its own short-lived session for the config read and closes it
+    before any HTTP happens.
     """
-    config = await get_ai_config(db)
+    async with async_session() as cfg_db:
+        config = await get_ai_config(cfg_db)
     provider = config["provider"]
     api_key = config["api_key"]
     model = config["model"]

@@ -6,6 +6,7 @@ Focus: the Azure Hosted OpenAI provider (issue #776), which the other providers
 already covered.
 """
 
+from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -23,6 +24,21 @@ def _fake_db(ai_cfg: dict):
     db = MagicMock()
     db.execute = AsyncMock(return_value=result)
     return db
+
+
+def _fake_session_factory(ai_cfg: dict):
+    """Patch target for ``turbolens_ai.async_session``.
+
+    ``call_ai`` opens its own short-lived session for the config read rather
+    than borrowing the caller's, so tests supply the session this way instead
+    of passing one in.
+    """
+
+    @asynccontextmanager
+    async def _factory():
+        yield _fake_db(ai_cfg)
+
+    return _factory
 
 
 # ---------------------------------------------------------------------------
@@ -117,7 +133,7 @@ class TestIsAiConfigured:
 class TestCallAiAzure:
     @pytest.mark.asyncio
     async def test_azure_request_shape(self):
-        db = _fake_db(
+        session_factory = _fake_session_factory(
             {
                 "providerType": "azure_openai",
                 "apiKey": "enc:x",
@@ -134,13 +150,14 @@ class TestCallAiAzure:
 
         with (
             patch("app.services.turbolens_ai.decrypt_value", return_value="azure-key"),
+            patch("app.services.turbolens_ai.async_session", session_factory),
             patch("app.services.turbolens_ai._get_llm_client") as mock_get,
         ):
             mock_client = AsyncMock()
             mock_get.return_value = mock_client
             mock_client.post = AsyncMock(return_value=mock_resp)
 
-            out = await call_ai(db, "prompt text", max_tokens=512, system_prompt="be nice")
+            out = await call_ai("prompt text", max_tokens=512, system_prompt="be nice")
 
         assert out == {"text": "hello", "truncated": False}
 

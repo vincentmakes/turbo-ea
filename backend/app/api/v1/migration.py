@@ -773,25 +773,71 @@ async def delete_migration(
 # ---------------------------------------------------------------------------
 
 
+async def _record_migration_failure(migration_id: uuid.UUID, exc: Exception) -> None:
+    """Mark a migration failed on its own session.
+
+    Used from the error paths below, where the job's own session is either
+    closed or in a bad state after a rollback.
+    """
+    try:
+        async with async_session() as db:
+            m = (
+                await db.execute(select(Migration).where(Migration.id == migration_id))
+            ).scalar_one_or_none()
+            if m is not None:
+                m.status = "failed"
+                m.error_message = str(exc)[:1000]
+                await db.commit()
+    except Exception:
+        logger.exception("Could not record migration failure")
+
+
 async def _parse_and_stage_job(migration_id_str: str) -> None:
     """Parse the snapshot on disk and stage every entity from it."""
-    async with async_session() as db:
-        try:
+    migration_id = uuid.UUID(migration_id_str)
+
+    # Phase 1 — read only what the parse needs, then let the session close so
+    # its pooled connection goes back. ``source.parse`` below is synchronous,
+    # potentially minutes-long work on a large export; holding the session
+    # across it pinned one connection, in an open transaction, for the whole
+    # parse.
+    try:
+        async with async_session() as db:
             m = (
-                await db.execute(
-                    select(Migration).where(Migration.id == uuid.UUID(migration_id_str))
-                )
+                await db.execute(select(Migration).where(Migration.id == migration_id))
             ).scalar_one_or_none()
             if m is None or m.storage_path is None:
                 logger.warning("migration parse job: migration %s missing", migration_id_str)
                 return
-
-            source = get_source(m.source_type)
-            snapshot = source.parse(m.storage_path)
-            m.snapshot_version = snapshot.version
+            source_type = m.source_type
+            storage_path = m.storage_path
             include_archived = bool(
                 ((m.stats or {}).get("options") or {}).get("include_archived", False)
             )
+    except Exception:
+        logger.exception("migration parse job: could not load migration %s", migration_id_str)
+        return
+
+    # Parse with no database connection held.
+    try:
+        source = get_source(source_type)
+        snapshot = source.parse(storage_path)
+    except Exception as exc:  # noqa: BLE001 — surface to UI, don't crash worker
+        logger.exception("migration parse failed")
+        await _record_migration_failure(migration_id, exc)
+        return
+
+    # Phase 2 — staging, one atomic transaction.
+    async with async_session() as db:
+        try:
+            m = (
+                await db.execute(select(Migration).where(Migration.id == migration_id))
+            ).scalar_one_or_none()
+            if m is None:
+                logger.warning("migration parse job: migration %s vanished", migration_id_str)
+                return
+
+            m.snapshot_version = snapshot.version
             metamodel_stats = await stage_metamodel(db, m, source, snapshot)
             card_stats = await stage_cards(
                 db, m, source, snapshot, include_archived=include_archived
@@ -828,21 +874,9 @@ async def _parse_and_stage_job(migration_id_str: str) -> None:
             m.parsed_at = datetime.now(timezone.utc)
             await db.commit()
         except Exception as exc:  # noqa: BLE001 — surface to UI, don't crash worker
-            logger.exception("migration parse job failed")
+            logger.exception("migration staging failed")
             await db.rollback()
-            try:
-                async with async_session() as db2:
-                    m2 = (
-                        await db2.execute(
-                            select(Migration).where(Migration.id == uuid.UUID(migration_id_str))
-                        )
-                    ).scalar_one_or_none()
-                    if m2 is not None:
-                        m2.status = "failed"
-                        m2.error_message = str(exc)[:1000]
-                        await db2.commit()
-            except Exception:
-                logger.exception("Could not record parse failure")
+            await _record_migration_failure(migration_id, exc)
 
 
 async def _apply_job(migration_id_str: str, user_id_str: str) -> None:
@@ -886,19 +920,7 @@ async def _apply_job(migration_id_str: str, user_id_str: str) -> None:
         except Exception as exc:  # noqa: BLE001
             logger.exception("migration apply job failed")
             await db.rollback()
-            try:
-                async with async_session() as db2:
-                    m2 = (
-                        await db2.execute(
-                            select(Migration).where(Migration.id == uuid.UUID(migration_id_str))
-                        )
-                    ).scalar_one_or_none()
-                    if m2 is not None:
-                        m2.status = "failed"
-                        m2.error_message = str(exc)[:1000]
-                        await db2.commit()
-            except Exception:
-                logger.exception("Could not record apply failure")
+            await _record_migration_failure(uuid.UUID(migration_id_str), exc)
 
 
 # ---------------------------------------------------------------------------

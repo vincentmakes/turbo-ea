@@ -292,7 +292,6 @@ async def detect_ai_bearing_cards(
         )
         try:
             result = await call_ai(
-                db,
                 prompt,
                 max_tokens=AI_DETECTION_MAX_TOKENS,
                 system_prompt=(
@@ -508,7 +507,6 @@ async def assess_regulation(
     )
     try:
         result = await call_ai(
-            db,
             prompt,
             max_tokens=3000,
             system_prompt=(

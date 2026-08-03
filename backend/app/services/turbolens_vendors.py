@@ -280,6 +280,12 @@ async def analyse_vendors(db: AsyncSession) -> dict[str, Any]:
         for obj in existing_objs_result.scalars().all():
             existing_vendor_map[obj.vendor_name] = obj
 
+    # Close the transaction those reads opened, so the *first* batch's LLM call
+    # holds no connection either — the per-batch commit below only covers the
+    # ones after it. The pre-loaded objects survive because the session is
+    # configured with ``expire_on_commit=False``.
+    await db.commit()
+
     for i in range(0, len(vendor_list), batch_size):
         batch = vendor_list[i : i + batch_size]
         batch_end = min(i + batch_size, len(vendor_list))
@@ -320,7 +326,7 @@ IMPORTANT:
 
         parsed = None
         try:
-            result = await call_ai(db, prompt, output_tokens)
+            result = await call_ai(prompt, output_tokens)
             parsed = parse_json(result["text"])
         except Exception as e:
             logger.warning("Batch %d\u2013%d failed: %s", i + 1, batch_end, e)
@@ -331,7 +337,7 @@ IMPORTANT:
 
         for vendor in missing:
             try:
-                single_result = await _categorise_single(db, vendor)
+                single_result = await _categorise_single(vendor)
                 if parsed is None:
                     parsed = []
                 parsed.append(single_result)
@@ -381,9 +387,15 @@ IMPORTANT:
                 existing_vendor_map[item["name"]] = new_obj
             total_analysed += 1
 
-        await db.flush()
+        # Commit per batch rather than flush. A flush leaves the transaction —
+        # and therefore the pooled connection — open for the whole analysis,
+        # which on a large landscape is many minutes of LLM round-trips holding
+        # back the vacuum horizon. Committing here releases the connection
+        # between batches, and means a crash mid-run keeps the batches already
+        # categorised instead of discarding them (the upsert is keyed on
+        # vendor_name, so re-running is idempotent).
+        await db.commit()
 
-    await db.commit()
     logger.info(
         "Vendor analysis complete: %d/%d vendors categorised",
         total_analysed,
@@ -392,7 +404,7 @@ IMPORTANT:
     return {"analysed": total_analysed, "total": len(vendor_list)}
 
 
-async def _categorise_single(db: AsyncSession, vendor: dict[str, Any]) -> dict[str, Any]:
+async def _categorise_single(vendor: dict[str, Any]) -> dict[str, Any]:
     """Fallback: categorise a single vendor."""
     app_context = (
         "\n".join(
@@ -412,7 +424,7 @@ Linked Applications/ITComponents:
 Return ONLY a JSON object (no markdown):
 {{"name":"{vendor["name"]}","category":"<one of: {" | ".join(CATEGORIES)}>","sub_category":"<specific type>","reasoning":"<one sentence>"}}"""  # noqa: E501
 
-    result = await call_ai(db, prompt, 256)
+    result = await call_ai(prompt, 256)
     text = result["text"].replace("```json", "").replace("```", "").strip()
     match = re.search(r"\{[\s\S]*\}", text)
     if not match:
@@ -452,6 +464,12 @@ async def resolve_vendors(db: AsyncSession) -> dict[str, Any]:
 
     logger.info("Resolving %d raw vendor name variants", len(names))
 
+    # Everything above was reads. Close the transaction before the LLM loop so
+    # the pooled connection is not held across the round-trips; the results
+    # accumulate in memory and the hierarchy rebuild below opens its own
+    # transaction, which must stay atomic (it deletes before it rewrites).
+    await db.commit()
+
     batch_sz = 60
     all_resolved: list[dict[str, Any]] = []
     now = datetime.now(timezone.utc)
@@ -478,7 +496,6 @@ Return ONLY a JSON array:
 
         try:
             result = await call_ai(
-                db,
                 prompt,
                 3000,
                 "You are an enterprise architect. Return only valid JSON arrays. No markdown.",

@@ -200,7 +200,17 @@ async def _load(db: AsyncSession, transfer_id: uuid.UUID) -> WorkspaceTransfer:
 # ---------------------------------------------------------------------------
 
 
-async def _preview_job(transfer_id_str: str, user_id_str: str) -> None:
+async def _claim_bundle_path(transfer_id_str: str, user_id_str: str, label: str) -> str | None:
+    """Validate the transfer + user and return the uploaded bundle's path.
+
+    Its session closes before the caller parses the bundle: ``parse_bundle``
+    unzips and reads the whole workbook, which on a large workspace is a long
+    stretch of pure CPU work. Holding the job's session across it kept a pooled
+    connection checked out — in an open transaction — for the entire parse.
+
+    Returns ``None`` when the job cannot run (the transfer is gone, or it has
+    already been marked failed here).
+    """
     async with async_session() as db:
         transfer = (
             await db.execute(
@@ -208,18 +218,48 @@ async def _preview_job(transfer_id_str: str, user_id_str: str) -> None:
             )
         ).scalar_one_or_none()
         if transfer is None:
-            return
+            return None
         user = (
             await db.execute(select(User).where(User.id == uuid.UUID(user_id_str)))
         ).scalar_one_or_none()
         if user is None or not transfer.storage_path:
             transfer.status = "failed"
-            transfer.error_message = "Preview user or uploaded bundle no longer exists"
+            transfer.error_message = f"{label} user or uploaded bundle no longer exists"
             await db.commit()
-            return
+            return None
+        return transfer.storage_path
+
+
+async def _preview_job(transfer_id_str: str, user_id_str: str) -> None:
+    storage_path = await _claim_bundle_path(transfer_id_str, user_id_str, "Preview")
+    if storage_path is None:
+        return
+
+    # Parsed with no database connection held.
+    try:
+        bundle = parse_bundle(Path(storage_path).read_bytes())
+    except BundleFormatError as exc:
+        await _fail(transfer_id_str, str(exc))
+        return
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("workspace preview job failed")
+        await _fail(transfer_id_str, str(exc)[:1000])
+        return
+
+    async with async_session() as db:
         try:
-            raw = Path(transfer.storage_path).read_bytes()
-            bundle = parse_bundle(raw)
+            transfer = (
+                await db.execute(
+                    select(WorkspaceTransfer).where(
+                        WorkspaceTransfer.id == uuid.UUID(transfer_id_str)
+                    )
+                )
+            ).scalar_one_or_none()
+            user = (
+                await db.execute(select(User).where(User.id == uuid.UUID(user_id_str)))
+            ).scalar_one_or_none()
+            if transfer is None or user is None:
+                return
             transfer.format_version = bundle.format_version
             transfer.source_app_version = bundle.manifest.get("app_version")
             transfer.source_url = bundle.manifest.get("source_url")
@@ -236,9 +276,6 @@ async def _preview_job(transfer_id_str: str, user_id_str: str) -> None:
             transfer.status = "previewed"
             transfer.previewed_at = datetime.now(timezone.utc)
             await db.commit()
-        except BundleFormatError as exc:
-            await db.rollback()
-            await _fail(transfer_id_str, str(exc))
         except Exception as exc:  # noqa: BLE001
             logger.exception("workspace preview job failed")
             await db.rollback()
@@ -246,25 +283,34 @@ async def _preview_job(transfer_id_str: str, user_id_str: str) -> None:
 
 
 async def _apply_job(transfer_id_str: str, user_id_str: str) -> None:
+    storage_path = await _claim_bundle_path(transfer_id_str, user_id_str, "Apply")
+    if storage_path is None:
+        return
+
+    # Parsed with no database connection held.
+    try:
+        bundle = parse_bundle(Path(storage_path).read_bytes())
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("workspace apply job failed")
+        await _fail(transfer_id_str, str(exc)[:1000])
+        return
+
+    # ``apply_bundle`` stays one atomic transaction — it must remain
+    # all-or-nothing, so nothing inside it is committed early.
     async with async_session() as db:
-        transfer = (
-            await db.execute(
-                select(WorkspaceTransfer).where(WorkspaceTransfer.id == uuid.UUID(transfer_id_str))
-            )
-        ).scalar_one_or_none()
-        if transfer is None:
-            return
-        user = (
-            await db.execute(select(User).where(User.id == uuid.UUID(user_id_str)))
-        ).scalar_one_or_none()
-        if user is None or not transfer.storage_path:
-            transfer.status = "failed"
-            transfer.error_message = "Apply user or uploaded bundle no longer exists"
-            await db.commit()
-            return
         try:
-            raw = Path(transfer.storage_path).read_bytes()
-            bundle = parse_bundle(raw)
+            transfer = (
+                await db.execute(
+                    select(WorkspaceTransfer).where(
+                        WorkspaceTransfer.id == uuid.UUID(transfer_id_str)
+                    )
+                )
+            ).scalar_one_or_none()
+            user = (
+                await db.execute(select(User).where(User.id == uuid.UUID(user_id_str)))
+            ).scalar_one_or_none()
+            if transfer is None or user is None:
+                return
             result = await apply_bundle(db, bundle, user)
             transfer.result = result.as_dict()
             transfer.status = "applied" if result.total_failed == 0 else "failed"

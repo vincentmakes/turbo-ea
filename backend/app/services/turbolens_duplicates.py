@@ -167,6 +167,12 @@ async def detect_duplicates(
     principles = await load_active_principles(db)
     principles_block = format_principles_block(principles)
 
+    # Everything above was reads. Close the transaction before the LLM loop so
+    # no pooled connection is held across the round-trips; clusters accumulate
+    # in memory and the delete-and-rebuild below opens its own transaction,
+    # which must stay atomic.
+    await db.commit()
+
     all_clusters: list[dict[str, Any]] = []
     batch_sz = 40
 
@@ -214,7 +220,6 @@ If no duplicates found, return: []"""
 
             try:
                 result = await call_ai(
-                    db,
                     prompt,
                     3000,
                     "You are an enterprise architect. Return only valid JSON. No markdown.",
@@ -281,6 +286,10 @@ async def assess_modernization(
         "ITComponent": f"Focus on: Cloud PaaS, managed Kubernetes, serverless, Infrastructure as Code, FinOps. In {year}: FinOps and platform engineering.",  # noqa: E501
     }.get(target_type, "Focus on current technology modernization trends.")
 
+    # Reads are done — release the connection before the LLM loop (see
+    # detect_duplicates above); the rebuild below opens its own transaction.
+    await db.commit()
+
     batch_sz = 25
     all_assessments: list[dict[str, Any]] = []
     now = datetime.now(timezone.utc)
@@ -325,7 +334,6 @@ Return ONLY a JSON array (empty if no opportunities):
 
         try:
             result = await call_ai(
-                db,
                 prompt,
                 3000,
                 "You are a senior enterprise architect. Return only valid JSON. No markdown.",

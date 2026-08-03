@@ -330,7 +330,7 @@ Respond with ONLY this JSON:
 }}"""
 
     persona = await _build_persona_with_principles(db)
-    result = await call_ai(db, prompt, 2500, persona)
+    result = await call_ai(prompt, 2500, persona)
     parsed: dict[str, Any] = parse_json(result["text"])
     return parsed
 
@@ -400,7 +400,7 @@ Respond with ONLY this JSON:
 }}"""
 
     persona = await _build_persona_with_principles(db)
-    result = await call_ai(db, prompt, 2800, persona)
+    result = await call_ai(prompt, 2800, persona)
     parsed: dict[str, Any] = parse_json(result["text"])
     return parsed
 
@@ -1066,7 +1066,7 @@ Respond with ONLY this JSON:
 }}"""  # noqa: E501
 
     persona = await _build_persona_with_principles(db)
-    result = await call_ai(db, prompt, 6000, persona)
+    result = await call_ai(prompt, 6000, persona)
     parsed: dict[str, Any] = parse_json(result["text"])
 
     # Attach existing dependency graph so frontend can merge
@@ -1327,7 +1327,7 @@ Respond with ONLY this JSON:
 }}"""  # noqa: E501
 
     persona = await _build_persona_with_principles(db)
-    result = await call_ai(db, prompt, 4000, persona)
+    result = await call_ai(prompt, 4000, persona)
     parsed: dict[str, Any] = parse_json(result["text"])
     return parsed
 
@@ -1621,7 +1621,7 @@ async def phase3_gaps(
         max_tokens = 4000
 
     persona = await _build_persona_with_principles(db)
-    result = await call_ai(db, prompt, max_tokens, persona)
+    result = await call_ai(prompt, max_tokens, persona)
     parsed: dict[str, Any] = parse_json(result["text"])
     return parsed
 
@@ -1724,7 +1724,7 @@ Respond with ONLY this JSON:
 }}"""  # noqa: E501
 
     persona = await _build_persona_with_principles(db)
-    result = await call_ai(db, prompt, 3000, persona)
+    result = await call_ai(prompt, 3000, persona)
     parsed: dict[str, Any] = parse_json(result["text"])
     return parsed
 
@@ -1862,7 +1862,7 @@ Respond with ONLY this JSON:
 }}"""
 
     persona = await _build_persona_with_principles(db)
-    struct_result = await call_ai(db, structure_prompt, 8000, persona)
+    struct_result = await call_ai(structure_prompt, 8000, persona)
     result: dict[str, Any] = parse_json(struct_result["text"])
 
     # Check for truncation
@@ -1889,7 +1889,7 @@ REQUIREMENT: "{requirement}"
 Respond with ONLY a JSON object containing the missing sections."""
 
         try:
-            retry_result = await call_ai(db, retry_prompt, 6000, persona)
+            retry_result = await call_ai(retry_prompt, 6000, persona)
             retry_data = parse_json(retry_result["text"])
             for section in missing_sections:
                 if retry_data.get(section):
