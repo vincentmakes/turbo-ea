@@ -780,3 +780,66 @@ class TestAISettingsAzure:
             headers=auth_headers(member),
         )
         assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------
+# Branding blobs must not ride along on every settings read
+# ---------------------------------------------------------------
+
+
+class TestBrandingBlobsAreDeferred:
+    """`custom_logo` / `custom_favicon` are up to 5 MB each and sit on the same
+    singleton row as every scalar setting.
+
+    With ~40 `select(AppSettings)` call sites — one per settings endpoint —
+    loading them eagerly meant reading a currency code pulled both binaries out
+    of Postgres, and the Admin → Settings General tab did that 15 times over.
+    They are deferred; only the serving endpoints and the workspace exporter
+    ask for the bytes.
+    """
+
+    def test_columns_are_deferred_on_the_mapper(self):
+        from sqlalchemy import inspect as sa_inspect
+
+        from app.models.app_settings import AppSettings
+
+        mapper = sa_inspect(AppSettings)
+        assert mapper.attrs["custom_logo"].deferred is True
+        assert mapper.attrs["custom_favicon"].deferred is True
+        # The mime columns stay eager — they are tiny and read on every boot.
+        assert mapper.attrs["custom_logo_mime"].deferred is False
+        assert mapper.attrs["custom_favicon_mime"].deferred is False
+
+    def test_info_endpoints_do_not_materialise_the_blob(self):
+        """They need a yes/no, so the presence check belongs in SQL."""
+        import inspect as py_inspect
+
+        from app.api.v1 import settings as settings_module
+
+        for func in (settings_module.get_logo_info, settings_module.get_favicon_info):
+            src = py_inspect.getsource(func)
+            assert "is_not(None)" in src, f"{func.__name__} should test presence in SQL"
+            assert "select(AppSettings)" not in src, (
+                f"{func.__name__} must not load the ORM row — that fetches the blob "
+                "only to call bool() on it."
+            )
+
+    def test_serving_endpoints_select_columns_directly(self):
+        import inspect as py_inspect
+
+        from app.api.v1 import settings as settings_module
+
+        logo_src = py_inspect.getsource(settings_module.get_logo)
+        favicon_src = py_inspect.getsource(settings_module.get_favicon)
+        assert "select(AppSettings.custom_logo" in logo_src
+        assert "select(AppSettings.custom_favicon" in favicon_src
+
+    def test_workspace_exporter_undefers_them(self):
+        """The bundle ships the branding as assets, so it does want the bytes."""
+        import inspect as py_inspect
+
+        from app.services.workspace_io import exporter
+
+        src = py_inspect.getsource(exporter.build_bundle)
+        assert "undefer(AppSettings.custom_logo)" in src
+        assert "undefer(AppSettings.custom_favicon)" in src

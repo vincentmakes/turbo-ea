@@ -26,6 +26,7 @@ from typing import Any
 from openpyxl import Workbook
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import undefer
 
 from app.config import APP_VERSION
 from app.models.app_settings import AppSettings
@@ -251,8 +252,15 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
     )
 
     # --- Settings (secrets stripped) ------------------------------------
+    # The branding blobs are deferred on the model (they are up to 5 MB each and
+    # every settings read would otherwise carry them); the bundle ships them as
+    # assets, so this is one of the few places that genuinely wants the bytes.
     settings_row = (
-        await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+        await db.execute(
+            select(AppSettings)
+            .where(AppSettings.id == "default")
+            .options(undefer(AppSettings.custom_logo), undefer(AppSettings.custom_favicon))
+        )
     ).scalar_one_or_none()
     general_clean, email_clean = strip_secrets(
         settings_row.general_settings if settings_row else {},
