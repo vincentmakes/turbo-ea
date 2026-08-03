@@ -182,3 +182,97 @@ class TestEventStreamVisibility:
 
         assert _event_visible_to(False, {"event": "x"}, "user-123") is False
         assert _event_visible_to(False, {"event": "x", "data": None}, "user-123") is False
+
+
+# ---------------------------------------------------------------
+# GET /events/stream — must not hold a pooled DB connection open
+# ---------------------------------------------------------------
+
+
+class TestEventStreamHoldsNoSession:
+    """Guard tests for the connection-per-open-tab regression (discussion #901).
+
+    ``get_db`` is a yield-dependency: FastAPI only unwinds it once the response
+    completes, and an SSE response completes when the browser tab closes. When
+    ``event_stream`` took ``db: AsyncSession = Depends(get_db)`` and queried it,
+    the session's pooled connection stayed checked out — ``idle in transaction``
+    — for the tab's whole lifetime, so every open tab permanently consumed one
+    connection and a few dozen tabs exhausted the pool (and, on a managed
+    Postgres with a low ``datconnlimit``, the database's own cap).
+
+    The auth/permission lookups must therefore run in an explicit short-lived
+    session that is closed before the ``StreamingResponse`` is returned.
+    """
+
+    def test_stream_takes_no_session_dependency(self):
+        """No parameter may carry a session — that is what pins the connection."""
+        import inspect
+
+        from sqlalchemy.ext.asyncio import AsyncSession
+
+        from app.api.v1.events import event_stream
+
+        params = inspect.signature(event_stream).parameters
+        assert not any(p.annotation is AsyncSession for p in params.values()), (
+            "event_stream must not receive an AsyncSession — a streaming endpoint "
+            "holds its request-scoped session for the life of the stream."
+        )
+        assert "db" not in params
+
+    def test_stream_does_not_depend_on_get_db(self):
+        """Belt and braces: `get_db` must not appear as a dependency default."""
+        import inspect
+
+        from app.api.v1.events import event_stream
+        from app.database import get_db
+
+        for param in inspect.signature(event_stream).parameters.values():
+            dependency = getattr(param.default, "dependency", None)
+            assert dependency is not get_db, (
+                "event_stream must not use Depends(get_db); open a short-lived "
+                "session instead and close it before streaming starts."
+            )
+
+    def test_stream_uses_a_short_lived_session(self):
+        """The handler opens its own session and closes it before streaming."""
+        import inspect
+
+        from app.api.v1.events import event_stream
+
+        source = inspect.getsource(event_stream)
+        assert "async with async_session()" in source
+        # The stream body itself must stay free of database access.
+        generate_body = source.split("async def generate()", 1)[1]
+        assert "db" not in generate_body
+
+    async def test_stream_rejects_missing_token(self, client):
+        """Auth still rejected before any session is opened."""
+        resp = await client.get("/api/v1/events/stream")
+        assert resp.status_code == 401
+
+    async def test_stream_rejects_invalid_token(self, client):
+        resp = await client.get("/api/v1/events/stream?token=not-a-real-jwt")
+        assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------
+# Connection-pool sizing is operator-tunable
+# ---------------------------------------------------------------
+
+
+class TestPoolSettings:
+    """The pool must be configurable so an instance on a capped managed
+    Postgres can fit under its connection limit without patching source."""
+
+    def test_pool_settings_exist_with_documented_defaults(self):
+        from app.config import settings
+
+        assert settings.DB_POOL_SIZE == 20
+        assert settings.DB_MAX_OVERFLOW == 10
+        assert settings.DB_POOL_TIMEOUT == 30
+
+    def test_engine_uses_the_configured_pool_size(self):
+        from app.config import settings
+        from app.database import engine
+
+        assert engine.pool.size() == settings.DB_POOL_SIZE

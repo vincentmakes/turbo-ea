@@ -26,6 +26,30 @@ TURBO_EA_TAG=2.23.1
 
 三件**不会**改变的事：后端在启动时仍会自行执行 Alembic 迁移（本页的升级模型完全相同）；`backend_data` 卷仍需要单独备份（文件附件和扩展不存放在 PostgreSQL 中）；`SECRET_KEY` 的保管责任仍在你。自带镜像搭载 PostgreSQL 18——你的服务商提供的任何较新的主版本都可以。
 
+### 检查连接上限
+
+切换前唯一值得确认的设置就是连接上限。后端以单个进程运行，最多打开 **`DB_POOL_SIZE + DB_MAX_OVERFLOW` 个连接（默认为 30）**。自带的 `db` 容器允许 100 个连接，因此默认安装中从不会出现该问题；入门级托管套餐则常把数据库限制得更低，此时 PostgreSQL 会返回 `too many connections for database "turboea"`。
+
+```sql
+SELECT datname, datconnlimit FROM pg_database WHERE datname = 'turboea';
+SELECT rolname, rolconnlimit FROM pg_roles    WHERE rolname = 'turboea';
+SHOW max_connections;
+```
+
+`-1` 表示「无特定限制」。如果实际上限低于 30，请提高上限，或在 `.env` 中缩小连接池，并为备份和管理会话留出几个连接：
+
+```dotenv
+DB_POOL_SIZE=8
+DB_MAX_OVERFLOW=2
+DB_POOL_TIMEOUT=30
+```
+
+查看当前实际连接情况：
+
+```sql
+SELECT state, count(*) FROM pg_stat_activity WHERE datname = 'turboea' GROUP BY state;
+```
+
 ## 升级如何工作：Alembic 迁移
 
 数据库模式的兼容性由 [Alembic](https://alembic.sqlalchemy.org/) 自动处理。后端在启动时执行 `alembic upgrade head`，因此当前模式与新版本之间所有待执行的迁移都会——按顺序——在应用开始提供服务之前完成。
@@ -124,3 +148,4 @@ docker compose exec db pg_dump -U turboea turboea > backup-$(date +%F).sql
 5. **直接编辑数据库**——模式状态由 Alembic 掌管，手工 DDL 会与未来的迁移冲突。数据也一样：请通过 API 或界面操作，以保证权限、审计事件和数据质量重算的正确性。
 6. **不持久化数据卷**——`postgres_data` 和 `backend_data` 必须在容器重建后仍然存在；确认你的快照和备份工具同时覆盖两者。
 7. **只回滚镜像而不恢复数据库**——见上文「回滚与恢复」一节。
+8. **切换到托管 PostgreSQL 却未检查其连接上限**——后端默认最多需要 30 个连接。上限更低时，正常使用中就会出现 `too many connections for database "turboea"`；见上文「检查连接上限」一节。

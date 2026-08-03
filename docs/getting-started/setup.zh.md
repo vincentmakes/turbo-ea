@@ -200,6 +200,32 @@ POSTGRES_PASSWORD=your-password
 
 然后照常启动：`docker compose up -d`。捆绑的 `db` 服务仍在 `docker-compose.yml` 中定义；您可以让它空闲运行，也可以显式停止它。
 
+### 连接预算
+
+后端以单个进程运行，最多打开 **`DB_POOL_SIZE + DB_MAX_OVERFLOW` 个连接（默认为 30）**。捆绑的 `db` 服务允许 100 个连接，因此默认值在那里从不会造成问题。低价套餐的托管实例通常会将数据库限制在远低于 30，此时 PostgreSQL 会返回：
+
+```
+too many connections for database "turboea"
+```
+
+切换前请检查您的限制：
+
+```sql
+SELECT datname, datconnlimit FROM pg_database WHERE datname = 'turboea';
+SELECT rolname, rolconnlimit FROM pg_roles    WHERE rolname = 'turboea';
+SHOW max_connections;
+```
+
+`datconnlimit` 或 `rolconnlimit` 为 `-1` 表示「无特定限制」；任何低于 30 的值都需要提高上限或缩小连接池：
+
+```dotenv
+DB_POOL_SIZE=8
+DB_MAX_OVERFLOW=2
+DB_POOL_TIMEOUT=30
+```
+
+连接池变小意味着并发处理的请求变少，而不是请求丢失：连接池占满后，请求最多等待 `DB_POOL_TIMEOUT` 秒以获得空闲连接。请为备份和您自己的 `psql` 会话留出几个连接。
+
 ## 验证镜像
 
 从 `1.0.0` 起，每个发布的镜像都使用 cosign 无密钥 OIDC 签名，并附带 buildkit 生成的 SPDX SBOM。请参阅 [供应链](../admin/supply-chain.md) 获取验证命令以及如何从注册表拉取 SBOM。

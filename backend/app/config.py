@@ -43,6 +43,17 @@ class Settings:
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "turboea")
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "turboea")
 
+    # Connection-pool sizing for the single async engine (app/database.py).
+    # The backend runs one uvicorn process, so its total connection budget is
+    # ``DB_POOL_SIZE + DB_MAX_OVERFLOW`` — 30 by default. The bundled Postgres
+    # allows 100, but a managed instance on a low-cost plan often caps the
+    # database far below 30 (``ALTER DATABASE … CONNECTION LIMIT``), which
+    # surfaces as ``too many connections for database "turboea"``. Lower these
+    # to fit under such a cap; see docs/admin/operations.md.
+    DB_POOL_SIZE: int = int(os.getenv("DB_POOL_SIZE", "20"))
+    DB_MAX_OVERFLOW: int = int(os.getenv("DB_MAX_OVERFLOW", "10"))
+    DB_POOL_TIMEOUT: int = int(os.getenv("DB_POOL_TIMEOUT", "30"))
+
     # Audit-log (mutation_batches) retention. The hourly purge loop
     # deletes batches whose ``created_at`` is older than this; events
     # under those batches keep their rows but lose the ``batch_id``

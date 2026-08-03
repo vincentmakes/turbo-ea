@@ -200,6 +200,32 @@ POSTGRES_PASSWORD=your-password
 
 Em seguida inicie como de costume: `docker compose up -d`. O serviço `db` integrado permanece definido em `docker-compose.yml`; você pode deixá-lo ocioso ou pará-lo explicitamente.
 
+### Orçamento de conexões
+
+O backend é executado como um único processo e abre **até `DB_POOL_SIZE + DB_MAX_OVERFLOW` conexões — 30 por predefinição**. O serviço `db` incluído permite 100, pelo que os valores predefinidos nunca causam problemas. Uma instância gerida num plano económico limita frequentemente a base de dados muito abaixo de 30, e o PostgreSQL responde então:
+
+```
+too many connections for database "turboea"
+```
+
+Verifique os seus limites antes de mudar:
+
+```sql
+SELECT datname, datconnlimit FROM pg_database WHERE datname = 'turboea';
+SELECT rolname, rolconnlimit FROM pg_roles    WHERE rolname = 'turboea';
+SHOW max_connections;
+```
+
+`-1` em `datconnlimit` ou `rolconnlimit` significa «sem limite específico»; qualquer valor inferior a 30 exige aumentar o limite ou reduzir o pool:
+
+```dotenv
+DB_POOL_SIZE=8
+DB_MAX_OVERFLOW=2
+DB_POOL_TIMEOUT=30
+```
+
+Um pool mais pequeno significa menos pedidos servidos em simultâneo, não pedidos perdidos: quando o pool está cheio, um pedido aguarda até `DB_POOL_TIMEOUT` segundos por uma conexão livre. Deixe algumas conexões livres para as cópias de segurança e para as suas próprias sessões `psql`.
+
 ## Verificar imagens
 
 Desde `1.0.0`, cada imagem publicada é assinada com cosign keyless OIDC e traz uma SBOM SPDX gerada pelo buildkit. Veja [Cadeia de suprimentos](../admin/supply-chain.md) para o comando de verificação e como obter a SBOM do registro.

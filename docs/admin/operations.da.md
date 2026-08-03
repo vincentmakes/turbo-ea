@@ -26,6 +26,30 @@ Hvad den administrerede tjeneste tager fra jer:
 
 Tre ting, der **ikke** ændrer sig: backenden kører stadig selv sine Alembic-migrationer ved opstart (opgraderingsmodellen på denne side er identisk), volumen `backend_data` har stadig brug for sin egen backup (filvedhæftninger og udvidelser ligger ikke i PostgreSQL), og ansvaret for `SECRET_KEY` er stadig jeres. Det medfølgende image leverer PostgreSQL 18 — enhver nyere major-version fra jeres udbyder fungerer.
 
+### Kontrollér forbindelsesgrænsen
+
+Den ene indstilling, det er værd at bekræfte inden skiftet, er forbindelsesgrænsen. Backenden kører som én enkelt proces og åbner **op til `DB_POOL_SIZE + DB_MAX_OVERFLOW` forbindelser — 30 som standard**. Den medfølgende `db`-container tillader 100, så dette viser sig aldrig i standardopsætningen; hostede abonnementer i indgangsklassen begrænser ofte databasen lavere, og PostgreSQL svarer så `too many connections for database "turboea"`.
+
+```sql
+SELECT datname, datconnlimit FROM pg_database WHERE datname = 'turboea';
+SELECT rolname, rolconnlimit FROM pg_roles    WHERE rolname = 'turboea';
+SHOW max_connections;
+```
+
+`-1` betyder «ingen specifik grænse». Er den reelle grænse under 30, skal I enten hæve den eller skrue poolen ned i `.env` — og efterlade et par forbindelser til backup og administrative sessioner:
+
+```dotenv
+DB_POOL_SIZE=8
+DB_MAX_OVERFLOW=2
+DB_POOL_TIMEOUT=30
+```
+
+Sådan ser I, hvad der reelt er forbundet lige nu:
+
+```sql
+SELECT state, count(*) FROM pg_stat_activity WHERE datname = 'turboea' GROUP BY state;
+```
+
 ## Sådan fungerer opgraderinger: Alembic-migrationer
 
 Databaseskemaets kompatibilitet håndteres automatisk via [Alembic](https://alembic.sqlalchemy.org/). Ved opstart kører backenden `alembic upgrade head`, så alle ventende migrationer mellem dit nuværende skema og den nye version anvendes — i rækkefølge — før appen betjener trafik.
@@ -124,3 +148,4 @@ Hvad angår styring:
 5. **At redigere databasen direkte** — skematilstanden ejes af Alembic, og manuel DDL vil kollidere med fremtidige migrationer. Det samme gælder data: brug API'et eller brugergrænsefladen, så rettigheder, revisionshændelser og genberegning af datakvalitet forbliver korrekte.
 6. **Ikke at persistere volumener** — `postgres_data` og `backend_data` skal overleve genoprettelse af containere; tjek, at jeres snapshot- og backupværktøjer dækker begge.
 7. **At rulle imaget tilbage uden at gendanne databasen** — se [Rollback og gendannelse](#rollback-og-gendannelse).
+8. **At pege på en hosted PostgreSQL uden at kontrollere dens forbindelsesgrænse** — backenden har som standard brug for op til 30 forbindelser. En lavere grænse viser sig som `too many connections for database "turboea"` under normal brug; se afsnittet «Kontrollér forbindelsesgrænsen» ovenfor.

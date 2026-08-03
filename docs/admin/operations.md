@@ -26,6 +26,30 @@ What the managed service takes off your plate:
 
 Three things that do **not** change: the backend still runs its own Alembic migrations on startup (the upgrade model on this page is identical), the `backend_data` volume still needs its own backup (file attachments and extensions don't live in PostgreSQL), and `SECRET_KEY` custody is still yours. The bundled image ships PostgreSQL 18 — any recent major version your provider offers works.
 
+### Check the connection limit
+
+The one setting worth confirming before you switch is the connection limit. The backend runs a single process and opens **up to `DB_POOL_SIZE + DB_MAX_OVERFLOW` connections — 30 by default**. The bundled `db` container allows 100, so this never surfaces on the default stack; entry-level managed plans frequently cap the database lower, and Postgres then answers `too many connections for database "turboea"`.
+
+```sql
+SELECT datname, datconnlimit FROM pg_database WHERE datname = 'turboea';
+SELECT rolname, rolconnlimit FROM pg_roles    WHERE rolname = 'turboea';
+SHOW max_connections;
+```
+
+`-1` means "no specific limit". If the effective cap is below 30, either raise it or shrink the pool in `.env` and leave a few connections spare for backups and administrative sessions:
+
+```dotenv
+DB_POOL_SIZE=8
+DB_MAX_OVERFLOW=2
+DB_POOL_TIMEOUT=30
+```
+
+To see what is actually connected at any moment:
+
+```sql
+SELECT state, count(*) FROM pg_stat_activity WHERE datname = 'turboea' GROUP BY state;
+```
+
 ## How upgrades work: Alembic migrations
 
 Database schema compatibility is handled automatically via [Alembic](https://alembic.sqlalchemy.org/). On startup, the backend runs `alembic upgrade head`, so every pending migration between your current schema and the new version is applied — in order — before the app serves traffic.
@@ -124,3 +148,4 @@ Governance-wise:
 5. **Editing the database directly** — schema state is owned by Alembic, and manual DDL will collide with future migrations. The same goes for data: use the API or UI so permissions, audit events, and data-quality recalculation stay correct.
 6. **Not persisting the volumes** — `postgres_data` and `backend_data` must survive container recreation; check that your snapshot and backup tooling covers both.
 7. **Rolling back the image without restoring the database** — see [Rollback and recovery](#rollback-and-recovery).
+8. **Pointing at a managed PostgreSQL without checking its connection limit** — the backend needs up to 30 connections by default. A lower cap surfaces as `too many connections for database "turboea"` under normal use; see [Check the connection limit](#check-the-connection-limit).

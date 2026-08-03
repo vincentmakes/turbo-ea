@@ -200,6 +200,32 @@ POSTGRES_PASSWORD=your-password
 
 ثم ابدأ كالمعتاد: `docker compose up -d`. لا تزال خدمة `db` المُجمَّعة معرَّفة في `docker-compose.yml`؛ يمكنك إما تركها تعمل خاملة أو إيقافها صراحةً.
 
+### ميزانية الاتصالات
+
+تعمل الواجهة الخلفية كعملية واحدة وتفتح **ما يصل إلى `DB_POOL_SIZE + DB_MAX_OVERFLOW` اتصالاً — 30 افتراضيًا**. تسمح خدمة `db` المضمّنة بـ 100 اتصال، لذا لا تسبّب القيم الافتراضية أي مشكلة هناك. غالبًا ما تحدّ النسخة المُدارة على خطة منخفضة التكلفة قاعدة البيانات بأقل بكثير من 30، فيردّ PostgreSQL عندئذٍ:
+
+```
+too many connections for database "turboea"
+```
+
+تحقّق من حدودك قبل التبديل:
+
+```sql
+SELECT datname, datconnlimit FROM pg_database WHERE datname = 'turboea';
+SELECT rolname, rolconnlimit FROM pg_roles    WHERE rolname = 'turboea';
+SHOW max_connections;
+```
+
+تعني `-1` في `datconnlimit` أو `rolconnlimit` «لا يوجد حدّ محدّد»؛ وأي قيمة أقل من 30 تتطلّب إمّا رفع الحدّ أو تصغير تجميعة الاتصالات:
+
+```dotenv
+DB_POOL_SIZE=8
+DB_MAX_OVERFLOW=2
+DB_POOL_TIMEOUT=30
+```
+
+تعني التجميعة الأصغر عددًا أقل من الطلبات المخدومة في وقت واحد، وليس طلبات ضائعة: فعندما تمتلئ التجميعة ينتظر الطلب مدة تصل إلى `DB_POOL_TIMEOUT` ثانية للحصول على اتصال حر. اترك بضعة اتصالات متاحة للنسخ الاحتياطي ولجلسات `psql` الخاصة بك.
+
 ## التحقّق من الصور
 
 اعتبارًا من `1.0.0` فصاعدًا، تُوقَّع كل صورة منشورة بـ cosign عبر keyless OIDC وتُشحَن مع SBOM بصيغة SPDX مُنشأة بواسطة buildkit. راجع [سلسلة التوريد](../admin/supply-chain.md) للحصول على أمر التحقّق وكيفية سحب SBOM من السجلّ.

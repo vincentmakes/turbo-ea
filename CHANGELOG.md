@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.38.0] - 2026-08-03
+
+### Fixed
+- **Every open Turbo EA browser tab was holding a PostgreSQL connection open for as long as it stayed open.** The live-update stream behind the notification bell resolved the signed-in user and their permissions on a database session that the server only releases when the response finishes — and that response finishes when the tab closes. The connection sat idle in an open transaction for the tab's whole lifetime, so a few dozen tabs across a team consumed the backend's entire connection allowance and unrelated requests then stalled for 30 seconds before failing. Instances pointed at a managed PostgreSQL whose plan caps connections saw it sooner, as `too many connections for database «turboea»` ([#901](https://github.com/vincentmakes/turbo-ea/discussions/901)). The stream now releases the connection before it starts streaming, so an open tab costs none. Present since 1.65.4.
+
+### Added
+- **The database connection pool can now be sized from the environment.** `DB_POOL_SIZE` (20), `DB_MAX_OVERFLOW` (10) and `DB_POOL_TIMEOUT` (30) were fixed in code, so an instance running against a managed PostgreSQL that allows fewer connections than the backend asks for had no way to fit under its limit. Defaults are unchanged — the bundled database allows well over what the backend requests.
+
+### Changed
+- **The connection budget is now documented.** *Use an existing PostgreSQL* and *Managed PostgreSQL* explain how many connections the backend needs, how to check the limit your provider applies, and how to shrink the pool to fit it.
+
 ## [2.37.3] - 2026-08-01
 
 ### Security

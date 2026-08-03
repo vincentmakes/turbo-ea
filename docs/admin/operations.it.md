@@ -26,6 +26,30 @@ Cosa vi toglie di mano il servizio gestito:
 
 Tre cose che **non** cambiano: il backend esegue comunque da sé le migrazioni Alembic all'avvio (il modello di aggiornamento di questa pagina resta identico), il volume `backend_data` ha comunque bisogno di un proprio backup (allegati ed estensioni non risiedono in PostgreSQL), e la custodia del `SECRET_KEY` resta vostra. L'immagine inclusa porta PostgreSQL 18 — va bene qualsiasi versione maggiore recente offerta dal vostro provider.
 
+### Verificare il limite di connessioni
+
+L'unica impostazione da confermare prima di passare è il limite di connessioni. Il backend viene eseguito come processo singolo e apre **fino a `DB_POOL_SIZE + DB_MAX_OVERFLOW` connessioni — 30 per impostazione predefinita**. Il container `db` incluso ne consente 100, quindi il problema non si presenta mai nell'installazione predefinita; i piani gestiti di fascia base limitano spesso il database più in basso, e PostgreSQL risponde allora `too many connections for database "turboea"`.
+
+```sql
+SELECT datname, datconnlimit FROM pg_database WHERE datname = 'turboea';
+SELECT rolname, rolconnlimit FROM pg_roles    WHERE rolname = 'turboea';
+SHOW max_connections;
+```
+
+`-1` significa «nessun limite specifico». Se il tetto effettivo è inferiore a 30, alzatelo oppure riducete il pool in `.env`, lasciando qualche connessione libera per i backup e per le sessioni amministrative:
+
+```dotenv
+DB_POOL_SIZE=8
+DB_MAX_OVERFLOW=2
+DB_POOL_TIMEOUT=30
+```
+
+Per vedere che cosa è effettivamente connesso in un dato momento:
+
+```sql
+SELECT state, count(*) FROM pg_stat_activity WHERE datname = 'turboea' GROUP BY state;
+```
+
 ## Come funzionano gli aggiornamenti: le migrazioni Alembic
 
 La compatibilità dello schema del database è gestita automaticamente tramite [Alembic](https://alembic.sqlalchemy.org/). All'avvio il backend esegue `alembic upgrade head`, quindi ogni migrazione in sospeso tra lo schema attuale e la nuova versione viene applicata — in ordine — prima che l'applicazione serva traffico.
@@ -124,3 +148,4 @@ Sul fronte della governance:
 5. **Modificare il database direttamente** — lo stato dello schema appartiene ad Alembic, e il DDL manuale entrerà in conflitto con le migrazioni future. Lo stesso vale per i dati: usate l'API o l'interfaccia così che permessi, eventi di audit e ricalcolo della qualità dei dati restino corretti.
 6. **Non rendere persistenti i volumi** — `postgres_data` e `backend_data` devono sopravvivere alla ricreazione dei container; verificate che i vostri strumenti di snapshot e backup li coprano entrambi.
 7. **Fare rollback dell'immagine senza ripristinare il database** — vedere [Rollback e ripristino](#rollback-e-ripristino).
+8. **Puntare a un PostgreSQL gestito senza verificarne il limite di connessioni** — il backend ha bisogno di un massimo di 30 connessioni per impostazione predefinita. Un tetto più basso si manifesta come `too many connections for database "turboea"` durante l'uso normale; vedere la sezione «Verificare il limite di connessioni» qui sopra.
