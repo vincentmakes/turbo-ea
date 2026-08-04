@@ -102,3 +102,33 @@ Synkroniseringsknappen i værktøjslinjen viser en pulserende "N usynkroniseret"
 ### Linke diagrammer til kort
 
 Diagrammer kan linkes til **et hvilket som helst kort** fra kortets fane **Resources** (se [Kortdetaljer](card-details.md#resources-tab)). Når et diagram er linket til et **Initiative**-kort, vises det også i [EA Delivery](delivery.md)-modulet sammen med SoAW-dokumenter.
+
+## Del et diagram uden for Turbo EA
+
+Et diagram kan udgives som et **skrivebeskyttet link, der åbnes uden login**, så det kan indlejres på en wiki-side som Confluence.
+
+Åbn diagrammets **⋮**-menu i galleriet, og vælg **Del / indlejr…**. Udgivelse kræver rettigheden *Udgiv diagrammer*, som er adskilt fra rettigheden til at redigere dem — en administrator tildeler den bevidst.
+
+Dialogen giver dig to valg og to strenge at kopiere:
+
+- **Alle med linket** — intet login. Behandl linket som en adgangskode: alle, det videresendes til, kan se diagrammet.
+- **Kun personer, der logger ind** — besøgende godkendes hos din identitetsudbyder, eventuelt begrænset til bestemte e-maildomæner. Der oprettes ingen Turbo EA-konto til dem.
+
+Den udgivne side viser kun billedet. Du kan panorere og zoome, men der er ingen adgang til kortdetaljer, og kort-id'erne bag figurerne fjernes, før diagrammet forlader serveren. At slå udgivelsen fra virker med det samme, også for dem der er i gang med at se. Udgiver du igen senere, gendannes det samme link, så URL'er, der allerede er indsat, bliver ved med at virke.
+
+!!! warning "Indlejring kræver ét administratortrin"
+    Af sikkerhedshensyn må ingen andre websteder placere Turbo EA i en ramme, medmindre en administrator tillader det. Sæt `TURBO_EA_EMBED_ALLOWED_ORIGINS` i `.env` til de websteder, der må indlejre diagrammer, og genstart stakken:
+
+    ```dotenv
+    TURBO_EA_EMBED_ALLOWED_ORIGINS=https://dinvirksomhed.atlassian.net
+    ```
+
+    Indtil da virker udgivne links stadig, når de åbnes direkte — de kan bare ikke indlejres af et andet websted.
+
+### Indlejring i Confluence
+
+1. Udgiv diagrammet, og kopiér **indlejringskoden** fra deledialogen.
+2. Bed en administrator om at tilføje din Confluence-basis-URL til `TURBO_EA_EMBED_ALLOWED_ORIGINS`.
+3. Indsæt en **HTML**-makro i Confluence (eller *Iframe* / *HTML include*, afhængigt af hvad din instans tillader), og indsæt koden.
+
+Hvis dit Confluence ikke tillader HTML-makroer, kan du i stedet indsætte det almindelige **link** — det åbner den samme visning i en ny fane.

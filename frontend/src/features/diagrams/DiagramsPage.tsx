@@ -28,6 +28,8 @@ import Drawer from "@mui/material/Drawer";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import ShareDiagramDialog from "./ShareDiagramDialog";
+import { useAuthContext } from "@/hooks/AuthContext";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -107,6 +109,20 @@ export default function DiagramsPage() {
 
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [menuDiagram, setMenuDiagram] = useState<DiagramSummary | null>(null);
+  const [shareTarget, setShareTarget] = useState<{
+    id: string;
+    name: string;
+    is_published: boolean;
+    public_slug: string | null;
+    access_mode: "public" | "sso";
+    allowed_email_domains: string[];
+  } | null>(null);
+  const { user } = useAuthContext();
+  // Publishing is its own authority — a user who may edit diagrams is not
+  // thereby allowed to expose one outside the instance.
+  const canPublish = Boolean(
+    user?.permissions?.["*"] || user?.permissions?.["diagrams.publish"],
+  );
 
   const typeMap = Object.fromEntries(metamodelTypes.map((mt) => [mt.key, mt]));
 
@@ -533,6 +549,41 @@ export default function DiagramsPage() {
           </ListItemIcon>
           <ListItemText>{t("gallery.menu.addToGroups")}</ListItemText>
         </MenuItem>
+        {canPublish && (
+          <MenuItem
+            onClick={async () => {
+              if (!menuDiagram) return;
+              setMenuAnchor(null);
+              // The summary row does not carry publish state; fetch the
+              // diagram so the dialog opens on the real current values.
+              try {
+                const full = await api.get<{
+                  id: string;
+                  name: string;
+                  is_published: boolean;
+                  public_slug: string | null;
+                  access_mode: "public" | "sso";
+                  allowed_email_domains: string[];
+                }>(`/diagrams/${menuDiagram.id}`);
+                setShareTarget({
+                  id: full.id,
+                  name: full.name,
+                  is_published: full.is_published,
+                  public_slug: full.public_slug,
+                  access_mode: full.access_mode,
+                  allowed_email_domains: full.allowed_email_domains || [],
+                });
+              } catch {
+                // Non-fatal — the menu simply closes.
+              }
+            }}
+          >
+            <ListItemIcon>
+              <MaterialSymbol icon="share" size={18} />
+            </ListItemIcon>
+            <ListItemText>{t("gallery.menu.share")}</ListItemText>
+          </MenuItem>
+        )}
         <MenuItem
           onClick={() => {
             if (menuDiagram) openDelete(menuDiagram);
@@ -545,6 +596,21 @@ export default function DiagramsPage() {
           <ListItemText>{t("common:actions.delete")}</ListItemText>
         </MenuItem>
       </Menu>
+
+      {shareTarget && (
+        <ShareDiagramDialog
+          open
+          diagramId={shareTarget.id}
+          diagramName={shareTarget.name}
+          initial={{
+            is_published: shareTarget.is_published,
+            public_slug: shareTarget.public_slug,
+            access_mode: shareTarget.access_mode,
+            allowed_email_domains: shareTarget.allowed_email_domains,
+          }}
+          onClose={() => setShareTarget(null)}
+        />
+      )}
 
       <CreateDiagramDialog open={createOpen} onClose={() => setCreateOpen(false)} />
 

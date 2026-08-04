@@ -102,3 +102,33 @@ O botão Sync da barra mostra uma pílula pulsante «N por sincronizar» sempre 
 ### Vincular diagramas a cartões
 
 Os diagramas podem ser vinculados a **qualquer cartão** a partir do separador **Recursos** do cartão (ver [Detalhes do cartão](card-details.pt.md#separador-recursos)). Quando um diagrama está vinculado a um cartão **Iniciativa**, aparece também no módulo [EA Delivery](delivery.md) ao lado dos documentos SoAW.
+
+## Partilhar um diagrama fora do Turbo EA
+
+Um diagrama pode ser publicado como uma **ligação só de leitura que abre sem iniciar sessão**, para ser incorporado numa página wiki como o Confluence.
+
+Abra o menu **⋮** do diagrama na galeria e escolha **Partilhar / incorporar…**. Publicar exige a permissão *Publicar diagramas*, distinta da permissão para os editar — um administrador concede-a deliberadamente.
+
+A caixa de diálogo oferece duas escolhas e duas cadeias para copiar:
+
+- **Qualquer pessoa com a ligação** — sem início de sessão. Trate a ligação como uma palavra-passe: qualquer pessoa a quem seja reencaminhada pode ver o diagrama.
+- **Apenas quem iniciar sessão** — os visitantes autenticam-se no seu fornecedor de identidade, opcionalmente limitado a domínios de e-mail indicados. Não é criada nenhuma conta Turbo EA para eles.
+
+A página publicada mostra apenas a imagem. É possível deslocar e ampliar, mas não há acesso aos detalhes dos cartões, e os identificadores dos cartões por trás das formas são removidos antes de o diagrama sair do servidor. Cancelar a publicação tem efeito imediato, incluindo para quem já está a ver. Voltar a publicar mais tarde restaura a mesma ligação, pelo que os URL já colados continuam a funcionar.
+
+!!! warning "A incorporação exige um passo do administrador"
+    Por segurança, nenhum outro site pode colocar o Turbo EA numa frame sem autorização de um administrador. Defina `TURBO_EA_EMBED_ALLOWED_ORIGINS` no `.env` com os sites autorizados a incorporar diagramas e reinicie a stack:
+
+    ```dotenv
+    TURBO_EA_EMBED_ALLOWED_ORIGINS=https://asuaempresa.atlassian.net
+    ```
+
+    Até lá, as ligações publicadas continuam a funcionar quando abertas diretamente — apenas não podem ser incorporadas por outro site.
+
+### Incorporar no Confluence
+
+1. Publique o diagrama e copie o **código de incorporação** da caixa de diálogo de partilha.
+2. Peça a um administrador para adicionar o URL base do seu Confluence a `TURBO_EA_EMBED_ALLOWED_ORIGINS`.
+3. No Confluence, insira uma macro **HTML** (ou *Iframe* / *HTML include*, conforme o que a sua instância permitir) e cole o código.
+
+Se o seu Confluence não permitir macros HTML, cole antes a **ligação** simples — abre a mesma vista num novo separador.

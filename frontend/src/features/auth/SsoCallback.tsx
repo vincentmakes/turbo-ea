@@ -11,22 +11,37 @@ interface Props {
   onSsoCallback: (code: string, redirectUri: string) => Promise<void>;
 }
 
+/** Which published, account-less resource an SSO round-trip belongs to. Both
+ *  reuse this one redirect URI (already registered with the IdP for login), so
+ *  neither needs any IdP reconfiguration — `t` is what tells them apart. */
+type PublicResource = "portal" | "diagram";
+
 interface PortalState {
-  t: "portal";
+  t: PublicResource;
   slug: string;
   nonce: string;
   silent?: boolean;
 }
 
+/** API path + in-app return route for each published resource kind. */
+const RESOURCE_ROUTES: Record<PublicResource, { api: string; view: (s: string) => string }> = {
+  portal: { api: "web-portals", view: (slug) => `/portal/${slug}` },
+  diagram: { api: "diagrams", view: (slug) => `/embed/diagram/${slug}` },
+};
+
 function parsePortalState(raw: string | null): PortalState | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(atob(raw));
-    if (parsed && parsed.t === "portal" && typeof parsed.slug === "string") {
+    if (
+      parsed &&
+      (parsed.t === "portal" || parsed.t === "diagram") &&
+      typeof parsed.slug === "string"
+    ) {
       return parsed as PortalState;
     }
   } catch {
-    // Not a portal state — a normal login callback.
+    // Not a published-resource state — a normal login callback.
   }
   return null;
 }
@@ -82,8 +97,9 @@ export default function SsoCallback({ onSsoCallback }: Props) {
 
   function handlePortalReturn(state: PortalState, code: string | null, errorParam: string | null) {
     const { slug, nonce } = state;
-    const flagKey = `portal_silent_${slug}`;
-    const back = () => navigate(`/portal/${slug}`, { replace: true });
+    const routes = RESOURCE_ROUTES[state.t];
+    const flagKey = `portal_silent_${state.t}_${slug}`;
+    const back = () => navigate(routes.view(slug), { replace: true });
 
     // CSRF: the nonce must match the one stored just before we redirected.
     const storedNonce = sessionStorage.getItem("portal_sso_nonce");
@@ -104,7 +120,7 @@ export default function SsoCallback({ onSsoCallback }: Props) {
 
     // Exchange the code for an account-less portal-session cookie.
     const redirectUri = `${window.location.origin}/auth/callback`;
-    fetch(`/api/v1/web-portals/public/${slug}/sso/callback`, {
+    fetch(`/api/v1/${routes.api}/public/${slug}/sso/callback`, {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },

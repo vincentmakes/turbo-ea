@@ -1,14 +1,22 @@
 from __future__ import annotations
 
 import re
+import secrets
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.api.v1.auth import _is_secure_request
+from app.core.rate_limit import limiter
+from app.core.security import (
+    create_portal_token,
+    decode_portal_token,
+    portal_token_matches,
+)
 from app.database import get_db
 from app.models.card import Card
 from app.models.diagram import Diagram, diagram_cards
@@ -16,6 +24,14 @@ from app.models.diagram_favorite import DiagramFavorite
 from app.models.diagram_group import diagram_group_members
 from app.models.user import User
 from app.services.permission_service import PermissionService
+from app.services.public_access import (
+    PUBLIC_ACCESS_COOKIE,
+    build_sso_gate_config,
+    normalise_access_mode,
+    normalise_email_domains,
+    resolve_sso_visitor_email,
+    set_access_cookie,
+)
 
 router = APIRouter(prefix="/diagrams", tags=["diagrams"])
 
@@ -30,6 +46,78 @@ def _extract_card_refs(data: dict | None) -> list[str]:
     if not xml:
         return []
     return list(dict.fromkeys(_CARD_ID_RE.findall(xml)))
+
+
+# Turbo EA's own bookkeeping attributes on DrawIO cells. They are what make a
+# shape a *card* rather than a rectangle, and they are stripped before a diagram
+# is served publicly: a published diagram is a picture, not a queryable slice of
+# the inventory. Without this the "no drill-through" decision would be enforced
+# only by the UI, while the raw XML still handed every visitor the card UUIDs
+# and the relation graph behind the picture.
+_PRIVATE_CELL_ATTRS = (
+    "cardId",
+    "cardType",
+    "relationId",
+    "relationType",
+    "parentGroupCell",
+    "childCellIds",
+    "expanded",
+)
+_PRIVATE_ATTR_RE = re.compile(
+    r"\s(?:" + "|".join(_PRIVATE_CELL_ATTRS) + r')="[^"]*"',
+)
+
+
+def sanitise_public_xml(xml: str | None) -> str:
+    """Strip Turbo EA attributes from diagram XML for public rendering.
+
+    Labels, geometry and styling survive untouched — that is the picture the
+    publisher chose to share. Card names are visible either way (they *are* the
+    labels); what leaves with this is the internal identity of every shape.
+    """
+    if not xml:
+        return ""
+    return _PRIVATE_ATTR_RE.sub("", xml)
+
+
+def _public_cookie_path(slug: str) -> str:
+    return f"/api/v1/diagrams/public/{slug}"
+
+
+async def _load_published_diagram(slug: str, db: AsyncSession) -> Diagram:
+    result = await db.execute(
+        select(Diagram).where(
+            Diagram.public_slug == slug,
+            Diagram.is_published.is_(True),
+        )
+    )
+    d = result.scalar_one_or_none()
+    if not d:
+        raise HTTPException(404, "Diagram not found")
+    return d
+
+
+async def require_public_diagram(
+    slug: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> Diagram:
+    """Resolve a published diagram and enforce its access mode.
+
+    Public diagrams pass straight through. SSO-gated ones require a session
+    cookie bound to *this* diagram; otherwise a machine-readable
+    ``401 portal_locked`` so the embed page shows the sign-in gate rather than a
+    generic error (the frontend gate component is shared with web portals).
+    """
+    d = await _load_published_diagram(slug, db)
+    if normalise_access_mode(d.access_mode) == "public":
+        return d
+
+    token = request.cookies.get(PUBLIC_ACCESS_COOKIE, "")
+    claims = decode_portal_token(token) if token else None
+    if not portal_token_matches(claims, "diagram", d.id):
+        raise HTTPException(401, detail="portal_locked")
+    return d
 
 
 class DiagramCreate(BaseModel):
@@ -307,6 +395,80 @@ async def create_diagram(
     }
 
 
+# ── public (unauthenticated) diagram access ───────────────────────────────────
+
+
+@router.get("/public/{slug}/gate")
+async def get_diagram_gate(slug: str, db: AsyncSession = Depends(get_db)):
+    """Always-public gate metadata: the access mode and, for SSO, the config the
+    embed page needs to start the IdP redirect. Returns the name and nothing
+    else — never the XML, and never anything about the cards behind it."""
+    d = await _load_published_diagram(slug, db)
+    mode = normalise_access_mode(d.access_mode)
+    out: dict = {"access_mode": mode, "name": d.name}
+    if mode == "sso":
+        sso_out = await build_sso_gate_config(db, context=f"diagram {slug}")
+        if sso_out:
+            out["sso"] = sso_out
+    return out
+
+
+class DiagramSsoCallbackRequest(BaseModel):
+    code: str
+    redirect_uri: str
+
+
+@router.post("/public/{slug}/sso/callback")
+@limiter.limit("20/minute")
+async def diagram_sso_callback(
+    slug: str,
+    request: Request,
+    response: Response,
+    body: DiagramSsoCallbackRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Exchange an SSO authorization code for an account-less diagram session.
+
+    Creates NO user account — it mints a cookie scoped to this one diagram.
+    """
+    d = await _load_published_diagram(slug, db)
+    if normalise_access_mode(d.access_mode) != "sso":
+        raise HTTPException(400, "This diagram does not use SSO access")
+
+    email = await resolve_sso_visitor_email(
+        db,
+        code=body.code,
+        redirect_uri=body.redirect_uri,
+        allowed_email_domains=d.allowed_email_domains,
+        denied_message="Your account is not allowed to access this diagram.",
+    )
+
+    token = create_portal_token(d.id, slug, email, resource="diagram")
+    set_access_cookie(
+        response,
+        token,
+        path=_public_cookie_path(slug),
+        secure=_is_secure_request(request),
+    )
+    return {"ok": True}
+
+
+@router.get("/public/{slug}")
+async def get_public_diagram(
+    d: Diagram = Depends(require_public_diagram),
+):
+    """Return the published picture: a name and sanitised DrawIO XML.
+
+    Deliberately narrow. No card ids, no relations, no description, no
+    lifecycle — see ``sanitise_public_xml``. The XML is enough for the DrawIO
+    lightbox to render, pan and zoom it, and nothing more.
+    """
+    return {
+        "name": d.name,
+        "xml": sanitise_public_xml((d.data or {}).get("xml")),
+    }
+
+
 @router.get("/{diagram_id}")
 async def get_diagram(
     diagram_id: str,
@@ -338,6 +500,7 @@ async def get_diagram(
         "is_favorite": str(d.id) in favorite_ids,
         "created_at": d.created_at.isoformat() if d.created_at else None,
         "updated_at": d.updated_at.isoformat() if d.updated_at else None,
+        **_publish_state(d),
     }
 
 
@@ -383,6 +546,86 @@ async def delete_diagram(
         raise HTTPException(404, "Diagram not found")
     await db.delete(d)
     await db.commit()
+
+
+# ── publishing ────────────────────────────────────────────────────────────────
+
+
+class DiagramPublishRequest(BaseModel):
+    access_mode: str = "public"
+    allowed_email_domains: list[str] | None = None
+
+
+def _publish_state(d: Diagram) -> dict:
+    """The publish half of a diagram's representation."""
+    return {
+        "is_published": bool(d.is_published),
+        "public_slug": d.public_slug,
+        "access_mode": normalise_access_mode(d.access_mode),
+        "allowed_email_domains": d.allowed_email_domains or [],
+    }
+
+
+@router.post("/{diagram_id}/publish")
+async def publish_diagram(
+    diagram_id: str,
+    body: DiagramPublishRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Publish a diagram as a read-only link, or update how it is shared.
+
+    Gated on ``diagrams.publish`` rather than ``diagrams.manage``: making
+    internal architecture readable outside the instance is a different
+    authority from editing it, and most installs will want to grant it far
+    more narrowly.
+    """
+    await PermissionService.require_permission(db, user, "diagrams.publish")
+    result = await db.execute(select(Diagram).where(Diagram.id == uuid.UUID(diagram_id)))
+    d = result.scalar_one_or_none()
+    if not d:
+        raise HTTPException(404, "Diagram not found")
+
+    mode = normalise_access_mode(body.access_mode)
+    if body.access_mode not in ("public", "sso"):
+        raise HTTPException(422, "access_mode must be 'public' or 'sso'")
+
+    # Mint the slug once and keep it: re-publishing after an unpublish would
+    # otherwise silently break every link already pasted into a wiki page.
+    # `token_urlsafe` because for a `public` diagram the URL *is* the
+    # capability — a slug derived from the name would be guessable.
+    if not d.public_slug:
+        d.public_slug = secrets.token_urlsafe(24)
+
+    d.is_published = True
+    d.access_mode = mode
+    d.allowed_email_domains = normalise_email_domains(body.allowed_email_domains)
+    await db.commit()
+    await db.refresh(d)
+    return _publish_state(d)
+
+
+@router.delete("/{diagram_id}/publish")
+async def unpublish_diagram(
+    diagram_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Withdraw a diagram from public view, effective immediately.
+
+    The slug is retained (not cleared) so re-publishing restores the same URL.
+    Access stops regardless: every public route filters on ``is_published``, so
+    an already-issued SSO cookie stops working the moment this returns.
+    """
+    await PermissionService.require_permission(db, user, "diagrams.publish")
+    result = await db.execute(select(Diagram).where(Diagram.id == uuid.UUID(diagram_id)))
+    d = result.scalar_one_or_none()
+    if not d:
+        raise HTTPException(404, "Diagram not found")
+    d.is_published = False
+    await db.commit()
+    await db.refresh(d)
+    return _publish_state(d)
 
 
 # ── card link / unlink endpoints ──────────────────────────────────────────────

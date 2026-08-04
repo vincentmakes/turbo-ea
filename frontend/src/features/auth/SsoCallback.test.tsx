@@ -78,7 +78,7 @@ describe("SsoCallback — portal flow routing", () => {
     // The stored portal nonce is missing, so the portal branch flags the
     // silent-auth failure and bounces back to the portal page.
     await waitFor(() => {
-      expect(sessionStorage.getItem("portal_silent_myportal")).toBe("failed");
+      expect(sessionStorage.getItem("portal_silent_portal_myportal")).toBe("failed");
     });
     expect(onSsoCallback).not.toHaveBeenCalled();
     expect(screen.queryByText(/state mismatch/i)).not.toBeInTheDocument();

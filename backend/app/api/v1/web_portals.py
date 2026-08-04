@@ -13,9 +13,8 @@ from sqlalchemy.types import Text
 
 from app.api.deps import get_current_user
 from app.api.v1.auth import _is_secure_request
-from app.config import settings
 from app.core.rate_limit import limiter
-from app.core.security import create_portal_token, decode_portal_token
+from app.core.security import create_portal_token, decode_portal_token, portal_token_matches
 from app.database import get_db
 from app.models.card import Card
 from app.models.card_type import CardType
@@ -29,6 +28,12 @@ from app.schemas.common import WebPortalCreate, WebPortalUpdate
 from app.services import sso_service
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.permission_service import PermissionService
+from app.services.public_access import (
+    PUBLIC_ACCESS_COOKIE,
+    build_sso_gate_config,
+    resolve_sso_visitor_email,
+    set_access_cookie,
+)
 
 router = APIRouter(prefix="/web-portals", tags=["web-portals"])
 logger = logging.getLogger(__name__)
@@ -39,7 +44,7 @@ _ACCESS_MODES = ("public", "sso")
 # Ephemeral portal-session cookie. Path-scoped per portal (see
 # ``_portal_cookie_path``) so a visitor's session for one portal is never sent
 # to another and never clobbers it.
-PORTAL_COOKIE = "portal_access"
+PORTAL_COOKIE = PUBLIC_ACCESS_COOKIE
 
 
 def _portal_cookie_path(slug: str) -> str:
@@ -47,22 +52,8 @@ def _portal_cookie_path(slug: str) -> str:
 
 
 def _set_portal_cookie(response: Response, token: str, *, slug: str, secure: bool) -> None:
-    """Set the httpOnly, per-portal session cookie.
-
-    - httponly: not readable from JS
-    - samesite "lax": set on the same-origin SPA POST to the callback
-    - secure: HTTPS only (auto-detected from the request)
-    - path: scoped to this one portal's public endpoints
-    """
-    response.set_cookie(
-        key=PORTAL_COOKIE,
-        value=token,
-        httponly=True,
-        samesite="lax",
-        secure=secure,
-        path=_portal_cookie_path(slug),
-        max_age=settings.PORTAL_TOKEN_EXPIRE_MINUTES * 60,
-    )
+    """Set the httpOnly, per-portal session cookie (see ``public_access``)."""
+    set_access_cookie(response, token, path=_portal_cookie_path(slug), secure=secure)
 
 
 async def _validate_access(
@@ -281,7 +272,7 @@ async def require_portal_access(
         return portal
     token = request.cookies.get(PORTAL_COOKIE, "")
     claims = decode_portal_token(token) if token else None
-    if not claims or claims.get("typ") != "portal" or claims.get("psid") != str(portal.id):
+    if not portal_token_matches(claims, "portal", portal.id):
         raise HTTPException(401, detail="portal_locked")
     return portal
 
@@ -298,30 +289,9 @@ async def get_portal_gate(
     out: dict = {"access_mode": portal.access_mode or "public", "name": portal.name}
 
     if (portal.access_mode or "public") == "sso":
-        sso = await sso_service.get_sso_config(db)
-        if sso.get("enabled"):
-            try:
-                cfg = sso_service.get_provider_config(sso)
-                auth_endpoint = cfg["authorization_endpoint"]
-                if cfg.get("discovery_required"):
-                    discovery = await sso_service.discover_oidc(sso.get("issuer_url", ""))
-                    auth_endpoint = discovery["authorization_endpoint"]
-                provider = sso.get("provider", "microsoft")
-                sso_out = {
-                    "provider": provider,
-                    "provider_name": sso_service.PROVIDER_LABELS.get(provider, provider),
-                    "client_id": sso.get("client_id", ""),
-                    "authorization_endpoint": auth_endpoint,
-                    "scopes": cfg["scopes"],
-                }
-                if cfg.get("extra_auth_params"):
-                    sso_out["extra_auth_params"] = cfg["extra_auth_params"]
-                out["sso"] = sso_out
-            except Exception:
-                # SSO misconfigured / IdP unreachable — omit the initiation
-                # config; the frontend shows an "SSO unavailable" message
-                # rather than a broken sign-in button.
-                logger.exception("Failed to build SSO gate config for portal %s", slug)
+        sso_out = await build_sso_gate_config(db, context=f"portal {slug}")
+        if sso_out:
+            out["sso"] = sso_out
 
     return out
 
@@ -350,30 +320,15 @@ async def portal_sso_callback(
     if (portal.access_mode or "public") != "sso":
         raise HTTPException(400, "This portal does not use SSO access")
 
-    claims, sso, provider = await sso_service.exchange_code_for_claims(
-        db, body.code, body.redirect_uri
+    email = await resolve_sso_visitor_email(
+        db,
+        code=body.code,
+        redirect_uri=body.redirect_uri,
+        allowed_email_domains=portal.allowed_email_domains,
+        denied_message="Your account is not allowed to access this portal.",
     )
 
-    email = (claims.get("email") or claims.get("preferred_username") or "").lower().strip()
-    if not email:
-        raise HTTPException(401, "No email claim in SSO token. Ensure email scope is granted.")
-    # Reject only an explicit false — many providers omit the claim entirely.
-    if claims.get("email_verified") is False:
-        raise HTTPException(403, "Your email address is not verified with the identity provider.")
-
-    # Google hosted-domain enforcement (mirrors the login callback).
-    if provider == "google" and sso.get("domain") and claims.get("hd", "") != sso["domain"]:
-        raise HTTPException(403, f"Sign-in restricted to {sso['domain']} accounts.")
-
-    # Per-portal email-domain allowlist (derived from the signature-verified
-    # email claim — not client input). Empty ⇒ any user the IdP authenticates.
-    domains = portal.allowed_email_domains or []
-    if domains:
-        allowed = {d.lower().strip() for d in domains if d}
-        if email.split("@")[-1] not in allowed:
-            raise HTTPException(403, "Your account is not allowed to access this portal.")
-
-    token = create_portal_token(portal.id, slug, email)
+    token = create_portal_token(portal.id, slug, email, resource="portal")
     _set_portal_cookie(response, token, slug=slug, secure=_is_secure_request(request))
     return {"ok": True}
 

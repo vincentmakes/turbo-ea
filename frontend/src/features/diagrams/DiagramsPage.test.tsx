@@ -37,6 +37,8 @@ vi.mock("./AssignGroupsDialog", () => ({
 }));
 
 import { api } from "@/api/client";
+import { AuthProvider } from "@/hooks/AuthContext";
+import type { User } from "@/types";
 import DiagramsPage from "./DiagramsPage";
 
 const diagrams = [
@@ -80,11 +82,25 @@ function setupApi(diagramRows = diagrams) {
   });
 }
 
-function renderPage() {
+/** The page reads the signed-in user's permissions to decide whether to offer
+ *  the Share / embed action, so it needs an AuthProvider. Defaults to a user
+ *  WITHOUT `diagrams.publish` — publishing is an admin-only authority and the
+ *  rest of the page must behave identically for everyone else. */
+function renderPage(permissions: Record<string, boolean> = { "diagrams.view": true }) {
+  const user = {
+    id: "u1",
+    email: "u@example.com",
+    display_name: "Test User",
+    role: "member",
+    is_active: true,
+    permissions,
+  } as unknown as User;
   return render(
-    <MemoryRouter>
-      <DiagramsPage />
-    </MemoryRouter>,
+    <AuthProvider user={user} refreshUser={async () => {}}>
+      <MemoryRouter>
+        <DiagramsPage />
+      </MemoryRouter>
+    </AuthProvider>,
   );
 }
 
@@ -259,6 +275,36 @@ describe("DiagramsPage", () => {
     await waitFor(() => {
       expect(screen.getAllByText("Domain A").length).toBe(2);
     });
+  });
+
+  it("hides Share / embed from a user without diagrams.publish", async () => {
+    // Publishing exposes a diagram outside the instance — it must not appear
+    // for someone who can merely view or edit diagrams.
+    renderPage({ "diagrams.view": true, "diagrams.manage": true });
+    await waitFor(() => {
+      expect(screen.getByText("Architecture Overview")).toBeInTheDocument();
+    });
+
+    const moreButtons = screen
+      .getAllByRole("button")
+      .filter((b) => b.querySelector("span")?.textContent === "more_vert");
+    await userEvent.click(moreButtons[0]);
+
+    expect(screen.queryByText("Share / embed…")).not.toBeInTheDocument();
+  });
+
+  it("shows Share / embed to a user with diagrams.publish", async () => {
+    renderPage({ "diagrams.view": true, "diagrams.publish": true });
+    await waitFor(() => {
+      expect(screen.getByText("Architecture Overview")).toBeInTheDocument();
+    });
+
+    const moreButtons = screen
+      .getAllByRole("button")
+      .filter((b) => b.querySelector("span")?.textContent === "more_vert");
+    await userEvent.click(moreButtons[0]);
+
+    expect(screen.getByText("Share / embed…")).toBeInTheDocument();
   });
 
   it("opens delete dialog and deletes from the context menu", async () => {

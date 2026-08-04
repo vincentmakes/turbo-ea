@@ -105,7 +105,9 @@ async function publicGet<T>(path: string): Promise<T> {
 const PORTAL_SSO_REDIRECT_PATH = "/auth/callback";
 
 function portalSilentKey(slug: string): string {
-  return `portal_silent_${slug}`;
+  // Keyed by resource kind as well as slug — SsoCallback now serves both
+  // portals and published diagrams and writes the same key on failure.
+  return `portal_silent_portal_${slug}`;
 }
 
 // Send the browser to the IdP to authenticate a portal visitor. `silent` adds

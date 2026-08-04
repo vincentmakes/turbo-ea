@@ -102,3 +102,33 @@ The toolbar Sync button shows a pulsing "N unsynced" pill whenever pending work 
 ### Linking diagrams to cards
 
 Diagrams can be linked to **any card** from the card's **Resources** tab (see [Card Details](card-details.md#resources-tab)). When linked to an **Initiative** card, the diagram also appears in the [EA Delivery](delivery.md) module alongside SoAW documents.
+
+## Sharing a diagram outside Turbo EA
+
+A diagram can be published as a **read-only link that opens without signing in**, so it can be embedded in a wiki page such as Confluence.
+
+Open the diagram's **⋮** menu in the gallery and choose **Share / embed…**. Publishing requires the *Publish diagrams* permission, which is separate from the permission to edit them — an administrator grants it deliberately.
+
+The dialog gives you two choices and two strings to copy:
+
+- **Anyone with the link** — no sign-in. Treat the link like a password: anyone it is forwarded to can view the diagram.
+- **Only people who sign in** — visitors authenticate with your identity provider, optionally restricted to named email domains. No Turbo EA account is created for them.
+
+The published page shows the picture only. It is pannable and zoomable, but there is no click-through to card details, and the card identifiers behind the shapes are stripped before the diagram leaves the server. Turning publishing off takes effect immediately, including for anyone already viewing. Re-publishing later restores the same link, so URLs already pasted into a wiki keep working.
+
+!!! warning "Embedding needs one administrator step"
+    For security, no other website may place Turbo EA in a frame unless an administrator says so. Set `TURBO_EA_EMBED_ALLOWED_ORIGINS` in `.env` to the sites allowed to embed diagrams and restart the stack:
+
+    ```dotenv
+    TURBO_EA_EMBED_ALLOWED_ORIGINS=https://yourcompany.atlassian.net
+    ```
+
+    Until that is set, published links still work when opened directly — they just cannot be framed by another site.
+
+### Embedding in Confluence
+
+1. Publish the diagram and copy the **Embed code** from the Share dialog.
+2. Ask an administrator to add your Confluence base URL to `TURBO_EA_EMBED_ALLOWED_ORIGINS`.
+3. In Confluence, insert an **HTML** macro (or *Iframe* / *HTML include*, depending on what your instance allows) and paste the embed code.
+
+If your Confluence does not allow HTML macros, paste the plain **Link** instead — it opens the same view in a new tab.

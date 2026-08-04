@@ -4078,6 +4078,31 @@
         "title": "DiagramGroupsUpdate",
         "type": "object"
       },
+      "DiagramPublishRequest": {
+        "properties": {
+          "access_mode": {
+            "default": "public",
+            "title": "Access Mode",
+            "type": "string"
+          },
+          "allowed_email_domains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Email Domains"
+          }
+        },
+        "title": "DiagramPublishRequest",
+        "type": "object"
+      },
       "DiagramSave": {
         "properties": {
           "bpmn_xml": {
@@ -4105,6 +4130,24 @@
           "bpmn_xml"
         ],
         "title": "DiagramSave",
+        "type": "object"
+      },
+      "DiagramSsoCallbackRequest": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "redirect_uri": {
+            "title": "Redirect Uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "redirect_uri"
+        ],
+        "title": "DiagramSsoCallbackRequest",
         "type": "object"
       },
       "DiagramUpdate": {
@@ -22693,6 +22736,139 @@
         ]
       }
     },
+    "/api/v1/diagrams/public/{slug}": {
+      "get": {
+        "description": "Return the published picture: a name and sanitised DrawIO XML.\n\nDeliberately narrow. No card ids, no relations, no description, no\nlifecycle \u2014 see ``sanitise_public_xml``. The XML is enough for the DrawIO\nlightbox to render, pan and zoom it, and nothing more.",
+        "operationId": "get_public_diagram_api_v1_diagrams_public__slug__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Public Diagram",
+        "tags": [
+          "diagrams"
+        ]
+      }
+    },
+    "/api/v1/diagrams/public/{slug}/gate": {
+      "get": {
+        "description": "Always-public gate metadata: the access mode and, for SSO, the config the\nembed page needs to start the IdP redirect. Returns the name and nothing\nelse \u2014 never the XML, and never anything about the cards behind it.",
+        "operationId": "get_diagram_gate_api_v1_diagrams_public__slug__gate_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Diagram Gate",
+        "tags": [
+          "diagrams"
+        ]
+      }
+    },
+    "/api/v1/diagrams/public/{slug}/sso/callback": {
+      "post": {
+        "description": "Exchange an SSO authorization code for an account-less diagram session.\n\nCreates NO user account \u2014 it mints a cookie scoped to this one diagram.",
+        "operationId": "diagram_sso_callback_api_v1_diagrams_public__slug__sso_callback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiagramSsoCallbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Diagram Sso Callback",
+        "tags": [
+          "diagrams"
+        ]
+      }
+    },
     "/api/v1/diagrams/{diagram_id}": {
       "delete": {
         "operationId": "delete_diagram_api_v1_diagrams__diagram_id__delete",
@@ -23033,6 +23209,96 @@
           }
         },
         "summary": "Set Diagram Groups",
+        "tags": [
+          "diagrams"
+        ]
+      }
+    },
+    "/api/v1/diagrams/{diagram_id}/publish": {
+      "delete": {
+        "description": "Withdraw a diagram from public view, effective immediately.\n\nThe slug is retained (not cleared) so re-publishing restores the same URL.\nAccess stops regardless: every public route filters on ``is_published``, so\nan already-issued SSO cookie stops working the moment this returns.",
+        "operationId": "unpublish_diagram_api_v1_diagrams__diagram_id__publish_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "diagram_id",
+            "required": true,
+            "schema": {
+              "title": "Diagram Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unpublish Diagram",
+        "tags": [
+          "diagrams"
+        ]
+      },
+      "post": {
+        "description": "Publish a diagram as a read-only link, or update how it is shared.\n\nGated on ``diagrams.publish`` rather than ``diagrams.manage``: making\ninternal architecture readable outside the instance is a different\nauthority from editing it, and most installs will want to grant it far\nmore narrowly.",
+        "operationId": "publish_diagram_api_v1_diagrams__diagram_id__publish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "diagram_id",
+            "required": true,
+            "schema": {
+              "title": "Diagram Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiagramPublishRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish Diagram",
         "tags": [
           "diagrams"
         ]

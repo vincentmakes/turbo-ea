@@ -102,3 +102,33 @@ El botón Sync de la barra de herramientas muestra una pastilla pulsante «N sin
 ### Vincular diagramas a tarjetas
 
 Los diagramas pueden vincularse a **cualquier tarjeta** desde la pestaña **Recursos** de la tarjeta (ver [Detalle de tarjetas](card-details.es.md#pestaña-recursos)). Cuando un diagrama está vinculado a una tarjeta **Iniciativa**, también aparece en el módulo [EA Delivery](delivery.md) junto a los documentos SoAW.
+
+## Compartir un diagrama fuera de Turbo EA
+
+Un diagrama puede publicarse como un **enlace de solo lectura que se abre sin iniciar sesión**, para insertarlo en una página wiki como Confluence.
+
+Abre el menú **⋮** del diagrama en la galería y elige **Compartir / insertar…**. Publicar requiere el permiso *Publicar diagramas*, distinto del permiso para editarlos: un administrador lo concede de forma deliberada.
+
+El diálogo ofrece dos opciones y dos cadenas para copiar:
+
+- **Cualquiera con el enlace** — sin inicio de sesión. Trata el enlace como una contraseña: cualquiera a quien se le reenvíe podrá ver el diagrama.
+- **Solo personas que inicien sesión** — los visitantes se autentican con tu proveedor de identidad, opcionalmente restringido a dominios de correo concretos. No se crea ninguna cuenta de Turbo EA para ellos.
+
+La página publicada muestra solo la imagen. Permite desplazarse y hacer zoom, pero no hay acceso a los detalles de las tarjetas, y los identificadores de las tarjetas tras las formas se eliminan antes de que el diagrama salga del servidor. Dejar de publicar surte efecto de inmediato, incluso para quien lo esté viendo. Volver a publicarlo más tarde restaura el mismo enlace, así que las URL ya pegadas siguen funcionando.
+
+!!! warning "La inserción requiere un paso del administrador"
+    Por seguridad, ningún otro sitio web puede colocar Turbo EA en un marco salvo que lo autorice un administrador. Define `TURBO_EA_EMBED_ALLOWED_ORIGINS` en `.env` con los sitios autorizados a insertar diagramas y reinicia la pila:
+
+    ```dotenv
+    TURBO_EA_EMBED_ALLOWED_ORIGINS=https://tuempresa.atlassian.net
+    ```
+
+    Hasta entonces, los enlaces publicados siguen funcionando al abrirlos directamente; simplemente no pueden insertarse en otro sitio.
+
+### Insertar en Confluence
+
+1. Publica el diagrama y copia el **código de inserción** del diálogo de compartir.
+2. Pide a un administrador que añada la URL base de tu Confluence a `TURBO_EA_EMBED_ALLOWED_ORIGINS`.
+3. En Confluence, inserta una macro **HTML** (o *Iframe* / *HTML include*, según lo que permita tu instancia) y pega el código.
+
+Si tu Confluence no permite macros HTML, pega en su lugar el **enlace** simple: abre la misma vista en una pestaña nueva.

@@ -5,7 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.38.2] - 2026-08-04
+## [2.39.0] - 2026-08-04
+
+### Added
+- **Diagrams can be published as a read-only link and embedded in a wiki page.** A new **Share / embed…** action on a diagram publishes a link that opens without signing in, so an architecture diagram can live inside a Confluence page instead of being pasted there as a screenshot that goes stale. Choose between *anyone with the link* and *only people who sign in* (authenticated against your identity provider, optionally limited to named email domains, and creating no Turbo EA account). The published page is pannable and zoomable but shows the picture only — there is no click-through to card details, and the card identifiers behind the shapes are stripped before the diagram leaves the server. Unpublishing takes effect immediately, and re-publishing restores the same link so URLs already pasted into a wiki keep working.
+- **Publishing is its own permission.** *Publish diagrams* is granted separately from *Create, edit, and delete diagrams* — being allowed to draw a diagram no longer implies being allowed to expose one outside the instance. No role receives it by default except Admin.
+- **Embedding is off until an administrator allows it.** For security, no other website may place Turbo EA in a frame unless `TURBO_EA_EMBED_ALLOWED_ORIGINS` names it. Published links still work when opened directly. The relaxation applies only to the published-diagram pages; the rest of the application, including the diagram editor, remains un-framable.
 
 ### Fixed
 - **Demo content no longer comes back after you delete it.** With `SEED_DEMO=true` still set in `.env`, an instance that had imported its own landscape and removed the NexaTech demo cards re-created the three example diagrams — plus the demo saved reports, surveys and bookmarks — on **every restart**, accumulating another copy each time ([#905](https://github.com/vincentmakes/turbo-ea/discussions/905)). Each seeder now records that it has run and never runs again, so `SEED_DEMO` means "populate this instance on first startup" rather than "restore the demo data on every boot". Copies already accumulated are not removed automatically — delete them once and they will stay deleted. A full reset (`RESET_DB=true`) still re-seeds as before.

@@ -54,6 +54,7 @@ APP_PERMISSIONS: dict[str, dict] = {
         "permissions": {
             "diagrams.view": "View free-draw diagrams",
             "diagrams.manage": "Create, edit, and delete diagrams",
+            "diagrams.publish": ("Publish a diagram as a read-only public link for embedding"),
         },
     },
     "bpm": {
@@ -334,6 +335,7 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "documents.manage": True,
     "diagrams.view": True,
     "diagrams.manage": True,
+    "diagrams.publish": False,
     "bpm.view": True,
     "bpm.edit": True,
     "bpm.manage_drafts": True,
@@ -412,6 +414,7 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "documents.manage": True,
     "diagrams.view": True,
     "diagrams.manage": True,
+    "diagrams.publish": False,
     "bpm.view": True,
     "bpm.edit": True,
     "bpm.manage_drafts": True,
@@ -490,6 +493,7 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "documents.manage": False,
     "diagrams.view": True,
     "diagrams.manage": False,
+    "diagrams.publish": False,
     "bpm.view": True,
     "bpm.edit": False,
     "bpm.manage_drafts": False,

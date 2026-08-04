@@ -51,16 +51,30 @@ def decode_access_token(token: str) -> dict | None:
         return None
 
 
-def create_portal_token(portal_id: uuid.UUID, slug: str, email: str | None = None) -> str:
-    """Mint a short-lived, portal-scoped session token.
+def create_portal_token(
+    portal_id: uuid.UUID,
+    slug: str,
+    email: str | None = None,
+    resource: str = "portal",
+) -> str:
+    """Mint a short-lived session token for one published, account-less resource.
 
     This is NOT a user account token — it carries no user ``sub`` and a distinct
     issuer/audience, so it can never be resolved to a ``users`` row by
-    ``get_current_user``. ``psid`` binds the token to a single portal.
+    ``get_current_user``. ``psid`` binds the token to a single resource.
+
+    ``resource`` discriminates what kind of thing ``psid`` refers to (``portal``
+    or ``diagram``). Both kinds are signed with the same key and issuer, so
+    without it a cookie minted for a published *diagram* would satisfy a
+    *portal*'s access check whenever the two ids happened to match — the
+    discriminator is what keeps the two grants separate. ``typ`` and ``psid``
+    keep their original names so cookies issued before this existed still
+    validate (see ``portal_token_matches``).
     """
     now = datetime.now(timezone.utc)
     payload: dict = {
         "typ": "portal",
+        "res": resource,
         "psid": str(portal_id),
         "slug": slug,
         "email": email,
@@ -73,7 +87,7 @@ def create_portal_token(portal_id: uuid.UUID, slug: str, email: str | None = Non
 
 
 def decode_portal_token(token: str) -> dict | None:
-    """Verify a portal-session token. Returns None on any failure."""
+    """Verify a resource-session token. Returns None on any failure."""
     try:
         return jwt.decode(
             token,
@@ -84,6 +98,22 @@ def decode_portal_token(token: str) -> dict | None:
         )
     except jwt.PyJWTError:
         return None
+
+
+def portal_token_matches(claims: dict | None, resource: str, resource_id: uuid.UUID) -> bool:
+    """True when ``claims`` grant access to exactly this resource.
+
+    A token minted for one resource kind must never unlock another, so the
+    ``res`` claim has to match. Tokens issued before ``res`` existed carry no
+    such claim and are treated as ``portal`` — that keeps live portal cookies
+    working across the upgrade without ever letting a legacy token satisfy a
+    diagram check.
+    """
+    if not claims or claims.get("typ") != "portal":
+        return False
+    if (claims.get("res") or "portal") != resource:
+        return False
+    return claims.get("psid") == str(resource_id)
 
 
 def hash_password(password: str) -> str:

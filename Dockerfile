@@ -212,6 +212,18 @@ case "$resolver_addr" in
 esac
 resolver_directive="resolver ${resolver_addr} valid=30s ipv6=off;"
 
+# Cross-origin embedding of published diagrams. OFF unless an operator names the
+# sites allowed to frame them: the default value is exactly what every other
+# route already sends, so an install that does not set this is unchanged.
+# Comma-separated origins, e.g. "https://acme.atlassian.net https://wiki.acme.com".
+embed_origins="${TURBO_EA_EMBED_ALLOWED_ORIGINS:-}"
+if [ -n "$embed_origins" ]; then
+    embed_ancestors="'self' $(printf '%s' "$embed_origins" | tr ',' ' ' | tr -s ' ')"
+else
+    embed_ancestors="'self'"
+fi
+export NGINX_EMBED_FRAME_ANCESTORS="$embed_ancestors"
+
 export NGINX_SERVER_NAME="${NGINX_SERVER_NAME:-$public_host}"
 export NGINX_FORWARDED_PROTO="${NGINX_FORWARDED_PROTO:-$public_scheme}"
 
@@ -363,6 +375,54 @@ ${nginx_https_ipv6_line}
         proxy_buffering off;
         proxy_cache off;
         proxy_read_timeout 300s;
+    }
+
+    # ---- Published-diagram embedding -------------------------------------
+    # These three paths are the ONLY ones that may be framed by another site.
+    # `add_header` in a location replaces the inherited set, so each re-declares
+    # the full header block minus X-Frame-Options (which has no allowlist form)
+    # and carries frame-ancestors instead.
+
+    # The public embed page itself.
+    location ^~ /embed/ {
+        proxy_pass \$frontend_upstream\$request_uri;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
+        add_header X-Content-Type-Options \"nosniff\" always;
+        add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
+        add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
+        add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;
+        add_header Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors ${NGINX_EMBED_FRAME_ANCESTORS}\" always;
+    }
+
+    # The public read endpoint it fetches. Longer prefix than 'location /api/',
+    # so nginx picks this one.
+    location ^~ /api/v1/diagrams/public/ {
+        proxy_pass \$backend_upstream\$request_uri;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
+        add_header X-Content-Type-Options \"nosniff\" always;
+        add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
+        add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;
+        add_header Content-Security-Policy \"frame-ancestors ${NGINX_EMBED_FRAME_ANCESTORS}\" always;
+    }
+
+    # The DrawIO viewer bundle, served from a second path so that /drawio/ can
+    # stay locked to 'self'. CSP frame-ancestors is checked against EVERY
+    # ancestor, so the nested viewer needs its own allowance — and giving it
+    # here rather than on /drawio/ keeps the authenticated editor un-framable.
+    location ~ ^/drawio-embed/(?<drawio_embed_path>.*)\$ {
+        proxy_pass \$frontend_upstream/drawio/\$drawio_embed_path\$is_args\$args;
+        proxy_set_header Host \$host;
+        add_header X-Robots-Tag \"noindex, nofollow\" always;
+        add_header Cache-Control \"no-store, no-transform\" always;
+        add_header X-Content-Type-Options \"nosniff\" always;
+        add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;
+        add_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors ${NGINX_EMBED_FRAME_ANCESTORS}\" always;
     }
 
     location = /drawio/index.html {
@@ -523,6 +583,54 @@ ${nginx_http_ipv6_line}
         proxy_buffering off;
         proxy_cache off;
         proxy_read_timeout 300s;
+    }
+
+    # ---- Published-diagram embedding -------------------------------------
+    # These three paths are the ONLY ones that may be framed by another site.
+    # `add_header` in a location replaces the inherited set, so each re-declares
+    # the full header block minus X-Frame-Options (which has no allowlist form)
+    # and carries frame-ancestors instead.
+
+    # The public embed page itself.
+    location ^~ /embed/ {
+        proxy_pass \$frontend_upstream\$request_uri;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
+        add_header X-Content-Type-Options \"nosniff\" always;
+        add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
+        add_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;
+        add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;
+        add_header Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors ${NGINX_EMBED_FRAME_ANCESTORS}\" always;
+    }
+
+    # The public read endpoint it fetches. Longer prefix than 'location /api/',
+    # so nginx picks this one.
+    location ^~ /api/v1/diagrams/public/ {
+        proxy_pass \$backend_upstream\$request_uri;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
+        add_header X-Content-Type-Options \"nosniff\" always;
+        add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
+        add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;
+        add_header Content-Security-Policy \"frame-ancestors ${NGINX_EMBED_FRAME_ANCESTORS}\" always;
+    }
+
+    # The DrawIO viewer bundle, served from a second path so that /drawio/ can
+    # stay locked to 'self'. CSP frame-ancestors is checked against EVERY
+    # ancestor, so the nested viewer needs its own allowance — and giving it
+    # here rather than on /drawio/ keeps the authenticated editor un-framable.
+    location ~ ^/drawio-embed/(?<drawio_embed_path>.*)\$ {
+        proxy_pass \$frontend_upstream/drawio/\$drawio_embed_path\$is_args\$args;
+        proxy_set_header Host \$host;
+        add_header X-Robots-Tag \"noindex, nofollow\" always;
+        add_header Cache-Control \"no-store, no-transform\" always;
+        add_header X-Content-Type-Options \"nosniff\" always;
+        add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;
+        add_header Content-Security-Policy \"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors ${NGINX_EMBED_FRAME_ANCESTORS}\" always;
     }
 
     location = /drawio/index.html {
