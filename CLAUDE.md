@@ -824,6 +824,7 @@ turbo-ea/
 | `TURBO_EA_TLS_KEY_FILE` | `key.pem` | Private-key filename inside `TLS_CERTS_DIR` |
 | `ENVIRONMENT` | `development` | Runtime environment. Controls: API docs visibility, secret key validation |
 | `ALLOWED_ORIGINS` | `http://localhost:8920` | CORS allowed origins (comma-separated) |
+| `TURBO_EA_EMBED_ALLOWED_ORIGINS` | *(empty)* | Comma-separated origins allowed to embed a **published diagram** in an iframe (e.g. `https://acme.atlassian.net`). Empty ⇒ `frame-ancestors 'self'`, i.e. no other site may frame Turbo EA at all — published links still work when opened directly. Applies only to `/embed/`, `/api/v1/diagrams/public/` and `/drawio-embed/`; the app and its diagram editor stay un-framable. |
 | `SMTP_HOST` | *(empty)* | SMTP server hostname (optional) |
 | `SMTP_PORT` | `587` | SMTP server port |
 | `SMTP_USER` | *(empty)* | SMTP username |

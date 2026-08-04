@@ -175,6 +175,18 @@ Coloque `cert.pem` y `key.pem` en `./certs/` (el directorio se monta en modo sol
 
 Para configuraciones detrás de un proxy inverso existente (Caddy, Traefik, Cloudflare Tunnel), deje `TURBO_EA_TLS_ENABLED=false` y deje que el proxy gestione TLS.
 
+## Permitir la inserción de diagramas (opcional)
+
+Un [diagrama publicado](../guide/diagrams.md) puede insertarse en otro sitio — una página de Confluence, un portal de intranet — pero solo si indicas antes ese sitio. De forma predeterminada, ningún sitio externo puede colocar Turbo EA en un marco.
+
+```dotenv
+TURBO_EA_EMBED_ALLOWED_ORIGINS=https://tuempresa.atlassian.net
+```
+
+Separa varios orígenes con comas. Reinicia la pila para que el cambio surta efecto.
+
+Esto se aplica **solo** a las páginas de diagramas publicados. La aplicación en sí — incluido el editor de diagramas — no puede insertarse en ningún caso, y los enlaces publicados siguen funcionando al abrirlos directamente aunque no configures esto.
+
 ## Anclar una versión
 
 `docker compose pull` toma `:latest` por defecto. Para anclar a una versión específica en producción, establezca `TURBO_EA_TAG`:

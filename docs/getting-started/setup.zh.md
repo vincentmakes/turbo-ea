@@ -172,6 +172,18 @@ TLS_HOST_PORT=443
 
 对于位于现有反向代理（Caddy、Traefik、Cloudflare Tunnel）后的设置，保持 `TURBO_EA_TLS_ENABLED=false`，让代理处理 TLS。
 
+## 允许嵌入图表（可选）
+
+[已发布的图表](../guide/diagrams.md)可以嵌入到其他站点，例如 Confluence 页面或内网门户，但前提是你先指定该站点。默认情况下，任何外部站点都不能将 Turbo EA 放入框架中。
+
+```dotenv
+TURBO_EA_EMBED_ALLOWED_ORIGINS=https://yourcompany.atlassian.net
+```
+
+多个来源用逗号分隔。重启服务后更改才会生效。
+
+该设置**仅**适用于已发布图表的页面。应用本身（包括图表编辑器）在任何情况下都不可被嵌入；即使不设置该项，已发布链接直接打开时依然可用。
+
 ## 锁定版本
 
 `docker compose pull` 默认拉取 `:latest`。要在生产中锁定特定版本，请设置 `TURBO_EA_TAG`：

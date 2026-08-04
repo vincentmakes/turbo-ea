@@ -173,6 +173,18 @@ Place `cert.pem` and `key.pem` in `./certs/` (the directory is mounted read-only
 
 For setups behind an existing reverse proxy (Caddy, Traefik, Cloudflare Tunnel), leave `TURBO_EA_TLS_ENABLED=false` and let the proxy handle TLS.
 
+## Allowing diagram embedding (optional)
+
+A [published diagram](../guide/diagrams.md#sharing-a-diagram-outside-turbo-ea) can be embedded in another site — a Confluence page, an intranet portal — but only if you name that site first. By default no external site may place Turbo EA in a frame at all.
+
+```dotenv
+TURBO_EA_EMBED_ALLOWED_ORIGINS=https://yourcompany.atlassian.net
+```
+
+Comma-separate several origins. Restart the stack for the change to take effect.
+
+This applies **only** to the published-diagram pages. The application itself — including the diagram editor — stays un-framable regardless, and published links keep working when opened directly even with this unset.
+
 ## Pinning a version
 
 `docker compose pull` defaults to `:latest`. To pin to a specific release in production, set `TURBO_EA_TAG`:

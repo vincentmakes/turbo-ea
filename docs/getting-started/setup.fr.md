@@ -175,6 +175,18 @@ Placez `cert.pem` et `key.pem` dans `./certs/` (le répertoire est monté en lec
 
 Pour les déploiements derrière un reverse-proxy existant (Caddy, Traefik, Cloudflare Tunnel), laissez `TURBO_EA_TLS_ENABLED=false` et laissez le proxy gérer TLS.
 
+## Autoriser l'intégration de diagrammes (optionnel)
+
+Un [diagramme publié](../guide/diagrams.md) peut être intégré dans un autre site — une page Confluence, un portail intranet — mais uniquement si vous désignez ce site au préalable. Par défaut, aucun site externe ne peut placer Turbo EA dans un cadre.
+
+```dotenv
+TURBO_EA_EMBED_ALLOWED_ORIGINS=https://votreentreprise.atlassian.net
+```
+
+Séparez plusieurs origines par des virgules. Redémarrez la pile pour appliquer le changement.
+
+Cela s'applique **uniquement** aux pages de diagrammes publiés. L'application elle-même — y compris l'éditeur de diagrammes — reste non intégrable dans tous les cas, et les liens publiés continuent de fonctionner à l'ouverture directe même sans ce paramètre.
+
 ## Épingler une version
 
 `docker compose pull` prend `:latest` par défaut. Pour épingler une version spécifique en production, définissez `TURBO_EA_TAG` :
