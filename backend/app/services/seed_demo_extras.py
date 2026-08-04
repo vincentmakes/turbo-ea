@@ -31,6 +31,7 @@ from app.models.survey import Survey, SurveyResponse
 from app.models.todo import Todo
 from app.models.user import User
 from app.services.principles_catalogue_service import get_catalogue_principle
+from app.services.seed_markers import demo_seed_completed, mark_demo_seed_completed
 
 # ---------------------------------------------------------------------------
 # Card name constants (must match seed_demo.py card names)
@@ -1083,15 +1084,29 @@ def _build_events(
 # ===================================================================
 
 
+SEEDER_KEY = "extras"
+
+
 async def seed_extras_demo_data(db: AsyncSession) -> dict:
     """Seed extra demo data: comments, stakeholders, events, diagrams, etc.
 
-    Idempotent: skips if Comment records already exist.
-    Requires: base demo data + admin user already seeded.
+    Runs at most once per install, tracked by a durable marker in
+    ``app_settings.general_settings.demoSeeded`` (see ``seed_markers``).
+    Deleting seeded content therefore never brings it back on the next
+    restart. Requires: base demo data + admin user already seeded.
     """
-    # Check idempotency
+    if await demo_seed_completed(db, SEEDER_KEY):
+        return {"skipped": True, "reason": "already seeded"}
+
+    # Legacy guard, kept for installs that seeded before the marker existed:
+    # comments are only created here, so their presence means we already ran.
+    # Unlike the marker this is destructible (comments cascade-delete with
+    # their cards), which is exactly why the marker exists — record it now so
+    # this install stops relying on the inference.
     existing = await db.execute(select(Comment.id).limit(1))
     if existing.scalar_one_or_none() is not None:
+        await mark_demo_seed_completed(db, SEEDER_KEY)
+        await db.commit()
         return {"skipped": True, "reason": "comments already exist"}
 
     # Look up admin user
@@ -1187,8 +1202,14 @@ async def seed_extras_demo_data(db: AsyncSession) -> dict:
     counts["events"] = len(event_defs)
 
     # ----- Diagrams -----
+    # Name-keyed skip so a re-run on an install that seeded before the marker
+    # existed tops up what is missing instead of adding a second copy of what
+    # is already there. Same pattern for saved reports, surveys and bookmarks.
+    existing_diagrams = set((await db.execute(select(Diagram.name))).scalars().all())
     diagram_count = 0
     for diag_def in DIAGRAM_DEFS:
+        if diag_def["name"] in existing_diagrams:
+            continue
         cells = ""
         cell_ids: list[str] = []
         linked_card_ids: list[uuid.UUID] = []
@@ -1244,7 +1265,12 @@ async def seed_extras_demo_data(db: AsyncSession) -> dict:
     counts["diagrams"] = diagram_count
 
     # ----- Saved Reports -----
+    existing_reports = set((await db.execute(select(SavedReport.name))).scalars().all())
+    saved_report_count = 0
     for report_def in SAVED_REPORT_DEFS:
+        if report_def["name"] in existing_reports:
+            continue
+        saved_report_count += 1
         db.add(
             SavedReport(
                 id=uuid.uuid4(),
@@ -1257,11 +1283,14 @@ async def seed_extras_demo_data(db: AsyncSession) -> dict:
             )
         )
     await db.flush()
-    counts["saved_reports"] = len(SAVED_REPORT_DEFS)
+    counts["saved_reports"] = saved_report_count
 
     # ----- Surveys -----
+    existing_surveys = set((await db.execute(select(Survey.name))).scalars().all())
     survey_objs: list[Survey] = []
     for survey_def in SURVEY_DEFS:
+        if survey_def["name"] in existing_surveys:
+            continue
         s = Survey(
             id=uuid.uuid4(),
             name=survey_def["name"],
@@ -1279,10 +1308,13 @@ async def seed_extras_demo_data(db: AsyncSession) -> dict:
         db.add(s)
     await db.flush()
 
-    # Survey responses (for the first/active survey only)
+    # Survey responses (for the first/active survey only). Pinned to the survey
+    # whose definition is SURVEY_DEFS[0] rather than to survey_objs[0] — on a
+    # partial re-run the first definition may have been skipped as already
+    # present, and survey_objs[0] would then be some *other* (draft) survey.
+    active_survey = next((s for s in survey_objs if s.name == SURVEY_DEFS[0]["name"]), None)
     response_count = 0
-    if survey_objs:
-        active_survey = survey_objs[0]
+    if active_survey is not None:
         for card_name, status, responses in SURVEY_RESPONSE_CARDS:
             card_id = name_to_id.get(card_name)
             if not card_id:
@@ -1300,7 +1332,7 @@ async def seed_extras_demo_data(db: AsyncSession) -> dict:
             db.add(sr)
             response_count += 1
     await db.flush()
-    counts["surveys"] = len(SURVEY_DEFS)
+    counts["surveys"] = len(survey_objs)
     counts["survey_responses"] = response_count
 
     # ----- Todos -----
@@ -1374,8 +1406,15 @@ async def seed_extras_demo_data(db: AsyncSession) -> dict:
     counts["documents"] = doc_count
 
     # ----- Bookmarks -----
+    existing_bookmarks = set(
+        (await db.execute(select(Bookmark.name).where(Bookmark.user_id == admin_id)))
+        .scalars()
+        .all()
+    )
     bookmark_count = 0
     for bm_def in BOOKMARK_DEFS:
+        if bm_def["name"] in existing_bookmarks:
+            continue
         db.add(
             Bookmark(
                 id=uuid.uuid4(),
@@ -1417,5 +1456,6 @@ async def seed_extras_demo_data(db: AsyncSession) -> dict:
         await db.flush()
     counts["principles"] = principle_count
 
+    await mark_demo_seed_completed(db, SEEDER_KEY)
     await db.commit()
     return counts

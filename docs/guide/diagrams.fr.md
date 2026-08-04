@@ -55,6 +55,8 @@ Chaque fiche synchronisée porte une petite pastille en chevron. Un clic ouvre u
 
 Les lignes avec un compteur à zéro sont grisées, et les voisins / enfants déjà présents sur le canevas sont automatiquement ignorés.
 
+Une fiche déployée affiche une pastille `−` pour la réduire. La réduction retire les fiches déployées du canevas : Turbo EA demande donc confirmation si vous en avez déplacé ou remis en forme une ; un nouveau déploiement les replace exactement où vous les aviez laissées.
+
 ### La hiérarchie sur le canevas
 
 Les conteneurs correspondent au `parent_id` d'une fiche :

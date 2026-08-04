@@ -15,6 +15,7 @@ from app.models.relation import Relation
 from app.models.soaw import SoAW
 from app.models.tag import CardTag, Tag, TagGroup
 from app.services.seed import TYPES as _META_TYPES
+from app.services.seed_markers import demo_seed_completed, mark_demo_seed_completed
 
 # ---------------------------------------------------------------------------
 # UUID registry – deterministic refs for cross-linking
@@ -5637,10 +5638,18 @@ def _compute_data_quality(d: dict, type_schemas: dict[str, list]) -> float:
     return round((filled_weight / total_weight) * 100, 1)
 
 
+SEEDER_KEY = "base"
+
+
 async def seed_demo_data(db: AsyncSession) -> dict:
     """Insert full demo dataset. Returns counts. Safe to re-run (skips if data exists)."""
+    if await demo_seed_completed(db, SEEDER_KEY):
+        return {"skipped": True, "reason": "already seeded"}
+
     result = await db.execute(select(Card.id).limit(1))
     if result.scalar_one_or_none() is not None:
+        await mark_demo_seed_completed(db, SEEDER_KEY)
+        await db.commit()
         return {"skipped": True, "reason": "cards already exist"}
 
     all_fs = (
@@ -5764,6 +5773,7 @@ async def seed_demo_data(db: AsyncSession) -> dict:
 
     await backfill_hierarchy_levels(db)
 
+    await mark_demo_seed_completed(db, SEEDER_KEY)
     await db.commit()
     return {
         "cards": len(all_fs),

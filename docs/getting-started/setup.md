@@ -72,6 +72,12 @@ Then `docker compose up -d` (if you've already started, see "Reset and re-seed" 
 
 `SEED_DEMO=true` already includes BPM and PPM data — you do not need to set the subset flags separately.
 
+!!! note "Demo data is seeded once"
+    Each seeder runs **once per install** and records that it has. Deleting demo
+    content — an example diagram, a demo survey — is permanent: it will not come
+    back on the next restart, even with `SEED_DEMO=true` still set. To get the
+    demo dataset back, reset the database (see *Reset and re-seed* below).
+
 ### Demo admin account
 
 When demo data is loaded, a default admin account is created:

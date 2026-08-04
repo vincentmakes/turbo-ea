@@ -55,6 +55,8 @@ Jede synchronisierte Karte trägt ein kleines Chevron-Overlay. Ein Klick öffnet
 
 Zeilen mit Zähler = 0 sind ausgegraut, und Nachbarn oder Kinder, die bereits auf der Leinwand sind, werden automatisch übersprungen.
 
+Eine ausgeklappte Karte zeigt ein `−`-Symbol zum erneuten Einklappen. Beim Einklappen werden die ausgeklappten Karten von der Leinwand entfernt — Turbo EA fragt daher vorher nach, wenn Sie eine davon verschoben oder umgestaltet haben; beim erneuten Ausklappen erscheinen sie genau dort wieder, wo Sie sie gelassen haben.
+
 ### Hierarchie auf der Leinwand
 
 Container entsprechen der `parent_id` einer Karte:

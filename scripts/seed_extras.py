@@ -14,6 +14,12 @@ Or inside the backend container:
     docker compose exec backend python /app/seed_extras.py
 
 Requires: POSTGRES_* env vars set (or defaults), base demo data already seeded.
+
+Runs at most **once per install**: the seeder records a durable marker
+(``app_settings.general_settings.demoSeeded``) and skips on every later
+invocation, so demo content you have deleted is not re-created — by this script
+or by a restart with ``SEED_DEMO=true``. Reset the database if you genuinely
+want the demo dataset back.
 """
 
 from __future__ import annotations

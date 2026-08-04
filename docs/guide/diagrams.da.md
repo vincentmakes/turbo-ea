@@ -55,6 +55,8 @@ Hvert synkroniseret kort bærer en lille chevron-overlejring. Når du klikker p�
 
 Rækker med tæller = 0 er nedtonede, og naboer / børn, der allerede er på lærredet, springes automatisk over.
 
+Et udfoldet kort viser et `−`-ikon, som klapper det sammen igen. Sammenklapning fjerner de udfoldede kort fra lærredet, så Turbo EA spørger først, hvis du har flyttet eller omformateret nogen af dem; udfolder du igen, står de præcis, hvor du forlod dem.
+
 ### Hierarki på lærredet
 
 Containere svarer til et korts `parent_id`:

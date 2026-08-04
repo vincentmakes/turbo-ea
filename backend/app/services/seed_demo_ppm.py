@@ -26,6 +26,7 @@ from app.models.ppm_status_report import PpmStatusReport
 from app.models.ppm_task import PpmTask
 from app.models.ppm_wbs import PpmWbs
 from app.models.user import User
+from app.services.seed_markers import demo_seed_completed, mark_demo_seed_completed
 
 # ===================================================================
 # INITIATIVE NAME CONSTANTS (must match seed_demo.py card names)
@@ -1238,14 +1239,22 @@ def _risks(ids: dict[str, uuid.UUID], owner: uuid.UUID) -> list[dict]:
 # ===================================================================
 # SEED FUNCTION
 # ===================================================================
+SEEDER_KEY = "ppm"
+
+
 async def seed_ppm_demo_data(db: AsyncSession) -> dict:
     """Insert PPM demo data. Safe to run on top of existing base demo data.
 
     Returns counts dict. Skips if PPM status reports already exist.
     """
     # Check if PPM data already seeded
+    if await demo_seed_completed(db, SEEDER_KEY):
+        return {"skipped": True, "reason": "already seeded"}
+
     result = await db.execute(select(PpmStatusReport.id).limit(1))
     if result.scalar_one_or_none() is not None:
+        await mark_demo_seed_completed(db, SEEDER_KEY)
+        await db.commit()
         return {"skipped": True, "reason": "PPM status reports already exist"}
 
     # Look up existing Initiative cards by name
@@ -1389,6 +1398,7 @@ async def seed_ppm_demo_data(db: AsyncSession) -> dict:
         dep_count += 1
     await db.flush()
 
+    await mark_demo_seed_completed(db, SEEDER_KEY)
     await db.commit()
     return {
         "status_reports": sr_count,

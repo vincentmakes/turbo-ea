@@ -29,6 +29,7 @@ from app.models.turbolens import (
     TurboLensComplianceFinding,
 )
 from app.services.compliance_scanner import compute_finding_key
+from app.services.seed_markers import demo_seed_completed, mark_demo_seed_completed
 
 # ===================================================================
 # COMPLIANCE FINDINGS — 12 entries across all six built-in regulations,
@@ -338,6 +339,9 @@ async def _has_any_findings(db: AsyncSession) -> bool:
 # ===================================================================
 # Public entry point
 # ===================================================================
+SEEDER_KEY = "security"
+
+
 async def seed_security_demo_data(db: AsyncSession) -> dict:
     """Insert demo Compliance findings against existing NexaTech cards.
 
@@ -345,7 +349,12 @@ async def seed_security_demo_data(db: AsyncSession) -> dict:
     Cards referenced by name that aren't present in the DB are silently
     skipped so the seeder stays compatible with partial-demo installs.
     """
+    if await demo_seed_completed(db, SEEDER_KEY):
+        return {"skipped": True, "reason": "already seeded"}
+
     if await _has_any_findings(db):
+        await mark_demo_seed_completed(db, SEEDER_KEY)
+        await db.commit()
         return {"skipped": True, "reason": "TurboLens findings already exist"}
 
     # Look up Applications + IT Components by exact name.
@@ -405,6 +414,7 @@ async def seed_security_demo_data(db: AsyncSession) -> dict:
         compliance_count += 1
     await db.flush()
 
+    await mark_demo_seed_completed(db, SEEDER_KEY)
     await db.commit()
     return {
         "compliance_findings": compliance_count,

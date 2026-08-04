@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.38.2] - 2026-08-04
+
+### Fixed
+- **Demo content no longer comes back after you delete it.** With `SEED_DEMO=true` still set in `.env`, an instance that had imported its own landscape and removed the NexaTech demo cards re-created the three example diagrams — plus the demo saved reports, surveys and bookmarks — on **every restart**, accumulating another copy each time ([#905](https://github.com/vincentmakes/turbo-ea/discussions/905)). Each seeder now records that it has run and never runs again, so `SEED_DEMO` means "populate this instance on first startup" rather than "restore the demo data on every boot". Copies already accumulated are not removed automatically — delete them once and they will stay deleted. A full reset (`RESET_DB=true`) still re-seeds as before.
+- **Drawing a link on a diagram between two cards that were already related no longer creates a duplicate relation.** The diagram looked correct while the inventory quietly gained a second, identical relationship. The link now reuses the existing relation — matching how the Excel importer has always behaved — and any attributes set in the relation dialog are applied to it. Duplicates already in the database are merged on upgrade, keeping the oldest relation and folding in any attributes or description the duplicates carried.
+- **Card colours set by hand on a diagram survive Save.** Changing a card's fill and clicking **Save** reverted it to the card-type colour, while **Save & Exit** kept it — because saving silently re-applied the active view over the whole canvas. Manual formatting is now left alone, and switching a view off restores exactly the colours each card had before the view was applied.
+- **Collapsing an expanded group no longer discards your layout without warning.** The `−` button removed every expanded card, along with any positioning and formatting applied to them, with no confirmation. Turbo EA now asks first when the cards have been moved or restyled, and expanding again puts them back where you left them instead of re-running the default layout.
+
 ## [2.38.1] - 2026-08-03
 
 ### Fixed

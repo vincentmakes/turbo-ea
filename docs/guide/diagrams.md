@@ -55,6 +55,8 @@ Every synced card carries a small chevron overlay. Clicking it opens a menu with
 
 Rows with count = 0 are greyed out, and neighbours / children already on the canvas are skipped automatically.
 
+An expanded card shows a `−` overlay to collapse it again. Collapsing removes the expanded cards from the canvas, so Turbo EA asks for confirmation first if you have moved or restyled any of them; expanding again puts them back exactly where you left them.
+
 ### Hierarchy on the canvas
 
 Containers correspond to a card's `parent_id`:

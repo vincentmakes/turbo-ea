@@ -72,6 +72,13 @@ Kør derefter `docker compose up -d` (hvis du allerede er startet, se "Nulstil o
 
 `SEED_DEMO=true` inkluderer allerede BPM- og PPM-data — du behøver ikke angive delmængde-flagene separat.
 
+!!! note "Demodata indlæses kun én gang"
+    Hver seeder kører **én gang pr. installation** og registrerer det. Sletter du
+    demoindhold — et eksempeldiagram, en demoundersøgelse — er det permanent: det
+    kommer ikke tilbage ved næste genstart, heller ikke selvom `SEED_DEMO=true`
+    stadig er sat. Nulstil databasen for at få demodatasættet tilbage (se
+    *Nulstil og genindlæs* nedenfor).
+
 ### Demoadministratorkonto
 
 Når demodata indlæses, oprettes en standardadministratorkonto:

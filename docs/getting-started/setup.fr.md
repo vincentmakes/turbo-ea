@@ -72,6 +72,14 @@ Puis `docker compose up -d` (si vous avez déjà démarré, consultez « Réinit
 
 `SEED_DEMO=true` inclut déjà les données BPM et PPM — pas besoin de définir les flags de sous-ensemble séparément.
 
+!!! note "Les données de démonstration ne sont chargées qu'une fois"
+    Chaque chargeur s'exécute **une seule fois par installation** et le consigne.
+    Supprimer un contenu de démonstration — un diagramme d'exemple, une enquête de
+    démonstration — est définitif : il ne reviendra pas au prochain redémarrage,
+    même si `SEED_DEMO=true` est toujours défini. Pour retrouver le jeu de données
+    de démonstration, réinitialisez la base (voir *Réinitialiser et recharger*
+    ci-dessous).
+
 ### Compte administrateur de démonstration
 
 Lorsque les données de démonstration sont chargées, un compte administrateur par défaut est créé :

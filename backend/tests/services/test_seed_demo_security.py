@@ -119,8 +119,13 @@ async def test_seed_inserts_findings_and_is_idempotent(db) -> None:
         assert isinstance(r.results, dict) and r.results.get("demo") is True
 
     # ---- second run: should be a no-op -------------------------------
+    # The skip is now decided by the durable `demoSeeded` marker (see
+    # seed_markers.py) rather than by inferring it from the findings still being
+    # present — that inference is exactly what let deleted demo content come
+    # back on every restart (discussion #905). Assert the behaviour, not which
+    # of the two guards happened to fire.
     result2 = await seed_security_demo_data(db)
-    assert result2 == {"skipped": True, "reason": "TurboLens findings already exist"}
+    assert result2["skipped"] is True
 
     comp_rows2 = (await db.execute(select(TurboLensComplianceFinding))).scalars().all()
     assert len(comp_rows2) == len(COMPLIANCE_FINDINGS)

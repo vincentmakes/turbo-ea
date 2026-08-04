@@ -55,6 +55,8 @@ Ogni scheda sincronizzata porta un piccolo chevron. Un clic apre un menu con tre
 
 Le righe con contatore = 0 sono in grigio, e i vicini / figli già presenti sulla tela sono saltati automaticamente.
 
+Una scheda espansa mostra un'icona `−` per comprimerla di nuovo. La compressione rimuove le schede espanse dalla tela, quindi Turbo EA chiede conferma se ne hai spostata o riformattata qualcuna; espandendo di nuovo tornano esattamente dove le avevi lasciate.
+
 ### La gerarchia sulla tela
 
 I contenitori corrispondono al `parent_id` di una scheda:

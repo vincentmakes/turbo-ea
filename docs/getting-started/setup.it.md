@@ -72,6 +72,13 @@ Poi `docker compose up -d` (se avete già avviato, consultate «Reimpostare e ri
 
 `SEED_DEMO=true` include già dati BPM e PPM — non è necessario impostare i flag di sottoinsieme separatamente.
 
+!!! note "I dati dimostrativi vengono caricati una sola volta"
+    Ogni seeder viene eseguito **una volta per installazione** e lo registra.
+    Eliminare un contenuto dimostrativo — un diagramma di esempio, un sondaggio
+    dimostrativo — è definitivo: non tornerà al riavvio successivo, anche se
+    `SEED_DEMO=true` è ancora impostato. Per riavere il set di dati dimostrativi,
+    reimposta il database (vedi *Reimpostare e ricaricare* più avanti).
+
 ### Account amministratore dimostrativo
 
 Quando i dati dimostrativi sono caricati, viene creato un account amministratore predefinito:

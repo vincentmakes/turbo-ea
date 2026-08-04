@@ -72,6 +72,14 @@ Luego `docker compose up -d` (si ya ha arrancado, consulte «Restablecer y volve
 
 `SEED_DEMO=true` ya incluye datos BPM y PPM — no es necesario establecer los flags de subconjunto por separado.
 
+!!! note "Los datos de demostración se cargan una sola vez"
+    Cada cargador se ejecuta **una vez por instalación** y lo registra. Eliminar
+    contenido de demostración — un diagrama de ejemplo, una encuesta de
+    demostración — es definitivo: no volverá en el siguiente reinicio, aunque
+    `SEED_DEMO=true` siga definido. Para recuperar el conjunto de datos de
+    demostración, restablece la base de datos (consulta *Restablecer y recargar*
+    más abajo).
+
 ### Cuenta de administrador de demostración
 
 Cuando se cargan los datos de demostración, se crea una cuenta de administrador predeterminada:

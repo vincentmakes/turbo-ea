@@ -55,6 +55,8 @@ Cada tarjeta sincronizada lleva un pequeño chevrón. Un clic abre un menú con 
 
 Las filas con contador a cero aparecen en gris, y los vecinos / hijos ya presentes en el lienzo se omiten automáticamente.
 
+Una tarjeta desplegada muestra un icono `−` para volver a contraerla. Al contraer se quitan del lienzo las tarjetas desplegadas, así que Turbo EA pide confirmación si has movido o cambiado el formato de alguna; al volver a desplegarlas aparecen exactamente donde las dejaste.
+
 ### La jerarquía en el lienzo
 
 Los contenedores corresponden al `parent_id` de una tarjeta:

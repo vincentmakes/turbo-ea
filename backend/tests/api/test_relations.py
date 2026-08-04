@@ -128,6 +128,95 @@ class TestCreateRelation:
         )
         assert resp.status_code == 403
 
+    async def test_duplicate_create_reuses_the_existing_relation(self, client, db, rel_env):
+        """Creating the same (type, source, target) twice must not fork the
+        repository into two identical rows.
+
+        Regression guard for discussion #905: the diagram editor POSTs here when
+        the user draws an edge, so a pair of cards that were *already* related
+        gained a second, phantom relation every time someone drew the link they
+        could already see. `/relations/bulk` has always upserted on this key —
+        the single-relation path now matches it."""
+        admin = rel_env["admin"]
+        payload = {
+            "type": "app_to_itc",
+            "source_id": str(rel_env["source"].id),
+            "target_id": str(rel_env["target"].id),
+        }
+
+        first = await client.post("/api/v1/relations", json=payload, headers=auth_headers(admin))
+        second = await client.post("/api/v1/relations", json=payload, headers=auth_headers(admin))
+
+        assert first.status_code == 201
+        assert second.status_code == 201
+        assert second.json()["id"] == first.json()["id"]
+
+        listing = await client.get(
+            f"/api/v1/relations?card_id={rel_env['source'].id}",
+            headers=auth_headers(admin),
+        )
+        assert len([r for r in listing.json() if r["type"] == "app_to_itc"]) == 1
+
+    async def test_duplicate_create_merges_supplied_attributes(self, client, db, rel_env):
+        """Reuse must not silently discard the second call's payload — the
+        relation-attributes editor sends its values through this endpoint."""
+        admin = rel_env["admin"]
+        base = {
+            "type": "app_to_itc",
+            "source_id": str(rel_env["source"].id),
+            "target_id": str(rel_env["target"].id),
+        }
+
+        first = await client.post(
+            "/api/v1/relations",
+            json={**base, "attributes": {"flowDirection": "forward"}},
+            headers=auth_headers(admin),
+        )
+        second = await client.post(
+            "/api/v1/relations",
+            json={**base, "attributes": {"flowDirection": "bidirectional"}},
+            headers=auth_headers(admin),
+        )
+
+        assert second.json()["id"] == first.json()["id"]
+        listing = await client.get(
+            f"/api/v1/relations?card_id={rel_env['source'].id}",
+            headers=auth_headers(admin),
+        )
+        match = next(r for r in listing.json() if r["id"] == first.json()["id"])
+        assert match["attributes"] == {"flowDirection": "bidirectional"}
+
+    async def test_reverse_direction_is_still_its_own_relation(self, client, db, rel_env):
+        """Dedup is keyed on the ORDERED (source, target) pair. A relation drawn
+        the other way round is a different edge and must still be created."""
+        admin = rel_env["admin"]
+        await create_relation_type(
+            db,
+            key="itc_to_app",
+            label="Used by",
+            source_type_key="ITComponent",
+            target_type_key="Application",
+        )
+        forward = await client.post(
+            "/api/v1/relations",
+            json={
+                "type": "app_to_itc",
+                "source_id": str(rel_env["source"].id),
+                "target_id": str(rel_env["target"].id),
+            },
+            headers=auth_headers(admin),
+        )
+        backward = await client.post(
+            "/api/v1/relations",
+            json={
+                "type": "itc_to_app",
+                "source_id": str(rel_env["target"].id),
+                "target_id": str(rel_env["source"].id),
+            },
+            headers=auth_headers(admin),
+        )
+        assert backward.json()["id"] != forward.json()["id"]
+
 
 # ---------------------------------------------------------------
 # GET /relations  (list)

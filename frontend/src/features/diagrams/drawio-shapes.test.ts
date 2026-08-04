@@ -5,6 +5,9 @@ import {
   buildLdvDiagramXml,
   rollUpInto,
   childEscapedParentBounds,
+  applyViewToGraph,
+  resetViewColors,
+  captureGroupChildLayout,
   type DiagramCardInput,
   type DiagramRelInput,
   type DiagramLayerInput,
@@ -461,5 +464,184 @@ describe("childEscapedParentBounds — collapse guard", () => {
     const child = { x: 12, y: 40, width: 180, height: 50 };
     expect(childEscapedParentBounds(child, collapsedParent, false)).toBe(true); // sanity: escapes when treated as expanded
     expect(childEscapedParentBounds(child, collapsedParent, true)).toBe(false); // guard: collapsed → no detach
+  });
+});
+
+// ---------------------------------------------------------------------------
+// View colours vs. manual formatting (discussion #905)
+// ---------------------------------------------------------------------------
+
+/** Fake model that also serves geometry, for the view + layout helpers. */
+type ViewCell = {
+  _style: string;
+  edge?: boolean;
+  _geo?: { x: number; y: number; width: number; height: number };
+  _attrs: Record<string, string | null>;
+};
+function viewFrame(cells: Record<string, ViewCell>) {
+  const model = {
+    cells,
+    beginUpdate() {},
+    endUpdate() {},
+    getStyle: (c: ViewCell) => c._style,
+    setStyle: (c: ViewCell, s: string) => {
+      c._style = s;
+    },
+  };
+  const graph = {
+    getModel: () => model,
+    getCellGeometry: (c: ViewCell) => c._geo ?? null,
+  };
+  return { contentWindow: { __turboGraph: graph } } as unknown as HTMLIFrameElement;
+}
+function viewCell(
+  attrs: Record<string, string | null>,
+  style: string,
+  extra: Partial<ViewCell> = {},
+): ViewCell {
+  return {
+    _style: style,
+    _attrs: attrs,
+    value: { getAttribute: (k: string) => attrs[k] ?? null },
+    ...extra,
+  } as unknown as ViewCell;
+}
+function stylePart(style: string, key: string): string | undefined {
+  return style
+    .split(";")
+    .find((p) => p.startsWith(`${key}=`))
+    ?.slice(key.length + 1);
+}
+
+describe("applyViewToGraph / resetViewColors — manual fills survive", () => {
+  const TYPE_COLORS = new Map([["Application", "#0f7eb5"]]);
+
+  it("stamps the pre-view fill so the view can be undone", () => {
+    const cell = viewCell(
+      { cardId: "c1", cardType: "Application" },
+      "rounded=1;fillColor=#0f7eb5;strokeColor=#0b5f88",
+    );
+    const frame = viewFrame({ a: cell });
+
+    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), "#cbd5e1");
+
+    expect(stylePart(cell._style, "fillColor")).toBe("#ff0000");
+    expect(stylePart(cell._style, "turboBaseFill")).toBe("#0f7eb5");
+    expect(stylePart(cell._style, "turboBaseStroke")).toBe("#0b5f88");
+  });
+
+  it("does not overwrite the stamp when a second view is applied", () => {
+    const cell = viewCell(
+      { cardId: "c1", cardType: "Application" },
+      "fillColor=#abcdef;strokeColor=#123456",
+    );
+    const frame = viewFrame({ a: cell });
+
+    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), "#cbd5e1");
+    applyViewToGraph(frame, new Map([["c1", "#00ff00"]]), "#cbd5e1");
+
+    // Still the ORIGINAL colour, not the first view's colour.
+    expect(stylePart(cell._style, "turboBaseFill")).toBe("#abcdef");
+    expect(stylePart(cell._style, "fillColor")).toBe("#00ff00");
+  });
+
+  it("restores the stamped colour and clears the stamp on reset", () => {
+    const cell = viewCell(
+      { cardId: "c1", cardType: "Application" },
+      "fillColor=#0f7eb5;strokeColor=#0b5f88",
+    );
+    const frame = viewFrame({ a: cell });
+
+    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), "#cbd5e1");
+    const touched = resetViewColors(frame, TYPE_COLORS, "#999");
+
+    expect(touched).toBe(1);
+    expect(stylePart(cell._style, "fillColor")).toBe("#0f7eb5");
+    expect(stylePart(cell._style, "strokeColor")).toBe("#0b5f88");
+    expect(stylePart(cell._style, "turboBaseFill")).toBeUndefined();
+    expect(stylePart(cell._style, "turboBaseStroke")).toBeUndefined();
+  });
+
+  it("REGRESSION #905: leaves a hand-picked fill alone on reset", () => {
+    // The user set this card to pink by hand. No view ever claimed it, so it
+    // carries no stamp — reset (which runs on every save) must not touch it.
+    const cell = viewCell(
+      { cardId: "c1", cardType: "Application" },
+      "rounded=1;fillColor=#ff69b4;strokeColor=#c71585",
+    );
+    const frame = viewFrame({ a: cell });
+
+    const touched = resetViewColors(frame, TYPE_COLORS, "#999");
+
+    expect(touched).toBe(0);
+    expect(cell._style).toBe("rounded=1;fillColor=#ff69b4;strokeColor=#c71585");
+  });
+
+  it("restores a manual fill applied BEFORE a view was switched on", () => {
+    const cell = viewCell({ cardId: "c1", cardType: "Application" }, "fillColor=#ff69b4");
+    const frame = viewFrame({ a: cell });
+
+    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), "#cbd5e1");
+    resetViewColors(frame, TYPE_COLORS, "#999");
+
+    expect(stylePart(cell._style, "fillColor")).toBe("#ff69b4");
+  });
+
+  it("falls back to the card-type colour when the cell had no explicit fill", () => {
+    const cell = viewCell({ cardId: "c1", cardType: "Application" }, "rounded=1");
+    const frame = viewFrame({ a: cell });
+
+    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), "#cbd5e1");
+    resetViewColors(frame, TYPE_COLORS, "#999");
+
+    expect(stylePart(cell._style, "fillColor")).toBe("#0f7eb5");
+  });
+
+  it("ignores edges and pending cells", () => {
+    const edge = viewCell({ cardId: "c1" }, "strokeColor=#000", { edge: true });
+    const pending = viewCell({ cardId: "pending-xyz" }, "fillColor=#eee");
+    const frame = viewFrame({ e: edge, p: pending });
+
+    expect(applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), "#cbd5e1")).toBe(0);
+    expect(edge._style).toBe("strokeColor=#000");
+    expect(pending._style).toBe("fillColor=#eee");
+  });
+});
+
+describe("captureGroupChildLayout — collapse preserves arrangement", () => {
+  it("captures geometry + style for that parent's children only", () => {
+    const mine = viewCell(
+      { cardId: "child-1", parentGroupCell: "parent-1" },
+      "fillColor=#111",
+      { _geo: { x: 10, y: 20, width: 180, height: 50 } },
+    );
+    const other = viewCell(
+      { cardId: "child-2", parentGroupCell: "parent-2" },
+      "fillColor=#222",
+      { _geo: { x: 0, y: 0, width: 10, height: 10 } },
+    );
+    const loose = viewCell({ cardId: "child-3" }, "fillColor=#333", {
+      _geo: { x: 1, y: 1, width: 2, height: 2 },
+    });
+    const frame = viewFrame({ a: mine, b: other, c: loose });
+
+    const layout = captureGroupChildLayout(frame, "parent-1");
+
+    expect([...layout.keys()]).toEqual(["child-1"]);
+    expect(layout.get("child-1")).toEqual({
+      x: 10,
+      y: 20,
+      width: 180,
+      height: 50,
+      style: "fillColor=#111",
+    });
+  });
+
+  it("skips edges and cells without geometry", () => {
+    const edge = viewCell({ cardId: "c1", parentGroupCell: "p" }, "s", { edge: true });
+    const noGeo = viewCell({ cardId: "c2", parentGroupCell: "p" }, "s");
+    const frame = viewFrame({ e: edge, n: noGeo });
+
+    expect(captureGroupChildLayout(frame, "p").size).toBe(0);
   });
 });

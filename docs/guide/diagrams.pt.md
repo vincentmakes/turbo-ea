@@ -55,6 +55,8 @@ Cada cartão sincronizado tem uma pequena seta. Um clique abre um menu com três
 
 As linhas com contador a zero ficam a cinzento, e os vizinhos / filhos já presentes na tela são ignorados automaticamente.
 
+Um cartão expandido mostra um ícone `−` para o voltar a recolher. Ao recolher, os cartões expandidos são removidos da tela, por isso o Turbo EA pede confirmação se tiver movido ou reformatado algum; ao expandir novamente, voltam exatamente onde os deixou.
+
 ### A hierarquia na tela
 
 Os contentores correspondem ao `parent_id` de um cartão:

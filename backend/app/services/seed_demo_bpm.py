@@ -26,6 +26,7 @@ from app.models.process_flow_version import ProcessFlowVersion
 from app.models.relation import Relation
 from app.services.seed import RELATIONS as _META_RELATIONS
 from app.services.seed import TYPES as _META_TYPES
+from app.services.seed_markers import demo_seed_completed, mark_demo_seed_completed
 
 # ---------------------------------------------------------------------------
 # UUID registry – deterministic refs for cross-linking
@@ -1628,14 +1629,22 @@ def _compute_data_quality(d: dict, type_schemas: dict[str, list]) -> float:
 # ===================================================================
 # SEED FUNCTION
 # ===================================================================
+SEEDER_KEY = "bpm"
+
+
 async def seed_bpm_demo_data(db: AsyncSession) -> dict:
     """Insert BPM demo data. Safe to run on top of existing base demo data.
 
     Returns counts dict. Skips if BusinessProcess cards already exist.
     """
     # Check if BPM data already seeded
+    if await demo_seed_completed(db, SEEDER_KEY):
+        return {"skipped": True, "reason": "already seeded"}
+
     result = await db.execute(select(Card.id).where(Card.type == "BusinessProcess").limit(1))
     if result.scalar_one_or_none() is not None:
+        await mark_demo_seed_completed(db, SEEDER_KEY)
+        await db.commit()
         return {"skipped": True, "reason": "BusinessProcess cards already exist"}
 
     # Build lookup: existing card name → id  (for cross-type relations)
@@ -1783,6 +1792,7 @@ async def seed_bpm_demo_data(db: AsyncSession) -> dict:
             assessment_count += 1
         await db.flush()
 
+    await mark_demo_seed_completed(db, SEEDER_KEY)
     await db.commit()
     return {
         "cards": len(PROCESSES),

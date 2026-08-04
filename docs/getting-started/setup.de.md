@@ -72,6 +72,13 @@ Dann `docker compose up -d` (falls Sie bereits gestartet haben, siehe „Zurück
 
 `SEED_DEMO=true` enthält bereits BPM- und PPM-Daten — die Teilmengen-Flags müssen nicht zusätzlich gesetzt werden.
 
+!!! note "Demodaten werden einmalig eingespielt"
+    Jeder Seeder läuft **einmal pro Installation** und vermerkt dies. Das Löschen
+    von Demoinhalten — eines Beispieldiagramms, einer Demoumfrage — ist endgültig:
+    Sie kehren beim nächsten Neustart nicht zurück, auch wenn `SEED_DEMO=true`
+    weiterhin gesetzt ist. Um den Demodatensatz zurückzuholen, setzen Sie die
+    Datenbank zurück (siehe *Zurücksetzen und neu einspielen* weiter unten).
+
 ### Demo-Administratorkonto
 
 Beim Laden der Demodaten wird ein Standard-Adminkonto erstellt:
