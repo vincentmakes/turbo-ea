@@ -12782,6 +12782,19 @@
             ],
             "title": "Description"
           },
+          "key": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "minLength": 3,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
           "label": {
             "anyOf": [
               {
@@ -25329,7 +25342,7 @@
     },
     "/api/v1/metamodel/types/{type_key}/stakeholder-roles": {
       "get": {
-        "description": "List stakeholder roles for a card type.",
+        "description": "List stakeholder roles for a card type, each with its assignment count.",
         "operationId": "list_stakeholder_roles_api_v1_metamodel_types__type_key__stakeholder_roles_get",
         "parameters": [
           {
@@ -25427,6 +25440,49 @@
       }
     },
     "/api/v1/metamodel/types/{type_key}/stakeholder-roles/{role_key}": {
+      "delete": {
+        "description": "Permanently delete an **unused** stakeholder role.\n\nRefused (409) while anyone holds the role on a card of this type, while a\nsurvey targets it, or when it is the type's last active role \u2014 archive is the\nanswer in those cases. Deleting an in-use role would silently strip the\ncard-level permissions it grants from real users, unrecoverably, and\n``stakeholders.role`` has no foreign key to make that visible.",
+        "operationId": "delete_stakeholder_role_api_v1_metamodel_types__type_key__stakeholder_roles__role_key__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "type_key",
+            "required": true,
+            "schema": {
+              "title": "Type Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "role_key",
+            "required": true,
+            "schema": {
+              "title": "Role Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Stakeholder Role",
+        "tags": [
+          "stakeholder-roles"
+        ]
+      },
       "get": {
         "description": "Get a single stakeholder role with permissions.",
         "operationId": "get_stakeholder_role_api_v1_metamodel_types__type_key__stakeholder_roles__role_key__get",
@@ -25626,6 +25682,56 @@
           }
         },
         "summary": "Restore Stakeholder Role",
+        "tags": [
+          "stakeholder-roles"
+        ]
+      }
+    },
+    "/api/v1/metamodel/types/{type_key}/stakeholder-roles/{role_key}/usage": {
+      "get": {
+        "description": "Report what would block deleting or re-keying this role.\n\nMirrors ``GET /metamodel/types/{key}/field-usage`` so the admin UI can show\nthe impact before offering a destructive action.",
+        "operationId": "stakeholder_role_usage_api_v1_metamodel_types__type_key__stakeholder_roles__role_key__usage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "type_key",
+            "required": true,
+            "schema": {
+              "title": "Type Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "role_key",
+            "required": true,
+            "schema": {
+              "title": "Role Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stakeholder Role Usage",
         "tags": [
           "stakeholder-roles"
         ]

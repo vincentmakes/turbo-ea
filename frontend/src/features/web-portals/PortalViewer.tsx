@@ -164,8 +164,8 @@ function Icon({
 const ROLE_LABEL_KEYS: Record<string, string> = {
   responsible: "portal.roles.responsible",
   observer: "portal.roles.observer",
-  technical_application_owner: "portal.roles.technical_application_owner",
-  business_application_owner: "portal.roles.business_application_owner",
+  technicalApplicationOwner: "portal.roles.technicalApplicationOwner",
+  businessApplicationOwner: "portal.roles.businessApplicationOwner",
 };
 
 function initials(name: string): string {

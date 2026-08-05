@@ -117,6 +117,15 @@ Wenn bei einer Karte kein Subtyp ausgewählt ist (oder der Typ keine Subtypen ha
 
 Definieren Sie benutzerdefinierte Rollen für diesen Typ (z.B. «Anwendungseigner», «Technischer Eigner»). Jede Rolle hat **kartenebene Berechtigungen**, die beim Zugriff auf eine Karte mit der anwendungsweiten Rolle des Benutzers kombiniert werden. Siehe [Benutzer & Rollen](users.md) für mehr zum Berechtigungsmodell.
 
+Jede Rolle hat einen **Schlüssel** (die auf Karten gespeicherte Kennung, die auch von den `stakeholder:<Rollenschlüssel>`-Import-/Exportspalten verwendet wird) und eine **Bezeichnung** (was Benutzer sehen). Der Schlüssel folgt derselben Konvention wie jeder andere Metamodell-Schlüssel — nur Buchstaben und Ziffern, beginnend mit einem Buchstaben, 3–50 Zeichen, üblicherweise camelCase wie `businessArchitect`. Er wird automatisch aus der Bezeichnung abgeleitet, sodass Sie ihn selten selbst eingeben müssen.
+
+Rollen lassen sich auf zwei Arten entfernen:
+
+- **Archivieren** — die Rolle bleibt auf Karten erhalten, die sie bereits verwenden, kann aber nicht mehr zugewiesen werden und gewährt keine Berechtigungen auf Kartenebene mehr. Archivierte Rollen erscheinen über den Schalter **Archivierte anzeigen** und können jederzeit wiederhergestellt werden. Das ist die richtige Wahl für eine Rolle, die tatsächlich verwendet wurde.
+- **Löschen** — dauerhaft und nur möglich, solange die Rolle nicht verwendet wird. Turbo EA verweigert das Löschen einer Rolle, die jemand auf einer Karte dieses Typs innehat, die von einer Umfrage verwendet wird oder die letzte aktive Rolle des Typs ist; der Bestätigungsdialog nennt den Grund und bietet stattdessen das Archivieren an. So räumen Sie eine versehentlich angelegte Rolle auf.
+
+Ebenso lässt sich der Schlüssel einer Rolle nur korrigieren, solange sie nicht verwendet wird — sobald jemand sie innehat, ist der Schlüssel gesperrt und das Feld erklärt warum. Rollen, die vor dieser Konvention angelegt wurden, behalten ihren bestehenden Schlüssel und funktionieren weiterhin; geprüft wird nur ein neuer oder geänderter Schlüssel.
+
 #### Übersetzungen
 
 Klicken Sie auf die Schaltfläche **Übersetzen** in der Symbolleiste des Typ-Drawers, um den **Übersetzungsdialog** zu öffnen. Hier können Sie Übersetzungen für alle Metamodell-Bezeichnungen in jeder unterstützten Sprache angeben:

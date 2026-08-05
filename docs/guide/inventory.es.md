@@ -196,6 +196,10 @@ Cada columna `rel:<tipo_de_relación>` expresa las relaciones salientes como una
 
 En cada hoja de fichas, las columnas `stakeholder:<clave_de_rol>` llevan los usuarios asignados a cada rol de parte interesada, como **direcciones de correo separadas por punto y coma** (la misma convención que las columnas `subscriptions:<RoleType>` de LeanIX), p. ej. `ada@corp.com; bob@corp.com`. La **dirección de correo es la única referencia de usuario aceptada** — los nombres pueden coincidir entre personas y nunca se usan para la resolución; una entrada `Nombre <email>` se tolera (se usa el correo entre corchetes angulares), un nombre solo produce una advertencia y se omite. Como las celdas de relaciones, las celdas de partes interesadas son **declarativas por rol**: los usuarios listados se convierten en el conjunto completo de asignaciones de ese rol tras la importación. Quitar un usuario lo desasigna; vaciar la celda vacía el rol; omitir la columna deja las asignaciones intactas. Las entradas sin usuario coincidente producen una advertencia y se omiten — nunca bloquean la importación.
 
+!!! note "Hojas exportadas antes de que las claves fueran camelCase"
+    Las claves de los roles de partes interesadas siguen la misma convención camelCase que cualquier otra clave del metamodelo. Una hoja exportada antes de ese cambio contiene encabezados como `stakeholder:technical_application_owner`; siguen importándose — el encabezado se asocia a su rol en camelCase cuando ningún rol coincide literalmente. Las hojas nuevas usan la forma camelCase.
+
+
 ### Hoja `Relations`
 
 Para relaciones con atributos, use la hoja dedicada con las columnas `relation_type`, `source_ref`, `target_ref`, `action` (por defecto `upsert`, alternativamente `delete`), `attr_<campo>` y `description`.

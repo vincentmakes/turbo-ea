@@ -543,7 +543,7 @@ class TestImportBpmn:
         assert data["committed"] is True
         assert data["workflow_state"] == "pending"
         assert "warning" in data
-        assert "process_owner" in data["warning"]
+        assert "processOwner" in data["warning"]
 
 
 # ── Unauthenticated paths ──────────────────────────────────────────────────

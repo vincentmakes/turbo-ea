@@ -1804,7 +1804,7 @@ TYPES = [
                 },
             },
             {
-                "key": "it_project_manager",
+                "key": "itProjectManager",
                 "label": "IT Project Manager",
                 "translations": {
                     "label": {
@@ -2807,7 +2807,7 @@ TYPES = [
                 },
             },
             {
-                "key": "process_owner",
+                "key": "processOwner",
                 "label": "Process Owner",
                 "translations": {
                     "label": {
@@ -5719,7 +5719,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
     ]
     _app_roles = _default_roles + [
         {
-            "key": "technical_application_owner",
+            "key": "technicalApplicationOwner",
             "label": "Technical Application Owner",
             "translations": {
                 "label": {
@@ -5736,7 +5736,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
             },
         },
         {
-            "key": "business_application_owner",
+            "key": "businessApplicationOwner",
             "label": "Business Application Owner",
             "translations": {
                 "label": {

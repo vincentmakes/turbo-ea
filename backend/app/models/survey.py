@@ -25,7 +25,7 @@ class Survey(Base, UUIDMixin, TimestampMixin):
     target_filters: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     # {related_type?, related_ids?, tag_ids?, attribute_filters?: [{key, op, value}]}
     target_roles: Mapped[list | None] = mapped_column(JSONB, default=list)
-    # e.g. ["responsible", "technical_application_owner"]
+    # e.g. ["responsible", "technicalApplicationOwner"]
 
     fields: Mapped[list | None] = mapped_column(JSONB, default=list)
     # [{key, section, label, type, options?, action: "maintain"|"confirm"}]

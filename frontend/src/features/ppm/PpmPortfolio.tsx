@@ -423,7 +423,7 @@ export default function PpmPortfolio() {
   const renderRow = (item: PpmGanttItem) => {
     const rep = item.latest_report;
     const pm =
-      item.stakeholders.find((s) => s.role_key === "it_project_manager") ||
+      item.stakeholders.find((s) => s.role_key === "itProjectManager") ||
       item.stakeholders.find((s) => s.role_key === "responsible");
 
     const plan = `${fmtQuarter(item.start_date)} / ${fmtQuarter(item.end_date)}`;
@@ -545,7 +545,7 @@ export default function PpmPortfolio() {
   const renderMobileCard = (item: PpmGanttItem) => {
     const rep = item.latest_report;
     const pm =
-      item.stakeholders.find((s) => s.role_key === "it_project_manager") ||
+      item.stakeholders.find((s) => s.role_key === "itProjectManager") ||
       item.stakeholders.find((s) => s.role_key === "responsible");
     const plan = `${fmtQuarter(item.start_date)} \u2013 ${fmtQuarter(item.end_date)}`;
 

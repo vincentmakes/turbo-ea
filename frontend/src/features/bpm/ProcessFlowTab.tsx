@@ -3,7 +3,7 @@
  *
  * Three sub-tabs:
  *   Published — The current approved process flow (read-only, watermark + approval status).
- *   Drafts    — Work-in-progress flows visible to member/bpm_admin/admin/process_owner/responsible/observer.
+ *   Drafts    — Work-in-progress flows visible to member/bpm_admin/admin/processOwner/responsible/observer.
  *   Archived  — Previously published versions (read-only list with revision + archival date).
  */
 import { useState, useEffect, useCallback } from "react";

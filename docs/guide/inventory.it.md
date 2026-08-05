@@ -196,6 +196,10 @@ Ogni colonna `rel:<tipo_di_relazione>` esprime le relazioni in uscita come elenc
 
 Su ogni foglio di schede, le colonne `stakeholder:<chiave_ruolo>` contengono gli utenti assegnati a ciascun ruolo stakeholder, come **indirizzi email separati da punto e virgola** (la stessa convenzione delle colonne `subscriptions:<RoleType>` di LeanIX), ad es. `ada@corp.com; bob@corp.com`. L'**indirizzo email è l'unico riferimento utente accettato** — i nomi visualizzati possono coincidere e non vengono mai usati per la risoluzione; una voce `Nome <email>` è tollerata (viene usata l'email tra parentesi angolari), un nome da solo produce un avviso e viene ignorato. Come le celle di relazione, le celle stakeholder sono **dichiarative per ruolo**: gli utenti elencati diventano l'insieme completo delle assegnazioni di quel ruolo dopo l'importazione. Rimuovere un utente lo disassegna; svuotare la cella svuota il ruolo; omettere la colonna lascia intatte le assegnazioni. Le voci senza utente corrispondente producono un avviso e vengono ignorate — non bloccano mai l'importazione.
 
+!!! note "Fogli esportati prima del passaggio a chiavi camelCase"
+    Le chiavi dei ruoli stakeholder seguono la stessa convenzione camelCase di ogni altra chiave del metamodello. Un foglio esportato prima di quel cambiamento contiene intestazioni come `stakeholder:technical_application_owner`; vengono comunque importate — l'intestazione viene associata al ruolo camelCase quando nessun ruolo corrisponde letteralmente. I fogli esportati ora usano la forma camelCase.
+
+
 ### Foglio `Relations`
 
 Per relazioni con attributi, usate il foglio dedicato con le colonne `relation_type`, `source_ref`, `target_ref`, `action` (predefinito `upsert`, in alternativa `delete`), `attr_<campo>` e `description`.

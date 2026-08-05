@@ -252,6 +252,60 @@ class TestDeleteType:
 
 
 # ---------------------------------------------------------------------------
+# Removing stakeholder roles via PATCH /types/{key}
+# ---------------------------------------------------------------------------
+
+
+class TestRemoveStakeholderRolesViaPatch:
+    """The whole-column overwrite of ``stakeholder_roles`` has an in-use guard."""
+
+    async def test_can_remove_unused_role(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(
+            db,
+            key="Custom",
+            label="Custom",
+            stakeholder_roles=[
+                {"key": "responsible", "label": "Responsible"},
+                {"key": "dataSteward", "label": "Data Steward"},
+            ],
+        )
+
+        response = await client.patch(
+            "/api/v1/metamodel/types/Custom",
+            json={"stakeholder_roles": [{"key": "responsible", "label": "Responsible"}]},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        assert [r["key"] for r in response.json()["stakeholder_roles"]] == ["responsible"]
+
+    async def test_cannot_remove_role_in_use(self, client, db, metamodel_env):
+        from app.models.stakeholder import Stakeholder
+
+        admin = metamodel_env["admin"]
+        await create_card_type(
+            db,
+            key="Custom",
+            label="Custom",
+            stakeholder_roles=[
+                {"key": "responsible", "label": "Responsible"},
+                {"key": "dataSteward", "label": "Data Steward"},
+            ],
+        )
+        card = await create_card(db, card_type="Custom", name="A Card", user_id=admin.id)
+        db.add(Stakeholder(card_id=card.id, user_id=admin.id, role="dataSteward"))
+        await db.flush()
+
+        response = await client.patch(
+            "/api/v1/metamodel/types/Custom",
+            json={"stakeholder_roles": [{"key": "responsible", "label": "Responsible"}]},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 400
+        assert "dataSteward" in response.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
 # Field / section / option usage
 # ---------------------------------------------------------------------------
 

@@ -5,6 +5,21 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.41.0] - 2026-08-05
+
+### Added
+- **A stakeholder role can now be deleted.** Admin → Metamodel → *Stakeholder roles* gains a delete action for a role that nobody holds — the case where you created one, mistyped its key, and were previously stuck with it forever ([#907](https://github.com/vincentmakes/turbo-ea/discussions/907)). Deletion is refused for a role that is actually in use: the confirmation dialog reports how many people hold it on how many cards and offers to archive it instead, so nobody silently loses the card-level permissions the role grants.
+- **A stakeholder role's key can now be changed.** As long as nobody holds the role and no survey targets it, the key can be corrected in place instead of deleting and re-creating the role.
+- **Creating a stakeholder role fills the key in for you.** Typing the label *Business Architect* now proposes the key `businessArchitect`; you can still overwrite it, and it stops following the label as soon as you do.
+
+### Changed
+- **Stakeholder role keys are now camelCase**, matching card types, fields, options, relation types and subtypes. The four built-in roles are renamed on upgrade — `process_owner` → `processOwner`, `technical_application_owner` → `technicalApplicationOwner`, `business_application_owner` → `businessApplicationOwner`, `it_project_manager` → `itProjectManager` — along with every stakeholder assignment, survey target and card-type entry that referenced them. Roles you created or renamed yourself are left alone: an existing key keeps working everywhere and is never re-checked — only a new or changed key has to satisfy the convention. Spreadsheets exported before the rename still import too: a legacy `stakeholder:technical_application_owner` column is matched to its camelCase role.
+
+### Fixed
+- **The stakeholder role key field no longer rejects what it told you to type.** The key box stripped underscores as you typed while the server demanded them and refused camelCase, so a valid-looking key failed to save with a raw regular expression as the explanation ([#907](https://github.com/vincentmakes/turbo-ea/discussions/907)). Both sides now use one grammar, and the length rule is enforced in the form rather than surfacing as a server error.
+- **The impact reported when archiving a stakeholder role is now correct.** The count included every card type that happens to define a role with the same key, so archiving *Responsible* on Application reported every *Responsible* assignment in the instance. It now counts only cards of the type you are editing.
+- **The "Show archived" toggle on the stakeholder roles panel now shows archived roles.** They were filtered out before they reached the browser, so the toggle never revealed anything.
+
 ## [2.40.0] - 2026-08-05
 
 ### Added

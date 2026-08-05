@@ -213,6 +213,10 @@ For bagudkompatibilitet accepterer importøren også komma-separerede celler (pr
 
 På hvert kort-ark bærer `stakeholder:<role_key>`-kolonner de brugere, der er tildelt hver interessentrolle, som **semikolon-separerede e-mailadresser** (samme konvention som LeanIX' `subscriptions:<RoleType>`-kolonner), f.eks. `ada@corp.com; bob@corp.com`. **E-mailadressen er den eneste accepterede brugerreference** — visningsnavne kan kollidere og bruges aldrig til opslag; en post på formen `Navn <email>` tolereres (e-mailen i vinkelparenteser bruges), et navn alene giver en advarsel og springes over. Ligesom relations-celler er interessent-celler **deklarative pr. rolle**: De anførte brugere bliver det komplette sæt af tildelinger for rollen efter importen. Fjernes en bruger fra listen, fjernes tildelingen; en tom celle rydder rollen; udelades kolonnen helt, forbliver tildelingerne urørte. Poster uden matchende bruger giver en advarsel og springes over — de blokerer aldrig importen.
 
+!!! note "Ark eksporteret før rollenøgler blev camelCase"
+    Interessentrollenøgler følger samme camelCase-konvention som alle andre metamodelnøgler. Et ark eksporteret før den ændring har kolonneoverskrifter som `stakeholder:technical_application_owner`; de kan stadig importeres — overskriften matches til sin camelCase-rolle, når ingen rolle matcher bogstaveligt. Nyeksporterede ark bruger camelCase-formen.
+
+
 ### Relations-ark
 
 For relationer, der bærer egenskaber (f.eks. årlig omkostning på en `Application` → `IT Component`-link), brug det dedikerede `Relations`-ark:

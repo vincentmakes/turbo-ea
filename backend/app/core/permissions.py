@@ -668,8 +668,8 @@ IT_PROJECT_MANAGER_CARD_PERMISSIONS: dict[str, bool] = {
 DEFAULT_CARD_PERMISSIONS_BY_ROLE: dict[str, dict[str, bool]] = {
     "responsible": RESPONSIBLE_CARD_PERMISSIONS,
     "observer": OBSERVER_CARD_PERMISSIONS,
-    "process_owner": PROCESS_OWNER_CARD_PERMISSIONS,
-    "technical_application_owner": TECH_APP_OWNER_CARD_PERMISSIONS,
-    "business_application_owner": BIZ_APP_OWNER_CARD_PERMISSIONS,
-    "it_project_manager": IT_PROJECT_MANAGER_CARD_PERMISSIONS,
+    "processOwner": PROCESS_OWNER_CARD_PERMISSIONS,
+    "technicalApplicationOwner": TECH_APP_OWNER_CARD_PERMISSIONS,
+    "businessApplicationOwner": BIZ_APP_OWNER_CARD_PERMISSIONS,
+    "itProjectManager": IT_PROJECT_MANAGER_CARD_PERMISSIONS,
 }

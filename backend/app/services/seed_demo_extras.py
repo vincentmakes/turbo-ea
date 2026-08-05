@@ -109,24 +109,24 @@ REFERENCED_CARD_NAMES: list[str] = [
 
 # Stakeholder role assignments: (card_name, role)
 STAKEHOLDER_ASSIGNMENTS: list[tuple[str, str]] = [
-    # Application – technical_application_owner
-    (CARD_SAP_S4, "technical_application_owner"),
-    (CARD_NEXACLOUD, "technical_application_owner"),
-    (CARD_KAFKA, "technical_application_owner"),
-    (CARD_SF_SALES, "technical_application_owner"),
-    (CARD_SAP_ARIBA, "technical_application_owner"),
-    # Application – business_application_owner
-    (CARD_SAP_S4, "business_application_owner"),
-    (CARD_POWERBI, "business_application_owner"),
-    (CARD_SF_SALES, "business_application_owner"),
+    # Application – technicalApplicationOwner
+    (CARD_SAP_S4, "technicalApplicationOwner"),
+    (CARD_NEXACLOUD, "technicalApplicationOwner"),
+    (CARD_KAFKA, "technicalApplicationOwner"),
+    (CARD_SF_SALES, "technicalApplicationOwner"),
+    (CARD_SAP_ARIBA, "technicalApplicationOwner"),
+    # Application – businessApplicationOwner
+    (CARD_SAP_S4, "businessApplicationOwner"),
+    (CARD_POWERBI, "businessApplicationOwner"),
+    (CARD_SF_SALES, "businessApplicationOwner"),
     # Initiative – responsible
     (CARD_INIT_SAP, "responsible"),
     (CARD_INIT_IOT, "responsible"),
     (CARD_INIT_DTP, "responsible"),
     (CARD_INIT_DEVOPS, "responsible"),
-    # Initiative – it_project_manager
-    (CARD_INIT_SF, "it_project_manager"),
-    (CARD_INIT_CYBER, "it_project_manager"),
+    # Initiative – itProjectManager
+    (CARD_INIT_SF, "itProjectManager"),
+    (CARD_INIT_CYBER, "itProjectManager"),
     # Organization – responsible
     (CARD_ORG_IT_OPS, "responsible"),
     (CARD_ORG_ENGINEERING, "responsible"),
@@ -141,12 +141,12 @@ VALID_STAKEHOLDER_ROLES_BY_TYPE: dict[str, set[str]] = {
     "Application": {
         "responsible",
         "observer",
-        "technical_application_owner",
-        "business_application_owner",
+        "technicalApplicationOwner",
+        "businessApplicationOwner",
     },
-    "Initiative": {"responsible", "it_project_manager", "observer"},
+    "Initiative": {"responsible", "itProjectManager", "observer"},
     "Organization": {"responsible", "observer"},
-    "BusinessProcess": {"responsible", "process_owner", "observer"},
+    "BusinessProcess": {"responsible", "processOwner", "observer"},
 }
 
 # Valid event types
@@ -458,7 +458,7 @@ SURVEY_DEFS: list[dict] = [
         ),
         "status": "active",
         "target_type_key": "Application",
-        "target_roles": ["responsible", "technical_application_owner"],
+        "target_roles": ["responsible", "technicalApplicationOwner"],
         "fields": [
             {
                 "key": "productName",

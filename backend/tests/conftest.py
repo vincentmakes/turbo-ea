@@ -282,6 +282,9 @@ async def create_card_type(
         color=kwargs.get("color", "#0f7eb5"),
         fields_schema=fields_schema if fields_schema is not None else [],
         subtypes=kwargs.get("subtypes", []),
+        # Legacy JSONB mirror of the stakeholder role definitions — only read
+        # when the definition table has no rows for the type.
+        stakeholder_roles=kwargs.get("stakeholder_roles", []),
         has_hierarchy=kwargs.get("has_hierarchy", False),
         built_in=kwargs.get("built_in", False),
         is_hidden=kwargs.get("is_hidden", False),

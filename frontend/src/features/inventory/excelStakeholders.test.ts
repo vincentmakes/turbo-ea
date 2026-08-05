@@ -205,6 +205,33 @@ describe("validateMultiSheet — stakeholder columns", () => {
     expect(roleWarnings).toHaveLength(1);
   });
 
+  it("still resolves a legacy snake_case stakeholder column header", async () => {
+    // Role keys moved to camelCase, but users keep saved import templates whose
+    // headers predate the rename. The column must still land, not be dropped
+    // with an "unknown role" warning.
+    const legacyRoles: StakeholderRolesByType = {
+      Application: [{ key: "technicalApplicationOwner", label: "Technical Owner" }],
+    };
+    const buf = buildWorkbook(
+      [{ name: "A1", type: "Application", "stakeholder:technical_application_owner": "ada@corp.com" }],
+      "Application",
+    );
+    const report = await validateMultiSheet(
+      parseWorkbookSheets(buf, [APP_TYPE]),
+      [],
+      [APP_TYPE],
+      [],
+      [],
+      undefined,
+      [],
+      {},
+      USERS,
+      legacyRoles,
+    );
+    expect(report.warnings.filter((w) => w.message.includes("technical"))).toHaveLength(0);
+    expect(report.creates[0].stakeholders).toEqual({ technicalApplicationOwner: ["u-ada"] });
+  });
+
   it("classifies a stakeholder-only change as an update; unchanged rows skip", async () => {
     const existing = makeCard({
       id: "11111111-1111-1111-1111-111111111111",

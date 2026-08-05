@@ -250,6 +250,23 @@ function splitRelationCell(cell: string): string[] {
 }
 
 /**
+ * Convert a legacy snake_case stakeholder role key to its camelCase form,
+ * e.g. `technical_application_owner` → `technicalApplicationOwner`.
+ *
+ * Stakeholder role keys were snake_case until the metamodel key grammar was
+ * unified on camelCase. Spreadsheets are long-lived and users keep saved import
+ * templates, so a sheet whose `stakeholder:` headers predate the rename still
+ * has to land. Returns `""` for anything without an underscore, so the caller
+ * can tell "nothing to try" from a real candidate.
+ */
+export function legacyRoleKeyToCamel(roleKey: string): string {
+  if (!roleKey.includes("_")) return "";
+  const [first, ...rest] = roleKey.split("_").filter(Boolean);
+  if (!first) return "";
+  return first + rest.map((w) => w[0].toUpperCase() + w.slice(1)).join("");
+}
+
+/**
  * Parse one entry of a `stakeholder:<role>` cell. The canonical form is a
  * plain email address (`ada@corp.com` — see `serializeStakeholderCell` in
  * `excelExport.ts`, mirroring LeanIX's `subscriptions:` columns). A
@@ -1081,9 +1098,17 @@ export function validateImport(
     // "Ada Lovelace <ada@corp.com>; bob@corp.com" resolved to user ids.
     let parsedStakeholders: Record<string, string[]> | undefined;
     for (const col of stakeholderCols) {
-      const roleKey = col.slice("stakeholder:".length).trim();
+      let roleKey = col.slice("stakeholder:".length).trim();
       if (!roleKey) continue;
       const rolesForType = stakeholderRolesByType[type];
+      // Role keys moved from snake_case to camelCase, so a sheet exported
+      // before that rename carries `stakeholder:technical_application_owner`.
+      // Fall back to the camelCase form rather than dropping the column, but
+      // only when the literal header does not match a real role.
+      if (rolesForType && !rolesForType.some((r) => r.key === roleKey)) {
+        const camel = legacyRoleKeyToCamel(roleKey);
+        if (camel && rolesForType.some((r) => r.key === camel)) roleKey = camel;
+      }
       if (rolesForType && !rolesForType.some((r) => r.key === roleKey)) {
         const warnKey = `${type}|${roleKey}`;
         if (!warnedUnknownRoles.has(warnKey)) {

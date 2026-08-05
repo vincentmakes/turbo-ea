@@ -143,8 +143,8 @@ class TestSeedStakeholderRoles:
             )
         )
         keys = {row[0] for row in result.all()}
-        assert "technical_application_owner" in keys
-        assert "business_application_owner" in keys
+        assert "technicalApplicationOwner" in keys
+        assert "businessApplicationOwner" in keys
 
 
 # ---------------------------------------------------------------------------

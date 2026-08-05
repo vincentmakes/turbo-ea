@@ -16,7 +16,7 @@ class ProcessFlowVersion(Base, UUIDMixin, TimestampMixin):
 
     States:
         draft      — editable, only visible to privileged users
-        pending    — submitted for approval, awaiting process_owner sign-off
+        pending    — submitted for approval, awaiting processOwner sign-off
         published  — approved and read-only, the current live version
         archived   — previously-published version, read-only
     """

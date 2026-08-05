@@ -236,8 +236,8 @@ FIELD_TYPE_MAPPING: dict[str, str] = {
 # tenant subscription roles are admin-customisable in LeanIX too, so the
 # adapter accepts the lowercased free-form name and falls back to a
 # sensible default for anything unrecognised. The default seeded Turbo
-# EA roles are ``responsible``, ``observer``, ``process_owner``,
-# ``it_project_manager``.
+# EA roles are ``responsible``, ``observer``, ``processOwner``,
+# ``itProjectManager``.
 SUBSCRIPTION_ROLE_MAPPING: dict[str, str] = {
     # ACCOUNTABLE / RESPONSIBLE typed subscriptions → "responsible"
     "application owner": "responsible",
@@ -247,10 +247,10 @@ SUBSCRIPTION_ROLE_MAPPING: dict[str, str] = {
     "observer": "observer",
     "subscriber": "observer",
     # PROCESS context
-    "process owner": "process_owner",
+    "process owner": "processOwner",
     # IT project context
-    "it project manager": "it_project_manager",
-    "project manager": "it_project_manager",
+    "it project manager": "itProjectManager",
+    "project manager": "itProjectManager",
 }
 
 

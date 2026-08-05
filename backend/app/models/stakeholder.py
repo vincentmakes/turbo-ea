@@ -21,7 +21,7 @@ class Stakeholder(Base, UUIDMixin):
     )
     role: Mapped[str] = mapped_column(
         String(50), nullable=False
-    )  # responsible/observer/technical_application_owner/business_application_owner
+    )  # responsible/observer/technicalApplicationOwner/businessApplicationOwner
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     card = relationship("Card", back_populates="stakeholders")

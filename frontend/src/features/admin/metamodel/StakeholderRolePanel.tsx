@@ -14,13 +14,57 @@ import Tooltip from "@mui/material/Tooltip";
 import Checkbox from "@mui/material/Checkbox";
 import CircularProgress from "@mui/material/CircularProgress";
 import Collapse from "@mui/material/Collapse";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import Alert from "@mui/material/Alert";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColorPicker from "@/components/ColorPicker";
-import KeyInput from "@/components/KeyInput";
+import KeyInput, { coerceKey, isValidKey } from "@/components/KeyInput";
 import { api } from "@/api/client";
 import { LOCALE_LABELS } from "@/i18n";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
 import type { StakeholderRoleDefinitionFull, MetamodelTranslations } from "@/types";
+
+/** What blocks deleting or re-keying a role, from `.../stakeholder-roles/{key}/usage`. */
+interface RoleUsage {
+  role_key: string;
+  stakeholder_count: number;
+  card_count: number;
+  survey_count: number;
+  is_last_active: boolean;
+  can_delete: boolean;
+}
+
+/** Backend grammar for a role key: `^[a-zA-Z][a-zA-Z0-9]{2,49}$`. */
+const ROLE_KEY_MIN = 3;
+const ROLE_KEY_MAX = 50;
+
+/**
+ * KeyInput's shared `isValidKey` covers the character set but permits any
+ * length; the role endpoint additionally requires 3-50 characters. Checking
+ * both here is what stops a server-side 422 reaching the user.
+ */
+function isValidRoleKey(key: string): boolean {
+  return isValidKey(key) && key.length >= ROLE_KEY_MIN && key.length <= ROLE_KEY_MAX;
+}
+
+/**
+ * Derive a key from a display label, e.g. "Business Architect" → "businessArchitect".
+ *
+ * Mirrors the auto-key behaviour the relation-type editor already has. Admins
+ * should never have to hand-author a key that matches the metamodel grammar —
+ * doing so is what produced the typo'd, unfixable role in #907.
+ */
+function deriveKey(label: string): string {
+  const words = label.trim().split(/[^A-Za-z0-9]+/).filter(Boolean);
+  if (words.length === 0) return "";
+  const [first, ...rest] = words;
+  return coerceKey(
+    first.toLowerCase() + rest.map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(""),
+  );
+}
 
 /** Clean a MetamodelTranslations object, removing empty maps. */
 function cleanTranslations(
@@ -68,10 +112,13 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
     translations: {} as MetamodelTranslations,
   });
   const [createSaving, setCreateSaving] = useState(false);
+  /** False until the admin edits the key by hand, after which auto-derive stops. */
+  const [createKeyTouched, setCreateKeyTouched] = useState(false);
 
   /* --- Edit role form --- */
   const [editRoleKey, setEditRoleKey] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
+    key: "",
     label: "",
     description: "",
     color: "#1976d2",
@@ -79,18 +126,40 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
     translations: {} as MetamodelTranslations,
   });
   const [editSaving, setEditSaving] = useState(false);
+  /** Usage of the role being edited — `null` while still loading. */
+  const [editUsage, setEditUsage] = useState<RoleUsage | null>(null);
+
+  /* --- Destructive-action confirmation --- */
+  const [confirm, setConfirm] = useState<{
+    action: "delete" | "archive";
+    role: StakeholderRoleDefinitionFull;
+    usage: RoleUsage | null;
+  } | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
 
   /* --- Fetch roles + permissions schema --- */
   const fetchRoles = useCallback(async () => {
     try {
+      // Archived roles are excluded server-side by default; fetch them too so
+      // the "Show archived" toggle has something to reveal.
       const data = await api.get<StakeholderRoleDefinitionFull[]>(
-        `/metamodel/types/${typeKey}/stakeholder-roles`,
+        `/metamodel/types/${typeKey}/stakeholder-roles?include_archived=true`,
       );
       setRoles(data);
     } catch (e: unknown) {
       onError(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToFetchRoles"));
     }
   }, [typeKey, onError]);
+
+  const fetchUsage = useCallback(
+    (roleKey: string) =>
+      api
+        .get<RoleUsage>(
+          `/metamodel/types/${typeKey}/stakeholder-roles/${encodeURIComponent(roleKey)}/usage`,
+        )
+        .catch(() => null),
+    [typeKey],
+  );
 
   const fetchPermissionsSchema = useCallback(async () => {
     try {
@@ -111,6 +180,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
     setExpandedRole(null);
     setCreateOpen(false);
     setEditRoleKey(null);
+    setConfirm(null);
   }, [typeKey]);
 
   /* --- Filter by archived --- */
@@ -118,7 +188,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
 
   /* --- Create role --- */
   const handleCreate = async () => {
-    if (!createForm.key || !createForm.label) return;
+    if (!isValidRoleKey(createForm.key) || !createForm.label) return;
     setCreateSaving(true);
     try {
       await api.post(`/metamodel/types/${typeKey}/stakeholder-roles`, {
@@ -131,6 +201,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       });
       await fetchRoles();
       setCreateForm({ key: "", label: "", description: "", color: "#1976d2", permissions: {}, translations: {} });
+      setCreateKeyTouched(false);
       setCreateOpen(false);
     } catch (e: unknown) {
       onError(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToCreate"));
@@ -143,6 +214,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
   const startEdit = (role: StakeholderRoleDefinitionFull) => {
     setEditRoleKey(role.key);
     setEditForm({
+      key: role.key,
       label: role.label,
       description: role.description || "",
       color: role.color,
@@ -150,13 +222,18 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       translations: role.translations ? { ...role.translations } : {},
     });
     setExpandedRole(role.key);
+    // The key is only re-writable while the role is unused; find out which.
+    setEditUsage(null);
+    fetchUsage(role.key).then(setEditUsage);
   };
 
   const handleSaveEdit = async () => {
     if (!editRoleKey) return;
     setEditSaving(true);
     try {
+      const keyChanged = editForm.key !== editRoleKey;
       await api.patch(`/metamodel/types/${typeKey}/stakeholder-roles/${editRoleKey}`, {
+        key: keyChanged ? editForm.key : undefined,
         label: editForm.label,
         description: editForm.description || undefined,
         color: editForm.color,
@@ -165,6 +242,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       });
       await fetchRoles();
       setEditRoleKey(null);
+      if (keyChanged) setExpandedRole(editForm.key);
     } catch (e: unknown) {
       onError(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToUpdate"));
     } finally {
@@ -176,13 +254,44 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
     setEditRoleKey(null);
   };
 
-  /* --- Archive / Restore --- */
-  const handleArchive = async (roleKey: string) => {
+  /* --- Archive / Delete / Restore --- */
+
+  /**
+   * Open the confirmation dialog and fetch the role's usage in the background.
+   * `usage: null` is the loading sentinel that keeps the destructive button
+   * disabled — same shape as the field/section delete dialogs.
+   */
+  const promptDestructive = (action: "delete" | "archive", role: StakeholderRoleDefinitionFull) => {
+    setConfirm({ action, role, usage: null });
+    fetchUsage(role.key).then((usage) =>
+      setConfirm((prev) => (prev && prev.role.key === role.key ? { ...prev, usage } : prev)),
+    );
+  };
+
+  const handleConfirm = async () => {
+    if (!confirm) return;
+    const { action, role } = confirm;
+    setConfirmBusy(true);
     try {
-      await api.post(`/metamodel/types/${typeKey}/stakeholder-roles/${roleKey}/archive`);
+      if (action === "delete") {
+        await api.delete(`/metamodel/types/${typeKey}/stakeholder-roles/${role.key}`);
+      } else {
+        await api.post(`/metamodel/types/${typeKey}/stakeholder-roles/${role.key}/archive`);
+      }
       await fetchRoles();
+      setConfirm(null);
     } catch (e: unknown) {
-      onError(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToArchive"));
+      onError(
+        e instanceof Error
+          ? e.message
+          : t(
+              action === "delete"
+                ? "metamodel.stakeholderPanel.failedToDelete"
+                : "metamodel.stakeholderPanel.failedToArchive",
+            ),
+      );
+    } finally {
+      setConfirmBusy(false);
     }
   };
 
@@ -369,11 +478,20 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                   </Tooltip>
                 ) : (
                   <Tooltip title={t("common:actions.archive")}>
-                    <IconButton size="small" onClick={() => handleArchive(role.key)}>
+                    <IconButton size="small" onClick={() => promptDestructive("archive", role)}>
                       <MaterialSymbol icon="archive" size={18} />
                     </IconButton>
                   </Tooltip>
                 )}
+                <Tooltip title={t("common:actions.delete")}>
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={() => promptDestructive("delete", role)}
+                  >
+                    <MaterialSymbol icon="delete" size={18} />
+                  </IconButton>
+                </Tooltip>
               </Box>
 
               {/* Description */}
@@ -389,6 +507,22 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                   {isEditing ? (
                     /* --- Inline edit form --- */
                     <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                      <KeyInput
+                        size="small"
+                        label={t("metamodel.stakeholderPanel.keyLabel")}
+                        value={editForm.key}
+                        onChange={(v) => setEditForm({ ...editForm, key: v })}
+                        fullWidth
+                        // Re-keying rewrites nothing but this row, so it is only
+                        // offered while nothing points at the old key.
+                        locked={!editUsage || !editUsage.can_delete}
+                        lockedReason={
+                          !editUsage
+                            ? t("metamodel.stakeholderPanel.checkingUsage")
+                            : t("metamodel.stakeholderPanel.keyLockedInUse")
+                        }
+                        required
+                      />
                       <TextField
                         size="small"
                         label={t("metamodel.stakeholderPanel.labelLabel")}
@@ -428,7 +562,16 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                           size="small"
                           variant="contained"
                           onClick={handleSaveEdit}
-                          disabled={editSaving || !editForm.label}
+                          disabled={
+                            editSaving ||
+                            !editForm.label ||
+                            // Only hold the key to the current grammar when it
+                            // is actually being changed. A role created before
+                            // keys were camelCase (via the API, an import, or an
+                            // older release) keeps its key, and its label,
+                            // colour and permissions must stay editable.
+                            (editForm.key !== editRoleKey && !isValidRoleKey(editForm.key))
+                          }
                         >
                           {editSaving ? t("metamodel.stakeholderPanel.saving") : t("common:actions.save")}
                         </Button>
@@ -479,23 +622,45 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
               {t("metamodel.stakeholderPanel.newRole")}
             </Typography>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-              <KeyInput
-                size="small"
-                label={t("metamodel.stakeholderPanel.keyLabel")}
-                value={createForm.key}
-                onChange={(v) => setCreateForm({ ...createForm, key: v })}
-                placeholder={t("metamodel.stakeholderPanel.keyPlaceholder")}
-                fullWidth
-                required={!!createForm.label.trim()}
-              />
               <TextField
                 size="small"
                 label={t("metamodel.stakeholderPanel.labelLabel")}
                 value={createForm.label}
-                onChange={(e) => setCreateForm({ ...createForm, label: e.target.value })}
+                onChange={(e) => {
+                  const label = e.target.value;
+                  // Keep the key in step with the label until the admin takes
+                  // it over, so a valid key is the default rather than a chore.
+                  setCreateForm((prev) => ({
+                    ...prev,
+                    label,
+                    key: createKeyTouched ? prev.key : deriveKey(label),
+                  }));
+                }}
                 placeholder={t("metamodel.stakeholderPanel.labelPlaceholder")}
                 fullWidth
                 error={!createForm.label.trim()}
+              />
+              <KeyInput
+                size="small"
+                label={t("metamodel.stakeholderPanel.keyLabel")}
+                value={createForm.key}
+                onChange={(v) => {
+                  setCreateKeyTouched(true);
+                  setCreateForm((prev) => ({ ...prev, key: v }));
+                }}
+                placeholder={t("metamodel.stakeholderPanel.keyPlaceholder")}
+                fullWidth
+                required={!!createForm.label.trim()}
+                externalError={
+                  // Character-set problems are reported by KeyInput itself;
+                  // only the length rule is ours to add.
+                  createForm.key && isValidKey(createForm.key) && !isValidRoleKey(createForm.key)
+                    ? t("metamodel.stakeholderPanel.keyLength", {
+                        min: ROLE_KEY_MIN,
+                        max: ROLE_KEY_MAX,
+                      })
+                    : undefined
+                }
               />
               <TextField
                 size="small"
@@ -525,6 +690,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                   size="small"
                   onClick={() => {
                     setCreateOpen(false);
+                    setCreateKeyTouched(false);
                     setCreateForm({ key: "", label: "", description: "", color: "#1976d2", permissions: {}, translations: {} });
                   }}
                 >
@@ -534,7 +700,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                   size="small"
                   variant="contained"
                   onClick={handleCreate}
-                  disabled={createSaving || !createForm.key || !createForm.label}
+                  disabled={createSaving || !isValidRoleKey(createForm.key) || !createForm.label}
                 >
                   {createSaving ? t("metamodel.stakeholderPanel.creating") : t("common:actions.create")}
                 </Button>
@@ -552,6 +718,117 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
           {t("metamodel.stakeholderPanel.addRole")}
         </Button>
       )}
+
+      {/* Delete / archive confirmation. `usage === null` is the loading
+          sentinel that keeps the destructive button disabled, matching the
+          field- and section-delete dialogs in TypeDetailDrawer. */}
+      <Dialog
+        open={!!confirm}
+        onClose={() => setConfirm(null)}
+        maxWidth="xs"
+        fullWidth
+        disableRestoreFocus
+      >
+        <DialogTitle>
+          {t(
+            confirm?.action === "delete"
+              ? "metamodel.stakeholderPanel.deleteRole"
+              : "metamodel.stakeholderPanel.archiveRole",
+          )}
+        </DialogTitle>
+        <DialogContent>
+          {confirm && (
+            <>
+              <Typography
+                variant="body2"
+                sx={{ mb: 2 }}
+                dangerouslySetInnerHTML={{
+                  __html: t(
+                    confirm.action === "delete"
+                      ? "metamodel.stakeholderPanel.deleteRoleConfirm"
+                      : "metamodel.stakeholderPanel.archiveRoleConfirm",
+                    { label: confirm.role.label, key: confirm.role.key },
+                  ),
+                }}
+              />
+              {confirm.usage === null ? (
+                <Alert severity="info" icon={<CircularProgress size={18} />}>
+                  {t("metamodel.stakeholderPanel.checkingUsage")}
+                </Alert>
+              ) : confirm.action === "archive" ? (
+                confirm.usage.stakeholder_count > 0 ? (
+                  <Alert severity="warning">
+                    <span
+                      dangerouslySetInnerHTML={{
+                        __html: t("metamodel.stakeholderPanel.archiveRevokes", {
+                          count: confirm.usage.stakeholder_count,
+                        }),
+                      }}
+                    />
+                  </Alert>
+                ) : (
+                  <Alert severity="info">
+                    {t("metamodel.stakeholderPanel.archiveNoStakeholders")}
+                  </Alert>
+                )
+              ) : confirm.usage.can_delete ? (
+                <Alert severity="info">{t("metamodel.stakeholderPanel.roleSafeToDelete")}</Alert>
+              ) : (
+                /* Unlike a field, an in-use role is a hard block — deleting it
+                   would strip card-level permissions from real users with no
+                   way back. Offer archive as the way forward instead. */
+                <Alert severity="warning">
+                  <span
+                    dangerouslySetInnerHTML={{
+                      __html: confirm.usage.stakeholder_count
+                        ? t("metamodel.stakeholderPanel.roleUsedByCards", {
+                            count: confirm.usage.stakeholder_count,
+                            cards: confirm.usage.card_count,
+                          })
+                        : confirm.usage.survey_count
+                          ? t("metamodel.stakeholderPanel.roleUsedBySurveys", {
+                              count: confirm.usage.survey_count,
+                            })
+                          : t("metamodel.stakeholderPanel.roleIsLastActive"),
+                    }}
+                  />
+                </Alert>
+              )}
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirm(null)}>{t("common:actions.cancel")}</Button>
+          {confirm?.action === "delete" && confirm.usage && !confirm.usage.can_delete ? (
+            // Delete is impossible; archive is what the admin actually wants,
+            // so switch the primary action rather than leaving a dead end.
+            <Button
+              variant="contained"
+              disabled={confirmBusy || confirm.usage.is_last_active}
+              onClick={() => setConfirm({ ...confirm, action: "archive" })}
+            >
+              {t("metamodel.stakeholderPanel.archiveInstead")}
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              color="error"
+              disabled={
+                confirmBusy ||
+                !confirm?.usage ||
+                (confirm.action === "delete" && !confirm.usage.can_delete)
+              }
+              onClick={handleConfirm}
+            >
+              {t(
+                confirm?.action === "delete"
+                  ? "metamodel.stakeholderPanel.deleteRole"
+                  : "metamodel.stakeholderPanel.archiveRole",
+              )}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

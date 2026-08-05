@@ -117,6 +117,15 @@ Lorsqu'aucun sous-type n'est sélectionné sur une fiche (ou que le type n'a pas
 
 Définissez des rôles personnalisés pour ce type (par ex. « Responsable Applicatif », « Responsable Technique »). Chaque rôle porte des **permissions au niveau de la fiche** qui sont combinées avec le rôle au niveau de l'application de l'utilisateur lors de l'accès à une fiche. Voir [Utilisateurs et rôles](users.md) pour plus de détails sur le modèle de permissions.
 
+Chaque rôle possède une **clé** (l'identifiant stocké sur les fiches, utilisé par les colonnes d'import/export `stakeholder:<clé_du_rôle>`) et un **libellé** (ce que voient les utilisateurs). La clé suit la même convention que toute autre clé du métamodèle — uniquement des lettres et des chiffres, commençant par une lettre, 3 à 50 caractères, par convention en camelCase comme `businessArchitect`. Elle est renseignée automatiquement à partir du libellé, vous avez donc rarement besoin d'en saisir une.
+
+Les rôles peuvent être retirés de deux façons :
+
+- **Archiver** — le rôle demeure sur les fiches qui l'utilisent déjà mais ne peut plus être attribué, et il cesse d'accorder ses permissions au niveau de la fiche. Les rôles archivés apparaissent derrière le commutateur **Afficher les archivés** et peuvent être restaurés à tout moment. C'est le bon choix pour un rôle réellement utilisé.
+- **Supprimer** — définitif, et proposé uniquement tant que le rôle n'est pas utilisé. Turbo EA refuse de supprimer un rôle détenu par quelqu'un sur une fiche de ce type, ciblé par une enquête, ou qui est le dernier rôle actif du type ; la boîte de dialogue de confirmation précise le motif et propose de l'archiver à la place. C'est ainsi que l'on nettoie un rôle créé par erreur.
+
+De même, la clé d'un rôle ne peut être corrigée que tant que le rôle n'est pas utilisé — dès que quelqu'un le détient, la clé est verrouillée et le champ en explique la raison. Les rôles créés avant cette convention conservent leur clé existante et continuent de fonctionner ; seule une clé nouvelle ou modifiée est vérifiée.
+
 #### Traductions
 
 Cliquez sur le bouton **Traduire** dans la barre d'outils du tiroir de type pour ouvrir le **Dialogue de traductions**. Vous pouvez y fournir des traductions pour tous les libellés du métamodèle dans chaque langue supportée :

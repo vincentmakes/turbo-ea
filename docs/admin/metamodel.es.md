@@ -117,6 +117,15 @@ Cuando no se selecciona ningún subtipo en una ficha (o el tipo no tiene subtipo
 
 Defina roles personalizados para este tipo (ej., «Propietario de Aplicación», «Propietario Técnico»). Cada rol tiene **permisos a nivel de ficha** que se combinan con el rol a nivel de aplicación del usuario al acceder a una ficha. Ver [Usuarios y Roles](users.es.md) para más información sobre el modelo de permisos.
 
+Cada rol tiene una **clave** (el identificador almacenado en las tarjetas, utilizado por las columnas de importación/exportación `stakeholder:<clave_del_rol>`) y una **etiqueta** (lo que ven los usuarios). La clave sigue la misma convención que cualquier otra clave del metamodelo: solo letras y dígitos, empezando por una letra, de 3 a 50 caracteres, por convención en camelCase como `businessArchitect`. Se rellena automáticamente a partir de la etiqueta, por lo que rara vez tendrá que escribirla.
+
+Los roles pueden retirarse de dos formas:
+
+- **Archivar** — el rol permanece en las tarjetas que ya lo usan pero deja de poder asignarse, y deja de otorgar sus permisos a nivel de tarjeta. Los roles archivados aparecen tras el interruptor **Mostrar archivados** y pueden restaurarse en cualquier momento. Es la opción adecuada para un rol que se ha usado realmente.
+- **Eliminar** — permanente, y solo se ofrece mientras el rol no esté en uso. Turbo EA se niega a eliminar un rol que alguien ostente en una tarjeta de este tipo, que una encuesta utilice, o que sea el último rol activo del tipo; el diálogo de confirmación indica el motivo y ofrece archivarlo en su lugar. Así se limpia un rol creado por error.
+
+Del mismo modo, la clave de un rol solo puede corregirse mientras el rol no esté en uso: en cuanto alguien lo ostenta, la clave queda bloqueada y el campo explica por qué. Los roles creados antes de esta convención conservan la clave que ya tenían y siguen funcionando; solo se comprueba una clave nueva o modificada.
+
 #### Traducciones
 
 Haga clic en el botón **Traducir** en la barra de herramientas del cajón de tipo para abrir el **Diálogo de Traducciones**. Aquí puede proporcionar traducciones para todas las etiquetas del metamodelo en cada idioma soportado:

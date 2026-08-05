@@ -437,7 +437,7 @@ async def submit_for_approval(
     owner_subs = await db.execute(
         select(Stakeholder).where(
             Stakeholder.card_id == pid,
-            Stakeholder.role == "process_owner",
+            Stakeholder.role == "processOwner",
         )
     )
     for sub in owner_subs.scalars().all():

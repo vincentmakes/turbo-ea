@@ -196,6 +196,10 @@ Chaque colonne `rel:<type_de_relation>` exprime les relations sortantes sous for
 
 Sur chaque feuille de fiches, les colonnes `stakeholder:<clé_de_rôle>` portent les utilisateurs assignés à chaque rôle de partie prenante, sous forme d'**adresses email séparées par des points-virgules** (la même convention que les colonnes `subscriptions:<RoleType>` de LeanIX), par ex. `ada@corp.com; bob@corp.com`. L'**adresse email est la seule référence utilisateur acceptée** — les noms affichés peuvent entrer en collision et ne servent jamais à la résolution ; une entrée `Nom <email>` est tolérée (l'email entre chevrons est utilisé), un nom seul produit un avertissement et est ignoré. Comme les cellules de relations, les cellules de parties prenantes sont **déclaratives par rôle** : les utilisateurs listés deviennent l'ensemble complet des assignations de ce rôle après l'import. Retirer un utilisateur le désassigne ; vider la cellule vide le rôle ; omettre la colonne laisse les assignations intactes. Les entrées sans utilisateur correspondant produisent un avertissement et sont ignorées — elles ne bloquent jamais l'import.
 
+!!! note "Feuilles exportées avant le passage des clés en camelCase"
+    Les clés des rôles de parties prenantes suivent la même convention camelCase que toute autre clé du métamodèle. Une feuille exportée avant ce changement contient des en-têtes comme `stakeholder:technical_application_owner` ; ils s'importent toujours — l'en-tête est associé à son rôle camelCase lorsqu'aucun rôle ne correspond littéralement. Les feuilles nouvellement exportées utilisent la forme camelCase.
+
+
 ### Feuille `Relations`
 
 Pour les relations avec attributs, utilisez la feuille dédiée `Relations` avec les colonnes `relation_type`, `source_ref`, `target_ref`, `action` (par défaut `upsert`, sinon `delete`), `attr_<champ>` et `description`.

@@ -218,6 +218,10 @@ stakeholder:responsible  →  ada@corp.com; bob@corp.com
 stakeholder:observer     →  carol@corp.com
 ```
 
+!!! note "Sheets exported before role keys became camelCase"
+    Stakeholder role keys use the same camelCase convention as every other metamodel key. A sheet exported before that change carries headers such as `stakeholder:technical_application_owner`; those still import — the header is matched to its camelCase role when no role matches literally. Newly exported sheets use the camelCase form.
+
+
 The **email address is the only accepted user reference** — display names can collide, so they are never used for matching. A `Name <email>` entry is tolerated in hand-authored files (the bracketed email is used); a bare display name produces a warning and is skipped.
 
 Like relation cells, stakeholder cells are **declarative per role**: the users listed in the cell become the complete assignment set for that role after import. Removing a user from the list unassigns them; emptying the cell clears the role; omitting the column entirely leaves that role's assignments untouched. Entries that don't match any user produce a warning and are skipped — they never block the import.

@@ -166,11 +166,9 @@ def test_compare_relation_attrs() -> None:
 def test_map_subscription_role_known_names() -> None:
     assert _SOURCE.map_subscription_role("Application Owner", "RESPONSIBLE") == "responsible"
     assert _SOURCE.map_subscription_role("Responsible", None) == "responsible"
-    assert _SOURCE.map_subscription_role("Process Owner", None) == "process_owner"
-    assert _SOURCE.map_subscription_role("Project Manager", "ACCOUNTABLE") == "it_project_manager"
-    assert (
-        _SOURCE.map_subscription_role("IT Project Manager", "RESPONSIBLE") == "it_project_manager"
-    )
+    assert _SOURCE.map_subscription_role("Process Owner", None) == "processOwner"
+    assert _SOURCE.map_subscription_role("Project Manager", "ACCOUNTABLE") == "itProjectManager"
+    assert _SOURCE.map_subscription_role("IT Project Manager", "RESPONSIBLE") == "itProjectManager"
     assert _SOURCE.map_subscription_role("Observer", "OBSERVER") == "observer"
     # Sanity-check the table size.
     assert len(SUBSCRIPTION_ROLE_MAPPING) >= 6

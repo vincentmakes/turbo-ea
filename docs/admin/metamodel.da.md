@@ -117,6 +117,15 @@ Når der ikke er valgt nogen undertype på et kort (eller typen ikke har nogen u
 
 Definer brugerdefinerede roller for denne type (f.eks. "Application Owner", "Technical Owner"). Hver rolle bærer **tilladelser på kortniveau**, der kombineres med brugerens applikationsrolle, når der tilgås et kort. Se [Brugere og roller](users.md) for mere om tilladelsesmodellen.
 
+Hver rolle har en **nøgle** (den identifikator der gemmes på kort, og som bruges af `stakeholder:<rollenøgle>`-import/eksportkolonnerne) og en **etiket** (det brugerne ser). Nøglen følger samme konvention som enhver anden metamodelnøgle — kun bogstaver og cifre, begyndende med et bogstav, 3–50 tegn, efter konvention camelCase som `businessArchitect`. Den udfyldes automatisk ud fra etiketten, så du sjældent selv skal skrive en.
+
+Roller kan fjernes på to måder:
+
+- **Arkivér** — rollen bliver på de kort der allerede bruger den, men kan ikke længere tildeles, og den giver ikke længere sine rettigheder på kortniveau. Arkiverede roller vises bag **Vis arkiverede**-kontakten og kan gendannes når som helst. Det er det rigtige valg for en rolle der reelt har været brugt.
+- **Slet** — permanent, og tilbydes kun så længe rollen ikke er i brug. Turbo EA nægter at slette en rolle som nogen har på et kort af denne type, som en undersøgelse bruger, eller som er typens sidste aktive rolle; bekræftelsesdialogen oplyser hvilken af delene der gælder og tilbyder at arkivere den i stedet. Sådan rydder du op i en rolle der blev oprettet ved en fejl.
+
+Tilsvarende kan en rolles nøgle kun rettes så længe rollen ikke er i brug — så snart nogen har den, låses nøglen, og feltet forklarer hvorfor. Roller oprettet før denne konvention beholder den nøgle de allerede har og fungerer fortsat; kun en ny eller ændret nøgle kontrolleres.
+
 #### Oversættelser
 
 Klik på knappen **Oversæt** i typepanelets værktøjslinje for at åbne **Oversættelsesdialogen**. Her kan du levere oversættelser for alle metamodel-etiketter i hvert understøttet sprog:

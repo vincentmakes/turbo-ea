@@ -119,6 +119,15 @@ When no subtype is selected on a card (or the type has no subtypes), all fields 
 
 Define custom roles for this type (e.g., "Application Owner", "Technical Owner"). Each role carries **card-level permissions** that are combined with the user's app-level role when accessing a card. See [Users & Roles](users.md) for more on the permission model.
 
+Each role has a **key** (the identifier stored on cards, used by the `stakeholder:<role_key>` import/export columns) and a **label** (what users see). The key follows the same convention as every other metamodel key — letters and digits only, starting with a letter, 3–50 characters, conventionally camelCase such as `businessArchitect`. It is filled in automatically from the label, so you rarely need to type one.
+
+Roles can be removed in two ways:
+
+- **Archive** — the role stays on cards that already use it but can no longer be assigned, and it stops granting its card-level permissions. Archived roles are listed behind the **Show archived** toggle and can be restored at any time. This is the right choice for a role that has been genuinely used.
+- **Delete** — permanent, and only offered while the role is unused. Turbo EA refuses to delete a role that anyone holds on a card of this type, that a survey targets, or that is the type's last remaining active role; the confirmation dialog says which of these applies and offers to archive it instead. This is the way to clean up a role that was created by mistake.
+
+A role's key can likewise be corrected only while the role is unused — once someone holds it, the key is locked and the field explains why. Roles created before this convention keep the key they already have and go on working; only a new or changed key is checked.
+
 #### Translations
 
 Click the **Translate** button in the type drawer toolbar to open the **Translation Dialog**. Here you can provide translations for all metamodel labels in each supported language:

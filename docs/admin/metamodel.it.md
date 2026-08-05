@@ -117,6 +117,15 @@ Quando nessun sottotipo è selezionato su una card (o il tipo non ha sottotipi),
 
 Definite ruoli personalizzati per questo tipo (es. "Application Owner", "Technical Owner"). Ogni ruolo porta **permessi a livello di card** che vengono combinati con il ruolo a livello di applicazione dell'utente quando accede a una card. Vedi [Utenti e ruoli](users.md) per maggiori informazioni sul modello dei permessi.
 
+Ogni ruolo ha una **chiave** (l'identificatore memorizzato sulle schede, usato dalle colonne di importazione/esportazione `stakeholder:<chiave_ruolo>`) e un'**etichetta** (ciò che vedono gli utenti). La chiave segue la stessa convenzione di ogni altra chiave del metamodello: solo lettere e cifre, con iniziale alfabetica, da 3 a 50 caratteri, per convenzione in camelCase come `businessArchitect`. Viene compilata automaticamente dall'etichetta, quindi raramente dovrai digitarla.
+
+I ruoli possono essere rimossi in due modi:
+
+- **Archivia** — il ruolo rimane sulle schede che già lo usano ma non può più essere assegnato e smette di concedere i permessi a livello di scheda. I ruoli archiviati compaiono dietro l'interruttore **Mostra archiviati** e possono essere ripristinati in qualsiasi momento. È la scelta giusta per un ruolo realmente utilizzato.
+- **Elimina** — permanente e offerto solo finché il ruolo non è utilizzato. Turbo EA rifiuta di eliminare un ruolo ricoperto da qualcuno su una scheda di questo tipo, utilizzato da un sondaggio, o che è l'ultimo ruolo attivo del tipo; la finestra di conferma indica il motivo e propone invece l'archiviazione. È così che si ripulisce un ruolo creato per errore.
+
+Analogamente, la chiave di un ruolo può essere corretta solo finché il ruolo non è utilizzato: appena qualcuno lo ricopre, la chiave viene bloccata e il campo ne spiega il motivo. I ruoli creati prima di questa convenzione mantengono la chiave che già avevano e continuano a funzionare; viene verificata solo una chiave nuova o modificata.
+
 #### Traduzioni
 
 Cliccate sul pulsante **Traduci** nella barra degli strumenti del drawer del tipo per aprire il **Dialogo delle traduzioni**. Qui potete fornire traduzioni per tutte le etichette del metamodello in ogni lingua supportata:

@@ -94,7 +94,7 @@ class TestListStakeholderRoles:
         # Create a second type with a different role
         await create_card_type(db, key="ITComponent", label="IT Component")
         await create_stakeholder_role_def(
-            db, card_type_key="ITComponent", key="it_owner", label="IT Owner"
+            db, card_type_key="ITComponent", key="itOwner", label="IT Owner"
         )
 
         resp = await client.get("/api/v1/stakeholder-roles", params={"type_key": "Application"})
@@ -102,7 +102,7 @@ class TestListStakeholderRoles:
         keys = {r["key"] for r in resp.json()}
         assert "responsible" in keys
         assert "observer" in keys
-        assert "it_owner" not in keys
+        assert "itOwner" not in keys
 
     async def test_list_roles_filtered_by_type_key_with_no_defs(self, client, db):
         """Falls back to defaults when no definitions exist for a type."""

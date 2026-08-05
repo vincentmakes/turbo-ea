@@ -2694,7 +2694,7 @@ async def import_bpmn(
         except Exception as exc:  # noqa: BLE001 — surface verbatim
             publish_warning = (
                 "Diagram submitted for approval but the user does not have "
-                "permission to publish it (requires the process_owner "
+                "permission to publish it (requires the processOwner "
                 "stakeholder role, admin, or bpm_admin). The pending "
                 f"draft is visible at /cards/{process_id} under "
                 f"Process Flow → Drafts. Approve from there to publish. "
