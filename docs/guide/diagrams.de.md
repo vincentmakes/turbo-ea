@@ -96,6 +96,18 @@ Jede Turbo-EA-Beziehung sieht auf der Leinwand gleich aus, unabhängig davon, wi
 - **Das Verb aus Sicht der Ausgangskarte.** Eine ausgehende Beziehung zeigt die Vorwärtsbezeichnung (*stellt bereit*), eine eingehende die Rückwärtsbezeichnung (*wird bereitgestellt von*).
 - **Eine gestrichelte Linie**, solange die Beziehung noch aussteht; sie wird durchgezogen, sobald sie ins Inventar übertragen wurde.
 
+#### Anbieter und Konsument
+
+Manche Beziehungen tragen eine **Flussrichtung** — allen voran die Verbindung zwischen einer Anwendung und einer Schnittstelle, bei der eine Anwendung die Schnittstelle *bereitstellt* und andere sie *konsumieren*. Legen Sie sie beim Zeichnen im Beziehungsdialog fest (oder nachträglich im Abschnitt Beziehungen der Karte), und die Pfeilspitze folgt dann den Daten statt der Beziehung:
+
+| Flussrichtung | Pfeilspitze |
+|---|---|
+| **Anbieter** (Quelle → Ziel) | zeigt auf die Schnittstelle |
+| **Konsument** (Ziel → Quelle) | zeigt zurück auf die Anwendung |
+| **Bidirektional** | Pfeilspitzen an beiden Enden |
+
+Das entspricht dem, was die [Layered Dependency View](reports.md) bereits zeichnet, sodass Diagramm und Abhängigkeitsbericht übereinstimmen. Verbindungen ohne gesetzte Flussrichtung behalten den einfachen Beziehungspfeil — die Information muss im Modell stehen, bevor ein Diagramm sie zeigen kann.
+
 ### Beziehungsbeschriftungen ausblenden
 
 Jede Beziehungskante trägt ihr Verb — *stellt bereit*, *nutzt*, *unterstützt*. In einer dichten Landschaft wird das schnell mehr Rauschen als Information, daher bietet das Überlaufmenü **⋮** die Option **Beziehungsbeschriftungen ausblenden** (und **einblenden**, um sie zurückzuholen).

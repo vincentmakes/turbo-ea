@@ -96,6 +96,18 @@ Enhver Turbo EA-relation ser ens ud på lærredet, uanset hvordan den kom derhen
 - **Udsagnsordet set fra det kort, du gik ud fra.** En udgående relation viser den fremadrettede etiket (*leverer*), en indgående den omvendte (*leveres af*).
 - **En stiplet linje**, så længe relationen endnu ikke er sendt til inventaret; den bliver massiv, når den er.
 
+#### Leverandør og forbruger
+
+Nogle relationer bærer en **flowretning** — først og fremmest forbindelsen mellem en Applikation og en Grænseflade, hvor én applikation *leverer* grænsefladen, og andre *forbruger* den. Angiv den i relationsdialogen, når du tegner forbindelsen (eller bagefter fra kortets Relationer-sektion), så følger pilespidsen data i stedet for relationen:
+
+| Flowretning | Pilespids |
+|---|---|
+| **Leverandør** (kilde → mål) | peger på Grænsefladen |
+| **Forbruger** (mål → kilde) | peger tilbage på Applikationen |
+| **Bidirektional** | pilespidser i begge ender |
+
+Det svarer til det, [Layered Dependency View](reports.md) allerede tegner, så diagrammet og afhængighedsrapporten stemmer overens. Forbindelser uden angivet flowretning beholder den almindelige relationspil — informationen skal findes i modellen, før et diagram kan vise den.
+
 ### Skjul relationsetiketter
 
 Hver relationskant viser sit udsagnsord — *leverer*, *forbruger*, *understøtter*. På et tæt landskab bliver det hurtigt mere støj end information, så **⋮**-menuen tilbyder **Skjul relationsetiketter** (og **Vis relationsetiketter** for at hente dem tilbage).

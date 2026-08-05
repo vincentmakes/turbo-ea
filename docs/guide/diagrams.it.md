@@ -96,6 +96,18 @@ Ogni relazione di Turbo EA appare uguale sulla tela, comunque vi sia arrivata �
 - **Il verbo letto dalla scheda di partenza.** Una relazione uscente mostra l'etichetta diretta (*fornisce*), una entrante l'etichetta inversa (*fornito da*).
 - **Una linea tratteggiata** finché la relazione è ancora in sospeso; diventa continua una volta inviata all'inventario.
 
+#### Fornitore e consumatore
+
+Alcune relazioni portano una **direzione di flusso** — in primo luogo il collegamento tra un'Applicazione e un'Interfaccia, dove un'applicazione *fornisce* l'interfaccia e altre la *consumano*. Impostala nella finestra di dialogo della relazione mentre disegni il collegamento (o in seguito dalla sezione Relazioni della scheda), e la punta di freccia seguirà i dati anziché la relazione:
+
+| Direzione di flusso | Punta di freccia |
+|---|---|
+| **Fornitore** (sorgente → destinazione) | punta all'Interfaccia |
+| **Consumatore** (destinazione → sorgente) | punta all'Applicazione |
+| **Bidirezionale** | punte a entrambe le estremità |
+
+Corrisponde a ciò che la [Layered Dependency View](reports.md) disegna già, così diagramma e report delle dipendenze concordano. I collegamenti senza direzione di flusso impostata mantengono la freccia di direzione della relazione: l'informazione deve esistere nel modello prima che un diagramma possa mostrarla.
+
 ### Nascondere le etichette delle relazioni
 
 Ogni arco di relazione porta il proprio verbo — *fornisce*, *consuma*, *supporta*. In un panorama denso diventa presto più rumore che informazione, perciò il menu **⋮** offre **Nascondi le etichette delle relazioni** (e **Mostra** per riportarle).

@@ -96,6 +96,18 @@ Every Turbo EA relation looks the same on the canvas however it got there — dr
 - **The verb as read from the card you started at.** An outgoing relation shows the forward label (*provides*), an incoming one shows the reverse label (*provided by*).
 - **A dashed line** while the relation is still pending, turning solid once it has been pushed to the inventory.
 
+#### Provider and consumer
+
+Some relations carry a **flow direction** — most importantly the link between an Application and an Interface, where one application *provides* the interface and others *consume* it. Set it in the relation dialog when you draw the link (or from the card's Relations section afterwards), and the arrowhead follows the data rather than the relation:
+
+| Flow direction | Arrowhead |
+|---|---|
+| **Provider** (source → target) | points at the Interface |
+| **Consumer** (target → source) | points back at the Application |
+| **Bidirectional** | arrowheads at both ends |
+
+This matches what the [Layered Dependency View](reports.md) already draws, so a diagram and a dependency report agree. Links where the flow direction was never set keep the plain relation-direction arrow — the information has to be in the model before a diagram can show it.
+
 ### Hiding relation labels
 
 Every relation edge carries its verb — *provides*, *consumes*, *supports*. On a dense landscape that quickly becomes more noise than information, so the **⋮** overflow menu offers **Hide relation labels** (and **Show relation labels** to bring them back).

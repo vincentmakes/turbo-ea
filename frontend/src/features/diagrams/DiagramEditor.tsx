@@ -87,6 +87,7 @@ import type {
 import type {
   ChildLayout,
   ExpandChildData,
+  RelationFlowDirection,
   RemovedRelationTombstone,
 } from "./drawio-shapes";
 import ExpandMenu from "./ExpandMenu";
@@ -102,6 +103,25 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { relationLabel, useTypeLabel } from "@/hooks/useResolveLabel";
 import { useAuthContext } from "@/hooks/AuthContext";
 import type { Card, CardType, Relation, RelationType } from "@/types";
+import {
+  flowDirectionBadge,
+  type RelationAttributes,
+} from "@/features/cards/sections/RelationAttributesEditor";
+
+/**
+ * A relation's flow direction, but only when its relation type actually
+ * declares the `flowDirection` attribute — the same gate the Card Detail
+ * badge uses, so the canvas and the card can never disagree about whether an
+ * Application provides or consumes an Interface. Returns undefined when the
+ * type has no such attribute or the value was never set, which is exactly the
+ * "fall back to the relation's own direction" case.
+ */
+function relationFlowFor(
+  rt: RelationType | undefined,
+  attributes?: RelationAttributes,
+): RelationFlowDirection | undefined {
+  return flowDirectionBadge(rt, attributes)?.value;
+}
 
 /* ------------------------------------------------------------------ */
 /*  DrawIO configuration                                               */
@@ -934,12 +954,17 @@ export default function DiagramEditor() {
    *  card being expanded*: an outgoing relation shows the forward verb, an
    *  incoming one the reverse verb. Expansion edges are always inserted
    *  parent → child, so `incoming` only decides which end carries the
-   *  arrowhead (discussion #905). */
+   *  arrowhead (discussion #905).
+   *
+   *  When the relation carries a `flowDirection` attribute the arrowhead
+   *  follows that instead, so an Application that *consumes* an Interface is
+   *  distinguishable from one that *provides* it without opening the link. */
   const relationEdgeMeta = useCallback(
-    (relationTypeKey: string, incoming: boolean) => {
+    (relationTypeKey: string, incoming: boolean, attributes?: RelationAttributes) => {
       const rt = relTypesRef.current.find((x) => x.key === relationTypeKey);
       return {
         incoming,
+        flow: relationFlowFor(rt, attributes),
         relationLabel: rt ? relationLabel(rt, i18n.language, incoming) : "",
       };
     },
@@ -984,7 +1009,7 @@ export default function DiagramEditor() {
               icon: ct?.icon,
               relationType: r.type,
               relationId: r.id,
-              ...relationEdgeMeta(r.type, r.target_id === cardId),
+              ...relationEdgeMeta(r.type, r.target_id === cardId, r.attributes),
             });
           }
           if (children.length === 0) {
@@ -1099,7 +1124,7 @@ export default function DiagramEditor() {
                 icon: iconForType(other.type),
                 relationType: r.type,
                 relationId: r.id,
-                ...relationEdgeMeta(r.type, !isOutgoing),
+                ...relationEdgeMeta(r.type, !isOutgoing, r.attributes),
               });
             }
           }
@@ -1353,7 +1378,7 @@ export default function DiagramEditor() {
               icon: ct?.icon,
               relationType: r.type,
               relationId: r.id,
-              ...relationEdgeMeta(r.type, r.target_id === cardId),
+              ...relationEdgeMeta(r.type, r.target_id === cardId, r.attributes),
             });
           }
           if (children.length === 0) {
@@ -2067,6 +2092,7 @@ export default function DiagramEditor() {
       stampEdgeAsRelation(
         frame, ep.edgeCellId, relType.key, verb, reversed, true,
         hideRelationLabelsRef.current,
+        relationFlowFor(relType, attributes),
       );
 
       if (attributes && Object.keys(attributes).length > 0) {

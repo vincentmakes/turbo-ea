@@ -96,6 +96,18 @@ Qualquer relação do Turbo EA tem o mesmo aspeto na tela, independentemente de 
 - **O verbo lido a partir do cartão de partida.** Uma relação de saída mostra a etiqueta direta (*fornece*), uma de entrada mostra a etiqueta inversa (*fornecido por*).
 - **Uma linha tracejada** enquanto a relação estiver pendente; passa a contínua assim que for enviada para o inventário.
 
+#### Fornecedor e consumidor
+
+Algumas relações têm um **sentido de fluxo** — sobretudo a ligação entre uma Aplicação e uma Interface, em que uma aplicação *fornece* a interface e outras a *consomem*. Defina-o na caixa de diálogo da relação ao desenhar a ligação (ou depois, na secção Relações do cartão), e a seta passa a seguir os dados em vez da relação:
+
+| Sentido de fluxo | Seta |
+|---|---|
+| **Fornecedor** (origem → destino) | aponta para a Interface |
+| **Consumidor** (destino → origem) | aponta de volta para a Aplicação |
+| **Bidirecional** | setas em ambas as extremidades |
+
+Corresponde ao que a [Layered Dependency View](reports.md) já desenha, pelo que o diagrama e o relatório de dependências concordam. As ligações sem sentido de fluxo definido mantêm a seta de direção da relação — a informação tem de estar no modelo antes de um diagrama a poder mostrar.
+
 ### Ocultar as etiquetas de relação
 
 Cada aresta de relação exibe o seu verbo — *fornece*, *consome*, *suporta*. Num panorama denso isso torna-se depressa mais ruído do que informação, por isso o menu **⋮** oferece **Ocultar etiquetas de relação** (e **Mostrar** para as trazer de volta).

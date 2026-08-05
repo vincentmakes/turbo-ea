@@ -96,6 +96,18 @@ Toute relation Turbo EA a la même apparence sur le canevas, quelle que soit la 
 - **Le verbe vu depuis la fiche de départ.** Une relation sortante affiche le libellé direct (*fournit*), une relation entrante le libellé inverse (*fourni par*).
 - **Une ligne pointillée** tant que la relation est en attente ; elle devient pleine une fois poussée dans l'inventaire.
 
+#### Fournisseur et consommateur
+
+Certaines relations portent un **sens de flux** — au premier chef le lien entre une Application et une Interface, où une application *fournit* l'interface et d'autres la *consomment*. Renseignez-le dans la boîte de dialogue de relation au moment du tracé (ou depuis la section Relations de la fiche ensuite), et la pointe de flèche suit alors les données plutôt que la relation :
+
+| Sens de flux | Pointe de flèche |
+|---|---|
+| **Fournisseur** (source → cible) | pointe vers l'Interface |
+| **Consommateur** (cible → source) | pointe vers l'Application |
+| **Bidirectionnel** | pointes aux deux extrémités |
+
+Cela correspond à ce que la [Layered Dependency View](reports.md) dessine déjà, si bien que le diagramme et le rapport de dépendances concordent. Les liens dont le sens de flux n'a jamais été renseigné conservent la flèche de direction de relation — l'information doit exister dans le modèle avant qu'un diagramme puisse l'afficher.
+
 ### Masquer les libellés de relation
 
 Chaque lien de relation porte son verbe — *fournit*, *consomme*, *soutient*. Sur un paysage dense, cela devient vite plus du bruit que de l'information : le menu **⋮** propose donc **Masquer les libellés de relation** (et **Afficher** pour les rétablir).

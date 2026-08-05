@@ -13,6 +13,7 @@ import {
   markEdgeSynced,
   relationEdgeStyle,
   RELATION_EDGE_COLOR,
+  readFlowDirection,
   type DiagramCardInput,
   type DiagramRelInput,
   type DiagramLayerInput,
@@ -855,5 +856,119 @@ describe("edge builders all delegate to relationEdgeStyle", () => {
 
     markEdgeSynced(frame, "e", true, "rel-1");
     expect(edge._style).toBe(relationEdgeStyle({ incoming: true }));
+  });
+});
+
+/* ---------------------------------------------------------------------- */
+/*  flowDirection arrowheads — provider vs consumer on an edge (#905)      */
+/* ---------------------------------------------------------------------- */
+
+describe("relationEdgeStyle honours a relation's flowDirection", () => {
+  const arrows = (style: string) => {
+    const parts = style.split(";");
+    return {
+      start: parts.includes("startArrow=block"),
+      end: parts.includes("endArrow=block"),
+    };
+  };
+
+  it("points at the target when data flows source → target", () => {
+    // The reporter's case: an Application that *provides* an Interface.
+    expect(arrows(relationEdgeStyle({ flow: "forward" }))).toEqual({
+      start: false,
+      end: true,
+    });
+  });
+
+  it("points back at the source when data flows target → source", () => {
+    // An Application that *consumes* the Interface — the whole point is that
+    // this must look different from the provider link above.
+    expect(arrows(relationEdgeStyle({ flow: "reverse" }))).toEqual({
+      start: true,
+      end: false,
+    });
+  });
+
+  it("arrows both ends when the flow is bidirectional", () => {
+    expect(arrows(relationEdgeStyle({ flow: "bidirectional" }))).toEqual({
+      start: true,
+      end: true,
+    });
+  });
+
+  it("re-orients the flow onto an edge drawn the other way round", () => {
+    // flowDirection is stored on the RELATION's source → target axis. When the
+    // edge was drawn against that axis the arrowhead has to swap ends, or a
+    // provider and a consumer would render identically.
+    expect(arrows(relationEdgeStyle({ flow: "forward", incoming: true }))).toEqual({
+      start: true,
+      end: false,
+    });
+    expect(arrows(relationEdgeStyle({ flow: "reverse", incoming: true }))).toEqual({
+      start: false,
+      end: true,
+    });
+    // Bidirectional is symmetric, so re-orienting is a no-op.
+    expect(arrows(relationEdgeStyle({ flow: "bidirectional", incoming: true }))).toEqual({
+      start: true,
+      end: true,
+    });
+  });
+
+  it("leaves every relation without a flow exactly as it was", () => {
+    // Regression guard: only relation types that declare the attribute change.
+    expect(relationEdgeStyle({ flow: undefined })).toBe(relationEdgeStyle());
+    expect(relationEdgeStyle({ flow: undefined, incoming: true })).toBe(
+      relationEdgeStyle({ incoming: true }),
+    );
+    expect(relationEdgeStyle({ flow: undefined, pending: true, hideLabel: true })).toBe(
+      relationEdgeStyle({ pending: true, hideLabel: true }),
+    );
+  });
+
+  it("still dashes and hides labels when a flow is set", () => {
+    const style = relationEdgeStyle({ flow: "reverse", pending: true, hideLabel: true });
+    expect(style.split(";")).toContain("dashed=1");
+    expect(style.split(";")).toContain("noLabel=1");
+  });
+});
+
+describe("readFlowDirection", () => {
+  it("accepts the three stored values", () => {
+    expect(readFlowDirection("forward")).toBe("forward");
+    expect(readFlowDirection("reverse")).toBe("reverse");
+    expect(readFlowDirection("bidirectional")).toBe("bidirectional");
+  });
+
+  it("returns undefined for anything else, so the edge falls back", () => {
+    // Covers the unset attribute, a legacy edge with no stamp, and junk.
+    for (const v of [null, undefined, "", "sideways", 1, {}]) {
+      expect(readFlowDirection(v)).toBeUndefined();
+    }
+  });
+});
+
+describe("flowDirection survives the pending → synced switch", () => {
+  it("stampEdgeAsRelation stamps it and markEdgeSynced reads it back", () => {
+    // markEdgeSynced deliberately takes no flow argument — it reads what the
+    // stamp left, so the two paths cannot disagree.
+    const edge = edgeCell({}, "");
+    const frame = viewFrame({ e: edge });
+
+    stampEdgeAsRelation(frame, "e", "relAppToInterface", "provides / consumes", false, true, false, "reverse");
+    expect(edge.value.getAttribute("flowDirection")).toBe("reverse");
+    expect(edge._style).toBe(relationEdgeStyle({ flow: "reverse", pending: true }));
+
+    markEdgeSynced(frame, "e", false, "rel-1");
+    expect(edge._style).toBe(relationEdgeStyle({ flow: "reverse" }));
+  });
+
+  it("leaves an edge with no flow unstamped", () => {
+    const edge = edgeCell({}, "");
+    const frame = viewFrame({ e: edge });
+
+    stampEdgeAsRelation(frame, "e", "relOrgToApp", "uses", false, true);
+    expect(edge.value.getAttribute("flowDirection")).toBeNull();
+    expect(edge._style).toBe(relationEdgeStyle({ pending: true }));
   });
 });

@@ -71,15 +71,57 @@ const NO_LABEL_PART = "noLabel=1";
  */
 export const RELATION_EDGE_COLOR = "#4a4a4a";
 
+/**
+ * Value of a relation's `flowDirection` attribute, expressed on the relation's
+ * own source → target axis (so `forward` means "data flows from the relation's
+ * source to its target", whichever way the edge happens to be drawn).
+ */
+export type RelationFlowDirection = "forward" | "reverse" | "bidirectional";
+
 export interface RelationEdgeStyleOptions {
   /** The relation runs child → parent, i.e. against the direction the mxGraph
    *  edge was inserted in. Only the arrowhead moves; the edge's endpoints stay
    *  put, because expand / collapse and the sync side-table key off them. */
   incoming?: boolean;
+  /** The relation carries a `flowDirection` attribute. When set it decides the
+   *  arrowhead instead of the relation's own direction, so an Application that
+   *  *consumes* an Interface is distinguishable from one that *provides* it
+   *  without opening the link (discussion #905). Left undefined for every
+   *  relation type that has no such attribute, or has one that is unset. */
+  flow?: RelationFlowDirection;
   /** Not yet pushed to the inventory — drawn dashed. */
   pending?: boolean;
   /** The diagram is hiding relation verbs (see setRelationLabelsHidden). */
   hideLabel?: boolean;
+}
+
+/**
+ * Narrow a raw stored value (a cell attribute, a relation's JSONB attribute)
+ * to a {@link RelationFlowDirection}, or undefined when it is absent or is
+ * anything else.
+ */
+export function readFlowDirection(value: unknown): RelationFlowDirection | undefined {
+  return value === "forward" || value === "reverse" || value === "bidirectional"
+    ? value
+    : undefined;
+}
+
+/**
+ * Which end of the *drawn* edge carries the arrowhead.
+ *
+ * `flow` is stored on the relation's source → target axis while the edge may
+ * have been drawn the other way round (`incoming`), so the two have to be
+ * combined rather than read independently. With no `flow` this reduces to the
+ * plain relation-direction arrow.
+ */
+function relationArrowParts(opts: RelationEdgeStyleOptions): string {
+  if (opts.flow === "bidirectional") {
+    return "startArrow=block;startFill=1;endArrow=block;endFill=1";
+  }
+  const atEnd = opts.flow ? (opts.flow === "forward") !== !!opts.incoming : !opts.incoming;
+  return atEnd
+    ? "endArrow=block;endFill=1;startArrow=none"
+    : "startArrow=block;startFill=1;endArrow=none";
 }
 
 /**
@@ -95,12 +137,12 @@ export interface RelationEdgeStyleOptions {
  * function and they cannot drift again.
  *
  * The arrowhead marks the relation's **target**, so the direction is readable
- * without reading the verb.
+ * without reading the verb — or, when the relation carries a `flowDirection`
+ * attribute, the direction the data actually flows, matching what the Layered
+ * Dependency View already draws.
  */
 export function relationEdgeStyle(opts: RelationEdgeStyleOptions = {}): string {
-  const arrow = opts.incoming
-    ? "startArrow=block;startFill=1;endArrow=none"
-    : "endArrow=block;endFill=1;startArrow=none";
+  const arrow = relationArrowParts(opts);
   return (
     `edgeStyle=entityRelationEdgeStyle;strokeColor=${RELATION_EDGE_COLOR};` +
     `strokeWidth=1.5;${arrow};fontSize=10;fontColor=#666;` +
@@ -423,6 +465,7 @@ export function stampEdgeAsRelation(
   incoming: boolean,
   pending: boolean,
   hideLabel = false,
+  flow?: RelationFlowDirection,
 ): boolean {
   const ctx = getMxGraph(iframe);
   if (!ctx) return false;
@@ -443,11 +486,15 @@ export function stampEdgeAsRelation(
     // POST source/target the right way round and a reload can put the
     // arrowhead back on the correct end.
     if (incoming) obj.setAttribute("reversed", "1");
+    // Persist the flow so the pending -> synced restyle and a reload both put
+    // the arrowhead back where the attribute says, without re-reading the
+    // relation.
+    if (flow) obj.setAttribute("flowDirection", flow);
     if (pending) obj.setAttribute("pending", "1");
     model.setValue(edge, obj);
 
     graph.setCellStyles("edgeStyle", "entityRelationEdgeStyle", [edge]);
-    model.setStyle(edge, relationEdgeStyle({ incoming, pending, hideLabel }));
+    model.setStyle(edge, relationEdgeStyle({ incoming, flow, pending, hideLabel }));
   } finally {
     model.endUpdate();
   }
@@ -514,9 +561,12 @@ export function markEdgeSynced(
     const obj = edge.value;
     if (obj?.removeAttribute) obj.removeAttribute("pending");
     if (relationId && obj?.setAttribute) obj.setAttribute("relationId", relationId);
+    // Read the flow back off the edge rather than taking it as an argument —
+    // stampEdgeAsRelation already stamped it, so the two cannot disagree.
+    const flow = readFlowDirection(obj?.getAttribute?.("flowDirection"));
     // Same builder as every other path — the pending -> synced switch only
     // drops the dashes.
-    model.setStyle(edge, relationEdgeStyle({ incoming, hideLabel }));
+    model.setStyle(edge, relationEdgeStyle({ incoming, flow, hideLabel }));
   } finally {
     model.endUpdate();
   }
@@ -738,6 +788,9 @@ export interface ExpandChildData {
    *  child (expand/collapse and the sync side-table key off that); only the
    *  arrowhead moves. */
   incoming?: boolean;
+  /** The relation's `flowDirection` attribute, when it has one. Decides the
+   *  arrowhead in place of `incoming` — see {@link RelationEdgeStyleOptions}. */
+  flow?: RelationFlowDirection;
   /** Backend relation id, when known. Stamped onto the connecting edge so
    *  canvas deletions can fire `DELETE /relations/{id}`. */
   relationId?: string;
@@ -914,10 +967,11 @@ export function expandCardGroup(
       const edge = graph.insertEdge(
         root, edgeCellId, "",
         parentCell, vertex,
-        relationEdgeStyle({ incoming: ch.incoming, hideLabel: hideLabels }),
+        relationEdgeStyle({ incoming: ch.incoming, flow: ch.flow, hideLabel: hideLabels }),
       );
       const edgeObj = xmlDoc.createElement("object");
       edgeObj.setAttribute("label", ch.relationLabel ?? "");
+      if (ch.flow) edgeObj.setAttribute("flowDirection", ch.flow);
       if (ch.relationType) edgeObj.setAttribute("relationType", ch.relationType);
       if (ch.relationId) edgeObj.setAttribute("relationId", ch.relationId);
       model.setValue(edge, edgeObj);
@@ -2923,10 +2977,11 @@ function insertChildVertex(
     "",
     parentCell,
     vertex,
-    relationEdgeStyle({ incoming: ch.incoming, hideLabel: hideLabels }),
+    relationEdgeStyle({ incoming: ch.incoming, flow: ch.flow, hideLabel: hideLabels }),
   );
   const edgeObj = xmlDoc.createElement("object");
   edgeObj.setAttribute("label", ch.relationLabel ?? "");
+  if (ch.flow) edgeObj.setAttribute("flowDirection", ch.flow);
   if (ch.relationType) edgeObj.setAttribute("relationType", ch.relationType);
   if (ch.relationId) edgeObj.setAttribute("relationId", ch.relationId);
   graph.getModel().setValue(edge, edgeObj);
