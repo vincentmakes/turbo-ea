@@ -296,16 +296,15 @@ async def list_stakeholder_roles(
 
     # One grouped query for every role rather than a count per row — the panel
     # renders this list on every card-type drawer open.
-    counts = dict(
-        (
-            await db.execute(
-                select(Stakeholder.role, func.count(Stakeholder.id))
-                .join(Card, Stakeholder.card_id == Card.id)
-                .where(Card.type == type_key)
-                .group_by(Stakeholder.role)
-            )
-        ).all()
-    )
+    count_rows = (
+        await db.execute(
+            select(Stakeholder.role, func.count(Stakeholder.id))
+            .join(Card, Stakeholder.card_id == Card.id)
+            .where(Card.type == type_key)
+            .group_by(Stakeholder.role)
+        )
+    ).all()
+    counts: dict[str, int] = {role: count for role, count in count_rows}
 
     return [_srd_response(srd, stakeholder_count=counts.get(srd.key, 0)) for srd in srds]
 
