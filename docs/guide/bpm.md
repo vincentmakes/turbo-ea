@@ -43,6 +43,7 @@ Each Business Process card can have a **BPMN 2.0 process flow diagram**. The edi
 - **Visual modeling** — Drag and drop BPMN elements: tasks, events, gateways, lanes, and sub-processes
 - **Starter templates** — Choose from 6 pre-built BPMN templates for common process patterns (or start from a blank canvas)
 - **Element extraction** — When you save a diagram, the system automatically extracts all tasks, events, gateways, and lanes for analysis
+- **Element colors** — Select one or more elements and use the paint bucket button on the context pad to apply a color. Colors are stored in the BPMN file itself, so they also appear in the read-only viewer, exports, and printouts
 
 ### Element Linking
 

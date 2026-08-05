@@ -32,6 +32,9 @@ import { bpmnCanvasSx } from "./bpmnStyles";
 import "bpmn-js/dist/assets/diagram-js.css";
 import "bpmn-js/dist/assets/bpmn-js.css";
 import "bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css";
+// Lays the colour swatches out in a 3-wide grid — without it they stack in a
+// single column. Required, not cosmetic.
+import "bpmn-js-color-picker/colors/color-picker.css";
 
 interface Props {
   processId: string;
@@ -62,12 +65,21 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
     let destroyed = false;
 
     async function init() {
-      const BpmnJS = (await import("bpmn-js/lib/Modeler")).default;
+      // The colour picker rides along in the same lazy chunk as bpmn-js. It
+      // contributes the "Set color" context-pad entry, which is not part of
+      // bpmn-js core (#910). Colours are written to the BPMN DI by core
+      // `modeling.setColor()`, so no moddle extensions are needed — bpmn-moddle
+      // already ships the `bioc` and BPMN-in-Color packages.
+      const [BpmnJS, ColorPickerModule] = await Promise.all([
+        import("bpmn-js/lib/Modeler").then((m) => m.default),
+        import("bpmn-js-color-picker").then((m) => m.default),
+      ]);
 
       if (destroyed || !containerRef.current) return;
 
       const modeler = new BpmnJS({
         container: containerRef.current,
+        additionalModules: [ColorPickerModule],
       });
 
       modelerRef.current = modeler;

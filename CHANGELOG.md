@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.40.0] - 2026-08-05
+
+### Added
+- **BPMN elements can be coloured.** Select one or more shapes in the process flow editor and pick a colour from the paint bucket button on the context pad — the same six-swatch palette as bpmn.io ([#910](https://github.com/vincentmakes/turbo-ea/discussions/910)). Colours are written into the BPMN file itself, so they survive a reload, follow the diagram into the read-only viewer, and appear in exports, thumbnails and printouts. Colouring works in both Simple and Full modelling modes.
+
+### Fixed
+- **The read-only process flow viewer no longer paints over a colour you chose.** Automated tasks are tinted green to mark them as automated, which overrode any colour set by hand on the same shape. A deliberate colour now wins; automated tasks left uncoloured are tinted as before.
+
 ## [2.39.1] - 2026-08-05
 
 ### Fixed

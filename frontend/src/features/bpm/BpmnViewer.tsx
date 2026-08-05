@@ -16,6 +16,19 @@ import "bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css";
 
 import type { ProcessElement } from "@/types";
 
+/**
+ * True when the shape carries an explicit colour set by hand in the modeler.
+ *
+ * Mirrors bpmn-js's own lookup in `getFillColor` (lib/draw/BpmnRenderUtil.js):
+ * BPMN-in-Color first, then the legacy bpmn.io `bioc` attribute. bpmn-js 18's
+ * `getDi(element)` is just `element.di`, inlined here so this helper stays free
+ * of a static bpmn-js import — the library is loaded lazily below.
+ */
+export function hasExplicitFill(element: any): boolean {
+  const di = element?.di;
+  return Boolean(di?.get?.("color:background-color") || di?.get?.("bioc:fill"));
+}
+
 interface Props {
   bpmnXml: string;
   elements?: ProcessElement[];
@@ -61,8 +74,9 @@ export default function BpmnViewer({ bpmnXml, elements, onElementClick, height =
             const shape = elementRegistry.get(el.bpmn_element_id);
             if (!shape) continue;
 
-            // Color by automation
-            if (el.is_automated) {
+            // Color by automation — but never over a colour the user picked in
+            // the modeler, which is an explicit choice and must win (#910).
+            if (el.is_automated && !hasExplicitFill(shape)) {
               const gfx = elementRegistry.getGraphics(el.bpmn_element_id);
               if (gfx) {
                 const rect = gfx.querySelector(".djs-visual rect, .djs-visual polygon");

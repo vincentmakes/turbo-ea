@@ -43,6 +43,7 @@ Cada card de Processo de Negócio pode ter um **diagrama de fluxo de processo BP
 - **Modelagem visual** — Arraste e solte elementos BPMN: tarefas, eventos, gateways, raias e sub-processos
 - **Templates iniciais** — Escolha entre 6 templates BPMN pré-construídos para padrões comuns de processo (ou comece de uma tela em branco)
 - **Extração de elementos** — Quando você salva um diagrama, o sistema extrai automaticamente todas as tarefas, eventos, gateways e raias para análise
+- **Cores dos elementos** — Selecione um ou mais elementos e use o botão de balde de tinta no painel de contexto para aplicar uma cor. As cores são gravadas no próprio arquivo BPMN, portanto também aparecem no visualizador somente leitura, nas exportações e nas impressões
 
 ### Vinculação de Elementos
 
