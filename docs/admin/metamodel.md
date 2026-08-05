@@ -126,7 +126,7 @@ Roles can be removed in two ways:
 - **Archive** — the role stays on cards that already use it but can no longer be assigned, and it stops granting its card-level permissions. Archived roles are listed behind the **Show archived** toggle and can be restored at any time. This is the right choice for a role that has been genuinely used.
 - **Delete** — permanent, and only offered while the role is unused. Turbo EA refuses to delete a role that anyone holds on a card of this type, that a survey targets, or that is the type's last remaining active role; the confirmation dialog says which of these applies and offers to archive it instead. This is the way to clean up a role that was created by mistake.
 
-A role's key can likewise be corrected only while the role is unused — once someone holds it, the key is locked and the field explains why. Roles created before this convention keep the key they already have and go on working; only a new or changed key is checked.
+A role's key can be corrected as long as **nobody holds the role** — surveys that target it follow the rename automatically, and renaming the type's only role is fine since the role survives it. Once someone holds the role, the key is locked and the field explains why. Roles created before this convention keep the key they already have and go on working; only a new or changed key is checked.
 
 #### Translations
 

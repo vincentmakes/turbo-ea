@@ -124,7 +124,7 @@ Rollen lassen sich auf zwei Arten entfernen:
 - **Archivieren** — die Rolle bleibt auf Karten erhalten, die sie bereits verwenden, kann aber nicht mehr zugewiesen werden und gewährt keine Berechtigungen auf Kartenebene mehr. Archivierte Rollen erscheinen über den Schalter **Archivierte anzeigen** und können jederzeit wiederhergestellt werden. Das ist die richtige Wahl für eine Rolle, die tatsächlich verwendet wurde.
 - **Löschen** — dauerhaft und nur möglich, solange die Rolle nicht verwendet wird. Turbo EA verweigert das Löschen einer Rolle, die jemand auf einer Karte dieses Typs innehat, die von einer Umfrage verwendet wird oder die letzte aktive Rolle des Typs ist; der Bestätigungsdialog nennt den Grund und bietet stattdessen das Archivieren an. So räumen Sie eine versehentlich angelegte Rolle auf.
 
-Ebenso lässt sich der Schlüssel einer Rolle nur korrigieren, solange sie nicht verwendet wird — sobald jemand sie innehat, ist der Schlüssel gesperrt und das Feld erklärt warum. Rollen, die vor dieser Konvention angelegt wurden, behalten ihren bestehenden Schlüssel und funktionieren weiterhin; geprüft wird nur ein neuer oder geänderter Schlüssel.
+Der Schlüssel einer Rolle lässt sich korrigieren, solange **niemand die Rolle innehat** — Umfragen, die sie verwenden, folgen der Umbenennung automatisch, und auch die einzige Rolle eines Typs lässt sich umbenennen, da die Rolle dabei erhalten bleibt. Sobald jemand die Rolle innehat, ist der Schlüssel gesperrt und das Feld erklärt warum. Rollen, die vor dieser Konvention angelegt wurden, behalten ihren bestehenden Schlüssel und funktionieren weiterhin; geprüft wird nur ein neuer oder geänderter Schlüssel.
 
 #### Übersetzungen
 

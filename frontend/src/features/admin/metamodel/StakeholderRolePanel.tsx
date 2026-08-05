@@ -35,6 +35,8 @@ interface RoleUsage {
   survey_count: number;
   is_last_active: boolean;
   can_delete: boolean;
+  /** A rename is refused only while somebody holds the role — surveys follow it. */
+  can_rekey: boolean;
 }
 
 /** Backend grammar for a role key: `^[a-zA-Z][a-zA-Z0-9]{2,49}$`. */
@@ -513,9 +515,10 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                         value={editForm.key}
                         onChange={(v) => setEditForm({ ...editForm, key: v })}
                         fullWidth
-                        // Re-keying rewrites nothing but this row, so it is only
-                        // offered while nothing points at the old key.
-                        locked={!editUsage || !editUsage.can_delete}
+                        // Gated on `can_rekey`, NOT `can_delete`: a role that is
+                        // merely a survey's target, or the type's only role, can
+                        // still be renamed — only a live assignment blocks it.
+                        locked={!editUsage || !editUsage.can_rekey}
                         lockedReason={
                           !editUsage
                             ? t("metamodel.stakeholderPanel.checkingUsage")

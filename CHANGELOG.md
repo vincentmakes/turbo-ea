@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - **A stakeholder role can now be deleted.** Admin → Metamodel → *Stakeholder roles* gains a delete action for a role that nobody holds — the case where you created one, mistyped its key, and were previously stuck with it forever ([#907](https://github.com/vincentmakes/turbo-ea/discussions/907)). Deletion is refused for a role that is actually in use: the confirmation dialog reports how many people hold it on how many cards and offers to archive it instead, so nobody silently loses the card-level permissions the role grants.
-- **A stakeholder role's key can now be changed.** As long as nobody holds the role and no survey targets it, the key can be corrected in place instead of deleting and re-creating the role.
+- **A stakeholder role's key can now be changed.** As long as nobody holds the role, the key can be corrected in place instead of deleting and re-creating the role — including for a built-in role, a role a survey targets (the survey follows the rename), and a card type's only role.
 - **Creating a stakeholder role fills the key in for you.** Typing the label *Business Architect* now proposes the key `businessArchitect`; you can still overwrite it, and it stops following the label as soon as you do.
 
 ### Changed

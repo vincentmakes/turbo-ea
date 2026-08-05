@@ -124,7 +124,7 @@ I ruoli possono essere rimossi in due modi:
 - **Archivia** — il ruolo rimane sulle schede che già lo usano ma non può più essere assegnato e smette di concedere i permessi a livello di scheda. I ruoli archiviati compaiono dietro l'interruttore **Mostra archiviati** e possono essere ripristinati in qualsiasi momento. È la scelta giusta per un ruolo realmente utilizzato.
 - **Elimina** — permanente e offerto solo finché il ruolo non è utilizzato. Turbo EA rifiuta di eliminare un ruolo ricoperto da qualcuno su una scheda di questo tipo, utilizzato da un sondaggio, o che è l'ultimo ruolo attivo del tipo; la finestra di conferma indica il motivo e propone invece l'archiviazione. È così che si ripulisce un ruolo creato per errore.
 
-Analogamente, la chiave di un ruolo può essere corretta solo finché il ruolo non è utilizzato: appena qualcuno lo ricopre, la chiave viene bloccata e il campo ne spiega il motivo. I ruoli creati prima di questa convenzione mantengono la chiave che già avevano e continuano a funzionare; viene verificata solo una chiave nuova o modificata.
+La chiave di un ruolo può essere corretta finché **nessuno ricopre il ruolo**: i sondaggi che lo utilizzano seguono automaticamente la rinomina, e rinominare l'unico ruolo di un tipo non è un problema perché il ruolo sopravvive. Appena qualcuno lo ricopre, la chiave viene bloccata e il campo ne spiega il motivo. I ruoli creati prima di questa convenzione mantengono la chiave che già avevano e continuano a funzionare; viene verificata solo una chiave nuova o modificata.
 
 #### Traduzioni
 

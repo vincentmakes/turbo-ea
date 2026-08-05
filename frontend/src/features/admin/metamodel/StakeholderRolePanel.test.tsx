@@ -55,10 +55,29 @@ const UNUSED = {
   survey_count: 0,
   is_last_active: false,
   can_delete: true,
+  can_rekey: true,
 };
 
 /** Usage payload for a role held by two people on two cards. */
-const IN_USE = { ...UNUSED, stakeholder_count: 2, card_count: 2, can_delete: false };
+const IN_USE = {
+  ...UNUSED,
+  stakeholder_count: 2,
+  card_count: 2,
+  can_delete: false,
+  can_rekey: false,
+};
+
+/**
+ * A role nobody holds, but which a survey targets and which is its type's only
+ * role. Both block a delete; neither blocks a rename.
+ */
+const DELETE_ONLY_BLOCKED = {
+  ...UNUSED,
+  survey_count: 1,
+  is_last_active: true,
+  can_delete: false,
+  can_rekey: true,
+};
 
 function mockApi({ usage = UNUSED }: { usage?: typeof UNUSED } = {}) {
   apiMock.get.mockImplementation((path: string) => {
@@ -187,6 +206,28 @@ describe("StakeholderRolePanel — delete", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /^delete role$/i })).toBeEnabled(),
     );
+  });
+});
+
+describe("StakeholderRolePanel — key is editable when only a delete is blocked", () => {
+  it("leaves the key unlocked for a role that a survey targets and that is the type's only role", async () => {
+    // Neither reason blocks a rename: the role survives it, so the survey's
+    // target follows and the active-role count is unchanged. Gating the key
+    // field on `can_delete` locked built-in roles for no good reason, while
+    // telling the admin the key was editable when nobody held the role.
+    mockApi({ usage: DELETE_ONLY_BLOCKED });
+    const user = userEvent.setup();
+    render(<StakeholderRolePanel typeKey="Application" onError={() => {}} />);
+
+    await screen.findByText("Typo Role");
+    await user.click(screen.getAllByRole("button", { name: /edit/i })[1]);
+
+    const key = await screen.findByDisplayValue("typoRole");
+    await waitFor(() => expect(key).toBeEnabled());
+
+    // ...and deleting it is still refused, with the survey named as the reason.
+    await user.click(screen.getAllByRole("button", { name: /delete/i })[1]);
+    expect(await screen.findByText(/1 survey/i)).toBeInTheDocument();
   });
 });
 

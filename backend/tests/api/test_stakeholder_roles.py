@@ -699,6 +699,83 @@ class TestReKeyStakeholderRole:
         )
         assert response.status_code == 409
 
+    async def test_can_rekey_the_last_active_role(self, client, db):
+        """Renaming keeps the role, so the active-role count is unchanged.
+
+        Being the type's only role blocks a *delete*, never a rename — gating
+        both on the same flag made single-role types permanently un-renamable.
+        """
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+        await create_card_type(db, key="Application", label="Application")
+        await create_stakeholder_role_def(
+            db, card_type_key="Application", key="onlyRole", label="Only Role"
+        )
+
+        usage = await client.get(
+            "/api/v1/metamodel/types/Application/stakeholder-roles/onlyRole/usage",
+            headers=auth_headers(admin),
+        )
+        assert usage.json()["is_last_active"] is True
+        assert usage.json()["can_delete"] is False
+        assert usage.json()["can_rekey"] is True
+
+        response = await client.patch(
+            "/api/v1/metamodel/types/Application/stakeholder-roles/onlyRole",
+            json={"key": "theOnlyRole"},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        assert response.json()["key"] == "theOnlyRole"
+
+    async def test_rekey_carries_survey_targets_with_it(self, client, db):
+        """A survey targeting the role must not block the rename — it follows.
+
+        `surveys.target_roles` is a bare JSONB array of key strings, so without
+        this the survey would silently target a key that no longer exists.
+        """
+        from sqlalchemy import select
+
+        from app.models.survey import Survey
+
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+        await create_card_type(db, key="Application", label="Application")
+        await create_stakeholder_role_def(
+            db, card_type_key="Application", key="responsible", label="Responsible"
+        )
+        await create_stakeholder_role_def(
+            db, card_type_key="Application", key="dataSteward", label="Data Steward"
+        )
+        survey = Survey(
+            name="Annual review",
+            message="",
+            target_type_key="Application",
+            target_roles=["responsible", "dataSteward"],
+        )
+        db.add(survey)
+        await db.flush()
+
+        usage = await client.get(
+            "/api/v1/metamodel/types/Application/stakeholder-roles/dataSteward/usage",
+            headers=auth_headers(admin),
+        )
+        assert usage.json()["survey_count"] == 1
+        # Blocks a delete, but not a rename.
+        assert usage.json()["can_delete"] is False
+        assert usage.json()["can_rekey"] is True
+
+        response = await client.patch(
+            "/api/v1/metamodel/types/Application/stakeholder-roles/dataSteward",
+            json={"key": "dataOwner"},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+
+        refreshed = (await db.execute(select(Survey).where(Survey.id == survey.id))).scalar_one()
+        await db.refresh(refreshed)
+        assert refreshed.target_roles == ["responsible", "dataOwner"]
+
     async def test_legacy_snake_case_key_is_grandfathered(self, client, db):
         """A pre-camelCase key keeps working; only *new* keys are validated.
 

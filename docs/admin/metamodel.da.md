@@ -124,7 +124,7 @@ Roller kan fjernes på to måder:
 - **Arkivér** — rollen bliver på de kort der allerede bruger den, men kan ikke længere tildeles, og den giver ikke længere sine rettigheder på kortniveau. Arkiverede roller vises bag **Vis arkiverede**-kontakten og kan gendannes når som helst. Det er det rigtige valg for en rolle der reelt har været brugt.
 - **Slet** — permanent, og tilbydes kun så længe rollen ikke er i brug. Turbo EA nægter at slette en rolle som nogen har på et kort af denne type, som en undersøgelse bruger, eller som er typens sidste aktive rolle; bekræftelsesdialogen oplyser hvilken af delene der gælder og tilbyder at arkivere den i stedet. Sådan rydder du op i en rolle der blev oprettet ved en fejl.
 
-Tilsvarende kan en rolles nøgle kun rettes så længe rollen ikke er i brug — så snart nogen har den, låses nøglen, og feltet forklarer hvorfor. Roller oprettet før denne konvention beholder den nøgle de allerede har og fungerer fortsat; kun en ny eller ændret nøgle kontrolleres.
+En rolles nøgle kan rettes, så længe **ingen har rollen** — undersøgelser der bruger den følger automatisk med omdøbningen, og det er også i orden at omdøbe en types eneste rolle, da rollen overlever det. Så snart nogen har rollen, låses nøglen, og feltet forklarer hvorfor. Roller oprettet før denne konvention beholder den nøgle de allerede har og fungerer fortsat; kun en ny eller ændret nøgle kontrolleres.
 
 #### Oversættelser
 

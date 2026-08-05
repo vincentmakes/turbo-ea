@@ -188,13 +188,32 @@ async def _role_usage(db: AsyncSession, type_key: str, role_key: str) -> dict:
 
 
 def _usage_blocker(usage: dict, action: str) -> str | None:
-    """Human-readable reason this role cannot be deleted / re-keyed, if any."""
+    """Human-readable reason this role cannot be deleted / re-keyed, if any.
+
+    The two actions do not answer for the same things, and conflating them made
+    built-in roles look permanently un-renamable:
+
+    - **Live assignments** block both. A rename would leave every
+      ``stakeholders.role`` string pointing at a key that no longer exists, and
+      there is no foreign key to catch it.
+    - **A survey targeting the role** blocks only a delete. A rename keeps the
+      role, so the survey's ``target_roles`` simply follows it — see
+      ``_rewrite_survey_roles``. Deleting cannot follow anything: dropping the
+      role from the survey's targets would silently change what the survey asks.
+    - **Being the type's last active role** blocks only a delete, which would
+      leave the type with none and hand it back to the legacy JSONB fallback.
+      A rename keeps the count exactly as it was.
+
+    So a rename is refused only while somebody actually holds the role.
+    """
     if usage["stakeholder_count"]:
         return (
             f"Cannot {action} role '{usage['role_key']}': it is assigned to "
             f"{usage['stakeholder_count']} stakeholder(s) on {usage['card_count']} card(s). "
             "Remove those assignments, or archive the role instead."
         )
+    if action != "delete":
+        return None
     if usage["survey_count"]:
         return (
             f"Cannot {action} role '{usage['role_key']}': {usage['survey_count']} survey(s) "
@@ -228,6 +247,26 @@ async def _rewrite_jsonb_role(
         elif new_key is not None:
             updated.append({**entry, "key": new_key})
     card_type.stakeholder_roles = updated
+
+
+async def _rewrite_survey_roles(
+    db: AsyncSession, type_key: str, role_key: str, new_key: str
+) -> None:
+    """Follow a role re-key into the surveys that target it.
+
+    ``surveys.target_roles`` is a JSONB array of role-key strings with no
+    foreign key, so a rename would otherwise leave the survey targeting a key
+    that no longer exists — it would quietly reach nobody. Reassign the list
+    rather than mutating it in place so SQLAlchemy flushes the change.
+    """
+    result = await db.execute(
+        select(Survey).where(
+            Survey.target_type_key == type_key,
+            Survey.target_roles.contains([role_key]),
+        )
+    )
+    for survey in result.scalars().all():
+        survey.target_roles = [new_key if r == role_key else r for r in (survey.target_roles or [])]
 
 
 # ---------------------------------------------------------------------------
@@ -320,6 +359,7 @@ async def stakeholder_role_usage(
 
     usage = await _role_usage(db, type_key, role_key)
     usage["can_delete"] = _usage_blocker(usage, "delete") is None
+    usage["can_rekey"] = _usage_blocker(usage, "rename") is None
     return usage
 
 
@@ -419,6 +459,7 @@ async def update_stakeholder_role(
 
         srd.key = new_key
         await _rewrite_jsonb_role(db, type_key, role_key, new_key)
+        await _rewrite_survey_roles(db, type_key, role_key, new_key)
     else:
         new_key = None
 

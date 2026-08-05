@@ -124,7 +124,7 @@ Los roles pueden retirarse de dos formas:
 - **Archivar** — el rol permanece en las tarjetas que ya lo usan pero deja de poder asignarse, y deja de otorgar sus permisos a nivel de tarjeta. Los roles archivados aparecen tras el interruptor **Mostrar archivados** y pueden restaurarse en cualquier momento. Es la opción adecuada para un rol que se ha usado realmente.
 - **Eliminar** — permanente, y solo se ofrece mientras el rol no esté en uso. Turbo EA se niega a eliminar un rol que alguien ostente en una tarjeta de este tipo, que una encuesta utilice, o que sea el último rol activo del tipo; el diálogo de confirmación indica el motivo y ofrece archivarlo en su lugar. Así se limpia un rol creado por error.
 
-Del mismo modo, la clave de un rol solo puede corregirse mientras el rol no esté en uso: en cuanto alguien lo ostenta, la clave queda bloqueada y el campo explica por qué. Los roles creados antes de esta convención conservan la clave que ya tenían y siguen funcionando; solo se comprueba una clave nueva o modificada.
+La clave de un rol puede corregirse mientras **nadie ostente el rol**: las encuestas que lo utilizan siguen el cambio de nombre automáticamente, y renombrar el único rol de un tipo no supone problema, ya que el rol sobrevive. En cuanto alguien lo ostenta, la clave queda bloqueada y el campo explica por qué. Los roles creados antes de esta convención conservan la clave que ya tenían y siguen funcionando; solo se comprueba una clave nueva o modificada.
 
 #### Traducciones
 

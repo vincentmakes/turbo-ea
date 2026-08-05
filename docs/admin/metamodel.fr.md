@@ -124,7 +124,7 @@ Les rôles peuvent être retirés de deux façons :
 - **Archiver** — le rôle demeure sur les fiches qui l'utilisent déjà mais ne peut plus être attribué, et il cesse d'accorder ses permissions au niveau de la fiche. Les rôles archivés apparaissent derrière le commutateur **Afficher les archivés** et peuvent être restaurés à tout moment. C'est le bon choix pour un rôle réellement utilisé.
 - **Supprimer** — définitif, et proposé uniquement tant que le rôle n'est pas utilisé. Turbo EA refuse de supprimer un rôle détenu par quelqu'un sur une fiche de ce type, ciblé par une enquête, ou qui est le dernier rôle actif du type ; la boîte de dialogue de confirmation précise le motif et propose de l'archiver à la place. C'est ainsi que l'on nettoie un rôle créé par erreur.
 
-De même, la clé d'un rôle ne peut être corrigée que tant que le rôle n'est pas utilisé — dès que quelqu'un le détient, la clé est verrouillée et le champ en explique la raison. Les rôles créés avant cette convention conservent leur clé existante et continuent de fonctionner ; seule une clé nouvelle ou modifiée est vérifiée.
+La clé d'un rôle peut être corrigée tant que **personne ne détient le rôle** — les enquêtes qui le ciblent suivent le renommage automatiquement, et renommer l'unique rôle d'un type ne pose pas de problème puisque le rôle lui survit. Dès que quelqu'un détient le rôle, la clé est verrouillée et le champ en explique la raison. Les rôles créés avant cette convention conservent leur clé existante et continuent de fonctionner ; seule une clé nouvelle ou modifiée est vérifiée.
 
 #### Traductions
 

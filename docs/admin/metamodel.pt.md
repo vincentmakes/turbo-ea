@@ -124,7 +124,7 @@ Os papéis podem ser removidos de duas formas:
 - **Arquivar** — o papel permanece nos cartões que já o utilizam, mas deixa de poder ser atribuído e deixa de conceder as suas permissões ao nível do cartão. Os papéis arquivados aparecem atrás do interruptor **Mostrar arquivados** e podem ser restaurados a qualquer momento. É a escolha certa para um papel que foi realmente utilizado.
 - **Excluir** — permanente, e só é oferecido enquanto o papel não estiver em uso. O Turbo EA recusa excluir um papel que alguém detenha num cartão deste tipo, que um inquérito utilize, ou que seja o último papel ativo do tipo; a caixa de confirmação indica o motivo e propõe arquivá-lo em alternativa. É assim que se limpa um papel criado por engano.
 
-Do mesmo modo, a chave de um papel só pode ser corrigida enquanto o papel não estiver em uso — assim que alguém o detém, a chave fica bloqueada e o campo explica porquê. Os papéis criados antes desta convenção mantêm a chave que já tinham e continuam a funcionar; só é verificada uma chave nova ou alterada.
+A chave de um papel pode ser corrigida enquanto **ninguém detiver o papel** — os inquéritos que o utilizam acompanham a mudança de nome automaticamente, e renomear o único papel de um tipo não é problema, pois o papel sobrevive. Assim que alguém o detém, a chave fica bloqueada e o campo explica porquê. Os papéis criados antes desta convenção mantêm a chave que já tinham e continuam a funcionar; só é verificada uma chave nova ou alterada.
 
 #### Traduções
 
