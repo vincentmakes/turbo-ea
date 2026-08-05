@@ -87,6 +87,15 @@ Das Dropdown **Ansicht** in der Symbolleiste färbt jede Karte auf der Leinwand 
 
 Eine schwebende Legende unten links auf der Leinwand zeigt die aktive Zuordnung. Die gewählte Ansicht wird mit dem Diagramm gespeichert.
 
+### Wie Beziehungskanten gezeichnet werden
+
+Jede Turbo-EA-Beziehung sieht auf der Leinwand gleich aus, unabhängig davon, wie sie dorthin gelangt ist — von Hand mit der Beziehungsauswahl gezeichnet oder über **+** / das Erweiterungsmenü aus dem Inventar geholt:
+
+- **Eine neutrale dunkelgraue Linie**, nicht die Farbe der Karte am anderen Ende. Eine Kante *ist* eine Beziehung; sie nach Kartentyp einzufärben wiederholt nur, was der Knoten ohnehin schon sagt.
+- **Eine Pfeilspitze am Zielende**, sodass die Richtung auf einen Blick erkennbar ist, ohne das Verb zu lesen. Holen Sie eine Beziehung herein, die *auf* die erweiterte Karte zeigt, sitzt die Pfeilspitze am anderen Ende.
+- **Das Verb aus Sicht der Ausgangskarte.** Eine ausgehende Beziehung zeigt die Vorwärtsbezeichnung (*stellt bereit*), eine eingehende die Rückwärtsbezeichnung (*wird bereitgestellt von*).
+- **Eine gestrichelte Linie**, solange die Beziehung noch aussteht; sie wird durchgezogen, sobald sie ins Inventar übertragen wurde.
+
 ### Beziehungsbeschriftungen ausblenden
 
 Jede Beziehungskante trägt ihr Verb — *stellt bereit*, *nutzt*, *unterstützt*. In einer dichten Landschaft wird das schnell mehr Rauschen als Information, daher bietet das Überlaufmenü **⋮** die Option **Beziehungsbeschriftungen ausblenden** (und **einblenden**, um sie zurückzuholen).

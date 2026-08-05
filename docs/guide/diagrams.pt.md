@@ -87,6 +87,15 @@ O menu pendente **Vista** na barra de ferramentas recoloria cada cartão da tela
 
 Uma legenda flutuante no canto inferior esquerdo mostra o mapeamento ativo. A vista escolhida é guardada com o diagrama.
 
+### Como as arestas de relação são desenhadas
+
+Qualquer relação do Turbo EA tem o mesmo aspeto na tela, independentemente de como lá chegou — desenhada à mão com o seletor de relações ou trazida do inventário com **+** / o menu de expansão:
+
+- **Uma única linha cinzento-escura neutra**, e não a cor do cartão da outra ponta. Uma aresta *é* uma relação; colori-la por tipo de cartão apenas repete o que o nó já diz.
+- **Uma seta na extremidade de destino**, para que a direção se leia num relance sem ler o verbo. Se trouxer uma relação que aponta *para* o cartão expandido, a seta fica na outra extremidade.
+- **O verbo lido a partir do cartão de partida.** Uma relação de saída mostra a etiqueta direta (*fornece*), uma de entrada mostra a etiqueta inversa (*fornecido por*).
+- **Uma linha tracejada** enquanto a relação estiver pendente; passa a contínua assim que for enviada para o inventário.
+
 ### Ocultar as etiquetas de relação
 
 Cada aresta de relação exibe o seu verbo — *fornece*, *consome*, *suporta*. Num panorama denso isso torna-se depressa mais ruído do que informação, por isso o menu **⋮** oferece **Ocultar etiquetas de relação** (e **Mostrar** para as trazer de volta).

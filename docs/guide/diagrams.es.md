@@ -87,6 +87,15 @@ El desplegable **Vista** de la barra de herramientas recolorea cada tarjeta del 
 
 Una leyenda flotante en la esquina inferior izquierda del lienzo muestra la asignación activa. La vista elegida se guarda con el diagrama.
 
+### Cómo se dibujan las aristas de relación
+
+Toda relación de Turbo EA se ve igual en el lienzo, sin importar cómo llegó allí — dibujada a mano con el selector de relaciones o traída del inventario con **+** / el menú de expansión:
+
+- **Una única línea gris oscuro neutra**, no el color de la tarjeta del otro extremo. Una arista *es* una relación; teñirla por tipo de tarjeta solo repite lo que el nodo ya dice.
+- **Una punta de flecha en el extremo destino**, para que la dirección se lea de un vistazo sin leer el verbo. Si traes una relación que apunta *hacia* la tarjeta expandida, la punta se sitúa en el otro extremo.
+- **El verbo leído desde la tarjeta de partida.** Una relación saliente muestra la etiqueta directa (*provee*), una entrante la etiqueta inversa (*provisto por*).
+- **Una línea discontinua** mientras la relación sigue pendiente; pasa a continua en cuanto se envía al inventario.
+
 ### Ocultar las etiquetas de relación
 
 Cada arista de relación lleva su verbo — *proporciona*, *consume*, *da soporte*. En un paisaje denso eso se convierte enseguida en más ruido que información, así que el menú **⋮** ofrece **Ocultar etiquetas de relación** (y **Mostrar** para recuperarlas).

@@ -11,6 +11,8 @@ import {
   setRelationLabelsHidden,
   stampEdgeAsRelation,
   markEdgeSynced,
+  relationEdgeStyle,
+  RELATION_EDGE_COLOR,
   type DiagramCardInput,
   type DiagramRelInput,
   type DiagramLayerInput,
@@ -196,7 +198,6 @@ describe("buildLdvDiagramXml", () => {
       targetCardId: "22222222-2222-2222-2222-222222222222",
       relationType: "relAppToData",
       label: "reads",
-      color: "#8a93a3",
     },
   ];
   const layers: DiagramLayerInput[] = [
@@ -253,7 +254,6 @@ describe("buildLdvDiagramXml", () => {
         targetCardId: "99999999-9999-9999-9999-999999999999",
         relationType: "relAppToData",
         label: "reads",
-        color: "#8a93a3",
       },
     ];
     const xml = buildLdvDiagramXml(cards, orphanRel, layers);
@@ -267,7 +267,6 @@ describe("buildLdvDiagramXml", () => {
         targetCardId: "22222222-2222-2222-2222-222222222222",
         relationType: "",
         label: "contains",
-        color: "#8a93a3",
       },
     ];
     const xml = buildLdvDiagramXml(cards, hierRel, layers);
@@ -745,7 +744,7 @@ describe("edge style builders honour the label setting", () => {
     const edge = edgeCell({}, "");
     const frame = viewFrame({ e: edge });
 
-    stampEdgeAsRelation(frame, "e", "app_to_itc", "provides", "#666", false, true);
+    stampEdgeAsRelation(frame, "e", "app_to_itc", "provides", false, false, true);
     expect(edge._style.split(";")).toContain("noLabel=1");
   });
 
@@ -753,7 +752,7 @@ describe("edge style builders honour the label setting", () => {
     const edge = edgeCell({}, "");
     const frame = viewFrame({ e: edge });
 
-    stampEdgeAsRelation(frame, "e", "app_to_itc", "provides", "#666", false);
+    stampEdgeAsRelation(frame, "e", "app_to_itc", "provides", false, false);
     expect(edge._style.split(";")).not.toContain("noLabel=1");
   });
 
@@ -764,7 +763,97 @@ describe("edge style builders honour the label setting", () => {
     );
     const frame = viewFrame({ e: edge });
 
-    markEdgeSynced(frame, "e", "#666", "rel-1", true);
+    markEdgeSynced(frame, "e", false, "rel-1", true);
     expect(edge._style.split(";")).toContain("noLabel=1");
+  });
+});
+
+/* ---------------------------------------------------------------------- */
+/*  relationEdgeStyle — the one renderer for relation edges (#905)          */
+/* ---------------------------------------------------------------------- */
+
+describe("relationEdgeStyle", () => {
+  it("draws every relation in the same neutral colour", () => {
+    // The reporter saw the same relation rendered two ways depending on how
+    // it reached the canvas. One builder, one colour.
+    expect(stylePart(relationEdgeStyle(), "strokeColor")).toBe(RELATION_EDGE_COLOR);
+    expect(stylePart(relationEdgeStyle({ incoming: true }), "strokeColor")).toBe(
+      RELATION_EDGE_COLOR,
+    );
+    expect(stylePart(relationEdgeStyle({ pending: true }), "strokeColor")).toBe(
+      RELATION_EDGE_COLOR,
+    );
+  });
+
+  it("puts the arrowhead on the end for an outgoing relation", () => {
+    const parts = relationEdgeStyle().split(";");
+    expect(parts).toContain("endArrow=block");
+    expect(parts).toContain("startArrow=none");
+  });
+
+  it("moves the arrowhead to the start for an incoming relation", () => {
+    // The mxGraph endpoints stay put (expand/collapse and the sync
+    // side-table key off them) — only the arrowhead swaps ends.
+    const parts = relationEdgeStyle({ incoming: true }).split(";");
+    expect(parts).toContain("startArrow=block");
+    expect(parts).toContain("endArrow=none");
+  });
+
+  it("dashes a relation that has not been pushed to the inventory yet", () => {
+    expect(relationEdgeStyle({ pending: true }).split(";")).toContain("dashed=1");
+    expect(relationEdgeStyle().split(";")).not.toContain("dashed=1");
+  });
+
+  it("honours the hide-labels setting", () => {
+    expect(relationEdgeStyle({ hideLabel: true }).split(";")).toContain("noLabel=1");
+    expect(relationEdgeStyle().split(";")).not.toContain("noLabel=1");
+  });
+});
+
+describe("edge builders all delegate to relationEdgeStyle", () => {
+  it("stampEdgeAsRelation renders exactly what relationEdgeStyle says", () => {
+    const edge = edgeCell({}, "");
+    const frame = viewFrame({ e: edge });
+
+    stampEdgeAsRelation(frame, "e", "app_to_itc", "provides", true, true);
+    expect(edge._style).toBe(relationEdgeStyle({ incoming: true, pending: true }));
+  });
+
+  it("stampEdgeAsRelation records a reversed pick so sync can swap the ids", () => {
+    // Without this the relation is POSTed source -> target even though the
+    // user picked the reverse direction.
+    const edge = edgeCell({}, "");
+    const frame = viewFrame({ e: edge });
+
+    stampEdgeAsRelation(frame, "e", "app_to_itc", "used by", true, true);
+    expect(edge.value.getAttribute("reversed")).toBe("1");
+    expect(edge.value.getAttribute("label")).toBe("used by");
+  });
+
+  it("stampEdgeAsRelation leaves an as-drawn relation unflagged", () => {
+    const edge = edgeCell({}, "");
+    const frame = viewFrame({ e: edge });
+
+    stampEdgeAsRelation(frame, "e", "app_to_itc", "provides", false, true);
+    expect(edge.value.getAttribute("reversed")).toBeNull();
+  });
+
+  it("markEdgeSynced only drops the dashes", () => {
+    const edge = edgeCell({ relationType: "app_to_itc" }, relationEdgeStyle({ pending: true }));
+    const frame = viewFrame({ e: edge });
+
+    markEdgeSynced(frame, "e", false, "rel-1");
+    expect(edge._style).toBe(relationEdgeStyle());
+  });
+
+  it("markEdgeSynced keeps the arrowhead on the reversed end", () => {
+    const edge = edgeCell(
+      { relationType: "app_to_itc" },
+      relationEdgeStyle({ incoming: true, pending: true }),
+    );
+    const frame = viewFrame({ e: edge });
+
+    markEdgeSynced(frame, "e", true, "rel-1");
+    expect(edge._style).toBe(relationEdgeStyle({ incoming: true }));
   });
 });

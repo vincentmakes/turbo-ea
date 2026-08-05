@@ -87,6 +87,15 @@ Il menu a tendina **Vista** nella barra strumenti ricolora ogni scheda sulla tel
 
 Una legenda fluttuante in basso a sinistra mostra la mappatura attiva. La vista scelta viene salvata col diagramma.
 
+### Come vengono disegnati gli archi di relazione
+
+Ogni relazione di Turbo EA appare uguale sulla tela, comunque vi sia arrivata — disegnata a mano con il selettore di relazioni oppure richiamata dall'inventario con **+** / il menu di espansione:
+
+- **Un'unica linea grigio scuro neutra**, non il colore della scheda all'altro capo. Un arco *è* una relazione; colorarlo per tipo di scheda ripete soltanto ciò che il nodo già dice.
+- **Una punta di freccia sull'estremità di destinazione**, così la direzione si legge a colpo d'occhio senza leggere il verbo. Se richiami una relazione che punta *verso* la scheda espansa, la punta si sposta sull'altra estremità.
+- **Il verbo letto dalla scheda di partenza.** Una relazione uscente mostra l'etichetta diretta (*fornisce*), una entrante l'etichetta inversa (*fornito da*).
+- **Una linea tratteggiata** finché la relazione è ancora in sospeso; diventa continua una volta inviata all'inventario.
+
 ### Nascondere le etichette delle relazioni
 
 Ogni arco di relazione porta il proprio verbo — *fornisce*, *consuma*, *supporta*. In un panorama denso diventa presto più rumore che informazione, perciò il menu **⋮** offre **Nascondi le etichette delle relazioni** (e **Mostra** per riportarle).

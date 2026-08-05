@@ -87,6 +87,15 @@ Le menu déroulant **Vue** dans la barre d'outils recolore chaque fiche du canev
 
 Une légende flottante en bas à gauche du canevas affiche la correspondance active. La vue choisie est enregistrée avec le diagramme.
 
+### Comment les arêtes de relation sont dessinées
+
+Toute relation Turbo EA a la même apparence sur le canevas, quelle que soit la façon dont elle y est arrivée — tracée à la main avec le sélecteur de relation, ou ramenée de l'inventaire avec **+** / le menu d'expansion :
+
+- **Une seule ligne gris foncé neutre**, et non la couleur de la fiche à l'autre extrémité. Une arête *est* une relation ; la teinter par type de fiche ne fait que répéter ce que le nœud indique déjà.
+- **Une pointe de flèche du côté cible**, pour que la direction se lise d'un coup d'œil sans lire le verbe. Ramenez une relation qui pointe *vers* la fiche développée et la pointe se place à l'autre extrémité.
+- **Le verbe vu depuis la fiche de départ.** Une relation sortante affiche le libellé direct (*fournit*), une relation entrante le libellé inverse (*fourni par*).
+- **Une ligne pointillée** tant que la relation est en attente ; elle devient pleine une fois poussée dans l'inventaire.
+
 ### Masquer les libellés de relation
 
 Chaque lien de relation porte son verbe — *fournit*, *consomme*, *soutient*. Sur un paysage dense, cela devient vite plus du bruit que de l'information : le menu **⋮** propose donc **Masquer les libellés de relation** (et **Afficher** pour les rétablir).

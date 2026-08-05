@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.39.1] - 2026-08-05
+
+### Fixed
+- **A relation looks the same on a diagram however it got there.** The same relationship rendered two different ways depending on how it reached the canvas: drawn by hand it was a grey line carrying its verb, while pulled in with the **+** / Expand menu it took the colour of the card at the other end and carried no label at all ([#905](https://github.com/vincentmakes/turbo-ea/discussions/905)). Every relation edge is now drawn the same way — one neutral dark-grey line, dashed until it has been pushed to the inventory — and every path that draws one shares a single renderer, so they cannot drift apart again.
+- **Relation edges show their direction.** An arrowhead now marks the relation's target, so which way a relationship runs is readable at a glance without reading the verb. Pulling in a relation that points *at* the card you expanded puts the arrowhead on the other end, and edges retrieved from the inventory finally carry a verb at all.
+- **A relation drawn in its reverse direction is no longer labelled and saved backwards.** Picking a relation type in the reverse direction — for example drawing from an IT Component to an Application and choosing the Application-to-IT-Component type — labelled the edge with the forward verb and then created the relationship the wrong way round in the inventory. The edge now shows the reverse verb, and the relation is created with the source and target the right way round.
+
 ## [2.39.0] - 2026-08-04
 
 ### Added

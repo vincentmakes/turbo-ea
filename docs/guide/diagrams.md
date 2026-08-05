@@ -87,6 +87,15 @@ The **View** dropdown in the toolbar recolors every card on the canvas by an att
 
 A floating legend in the bottom-left of the canvas shows the active mapping. The chosen view is saved with the diagram.
 
+### How relation edges are drawn
+
+Every Turbo EA relation looks the same on the canvas however it got there — drawn by hand with the relation picker, or pulled in from the inventory with the **+** / Expand menu:
+
+- **One neutral dark-grey line**, not the colour of the card at the other end. An edge *is* a relation; tinting it by card type only restates what the node already says.
+- **An arrowhead on the target end**, so the direction reads at a glance without reading the verb. Pull in a relation that points *at* the card you expanded and the arrowhead sits on the other end.
+- **The verb as read from the card you started at.** An outgoing relation shows the forward label (*provides*), an incoming one shows the reverse label (*provided by*).
+- **A dashed line** while the relation is still pending, turning solid once it has been pushed to the inventory.
+
 ### Hiding relation labels
 
 Every relation edge carries its verb — *provides*, *consumes*, *supports*. On a dense landscape that quickly becomes more noise than information, so the **⋮** overflow menu offers **Hide relation labels** (and **Show relation labels** to bring them back).

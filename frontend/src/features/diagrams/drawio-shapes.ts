@@ -61,6 +61,54 @@ const NO_STYLE_VALUE = "-";
  *  turns the labels back on. */
 const NO_LABEL_PART = "noLabel=1";
 
+/**
+ * The one colour every Turbo EA relation edge is drawn in.
+ *
+ * Deliberately not the related card's colour: an edge *is* a relation, and
+ * tinting it by card type restates what the node already says while making a
+ * dense landscape harder to read. One colour also means an edge looks the same
+ * however it reached the canvas.
+ */
+export const RELATION_EDGE_COLOR = "#4a4a4a";
+
+export interface RelationEdgeStyleOptions {
+  /** The relation runs child → parent, i.e. against the direction the mxGraph
+   *  edge was inserted in. Only the arrowhead moves; the edge's endpoints stay
+   *  put, because expand / collapse and the sync side-table key off them. */
+  incoming?: boolean;
+  /** Not yet pushed to the inventory — drawn dashed. */
+  pending?: boolean;
+  /** The diagram is hiding relation verbs (see setRelationLabelsHidden). */
+  hideLabel?: boolean;
+}
+
+/**
+ * Build the style for a relation edge. **The single source of truth** for how
+ * a relation looks on a diagram.
+ *
+ * Every path that draws a relation goes through here — the relation picker, the
+ * pending -> synced switch, and expansion from the repository. They each used
+ * to hand-roll a near-identical string, and they drifted: a manually drawn edge
+ * ended up grey with a verb, while one retrieved with the `+` button was
+ * card-coloured with no label at all. Same relation, two renderings, decided by
+ * how it happened to arrive (discussion #905). Keep every caller on this
+ * function and they cannot drift again.
+ *
+ * The arrowhead marks the relation's **target**, so the direction is readable
+ * without reading the verb.
+ */
+export function relationEdgeStyle(opts: RelationEdgeStyleOptions = {}): string {
+  const arrow = opts.incoming
+    ? "startArrow=block;startFill=1;endArrow=none"
+    : "endArrow=block;endFill=1;startArrow=none";
+  return (
+    `edgeStyle=entityRelationEdgeStyle;strokeColor=${RELATION_EDGE_COLOR};` +
+    `strokeWidth=1.5;${arrow};fontSize=10;fontColor=#666;` +
+    (opts.pending ? "dashed=1;dashPattern=5 3;" : "") +
+    (opts.hideLabel ? `${NO_LABEL_PART};` : "")
+  );
+}
+
 /** Read the value of a `key=value` mxGraph style part, or null when absent. */
 function readStylePart(parts: string[], key: string): string | null {
   const hit = parts.find((p) => p.startsWith(`${key}=`));
@@ -372,7 +420,7 @@ export function stampEdgeAsRelation(
   edgeCellId: string,
   relationType: string,
   relationLabel: string,
-  color: string,
+  incoming: boolean,
   pending: boolean,
   hideLabel = false,
 ): boolean {
@@ -391,19 +439,15 @@ export function stampEdgeAsRelation(
     const obj = xmlDoc.createElement("object");
     obj.setAttribute("label", relationLabel);
     obj.setAttribute("relationType", relationType);
+    // Remember that the relation runs against the drawn edge, so sync can
+    // POST source/target the right way round and a reload can put the
+    // arrowhead back on the correct end.
+    if (incoming) obj.setAttribute("reversed", "1");
     if (pending) obj.setAttribute("pending", "1");
     model.setValue(edge, obj);
 
-    const dash = pending ? "dashed=1;dashPattern=5 3;" : "";
-    // This rebuilds the style from scratch, so it has to re-apply the
-    // diagram's label setting — otherwise a freshly drawn edge shows its verb
-    // while every other edge on the canvas is hidden.
-    const hide = hideLabel ? `${NO_LABEL_PART};` : "";
-    const style =
-      `edgeStyle=entityRelationEdgeStyle;strokeColor=${color};strokeWidth=1.5;` +
-      `endArrow=none;startArrow=none;fontSize=10;fontColor=#666;${dash}${hide}`;
     graph.setCellStyles("edgeStyle", "entityRelationEdgeStyle", [edge]);
-    model.setStyle(edge, style);
+    model.setStyle(edge, relationEdgeStyle({ incoming, pending, hideLabel }));
   } finally {
     model.endUpdate();
   }
@@ -453,7 +497,7 @@ export function markCellSynced(
 export function markEdgeSynced(
   iframe: HTMLIFrameElement,
   edgeCellId: string,
-  color: string,
+  incoming: boolean,
   relationId?: string,
   hideLabel = false,
 ): boolean {
@@ -470,12 +514,9 @@ export function markEdgeSynced(
     const obj = edge.value;
     if (obj?.removeAttribute) obj.removeAttribute("pending");
     if (relationId && obj?.setAttribute) obj.setAttribute("relationId", relationId);
-    // Rebuilt from scratch here too — carry the label setting across.
-    const style =
-      `edgeStyle=entityRelationEdgeStyle;strokeColor=${color};strokeWidth=1.5;` +
-      `endArrow=none;startArrow=none;fontSize=10;fontColor=#666;` +
-      (hideLabel ? `${NO_LABEL_PART};` : "");
-    model.setStyle(edge, style);
+    // Same builder as every other path — the pending -> synced switch only
+    // drops the dashes.
+    model.setStyle(edge, relationEdgeStyle({ incoming, hideLabel }));
   } finally {
     model.endUpdate();
   }
@@ -543,6 +584,10 @@ export interface ScannedPendingRel {
   targetCardId: string;
   sourceName: string;
   targetName: string;
+  /** The user picked the relation type in its reverse direction, so the
+   *  relation runs target -> source even though the edge was drawn
+   *  source -> target. Sync must swap the ids before POSTing. */
+  reversed: boolean;
 }
 
 export interface ScannedSyncedFS {
@@ -589,6 +634,7 @@ export function scanDiagramItems(iframe: HTMLIFrameElement): {
         targetCardId: tgt?.value?.getAttribute?.("cardId") || "",
         sourceName: src?.value?.getAttribute?.("label") || "?",
         targetName: tgt?.value?.getAttribute?.("label") || "?",
+        reversed: cell.value.getAttribute("reversed") === "1",
       });
     } else if (fsId && isPending) {
       // Pending card vertex
@@ -684,6 +730,14 @@ export interface ExpandChildData {
   /** Card-type Material Symbols icon name. Optional. */
   icon?: string;
   relationType: string;
+  /** The relation's verb *as read from the expanded card*, i.e. already
+   *  reversed when the relation points at it rather than away from it. Falls
+   *  back to no label when the caller cannot resolve one. */
+  relationLabel?: string;
+  /** The relation runs child → parent. The edge is still inserted parent →
+   *  child (expand/collapse and the sync side-table key off that); only the
+   *  arrowhead moves. */
+  incoming?: boolean;
   /** Backend relation id, when known. Stamped onto the connecting edge so
    *  canvas deletions can fire `DELETE /relations/{id}`. */
   relationId?: string;
@@ -785,6 +839,7 @@ export function expandCardGroup(
   iframe: HTMLIFrameElement,
   parentCellId: string,
   children: ExpandChildData[],
+  hideLabels = false,
 ): ExpandedEdgeInfo[] {
   const ctx = getMxGraph(iframe);
   if (!ctx) return [];
@@ -859,10 +914,10 @@ export function expandCardGroup(
       const edge = graph.insertEdge(
         root, edgeCellId, "",
         parentCell, vertex,
-        `edgeStyle=entityRelationEdgeStyle;strokeColor=${ch.color};strokeWidth=1.5;endArrow=none;startArrow=none`,
+        relationEdgeStyle({ incoming: ch.incoming, hideLabel: hideLabels }),
       );
       const edgeObj = xmlDoc.createElement("object");
-      edgeObj.setAttribute("label", "");
+      edgeObj.setAttribute("label", ch.relationLabel ?? "");
       if (ch.relationType) edgeObj.setAttribute("relationType", ch.relationType);
       if (ch.relationId) edgeObj.setAttribute("relationId", ch.relationId);
       model.setValue(edge, edgeObj);
@@ -873,6 +928,7 @@ export function expandCardGroup(
         edgeCellId,
         relationId: ch.relationId,
         relationType: ch.relationType,
+        relationLabel: ch.relationLabel,
       });
       yOff += CHILD_CARD_H;
     }
@@ -1629,8 +1685,7 @@ export function restoreRemovedEdge(
       obj,
       src,
       tgt,
-      tombstone.style ||
-        "edgeStyle=entityRelationEdgeStyle;strokeColor=#666;strokeWidth=1.5;endArrow=none;startArrow=none;",
+      tombstone.style || relationEdgeStyle(),
     );
   } finally {
     model.endUpdate();
@@ -2722,6 +2777,7 @@ export function expandCardGroupAt(
   parentCellId: string,
   children: ExpandChildData[],
   placement: ExpandPlacement,
+  hideLabels = false,
 ): ExpandedEdgeInfo[] {
   const ctx = getMxGraph(iframe);
   if (!ctx) return [];
@@ -2758,7 +2814,10 @@ export function expandCardGroupAt(
         }
         const ch = children[i];
         inserted.push(
-          insertChildVertex(win, graph, root, parentCell, parentCellId, ch, startX, startY + yOff, i),
+          insertChildVertex(
+            win, graph, root, parentCell, parentCellId, ch,
+            startX, startY + yOff, i, hideLabels,
+          ),
         );
         yOff += CHILD_CARD_H;
       }
@@ -2783,7 +2842,9 @@ export function expandCardGroupAt(
         const x = startX + c * (CHILD_CARD_W + CHILD_GAP_X);
         const y = startY + r * rowH;
         inserted.push(
-          insertChildVertex(win, graph, root, parentCell, parentCellId, children[i], x, y, i),
+          insertChildVertex(
+            win, graph, root, parentCell, parentCellId, children[i], x, y, i, hideLabels,
+          ),
         );
       }
     }
@@ -2814,6 +2875,7 @@ function insertChildVertex(
   x: number,
   y: number,
   index: number,
+  hideLabels = false,
 ): ExpandedEdgeInfo {
   const cid = `fsg-${ch.id.slice(0, 8)}-${Date.now()}-${index}`;
   const edgeCellId = `fse-${cid}`;
@@ -2861,10 +2923,10 @@ function insertChildVertex(
     "",
     parentCell,
     vertex,
-    `edgeStyle=entityRelationEdgeStyle;strokeColor=${ch.color};strokeWidth=1.5;endArrow=none;startArrow=none`,
+    relationEdgeStyle({ incoming: ch.incoming, hideLabel: hideLabels }),
   );
   const edgeObj = xmlDoc.createElement("object");
-  edgeObj.setAttribute("label", "");
+  edgeObj.setAttribute("label", ch.relationLabel ?? "");
   if (ch.relationType) edgeObj.setAttribute("relationType", ch.relationType);
   if (ch.relationId) edgeObj.setAttribute("relationId", ch.relationId);
   graph.getModel().setValue(edge, edgeObj);
@@ -2874,6 +2936,7 @@ function insertChildVertex(
     edgeCellId,
     relationId: ch.relationId,
     relationType: ch.relationType,
+    relationLabel: ch.relationLabel,
   };
 }
 
@@ -3532,7 +3595,6 @@ export interface DiagramRelInput {
   targetCardId: string;
   relationType: string;
   label: string;
-  color: string;
 }
 
 /** A background swim-lane box (one per EA layer). */
@@ -3625,9 +3687,9 @@ export function buildLdvDiagramXml(
     const src = cellIdByCard.get(rel.sourceCardId);
     const tgt = cellIdByCard.get(rel.targetCardId);
     if (!src || !tgt) continue;
-    const style =
-      `edgeStyle=entityRelationEdgeStyle;strokeColor=${rel.color};strokeWidth=1.5;` +
-      `endArrow=none;startArrow=none;fontSize=10;fontColor=#666;html=1;`;
+    // Edges are emitted source -> target, so the default (end) arrowhead
+    // already points at the relation's target.
+    const style = `${relationEdgeStyle()}html=1;`;
     // Only stamp a relationType for real relations; synthetic/hierarchy edges
     // (empty type) render as plain labelled lines.
     const relTypeAttr = rel.relationType

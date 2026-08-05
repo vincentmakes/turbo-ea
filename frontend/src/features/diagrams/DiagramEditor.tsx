@@ -805,7 +805,9 @@ export default function DiagramEditor() {
         return;
       }
 
-      const inserted = expandCardGroup(frame, cellId, visible);
+      const inserted = expandCardGroup(
+        frame, cellId, visible, hideRelationLabelsRef.current,
+      );
       // Baseline for the "has the user arranged these?" check on collapse.
       pristineChildLayoutRef.current.set(
         cellId,
@@ -928,6 +930,22 @@ export default function DiagramEditor() {
     [],
   );
 
+  /** Verb + direction for an edge inserted by an expansion, read *from the
+   *  card being expanded*: an outgoing relation shows the forward verb, an
+   *  incoming one the reverse verb. Expansion edges are always inserted
+   *  parent → child, so `incoming` only decides which end carries the
+   *  arrowhead (discussion #905). */
+  const relationEdgeMeta = useCallback(
+    (relationTypeKey: string, incoming: boolean) => {
+      const rt = relTypesRef.current.find((x) => x.key === relationTypeKey);
+      return {
+        incoming,
+        relationLabel: rt ? relationLabel(rt, i18n.language, incoming) : "",
+      };
+    },
+    [i18n.language],
+  );
+
   /** Backwards-compatible signature still passed around as `handleToggleGroup`
    *  so callers that ask "expand from a fresh state" keep working. New code
    *  should use the chevron overlay route which opens the ExpandMenu. */
@@ -966,6 +984,7 @@ export default function DiagramEditor() {
               icon: ct?.icon,
               relationType: r.type,
               relationId: r.id,
+              ...relationEdgeMeta(r.type, r.target_id === cardId),
             });
           }
           if (children.length === 0) {
@@ -1080,6 +1099,7 @@ export default function DiagramEditor() {
                 icon: iconForType(other.type),
                 relationType: r.type,
                 relationId: r.id,
+                ...relationEdgeMeta(r.type, !isOutgoing),
               });
             }
           }
@@ -1092,7 +1112,9 @@ export default function DiagramEditor() {
             return;
           }
           children.sort((a, b) => a.name.localeCompare(b.name));
-          const inserted = expandCardGroupAt(frame, target.cellId, children, "right");
+          const inserted = expandCardGroupAt(
+            frame, target.cellId, children, "right", hideRelationLabelsRef.current,
+          );
           pristineChildLayoutRef.current.set(
             target.cellId,
             captureGroupChildLayout(frame, target.cellId),
@@ -1331,6 +1353,7 @@ export default function DiagramEditor() {
               icon: ct?.icon,
               relationType: r.type,
               relationId: r.id,
+              ...relationEdgeMeta(r.type, r.target_id === cardId),
             });
           }
           if (children.length === 0) {
@@ -2035,10 +2058,14 @@ export default function DiagramEditor() {
       const ep = pendingEdgeRef.current;
       if (!frame || !ep) return;
 
-      const color = direction === "as-is" ? ep.sourceColor : ep.targetColor;
+      // "reversed" means the relation runs target -> source while the edge
+      // was drawn source -> target, so it reads as the *reverse* verb from
+      // the drawn source and the arrowhead belongs on the start (#905).
+      const reversed = direction === "reversed";
+      const verb = relationLabel(relType, i18n.language, reversed);
 
       stampEdgeAsRelation(
-        frame, ep.edgeCellId, relType.key, relType.label, color, true,
+        frame, ep.edgeCellId, relType.key, verb, reversed, true,
         hideRelationLabelsRef.current,
       );
 
@@ -2050,10 +2077,11 @@ export default function DiagramEditor() {
 
       setRelPickerOpen(false);
       pendingEdgeRef.current = null;
-      setSnackMsg(t("editor.relationAddedPending", { label: relType.label }));
+      setSnackMsg(t("editor.relationAddedPending", { label: verb }));
       refreshSyncPanel();
     },
-    [refreshSyncPanel],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refreshSyncPanel, i18n.language],
   );
 
   const handleRelationCancelled = useCallback(() => {
@@ -2133,8 +2161,10 @@ export default function DiagramEditor() {
         const stashedAttrs = pendingEdgeAttributesRef.current.get(edgeCellId);
         const payload: Record<string, unknown> = {
           type: rel.relationType,
-          source_id: rel.sourceCardId,
-          target_id: rel.targetCardId,
+          // A relation picked in its reverse direction runs target -> source
+          // even though the edge points the other way.
+          source_id: rel.reversed ? rel.targetCardId : rel.sourceCardId,
+          target_id: rel.reversed ? rel.sourceCardId : rel.targetCardId,
         };
         if (stashedAttrs && Object.keys(stashedAttrs).length > 0) {
           payload.attributes = stashedAttrs;
@@ -2142,7 +2172,7 @@ export default function DiagramEditor() {
         const created = await api.post<Relation>("/relations", payload);
         pendingEdgeAttributesRef.current.delete(edgeCellId);
 
-        markEdgeSynced(frame, edgeCellId, "#666", created.id, hideRelationLabelsRef.current);
+        markEdgeSynced(frame, edgeCellId, rel.reversed, created.id, hideRelationLabelsRef.current);
         // Mirror the new relation into the side-table so a later canvas
         // delete still reaches the confirm dialog. The endpoint cellIds,
         // live style and visible label come from the cell so the
@@ -2205,11 +2235,11 @@ export default function DiagramEditor() {
         try {
           const created = await api.post<Relation>("/relations", {
             type: r.relationType,
-            source_id: r.sourceCardId,
-            target_id: r.targetCardId,
+            source_id: r.reversed ? r.targetCardId : r.sourceCardId,
+            target_id: r.reversed ? r.sourceCardId : r.targetCardId,
           });
           markEdgeSynced(
-            frame, r.edgeCellId, "#666", created.id, hideRelationLabelsRef.current,
+            frame, r.edgeCellId, r.reversed, created.id, hideRelationLabelsRef.current,
           );
           const endpoints = describeEdgeEndpoints(frame, r.edgeCellId);
           registerEdgeRelation(r.edgeCellId, {

@@ -89,10 +89,6 @@ import {
 
 type BackgroundStyle = LdvBackgroundStyle;
 
-/** Neutral stroke colour for relation edges on a generated DrawIO diagram,
- *  matching the LDV's muted edge styling. */
-const LDV_EDGE_COLOR = "#8a93a3";
-
 /** How many of the chosen extra fields render directly on the card body.
  *  The rest still appear in the hover tooltip. */
 const MAX_CARD_LINES = 2;
@@ -1237,7 +1233,6 @@ function LayeredDependencyInner({
           targetCardId: e.target,
           relationType: relTypeByPair.get([e.source, e.target].sort().join("|")) ?? "",
           label: d?.relLabel ?? "",
-          color: LDV_EDGE_COLOR,
         });
       }
 
