@@ -238,5 +238,11 @@
   "public.notFound.body": "Este enlace ya no está publicado, o nunca existió.",
   "public.locked.body": "Inicia sesión para ver este diagrama.",
   "public.locked.signIn": "Iniciar sesión con {{provider}}",
-  "public.empty": "Este diagrama aún no tiene contenido."
+  "public.empty": "Este diagrama aún no tiene contenido.",
+  "editor.toolbar.hideRelationLabels": "Ocultar etiquetas de relación",
+  "editor.toolbar.showRelationLabels": "Mostrar etiquetas de relación",
+  "editor.toolbar.relationLabelsHidden_one": "Etiqueta ocultada en {{count}} relación",
+  "editor.toolbar.relationLabelsHidden_other": "Etiquetas ocultadas en {{count}} relaciones",
+  "editor.toolbar.relationLabelsShown_one": "Mostrando la etiqueta en {{count}} relación",
+  "editor.toolbar.relationLabelsShown_other": "Mostrando las etiquetas en {{count}} relaciones"
 }

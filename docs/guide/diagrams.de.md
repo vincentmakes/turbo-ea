@@ -87,6 +87,12 @@ Das Dropdown **Ansicht** in der Symbolleiste färbt jede Karte auf der Leinwand 
 
 Eine schwebende Legende unten links auf der Leinwand zeigt die aktive Zuordnung. Die gewählte Ansicht wird mit dem Diagramm gespeichert.
 
+### Beziehungsbeschriftungen ausblenden
+
+Jede Beziehungskante trägt ihr Verb — *stellt bereit*, *nutzt*, *unterstützt*. In einer dichten Landschaft wird das schnell mehr Rauschen als Information, daher bietet das Überlaufmenü **⋮** die Option **Beziehungsbeschriftungen ausblenden** (und **einblenden**, um sie zurückzuholen).
+
+Das betrifft nur die Anzeige: Die Beziehung selbst bleibt unverändert, das Ausblenden ist also jederzeit rückgängig zu machen. Die Einstellung wird mit dem Diagramm gespeichert, sodass der schreibgeschützte Viewer, jedes veröffentlichte Diagramm sowie PNG-/SVG-Exporte genau dem entsprechen, was Sie eingerichtet haben. Danach gezeichnete Kanten folgen der aktuellen Einstellung. Selbst beschriftete Anmerkungskanten bleiben unberührt — betroffen sind nur Turbo-EA-Beziehungskanten.
+
 ### Sync-Drawer
 
 Die **Sync**-Schaltfläche in der Symbolleiste öffnet den Seiten-Drawer mit allem, was für die nächste Synchronisierung in der Warteschlange steht:

@@ -238,5 +238,11 @@
   "public.notFound.body": "لم يعد هذا الرابط منشوراً، أو أنه لم يكن موجوداً أصلاً.",
   "public.locked.body": "سجّل الدخول لعرض هذا المخطط.",
   "public.locked.signIn": "تسجيل الدخول عبر {{provider}}",
-  "public.empty": "لا يحتوي هذا المخطط على أي محتوى بعد."
+  "public.empty": "لا يحتوي هذا المخطط على أي محتوى بعد.",
+  "editor.toolbar.hideRelationLabels": "إخفاء تسميات العلاقات",
+  "editor.toolbar.showRelationLabels": "إظهار تسميات العلاقات",
+  "editor.toolbar.relationLabelsHidden_one": "تم إخفاء تسمية {{count}} علاقة",
+  "editor.toolbar.relationLabelsHidden_other": "تم إخفاء تسميات {{count}} علاقات",
+  "editor.toolbar.relationLabelsShown_one": "يتم إظهار تسمية {{count}} علاقة",
+  "editor.toolbar.relationLabelsShown_other": "يتم إظهار تسميات {{count}} علاقات"
 }

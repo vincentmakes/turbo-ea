@@ -87,6 +87,12 @@ The **View** dropdown in the toolbar recolors every card on the canvas by an att
 
 A floating legend in the bottom-left of the canvas shows the active mapping. The chosen view is saved with the diagram.
 
+### Hiding relation labels
+
+Every relation edge carries its verb — *provides*, *consumes*, *supports*. On a dense landscape that quickly becomes more noise than information, so the **⋮** overflow menu offers **Hide relation labels** (and **Show relation labels** to bring them back).
+
+This is display-only: the relation itself is untouched, so hiding is free to undo. The setting is saved with the diagram, so the read-only viewer, any [published diagram](#sharing-a-diagram-outside-turbo-ea) and PNG/SVG exports all match what you arranged. Edges you draw afterwards follow the current setting. Annotation edges you labelled yourself are left alone — only Turbo EA relation edges are affected.
+
 ### Sync drawer
 
 The **Sync** button in the toolbar opens the side drawer with everything queued for the next sync:

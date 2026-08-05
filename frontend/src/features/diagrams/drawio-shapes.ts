@@ -55,6 +55,12 @@ const BASE_STROKE_KEY = "turboBaseStroke";
 /** Sentinel recorded when the cell had no explicit value for that style key. */
 const NO_STYLE_VALUE = "-";
 
+/** mxGraph suppresses a cell's label when its style carries this part. The
+ *  label *value* is left untouched — hiding is a display decision, and the
+ *  relation verb is still needed by the sync side-table and by anyone who
+ *  turns the labels back on. */
+const NO_LABEL_PART = "noLabel=1";
+
 /** Read the value of a `key=value` mxGraph style part, or null when absent. */
 function readStylePart(parts: string[], key: string): string | null {
   const hit = parts.find((p) => p.startsWith(`${key}=`));
@@ -368,6 +374,7 @@ export function stampEdgeAsRelation(
   relationLabel: string,
   color: string,
   pending: boolean,
+  hideLabel = false,
 ): boolean {
   const ctx = getMxGraph(iframe);
   if (!ctx) return false;
@@ -388,9 +395,13 @@ export function stampEdgeAsRelation(
     model.setValue(edge, obj);
 
     const dash = pending ? "dashed=1;dashPattern=5 3;" : "";
+    // This rebuilds the style from scratch, so it has to re-apply the
+    // diagram's label setting — otherwise a freshly drawn edge shows its verb
+    // while every other edge on the canvas is hidden.
+    const hide = hideLabel ? `${NO_LABEL_PART};` : "";
     const style =
       `edgeStyle=entityRelationEdgeStyle;strokeColor=${color};strokeWidth=1.5;` +
-      `endArrow=none;startArrow=none;fontSize=10;fontColor=#666;${dash}`;
+      `endArrow=none;startArrow=none;fontSize=10;fontColor=#666;${dash}${hide}`;
     graph.setCellStyles("edgeStyle", "entityRelationEdgeStyle", [edge]);
     model.setStyle(edge, style);
   } finally {
@@ -444,6 +455,7 @@ export function markEdgeSynced(
   edgeCellId: string,
   color: string,
   relationId?: string,
+  hideLabel = false,
 ): boolean {
   const ctx = getMxGraph(iframe);
   if (!ctx) return false;
@@ -458,9 +470,11 @@ export function markEdgeSynced(
     const obj = edge.value;
     if (obj?.removeAttribute) obj.removeAttribute("pending");
     if (relationId && obj?.setAttribute) obj.setAttribute("relationId", relationId);
+    // Rebuilt from scratch here too — carry the label setting across.
     const style =
       `edgeStyle=entityRelationEdgeStyle;strokeColor=${color};strokeWidth=1.5;` +
-      `endArrow=none;startArrow=none;fontSize=10;fontColor=#666;`;
+      `endArrow=none;startArrow=none;fontSize=10;fontColor=#666;` +
+      (hideLabel ? `${NO_LABEL_PART};` : "");
     model.setStyle(edge, style);
   } finally {
     model.endUpdate();
@@ -3301,6 +3315,61 @@ export function applyViewToGraph(
         .concat(baseStamps)
         .concat([`fillColor=${color}`, `strokeColor=${stroke}`])
         .join(";");
+      model.setStyle(cell, next);
+      touched += 1;
+    }
+  } finally {
+    model.endUpdate();
+  }
+  return touched;
+}
+
+/**
+ * Show or hide the relation verb ("provides", "consumes", …) on every Turbo EA
+ * relation edge on the canvas.
+ *
+ * Dense landscape diagrams carry one predicate per edge, and past a certain
+ * size that is noise rather than information — so this is a display switch,
+ * not an edit: the label *value* stays on the cell and only mxGraph's
+ * `noLabel` style part is toggled. Because that part is serialised with the
+ * diagram XML, the read-only viewer, a published (embedded) diagram and PNG /
+ * SVG exports all inherit the setting for free.
+ *
+ * Scoped deliberately to edges carrying a `relationType`: a plain annotation
+ * edge that the architect labelled by hand is theirs, not ours, and keeps its
+ * text. Returns how many edges actually changed.
+ */
+export function setRelationLabelsHidden(
+  iframe: HTMLIFrameElement,
+  hidden: boolean,
+): number {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return 0;
+  const { graph } = ctx;
+  const model = graph.getModel();
+  const cells = model.cells || {};
+
+  let touched = 0;
+  model.beginUpdate();
+  try {
+    for (const k of Object.keys(cells)) {
+      const cell = cells[k];
+      if (!cell?.edge) continue;
+      if (!cell.value?.getAttribute) continue;
+      if (!cell.value.getAttribute("relationType")) continue;
+
+      const styleStr = (model.getStyle(cell) || "") as string;
+      const parts = styleStr.split(";").filter(Boolean);
+      const isHidden = parts.includes(NO_LABEL_PART);
+      // Already in the requested state — leave the style byte-identical rather
+      // than rewriting it, so a no-op toggle never dirties the diagram.
+      if (isHidden === hidden) continue;
+
+      const next = (
+        hidden
+          ? [...parts, NO_LABEL_PART]
+          : parts.filter((part) => part !== NO_LABEL_PART)
+      ).join(";");
       model.setStyle(cell, next);
       touched += 1;
     }

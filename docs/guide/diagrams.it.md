@@ -87,6 +87,12 @@ Il menu a tendina **Vista** nella barra strumenti ricolora ogni scheda sulla tel
 
 Una legenda fluttuante in basso a sinistra mostra la mappatura attiva. La vista scelta viene salvata col diagramma.
 
+### Nascondere le etichette delle relazioni
+
+Ogni arco di relazione porta il proprio verbo — *fornisce*, *consuma*, *supporta*. In un panorama denso diventa presto più rumore che informazione, perciò il menu **⋮** offre **Nascondi le etichette delle relazioni** (e **Mostra** per riportarle).
+
+Riguarda solo la visualizzazione: la relazione in sé non viene toccata, quindi nascondere è reversibile. L'impostazione viene salvata con il diagramma, così il visualizzatore in sola lettura, qualsiasi diagramma pubblicato e le esportazioni PNG/SVG corrispondono a ciò che hai preparato. Gli archi disegnati in seguito seguono l'impostazione corrente. Gli archi di annotazione che hai etichettato tu restano intatti: sono interessati solo quelli di relazione di Turbo EA.
+
 ### Pannello Sync
 
 Il pulsante **Sync** della barra strumenti apre il pannello laterale con tutto ciò che è in coda per la prossima sincronizzazione:

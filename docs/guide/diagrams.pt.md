@@ -87,6 +87,12 @@ O menu pendente **Vista** na barra de ferramentas recoloria cada cartão da tela
 
 Uma legenda flutuante no canto inferior esquerdo mostra o mapeamento ativo. A vista escolhida é guardada com o diagrama.
 
+### Ocultar as etiquetas de relação
+
+Cada aresta de relação exibe o seu verbo — *fornece*, *consome*, *suporta*. Num panorama denso isso torna-se depressa mais ruído do que informação, por isso o menu **⋮** oferece **Ocultar etiquetas de relação** (e **Mostrar** para as trazer de volta).
+
+Aplica-se apenas à apresentação: a relação em si não é alterada, pelo que ocultar é reversível. A definição é guardada com o diagrama, portanto o visualizador só de leitura, qualquer diagrama publicado e as exportações PNG/SVG correspondem ao que preparou. As arestas que desenhar depois seguem a definição atual. As arestas de anotação que etiquetou são deixadas em paz — só as de relação do Turbo EA são afetadas.
+
 ### Painel Sync
 
 O botão **Sync** da barra de ferramentas abre o painel lateral com tudo o que está em fila para a próxima sincronização:

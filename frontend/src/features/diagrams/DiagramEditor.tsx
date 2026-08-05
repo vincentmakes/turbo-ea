@@ -75,6 +75,7 @@ import {
   getNestedCardIds,
   applyViewToGraph,
   resetViewColors,
+  setRelationLabelsHidden,
   applyCardTypeIcons,
 } from "./drawio-shapes";
 import type {
@@ -150,7 +151,15 @@ interface DiagramData {
   id: string;
   name: string;
   type: string;
-  data: { xml?: string; thumbnail?: string; view?: ViewSource };
+  data: {
+    xml?: string;
+    thumbnail?: string;
+    view?: ViewSource;
+    /** Relation verbs hidden on this diagram (display-only, see
+     *  setRelationLabelsHidden). Rides with the diagram so the viewer
+     *  and any published embed match what the author arranged. */
+    hideRelationLabels?: boolean;
+  };
 }
 
 
@@ -678,6 +687,13 @@ export default function DiagramEditor() {
   const [view, setView] = useState<ViewSource>({ kind: "card_type" });
   const [viewLegendEntries, setViewLegendEntries] = useState<ColorEntry[]>([]);
   const [viewAppliedCount, setViewAppliedCount] = useState(0);
+  // Relation verbs ("provides", "consumes", …) hidden on this diagram. Saved
+  // with the diagram, so the read-only viewer and any published embed show
+  // exactly what the author arranged. A ref mirrors it because the edge-style
+  // builders run from callbacks that would otherwise close over a stale value.
+  const [hideRelationLabels, setHideRelationLabels] = useState(false);
+  const hideRelationLabelsRef = useRef(false);
+  hideRelationLabelsRef.current = hideRelationLabels;
   const [activeTypeKeys, setActiveTypeKeys] = useState<string[]>([]);
 
   // Local autosave restore prompt
@@ -696,6 +712,7 @@ export default function DiagramEditor() {
       .then((d) => {
         setDiagram(d);
         if (d.data?.view) setView(d.data.view);
+        setHideRelationLabels(Boolean(d.data?.hideRelationLabels));
         // Check for a newer locally-autosaved draft once per mount.
         if (!restoreCheckedRef.current) {
           restoreCheckedRef.current = true;
@@ -738,6 +755,7 @@ export default function DiagramEditor() {
             xml,
             ...(thumbnail ? { thumbnail } : {}),
             view,
+            hideRelationLabels,
           },
         };
         await api.patch(`/diagrams/${diagram.id}`, payload);
@@ -750,6 +768,7 @@ export default function DiagramEditor() {
                   xml,
                   ...(thumbnail ? { thumbnail } : {}),
                   view,
+                  hideRelationLabels,
                 },
               }
             : prev,
@@ -768,7 +787,7 @@ export default function DiagramEditor() {
         setSaving(false);
       }
     },
-    [diagram, view],
+    [diagram, view, hideRelationLabels],
   );
 
   /* ---------- Expand / collapse ---------- */
@@ -2018,7 +2037,10 @@ export default function DiagramEditor() {
 
       const color = direction === "as-is" ? ep.sourceColor : ep.targetColor;
 
-      stampEdgeAsRelation(frame, ep.edgeCellId, relType.key, relType.label, color, true);
+      stampEdgeAsRelation(
+        frame, ep.edgeCellId, relType.key, relType.label, color, true,
+        hideRelationLabelsRef.current,
+      );
 
       if (attributes && Object.keys(attributes).length > 0) {
         pendingEdgeAttributesRef.current.set(ep.edgeCellId, attributes);
@@ -2120,7 +2142,7 @@ export default function DiagramEditor() {
         const created = await api.post<Relation>("/relations", payload);
         pendingEdgeAttributesRef.current.delete(edgeCellId);
 
-        markEdgeSynced(frame, edgeCellId, "#666", created.id);
+        markEdgeSynced(frame, edgeCellId, "#666", created.id, hideRelationLabelsRef.current);
         // Mirror the new relation into the side-table so a later canvas
         // delete still reaches the confirm dialog. The endpoint cellIds,
         // live style and visible label come from the cell so the
@@ -2186,7 +2208,9 @@ export default function DiagramEditor() {
             source_id: r.sourceCardId,
             target_id: r.targetCardId,
           });
-          markEdgeSynced(frame, r.edgeCellId, "#666", created.id);
+          markEdgeSynced(
+            frame, r.edgeCellId, "#666", created.id, hideRelationLabelsRef.current,
+          );
           const endpoints = describeEdgeEndpoints(frame, r.edgeCellId);
           registerEdgeRelation(r.edgeCellId, {
             relationId: created.id,
@@ -2398,6 +2422,13 @@ export default function DiagramEditor() {
                     handleChevron,
                   );
                   attachLifecycleListenersOnce(iframeRef.current);
+                  // Self-heal: the setting normally rides in the saved cell
+                  // styles, but re-asserting it here keeps the stored flag and
+                  // the canvas in step if they ever diverge. A no-op when they
+                  // already agree — the helper skips cells in the right state.
+                  if (hideRelationLabelsRef.current) {
+                    setRelationLabelsHidden(iframeRef.current, true);
+                  }
                 }
               }, 200);
             } else if (attempt < 50) {
@@ -2680,6 +2711,23 @@ export default function DiagramEditor() {
   // warrant a permanent toolbar button.
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(null);
 
+  /** Show / hide the relation verb on every relation edge. Display-only — the
+   *  label value stays on the cell, so this is reversible and costs no data.
+   *  The new state is persisted with the diagram on the next save. */
+  const handleToggleRelationLabels = useCallback(() => {
+    setMoreMenuAnchor(null);
+    const frame = iframeRef.current;
+    if (!frame) return;
+    const next = !hideRelationLabelsRef.current;
+    const touched = setRelationLabelsHidden(frame, next);
+    setHideRelationLabels(next);
+    setSnackMsg(
+      next
+        ? t("editor.toolbar.relationLabelsHidden", { count: touched })
+        : t("editor.toolbar.relationLabelsShown", { count: touched }),
+    );
+  }, [t]);
+
   /** Upgrade cards already on the canvas with their card-type icon. Lets users
    *  add icons to diagrams created before the icon feature existed. */
   const handleApplyIcons = useCallback(() => {
@@ -2864,6 +2912,19 @@ export default function DiagramEditor() {
               <MaterialSymbol icon="emoji_symbols" size={20} />
             </ListItemIcon>
             <ListItemText>{t("editor.toolbar.applyIcons")}</ListItemText>
+          </MenuItem>
+          <MenuItem onClick={handleToggleRelationLabels}>
+            <ListItemIcon>
+              <MaterialSymbol
+                icon={hideRelationLabels ? "label" : "label_off"}
+                size={20}
+              />
+            </ListItemIcon>
+            <ListItemText>
+              {hideRelationLabels
+                ? t("editor.toolbar.showRelationLabels")
+                : t("editor.toolbar.hideRelationLabels")}
+            </ListItemText>
           </MenuItem>
         </Menu>
 

@@ -87,6 +87,12 @@ Le menu déroulant **Vue** dans la barre d'outils recolore chaque fiche du canev
 
 Une légende flottante en bas à gauche du canevas affiche la correspondance active. La vue choisie est enregistrée avec le diagramme.
 
+### Masquer les libellés de relation
+
+Chaque lien de relation porte son verbe — *fournit*, *consomme*, *soutient*. Sur un paysage dense, cela devient vite plus du bruit que de l'information : le menu **⋮** propose donc **Masquer les libellés de relation** (et **Afficher** pour les rétablir).
+
+Il s'agit uniquement de l'affichage : la relation elle-même n'est pas modifiée, le masquage est donc réversible. Le réglage est enregistré avec le diagramme, de sorte que la visionneuse en lecture seule, tout diagramme publié et les exports PNG/SVG correspondent à ce que vous avez arrangé. Les liens tracés ensuite suivent le réglage courant. Les liens d'annotation que vous avez libellés vous-même ne sont pas touchés — seuls les liens de relation Turbo EA le sont.
+
 ### Tiroir de synchronisation
 
 Le bouton **Sync** de la barre d'outils ouvre le tiroir latéral avec tout ce qui est en file pour la prochaine synchronisation :

@@ -238,5 +238,11 @@
   "public.notFound.body": "Эта ссылка больше не опубликована или никогда не существовала.",
   "public.locked.body": "Войдите, чтобы посмотреть эту диаграмму.",
   "public.locked.signIn": "Войти через {{provider}}",
-  "public.empty": "В этой диаграмме пока нет содержимого."
+  "public.empty": "В этой диаграмме пока нет содержимого.",
+  "editor.toolbar.hideRelationLabels": "Скрыть подписи связей",
+  "editor.toolbar.showRelationLabels": "Показать подписи связей",
+  "editor.toolbar.relationLabelsHidden_one": "Скрыта подпись у {{count}} связи",
+  "editor.toolbar.relationLabelsHidden_other": "Скрыты подписи у {{count}} связей",
+  "editor.toolbar.relationLabelsShown_one": "Показана подпись у {{count}} связи",
+  "editor.toolbar.relationLabelsShown_other": "Показаны подписи у {{count}} связей"
 }

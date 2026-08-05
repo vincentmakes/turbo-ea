@@ -238,5 +238,11 @@
   "public.notFound.body": "此链接已取消发布，或从未存在。",
   "public.locked.body": "请登录以查看此图表。",
   "public.locked.signIn": "使用 {{provider}} 登录",
-  "public.empty": "此图表尚无内容。"
+  "public.empty": "此图表尚无内容。",
+  "editor.toolbar.hideRelationLabels": "隐藏关系标签",
+  "editor.toolbar.showRelationLabels": "显示关系标签",
+  "editor.toolbar.relationLabelsHidden_one": "已隐藏 {{count}} 条关系的标签",
+  "editor.toolbar.relationLabelsHidden_other": "已隐藏 {{count}} 条关系的标签",
+  "editor.toolbar.relationLabelsShown_one": "正在显示 {{count}} 条关系的标签",
+  "editor.toolbar.relationLabelsShown_other": "正在显示 {{count}} 条关系的标签"
 }

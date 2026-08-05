@@ -238,5 +238,11 @@
   "public.notFound.body": "Questo collegamento non è più pubblicato, oppure non è mai esistito.",
   "public.locked.body": "Accedi per vedere questo diagramma.",
   "public.locked.signIn": "Accedi con {{provider}}",
-  "public.empty": "Questo diagramma non ha ancora contenuti."
+  "public.empty": "Questo diagramma non ha ancora contenuti.",
+  "editor.toolbar.hideRelationLabels": "Nascondi le etichette delle relazioni",
+  "editor.toolbar.showRelationLabels": "Mostra le etichette delle relazioni",
+  "editor.toolbar.relationLabelsHidden_one": "Etichetta nascosta su {{count}} relazione",
+  "editor.toolbar.relationLabelsHidden_other": "Etichette nascoste su {{count}} relazioni",
+  "editor.toolbar.relationLabelsShown_one": "Etichetta mostrata su {{count}} relazione",
+  "editor.toolbar.relationLabelsShown_other": "Etichette mostrate su {{count}} relazioni"
 }

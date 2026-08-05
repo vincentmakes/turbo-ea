@@ -87,6 +87,12 @@ Dropdownen **View** i værktøjslinjen omfarver hvert kort på lærredet efter e
 
 En flydende forklaring nederst til venstre på lærredet viser den aktive tilknytning. Den valgte visning gemmes med diagrammet.
 
+### Skjul relationsetiketter
+
+Hver relationskant viser sit udsagnsord — *leverer*, *forbruger*, *understøtter*. På et tæt landskab bliver det hurtigt mere støj end information, så **⋮**-menuen tilbyder **Skjul relationsetiketter** (og **Vis relationsetiketter** for at hente dem tilbage).
+
+Det gælder kun visningen: selve relationen røres ikke, så det kan altid fortrydes. Indstillingen gemmes sammen med diagrammet, så den skrivebeskyttede fremviser, ethvert udgivet diagram og PNG-/SVG-eksport svarer til det, du har arrangeret. Kanter, du tegner bagefter, følger den aktuelle indstilling. Annoteringskanter, du selv har mærket, lades i fred — kun Turbo EA's relationskanter berøres.
+
 ### Synkroniseringsskuffe
 
 Knappen **Sync** i værktøjslinjen åbner sideskuffen med alt, der er kø-stillet til næste synkronisering:

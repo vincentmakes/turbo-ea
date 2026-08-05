@@ -238,5 +238,11 @@
   "public.notFound.body": "This link is no longer published, or it never existed.",
   "public.locked.body": "Sign in to view this diagram.",
   "public.locked.signIn": "Sign in with {{provider}}",
-  "public.empty": "This diagram has no content yet."
+  "public.empty": "This diagram has no content yet.",
+  "editor.toolbar.hideRelationLabels": "Hide relation labels",
+  "editor.toolbar.showRelationLabels": "Show relation labels",
+  "editor.toolbar.relationLabelsHidden_one": "Hid the label on {{count}} relation",
+  "editor.toolbar.relationLabelsHidden_other": "Hid the labels on {{count}} relations",
+  "editor.toolbar.relationLabelsShown_one": "Showing the label on {{count}} relation",
+  "editor.toolbar.relationLabelsShown_other": "Showing the labels on {{count}} relations"
 }

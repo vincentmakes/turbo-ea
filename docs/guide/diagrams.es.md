@@ -87,6 +87,12 @@ El desplegable **Vista** de la barra de herramientas recolorea cada tarjeta del 
 
 Una leyenda flotante en la esquina inferior izquierda del lienzo muestra la asignación activa. La vista elegida se guarda con el diagrama.
 
+### Ocultar las etiquetas de relación
+
+Cada arista de relación lleva su verbo — *proporciona*, *consume*, *da soporte*. En un paisaje denso eso se convierte enseguida en más ruido que información, así que el menú **⋮** ofrece **Ocultar etiquetas de relación** (y **Mostrar** para recuperarlas).
+
+Solo afecta a la visualización: la relación en sí no se modifica, así que ocultarla es reversible. El ajuste se guarda con el diagrama, de modo que el visor de solo lectura, cualquier diagrama publicado y las exportaciones PNG/SVG coinciden con lo que has preparado. Las aristas que dibujes después siguen el ajuste actual. Las aristas de anotación que hayas etiquetado tú quedan intactas: solo se ven afectadas las de relación de Turbo EA.
+
 ### Panel de Sync
 
 El botón **Sync** de la barra de herramientas abre el panel lateral con todo lo que está en cola para la próxima sincronización:

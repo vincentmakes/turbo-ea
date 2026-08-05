@@ -8,6 +8,9 @@ import {
   applyViewToGraph,
   resetViewColors,
   captureGroupChildLayout,
+  setRelationLabelsHidden,
+  stampEdgeAsRelation,
+  markEdgeSynced,
   type DiagramCardInput,
   type DiagramRelInput,
   type DiagramLayerInput,
@@ -487,12 +490,26 @@ function viewFrame(cells: Record<string, ViewCell>) {
     setStyle: (c: ViewCell, s: string) => {
       c._style = s;
     },
+    // Needed by the edge-style builders (stampEdgeAsRelation / markEdgeSynced),
+    // which look their target up by cell id and replace its user object.
+    getCell: (id: string) => cells[id],
+    setValue: (c: ViewCell, v: unknown) => {
+      (c as unknown as { value: unknown }).value = v;
+    },
   };
   const graph = {
     getModel: () => model,
     getCellGeometry: (c: ViewCell) => c._geo ?? null,
+    setCellStyles: () => {},
   };
-  return { contentWindow: { __turboGraph: graph } } as unknown as HTMLIFrameElement;
+  return {
+    contentWindow: {
+      __turboGraph: graph,
+      mxUtils: {
+        createXmlDocument: () => document.implementation.createDocument(null, null, null),
+      },
+    },
+  } as unknown as HTMLIFrameElement;
 }
 function viewCell(
   attrs: Record<string, string | null>,
@@ -643,5 +660,111 @@ describe("captureGroupChildLayout — collapse preserves arrangement", () => {
     const frame = viewFrame({ e: edge, n: noGeo });
 
     expect(captureGroupChildLayout(frame, "p").size).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Relation-label visibility toggle
+// ---------------------------------------------------------------------------
+
+function edgeCell(
+  attrs: Record<string, string | null>,
+  style: string,
+): ViewCell {
+  return viewCell(attrs, style, { edge: true });
+}
+
+describe("setRelationLabelsHidden", () => {
+  const REL_STYLE = "edgeStyle=entityRelationEdgeStyle;strokeColor=#666;fontSize=10";
+
+  it("hides the verb without touching the label value", () => {
+    // The label must survive: the sync side-table still needs the relation, and
+    // showing the labels again has to bring the original text back.
+    const edge = edgeCell({ relationType: "app_to_itc", label: "provides" }, REL_STYLE);
+    const frame = viewFrame({ e: edge });
+
+    expect(setRelationLabelsHidden(frame, true)).toBe(1);
+
+    expect(edge._style.split(";")).toContain("noLabel=1");
+    expect(edge._attrs.label).toBe("provides");
+  });
+
+  it("round-trips cleanly back to the original style", () => {
+    const edge = edgeCell({ relationType: "app_to_itc" }, REL_STYLE);
+    const frame = viewFrame({ e: edge });
+
+    setRelationLabelsHidden(frame, true);
+    setRelationLabelsHidden(frame, false);
+
+    expect(edge._style).toBe(REL_STYLE);
+  });
+
+  it("is idempotent and reports nothing changed on a repeat call", () => {
+    const edge = edgeCell({ relationType: "app_to_itc" }, REL_STYLE);
+    const frame = viewFrame({ e: edge });
+
+    expect(setRelationLabelsHidden(frame, true)).toBe(1);
+    expect(setRelationLabelsHidden(frame, true)).toBe(0);
+    // No duplicate style part on the repeat.
+    expect(edge._style.split(";").filter((p) => p === "noLabel=1")).toHaveLength(1);
+  });
+
+  it("leaves a hand-labelled annotation edge alone", () => {
+    // An edge the architect drew and labelled themselves is theirs, not ours —
+    // only Turbo EA relation edges carry a relationType.
+    const annotation = edgeCell({ label: "see ADR-12" }, "endArrow=block");
+    const frame = viewFrame({ a: annotation });
+
+    expect(setRelationLabelsHidden(frame, true)).toBe(0);
+    expect(annotation._style).toBe("endArrow=block");
+  });
+
+  it("leaves card cells alone", () => {
+    const card = viewCell({ cardId: "c1", cardType: "Application" }, "fillColor=#0f7eb5");
+    const frame = viewFrame({ c: card });
+
+    expect(setRelationLabelsHidden(frame, true)).toBe(0);
+    expect(card._style).toBe("fillColor=#0f7eb5");
+  });
+
+  it("applies across every relation edge on the canvas", () => {
+    const a = edgeCell({ relationType: "app_to_itc" }, REL_STYLE);
+    const b = edgeCell({ relationType: "org_to_app" }, REL_STYLE);
+    const frame = viewFrame({ a, b });
+
+    expect(setRelationLabelsHidden(frame, true)).toBe(2);
+    expect(a._style).toContain("noLabel=1");
+    expect(b._style).toContain("noLabel=1");
+  });
+});
+
+describe("edge style builders honour the label setting", () => {
+  it("stampEdgeAsRelation hides a newly drawn edge's verb when set", () => {
+    // Regression guard: both builders rebuild the style from scratch, so an
+    // edge drawn while labels are hidden would otherwise pop back visible.
+    const edge = edgeCell({}, "");
+    const frame = viewFrame({ e: edge });
+
+    stampEdgeAsRelation(frame, "e", "app_to_itc", "provides", "#666", false, true);
+    expect(edge._style.split(";")).toContain("noLabel=1");
+  });
+
+  it("stampEdgeAsRelation leaves the verb visible by default", () => {
+    const edge = edgeCell({}, "");
+    const frame = viewFrame({ e: edge });
+
+    stampEdgeAsRelation(frame, "e", "app_to_itc", "provides", "#666", false);
+    expect(edge._style.split(";")).not.toContain("noLabel=1");
+  });
+
+  it("markEdgeSynced carries the setting across the pending → synced switch", () => {
+    const edge = edgeCell(
+      { relationType: "app_to_itc" },
+      "edgeStyle=entityRelationEdgeStyle;noLabel=1",
+    );
+    const frame = viewFrame({ e: edge });
+
+    markEdgeSynced(frame, "e", "#666", "rel-1", true);
+    expect(edge._style.split(";")).toContain("noLabel=1");
   });
 });
