@@ -173,3 +173,145 @@ class TestSeedIdempotency:
 
         assert count_first == count_second
         assert roles_first == roles_second
+
+
+# ---------------------------------------------------------------------------
+# Re-seed must preserve admin translations
+#
+# `seed_metamodel` runs on EVERY backend start. It used to merge the seed's
+# translations over the row's (`{**existing, **seed}`), so every translation an
+# admin entered through the Translations dialog on a built-in type — and every
+# rename, since translations shadow the `label` column — silently reverted on the
+# next restart. The seed fills gaps; re-asserting a changed built-in default is
+# what a guarded migration is for.
+# ---------------------------------------------------------------------------
+
+
+async def _built_in_type(db, key: str) -> CardType:
+    result = await db.execute(select(CardType).where(CardType.key == key))
+    return result.scalar_one()
+
+
+class TestSeedPreservesAdminTranslations:
+    async def test_card_type_label_translation_survives_reseed(self, db):
+        await seed_metamodel(db)
+        app_type = await _built_in_type(db, "Application")
+        translations = dict(app_type.translations)
+        translations["label"] = {**translations.get("label", {}), "de": "Fachanwendung"}
+        app_type.translations = translations
+        await db.flush()
+
+        await seed_metamodel(db)
+
+        app_type = await _built_in_type(db, "Application")
+        assert app_type.translations["label"]["de"] == "Fachanwendung"
+
+    async def test_card_type_rename_survives_reseed(self, db):
+        """A rename lives in `label` + `translations.label.en`; both must stick."""
+        await seed_metamodel(db)
+        app_type = await _built_in_type(db, "Application")
+        app_type.label = "Business System"
+        app_type.translations = {
+            **app_type.translations,
+            "label": {**app_type.translations.get("label", {}), "en": "Business System"},
+        }
+        await db.flush()
+
+        await seed_metamodel(db)
+
+        app_type = await _built_in_type(db, "Application")
+        assert app_type.label == "Business System"
+        assert app_type.translations["label"]["en"] == "Business System"
+
+    async def test_missing_locale_is_still_backfilled(self, db):
+        """Existing-wins must still ADD a locale the row does not carry."""
+        await seed_metamodel(db)
+        app_type = await _built_in_type(db, "Application")
+        seeded_de = app_type.translations["label"]["de"]
+        app_type.translations = {
+            **app_type.translations,
+            "label": {k: v for k, v in app_type.translations["label"].items() if k != "de"},
+        }
+        await db.flush()
+
+        await seed_metamodel(db)
+
+        app_type = await _built_in_type(db, "Application")
+        assert app_type.translations["label"]["de"] == seeded_de
+
+    async def test_subtype_field_and_option_translations_survive_reseed(self, db):
+        await seed_metamodel(db)
+        app_type = await _built_in_type(db, "Application")
+
+        subtypes = [dict(s) for s in app_type.subtypes]
+        subtypes[0]["translations"] = {**subtypes[0].get("translations", {}), "de": "Mein Subtyp"}
+        app_type.subtypes = subtypes
+
+        schema = [dict(sec) for sec in app_type.fields_schema]
+        target_sec = next(sec for sec in schema if sec.get("fields"))
+        target_sec["translations"] = {**target_sec.get("translations", {}), "de": "Mein Abschnitt"}
+        fields = [dict(f) for f in target_sec["fields"]]
+        fields[0]["translations"] = {**fields[0].get("translations", {}), "de": "Mein Feld"}
+        opt_field = next((f for f in fields if f.get("options")), None)
+        if opt_field:
+            options = [dict(o) for o in opt_field["options"]]
+            options[0]["translations"] = {
+                **options[0].get("translations", {}),
+                "de": "Meine Option",
+            }
+            opt_field["options"] = options
+        target_sec["fields"] = fields
+        app_type.fields_schema = schema
+        await db.flush()
+
+        await seed_metamodel(db)
+
+        app_type = await _built_in_type(db, "Application")
+        assert app_type.subtypes[0]["translations"]["de"] == "Mein Subtyp"
+        saved_sec = next(
+            sec for sec in app_type.fields_schema if sec["section"] == target_sec["section"]
+        )
+        assert saved_sec["translations"]["de"] == "Mein Abschnitt"
+        assert saved_sec["fields"][0]["translations"]["de"] == "Mein Feld"
+        if opt_field:
+            saved_field = next(f for f in saved_sec["fields"] if f["key"] == opt_field["key"])
+            assert saved_field["options"][0]["translations"]["de"] == "Meine Option"
+
+    async def test_relation_verb_translation_survives_reseed(self, db):
+        await seed_metamodel(db)
+        result = await db.execute(
+            select(RelationType).where(RelationType.key == RELATIONS[0]["key"])
+        )
+        rel = result.scalar_one()
+        rel.translations = {
+            **rel.translations,
+            "label": {**rel.translations.get("label", {}), "de": "eigene Formulierung"},
+        }
+        await db.flush()
+
+        await seed_metamodel(db)
+
+        result = await db.execute(
+            select(RelationType).where(RelationType.key == RELATIONS[0]["key"])
+        )
+        assert result.scalar_one().translations["label"]["de"] == "eigene Formulierung"
+
+    async def test_relation_missing_locale_is_backfilled(self, db):
+        """Relation rows were never merged at all, so an install seeded before a
+        locale existed (Danish, Arabic) never received its verbs."""
+        await seed_metamodel(db)
+        key = RELATIONS[0]["key"]
+        result = await db.execute(select(RelationType).where(RelationType.key == key))
+        rel = result.scalar_one()
+        rel.built_in = True
+        seeded_da = rel.translations["label"]["da"]
+        rel.translations = {
+            **rel.translations,
+            "label": {k: v for k, v in rel.translations["label"].items() if k != "da"},
+        }
+        await db.flush()
+
+        await seed_metamodel(db)
+
+        result = await db.execute(select(RelationType).where(RelationType.key == key))
+        assert result.scalar_one().translations["label"]["da"] == seeded_da

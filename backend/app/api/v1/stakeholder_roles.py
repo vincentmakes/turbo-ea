@@ -463,6 +463,10 @@ async def update_stakeholder_role(
         new_key = None
 
     for field, value in data.items():
+        if field == "translations":
+            # NOT NULL column — a client clearing every translation must land an
+            # empty map, not a constraint violation.
+            value = value or {}
         setattr(srd, field, value)
 
     await db.commit()

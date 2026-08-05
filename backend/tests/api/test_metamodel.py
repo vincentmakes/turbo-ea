@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy import select
 
 from app.core.permissions import VIEWER_PERMISSIONS
+from app.models.card_type import CardType
 from tests.conftest import (
     auth_headers,
     create_card,
@@ -134,6 +135,29 @@ class TestUpdateType:
             headers=auth_headers(admin),
         )
         assert response.status_code == 404
+
+    async def test_null_translations_normalised(self, client, db, metamodel_env):
+        """`translations` is NOT NULL — clearing every translation must not 500.
+
+        Asserted on the stored column: the response serializer masks a NULL with
+        ``or {}``, so asserting on the response would be vacuous.
+        """
+        admin = metamodel_env["admin"]
+        await create_card_type(
+            db, key="Application", label="Application", translations={"label": {"en": "App"}}
+        )
+
+        response = await client.patch(
+            "/api/v1/metamodel/types/Application",
+            json={"translations": None},
+            headers=auth_headers(admin),
+        )
+
+        assert response.status_code == 200
+        stored = await db.execute(
+            select(CardType.translations).where(CardType.key == "Application")
+        )
+        assert stored.scalar_one() == {}
 
 
 class TestTypeColor:

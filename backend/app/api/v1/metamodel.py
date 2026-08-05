@@ -806,7 +806,12 @@ async def update_type(
     ]
     for field in updatable:
         if field in body:
-            setattr(t, field, body[field])
+            if field == "translations":
+                # NOT NULL column — a client clearing every translation must land
+                # an empty map, not a constraint violation.
+                t.translations = body["translations"] or {}
+            else:
+                setattr(t, field, body[field])
 
     # Auto-provide the self-referential lineage relation type whenever lineage is
     # enabled. Run unconditionally-when-true (idempotent, one indexed lookup) so it
@@ -1066,7 +1071,9 @@ async def _ensure_successor_relation_type(db: AsyncSession, card_type_key: str) 
             built_in=False,
             is_hidden=False,
             sort_order=next_order,
-            translations=_SUCCESSOR_TRANSLATIONS,
+            # Deep-copy: assigning the module constant by reference would let an
+            # in-place edit of one row's translations corrupt it process-wide.
+            translations=copy.deepcopy(_SUCCESSOR_TRANSLATIONS),
         )
     )
 

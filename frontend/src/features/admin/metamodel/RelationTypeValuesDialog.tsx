@@ -19,18 +19,9 @@ import KeyInput, { isValidKey } from "@/components/KeyInput";
 import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { LOCALE_LABELS } from "@/i18n";
 import { api, ApiError } from "@/api/client";
-import type { FieldDef, FieldOption, RelationType, TranslationMap } from "@/types";
+import type { FieldDef, FieldOption, RelationType } from "@/types";
 import { DEFAULT_OPTION_COLOR } from "./constants";
-
-/** Remove empty-string entries from a TranslationMap. Returns undefined if all empty. */
-function cleanTranslationMap(map: TranslationMap | undefined): TranslationMap | undefined {
-  if (!map) return undefined;
-  const cleaned: TranslationMap = {};
-  for (const [k, v] of Object.entries(map)) {
-    if (v && v.trim()) cleaned[k] = v.trim();
-  }
-  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
-}
+import { cleanTranslationMap } from "./helpers";
 
 interface Props {
   open: boolean;

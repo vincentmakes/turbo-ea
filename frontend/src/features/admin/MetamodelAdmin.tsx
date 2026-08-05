@@ -40,33 +40,15 @@ import type {
   CardType as FSType,
   RelationType as RType,
   MetamodelTranslations,
-  TranslationMap,
 } from "@/types";
-import { TypeDetailDrawer, MetamodelGraph, RelationTypeValuesDialog } from "./metamodel";
+import {
+  TypeDetailDrawer,
+  MetamodelGraph,
+  RelationTypeValuesDialog,
+  RelationTranslationDialog,
+} from "./metamodel";
+import { cleanTranslations } from "./metamodel/helpers";
 import { CATEGORIES, CARDINALITY_OPTIONS } from "./metamodel/constants";
-
-/** Remove empty-string entries from a TranslationMap. Returns undefined if all empty. */
-function cleanTranslationMap(map: TranslationMap | undefined): TranslationMap | undefined {
-  if (!map) return undefined;
-  const cleaned: TranslationMap = {};
-  for (const [k, v] of Object.entries(map)) {
-    if (v && v.trim()) cleaned[k] = v.trim();
-  }
-  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
-}
-
-/** Clean a MetamodelTranslations object, removing empty maps. */
-function cleanTranslations(
-  trans: MetamodelTranslations | undefined,
-): MetamodelTranslations | undefined {
-  if (!trans) return undefined;
-  const cleaned: MetamodelTranslations = {};
-  for (const [key, map] of Object.entries(trans)) {
-    const c = cleanTranslationMap(map);
-    if (c) cleaned[key] = c;
-  }
-  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
-}
 
 /**
  * English is the base language: it lives in the `label` / `reverse_label`
@@ -154,6 +136,9 @@ export default function MetamodelAdmin() {
 
   /* --- Manage relation "type" values dialog --- */
   const [valuesRel, setValuesRel] = useState<RType | null>(null);
+
+  /* --- Relation verb translations dialog --- */
+  const [translateRelsOpen, setTranslateRelsOpen] = useState(false);
 
   /* --- Delete relation confirmation --- */
   const [deleteRelConfirm, setDeleteRelConfirm] = useState<{
@@ -589,13 +574,22 @@ export default function MetamodelAdmin() {
               }
               label={t("metamodel.showHiddenRelations")}
             />
-            <Button
-              variant="contained"
-              startIcon={<MaterialSymbol icon="add" size={18} />}
-              onClick={() => openCreateRelation()}
-            >
-              {t("metamodel.newRelation")}
-            </Button>
+            <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+              <Button
+                variant="outlined"
+                startIcon={<MaterialSymbol icon="translate" size={18} />}
+                onClick={() => setTranslateRelsOpen(true)}
+              >
+                {t("metamodel.translationDialog.manage")}
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<MaterialSymbol icon="add" size={18} />}
+                onClick={() => openCreateRelation()}
+              >
+                {t("metamodel.newRelation")}
+              </Button>
+            </Box>
           </Box>
 
           {displayRelationTypes.map((rt) => {
@@ -853,6 +847,14 @@ export default function MetamodelAdmin() {
         open={!!valuesRel}
         relationType={valuesRel}
         onClose={() => setValuesRel(null)}
+        onSaved={refresh}
+      />
+
+      <RelationTranslationDialog
+        open={translateRelsOpen}
+        relationTypes={displayRelationTypes}
+        types={types}
+        onClose={() => setTranslateRelsOpen(false)}
         onSaved={refresh}
       />
 

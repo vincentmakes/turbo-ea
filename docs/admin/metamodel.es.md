@@ -158,7 +158,9 @@ Los tipos de relación definen las conexiones permitidas entre tipos de fichas. 
 
 Haga clic en **+ Nuevo Tipo de Relación** para crear una relación, o haga clic en una existente para editar sus etiquetas y atributos.
 
-Los campos **Etiqueta** y **Etiqueta Inversa** se escriben en el idioma que está utilizando en ese momento: el rótulo del campo indica cuál (por ejemplo, *Etiqueta (Español)*). Cambiar el nombre de una relación actualiza ese idioma en todos los lugares donde aparece el verbo: la sección **Relaciones** de una ficha, las columnas de relación del inventario, los informes, los portales y los diagramas. Los demás idiomas conservan su propia redacción hasta que cambie a ellos y los renombre también.
+Los campos **Etiqueta** y **Etiqueta Inversa** se escriben en el idioma que está utilizando en ese momento: el rótulo del campo indica cuál (por ejemplo, *Etiqueta (Español)*). Cambiar el nombre de una relación actualiza ese idioma en todos los lugares donde aparece el verbo: la sección **Relaciones** de una ficha, las columnas de relación del inventario, los informes, los portales y los diagramas. Los demás idiomas conservan su propia redacción hasta que los traduzca.
+
+Use **Gestionar traducciones** en la parte superior de la pestaña Tipos de relación para traducir los verbos de todas las relaciones a cada idioma habilitado de una sola vez. Elija una pestaña de idioma, escriba la redacción junto al original en inglés y guarde: el contador de cada pestaña muestra cuántos verbos faltan todavía en ese idioma. El inglés no aparece aquí porque es la redacción de la propia relación; un verbo sin traducir vuelve a ella.
 
 ### Atributos de relación
 

@@ -288,6 +288,7 @@ async def create_card_type(
         has_hierarchy=kwargs.get("has_hierarchy", False),
         built_in=kwargs.get("built_in", False),
         is_hidden=kwargs.get("is_hidden", False),
+        translations=kwargs.get("translations", {}),
     )
     db.add(ct)
     await db.flush()

@@ -20,6 +20,7 @@ vi.mock("./metamodel", () => ({
   TypeDetailDrawer: () => <div data-testid="type-detail-drawer" />,
   MetamodelGraph: () => <div data-testid="metamodel-graph" />,
   RelationTypeValuesDialog: () => <div data-testid="relation-type-values-dialog" />,
+  RelationTranslationDialog: () => <div data-testid="relation-translation-dialog" />,
 }));
 
 vi.mock("./metamodel/constants", () => ({

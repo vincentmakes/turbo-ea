@@ -158,7 +158,9 @@ Les types de relations définissent les connexions autorisées entre les types d
 
 Cliquez sur **+ Nouveau type de relation** pour créer une relation, ou cliquez sur un type existant pour modifier ses libellés et attributs.
 
-Les champs **Libellé** et **Libellé inverse** sont saisis dans la langue que vous utilisez actuellement — l'intitulé du champ indique laquelle (par exemple *Libellé (Français)*). Renommer une relation met à jour cette langue partout où le verbe apparaît : la section **Relations** d'une fiche, les colonnes de relation de l'inventaire, les rapports, les portails et les diagrammes. Les autres langues conservent leur propre formulation jusqu'à ce que vous y basculiez pour les renommer également.
+Les champs **Libellé** et **Libellé inverse** sont saisis dans la langue que vous utilisez actuellement — l'intitulé du champ indique laquelle (par exemple *Libellé (Français)*). Renommer une relation met à jour cette langue partout où le verbe apparaît : la section **Relations** d'une fiche, les colonnes de relation de l'inventaire, les rapports, les portails et les diagrammes. Les autres langues conservent leur propre formulation jusqu'à ce que vous les traduisiez.
+
+Utilisez **Gérer les traductions** en haut de l'onglet Types de relation pour traduire les verbes de toutes les relations dans chaque langue activée en une seule fois. Choisissez un onglet de langue, saisissez la formulation à côté de la source anglaise et enregistrez — le compteur de chaque onglet indique combien de verbes manquent encore dans cette langue. L'anglais n'y figure pas : c'est la formulation portée par la relation elle-même, et un verbe non traduit y revient.
 
 ### Attributs de relation
 

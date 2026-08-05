@@ -160,7 +160,9 @@ Relation types define the allowed connections between card types. Each relation 
 
 Click **+ New Relation Type** to create a relation, or click an existing one to edit its labels and attributes.
 
-The **Label** and **Reverse Label** fields are written in the language you are currently using — the field caption shows which one (for example *Label (English)*). Renaming a relation updates that language everywhere the verb appears: the **Relations** section on a card, the inventory relation columns, reports, portals and diagrams. Other languages keep their own wording until you switch to them and rename there too.
+The **Label** and **Reverse Label** fields are written in the language you are currently using — the field caption shows which one (for example *Label (English)*). Renaming a relation updates that language everywhere the verb appears: the **Relations** section on a card, the inventory relation columns, reports, portals and diagrams. Other languages keep their own wording until you translate them.
+
+Use **Manage Translations** at the top of the Relation Types tab to translate every relation's verbs into each enabled language in one pass. Pick a language tab, fill in the wording next to the English source, and save — the counter on each tab shows how many verbs that language still needs. English is not listed here because it is the wording on the relation itself; a verb left untranslated falls back to it.
 
 ### Relation attributes
 

@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [2.42.0] - 2026-08-05
 
+### Added
+- **Relation verbs can now be translated.** *Manage Translations* at the top of Admin → Metamodel → **Relation Types** translates every relation's forward and reverse verb into each enabled language in one pass, with a per-language counter showing what is still missing. Relation verbs were the only metamodel labels with no translation editor, so a relation you renamed — or created yourself — could never be given wording in any other language. English is not listed there because it is the wording on the relation itself; a verb left untranslated falls back to it.
+
 ### Fixed
+- **Translations and renames on built-in card types no longer revert when the backend restarts.** Every restart re-applied the shipped defaults over whatever was in the database, so a translation entered in the Translations dialog for a built-in type — and a rename, since translations decide what is displayed — silently went back to the original wording the next time the container came up. Your wording is now kept, and a shipped translation is only ever added for a language a type does not already have.
+- **Relation verbs finally arrive in languages added after your install.** Danish and Arabic verbs never reached instances that had been upgraded rather than installed fresh, because existing relations were skipped entirely when defaults were applied. They are filled in on upgrade, without touching any wording you have changed.
+- **Clearing every translation on a card type now saves instead of doing nothing.** The dialog sent a value the database rejects and then hid the error, so the Save button appeared to do nothing at all. Failures are now shown.
 - **Renaming a relation type now shows up on the cards.** Changing a relation's name or reverse name in **Admin → Metamodel → Relations** updated the metamodel graph and the layered dependency views but nothing else — a card's **Relations** section, the inventory relation columns, the matrix and portfolio reports, portals and diagram edges all kept showing the old wording ([#912](https://github.com/vincentmakes/turbo-ea/issues/912)). The rename now reaches every one of them. Relations you renamed before this release are repaired on upgrade, so there is nothing to re-save. The two fields now show which language you are editing — rename in French and only the French wording changes, leaving the English fallback intact.
 - **Editing a relation type you created yourself no longer risks failing to save.** Saving a relation type with no translations could send an empty value the database rejects.
 

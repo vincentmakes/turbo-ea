@@ -203,6 +203,38 @@ class TestUpdateStakeholderRole:
         assert response.status_code == 200
         assert response.json()["label"] == "Primary Owner"
 
+    async def test_null_translations_normalised(self, client, db):
+        """`translations` is NOT NULL — clearing every translation must not 500.
+
+        Asserted on the stored column: the response serializer masks a NULL with
+        ``or {}``, so asserting on the response would be vacuous.
+        """
+        from sqlalchemy import select
+
+        from app.models.stakeholder_role_definition import StakeholderRoleDefinition
+
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+        await create_card_type(db, key="Application", label="Application")
+        await create_stakeholder_role_def(
+            db, card_type_key="Application", key="responsible", label="Responsible"
+        )
+
+        response = await client.patch(
+            "/api/v1/metamodel/types/Application/stakeholder-roles/responsible",
+            json={"translations": None},
+            headers=auth_headers(admin),
+        )
+
+        assert response.status_code == 200
+        stored = await db.execute(
+            select(StakeholderRoleDefinition.translations).where(
+                StakeholderRoleDefinition.card_type_key == "Application",
+                StakeholderRoleDefinition.key == "responsible",
+            )
+        )
+        assert stored.scalar_one() == {}
+
     async def test_cannot_update_archived(self, client, db):
         await create_role(db, key="admin", label="Admin", permissions={"*": True})
         admin = await create_user(db, email="admin@test.com", role="admin")

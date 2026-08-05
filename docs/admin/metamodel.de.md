@@ -158,7 +158,9 @@ Beziehungstypen definieren die zulässigen Verbindungen zwischen Kartentypen. Je
 
 Klicken Sie auf **+ Neuer Beziehungstyp**, um eine Beziehung zu erstellen, oder klicken Sie auf einen bestehenden, um dessen Bezeichnungen und Attribute zu bearbeiten.
 
-Die Felder **Bezeichnung** und **Umgekehrte Bezeichnung** werden in der Sprache erfasst, die Sie gerade verwenden — die Feldbeschriftung zeigt an, welche (zum Beispiel *Bezeichnung (Deutsch)*). Beim Umbenennen einer Beziehung wird diese Sprache überall aktualisiert, wo das Verb erscheint: im Abschnitt **Beziehungen** einer Karte, in den Beziehungsspalten des Inventars, in Berichten, Portalen und Diagrammen. Andere Sprachen behalten ihre eigene Formulierung, bis Sie dorthin wechseln und sie ebenfalls umbenennen.
+Die Felder **Bezeichnung** und **Umgekehrte Bezeichnung** werden in der Sprache erfasst, die Sie gerade verwenden — die Feldbeschriftung zeigt an, welche (zum Beispiel *Bezeichnung (Deutsch)*). Beim Umbenennen einer Beziehung wird diese Sprache überall aktualisiert, wo das Verb erscheint: im Abschnitt **Beziehungen** einer Karte, in den Beziehungsspalten des Inventars, in Berichten, Portalen und Diagrammen. Andere Sprachen behalten ihre eigene Formulierung, bis Sie sie übersetzen.
+
+Mit **Übersetzungen verwalten** oben im Reiter Beziehungstypen übersetzen Sie die Verben aller Beziehungen in einem Durchgang in jede aktivierte Sprache. Wählen Sie einen Sprachreiter, tragen Sie die Formulierung neben dem englischen Original ein und speichern Sie — der Zähler auf jedem Reiter zeigt, wie viele Verben in dieser Sprache noch fehlen. Englisch erscheint hier nicht, denn es ist die Formulierung an der Beziehung selbst; ein nicht übersetztes Verb fällt darauf zurück.
 
 ### Beziehungsattribute
 

@@ -1,130 +1,31 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
-import TextField from "@mui/material/TextField";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
 import CircularProgress from "@mui/material/CircularProgress";
+import Alert from "@mui/material/Alert";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { SUPPORTED_LOCALES, LOCALE_LABELS } from "@/i18n";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
+import { TranslationGroup, TranslationRow } from "./translationParts";
+import { cleanTranslationMap, cleanTranslations } from "./helpers";
 import type {
   CardType,
   MetamodelTranslations,
-  TranslationMap,
   SectionDef,
   SubtypeDef,
   StakeholderRoleDefinitionFull,
 } from "@/types";
-
-/** Remove empty-string entries from a TranslationMap. Returns undefined if all empty. */
-function cleanTranslationMap(map: TranslationMap | undefined): TranslationMap | undefined {
-  if (!map) return undefined;
-  const cleaned: TranslationMap = {};
-  for (const [k, v] of Object.entries(map)) {
-    if (v && v.trim()) cleaned[k] = v.trim();
-  }
-  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
-}
-
-/** Clean a MetamodelTranslations object, removing empty maps. */
-function cleanTranslations(
-  trans: MetamodelTranslations | undefined,
-): MetamodelTranslations | undefined {
-  if (!trans) return undefined;
-  const cleaned: MetamodelTranslations = {};
-  for (const [key, map] of Object.entries(trans)) {
-    const c = cleanTranslationMap(map);
-    if (c) cleaned[key] = c;
-  }
-  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
-}
-
-/* ------------------------------------------------------------------ */
-/*  TranslationRow                                                      */
-/* ------------------------------------------------------------------ */
-
-function TranslationRow({
-  reference,
-  value,
-  onChange,
-}: {
-  reference: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <Box
-      sx={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: 2,
-        alignItems: "center",
-        py: 0.5,
-      }}
-    >
-      <Typography
-        variant="body2"
-        color="text.secondary"
-        sx={{
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-          fontFamily: "monospace",
-          fontSize: 12,
-        }}
-        title={reference}
-      >
-        {reference}
-      </Typography>
-      <TextField
-        size="small"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={reference}
-        fullWidth
-      />
-    </Box>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  TranslationGroup                                                    */
-/* ------------------------------------------------------------------ */
-
-function TranslationGroup({
-  title,
-  count,
-  children,
-}: {
-  title: string;
-  count?: number;
-  children: React.ReactNode;
-}) {
-  return (
-    <Box sx={{ mb: 2.5 }}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-        <Typography variant="subtitle2" fontWeight={700}>
-          {title}
-        </Typography>
-        {count !== undefined && (
-          <Chip size="small" label={count} variant="outlined" sx={{ height: 20, fontSize: 11 }} />
-        )}
-      </Box>
-      <Box sx={{ pl: 0.5 }}>{children}</Box>
-    </Box>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /*  TranslationDialog                                                   */
@@ -156,6 +57,7 @@ export default function TranslationDialog({
     { key: string; label: string; translations: MetamodelTranslations }[]
   >([]);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Deep-clone state from cardType when dialog opens
   useEffect(() => {
@@ -341,9 +243,22 @@ export default function TranslationDialog({
   const handleSave = async () => {
     if (!cardType) return;
     setSaving(true);
+    setError(null);
     try {
+      const cleaned = cleanTranslations(translations);
+      // English is BOTH `translations.label.en` and the `label` column, and the
+      // translation shadows the column everywhere labels are resolved. Editing
+      // the English tab without carrying the column along would leave the two
+      // disagreeing — the card-type twin of issue #912.
+      const englishLabel = cleaned?.label?.en;
+      const englishDescription = cleaned?.description?.en;
       await api.patch(`/metamodel/types/${cardType.key}`, {
-        translations: cleanTranslations(translations) || null,
+        // `translations` is NOT NULL in the DB — send an empty map, never null.
+        translations: cleaned || {},
+        ...(englishLabel && englishLabel !== cardType.label ? { label: englishLabel } : {}),
+        ...(englishDescription && englishDescription !== cardType.description
+          ? { description: englishDescription }
+          : {}),
         subtypes: subtypes.map((s) => ({
           ...s,
           translations: cleanTranslationMap(s.translations),
@@ -363,17 +278,21 @@ export default function TranslationDialog({
       });
       // Save stakeholder role translations
       await Promise.all(
-        stakeholderRoles.map((r) =>
-          api.patch(
-            `/metamodel/types/${cardType.key}/stakeholder-roles/${r.key}`,
-            { translations: cleanTranslations(r.translations) || null },
-          ),
-        ),
+        stakeholderRoles.map((r) => {
+          const roleCleaned = cleanTranslations(r.translations);
+          const roleEnglish = roleCleaned?.label?.en;
+          return api.patch(`/metamodel/types/${cardType.key}/stakeholder-roles/${r.key}`, {
+            translations: roleCleaned || {},
+            ...(roleEnglish && roleEnglish !== r.label ? { label: roleEnglish } : {}),
+          });
+        }),
       );
       onSave();
       onClose();
-    } catch {
-      // Error handled silently — user sees no change
+    } catch (e) {
+      // Never swallow: a failed save used to leave the dialog open with no
+      // explanation, which reads as "nothing happened".
+      setError(e instanceof Error ? e.message : t("metamodel.translationDialog.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -453,6 +372,11 @@ export default function TranslationDialog({
 
       {/* Content */}
       <DialogContent sx={{ px: 3, py: 2, overflow: "auto" }}>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
         {/* Type Info */}
         <TranslationGroup title={t("metamodel.translationDialog.typeInfo")}>
           <TranslationRow
