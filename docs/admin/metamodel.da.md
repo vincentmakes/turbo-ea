@@ -158,6 +158,8 @@ Relationstyper definerer de tilladte forbindelser mellem korttyper. Hver relatio
 
 Klik på **+ Ny relationstype** for at oprette en relation, eller klik på en eksisterende for at redigere dens etiketter og egenskaber.
 
+Felterne **Etiket** og **Omvendt etiket** skrives på det sprog, du bruger lige nu — feltets betegnelse viser hvilket (for eksempel *Etiket (Dansk)*). Når du omdøber en relation, opdateres det sprog alle steder, hvor udsagnsordet optræder: afsnittet **Relationer** på et kort, inventarets relationskolonner, rapporter, portaler og diagrammer. Andre sprog beholder deres egen ordlyd, indtil du skifter til dem og omdøber der også.
+
 ### Relationsegenskaber
 
 Nogle relationer bærer ekstra egenskaber, som du angiver på hvert enkelt link i stedet for på relationstypen. For eksempel har den indbyggede relation **Organisation → Applikation** (»bruger«) en **Brugstype**-egenskab — angiv den til **Ejer**, **Bruger** eller **Interessent** på hvert link. Dermed kan du modellere en applikation, der *ejes af* én organisation og *bruges af* andre, via en enkelt relationstype. Den valgte værdi vises som en farvet chip i kortets **Relationer**-sektion; angiv den, når du tilføjer relationen, eller senere via redigeringsikonet på relationsrækken.

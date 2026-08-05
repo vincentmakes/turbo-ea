@@ -160,6 +160,8 @@ Relation types define the allowed connections between card types. Each relation 
 
 Click **+ New Relation Type** to create a relation, or click an existing one to edit its labels and attributes.
 
+The **Label** and **Reverse Label** fields are written in the language you are currently using — the field caption shows which one (for example *Label (English)*). Renaming a relation updates that language everywhere the verb appears: the **Relations** section on a card, the inventory relation columns, reports, portals and diagrams. Other languages keep their own wording until you switch to them and rename there too.
+
 ### Relation attributes
 
 Some relations carry extra attributes that you set on each individual link rather than on the relation type. For example, the built-in **Organization → Application** relation ("uses") has a **Usage Type** attribute — set it to **Owner**, **User**, or **Stakeholder** on each link. This lets you model an application that is *owned by* one Organization and *used by* others through a single relation type. The chosen value appears as a coloured chip in the card's **Relations** section; set it when adding the relation, or later via the edit icon on the relation row.

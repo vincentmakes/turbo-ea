@@ -315,3 +315,113 @@ describe("MetamodelAdmin", () => {
     expect(api.post).toHaveBeenCalledTimes(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Locale-aware relation verbs (#912)
+//
+// `translations[property][locale]` SHADOWS the raw `label` / `reverse_label`
+// columns everywhere relation verbs render (`relationLabel` in
+// useResolveLabel.ts), and every seeded relation type carries an `en` entry.
+// Editing only the column therefore renamed nothing a user could see.
+// ---------------------------------------------------------------------------
+
+describe("MetamodelAdmin — locale-aware relation verbs (#912)", () => {
+  // A relation type whose stored English translation has drifted from the
+  // column — exactly the state a pre-fix rename left behind.
+  const DRIFTED = [
+    {
+      ...MOCK_RELATION_TYPES[0],
+      label: "enables",
+      reverse_label: "is enabled by",
+      translations: {
+        label: { en: "supports", fr: "soutient" },
+        reverse_label: { en: "is supported by", fr: "est soutenu par" },
+      },
+    },
+  ];
+
+  function renderDrifted() {
+    vi.mocked(useMetamodel).mockReturnValue({
+      types: MOCK_TYPES,
+      relationTypes: DRIFTED,
+      loading: false,
+      getType: (key: string) => MOCK_TYPES.find((t) => t.key === key),
+      getRelationsForType: () => [],
+      invalidateCache: vi.fn(),
+    });
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/metamodel/types")) return Promise.resolve(MOCK_TYPES);
+      if (path.includes("/metamodel/relation-types")) return Promise.resolve(DRIFTED);
+      return Promise.resolve({});
+    });
+    return render(<MetamodelAdmin />);
+  }
+
+  async function openEditDialog(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole("tab", { name: /relation types/i }));
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    expect(await screen.findByText("Edit Relation Type")).toBeInTheDocument();
+  }
+
+  it("renders the resolved verb in the list, not the raw column", async () => {
+    const user = userEvent.setup();
+    renderDrifted();
+
+    await user.click(screen.getByRole("tab", { name: /relation types/i }));
+
+    expect(await screen.findByText("supports")).toBeInTheDocument();
+    expect(screen.queryByText("enables")).not.toBeInTheDocument();
+  });
+
+  it("seeds the edit dialog from the current locale's translation", async () => {
+    const user = userEvent.setup();
+    renderDrifted();
+    await openEditDialog(user);
+
+    expect(screen.getByRole("textbox", { name: /^Name/ })).toHaveValue("supports");
+    expect(screen.getByRole("textbox", { name: /^Reverse Label/ })).toHaveValue(
+      "is supported by",
+    );
+  });
+
+  it("writes a rename to both the column and translations[locale]", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.patch).mockResolvedValueOnce({});
+    renderDrifted();
+    await openEditDialog(user);
+
+    const nameField = screen.getByRole("textbox", { name: /^Name/ });
+    await user.clear(nameField);
+    await user.type(nameField, "consumes");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(api.patch).toHaveBeenCalledTimes(1));
+    const [path, body] = vi.mocked(api.patch).mock.calls[0] as [
+      string,
+      { label: string; translations: Record<string, Record<string, string>> },
+    ];
+    expect(path).toBe("/metamodel/relation-types/app_to_objective");
+    expect(body.label).toBe("consumes");
+    // The English translation moves with the column; other locales survive.
+    expect(body.translations.label).toEqual({ en: "consumes", fr: "soutient" });
+    expect(body.translations.reverse_label).toEqual({
+      en: "is supported by",
+      fr: "est soutenu par",
+    });
+  });
+
+  it("never sends translations: null (the column is NOT NULL)", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.patch).mockResolvedValueOnce({});
+    render(<MetamodelAdmin />); // stock mock — no translations at all
+
+    await user.click(screen.getByRole("tab", { name: /relation types/i }));
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    await screen.findByText("Edit Relation Type");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(api.patch).toHaveBeenCalledTimes(1));
+    const body = vi.mocked(api.patch).mock.calls[0][1] as { translations: unknown };
+    expect(body.translations).not.toBeNull();
+  });
+});

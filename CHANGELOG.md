@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.42.0] - 2026-08-05
+
+### Fixed
+- **Renaming a relation type now shows up on the cards.** Changing a relation's name or reverse name in **Admin → Metamodel → Relations** updated the metamodel graph and the layered dependency views but nothing else — a card's **Relations** section, the inventory relation columns, the matrix and portfolio reports, portals and diagram edges all kept showing the old wording ([#912](https://github.com/vincentmakes/turbo-ea/issues/912)). The rename now reaches every one of them. Relations you renamed before this release are repaired on upgrade, so there is nothing to re-save. The two fields now show which language you are editing — rename in French and only the French wording changes, leaving the English fallback intact.
+- **Editing a relation type you created yourself no longer risks failing to save.** Saving a relation type with no translations could send an empty value the database rejects.
+
 ## [2.41.0] - 2026-08-05
 
 ### Added

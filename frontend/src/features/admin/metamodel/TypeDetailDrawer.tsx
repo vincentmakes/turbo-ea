@@ -34,7 +34,7 @@ import type {
 } from "@/types";
 import { emptyField } from "./helpers";
 import TypeColorPreview from "./TypeColorPreview";
-import { useSubtypeLabel } from "@/hooks/useResolveLabel";
+import { useRelationLabel, useSubtypeLabel, useTypeLabel } from "@/hooks/useResolveLabel";
 import FieldEditorDialog from "./FieldEditorDialog";
 import DataQualityPanel from "./DataQualityPanel";
 import StakeholderRolePanel from "./StakeholderRolePanel";
@@ -80,6 +80,8 @@ export default function TypeDetailDrawer({
   const { t, i18n } = useTranslation(["admin", "common"]);
   const locale = i18n.language;
   const stLabel = useSubtypeLabel();
+  const relationLabel = useRelationLabel();
+  const typeLabel = useTypeLabel();
   const cardTypeKey = types.find((ct) => ct.key === typeKey) || null;
 
   /* --- Editable header state --- */
@@ -895,13 +897,13 @@ export default function TypeDetailDrawer({
                     >
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap", mb: 1 }}>
                         <Typography variant="body2" fontWeight={500}>
-                          {isSource ? r.label : r.reverse_label || r.label}
+                          {isSource ? relationLabel(r) : relationLabel(r, true)}
                         </Typography>
                         <MaterialSymbol icon={isSource ? "arrow_forward" : "arrow_back"} size={14} color="#999" />
                         {otherType && (
                           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                             <Box sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: otherType.color, flexShrink: 0 }} />
-                            <Typography variant="body2">{otherType.label}</Typography>
+                            <Typography variant="body2">{typeLabel(otherType)}</Typography>
                           </Box>
                         )}
                         <Chip size="small" label={r.cardinality} variant="outlined" sx={{ height: 20, fontSize: 11 }} />

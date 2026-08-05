@@ -6,6 +6,7 @@ These tests require a PostgreSQL test database and an HTTP test client.
 from __future__ import annotations
 
 import pytest
+from sqlalchemy import select
 
 from app.core.permissions import VIEWER_PERMISSIONS
 from tests.conftest import (
@@ -582,6 +583,101 @@ class TestRelationTypeCRUD:
         )
         assert response.status_code == 200
         assert response.json()["label"] == "Runs On"
+
+    # ------------------------------------------------------------------
+    # #912 — `translations[property]["en"]` shadows the raw column everywhere
+    # the frontend resolves a relation verb, and every seeded relation type
+    # carries one. A rename that writes only the column changed nothing a user
+    # could see. The API keeps the English entry in step for callers that do
+    # not manage translations themselves.
+    # ------------------------------------------------------------------
+
+    async def _rel_with_translations(self, db, translations):
+        await create_card_type(db, key="Application", label="Application")
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        await create_relation_type(
+            db,
+            key="app_to_itc",
+            label="uses",
+            reverse_label="is used by",
+            source_type_key="Application",
+            target_type_key="ITComponent",
+            translations=translations,
+        )
+
+    async def test_rename_syncs_english_translation(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await self._rel_with_translations(
+            db,
+            {
+                "label": {"en": "uses", "fr": "utilise"},
+                "reverse_label": {"en": "is used by", "fr": "est utilisé par"},
+            },
+        )
+
+        response = await client.patch(
+            "/api/v1/metamodel/relation-types/app_to_itc",
+            json={"label": "runs on", "reverse_label": "runs"},
+            headers=auth_headers(admin),
+        )
+
+        assert response.status_code == 200
+        trans = response.json()["translations"]
+        # English follows the column; every other locale is left alone.
+        assert trans["label"] == {"en": "runs on", "fr": "utilise"}
+        assert trans["reverse_label"] == {"en": "runs", "fr": "est utilisé par"}
+
+    async def test_rename_does_not_mint_english_translation(self, client, db, metamodel_env):
+        """A row with no English entry already resolves via the column fallback."""
+        admin = metamodel_env["admin"]
+        await self._rel_with_translations(db, {"label": {"fr": "utilise"}})
+
+        response = await client.patch(
+            "/api/v1/metamodel/relation-types/app_to_itc",
+            json={"label": "runs on"},
+            headers=auth_headers(admin),
+        )
+
+        assert response.status_code == 200
+        assert response.json()["translations"]["label"] == {"fr": "utilise"}
+
+    async def test_client_supplied_translations_win(self, client, db, metamodel_env):
+        """The admin UI sends its own per-locale map — the sync must not fight it."""
+        admin = metamodel_env["admin"]
+        await self._rel_with_translations(db, {"label": {"en": "uses"}})
+
+        response = await client.patch(
+            "/api/v1/metamodel/relation-types/app_to_itc",
+            json={"label": "runs on", "translations": {"label": {"en": "hosts"}}},
+            headers=auth_headers(admin),
+        )
+
+        assert response.status_code == 200
+        assert response.json()["translations"]["label"] == {"en": "hosts"}
+
+    async def test_null_translations_normalised(self, client, db, metamodel_env):
+        """`translations` is NOT NULL in the real schema — clearing it must not 500.
+
+        The response serializer masks a NULL with ``or {}``, so assert on the
+        persisted column: it is the stored NULL that violates the constraint on a
+        migrated database.
+        """
+        from app.models.relation_type import RelationType
+
+        admin = metamodel_env["admin"]
+        await self._rel_with_translations(db, {"label": {"en": "uses"}})
+
+        response = await client.patch(
+            "/api/v1/metamodel/relation-types/app_to_itc",
+            json={"translations": None},
+            headers=auth_headers(admin),
+        )
+
+        assert response.status_code == 200
+        stored = await db.execute(
+            select(RelationType.translations).where(RelationType.key == "app_to_itc")
+        )
+        assert stored.scalar_one() == {}
 
     async def test_cannot_change_endpoints_with_instances(self, client, db, metamodel_env):
         admin = metamodel_env["admin"]

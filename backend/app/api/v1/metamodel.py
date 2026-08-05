@@ -979,6 +979,42 @@ _SUCCESSOR_TRANSLATIONS: dict = {
 }
 
 
+def _sync_english_verb_translations(r: RelationType, body: dict) -> None:
+    """Keep ``translations[...]["en"]`` in step with a raw ``label`` rename.
+
+    ``translations[property][locale]`` **shadows** the raw column everywhere the
+    frontend resolves a metamodel label, and every seeded relation type carries an
+    ``en`` entry (``_inject_english_translations_relation`` in ``seed.py``; existing
+    installs were backfilled by migration 038). A client that renames a relation type
+    by writing ``label`` alone therefore changed nothing a user could see (#912).
+
+    Only applies when the caller does **not** manage ``translations`` itself — the
+    admin UI sends its own per-locale map and must win, so this is the safety net for
+    API-only writers (MCP, scripts, imports).
+    """
+    if "translations" in body:
+        return
+    trans = dict(r.translations or {})
+    changed = False
+    for column, prop in (("label", "label"), ("reverse_label", "reverse_label")):
+        if column not in body:
+            continue
+        value = getattr(r, column)
+        entries = trans.get(prop)
+        if not isinstance(entries, dict) or "en" not in entries or entries["en"] == value:
+            continue
+        updated = {**entries}
+        if value:
+            updated["en"] = value
+        else:
+            # Cleared verb — drop the stale translation so resolution falls back.
+            updated.pop("en", None)
+        trans[prop] = updated
+        changed = True
+    if changed:
+        r.translations = trans
+
+
 async def _ensure_successor_relation_type(db: AsyncSession, card_type_key: str) -> None:
     """Provision the self-referential ``rel{Key}Successor`` relation type that the card
     detail lineage section needs when "Supports Lineage" is enabled on a card type.
@@ -1113,7 +1149,7 @@ async def create_relation_type(
         built_in=False,
         is_hidden=False,
         sort_order=body.get("sort_order", next_order),
-        translations=body.get("translations", {}),
+        translations=body.get("translations") or {},
         source_visible=body.get("source_visible", True),
         source_mandatory=body.get("source_mandatory", False),
         target_visible=body.get("target_visible", True),
@@ -1197,8 +1233,14 @@ async def update_relation_type(
             r.attributes_schema = _merge_relation_attributes_schema(
                 r.attributes_schema or [], body["attributes_schema"]
             )
+        elif field == "translations":
+            # NOT NULL column — a client clearing every translation must land
+            # an empty map, not a constraint violation.
+            r.translations = body["translations"] or {}
         else:
             setattr(r, field, body[field])
+
+    _sync_english_verb_translations(r, body)
 
     await db.commit()
     await db.refresh(r)

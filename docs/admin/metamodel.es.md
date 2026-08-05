@@ -158,6 +158,8 @@ Los tipos de relación definen las conexiones permitidas entre tipos de fichas. 
 
 Haga clic en **+ Nuevo Tipo de Relación** para crear una relación, o haga clic en una existente para editar sus etiquetas y atributos.
 
+Los campos **Etiqueta** y **Etiqueta Inversa** se escriben en el idioma que está utilizando en ese momento: el rótulo del campo indica cuál (por ejemplo, *Etiqueta (Español)*). Cambiar el nombre de una relación actualiza ese idioma en todos los lugares donde aparece el verbo: la sección **Relaciones** de una ficha, las columnas de relación del inventario, los informes, los portales y los diagramas. Los demás idiomas conservan su propia redacción hasta que cambie a ellos y los renombre también.
+
 ### Atributos de relación
 
 Algunas relaciones incluyen atributos adicionales que se establecen en cada enlace individual en lugar de en el tipo de relación. Por ejemplo, la relación integrada **Organización → Aplicación** («utiliza») tiene un atributo **Tipo de uso**: establézcalo en **Propietario**, **Usuario** o **Parte interesada** en cada enlace. Así puede modelar una aplicación *propiedad de* una organización y *utilizada por* otras mediante un único tipo de relación. El valor elegido aparece como una etiqueta de color en la sección **Relaciones** de la tarjeta; establézcalo al añadir la relación o más tarde mediante el icono de edición en la fila de la relación.

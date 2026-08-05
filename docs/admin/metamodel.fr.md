@@ -158,6 +158,8 @@ Les types de relations définissent les connexions autorisées entre les types d
 
 Cliquez sur **+ Nouveau type de relation** pour créer une relation, ou cliquez sur un type existant pour modifier ses libellés et attributs.
 
+Les champs **Libellé** et **Libellé inverse** sont saisis dans la langue que vous utilisez actuellement — l'intitulé du champ indique laquelle (par exemple *Libellé (Français)*). Renommer une relation met à jour cette langue partout où le verbe apparaît : la section **Relations** d'une fiche, les colonnes de relation de l'inventaire, les rapports, les portails et les diagrammes. Les autres langues conservent leur propre formulation jusqu'à ce que vous y basculiez pour les renommer également.
+
 ### Attributs de relation
 
 Certaines relations portent des attributs supplémentaires que vous définissez sur chaque lien plutôt que sur le type de relation. Par exemple, la relation intégrée **Organisation → Application** (« utilise ») possède un attribut **Type d'usage** — définissez-le sur **Propriétaire**, **Utilisateur** ou **Partie prenante** pour chaque lien. Vous pouvez ainsi modéliser une application *détenue par* une organisation et *utilisée par* d'autres au moyen d'un seul type de relation. La valeur choisie apparaît sous forme de puce colorée dans la section **Relations** de la fiche ; définissez-la lors de l'ajout de la relation, ou plus tard via l'icône de modification sur la ligne de la relation.

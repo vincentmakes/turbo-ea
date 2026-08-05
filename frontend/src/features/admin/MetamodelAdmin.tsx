@@ -33,7 +33,8 @@ import RegulationsAdmin from "@/features/admin/RegulationsAdmin";
 import ResourceTypesAdmin from "@/features/admin/ResourceTypesAdmin";
 import TagsAdmin from "@/features/admin/TagsAdmin";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useFieldLabel } from "@/hooks/useResolveLabel";
+import { useFieldLabel, useRelationLabel, useTypeLabel } from "@/hooks/useResolveLabel";
+import { LOCALE_LABELS } from "@/i18n";
 import { api } from "@/api/client";
 import type {
   CardType as FSType,
@@ -67,14 +68,48 @@ function cleanTranslations(
   return Object.keys(cleaned).length > 0 ? cleaned : undefined;
 }
 
+/**
+ * English is the base language: it lives in the `label` / `reverse_label`
+ * columns and is the fallback every locale without its own translation falls
+ * back to. Accepts region variants ("en-US") so a browser-provided locale
+ * still counts as English.
+ */
+function isBaseLocale(locale: string): boolean {
+  return locale.split("-")[0] === "en";
+}
+
+/**
+ * Merge a relation-type verb edit into the per-locale `translations` map.
+ *
+ * `translations[property][locale]` SHADOWS the raw column everywhere labels are
+ * resolved (`relationLabel` in `useResolveLabel.ts`), and every seeded relation
+ * type carries an `en` entry. Writing only the column therefore renamed nothing
+ * a user could see (#912) — the translation has to move with it.
+ */
+function mergeVerbTranslation(
+  trans: MetamodelTranslations | undefined,
+  property: "label" | "reverse_label",
+  locale: string,
+  value: string,
+): MetamodelTranslations {
+  return {
+    ...trans,
+    [property]: { ...trans?.[property], [locale]: value },
+  };
+}
+
 /* ================================================================== */
 /*  Main Component                                                     */
 /* ================================================================== */
 
 export default function MetamodelAdmin() {
-  const { t } = useTranslation(["admin", "common"]);
+  const { t, i18n } = useTranslation(["admin", "common"]);
   const { invalidateCache } = useMetamodel();
   const fieldLabel = useFieldLabel();
+  const relationLabel = useRelationLabel();
+  const typeLabel = useTypeLabel();
+  const locale = i18n.language;
+  const localeSuffix = ` (${LOCALE_LABELS[locale as keyof typeof LOCALE_LABELS] || locale})`;
 
   const [tab, setTab] = useState(0);
   const [types, setTypes] = useState<FSType[]>([]);
@@ -191,13 +226,24 @@ export default function MetamodelAdmin() {
   const handleCreateRelation = async () => {
     const finalKey = newRel.key || autoRelKey;
     const { translations: rawTrans, ...rest } = newRel;
+    // The typed verbs always seed the base (English) columns — they are the
+    // fallback for every locale without its own entry. When the admin is
+    // working in another language, mirror them into that locale too so the
+    // create path matches what the edit dialog writes.
+    let trans = rawTrans;
+    if (!isBaseLocale(locale)) {
+      trans = mergeVerbTranslation(trans, "label", locale, rest.label);
+      if (rest.reverse_label) {
+        trans = mergeVerbTranslation(trans, "reverse_label", locale, rest.reverse_label);
+      }
+    }
     try {
       await api.post("/metamodel/relation-types", {
         ...rest,
         key: finalKey,
         attributes_schema: [],
         built_in: false,
-        translations: cleanTranslations(rawTrans) || undefined,
+        translations: cleanTranslations(trans) || undefined,
       });
     } catch (e) {
       setRelError(e instanceof Error ? e.message : t("metamodel.relationSaveFailed"));
@@ -224,7 +270,8 @@ export default function MetamodelAdmin() {
         label: editRel.label,
         reverse_label: editRel.reverse_label,
         cardinality: editRel.cardinality,
-        translations: cleanTranslations(editRel.translations) || null,
+        // `translations` is NOT NULL in the DB — send an empty map, never null.
+        translations: cleanTranslations(editRel.translations) || {},
       });
     } catch (e) {
       setRelError(e instanceof Error ? e.message : t("metamodel.relationSaveFailed"));
@@ -239,7 +286,7 @@ export default function MetamodelAdmin() {
   const promptDeleteRelation = (rt: RType) => {
     setDeleteRelConfirm({
       key: rt.key,
-      label: `${resolveType(rt.source_type_key)?.label ?? rt.source_type_key} → ${resolveType(rt.target_type_key)?.label ?? rt.target_type_key}`,
+      label: `${typeLabel(resolveType(rt.source_type_key)) || rt.source_type_key} → ${typeLabel(resolveType(rt.target_type_key)) || rt.target_type_key}`,
       builtIn: rt.built_in,
       instanceCount: null,
     });
@@ -597,7 +644,7 @@ export default function MetamodelAdmin() {
                         </>
                       )}
                       <Typography variant="body2" fontWeight={500}>
-                        {srcType?.label || rt.source_type_key}
+                        {typeLabel(srcType) || rt.source_type_key}
                       </Typography>
                     </Box>
 
@@ -613,7 +660,7 @@ export default function MetamodelAdmin() {
                       fontWeight={600}
                       color="primary.main"
                     >
-                      {rt.label}
+                      {relationLabel(rt)}
                     </Typography>
 
                     <MaterialSymbol
@@ -649,7 +696,7 @@ export default function MetamodelAdmin() {
                         </>
                       )}
                       <Typography variant="body2" fontWeight={500}>
-                        {tgtType?.label || rt.target_type_key}
+                        {typeLabel(tgtType) || rt.target_type_key}
                       </Typography>
                     </Box>
 
@@ -1021,7 +1068,7 @@ export default function MetamodelAdmin() {
           />
           <TextField
             fullWidth
-            label={t("metamodel.labelVerb")}
+            label={`${t("metamodel.labelVerb")}${localeSuffix}`}
             value={newRel.label}
             onChange={(e) => setNewRel({ ...newRel, label: e.target.value })}
             sx={{ mb: 2 }}
@@ -1029,7 +1076,7 @@ export default function MetamodelAdmin() {
           />
           <TextField
             fullWidth
-            label={t("metamodel.reverseLabel")}
+            label={`${t("metamodel.reverseLabel")}${localeSuffix}`}
             value={newRel.reverse_label}
             onChange={(e) =>
               setNewRel({ ...newRel, reverse_label: e.target.value })
@@ -1106,7 +1153,7 @@ export default function MetamodelAdmin() {
                 }}
               >
                 <Typography variant="body2" color="text.secondary">
-                  {resolveType(editRel.source_type_key)?.label ||
+                  {typeLabel(resolveType(editRel.source_type_key)) ||
                     editRel.source_type_key}
                 </Typography>
                 <MaterialSymbol
@@ -1115,27 +1162,48 @@ export default function MetamodelAdmin() {
                   color="#bbb"
                 />
                 <Typography variant="body2" color="text.secondary">
-                  {resolveType(editRel.target_type_key)?.label ||
+                  {typeLabel(resolveType(editRel.target_type_key)) ||
                     editRel.target_type_key}
                 </Typography>
               </Box>
               <TextField
                 fullWidth
-                label={t("common:labels.name")}
-                value={editRel.label}
+                label={`${t("common:labels.name")}${localeSuffix}`}
+                value={editRel.translations?.label?.[locale] ?? editRel.label}
                 onChange={(e) =>
-                  setEditRel({ ...editRel, label: e.target.value })
+                  setEditRel({
+                    ...editRel,
+                    // English is the base column; other locales live only in
+                    // `translations` so the English fallback stays intact.
+                    ...(isBaseLocale(locale) ? { label: e.target.value } : {}),
+                    translations: mergeVerbTranslation(
+                      editRel.translations,
+                      "label",
+                      locale,
+                      e.target.value,
+                    ),
+                  })
                 }
                 sx={{ mb: 2 }}
               />
               <TextField
                 fullWidth
-                label={t("metamodel.reverseLabel")}
-                value={editRel.reverse_label || ""}
+                label={`${t("metamodel.reverseLabel")}${localeSuffix}`}
+                value={
+                  editRel.translations?.reverse_label?.[locale] ??
+                  editRel.reverse_label ??
+                  ""
+                }
                 onChange={(e) =>
                   setEditRel({
                     ...editRel,
-                    reverse_label: e.target.value,
+                    ...(isBaseLocale(locale) ? { reverse_label: e.target.value } : {}),
+                    translations: mergeVerbTranslation(
+                      editRel.translations,
+                      "reverse_label",
+                      locale,
+                      e.target.value,
+                    ),
                   })
                 }
                 sx={{ mb: 2 }}
