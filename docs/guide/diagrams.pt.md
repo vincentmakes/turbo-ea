@@ -93,7 +93,7 @@ Qualquer relação do Turbo EA tem o mesmo aspeto na tela, independentemente de 
 
 - **Uma única linha cinzento-escura neutra**, e não a cor do cartão da outra ponta. Uma aresta *é* uma relação; colori-la por tipo de cartão apenas repete o que o nó já diz.
 - **Uma seta na extremidade de destino**, para que a direção se leia num relance sem ler o verbo. Se trouxer uma relação que aponta *para* o cartão expandido, a seta fica na outra extremidade.
-- **O verbo lido a partir do cartão de partida.** Uma relação de saída mostra a etiqueta direta (*fornece*), uma de entrada mostra a etiqueta inversa (*fornecido por*).
+- **O verbo lê-se no sentido da seta.** Como a ponta assinala o destino da relação, a etiqueta completa sempre a frase *origem → verbo → destino*. Assim, uma ligação lê-se da mesma forma seja qual for o cartão que expandiu: expanda uma Organização e vê *usa*; expanda uma das suas Aplicações e as organizações que surgem continuam a mostrar *usa*, com a seta a apontar ao contrário.
 - **Uma linha tracejada** enquanto a relação estiver pendente; passa a contínua assim que for enviada para o inventário.
 
 #### Fornecedor e consumidor

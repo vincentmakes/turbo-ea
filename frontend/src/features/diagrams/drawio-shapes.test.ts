@@ -4,6 +4,7 @@ import {
   applyCardTypeIcons,
   buildLdvDiagramXml,
   rollUpInto,
+  expandCardGroup,
   childEscapedParentBounds,
   applyViewToGraph,
   resetViewColors,
@@ -822,13 +823,15 @@ describe("edge builders all delegate to relationEdgeStyle", () => {
 
   it("stampEdgeAsRelation records a reversed pick so sync can swap the ids", () => {
     // Without this the relation is POSTed source -> target even though the
-    // user picked the reverse direction.
+    // user picked the reverse direction. Note the verb is still the FORWARD
+    // one: reversing moves the arrowhead, not the sentence — the arrow always
+    // points at the relation's target, so it still reads source-verb-target.
     const edge = edgeCell({}, "");
     const frame = viewFrame({ e: edge });
 
-    stampEdgeAsRelation(frame, "e", "app_to_itc", "used by", true, true);
+    stampEdgeAsRelation(frame, "e", "app_to_itc", "uses", true, true);
     expect(edge.value.getAttribute("reversed")).toBe("1");
-    expect(edge.value.getAttribute("label")).toBe("used by");
+    expect(edge.value.getAttribute("label")).toBe("uses");
   });
 
   it("stampEdgeAsRelation leaves an as-drawn relation unflagged", () => {
@@ -970,5 +973,121 @@ describe("flowDirection survives the pending → synced switch", () => {
     stampEdgeAsRelation(frame, "e", "relOrgToApp", "uses", false, true);
     expect(edge.value.getAttribute("flowDirection")).toBeNull();
     expect(edge._style).toBe(relationEdgeStyle({ pending: true }));
+  });
+});
+
+/* ---------------------------------------------------------------------- */
+/*  expandCardGroup — the edges the + / Expand menu inserts (#905)          */
+/* ---------------------------------------------------------------------- */
+
+/** Fake mxGraph with just enough surface for expandCardGroup's edge output. */
+function expandFrame() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cells: Record<string, any> = {};
+  const root = { id: "__root" };
+  const parent = {
+    id: "parent-cell",
+    value: attrBag({ cardId: "org-1", cardType: "Organization", label: "Nexatech" }),
+  };
+  cells["parent-cell"] = parent;
+  const model = {
+    cells,
+    beginUpdate() {},
+    endUpdate() {},
+    getCell: (id: string) => cells[id] ?? null,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setValue: (cell: any, v: unknown) => {
+      cell.value = v;
+    },
+  };
+  const graph = {
+    getModel: () => model,
+    getDefaultParent: () => root,
+    getCellGeometry: () => ({ x: 0, y: 0, width: 180, height: 50 }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    insertVertex: (_p: any, id: string, obj: any, _x: number, _y: number, _w: number, _h: number, style: string) => {
+      const cell = { id, value: obj, style };
+      cells[id] = cell;
+      return cell;
+    },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    insertEdge: (_p: any, id: string, _v: unknown, _s: any, _t: any, style: string) => {
+      const cell = { id, value: null, style, edge: true };
+      cells[id] = cell;
+      return cell;
+    },
+  };
+  const iframe = {
+    contentWindow: {
+      __turboGraph: graph,
+      mxUtils: { createXmlDocument: () => ({ createElement: () => attrBag() }) },
+    },
+  } as unknown as HTMLIFrameElement;
+  return { iframe, cells };
+}
+
+/** One neighbour of the expanded card, related by `relOrgToApp` ("uses"). */
+const expandChild = (incoming: boolean) => ({
+  id: "app-1",
+  name: "Copilot",
+  type: "Application",
+  color: "#0f7eb5",
+  relationType: "relOrgToApp",
+  relationId: "rel-1",
+  relationLabel: "uses",
+  incoming,
+});
+
+describe("expandCardGroup edges", () => {
+  it("reads the same verb whichever end of the relation you expanded from", () => {
+    // The reported case. Expanding the Organization shows "Nexatech uses
+    // Copilot"; expanding the Application must NOT flip the verb to "is used
+    // by", because the arrowhead still points at the Application, so the
+    // sentence along the arrow is unchanged.
+    const outgoing = expandFrame();
+    expandCardGroup(outgoing.iframe, "parent-cell", [expandChild(false)]);
+    const incoming = expandFrame();
+    expandCardGroup(incoming.iframe, "parent-cell", [expandChild(true)]);
+
+    const labelOf = (f: ReturnType<typeof expandFrame>) => {
+      const edge = Object.values(f.cells).find((c) => c.edge);
+      return edge.value.getAttribute("label");
+    };
+    expect(labelOf(outgoing)).toBe("uses");
+    expect(labelOf(incoming)).toBe("uses");
+  });
+
+  it("puts the arrowhead on opposite ends for the two directions", () => {
+    // The verb stays put; the arrow is what carries the direction.
+    const outgoing = expandFrame();
+    expandCardGroup(outgoing.iframe, "parent-cell", [expandChild(false)]);
+    const incoming = expandFrame();
+    expandCardGroup(incoming.iframe, "parent-cell", [expandChild(true)]);
+
+    const styleOf = (f: ReturnType<typeof expandFrame>) =>
+      Object.values(f.cells).find((c) => c.edge).style.split(";");
+    expect(styleOf(outgoing)).toContain("endArrow=block");
+    expect(styleOf(outgoing)).toContain("startArrow=none");
+    expect(styleOf(incoming)).toContain("startArrow=block");
+    expect(styleOf(incoming)).toContain("endArrow=none");
+  });
+
+  it("stamps the relation id and type so canvas deletes reach the backend", () => {
+    const f = expandFrame();
+    const inserted = expandCardGroup(f.iframe, "parent-cell", [expandChild(false)]);
+
+    const edge = Object.values(f.cells).find((c) => c.edge);
+    expect(edge.value.getAttribute("relationId")).toBe("rel-1");
+    expect(edge.value.getAttribute("relationType")).toBe("relOrgToApp");
+    expect(inserted[0].relationId).toBe("rel-1");
+    expect(inserted[0].relationLabel).toBe("uses");
+  });
+
+  it("hides the verb on expansion edges when the diagram hides labels", () => {
+    const f = expandFrame();
+    expandCardGroup(f.iframe, "parent-cell", [expandChild(false)], true);
+
+    const edge = Object.values(f.cells).find((c) => c.edge);
+    expect(edge.style.split(";")).toContain("noLabel=1");
   });
 });

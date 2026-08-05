@@ -950,22 +950,31 @@ export default function DiagramEditor() {
     [],
   );
 
-  /** Verb + direction for an edge inserted by an expansion, read *from the
-   *  card being expanded*: an outgoing relation shows the forward verb, an
-   *  incoming one the reverse verb. Expansion edges are always inserted
-   *  parent → child, so `incoming` only decides which end carries the
-   *  arrowhead (discussion #905).
+  /** Verb + direction for an edge inserted by an expansion.
    *
-   *  When the relation carries a `flowDirection` attribute the arrowhead
-   *  follows that instead, so an Application that *consumes* an Interface is
-   *  distinguishable from one that *provides* it without opening the link. */
+   *  The verb is **always the forward label**, never the reverse one. An edge
+   *  on a canvas has no "card you started from" — a reader sees a line with an
+   *  arrowhead and reads it in the arrow's direction. Since the arrowhead
+   *  always marks the relation's *target* (that is the whole job of
+   *  `incoming`: expansion inserts the edge parent → child, and `incoming`
+   *  puts the arrowhead on the semantic target regardless), the sentence along
+   *  the arrow is always source-verb-target. Resolving the verb from the
+   *  expanded card instead made one relation read two different ways depending
+   *  on which end you expanded from — "uses" from the Organization, "is used
+   *  by" from the Application. `layeredDependencyLayout.ts` is forward-only for
+   *  the same reason; this keeps the two surfaces agreeing.
+   *
+   *  `incoming` still decides which end carries the arrowhead, and when the
+   *  relation carries a `flowDirection` attribute that takes over, so an
+   *  Application that *consumes* an Interface is distinguishable from one that
+   *  *provides* it without opening the link (discussion #905). */
   const relationEdgeMeta = useCallback(
     (relationTypeKey: string, incoming: boolean, attributes?: RelationAttributes) => {
       const rt = relTypesRef.current.find((x) => x.key === relationTypeKey);
       return {
         incoming,
         flow: relationFlowFor(rt, attributes),
-        relationLabel: rt ? relationLabel(rt, i18n.language, incoming) : "",
+        relationLabel: rt ? relationLabel(rt, i18n.language) : "",
       };
     },
     [i18n.language],
@@ -2083,11 +2092,13 @@ export default function DiagramEditor() {
       const ep = pendingEdgeRef.current;
       if (!frame || !ep) return;
 
-      // "reversed" means the relation runs target -> source while the edge
-      // was drawn source -> target, so it reads as the *reverse* verb from
-      // the drawn source and the arrowhead belongs on the start (#905).
+      // "reversed" means the relation runs target -> source while the edge was
+      // drawn source -> target, so the arrowhead belongs on the start and sync
+      // must swap source_id/target_id before POSTing (#905). It does NOT change
+      // the verb: the arrowhead still lands on the relation's target, so the
+      // sentence along the arrow is source-verb-target either way.
       const reversed = direction === "reversed";
-      const verb = relationLabel(relType, i18n.language, reversed);
+      const verb = relationLabel(relType, i18n.language);
 
       stampEdgeAsRelation(
         frame, ep.edgeCellId, relType.key, verb, reversed, true,

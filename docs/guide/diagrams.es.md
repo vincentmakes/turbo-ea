@@ -93,7 +93,7 @@ Toda relación de Turbo EA se ve igual en el lienzo, sin importar cómo llegó a
 
 - **Una única línea gris oscuro neutra**, no el color de la tarjeta del otro extremo. Una arista *es* una relación; teñirla por tipo de tarjeta solo repite lo que el nodo ya dice.
 - **Una punta de flecha en el extremo destino**, para que la dirección se lea de un vistazo sin leer el verbo. Si traes una relación que apunta *hacia* la tarjeta expandida, la punta se sitúa en el otro extremo.
-- **El verbo leído desde la tarjeta de partida.** Una relación saliente muestra la etiqueta directa (*provee*), una entrante la etiqueta inversa (*provisto por*).
+- **El verbo se lee en el sentido de la flecha.** Como la punta marca el destino de la relación, la etiqueta siempre completa la frase *origen → verbo → destino*. Así, un vínculo se lee igual sea cual sea la tarjeta que hayas expandido: expande una Organización y verás *usa*; expande una de sus Aplicaciones y las organizaciones que aparecen siguen mostrando *usa*, con la flecha apuntando al revés.
 - **Una línea discontinua** mientras la relación sigue pendiente; pasa a continua en cuanto se envía al inventario.
 
 #### Proveedor y consumidor

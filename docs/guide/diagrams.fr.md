@@ -93,7 +93,7 @@ Toute relation Turbo EA a la même apparence sur le canevas, quelle que soit la 
 
 - **Une seule ligne gris foncé neutre**, et non la couleur de la fiche à l'autre extrémité. Une arête *est* une relation ; la teinter par type de fiche ne fait que répéter ce que le nœud indique déjà.
 - **Une pointe de flèche du côté cible**, pour que la direction se lise d'un coup d'œil sans lire le verbe. Ramenez une relation qui pointe *vers* la fiche développée et la pointe se place à l'autre extrémité.
-- **Le verbe vu depuis la fiche de départ.** Une relation sortante affiche le libellé direct (*fournit*), une relation entrante le libellé inverse (*fourni par*).
+- **Le verbe se lit dans le sens de la flèche.** La pointe marquant la cible de la relation, le libellé complète toujours la phrase *départ → verbe → arrivée*. Un lien se lit donc de la même façon quelle que soit la fiche développée : développez une Organisation et vous voyez *utilise* ; développez l'une de ses Applications et les organisations qui remontent affichent toujours *utilise*, la flèche pointant dans l'autre sens.
 - **Une ligne pointillée** tant que la relation est en attente ; elle devient pleine une fois poussée dans l'inventaire.
 
 #### Fournisseur et consommateur

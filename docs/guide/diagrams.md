@@ -93,7 +93,7 @@ Every Turbo EA relation looks the same on the canvas however it got there — dr
 
 - **One neutral dark-grey line**, not the colour of the card at the other end. An edge *is* a relation; tinting it by card type only restates what the node already says.
 - **An arrowhead on the target end**, so the direction reads at a glance without reading the verb. Pull in a relation that points *at* the card you expanded and the arrowhead sits on the other end.
-- **The verb as read from the card you started at.** An outgoing relation shows the forward label (*provides*), an incoming one shows the reverse label (*provided by*).
+- **The verb reads in the arrow's direction.** Since the arrowhead marks the relation's target, the label always completes the sentence *tail → verb → head*. That means a link reads the same whichever card you expanded from: expand an Organization and you see *uses*; expand one of its Applications and the organisations coming back still read *uses*, with the arrow pointing the other way.
 - **A dashed line** while the relation is still pending, turning solid once it has been pushed to the inventory.
 
 #### Provider and consumer

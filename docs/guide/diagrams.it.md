@@ -93,7 +93,7 @@ Ogni relazione di Turbo EA appare uguale sulla tela, comunque vi sia arrivata �
 
 - **Un'unica linea grigio scuro neutra**, non il colore della scheda all'altro capo. Un arco *è* una relazione; colorarlo per tipo di scheda ripete soltanto ciò che il nodo già dice.
 - **Una punta di freccia sull'estremità di destinazione**, così la direzione si legge a colpo d'occhio senza leggere il verbo. Se richiami una relazione che punta *verso* la scheda espansa, la punta si sposta sull'altra estremità.
-- **Il verbo letto dalla scheda di partenza.** Una relazione uscente mostra l'etichetta diretta (*fornisce*), una entrante l'etichetta inversa (*fornito da*).
+- **Il verbo si legge nel senso della freccia.** Poiché la punta indica la destinazione della relazione, l'etichetta completa sempre la frase *partenza → verbo → arrivo*. Un collegamento si legge quindi allo stesso modo da qualunque scheda tu sia partito: espandi un'Organizzazione e vedi *usa*; espandi una delle sue Applicazioni e le organizzazioni che compaiono mostrano ancora *usa*, con la freccia rivolta dall'altra parte.
 - **Una linea tratteggiata** finché la relazione è ancora in sospeso; diventa continua una volta inviata all'inventario.
 
 #### Fornitore e consumatore

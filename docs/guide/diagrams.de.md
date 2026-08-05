@@ -93,7 +93,7 @@ Jede Turbo-EA-Beziehung sieht auf der Leinwand gleich aus, unabhängig davon, wi
 
 - **Eine neutrale dunkelgraue Linie**, nicht die Farbe der Karte am anderen Ende. Eine Kante *ist* eine Beziehung; sie nach Kartentyp einzufärben wiederholt nur, was der Knoten ohnehin schon sagt.
 - **Eine Pfeilspitze am Zielende**, sodass die Richtung auf einen Blick erkennbar ist, ohne das Verb zu lesen. Holen Sie eine Beziehung herein, die *auf* die erweiterte Karte zeigt, sitzt die Pfeilspitze am anderen Ende.
-- **Das Verb aus Sicht der Ausgangskarte.** Eine ausgehende Beziehung zeigt die Vorwärtsbezeichnung (*stellt bereit*), eine eingehende die Rückwärtsbezeichnung (*wird bereitgestellt von*).
+- **Das Verb liest sich in Pfeilrichtung.** Da die Pfeilspitze das Ziel der Beziehung markiert, vervollständigt die Beschriftung stets den Satz *Anfang → Verb → Ende*. Eine Verbindung liest sich damit gleich, von welcher Karte aus Sie auch erweitert haben: Erweitern Sie eine Organisation, sehen Sie *nutzt*; erweitern Sie eine ihrer Anwendungen, steht bei den zurückkommenden Organisationen ebenfalls *nutzt* — nur zeigt der Pfeil in die andere Richtung.
 - **Eine gestrichelte Linie**, solange die Beziehung noch aussteht; sie wird durchgezogen, sobald sie ins Inventar übertragen wurde.
 
 #### Anbieter und Konsument
