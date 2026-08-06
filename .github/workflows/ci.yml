@@ -172,7 +172,15 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install pip-audit and pip-tools
-        run: pip install pip-audit pip-tools
+        # pip-tools declares `pip>=22.2` with no upper bound, so an unpinned
+        # install leaves whatever pip the runner image ships. pip 26.2 made
+        # `allow_editables` a required keyword-only argument of
+        # RequirementCommand.make_requirement_preparer(); pip-tools 7.6.0 still
+        # calls it the old way, so pip-compile dies with a TypeError before it
+        # reads a single dependency — which silently turned this whole scan
+        # into a no-op rather than failing loudly (the job is
+        # continue-on-error). Drop the pin once pip-tools supports pip 26.2.
+        run: pip install "pip<26.2" pip-audit pip-tools
       - name: Generate requirements and audit
         # PYSEC-2025-183 (PyJWT "weak encryption"): disputed upstream. The
         # advisory targets HMAC key length, which PyJWT cannot enforce — it
