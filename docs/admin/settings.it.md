@@ -140,6 +140,22 @@ Attivate/disattivate il modulo **Business Process Management**. Quando disabilit
 
 Questo è utile per le organizzazioni che non utilizzano il BPM e desiderano un'esperienza di navigazione più pulita.
 
+## Pubblicazione controllata dei processi
+
+Per le organizzazioni che operano secondo GxP, ISO 9001 o un sistema qualità analogo. **Disattivata per impostazione predefinita**: nulla cambia finché un amministratore non la abilita.
+
+| Interruttore | Predefinito | Effetto |
+|--------------|-------------|---------|
+| **Consenti il ritiro di un flusso di processo pubblicato** | Disattivo | Aggiunge un pulsante **Ritira** al flusso di processo pubblicato. Finché è disattivo, il ritiro viene rifiutato a chiunque, quali che siano i permessi. |
+| **Richiedi un approvatore distinto** | Attivo | Chi invia una revisione non può essere chi la approva. Vale solo mentre l'interruttore precedente è attivo: disattivatelo per un piccolo team in cui una sola persona fa entrambe le cose. |
+
+Il ritiro è volutamente protetto da due livelli:
+
+- **Questa impostazione** è la decisione organizzativa: se il vostro sistema qualità consenta o meno un ritiro controllato.
+- **Il permesso** è la decisione individuale: chi può eseguirlo. Il ritiro richiede anche il permesso *Ritira (annulla la pubblicazione di) una versione di flusso BPMN pubblicata*, o il suo equivalente a livello di card su un ruolo di stakeholder. **Nessun ruolo lo possiede per impostazione predefinita**, quindi attivare questa impostazione non autorizza nessuno. Assegnatelo in Ruoli, oppure al ruolo di stakeholder **Responsabile del processo** nel [Metamodello](metamodel.md).
+
+Una versione ritirata viene ritirata, mai eliminata: l'approvazione originale, il diagramma e il numero di revisione sono conservati, e il ritiro è registrato con autore, data e ora e motivazione scritta. Vedi [Business Process Management](../guide/bpm.md) per ciò che vede l'utente.
+
 ## Modulo PPM
 
 Attivate/disattivate il modulo **Project Portfolio Management** (PPM). Quando disabilitato:

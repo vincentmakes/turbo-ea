@@ -140,6 +140,22 @@ Activez ou désactivez le module **Gestion des processus métier**. Lorsqu'il es
 
 Ceci est utile pour les organisations qui n'utilisent pas le BPM et souhaitent une expérience de navigation plus épurée.
 
+## Publication contrôlée des processus
+
+Pour les organisations soumises aux BPx, à l'ISO 9001 ou à un système qualité similaire. **Désactivée par défaut** — rien ne change tant qu'un administrateur ne l'active pas.
+
+| Commutateur | Par défaut | Effet |
+|-------------|------------|-------|
+| **Autoriser le retrait d'un flux de processus publié** | Désactivé | Ajoute un bouton **Retirer** sur un flux de processus publié. Tant qu'il est désactivé, le retrait est refusé à tout le monde, quelles que soient les permissions détenues. |
+| **Exiger un approbateur distinct** | Activé | La personne qui soumet une révision ne peut pas être celle qui l'approuve. Ne s'applique que si le commutateur ci-dessus est actif — désactivez-le pour une petite équipe où une seule personne fait les deux. |
+
+Le retrait est volontairement soumis à deux verrous :
+
+- **Ce paramètre** est la décision organisationnelle : votre système qualité autorise-t-il un retrait contrôlé ?
+- **La permission** est la décision individuelle : qui peut le faire. Le retrait exige aussi la permission *Retirer (dépublier) une version de flux BPMN publiée*, ou son équivalent au niveau de la fiche sur un rôle de partie prenante. **Aucun rôle ne la détient par défaut** : activer ce paramètre n'autorise donc personne. Accordez-la sous Rôles, ou sur le rôle de partie prenante **Propriétaire du processus** dans le [Métamodèle](metamodel.md).
+
+Une version retirée est dépubliée, jamais supprimée : l'approbation d'origine, le diagramme et le numéro de révision sont conservés, et le retrait est enregistré avec son auteur, son horodatage et son motif écrit. Voir [Business Process Management](../guide/bpm.md) pour ce que voit l'utilisateur.
+
 ## Module PPM
 
 Activez ou désactivez le module **Gestion de portefeuille de projets** (PPM). Lorsqu'il est désactivé :

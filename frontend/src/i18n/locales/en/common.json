@@ -246,6 +246,7 @@
   "dashboard.activity.action.process_flow.submitted": "submitted a process flow for",
   "dashboard.activity.action.process_flow.approved": "approved a process flow for",
   "dashboard.activity.action.process_flow.rejected": "rejected a process flow for",
+  "dashboard.activity.action.process_flow.withdrawn": "withdrew a process flow for",
   "dashboard.activity.action.adr.signatures_requested": "requested signatures on an ADR",
   "dashboard.activity.action.adr.signed": "signed an ADR",
   "dashboard.activity.action.adr.rejected": "rejected an ADR",

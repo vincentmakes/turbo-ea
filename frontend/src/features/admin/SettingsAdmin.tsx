@@ -32,6 +32,7 @@ import {
 import { invalidateAppTitle, DEFAULT_APP_TITLE } from "@/hooks/useAppTitle";
 import { invalidateGrcEnabled } from "@/hooks/useGrcEnabled";
 import { invalidateSponsorButtonEnabled } from "@/hooks/useSponsorButtonEnabled";
+import { invalidateBpmControlledPublishing } from "@/hooks/useBpmControlledPublishing";
 import SponsorshipDialog from "@/components/SponsorshipDialog";
 import { brand } from "@/theme";
 import { invalidateFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
@@ -144,6 +145,8 @@ interface GeneralSettingsBootstrap {
   date_format: string;
   app_title: string;
   bpm_enabled: boolean;
+  bpm_controlled_publishing: boolean;
+  bpm_require_separate_approver: boolean;
   ppm_enabled: boolean;
   grc_enabled: boolean;
   sponsor_button_enabled: boolean;
@@ -233,6 +236,9 @@ function GeneralTab() {
   // BPM toggle state
   const [bpmEnabled, setBpmEnabled] = useState(true);
   const [savingBpm, setSavingBpm] = useState(false);
+  const [controlledPublishing, setControlledPublishing] = useState(false);
+  const [requireSeparateApprover, setRequireSeparateApprover] = useState(true);
+  const [savingControlledPublishing, setSavingControlledPublishing] = useState(false);
 
   // PPM toggle state
   const [ppmEnabled, setPpmEnabled] = useState(false);
@@ -333,6 +339,8 @@ function GeneralTab() {
         setHasCustomFavicon(faviconData.has_custom_favicon);
         setSelectedCurrency(general.currency);
         setBpmEnabled(general.bpm_enabled);
+        setControlledPublishing(Boolean(general.bpm_controlled_publishing));
+        setRequireSeparateApprover(general.bpm_require_separate_approver !== false);
         setPpmEnabled(general.ppm_enabled);
         setGrcEnabled(general.grc_enabled);
         setSponsorButtonEnabled(general.sponsor_button_enabled);
@@ -501,6 +509,28 @@ function GeneralTab() {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingBpm(false);
+    }
+  };
+
+  const handleControlledPublishingSave = async (next: {
+    enabled: boolean;
+    requireSeparateApprover: boolean;
+  }) => {
+    setSavingControlledPublishing(true);
+    setError("");
+    try {
+      await api.patch("/settings/bpm-controlled-publishing", {
+        enabled: next.enabled,
+        require_separate_approver: next.requireSeparateApprover,
+      });
+      setControlledPublishing(next.enabled);
+      setRequireSeparateApprover(next.requireSeparateApprover);
+      invalidateBpmControlledPublishing(next);
+      setSnack(t("settings.controlledPublishing.saved"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingControlledPublishing(false);
     }
   };
 
@@ -1332,6 +1362,72 @@ function GeneralTab() {
           label={bpmEnabled ? t("settings.bpm.visible") : t("settings.bpm.hidden")}
         />
       </Paper>
+
+      {/* Controlled process publishing (GxP / ISO 9001) — discussion #916.
+          Two gates: this setting is the organisational policy decision, the
+          bpm.withdraw_flows / card.bpm_withdraw permission is the individual
+          authority one. Enabling this grants nobody anything on its own. */}
+      {bpmEnabled && (
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+            <MaterialSymbol icon="verified_user" size={22} color="#555" />
+            <Typography variant="h6" fontWeight={600}>
+              {t("settings.controlledPublishing.title")}
+            </Typography>
+            <Chip
+              label={
+                controlledPublishing
+                  ? t("settings.controlledPublishing.enabled")
+                  : t("settings.controlledPublishing.disabled")
+              }
+              size="small"
+              color={controlledPublishing ? "success" : "default"}
+              sx={{ ml: 1 }}
+            />
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t("settings.controlledPublishing.description")}
+          </Typography>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={controlledPublishing}
+                onChange={(e) =>
+                  handleControlledPublishingSave({
+                    enabled: e.target.checked,
+                    requireSeparateApprover,
+                  })
+                }
+                disabled={savingControlledPublishing}
+              />
+            }
+            label={t("settings.controlledPublishing.allowWithdrawal")}
+          />
+          <Box sx={{ pl: 4, mt: 1 }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={requireSeparateApprover}
+                  onChange={(e) =>
+                    handleControlledPublishingSave({
+                      enabled: controlledPublishing,
+                      requireSeparateApprover: e.target.checked,
+                    })
+                  }
+                  disabled={savingControlledPublishing || !controlledPublishing}
+                />
+              }
+              label={t("settings.controlledPublishing.separateApprover")}
+            />
+            <Typography variant="caption" color="text.secondary" display="block">
+              {t("settings.controlledPublishing.separateApproverHint")}
+            </Typography>
+          </Box>
+          <Alert severity="info" sx={{ mt: 2 }}>
+            {t("settings.controlledPublishing.permissionNote")}
+          </Alert>
+        </Paper>
+      )}
 
       {/* PPM Module Toggle */}
       <Paper sx={{ p: 3, mb: 3 }}>

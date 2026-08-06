@@ -170,6 +170,7 @@
   "dashboard.activity.action.process_flow.submitted": "ha inviato un flusso di processo per",
   "dashboard.activity.action.process_flow.approved": "ha approvato un flusso di processo per",
   "dashboard.activity.action.process_flow.rejected": "ha rifiutato un flusso di processo per",
+  "dashboard.activity.action.process_flow.withdrawn": "ha ritirato un flusso di processo per",
   "dashboard.activity.action.adr.signatures_requested": "ha richiesto firme su un ADR",
   "dashboard.activity.action.adr.signed": "ha firmato un ADR",
   "dashboard.activity.action.adr.rejected": "ha rifiutato un ADR",

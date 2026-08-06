@@ -1241,7 +1241,7 @@ export interface BpmnTemplate {
 export interface ProcessFlowVersion {
   id: string;
   process_id: string;
-  status: "draft" | "pending" | "published" | "archived";
+  status: "draft" | "pending" | "published" | "archived" | "withdrawn";
   revision: number;
   bpmn_xml?: string;
   svg_thumbnail?: string;
@@ -1255,6 +1255,10 @@ export interface ProcessFlowVersion {
   approved_by_name?: string;
   approved_at?: string;
   archived_at?: string;
+  withdrawn_by?: string;
+  withdrawn_by_name?: string;
+  withdrawn_at?: string;
+  withdrawal_reason?: string;
   based_on_id?: string;
   draft_element_links?: Record<string, {
     application_id?: string;
@@ -1269,6 +1273,9 @@ export interface ProcessFlowPermissions {
   can_view_drafts: boolean;
   can_edit_draft: boolean;
   can_approve: boolean;
+  /** Both gates already applied server-side: controlled publishing on AND the
+   *  bpm.withdraw_flows / card.bpm_withdraw permission held. */
+  can_withdraw: boolean;
 }
 
 // ---------------------------------------------------------------------------

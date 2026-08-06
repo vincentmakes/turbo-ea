@@ -59,16 +59,38 @@ La colonne *Organisation* du tableau des étapes lie les étapes à des fiches O
 
 ### Workflow d'approbation
 
-Les diagrammes de flux de processus suivent un workflow d'approbation avec contrôle de version :
+Les diagrammes de flux de processus suivent un workflow d'approbation versionné :
 
 | Statut | Description |
 |--------|-------------|
-| **Brouillon** | En cours d'édition, pas encore soumis pour examen |
-| **En attente** | Soumis pour approbation, en attente d'examen |
-| **Publié** | Approuvé et visible comme version actuelle |
-| **Archivé** | Version précédemment publiée, conservée pour l'historique |
+| **Brouillon** | En cours de modification, pas encore soumis |
+| **En attente** | Soumis pour approbation, en attente de revue |
+| **Publié** | Approuvé et visible comme version courante |
+| **Archivé** | Version publiée précédemment, remplacée par une approbation plus récente |
+| **Retiré** | Version publiée précédemment, dépubliée volontairement |
 
-Soumettre un brouillon crée un instantané de version. Les approbateurs peuvent approuver (publier) ou rejeter (avec commentaires) la soumission.
+Soumettre un brouillon crée un instantané de version. Les approbateurs peuvent approuver (publier) ou rejeter la soumission.
+
+#### Qui peut approuver
+
+Approuver ou rejeter une révision soumise exige la permission **Approuver ou rejeter les versions de flux BPMN soumises**, ou le rôle de partie prenante **Propriétaire du processus** sur le processus lui-même. Pouvoir modifier des brouillons ne suffit pas.
+
+!!! warning "Modifié dans la version 2.43.0"
+    Les versions antérieures acceptaient ici la permission générale de modification BPM : n'importe quel membre pouvait donc approuver n'importe quel flux de processus — y compris une révision qu'il venait lui-même de soumettre. Si, dans votre instance, des personnes approuvent aujourd'hui avec de simples droits de modification BPM, accordez-leur la permission **Approuver ou rejeter les versions de flux BPMN soumises** dans Administration → Rôles, ou désignez-les comme **Propriétaire du processus** sur les processus qu'elles valident.
+
+#### Retirer une version publiée
+
+Une approbation donnée par erreur peut être annulée sans supprimer le processus. Cette fonction est **désactivée par défaut** ; un administrateur l'active via Publication contrôlée des processus dans les [Paramètres](../admin/settings.md).
+
+Une fois activée et la permission accordée, la version publiée affiche un bouton **Retirer**. Le retrait demande un motif écrit, puis :
+
+- fait passer la révision à **Retiré** — elle n'est jamais supprimée, ni renvoyée à l'état de brouillon ;
+- conserve l'approbation d'origine : qui a approuvé, et quand, restent visibles ;
+- enregistre qui a retiré, quand et pourquoi — dans l'historique des versions et dans l'onglet **Historique** de la fiche ;
+- laisse le processus **sans flux approuvé** jusqu'à ce qu'une nouvelle révision soit soumise et approuvée ;
+- laisse intactes les étapes de processus extraites et leurs liens vers les fiches.
+
+Les versions archivées ne sont pas rétablies automatiquement. Republier une révision plus ancienne constitue en soi une approbation : créez-en un nouveau brouillon, soumettez-le et faites-le approuver.
 
 ## Évaluations de processus
 

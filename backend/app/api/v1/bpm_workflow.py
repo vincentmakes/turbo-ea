@@ -12,13 +12,18 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.models.app_settings import AppSettings
 from app.models.card import Card
 from app.models.process_element import ProcessElement, ProcessElementOrganization
 from app.models.process_flow_version import ProcessFlowVersion
 from app.models.stakeholder import Stakeholder
 from app.models.todo import Todo
 from app.models.user import User
-from app.schemas.bpm import ProcessFlowVersionCreate, ProcessFlowVersionUpdate
+from app.schemas.bpm import (
+    ProcessFlowVersionCreate,
+    ProcessFlowVersionUpdate,
+    ProcessFlowVersionWithdraw,
+)
 from app.services import notification_service
 from app.services.bpmn_parser import parse_bpmn_xml
 from app.services.element_relation_sync import sync_element_relations
@@ -68,11 +73,46 @@ async def _can_edit_draft(db: AsyncSession, user: User, process_id: uuid.UUID) -
     return await PermissionService.check_permission(db, user, "bpm.edit", process_id, "card.edit")
 
 
-async def _is_process_owner(db: AsyncSession, user: User, process_id: uuid.UUID) -> bool:
-    """Check if user can approve (process owner) via PermissionService."""
+async def _can_approve_flow(db: AsyncSession, user: User, process_id: uuid.UUID) -> bool:
+    """Check if a user may approve or reject a submitted flow version.
+
+    Approval authority is deliberately narrower than edit authority: the
+    purpose-built ``bpm.approve_flows`` / ``card.bpm_approve`` keys are what
+    grant it, so out of the box only admins, BPM Admins, and a ``processOwner``
+    stakeholder can sign a revision off — which is what the 403 message and the
+    seeded roles have always promised.
+    """
     return await PermissionService.check_permission(
-        db, user, "bpm.edit", process_id, "card.approval_status"
+        db, user, "bpm.approve_flows", process_id, "card.bpm_approve"
     )
+
+
+async def _can_withdraw_flow(db: AsyncSession, user: User, process_id: uuid.UUID) -> bool:
+    """Check if a user may withdraw (unpublish) a published flow version.
+
+    Gated twice on purpose (discussion #916): the instance setting
+    ``bpmControlledPublishing`` is the organisational policy decision and is
+    checked separately by the caller, while this permission is the individual
+    authority decision. No seeded role holds it — an admin grants it
+    deliberately.
+    """
+    return await PermissionService.check_permission(
+        db, user, "bpm.withdraw_flows", process_id, "card.bpm_withdraw"
+    )
+
+
+async def _controlled_publishing(db: AsyncSession) -> tuple[bool, bool]:
+    """Return ``(controlled_publishing_on, require_separate_approver)``.
+
+    Both live in the ``app_settings.general_settings`` JSONB blob. The
+    sub-option defaults to *on* so that enabling controlled publishing is safe
+    by default; a two-person team can switch it back off.
+    """
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    enabled = bool(general.get("bpmControlledPublishing", False))
+    return enabled, bool(general.get("bpmRequireSeparateApprover", True))
 
 
 def _version_response(v: ProcessFlowVersion) -> dict:
@@ -93,6 +133,10 @@ def _version_response(v: ProcessFlowVersion) -> dict:
         "approved_by_name": v.approver.display_name if v.approver else None,
         "approved_at": v.approved_at.isoformat() if v.approved_at else None,
         "archived_at": v.archived_at.isoformat() if v.archived_at else None,
+        "withdrawn_by": str(v.withdrawn_by) if v.withdrawn_by else None,
+        "withdrawn_by_name": v.withdrawer.display_name if v.withdrawer else None,
+        "withdrawn_at": v.withdrawn_at.isoformat() if v.withdrawn_at else None,
+        "withdrawal_reason": v.withdrawal_reason,
         "based_on_id": str(v.based_on_id) if v.based_on_id else None,
         "draft_element_links": v.draft_element_links,
     }
@@ -145,6 +189,7 @@ async def get_published_flow(
             selectinload(ProcessFlowVersion.creator),
             selectinload(ProcessFlowVersion.submitter),
             selectinload(ProcessFlowVersion.approver),
+            selectinload(ProcessFlowVersion.withdrawer),
         )
         .where(
             ProcessFlowVersion.process_id == pid,
@@ -180,6 +225,7 @@ async def list_drafts(
             selectinload(ProcessFlowVersion.creator),
             selectinload(ProcessFlowVersion.submitter),
             selectinload(ProcessFlowVersion.approver),
+            selectinload(ProcessFlowVersion.withdrawer),
         )
         .where(
             ProcessFlowVersion.process_id == pid,
@@ -280,6 +326,7 @@ async def create_draft(
             selectinload(ProcessFlowVersion.creator),
             selectinload(ProcessFlowVersion.submitter),
             selectinload(ProcessFlowVersion.approver),
+            selectinload(ProcessFlowVersion.withdrawer),
         )
         .where(ProcessFlowVersion.id == version.id)
     )
@@ -305,6 +352,7 @@ async def get_version(
             selectinload(ProcessFlowVersion.creator),
             selectinload(ProcessFlowVersion.submitter),
             selectinload(ProcessFlowVersion.approver),
+            selectinload(ProcessFlowVersion.withdrawer),
         )
         .where(
             ProcessFlowVersion.id == vid,
@@ -316,7 +364,7 @@ async def get_version(
         raise HTTPException(404, "Version not found")
 
     # Published versions are visible to all; drafts/pending/archived need perms
-    if version.status in ("draft", "pending", "archived"):
+    if version.status in ("draft", "pending", "archived", "withdrawn"):
         if not await _can_view_drafts(db, user, pid):
             raise HTTPException(403, "Insufficient permissions")
 
@@ -362,6 +410,7 @@ async def update_draft(
             selectinload(ProcessFlowVersion.creator),
             selectinload(ProcessFlowVersion.submitter),
             selectinload(ProcessFlowVersion.approver),
+            selectinload(ProcessFlowVersion.withdrawer),
         )
         .where(ProcessFlowVersion.id == version.id)
     )
@@ -484,6 +533,7 @@ async def submit_for_approval(
             selectinload(ProcessFlowVersion.creator),
             selectinload(ProcessFlowVersion.submitter),
             selectinload(ProcessFlowVersion.approver),
+            selectinload(ProcessFlowVersion.withdrawer),
         )
         .where(ProcessFlowVersion.id == version_id_for_reload)
     )
@@ -506,7 +556,7 @@ async def approve_version(
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
     process = await _get_process_or_404(db, pid)
-    if not await _is_process_owner(db, user, pid):
+    if not await _can_approve_flow(db, user, pid):
         raise HTTPException(403, "Only process owners, admins, or BPM admins can approve")
 
     result = await db.execute(
@@ -520,6 +570,17 @@ async def approve_version(
         raise HTTPException(404, "Version not found")
     if version.status != "pending":
         raise HTTPException(400, "Only pending versions can be approved")
+
+    # Segregation of duties (GxP / EU GMP Annex 11): under controlled publishing
+    # the person who submitted a revision may not be the one who signs it off.
+    controlled, require_separate_approver = await _controlled_publishing(db)
+    if controlled and require_separate_approver and version.submitted_by == user.id:
+        raise HTTPException(
+            403,
+            "A different user must approve this revision — "
+            "controlled publishing requires a separate approver",
+        )
+
     version_id_for_reload = version.id
 
     now = datetime.now(timezone.utc)
@@ -704,6 +765,7 @@ async def approve_version(
             selectinload(ProcessFlowVersion.creator),
             selectinload(ProcessFlowVersion.submitter),
             selectinload(ProcessFlowVersion.approver),
+            selectinload(ProcessFlowVersion.withdrawer),
         )
         .where(ProcessFlowVersion.id == version_id_for_reload)
     )
@@ -722,7 +784,7 @@ async def reject_version(
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
     process = await _get_process_or_404(db, pid)
-    if not await _is_process_owner(db, user, pid):
+    if not await _can_approve_flow(db, user, pid):
         raise HTTPException(403, "Only process owners, admins, or BPM admins can reject")
 
     result = await db.execute(
@@ -786,6 +848,128 @@ async def reject_version(
             selectinload(ProcessFlowVersion.creator),
             selectinload(ProcessFlowVersion.submitter),
             selectinload(ProcessFlowVersion.approver),
+            selectinload(ProcessFlowVersion.withdrawer),
+        )
+        .where(ProcessFlowVersion.id == version_id_for_reload)
+    )
+    version = result.scalar_one()
+    return _version_response(version)
+
+
+# ── Withdrawal (unpublish) ──────────────────────────────────────────────
+
+
+@router.post("/processes/{process_id}/flow/versions/{version_id}/withdraw")
+async def withdraw_version(
+    process_id: str,
+    version_id: str,
+    body: ProcessFlowVersionWithdraw,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Withdraw (unpublish) the published process flow — discussion #916.
+
+    Forward-only. The version moves ``published`` → ``withdrawn``; it is never
+    rewound to ``draft`` and never deleted, and ``revision`` / ``bpmn_xml`` /
+    ``approved_by`` / ``approved_at`` are all left exactly as they were. What is
+    added is the withdrawal itself: who, when, and a mandatory written reason.
+    That is what keeps this compliant with 21 CFR 11.10(e) ("record changes
+    shall not obscure previously recorded information") and what ISO 9001:2015
+    §7.5.3.2 asks for when documented information becomes obsolete.
+
+    The extracted ``process_elements``, their organization links, and the
+    element-derived card relations are deliberately **left untouched**, matching
+    the additive-only contract ``sync_element_relations`` already has. A
+    withdrawal must not become a covert delete. BPM reports already filter on
+    ``status == "published"``, so diagram-coverage figures self-correct.
+
+    The process is left with *no* published flow. Previously-archived versions
+    are not auto-reinstated: re-publishing an older revision is itself an
+    approval and has to go through draft → submit → approve.
+    """
+    pid = uuid.UUID(process_id)
+    vid = uuid.UUID(version_id)
+    process = await _get_process_or_404(db, pid)
+
+    # Gate 1 — organisational policy. Off by default, so nothing changes for an
+    # instance that has not opted in, whatever its roles say.
+    controlled, _ = await _controlled_publishing(db)
+    if not controlled:
+        raise HTTPException(
+            403,
+            "Withdrawing a published process flow is disabled on this instance. "
+            "An administrator can enable controlled process publishing in "
+            "Admin → Settings → General.",
+        )
+
+    # Gate 2 — individual authority.
+    if not await _can_withdraw_flow(db, user, pid):
+        raise HTTPException(403, "Insufficient permissions to withdraw a published process flow")
+
+    result = await db.execute(
+        select(ProcessFlowVersion).where(
+            ProcessFlowVersion.id == vid,
+            ProcessFlowVersion.process_id == pid,
+        )
+    )
+    version = result.scalar_one_or_none()
+    if not version:
+        raise HTTPException(404, "Version not found")
+    if version.status != "published":
+        raise HTTPException(400, "Only the published version can be withdrawn")
+
+    # Whitespace-only is not a reason — same guard as risk acceptance rationale.
+    reason = (body.reason or "").strip()
+    if not reason:
+        raise HTTPException(400, "A reason is required to withdraw a published process flow")
+
+    version_id_for_reload = version.id
+    revision = version.revision
+    previously_approved_by = version.approved_by
+    previously_submitted_by = version.submitted_by
+
+    version.status = "withdrawn"
+    version.withdrawn_at = datetime.now(timezone.utc)
+    version.withdrawn_by = user.id
+    version.withdrawal_reason = reason
+
+    # Notify the people who own the approval that is being undone.
+    for recipient in {previously_approved_by, previously_submitted_by} - {None}:
+        await notification_service.create_notification(
+            db,
+            user_id=recipient,
+            notif_type="process_flow_withdrawn",
+            title=f"Process flow withdrawn for {process.name}",
+            message=(
+                f"{user.display_name} withdrew revision {revision}. "
+                f"Reason: {reason} — {process.name} now has no approved process flow."
+            ),
+            link=f"/cards/{process_id}?tab=process-flow&subtab=archived",
+            card_id=pid,
+            actor_id=user.id,
+        )
+
+    await event_bus.publish(
+        "process_flow.withdrawn",
+        {
+            "process_name": process.name,
+            "revision": revision,
+            "withdrawn_by": user.display_name,
+            "reason": reason,
+        },
+        db=db,
+        card_id=pid,
+        user_id=user.id,
+    )
+
+    await db.commit()
+    result = await db.execute(
+        select(ProcessFlowVersion)
+        .options(
+            selectinload(ProcessFlowVersion.creator),
+            selectinload(ProcessFlowVersion.submitter),
+            selectinload(ProcessFlowVersion.approver),
+            selectinload(ProcessFlowVersion.withdrawer),
         )
         .where(ProcessFlowVersion.id == version_id_for_reload)
     )
@@ -802,7 +986,11 @@ async def list_archived(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """List archived process flow versions (most recent first)."""
+    """List superseded and withdrawn process flow versions (most recent first).
+
+    Withdrawn versions live here too — they are history, and hiding them would
+    defeat the point of recording the withdrawal.
+    """
     pid = uuid.UUID(process_id)
     await _get_process_or_404(db, pid)
     if not await _can_view_drafts(db, user, pid):
@@ -814,10 +1002,11 @@ async def list_archived(
             selectinload(ProcessFlowVersion.creator),
             selectinload(ProcessFlowVersion.submitter),
             selectinload(ProcessFlowVersion.approver),
+            selectinload(ProcessFlowVersion.withdrawer),
         )
         .where(
             ProcessFlowVersion.process_id == pid,
-            ProcessFlowVersion.status == "archived",
+            ProcessFlowVersion.status.in_(("archived", "withdrawn")),
         )
         .order_by(ProcessFlowVersion.revision.desc())
     )
@@ -979,8 +1168,11 @@ async def get_flow_permissions(
     """Return the current user's permissions on the process flow."""
     pid = uuid.UUID(process_id)
     await _get_process_or_404(db, pid)
+    controlled, _ = await _controlled_publishing(db)
     return {
         "can_view_drafts": await _can_view_drafts(db, user, pid),
         "can_edit_draft": await _can_edit_draft(db, user, pid),
-        "can_approve": await _is_process_owner(db, user, pid),
+        "can_approve": await _can_approve_flow(db, user, pid),
+        # Both gates, so the button is never offered when the endpoint would 403.
+        "can_withdraw": controlled and await _can_withdraw_flow(db, user, pid),
     }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 
@@ -37,6 +37,9 @@ const mockPerms = {
   can_view_drafts: true,
   can_edit_draft: true,
   can_approve: true,
+  // Off by default here, matching a stock instance: controlled publishing is
+  // opt-in and no seeded role holds the withdraw permission.
+  can_withdraw: false,
 };
 
 const mockPublished = {
@@ -395,7 +398,12 @@ describe("ProcessFlowTab", () => {
   it("hides Drafts and Archived tabs when no draft access", async () => {
     vi.mocked(api.get).mockImplementation((url: string) => {
       if (url.includes("/flow/permissions"))
-        return Promise.resolve({ can_view_drafts: false, can_edit_draft: false, can_approve: false });
+        return Promise.resolve({
+          can_view_drafts: false,
+          can_edit_draft: false,
+          can_approve: false,
+          can_withdraw: false,
+        });
       if (url.includes("/flow/published")) return Promise.resolve(mockPublished);
       if (url.includes("/elements")) return Promise.resolve(mockElements);
       return Promise.reject(new Error(`no mock for ${url}`));
@@ -407,5 +415,110 @@ describe("ProcessFlowTab", () => {
     });
     expect(screen.queryByText("Drafts")).not.toBeInTheDocument();
     expect(screen.queryByText("Archived")).not.toBeInTheDocument();
+  });
+
+  // ── Withdrawal (discussion #916) ────────────────────────────────────
+  describe("withdrawing a published flow", () => {
+    function mockWithdrawPerms() {
+      vi.mocked(api.get).mockImplementation((url: string) => {
+        if (url.includes("/flow/permissions"))
+          return Promise.resolve({ ...mockPerms, can_withdraw: true });
+        if (url.includes("/flow/published")) return Promise.resolve(mockPublished);
+        if (url.includes("/elements")) return Promise.resolve(mockElements);
+        if (url.includes("/flow/drafts")) return Promise.resolve(mockDrafts);
+        if (url.includes("/flow/archived")) return Promise.resolve(mockArchived);
+        return Promise.reject(new Error(`no mock for ${url}`));
+      });
+    }
+
+    it("hides the Withdraw button when can_withdraw is false", async () => {
+      renderTab();
+      await waitForLoad();
+      expect(screen.queryByRole("button", { name: /Withdraw/ })).not.toBeInTheDocument();
+    });
+
+    it("shows the Withdraw button when can_withdraw is true", async () => {
+      mockWithdrawPerms();
+      renderTab();
+      await waitForLoad();
+      expect(await screen.findByRole("button", { name: /Withdraw/ })).toBeInTheDocument();
+    });
+
+    it("keeps the confirm button disabled until a long enough reason is given", async () => {
+      mockWithdrawPerms();
+      renderTab();
+      await waitForLoad();
+      await userEvent.click(await screen.findByRole("button", { name: /Withdraw/ }));
+
+      const dialog = await screen.findByRole("dialog");
+      const confirm = within(dialog).getByRole("button", { name: /^Withdraw$/ });
+      expect(confirm).toBeDisabled();
+
+      // Whitespace is not a reason, and neither is anything under 10 chars.
+      await userEvent.type(within(dialog).getByLabelText(/Reason/), "   too short   ");
+      expect(confirm).toBeDisabled();
+
+      await userEvent.clear(within(dialog).getByLabelText(/Reason/));
+      await userEvent.type(
+        within(dialog).getByLabelText(/Reason/),
+        "Approved by mistake, wrong revision",
+      );
+      expect(confirm).toBeEnabled();
+    });
+
+    it("posts the trimmed reason to the withdraw endpoint", async () => {
+      mockWithdrawPerms();
+      vi.mocked(api.post).mockResolvedValue({});
+      renderTab();
+      await waitForLoad();
+      await userEvent.click(await screen.findByRole("button", { name: /Withdraw/ }));
+
+      const dialog = await screen.findByRole("dialog");
+      await userEvent.type(
+        within(dialog).getByLabelText(/Reason/),
+        "  Approved by mistake, wrong revision  ",
+      );
+      await userEvent.click(within(dialog).getByRole("button", { name: /^Withdraw$/ }));
+
+      await waitFor(() => {
+        expect(api.post).toHaveBeenCalledWith(
+          "/bpm/processes/proc-1/flow/versions/v1/withdraw",
+          { reason: "Approved by mistake, wrong revision" },
+        );
+      });
+    });
+
+    it("renders a withdrawn version in the Archived tab with its reason", async () => {
+      vi.mocked(api.get).mockImplementation((url: string) => {
+        if (url.includes("/flow/permissions")) return Promise.resolve(mockPerms);
+        // No published flow left once the only published revision was withdrawn.
+        if (url.includes("/flow/published")) return Promise.resolve(null);
+        if (url.includes("/elements")) return Promise.resolve(mockElements);
+        if (url.includes("/flow/drafts")) return Promise.resolve(mockDrafts);
+        if (url.includes("/flow/archived"))
+          return Promise.resolve([
+            {
+              id: "w1",
+              revision: 3,
+              status: "withdrawn",
+              approved_by_name: "Admin",
+              approved_at: "2025-06-01T10:00:00Z",
+              withdrawn_by_name: "Quality Lead",
+              withdrawn_at: "2025-07-01T10:00:00Z",
+              withdrawal_reason: "Approved by mistake, wrong revision",
+            },
+          ]);
+        return Promise.reject(new Error(`no mock for ${url}`));
+      });
+      renderTab();
+      await waitForLoad();
+      await userEvent.click(screen.getByText("Archived"));
+
+      expect(await screen.findByText("Withdrawn")).toBeInTheDocument();
+      expect(screen.getByText(/Quality Lead/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Approved by mistake, wrong revision/),
+      ).toBeInTheDocument();
+    });
   });
 });

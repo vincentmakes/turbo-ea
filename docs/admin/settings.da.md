@@ -140,6 +140,22 @@ Slå **Business Process Management**-modulet til eller fra. Når det er deaktive
 
 Dette er nyttigt for organisationer, der ikke bruger BPM og ønsker en renere navigationsoplevelse.
 
+## Kontrolleret procespublicering
+
+Til organisationer, der arbejder efter GxP, ISO 9001 eller et lignende kvalitetssystem. **Slået fra som standard** — intet ændrer sig, før en administrator slår det til.
+
+| Kontakt | Standard | Virkning |
+|---------|----------|----------|
+| **Tillad, at et publiceret procesflow trækkes tilbage** | Fra | Tilføjer en **Træk tilbage**-knap til det publicerede procesflow. Så længe den er slået fra, afvises tilbagetrækning for alle, uanset hvilke tilladelser de har. |
+| **Kræv en separat godkender** | Til | Den, der indsender en revision, kan ikke selv godkende den. Gælder kun, mens kontakten ovenfor er slået til — slå den fra i et lille team, hvor én person gør begge dele. |
+
+Tilbagetrækning er bevidst sikret to gange:
+
+- **Denne indstilling** er den organisatoriske beslutning: om jeres kvalitetssystem overhovedet tillader en kontrolleret tilbagetrækning.
+- **Tilladelsen** er den personlige beslutning: hvem der må gøre det. Tilbagetrækning kræver desuden tilladelsen *Træk en publiceret BPMN-flowversion tilbage (afpublicer)* eller dens tilsvarende på kortniveau på en interessentrolle. **Ingen rolle har den som standard**, så at slå denne indstilling til giver ikke nogen ret til noget. Tildel den under Roller eller på interessentrollen **Procesejer** i [Metamodellen](metamodel.md).
+
+En tilbagetrukket version afpubliceres, men slettes aldrig: den oprindelige godkendelse, diagrammet og revisionsnummeret bevares alle, og tilbagetrækningen registreres med ophavsmand, tidsstempel og skriftlig begrundelse. Se [Business Process Management](../guide/bpm.md) for, hvad brugeren ser.
+
 ## PPM-modul
 
 Slå **Project Portfolio Management**-modulet til eller fra. Når det er deaktiveret:

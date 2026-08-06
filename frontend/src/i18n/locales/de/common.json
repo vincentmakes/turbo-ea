@@ -170,6 +170,7 @@
   "dashboard.activity.action.process_flow.submitted": "Prozessfluss eingereicht für",
   "dashboard.activity.action.process_flow.approved": "Prozessfluss freigegeben für",
   "dashboard.activity.action.process_flow.rejected": "Prozessfluss abgelehnt für",
+  "dashboard.activity.action.process_flow.withdrawn": "hat einen Prozessablauf zurückgezogen für",
   "dashboard.activity.action.adr.signatures_requested": "Unterschriften für ADR angefordert",
   "dashboard.activity.action.adr.signed": "ADR unterschrieben",
   "dashboard.activity.action.adr.rejected": "ADR abgelehnt",

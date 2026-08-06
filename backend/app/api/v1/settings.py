@@ -230,6 +230,8 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         "navbar_bg": general.get("navbarBg", DEFAULT_NAVBAR_BG),
         "navbar_fg": general.get("navbarFg", DEFAULT_NAVBAR_FG),
         "bpm_enabled": general.get("bpmEnabled", True),
+        "bpm_controlled_publishing": general.get("bpmControlledPublishing", False),
+        "bpm_require_separate_approver": general.get("bpmRequireSeparateApprover", True),
         "ppm_enabled": general.get("ppmEnabled", False),
         "turbolens_enabled": general.get("turboLensEnabled", True),
         "grc_enabled": general.get("grcEnabled", True),
@@ -768,6 +770,57 @@ async def update_sponsor_button_enabled(
     row = await _get_or_create_row(db)
     general = dict(row.general_settings or {})
     general["sponsorButtonEnabled"] = body.enabled
+    row.general_settings = general
+
+    await db.commit()
+    return {"ok": True}
+
+
+class ControlledPublishingPayload(BaseModel):
+    """Both switches of the BPM controlled-publishing block (discussion #916)."""
+
+    enabled: bool
+    require_separate_approver: bool | None = None
+
+
+@router.get("/bpm-controlled-publishing")
+async def get_bpm_controlled_publishing(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — controlled publishing state for the BPM process flow workflow.
+
+    ``enabled`` is off by default: an instance that has not opted in behaves
+    exactly as before, and the withdraw endpoint refuses regardless of
+    permissions. ``require_separate_approver`` defaults to *on* so that turning
+    controlled publishing on is safe by default (GxP segregation of duties);
+    a two-person team can switch that half back off.
+    """
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    return {
+        "enabled": general.get("bpmControlledPublishing", False),
+        "require_separate_approver": general.get("bpmRequireSeparateApprover", True),
+    }
+
+
+@router.patch("/bpm-controlled-publishing")
+async def update_bpm_controlled_publishing(
+    body: ControlledPublishingPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — enable controlled publishing and its separate-approver rule.
+
+    Enabling this grants nobody anything on its own: withdrawal additionally
+    requires the ``bpm.withdraw_flows`` / ``card.bpm_withdraw`` permission, which
+    no seeded role holds.
+    """
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["bpmControlledPublishing"] = body.enabled
+    if body.require_separate_approver is not None:
+        general["bpmRequireSeparateApprover"] = body.require_separate_approver
     row.general_settings = general
 
     await db.commit()

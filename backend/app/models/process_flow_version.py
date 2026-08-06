@@ -18,7 +18,16 @@ class ProcessFlowVersion(Base, UUIDMixin, TimestampMixin):
         draft      — editable, only visible to privileged users
         pending    — submitted for approval, awaiting processOwner sign-off
         published  — approved and read-only, the current live version
-        archived   — previously-published version, read-only
+        archived   — previously-published version, superseded by a newer approval
+        withdrawn  — previously-published version, unpublished on purpose
+
+    ``withdrawn`` is deliberately distinct from ``archived`` rather than reusing
+    it (discussion #916). Both are history, but an auditor has to be able to
+    tell "superseded by revision 5" from "withdrawn because it was approved in
+    error" — collapsing them would obscure previously recorded information,
+    which is exactly what 21 CFR 11.10(e) forbids. Withdrawal is forward-only:
+    ``approved_by`` / ``approved_at`` are never cleared, nothing is deleted, and
+    the reason is mandatory.
     """
 
     __tablename__ = "process_flow_versions"
@@ -53,6 +62,12 @@ class ProcessFlowVersion(Base, UUIDMixin, TimestampMixin):
     approved_at: Mapped[str | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Archival timestamp (set when a newer version is published)
     archived_at: Mapped[str | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Withdrawal details (set when a published version is unpublished on purpose)
+    withdrawn_at: Mapped[str | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    withdrawn_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )
+    withdrawal_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Base version this draft was created from (null = from scratch)
     based_on_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -70,3 +85,4 @@ class ProcessFlowVersion(Base, UUIDMixin, TimestampMixin):
     creator = relationship("User", foreign_keys=[created_by], lazy="noload")
     submitter = relationship("User", foreign_keys=[submitted_by], lazy="noload")
     approver = relationship("User", foreign_keys=[approved_by], lazy="noload")
+    withdrawer = relationship("User", foreign_keys=[withdrawn_by], lazy="noload")

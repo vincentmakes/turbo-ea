@@ -246,6 +246,7 @@
   "dashboard.activity.action.process_flow.submitted": "أرسل تدفق عملية لـ",
   "dashboard.activity.action.process_flow.approved": "اعتمد تدفق عملية لـ",
   "dashboard.activity.action.process_flow.rejected": "رفض تدفق عملية لـ",
+  "dashboard.activity.action.process_flow.withdrawn": "سحب مخطط عملية لـ",
   "dashboard.activity.action.adr.signatures_requested": "طلب توقيعات على ADR",
   "dashboard.activity.action.adr.signed": "وقّع ADR",
   "dashboard.activity.action.adr.rejected": "رفض ADR",

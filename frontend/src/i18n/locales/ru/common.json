@@ -170,6 +170,7 @@
   "dashboard.activity.action.process_flow.submitted": "отправил поток процесса для",
   "dashboard.activity.action.process_flow.approved": "утвердил поток процесса для",
   "dashboard.activity.action.process_flow.rejected": "отклонил поток процесса для",
+  "dashboard.activity.action.process_flow.withdrawn": "отозвал(а) схему процесса для",
   "dashboard.activity.action.adr.signatures_requested": "запросил подписи на ADR",
   "dashboard.activity.action.adr.signed": "подписал ADR",
   "dashboard.activity.action.adr.rejected": "отклонил ADR",

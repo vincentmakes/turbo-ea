@@ -140,6 +140,22 @@ Alterne o módulo de **Business Process Management** ligado ou desligado. Quando
 
 Isso é útil para organizações que não usam BPM e desejam uma experiência de navegação mais limpa.
 
+## Publicação controlada de processos
+
+Para organizações que trabalham segundo BPx, ISO 9001 ou um sistema de qualidade semelhante. **Desativada por predefinição** — nada muda até que um administrador a ative.
+
+| Interruptor | Predefinição | Efeito |
+|-------------|--------------|--------|
+| **Permitir a retirada de um fluxo de processo publicado** | Desligado | Acrescenta um botão **Retirar** ao fluxo de processo publicado. Enquanto estiver desligado, a retirada é recusada a todos, quaisquer que sejam as permissões. |
+| **Exigir um aprovador distinto** | Ligado | Quem submete uma revisão não pode ser quem a aprova. Só se aplica enquanto o interruptor acima estiver ligado — desligue-o numa equipa pequena em que a mesma pessoa faz ambas as coisas. |
+
+A retirada está deliberadamente protegida por duas barreiras:
+
+- **Esta definição** é a decisão organizacional: se o seu sistema de qualidade permite sequer uma retirada controlada.
+- **A permissão** é a decisão individual: quem a pode executar. A retirada exige ainda a permissão *Retirar (despublicar) uma versão de fluxo BPMN publicada*, ou o seu equivalente ao nível do cartão num papel de parte interessada. **Nenhum perfil a possui por predefinição**, pelo que ativar esta definição não autoriza ninguém. Conceda-a em Perfis, ou no papel de parte interessada **Responsável do processo** no [Metamodelo](metamodel.md).
+
+Uma versão retirada é despublicada, nunca eliminada: a aprovação original, o diagrama e o número de revisão são todos mantidos, e a retirada fica registada com o seu autor, data/hora e motivo escrito. Consulte [Business Process Management](../guide/bpm.md) para o que o utilizador vê.
+
 ## Módulo PPM
 
 Alterne o módulo de **Gestão de Portfólio de Projetos** (PPM) ligado ou desligado. Quando desabilitado:

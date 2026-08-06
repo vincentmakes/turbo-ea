@@ -170,6 +170,7 @@
   "dashboard.activity.action.process_flow.submitted": "提交了流程：",
   "dashboard.activity.action.process_flow.approved": "批准了流程：",
   "dashboard.activity.action.process_flow.rejected": "拒绝了流程：",
+  "dashboard.activity.action.process_flow.withdrawn": "撤回了流程图：",
   "dashboard.activity.action.adr.signatures_requested": "请求 ADR 签名",
   "dashboard.activity.action.adr.signed": "已签署 ADR",
   "dashboard.activity.action.adr.rejected": "拒绝了 ADR",

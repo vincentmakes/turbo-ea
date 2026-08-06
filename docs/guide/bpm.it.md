@@ -59,16 +59,38 @@ La colonna *Organizzazione* della tabella dei passaggi collega i passaggi alle c
 
 ### Workflow di approvazione
 
-I diagrammi del flusso di processo seguono un workflow di approvazione con controllo delle versioni:
+I diagrammi di flusso di processo seguono un workflow di approvazione con versionamento:
 
 | Stato | Descrizione |
 |-------|-------------|
-| **Draft** | In fase di modifica, non ancora inviato per la revisione |
-| **Pending** | Inviato per l'approvazione, in attesa di revisione |
-| **Published** | Approvato e visibile come versione corrente |
-| **Archived** | Versione precedentemente pubblicata, conservata per la cronologia |
+| **Bozza** | In modifica, non ancora inviata per la revisione |
+| **In attesa** | Inviata per l'approvazione, in attesa di revisione |
+| **Pubblicata** | Approvata e visibile come versione corrente |
+| **Archiviata** | Versione pubblicata in precedenza, sostituita da un'approvazione più recente |
+| **Ritirata** | Versione pubblicata in precedenza, ritirata intenzionalmente |
 
-L'invio di una bozza crea uno snapshot della versione. I revisori possono approvare (pubblicare) o rifiutare (con commenti) l'invio.
+L'invio di una bozza crea uno snapshot di versione. Gli approvatori possono approvare (pubblicare) o rifiutare l'invio.
+
+#### Chi può approvare
+
+Approvare o rifiutare una revisione inviata richiede il permesso **Approva o rifiuta le versioni di flusso BPMN inviate**, oppure il ruolo di stakeholder **Responsabile del processo** sul processo stesso. Poter modificare le bozze non basta.
+
+!!! warning "Modificato nella versione 2.43.0"
+    Le versioni precedenti accettavano qui il permesso generale di modifica BPM, per cui qualsiasi membro poteva approvare qualsiasi flusso di processo, inclusa una revisione appena inviata da lui stesso. Se nella vostra istanza approvano oggi persone con i soli diritti di modifica BPM, concedete loro il permesso **Approva o rifiuta le versioni di flusso BPMN inviate** in Amministrazione → Ruoli, oppure assegnatele come **Responsabile del processo** sui processi che convalidano.
+
+#### Ritirare una versione pubblicata
+
+Un'approvazione data per errore può essere annullata senza eliminare il processo. La funzione è **disattivata per impostazione predefinita**; un amministratore la abilita da Pubblicazione controllata dei processi nelle [Impostazioni](../admin/settings.md).
+
+Una volta abilitata e concesso il permesso, la versione pubblicata mostra un pulsante **Ritira**. Il ritiro richiede una motivazione scritta e quindi:
+
+- porta la revisione a **Ritirata**: non viene mai eliminata né riportata a bozza;
+- mantiene a registro l'approvazione originale: chi ha approvato e quando restano visibili;
+- registra chi ha ritirato, quando e perché, nella cronologia delle versioni e nella scheda **Cronologia** della card;
+- lascia il processo **senza flusso approvato** finché non viene inviata e approvata una nuova revisione;
+- lascia intatti i passi di processo estratti e i loro collegamenti alle card.
+
+Le versioni archiviate non vengono ripristinate automaticamente. Ripubblicare una revisione più vecchia è a sua volta un'approvazione: createne una nuova bozza, inviatela e fatela approvare.
 
 ## Valutazioni dei processi
 

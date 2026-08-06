@@ -46,6 +46,9 @@ import BpmnViewer from "./BpmnViewer";
 import BpmnTemplateChooser from "./BpmnTemplateChooser";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
+// Aliased: this file already has a local STATUS_COLORS holding MUI palette
+// names, which is a different thing from the design tokens' hex values.
+import { STATUS_COLORS as SEMANTIC_COLORS } from "@/theme";
 import type { ProcessFlowVersion, ProcessFlowPermissions, ProcessElement } from "@/types";
 
 interface Props {
@@ -60,6 +63,9 @@ const STATUS_COLORS: Record<string, "success" | "warning" | "info" | "default" |
   draft: "default",
   pending: "warning",
   archived: "info",
+  // Distinct from `archived`: an auditor must be able to tell a version that was
+  // superseded by a newer approval from one that was withdrawn on purpose.
+  withdrawn: "error",
 };
 
 export default function ProcessFlowTab({ processId, processName, initialSubTab }: Props) {
@@ -73,6 +79,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     can_view_drafts: false,
     can_edit_draft: false,
     can_approve: false,
+    can_withdraw: false,
   });
 
   // Published
@@ -111,6 +118,12 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     version: ProcessFlowVersion;
   } | null>(null);
   const [actionError, setActionError] = useState("");
+  // Withdrawal has its own dialog: it takes a mandatory written reason, which
+  // the plain confirm dialog has no field for.
+  const [withdrawVersion, setWithdrawVersion] = useState<ProcessFlowVersion | null>(null);
+  const [withdrawReason, setWithdrawReason] = useState("");
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawError, setWithdrawError] = useState("");
 
   // Load permissions, published version, elements, and eagerly load drafts
   const loadInitial = useCallback(async () => {
@@ -268,6 +281,27 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       loadArchived();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Action failed");
+    }
+  };
+
+  const handleWithdraw = async () => {
+    if (!withdrawVersion) return;
+    setWithdrawError("");
+    setWithdrawing(true);
+    try {
+      await api.post(
+        `/bpm/processes/${processId}/flow/versions/${withdrawVersion.id}/withdraw`,
+        { reason: withdrawReason.trim() }
+      );
+      setWithdrawVersion(null);
+      setWithdrawReason("");
+      loadInitial();
+      loadDrafts();
+      loadArchived();
+    } catch (err) {
+      setWithdrawError(err instanceof Error ? err.message : t("flowTab.withdrawFailed"));
+    } finally {
+      setWithdrawing(false);
     }
   };
 
@@ -769,6 +803,21 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
               {t("flowTab.createNewDraftFromThis")}
             </Button>
           )}
+          {perms.can_withdraw && (
+            <Button
+              variant="outlined"
+              size="small"
+              color="error"
+              startIcon={<MaterialSymbol icon="unpublished" />}
+              onClick={() => {
+                setWithdrawReason("");
+                setWithdrawError("");
+                setWithdrawVersion(published);
+              }}
+            >
+              {t("flowTab.withdraw")}
+            </Button>
+          )}
           <Box sx={{ flex: 1 }} />
           <Button
             variant="outlined"
@@ -1043,7 +1092,11 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
           <Paper key={a.id} variant="outlined" sx={{ mb: 1 }}>
             <ListItemButton onClick={() => loadVersionDetail(a.id)}>
               <ListItemIcon>
-                <MaterialSymbol icon="inventory_2" size={24} color="#999" />
+                <MaterialSymbol
+                  icon={a.status === "withdrawn" ? "unpublished" : "inventory_2"}
+                  size={24}
+                  color={a.status === "withdrawn" ? SEMANTIC_COLORS.error : "#999"}
+                />
               </ListItemIcon>
               <ListItemText
                 primary={
@@ -1051,13 +1104,37 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                     <Typography variant="body1" fontWeight={500}>
                       {t("flowTab.revisionLabel", { revision: a.revision })}
                     </Typography>
-                    <Chip label={t("common:status.archived")} size="small" color="info" />
+                    <Chip
+                      label={
+                        a.status === "withdrawn"
+                          ? t("flowTab.withdrawnStatus")
+                          : t("common:status.archived")
+                      }
+                      size="small"
+                      color={a.status === "withdrawn" ? "error" : "info"}
+                    />
                   </Box>
                 }
                 secondary={
-                  <>
-                    {t("flowTab.approvedByOnArchivedOn", { name: a.approved_by_name || "\u2014", approvedDate: formatVersionDate(a.approved_at), archivedDate: formatVersionDate(a.archived_at) })}
-                  </>
+                  a.status === "withdrawn" ? (
+                    <>
+                      {t("flowTab.withdrawnByOn", { name: a.withdrawn_by_name || "\u2014", date: formatVersionDate(a.withdrawn_at) })}
+                      {a.withdrawal_reason && (
+                        <Typography
+                          component="span"
+                          variant="body2"
+                          display="block"
+                          sx={{ mt: 0.5, fontStyle: "italic" }}
+                        >
+                          {t("flowTab.withdrawalReasonLabel")}: {a.withdrawal_reason}
+                        </Typography>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {t("flowTab.approvedByOnArchivedOn", { name: a.approved_by_name || "\u2014", approvedDate: formatVersionDate(a.approved_at), archivedDate: formatVersionDate(a.archived_at) })}
+                    </>
+                  )
                 }
               />
             </ListItemButton>
@@ -1122,6 +1199,18 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                 <strong>{t("common:status.archived")}</strong> {t("flowTab.archivedOnOriginallyApproved", { archivedDate: formatVersionDate(viewingVersion.archived_at), name: viewingVersion.approved_by_name || "\u2014", approvedDate: formatVersionDate(viewingVersion.approved_at), revision: viewingVersion.revision })}
               </Alert>
             )}
+            {viewingVersion.status === "withdrawn" && (
+              <Alert
+                severity="error"
+                icon={<MaterialSymbol icon="unpublished" size={20} />}
+                sx={{ borderRadius: 0 }}
+              >
+                <strong>{t("flowTab.withdrawnStatus")}</strong> {t("flowTab.withdrawnByOnRevision", { name: viewingVersion.withdrawn_by_name || "—", date: formatVersionDate(viewingVersion.withdrawn_at), revision: viewingVersion.revision })}
+                {viewingVersion.withdrawal_reason && (
+                  <> &mdash; {viewingVersion.withdrawal_reason}</>
+                )}
+              </Alert>
+            )}
             {viewingVersion.status === "pending" && (
               <Alert severity="warning" sx={{ borderRadius: 0 }}>
                 <strong>{t("flowTab.pendingApproval")}</strong> &mdash; {t("flowTab.submittedByOnRevision", { name: viewingVersion.submitted_by_name || "\u2014", date: formatVersionDate(viewingVersion.submitted_at), revision: viewingVersion.revision })}
@@ -1172,6 +1261,61 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       button: t("common:actions.delete"),
       color: "error",
     },
+  };
+
+  // ── Withdraw dialog ──────────────────────────────────────────────────
+  // Its own dialog rather than a `confirmAction` type: withdrawal takes a
+  // mandatory written reason, which is what makes it auditable.
+
+  const WITHDRAW_REASON_MIN = 10;
+
+  const renderWithdrawDialog = () => {
+    if (!withdrawVersion) return null;
+    const reasonTooShort = withdrawReason.trim().length < WITHDRAW_REASON_MIN;
+    return (
+      <Dialog open onClose={() => setWithdrawVersion(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>{t("flowTab.confirmWithdrawTitle")}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>{t("flowTab.confirmWithdrawDescription")}</DialogContentText>
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            {t("flowTab.revisionLabel", { revision: withdrawVersion.revision })}
+          </Typography>
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            {t("flowTab.withdrawWarning", { name: processName })}
+          </Alert>
+          <TextField
+            label={t("flowTab.withdrawalReasonLabel")}
+            helperText={t("flowTab.withdrawalReasonHelp", { min: WITHDRAW_REASON_MIN })}
+            value={withdrawReason}
+            onChange={(e) => setWithdrawReason(e.target.value)}
+            multiline
+            minRows={3}
+            fullWidth
+            required
+            autoFocus
+            sx={{ mt: 2 }}
+          />
+          {withdrawError && (
+            <Alert severity="error" sx={{ mt: 1 }}>
+              {withdrawError}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setWithdrawVersion(null)} disabled={withdrawing}>
+            {t("common:actions.cancel")}
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleWithdraw}
+            disabled={reasonTooShort || withdrawing}
+          >
+            {withdrawing ? t("common:labels.loading") : t("flowTab.withdraw")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    );
   };
 
   const renderConfirmDialog = () => {
@@ -1225,6 +1369,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
       {renderFullScreenDialog()}
       {renderConfirmDialog()}
+      {renderWithdrawDialog()}
       <Snackbar
         open={!!snack}
         autoHideDuration={3000}

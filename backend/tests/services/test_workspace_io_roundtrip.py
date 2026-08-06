@@ -793,6 +793,62 @@ async def test_unresolved_required_user_fk_is_conflict(db):
     assert (await db.execute(select(Bookmark).where(Bookmark.name == "Ghost View"))).first() is None
 
 
+async def test_process_flow_withdrawal_roundtrips(db):
+    """A withdrawn process flow keeps its withdrawal metadata across a transfer.
+
+    ``withdrawn_by`` is an instance-local user UUID, so it has to be declared in
+    the section's ``user_fk_columns`` and travel as an email — otherwise the
+    withdrawal loses its attribution on the target instance and the audit trail
+    silently becomes anonymous. The three scalar columns come along via
+    introspection.
+    """
+    from datetime import datetime, timezone
+
+    from app.models.process_flow_version import ProcessFlowVersion
+    from app.services.workspace_io.sections import ENTITY_SECTIONS
+
+    section = next(s for s in ENTITY_SECTIONS if s.sheet == "ProcessFlowVersions")
+    assert "withdrawn_by" in section.user_fk_columns
+
+    user = await create_user(db, email="quality@test.com", role="admin")
+    await create_card_type(db, key="BusinessProcess", label="Business Process")
+    process = await create_card(
+        db, card_type="BusinessProcess", name="Withdrawn Process", user_id=user.id
+    )
+    now = datetime.now(timezone.utc)
+    db.add(
+        ProcessFlowVersion(
+            process_id=process.id,
+            status="withdrawn",
+            revision=3,
+            bpmn_xml="<bpmn>x</bpmn>",
+            approved_by=user.id,
+            approved_at=now,
+            withdrawn_by=user.id,
+            withdrawn_at=now,
+            withdrawal_reason="Approved by mistake, wrong revision",
+        )
+    )
+    await db.flush()
+
+    raw = await build_bundle(db)
+    await db.execute(delete(ProcessFlowVersion))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    restored = (await db.execute(select(ProcessFlowVersion))).scalars().all()
+    assert len(restored) == 1
+    v = restored[0]
+    assert v.status == "withdrawn"
+    assert v.withdrawal_reason == "Approved by mistake, wrong revision"
+    assert v.withdrawn_by == user.id
+    assert v.withdrawn_at is not None
+    # The original approval survives the transfer intact.
+    assert v.approved_by == user.id
+
+
 async def test_bookmark_shares_roundtrip(db):
     """A saved view shared with another user keeps its share (and can_edit
     flag) across export → delete → re-import; re-apply skips."""

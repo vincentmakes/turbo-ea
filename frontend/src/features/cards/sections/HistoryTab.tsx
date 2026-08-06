@@ -38,6 +38,13 @@ const EVENT_META_ICONS: Record<string, { icon: string; color: string }> = {
   "file.uploaded": { icon: "upload_file", color: "#1976d2" },
   "file.deleted": { icon: "delete", color: "#f44336" },
   "comment.created": { icon: "chat", color: "#1976d2" },
+  // BPM process-flow approval trail. Without these the events render as their
+  // raw dotted event_type, which makes the approval history of a process
+  // unreadable on the card — and an unreadable trail is not an audit trail.
+  "process_flow.submitted": { icon: "send", color: "#1976d2" },
+  "process_flow.approved": { icon: "verified", color: "#4caf50" },
+  "process_flow.rejected": { icon: "cancel", color: "#f44336" },
+  "process_flow.withdrawn": { icon: "unpublished", color: "#f44336" },
 };
 
 function getEventMeta(t: (key: string) => string): Record<string, { label: string; icon: string; color: string }> {
@@ -64,6 +71,10 @@ function getEventMeta(t: (key: string) => string): Record<string, { label: strin
     "file.uploaded": { label: t("history.events.fileUploaded"), ...EVENT_META_ICONS["file.uploaded"] },
     "file.deleted": { label: t("history.events.fileDeleted"), ...EVENT_META_ICONS["file.deleted"] },
     "comment.created": { label: t("history.events.commentCreated"), ...EVENT_META_ICONS["comment.created"] },
+    "process_flow.submitted": { label: t("history.events.processFlowSubmitted"), ...EVENT_META_ICONS["process_flow.submitted"] },
+    "process_flow.approved": { label: t("history.events.processFlowApproved"), ...EVENT_META_ICONS["process_flow.approved"] },
+    "process_flow.rejected": { label: t("history.events.processFlowRejected"), ...EVENT_META_ICONS["process_flow.rejected"] },
+    "process_flow.withdrawn": { label: t("history.events.processFlowWithdrawn"), ...EVENT_META_ICONS["process_flow.withdrawn"] },
   };
 }
 

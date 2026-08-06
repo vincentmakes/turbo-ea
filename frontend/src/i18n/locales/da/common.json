@@ -246,6 +246,7 @@
   "dashboard.activity.action.process_flow.submitted": "indsendte et procesflow for",
   "dashboard.activity.action.process_flow.approved": "godkendte et procesflow for",
   "dashboard.activity.action.process_flow.rejected": "afviste et procesflow for",
+  "dashboard.activity.action.process_flow.withdrawn": "trak et procesflow tilbage for",
   "dashboard.activity.action.adr.signatures_requested": "anmodede om underskrifter på en ADR",
   "dashboard.activity.action.adr.signed": "underskrev en ADR",
   "dashboard.activity.action.adr.rejected": "afviste en ADR",

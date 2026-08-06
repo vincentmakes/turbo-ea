@@ -55,6 +55,8 @@ async def create_notification(
         "process_flow_approval_requested",
         "process_flow_approved",
         "process_flow_rejected",
+        # A process owner withdrawing their own approval still needs the record.
+        "process_flow_withdrawn",
     }
     if actor_id and actor_id == user_id and notif_type not in allow_self_types:
         return None

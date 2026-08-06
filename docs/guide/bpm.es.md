@@ -63,12 +63,34 @@ Los diagramas de flujo de proceso siguen un flujo de aprobación con control de 
 
 | Estado | Descripción |
 |--------|-------------|
-| **Borrador** | En edición, aún no enviado para revisión |
-| **Pendiente** | Enviado para aprobación, en espera de revisión |
-| **Publicado** | Aprobado y visible como la versión actual |
-| **Archivado** | Versión publicada anteriormente, conservada para el historial |
+| **Borrador** | En edición, aún no enviado a revisión |
+| **Pendiente** | Enviado para aprobación, a la espera de revisión |
+| **Publicado** | Aprobado y visible como versión actual |
+| **Archivado** | Versión publicada anteriormente, sustituida por una aprobación más reciente |
+| **Retirado** | Versión publicada anteriormente, despublicada de forma deliberada |
 
-Al enviar un borrador se crea una instantánea de versión. Los aprobadores pueden aprobar (publicar) o rechazar (con comentarios) el envío.
+Enviar un borrador crea una instantánea de versión. Los aprobadores pueden aprobar (publicar) o rechazar el envío.
+
+#### Quién puede aprobar
+
+Aprobar o rechazar una revisión enviada requiere el permiso **Aprobar o rechazar versiones de flujo BPMN enviadas**, o el rol de parte interesada **Propietario del proceso** en el propio proceso. Poder editar borradores no es suficiente.
+
+!!! warning "Cambiado en 2.43.0"
+    Las versiones anteriores aceptaban aquí el permiso general de edición de BPM, de modo que cualquier miembro podía aprobar cualquier flujo de proceso, incluida una revisión que acababa de enviar él mismo. Si en su instancia hay personas que aprueban hoy con solo derechos de edición de BPM, concédales el permiso **Aprobar o rechazar versiones de flujo BPMN enviadas** en Administración → Roles, o asígnelas como **Propietario del proceso** en los procesos que validan.
+
+#### Retirar una versión publicada
+
+Una aprobación dada por error puede deshacerse sin eliminar el proceso. Esta función está **desactivada de forma predeterminada**; un administrador la activa en Publicación controlada de procesos, dentro de [Configuración](../admin/settings.md).
+
+Una vez activada y concedido el permiso, la versión publicada muestra un botón **Retirar**. El retiro solicita un motivo por escrito y, a continuación:
+
+- pasa la revisión a **Retirado**: nunca se elimina ni se devuelve a borrador;
+- mantiene la aprobación original registrada: quién aprobó y cuándo siguen visibles;
+- registra quién retiró, cuándo y por qué, en el historial de versiones y en la pestaña **Historial** de la tarjeta;
+- deja el proceso **sin flujo aprobado** hasta que se envíe y se apruebe una nueva revisión;
+- deja intactos los pasos de proceso extraídos y sus vínculos con tarjetas.
+
+Las versiones archivadas no se restauran automáticamente. Volver a publicar una revisión anterior es en sí mismo una aprobación: cree un nuevo borrador a partir de ella, envíelo y haga que se apruebe.
 
 ## Evaluaciones de Proceso
 

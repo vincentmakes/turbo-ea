@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DiagramSave(BaseModel):
@@ -61,3 +61,15 @@ class ProcessFlowVersionUpdate(BaseModel):
 
     bpmn_xml: str | None = None
     svg_thumbnail: str | None = None
+
+
+class ProcessFlowVersionWithdraw(BaseModel):
+    """Withdraw (unpublish) a published process flow.
+
+    The reason is mandatory and is stored verbatim on the version: a withdrawal
+    without a recorded justification is not auditable. ``min_length`` only stops
+    an empty submission — the endpoint additionally rejects whitespace-only
+    input, mirroring the risk-acceptance rationale check in ``risks.py``.
+    """
+
+    reason: str = Field(min_length=10, max_length=2000)

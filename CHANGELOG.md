@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.43.0] - 2026-08-06
+
+### Added
+- **An accidentally approved process flow can now be withdrawn**, instead of deleting the whole business process to get rid of it ([#916](https://github.com/vincentmakes/turbo-ea/discussions/916)). Withdrawing asks for a written reason and only ever moves forwards: the revision becomes **Withdrawn**, it is never deleted and never sent back to draft, the original approval stays on record, and who withdrew it — when, and why — is kept in the version history and shown on the card's **History** tab. The process is left with no approved flow until a new revision is submitted and approved; the extracted process steps and their card links are untouched. Turned off by default: an administrator enables **Controlled process publishing** in Admin → Settings → General, *and* grants the new *Withdraw published flow* permission, which no role holds out of the box.
+- **Controlled process publishing can require a second approver.** With it enabled, the person who submitted a revision can no longer be the one who approves it — segregation of duties, as GxP and ISO 9001 quality systems expect. On by default once controlled publishing is on, and switchable off for a small team where one person does both.
+- **The process-flow approval trail now appears on the card's History tab.** Submissions, approvals, rejections and withdrawals were recorded all along but rendered as raw internal event names, so a process's approval history was effectively unreadable without database access.
+
+### Changed
+- **Approving a process flow now requires approval rights, not just edit rights.** Approve and reject are gated on *Approve or reject submitted BPMN flow versions*, or the **Process Owner** stakeholder role on the process — which is what the error message and the shipped roles have always said. Until now the check accepted the general BPM edit permission, so **any member could approve any process flow, including a revision they had submitted themselves seconds earlier** — the most likely way a flow gets approved by accident in the first place. After upgrading, members and the *Responsible* stakeholder role can no longer approve. If people in your instance approve flows today with only BPM edit rights, grant them *Approve or reject submitted BPMN flow versions* in Admin → Roles, or assign them as **Process Owner** on the processes they sign off.
+
 ## [2.42.0] - 2026-08-05
 
 ### Added

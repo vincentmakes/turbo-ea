@@ -59,16 +59,38 @@ Die Spalte *Organisation* in der Schritttabelle verknüpft Schritte mit Organisa
 
 ### Genehmigungsworkflow
 
-Prozessflussdiagramme folgen einem versionsgesteuerten Genehmigungsworkflow:
+Prozessablaufdiagramme folgen einem versionierten Genehmigungsworkflow:
 
 | Status | Beschreibung |
-|--------|-------------|
-| **Entwurf** | Wird bearbeitet, noch nicht zur Überprüfung eingereicht |
-| **Ausstehend** | Zur Genehmigung eingereicht, wartet auf Überprüfung |
-| **Veröffentlicht** | Genehmigt und als aktuelle Version sichtbar |
-| **Archiviert** | Zuvor veröffentlichte Version, für die Historie aufbewahrt |
+|--------|--------------|
+| **Entwurf** | In Bearbeitung, noch nicht zur Prüfung eingereicht |
+| **Ausstehend** | Zur Genehmigung eingereicht, Prüfung ausstehend |
+| **Veröffentlicht** | Freigegeben und als aktuelle Version sichtbar |
+| **Archiviert** | Zuvor veröffentlichte Version, durch eine neuere Freigabe ersetzt |
+| **Zurückgezogen** | Zuvor veröffentlichte Version, bewusst zurückgezogen |
 
-Das Einreichen eines Entwurfs erstellt einen Versions-Schnappschuss. Genehmiger können die Einreichung genehmigen (veröffentlichen) oder ablehnen (mit Kommentaren).
+Beim Einreichen eines Entwurfs wird ein Versionsstand erzeugt. Genehmigende können die Einreichung freigeben (veröffentlichen) oder ablehnen.
+
+#### Wer freigeben darf
+
+Das Freigeben oder Ablehnen einer eingereichten Revision erfordert die Berechtigung **Eingereichte BPMN-Ablaufversionen freigeben oder ablehnen** oder die Stakeholder-Rolle **Prozessverantwortlicher** auf dem Prozess selbst. Das Bearbeiten von Entwürfen genügt nicht.
+
+!!! warning "Geändert in 2.43.0"
+    Frühere Versionen akzeptierten hier die allgemeine BPM-Bearbeitungsberechtigung, sodass jedes Mitglied jeden Prozessablauf freigeben konnte — auch eine Revision, die es kurz zuvor selbst eingereicht hatte. Wenn in Ihrer Installation heute Personen mit reinen BPM-Bearbeitungsrechten freigeben, erteilen Sie ihnen entweder unter Administration → Rollen die Berechtigung **Eingereichte BPMN-Ablaufversionen freigeben oder ablehnen** oder weisen Sie sie den betreffenden Prozessen als **Prozessverantwortlicher** zu.
+
+#### Eine veröffentlichte Version zurückziehen
+
+Eine versehentlich erteilte Freigabe lässt sich rückgängig machen, ohne den Prozess zu löschen. Diese Funktion ist **standardmäßig deaktiviert**; eine Administratorin oder ein Administrator aktiviert sie unter Kontrollierte Prozessveröffentlichung in den [Einstellungen](../admin/settings.md).
+
+Sobald sie aktiviert und die Berechtigung erteilt ist, erhält die veröffentlichte Version eine Schaltfläche **Zurückziehen**. Das Zurückziehen verlangt eine schriftliche Begründung und bewirkt dann:
+
+- Die Revision wechselt zu **Zurückgezogen** — sie wird niemals gelöscht und nie in den Entwurfsstatus zurückgesetzt.
+- Die ursprüngliche Freigabe bleibt dokumentiert: wer sie erteilt hat und wann, bleibt sichtbar.
+- Es wird festgehalten, wer wann und warum zurückgezogen hat — im Versionsverlauf und im Reiter **Verlauf** der Karte.
+- Der Prozess hat **keinen freigegebenen Ablauf** mehr, bis eine neue Revision eingereicht und freigegeben wurde.
+- Die extrahierten Prozessschritte und ihre Kartenverknüpfungen bleiben unverändert.
+
+Zuvor archivierte Versionen werden nicht automatisch reaktiviert. Eine ältere Revision erneut zu veröffentlichen ist selbst eine Freigabe: Erstellen Sie daraus einen neuen Entwurf, reichen Sie ihn ein und lassen Sie ihn freigeben.
 
 ## Prozessbeurteilungen
 

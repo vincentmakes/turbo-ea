@@ -128,7 +128,7 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         "ProcessFlowVersions",
         ProcessFlowVersion,
         card_fk_columns=("process_id",),
-        user_fk_columns=("created_by", "submitted_by", "approved_by"),
+        user_fk_columns=("created_by", "submitted_by", "approved_by", "withdrawn_by"),
         self_parent_column="based_on_id",
         asset_columns=(("bpmn_xml", "text", "bpmn"), ("svg_thumbnail", "text", "svg")),
     ),

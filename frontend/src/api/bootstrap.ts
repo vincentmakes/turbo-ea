@@ -23,6 +23,7 @@ import {
 import { invalidateAppTitle } from "@/hooks/useAppTitle";
 import { invalidateCurrency } from "@/hooks/useCurrency";
 import { invalidateBpmEnabled } from "@/hooks/useBpmEnabled";
+import { invalidateBpmControlledPublishing } from "@/hooks/useBpmControlledPublishing";
 import { invalidateComplianceRegulations } from "@/hooks/useComplianceRegulations";
 import { invalidateResourceTypes } from "@/hooks/useResourceTypes";
 import { invalidateGrcEnabled } from "@/hooks/useGrcEnabled";
@@ -43,6 +44,8 @@ type BootstrapResponse = {
   navbar_bg: string;
   navbar_fg: string;
   bpm_enabled: boolean;
+  bpm_controlled_publishing: boolean;
+  bpm_require_separate_approver: boolean;
   ppm_enabled: boolean;
   turbolens_enabled: boolean;
   grc_enabled: boolean;
@@ -90,6 +93,10 @@ export function primeBootstrap(): Promise<void> {
       invalidateNavbarStyle({ bg: r.navbar_bg, fg: r.navbar_fg });
 
       invalidateBpmEnabled(r.bpm_enabled);
+      invalidateBpmControlledPublishing({
+        enabled: r.bpm_controlled_publishing,
+        requireSeparateApprover: r.bpm_require_separate_approver,
+      });
       invalidatePpmEnabled(r.ppm_enabled);
       invalidateGrcEnabled(r.grc_enabled);
       invalidateSponsorButtonEnabled(r.sponsor_button_enabled);

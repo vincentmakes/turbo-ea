@@ -66,9 +66,31 @@ Process flow diagrams follow a version-controlled approval workflow:
 | **Draft** | Being edited, not yet submitted for review |
 | **Pending** | Submitted for approval, awaiting review |
 | **Published** | Approved and visible as the current version |
-| **Archived** | Previously published version, kept for history |
+| **Archived** | Previously published version, superseded by a newer approval |
+| **Withdrawn** | Previously published version, unpublished on purpose |
 
-Submitting a draft creates a version snapshot. Approvers can approve (publish) or reject (with comments) the submission.
+Submitting a draft creates a version snapshot. Approvers can approve (publish) or reject the submission.
+
+#### Who can approve
+
+Approving or rejecting a submitted revision needs the **Approve or reject submitted BPMN flow versions** permission, or the **Process Owner** stakeholder role on the process itself. Being able to edit drafts is not enough.
+
+!!! warning "Changed in 2.43.0"
+    Earlier releases accepted the general BPM edit permission here, so any member could approve any process flow — including a revision they had submitted themselves a moment earlier. If people in your instance approve flows today with only BPM edit rights, either grant them **Approve or reject submitted BPMN flow versions** in Admin → Roles, or assign them as **Process Owner** on the processes they sign off.
+
+#### Withdrawing a published version
+
+An approval given by mistake can be undone without deleting the process. This is **off by default**; an administrator enables it under Controlled process publishing in [Settings](../admin/settings.md).
+
+Once enabled and the permission is granted, the published version gains a **Withdraw** button. Withdrawing asks for a written reason, and then:
+
+- moves the revision to **Withdrawn** — it is never deleted, and never sent back to draft
+- keeps the original approval on record: who approved it, and when, stay visible
+- records who withdrew it, when, and why — in the version history and in the card's **History** tab
+- leaves the process with **no approved flow** until a new revision is submitted and approved
+- leaves the extracted process steps and their card links untouched
+
+Previously archived versions are not brought back automatically. Re-publishing an older revision is itself an approval: create a new draft from it, submit it, and have it approved.
 
 ## Process Assessments
 

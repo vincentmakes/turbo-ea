@@ -59,16 +59,38 @@ Kolonnen *Organisation* i trintabellen linker trin til organisationskort, lige v
 
 ### Godkendelses­arbejdsproces
 
-Procesflow-diagrammer følger en versionskontrolleret godkendelses­arbejdsproces:
+Procesflowdiagrammer følger en versionsstyret godkendelsesproces:
 
 | Status | Beskrivelse |
 |--------|-------------|
-| **Kladde** | Under redigering, endnu ikke indsendt til gennemgang |
+| **Kladde** | Under redigering, endnu ikke sendt til gennemgang |
 | **Afventer** | Indsendt til godkendelse, afventer gennemgang |
-| **Udgivet** | Godkendt og synlig som den aktuelle version |
-| **Arkiveret** | Tidligere udgivet version, gemt af historiske grunde |
+| **Publiceret** | Godkendt og synlig som den aktuelle version |
+| **Arkiveret** | Tidligere publiceret version, afløst af en nyere godkendelse |
+| **Tilbagetrukket** | Tidligere publiceret version, bevidst afpubliceret |
 
-Indsendelse af en kladde opretter et øjebliksbillede af versionen. Godkendere kan godkende (udgive) eller afvise (med kommentarer) indsendelsen.
+Når en kladde indsendes, oprettes et versionsøjebliksbillede. Godkendere kan godkende (publicere) eller afvise indsendelsen.
+
+#### Hvem kan godkende
+
+At godkende eller afvise en indsendt revision kræver tilladelsen **Godkend eller afvis indsendte BPMN-flowversioner** eller interessentrollen **Procesejer** på selve processen. Det er ikke nok at kunne redigere kladder.
+
+!!! warning "Ændret i 2.43.0"
+    Tidligere udgaver accepterede den generelle BPM-redigeringstilladelse her, så ethvert medlem kunne godkende ethvert procesflow — også en revision, de selv havde indsendt et øjeblik forinden. Hvis der i din installation i dag godkendes af personer, som kun har BPM-redigeringsrettigheder, så tildel dem enten **Godkend eller afvis indsendte BPMN-flowversioner** under Administration → Roller, eller udpeg dem som **Procesejer** på de processer, de godkender.
+
+#### Træk en publiceret version tilbage
+
+En godkendelse givet ved en fejl kan omgøres uden at slette processen. Funktionen er **slået fra som standard**; en administrator aktiverer den under Kontrolleret procespublicering i [Indstillinger](../admin/settings.md).
+
+Når den er slået til, og tilladelsen er givet, får den publicerede version en **Træk tilbage**-knap. Tilbagetrækning kræver en skriftlig begrundelse og derefter:
+
+- flyttes revisionen til **Tilbagetrukket** — den slettes aldrig og sendes aldrig tilbage til kladde;
+- bevares den oprindelige godkendelse: hvem der godkendte, og hvornår, er fortsat synligt;
+- registreres hvem der trak tilbage, hvornår og hvorfor — i versionshistorikken og på kortets fane **Historik**;
+- står processen **uden godkendt flow**, indtil en ny revision er indsendt og godkendt;
+- forbliver de udtrukne procestrin og deres kortlinks urørte.
+
+Tidligere arkiverede versioner gendannes ikke automatisk. At genpublicere en ældre revision er i sig selv en godkendelse: opret en ny kladde ud fra den, indsend den, og få den godkendt.
 
 ## Procesvurderinger
 

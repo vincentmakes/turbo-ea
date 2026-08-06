@@ -64,6 +64,7 @@ APP_PERMISSIONS: dict[str, dict] = {
             "bpm.edit": "Edit process diagrams and elements",
             "bpm.manage_drafts": "Create, edit, and delete BPMN flow drafts",
             "bpm.approve_flows": "Approve or reject submitted BPMN flow versions",
+            "bpm.withdraw_flows": "Withdraw (unpublish) a published BPMN flow version",
             "bpm.assessments": "Create, edit, and delete process assessments",
         },
     },
@@ -278,6 +279,7 @@ CARD_PERMISSIONS: dict[str, str] = {
     "card.bpm_edit": "Edit BPM diagram and elements (process types only)",
     "card.bpm_manage_drafts": "Create, edit, and submit BPMN flow drafts",
     "card.bpm_approve": "Approve or reject submitted BPMN flow versions",
+    "card.bpm_withdraw": "Withdraw (unpublish) a published BPMN flow version",
     "card.manage_adr_links": "Link or unlink architecture decisions on this card",
     "card.manage_diagram_links": "Link or unlink diagrams on this card",
 }
@@ -302,6 +304,7 @@ APP_TO_CARD_PERMISSION_MAP: dict[str, str] = {
     "bpm.edit": "card.bpm_edit",
     "bpm.manage_drafts": "card.bpm_manage_drafts",
     "bpm.approve_flows": "card.bpm_approve",
+    "bpm.withdraw_flows": "card.bpm_withdraw",
     "adr.manage": "card.manage_adr_links",
     "diagrams.manage": "card.manage_diagram_links",
 }
@@ -340,6 +343,9 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "bpm.edit": True,
     "bpm.manage_drafts": True,
     "bpm.approve_flows": True,
+    # Withdrawing a published flow is a separate authority from approving one.
+    # Off even for BPM Admin — an admin must grant it deliberately.
+    "bpm.withdraw_flows": False,
     "bpm.assessments": True,
     "ppm.view": True,
     "ppm.manage": True,
@@ -419,6 +425,7 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "bpm.edit": True,
     "bpm.manage_drafts": True,
     "bpm.approve_flows": False,
+    "bpm.withdraw_flows": False,
     "bpm.assessments": True,
     "ppm.view": True,
     "ppm.manage": True,
@@ -498,6 +505,7 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "bpm.edit": False,
     "bpm.manage_drafts": False,
     "bpm.approve_flows": False,
+    "bpm.withdraw_flows": False,
     "bpm.assessments": False,
     "ppm.view": True,
     "ppm.manage": False,
@@ -570,6 +578,7 @@ RESPONSIBLE_CARD_PERMISSIONS: dict[str, bool] = {
     "card.bpm_edit": True,
     "card.bpm_manage_drafts": True,
     "card.bpm_approve": False,
+    "card.bpm_withdraw": False,
     "card.manage_adr_links": True,
     "card.manage_diagram_links": True,
 }
@@ -588,6 +597,7 @@ OBSERVER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.bpm_edit": False,
     "card.bpm_manage_drafts": False,
     "card.bpm_approve": False,
+    "card.bpm_withdraw": False,
     "card.manage_adr_links": False,
     "card.manage_diagram_links": False,
 }
@@ -606,6 +616,9 @@ PROCESS_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.bpm_edit": True,
     "card.bpm_manage_drafts": True,
     "card.bpm_approve": True,
+    # Off by default even for the Process Owner: withdrawing a published flow is
+    # opt-in, granted deliberately in Admin → Metamodel → Stakeholder roles.
+    "card.bpm_withdraw": False,
     "card.manage_adr_links": True,
     "card.manage_diagram_links": True,
 }
@@ -624,6 +637,7 @@ TECH_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.bpm_edit": False,
     "card.bpm_manage_drafts": False,
     "card.bpm_approve": False,
+    "card.bpm_withdraw": False,
     "card.manage_adr_links": True,
     "card.manage_diagram_links": True,
 }
@@ -642,6 +656,7 @@ BIZ_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.bpm_edit": False,
     "card.bpm_manage_drafts": False,
     "card.bpm_approve": False,
+    "card.bpm_withdraw": False,
     "card.manage_adr_links": True,
     "card.manage_diagram_links": True,
 }
@@ -660,6 +675,7 @@ IT_PROJECT_MANAGER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.bpm_edit": False,
     "card.bpm_manage_drafts": False,
     "card.bpm_approve": False,
+    "card.bpm_withdraw": False,
     "card.manage_adr_links": True,
     "card.manage_diagram_links": True,
 }
