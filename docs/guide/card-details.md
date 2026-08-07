@@ -82,7 +82,7 @@ Shows all connections to other cards, grouped by relation type. For each relatio
 
 - **Related card name** — Click to navigate to the related card
 - **Relation type** — The nature of the connection (e.g., "uses", "runs on", "depends on")
-- **Add relation** — Click **+** to create a new relation; the picker lists matching cards as soon as it opens (best matches for what you type come first, more load as you scroll). Cards already linked are hidden from the list, with a caption showing how many. The picker stays open after each pick so you can add several relations in a row, and each one you add appears as a chip just above the search box — click a chip's **×** to undo that add. **Done** closes the row when you are finished
+- **Add relation** — Click **+** to open the **Add relations** dialog. It lists matching cards as you type (best matches first, more load as you scroll) and hides the ones already linked, with a caption showing how many. Clicking a card links it straight away and it appears as a chip at the top — click a chip's **×** to undo that one. The dialog stays open so you can add as many as you like, and a **Relation** picker at the top lets you switch to a different relation type without closing it. On a phone it opens full-screen
 - **Ordering** — Related cards are listed alphabetically by name
 - **Remove relation** — Click the delete icon to remove a relation
 - **Group by subtype** — When a relation section has many related cards, they are automatically grouped into collapsible subtype buckets (each with a count), with a trailing **No subtype** bucket for unclassified cards. Use the group/list toggle in the section header to switch between the grouped and flat views.

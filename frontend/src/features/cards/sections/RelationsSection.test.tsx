@@ -116,14 +116,40 @@ describe("RelationsSection ordering", () => {
   });
 });
 
-describe("RelationsSection add flow", () => {
+describe("RelationsSection add dialog", () => {
   beforeEach(() => {
     vi.mocked(api.get).mockReset();
     vi.mocked(api.post).mockReset();
     vi.mocked(api.delete).mockReset();
   });
 
-  it("hides already-linked cards from the picker and says how many are hidden", async () => {
+  /** Open the section, then the add dialog from the group's + button. */
+  async function openAddDialog() {
+    await openSection();
+    await userEvent.click(await screen.findByRole("button", { name: /Add Organization/i }));
+    return screen.findByRole("dialog");
+  }
+
+  it("lists candidates in the dialog body, not in a floating dropdown", async () => {
+    // The list must live in normal flow inside the dialog: a popper is what
+    // flipped above the field, clipped inside the accordion and repositioned
+    // mid-batch, and it is unusable on a phone (#918).
+    mockApi(
+      [],
+      [
+        { id: "org-a", name: "Legal" },
+        { id: "org-b", name: "Public Works" },
+      ],
+    );
+
+    const dialog = await openAddDialog();
+    await waitFor(() =>
+      expect(within(dialog).getByText("Public Works")).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+
+  it("hides already-linked cards and says how many are hidden", async () => {
     mockApi(
       [relation("1", "Finance")],
       [
@@ -132,23 +158,16 @@ describe("RelationsSection add flow", () => {
       ],
     );
 
-    await openSection();
-    await waitFor(() => expect(screen.getByText("Finance")).toBeInTheDocument());
-
-    await userEvent.click(screen.getByRole("button", { name: /Add Organization/i }));
-    // The picker autoFocuses and `openOnFocus` opens the list — no click needed
-    // (clicking the input would toggle it shut again).
-    await screen.findByPlaceholderText(/Search Organization/i);
-
+    const dialog = await openAddDialog();
     await waitFor(() =>
-      expect(screen.getByRole("option", { name: "Parks & Recreation" })).toBeInTheDocument(),
+      expect(within(dialog).getByText("Parks & Recreation")).toBeInTheDocument(),
     );
     // Already linked, so not on offer — picking it would have been a no-op.
-    expect(screen.queryByRole("option", { name: "Finance" })).not.toBeInTheDocument();
-    expect(screen.getByText(/1 already linked/i)).toBeInTheDocument();
+    expect(within(dialog).queryByText("Finance")).not.toBeInTheDocument();
+    expect(within(dialog).getByText(/1 already linked/i)).toBeInTheDocument();
   });
 
-  it("stays open across consecutive adds and reconciles once on Done", async () => {
+  it("adds several in a row, chipped and undoable, reconciling once on close", async () => {
     const state = mockApi(
       [],
       [
@@ -169,124 +188,27 @@ describe("RelationsSection add flow", () => {
       } as never;
     });
 
-    await openSection();
-    const fetchesAfterLoad = state.relationFetches;
+    const dialog = await openAddDialog();
+    const fetchesAfterOpen = state.relationFetches;
 
-    await userEvent.click(screen.getByRole("button", { name: /Add Organization/i }));
-    await screen.findByPlaceholderText(/Search Organization/i);
-    await userEvent.click(await screen.findByRole("option", { name: "Legal" }));
+    await userEvent.click(await within(dialog).findByText("Legal"));
+    await waitFor(() => expect(within(dialog).getByText(/1 added/i)).toBeInTheDocument());
+    // The picked card leaves the candidate list and becomes a chip.
+    expect(within(dialog).getAllByText("Legal")).toHaveLength(1);
 
-    // The row lands optimistically (once in the list, once as a chip) and the
-    // picker is still there for the next pick.
-    await waitFor(() => expect(screen.getAllByText("Legal").length).toBe(2));
-    expect(screen.getByPlaceholderText(/Search Organization/i)).toBeInTheDocument();
-    expect(screen.getByText(/1 added/i)).toBeInTheDocument();
-    // No refetch per add — the POST response is appended directly.
-    expect(state.relationFetches).toBe(fetchesAfterLoad);
-
-    await userEvent.click(await screen.findByRole("option", { name: "Public Works" }));
-    await waitFor(() => expect(screen.getByText(/2 added/i)).toBeInTheDocument());
+    await userEvent.click(await within(dialog).findByText("Public Works"));
+    await waitFor(() => expect(within(dialog).getByText(/2 added/i)).toBeInTheDocument());
     expect(api.post).toHaveBeenCalledTimes(2);
-    expect(state.relationFetches).toBe(fetchesAfterLoad);
+    // No refetch per add — the POST response is appended directly.
+    expect(state.relationFetches).toBe(fetchesAfterOpen);
 
-    // Done closes the row and pays for exactly one reconcile fetch.
     state.rows = [relation("a", "Legal"), relation("b", "Public Works")];
-    await userEvent.click(screen.getByRole("button", { name: /Done/i }));
-    await waitFor(() => expect(state.relationFetches).toBe(fetchesAfterLoad + 1));
-    expect(screen.queryByPlaceholderText(/Search Organization/i)).not.toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: /Done/i }));
+    await waitFor(() => expect(state.relationFetches).toBe(fetchesAfterOpen + 1));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
-  it("drops a just-added card out of the dropdown without a refetch", async () => {
-    mockApi(
-      [],
-      [
-        { id: "org-a", name: "Legal" },
-        { id: "org-b", name: "Public Works" },
-      ],
-    );
-    vi.mocked(api.post).mockResolvedValue({
-      id: "rel-a",
-      type: "appToOrg",
-      source_id: FS,
-      target_id: "org-a",
-      source: { id: FS, type: "Application", name: "NexaCore ERP" },
-      target: { id: "org-a", type: "Organization", name: "Legal" },
-    } as never);
-
-    await openSection();
-    await userEvent.click(screen.getByRole("button", { name: /Add Organization/i }));
-    await screen.findByPlaceholderText(/Search Organization/i);
-    await userEvent.click(await screen.findByRole("option", { name: "Legal" }));
-
-    await waitFor(() =>
-      expect(screen.getByRole("option", { name: "Public Works" })).toBeInTheDocument(),
-    );
-    const listbox = screen.getByRole("listbox");
-    expect(within(listbox).queryByText("Legal")).not.toBeInTheDocument();
-  });
-
-  it("keeps the dropdown open and the input cleared after a pick", async () => {
-    // The picker used to be remounted after each add, which tore the popper
-    // down and rebuilt it — the list flashed "Loading", refetched, and flipped
-    // between above and below the field. It must now survive a pick untouched.
-    mockApi(
-      [],
-      [
-        { id: "org-a", name: "Legal" },
-        { id: "org-b", name: "Public Works" },
-      ],
-    );
-    vi.mocked(api.post).mockResolvedValue({
-      id: "rel-a",
-      type: "appToOrg",
-      source_id: FS,
-      target_id: "org-a",
-      source: { id: FS, type: "Application", name: "NexaCore ERP" },
-      target: { id: "org-a", type: "Organization", name: "Legal" },
-    } as never);
-
-    await openSection();
-    await userEvent.click(screen.getByRole("button", { name: /Add Organization/i }));
-    const input = (await screen.findByPlaceholderText(
-      /Search Organization/i,
-    )) as HTMLInputElement;
-    await userEvent.type(input, "leg");
-    await userEvent.click(await screen.findByRole("option", { name: "Legal" }));
-
-    // Still open, ready for the next pick, with the typed text gone rather
-    // than replaced by the picked card's name.
-    await waitFor(() => expect(input).toHaveValue(""));
-    expect(screen.getByRole("listbox")).toBeInTheDocument();
-    // Crucially: no card refetch was triggered by the pick.
-    const cardCalls = vi
-      .mocked(api.get)
-      .mock.calls.filter((c) => (c[0] as string).startsWith("/cards"));
-    const afterPick = cardCalls.filter((c) => (c[0] as string).includes("search=leg"));
-    expect(afterPick.length).toBeLessThanOrEqual(1);
-  });
-
-  it("names a just-added row from the picked card even if the response omits its refs", async () => {
-    // Regression guard for the reported "Unknown" rows: the row must never
-    // depend on the POST response carrying `source`/`target`, because the card
-    // the user picked is already known locally and cannot be missing.
-    mockApi([], [{ id: "org-a", name: "Legal" }]);
-    vi.mocked(api.post).mockResolvedValue({
-      id: "rel-a",
-      type: "appToOrg",
-      source_id: FS,
-      target_id: "org-a",
-    } as never);
-
-    await openSection();
-    await userEvent.click(screen.getByRole("button", { name: /Add Organization/i }));
-    await screen.findByPlaceholderText(/Search Organization/i);
-    await userEvent.click(await screen.findByRole("option", { name: "Legal" }));
-
-    await waitFor(() => expect(screen.getAllByText("Legal").length).toBeGreaterThan(0));
-    expect(screen.queryByText(/unknown/i)).not.toBeInTheDocument();
-  });
-
-  it("removes an add from its chip without reloading the list", async () => {
+  it("undoes an add from its chip without reloading", async () => {
     const state = mockApi([], [{ id: "org-a", name: "Legal" }]);
     vi.mocked(api.post).mockResolvedValue({
       id: "rel-a",
@@ -298,20 +220,43 @@ describe("RelationsSection add flow", () => {
     } as never);
     vi.mocked(api.delete).mockResolvedValue(undefined as never);
 
-    await openSection();
-    const fetchesAfterLoad = state.relationFetches;
-    await userEvent.click(screen.getByRole("button", { name: /Add Organization/i }));
-    await screen.findByPlaceholderText(/Search Organization/i);
-    await userEvent.click(await screen.findByRole("option", { name: "Legal" }));
-    await waitFor(() => expect(screen.getByText(/1 added/i)).toBeInTheDocument());
+    const dialog = await openAddDialog();
+    const fetchesAfterOpen = state.relationFetches;
+    await userEvent.click(await within(dialog).findByText("Legal"));
+    await waitFor(() => expect(within(dialog).getByText(/1 added/i)).toBeInTheDocument());
 
-    // The chip's delete button is the undo affordance.
-    await userEvent.click(document.querySelector(".MuiChip-deleteIcon") as Element);
+    await userEvent.click(dialog.querySelector(".MuiChip-deleteIcon") as Element);
 
     await waitFor(() => expect(api.delete).toHaveBeenCalledWith("/relations/rel-a"));
-    await waitFor(() => expect(screen.queryByText(/1 added/i)).not.toBeInTheDocument());
-    // The row is gone from the list too, without a refetch.
-    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
-    expect(state.relationFetches).toBe(fetchesAfterLoad);
+    await waitFor(() =>
+      expect(within(dialog).queryByText(/1 added/i)).not.toBeInTheDocument(),
+    );
+    expect(state.relationFetches).toBe(fetchesAfterOpen);
+    // Back on offer, so it can be re-added.
+    await waitFor(() => expect(within(dialog).getByText("Legal")).toBeInTheDocument());
+  });
+
+  it("names a new row from the picked card even if the response omits its refs", async () => {
+    // Regression guard for the reported "Unknown" rows: the row must never
+    // depend on the create response carrying `source`/`target`, because the
+    // card that was picked is already known locally.
+    mockApi([], [{ id: "org-a", name: "Legal" }]);
+    vi.mocked(api.post).mockResolvedValue({
+      id: "rel-a",
+      type: "appToOrg",
+      source_id: FS,
+      target_id: "org-a",
+    } as never);
+
+    const dialog = await openAddDialog();
+    await userEvent.click(await within(dialog).findByText("Legal"));
+    await waitFor(() => expect(within(dialog).getByText(/1 added/i)).toBeInTheDocument());
+
+    // The row lands in the section list behind the dialog, named — not
+    // "Unknown". Asserted before Done, since the reconcile fetch on close
+    // legitimately replaces the optimistic row with the server's. Queried by
+    // text rather than role: an open dialog aria-hides everything behind it.
+    await waitFor(() => expect(screen.getAllByText("Legal")).toHaveLength(2));
+    expect(screen.queryByText(/unknown/i)).not.toBeInTheDocument();
   });
 });

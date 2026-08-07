@@ -119,6 +119,7 @@
   "successors.errors.create": "فشل إنشاء البطاقة",
   "relations.title": "العلاقات",
   "relations.add": "إضافة علاقة",
+  "relations.addMany": "إضافة علاقات",
   "relations.empty": "لا توجد علاقات بعد.",
   "relations.unknown": "غير معروف",
   "relations.relationType": "نوع العلاقة",

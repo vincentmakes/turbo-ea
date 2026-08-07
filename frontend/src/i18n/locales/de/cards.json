@@ -119,6 +119,7 @@
   "successors.errors.create": "Karte konnte nicht erstellt werden",
   "relations.title": "Beziehungen",
   "relations.add": "Beziehung hinzufügen",
+  "relations.addMany": "Beziehungen hinzufügen",
   "relations.empty": "Noch keine Beziehungen.",
   "relations.unknown": "Unbekannt",
   "relations.relationType": "Beziehungstyp",

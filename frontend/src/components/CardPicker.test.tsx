@@ -197,55 +197,6 @@ describe("CardPicker", () => {
     expect(urls.every((u) => u.includes("page=1"))).toBe(true);
   });
 
-  it("clears the input and keeps the list open after a pick in clearOnSelect mode", async () => {
-    // Rapid entry: the box belongs to the *next* pick, so MUI's default of
-    // writing the chosen card's name back into it is wrong here, and the list
-    // must not close (it used to be remounted, which refetched and flickered).
-    vi.mocked(api.get).mockResolvedValue(
-      page(
-        [
-          { id: "1", name: "Alpha App", type: "Application" },
-          { id: "2", name: "Beta App", type: "Application" },
-        ],
-        2,
-      ),
-    );
-
-    const onChange = vi.fn();
-    render(
-      <CardPicker
-        types="Application"
-        value={null}
-        onChange={onChange}
-        placeholder="Search Application"
-        clearOnSelect
-      />,
-    );
-    const input = screen.getByPlaceholderText("Search Application") as HTMLInputElement;
-    await userEvent.click(input);
-    await userEvent.type(input, "alph");
-    await userEvent.click(await screen.findByRole("option", { name: "Alpha App" }));
-
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ id: "1" }));
-    await waitFor(() => expect(input).toHaveValue(""));
-    expect(screen.getByRole("listbox")).toBeInTheDocument();
-  });
-
-  it("still writes the picked card's name into the box without clearOnSelect", async () => {
-    // Regression guard for every other call site, which is a normal picker.
-    vi.mocked(api.get).mockResolvedValue(
-      page([{ id: "1", name: "Alpha App", type: "Application" }], 1),
-    );
-
-    render(<Harness />);
-    const input = screen.getByPlaceholderText("Search Application") as HTMLInputElement;
-    await userEvent.click(input);
-    await userEvent.click(await screen.findByRole("option", { name: "Alpha App" }));
-
-    await waitFor(() => expect(input).toHaveValue("Alpha App"));
-    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
-  });
-
   it("shows the caller's noOptionsText when everything is filtered out", async () => {
     vi.mocked(api.get).mockResolvedValue(
       page([{ id: "1", name: "Alpha App", type: "Application" }], 1),

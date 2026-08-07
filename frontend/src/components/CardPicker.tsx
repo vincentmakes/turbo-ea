@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Autocomplete, { type AutocompleteProps } from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -6,7 +6,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useCardSearch } from "@/hooks/useCardSearch";
+import { useCardSearch, useFillVisible } from "@/hooks/useCardSearch";
 import { compareByRank, searchRank } from "@/lib/searchRank";
 
 /** Minimal card shape a picker needs. The full card from the API is a superset. */
@@ -15,11 +15,6 @@ export interface CardOption {
   name: string;
   type: string;
 }
-
-/** Keep auto-paging until at least this many pickable rows are on offer. */
-const AUTO_PAGE_MIN_VISIBLE = 20;
-/** Hard stop, so an exclude-everything case can't walk the whole catalogue. */
-const AUTO_PAGE_CAP = 10;
 
 // Client-side filter + rank over the loaded options, matched on name. This
 // makes the list narrow instantly from the first character typed, while the
@@ -69,13 +64,6 @@ interface CardPickerProps {
    * is already linked rather than that nothing matched.
    */
   noOptionsText?: string;
-  /**
-   * Rapid-entry mode: after a pick the input clears and the list stays open
-   * and focused, ready for the next one, without the component being torn
-   * down. The dropdown is also pinned below the field so it can't flip above
-   * it as the content around the picker grows (#918).
-   */
-  clearOnSelect?: boolean;
   /** Opens the dropdown on focus so the list browses without typing. Defaults to true. */
   openOnFocus?: boolean;
   sx?: AutocompleteProps<CardOption, false, false, false>["sx"];
@@ -105,7 +93,6 @@ export default function CardPicker({
   error,
   helperText,
   noOptionsText,
-  clearOnSelect,
   openOnFocus = true,
   sx,
 }: CardPickerProps) {
@@ -121,9 +108,6 @@ export default function CardPicker({
   // card's label (reason "reset"), which must not trigger a fresh query.
   const [input, setInput] = useState("");
   const [debouncedInput, setDebouncedInput] = useState("");
-  // Open state is only controlled in `clearOnSelect` mode, where the list must
-  // survive a pick. Everywhere else MUI owns it.
-  const [open, setOpen] = useState(false);
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedInput(input), 250);
     return () => clearTimeout(timer);
@@ -151,52 +135,24 @@ export default function CardPicker({
     return { options: mapped, offered };
   }, [items, excludeIds, value]);
 
-  // Exclusion happens here, *after* paging, so excluded cards consume page
-  // slots: a card already linked to 200 of 223 Organizations would fetch a
-  // full page and show almost nothing. Keep paging until there is a usable
-  // list, bounded so an exclude-everything case can't walk the whole catalogue
-  // on each keystroke (#918).
-  //
-  // This is inert for every picker that passes no `excludeIds`: with none, a
-  // page that reports `hasMore` always yields at least `pageSize` options, so
-  // the condition never holds.
-  const minVisible = Math.min(AUTO_PAGE_MIN_VISIBLE, pageSize);
-  const autoPages = useRef(0);
-  useEffect(() => {
-    autoPages.current = 0;
-  }, [debouncedInput, typeList, enabled]);
-  useEffect(() => {
-    if (!enabled || loading || !hasMore) return;
-    if (offered >= minVisible) return;
-    if (autoPages.current >= AUTO_PAGE_CAP) return;
-    autoPages.current += 1;
-    loadMore();
-  }, [enabled, loading, hasMore, offered, minVisible, loadMore]);
-  // Don't say "no results" while we're still walking pages looking for some.
-  const autoPaging = offered < minVisible && hasMore && autoPages.current < AUTO_PAGE_CAP;
+  // `excludeIds` is applied above, *after* paging, so hidden cards consume page
+  // slots — keep fetching until the list is usable (#918). Inert when nothing
+  // is excluded.
+  const autoPaging = useFillVisible({
+    enabled,
+    loading,
+    hasMore,
+    visible: offered,
+    pageSize,
+    loadMore,
+    resetKey: debouncedInput,
+  });
 
   return (
     <Autocomplete<CardOption, false, false, false>
       options={options}
       value={value}
-      // Rapid-entry mode drives `inputValue` and `open` so a pick can clear the
-      // box and leave the list up. Both stay uncontrolled otherwise, so every
-      // other picker keeps MUI's stock behaviour (the selected card's name in
-      // the box, list closes on pick).
-      {...(clearOnSelect
-        ? {
-            inputValue: input,
-            open,
-            onOpen: () => setOpen(true),
-            onClose: (_e: React.SyntheticEvent, reason: string) => {
-              if (reason !== "selectOption") setOpen(false);
-            },
-          }
-        : {})}
-      onChange={(_, val) => {
-        onChange(val);
-        if (clearOnSelect) setInput("");
-      }}
+      onChange={(_, val) => onChange(val)}
       onBlur={onBlur}
       getOptionLabel={(o) => o.name}
       isOptionEqualToValue={(a, b) => a.id === b.id}
@@ -207,10 +163,6 @@ export default function CardPicker({
         } else if (reason === "clear") {
           setInput("");
           onInputChange?.("");
-        } else if (reason === "reset" && clearOnSelect) {
-          // MUI writes the picked card's name back into the box; in
-          // rapid-entry mode the box belongs to the *next* pick.
-          setInput("");
         }
       }}
       // Filter + rank the loaded options by name so typing narrows the list
@@ -228,17 +180,7 @@ export default function CardPicker({
           : (noOptionsText ?? t("labels.noResults"))
       }
       slotProps={{
-        // Rapid-entry mode pins the list below the field. Adding rows makes the
-        // content above the picker grow, which otherwise flips the popper above
-        // the input mid-batch — the list appearing to jump from bottom to top
-        // between picks (#918). `preventOverflow` still keeps it on screen.
-        ...(clearOnSelect
-          ? { popper: { placement: "bottom-start" as const, modifiers: [{ name: "flip", enabled: false }] } }
-          : {}),
         listbox: {
-          // A fixed height keeps the popper the same size as options are added
-          // to and removed from the list, so it doesn't resize under the cursor.
-          sx: clearOnSelect ? { maxHeight: 260 } : undefined,
           onScroll: (event) => {
             const el = event.currentTarget;
             if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {

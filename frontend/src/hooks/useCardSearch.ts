@@ -122,3 +122,58 @@ export function useCardSearch({ types, search, enabled, pageSize = 1000 }: Optio
 
   return { items, total, loading, hasMore, loadMore };
 }
+
+/** Keep paging until at least this many pickable rows are on offer. */
+const FILL_MIN_VISIBLE = 20;
+/** Hard stop, so an exclude-everything case can't walk the whole catalogue. */
+const FILL_PAGE_CAP = 10;
+
+/**
+ * Keep fetching pages while client-side exclusions leave too few rows to pick
+ * from (discussion #918).
+ *
+ * Callers hide cards *after* paging — already-linked cards, ancestors, self —
+ * so excluded rows consume page slots: a card already linked to 200 of 223
+ * Organizations pulls back a full page and shows almost nothing. Returns true
+ * while it is still walking pages, so the caller can say "loading" rather than
+ * "no results".
+ *
+ * Inert when nothing is excluded: a page that reports `hasMore` always yields
+ * at least `pageSize` rows, so the condition never holds.
+ */
+export function useFillVisible({
+  enabled,
+  loading,
+  hasMore,
+  visible,
+  pageSize,
+  loadMore,
+  resetKey,
+}: {
+  enabled: boolean;
+  loading: boolean;
+  hasMore: boolean;
+  /** Rows actually on offer after the caller's own filtering. */
+  visible: number;
+  pageSize: number;
+  loadMore: () => void;
+  /** Changing this restarts the page budget (a new query deserves a fresh one). */
+  resetKey: unknown;
+}): boolean {
+  const minVisible = Math.min(FILL_MIN_VISIBLE, pageSize);
+  const pagesFetched = useRef(0);
+
+  useEffect(() => {
+    pagesFetched.current = 0;
+  }, [resetKey, enabled]);
+
+  useEffect(() => {
+    if (!enabled || loading || !hasMore) return;
+    if (visible >= minVisible) return;
+    if (pagesFetched.current >= FILL_PAGE_CAP) return;
+    pagesFetched.current += 1;
+    loadMore();
+  }, [enabled, loading, hasMore, visible, minVisible, loadMore]);
+
+  return visible < minVisible && hasMore && pagesFetched.current < FILL_PAGE_CAP;
+}

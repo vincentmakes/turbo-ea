@@ -119,6 +119,7 @@
   "successors.errors.create": "Impossibile creare la scheda",
   "relations.title": "Relazioni",
   "relations.add": "Aggiungi relazione",
+  "relations.addMany": "Aggiungi relazioni",
   "relations.empty": "Nessuna relazione.",
   "relations.unknown": "Sconosciuto",
   "relations.relationType": "Tipo di relazione",

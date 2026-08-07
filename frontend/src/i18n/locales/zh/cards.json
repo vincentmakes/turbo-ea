@@ -119,6 +119,7 @@
   "successors.errors.create": "创建卡片失败",
   "relations.title": "关系",
   "relations.add": "添加关系",
+  "relations.addMany": "添加关系",
   "relations.empty": "暂无关系。",
   "relations.unknown": "未知",
   "relations.relationType": "关系类型",
