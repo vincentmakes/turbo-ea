@@ -7,7 +7,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -492,6 +492,49 @@ _ALLOWED_SORT_COLUMNS = {
 }
 
 
+def _like_literal(value: str) -> str:
+    """Escape LIKE wildcards so a user's `100%` or `a_b` matches literally.
+
+    Pair with `escape="\\\\"` on the `like`/`ilike` call.
+    """
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+# POSIX-regex metacharacters. We build the pattern and the user supplies only a
+# literal, so escaping these leaves no operator under the caller's control —
+# hence no ReDoS surface (which is exactly why we do NOT accept user regex).
+_REGEX_META = r"\.^$|()[]{}*+?"
+
+
+def _regex_literal(value: str) -> str:
+    return "".join("\\" + c if c in _REGEX_META else c for c in value)
+
+
+def _search_rank(search: str):
+    """Relevance rank for a search term: lower sorts first (discussion #918).
+
+    0 exact · 1 starts-with · 2 starts a word · 3 contains · 4 description-only.
+
+    Users asked for regex anchors (`^w` = starts with w) because typing `w`
+    buries the obvious answers under every substring match. Ranking fixes that
+    for everyone with no syntax to learn — see the discussion for the reasoning.
+
+    Rank 2 uses a regex rather than `LIKE '% q%'` because word boundaries in
+    card names are as often `-`, `/`, `.` or `(` as a space ("Workday-HCM",
+    "SAP/Workday").
+    """
+    lowered = search.lower()
+    like = _like_literal(lowered)
+    name = func.lower(Card.name)
+    return case(
+        (name == lowered, 0),
+        (name.like(f"{like}%", escape="\\"), 1),
+        (name.op("~", is_comparison=True)(r"(^|[^[:alnum:]])" + _regex_literal(lowered)), 2),
+        (name.like(f"%{like}%", escape="\\"), 3),
+        else_=4,
+    )
+
+
 @router.get("", response_model=CardListResponse)
 async def list_cards(
     db: AsyncSession = Depends(get_db),
@@ -519,8 +562,16 @@ async def list_cards(
     ),
     page: int = Query(1, ge=1),
     page_size: int = Query(10000, ge=1, le=10000),
-    sort_by: str = Query("name"),
-    sort_dir: str = Query("asc"),
+    sort_by: str | None = Query(
+        None,
+        description=(
+            "Sort column. Defaults to `name` ascending. When omitted together "
+            "with `sort_dir` and a `search` term is given, results are ordered "
+            "by search relevance first (exact, then starts-with, then "
+            "starts-a-word, then contains) and alphabetically within each tier."
+        ),
+    ),
+    sort_dir: str | None = Query(None, description="`asc` (default) or `desc`."),
 ):
     await PermissionService.require_permission(db, user, "inventory.view")
     q = select(Card)
@@ -570,9 +621,15 @@ async def list_cards(
         q = q.where(Card.status == "ACTIVE")
         count_q = count_q.where(Card.status == "ACTIVE")
     if search:
-        like = f"%{search}%"
-        q = q.where(or_(Card.name.ilike(like), Card.description.ilike(like)))
-        count_q = count_q.where(or_(Card.name.ilike(like), Card.description.ilike(like)))
+        # Escaped, so a term containing `%` or `_` matches literally rather
+        # than acting as a wildcard.
+        like = f"%{_like_literal(search)}%"
+        match = or_(
+            Card.name.ilike(like, escape="\\"),
+            Card.description.ilike(like, escape="\\"),
+        )
+        q = q.where(match)
+        count_q = count_q.where(match)
     if parent_id:
         q = q.where(Card.parent_id == uuid.UUID(parent_id))
         count_q = count_q.where(Card.parent_id == uuid.UUID(parent_id))
@@ -586,10 +643,17 @@ async def list_cards(
         count_q = count_q.where(Card.id.in_(mine_cards_sq))
 
     # Sorting — H9: whitelist sort columns
-    if sort_by not in _ALLOWED_SORT_COLUMNS:
-        sort_by = "name"
-    sort_col = getattr(Card, sort_by, Card.name)
-    q = q.order_by(sort_col.desc() if sort_dir == "desc" else sort_col.asc())
+    effective_sort = sort_by if sort_by in _ALLOWED_SORT_COLUMNS else "name"
+    sort_col = getattr(Card, effective_sort, Card.name)
+    order = [sort_col.desc() if sort_dir == "desc" else sort_col.asc()]
+    # Relevance first, but only when the caller expressed no sort preference of
+    # their own — an explicit `sort_by`/`sort_dir` always wins (#918).
+    if search and sort_by is None and sort_dir is None:
+        order.insert(0, _search_rank(search).asc())
+    # Stable tiebreaker: without it two same-named cards can be duplicated or
+    # skipped across pages, which corrupts any paged consumer's append.
+    order.append(Card.id.asc())
+    q = q.order_by(*order)
     q = q.offset((page - 1) * page_size).limit(page_size)
 
     total_result = await db.execute(count_q)

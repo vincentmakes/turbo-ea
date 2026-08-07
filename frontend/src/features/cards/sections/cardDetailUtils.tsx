@@ -22,6 +22,10 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionHost";
 import type { FieldDef, Relation } from "@/types";
+import { otherEnd, sortRelationsByName } from "@/lib/relationSort";
+
+// Re-exported so the Relations section keeps one import site for its helpers.
+export { otherEnd, sortRelationsByName };
 
 // ── Subtype grouping for the Relations panel (#792) ─────────────
 export const SUBTYPE_GROUP_MIN = 8;
@@ -49,13 +53,13 @@ export function bucketRelationsBySubtype(
   rels: Relation[],
   fsId: string,
   subtypeKeysInOrder: string[],
+  locale?: string,
 ): SubtypeBucket[] {
   const known = new Set(subtypeKeysInOrder);
   const groups = new Map<string, Relation[]>();
   const noSubtype: Relation[] = [];
-  const other = (r: Relation) => (r.source_id === fsId ? r.target : r.source);
   for (const r of rels) {
-    const st = other(r)?.subtype;
+    const st = otherEnd(r, fsId)?.subtype;
     if (st && known.has(st)) {
       const arr = groups.get(st) ?? [];
       arr.push(r);
@@ -64,22 +68,18 @@ export function bucketRelationsBySubtype(
       noSubtype.push(r);
     }
   }
-  const byName = (a: Relation, b: Relation) =>
-    (other(a)?.name ?? "").localeCompare(other(b)?.name ?? "", undefined, {
-      sensitivity: "base",
-    });
   const buckets: SubtypeBucket[] = [];
   for (const key of subtypeKeysInOrder) {
     const arr = groups.get(key);
     if (arr && arr.length > 0) {
-      buckets.push({ key, isNoSubtype: false, rels: [...arr].sort(byName) });
+      buckets.push({ key, isNoSubtype: false, rels: sortRelationsByName(arr, fsId, locale) });
     }
   }
   if (noSubtype.length > 0) {
     buckets.push({
       key: NO_SUBTYPE_KEY,
       isNoSubtype: true,
-      rels: [...noSubtype].sort(byName),
+      rels: sortRelationsByName(noSubtype, fsId, locale),
     });
   }
   return buckets;

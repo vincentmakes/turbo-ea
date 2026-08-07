@@ -19885,23 +19885,39 @@
             }
           },
           {
+            "description": "Sort column. Defaults to `name` ascending. When omitted together with `sort_dir` and a `search` term is given, results are ordered by search relevance first (exact, then starts-with, then starts-a-word, then contains) and alphabetically within each tier.",
             "in": "query",
             "name": "sort_by",
             "required": false,
             "schema": {
-              "default": "name",
-              "title": "Sort By",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sort column. Defaults to `name` ascending. When omitted together with `sort_dir` and a `search` term is given, results are ordered by search relevance first (exact, then starts-with, then starts-a-word, then contains) and alphabetically within each tier.",
+              "title": "Sort By"
             }
           },
           {
+            "description": "`asc` (default) or `desc`.",
             "in": "query",
             "name": "sort_dir",
             "required": false,
             "schema": {
-              "default": "asc",
-              "title": "Sort Dir",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "`asc` (default) or `desc`.",
+              "title": "Sort Dir"
             }
           }
         ],

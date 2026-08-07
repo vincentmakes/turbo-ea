@@ -10,7 +10,7 @@ Das **Inventar** ist das Herzstück von Turbo EA. Hier werden alle **Karten** (K
 
 Das linke Seitenpanel ermöglicht es Ihnen, Karten nach verschiedenen Kriterien zu **filtern**:
 
-- **Suche** — Freitextsuche über Kartennamen
+- **Suche** — Freitextsuche über Kartennamen — die besten Treffer stehen oben: exakte Namen, dann Namen, die mit Ihrer Eingabe beginnen, dann der Rest
 - **Typen** — Filtern nach einem oder mehreren Kartentypen: Ziel, Plattform, Initiative, Organisation, Geschäftsfähigkeit, Geschäftskontext, Geschäftsprozess, Anwendung, Schnittstelle, Datenobjekt, IT-Komponente, Technologiekategorie, Anbieter, System
 - **Subtypen** — Wenn ein Typ ausgewählt ist, können Sie weiter nach Subtyp filtern (z.B. Anwendung -> Geschäftsanwendung, Microservice, AI Agent, Deployment)
 - **Genehmigungsstatus** — Entwurf, Genehmigt, Ungültig oder Abgelehnt
@@ -68,7 +68,7 @@ Das Inventar verwendet eine **AG Grid**-Datentabelle mit leistungsstarken Funkti
 | **Lebenszyklus** | Aktueller Lebenszyklusstatus |
 | **Genehmigungsstatus** | Badge des Prüfstatus |
 | **Datenqualität** | Vollständigkeitsprozentsatz mit visuellem Ring |
-| **Beziehungen** | Beziehungsanzahl mit klickbarem Popover, das verwandte Karten anzeigt |
+| **Beziehungen** | Namen der verwandten Karten, alphabetisch sortiert, mit klickbarem Popover zum Hinzufügen oder Entfernen von Beziehungen — bereits verknüpfte Karten werden in dessen Auswahlliste ausgeblendet |
 
 **Tabellenfunktionen:**
 

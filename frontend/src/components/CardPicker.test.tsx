@@ -126,4 +126,87 @@ describe("CardPicker", () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(api.get).not.toHaveBeenCalled();
   });
+
+  it("orders options by search relevance, not by the server's page order", async () => {
+    // The picker re-ranks the loaded page during the debounce window so the
+    // list never disagrees with the server's ordering mid-keystroke (#918).
+    vi.mocked(api.get).mockResolvedValue(
+      page(
+        [
+          { id: "1", name: "Network Monitor", type: "Application" },
+          { id: "2", name: "Cloud Work Hub", type: "Application" },
+          { id: "3", name: "Workday", type: "Application" },
+        ],
+        3,
+      ),
+    );
+
+    render(<Harness />);
+    const input = screen.getByPlaceholderText("Search Application");
+    await userEvent.click(input);
+    await waitFor(() => expect(screen.getByText("Workday")).toBeInTheDocument());
+
+    await userEvent.type(input, "work");
+    await waitFor(() => {
+      const rendered = screen.getAllByRole("option").map((el) => el.textContent);
+      expect(rendered).toEqual(["Workday", "Cloud Work Hub", "Network Monitor"]);
+    });
+  });
+
+  it("keeps paging while exclusions leave the list too short to be usable", async () => {
+    // Exclusion happens after paging, so a card already linked to almost every
+    // candidate can pull back a full page and show nothing (#918). No scroll
+    // event is dispatched here — the picker must page on its own.
+    const pageOne = Array.from({ length: 3 }, (_, i) => ({
+      id: `x${i}`,
+      name: `Excluded ${i}`,
+      type: "Application",
+    }));
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if ((url as string).includes("page=1")) return page(pageOne, 4);
+      return { items: [{ id: "keep", name: "Visible App", type: "Application" }], total: 4, page: 2, page_size: 3 };
+    });
+
+    render(<Harness pageSize={3} excludeIds={pageOne.map((c) => c.id)} />);
+    await userEvent.click(screen.getByPlaceholderText("Search Application"));
+
+    await waitFor(() => expect(screen.getByText("Visible App")).toBeInTheDocument());
+    const urls = vi.mocked(api.get).mock.calls.map((c) => c[0] as string);
+    expect(urls.some((u) => u.includes("page=2"))).toBe(true);
+  });
+
+  it("does not auto-page when nothing is excluded", async () => {
+    // Regression guard: every other CardPicker call site passes no
+    // `excludeIds` and must keep its single-page-then-scroll behaviour.
+    vi.mocked(api.get).mockResolvedValue(
+      page(
+        [
+          { id: "1", name: "Alpha App", type: "Application" },
+          { id: "2", name: "Beta App", type: "Application" },
+        ],
+        99,
+      ),
+    );
+
+    render(<Harness pageSize={2} />);
+    await userEvent.click(screen.getByPlaceholderText("Search Application"));
+    await waitFor(() => expect(screen.getByText("Alpha App")).toBeInTheDocument());
+    await new Promise((r) => setTimeout(r, 100));
+
+    const urls = vi.mocked(api.get).mock.calls.map((c) => c[0] as string);
+    expect(urls.every((u) => u.includes("page=1"))).toBe(true);
+  });
+
+  it("shows the caller's noOptionsText when everything is filtered out", async () => {
+    vi.mocked(api.get).mockResolvedValue(
+      page([{ id: "1", name: "Alpha App", type: "Application" }], 1),
+    );
+
+    render(<Harness excludeIds={["1"]} noOptionsText="Every Organization is already linked" />);
+    await userEvent.click(screen.getByPlaceholderText("Search Application"));
+
+    await waitFor(() =>
+      expect(screen.getByText("Every Organization is already linked")).toBeInTheDocument(),
+    );
+  });
 });

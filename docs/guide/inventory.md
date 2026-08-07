@@ -10,7 +10,7 @@ The **Inventory** is the heart of Turbo EA. Here all **cards** (components) of t
 
 The left sidebar panel allows you to **filter** cards by different criteria:
 
-- **Search** — Free text search across card names
+- **Search** — Free text search across card names — best matches come first: exact names, then names starting with what you typed, then the rest
 - **Types** — Filter by one or more card types: Objective, Platform, Initiative, Organization, Business Capability, Business Context, Business Process, Application, Interface, Data Object, IT Component, Tech Category, Provider, System
 - **Subtypes** — When a type is selected, filter further by subtype (e.g., Application → Business Application, Microservice, AI Agent, Deployment)
 - **Approval Status** — Draft, Approved, Broken, or Rejected
@@ -69,7 +69,7 @@ The inventory uses an **AG Grid** data table with powerful features:
 | **Lifecycle** | Current lifecycle state |
 | **Approval Status** | Review status badge |
 | **Data Quality** | Completeness percentage with visual ring |
-| **Relations** | Relation counts with clickable popover showing related cards |
+| **Relations** | Related card names, listed alphabetically, with a clickable popover to add or remove relations — cards already linked are hidden from its picker |
 
 **Table features:**
 

@@ -10,7 +10,7 @@ L'**Inventaire** est le cœur de Turbo EA. Toutes les **fiches** (composants) de
 
 Le panneau latéral gauche permet de **filtrer** les fiches selon différents critères :
 
-- **Recherche** -- Recherche en texte libre sur les noms de fiches
+- **Recherche** -- Recherche en texte libre sur les noms de fiches -- les meilleures correspondances apparaissent en premier : noms exacts, puis noms commençant par votre saisie, puis le reste
 - **Types** -- Filtrer par un ou plusieurs types de fiches : Objectif, Plateforme, Initiative, Organisation, Capacité Métier, Contexte Métier, Processus Métier, Application, Interface, Objet de Données, Composant IT, Catégorie Technique, Fournisseur, Système
 - **Sous-types** -- Lorsqu'un type est sélectionné, filtrer davantage par sous-type (par ex. Application -> Application Métier, Microservice, Agent IA, Déploiement)
 - **Statut d'approbation** -- Brouillon, Approuvé, Cassé ou Rejeté
@@ -68,7 +68,7 @@ L'inventaire utilise un tableau de données **AG Grid** avec des fonctionnalité
 | **Cycle de vie** | État actuel du cycle de vie |
 | **Statut d'approbation** | Badge de statut de révision |
 | **Qualité des données** | Pourcentage de complétude avec anneau visuel |
-| **Relations** | Nombre de relations avec popover cliquable affichant les fiches liées |
+| **Relations** | Noms des cartes liées, classés par ordre alphabétique, avec un popover cliquable pour ajouter ou retirer des relations -- les cartes déjà liées sont masquées de son sélecteur |
 
 **Fonctionnalités du tableau :**
 

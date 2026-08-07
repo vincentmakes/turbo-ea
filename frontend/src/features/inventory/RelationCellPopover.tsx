@@ -13,6 +13,7 @@ import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker from "@/components/CardPicker";
+import { otherEnd, sortRelationsByName } from "@/lib/relationSort";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel, useRelationLabel } from "@/hooks/useResolveLabel";
@@ -43,7 +44,7 @@ export default function RelationCellPopover({
   selectedType,
   onRelationsChanged,
 }: RelationCellPopoverProps) {
-  const { t } = useTranslation(["inventory", "common"]);
+  const { t, i18n } = useTranslation(["inventory", "common"]);
   const { getType } = useMetamodel();
   const typeLabel = useTypeLabel();
   const relLabel = useRelationLabel();
@@ -93,12 +94,23 @@ export default function RelationCellPopover({
     }
   }, [open, loadRelations]);
 
+  // Alphabetical by the related card's name (#918), matching the card-detail
+  // Relations section.
+  const sortedRelations = useMemo(
+    () => sortRelationsByName(relations, cardId, i18n.language),
+    [relations, cardId, i18n.language],
+  );
+
   // Exclude the current card and already-related cards from the picker.
+  // Resolve the other end per row rather than from `isSource` — that flag is a
+  // property of the relation *type*, so for a self-referencing type (source
+  // type === target type) it is true for every row and incoming relations
+  // would resolve to the wrong end.
   const excludeIds = useMemo(() => {
-    const ids = new Set(relations.map((r) => (isSource ? r.target_id : r.source_id)));
+    const ids = new Set(relations.map((r) => (r.source_id === cardId ? r.target_id : r.source_id)));
     ids.add(cardId);
     return [...ids];
-  }, [relations, isSource, cardId]);
+  }, [relations, cardId]);
 
   const handleAdd = async () => {
     if (!selectedTarget) return;
@@ -195,8 +207,8 @@ export default function RelationCellPopover({
                 {t("relation.noRelationsYet")}
               </Typography>
             )}
-            {relations.map((r) => {
-              const other = isSource ? r.target : r.source;
+            {sortedRelations.map((r) => {
+              const other = otherEnd(r, cardId);
               return (
                 <Chip
                   key={r.id}

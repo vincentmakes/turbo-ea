@@ -10,7 +10,7 @@ L'**Inventario** è il cuore di Turbo EA. Qui sono elencate tutte le **card** (c
 
 Il pannello laterale sinistro consente di **filtrare** le card secondo diversi criteri:
 
-- **Ricerca** — Ricerca libera per testo nel nome delle card
+- **Ricerca** — Ricerca libera per testo nel nome delle card — le corrispondenze migliori compaiono per prime: nomi esatti, poi nomi che iniziano con quanto digitato, poi il resto
 - **Tipi** — Filtra per uno o più tipi di card: Objective, Platform, Initiative, Organization, Business Capability, Business Context, Business Process, Application, Interface, Data Object, IT Component, Tech Category, Provider, System
 - **Sottotipi** — Quando un tipo è selezionato, filtra ulteriormente per sottotipo (es. Application -> Business Application, Microservice, AI Agent, Deployment)
 - **Stato di approvazione** — Draft, Approved, Broken o Rejected
@@ -68,7 +68,7 @@ L'inventario utilizza una tabella dati **AG Grid** con funzionalità avanzate:
 | **Ciclo di vita** | Stato attuale del ciclo di vita |
 | **Stato di approvazione** | Badge dello stato di revisione |
 | **Qualità dei dati** | Percentuale di completezza con anello visivo |
-| **Relazioni** | Conteggio delle relazioni con popover cliccabile che mostra le card correlate |
+| **Relazioni** | Nomi delle carte correlate, in ordine alfabetico, con un popover cliccabile per aggiungere o rimuovere relazioni: le carte già collegate sono nascoste dal suo selettore |
 
 **Funzionalità della tabella:**
 

@@ -264,6 +264,56 @@ class TestListRelations:
         )
         assert resp.status_code == 200
 
+    async def test_list_by_card_id_orders_by_other_card_name(self, client, db, rel_env):
+        """`?card_id=` arrives in display order so the Relations panel doesn't
+        reorder on first paint (#918)."""
+        admin = rel_env["admin"]
+        app = rel_env["source"]
+        for name in ("Zeta ITC", "Alpha ITC", "Mid ITC"):
+            itc = await create_card(db, card_type="ITComponent", name=name, user_id=admin.id)
+            await create_relation(db, type_key="app_to_itc", source_id=app.id, target_id=itc.id)
+
+        resp = await client.get(
+            f"/api/v1/relations?card_id={app.id}",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        names = [r["target"]["name"] for r in resp.json()]
+        assert names == ["Alpha ITC", "Mid ITC", "Zeta ITC"]
+
+    async def test_list_orders_incoming_relations_by_source_name(self, client, db, rel_env):
+        """When the queried card is the *target*, order by the source's name —
+        guards the CASE branch, not just the happy outgoing path."""
+        admin = rel_env["admin"]
+        itc = rel_env["target"]
+        for name in ("Zeta App", "Alpha App", "Mid App"):
+            app = await create_card(db, card_type="Application", name=name, user_id=admin.id)
+            await create_relation(db, type_key="app_to_itc", source_id=app.id, target_id=itc.id)
+
+        resp = await client.get(
+            f"/api/v1/relations?card_id={itc.id}",
+            headers=auth_headers(admin),
+        )
+        names = [r["source"]["name"] for r in resp.json()]
+        assert names == ["Alpha App", "Mid App", "Zeta App"]
+
+    async def test_list_order_is_deterministic(self, client, db, rel_env):
+        admin = rel_env["admin"]
+        for name in ("Gamma ITC", "Beta ITC"):
+            itc = await create_card(db, card_type="ITComponent", name=name, user_id=admin.id)
+            await create_relation(
+                db, type_key="app_to_itc", source_id=rel_env["source"].id, target_id=itc.id
+            )
+
+        first, second = [
+            [
+                r["id"]
+                for r in (await client.get("/api/v1/relations", headers=auth_headers(admin))).json()
+            ]
+            for _ in range(2)
+        ]
+        assert first == second
+
     async def test_list_includes_target_subtype(self, client, db, rel_env):
         """The relation payload embeds the source/target card's `subtype` so
         the card-detail Relations panel can group related cards by subtype

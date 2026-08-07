@@ -226,6 +226,92 @@ class TestListCards:
         assert data["total"] == 1
         assert data["items"][0]["name"] == "Searchable App"
 
+    async def test_search_ranks_prefix_before_contains(self, client, db, cards_env):
+        """Typing `w` must surface names starting with W, not bury them (#918)."""
+        admin = cards_env["admin"]
+        for name in ("Network Monitor", "Cloud Work Hub", "Workday Adaptive", "Workday"):
+            await create_card(db, card_type="Application", name=name, user_id=admin.id)
+
+        response = await client.get(
+            "/api/v1/cards?search=work",
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        names = [item["name"] for item in response.json()["items"]]
+        # starts-with (alphabetical) → starts-a-word → plain substring
+        assert names == ["Workday", "Workday Adaptive", "Cloud Work Hub", "Network Monitor"]
+
+    async def test_search_exact_match_ranks_first(self, client, db, cards_env):
+        admin = cards_env["admin"]
+        await create_card(db, card_type="Application", name="Workflow", user_id=admin.id)
+        await create_card(db, card_type="Application", name="Work", user_id=admin.id)
+
+        response = await client.get(
+            "/api/v1/cards?search=Work",
+            headers=auth_headers(admin),
+        )
+        names = [item["name"] for item in response.json()["items"]]
+        assert names[0] == "Work"
+
+    async def test_search_ranks_word_boundary_on_punctuation(self, client, db, cards_env):
+        """A term after `-` or `/` starts a word just as much as after a space."""
+        admin = cards_env["admin"]
+        await create_card(db, card_type="Application", name="Reworked Portal", user_id=admin.id)
+        await create_card(db, card_type="Application", name="SAP/Workday", user_id=admin.id)
+
+        response = await client.get(
+            "/api/v1/cards?search=work",
+            headers=auth_headers(admin),
+        )
+        names = [item["name"] for item in response.json()["items"]]
+        assert names == ["SAP/Workday", "Reworked Portal"]
+
+    async def test_explicit_sort_overrides_relevance(self, client, db, cards_env):
+        admin = cards_env["admin"]
+        for name in ("Workday", "Cloud Work Hub", "Network Monitor"):
+            await create_card(db, card_type="Application", name=name, user_id=admin.id)
+
+        response = await client.get(
+            "/api/v1/cards?search=work&sort_by=name&sort_dir=desc",
+            headers=auth_headers(admin),
+        )
+        names = [item["name"] for item in response.json()["items"]]
+        assert names == ["Workday", "Network Monitor", "Cloud Work Hub"]
+
+    async def test_search_wildcards_are_literal(self, client, db, cards_env):
+        """`%` and `_` in a search term must not act as LIKE wildcards."""
+        admin = cards_env["admin"]
+        await create_card(db, card_type="Application", name="100% Uptime", user_id=admin.id)
+        await create_card(db, card_type="Application", name="100 Percent", user_id=admin.id)
+
+        response = await client.get(
+            "/api/v1/cards?search=100%25",
+            headers=auth_headers(admin),
+        )
+        data = response.json()
+        assert [item["name"] for item in data["items"]] == ["100% Uptime"]
+
+        response = await client.get(
+            "/api/v1/cards?search=a_b",
+            headers=auth_headers(admin),
+        )
+        assert response.json()["total"] == 0
+
+    async def test_pagination_has_a_stable_tiebreaker(self, client, db, cards_env):
+        """Same-named cards must not duplicate or vanish across pages."""
+        admin = cards_env["admin"]
+        first = await create_card(db, card_type="Application", name="Twin", user_id=admin.id)
+        second = await create_card(db, card_type="DataObject", name="Twin", user_id=admin.id)
+
+        seen = []
+        for page in (1, 2):
+            response = await client.get(
+                f"/api/v1/cards?search=Twin&page={page}&page_size=1",
+                headers=auth_headers(admin),
+            )
+            seen.extend(item["id"] for item in response.json()["items"])
+        assert sorted(seen) == sorted([str(first.id), str(second.id)])
+
     async def test_viewer_can_list(self, client, db, cards_env):
         viewer = cards_env["viewer"]
         response = await client.get(

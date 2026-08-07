@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, selectinload
 
@@ -313,6 +313,21 @@ async def list_relations(
         if not id_list:
             return []
         q = q.where(or_(Relation.source_id.in_(id_list), Relation.target_id.in_(id_list)))
+
+    # Deterministic order (#918). The card-detail case (`card_id=`) is ordered
+    # by the *other* end's name so the payload already arrives in display order
+    # and the section doesn't reorder on first paint. Every other caller — the
+    # inventory's `card_type=` / `card_ids=` batches, which are unpaginated and
+    # can run to thousands of rows — gets the cheap stable key only; those
+    # callers join and sort names client-side anyway.
+    #
+    # The client sort in `RelationsSection` stays authoritative: PostgreSQL's
+    # collation and JS `Intl.Collator` disagree on accents, case and CJK.
+    if card_id:
+        other_name = case((Relation.source_id == uuid.UUID(card_id), tgt.name), else_=src.name)
+        q = q.order_by(Relation.type.asc(), other_name.asc(), Relation.id.asc())
+    else:
+        q = q.order_by(Relation.id.asc())
 
     result = await db.execute(q)
     rows = result.all()

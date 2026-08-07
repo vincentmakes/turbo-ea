@@ -53,6 +53,7 @@ import { readableTextColor } from "@/lib/color";
 import {
   bucketRelationsBySubtype,
   shouldGroupBySubtype,
+  sortRelationsByName,
   type SubtypeBucket,
 } from "./cardDetailUtils";
 
@@ -154,14 +155,23 @@ function InlineAddRow({
   rt,
   isSource,
   fsId,
+  linkedCount,
+  excludeIds,
+  allowsMany,
   onAdded,
   onClose,
 }: {
   rt: RelationType;
   isSource: boolean;
   fsId: string;
-  onAdded: () => void;
-  onClose: () => void;
+  /** How many cards of this relation type are already linked (for the caption). */
+  linkedCount: number;
+  /** Self + already-linked cards, hidden from the picker (#918). */
+  excludeIds: string[];
+  /** False for 1:1 / already-saturated 1:n types — one add then close. */
+  allowsMany: boolean;
+  onAdded: (rel: Relation) => void;
+  onClose: (addedCount: number) => void;
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const typeLabel = useTypeLabel();
@@ -174,18 +184,39 @@ function InlineAddRow({
   const [createMode, setCreateMode] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
+  const [addedCount, setAddedCount] = useState(0);
+  // Bumped after each add to remount the picker. `CardPicker` is controlled
+  // only on `value`; its typed input, debounced input and `useCardSearch` page
+  // state have no reset handle, and a remount clears all three while the
+  // existing `autoFocus` puts the caret back for the next pick.
+  const [pickerKey, setPickerKey] = useState(0);
+
+  const close = () => onClose(addedCount);
+
+  // Keep adding without reopening the row: each pick commits immediately, the
+  // card drops out of the dropdown (it is now in `excludeIds`) and appears in
+  // the sorted list above. That is the batch-add affordance — a multi-select
+  // chip tray has no commit point and can't carry relation attributes (#918).
+  const afterAdd = (rel: Relation) => {
+    setAddedCount((c) => c + 1);
+    onAdded(rel);
+    if (!allowsMany) {
+      onClose(addedCount + 1);
+      return;
+    }
+    setPickerKey((k) => k + 1);
+  };
 
   const handleSelect = async (card: { id: string; name: string; type: string } | null) => {
     if (!card) return;
     setError("");
     try {
-      await api.post("/relations", {
+      const created = await api.post<Relation>("/relations", {
         type: rt.key,
         source_id: isSource ? fsId : card.id,
         target_id: isSource ? card.id : fsId,
       });
-      onAdded();
-      onClose();
+      afterAdd(created);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("relations.errors.create"));
     }
@@ -200,13 +231,14 @@ function InlineAddRow({
         type: targetTypeKey,
         name: createName.trim(),
       });
-      await api.post("/relations", {
+      const rel = await api.post<Relation>("/relations", {
         type: rt.key,
         source_id: isSource ? fsId : created.id,
         target_id: isSource ? created.id : fsId,
       });
-      onAdded();
-      onClose();
+      setCreateMode(false);
+      setCreateName("");
+      afterAdd(rel);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("relations.errors.createCard"));
     } finally {
@@ -241,7 +273,7 @@ function InlineAddRow({
             {t("relations.backToSearch")}
           </Button>
           <Box sx={{ flex: 1 }} />
-          <Button size="small" color="inherit" onClick={onClose}>
+          <Button size="small" color="inherit" onClick={close}>
             {t("common:actions.cancel")}
           </Button>
         </Box>
@@ -254,13 +286,18 @@ function InlineAddRow({
       {error && <Alert severity="error" sx={{ mb: 1 }} onClose={() => setError("")}>{error}</Alert>}
       <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
         <CardPicker
+          key={pickerKey}
           sx={{ flex: 1 }}
           types={targetTypeKey}
           value={null}
           onChange={handleSelect}
           onInputChange={setSearch}
-          excludeIds={[fsId]}
+          excludeIds={excludeIds}
           placeholder={t("relations.search", { type: targetLabel })}
+          helperText={
+            linkedCount > 0 ? t("relations.alreadyLinkedHint", { count: linkedCount }) : undefined
+          }
+          noOptionsText={linkedCount > 0 ? t("relations.allLinked", { type: targetLabel }) : undefined}
           autoFocus
         />
         <Tooltip title={t("relations.createNew", { type: targetLabel })}>
@@ -268,9 +305,24 @@ function InlineAddRow({
             <MaterialSymbol icon="add" size={18} />
           </IconButton>
         </Tooltip>
-        <IconButton size="small" onClick={onClose}>
-          <MaterialSymbol icon="close" size={18} />
-        </IconButton>
+        {addedCount > 0 ? (
+          <Button size="small" onClick={close} startIcon={<MaterialSymbol icon="check" size={16} />}>
+            {t("relations.doneAdding")}
+          </Button>
+        ) : (
+          <IconButton size="small" onClick={close}>
+            <MaterialSymbol icon="close" size={18} />
+          </IconButton>
+        )}
+      </Box>
+      {/* The visible confirmation is the row appearing in the list above and
+          the card leaving the dropdown; announce it for screen readers too. */}
+      <Box aria-live="polite">
+        {addedCount > 0 && (
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+            {t("relations.addedCount", { count: addedCount })}
+          </Typography>
+        )}
       </Box>
     </Box>
   );
@@ -285,6 +337,7 @@ function RelationGroup({
   fsId,
   canManageRelations,
   onReload,
+  onRelationAdded,
   onRelationUpdated,
   rollupCount = 0,
 }: {
@@ -295,11 +348,12 @@ function RelationGroup({
   fsId: string;
   canManageRelations: boolean;
   onReload: () => void;
+  onRelationAdded: (created: Relation) => void;
   onRelationUpdated: (updated: Relation) => void;
   /** Cards reachable only through descendants (#863). 0 hides the chip. */
   rollupCount?: number;
 }) {
-  const { t } = useTranslation(["cards", "common"]);
+  const { t, i18n } = useTranslation(["cards", "common"]);
   const rl = useResolveLabel();
   const typeLabel = useTypeLabel();
   const relLabel = useRelationLabel();
@@ -328,8 +382,9 @@ function RelationGroup({
         rels,
         fsId,
         subtypeDefs.map((s) => s.key),
+        i18n.language,
       ),
-    [rels, fsId, subtypeDefs],
+    [rels, fsId, subtypeDefs, i18n.language],
   );
   const canGroupBySubtype = shouldGroupBySubtype(subtypeBuckets, rels.length);
   // The manual toggle is offered whenever the type has subtypes and at least
@@ -360,6 +415,29 @@ function RelationGroup({
   const handleDelete = async (relId: string) => {
     await api.delete(`/relations/${relId}`);
     onReload();
+  };
+
+  // Hide the cards that are already on this relation type — offering a pick
+  // that silently no-ops was the reported confusion, and hiding them is what
+  // makes rapid-fire adding read correctly (#918). Resolve the other end per
+  // row: `isSource` is a relation-*type* flag and would be wrong for every
+  // incoming row of a self-referencing type.
+  const linkedIds = useMemo(() => {
+    const ids = new Set(rels.map((r) => (r.source_id === fsId ? r.target_id : r.source_id)));
+    ids.add(fsId);
+    return [...ids];
+  }, [rels, fsId]);
+
+  // Only n:m (and the "many" side of 1:n) can take a second relation, so a
+  // constrained type still closes the row after one add. `POST /relations`
+  // itself carries no cardinality guard — only the bulk path does.
+  const allowsMany = rt.cardinality === "n:m" || (rt.cardinality === "1:n" && !isSource);
+
+  const handleAddRowClosed = (addedCount: number) => {
+    setInlineAddOpen(false);
+    // One reconcile per batch rather than per add: picks up what the client
+    // can't see (calculated fields, relation-attribute defaults).
+    if (addedCount > 0) onReload();
   };
 
   const openAttrs = (event: React.MouseEvent<HTMLElement>, rel: Relation) => {
@@ -756,8 +834,11 @@ function RelationGroup({
             rt={rt}
             isSource={isSource}
             fsId={fsId}
-            onAdded={onReload}
-            onClose={() => setInlineAddOpen(false)}
+            linkedCount={rels.length}
+            excludeIds={linkedIds}
+            allowsMany={allowsMany}
+            onAdded={onRelationAdded}
+            onClose={handleAddRowClosed}
           />
         </Box>
       )}
@@ -779,10 +860,10 @@ function RelationsSection({
   canManageRelations?: boolean;
   initialExpanded?: boolean;
 }) {
-  const { t } = useTranslation(["cards", "common"]);
+  const { t, i18n } = useTranslation(["cards", "common"]);
   const typeLabel = useTypeLabel();
   const relLabel = useRelationLabel();
-  const [relations, setRelations] = useState<Relation[]>([]);
+  const [rawRelations, setRawRelations] = useState<Relation[]>([]);
   const { types: allTypes, relationTypes, getType } = useMetamodel();
   const visibleTypeKeys = useMemo(() => new Set(allTypes.map((t) => t.key)), [allTypes]);
 
@@ -802,10 +883,18 @@ function RelationsSection({
   const [dialogAttributes, setDialogAttributes] = useState<RelationAttributes>({});
 
   const load = useCallback(() => {
-    api.get<Relation[]>(`/relations?card_id=${fsId}`).then(setRelations).catch(() => {});
+    api.get<Relation[]>(`/relations?card_id=${fsId}`).then(setRawRelations).catch(() => {});
   }, [fsId]);
 
   useEffect(load, [load, refreshKey]);
+
+  // Sort once, here, rather than at each of the three render paths (flat list,
+  // subtype buckets, flowDirection buckets) — `Array.prototype.filter` keeps
+  // order, so every downstream grouping inherits it (discussion #918).
+  const relations = useMemo(
+    () => sortRelationsByName(rawRelations, fsId, i18n.language),
+    [rawRelations, fsId, i18n.language],
+  );
 
   // Descendant relation roll-up (#863). Only hierarchical types can have
   // descendants at all, and the fetch is deferred until the section is
@@ -838,13 +927,25 @@ function RelationsSection({
     };
   }, [expanded, isHierarchical, fsId, refreshKey]);
 
+  // Optimistic append. `POST /relations` returns the row with its `source` /
+  // `target` refs eagerly loaded, so it renders identically to a refetched one
+  // — 19 rapid-fire adds cost 19 POSTs and one reconcile GET instead of 19
+  // full relation refetches (#918).
+  //
+  // The id guard is required, not defensive: `POST /relations` is idempotent
+  // on (type, source, target) and returns the *existing* row (#905), so a
+  // stale exclusion would otherwise produce a duplicate React key.
+  const handleRelationAdded = useCallback((created: Relation) => {
+    setRawRelations((prev) => (prev.some((r) => r.id === created.id) ? prev : [...prev, created]));
+  }, []);
+
   const handleRelationUpdated = useCallback((updated: Relation) => {
     // Only overlay the mutable fields the PATCH response actually updates.
     // Spreading `updated` wholesale risks clobbering the eagerly-loaded
     // `source`/`target` card refs if the PATCH response ever returns them
     // shallower than the GET (we've seen rows render as "Unknown" after
     // editing direction). The id-keyed merge here keeps the existing refs.
-    setRelations((prev) =>
+    setRawRelations((prev) =>
       prev.map((r) =>
         r.id === updated.id
           ? { ...r, attributes: updated.attributes, description: updated.description }
@@ -895,6 +996,18 @@ function RelationsSection({
     ? dialogIsSource ? selectedRT.target_type_key : selectedRT.source_type_key
     : "";
   const dialogTargetConfig = getType(dialogTargetTypeKey);
+
+  // Same rule as the inline picker: don't offer a card that is already linked
+  // on the selected relation type (#918).
+  const dialogExcludeIds = useMemo(() => {
+    const ids = new Set(
+      relations
+        .filter((r) => r.type === addRelType)
+        .map((r) => (r.source_id === fsId ? r.target_id : r.source_id)),
+    );
+    ids.add(fsId);
+    return [...ids];
+  }, [relations, addRelType, fsId]);
 
   const handleAddRelation = async () => {
     if (!selectedRT || !selectedTarget) return;
@@ -965,6 +1078,7 @@ function RelationsSection({
             fsId={fsId}
             canManageRelations={canManageRelations}
             onReload={load}
+            onRelationAdded={handleRelationAdded}
             onRelationUpdated={handleRelationUpdated}
             rollupCount={rollup[rt.key] ?? 0}
           />
@@ -990,6 +1104,7 @@ function RelationsSection({
                 fsId={fsId}
                 canManageRelations={canManageRelations}
                 onReload={load}
+                onRelationAdded={handleRelationAdded}
                 onRelationUpdated={handleRelationUpdated}
               />
             );
@@ -1070,7 +1185,7 @@ function RelationsSection({
                 value={selectedTarget}
                 onChange={setSelectedTarget}
                 onInputChange={setTargetSearch}
-                excludeIds={[fsId]}
+                excludeIds={dialogExcludeIds}
                 fullWidth
                 label={t("relations.search", {
                   type: typeLabel(dialogTargetConfig) || dialogTargetTypeKey,

@@ -5,6 +5,21 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.44.0] - 2026-08-07
+
+### Added
+- **Add several relations in a row without reopening the picker.** The picker used to close after every single relation, so linking one application to nineteen departments meant nineteen rounds of click **+**, search, select ([#918](https://github.com/vincentmakes/turbo-ea/discussions/918)). It now stays open: each pick is saved immediately, the card appears in the list above and drops out of the dropdown, and a running count plus a **Done** button sit underneath. Relation types that only permit one link still close after the first.
+- **Cards you have already linked no longer appear in the add-relation picker.** Picking one did nothing at all — the relation already existed — with no hint as to why ([#918](https://github.com/vincentmakes/turbo-ea/discussions/918)). They are now hidden, with a caption saying how many, on the card's Relations section and in the inventory grid's relation editor alike.
+- **Card search puts the best matches first.** Typing `w` used to return everything containing a `w` in name order, burying the names that actually start with it. Results are now ranked — exact name, then names starting with what you typed, then names where it starts a word, then the rest — alphabetically within each tier. This applies everywhere cards are searched: every picker, the inventory search box and the diagram card sidebar. No search syntax to learn.
+
+### Changed
+- **Relations are listed alphabetically.** A card's Relations section, the inventory grid's relation columns and its relation editor all showed related cards in an arbitrary order that could change between visits. They are now sorted by name.
+
+### Fixed
+- **Searching for a term containing `%` or `_` now matches literally.** These act as wildcards in the underlying query, so searching for `100%` also matched anything at all.
+- **Paging through cards with identical names no longer skips or repeats one.** Results had no stable tiebreaker, so two cards sharing a name could both land on the same page or fall between two.
+- **The inventory relation editor no longer resolves the wrong end of a self-referencing relation.** For a relation type whose two ends are the same card type, incoming relations were read as if they were outgoing, so the wrong card name was shown and the wrong card was excluded from the picker.
+
 ## [2.43.0] - 2026-08-06
 
 ### Added

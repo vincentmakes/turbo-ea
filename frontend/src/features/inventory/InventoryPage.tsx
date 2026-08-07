@@ -295,7 +295,7 @@ function savePrefs(prefs: InventoryPrefs) {
 }
 
 export default function InventoryPage() {
-  const { t } = useTranslation(["inventory", "common"]);
+  const { t, i18n } = useTranslation(["inventory", "common"]);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { formatDate, formatDateTime } = useDateFormat();
@@ -2328,8 +2328,11 @@ export default function InventoryPage() {
               if (names) allNames.push(...names);
             }
           }
-          // Deduplicate
-          return [...new Set(allNames)].join("; ");
+          // Deduplicate, then sort alphabetically (#918) so the cell reads
+          // consistently and AG Grid's own sort on this column is sane.
+          return [...new Set(allNames)]
+            .sort((a, b) => a.localeCompare(b, i18n.language, { sensitivity: "base" }))
+            .join("; ");
         },
         cellRenderer: (p: { value: string; data: Card }) => {
           if (gridEditMode) {
@@ -2526,7 +2529,7 @@ export default function InventoryPage() {
     );
 
     return columnFreeze.applyFrozen(cols);
-  }, [columnFreeze, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, tagGroups, stakeholderRoles, typeLabel]);
+  }, [columnFreeze, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, tagGroups, stakeholderRoles, typeLabel]);
 
   // Restore the saved column layout (order/width/pinning/sort) onto the grid.
   // Keyed on `columnDefs` so it re-applies each time the column *set* changes —

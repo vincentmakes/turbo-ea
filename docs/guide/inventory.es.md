@@ -10,7 +10,7 @@ El **Inventario** es el corazón de Turbo EA. Aquí se listan todas las **fichas
 
 El panel lateral izquierdo permite **filtrar** las fichas por diferentes criterios:
 
-- **Buscar** — Búsqueda de texto libre en los nombres de las fichas
+- **Buscar** — Búsqueda de texto libre en los nombres de las fichas — las mejores coincidencias aparecen primero: nombres exactos, luego nombres que empiezan por lo que escribió y después el resto
 - **Tipos** — Filtrar por uno o más tipos de ficha: Objetivo, Plataforma, Iniciativa, Organización, Capacidad de Negocio, Contexto de Negocio, Proceso de Negocio, Aplicación, Interfaz, Objeto de Datos, Componente TI, Categoría Tecnológica, Proveedor, Sistema
 - **Subtipos** — Cuando se selecciona un tipo, permite filtrar por subtipo (por ejemplo, Aplicación → Aplicación de Negocio, Microservicio, Agente IA, Despliegue)
 - **Estado de Aprobación** — Borrador, Aprobado, Roto o Rechazado
@@ -68,7 +68,7 @@ El inventario utiliza una tabla de datos **AG Grid** con funciones avanzadas:
 | **Ciclo de Vida** | Estado actual del ciclo de vida |
 | **Estado de Aprobación** | Insignia de estado de revisión |
 | **Calidad de Datos** | Porcentaje de completitud con anillo visual |
-| **Relaciones** | Conteo de relaciones con popover interactivo que muestra las fichas relacionadas |
+| **Relaciones** | Nombres de las tarjetas relacionadas, en orden alfabético, con un popover interactivo para añadir o quitar relaciones: las tarjetas ya vinculadas se ocultan de su selector |
 
 **Funciones de la tabla:**
 
