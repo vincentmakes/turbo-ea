@@ -119,7 +119,6 @@
   "successors.errors.create": "Kunne ikke oprette kort",
   "relations.title": "Relationer",
   "relations.add": "Tilføj relation",
-  "relations.addMany": "Tilføj relationer",
   "relations.empty": "Ingen relationer endnu.",
   "relations.unknown": "Ukendt",
   "relations.relationType": "Relationstype",

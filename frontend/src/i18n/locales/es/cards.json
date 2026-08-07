@@ -119,7 +119,6 @@
   "successors.errors.create": "Error al crear la tarjeta",
   "relations.title": "Relaciones",
   "relations.add": "Agregar relación",
-  "relations.addMany": "Agregar relaciones",
   "relations.empty": "Aún no hay relaciones.",
   "relations.unknown": "Desconocido",
   "relations.relationType": "Tipo de relación",

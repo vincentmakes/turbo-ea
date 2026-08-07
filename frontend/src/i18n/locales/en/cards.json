@@ -119,7 +119,6 @@
   "successors.errors.create": "Failed to create card",
   "relations.title": "Relations",
   "relations.add": "Add Relation",
-  "relations.addMany": "Add relations",
   "relations.empty": "No relations yet.",
   "relations.unknown": "Unknown",
   "relations.relationType": "Relation Type",

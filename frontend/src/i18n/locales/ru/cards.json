@@ -119,7 +119,6 @@
   "successors.errors.create": "Не удалось создать карточку",
   "relations.title": "Связи",
   "relations.add": "Добавить связь",
-  "relations.addMany": "Добавить связи",
   "relations.empty": "Связей пока нет.",
   "relations.unknown": "Неизвестно",
   "relations.relationType": "Тип связи",

@@ -7,6 +7,8 @@ import AccordionSummary from "@mui/material/AccordionSummary";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
 import IconButton from "@mui/material/IconButton";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
@@ -631,6 +633,8 @@ function RelationsSection({
   initialExpanded?: boolean;
 }) {
   const { t, i18n } = useTranslation(["cards", "common"]);
+  const typeLabel = useTypeLabel();
+  const relLabel = useRelationLabel();
   const [rawRelations, setRawRelations] = useState<Relation[]>([]);
   const { types: allTypes, relationTypes, getType } = useMetamodel();
   const visibleTypeKeys = useMemo(() => new Set(allTypes.map((t) => t.key)), [allTypes]);
@@ -638,7 +642,10 @@ function RelationsSection({
   // The single add surface: a dialog, opened either from a group's `+` (with
   // that relation type pre-selected) or from the section's Add button.
   const [addOpen, setAddOpen] = useState(false);
-  const [addRelType, setAddRelType] = useState<string | undefined>(undefined);
+  const [addRt, setAddRt] = useState<RelationType | null>(null);
+  // Relation types with no group of their own are reached through a menu on
+  // the section button — the dialog itself carries no type selector.
+  const [addMenuAnchor, setAddMenuAnchor] = useState<HTMLElement | null>(null);
 
   const load = useCallback(() => {
     api.get<Relation[]>(`/relations?card_id=${fsId}`).then(setRawRelations).catch(() => {});
@@ -752,8 +759,9 @@ function RelationsSection({
     });
   }, [relevantRTs, cardTypeKey]);
 
-  const openAddDialog = (relationTypeKey?: string) => {
-    setAddRelType(relationTypeKey);
+  const openAddDialog = (rt: RelationType) => {
+    setAddRt(rt);
+    setAddMenuAnchor(null);
     setAddOpen(true);
   };
 
@@ -791,7 +799,7 @@ function RelationsSection({
             fsId={fsId}
             canManageRelations={canManageRelations}
             onReload={load}
-            onRequestAdd={() => openAddDialog(rt.key)}
+            onRequestAdd={() => openAddDialog(rt)}
             onRelationUpdated={handleRelationUpdated}
             rollupCount={rollup[rt.key] ?? 0}
           />
@@ -817,7 +825,7 @@ function RelationsSection({
                 fsId={fsId}
                 canManageRelations={canManageRelations}
                 onReload={load}
-                onRequestAdd={() => openAddDialog(rt.key)}
+                onRequestAdd={() => openAddDialog(rt)}
                 onRelationUpdated={handleRelationUpdated}
               />
             );
@@ -830,19 +838,34 @@ function RelationsSection({
           </Typography>
         )}
 
-        {/* Section-level add: the same dialog, opened with its relation-type
-            selector unset so any type can be reached — including the ones with
-            no group of their own. */}
-        {canManageRelations && relevantRTs.length > 0 && (
+        {/* Relation types with no group of their own have no `+` to click, so
+            they are reached from here: pick the type, then the same dialog. */}
+        {canManageRelations && hiddenRTs.length > 0 && (
           <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
             <Button
               size="small"
               variant="outlined"
               startIcon={<MaterialSymbol icon="add_link" size={16} />}
-              onClick={() => openAddDialog(hiddenRTs[0]?.key)}
+              onClick={(e) => setAddMenuAnchor(e.currentTarget)}
             >
               {t("relations.add")}
             </Button>
+            <Menu
+              anchorEl={addMenuAnchor}
+              open={Boolean(addMenuAnchor)}
+              onClose={() => setAddMenuAnchor(null)}
+            >
+              {hiddenRTs.map((rt) => {
+                const asSource = rt.source_type_key === cardTypeKey;
+                const otherKey = asSource ? rt.target_type_key : rt.source_type_key;
+                return (
+                  <MenuItem key={rt.key} onClick={() => openAddDialog(rt)}>
+                    {typeLabel(getType(otherKey)) || otherKey} —{" "}
+                    {asSource ? relLabel(rt) : relLabel(rt, true)}
+                  </MenuItem>
+                );
+              })}
+            </Menu>
           </Box>
         )}
       </AccordionDetails>
@@ -853,8 +876,7 @@ function RelationsSection({
           onClose={handleAddClosed}
           fsId={fsId}
           cardTypeKey={cardTypeKey}
-          relationTypes={relevantRTs}
-          initialRelationTypeKey={addRelType}
+          relationType={addRt}
           relations={relations}
           onAdded={handleRelationAdded}
           onRemoved={handleRelationRemoved}

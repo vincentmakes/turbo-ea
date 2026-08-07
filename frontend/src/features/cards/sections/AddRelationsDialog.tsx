@@ -8,13 +8,9 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
-import FormControl from "@mui/material/FormControl";
 import IconButton from "@mui/material/IconButton";
-import InputLabel from "@mui/material/InputLabel";
 import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
-import MenuItem from "@mui/material/MenuItem";
-import Select from "@mui/material/Select";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import useMediaQuery from "@mui/material/useMediaQuery";
@@ -25,7 +21,7 @@ import { api } from "@/api/client";
 import { useCardSearch, useFillVisible } from "@/hooks/useCardSearch";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useRelationLabel, useTypeLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { compareByRank, searchRank } from "@/lib/searchRank";
 import type { Relation, RelationType } from "@/types";
 import RelationAttributesEditor, {
@@ -58,8 +54,7 @@ export default function AddRelationsDialog({
   onClose,
   fsId,
   cardTypeKey,
-  relationTypes,
-  initialRelationTypeKey,
+  relationType: rt,
   relations,
   onAdded,
   onRemoved,
@@ -69,10 +64,9 @@ export default function AddRelationsDialog({
   onClose: (addedCount: number) => void;
   fsId: string;
   cardTypeKey: string;
-  /** Every relation type this card type can hold; the picker chooses among them. */
-  relationTypes: RelationType[];
-  /** Pre-selected type — the group whose `+` was clicked. */
-  initialRelationTypeKey?: string;
+  /** The relation being added to. Chosen before opening — the caller's `+`
+   *  already says which one, so the dialog carries no type selector. */
+  relationType: RelationType | null;
   /** The card's current relations, used to hide what is already linked. */
   relations: Relation[];
   onAdded: (rel: Relation) => void;
@@ -83,9 +77,7 @@ export default function AddRelationsDialog({
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const { getType } = useMetamodel();
   const typeLabel = useTypeLabel();
-  const relLabel = useRelationLabel();
 
-  const [rtKey, setRtKey] = useState(initialRelationTypeKey ?? relationTypes[0]?.key ?? "");
   const [search, setSearch] = useState("");
   const [debouncedSearch, searchPending] = useDebouncedValue(search, 300);
   const [added, setAdded] = useState<Added[]>([]);
@@ -95,22 +87,19 @@ export default function AddRelationsDialog({
   const [error, setError] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Each *opening* is its own batch — and only an opening. Keying this on
-  // `relationTypes` / `initialRelationTypeKey` as well meant any parent
-  // re-render that produced a new array identity cleared the chips and the
-  // selected type out from under an in-progress batch.
+  // Each *opening* is its own batch — and only an opening. Keying this on the
+  // relation type too (as it briefly was) meant any parent re-render producing
+  // a new object identity cleared the chips out from under an in-progress
+  // batch.
   useEffect(() => {
     if (!open) return;
-    setRtKey(initialRelationTypeKey ?? relationTypes[0]?.key ?? "");
     setSearch("");
     setAdded([]);
     setAttributes({});
     setCreateName("");
     setError("");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const rt = relationTypes.find((r) => r.key === rtKey);
   const isSource = rt ? rt.source_type_key === cardTypeKey : true;
   const otherTypeKey = rt ? (isSource ? rt.target_type_key : rt.source_type_key) : "";
   const otherType = getType(otherTypeKey);
@@ -121,6 +110,7 @@ export default function AddRelationsDialog({
   // cardinality guard of its own — only the bulk path does.
   const allowsMany = rt ? rt.cardinality === "n:m" || (rt.cardinality === "1:n" && !isSource) : true;
 
+  const rtKey = rt?.key ?? "";
   const linkedForType = useMemo(
     () => relations.filter((r) => r.type === rtKey),
     [relations, rtKey],
@@ -233,8 +223,6 @@ export default function AddRelationsDialog({
     }
   };
 
-  const verb = rt ? (isSource ? relLabel(rt) : relLabel(rt, true)) : "";
-
   return (
     <Dialog
       open={open}
@@ -244,13 +232,16 @@ export default function AddRelationsDialog({
       fullScreen={fullScreen}
     >
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, pr: 1 }}>
-        <Box sx={{ flex: 1 }}>{t("relations.addMany")}</Box>
+        <Box sx={{ flex: 1 }}>{t("relations.addSpecific", { type: otherLabel })}</Box>
         <IconButton size="small" onClick={() => onClose(added.length)} aria-label={t("common:actions.close")}>
           <MaterialSymbol icon="close" size={20} />
         </IconButton>
       </DialogTitle>
       <DialogContent
-        sx={{ display: "flex", flexDirection: "column", gap: 2, pb: 1, overflow: "hidden" }}
+        // MUI zeroes a DialogContent's top padding when it follows a
+        // DialogTitle, which crops the floating label of whatever field lands
+        // first. `pt` gives it back.
+        sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1, pb: 1 }}
       >
         {error && (
           <Alert severity="error" onClose={() => setError("")}>
@@ -258,56 +249,17 @@ export default function AddRelationsDialog({
           </Alert>
         )}
 
-        {relationTypes.length > 1 && (
-          <FormControl fullWidth size="small">
-            <InputLabel>{t("relations.relationType")}</InputLabel>
-            <Select
-              value={rtKey}
-              label={t("relations.relationType")}
-              onChange={(e) => {
-                setRtKey(e.target.value);
-                setAttributes({});
-                setSearch("");
-              }}
-            >
-              {relationTypes.map((candidate) => {
-                const asSource = candidate.source_type_key === cardTypeKey;
-                const targetKey = asSource
-                  ? candidate.target_type_key
-                  : candidate.source_type_key;
-                const label = typeLabel(getType(targetKey)) || targetKey;
-                return (
-                  <MenuItem key={candidate.key} value={candidate.key}>
-                    {label} — {asSource ? relLabel(candidate) : relLabel(candidate, true)}
-                  </MenuItem>
-                );
-              })}
-            </Select>
-          </FormControl>
-        )}
-
-        {relationTypes.length === 1 && rt && (
-          <Typography variant="caption" color="text.secondary">
-            {verb}
-          </Typography>
-        )}
-
+        {/* Applies to each card added from here on, so a run of "Provider"
+            links can be followed by a run of "Consumer" ones without leaving
+            the dialog. The fields carry their own labels — no heading needed. */}
         {rt && hasEditableRelationAttributes(rt) && (
-          <Box>
-            <Typography variant="caption" fontWeight={600} sx={{ display: "block", mb: 0.5 }}>
-              {t("relations.optionalDetails")}
-            </Typography>
-            {/* Applies to each card added from here on, so a run of "Provider"
-                links can be followed by a run of "Consumer" ones without
-                leaving the dialog. */}
-            <RelationAttributesEditor
-              relationType={rt}
-              value={attributes}
-              onChange={setAttributes}
-              compact
-              disabled={busy}
-            />
-          </Box>
+          <RelationAttributesEditor
+            relationType={rt}
+            value={attributes}
+            onChange={setAttributes}
+            compact
+            disabled={busy}
+          />
         )}
 
         {added.length > 0 && (

@@ -147,6 +147,11 @@ describe("RelationsSection add dialog", () => {
       expect(within(dialog).getByText("Public Works")).toBeInTheDocument(),
     );
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    // The `+` already says which relation is being added, so the dialog
+    // carries no type selector — it was pure clutter at the top.
+    expect(within(dialog).queryByRole("combobox")).not.toBeInTheDocument();
+    // …and the title names what is being added, since nothing else does.
+    expect(within(dialog).getByText(/Add Organization/i)).toBeInTheDocument();
   });
 
   it("hides already-linked cards and says how many are hidden", async () => {
