@@ -34,6 +34,7 @@ from app.services.public_access import (
     resolve_sso_visitor_email,
     set_access_cookie,
 )
+from app.services.search_rank import search_filter, search_rank
 
 router = APIRouter(prefix="/web-portals", tags=["web-portals"])
 logger = logging.getLogger(__name__)
@@ -559,9 +560,9 @@ async def get_public_portal_cards(
 
     # Apply user-supplied search
     if search:
-        like = f"%{search}%"
-        q = q.where(or_(Card.name.ilike(like), Card.description.ilike(like)))
-        count_q = count_q.where(or_(Card.name.ilike(like), Card.description.ilike(like)))
+        match = or_(search_filter(Card.name, search), search_filter(Card.description, search))
+        q = q.where(match)
+        count_q = count_q.where(match)
 
     # Filter by subtype (user)
     if subtype:
@@ -651,7 +652,14 @@ async def get_public_portal_cards(
     if sort_by not in _allowed_sorts:
         sort_by = "name"
     sort_col = getattr(Card, sort_by, Card.name)
-    q = q.order_by(sort_col.desc() if sort_dir == "desc" else sort_col.asc())
+    order = [sort_col.desc() if sort_dir == "desc" else sort_col.asc()]
+    # Best matches first when searching — but only while the ordering would
+    # otherwise be name-ascending, which relevance *refines* (each tier is
+    # still name-ascending) rather than contradicts. A visitor who picked a
+    # different column or direction keeps exactly what they asked for (#918).
+    if search and sort_by == "name" and sort_dir != "desc":
+        order.insert(0, search_rank(Card.name, search).asc())
+    q = q.order_by(*order)
     q = q.offset((page - 1) * page_size).limit(page_size)
 
     total_result = await db.execute(count_q)

@@ -152,15 +152,10 @@ export default function SurveyBuilder() {
   const [debouncedRelatedSearch] = useDebouncedValue(relatedSearch, 300);
   useAbortableEffect(
     async ({ signal, isCurrent }) => {
-      if (!debouncedRelatedSearch || debouncedRelatedSearch.length < 2) {
-        setRelatedOptions([]);
-        return;
-      }
       try {
-        const res = await api.get<{ items: Card[] }>(
-          `/cards?search=${encodeURIComponent(debouncedRelatedSearch)}&page_size=20`,
-          { signal },
-        );
+        const params = new URLSearchParams({ page_size: "20" });
+        if (debouncedRelatedSearch) params.set("search", debouncedRelatedSearch);
+        const res = await api.get<{ items: Card[] }>(`/cards?${params.toString()}`, { signal });
         if (!isCurrent()) return;
         setRelatedOptions(res.items);
       } catch {
@@ -174,15 +169,14 @@ export default function SurveyBuilder() {
   const [debouncedCardSearch] = useDebouncedValue(cardSearch, 300);
   useAbortableEffect(
     async ({ signal, isCurrent }) => {
-      if (!targetTypeKey || !debouncedCardSearch || debouncedCardSearch.length < 2) {
+      if (!targetTypeKey) {
         setCardOptions([]);
         return;
       }
       try {
-        const res = await api.get<{ items: Card[] }>(
-          `/cards?type=${encodeURIComponent(targetTypeKey)}&search=${encodeURIComponent(debouncedCardSearch)}&page_size=20`,
-          { signal },
-        );
+        const params = new URLSearchParams({ type: targetTypeKey, page_size: "20" });
+        if (debouncedCardSearch) params.set("search", debouncedCardSearch);
+        const res = await api.get<{ items: Card[] }>(`/cards?${params.toString()}`, { signal });
         if (!isCurrent()) return;
         setCardOptions(res.items);
       } catch {
@@ -615,9 +609,7 @@ export default function SurveyBuilder() {
             noOptionsText={
               !targetTypeKey
                 ? t("surveyBuilder.target.selectTypeFirst")
-                : cardSearch.length < 2
-                  ? t("common:labels.loading")
-                  : t("common:labels.noResults")
+                : t("common:labels.noResults")
             }
           />
 
@@ -652,7 +644,7 @@ export default function SurveyBuilder() {
               ))
             }
             sx={{ mb: 3 }}
-            noOptionsText={relatedSearch.length < 2 ? t("common:labels.loading") : t("common:labels.noResults")}
+            noOptionsText={t("common:labels.noResults")}
           />
 
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>

@@ -536,3 +536,57 @@ async def test_legacy_source_type_never_blanks_the_register(client, db, env):
     rows = {r["title"]: r for r in resp.json()["items"]}
     assert "Normal risk" in rows and "Promoted long ago" in rows
     assert rows["Promoted long ago"]["source_type"] == "manual"
+
+
+# ---------------------------------------------------------------------------
+# Search relevance (#918) — the same tiers as every other search in the app.
+# ---------------------------------------------------------------------------
+
+
+async def test_search_ranks_prefix_matches_first(client, db, env):
+    """Typing `access` must surface the titles starting with it, not bury them."""
+    for title in (
+        "Review network access quarterly",
+        "Unaccessed backup vault",
+        "Access control drift",
+        "Access review overdue",
+    ):
+        resp = await client.post(
+            "/api/v1/risks", json={"title": title}, headers=auth_headers(env["admin"])
+        )
+        assert resp.status_code == 200, resp.text
+
+    resp = await client.get("/api/v1/risks?search=access", headers=auth_headers(env["admin"]))
+    assert resp.status_code == 200
+    titles = [r["title"] for r in resp.json()["items"]]
+    assert titles == [
+        "Access control drift",
+        "Access review overdue",
+        "Review network access quarterly",
+        "Unaccessed backup vault",
+    ]
+
+
+async def test_explicit_sort_overrides_search_relevance(client, db, env):
+    for title in ("Access control drift", "Review network access quarterly"):
+        await client.post(
+            "/api/v1/risks", json={"title": title}, headers=auth_headers(env["admin"])
+        )
+
+    resp = await client.get(
+        "/api/v1/risks?search=access&sort_by=reference&sort_dir=asc",
+        headers=auth_headers(env["admin"]),
+    )
+    titles = [r["title"] for r in resp.json()["items"]]
+    # Creation order, i.e. reference ascending — relevance did not interfere.
+    assert titles == ["Access control drift", "Review network access quarterly"]
+
+
+async def test_search_wildcards_are_literal(client, db, env):
+    for title in ("100% uptime commitment", "Ninety percent target"):
+        await client.post(
+            "/api/v1/risks", json={"title": title}, headers=auth_headers(env["admin"])
+        )
+
+    resp = await client.get("/api/v1/risks?search=100%25", headers=auth_headers(env["admin"]))
+    assert [r["title"] for r in resp.json()["items"]] == ["100% uptime commitment"]

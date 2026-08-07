@@ -63,7 +63,7 @@ export default function SearchDialog({ open, onClose }: Props) {
 
   // Debounced live search
   const doSearch = useCallback(async (query: string) => {
-    if (query.trim().length < 2) {
+    if (!query.trim()) {
       setResults([]);
       setSearched(false);
       return;
@@ -85,7 +85,7 @@ export default function SearchDialog({ open, onClose }: Props) {
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    if (search.trim().length < 2) {
+    if (!search.trim()) {
       setResults([]);
       setSearched(false);
       return;
@@ -249,7 +249,7 @@ export default function SearchDialog({ open, onClose }: Props) {
               })}
 
               {/* View all results footer */}
-              {search.trim().length >= 2 && results.length > 0 && (
+              {search.trim() && results.length > 0 && (
                 <Box
                   onClick={() => {
                     onClose();
@@ -280,7 +280,7 @@ export default function SearchDialog({ open, onClose }: Props) {
         )}
 
         {/* Hint when empty */}
-        {!searched && results.length === 0 && search.trim().length < 2 && (
+        {!searched && results.length === 0 && !search.trim() && (
           <>
             <Divider />
             <Box sx={{ px: 2.5, py: 3, textAlign: "center" }}>

@@ -298,7 +298,7 @@ export default function ADREditor() {
 
   const searchCards = async (q: string) => {
     setCardSearch(q);
-    if (q.length < 2) {
+    if (!q.trim()) {
       setSearchResults([]);
       return;
     }

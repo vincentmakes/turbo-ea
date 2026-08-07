@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.45.0] - 2026-08-07
+
+### Changed
+- **Every search box now ranks results the same way, and answers on the first letter.** The relevance ordering added for card pickers in 2.44.0 — exact match, then names starting with what you typed, then names where it starts a word, then the rest — now applies to the global search (⌘K), the Risk Register, Decisions, published web portals and the TurboLens objective and capability pickers. Searches that previously ignored anything shorter than two characters no longer do: the global search, the ADR card picker and both survey card pickers all respond to a single letter, and the survey pickers list cards as soon as they open instead of waiting for you to type. A sort you have chosen yourself always wins over relevance.
+
+### Fixed
+- **A search term containing `%` or `_` is matched literally everywhere.** These are wildcards in the underlying query, so searching for `100%` in the Risk Register, Decisions, a web portal or a saved-view data feed matched every row. The card inventory was fixed in 2.44.0; this covers the rest.
+
 ## [2.44.0] - 2026-08-07
 
 ### Added

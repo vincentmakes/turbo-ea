@@ -16,6 +16,7 @@ from app.models.user import User
 from app.schemas.common import BookmarkCreate, BookmarkUpdate
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.permission_service import PermissionService
+from app.services.search_rank import search_filter
 
 router = APIRouter(prefix="/bookmarks", tags=["bookmarks"])
 
@@ -423,8 +424,11 @@ async def bookmark_odata_feed(
     # Search
     search = filters.get("search", "")
     if search:
-        like = f"%{search}%"
-        q = q.where(or_(Card.name.ilike(like), Card.description.ilike(like)))
+        # Deliberately not relevance-ranked: this is a machine-readable feed
+        # for BI tools, where a stable, predictable order beats "best match
+        # first". The escaping matters either way — unescaped, a saved view
+        # searching for `100%` matched every row.
+        q = q.where(or_(search_filter(Card.name, search), search_filter(Card.description, search)))
 
     # Approval statuses
     approval_statuses = filters.get("approvalStatuses", [])

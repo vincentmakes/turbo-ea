@@ -7,7 +7,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy import case, func, or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -80,6 +80,7 @@ from app.services.event_bus import event_bus
 from app.services.hierarchy import HIERARCHY_LEVEL_KEY
 from app.services.lifecycle import lifecycle_rank
 from app.services.permission_service import PermissionService
+from app.services.search_rank import search_filter, search_rank
 
 # Fields that PPM budget/cost lines manage — calculations must not overwrite these.
 _PPM_MANAGED_FIELDS = {"costBudget", "costActual"}
@@ -492,49 +493,6 @@ _ALLOWED_SORT_COLUMNS = {
 }
 
 
-def _like_literal(value: str) -> str:
-    """Escape LIKE wildcards so a user's `100%` or `a_b` matches literally.
-
-    Pair with `escape="\\\\"` on the `like`/`ilike` call.
-    """
-    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-
-
-# POSIX-regex metacharacters. We build the pattern and the user supplies only a
-# literal, so escaping these leaves no operator under the caller's control —
-# hence no ReDoS surface (which is exactly why we do NOT accept user regex).
-_REGEX_META = r"\.^$|()[]{}*+?"
-
-
-def _regex_literal(value: str) -> str:
-    return "".join("\\" + c if c in _REGEX_META else c for c in value)
-
-
-def _search_rank(search: str):
-    """Relevance rank for a search term: lower sorts first (discussion #918).
-
-    0 exact · 1 starts-with · 2 starts a word · 3 contains · 4 description-only.
-
-    Users asked for regex anchors (`^w` = starts with w) because typing `w`
-    buries the obvious answers under every substring match. Ranking fixes that
-    for everyone with no syntax to learn — see the discussion for the reasoning.
-
-    Rank 2 uses a regex rather than `LIKE '% q%'` because word boundaries in
-    card names are as often `-`, `/`, `.` or `(` as a space ("Workday-HCM",
-    "SAP/Workday").
-    """
-    lowered = search.lower()
-    like = _like_literal(lowered)
-    name = func.lower(Card.name)
-    return case(
-        (name == lowered, 0),
-        (name.like(f"{like}%", escape="\\"), 1),
-        (name.op("~", is_comparison=True)(r"(^|[^[:alnum:]])" + _regex_literal(lowered)), 2),
-        (name.like(f"%{like}%", escape="\\"), 3),
-        else_=4,
-    )
-
-
 @router.get("", response_model=CardListResponse)
 async def list_cards(
     db: AsyncSession = Depends(get_db),
@@ -621,13 +579,7 @@ async def list_cards(
         q = q.where(Card.status == "ACTIVE")
         count_q = count_q.where(Card.status == "ACTIVE")
     if search:
-        # Escaped, so a term containing `%` or `_` matches literally rather
-        # than acting as a wildcard.
-        like = f"%{_like_literal(search)}%"
-        match = or_(
-            Card.name.ilike(like, escape="\\"),
-            Card.description.ilike(like, escape="\\"),
-        )
+        match = or_(search_filter(Card.name, search), search_filter(Card.description, search))
         q = q.where(match)
         count_q = count_q.where(match)
     if parent_id:
@@ -649,7 +601,7 @@ async def list_cards(
     # Relevance first, but only when the caller expressed no sort preference of
     # their own — an explicit `sort_by`/`sort_dir` always wins (#918).
     if search and sort_by is None and sort_dir is None:
-        order.insert(0, _search_rank(search).asc())
+        order.insert(0, search_rank(Card.name, search).asc())
     # Stable tiebreaker: without it two same-named cards can be duplicated or
     # skipped across pages, which corrupts any paged consumer's append.
     order.append(Card.id.asc())

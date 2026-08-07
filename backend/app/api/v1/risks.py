@@ -53,6 +53,7 @@ from app.services.risk_service import (
     risk_to_dict,
     validate_status_transition,
 )
+from app.services.search_rank import rank_text, search_filter
 
 logger = logging.getLogger(__name__)
 
@@ -270,12 +271,11 @@ async def load_filtered_risks(
     if source_type:
         stmt = stmt.where(Risk.source_type.in_(source_type))
     if search:
-        needle = f"%{search.lower()}%"
         stmt = stmt.where(
             or_(
-                Risk.title.ilike(needle),
-                Risk.description.ilike(needle),
-                Risk.reference.ilike(needle),
+                search_filter(Risk.title, search),
+                search_filter(Risk.description, search),
+                search_filter(Risk.reference, search),
             )
         )
     if card_ids:
@@ -322,8 +322,8 @@ async def list_risks(
     overdue: bool = False,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=1000),
-    sort_by: str = "updated_at",
-    sort_dir: str = "desc",
+    sort_by: str | None = None,
+    sort_dir: str | None = None,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> RiskListPage:
@@ -355,8 +355,14 @@ async def list_risks(
         "target_resolution_date": lambda r: r.target_resolution_date or datetime.max.date(),
         "level": lambda r: _level_weight(r.residual_level or r.initial_level),
         "reference": lambda r: r.reference,
-    }.get(sort_by, lambda r: r.updated_at or datetime.min.replace(tzinfo=timezone.utc))
-    rows.sort(key=sort_key, reverse=(sort_dir == "desc"))
+    }.get(sort_by or "", lambda r: r.updated_at or datetime.min.replace(tzinfo=timezone.utc))
+    rows.sort(key=sort_key, reverse=(sort_dir != "asc"))
+    # Relevance first when the caller typed a query and expressed no sort of
+    # their own — same rule, and the same tiers, as every other search (#918).
+    # A second stable sort rather than a compound key: `rows.sort` is stable, so
+    # the ordering above survives as the tie-break inside each tier.
+    if search and sort_by is None and sort_dir is None:
+        rows.sort(key=lambda r: (rank_text(r.title, search), (r.title or "").lower()))
 
     total = len(rows)
     start = (page - 1) * page_size

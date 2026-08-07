@@ -30991,9 +30991,15 @@
             "name": "sort_by",
             "required": false,
             "schema": {
-              "default": "updated_at",
-              "title": "Sort By",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sort By"
             }
           },
           {
@@ -31001,9 +31007,15 @@
             "name": "sort_dir",
             "required": false,
             "schema": {
-              "default": "desc",
-              "title": "Sort Dir",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sort Dir"
             }
           }
         ],

@@ -59,6 +59,7 @@ from app.schemas.turbolens import (
     VendorHierarchyOut,
 )
 from app.services.permission_service import PermissionService
+from app.services.search_rank import search_filter, search_rank
 from app.services.turbolens_ai import get_ai_config, is_ai_configured
 
 logger = logging.getLogger(__name__)
@@ -464,6 +465,17 @@ async def get_modernizations(
 # ── Architecture AI ───────────────────────────────────────────────────────
 
 
+def _ordered_by_relevance(q, search: str | None):
+    """Best matches first when the user typed something, alphabetical otherwise.
+
+    These two endpoints back type-ahead pickers, so the whole point of the
+    order is "what I typed, at the top" (#918).
+    """
+    if search:
+        return q.order_by(search_rank(Card.name, search).asc(), Card.name.asc())
+    return q.order_by(Card.name.asc())
+
+
 @router.get("/architect/objectives")
 async def architect_objectives(
     db: AsyncSession = Depends(get_db),
@@ -479,11 +491,11 @@ async def architect_objectives(
     if search:
         q = q.where(
             or_(
-                Card.name.ilike(f"%{search}%"),
-                Card.description.ilike(f"%{search}%"),
+                search_filter(Card.name, search),
+                search_filter(Card.description, search),
             )
         )
-    q = q.order_by(Card.name).limit(50)
+    q = _ordered_by_relevance(q, search).limit(50)
     result = await db.execute(q)
     cards = result.scalars().all()
     return [
@@ -512,11 +524,11 @@ async def architect_capabilities(
     if search:
         q = q.where(
             or_(
-                Card.name.ilike(f"%{search}%"),
-                Card.description.ilike(f"%{search}%"),
+                search_filter(Card.name, search),
+                search_filter(Card.description, search),
             )
         )
-    q = q.order_by(Card.name).limit(50)
+    q = _ordered_by_relevance(q, search).limit(50)
     result = await db.execute(q)
     cards = result.scalars().all()
     return [

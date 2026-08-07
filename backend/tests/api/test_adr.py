@@ -1042,3 +1042,36 @@ class TestAdrAttributes:
         resp = await client.post(f"/api/v1/adr/{adr_id}/duplicate", headers=auth_headers(admin))
         assert resp.status_code == 201
         assert resp.json()["attributes"] == payload
+
+
+# -------------------------------------------------------------------
+# Search relevance (#918)
+# -------------------------------------------------------------------
+
+
+async def test_search_ranks_prefix_matches_before_substring(client, db, adr_env):
+    """Searching switches the list out of recency order into best-match order."""
+    admin = adr_env["admin"]
+    for title in (
+        "Retire legacy gateway",
+        "Gateway consolidation",
+        "Gateway timeout policy",
+    ):
+        assert (await _create_adr(client, admin, title=title)).status_code in (200, 201)
+
+    resp = await client.get("/api/v1/adr?search=gateway", headers=auth_headers(admin))
+    assert resp.status_code == 200
+    titles = [a["title"] for a in resp.json()]
+    # Both "Gateway…" titles outrank the one where it appears mid-title; within
+    # the tier the newest stays first, which is the list's own order.
+    assert titles.index("Retire legacy gateway") == 2
+    assert set(titles[:2]) == {"Gateway consolidation", "Gateway timeout policy"}
+
+
+async def test_search_wildcards_are_literal(client, db, adr_env):
+    admin = adr_env["admin"]
+    await _create_adr(client, admin, title="100% availability decision")
+    await _create_adr(client, admin, title="Unrelated decision")
+
+    resp = await client.get("/api/v1/adr?search=100%25", headers=auth_headers(admin))
+    assert [a["title"] for a in resp.json()] == ["100% availability decision"]

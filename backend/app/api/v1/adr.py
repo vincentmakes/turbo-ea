@@ -26,6 +26,7 @@ from app.schemas.adr import (
 from app.services import notification_service
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
+from app.services.search_rank import search_filter, search_rank
 
 router = APIRouter(prefix="/adr", tags=["adr"])
 
@@ -209,10 +210,15 @@ async def list_adrs(
     if status:
         stmt = stmt.where(ArchitectureDecision.status == status)
     if search:
-        pattern = f"%{search}%"
         stmt = stmt.where(
-            ArchitectureDecision.title.ilike(pattern)
-            | ArchitectureDecision.reference_number.ilike(pattern)
+            search_filter(ArchitectureDecision.title, search)
+            | search_filter(ArchitectureDecision.reference_number, search)
+        )
+        # Typing a query means "best match first" — the recency order below is
+        # what you want when browsing, not when searching (#918).
+        stmt = stmt.order_by(None).order_by(
+            search_rank(ArchitectureDecision.title, search).asc(),
+            ArchitectureDecision.updated_at.desc(),
         )
     if card_id and not initiative_id:
         if not joined_junction:

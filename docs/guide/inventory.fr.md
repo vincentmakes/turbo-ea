@@ -10,7 +10,7 @@ L'**Inventaire** est le cœur de Turbo EA. Toutes les **fiches** (composants) de
 
 Le panneau latéral gauche permet de **filtrer** les fiches selon différents critères :
 
-- **Recherche** -- Recherche en texte libre sur les noms de fiches -- les meilleures correspondances apparaissent en premier : noms exacts, puis noms commençant par votre saisie, puis le reste
+- **Recherche** -- Recherche en texte libre sur les noms de fiches, dès la première lettre. Les meilleures correspondances apparaissent en premier : noms exacts, puis noms commençant par votre saisie, puis ceux où elle commence un mot, puis le reste. Tous les champs de recherche de Turbo EA trient ainsi -- la recherche globale (**Ctrl+K** / **⌘K**), chaque sélecteur de fiche, le registre des risques, les décisions et les portails publiés -- sauf si vous avez choisi un tri, qui l'emporte toujours
 - **Types** -- Filtrer par un ou plusieurs types de fiches : Objectif, Plateforme, Initiative, Organisation, Capacité Métier, Contexte Métier, Processus Métier, Application, Interface, Objet de Données, Composant IT, Catégorie Technique, Fournisseur, Système
 - **Sous-types** -- Lorsqu'un type est sélectionné, filtrer davantage par sous-type (par ex. Application -> Application Métier, Microservice, Agent IA, Déploiement)
 - **Statut d'approbation** -- Brouillon, Approuvé, Cassé ou Rejeté

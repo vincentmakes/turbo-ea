@@ -10,7 +10,7 @@ L'**Inventario** è il cuore di Turbo EA. Qui sono elencate tutte le **card** (c
 
 Il pannello laterale sinistro consente di **filtrare** le card secondo diversi criteri:
 
-- **Ricerca** — Ricerca libera per testo nel nome delle card — le corrispondenze migliori compaiono per prime: nomi esatti, poi nomi che iniziano con quanto digitato, poi il resto
+- **Ricerca** — Ricerca libera per testo nel nome delle card, già dalla prima lettera. Le corrispondenze migliori compaiono per prime: nomi esatti, poi quelli che iniziano con quanto digitato, poi quelli in cui inizia una parola, poi il resto. Ogni campo di ricerca in Turbo EA ordina così — la ricerca globale (**Ctrl+K** / **⌘K**), ogni selettore di card, il registro dei rischi, le decisioni e i portali pubblicati — a meno che non abbiate scelto un ordinamento vostro, che ha sempre la precedenza
 - **Tipi** — Filtra per uno o più tipi di card: Objective, Platform, Initiative, Organization, Business Capability, Business Context, Business Process, Application, Interface, Data Object, IT Component, Tech Category, Provider, System
 - **Sottotipi** — Quando un tipo è selezionato, filtra ulteriormente per sottotipo (es. Application -> Business Application, Microservice, AI Agent, Deployment)
 - **Stato di approvazione** — Draft, Approved, Broken o Rejected

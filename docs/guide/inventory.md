@@ -10,7 +10,7 @@ The **Inventory** is the heart of Turbo EA. Here all **cards** (components) of t
 
 The left sidebar panel allows you to **filter** cards by different criteria:
 
-- **Search** — Free text search across card names — best matches come first: exact names, then names starting with what you typed, then the rest
+- **Search** — Free text search across card names, from the very first letter. Best matches come first: exact names, then names starting with what you typed, then names where it starts a word, then the rest. Every search box in Turbo EA orders results this way — the global search (**Ctrl+K** / **⌘K**), each card picker, the Risk Register, Decisions and published portals — unless you have chosen a sort of your own, which always wins
 - **Types** — Filter by one or more card types: Objective, Platform, Initiative, Organization, Business Capability, Business Context, Business Process, Application, Interface, Data Object, IT Component, Tech Category, Provider, System
 - **Subtypes** — When a type is selected, filter further by subtype (e.g., Application → Business Application, Microservice, AI Agent, Deployment)
 - **Approval Status** — Draft, Approved, Broken, or Rejected
