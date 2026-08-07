@@ -18,9 +18,19 @@ jumping when the server response lands. Change one and change the other.
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from sqlalchemy import case, func
+from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql.elements import ColumnElement
+
+# Every caller ranks or filters a *mapped column* — `Card.name`, `Risk.title`,
+# `ArchitectureDecision.reference_number`. `ColumnElement` is the wrong
+# annotation for those: SQLAlchemy's mapped attributes are
+# `InstrumentedAttribute`, which does not derive from it, and nullable columns
+# arrive as `InstrumentedAttribute[str | None]`. `Any` on the parameter keeps
+# both accepted without pretending the two hierarchies are related.
+SearchColumn = InstrumentedAttribute[Any]
 
 __all__ = ["like_literal", "rank_text", "search_rank", "search_filter"]
 
@@ -43,7 +53,7 @@ def _regex_literal(value: str) -> str:
     return "".join("\\" + c if c in _REGEX_META else c for c in value)
 
 
-def search_rank(column: ColumnElement[str], search: str) -> ColumnElement[int]:
+def search_rank(column: SearchColumn, search: str) -> ColumnElement[int]:
     """Relevance rank for ``search`` against ``column``: lower sorts first.
 
     0 exact · 1 starts-with · 2 starts a word · 3 contains · 4 no match on this
@@ -68,7 +78,7 @@ def search_rank(column: ColumnElement[str], search: str) -> ColumnElement[int]:
     )
 
 
-def search_filter(column: ColumnElement[str], search: str) -> ColumnElement[bool]:
+def search_filter(column: SearchColumn, search: str) -> ColumnElement[bool]:
     """Case-insensitive "contains" for one column, with wildcards escaped.
 
     Use instead of a hand-rolled ``col.ilike(f"%{search}%")``: unescaped, a term
