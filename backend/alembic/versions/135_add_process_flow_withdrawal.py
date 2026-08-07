@@ -22,6 +22,10 @@ is the correct reading — nothing has been withdrawn yet. Idempotency is not a
 concern here (plain ``add_column`` on columns that cannot pre-exist), and the
 downgrade drops all three.
 
+The ``withdrawn_by`` foreign key is declared inline on the column so that a
+database built by ``create_all`` and one built by this migration end up with the
+same, PostgreSQL-auto-named constraint — see the comment in ``upgrade()``.
+
 Revision ID: 135
 Revises: 134
 """
@@ -44,32 +48,35 @@ def upgrade() -> None:
         "process_flow_versions",
         sa.Column("withdrawn_at", sa.DateTime(timezone=True), nullable=True),
     )
+    # The foreign key is declared inline rather than via a separately named
+    # create_foreign_key(). A fresh install builds this table with
+    # Base.metadata.create_all(), which derives the constraint from the model and
+    # lets PostgreSQL auto-name it `process_flow_versions_withdrawn_by_fkey` —
+    # the same shape as the created_by / submitted_by / approved_by keys. Giving
+    # the migration its own name produced a constraint that exists only on the
+    # migration path, so `alembic downgrade` blew up on a create_all-built
+    # database trying to drop a name that was never there. Inline keeps both
+    # paths identical, and dropping the column takes its constraint with it.
     op.add_column(
         "process_flow_versions",
-        sa.Column("withdrawn_by", sa.UUID(as_uuid=True), nullable=True),
+        sa.Column(
+            "withdrawn_by",
+            sa.UUID(as_uuid=True),
+            # SET NULL, matching the other three user FKs: deleting a user must
+            # never take the audit row with it.
+            sa.ForeignKey("users.id", ondelete="SET NULL"),
+            nullable=True,
+        ),
     )
     op.add_column(
         "process_flow_versions",
         sa.Column("withdrawal_reason", sa.Text(), nullable=True),
     )
-    # SET NULL, matching created_by / submitted_by / approved_by: deleting a user
-    # must never take the audit row with it.
-    op.create_foreign_key(
-        "fk_process_flow_versions_withdrawn_by_users",
-        "process_flow_versions",
-        "users",
-        ["withdrawn_by"],
-        ["id"],
-        ondelete="SET NULL",
-    )
 
 
 def downgrade() -> None:
-    op.drop_constraint(
-        "fk_process_flow_versions_withdrawn_by_users",
-        "process_flow_versions",
-        type_="foreignkey",
-    )
+    # No explicit constraint drop: PostgreSQL removes a column's foreign key
+    # along with the column, whatever that constraint happens to be called.
     op.drop_column("process_flow_versions", "withdrawal_reason")
     op.drop_column("process_flow_versions", "withdrawn_by")
     op.drop_column("process_flow_versions", "withdrawn_at")
