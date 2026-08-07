@@ -58,6 +58,7 @@ export default function AddRelationsDialog({
   relations,
   onAdded,
   onRemoved,
+  onUpdated,
 }: {
   open: boolean;
   /** `addedCount` lets the caller reconcile once per batch instead of per add. */
@@ -71,6 +72,7 @@ export default function AddRelationsDialog({
   relations: Relation[];
   onAdded: (rel: Relation) => void;
   onRemoved: (relId: string) => void;
+  onUpdated: (rel: Relation) => void;
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const theme = useTheme();
@@ -189,6 +191,31 @@ export default function AddRelationsDialog({
     }
   };
 
+  /**
+   * Relation details describe the whole batch: the control sits above the
+   * chips, so changing it re-applies to everything already added rather than
+   * only to what comes next. Setting the value after adding the cards
+   * otherwise looked like it simply hadn't saved.
+   */
+  const applyAttributes = async (next: RelationAttributes) => {
+    setAttributes(next);
+    if (added.length === 0) return;
+    setBusy(true);
+    setError("");
+    try {
+      for (const a of added) {
+        const updated = await api.patch<Relation>(`/relations/${a.relId}`, {
+          attributes: next,
+        });
+        onUpdated(updated);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("relations.errors.create"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   /** Undo one of this batch's adds from its chip. */
   const remove = async (relId: string) => {
     setBusy(true);
@@ -239,9 +266,17 @@ export default function AddRelationsDialog({
       </DialogTitle>
       <DialogContent
         // MUI zeroes a DialogContent's top padding when it follows a
-        // DialogTitle, which crops the floating label of whatever field lands
-        // first. `pt` gives it back.
-        sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1, pb: 1 }}
+        // DialogTitle, cropping the floating label of whatever field lands
+        // first. That rule is `.MuiDialogTitle-root + .MuiDialogContent-root`,
+        // two classes, so a plain sx class loses to it — hence `!important`,
+        // the same escape this app already uses in `SaveReportDialog`.
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+          pt: "12px !important",
+          pb: 1,
+        }}
       >
         {error && (
           <Alert severity="error" onClose={() => setError("")}>
@@ -256,7 +291,7 @@ export default function AddRelationsDialog({
           <RelationAttributesEditor
             relationType={rt}
             value={attributes}
-            onChange={setAttributes}
+            onChange={applyAttributes}
             compact
             disabled={busy}
           />

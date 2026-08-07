@@ -880,6 +880,7 @@ function RelationsSection({
           relations={relations}
           onAdded={handleRelationAdded}
           onRemoved={handleRelationRemoved}
+          onUpdated={handleRelationUpdated}
         />
       )}
     </Accordion>

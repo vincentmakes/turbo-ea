@@ -128,10 +128,14 @@ function FieldInput({ field, relationType, value, onChange, fieldLabel, optLabel
     // Hidden values are dropped from the picker, but a value already set on this
     // relation stays selectable so the row still resolves its label/color.
     const options = (field.options ?? []).filter((o) => !o.hidden || o.key === current);
+    // The label needs an explicit id to be the select's accessible name —
+    // without the pairing the control is announced unnamed.
+    const labelId = `rel-attr-${relationType.key}-${field.key}`;
     return (
       <FormControl size="small" fullWidth disabled={disabled}>
-        <InputLabel>{label}</InputLabel>
+        <InputLabel id={labelId}>{label}</InputLabel>
         <Select
+          labelId={labelId}
           value={current}
           label={label}
           onChange={(e) => onChange(e.target.value || undefined)}
