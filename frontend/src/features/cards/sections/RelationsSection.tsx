@@ -26,7 +26,7 @@ import Popover from "@mui/material/Popover";
 import Collapse from "@mui/material/Collapse";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import CardPicker from "@/components/CardPicker";
+import CardPicker, { type CardOption } from "@/components/CardPicker";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import {
@@ -159,6 +159,7 @@ function InlineAddRow({
   excludeIds,
   allowsMany,
   onAdded,
+  onRemoved,
   onClose,
 }: {
   rt: RelationType;
@@ -171,6 +172,7 @@ function InlineAddRow({
   /** False for 1:1 / already-saturated 1:n types — one add then close. */
   allowsMany: boolean;
   onAdded: (rel: Relation) => void;
+  onRemoved: (relId: string) => void;
   onClose: (addedCount: number) => void;
 }) {
   const { t } = useTranslation(["cards", "common"]);
@@ -184,30 +186,44 @@ function InlineAddRow({
   const [createMode, setCreateMode] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
-  const [addedCount, setAddedCount] = useState(0);
-  // Bumped after each add to remount the picker. `CardPicker` is controlled
-  // only on `value`; its typed input, debounced input and `useCardSearch` page
-  // state have no reset handle, and a remount clears all three while the
-  // existing `autoFocus` puts the caret back for the next pick.
-  const [pickerKey, setPickerKey] = useState(0);
+  // What this session added, newest first, rendered as removable chips right
+  // above the input — the tag-entry pattern. The sorted list above scatters new
+  // rows alphabetically, so without this strip there is no way to see what you
+  // just added, let alone undo one.
+  const [added, setAdded] = useState<{ id: string; name: string }[]>([]);
+  const [removing, setRemoving] = useState<string | null>(null);
 
-  const close = () => onClose(addedCount);
+  const close = () => onClose(added.length);
 
-  // Keep adding without reopening the row: each pick commits immediately, the
-  // card drops out of the dropdown (it is now in `excludeIds`) and appears in
-  // the sorted list above. That is the batch-add affordance — a multi-select
-  // chip tray has no commit point and can't carry relation attributes (#918).
-  const afterAdd = (rel: Relation) => {
-    setAddedCount((c) => c + 1);
-    onAdded(rel);
-    if (!allowsMany) {
-      onClose(addedCount + 1);
-      return;
-    }
-    setPickerKey((k) => k + 1);
+  /**
+   * Name the relation from the card the user picked rather than trusting the
+   * response to carry its refs. The API does return them, but a row whose refs
+   * are missing renders as "Unknown" — and the picked card is authoritative,
+   * local, and cannot be missing. Also backfills the endpoint ids, since those
+   * decide which end `renderRow` reads.
+   */
+  const withPickedCard = (created: Relation, card: CardOption): Relation => {
+    const ref = { id: card.id, type: card.type, name: card.name };
+    return {
+      ...created,
+      source_id: created.source_id ?? (isSource ? fsId : card.id),
+      target_id: created.target_id ?? (isSource ? card.id : fsId),
+      source: isSource ? created.source : (created.source ?? ref),
+      target: isSource ? (created.target ?? ref) : created.target,
+    };
   };
 
-  const handleSelect = async (card: { id: string; name: string; type: string } | null) => {
+  // Keep adding without the row closing or the picker being torn down: each
+  // pick commits immediately, the card drops out of the dropdown (it is now in
+  // `excludeIds`) and gains a chip below. A multi-select chip tray was rejected
+  // because it has no commit point and can't carry relation attributes (#918).
+  const afterAdd = (rel: Relation, card: CardOption) => {
+    setAdded((prev) => [{ id: rel.id, name: card.name }, ...prev]);
+    onAdded(withPickedCard(rel, card));
+    if (!allowsMany) onClose(added.length + 1);
+  };
+
+  const handleSelect = async (card: CardOption | null) => {
     if (!card) return;
     setError("");
     try {
@@ -216,9 +232,24 @@ function InlineAddRow({
         source_id: isSource ? fsId : card.id,
         target_id: isSource ? card.id : fsId,
       });
-      afterAdd(created);
+      afterAdd(created, card);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("relations.errors.create"));
+    }
+  };
+
+  /** Undo one of this session's adds straight from its chip. */
+  const handleRemove = async (relId: string) => {
+    setRemoving(relId);
+    setError("");
+    try {
+      await api.delete(`/relations/${relId}`);
+      setAdded((prev) => prev.filter((a) => a.id !== relId));
+      onRemoved(relId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("relations.errors.create"));
+    } finally {
+      setRemoving(null);
     }
   };
 
@@ -227,7 +258,7 @@ function InlineAddRow({
     setCreateLoading(true);
     setError("");
     try {
-      const created = await api.post<{ id: string; name: string; type: string }>("/cards", {
+      const created = await api.post<CardOption>("/cards", {
         type: targetTypeKey,
         name: createName.trim(),
       });
@@ -238,7 +269,7 @@ function InlineAddRow({
       });
       setCreateMode(false);
       setCreateName("");
-      afterAdd(rel);
+      afterAdd(rel, created);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("relations.errors.createCard"));
     } finally {
@@ -284,15 +315,45 @@ function InlineAddRow({
   return (
     <Box sx={{ mt: 1 }}>
       {error && <Alert severity="error" sx={{ mb: 1 }} onClose={() => setError("")}>{error}</Alert>}
+      {/* Just-added strip. Sits above the input like a tag entry, so what you
+          have added stays visible and individually removable while you carry
+          on adding — the sorted list above scatters them alphabetically. */}
+      {added.length > 0 && (
+        <Box sx={{ mb: 1 }} aria-live="polite">
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+            {t("relations.addedCount", { count: added.length })}
+          </Typography>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+            {added.map((a) => (
+              <Chip
+                key={a.id}
+                size="small"
+                label={a.name}
+                disabled={removing === a.id}
+                onDelete={() => handleRemove(a.id)}
+                icon={
+                  targetTypeConfig ? (
+                    <MaterialSymbol
+                      icon={targetTypeConfig.icon}
+                      size={14}
+                      color={targetTypeConfig.color}
+                    />
+                  ) : undefined
+                }
+              />
+            ))}
+          </Box>
+        </Box>
+      )}
       <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
         <CardPicker
-          key={pickerKey}
           sx={{ flex: 1 }}
           types={targetTypeKey}
           value={null}
           onChange={handleSelect}
           onInputChange={setSearch}
           excludeIds={excludeIds}
+          clearOnSelect={allowsMany}
           placeholder={t("relations.search", { type: targetLabel })}
           helperText={
             linkedCount > 0 ? t("relations.alreadyLinkedHint", { count: linkedCount }) : undefined
@@ -305,7 +366,7 @@ function InlineAddRow({
             <MaterialSymbol icon="add" size={18} />
           </IconButton>
         </Tooltip>
-        {addedCount > 0 ? (
+        {added.length > 0 ? (
           <Button size="small" onClick={close} startIcon={<MaterialSymbol icon="check" size={16} />}>
             {t("relations.doneAdding")}
           </Button>
@@ -313,15 +374,6 @@ function InlineAddRow({
           <IconButton size="small" onClick={close}>
             <MaterialSymbol icon="close" size={18} />
           </IconButton>
-        )}
-      </Box>
-      {/* The visible confirmation is the row appearing in the list above and
-          the card leaving the dropdown; announce it for screen readers too. */}
-      <Box aria-live="polite">
-        {addedCount > 0 && (
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-            {t("relations.addedCount", { count: addedCount })}
-          </Typography>
         )}
       </Box>
     </Box>
@@ -338,6 +390,7 @@ function RelationGroup({
   canManageRelations,
   onReload,
   onRelationAdded,
+  onRelationRemoved,
   onRelationUpdated,
   rollupCount = 0,
 }: {
@@ -349,6 +402,7 @@ function RelationGroup({
   canManageRelations: boolean;
   onReload: () => void;
   onRelationAdded: (created: Relation) => void;
+  onRelationRemoved: (relId: string) => void;
   onRelationUpdated: (updated: Relation) => void;
   /** Cards reachable only through descendants (#863). 0 hides the chip. */
   rollupCount?: number;
@@ -838,6 +892,7 @@ function RelationGroup({
             excludeIds={linkedIds}
             allowsMany={allowsMany}
             onAdded={onRelationAdded}
+            onRemoved={onRelationRemoved}
             onClose={handleAddRowClosed}
           />
         </Box>
@@ -937,6 +992,11 @@ function RelationsSection({
   // stale exclusion would otherwise produce a duplicate React key.
   const handleRelationAdded = useCallback((created: Relation) => {
     setRawRelations((prev) => (prev.some((r) => r.id === created.id) ? prev : [...prev, created]));
+  }, []);
+
+  /** Undoing an add from its chip — drop the row without a full refetch. */
+  const handleRelationRemoved = useCallback((relId: string) => {
+    setRawRelations((prev) => prev.filter((r) => r.id !== relId));
   }, []);
 
   const handleRelationUpdated = useCallback((updated: Relation) => {
@@ -1079,6 +1139,7 @@ function RelationsSection({
             canManageRelations={canManageRelations}
             onReload={load}
             onRelationAdded={handleRelationAdded}
+            onRelationRemoved={handleRelationRemoved}
             onRelationUpdated={handleRelationUpdated}
             rollupCount={rollup[rt.key] ?? 0}
           />
@@ -1105,6 +1166,7 @@ function RelationsSection({
                 canManageRelations={canManageRelations}
                 onReload={load}
                 onRelationAdded={handleRelationAdded}
+                onRelationRemoved={handleRelationRemoved}
                 onRelationUpdated={handleRelationUpdated}
               />
             );

@@ -82,7 +82,7 @@ Viser alle forbindelser til andre kort, grupperet efter relations­type. For hve
 
 - **Relateret kortnavn** — Klik for at navigere til det relaterede kort
 - **Relations­type** — Forbindelsens karakter (f.eks. "uses", "runs on", "depends on")
-- **Tilføj relation** — Klik på **+** for at oprette en ny relation; vælgeren viser matchende kort, så snart den åbnes (de bedste match på det, du skriver, står øverst, og flere hentes, når du ruller). Kort, der allerede er tilknyttet, skjules fra listen, og en billedtekst viser hvor mange. Vælgeren forbliver åben efter hvert valg, så du kan tilføje flere relationer i træk — nedenunder vises en tæller, og **Færdig** lukker rækken
+- **Tilføj relation** — Klik på **+** for at oprette en ny relation; vælgeren viser matchende kort, så snart den åbnes (de bedste match på det, du skriver, står øverst, og flere hentes, når du ruller). Kort, der allerede er tilknyttet, skjules fra listen, og en billedtekst viser hvor mange. Vælgeren forbliver åben efter hvert valg, så du kan tilføje flere relationer i træk, og hvert tilføjet kort vises som en chip lige over søgefeltet — klik på chippens **×** for at fortryde den tilføjelse. **Færdig** lukker rækken
 - **Sortering** — Relaterede kort vises alfabetisk efter navn
 - **Fjern relation** — Klik på slet-ikonet for at fjerne en relation
 - **Gruppér efter undertype** — Når en relationssektion har mange relaterede kort, grupperes de automatisk i sammenklappelige undertype-grupper (hver med et antal), med en afsluttende **Ingen undertype**-gruppe til uklassificerede kort. Brug gruppe/liste-knappen i sektionsoverskriften for at skifte mellem den grupperede og den flade visning.

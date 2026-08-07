@@ -120,6 +120,7 @@ describe("RelationsSection add flow", () => {
   beforeEach(() => {
     vi.mocked(api.get).mockReset();
     vi.mocked(api.post).mockReset();
+    vi.mocked(api.delete).mockReset();
   });
 
   it("hides already-linked cards from the picker and says how many are hidden", async () => {
@@ -175,8 +176,9 @@ describe("RelationsSection add flow", () => {
     await screen.findByPlaceholderText(/Search Organization/i);
     await userEvent.click(await screen.findByRole("option", { name: "Legal" }));
 
-    // The row lands optimistically and the picker is still there for the next.
-    await waitFor(() => expect(screen.getByText("Legal")).toBeInTheDocument());
+    // The row lands optimistically (once in the list, once as a chip) and the
+    // picker is still there for the next pick.
+    await waitFor(() => expect(screen.getAllByText("Legal").length).toBe(2));
     expect(screen.getByPlaceholderText(/Search Organization/i)).toBeInTheDocument();
     expect(screen.getByText(/1 added/i)).toBeInTheDocument();
     // No refetch per add — the POST response is appended directly.
@@ -221,5 +223,95 @@ describe("RelationsSection add flow", () => {
     );
     const listbox = screen.getByRole("listbox");
     expect(within(listbox).queryByText("Legal")).not.toBeInTheDocument();
+  });
+
+  it("keeps the dropdown open and the input cleared after a pick", async () => {
+    // The picker used to be remounted after each add, which tore the popper
+    // down and rebuilt it — the list flashed "Loading", refetched, and flipped
+    // between above and below the field. It must now survive a pick untouched.
+    mockApi(
+      [],
+      [
+        { id: "org-a", name: "Legal" },
+        { id: "org-b", name: "Public Works" },
+      ],
+    );
+    vi.mocked(api.post).mockResolvedValue({
+      id: "rel-a",
+      type: "appToOrg",
+      source_id: FS,
+      target_id: "org-a",
+      source: { id: FS, type: "Application", name: "NexaCore ERP" },
+      target: { id: "org-a", type: "Organization", name: "Legal" },
+    } as never);
+
+    await openSection();
+    await userEvent.click(screen.getByRole("button", { name: /Add Organization/i }));
+    const input = (await screen.findByPlaceholderText(
+      /Search Organization/i,
+    )) as HTMLInputElement;
+    await userEvent.type(input, "leg");
+    await userEvent.click(await screen.findByRole("option", { name: "Legal" }));
+
+    // Still open, ready for the next pick, with the typed text gone rather
+    // than replaced by the picked card's name.
+    await waitFor(() => expect(input).toHaveValue(""));
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+    // Crucially: no card refetch was triggered by the pick.
+    const cardCalls = vi
+      .mocked(api.get)
+      .mock.calls.filter((c) => (c[0] as string).startsWith("/cards"));
+    const afterPick = cardCalls.filter((c) => (c[0] as string).includes("search=leg"));
+    expect(afterPick.length).toBeLessThanOrEqual(1);
+  });
+
+  it("names a just-added row from the picked card even if the response omits its refs", async () => {
+    // Regression guard for the reported "Unknown" rows: the row must never
+    // depend on the POST response carrying `source`/`target`, because the card
+    // the user picked is already known locally and cannot be missing.
+    mockApi([], [{ id: "org-a", name: "Legal" }]);
+    vi.mocked(api.post).mockResolvedValue({
+      id: "rel-a",
+      type: "appToOrg",
+      source_id: FS,
+      target_id: "org-a",
+    } as never);
+
+    await openSection();
+    await userEvent.click(screen.getByRole("button", { name: /Add Organization/i }));
+    await screen.findByPlaceholderText(/Search Organization/i);
+    await userEvent.click(await screen.findByRole("option", { name: "Legal" }));
+
+    await waitFor(() => expect(screen.getAllByText("Legal").length).toBeGreaterThan(0));
+    expect(screen.queryByText(/unknown/i)).not.toBeInTheDocument();
+  });
+
+  it("removes an add from its chip without reloading the list", async () => {
+    const state = mockApi([], [{ id: "org-a", name: "Legal" }]);
+    vi.mocked(api.post).mockResolvedValue({
+      id: "rel-a",
+      type: "appToOrg",
+      source_id: FS,
+      target_id: "org-a",
+      source: { id: FS, type: "Application", name: "NexaCore ERP" },
+      target: { id: "org-a", type: "Organization", name: "Legal" },
+    } as never);
+    vi.mocked(api.delete).mockResolvedValue(undefined as never);
+
+    await openSection();
+    const fetchesAfterLoad = state.relationFetches;
+    await userEvent.click(screen.getByRole("button", { name: /Add Organization/i }));
+    await screen.findByPlaceholderText(/Search Organization/i);
+    await userEvent.click(await screen.findByRole("option", { name: "Legal" }));
+    await waitFor(() => expect(screen.getByText(/1 added/i)).toBeInTheDocument());
+
+    // The chip's delete button is the undo affordance.
+    await userEvent.click(document.querySelector(".MuiChip-deleteIcon") as Element);
+
+    await waitFor(() => expect(api.delete).toHaveBeenCalledWith("/relations/rel-a"));
+    await waitFor(() => expect(screen.queryByText(/1 added/i)).not.toBeInTheDocument());
+    // The row is gone from the list too, without a refetch.
+    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+    expect(state.relationFetches).toBe(fetchesAfterLoad);
   });
 });
