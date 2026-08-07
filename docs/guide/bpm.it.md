@@ -80,9 +80,9 @@ Approvare o rifiutare una revisione inviata richiede il permesso **Approva o rif
 
 #### Ritirare una versione pubblicata
 
-Un'approvazione data per errore può essere annullata senza eliminare il processo. La funzione è **disattivata per impostazione predefinita**; un amministratore la abilita da Pubblicazione controllata dei processi nelle [Impostazioni](../admin/settings.md).
+Un'approvazione data per errore può essere annullata senza eliminare il processo. Il ritiro richiede il permesso **Ritira (annulla la pubblicazione di) una versione di flusso BPMN pubblicata**, che **nessun ruolo possiede per impostazione predefinita**: un amministratore lo assegna in Amministrazione → Ruoli, oppure al ruolo di stakeholder **Responsabile del processo** in Amministrazione → Metamodello.
 
-Una volta abilitata e concesso il permesso, la versione pubblicata mostra un pulsante **Ritira**. Il ritiro richiede una motivazione scritta e quindi:
+Una volta concesso il permesso, la versione pubblicata mostra un pulsante **Ritira**. Il ritiro richiede una motivazione scritta e quindi:
 
 - porta la revisione a **Ritirata**: non viene mai eliminata né riportata a bozza;
 - mantiene a registro l'approvazione originale: chi ha approvato e quando restano visibili;

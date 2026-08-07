@@ -80,9 +80,9 @@ Aprovar ou rejeitar uma revisão submetida exige a permissão **Aprovar ou rejei
 
 #### Retirar uma versão publicada
 
-Uma aprovação dada por engano pode ser anulada sem eliminar o processo. Esta funcionalidade está **desativada por predefinição**; um administrador ativa-a em Publicação controlada de processos, nas [Definições](../admin/settings.md).
+Uma aprovação dada por engano pode ser anulada sem eliminar o processo. A retirada exige a permissão **Retirar (despublicar) uma versão de fluxo BPMN publicada**, que **nenhum perfil possui por predefinição** — um administrador concede-a em Administração → Perfis, ou no papel de parte interessada **Responsável do processo** em Administração → Metamodelo.
 
-Depois de ativada e concedida a permissão, a versão publicada passa a mostrar um botão **Retirar**. A retirada pede um motivo escrito e, em seguida:
+Depois de concedida a permissão, a versão publicada passa a mostrar um botão **Retirar**. A retirada pede um motivo escrito e, em seguida:
 
 - passa a revisão a **Retirado** — nunca é eliminada nem devolvida a rascunho;
 - mantém a aprovação original registada: quem aprovou, e quando, continuam visíveis;

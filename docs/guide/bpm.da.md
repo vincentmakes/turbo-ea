@@ -80,9 +80,9 @@ At godkende eller afvise en indsendt revision kræver tilladelsen **Godkend elle
 
 #### Træk en publiceret version tilbage
 
-En godkendelse givet ved en fejl kan omgøres uden at slette processen. Funktionen er **slået fra som standard**; en administrator aktiverer den under Kontrolleret procespublicering i [Indstillinger](../admin/settings.md).
+En godkendelse givet ved en fejl kan omgøres uden at slette processen. Tilbagetrækning kræver tilladelsen **Træk en publiceret BPMN-flowversion tilbage (afpublicer)**, som **ingen rolle har som standard** — en administrator tildeler den under Administration → Roller eller på interessentrollen **Procesejer** under Administration → Metamodel.
 
-Når den er slået til, og tilladelsen er givet, får den publicerede version en **Træk tilbage**-knap. Tilbagetrækning kræver en skriftlig begrundelse og derefter:
+Når tilladelsen er givet, får den publicerede version en **Træk tilbage**-knap. Tilbagetrækning kræver en skriftlig begrundelse og derefter:
 
 - flyttes revisionen til **Tilbagetrukket** — den slettes aldrig og sendes aldrig tilbage til kladde;
 - bevares den oprindelige godkendelse: hvem der godkendte, og hvornår, er fortsat synligt;

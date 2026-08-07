@@ -3871,31 +3871,6 @@
         "title": "ConnectionUpdate",
         "type": "object"
       },
-      "ControlledPublishingPayload": {
-        "description": "Both switches of the BPM controlled-publishing block (discussion #916).",
-        "properties": {
-          "enabled": {
-            "title": "Enabled",
-            "type": "boolean"
-          },
-          "require_separate_approver": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Require Separate Approver"
-          }
-        },
-        "required": [
-          "enabled"
-        ],
-        "title": "ControlledPublishingPayload",
-        "type": "object"
-      },
       "CurrencyPayload": {
         "properties": {
           "currency": {
@@ -12116,6 +12091,19 @@
         "title": "SecurityScanRunOut",
         "type": "object"
       },
+      "SeparateApproverPayload": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "SeparateApproverPayload",
+        "type": "object"
+      },
       "SetPasswordRequest": {
         "properties": {
           "password": {
@@ -19052,7 +19040,7 @@
     },
     "/api/v1/bpm/processes/{process_id}/flow/versions/{version_id}/withdraw": {
       "post": {
-        "description": "Withdraw (unpublish) the published process flow \u2014 discussion #916.\n\nForward-only. The version moves ``published`` \u2192 ``withdrawn``; it is never\nrewound to ``draft`` and never deleted, and ``revision`` / ``bpmn_xml`` /\n``approved_by`` / ``approved_at`` are all left exactly as they were. What is\nadded is the withdrawal itself: who, when, and a mandatory written reason.\nThat is what keeps this compliant with 21 CFR 11.10(e) (\"record changes\nshall not obscure previously recorded information\") and what ISO 9001:2015\n\u00a77.5.3.2 asks for when documented information becomes obsolete.\n\nThe extracted ``process_elements``, their organization links, and the\nelement-derived card relations are deliberately **left untouched**, matching\nthe additive-only contract ``sync_element_relations`` already has. A\nwithdrawal must not become a covert delete. BPM reports already filter on\n``status == \"published\"``, so diagram-coverage figures self-correct.\n\nThe process is left with *no* published flow. Previously-archived versions\nare not auto-reinstated: re-publishing an older revision is itself an\napproval and has to go through draft \u2192 submit \u2192 approve.",
+        "description": "Withdraw (unpublish) the published process flow \u2014 discussion #916.\n\nForward-only. The version moves ``published`` \u2192 ``withdrawn``; it is never\nrewound to ``draft`` and never deleted, and ``revision`` / ``bpmn_xml`` /\n``approved_by`` / ``approved_at`` are all left exactly as they were. What is\nadded is the withdrawal itself: who, when, and a mandatory written reason.\nThat is what keeps this compliant with 21 CFR 11.10(e) (\"record changes\nshall not obscure previously recorded information\") and what ISO 9001:2015\n\u00a77.5.3.2 asks for when documented information becomes obsolete.\n\nThe extracted ``process_elements``, their organization links, and the\nelement-derived card relations are deliberately **left untouched**, matching\nthe additive-only contract ``sync_element_relations`` already has. A\nwithdrawal must not become a covert delete. BPM reports already filter on\n``status == \"published\"``, so diagram-coverage figures self-correct.\n\nThe process is left with *no* published flow. Previously-archived versions\nare not auto-reinstated: re-publishing an older revision is itself an\napproval and has to go through draft \u2192 submit \u2192 approve.\n\nGated on the ``bpm.withdraw_flows`` / ``card.bpm_withdraw`` permission\nalone. There is no instance-level switch for this: whether withdrawal is\n*offered* is a permission question, while the part the standards actually\ncare about \u2014 recording who withdrew what, when and why \u2014 happens\nunconditionally below.",
         "operationId": "withdraw_version_api_v1_bpm_processes__process_id__flow_versions__version_id__withdraw_post",
         "parameters": [
           {
@@ -33573,64 +33561,6 @@
         ]
       }
     },
-    "/api/v1/settings/bpm-controlled-publishing": {
-      "get": {
-        "description": "Public endpoint \u2014 controlled publishing state for the BPM process flow workflow.\n\n``enabled`` is off by default: an instance that has not opted in behaves\nexactly as before, and the withdraw endpoint refuses regardless of\npermissions. ``require_separate_approver`` defaults to *on* so that turning\ncontrolled publishing on is safe by default (GxP segregation of duties);\na two-person team can switch that half back off.",
-        "operationId": "get_bpm_controlled_publishing_api_v1_settings_bpm_controlled_publishing_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Get Bpm Controlled Publishing",
-        "tags": [
-          "settings"
-        ]
-      },
-      "patch": {
-        "description": "Admin endpoint \u2014 enable controlled publishing and its separate-approver rule.\n\nEnabling this grants nobody anything on its own: withdrawal additionally\nrequires the ``bpm.withdraw_flows`` / ``card.bpm_withdraw`` permission, which\nno seeded role holds.",
-        "operationId": "update_bpm_controlled_publishing_api_v1_settings_bpm_controlled_publishing_patch",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ControlledPublishingPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Update Bpm Controlled Publishing",
-        "tags": [
-          "settings"
-        ]
-      }
-    },
     "/api/v1/settings/bpm-enabled": {
       "get": {
         "description": "Public endpoint \u2014 returns whether the BPM module is enabled.",
@@ -33742,6 +33672,64 @@
           }
         },
         "summary": "Update Bpm Row Order",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/bpm-separate-approver": {
+      "get": {
+        "description": "Public endpoint \u2014 whether a process flow needs a second person to approve it.\n\nOff by default so upgrading changes nothing for a team where one person both\nsubmits and approves; regulated instances turn it on deliberately.",
+        "operationId": "get_bpm_separate_approver_api_v1_settings_bpm_separate_approver_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Bpm Separate Approver",
+        "tags": [
+          "settings"
+        ]
+      },
+      "patch": {
+        "description": "Admin endpoint \u2014 require a separate approver for BPMN flow revisions.",
+        "operationId": "update_bpm_separate_approver_api_v1_settings_bpm_separate_approver_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SeparateApproverPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Bpm Separate Approver",
         "tags": [
           "settings"
         ]

@@ -140,21 +140,11 @@ Toggle the **Business Process Management** module on or off. When disabled:
 
 This is useful for organizations that do not use BPM and want a cleaner navigation experience.
 
-## Controlled Process Publishing
+### Require a separate approver
 
-For organizations working to GxP, ISO 9001 or a similar quality system. **Off by default** — nothing changes until an administrator turns it on.
+Off by default. When enabled, the person who submits a process flow revision cannot be the one who approves it — segregation of duties, as quality systems such as GxP and ISO 9001 expect.
 
-| Switch | Default | Effect |
-|--------|---------|--------|
-| **Allow a published process flow to be withdrawn** | Off | Adds a **Withdraw** button to a published process flow. While off, withdrawal is refused for everyone, whatever permissions they hold. |
-| **Require a separate approver** | On | The person who submits a revision cannot be the one who approves it. Only applies while the switch above is on — turn it off for a small team where one person does both. |
-
-Withdrawal is deliberately gated twice:
-
-- **This setting** is the organizational decision: whether your quality system permits a controlled withdrawal at all.
-- **The permission** is the individual decision: who may do it. Withdrawal also needs *Withdraw (unpublish) a published BPMN flow version*, or the card-level equivalent on a stakeholder role. **No role holds it by default**, so turning this setting on grants nobody anything. Grant it under Roles, or on the **Process Owner** stakeholder role in [Metamodel](metamodel.md).
-
-A withdrawn version is unpublished, never deleted: the original approval, the diagram and the revision number are all kept, and the withdrawal is recorded with its author, timestamp and written reason. See [Business Process Management](../guide/bpm.md) for what the user sees.
+Leave it off for a small team where the same person drafts and signs off. Turning it on does not change what is recorded: every submission, approval, rejection and withdrawal is written to the card's **History** tab either way.
 
 ## PPM Module
 

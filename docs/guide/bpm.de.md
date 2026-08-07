@@ -80,9 +80,9 @@ Das Freigeben oder Ablehnen einer eingereichten Revision erfordert die Berechtig
 
 #### Eine veröffentlichte Version zurückziehen
 
-Eine versehentlich erteilte Freigabe lässt sich rückgängig machen, ohne den Prozess zu löschen. Diese Funktion ist **standardmäßig deaktiviert**; eine Administratorin oder ein Administrator aktiviert sie unter Kontrollierte Prozessveröffentlichung in den [Einstellungen](../admin/settings.md).
+Eine versehentlich erteilte Freigabe lässt sich rückgängig machen, ohne den Prozess zu löschen. Dafür ist die Berechtigung **Veröffentlichte BPMN-Ablaufversion zurückziehen** erforderlich, die **standardmäßig keine Rolle besitzt** — sie wird unter Administration → Rollen vergeben oder für die Stakeholder-Rolle **Prozessverantwortlicher** unter Administration → Metamodell.
 
-Sobald sie aktiviert und die Berechtigung erteilt ist, erhält die veröffentlichte Version eine Schaltfläche **Zurückziehen**. Das Zurückziehen verlangt eine schriftliche Begründung und bewirkt dann:
+Sobald die Berechtigung erteilt ist, erhält die veröffentlichte Version eine Schaltfläche **Zurückziehen**. Das Zurückziehen verlangt eine schriftliche Begründung und bewirkt dann:
 
 - Die Revision wechselt zu **Zurückgezogen** — sie wird niemals gelöscht und nie in den Entwurfsstatus zurückgesetzt.
 - Die ursprüngliche Freigabe bleibt dokumentiert: wer sie erteilt hat und wann, bleibt sichtbar.

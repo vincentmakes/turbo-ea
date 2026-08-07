@@ -10,10 +10,13 @@ submitted seconds earlier — which is how a flow gets approved by accident in
 the first place. There was no test asserting a non-approver is refused, so
 these are the regression tests that were missing.
 
-**Withdrawal.** ``POST .../withdraw`` is gated twice (instance setting AND
-permission), takes a mandatory reason, and is forward-only: it must never clear
-the original approval, delete the version, or touch the extracted elements and
-their derived relations.
+**Withdrawal.** ``POST .../withdraw`` is gated on the ``bpm.withdraw_flows`` /
+``card.bpm_withdraw`` permission alone — no seeded role holds it — takes a
+mandatory reason, and is forward-only: it must never clear the original
+approval, delete the version, or touch the extracted elements and their derived
+relations. Crucially the *recording* of a withdrawal is unconditional: that, not
+the ability to withdraw, is what GxP and ISO 9001 actually require, so no
+instance setting may switch it off.
 """
 
 from __future__ import annotations
@@ -34,8 +37,8 @@ SAMPLE_BPMN = "<bpmn>test</bpmn>"
 GOOD_REASON = "Approved by mistake, wrong revision"
 
 
-async def _set_controlled_publishing(db, *, enabled, require_separate_approver=True):
-    """Write the two controlled-publishing keys into app_settings."""
+async def _set_separate_approver(db, *, enabled):
+    """Set the opt-in segregation-of-duties switch in app_settings."""
     from sqlalchemy import select
 
     from app.models.app_settings import AppSettings
@@ -47,8 +50,7 @@ async def _set_controlled_publishing(db, *, enabled, require_separate_approver=T
         row = AppSettings(id="default", general_settings={})
         db.add(row)
     general = dict(row.general_settings or {})
-    general["bpmControlledPublishing"] = enabled
-    general["bpmRequireSeparateApprover"] = require_separate_approver
+    general["bpmRequireSeparateApprover"] = enabled
     row.general_settings = general
     await db.flush()
 
@@ -276,7 +278,7 @@ class TestApprovalAuthority:
 class TestSeparateApprover:
     async def test_self_approval_allowed_when_controlled_publishing_off(self, client, db, env):
         """Default instance: unchanged behaviour for an approver acting alone."""
-        await _set_controlled_publishing(db, enabled=False)
+        await _set_separate_approver(db, enabled=False)
         process, bpm_admin = env["process"], env["bpm_admin"]
         vid = await _draft(client, process.id, bpm_admin)
         await _submit(client, process.id, vid, bpm_admin)
@@ -288,7 +290,7 @@ class TestSeparateApprover:
         assert resp.status_code == 200
 
     async def test_self_approval_refused_under_controlled_publishing(self, client, db, env):
-        await _set_controlled_publishing(db, enabled=True, require_separate_approver=True)
+        await _set_separate_approver(db, enabled=True)
         process, bpm_admin = env["process"], env["bpm_admin"]
         vid = await _draft(client, process.id, bpm_admin)
         await _submit(client, process.id, vid, bpm_admin)
@@ -301,7 +303,7 @@ class TestSeparateApprover:
         assert "separate approver" in resp.json()["detail"]
 
     async def test_different_approver_accepted_under_controlled_publishing(self, client, db, env):
-        await _set_controlled_publishing(db, enabled=True, require_separate_approver=True)
+        await _set_separate_approver(db, enabled=True)
         process, member, bpm_admin = env["process"], env["member"], env["bpm_admin"]
         vid = await _draft(client, process.id, member)
         await _submit(client, process.id, vid, member)
@@ -314,7 +316,7 @@ class TestSeparateApprover:
 
     async def test_sub_option_can_be_switched_off(self, client, db, env):
         """A two-person team keeps withdrawal without the second-approver rule."""
-        await _set_controlled_publishing(db, enabled=True, require_separate_approver=False)
+        await _set_separate_approver(db, enabled=False)
         process, bpm_admin = env["process"], env["bpm_admin"]
         vid = await _draft(client, process.id, bpm_admin)
         await _submit(client, process.id, vid, bpm_admin)
@@ -332,27 +334,12 @@ class TestSeparateApprover:
 
 
 class TestWithdrawGating:
-    async def test_refused_when_setting_off_even_for_admin(self, client, db, env):
-        """Gate 1 is the instance policy — the admin wildcard does not bypass it."""
-        await _set_controlled_publishing(db, enabled=False)
-        process, admin, member = env["process"], env["admin"], env["member"]
-        vid = await _publish(client, process.id, submitter=member, approver=admin)
-
-        resp = await client.post(
-            f"/api/v1/bpm/processes/{process.id}/flow/versions/{vid}/withdraw",
-            json={"reason": GOOD_REASON},
-            headers=auth_headers(admin),
-        )
-        assert resp.status_code == 403
-        assert "disabled on this instance" in resp.json()["detail"]
-
     async def test_refused_without_permission(self, client, db, env):
-        """Gate 2 — the setting alone grants nobody anything.
+        """Withdrawal is gated on the permission alone, and nobody holds it.
 
         The process owner can approve but holds no withdraw permission, which is
-        the shipped default.
+        the shipped default — no instance setting is involved.
         """
-        await _set_controlled_publishing(db, enabled=True)
         process, admin, member, owner = (
             env["process"],
             env["admin"],
@@ -374,7 +361,6 @@ class TestWithdrawGating:
 
         from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 
-        await _set_controlled_publishing(db, enabled=True)
         process, admin, member, owner = (
             env["process"],
             env["admin"],
@@ -406,7 +392,6 @@ class TestWithdrawGating:
 
 class TestWithdrawValidation:
     async def test_non_published_version_refused(self, client, db, env):
-        await _set_controlled_publishing(db, enabled=True)
         process, admin, member = env["process"], env["admin"], env["member"]
         await _publish(client, process.id, submitter=member, approver=admin)
         # A fresh draft is not the published version.
@@ -420,7 +405,6 @@ class TestWithdrawValidation:
         assert resp.status_code == 400
 
     async def test_empty_reason_refused(self, client, db, env):
-        await _set_controlled_publishing(db, enabled=True)
         process, admin, member = env["process"], env["admin"], env["member"]
         vid = await _publish(client, process.id, submitter=member, approver=admin)
 
@@ -433,7 +417,6 @@ class TestWithdrawValidation:
 
     async def test_whitespace_only_reason_refused(self, client, db, env):
         """Long enough to pass min_length, but still not a reason."""
-        await _set_controlled_publishing(db, enabled=True)
         process, admin, member = env["process"], env["admin"], env["member"]
         vid = await _publish(client, process.id, submitter=member, approver=admin)
 
@@ -449,7 +432,6 @@ class TestWithdrawValidation:
 class TestWithdrawEffects:
     async def test_withdrawal_is_forward_only(self, client, db, env):
         """The approval is recorded, not erased — 21 CFR 11.10(e)."""
-        await _set_controlled_publishing(db, enabled=True)
         process, admin, member = env["process"], env["admin"], env["member"]
         vid = await _publish(client, process.id, submitter=member, approver=admin)
 
@@ -480,7 +462,6 @@ class TestWithdrawEffects:
         assert after["withdrawal_reason"] == GOOD_REASON
 
     async def test_process_left_with_no_published_flow(self, client, db, env):
-        await _set_controlled_publishing(db, enabled=True)
         process, admin, member = env["process"], env["admin"], env["member"]
         vid = await _publish(client, process.id, submitter=member, approver=admin)
 
@@ -498,7 +479,6 @@ class TestWithdrawEffects:
         assert resp.json() is None
 
     async def test_withdrawn_version_listed_in_archived(self, client, db, env):
-        await _set_controlled_publishing(db, enabled=True)
         process, admin, member = env["process"], env["admin"], env["member"]
         vid = await _publish(client, process.id, submitter=member, approver=admin)
 
@@ -521,7 +501,6 @@ class TestWithdrawEffects:
         assert withdrawn[0]["withdrawn_by_name"] == admin.display_name
 
     async def test_cannot_withdraw_twice(self, client, db, env):
-        await _set_controlled_publishing(db, enabled=True)
         process, admin, member = env["process"], env["admin"], env["member"]
         vid = await _publish(client, process.id, submitter=member, approver=admin)
 
@@ -546,7 +525,6 @@ class TestWithdrawEffects:
         from app.models.process_element import ProcessElement
         from app.models.relation import Relation
 
-        await _set_controlled_publishing(db, enabled=True)
         process, admin, member = env["process"], env["admin"], env["member"]
         vid = await _publish(client, process.id, submitter=member, approver=admin)
 
@@ -577,7 +555,6 @@ class TestWithdrawEffects:
 
         from app.models.event import Event
 
-        await _set_controlled_publishing(db, enabled=True)
         process, admin, member = env["process"], env["admin"], env["member"]
         vid = await _publish(client, process.id, submitter=member, approver=admin)
 
@@ -603,9 +580,55 @@ class TestWithdrawEffects:
         assert events[0].data["reason"] == GOOD_REASON
         assert events[0].user_id == admin.id
 
+    async def test_capture_is_unconditional(self, client, db, env):
+        """No setting exists that can switch the audit record off.
+
+        This is the compliance-relevant guarantee. Offering withdrawal at all is
+        a permission question; *recording* who withdrew what, when and why is
+        not optional, so this runs with app_settings never written to.
+        """
+        from sqlalchemy import select
+
+        from app.models.app_settings import AppSettings
+        from app.models.event import Event
+
+        # Explicitly assert there is no settings row at all for this instance.
+        assert (
+            await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+        ).scalar_one_or_none() is None
+
+        process, admin, member = env["process"], env["admin"], env["member"]
+        vid = await _publish(client, process.id, submitter=member, approver=admin)
+
+        resp = await client.post(
+            f"/api/v1/bpm/processes/{process.id}/flow/versions/{vid}/withdraw",
+            json={"reason": GOOD_REASON},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["status"] == "withdrawn"
+        assert body["withdrawal_reason"] == GOOD_REASON
+        assert body["withdrawn_by"] == str(admin.id)
+        assert body["withdrawn_at"] is not None
+
+        events = (
+            (
+                await db.execute(
+                    select(Event).where(
+                        Event.card_id == process.id,
+                        Event.event_type == "process_flow.withdrawn",
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(events) == 1
+
     async def test_a_new_revision_can_be_approved_afterwards(self, client, db, env):
         """Recovery path: the process is not stuck without a flow."""
-        await _set_controlled_publishing(db, enabled=True, require_separate_approver=False)
+        await _set_separate_approver(db, enabled=False)
         process, admin, member = env["process"], env["admin"], env["member"]
         vid = await _publish(client, process.id, submitter=member, approver=admin)
         await client.post(

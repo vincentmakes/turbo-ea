@@ -140,21 +140,11 @@ Schalten Sie das **Business Process Management**-Modul ein oder aus. Wenn deakti
 
 Dies ist nützlich für Organisationen, die BPM nicht nutzen und eine übersichtlichere Navigation wünschen.
 
-## Kontrollierte Prozessveröffentlichung
+### Getrennten Freigebenden verlangen
 
-Für Organisationen, die nach GxP, ISO 9001 oder einem ähnlichen Qualitätssystem arbeiten. **Standardmäßig deaktiviert** — es ändert sich nichts, bis eine Administratorin oder ein Administrator die Funktion einschaltet.
+Standardmäßig deaktiviert. Ist die Option aktiv, darf die Person, die eine Revision eines Prozessablaufs einreicht, diese nicht selbst freigeben — Funktionstrennung, wie sie Qualitätssysteme wie GxP und ISO 9001 erwarten.
 
-| Schalter | Standard | Wirkung |
-|----------|----------|---------|
-| **Zurückziehen eines veröffentlichten Prozessablaufs erlauben** | Aus | Fügt einem veröffentlichten Prozessablauf eine Schaltfläche **Zurückziehen** hinzu. Solange der Schalter aus ist, wird das Zurückziehen für alle abgelehnt, unabhängig von den Berechtigungen. |
-| **Getrennten Freigebenden verlangen** | Ein | Wer eine Revision einreicht, darf sie nicht selbst freigeben. Gilt nur, solange der obige Schalter aktiv ist — für ein kleines Team, in dem eine Person beides übernimmt, kann er ausgeschaltet werden. |
-
-Das Zurückziehen ist bewusst doppelt abgesichert:
-
-- **Diese Einstellung** ist die organisatorische Entscheidung: ob Ihr Qualitätssystem ein kontrolliertes Zurückziehen überhaupt zulässt.
-- **Die Berechtigung** ist die persönliche Entscheidung: wer es durchführen darf. Zusätzlich ist die Berechtigung *Veröffentlichte BPMN-Ablaufversion zurückziehen* erforderlich oder deren Entsprechung auf Kartenebene bei einer Stakeholder-Rolle. **Standardmäßig besitzt sie keine Rolle**, das Aktivieren dieser Einstellung berechtigt also niemanden. Vergeben Sie sie unter Rollen oder für die Stakeholder-Rolle **Prozessverantwortlicher** im [Metamodell](metamodel.md).
-
-Eine zurückgezogene Version wird nur zurückgezogen, niemals gelöscht: die ursprüngliche Freigabe, das Diagramm und die Revisionsnummer bleiben erhalten, und das Zurückziehen wird mit Urheber, Zeitstempel und schriftlicher Begründung festgehalten. Was Benutzer davon sehen, beschreibt [Business Process Management](../guide/bpm.md).
+Für kleine Teams, in denen dieselbe Person erstellt und freigibt, bleibt die Option aus. Das Aktivieren ändert nichts an dem, was aufgezeichnet wird: Einreichung, Freigabe, Ablehnung und Zurückziehen landen in jedem Fall im Reiter **Verlauf** der Karte.
 
 ## PPM-Modul
 

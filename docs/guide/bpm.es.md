@@ -80,9 +80,9 @@ Aprobar o rechazar una revisión enviada requiere el permiso **Aprobar o rechaza
 
 #### Retirar una versión publicada
 
-Una aprobación dada por error puede deshacerse sin eliminar el proceso. Esta función está **desactivada de forma predeterminada**; un administrador la activa en Publicación controlada de procesos, dentro de [Configuración](../admin/settings.md).
+Una aprobación dada por error puede deshacerse sin eliminar el proceso. El retiro requiere el permiso **Retirar (despublicar) una versión de flujo BPMN publicada**, que **ningún rol tiene de forma predeterminada**: un administrador lo concede en Administración → Roles, o en el rol de parte interesada **Propietario del proceso** en Administración → Metamodelo.
 
-Una vez activada y concedido el permiso, la versión publicada muestra un botón **Retirar**. El retiro solicita un motivo por escrito y, a continuación:
+Una vez concedido el permiso, la versión publicada muestra un botón **Retirar**. El retiro solicita un motivo por escrito y, a continuación:
 
 - pasa la revisión a **Retirado**: nunca se elimina ni se devuelve a borrador;
 - mantiene la aprobación original registrada: quién aprobó y cuándo siguen visibles;

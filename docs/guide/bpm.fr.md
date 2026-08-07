@@ -80,9 +80,9 @@ Approuver ou rejeter une révision soumise exige la permission **Approuver ou re
 
 #### Retirer une version publiée
 
-Une approbation donnée par erreur peut être annulée sans supprimer le processus. Cette fonction est **désactivée par défaut** ; un administrateur l'active via Publication contrôlée des processus dans les [Paramètres](../admin/settings.md).
+Une approbation donnée par erreur peut être annulée sans supprimer le processus. Le retrait exige la permission **Retirer (dépublier) une version de flux BPMN publiée**, qu'**aucun rôle ne détient par défaut** — un administrateur l'accorde dans Administration → Rôles, ou sur le rôle de partie prenante **Propriétaire du processus** dans Administration → Métamodèle.
 
-Une fois activée et la permission accordée, la version publiée affiche un bouton **Retirer**. Le retrait demande un motif écrit, puis :
+Une fois la permission accordée, la version publiée affiche un bouton **Retirer**. Le retrait demande un motif écrit, puis :
 
 - fait passer la révision à **Retiré** — elle n'est jamais supprimée, ni renvoyée à l'état de brouillon ;
 - conserve l'approbation d'origine : qui a approuvé, et quand, restent visibles ;

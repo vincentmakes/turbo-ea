@@ -140,21 +140,11 @@ Active o desactive el módulo de **Gestión de Procesos de Negocio** (BPM). Cuan
 
 Esto es útil para organizaciones que no utilizan BPM y desean una experiencia de navegación más limpia.
 
-## Publicación controlada de procesos
+### Exigir un aprobador distinto
 
-Para organizaciones que trabajan según GxP, ISO 9001 o un sistema de calidad similar. **Desactivada de forma predeterminada**: nada cambia hasta que un administrador la active.
+Desactivado de forma predeterminada. Cuando se activa, quien envía una revisión de un flujo de proceso no puede ser quien la aprueba: segregación de funciones, tal como esperan sistemas de calidad como GxP e ISO 9001.
 
-| Interruptor | Predeterminado | Efecto |
-|-------------|----------------|--------|
-| **Permitir retirar un flujo de proceso publicado** | Desactivado | Añade un botón **Retirar** al flujo de proceso publicado. Mientras esté desactivado, el retiro se rechaza para todos, sean cuales sean sus permisos. |
-| **Exigir un aprobador distinto** | Activado | Quien envía una revisión no puede ser quien la aprueba. Solo se aplica mientras el interruptor anterior esté activo: desactívelo en equipos pequeños donde una misma persona hace ambas cosas. |
-
-El retiro está deliberadamente protegido por dos puertas:
-
-- **Este ajuste** es la decisión organizativa: si su sistema de calidad permite siquiera un retiro controlado.
-- **El permiso** es la decisión individual: quién puede hacerlo. El retiro también requiere el permiso *Retirar (despublicar) una versión de flujo BPMN publicada*, o su equivalente a nivel de tarjeta en un rol de parte interesada. **Ningún rol lo tiene de forma predeterminada**, por lo que activar este ajuste no autoriza a nadie. Concédalo en Roles, o en el rol de parte interesada **Propietario del proceso** en el [Metamodelo](metamodel.md).
-
-Una versión retirada se despublica, nunca se elimina: se conservan la aprobación original, el diagrama y el número de revisión, y el retiro queda registrado con su autor, marca de tiempo y motivo escrito. Consulte [Business Process Management](../guide/bpm.md) para ver qué muestra la interfaz.
+Déjelo desactivado en equipos pequeños donde la misma persona redacta y aprueba. Activarlo no cambia lo que se registra: los envíos, las aprobaciones, los rechazos y los retiros quedan en la pestaña **Historial** de la tarjeta en cualquier caso.
 
 ## Módulo PPM
 

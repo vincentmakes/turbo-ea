@@ -90,29 +90,33 @@ async def _can_approve_flow(db: AsyncSession, user: User, process_id: uuid.UUID)
 async def _can_withdraw_flow(db: AsyncSession, user: User, process_id: uuid.UUID) -> bool:
     """Check if a user may withdraw (unpublish) a published flow version.
 
-    Gated twice on purpose (discussion #916): the instance setting
-    ``bpmControlledPublishing`` is the organisational policy decision and is
-    checked separately by the caller, while this permission is the individual
-    authority decision. No seeded role holds it — an admin grants it
-    deliberately.
+    Withdrawal is gated on this permission alone (discussion #916). No seeded
+    role and no seeded stakeholder role holds it, so out of the box only an
+    admin — via the ``{"*": True}`` wildcard — can withdraw, and a process owner
+    only once an administrator grants it deliberately.
+
+    There is deliberately no instance-level "allow withdrawal" setting on top of
+    this. Offering withdrawal is not what GxP or ISO 9001 require; what they
+    require is that the change be *recorded*, and that recording is
+    unconditional — see ``withdraw_version``.
     """
     return await PermissionService.check_permission(
         db, user, "bpm.withdraw_flows", process_id, "card.bpm_withdraw"
     )
 
 
-async def _controlled_publishing(db: AsyncSession) -> tuple[bool, bool]:
-    """Return ``(controlled_publishing_on, require_separate_approver)``.
+async def _require_separate_approver(db: AsyncSession) -> bool:
+    """Whether a revision's submitter is barred from approving it themselves.
 
-    Both live in the ``app_settings.general_settings`` JSONB blob. The
-    sub-option defaults to *on* so that enabling controlled publishing is safe
-    by default; a two-person team can switch it back off.
+    Segregation of duties, off by default: turning it on is an explicit
+    organisational choice made in Admin → Settings → General, inside the BPM
+    module block. Defaulting it on would silently break every team where one
+    person both submits and approves.
     """
     result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
     row = result.scalar_one_or_none()
     general = (row.general_settings if row else None) or {}
-    enabled = bool(general.get("bpmControlledPublishing", False))
-    return enabled, bool(general.get("bpmRequireSeparateApprover", True))
+    return bool(general.get("bpmRequireSeparateApprover", False))
 
 
 def _version_response(v: ProcessFlowVersion) -> dict:
@@ -571,14 +575,13 @@ async def approve_version(
     if version.status != "pending":
         raise HTTPException(400, "Only pending versions can be approved")
 
-    # Segregation of duties (GxP / EU GMP Annex 11): under controlled publishing
-    # the person who submitted a revision may not be the one who signs it off.
-    controlled, require_separate_approver = await _controlled_publishing(db)
-    if controlled and require_separate_approver and version.submitted_by == user.id:
+    # Segregation of duties (GxP / EU GMP Annex 11), opt-in per instance: the
+    # person who submitted a revision may not be the one who signs it off.
+    if await _require_separate_approver(db) and version.submitted_by == user.id:
         raise HTTPException(
             403,
             "A different user must approve this revision — "
-            "controlled publishing requires a separate approver",
+            "this instance requires a separate approver",
         )
 
     version_id_for_reload = version.id
@@ -886,23 +889,17 @@ async def withdraw_version(
     The process is left with *no* published flow. Previously-archived versions
     are not auto-reinstated: re-publishing an older revision is itself an
     approval and has to go through draft → submit → approve.
+
+    Gated on the ``bpm.withdraw_flows`` / ``card.bpm_withdraw`` permission
+    alone. There is no instance-level switch for this: whether withdrawal is
+    *offered* is a permission question, while the part the standards actually
+    care about — recording who withdrew what, when and why — happens
+    unconditionally below.
     """
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
     process = await _get_process_or_404(db, pid)
 
-    # Gate 1 — organisational policy. Off by default, so nothing changes for an
-    # instance that has not opted in, whatever its roles say.
-    controlled, _ = await _controlled_publishing(db)
-    if not controlled:
-        raise HTTPException(
-            403,
-            "Withdrawing a published process flow is disabled on this instance. "
-            "An administrator can enable controlled process publishing in "
-            "Admin → Settings → General.",
-        )
-
-    # Gate 2 — individual authority.
     if not await _can_withdraw_flow(db, user, pid):
         raise HTTPException(403, "Insufficient permissions to withdraw a published process flow")
 
@@ -1168,11 +1165,9 @@ async def get_flow_permissions(
     """Return the current user's permissions on the process flow."""
     pid = uuid.UUID(process_id)
     await _get_process_or_404(db, pid)
-    controlled, _ = await _controlled_publishing(db)
     return {
         "can_view_drafts": await _can_view_drafts(db, user, pid),
         "can_edit_draft": await _can_edit_draft(db, user, pid),
         "can_approve": await _can_approve_flow(db, user, pid),
-        # Both gates, so the button is never offered when the endpoint would 403.
-        "can_withdraw": controlled and await _can_withdraw_flow(db, user, pid),
+        "can_withdraw": await _can_withdraw_flow(db, user, pid),
     }

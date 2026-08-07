@@ -80,9 +80,9 @@ Approving or rejecting a submitted revision needs the **Approve or reject submit
 
 #### Withdrawing a published version
 
-An approval given by mistake can be undone without deleting the process. This is **off by default**; an administrator enables it under Controlled process publishing in [Settings](../admin/settings.md).
+An approval given by mistake can be undone without deleting the process. Withdrawing requires the **Withdraw (unpublish) a published BPMN flow version** permission, which **no role holds by default** — an administrator grants it in Admin → Roles, or on the **Process Owner** stakeholder role in Admin → Metamodel.
 
-Once enabled and the permission is granted, the published version gains a **Withdraw** button. Withdrawing asks for a written reason, and then:
+Once the permission is granted, the published version gains a **Withdraw** button. Withdrawing asks for a written reason, and then:
 
 - moves the revision to **Withdrawn** — it is never deleted, and never sent back to draft
 - keeps the original approval on record: who approved it, and when, stay visible
