@@ -85,12 +85,15 @@ Une approbation donnée par erreur peut être annulée sans supprimer le process
 Une fois la permission accordée, la version publiée affiche un bouton **Retirer**. Le retrait demande un motif écrit, puis :
 
 - fait passer la révision à **Retiré** — elle n'est jamais supprimée, ni renvoyée à l'état de brouillon ;
-- conserve l'approbation d'origine : qui a approuvé, et quand, restent visibles ;
-- enregistre qui a retiré, quand et pourquoi — dans l'historique des versions et dans l'onglet **Historique** de la fiche ;
-- laisse le processus **sans flux approuvé** jusqu'à ce qu'une nouvelle révision soit soumise et approuvée ;
+- conserve l'approbation d'origine : l'onglet *Archivé* affiche la révision, qui l'a approuvée et quand, à côté de qui l'a retirée et pourquoi ;
+- enregistre le retrait, avec son motif, dans l'onglet **Historique** de la fiche ;
+- **ouvre une copie en nouveau brouillon** au numéro de révision suivant, pour que vous puissiez corriger le diagramme et le repasser par soumission → approbation ;
+- laisse le processus sans flux *approuvé* jusqu'à ce que ce brouillon soit approuvé ;
 - laisse intactes les étapes de processus extraites et leurs liens vers les fiches.
 
-Les versions archivées ne sont pas rétablies automatiquement. Republier une révision plus ancienne constitue en soi une approbation : créez-en un nouveau brouillon, soumettez-le et faites-le approuver.
+Conserver la révision retirée et modifier une copie est délibéré : le diagramme exact qu'un approbateur a validé reste consultable, ce qu'attend un système qualité, tout en vous donnant immédiatement une copie de travail.
+
+Toute version archivée ou retirée peut être reprise à tout moment via **Créer un nouveau brouillon à partir de celle-ci** dans l'onglet *Archivé*, qui la clone en brouillon à la révision suivante.
 
 ## Évaluations de processus
 

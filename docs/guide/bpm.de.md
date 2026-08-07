@@ -85,12 +85,15 @@ Eine versehentlich erteilte Freigabe lässt sich rückgängig machen, ohne den P
 Sobald die Berechtigung erteilt ist, erhält die veröffentlichte Version eine Schaltfläche **Zurückziehen**. Das Zurückziehen verlangt eine schriftliche Begründung und bewirkt dann:
 
 - Die Revision wechselt zu **Zurückgezogen** — sie wird niemals gelöscht und nie in den Entwurfsstatus zurückgesetzt.
-- Die ursprüngliche Freigabe bleibt dokumentiert: wer sie erteilt hat und wann, bleibt sichtbar.
-- Es wird festgehalten, wer wann und warum zurückgezogen hat — im Versionsverlauf und im Reiter **Verlauf** der Karte.
-- Der Prozess hat **keinen freigegebenen Ablauf** mehr, bis eine neue Revision eingereicht und freigegeben wurde.
+- Die ursprüngliche Freigabe bleibt dokumentiert: der Reiter *Archiviert* zeigt die Revision, wer sie freigegeben hat und wann, zusammen mit dem Zurückziehenden und der Begründung.
+- Das Zurückziehen wird mit seiner Begründung im Reiter **Verlauf** der Karte festgehalten.
+- Eine Kopie wird **als neuer Entwurf** mit der nächsten Revisionsnummer geöffnet, damit Sie das Diagramm korrigieren und erneut über Einreichen → Freigeben laufen lassen können.
+- Der Prozess hat keinen *freigegebenen* Ablauf, bis dieser Entwurf freigegeben ist.
 - Die extrahierten Prozessschritte und ihre Kartenverknüpfungen bleiben unverändert.
 
-Zuvor archivierte Versionen werden nicht automatisch reaktiviert. Eine ältere Revision erneut zu veröffentlichen ist selbst eine Freigabe: Erstellen Sie daraus einen neuen Entwurf, reichen Sie ihn ein und lassen Sie ihn freigeben.
+Dass die zurückgezogene Revision erhalten bleibt und nur eine Kopie bearbeitet wird, ist Absicht: So bleibt genau das Diagramm abrufbar, das eine freigebende Person unterzeichnet hat — was ein Qualitätssystem erwartet — und Sie erhalten trotzdem sofort eine Arbeitskopie.
+
+Jede archivierte oder zurückgezogene Version lässt sich jederzeit über **Neuen Entwurf hieraus erstellen** im Reiter *Archiviert* wieder aufgreifen; sie wird dann als neuer Entwurf mit der nächsten Revisionsnummer geklont.
 
 ## Prozessbeurteilungen
 

@@ -213,6 +213,8 @@
   "history.events.processFlowApproved": "Flusso di processo approvato",
   "history.events.processFlowRejected": "Flusso di processo rifiutato",
   "history.events.processFlowWithdrawn": "Flusso di processo ritirato",
+  "history.processFlowRevision": "Revisione {{revision}}",
+  "history.withdrawalReason": "Motivazione",
   "history.fields.lifecycle": "Ciclo di vita",
   "history.fields.alias": "Alias",
   "history.fields.externalId": "ID esterno",

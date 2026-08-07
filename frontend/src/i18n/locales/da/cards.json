@@ -213,6 +213,8 @@
   "history.events.processFlowApproved": "Procesflow godkendt",
   "history.events.processFlowRejected": "Procesflow afvist",
   "history.events.processFlowWithdrawn": "Procesflow trukket tilbage",
+  "history.processFlowRevision": "Revision {{revision}}",
+  "history.withdrawalReason": "Begrundelse",
   "history.fields.lifecycle": "Livscyklus",
   "history.fields.alias": "Alias",
   "history.fields.externalId": "Eksternt ID",

@@ -213,6 +213,8 @@
   "history.events.processFlowApproved": "已审批流程图",
   "history.events.processFlowRejected": "已驳回流程图",
   "history.events.processFlowWithdrawn": "已撤回流程图",
+  "history.processFlowRevision": "修订 {{revision}}",
+  "history.withdrawalReason": "理由",
   "history.fields.lifecycle": "生命周期",
   "history.fields.alias": "别名",
   "history.fields.externalId": "外部 ID",

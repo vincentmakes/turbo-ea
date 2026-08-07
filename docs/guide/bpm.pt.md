@@ -85,12 +85,15 @@ Uma aprovação dada por engano pode ser anulada sem eliminar o processo. A reti
 Depois de concedida a permissão, a versão publicada passa a mostrar um botão **Retirar**. A retirada pede um motivo escrito e, em seguida:
 
 - passa a revisão a **Retirado** — nunca é eliminada nem devolvida a rascunho;
-- mantém a aprovação original registada: quem aprovou, e quando, continuam visíveis;
-- regista quem retirou, quando e porquê, no histórico de versões e no separador **Histórico** do cartão;
-- deixa o processo **sem fluxo aprovado** até que uma nova revisão seja submetida e aprovada;
+- mantém a aprovação original registada: o separador *Arquivado* mostra a revisão, quem a aprovou e quando, a par de quem a retirou e porquê;
+- regista a retirada, com o seu motivo, no separador **Histórico** do cartão;
+- **abre uma cópia como novo rascunho** no número de revisão seguinte, para que possa corrigir o diagrama e voltar a passá-lo por submissão → aprovação;
+- deixa o processo sem fluxo *aprovado* até que esse rascunho seja aprovado;
 - deixa intactos os passos de processo extraídos e as suas ligações a cartões.
 
-As versões arquivadas não são repostas automaticamente. Voltar a publicar uma revisão mais antiga é, em si, uma aprovação: crie um novo rascunho a partir dela, submeta-o e faça com que seja aprovado.
+Manter a revisão retirada e editar uma cópia é deliberado: o diagrama exato que um aprovador assinou continua recuperável, que é o que um sistema de qualidade espera, e mesmo assim obtém logo uma cópia de trabalho.
+
+Qualquer versão arquivada ou retirada pode ser retomada a qualquer momento com **Criar novo rascunho a partir deste** no separador *Arquivado*, que a clona como rascunho na revisão seguinte.
 
 ## Avaliações de Processo
 

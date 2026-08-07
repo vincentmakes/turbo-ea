@@ -298,6 +298,10 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       loadInitial();
       loadDrafts();
       loadArchived();
+      // Land on Drafts: withdrawal opens a fresh draft, and that is what the
+      // user needs next. Leaving them on an empty Published tab is what made
+      // the flow look like it had vanished.
+      setSubTab(1);
     } catch (err) {
       setWithdrawError(err instanceof Error ? err.message : t("flowTab.withdrawFailed"));
     } finally {
@@ -919,6 +923,16 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                           size="small"
                           color={STATUS_COLORS[d.status] || "default"}
                         />
+                        {/* Provenance for a draft opened by a withdrawal, so it
+                            is obvious why this draft exists and what it replaces. */}
+                        {d.from_withdrawn_revision != null && (
+                          <Chip
+                            label={t("flowTab.withdrawnStatus")}
+                            size="small"
+                            color="error"
+                            variant="outlined"
+                          />
+                        )}
                       </Box>
                     }
                     secondary={
@@ -926,6 +940,11 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                         {t("flowTab.createdByOn", { name: d.created_by_name || "\u2014", date: formatVersionDate(d.created_at) })}
                         {d.status === "pending" && d.submitted_by_name && (
                           <> &mdash; {t("flowTab.submittedBy", { name: d.submitted_by_name })}</>
+                        )}
+                        {d.from_withdrawn_revision != null && (
+                          <Typography component="span" variant="caption" display="block">
+                            {t("flowTab.fromWithdrawnRevision", { revision: d.from_withdrawn_revision })}
+                          </Typography>
                         )}
                       </>
                     }
@@ -1118,7 +1137,14 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                 secondary={
                   a.status === "withdrawn" ? (
                     <>
-                      {t("flowTab.withdrawnByOn", { name: a.withdrawn_by_name || "\u2014", date: formatVersionDate(a.withdrawn_at) })}
+                      {/* A withdrawn revision has to show both halves: it was
+                          approved by someone, and later withdrawn by someone
+                          else. Showing only the withdrawal loses the approver
+                          an auditor is looking for. */}
+                      {t("flowTab.originallyApprovedBy", { name: a.approved_by_name || "\u2014", date: formatVersionDate(a.approved_at) })}
+                      <Typography component="span" variant="body2" display="block">
+                        {t("flowTab.withdrawnByOn", { name: a.withdrawn_by_name || "\u2014", date: formatVersionDate(a.withdrawn_at) })}
+                      </Typography>
                       {a.withdrawal_reason && (
                         <Typography
                           component="span"
@@ -1138,6 +1164,21 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                 }
               />
             </ListItemButton>
+
+            {/* Any past version can be picked up again as a new draft \u2014 the
+                backend has always supported based_on_id, it was just never
+                offered outside the Published tab. */}
+            {perms.can_edit_draft && (
+              <Box sx={{ display: "flex", gap: 0.5, px: 2, pb: 1 }}>
+                <Button
+                  size="small"
+                  startIcon={<MaterialSymbol icon="content_copy" />}
+                  onClick={() => handleCreateDraftFromVersion(a.id)}
+                >
+                  {t("flowTab.createNewDraftFromThis")}
+                </Button>
+              </Box>
+            )}
           </Paper>
         ))}
       </List>

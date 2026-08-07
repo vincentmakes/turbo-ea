@@ -1259,6 +1259,9 @@ export interface ProcessFlowVersion {
   withdrawn_by_name?: string;
   withdrawn_at?: string;
   withdrawal_reason?: string;
+  /** Set on a draft that was opened by withdrawing that revision — drives the
+   *  Withdrawn pill and the provenance caption in the Drafts tab. */
+  from_withdrawn_revision?: number | null;
   based_on_id?: string;
   draft_element_links?: Record<string, {
     application_id?: string;

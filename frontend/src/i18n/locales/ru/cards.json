@@ -213,6 +213,8 @@
   "history.events.processFlowApproved": "Схема процесса утверждена",
   "history.events.processFlowRejected": "Схема процесса отклонена",
   "history.events.processFlowWithdrawn": "Схема процесса отозвана",
+  "history.processFlowRevision": "Редакция {{revision}}",
+  "history.withdrawalReason": "Причина",
   "history.fields.lifecycle": "Жизненный цикл",
   "history.fields.alias": "Псевдоним",
   "history.fields.externalId": "Внешний ID",

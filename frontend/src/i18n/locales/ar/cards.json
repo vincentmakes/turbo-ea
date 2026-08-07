@@ -213,6 +213,8 @@
   "history.events.processFlowApproved": "تم اعتماد مخطط العملية",
   "history.events.processFlowRejected": "تم رفض مخطط العملية",
   "history.events.processFlowWithdrawn": "تم سحب مخطط العملية",
+  "history.processFlowRevision": "المراجعة {{revision}}",
+  "history.withdrawalReason": "السبب",
   "history.fields.lifecycle": "دورة الحياة",
   "history.fields.alias": "الاسم المستعار",
   "history.fields.externalId": "المعرّف الخارجي",

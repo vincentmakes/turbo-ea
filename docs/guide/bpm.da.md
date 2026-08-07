@@ -85,12 +85,15 @@ En godkendelse givet ved en fejl kan omgøres uden at slette processen. Tilbaget
 Når tilladelsen er givet, får den publicerede version en **Træk tilbage**-knap. Tilbagetrækning kræver en skriftlig begrundelse og derefter:
 
 - flyttes revisionen til **Tilbagetrukket** — den slettes aldrig og sendes aldrig tilbage til kladde;
-- bevares den oprindelige godkendelse: hvem der godkendte, og hvornår, er fortsat synligt;
-- registreres hvem der trak tilbage, hvornår og hvorfor — i versionshistorikken og på kortets fane **Historik**;
-- står processen **uden godkendt flow**, indtil en ny revision er indsendt og godkendt;
+- bevares den oprindelige godkendelse: fanen *Arkiveret* viser revisionen, hvem der godkendte den og hvornår, ved siden af hvem der trak den tilbage og hvorfor;
+- registreres tilbagetrækningen med sin begrundelse på kortets fane **Historik**;
+- **åbnes en kopi som en ny kladde** med det næste revisionsnummer, så du kan rette diagrammet og sende det gennem indsend → godkend igen;
+- står processen uden *godkendt* flow, indtil den kladde er godkendt;
 - forbliver de udtrukne procestrin og deres kortlinks urørte.
 
-Tidligere arkiverede versioner gendannes ikke automatisk. At genpublicere en ældre revision er i sig selv en godkendelse: opret en ny kladde ud fra den, indsend den, og få den godkendt.
+At bevare den tilbagetrukne revision og redigere en kopi er bevidst: præcis det diagram, en godkender skrev under på, kan stadig hentes frem, hvilket er, hvad et kvalitetssystem forventer — og du får alligevel straks en arbejdskopi.
+
+Enhver arkiveret eller tilbagetrukket version kan tages op igen når som helst med **Opret ny kladde ud fra denne** på fanen *Arkiveret*, som kloner den til en kladde med det næste revisionsnummer.
 
 ## Procesvurderinger
 

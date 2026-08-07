@@ -85,12 +85,15 @@ An approval given by mistake can be undone without deleting the process. Withdra
 Once the permission is granted, the published version gains a **Withdraw** button. Withdrawing asks for a written reason, and then:
 
 - moves the revision to **Withdrawn** — it is never deleted, and never sent back to draft
-- keeps the original approval on record: who approved it, and when, stay visible
-- records who withdrew it, when, and why — in the version history and in the card's **History** tab
-- leaves the process with **no approved flow** until a new revision is submitted and approved
+- keeps the original approval on record: the Archived tab shows the revision, who approved it and when, alongside who withdrew it and why
+- records the withdrawal, with its reason, in the card's **History** tab
+- **opens a copy as a new draft** at the next revision number, so you can correct the diagram and put it back through submit → approve
+- leaves the process with no *approved* flow until that draft is approved
 - leaves the extracted process steps and their card links untouched
 
-Previously archived versions are not brought back automatically. Re-publishing an older revision is itself an approval: create a new draft from it, submit it, and have it approved.
+Keeping the withdrawn revision and editing a copy is deliberate: it means the exact diagram an approver signed off stays retrievable, which is what a quality system expects, while you still get a working copy immediately.
+
+Any archived or withdrawn version can be picked up again at any time with **Create new draft from this** on the Archived tab, which clones it to a fresh draft at the next revision.
 
 ## Process Assessments
 

@@ -462,6 +462,7 @@ class TestWithdrawEffects:
         assert after["withdrawal_reason"] == GOOD_REASON
 
     async def test_process_left_with_no_published_flow(self, client, db, env):
+        """No *published* flow — though a draft is waiting, see the tests below."""
         process, admin, member = env["process"], env["admin"], env["member"]
         vid = await _publish(client, process.id, submitter=member, approver=admin)
 
@@ -625,6 +626,92 @@ class TestWithdrawEffects:
             .all()
         )
         assert len(events) == 1
+
+    async def test_withdrawal_opens_a_draft_at_the_next_revision(self, client, db, env):
+        """Withdrawing must not strand the process — it clones a working copy.
+
+        The withdrawn row is the approved artefact and is kept untouched; the
+        clone is what the owner edits. Mutating the original into a draft would
+        let the very BPMN an approver signed off be edited away.
+        """
+        process, admin, member = env["process"], env["admin"], env["member"]
+        vid = await _publish(client, process.id, submitter=member, approver=admin)
+
+        resp = await client.post(
+            f"/api/v1/bpm/processes/{process.id}/flow/versions/{vid}/withdraw",
+            json={"reason": GOOD_REASON},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        withdrawn_revision = body["revision"]
+        assert body["new_draft_revision"] == withdrawn_revision + 1
+
+        drafts = (
+            await client.get(
+                f"/api/v1/bpm/processes/{process.id}/flow/drafts",
+                headers=auth_headers(admin),
+            )
+        ).json()
+        assert len(drafts) == 1
+        draft = drafts[0]
+        assert draft["id"] == body["new_draft_id"]
+        assert draft["status"] == "draft"
+        assert draft["revision"] == withdrawn_revision + 1
+        assert draft["based_on_id"] == vid
+        # Provenance, so the UI can badge it rather than guessing.
+        assert draft["from_withdrawn_revision"] == withdrawn_revision
+
+    async def test_withdrawn_original_is_retained_intact(self, client, db, env):
+        """The approved artefact survives the withdrawal byte for byte."""
+        process, admin, member = env["process"], env["admin"], env["member"]
+        vid = await _publish(client, process.id, submitter=member, approver=admin)
+
+        await client.post(
+            f"/api/v1/bpm/processes/{process.id}/flow/versions/{vid}/withdraw",
+            json={"reason": GOOD_REASON},
+            headers=auth_headers(admin),
+        )
+
+        original = (
+            await client.get(
+                f"/api/v1/bpm/processes/{process.id}/flow/versions/{vid}",
+                headers=auth_headers(admin),
+            )
+        ).json()
+        assert original["status"] == "withdrawn"
+        assert original["bpmn_xml"] == SAMPLE_BPMN
+        assert original["approved_by"] == str(admin.id)
+        assert original["approved_at"] is not None
+
+    async def test_the_auto_draft_publishes_at_the_bumped_revision(self, client, db, env):
+        """End to end: withdraw, then re-approve the draft it opened."""
+        process, admin, member = env["process"], env["admin"], env["member"]
+        vid = await _publish(client, process.id, submitter=member, approver=admin)
+        withdraw = (
+            await client.post(
+                f"/api/v1/bpm/processes/{process.id}/flow/versions/{vid}/withdraw",
+                json={"reason": GOOD_REASON},
+                headers=auth_headers(admin),
+            )
+        ).json()
+
+        draft_id = withdraw["new_draft_id"]
+        await _submit(client, process.id, draft_id, member)
+        approve = await client.post(
+            f"/api/v1/bpm/processes/{process.id}/flow/versions/{draft_id}/approve",
+            headers=auth_headers(admin),
+        )
+        assert approve.status_code == 200, approve.text
+
+        published = (
+            await client.get(
+                f"/api/v1/bpm/processes/{process.id}/flow/published",
+                headers=auth_headers(admin),
+            )
+        ).json()
+        assert published["id"] == draft_id
+        assert published["revision"] == withdraw["revision"] + 1
 
     async def test_a_new_revision_can_be_approved_afterwards(self, client, db, env):
         """Recovery path: the process is not stuck without a flow."""

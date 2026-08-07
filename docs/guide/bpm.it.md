@@ -85,12 +85,15 @@ Un'approvazione data per errore può essere annullata senza eliminare il process
 Una volta concesso il permesso, la versione pubblicata mostra un pulsante **Ritira**. Il ritiro richiede una motivazione scritta e quindi:
 
 - porta la revisione a **Ritirata**: non viene mai eliminata né riportata a bozza;
-- mantiene a registro l'approvazione originale: chi ha approvato e quando restano visibili;
-- registra chi ha ritirato, quando e perché, nella cronologia delle versioni e nella scheda **Cronologia** della card;
-- lascia il processo **senza flusso approvato** finché non viene inviata e approvata una nuova revisione;
+- mantiene a registro l'approvazione originale: la scheda *Archiviate* mostra la revisione, chi l'ha approvata e quando, accanto a chi l'ha ritirata e perché;
+- registra il ritiro, con la sua motivazione, nella scheda **Cronologia** della card;
+- **apre una copia come nuova bozza** al numero di revisione successivo, così potete correggere il diagramma e rifarlo passare da invio → approvazione;
+- lascia il processo senza flusso *approvato* finché quella bozza non viene approvata;
 - lascia intatti i passi di processo estratti e i loro collegamenti alle card.
 
-Le versioni archiviate non vengono ripristinate automaticamente. Ripubblicare una revisione più vecchia è a sua volta un'approvazione: createne una nuova bozza, inviatela e fatela approvare.
+Conservare la revisione ritirata e modificarne una copia è voluto: il diagramma esatto che un approvatore ha firmato resta recuperabile, come si aspetta un sistema qualità, e voi ottenete comunque subito una copia di lavoro.
+
+Qualsiasi versione archiviata o ritirata può essere ripresa in qualsiasi momento con **Crea una nuova bozza da questa** nella scheda *Archiviate*, che la clona in una bozza alla revisione successiva.
 
 ## Valutazioni dei processi
 

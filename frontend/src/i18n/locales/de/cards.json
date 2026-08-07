@@ -213,6 +213,8 @@
   "history.events.processFlowApproved": "Prozessablauf freigegeben",
   "history.events.processFlowRejected": "Prozessablauf abgelehnt",
   "history.events.processFlowWithdrawn": "Prozessablauf zurückgezogen",
+  "history.processFlowRevision": "Revision {{revision}}",
+  "history.withdrawalReason": "Begründung",
   "history.fields.lifecycle": "Lebenszyklus",
   "history.fields.alias": "Alias",
   "history.fields.externalId": "Externe ID",

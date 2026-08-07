@@ -85,12 +85,15 @@ Una aprobación dada por error puede deshacerse sin eliminar el proceso. El reti
 Una vez concedido el permiso, la versión publicada muestra un botón **Retirar**. El retiro solicita un motivo por escrito y, a continuación:
 
 - pasa la revisión a **Retirado**: nunca se elimina ni se devuelve a borrador;
-- mantiene la aprobación original registrada: quién aprobó y cuándo siguen visibles;
-- registra quién retiró, cuándo y por qué, en el historial de versiones y en la pestaña **Historial** de la tarjeta;
-- deja el proceso **sin flujo aprobado** hasta que se envíe y se apruebe una nueva revisión;
+- mantiene la aprobación original registrada: la pestaña *Archivado* muestra la revisión, quién la aprobó y cuándo, junto a quién la retiró y por qué;
+- registra el retiro, con su motivo, en la pestaña **Historial** de la tarjeta;
+- **abre una copia como nuevo borrador** en el siguiente número de revisión, para que pueda corregir el diagrama y volver a pasarlo por envío → aprobación;
+- deja el proceso sin flujo *aprobado* hasta que se apruebe ese borrador;
 - deja intactos los pasos de proceso extraídos y sus vínculos con tarjetas.
 
-Las versiones archivadas no se restauran automáticamente. Volver a publicar una revisión anterior es en sí mismo una aprobación: cree un nuevo borrador a partir de ella, envíelo y haga que se apruebe.
+Conservar la revisión retirada y editar una copia es deliberado: el diagrama exacto que aprobó un aprobador sigue siendo recuperable, que es lo que espera un sistema de calidad, y aun así obtiene una copia de trabajo de inmediato.
+
+Cualquier versión archivada o retirada puede retomarse en cualquier momento con **Crear nuevo borrador a partir de este** en la pestaña *Archivado*, que la clona como borrador en la siguiente revisión.
 
 ## Evaluaciones de Proceso
 

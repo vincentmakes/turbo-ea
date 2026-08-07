@@ -118,12 +118,13 @@ interface EventDetailProps {
   eventType: string;
   fallbackSummary: string | null;
   typeIconFor: (typeKey: string | null | undefined) => { icon: string; color: string } | null;
+  t: (key: string, opts?: Record<string, unknown>) => string;
 }
 
 /** Renders a richer one-liner for events that ship structured context
  *  (relations, risks, documents, files). Falls back to the plain summary
  *  for everything else. */
-function EventDetail({ data, eventType, fallbackSummary, typeIconFor }: EventDetailProps) {
+function EventDetail({ data, eventType, fallbackSummary, typeIconFor, t }: EventDetailProps) {
   if (!data) return fallbackSummary ? <PlainSummary text={fallbackSummary} /> : null;
 
   if (eventType.startsWith("relation.")) {
@@ -216,6 +217,31 @@ function EventDetail({ data, eventType, fallbackSummary, typeIconFor }: EventDet
   if (eventType.startsWith("stakeholder.")) {
     // Stakeholder events ship a clean summary already (user · role[ · old → new]).
     return fallbackSummary ? <PlainSummary text={fallbackSummary} /> : null;
+  }
+
+  if (eventType.startsWith("process_flow.")) {
+    // All four flow events carry the revision; only a withdrawal carries a
+    // reason. The reason is rendered in full and never truncated — an audit
+    // trail that hides the justification defeats its own purpose.
+    const revision = data.revision as number | undefined;
+    const reason = (data.reason as string | undefined)?.trim();
+    if (revision == null && !reason) {
+      return fallbackSummary ? <PlainSummary text={fallbackSummary} /> : null;
+    }
+    return (
+      <Box sx={{ mt: 0.25 }}>
+        {revision != null && (
+          <Typography variant="body2" color="text.secondary">
+            {t("history.processFlowRevision", { revision })}
+          </Typography>
+        )}
+        {reason && (
+          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
+            {t("history.withdrawalReason")}: {reason}
+          </Typography>
+        )}
+      </Box>
+    );
   }
 
   return fallbackSummary ? <PlainSummary text={fallbackSummary} /> : null;
@@ -376,6 +402,7 @@ function HistoryTab({ fsId, cardType }: { fsId: string; cardType?: string }) {
                   eventType={e.event_type}
                   fallbackSummary={summary}
                   typeIconFor={typeIconFor}
+                  t={t}
                 />
               )}
 

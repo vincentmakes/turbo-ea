@@ -153,6 +153,48 @@ def _version_summary(v: ProcessFlowVersion) -> dict:
     return resp
 
 
+async def _links_from_live_elements(db: AsyncSession, process_id: uuid.UUID) -> dict | None:
+    """Rebuild a ``draft_element_links`` map from the live ``ProcessElement`` rows.
+
+    A published or archived version's own ``draft_element_links`` is typically
+    empty because the links were consumed when it was published, so cloning it
+    would silently drop every EA reference. Pulling from the element table
+    instead gives the new draft the links the process actually has today.
+    """
+    result = await db.execute(
+        select(ProcessElement)
+        .options(selectinload(ProcessElement.organizations))
+        .where(ProcessElement.process_id == process_id)
+    )
+    links: dict = {}
+    for elem in result.scalars().all():
+        link: dict = {}
+        if elem.application_id:
+            link["application_id"] = str(elem.application_id)
+        if elem.data_object_id:
+            link["data_object_id"] = str(elem.data_object_id)
+        if elem.it_component_id:
+            link["it_component_id"] = str(elem.it_component_id)
+        if elem.organizations:
+            link["organization_ids"] = [str(o.id) for o in elem.organizations]
+        if elem.custom_fields:
+            link["custom_fields"] = elem.custom_fields
+        if link:
+            links[elem.bpmn_element_id] = link
+    return links or None
+
+
+async def _next_revision(db: AsyncSession, process_id: uuid.UUID) -> int:
+    """Next revision number for a process — monotonic across every status."""
+    result = await db.execute(
+        select(ProcessFlowVersion.revision)
+        .where(ProcessFlowVersion.process_id == process_id)
+        .order_by(ProcessFlowVersion.revision.desc())
+        .limit(1)
+    )
+    return (result.scalar_one_or_none() or 0) + 1
+
+
 def _apply_draft_link(elem: ProcessElement, link: dict, valid_card_ids: set[str]) -> None:
     """Apply draft element link data to a ProcessElement, skipping stale references.
 
@@ -237,7 +279,28 @@ async def list_drafts(
         )
         .order_by(ProcessFlowVersion.created_at.desc())
     )
-    return [_version_summary(v) for v in result.scalars().all()]
+    drafts = list(result.scalars().all())
+
+    # A draft spawned by a withdrawal carries its provenance so the UI can badge
+    # it, rather than inferring "this looks like a withdrawal" from the shape of
+    # the data. Resolved in one query over the bases, not per draft.
+    base_ids = {v.based_on_id for v in drafts if v.based_on_id}
+    withdrawn_bases: dict[uuid.UUID, int] = {}
+    if base_ids:
+        bases = await db.execute(
+            select(ProcessFlowVersion.id, ProcessFlowVersion.revision).where(
+                ProcessFlowVersion.id.in_(base_ids),
+                ProcessFlowVersion.status == "withdrawn",
+            )
+        )
+        withdrawn_bases = {bid: rev for bid, rev in bases.all()}
+
+    summaries = []
+    for v in drafts:
+        summary = _version_summary(v)
+        summary["from_withdrawn_revision"] = withdrawn_bases.get(v.based_on_id)
+        summaries.append(summary)
+    return summaries
 
 
 @router.post("/processes/{process_id}/flow/drafts", status_code=201)
@@ -279,38 +342,9 @@ async def create_draft(
         # actual ProcessElement records (the published element table).
         draft_links_clone = base_version.draft_element_links
         if not draft_links_clone:
-            existing_elems = await db.execute(
-                select(ProcessElement)
-                .options(selectinload(ProcessElement.organizations))
-                .where(ProcessElement.process_id == pid)
-            )
-            links_from_elements: dict = {}
-            for elem in existing_elems.scalars().all():
-                link: dict = {}
-                if elem.application_id:
-                    link["application_id"] = str(elem.application_id)
-                if elem.data_object_id:
-                    link["data_object_id"] = str(elem.data_object_id)
-                if elem.it_component_id:
-                    link["it_component_id"] = str(elem.it_component_id)
-                if elem.organizations:
-                    link["organization_ids"] = [str(o.id) for o in elem.organizations]
-                if elem.custom_fields:
-                    link["custom_fields"] = elem.custom_fields
-                if link:
-                    links_from_elements[elem.bpmn_element_id] = link
-            if links_from_elements:
-                draft_links_clone = links_from_elements
+            draft_links_clone = await _links_from_live_elements(db, pid)
 
-    # Determine next revision number
-    latest = await db.execute(
-        select(ProcessFlowVersion.revision)
-        .where(ProcessFlowVersion.process_id == pid)
-        .order_by(ProcessFlowVersion.revision.desc())
-        .limit(1)
-    )
-    latest_rev = latest.scalar_one_or_none()
-    next_rev = (latest_rev or 0) + 1
+    next_rev = await _next_revision(db, pid)
 
     version = ProcessFlowVersion(
         process_id=pid,
@@ -886,9 +920,15 @@ async def withdraw_version(
     withdrawal must not become a covert delete. BPM reports already filter on
     ``status == "published"``, so diagram-coverage figures self-correct.
 
-    The process is left with *no* published flow. Previously-archived versions
-    are not auto-reinstated: re-publishing an older revision is itself an
-    approval and has to go through draft → submit → approve.
+    The process is left with no *published* flow, but not empty-handed: the
+    withdrawn content is cloned into a fresh draft at the next revision so the
+    owner can correct it and put it back through submit → approve. The withdrawn
+    row itself is untouched and stays in the Archived tab, which is what keeps
+    the approved artefact retrievable — mutating it into the draft instead would
+    let the very BPMN an approver signed off be edited away.
+
+    Previously-archived versions are still not auto-reinstated: re-publishing an
+    older revision is itself an approval and goes through the same cycle.
 
     Gated on the ``bpm.withdraw_flows`` / ``card.bpm_withdraw`` permission
     alone. There is no instance-level switch for this: whether withdrawal is
@@ -930,6 +970,28 @@ async def withdraw_version(
     version.withdrawn_by = user.id
     version.withdrawal_reason = reason
 
+    # Clone the withdrawn content into a fresh draft so the process owner can
+    # correct and re-publish it, rather than being left with nothing and having
+    # to hunt for the archived version. The withdrawn row is kept intact
+    # alongside — that copy is the approved artefact the standards require be
+    # retained, and it is what the Archived tab shows.
+    new_draft = ProcessFlowVersion(
+        process_id=pid,
+        status="draft",
+        revision=await _next_revision(db, pid),
+        bpmn_xml=version.bpmn_xml,
+        svg_thumbnail=version.svg_thumbnail,
+        created_by=user.id,
+        based_on_id=version.id,
+        draft_element_links=(
+            version.draft_element_links or await _links_from_live_elements(db, pid)
+        ),
+    )
+    db.add(new_draft)
+    await db.flush()
+    new_draft_id = str(new_draft.id)
+    new_draft_revision = new_draft.revision
+
     # Notify the people who own the approval that is being undone.
     for recipient in {previously_approved_by, previously_submitted_by} - {None}:
         await notification_service.create_notification(
@@ -939,9 +1001,10 @@ async def withdraw_version(
             title=f"Process flow withdrawn for {process.name}",
             message=(
                 f"{user.display_name} withdrew revision {revision}. "
-                f"Reason: {reason} — {process.name} now has no approved process flow."
+                f"Reason: {reason} — revision {new_draft_revision} has been opened "
+                f"as a draft so {process.name} can be corrected and re-published."
             ),
-            link=f"/cards/{process_id}?tab=process-flow&subtab=archived",
+            link=f"/cards/{process_id}?tab=process-flow&subtab=drafts",
             card_id=pid,
             actor_id=user.id,
         )
@@ -953,6 +1016,7 @@ async def withdraw_version(
             "revision": revision,
             "withdrawn_by": user.display_name,
             "reason": reason,
+            "new_draft_revision": new_draft_revision,
         },
         db=db,
         card_id=pid,
@@ -971,7 +1035,12 @@ async def withdraw_version(
         .where(ProcessFlowVersion.id == version_id_for_reload)
     )
     version = result.scalar_one()
-    return _version_response(version)
+    return {
+        **_version_response(version),
+        # So the UI can point the user straight at the draft it just opened.
+        "new_draft_id": new_draft_id,
+        "new_draft_revision": new_draft_revision,
+    }
 
 
 # ── Archived ────────────────────────────────────────────────────────────
