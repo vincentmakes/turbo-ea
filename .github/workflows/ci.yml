@@ -210,8 +210,12 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
         working-directory: frontend
+      # audit-ci instead of bare `npm audit --omit=dev`: same strictness
+      # (fails on any-severity production advisory) but supports a
+      # documented allowlist for advisories with no patched version —
+      # see .github/audit-ci.jsonc (the npm counterpart of trivy-allowlist).
       - name: Audit npm dependencies
-        run: npm audit --omit=dev
+        run: npx audit-ci@^7 --config ../.github/audit-ci.jsonc
         working-directory: frontend
 
   # ── Migration Rollback Test ───────────────────────────────────────────

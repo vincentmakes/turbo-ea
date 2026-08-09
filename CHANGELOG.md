@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 - **The `teax` authoring CLI validates manifest grants.** An unknown grant string in `extension.json` is now a lint/pack error (previously it was silently inert), and packing defaults `sdk_version` to 1.2.
 
+### Security
+- **Updated two frontend dependencies past freshly published advisories**: DOMPurify to 3.4.13 (XSS via detached subtrees in `IN_PLACE` mode) and the document exporter's nanoid to 5.1.16 (infinite loop on negative sizes).
+- **The frontend dependency audit in CI now supports a documented allowlist** (audit-ci with `.github/audit-ci.jsonc`, mirroring the existing Trivy allowlist). First entries: two denial-of-service advisories in `image-size` — a library the PPTX report export uses on app-generated thumbnails only — which have no patched version upstream yet.
+
 ## [2.45.0] - 2026-08-07
 
 ### Changed

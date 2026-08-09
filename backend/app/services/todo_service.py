@@ -131,6 +131,8 @@ async def _publish(
 
 
 async def _notify_assigned(db: AsyncSession, actor: TodoActor, todo: Todo) -> None:
+    if todo.assigned_to is None:
+        return
     await notification_service.create_notification(
         db,
         user_id=todo.assigned_to,

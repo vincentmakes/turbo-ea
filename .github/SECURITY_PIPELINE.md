@@ -27,7 +27,7 @@ Two scanners covering the same layer is deliberate — different vuln DBs have d
 [`ci.yml`](workflows/ci.yml) (path-filtered — workflow-only PRs skip app jobs):
 - **Backend lint / unit tests / integration tests / type check**
 - **Backend Security Scan** — `pip-audit --strict` against generated `requirements.txt`. Fails on any open CVE in production dependencies.
-- **Frontend Security Scan** — `npm audit --omit=dev`. Fails on any open CVE in production dependencies.
+- **Frontend Security Scan** — `audit-ci` (config: [`.github/audit-ci.jsonc`](audit-ci.jsonc)). Fails on any open CVE in production dependencies, except advisory ids explicitly allowlisted in the config — the npm counterpart of the Trivy allowlist, same rules: documented rationale per entry, quarterly re-evaluation, entry removed the moment upstream ships a patch.
 - **Migration Rollback Test** — exercises Alembic up→down→up so a broken downgrade can't ship.
 - **CodeQL** — GitHub's default-setup, languages `actions / javascript / javascript-typescript / python / typescript`, query suite `default`, threat model `remote`. Findings land in the Security tab; CRITICAL/HIGH alerts require dismissal or a fix.
 
@@ -91,7 +91,7 @@ Why this exists: CVEs disclosed *after* the last image build would otherwise go 
 
 ### Monthly + on-demand
 - **GitHub Security tab** — review aggregated Trivy + Scout + CodeQL + Dependabot alerts. Dismiss with reason for known-not-applicable findings.
-- **Trivy allowlist quarterly review** — re-evaluate every entry in `.github/trivy-allowlist`. Remove anything an upstream patch now fixes.
+- **Allowlist quarterly review** — re-evaluate every entry in `.github/trivy-allowlist` **and** `.github/audit-ci.jsonc`. Remove anything an upstream patch now fixes.
 
 ## Operational runbook
 
@@ -115,7 +115,7 @@ have. To get the open alerts (CodeQL + Trivy + Scout) as a plain table:
 2. Decide which path applies:
    - **Upstream patch exists** → bump the base image (most CVEs in alpine packages are fixed by the next pinned `nginx:1.30.x-alpine` etc.). Open a PR with the bump.
    - **Patch exists but adoption needs a major bump** → file an issue, ship the major bump as a separate PR.
-   - **No patch, not exploitable in our usage path** → allowlist in `.github/trivy-allowlist`. **Required**: a comment block above the CVE explaining package, why it isn't exploitable for us, reviewer initials, date. Re-evaluate next quarter.
+   - **No patch, not exploitable in our usage path** → allowlist in `.github/trivy-allowlist` (image CVEs) or `.github/audit-ci.jsonc` (npm advisories). **Required**: a comment block above the CVE/GHSA id explaining package, why it isn't exploitable for us, reviewer initials, date. Re-evaluate next quarter.
    - **No patch, exploitable** → don't ship. Mitigate at the nginx / app layer if possible; otherwise the workflow stays red until upstream fixes.
 3. Re-run the workflow.
 

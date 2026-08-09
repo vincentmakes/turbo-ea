@@ -30,7 +30,9 @@ Design invariants:
 from __future__ import annotations
 
 import uuid
+from collections.abc import Awaitable, Callable
 from datetime import datetime
+from typing import TypeVar
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -50,6 +52,8 @@ from app.services.todo_service import TodoActor, TodoError
 
 READ_GRANTS = frozenset({"core.todos.read", "core.todos.write"})
 WRITE_GRANT = "core.todos.write"
+
+_T = TypeVar("_T")
 
 
 def _to_ext_todo(t: Todo) -> ExtTodo:
@@ -157,7 +161,7 @@ class ExtensionTodos(TodosBridge):
 
     # -- writes ------------------------------------------------------------
 
-    async def _write(self, op):
+    async def _write(self, op: Callable[[AsyncSession], Awaitable[_T]]) -> _T:
         """Run ``op(db)`` inside a fresh session with ext provenance: origin
         contextvar ``"ext"`` plus an explicit committed mutation batch."""
         self._require(write=True)

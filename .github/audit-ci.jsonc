@@ -1,0 +1,30 @@
+{
+  // npm-audit gate configuration for the Frontend Security Scan CI job
+  // (audit-ci, run from frontend/ as `npx audit-ci --config ../.github/audit-ci.jsonc`).
+  //
+  // Same strictness as the bare `npm audit --omit=dev` it replaced: any
+  // advisory of any severity in production dependencies fails the job —
+  // UNLESS the advisory id is allowlisted below. This file is the npm
+  // counterpart of `.github/trivy-allowlist`, with the same rules: every
+  // entry needs a comment block (package, why it isn't exploitable for us,
+  // date), and every entry is re-evaluated at the quarterly review — remove
+  // it the moment upstream ships a patched version.
+  "$schema": "https://raw.githubusercontent.com/IBM/audit-ci/main/docs/schema.json",
+  "low": true,
+  "skip-dev": true,
+  "allowlist": [
+    // image-size (transitive: pptxgenjs → image-size) — ICNS parser DoS
+    // via infinite loop. No patched version upstream (advisory: "<=2.0.2,
+    // patched: none" — i.e. every released version). Not exploitable in
+    // our usage path: image-size runs client-side inside the report PPTX
+    // export and only ever parses thumbnails the app itself rendered
+    // (SVG→PNG capture), never attacker-supplied files; impact is limited
+    // to hanging the user's own browser tab. Allowlisted 2026-08-09;
+    // re-evaluate quarterly / drop when image-size ships a fix.
+    "GHSA-w3rx-r6r6-pgpr",
+    // image-size — JXL/HEIF parser DoS via infinite loop. Same package,
+    // same unpatched status, same non-exploitable usage path and rationale
+    // as above. Allowlisted 2026-08-09; re-evaluate quarterly.
+    "GHSA-5p2g-fcmc-qvqq"
+  ]
+}
