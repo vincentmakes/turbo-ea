@@ -43,6 +43,25 @@ SIGNATURE_NAME = "manifest.sig"
 
 VALID_CAPABILITIES = frozenset({"content", "backend", "frontend", "metamodel"})
 
+# Core capability / data-scope strings a manifest may declare under ``grants``.
+# The authoring-affordance grants unlock admin UI features
+# (``metamodel.*`` — see api/v1/metamodel.py), the ``core.*`` grants unlock
+# SDK 1.2 bridge access (todos bridge, event subscriptions — evaluated at
+# call/delivery time via registry.grants_for). An unknown grant is a hard
+# BundleError: a signed manifest carrying a typo'd scope would otherwise be
+# silently inert. Keep in sync with VALID_GRANTS in
+# scripts/extension-tools/teax.py (deliberately duplicated — teax is
+# stdlib-vendorable).
+VALID_GRANTS = frozenset(
+    {
+        "metamodel.field_help",
+        "metamodel.custom_field_types",
+        "core.todos.read",
+        "core.todos.write",
+        "core.events.todo",
+    }
+)
+
 # fields_schema field types an extension may contribute: the built-in set, or
 # a custom type namespaced under the extension's own key (ext.{key}.*).
 _BUILTIN_FIELD_TYPES = frozenset(
@@ -153,6 +172,23 @@ def _validate_manifest(manifest: dict[str, Any], core_version: str) -> None:
     # run. Orthogonal to capabilities. When present it must be a real boolean.
     if "free" in manifest and not isinstance(manifest["free"], bool):
         raise BundleError("Bundle manifest field `free` must be a boolean")
+
+    # Optional ``grants``: core capability / data-scope strings. Hard-fail on
+    # unknowns — a typo'd scope in a signed manifest must surface at
+    # install/verify time, not sit silently inert until a bridge call 403s.
+    if "grants" in manifest:
+        grants = manifest["grants"]
+        if not isinstance(grants, list) or not all(isinstance(g, str) for g in grants):
+            raise BundleError("Bundle manifest field `grants` must be a list of strings")
+        unknown_grants = set(grants) - VALID_GRANTS
+        if unknown_grants:
+            raise BundleError(f"Bundle declares unknown grants: {sorted(unknown_grants)}")
+
+    # Optional ``sdk_version``: when present it must be major.minor. The
+    # loader's compatibility check reads the code attribute, but a malformed
+    # manifest value is still an authoring error worth failing early.
+    if "sdk_version" in manifest and not re.fullmatch(r"\d+\.\d+", str(manifest["sdk_version"])):
+        raise BundleError("Bundle manifest field `sdk_version` must look like `1.2`")
 
     if "content" in capabilities and not manifest.get("content"):
         raise BundleError("Bundle declares the content capability but lists no content files")

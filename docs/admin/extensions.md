@@ -70,6 +70,15 @@ Some extensions unlock advanced ways to describe your data that the core does no
 
 These options appear in the metamodel field editor **only while the extension that provides them is installed and licensed**. If such an extension is later disabled or its license lapses, the values you already captured keep displaying as plain read-only text — nothing is blanked or deleted — and the authoring options simply disappear until the extension is active again.
 
+## Data access grants
+
+Most extensions only work with their own data. An extension that integrates with core data — for example a connector that syncs todos with an external task tracker such as Jira or MS Planner ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — must declare **grants** in its signed manifest:
+
+- `core.todos.read` / `core.todos.write` — read or change todos through the extension SDK. Write implies read. A sync extension can never touch system todos (such as sign-off requests) or todos owned by another extension.
+- `core.events.todo` — receive todo change events, so a connector reacts to a completed todo immediately instead of on its next polling cycle.
+
+Grants ride inside the vendor-signed bundle, so they are fixed at packaging time and visible before you install. They only apply while the extension is installed, enabled and licensed — disabling it or letting the license lapse revokes access immediately, no restart needed. Every change an extension makes is recorded in **Admin → Audit log** under the **Extension** origin, and a todo mirrored from an external tracker shows a chip linking to the external item.
+
 ## Where extension pages appear
 
 Extension pages appear in the navigation once the extension is installed and licensed — usually as their own top-level menu item, though some reports are placed under the **Reports** menu alongside the built-in ones.

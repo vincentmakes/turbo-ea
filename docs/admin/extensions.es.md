@@ -70,6 +70,15 @@ Algunas extensiones habilitan formas avanzadas de describir tus datos que el nú
 
 Estas opciones aparecen en el editor de campos del metamodelo **solo mientras la extensión que las proporciona esté instalada y con licencia**. Si dicha extensión se deshabilita más tarde o su licencia caduca, los valores que ya capturaste se siguen mostrando como texto de solo lectura — nada se borra ni se elimina — y las opciones de edición simplemente desaparecen hasta que la extensión vuelva a estar activa.
 
+## Permisos de acceso a datos
+
+La mayoría de las extensiones solo trabajan con sus propios datos. Una extensión que se integra con los datos del núcleo — por ejemplo, un conector que sincroniza los todos con un gestor de tareas externo como Jira o MS Planner ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — debe declarar **grants** en su manifiesto firmado:
+
+- `core.todos.read` / `core.todos.write` — leer o modificar todos a través del SDK de extensiones. La escritura incluye la lectura. Una extensión de sincronización nunca puede tocar los todos del sistema (como las solicitudes de firma) ni los todos de otra extensión.
+- `core.events.todo` — recibir los eventos de cambio de los todos, para que un conector reaccione de inmediato en lugar de esperar al siguiente ciclo de sondeo.
+
+Los grants forman parte del paquete firmado por el proveedor: quedan fijados al empaquetar y son visibles antes de instalar. Solo se aplican mientras la extensión está instalada, habilitada y con licencia — deshabilitarla o dejar caducar la licencia revoca el acceso de inmediato, sin reinicio. Cada cambio hecho por una extensión se registra en **Admin → Registro de auditoría** bajo el origen **Extensión**, y un todo reflejado desde un gestor externo muestra un chip con enlace al elemento externo.
+
 ## Dónde aparecen las páginas de extensión
 
 Las páginas de extensión aparecen en la navegación una vez que la extensión está instalada y con licencia — normalmente como su propia entrada de menú de nivel superior, aunque algunos informes se colocan bajo el menú **Informes** junto a los integrados.

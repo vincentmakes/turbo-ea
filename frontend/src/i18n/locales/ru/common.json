@@ -200,6 +200,7 @@
   "todos.actionRequired": "Требуется действие",
   "todos.overdue": "Просрочено",
   "todos.assignedTo": "Назначено: {{name}}",
+  "todos.openExternal": "Открыть в {{source}}",
   "todos.unassigned": "Не назначено",
   "todos.goToDocument": "Перейти к документу",
   "todos.dueDate": "Срок: {{date}}",

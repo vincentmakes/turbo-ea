@@ -33,7 +33,7 @@ import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 // Types
 // ──────────────────────────────────────────────────────────────────────────
 
-export type AuditOrigin = "mcp" | "web" | "api";
+export type AuditOrigin = "mcp" | "web" | "api" | "ext";
 export type AuditStatusKey = "committed" | "dry_run" | "open";
 
 export interface AuditLogFilters {
@@ -58,6 +58,7 @@ const ORIGINS: { id: AuditOrigin; labelKey: string }[] = [
   { id: "mcp", labelKey: "auditLog.origins.mcp" },
   { id: "web", labelKey: "auditLog.origins.web" },
   { id: "api", labelKey: "auditLog.origins.api" },
+  { id: "ext", labelKey: "auditLog.origins.ext" },
 ];
 
 const STATUSES: { id: AuditStatusKey; labelKey: string }[] = [

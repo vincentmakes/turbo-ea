@@ -276,6 +276,7 @@
   "todos.actionRequired": "Action required",
   "todos.overdue": "Overdue",
   "todos.assignedTo": "Assigned to: {{name}}",
+  "todos.openExternal": "Open in {{source}}",
   "todos.unassigned": "Unassigned",
   "todos.goToDocument": "Go to document",
   "todos.dueDate": "Due: {{date}}",

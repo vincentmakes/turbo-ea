@@ -5,6 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.46.0] - 2026-08-09
+
+### Added
+- **Extensions can now sync todos with external task trackers** ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)). Extension SDK 1.2 gives vendor-signed extensions a sanctioned, typed bridge to the todo list — list, create, update, complete and delete — so connectors for Jira, MS Planner, GitHub Projects and the like can mirror todos both ways instead of your team maintaining two lists. Access is opt-in and visible: an extension must declare the `core.todos.read` / `core.todos.write` grants in its signed manifest, disabling the extension or letting its license lapse cuts access immediately, and it can never touch system todos (sign-off requests) or another extension's rows.
+- **A todo mirrored from an external tracker shows where it lives.** Todos synced by an extension carry the tracker's reference (for example `PROJ-123`) as a chip on the Todos page and the card's Todos tab — click it to open the item in the external tool. These fields are read-only for the app and the API; only signed extensions can set them, so a todo can never be turned into a link to an arbitrary site.
+- **Extensions can react to changes as they happen.** SDK 1.2 adds an event subscription hook (`get_event_handlers`), gated by the `core.events.todo` grant, so a sync connector pushes a completed todo to the tracker seconds later instead of on the next polling cycle. An extension never receives the events its own writes caused, so sync loops are impossible by construction.
+- **Todo changes now appear in the audit log and card history.** Creating, editing, completing, promoting or deleting a todo is recorded like every other change — previously todos left no trace. Extension-driven writes are labelled with a new **Extension** origin in Admin → Audit log, filterable like MCP and Web.
+- **Extensions can store credentials encrypted.** SDK 1.2 adds `get_secret` / `set_secret` on the extension context: values are encrypted with the instance's secret key and are automatically excluded from workspace-transfer exports, so a connector's API token can never leave the instance in a bundle.
+
+### Changed
+- **The `teax` authoring CLI validates manifest grants.** An unknown grant string in `extension.json` is now a lint/pack error (previously it was silently inert), and packing defaults `sdk_version` to 1.2.
+
 ## [2.45.0] - 2026-08-07
 
 ### Changed

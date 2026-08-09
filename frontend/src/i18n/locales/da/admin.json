@@ -1702,6 +1702,7 @@
   "auditLog.origins.mcp": "MCP (AI-agent)",
   "auditLog.origins.web": "Webgrænseflade",
   "auditLog.origins.api": "API",
+  "auditLog.origins.ext": "Udvidelse",
   "auditLog.statuses.committed": "Gennemført",
   "auditLog.statuses.dryRun": "Kun prøvekørsel",
   "auditLog.statuses.open": "Åben / fejlet",

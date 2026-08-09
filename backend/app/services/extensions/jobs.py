@@ -16,17 +16,36 @@ from typing import Any
 
 from sqlalchemy import select
 
+from app.core.encryption import decrypt_value, encrypt_value
 from app.database import async_session
 from app.services.extensions.loader import LoadReport
 from app.services.extensions.registry import extension_registry
 from app.services.extensions.sdk import ExtensionContext, ExtensionJob
+from app.services.extensions.todos_bridge import ExtensionTodos
 
 logger = logging.getLogger(__name__)
+
+# One context per extension per process. startup's on_startup hook and the
+# job loops (and the event dispatcher) must all see the SAME instance —
+# anything an extension stashes on the context at startup has to be visible
+# from its jobs and handlers.
+_contexts: dict[str, ExtensionContext] = {}
+
+
+def reset_contexts() -> None:
+    """Test helper — drop memoized contexts so fixtures start clean."""
+    _contexts.clear()
 
 
 def build_context(key: str) -> ExtensionContext:
     """Runtime services for one extension: sessions, logging, namespaced
-    settings persisted under ``app_settings.general_settings["ext.{key}.*"]``."""
+    settings persisted under ``app_settings.general_settings["ext.{key}.*"]``,
+    encrypted secrets under ``ext.{key}.secret.*``, and the core-data todos
+    bridge. Memoized per key (see ``_contexts``)."""
+
+    cached = _contexts.get(key)
+    if cached is not None:
+        return cached
 
     namespace = f"ext.{key}."
 
@@ -54,13 +73,36 @@ def build_context(key: str) -> ExtensionContext:
             row.general_settings = general
             await db.commit()
 
-    return ExtensionContext(
+    # Secrets ride the same settings row under a ``secret.`` sub-namespace,
+    # but Fernet-encrypted (``enc:``-prefixed). The prefix is what makes them
+    # export-safe: workspace transfer's defensive scrub strips every ``enc:``
+    # value, so an extension credential can never leave the instance in a
+    # bundle. str-only by design (mirrors core's SMTP/SSO secret handling).
+    async def get_secret(name: str) -> str | None:
+        raw = await get_setting(f"secret.{name}")
+        if raw is None:
+            return None
+        # decrypt_value returns "" when SECRET_KEY rotated — surfaced as-is
+        # so the extension treats it as "missing, re-prompt the operator".
+        return decrypt_value(raw)
+
+    async def set_secret(name: str, value: str) -> None:
+        if not isinstance(value, str):
+            raise TypeError("extension secrets must be str")
+        await set_setting(f"secret.{name}", encrypt_value(value))
+
+    ctx = ExtensionContext(
         key=key,
         session_factory=async_session,
         logger=logging.getLogger(f"ext.{key}"),
         get_setting=get_setting,
         set_setting=set_setting,
+        todos=ExtensionTodos(key),
+        get_secret=get_secret,
+        set_secret=set_secret,
     )
+    _contexts[key] = ctx
+    return ctx
 
 
 def _job_may_run(key: str) -> bool:

@@ -1702,6 +1702,7 @@
   "auditLog.origins.mcp": "MCP (ИИ-агент)",
   "auditLog.origins.web": "Веб-интерфейс",
   "auditLog.origins.api": "API",
+  "auditLog.origins.ext": "Расширение",
   "auditLog.statuses.committed": "Подтверждён",
   "auditLog.statuses.dryRun": "Только тестовый прогон",
   "auditLog.statuses.open": "Открыт / с ошибкой",

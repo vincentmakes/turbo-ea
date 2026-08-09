@@ -1702,6 +1702,7 @@
   "auditLog.origins.mcp": "MCP（AI 代理）",
   "auditLog.origins.web": "Web 界面",
   "auditLog.origins.api": "API",
+  "auditLog.origins.ext": "扩展",
   "auditLog.statuses.committed": "已提交",
   "auditLog.statuses.dryRun": "仅模拟运行",
   "auditLog.statuses.open": "未完成/出错",

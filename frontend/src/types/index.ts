@@ -539,6 +539,11 @@ export interface Todo {
   recurrence_unit?: RecurrenceUnit;
   recurrence_interval?: number;
   lead_time_days?: number;
+  // External-tracker mirror (extension todos bridge). Read-only over REST —
+  // set only by vendor-signed extensions holding the core.todos.write grant.
+  external_ref?: string;
+  external_url?: string;
+  external_source?: string;
 }
 
 export interface TagGroup {

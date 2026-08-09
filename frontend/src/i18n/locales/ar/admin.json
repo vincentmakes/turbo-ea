@@ -1702,6 +1702,7 @@
   "auditLog.origins.mcp": "MCP (وكيل ذكاء اصطناعي)",
   "auditLog.origins.web": "واجهة الويب",
   "auditLog.origins.api": "API",
+  "auditLog.origins.ext": "امتداد",
   "auditLog.statuses.committed": "مُعتمد",
   "auditLog.statuses.dryRun": "تشغيل تجريبي فقط",
   "auditLog.statuses.open": "مفتوح / به خطأ",

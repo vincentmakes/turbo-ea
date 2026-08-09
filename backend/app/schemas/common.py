@@ -118,6 +118,11 @@ class TodoResponse(BaseModel):
     recurrence_unit: str = "none"
     recurrence_interval: int = 1
     lead_time_days: int = 0
+    # External-tracker mirror (extension todos bridge). Read-only over REST —
+    # deliberately absent from TodoCreate/TodoUpdate.
+    external_ref: str | None = None
+    external_url: str | None = None
+    external_source: str | None = None
 
     model_config = {"from_attributes": True}
 

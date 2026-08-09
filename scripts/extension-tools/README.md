@@ -31,6 +31,39 @@ keyed by `key_id`). Public keys are safe to keep in the repo — they only
 *verify*, never sign. Shipping your own commercial extensions means
 forking — replace the keys in `DEFAULT_VENDOR_PUBLIC_KEYS` and rebuild.
 
+## SDK 1.2: grants, todos bridge, events, secrets
+
+SDK 1.2 (additive — 1.0/1.1 extensions load unchanged) lets a backend
+extension work with core todos, e.g. to build a task-tracker sync
+connector (discussion #921). The manifest side, which `teax lint`
+validates:
+
+- `grants` — a list of core capability strings the extension needs.
+  Valid values are pinned in `VALID_GRANTS` (mirrored from
+  `backend/app/services/extensions/bundle.py`): the metamodel authoring
+  grants plus `core.todos.read`, `core.todos.write` (write implies read)
+  and `core.events.todo`. An unknown grant is a hard lint/verify error.
+- `sdk_version` — `pack` now defaults it to `1.2`. The loader is
+  major-only, so a 1.2 bundle still loads on an older 1.x core (with a
+  newer-minor warning in the core logs).
+
+At runtime the extension uses, on its `ExtensionContext`:
+
+- `ctx.todos` — typed bridge (`list` / `get` / `create` / `update` /
+  `complete` / `delete`), grant-checked on every call; writes are audited
+  as `ext:{key}` mutation batches and stamp `external_source` with the
+  extension's key.
+- `get_event_handlers()` — an optional module-level hook on the extension
+  instance returning `EventSubscription(prefix, handler, include_self)`
+  rows; delivery is gated by `core.events.todo`. Own bridge-caused events
+  are filtered out unless `include_self=True` — do not set it unless you
+  know why.
+- `ctx.get_secret` / `ctx.set_secret` — Fernet-encrypted credential
+  storage (`str` only). A rotated instance `SECRET_KEY` makes
+  `get_secret` return `""` — treat as missing and re-prompt the operator.
+  Never store credentials via `set_setting` (plaintext, and exported in
+  workspace-transfer bundles).
+
 ## Authoring extensions & vendor operations
 
 The full authoring guide (content packs, backend/UI SDK), signing/key

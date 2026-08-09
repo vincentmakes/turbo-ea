@@ -40,7 +40,12 @@ from app.services.extensions.bundle import (
 )
 from app.services.extensions.gate import require_extension
 from app.services.extensions.installer import EXTENSIONS_DIR, extract_wheels_to_lib
-from app.services.extensions.sdk import SDK_VERSION, TurboExtension, sdk_compatible
+from app.services.extensions.sdk import (
+    SDK_VERSION,
+    TurboExtension,
+    sdk_compatible,
+    sdk_minor_newer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +132,17 @@ def _resolve_entrypoint(ext_dir: Path, manifest: dict[str, Any]) -> TurboExtensi
         raise BundleError(
             f"Extension was built for SDK {instance.sdk_version}, this core provides "
             f"SDK {SDK_VERSION} — rebuild the extension against a compatible SDK"
+        )
+    if sdk_minor_newer(instance.sdk_version):
+        # Same major, newer minor: additive surfaces the extension references
+        # may be missing on this core. Load anyway (missing surfaces fail
+        # with clear AttributeErrors), but tell the operator why.
+        logger.warning(
+            "Extension %s targets SDK %s but this core provides SDK %s — "
+            "consider updating Turbo EA",
+            manifest.get("key"),
+            instance.sdk_version,
+            SDK_VERSION,
         )
     return instance
 

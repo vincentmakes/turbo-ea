@@ -208,3 +208,53 @@ class TestExtractBundle:
         bundle = read_bundle(write_bundle(tmp_path, raw), core_version=CORE_VERSION)
         with pytest.raises(BundleError, match="py3-none-any"):
             extract_bundle_to_dir(bundle, tmp_path / "extracted")
+
+
+class TestGrantsValidation:
+    """SDK 1.2 — ``grants`` and ``sdk_version`` are validated at verify time
+    so a typo'd scope in a signed manifest fails loudly instead of sitting
+    silently inert until a bridge call 403s."""
+
+    def _bundle(self, keypair, tmp_path, **manifest_kwargs):
+        raw = build_teax(keypair, files={"content/pack.json": CONTENT}, **manifest_kwargs)
+        return write_bundle(tmp_path, raw)
+
+    def test_known_grants_pass(self, tmp_path, keypair):
+        path = self._bundle(
+            keypair,
+            tmp_path,
+            grants=["core.todos.read", "core.todos.write", "core.events.todo"],
+        )
+        bundle = read_bundle(path, core_version=CORE_VERSION)
+        assert bundle.manifest["grants"] == [
+            "core.todos.read",
+            "core.todos.write",
+            "core.events.todo",
+        ]
+
+    def test_metamodel_grants_still_pass(self, tmp_path, keypair):
+        path = self._bundle(keypair, tmp_path, grants=["metamodel.field_help"])
+        assert read_bundle(path, core_version=CORE_VERSION).manifest["grants"] == [
+            "metamodel.field_help"
+        ]
+
+    def test_unknown_grant_is_rejected(self, tmp_path, keypair):
+        path = self._bundle(keypair, tmp_path, grants=["core.cards.write"])
+        with pytest.raises(BundleError, match="unknown grants"):
+            read_bundle(path, core_version=CORE_VERSION)
+
+    def test_non_list_grants_rejected(self, tmp_path, keypair):
+        path = self._bundle(keypair, tmp_path, grants="core.todos.read")
+        with pytest.raises(BundleError, match="list of strings"):
+            read_bundle(path, core_version=CORE_VERSION)
+
+    def test_absent_grants_pass(self, tmp_path, keypair):
+        # build_manifest never sets grants — absence must verify fine.
+        raw = build_teax(keypair, files={"content/pack.json": CONTENT})
+        bundle = read_bundle(write_bundle(tmp_path, raw), core_version=CORE_VERSION)
+        assert "grants" not in bundle.manifest
+
+    def test_malformed_sdk_version_rejected(self, tmp_path, keypair):
+        path = self._bundle(keypair, tmp_path, sdk_version="latest")
+        with pytest.raises(BundleError, match="sdk_version"):
+            read_bundle(path, core_version=CORE_VERSION)

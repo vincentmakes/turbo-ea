@@ -200,6 +200,7 @@
   "todos.actionRequired": "Action requise",
   "todos.overdue": "En retard",
   "todos.assignedTo": "Attribuée à : {{name}}",
+  "todos.openExternal": "Ouvrir dans {{source}}",
   "todos.unassigned": "Non attribuée",
   "todos.goToDocument": "Aller au document",
   "todos.dueDate": "Échéance : {{date}}",

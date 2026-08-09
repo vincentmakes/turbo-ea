@@ -15,6 +15,7 @@ import logging
 from sqlalchemy import select
 
 from app.database import async_session
+from app.services.extensions.events import start_extension_event_dispatchers
 from app.services.extensions.jobs import build_context, start_extension_jobs
 from app.services.extensions.loader import LoadReport
 from app.services.extensions.migrations import run_extension_migrations
@@ -96,8 +97,10 @@ async def initialize_extensions(report: LoadReport) -> list[asyncio.Task]:
         if ext.instance is None or not should_run.get(ext.key, False):
             continue
         try:
+            # build_context is memoized per key, so on_startup, job loops and
+            # event handlers all share one ExtensionContext instance.
             await ext.instance.on_startup(build_context(ext.key))
         except Exception:
             logger.exception("Extension %s on_startup() failed", ext.key)
 
-    return start_extension_jobs(report)
+    return start_extension_jobs(report) + start_extension_event_dispatchers(report)

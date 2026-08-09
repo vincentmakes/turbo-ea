@@ -70,6 +70,15 @@ Nogle udvidelser låser op for avancerede måder at beskrive dine data på, som 
 
 Disse valgmuligheder vises i metamodellens felteditor **kun, mens den udvidelse, der leverer dem, er installeret og licenseret**. Hvis en sådan udvidelse senere deaktiveres, eller dens licens udløber, vises de værdier, du allerede har indtastet, fortsat som almindelig skrivebeskyttet tekst — intet tømmes eller slettes — og redigeringsmulighederne forsvinder blot, indtil udvidelsen er aktiv igen.
 
+## Dataadgangs-grants
+
+De fleste udvidelser arbejder kun med deres egne data. En udvidelse, der integrerer med kernedata — for eksempel en connector, der synkroniserer todos med et eksternt opgavesystem som Jira eller MS Planner ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — skal deklarere **grants** i sit signerede manifest:
+
+- `core.todos.read` / `core.todos.write` — læs eller ændr todos gennem udvidelses-SDK'et. Skriveadgang omfatter læseadgang. En synkroniseringsudvidelse kan aldrig røre system-todos (såsom underskriftsanmodninger) eller todos, der ejes af en anden udvidelse.
+- `core.events.todo` — modtag hændelser om todo-ændringer, så en connector reagerer med det samme i stedet for at vente på næste polling-cyklus.
+
+Grants er en del af det leverandørsignerede bundle: de fastlægges ved pakningen og er synlige før installation. De gælder kun, mens udvidelsen er installeret, aktiveret og licenseret — deaktivering eller en udløbet licens tilbagekalder adgangen med det samme, uden genstart. Enhver ændring foretaget af en udvidelse registreres i **Admin → Auditlog** under oprindelsen **Udvidelse**, og en todo, der spejles fra et eksternt system, viser en chip med link til det eksterne element.
+
 ## Hvor udvidelsessider vises
 
 Udvidelsessider vises i navigationen, når udvidelsen er installeret og licenseret — normalt som deres eget menupunkt på øverste niveau, selvom nogle rapporter placeres under menuen **Rapporter** sammen med de indbyggede.

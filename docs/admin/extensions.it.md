@@ -70,6 +70,15 @@ Alcune estensioni sbloccano modi avanzati di descrivere i tuoi dati che il core 
 
 Queste opzioni compaiono nell'editor dei campi del metamodello **solo finché l'estensione che le fornisce è installata e provvista di licenza**. Se tale estensione viene in seguito disattivata o la sua licenza scade, i valori già inseriti continuano a essere mostrati come testo di sola lettura — nulla viene svuotato o eliminato — e le opzioni di modifica scompaiono semplicemente finché l'estensione non è di nuovo attiva.
 
+## Grant di accesso ai dati
+
+La maggior parte delle estensioni lavora solo con i propri dati. Un'estensione che si integra con i dati del core — ad esempio un connettore che sincronizza i todo con un task tracker esterno come Jira o MS Planner ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — deve dichiarare dei **grant** nel proprio manifest firmato:
+
+- `core.todos.read` / `core.todos.write` — leggere o modificare i todo tramite l'SDK delle estensioni. La scrittura include la lettura. Un'estensione di sincronizzazione non può mai toccare i todo di sistema (come le richieste di firma) né i todo di un'altra estensione.
+- `core.events.todo` — ricevere gli eventi di modifica dei todo, così un connettore reagisce subito invece di attendere il prossimo ciclo di polling.
+
+I grant fanno parte del bundle firmato dal fornitore: sono fissati al momento del confezionamento e visibili prima dell'installazione. Valgono solo finché l'estensione è installata, abilitata e con licenza — disabilitarla o lasciar scadere la licenza revoca l'accesso immediatamente, senza riavvio. Ogni modifica fatta da un'estensione è registrata in **Admin → Log di audit** con origine **Estensione**, e un todo replicato da un tracker esterno mostra un chip che rimanda all'elemento esterno.
+
 ## Dove compaiono le pagine delle estensioni
 
 Le pagine delle estensioni compaiono nella navigazione una volta che l'estensione è installata e provvista di licenza — di solito come una propria voce di menu di primo livello, anche se alcuni report vengono collocati sotto il menu **Report** accanto a quelli integrati.

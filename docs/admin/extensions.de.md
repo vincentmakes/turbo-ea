@@ -70,6 +70,15 @@ Manche Erweiterungen schalten erweiterte Möglichkeiten frei, Ihre Daten zu besc
 
 Diese Optionen erscheinen im Feldeditor des Metamodells **nur, solange die bereitstellende Erweiterung installiert und lizenziert ist**. Wird eine solche Erweiterung später deaktiviert oder läuft ihre Lizenz ab, werden bereits erfasste Werte weiterhin als einfacher, schreibgeschützter Text angezeigt — nichts wird geleert oder gelöscht — und die Bearbeitungsoptionen verschwinden einfach, bis die Erweiterung wieder aktiv ist.
 
+## Datenzugriffs-Grants
+
+Die meisten Erweiterungen arbeiten nur mit ihren eigenen Daten. Eine Erweiterung, die Kerndaten integriert — zum Beispiel ein Konnektor, der Todos mit einem externen Task-Tracker wie Jira oder MS Planner synchronisiert ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — muss in ihrem signierten Manifest **Grants** deklarieren:
+
+- `core.todos.read` / `core.todos.write` — Todos über das Erweiterungs-SDK lesen oder ändern. Schreiben schließt Lesen ein. Eine Sync-Erweiterung kann niemals System-Todos (etwa Signaturanfragen) oder Todos einer anderen Erweiterung anfassen.
+- `core.events.todo` — Todo-Änderungsereignisse empfangen, damit ein Konnektor sofort reagiert statt erst beim nächsten Abfragezyklus.
+
+Grants sind Teil des vom Anbieter signierten Bundles, stehen also beim Paketieren fest und sind vor der Installation sichtbar. Sie gelten nur, solange die Erweiterung installiert, aktiviert und lizenziert ist — Deaktivieren oder ein Lizenzablauf entzieht den Zugriff sofort, ohne Neustart. Jede Änderung einer Erweiterung wird in **Admin → Audit-Log** unter der Herkunft **Erweiterung** aufgezeichnet, und ein aus einem externen Tracker gespiegeltes Todo zeigt einen Chip mit Link auf das externe Element.
+
 ## Wo Erweiterungsseiten erscheinen
 
 Erweiterungsseiten erscheinen in der Navigation, sobald die Erweiterung installiert und lizenziert ist — in der Regel als eigener Menüpunkt der obersten Ebene, wobei einige Berichte unter dem Menü **Berichte** neben den eingebauten platziert werden.

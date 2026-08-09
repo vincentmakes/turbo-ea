@@ -70,6 +70,15 @@ Certaines extensions débloquent des façons avancées de décrire vos données 
 
 Ces options n'apparaissent dans l'éditeur de champ du métamodèle **que tant que l'extension qui les fournit est installée et sous licence**. Si une telle extension est ensuite désactivée ou que sa licence expire, les valeurs déjà saisies continuent de s'afficher en texte simple, en lecture seule — rien n'est effacé ni supprimé — et les options d'édition disparaissent simplement jusqu'à ce que l'extension soit de nouveau active.
 
+## Autorisations d'accès aux données
+
+La plupart des extensions ne travaillent qu'avec leurs propres données. Une extension qui s'intègre aux données du cœur — par exemple un connecteur qui synchronise les todos avec un outil de suivi externe comme Jira ou MS Planner ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — doit déclarer des **grants** dans son manifeste signé :
+
+- `core.todos.read` / `core.todos.write` — lire ou modifier les todos via le SDK d'extension. L'écriture inclut la lecture. Une extension de synchronisation ne peut jamais toucher aux todos système (comme les demandes de signature) ni aux todos appartenant à une autre extension.
+- `core.events.todo` — recevoir les événements de changement des todos, afin qu'un connecteur réagisse immédiatement au lieu d'attendre son prochain cycle d'interrogation.
+
+Les grants font partie du bundle signé par l'éditeur : ils sont figés à l'empaquetage et visibles avant l'installation. Ils ne s'appliquent que tant que l'extension est installée, activée et sous licence — la désactiver ou laisser la licence expirer révoque l'accès immédiatement, sans redémarrage. Chaque modification effectuée par une extension est consignée dans **Admin → Journal d'audit** sous l'origine **Extension**, et un todo miroité depuis un outil externe affiche une puce pointant vers l'élément externe.
+
 ## Où apparaissent les pages d'extension
 
 Les pages d'extension apparaissent dans la navigation une fois l'extension installée et sous licence — généralement comme leur propre entrée de menu de premier niveau, bien que certains rapports soient placés sous le menu **Rapports** aux côtés de ceux intégrés.

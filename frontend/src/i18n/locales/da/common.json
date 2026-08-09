@@ -276,6 +276,7 @@
   "todos.actionRequired": "Handling påkrævet",
   "todos.overdue": "Forsinket",
   "todos.assignedTo": "Tildelt: {{name}}",
+  "todos.openExternal": "Åbn i {{source}}",
   "todos.unassigned": "Utildelt",
   "todos.goToDocument": "Gå til dokument",
   "todos.dueDate": "Forfalder: {{date}}",

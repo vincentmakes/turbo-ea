@@ -422,3 +422,52 @@ class TestDeleteTodo:
             headers=auth_headers(admin),
         )
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------
+# External-tracker mirror fields (extension todos bridge)
+# ---------------------------------------------------------------
+
+
+class TestExternalFieldsReadOnly:
+    async def test_external_fields_returned_null_by_default(self, client, db, todos_env):
+        admin = todos_env["admin"]
+        resp = await client.post(
+            "/api/v1/todos",
+            json={"description": "Plain todo"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["external_ref"] is None
+        assert data["external_url"] is None
+        assert data["external_source"] is None
+
+    async def test_external_fields_ignored_on_create_and_update(self, client, db, todos_env):
+        # The REST API must never accept external fields — they are written
+        # only by the SDK todos bridge (vendor-signed extensions with the
+        # core.todos.write grant). Pydantic drops the unknown keys.
+        admin = todos_env["admin"]
+        resp = await client.post(
+            "/api/v1/todos",
+            json={
+                "description": "Sneaky",
+                "external_ref": "PROJ-1",
+                "external_url": "https://evil.example/PROJ-1",
+                "external_source": "fake-ext",
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["external_ref"] is None
+        assert data["external_url"] is None
+        assert data["external_source"] is None
+
+        resp = await client.patch(
+            f"/api/v1/todos/{data['id']}",
+            json={"external_url": "https://evil.example"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["external_url"] is None

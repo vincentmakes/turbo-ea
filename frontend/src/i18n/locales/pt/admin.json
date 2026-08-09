@@ -1702,6 +1702,7 @@
   "auditLog.origins.mcp": "MCP (agente de IA)",
   "auditLog.origins.web": "Interface Web",
   "auditLog.origins.api": "API",
+  "auditLog.origins.ext": "Extensão",
   "auditLog.statuses.committed": "Confirmado",
   "auditLog.statuses.dryRun": "Apenas simulação",
   "auditLog.statuses.open": "Aberto / com erros",

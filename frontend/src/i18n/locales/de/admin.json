@@ -1702,6 +1702,7 @@
   "auditLog.origins.mcp": "MCP (KI-Agent)",
   "auditLog.origins.web": "Web-Oberfläche",
   "auditLog.origins.api": "API",
+  "auditLog.origins.ext": "Erweiterung",
   "auditLog.statuses.committed": "Bestätigt",
   "auditLog.statuses.dryRun": "Nur Probelauf",
   "auditLog.statuses.open": "Offen / Fehler",

@@ -87,9 +87,11 @@ interface ConflictingBatch {
   touched_entities: string[];
 }
 
-export function originColor(origin: string): "default" | "primary" | "warning" {
+export function originColor(origin: string): "default" | "primary" | "warning" | "success" {
   if (origin === "mcp") return "warning";
   if (origin === "web") return "primary";
+  // Extension-driven writes (SDK todos bridge) — batches named ext:{key}.
+  if (origin === "ext") return "success";
   return "default";
 }
 

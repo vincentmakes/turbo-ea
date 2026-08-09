@@ -70,6 +70,15 @@ Algumas extensões desbloqueiam maneiras avançadas de descrever seus dados que 
 
 Essas opções aparecem no editor de campos do metamodelo **somente enquanto a extensão que as fornece estiver instalada e licenciada**. Se essa extensão for posteriormente desativada ou sua licença expirar, os valores que você já registrou continuam sendo exibidos como texto somente leitura — nada é apagado ou excluído — e as opções de edição simplesmente desaparecem até que a extensão esteja ativa novamente.
 
+## Concessões de acesso a dados
+
+A maioria das extensões trabalha apenas com os seus próprios dados. Uma extensão que se integra com os dados do núcleo — por exemplo, um conector que sincroniza os todos com um gestor de tarefas externo como o Jira ou o MS Planner ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — precisa declarar **grants** no seu manifesto assinado:
+
+- `core.todos.read` / `core.todos.write` — ler ou alterar todos através do SDK de extensões. Escrever inclui ler. Uma extensão de sincronização nunca pode tocar nos todos de sistema (como pedidos de assinatura) nem nos todos de outra extensão.
+- `core.events.todo` — receber os eventos de alteração dos todos, para que um conector reaja de imediato em vez de esperar pelo próximo ciclo de sondagem.
+
+Os grants fazem parte do pacote assinado pelo fornecedor: ficam fixados no empacotamento e são visíveis antes da instalação. Só se aplicam enquanto a extensão está instalada, ativada e licenciada — desativá-la ou deixar a licença expirar revoga o acesso imediatamente, sem reinício. Cada alteração feita por uma extensão fica registada em **Admin → Registo de auditoria** sob a origem **Extensão**, e um todo espelhado de um gestor externo mostra um chip com ligação ao item externo.
+
 ## Onde as páginas de extensão aparecem
 
 As páginas de extensão aparecem na navegação assim que a extensão está instalada e licenciada — geralmente como seu próprio item de menu de nível superior, embora alguns relatórios sejam colocados no menu **Relatórios** ao lado dos integrados.

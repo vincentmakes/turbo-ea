@@ -200,6 +200,7 @@
   "todos.actionRequired": "Azione richiesta",
   "todos.overdue": "Scaduto",
   "todos.assignedTo": "Assegnata a: {{name}}",
+  "todos.openExternal": "Apri in {{source}}",
   "todos.unassigned": "Non assegnata",
   "todos.goToDocument": "Vai al documento",
   "todos.dueDate": "Scadenza: {{date}}",

@@ -209,6 +209,23 @@ function TodosTab({ fsId }: { fsId: string }) {
                         sx={{ height: 20, fontSize: "0.7rem" }}
                       />
                     )}
+                    {td.external_url && (
+                      <Chip
+                        size="small"
+                        label={td.external_ref ?? td.external_source}
+                        title={t("common:todos.openExternal", {
+                          source: td.external_source ?? "",
+                        })}
+                        icon={<MaterialSymbol icon="open_in_new" size={14} />}
+                        variant="outlined"
+                        color="primary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(td.external_url, "_blank", "noopener,noreferrer");
+                        }}
+                        sx={{ height: 20, fontSize: "0.7rem", cursor: "pointer" }}
+                      />
+                    )}
                   </Box>
                 }
                 sx={{

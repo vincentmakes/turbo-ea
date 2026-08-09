@@ -1702,6 +1702,7 @@
   "auditLog.origins.mcp": "MCP (AI agent)",
   "auditLog.origins.web": "Web UI",
   "auditLog.origins.api": "API",
+  "auditLog.origins.ext": "Extension",
   "auditLog.statuses.committed": "Committed",
   "auditLog.statuses.dryRun": "Dry-run only",
   "auditLog.statuses.open": "Open / errored",

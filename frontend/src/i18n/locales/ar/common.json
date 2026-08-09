@@ -276,6 +276,7 @@
   "todos.actionRequired": "إجراء مطلوب",
   "todos.overdue": "متأخرة",
   "todos.assignedTo": "مُسندة إلى: {{name}}",
+  "todos.openExternal": "فتح في {{source}}",
   "todos.unassigned": "غير مُسندة",
   "todos.goToDocument": "الانتقال إلى المستند",
   "todos.dueDate": "الاستحقاق: {{date}}",

@@ -221,6 +221,26 @@ function TodosPanel() {
                         sx={{ height: 20, fontSize: "0.7rem" }}
                       />
                     )}
+                    {todo.external_url && (
+                      <Tooltip
+                        title={t("todos.openExternal", {
+                          source: todo.external_source ?? "",
+                        })}
+                      >
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          color="primary"
+                          icon={<MaterialSymbol icon="open_in_new" size={14} />}
+                          label={todo.external_ref ?? todo.external_source}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(todo.external_url, "_blank", "noopener,noreferrer");
+                          }}
+                          sx={{ height: 20, fontSize: "0.7rem", cursor: "pointer" }}
+                        />
+                      </Tooltip>
+                    )}
                     {todo.recurrence_unit && todo.recurrence_unit !== "none" && (
                       <Chip
                         size="small"

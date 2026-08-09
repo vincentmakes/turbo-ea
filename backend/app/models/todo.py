@@ -44,6 +44,16 @@ class Todo(Base, UUIDMixin, TimestampMixin):
     # from "scheduled" to "open". 0 for one-shot todos.
     lead_time_days: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
+    # --- External tracker mirror (extension todos bridge) -----------------
+    # Set only through the SDK todos bridge by a vendor-signed extension
+    # holding the core.todos.write grant — never via the REST API (external
+    # URLs on todos are forbidden there; see todo_service.validated_link).
+    # An extension
+    # may only write rows whose external_source is NULL or its own key.
+    external_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    external_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    external_source: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
     card = relationship("Card", lazy="noload")
     assignee = relationship("User", foreign_keys=[assigned_to], lazy="noload")
     creator = relationship("User", foreign_keys=[created_by], lazy="noload")
@@ -52,4 +62,8 @@ class Todo(Base, UUIDMixin, TimestampMixin):
         Index("ix_todos_series_id", "series_id"),
         # Drives the daily promotion query (scheduled rows due soon).
         Index("ix_todos_status_due_date", "status", "due_date"),
+        # Drives the bridge's upsert-by-external-identity lookup. Non-unique:
+        # the invariant is owned at the application layer (same posture as
+        # relation idempotency), so a historical duplicate merges, never 500s.
+        Index("ix_todos_external_source_ref", "external_source", "external_ref"),
     )
