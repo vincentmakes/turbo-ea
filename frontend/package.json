@@ -71,6 +71,7 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.0",
     "globals": "^15.0.0",
+    "image-size": "file:./stubs/image-size",
     "jsdom": "^25.0.0",
     "typescript": "~5.6.0",
     "typescript-eslint": "^8.0.0",
@@ -84,6 +85,7 @@
     "form-data": ">=4.0.6",
     "js-yaml": ">=5.2.2",
     "postcss": ">=8.5.18",
-    "@babel/core": "^7.29.7"
+    "@babel/core": "^7.29.7",
+    "image-size": "$image-size"
   }
 }

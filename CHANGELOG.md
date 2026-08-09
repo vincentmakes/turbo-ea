@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.46.1] - 2026-08-09
+
+### Security
+- **Removed the vulnerable `image-size` package from the dependency tree entirely.** Two denial-of-service advisories against it have no patched version upstream, but the code was never reachable in the first place: pptxgenjs (our PPTX report exporter) excludes `image-size` from browser builds by design, and Turbo EA's frontend ships browser-only. The package is now replaced by a local stub, so `npm audit` reports zero vulnerabilities, the Dependabot alert resolves on its own, and the CI audit allowlist introduced in 2.46.0 is empty again.
+
 ## [2.46.0] - 2026-08-09
 
 ### Added

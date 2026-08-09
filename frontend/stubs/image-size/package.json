@@ -1,0 +1,8 @@
+{
+  "name": "image-size",
+  "version": "99.0.0",
+  "description": "Local stub replacing the image-size package, which pptxgenjs itself excludes from browser builds (its package.json maps `image-size` to false in the `browser` field). Turbo EA's frontend is browser-only, so the real package's code is never bundled and never executed — but its presence in the lockfile kept two unpatched DoS advisories (GHSA-w3rx-r6r6-pgpr, GHSA-5p2g-fcmc-qvqq) alive in npm audit and Dependabot. The `overrides` entry in frontend/package.json points here instead. If pptxgenjs is ever run in a Node context that genuinely needs image dimensions, the stub throws loudly rather than looping silently. Remove the stub and the override once upstream ships a patched image-size.",
+  "main": "index.js",
+  "private": true,
+  "license": "MIT"
+}
