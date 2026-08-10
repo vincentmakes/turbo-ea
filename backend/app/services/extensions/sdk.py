@@ -47,7 +47,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 #   generalization.
 # - ``get_current_user`` — the authenticated user. Treat it as an opaque
 #   record; the supported attributes are ``id``, ``email``, ``display_name``,
-#   and ``role_key``.
+#   and ``role``.
 # - ``require_permission("ext.{key}.something")`` — dependency factory
 #   enforcing an app-level permission. Works with the extension's own
 #   ``ext.{key}.*`` keys (registered via ``get_permissions()``) and with core
@@ -81,7 +81,23 @@ from app.database import get_db  # noqa: F401
 #   SMTP/SSO secrets. Never store credentials via ``set_setting`` (plaintext,
 #   and it leaves the instance in a workspace-transfer bundle).
 
-SDK_VERSION = "1.2"
+# --- SDK 1.3 — users bridge, system-todo mirror fields -----------------------
+# 1.3 added two additive surfaces for connector extensions:
+#
+# - ``ctx.users`` — a read-only typed bridge to the user directory, gated by
+#   the manifest grant ``core.users.read`` (evaluated per call, like the
+#   todos bridge). Returns the same least-privilege payload core's user
+#   pickers get: id, email, display name, active flag — nothing more. Built
+#   so connectors can map assignees to an external tracker's accounts
+#   without a frontend-fed workaround.
+# - The todos bridge now accepts ONE kind of write on ``is_system`` todos:
+#   an ``update`` whose only fields are ``external_ref`` / ``external_url``
+#   (mirror metadata; stamps ``external_source`` as usual). Status,
+#   description, assignee, due date, ``complete`` and ``delete`` stay
+#   refused — a sign-off can be *referenced* externally, never *performed*
+#   externally.
+
+SDK_VERSION = "1.3"
 
 
 @dataclass(frozen=True)
@@ -121,7 +137,8 @@ class ExtensionPermissionError(ExtensionError):
 class ExtensionDataError(ExtensionError):
     """A bridge call failed on the data itself: row not found, validation
     error, conflict, or an attempt to touch a row the extension may not
-    write (``is_system`` todos, rows owned by another ``external_source``)."""
+    write (non-mirror fields of ``is_system`` todos, rows owned by another
+    ``external_source``)."""
 
 
 @dataclass(frozen=True)
@@ -153,11 +170,16 @@ class TodosBridge(Protocol):
 
     Reads require the ``core.todos.read`` or ``core.todos.write`` grant;
     writes require ``core.todos.write``. Every write is scoped: only rows
-    whose ``external_source`` is NULL or the extension's own key, never
-    ``is_system`` rows, and any write that sets external fields stamps
-    ``external_source`` with the extension's key. ``create`` is one-shot
-    only — external trackers own their own recurrence — but ``complete`` on
-    a user's recurring todo rolls the series forward exactly like the UI.
+    whose ``external_source`` is NULL or the extension's own key, and any
+    write that sets external fields stamps ``external_source`` with the
+    extension's key. ``is_system`` rows accept exactly one write shape
+    (SDK 1.3): an ``update`` touching only ``external_ref`` /
+    ``external_url`` — mirror metadata so a connector can reference the
+    sign-off externally; everything else on them (status, description,
+    assignee, due date, ``complete``, ``delete``) is refused. ``create``
+    is one-shot only — external trackers own their own recurrence — but
+    ``complete`` on a user's recurring todo rolls the series forward
+    exactly like the UI.
     """
 
     async def list(
@@ -201,6 +223,38 @@ class TodosBridge(Protocol):
     async def delete(self, todo_id: str) -> None: ...
 
 
+@dataclass(frozen=True)
+class ExtUser:
+    """Read model returned by the users bridge (SDK 1.3). Deliberately the
+    same least-privilege shape core's user pickers receive (see
+    ``_user_response_lite`` in the users API) — id, email, display name and
+    the active flag; no role, login or preference data. Wire-shaped: the id
+    is a string, ready to serialize as-is."""
+
+    id: str
+    email: str
+    display_name: str
+    is_active: bool
+
+
+class UsersBridge(Protocol):
+    """Read-only typed access to the user directory (SDK 1.3).
+
+    Every call requires the ``core.users.read`` grant, re-evaluated per
+    call so disabling the extension or a license lapse revokes access
+    immediately. ``list`` excludes deactivated accounts unless
+    ``include_inactive=True`` (matching core's own pickers);
+    ``find_by_email`` matches case-insensitively. There is no write
+    surface — user management stays core-only.
+    """
+
+    async def list(self, *, include_inactive: bool = False) -> list[ExtUser]: ...
+
+    async def get(self, user_id: str) -> ExtUser | None: ...
+
+    async def find_by_email(self, email: str) -> ExtUser | None: ...
+
+
 @dataclass
 class ExtensionContext:
     """Runtime services handed to extension jobs and ``on_startup``.
@@ -209,7 +263,8 @@ class ExtensionContext:
     working): ``todos`` — the core-data bridge (grant-checked per call);
     ``get_secret`` / ``set_secret`` — encrypted credential storage (``str``
     only; a ``SECRET_KEY`` rotation makes ``get_secret`` return ``""``,
-    which means "re-prompt the operator").
+    which means "re-prompt the operator"). SDK 1.3 adds ``users`` — the
+    read-only user-directory bridge (grant ``core.users.read``).
     """
 
     key: str
@@ -221,6 +276,7 @@ class ExtensionContext:
     todos: TodosBridge | None = None
     get_secret: Callable[[str], Awaitable[str | None]] | None = None
     set_secret: Callable[[str, str], Awaitable[None]] | None = None
+    users: UsersBridge | None = None
 
     def __post_init__(self) -> None:
         if not self.settings_namespace:

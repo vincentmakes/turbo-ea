@@ -64,6 +64,25 @@ At runtime the extension uses, on its `ExtensionContext`:
   Never store credentials via `set_setting` (plaintext, and exported in
   workspace-transfer bundles).
 
+## SDK 1.3: users bridge, system-todo mirror fields
+
+SDK 1.3 (additive) rounds out the connector surface:
+
+- `ctx.users` — read-only typed bridge to the user directory (`list` /
+  `get` / `find_by_email`), gated by the new `core.users.read` grant and
+  returning only the least-privilege picker payload (id, email, display
+  name, active flag). Built for assignee mapping against an external
+  tracker's accounts.
+- The todos bridge now accepts exactly one kind of write on `is_system`
+  todos: an `update` whose only fields are `external_ref` /
+  `external_url`, so a connector can reference a sign-off in the external
+  tool (the chip renders in core as usual). Status, description,
+  assignee, due date, `complete` and `delete` on system todos stay
+  refused — a sign-off can be referenced externally, never performed
+  externally.
+- `pack` defaults `sdk_version` to `1.3`; lint warns when `core.users.*`
+  grants are declared with an older `sdk_version`.
+
 ## Authoring extensions & vendor operations
 
 The full authoring guide (content packs, backend/UI SDK), signing/key

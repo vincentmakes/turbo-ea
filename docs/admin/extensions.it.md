@@ -74,8 +74,9 @@ Queste opzioni compaiono nell'editor dei campi del metamodello **solo finché l'
 
 La maggior parte delle estensioni lavora solo con i propri dati. Un'estensione che si integra con i dati del core — ad esempio un connettore che sincronizza i todo con un task tracker esterno come Jira o MS Planner ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — deve dichiarare dei **grant** nel proprio manifest firmato:
 
-- `core.todos.read` / `core.todos.write` — leggere o modificare i todo tramite l'SDK delle estensioni. La scrittura include la lettura. Un'estensione di sincronizzazione non può mai toccare i todo di sistema (come le richieste di firma) né i todo di un'altra estensione.
+- `core.todos.read` / `core.todos.write` — leggere o modificare i todo tramite l'SDK delle estensioni. La scrittura include la lettura. Sui todo di sistema (come le richieste di firma) un'estensione di sincronizzazione può solo impostare il riferimento esterno mostrato come chip — non può mai completarli, modificarli, riassegnarli o eliminarli, e i todo di un'altra estensione restano intoccabili.
 - `core.events.todo` — ricevere gli eventi di modifica dei todo, così un connettore reagisce subito invece di attendere il prossimo ciclo di polling.
+- `core.users.read` — consultare gli utenti (solo nome, e-mail e stato attivo) così che un connettore possa abbinare gli assegnatari agli account dello strumento esterno. Nessun dato su ruoli, accessi o preferenze viene esposto, e le estensioni non possono mai modificare gli utenti.
 
 I grant fanno parte del bundle firmato dal fornitore: sono fissati al momento del confezionamento e visibili prima dell'installazione. Valgono solo finché l'estensione è installata, abilitata e con licenza — disabilitarla o lasciar scadere la licenza revoca l'accesso immediatamente, senza riavvio. Ogni modifica fatta da un'estensione è registrata in **Admin → Log di audit** con origine **Estensione**, e un todo replicato da un tracker esterno mostra un chip che rimanda all'elemento esterno.
 

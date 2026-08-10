@@ -11,10 +11,14 @@ Design invariants:
   write, which implies it); writes need ``core.todos.write``.
 * **Scoped writes.** An extension may only mutate rows whose
   ``external_source`` is NULL or its own key — never another extension's
-  mirror rows and never ``is_system`` todos (those belong to core workflows
-  like ADR signing). Writing external fields always stamps
-  ``external_source`` with the extension's own key; it is not a parameter,
-  so one extension cannot impersonate another's mirror.
+  mirror rows. ``is_system`` todos (core workflow pointers like ADR
+  signing) accept exactly ONE kind of write: an update whose only fields
+  are ``external_ref`` / ``external_url`` (SDK 1.3 — mirror metadata, so a
+  connector can reference the sign-off in an external tracker). Their
+  status, description, assignee and due date stay core-owned, and
+  ``complete`` / ``delete`` are always refused. Writing external fields
+  always stamps ``external_source`` with the extension's own key; it is
+  not a parameter, so one extension cannot impersonate another's mirror.
 * **Full audit provenance.** Each write runs in its own short session with
   the ``request_origin`` contextvar set to ``"ext"`` and an explicit
   ``MutationBatch(tool_name="ext:{key}", origin="ext", actor_user_id=None)``,
@@ -52,6 +56,9 @@ from app.services.todo_service import TodoActor, TodoError
 
 READ_GRANTS = frozenset({"core.todos.read", "core.todos.write"})
 WRITE_GRANT = "core.todos.write"
+
+# The only fields writable on a system todo (SDK 1.3): mirror metadata.
+_SYSTEM_WRITABLE_FIELDS = frozenset({"external_ref", "external_url"})
 
 _T = TypeVar("_T")
 
@@ -103,7 +110,9 @@ class ExtensionTodos(TodosBridge):
         display = (info.name if info else None) or self._key
         return TodoActor(user_id=None, display_name=display, ext_key=self._key)
 
-    async def _load_writable(self, db: AsyncSession, todo_id: str) -> Todo:
+    async def _load_writable(
+        self, db: AsyncSession, todo_id: str, *, allow_system: bool = False
+    ) -> Todo:
         try:
             tid = uuid.UUID(todo_id)
         except ValueError as e:
@@ -111,8 +120,11 @@ class ExtensionTodos(TodosBridge):
         todo = (await db.execute(select(Todo).where(Todo.id == tid))).scalar_one_or_none()
         if todo is None:
             raise ExtensionDataError(f"Todo {todo_id} not found")
-        if todo.is_system:
-            raise ExtensionDataError("System todos cannot be modified by extensions")
+        if todo.is_system and not allow_system:
+            raise ExtensionDataError(
+                "System todos cannot be modified by extensions "
+                "(only their external_ref/external_url mirror fields)"
+            )
         if todo.external_source is not None and todo.external_source != self._key:
             raise ExtensionDataError(
                 f"Todo {todo_id} is owned by another source ({todo.external_source})"
@@ -242,7 +254,17 @@ class ExtensionTodos(TodosBridge):
         }
 
         async def op(db: AsyncSession):
-            todo = await self._load_writable(db, todo_id)
+            # A system todo accepts an update iff it touches nothing but the
+            # external mirror fields (evaluated on the pre-stamp changes —
+            # the external_source stamp below is bridge-injected, not caller
+            # input). The foreign-source check inside still applies, so a
+            # system todo mirrored by one extension stays off-limits to
+            # every other.
+            todo = await self._load_writable(
+                db,
+                todo_id,
+                allow_system=bool(changes) and set(changes) <= _SYSTEM_WRITABLE_FIELDS,
+            )
             if "external_ref" in changes or "external_url" in changes:
                 changes["external_source"] = self._key
             todo = await todo_service.update_todo(db, self._actor(), todo, changes)

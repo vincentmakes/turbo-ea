@@ -74,8 +74,9 @@ Ces options n'apparaissent dans l'éditeur de champ du métamodèle **que tant q
 
 La plupart des extensions ne travaillent qu'avec leurs propres données. Une extension qui s'intègre aux données du cœur — par exemple un connecteur qui synchronise les todos avec un outil de suivi externe comme Jira ou MS Planner ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — doit déclarer des **grants** dans son manifeste signé :
 
-- `core.todos.read` / `core.todos.write` — lire ou modifier les todos via le SDK d'extension. L'écriture inclut la lecture. Une extension de synchronisation ne peut jamais toucher aux todos système (comme les demandes de signature) ni aux todos appartenant à une autre extension.
+- `core.todos.read` / `core.todos.write` — lire ou modifier les todos via le SDK d'extension. L'écriture inclut la lecture. Sur les todos système (comme les demandes de signature), une extension de synchronisation ne peut définir que la référence externe affichée en pastille — elle ne peut jamais les terminer, les modifier, les réassigner ni les supprimer, et les todos appartenant à une autre extension restent hors de portée.
 - `core.events.todo` — recevoir les événements de changement des todos, afin qu'un connecteur réagisse immédiatement au lieu d'attendre son prochain cycle d'interrogation.
+- `core.users.read` — consulter les utilisateurs (nom, e-mail et statut actif uniquement) afin qu'un connecteur puisse faire correspondre les responsables avec les comptes de l'outil externe. Aucune donnée de rôle, de connexion ou de préférence n'est exposée, et les extensions ne peuvent jamais modifier les utilisateurs.
 
 Les grants font partie du bundle signé par l'éditeur : ils sont figés à l'empaquetage et visibles avant l'installation. Ils ne s'appliquent que tant que l'extension est installée, activée et sous licence — la désactiver ou laisser la licence expirer révoque l'accès immédiatement, sans redémarrage. Chaque modification effectuée par une extension est consignée dans **Admin → Journal d'audit** sous l'origine **Extension**, et un todo miroité depuis un outil externe affiche une puce pointant vers l'élément externe.
 

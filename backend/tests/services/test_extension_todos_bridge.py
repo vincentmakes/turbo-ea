@@ -176,6 +176,65 @@ class TestWrites:
         with pytest.raises(ExtensionDataError):
             await bridge.complete(str(system.id))
 
+    async def test_system_todo_accepts_external_mirror_fields_only(self, db, env):
+        # SDK 1.3 carve-out: a system todo may be stamped with mirror
+        # metadata (external_ref/external_url only) so connectors can
+        # reference a sign-off in an external tracker.
+        load_registry(grants=["core.todos.write"])
+        db.add(Todo(description="sign the ADR", is_system=True))
+        await db.flush()
+        system = (await db.execute(select(Todo).where(Todo.is_system.is_(True)))).scalar_one()
+        bridge = ExtensionTodos(KEY)
+        stamped = await bridge.update(
+            str(system.id), external_ref="PROJ-9", external_url="https://tracker/PROJ-9"
+        )
+        assert stamped.external_ref == "PROJ-9"
+        assert stamped.external_source == KEY
+        assert stamped.is_system is True
+        # The write is audited like every other bridge write.
+        ev = (
+            (await db.execute(select(Event).where(Event.event_type == "todo.updated")))
+            .scalars()
+            .one()
+        )
+        assert ev.data["ext"] == KEY
+
+    async def test_system_todo_refuses_everything_but_mirror_fields(self, db, env):
+        load_registry(grants=["core.todos.write"])
+        db.add(Todo(description="review the risk", is_system=True))
+        await db.flush()
+        system = (await db.execute(select(Todo).where(Todo.is_system.is_(True)))).scalar_one()
+        bridge = ExtensionTodos(KEY)
+        # Mixing a mirror field with anything else must not smuggle the
+        # other field through.
+        with pytest.raises(ExtensionDataError):
+            await bridge.update(str(system.id), external_ref="PROJ-9", description="hijack")
+        with pytest.raises(ExtensionDataError):
+            await bridge.update(str(system.id), status="done")
+        with pytest.raises(ExtensionDataError):
+            await bridge.update(str(system.id), assigned_to=str(env["user"].id))
+        with pytest.raises(ExtensionDataError):
+            await bridge.delete(str(system.id))
+        # An update providing nothing at all is not a mirror write either.
+        with pytest.raises(ExtensionDataError):
+            await bridge.update(str(system.id))
+
+    async def test_system_todo_mirrored_by_another_extension_stays_foreign(self, db, env):
+        load_registry(grants=["core.todos.write"])
+        db.add(
+            Todo(
+                description="sign-off mirrored elsewhere",
+                is_system=True,
+                external_source="planner-sync",
+                external_ref="PL-1",
+            )
+        )
+        await db.flush()
+        system = (await db.execute(select(Todo).where(Todo.is_system.is_(True)))).scalar_one()
+        bridge = ExtensionTodos(KEY)
+        with pytest.raises(ExtensionDataError):
+            await bridge.update(str(system.id), external_ref="PROJ-9")
+
     async def test_can_claim_unowned_user_todo(self, db, env):
         # external_source NULL rows are claimable — that's the "push an
         # existing user todo out to the tracker" direction.

@@ -61,7 +61,7 @@ def build_manifest(
         "version": version,
         "vendor": "Turbo EA",
         "core": {"min": core_min},
-        "sdk_version": "1.2",
+        "sdk_version": "1.3",
         "entitlement_key": key,
         "capabilities": capabilities if capabilities is not None else ["content"],
         "files": {path: hashlib.sha256(data).hexdigest() for path, data in files.items()},

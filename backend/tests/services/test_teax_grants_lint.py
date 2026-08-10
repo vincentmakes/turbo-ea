@@ -69,6 +69,24 @@ class TestTeaxGrantsLint:
         assert problems == []
         assert any("SDK 1.2" in w for w in warnings)
 
+    def test_users_grant_with_pre_1_3_sdk_warns(self, teax, tmp_path):
+        src = write_source(
+            tmp_path,
+            {**BASE_MANIFEST, "grants": ["core.users.read"], "sdk_version": "1.2"},
+        )
+        _, _, problems, warnings = teax._lint_source(src)
+        assert problems == []
+        assert any("SDK 1.3" in w for w in warnings)
+
+    def test_users_grant_with_1_3_sdk_is_clean(self, teax, tmp_path):
+        src = write_source(
+            tmp_path,
+            {**BASE_MANIFEST, "grants": ["core.users.read"], "sdk_version": "1.3"},
+        )
+        _, _, problems, warnings = teax._lint_source(src)
+        assert problems == []
+        assert warnings == []
+
     def test_non_list_grants_is_a_problem(self, teax, tmp_path):
         src = write_source(tmp_path, {**BASE_MANIFEST, "grants": "core.todos.write"})
         _, _, problems, _ = teax._lint_source(src)

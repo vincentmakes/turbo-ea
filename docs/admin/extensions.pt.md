@@ -74,8 +74,9 @@ Essas opções aparecem no editor de campos do metamodelo **somente enquanto a e
 
 A maioria das extensões trabalha apenas com os seus próprios dados. Uma extensão que se integra com os dados do núcleo — por exemplo, um conector que sincroniza os todos com um gestor de tarefas externo como o Jira ou o MS Planner ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — precisa declarar **grants** no seu manifesto assinado:
 
-- `core.todos.read` / `core.todos.write` — ler ou alterar todos através do SDK de extensões. Escrever inclui ler. Uma extensão de sincronização nunca pode tocar nos todos de sistema (como pedidos de assinatura) nem nos todos de outra extensão.
+- `core.todos.read` / `core.todos.write` — ler ou alterar todos através do SDK de extensões. Escrever inclui ler. Nos todos de sistema (como pedidos de assinatura), uma extensão de sincronização só pode definir a referência externa mostrada como chip — nunca pode concluí-los, editá-los, reatribuí-los ou eliminá-los, e os todos de outra extensão continuam fora do seu alcance.
 - `core.events.todo` — receber os eventos de alteração dos todos, para que um conector reaja de imediato em vez de esperar pelo próximo ciclo de sondagem.
+- `core.users.read` — consultar utilizadores (apenas nome, e-mail e estado ativo) para que um conector possa fazer corresponder responsáveis a contas da ferramenta externa. Não são expostos dados de função, início de sessão ou preferências, e as extensões nunca podem alterar utilizadores.
 
 Os grants fazem parte do pacote assinado pelo fornecedor: ficam fixados no empacotamento e são visíveis antes da instalação. Só se aplicam enquanto a extensão está instalada, ativada e licenciada — desativá-la ou deixar a licença expirar revoga o acesso imediatamente, sem reinício. Cada alteração feita por uma extensão fica registada em **Admin → Registo de auditoria** sob a origem **Extensão**, e um todo espelhado de um gestor externo mostra um chip com ligação ao item externo.
 

@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.47.0] - 2026-08-10
+
+### Added
+- **Connector extensions can now match assignees automatically.** Extension SDK 1.3 adds a read-only users bridge: an extension declaring the new `core.users.read` grant in its signed manifest can look up users — name, email and active flag only, the same least-privilege payload the app's own user pickers use — so a task-tracker connector maps assignees to accounts in the external tool without manual upkeep. No role, login or preference data is exposed, extensions can never change users, and access revokes immediately when the extension is disabled or its license lapses.
+- **A sign-off todo can now carry a link to its mirror in an external tracker.** System todos (risk ownership, decision sign requests, project tasks) accept exactly one kind of extension write: the external reference shown as a chip on the Todos page. Completing, editing, reassigning or deleting them through the SDK stays impossible — a sign-off can be referenced in an external tool, never performed from it.
+
+### Changed
+- **The `teax` authoring CLI knows the new grant.** `core.users.read` validates in lint/pack, packing defaults `sdk_version` to 1.3, and lint warns when users-bridge grants are declared with an older SDK version.
+
 ## [2.46.1] - 2026-08-09
 
 ### Security

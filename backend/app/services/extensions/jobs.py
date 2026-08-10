@@ -22,6 +22,7 @@ from app.services.extensions.loader import LoadReport
 from app.services.extensions.registry import extension_registry
 from app.services.extensions.sdk import ExtensionContext, ExtensionJob
 from app.services.extensions.todos_bridge import ExtensionTodos
+from app.services.extensions.users_bridge import ExtensionUsers
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +41,8 @@ def reset_contexts() -> None:
 def build_context(key: str) -> ExtensionContext:
     """Runtime services for one extension: sessions, logging, namespaced
     settings persisted under ``app_settings.general_settings["ext.{key}.*"]``,
-    encrypted secrets under ``ext.{key}.secret.*``, and the core-data todos
-    bridge. Memoized per key (see ``_contexts``)."""
+    encrypted secrets under ``ext.{key}.secret.*``, and the core-data
+    bridges (todos, users). Memoized per key (see ``_contexts``)."""
 
     cached = _contexts.get(key)
     if cached is not None:
@@ -100,6 +101,7 @@ def build_context(key: str) -> ExtensionContext:
         todos=ExtensionTodos(key),
         get_secret=get_secret,
         set_secret=set_secret,
+        users=ExtensionUsers(key),
     )
     _contexts[key] = ctx
     return ctx

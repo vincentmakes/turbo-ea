@@ -74,8 +74,9 @@ Diese Optionen erscheinen im Feldeditor des Metamodells **nur, solange die berei
 
 Die meisten Erweiterungen arbeiten nur mit ihren eigenen Daten. Eine Erweiterung, die Kerndaten integriert — zum Beispiel ein Konnektor, der Todos mit einem externen Task-Tracker wie Jira oder MS Planner synchronisiert ([#921](https://github.com/vincentmakes/turbo-ea/discussions/921)) — muss in ihrem signierten Manifest **Grants** deklarieren:
 
-- `core.todos.read` / `core.todos.write` — Todos über das Erweiterungs-SDK lesen oder ändern. Schreiben schließt Lesen ein. Eine Sync-Erweiterung kann niemals System-Todos (etwa Signaturanfragen) oder Todos einer anderen Erweiterung anfassen.
+- `core.todos.read` / `core.todos.write` — Todos über das Erweiterungs-SDK lesen oder ändern. Schreiben schließt Lesen ein. Bei System-Todos (etwa Signaturanfragen) kann eine Sync-Erweiterung nur die als Chip angezeigte externe Referenz setzen — sie kann sie niemals erledigen, bearbeiten, neu zuweisen oder löschen, und Todos einer anderen Erweiterung bleiben ebenfalls tabu.
 - `core.events.todo` — Todo-Änderungsereignisse empfangen, damit ein Konnektor sofort reagiert statt erst beim nächsten Abfragezyklus.
+- `core.users.read` — Benutzer nachschlagen (nur Name, E-Mail und Aktiv-Status), damit ein Konnektor Zuständige mit Konten im externen Tool abgleichen kann. Rollen-, Anmelde- oder Einstellungsdaten werden nicht offengelegt, und Erweiterungen können Benutzer niemals ändern.
 
 Grants sind Teil des vom Anbieter signierten Bundles, stehen also beim Paketieren fest und sind vor der Installation sichtbar. Sie gelten nur, solange die Erweiterung installiert, aktiviert und lizenziert ist — Deaktivieren oder ein Lizenzablauf entzieht den Zugriff sofort, ohne Neustart. Jede Änderung einer Erweiterung wird in **Admin → Audit-Log** unter der Herkunft **Erweiterung** aufgezeichnet, und ein aus einem externen Tracker gespiegeltes Todo zeigt einen Chip mit Link auf das externe Element.
 

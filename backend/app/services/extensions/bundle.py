@@ -46,12 +46,12 @@ VALID_CAPABILITIES = frozenset({"content", "backend", "frontend", "metamodel"})
 # Core capability / data-scope strings a manifest may declare under ``grants``.
 # The authoring-affordance grants unlock admin UI features
 # (``metamodel.*`` — see api/v1/metamodel.py), the ``core.*`` grants unlock
-# SDK 1.2 bridge access (todos bridge, event subscriptions — evaluated at
-# call/delivery time via registry.grants_for). An unknown grant is a hard
-# BundleError: a signed manifest carrying a typo'd scope would otherwise be
-# silently inert. Keep in sync with VALID_GRANTS in
-# scripts/extension-tools/teax.py (deliberately duplicated — teax is
-# stdlib-vendorable).
+# SDK bridge access (todos bridge + event subscriptions since SDK 1.2, the
+# read-only users bridge since SDK 1.3 — evaluated at call/delivery time via
+# registry.grants_for). An unknown grant is a hard BundleError: a signed
+# manifest carrying a typo'd scope would otherwise be silently inert. Keep in
+# sync with VALID_GRANTS in scripts/extension-tools/teax.py (deliberately
+# duplicated — teax is stdlib-vendorable).
 VALID_GRANTS = frozenset(
     {
         "metamodel.field_help",
@@ -59,6 +59,7 @@ VALID_GRANTS = frozenset(
         "core.todos.read",
         "core.todos.write",
         "core.events.todo",
+        "core.users.read",
     }
 )
 
