@@ -56,6 +56,12 @@ class LicenseError(Exception):
 class Entitlement:
     extension_key: str
     expires_at: datetime | None = None  # None = perpetual
+    # Whether the backing store subscription renews at period end. Stamped by
+    # the store into the signed payload so even an air-gapped install can tell
+    # "renews on expires_at" from "cancelled, runs out on expires_at".
+    # None = unknown (manual/offline licenses, and licenses issued before the
+    # store carried the field).
+    auto_renew: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -168,12 +174,17 @@ def parse_and_verify(text: str, *, public_key_b64: str | None = None) -> License
         if not isinstance(ext_key, str) or not ext_key.strip():
             raise LicenseError(f"Invalid license: entitlement #{idx + 1} is missing extension_key")
         # Any legacy ``plan`` key in an already-signed license is simply ignored.
+        # ``auto_renew`` is optional and tolerant: only a real bool is taken,
+        # anything else degrades to None (unknown) — an already-signed license
+        # must never fail to verify over a display-only field.
+        auto_renew_raw = raw.get("auto_renew")
         entitlements.append(
             Entitlement(
                 extension_key=ext_key.strip(),
                 expires_at=_parse_datetime(
                     raw.get("expires_at"), f"entitlement #{idx + 1} expires_at"
                 ),
+                auto_renew=auto_renew_raw if isinstance(auto_renew_raw, bool) else None,
             )
         )
 

@@ -4505,6 +4505,17 @@
       },
       "EntitlementOut": {
         "properties": {
+          "auto_renew": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Renew"
+          },
           "expires_at": {
             "anyOf": [
               {
@@ -5411,6 +5422,11 @@
               }
             ],
             "title": "Problem"
+          },
+          "store_managed": {
+            "default": false,
+            "title": "Store Managed",
+            "type": "boolean"
           },
           "uploaded_at": {
             "anyOf": [
@@ -13053,6 +13069,19 @@
         "title": "StoreItemOut",
         "type": "object"
       },
+      "StorePortalOut": {
+        "properties": {
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "StorePortalOut",
+        "type": "object"
+      },
       "StoreRefreshOut": {
         "properties": {
           "refreshed": {
@@ -15759,6 +15788,28 @@
           }
         },
         "summary": "Put License",
+        "tags": [
+          "Extensions"
+        ]
+      }
+    },
+    "/api/v1/admin/extensions/store/billing-portal": {
+      "post": {
+        "description": "Mint a store billing-portal session for this instance's subscription.\n\nBacks the \"Manage subscription\" button: the customer sees the renewal\ndate, cancels or restores auto-renew, updates the payment method, and\ndownloads invoices \u2014 all on the store's hosted portal. The renewal\ncredential authenticating the request lives inside the active license's\nsigned payload and is forwarded server-side only; it never reaches the\nbrowser. Only store-issued licenses carry one \u2014 for manual/offline\nlicenses this returns 404 and the UI shows no button.",
+        "operationId": "open_billing_portal_api_v1_admin_extensions_store_billing_portal_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorePortalOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Open Billing Portal",
         "tags": [
           "Extensions"
         ]

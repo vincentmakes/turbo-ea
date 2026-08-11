@@ -52,6 +52,14 @@ Quando un diritto supera la scadenza entra in un **periodo di tolleranza** (30 g
 
 Le licenze acquistate tramite lo Store si rinnovano da sole sulle istanze connesse: dopo ogni pagamento andato a buon fine, l'istanza recupera automaticamente la licenza estesa — niente da incollare. Su un'istanza isolata il rinnovo è: incollare il file di licenza aggiornato ricevuto via e-mail (o richiederlo al fornitore) — nient'altro.
 
+### Stato del rinnovo automatico e disdetta
+
+Ogni chip di entitlement dice cosa accade alla sua data: **Si rinnova il {data}** per un abbonamento attivo, oppure **Scade il {data} — non sarà rinnovato** dopo una disdetta. L'informazione proviene dalla licenza firmata stessa, quindi è corretta anche sulle istanze isolate — il file di licenza inviato via e-mail dopo ogni modifica dell'abbonamento porta lo stato aggiornato; incollalo e il chip è attuale.
+
+Per vedere la data di rinnovo, disdire o ripristinare il rinnovo automatico, cambiare il metodo di pagamento o scaricare le fatture, usa **Gestisci abbonamento** accanto al nome del licenziatario (visibile per le licenze acquistate nello Store). Apre il tuo portale di fatturazione in una nuova scheda — nessun account necessario. Su un'istanza isolata il pulsante non può raggiungere lo store; usa invece il link **Gestisci abbonamento** presente in ogni e-mail di licenza (serve Internet solo al tuo browser, non alla tua istanza Turbo EA).
+
+La disdetta non spegne mai nulla immediatamente: l'estensione continua a funzionare fino alla fine del periodo pagato, poi si applica il normale flusso di tolleranza + disattivazione morbida. **I tuoi dati non vengono mai eliminati**, e riabbonarsi ripristina tutto.
+
 ## Abilitare, disabilitare e disinstallare
 
 - L'interruttore **Abilitata** disattiva subito l'estensione (senza riavvio) e può essere riattivato in qualsiasi momento. Per i pacchetti di contenuto questo nasconde i loro tipi di scheda dal metamodello — le schede restano dove sono.

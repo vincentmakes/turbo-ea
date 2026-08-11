@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.48.0] - 2026-08-11
+
+### Added
+- **Extension subscriptions now show whether they auto-renew.** The license chip on Admin → Extensions says what actually happens on the date — "Renews on {date}" for an active subscription, "Expires {date} — will not renew" after a cancellation — instead of the ambiguous "Active until". The status rides inside the signed license file itself, so it is accurate on air-gapped instances too: paste the license from any subscription email and the chip is current.
+- **Manage subscription from inside the product.** Store-bought licenses get a "Manage subscription" button next to the licensee name that opens the store's billing portal in a new tab — see the renewal date, cancel or restore auto-renew, update the payment method, and download invoices, with no account needed. The store credential authenticating the request never reaches the browser. Air-gapped instances use the manage link included in every license email instead.
+
+### Changed
+- A cancellation or reactivation made in the billing portal now reaches connected instances within a day: the daily license refresh also picks up renewal-status changes, not just extensions, and can never shorten or drop an entitlement while doing so.
+
 ## [2.47.0] - 2026-08-10
 
 ### Added

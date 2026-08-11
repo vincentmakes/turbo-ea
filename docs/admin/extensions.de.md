@@ -52,6 +52,14 @@ Wenden Sie eine Lizenz über **Lizenz eingeben…** im Tab Installiert an (Text 
 
 Über den Store gekaufte Lizenzen verlängern sich auf verbundenen Instanzen von selbst: Nach jeder erfolgreichen Zahlung holt Ihre Instanz die verlängerte Lizenz automatisch — nichts einzufügen. Auf einer abgeschotteten Instanz gilt: die aktualisierte Lizenzdatei aus der Verlängerungs-E-Mail einfügen (oder beim Anbieter anfordern) — fertig.
 
+### Auto-Verlängerungsstatus und Kündigung
+
+Jeder Berechtigungs-Chip sagt, was am jeweiligen Datum passiert: **Verlängert sich am {Datum}** bei einem aktiven Abonnement oder **Läuft am {Datum} ab — wird nicht verlängert** nach einer Kündigung. Diese Angabe stammt aus der signierten Lizenz selbst und stimmt daher auch auf abgeschotteten Instanzen — die nach jeder Abonnementänderung per E-Mail verschickte Lizenzdatei trägt den aktuellen Status; nach dem Einfügen ist der Chip aktuell.
+
+Um das Verlängerungsdatum zu sehen, die automatische Verlängerung zu kündigen oder wiederherzustellen, die Zahlungsmethode zu ändern oder Rechnungen herunterzuladen, nutzen Sie **Abonnement verwalten** neben dem Lizenznehmernamen (bei über den Store gekauften Lizenzen sichtbar). Es öffnet Ihr Abrechnungsportal in einem neuen Tab — kein Konto nötig. Auf einer abgeschotteten Instanz erreicht der Button den Store nicht; verwenden Sie stattdessen den Link **Abonnement verwalten** in jeder Lizenz-E-Mail (nur Ihr Browser braucht Internetzugang, Ihre Turbo-EA-Instanz nicht).
+
+Eine Kündigung schaltet nie sofort etwas ab: Die Erweiterung funktioniert bis zum Ende des bezahlten Zeitraums weiter, danach greift der normale Kulanz- und Soft-Disable-Ablauf. **Ihre Daten werden nie gelöscht**, und ein erneutes Abonnement stellt alles wieder her.
+
 ## Aktivieren, Deaktivieren und Deinstallieren
 
 - Der Schalter **Aktiviert** deaktiviert eine Erweiterung sofort weich (ohne Neustart) und lässt sich jederzeit zurückschalten. Bei Inhaltspaketen werden dabei ihre Kartentypen im Metamodell ausgeblendet — Karten bleiben, wo sie sind.

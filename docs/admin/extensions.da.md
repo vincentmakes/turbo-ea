@@ -52,6 +52,14 @@ Når en rettighed passerer sin udløbsdato, starter en **henstandsperiode** (30 
 
 Licenser købt via Butikken fornyer sig selv på forbundne instanser: efter hver gennemført betaling henter din instans automatisk den forlængede licens — intet at indsætte. På en isoleret installation er fornyelse: indsæt den opdaterede licensfil fra fornyelses-e-mailen (eller anmod leverandøren om en) — intet andet.
 
+### Status for automatisk fornyelse og opsigelse
+
+Hver rettigheds-chip fortæller, hvad der sker på datoen: **Fornyes den {dato}** for et aktivt abonnement eller **Udløber den {dato} — fornyes ikke** efter en opsigelse. Oplysningen kommer fra selve den signerede licens og er derfor også korrekt på isolerede installationer — licensfilen, der sendes pr. e-mail efter enhver abonnementsændring, bærer den opdaterede status; indsæt den, og chippen er aktuel.
+
+For at se fornyelsesdatoen, opsige eller genoprette automatisk fornyelse, ændre betalingsmetode eller hente fakturaer skal du bruge **Administrér abonnement** ved siden af licenstagerens navn (vises for licenser købt i Butikken). Knappen åbner din faktureringsportal i en ny fane — ingen konto nødvendig. På en isoleret installation kan knappen ikke nå butikken; brug i stedet linket **Administrér abonnement** i enhver licens-e-mail (kun din browser behøver internetadgang, ikke din Turbo EA-installation).
+
+En opsigelse slukker aldrig for noget med det samme: Udvidelsen fungerer indtil udgangen af den betalte periode, hvorefter det normale forløb med henstandsperiode + blød deaktivering gælder. **Dine data slettes aldrig**, og et nyt abonnement genopretter alt.
+
 ## Aktivér, deaktivér og afinstaller
 
 - Kontakten **Aktiveret** deaktiverer en udvidelse blødt med det samme (ingen genstart) og kan slås til igen når som helst. For indholdspakker skjuler dette deres korttyper fra metamodellen — kort bliver, hvor de er.

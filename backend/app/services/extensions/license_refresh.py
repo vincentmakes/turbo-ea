@@ -65,6 +65,9 @@ async def persist_license(
             {
                 "extension_key": ent.extension_key,
                 "expires_at": ent.expires_at.isoformat() if ent.expires_at else None,
+                # None = unknown (pre-field or manual license); rows written
+                # before this key existed simply lack it.
+                "auto_renew": ent.auto_renew,
             }
             for ent in doc.entitlements
         ],
@@ -92,6 +95,37 @@ def _extends(new: LicenseDocument, current: LicenseDocument) -> bool:
     return bool(
         {e.extension_key for e in new.entitlements}
         - {e.extension_key for e in current.entitlements}
+    )
+
+
+def _same_coverage(new: LicenseDocument, current: LicenseDocument) -> bool:
+    """Identical entitlement keys with identical per-key expiries."""
+    as_map = lambda doc: {e.extension_key: e.expires_at for e in doc.entitlements}  # noqa: E731
+    return as_map(new) == as_map(current)
+
+
+def _renewal_metadata_changed(new: LicenseDocument, current: LicenseDocument) -> bool:
+    """Anything display-relevant beyond coverage: auto_renew flags, grace, licensee."""
+    if new.grace_days != current.grace_days or new.licensee != current.licensee:
+        return True
+    cur = {e.extension_key: e.auto_renew for e in current.entitlements}
+    return any(
+        e.extension_key in cur and e.auto_renew != cur[e.extension_key] for e in new.entitlements
+    )
+
+
+def _should_apply(new: LicenseDocument, current: LicenseDocument) -> bool:
+    """Apply ``new`` when it extends ``current`` — or, at IDENTICAL coverage,
+    when its renewal metadata changed.
+
+    The second arm is what lets a cancellation land on connected instances:
+    the store re-issues the same entitlements with ``auto_renew`` flipped, and
+    the old "must extend" rule would have rejected that forever. Gating it on
+    identical coverage keeps the invariant that a metadata refresh can never
+    shorten or drop anything.
+    """
+    return _extends(new, current) or (
+        _same_coverage(new, current) and _renewal_metadata_changed(new, current)
     )
 
 
@@ -181,7 +215,7 @@ async def refresh_license_if_due(
         logger.warning("Store returned a license bound to another instance — not applied")
         return False
 
-    if fresh.customer_id != current.customer_id or not _extends(fresh, current):
+    if fresh.customer_id != current.customer_id or not _should_apply(fresh, current):
         return False
 
     await persist_license(db, fresh, created_by=None)

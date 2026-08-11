@@ -72,14 +72,23 @@ async def _noop_job(*args, **kwargs):
 
 
 def make_license_text(
-    private, *, extension_key="sample-ext", expires_at=EXPIRES, renewal_key="", instance_id=""
+    private,
+    *,
+    extension_key="sample-ext",
+    expires_at=EXPIRES,
+    renewal_key="",
+    instance_id="",
+    auto_renew=None,
 ) -> str:
+    entitlement = {"extension_key": extension_key, "expires_at": expires_at}
+    if auto_renew is not None:
+        entitlement["auto_renew"] = auto_renew
     payload = {
         "licensee": "ACME Corp",
         "customer_id": "cus_1",
         "issued_at": "2026-01-01T00:00:00Z",
         "grace_days": 30,
-        "entitlements": [{"extension_key": extension_key, "expires_at": expires_at}],
+        "entitlements": [entitlement],
     }
     if renewal_key:
         payload["renewal_key"] = renewal_key
@@ -563,12 +572,13 @@ def mock_store(
     bundles: dict[str, bytes] | None = None,
     claim: dict | None = None,
     renew: dict | None = None,
+    portal: dict | None = None,
 ):
     """Point EXTENSION_STORE_URL at a MockTransport-backed fake static host.
 
     ``catalog=None`` simulates an unreachable host (connection error).
-    ``claim`` / ``renew`` are the JSON bodies of /account/claim and
-    /account/renew.
+    ``claim`` / ``renew`` / ``portal`` are the JSON bodies of /account/claim,
+    /account/renew and /account/portal.
     """
     monkeypatch.setattr(settings, "EXTENSION_STORE_URL", STORE_URL)
 
@@ -583,6 +593,10 @@ def mock_store(
             if renew is None:
                 return httpx.Response(403, json={"error": "invalid renewal credential"})
             return httpx.Response(200, json=renew)
+        if request.url.path == "/account/portal":
+            if portal is None:
+                return httpx.Response(404, json={"error": "no active subscriptions"})
+            return httpx.Response(200, json=portal)
         data = (bundles or {}).get(request.url.path)
         if data is not None:
             return httpx.Response(200, content=data)
@@ -941,6 +955,154 @@ class TestStoreClaimAndRefresh:
         )
         assert res.status_code == 200
         assert res.json() == {"refreshed": False}
+
+    async def test_refresh_applies_auto_renew_flip_at_same_coverage(
+        self, client, db, vendor, monkeypatch
+    ):
+        """A billing-portal cancellation reaches the instance: identical
+        coverage, only auto_renew flipped — the refresh must apply it."""
+        admin = await make_admin(db)
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={
+                "text": make_license_text(
+                    vendor, renewal_key="rk_0123456789abcdef", auto_renew=True
+                )
+            },
+            headers=auth_headers(admin),
+        )
+        cancelled = make_license_text(vendor, renewal_key="rk_0123456789abcdef", auto_renew=False)
+        mock_store(monkeypatch, catalog=catalog_payload(), renew={"license": cancelled})
+
+        res = await client.post(
+            "/api/v1/admin/extensions/store/refresh-license", headers=auth_headers(admin)
+        )
+        assert res.status_code == 200
+        assert res.json() == {"refreshed": True}
+        res = await client.get("/api/v1/admin/extensions/license", headers=auth_headers(admin))
+        assert res.json()["entitlements"][0]["auto_renew"] is False
+
+
+class TestAutoRenewAndBillingPortal:
+    async def test_auto_renew_surfaced_on_license_and_extension(
+        self, client, db, vendor, monkeypatch
+    ):
+        admin = await make_admin(db)
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor, auto_renew=False)},
+            headers=auth_headers(admin),
+        )
+        res = await client.get("/api/v1/admin/extensions/license", headers=auth_headers(admin))
+        assert res.json()["entitlements"][0]["auto_renew"] is False
+
+        # The per-extension entitlement carries the flag too.
+        install = await upload_and_preview(client, db, admin, vendor)
+        await ext_api.run_apply(db, install, admin)
+        res = await client.get("/api/v1/admin/extensions", headers=auth_headers(admin))
+        rows = {r["key"]: r for r in res.json()}
+        assert rows["sample-ext"]["entitlement"]["auto_renew"] is False
+
+    async def test_auto_renew_unknown_on_pre_field_license(self, client, db, vendor):
+        admin = await make_admin(db)
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor)},  # no auto_renew key
+            headers=auth_headers(admin),
+        )
+        res = await client.get("/api/v1/admin/extensions/license", headers=auth_headers(admin))
+        assert res.json()["entitlements"][0].get("auto_renew") is None
+
+    async def test_store_managed_reflects_renewal_credential(self, client, db, vendor):
+        admin = await make_admin(db)
+        # Manual license → not store-managed.
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor)},
+            headers=auth_headers(admin),
+        )
+        res = await client.get("/api/v1/admin/extensions/license", headers=auth_headers(admin))
+        assert res.json()["store_managed"] is False
+        # Store license → store-managed.
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor, renewal_key="rk_0123456789abcdef")},
+            headers=auth_headers(admin),
+        )
+        res = await client.get("/api/v1/admin/extensions/license", headers=auth_headers(admin))
+        assert res.json()["store_managed"] is True
+
+    async def test_renewal_credential_never_serialized(self, client, db, vendor):
+        """The credential authenticates against the store — its VALUE must
+        never reach the browser, only the store_managed boolean."""
+        admin = await make_admin(db)
+        secret = "rk_super_secret_credential_0001"
+        put = await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor, renewal_key=secret)},
+            headers=auth_headers(admin),
+        )
+        assert secret not in put.text
+        for path in ("/api/v1/admin/extensions/license", "/api/v1/admin/extensions"):
+            res = await client.get(path, headers=auth_headers(admin))
+            assert secret not in res.text, path
+
+    async def test_billing_portal_returns_store_url(self, client, db, vendor, monkeypatch):
+        admin = await make_admin(db)
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor, renewal_key="rk_0123456789abcdef")},
+            headers=auth_headers(admin),
+        )
+        mock_store(
+            monkeypatch,
+            catalog=catalog_payload(),
+            portal={"url": "https://billing.stripe.test/p/session_1"},
+        )
+        res = await client.post(
+            "/api/v1/admin/extensions/store/billing-portal", headers=auth_headers(admin)
+        )
+        assert res.status_code == 200, res.text
+        assert res.json() == {"url": "https://billing.stripe.test/p/session_1"}
+
+    async def test_billing_portal_404_without_store_license(self, client, db, vendor, monkeypatch):
+        admin = await make_admin(db)
+        mock_store(monkeypatch, catalog=catalog_payload())
+        # No license at all.
+        res = await client.post(
+            "/api/v1/admin/extensions/store/billing-portal", headers=auth_headers(admin)
+        )
+        assert res.status_code == 404
+        # Manual license (no renewal credential) — nothing to manage either.
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor)},
+            headers=auth_headers(admin),
+        )
+        res = await client.post(
+            "/api/v1/admin/extensions/store/billing-portal", headers=auth_headers(admin)
+        )
+        assert res.status_code == 404
+
+    async def test_billing_portal_502_when_store_unreachable(self, client, db, vendor, monkeypatch):
+        admin = await make_admin(db)
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor, renewal_key="rk_0123456789abcdef")},
+            headers=auth_headers(admin),
+        )
+        mock_store(monkeypatch, catalog=None)  # connection error
+        res = await client.post(
+            "/api/v1/admin/extensions/store/billing-portal", headers=auth_headers(admin)
+        )
+        assert res.status_code == 502
+
+    async def test_member_cannot_open_billing_portal(self, client, db, vendor):
+        member = await make_member(db)
+        res = await client.post(
+            "/api/v1/admin/extensions/store/billing-portal", headers=auth_headers(member)
+        )
+        assert res.status_code == 403
 
 
 # ---------------------------------------------------------------------------

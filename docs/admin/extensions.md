@@ -52,6 +52,14 @@ When an entitlement passes its expiry it enters a **grace window** (30 days by d
 
 Licenses bought through the Store renew themselves on connected instances: after each successful payment, your instance fetches the extended license automatically — nothing to paste. Renewal on an air-gapped instance is: paste the updated license file from the renewal email (or request one from your vendor) — nothing else.
 
+### Auto-renew status and cancelling
+
+Each entitlement chip states what happens on its date: **Renews on {date}** for an active subscription, or **Expires {date} — will not renew** after a cancellation. This comes from the signed license itself, so it is accurate on air-gapped instances too — the license file emailed after any subscription change carries the updated status; paste it and the chip is current.
+
+To see the renewal date, cancel or restore auto-renew, change the payment method, or download invoices, use **Manage subscription** next to the licensee name (shown for store-bought licenses). It opens your billing portal in a new tab — no account needed. On an air-gapped instance the button cannot reach the store; use the **Manage subscription** link included in every license email instead (your browser only needs internet access, your Turbo EA instance does not).
+
+Cancelling never switches anything off immediately: the extension keeps working until the end of the paid period, then the normal grace + soft-disable flow applies. **Your data is never deleted**, and resubscribing restores everything.
+
 ## Enabling, disabling, and uninstalling
 
 - The **Enabled** switch soft-disables an extension immediately (no restart) and can be flipped back at any time. For content packs this hides their card types from the metamodel — cards stay where they are.

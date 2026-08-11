@@ -40,6 +40,10 @@ class EntitlementStatus:
     state: EntitlementStateWithUnlicensed
     expires_at: datetime | None = None
     grace_until: datetime | None = None
+    # Whether the backing store subscription renews at period end. None =
+    # unknown (manual/offline licenses, pre-field licenses, free extensions).
+    # Display-only — never part of the usable/gating logic.
+    auto_renew: bool | None = None
 
     @property
     def usable(self) -> bool:
@@ -173,6 +177,7 @@ class ExtensionRegistry:
             state=entitlement_state(ent, self._license.grace_days, now=now),
             expires_at=ent.expires_at,
             grace_until=grace_until(ent, self._license.grace_days),
+            auto_renew=ent.auto_renew,
         )
 
     def grants_for(self, key: str, now: datetime | None = None) -> list[str]:

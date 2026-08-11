@@ -102,6 +102,104 @@ describe("ExtensionsAdmin", () => {
     expect(screen.queryByText("Renew", { selector: "button" })).not.toBeInTheDocument();
   });
 
+  it("says whether an active entitlement renews or runs out when the flag is known", async () => {
+    primeInitialLoad({
+      extensions: [
+        {
+          ...SAMPLE_EXT,
+          entitlement: {
+            state: "active",
+            expires_at: "2027-07-01T00:00:00Z",
+            grace_until: null,
+            auto_renew: true,
+          },
+        },
+        {
+          ...SAMPLE_EXT,
+          key: "other-ext",
+          name: "Other Extension",
+          entitlement: {
+            state: "active",
+            expires_at: "2027-07-01T00:00:00Z",
+            grace_until: null,
+            auto_renew: false,
+          },
+        },
+        {
+          ...SAMPLE_EXT,
+          key: "manual-ext",
+          name: "Manual Extension",
+          entitlement: {
+            state: "active",
+            expires_at: "2027-07-01T00:00:00Z",
+            grace_until: null,
+            // No auto_renew → manual/pre-field license keeps today's caption.
+          },
+        },
+      ],
+      license: LICENSE,
+    });
+    render(<ExtensionsAdmin />);
+    await openInstalledTab();
+    await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
+    expect(screen.getByText(/Renews on/)).toBeInTheDocument();
+    expect(screen.getByText(/will not renew/)).toBeInTheDocument();
+    expect(screen.getByText(/Active until/)).toBeInTheDocument();
+  });
+
+  it("offers Manage subscription only on store-managed licenses and opens the portal", async () => {
+    primeInitialLoad({
+      extensions: [SAMPLE_EXT],
+      license: { ...LICENSE, store_managed: true },
+    });
+    mockPost.mockResolvedValue({ url: "https://billing.stripe.test/p/session_1" });
+    const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
+    render(<ExtensionsAdmin />);
+    await openInstalledTab();
+    await waitFor(() => expect(screen.getByText("Licensed to ACME Corp")).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: /Manage subscription/ }));
+    await waitFor(() =>
+      expect(mockPost).toHaveBeenCalledWith("/admin/extensions/store/billing-portal"),
+    );
+    await waitFor(() =>
+      expect(openSpy).toHaveBeenCalledWith(
+        "https://billing.stripe.test/p/session_1",
+        "_blank",
+        "noopener",
+      ),
+    );
+    openSpy.mockRestore();
+  });
+
+  it("hides Manage subscription on manual licenses and hints when the store is unreachable", async () => {
+    primeInitialLoad({ extensions: [SAMPLE_EXT], license: LICENSE }); // no store_managed
+    render(<ExtensionsAdmin />);
+    await openInstalledTab();
+    await waitFor(() => expect(screen.getByText("Licensed to ACME Corp")).toBeInTheDocument());
+    expect(
+      screen.queryByRole("button", { name: /Manage subscription/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the offline hint when the billing portal cannot be reached", async () => {
+    primeInitialLoad({
+      extensions: [SAMPLE_EXT],
+      license: { ...LICENSE, store_managed: true },
+    });
+    mockPost.mockRejectedValue(new Error("boom"));
+    render(<ExtensionsAdmin />);
+    await openInstalledTab();
+    await waitFor(() => expect(screen.getByText("Licensed to ACME Corp")).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: /Manage subscription/ }));
+    await waitFor(() =>
+      expect(
+        screen.getByText(/extension store could not be reached/i),
+      ).toBeInTheDocument(),
+    );
+  });
+
   it("offers Renew on rows without an active entitlement and refreshes from the store", async () => {
     primeInitialLoad({
       extensions: [

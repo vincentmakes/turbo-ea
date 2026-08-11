@@ -52,6 +52,14 @@ Quand un droit dépasse son échéance, il entre dans un **délai de grâce** (3
 
 Les licences achetées via la Boutique se renouvellent d'elles-mêmes sur les instances connectées : après chaque paiement réussi, votre instance récupère automatiquement la licence prolongée — rien à coller. Sur une instance isolée, le renouvellement se résume à coller le fichier de licence mis à jour reçu par e-mail (ou à le demander à votre éditeur) — rien de plus.
 
+### Statut de renouvellement automatique et résiliation
+
+Chaque pastille d'entitlement indique ce qui se passe à sa date : **Se renouvelle le {date}** pour un abonnement actif, ou **Expire le {date} — ne sera pas renouvelé** après une résiliation. L'information provient de la licence signée elle-même : elle est donc exacte aussi sur les instances isolées — le fichier de licence envoyé par e-mail après tout changement d'abonnement porte le statut à jour ; collez-le et la pastille est actuelle.
+
+Pour voir la date de renouvellement, résilier ou rétablir le renouvellement automatique, changer le moyen de paiement ou télécharger les factures, utilisez **Gérer l'abonnement** à côté du nom du licencié (affiché pour les licences achetées via la Boutique). Le bouton ouvre votre portail de facturation dans un nouvel onglet — aucun compte requis. Sur une instance isolée, le bouton ne peut pas joindre la boutique ; utilisez plutôt le lien **Gérer l'abonnement** présent dans chaque e-mail de licence (seul votre navigateur a besoin d'Internet, pas votre instance Turbo EA).
+
+Résilier ne coupe jamais rien immédiatement : l'extension continue de fonctionner jusqu'à la fin de la période payée, puis le déroulé normal grâce + désactivation douce s'applique. **Vos données ne sont jamais supprimées**, et un réabonnement restaure tout.
+
 ## Activer, désactiver et désinstaller
 
 - L'interrupteur **Activée** désactive une extension immédiatement en douceur (sans redémarrage) et peut être rebasculé à tout moment. Pour les packs de contenu, cela masque leurs types de cartes du métamodèle — les cartes restent en place.

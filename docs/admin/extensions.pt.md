@@ -52,6 +52,14 @@ Quando um direito ultrapassa a validade entra num **período de tolerância** (3
 
 As licenças compradas na Loja renovam-se sozinhas nas instâncias ligadas: após cada pagamento bem-sucedido, a sua instância obtém automaticamente a licença prolongada — nada a colar. Numa instância isolada, a renovação resume-se a colar o ficheiro de licença atualizado do e-mail de renovação (ou pedi-lo ao fornecedor) — nada mais.
 
+### Estado da renovação automática e cancelamento
+
+Cada chip de titularidade indica o que acontece na sua data: **Renova em {data}** para uma subscrição ativa, ou **Expira em {data} — não será renovado** após um cancelamento. A informação vem da própria licença assinada, pelo que também é exata em instâncias isoladas — o ficheiro de licença enviado por e-mail após qualquer alteração da subscrição traz o estado atualizado; cole-o e o chip fica atual.
+
+Para ver a data de renovação, cancelar ou restaurar a renovação automática, alterar o método de pagamento ou descarregar faturas, use **Gerir subscrição** junto ao nome do licenciado (visível em licenças compradas na Loja). Abre o seu portal de faturação num novo separador — sem necessidade de conta. Numa instância isolada o botão não consegue chegar à loja; use antes o link **Gerir subscrição** incluído em cada e-mail de licença (só o seu navegador precisa de Internet, a sua instância Turbo EA não).
+
+Cancelar nunca desliga nada de imediato: a extensão continua a funcionar até ao fim do período pago e depois aplica-se o fluxo normal de tolerância + desativação suave. **Os seus dados nunca são eliminados**, e voltar a subscrever restaura tudo.
+
 ## Ativar, desativar e desinstalar
 
 - O interruptor **Ativada** desativa uma extensão imediatamente de forma suave (sem reinício) e pode ser revertido a qualquer momento. Para pacotes de conteúdo, isto oculta os seus tipos de cartão do metamodelo — os cartões ficam onde estão.

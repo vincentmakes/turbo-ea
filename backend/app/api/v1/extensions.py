@@ -83,6 +83,9 @@ class EntitlementOut(BaseModel):
     state: str  # active | grace | expired | unlicensed
     expires_at: datetime | None = None
     grace_until: datetime | None = None
+    # Whether the backing store subscription renews at period end; None on
+    # manual/offline licenses and licenses issued before the flag existed.
+    auto_renew: bool | None = None
 
 
 class ExtensionOut(BaseModel):
@@ -109,6 +112,11 @@ class LicenseOut(BaseModel):
     # Why the stored license is not in effect (bound to another instance,
     # failed verification) — None when everything is fine.
     problem: str | None = None
+    # True when the license carries a store renewal credential — i.e. the
+    # subscription can be managed via the store billing portal. Computed from
+    # the credential's PRESENCE only; the credential itself never leaves the
+    # backend.
+    store_managed: bool = False
 
 
 class InstanceOut(BaseModel):
@@ -158,6 +166,7 @@ def _extension_out(row: Extension) -> ExtensionOut:
             state=ent.state,
             expires_at=ent.expires_at,
             grace_until=ent.grace_until,
+            auto_renew=ent.auto_renew,
         ),
         created_at=row.created_at,
         updated_at=row.updated_at,
@@ -245,7 +254,19 @@ async def get_license(
         entitlements=list(row.entitlements or []),
         uploaded_at=row.created_at,
         problem=extension_registry.license_problem,
+        store_managed=_license_store_managed(),
     )
+
+
+def _license_store_managed() -> bool:
+    """Whether the active license carries a store renewal credential.
+
+    Read from the registry's parsed document — the credential lives only
+    inside the signed ``raw_text``, is never denormalised to a column, and is
+    never serialized to the browser; only this boolean is.
+    """
+    doc = extension_registry.license
+    return bool(doc and doc.renewal_key)
 
 
 async def _apply_license_text(db: AsyncSession, text: str, user_id: uuid.UUID) -> LicenseOut:
@@ -277,6 +298,7 @@ async def _apply_license_text(db: AsyncSession, text: str, user_id: uuid.UUID) -
         grace_days=row.grace_days,
         entitlements=list(row.entitlements or []),
         uploaded_at=row.created_at,
+        store_managed=bool(doc.renewal_key),
     )
 
 
@@ -672,6 +694,60 @@ async def claim_store_purchase(
 
     license_out = await _apply_license_text(db, str(data["license"]), user.id)
     return StoreClaimOut(status="applied", license=license_out)
+
+
+class StorePortalOut(BaseModel):
+    url: str
+
+
+_STORE_PORTAL_TIMEOUT = 10.0
+
+
+@router.post("/store/billing-portal", response_model=StorePortalOut)
+async def open_billing_portal(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> StorePortalOut:
+    """Mint a store billing-portal session for this instance's subscription.
+
+    Backs the "Manage subscription" button: the customer sees the renewal
+    date, cancels or restores auto-renew, updates the payment method, and
+    downloads invoices — all on the store's hosted portal. The renewal
+    credential authenticating the request lives inside the active license's
+    signed payload and is forwarded server-side only; it never reaches the
+    browser. Only store-issued licenses carry one — for manual/offline
+    licenses this returns 404 and the UI shows no button.
+    """
+    await PermissionService.require_permission(db, user, "admin.manage_extensions")
+    base_url = settings.EXTENSION_STORE_URL.strip()
+    if not base_url:
+        raise HTTPException(status_code=400, detail="No extension store is configured")
+
+    doc = extension_registry.license
+    if doc is None or not doc.renewal_key:
+        raise HTTPException(status_code=404, detail="No store-managed license installed")
+
+    # Same body shape as the renewal call: credential in the body (never the
+    # query string), instance for instance-keyed accounts, customer for
+    # legacy customer-keyed licenses.
+    body = {"customer": doc.customer_id, "key": doc.renewal_key}
+    instance = get_instance_id()
+    if instance:
+        body["instance"] = instance
+
+    url = base_url.rstrip("/") + "/account/portal"
+    try:
+        async with httpx.AsyncClient(timeout=_STORE_PORTAL_TIMEOUT) as client:
+            resp = await client.post(url, json=body)
+            resp.raise_for_status()
+            data = resp.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail=f"Extension store unreachable: {exc}") from exc
+
+    portal_url = data.get("url") if isinstance(data, dict) else None
+    if not isinstance(portal_url, str) or not portal_url.startswith("https://"):
+        raise HTTPException(status_code=502, detail="Extension store returned no portal URL")
+    return StorePortalOut(url=portal_url)
 
 
 class StoreRefreshOut(BaseModel):

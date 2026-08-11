@@ -39,6 +39,9 @@ interface EntitlementInfo {
   state: "active" | "grace" | "expired" | "unlicensed" | "free";
   expires_at?: string | null;
   grace_until?: string | null;
+  // Whether the backing store subscription renews at period end; null/absent
+  // on manual/offline licenses and licenses issued before the flag existed.
+  auto_renew?: boolean | null;
 }
 
 interface ExtensionInfo {
@@ -59,11 +62,15 @@ interface LicenseInfo {
   entitlements: {
     extension_key: string;
     expires_at?: string | null;
+    auto_renew?: boolean | null;
   }[];
   uploaded_at?: string | null;
   // Why the stored license is not in effect (bound to another instance,
   // failed verification) — null/absent when everything is fine.
   problem?: string | null;
+  // True when the subscription can be managed via the store billing portal
+  // (store-issued license). The credential itself never reaches the browser.
+  store_managed?: boolean;
 }
 
 interface InstallReport {
@@ -212,6 +219,7 @@ export default function ExtensionsAdmin() {
 
   const [uninstallKey, setUninstallKey] = useState<string | null>(null);
   const [renewBusy, setRenewBusy] = useState(false);
+  const [manageBusy, setManageBusy] = useState(false);
   const [removeLicenseOpen, setRemoveLicenseOpen] = useState(false);
   const [removeLicenseBusy, setRemoveLicenseBusy] = useState(false);
   // When a file-uploaded extension can't be applied for lack of a license,
@@ -585,6 +593,28 @@ export default function ExtensionsAdmin() {
     }
   };
 
+  // Open the store's billing portal (renewal date, cancel/restore
+  // auto-renew, payment method, invoices) in a new tab. The backend proxies
+  // the request so the license's renewal credential never reaches the
+  // browser. Air-gapped instances get a friendly hint instead — they manage
+  // via the link in their license emails.
+  const handleManageSubscription = async () => {
+    setManageBusy(true);
+    try {
+      const res = await api.post<{ url: string }>("/admin/extensions/store/billing-portal");
+      window.open(res.url, "_blank", "noopener");
+    } catch {
+      setError(
+        t(
+          "extensions.license.manageUnreachable",
+          "The extension store could not be reached. On an offline instance, use the Manage subscription link in your license email instead.",
+        ),
+      );
+    } finally {
+      setManageBusy(false);
+    }
+  };
+
   const needsRestart = extensions.some((x) => x.status === "needs_restart");
   const isWorking = install ? !TERMINAL.has(install.status) : false;
   // During a one-click store install the "previewed" state is transient
@@ -601,6 +631,31 @@ export default function ExtensionsAdmin() {
   const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString() : "");
 
   const entitlementChip = (ent: EntitlementInfo) => {
+    // Active + a known auto-renew state: say what actually happens on the
+    // date — "renews" vs "will not renew" — instead of the ambiguous
+    // "active until". Unknown (manual/offline licenses) keeps today's label.
+    if (ent.state === "active" && ent.expires_at && ent.auto_renew === true) {
+      return (
+        <Chip
+          size="small"
+          color="success"
+          label={t("extensions.entitlement.renewsOn", "Renews on {{date}}", {
+            date: fmtDate(ent.expires_at),
+          })}
+        />
+      );
+    }
+    if (ent.state === "active" && ent.expires_at && ent.auto_renew === false) {
+      return (
+        <Chip
+          size="small"
+          color="warning"
+          label={t("extensions.entitlement.willNotRenew", "Expires {{date}} — will not renew", {
+            date: fmtDate(ent.expires_at),
+          })}
+        />
+      );
+    }
     const label =
       ent.state === "free"
         ? t("extensions.entitlement.free", "Free")
@@ -1023,6 +1078,16 @@ export default function ExtensionsAdmin() {
                   date: fmtDate(license.uploaded_at),
                 })}
               </Typography>
+              {license.store_managed && (
+                <Button
+                  size="small"
+                  startIcon={<MaterialSymbol icon="manage_accounts" size={18} />}
+                  disabled={manageBusy}
+                  onClick={() => void handleManageSubscription()}
+                >
+                  {t("extensions.license.manage", "Manage subscription")}
+                </Button>
+              )}
               <Button
                 size="small"
                 onClick={() => {

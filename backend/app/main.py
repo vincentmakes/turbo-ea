@@ -276,11 +276,18 @@ async def _license_refresh_loop() -> None:
     """Daily loop that auto-renews the extension license from the store.
 
     Only acts when the active license carries a store-issued renewal
-    credential and an entitlement is close to expiry; a renewing Stripe
-    subscription then extends the license with no customer action. Silent
-    on air-gapped / offline installs (the fetch just fails debug-quietly),
-    and manually issued licenses are never touched. Runs shortly after
-    boot (catch-up after downtime) and then every 24h.
+    credential; a renewing Stripe subscription then extends the license with
+    no customer action, and an auto-renew change made in the billing portal
+    (cancellation/reactivation) reaches the instance within a day. Silent on
+    air-gapped / offline installs (the fetch just fails debug-quietly), and
+    manually issued licenses are never touched. Runs shortly after boot
+    (catch-up after downtime) and then every 24h.
+
+    ``force=True`` deliberately skips the expiry-window gate: renewal
+    *metadata* (the auto_renew flags) can change months before expiry, and
+    one small daily request against the stateless store keeps the display
+    truthful. The store still only returns what live Stripe state supports,
+    and the instance still applies only verified, non-shrinking licenses.
     """
     from app.database import async_session
     from app.services.extensions.license_refresh import refresh_license_if_due
@@ -291,7 +298,7 @@ async def _license_refresh_loop() -> None:
             await asyncio.sleep(delay)
             delay = 24 * 3600
             async with async_session() as db:
-                await refresh_license_if_due(db)
+                await refresh_license_if_due(db, force=True)
         except asyncio.CancelledError:
             raise
         except Exception:

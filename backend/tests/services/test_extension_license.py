@@ -164,6 +164,43 @@ class TestParseAndVerify:
         doc = parse_and_verify(make_license(private, payload), public_key_b64=public_b64)
         assert doc.grace_days == 30
 
+    def test_auto_renew_parses_and_defaults_to_unknown(self):
+        private, public_b64 = make_keypair()
+        payload = dict(
+            PAYLOAD,
+            entitlements=[
+                {
+                    "extension_key": "renewing",
+                    "expires_at": "2027-07-01T00:00:00Z",
+                    "auto_renew": True,
+                },
+                {
+                    "extension_key": "cancelled",
+                    "expires_at": "2027-07-01T00:00:00Z",
+                    "auto_renew": False,
+                },
+                {"extension_key": "pre-field", "expires_at": "2027-07-01T00:00:00Z"},
+            ],
+        )
+        doc = parse_and_verify(make_license(private, payload), public_key_b64=public_b64)
+        assert doc.entitlement_for("renewing").auto_renew is True
+        assert doc.entitlement_for("cancelled").auto_renew is False
+        # Absent on manual/offline and pre-field licenses → unknown, never False.
+        assert doc.entitlement_for("pre-field").auto_renew is None
+
+    @pytest.mark.parametrize("garbage", ["yes", 1, 0, [], {}])
+    def test_garbage_auto_renew_degrades_to_unknown(self, garbage):
+        """A display-only field must never make a signed license fail to parse."""
+        private, public_b64 = make_keypair()
+        payload = dict(
+            PAYLOAD,
+            entitlements=[
+                {"extension_key": "x", "expires_at": None, "auto_renew": garbage},
+            ],
+        )
+        doc = parse_and_verify(make_license(private, payload), public_key_b64=public_b64)
+        assert doc.entitlement_for("x").auto_renew is None
+
 
 class TestEntitlementState:
     EXPIRES = datetime(2027, 7, 1, tzinfo=timezone.utc)

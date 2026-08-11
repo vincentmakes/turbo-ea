@@ -13,6 +13,7 @@ from app.services.extensions.license import Entitlement, LicenseDocument
 from app.services.extensions.license_refresh import (
     REFRESH_WINDOW_DAYS,
     _extends,
+    _should_apply,
     should_refresh,
 )
 
@@ -25,14 +26,19 @@ def make_doc(
     customer_id: str = "cus_1",
     expires_in_days: float | None = 5,
     keys: tuple[str, ...] = ("esg-pack",),
+    auto_renew: bool | None = None,
+    licensee: str = "ACME Corp",
+    grace_days: int = 30,
 ) -> LicenseDocument:
     expires = NOW + timedelta(days=expires_in_days) if expires_in_days is not None else None
     return LicenseDocument(
-        licensee="ACME Corp",
+        licensee=licensee,
         customer_id=customer_id,
         issued_at=NOW - timedelta(days=30),
-        grace_days=30,
-        entitlements=[Entitlement(extension_key=k, expires_at=expires) for k in keys],
+        grace_days=grace_days,
+        entitlements=[
+            Entitlement(extension_key=k, expires_at=expires, auto_renew=auto_renew) for k in keys
+        ],
         renewal_key=renewal_key,
     )
 
@@ -74,3 +80,78 @@ class TestExtends:
     def test_new_extension_counts_as_extension(self):
         wider = make_doc(keys=("esg-pack", "other-pack"), expires_in_days=5)
         assert _extends(wider, make_doc(expires_in_days=5)) is True
+
+
+class TestShouldApply:
+    """_should_apply = _extends OR (identical coverage + renewal metadata change).
+
+    The metadata arm is what lets a billing-portal cancellation reach a
+    connected instance: the store re-issues the same coverage with
+    auto_renew flipped, which the old must-extend rule rejected forever.
+    """
+
+    def test_extension_still_applies(self):
+        assert _should_apply(make_doc(expires_in_days=35), make_doc(expires_in_days=5)) is True
+
+    def test_identical_license_is_not_applied(self):
+        assert (
+            _should_apply(
+                make_doc(expires_in_days=5, auto_renew=True),
+                make_doc(expires_in_days=5, auto_renew=True),
+            )
+            is False
+        )
+
+    def test_auto_renew_flip_applies_at_identical_coverage(self):
+        # Cancellation (true → false) and reactivation (false → true) both land.
+        assert (
+            _should_apply(
+                make_doc(expires_in_days=5, auto_renew=False),
+                make_doc(expires_in_days=5, auto_renew=True),
+            )
+            is True
+        )
+        assert (
+            _should_apply(
+                make_doc(expires_in_days=5, auto_renew=True),
+                make_doc(expires_in_days=5, auto_renew=False),
+            )
+            is True
+        )
+
+    def test_flag_appearing_on_a_pre_field_license_applies(self):
+        # Old license has auto_renew=None (pre-field); the store now stamps it.
+        assert (
+            _should_apply(
+                make_doc(expires_in_days=5, auto_renew=True),
+                make_doc(expires_in_days=5, auto_renew=None),
+            )
+            is True
+        )
+
+    def test_metadata_change_cannot_shrink_coverage(self):
+        # Flag flipped AND a key dropped: not same coverage, not an extension
+        # → refused. A metadata refresh can never lose an entitlement.
+        narrower = make_doc(keys=("esg-pack",), expires_in_days=5, auto_renew=False)
+        current = make_doc(keys=("esg-pack", "other-pack"), expires_in_days=5, auto_renew=True)
+        assert _should_apply(narrower, current) is False
+
+    def test_metadata_change_cannot_shorten_expiry(self):
+        shorter = make_doc(expires_in_days=2, auto_renew=False)
+        assert _should_apply(shorter, make_doc(expires_in_days=5, auto_renew=True)) is False
+
+    def test_licensee_or_grace_change_applies_at_identical_coverage(self):
+        assert (
+            _should_apply(
+                make_doc(expires_in_days=5, licensee="ACME GmbH"),
+                make_doc(expires_in_days=5),
+            )
+            is True
+        )
+        assert (
+            _should_apply(
+                make_doc(expires_in_days=5, grace_days=45),
+                make_doc(expires_in_days=5),
+            )
+            is True
+        )

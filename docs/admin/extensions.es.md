@@ -52,6 +52,14 @@ Cuando un derecho supera su caducidad entra en un **periodo de gracia** (30 día
 
 Las licencias compradas en la Tienda se renuevan solas en las instancias conectadas: tras cada pago correcto, tu instancia obtiene automáticamente la licencia ampliada — nada que pegar. En una instancia aislada, la renovación consiste en pegar el archivo de licencia actualizado del correo de renovación (o pedirlo al proveedor) — nada más.
 
+### Estado de renovación automática y cancelación
+
+Cada chip de titularidad indica qué ocurre en su fecha: **Se renueva el {fecha}** para una suscripción activa, o **Expira el {fecha} — no se renovará** tras una cancelación. La información procede de la propia licencia firmada, por lo que también es exacta en instancias aisladas — el archivo de licencia enviado por correo tras cualquier cambio de suscripción lleva el estado actualizado; péguelo y el chip queda al día.
+
+Para ver la fecha de renovación, cancelar o restaurar la renovación automática, cambiar el método de pago o descargar facturas, use **Gestionar suscripción** junto al nombre del licenciatario (visible en licencias compradas en la Tienda). Abre su portal de facturación en una pestaña nueva — sin necesidad de cuenta. En una instancia aislada el botón no puede llegar a la tienda; use en su lugar el enlace **Gestionar suscripción** incluido en cada correo de licencia (solo su navegador necesita Internet, su instancia de Turbo EA no).
+
+Cancelar nunca apaga nada de inmediato: la extensión sigue funcionando hasta el final del periodo pagado y después se aplica el flujo normal de gracia + desactivación suave. **Sus datos nunca se eliminan**, y volver a suscribirse lo restaura todo.
+
 ## Habilitar, deshabilitar y desinstalar
 
 - El interruptor **Habilitada** desactiva una extensión inmediatamente de forma suave (sin reinicio) y puede revertirse en cualquier momento. Para los paquetes de contenido, esto oculta sus tipos de tarjeta del metamodelo — las tarjetas se quedan donde están.
