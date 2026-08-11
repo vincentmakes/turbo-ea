@@ -69,7 +69,7 @@
   "detail.dialogs.restore.restoring": "A restaurar…",
   "create.title": "Criar ficha",
   "create.failed": "Falha ao criar ficha",
-  "create.duplicate.message": "Já existe um elemento do tipo {{type}} chamado «{{name}}» neste nível.",
+  "create.duplicate.message": "Já existe uma ficha do tipo {{type}} chamada «{{name}}» neste nível.",
   "create.duplicate.view": "Ver a ficha existente",
   "utils.dataQuality": "{{value}}% completo",
   "utils.unknownOption": "Chave de opção desconhecida: {{key}}",

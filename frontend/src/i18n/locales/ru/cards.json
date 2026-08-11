@@ -69,7 +69,7 @@
   "detail.dialogs.restore.restoring": "Восстановление…",
   "create.title": "Создать карточку",
   "create.failed": "Не удалось создать карточку",
-  "create.duplicate.message": "{{type}} с именем «{{name}}» уже существует на этом уровне.",
+  "create.duplicate.message": "Карточка типа {{type}} с именем «{{name}}» уже существует на этом уровне.",
   "create.duplicate.view": "Открыть существующую карточку",
   "utils.dataQuality": "{{value}}% заполнено",
   "utils.unknownOption": "Неизвестный ключ опции: {{key}}",

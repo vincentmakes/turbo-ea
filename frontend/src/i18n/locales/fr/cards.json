@@ -69,7 +69,7 @@
   "detail.dialogs.restore.restoring": "Restauration…",
   "create.title": "Créer une fiche",
   "create.failed": "Échec de la création de la fiche",
-  "create.duplicate.message": "Un élément de type {{type}} nommé «{{name}}» existe déjà à ce niveau.",
+  "create.duplicate.message": "Une fiche de type {{type}} nommée «{{name}}» existe déjà à ce niveau.",
   "create.duplicate.view": "Voir la fiche existante",
   "utils.dataQuality": "{{value}} % complet",
   "utils.unknownOption": "Clé d’option inconnue : {{key}}",

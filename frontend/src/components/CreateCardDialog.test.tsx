@@ -313,7 +313,7 @@ describe("CreateCardDialog", () => {
     const detail = {
       code: "sibling_name_conflict",
       message:
-        'A Application named "ERP" already exists at this level (existing card: abc-123).',
+        'A card of type Application named "ERP" already exists at this level (existing card: abc-123).',
       existing_card_id: "abc-123",
       existing_card_name: "ERP",
       type_key: "Application",
@@ -328,7 +328,7 @@ describe("CreateCardDialog", () => {
     // Localized sentence built from the structured fields — no raw UUID.
     await waitFor(() => {
       expect(
-        screen.getByText('A Application named "ERP" already exists at this level.'),
+        screen.getByText('A card of type Application named "ERP" already exists at this level.'),
       ).toBeInTheDocument();
     });
     expect(screen.queryByText(/abc-123/)).not.toBeInTheDocument();
@@ -338,7 +338,7 @@ describe("CreateCardDialog", () => {
     // And it must clear the moment the user edits the name.
     await user.type(screen.getByRole("textbox", { name: /name/i }), "2");
     expect(
-      screen.queryByText('A Application named "ERP" already exists at this level.'),
+      screen.queryByText('A card of type Application named "ERP" already exists at this level.'),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "View existing card" })).not.toBeInTheDocument();
   });
@@ -349,7 +349,7 @@ describe("CreateCardDialog", () => {
     const detail = {
       code: "sibling_name_conflict",
       message:
-        'A Application named "ERP" already exists at this level (existing card: abc-123).',
+        'A card of type Application named "ERP" already exists at this level (existing card: abc-123).',
       existing_card_id: "abc-123",
       existing_card_name: "ERP",
       type_key: "Application",
@@ -374,7 +374,7 @@ describe("CreateCardDialog", () => {
     const { ApiError } = await import("@/api/client");
     const user = userEvent.setup();
     const detail =
-      'A Application named "ERP" already exists at this level (existing card: abc-123).';
+      'A card of type Application named "ERP" already exists at this level (existing card: abc-123).';
     onCreate.mockRejectedValueOnce(new ApiError(detail, 409, detail));
 
     renderDialog({ initialType: "Objective" });

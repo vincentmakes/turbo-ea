@@ -69,7 +69,7 @@
   "detail.dialogs.restore.restoring": "Wird wiederhergestellt…",
   "create.title": "Karte erstellen",
   "create.failed": "Karte konnte nicht erstellt werden",
-  "create.duplicate.message": "Ein Element vom Typ {{type}} mit dem Namen «{{name}}» existiert auf dieser Ebene bereits.",
+  "create.duplicate.message": "Eine Karte vom Typ {{type}} mit dem Namen «{{name}}» existiert auf dieser Ebene bereits.",
   "create.duplicate.view": "Vorhandene Karte anzeigen",
   "utils.dataQuality": "{{value}}% vollständig",
   "utils.unknownOption": "Unbekannter Optionsschlüssel: {{key}}",

@@ -80,8 +80,10 @@ async def check_sibling_name_unique(
         detail={
             "code": "sibling_name_conflict",
             "message": (
-                f'A {type_key} named "{existing_name}" already exists at this level '
-                f"(existing card: {existing_id})."
+                # "card of type X" keeps the article grammatical for any
+                # admin-defined type label ("A Application" otherwise).
+                f'A card of type {type_key} named "{existing_name}" already exists '
+                f"at this level (existing card: {existing_id})."
             ),
             "existing_card_id": str(existing_id),
             "existing_card_name": existing_name,

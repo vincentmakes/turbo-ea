@@ -69,7 +69,7 @@
   "detail.dialogs.restore.restoring": "Ripristino…",
   "create.title": "Crea scheda",
   "create.failed": "Creazione scheda non riuscita",
-  "create.duplicate.message": "Esiste già un elemento di tipo {{type}} denominato «{{name}}» a questo livello.",
+  "create.duplicate.message": "Esiste già una scheda di tipo {{type}} denominata «{{name}}» a questo livello.",
   "create.duplicate.view": "Vedi la scheda esistente",
   "utils.dataQuality": "{{value}}% completo",
   "utils.unknownOption": "Chiave opzione sconosciuta: {{key}}",
