@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.50.0] - 2026-08-11
+
+### Added
+- **The duplicate-name warning links to the existing card.** When creating a card whose name already exists at the same level, the Create Card dialog's warning is now shown in your language and includes a "View existing card" link that takes you straight to the existing card (middle-click / Ctrl-click opens it in a new tab), instead of only quoting the card's internal id ([#927](https://github.com/vincentmakes/turbo-ea/discussions/927)).
+
 ## [2.49.0] - 2026-08-11
 
 ### Added

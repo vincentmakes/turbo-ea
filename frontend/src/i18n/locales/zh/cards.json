@@ -69,6 +69,8 @@
   "detail.dialogs.restore.restoring": "正在恢复…",
   "create.title": "创建卡片",
   "create.failed": "创建卡片失败",
+  "create.duplicate.message": "此层级已存在名为「{{name}}」的{{type}}。",
+  "create.duplicate.view": "查看现有卡片",
   "utils.dataQuality": "{{value}}% 完成",
   "utils.unknownOption": "未知选项键：{{key}}",
   "utils.urlError": "必须使用 http://、https:// 或 mailto: 协议",

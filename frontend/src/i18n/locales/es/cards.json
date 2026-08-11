@@ -69,6 +69,8 @@
   "detail.dialogs.restore.restoring": "Restaurando…",
   "create.title": "Crear ficha",
   "create.failed": "Error al crear la ficha",
+  "create.duplicate.message": "Ya existe un elemento de tipo {{type}} llamado «{{name}}» en este nivel.",
+  "create.duplicate.view": "Ver la ficha existente",
   "utils.dataQuality": "{{value}}% completo",
   "utils.unknownOption": "Clave de opción desconocida: {{key}}",
   "utils.urlError": "Debe usar el esquema http://, https:// o mailto:",

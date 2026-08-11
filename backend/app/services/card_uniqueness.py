@@ -71,10 +71,20 @@ async def check_sibling_name_unique(
         return
 
     existing_id, existing_name = row
+    # Structured detail so clients can offer "go to the existing card"
+    # (discussion #927). `message` keeps the exact legacy prose — the
+    # frontend API client derives `err.message` from `detail.message`,
+    # so every caller that only shows the text keeps working unchanged.
     raise HTTPException(
         status_code=409,
-        detail=(
-            f'A {type_key} named "{existing_name}" already exists at this level '
-            f"(existing card: {existing_id})."
-        ),
+        detail={
+            "code": "sibling_name_conflict",
+            "message": (
+                f'A {type_key} named "{existing_name}" already exists at this level '
+                f"(existing card: {existing_id})."
+            ),
+            "existing_card_id": str(existing_id),
+            "existing_card_name": existing_name,
+            "type_key": type_key,
+        },
     )

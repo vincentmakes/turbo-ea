@@ -22,6 +22,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
 import Tooltip from "@mui/material/Tooltip";
+import Link from "@mui/material/Link";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel";
 import { EolLinkDialog } from "@/components/EolLinkSection";
@@ -44,6 +45,7 @@ import type {
   EolProductMatch,
   AiSuggestResponse,
   TagGroup,
+  SiblingNameConflictDetail,
 } from "@/types";
 
 const EOL_ELIGIBLE_TYPES = ["Application", "ITComponent"];
@@ -85,7 +87,14 @@ export default function CreateCardDialog({
   const [name, setName] = useState("");
   // Field-level error for the Name input — populated when the backend
   // returns 409 on a sibling-name collision. Cleared when the user types.
-  const [nameError, setNameError] = useState("");
+  // Structured details additionally carry the existing card's id so the
+  // helper text can link straight to it (#927).
+  const [nameConflict, setNameConflict] = useState<{
+    message: string;
+    existingCardId?: string;
+    existingCardName?: string;
+    typeKey?: string;
+  } | null>(null);
   const [description, setDescription] = useState("");
   const [attributes, setAttributes] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(false);
@@ -120,6 +129,19 @@ export default function CreateCardDialog({
     () => types.find((t) => t.key === selectedType),
     [types, selectedType],
   );
+
+  // Localized duplicate-name message. When the 409 detail is structured we
+  // rebuild the sentence in the user's locale (entity-aware type label, no
+  // raw UUID); otherwise we fall back to the backend's English prose.
+  const conflictMessage = useMemo(() => {
+    if (!nameConflict) return "";
+    if (!nameConflict.existingCardName) return nameConflict.message;
+    const conflictType = types.find((tt) => tt.key === nameConflict.typeKey);
+    return t("create.duplicate.message", {
+      type: conflictType ? typeLabel(conflictType) : nameConflict.typeKey,
+      name: nameConflict.existingCardName,
+    });
+  }, [nameConflict, types, typeLabel, t]);
 
   const hasSubtypes = !!(typeConfig?.subtypes && typeConfig.subtypes.length > 0);
   const hasHierarchy = !!typeConfig?.has_hierarchy;
@@ -185,7 +207,7 @@ export default function CreateCardDialog({
       setSubtype("");
       setParentCard(null);
       setName("");
-      setNameError("");
+      setNameConflict(null);
       setDescription("");
       setAttributes({});
       setLoading(false);
@@ -289,7 +311,7 @@ export default function CreateCardDialog({
     if (!selectedType || !name.trim()) return;
     setLoading(true);
     setError("");
-    setNameError("");
+    setNameConflict(null);
     try {
       const finalAttrs = { ...attributes };
       if (eolProduct && eolCycle) {
@@ -344,14 +366,21 @@ export default function CreateCardDialog({
     } catch (err: unknown) {
       // Surface the sibling-name collision (HTTP 409) on the Name field
       // directly — it's a validation error on a single input, not a
-      // dialog-wide failure. Detail comes verbatim from the backend
-      // (`A {type} named "X" already exists at this level…`).
+      // dialog-wide failure. Structured details carry the existing card's
+      // id/name so we can render a localized message plus a link to it;
+      // anything else falls back to the raw detail string.
       if (err instanceof ApiError && err.status === 409) {
-        const detail =
-          typeof err.detail === "string"
-            ? err.detail
-            : (err.detail as { detail?: string } | null)?.detail || err.message;
-        setNameError(detail);
+        const d = err.detail as Partial<SiblingNameConflictDetail> | string | null;
+        if (d && typeof d === "object" && d.code === "sibling_name_conflict") {
+          setNameConflict({
+            message: d.message ?? err.message,
+            existingCardId: d.existing_card_id,
+            existingCardName: d.existing_card_name,
+            typeKey: d.type_key,
+          });
+        } else {
+          setNameConflict({ message: typeof d === "string" ? d : err.message });
+        }
         return;
       }
       const message =
@@ -561,11 +590,33 @@ export default function CreateCardDialog({
           value={name}
           onChange={(e) => {
             setName(e.target.value);
-            if (nameError) setNameError("");
+            if (nameConflict) setNameConflict(null);
           }}
           required
-          error={!!nameError}
-          helperText={nameError || undefined}
+          error={!!nameConflict}
+          helperText={
+            nameConflict ? (
+              // helperText renders inside a <p>, so only inline elements
+              // are valid here — MUI Link renders an <a>, which is fine.
+              <>
+                {conflictMessage}{" "}
+                {nameConflict.existingCardId && (
+                  <Link
+                    href={`/cards/${nameConflict.existingCardId}`}
+                    onClick={(e) => {
+                      // Let modified clicks open a new tab via the href.
+                      if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+                      e.preventDefault();
+                      onClose();
+                      navigate(`/cards/${nameConflict.existingCardId}`);
+                    }}
+                  >
+                    {t("create.duplicate.view")}
+                  </Link>
+                )}
+              </>
+            ) : undefined
+          }
           sx={{ mb: 2 }}
         />
 

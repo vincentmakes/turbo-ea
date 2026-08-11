@@ -186,7 +186,7 @@ Le schede sono identificate per **nome** quando è univoco nel suo tipo, altrime
 
 #### Univocità tra fratelli
 
-Poiché le schede sono identificate per nome + percorso, **due schede dello stesso tipo non possono condividere contemporaneamente lo stesso genitore e lo stesso nome**. Le nuove schede che provocherebbero una collisione vengono rifiutate alla creazione (nella finestra di dialogo Crea, nel rinominamento in linea e durante l'importazione Excel). Eventuali duplicati già presenti nel database — ereditati da seed o import precedenti — restano intatti: potete modificarne qualsiasi campo, ma creare un terzo duplicato o rinominare una scheda riportandola in collisione viene bloccato. Il controllo è case- e whitespace-insensitive, come il risolutore dell'importatore.
+Poiché le schede sono identificate per nome + percorso, **due schede dello stesso tipo non possono condividere contemporaneamente lo stesso genitore e lo stesso nome**. Le nuove schede che provocherebbero una collisione vengono rifiutate alla creazione (nella finestra di dialogo Crea, nel rinominamento in linea e durante l'importazione Excel). Eventuali duplicati già presenti nel database — ereditati da seed o import precedenti — restano intatti: potete modificarne qualsiasi campo, ma creare un terzo duplicato o rinominare una scheda riportandola in collisione viene bloccato. Il controllo è case- e whitespace-insensitive, come il risolutore dell'importatore. Quando la finestra di dialogo Crea rifiuta un duplicato, l'avviso indica la scheda esistente e include un collegamento **Vedi la scheda esistente** che vi porta direttamente ad essa.
 
 ### Celle di relazione in linea
 

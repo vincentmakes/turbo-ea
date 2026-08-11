@@ -303,10 +303,74 @@ describe("CreateCardDialog", () => {
     });
   });
 
-  it("surfaces a 409 sibling-name collision on the Name field, not as a dialog toast", async () => {
-    // The backend's uniqueness check returns 409 with a human-readable
-    // detail. The dialog must route it to the Name TextField's helperText
-    // (so the user can correct in place) instead of the generic Alert.
+  it("surfaces a structured 409 collision as a localized message with a link to the existing card", async () => {
+    // The backend's uniqueness check returns 409 with a structured detail
+    // (#927). The dialog must route it to the Name TextField's helperText
+    // as a localized sentence (no raw UUID) plus a "View existing card"
+    // link pointing at the existing card.
+    const { ApiError } = await import("@/api/client");
+    const user = userEvent.setup();
+    const detail = {
+      code: "sibling_name_conflict",
+      message:
+        'A Application named "ERP" already exists at this level (existing card: abc-123).',
+      existing_card_id: "abc-123",
+      existing_card_name: "ERP",
+      type_key: "Application",
+    };
+    onCreate.mockRejectedValueOnce(new ApiError(detail.message, 409, detail));
+
+    renderDialog({ initialType: "Objective" });
+
+    await user.type(screen.getByRole("textbox", { name: /name/i }), "ERP");
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    // Localized sentence built from the structured fields — no raw UUID.
+    await waitFor(() => {
+      expect(
+        screen.getByText('A Application named "ERP" already exists at this level.'),
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/abc-123/)).not.toBeInTheDocument();
+    const link = screen.getByRole("link", { name: "View existing card" });
+    expect(link).toHaveAttribute("href", "/cards/abc-123");
+
+    // And it must clear the moment the user edits the name.
+    await user.type(screen.getByRole("textbox", { name: /name/i }), "2");
+    expect(
+      screen.queryByText('A Application named "ERP" already exists at this level.'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "View existing card" })).not.toBeInTheDocument();
+  });
+
+  it("navigates to the existing card and closes the dialog when the conflict link is clicked", async () => {
+    const { ApiError } = await import("@/api/client");
+    const user = userEvent.setup();
+    const detail = {
+      code: "sibling_name_conflict",
+      message:
+        'A Application named "ERP" already exists at this level (existing card: abc-123).',
+      existing_card_id: "abc-123",
+      existing_card_name: "ERP",
+      type_key: "Application",
+    };
+    onCreate.mockRejectedValueOnce(new ApiError(detail.message, 409, detail));
+
+    renderDialog({ initialType: "Objective" });
+
+    await user.type(screen.getByRole("textbox", { name: /name/i }), "ERP");
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    const link = await screen.findByRole("link", { name: "View existing card" });
+    await user.click(link);
+
+    expect(onClose).toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith("/cards/abc-123");
+  });
+
+  it("falls back to the raw detail string on an unstructured 409", async () => {
+    // Legacy shape (plain-string detail): the prose must still appear on
+    // the Name field, without any link.
     const { ApiError } = await import("@/api/client");
     const user = userEvent.setup();
     const detail =
@@ -318,13 +382,10 @@ describe("CreateCardDialog", () => {
     await user.type(screen.getByRole("textbox", { name: /name/i }), "ERP");
     await user.click(screen.getByRole("button", { name: /^create$/i }));
 
-    // The detail must appear in the form (as helperText), once.
     await waitFor(() => {
       expect(screen.getByText(detail)).toBeInTheDocument();
     });
-    // And it must clear the moment the user edits the name.
-    await user.type(screen.getByRole("textbox", { name: /name/i }), "2");
-    expect(screen.queryByText(detail)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "View existing card" })).not.toBeInTheDocument();
   });
 
   it("renders required fields from schema", () => {

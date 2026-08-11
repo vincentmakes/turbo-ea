@@ -69,6 +69,8 @@
   "detail.dialogs.restore.restoring": "Restoring…",
   "create.title": "Create Card",
   "create.failed": "Failed to create card",
+  "create.duplicate.message": "A {{type}} named \"{{name}}\" already exists at this level.",
+  "create.duplicate.view": "View existing card",
   "utils.dataQuality": "{{value}}% complete",
   "utils.unknownOption": "Unknown option key: {{key}}",
   "utils.urlError": "Must use http://, https://, or mailto: scheme",

@@ -342,6 +342,17 @@ export interface Card {
   stakeholders: StakeholderRef[];
 }
 
+/** Structured 409 detail raised on a sibling-name collision (card create /
+ *  rename / re-parent). `message` carries the legacy English prose; the
+ *  other fields let the UI link to the existing card (#927). */
+export interface SiblingNameConflictDetail {
+  code: "sibling_name_conflict";
+  message: string;
+  existing_card_id: string;
+  existing_card_name: string;
+  type_key: string;
+}
+
 export interface Calculation {
   id: string;
   name: string;

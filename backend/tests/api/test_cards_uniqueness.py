@@ -50,7 +50,12 @@ async def test_post_cards_rejects_duplicate(client, db, uniq_env):
         headers=auth_headers(admin),
     )
     assert dup.status_code == 409
-    assert "ERP" in dup.json()["detail"]
+    detail = dup.json()["detail"]
+    assert detail["code"] == "sibling_name_conflict"
+    assert "ERP" in detail["message"]
+    assert detail["existing_card_id"] == resp.json()["id"]
+    assert detail["existing_card_name"] == "ERP"
+    assert detail["type_key"] == "Application"
 
 
 async def test_post_cards_same_name_different_parent_allowed(client, db, uniq_env):
@@ -97,7 +102,10 @@ async def test_bulk_create_per_row_duplicate_fails_that_row(client, db, uniq_env
     assert body["failed"] == 1
     failed = next(r for r in body["results"] if r["row_index"] == 2)
     assert failed["status"] == "failed"
-    assert "ERP" in (failed["error"] or "")
+    # The structured 409 detail must be flattened to a plain string here —
+    # `CardBulkCreateResult.error` is `str | None`.
+    assert isinstance(failed["error"], str)
+    assert "ERP" in failed["error"]
 
 
 async def test_bulk_create_two_rows_with_same_tuple_only_first_succeeds(client, db, uniq_env):
@@ -131,7 +139,7 @@ async def test_patch_rename_into_collision_rejected(client, db, uniq_env):
         f"/api/v1/cards/{a.id}", json={"name": "App B"}, headers=auth_headers(admin)
     )
     assert resp.status_code == 409
-    assert "App B" in resp.json()["detail"]
+    assert "App B" in resp.json()["detail"]["message"]
     # The card was not renamed.
     assert b.name == "App B"
 

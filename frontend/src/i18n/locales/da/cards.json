@@ -69,6 +69,8 @@
   "detail.dialogs.restore.restoring": "Gendanner…",
   "create.title": "Opret kort",
   "create.failed": "Kunne ikke oprette kort",
+  "create.duplicate.message": "Der findes allerede en {{type}} med navnet «{{name}}» på dette niveau.",
+  "create.duplicate.view": "Vis eksisterende kort",
   "utils.dataQuality": "{{value}}% fuldført",
   "utils.unknownOption": "Ukendt valgnøgle: {{key}}",
   "utils.urlError": "Skal bruge http://, https:// eller mailto:-skema",

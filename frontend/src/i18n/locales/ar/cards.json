@@ -69,6 +69,8 @@
   "detail.dialogs.restore.restoring": "جارٍ الاستعادة…",
   "create.title": "إنشاء بطاقة",
   "create.failed": "فشل إنشاء البطاقة",
+  "create.duplicate.message": "يوجد بالفعل {{type}} بالاسم «{{name}}» في هذا المستوى.",
+  "create.duplicate.view": "عرض البطاقة الموجودة",
   "utils.dataQuality": "{{value}}% مكتمل",
   "utils.unknownOption": "مفتاح خيار غير معروف: {{key}}",
   "utils.urlError": "يجب استخدام المخطط http:// أو https:// أو mailto:",

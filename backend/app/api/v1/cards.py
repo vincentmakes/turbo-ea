@@ -1134,8 +1134,14 @@ async def bulk_create_cards(
                 )
         except HTTPException as exc:
             await row_sp.rollback()
+            # `CardBulkCreateResult.error` is a plain string; the sibling-name
+            # collision raises an object-shaped detail, so flatten it here.
+            detail = exc.detail
+            error_str = (
+                detail.get("message", str(detail)) if isinstance(detail, dict) else str(detail)
+            )
             by_index[r.row_index] = CardBulkCreateResult(
-                row_index=r.row_index, status="failed", error=exc.detail
+                row_index=r.row_index, status="failed", error=error_str
             )
         except Exception as exc:  # noqa: BLE001 — surface anything to the user
             await row_sp.rollback()

@@ -19,11 +19,17 @@ async def uniq_env(db):
 
 async def test_same_type_parent_and_name_raises_409(db, uniq_env):
     user = uniq_env["user"]
-    await create_card(db, card_type="Application", name="ERP", user_id=user.id)
+    existing = await create_card(db, card_type="Application", name="ERP", user_id=user.id)
     with pytest.raises(HTTPException) as exc:
         await check_sibling_name_unique(db, type_key="Application", parent_id=None, name="ERP")
     assert exc.value.status_code == 409
-    assert "ERP" in exc.value.detail
+    detail = exc.value.detail
+    # Structured detail so clients can link to the existing card (#927).
+    assert detail["code"] == "sibling_name_conflict"
+    assert "ERP" in detail["message"]
+    assert detail["existing_card_id"] == str(existing.id)
+    assert detail["existing_card_name"] == "ERP"
+    assert detail["type_key"] == "Application"
 
 
 async def test_same_name_different_parent_is_ok(db, uniq_env):

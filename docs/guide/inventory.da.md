@@ -192,7 +192,7 @@ Det samme prioritetsforhold styrer kort-opdaterings-matchning: rækker med en UU
 
 #### Søskende-navne-entydighed
 
-Fordi kort identificeres efter navn + sti, **kan to kort af samme type ikke dele både en forælder og et navn**. Nye kort, der ville skabe en sådan kollision, afvises ved oprettelses­tidspunktet (i Opret kort-dialogen, i inline-omdøbningen og under regneark-import). Kort, der allerede er i databasen, og som deler et navn med en søskende — fra tidligere seed-data eller importer — efterlades urørt; du kan redigere et hvilket som helst af deres felter, men at omdøbe ét tilbage til kollisionen (eller oprette et tredje) blokeres. Kontrollen er case- og whitespace-uafhængig for at matche importørens resolver.
+Fordi kort identificeres efter navn + sti, **kan to kort af samme type ikke dele både en forælder og et navn**. Nye kort, der ville skabe en sådan kollision, afvises ved oprettelses­tidspunktet (i Opret kort-dialogen, i inline-omdøbningen og under regneark-import). Kort, der allerede er i databasen, og som deler et navn med en søskende — fra tidligere seed-data eller importer — efterlades urørt; du kan redigere et hvilket som helst af deres felter, men at omdøbe ét tilbage til kollisionen (eller oprette et tredje) blokeres. Kontrollen er case- og whitespace-uafhængig for at matche importørens resolver. Når Opret kort-dialogen afviser en dublet, nævner advarslen det eksisterende kort og indeholder et **Vis eksisterende kort**-link, der fører dig direkte derhen.
 
 ### Inline relations-celler
 
