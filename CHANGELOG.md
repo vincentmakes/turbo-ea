@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.49.0] - 2026-08-11
+
+### Added
+- **Extension SDK 1.4 adds batch settings.** `ctx.get_settings(names)` and `ctx.set_settings(values)` read or write many namespaced extension settings in a single database transaction, where the per-key calls each pay a full read-modify-write round trip — on instances whose database sits behind meaningful network latency, an extension saving a dozen settings went from seconds to a single transaction. `set_settings` refuses `secret.`-prefixed names, so credentials still flow through the encrypted `set_secret` path. Additive: existing 1.x extensions load and run unchanged.
+
+### Fixed
+- **The Extensions page keeps its tab across a refresh.** Reloading Admin → Extensions while on the Installed tab landed back on Store; the active tab is now reflected in the URL (`?tab=installed`) and remembered per browser, so refreshes and shared links open the tab you were on.
+
 ## [2.48.0] - 2026-08-11
 
 ### Added

@@ -43,9 +43,10 @@ validates:
   `backend/app/services/extensions/bundle.py`): the metamodel authoring
   grants plus `core.todos.read`, `core.todos.write` (write implies read)
   and `core.events.todo`. An unknown grant is a hard lint/verify error.
-- `sdk_version` — `pack` now defaults it to `1.2`. The loader is
-  major-only, so a 1.2 bundle still loads on an older 1.x core (with a
-  newer-minor warning in the core logs).
+- `sdk_version` — `pack` defaults it to the SDK this teax ships with
+  (currently `1.4`). The loader is major-only, so a newer-minor bundle
+  still loads on an older 1.x core (with a newer-minor warning in the
+  core logs).
 
 At runtime the extension uses, on its `ExtensionContext`:
 
@@ -80,8 +81,16 @@ SDK 1.3 (additive) rounds out the connector surface:
   assignee, due date, `complete` and `delete` on system todos stay
   refused — a sign-off can be referenced externally, never performed
   externally.
-- `pack` defaults `sdk_version` to `1.3`; lint warns when `core.users.*`
-  grants are declared with an older `sdk_version`.
+- lint warns when `core.users.*` grants are declared with an
+  `sdk_version` older than `1.3`.
+
+## SDK 1.4: batch settings
+
+SDK 1.4 (additive) adds `ctx.get_settings(names)` / `ctx.set_settings(values)`
+— read or write many namespaced settings in one database transaction
+instead of one transaction per key (the per-key `get_setting` /
+`set_setting` remain). `set_settings` refuses `secret.`-prefixed names;
+credentials still go through `set_secret`.
 
 ## Authoring extensions & vendor operations
 

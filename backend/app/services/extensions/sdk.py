@@ -27,7 +27,7 @@ warns on a newer minor.
 from __future__ import annotations
 
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
@@ -97,7 +97,20 @@ from app.database import get_db  # noqa: F401
 #   refused — a sign-off can be *referenced* externally, never *performed*
 #   externally.
 
-SDK_VERSION = "1.3"
+# --- SDK 1.4 — batch settings ------------------------------------------------
+# 1.4 added one additive surface (existing 1.x extensions load and run
+# unchanged):
+#
+# - ``ctx.get_settings(names)`` / ``ctx.set_settings(values)`` — read or
+#   write MANY namespaced settings in ONE database transaction. The per-key
+#   ``get_setting`` / ``set_setting`` are each a full read-modify-write
+#   round trip on the settings row, so an extension persisting N keys paid
+#   N sequential transactions — seconds of latency on a remote database.
+#   ``get_settings`` returns ``{name: value_or_None}``; ``set_settings``
+#   refuses ``secret.``-prefixed names (credentials must go through
+#   ``set_secret`` so they are Fernet-encrypted and transfer-scrubbed).
+
+SDK_VERSION = "1.4"
 
 
 @dataclass(frozen=True)
@@ -264,7 +277,10 @@ class ExtensionContext:
     ``get_secret`` / ``set_secret`` — encrypted credential storage (``str``
     only; a ``SECRET_KEY`` rotation makes ``get_secret`` return ``""``,
     which means "re-prompt the operator"). SDK 1.3 adds ``users`` — the
-    read-only user-directory bridge (grant ``core.users.read``).
+    read-only user-directory bridge (grant ``core.users.read``). SDK 1.4
+    adds ``get_settings`` / ``set_settings`` — batch variants that cost one
+    database transaction for N keys (``set_settings`` refuses ``secret.``
+    names; use ``set_secret``).
     """
 
     key: str
@@ -277,6 +293,8 @@ class ExtensionContext:
     get_secret: Callable[[str], Awaitable[str | None]] | None = None
     set_secret: Callable[[str, str], Awaitable[None]] | None = None
     users: UsersBridge | None = None
+    get_settings: Callable[[Sequence[str]], Awaitable[dict[str, Any]]] | None = None
+    set_settings: Callable[[dict[str, Any]], Awaitable[None]] | None = None
 
     def __post_init__(self) -> None:
         if not self.settings_namespace:

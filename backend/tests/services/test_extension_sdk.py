@@ -2,8 +2,8 @@
 
 Backend extensions may import ONLY from ``app.services.extensions.sdk``
 (AST-enforced in the vendor repo's CI), so anything an extension route
-needs must be re-exported here. These tests pin the SDK 1.2 surface to
-the exact core objects — a rename or removal in core must consciously
+needs must be re-exported here. These tests pin each SDK minor's surface
+to the exact core objects — a rename or removal in core must consciously
 update the SDK (and its version), never silently break installed
 extensions.
 """
@@ -15,8 +15,8 @@ from app.database import get_db as core_get_db
 from app.services.extensions import sdk
 
 
-def test_sdk_version_is_1_3():
-    assert sdk.SDK_VERSION == "1.3"
+def test_sdk_version_is_1_4():
+    assert sdk.SDK_VERSION == "1.4"
 
 
 def test_sdk_reexports_route_dependencies_verbatim():
@@ -43,6 +43,13 @@ def test_sdk_1_3_surface_exists():
     # SDK 1.3 — read-only users bridge for connector extensions.
     assert sdk.ExtUser is not None
     assert sdk.UsersBridge is not None
+
+
+def test_sdk_1_4_surface_exists():
+    # SDK 1.4 — batch settings on the context (one transaction for N keys).
+    fields = sdk.ExtensionContext.__dataclass_fields__
+    assert "get_settings" in fields
+    assert "set_settings" in fields
 
 
 def test_ext_user_is_frozen_and_wire_shaped():
@@ -101,6 +108,8 @@ def test_extension_context_1_1_construction_still_works():
     assert ctx.get_secret is None
     assert ctx.set_secret is None
     assert ctx.users is None
+    assert ctx.get_settings is None
+    assert ctx.set_settings is None
     assert ctx.settings_namespace == "ext.sample-ext."
 
 
@@ -135,6 +144,7 @@ def test_sdk_compatibility_is_major_only():
     assert sdk.sdk_compatible("1.1")
     assert sdk.sdk_compatible("1.2")
     assert sdk.sdk_compatible("1.3")
+    assert sdk.sdk_compatible("1.4")
     assert not sdk.sdk_compatible("2.0")
 
 
@@ -142,6 +152,7 @@ def test_sdk_minor_newer_truth_table():
     # Newer minor on the same major → warn (still loads).
     assert sdk.sdk_minor_newer("1.9")
     # Same or older minor → no warning.
+    assert not sdk.sdk_minor_newer("1.4")
     assert not sdk.sdk_minor_newer("1.3")
     assert not sdk.sdk_minor_newer("1.2")
     assert not sdk.sdk_minor_newer("1.0")

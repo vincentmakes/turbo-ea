@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Sequence
 from typing import Any
 
 from sqlalchemy import select
@@ -74,6 +75,40 @@ def build_context(key: str) -> ExtensionContext:
             row.general_settings = general
             await db.commit()
 
+    # SDK 1.4 — batch variants. The per-key pair above is one full
+    # transaction per call, which turns an N-key config into N sequential
+    # round-trips on the settings row; these do N keys in one.
+    async def get_settings(names: Sequence[str]) -> dict[str, Any]:
+        from app.models.app_settings import AppSettings
+
+        async with async_session() as db:
+            row = (
+                await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+            ).scalar_one_or_none()
+            general = (row.general_settings if row else None) or {}
+            return {name: general.get(namespace + name) for name in names}
+
+    async def set_settings(values: dict[str, Any]) -> None:
+        from app.models.app_settings import AppSettings
+
+        for name in values:
+            if name.startswith("secret."):
+                # Secrets must go through set_secret (Fernet encryption +
+                # workspace-transfer scrub) — never a plaintext batch write.
+                raise ValueError("set_settings cannot write secret.* names; use set_secret")
+        async with async_session() as db:
+            row = (
+                await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+            ).scalar_one_or_none()
+            if row is None:
+                row = AppSettings(id="default", general_settings={}, email_settings={})
+                db.add(row)
+            general = dict(row.general_settings or {})
+            for name, value in values.items():
+                general[namespace + name] = value
+            row.general_settings = general
+            await db.commit()
+
     # Secrets ride the same settings row under a ``secret.`` sub-namespace,
     # but Fernet-encrypted (``enc:``-prefixed). The prefix is what makes them
     # export-safe: workspace transfer's defensive scrub strips every ``enc:``
@@ -102,6 +137,8 @@ def build_context(key: str) -> ExtensionContext:
         get_secret=get_secret,
         set_secret=set_secret,
         users=ExtensionUsers(key),
+        get_settings=get_settings,
+        set_settings=set_settings,
     )
     _contexts[key] = ctx
     return ctx

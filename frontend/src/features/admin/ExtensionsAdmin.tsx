@@ -28,11 +28,27 @@ import {
 } from "@mui/material";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router";
 
 import { api, ApiError } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { invalidateExtensionCapabilities } from "@/hooks/useExtensionCapabilities";
 import { invalidateCache as invalidateMetamodel } from "@/hooks/useMetamodel";
+
+// Tab state rides the URL (and localStorage) so a refresh on the Installed
+// tab does not bounce back to the Store — same pattern as GrcPage.
+const TAB_KEYS = ["store", "installed"] as const;
+type TabKey = (typeof TAB_KEYS)[number];
+const TAB_STORAGE_KEY = "turboea.extensions.tab";
+
+function readStoredTab(): TabKey | null {
+  try {
+    const v = localStorage.getItem(TAB_STORAGE_KEY);
+    return v && TAB_KEYS.includes(v as TabKey) ? (v as TabKey) : null;
+  } catch {
+    return null;
+  }
+}
 import { ExtensionBoundary, useExtensionUI } from "@/lib/extensionHost";
 
 interface EntitlementInfo {
@@ -171,7 +187,33 @@ function makeClaimToken(): string {
 export default function ExtensionsAdmin() {
   const { t } = useTranslation("admin");
 
-  const [tab, setTab] = useState<"store" | "installed">("store");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const paramTab = searchParams.get("tab") as TabKey | null;
+  const validParam = paramTab && TAB_KEYS.includes(paramTab) ? paramTab : null;
+  // Priority: valid URL param > localStorage > default. localStorage is read
+  // only once (lazy initializer) so it never fights a subsequent tab click.
+  const [tab, setTab] = useState<TabKey>(() => validParam ?? readStoredTab() ?? "store");
+
+  useEffect(() => {
+    if (validParam && validParam !== tab) setTab(validParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [validParam]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(TAB_STORAGE_KEY, tab);
+    } catch {
+      /* private mode etc. — the URL param still covers refreshes */
+    }
+  }, [tab]);
+
+  const handleTabChange = (_: React.SyntheticEvent, val: string) => {
+    const next = val as TabKey;
+    setTab(next);
+    const params = new URLSearchParams(searchParams);
+    if (next === "store") params.delete("tab");
+    else params.set("tab", next);
+    setSearchParams(params, { replace: true });
+  };
   const [extensions, setExtensions] = useState<ExtensionInfo[]>([]);
   const [license, setLicense] = useState<LicenseInfo | null>(null);
   const [catalog, setCatalog] = useState<StoreCatalog | null>(null);
@@ -843,7 +885,7 @@ export default function ExtensionsAdmin() {
 
       <Tabs
         value={tab}
-        onChange={(_, v) => setTab(v)}
+        onChange={handleTabChange}
         sx={{ borderBottom: 1, borderColor: "divider" }}
       >
         <Tab value="store" label={t("extensions.tabs.store", "Store")} />

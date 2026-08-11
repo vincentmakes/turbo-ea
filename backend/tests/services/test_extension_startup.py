@@ -35,3 +35,8 @@ class TestContextMemoization:
         assert ctx.get_secret is not None
         assert ctx.set_secret is not None
         assert ctx.settings_namespace == "ext.jira-sync."
+
+    def test_context_carries_sdk_1_4_batch_settings(self):
+        ctx = build_context("jira-sync")
+        assert ctx.get_settings is not None
+        assert ctx.set_settings is not None

@@ -374,9 +374,9 @@ def cmd_pack(args) -> int:
     }
     manifest.setdefault("entitlement_key", manifest["key"])
     # Default to the SDK this teax ships with. The loader's compatibility
-    # check is major-only, so a 1.3 default still loads on a 1.1 core (with
+    # check is major-only, so a 1.4 default still loads on a 1.1 core (with
     # a newer-minor warning there).
-    manifest.setdefault("sdk_version", "1.3")
+    manifest.setdefault("sdk_version", "1.4")
     if args.key_id:
         manifest["key_id"] = args.key_id
     manifest["files"] = {
