@@ -45,3 +45,38 @@ async def test_rescore_once_heals_scores_and_arms_marker(db):
     assert await run_dq_rescore_once(db) is None
     still = (await db.execute(select(Card).where(Card.id == card.id))).scalar_one()
     assert still.data_quality == 12.3
+
+
+async def test_rescore_reruns_when_only_the_old_v1_marker_is_set(db):
+    """Upgrading installs carry the pre-2.52 marker; the versioned key must
+    re-arm the rescore so the mandatory-field zero-gate backfills stored
+    scores (cards untouched since the upgrade otherwise keep stale values)."""
+    user = await create_user(db, email="rescore-v2@test.com", role="admin")
+    await create_card_type(
+        db,
+        key="Application",
+        label="Application",
+        fields_schema=[
+            {
+                "section": "Details",
+                "fields": [{"key": "a", "label": "A", "type": "text", "required": True}],
+            }
+        ],
+    )
+    card = await create_card(db, card_type="Application", name="Stale Gate", user_id=user.id)
+    card.data_quality = 55.0  # stale pre-gate score; required 'a' is empty → canonical is 0
+    db.add(AppSettings(id="default", general_settings={"dataQualityCanonicalRescoreDone": True}))
+    await db.flush()
+
+    changed = await run_dq_rescore_once(db)
+    assert changed == 1
+
+    refreshed = (await db.execute(select(Card).where(Card.id == card.id))).scalar_one()
+    assert refreshed.data_quality == 0.0
+
+    settings_row = (
+        await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    ).scalar_one()
+    assert settings_row.general_settings.get(_DQ_RESCORE_FLAG) is True
+    # The legacy marker is left in place untouched.
+    assert settings_row.general_settings.get("dataQualityCanonicalRescoreDone") is True

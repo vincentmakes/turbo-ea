@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.52.1] - 2026-08-12
+
+### Fixed
+- **Existing cards missing mandatory fields now show a data-quality score of 0 immediately after upgrading.** Stored scores are only refreshed when a card is saved, so cards untouched since the upgrade kept their old score even though the mandatory-field gate applied. The one-shot startup rescore now re-runs once after this upgrade to backfill every stored score.
+
 ## [2.52.0] - 2026-08-12
 
 ### Added
