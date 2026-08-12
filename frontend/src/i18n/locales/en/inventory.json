@@ -34,6 +34,7 @@
   "columns.parent": "Parent",
   "gridEdit.parentHint": "Clear the field to move this card to the top level.",
   "gridEdit.parentFailed": "Could not change the parent.",
+  "gridEdit.attrFailed": "Could not save the value.",
   "columns.path": "Path",
   "filter.title": "Filters",
   "filter.expand": "Expand filters",

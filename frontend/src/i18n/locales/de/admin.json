@@ -163,7 +163,7 @@
   "metamodel.fieldEditor.typeLabel": "Typ",
   "metamodel.fieldEditor.required": "Pflichtfeld",
   "metamodel.fieldEditor.weight": "Gewicht",
-  "metamodel.fieldEditor.weightMovedHint": "Die Datenqualitäts-Wichtigkeit wird im Bereich Datenqualität unten festgelegt.",
+  "metamodel.fieldEditor.weightMovedHint": "Die Datenqualitäts-Wichtigkeit wird im Tab Datenqualität festgelegt.",
   "metamodel.fieldEditor.helpLabel": "Hilfetext",
   "metamodel.fieldEditor.helpHint": "Wird bei der Dateneingabe als aufklappbarer Hinweis unter dem Feld angezeigt.",
   "metamodel.fieldEditor.customConfig": "Konfiguration",

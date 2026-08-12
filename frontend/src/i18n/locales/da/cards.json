@@ -1,4 +1,5 @@
 {
+  "requiredBanner": "Obligatoriske felter skal udfyldes: {{fields}}. Datakvalitetsscoren forbliver 0, indtil de er udfyldt.",
   "detail.title": "Kortdetaljer",
   "detail.unsavedLeaveConfirm": "Du har ugemte ændringer. Vil du forlade siden uden at gemme?",
   "detail.backToTop": "Tilbage til toppen",

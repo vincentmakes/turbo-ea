@@ -194,6 +194,13 @@ Always include `startIcon={<MaterialSymbol icon="…" size={iconSize.sm} />}` ra
 - `size="small"` is reserved for **dense toolbars** and inline cell editors — not for dialog forms.
 - Stack fields with `<Stack spacing={2}>` or `<Box display="flex" flexDirection="column" gap={2}>`.
 
+**Mandatory (required) metamodel fields** follow one pattern everywhere (reference: card detail + Create Card dialog):
+
+- **Edit contexts** mark them with MUI's own asterisk via the `required` prop on the control (`TextField required`, `FormControl required`) — never a hand-rolled `*` string inside an input label.
+- **Read contexts** pair a `error.main`-colored asterisk next to the field label with a `Tooltip` carrying `common:labels.required` (state is never color alone — §5), and an *empty* mandatory value renders as an outlined `Chip color="warning"` labeled with the same key instead of the em-dash.
+- **Enforcement** is edit-time, not create-time: creation may leave mandatory fields empty; saving a section is blocked (`validation:requiredEmpty` as the field's `error`/`helperText`, Save disabled) while a visible mandatory field in it is empty. The backend independently rejects clearing a filled required field, so surface `err.message` from a failed write rather than duplicating the rule client-side.
+- Boolean and read-only (calculated) fields are exempt — use `isEnforcedRequiredField` / `isEmptyAttrValue` / `missingRequiredFields` from `cardDetailUtils.tsx`, never a local re-implementation, so all surfaces (and the backend's data-quality zero-gate) agree on what counts as empty.
+
 ### 3.6 Tables & Grids
 
 | Use | Component |

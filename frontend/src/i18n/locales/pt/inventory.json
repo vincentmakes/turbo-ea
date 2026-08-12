@@ -34,6 +34,7 @@
   "columns.parent": "Pai",
   "gridEdit.parentHint": "Esvazie o campo para mover este cartão para o nível superior.",
   "gridEdit.parentFailed": "Não foi possível alterar o pai.",
+  "gridEdit.attrFailed": "Não foi possível salvar o valor.",
   "columns.path": "Caminho",
   "filter.title": "Filtros",
   "filter.expand": "Expandir filtros",

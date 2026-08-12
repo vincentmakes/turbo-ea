@@ -1,5 +1,6 @@
 {
   "required": "此字段为必填项",
+  "requiredEmpty": "此字段为必填项——填写后才能保存。",
   "invalidEmail": "邮箱地址无效",
   "tooLong": "内容过长（最多 {{max}} 个字符）",
   "tooShort": "内容过短（最少 {{min}} 个字符）",

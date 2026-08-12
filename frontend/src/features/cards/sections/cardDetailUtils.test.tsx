@@ -14,6 +14,9 @@ import {
   CardIdPill,
   FieldEditor,
   FieldValue,
+  isEmptyAttrValue,
+  isEnforcedRequiredField,
+  missingRequiredFields,
   NO_SUBTYPE_KEY,
   shouldGroupBySubtype,
 } from "./cardDetailUtils";
@@ -202,5 +205,69 @@ describe("CardIdPill (#811)", () => {
     render(<CardIdPill reference="APP-10000" typeColor="#0f7eb5" />);
     fireEvent.click(screen.getByText("APP-10000"));
     await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith("APP-10000"));
+  });
+});
+
+describe("mandatory-field helpers", () => {
+  const typeConfig = {
+    fields_schema: [
+      {
+        section: "Details",
+        fields: [
+          { key: "criticality", label: "Criticality", type: "text", required: true },
+          {
+            key: "hosting",
+            label: "Hosting",
+            type: "multiple_select",
+            required: true,
+            options: [{ key: "cloud", label: "Cloud" }],
+          },
+          { key: "gdpr", label: "GDPR", type: "boolean", required: true },
+          { key: "score2", label: "Score", type: "number", required: true, readonly: true },
+          { key: "notes", label: "Notes", type: "text" },
+        ] as FieldDef[],
+      },
+    ],
+    subtypes: [{ key: "micro", label: "Micro", hidden_fields: ["criticality"] }],
+  };
+
+  it("isEmptyAttrValue treats null/undefined/empty-string/empty-array as empty", () => {
+    expect(isEmptyAttrValue(null)).toBe(true);
+    expect(isEmptyAttrValue(undefined)).toBe(true);
+    expect(isEmptyAttrValue("")).toBe(true);
+    expect(isEmptyAttrValue([])).toBe(true);
+    expect(isEmptyAttrValue(0)).toBe(false);
+    expect(isEmptyAttrValue(false)).toBe(false);
+    expect(isEmptyAttrValue(["x"])).toBe(false);
+    expect(isEmptyAttrValue("x")).toBe(false);
+  });
+
+  it("isEnforcedRequiredField exempts boolean and readonly fields", () => {
+    const fields = typeConfig.fields_schema[0].fields;
+    expect(isEnforcedRequiredField(fields[0])).toBe(true); // text
+    expect(isEnforcedRequiredField(fields[1])).toBe(true); // multiple_select
+    expect(isEnforcedRequiredField(fields[2])).toBe(false); // boolean
+    expect(isEnforcedRequiredField(fields[3])).toBe(false); // readonly
+    expect(isEnforcedRequiredField(fields[4])).toBe(false); // not required
+  });
+
+  it("missingRequiredFields lists empty enforced-required fields", () => {
+    const missing = missingRequiredFields(typeConfig, null, { hosting: [] });
+    expect(missing.map((f) => f.key)).toEqual(["criticality", "hosting"]);
+  });
+
+  it("missingRequiredFields respects subtype hidden fields", () => {
+    const missing = missingRequiredFields(typeConfig, "micro", {});
+    expect(missing.map((f) => f.key)).toEqual(["hosting"]);
+  });
+
+  it("missingRequiredFields is empty once everything is filled", () => {
+    expect(
+      missingRequiredFields(typeConfig, null, { criticality: "high", hosting: ["cloud"] }),
+    ).toEqual([]);
+  });
+
+  it("missingRequiredFields handles a missing type config", () => {
+    expect(missingRequiredFields(undefined, null, {})).toEqual([]);
   });
 });

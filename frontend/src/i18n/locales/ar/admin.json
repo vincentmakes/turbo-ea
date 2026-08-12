@@ -163,7 +163,7 @@
   "metamodel.fieldEditor.typeLabel": "النوع",
   "metamodel.fieldEditor.required": "مطلوب",
   "metamodel.fieldEditor.weight": "الوزن",
-  "metamodel.fieldEditor.weightMovedHint": "تُحدَّد أهمية جودة البيانات في لوحة جودة البيانات أدناه.",
+  "metamodel.fieldEditor.weightMovedHint": "تُحدَّد أهمية جودة البيانات في تبويب جودة البيانات.",
   "metamodel.fieldEditor.helpLabel": "نص المساعدة",
   "metamodel.fieldEditor.helpHint": "يظهر كإرشاد قابل للطي أسفل الحقل أثناء إدخال البيانات.",
   "metamodel.fieldEditor.customConfig": "الإعدادات",

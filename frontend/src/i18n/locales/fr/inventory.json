@@ -34,6 +34,7 @@
   "columns.parent": "Parent",
   "gridEdit.parentHint": "Videz le champ pour déplacer cette carte au niveau supérieur.",
   "gridEdit.parentFailed": "Impossible de modifier le parent.",
+  "gridEdit.attrFailed": "Impossible d'enregistrer la valeur.",
   "columns.path": "Chemin",
   "filter.title": "Filtres",
   "filter.expand": "Déplier les filtres",

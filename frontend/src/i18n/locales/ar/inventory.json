@@ -34,6 +34,7 @@
   "columns.parent": "العنصر الأصل",
   "gridEdit.parentHint": "أفرغ الحقل لنقل هذه البطاقة إلى المستوى الأعلى.",
   "gridEdit.parentFailed": "تعذّر تغيير العنصر الأصل.",
+  "gridEdit.attrFailed": "تعذّر حفظ القيمة.",
   "columns.path": "المسار",
   "filter.title": "عوامل التصفية",
   "filter.expand": "توسيع عوامل التصفية",

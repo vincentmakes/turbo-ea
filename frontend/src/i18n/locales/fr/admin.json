@@ -163,7 +163,7 @@
   "metamodel.fieldEditor.typeLabel": "Type",
   "metamodel.fieldEditor.required": "Obligatoire",
   "metamodel.fieldEditor.weight": "Poids",
-  "metamodel.fieldEditor.weightMovedHint": "L'importance pour la qualité des données se règle dans le panneau Qualité des données ci-dessous.",
+  "metamodel.fieldEditor.weightMovedHint": "L'importance pour la qualité des données se règle dans l'onglet Qualité des données.",
   "metamodel.fieldEditor.helpLabel": "Texte d'aide",
   "metamodel.fieldEditor.helpHint": "Affiché sous forme d'aide repliable sous le champ lors de la saisie.",
   "metamodel.fieldEditor.customConfig": "Configuration",

@@ -1,4 +1,5 @@
 {
+  "requiredBanner": "Pflichtfelder müssen ausgefüllt werden: {{fields}}. Die Datenqualitätsbewertung bleibt bei 0, bis dies geschehen ist.",
   "detail.title": "Kartendetail",
   "detail.unsavedLeaveConfirm": "Sie haben ungespeicherte Änderungen. Ohne Speichern verlassen?",
   "detail.backToTop": "Nach oben",

@@ -13,7 +13,15 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import VendorField from "@/components/VendorField";
 import Alert from "@mui/material/Alert";
 import { useTranslation } from "react-i18next";
-import { FieldValue, FieldEditor, isValidUrl, getUrlErrorMsg } from "@/features/cards/sections/cardDetailUtils";
+import {
+  FieldValue,
+  FieldEditor,
+  isValidUrl,
+  getUrlErrorMsg,
+  isEmptyAttrValue,
+  isEnforcedRequiredField,
+} from "@/features/cards/sections/cardDetailUtils";
+import Tooltip from "@mui/material/Tooltip";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useResolveLabel, useFieldLabel } from "@/hooks/useResolveLabel";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
@@ -51,7 +59,7 @@ function AttributeSection({
   canViewCosts?: boolean;
   onDirtyChange?: (dirty: boolean) => void;
 }) {
-  const { t } = useTranslation(["cards", "common"]);
+  const { t } = useTranslation(["cards", "common", "validation"]);
   const { fmt, symbol } = useCurrency();
   const rl = useResolveLabel();
   const fieldLabel = useFieldLabel();
@@ -98,17 +106,30 @@ function AttributeSection({
     ? visibleFields.filter((f) => f.badge === badgeFilter)
     : visibleFields;
 
-  // Compute URL validation errors for all url-type fields in this section
-  const urlErrors: Record<string, string> = {};
+  // Compute per-field validation errors for this section's draft: URL format
+  // plus the mandatory-field rule — a section cannot be saved while a required
+  // field in it is empty (whether just cleared or empty since creation). The
+  // draft equals the saved values on entering edit mode, so an incomplete
+  // section immediately shows what must be filled; Cancel always stays
+  // available. Calculated fields are excluded — their FieldEditor row is
+  // read-only, so an empty value would block Save with no way to type it in.
+  const fieldErrors: Record<string, string> = {};
   for (const f of visibleFields) {
     if (f.type === "url") {
       const val = attrs[f.key];
       if (typeof val === "string" && val && !isValidUrl(val)) {
-        urlErrors[f.key] = getUrlErrorMsg(t);
+        fieldErrors[f.key] = getUrlErrorMsg(t);
       }
     }
+    if (
+      isEnforcedRequiredField(f) &&
+      !calculatedFieldKeys.includes(f.key) &&
+      isEmptyAttrValue(attrs[f.key])
+    ) {
+      fieldErrors[f.key] = t("validation:requiredEmpty");
+    }
   }
-  const hasValidationErrors = Object.keys(urlErrors).length > 0;
+  const hasValidationErrors = Object.keys(fieldErrors).length > 0;
 
   // Save-time scroll restore: bring the section back into view. Saving a tall
   // section happens with its Save button at the BOTTOM of the edit view —
@@ -220,6 +241,13 @@ function AttributeSection({
         <Box key={field.key} sx={{ display: "contents" }}>
           <Typography variant="body2" color="text.secondary">
             {fieldLabel(field)}
+            {isEnforcedRequiredField(field) && (
+              <Tooltip title={t("common:labels.required")}>
+                <Box component="span" sx={{ color: "error.main", ml: 0.25 }} aria-hidden={false}>
+                  *
+                </Box>
+              </Tooltip>
+            )}
             {calculatedFieldKeys.includes(field.key) ? (
               <Chip component="span" size="small" label={t("attributes.calculated")} sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
             ) : field.readonly ? (
@@ -229,7 +257,20 @@ function AttributeSection({
               <Chip component="span" size="small" color="primary" variant="outlined" label={rl(field.badge, field.badgeTranslations)} sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
             ) : null}
           </Typography>
-          <FieldValue field={field} value={(card.attributes || {})[field.key]} currencyFmt={fmt} canViewCosts={canViewCosts} />
+          {isEnforcedRequiredField(field) &&
+          isEmptyAttrValue((card.attributes || {})[field.key]) ? (
+            <Box>
+              <Chip
+                size="small"
+                color="warning"
+                variant="outlined"
+                label={t("common:labels.required")}
+                sx={{ height: 20, fontSize: "0.65rem" }}
+              />
+            </Box>
+          ) : (
+            <FieldValue field={field} value={(card.attributes || {})[field.key]} currencyFmt={fmt} canViewCosts={canViewCosts} />
+          )}
         </Box>
       ))}
     </Box>
@@ -269,7 +310,7 @@ function AttributeSection({
               value={attrs[field.key]}
               onChange={(v) => setAttr(field.key, v)}
               currencySymbol={symbol}
-              error={urlErrors[field.key]}
+              error={fieldErrors[field.key]}
               canViewCosts={canViewCosts}
             />
           </Box>

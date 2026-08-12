@@ -1065,7 +1065,14 @@ export default function InventoryPage() {
         .find((f) => f.key === key);
       if (fieldDef?.readonly) return;
       const attrs = { ...card.attributes, [key]: event.newValue };
-      await api.patch(`/cards/${card.id}`, { attributes: attrs });
+      try {
+        await api.patch(`/cards/${card.id}`, { attributes: attrs });
+      } catch (err) {
+        // The server may reject the write — e.g. clearing a required field.
+        // Surface the reason and reload to revert the optimistic cell value.
+        setCellEditError(err instanceof Error ? err.message : t("gridEdit.attrFailed"));
+        loadData();
+      }
     } else if (field === "parent_id") {
       const newParentId = (event.newValue as string | null) ?? null;
       try {

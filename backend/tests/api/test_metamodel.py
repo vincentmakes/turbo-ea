@@ -1222,3 +1222,36 @@ class TestSuccessorRelationType:
         assert resp.status_code == 200
         rt = await self._fetch(client, admin, "relWidgetSuccessor")
         assert rt is not None
+
+
+class TestScoringSignatureRequiredFlag:
+    """Toggling `required` on a field must change the scoring signature so the
+    type save triggers `_recompute_data_quality_for_type` — the mandatory-field
+    gate pins incomplete cards to 0 and their stored scores must refresh
+    immediately, not on next edit."""
+
+    def test_required_toggle_changes_signature(self):
+        from app.api.v1.metamodel import _scoring_signature
+
+        base = [{"section": "S", "fields": [{"key": "a", "weight": 1}]}]
+        toggled = [{"section": "S", "fields": [{"key": "a", "weight": 1, "required": True}]}]
+        assert _scoring_signature(base, None) != _scoring_signature(toggled, None)
+
+    def test_readonly_toggle_changes_signature(self):
+        from app.api.v1.metamodel import _scoring_signature
+
+        base = [{"section": "S", "fields": [{"key": "a", "weight": 1, "required": True}]}]
+        toggled = [
+            {
+                "section": "S",
+                "fields": [{"key": "a", "weight": 1, "required": True, "readonly": True}],
+            }
+        ]
+        assert _scoring_signature(base, None) != _scoring_signature(toggled, None)
+
+    def test_label_edit_leaves_signature_unchanged(self):
+        from app.api.v1.metamodel import _scoring_signature
+
+        a = [{"section": "S", "fields": [{"key": "a", "weight": 1, "label": "Old"}]}]
+        b = [{"section": "S", "fields": [{"key": "a", "weight": 1, "label": "New"}]}]
+        assert _scoring_signature(a, None) == _scoring_signature(b, None)

@@ -53,9 +53,11 @@ Les champs définissent les attributs personnalisés disponibles sur les fiches 
 | **Libellé** | Nom d'affichage |
 | **Type** | text, multiline_text, number, cost, boolean, date, url, single_select ou multiple_select |
 | **Options** | Pour les champs de sélection : les choix disponibles avec libellés et couleurs optionnelles |
-| **Obligatoire** | Si le champ doit être rempli pour le calcul du score de qualité des données |
+| **Obligatoire** | Si le champ est obligatoire — voir les règles d'application ci-dessous |
 | **Qualité des données** | La contribution de chaque champ au score est gérée dans le panneau **Qualité des données** (voir ci-dessous) |
 | **Lecture seule** | Empêche la modification manuelle (utile pour les champs calculés) |
+
+**Application des champs obligatoires.** La création d'une carte n'exige jamais ces champs — les cartes peuvent être créées rapidement et complétées plus tard. Tant qu'un champ obligatoire reste vide, le score de qualité des données de la carte reste à **0** et la page de détail affiche un bandeau d'avertissement listant les champs à remplir. Lors de la modification d'une section de carte, celle-ci ne peut pas être enregistrée tant que ses champs obligatoires ne sont pas remplis, et l'API refuse de vider un champ obligatoire déjà renseigné. Les champs booléens et en lecture seule (calculés) sont exemptés.
 
 Cliquez sur **+ Ajouter un champ** pour créer un nouveau champ, ou cliquez sur un champ existant pour le modifier dans le **Dialogue de l'éditeur de champs**.
 

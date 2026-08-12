@@ -163,7 +163,7 @@
   "metamodel.fieldEditor.typeLabel": "Тип",
   "metamodel.fieldEditor.required": "Обязательное",
   "metamodel.fieldEditor.weight": "Вес",
-  "metamodel.fieldEditor.weightMovedHint": "Важность для качества данных задаётся на панели «Качество данных» ниже.",
+  "metamodel.fieldEditor.weightMovedHint": "Важность для качества данных задаётся на вкладке «Качество данных».",
   "metamodel.fieldEditor.helpLabel": "Текст справки",
   "metamodel.fieldEditor.helpHint": "Отображается как сворачиваемая подсказка под полем при вводе данных.",
   "metamodel.fieldEditor.customConfig": "Конфигурация",

@@ -1,4 +1,5 @@
 {
+  "requiredBanner": "Os campos obrigatórios devem ser preenchidos: {{fields}}. A pontuação de qualidade dos dados permanece em 0 até que sejam.",
   "detail.title": "Detalhe da ficha",
   "detail.unsavedLeaveConfirm": "Você tem alterações não salvas. Sair sem salvar?",
   "detail.backToTop": "Voltar ao topo",

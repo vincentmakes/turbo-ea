@@ -53,9 +53,11 @@ Fields define the custom attributes available on cards of this type. Each field 
 | **Label** | Display name |
 | **Type** | text, multiline_text, number, cost, boolean, date, url, single_select, or multiple_select |
 | **Options** | For select fields: the available choices with labels and optional colors |
-| **Required** | Whether the field must be filled for data quality scoring |
+| **Required** | Whether the field is mandatory — see the enforcement rules below |
 | **Data quality** | Each field's contribution to the score is managed in the **Data quality** panel — see [Data quality scoring](#data-quality-scoring) below |
 | **Read-only** | Prevents manual editing (useful for calculated fields) |
+
+**How Required is enforced.** Creating a card never requires these fields — cards can be created quickly and completed later. While any required field is still empty, the card's data-quality score is pinned to **0** and the card detail page shows a warning banner listing what must be filled. When a card section is edited, it cannot be saved until the required fields in it are filled, and the API rejects clearing a required field that already has a value. Boolean and read-only (calculated) fields are exempt.
 
 Click **+ Add Field** to create a new field, or click an existing field to edit it in the **Field Editor Dialog**.
 

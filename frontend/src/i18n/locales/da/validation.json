@@ -1,5 +1,6 @@
 {
   "required": "Dette felt er påkrævet",
+  "requiredEmpty": "Dette felt er påkrævet – udfyld det for at gemme.",
   "invalidEmail": "Ugyldig e-mailadresse",
   "tooLong": "For langt (maks. {{max}} tegn)",
   "tooShort": "For kort (min. {{min}} tegn)",

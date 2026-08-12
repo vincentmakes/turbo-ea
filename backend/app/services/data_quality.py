@@ -10,6 +10,9 @@ A card's data-quality score is a weighted completeness ratio:
    per card type via the reserved ``section_config.__dataQuality`` key (each
    default 1, 0 = exclude).
 
+A **mandatory-field gate** precedes the ratio: while any visible required field
+(excluding boolean and readonly fields) is empty, the score is pinned to 0.
+
 This is the single source of truth: ``cards.py``, ``ppm.py`` and
 ``turbolens_commit.py`` all call :func:`calc_data_quality`. ``seed_demo.py``
 keeps its own dict-based approximation because it runs before relations/tags
@@ -69,6 +72,24 @@ async def calc_data_quality(db: AsyncSession, card: Card) -> float:
     total_weight = 0.0
     filled_weight = 0.0
     attrs = card.attributes or {}
+
+    # Mandatory-field gate: while any visible required field is empty, the
+    # score is pinned to 0 — the regular weighted calculation only applies once
+    # every mandatory field is filled. Boolean fields are exempt (a switch
+    # always has a value) and so are readonly (calculated) fields, whose value
+    # the user cannot enter by hand.
+    for section in schema:
+        for field in section.get("fields", []):
+            if (
+                not field.get("required")
+                or field["key"] in hidden_keys
+                or field.get("type") == "boolean"
+                or field.get("readonly")
+            ):
+                continue
+            val = attrs.get(field["key"])
+            if val is None or val == "" or val == []:
+                return 0.0
 
     for section in schema:
         for field in section.get("fields", []):

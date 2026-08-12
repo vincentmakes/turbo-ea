@@ -53,9 +53,11 @@ Felder definieren die benutzerdefinierten Attribute, die auf Karten dieses Typs 
 | **Bezeichnung** | Anzeigename |
 | **Typ** | text, multiline_text, number, cost, boolean, date, url, single_select oder multiple_select |
 | **Optionen** | Für Auswahlfelder: die verfügbaren Auswahlmöglichkeiten mit Bezeichnungen und optionalen Farben |
-| **Pflichtfeld** | Ob das Feld für die Datenqualitätsbewertung ausgefüllt sein muss |
+| **Pflichtfeld** | Ob das Feld verpflichtend ist — siehe die Durchsetzungsregeln unten |
 | **Datenqualität** | Der Beitrag jedes Felds zum Wert wird im Bereich **Datenqualität** verwaltet (siehe unten) |
 | **Nur lesen** | Verhindert manuelle Bearbeitung (nützlich für berechnete Felder) |
+
+**So werden Pflichtfelder durchgesetzt.** Beim Erstellen einer Karte sind diese Felder nie erforderlich — Karten können schnell angelegt und später vervollständigt werden. Solange ein Pflichtfeld leer ist, bleibt die Datenqualitätsbewertung der Karte bei **0**, und die Kartendetailseite zeigt ein Warnbanner mit den auszufüllenden Feldern. Beim Bearbeiten eines Kartenbereichs kann dieser erst gespeichert werden, wenn seine Pflichtfelder ausgefüllt sind, und die API lehnt das Leeren eines bereits gefüllten Pflichtfelds ab. Boolesche und schreibgeschützte (berechnete) Felder sind ausgenommen.
 
 Klicken Sie auf **+ Feld hinzufügen**, um ein neues Feld zu erstellen, oder klicken Sie auf ein bestehendes Feld, um es im **Feldeditor-Dialog** zu bearbeiten.
 

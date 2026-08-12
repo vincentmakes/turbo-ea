@@ -34,6 +34,7 @@
   "columns.parent": "Padre",
   "gridEdit.parentHint": "Vacíe el campo para mover esta tarjeta al nivel superior.",
   "gridEdit.parentFailed": "No se pudo cambiar el padre.",
+  "gridEdit.attrFailed": "No se pudo guardar el valor.",
   "columns.path": "Ruta",
   "filter.title": "Filtros",
   "filter.expand": "Expandir filtros",

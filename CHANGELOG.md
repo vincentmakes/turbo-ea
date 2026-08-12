@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.52.0] - 2026-08-12
+
+### Added
+- **Mandatory fields are now enforced when editing a card.** A card section can no longer be saved while a required field in it is empty — each empty mandatory field shows an inline message, and the API rejects clearing a required field that already has a value (structured `required_field_empty` error). Creating cards stays as fast as before: mandatory fields may be left empty at creation and filled in later ([#931](https://github.com/vincentmakes/turbo-ea/issues/931) follow-up).
+- **Mandatory fields are clearly marked on the card detail page.** Required fields carry an asterisk in both read and edit mode, an empty mandatory field shows a warning chip instead of a blank value, and a banner above the card's sections lists exactly which mandatory fields still need to be entered.
+
+### Changed
+- **Data quality is held at 0 while mandatory fields are empty.** The regular weighted score only applies once every required field on the card is filled; toggling Required in the metamodel re-scores all cards of that type immediately. Boolean and read-only (calculated) fields are exempt.
+
+### Fixed
+- **Multi-select label no longer overlaps the placeholder.** On the card detail page, an empty multi-select field showed its label and the "Select one or more…" placeholder on top of each other (most visibly on mobile).
+- **Corrected the field editor's data-quality hint.** The metamodel field editor said data-quality importance is set "in the Data Quality panel below" — it now correctly points to the Data Quality tab.
+
 ## [2.51.1] - 2026-08-12
 
 ### Fixed

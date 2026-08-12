@@ -1,4 +1,5 @@
 {
+  "requiredBanner": "Des champs obligatoires doivent être remplis : {{fields}}. Le score de qualité des données reste à 0 tant qu'ils ne le sont pas.",
   "detail.title": "Détail de la fiche",
   "detail.unsavedLeaveConfirm": "Vous avez des modifications non enregistrées. Quitter sans enregistrer ?",
   "detail.backToTop": "Retour en haut",

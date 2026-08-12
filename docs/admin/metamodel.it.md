@@ -53,9 +53,11 @@ I campi definiscono gli attributi personalizzati disponibili sulle card di quest
 | **Etichetta** | Nome visualizzato |
 | **Tipo** | text, multiline_text, number, cost, boolean, date, url, single_select o multiple_select |
 | **Opzioni** | Per i campi di selezione: le scelte disponibili con etichette e colori opzionali |
-| **Obbligatorio** | Se il campo deve essere compilato per il punteggio di qualità dei dati |
+| **Obbligatorio** | Se il campo è obbligatorio — vedi le regole di applicazione qui sotto |
 | **Qualità dei dati** | Il contributo di ciascun campo al punteggio è gestito nel pannello **Qualità dei dati** (vedi sotto) |
 | **Sola lettura** | Impedisce la modifica manuale (utile per i campi calcolati) |
+
+**Come vengono applicati i campi obbligatori.** La creazione di una scheda non richiede mai questi campi: le schede possono essere create rapidamente e completate in seguito. Finché un campo obbligatorio resta vuoto, il punteggio di qualità dei dati della scheda rimane a **0** e la pagina di dettaglio mostra un banner di avviso con i campi da compilare. Quando si modifica una sezione della scheda, non è possibile salvarla finché i suoi campi obbligatori non sono compilati, e l'API rifiuta di svuotare un campo obbligatorio già valorizzato. I campi booleani e in sola lettura (calcolati) sono esenti.
 
 Cliccate su **+ Aggiungi campo** per creare un nuovo campo, o cliccate su un campo esistente per modificarlo nella **Finestra editor campo**.
 

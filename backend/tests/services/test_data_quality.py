@@ -157,3 +157,110 @@ async def _set_dq(db, **buckets):
     cfg["__dataQuality"] = buckets
     ct.section_config = cfg
     await db.flush()
+
+
+# ── Mandatory-field gate ────────────────────────────────────────────
+# While any visible required field (boolean/readonly exempt) is empty, the
+# score is pinned to 0; once all are filled, the regular calculation applies.
+
+_REQ_SCHEMA = [
+    {
+        "section": "Details",
+        "fields": [
+            {"key": "a", "label": "A", "type": "text", "weight": 1, "required": True},
+            {"key": "b", "label": "B", "type": "text", "weight": 1},
+        ],
+    }
+]
+
+
+async def test_empty_required_field_pins_score_to_zero(db):
+    await create_card_type(db, key="Application", fields_schema=_REQ_SCHEMA)
+    # Everything else filled — the empty required field still forces 0.
+    card = await create_card(
+        db,
+        attributes={"b": "y"},
+        description="hello",
+        lifecycle={"active": "2026-01-01"},
+    )
+    assert await calc_data_quality(db, card) == 0.0
+
+
+async def test_filled_required_field_restores_regular_score(db):
+    await create_card_type(db, key="Application", fields_schema=_REQ_SCHEMA)
+    await _set_dq(db, description=0, lifecycle=0, relations=0, tags=0)
+    card = await create_card(db, attributes={"a": "x"})
+    # Required 'a' filled → gate lifts; regular math: 1 of 2 fields → 50%.
+    assert await calc_data_quality(db, card) == 50.0
+
+
+async def test_empty_list_counts_as_empty_for_required_gate(db):
+    schema = [
+        {
+            "section": "Details",
+            "fields": [
+                {
+                    "key": "m",
+                    "label": "M",
+                    "type": "multiple_select",
+                    "weight": 1,
+                    "required": True,
+                    "options": [{"key": "x", "label": "X"}],
+                },
+            ],
+        }
+    ]
+    await create_card_type(db, key="Application", fields_schema=schema)
+    await _set_dq(db, description=0, lifecycle=0, relations=0, tags=0)
+    card = await create_card(db, attributes={"m": []})
+    assert await calc_data_quality(db, card) == 0.0
+    card.attributes = {"m": ["x"]}
+    await db.flush()
+    assert await calc_data_quality(db, card) == 100.0
+
+
+async def test_boolean_and_readonly_required_fields_do_not_gate(db):
+    schema = [
+        {
+            "section": "Details",
+            "fields": [
+                {"key": "flag", "label": "Flag", "type": "boolean", "weight": 0, "required": True},
+                {
+                    "key": "calc",
+                    "label": "Calc",
+                    "type": "number",
+                    "weight": 0,
+                    "required": True,
+                    "readonly": True,
+                },
+                {"key": "a", "label": "A", "type": "text", "weight": 1},
+            ],
+        }
+    ]
+    await create_card_type(db, key="Application", fields_schema=schema)
+    await _set_dq(db, description=0, lifecycle=0, relations=0, tags=0)
+    # Neither the boolean nor the readonly field is set — no gating.
+    card = await create_card(db, attributes={"a": "x"})
+    assert await calc_data_quality(db, card) == 100.0
+
+
+async def test_required_field_hidden_by_subtype_does_not_gate(db):
+    schema = [
+        {
+            "section": "Details",
+            "fields": [
+                {"key": "a", "label": "A", "type": "text", "weight": 1, "required": True},
+                {"key": "b", "label": "B", "type": "text", "weight": 1},
+            ],
+        }
+    ]
+    await create_card_type(
+        db,
+        key="Application",
+        fields_schema=schema,
+        subtypes=[{"key": "micro", "label": "Micro", "hidden_fields": ["a"]}],
+    )
+    await _set_dq(db, description=0, lifecycle=0, relations=0, tags=0)
+    card = await create_card(db, subtype="micro", attributes={"b": "y"})
+    # 'a' is hidden for this subtype → no gate; only 'b' counts → 100%.
+    assert await calc_data_quality(db, card) == 100.0

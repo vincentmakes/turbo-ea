@@ -6,7 +6,10 @@ import CardContent from "@mui/material/CardContent";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Badge from "@mui/material/Badge";
+import Alert from "@mui/material/Alert";
 import { useTranslation } from "react-i18next";
+import { missingRequiredFields } from "@/features/cards/sections/cardDetailUtils";
+import { useFieldLabel } from "@/hooks/useResolveLabel";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import EolLinkSection from "@/components/EolLinkSection";
 import ProcessFlowTab from "@/features/bpm/ProcessFlowTab";
@@ -199,6 +202,17 @@ export default function CardDetailContent({
   }, [card.id, initialTab]);
 
   const typeConfig = getType(card.type);
+  const fieldLabel = useFieldLabel();
+
+  // Mandatory fields still empty on this card (respecting the subtype's hidden
+  // fields; boolean/readonly exempt) — while any exist, data quality is pinned
+  // to 0 server-side and a warning banner above the sections says what to fill.
+  // Calculated fields are excluded: the user cannot type those in by hand.
+  const missingMandatory = missingRequiredFields(
+    typeConfig,
+    card.subtype,
+    card.attributes,
+  ).filter((f) => !isCalculated(card.type, f.key) && !autoFieldKeys.includes(f.key));
 
   // Calculated field keys (includes auto-computed PPM fields)
   let calcFieldKeys: string[] = [];
@@ -619,6 +633,13 @@ export default function CardDetailContent({
 
       {tab === 0 && (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          {missingMandatory.length > 0 && (
+            <Alert severity="warning">
+              {t("requiredBanner", {
+                fields: missingMandatory.map((f) => fieldLabel(f)).join(", "),
+              })}
+            </Alert>
+          )}
           {sectionOrder.map(renderSection)}
           {showLdvSection && (
             <ErrorBoundary label="Dependencies" inline>

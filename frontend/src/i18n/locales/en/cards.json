@@ -1,4 +1,5 @@
 {
+  "requiredBanner": "Mandatory fields must be filled in: {{fields}}. The data-quality score stays at 0 until they are.",
   "detail.title": "Card Detail",
   "detail.unsavedLeaveConfirm": "You have unsaved changes. Leave without saving?",
   "detail.backToTop": "Back to top",

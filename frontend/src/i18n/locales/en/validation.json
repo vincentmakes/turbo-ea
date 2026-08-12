@@ -1,5 +1,6 @@
 {
   "required": "This field is required",
+  "requiredEmpty": "This field is required — fill it in to save.",
   "invalidEmail": "Invalid email address",
   "tooLong": "Too long (max {{max}} characters)",
   "tooShort": "Too short (min {{min}} characters)",

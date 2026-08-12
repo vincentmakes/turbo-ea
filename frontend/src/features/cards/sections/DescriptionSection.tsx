@@ -12,7 +12,15 @@ import Alert from "@mui/material/Alert";
 import { useTranslation } from "react-i18next";
 import type { CurrencyFormatter } from "@/hooks/useCurrency";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { FieldValue, FieldEditor, isValidUrl, getUrlErrorMsg } from "@/features/cards/sections/cardDetailUtils";
+import {
+  FieldValue,
+  FieldEditor,
+  isValidUrl,
+  getUrlErrorMsg,
+  isEmptyAttrValue,
+  isEnforcedRequiredField,
+} from "@/features/cards/sections/cardDetailUtils";
+import Chip from "@mui/material/Chip";
 import { useFieldLabel } from "@/hooks/useResolveLabel";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import { ApiError } from "@/api/client";
@@ -40,7 +48,7 @@ function DescriptionSection({
   aiBusy?: boolean;
   onDirtyChange?: (dirty: boolean) => void;
 }) {
-  const { t } = useTranslation(["cards", "common"]);
+  const { t } = useTranslation(["cards", "common", "validation"]);
   const fieldLabel = useFieldLabel();
   const [expanded, setExpanded] = useSyncedExpanded(initialExpanded);
   const [editing, setEditing] = useState(false);
@@ -68,19 +76,23 @@ function DescriptionSection({
     return () => onDirtyChange?.(false);
   }, [dirty, onDirtyChange]);
 
-  // URL validation for extra fields
-  const urlErrors: Record<string, string> = {};
+  // Per-field validation for extra fields: URL format + the mandatory-field
+  // rule (a required field cannot be left empty when saving this section).
+  const fieldErrors: Record<string, string> = {};
   if (extraFields) {
     for (const f of extraFields) {
       if (f.type === "url") {
         const val = attrs[f.key];
         if (typeof val === "string" && val && !isValidUrl(val)) {
-          urlErrors[f.key] = getUrlErrorMsg(t);
+          fieldErrors[f.key] = getUrlErrorMsg(t);
         }
+      }
+      if (isEnforcedRequiredField(f) && isEmptyAttrValue(attrs[f.key])) {
+        fieldErrors[f.key] = t("validation:requiredEmpty");
       }
     }
   }
-  const hasValidationErrors = Object.keys(urlErrors).length > 0;
+  const hasValidationErrors = Object.keys(fieldErrors).length > 0;
 
   const save = async () => {
     if (hasValidationErrors) return;
@@ -150,7 +162,7 @@ function DescriptionSection({
             />
             {extraFields && extraFields.map((field) => (
               <Box key={field.key} sx={{ mb: 2 }}>
-                <FieldEditor field={field} value={attrs[field.key]} onChange={(v) => setAttrs((prev) => ({ ...prev, [field.key]: v }))} error={urlErrors[field.key]} />
+                <FieldEditor field={field} value={attrs[field.key]} onChange={(v) => setAttrs((prev) => ({ ...prev, [field.key]: v }))} error={fieldErrors[field.key]} />
               </Box>
             ))}
             {saveError && (
@@ -183,21 +195,47 @@ function DescriptionSection({
             {extraFields && extraFields.length > 0 && (
               <Box sx={{ display: "flex", flexDirection: "column", rowGap: 1 }}>
                 {extraFields.map((field) => {
+                  const requiredMark = isEnforcedRequiredField(field) && (
+                    <Tooltip title={t("common:labels.required")}>
+                      <Box component="span" sx={{ color: "error.main", ml: 0.25 }}>
+                        *
+                      </Box>
+                    </Tooltip>
+                  );
+                  const valueCell =
+                    isEnforcedRequiredField(field) &&
+                    isEmptyAttrValue((card.attributes || {})[field.key]) ? (
+                      <Box>
+                        <Chip
+                          size="small"
+                          color="warning"
+                          variant="outlined"
+                          label={t("common:labels.required")}
+                          sx={{ height: 20, fontSize: "0.65rem" }}
+                        />
+                      </Box>
+                    ) : (
+                      <FieldValue field={field} value={(card.attributes || {})[field.key]} currencyFmt={currencyFmt} />
+                    );
                   // Multi-line text breaks out of the 180px label column to get full width.
                   if (field.type === "multiline_text") {
                     return (
                       <Box key={field.key}>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                           {fieldLabel(field)}
+                          {requiredMark}
                         </Typography>
-                        <FieldValue field={field} value={(card.attributes || {})[field.key]} currencyFmt={currencyFmt} />
+                        {valueCell}
                       </Box>
                     );
                   }
                   return (
                     <Box key={field.key} sx={{ display: "grid", gridTemplateColumns: "1fr", columnGap: 2, "@container (min-width: 480px)": { gridTemplateColumns: "180px 1fr", alignItems: "center" } }}>
-                      <Typography variant="body2" color="text.secondary">{fieldLabel(field)}</Typography>
-                      <FieldValue field={field} value={(card.attributes || {})[field.key]} currencyFmt={currencyFmt} />
+                      <Typography variant="body2" color="text.secondary">
+                        {fieldLabel(field)}
+                        {requiredMark}
+                      </Typography>
+                      {valueCell}
                     </Box>
                   );
                 })}

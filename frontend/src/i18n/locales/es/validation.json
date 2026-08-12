@@ -1,5 +1,6 @@
 {
   "required": "Este campo es obligatorio",
+  "requiredEmpty": "Este campo es obligatorio: complétalo para guardar.",
   "invalidEmail": "Direcci\u00f3n de correo electr\u00f3nico inv\u00e1lida",
   "tooLong": "Demasiado largo (m\u00e1ximo {{max}} caracteres)",
   "tooShort": "Demasiado corto (m\u00ednimo {{min}} caracteres)",

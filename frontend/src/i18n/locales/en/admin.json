@@ -163,7 +163,7 @@
   "metamodel.fieldEditor.typeLabel": "Type",
   "metamodel.fieldEditor.required": "Required",
   "metamodel.fieldEditor.weight": "Weight",
-  "metamodel.fieldEditor.weightMovedHint": "Data quality importance is set in the Data Quality panel below.",
+  "metamodel.fieldEditor.weightMovedHint": "Data quality importance is set in the Data Quality tab.",
   "metamodel.fieldEditor.helpLabel": "Help text",
   "metamodel.fieldEditor.helpHint": "Shown as collapsible guidance below the field during data entry.",
   "metamodel.fieldEditor.customConfig": "Configuration",

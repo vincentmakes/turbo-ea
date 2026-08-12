@@ -1,4 +1,5 @@
 {
+  "requiredBanner": "必须填写必填字段：{{fields}}。在填写完成之前，数据质量评分保持为 0。",
   "detail.title": "卡片详情",
   "detail.unsavedLeaveConfirm": "您有未保存的更改。不保存就离开吗？",
   "detail.backToTop": "返回顶部",

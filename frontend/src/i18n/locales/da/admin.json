@@ -163,7 +163,7 @@
   "metamodel.fieldEditor.typeLabel": "Type",
   "metamodel.fieldEditor.required": "Påkrævet",
   "metamodel.fieldEditor.weight": "Vægt",
-  "metamodel.fieldEditor.weightMovedHint": "Datakvalitetsvigtighed angives i panelet Datakvalitet nedenfor.",
+  "metamodel.fieldEditor.weightMovedHint": "Datakvalitetsvigtighed angives under fanen Datakvalitet.",
   "metamodel.fieldEditor.helpLabel": "Hjælpetekst",
   "metamodel.fieldEditor.helpHint": "Vises som sammenklappelig vejledning under feltet under dataindtastning.",
   "metamodel.fieldEditor.customConfig": "Konfiguration",

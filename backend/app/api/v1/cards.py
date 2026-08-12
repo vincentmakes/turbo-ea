@@ -144,6 +144,60 @@ async def _validate_url_attributes(db: AsyncSession, card_type: str, attributes:
                 )
 
 
+def _is_empty_attr(val: object) -> bool:
+    """The app-wide 'field is not filled' predicate (mirrors data_quality scoring)."""
+    return val is None or val == "" or val == []
+
+
+def _check_required_not_cleared(
+    card_type: str, schema: list | None, new_attrs: dict, old_attrs: dict
+) -> None:
+    """Reject writes that clear a required field (non-empty → empty transition).
+
+    Deliberately only guards *clearing*: creation and imports may land cards with
+    required fields still empty (the card just scores 0 data quality until they
+    are filled), and a card that is already incomplete stays editable. Boolean
+    fields are exempt (a switch always has a value) and so are readonly fields —
+    the calculation engine may legitimately pop a calculated key when its
+    formula yields None.
+    """
+    if not schema:
+        return
+    cleared: list[tuple[str, str]] = []
+    for section in schema:
+        for field in section.get("fields", []):
+            key = field.get("key")
+            if (
+                not key
+                or not field.get("required")
+                or field.get("type") == "boolean"
+                or field.get("readonly")
+            ):
+                continue
+            if not _is_empty_attr(old_attrs.get(key)) and _is_empty_attr(new_attrs.get(key)):
+                cleared.append((key, field.get("label") or key))
+    if cleared:
+        labels = ", ".join(label for _, label in cleared)
+        raise HTTPException(
+            422,
+            {
+                "code": "required_field_empty",
+                "message": f"Required field(s) cannot be emptied: {labels}.",
+                "field_keys": [key for key, _ in cleared],
+                "card_type": card_type,
+            },
+        )
+
+
+async def _validate_required_attributes(
+    db: AsyncSession, card_type: str, new_attrs: dict, old_attrs: dict
+) -> None:
+    """Fetch the type's schema and run the required-clear check against it."""
+    result = await db.execute(select(CardType.fields_schema).where(CardType.key == card_type))
+    schema = result.scalar_one_or_none()
+    _check_required_not_cleared(card_type, schema, new_attrs, old_attrs)
+
+
 async def _validate_strict_attributes(db: AsyncSession, card_type: str, attributes: dict) -> None:
     """Reject ``attributes`` keys that are not declared in the type's
     ``fields_schema`` (S5).
@@ -1692,6 +1746,19 @@ async def bulk_update(
         else {}
     )
 
+    # Prefetch schemas once per distinct type for the per-card required-field
+    # guard below (each card compares against its own existing attributes, so
+    # the check itself cannot be deduplicated per type the way strict/URL
+    # validation is).
+    req_schemas: dict[str, list | None] = {}
+    if "attributes" in updates:
+        type_keys = {c.type for c in sheets}
+        if type_keys:
+            rows = await db.execute(
+                select(CardType.key, CardType.fields_schema).where(CardType.key.in_(type_keys))
+            )
+            req_schemas = {key: schema for key, schema in rows.all()}
+
     # Guard: a bulk re-parent has to clear the same bar as the per-card PATCH.
     # Without this the endpoint happily builds cycles, blows past the capability
     # depth limit and leaves hierarchyLevel/capabilityLevel stale — and it is
@@ -1750,14 +1817,21 @@ async def bulk_update(
         for field, value in updates.items():
             if field == "parent_id" and value is not None:
                 value = uuid.UUID(value)
-            elif field == "attributes" and value:
-                strip = incoming_attr_redact.get(card.id)
-                if strip:
-                    old_attrs = dict(card.attributes or {})
-                    value = {k: v for k, v in value.items() if k not in strip}
-                    for key in strip:
-                        if key in old_attrs:
-                            value[key] = old_attrs[key]
+            elif field == "attributes":
+                if value:
+                    strip = incoming_attr_redact.get(card.id)
+                    if strip:
+                        old_attrs = dict(card.attributes or {})
+                        value = {k: v for k, v in value.items() if k not in strip}
+                        for key in strip:
+                            if key in old_attrs:
+                                value[key] = old_attrs[key]
+                # Guard: never clear a required field — checked against the
+                # post-redaction final state, per card (also on dry-run, so an
+                # MCP preview surfaces the violation before any commit).
+                _check_required_not_cleared(
+                    card.type, req_schemas.get(card.type), value or {}, dict(card.attributes or {})
+                )
             old_val = getattr(card, field)
             if old_val != value:
                 before[field] = str(old_val) if field == "parent_id" and old_val else old_val
@@ -2320,6 +2394,14 @@ async def update_card(
                 if key in old_attrs:
                     new_attrs[key] = old_attrs[key]
             updates["attributes"] = new_attrs
+
+    # Guard: never clear a required field. Validates the post-merge final state
+    # (after the cost/PPM preservation above), and runs even for an empty payload
+    # dict — `{"attributes": {}}` is precisely the wipe this must catch.
+    if "attributes" in updates:
+        await _validate_required_attributes(
+            db, card.type, updates["attributes"] or {}, dict(card.attributes or {})
+        )
 
     # Guard: cycle + hierarchy depth limit before applying parent change
     if "parent_id" in updates:
