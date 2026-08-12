@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import CreateCardDialog from "./CreateCardDialog";
@@ -83,6 +83,20 @@ const MOCK_TYPES = [
         section: "Details",
         fields: [
           { key: "costTotalAnnual", label: "Total Annual Cost", type: "cost", required: true, translations: { en: "Total Annual Cost" } },
+          // Required multi-select rendered a plain text box instead of a
+          // dropdown, so the field could never be filled (issue #931).
+          {
+            key: "hostingModel",
+            label: "Hosting Model",
+            type: "multiple_select",
+            required: true,
+            translations: { en: "Hosting Model" },
+            options: [
+              { key: "cloud", label: "Cloud", color: "#0f7eb5" },
+              { key: "onprem", label: "On-premise" },
+              { key: "hybrid", label: "Hybrid" },
+            ],
+          },
         ],
       },
     ],
@@ -392,7 +406,53 @@ describe("CreateCardDialog", () => {
     renderDialog({ initialType: "Application" });
 
     // Application has a required costTotalAnnual field
-    expect(screen.getByLabelText("Total Annual Cost")).toBeInTheDocument();
+    expect(screen.getByLabelText("Total Annual Cost", { exact: false })).toBeInTheDocument();
+  });
+
+  it("renders a required multi-select as a dropdown and submits the selection as an array (issue #931)", async () => {
+    const user = userEvent.setup();
+    onCreate.mockResolvedValueOnce("new-card-id-931");
+
+    renderDialog({ initialType: "Application" });
+
+    // The field must NOT be a free-text input…
+    expect(
+      screen.queryByRole("textbox", { name: /hosting model/i }),
+    ).not.toBeInTheDocument();
+
+    // …but a select that opens a listbox with the configured options.
+    // MUI Select doesn't expose accessible names — find it via its label.
+    const label = screen.getByText("Hosting Model", {
+      selector: "label",
+      exact: false,
+    });
+    const combobox = label
+      .closest(".MuiFormControl-root")!
+      .querySelector('[role="combobox"]') as HTMLElement;
+    await user.click(combobox);
+
+    const listbox = await screen.findByRole("listbox");
+    await user.click(within(listbox).getByText("Cloud"));
+    await user.click(within(listbox).getByText("Hybrid"));
+    // Multi-select keeps the menu open; close it before submitting.
+    await user.keyboard("{Escape}");
+
+    await user.type(screen.getByRole("textbox", { name: /name/i }), "My App");
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    // The value must reach onCreate as a string array of option keys —
+    // never a free-text string (the pre-fix fallback behavior).
+    await waitFor(() => {
+      expect(onCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "Application",
+          name: "My App",
+          attributes: expect.objectContaining({
+            hostingModel: ["cloud", "hybrid"],
+          }),
+        }),
+      );
+    });
   });
 
   it("does not render when closed", () => {

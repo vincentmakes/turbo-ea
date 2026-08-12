@@ -14,6 +14,7 @@ import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
+import Checkbox from "@mui/material/Checkbox";
 import IconButton from "@mui/material/IconButton";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -40,6 +41,7 @@ import { useAiStatus } from "@/hooks/useAiStatus";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { api, ApiError } from "@/api/client";
+import { readableTextColor } from "@/lib/color";
 import type {
   FieldDef,
   EolProductMatch,
@@ -395,7 +397,7 @@ export default function CreateCardDialog({
     switch (field.type) {
       case "single_select":
         return (
-          <FormControl fullWidth key={field.key} sx={{ mb: 2 }}>
+          <FormControl fullWidth key={field.key} required={field.required} sx={{ mb: 2 }}>
             <InputLabel>{fieldLabel(field)}</InputLabel>
             <Select
               value={(attributes[field.key] as string) ?? ""}
@@ -427,12 +429,93 @@ export default function CreateCardDialog({
           </FormControl>
         );
 
+      case "multiple_select": {
+        const arrVal: string[] = Array.isArray(attributes[field.key])
+          ? (attributes[field.key] as unknown[]).filter(
+              (v): v is string => typeof v === "string",
+            )
+          : [];
+        const labelText = fieldLabel(field);
+        return (
+          <FormControl fullWidth key={field.key} required={field.required} sx={{ mb: 2 }}>
+            <InputLabel>{labelText}</InputLabel>
+            <Select
+              multiple
+              value={arrVal}
+              label={labelText}
+              onChange={(e) => {
+                const v = e.target.value;
+                const arr = typeof v === "string" ? v.split(",") : v;
+                setAttr(field.key, arr.length > 0 ? arr : undefined);
+              }}
+              renderValue={(selected) => (
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                  {(selected as string[]).map((key) => {
+                    const opt = field.options?.find((o) => o.key === key);
+                    return (
+                      <Chip
+                        key={key}
+                        size="small"
+                        label={opt ? optLabel(opt) : key}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onDelete={() => {
+                          const next = arrVal.filter((v) => v !== key);
+                          setAttr(field.key, next.length > 0 ? next : undefined);
+                        }}
+                        sx={{
+                          height: 22,
+                          ...(opt?.color
+                            ? {
+                                bgcolor: opt.color,
+                                color: readableTextColor(opt.color),
+                                "& .MuiChip-deleteIcon": {
+                                  color: readableTextColor(opt.color),
+                                  opacity: 0.85,
+                                },
+                              }
+                            : {}),
+                        }}
+                      />
+                    );
+                  })}
+                </Box>
+              )}
+            >
+              {field.options?.map((opt) => (
+                <MenuItem key={opt.key} value={opt.key}>
+                  <Checkbox
+                    size="small"
+                    checked={arrVal.includes(opt.key)}
+                    sx={{ p: 0.5, mr: 1 }}
+                  />
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    {opt.color && (
+                      <Box
+                        sx={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: "50%",
+                          bgcolor: opt.color,
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+                    {optLabel(opt)}
+                  </Box>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        );
+      }
+
       case "cost":
       case "number":
         return (
           <TextField
             key={field.key}
             fullWidth
+            required={field.required}
             label={fieldLabel(field)}
             type="number"
             value={attributes[field.key] ?? ""}
@@ -466,6 +549,7 @@ export default function CreateCardDialog({
           <DateField
             key={field.key}
             fullWidth
+            required={field.required}
             label={fieldLabel(field)}
             value={(attributes[field.key] as string) ?? ""}
             onChange={(v) => setAttr(field.key, v || undefined)}
@@ -479,6 +563,7 @@ export default function CreateCardDialog({
           <TextField
             key={field.key}
             fullWidth
+            required={field.required}
             label={fieldLabel(field)}
             value={(attributes[field.key] as string) ?? ""}
             onChange={(e) => setAttr(field.key, e.target.value || undefined)}

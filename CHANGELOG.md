@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.51.1] - 2026-08-12
+
+### Fixed
+- **Required multi-select fields can now be filled when creating a card.** A `multiple_select` field marked as Required rendered as a plain text box in the Create Card dialog, with no way to pick an option ([#931](https://github.com/vincentmakes/turbo-ea/issues/931)). It now renders the same checkbox dropdown with colored chips as the card detail page, and required fields in the dialog are marked with an asterisk.
+
 ## [2.51.0] - 2026-08-12
 
 ### Added
