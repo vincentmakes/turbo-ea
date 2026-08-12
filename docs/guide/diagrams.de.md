@@ -122,7 +122,12 @@ Die **Sync**-Schaltfläche in der Symbolleiste öffnet den Seiten-Drawer mit all
 - **Neue Beziehungen** -- zwischen Karten gezeichnete Kanten, bereit zur Anlage im Inventar.
 - **Entfernte Beziehungen** -- von der Leinwand gelöschte Beziehungs-Kanten, in der Warteschlange für `DELETE /relations/{id}`. *Im Inventar behalten* setzt die Kante wieder ein.
 - **Hierarchie-Änderungen** -- bestätigte Drag-In- / Drag-Out-Container-Bewegungen, in der Warteschlange als `parent_id`-Aktualisierungen.
-- **Inventar geändert** -- Karten, die seit dem Öffnen des Diagramms im Inventar aktualisiert wurden, bereit zur Übernahme auf die Leinwand.
+- **Inventar geändert** -- Änderungen, die seit dem Speichern des Diagramms im Inventar vorgenommen wurden, bereit zur Übernahme auf die Leinwand. Jede Zeile bietet die passende Aktion, und **Alle übernehmen** löst alle Zeilen auf einmal:
+    - eine **umbenannte** Karte -- *Update übernehmen* schreibt die Zellbeschriftung neu;
+    - eine **gelöschte** oder **archivierte** Karte -- *Vom Diagramm entfernen* nimmt die Zelle (samt ihrer Kanten) von der Leinwand;
+    - eine **gelöschte Relation** -- *Kante vom Diagramm entfernen* nimmt die veraltete Kante von der Leinwand.
+
+Turbo EA **prüft bei jedem Öffnen eines Diagramms automatisch auf Inventaränderungen** -- ein blaues Badge auf der Sync-Schaltfläche der Symbolleiste zählt die zu prüfenden Änderungen. Nichts wird ohne Ihre Bestätigung angewendet; das Badge lädt nur in die Seitenleiste ein. Die Schaltfläche **Updates prüfen** in der Seitenleiste führt dieselbe Prüfung bei Bedarf erneut aus.
 
 Die Sync-Schaltfläche der Symbolleiste zeigt eine pulsierende «N unsynchron»-Pille, sobald ausstehende Arbeit existiert. Das Verlassen des Tabs mit nicht synchronisierten Änderungen löst eine Browser-Warnung aus, und die Leinwand wird alle fünf Sekunden im lokalen Speicher gespeichert, damit ein versehentlicher Refresh beim erneuten Öffnen wiederhergestellt werden kann.
 

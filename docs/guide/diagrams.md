@@ -122,7 +122,12 @@ The **Sync** button in the toolbar opens the side drawer with everything queued 
 - **New Relations** — edges drawn between cards, ready to be created in inventory.
 - **Removed Relations** — relation-edges deleted from the canvas, queued for `DELETE /relations/{id}`. *Keep in inventory* re-inserts the edge.
 - **Hierarchy Changes** — confirmed drag-into / drag-out container moves, queued as `parent_id` updates.
-- **Inventory Changed** — cards updated in inventory since the diagram was opened, ready to be pulled back into the canvas.
+- **Inventory Changed** — changes made in the inventory since the diagram was saved, ready to be pulled back into the canvas. Each row offers the matching action, and **Accept all** resolves every row at once:
+    - a **renamed** card — *Accept update* rewrites the cell label;
+    - a **deleted** or **archived** card — *Remove from diagram* takes the cell (and its edges) off the canvas;
+    - a **deleted relation** — *Remove edge from diagram* takes the stale edge off the canvas.
+
+Turbo EA **checks for inventory changes automatically every time you open a diagram** — a blue badge on the toolbar Sync button counts the changes awaiting review. Nothing is applied without your confirmation; the badge only invites you into the drawer. The **Check updates** button in the drawer re-runs the same check on demand.
 
 The toolbar Sync button shows a pulsing "N unsynced" pill whenever pending work exists. Leaving the tab with unsynced changes triggers a browser warning, and the canvas autosaves to local storage every five seconds so an accidental refresh can be restored on reopen.
 

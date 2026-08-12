@@ -122,7 +122,12 @@ Knappen **Sync** i værktøjslinjen åbner sideskuffen med alt, der er kø-still
 - **New Relations** — kanter tegnet mellem kort, klar til at blive oprettet i lageret.
 - **Removed Relations** — relationskanter slettet fra lærredet, kø-stillet til `DELETE /relations/{id}`. *Keep in inventory* genindsætter kanten.
 - **Hierarchy Changes** — bekræftede træk-ind / træk-ud container-flytninger, kø-stillet som `parent_id`-opdateringer.
-- **Inventory Changed** — kort opdateret i lageret, siden diagrammet blev åbnet, klar til at blive trukket tilbage på lærredet.
+- **Inventory Changed** — ændringer foretaget i lageret, siden diagrammet blev gemt, klar til at blive trukket tilbage på lærredet. Hver række tilbyder den tilhørende handling, og **Acceptér alle** løser alle rækker på én gang:
+    - et **omdøbt** kort — *Acceptér opdatering* omskriver cellens etiket;
+    - et **slettet** eller **arkiveret** kort — *Fjern fra diagrammet* fjerner cellen (og dens kanter) fra lærredet;
+    - en **slettet relation** — *Fjern kanten fra diagrammet* fjerner den forældede kant fra lærredet.
+
+Turbo EA **tjekker automatisk for lagerændringer, hver gang du åbner et diagram** — et blåt badge på værktøjslinjens Sync-knap tæller de ændringer, der afventer gennemgang. Intet anvendes uden din bekræftelse; badget inviterer dig blot ind i panelet. Knappen **Tjek opdateringer** i panelet kører det samme tjek igen efter behov.
 
 Synkroniseringsknappen i værktøjslinjen viser en pulserende "N usynkroniseret"-pille, når der findes afventende arbejde. At forlade fanen med usynkroniserede ændringer udløser en browseradvarsel, og lærredet gemmes automatisk i lokalt lager hvert femte sekund, så en utilsigtet opdatering kan gendannes ved genåbning.
 

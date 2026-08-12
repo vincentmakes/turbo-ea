@@ -122,7 +122,12 @@ El botón **Sync** de la barra de herramientas abre el panel lateral con todo lo
 - **Nuevas relaciones** -- aristas dibujadas entre tarjetas, listas para crearse en el inventario.
 - **Relaciones eliminadas** -- aristas de relación borradas del lienzo, en cola para `DELETE /relations/{id}`. *Mantener en inventario* reinserta la arista.
 - **Cambios de jerarquía** -- movimientos arrastrar-dentro / arrastrar-fuera de contenedores confirmados, en cola como actualizaciones de `parent_id`.
-- **Inventario cambiado** -- tarjetas actualizadas en el inventario desde la apertura del diagrama, listas para volver al lienzo.
+- **Inventario cambiado** -- cambios realizados en el inventario desde que se guardó el diagrama, listos para volver al lienzo. Cada fila ofrece la acción correspondiente, y **Aceptar todo** resuelve todas las filas de una vez:
+    - una tarjeta **renombrada** -- *Aceptar actualización* reescribe la etiqueta de la celda;
+    - una tarjeta **eliminada** o **archivada** -- *Quitar del diagrama* retira la celda (y sus aristas) del lienzo;
+    - una **relación eliminada** -- *Quitar la arista del diagrama* retira la arista obsoleta del lienzo.
+
+Turbo EA **comprueba automáticamente los cambios del inventario cada vez que abre un diagrama** -- una insignia azul en el botón Sync de la barra de herramientas cuenta los cambios pendientes de revisión. Nada se aplica sin su confirmación; la insignia solo le invita a abrir el panel. El botón **Comprobar actualizaciones** del panel vuelve a ejecutar la misma comprobación bajo demanda.
 
 El botón Sync de la barra de herramientas muestra una pastilla pulsante «N sin sincronizar» mientras haya trabajo pendiente. Salir de la pestaña con cambios sin sincronizar dispara un aviso del navegador, y el lienzo se autoguarda en almacenamiento local cada cinco segundos para poder restaurarse tras un refresco accidental.
 

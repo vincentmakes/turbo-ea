@@ -654,13 +654,19 @@ export function scanDiagramItems(iframe: HTMLIFrameElement): {
   pendingCards: ScannedPendingFS[];
   pendingRels: ScannedPendingRel[];
   syncedFS: ScannedSyncedFS[];
+  /** Synced card cells living inside an expanded group (carry
+   *  `parentGroupCell`). Kept separate from `syncedFS` so the sync
+   *  panel's push-side counters stay top-level-only, while freshness
+   *  checks can still cover child cells. */
+  syncedChildren: ScannedSyncedFS[];
 } {
   const pendingCards: ScannedPendingFS[] = [];
   const pendingRels: ScannedPendingRel[] = [];
   const syncedFS: ScannedSyncedFS[] = [];
+  const syncedChildren: ScannedSyncedFS[] = [];
 
   const ctx = getMxGraph(iframe);
-  if (!ctx) return { pendingCards, pendingRels, syncedFS };
+  if (!ctx) return { pendingCards, pendingRels, syncedFS, syncedChildren };
   const { graph } = ctx;
 
   const cells = graph.getModel().cells || {};
@@ -694,18 +700,69 @@ export function scanDiagramItems(iframe: HTMLIFrameElement): {
         type: cell.value.getAttribute("cardType") || "",
         name: cell.value.getAttribute("label") || "",
       });
-    } else if (fsId && !isPending && !cell.value.getAttribute("parentGroupCell")) {
-      // Synced top-level card vertex
-      syncedFS.push({
+    } else if (fsId && !isPending) {
+      // Synced card vertex — top-level or expanded-group child
+      const entry: ScannedSyncedFS = {
         cellId: cell.id,
         cardId: fsId,
         name: cell.value.getAttribute("label") || "",
         type: cell.value.getAttribute("cardType") || "",
-      });
+      };
+      if (cell.value.getAttribute("parentGroupCell")) {
+        syncedChildren.push(entry);
+      } else {
+        syncedFS.push(entry);
+      }
     }
   }
 
-  return { pendingCards, pendingRels, syncedFS };
+  return { pendingCards, pendingRels, syncedFS, syncedChildren };
+}
+
+export interface ScannedSyncedEdge {
+  edgeCellId: string;
+  relationId: string;
+  relationType: string;
+  edgeLabel: string;
+  sourceCardId: string;
+  targetCardId: string;
+  sourceName: string;
+  targetName: string;
+}
+
+/** Scan the in-memory graph for every synced relation edge (an edge whose
+ *  user-object carries `relationId`), including its endpoint card ids and
+ *  labels. Used by the inventory-freshness check to detect relations that
+ *  were deleted from the inventory while still drawn on the canvas. */
+export function scanSyncedRelationEdges(
+  iframe: HTMLIFrameElement,
+): ScannedSyncedEdge[] {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return [];
+  const { graph } = ctx;
+  const model = graph.getModel();
+  const cells = model.cells || {};
+  const result: ScannedSyncedEdge[] = [];
+  for (const k of Object.keys(cells)) {
+    const cell = cells[k];
+    if (!cell?.edge) continue;
+    if (!cell.value?.getAttribute) continue;
+    const relationId = cell.value.getAttribute("relationId");
+    if (!relationId) continue;
+    const src = model.getTerminal(cell, true);
+    const tgt = model.getTerminal(cell, false);
+    result.push({
+      edgeCellId: cell.id,
+      relationId,
+      relationType: cell.value.getAttribute("relationType") || "",
+      edgeLabel: cell.value.getAttribute("label") || "",
+      sourceCardId: src?.value?.getAttribute?.("cardId") || "",
+      targetCardId: tgt?.value?.getAttribute?.("cardId") || "",
+      sourceName: src?.value?.getAttribute?.("label") || "?",
+      targetName: tgt?.value?.getAttribute?.("label") || "?",
+    });
+  }
+  return result;
 }
 
 /** SVG data URI for the "out of sync" resync overlay icon (orange !) */

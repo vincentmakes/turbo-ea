@@ -122,7 +122,12 @@ Il pulsante **Sync** della barra strumenti apre il pannello laterale con tutto c
 - **Nuove relazioni** -- archi disegnati tra schede, pronti per essere creati nell'inventario.
 - **Relazioni rimosse** -- archi di relazione cancellati dalla tela, in coda per `DELETE /relations/{id}`. *Mantieni in inventario* reinserisce l'arco.
 - **Modifiche gerarchiche** -- spostamenti di trascinamento dentro / fuori dai contenitori confermati, in coda come aggiornamenti di `parent_id`.
-- **Inventario modificato** -- schede aggiornate nell'inventario dall'apertura del diagramma, pronte per essere riportate sulla tela.
+- **Inventario modificato** -- modifiche apportate all'inventario dopo il salvataggio del diagramma, pronte per essere riportate sulla tela. Ogni riga offre l'azione corrispondente, e **Accetta tutto** risolve tutte le righe in una volta:
+    - una scheda **rinominata** -- *Accetta aggiornamento* riscrive l'etichetta della cella;
+    - una scheda **eliminata** o **archiviata** -- *Rimuovi dal diagramma* toglie la cella (e i suoi collegamenti) dalla tela;
+    - una **relazione eliminata** -- *Rimuovi il collegamento dal diagramma* toglie il collegamento obsoleto dalla tela.
+
+Turbo EA **controlla automaticamente le modifiche dell'inventario a ogni apertura di un diagramma** -- un badge blu sul pulsante Sync della barra strumenti conta le modifiche da rivedere. Nulla viene applicato senza la vostra conferma; il badge vi invita solo ad aprire il pannello. Il pulsante **Verifica aggiornamenti** nel pannello riesegue lo stesso controllo su richiesta.
 
 Il pulsante Sync della barra strumenti mostra una pillola pulsante «N non sincronizzate» finché esiste lavoro in sospeso. Lasciare la scheda con modifiche non sincronizzate attiva un avviso del browser, e la tela viene salvata automaticamente nello storage locale ogni cinque secondi per poter essere ripristinata dopo un aggiornamento accidentale.
 

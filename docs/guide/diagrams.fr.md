@@ -122,7 +122,12 @@ Le bouton **Sync** de la barre d'outils ouvre le tiroir latéral avec tout ce qu
 - **Nouvelles relations** -- arêtes dessinées entre fiches, prêtes à être créées dans l'inventaire.
 - **Relations supprimées** -- arêtes de relation supprimées du canevas, en file pour `DELETE /relations/{id}`. *Conserver dans l'inventaire* réinsère l'arête.
 - **Modifications hiérarchiques** -- déplacements glisser-dans / glisser-hors confirmés, en file comme mises à jour de `parent_id`.
-- **Inventaire modifié** -- fiches mises à jour dans l'inventaire depuis l'ouverture du diagramme, prêtes à être ramenées sur le canevas.
+- **Inventaire modifié** -- changements effectués dans l'inventaire depuis l'enregistrement du diagramme, prêts à être ramenés sur le canevas. Chaque ligne propose l'action correspondante, et **Tout accepter** résout toutes les lignes d'un coup :
+    - une fiche **renommée** -- *Accepter la mise à jour* réécrit le libellé de la cellule ;
+    - une fiche **supprimée** ou **archivée** -- *Retirer du diagramme* enlève la cellule (et ses arêtes) du canevas ;
+    - une **relation supprimée** -- *Retirer l'arête du diagramme* enlève l'arête obsolète du canevas.
+
+Turbo EA **vérifie automatiquement les changements d'inventaire à chaque ouverture d'un diagramme** -- un badge bleu sur le bouton Sync de la barre d'outils compte les changements à examiner. Rien n'est appliqué sans votre confirmation ; le badge ne fait que vous inviter dans le panneau. Le bouton **Vérifier les mises à jour** du panneau relance la même vérification à la demande.
 
 Le bouton Sync de la barre d'outils affiche une pastille pulsée « N non synchronisé(s) » dès qu'un travail est en attente. Quitter l'onglet avec des changements non synchronisés déclenche un avertissement navigateur, et le canevas est sauvegardé localement toutes les cinq secondes pour pouvoir être restauré après un rafraîchissement accidentel.
 

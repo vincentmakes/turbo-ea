@@ -13,6 +13,7 @@ import type {
   PendingParentChange,
   RemovedRelationTombstone,
 } from "./drawio-shapes";
+import type { StaleItem } from "./staleCheck";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -40,14 +41,6 @@ export interface PendingRelation {
   targetCardId: string;
 }
 
-export interface StaleItem {
-  cellId: string;
-  cardId: string;
-  diagramName: string;
-  inventoryName: string;
-  typeColor: string;
-}
-
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -67,6 +60,9 @@ interface Props {
   onSyncParentChange: (cellId: string) => void;
   onDiscardParentChange: (cellId: string) => void;
   onAcceptStale: (cellId: string) => void;
+  onRemoveStaleCard: (cellId: string) => void;
+  onRemoveStaleEdge: (cellId: string) => void;
+  onAcceptAllStale: () => void;
   onCheckUpdates: () => void;
   checkingUpdates: boolean;
 }
@@ -94,6 +90,9 @@ export default function DiagramSyncPanel({
   onSyncParentChange,
   onDiscardParentChange,
   onAcceptStale,
+  onRemoveStaleCard,
+  onRemoveStaleEdge,
+  onAcceptAllStale,
   onCheckUpdates,
   checkingUpdates,
 }: Props) {
@@ -299,28 +298,92 @@ export default function DiagramSyncPanel({
           </>
         )}
 
-        {/* ---- Stale / out-of-sync items ---- */}
+        {/* ---- Stale / out-of-sync items (inventory → canvas) ---- */}
         {staleItems.length > 0 && (
           <>
-            <SectionTitle icon="update" label={t("sync.inventoryChanged")} count={staleItems.length} />
-            {staleItems.map((item) => (
-              <ItemRow key={item.cellId}>
-                <Box
-                  sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: item.typeColor, flexShrink: 0 }}
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <SectionTitle
+                  icon="update"
+                  label={t("sync.inventoryChanged")}
+                  count={staleItems.length}
                 />
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography variant="body2" noWrap>
-                    <s style={{ opacity: 0.5 }}>{item.diagramName}</s>{" "}
-                    <strong>{item.inventoryName}</strong>
-                  </Typography>
-                </Box>
-                <Tooltip title={t("sync.acceptUpdate")}>
-                  <IconButton size="small" onClick={() => onAcceptStale(item.cellId)}>
-                    <MaterialSymbol icon="check" size={16} color="#2e7d32" />
-                  </IconButton>
-                </Tooltip>
-              </ItemRow>
-            ))}
+              </Box>
+              {staleItems.length > 1 && (
+                <Button size="small" onClick={onAcceptAllStale} sx={{ flexShrink: 0 }}>
+                  {t("sync.acceptAll")}
+                </Button>
+              )}
+            </Box>
+            {staleItems.map((item) => {
+              if (item.kind === "relationDeleted") {
+                return (
+                  <ItemRow key={item.cellId}>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="body2" noWrap>
+                        <s style={{ opacity: 0.6 }}>
+                          {item.sourceName}{" "}
+                          <Typography component="span" variant="caption" color="text.disabled">
+                            → {item.relationLabel} →
+                          </Typography>{" "}
+                          {item.targetName}
+                        </s>
+                      </Typography>
+                      <Typography variant="caption" color="text.disabled">
+                        {t("sync.staleDeletedRelation")}
+                      </Typography>
+                    </Box>
+                    <Tooltip title={t("sync.removeEdgeFromDiagram")}>
+                      <IconButton size="small" onClick={() => onRemoveStaleEdge(item.cellId)}>
+                        <MaterialSymbol icon="delete_outline" size={16} color="#c62828" />
+                      </IconButton>
+                    </Tooltip>
+                  </ItemRow>
+                );
+              }
+              if (item.kind === "cardDeleted" || item.kind === "cardArchived") {
+                return (
+                  <ItemRow key={item.cellId}>
+                    <Box
+                      sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: item.typeColor, flexShrink: 0 }}
+                    />
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="body2" noWrap>
+                        <s style={{ opacity: 0.6 }}>{item.name}</s>
+                      </Typography>
+                      <Typography variant="caption" color="text.disabled">
+                        {item.kind === "cardDeleted"
+                          ? t("sync.staleDeletedCard")
+                          : t("sync.staleArchivedCard")}
+                      </Typography>
+                    </Box>
+                    <Tooltip title={t("sync.removeFromDiagram")}>
+                      <IconButton size="small" onClick={() => onRemoveStaleCard(item.cellId)}>
+                        <MaterialSymbol icon="delete_outline" size={16} color="#c62828" />
+                      </IconButton>
+                    </Tooltip>
+                  </ItemRow>
+                );
+              }
+              return (
+                <ItemRow key={item.cellId}>
+                  <Box
+                    sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: item.typeColor, flexShrink: 0 }}
+                  />
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="body2" noWrap>
+                      <s style={{ opacity: 0.5 }}>{item.diagramName}</s>{" "}
+                      <strong>{item.inventoryName}</strong>
+                    </Typography>
+                  </Box>
+                  <Tooltip title={t("sync.acceptUpdate")}>
+                    <IconButton size="small" onClick={() => onAcceptStale(item.cellId)}>
+                      <MaterialSymbol icon="check" size={16} color="#2e7d32" />
+                    </IconButton>
+                  </Tooltip>
+                </ItemRow>
+              );
+            })}
           </>
         )}
 

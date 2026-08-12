@@ -122,7 +122,12 @@ O botão **Sync** da barra de ferramentas abre o painel lateral com tudo o que e
 - **Novas relações** -- arestas desenhadas entre cartões, prontas a serem criadas no inventário.
 - **Relações removidas** -- arestas de relação eliminadas da tela, em fila para `DELETE /relations/{id}`. *Manter no inventário* reinsere a aresta.
 - **Alterações hierárquicas** -- movimentos arrastar-para-dentro / arrastar-para-fora de contentores confirmados, em fila como atualizações de `parent_id`.
-- **Inventário alterado** -- cartões atualizados no inventário desde a abertura do diagrama, prontos a serem trazidos de volta para a tela.
+- **Inventário alterado** -- alterações feitas no inventário desde que o diagrama foi guardado, prontas a serem trazidas de volta para a tela. Cada linha oferece a ação correspondente, e **Aceitar tudo** resolve todas as linhas de uma vez:
+    - um cartão **renomeado** -- *Aceitar atualização* reescreve o rótulo da célula;
+    - um cartão **excluído** ou **arquivado** -- *Remover do diagrama* retira a célula (e as suas arestas) da tela;
+    - uma **relação excluída** -- *Remover a aresta do diagrama* retira a aresta obsoleta da tela.
+
+O Turbo EA **verifica automaticamente as alterações do inventário sempre que abre um diagrama** -- um distintivo azul no botão Sync da barra de ferramentas conta as alterações a rever. Nada é aplicado sem a sua confirmação; o distintivo apenas o convida a abrir o painel. O botão **Verificar atualizações** do painel executa novamente a mesma verificação quando quiser.
 
 O botão Sync da barra mostra uma pílula pulsante «N por sincronizar» sempre que haja trabalho pendente. Sair do separador com alterações por sincronizar dispara um aviso do navegador, e a tela é guardada automaticamente no armazenamento local a cada cinco segundos para poder ser restaurada após uma atualização acidental.
 

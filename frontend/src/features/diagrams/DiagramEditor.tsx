@@ -9,6 +9,7 @@ import MenuItem from "@mui/material/MenuItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Snackbar from "@mui/material/Snackbar";
+import Badge from "@mui/material/Badge";
 import Button from "@mui/material/Button";
 import Tooltip from "@mui/material/Tooltip";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -27,8 +28,9 @@ import DiagramSyncPanel from "./DiagramSyncPanel";
 import type {
   PendingCard,
   PendingRelation,
-  StaleItem,
 } from "./DiagramSyncPanel";
+import { diffStaleItems, fetchInventoryState } from "./staleCheck";
+import type { StaleItem } from "./staleCheck";
 import {
   buildCardCellData,
   insertCardIntoGraph,
@@ -49,6 +51,7 @@ import {
   updateCellLabel,
   removeDiagramCell,
   scanDiagramItems,
+  scanSyncedRelationEdges,
   attachCellLifecycleListeners,
   attachParentChangeListener,
   scanForDuplicateCells,
@@ -100,6 +103,7 @@ import type { ColorEntry, ViewSource } from "./ViewSelector";
 import DiagramViewLegend from "./DiagramViewLegend";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useLatestRequest } from "@/hooks/useLatestRequest";
 import { relationLabel, useTypeLabel } from "@/hooks/useResolveLabel";
 import { useAuthContext } from "@/hooks/AuthContext";
 import type { Card, CardType, Relation, RelationType } from "@/types";
@@ -566,6 +570,10 @@ export default function DiagramEditor() {
   }, [user?.permissions]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [diagram, setDiagram] = useState<DiagramData | null>(null);
+  // Effects that must run once per diagram open key on the id, never the
+  // diagram object — `saveDiagram` calls `setDiagram`, so an object dep
+  // re-fires after every save (discussion #905).
+  const diagramId = diagram?.id;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [snackMsg, setSnackMsg] = useState("");
@@ -667,6 +675,16 @@ export default function DiagramEditor() {
   const [staleItems, setStaleItems] = useState<StaleItem[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [checkingUpdates, setCheckingUpdates] = useState(false);
+  // True once the DrawIO iframe has bootstrapped and the graph model is
+  // populated — the gate for the automatic inventory-freshness check.
+  const [drawioReady, setDrawioReady] = useState(false);
+  // Edge cellIds we are about to remove ourselves because their relation
+  // was deleted from the inventory. Both canvas-removal detection paths
+  // (the live CELLS_REMOVED listener and the periodic side-table diff)
+  // funnel into handleTombstones, which consumes entries from this set
+  // instead of raising the "delete this relation?" dialog — the relation
+  // is already gone server-side, there is nothing left to delete.
+  const suppressedEdgeRemovalsRef = useRef<Set<string>>(new Set());
 
   // Relation-deletion tombstones — populated when the user removes a
   // synced relation edge on the canvas. Sync All issues DELETE /relations/{id}
@@ -1471,6 +1489,12 @@ export default function DiagramEditor() {
       // CELLS_REMOVED for every previously-loaded edge. Those aren't
       // user-initiated deletes — swallow them.
       if (restoreInProgressRef.current) return;
+      // Edges we removed ourselves because their relation no longer
+      // exists in the inventory — nothing to confirm or delete.
+      tombstones = tombstones.filter(
+        (tb) => !suppressedEdgeRemovalsRef.current.delete(tb.edgeCellId),
+      );
+      if (tombstones.length === 0) return;
       // Relations get the explicit confirmation step. The dialog lets
       // the user abort (re-insert the edge) before the relation is
       // touched in inventory.
@@ -2408,51 +2432,120 @@ export default function DiagramEditor() {
   );
 
 
-  const handleCheckUpdates = useCallback(async () => {
-    const frame = iframeRef.current;
-    if (!frame) return;
-    setCheckingUpdates(true);
+  /* ---------- Inventory-freshness check ---------- */
+  const staleReq = useLatestRequest();
 
-    try {
-      const { syncedFS } = scanDiagramItems(frame);
-      const stale: StaleItem[] = [];
-
-      for (const item of syncedFS) {
-        try {
-          const card = await api.get<Card>(`/cards/${item.cardId}`);
-          if (card.name !== item.name) {
-            const typeInfo = fsTypesRef.current.find((t) => t.key === item.type);
-            stale.push({
-              cellId: item.cellId,
-              cardId: item.cardId,
-              diagramName: item.name,
-              inventoryName: card.name,
-              typeColor: typeInfo?.color || "#999",
-            });
+  /** Compare the canvas against the inventory: renamed, deleted, and
+   *  archived cards plus relations deleted while still drawn. Runs
+   *  automatically once per diagram open and from the sync drawer's
+   *  Check-updates button (`announce` adds the "all up to date" snack).
+   *  One batched round-trip per 200 cards instead of the old
+   *  request-per-card loop, which also silently skipped deleted cards. */
+  const runStaleCheck = useCallback(
+    async (opts?: { announce?: boolean }) => {
+      const frame = iframeRef.current;
+      if (!frame) return;
+      setCheckingUpdates(true);
+      try {
+        await staleReq.run(async ({ signal, isCurrent }) => {
+          const { syncedFS, syncedChildren } = scanDiagramItems(frame);
+          const cards = [...syncedFS, ...syncedChildren];
+          const edges = scanSyncedRelationEdges(frame);
+          const inventory = await fetchInventoryState(
+            cards.map((c) => c.cardId),
+            signal,
+          );
+          if (!isCurrent()) return;
+          const items = diffStaleItems(
+            cards,
+            edges,
+            inventory,
+            (typeKey) =>
+              fsTypesRef.current.find((tp) => tp.key === typeKey)?.color ||
+              "#999",
+            (edge) => humanRelationLabel(edge.relationType) || edge.edgeLabel,
+          );
+          setStaleItems(items);
+          setCheckingUpdates(false);
+          if (opts?.announce && items.length === 0) {
+            setSnackMsg(t("editor.allUpToDate"));
           }
-        } catch {
-          // Card may have been deleted — skip
-        }
+        });
+      } catch {
+        // Only the current run rethrows (aborted / superseded runs are
+        // swallowed by staleReq), so this is ours to clean up.
+        setCheckingUpdates(false);
       }
+    },
+    [staleReq, humanRelationLabel, t],
+  );
 
-      setStaleItems(stale);
-      if (stale.length === 0) setSnackMsg(t("editor.allUpToDate"));
-    } finally {
-      setCheckingUpdates(false);
-    }
-  }, []);
+  const handleCheckUpdates = useCallback(() => {
+    void runStaleCheck({ announce: true });
+  }, [runStaleCheck]);
+
+  // Auto-check once the DrawIO canvas is ready. Keyed on the diagram *id*
+  // (never the diagram object) so a save's `setDiagram` can't re-trigger
+  // the check — the #905 pattern the view effect below follows too. The
+  // short delay lets the +200 ms bootstrap overlay pass finish so the
+  // scan reads a fully populated model.
+  useEffect(() => {
+    if (!drawioReady || !diagramId) return;
+    const timer = window.setTimeout(() => void runStaleCheck(), 600);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawioReady, diagramId]);
 
   const handleAcceptStale = useCallback(
     (cellId: string) => {
       const frame = iframeRef.current;
       const item = staleItems.find((s) => s.cellId === cellId);
-      if (!frame || !item) return;
+      if (!frame || !item || item.kind !== "renamed") return;
       updateCellLabel(frame, cellId, item.inventoryName);
       setStaleItems((prev) => prev.filter((s) => s.cellId !== cellId));
       setSnackMsg(t("editor.updatedTo", { name: item.inventoryName }));
     },
     [staleItems],
   );
+
+  /** Remove a card cell whose card was deleted / archived in the
+   *  inventory. Connected edges are removed in the same mxGraph batch,
+   *  which the CELLS_REMOVED listener treats as incidental — no
+   *  tombstones, no confirm dialogs. Tolerates the cell having been
+   *  hand-deleted since the check ran. */
+  const handleRemoveStaleCard = useCallback(
+    (cellId: string) => {
+      const frame = iframeRef.current;
+      if (!frame) return;
+      removeDiagramCell(frame, cellId);
+      setStaleItems((prev) => prev.filter((s) => s.cellId !== cellId));
+      refreshSyncPanel();
+    },
+    [refreshSyncPanel],
+  );
+
+  /** Remove an edge whose relation was deleted from the inventory.
+   *  Ordering is load-bearing: the side-table entry goes first (defuses
+   *  the periodic edge-deletion diff), then the suppression set (defuses
+   *  the live CELLS_REMOVED listener, which reads relationId straight
+   *  off the edge user-object), then the actual removal. */
+  const handleRemoveStaleEdge = useCallback((cellId: string) => {
+    const frame = iframeRef.current;
+    if (!frame) return;
+    edgeRelationMapRef.current.delete(cellId);
+    suppressedEdgeRemovalsRef.current.add(cellId);
+    removeEdgeCellsByIds(frame, [cellId]);
+    setStaleItems((prev) => prev.filter((s) => s.cellId !== cellId));
+  }, []);
+
+  /** Resolve every stale item at once with its kind's default action. */
+  const handleAcceptAllStale = useCallback(() => {
+    for (const item of staleItems) {
+      if (item.kind === "renamed") handleAcceptStale(item.cellId);
+      else if (item.kind === "relationDeleted") handleRemoveStaleEdge(item.cellId);
+      else handleRemoveStaleCard(item.cellId);
+    }
+  }, [staleItems, handleAcceptStale, handleRemoveStaleEdge, handleRemoveStaleCard]);
 
   /* ---------- PostMessage handler ---------- */
   useEffect(() => {
@@ -2496,6 +2589,7 @@ export default function DiagramEditor() {
                   if (hideRelationLabelsRef.current) {
                     setRelationLabelsHidden(iframeRef.current, true);
                   }
+                  setDrawioReady(true);
                 }
               }, 200);
             } else if (attempt < 50) {
@@ -2820,7 +2914,6 @@ export default function DiagramEditor() {
   // view pass — including its `/cards?ids=` round-trip — after every single save
   // (discussion #905). Synced-cell additions still re-apply via the
   // syncOpen / refreshSyncPanel hooks.
-  const diagramId = diagram?.id;
   useEffect(() => {
     if (!diagramId) return;
     void applyView();
@@ -3009,39 +3102,52 @@ export default function DiagramEditor() {
           title={
             totalPending > 0
               ? t("editor.toolbar.syncTooltipPending", { count: totalPending })
-              : t("editor.toolbar.syncTooltip")
+              : staleItems.length > 0
+                ? t("editor.toolbar.syncTooltipStale", {
+                    count: staleItems.length,
+                  })
+                : t("editor.toolbar.syncTooltip")
           }
         >
-          <Button
-            size="small"
-            variant={totalPending > 0 ? "contained" : "outlined"}
-            color={totalPending > 0 ? "warning" : "inherit"}
-            startIcon={
-              <MaterialSymbol
-                icon={totalPending > 0 ? "warning" : "sync"}
-                size={18}
-              />
-            }
-            onClick={() => setSyncOpen(true)}
-            sx={{
-              textTransform: "none",
-              minWidth: 0,
-              px: 1.5,
-              py: 0.25,
-              fontSize: "0.8rem",
-              fontWeight: totalPending > 0 ? 700 : 500,
-              animation:
-                totalPending > 0 ? "turboea-pulse 1.6s ease-in-out infinite" : "none",
-              "@keyframes turboea-pulse": {
-                "0%,100%": { boxShadow: "0 0 0 0 rgba(237,108,2,0.5)" },
-                "50%": { boxShadow: "0 0 0 6px rgba(237,108,2,0)" },
-              },
-            }}
+          {/* Info badge = pull-side inventory changes awaiting review;
+              deliberately NOT folded into totalPending, which drives the
+              push-side warning styling and the beforeunload guard. */}
+          <Badge
+            badgeContent={staleItems.length}
+            color="info"
+            overlap="rectangular"
           >
-            {totalPending > 0
-              ? t("editor.toolbar.unsyncedCount", { count: totalPending })
-              : t("editor.toolbar.sync")}
-          </Button>
+            <Button
+              size="small"
+              variant={totalPending > 0 ? "contained" : "outlined"}
+              color={totalPending > 0 ? "warning" : "inherit"}
+              startIcon={
+                <MaterialSymbol
+                  icon={totalPending > 0 ? "warning" : "sync"}
+                  size={18}
+                />
+              }
+              onClick={() => setSyncOpen(true)}
+              sx={{
+                textTransform: "none",
+                minWidth: 0,
+                px: 1.5,
+                py: 0.25,
+                fontSize: "0.8rem",
+                fontWeight: totalPending > 0 ? 700 : 500,
+                animation:
+                  totalPending > 0 ? "turboea-pulse 1.6s ease-in-out infinite" : "none",
+                "@keyframes turboea-pulse": {
+                  "0%,100%": { boxShadow: "0 0 0 0 rgba(237,108,2,0.5)" },
+                  "50%": { boxShadow: "0 0 0 6px rgba(237,108,2,0)" },
+                },
+              }}
+            >
+              {totalPending > 0
+                ? t("editor.toolbar.unsyncedCount", { count: totalPending })
+                : t("editor.toolbar.sync")}
+            </Button>
+          </Badge>
         </Tooltip>
       </Box>
 
@@ -3158,6 +3264,9 @@ export default function DiagramEditor() {
         onSyncParentChange={handleSyncParentChange}
         onDiscardParentChange={handleDiscardParentChange}
         onAcceptStale={handleAcceptStale}
+        onRemoveStaleCard={handleRemoveStaleCard}
+        onRemoveStaleEdge={handleRemoveStaleEdge}
+        onAcceptAllStale={handleAcceptAllStale}
         onCheckUpdates={handleCheckUpdates}
         checkingUpdates={checkingUpdates}
       />

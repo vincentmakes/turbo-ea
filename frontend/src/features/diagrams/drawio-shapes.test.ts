@@ -15,6 +15,8 @@ import {
   relationEdgeStyle,
   RELATION_EDGE_COLOR,
   readFlowDirection,
+  scanDiagramItems,
+  scanSyncedRelationEdges,
   type DiagramCardInput,
   type DiagramRelInput,
   type DiagramLayerInput,
@@ -1089,5 +1091,114 @@ describe("expandCardGroup edges", () => {
 
     const edge = Object.values(f.cells).find((c) => c.edge);
     expect(edge.style.split(";")).toContain("noLabel=1");
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  scanDiagramItems / scanSyncedRelationEdges                         */
+/* ------------------------------------------------------------------ */
+
+/** Fake frame for the scan helpers: attribute-bag cells + getTerminal. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function scanFrame(cells: Record<string, any>) {
+  const model = {
+    cells,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getTerminal: (cell: any, isSource: boolean) =>
+      isSource ? (cell.source ?? null) : (cell.target ?? null),
+  };
+  const graph = { getModel: () => model };
+  return { contentWindow: { __turboGraph: graph } } as unknown as HTMLIFrameElement;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function scanVertex(id: string, attrs: Record<string, string>): any {
+  return { id, value: attrBag(attrs) };
+}
+
+describe("scanDiagramItems — synced children", () => {
+  it("splits synced cells into top-level and expanded-group children", () => {
+    const frame = scanFrame({
+      top: scanVertex("top", {
+        cardId: "id-top",
+        cardType: "Application",
+        label: "Top",
+      }),
+      child: scanVertex("child", {
+        cardId: "id-child",
+        cardType: "Application",
+        label: "Child",
+        parentGroupCell: "top",
+      }),
+      pending: scanVertex("pending", {
+        cardId: "pending-x",
+        cardType: "Application",
+        label: "Draft",
+        pending: "1",
+      }),
+    });
+    const scan = scanDiagramItems(frame);
+    expect(scan.syncedFS).toEqual([
+      { cellId: "top", cardId: "id-top", name: "Top", type: "Application" },
+    ]);
+    expect(scan.syncedChildren).toEqual([
+      { cellId: "child", cardId: "id-child", name: "Child", type: "Application" },
+    ]);
+    expect(scan.pendingCards).toHaveLength(1);
+  });
+});
+
+describe("scanSyncedRelationEdges", () => {
+  it("returns synced edges with endpoint card ids and labels", () => {
+    const src = scanVertex("s", { cardId: "id-s", label: "Source" });
+    const tgt = scanVertex("t", { cardId: "id-t", label: "Target" });
+    const frame = scanFrame({
+      s: src,
+      t: tgt,
+      e1: {
+        id: "e1",
+        edge: true,
+        source: src,
+        target: tgt,
+        value: attrBag({
+          relationId: "rel-1",
+          relationType: "relOrgToApp",
+          label: "uses",
+        }),
+      },
+      // A pending edge has no relationId yet — must be skipped.
+      e2: {
+        id: "e2",
+        edge: true,
+        source: src,
+        target: tgt,
+        value: attrBag({ relationType: "relOrgToApp", pending: "1" }),
+      },
+    });
+    expect(scanSyncedRelationEdges(frame)).toEqual([
+      {
+        edgeCellId: "e1",
+        relationId: "rel-1",
+        relationType: "relOrgToApp",
+        edgeLabel: "uses",
+        sourceCardId: "id-s",
+        targetCardId: "id-t",
+        sourceName: "Source",
+        targetName: "Target",
+      },
+    ]);
+  });
+
+  it("tolerates dangling edges with missing terminals", () => {
+    const frame = scanFrame({
+      e1: {
+        id: "e1",
+        edge: true,
+        value: attrBag({ relationId: "rel-1", relationType: "relOrgToApp" }),
+      },
+    });
+    const [edge] = scanSyncedRelationEdges(frame);
+    expect(edge.sourceCardId).toBe("");
+    expect(edge.targetCardId).toBe("");
   });
 });
