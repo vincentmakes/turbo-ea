@@ -49,6 +49,7 @@ import {
   markCellSynced,
   markEdgeSynced,
   updateCellLabel,
+  applyEdgeFlowDirection,
   removeDiagramCell,
   scanDiagramItems,
   scanSyncedRelationEdges,
@@ -2464,6 +2465,11 @@ export default function DiagramEditor() {
               fsTypesRef.current.find((tp) => tp.key === typeKey)?.color ||
               "#999",
             (edge) => humanRelationLabel(edge.relationType) || edge.edgeLabel,
+            (relationTypeKey, attributes) =>
+              relationFlowFor(
+                relTypesRef.current.find((x) => x.key === relationTypeKey),
+                attributes as RelationAttributes | undefined,
+              ),
           );
           setStaleItems(items);
           setCheckingUpdates(false);
@@ -2538,14 +2544,40 @@ export default function DiagramEditor() {
     setStaleItems((prev) => prev.filter((s) => s.cellId !== cellId));
   }, []);
 
+  /** Move an edge's arrowhead to match a `flowDirection` that changed in
+   *  the inventory, re-stamping the attribute so the next check agrees. */
+  const handleAcceptStaleFlow = useCallback(
+    (cellId: string) => {
+      const frame = iframeRef.current;
+      const item = staleItems.find((s) => s.cellId === cellId);
+      if (!frame || !item || item.kind !== "relationFlowChanged") return;
+      applyEdgeFlowDirection(
+        frame,
+        cellId,
+        item.newFlow,
+        item.incoming,
+        hideRelationLabelsRef.current,
+      );
+      setStaleItems((prev) => prev.filter((s) => s.cellId !== cellId));
+    },
+    [staleItems],
+  );
+
   /** Resolve every stale item at once with its kind's default action. */
   const handleAcceptAllStale = useCallback(() => {
     for (const item of staleItems) {
       if (item.kind === "renamed") handleAcceptStale(item.cellId);
       else if (item.kind === "relationDeleted") handleRemoveStaleEdge(item.cellId);
+      else if (item.kind === "relationFlowChanged") handleAcceptStaleFlow(item.cellId);
       else handleRemoveStaleCard(item.cellId);
     }
-  }, [staleItems, handleAcceptStale, handleRemoveStaleEdge, handleRemoveStaleCard]);
+  }, [
+    staleItems,
+    handleAcceptStale,
+    handleRemoveStaleEdge,
+    handleAcceptStaleFlow,
+    handleRemoveStaleCard,
+  ]);
 
   /* ---------- PostMessage handler ---------- */
   useEffect(() => {
@@ -3266,6 +3298,7 @@ export default function DiagramEditor() {
         onAcceptStale={handleAcceptStale}
         onRemoveStaleCard={handleRemoveStaleCard}
         onRemoveStaleEdge={handleRemoveStaleEdge}
+        onAcceptStaleFlow={handleAcceptStaleFlow}
         onAcceptAllStale={handleAcceptAllStale}
         onCheckUpdates={handleCheckUpdates}
         checkingUpdates={checkingUpdates}

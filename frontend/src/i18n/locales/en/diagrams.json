@@ -154,6 +154,7 @@
   "sync.staleDeletedCard": "Deleted from inventory — remove from diagram",
   "sync.staleArchivedCard": "Archived in inventory — remove from diagram",
   "sync.staleDeletedRelation": "Relation deleted from inventory",
+  "sync.staleFlowChanged": "Flow direction changed in inventory — update the arrowhead",
   "sync.acceptAll": "Accept all",
   "sync.removeEdgeFromDiagram": "Remove edge from diagram",
   "sync.allInSync": "Everything is in sync.",

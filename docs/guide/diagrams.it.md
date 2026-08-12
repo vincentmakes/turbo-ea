@@ -125,7 +125,8 @@ Il pulsante **Sync** della barra strumenti apre il pannello laterale con tutto c
 - **Inventario modificato** -- modifiche apportate all'inventario dopo il salvataggio del diagramma, pronte per essere riportate sulla tela. Ogni riga offre l'azione corrispondente, e **Accetta tutto** risolve tutte le righe in una volta:
     - una scheda **rinominata** -- *Accetta aggiornamento* riscrive l'etichetta della cella;
     - una scheda **eliminata** o **archiviata** -- *Rimuovi dal diagramma* toglie la cella (e i suoi collegamenti) dalla tela;
-    - una **relazione eliminata** -- *Rimuovi il collegamento dal diagramma* toglie il collegamento obsoleto dalla tela.
+    - una **relazione eliminata** -- *Rimuovi il collegamento dal diagramma* toglie il collegamento obsoleto dalla tela;
+    - una relazione con **direzione del flusso** cambiata -- *Accetta aggiornamento* allinea la freccia all'inventario.
 
 Turbo EA **controlla automaticamente le modifiche dell'inventario a ogni apertura di un diagramma** -- un badge blu sul pulsante Sync della barra strumenti conta le modifiche da rivedere. Nulla viene applicato senza la vostra conferma; il badge vi invita solo ad aprire il pannello. Il pulsante **Verifica aggiornamenti** nel pannello riesegue lo stesso controllo su richiesta.
 

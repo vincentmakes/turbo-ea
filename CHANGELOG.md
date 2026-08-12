@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [2.51.0] - 2026-08-12
 
 ### Added
-- **Diagrams check for inventory changes automatically when opened.** Opening a diagram now compares the canvas against the inventory in one batched round-trip and flags cards renamed, deleted, or archived since the diagram was saved — plus relations that were deleted while their edge is still drawn. A blue badge on the toolbar Sync button counts the pending changes; the Sync drawer's "Inventory Changed" section offers a matching action per row (accept the rename, remove the stale card or edge) and an "Accept all" shortcut. Nothing is applied without confirmation. The manual "Check updates" button now uses the same batched check, so deleted cards are surfaced instead of silently skipped.
+- **Diagrams check for inventory changes automatically when opened.** Opening a diagram now compares the canvas against the inventory in one batched round-trip and flags cards renamed, deleted, or archived since the diagram was saved — plus relations that were deleted while their edge is still drawn, and relations whose flow direction changed so the drawn arrowhead no longer matches. A blue badge on the toolbar Sync button counts the pending changes; the Sync drawer's "Inventory Changed" section offers a matching action per row (accept the rename, remove the stale card or edge, update the arrowhead) and an "Accept all" shortcut. Nothing is applied without confirmation. The manual "Check updates" button now uses the same batched check, so deleted cards are surfaced instead of silently skipped.
 
 ## [2.50.0] - 2026-08-11
 

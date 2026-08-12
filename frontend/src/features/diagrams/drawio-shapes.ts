@@ -728,6 +728,9 @@ export interface ScannedSyncedEdge {
   targetCardId: string;
   sourceName: string;
   targetName: string;
+  /** The `flowDirection` stamped on the edge user-object (the relation's
+   *  source → target axis), or undefined when the edge carries none. */
+  flowDirection?: RelationFlowDirection;
 }
 
 /** Scan the in-memory graph for every synced relation edge (an edge whose
@@ -760,9 +763,48 @@ export function scanSyncedRelationEdges(
       targetCardId: tgt?.value?.getAttribute?.("cardId") || "",
       sourceName: src?.value?.getAttribute?.("label") || "?",
       targetName: tgt?.value?.getAttribute?.("label") || "?",
+      flowDirection: readFlowDirection(cell.value.getAttribute("flowDirection")),
     });
   }
   return result;
+}
+
+/**
+ * Re-stamp an edge's `flowDirection` and move the arrowhead accordingly —
+ * used when the relation's flow attribute changed in the inventory after the
+ * edge was drawn. `incoming` is the drawn-edge vs relation direction (the
+ * caller derives it from the inventory relation's endpoints, since expansion
+ * edges never stamp `reversed`); the style goes through {@link
+ * relationEdgeStyle} like every other relation-edge path.
+ */
+export function applyEdgeFlowDirection(
+  iframe: HTMLIFrameElement,
+  edgeCellId: string,
+  flow: RelationFlowDirection | undefined,
+  incoming: boolean,
+  hideLabel = false,
+): boolean {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return false;
+  const { graph } = ctx;
+
+  const model = graph.getModel();
+  const edge = model.getCell(edgeCellId);
+  if (!edge) return false;
+
+  model.beginUpdate();
+  try {
+    const obj = edge.value;
+    if (flow) {
+      obj?.setAttribute?.("flowDirection", flow);
+    } else {
+      obj?.removeAttribute?.("flowDirection");
+    }
+    model.setStyle(edge, relationEdgeStyle({ incoming, flow, hideLabel }));
+  } finally {
+    model.endUpdate();
+  }
+  return true;
 }
 
 /** SVG data URI for the "out of sync" resync overlay icon (orange !) */

@@ -57,6 +57,7 @@
   "sync.staleDeletedCard": "Удалено из инвентаря — убрать со схемы",
   "sync.staleArchivedCard": "Архивировано в инвентаре — убрать со схемы",
   "sync.staleDeletedRelation": "Связь удалена из инвентаря",
+  "sync.staleFlowChanged": "Направление потока изменено в инвентаре — обновить стрелку",
   "sync.acceptAll": "Принять все",
   "sync.removeEdgeFromDiagram": "Убрать ребро со схемы",
   "sync.allInSync": "Всё синхронизировано.",

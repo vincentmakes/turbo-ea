@@ -125,7 +125,8 @@ Knappen **Sync** i værktøjslinjen åbner sideskuffen med alt, der er kø-still
 - **Inventory Changed** — ændringer foretaget i lageret, siden diagrammet blev gemt, klar til at blive trukket tilbage på lærredet. Hver række tilbyder den tilhørende handling, og **Acceptér alle** løser alle rækker på én gang:
     - et **omdøbt** kort — *Acceptér opdatering* omskriver cellens etiket;
     - et **slettet** eller **arkiveret** kort — *Fjern fra diagrammet* fjerner cellen (og dens kanter) fra lærredet;
-    - en **slettet relation** — *Fjern kanten fra diagrammet* fjerner den forældede kant fra lærredet.
+    - en **slettet relation** — *Fjern kanten fra diagrammet* fjerner den forældede kant fra lærredet;
+    - en relation med ændret **flowretning** — *Acceptér opdatering* retter pilespidsen ind efter lageret.
 
 Turbo EA **tjekker automatisk for lagerændringer, hver gang du åbner et diagram** — et blåt badge på værktøjslinjens Sync-knap tæller de ændringer, der afventer gennemgang. Intet anvendes uden din bekræftelse; badget inviterer dig blot ind i panelet. Knappen **Tjek opdateringer** i panelet kører det samme tjek igen efter behov.
 

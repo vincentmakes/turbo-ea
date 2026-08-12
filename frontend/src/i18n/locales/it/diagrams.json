@@ -57,6 +57,7 @@
   "sync.staleDeletedCard": "Eliminato dall'inventario — rimuovere dal diagramma",
   "sync.staleArchivedCard": "Archiviato nell'inventario — rimuovere dal diagramma",
   "sync.staleDeletedRelation": "Relazione eliminata dall'inventario",
+  "sync.staleFlowChanged": "Direzione del flusso cambiata nell'inventario — aggiornare la freccia",
   "sync.acceptAll": "Accetta tutto",
   "sync.removeEdgeFromDiagram": "Rimuovi il collegamento dal diagramma",
   "sync.allInSync": "Tutto sincronizzato.",

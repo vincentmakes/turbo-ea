@@ -125,7 +125,8 @@ The **Sync** button in the toolbar opens the side drawer with everything queued 
 - **Inventory Changed** — changes made in the inventory since the diagram was saved, ready to be pulled back into the canvas. Each row offers the matching action, and **Accept all** resolves every row at once:
     - a **renamed** card — *Accept update* rewrites the cell label;
     - a **deleted** or **archived** card — *Remove from diagram* takes the cell (and its edges) off the canvas;
-    - a **deleted relation** — *Remove edge from diagram* takes the stale edge off the canvas.
+    - a **deleted relation** — *Remove edge from diagram* takes the stale edge off the canvas;
+    - a relation whose **flow direction** changed — *Accept update* moves the arrowhead to match the inventory.
 
 Turbo EA **checks for inventory changes automatically every time you open a diagram** — a blue badge on the toolbar Sync button counts the changes awaiting review. Nothing is applied without your confirmation; the badge only invites you into the drawer. The **Check updates** button in the drawer re-runs the same check on demand.
 

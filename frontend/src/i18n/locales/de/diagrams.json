@@ -57,6 +57,7 @@
   "sync.staleDeletedCard": "Aus dem Inventar gelöscht – vom Diagramm entfernen",
   "sync.staleArchivedCard": "Im Inventar archiviert – vom Diagramm entfernen",
   "sync.staleDeletedRelation": "Relation aus dem Inventar gelöscht",
+  "sync.staleFlowChanged": "Flussrichtung im Inventar geändert – Pfeilspitze aktualisieren",
   "sync.acceptAll": "Alle übernehmen",
   "sync.removeEdgeFromDiagram": "Kante vom Diagramm entfernen",
   "sync.allInSync": "Alles ist synchron.",

@@ -125,7 +125,8 @@ O botão **Sync** da barra de ferramentas abre o painel lateral com tudo o que e
 - **Inventário alterado** -- alterações feitas no inventário desde que o diagrama foi guardado, prontas a serem trazidas de volta para a tela. Cada linha oferece a ação correspondente, e **Aceitar tudo** resolve todas as linhas de uma vez:
     - um cartão **renomeado** -- *Aceitar atualização* reescreve o rótulo da célula;
     - um cartão **excluído** ou **arquivado** -- *Remover do diagrama* retira a célula (e as suas arestas) da tela;
-    - uma **relação excluída** -- *Remover a aresta do diagrama* retira a aresta obsoleta da tela.
+    - uma **relação excluída** -- *Remover a aresta do diagrama* retira a aresta obsoleta da tela;
+    - uma relação cuja **direção do fluxo** mudou -- *Aceitar atualização* alinha a seta com o inventário.
 
 O Turbo EA **verifica automaticamente as alterações do inventário sempre que abre um diagrama** -- um distintivo azul no botão Sync da barra de ferramentas conta as alterações a rever. Nada é aplicado sem a sua confirmação; o distintivo apenas o convida a abrir o painel. O botão **Verificar atualizações** do painel executa novamente a mesma verificação quando quiser.
 

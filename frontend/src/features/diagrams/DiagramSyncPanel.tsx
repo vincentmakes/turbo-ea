@@ -62,6 +62,7 @@ interface Props {
   onAcceptStale: (cellId: string) => void;
   onRemoveStaleCard: (cellId: string) => void;
   onRemoveStaleEdge: (cellId: string) => void;
+  onAcceptStaleFlow: (cellId: string) => void;
   onAcceptAllStale: () => void;
   onCheckUpdates: () => void;
   checkingUpdates: boolean;
@@ -92,6 +93,7 @@ export default function DiagramSyncPanel({
   onAcceptStale,
   onRemoveStaleCard,
   onRemoveStaleEdge,
+  onAcceptStaleFlow,
   onAcceptAllStale,
   onCheckUpdates,
   checkingUpdates,
@@ -336,6 +338,29 @@ export default function DiagramSyncPanel({
                     <Tooltip title={t("sync.removeEdgeFromDiagram")}>
                       <IconButton size="small" onClick={() => onRemoveStaleEdge(item.cellId)}>
                         <MaterialSymbol icon="delete_outline" size={16} color="#c62828" />
+                      </IconButton>
+                    </Tooltip>
+                  </ItemRow>
+                );
+              }
+              if (item.kind === "relationFlowChanged") {
+                return (
+                  <ItemRow key={item.cellId}>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="body2" noWrap>
+                        {item.sourceName}{" "}
+                        <Typography component="span" variant="caption" color="text.disabled">
+                          → {item.relationLabel} →
+                        </Typography>{" "}
+                        {item.targetName}
+                      </Typography>
+                      <Typography variant="caption" color="text.disabled">
+                        {t("sync.staleFlowChanged")}
+                      </Typography>
+                    </Box>
+                    <Tooltip title={t("sync.acceptUpdate")}>
+                      <IconButton size="small" onClick={() => onAcceptStaleFlow(item.cellId)}>
+                        <MaterialSymbol icon="check" size={16} color="#2e7d32" />
                       </IconButton>
                     </Tooltip>
                   </ItemRow>

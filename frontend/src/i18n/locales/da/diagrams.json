@@ -154,6 +154,7 @@
   "sync.staleDeletedCard": "Slettet fra lageret — fjern fra diagrammet",
   "sync.staleArchivedCard": "Arkiveret i lageret — fjern fra diagrammet",
   "sync.staleDeletedRelation": "Relation slettet fra lageret",
+  "sync.staleFlowChanged": "Flowretningen er ændret i lageret — opdatér pilespidsen",
   "sync.acceptAll": "Acceptér alle",
   "sync.removeEdgeFromDiagram": "Fjern kanten fra diagrammet",
   "sync.allInSync": "Alt er synkroniseret.",

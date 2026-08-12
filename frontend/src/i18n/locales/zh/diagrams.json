@@ -57,6 +57,7 @@
   "sync.staleDeletedCard": "已从资产清单删除 — 从图表中移除",
   "sync.staleArchivedCard": "已在资产清单归档 — 从图表中移除",
   "sync.staleDeletedRelation": "关系已从资产清单删除",
+  "sync.staleFlowChanged": "流向已在资产清单中变更 — 更新箭头",
   "sync.acceptAll": "全部接受",
   "sync.removeEdgeFromDiagram": "从图表中移除连线",
   "sync.allInSync": "一切均已同步。",

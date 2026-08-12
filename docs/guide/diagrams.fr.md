@@ -125,7 +125,8 @@ Le bouton **Sync** de la barre d'outils ouvre le tiroir latéral avec tout ce qu
 - **Inventaire modifié** -- changements effectués dans l'inventaire depuis l'enregistrement du diagramme, prêts à être ramenés sur le canevas. Chaque ligne propose l'action correspondante, et **Tout accepter** résout toutes les lignes d'un coup :
     - une fiche **renommée** -- *Accepter la mise à jour* réécrit le libellé de la cellule ;
     - une fiche **supprimée** ou **archivée** -- *Retirer du diagramme* enlève la cellule (et ses arêtes) du canevas ;
-    - une **relation supprimée** -- *Retirer l'arête du diagramme* enlève l'arête obsolète du canevas.
+    - une **relation supprimée** -- *Retirer l'arête du diagramme* enlève l'arête obsolète du canevas ;
+    - une relation dont le **sens du flux** a changé -- *Accepter la mise à jour* aligne la flèche sur l'inventaire.
 
 Turbo EA **vérifie automatiquement les changements d'inventaire à chaque ouverture d'un diagramme** -- un badge bleu sur le bouton Sync de la barre d'outils compte les changements à examiner. Rien n'est appliqué sans votre confirmation ; le badge ne fait que vous inviter dans le panneau. Le bouton **Vérifier les mises à jour** du panneau relance la même vérification à la demande.
 

@@ -125,7 +125,8 @@ Die **Sync**-Schaltfläche in der Symbolleiste öffnet den Seiten-Drawer mit all
 - **Inventar geändert** -- Änderungen, die seit dem Speichern des Diagramms im Inventar vorgenommen wurden, bereit zur Übernahme auf die Leinwand. Jede Zeile bietet die passende Aktion, und **Alle übernehmen** löst alle Zeilen auf einmal:
     - eine **umbenannte** Karte -- *Update übernehmen* schreibt die Zellbeschriftung neu;
     - eine **gelöschte** oder **archivierte** Karte -- *Vom Diagramm entfernen* nimmt die Zelle (samt ihrer Kanten) von der Leinwand;
-    - eine **gelöschte Relation** -- *Kante vom Diagramm entfernen* nimmt die veraltete Kante von der Leinwand.
+    - eine **gelöschte Relation** -- *Kante vom Diagramm entfernen* nimmt die veraltete Kante von der Leinwand;
+    - eine Relation mit geänderter **Flussrichtung** -- *Update übernehmen* richtet die Pfeilspitze nach dem Inventar aus.
 
 Turbo EA **prüft bei jedem Öffnen eines Diagramms automatisch auf Inventaränderungen** -- ein blaues Badge auf der Sync-Schaltfläche der Symbolleiste zählt die zu prüfenden Änderungen. Nichts wird ohne Ihre Bestätigung angewendet; das Badge lädt nur in die Seitenleiste ein. Die Schaltfläche **Updates prüfen** in der Seitenleiste führt dieselbe Prüfung bei Bedarf erneut aus.
 

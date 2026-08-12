@@ -3,7 +3,7 @@ import { api } from "@/api/client";
 import { diffStaleItems, fetchInventoryState } from "./staleCheck";
 import type { InventoryState } from "./staleCheck";
 import type { ScannedSyncedEdge, ScannedSyncedFS } from "./drawio-shapes";
-import type { Card } from "@/types";
+import type { Card, Relation } from "@/types";
 
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn() },
@@ -38,6 +38,7 @@ function edge(
   relationId: string,
   sourceCardId: string,
   targetCardId: string,
+  flowDirection?: "forward" | "reverse" | "bidirectional",
 ): ScannedSyncedEdge {
   return {
     edgeCellId,
@@ -48,27 +49,49 @@ function edge(
     targetCardId,
     sourceName: "Src",
     targetName: "Tgt",
+    flowDirection,
   };
 }
 
-function inv(cards: Card[], relationIds: string[] = []): InventoryState {
+function rel(
+  id: string,
+  source_id: string,
+  target_id: string,
+  attributes?: Record<string, unknown>,
+): Relation {
+  return { id, type: "relOrgToApp", source_id, target_id, attributes };
+}
+
+function inv(cards: Card[], relations: Relation[] = []): InventoryState {
   return {
     cardById: new Map(cards.map((c) => [c.id, c])),
-    liveRelationIds: new Set(relationIds),
+    relationById: new Map(relations.map((r) => [r.id, r])),
   };
 }
 
 const color = () => "#0f7eb5";
 const relLabel = (e: ScannedSyncedEdge) => e.edgeLabel;
+// Mirrors the editor's relationFlowFor gate for the relOrgToApp test type:
+// a flow applies only when the relation carries a valid value.
+const flowOf = (
+  _typeKey: string,
+  attributes: Record<string, unknown> | undefined,
+) => {
+  const v = attributes?.flowDirection;
+  return v === "forward" || v === "reverse" || v === "bidirectional"
+    ? v
+    : undefined;
+};
 
 describe("diffStaleItems", () => {
   it("returns nothing when canvas and inventory agree", () => {
     const items = diffStaleItems(
       [cell("c1", "id1", "NexaCore")],
       [edge("e1", "r1", "id1", "id2")],
-      inv([card("id1", "NexaCore"), card("id2", "Other")], ["r1"]),
+      inv([card("id1", "NexaCore"), card("id2", "Other")], [rel("r1", "id1", "id2")]),
       color,
       relLabel,
+      flowOf,
     );
     expect(items).toEqual([]);
   });
@@ -80,6 +103,7 @@ describe("diffStaleItems", () => {
       inv([card("id1", "New Name")]),
       color,
       relLabel,
+      flowOf,
     );
     expect(items).toEqual([
       {
@@ -100,6 +124,7 @@ describe("diffStaleItems", () => {
       inv([]),
       color,
       relLabel,
+      flowOf,
     );
     expect(items).toEqual([
       {
@@ -119,6 +144,7 @@ describe("diffStaleItems", () => {
       inv([card("id1", "New Name", "ARCHIVED")]),
       color,
       relLabel,
+      flowOf,
     );
     expect(items).toHaveLength(1);
     expect(items[0].kind).toBe("cardArchived");
@@ -131,6 +157,7 @@ describe("diffStaleItems", () => {
       inv([card("id1", "Parent"), card("id2", "New Child")]),
       color,
       relLabel,
+      flowOf,
     );
     expect(items).toEqual([
       expect.objectContaining({ kind: "renamed", cellId: "child1" }),
@@ -144,6 +171,7 @@ describe("diffStaleItems", () => {
       inv([card("id1", "A"), card("id2", "B")], []),
       color,
       relLabel,
+      flowOf,
     );
     expect(items).toEqual([
       {
@@ -168,6 +196,7 @@ describe("diffStaleItems", () => {
       inv([card("id1", "A", "ARCHIVED"), card("id2", "B")], []),
       color,
       relLabel,
+      flowOf,
     );
     expect(items).toEqual([
       expect.objectContaining({ kind: "cardArchived", cellId: "c1" }),
@@ -181,12 +210,94 @@ describe("diffStaleItems", () => {
       inv([card("id2", "B")], []),
       color,
       relLabel,
+      flowOf,
     );
     expect(items).toEqual([]);
   });
 
   it("returns empty for an empty canvas", () => {
-    expect(diffStaleItems([], [], inv([]), color, relLabel)).toEqual([]);
+    expect(diffStaleItems([], [], inv([]), color, relLabel, flowOf)).toEqual([]);
+  });
+
+  it("flags a flow change and derives incoming from the relation's endpoints", () => {
+    const items = diffStaleItems(
+      [cell("c1", "id1", "A"), cell("c2", "id2", "B")],
+      // Edge drawn id1 → id2 while the relation runs id2 → id1, stamped
+      // "forward" when it was drawn.
+      [edge("e1", "r1", "id1", "id2", "forward")],
+      inv(
+        [card("id1", "A"), card("id2", "B")],
+        [rel("r1", "id2", "id1", { flowDirection: "reverse" })],
+      ),
+      color,
+      relLabel,
+      flowOf,
+    );
+    expect(items).toEqual([
+      {
+        kind: "relationFlowChanged",
+        cellId: "e1",
+        relationId: "r1",
+        relationLabel: "uses",
+        sourceName: "Src",
+        targetName: "Tgt",
+        newFlow: "reverse",
+        incoming: true,
+      },
+    ]);
+  });
+
+  it("flags a flow the inventory gained after the edge was drawn", () => {
+    const items = diffStaleItems(
+      [],
+      [edge("e1", "r1", "id1", "id2")],
+      inv(
+        [card("id1", "A"), card("id2", "B")],
+        [rel("r1", "id1", "id2", { flowDirection: "bidirectional" })],
+      ),
+      color,
+      relLabel,
+      flowOf,
+    );
+    expect(items).toEqual([
+      expect.objectContaining({
+        kind: "relationFlowChanged",
+        newFlow: "bidirectional",
+        incoming: false,
+      }),
+    ]);
+  });
+
+  it("flags a flow the inventory cleared, with newFlow undefined", () => {
+    const items = diffStaleItems(
+      [],
+      [edge("e1", "r1", "id1", "id2", "forward")],
+      inv([card("id1", "A"), card("id2", "B")], [rel("r1", "id1", "id2", {})]),
+      color,
+      relLabel,
+      flowOf,
+    );
+    expect(items).toEqual([
+      expect.objectContaining({
+        kind: "relationFlowChanged",
+        newFlow: undefined,
+      }),
+    ]);
+  });
+
+  it("stays silent when the stamped flow still matches the inventory", () => {
+    const items = diffStaleItems(
+      [],
+      [edge("e1", "r1", "id1", "id2", "forward")],
+      inv(
+        [card("id1", "A"), card("id2", "B")],
+        [rel("r1", "id1", "id2", { flowDirection: "forward" })],
+      ),
+      color,
+      relLabel,
+      flowOf,
+    );
+    expect(items).toEqual([]);
   });
 });
 
@@ -212,9 +323,9 @@ describe("fetchInventoryState", () => {
         } as any;
       }
       if (path.startsWith("/relations?card_ids=")) {
-        // Every chunk reports the same shared relation — the Set dedupes.
+        // Every chunk reports the same shared relation — the Map dedupes.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return [{ id: "r-shared" }, { id: "r-extra" }] as any;
+        return [rel("r-shared", "a", "b"), rel("r-extra", "a", "c")] as any;
       }
       throw new Error(`unexpected path ${path}`);
     });
@@ -227,7 +338,9 @@ describe("fetchInventoryState", () => {
     // 250 ids → 2 chunks → 2 cards calls + 2 relations calls.
     expect(mockGet).toHaveBeenCalledTimes(4);
     expect(state.cardById.size).toBe(250);
-    expect(state.liveRelationIds).toEqual(new Set(["r-shared", "r-extra"]));
+    expect(new Set(state.relationById.keys())).toEqual(
+      new Set(["r-shared", "r-extra"]),
+    );
   });
 
   it("omits deleted cards and dedupes ids before fetching", async () => {

@@ -1,6 +1,10 @@
 import { api } from "@/api/client";
 import type { Card, CardListResponse, Relation } from "@/types";
-import type { ScannedSyncedEdge, ScannedSyncedFS } from "./drawio-shapes";
+import type {
+  RelationFlowDirection,
+  ScannedSyncedEdge,
+  ScannedSyncedFS,
+} from "./drawio-shapes";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -35,11 +39,27 @@ export type StaleItem =
       relationLabel: string;
       sourceName: string;
       targetName: string;
+    }
+  | {
+      kind: "relationFlowChanged";
+      /** Edge cell id. */
+      cellId: string;
+      relationId: string;
+      relationLabel: string;
+      sourceName: string;
+      targetName: string;
+      /** The flow the inventory now carries (source → target axis of the
+       *  relation), or undefined when the attribute was cleared. */
+      newFlow?: RelationFlowDirection;
+      /** True when the edge was drawn against the relation's direction
+       *  (derived from the inventory relation's endpoints — the drawn edge's
+       *  source is the relation's target). Needed to restyle the arrowhead. */
+      incoming: boolean;
     };
 
 export interface InventoryState {
   cardById: Map<string, Card>;
-  liveRelationIds: Set<string>;
+  relationById: Map<string, Relation>;
 }
 
 /* ------------------------------------------------------------------ */
@@ -63,7 +83,7 @@ export async function fetchInventoryState(
   signal?: AbortSignal,
 ): Promise<InventoryState> {
   const cardById = new Map<string, Card>();
-  const liveRelationIds = new Set<string>();
+  const relationById = new Map<string, Relation>();
 
   const unique = Array.from(new Set(cardIds.filter(Boolean)));
   for (let i = 0; i < unique.length; i += CHUNK_SIZE) {
@@ -75,11 +95,11 @@ export async function fetchInventoryState(
     ]);
     for (const card of cardsRes.items) cardById.set(card.id, card);
     // A relation between two on-canvas cards comes back from the chunk of
-    // each endpoint — the Set dedupes.
-    for (const rel of relations) liveRelationIds.add(rel.id);
+    // each endpoint — the Map dedupes.
+    for (const rel of relations) relationById.set(rel.id, rel);
   }
 
-  return { cardById, liveRelationIds };
+  return { cardById, relationById };
 }
 
 /* ------------------------------------------------------------------ */
@@ -95,11 +115,14 @@ export async function fetchInventoryState(
  * endpoint card is itself flagged (removing the card cell cascades the
  * edge, and the relations endpoint hides relations with archived
  * endpoints, which would otherwise read as false "deleted" positives);
- * otherwise a relation id absent from the live set → deleted.
+ * a relation id absent from the inventory → deleted; a live relation
+ * whose resolved `flowDirection` no longer matches the value stamped on
+ * the edge → flow changed (the drawn arrowhead is stale).
  *
- * Relation *attribute* drift (e.g. a changed `flowDirection` that makes
- * the drawn arrowhead stale) is deliberately out of scope — surfacing it
- * needs edge restyling, not a label/removal action.
+ * `resolveFlow` is the same gate Card Detail uses (`flowDirectionBadge`):
+ * it returns a value only when the relation type declares the attribute
+ * AND the relation carries one, so the canvas and the card can never
+ * disagree about whether the attribute applies.
  */
 export function diffStaleItems(
   cards: ScannedSyncedFS[],
@@ -107,6 +130,10 @@ export function diffStaleItems(
   inventory: InventoryState,
   resolveColor: (typeKey: string) => string,
   resolveRelationLabel: (edge: ScannedSyncedEdge) => string,
+  resolveFlow: (
+    relationTypeKey: string,
+    attributes: Record<string, unknown> | undefined,
+  ) => RelationFlowDirection | undefined,
 ): StaleItem[] {
   const items: StaleItem[] = [];
   const flaggedCardIds = new Set<string>();
@@ -157,7 +184,8 @@ export function diffStaleItems(
     ) {
       continue;
     }
-    if (!inventory.liveRelationIds.has(edge.relationId)) {
+    const relation = inventory.relationById.get(edge.relationId);
+    if (!relation) {
       items.push({
         kind: "relationDeleted",
         cellId: edge.edgeCellId,
@@ -165,6 +193,27 @@ export function diffStaleItems(
         relationLabel: resolveRelationLabel(edge),
         sourceName: edge.sourceName,
         targetName: edge.targetName,
+      });
+      continue;
+    }
+    const newFlow = resolveFlow(relation.type, relation.attributes);
+    if (newFlow !== edge.flowDirection) {
+      // The stamped flow rides the relation's source → target axis, so the
+      // comparison is direct — but the restyle needs to know whether the
+      // edge was DRAWN against the relation's direction. The relation's own
+      // endpoints are the authority (expansion edges never stamp
+      // `reversed`).
+      items.push({
+        kind: "relationFlowChanged",
+        cellId: edge.edgeCellId,
+        relationId: edge.relationId,
+        relationLabel: resolveRelationLabel(edge),
+        sourceName: edge.sourceName,
+        targetName: edge.targetName,
+        newFlow,
+        incoming:
+          edge.sourceCardId === relation.target_id &&
+          edge.targetCardId === relation.source_id,
       });
     }
   }

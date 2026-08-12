@@ -154,6 +154,7 @@
   "sync.staleDeletedCard": "حُذف من المخزون — إزالته من المخطط",
   "sync.staleArchivedCard": "أُرشف في المخزون — إزالته من المخطط",
   "sync.staleDeletedRelation": "حُذفت العلاقة من المخزون",
+  "sync.staleFlowChanged": "تغيّر اتجاه التدفق في المخزون — حدِّث رأس السهم",
   "sync.acceptAll": "قبول الكل",
   "sync.removeEdgeFromDiagram": "إزالة الرابط من المخطط",
   "sync.allInSync": "كل شيء متزامن.",
