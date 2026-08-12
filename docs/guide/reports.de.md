@@ -208,6 +208,8 @@ Der **Datenqualitätsbericht** ist ein **Vollständigkeits-Dashboard**, das zeig
 - **Nach Typ** — Aufschlüsselung, die zeigt, welche Kartentypen die beste/schlechteste Vollständigkeit haben
 - **Einzelne Karten** — Liste der Karten mit der niedrigsten Datenqualität, priorisiert zur Verbesserung
 
+Karten mit einem leeren **Pflichtfeld** erhalten immer **0 %** — die gewichtete Berechnung greift erst wieder, wenn alle Pflichtfelder ausgefüllt sind — die Liste der schlechtesten Werte zeigt also genau die Karten, deren Pflichtangaben noch fehlen.
+
 ## End-of-Life-Bericht (EOL)
 
 ![End-of-Life-Bericht](../assets/img/de/32_bericht_eol.png)

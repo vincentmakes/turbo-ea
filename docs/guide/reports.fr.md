@@ -208,6 +208,8 @@ Le **Rapport Qualité des données** est un **tableau de bord de complétude** q
 - **Par type** -- Ventilation montrant quels types de fiches ont la meilleure/pire complétude
 - **Fiches individuelles** -- Liste des fiches avec la qualité de données la plus faible, priorisées pour amélioration
 
+Les fiches dont un **champ obligatoire** est vide obtiennent toujours **0 %** — le calcul pondéré ne reprend qu'une fois tous les champs obligatoires remplis — la liste des scores les plus bas fait donc ressortir précisément les fiches dont les données obligatoires manquent encore.
+
 ## Rapport Fin de vie (EOL)
 
 ![Rapport Fin de vie](../assets/img/fr/32_rapport_eol.png)

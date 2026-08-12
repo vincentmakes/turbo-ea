@@ -208,6 +208,8 @@ Excel-eksport giver to ark: gitteret, som det ser ud på skærmen, og én række
 - **Efter type** — Nedbrydning, der viser hvilke korttyper der har den bedste/dårligste fuldstændighed
 - **Individuelle kort** — Liste over kort med den laveste datakvalitet, prioriteret til forbedring
 
+Kort med et tomt **påkrævet felt** scorer altid **0 %** — den vægtede beregning genoptages først, når alle påkrævede felter er udfyldt — så listen med de laveste scorer viser præcis de kort, der stadig mangler påkrævede data.
+
 ## End of Life (EOL)-rapport
 
 ![End of Life-rapport](../assets/img/da/32_report_eol.png)

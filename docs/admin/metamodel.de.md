@@ -87,6 +87,8 @@ IDs sind **global eindeutig, schreibgeschützt und werden nie wiederverwendet od
 
 Der **Datenqualitätswert** einer Karte ist ein gewichtetes Maß für ihre Vollständigkeit. Jeder beitragende Faktor – jedes Feld sowie fünf integrierte Faktoren – wird an einer Stelle verwaltet: im **Datenqualität**-Tab des Kartentyp-Editors. (Der Editor ist in Registerkarten unterteilt – Allgemein, Beziehungen, Stakeholder-Rollen und Datenqualität – Übersetzungen sind über das Symbol in der Kopfzeile verfügbar.)
 
+**Pflichtfelder haben Vorrang vor der Bewertung.** Solange ein Pflichtfeld einer Karte leer ist, bleibt ihr Wert unabhängig von den Gewichtungen bei **0** — die gewichtete Berechnung greift erst, wenn alle Pflichtfelder ausgefüllt sind (boolesche und schreibgeschützte Felder sind ausgenommen; siehe die Einstellung **Pflichtfeld** oben).
+
 Die Wichtigkeit jedes Faktors wird mit einem einfachen Schieberegler über vier Stufen festgelegt, der auch die zugrunde liegende Zahl anzeigt:
 
 - **Ignorieren (0)** – vollständig aus dem Wert ausgeschlossen.

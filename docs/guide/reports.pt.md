@@ -208,6 +208,8 @@ O **Relatório de Qualidade dos Dados** é um **painel de completude** que mostr
 - **Por tipo** — Detalhamento mostrando quais tipos de card têm melhor/pior completude
 - **Cards individuais** — Lista de cards com menor qualidade de dados, priorizados para melhoria
 
+Cards com um **campo obrigatório** vazio sempre pontuam **0%** — o cálculo ponderado só é retomado quando todos os campos obrigatórios estiverem preenchidos — assim, a lista de pontuações mais baixas mostra exatamente os cards cujos dados obrigatórios ainda faltam.
+
 ## Relatório de Fim de Vida (EOL)
 
 ![Relatório de Fim de Vida](../assets/img/pt/32_relatorio_eol.png)

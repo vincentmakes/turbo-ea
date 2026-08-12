@@ -87,6 +87,8 @@ Les ID sont **uniques globalement, en lecture seule, jamais réutilisés ni modi
 
 Le score de **qualité des données** d'une fiche mesure de manière pondérée son niveau de complétude. Chaque facteur contributeur – chaque champ ainsi que cinq facteurs intégrés – est géré au même endroit : l'onglet **Qualité des données** de l'éditeur de type de fiche. (L'éditeur est organisé en onglets – Principal, Relations, Rôles des parties prenantes et Qualité des données – les traductions sont accessibles via l'icône de l'en-tête.)
 
+**Les champs obligatoires priment sur le score.** Tant qu'un champ obligatoire d'une fiche reste vide, son score reste à **0** quelles que soient les pondérations — le calcul pondéré ne s'applique qu'une fois tous les champs obligatoires remplis (les champs booléens et en lecture seule sont exemptés ; voir le réglage **Obligatoire** ci-dessus).
+
 L'importance de chaque facteur se règle avec un simple curseur à quatre niveaux, qui affiche aussi le nombre sous-jacent :
 
 - **Ignorer (0)** – entièrement exclu du score.

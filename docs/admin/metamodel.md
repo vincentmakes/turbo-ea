@@ -89,6 +89,8 @@ IDs are **globally unique, read-only, and never reused or changed** once assigne
 
 A card's **data quality** score is a weighted measure of how complete it is. Every contributing factor — each field plus five built-in factors — is managed in one place: the **Data quality** tab of the card-type editor. (The editor is organised into tabs — Main, Relations, Stakeholder roles, and Data quality — with translations available from the icon in the header.)
 
+**Mandatory fields override the score.** While any required field on a card is still empty, its score is pinned to **0** regardless of the weights — the weighted calculation only applies once every required field is filled (boolean and read-only fields are exempt; see the **Required** setting above).
+
 Each factor has an importance set with a simple slider across four tiers, which also shows the underlying number:
 
 - **Ignore (0)** — excluded from the score entirely.

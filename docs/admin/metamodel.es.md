@@ -87,6 +87,8 @@ Los ID son **únicos globalmente, de solo lectura y nunca se reutilizan ni cambi
 
 La puntuación de **calidad de datos** de una tarjeta mide de forma ponderada cuán completa está. Cada factor que contribuye —cada campo y cinco factores integrados— se gestiona en un solo lugar: la pestaña **Calidad de datos** del editor del tipo de tarjeta. (El editor se organiza en pestañas: General, Relaciones, Roles de partes interesadas y Calidad de datos; las traducciones están disponibles desde el icono del encabezado.)
 
+**Los campos obligatorios prevalecen sobre la puntuación.** Mientras algún campo obligatorio de una tarjeta siga vacío, su puntuación permanece en **0** independientemente de los pesos: el cálculo ponderado solo se aplica una vez completados todos los campos obligatorios (los campos booleanos y de solo lectura están exentos; consulta el ajuste **Requerido** más arriba).
+
 La importancia de cada factor se establece con un control deslizante simple de cuatro niveles, que también muestra el número subyacente:
 
 - **Ignorar (0)**: excluido por completo de la puntuación.

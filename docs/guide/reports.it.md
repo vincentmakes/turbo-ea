@@ -208,6 +208,8 @@ Il **Report Qualità dei Dati** è una **dashboard di completezza** che mostra q
 - **Per tipo** — Dettaglio che mostra quali tipi di card hanno la migliore/peggiore completezza
 - **Card individuali** — Elenco delle card con la qualità dei dati più bassa, prioritizzate per il miglioramento
 
+Le card con un **campo obbligatorio** vuoto ottengono sempre **0%** — il calcolo ponderato riprende solo quando tutti i campi obbligatori sono compilati — così l'elenco dei punteggi più bassi evidenzia esattamente le card a cui mancano ancora dati obbligatori.
+
 ## Report End of Life (EOL)
 
 ![Report End of Life](../assets/img/it/32_report_eol.png)

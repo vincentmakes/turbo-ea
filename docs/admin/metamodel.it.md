@@ -87,6 +87,8 @@ Gli ID sono **univoci a livello globale, di sola lettura e non vengono mai riuti
 
 Il punteggio di **qualità dei dati** di una card misura in modo ponderato quanto è completa. Ogni fattore che contribuisce — ogni campo e cinque fattori integrati — è gestito in un unico posto: la scheda **Qualità dei dati** dell'editor del tipo di card. (L'editor è organizzato in schede – Generale, Relazioni, Ruoli degli stakeholder e Qualità dei dati – le traduzioni sono disponibili dall'icona nell'intestazione.)
 
+**I campi obbligatori prevalgono sul punteggio.** Finché un campo obbligatorio di una card resta vuoto, il suo punteggio rimane a **0** indipendentemente dai pesi — il calcolo ponderato si applica solo quando tutti i campi obbligatori sono compilati (i campi booleani e in sola lettura sono esenti; vedi l'impostazione **Obbligatorio** sopra).
+
 L'importanza di ciascun fattore si imposta con un semplice cursore a quattro livelli, che mostra anche il numero sottostante:
 
 - **Ignora (0)** — escluso completamente dal punteggio.

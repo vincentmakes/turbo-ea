@@ -87,6 +87,8 @@ Os IDs são **globalmente únicos, somente leitura e nunca reutilizados ou alter
 
 A pontuação de **qualidade dos dados** de um card mede de forma ponderada o quão completo ele está. Cada fator que contribui — cada campo e cinco fatores integrados — é gerido em um único lugar: a aba **Qualidade dos dados** do editor de tipo de card. (O editor é organizado em abas — Geral, Relações, Papéis das partes interessadas e Qualidade dos dados — as traduções estão disponíveis no ícone do cabeçalho.)
 
+**Os campos obrigatórios prevalecem sobre a pontuação.** Enquanto algum campo obrigatório de um card estiver vazio, sua pontuação permanece em **0** independentemente dos pesos — o cálculo ponderado só se aplica quando todos os campos obrigatórios estiverem preenchidos (campos booleanos e somente leitura estão isentos; veja a configuração **Obrigatório** acima).
+
 A importância de cada fator é definida com um controle deslizante simples de quatro níveis, que também mostra o número subjacente:
 
 - **Ignorar (0)** — excluído totalmente da pontuação.

@@ -208,6 +208,8 @@ The **Data Quality Report** is a **completeness dashboard** that shows how well 
 - **By type** — Breakdown showing which card types have the best/worst completeness
 - **Individual cards** — List of cards with the lowest data quality, prioritized for improvement
 
+Cards with an empty **mandatory field** always score **0%** — the weighted calculation only resumes once every required field is filled — so the lowest-scoring list surfaces exactly the cards whose required data is still missing.
+
 ## End of Life (EOL) Report
 
 ![End of Life Report](../assets/img/en/32_report_eol.png)

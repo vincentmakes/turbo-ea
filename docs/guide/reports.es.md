@@ -208,6 +208,8 @@ El **Informe de Calidad de Datos** es un **panel de completitud** que muestra qu
 - **Por tipo** — Desglose que muestra qué tipos de fichas tienen la mejor/peor completitud
 - **Fichas individuales** — Lista de fichas con la calidad de datos más baja, priorizadas para mejora
 
+Las tarjetas con un **campo obligatorio** vacío siempre puntúan **0 %** — el cálculo ponderado solo se reanuda cuando todos los campos obligatorios están completos — de modo que la lista de puntuaciones más bajas muestra exactamente las tarjetas a las que aún les faltan datos obligatorios.
+
 ## Informe de Fin de Vida (EOL)
 
 ![Informe de Fin de Vida](../assets/img/es/32_informe_eol.png)
