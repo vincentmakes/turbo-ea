@@ -5,11 +5,6 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.52.1] - 2026-08-12
-
-### Fixed
-- **Existing cards missing mandatory fields now show a data-quality score of 0 immediately after upgrading.** Stored scores are only refreshed when a card is saved, so cards untouched since the upgrade kept their old score even though the mandatory-field gate applied. The one-shot startup rescore now re-runs once after this upgrade to backfill every stored score.
-
 ## [2.52.0] - 2026-08-12
 
 ### Added
@@ -17,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Mandatory fields are clearly marked on the card detail page.** Required fields carry an asterisk in both read and edit mode, an empty mandatory field shows a warning chip instead of a blank value, and a banner above the card's sections lists exactly which mandatory fields still need to be entered.
 
 ### Changed
-- **Data quality is held at 0 while mandatory fields are empty.** The regular weighted score only applies once every required field on the card is filled; toggling Required in the metamodel re-scores all cards of that type immediately. Boolean and read-only (calculated) fields are exempt.
+- **Data quality is held at 0 while mandatory fields are empty.** The regular weighted score only applies once every required field on the card is filled; toggling Required in the metamodel re-scores all cards of that type immediately, and a one-shot rescore on the first startup after upgrading backfills the stored score of every existing card. Boolean and read-only (calculated) fields are exempt.
 
 ### Fixed
 - **Multi-select label no longer overlaps the placeholder.** On the card detail page, an empty multi-select field showed its label and the "Select one or more…" placeholder on top of each other (most visibly on mobile).

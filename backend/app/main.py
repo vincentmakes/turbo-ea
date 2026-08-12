@@ -357,7 +357,7 @@ async def _promote_recurring_tasks_loop() -> None:
 # Marker in app_settings.general_settings recording that the one-shot
 # canonical data-quality rescore has run on this install. The key is
 # VERSIONED: whenever the scoring rules change (here: the mandatory-field
-# gate that pins incomplete cards to 0, 2.52.x), bump the suffix so the next
+# gate that pins incomplete cards to 0, 2.52.0), bump the suffix so the next
 # boot re-scores the whole inventory once — stored scores otherwise stay
 # stale until each card is individually edited. Old markers remain in
 # app_settings harmlessly.
