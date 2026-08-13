@@ -10,8 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - **"View in inventory" now mirrors the report.** From a portfolio report grouped by one of the card type's own fields, the link opens the inventory grouped by the same field with the clicked group expanded and every other group collapsed (counts visible), and carries the report's search, attribute, relation, and tag filters along. Reports grouped by a related card type keep the previous behavior of filtering to that card ([discussion #933](https://github.com/vincentmakes/turbo-ea/discussions/933) follow-up).
 
-## [2.54.1] - 2026-08-13
-
 ### Fixed
 - **"View in inventory" deep-links now highlight the filtered value in the sidebar.** Arriving from a portfolio report group, the attribute filter showed only a badge count — the select dropdown looked unset even though the filter was active. The seeded value now renders as a highlighted chip with its option checked, and is matched by exact option key instead of a loose text match. Deep-links also no longer apply a previously saved inventory grouping on arrival, so the slice you clicked is exactly what you see ([discussion #933](https://github.com/vincentmakes/turbo-ea/discussions/933) follow-up).
 
