@@ -26,6 +26,19 @@ The left sidebar panel allows you to **filter** cards by different criteria:
 
 An **active filter count** badge shows how many filters are currently applied.
 
+### Filtering from a Cell
+
+Right-click any cell in the grid (long-press on a touch device) to open a context menu with quick filter actions, similar to ServiceNow:
+
+- **Show matching** — keep only the rows whose value equals the clicked cell's
+- **Filter out** — hide the rows whose value equals the clicked cell's
+- **Copy value** — copy the cell text to the clipboard
+- **Clear column filter** — remove that column's filter (shown only while one is active)
+
+On a multi-valued cell (tags, relations, stakeholders, multi-select attributes) the menu first lists the individual values, so you can filter on one of them or on the entire cell. These filters land in the grid's own column filters: they combine with the sidebar filters, count into the **Clear filters** toolbar button, and persist with your view. The same menu is available on every grid in Turbo EA — Decisions, Risk Register, Compliance, and the admin grids.
+
+![Inventory cell context menu](../assets/img/en/62_inventory_cell_menu.png)
+
 ### Columns Tab
 
 The **Columns** tab in the side panel lets you choose which additional columns to display in the grid. Available columns change dynamically based on the selected card types:

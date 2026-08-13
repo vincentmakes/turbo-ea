@@ -26,6 +26,19 @@ El panel lateral izquierdo permite **filtrar** las fichas por diferentes criteri
 
 Un **contador de filtros activos** muestra cuántos filtros están aplicados actualmente.
 
+### Filtrar desde una celda
+
+Haga clic derecho en cualquier celda de la cuadrícula (pulsación larga en dispositivos táctiles) para abrir un menú contextual con acciones de filtrado rápidas, al estilo de ServiceNow:
+
+- **Mostrar coincidencias** — conservar solo las filas cuyo valor coincide con el de la celda pulsada
+- **Excluir** — ocultar las filas cuyo valor coincide con el de la celda pulsada
+- **Copiar valor** — copiar el texto de la celda al portapapeles
+- **Borrar filtro de columna** — quitar el filtro de esa columna (visible solo mientras haya uno activo)
+
+En una celda con varios valores (etiquetas, relaciones, partes interesadas, atributos de selección múltiple), el menú muestra primero los valores individuales, para filtrar por uno de ellos o por la celda completa. Estos filtros van a los filtros de columna de la cuadrícula: se combinan con los filtros de la barra lateral, cuentan en el botón **Borrar filtros** de la barra de herramientas y se conservan con su vista. El mismo menú está disponible en todas las cuadrículas de Turbo EA — Decisiones, Registro de riesgos, Cumplimiento y las cuadrículas de administración.
+
+![Menú contextual de una celda del inventario](../assets/img/es/62_inventario_menu_contextual.png)
+
 ### Pestaña Columnas
 
 La pestaña **Columnas** en el panel lateral le permite elegir qué columnas adicionales mostrar en la cuadrícula. Las columnas disponibles cambian dinámicamente según los tipos de tarjetas seleccionados:

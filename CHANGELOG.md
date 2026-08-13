@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.54.0] - 2026-08-13
+
+### Added
+- **Filter any grid from a cell, ServiceNow-style.** Right-click a cell (long-press on touch devices) in the Inventory, Decisions, Risk Register, Compliance, Audit log, or Users grid to **Show matching**, **Filter out**, **Copy value**, or **Clear column filter**. Multi-valued cells (tags, relations, stakeholders, multi-select attributes) first list their individual values so you can filter on one of them or on the entire cell; the filters land in the grid's column filters, so on the Inventory and Decisions grids they persist and travel with saved views. The Resources grid offers Copy value (its filtering is server-side).
+
+### Fixed
+- Date-column filters on the Risk Register, Compliance, Audit log, and Users grids now compare dates correctly (they previously could not parse the stored ISO date strings).
+
 ## [2.53.0] - 2026-08-13
 
 ### Added

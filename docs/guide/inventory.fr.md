@@ -26,6 +26,19 @@ Le panneau latéral gauche permet de **filtrer** les fiches selon différents cr
 
 Un **badge de nombre de filtres actifs** indique combien de filtres sont actuellement appliqués.
 
+### Filtrer depuis une cellule
+
+Faites un clic droit sur n'importe quelle cellule de la grille (appui long sur un appareil tactile) pour ouvrir un menu contextuel avec des actions de filtrage rapides, à la manière de ServiceNow :
+
+- **Afficher les correspondances** — ne conserver que les lignes dont la valeur est égale à celle de la cellule cliquée
+- **Exclure** — masquer les lignes dont la valeur est égale à celle de la cellule cliquée
+- **Copier la valeur** — copier le texte de la cellule dans le presse-papiers
+- **Effacer le filtre de colonne** — supprimer le filtre de cette colonne (visible uniquement lorsqu'un filtre est actif)
+
+Sur une cellule à valeurs multiples (étiquettes, relations, parties prenantes, attributs à choix multiples), le menu liste d'abord les valeurs individuelles, afin de filtrer sur l'une d'elles ou sur la cellule entière. Ces filtres alimentent les filtres de colonnes de la grille : ils se combinent avec les filtres de la barre latérale, comptent dans le bouton **Effacer les filtres** de la barre d'outils et sont conservés avec votre vue. Le même menu est disponible sur toutes les grilles de Turbo EA — Décisions, Registre des risques, Conformité et les grilles d'administration.
+
+![Menu contextuel d'une cellule de l'inventaire](../assets/img/fr/62_inventaire_menu_contextuel.png)
+
 ### Onglet Colonnes
 
 L'onglet **Colonnes** dans le panneau latéral vous permet de choisir les colonnes supplémentaires à afficher dans la grille. Les colonnes disponibles changent dynamiquement en fonction des types de cartes sélectionnés :

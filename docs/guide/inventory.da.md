@@ -26,6 +26,19 @@ Det venstre sidepanel lader dig **filtrere** kort efter forskellige kriterier:
 
 Et **aktivt-filter-tæller**-badge viser, hvor mange filtre der aktuelt er anvendt.
 
+### Filtrering fra en celle
+
+Højreklik på en vilkårlig celle i tabellen (langt tryk på berøringsenheder) for at åbne en kontekstmenu med hurtige filterhandlinger, i stil med ServiceNow:
+
+- **Vis matchende** — behold kun de rækker, hvis værdi svarer til den valgte celles
+- **Filtrér fra** — skjul de rækker, hvis værdi svarer til den valgte celles
+- **Kopiér værdi** — kopiér cellens tekst til udklipsholderen
+- **Ryd kolonnefilter** — fjern kolonnens filter (vises kun, mens et filter er aktivt)
+
+På en celle med flere værdier (tags, relationer, interessenter, attributter med flere valg) viser menuen først de enkelte værdier, så du kan filtrere på én af dem eller på hele cellen. Disse filtre lander i tabellens egne kolonnefiltre: de kombineres med sidepanelets filtre, tælles med i knappen **Ryd filtre** i værktøjslinjen og gemmes sammen med din visning. Den samme menu findes i alle tabeller i Turbo EA — Beslutninger, Risikoregister, Compliance og administrationstabellerne.
+
+![Kontekstmenu for en lagercelle](../assets/img/da/62_inventory_cell_menu.png)
+
 ### Kolonner-fane
 
 **Kolonner**-fanen i sidepanelet lader dig vælge, hvilke yderligere kolonner der skal vises i gitteret. Tilgængelige kolonner ændres dynamisk baseret på de valgte korttyper:

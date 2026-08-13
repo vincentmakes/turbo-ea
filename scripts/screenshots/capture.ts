@@ -308,6 +308,7 @@ async function executeActions(
         break;
 
       case "click":
+      case "rightClick":
         try {
           // Try each comma-separated selector (fallback chain). The optional
           // `nth` field picks the Nth match of the *first* selector that
@@ -320,7 +321,10 @@ async function executeActions(
             const loc =
               typeof action.nth === "number" ? base.nth(action.nth) : base.first();
             if ((await loc.count()) > 0) {
-              await loc.click({ timeout: 3000 });
+              await loc.click({
+                timeout: 3000,
+                button: action.type === "rightClick" ? "right" : "left",
+              });
               clicked = true;
               break;
             }
