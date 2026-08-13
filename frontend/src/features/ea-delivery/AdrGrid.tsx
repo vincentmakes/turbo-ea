@@ -14,12 +14,12 @@ import Chip from "@mui/material/Chip";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
 import Tooltip from "@mui/material/Tooltip";
-import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
+import { useCellContextMenu } from "@/components/grid/useCellContextMenu";
 import { type GroupAxis, type GroupedRow } from "@/components/grid/rowGrouping";
 import { GroupByMenuButton, useRowGrouping } from "@/components/grid/useRowGrouping";
 import { useThemeMode } from "@/hooks/useThemeMode";
@@ -142,12 +142,6 @@ export default function AdrGrid({
     frozen: frozenColumns ?? [],
     onFrozenChange: (next) => onFrozenColumnsChange?.(next),
   });
-
-  const [contextMenu, setContextMenu] = useState<{
-    mouseX: number;
-    mouseY: number;
-    adr: ArchitectureDecision;
-  } | null>(null);
 
   const [selectedAdrs, setSelectedAdrs] = useState<ArchitectureDecision[]>([]);
 
@@ -609,38 +603,58 @@ export default function AdrGrid({
     onExport(selectedAdrs);
   }, [onExport, selectedAdrs]);
 
-  const handleContextMenu = useCallback(
-    (event: React.MouseEvent) => {
-      event.preventDefault();
-      const target = event.target as HTMLElement;
-      const rowEl = target.closest<HTMLElement>("[row-index]");
-      if (!rowEl) return;
-      const rowIndex = Number(rowEl.getAttribute("row-index"));
-      const rowNode = gridRef.current?.api?.getDisplayedRowAtIndex(rowIndex);
-      if (!rowNode?.data) return;
-      // Group header rows are member clones — offering Edit/Delete on one
-      // would act on an arbitrary ADR the user never picked.
-      if (grouping.isGroupRow(rowNode.data as GroupedRow<ArchitectureDecision>)) return;
-      setContextMenu({
-        mouseX: event.clientX,
-        mouseY: event.clientY,
-        adr: rowNode.data,
-      });
+  // Right-click / long-press cell menu (shared hook): the ADR row actions
+  // render as extraItems above the Show matching / Filter out / Copy items.
+  // Group header rows are member clones — offering Edit/Delete on one would
+  // act on an arbitrary ADR the user never picked, so they are suppressed.
+  const cellMenu = useCellContextMenu<GroupedRow<ArchitectureDecision>>(gridRef, {
+    suppressForRow: grouping.isGroupRow,
+    // Linked cards and signatories render as ", "-joined chip lists.
+    splitValues: (ctx) =>
+      (ctx.colId === "linkedCards" || ctx.colId === "signedBy") && ctx.displayValue
+        ? ctx.displayValue
+            .split(", ")
+            .filter(Boolean)
+            .map((v) => ({ label: v, filter: v }))
+        : null,
+    extraItems: (ctx, close) => {
+      const adr = ctx.data;
+      const act = (action: (adr: ArchitectureDecision) => void) => () => {
+        close();
+        action(adr);
+      };
+      return [
+        <MenuItem key="edit" onClick={act(onEdit)}>
+          <ListItemIcon>
+            <MaterialSymbol icon="edit" size={20} />
+          </ListItemIcon>
+          <ListItemText>{t("adr.edit")}</ListItemText>
+        </MenuItem>,
+        <MenuItem key="preview" onClick={act(onPreview)}>
+          <ListItemIcon>
+            <MaterialSymbol icon="visibility" size={20} />
+          </ListItemIcon>
+          <ListItemText>{t("adr.preview")}</ListItemText>
+        </MenuItem>,
+        <MenuItem key="duplicate" onClick={act(onDuplicate)}>
+          <ListItemIcon>
+            <MaterialSymbol icon="content_copy" size={20} />
+          </ListItemIcon>
+          <ListItemText>{t("adr.duplicate")}</ListItemText>
+        </MenuItem>,
+        ...(adr.status === "draft"
+          ? [
+              <MenuItem key="delete" onClick={act(onDelete)}>
+                <ListItemIcon>
+                  <MaterialSymbol icon="delete" size={20} color="error" />
+                </ListItemIcon>
+                <ListItemText sx={{ color: "error.main" }}>{t("adr.delete")}</ListItemText>
+              </MenuItem>,
+            ]
+          : []),
+      ];
     },
-    [grouping.isGroupRow],
-  );
-
-  const closeContextMenu = useCallback(() => setContextMenu(null), []);
-
-  const handleMenuAction = useCallback(
-    (action: (adr: ArchitectureDecision) => void) => {
-      if (contextMenu) {
-        action(contextMenu.adr);
-        setContextMenu(null);
-      }
-    },
-    [contextMenu],
-  );
+  });
 
   const isDark = mode === "dark";
 
@@ -712,9 +726,11 @@ export default function AdrGrid({
 
         <Box
           ref={columnFreeze.containerRef}
+          {...cellMenu.containerProps}
           className={isDark ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
           sx={{
             ...columnFreeze.sx,
+            ...cellMenu.sx,
             flex: autoHeight ? "none" : 1,
             minHeight: 0,
             // Rows are clickable (open ADR detail) — surface that affordance:
@@ -728,7 +744,6 @@ export default function AdrGrid({
               backgroundColor: "var(--ag-row-hover-color)",
             },
           }}
-          onContextMenu={handleContextMenu}
         >
           <AgGridReact<ArchitectureDecision>
             key={isRtl ? "rtl" : "ltr"}
@@ -756,47 +771,14 @@ export default function AdrGrid({
             suppressCellFocus
             animateRows={false}
             {...grouping.gridProps}
+            {...cellMenu.gridProps}
             getRowId={(params) => grouping.groupRowId(params.data)}
             domLayout={autoHeight ? "autoHeight" : undefined}
           />
         </Box>
       </Box>
 
-      <Menu
-        open={contextMenu !== null}
-        onClose={closeContextMenu}
-        anchorReference="anchorPosition"
-        anchorPosition={
-          contextMenu ? { top: contextMenu.mouseY, left: contextMenu.mouseX } : undefined
-        }
-      >
-        <MenuItem onClick={() => handleMenuAction(onEdit)}>
-          <ListItemIcon>
-            <MaterialSymbol icon="edit" size={20} />
-          </ListItemIcon>
-          <ListItemText>{t("adr.edit")}</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={() => handleMenuAction(onPreview)}>
-          <ListItemIcon>
-            <MaterialSymbol icon="visibility" size={20} />
-          </ListItemIcon>
-          <ListItemText>{t("adr.preview")}</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={() => handleMenuAction(onDuplicate)}>
-          <ListItemIcon>
-            <MaterialSymbol icon="content_copy" size={20} />
-          </ListItemIcon>
-          <ListItemText>{t("adr.duplicate")}</ListItemText>
-        </MenuItem>
-        {contextMenu?.adr.status === "draft" && (
-          <MenuItem onClick={() => handleMenuAction(onDelete)}>
-            <ListItemIcon>
-              <MaterialSymbol icon="delete" size={20} color="error" />
-            </ListItemIcon>
-            <ListItemText sx={{ color: "error.main" }}>{t("adr.delete")}</ListItemText>
-          </MenuItem>
-        )}
-      </Menu>
+      {cellMenu.menu}
     </>
   );
 }

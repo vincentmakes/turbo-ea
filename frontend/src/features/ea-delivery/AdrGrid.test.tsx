@@ -313,3 +313,13 @@ describe("AdrGrid signed-by column", () => {
     expect(col?.autoHeight).toBe(true);
   });
 });
+
+describe("cell context menu wiring", () => {
+  it("hands the grid the shared context-menu props", async () => {
+    const { AgGridReact } = await import("ag-grid-react");
+    renderGrid();
+    const props = vi.mocked(AgGridReact).mock.calls.at(-1)![0] as Record<string, unknown>;
+    expect(typeof props.onCellContextMenu).toBe("function");
+    expect(props.preventDefaultOnContextMenu).toBe(true);
+  });
+});
