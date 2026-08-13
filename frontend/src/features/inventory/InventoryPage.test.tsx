@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import InventoryPage from "./InventoryPage";
+import InventoryPage, { splitInventoryCellValues } from "./InventoryPage";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -1191,5 +1191,92 @@ describe("InventoryPage current-view export", () => {
     for (const row of rows) {
       for (const c of columns) expect(c.colId in row).toBe(true);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cell context menu wiring
+// ---------------------------------------------------------------------------
+
+describe("InventoryPage cell context menu", () => {
+  it("hands the grid the context-menu props", async () => {
+    const { AgGridReact } = await import("ag-grid-react");
+    renderInventory();
+    await waitFor(() => expect(screen.getByTestId("ag-grid")).toBeInTheDocument());
+
+    const props = vi.mocked(AgGridReact).mock.calls.at(-1)![0] as Record<string, unknown>;
+    expect(typeof props.onCellContextMenu).toBe("function");
+    expect(props.preventDefaultOnContextMenu).toBe(true);
+  });
+});
+
+describe("splitInventoryCellValues", () => {
+  const ctx = (over: Partial<Parameters<typeof splitInventoryCellValues>[0]>) =>
+    ({
+      colId: "core_name",
+      data: {} as never,
+      displayValue: "",
+      filterValue: null,
+      filterKind: "text" as const,
+      ...over,
+    });
+
+  it("zips multi-select attribute labels with their raw keys", () => {
+    expect(
+      splitInventoryCellValues(
+        ctx({
+          colId: "attr_hosting",
+          displayValue: "On premise, Cloud",
+          filterValue: ["onPrem", "cloud"],
+        }),
+      ),
+    ).toEqual([
+      { label: "On premise", filter: "onPrem" },
+      { label: "Cloud", filter: "cloud" },
+    ]);
+  });
+
+  it("treats scalar attributes as single-valued", () => {
+    expect(
+      splitInventoryCellValues(
+        ctx({ colId: "attr_vendor", displayValue: "SAP", filterValue: "SAP" }),
+      ),
+    ).toBeNull();
+  });
+
+  it("splits tags on ', ' and relation/stakeholder columns on '; '", () => {
+    expect(
+      splitInventoryCellValues(
+        ctx({ colId: "core_tags", displayValue: "Core, Legacy", filterValue: "Core, Legacy" }),
+      ),
+    ).toEqual([
+      { label: "Core", filter: "Core" },
+      { label: "Legacy", filter: "Legacy" },
+    ]);
+    expect(
+      splitInventoryCellValues(
+        ctx({ colId: "rel_ITComponent", displayValue: "PostgreSQL; Redis" }),
+      ),
+    ).toEqual([
+      { label: "PostgreSQL", filter: "PostgreSQL" },
+      { label: "Redis", filter: "Redis" },
+    ]);
+    expect(
+      splitInventoryCellValues(
+        ctx({
+          colId: "stakeholder_owner",
+          displayValue: "a@nexatech.com; b@nexatech.com",
+        }),
+      ),
+    ).toEqual([
+      { label: "a@nexatech.com", filter: "a@nexatech.com" },
+      { label: "b@nexatech.com", filter: "b@nexatech.com" },
+    ]);
+  });
+
+  it("leaves core single-value columns alone", () => {
+    expect(
+      splitInventoryCellValues(ctx({ colId: "core_name", displayValue: "NexaCore ERP" })),
+    ).toBeNull();
   });
 });

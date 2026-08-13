@@ -69,6 +69,11 @@ import { api, ApiError, isAbortError } from "@/api/client";
 import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
 import TagPicker from "@/components/TagPicker";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
+import {
+  useCellContextMenu,
+  type CellMenuContext,
+  type CellSplitValue,
+} from "@/components/grid/useCellContextMenu";
 import TagsCellEditor from "@/features/inventory/TagsCellEditor";
 import ParentCellEditor from "@/features/inventory/ParentCellEditor";
 import StakeholdersCellEditor from "@/features/inventory/StakeholdersCellEditor";
@@ -259,6 +264,38 @@ function buildRelationIndex(
 
 /** An inventory grid row: a card, or a member clone marked as group header. */
 type InventoryRow = GroupedRow<Card>;
+
+/**
+ * Split a multi-valued cell into its values for the context menu's per-value
+ * filter stage. Separators follow what each column's valueGetter/formatter
+ * joins with: tags and multi-select attributes use ", ", relation and
+ * stakeholder columns use "; ". Multi-select attribute cells display option
+ * labels but filter on raw keys, so labels come from the display text and
+ * filters from the raw array value. Exported for tests.
+ */
+export function splitInventoryCellValues(
+  ctx: CellMenuContext<InventoryRow>,
+): CellSplitValue[] | null {
+  if (ctx.colId.startsWith("attr_")) {
+    if (!Array.isArray(ctx.filterValue)) return null;
+    const labels = ctx.displayValue ? ctx.displayValue.split(", ") : [];
+    return ctx.filterValue.map((key, i) => ({
+      label: labels[i] ?? String(key),
+      filter: String(key),
+    }));
+  }
+  const sep =
+    ctx.colId === "core_tags"
+      ? ", "
+      : ctx.colId.startsWith("rel_") || ctx.colId.startsWith("stakeholder_")
+        ? "; "
+        : null;
+  if (!sep || !ctx.displayValue) return null;
+  return ctx.displayValue
+    .split(sep)
+    .filter(Boolean)
+    .map((v) => ({ label: v, filter: v }));
+}
 
 /* ---- localStorage persistence helpers ---- */
 const LS_KEY = "turboea_inventory";
@@ -1135,6 +1172,16 @@ export default function InventoryPage() {
     rows: filteredData,
     axes: groupAxes,
     groupBy,
+  });
+
+  // Right-click / long-press cell menu (Show matching, Filter out, …).
+  // Suppressed in grid-edit mode so it never fights the cell editors; filters
+  // land in the grid's column filter model, which handleFilterChanged already
+  // persists to localStorage and saved views.
+  const cellMenu = useCellContextMenu<InventoryRow>(gridRef, {
+    disabled: () => gridEditMode,
+    suppressForRow: (data) => !!data?.__group,
+    splitValues: splitInventoryCellValues,
   });
 
   const handleCellEdit = async (event: CellValueChangedEvent) => {
@@ -3279,8 +3326,9 @@ export default function InventoryPage() {
         {/* AG Grid */}
         <Box
           ref={columnFreeze.containerRef}
+          {...cellMenu.containerProps}
           className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
-          sx={{ flex: 1, width: "100%", minHeight: 0, ...columnFreeze.sx }}
+          sx={{ flex: 1, width: "100%", minHeight: 0, ...columnFreeze.sx, ...cellMenu.sx }}
         >
           <AgGridReact
             key={isRtl ? "rtl" : "ltr"}
@@ -3307,6 +3355,7 @@ export default function InventoryPage() {
             getRowId={getRowId}
             getRowStyle={getRowStyle}
             {...grouping.gridProps}
+            {...cellMenu.gridProps}
             animateRows
             defaultColDef={defaultColDef}
             initialState={
@@ -3324,6 +3373,8 @@ export default function InventoryPage() {
           />
         </Box>
       </Box>
+
+      {cellMenu.menu}
 
       {/* Inline-edit failures (rejected re-parent, …) */}
       <Snackbar

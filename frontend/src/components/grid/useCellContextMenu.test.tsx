@@ -281,7 +281,10 @@ describe("useCellContextMenu — multi-valued cells", () => {
   const options: UseCellContextMenuOptions<Row> = {
     splitValues: (ctx) =>
       ctx.colId === "tags" && ctx.displayValue !== ""
-        ? ctx.displayValue.split("; ").filter(Boolean)
+        ? ctx.displayValue
+            .split("; ")
+            .filter(Boolean)
+            .map((v) => ({ label: v, filter: v }))
         : null,
   };
 

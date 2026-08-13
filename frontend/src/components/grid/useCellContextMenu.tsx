@@ -36,7 +36,6 @@ import ListItemText from "@mui/material/ListItemText";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Snackbar from "@mui/material/Snackbar";
-import type { SxProps, Theme } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import type { GridApiSource } from "./useColumnFreeze";
@@ -73,6 +72,16 @@ export interface CellMenuContext<TData> {
   filterKind: CellFilterKind;
 }
 
+/**
+ * One value of a multi-valued cell. `label` is what the menu shows; `filter`
+ * is the text matched with contains/notContains — they differ on columns that
+ * display option labels but filter on raw keys (multi-select attributes).
+ */
+export interface CellSplitValue {
+  label: string;
+  filter: string;
+}
+
 export interface UseCellContextMenuOptions<TData> {
   /**
    * When false, the menu offers Copy only. For grids whose filtering is
@@ -92,7 +101,7 @@ export interface UseCellContextMenuOptions<TData> {
    * contains/notContains) plus an "Entire cell" item; exactly one value
    * filters with contains directly; null/empty means the cell is single-valued.
    */
-  splitValues?: (ctx: CellMenuContext<TData>) => string[] | null;
+  splitValues?: (ctx: CellMenuContext<TData>) => CellSplitValue[] | null;
   /**
    * Extra items rendered above the filter items, separated by a divider —
    * how the ADR grid keeps its row actions (Edit / Preview / …) in the same
@@ -115,8 +124,12 @@ export interface CellContextMenu {
     onPointerCancel: (event: React.PointerEvent) => void;
     onClickCapture: (event: React.MouseEvent) => void;
   };
-  /** Spread into the wrapper's `sx` alongside the page's own. */
-  sx: SxProps<Theme>;
+  /**
+   * Spread into the wrapper's `sx` alongside the page's own. Deliberately a
+   * plain object (not `SxProps`) so it composes into sx literals without
+   * exploding the union type.
+   */
+  sx: Record<string, string>;
   /** Render once, after the grid. */
   menu: ReactElement;
 }
@@ -126,7 +139,7 @@ interface MenuState<TData> {
   y: number;
   ctx: CellMenuContext<TData>;
   /** splitValues() result, captured at open. */
-  values: string[] | null;
+  values: CellSplitValue[] | null;
   /** Whether the clicked column had an active filter at open. */
   hasColumnFilter: boolean;
 }
@@ -139,7 +152,7 @@ function apiOf<TData>(source: GridApiSource<TData>): GridApi<TData> | null {
 }
 
 /** Suppress the iOS long-press callout — the pointer path owns the gesture. */
-const cellContextMenuSx: SxProps<Theme> = {
+const cellContextMenuSx: Record<string, string> = {
   WebkitTouchCallout: "none",
 };
 
@@ -325,7 +338,7 @@ export function useCellContextMenu<TData = unknown>(
       }
       const model =
         menuState.values && menuState.values.length === 1
-          ? buildContainsModel(menuState.values[0], exclude)
+          ? buildContainsModel(menuState.values[0].filter, exclude)
           : (exclude ? buildExcludeModel : buildMatchModel)(
               menuState.ctx.filterKind,
               menuState.ctx.filterValue,
@@ -415,11 +428,11 @@ export function useCellContextMenu<TData = unknown>(
         )}
         {stage !== "root" &&
           (menuState?.values ?? []).slice(0, MAX_SPLIT_VALUES).map((value) => (
-            <MenuItem key={value} onClick={() => handlePickValue(value, pickExclude)}>
+            <MenuItem key={value.filter} onClick={() => handlePickValue(value.filter, pickExclude)}>
               <ListItemIcon>
                 <MaterialSymbol icon={pickExclude ? "block" : "filter_alt"} size={20} />
               </ListItemIcon>
-              <ListItemText>{value}</ListItemText>
+              <ListItemText>{value.label}</ListItemText>
             </MenuItem>
           ))}
         {stage !== "root" && <Divider />}
