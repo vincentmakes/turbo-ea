@@ -31,6 +31,8 @@ The Decisions sub-tab is the **master registry of Architecture Decision Records 
 
 ADRs document important architecture decisions along with their context, consequences, and alternatives considered. Decisions emitted by the TurboLens Architect wizard land here as drafts so reviewers can sign off.
 
+The grid can also be **grouped by status** via the *Group by* button next to the search box: draft, in review and signed decisions collapse under their own headers, and the header checkbox selects the whole group for a bulk export.
+
 #### Grid columns
 
 The ADR grid mirrors the Inventory grid layout:

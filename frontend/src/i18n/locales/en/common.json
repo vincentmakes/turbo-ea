@@ -367,5 +367,10 @@
   "portal.signInError": "Sign-in failed. Please try again.",
   "portal.signingIn": "Signing you in…",
   "grid.freezeColumn": "Freeze column",
-  "grid.unfreezeColumn": "Unfreeze column"
+  "grid.unfreezeColumn": "Unfreeze column",
+  "groupBy.label": "Group by",
+  "groupBy.buttonActive": "Group by: {{label}}",
+  "groupBy.none": "No grouping",
+  "groupBy.notSet": "Not set",
+  "groupBy.selectGroup": "Select all in {{group}}"
 }

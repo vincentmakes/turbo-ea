@@ -367,5 +367,10 @@
   "portal.signInError": "Error al iniciar sesión. Inténtalo de nuevo.",
   "portal.signingIn": "Iniciando sesión…",
   "grid.freezeColumn": "Fijar columna",
-  "grid.unfreezeColumn": "Liberar columna"
+  "grid.unfreezeColumn": "Liberar columna",
+  "groupBy.label": "Agrupar por",
+  "groupBy.buttonActive": "Agrupar por: {{label}}",
+  "groupBy.none": "Sin agrupación",
+  "groupBy.notSet": "Sin definir",
+  "groupBy.selectGroup": "Seleccionar todo en {{group}}"
 }

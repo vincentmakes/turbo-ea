@@ -115,7 +115,7 @@ interface Props {
   onResetColumns?: () => void;
 }
 
-const STATUSES: RiskStatus[] = [
+export const STATUSES: RiskStatus[] = [
   "identified",
   "analysed",
   "mitigation_planned",
@@ -125,7 +125,7 @@ const STATUSES: RiskStatus[] = [
   "accepted",
   "closed",
 ];
-const CATEGORIES: RiskCategory[] = [
+export const CATEGORIES: RiskCategory[] = [
   "security",
   "compliance",
   "operational",
@@ -134,7 +134,7 @@ const CATEGORIES: RiskCategory[] = [
   "reputational",
   "strategic",
 ];
-const LEVELS: RiskLevel[] = ["critical", "high", "medium", "low"];
+export const LEVELS: RiskLevel[] = ["critical", "high", "medium", "low"];
 const SOURCES: RiskSourceType[] = ["manual", "compliance"];
 
 const MIN_WIDTH = 220;

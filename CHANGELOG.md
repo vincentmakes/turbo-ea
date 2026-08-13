@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - **Group the inventory by any single-select attribute, subtype, lifecycle phase, or approval status.** A new "Group by" picker on the Inventory page shows collapsible group headers with counts; cards without a value land in a "Not set" group at the top, and each header carries a checkbox that selects the whole group for mass edit — reclassifying a batch of cards is now expand, select all, bulk set. The grouping persists across reloads, is stored in saved views, and can be shared via a `?group_by=` URL ([discussion #933](https://github.com/vincentmakes/turbo-ea/discussions/933)).
+- **The Risk Register and the Decisions grid can be grouped too.** The same "Group by" control now appears on the Risk Register (group by status, category, initial/residual level, or owner) and on the decisions grid in EA Delivery and GRC → Governance (group by status). The grouping engine is shared across all three grids.
 - **Jump from a portfolio report group straight to the matching inventory rows.** The group drawer in the Portfolio and Flexible Portfolio reports has a "View in inventory" button that opens the inventory pre-filtered to that group — including the "not assigned" bucket — so you can spot a misclassification in the report and fix it in the inventory ([discussion #933](https://github.com/vincentmakes/turbo-ea/discussions/933)).
 
 ## [2.52.0] - 2026-08-12

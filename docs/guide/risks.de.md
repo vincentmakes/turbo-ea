@@ -2,6 +2,8 @@
 
 Das **Risikoregister** erfasst Architektur-Risiken über ihren gesamten Lebenszyklus — von der Identifikation über Minderung, Rest-Bewertung und Überwachung bis zum Abschluss (oder zur formalen Akzeptanz). Es lebt als Reiter **Risk** im [GRC-Modul](grc.md) unter `/grc?tab=risk`.
 
+Das Register-Raster lässt sich **gruppieren**: Die Schaltfläche *Gruppieren nach* in der Tabellen-Symbolleiste ordnet Risiken unter ein- und ausklappbaren Überschriften nach Status, Kategorie, Anfangs- oder Restniveau oder Verantwortlichem an, mit einer Gruppe „Nicht gesetzt“ ganz oben — praktisch, um in einem Review Bucket für Bucket durch das Register zu gehen.
+
 ## TOGAF-Ausrichtung
 
 Das Register setzt den Architektur-Risikomanagement-Prozess aus **TOGAF ADM Phase G — Implementation Governance** (TOGAF 10 §27) um:

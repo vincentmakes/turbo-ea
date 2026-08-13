@@ -367,5 +367,10 @@
   "portal.signInError": "Falha ao entrar. Tente novamente.",
   "portal.signingIn": "Entrando…",
   "grid.freezeColumn": "Fixar coluna",
-  "grid.unfreezeColumn": "Libertar coluna"
+  "grid.unfreezeColumn": "Libertar coluna",
+  "groupBy.label": "Agrupar por",
+  "groupBy.buttonActive": "Agrupar por: {{label}}",
+  "groupBy.none": "Sem agrupamento",
+  "groupBy.notSet": "Não definido",
+  "groupBy.selectGroup": "Selecionar tudo em {{group}}"
 }

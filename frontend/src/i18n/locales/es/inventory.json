@@ -253,10 +253,5 @@
   "export.currentViewHint": "Refleja la cuadrícula en pantalla: no apta para reimportar",
   "export.waitingForRelations": "Esperando a que terminen de cargarse las columnas de relaciones…",
   "export.viewSheetName": "Vista",
-  "columns.id": "ID",
-  "groupBy.label": "Agrupar por",
-  "groupBy.buttonActive": "Agrupar por: {{label}}",
-  "groupBy.none": "Sin agrupación",
-  "groupBy.notSet": "Sin definir",
-  "groupBy.selectGroup": "Seleccionar todo en {{group}}"
+  "columns.id": "ID"
 }

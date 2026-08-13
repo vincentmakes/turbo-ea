@@ -2,6 +2,8 @@
 
 **Risikoregistret** fanger arkitekturrisici gennem hele deres livscyklus — fra identifikation til afhjælpning, residualvurdering, overvågning og lukning (eller formel accept). Det lever som **Risk**-fanen i [GRC-modulet](grc.md) på `/grc?tab=risk`.
 
+Registertabellen kan **grupperes**: knappen *Gruppér efter* i tabellens værktøjslinje ordner risici under sammenfoldelige overskrifter efter status, kategori, indledende eller resterende niveau eller ejer, med gruppen »Ikke angivet« øverst — praktisk til at gennemgå registret gruppe for gruppe på et review-møde.
+
 ## TOGAF-tilpasning
 
 Registret implementerer Architecture Risk Management-processen fra **TOGAF ADM Fase G — Implementation Governance** (TOGAF 10 §27):

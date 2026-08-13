@@ -54,10 +54,15 @@ import CreateRiskDialog from "./CreateRiskDialog";
 import RiskImportDialog from "./RiskImportDialog";
 import RiskFilterSidebar, {
   CardFilterOption,
+  CATEGORIES,
   EMPTY_RISK_FILTERS,
+  LEVELS,
   OwnerOption,
   RiskFilters,
+  STATUSES,
 } from "./RiskFilterSidebar";
+import { type GroupAxis, type GroupedRow } from "@/components/grid/rowGrouping";
+import { GroupByMenuButton, useRowGrouping } from "@/components/grid/useRowGrouping";
 import RiskMatrix, { RiskMatrixSelection } from "./RiskMatrix";
 import { emptySeed, RiskDialogSeed, riskLevelChipColor } from "./riskDefaults";
 
@@ -114,6 +119,8 @@ interface RiskPrefs {
   /** colIds frozen to the leading edge via the header pin. */
   frozenColumns: string[];
   sortModel: { colId: string; sort: "asc" | "desc" }[];
+  /** Active group-by axis key (see the groupAxes memo), or null. */
+  groupBy: string | null;
 }
 
 function loadRiskPrefs(): RiskPrefs {
@@ -122,6 +129,7 @@ function loadRiskPrefs(): RiskPrefs {
     visibleColumns: ALL_RISK_COLUMN_IDS,
     frozenColumns: [],
     sortModel: [],
+    groupBy: null,
   };
   try {
     const raw = localStorage.getItem(RISK_PREFS_STORAGE_KEY);
@@ -155,6 +163,7 @@ function loadRiskPrefs(): RiskPrefs {
               (s.sort === "asc" || s.sort === "desc"),
           )
         : [],
+      groupBy: typeof parsed.groupBy === "string" ? parsed.groupBy : null,
     };
   } catch {
     return defaults;
@@ -202,6 +211,7 @@ export default function RiskRegisterPage() {
   const [frozenColumns, setFrozenColumns] = useState<string[]>(
     initialPrefs.frozenColumns,
   );
+  const [groupBy, setGroupByRaw] = useState<string | null>(initialPrefs.groupBy);
 
   const persistRiskPrefs = useCallback(
     (next: Partial<RiskPrefs>) => {
@@ -210,10 +220,19 @@ export default function RiskRegisterPage() {
         visibleColumns: Array.from(visibleColumns),
         frozenColumns,
         sortModel,
+        groupBy,
         ...next,
       });
     },
-    [sidebarCollapsed, visibleColumns, frozenColumns, sortModel],
+    [sidebarCollapsed, visibleColumns, frozenColumns, sortModel, groupBy],
+  );
+
+  const setGroupBy = useCallback(
+    (next: string | null) => {
+      setGroupByRaw(next);
+      persistRiskPrefs({ groupBy: next });
+    },
+    [persistRiskPrefs],
   );
 
   // Per-column freeze toggles in the header, persisted with the other grid
@@ -382,6 +401,59 @@ export default function RiskRegisterPage() {
       );
     });
   }, [rows, matrixSelection, matrixView]);
+
+  // ── Group-by (collapsible group headers — shared hook, discussion #933).
+  //    Status / category / level axes use the sidebar's canonical lists;
+  //    the owner axis derives its vocabulary from the loaded rows. ──
+  const groupAxes = useMemo<GroupAxis<Risk>[]>(() => {
+    const owners = new Map<string, string>();
+    for (const r of rows) {
+      if (r.owner_id) owners.set(r.owner_id, r.owner_name ?? r.owner_id);
+    }
+    return [
+      {
+        key: "status",
+        label: t("risks.col.status"),
+        groupKeyOf: (r) => r.status,
+        vocab: STATUSES.map((s) => ({ key: s, label: t(`risks.status.${s}`) })),
+      },
+      {
+        key: "category",
+        label: t("risks.col.category"),
+        groupKeyOf: (r) => r.category,
+        vocab: CATEGORIES.map((c) => ({ key: c, label: t(`risks.category.${c}`) })),
+      },
+      {
+        key: "initial_level",
+        label: t("risks.col.initialLevel"),
+        groupKeyOf: (r) => r.initial_level,
+        vocab: LEVELS.map((l) => ({ key: l, label: t(`risks.level.${l}`) })),
+      },
+      {
+        key: "residual_level",
+        label: t("risks.col.residualLevel"),
+        groupKeyOf: (r) => r.residual_level,
+        vocab: LEVELS.map((l) => ({ key: l, label: t(`risks.level.${l}`) })),
+      },
+      {
+        key: "owner",
+        label: t("risks.col.owner"),
+        groupKeyOf: (r) => r.owner_id,
+        vocab: [...owners]
+          .map(([id, name]) => ({ key: id, label: name }))
+          .sort((a, b) => a.label.localeCompare(b.label, i18n.language)),
+      },
+    ];
+  }, [rows, t, i18n.language]);
+
+  // No row selection on this grid, so the header checkbox is hidden — here
+  // grouping is a reading aid (collapse the noise, see counts per bucket).
+  const grouping = useRowGrouping<Risk>(gridRef, {
+    rows: filteredRows,
+    axes: groupAxes,
+    groupBy,
+    selectable: false,
+  });
 
   const matrixForView = metrics
     ? matrixView === "initial"
@@ -778,6 +850,7 @@ export default function RiskRegisterPage() {
                 })}
                 sx={{ bgcolor: "action.hover", fontWeight: 500 }}
               />
+              <GroupByMenuButton axes={groupAxes} groupBy={groupBy} onChange={setGroupBy} />
             </Stack>
             <Stack direction="row" spacing={1}>
               <Button
@@ -825,22 +898,28 @@ export default function RiskRegisterPage() {
               key={isRtl ? "rtl" : "ltr"}
               enableRtl={isRtl}
               ref={gridRef}
-              rowData={filteredRows}
+              rowData={grouping.rowData}
               columnDefs={visibleColumnDefs}
               defaultColDef={defaultColDef}
               loading={loading}
               animateRows
-              getRowId={(p) => p.data.id}
-              getRowStyle={(p) =>
-                p.data?.status === "closed" || p.data?.status === "accepted"
+              {...grouping.gridProps}
+              getRowId={(p) => grouping.groupRowId(p.data)}
+              getRowStyle={(p) => {
+                // Headers are member clones — don't dim one whose
+                // representative happens to be closed/accepted.
+                if (grouping.isGroupRow(p.data as GroupedRow<Risk>)) return undefined;
+                return p.data?.status === "closed" || p.data?.status === "accepted"
                   ? { opacity: 0.65 }
-                  : undefined
-              }
+                  : undefined;
+              }}
               initialState={
                 sortModel.length > 0 ? { sort: { sortModel } } : undefined
               }
               onSortChanged={onSortChanged}
+              onFilterChanged={grouping.handleFilterChanged}
               onRowClicked={(e: RowClickedEvent<Risk>) => {
+                if (grouping.isGroupRow(e.data as GroupedRow<Risk>)) return;
                 if (e.data) navigate(`/grc/risks/${e.data.id}`);
               }}
             />

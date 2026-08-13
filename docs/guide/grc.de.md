@@ -27,6 +27,8 @@ Der Entscheidungen-Unter-Reiter ist das **zentrale Register der Architecture Dec
 
 ADRs dokumentieren wichtige Architekturentscheidungen samt Kontext, Konsequenzen und erwogenen Alternativen. Vom TurboLens-Architect-Wizard erzeugte Entscheidungen landen hier als Entwürfe für Reviewer.
 
+Das Raster lässt sich über die Schaltfläche *Gruppieren nach* neben dem Suchfeld auch **nach Status gruppieren**: Entwürfe, Entscheidungen in Prüfung und unterzeichnete Entscheidungen klappen unter eigenen Überschriften zusammen, und das Kontrollkästchen in der Überschrift wählt die ganze Gruppe für einen Sammelexport aus.
+
 #### Tabellenspalten
 
 Das ADR-Grid orientiert sich am Layout des Inventar-Grids:

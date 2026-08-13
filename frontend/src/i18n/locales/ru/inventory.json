@@ -253,10 +253,5 @@
   "export.currentViewHint": "Отражает таблицу на экране — не подходит для повторного импорта",
   "export.waitingForRelations": "Ожидание загрузки столбцов связей…",
   "export.viewSheetName": "Вид",
-  "columns.id": "ID",
-  "groupBy.label": "Группировать по",
-  "groupBy.buttonActive": "Группировать по: {{label}}",
-  "groupBy.none": "Без группировки",
-  "groupBy.notSet": "Не задано",
-  "groupBy.selectGroup": "Выбрать все в {{group}}"
+  "columns.id": "ID"
 }

@@ -253,10 +253,5 @@
   "export.currentViewHint": "Entspricht der angezeigten Tabelle – nicht für den Reimport",
   "export.waitingForRelations": "Warten, bis die Beziehungsspalten geladen sind…",
   "export.viewSheetName": "Ansicht",
-  "columns.id": "ID",
-  "groupBy.label": "Gruppieren nach",
-  "groupBy.buttonActive": "Gruppieren nach: {{label}}",
-  "groupBy.none": "Keine Gruppierung",
-  "groupBy.notSet": "Nicht gesetzt",
-  "groupBy.selectGroup": "Alle in {{group}} auswählen"
+  "columns.id": "ID"
 }

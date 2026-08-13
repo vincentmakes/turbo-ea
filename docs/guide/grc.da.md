@@ -31,6 +31,8 @@ Decisions-underfanen er **hovedregistret over Architecture Decision Records (ADR
 
 ADR'er dokumenterer vigtige arkitekturbeslutninger sammen med deres kontekst, konsekvenser og overvejede alternativer. Beslutninger udsendt af TurboLens Architect-guiden lander her som kladder, så reviewere kan underskrive.
 
+Tabellen kan også **grupperes efter status** via knappen *Gruppér efter* ved siden af søgefeltet: kladder, beslutninger under review og underskrevne beslutninger foldes sammen under hver deres overskrift, og afkrydsningsfeltet i overskriften vælger hele gruppen til en samlet eksport.
+
 #### Gitterkolonner
 
 ADR-gitteret afspejler Inventar-gitter-layoutet:

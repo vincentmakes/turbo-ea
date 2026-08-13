@@ -27,6 +27,8 @@ Le sous-onglet Décisions est le **registre principal des Architecture Decision 
 
 Les ADR documentent les décisions d'architecture importantes ainsi que leur contexte, conséquences et alternatives envisagées. Les décisions émises par l'assistant TurboLens Architect arrivent ici sous forme de brouillons à valider.
 
+La grille peut aussi être **regroupée par statut** via le bouton *Grouper par* à côté du champ de recherche : brouillons, décisions en revue et décisions signées se replient sous leurs propres en-têtes, et la case de l'en-tête sélectionne tout le groupe pour un export groupé.
+
 #### Colonnes du tableau
 
 La grille ADR reprend la disposition de la grille Inventaire :

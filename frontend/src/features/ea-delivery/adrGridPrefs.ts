@@ -49,6 +49,8 @@ export interface AdrGridPrefs {
   columnState?: ColumnState[];
   /** AG Grid getFilterModel() snapshot — active per-column filters. */
   columnFilterModel?: Record<string, unknown>;
+  /** Active group-by axis key (currently only "status"), or null. */
+  groupBy?: string | null;
 }
 
 export function loadAdrGridPrefs(): AdrGridPrefs | null {

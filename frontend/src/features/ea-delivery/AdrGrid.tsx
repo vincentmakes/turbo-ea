@@ -20,6 +20,8 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
+import { type GroupAxis, type GroupedRow } from "@/components/grid/rowGrouping";
+import { GroupByMenuButton, useRowGrouping } from "@/components/grid/useRowGrouping";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useIsRtl } from "@/hooks/useIsRtl";
@@ -171,6 +173,36 @@ export default function AdrGrid({
   const [hasColumnFilters, setHasColumnFilters] = useState(
     () => Object.keys(columnFilterModelRef.current).length > 0,
   );
+
+  // ── Group-by (collapsible status groups — shared hook, discussion #933) ──
+  const [groupBy, setGroupByState] = useState<string | null>(
+    () => initialPrefs?.groupBy ?? null,
+  );
+  const setGroupBy = useCallback((next: string | null) => {
+    setGroupByState(next);
+    updateAdrGridPrefs({ groupBy: next });
+  }, []);
+
+  const groupAxes = useMemo<GroupAxis<ArchitectureDecision>[]>(
+    () => [
+      {
+        key: "status",
+        label: t("adr.grid.status"),
+        groupKeyOf: (a) => a.status,
+        vocab: Object.entries(STATUS_CHIP_PROPS).map(([key, cfg]) => ({
+          key,
+          label: t(cfg.label_key),
+        })),
+      },
+    ],
+    [t],
+  );
+
+  const grouping = useRowGrouping<ArchitectureDecision>(gridRef, {
+    rows: adrs,
+    axes: groupAxes,
+    groupBy,
+  });
 
   const typeColorMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -482,10 +514,13 @@ export default function AdrGrid({
     if (!api) return;
     const model = api.getFilterModel() ?? {};
     setHasColumnFilters(Object.keys(model).length > 0);
+    // Keep the group headers' representative members in sync with the active
+    // column + quick filters (see useRowGrouping).
+    grouping.handleFilterChanged();
     if (applyingFilterRef.current) return;
     columnFilterModelRef.current = model;
     updateAdrGridPrefs({ columnFilterModel: model });
-  }, []);
+  }, [grouping.handleFilterChanged]);
 
   const clearColumnFilters = useCallback(() => {
     // handleFilterChanged persists the resulting empty model.
@@ -546,6 +581,8 @@ export default function AdrGrid({
 
   const onRowClicked = useCallback(
     (event: RowClickedEvent<ArchitectureDecision>) => {
+      // Collapse/expand is handled by the group header renderer's own click.
+      if (grouping.isGroupRow(event.data as GroupedRow<ArchitectureDecision>)) return;
       // Ignore clicks on the selection checkbox column
       if (event.event && (event.event as MouseEvent).target) {
         const target = (event.event as MouseEvent).target as HTMLElement;
@@ -555,7 +592,7 @@ export default function AdrGrid({
         navigate(`/ea-delivery/adr/${event.data.id}`);
       }
     },
-    [navigate],
+    [navigate, grouping.isGroupRow],
   );
 
   const onSelectionChanged = useCallback(
@@ -580,13 +617,16 @@ export default function AdrGrid({
       const rowIndex = Number(rowEl.getAttribute("row-index"));
       const rowNode = gridRef.current?.api?.getDisplayedRowAtIndex(rowIndex);
       if (!rowNode?.data) return;
+      // Group header rows are member clones — offering Edit/Delete on one
+      // would act on an arbitrary ADR the user never picked.
+      if (grouping.isGroupRow(rowNode.data as GroupedRow<ArchitectureDecision>)) return;
       setContextMenu({
         mouseX: event.clientX,
         mouseY: event.clientY,
         adr: rowNode.data,
       });
     },
-    [],
+    [grouping.isGroupRow],
   );
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
@@ -641,6 +681,9 @@ export default function AdrGrid({
               },
             }}
           />
+          <Box sx={{ flexShrink: 0 }}>
+            <GroupByMenuButton axes={groupAxes} groupBy={groupBy} onChange={setGroupBy} />
+          </Box>
           {hasColumnFilters && (
             <Button
               variant="outlined"
@@ -690,7 +733,7 @@ export default function AdrGrid({
             key={isRtl ? "rtl" : "ltr"}
             enableRtl={isRtl}
             ref={gridRef}
-            rowData={adrs}
+            rowData={grouping.rowData}
             columnDefs={frozenColumnDefs}
             defaultColDef={defaultColDef}
             quickFilterText={quickFilterText}
@@ -703,6 +746,7 @@ export default function AdrGrid({
             onSelectionChanged={onSelectionChanged}
             onGridReady={() => setGridReady(true)}
             onFilterChanged={handleFilterChanged}
+            onModelUpdated={grouping.handleModelUpdated}
             onSortChanged={handleSortChanged}
             onDragStopped={captureColumnState}
             onColumnPinned={captureColumnState}
@@ -710,7 +754,8 @@ export default function AdrGrid({
             headerHeight={44}
             suppressCellFocus
             animateRows={false}
-            getRowId={(params) => params.data.id}
+            {...grouping.gridProps}
+            getRowId={(params) => grouping.groupRowId(params.data)}
             domLayout={autoHeight ? "autoHeight" : undefined}
           />
         </Box>

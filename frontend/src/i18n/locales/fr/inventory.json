@@ -253,10 +253,5 @@
   "export.currentViewHint": "Reflète la grille affichée — non réimportable",
   "export.waitingForRelations": "En attente du chargement des colonnes de relations…",
   "export.viewSheetName": "Vue",
-  "columns.id": "ID",
-  "groupBy.label": "Grouper par",
-  "groupBy.buttonActive": "Grouper par : {{label}}",
-  "groupBy.none": "Aucun regroupement",
-  "groupBy.notSet": "Non défini",
-  "groupBy.selectGroup": "Tout sélectionner dans {{group}}"
+  "columns.id": "ID"
 }

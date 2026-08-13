@@ -367,5 +367,10 @@
   "portal.signInError": "Не удалось войти. Повторите попытку.",
   "portal.signingIn": "Выполняется вход…",
   "grid.freezeColumn": "Закрепить столбец",
-  "grid.unfreezeColumn": "Открепить столбец"
+  "grid.unfreezeColumn": "Открепить столбец",
+  "groupBy.label": "Группировать по",
+  "groupBy.buttonActive": "Группировать по: {{label}}",
+  "groupBy.none": "Без группировки",
+  "groupBy.notSet": "Не задано",
+  "groupBy.selectGroup": "Выбрать все в {{group}}"
 }

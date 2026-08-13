@@ -367,5 +367,10 @@
   "portal.signInError": "Accesso non riuscito. Riprova.",
   "portal.signingIn": "Accesso in corso…",
   "grid.freezeColumn": "Blocca colonna",
-  "grid.unfreezeColumn": "Sblocca colonna"
+  "grid.unfreezeColumn": "Sblocca colonna",
+  "groupBy.label": "Raggruppa per",
+  "groupBy.buttonActive": "Raggruppa per: {{label}}",
+  "groupBy.none": "Nessun raggruppamento",
+  "groupBy.notSet": "Non impostato",
+  "groupBy.selectGroup": "Seleziona tutto in {{group}}"
 }

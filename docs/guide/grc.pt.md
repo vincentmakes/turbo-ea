@@ -27,6 +27,8 @@ A sub-aba Decisões é o **registro principal dos Architecture Decision Records 
 
 Os ADR documentam decisões de arquitetura importantes junto com seu contexto, consequências e alternativas consideradas. As decisões emitidas pelo assistente TurboLens Architect chegam aqui como rascunhos para aprovação.
 
+A grelha também pode ser **agrupada por estado** através do botão *Agrupar por* junto à caixa de pesquisa: rascunhos, decisões em revisão e decisões assinadas recolhem-se sob os seus próprios cabeçalhos, e a caixa de seleção do cabeçalho seleciona todo o grupo para uma exportação em massa.
+
 #### Colunas da tabela
 
 A grade de ADR espelha o layout da grade de Inventário:

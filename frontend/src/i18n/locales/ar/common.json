@@ -367,5 +367,10 @@
   "portal.signInError": "فشل تسجيل الدخول. يرجى المحاولة مرة أخرى.",
   "portal.signingIn": "جارٍ تسجيل دخولك…",
   "grid.freezeColumn": "تثبيت العمود",
-  "grid.unfreezeColumn": "إلغاء تثبيت العمود"
+  "grid.unfreezeColumn": "إلغاء تثبيت العمود",
+  "groupBy.label": "تجميع حسب",
+  "groupBy.buttonActive": "تجميع حسب: {{label}}",
+  "groupBy.none": "بدون تجميع",
+  "groupBy.notSet": "غير محدد",
+  "groupBy.selectGroup": "تحديد الكل في {{group}}"
 }

@@ -27,6 +27,8 @@ La sub-pestaña Decisiones es el **registro maestro de los Architecture Decision
 
 Los ADR documentan decisiones de arquitectura importantes junto con su contexto, consecuencias y alternativas consideradas. Las decisiones emitidas por el asistente TurboLens Architect aterrizan aquí como borradores para revisión.
 
+La cuadrícula también puede **agruparse por estado** mediante el botón *Agrupar por* junto al cuadro de búsqueda: los borradores, las decisiones en revisión y las firmadas se pliegan bajo sus propias cabeceras, y la casilla de la cabecera selecciona todo el grupo para una exportación masiva.
+
 #### Columnas de la tabla
 
 La cuadrícula de ADR refleja el diseño de la cuadrícula de Inventario:

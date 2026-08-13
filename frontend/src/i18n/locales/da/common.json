@@ -367,5 +367,10 @@
   "portal.signInError": "Login mislykkedes. Prøv igen.",
   "portal.signingIn": "Logger dig ind…",
   "grid.freezeColumn": "Frys kolonne",
-  "grid.unfreezeColumn": "Frigiv kolonne"
+  "grid.unfreezeColumn": "Frigiv kolonne",
+  "groupBy.label": "Gruppér efter",
+  "groupBy.buttonActive": "Gruppér efter: {{label}}",
+  "groupBy.none": "Ingen gruppering",
+  "groupBy.notSet": "Ikke angivet",
+  "groupBy.selectGroup": "Vælg alle i {{group}}"
 }

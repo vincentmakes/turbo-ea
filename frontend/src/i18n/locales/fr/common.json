@@ -367,5 +367,10 @@
   "portal.signInError": "Échec de la connexion. Veuillez réessayer.",
   "portal.signingIn": "Connexion en cours…",
   "grid.freezeColumn": "Figer la colonne",
-  "grid.unfreezeColumn": "Libérer la colonne"
+  "grid.unfreezeColumn": "Libérer la colonne",
+  "groupBy.label": "Grouper par",
+  "groupBy.buttonActive": "Grouper par : {{label}}",
+  "groupBy.none": "Aucun regroupement",
+  "groupBy.notSet": "Non défini",
+  "groupBy.selectGroup": "Tout sélectionner dans {{group}}"
 }

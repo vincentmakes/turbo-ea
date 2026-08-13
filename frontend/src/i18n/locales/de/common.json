@@ -367,5 +367,10 @@
   "portal.signInError": "Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.",
   "portal.signingIn": "Sie werden angemeldet …",
   "grid.freezeColumn": "Spalte fixieren",
-  "grid.unfreezeColumn": "Spalte lösen"
+  "grid.unfreezeColumn": "Spalte lösen",
+  "groupBy.label": "Gruppieren nach",
+  "groupBy.buttonActive": "Gruppieren nach: {{label}}",
+  "groupBy.none": "Keine Gruppierung",
+  "groupBy.notSet": "Nicht gesetzt",
+  "groupBy.selectGroup": "Alle in {{group}} auswählen"
 }

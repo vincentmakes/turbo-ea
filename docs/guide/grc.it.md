@@ -27,6 +27,8 @@ La sotto-scheda Decisioni è il **registro principale degli Architecture Decisio
 
 Gli ADR documentano importanti decisioni architetturali insieme al loro contesto, alle conseguenze e alle alternative considerate. Le decisioni emesse dalla procedura guidata TurboLens Architect arrivano qui come bozze da approvare.
 
+La griglia può anche essere **raggruppata per stato** tramite il pulsante *Raggruppa per* accanto alla casella di ricerca: bozze, decisioni in revisione e decisioni firmate si comprimono sotto le proprie intestazioni, e la casella di controllo nell'intestazione seleziona l'intero gruppo per un'esportazione in blocco.
+
 #### Colonne della tabella
 
 La griglia ADR rispecchia il layout della griglia Inventario:
