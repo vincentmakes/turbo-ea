@@ -373,6 +373,7 @@
   "grid.copyValue": "Копировать значение",
   "grid.copied": "Значение скопировано в буфер обмена",
   "grid.clearColumnFilter": "Очистить фильтр столбца",
+  "grid.clearFilter": "Очистить фильтр",
   "grid.entireCell": "Вся ячейка",
   "groupBy.label": "Группировать по",
   "groupBy.buttonActive": "Группировать по: {{label}}",

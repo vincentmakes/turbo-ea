@@ -44,6 +44,8 @@ import BulkSelectionBar, { BulkSelectionAction } from "@/components/BulkSelectio
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
 import { useCellContextMenu } from "@/components/grid/useCellContextMenu";
+import { useFacetColumnSync } from "@/components/grid/useFacetColumnSync";
+import { arrayFacetBinding, type FacetBinding } from "@/components/grid/facetColumnSync";
 import { hasPermission } from "@/components/RequirePermission";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -144,6 +146,82 @@ function savePrefs(p: ResourcePrefs) {
 
 /** Rows come from two tables, so the id alone is not unique. */
 const rowKey = (r: { kind: string; id: string }) => `${r.kind}:${r.id}`;
+
+/**
+ * Cell-menu "Show matching" bindings onto the sidebar's server-side facets
+ * (see components/grid/useFacetColumnSync). This grid has no client column
+ * filters, so every binding is facet-only — the filter is applied by
+ * re-querying, which is what makes it correct beyond the loaded page.
+ *
+ * Unbound: `size` / `created_at` (no facet), `url` (no facet), `actions`.
+ * Exported for tests.
+ */
+export function buildResourceFacetBindings(
+  filtersRef: { current: ResourceFilters },
+  setFilters: (updater: (prev: ResourceFilters) => ResourceFilters) => void,
+): Record<string, FacetBinding<RepositoryResource>> {
+  /** A multi-select facet holding raw cell values. */
+  const many = (
+    read: (f: ResourceFilters) => string[],
+    write: (f: ResourceFilters, values: string[]) => ResourceFilters,
+  ): FacetBinding<RepositoryResource> =>
+    arrayFacetBinding<RepositoryResource>({
+      get: () => read(filtersRef.current),
+      set: (values) => setFilters((prev) => write(prev, values)),
+      columnFilter: false,
+    });
+
+  return {
+    kind: many(
+      (f) => f.kinds,
+      (f, v) => ({ ...f, kinds: v as ResourceKind[] }),
+    ),
+    card_type: many(
+      (f) => f.cardTypes,
+      (f, v) => ({ ...f, cardTypes: v }),
+    ),
+    category: many(
+      (f) => f.categories,
+      (f, v) => ({ ...f, categories: v }),
+    ),
+    mime_type: many(
+      (f) => f.mimeTypes,
+      (f, v) => ({ ...f, mimeTypes: v }),
+    ),
+    // The remaining three facets are single-valued, so they take the first
+    // (only) value the menu ever sets and clear on an empty list.
+    creator_name: {
+      // The facet keys on the uploader's id; the cell shows their name.
+      toFacetValue: (ctx) => ctx.data?.created_by ?? null,
+      getValues: () => (filtersRef.current.createdBy ? [filtersRef.current.createdBy] : []),
+      setValues: (values) => setFilters((prev) => ({ ...prev, createdBy: values[0] ?? "" })),
+      columnFilter: false,
+    },
+    name: {
+      toFacetValue: (ctx) => ctx.data?.name || null,
+      getValues: () => (filtersRef.current.search ? [filtersRef.current.search] : []),
+      setValues: (values) => setFilters((prev) => ({ ...prev, search: values[0] ?? "" })),
+      columnFilter: false,
+    },
+    card_name: {
+      toFacetValue: (ctx) => ctx.data?.card_id ?? null,
+      getValues: () => (filtersRef.current.card ? [filtersRef.current.card.id] : []),
+      // The facet stores a whole CardOption, so build it from the clicked row.
+      setValues: (values, ctx) =>
+        setFilters((prev) => ({
+          ...prev,
+          card: values[0]
+            ? {
+                id: values[0],
+                name: ctx.data?.card_name ?? "",
+                type: ctx.data?.card_type ?? "",
+              }
+            : null,
+        })),
+      columnFilter: false,
+    },
+  };
+}
 
 // ──────────────────────────────────────────────────────────────────────────
 // Component
@@ -419,9 +497,23 @@ export default function ResourcesAdmin() {
   // Cell menu, Copy only: this grid's filtering is server-side (sidebar
   // facets + pagination), so a client column filter would silently no-op —
   // filter items are disabled rather than offered and broken.
+  // …but "Show matching" still works, by driving the sidebar's own
+  // server-side facets instead: every binding is `columnFilter: false`, so
+  // the filter is applied by re-querying (correct across all pages) and is
+  // visible — and clearable — in the panel. "Filter out" stays unavailable:
+  // neither the sidebar nor `GET /resources` can express negation.
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+  const facetBindings = useMemo(() => buildResourceFacetBindings(filtersRef, setFilters), []);
+  const facetSync = useFacetColumnSync<RepositoryResource>(gridApiRef, {
+    bindings: facetBindings,
+    facetState: filters,
+  });
+
   const cellMenu = useCellContextMenu<RepositoryResource>(gridApiRef, {
     enableFilterItems: false,
     excludeColumns: (colId) => colId === "actions",
+    facetSync: facetSync.cellMenu,
   });
 
   const columnDefs: ColDef<RepositoryResource>[] = useMemo(

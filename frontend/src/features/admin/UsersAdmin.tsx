@@ -37,6 +37,8 @@ import type { User, SsoInvitation, AppRole } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
 import { useCellContextMenu } from "@/components/grid/useCellContextMenu";
+import { useFacetColumnSync } from "@/components/grid/useFacetColumnSync";
+import { arrayFacetBinding } from "@/components/grid/facetColumnSync";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import RolesAdmin from "@/features/admin/RolesAdmin";
 import UsersFilterSidebar, {
@@ -925,8 +927,40 @@ export default function UsersAdmin() {
     [columnFreeze.headerComponentParams],
   );
 
+  // "Show matching" also selects the value in the filter sidebar.
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+  const facetBindings = useMemo(
+    () => ({
+      role: arrayFacetBinding<User>({
+        get: () => filtersRef.current.roles,
+        set: (v) => setFilters((p) => ({ ...p, roles: v })),
+      }),
+      is_active: arrayFacetBinding<User>({
+        // The column's valueGetter already yields the facet's own tokens
+        // ("active" / "invited" / "inactive").
+        get: () => filtersRef.current.statuses,
+        set: (v) => setFilters((p) => ({ ...p, statuses: v as UserFilters["statuses"] })),
+      }),
+      auth_provider: arrayFacetBinding<User>({
+        // The facet is a two-way split; every non-SSO provider is "local".
+        toFacetValue: (ctx) =>
+          ctx.filterValue ? (String(ctx.filterValue) === "sso" ? "sso" : "local") : null,
+        get: () => filtersRef.current.authMethods,
+        set: (v) => setFilters((p) => ({ ...p, authMethods: v as UserFilters["authMethods"] })),
+      }),
+    }),
+    [],
+  );
+  const facetSync = useFacetColumnSync<User>(gridApiRef, {
+    bindings: facetBindings,
+    facetState: filters,
+  });
+
   // Right-click / long-press cell menu (Show matching, Filter out, …).
-  const cellMenu = useCellContextMenu<User>(gridApiRef);
+  const cellMenu = useCellContextMenu<User>(gridApiRef, {
+    facetSync: facetSync.cellMenu,
+  });
 
   // AG Grid v32 multi-select API — the checkbox selection column is
   // auto-generated. ``selectAll: "filtered"`` makes the header checkbox respect

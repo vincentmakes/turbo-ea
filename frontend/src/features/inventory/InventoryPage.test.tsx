@@ -2,7 +2,26 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import InventoryPage, { splitInventoryCellValues } from "./InventoryPage";
+import InventoryPage, {
+  splitInventoryCellValues,
+  buildInventoryFacetBindings,
+} from "./InventoryPage";
+import { EMPTY_VALUE, type Filters } from "./InventoryFilterSidebar";
+
+/** Baseline sidebar filter state for the facet-binding tests. */
+const EMPTY_FILTERS: Filters = {
+  types: [],
+  search: "",
+  subtypes: [],
+  lifecyclePhases: [],
+  dataQualityMin: null,
+  approvalStatuses: [],
+  showArchived: false,
+  attributes: {},
+  relations: {},
+  tagIds: [],
+  mineScope: null,
+};
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -1278,5 +1297,119 @@ describe("splitInventoryCellValues", () => {
     expect(
       splitInventoryCellValues(ctx({ colId: "core_name", displayValue: "NexaCore ERP" })),
     ).toBeNull();
+  });
+});
+
+describe("buildInventoryFacetBindings", () => {
+  const TYPE_CONFIG = {
+    key: "Application",
+    fields_schema: [
+      {
+        section: "General",
+        fields: [
+          { key: "hosting", type: "single_select", options: [] },
+          { key: "critical", type: "boolean" },
+          { key: "vendorName", type: "text" },
+          { key: "cost", type: "cost" },
+        ],
+      },
+    ],
+  } as unknown as Parameters<typeof buildInventoryFacetBindings>[2];
+
+  function harness(initial?: Partial<Filters>) {
+    let filters = { ...EMPTY_FILTERS, ...initial } as Filters;
+    const ref = {
+      get current() {
+        return filters;
+      },
+    };
+    const setFilters = (fn: (prev: Filters) => Filters) => {
+      filters = fn(filters);
+    };
+    const bindings = buildInventoryFacetBindings(ref, setFilters, TYPE_CONFIG);
+    return { bindings, read: () => filters };
+  }
+
+  const ctx = (colId: string, filterValue: unknown) =>
+    ({ colId, filterValue, data: {}, displayValue: "", filterKind: "text" }) as never;
+
+  it("binds only the facet-backed columns", () => {
+    const { bindings } = harness();
+    expect(Object.keys(bindings).sort()).toEqual([
+      "attr_critical",
+      "attr_hosting",
+      "core_approval_status",
+      "core_lifecycle",
+      "core_subtype",
+      "core_type",
+    ]);
+    // Text/cost attributes filter with contains/min in the sidebar — never mirrored.
+    expect(bindings.attr_vendorName).toBeUndefined();
+    expect(bindings.attr_cost).toBeUndefined();
+  });
+
+  it("maps approval status to its facet and back", () => {
+    const { bindings, read } = harness();
+    expect(bindings.core_approval_status.toFacetValue(ctx("core_approval_status", "BROKEN"))).toBe(
+      "BROKEN",
+    );
+    bindings.core_approval_status.setValues(["BROKEN"]);
+    expect(read().approvalStatuses).toEqual(["BROKEN"]);
+    expect(bindings.core_approval_status.getValues()).toEqual(["BROKEN"]);
+    bindings.core_approval_status.setValues([]);
+    expect(read().approvalStatuses).toEqual([]);
+  });
+
+  it("maps blank cells to the (empty) option where the facet has one", () => {
+    const { bindings } = harness();
+    expect(bindings.core_subtype.toFacetValue(ctx("core_subtype", ""))).toBe(EMPTY_VALUE);
+    expect(bindings.core_lifecycle.toFacetValue(ctx("core_lifecycle", null))).toBe(EMPTY_VALUE);
+    // Approval status has no (empty) chip → falls back to a plain blank filter.
+    expect(bindings.core_approval_status.toFacetValue(ctx("core_approval_status", ""))).toBeNull();
+  });
+
+  it("resets dependent facets when the type changes (issue #686)", () => {
+    const { bindings, read } = harness({
+      types: ["ITComponent"],
+      subtypes: ["software"],
+      attributes: { hosting: ["cloud"] },
+      relations: { relOrgToApp: ["Acme"] },
+    });
+    bindings.core_type.setValues(["Application"]);
+    expect(read().types).toEqual(["Application"]);
+    expect(read().subtypes).toEqual([]);
+    expect(read().attributes).toEqual({});
+    expect(read().relations).toEqual({});
+  });
+
+  it("leaves state untouched when the type facet is set to what it already holds", () => {
+    const { bindings, read } = harness({ types: ["Application"], subtypes: ["saas"] });
+    const before = read();
+    bindings.core_type.setValues(["Application"]);
+    expect(read()).toBe(before);
+  });
+
+  it("stores select attributes as arrays and booleans as scalars", () => {
+    const { bindings, read } = harness();
+    bindings.attr_hosting.setValues(["cloud"]);
+    expect(read().attributes.hosting).toEqual(["cloud"]);
+    expect(bindings.attr_hosting.getValues()).toEqual(["cloud"]);
+
+    bindings.attr_critical.setValues(["true"]);
+    expect(read().attributes.critical).toBe("true");
+    expect(bindings.attr_critical.getValues()).toEqual(["true"]);
+
+    bindings.attr_hosting.setValues([]);
+    expect("hosting" in read().attributes).toBe(false);
+  });
+
+  it("builds no attribute bindings when no single type is selected", () => {
+    let filters = EMPTY_FILTERS as Filters;
+    const bindings = buildInventoryFacetBindings(
+      { get current() { return filters; } },
+      (fn) => { filters = fn(filters); },
+      undefined,
+    );
+    expect(Object.keys(bindings).some((k) => k.startsWith("attr_"))).toBe(false);
   });
 });

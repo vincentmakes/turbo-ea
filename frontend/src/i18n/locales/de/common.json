@@ -373,6 +373,7 @@
   "grid.copyValue": "Wert kopieren",
   "grid.copied": "Wert in die Zwischenablage kopiert",
   "grid.clearColumnFilter": "Spaltenfilter löschen",
+  "grid.clearFilter": "Filter löschen",
   "grid.entireCell": "Gesamte Zelle",
   "groupBy.label": "Gruppieren nach",
   "groupBy.buttonActive": "Gruppieren nach: {{label}}",

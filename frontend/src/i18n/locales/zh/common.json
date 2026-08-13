@@ -373,6 +373,7 @@
   "grid.copyValue": "复制值",
   "grid.copied": "值已复制到剪贴板",
   "grid.clearColumnFilter": "清除列筛选",
+  "grid.clearFilter": "清除筛选",
   "grid.entireCell": "整个单元格",
   "groupBy.label": "分组方式",
   "groupBy.buttonActive": "分组方式：{{label}}",

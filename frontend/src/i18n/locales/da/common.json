@@ -373,6 +373,7 @@
   "grid.copyValue": "Kopiér værdi",
   "grid.copied": "Værdi kopieret til udklipsholderen",
   "grid.clearColumnFilter": "Ryd kolonnefilter",
+  "grid.clearFilter": "Ryd filter",
   "grid.entireCell": "Hele cellen",
   "groupBy.label": "Gruppér efter",
   "groupBy.buttonActive": "Gruppér efter: {{label}}",

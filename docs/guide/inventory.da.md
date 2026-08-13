@@ -35,7 +35,7 @@ Højreklik på en vilkårlig celle i tabellen (langt tryk på berøringsenheder)
 - **Kopiér værdi** — kopiér cellens tekst til udklipsholderen
 - **Ryd kolonnefilter** — fjern kolonnens filter (vises kun, mens et filter er aktivt)
 
-På en celle med flere værdier (tags, relationer, interessenter, attributter med flere valg) viser menuen først de enkelte værdier, så du kan filtrere på én af dem eller på hele cellen. Disse filtre lander i tabellens egne kolonnefiltre: de kombineres med sidepanelets filtre, tælles med i knappen **Ryd filtre** i værktøjslinjen og gemmes sammen med din visning. Den samme menu findes i alle tabeller i Turbo EA — Beslutninger, Risikoregister, Compliance og administrationstabellerne.
+På en celle med flere værdier (tags, relationer, interessenter, attributter med flere valg) viser menuen først de enkelte værdier, så du kan filtrere på én af dem eller på hele cellen. Disse filtre lander i tabellens egne kolonnefiltre: de kombineres med sidepanelets filtre, tælles med i knappen **Ryd filtre** i værktøjslinjen og gemmes sammen med din visning. Den samme menu findes i alle tabeller i Turbo EA — Beslutninger, Risikoregister, Compliance og administrationstabellerne. Når kolonnen har et tilsvarende filter i venstre panel — korttype, undertype, livscyklus, godkendelsesstatus eller en attribut med enkeltvalg — vælger **Vis matchende** også den værdi i panelet, og **Ryd** rydder begge, så en gemt visning aldrig kan indeholde et panelfilter og et kolonnefilter, der modsiger hinanden. Redigeres filtret derefter i panelet, overtager panelet blot.
 
 ![Kontekstmenu for en lagercelle](../assets/img/da/62_inventory_cell_menu.png)
 

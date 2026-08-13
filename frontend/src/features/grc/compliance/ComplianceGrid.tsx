@@ -58,6 +58,8 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
 import { useCellContextMenu } from "@/components/grid/useCellContextMenu";
+import { useFacetColumnSync } from "@/components/grid/useFacetColumnSync";
+import { arrayFacetBinding } from "@/components/grid/facetColumnSync";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import { RAG_COLORS } from "@/theme";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -614,8 +616,48 @@ export default function ComplianceGrid({
 
   // Right-click / long-press cell menu (Show matching, Filter out, …). The
   // delete-action column handles its own clicks and offers nothing to filter.
+  // "Show matching" also selects the value in the filter sidebar. The filter
+  // state is owned by the parent and Set-shaped, so the bindings adapt both
+  // ways through `onFiltersChange`.
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+  const facetBindings = useMemo(
+    () => ({
+      severity: arrayFacetBinding<TurboLensComplianceFinding>({
+        get: () => Array.from(filtersRef.current.severities),
+        set: (v) =>
+          onFiltersChange({
+            ...filtersRef.current,
+            severities: new Set(v as TurboLensComplianceFinding["severity"][]),
+          }),
+      }),
+      status: arrayFacetBinding<TurboLensComplianceFinding>({
+        get: () => Array.from(filtersRef.current.statuses),
+        set: (v) =>
+          onFiltersChange({
+            ...filtersRef.current,
+            statuses: new Set(v as ComplianceStatus[]),
+          }),
+      }),
+      decision: arrayFacetBinding<TurboLensComplianceFinding>({
+        get: () => Array.from(filtersRef.current.decisions),
+        set: (v) =>
+          onFiltersChange({
+            ...filtersRef.current,
+            decisions: new Set(v as ComplianceDecision[]),
+          }),
+      }),
+    }),
+    [onFiltersChange],
+  );
+  const facetSync = useFacetColumnSync<TurboLensComplianceFinding>(gridRef, {
+    bindings: facetBindings,
+    facetState: filters,
+  });
+
   const cellMenu = useCellContextMenu<TurboLensComplianceFinding>(gridRef, {
     excludeColumns: (colId) => colId === "delete_action",
+    facetSync: facetSync.cellMenu,
   });
 
   const onSortChanged = (e: SortChangedEvent<TurboLensComplianceFinding>) => {

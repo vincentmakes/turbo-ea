@@ -33,6 +33,8 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import StakeholderHoverCard from "@/components/StakeholderHoverCard";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
 import { useCellContextMenu } from "@/components/grid/useCellContextMenu";
+import { useFacetColumnSync } from "@/components/grid/useFacetColumnSync";
+import { arrayFacetBinding } from "@/components/grid/facetColumnSync";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import MetricCard from "@/features/reports/MetricCard";
 import { api, ApiError } from "@/api/client";
@@ -200,6 +202,9 @@ export default function RiskRegisterPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [filters, setFilters] = useState<RiskFilters>({ ...EMPTY_RISK_FILTERS });
+  // Read by the facet bindings' stable callbacks (see useFacetColumnSync).
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
   const initialPrefs = useMemo(loadRiskPrefs, []);
   const [sidebarCollapsed, setSidebarCollapsedRaw] = useState(
     initialPrefs.filtersCollapsed,
@@ -466,6 +471,40 @@ export default function RiskRegisterPage() {
     selectable: false,
   });
 
+  // "Show matching" also selects the value in the filter sidebar.
+  //
+  // The Initial/Residual level columns are deliberately NOT bound: the
+  // sidebar's Level facet filters a risk's *current* level (residual when
+  // set, else initial — see `risks.py`), a different predicate from either
+  // column, so mirroring one into it would silently widen the result set and
+  // make a saved view describe something the user never asked for. They keep
+  // plain column filters.
+  const facetBindings = useMemo(
+    () => ({
+      category: arrayFacetBinding<GroupedRow<Risk>>({
+        get: () => filtersRef.current.categories,
+        set: (v) =>
+          setFilters((p) => ({ ...p, categories: v as RiskFilters["categories"] })),
+      }),
+      status: arrayFacetBinding<GroupedRow<Risk>>({
+        get: () => filtersRef.current.statuses,
+        set: (v) => setFilters((p) => ({ ...p, statuses: v as RiskFilters["statuses"] })),
+      }),
+      owner_name: arrayFacetBinding<GroupedRow<Risk>>({
+        // The facet keys on the user id; the cell (and its column filter)
+        // carries the display name.
+        toFacetValue: (ctx) => ctx.data?.owner_id ?? null,
+        get: () => filtersRef.current.owners,
+        set: (v) => setFilters((p) => ({ ...p, owners: v })),
+      }),
+    }),
+    [],
+  );
+  const facetSync = useFacetColumnSync<GroupedRow<Risk>>(gridRef, {
+    bindings: facetBindings,
+    facetState: filters,
+  });
+
   // Right-click / long-press cell menu (Show matching, Filter out, …).
   const cellMenu = useCellContextMenu<GroupedRow<Risk>>(gridRef, {
     suppressForRow: grouping.isGroupRow,
@@ -477,6 +516,7 @@ export default function RiskRegisterPage() {
             .filter(Boolean)
             .map((v) => ({ label: v, filter: v }))
         : null,
+    facetSync: facetSync.cellMenu,
   });
 
   const matrixForView = metrics

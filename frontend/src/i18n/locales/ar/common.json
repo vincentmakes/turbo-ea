@@ -373,6 +373,7 @@
   "grid.copyValue": "نسخ القيمة",
   "grid.copied": "تم نسخ القيمة إلى الحافظة",
   "grid.clearColumnFilter": "مسح عامل تصفية العمود",
+  "grid.clearFilter": "مسح عامل التصفية",
   "grid.entireCell": "الخلية بأكملها",
   "groupBy.label": "تجميع حسب",
   "groupBy.buttonActive": "تجميع حسب: {{label}}",

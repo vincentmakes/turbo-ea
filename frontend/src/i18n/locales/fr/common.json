@@ -373,6 +373,7 @@
   "grid.copyValue": "Copier la valeur",
   "grid.copied": "Valeur copiée dans le presse-papiers",
   "grid.clearColumnFilter": "Effacer le filtre de colonne",
+  "grid.clearFilter": "Effacer le filtre",
   "grid.entireCell": "Cellule entière",
   "groupBy.label": "Grouper par",
   "groupBy.buttonActive": "Grouper par : {{label}}",

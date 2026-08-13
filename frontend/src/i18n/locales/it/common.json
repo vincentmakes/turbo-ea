@@ -373,6 +373,7 @@
   "grid.copyValue": "Copia valore",
   "grid.copied": "Valore copiato negli appunti",
   "grid.clearColumnFilter": "Cancella filtro colonna",
+  "grid.clearFilter": "Cancella filtro",
   "grid.entireCell": "Cella intera",
   "groupBy.label": "Raggruppa per",
   "groupBy.buttonActive": "Raggruppa per: {{label}}",

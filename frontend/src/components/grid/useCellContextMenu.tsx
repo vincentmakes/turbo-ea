@@ -39,6 +39,7 @@ import Snackbar from "@mui/material/Snackbar";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import type { GridApiSource } from "./useColumnFreeze";
+import type { CellMenuFacetSync } from "./facetColumnSync";
 import {
   buildContainsModel,
   buildExcludeModel,
@@ -108,6 +109,13 @@ export interface UseCellContextMenuOptions<TData> {
    * menu. Call `close` after handling a click.
    */
   extraItems?: (ctx: CellMenuContext<TData>, close: () => void) => ReactNode;
+  /**
+   * Sidebar-facet mirroring (see useFacetColumnSync). On bound columns,
+   * Show matching sets the facet too (and surfaces the item even when
+   * `enableFilterItems` is false — server-side grids), and Clear clears
+   * both. Filter out and the per-value contains picks never go through it.
+   */
+  facetSync?: CellMenuFacetSync<TData>;
 }
 
 export interface CellContextMenu {
@@ -142,6 +150,10 @@ interface MenuState<TData> {
   values: CellSplitValue[] | null;
   /** Whether the clicked column had an active filter at open. */
   hasColumnFilter: boolean;
+  /** facetSync state for the clicked column, captured at open. */
+  canMirror: boolean;
+  hasFacetFilter: boolean;
+  facetOnly: boolean;
 }
 
 type MenuStage = "root" | "pickMatch" | "pickExclude";
@@ -203,8 +215,18 @@ export function useCellContextMenu<TData = unknown>(
       };
       const values = opts.splitValues?.(ctx) ?? null;
       const hasColumnFilter = Boolean((api.getFilterModel() ?? {})[colId]);
+      const facetSync = opts.facetSync;
       setStage("root");
-      setMenuState({ x, y, ctx, values, hasColumnFilter });
+      setMenuState({
+        x,
+        y,
+        ctx,
+        values,
+        hasColumnFilter,
+        canMirror: facetSync?.canMirror(ctx) ?? false,
+        hasFacetFilter: facetSync?.hasFacetFilter(ctx) ?? false,
+        facetOnly: facetSync?.isFacetOnly(ctx) ?? false,
+      });
     },
     [],
   );
@@ -336,6 +358,15 @@ export function useCellContextMenu<TData = unknown>(
         setStage(exclude ? "pickExclude" : "pickMatch");
         return;
       }
+      // Facet mirroring intercepts the single-valued Show matching only —
+      // Filter out and the contains paths are never mirrored (sidebars have
+      // no negation/contains semantics).
+      if (!exclude && menuState.values === null && menuState.canMirror) {
+        if (options.facetSync?.showMatching(menuState.ctx)) {
+          closeMenu();
+          return;
+        }
+      }
       const model =
         menuState.values && menuState.values.length === 1
           ? buildContainsModel(menuState.values[0].filter, exclude)
@@ -346,7 +377,7 @@ export function useCellContextMenu<TData = unknown>(
       if (model) applyColumnModel(menuState.ctx.colId, model);
       closeMenu();
     },
-    [menuState, applyColumnModel, closeMenu],
+    [menuState, applyColumnModel, closeMenu, options.facetSync],
   );
 
   const handlePickValue = useCallback(
@@ -371,9 +402,14 @@ export function useCellContextMenu<TData = unknown>(
   }, [menuState, closeMenu]);
 
   const handleClearColumnFilter = useCallback(() => {
-    if (menuState) applyColumnModel(menuState.ctx.colId, null);
+    if (menuState) {
+      // On a bound column, clear the facet AND the column model together.
+      if (!options.facetSync?.clearColumn(menuState.ctx)) {
+        applyColumnModel(menuState.ctx.colId, null);
+      }
+    }
     closeMenu();
-  }, [menuState, applyColumnModel, closeMenu]);
+  }, [menuState, applyColumnModel, closeMenu, options.facetSync]);
 
   // ---- Render -------------------------------------------------------------
 
@@ -381,6 +417,14 @@ export function useCellContextMenu<TData = unknown>(
     (options.enableFilterItems ?? true) &&
     menuState !== null &&
     menuState.ctx.filterKind !== "none";
+  // A facet-bound column surfaces Show matching even on grids whose column
+  // filters are off (enableFilterItems: false — server-side grids).
+  const canMirror = menuState?.canMirror ?? false;
+  const showMatchItem = showFilterItems || canMirror;
+  const showClearItem =
+    (showFilterItems && (menuState?.hasColumnFilter ?? false)) ||
+    (canMirror &&
+      ((menuState?.hasFacetFilter ?? false) || (menuState?.hasColumnFilter ?? false)));
   const extra = menuState ? options.extraItems?.(menuState.ctx, closeMenu) : null;
   const pickExclude = stage === "pickExclude";
 
@@ -394,7 +438,7 @@ export function useCellContextMenu<TData = unknown>(
       >
         {stage === "root" && extra}
         {stage === "root" && extra != null && <Divider />}
-        {stage === "root" && showFilterItems && (
+        {stage === "root" && showMatchItem && (
           <MenuItem onClick={() => handleFilterAction(false)}>
             <ListItemIcon>
               <MaterialSymbol icon="filter_alt" size={20} />
@@ -418,12 +462,14 @@ export function useCellContextMenu<TData = unknown>(
             <ListItemText>{t("grid.copyValue")}</ListItemText>
           </MenuItem>
         )}
-        {stage === "root" && showFilterItems && menuState?.hasColumnFilter && (
+        {stage === "root" && showClearItem && (
           <MenuItem onClick={handleClearColumnFilter}>
             <ListItemIcon>
               <MaterialSymbol icon="filter_alt_off" size={20} />
             </ListItemIcon>
-            <ListItemText>{t("grid.clearColumnFilter")}</ListItemText>
+            <ListItemText>
+              {menuState?.facetOnly ? t("grid.clearFilter") : t("grid.clearColumnFilter")}
+            </ListItemText>
           </MenuItem>
         )}
         {stage !== "root" &&
