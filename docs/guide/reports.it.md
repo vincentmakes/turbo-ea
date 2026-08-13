@@ -21,6 +21,10 @@ Questo è ideale per l'analisi del portfolio — ad esempio, posizionare le appl
 
 Quando l'IA è configurata e le analisi del portafoglio sono abilitate da un amministratore, il report del portafoglio mostra un pulsante **Analisi IA**. Cliccandolo viene inviato un riepilogo della vista corrente al provider IA, che restituisce analisi strategiche su rischi di concentrazione, opportunità di modernizzazione, problematiche del ciclo di vita e bilanciamento del portafoglio. Il pannello delle analisi è comprimibile e può essere rigenerato dopo aver modificato filtri o raggruppamenti.
 
+### Dal report all'inventario
+
+Facendo clic su un gruppo si apre un pannello con le schede di quel gruppo. Il suo pulsante **Visualizza nell'inventario** apre l'inventario filtrato esattamente su quella porzione — incluso il gruppo *non assegnato* — così una classificazione errata individuata nel report è a un solo clic dalla [modifica di massa](inventory.md#mass-edit) dell'inventario. Il pulsante è nascosto quando i *gruppi annidati* sono attivi: un sottoalbero aggregato non corrisponde a un singolo filtro dell'inventario.
+
 ## Portfolio flessibile
 
 ![Portfolio flessibile — portfolio di Oggetti dati raggruppato per Applicazione e colorato per Sensibilità dei dati](../assets/img/it/57_report_portfolio_flessibile.png)

@@ -125,6 +125,15 @@ Las tarjetas se mueven de una en una, por lo que un movimiento no permitido solo
 
 Una tarjeta arrastra consigo a sus hijas al moverse, y las tarjetas aprobadas vuelven a **Roto** para que el cambio se revise de nuevo.
 
+## Agrupar el inventario { #group-by }
+
+Haga clic en **Agrupar por** en la barra de herramientas (junto al recuento de elementos) para organizar la cuadrícula en grupos plegables. La fase del ciclo de vida y el estado de aprobación están siempre disponibles; al filtrar la cuadrícula a un único tipo de tarjeta se añaden su subtipo y todos sus atributos de selección única.
+
+- Las tarjetas sin valor en el campo elegido se agrupan en **Sin definir**, al principio de la lista: el punto de partida natural para clasificar tarjetas pendientes.
+- Haga clic en la cabecera de un grupo para plegarlo o desplegarlo. La cabecera muestra el número de tarjetas del grupo.
+- La casilla de la cabecera selecciona todas las tarjetas del grupo: para reclasificar un lote, despliegue **Sin definir**, marque la cabecera y establezca el valor con la [Edición masiva](#mass-edit). Deliberadamente no hay arrastrar y soltar: seleccionar y establecer funciona igual en escritorio, tableta y móvil.
+- La ordenación se aplica dentro de cada grupo; la agrupación se conserva al recargar, se guarda en las vistas guardadas y puede compartirse mediante el parámetro de URL `group_by`.
+
 ## Sugerencias de Descripción con IA { #ai-description-suggestions }
 
 Turbo EA puede usar **IA para generar una descripción** para cualquier ficha. Esto funciona tanto en el diálogo de creación de fichas como en las páginas de detalle de fichas existentes.

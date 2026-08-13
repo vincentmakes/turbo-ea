@@ -253,5 +253,10 @@
   "export.currentViewHint": "Mirrors the on-screen grid — not for re-import",
   "export.waitingForRelations": "Waiting for relation columns to finish loading…",
   "export.viewSheetName": "View",
-  "columns.id": "ID"
+  "columns.id": "ID",
+  "groupBy.label": "Group by",
+  "groupBy.buttonActive": "Group by: {{label}}",
+  "groupBy.none": "No grouping",
+  "groupBy.notSet": "Not set",
+  "groupBy.selectGroup": "Select all in {{group}}"
 }

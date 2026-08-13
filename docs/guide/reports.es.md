@@ -21,6 +21,10 @@ Esto es ideal para el análisis de portafolio — por ejemplo, representar aplic
 
 Cuando la IA está configurada y los análisis de portafolio están habilitados por un administrador, el informe de portafolio muestra un botón **Análisis IA**. Al hacer clic, se envía un resumen de la vista actual al proveedor de IA, que devuelve análisis estratégicos sobre riesgos de concentración, oportunidades de modernización, preocupaciones del ciclo de vida y equilibrio del portafolio. El panel de análisis es plegable y puede regenerarse después de cambiar filtros o agrupaciones.
 
+### Del informe al inventario
+
+Al hacer clic en un grupo se abre un panel con las tarjetas de ese grupo. Su botón **Ver en el inventario** abre el inventario filtrado exactamente a ese segmento — incluido el grupo *sin asignar* —, de modo que una clasificación errónea detectada en el informe queda a un clic de la [edición masiva](inventory.md#mass-edit) del inventario. El botón se oculta cuando los *grupos anidados* están activos: un subárbol agregado no se corresponde con ningún filtro único del inventario.
+
 ## Portafolio flexible
 
 ![Portafolio flexible — portafolio de Objetos de Datos agrupado por Aplicación y coloreado por Sensibilidad de Datos](../assets/img/es/57_informe_portafolio_flexible.png)

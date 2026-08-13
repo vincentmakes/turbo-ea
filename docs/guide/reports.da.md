@@ -21,6 +21,10 @@ Dette er ideelt til porteføljeanalyse — for eksempel at plotte applikationer 
 
 Når AI er konfigureret, og porteføljeindsigter er aktiveret af en administrator, viser porteføljerapporten en **AI Insights**-knap. Klikker du på den, sendes et resumé af din aktuelle visning til AI-udbyderen, som returnerer strategiske indsigter om koncentrationsrisici, modernisations­muligheder, livscyklus­bekymringer og porteføljebalance. Indsigtspanelet kan foldes sammen og kan regenereres efter ændring af filtre eller gruppering.
 
+### Fra rapport til lager
+
+Et klik på en gruppe åbner et panel med gruppens kort. Panelets knap **Vis i lageret** åbner lageret filtreret til præcis dette udsnit — inklusive gruppen *ikke tildelt* — så en fejlklassificering, du spotter i rapporten, kun er ét klik fra lagerets [masseredigering](inventory.md#mass-edit). Knappen skjules, når *indlejrede grupper* er aktive: et sammenlagt undertræ svarer ikke til ét enkelt lagerfilter.
+
 ## Fleksibel portefølje
 
 ![Fleksibel portefølje — Data Object-portefølje grupperet efter Application, farvet efter Data Sensitivity](../assets/img/da/57_report_flexible_portfolio.png)

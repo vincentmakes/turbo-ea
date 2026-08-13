@@ -125,6 +125,15 @@ Le schede vengono spostate una alla volta, quindi uno spostamento non consentito
 
 Una scheda porta con sé le proprie schede figlie e le schede approvate tornano a **Non valido**, in modo che la modifica venga riesaminata.
 
+## Raggruppare l'inventario { #group-by }
+
+Fai clic su **Raggruppa per** nella barra degli strumenti (accanto al conteggio degli elementi) per organizzare la griglia in gruppi comprimibili. La fase del ciclo di vita e lo stato di approvazione sono sempre disponibili; filtrando la griglia su un solo tipo di scheda si aggiungono il suo sottotipo e tutti gli attributi a selezione singola.
+
+- Le schede senza valore nel campo scelto finiscono nel gruppo **Non impostato**, in cima all'elenco: il punto di partenza naturale per classificare le schede in sospeso.
+- Fai clic sull'intestazione di un gruppo per comprimerlo o espanderlo. L'intestazione mostra il numero di schede del gruppo.
+- La casella di controllo nell'intestazione seleziona tutte le schede del gruppo: per riclassificare un lotto, espandi **Non impostato**, spunta l'intestazione e imposta il valore con la [Modifica di massa](#mass-edit). Non c'è volutamente alcun drag and drop: selezionare e impostare funziona allo stesso modo su desktop, tablet e telefono.
+- L'ordinamento si applica all'interno di ogni gruppo; il raggruppamento viene ricordato dopo un ricaricamento, salvato nelle viste salvate e condivisibile tramite il parametro URL `group_by`.
+
 ## Suggerimenti di descrizione AI { #ai-description-suggestions }
 
 Turbo EA può utilizzare l'**AI per generare una descrizione** per qualsiasi card. Questo funziona sia nella finestra di creazione card che nelle pagine di dettaglio delle card esistenti.

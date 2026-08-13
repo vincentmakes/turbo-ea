@@ -253,5 +253,10 @@
   "export.currentViewHint": "يطابق الجدول المعروض — غير مناسب لإعادة الاستيراد",
   "export.waitingForRelations": "في انتظار انتهاء تحميل أعمدة العلاقات…",
   "export.viewSheetName": "عرض",
-  "columns.id": "المعرّف"
+  "columns.id": "المعرّف",
+  "groupBy.label": "تجميع حسب",
+  "groupBy.buttonActive": "تجميع حسب: {{label}}",
+  "groupBy.none": "بدون تجميع",
+  "groupBy.notSet": "غير محدد",
+  "groupBy.selectGroup": "تحديد الكل في {{group}}"
 }

@@ -21,6 +21,10 @@ Isso é ideal para análise de portfólio — plotando aplicações por valor de
 
 Quando a IA está configurada e as análises de portfólio estão habilitadas por um administrador, o relatório de portfólio exibe um botão **Análises IA**. Ao clicar, um resumo da visualização atual é enviado ao provedor de IA, que retorna análises estratégicas sobre riscos de concentração, oportunidades de modernização, preocupações com ciclo de vida e equilíbrio do portfólio. O painel de análises é recolhível e pode ser regenerado após alterar filtros ou agrupamentos.
 
+### Do relatório para o inventário
+
+Clicar num grupo abre um painel com os cartões desse grupo. O seu botão **Ver no inventário** abre o inventário filtrado exatamente para essa fatia — incluindo o grupo *não atribuído* — de modo que uma classificação errada detetada no relatório fica a um clique da [edição em massa](inventory.md#mass-edit) do inventário. O botão fica oculto quando os *grupos aninhados* estão ativos: uma subárvore agregada não corresponde a um único filtro do inventário.
+
 ## Portfólio flexível
 
 ![Portfólio flexível — portfólio de Objetos de Dados agrupado por Aplicação e colorido por Sensibilidade dos Dados](../assets/img/pt/57_relatorio_portfolio_flexivel.png)

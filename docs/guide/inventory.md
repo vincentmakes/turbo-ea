@@ -127,6 +127,15 @@ Cards are moved one at a time, so a move that is not allowed blocks only that ca
 
 A card takes its own children with it when it moves, and approved cards drop back to **Broken** so the change is reviewed again.
 
+## Grouping the Inventory { #group-by }
+
+Click **Group by** in the toolbar (next to the item count) to organise the grid into collapsible groups. Lifecycle phase and approval status are always available; filtering the grid to a single card type also unlocks its subtype and every single-select attribute.
+
+- Cards without a value on the chosen field land in a **Not set** group at the top — the natural triage bucket for unclassified cards.
+- Click a group header to collapse or expand it. The header shows the group's card count.
+- The header checkbox selects every card in the group, so reclassifying a batch is: expand **Not set**, tick the header, then [Mass Edit](#mass-edit) the value. There is deliberately no drag and drop — select and set works the same on desktop, tablet, and phone.
+- Sorting applies within each group, and the grouping is remembered across reloads, stored in saved views, and shareable via the `group_by` URL parameter.
+
 ## AI Description Suggestions { #ai-description-suggestions }
 
 Turbo EA can use **AI to generate a description** for any card. This works on both the Create Card dialog and existing card detail pages.

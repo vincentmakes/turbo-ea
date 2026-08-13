@@ -127,6 +127,15 @@ Kortene flyttes ét ad gangen, så en flytning, der ikke er tilladt, blokerer ku
 
 Et kort tager sine egne underordnede kort med sig, når det flyttes, og godkendte kort falder tilbage til **Brudt**, så ændringen bliver gennemgået igen.
 
+## Gruppér lageret { #group-by }
+
+Klik på **Gruppér efter** i værktøjslinjen (ved siden af antallet af elementer) for at organisere tabellen i sammenfoldelige grupper. Livscyklusfase og godkendelsesstatus er altid tilgængelige; når tabellen er filtreret til én korttype, kommer dens undertype og alle attributter med enkeltvalg til.
+
+- Kort uden værdi i det valgte felt havner i gruppen **Ikke angivet** øverst — det naturlige udgangspunkt for at klassificere uklassificerede kort.
+- Klik på en gruppeoverskrift for at folde gruppen sammen eller ud. Overskriften viser antallet af kort i gruppen.
+- Afkrydsningsfeltet i overskriften vælger alle kort i gruppen: for at omklassificere en stak skal du folde **Ikke angivet** ud, markere overskriften og sætte værdien med [Masseredigering](#mass-edit). Der er bevidst ingen træk-og-slip — vælg og sæt fungerer ens på computer, tablet og telefon.
+- Sortering gælder inden for hver gruppe; grupperingen huskes efter genindlæsning, gemmes i gemte visninger og kan deles via URL-parameteren `group_by`.
+
 ## AI-beskrivelsesforslag { #ai-description-suggestions }
 
 Turbo EA kan bruge **AI til at generere en beskrivelse** for ethvert kort. Dette virker på både Opret kort-dialogen og eksisterende kortdetaljesider.

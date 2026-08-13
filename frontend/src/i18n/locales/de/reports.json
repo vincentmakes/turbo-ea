@@ -410,5 +410,6 @@
   "dependency.createDiagramSubmit": "Erstellen",
   "dependency.createDiagramError": "Diagramm konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
   "cost.permissionDeniedTitle": "Kostendaten eingeschränkt",
-  "cost.permissionDeniedBody": "Sie sind nicht berechtigt, Kostenberichte einzusehen. Bitten Sie einen Administrator, Ihnen die Berechtigung «costs.view» zu erteilen, oder werden Sie Stakeholder der betreffenden Karten."
+  "cost.permissionDeniedBody": "Sie sind nicht berechtigt, Kostenberichte einzusehen. Bitten Sie einen Administrator, Ihnen die Berechtigung «costs.view» zu erteilen, oder werden Sie Stakeholder der betreffenden Karten.",
+  "portfolio.viewInInventory": "Im Inventar anzeigen"
 }

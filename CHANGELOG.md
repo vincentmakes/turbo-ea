@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.53.0] - 2026-08-13
+
+### Added
+- **Group the inventory by any single-select attribute, subtype, lifecycle phase, or approval status.** A new "Group by" picker on the Inventory page shows collapsible group headers with counts; cards without a value land in a "Not set" group at the top, and each header carries a checkbox that selects the whole group for mass edit — reclassifying a batch of cards is now expand, select all, bulk set. The grouping persists across reloads, is stored in saved views, and can be shared via a `?group_by=` URL ([discussion #933](https://github.com/vincentmakes/turbo-ea/discussions/933)).
+- **Jump from a portfolio report group straight to the matching inventory rows.** The group drawer in the Portfolio and Flexible Portfolio reports has a "View in inventory" button that opens the inventory pre-filtered to that group — including the "not assigned" bucket — so you can spot a misclassification in the report and fix it in the inventory ([discussion #933](https://github.com/vincentmakes/turbo-ea/discussions/933)).
+
 ## [2.52.0] - 2026-08-12
 
 ### Added

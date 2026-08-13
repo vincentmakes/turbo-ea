@@ -21,6 +21,10 @@ This is ideal for portfolio analysis — plotting applications by business value
 
 When AI is configured and portfolio insights are enabled by an admin, the portfolio report shows an **AI Insights** button. Clicking it sends a summary of your current view to the AI provider, which returns strategic insights about concentration risks, modernisation opportunities, lifecycle concerns, and portfolio balance. The insights panel is collapsible and can be regenerated after changing filters or grouping.
 
+### From report to inventory
+
+Clicking a group opens a drawer listing that group's cards. Its **View in inventory** button opens the Inventory pre-filtered to exactly that slice — including the *not assigned* bucket — so a misclassification you spot in the report is one click away from the inventory's [mass edit](inventory.md#mass-edit). The button is hidden while *Nested groups* is active: a rolled-up subtree has no single inventory filter.
+
 ## Flexible Portfolio
 
 ![Flexible Portfolio — Data Object portfolio grouped by Application, coloured by Data Sensitivity](../assets/img/en/57_report_flexible_portfolio.png)

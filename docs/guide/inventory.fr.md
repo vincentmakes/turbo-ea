@@ -125,6 +125,15 @@ Les cartes sont déplacées une par une : un déplacement refusé ne bloque donc
 
 Une carte emporte ses propres enfants lors du déplacement, et les cartes approuvées repassent à **Rompu** afin que la modification soit réexaminée.
 
+## Regrouper l'inventaire { #group-by }
+
+Cliquez sur **Grouper par** dans la barre d'outils (à côté du nombre d'éléments) pour organiser la grille en groupes repliables. La phase de cycle de vie et le statut d'approbation sont toujours disponibles ; lorsque la grille est filtrée sur un seul type de carte, son sous-type et tous ses attributs à choix unique s'y ajoutent.
+
+- Les cartes sans valeur pour le champ choisi sont rassemblées dans un groupe **Non défini** en haut de la grille : le point de départ naturel pour trier les cartes non classées.
+- Cliquez sur l'en-tête d'un groupe pour le replier ou le déplier. L'en-tête affiche le nombre de cartes du groupe.
+- La case à cocher de l'en-tête sélectionne toutes les cartes du groupe : pour reclasser un lot, dépliez **Non défini**, cochez l'en-tête, puis définissez la valeur via la [Modification en masse](#mass-edit). Il n'y a volontairement pas de glisser-déposer : sélectionner puis définir fonctionne de la même façon sur ordinateur, tablette et téléphone.
+- Le tri s'applique à l'intérieur de chaque groupe ; le regroupement est conservé après rechargement, enregistré dans les vues sauvegardées et partageable via le paramètre d'URL `group_by`.
+
 ## Suggestions de description par IA { #ai-description-suggestions }
 
 Turbo EA peut utiliser l'**IA pour générer une description** pour n'importe quelle fiche. Cela fonctionne aussi bien dans la boîte de dialogue de création de fiche que sur les pages de détail des fiches existantes.

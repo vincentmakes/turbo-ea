@@ -102,16 +102,20 @@ interface Props {
   // Applies a column-filter model to the grid (or clears with null). Invoked on
   // "Clear all" (null) and when applying a saved view (the view's model).
   onApplyColumnFilters?: (model: Record<string, unknown> | null) => void;
+  // Active group-by axis (wire format) — saved into a view's filters payload
+  // and restored on apply, like the sidebar filters themselves.
+  groupBy?: string | null;
+  onGroupByChange?: (groupBy: string | null) => void;
 }
 
-const APPROVAL_STATUS_OPTIONS = [
+export const APPROVAL_STATUS_OPTIONS = [
   { key: "DRAFT", tKey: "common:status.draft" as const, color: "#9e9e9e" },
   { key: "APPROVED", tKey: "common:status.approved" as const, color: "#4caf50" },
   { key: "BROKEN", tKey: "common:status.broken" as const, color: "#ff9800" },
   { key: "REJECTED", tKey: "common:status.rejected" as const, color: "#f44336" },
 ];
 
-const LIFECYCLE_PHASES = [
+export const LIFECYCLE_PHASES = [
   { key: "plan", tKey: "common:lifecycle.plan" as const, color: "#90a4ae" },
   { key: "phaseIn", tKey: "common:lifecycle.phaseIn" as const, color: "#42a5f5" },
   { key: "active", tKey: "common:lifecycle.active" as const, color: "#66bb6a" },
@@ -244,6 +248,8 @@ export default function InventoryFilterSidebar({
   onApplyColumnState,
   columnFilterModel,
   onApplyColumnFilters,
+  groupBy = null,
+  onGroupByChange,
 }: Props) {
   const { t } = useTranslation(["inventory", "common"]);
   const typeLabel = useTypeLabel();
@@ -454,6 +460,9 @@ export default function InventoryFilterSidebar({
         relations: filters.relations,
         tagIds: filters.tagIds,
         mineScope: filters.mineScope,
+        // Not a Filters field — rides inside the free-form JSONB payload so a
+        // saved view restores its grouping (older views simply restore null).
+        groupBy,
       },
       columns: Array.from(selectedColumns),
       column_state: columnState ?? null,
@@ -491,6 +500,11 @@ export default function InventoryFilterSidebar({
         mineScope: f.mineScope ?? null,
       });
     }
+    // Restore the view's grouping (views saved before the feature carry none).
+    onGroupByChange?.(
+      ((f as { groupBy?: string | null } | undefined)?.groupBy as string | null | undefined) ??
+        null,
+    );
     // Restore saved columns if present
     const bmColumns = (bm as unknown as Record<string, unknown>).columns as string[] | undefined;
     if (bmColumns && Array.isArray(bmColumns)) {

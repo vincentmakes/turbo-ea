@@ -253,5 +253,10 @@
   "export.currentViewHint": "Rispecchia la griglia visualizzata — non adatta al reimport",
   "export.waitingForRelations": "In attesa del caricamento delle colonne delle relazioni…",
   "export.viewSheetName": "Vista",
-  "columns.id": "ID"
+  "columns.id": "ID",
+  "groupBy.label": "Raggruppa per",
+  "groupBy.buttonActive": "Raggruppa per: {{label}}",
+  "groupBy.none": "Nessun raggruppamento",
+  "groupBy.notSet": "Non impostato",
+  "groupBy.selectGroup": "Seleziona tutto in {{group}}"
 }

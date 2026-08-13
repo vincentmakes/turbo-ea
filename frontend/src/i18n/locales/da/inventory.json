@@ -253,5 +253,10 @@
   "export.currentViewHint": "Afspejler tabellen på skærmen — ikke egnet til genimport",
   "export.waitingForRelations": "Venter på, at relationskolonnerne indlæses…",
   "export.viewSheetName": "Visning",
-  "columns.id": "ID"
+  "columns.id": "ID",
+  "groupBy.label": "Gruppér efter",
+  "groupBy.buttonActive": "Gruppér efter: {{label}}",
+  "groupBy.none": "Ingen gruppering",
+  "groupBy.notSet": "Ikke angivet",
+  "groupBy.selectGroup": "Vælg alle i {{group}}"
 }

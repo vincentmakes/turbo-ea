@@ -125,6 +125,15 @@ Die Karten werden einzeln verschoben; ein unzulässiger Vorgang blockiert daher 
 
 Eine Karte nimmt ihre untergeordneten Elemente mit, und freigegebene Karten fallen auf **Ungültig** zurück, damit die Änderung erneut geprüft wird.
 
+## Inventar gruppieren { #group-by }
+
+Klicken Sie in der Symbolleiste auf **Gruppieren nach** (neben der Trefferanzahl), um das Raster in ein- und ausklappbare Gruppen zu gliedern. Lebenszyklusphase und Genehmigungsstatus sind immer verfügbar; ist das Raster auf einen einzelnen Kartentyp gefiltert, kommen dessen Untertyp und alle Einfachauswahl-Attribute hinzu.
+
+- Karten ohne Wert im gewählten Feld landen in einer Gruppe **Nicht gesetzt** ganz oben — dem natürlichen Sammelbecken für noch nicht klassifizierte Karten.
+- Ein Klick auf eine Gruppenüberschrift klappt die Gruppe ein oder aus. Die Überschrift zeigt die Anzahl der Karten der Gruppe.
+- Das Kontrollkästchen in der Überschrift wählt alle Karten der Gruppe aus. Eine Neuklassifizierung im Stapel ist damit: **Nicht gesetzt** aufklappen, Überschrift anhaken, dann den Wert per [Massenbearbeitung](#mass-edit) setzen. Auf Drag-and-drop wurde bewusst verzichtet — Auswählen und Setzen funktioniert auf Desktop, Tablet und Smartphone gleich.
+- Die Sortierung wirkt innerhalb jeder Gruppe; die Gruppierung bleibt über Neuladen erhalten, wird in gespeicherten Ansichten abgelegt und lässt sich über den URL-Parameter `group_by` teilen.
+
 ## KI-Beschreibungsvorschläge { #ai-description-suggestions }
 
 Turbo EA kann **KI verwenden, um eine Beschreibung** für jede Karte zu generieren. Dies funktioniert sowohl im Karte-erstellen-Dialog als auch auf bestehenden Kartendetailseiten.

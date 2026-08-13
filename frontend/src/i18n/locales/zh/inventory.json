@@ -253,5 +253,10 @@
   "export.currentViewHint": "与屏幕上的表格一致 — 不适合重新导入",
   "export.waitingForRelations": "正在等待关系列加载完成…",
   "export.viewSheetName": "视图",
-  "columns.id": "ID"
+  "columns.id": "ID",
+  "groupBy.label": "分组方式",
+  "groupBy.buttonActive": "分组方式：{{label}}",
+  "groupBy.none": "不分组",
+  "groupBy.notSet": "未设置",
+  "groupBy.selectGroup": "选择「{{group}}」中的全部"
 }

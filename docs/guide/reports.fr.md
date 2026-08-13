@@ -21,6 +21,10 @@ C'est idéal pour l'analyse de portefeuille -- par exemple, positionner les appl
 
 Lorsque l'IA est configurée et que les analyses de portefeuille sont activées par un administrateur, le rapport de portefeuille affiche un bouton **Analyses IA**. Un clic envoie un résumé de la vue actuelle au fournisseur IA, qui renvoie des analyses stratégiques sur les risques de concentration, les opportunités de modernisation, les préoccupations de cycle de vie et l'équilibre du portefeuille. Le panneau d'analyses est repliable et peut être régénéré après modification des filtres ou du regroupement.
 
+### Du rapport à l'inventaire
+
+Cliquer sur un groupe ouvre un panneau listant les cartes de ce groupe. Son bouton **Voir dans l'inventaire** ouvre l'inventaire filtré exactement sur cette tranche — y compris le groupe *non affecté* — : une erreur de classification repérée dans le rapport n'est plus qu'à un clic de la [modification en masse](inventory.md#mass-edit) de l'inventaire. Le bouton est masqué lorsque les *groupes imbriqués* sont actifs : un sous-arbre agrégé ne correspond à aucun filtre d'inventaire unique.
+
 ## Portefeuille flexible
 
 ![Portefeuille flexible — portefeuille d'Objets de données regroupé par Application et coloré par Sensibilité des données](../assets/img/fr/57_rapport_portefeuille_flexible.png)

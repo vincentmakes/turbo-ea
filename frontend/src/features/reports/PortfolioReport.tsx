@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { Link as RouterLink } from "react-router";
 import { alpha, useTheme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
@@ -28,6 +29,7 @@ import Switch from "@mui/material/Switch";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
+import { buildInventorySliceUrl, type InventorySliceGroup } from "./portfolioInventoryLink";
 import TimelineSlider from "@/components/TimelineSlider";
 import FilterSelect from "@/components/FilterSelect";
 import TagPicker from "@/components/TagPicker";
@@ -119,6 +121,10 @@ interface DrawerData {
   /** Per-app member ids for nested groups, where rolled-up cards belong to
    * different (deeper) members than the clicked node. */
   appMemberIds?: Record<string, string>;
+  /** The group this drawer shows, for the "View in inventory" deep-link.
+   * Unset for nested-hierarchy nodes — a rolled-up subtree slice is not
+   * representable as an inventory filter. */
+  groupRef?: InventorySliceGroup | "ungrouped";
 }
 
 /* ------------------------------------------------------------------ */
@@ -1103,7 +1109,12 @@ export default function PortfolioReport({
   const handleGroupClick = useCallback((g: GroupData) => {
     // g.key is the related card id for relation groups — keep it so the drawer
     // can colour chips per group-member when colouring by a relation subtype.
-    setDrawer({ label: g.label, apps: g.apps, memberId: g.key });
+    setDrawer({
+      label: g.label,
+      apps: g.apps,
+      memberId: g.key,
+      groupRef: { key: g.key, label: g.label },
+    });
   }, []);
 
   const handleNodeClick = useCallback((node: GroupNode) => {
@@ -1968,6 +1979,7 @@ export default function PortfolioReport({
                       setDrawer({
                         label: t("portfolio.ungroupedLabel", { groupBy: groupByLabel }),
                         apps: ungrouped,
+                        groupRef: "ungrouped",
                       })
                     }
                   >
@@ -2177,10 +2189,26 @@ export default function PortfolioReport({
       >
         {drawer && (
           <Box sx={{ p: 2 }}>
-            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
               <Typography variant="h6" sx={{ fontWeight: 700, flex: 1 }}>
                 {drawer.label}
               </Typography>
+              {drawer.groupRef && !nestedActive && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  component={RouterLink}
+                  to={buildInventorySliceUrl({
+                    cardType,
+                    mode: groupByMode,
+                    group: drawer.groupRef,
+                  })}
+                  startIcon={<MaterialSymbol icon="inventory_2" size={16} />}
+                  sx={{ textTransform: "none", flexShrink: 0 }}
+                >
+                  {t("portfolio.viewInInventory")}
+                </Button>
+              )}
               <IconButton onClick={() => setDrawer(null)}>
                 <MaterialSymbol icon="close" size={20} />
               </IconButton>

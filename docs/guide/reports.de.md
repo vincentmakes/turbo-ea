@@ -21,6 +21,10 @@ Dies ist ideal für Portfolioanalysen — zum Beispiel Anwendungen nach Geschäf
 
 Wenn KI konfiguriert und Portfolio-Erkenntnisse von einem Administrator aktiviert sind, zeigt der Portfoliobericht eine Schaltfläche **KI-Erkenntnisse**. Ein Klick sendet eine Zusammenfassung der aktuellen Ansicht an den KI-Anbieter, der strategische Erkenntnisse über Konzentrationsrisiken, Modernisierungsmöglichkeiten, Lebenszyklus-Bedenken und Portfolio-Ausgewogenheit liefert. Das Erkenntnispanel ist zusammenklappbar und kann nach Änderung von Filtern oder Gruppierung neu generiert werden.
 
+### Vom Bericht ins Inventar
+
+Ein Klick auf eine Gruppe öffnet eine Seitenleiste mit den Karten der Gruppe. Deren Schaltfläche **Im Inventar anzeigen** öffnet das Inventar exakt auf diesen Ausschnitt gefiltert — einschließlich der Gruppe *nicht zugeordnet* —, sodass eine im Bericht entdeckte Fehlklassifizierung nur einen Klick von der [Massenbearbeitung](inventory.md#mass-edit) des Inventars entfernt ist. Bei aktiven *verschachtelten Gruppen* ist die Schaltfläche ausgeblendet: Für einen aufsummierten Teilbaum gibt es keinen einzelnen Inventarfilter.
+
 ## Flexibles Portfolio
 
 ![Flexibles Portfolio — Datenobjekt-Portfolio gruppiert nach Anwendung, gefärbt nach Datensensibilität](../assets/img/de/57_bericht_flexibles_portfolio.png)
