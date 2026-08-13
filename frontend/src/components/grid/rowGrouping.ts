@@ -23,6 +23,9 @@ export const NOT_SET_KEY = "__not_set__";
 export interface GroupVocabEntry {
   key: string;
   label: string;
+  /** Option/state color (hex) — the header renders the label as a colored
+   * pill when set. Omit for axes with no real color (subtypes, owners, …). */
+  color?: string;
 }
 
 /** One way a grid can be grouped: a stable axis id (persisted / in URLs), a
@@ -41,6 +44,8 @@ export interface GroupInfo {
   axis: string;
   key: string;
   label: string;
+  /** Vocabulary color of this group, if the axis carries one. */
+  color?: string;
   /** Members before grid-level filters (column/quick filters may hide some —
    * the header renderer shows the displayed count when they do). */
   count: number;
@@ -100,6 +105,7 @@ export function buildGroupedRows<T extends { id: string }>(
         axis: axis.key,
         key: entry.key,
         label: entry.label,
+        color: entry.color,
         count: members.length,
         memberIds: members.map((m) => m.id),
         collapsed: isCollapsed,

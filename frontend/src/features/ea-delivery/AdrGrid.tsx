@@ -192,6 +192,7 @@ export default function AdrGrid({
         vocab: Object.entries(STATUS_CHIP_PROPS).map(([key, cfg]) => ({
           key,
           label: t(cfg.label_key),
+          color: STATUS_DOT_COLOR[key],
         })),
       },
     ],

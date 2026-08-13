@@ -21,6 +21,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useIsRtl } from "@/hooks/useIsRtl";
+import { readableTextColor } from "@/lib/color";
 import {
   buildGroupedRows,
   glueGroups,
@@ -153,9 +154,24 @@ export function GroupHeaderRow({ data, api, context }: GroupHeaderRowProps) {
           sx={{ p: 0.5 }}
         />
       )}
-      <Typography variant="body2" fontWeight={600} noWrap>
-        {info.label}
-      </Typography>
+      {info.color ? (
+        // The grouped field's own option color, as the cell chips render it —
+        // readableTextColor keeps the label legible in light and dark alike.
+        <Chip
+          label={info.label}
+          size="small"
+          sx={{
+            height: 20,
+            fontWeight: 600,
+            bgcolor: info.color,
+            color: readableTextColor(info.color),
+          }}
+        />
+      ) : (
+        <Typography variant="body2" fontWeight={600} noWrap>
+          {info.label}
+        </Typography>
+      )}
       <Chip label={countLabel} size="small" sx={{ height: 20 }} />
     </Box>
   );

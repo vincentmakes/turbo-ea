@@ -75,6 +75,16 @@ describe("buildGroupedRows", () => {
     expect(header.axis).toBe("attr_businessCriticality");
   });
 
+  it("carries the vocabulary color onto the header (none for Not set)", () => {
+    const colored: GroupAxis<Row> = {
+      ...AXIS,
+      vocab: [{ key: "missionCritical", label: "Mission Critical", color: "#d32f2f" }],
+    };
+    const rows = buildGroupedRows([mission1, notSet], colored, new Set(), null, "Not set");
+    expect(rows.find((r) => r.__group?.key === "missionCritical")!.__group!.color).toBe("#d32f2f");
+    expect(rows.find((r) => r.__group?.key === NOT_SET_KEY)!.__group!.color).toBeUndefined();
+  });
+
   it("collapsed groups emit the header only", () => {
     const rows = buildGroupedRows(
       [mission1, mission2, admin1],

@@ -63,6 +63,7 @@ import RiskFilterSidebar, {
 } from "./RiskFilterSidebar";
 import { type GroupAxis, type GroupedRow } from "@/components/grid/rowGrouping";
 import { GroupByMenuButton, useRowGrouping } from "@/components/grid/useRowGrouping";
+import { SEVERITY_COLORS } from "@/theme/tokens";
 import RiskMatrix, { RiskMatrixSelection } from "./RiskMatrix";
 import { emptySeed, RiskDialogSeed, riskLevelChipColor } from "./riskDefaults";
 
@@ -427,13 +428,21 @@ export default function RiskRegisterPage() {
         key: "initial_level",
         label: t("risks.col.initialLevel"),
         groupKeyOf: (r) => r.initial_level,
-        vocab: LEVELS.map((l) => ({ key: l, label: t(`risks.level.${l}`) })),
+        vocab: LEVELS.map((l) => ({
+          key: l,
+          label: t(`risks.level.${l}`),
+          color: SEVERITY_COLORS[l],
+        })),
       },
       {
         key: "residual_level",
         label: t("risks.col.residualLevel"),
         groupKeyOf: (r) => r.residual_level,
-        vocab: LEVELS.map((l) => ({ key: l, label: t(`risks.level.${l}`) })),
+        vocab: LEVELS.map((l) => ({
+          key: l,
+          label: t(`risks.level.${l}`),
+          color: SEVERITY_COLORS[l],
+        })),
       },
       {
         key: "owner",

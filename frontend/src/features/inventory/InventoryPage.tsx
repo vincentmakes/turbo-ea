@@ -669,13 +669,13 @@ export default function InventoryPage() {
       key: "lifecycle",
       label: t("columns.lifecycle"),
       groupKeyOf: (c) => getLifecyclePhase(c),
-      vocab: LIFECYCLE_PHASES.map((p) => ({ key: p.key, label: t(p.tKey) })),
+      vocab: LIFECYCLE_PHASES.map((p) => ({ key: p.key, label: t(p.tKey), color: p.color })),
     });
     axes.push({
       key: "approval_status",
       label: t("columns.approvalStatus"),
       groupKeyOf: (c) => c.approval_status,
-      vocab: APPROVAL_STATUS_OPTIONS.map((o) => ({ key: o.key, label: t(o.tKey) })),
+      vocab: APPROVAL_STATUS_OPTIONS.map((o) => ({ key: o.key, label: t(o.tKey), color: o.color })),
     });
     if (typeConfig) {
       for (const section of typeConfig.fields_schema) {
@@ -690,7 +690,7 @@ export default function InventoryPage() {
                 // single_select stores a scalar; tolerate a stray array value.
                 return Array.isArray(value) ? String(value[0]) : String(value);
               },
-              vocab: f.options.map((o) => ({ key: o.key, label: optLabel(o) })),
+              vocab: f.options.map((o) => ({ key: o.key, label: optLabel(o), color: o.color })),
             });
           }
         }
