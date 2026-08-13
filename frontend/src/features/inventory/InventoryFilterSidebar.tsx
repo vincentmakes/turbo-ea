@@ -185,6 +185,42 @@ export function normalizeSelectAttributeFilters(
   return changed ? next : attributes;
 }
 
+/**
+ * Translate relation-filter keys to the RELATION-TYPE-KEY vocabulary the
+ * inventory uses everywhere (sidebar dropdowns, the client matcher, and
+ * `relationsMap` are all keyed by e.g. `relAppToProvider`). Deep links emit
+ * `rel_<relatedCardTypeKey>` (`rel_Provider`) because the report thinks in
+ * related card types — an untranslated entry matches nothing and silently
+ * empties the grid. Rules: a key that already is a relation-type key is kept;
+ * a related-card-type key moves its names under the FIRST mapped relation
+ * type (the same dedup rule the relation columns use), merging with any
+ * existing values; an unresolvable key is DROPPED — a deep link may degrade
+ * to showing more items, never to an inexplicable zero. Returns the SAME
+ * object reference when nothing changed, so callers can setState safely.
+ */
+export function normalizeRelationFilterKeys(
+  relations: Filters["relations"],
+  relationTypeKeys: ReadonlySet<string>,
+  cardTypeToRelTypes: ReadonlyMap<string, string[]>,
+): Filters["relations"] {
+  let changed = false;
+  const next: Filters["relations"] = {};
+  for (const [key, names] of Object.entries(relations || {})) {
+    if (relationTypeKeys.has(key)) {
+      next[key] = [...new Set([...(next[key] ?? []), ...names])];
+      continue;
+    }
+    const mapped = cardTypeToRelTypes.get(key);
+    changed = true;
+    if (mapped && mapped.length > 0) {
+      const target = mapped[0];
+      next[target] = [...new Set([...(next[target] ?? []), ...names])];
+    }
+    // else: unresolvable — drop.
+  }
+  return changed ? next : relations;
+}
+
 /** True when a card value should count as "empty" for filtering purposes. */
 export function valueIsEmpty(actual: unknown): boolean {
   return (

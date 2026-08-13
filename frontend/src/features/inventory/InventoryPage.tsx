@@ -45,6 +45,7 @@ import InventoryFilterSidebar, {
   LIFECYCLE_PHASES,
   LOCKED_COLUMN_KEYS,
   EMPTY_VALUE,
+  normalizeRelationFilterKeys,
   normalizeSelectAttributeFilters,
   valueIsEmpty,
   tagsToFilterText,
@@ -974,6 +975,20 @@ export default function InventoryPage() {
     }
     return map;
   }, [selectedType, relationTypes, visibleTypeKeys]);
+
+  // Deep links seed relation filters keyed by the RELATED CARD TYPE
+  // (`rel_Provider=Altium`) because the report thinks in related types, but
+  // the inventory's relation filters are keyed by relation-type key
+  // everywhere. Translate once the metamodel is known — an untranslated key
+  // matches nothing and silently empties the grid (#933 follow-up).
+  useEffect(() => {
+    if (!selectedType || relationTypes.length === 0) return;
+    const relTypeKeys = new Set(relationTypes.map((rt) => rt.key));
+    setFilters((prev) => {
+      const relations = normalizeRelationFilterKeys(prev.relations, relTypeKeys, relTypeGroupMap);
+      return relations === prev.relations ? prev : { ...prev, relations };
+    });
+  }, [selectedType, relationTypes, relTypeGroupMap]);
 
   // Compute the "default" set of columns: all core columns + all attribute +
   // all relation columns checked. The core keys (type, name, path, etc.) used

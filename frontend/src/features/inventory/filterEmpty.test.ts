@@ -3,6 +3,7 @@ import type { Filters } from "./InventoryFilterSidebar";
 import {
   EMPTY_VALUE,
   filtersAfterTypeToggle,
+  normalizeRelationFilterKeys,
   normalizeSelectAttributeFilters,
   tagEmptyToken,
   tagsToFilterText,
@@ -111,6 +112,52 @@ describe("normalizeSelectAttributeFilters", () => {
     const attributes: Filters["attributes"] = { timeModel: ["invest"] };
     expect(normalizeSelectAttributeFilters(attributes, fields)).toBe(attributes);
     expect(normalizeSelectAttributeFilters({}, fields)).toEqual({});
+  });
+});
+
+describe("normalizeRelationFilterKeys", () => {
+  const relTypeKeys = new Set(["relAppToProvider", "relAppToItComponent"]);
+  const cardTypeToRelTypes = new Map([
+    ["Provider", ["relAppToProvider"]],
+    ["ITComponent", ["relAppToItComponent", "relItComponentToApp"]],
+  ]);
+
+  it("remaps a related-card-type key to its relation-type key (deep-link bug: rel_Provider matched nothing)", () => {
+    expect(
+      normalizeRelationFilterKeys({ Provider: ["Altium"] }, relTypeKeys, cardTypeToRelTypes),
+    ).toEqual({ relAppToProvider: ["Altium"] });
+  });
+
+  it("uses the FIRST mapped relation type, matching the relation columns' dedup rule", () => {
+    expect(
+      normalizeRelationFilterKeys({ ITComponent: ["PostgreSQL"] }, relTypeKeys, cardTypeToRelTypes),
+    ).toEqual({ relAppToItComponent: ["PostgreSQL"] });
+  });
+
+  it("keeps keys that already are relation-type keys, same reference when nothing changes", () => {
+    const relations = { relAppToProvider: ["Altium"] };
+    expect(normalizeRelationFilterKeys(relations, relTypeKeys, cardTypeToRelTypes)).toBe(relations);
+    expect(normalizeRelationFilterKeys({}, relTypeKeys, cardTypeToRelTypes)).toEqual({});
+  });
+
+  it("merges when both spellings of the same relation are present", () => {
+    expect(
+      normalizeRelationFilterKeys(
+        { relAppToProvider: ["Altium"], Provider: ["Siemens", "Altium"] },
+        relTypeKeys,
+        cardTypeToRelTypes,
+      ),
+    ).toEqual({ relAppToProvider: ["Altium", "Siemens"] });
+  });
+
+  it("drops unresolvable keys — a deep link may show more items, never a silent zero", () => {
+    expect(
+      normalizeRelationFilterKeys(
+        { Nonsense: ["x"], Provider: ["Altium"] },
+        relTypeKeys,
+        cardTypeToRelTypes,
+      ),
+    ).toEqual({ relAppToProvider: ["Altium"] });
   });
 });
 
