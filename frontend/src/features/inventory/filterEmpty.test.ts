@@ -3,10 +3,12 @@ import type { Filters } from "./InventoryFilterSidebar";
 import {
   EMPTY_VALUE,
   filtersAfterTypeToggle,
+  normalizeSelectAttributeFilters,
   tagEmptyToken,
   tagsToFilterText,
   valueIsEmpty,
 } from "./InventoryFilterSidebar";
+import type { FieldDef } from "@/types";
 
 const baseFilters: Filters = {
   types: ["Application"],
@@ -66,6 +68,49 @@ describe("tagsToFilterText", () => {
   it("handles empty / undefined tag lists", () => {
     expect(tagsToFilterText([])).toBe("");
     expect(tagsToFilterText(undefined)).toBe("");
+  });
+});
+
+describe("normalizeSelectAttributeFilters", () => {
+  const fields: FieldDef[] = [
+    {
+      key: "timeModel",
+      label: "TIME Model",
+      type: "single_select",
+      options: [{ key: "invest", label: "Invest" }],
+    },
+    {
+      key: "platforms",
+      label: "Platforms",
+      type: "multiple_select",
+      options: [{ key: "aws", label: "AWS" }],
+    },
+    { key: "vendor", label: "Vendor", type: "text" },
+    { key: "costTotalAnnual", label: "Annual Cost", type: "cost" },
+  ] as FieldDef[];
+
+  it("promotes URL-seeded scalar values on select fields to arrays (issue: sidebar highlight)", () => {
+    const next = normalizeSelectAttributeFilters(
+      { timeModel: "invest", platforms: "aws" },
+      fields,
+    );
+    expect(next).toEqual({ timeModel: ["invest"], platforms: ["aws"] });
+  });
+
+  it("promotes the (empty) sentinel too, so Not-set deep-links highlight", () => {
+    const next = normalizeSelectAttributeFilters({ timeModel: EMPTY_VALUE }, fields);
+    expect(next).toEqual({ timeModel: [EMPTY_VALUE] });
+  });
+
+  it("leaves non-select scalars and unknown keys untouched", () => {
+    const attributes = { vendor: "sap", costTotalAnnual: "1000", mystery: "x" };
+    expect(normalizeSelectAttributeFilters(attributes, fields)).toBe(attributes);
+  });
+
+  it("leaves already-normalized arrays untouched and returns the same reference when nothing changes", () => {
+    const attributes: Filters["attributes"] = { timeModel: ["invest"] };
+    expect(normalizeSelectAttributeFilters(attributes, fields)).toBe(attributes);
+    expect(normalizeSelectAttributeFilters({}, fields)).toEqual({});
   });
 });
 

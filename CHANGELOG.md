@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.54.1] - 2026-08-13
+
+### Fixed
+- **"View in inventory" deep-links now highlight the filtered value in the sidebar.** Arriving from a portfolio report group, the attribute filter showed only a badge count — the select dropdown looked unset even though the filter was active. The seeded value now renders as a highlighted chip with its option checked, and is matched by exact option key instead of a loose text match. Deep-links also no longer apply a previously saved inventory grouping on arrival, so the slice you clicked is exactly what you see ([discussion #933](https://github.com/vincentmakes/turbo-ea/discussions/933) follow-up).
+
 ## [2.54.0] - 2026-08-13
 
 ### Added

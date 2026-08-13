@@ -160,6 +160,31 @@ export function tagsToFilterText(tags?: { name: string }[]): string {
   return (tags || []).map((t) => t.name).join(", ");
 }
 
+/**
+ * Promote scalar attribute-filter values on select fields to single-element
+ * arrays. URL deep-links (`?attr_<key>=<value>`) seed scalars because they are
+ * parsed before the metamodel loads, but the sidebar's select filter renders
+ * (and highlights) arrays only, and the client matcher compares arrays by
+ * exact option key rather than the loose "contains" scalar branch. Returns the
+ * SAME object reference when nothing changed, so callers can setState safely.
+ */
+export function normalizeSelectAttributeFilters(
+  attributes: Filters["attributes"],
+  fields: FieldDef[],
+): Filters["attributes"] {
+  let changed = false;
+  const next: Filters["attributes"] = { ...attributes };
+  for (const field of fields) {
+    if (field.type !== "single_select" && field.type !== "multiple_select") continue;
+    const value = next[field.key];
+    if (typeof value === "string" && value !== "") {
+      next[field.key] = [value];
+      changed = true;
+    }
+  }
+  return changed ? next : attributes;
+}
+
 /** True when a card value should count as "empty" for filtering purposes. */
 export function valueIsEmpty(actual: unknown): boolean {
   return (

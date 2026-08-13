@@ -45,6 +45,7 @@ import InventoryFilterSidebar, {
   LIFECYCLE_PHASES,
   LOCKED_COLUMN_KEYS,
   EMPTY_VALUE,
+  normalizeSelectAttributeFilters,
   valueIsEmpty,
   tagsToFilterText,
   type Filters,
@@ -267,6 +268,19 @@ function buildRelationIndex(
 /** An inventory grid row: a card, or a member clone marked as group header. */
 type InventoryRow = GroupedRow<Card>;
 
+/** True when the URL carries filter state (a deep-link) — it then wins over
+ * the persisted prefs for both the sidebar filters and the group-by axis. */
+function urlHasFilterParams(searchParams: URLSearchParams): boolean {
+  return (
+    searchParams.has("type") ||
+    searchParams.has("search") ||
+    searchParams.has("approval_status") ||
+    searchParams.has("show_archived") ||
+    searchParams.has("mine") ||
+    Array.from(searchParams.keys()).some((k) => k.startsWith("attr_") || k.startsWith("rel_"))
+  );
+}
+
 /**
  * Split a multi-valued cell into its values for the context menu's per-value
  * filter stage. Separators follow what each column's valueGetter/formatter
@@ -486,12 +500,7 @@ export default function InventoryPage() {
 
   const [filters, setFilters] = useState<Filters>(() => {
     // URL params take precedence over localStorage
-    const hasUrlParams = searchParams.has("type") || searchParams.has("search") ||
-      searchParams.has("approval_status") || searchParams.has("show_archived") ||
-      searchParams.has("mine") ||
-      Array.from(searchParams.keys()).some((k) => k.startsWith("attr_") || k.startsWith("rel_"));
-
-    if (hasUrlParams) {
+    if (urlHasFilterParams(searchParams)) {
       const attributes: Record<string, string> = {};
       // rel_<relTypeKey>=<related card name> — the deep-link shape the
       // portfolio report's "View in inventory" button emits for relation
@@ -565,10 +574,15 @@ export default function InventoryPage() {
   // Axis key string (see the groupAxes memo). URL wins so deep-links land
   // grouped; ?group_by= alone deliberately does NOT count as "URL params
   // present" for the filters above — sharing a grouped link must not wipe the
-  // recipient's saved filters.
-  const [groupBy, setGroupBy] = useState<string | null>(
-    () => searchParams.get("group_by") ?? savedPrefsRef.current?.groupBy ?? null,
-  );
+  // recipient's saved filters. But when the URL DOES carry filter params (a
+  // "View in inventory" deep-link), the saved group-by must not apply either:
+  // landing on the "Invest" slice still grouped by a stale axis reads as two
+  // filters fighting each other (#933 follow-up).
+  const [groupBy, setGroupBy] = useState<string | null>(() => {
+    const fromUrl = searchParams.get("group_by");
+    if (fromUrl) return fromUrl;
+    return urlHasFilterParams(searchParams) ? null : (savedPrefsRef.current?.groupBy ?? null);
+  });
 
   const [data, setData] = useState<Card[]>([]);
   const [, setTotal] = useState(0);
@@ -799,6 +813,20 @@ export default function InventoryPage() {
   // Derive the single selected type for column rendering (only when exactly one type selected)
   const selectedType = filters.types.length === 1 ? filters.types[0] : "";
   const typeConfig = types.find((t) => t.key === selectedType);
+
+  // URL deep-links seed attribute filters as scalar strings (the URL block
+  // above runs before the metamodel loads, so it can't know which fields are
+  // selects). Once the type's schema is known, promote scalars on select
+  // fields to arrays so the sidebar highlights the filtered value and the
+  // matcher compares option keys exactly (#933 follow-up).
+  useEffect(() => {
+    if (!typeConfig) return;
+    const fields = typeConfig.fields_schema.flatMap((s) => s.fields);
+    setFilters((prev) => {
+      const attributes = normalizeSelectAttributeFilters(prev.attributes, fields);
+      return attributes === prev.attributes ? prev : { ...prev, attributes };
+    });
+  }, [typeConfig]);
 
   // Axes offered by the Group-by picker (consumed by useRowGrouping, which
   // resolves an unknown/stale axis key to "no grouping"). Lifecycle and
