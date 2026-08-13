@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.55.0] - 2026-08-13
+
+### Added
+- **"View in inventory" now mirrors the report.** From a portfolio report grouped by one of the card type's own fields, the link opens the inventory grouped by the same field with the clicked group expanded and every other group collapsed (counts visible), and carries the report's search, attribute, relation, and tag filters along. Reports grouped by a related card type keep the previous behavior of filtering to that card ([discussion #933](https://github.com/vincentmakes/turbo-ea/discussions/933) follow-up).
+
 ## [2.54.1] - 2026-08-13
 
 ### Fixed

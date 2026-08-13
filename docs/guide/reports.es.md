@@ -23,7 +23,7 @@ Cuando la IA está configurada y los análisis de portafolio están habilitados 
 
 ### Del informe al inventario
 
-Al hacer clic en un grupo se abre un panel con las tarjetas de ese grupo. Su botón **Ver en el inventario** abre el inventario filtrado exactamente a ese segmento — incluido el grupo *sin asignar* —, de modo que una clasificación errónea detectada en el informe queda a un clic de la [edición masiva](inventory.md#mass-edit) del inventario. El botón se oculta cuando los *grupos anidados* están activos: un subárbol agregado no se corresponde con ningún filtro único del inventario.
+Al hacer clic en un grupo se abre un panel con las tarjetas de ese grupo. Su botón **Ver en el inventario** abre el inventario exactamente en ese segmento. Cuando el informe está agrupado por un campo propio del tipo de tarjeta, el inventario llega agrupado por el mismo campo: el grupo pulsado aparece desplegado y el resto plegado (los recuentos siguen visibles), y se trasladan la búsqueda y los filtros de atributos, relaciones y etiquetas del informe — listo para «seleccionar todo» y la [edición masiva](inventory.md#mass-edit). Al agrupar por un tipo de tarjeta relacionado (por ejemplo, Organización), el inventario llega filtrado a esa tarjeta relacionada. El botón se oculta cuando los *grupos anidados* están activos: un subárbol agregado no se corresponde con ningún filtro único del inventario.
 
 ## Portafolio flexible
 

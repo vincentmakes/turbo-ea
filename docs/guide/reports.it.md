@@ -23,7 +23,7 @@ Quando l'IA è configurata e le analisi del portafoglio sono abilitate da un amm
 
 ### Dal report all'inventario
 
-Facendo clic su un gruppo si apre un pannello con le schede di quel gruppo. Il suo pulsante **Visualizza nell'inventario** apre l'inventario filtrato esattamente su quella porzione — incluso il gruppo *non assegnato* — così una classificazione errata individuata nel report è a un solo clic dalla [modifica di massa](inventory.md#mass-edit) dell'inventario. Il pulsante è nascosto quando i *gruppi annidati* sono attivi: un sottoalbero aggregato non corrisponde a un singolo filtro dell'inventario.
+Facendo clic su un gruppo si apre un pannello con le schede di quel gruppo. Il suo pulsante **Visualizza nell'inventario** apre l'inventario esattamente su quella porzione. Quando il report è raggruppato per un campo proprio del tipo di scheda, l'inventario arriva raggruppato per lo stesso campo: il gruppo cliccato è espanso e tutti gli altri sono compressi (i conteggi restano visibili), e vengono trasferiti la ricerca e i filtri di attributi, relazioni e tag del report — pronto per «seleziona tutto» e la [modifica di massa](inventory.md#mass-edit). Raggruppando per un tipo di scheda correlato (ad esempio Organizzazione), l'inventario arriva invece filtrato su quella scheda correlata. Il pulsante è nascosto quando i *gruppi annidati* sono attivi: un sottoalbero aggregato non corrisponde a un singolo filtro dell'inventario.
 
 ## Portfolio flessibile
 

@@ -277,6 +277,7 @@ function urlHasFilterParams(searchParams: URLSearchParams): boolean {
     searchParams.has("approval_status") ||
     searchParams.has("show_archived") ||
     searchParams.has("mine") ||
+    searchParams.has("tag") ||
     Array.from(searchParams.keys()).some((k) => k.startsWith("attr_") || k.startsWith("rel_"))
   );
 }
@@ -501,18 +502,21 @@ export default function InventoryPage() {
   const [filters, setFilters] = useState<Filters>(() => {
     // URL params take precedence over localStorage
     if (urlHasFilterParams(searchParams)) {
-      const attributes: Record<string, string> = {};
-      // rel_<relTypeKey>=<related card name> — the deep-link shape the
-      // portfolio report's "View in inventory" button emits for relation
-      // groups. Name-based to match the sidebar's relation filter values.
+      // attr_/rel_ params may repeat (a report carrying multi-value filters):
+      // one value stays scalar for attr_ (the select-normalization effect
+      // below promotes it once the field types are known), several land as
+      // an array. rel_<relTypeKey>=<related card name> is name-based to
+      // match the sidebar's relation filter values.
+      const attributes: Record<string, string | string[]> = {};
       const relations: Record<string, string[]> = {};
-      searchParams.forEach((value, key) => {
+      for (const key of new Set(searchParams.keys())) {
         if (key.startsWith("attr_")) {
-          attributes[key.slice(5)] = value;
+          const values = searchParams.getAll(key);
+          attributes[key.slice(5)] = values.length > 1 ? values : values[0];
         } else if (key.startsWith("rel_")) {
-          relations[key.slice(4)] = [value];
+          relations[key.slice(4)] = searchParams.getAll(key);
         }
-      });
+      }
       return {
         types: searchParams.get("type") ? [searchParams.get("type")!] : [],
         search: searchParams.get("search") || "",
@@ -523,7 +527,7 @@ export default function InventoryPage() {
         showArchived: searchParams.get("show_archived") === "true",
         attributes,
         relations,
-        tagIds: [],
+        tagIds: searchParams.getAll("tag"),
         mineScope: searchParams.get("mine") === "stakeholder" ? "stakeholder" : null,
       };
     }
@@ -583,6 +587,11 @@ export default function InventoryPage() {
     if (fromUrl) return fromUrl;
     return urlHasFilterParams(searchParams) ? null : (savedPrefsRef.current?.groupBy ?? null);
   });
+  // ?expand_group=<key> — the report group the user clicked. Consumed once by
+  // the grouping hook: that group lands expanded, all others collapsed.
+  const initialFocusGroupRef = useRef(
+    searchParams.get("group_by") ? searchParams.get("expand_group") : null,
+  );
 
   const [data, setData] = useState<Card[]>([]);
   const [, setTotal] = useState(0);
@@ -1312,6 +1321,7 @@ export default function InventoryPage() {
     rows: filteredData,
     axes: groupAxes,
     groupBy,
+    initialFocusGroup: initialFocusGroupRef.current,
   });
 
   // Sidebar-facet mirroring: "Show matching" on a facet-backed column also

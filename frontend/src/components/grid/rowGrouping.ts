@@ -119,6 +119,23 @@ export function buildGroupedRows<T extends { id: string }>(
 }
 
 /**
+ * The collapse set that focuses one group: every group key present in the
+ * rows (Not set and stray keys included) except `focusKey`. Used by deep
+ * links (`?group_by=…&expand_group=…`) to land with the clicked group open
+ * and every other group as a collapsed header with its count.
+ */
+export function collapsedSetForFocus<T>(
+  rows: T[],
+  axis: GroupAxis<T>,
+  focusKey: string,
+): Set<string> {
+  const keys = new Set<string>();
+  for (const row of rows) keys.add(groupKeyOn(row, axis));
+  keys.delete(focusKey);
+  return keys;
+}
+
+/**
  * `postSortRows` glue: AG Grid sorts headers among the leaves (a header is a
  * member clone, so it sorts wherever that member would). Reorder in place so
  * each group's header sits directly above its members, members keep the order

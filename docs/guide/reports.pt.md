@@ -23,7 +23,7 @@ Quando a IA está configurada e as análises de portfólio estão habilitadas po
 
 ### Do relatório para o inventário
 
-Clicar num grupo abre um painel com os cartões desse grupo. O seu botão **Ver no inventário** abre o inventário filtrado exatamente para essa fatia — incluindo o grupo *não atribuído* — de modo que uma classificação errada detetada no relatório fica a um clique da [edição em massa](inventory.md#mass-edit) do inventário. O botão fica oculto quando os *grupos aninhados* estão ativos: uma subárvore agregada não corresponde a um único filtro do inventário.
+Clicar num grupo abre um painel com os cartões desse grupo. O seu botão **Ver no inventário** abre o inventário exatamente nessa fatia. Quando o relatório está agrupado por um campo próprio do tipo de cartão, o inventário chega agrupado pelo mesmo campo: o grupo clicado aparece expandido e todos os outros recolhidos (as contagens continuam visíveis), e a pesquisa e os filtros de atributos, relações e etiquetas do relatório são transportados — pronto para «selecionar tudo» e a [edição em massa](inventory.md#mass-edit). Ao agrupar por um tipo de cartão relacionado (por exemplo, Organização), o inventário chega filtrado para esse cartão relacionado. O botão fica oculto quando os *grupos aninhados* estão ativos: uma subárvore agregada não corresponde a um único filtro do inventário.
 
 ## Portfólio flexível
 

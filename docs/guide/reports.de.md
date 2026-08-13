@@ -23,7 +23,7 @@ Wenn KI konfiguriert und Portfolio-Erkenntnisse von einem Administrator aktivier
 
 ### Vom Bericht ins Inventar
 
-Ein Klick auf eine Gruppe öffnet eine Seitenleiste mit den Karten der Gruppe. Deren Schaltfläche **Im Inventar anzeigen** öffnet das Inventar exakt auf diesen Ausschnitt gefiltert — einschließlich der Gruppe *nicht zugeordnet* —, sodass eine im Bericht entdeckte Fehlklassifizierung nur einen Klick von der [Massenbearbeitung](inventory.md#mass-edit) des Inventars entfernt ist. Bei aktiven *verschachtelten Gruppen* ist die Schaltfläche ausgeblendet: Für einen aufsummierten Teilbaum gibt es keinen einzelnen Inventarfilter.
+Ein Klick auf eine Gruppe öffnet eine Seitenleiste mit den Karten der Gruppe. Deren Schaltfläche **Im Inventar anzeigen** öffnet das Inventar genau auf diesem Ausschnitt. Ist der Bericht nach einem eigenen Feld des Kartentyps gruppiert, kommt das Inventar nach demselben Feld gruppiert an: die angeklickte Gruppe ist ausgeklappt, alle anderen sind eingeklappt (die Anzahlen bleiben sichtbar), und Suche, Attribut-, Beziehungs- und Tag-Filter des Berichts werden übernommen — bereit für „alle auswählen“ und die [Massenbearbeitung](inventory.md#mass-edit). Bei Gruppierung nach einem verknüpften Kartentyp (etwa Organisation) kommt das Inventar stattdessen auf diese verknüpfte Karte gefiltert an. Bei aktiven *verschachtelten Gruppen* ist die Schaltfläche ausgeblendet: Für einen aufsummierten Teilbaum gibt es keinen einzelnen Inventarfilter.
 
 ## Flexibles Portfolio
 

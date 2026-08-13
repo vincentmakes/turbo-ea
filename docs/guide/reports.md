@@ -23,7 +23,7 @@ When AI is configured and portfolio insights are enabled by an admin, the portfo
 
 ### From report to inventory
 
-Clicking a group opens a drawer listing that group's cards. Its **View in inventory** button opens the Inventory pre-filtered to exactly that slice — including the *not assigned* bucket — so a misclassification you spot in the report is one click away from the inventory's [mass edit](inventory.md#mass-edit). The button is hidden while *Nested groups* is active: a rolled-up subtree has no single inventory filter.
+Clicking a group opens a drawer listing that group's cards. Its **View in inventory** button opens the Inventory on that exact slice. When the report is grouped by one of the card type's own fields, the inventory arrives grouped by the same field with the clicked group expanded and every other group collapsed (counts stay visible), and the report's search, attribute, relation and tag filters are carried over — ready for a select-all and [mass edit](inventory.md#mass-edit). When grouping by a related card type (such as Organization), the inventory instead arrives filtered to that related card. The button is hidden while *Nested groups* is active: a rolled-up subtree has no single inventory filter.
 
 ## Flexible Portfolio
 

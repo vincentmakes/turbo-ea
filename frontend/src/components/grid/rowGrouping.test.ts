@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   NOT_SET_KEY,
   buildGroupedRows,
+  collapsedSetForFocus,
   glueGroups,
   groupKeyOn,
   type GroupAxis,
@@ -123,6 +124,25 @@ describe("buildGroupedRows", () => {
     const headerKeys = rows.filter((r) => r.__group).map((r) => r.__group!.key);
     expect(headerKeys).toEqual(["administrative", "legacyValue"]);
     expect(rows.find((r) => r.__group?.key === "legacyValue")!.__group!.label).toBe("legacyValue");
+  });
+});
+
+describe("collapsedSetForFocus", () => {
+  it("collapses every present group except the focus, Not set and stray keys included", () => {
+    const rows = [
+      row("a", "A", "missionCritical"),
+      row("b", "B", "administrative"),
+      row("c", "C", "legacyValue"),
+      row("d", "D"),
+    ];
+    const collapsed = collapsedSetForFocus(rows, AXIS, "missionCritical");
+    expect(collapsed).toEqual(new Set(["administrative", "legacyValue", NOT_SET_KEY]));
+  });
+
+  it("focusing the Not set bucket keeps it expanded", () => {
+    const rows = [row("a", "A", "missionCritical"), row("d", "D")];
+    const collapsed = collapsedSetForFocus(rows, AXIS, NOT_SET_KEY);
+    expect(collapsed).toEqual(new Set(["missionCritical"]));
   });
 });
 

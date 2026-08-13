@@ -23,7 +23,7 @@ Når AI er konfigureret, og porteføljeindsigter er aktiveret af en administrato
 
 ### Fra rapport til lager
 
-Et klik på en gruppe åbner et panel med gruppens kort. Panelets knap **Vis i lageret** åbner lageret filtreret til præcis dette udsnit — inklusive gruppen *ikke tildelt* — så en fejlklassificering, du spotter i rapporten, kun er ét klik fra lagerets [masseredigering](inventory.md#mass-edit). Knappen skjules, når *indlejrede grupper* er aktive: et sammenlagt undertræ svarer ikke til ét enkelt lagerfilter.
+Et klik på en gruppe åbner et panel med gruppens kort. Panelets knap **Vis i lageret** åbner lageret på præcis dette udsnit. Når rapporten er grupperet efter et af korttypens egne felter, ankommer lageret grupperet efter samme felt: den valgte gruppe er foldet ud, alle andre er foldet sammen (antallene er stadig synlige), og rapportens søgning samt attribut-, relations- og tagfiltre følger med — klar til «vælg alle» og [masseredigering](inventory.md#mass-edit). Ved gruppering efter en relateret korttype (for eksempel Organisation) ankommer lageret i stedet filtreret til det relaterede kort. Knappen skjules, når *indlejrede grupper* er aktive: et sammenlagt undertræ svarer ikke til ét enkelt lagerfilter.
 
 ## Fleksibel portefølje
 

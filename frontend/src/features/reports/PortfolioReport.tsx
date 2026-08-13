@@ -29,7 +29,11 @@ import Switch from "@mui/material/Switch";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
-import { buildInventorySliceUrl, type InventorySliceGroup } from "./portfolioInventoryLink";
+import {
+  buildInventorySliceUrl,
+  type InventorySliceFilters,
+  type InventorySliceGroup,
+} from "./portfolioInventoryLink";
 import TimelineSlider from "@/components/TimelineSlider";
 import FilterSelect from "@/components/FilterSelect";
 import TagPicker from "@/components/TagPicker";
@@ -1129,6 +1133,30 @@ export default function PortfolioReport({
     });
   }, []);
 
+  // Report filters the "View in inventory" deep-link carries over. Relation
+  // filters are translated member-id → name (the inventory's relation filter
+  // is name-based); relation-subtype filters and the timeline date have no
+  // inventory equivalent and are deliberately dropped.
+  const carriedLinkFilters = useMemo<InventorySliceFilters>(() => {
+    const relations: Record<string, string[]> = {};
+    if (data) {
+      for (const [typeKey, memberIds] of Object.entries(relationFilters)) {
+        if (memberIds.length === 0) continue;
+        const members = data.groupable_types[typeKey] || [];
+        const names = memberIds
+          .map((id) => members.find((m) => m.id === id)?.name)
+          .filter((n): n is string => !!n);
+        if (names.length > 0) relations[typeKey] = names;
+      }
+    }
+    return {
+      search: search || undefined,
+      attributes: attrFilters,
+      relations,
+      tagIds: tagFilterIds,
+    };
+  }, [data, search, attrFilters, relationFilters, tagFilterIds]);
+
   // Build relation filter options from groupable_types
   const relationFilterOptions = useMemo(() => {
     if (!data) return [];
@@ -2202,6 +2230,7 @@ export default function PortfolioReport({
                     cardType,
                     mode: groupByMode,
                     group: drawer.groupRef,
+                    filters: carriedLinkFilters,
                   })}
                   startIcon={<MaterialSymbol icon="inventory_2" size={16} />}
                   sx={{ textTransform: "none", flexShrink: 0 }}

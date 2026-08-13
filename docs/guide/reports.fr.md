@@ -23,7 +23,7 @@ Lorsque l'IA est configurée et que les analyses de portefeuille sont activées 
 
 ### Du rapport à l'inventaire
 
-Cliquer sur un groupe ouvre un panneau listant les cartes de ce groupe. Son bouton **Voir dans l'inventaire** ouvre l'inventaire filtré exactement sur cette tranche — y compris le groupe *non affecté* — : une erreur de classification repérée dans le rapport n'est plus qu'à un clic de la [modification en masse](inventory.md#mass-edit) de l'inventaire. Le bouton est masqué lorsque les *groupes imbriqués* sont actifs : un sous-arbre agrégé ne correspond à aucun filtre d'inventaire unique.
+Cliquer sur un groupe ouvre un panneau listant les cartes de ce groupe. Son bouton **Voir dans l'inventaire** ouvre l'inventaire exactement sur cette tranche. Lorsque le rapport est regroupé par un champ propre au type de carte, l'inventaire arrive regroupé par le même champ : le groupe cliqué est déplié, tous les autres sont repliés (les compteurs restent visibles), et la recherche ainsi que les filtres d'attributs, de relations et d'étiquettes du rapport sont repris — prêt pour un « tout sélectionner » suivi de la [modification en masse](inventory.md#mass-edit). Lors d'un regroupement par un type de carte lié (par exemple Organisation), l'inventaire arrive filtré sur cette carte liée. Le bouton est masqué lorsque les *groupes imbriqués* sont actifs : un sous-arbre agrégé ne correspond à aucun filtre d'inventaire unique.
 
 ## Portefeuille flexible
 

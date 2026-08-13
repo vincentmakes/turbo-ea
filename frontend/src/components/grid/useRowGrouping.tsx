@@ -24,6 +24,7 @@ import { useIsRtl } from "@/hooks/useIsRtl";
 import { readableTextColor } from "@/lib/color";
 import {
   buildGroupedRows,
+  collapsedSetForFocus,
   glueGroups,
   groupKeyOn,
   type GroupAxis,
@@ -186,12 +187,19 @@ export interface UseRowGroupingOptions<T extends { id: string }> {
   groupBy: string | null;
   /** Whether the grid has row selection (shows the header checkbox). Default true. */
   selectable?: boolean;
+  /**
+   * One-shot focus: once rows are available on the active axis, collapse
+   * every group except this key (deep-link `?expand_group=` — the clicked
+   * report group lands open, the rest as collapsed headers with counts).
+   * Later expand/collapse behaves as usual.
+   */
+  initialFocusGroup?: string | null;
 }
 
 export function useRowGrouping<T extends { id: string }>(
   // Accepts both untyped (AgGridReact) and row-typed (AgGridReact<T>) refs.
   gridRef: RefObject<AgGridReact<T> | AgGridReact | null>,
-  { rows, axes, groupBy, selectable = true }: UseRowGroupingOptions<T>,
+  { rows, axes, groupBy, selectable = true, initialFocusGroup = null }: UseRowGroupingOptions<T>,
 ) {
   const { t } = useTranslation("common");
 
@@ -209,6 +217,17 @@ export function useRowGrouping<T extends { id: string }>(
   useEffect(() => {
     setCollapsed(new Set());
   }, [activeAxis?.key]);
+
+  // One-shot deep-link focus: rows load asynchronously (and attribute axes
+  // only resolve once the metamodel arrives), so the seeding waits for both
+  // and then never runs again — the user's own expand/collapse takes over.
+  const pendingFocusRef = useRef<string | null>(initialFocusGroup ?? null);
+  useEffect(() => {
+    const focus = pendingFocusRef.current;
+    if (!focus || !activeAxis || rows.length === 0) return;
+    pendingFocusRef.current = null;
+    setCollapsed(collapsedSetForFocus(rows, activeAxis, focus));
+  }, [rows, activeAxis]);
 
   // Per-group representative members known to pass the active grid filters
   // (column and quick filters alike). A header row is a clone of its
