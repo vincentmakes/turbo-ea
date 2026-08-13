@@ -57,6 +57,8 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
+import { useCellContextMenu } from "@/components/grid/useCellContextMenu";
+import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import { RAG_COLORS } from "@/theme";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useThemeMode } from "@/hooks/useThemeMode";
@@ -534,14 +536,16 @@ export default function ComplianceGrid({
       headerName: tCards("compliance.grid.col.created"),
       field: "created_at",
       width: 130,
-      filter: "agDateColumnFilter",
+      // Custom comparator — the stock one can't parse ISO-string cells.
+      ...dateColumnFilterDef,
       valueFormatter: (p) => (p.value ? formatDate(p.value as string) : ""),
     },
     {
       headerName: tCards("compliance.grid.col.modified"),
       field: "updated_at",
       width: 130,
-      filter: "agDateColumnFilter",
+      // Custom comparator — the stock one can't parse ISO-string cells.
+      ...dateColumnFilterDef,
       valueFormatter: (p) => (p.value ? formatDate(p.value as string) : ""),
     },
     // Delete action — admin-grade (canManage gates rendering, the
@@ -607,6 +611,12 @@ export default function ComplianceGrid({
     }),
     [columnFreeze.headerComponentParams],
   );
+
+  // Right-click / long-press cell menu (Show matching, Filter out, …). The
+  // delete-action column handles its own clicks and offers nothing to filter.
+  const cellMenu = useCellContextMenu<TurboLensComplianceFinding>(gridRef, {
+    excludeColumns: (colId) => colId === "delete_action",
+  });
 
   const onSortChanged = (e: SortChangedEvent<TurboLensComplianceFinding>) => {
     const next = e.api
@@ -856,9 +866,11 @@ export default function ComplianceGrid({
 
         <Box
           ref={columnFreeze.containerRef}
+          {...cellMenu.containerProps}
           className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
           sx={{
             ...columnFreeze.sx,
+            ...cellMenu.sx,
             width: "100%",
             // Visual grouping: emphasise the first row of each card
             // cluster and put a clean divider above it. Continuation
@@ -900,9 +912,12 @@ export default function ComplianceGrid({
                 : undefined
             }
             domLayout="autoHeight"
+            {...cellMenu.gridProps}
           />
         </Box>
       </Box>
+
+      {cellMenu.menu}
 
       <FindingDetailDrawer
         finding={findingDrawer}

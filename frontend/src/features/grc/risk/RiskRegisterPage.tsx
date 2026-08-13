@@ -32,6 +32,8 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import StakeholderHoverCard from "@/components/StakeholderHoverCard";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
+import { useCellContextMenu } from "@/components/grid/useCellContextMenu";
+import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import MetricCard from "@/features/reports/MetricCard";
 import { api, ApiError } from "@/api/client";
 import type {
@@ -464,6 +466,19 @@ export default function RiskRegisterPage() {
     selectable: false,
   });
 
+  // Right-click / long-press cell menu (Show matching, Filter out, …).
+  const cellMenu = useCellContextMenu<GroupedRow<Risk>>(gridRef, {
+    suppressForRow: grouping.isGroupRow,
+    // The affected-cards column joins card names with "; ".
+    splitValues: (ctx) =>
+      ctx.colId === "cards" && ctx.displayValue
+        ? ctx.displayValue
+            .split("; ")
+            .filter(Boolean)
+            .map((v) => ({ label: v, filter: v }))
+        : null,
+  });
+
   const matrixForView = metrics
     ? matrixView === "initial"
       ? metrics.initial_matrix
@@ -603,7 +618,8 @@ export default function RiskRegisterPage() {
         field: "target_resolution_date",
         headerName: t("risks.col.target"),
         width: 140,
-        filter: "agDateColumnFilter",
+        // Custom comparator — the stock one can't parse ISO-string cells.
+        ...dateColumnFilterDef,
         valueFormatter: (p) => (p.value ? formatDate(p.value as string) : "—"),
         cellStyle: (p) => {
           if (!p.data) return null;
@@ -643,7 +659,8 @@ export default function RiskRegisterPage() {
         field: "updated_at",
         headerName: t("risks.col.updatedAt"),
         width: 140,
-        filter: "agDateColumnFilter",
+        // Custom comparator — the stock one can't parse ISO-string cells.
+        ...dateColumnFilterDef,
         // Default-sort only when the user hasn't picked their own. The
         // grid's `initialState` (below) wins if there's a saved sort.
         sort: sortModel.length === 0 ? "desc" : undefined,
@@ -900,8 +917,9 @@ export default function RiskRegisterPage() {
           </Stack>
           <Box
             ref={columnFreeze.containerRef}
+            {...cellMenu.containerProps}
             className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
-            sx={{ flex: 1, width: "100%", minHeight: 0, ...columnFreeze.sx }}
+            sx={{ flex: 1, width: "100%", minHeight: 0, ...columnFreeze.sx, ...cellMenu.sx }}
           >
             <AgGridReact<Risk>
               key={isRtl ? "rtl" : "ltr"}
@@ -931,10 +949,13 @@ export default function RiskRegisterPage() {
                 if (grouping.isGroupRow(e.data as GroupedRow<Risk>)) return;
                 if (e.data) navigate(`/grc/risks/${e.data.id}`);
               }}
+              {...cellMenu.gridProps}
             />
           </Box>
         </Box>
       </Box>
+
+      {cellMenu.menu}
 
       <CreateRiskDialog
         open={Boolean(dialogSeed)}

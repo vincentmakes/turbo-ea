@@ -32,6 +32,8 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
+import { useCellContextMenu } from "@/components/grid/useCellContextMenu";
+import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useThemeMode } from "@/hooks/useThemeMode";
@@ -259,6 +261,13 @@ export default function AuditLogAdmin() {
     [columnFreeze.headerComponentParams],
   );
 
+  // Right-click / long-press cell menu. Column filters on this grid narrow
+  // the loaded page only (the list is server-paginated) — the pre-existing
+  // semantic of its filter popups, unchanged here.
+  const cellMenu = useCellContextMenu<AuditBatch>(gridRef, {
+    excludeColumns: (colId) => colId === "actions",
+  });
+
   const columnDefs: ColDef<AuditBatch>[] = useMemo(
     () => [
       {
@@ -267,7 +276,8 @@ export default function AuditLogAdmin() {
         headerName: t("auditLog.columns.when"),
         width: 180,
         sort: "desc",
-        filter: "agDateColumnFilter",
+        // Custom comparator — the stock one can't parse ISO-string cells.
+        ...dateColumnFilterDef,
         valueFormatter: (p) => (p.value ? formatDateTime(p.value as string) : ""),
       },
       {
@@ -516,8 +526,9 @@ export default function AuditLogAdmin() {
 
           <Box
             ref={columnFreeze.containerRef}
+            {...cellMenu.containerProps}
             className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
-            sx={{ flex: 1, width: "100%", minHeight: 0, ...columnFreeze.sx }}
+            sx={{ flex: 1, width: "100%", minHeight: 0, ...columnFreeze.sx, ...cellMenu.sx }}
           >
             <AgGridReact<AuditBatch>
               key={isRtl ? "rtl" : "ltr"}
@@ -532,8 +543,10 @@ export default function AuditLogAdmin() {
               onRowClicked={(e: RowClickedEvent<AuditBatch>) => {
                 if (e.data) setDrawerBatch(e.data);
               }}
+              {...cellMenu.gridProps}
             />
           </Box>
+          {cellMenu.menu}
 
           {total > pageSize && (
             <Stack

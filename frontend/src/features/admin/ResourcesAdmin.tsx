@@ -43,6 +43,7 @@ import { api } from "@/api/client";
 import BulkSelectionBar, { BulkSelectionAction } from "@/components/BulkSelectionBar";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
+import { useCellContextMenu } from "@/components/grid/useCellContextMenu";
 import { hasPermission } from "@/components/RequirePermission";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -415,6 +416,14 @@ export default function ResourcesAdmin() {
     [columnFreeze.headerComponentParams],
   );
 
+  // Cell menu, Copy only: this grid's filtering is server-side (sidebar
+  // facets + pagination), so a client column filter would silently no-op —
+  // filter items are disabled rather than offered and broken.
+  const cellMenu = useCellContextMenu<RepositoryResource>(gridApiRef, {
+    enableFilterItems: false,
+    excludeColumns: (colId) => colId === "actions",
+  });
+
   const columnDefs: ColDef<RepositoryResource>[] = useMemo(
     () => [
       {
@@ -767,8 +776,9 @@ export default function ResourcesAdmin() {
 
           <Box
             ref={columnFreeze.containerRef}
+            {...cellMenu.containerProps}
             className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
-            sx={{ flex: 1, width: "100%", minHeight: 0, ...columnFreeze.sx }}
+            sx={{ flex: 1, width: "100%", minHeight: 0, ...columnFreeze.sx, ...cellMenu.sx }}
           >
             <AgGridReact<RepositoryResource>
               key={isRtl ? "rtl" : "ltr"}
@@ -788,8 +798,10 @@ export default function ResourcesAdmin() {
               }}
               onSelectionChanged={(e) => setSelected(e.api.getSelectedRows())}
               onSortChanged={handleSortChanged}
+              {...cellMenu.gridProps}
             />
           </Box>
+          {cellMenu.menu}
 
           {total > pageSize && (
             <Stack direction="row" justifyContent="center" sx={{ mt: 1.5 }}>
