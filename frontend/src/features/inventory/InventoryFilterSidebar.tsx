@@ -38,7 +38,7 @@ import {
   DATA_QUALITY_BANDS,
   normalizeDataQualityFilter,
   type DataQualityBand,
-} from "./dataQualityBands";
+} from "@/lib/dataQualityBands";
 import type {
   CardType,
   Bookmark,

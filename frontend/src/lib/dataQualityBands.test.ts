@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  bandColor,
   bandOf,
   DATA_QUALITY_BANDS,
   isDataQualityBand,
@@ -33,6 +34,27 @@ describe("DATA_QUALITY_BANDS", () => {
       expect(bandOf(band.min)).toBe(band.key);
       if (band.max !== null) expect(bandOf(band.max)).not.toBe(band.key);
     }
+  });
+});
+
+describe("bandColor", () => {
+  it("gives one colour per band, taken from the band table", () => {
+    expect(bandColor(90)).toBe("#4caf50");
+    expect(bandColor(60)).toBe("#ff9800");
+    expect(bandColor(10)).toBe("#f44336");
+  });
+
+  it("colours a 40-49 score as partial, not minimal", () => {
+    // The regression this exists to prevent: the grid, the card-detail pill
+    // and the portal used to cut at 50, so a 45% card was orange in the
+    // report and red everywhere else.
+    expect(bandColor(45)).toBe(bandColor(60));
+    expect(bandColor(45)).not.toBe(bandColor(10));
+  });
+
+  it("treats a missing score as minimal, like bandOf", () => {
+    expect(bandColor(null)).toBe(bandColor(0));
+    expect(bandColor(undefined)).toBe(bandColor(0));
   });
 });
 

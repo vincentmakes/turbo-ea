@@ -28,10 +28,11 @@ import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import ReportCardListPanel, { type ReportCardListItem } from "./ReportCardListPanel";
 import { buildInventorySliceUrl } from "./portfolioInventoryLink";
 import {
+  bandColor,
   bandOf,
   DATA_QUALITY_BANDS,
   type DataQualityBand,
-} from "@/features/inventory/dataQualityBands";
+} from "@/lib/dataQualityBands";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { api } from "@/api/client";
 
@@ -111,7 +112,7 @@ function scopePath(scope: DQScope): string {
 }
 
 function dataQualityColor(v: number): string {
-  return QUALITY_COLORS[bandOf(v)];
+  return bandColor(v);
 }
 
 function dataQualityLabelKey(v: number): string {

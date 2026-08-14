@@ -55,11 +55,12 @@ import { type GroupAxis, type GroupedRow } from "@/components/grid/rowGrouping";
 import { GroupByMenuButton, useRowGrouping } from "@/components/grid/useRowGrouping";
 import ImportDialog from "./ImportDialog";
 import {
+  bandColor,
   bandOf,
   DATA_QUALITY_BANDS,
   isDataQualityBand,
   normalizeDataQualityFilter,
-} from "./dataQualityBands";
+} from "@/lib/dataQualityBands";
 import { exportToExcel, exportCurrentViewToExcel } from "./excelExport";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import RelationCellPopover from "./RelationCellPopover";
@@ -2486,8 +2487,9 @@ export default function InventoryPage() {
         valueFormatter: (p: { value?: number }) => `${Math.round(p.value || 0)}%`,
         cellRenderer: (p: { value: number }) => {
           const v = Math.round(p.value || 0);
-          const color =
-            v >= 80 ? "#4caf50" : v >= 50 ? "#ff9800" : "#f44336";
+          // Band colour, so the bar agrees with the sidebar chip that filters
+          // it and with the Data Quality report's segments.
+          const color = bandColor(v);
           return (
             <Box
               sx={{

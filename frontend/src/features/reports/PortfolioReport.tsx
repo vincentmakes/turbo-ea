@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { Link as RouterLink } from "react-router";
 import { alpha, useTheme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
@@ -8,11 +7,7 @@ import MenuItem from "@mui/material/MenuItem";
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
 import Tooltip from "@mui/material/Tooltip";
-import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
-import List from "@mui/material/List";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemText from "@mui/material/ListItemText";
 import Chip from "@mui/material/Chip";
 import Paper from "@mui/material/Paper";
 import Table from "@mui/material/Table";
@@ -40,6 +35,7 @@ import TagPicker from "@/components/TagPicker";
 import type { TagGroup } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
+import ReportCardListPanel, { type ReportCardListItem } from "./ReportCardListPanel";
 import { api, isAbortError } from "@/api/client";
 import { readableTextColor } from "@/lib/color";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -1262,6 +1258,37 @@ export default function PortfolioReport({
       ? t("portfolio.noAppsInGroup")
       : t("portfolio.noItemsInGroup", { type: currentTypeLabel });
 
+  // Rows for the group drawer. `[...apps]` matters: this used to sort in
+  // place, mutating the array held in state — and, via handleGroupClick, the
+  // grouping memo's own `g.apps`.
+  const drawerItems = useMemo<ReportCardListItem[]>(() => {
+    if (!drawer) return [];
+    // Which group member colours this row: nested nodes roll up cards
+    // belonging to deeper members, so each keeps its own.
+    const memberOf = (id: string) =>
+      perMemberColor ? (drawer.appMemberIds?.[id] ?? drawer.memberId) : undefined;
+    return [...drawer.apps]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((a) => {
+        const parts: string[] = [];
+        if (a.subtype) parts.push(a.subtype);
+        if (colorBy) {
+          const label = getAppColorLabel(a, colorRes, colorLabels, memberOf(a.id));
+          if (label) parts.push(label);
+        }
+        if (a.lifecycle?.endOfLife) parts.push(`EOL: ${a.lifecycle.endOfLife}`);
+        return {
+          id: a.id,
+          name: a.name,
+          secondary: parts.join(" · ") || undefined,
+          dotColor: colorBy ? getAppColor(a, colorRes, colorLabels, memberOf(a.id)) : undefined,
+          warn: !!a.lifecycle?.endOfLife,
+        };
+      });
+  }, [drawer, colorBy, colorRes, colorLabels, perMemberColor]);
+
+  const drawerEolCount = drawer?.apps.filter((a) => a.lifecycle?.endOfLife).length ?? 0;
+
   // Depth options for the nested-groups selector — "Level 1..N" + "All levels"
   // (same pattern as the Capability Map's Display Depth control).
   const depthOptions = useMemo(() => {
@@ -2208,141 +2235,34 @@ export default function PortfolioReport({
         </Paper>
       )}
 
-      {/* Detail drawer */}
-      <Drawer
-        anchor="right"
+      {/* Group drawer — the cards behind one bubble/group */}
+      <ReportCardListPanel
         open={!!drawer}
+        title={drawer?.label ?? ""}
+        items={drawerItems}
+        metrics={[
+          { value: drawer?.apps.length ?? 0, label: typeNoun },
+          ...(drawerEolCount > 0
+            ? [{ value: drawerEolCount, label: t("portfolio.eolRisk"), color: "#e65100" }]
+            : []),
+        ]}
+        listHeading={`${typeNoun} (${drawer?.apps.length ?? 0})`}
+        emptyLabel={noItemsInGroup}
+        inventoryHref={
+          // A rolled-up nested subtree is not expressible as an inventory
+          // filter, so those drawers deliberately carry no link.
+          drawer?.groupRef && !nestedActive
+            ? buildInventorySliceUrl({
+                cardType,
+                mode: groupByMode,
+                group: drawer.groupRef,
+                filters: carriedLinkFilters,
+              })
+            : undefined
+        }
+        onItemClick={handleAppClick}
         onClose={() => setDrawer(null)}
-        PaperProps={{ sx: { width: { xs: "100%", sm: 420 } } }}
-      >
-        {drawer && (
-          <Box sx={{ p: 2 }}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, flex: 1 }}>
-                {drawer.label}
-              </Typography>
-              {drawer.groupRef && !nestedActive && (
-                <Button
-                  size="small"
-                  variant="outlined"
-                  component={RouterLink}
-                  to={buildInventorySliceUrl({
-                    cardType,
-                    mode: groupByMode,
-                    group: drawer.groupRef,
-                    filters: carriedLinkFilters,
-                  })}
-                  startIcon={<MaterialSymbol icon="inventory_2" size={16} />}
-                  sx={{ textTransform: "none", flexShrink: 0 }}
-                >
-                  {t("portfolio.viewInInventory")}
-                </Button>
-              )}
-              <IconButton onClick={() => setDrawer(null)}>
-                <MaterialSymbol icon="close" size={20} />
-              </IconButton>
-            </Box>
-
-            {/* Summary metrics */}
-            <Box sx={{ display: "flex", gap: 3, mb: 2 }}>
-              <Box sx={{ textAlign: "center", minWidth: 80 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  {drawer.apps.length}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {typeNoun}
-                </Typography>
-              </Box>
-              {drawer.apps.filter((a) => a.lifecycle?.endOfLife).length > 0 && (
-                <Box sx={{ textAlign: "center", minWidth: 80 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 700, color: "#e65100" }}>
-                    {drawer.apps.filter((a) => a.lifecycle?.endOfLife).length}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {t("portfolio.eolRisk")}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-
-            {/* Application list */}
-            <Typography
-              variant="subtitle2"
-              sx={{ fontWeight: 600, mb: 1 }}
-            >
-              {typeNoun} ({drawer.apps.length})
-            </Typography>
-            <List dense>
-              {drawer.apps
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map((a) => {
-                  // Build secondary text dynamically from active color/group fields
-                  const parts: string[] = [];
-                  if (a.subtype) parts.push(a.subtype);
-                  if (colorBy) {
-                    const lbl = getAppColorLabel(
-                      a,
-                      colorRes,
-                      colorLabels,
-                      perMemberColor
-                        ? (drawer.appMemberIds?.[a.id] ?? drawer.memberId)
-                        : undefined,
-                    );
-                    if (lbl) parts.push(lbl);
-                  }
-                  if (a.lifecycle?.endOfLife) parts.push(`EOL: ${a.lifecycle.endOfLife}`);
-
-                  return (
-                    <ListItemButton
-                      key={a.id}
-                      onClick={() => handleAppClick(a.id)}
-                    >
-                      <ListItemText
-                        primary={a.name}
-                        secondary={parts.join(" \u00B7 ") || undefined}
-                      />
-                      {colorBy && (
-                        <Box
-                          sx={{
-                            width: 12,
-                            height: 12,
-                            borderRadius: "50%",
-                            bgcolor: getAppColor(
-                              a,
-                              colorRes,
-                              colorLabels,
-                              perMemberColor
-                                ? (drawer.appMemberIds?.[a.id] ?? drawer.memberId)
-                                : undefined,
-                            ),
-                            flexShrink: 0,
-                            ml: 1,
-                          }}
-                        />
-                      )}
-                      {a.lifecycle?.endOfLife && (
-                        <MaterialSymbol
-                          icon="warning"
-                          size={16}
-                          color="#e65100"
-                        />
-                      )}
-                    </ListItemButton>
-                  );
-                })}
-              {drawer.apps.length === 0 && (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ py: 2, textAlign: "center" }}
-                >
-                  {noItemsInGroup}
-                </Typography>
-              )}
-            </List>
-          </Box>
-        )}
-      </Drawer>
+      />
       <CardDetailSidePanel
         cardId={sidePanelCardId}
         open={!!sidePanelCardId}

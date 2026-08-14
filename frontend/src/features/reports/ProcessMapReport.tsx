@@ -15,11 +15,6 @@ import MenuItem from "@mui/material/MenuItem";
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
 import Tooltip from "@mui/material/Tooltip";
-import Drawer from "@mui/material/Drawer";
-import IconButton from "@mui/material/IconButton";
-import List from "@mui/material/List";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemText from "@mui/material/ListItemText";
 import Chip from "@mui/material/Chip";
 import Breadcrumbs from "@mui/material/Breadcrumbs";
 import Link from "@mui/material/Link";
@@ -27,6 +22,10 @@ import ReportShell from "./ReportShell";
 import FilterSelect from "@/components/FilterSelect";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
+import ReportCardListPanel, {
+  ReportCardListRows,
+  type ReportCardListItem,
+} from "./ReportCardListPanel";
 import { api } from "@/api/client";
 import { readableTextColor } from "@/lib/color";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -646,6 +645,33 @@ export default function ProcessMapReport() {
     setDrawer(null);
   }, []);
 
+  // The drawer's two lists. Data objects render through the same row
+  // component as the applications, so they cannot drift apart visually.
+  const drawerApps = useMemo<ReportCardListItem[]>(
+    () =>
+      drawer
+        ? Array.from(drawer.deepUniqueApps.values())
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((a) => ({
+              id: a.id,
+              name: a.name,
+              secondary: a.subtype || undefined,
+              warn: !!a.lifecycle?.endOfLife,
+            }))
+        : [],
+    [drawer],
+  );
+
+  const drawerDataObjects = useMemo<ReportCardListItem[]>(
+    () =>
+      drawer
+        ? Array.from(drawer.deepDataObjects.values())
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((d) => ({ id: d.id, name: d.name }))
+        : [],
+    [drawer],
+  );
+
   const orgOptions = useMemo(
     () => organizations.map((o) => ({ key: o.id, label: o.name })),
     [organizations],
@@ -904,24 +930,12 @@ export default function ProcessMapReport() {
       )}
 
       {/* Detail drawer */}
-      <Drawer
-        anchor="right"
+      <ReportCardListPanel
         open={!!drawer}
-        onClose={() => setDrawer(null)}
-        PaperProps={{ sx: { width: { xs: "100%", sm: 420 } } }}
-      >
-        {drawer && (
-          <Box sx={{ p: 2 }}>
-            <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, flex: 1 }}>
-                {drawer.name}
-              </Typography>
-              <IconButton onClick={() => setDrawer(null)} size="small">
-                <MaterialSymbol icon="close" size={20} />
-              </IconButton>
-            </Box>
-
-            {/* Metadata chips */}
+        title={drawer?.name ?? ""}
+        items={drawerApps}
+        headerContent={
+          drawer ? (
             <Box sx={{ display: "flex", gap: 0.5, mb: 2, flexWrap: "wrap" }}>
               {drawer.subtype && SUBTYPE_TKEYS[drawer.subtype] && (
                 <Chip size="small" label={t(SUBTYPE_TKEYS[drawer.subtype])} variant="outlined" />
@@ -962,109 +976,73 @@ export default function ProcessMapReport() {
                 />
               )}
             </Box>
-
-            {/* Metric summary */}
-            <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
-              <Box sx={{ textAlign: "center", minWidth: 80 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>{drawer.deepAppCount}</Typography>
-                <Typography variant="caption" color="text.secondary">{t("processMap.showApplications")}</Typography>
-              </Box>
-              <Box sx={{ textAlign: "center", minWidth: 80 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>{drawer.deepDataObjects.size}</Typography>
-                <Typography variant="caption" color="text.secondary">{t("processMap.showDataObjects")}</Typography>
-              </Box>
-              <Box sx={{ textAlign: "center", minWidth: 80 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>{fmtShort(drawer.deepCost)}</Typography>
-                <Typography variant="caption" color="text.secondary">{t("processMap.cost")}</Typography>
-              </Box>
-            </Box>
-
-            {/* Actions */}
-            <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
-              <Chip
-                size="small"
-                icon={<MaterialSymbol icon="open_in_new" size={14} />}
-                label={t("processMap.openCard")}
-                onClick={() => handleItemClick(drawer.id)}
-                sx={{ cursor: "pointer" }}
-              />
-              {drawer.children.length > 0 && (
+          ) : undefined
+        }
+        metrics={[
+          { value: drawer?.deepAppCount ?? 0, label: t("processMap.showApplications") },
+          { value: drawer?.deepDataObjects.size ?? 0, label: t("processMap.showDataObjects") },
+          { value: fmtShort(drawer?.deepCost ?? 0), label: t("processMap.cost") },
+        ]}
+        beforeList={
+          drawer ? (
+            <>
+              {/* Actions — neither is a card click, so both stay out of `items` */}
+              <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
                 <Chip
                   size="small"
-                  icon={<MaterialSymbol icon="zoom_in" size={14} />}
-                  label={t("processMap.drillDown")}
-                  onClick={() => handleDrillDown(drawer.id)}
+                  icon={<MaterialSymbol icon="open_in_new" size={14} />}
+                  label={t("processMap.openCard")}
+                  onClick={() => handleItemClick(drawer.id)}
                   sx={{ cursor: "pointer" }}
-                  color="primary"
                 />
-              )}
-            </Box>
-
-            {/* Sub-processes */}
-            {drawer.children.length > 0 && (
-              <>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                  {t("processMap.subProcesses", { count: drawer.children.length })}
-                </Typography>
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2 }}>
-                  {drawer.children.map((ch) => (
-                    <Chip
-                      key={ch.id}
-                      size="small"
-                      label={`${ch.name} (${ch.deepAppCount})`}
-                      onClick={() => setDrawer(ch)}
-                      sx={{ fontWeight: 500, fontSize: "0.75rem", cursor: "pointer" }}
-                    />
-                  ))}
-                </Box>
-              </>
-            )}
-
-            {/* Applications */}
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-              {t("processMap.applications", { count: drawer.deepAppCount })}
-            </Typography>
-            <List dense>
-              {Array.from(drawer.deepUniqueApps.values())
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map((a) => (
-                  <ListItemButton key={a.id} onClick={() => handleItemClick(a.id)}>
-                    <ListItemText
-                      primary={a.name}
-                      secondary={a.subtype || undefined}
-                    />
-                    {a.lifecycle?.endOfLife && (
-                      <MaterialSymbol icon="warning" size={16} color="#e65100" />
-                    )}
-                  </ListItemButton>
-                ))}
-              {drawer.deepAppCount === 0 && (
-                <Typography variant="body2" color="text.secondary" sx={{ py: 1, textAlign: "center" }}>
-                  {t("processMap.noLinkedApps")}
-                </Typography>
-              )}
-            </List>
-
-            {/* Data Objects */}
-            {drawer.deepDataObjects.size > 0 && (
-              <>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, mt: 2 }}>
-                  {t("processMap.dataObjects", { count: drawer.deepDataObjects.size })}
-                </Typography>
-                <List dense>
-                  {Array.from(drawer.deepDataObjects.values())
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map((d) => (
-                      <ListItemButton key={d.id} onClick={() => handleItemClick(d.id)}>
-                        <ListItemText primary={d.name} />
-                      </ListItemButton>
+                {drawer.children.length > 0 && (
+                  <Chip
+                    size="small"
+                    icon={<MaterialSymbol icon="zoom_in" size={14} />}
+                    label={t("processMap.drillDown")}
+                    onClick={() => handleDrillDown(drawer.id)}
+                    sx={{ cursor: "pointer" }}
+                    color="primary"
+                  />
+                )}
+              </Box>
+              {drawer.children.length > 0 && (
+                <>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                    {t("processMap.subProcesses", { count: drawer.children.length })}
+                  </Typography>
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2 }}>
+                    {drawer.children.map((ch) => (
+                      <Chip
+                        key={ch.id}
+                        size="small"
+                        label={`${ch.name} (${ch.deepAppCount})`}
+                        onClick={() => setDrawer(ch)}
+                        sx={{ fontWeight: 500, fontSize: "0.75rem", cursor: "pointer" }}
+                      />
                     ))}
-                </List>
-              </>
-            )}
-          </Box>
-        )}
-      </Drawer>
+                  </Box>
+                </>
+              )}
+            </>
+          ) : undefined
+        }
+        listHeading={t("processMap.applications", { count: drawer?.deepAppCount ?? 0 })}
+        emptyLabel={t("processMap.noLinkedApps")}
+        afterList={
+          drawerDataObjects.length > 0 ? (
+            <>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, mt: 2 }}>
+                {t("processMap.dataObjects", { count: drawerDataObjects.length })}
+              </Typography>
+              {/* Second list, same rows as the first — see ReportCardListRows */}
+              <ReportCardListRows items={drawerDataObjects} onItemClick={handleItemClick} />
+            </>
+          ) : undefined
+        }
+        onItemClick={handleItemClick}
+        onClose={() => setDrawer(null)}
+      />
       <CardDetailSidePanel
         cardId={sidePanelCardId}
         open={!!sidePanelCardId}

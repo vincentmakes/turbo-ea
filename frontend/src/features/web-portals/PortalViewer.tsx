@@ -35,6 +35,7 @@ import {
   useSubtypeLabel,
 } from "@/hooks/useResolveLabel";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { bandColor, bandOf, type DataQualityBand } from "@/lib/dataQualityBands";
 import TagPicker from "@/components/TagPicker";
 import type {
   PublicPortal,
@@ -46,6 +47,18 @@ import type {
 
 const BASE = "/api/v1";
 const TOOLBAR_COLOR = "#1a1a2e";
+
+/** Tinted variants of the data-quality band palette, for the detail chip. */
+const QUALITY_CHIP_BG: Record<DataQualityBand, string> = {
+  complete: "#e8f5e9",
+  partial: "#fff3e0",
+  minimal: "#ffebee",
+};
+const QUALITY_CHIP_FG: Record<DataQualityBand, string> = {
+  complete: "#2e7d32",
+  partial: "#e65100",
+  minimal: "#c62828",
+};
 
 interface ToggleEntry {
   card: boolean;
@@ -1225,12 +1238,7 @@ export default function PortalViewer() {
                         borderRadius: 2,
                         bgcolor: "action.hover",
                         "& .MuiLinearProgress-bar": {
-                          bgcolor:
-                            card.data_quality >= 80
-                              ? "#4caf50"
-                              : card.data_quality >= 50
-                                ? "#ff9800"
-                                : "#ef5350",
+                          bgcolor: bandColor(card.data_quality),
                           borderRadius: 2,
                         },
                       }}
@@ -1364,18 +1372,11 @@ export default function PortalViewer() {
                       height: 28,
                       fontSize: "0.8rem",
                       px: 0.75,
-                      bgcolor:
-                        selectedFs.data_quality >= 80
-                          ? "#e8f5e9"
-                          : selectedFs.data_quality >= 50
-                            ? "#fff3e0"
-                            : "#ffebee",
-                      color:
-                        selectedFs.data_quality >= 80
-                          ? "#2e7d32"
-                          : selectedFs.data_quality >= 50
-                            ? "#e65100"
-                            : "#c62828",
+                      // Tinted rather than the solid band colour, but bucketed
+                      // by the same bands so it can't disagree with the bar
+                      // above it.
+                      bgcolor: QUALITY_CHIP_BG[bandOf(selectedFs.data_quality)],
+                      color: QUALITY_CHIP_FG[bandOf(selectedFs.data_quality)],
                       fontWeight: 600,
                     }}
                   />

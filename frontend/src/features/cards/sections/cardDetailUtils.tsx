@@ -24,6 +24,7 @@ import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionHost";
 import type { FieldDef, Relation } from "@/types";
 import { otherEnd, sortRelationsByName } from "@/lib/relationSort";
+import { bandColor } from "@/lib/dataQualityBands";
 
 // Re-exported so the Relations section keeps one import site for its helpers.
 export { otherEnd, sortRelationsByName };
@@ -203,7 +204,7 @@ export function getUrlErrorMsg(t: (key: string) => string): string {
 export function DataQualityPill({ value }: { value: number }) {
   const { t } = useTranslation(["cards", "common"]);
   const v = Math.max(0, Math.min(100, Math.round(value)));
-  const color = v >= 80 ? "#4caf50" : v >= 50 ? "#ff9800" : "#f44336";
+  const color = bandColor(v);
   return (
     <Tooltip title={t("utils.dataQuality", { value: v })}>
       <Box

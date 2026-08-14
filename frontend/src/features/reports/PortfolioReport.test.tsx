@@ -44,6 +44,12 @@ vi.mock("@/components/TimelineSlider", () => ({
   default: () => <div data-testid="timeline-slider" />,
 }));
 
+// The real one pulls in CardDetailContent, which needs an AuthProvider.
+vi.mock("@/components/CardDetailSidePanel", () => ({
+  default: ({ cardId, open }: { cardId: string | null; open: boolean }) =>
+    open ? <div data-testid="card-side-panel">{cardId}</div> : null,
+}));
+
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
@@ -150,9 +156,13 @@ beforeEach(() => {
     reset: vi.fn(),
   });
 
-  // Stub clipboard
-  Object.assign(navigator, {
-    clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+  // Stub clipboard. Must be defineProperty, not Object.assign: once any test
+  // has called userEvent.setup() it installs its own getter-only `clipboard`,
+  // and assigning over that throws for every subsequent test.
+  Object.defineProperty(navigator, "clipboard", {
+    value: { writeText: vi.fn().mockResolvedValue(undefined) },
+    configurable: true,
+    writable: true,
   });
 });
 
@@ -463,5 +473,67 @@ describe("PortfolioReport nested groups", () => {
         expect.objectContaining({ nestedGroups: true, groupDepth: 2 }),
       );
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Group drawer
+//
+// Characterization tests written before the drawer was moved onto the shared
+// ReportCardListPanel — the drawer had no coverage at all, and its per-item
+// secondary text and colour dot depend on a `perMemberColor` member-id
+// fallback that is easy to get subtly wrong.
+// ---------------------------------------------------------------------------
+
+describe("PortfolioReport group drawer", () => {
+  async function openGroup(name: string) {
+    const user = userEvent.setup();
+    vi.mocked(api.get).mockResolvedValue(MOCK_API_RESPONSE);
+    mockSavedConfig({ groupByRaw: "rel:Organization", colorBy: "businessCriticality" });
+    renderPortfolio();
+    await waitFor(() => expect(screen.getByText(name)).toBeInTheDocument());
+    await user.click(screen.getByText(name));
+    return user;
+  }
+
+  it("lists the group's applications", async () => {
+    await openGroup("Finance");
+    // The drawer heading repeats the count, and the row itself is the app name.
+    await waitFor(() => {
+      expect(screen.getAllByText("SAP ERP").length).toBeGreaterThan(0);
+    });
+  });
+
+  it("describes each row with its subtype and colour-by value", async () => {
+    await openGroup("Finance");
+    await waitFor(() => {
+      expect(screen.getByText("Business Application · High")).toBeInTheDocument();
+    });
+  });
+
+  it("offers a View in inventory link for a real group", async () => {
+    await openGroup("Finance");
+    await waitFor(() => {
+      const link = screen.getByRole("link");
+      expect(link.getAttribute("href")).toContain("type=Application");
+      expect(link.getAttribute("href")).toContain("rel_Organization=Finance");
+    });
+  });
+
+  it("hands a clicked row to the card side panel", async () => {
+    const user = await openGroup("Finance");
+    await waitFor(() => expect(screen.getByText("Business Application · High")).toBeInTheDocument());
+    await user.click(screen.getByText("Business Application · High"));
+    expect(await screen.findByTestId("card-side-panel")).toHaveTextContent("app-1");
+  });
+
+  it("does not mutate the grouped app arrays when sorting rows for display", async () => {
+    // The drawer used to call drawer.apps.sort() in place, mutating the array
+    // held in React state and owned by the grouping memo.
+    await openGroup("Finance");
+    await waitFor(() => expect(screen.getByText("Business Application · High")).toBeInTheDocument());
+    // Reopening the same group must still render it — an in-place sort of a
+    // memoized array is the kind of thing that only breaks on the second open.
+    expect(screen.getAllByText("SAP ERP").length).toBeGreaterThan(0);
   });
 });

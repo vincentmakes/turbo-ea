@@ -39,6 +39,45 @@ export interface ReportCardListMetric {
   color?: string;
 }
 
+/**
+ * The panel's card rows, on their own.
+ *
+ * Exported so a report that needs a *second* list (ProcessMap's Data Objects)
+ * can render it inside `afterList` with identical rows, instead of the panel
+ * growing a notion of multiple lists. Sharing the row is the point; owning
+ * every section is not.
+ */
+export function ReportCardListRows({
+  items,
+  onItemClick,
+}: {
+  items: ReportCardListItem[];
+  onItemClick: (id: string) => void;
+}) {
+  return (
+    <List dense>
+      {items.map((item) => (
+        <ListItemButton key={item.id} onClick={() => onItemClick(item.id)}>
+          <ListItemText primary={item.name} secondary={item.secondary || undefined} />
+          {item.dotColor && (
+            <Box
+              sx={{
+                width: 12,
+                height: 12,
+                borderRadius: "50%",
+                bgcolor: item.dotColor,
+                flexShrink: 0,
+                ml: 1,
+              }}
+            />
+          )}
+          {item.warn && <MaterialSymbol icon="warning" size={16} color="#e65100" />}
+        </ListItemButton>
+      ))}
+    </List>
+  );
+}
+
 interface Props {
   open: boolean;
   title: string;
@@ -51,6 +90,12 @@ interface Props {
   truncatedLabel?: string;
   /** Inventory deep-link; the button is hidden when absent. */
   inventoryHref?: string;
+  /** Between the title and the metrics — e.g. a row of metadata chips. */
+  headerContent?: React.ReactNode;
+  /** Between the metrics and the list — e.g. drill-down / child-node chips. */
+  beforeList?: React.ReactNode;
+  /** After the list — e.g. a second list built from `ReportCardListRows`. */
+  afterList?: React.ReactNode;
   onItemClick: (id: string) => void;
   onClose: () => void;
 }
@@ -65,6 +110,9 @@ export default function ReportCardListPanel({
   emptyLabel,
   truncatedLabel,
   inventoryHref,
+  headerContent,
+  beforeList,
+  afterList,
   onItemClick,
   onClose,
 }: Props) {
@@ -99,8 +147,10 @@ export default function ReportCardListPanel({
           </IconButton>
         </Box>
 
+        {headerContent}
+
         {metrics && metrics.length > 0 && (
-          <Box sx={{ display: "flex", gap: 3, mb: 2 }}>
+          <Box sx={{ display: "flex", gap: 3, mb: 2, flexWrap: "wrap" }}>
             {metrics.map((m) => (
               <Box key={m.label} sx={{ textAlign: "center", minWidth: 80 }}>
                 <Typography variant="h6" sx={{ fontWeight: 700, color: m.color }}>
@@ -114,6 +164,8 @@ export default function ReportCardListPanel({
           </Box>
         )}
 
+        {beforeList}
+
         {listHeading && (
           <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
             {listHeading}
@@ -126,35 +178,16 @@ export default function ReportCardListPanel({
           </Box>
         ) : (
           <>
-            <List dense>
-              {items.map((item) => (
-                <ListItemButton key={item.id} onClick={() => onItemClick(item.id)}>
-                  <ListItemText primary={item.name} secondary={item.secondary || undefined} />
-                  {item.dotColor && (
-                    <Box
-                      sx={{
-                        width: 12,
-                        height: 12,
-                        borderRadius: "50%",
-                        bgcolor: item.dotColor,
-                        flexShrink: 0,
-                        ml: 1,
-                      }}
-                    />
-                  )}
-                  {item.warn && <MaterialSymbol icon="warning" size={16} color="#e65100" />}
-                </ListItemButton>
-              ))}
-              {items.length === 0 && (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ py: 2, textAlign: "center" }}
-                >
-                  {emptyLabel}
-                </Typography>
-              )}
-            </List>
+            <ReportCardListRows items={items} onItemClick={onItemClick} />
+            {items.length === 0 && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ py: 2, textAlign: "center" }}
+              >
+                {emptyLabel}
+              </Typography>
+            )}
             {truncatedLabel && items.length > 0 && (
               <Typography
                 variant="caption"
@@ -164,6 +197,7 @@ export default function ReportCardListPanel({
                 {truncatedLabel}
               </Typography>
             )}
+            {afterList}
           </>
         )}
       </Box>

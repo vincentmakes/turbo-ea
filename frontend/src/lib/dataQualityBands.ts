@@ -45,6 +45,23 @@ export function bandOf(dataQuality: number | null | undefined): DataQualityBand 
   return "minimal";
 }
 
+const COLOR_BY_BAND = Object.fromEntries(
+  DATA_QUALITY_BANDS.map((b) => [b.key, b.color]),
+) as Record<DataQualityBand, string>;
+
+/**
+ * The colour a score is drawn in — the inventory grid bar, the card-detail
+ * pill, a portal's score, the report's segments.
+ *
+ * Every one of those used to inline its own `>= 80 ? green : >= 50 ? orange`
+ * ladder, which is how the grid ended up painting a 45% card red while the
+ * report painted it orange. Deriving from the band table means a score can
+ * only ever have one colour.
+ */
+export function bandColor(dataQuality: number | null | undefined): string {
+  return COLOR_BY_BAND[bandOf(dataQuality)];
+}
+
 /**
  * Legacy `dataQualityMin` thresholds → bands.
  *

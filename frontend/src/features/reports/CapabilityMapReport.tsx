@@ -6,11 +6,6 @@ import MenuItem from "@mui/material/MenuItem";
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
 import Tooltip from "@mui/material/Tooltip";
-import Drawer from "@mui/material/Drawer";
-import IconButton from "@mui/material/IconButton";
-import List from "@mui/material/List";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemText from "@mui/material/ListItemText";
 import Chip from "@mui/material/Chip";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
@@ -22,6 +17,7 @@ import TagPicker from "@/components/TagPicker";
 import type { TagGroup } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
+import ReportCardListPanel, { type ReportCardListItem } from "./ReportCardListPanel";
 import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { readableTextColor } from "@/lib/color";
@@ -792,6 +788,29 @@ export default function CapabilityMapReport() {
     Object.values(relationFilters).some((v) => v.length > 0) ||
     tagFilterIds.length > 0;
 
+  // Rows for the capability drawer: every unique app in the subtree.
+  const drawerItems = useMemo<ReportCardListItem[]>(() => {
+    if (!drawer) return [];
+    const coloured = colorBy && colorBy !== "none";
+    return Array.from(drawer.deepUniqueApps.values())
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((a) => {
+        const parts: string[] = [];
+        if (coloured) {
+          const label = getAppColorLabel(a, colorBy, selectFields);
+          if (label) parts.push(label);
+        }
+        if (a.lifecycle?.endOfLife) parts.push(`EOL: ${a.lifecycle.endOfLife}`);
+        return {
+          id: a.id,
+          name: a.name,
+          secondary: parts.join(" · ") || undefined,
+          dotColor: coloured ? getAppColor(a, colorBy, selectFields) : undefined,
+          warn: !!a.lifecycle?.endOfLife,
+        };
+      });
+  }, [drawer, colorBy, selectFields]);
+
   const tree = useMemo(
     () => (data ? buildTree(data, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys) : []),
     [data, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys],
@@ -1271,115 +1290,49 @@ export default function CapabilityMapReport() {
       )}
 
       {/* Detail drawer */}
-      <Drawer
-        anchor="right"
+      <ReportCardListPanel
         open={!!drawer}
-        onClose={() => setDrawer(null)}
-        PaperProps={{ sx: { width: { xs: "100%", sm: 420 } } }}
-      >
-        {drawer && (
-          <Box sx={{ p: 2 }}>
-            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, flex: 1 }}>
-                {drawer.name}
+        title={drawer?.name ?? ""}
+        items={drawerItems}
+        metrics={METRIC_OPTIONS.map((o) => ({
+          value: drawer
+            ? o.key === "total_cost"
+              ? fmtShort(nodeMetric(drawer, o.key))
+              : nodeMetric(drawer, o.key)
+            : 0,
+          label: t(o.labelKey),
+        }))}
+        beforeList={
+          drawer && drawer.children.length > 0 ? (
+            <>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                {t("capabilityMap.subCapabilities", { count: drawer.children.length })}
               </Typography>
-              <IconButton onClick={() => setDrawer(null)}>
-                <MaterialSymbol icon="close" size={20} />
-              </IconButton>
-            </Box>
-
-            {/* Metric summary */}
-            <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
-              {METRIC_OPTIONS.map((o) => (
-                <Box key={o.key} sx={{ textAlign: "center", minWidth: 80 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                    {o.key === "total_cost"
-                      ? fmtShort(nodeMetric(drawer, o.key))
-                      : nodeMetric(drawer, o.key)}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {t(o.labelKey)}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
-
-            {/* Sub-capabilities */}
-            {drawer.children.length > 0 && (
-              <>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                  {t("capabilityMap.subCapabilities", { count: drawer.children.length })}
-                </Typography>
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2 }}>
-                  {drawer.children.map((ch) => (
-                    <Chip
-                      key={ch.id}
-                      size="small"
-                      label={`${ch.name} (${ch.deepAppCount})`}
-                      onClick={() => setDrawer(ch)}
-                      sx={{ fontWeight: 500, fontSize: "0.75rem", cursor: "pointer" }}
-                    />
-                  ))}
-                </Box>
-              </>
-            )}
-
-            {/* Supporting applications — all unique apps in the subtree */}
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-              {t("capabilityMap.supportingApps", { count: drawer.deepAppCount })}
-            </Typography>
-            <List dense>
-              {Array.from(drawer.deepUniqueApps.values())
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map((a) => {
-                  // Build secondary text dynamically from colorBy field
-                  const parts: string[] = [];
-                  if (colorBy && colorBy !== "none") {
-                    const lbl = getAppColorLabel(a, colorBy, selectFields);
-                    if (lbl) parts.push(lbl);
-                  }
-                  if (a.lifecycle?.endOfLife)
-                    parts.push(`EOL: ${a.lifecycle.endOfLife}`);
-
-                  return (
-                    <ListItemButton key={a.id} onClick={() => handleAppClick(a.id)}>
-                      <ListItemText
-                        primary={a.name}
-                        secondary={parts.join(" \u00B7 ") || undefined}
-                      />
-                      {colorBy && colorBy !== "none" && (
-                        <Box
-                          sx={{
-                            width: 12,
-                            height: 12,
-                            borderRadius: "50%",
-                            bgcolor: getAppColor(a, colorBy, selectFields),
-                            flexShrink: 0,
-                            ml: 1,
-                          }}
-                        />
-                      )}
-                      {a.lifecycle?.endOfLife && (
-                        <MaterialSymbol icon="warning" size={16} color="#e65100" />
-                      )}
-                    </ListItemButton>
-                  );
-                })}
-              {drawer.filteredApps.length === 0 && (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ py: 2, textAlign: "center" }}
-                >
-                  {hasActiveFilters
-                    ? t("capabilityMap.noAppsFiltered")
-                    : t("capabilityMap.noLinkedApps")}
-                </Typography>
-              )}
-            </List>
-          </Box>
-        )}
-      </Drawer>
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2 }}>
+                {drawer.children.map((ch) => (
+                  <Chip
+                    key={ch.id}
+                    size="small"
+                    label={`${ch.name} (${ch.deepAppCount})`}
+                    // Re-targets the drawer at the child node — navigation,
+                    // not a card click, so it stays out of `items`.
+                    onClick={() => setDrawer(ch)}
+                    sx={{ fontWeight: 500, fontSize: "0.75rem", cursor: "pointer" }}
+                  />
+                ))}
+              </Box>
+            </>
+          ) : undefined
+        }
+        listHeading={t("capabilityMap.supportingApps", { count: drawer?.deepAppCount ?? 0 })}
+        emptyLabel={
+          hasActiveFilters
+            ? t("capabilityMap.noAppsFiltered")
+            : t("capabilityMap.noLinkedApps")
+        }
+        onItemClick={handleAppClick}
+        onClose={() => setDrawer(null)}
+      />
       <CardDetailSidePanel
         cardId={sidePanelCardId}
         open={!!sidePanelCardId}
