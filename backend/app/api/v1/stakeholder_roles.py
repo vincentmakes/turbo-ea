@@ -19,6 +19,7 @@ from app.models.stakeholder import Stakeholder
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.survey import Survey
 from app.models.user import User
+from app.services.data_quality import rescore_card_type
 from app.services.permission_service import PermissionService
 
 router = APIRouter(tags=["stakeholder-roles"])
@@ -48,6 +49,10 @@ class StakeholderRoleCreate(BaseModel):
     description: str | None = None
     color: str = "#757575"
     permissions: dict[str, bool] = {}
+    # Whether holding this role fills the card's data-quality stakeholders
+    # slot. Passive roles (observer and friends) should be created with
+    # this off so watching a card never stands in for owning it.
+    counts_for_quality: bool = True
     translations: dict = {}
 
     @field_validator("key")
@@ -74,6 +79,7 @@ class StakeholderRoleUpdate(BaseModel):
     color: str | None = None
     permissions: dict[str, bool] | None = None
     sort_order: int | None = None
+    counts_for_quality: bool | None = None
     translations: dict | None = None
 
     @field_validator("key")
@@ -108,6 +114,7 @@ def _srd_response(srd: StakeholderRoleDefinition, stakeholder_count: int | None 
         "color": srd.color,
         "permissions": srd.permissions,
         "is_archived": srd.is_archived,
+        "counts_for_quality": srd.counts_for_quality,
         "sort_order": srd.sort_order,
         "created_at": srd.created_at.isoformat() if srd.created_at else None,
         "updated_at": srd.updated_at.isoformat() if srd.updated_at else None,
@@ -400,9 +407,15 @@ async def create_stakeholder_role(
         color=body.color,
         permissions=body.permissions,
         sort_order=next_order,
+        counts_for_quality=body.counts_for_quality,
         translations=body.translations,
     )
     db.add(srd)
+    # A counting role is a data-quality slot for every card of this type, so
+    # adding one moves the denominator instance-wide. See `rescore_card_type`.
+    if body.counts_for_quality:
+        await db.flush()
+        await rescore_card_type(db, type_key)
     await db.commit()
     await db.refresh(srd)
     PermissionService.invalidate_srd_cache(type_key, body.key)
@@ -462,12 +475,21 @@ async def update_stakeholder_role(
     else:
         new_key = None
 
+    quality_before = srd.counts_for_quality
+
     for field, value in data.items():
         if field == "translations":
             # NOT NULL column — a client clearing every translation must land an
             # empty map, not a constraint violation.
             value = value or {}
         setattr(srd, field, value)
+
+    # Toggling "counts toward data quality" changes the stakeholders slot for
+    # every card of this type — both whether the slot exists at all (when this
+    # is the type's only counting role) and which assignments fill it.
+    if srd.counts_for_quality != quality_before:
+        await db.flush()
+        await rescore_card_type(db, type_key)
 
     await db.commit()
     await db.refresh(srd)
@@ -508,8 +530,12 @@ async def delete_stakeholder_role(
     if blocker:
         raise HTTPException(409, blocker)
 
+    counted = srd.counts_for_quality
     await db.delete(srd)
     await _rewrite_jsonb_role(db, type_key, role_key, None)
+    if counted:
+        await db.flush()
+        await rescore_card_type(db, type_key)
     await db.commit()
     PermissionService.invalidate_srd_cache(type_key, role_key)
 
@@ -553,6 +579,11 @@ async def archive_stakeholder_role(
     srd.is_archived = True
     srd.archived_at = datetime.now(timezone.utc)
     srd.archived_by = user.id
+    # Archiving a counting role drops it out of the data-quality slot, which
+    # can leave cards whose only assignment was under that role incomplete.
+    if srd.counts_for_quality:
+        await db.flush()
+        await rescore_card_type(db, type_key)
     await db.commit()
     await db.refresh(srd)
     PermissionService.invalidate_srd_cache(type_key, role_key)
@@ -587,6 +618,9 @@ async def restore_stakeholder_role(
     srd.is_archived = False
     srd.archived_at = None
     srd.archived_by = None
+    if srd.counts_for_quality:
+        await db.flush()
+        await rescore_card_type(db, type_key)
     await db.commit()
     await db.refresh(srd)
     PermissionService.invalidate_srd_cache(type_key, role_key)

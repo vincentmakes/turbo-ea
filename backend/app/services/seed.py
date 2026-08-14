@@ -5729,6 +5729,9 @@ async def seed_metamodel(db: AsyncSession) -> None:
         {
             "key": "observer",
             "label": "Observer",
+            # Watching a card is passive — it must not fill the card's
+            # "stakeholders" data-quality slot on someone else's behalf.
+            "counts_for_quality": False,
             "translations": {
                 "label": {
                     "de": "Beobachter",
@@ -6041,6 +6044,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
                     label=sr["label"],
                     permissions=permissions,
                     sort_order=idx,
+                    counts_for_quality=sr.get("counts_for_quality", True),
                     translations=sr.get("translations", {}),
                 )
             )

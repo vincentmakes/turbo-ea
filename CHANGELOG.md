@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.59.0] - 2026-08-14
+
+### Changed
+- **Stakeholders now count once toward data quality, not once per role.** The Data quality tab shows a single **Stakeholder roles** slider worth one factor, and its Score composition bar drew it as one slice — but the score demanded that *every* role defined for the card type be filled, so a type carrying Responsible and Observer quietly cost two factors and an Interface with an owner named but nobody watching was capped at 90%. A card now earns the full stakeholders factor as soon as anyone is assigned to it. Mandatory relations and mandatory tags are unchanged — each mandatory item genuinely has to be satisfied. **Scores across the whole instance are recalculated once on the first startup after upgrading**, so average completion on the Dashboard and the Data Quality report will move.
+- Each stakeholder role now carries a **Counts toward data quality** toggle, off by default for the built-in **Observer** — watching a card never stands in for owning it. Turning it on or off re-scores every card of that type immediately.
+
+### Fixed
+- **Data quality now updates when you add a stakeholder, a relation or a tag.** All three feed the completeness score, but only saving the card itself recalculated it, so assigning an owner or drawing a mandatory relation left the score showing the value from the last card edit until someone edited the card again. The score on the card page also refreshes in place after a relation change instead of waiting for a reload.
+- **Calculated fields are no longer scored one save behind.** Creating a card, bulk-creating cards, mass-editing and saving a card all computed the data quality score *before* running the card's calculated fields, so a weighted calculated field was always scored on its previous value.
+
 ## [2.58.1] - 2026-08-14
 
 ### Fixed

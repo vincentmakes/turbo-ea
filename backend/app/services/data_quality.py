@@ -6,9 +6,14 @@ A card's data-quality score is a weighted completeness ratio:
 1. **Per-field weights** from the card type's ``fields_schema`` (default 1;
    ``weight <= 0`` excludes the field).
 2. **Built-in contributor weights** — Description, Lifecycle, mandatory
-   Relations, mandatory Tag groups and Stakeholder roles — which admins tune
+   Relations, mandatory Tag groups and Stakeholders — which admins tune
    per card type via the reserved ``section_config.__dataQuality`` key (each
    default 1, 0 = exclude).
+
+Description, Lifecycle and Stakeholders are each a single slot worth their
+bucket weight. Relations and Tags multiply theirs by the number of *applicable
+mandatory items*, because each of those genuinely has to be satisfied before
+the card can be approved.
 
 A **mandatory-field gate** precedes the ratio: while any visible required field
 (excluding boolean and readonly fields) is empty, the score is pinned to 0.
@@ -20,6 +25,9 @@ exist and cannot evaluate the mandatory buckets.
 """
 
 from __future__ import annotations
+
+import uuid
+from collections.abc import Iterable
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -136,33 +144,94 @@ async def calc_data_quality(db: AsyncSession, card: Card) -> float:
             total_weight += state["tag_groups_applicable"] * tag_w
             filled_weight += (state["tag_groups_applicable"] - len(state["tag_groups"])) * tag_w
 
-    # Stakeholder roles bucket: every non-archived role defined for the card's
-    # type contributes its weight; a role counts as filled when at least one
-    # stakeholder holds it on the card. (Roles carry no "mandatory" flag, so
-    # this never gates approval — it only shapes the completeness score.)
+    # Stakeholders bucket: ONE yes/no slot, exactly like description and
+    # lifecycle — is anybody assigned to this card, in a role that counts?
+    #
+    # It used to award one slot *per role defined on the type*, which the admin
+    # UI never expressed: the Data quality panel shows a single slider and its
+    # Score-composition bar draws it as a single slice, so a type carrying both
+    # `responsible` and `observer` silently cost two slots and a card with an
+    # owner named but nobody watching was capped at half the bucket (#944).
+    # Relations and tags keep their per-item multiplication below — each
+    # mandatory item genuinely has to be satisfied — but stakeholder roles
+    # carry no mandatory flag, so "all of them or a partial score" was never a
+    # rule anyone declared.
+    #
+    # `counts_for_quality` is what keeps this honest: a purely passive role
+    # (the built-in `observer`) is excluded, so watching a card can never stand
+    # in for owning it. Archived and non-counting roles are filtered out of
+    # `role_keys`, so an assignment held under one does not fill the slot.
     stake_w = _bucket_weight(dq_cfg, "stakeholders")
     if stake_w > 0:
         role_rows = await db.execute(
             select(StakeholderRoleDefinition.key).where(
                 StakeholderRoleDefinition.card_type_key == card.type,
                 StakeholderRoleDefinition.is_archived.is_(False),
+                StakeholderRoleDefinition.counts_for_quality.is_(True),
             )
         )
         role_keys = list(role_rows.scalars().all())
+        # A type with no counting roles adds no slot at all, rather than one
+        # nobody could ever fill.
         if role_keys:
-            assigned_rows = await db.execute(
-                select(Stakeholder.role).where(
+            total_weight += stake_w
+            held = await db.execute(
+                select(Stakeholder.id)
+                .where(
                     Stakeholder.card_id == card.id,
                     Stakeholder.role.in_(role_keys),
                 )
+                .limit(1)
             )
-            satisfied = len(set(assigned_rows.scalars().all()))
-            total_weight += len(role_keys) * stake_w
-            filled_weight += satisfied * stake_w
+            if held.scalar_one_or_none() is not None:
+                filled_weight += stake_w
 
     if total_weight == 0:
         return 0.0
     return round((filled_weight / total_weight) * 100, 1)
+
+
+async def rescore_cards(
+    db: AsyncSession, card_ids: Iterable[uuid.UUID], *, chunk_size: int = 500
+) -> int:
+    """Rescore the given cards; return how many stored scores changed.
+
+    For the card-context mutations that feed the score but never go through
+    ``PATCH /cards`` — stakeholders, relations, tags. Those all shape a
+    built-in bucket, so without this the stored score silently reflects
+    whatever the state was at the card's last edit.
+
+    Never commits and never flushes: the caller owns the transaction, and in
+    the bulk endpoints it owns a dry-run savepoint that must still be able to
+    discard everything this wrote.
+    """
+    ids = list(dict.fromkeys(card_ids))
+    changed = 0
+    for i in range(0, len(ids), chunk_size):
+        chunk = ids[i : i + chunk_size]
+        cards = (await db.execute(select(Card).where(Card.id.in_(chunk)))).scalars().all()
+        for card in cards:
+            score = await calc_data_quality(db, card)
+            if card.data_quality != score:
+                card.data_quality = score
+                changed += 1
+    return changed
+
+
+async def rescore_card_type(db: AsyncSession, type_key: str) -> int:
+    """Rescore every active card of a type after a scoring-config change.
+
+    Changing a card type's weights, or which of its stakeholder roles count,
+    moves the denominator for every card of that type at once — so the change
+    has to take effect immediately rather than waiting for each card to be
+    edited. Does not commit; the caller owns the transaction.
+    """
+    ids = list(
+        (
+            await db.execute(select(Card.id).where(Card.type == type_key, Card.status == "ACTIVE"))
+        ).scalars()
+    )
+    return await rescore_cards(db, ids)
 
 
 async def recompute_all_data_quality(db: AsyncSession, *, chunk_size: int = 500) -> int:
@@ -175,14 +244,6 @@ async def recompute_all_data_quality(db: AsyncSession, *, chunk_size: int = 500)
     the same math everywhere.
     """
     ids = list((await db.execute(select(Card.id).where(Card.status != "ARCHIVED"))).scalars().all())
-    changed = 0
-    for i in range(0, len(ids), chunk_size):
-        chunk = ids[i : i + chunk_size]
-        cards = (await db.execute(select(Card).where(Card.id.in_(chunk)))).scalars().all()
-        for card in cards:
-            score = await calc_data_quality(db, card)
-            if card.data_quality != score:
-                card.data_quality = score
-                changed += 1
+    changed = await rescore_cards(db, ids, chunk_size=chunk_size)
     await db.flush()
     return changed

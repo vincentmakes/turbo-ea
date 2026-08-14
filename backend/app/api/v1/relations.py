@@ -27,6 +27,7 @@ from app.schemas.relation import (
 from app.services.calculation_engine import run_calculations_for_card
 from app.services.card_resolver import CardResolver
 from app.services.cost_field_filter import cost_field_keys_from_relation_schema
+from app.services.data_quality import calc_data_quality
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -389,13 +390,17 @@ async def create_relation(
             changed.append("description")
     await db.flush()
 
-    # Run calculated fields for both source and target cards
+    # Run calculated fields for both source and target cards, then rescore.
+    # Data quality must follow the calculations, or a calculated field's
+    # weight is scored one save stale (same rule as ppm.py).
     source_card = await db.get(Card, source_uuid)
     target_card = await db.get(Card, target_uuid)
     if source_card:
         await run_calculations_for_card(db, source_card)
+        source_card.data_quality = await calc_data_quality(db, source_card)
     if target_card:
         await run_calculations_for_card(db, target_card)
+        target_card.data_quality = await calc_data_quality(db, target_card)
 
     if not reused:
         await _emit_relation_events(
@@ -462,13 +467,15 @@ async def update_relation(
     for field, value in update_data.items():
         setattr(rel, field, value)
 
-    # Run calculated fields for both source and target cards
+    # Run calculated fields for both source and target cards, then rescore.
     source_card = await db.get(Card, rel.source_id)
     target_card = await db.get(Card, rel.target_id)
     if source_card:
         await run_calculations_for_card(db, source_card)
+        source_card.data_quality = await calc_data_quality(db, source_card)
     if target_card:
         await run_calculations_for_card(db, target_card)
+        target_card.data_quality = await calc_data_quality(db, target_card)
 
     if changed_fields:
         await _emit_relation_events(
@@ -514,12 +521,17 @@ async def delete_relation(
         actor_id=user.id,
     )
     await db.delete(rel)
+    # Flush before rescoring so the mandatory-relation check does not still
+    # see the row that was just removed.
+    await db.flush()
 
-    # Run calculated fields for both source and target cards
+    # Run calculated fields for both source and target cards, then rescore.
     if source_card:
         await run_calculations_for_card(db, source_card)
+        source_card.data_quality = await calc_data_quality(db, source_card)
     if target_card:
         await run_calculations_for_card(db, target_card)
+        target_card.data_quality = await calc_data_quality(db, target_card)
 
     await db.commit()
 
@@ -799,11 +811,23 @@ async def apply_relation_operations(
                 upserted += 1
             results.append(op_result)
 
-    # Recalculate calculated fields on every card touched by the batch.
+    # Recalculate calculated fields on every card touched by the batch, then
+    # rescore it. The set is already deduplicated, so a 5000-op batch over a
+    # dense subgraph costs one pass per *card*, not per operation.
+    #
+    # The rescore is skipped on dry-run rather than left to the caller's
+    # savepoint: `card.data_quality = …` is an in-memory ORM assignment, and a
+    # savepoint rollback does not clear it — the next autoflush in the same
+    # session writes it into the outer transaction, so the preview would
+    # persist a score. (`run_calculations_for_card` has the same shape and
+    # predates this; left alone deliberately.) The preview loses nothing — it
+    # reports upserted/deleted counts, never scores.
     for cid in impacted_cards:
         card = await db.get(Card, cid)
         if card is not None:
             await run_calculations_for_card(db, card)
+            if not dry_run:
+                card.data_quality = await calc_data_quality(db, card)
 
     # Emit all events after the writes settle so listeners see consistent
     # state if they query back. Skipped in dry-run mode — nothing was

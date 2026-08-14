@@ -96,7 +96,7 @@ L'importanza di ciascun fattore si imposta con un semplice cursore a quattro liv
 - **Importante (2)** — conta il doppio.
 - **Critico (3)** — conta il triplo.
 
-Il pannello elenca i cinque **fattori integrati** — **Descrizione**, **Ciclo di vita** (se è impostata almeno una data del ciclo di vita), **Relazioni obbligatorie**, **Tag obbligatori** e **Ruoli degli stakeholder** (ogni ruolo definito per il tipo è soddisfatto quando vi viene assegnato uno stakeholder) — seguiti da ogni campo raggruppato per sezione, ciascuno con lo stesso cursore. Ad esempio, imposta il **Ciclo di vita** su *Ignora* per un tipo le cui card legittimamente non riportano mai date, così da non penalizzarle.
+Il pannello elenca i cinque **fattori integrati** — **Descrizione**, **Ciclo di vita** (se è impostata almeno una data del ciclo di vita), **Relazioni obbligatorie**, **Tag obbligatori** e **Ruoli degli stakeholder** (un solo slot, soddisfatto non appena qualcuno viene assegnato alla scheda in un ruolo che conta per la qualità dei dati) — seguiti da ogni campo raggruppato per sezione, ciascuno con lo stesso cursore. Ad esempio, imposta il **Ciclo di vita** su *Ignora* per un tipo le cui card legittimamente non riportano mai date, così da non penalizzarle.
 
 Una barra di **composizione del punteggio** in cima al pannello mostra la quota di ciascun fattore sul punteggio massimo possibile, per vedere a colpo d'occhio quali fattori dominano. Nel layout della card della scheda **Generale**, ogni campo — e le sezioni integrate Descrizione, Ciclo di vita e Relazioni — mostra un piccolo badge con il livello attuale, per vedere la ponderazione senza lasciare quella scheda.
 
@@ -122,6 +122,8 @@ Quando nessun sottotipo è selezionato su una card (o il tipo non ha sottotipi),
 Definite ruoli personalizzati per questo tipo (es. "Application Owner", "Technical Owner"). Ogni ruolo porta **permessi a livello di card** che vengono combinati con il ruolo a livello di applicazione dell'utente quando accede a una card. Vedi [Utenti e ruoli](users.md) per maggiori informazioni sul modello dei permessi.
 
 Ogni ruolo ha una **chiave** (l'identificatore memorizzato sulle schede, usato dalle colonne di importazione/esportazione `stakeholder:<chiave_ruolo>`) e un'**etichetta** (ciò che vedono gli utenti). La chiave segue la stessa convenzione di ogni altra chiave del metamodello: solo lettere e cifre, con iniziale alfabetica, da 3 a 50 caratteri, per convenzione in camelCase come `businessArchitect`. Viene compilata automaticamente dall'etichetta, quindi raramente dovrai digitarla.
+
+Ogni ruolo porta inoltre un interruttore **Conta per la qualità dei dati**. Il punteggio di qualità ha un solo slot per gli stakeholder, soddisfatto non appena qualcuno viene assegnato alla scheda in un ruolo con questo interruttore attivo. Disattivalo per i ruoli puramente passivi: l'**Osservatore** integrato viene fornito disattivato, così osservare una scheda non vale mai come responsabilità. Un tipo in cui tutti i ruoli sono disattivati non contribuisce con alcuno slot. Cambiare l'interruttore ricalcola subito il punteggio di tutte le schede del tipo.
 
 I ruoli possono essere rimossi in due modi:
 

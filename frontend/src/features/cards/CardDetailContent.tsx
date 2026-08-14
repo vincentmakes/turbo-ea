@@ -456,6 +456,7 @@ export default function CardDetailContent({
             refreshKey={relRefresh}
             canManageRelations={perms.can_manage_relations}
             initialExpanded={exp}
+            onCardUpdate={() => api.get<Card>(`/cards/${card.id}`).then(onCardUpdate)}
           />
         </ErrorBoundary>
       );

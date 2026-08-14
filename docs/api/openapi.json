@@ -12758,6 +12758,11 @@
             "title": "Color",
             "type": "string"
           },
+          "counts_for_quality": {
+            "default": true,
+            "title": "Counts For Quality",
+            "type": "boolean"
+          },
           "description": {
             "anyOf": [
               {
@@ -12815,6 +12820,17 @@
               }
             ],
             "title": "Color"
+          },
+          "counts_for_quality": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counts For Quality"
           },
           "description": {
             "anyOf": [

@@ -12,6 +12,7 @@ from app.database import get_db
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.schemas.common import TagCreate, TagGroupCreate, TagGroupUpdate, TagUpdate
+from app.services.data_quality import rescore_cards
 from app.services.permission_service import PermissionService
 
 router = APIRouter(tags=["tags"])
@@ -224,6 +225,10 @@ async def assign_tags(
         )
         if not existing.scalar_one_or_none():
             db.add(CardTag(card_id=uuid.UUID(card_id), tag_id=uuid.UUID(tid)))
+    # Mandatory tag groups are a data-quality bucket, so satisfying one has to
+    # move the score without waiting for the card's next edit.
+    await db.flush()
+    await rescore_cards(db, [uuid.UUID(card_id)])
     await db.commit()
     return {"status": "ok"}
 
@@ -245,4 +250,6 @@ async def remove_tag(
     fst = result.scalar_one_or_none()
     if fst:
         await db.delete(fst)
+        await db.flush()
+        await rescore_cards(db, [uuid.UUID(card_id)])
         await db.commit()

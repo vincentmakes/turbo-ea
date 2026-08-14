@@ -625,12 +625,17 @@ function RelationsSection({
   refreshKey = 0,
   canManageRelations = true,
   initialExpanded = false,
+  onCardUpdate,
 }: {
   fsId: string;
   cardTypeKey: string;
   refreshKey?: number;
   canManageRelations?: boolean;
   initialExpanded?: boolean;
+  /** Re-fetch the card itself. A mandatory relation is a data-quality slot,
+   *  so adding or removing one moves the score in the header pill — which the
+   *  section's own relation reload cannot refresh. */
+  onCardUpdate?: () => void;
 }) {
   const { t, i18n } = useTranslation(["cards", "common"]);
   const typeLabel = useTypeLabel();
@@ -650,6 +655,12 @@ function RelationsSection({
   const load = useCallback(() => {
     api.get<Relation[]>(`/relations?card_id=${fsId}`).then(setRawRelations).catch(() => {});
   }, [fsId]);
+
+  /** Reload the relation list *and* the card, after a relation mutation. */
+  const reloadAll = useCallback(() => {
+    load();
+    onCardUpdate?.();
+  }, [load, onCardUpdate]);
 
   useEffect(load, [load, refreshKey]);
 
@@ -769,7 +780,7 @@ function RelationsSection({
     setAddOpen(false);
     // One reconcile per batch rather than per add: picks up what the client
     // can't see (calculated fields, relation-attribute defaults).
-    if (addedCount > 0) load();
+    if (addedCount > 0) reloadAll();
   };
 
   const totalRelations = relations.length;
@@ -798,7 +809,7 @@ function RelationsSection({
             rels={rels}
             fsId={fsId}
             canManageRelations={canManageRelations}
-            onReload={load}
+            onReload={reloadAll}
             onRequestAdd={() => openAddDialog(rt)}
             onRelationUpdated={handleRelationUpdated}
             rollupCount={rollup[rt.key] ?? 0}
@@ -824,7 +835,7 @@ function RelationsSection({
                 rels={rels}
                 fsId={fsId}
                 canManageRelations={canManageRelations}
-                onReload={load}
+                onReload={reloadAll}
                 onRequestAdd={() => openAddDialog(rt)}
                 onRelationUpdated={handleRelationUpdated}
               />

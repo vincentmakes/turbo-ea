@@ -110,6 +110,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
     label: "",
     description: "",
     color: "#1976d2",
+    countsForQuality: true,
     permissions: {} as Record<string, boolean>,
     translations: {} as MetamodelTranslations,
   });
@@ -124,6 +125,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
     label: "",
     description: "",
     color: "#1976d2",
+    countsForQuality: true,
     permissions: {} as Record<string, boolean>,
     translations: {} as MetamodelTranslations,
   });
@@ -198,11 +200,20 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
         label: createForm.label,
         description: createForm.description || undefined,
         color: createForm.color,
+        counts_for_quality: createForm.countsForQuality,
         permissions: createForm.permissions,
         translations: cleanTranslations(createForm.translations) || undefined,
       });
       await fetchRoles();
-      setCreateForm({ key: "", label: "", description: "", color: "#1976d2", permissions: {}, translations: {} });
+      setCreateForm({
+        key: "",
+        label: "",
+        description: "",
+        color: "#1976d2",
+        countsForQuality: true,
+        permissions: {},
+        translations: {},
+      });
       setCreateKeyTouched(false);
       setCreateOpen(false);
     } catch (e: unknown) {
@@ -220,6 +231,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       label: role.label,
       description: role.description || "",
       color: role.color,
+      countsForQuality: role.counts_for_quality,
       permissions: { ...role.permissions },
       translations: role.translations ? { ...role.translations } : {},
     });
@@ -239,6 +251,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
         label: editForm.label,
         description: editForm.description || undefined,
         color: editForm.color,
+        counts_for_quality: editForm.countsForQuality,
         permissions: editForm.permissions,
         translations: cleanTranslations(editForm.translations) || null,
       });
@@ -450,6 +463,16 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                 {role.is_archived && (
                   <Chip size="small" label={t("metamodel.stakeholderPanel.archived")} sx={{ height: 20, fontSize: 11 }} />
                 )}
+                {!role.counts_for_quality && (
+                  <Tooltip title={t("metamodel.stakeholderPanel.countsForQualityHelp")}>
+                    <Chip
+                      size="small"
+                      label={t("metamodel.stakeholderPanel.notCounted")}
+                      variant="outlined"
+                      sx={{ height: 20, fontSize: 11 }}
+                    />
+                  </Tooltip>
+                )}
                 {typeof role.stakeholder_count === "number" && (
                   <Chip
                     size="small"
@@ -547,6 +570,28 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                         value={editForm.color}
                         onChange={(c) => setEditForm({ ...editForm, color: c })}
                         label={t("metamodel.stakeholderPanel.colorLabel")}
+                      />
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            size="small"
+                            checked={editForm.countsForQuality}
+                            onChange={(e) =>
+                              setEditForm({ ...editForm, countsForQuality: e.target.checked })
+                            }
+                          />
+                        }
+                        label={
+                          <Box>
+                            <Typography variant="body2">
+                              {t("metamodel.stakeholderPanel.countsForQuality")}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {t("metamodel.stakeholderPanel.countsForQualityHelp")}
+                            </Typography>
+                          </Box>
+                        }
+                        sx={{ alignItems: "flex-start", ml: 0 }}
                       />
                       {renderPermissionEditor(editForm.permissions, (key, val) =>
                         setEditForm({
@@ -679,6 +724,28 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                 onChange={(c) => setCreateForm({ ...createForm, color: c })}
                 label={t("metamodel.stakeholderPanel.colorLabel")}
               />
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={createForm.countsForQuality}
+                    onChange={(e) =>
+                      setCreateForm({ ...createForm, countsForQuality: e.target.checked })
+                    }
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2">
+                      {t("metamodel.stakeholderPanel.countsForQuality")}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {t("metamodel.stakeholderPanel.countsForQualityHelp")}
+                    </Typography>
+                  </Box>
+                }
+                sx={{ alignItems: "flex-start", ml: 0 }}
+              />
               {renderPermissionEditor(createForm.permissions, (key, val) =>
                 setCreateForm({
                   ...createForm,
@@ -694,7 +761,15 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                   onClick={() => {
                     setCreateOpen(false);
                     setCreateKeyTouched(false);
-                    setCreateForm({ key: "", label: "", description: "", color: "#1976d2", permissions: {}, translations: {} });
+                    setCreateForm({
+        key: "",
+        label: "",
+        description: "",
+        color: "#1976d2",
+        countsForQuality: true,
+        permissions: {},
+        translations: {},
+      });
                   }}
                 >
                   {t("common:actions.cancel")}

@@ -96,7 +96,7 @@ La importancia de cada factor se establece con un control deslizante simple de c
 - **Importante (2)**: cuenta el doble.
 - **Crítico (3)**: cuenta el triple.
 
-El panel enumera los cinco **factores integrados** —**Descripción**, **Ciclo de vida** (si hay alguna fecha de ciclo de vida establecida), **Relaciones obligatorias** , **Etiquetas obligatorias** y **Roles de partes interesadas** (cada rol definido para el tipo se cumple cuando se le asigna una parte interesada)— seguidos de cada campo agrupado por su sección, todos con el mismo control deslizante. Por ejemplo, establezca el **Ciclo de vida** en *Ignorar* para un tipo cuyas tarjetas legítimamente nunca llevan fechas, para que no se penalicen.
+El panel enumera los cinco **factores integrados** —**Descripción**, **Ciclo de vida** (si hay alguna fecha de ciclo de vida establecida), **Relaciones obligatorias** , **Etiquetas obligatorias** y **Roles de partes interesadas** (una sola casilla, que se cumple en cuanto se asigna a alguien a la tarjeta en un rol que cuenta para la calidad de datos)— seguidos de cada campo agrupado por su sección, todos con el mismo control deslizante. Por ejemplo, establezca el **Ciclo de vida** en *Ignorar* para un tipo cuyas tarjetas legítimamente nunca llevan fechas, para que no se penalicen.
 
 Una barra de **composición de la puntuación** en la parte superior del panel muestra la proporción de cada factor en la puntuación máxima posible, para ver de un vistazo qué factores dominan. En el diseño de la tarjeta de la pestaña **Main**, cada campo —y las secciones integradas Descripción, Ciclo de vida y Relaciones— muestra una pequeña insignia con su nivel actual, para ver la ponderación sin salir de esa pestaña.
 
@@ -122,6 +122,8 @@ Cuando no se selecciona ningún subtipo en una ficha (o el tipo no tiene subtipo
 Defina roles personalizados para este tipo (ej., «Propietario de Aplicación», «Propietario Técnico»). Cada rol tiene **permisos a nivel de ficha** que se combinan con el rol a nivel de aplicación del usuario al acceder a una ficha. Ver [Usuarios y Roles](users.es.md) para más información sobre el modelo de permisos.
 
 Cada rol tiene una **clave** (el identificador almacenado en las tarjetas, utilizado por las columnas de importación/exportación `stakeholder:<clave_del_rol>`) y una **etiqueta** (lo que ven los usuarios). La clave sigue la misma convención que cualquier otra clave del metamodelo: solo letras y dígitos, empezando por una letra, de 3 a 50 caracteres, por convención en camelCase como `businessArchitect`. Se rellena automáticamente a partir de la etiqueta, por lo que rara vez tendrá que escribirla.
+
+Cada rol lleva además un interruptor **Cuenta para la calidad de datos**. La puntuación de calidad tiene una única casilla de partes interesadas, que se cumple en cuanto se asigna a alguien a la tarjeta en un rol con este interruptor activo. Desactívelo para roles puramente pasivos: el **Observador** integrado se entrega desactivado, de modo que observar una tarjeta nunca equivalga a ser responsable de ella. Un tipo cuyos roles estén todos desactivados no aporta casilla alguna. Cambiar el interruptor vuelve a puntuar de inmediato todas las tarjetas del tipo.
 
 Los roles pueden retirarse de dos formas:
 

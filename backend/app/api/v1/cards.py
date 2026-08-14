@@ -1003,13 +1003,14 @@ async def create_card(
     # capabilityLevel for BusinessCapability)
     changed_levels = await _sync_hierarchy_levels(db, card)
 
-    # Compute data quality score
-    card.data_quality = await calc_data_quality(db, card)
-
     # Run calculated fields (skip PPM-managed cost fields if PPM data exists)
     ppm_excl = await _get_ppm_exclusions(db, card)
     await run_calculations_for_card(db, card, exclude_fields=ppm_excl)
     await _recalc_changed_descendants(db, changed_levels, card.id)
+
+    # Compute data quality score. Must run *after* the calculations, or a
+    # weighted calculated field is scored on its previous value.
+    card.data_quality = await calc_data_quality(db, card)
 
     await event_bus.publish(
         "card.created",
@@ -1290,10 +1291,11 @@ async def bulk_create_cards(
             if card.parent_id:
                 await _check_hierarchy_depth(db, card, card.parent_id)
             changed_levels = await _sync_hierarchy_levels(db, card)
-            card.data_quality = await calc_data_quality(db, card)
             ppm_excl = await _get_ppm_exclusions(db, card)
             await run_calculations_for_card(db, card, exclude_fields=ppm_excl)
             await _recalc_changed_descendants(db, changed_levels, card.id)
+            # After the calculations — see the note in `create_card`.
+            card.data_quality = await calc_data_quality(db, card)
 
             if not body.dry_run:
                 await event_bus.publish(
@@ -2006,9 +2008,10 @@ async def bulk_update(
     # persists the new values but leaves data_quality and calculated fields
     # frozen at their prior (often creation-time) value.
     for card in sheets:
-        card.data_quality = await calc_data_quality(db, card)
         ppm_excl = await _get_ppm_exclusions(db, card)
         await run_calculations_for_card(db, card, exclude_fields=ppm_excl)
+        # After the calculations — see the note in `create_card`.
+        card.data_quality = await calc_data_quality(db, card)
 
     # Re-run calcs for descendants whose level moved, after each card's own run.
     for card, changed_levels in changed_levels_by_card:
@@ -2596,15 +2599,16 @@ async def update_card(
         ):
             changed_levels = await _sync_hierarchy_levels(db, card)
 
-        # Recalculate completion
-        card.data_quality = await calc_data_quality(db, card)
-
         # Run calculated fields (skip PPM-managed cost fields if PPM data exists)
         ppm_excl = await _get_ppm_exclusions(db, card)
         await run_calculations_for_card(db, card, exclude_fields=ppm_excl)
         # Re-run calcs for descendants whose level moved (after the card's own
         # run, so a child formula reading a parent's computed field sees it fresh)
         await _recalc_changed_descendants(db, changed_levels, card.id)
+
+        # Recalculate completion. Must run *after* the calculations, or a
+        # weighted calculated field is scored on its previous value.
+        card.data_quality = await calc_data_quality(db, card)
 
         def _serialize_val(v: object) -> object:
             """Convert a value to something JSON-serialisable."""

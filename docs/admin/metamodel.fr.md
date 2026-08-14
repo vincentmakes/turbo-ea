@@ -96,7 +96,7 @@ L'importance de chaque facteur se règle avec un simple curseur à quatre niveau
 - **Important (2)** – compte deux fois plus.
 - **Critique (3)** – compte trois fois plus.
 
-Le panneau liste les cinq **facteurs intégrés** – **Description**, **Cycle de vie** (selon qu'une date de cycle de vie est renseignée), **Relations obligatoires**, **Étiquettes obligatoires** et **Rôles des parties prenantes** (chaque rôle défini pour le type est satisfait dès qu'une partie prenante y est affectée) – suivis de chaque champ regroupé par section, avec le même curseur. Par exemple, réglez le **Cycle de vie** sur *Ignorer* pour un type dont les fiches ne portent légitimement jamais de dates, afin qu'elles ne soient pas pénalisées.
+Le panneau liste les cinq **facteurs intégrés** – **Description**, **Cycle de vie** (selon qu'une date de cycle de vie est renseignée), **Relations obligatoires**, **Étiquettes obligatoires** et **Rôles des parties prenantes** (un seul emplacement, satisfait dès qu'une personne est affectée à la fiche dans un rôle qui compte pour la qualité des données) – suivis de chaque champ regroupé par section, avec le même curseur. Par exemple, réglez le **Cycle de vie** sur *Ignorer* pour un type dont les fiches ne portent légitimement jamais de dates, afin qu'elles ne soient pas pénalisées.
 
 Une barre de **composition du score** en haut du panneau montre la part de chaque facteur dans le score maximal possible, pour voir d'un coup d'œil quels facteurs dominent. Dans la mise en page de la fiche de l'onglet **Principal**, chaque champ – ainsi que les sections intégrées Description, Cycle de vie et Relations – affiche un petit badge avec son niveau actuel, pour voir la pondération sans quitter cet onglet.
 
@@ -122,6 +122,8 @@ Lorsqu'aucun sous-type n'est sélectionné sur une fiche (ou que le type n'a pas
 Définissez des rôles personnalisés pour ce type (par ex. « Responsable Applicatif », « Responsable Technique »). Chaque rôle porte des **permissions au niveau de la fiche** qui sont combinées avec le rôle au niveau de l'application de l'utilisateur lors de l'accès à une fiche. Voir [Utilisateurs et rôles](users.md) pour plus de détails sur le modèle de permissions.
 
 Chaque rôle possède une **clé** (l'identifiant stocké sur les fiches, utilisé par les colonnes d'import/export `stakeholder:<clé_du_rôle>`) et un **libellé** (ce que voient les utilisateurs). La clé suit la même convention que toute autre clé du métamodèle — uniquement des lettres et des chiffres, commençant par une lettre, 3 à 50 caractères, par convention en camelCase comme `businessArchitect`. Elle est renseignée automatiquement à partir du libellé, vous avez donc rarement besoin d'en saisir une.
+
+Chaque rôle porte également un interrupteur **Compte pour la qualité des données**. Le score de qualité comporte un seul emplacement « parties prenantes », satisfait dès qu'une personne est affectée à la fiche dans un rôle où cet interrupteur est actif. Désactivez-le pour les rôles purement passifs — l'**Observateur** intégré est livré désactivé, afin qu'observer une fiche ne vaille jamais responsabilité. Un type dont tous les rôles sont désactivés ne contribue à aucun emplacement. Basculer l'interrupteur recalcule immédiatement le score de toutes les fiches du type.
 
 Les rôles peuvent être retirés de deux façons :
 

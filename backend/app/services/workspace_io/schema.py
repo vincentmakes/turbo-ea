@@ -180,6 +180,7 @@ CONFIG_SECTIONS: tuple[ConfigSection, ...] = (
             "color",
             "permissions",
             "is_archived",
+            "counts_for_quality",
             "sort_order",
             "translations",
         ),

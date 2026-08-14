@@ -54,6 +54,9 @@ export interface StakeholderRoleDefinitionFull {
   color: string;
   permissions: Record<string, boolean>;
   is_archived: boolean;
+  /** Whether holding this role fills the card's data-quality stakeholders slot.
+   *  Off for passive roles — the built-in Observer ships with it disabled. */
+  counts_for_quality: boolean;
   sort_order: number;
   stakeholder_count?: number;
   created_at?: string;

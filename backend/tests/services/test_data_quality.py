@@ -111,9 +111,14 @@ async def test_bad_dq_value_falls_back_to_one(db):
     assert await calc_data_quality(db, card) == 75.0
 
 
-async def test_stakeholder_roles_contributor(db):
-    """Each non-archived stakeholder role of the type is a completeness slot;
-    a role is filled when a stakeholder holds it on the card."""
+async def test_stakeholders_bucket_is_one_slot(db):
+    """The stakeholders bucket is a single yes/no slot: one assignment in any
+    counting role fills it, no matter how many roles the type defines.
+
+    It used to award a slot *per role*, so a type with two roles and one
+    stakeholder scored 50% — the defect behind #944, where a fully-populated
+    Interface was capped at 90% for having no Observer named.
+    """
     from app.models.stakeholder import Stakeholder
 
     # Empty field schema + all other buckets off → only stakeholders count.
@@ -127,13 +132,106 @@ async def test_stakeholder_roles_contributor(db):
     user = await create_user(db, email="sh@test.com", role="member")
     card = await create_card(db, card_type="Application")
 
-    # No stakeholders assigned → 0 of 2 roles → 0%.
+    # Nobody assigned → the slot is in the denominator and unfilled → 0%.
     assert await calc_data_quality(db, card) == 0.0
 
-    # One of two roles filled → 50%.
+    # One assignment fills the whole bucket, even with a second role defined.
     db.add(Stakeholder(card_id=card.id, user_id=user.id, role="owner"))
     await db.flush()
-    assert await calc_data_quality(db, card) == 50.0
+    assert await calc_data_quality(db, card) == 100.0
+
+
+async def test_second_stakeholder_does_not_raise_the_score(db):
+    """Filling a second role adds nothing — the bucket is already full."""
+    from app.models.stakeholder import Stakeholder
+
+    await create_card_type(db, key="Application", fields_schema=[])
+    await _set_dq(db, description=0, lifecycle=0, relations=0, tags=0, stakeholders=1)
+    await create_stakeholder_role_def(db, card_type_key="Application", key="owner", label="Owner")
+    await create_stakeholder_role_def(
+        db, card_type_key="Application", key="architect", label="Architect"
+    )
+    await create_role(db, key="member", label="Member", permissions={})
+    u1 = await create_user(db, email="one@test.com", role="member")
+    u2 = await create_user(db, email="two@test.com", role="member")
+    card = await create_card(db, card_type="Application")
+
+    db.add(Stakeholder(card_id=card.id, user_id=u1.id, role="owner"))
+    await db.flush()
+    assert await calc_data_quality(db, card) == 100.0
+
+    db.add(Stakeholder(card_id=card.id, user_id=u2.id, role="architect"))
+    await db.flush()
+    assert await calc_data_quality(db, card) == 100.0
+
+
+async def test_non_counting_role_does_not_fill_the_bucket(db):
+    """A role with ``counts_for_quality=False`` (the built-in observer) is
+    passive: holding it must never stand in for owning the card."""
+    from app.models.stakeholder import Stakeholder
+
+    await create_card_type(db, key="Application", fields_schema=[])
+    await _set_dq(db, description=0, lifecycle=0, relations=0, tags=0, stakeholders=1)
+    await create_stakeholder_role_def(db, card_type_key="Application", key="owner", label="Owner")
+    await create_stakeholder_role_def(
+        db,
+        card_type_key="Application",
+        key="observer",
+        label="Observer",
+        counts_for_quality=False,
+    )
+    await create_role(db, key="member", label="Member", permissions={})
+    user = await create_user(db, email="watcher@test.com", role="member")
+    card = await create_card(db, card_type="Application")
+
+    db.add(Stakeholder(card_id=card.id, user_id=user.id, role="observer"))
+    await db.flush()
+    assert await calc_data_quality(db, card) == 0.0
+
+    # The counting role does fill it.
+    db.add(Stakeholder(card_id=card.id, user_id=user.id, role="owner"))
+    await db.flush()
+    assert await calc_data_quality(db, card) == 100.0
+
+
+async def test_type_with_only_non_counting_roles_adds_no_slot(db):
+    """No counting roles → no slot at all, rather than one nobody can fill."""
+    await create_card_type(db, key="Application", fields_schema=_SCHEMA)
+    await _set_dq(db, description=0, lifecycle=0, relations=0, tags=0, stakeholders=1)
+    await create_stakeholder_role_def(
+        db,
+        card_type_key="Application",
+        key="observer",
+        label="Observer",
+        counts_for_quality=False,
+    )
+    card = await create_card(db, attributes={"a": "x", "b": "y"})
+    # Only the two fields count → 100%, not 2 of 3.
+    assert await calc_data_quality(db, card) == 100.0
+
+
+async def test_stakeholder_in_archived_role_does_not_fill_the_bucket(db):
+    """Archiving a role takes it out of the slot, so an assignment held under
+    it stops counting — the card is incomplete again."""
+    from app.models.stakeholder import Stakeholder
+
+    await create_card_type(db, key="Application", fields_schema=[])
+    await _set_dq(db, description=0, lifecycle=0, relations=0, tags=0, stakeholders=1)
+    await create_stakeholder_role_def(db, card_type_key="Application", key="owner", label="Owner")
+    stale = await create_stakeholder_role_def(
+        db, card_type_key="Application", key="legacy", label="Legacy"
+    )
+    await create_role(db, key="member", label="Member", permissions={})
+    user = await create_user(db, email="legacy@test.com", role="member")
+    card = await create_card(db, card_type="Application")
+
+    db.add(Stakeholder(card_id=card.id, user_id=user.id, role="legacy"))
+    await db.flush()
+    assert await calc_data_quality(db, card) == 100.0
+
+    stale.is_archived = True
+    await db.flush()
+    assert await calc_data_quality(db, card) == 0.0
 
 
 async def test_stakeholders_bucket_excluded_when_zero(db):

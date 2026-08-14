@@ -356,12 +356,14 @@ async def _promote_recurring_tasks_loop() -> None:
 
 # Marker in app_settings.general_settings recording that the one-shot
 # canonical data-quality rescore has run on this install. The key is
-# VERSIONED: whenever the scoring rules change (here: the mandatory-field
-# gate that pins incomplete cards to 0, 2.52.0), bump the suffix so the next
+# VERSIONED: whenever the scoring rules change, bump the suffix so the next
 # boot re-scores the whole inventory once — stored scores otherwise stay
 # stale until each card is individually edited. Old markers remain in
 # app_settings harmlessly.
-_DQ_RESCORE_FLAG = "dataQualityCanonicalRescoreDoneV2"
+#   V2 (2.52.0) — the mandatory-field gate that pins incomplete cards to 0.
+#   V3 (2.59.0) — the stakeholders bucket became a single yes/no slot instead
+#                 of one slot per role defined on the card type.
+_DQ_RESCORE_FLAG = "dataQualityCanonicalRescoreDoneV3"
 
 
 async def _one_shot_data_quality_rescore() -> None:

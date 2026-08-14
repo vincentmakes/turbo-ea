@@ -27,6 +27,12 @@ class StakeholderRoleDefinition(Base, UUIDMixin, TimestampMixin):
     color: Mapped[str] = mapped_column(String(20), default="#757575")
     permissions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Whether holding this role fills the card's "stakeholders" data-quality
+    # slot. Off for purely passive roles (the built-in ``observer``), so
+    # watching a card never inflates its completeness score.
+    counts_for_quality: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     archived_by: Mapped[uuid.UUID | None] = mapped_column(

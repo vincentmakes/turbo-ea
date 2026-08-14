@@ -96,7 +96,7 @@ Die Wichtigkeit jedes Faktors wird mit einem einfachen Schieberegler über vier 
 - **Wichtig (2)** – zählt doppelt.
 - **Kritisch (3)** – zählt dreifach.
 
-Der Bereich listet die fünf **integrierten Faktoren** – **Beschreibung**, **Lebenszyklus** (ob ein Lebenszyklusdatum gesetzt ist), **Pflichtbeziehungen**, **Pflicht-Tags** und **Stakeholder-Rollen** (jede für den Typ definierte Rolle gilt als erfüllt, sobald ein Stakeholder zugewiesen ist) – gefolgt von jedem Feld, gruppiert nach seinem Abschnitt, jeweils mit demselben Schieberegler. Setzen Sie zum Beispiel den **Lebenszyklus** auf *Ignorieren* für einen Typ, dessen Karten berechtigterweise nie Datumsangaben tragen, damit sie nicht abgewertet werden.
+Der Bereich listet die fünf **integrierten Faktoren** – **Beschreibung**, **Lebenszyklus** (ob ein Lebenszyklusdatum gesetzt ist), **Pflichtbeziehungen**, **Pflicht-Tags** und **Stakeholder-Rollen** (ein einziger Slot, erfüllt, sobald der Karte jemand in einer Rolle zugewiesen ist, die zur Datenqualität zählt) – gefolgt von jedem Feld, gruppiert nach seinem Abschnitt, jeweils mit demselben Schieberegler. Setzen Sie zum Beispiel den **Lebenszyklus** auf *Ignorieren* für einen Typ, dessen Karten berechtigterweise nie Datumsangaben tragen, damit sie nicht abgewertet werden.
 
 Ein Balken zur **Wertzusammensetzung** oben im Bereich zeigt den Anteil jedes Faktors am maximal möglichen Wert, sodass Sie auf einen Blick sehen, welche Faktoren dominieren. Im Karten-Layout der Registerkarte **Allgemein** zeigt jedes Feld – sowie die integrierten Abschnitte Beschreibung, Lebenszyklus und Beziehungen – ein kleines Abzeichen mit seiner aktuellen Stufennummer, sodass Sie die Gewichtung sehen, ohne die Registerkarte zu verlassen.
 
@@ -122,6 +122,8 @@ Wenn bei einer Karte kein Subtyp ausgewählt ist (oder der Typ keine Subtypen ha
 Definieren Sie benutzerdefinierte Rollen für diesen Typ (z.B. «Anwendungseigner», «Technischer Eigner»). Jede Rolle hat **kartenebene Berechtigungen**, die beim Zugriff auf eine Karte mit der anwendungsweiten Rolle des Benutzers kombiniert werden. Siehe [Benutzer & Rollen](users.md) für mehr zum Berechtigungsmodell.
 
 Jede Rolle hat einen **Schlüssel** (die auf Karten gespeicherte Kennung, die auch von den `stakeholder:<Rollenschlüssel>`-Import-/Exportspalten verwendet wird) und eine **Bezeichnung** (was Benutzer sehen). Der Schlüssel folgt derselben Konvention wie jeder andere Metamodell-Schlüssel — nur Buchstaben und Ziffern, beginnend mit einem Buchstaben, 3–50 Zeichen, üblicherweise camelCase wie `businessArchitect`. Er wird automatisch aus der Bezeichnung abgeleitet, sodass Sie ihn selten selbst eingeben müssen.
+
+Jede Rolle trägt außerdem einen Schalter **Zählt für die Datenqualität**. Die Datenqualität hat genau einen Stakeholder-Slot, und dieser gilt als erfüllt, sobald der Karte jemand in einer Rolle zugewiesen ist, bei der dieser Schalter aktiv ist. Deaktivieren Sie ihn für rein passive Rollen — der integrierte **Beobachter** wird bereits deaktiviert ausgeliefert, damit das Beobachten einer Karte nicht als Verantwortung zählt. Ein Typ, bei dem alle Rollen deaktiviert sind, trägt gar keinen Stakeholder-Slot bei. Das Umschalten bewertet sofort alle Karten dieses Typs neu.
 
 Rollen lassen sich auf zwei Arten entfernen:
 

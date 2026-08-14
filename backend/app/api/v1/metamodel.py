@@ -885,17 +885,9 @@ async def update_type(
 
 async def _recompute_data_quality_for_type(db: AsyncSession, type_key: str) -> None:
     """Recompute data_quality for every active card of a type after a config change."""
-    from app.services.data_quality import calc_data_quality
+    from app.services.data_quality import rescore_card_type
 
-    result = await db.execute(select(Card).where(Card.type == type_key, Card.status == "ACTIVE"))
-    cards = result.scalars().all()
-    changed = False
-    for card in cards:
-        score = await calc_data_quality(db, card)
-        if card.data_quality != score:
-            card.data_quality = score
-            changed = True
-    if changed:
+    if await rescore_card_type(db, type_key):
         await db.commit()
 
 

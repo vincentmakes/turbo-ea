@@ -80,3 +80,50 @@ async def test_rescore_reruns_when_only_the_old_v1_marker_is_set(db):
     assert settings_row.general_settings.get(_DQ_RESCORE_FLAG) is True
     # The legacy marker is left in place untouched.
     assert settings_row.general_settings.get("dataQualityCanonicalRescoreDone") is True
+
+
+async def test_rescore_reruns_when_only_the_v2_marker_is_set(db):
+    """Same contract one version on: an install that already ran the V2
+    rescore must re-run once for the single-slot stakeholders bucket, or every
+    card keeps the old per-role score until someone edits it."""
+    from app.models.stakeholder import Stakeholder
+    from tests.conftest import create_role, create_stakeholder_role_def
+
+    await create_role(db, key="member", label="Member", permissions={})
+    user = await create_user(db, email="rescore-v3@test.com", role="member")
+    # Only the stakeholders bucket counts, so the assertion below is about the
+    # bucket itself and not diluted by description/lifecycle.
+    ct = await create_card_type(db, key="Application", label="Application", fields_schema=[])
+    ct.section_config = {
+        "__dataQuality": {
+            "description": 0,
+            "lifecycle": 0,
+            "relations": 0,
+            "tags": 0,
+            "stakeholders": 1,
+        }
+    }
+    await create_stakeholder_role_def(
+        db, card_type_key="Application", key="responsible", label="Responsible"
+    )
+    await create_stakeholder_role_def(
+        db, card_type_key="Application", key="observer", label="Observer"
+    )
+    card = await create_card(db, card_type="Application", name="Half Credit", user_id=user.id)
+    db.add(Stakeholder(card_id=card.id, user_id=user.id, role="responsible"))
+    # The old scorer gave 1 of 2 roles → 50%. Both roles count here, so the
+    # single-slot scorer must lift this to 100%.
+    card.data_quality = 50.0
+    db.add(AppSettings(id="default", general_settings={"dataQualityCanonicalRescoreDoneV2": True}))
+    await db.flush()
+
+    assert await run_dq_rescore_once(db) == 1
+
+    refreshed = (await db.execute(select(Card).where(Card.id == card.id))).scalar_one()
+    assert refreshed.data_quality == 100.0
+
+    settings_row = (
+        await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    ).scalar_one()
+    assert settings_row.general_settings.get(_DQ_RESCORE_FLAG) is True
+    assert settings_row.general_settings.get("dataQualityCanonicalRescoreDoneV2") is True

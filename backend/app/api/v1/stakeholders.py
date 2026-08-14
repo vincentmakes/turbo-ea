@@ -20,6 +20,7 @@ from app.schemas.common import (
     StakeholderBulkResult,
     StakeholderCreate,
 )
+from app.services.data_quality import rescore_cards
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -207,6 +208,7 @@ async def create_stakeholder(
         card_id=uuid.UUID(card_id),
         user_id=user.id,
     )
+    await rescore_cards(db, [uuid.UUID(card_id)])
     await db.commit()
 
     return {
@@ -269,6 +271,9 @@ async def update_stakeholder(
             user_id=user.id,
         )
         stakeholder.role = body.role
+        # Swapping between two counting roles cannot move the score, but a
+        # swap out of (or into) a non-counting role like observer does.
+        await rescore_cards(db, [stakeholder.card_id])
 
     await db.commit()
 
@@ -351,6 +356,9 @@ async def bulk_stakeholders(
     # (event_type, payload, card_id) collected and published after the loop so
     # SSE fan-out only ever happens for ops that actually succeeded.
     events_to_emit: list[tuple[str, dict, uuid.UUID]] = []
+    # Cards whose stakeholder set actually changed — rescored once each after
+    # the loop, so a batch touching one card 50 times still scores it once.
+    affected_cards: set[uuid.UUID] = set()
 
     for i, op in enumerate(body.operations):
         row_index = op.row_index if op.row_index is not None else i
@@ -476,12 +484,20 @@ async def bulk_stakeholders(
         results.append(op_result)
         if op_result.status == "added":
             added += 1
+            affected_cards.add(card_uuid)
         elif op_result.status == "removed":
             removed += 1
+            affected_cards.add(card_uuid)
         if op_event is not None:
             events_to_emit.append(op_event)
 
     if not body.dry_run:
+        # Rescoring is skipped on dry-run rather than left to the savepoint
+        # rollback: the ops above only ever select Card *columns*, while
+        # rescoring loads the Card entity itself, and rolling the savepoint
+        # back would expire it under any caller still holding a reference. The
+        # preview loses nothing — it reports op outcomes, never scores.
+        await rescore_cards(db, affected_cards)
         for event_type, payload, event_card_id in events_to_emit:
             await event_bus.publish(
                 event_type, payload, db=db, card_id=event_card_id, user_id=user.id
@@ -625,6 +641,9 @@ async def add_me_as_observer(
         card_id=card_uuid,
         user_id=user.id,
     )
+    # `observer` ships with counts_for_quality off, so this is normally a
+    # no-op — but an admin may have turned it on for their instance.
+    await rescore_cards(db, [card_uuid])
     await db.commit()
     return {
         "id": str(stakeholder.id),
@@ -689,6 +708,10 @@ async def remove_me_as_observer(
         user_id=user.id,
     )
     await db.delete(stakeholder)
+    # Flush the delete first so the scorer's existence check does not still
+    # see the row it is about to remove.
+    await db.flush()
+    await rescore_cards(db, [card_uuid])
     await db.commit()
 
 
@@ -732,5 +755,8 @@ async def delete_stakeholder(
         card_id=stakeholder.card_id,
         user_id=user.id,
     )
+    card_id = stakeholder.card_id
     await db.delete(stakeholder)
+    await db.flush()
+    await rescore_cards(db, [card_id])
     await db.commit()
