@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
@@ -124,7 +125,13 @@ export default function DataQualityReport() {
   const { t } = useTranslation(["reports", "common"]);
   const theme = useTheme();
   const isRtl = useIsRtl();
-  const rtlAxisTick = makeRtlAxisTick(theme.palette.text.secondary);
+  // The category axis reserves a fixed pixel gutter, so on a phone it has to
+  // shrink or the bars get squeezed into whatever is left over.
+  const isNarrow = useMediaQuery(theme.breakpoints.down("sm"));
+  const axisWidth = isNarrow ? 96 : 150;
+  const tickFontSize = isNarrow ? 11 : 12;
+  const axisTick = { fontSize: tickFontSize, fill: theme.palette.text.secondary };
+  const rtlAxisTick = makeRtlAxisTick(theme.palette.text.secondary, tickFontSize);
   const { formatDate } = useDateFormat();
   const { types } = useMetamodel();
   const typeLabel = useTypeLabel();
@@ -338,10 +345,13 @@ export default function DataQualityReport() {
               {t("dataQuality.completenessByType")}
             </Typography>
             <ResponsiveContainer width="100%" height={Math.max(250, chartData.length * 50)}>
-              <BarChart data={chartData} layout="vertical" margin={mirrorChartMargin({ left: 120, right: 20, top: 5, bottom: 5 }, isRtl)}>
+              {/* No margin on the label side: Recharts draws the category axis
+                  in its own `width` band *after* the margin, so a margin there
+                  is dead space added on top of the axis gutter. */}
+              <BarChart data={chartData} layout="vertical" margin={mirrorChartMargin({ left: 0, right: 16, top: 5, bottom: 5 }, isRtl)}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={theme.palette.divider} />
-                <XAxis type="number" reversed={isRtl} tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
-                <YAxis type="category" dataKey="name" width={110} orientation={isRtl ? "right" : "left"} tick={isRtl ? rtlAxisTick : { fontSize: 12, fill: theme.palette.text.secondary }} />
+                <XAxis type="number" reversed={isRtl} tick={axisTick} />
+                <YAxis type="category" dataKey="name" width={axisWidth} orientation={isRtl ? "right" : "left"} tick={isRtl ? rtlAxisTick : axisTick} />
                 <RTooltip cursor={{ fill: theme.palette.action.hover }} content={<CustomTooltip />} />
                 <Legend formatter={(value: string) => <span style={rtlLegendItemStyle(isRtl, theme.palette.text.primary)}>{value}</span>} />
                 {/* Recharts hands the clicked datum to the Bar's onClick, so

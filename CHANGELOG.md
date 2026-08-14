@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.59.1] - 2026-08-14
+
+### Fixed
+- **The Data Quality report's Completeness by Type chart no longer wastes half the width on an empty margin.** The chart reserved a fixed gap next to the type names *on top of* the space the names themselves already use, so the bars started far to the right. It was easy to miss on a wide screen but squeezed the bars into a narrow strip on a phone. Type names now get more room on desktop and less on mobile, and the bars get the rest.
+
 ## [2.59.0] - 2026-08-14
 
 ### Changed
