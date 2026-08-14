@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { ReactElement } from "react";
 import { render, screen, waitFor, within, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
@@ -1634,5 +1635,92 @@ describe("InventoryPage mass edit attributes", () => {
       oldValue: [],
     });
     expect(api.patch).toHaveBeenCalledWith("/cards/c1", { attributes: { regions: ["apac"] } });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Multi-select attribute cells (rendered like the tags column)
+// ---------------------------------------------------------------------------
+
+describe("InventoryPage multi-select attribute cells", () => {
+  const REGION_OPTIONS = [
+    { key: "emea", label: "EMEA" },
+    { key: "apac", label: "APAC" },
+    { key: "amer", label: "Americas" },
+    { key: "latam", label: "LATAM" },
+    { key: "anz", label: "ANZ" },
+  ];
+  const CELL_TYPES = [
+    {
+      ...MOCK_TYPES[0],
+      fields_schema: [
+        {
+          section: "General",
+          fields: [
+            { key: "regions", label: "Regions", type: "multiple_select", options: REGION_OPTIONS },
+          ],
+        },
+      ],
+    },
+    MOCK_TYPES[1],
+  ];
+
+  beforeEach(() => {
+    vi.mocked(useMetamodel).mockReturnValue({
+      types: CELL_TYPES,
+      relationTypes: [],
+      loading: false,
+      getType: (key: string) => CELL_TYPES.find((t) => t.key === key),
+      getRelationsForType: () => [],
+      invalidateCache: vi.fn(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+  });
+
+  /** Render the attribute column's cell renderer for a stored value. */
+  async function renderCell(value: unknown) {
+    renderInventory();
+    await userEvent.click(screen.getByTestId("select-application"));
+    await waitFor(() => expect(col("attr_regions")).toBeDefined());
+    const renderer = col("attr_regions")!.cellRenderer!;
+    return render(renderer({ value } as never) as ReactElement).container;
+  }
+
+  it("renders option labels as chips, not raw keys", async () => {
+    const cell = await renderCell(["emea", "apac"]);
+    expect(cell.textContent).toContain("EMEA");
+    expect(cell.textContent).toContain("APAC");
+    expect(cell.textContent).not.toContain("emea");
+  });
+
+  it("collapses a long list into a +N chip, like the tags column", async () => {
+    // A grid row is one line tall: six full-size chips used to wrap and push
+    // the row's content out of view.
+    const cell = await renderCell(["emea", "apac", "amer", "latam", "anz"]);
+    expect(cell.querySelectorAll(".MuiChip-root")).toHaveLength(4); // 3 + overflow
+    expect(cell.textContent).toContain("+2");
+    // Everything is still reachable — the cap is visual only.
+    expect(cell.querySelector("[title]")?.getAttribute("title")).toBe(
+      "EMEA, APAC, Americas, LATAM, ANZ",
+    );
+  });
+
+  it("keeps a value whose option no longer exists visible", async () => {
+    const cell = await renderCell(["emea", "retired-key"]);
+    expect(cell.textContent).toContain("retired-key");
+  });
+
+  it("renders nothing for an empty cell", async () => {
+    const cell = await renderCell([]);
+    expect(cell.querySelectorAll(".MuiChip-root")).toHaveLength(0);
+  });
+
+  it("exports every value regardless of the visual cap", async () => {
+    renderInventory();
+    await userEvent.click(screen.getByTestId("select-application"));
+    await waitFor(() => expect(col("attr_regions")).toBeDefined());
+    expect(col("attr_regions")!.valueFormatter!({ value: ["emea", "apac", "amer", "latam"] })).toBe(
+      "EMEA, APAC, Americas, LATAM",
+    );
   });
 });

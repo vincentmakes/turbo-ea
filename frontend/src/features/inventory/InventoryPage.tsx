@@ -84,7 +84,7 @@ import TagsCellEditor from "@/features/inventory/TagsCellEditor";
 import MultiSelectCellEditor from "@/features/inventory/MultiSelectCellEditor";
 import ParentCellEditor from "@/features/inventory/ParentCellEditor";
 import StakeholdersCellEditor from "@/features/inventory/StakeholdersCellEditor";
-import type { Card, CardListResponse, CardType, ColumnLayoutItem, FieldDef, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
+import type { Card, CardListResponse, CardType, ColumnLayoutItem, FieldDef, FieldOption, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
 
@@ -284,6 +284,71 @@ function urlHasFilterParams(searchParams: URLSearchParams): boolean {
     searchParams.has("tag") ||
     Array.from(searchParams.keys()).some((k) => k.startsWith("attr_") || k.startsWith("rel_"))
   );
+}
+
+/** How many chips a multi-valued cell shows before collapsing into "+N". */
+const CHIP_CELL_MAX = 3;
+
+/**
+ * A multi-valued grid cell, rendered as compact chips with a "+N" overflow.
+ *
+ * Grid rows are one line tall, so a cell cannot use the full-size chips a form
+ * uses — they clip, and a card with six values pushes the row's content out of
+ * view. The tags column solved that; multi-select attribute columns rendered
+ * their own full-size chips and looked like a different product next to it.
+ * One renderer now serves both so they cannot drift again.
+ *
+ * The cap is visual only: the column's `valueFormatter` still emits every
+ * value, so export, the column filter and the cell context menu all see the
+ * full list, and the native tooltip surfaces what the "+N" hides.
+ */
+function ChipListCell({ items }: { items: { key: string; label: string; color?: string }[] }) {
+  if (items.length === 0) return null;
+  const visible = items.slice(0, CHIP_CELL_MAX);
+  const overflow = items.length - visible.length;
+  const chipSx = { height: 16, fontSize: 11, "& .MuiChip-label": { px: 0.75 } };
+  return (
+    <Box
+      title={items.map((it) => it.label).join(", ")}
+      sx={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 0.25,
+        rowGap: "2px",
+        alignItems: "center",
+        lineHeight: 1,
+      }}
+    >
+      {visible.map((it) => (
+        <Chip
+          key={it.key}
+          label={it.label}
+          size="small"
+          sx={{ ...chipSx, ...(it.color ? { bgcolor: it.color, color: "#fff" } : {}) }}
+        />
+      ))}
+      {overflow > 0 && <Chip label={`+${overflow}`} size="small" variant="outlined" sx={chipSx} />}
+    </Box>
+  );
+}
+
+/**
+ * A multi-select attribute cell's stored value → chip items.
+ *
+ * Values are option keys; a key the metamodel no longer declares still renders
+ * as its raw text rather than vanishing, so a stale or hand-written value stays
+ * visible and fixable.
+ */
+function optionChipItems(
+  options: FieldOption[] | undefined,
+  value: unknown,
+  optLabel: (opt: FieldOption) => string,
+): { key: string; label: string; color?: string }[] {
+  const arr = Array.isArray(value) ? value : [];
+  return arr.map((v) => {
+    const opt = options?.find((o) => o.key === v);
+    return { key: String(v), label: opt ? optLabel(opt) : String(v), color: opt?.color };
+  });
 }
 
 /**
@@ -2460,46 +2525,15 @@ export default function InventoryPage() {
         filterValueGetter: (p: { data?: Card }) => tagsToFilterText(p.data?.tags),
         // Ditto for the export, which stringified the refs to "[object Object]".
         valueFormatter: (p: { value?: TagRef[] }) => tagsToFilterText(p.value),
-        cellRenderer: (p: { value: TagRef[] }) => {
-          const tags = p.value || [];
-          if (tags.length === 0) return "";
-          const visible = tags.slice(0, 3);
-          const overflow = tags.length - visible.length;
-          return (
-            <Box
-              sx={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 0.25,
-                rowGap: "2px",
-                alignItems: "center",
-                lineHeight: 1,
-              }}
-            >
-              {visible.map((tag) => (
-                <Chip
-                  key={tag.id}
-                  label={tag.name}
-                  size="small"
-                  sx={{
-                    height: 16,
-                    fontSize: 11,
-                    "& .MuiChip-label": { px: 0.75 },
-                    ...(tag.color ? { bgcolor: tag.color, color: "#fff" } : {}),
-                  }}
-                />
-              ))}
-              {overflow > 0 && (
-                <Chip
-                  label={`+${overflow}`}
-                  size="small"
-                  variant="outlined"
-                  sx={{ height: 16, fontSize: 11, "& .MuiChip-label": { px: 0.75 } }}
-                />
-              )}
-            </Box>
-          );
-        },
+        cellRenderer: (p: { value: TagRef[] }) => (
+          <ChipListCell
+            items={(p.value || []).map((tag) => ({
+              key: tag.id,
+              label: tag.name,
+              color: tag.color,
+            }))}
+          />
+        ),
       }
     );
 
@@ -2587,24 +2621,9 @@ export default function InventoryPage() {
                   cellEditorParams: { options: field.options },
                   valueFormatter: (p: { value?: unknown }) =>
                     optionsText(field.options, p.value),
-                  cellRenderer: (p: { value: unknown }) => {
-                    const arr = Array.isArray(p.value) ? p.value : [];
-                    return (
-                      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
-                        {arr.map((v) => {
-                          const opt = field.options?.find((o) => o.key === v);
-                          return (
-                            <Chip
-                              key={String(v)}
-                              size="small"
-                              label={opt ? optLabel(opt) : String(v)}
-                              sx={opt?.color ? { bgcolor: opt.color, color: "#fff" } : {}}
-                            />
-                          );
-                        })}
-                      </Box>
-                    );
-                  },
+                  cellRenderer: (p: { value: unknown }) => (
+                    <ChipListCell items={optionChipItems(field.options, p.value, optLabel)} />
+                  ),
                 }
               : {}),
             ...(field.type === "multiline_text"
@@ -2652,24 +2671,9 @@ export default function InventoryPage() {
             ? {
                 valueFormatter: (p: { value?: unknown }) =>
                   optionsText(field.options, p.value),
-                cellRenderer: (p: { value: unknown }) => {
-                  const arr = Array.isArray(p.value) ? p.value : [];
-                  return (
-                    <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
-                      {arr.map((v) => {
-                        const opt = field.options?.find((o) => o.key === v);
-                        return (
-                          <Chip
-                            key={String(v)}
-                            size="small"
-                            label={opt ? optLabel(opt) : String(v)}
-                            sx={opt?.color ? { bgcolor: opt.color, color: "#fff" } : {}}
-                          />
-                        );
-                      })}
-                    </Box>
-                  );
-                },
+                cellRenderer: (p: { value: unknown }) => (
+                  <ChipListCell items={optionChipItems(field.options, p.value, optLabel)} />
+                ),
               }
             : {}),
           ...(field.type === "date" ? dateColumnFilterDef : {}),
