@@ -12,6 +12,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { api } from "@/api/client";
 import type {
   TurboLensAssessment,
@@ -115,6 +116,7 @@ function buildMergedGraph(
 export default function AssessmentViewer() {
   const { t } = useTranslation("admin");
   const { types, relationTypes } = useMetamodel();
+  const subtypeLabel = useCardSubtypeLabel();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [assessment, setAssessment] = useState<TurboLensAssessment | null>(null);
@@ -618,7 +620,7 @@ export default function AssessmentViewer() {
                             <Typography variant="body2">{card.name}</Typography>
                             {card.subtype && (
                               <Typography variant="caption" color="text.secondary">
-                                ({card.subtype})
+                                ({subtypeLabel(card.cardTypeKey, card.subtype)})
                               </Typography>
                             )}
                           </Stack>

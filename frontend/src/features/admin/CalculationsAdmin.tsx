@@ -41,6 +41,7 @@ import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useTypeLabel, useRelationLabel, useFieldLabel } from "@/hooks/useResolveLabel";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { STATUS_COLORS } from "@/theme";
@@ -1031,6 +1032,7 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
 
   const { types } = useMetamodel();
   const resolveTypeLabel = useTypeLabel();
+  const subtypeLabel = useCardSubtypeLabel();
 
   useEffect(() => {
     if (open) {
@@ -1121,7 +1123,7 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
                   <Typography variant="body2">{option.name}</Typography>
                   {option.subtype && (
                     <Typography variant="caption" color="text.secondary">
-                      {option.subtype}
+                      {subtypeLabel(option.type, option.subtype)}
                     </Typography>
                   )}
                 </Box>

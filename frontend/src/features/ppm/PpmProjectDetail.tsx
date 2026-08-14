@@ -10,8 +10,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveLabel } from "@/hooks/useResolveLabel";
+import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import PpmOverviewTab from "./PpmOverviewTab";
 import PpmReportsTab from "./PpmReportsTab";
 import PpmCostTab from "./PpmCostTab";
@@ -29,8 +28,7 @@ export default function PpmProjectDetail() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useTranslation("ppm");
 
-  const { getType } = useMetamodel();
-  const rl = useResolveLabel();
+  const subtypeLabel = useCardSubtypeLabel();
   const initialTab = TAB_KEYS.indexOf(searchParams.get("tab") || "overview");
   const [tab, setTab] = useState(initialTab >= 0 ? initialTab : 0);
 
@@ -129,21 +127,14 @@ export default function PpmProjectDetail() {
         <Typography variant="h5" fontWeight={700}>
           {card.name}
         </Typography>
-        {card.subtype && (() => {
-          const typeConfig = getType(card.type);
-          const st = typeConfig?.subtypes?.find(
-            (s: { key: string }) => s.key === card.subtype,
-          );
-          const label = st ? rl(st.label, st.translations) : card.subtype;
-          return (
-            <Chip
-              label={label}
-              size="small"
-              variant="outlined"
-              sx={{ ml: 1 }}
-            />
-          );
-        })()}
+        {card.subtype && (
+          <Chip
+            label={subtypeLabel(card.type, card.subtype)}
+            size="small"
+            variant="outlined"
+            sx={{ ml: 1 }}
+          />
+        )}
       </Box>
 
       {/* Tabs */}

@@ -7,6 +7,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { CARD_TYPE_COLORS } from "@/theme/tokens";
 import { INITIATIVE_STATUS_COLORS } from "./constants";
 import DeliverableSection, {
@@ -126,6 +127,7 @@ function InitiativeView({
   onToggleFavorite: (id: string) => void;
 }) {
   const { t } = useTranslation(["delivery", "common"]);
+  const subtypeLabel = useCardSubtypeLabel();
   const [previewOpen, setPreviewOpen] = useState(false);
 
   const { initiative, children, soaws, diagrams, adrs } = node;
@@ -190,9 +192,9 @@ function InitiativeView({
         )}
         {initiative.subtype && (
           <Chip
-            label={initiative.subtype}
+            label={subtypeLabel("Initiative", initiative.subtype)}
             size="small"
-            sx={{ textTransform: "capitalize", height: 22 }}
+            sx={{ height: 22 }}
           />
         )}
         {initStatus && (
@@ -277,9 +279,9 @@ function InitiativeView({
                 </Typography>
                 {c.initiative.subtype && (
                   <Chip
-                    label={c.initiative.subtype}
+                    label={subtypeLabel("Initiative", c.initiative.subtype)}
                     size="small"
-                    sx={{ textTransform: "capitalize", height: 20 }}
+                    sx={{ height: 20 }}
                   />
                 )}
               </Box>
@@ -297,8 +299,7 @@ function InitiativeView({
           {initiative.subtype && (
             <DetailRow
               label={t("filter.subtype")}
-              value={initiative.subtype}
-              capitalize
+              value={subtypeLabel("Initiative", initiative.subtype)}
             />
           )}
           <DetailRow
@@ -331,15 +332,7 @@ function InitiativeView({
   );
 }
 
-function DetailRow({
-  label,
-  value,
-  capitalize,
-}: {
-  label: string;
-  value: string;
-  capitalize?: boolean;
-}) {
+function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <Box sx={{ display: "flex", gap: 1 }}>
       <Typography
@@ -349,12 +342,7 @@ function DetailRow({
       >
         {label}
       </Typography>
-      <Typography
-        variant="body2"
-        sx={{ textTransform: capitalize ? "capitalize" : "none" }}
-      >
-        {value}
-      </Typography>
+      <Typography variant="body2">{value}</Typography>
     </Box>
   );
 }

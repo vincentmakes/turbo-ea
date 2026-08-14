@@ -18,6 +18,7 @@ import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import MetricCard from "./MetricCard";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
@@ -127,6 +128,7 @@ export default function DataQualityReport() {
   const { formatDate } = useDateFormat();
   const { types } = useMetamodel();
   const typeLabel = useTypeLabel();
+  const subtypeLabel = useCardSubtypeLabel();
   const saved = useSavedReport("data-quality");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [data, setData] = useState<DQData | null>(null);
@@ -217,7 +219,7 @@ export default function DataQualityReport() {
     id: item.id,
     name: item.name,
     secondary: [
-      item.subtype || labelForType(item.type),
+      subtypeLabel(item.type, item.subtype) || labelForType(item.type),
       `${Math.round(item.data_quality)}%`,
     ].join(" · "),
     dotColor: dataQualityColor(item.data_quality),

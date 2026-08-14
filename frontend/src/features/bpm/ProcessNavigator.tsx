@@ -52,6 +52,7 @@ import DOMPurify from "dompurify";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { useAuth } from "@/hooks/useAuth";
 import { useProcessTypeOptions } from "./useProcessTypeOptions";
@@ -1515,6 +1516,7 @@ function DrawerApps({
   onNavigate: (id: string) => void;
 }) {
   const { t } = useTranslation(["bpm", "common"]);
+  const subtypeLabel = useCardSubtypeLabel();
   const apps = useMemo(
     () => Array.from(node.deepUniqueApps.values()).sort((a, b) => a.name.localeCompare(b.name)),
     [node],
@@ -1556,7 +1558,7 @@ function DrawerApps({
             </Typography>
             {app.subtype && (
               <Typography variant="caption" color="text.secondary">
-                {app.subtype}
+                {subtypeLabel("Application", app.subtype)}
               </Typography>
             )}
           </Box>

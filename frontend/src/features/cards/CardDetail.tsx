@@ -26,6 +26,7 @@ import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel
 import ArchiveDeleteDialog from "@/features/cards/ArchiveDeleteDialog";
 import RestoreDialog from "@/features/cards/RestoreDialog";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useTypeLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { useAiStatus } from "@/hooks/useAiStatus";
 import { useArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
@@ -71,6 +72,7 @@ export default function CardDetail() {
   const { archiveRetentionDays } = useArchiveRetentionDays();
   const typeLabel = useTypeLabel();
   const stLabel = useSubtypeLabel();
+  const resolveSubtypeLabel = useCardSubtypeLabel();
   const [card, setCard] = useState<Card | null>(null);
   const [initialTab, setInitialTab] = useState(0);
   const [initialSubTab, setInitialSubTab] = useState<number | undefined>(undefined);
@@ -259,13 +261,7 @@ export default function CardDetail() {
 
   const typeConfig = getType(card.type);
 
-  const subtypeLabel =
-    card.subtype && typeof card.subtype === "string"
-      ? (() => {
-          const st = typeConfig?.subtypes?.find((s) => s.key === card.subtype);
-          return st ? stLabel(st) : card.subtype;
-        })()
-      : null;
+  const subtypeLabel = resolveSubtypeLabel(card.type, card.subtype);
   const hasSubtypes = !!(typeConfig?.subtypes && typeConfig.subtypes.length > 0);
   const isArchived = card.status === "ARCHIVED";
   const canEditSubtype = hasSubtypes && perms.can_edit && !isArchived;

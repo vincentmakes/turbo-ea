@@ -14,7 +14,8 @@ import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
 import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveLabel, useTypeLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
+import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useAiStatus } from "@/hooks/useAiStatus";
 import { api } from "@/api/client";
 import { DataQualityPill } from "@/features/cards/sections";
@@ -55,7 +56,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
   const { t } = useTranslation("common");
   const { getType } = useMetamodel();
   const typeLabel = useTypeLabel();
-  const rl = useResolveLabel();
+  const resolveSubtypeLabel = useCardSubtypeLabel();
 
   const [card, setCard] = useState<Card | null>(null);
   const [error, setError] = useState("");
@@ -89,13 +90,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
   const typeConfig = card ? getType(card.type) : null;
   // Resolve the subtype key (e.g. "aiModel") to its translated metamodel label
   // (e.g. "AI Model"), mirroring CardDetail.tsx's header.
-  const subtypeLabel =
-    card?.subtype && typeof card.subtype === "string"
-      ? (() => {
-          const st = typeConfig?.subtypes?.find((s) => s.key === card.subtype);
-          return st ? rl(st.label, st.translations) : card.subtype;
-        })()
-      : null;
+  const subtypeLabel = card ? resolveSubtypeLabel(card.type, card.subtype) : "";
   const isArchived = card?.status === "ARCHIVED";
   const aiEnabled =
     !!card &&

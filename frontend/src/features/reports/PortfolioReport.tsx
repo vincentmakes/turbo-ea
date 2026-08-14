@@ -39,6 +39,7 @@ import ReportCardListPanel, { type ReportCardListItem } from "./ReportCardListPa
 import { api, isAbortError } from "@/api/client";
 import { readableTextColor } from "@/lib/color";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
@@ -559,6 +560,7 @@ export default function PortfolioReport({
   const relLabel = useRelationLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
+  const subtypeLabel = useCardSubtypeLabel();
   const saved = useSavedReport(savedReportKey);
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
 
@@ -1184,14 +1186,20 @@ export default function PortfolioReport({
     const dir = sortD === "asc" ? 1 : -1;
     return [...filteredApps].sort((a, b) => {
       if (sortK === "name") return a.name.localeCompare(b.name) * dir;
+      // Compare the labels the column actually renders, so the sort order
+      // matches what the reader sees rather than the underlying keys.
       if (sortK === "subtype")
-        return (a.subtype || "").localeCompare(b.subtype || "") * dir;
+        return (
+          subtypeLabel(cardType, a.subtype).localeCompare(
+            subtypeLabel(cardType, b.subtype),
+          ) * dir
+        );
       // Attribute column
       const av = ((a.attributes || {})[sortK] as string) || "";
       const bv = ((b.attributes || {})[sortK] as string) || "";
       return av.localeCompare(bv) * dir;
     });
-  }, [filteredApps, sortK, sortD]);
+  }, [filteredApps, sortK, sortD, cardType, subtypeLabel]);
 
   const groupByLabel =
     groupByOptions.find((o) => o.key === groupByKey)?.label || t("common.group");
@@ -1271,7 +1279,8 @@ export default function PortfolioReport({
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((a) => {
         const parts: string[] = [];
-        if (a.subtype) parts.push(a.subtype);
+        const st = subtypeLabel(cardType, a.subtype);
+        if (st) parts.push(st);
         if (colorBy) {
           const label = getAppColorLabel(a, colorRes, colorLabels, memberOf(a.id));
           if (label) parts.push(label);
@@ -1285,7 +1294,7 @@ export default function PortfolioReport({
           warn: !!a.lifecycle?.endOfLife,
         };
       });
-  }, [drawer, colorBy, colorRes, colorLabels, perMemberColor]);
+  }, [drawer, colorBy, colorRes, colorLabels, perMemberColor, cardType, subtypeLabel]);
 
   const drawerEolCount = drawer?.apps.filter((a) => a.lifecycle?.endOfLife).length ?? 0;
 
@@ -2204,7 +2213,7 @@ export default function PortfolioReport({
                     <TableCell sx={{ fontWeight: 500 }}>
                       {app.name}
                     </TableCell>
-                    <TableCell>{app.subtype || "\u2014"}</TableCell>
+                    <TableCell>{subtypeLabel(cardType, app.subtype) || "\u2014"}</TableCell>
                     <TableCell>{groupVal}</TableCell>
                     {colorBy && (
                       <TableCell>

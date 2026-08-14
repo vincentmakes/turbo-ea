@@ -511,6 +511,44 @@ describe("PortfolioReport group drawer", () => {
     });
   });
 
+  it("resolves the subtype key to its metamodel display label", async () => {
+    // A card stores its subtype as a bare key; the drawer used to print that
+    // key straight out, so the row read "businessApplication" where the rest
+    // of the UI says "Business Application".
+    vi.mocked(useMetamodel).mockReturnValue({
+      types: [
+        { key: "Organization", label: "Organization", icon: "corporate_fare", color: "#2889ff" },
+        {
+          key: "Application",
+          label: "Application",
+          subtypes: [{ key: "businessApplication", label: "Business Application" }],
+        },
+      ],
+      relationTypes: [],
+      loading: false,
+      getType: () => undefined,
+      getRelationsForType: () => [],
+      invalidateCache: vi.fn(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(api.get).mockResolvedValue({
+      ...MOCK_API_RESPONSE,
+      items: [
+        { ...MOCK_API_RESPONSE.items[0], subtype: "businessApplication" },
+        MOCK_API_RESPONSE.items[1],
+      ],
+    });
+    mockSavedConfig({ groupByRaw: "rel:Organization", colorBy: "businessCriticality" });
+    renderPortfolio();
+    await waitFor(() => expect(screen.getByText("Finance")).toBeInTheDocument());
+    await userEvent.setup().click(screen.getByText("Finance"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Business Application · High")).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/businessApplication/)).not.toBeInTheDocument();
+  });
+
   it("offers a View in inventory link for a real group", async () => {
     await openGroup("Finance");
     await waitFor(() => {

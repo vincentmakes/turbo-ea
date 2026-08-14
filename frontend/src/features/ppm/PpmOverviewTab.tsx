@@ -11,6 +11,7 @@ import { useTheme } from "@mui/material/styles";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveLabel } from "@/hooks/useResolveLabel";
+import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { api } from "@/api/client";
 import type { Card, PpmStatusReport, PpmCostLine, PpmBudgetLine } from "@/types";
 
@@ -100,6 +101,7 @@ export default function PpmOverviewTab({
   const { fmt, currency } = useCurrency();
   const { getType } = useMetamodel();
   const rl = useResolveLabel();
+  const subtypeLabel = useCardSubtypeLabel();
   const attrs = card.attributes || {};
   const budgetBarColor = theme.palette.primary.main;
   const overBudgetColor = theme.palette.error.dark;
@@ -150,11 +152,8 @@ export default function PpmOverviewTab({
   };
 
   // Resolve subtype to translated label
-  const resolveSubtype = (subtype: string | null | undefined): string | null => {
-    if (!subtype || !typeConfig?.subtypes) return subtype || null;
-    const st = typeConfig.subtypes.find((s: { key: string }) => s.key === subtype);
-    return st ? rl(st.label, st.translations) : subtype;
-  };
+  const resolveSubtype = (subtype: string | null | undefined): string | null =>
+    subtypeLabel(card.type, subtype) || null;
 
   const HealthDot = ({ value, label }: { value: string; label: string }) => (
     <Box display="flex" alignItems="center" gap={1}>

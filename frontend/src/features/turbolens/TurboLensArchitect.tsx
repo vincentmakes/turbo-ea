@@ -21,6 +21,7 @@ import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { api, ApiError } from "@/api/client";
 import type {
   ArchGap,
@@ -58,6 +59,7 @@ function OptionCard({
 }) {
   const { t } = useTranslation("admin");
   const { types } = useMetamodel();
+  const subtypeLabel = useCardSubtypeLabel();
 
   const typeInfo = (key: string) => types.find((tp) => tp.key === key);
 
@@ -196,7 +198,7 @@ function OptionCard({
                       <Typography variant="caption">{c.name}</Typography>
                       {c.subtype && (
                         <Typography variant="caption" color="text.secondary">
-                          ({c.subtype})
+                          ({subtypeLabel(c.cardTypeKey, c.subtype)})
                         </Typography>
                       )}
                     </Stack>
@@ -686,6 +688,7 @@ function loadSession(): ArchSession | null {
 export default function TurboLensArchitect() {
   const { t } = useTranslation("admin");
   const { types, relationTypes } = useMetamodel();
+  const subtypeLabel = useCardSubtypeLabel();
   const [searchParams, setSearchParams] = useSearchParams();
   const resumeId = searchParams.get("resume");
   const resumeHandled = useRef(false);
@@ -2527,7 +2530,7 @@ export default function TurboLensArchitect() {
                                     variant="caption"
                                     color="text.secondary"
                                   >
-                                    ({card.subtype})
+                                    ({subtypeLabel(card.cardTypeKey, card.subtype)})
                                   </Typography>
                                 )}
                               </Stack>

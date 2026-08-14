@@ -30,6 +30,7 @@ import { buildInventorySliceUrl } from "./portfolioInventoryLink";
 import { api } from "@/api/client";
 import { readableTextColor } from "@/lib/color";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useProcessTypeOptions } from "@/features/bpm/useProcessTypeOptions";
 import { CARD_TYPE_COLORS } from "@/theme";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -530,6 +531,7 @@ export default function ProcessMapReport() {
   const { t } = useTranslation(["reports", "common"]);
   const { fmtShort } = useCurrency();
   const { options: processTypeOptions, resolve: resolveProcessType } = useProcessTypeOptions();
+  const subtypeLabel = useCardSubtypeLabel();
   const saved = useSavedReport("process-map");
 
   // Data
@@ -676,11 +678,13 @@ export default function ProcessMapReport() {
             .map((a) => ({
               id: a.id,
               name: a.name,
-              secondary: a.subtype || undefined,
+              // These rows are Applications, not the drawer's BusinessProcess,
+              // so `SUBTYPE_TKEYS` does not apply — resolve off the metamodel.
+              secondary: subtypeLabel("Application", a.subtype) || undefined,
               warn: !!a.lifecycle?.endOfLife,
             }))
         : [],
-    [drawer],
+    [drawer, subtypeLabel],
   );
 
   const drawerDataObjects = useMemo<ReportCardListItem[]>(

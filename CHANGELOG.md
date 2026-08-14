@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.58.1] - 2026-08-14
+
+### Fixed
+- **Card subtypes now show their display name everywhere, not their internal key.** The detail panel of the Flexible Portfolio, Application Portfolio, Data Quality and Process Map reports listed a card's subtype as the raw metamodel key (`businessApplication` instead of "Business Application"), and so did the Portfolio table's Subtype column, the Initiative chips in EA Delivery, the BPM process navigator's application list, the TurboLens proposed-card lists and the card picker in Admin → Calculations. Subtypes an administrator created showed their key with no translation at all. Sorting the Portfolio table by Subtype now orders by the name on screen.
+
 ## [2.58.0] - 2026-08-14
 
 ### Added

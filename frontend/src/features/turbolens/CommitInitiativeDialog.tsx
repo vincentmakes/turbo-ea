@@ -18,6 +18,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { api } from "@/api/client";
 import type {
   TurboLensAnalysisRun,
@@ -61,6 +62,7 @@ export default function CommitInitiativeDialog({
 }: Props) {
   const { t } = useTranslation("admin");
   const { types } = useMetamodel();
+  const subtypeLabel = useCardSubtypeLabel();
 
   const [name, setName] = useState(
     buildInitiativeName(requirement, selectedOption),
@@ -567,7 +569,7 @@ export default function CommitInitiativeDialog({
                       )}
                       {card.subtype && (
                         <Typography variant="caption" color="text.secondary">
-                          ({card.subtype})
+                          ({subtypeLabel(card.cardTypeKey, card.subtype)})
                         </Typography>
                       )}
                       <Chip
