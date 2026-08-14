@@ -1465,6 +1465,10 @@ export default function InventoryFilterSidebar({
                         </Box>
                       </Tooltip>
                     }
+                    // Cancels FormControlLabel's default -11px, which would
+                    // otherwise pull these two left of the Show-archived row
+                    // they sit directly above.
+                    sx={{ ml: 0 }}
                   />
                 </Box>
               ))}
