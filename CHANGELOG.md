@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.58.0] - 2026-08-14
+
+### Added
+- **Orphaned and Stale are now inventory filters.** The Data Quality report could count cards with no relations, or untouched for 90+ days, but there was no way to go and work through them — its two KPI tiles now carry a **View in inventory** button like every other panel. Both filters are evaluated server-side, so they work with no card type selected.
+- The inventory grid's cell menu can now **Show matching** on a data-quality cell, selecting that score's band in the sidebar.
+
+### Changed
+- **Data quality is coloured the same way everywhere.** The report, the sidebar chips and the group-by axis used the bands (Complete ≥80%, Partial 40–79%, Minimal <40%) while the inventory grid, the card-detail pill and public web portals still cut at 50% — so a card scoring 45% showed orange in one place and red in another. Those three surfaces now use the bands too, which means scores between 40% and 49% turn from red to orange.
+- The Portfolio, Capability Map and Process Map detail drawers now share one component with the Data Quality panel, so they behave and look identical.
+
+### Fixed
+- Opening a group in the Portfolio report no longer reorders the underlying grouped data as a side effect of sorting the drawer's list.
+- The Capability Map and Process Map drawers no longer show an empty-state message *and* a populated list at the same time, which happened on a node whose own apps were filtered out but whose descendants still had some.
+
 ## [2.57.0] - 2026-08-14
 
 ### Added

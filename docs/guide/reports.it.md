@@ -222,7 +222,7 @@ Ogni valore del report è un punto di accesso, non solo un dato da leggere:
 - **Fai clic su una barra** in *Completezza media per tipo*, o su una riga nella vista tabella, per elencare tutte le card di quel tipo.
 - **Fai clic sul riquadro Orfani od Obsoleti** per elencare le card dietro quel conteggio.
 
-Dal pannello, fai clic su una card per aprirne il pannello di dettaglio, oppure premi **Vedi nell'inventario** per proseguire nell'[Inventario](inventory.md), che si apre raggruppato per qualità dei dati con la fascia selezionata espansa e le altre richiuse accanto, così puoi iniziare subito a correggere i record. I pannelli Orfani e Obsoleti non hanno il pulsante **Vedi nell'inventario**, perché l'inventario non può filtrare né per l'uno né per l'altro.
+Dal pannello, fai clic su una card per aprirne il pannello di dettaglio, oppure premi **Vedi nell'inventario** per proseguire nell'[Inventario](inventory.md), che si apre raggruppato per qualità dei dati con la fascia selezionata espansa e le altre richiuse accanto, così puoi iniziare subito a correggere i record. I pannelli Orfani e Obsoleti rimandano al filtro corrispondente dell'inventario, su tutti i tipi di scheda.
 
 
 ## Report End of Life (EOL)

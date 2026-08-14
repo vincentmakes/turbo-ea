@@ -28,6 +28,7 @@ from app.models.tag import CardTag, Tag, TagGroup
 from app.models.todo import Todo
 from app.models.user import User
 from app.models.user_favorite import UserFavorite
+from app.services.card_flags import orphaned_condition, stale_condition, stale_cutoff
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.kpi_snapshot_service import (
     compute_trend_block,
@@ -2050,8 +2051,9 @@ async def data_quality(db: AsyncSession = Depends(get_db), user: User = Depends(
     connected = {str(row[0]) for row in connected_result.all()}
     orphaned = len(all_ids - connected)
 
-    # Stale items (not updated in 90+ days)
-    cutoff = datetime.now(timezone.utc) - timedelta(days=90)
+    # Stale items — same cutoff the inventory's Stale filter uses, so the tile
+    # and the view it deep-links to always agree.
+    cutoff = stale_cutoff()
     stale = sum(1 for card in sheets if card.updated_at and card.updated_at < cutoff)
 
     # By-type breakdown
@@ -2138,13 +2140,9 @@ async def data_quality_cards(
         if high is not None:
             conditions.append(Card.data_quality < high)
     if scope == "stale":
-        cutoff = datetime.now(timezone.utc) - timedelta(days=90)
-        conditions.append(Card.updated_at < cutoff)
+        conditions.append(stale_condition())
     elif scope == "orphaned":
-        # Same definition as the dashboard's `orphaned` count: no relation in
-        # either direction.
-        connected = select(Relation.source_id).union(select(Relation.target_id))
-        conditions.append(Card.id.not_in(connected))
+        conditions.append(orphaned_condition())
 
     total_result = await db.execute(select(func.count()).select_from(Card).where(*conditions))
     total = total_result.scalar_one()

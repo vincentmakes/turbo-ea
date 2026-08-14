@@ -222,7 +222,7 @@ describe("DataQualityReport drill-down", () => {
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
-  it("opens orphaned cards from the KPI tile, with no inventory link", async () => {
+  it("opens orphaned cards from the KPI tile and links them into the inventory", async () => {
     const user = userEvent.setup();
     renderReport();
 
@@ -231,9 +231,21 @@ describe("DataQualityReport drill-down", () => {
     await waitFor(() => {
       expect(panelFetchPath()).toBe("/reports/data-quality/cards?scope=orphaned");
     });
-    // The inventory cannot express "has no relations", so offering a link
-    // would land the user on the wrong rows.
-    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    // No card type and no grouping: the tile counts across every type, so
+    // the landing has to as well.
+    expect(await screen.findByRole("link")).toHaveAttribute("href", "/inventory?orphaned=true");
+  });
+
+  it("links the stale tile to the matching inventory filter", async () => {
+    const user = userEvent.setup();
+    renderReport();
+
+    await user.click(await screen.findByText("Stale (90+ days)"));
+
+    await waitFor(() => {
+      expect(panelFetchPath()).toBe("/reports/data-quality/cards?scope=stale");
+    });
+    expect(await screen.findByRole("link")).toHaveAttribute("href", "/inventory?stale=true");
   });
 
   it("opens a whole type from the average-completion row", async () => {

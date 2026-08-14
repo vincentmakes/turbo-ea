@@ -290,6 +290,8 @@ function urlHasFilterParams(searchParams: URLSearchParams): boolean {
     searchParams.has("mine") ||
     searchParams.has("tag") ||
     searchParams.has("dq") ||
+    searchParams.has("orphaned") ||
+    searchParams.has("stale") ||
     Array.from(searchParams.keys()).some((k) => k.startsWith("attr_") || k.startsWith("rel_"))
   );
 }
@@ -410,12 +412,14 @@ export function splitInventoryCellValues(
  * the SAME semantics as an equals filter are bound:
  *
  *  - not bound: name/reference/path/parent/description/status/metadata (no
- *    facet), data quality (the cell is a percentage, the facet is a band —
- *    equals on the raw value would match almost nothing), tags / relations /
- *    stakeholders / multi-select attributes (multi-valued), and text /
- *    number / cost / date attributes — the sidebar matches those with
- *    *contains* / *minimum*, so mirroring an equals cell into them would
- *    silently change what the filter means.
+ *    facet), tags / relations / stakeholders / multi-select attributes
+ *    (multi-valued), and text / number / cost / date attributes — the sidebar
+ *    matches those with *contains* / *minimum*, so mirroring an equals cell
+ *    into them would silently change what the filter means.
+ *
+ *  - data quality is bound but `columnFilter: false`: the cell is a score and
+ *    the facet is the band containing it, so the facet can mirror the cell
+ *    while an equals filter on "85" could not.
  *
  * Exported for tests.
  */
@@ -475,6 +479,22 @@ export function buildInventoryFacetBindings(
       toFacetValue: nonBlank,
       getValues: () => filtersRef.current.approvalStatuses,
       setValues: (values) => setFilters((prev) => ({ ...prev, approvalStatuses: values })),
+    },
+    core_data_quality: {
+      // Facet-only. `filterKind` for this column resolves to "text", so a
+      // mirrored equals filter would narrow the grid to the one exact score
+      // while the facet header says "Complete (≥80%)".
+      columnFilter: false,
+      toFacetValue: (ctx) => {
+        const score = Number(ctx.filterValue);
+        return Number.isNaN(score) ? null : bandOf(score);
+      },
+      getValues: () => filtersRef.current.dataQualityBands,
+      setValues: (values) =>
+        setFilters((prev) => ({
+          ...prev,
+          dataQualityBands: values.filter(isDataQualityBand),
+        })),
     },
   };
 
@@ -621,6 +641,8 @@ export default function InventoryPage() {
         relations,
         tagIds: searchParams.getAll("tag"),
         mineScope: searchParams.get("mine") === "stakeholder" ? "stakeholder" : null,
+        orphanedOnly: searchParams.get("orphaned") === "true",
+        staleOnly: searchParams.get("stale") === "true",
       };
     }
 
@@ -640,6 +662,8 @@ export default function InventoryPage() {
         relations: saved.filters.relations || {},
         tagIds: saved.filters.tagIds || [],
         mineScope: saved.filters.mineScope ?? null,
+        orphanedOnly: saved.filters.orphanedOnly || false,
+        staleOnly: saved.filters.staleOnly || false,
       };
     }
 
@@ -655,6 +679,8 @@ export default function InventoryPage() {
       relations: {},
       tagIds: [],
       mineScope: null,
+      orphanedOnly: false,
+      staleOnly: false,
     };
   });
   // Current filters, readable from the facet bindings' stable callbacks
@@ -1170,6 +1196,14 @@ export default function InventoryPage() {
         if (filters.mineScope) {
           params.set("mine", filters.mineScope);
         }
+        // Server-evaluated, unlike the other facets: "orphaned" needs the
+        // whole relation graph, which the client never holds.
+        if (filters.orphanedOnly) {
+          params.set("orphaned", "true");
+        }
+        if (filters.staleOnly) {
+          params.set("stale", "true");
+        }
         params.set("page_size", "10000");
         const res = await api.get<CardListResponse>(`/cards?${params}`, { signal });
         if (!isCurrent()) return; // superseded — the newer request owns the grid
@@ -1192,6 +1226,8 @@ export default function InventoryPage() {
     filters.approvalStatuses,
     filters.showArchived,
     filters.mineScope,
+    filters.orphanedOnly,
+    filters.staleOnly,
   ]);
 
   useEffect(() => {

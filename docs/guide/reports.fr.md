@@ -222,7 +222,7 @@ Chaque valeur du rapport est un point d'entrée, pas seulement un affichage :
 - **Cliquez sur une barre** dans *Complétude moyenne par type*, ou sur une ligne de la vue tableau, pour lister toutes les fiches de ce type.
 - **Cliquez sur la tuile Orphelins ou Obsolètes** pour lister les fiches derrière ce compteur.
 
-Depuis le panneau, cliquez sur une fiche pour ouvrir son panneau de détail, ou sur **Voir dans l'inventaire** pour poursuivre dans l'[Inventaire](inventory.md) — qui arrive groupé par qualité des données, la plage cliquée dépliée et les autres repliées à côté, afin de corriger les enregistrements immédiatement. Les panneaux Orphelins et Obsolètes n'ont pas de bouton **Voir dans l'inventaire**, car l'inventaire ne sait filtrer ni l'un ni l'autre.
+Depuis le panneau, cliquez sur une fiche pour ouvrir son panneau de détail, ou sur **Voir dans l'inventaire** pour poursuivre dans l'[Inventaire](inventory.md) — qui arrive groupé par qualité des données, la plage cliquée dépliée et les autres repliées à côté, afin de corriger les enregistrements immédiatement. Les panneaux Orphelins et Obsolètes mènent au filtre d'inventaire correspondant, tous types de fiches confondus.
 
 
 ## Rapport Fin de vie (EOL)

@@ -73,6 +73,11 @@ export interface Filters {
   // is wired up — kept as a string union so we can add more scopes (creator,
   // both, …) without changing every call site.
   mineScope: "stakeholder" | null;
+  /** Cards with no relation in either direction. Server-evaluated: the client
+   * only ever holds the relations of the type it is currently displaying. */
+  orphanedOnly: boolean;
+  /** Cards untouched for 90+ days — same cutoff as the report's Stale tile. */
+  staleOnly: boolean;
 }
 
 interface Props {
@@ -455,7 +460,7 @@ export default function InventoryFilterSidebar({
   }, [relationsMap, relevantRelTypes]);
 
   const clearAll = () =>
-    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityBands: [], approvalStatuses: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null });
+    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityBands: [], approvalStatuses: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null, orphanedOnly: false, staleOnly: false });
 
   const activeCount =
     filters.types.length +
@@ -468,7 +473,9 @@ export default function InventoryFilterSidebar({
     Object.keys(filters.attributes).length +
     Object.keys(filters.relations || {}).length +
     (filters.tagIds?.length ?? 0) +
-    (filters.mineScope ? 1 : 0);
+    (filters.mineScope ? 1 : 0) +
+    (filters.orphanedOnly ? 1 : 0) +
+    (filters.staleOnly ? 1 : 0);
 
   // Check if columns differ from default
   const columnsChanged = useMemo(() => {
@@ -519,6 +526,8 @@ export default function InventoryFilterSidebar({
         dataQualityBands: filters.dataQualityBands,
         approvalStatuses: filters.approvalStatuses,
         showArchived: filters.showArchived,
+        orphanedOnly: filters.orphanedOnly,
+        staleOnly: filters.staleOnly,
         attributes: filters.attributes,
         relations: filters.relations,
         tagIds: filters.tagIds,
@@ -558,6 +567,8 @@ export default function InventoryFilterSidebar({
         dataQualityBands: normalizeDataQualityFilter(f),
         approvalStatuses: f.approvalStatuses || [],
         showArchived: f.showArchived || false,
+        orphanedOnly: f.orphanedOnly || false,
+        staleOnly: f.staleOnly || false,
         attributes: f.attributes || {},
         relations: f.relations || {},
         tagIds: f.tagIds || [],
@@ -834,6 +845,61 @@ export default function InventoryFilterSidebar({
                   labelPlacement="start"
                 />
               </Box>
+
+              {/* Health scopes — the inventory side of the Data Quality
+                  report's Orphaned and Stale tiles. Both are evaluated
+                  server-side, so they sit with the "mine" scope rather than
+                  with the client-side facets below. */}
+              {(
+                [
+                  {
+                    key: "orphanedOnly",
+                    icon: "link_off",
+                    label: "filter.orphanedOnly",
+                    hint: "filter.orphanedOnlyHint",
+                  },
+                  {
+                    key: "staleOnly",
+                    icon: "update_disabled",
+                    label: "filter.staleOnly",
+                    hint: "filter.staleOnlyHint",
+                  },
+                ] as const
+              ).map((scope) => (
+                <Box
+                  key={scope.key}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    px: 1,
+                    py: 0.75,
+                    mb: 1.5,
+                    borderRadius: 1,
+                    bgcolor: filters[scope.key] ? "action.selected" : "transparent",
+                  }}
+                >
+                  <MaterialSymbol icon={scope.icon} size={16} />
+                  <FormControlLabel
+                    sx={{ flex: 1, mr: 0, ml: 0.5 }}
+                    control={
+                      <Switch
+                        size="small"
+                        checked={filters[scope.key]}
+                        onChange={(e) =>
+                          onFiltersChange({ ...filters, [scope.key]: e.target.checked })
+                        }
+                      />
+                    }
+                    label={
+                      <Tooltip title={t(scope.hint) as string}>
+                        <Typography variant="body2">{t(scope.label)}</Typography>
+                      </Tooltip>
+                    }
+                    labelPlacement="start"
+                  />
+                </Box>
+              ))}
 
               {/* Card Types */}
               <SectionHeader

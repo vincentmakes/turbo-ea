@@ -17,6 +17,8 @@ const baseFilters: Filters = {
   subtypes: ["business_app"],
   lifecyclePhases: ["active"],
   dataQualityBands: ["partial"],
+  orphanedOnly: false,
+  staleOnly: false,
   approvalStatuses: ["APPROVED"],
   showArchived: false,
   attributes: { vendor: ["SAP"] },

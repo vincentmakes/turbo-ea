@@ -16,6 +16,8 @@ Das linke Seitenpanel ermöglicht es Ihnen, Karten nach verschiedenen Kriterien 
 - **Genehmigungsstatus** — Entwurf, Genehmigt, Ungültig oder Abgelehnt
 - **Lebenszyklus** — Filtern nach Lebenszyklusphase: Planung, Einführung, Aktiv, Auslauf, Lebensende
 - **Datenqualität** — Filtern nach Band (Mehrfachauswahl): Vollständig (≥80%), Teilweise (40–79%), Minimal (unter 40%). Dieselben Bänder wie im [Datenqualitätsbericht](reports.md#data-quality-report) — ein Klick auf ein Balkensegment dort führt hierher.
+- **Verwaist** — Nur Karten ohne Beziehung in beide Richtungen. Serverseitig ausgewertet und daher auch ohne ausgewählten Kartentyp nutzbar.
+- **Veraltet** — Nur Karten, die seit 90 Tagen nicht aktualisiert wurden. Beide entsprechen den KPI-Kacheln des [Datenqualitätsberichts](reports.md#data-quality-report) — ein Klick auf eine Kachel führt hierher.
 - **Tags** — Filtern nach Tags aus beliebigen Tag-Gruppen
 - **Beziehungen** — Filtern nach verwandten Karten über Beziehungstypen
 - **Benutzerdefinierte Attribute** — Filtern nach Werten in benutzerdefinierten Feldern (Textsuche, Auswahloptionen)

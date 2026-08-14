@@ -18,6 +18,8 @@ const EMPTY_FILTERS: Filters = {
   subtypes: [],
   lifecyclePhases: [],
   dataQualityBands: [],
+  orphanedOnly: false,
+  staleOnly: false,
   approvalStatuses: [],
   showArchived: false,
   attributes: {},
@@ -1386,6 +1388,7 @@ describe("buildInventoryFacetBindings", () => {
       "attr_critical",
       "attr_hosting",
       "core_approval_status",
+      "core_data_quality",
       "core_lifecycle",
       "core_subtype",
       "core_type",
@@ -1405,6 +1408,32 @@ describe("buildInventoryFacetBindings", () => {
     expect(bindings.core_approval_status.getValues()).toEqual(["BROKEN"]);
     bindings.core_approval_status.setValues([]);
     expect(read().approvalStatuses).toEqual([]);
+  });
+
+  it("maps a data-quality score to the band that contains it", () => {
+    const { bindings, read } = harness();
+    const toBand = (v: unknown) => bindings.core_data_quality.toFacetValue(ctx("core_data_quality", v));
+    // The raw score, not the "85%" the formatter renders.
+    expect(toBand(85)).toBe("complete");
+    expect(toBand(80)).toBe("complete");
+    expect(toBand(79.9)).toBe("partial");
+    expect(toBand(39.9)).toBe("minimal");
+
+    bindings.core_data_quality.setValues(["partial"]);
+    expect(read().dataQualityBands).toEqual(["partial"]);
+    expect(bindings.core_data_quality.getValues()).toEqual(["partial"]);
+  });
+
+  it("never writes a column filter for data quality", () => {
+    // A band is a range; an equals filter on one score would AND-narrow the
+    // grid to that single value while the facet claims the whole band.
+    const { bindings } = harness();
+    expect(bindings.core_data_quality.columnFilter).toBe(false);
+  });
+
+  it("falls back to a plain filter when a quality cell is not a number", () => {
+    const { bindings } = harness();
+    expect(bindings.core_data_quality.toFacetValue(ctx("core_data_quality", "n/a"))).toBeNull();
   });
 
   it("maps blank cells to the (empty) option where the facet has one", () => {

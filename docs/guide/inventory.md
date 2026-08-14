@@ -16,6 +16,8 @@ The left sidebar panel allows you to **filter** cards by different criteria:
 - **Approval Status** — Draft, Approved, Broken, or Rejected
 - **Lifecycle** — Filter by lifecycle phase: Plan, Phase In, Active, Phase Out, End of Life
 - **Data Quality** — Band filtering (multi-select): Complete (≥80%), Partial (40–79%), Minimal (below 40%). Same bands the [Data Quality report](reports.md#data-quality-report) charts, so clicking a bar segment there lands here.
+- **Orphaned** — Only cards with no relation in either direction. Evaluated server-side, so it works with no card type selected.
+- **Stale** — Only cards not updated in the last 90 days. Both mirror the [Data Quality report](reports.md#data-quality-report)'s KPI tiles, so clicking a tile there lands here.
 - **Tags** — Filter by tags from any tag group
 - **Relations** — Filter by related cards across relation types
 - **Custom attributes** — Filter by values in custom fields (text search, select options)

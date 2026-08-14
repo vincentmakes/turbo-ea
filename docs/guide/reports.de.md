@@ -222,7 +222,7 @@ Jede Kennzahl im Bericht ist ein Einstiegspunkt, nicht nur eine Anzeige:
 - **Klicken Sie auf einen Balken** in *Durchschnittliche Vollständigkeit nach Typ* oder auf eine Zeile in der Tabellenansicht, um alle Karten dieses Typs aufzulisten.
 - **Klicken Sie auf die Kachel Verwaist oder Veraltet**, um die Karten hinter dieser Zahl aufzulisten.
 
-Klicken Sie im Panel auf eine Karte, um deren Detailbereich zu öffnen, oder auf **In Inventar anzeigen**, um im [Inventar](inventory.md) weiterzuarbeiten — dieses erscheint nach Datenqualität gruppiert, mit dem angeklickten Band aufgeklappt und den übrigen daneben eingeklappt, sodass Sie sofort mit der Korrektur beginnen können. Die Panels Verwaist und Veraltet haben keine Schaltfläche **In Inventar anzeigen**, da das Inventar nach keinem von beiden filtern kann.
+Klicken Sie im Panel auf eine Karte, um deren Detailbereich zu öffnen, oder auf **In Inventar anzeigen**, um im [Inventar](inventory.md) weiterzuarbeiten — dieses erscheint nach Datenqualität gruppiert, mit dem angeklickten Band aufgeklappt und den übrigen daneben eingeklappt, sodass Sie sofort mit der Korrektur beginnen können. Die Panels Verwaist und Veraltet führen in den passenden Inventarfilter — über alle Kartentypen hinweg.
 
 
 ## End-of-Life-Bericht (EOL)

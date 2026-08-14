@@ -16,6 +16,8 @@ Det venstre sidepanel lader dig **filtrere** kort efter forskellige kriterier:
 - **Godkendelsesstatus** — Draft, Approved, Broken eller Rejected
 - **Livscyklus** — Filtrer efter livscyklus-fase: Plan, Phase In, Active, Phase Out, End of Life
 - **Datakvalitet** — Båndfiltrering (multivalg): Komplet (≥80%), Delvis (40–79%), Minimal (under 40%). Samme bånd som [Datakvalitetsrapporten](reports.md#data-quality-report), så et klik på et bjælkesegment der lander her.
+- **Forældreløse** — Kun kort uden relationer i nogen retning. Vurderes på serveren og virker derfor uden en valgt korttype.
+- **Forældede** — Kun kort, der ikke er opdateret de seneste 90 dage. Begge spejler felterne i [Datakvalitetsrapporten](reports.md#data-quality-report), så et klik på et felt lander her.
 - **Tags** — Filtrer efter tags fra en hvilken som helst tag-gruppe
 - **Relationer** — Filtrer efter relaterede kort på tværs af relations­typer
 - **Brugerdefinerede attributter** — Filtrer efter værdier i brugerdefinerede felter (tekstsøgning, select-muligheder)

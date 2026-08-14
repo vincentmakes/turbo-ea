@@ -16,6 +16,8 @@ O painel lateral esquerdo permite **filtrar** cards por diferentes critérios:
 - **Status de Aprovação** — Rascunho, Aprovado, Quebrado ou Rejeitado
 - **Ciclo de Vida** — Filtrar por fase do ciclo de vida: Planejamento, Implantação, Ativo, Desativação, Fim de Vida
 - **Qualidade dos Dados** — Filtragem por faixa (seleção múltipla): Completo (≥80%), Parcial (40-79%), Mínimo (abaixo de 40%). São as faixas do [relatório Qualidade dos dados](reports.md#data-quality-report): clicar num segmento de barra leva até aqui.
+- **Órfãs** — Apenas fichas sem qualquer relação, em ambos os sentidos. Avaliado no servidor, pelo que funciona sem um tipo selecionado.
+- **Desatualizadas** — Apenas fichas não atualizadas nos últimos 90 dias. Ambas espelham os blocos do [relatório Qualidade dos dados](reports.md#data-quality-report): clicar num bloco leva até aqui.
 - **Tags** — Filtrar por tags de qualquer grupo de tags
 - **Relacionamentos** — Filtrar por cards relacionados através de tipos de relacionamento
 - **Atributos personalizados** — Filtrar por valores em campos personalizados (busca de texto, opções de seleção)

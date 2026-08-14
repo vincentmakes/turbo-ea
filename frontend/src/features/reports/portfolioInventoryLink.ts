@@ -58,6 +58,15 @@ export interface InventorySliceFilters {
   tagIds?: string[];
 }
 
+/**
+ * Deep-link for a whole-landscape health flag (the Data Quality report's
+ * Orphaned / Stale tiles). No card type and no grouping — the tiles count
+ * across every type, so the landing must too.
+ */
+export function buildInventoryFlagUrl(flag: "orphaned" | "stale"): string {
+  return `/inventory?${flag}=true`;
+}
+
 export function buildInventorySliceUrl(opts: {
   cardType: string;
   mode: InventorySliceMode;

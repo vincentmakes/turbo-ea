@@ -222,7 +222,7 @@ Cada cifra del informe es una vía de entrada, no solo un dato:
 - **Haga clic en una barra** de *Completitud media por tipo*, o en una fila de la vista de tabla, para listar todas las fichas de ese tipo.
 - **Haga clic en el mosaico Huérfanos u Desactualizados** para listar las fichas tras ese recuento.
 
-Desde el panel, haga clic en una ficha para abrir su panel de detalle, o pulse **Ver en el inventario** para continuar en el [Inventario](inventory.md), que llega agrupado por calidad de datos con la banda seleccionada desplegada y las demás plegadas al lado, de modo que pueda empezar a corregir registros de inmediato. Los paneles de Huérfanos y Desactualizados no tienen botón **Ver en el inventario**, porque el inventario no puede filtrar por ninguno de los dos.
+Desde el panel, haga clic en una ficha para abrir su panel de detalle, o pulse **Ver en el inventario** para continuar en el [Inventario](inventory.md), que llega agrupado por calidad de datos con la banda seleccionada desplegada y las demás plegadas al lado, de modo que pueda empezar a corregir registros de inmediato. Los paneles de Huérfanos y Desactualizados enlazan con el filtro de inventario correspondiente, en todos los tipos de ficha.
 
 
 ## Informe de Fin de Vida (EOL)

@@ -19913,6 +19913,30 @@
             }
           },
           {
+            "description": "Keep only cards with no relation in either direction. Evaluated server-side because the client only ever holds the relations of the type it is currently displaying.",
+            "in": "query",
+            "name": "orphaned",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Keep only cards with no relation in either direction. Evaluated server-side because the client only ever holds the relations of the type it is currently displaying.",
+              "title": "Orphaned",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Keep only cards not updated in the last 90 days (`card_flags.STALE_AFTER_DAYS`).",
+            "in": "query",
+            "name": "stale",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Keep only cards not updated in the last 90 days (`card_flags.STALE_AFTER_DAYS`).",
+              "title": "Stale",
+              "type": "boolean"
+            }
+          },
+          {
             "in": "query",
             "name": "page",
             "required": false,

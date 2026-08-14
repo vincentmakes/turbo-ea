@@ -72,6 +72,7 @@ from app.schemas.card import (
 from app.services import card_lifecycle, card_reference, notification_service
 from app.services.calculation_engine import run_calculations_for_card
 from app.services.card_completeness import missing_mandatory
+from app.services.card_flags import orphaned_condition, stale_condition
 from app.services.card_resolver import CardResolver
 from app.services.card_uniqueness import check_sibling_name_unique
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
@@ -653,6 +654,20 @@ async def list_cards(
             "diagram editor's view perspectives to recolor cells."
         ),
     ),
+    orphaned: bool = Query(
+        False,
+        description=(
+            "Keep only cards with no relation in either direction. Evaluated "
+            "server-side because the client only ever holds the relations of "
+            "the type it is currently displaying."
+        ),
+    ),
+    stale: bool = Query(
+        False,
+        description=(
+            "Keep only cards not updated in the last 90 days (`card_flags.STALE_AFTER_DAYS`)."
+        ),
+    ),
     page: int = Query(1, ge=1),
     page_size: int = Query(10000, ge=1, le=10000),
     sort_by: str | None = Query(
@@ -728,6 +743,12 @@ async def list_cards(
         mine_cards_sq = select(Stakeholder.card_id).where(Stakeholder.user_id == user.id).distinct()
         q = q.where(Card.id.in_(mine_cards_sq))
         count_q = count_q.where(Card.id.in_(mine_cards_sq))
+    if orphaned:
+        q = q.where(orphaned_condition())
+        count_q = count_q.where(orphaned_condition())
+    if stale:
+        q = q.where(stale_condition())
+        count_q = count_q.where(stale_condition())
 
     # Sorting — H9: whitelist sort columns
     effective_sort = sort_by if sort_by in _ALLOWED_SORT_COLUMNS else "name"

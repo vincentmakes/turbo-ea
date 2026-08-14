@@ -222,7 +222,7 @@ Every figure on the report is a way in, not just a readout:
 - **Click a bar** in *Average Completion by Type*, or a row in the table view, to list every card of that type.
 - **Click the Orphaned or Stale tile** to list the cards behind that count.
 
-From the panel, click any card to open its detail side panel, or press **View in inventory** to continue in the [Inventory](inventory.md) — which arrives grouped by data quality with the band you clicked expanded and the others collapsed beside it, so you can start fixing records straight away. The Orphaned and Stale panels have no **View in inventory** button, because neither is something the inventory can filter on.
+From the panel, click any card to open its detail side panel, or press **View in inventory** to continue in the [Inventory](inventory.md) — which arrives grouped by data quality with the band you clicked expanded and the others collapsed beside it, so you can start fixing records straight away. The Orphaned and Stale panels link into the inventory's matching filter, across every card type.
 
 
 ## End of Life (EOL) Report

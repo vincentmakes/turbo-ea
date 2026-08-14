@@ -6,7 +6,7 @@ These tests require a PostgreSQL test database and an HTTP test client.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -834,3 +834,83 @@ class TestRelationSummary:
         # The Drill-Down menu must not lie about the number of children
         # it can actually fetch through /hierarchy.
         assert response.json()["hierarchy"]["children_count"] == 1
+
+
+class TestOrphanedAndStaleFilters:
+    """`?orphaned=` / `?stale=` — the inventory equivalents of the Data
+    Quality dashboard's two KPI tiles, so a tile can deep-link to a view
+    holding exactly the cards it counted."""
+
+    async def _names(self, client, admin, query):
+        response = await client.get(f"/api/v1/cards?{query}", headers=auth_headers(admin))
+        assert response.status_code == 200
+        return response.json(), [item["name"] for item in response.json()["items"]]
+
+    @pytest.fixture
+    async def related(self, db, cards_env):
+        """One connected pair plus one unconnected card."""
+        admin = cards_env["admin"]
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        await create_relation_type(
+            db,
+            key="appUsesItc",
+            label="uses",
+            reverse_label="used by",
+            source_type_key="Application",
+            target_type_key="ITComponent",
+        )
+        source = await create_card(db, card_type="Application", name="Wired", user_id=admin.id)
+        target = await create_card(db, card_type="ITComponent", name="Pointed At", user_id=admin.id)
+        await create_relation(db, type_key="appUsesItc", source_id=source.id, target_id=target.id)
+        await create_card(db, card_type="Application", name="Alone", user_id=admin.id)
+        await db.flush()
+        return cards_env
+
+    async def test_orphaned_keeps_only_unconnected_cards(self, client, db, related):
+        _, names = await self._names(client, related["admin"], "orphaned=true")
+        assert names == ["Alone"]
+
+    async def test_orphaned_counts_a_relation_in_either_direction(self, client, db, related):
+        """The target of a relation is connected too — reporting it as
+        orphaned would send someone hunting a problem that isn't there."""
+        _, names = await self._names(client, related["admin"], "orphaned=true")
+        assert "Pointed At" not in names
+        assert "Wired" not in names
+
+    async def test_orphaned_total_matches_the_returned_rows(self, client, db, related):
+        # The count query must carry the same predicate, or the grid's
+        # "N cards" caption contradicts the rows under it.
+        data, names = await self._names(client, related["admin"], "orphaned=true")
+        assert data["total"] == len(names) == 1
+
+    async def test_off_by_default(self, client, db, related):
+        _, names = await self._names(client, related["admin"], "type=Application")
+        assert sorted(names) == ["Alone", "Wired"]
+
+    async def test_stale_honours_the_90_day_cutoff(self, client, db, cards_env):
+        admin = cards_env["admin"]
+        old = await create_card(db, card_type="Application", name="Dusty", user_id=admin.id)
+        old.updated_at = datetime.now(timezone.utc) - timedelta(days=91)
+        edge = await create_card(db, card_type="Application", name="JustInside", user_id=admin.id)
+        edge.updated_at = datetime.now(timezone.utc) - timedelta(days=89)
+        await create_card(db, card_type="Application", name="Fresh", user_id=admin.id)
+        await db.flush()
+
+        _, names = await self._names(client, admin, "stale=true")
+        assert names == ["Dusty"]
+
+    async def test_stale_composes_with_orphaned(self, client, db, related):
+        """Both tiles can be open at once; the filters must intersect."""
+        admin = related["admin"]
+        lonely_and_old = await create_card(
+            db, card_type="Application", name="OldAndAlone", user_id=admin.id
+        )
+        lonely_and_old.updated_at = datetime.now(timezone.utc) - timedelta(days=120)
+        await db.flush()
+
+        _, names = await self._names(client, admin, "orphaned=true&stale=true")
+        assert names == ["OldAndAlone"]
+
+    async def test_composes_with_the_type_filter(self, client, db, related):
+        _, names = await self._names(client, related["admin"], "type=ITComponent&orphaned=true")
+        assert names == []

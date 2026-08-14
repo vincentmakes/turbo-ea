@@ -16,6 +16,8 @@ El panel lateral izquierdo permite **filtrar** las fichas por diferentes criteri
 - **Estado de Aprobación** — Borrador, Aprobado, Roto o Rechazado
 - **Ciclo de Vida** — Filtrar por fase del ciclo de vida: Plan, Fase de Entrada, Activo, Fase de Salida, Fin de Vida
 - **Calidad de Datos** — Filtrado por banda (selección múltiple): Completo (≥80%), Parcial (40–79%), Mínimo (menos del 40%). Son las bandas del [informe de Calidad de datos](reports.md#data-quality-report): al hacer clic en un segmento de barra allí se llega aquí.
+- **Huérfanas** — Solo fichas sin ninguna relación, en ningún sentido. Se evalúa en el servidor, por lo que funciona sin seleccionar un tipo de ficha.
+- **Desactualizadas** — Solo fichas sin actualizar en los últimos 90 días. Ambas reflejan los mosaicos del [informe de Calidad de datos](reports.md#data-quality-report): al hacer clic en uno se llega aquí.
 - **Etiquetas** — Filtrar por etiquetas de cualquier grupo de etiquetas
 - **Relaciones** — Filtrar por fichas relacionadas a través de tipos de relación
 - **Atributos personalizados** — Filtrar por valores en campos personalizados (búsqueda de texto, opciones de selección)
