@@ -105,6 +105,8 @@
   "massEdit.tags.removeHint_one": "Jeder passende Tag wird von der ausgewählten Karte entfernt.",
   "massEdit.tags.removeHint_other": "Jeder passende Tag wird von den {{count}} ausgewählten Karten entfernt.",
   "massEdit.tags.pickAtLeastOne": "Wählen Sie mindestens einen Tag aus.",
+  "massEdit.attr.hint_one": "Der Wert oben wird auf die ausgewählte Karte geschrieben. Leer lassen, um das Feld zu leeren.",
+  "massEdit.attr.hint_other": "Der Wert oben wird auf jede der {{count}} ausgewählten Karten geschrieben. Leer lassen, um das Feld zu leeren.",
   "massArchive.dialogTitle": "{{count}} Karten archivieren",
   "massArchive.confirmMessage_one": "Möchten Sie wirklich {{count}} Karte archivieren? Archivierte Karten können innerhalb von {{days}} Tagen wiederhergestellt werden.",
   "massArchive.confirmMessage_other": "Möchten Sie wirklich {{count}} Karten archivieren? Archivierte Karten können innerhalb von {{days}} Tagen wiederhergestellt werden.",

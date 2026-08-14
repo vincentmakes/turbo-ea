@@ -5,7 +5,9 @@ import { MemoryRouter } from "react-router";
 import InventoryPage, {
   splitInventoryCellValues,
   buildInventoryFacetBindings,
+  normalizeAttrValue,
 } from "./InventoryPage";
+import MultiSelectCellEditor from "./MultiSelectCellEditor";
 import { EMPTY_VALUE, type Filters } from "./InventoryFilterSidebar";
 
 /** Baseline sidebar filter state for the facet-binding tests. */
@@ -202,6 +204,8 @@ interface ColDefLike {
   field?: string;
   headerName?: string;
   editable?: boolean;
+  cellEditor?: unknown;
+  cellEditorPopup?: boolean;
   valueGetter?: (params: { data?: never }) => unknown;
   valueSetter?: (params: { data: never; newValue: never }) => boolean;
   valueFormatter?: (params: { value?: unknown }) => string;
@@ -1411,5 +1415,224 @@ describe("buildInventoryFacetBindings", () => {
       undefined,
     );
     expect(Object.keys(bindings).some((k) => k.startsWith("attr_"))).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Mass edit — attribute fields (#940)
+// ---------------------------------------------------------------------------
+
+describe("normalizeAttrValue", () => {
+  it("treats every empty shape as a clear", () => {
+    expect(normalizeAttrValue("")).toBeNull();
+    expect(normalizeAttrValue(null)).toBeNull();
+    expect(normalizeAttrValue(undefined)).toBeNull();
+    // An emptied multi-select: `[]` must clear, not persist as an empty list.
+    expect(normalizeAttrValue([])).toBeNull();
+  });
+
+  it("keeps values a user deliberately chose", () => {
+    // The old `value || null` wiped both of these.
+    expect(normalizeAttrValue(false)).toBe(false);
+    expect(normalizeAttrValue(0)).toBe(0);
+    expect(normalizeAttrValue(["emea"])).toEqual(["emea"]);
+    expect(normalizeAttrValue("low")).toBe("low");
+  });
+});
+
+describe("InventoryPage mass edit attributes", () => {
+  const ATTR_TYPES = [
+    {
+      ...MOCK_TYPES[0],
+      fields_schema: [
+        {
+          section: "General",
+          fields: [
+            {
+              key: "regions",
+              label: "Regions",
+              type: "multiple_select",
+              options: [
+                { key: "emea", label: "EMEA" },
+                { key: "apac", label: "APAC" },
+              ],
+            },
+            { key: "critical", label: "Critical", type: "boolean" },
+            { key: "seats", label: "Seats", type: "number" },
+            { key: "licenseCost", label: "License Cost", type: "cost" },
+          ],
+        },
+      ],
+    },
+    MOCK_TYPES[1],
+  ];
+
+  /** Grant everything except costs.view when `costs` is false. */
+  function mockUser(costs = true) {
+    vi.mocked(useAuth).mockReturnValue({
+      user: {
+        id: "u1",
+        email: "admin@test.com",
+        display_name: "Admin",
+        role: "member",
+        permissions: costs
+          ? { "*": true }
+          : {
+              "inventory.view": true,
+              "inventory.edit": true,
+              "relations.manage": true,
+            },
+      },
+      loading: false,
+      login: vi.fn(),
+      register: vi.fn(),
+      logout: vi.fn(),
+      ssoCallback: vi.fn(),
+      setPassword: vi.fn(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+  }
+
+  beforeEach(() => {
+    vi.mocked(useMetamodel).mockReturnValue({
+      types: ATTR_TYPES,
+      relationTypes: [],
+      loading: false,
+      getType: (key: string) => ATTR_TYPES.find((t) => t.key === key),
+      getRelationsForType: () => [],
+      invalidateCache: vi.fn(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(api.patch).mockResolvedValue({});
+  });
+
+  /** Filter to Application, select every row, open Mass Edit, pick a field. */
+  async function openField(name: RegExp) {
+    renderInventory();
+    await waitFor(() => expect(screen.getByTestId("ag-grid")).toBeInTheDocument());
+    await userEvent.click(screen.getByTestId("select-application"));
+    await userEvent.click(screen.getByTestId("select-all-rows"));
+    await userEvent.click(await screen.findByRole("button", { name: /mass edit/i }));
+
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getAllByRole("combobox")[0]);
+    await userEvent.click(await screen.findByRole("option", { name }));
+    return dialog;
+  }
+
+  async function apply() {
+    await userEvent.click(screen.getByRole("button", { name: /apply to/i }));
+  }
+
+  /** The attributes payload of the first PATCH sent to a card. */
+  function patchedAttrs() {
+    const call = vi
+      .mocked(api.patch)
+      .mock.calls.find(([path]) => (path as string).startsWith("/cards/"));
+    return (call?.[1] as { attributes: Record<string, unknown> }).attributes;
+  }
+
+  it("offers the option list for a multi-select, not a free-text box", async () => {
+    // The bug: this rendered a bare TextField, so users typed a value that was
+    // stored as a raw string in a field that holds option keys.
+    const dialog = await openField(/^regions$/i);
+
+    const valueControl = within(dialog).getAllByRole("combobox")[1];
+    await userEvent.click(valueControl);
+    const listbox = await screen.findByRole("listbox");
+    expect(within(listbox).getByRole("option", { name: /EMEA/ })).toBeInTheDocument();
+    expect(within(listbox).getByRole("option", { name: /APAC/ })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("textbox")).toBeNull();
+  });
+
+  it("writes the chosen options as an array of keys", async () => {
+    const dialog = await openField(/^regions$/i);
+    await userEvent.click(within(dialog).getAllByRole("combobox")[1]);
+    await userEvent.click(await screen.findByRole("option", { name: /EMEA/ }));
+    await userEvent.click(await screen.findByRole("option", { name: /APAC/ }));
+    await userEvent.keyboard("{Escape}");
+    await apply();
+
+    await waitFor(() => expect(patchedAttrs()).toEqual({ regions: ["emea", "apac"] }));
+  });
+
+  it("clears the attribute when nothing is selected", async () => {
+    await openField(/^regions$/i);
+    await apply();
+    await waitFor(() => expect(patchedAttrs()).toEqual({ regions: null }));
+  });
+
+  it("writes false for a boolean rather than clearing it", async () => {
+    // `massEditValue || null` used to turn a deliberate "off" into a clear.
+    const dialog = await openField(/^critical$/i);
+    const toggle = within(dialog).getByRole("checkbox");
+    await userEvent.click(toggle); // on
+    await userEvent.click(toggle); // off — an explicit false
+    await apply();
+    await waitFor(() => expect(patchedAttrs()).toEqual({ critical: false }));
+  });
+
+  it("writes 0 for a number rather than clearing it", async () => {
+    const dialog = await openField(/^seats$/i);
+    await userEvent.type(within(dialog).getByRole("spinbutton"), "0");
+    await apply();
+    await waitFor(() => expect(patchedAttrs()).toEqual({ seats: 0 }));
+  });
+
+  it("keeps the card's other attributes", async () => {
+    const dialog = await openField(/^seats$/i);
+    await userEvent.type(within(dialog).getByRole("spinbutton"), "12");
+    await apply();
+    await waitFor(() => expect(patchedAttrs()).toMatchObject({ seats: 12 }));
+  });
+
+  it("hides cost fields from a user without costs.view", async () => {
+    mockUser(false);
+    renderInventory();
+    await waitFor(() => expect(screen.getByTestId("ag-grid")).toBeInTheDocument());
+    await userEvent.click(screen.getByTestId("select-application"));
+    await userEvent.click(screen.getByTestId("select-all-rows"));
+    await userEvent.click(await screen.findByRole("button", { name: /mass edit/i }));
+
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getAllByRole("combobox")[0]);
+    const listbox = await screen.findByRole("listbox");
+    expect(within(listbox).queryByRole("option", { name: /license cost/i })).toBeNull();
+    expect(within(listbox).getByRole("option", { name: /^seats$/i })).toBeInTheDocument();
+  });
+
+  it("gives the multi-select grid column a real cell editor", async () => {
+    renderInventory();
+    await userEvent.click(screen.getByTestId("select-application"));
+    await waitFor(() => expect(col("attr_regions")).toBeDefined());
+    expect(col("attr_regions")!.cellEditor).toBe(MultiSelectCellEditor);
+    expect(col("attr_regions")!.cellEditorPopup).toBe(true);
+  });
+
+  it("clears the attribute when a grid cell edit empties the selection", async () => {
+    renderInventory();
+    await userEvent.click(screen.getByTestId("select-application"));
+    await waitFor(() => expect(col("attr_regions")).toBeDefined());
+
+    const calls = vi.mocked(AgGridReact).mock.calls;
+    const onCellValueChanged = (
+      calls[calls.length - 1][0] as { onCellValueChanged: (e: unknown) => Promise<void> }
+    ).onCellValueChanged;
+
+    await onCellValueChanged({
+      data: { id: "c1", attributes: {} },
+      colDef: { field: "attr_regions" },
+      newValue: [],
+      oldValue: ["emea"],
+    });
+    expect(api.patch).toHaveBeenCalledWith("/cards/c1", { attributes: { regions: null } });
+
+    await onCellValueChanged({
+      data: { id: "c1", attributes: {} },
+      colDef: { field: "attr_regions" },
+      newValue: ["apac"],
+      oldValue: [],
+    });
+    expect(api.patch).toHaveBeenCalledWith("/cards/c1", { attributes: { regions: ["apac"] } });
   });
 });

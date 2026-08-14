@@ -105,6 +105,8 @@
   "massEdit.tags.removeHint_one": "所选卡片上的任何匹配标签都将被移除。",
   "massEdit.tags.removeHint_other": "所选 {{count}} 张卡片上的任何匹配标签都将被移除。",
   "massEdit.tags.pickAtLeastOne": "请至少选择一个标签。",
+  "massEdit.attr.hint_one": "上面的值将写入所选卡片。留空即可清除该字段。",
+  "massEdit.attr.hint_other": "上面的值将写入所选的 {{count}} 张卡片中的每一张。留空即可清除该字段。",
   "massArchive.dialogTitle": "归档 {{count}} 张卡片",
   "massArchive.confirmMessage_one": "您确定要归档 {{count}} 张卡片吗？已归档的卡片可在 {{days}} 天内恢复。",
   "massArchive.confirmMessage_other": "您确定要归档 {{count}} 张卡片吗？已归档的卡片可在 {{days}} 天内恢复。",

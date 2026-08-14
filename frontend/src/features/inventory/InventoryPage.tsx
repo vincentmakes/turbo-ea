@@ -65,6 +65,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useIsRtl } from "@/hooks/useIsRtl";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { useCurrency } from "@/hooks/useCurrency";
+import { FieldEditor } from "@/features/cards/sections/cardDetailUtils";
 import { useLatestRequest } from "@/hooks/useLatestRequest";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { api, ApiError, isAbortError } from "@/api/client";
@@ -79,6 +81,7 @@ import {
 import { useFacetColumnSync } from "@/components/grid/useFacetColumnSync";
 import type { FacetBinding } from "@/components/grid/facetColumnSync";
 import TagsCellEditor from "@/features/inventory/TagsCellEditor";
+import MultiSelectCellEditor from "@/features/inventory/MultiSelectCellEditor";
 import ParentCellEditor from "@/features/inventory/ParentCellEditor";
 import StakeholdersCellEditor from "@/features/inventory/StakeholdersCellEditor";
 import type { Card, CardListResponse, CardType, ColumnLayoutItem, FieldDef, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
@@ -284,6 +287,19 @@ function urlHasFilterParams(searchParams: URLSearchParams): boolean {
 }
 
 /**
+ * The value an attribute write should persist: an empty *shape* clears the
+ * field, but `false` and `0` are real values a user deliberately chose.
+ *
+ * The mass-edit path used to write `massEditValue || null`, which wiped a
+ * boolean set to false and a number set to 0, and stored an emptied
+ * multi-select as `[]` — which the backend's mandatory-field gate reads as
+ * empty while its scorer read as filled (#940). Exported for tests.
+ */
+export function normalizeAttrValue(value: unknown): unknown {
+  return valueIsEmpty(value) ? null : value;
+}
+
+/**
  * Split a multi-valued cell into its values for the context menu's per-value
  * filter stage. Separators follow what each column's valueGetter/formatter
  * joins with: tags and multi-select attributes use ", ", relation and
@@ -477,6 +493,7 @@ export default function InventoryPage() {
   const canOdataBookmarks = !!(user?.permissions?.["*"] || user?.permissions?.["bookmarks.odata"]);
   const canViewCostsGlobally = !!(user?.permissions?.["*"] || user?.permissions?.["costs.view"]);
   const canManageStakeholders = !!(user?.permissions?.["*"] || user?.permissions?.["stakeholders.manage"]);
+  const { symbol: currencySymbol } = useCurrency();
   const gridRef = useRef<AgGridReact>(null);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -1374,7 +1391,7 @@ export default function InventoryPage() {
         .flatMap((s) => s.fields)
         .find((f) => f.key === key);
       if (fieldDef?.readonly) return;
-      const attrs = { ...card.attributes, [key]: event.newValue };
+      const attrs = { ...card.attributes, [key]: normalizeAttrValue(event.newValue) };
       try {
         await api.patch(`/cards/${card.id}`, { attributes: attrs });
       } catch (err) {
@@ -1655,6 +1672,9 @@ export default function InventoryPage() {
       for (const section of typeConfig.fields_schema) {
         for (const field of section.fields) {
           if (field.readonly) continue;
+          // Same gate the grid columns and the export use: a user without
+          // costs.view must not be able to overwrite figures they cannot see.
+          if (field.type === "cost" && !canViewCostsGlobally) continue;
           fields.push({
             key: `attr_${field.key}`,
             label: fieldLabel(field),
@@ -1707,7 +1727,7 @@ export default function InventoryPage() {
       }
     }
     return fields;
-  }, [typeConfig, selectedType, relationTypes, visibleTypeKeys, types, t, fieldLabel, relLabel, typeLabel]);
+  }, [typeConfig, selectedType, relationTypes, visibleTypeKeys, types, t, fieldLabel, relLabel, typeLabel, canViewCostsGlobally]);
 
   const currentMassField = massEditableFields.find((f) => f.key === massEditField);
 
@@ -2030,7 +2050,7 @@ export default function InventoryPage() {
             const existing = data.find((d) => d.id === id);
             const attrs = {
               ...(existing?.attributes || {}),
-              [attrKey]: massEditValue || null,
+              [attrKey]: normalizeAttrValue(massEditValue),
             };
             return api.patch(`/cards/${id}`, { attributes: attrs });
           }),
@@ -2559,6 +2579,12 @@ export default function InventoryPage() {
               : {}),
             ...(field.type === "multiple_select" && field.options
               ? {
+                  // Without an editor, inline editing a multi-select cell fell
+                  // back to AG Grid's text input and wrote a raw string into a
+                  // field that holds option keys (#940).
+                  cellEditor: MultiSelectCellEditor,
+                  cellEditorPopup: true,
+                  cellEditorParams: { options: field.options },
                   valueFormatter: (p: { value?: unknown }) =>
                     optionsText(field.options, p.value),
                   cellRenderer: (p: { value: unknown }) => {
@@ -3120,46 +3146,32 @@ export default function InventoryPage() {
     const fd = currentMassField.fieldDef;
     if (!fd) return null;
 
-    if (fd.type === "single_select" && fd.options) {
-      return (
-        <FormControl fullWidth size="small">
-          <InputLabel>{t("massEdit.value")}</InputLabel>
-          <Select value={(massEditValue as string) || ""} label={t("massEdit.value")} onChange={(e) => setMassEditValue(e.target.value)}>
-            <MenuItem value=""><em>{t("massEdit.clear")}</em></MenuItem>
-            {fd.options.map((opt) => (
-              <MenuItem key={opt.key} value={opt.key}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  {opt.color && <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: opt.color }} />}
-                  {optLabel(opt)}
-                </Box>
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      );
-    }
-
-    if (fd.type === "number" || fd.type === "cost") {
-      return (
-        <TextField
-          fullWidth
-          size="small"
-          label={t("massEdit.value")}
-          type="number"
-          value={massEditValue ?? ""}
-          onChange={(e) => setMassEditValue(e.target.value ? Number(e.target.value) : "")}
-        />
-      );
-    }
-
+    // One editor for every field type — the same component Card Detail uses,
+    // so a multi-select gets its checkbox list, a boolean its switch, a date
+    // its picker, and an extension-contributed type its own editor. The dialog
+    // used to hand-roll this and covered only single_select/number/cost, so
+    // everything else fell through to a free-text box that wrote a raw string
+    // into a field that expects an array or a typed value (#940).
     return (
-      <TextField
-        fullWidth
-        size="small"
-        label={t("massEdit.value")}
-        value={(massEditValue as string) ?? ""}
-        onChange={(e) => setMassEditValue(e.target.value)}
-      />
+      <Box
+        // FieldEditor sizes its controls for the card-detail column layout
+        // (minWidth 200/300, never fullWidth). This descendant rule has higher
+        // specificity than its single-class sx, so the very same control fills
+        // the dialog without FieldEditor growing a layout prop. `> div >`
+        // targets FieldEditor's own root Box → its top-level control.
+        sx={{ "& > div > .MuiFormControl-root": { width: "100%", minWidth: 0 } }}
+      >
+        <FieldEditor
+          field={fd}
+          value={massEditValue}
+          onChange={setMassEditValue}
+          currencySymbol={currencySymbol}
+          canViewCosts={canViewCostsGlobally}
+        />
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: "block" }}>
+          {t("massEdit.attr.hint", { count: selectedIds.length })}
+        </Typography>
+      </Box>
     );
   };
 

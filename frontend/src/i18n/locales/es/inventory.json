@@ -105,6 +105,8 @@
   "massEdit.tags.removeHint_one": "Toda etiqueta coincidente se eliminará de la ficha seleccionada.",
   "massEdit.tags.removeHint_other": "Toda etiqueta coincidente se eliminará de las {{count}} fichas seleccionadas.",
   "massEdit.tags.pickAtLeastOne": "Elija al menos una etiqueta.",
+  "massEdit.attr.hint_one": "El valor anterior se escribirá en la tarjeta seleccionada. Déjalo vacío para borrar el campo.",
+  "massEdit.attr.hint_other": "El valor anterior se escribirá en cada una de las {{count}} tarjetas seleccionadas. Déjalo vacío para borrar el campo.",
   "massArchive.dialogTitle": "Archivar {{count}} fichas",
   "massArchive.confirmMessage_one": "¿Está seguro de que desea archivar {{count}} ficha? Las fichas archivadas pueden restaurarse en un plazo de {{days}} días.",
   "massArchive.confirmMessage_other": "¿Está seguro de que desea archivar {{count}} fichas? Las fichas archivadas pueden restaurarse en un plazo de {{days}} días.",

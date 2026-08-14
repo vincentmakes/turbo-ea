@@ -105,6 +105,8 @@
   "massEdit.tags.removeHint_one": "Qualquer tag correspondente será removida da ficha selecionada.",
   "massEdit.tags.removeHint_other": "Qualquer tag correspondente será removida das {{count}} fichas selecionadas.",
   "massEdit.tags.pickAtLeastOne": "Escolha pelo menos uma tag.",
+  "massEdit.attr.hint_one": "O valor acima será gravado no cartão selecionado. Deixe-o vazio para limpar o campo.",
+  "massEdit.attr.hint_other": "O valor acima será gravado em cada um dos {{count}} cartões selecionados. Deixe-o vazio para limpar o campo.",
   "massArchive.dialogTitle": "Arquivar {{count}} fichas",
   "massArchive.confirmMessage_one": "Tem certeza de que deseja arquivar {{count}} ficha? Fichas arquivadas podem ser restauradas em até {{days}} dias.",
   "massArchive.confirmMessage_other": "Tem certeza de que deseja arquivar {{count}} fichas? Fichas arquivadas podem ser restauradas em até {{days}} dias.",

@@ -5,6 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.56.0] - 2026-08-14
+
+### Fixed
+- **Mass-editing a multi-select field now shows its options.** Picking a multi-select attribute in Inventory → Mass Edit rendered a plain text box, so anything typed was saved as a raw value the field could never resolve — the card still showed an unknown chip and its data quality never improved ([issue #940](https://github.com/vincentmakes/turbo-ea/issues/940)). The dialog now uses the same editor as the card detail page, so multi-selects get a checkbox list, booleans a switch, dates a date picker, and URLs and long text their proper inputs.
+- **Editing a multi-select cell in Grid Edit mode offers the options too** — it previously fell back to a free-text cell and corrupted the value the same way.
+- **A mass edit no longer clears a boolean set to "off" or a number set to 0** — both were treated as "no value" and wiped the field.
+- **An emptied multi-select now counts as unanswered in the data-quality score.** An empty list scored as if the field were filled, which is what let a card look complete while the field was blank.
+- Cost fields are no longer offered in Mass Edit to users without permission to view costs, matching the grid columns and the export.
+
+### Changed
+- **The API now rejects values that are not declared options** for single- and multi-select fields, so no client can store free text in them. Clearing a field is unaffected, calculated fields are exempt, and cards that already carry a legacy value stay editable — only values that actually change are checked. Bulk ingestion paths (platform migration, ServiceNow sync, workspace transfer) are unchanged.
+
 ## [2.55.0] - 2026-08-13
 
 ### Added

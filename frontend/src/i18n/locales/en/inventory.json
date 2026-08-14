@@ -105,6 +105,8 @@
   "massEdit.tags.removeHint_one": "Any matching tag will be removed from the selected card.",
   "massEdit.tags.removeHint_other": "Any matching tag will be removed from the {{count}} selected cards.",
   "massEdit.tags.pickAtLeastOne": "Pick at least one tag.",
+  "massEdit.attr.hint_one": "The value above is written to the selected card. Leave it empty to clear the field.",
+  "massEdit.attr.hint_other": "The value above is written to each of the {{count}} selected cards. Leave it empty to clear the field.",
   "massArchive.dialogTitle": "Archive {{count}} Cards",
   "massArchive.confirmMessage_one": "Are you sure you want to archive {{count}} card? Archived cards can be restored within {{days}} days.",
   "massArchive.confirmMessage_other": "Are you sure you want to archive {{count}} cards? Archived cards can be restored within {{days}} days.",

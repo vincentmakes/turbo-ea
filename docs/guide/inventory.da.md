@@ -125,6 +125,8 @@ Rullelisten **Felt** grupperer det, du kan ændre:
 
 Tags, relationer og overordnet har hver en **tilføj / fjern**-knap, så du udvider eller beskærer eksisterende værdier i stedet for at erstatte dem.
 
+Værdifeltet retter sig efter felttypen: et multivalgsfelt viser sine valgmuligheder med afkrydsningsfelter, et ja/nej-felt en kontakt og et datofelt en datovælger. Lader du værdien stå tom, ryddes feltet på alle de valgte kort. Felter, der beregnes af en formel, og omkostningsfelter, du ikke har tilladelse til at se, tilbydes ikke.
+
 ### Omstrukturering af hierarkiet { #mass-edit-parent }
 
 Feltet **Overordnet** vises, når du har filtreret tabellen til én korttype, der understøtter hierarki. Et kort har præcis ét overordnet kort, så dette ene felt dækker begge retninger af en omstrukturering:

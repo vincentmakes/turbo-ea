@@ -123,6 +123,8 @@ La liste déroulante **Champ** regroupe les éléments modifiables :
 
 Les étiquettes, les relations et le parent proposent chacun un bouton **ajouter / retirer**, afin d'étendre ou de réduire les valeurs existantes plutôt que de les remplacer.
 
+Le champ de saisie s'adapte au type de champ : une liste à choix multiples affiche ses options avec des cases à cocher, un champ oui/non un interrupteur, un champ date un sélecteur de date. Laisser la valeur vide efface le champ sur toutes les cartes sélectionnées. Les champs calculés par une formule, ainsi que les champs de coût que vous n'êtes pas autorisé à voir, ne sont pas proposés.
+
 ### Restructurer la hiérarchie { #mass-edit-parent }
 
 Le champ **Parent** apparaît dès que la grille est filtrée sur un seul type de carte prenant en charge la hiérarchie. Une carte n'a qu'un seul parent : ce champ unique couvre donc les deux sens d'une restructuration.

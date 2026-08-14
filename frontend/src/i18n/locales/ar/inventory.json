@@ -105,6 +105,8 @@
   "massEdit.tags.removeHint_one": "ستتم إزالة أي وسم مطابق من البطاقة المحدّدة.",
   "massEdit.tags.removeHint_other": "ستتم إزالة أي وسم مطابق من البطاقات المحدّدة البالغ عددها {{count}}.",
   "massEdit.tags.pickAtLeastOne": "اختر وسمًا واحدًا على الأقل.",
+  "massEdit.attr.hint_one": "سيتم كتابة القيمة أعلاه في البطاقة المحددة. اترك الحقل فارغًا لمسح القيمة.",
+  "massEdit.attr.hint_other": "سيتم كتابة القيمة أعلاه في كل بطاقة من البطاقات المحددة البالغ عددها {{count}}. اترك الحقل فارغًا لمسح القيمة.",
   "massArchive.dialogTitle": "أرشفة {{count}} بطاقات",
   "massArchive.confirmMessage_one": "هل أنت متأكّد من رغبتك في أرشفة بطاقة واحدة ({{count}})؟ يمكن استعادة البطاقات المؤرشفة خلال {{days}} يومًا.",
   "massArchive.confirmMessage_other": "هل أنت متأكّد من رغبتك في أرشفة {{count}} بطاقات؟ يمكن استعادة البطاقات المؤرشفة خلال {{days}} يومًا.",

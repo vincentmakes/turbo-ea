@@ -198,6 +198,87 @@ async def _validate_required_attributes(
     _check_required_not_cleared(card_type, schema, new_attrs, old_attrs)
 
 
+def _check_select_options(
+    card_type: str, schema: list | None, new_attrs: dict, old_attrs: dict
+) -> None:
+    """Reject select-typed attribute values that are not declared options.
+
+    A ``single_select`` holds one option key, a ``multiple_select`` a list of
+    them. Nothing used to enforce that, so free text typed into a mass-edit or
+    grid cell was stored verbatim, rendered as an unknown chip, and still
+    counted as "filled" by the data-quality scorer (#940).
+
+    Deliberately narrow so this can never block legitimate work:
+
+    * Empty values pass — clearing a field is not a validation failure.
+    * ``readonly`` fields are skipped: the calculation engine writes computed
+      values into calculated select targets, same exemption as
+      ``_check_required_not_cleared``.
+    * Extension (``ext.*``) field types are skipped — core does not own their
+      value shape.
+    * A value that is unchanged from what is stored is skipped, so re-saving a
+      card that already carries a legacy invalid value never fails.
+
+    A bare string for a ``multiple_select`` is rejected rather than split on
+    commas: silent coercion is how the bad data got in.
+    """
+    if not schema:
+        return
+    problems: list[str] = []
+    field_keys: list[str] = []
+    for section in schema:
+        for field in section.get("fields", []):
+            key = field.get("key")
+            ftype = field.get("type")
+            options = field.get("options") or []
+            if not key or field.get("readonly") or not options:
+                continue
+            if ftype not in ("single_select", "multiple_select"):
+                continue
+            if key not in new_attrs:
+                continue
+            val = new_attrs.get(key)
+            if _is_empty_attr(val) or val == old_attrs.get(key):
+                continue
+            label = field.get("label") or key
+            valid = [str(o.get("key")) for o in options if o.get("key") is not None]
+            if ftype == "single_select":
+                bad = [val] if not (isinstance(val, str) and val in valid) else []
+            elif not isinstance(val, list):
+                problems.append(
+                    f"'{label}' expects a list of option keys, got {type(val).__name__}"
+                )
+                field_keys.append(key)
+                continue
+            else:
+                bad = [v for v in val if not (isinstance(v, str) and v in valid)]
+            if bad:
+                shown = ", ".join(repr(b) for b in bad)
+                problems.append(f"'{label}' got {shown}; valid options: {', '.join(valid)}")
+                field_keys.append(key)
+    if problems:
+        raise HTTPException(
+            422,
+            {
+                "code": "invalid_option_value",
+                "message": "Invalid value for select field(s): " + "; ".join(problems) + ".",
+                "field_keys": field_keys,
+                "card_type": card_type,
+            },
+        )
+
+
+async def _validate_select_attributes(
+    db: AsyncSession, card_type: str, new_attrs: dict, old_attrs: dict
+) -> None:
+    """Fetch the type's schema and run the option-key check against it."""
+    if not new_attrs:
+        return
+    result = await db.execute(select(CardType.fields_schema).where(CardType.key == card_type))
+    schema = result.scalar_one_or_none()
+    _check_select_options(card_type, schema, new_attrs, old_attrs)
+
+
 async def _validate_strict_attributes(db: AsyncSession, card_type: str, attributes: dict) -> None:
     """Reject ``attributes`` keys that are not declared in the type's
     ``fields_schema`` (S5).
@@ -865,6 +946,7 @@ async def create_card(
 ):
     await PermissionService.require_permission(db, user, "inventory.create")
     await _validate_url_attributes(db, body.type, body.attributes or {})
+    await _validate_select_attributes(db, body.type, body.attributes or {}, {})
     if body.strict_attributes:
         await _validate_strict_attributes(db, body.type, body.attributes or {})
     parent_uuid = uuid.UUID(body.parent_id) if body.parent_id else None
@@ -1074,6 +1156,19 @@ async def bulk_create_cards(
     _ref_types: dict[str, CardType | None] = {}
     _ref_next: dict[str, int] = {}
 
+    # Fields schemas for every type in the batch, fetched once. The select-option
+    # check below runs per row, so it must not repeat a query per row the way
+    # `_validate_url_attributes` does.
+    batch_types = sorted({r.type for r in rows})
+    schemas_by_type: dict[str, list | None] = {
+        key: schema
+        for key, schema in (
+            await db.execute(
+                select(CardType.key, CardType.fields_schema).where(CardType.key.in_(batch_types))
+            )
+        ).all()
+    }
+
     async def _bulk_assign_reference(card: Card, row) -> None:
         if row.type not in _ref_types:
             _ref_types[row.type] = (
@@ -1102,6 +1197,7 @@ async def bulk_create_cards(
         row_sp = await db.begin_nested()
         try:
             await _validate_url_attributes(db, r.type, r.attributes or {})
+            _check_select_options(r.type, schemas_by_type.get(r.type), r.attributes or {}, {})
 
             # Resolve parent_id.
             resolved_parent: uuid.UUID | None = None
@@ -1832,6 +1928,11 @@ async def bulk_update(
                 _check_required_not_cleared(
                     card.type, req_schemas.get(card.type), value or {}, dict(card.attributes or {})
                 )
+                # Guard: select values must be declared options (same state,
+                # same per-card comparison, so it rides along here).
+                _check_select_options(
+                    card.type, req_schemas.get(card.type), value or {}, dict(card.attributes or {})
+                )
             old_val = getattr(card, field)
             if old_val != value:
                 before[field] = str(old_val) if field == "parent_id" and old_val else old_val
@@ -2400,6 +2501,10 @@ async def update_card(
     # dict — `{"attributes": {}}` is precisely the wipe this must catch.
     if "attributes" in updates:
         await _validate_required_attributes(
+            db, card.type, updates["attributes"] or {}, dict(card.attributes or {})
+        )
+        # Guard: select values must be declared options — same post-merge state.
+        await _validate_select_attributes(
             db, card.type, updates["attributes"] or {}, dict(card.attributes or {})
         )
 

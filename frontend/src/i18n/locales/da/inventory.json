@@ -105,6 +105,8 @@
   "massEdit.tags.removeHint_one": "Ethvert matchende tag fjernes fra det valgte kort.",
   "massEdit.tags.removeHint_other": "Ethvert matchende tag fjernes fra de {{count}} valgte kort.",
   "massEdit.tags.pickAtLeastOne": "Vælg mindst ét tag.",
+  "massEdit.attr.hint_one": "Værdien ovenfor skrives til det valgte kort. Lad den stå tom for at rydde feltet.",
+  "massEdit.attr.hint_other": "Værdien ovenfor skrives til hvert af de {{count}} valgte kort. Lad den stå tom for at rydde feltet.",
   "massArchive.dialogTitle": "Arkivér {{count}} kort",
   "massArchive.confirmMessage_one": "Er du sikker på, at du vil arkivere {{count}} kort? Arkiverede kort kan gendannes inden for {{days}} dage.",
   "massArchive.confirmMessage_other": "Er du sikker på, at du vil arkivere {{count}} kort? Arkiverede kort kan gendannes inden for {{days}} dage.",

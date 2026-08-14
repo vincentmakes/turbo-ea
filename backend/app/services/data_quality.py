@@ -100,7 +100,12 @@ async def calc_data_quality(db: AsyncSession, card: Card) -> float:
                 continue
             total_weight += weight
             val = attrs.get(field["key"])
-            if val is not None and val != "" and val is not False:
+            # `[]` is an emptied multiple_select — the mandatory gate above and
+            # `_is_empty_attr` both read it as empty, so scoring it as filled
+            # was a self-contradiction. `False` stays excluded by the identity
+            # check (a boolean set to false is "not filled" for scoring); `0`
+            # stays filled.
+            if val is not None and val != "" and val != [] and val is not False:
                 filled_weight += weight
 
     # Description bucket (admin-tunable; default weight 1, 0 = exclude)

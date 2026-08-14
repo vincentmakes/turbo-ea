@@ -264,3 +264,49 @@ async def test_required_field_hidden_by_subtype_does_not_gate(db):
     card = await create_card(db, subtype="micro", attributes={"b": "y"})
     # 'a' is hidden for this subtype → no gate; only 'b' counts → 100%.
     assert await calc_data_quality(db, card) == 100.0
+
+
+async def test_empty_multi_select_list_is_not_filled(db):
+    """`[]` is an emptied multiple_select, not a value.
+
+    The mandatory gate above and the app-wide `_is_empty_attr` predicate both
+    read `[]` as empty; the scoring loop used to read it as filled, so clearing
+    a multi-select left the card scoring as if it were still answered (#940).
+    """
+    schema = [
+        {
+            "section": "Details",
+            "fields": [
+                {"key": "a", "label": "A", "type": "text", "weight": 1},
+                {
+                    "key": "regions",
+                    "label": "Regions",
+                    "type": "multiple_select",
+                    "weight": 1,
+                    "options": [{"key": "emea", "label": "EMEA"}],
+                },
+            ],
+        }
+    ]
+    await create_card_type(db, key="Application", fields_schema=schema)
+    await _set_dq(db, description=0, lifecycle=0, relations=0, tags=0)
+
+    emptied = await create_card(db, attributes={"a": "x", "regions": []})
+    assert await calc_data_quality(db, emptied) == 50.0
+
+    filled = await create_card(db, name="Filled", attributes={"a": "x", "regions": ["emea"]})
+    assert await calc_data_quality(db, filled) == 100.0
+
+
+async def test_zero_still_counts_as_filled(db):
+    """Guard the neighbouring semantics: 0 is a real number a user chose."""
+    schema = [
+        {
+            "section": "Details",
+            "fields": [{"key": "seats", "label": "Seats", "type": "number", "weight": 1}],
+        }
+    ]
+    await create_card_type(db, key="Application", fields_schema=schema)
+    await _set_dq(db, description=0, lifecycle=0, relations=0, tags=0)
+    card = await create_card(db, attributes={"seats": 0})
+    assert await calc_data_quality(db, card) == 100.0

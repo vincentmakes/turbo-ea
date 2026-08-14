@@ -125,6 +125,8 @@ The **Field** dropdown groups what you can change:
 
 Tags, relations and parent each offer an **add / remove** toggle, so you extend or trim existing values instead of replacing them.
 
+The value control matches the field's type: a multi-select shows its options with checkboxes, a yes/no field a switch, a date field a date picker. Leaving the value empty clears the field on every selected card. Fields calculated by a formula, and cost fields you do not have permission to view, are not offered.
+
 ### Restructuring the hierarchy { #mass-edit-parent }
 
 The **Parent** field appears once you have filtered the grid to a single card type that supports hierarchy. A card has exactly one parent, so this single field covers both directions of a restructuring:

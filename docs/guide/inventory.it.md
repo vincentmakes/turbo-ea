@@ -123,6 +123,8 @@ Il menu a discesa **Campo** raggruppa ciò che è possibile modificare:
 
 Tag, relazioni e padre offrono ciascuno un interruttore **aggiungi / rimuovi**, così da estendere o ridurre i valori esistenti invece di sostituirli.
 
+Il controllo del valore si adatta al tipo di campo: un campo a selezione multipla mostra le sue opzioni con caselle di spunta, un campo sì/no un interruttore, un campo data un selettore di data. Lasciando il valore vuoto il campo viene svuotato su tutte le schede selezionate. I campi calcolati da una formula e i campi di costo che non sei autorizzato a vedere non vengono proposti.
+
 ### Ristrutturare la gerarchia { #mass-edit-parent }
 
 Il campo **Padre** compare quando la griglia è filtrata su un unico tipo di scheda che supporta la gerarchia. Una scheda ha esattamente un padre, quindi questo singolo campo copre entrambe le direzioni di una ristrutturazione:

@@ -29,7 +29,10 @@ function _fetchOnce(): Promise<void> {
   if (_inflight) return _inflight;
   _inflight = api
     .get<{ currency: string }>("/settings/currency")
-    .then((r) => notify(r.currency))
+    // Keep the "USD" default on a malformed/empty response: an undefined
+    // currency makes every Intl.NumberFormat below throw, which would take
+    // out every cost display on the page rather than one wrong symbol.
+    .then((r) => { if (r?.currency) notify(r.currency); })
     .catch(() => {
       /* keep default */
     })

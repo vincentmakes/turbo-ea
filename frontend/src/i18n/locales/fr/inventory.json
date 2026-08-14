@@ -105,6 +105,8 @@
   "massEdit.tags.removeHint_one": "Toute étiquette correspondante sera retirée de la fiche sélectionnée.",
   "massEdit.tags.removeHint_other": "Toute étiquette correspondante sera retirée des {{count}} fiches sélectionnées.",
   "massEdit.tags.pickAtLeastOne": "Choisissez au moins une étiquette.",
+  "massEdit.attr.hint_one": "La valeur ci-dessus sera écrite sur la carte sélectionnée. Laissez-la vide pour effacer le champ.",
+  "massEdit.attr.hint_other": "La valeur ci-dessus sera écrite sur chacune des {{count}} cartes sélectionnées. Laissez-la vide pour effacer le champ.",
   "massArchive.dialogTitle": "Archiver {{count}} fiches",
   "massArchive.confirmMessage_one": "Êtes-vous sûr de vouloir archiver {{count}} fiche ? Les fiches archivées peuvent être restaurées dans les {{days}} jours.",
   "massArchive.confirmMessage_other": "Êtes-vous sûr de vouloir archiver {{count}} fiches ? Les fiches archivées peuvent être restaurées dans les {{days}} jours.",
