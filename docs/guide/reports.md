@@ -45,6 +45,9 @@ When grouping by a related card type that supports hierarchy (such as Business C
 
 ## Capability Map
 
+Clicking a capability opens a side panel listing every application in its subtree. On a bottom-level capability the panel offers **View in inventory**, which lands on the applications linked to it.
+
+
 ![Business Capability Map](../assets/img/en/11_capability_map.png)
 
 The **Capability Map** shows a hierarchical **heatmap** of the organization's business capabilities. Each block represents a capability, with:

@@ -45,6 +45,9 @@ Ao agrupar por um tipo de cartão relacionado que suporta hierarquia (como Capac
 
 ## Mapa de Capacidades
 
+Clicar numa capacidade abre um painel lateral com todas as aplicações da sua subárvore. No nível mais baixo, o painel oferece **Ver no inventário**, que leva às aplicações ligadas a ela.
+
+
 ![Mapa de Capacidades de Negócio](../assets/img/pt/11_mapa_capacidades.png)
 
 O **Mapa de Capacidades** mostra um **mapa de calor** hierárquico das capacidades de negócio da organização. Cada bloco representa uma capacidade, com:

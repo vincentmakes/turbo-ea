@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - **Orphaned and Stale are now inventory filters.** The Data Quality report could count cards with no relations, or untouched for 90+ days, but there was no way to go and work through them — its two KPI tiles now carry a **View in inventory** button like every other panel. Both filters are evaluated server-side, so they work with no card type selected.
+- **The Capability Map and Process Map detail panels now offer View in inventory too**, listing the applications linked to that capability or process. It appears on the lowest level of the tree, where the panel's list and the inventory filter cover exactly the same cards — a parent node rolls up its whole subtree, which a single relation filter cannot express.
 - The inventory grid's cell menu can now **Show matching** on a data-quality cell, selecting that score's band in the sidebar.
 
 ### Changed

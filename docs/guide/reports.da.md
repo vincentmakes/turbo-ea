@@ -45,6 +45,9 @@ Når du grupperer efter en relateret korttype, der understøtter hierarki (såso
 
 ## Kompetencekort
 
+Et klik på en kapabilitet åbner et sidepanel med alle applikationer i dens undertræ. På nederste niveau tilbyder panelet **Vis i inventar**, som fører til de applikationer, der er knyttet til den.
+
+
 ![Forretningskompetencekort](../assets/img/da/11_capability_map.png)
 
 **Kompetencekortet** viser et hierarkisk **heatmap** over organisationens forretningskompetencer. Hver blok repræsenterer en kompetence med:

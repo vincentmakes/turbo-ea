@@ -26,6 +26,7 @@ import ReportCardListPanel, {
   ReportCardListRows,
   type ReportCardListItem,
 } from "./ReportCardListPanel";
+import { buildInventorySliceUrl } from "./portfolioInventoryLink";
 import { api } from "@/api/client";
 import { readableTextColor } from "@/lib/color";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -645,6 +646,26 @@ export default function ProcessMapReport() {
     setDrawer(null);
   }, []);
 
+  /**
+   * "View in inventory" for the drawer, on LEAF processes only.
+   *
+   * The list shows every app in the node's whole subtree, while the inventory
+   * can only filter on a direct relation to one process — so on a parent the
+   * link would land on fewer rows than the panel just listed. A leaf has no
+   * descendants, so there the two sets are identical.
+   *
+   * The report's Organization / Business Context filters have no inventory
+   * equivalent and are dropped, which can only widen the landing.
+   */
+  const drawerInventoryHref = useMemo(() => {
+    if (!drawer || drawer.children.length > 0) return undefined;
+    return buildInventorySliceUrl({
+      cardType: "Application",
+      mode: { kind: "relation", typeKey: "BusinessProcess" },
+      group: { key: drawer.id, label: drawer.name },
+    });
+  }, [drawer]);
+
   // The drawer's two lists. Data objects render through the same row
   // component as the applications, so they cannot drift apart visually.
   const drawerApps = useMemo<ReportCardListItem[]>(
@@ -1027,6 +1048,7 @@ export default function ProcessMapReport() {
             </>
           ) : undefined
         }
+        inventoryHref={drawerInventoryHref}
         listHeading={t("processMap.applications", { count: drawer?.deepAppCount ?? 0 })}
         emptyLabel={t("processMap.noLinkedApps")}
         afterList={

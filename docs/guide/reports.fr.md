@@ -45,6 +45,9 @@ Lorsque vous regroupez par un type de carte lié prenant en charge la hiérarchi
 
 ## Carte de capacités
 
+Un clic sur une capacité ouvre un panneau latéral listant toutes les applications de son sous-arbre. Au niveau le plus bas, le panneau propose **Voir dans l'inventaire**, qui mène aux applications qui lui sont liées.
+
+
 ![Carte de capacités métier](../assets/img/fr/11_carte_capacites.png)
 
 La **Carte de capacités** affiche une **carte thermique hiérarchique** des capacités métier de l'organisation. Chaque bloc représente une capacité, avec :

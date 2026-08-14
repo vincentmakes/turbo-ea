@@ -18,6 +18,10 @@ import type { TagGroup } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import ReportCardListPanel, { type ReportCardListItem } from "./ReportCardListPanel";
+import {
+  buildInventorySliceUrl,
+  type InventorySliceFilters,
+} from "./portfolioInventoryLink";
 import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { readableTextColor } from "@/lib/color";
@@ -788,6 +792,42 @@ export default function CapabilityMapReport() {
     Object.values(relationFilters).some((v) => v.length > 0) ||
     tagFilterIds.length > 0;
 
+  // Report filters the drawer's inventory link carries over. Relation filters
+  // are id-keyed here but name-based in the inventory, so they are translated
+  // through `filterableTypes`; anything that fails to resolve is dropped,
+  // which can only widen the landing, never silently empty it.
+  const carriedLinkFilters = useMemo<InventorySliceFilters>(() => {
+    const relations: Record<string, string[]> = {};
+    for (const [typeKey, ids] of Object.entries(relationFilters)) {
+      if (ids.length === 0) continue;
+      const members = filterableTypes[typeKey] || [];
+      const names = ids
+        .map((id) => members.find((m) => m.id === id)?.name)
+        .filter((n): n is string => !!n);
+      if (names.length > 0) relations[typeKey] = names;
+    }
+    return { attributes: attrFilters, relations, tagIds: tagFilterIds };
+  }, [attrFilters, relationFilters, tagFilterIds, filterableTypes]);
+
+  /**
+   * "View in inventory" for the drawer, on LEAF capabilities only.
+   *
+   * The list shows every app in the node's whole subtree, while the inventory
+   * can only filter on a direct relation to one capability — so on a parent
+   * the link would land on fewer rows than the panel just listed. A leaf has
+   * no descendants, so there the two sets are identical. Same rule the
+   * portfolio applies to its nested tree nodes, for the same reason.
+   */
+  const drawerInventoryHref = useMemo(() => {
+    if (!drawer || drawer.children.length > 0) return undefined;
+    return buildInventorySliceUrl({
+      cardType: "Application",
+      mode: { kind: "relation", typeKey: "BusinessCapability" },
+      group: { key: drawer.id, label: drawer.name },
+      filters: carriedLinkFilters,
+    });
+  }, [drawer, carriedLinkFilters]);
+
   // Rows for the capability drawer: every unique app in the subtree.
   const drawerItems = useMemo<ReportCardListItem[]>(() => {
     if (!drawer) return [];
@@ -1324,6 +1364,7 @@ export default function CapabilityMapReport() {
             </>
           ) : undefined
         }
+        inventoryHref={drawerInventoryHref}
         listHeading={t("capabilityMap.supportingApps", { count: drawer?.deepAppCount ?? 0 })}
         emptyLabel={
           hasActiveFilters

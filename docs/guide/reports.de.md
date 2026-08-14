@@ -45,6 +45,9 @@ Beim Gruppieren nach einem verknüpften Kartentyp mit Hierarchie (z. B. Geschäf
 
 ## Fähigkeitskarte
 
+Ein Klick auf eine Fähigkeit öffnet ein Seitenpanel mit allen Anwendungen ihres Teilbaums. Auf der untersten Ebene bietet das Panel **In Inventar anzeigen**, was zu den damit verknüpften Anwendungen führt.
+
+
 ![Geschäftsfähigkeitskarte](../assets/img/de/11_faehigkeiten_karte.png)
 
 Die **Fähigkeitskarte** zeigt eine hierarchische **Heatmap** der Geschäftsfähigkeiten der Organisation. Jeder Block repräsentiert eine Fähigkeit, mit:

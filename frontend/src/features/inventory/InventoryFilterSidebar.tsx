@@ -846,60 +846,6 @@ export default function InventoryFilterSidebar({
                 />
               </Box>
 
-              {/* Health scopes — the inventory side of the Data Quality
-                  report's Orphaned and Stale tiles. Both are evaluated
-                  server-side, so they sit with the "mine" scope rather than
-                  with the client-side facets below. */}
-              {(
-                [
-                  {
-                    key: "orphanedOnly",
-                    icon: "link_off",
-                    label: "filter.orphanedOnly",
-                    hint: "filter.orphanedOnlyHint",
-                  },
-                  {
-                    key: "staleOnly",
-                    icon: "update_disabled",
-                    label: "filter.staleOnly",
-                    hint: "filter.staleOnlyHint",
-                  },
-                ] as const
-              ).map((scope) => (
-                <Box
-                  key={scope.key}
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1,
-                    px: 1,
-                    py: 0.75,
-                    mb: 1.5,
-                    borderRadius: 1,
-                    bgcolor: filters[scope.key] ? "action.selected" : "transparent",
-                  }}
-                >
-                  <MaterialSymbol icon={scope.icon} size={16} />
-                  <FormControlLabel
-                    sx={{ flex: 1, mr: 0, ml: 0.5 }}
-                    control={
-                      <Switch
-                        size="small"
-                        checked={filters[scope.key]}
-                        onChange={(e) =>
-                          onFiltersChange({ ...filters, [scope.key]: e.target.checked })
-                        }
-                      />
-                    }
-                    label={
-                      <Tooltip title={t(scope.hint) as string}>
-                        <Typography variant="body2">{t(scope.label)}</Typography>
-                      </Tooltip>
-                    }
-                    labelPlacement="start"
-                  />
-                </Box>
-              ))}
 
               {/* Card Types */}
               <SectionHeader
@@ -1477,6 +1423,51 @@ export default function InventoryFilterSidebar({
                   </>
                 );
               })()}
+
+              {/* Health scopes — the inventory side of the Data Quality
+                  report's Orphaned and Stale tiles. Server-evaluated, and
+                  grouped with the other whole-list scopes rather than with
+                  the value facets above. */}
+              {(
+                [
+                  {
+                    key: "orphanedOnly",
+                    icon: "link_off",
+                    label: "filter.orphanedOnly",
+                    hint: "filter.orphanedOnlyHint",
+                  },
+                  {
+                    key: "staleOnly",
+                    icon: "update_disabled",
+                    label: "filter.staleOnly",
+                    hint: "filter.staleOnlyHint",
+                  },
+                ] as const
+              ).map((scope) => (
+                <Box key={scope.key} sx={{ px: 0.5, mb: 1 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        size="small"
+                        checked={filters[scope.key]}
+                        onChange={(e) =>
+                          onFiltersChange({ ...filters, [scope.key]: e.target.checked })
+                        }
+                      />
+                    }
+                    label={
+                      <Tooltip title={t(scope.hint) as string}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                          <MaterialSymbol icon={scope.icon} size={16} />
+                          <Typography variant="body2" fontSize={13}>
+                            {t(scope.label)}
+                          </Typography>
+                        </Box>
+                      </Tooltip>
+                    }
+                  />
+                </Box>
+              ))}
 
               {/* Include Archived toggle */}
               {canArchive && (

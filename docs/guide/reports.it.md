@@ -45,6 +45,9 @@ Quando si raggruppa per un tipo di scheda correlato che supporta la gerarchia (c
 
 ## Mappa delle Capability
 
+Un clic su una capability apre un pannello laterale con tutte le applicazioni del suo sottoalbero. Al livello più basso il pannello offre **Vedi nell'inventario**, che porta alle applicazioni collegate.
+
+
 ![Mappa delle Business Capability](../assets/img/it/11_mappa_capacita.png)
 
 La **Mappa delle Capability** mostra una **mappa di calore** gerarchica delle business capability dell'organizzazione. Ogni blocco rappresenta una capability, con:
