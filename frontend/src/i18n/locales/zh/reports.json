@@ -283,6 +283,8 @@
   "dataQuality.completeLegend": "完整 (≥80%)",
   "dataQuality.partialLegend": "部分 (40-79%)",
   "dataQuality.minimalLegend": "最少 (<40%)",
+  "dataQuality.noCardsInSegment": "该分段中没有卡片",
+  "dataQuality.showingOf": "显示 {{total}} 项中的 {{shown}} 项",
   "dataQuality.avgCompletion": "平均完成度",
   "dataQuality.completion": "完成度",
   "dataQuality.lastUpdated": "最后更新",

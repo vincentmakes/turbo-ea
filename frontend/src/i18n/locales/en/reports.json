@@ -283,6 +283,8 @@
   "dataQuality.completeLegend": "Complete (≥80%)",
   "dataQuality.partialLegend": "Partial (40-79%)",
   "dataQuality.minimalLegend": "Minimal (<40%)",
+  "dataQuality.noCardsInSegment": "No cards in this segment",
+  "dataQuality.showingOf": "Showing {{shown}} of {{total}}",
   "dataQuality.avgCompletion": "Avg Completion",
   "dataQuality.completion": "Completion",
   "dataQuality.lastUpdated": "Last Updated",

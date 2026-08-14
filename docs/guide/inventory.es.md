@@ -15,7 +15,7 @@ El panel lateral izquierdo permite **filtrar** las fichas por diferentes criteri
 - **Subtipos** — Cuando se selecciona un tipo, permite filtrar por subtipo (por ejemplo, Aplicación → Aplicación de Negocio, Microservicio, Agente IA, Despliegue)
 - **Estado de Aprobación** — Borrador, Aprobado, Roto o Rechazado
 - **Ciclo de Vida** — Filtrar por fase del ciclo de vida: Plan, Fase de Entrada, Activo, Fase de Salida, Fin de Vida
-- **Calidad de Datos** — Filtrado por umbral: Buena (80%+), Media (50–79%), Baja (menos del 50%)
+- **Calidad de Datos** — Filtrado por banda (selección múltiple): Completo (≥80%), Parcial (40–79%), Mínimo (menos del 40%). Son las bandas del [informe de Calidad de datos](reports.md#data-quality-report): al hacer clic en un segmento de barra allí se llega aquí.
 - **Etiquetas** — Filtrar por etiquetas de cualquier grupo de etiquetas
 - **Relaciones** — Filtrar por fichas relacionadas a través de tipos de relación
 - **Atributos personalizados** — Filtrar por valores en campos personalizados (búsqueda de texto, opciones de selección)

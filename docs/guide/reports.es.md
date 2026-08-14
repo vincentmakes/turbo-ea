@@ -214,6 +214,17 @@ El **Informe de Calidad de Datos** es un **panel de completitud** que muestra qu
 
 Las tarjetas con un **campo obligatorio** vacío siempre puntúan **0 %** — el cálculo ponderado solo se reanuda cuando todos los campos obligatorios están completos — de modo que la lista de puntuaciones más bajas muestra exactamente las tarjetas a las que aún les faltan datos obligatorios.
 
+### Profundizar en una cifra
+
+Cada cifra del informe es una vía de entrada, no solo un dato:
+
+- **Haga clic en un segmento de barra** en *Completitud por tipo*: se abre un panel a la derecha con las fichas de ese tipo en esa banda (Completo, Parcial o Mínimo).
+- **Haga clic en una barra** de *Completitud media por tipo*, o en una fila de la vista de tabla, para listar todas las fichas de ese tipo.
+- **Haga clic en el mosaico Huérfanos u Desactualizados** para listar las fichas tras ese recuento.
+
+Desde el panel, haga clic en una ficha para abrir su panel de detalle, o pulse **Ver en el inventario** para continuar en el [Inventario](inventory.md), que llega agrupado por calidad de datos con la banda seleccionada desplegada y las demás plegadas al lado, de modo que pueda empezar a corregir registros de inmediato. Los paneles de Huérfanos y Desactualizados no tienen botón **Ver en el inventario**, porque el inventario no puede filtrar por ninguno de los dos.
+
+
 ## Informe de Fin de Vida (EOL)
 
 ![Informe de Fin de Vida](../assets/img/es/32_informe_eol.png)

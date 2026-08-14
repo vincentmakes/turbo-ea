@@ -109,7 +109,7 @@ function seedPrefs(extra: Record<string, unknown> = {}) {
         search: "",
         subtypes: [],
         lifecyclePhases: [],
-        dataQualityMin: null,
+        dataQualityBands: [],
         approvalStatuses: [],
         showArchived: false,
         attributes: {},

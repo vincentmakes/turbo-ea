@@ -283,6 +283,8 @@
   "dataQuality.completeLegend": "Komplet (≥80%)",
   "dataQuality.partialLegend": "Delvis (40-79%)",
   "dataQuality.minimalLegend": "Minimal (<40 %)",
+  "dataQuality.noCardsInSegment": "Ingen kort i dette segment",
+  "dataQuality.showingOf": "Viser {{shown}} af {{total}}",
   "dataQuality.avgCompletion": "Gnsn. fuldførelse",
   "dataQuality.completion": "Fuldførelse",
   "dataQuality.lastUpdated": "Sidst opdateret",

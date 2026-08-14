@@ -2094,6 +2094,85 @@ async def data_quality(db: AsyncSession = Depends(get_db), user: User = Depends(
     }
 
 
+# Band boundaries MUST stay in lock-step with the counting in `data_quality`
+# above (>=80 complete, >=40 partial, else minimal) and with DATA_QUALITY_BANDS
+# in the frontend — the panel opened from a bar segment has to list exactly the
+# cards that segment counted.
+_DQ_BAND_BOUNDS: dict[str, tuple[float | None, float | None]] = {
+    "complete": (80.0, None),
+    "partial": (40.0, 80.0),
+    "minimal": (None, 40.0),
+}
+
+
+@router.get("/data-quality/cards")
+async def data_quality_cards(
+    type: str | None = Query(default=None, description="Card type key"),
+    band: str | None = Query(default=None, description="complete | partial | minimal"),
+    scope: str | None = Query(default=None, description="orphaned | stale"),
+    limit: int = Query(default=200, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """The cards behind one slice of the data-quality dashboard.
+
+    Backs the side panel opened by clicking a bar segment / KPI tile: same
+    population as `/reports/data-quality` (ACTIVE cards only), narrowed to one
+    type, quality band and/or flag. `total` is the untruncated count so the
+    panel can say "showing N of M".
+    """
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+
+    if band is not None and band not in _DQ_BAND_BOUNDS:
+        raise HTTPException(status_code=400, detail=f"Unknown band: {band}")
+    if scope is not None and scope not in ("orphaned", "stale"):
+        raise HTTPException(status_code=400, detail=f"Unknown scope: {scope}")
+
+    conditions = [Card.status == "ACTIVE"]
+    if type:
+        conditions.append(Card.type == type)
+    if band:
+        low, high = _DQ_BAND_BOUNDS[band]
+        if low is not None:
+            conditions.append(Card.data_quality >= low)
+        if high is not None:
+            conditions.append(Card.data_quality < high)
+    if scope == "stale":
+        cutoff = datetime.now(timezone.utc) - timedelta(days=90)
+        conditions.append(Card.updated_at < cutoff)
+    elif scope == "orphaned":
+        # Same definition as the dashboard's `orphaned` count: no relation in
+        # either direction.
+        connected = select(Relation.source_id).union(select(Relation.target_id))
+        conditions.append(Card.id.not_in(connected))
+
+    total_result = await db.execute(select(func.count()).select_from(Card).where(*conditions))
+    total = total_result.scalar_one()
+
+    result = await db.execute(
+        select(Card)
+        .where(*conditions)
+        .order_by(Card.data_quality.asc(), Card.name.asc())
+        .limit(limit)
+    )
+    cards = result.scalars().all()
+
+    return {
+        "total": total,
+        "items": [
+            {
+                "id": str(card.id),
+                "name": card.name,
+                "type": card.type,
+                "subtype": card.subtype,
+                "data_quality": card.data_quality or 0,
+                "updated_at": card.updated_at.isoformat() if card.updated_at else None,
+            }
+            for card in cards
+        ],
+    }
+
+
 # ---------------------------------------------------------------------------
 #  EOL Risk & Impact report
 # ---------------------------------------------------------------------------

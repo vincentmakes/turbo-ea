@@ -283,6 +283,8 @@
   "dataQuality.completeLegend": "مكتمل (≥80%)",
   "dataQuality.partialLegend": "جزئي (40-79%)",
   "dataQuality.minimalLegend": "أدنى (<40%)",
+  "dataQuality.noCardsInSegment": "لا توجد بطاقات في هذا الجزء",
+  "dataQuality.showingOf": "عرض {{shown}} من {{total}}",
   "dataQuality.avgCompletion": "متوسط الاكتمال",
   "dataQuality.completion": "الاكتمال",
   "dataQuality.lastUpdated": "آخر تحديث",

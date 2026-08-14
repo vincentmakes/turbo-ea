@@ -283,6 +283,8 @@
   "dataQuality.completeLegend": "Полный (≥80%)",
   "dataQuality.partialLegend": "Частичный (40–79%)",
   "dataQuality.minimalLegend": "Минимальный (<40%)",
+  "dataQuality.noCardsInSegment": "В этом сегменте нет карточек",
+  "dataQuality.showingOf": "Показано {{shown}} из {{total}}",
   "dataQuality.avgCompletion": "Средняя заполненность",
   "dataQuality.completion": "Заполненность",
   "dataQuality.lastUpdated": "Последнее обновление",

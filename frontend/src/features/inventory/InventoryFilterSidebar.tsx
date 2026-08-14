@@ -34,6 +34,11 @@ import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 import { useTypeLabel, useSubtypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import { readableTextColor } from "@/lib/color";
+import {
+  DATA_QUALITY_BANDS,
+  normalizeDataQualityFilter,
+  type DataQualityBand,
+} from "./dataQualityBands";
 import type {
   CardType,
   Bookmark,
@@ -54,7 +59,10 @@ export interface Filters {
   search: string;
   subtypes: string[];
   lifecyclePhases: string[];
-  dataQualityMin: number | null;
+  /** Selected quality bands (OR'd). Replaces the old `dataQualityMin`
+   * threshold — see `dataQualityBands.ts` for why, and for the migration
+   * every persisted read path has to run through. */
+  dataQualityBands: DataQualityBand[];
   approvalStatuses: string[];
   showArchived: boolean;
   attributes: Record<string, string | string[]>; // select fields → string[], text/number → string
@@ -121,12 +129,6 @@ export const LIFECYCLE_PHASES = [
   { key: "active", tKey: "common:lifecycle.active" as const, color: "#66bb6a" },
   { key: "phaseOut", tKey: "common:lifecycle.phaseOut" as const, color: "#ffa726" },
   { key: "endOfLife", tKey: "common:lifecycle.endOfLife" as const, color: "#ef5350" },
-];
-
-const DATA_QUALITY_THRESHOLDS = [
-  { key: 80, tKey: "filter.dataQualityGood" as const, color: "#4caf50" },
-  { key: 50, tKey: "filter.dataQualityMedium" as const, color: "#ff9800" },
-  { key: 0, tKey: "filter.dataQualityPoor" as const, color: "#f44336" },
 ];
 
 const MIN_WIDTH = 220;
@@ -453,14 +455,14 @@ export default function InventoryFilterSidebar({
   }, [relationsMap, relevantRelTypes]);
 
   const clearAll = () =>
-    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityMin: null, approvalStatuses: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null });
+    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityBands: [], approvalStatuses: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null });
 
   const activeCount =
     filters.types.length +
     (filters.search ? 1 : 0) +
     filters.subtypes.length +
     filters.lifecyclePhases.length +
-    (filters.dataQualityMin !== null ? 1 : 0) +
+    filters.dataQualityBands.length +
     filters.approvalStatuses.length +
     (filters.showArchived ? 1 : 0) +
     Object.keys(filters.attributes).length +
@@ -514,7 +516,7 @@ export default function InventoryFilterSidebar({
         search: filters.search,
         subtypes: filters.subtypes,
         lifecyclePhases: filters.lifecyclePhases,
-        dataQualityMin: filters.dataQualityMin,
+        dataQualityBands: filters.dataQualityBands,
         approvalStatuses: filters.approvalStatuses,
         showArchived: filters.showArchived,
         attributes: filters.attributes,
@@ -552,7 +554,8 @@ export default function InventoryFilterSidebar({
         search: f.search || "",
         subtypes: f.subtypes || [],
         lifecyclePhases: f.lifecyclePhases || [],
-        dataQualityMin: f.dataQualityMin ?? null,
+        // Views saved before bands existed carry a `dataQualityMin` threshold.
+        dataQualityBands: normalizeDataQualityFilter(f),
         approvalStatuses: f.approvalStatuses || [],
         showArchived: f.showArchived || false,
         attributes: f.attributes || {},
@@ -970,24 +973,34 @@ export default function InventoryFilterSidebar({
                 icon="bar_chart"
                 expanded={expandedSections.dataQuality}
                 onToggle={() => toggleSection("dataQuality")}
-                count={filters.dataQualityMin !== null ? 1 : 0}
+                count={filters.dataQualityBands.length}
               />
               <Collapse in={expandedSections.dataQuality}>
                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
-                  {DATA_QUALITY_THRESHOLDS.map((dq) => (
-                    <Chip
-                      key={dq.key}
-                      label={t(dq.tKey)}
-                      size="small"
-                      onClick={() => onFiltersChange({ ...filters, dataQualityMin: filters.dataQualityMin === dq.key ? null : dq.key })}
-                      variant={filters.dataQualityMin === dq.key ? "filled" : "outlined"}
-                      sx={
-                        filters.dataQualityMin === dq.key
-                          ? { bgcolor: dq.color, color: "#fff", borderColor: dq.color }
-                          : { borderColor: dq.color, color: dq.color }
-                      }
-                    />
-                  ))}
+                  {DATA_QUALITY_BANDS.map((dq) => {
+                    const selected = filters.dataQualityBands.includes(dq.key);
+                    return (
+                      <Chip
+                        key={dq.key}
+                        label={t(dq.tKey)}
+                        size="small"
+                        onClick={() =>
+                          onFiltersChange({
+                            ...filters,
+                            dataQualityBands: selected
+                              ? filters.dataQualityBands.filter((b) => b !== dq.key)
+                              : [...filters.dataQualityBands, dq.key],
+                          })
+                        }
+                        variant={selected ? "filled" : "outlined"}
+                        sx={
+                          selected
+                            ? { bgcolor: dq.color, color: "#fff", borderColor: dq.color }
+                            : { borderColor: dq.color, color: dq.color }
+                        }
+                      />
+                    );
+                  })}
                 </Box>
               </Collapse>
 

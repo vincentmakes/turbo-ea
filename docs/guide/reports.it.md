@@ -214,6 +214,17 @@ Il **Report Qualità dei Dati** è una **dashboard di completezza** che mostra q
 
 Le card con un **campo obbligatorio** vuoto ottengono sempre **0%** — il calcolo ponderato riprende solo quando tutti i campi obbligatori sono compilati — così l'elenco dei punteggi più bassi evidenzia esattamente le card a cui mancano ancora dati obbligatori.
 
+### Approfondire un numero
+
+Ogni valore del report è un punto di accesso, non solo un dato da leggere:
+
+- **Fai clic su un segmento di barra** in *Completezza per tipo*: si apre un pannello a destra con le card di quel tipo in quella fascia (Completo, Parziale o Minimo).
+- **Fai clic su una barra** in *Completezza media per tipo*, o su una riga nella vista tabella, per elencare tutte le card di quel tipo.
+- **Fai clic sul riquadro Orfani od Obsoleti** per elencare le card dietro quel conteggio.
+
+Dal pannello, fai clic su una card per aprirne il pannello di dettaglio, oppure premi **Vedi nell'inventario** per proseguire nell'[Inventario](inventory.md), che si apre raggruppato per qualità dei dati con la fascia selezionata espansa e le altre richiuse accanto, così puoi iniziare subito a correggere i record. I pannelli Orfani e Obsoleti non hanno il pulsante **Vedi nell'inventario**, perché l'inventario non può filtrare né per l'uno né per l'altro.
+
+
 ## Report End of Life (EOL)
 
 ![Report End of Life](../assets/img/it/32_report_eol.png)

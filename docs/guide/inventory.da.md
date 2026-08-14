@@ -15,7 +15,7 @@ Det venstre sidepanel lader dig **filtrere** kort efter forskellige kriterier:
 - **Undertyper** — Når en type er valgt, kan du filtrere yderligere efter undertype (f.eks. Application → Business Application, Microservice, AI Agent, Deployment)
 - **Godkendelsesstatus** — Draft, Approved, Broken eller Rejected
 - **Livscyklus** — Filtrer efter livscyklus-fase: Plan, Phase In, Active, Phase Out, End of Life
-- **Datakvalitet** — Tærskel-baseret filtrering: Good (80%+), Medium (50–79%), Poor (under 50%)
+- **Datakvalitet** — Båndfiltrering (multivalg): Komplet (≥80%), Delvis (40–79%), Minimal (under 40%). Samme bånd som [Datakvalitetsrapporten](reports.md#data-quality-report), så et klik på et bjælkesegment der lander her.
 - **Tags** — Filtrer efter tags fra en hvilken som helst tag-gruppe
 - **Relationer** — Filtrer efter relaterede kort på tværs af relations­typer
 - **Brugerdefinerede attributter** — Filtrer efter værdier i brugerdefinerede felter (tekstsøgning, select-muligheder)

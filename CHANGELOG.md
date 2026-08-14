@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.57.0] - 2026-08-14
+
+### Added
+- **The Data Quality report is now clickable.** Clicking a segment of a *Completeness by Type* bar opens a side panel listing exactly the cards that segment counted, with a **View in inventory** button — the same drill-down the Flexible Portfolio report offers. The bars in *Average Completion by Type*, the count cells in the table view, and the **Orphaned** and **Stale** tiles all open the same panel; clicking a card in it opens that card's detail panel.
+- **View in inventory from a quality band** lands the inventory grouped by data quality, with the band you clicked expanded and the others collapsed beside it, so the rest of the picture stays in view while you fix records.
+- The inventory can now group by **Data Quality**, alongside Lifecycle and Approval Status.
+
+### Changed
+- **The inventory's Data Quality filter now matches the report's bands.** It was a *minimum threshold* — "Medium (50%+)" also matched everything scoring 80 and above, and "Partial" could not be expressed at all — while the report has always charted Complete (≥80%), Partial (40–79%) and Minimal (<40%). The filter now uses those three bands, and several can be selected at once. Saved views and stored preferences carrying the old threshold are migrated automatically.
+- The quality filter is now addressable from the URL (`?dq=partial`), which is what makes the report's deep-links possible.
+
 ## [2.56.0] - 2026-08-14
 
 ### Fixed

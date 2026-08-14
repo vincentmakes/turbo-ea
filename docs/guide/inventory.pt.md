@@ -15,7 +15,7 @@ O painel lateral esquerdo permite **filtrar** cards por diferentes critérios:
 - **Subtipos** — Quando um tipo é selecionado, filtre ainda mais por subtipo (ex.: Aplicação -> Aplicação de Negócio, Microsserviço, Agente de IA, Implantação)
 - **Status de Aprovação** — Rascunho, Aprovado, Quebrado ou Rejeitado
 - **Ciclo de Vida** — Filtrar por fase do ciclo de vida: Planejamento, Implantação, Ativo, Desativação, Fim de Vida
-- **Qualidade dos Dados** — Filtragem por limite: Bom (80%+), Médio (50-79%), Ruim (abaixo de 50%)
+- **Qualidade dos Dados** — Filtragem por faixa (seleção múltipla): Completo (≥80%), Parcial (40-79%), Mínimo (abaixo de 40%). São as faixas do [relatório Qualidade dos dados](reports.md#data-quality-report): clicar num segmento de barra leva até aqui.
 - **Tags** — Filtrar por tags de qualquer grupo de tags
 - **Relacionamentos** — Filtrar por cards relacionados através de tipos de relacionamento
 - **Atributos personalizados** — Filtrar por valores em campos personalizados (busca de texto, opções de seleção)

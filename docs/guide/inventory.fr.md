@@ -15,7 +15,7 @@ Le panneau latéral gauche permet de **filtrer** les fiches selon différents cr
 - **Sous-types** -- Lorsqu'un type est sélectionné, filtrer davantage par sous-type (par ex. Application -> Application Métier, Microservice, Agent IA, Déploiement)
 - **Statut d'approbation** -- Brouillon, Approuvé, Cassé ou Rejeté
 - **Cycle de vie** -- Filtrer par phase du cycle de vie : Planification, Mise en service, Actif, Retrait progressif, Fin de vie
-- **Qualité des données** -- Filtrage par seuil : Bonne (80%+), Moyenne (50-79%), Faible (inférieure à 50%)
+- **Qualité des données** -- Filtrage par plage (sélection multiple) : Complet (≥80 %), Partiel (40-79 %), Minimal (moins de 40 %). Ce sont les plages du [rapport Qualité des données](reports.md#data-quality-report) : un clic sur un segment de barre y mène ici.
 - **Tags** -- Filtrer par tags de n'importe quel groupe de tags
 - **Relations** -- Filtrer par fiches liées à travers les types de relations
 - **Attributs personnalisés** -- Filtrer par valeurs dans les champs personnalisés (recherche textuelle, options de sélection)

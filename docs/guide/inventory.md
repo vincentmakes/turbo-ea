@@ -15,7 +15,7 @@ The left sidebar panel allows you to **filter** cards by different criteria:
 - **Subtypes** — When a type is selected, filter further by subtype (e.g., Application → Business Application, Microservice, AI Agent, Deployment)
 - **Approval Status** — Draft, Approved, Broken, or Rejected
 - **Lifecycle** — Filter by lifecycle phase: Plan, Phase In, Active, Phase Out, End of Life
-- **Data Quality** — Threshold-based filtering: Good (80%+), Medium (50–79%), Poor (below 50%)
+- **Data Quality** — Band filtering (multi-select): Complete (≥80%), Partial (40–79%), Minimal (below 40%). Same bands the [Data Quality report](reports.md#data-quality-report) charts, so clicking a bar segment there lands here.
 - **Tags** — Filter by tags from any tag group
 - **Relations** — Filter by related cards across relation types
 - **Custom attributes** — Filter by values in custom fields (text search, select options)

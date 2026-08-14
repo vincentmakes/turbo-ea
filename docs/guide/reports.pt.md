@@ -214,6 +214,17 @@ O **Relatório de Qualidade dos Dados** é um **painel de completude** que mostr
 
 Cards com um **campo obrigatório** vazio sempre pontuam **0%** — o cálculo ponderado só é retomado quando todos os campos obrigatórios estiverem preenchidos — assim, a lista de pontuações mais baixas mostra exatamente os cards cujos dados obrigatórios ainda faltam.
 
+### Aprofundar num número
+
+Cada valor do relatório é uma porta de entrada, não apenas uma leitura:
+
+- **Clique num segmento de barra** em *Completude por tipo* — abre-se um painel à direita com os cards desse tipo naquela faixa (Completo, Parcial ou Mínimo).
+- **Clique numa barra** em *Completude média por tipo*, ou numa linha da vista de tabela, para listar todos os cards desse tipo.
+- **Clique no bloco Órfãos ou Desatualizados** para listar os cards por trás daquela contagem.
+
+No painel, clique num card para abrir o seu painel de detalhe, ou carregue em **Ver no inventário** para continuar no [Inventário](inventory.md) — que chega agrupado por qualidade dos dados, com a faixa clicada expandida e as restantes recolhidas ao lado, para começar a corrigir registos de imediato. Os painéis Órfãos e Desatualizados não têm botão **Ver no inventário**, porque o inventário não consegue filtrar por nenhum dos dois.
+
+
 ## Relatório de Fim de Vida (EOL)
 
 ![Relatório de Fim de Vida](../assets/img/pt/32_relatorio_eol.png)

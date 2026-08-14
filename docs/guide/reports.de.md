@@ -214,6 +214,17 @@ Der **Datenqualitätsbericht** ist ein **Vollständigkeits-Dashboard**, das zeig
 
 Karten mit einem leeren **Pflichtfeld** erhalten immer **0 %** — die gewichtete Berechnung greift erst wieder, wenn alle Pflichtfelder ausgefüllt sind — die Liste der schlechtesten Werte zeigt also genau die Karten, deren Pflichtangaben noch fehlen.
 
+### In eine Zahl hineinnavigieren
+
+Jede Kennzahl im Bericht ist ein Einstiegspunkt, nicht nur eine Anzeige:
+
+- **Klicken Sie auf ein Balkensegment** in *Vollständigkeit nach Typ* — rechts öffnet sich ein Panel mit den Karten dieses Typs in diesem Band (Vollständig, Teilweise oder Minimal).
+- **Klicken Sie auf einen Balken** in *Durchschnittliche Vollständigkeit nach Typ* oder auf eine Zeile in der Tabellenansicht, um alle Karten dieses Typs aufzulisten.
+- **Klicken Sie auf die Kachel Verwaist oder Veraltet**, um die Karten hinter dieser Zahl aufzulisten.
+
+Klicken Sie im Panel auf eine Karte, um deren Detailbereich zu öffnen, oder auf **In Inventar anzeigen**, um im [Inventar](inventory.md) weiterzuarbeiten — dieses erscheint nach Datenqualität gruppiert, mit dem angeklickten Band aufgeklappt und den übrigen daneben eingeklappt, sodass Sie sofort mit der Korrektur beginnen können. Die Panels Verwaist und Veraltet haben keine Schaltfläche **In Inventar anzeigen**, da das Inventar nach keinem von beiden filtern kann.
+
+
 ## End-of-Life-Bericht (EOL)
 
 ![End-of-Life-Bericht](../assets/img/de/32_bericht_eol.png)

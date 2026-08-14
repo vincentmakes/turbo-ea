@@ -1,13 +1,17 @@
 /**
- * "View in inventory" deep-links from the portfolio report's group drawer
- * (discussion #933): the report stays read-only, the fix happens in the
- * inventory, this is the bridge between the two.
+ * "View in inventory" deep-links from a report's group drawer (discussion
+ * #933): the report stays read-only, the fix happens in the inventory, this is
+ * the bridge between the two. Started on the portfolio report; the Data
+ * Quality report's band segments now land the same way.
  *
  * Attribute-grouped reports get a MIRRORED landing: the inventory arrives
  * grouped by the same field (`group_by=attr_<fieldKey>`), with the clicked
  * group expanded and every other group collapsed (`expand_group=<key>`), and
  * the report's own filters carried over — no value filter for the clicked
  * group, so the other buckets stay visible as collapsed headers with counts.
+ * Data-quality bands mirror the same way onto the fixed `data_quality` axis.
+ * A `null` group means "group by the axis, expand nothing" — the landing for
+ * a click on a whole type rather than one of its buckets.
  *
  * Relation-grouped reports cannot be mirrored (the inventory deliberately
  * has no relation axis — a card related to N members would need N rows), so
@@ -32,7 +36,11 @@ export const INVENTORY_NOT_SET_KEY = "__not_set__";
 
 export type InventorySliceMode =
   | { kind: "attribute"; fieldKey: string }
-  | { kind: "relation"; typeKey: string };
+  | { kind: "relation"; typeKey: string }
+  /** Data-quality bands. Mirrors like an attribute — the inventory has a
+   * matching `data_quality` group axis — but the axis key is fixed, so there
+   * is nothing to carry. */
+  | { kind: "quality" };
 
 export interface InventorySliceGroup {
   /** Option key (attribute mode) or related card id (relation mode). */
@@ -53,7 +61,9 @@ export interface InventorySliceFilters {
 export function buildInventorySliceUrl(opts: {
   cardType: string;
   mode: InventorySliceMode;
-  group: InventorySliceGroup | "ungrouped";
+  /** The bucket to focus. `null` groups by the axis but expands nothing —
+   * the "whole type, still bucketed" landing behind a type-level click. */
+  group: InventorySliceGroup | "ungrouped" | null;
   filters?: InventorySliceFilters;
 }): string {
   const { cardType, mode, group, filters } = opts;
@@ -65,7 +75,7 @@ export function buildInventorySliceUrl(opts: {
     for (const value of values) params.append(`attr_${key}`, value);
   }
   const carriedRelations = { ...(filters?.relations ?? {}) };
-  if (mode.kind === "relation") {
+  if (mode.kind === "relation" && group !== null) {
     // The clicked group IS the filter on that relation type — it replaces
     // any carried report filter on the same type rather than unioning.
     delete carriedRelations[mode.typeKey];
@@ -75,17 +85,26 @@ export function buildInventorySliceUrl(opts: {
   }
   for (const id of filters?.tagIds ?? []) params.append("tag", id);
 
-  if (mode.kind === "attribute") {
-    params.set("group_by", `attr_${mode.fieldKey}`);
-    params.set(
-      "expand_group",
-      group === "ungrouped" ? INVENTORY_NOT_SET_KEY : group.key,
-    );
+  if (mode.kind === "relation") {
+    // Relation mode cannot mirror, so it filters — and with nothing to focus
+    // there is no filter to apply either.
+    if (group !== null) {
+      params.append(
+        `rel_${mode.typeKey}`,
+        group === "ungrouped" ? INVENTORY_EMPTY_VALUE : group.label,
+      );
+    }
   } else {
-    params.append(
-      `rel_${mode.typeKey}`,
-      group === "ungrouped" ? INVENTORY_EMPTY_VALUE : group.label,
+    params.set(
+      "group_by",
+      mode.kind === "quality" ? "data_quality" : `attr_${mode.fieldKey}`,
     );
+    if (group !== null) {
+      params.set(
+        "expand_group",
+        group === "ungrouped" ? INVENTORY_NOT_SET_KEY : group.key,
+      );
+    }
   }
   return `/inventory?${params.toString()}`;
 }

@@ -8,6 +8,8 @@ These endpoints require a PostgreSQL test database.
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from sqlalchemy import select
 
@@ -1856,6 +1858,127 @@ class TestDataQuality:
         """User without reports.ea_dashboard gets 403."""
         resp = await client.get(
             "/api/v1/reports/data-quality",
+            headers=auth_headers(env["noreports"]),
+        )
+        assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+
+
+class TestDataQualityCards:
+    """`/reports/data-quality/cards` — the slice behind a dashboard bar segment."""
+
+    async def _names(self, client, admin, **params):
+        resp = await client.get(
+            "/api/v1/reports/data-quality/cards",
+            params=params,
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        return data, [item["name"] for item in data["items"]]
+
+    async def test_band_boundaries_match_the_dashboard(self, client, db, env):
+        """80 is complete, 40 is partial, 39.9 is minimal — same cuts as the
+        dashboard counts, so the panel lists exactly what the segment counted."""
+        admin = env["admin"]
+        for name, score in [
+            ("Exactly80", 80.0),
+            ("Just79", 79.9),
+            ("Exactly40", 40.0),
+            ("Just39", 39.9),
+        ]:
+            await create_card(
+                db, card_type="Application", name=name, user_id=admin.id, data_quality=score
+            )
+
+        _, complete = await self._names(client, admin, band="complete")
+        assert complete == ["Exactly80"]
+        _, partial = await self._names(client, admin, band="partial")
+        assert sorted(partial) == ["Exactly40", "Just79"]
+        _, minimal = await self._names(client, admin, band="minimal")
+        assert minimal == ["Just39"]
+
+    async def test_unscored_card_counts_as_minimal(self, client, db, env):
+        """A card whose score was never computed defaults to 0 and lands in the
+        red segment — matching what the dashboard counted for it."""
+        admin = env["admin"]
+        await create_card(db, card_type="Application", name="NeverScored", user_id=admin.id)
+
+        data, names = await self._names(client, admin, band="minimal")
+        assert names == ["NeverScored"]
+        assert data["items"][0]["data_quality"] == 0
+
+    async def test_type_filter(self, client, db, env):
+        admin = env["admin"]
+        await create_card(db, card_type="Application", name="AnApp", user_id=admin.id)
+        await create_card(db, card_type="BusinessCapability", name="ACap", user_id=admin.id)
+
+        _, names = await self._names(client, admin, type="Application")
+        assert names == ["AnApp"]
+
+    async def test_archived_cards_excluded(self, client, db, env):
+        """Same ACTIVE-only population as the dashboard."""
+        admin = env["admin"]
+        await create_card(db, card_type="Application", name="Live", user_id=admin.id)
+        await create_card(
+            db, card_type="Application", name="Gone", user_id=admin.id, status="ARCHIVED"
+        )
+
+        data, names = await self._names(client, admin)
+        assert names == ["Live"]
+        assert data["total"] == 1
+
+    async def test_scope_orphaned(self, client, db, env):
+        admin = env["admin"]
+        app1 = await create_card(db, card_type="Application", name="Connected", user_id=admin.id)
+        await create_card(db, card_type="Application", name="Orphan", user_id=admin.id)
+        cap = await create_card(db, card_type="BusinessCapability", name="Cap", user_id=admin.id)
+        await create_relation(db, type_key="app_to_bc", source_id=app1.id, target_id=cap.id)
+
+        _, names = await self._names(client, admin, scope="orphaned")
+        assert names == ["Orphan"]
+
+    async def test_scope_stale(self, client, db, env):
+        admin = env["admin"]
+        old = await create_card(db, card_type="Application", name="Dusty", user_id=admin.id)
+        old.updated_at = datetime.now(timezone.utc) - timedelta(days=120)
+        await create_card(db, card_type="Application", name="Fresh", user_id=admin.id)
+        await db.flush()
+
+        _, names = await self._names(client, admin, scope="stale")
+        assert names == ["Dusty"]
+
+    async def test_limit_truncates_items_but_not_total(self, client, db, env):
+        """`total` drives the panel's "showing N of M" — it must not be capped."""
+        admin = env["admin"]
+        for i in range(5):
+            await create_card(
+                db,
+                card_type="Application",
+                name=f"App {i}",
+                user_id=admin.id,
+                data_quality=float(i),
+            )
+
+        data, names = await self._names(client, admin, limit=2)
+        assert data["total"] == 5
+        assert len(data["items"]) == 2
+        # Worst first, so the panel opens on the cards that need work.
+        assert names == ["App 0", "App 1"]
+
+    async def test_unknown_band_rejected(self, client, db, env):
+        resp = await client.get(
+            "/api/v1/reports/data-quality/cards",
+            params={"band": "excellent"},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.status_code == 400
+
+    async def test_permission_denied(self, client, db, env):
+        resp = await client.get(
+            "/api/v1/reports/data-quality/cards",
             headers=auth_headers(env["noreports"]),
         )
         assert resp.status_code == 403

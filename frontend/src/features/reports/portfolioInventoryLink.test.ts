@@ -107,4 +107,64 @@ describe("buildInventorySliceUrl", () => {
     expect(INVENTORY_EMPTY_VALUE).toBe(EMPTY_VALUE);
     expect(INVENTORY_NOT_SET_KEY).toBe(NOT_SET_KEY);
   });
+
+  describe("quality mode", () => {
+    it("mirrors a band onto the data_quality axis, with no value filter", () => {
+      const url = buildInventorySliceUrl({
+        cardType: "Application",
+        mode: { kind: "quality" },
+        group: { key: "partial", label: "Partial" },
+      });
+      const p = paramsOf(url);
+      expect(p.get("type")).toBe("Application");
+      expect(p.get("group_by")).toBe("data_quality");
+      expect(p.get("expand_group")).toBe("partial");
+      // The other bands must stay visible as collapsed headers with counts,
+      // so the clicked band is focused, never filtered to.
+      expect(p.has("dq")).toBe(false);
+    });
+
+    it("groups without expanding when no band was clicked", () => {
+      const url = buildInventorySliceUrl({
+        cardType: "Application",
+        mode: { kind: "quality" },
+        group: null,
+      });
+      const p = paramsOf(url);
+      expect(p.get("group_by")).toBe("data_quality");
+      expect(p.has("expand_group")).toBe(false);
+    });
+
+    it("carries the report's own filters through", () => {
+      const url = buildInventorySliceUrl({
+        cardType: "Application",
+        mode: { kind: "quality" },
+        group: { key: "minimal", label: "Minimal" },
+        filters: {
+          search: "erp",
+          attributes: { timeModel: ["invest", "tolerate"] },
+          relations: { Organization: ["Finance"] },
+          tagIds: ["t1", "t2"],
+        },
+      });
+      const p = paramsOf(url);
+      expect(p.get("search")).toBe("erp");
+      expect(p.getAll("attr_timeModel")).toEqual(["invest", "tolerate"]);
+      expect(p.getAll("rel_Organization")).toEqual(["Finance"]);
+      expect(p.getAll("tag")).toEqual(["t1", "t2"]);
+      expect(p.get("expand_group")).toBe("minimal");
+    });
+  });
+
+  it("omits the relation filter entirely when no group was clicked", () => {
+    const url = buildInventorySliceUrl({
+      cardType: "Application",
+      mode: { kind: "relation", typeKey: "Organization" },
+      group: null,
+      filters: { relations: { Organization: ["Finance"] } },
+    });
+    // With nothing focused there is no group to substitute, so the report's
+    // own filter on that type survives instead of being dropped.
+    expect(paramsOf(url).getAll("rel_Organization")).toEqual(["Finance"]);
+  });
 });

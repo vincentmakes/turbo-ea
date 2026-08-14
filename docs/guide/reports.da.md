@@ -214,6 +214,17 @@ Excel-eksport giver to ark: gitteret, som det ser ud på skærmen, og én række
 
 Kort med et tomt **påkrævet felt** scorer altid **0 %** — den vægtede beregning genoptages først, når alle påkrævede felter er udfyldt — så listen med de laveste scorer viser præcis de kort, der stadig mangler påkrævede data.
 
+### Bor ned i et tal
+
+Hvert tal i rapporten er en indgang, ikke bare en aflæsning:
+
+- **Klik på et bjælkesegment** i *Fuldstændighed efter type* — et panel åbner til højre med kortene af den type i det bånd (Komplet, Delvis eller Minimal).
+- **Klik på en bjælke** i *Gennemsnitlig fuldstændighed efter type*, eller på en række i tabelvisningen, for at vise alle kort af den type.
+- **Klik på feltet Forældreløse eller Forældede** for at vise kortene bag det tal.
+
+Fra panelet kan du klikke på et kort for at åbne dets detaljepanel, eller trykke **Vis i inventar** for at fortsætte i [Inventaret](inventory.md) — som åbner grupperet efter datakvalitet med det valgte bånd foldet ud og de øvrige foldet sammen ved siden af, så du kan gå i gang med at rette poster med det samme. Panelerne Forældreløse og Forældede har ingen **Vis i inventar**-knap, da inventaret ikke kan filtrere på nogen af dem.
+
+
 ## End of Life (EOL)-rapport
 
 ![End of Life-rapport](../assets/img/da/32_report_eol.png)

@@ -16,7 +16,7 @@ const baseFilters: Filters = {
   search: "",
   subtypes: ["business_app"],
   lifecyclePhases: ["active"],
-  dataQualityMin: 50,
+  dataQualityBands: ["partial"],
   approvalStatuses: ["APPROVED"],
   showArchived: false,
   attributes: { vendor: ["SAP"] },
@@ -181,7 +181,7 @@ describe("filtersAfterTypeToggle", () => {
     expect(next.types).toEqual(["Application", "Objective"]);
     expect(next.search).toBe(baseFilters.search);
     expect(next.lifecyclePhases).toEqual(["active"]);
-    expect(next.dataQualityMin).toBe(50);
+    expect(next.dataQualityBands).toEqual(["partial"]);
     expect(next.approvalStatuses).toEqual(["APPROVED"]);
     expect(next.tagIds).toEqual(["t1"]);
   });

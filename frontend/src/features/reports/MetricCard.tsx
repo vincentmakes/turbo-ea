@@ -10,17 +10,26 @@ interface Props {
   iconColor?: string;
   subtitle?: string;
   color?: string;
+  /** Makes the tile a drill-down affordance (e.g. opening the cards behind
+   * the number). Left unset the tile stays a plain read-only KPI. */
+  onClick?: () => void;
 }
 
-export default function MetricCard({ label, value, icon, iconColor = "#1976d2", subtitle, color }: Props) {
+export default function MetricCard({ label, value, icon, iconColor = "#1976d2", subtitle, color, onClick }: Props) {
   return (
     <Paper
       variant="outlined"
+      onClick={onClick}
       sx={{
         p: 2,
         minWidth: 150,
         flex: "1 1 150px",
         borderLeft: color ? `4px solid ${color}` : undefined,
+        ...(onClick && {
+          cursor: "pointer",
+          transition: "background-color 120ms",
+          "&:hover": { bgcolor: "action.hover" },
+        }),
       }}
     >
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>

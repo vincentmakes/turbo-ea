@@ -29834,6 +29834,104 @@
         ]
       }
     },
+    "/api/v1/reports/data-quality/cards": {
+      "get": {
+        "description": "The cards behind one slice of the data-quality dashboard.\n\nBacks the side panel opened by clicking a bar segment / KPI tile: same\npopulation as `/reports/data-quality` (ACTIVE cards only), narrowed to one\ntype, quality band and/or flag. `total` is the untruncated count so the\npanel can say \"showing N of M\".",
+        "operationId": "data_quality_cards_api_v1_reports_data_quality_cards_get",
+        "parameters": [
+          {
+            "description": "Card type key",
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Card type key",
+              "title": "Type"
+            }
+          },
+          {
+            "description": "complete | partial | minimal",
+            "in": "query",
+            "name": "band",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "complete | partial | minimal",
+              "title": "Band"
+            }
+          },
+          {
+            "description": "orphaned | stale",
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "orphaned | stale",
+              "title": "Scope"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Data Quality Cards",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/api/v1/reports/dependencies": {
       "get": {
         "description": "Dependency / interface map: nodes + edges for graph rendering.",

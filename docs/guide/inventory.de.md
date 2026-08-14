@@ -15,7 +15,7 @@ Das linke Seitenpanel ermöglicht es Ihnen, Karten nach verschiedenen Kriterien 
 - **Subtypen** — Wenn ein Typ ausgewählt ist, können Sie weiter nach Subtyp filtern (z.B. Anwendung -> Geschäftsanwendung, Microservice, AI Agent, Deployment)
 - **Genehmigungsstatus** — Entwurf, Genehmigt, Ungültig oder Abgelehnt
 - **Lebenszyklus** — Filtern nach Lebenszyklusphase: Planung, Einführung, Aktiv, Auslauf, Lebensende
-- **Datenqualität** — Schwellenwertbasiertes Filtern: Gut (80%+), Mittel (50–79%), Schlecht (unter 50%)
+- **Datenqualität** — Filtern nach Band (Mehrfachauswahl): Vollständig (≥80%), Teilweise (40–79%), Minimal (unter 40%). Dieselben Bänder wie im [Datenqualitätsbericht](reports.md#data-quality-report) — ein Klick auf ein Balkensegment dort führt hierher.
 - **Tags** — Filtern nach Tags aus beliebigen Tag-Gruppen
 - **Beziehungen** — Filtern nach verwandten Karten über Beziehungstypen
 - **Benutzerdefinierte Attribute** — Filtern nach Werten in benutzerdefinierten Feldern (Textsuche, Auswahloptionen)

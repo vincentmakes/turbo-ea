@@ -283,6 +283,8 @@
   "dataQuality.completeLegend": "Complet (≥80 %)",
   "dataQuality.partialLegend": "Partiel (40-79 %)",
   "dataQuality.minimalLegend": "Minimal (<40 %)",
+  "dataQuality.noCardsInSegment": "Aucune fiche dans ce segment",
+  "dataQuality.showingOf": "Affichage de {{shown}} sur {{total}}",
   "dataQuality.avgCompletion": "Complétude moy.",
   "dataQuality.completion": "Complétude",
   "dataQuality.lastUpdated": "Dernière mise à jour",

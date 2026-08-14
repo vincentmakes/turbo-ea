@@ -54,6 +54,12 @@ import InventoryFilterSidebar, {
 import { type GroupAxis, type GroupedRow } from "@/components/grid/rowGrouping";
 import { GroupByMenuButton, useRowGrouping } from "@/components/grid/useRowGrouping";
 import ImportDialog from "./ImportDialog";
+import {
+  bandOf,
+  DATA_QUALITY_BANDS,
+  isDataQualityBand,
+  normalizeDataQualityFilter,
+} from "./dataQualityBands";
 import { exportToExcel, exportCurrentViewToExcel } from "./excelExport";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import RelationCellPopover from "./RelationCellPopover";
@@ -282,6 +288,7 @@ function urlHasFilterParams(searchParams: URLSearchParams): boolean {
     searchParams.has("show_archived") ||
     searchParams.has("mine") ||
     searchParams.has("tag") ||
+    searchParams.has("dq") ||
     Array.from(searchParams.keys()).some((k) => k.startsWith("attr_") || k.startsWith("rel_"))
   );
 }
@@ -402,7 +409,8 @@ export function splitInventoryCellValues(
  * the SAME semantics as an equals filter are bound:
  *
  *  - not bound: name/reference/path/parent/description/status/metadata (no
- *    facet), data quality (a threshold, not a value), tags / relations /
+ *    facet), data quality (the cell is a percentage, the facet is a band —
+ *    equals on the raw value would match almost nothing), tags / relations /
  *    stakeholders / multi-select attributes (multi-valued), and text /
  *    number / cost / date attributes — the sidebar matches those with
  *    *contains* / *minimum*, so mirroring an equals cell into them would
@@ -605,7 +613,7 @@ export default function InventoryPage() {
         search: searchParams.get("search") || "",
         subtypes: [],
         lifecyclePhases: [],
-        dataQualityMin: null,
+        dataQualityBands: searchParams.getAll("dq").filter(isDataQualityBand),
         approvalStatuses: searchParams.get("approval_status") ? [searchParams.get("approval_status")!] : [],
         showArchived: searchParams.get("show_archived") === "true",
         attributes,
@@ -623,7 +631,8 @@ export default function InventoryPage() {
         search: saved.filters.search || "",
         subtypes: saved.filters.subtypes || [],
         lifecyclePhases: saved.filters.lifecyclePhases || [],
-        dataQualityMin: saved.filters.dataQualityMin ?? null,
+        // Prefs written before bands existed carry a `dataQualityMin`.
+        dataQualityBands: normalizeDataQualityFilter(saved.filters),
         approvalStatuses: saved.filters.approvalStatuses || [],
         showArchived: saved.filters.showArchived || false,
         attributes: saved.filters.attributes || {},
@@ -638,7 +647,7 @@ export default function InventoryPage() {
       search: "",
       subtypes: [],
       lifecyclePhases: [],
-      dataQualityMin: null,
+      dataQualityBands: [],
       approvalStatuses: [],
       showArchived: false,
       attributes: {},
@@ -945,6 +954,14 @@ export default function InventoryPage() {
       label: t("columns.approvalStatus"),
       groupKeyOf: (c) => c.approval_status,
       vocab: APPROVAL_STATUS_OPTIONS.map((o) => ({ key: o.key, label: t(o.tKey), color: o.color })),
+    });
+    // Every card has a score, so this axis works for any type mix — and it is
+    // what the Data Quality report's "View in inventory" deep-link lands on.
+    axes.push({
+      key: "data_quality",
+      label: t("columns.dataQuality"),
+      groupKeyOf: (c) => bandOf(c.data_quality),
+      vocab: DATA_QUALITY_BANDS.map((b) => ({ key: b.key, label: t(b.tKey), color: b.color })),
     });
     if (typeConfig) {
       for (const section of typeConfig.fields_schema) {
@@ -1295,15 +1312,10 @@ export default function InventoryPage() {
       result = result.filter((card) => filters.lifecyclePhases.includes(getLifecyclePhase(card) || EMPTY_VALUE));
     }
 
-    // Data quality filter
-    if (filters.dataQualityMin !== null) {
-      const min = filters.dataQualityMin;
-      if (min === 0) {
-        // "Poor" = below 50
-        result = result.filter((card) => (card.data_quality ?? 0) < 50);
-      } else {
-        result = result.filter((card) => (card.data_quality ?? 0) >= min);
-      }
+    // Data quality filter — disjoint bands, OR'd (see dataQualityBands.ts)
+    if (filters.dataQualityBands.length > 0) {
+      const bands = filters.dataQualityBands;
+      result = result.filter((card) => bands.includes(bandOf(card.data_quality)));
     }
 
     // Attribute filters (client-side) — supports different field types
@@ -1411,7 +1423,7 @@ export default function InventoryPage() {
     }
 
     return result;
-  }, [data, filters.types, filters.subtypes, filters.lifecyclePhases, filters.dataQualityMin, filters.attributes, filters.relations, filters.tagIds, relationsMap, tagGroups]);
+  }, [data, filters.types, filters.subtypes, filters.lifecyclePhases, filters.dataQualityBands, filters.attributes, filters.relations, filters.tagIds, relationsMap, tagGroups]);
 
   // --- Grouped row data (shared hook — see components/grid/useRowGrouping) ---
   const grouping = useRowGrouping<Card>(gridRef, {

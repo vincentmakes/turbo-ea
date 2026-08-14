@@ -17,7 +17,7 @@ const EMPTY_FILTERS: Filters = {
   search: "",
   subtypes: [],
   lifecyclePhases: [],
-  dataQualityMin: null,
+  dataQualityBands: [],
   approvalStatuses: [],
   showArchived: false,
   attributes: {},
@@ -426,6 +426,48 @@ describe("InventoryPage", () => {
 
     // Grid should still be rendered (with empty initial data)
     expect(screen.getByTestId("ag-grid")).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Data-quality band filter
+//
+// The Data Quality report deep-links into a band, so `?dq=` has to survive the
+// URL branch — which used to hardcode the quality filter off entirely.
+// ---------------------------------------------------------------------------
+
+describe("InventoryPage data-quality bands", () => {
+  const rowCount = () => screen.getByTestId("ag-grid").getAttribute("data-row-count");
+
+  // MOCK_CARDS: "SAP ERP" scores 85 (complete), "Cloud Migration" 60 (partial).
+  it("filters to the band named in the URL", async () => {
+    renderInventory("/inventory?dq=partial");
+
+    await waitFor(() => expect(rowCount()).toBe("1"));
+  });
+
+  it("ORs several bands", async () => {
+    renderInventory("/inventory?dq=partial&dq=complete");
+
+    await waitFor(() => expect(rowCount()).toBe("2"));
+  });
+
+  it("ignores an unknown band rather than filtering everything out", async () => {
+    renderInventory("/inventory?dq=excellent");
+
+    await waitFor(() => expect(rowCount()).toBe("2"));
+  });
+
+  it("migrates a legacy dataQualityMin pref instead of dropping the filter", async () => {
+    // Prefs written before bands existed. 80 meant "80 and above" = complete.
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({ filters: { types: [], dataQualityMin: 80 } }),
+    );
+
+    renderInventory();
+
+    await waitFor(() => expect(rowCount()).toBe("1"));
   });
 });
 

@@ -15,7 +15,7 @@ Il pannello laterale sinistro consente di **filtrare** le card secondo diversi c
 - **Sottotipi** — Quando un tipo è selezionato, filtra ulteriormente per sottotipo (es. Application -> Business Application, Microservice, AI Agent, Deployment)
 - **Stato di approvazione** — Draft, Approved, Broken o Rejected
 - **Ciclo di vita** — Filtra per fase del ciclo di vita: Plan, Phase In, Active, Phase Out, End of Life
-- **Qualità dei dati** — Filtro basato su soglia: Buona (80%+), Media (50-79%), Scarsa (sotto il 50%)
+- **Qualità dei dati** — Filtro per fascia (selezione multipla): Completo (≥80%), Parziale (40-79%), Minimo (sotto il 40%). Sono le fasce del [report Qualità dei dati](reports.md#data-quality-report): un clic su un segmento di barra porta qui.
 - **Tag** — Filtra per tag di qualsiasi gruppo di tag
 - **Relazioni** — Filtra per card correlate attraverso i tipi di relazione
 - **Attributi personalizzati** — Filtra per valori nei campi personalizzati (ricerca testuale, opzioni di selezione)
