@@ -92,4 +92,27 @@ describe("ReleaseNotesDialog", () => {
 
     expect(callsTo("/settings/update-status")).toHaveLength(0);
   });
+
+  it("does not title the spinner with the release it read last time", async () => {
+    // `t` is the identity here, so a headline built from a loaded payload reads
+    // "releaseNotes.title" and one with nothing loaded reads
+    // "releaseNotes.titleFallback" -- enough to tell a stale title from a fresh one.
+    const { rerender, queryByText } = render(
+      <ReleaseNotesDialog open variant="available" onClose={() => {}} />,
+    );
+    await settle();
+    expect(queryByText("releaseNotes.title")).not.toBeNull();
+
+    rerender(<ReleaseNotesDialog open={false} variant="available" onClose={() => {}} />);
+    await settle();
+
+    // Reopen against a fetch that never settles: the dialog is showing its
+    // spinner, and must not be captioned with the version from the last open.
+    vi.mocked(api.get).mockImplementation(() => new Promise(() => {}));
+    rerender(<ReleaseNotesDialog open variant="available" onClose={() => {}} />);
+    await settle();
+
+    expect(queryByText("releaseNotes.title")).toBeNull();
+    expect(queryByText("releaseNotes.titleFallback")).not.toBeNull();
+  });
 });

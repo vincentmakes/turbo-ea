@@ -70,6 +70,10 @@ export default function ReleaseNotesDialog({
     let current = true;
     setLoading(true);
     setFailed(false);
+    // Drop the previous payload: the component stays mounted across an
+    // open/close cycle, so keeping it would title the spinner with the version
+    // read last time -- announcing 2.60.0 while fetching 2.61.0.
+    setLoaded(null);
 
     const load: Promise<Loaded> =
       variant === "installed"

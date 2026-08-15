@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - **The lifecycle timeline no longer floats over the card preview panel's header.** Scrolling a card in the side panel dragged the timeline's dots, phase names and dates across the card's name and its quality, lifecycle and approval badges instead of sliding underneath them. The panel's content now scrolls under its header, as every other section already did.
+- **Release notes no longer open under the previous release's heading.** Reopening the notes kept the last version's title on screen while the new ones were still loading, so the dialog briefly announced the wrong release.
 
 ## [2.61.0] - 2026-08-15
 
