@@ -13,6 +13,11 @@ RUN mkdir -p app && touch app/__init__.py && \
     rm -rf app
 
 COPY VERSION ./VERSION
+# The changelog ships with the backend so the "what's new after an upgrade"
+# dialog reads the notes for the running version off disk — no network, so it
+# behaves identically on an air-gapped install. `.dockerignore` excludes `*.md`
+# and re-admits this one file.
+COPY CHANGELOG.md ./CHANGELOG.md
 COPY backend/ ./
 RUN pip install --no-cache-dir --no-deps --prefix=/install .
 
@@ -29,6 +34,7 @@ WORKDIR /app
 
 COPY --from=backend-build /install /usr/local
 COPY --from=backend-build /app/VERSION ./VERSION
+COPY --from=backend-build /app/CHANGELOG.md ./CHANGELOG.md
 COPY --from=backend-build /app/app ./app
 COPY --from=backend-build /app/alembic ./alembic
 COPY --from=backend-build /app/alembic.ini ./alembic.ini

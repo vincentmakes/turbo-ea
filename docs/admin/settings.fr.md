@@ -174,6 +174,14 @@ La vérification se limite à **prévenir** : rien n'est téléchargé et rien n
 
 Désactiver l'option supprime totalement la requête quotidienne vers github.com, ce que recherche une installation isolée ou à sortie réseau restreinte. Dans les deux cas l'instance fonctionne normalement : si le flux des versions est injoignable, l'échec est consigné discrètement et rien n'est affiché.
 
+### Une fois la mise à niveau effectuée
+
+Un second interrupteur, **Annoncer les mises à niveau aux utilisateurs**, couvre l'autre moitié. Lorsque l'instance redémarre sur une version plus récente, **tous** les utilisateurs — pas seulement les administrateurs — reçoivent une notification indiquant que Turbo EA a été mis à jour, et un clic affiche le changelog de toutes les versions franchies. Une instance passant de 2.57.0 à 2.60.0 montre les quatre versions, pas seulement la dernière.
+
+L'annonce est envoyée **une fois par version** : dix redémarrages sur la même version ne produisent qu'une notification, et un retour arrière n'en produit aucune. Une installation toute neuve n'annonce rien, puisqu'il n'y a aucune mise à niveau à décrire. Ces notes proviennent du changelog embarqué dans l'image : cette moitié ne nécessite aucun réseau.
+
+Celle-ci est **uniquement dans l'application** et n'est jamais envoyée par e-mail — elle touche chaque utilisateur actif à chaque mise à niveau, et un canal e-mail transformerait chaque correctif en publipostage. Chaque utilisateur peut toutefois la désactiver sous **Notifications de mise à jour** dans ses propres préférences, où l'interrupteur e-mail apparaît désactivé.
+
 ## Bouton Soutenir
 
 Affichez ou masquez le bouton **Soutenir** dans le menu utilisateur (avatar). Lorsqu'il est masqué, les utilisateurs ne voient plus le bouton Soutenir dans leur menu de profil. Le bouton Soutenir — et la boîte de dialogue expliquant comment soutenir Turbo EA — reste toujours disponible depuis ce panneau de paramètres, de sorte que les administrateurs peuvent toujours y accéder même lorsqu'il est masqué du menu.

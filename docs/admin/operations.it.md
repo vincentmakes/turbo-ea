@@ -91,7 +91,7 @@ All'interno di una stessa linea di versione maggiore le migrazioni restano addit
 
 ### Sapere quando è disponibile un aggiornamento
 
-Invece di sorvegliare il repository, lasciate che sia l'istanza a dirvelo: Turbo EA controlla ogni giorno se esiste una versione più recente e avvisa gli amministratori nella campanella delle notifiche, con il numero di versione e le note di rilascio. Non scarica né installa mai nulla: il passo 1 qui sopra continua a iniziare con la lettura del changelog. Il controllo è attivo per impostazione predefinita e può essere disattivato in [Amministrazione → Impostazioni → Generale](settings.md#update-notifications), il che elimina anche la richiesta in uscita sulle installazioni isolate.
+Invece di sorvegliare il repository, lasciate che sia l'istanza a dirvelo: Turbo EA controlla ogni giorno se esiste una versione più recente e avvisa gli amministratori nella campanella delle notifiche, con il numero di versione e le note di rilascio. Non scarica né installa mai nulla: il passo 1 qui sopra continua a iniziare con la lettura del changelog. Il controllo è attivo per impostazione predefinita e può essere disattivato in [Amministrazione → Impostazioni → Generale](settings.md#update-notifications), il che elimina anche la richiesta in uscita sulle installazioni isolate. A aggiornamento completato, ogni utente viene avvisato nella campanella delle notifiche che l'applicazione è stata aggiornata e può leggere il changelog delle versioni attraversate.
 
 ## Backup
 

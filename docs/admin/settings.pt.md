@@ -174,6 +174,14 @@ A verificação **apenas avisa**: nada é descarregado e nada é alterado no anf
 
 Desativar o interruptor elimina por completo o pedido diário ao github.com, que é o que uma instalação isolada ou com saída restringida necessita. Em qualquer dos casos a instância funciona normalmente: se o feed de versões estiver inacessível, a falha é registada discretamente e nada é apresentado.
 
+### Depois de a atualização ficar concluída
+
+Um segundo interruptor, **Anunciar as atualizações aos utilizadores**, cobre a outra metade. Quando a instância reinicia numa versão mais recente, **todos** os utilizadores — não apenas os administradores — recebem uma notificação a indicar que o Turbo EA foi atualizado, e um clique mostra o changelog de todas as versões atravessadas. Uma instância que salta de 2.57.0 para 2.60.0 mostra as quatro versões, não apenas a última.
+
+O anúncio é enviado **uma vez por versão**: reiniciar dez vezes na mesma versão produz uma única notificação e uma reversão não produz nenhuma. Uma instalação nova não anuncia nada, porque não há qualquer atualização a descrever. Estas notas vêm do changelog incluído na imagem, pelo que esta metade não necessita de rede alguma.
+
+Esta é **apenas na aplicação** e nunca é enviada por e-mail: chega a todos os utilizadores ativos em cada atualização, e um canal de e-mail transformaria cada versão de correção num envio em massa. Cada utilizador pode silenciá-la em **Notificações de atualização** nas suas próprias preferências, onde o interruptor de e-mail surge desativado.
+
 ## Botão Apoiar
 
 Mostre ou oculte o botão **Apoiar** no menu de utilizador (avatar). Quando está oculto, os utilizadores deixam de ver o botão Apoiar no seu menu de perfil. O botão Apoiar — e a caixa de diálogo que explica como apoiar o Turbo EA — permanece sempre disponível neste painel de definições, pelo que os administradores ainda conseguem aceder-lhe mesmo quando está oculto no menu.

@@ -388,6 +388,30 @@ async def _promote_recurring_tasks_loop() -> None:
 _DQ_RESCORE_FLAG = "dataQualityCanonicalRescoreDoneV3"
 
 
+async def _one_shot_upgrade_announcement() -> None:
+    """Tell every user what changed, once, on the first boot of a new version.
+
+    Runs once per boot, not on a loop: a marker in ``app_settings`` makes every
+    restart on the same version a no-op. A fresh install, a rollback, and an
+    instance with announcements switched off all record the version and stay
+    quiet — see ``announce_upgrade_if_needed``.
+    """
+    from app.database import async_session
+    from app.services.upgrade_announce import announce_upgrade_if_needed
+
+    try:
+        async with async_session() as db:
+            notified = await announce_upgrade_if_needed(db)
+            await db.commit()
+            if notified:
+                logger.info("Announced the upgrade to %s to %d user(s)", APP_VERSION, notified)
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        # Marker not written — the announcement retries on the next startup.
+        logger.exception("Upgrade announcement failed")
+
+
 async def _one_shot_data_quality_rescore() -> None:
     """Rescore every card with the canonical scorer, once per install.
 
@@ -853,6 +877,10 @@ async def lifespan(app: FastAPI):
     # a no-op on every boot after the first successful run).
     dq_rescore_task = asyncio.create_task(_one_shot_data_quality_rescore())
 
+    # One-shot "the app was updated" announcement to every user (guarded by a
+    # settings marker; a no-op on every boot that is not a version change).
+    upgrade_announce_task = asyncio.create_task(_one_shot_upgrade_announcement())
+
     # Hourly ops-access maintenance: expire rescue accounts + purge ops nonces.
     ops_access_task = asyncio.create_task(_ops_access_maintenance_loop())
 
@@ -905,6 +933,12 @@ async def lifespan(app: FastAPI):
         dq_rescore_task.cancel()
         try:
             await dq_rescore_task
+        except asyncio.CancelledError:
+            pass
+    if not upgrade_announce_task.done():
+        upgrade_announce_task.cancel()
+        try:
+            await upgrade_announce_task
         except asyncio.CancelledError:
             pass
     if ollama_task and not ollama_task.done():

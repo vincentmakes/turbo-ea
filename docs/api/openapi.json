@@ -489,6 +489,19 @@
         "title": "AiSuggestResponse",
         "type": "object"
       },
+      "AnnounceUpgradesEnabledPayload": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "AnnounceUpgradesEnabledPayload",
+        "type": "object"
+      },
       "AppTitlePayload": {
         "properties": {
           "app_title": {
@@ -33655,6 +33668,46 @@
         ]
       }
     },
+    "/api/v1/settings/announce-upgrades-enabled": {
+      "patch": {
+        "description": "Admin endpoint \u2014 announce upgrades to all users, or keep them silent.\n\nSwitching it off does not suppress a *pending* announcement retroactively:\nthe version marker still advances on every boot, so re-enabling this later\nannounces the next upgrade rather than replaying an old one.",
+        "operationId": "update_announce_upgrades_enabled_api_v1_settings_announce_upgrades_enabled_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnounceUpgradesEnabledPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Announce Upgrades Enabled",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
     "/api/v1/settings/app-title": {
       "get": {
         "description": "Public endpoint \u2014 returns the configured app title.\n\nPublic because the login page and browser tab title need it before the\nuser authenticates. Falls back to the default brand name when unset.",
@@ -35200,6 +35253,26 @@
           }
         },
         "summary": "Get Update Status",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/whats-new": {
+      "get": {
+        "description": "Changelog for the versions this instance was last upgraded across.\n\nAuthenticated but **not** permission-gated, unlike ``/update-status``:\nevery active user is notified when the app is updated, so every one of them\nhas to be able to read what changed. A changelog is public information \u2014\nthe same text is on the project's releases page.\n\nServed from the changelog bundled in the image, so it needs no network and\nanswers identically on an air-gapped install.",
+        "operationId": "get_whats_new_api_v1_settings_whats_new_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Whats New",
         "tags": [
           "settings"
         ]

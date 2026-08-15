@@ -690,7 +690,8 @@ export type NotificationType =
   | "soaw_sign_requested"
   | "soaw_signed"
   | "survey_request"
-  | "app_update_available";
+  | "app_update_available"
+  | "app_updated";
 
 export interface Notification {
   id: string;
@@ -724,6 +725,13 @@ export interface UpdateStatus {
   error: string | null;
   update_available: boolean;
   enabled: boolean;
+}
+
+/** Changelog for the versions this instance was last upgraded across. */
+export interface WhatsNewResponse {
+  version: string;
+  from_version: string | null;
+  notes: string;
 }
 
 export interface NotificationPreferences {

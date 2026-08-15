@@ -91,7 +91,7 @@ Au sein d'une même ligne de version majeure, les migrations restent additives e
 
 ### Savoir qu'une mise à niveau est disponible
 
-Plutôt que de surveiller le dépôt, laissez l'instance vous prévenir : Turbo EA vérifie chaque jour l'existence d'une version plus récente et notifie les administrateurs dans la cloche de notifications, avec le numéro de version et les notes de version. Rien n'est jamais téléchargé ni installé — l'étape 1 ci-dessus commence toujours par la lecture du changelog. La vérification est active par défaut et peut être désactivée dans [Administration → Paramètres → Général](settings.md#update-notifications), ce qui supprime aussi la requête sortante sur les installations isolées.
+Plutôt que de surveiller le dépôt, laissez l'instance vous prévenir : Turbo EA vérifie chaque jour l'existence d'une version plus récente et notifie les administrateurs dans la cloche de notifications, avec le numéro de version et les notes de version. Rien n'est jamais téléchargé ni installé — l'étape 1 ci-dessus commence toujours par la lecture du changelog. La vérification est active par défaut et peut être désactivée dans [Administration → Paramètres → Général](settings.md#update-notifications), ce qui supprime aussi la requête sortante sur les installations isolées. Une fois la mise à niveau effectuée, chaque utilisateur est informé via la cloche de notifications que l'application a été mise à jour et peut lire le changelog des versions franchies.
 
 ## Sauvegardes
 

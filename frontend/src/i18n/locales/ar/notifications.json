@@ -3,6 +3,7 @@
   "markAllRead": "وضع علامة مقروء على الكل",
   "noNotifications": "لا توجد إشعارات",
   "opensExternally": "يُفتح في تبويب جديد",
+  "opensReleaseNotes": "يفتح ملاحظات الإصدار",
 
   "preferences.title": "تفضيلات الإشعارات",
   "preferences.description": "اختر الإشعارات التي تريد تلقيها وكيفية تلقيها.",
@@ -21,11 +22,14 @@
   "preferences.soawSigned": "تم توقيع SoAW",
   "preferences.surveyRequest": "طلب استبيان",
   "preferences.appUpdateAvailable": "يتوفر تحديث",
+  "preferences.appUpdated": "تم تحديث التطبيق",
 
   "releaseNotes.title": "الإصدار Turbo EA {{version}} متاح",
   "releaseNotes.titleFallback": "ملاحظات الإصدار",
   "releaseNotes.running": "أنت تستخدم الإصدار {{version}}",
   "releaseNotes.viewOnGithub": "العرض على GitHub",
   "releaseNotes.empty": "لم تُنشر ملاحظات لهذا الإصدار.",
-  "releaseNotes.loadFailed": "تعذّر تحميل ملاحظات الإصدار"
+  "releaseNotes.loadFailed": "تعذّر تحميل ملاحظات الإصدار",
+  "releaseNotes.installedTitle": "الجديد في Turbo EA {{version}}",
+  "releaseNotes.updatedFrom": "تم التحديث من الإصدار {{version}}"
 }

@@ -14,23 +14,41 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { renderReleaseNotes } from "@/components/releaseNotesMarkdown";
 import { api } from "@/api/client";
-import type { UpdateStatus } from "@/types";
+import type { UpdateStatus, WhatsNewResponse } from "@/types";
 
 /**
- * Shows what changed in the release an administrator is being offered, without
- * sending them off to github.com. The content is whatever the daily check
- * already cached, so opening this costs no outbound request and still works on
- * an instance that has since lost network access.
+ * `available` — an update exists but has not been installed. Notes come from
+ *   the GitHub release the daily check cached, and the dialog offers a link to
+ *   that release page.
+ * `installed` — the upgrade has landed. Notes come from the changelog bundled
+ *   in the image, spanning every version the instance jumped across, and there
+ *   is no external page to point at.
+ */
+export type ReleaseNotesVariant = "available" | "installed";
+
+interface Content {
+  headline: string;
+  subtitle: string | null;
+  notes: string;
+  releaseUrl: string | null;
+}
+
+/**
+ * Shows what changed in a release without sending anyone off to github.com.
+ * Both variants read from a server-side cache, so opening this costs no
+ * outbound request and works unchanged on an air-gapped instance.
  */
 export default function ReleaseNotesDialog({
   open,
   onClose,
+  variant = "available",
 }: {
   open: boolean;
   onClose: () => void;
+  variant?: ReleaseNotesVariant;
 }) {
   const { t } = useTranslation(["notifications", "common"]);
-  const [status, setStatus] = useState<UpdateStatus | null>(null);
+  const [content, setContent] = useState<Content | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -39,10 +57,31 @@ export default function ReleaseNotesDialog({
     let current = true;
     setLoading(true);
     setError("");
-    api
-      .get<UpdateStatus>("/settings/update-status")
-      .then((res) => {
-        if (current) setStatus(res);
+
+    const load =
+      variant === "installed"
+        ? api.get<WhatsNewResponse>("/settings/whats-new").then((res) => ({
+            headline: t("releaseNotes.installedTitle", { version: res.version }),
+            subtitle: res.from_version
+              ? t("releaseNotes.updatedFrom", { version: res.from_version })
+              : null,
+            notes: res.notes ?? "",
+            releaseUrl: null,
+          }))
+        : api.get<UpdateStatus>("/settings/update-status").then((res) => ({
+            headline: res.latest_version
+              ? t("releaseNotes.title", { version: res.latest_version })
+              : t("releaseNotes.titleFallback"),
+            subtitle: res.current_version
+              ? t("releaseNotes.running", { version: res.current_version })
+              : null,
+            notes: res.release_notes ?? "",
+            releaseUrl: res.release_url,
+          }));
+
+    load
+      .then((next) => {
+        if (current) setContent(next);
       })
       .catch(() => {
         if (current) setError(t("releaseNotes.loadFailed"));
@@ -50,31 +89,26 @@ export default function ReleaseNotesDialog({
       .finally(() => {
         if (current) setLoading(false);
       });
+
     return () => {
       current = false;
     };
-  }, [open, t]);
+  }, [open, variant, t]);
 
-  const notes = status?.release_notes?.trim() ?? "";
+  const notes = content?.notes.trim() ?? "";
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth scroll="paper">
       <DialogTitle sx={{ pb: 1 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <MaterialSymbol icon="system_update_alt" size={22} />
-          <Box sx={{ flex: 1 }}>
-            {status?.latest_version
-              ? t("releaseNotes.title", { version: status.latest_version })
-              : t("releaseNotes.titleFallback")}
-          </Box>
-        </Box>
-        {status?.current_version && (
-          <Chip
-            size="small"
-            variant="outlined"
-            sx={{ mt: 1 }}
-            label={t("releaseNotes.running", { version: status.current_version })}
+          <MaterialSymbol
+            icon={variant === "installed" ? "auto_awesome" : "system_update_alt"}
+            size={22}
           />
+          <Box sx={{ flex: 1 }}>{content?.headline ?? t("releaseNotes.titleFallback")}</Box>
+        </Box>
+        {content?.subtitle && (
+          <Chip size="small" variant="outlined" sx={{ mt: 1 }} label={content.subtitle} />
         )}
       </DialogTitle>
       <Divider />
@@ -96,9 +130,9 @@ export default function ReleaseNotesDialog({
       </DialogContent>
 
       <DialogActions>
-        {status?.release_url && (
+        {content?.releaseUrl && (
           <Button
-            href={status.release_url}
+            href={content.releaseUrl}
             target="_blank"
             rel="noopener noreferrer"
             sx={{ textTransform: "none", mr: "auto" }}

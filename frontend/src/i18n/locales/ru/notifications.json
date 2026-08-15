@@ -3,6 +3,7 @@
   "markAllRead": "Отметить все как прочитанные",
   "noNotifications": "Нет уведомлений",
   "opensExternally": "Откроется в новой вкладке",
+  "opensReleaseNotes": "Открывает заметки о выпуске",
   "preferences.title": "Настройки уведомлений",
   "preferences.description": "Выберите, какие уведомления вы хотите получать и каким способом.",
   "preferences.notification": "Уведомление",
@@ -20,11 +21,14 @@
   "preferences.soawSigned": "SoAW подписан",
   "preferences.surveyRequest": "Запрос на опрос",
   "preferences.appUpdateAvailable": "Доступно обновление",
+  "preferences.appUpdated": "Приложение обновлено",
 
   "releaseNotes.title": "Доступна версия Turbo EA {{version}}",
   "releaseNotes.titleFallback": "Заметки о выпуске",
   "releaseNotes.running": "У вас установлена версия {{version}}",
   "releaseNotes.viewOnGithub": "Открыть на GitHub",
   "releaseNotes.empty": "Для этой версии заметки о выпуске не публиковались.",
-  "releaseNotes.loadFailed": "Не удалось загрузить заметки о выпуске"
+  "releaseNotes.loadFailed": "Не удалось загрузить заметки о выпуске",
+  "releaseNotes.installedTitle": "Что нового в Turbo EA {{version}}",
+  "releaseNotes.updatedFrom": "Обновлено с версии {{version}}"
 }

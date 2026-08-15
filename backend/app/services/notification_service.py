@@ -12,9 +12,19 @@ from app.models.notification import Notification
 from app.models.user import DEFAULT_NOTIFICATION_PREFERENCES, User
 from app.services.event_bus import event_bus
 
+#: Types that must never be emailed, whatever a preference row says.
+#:
+#: ``app_updated`` fans out to *every* active user on every upgrade, so an
+#: email channel would turn a patch release into a mass mailing. The UI shows
+#: the email switch disabled for these; this set is what actually enforces it,
+#: since preferences are also writable through the API.
+IN_APP_ONLY_TYPES = frozenset({"app_updated"})
+
 
 def _user_wants_notification(user: User, notif_type: str, channel: str) -> bool:
     """Check if a user has opted in to a notification type on a given channel."""
+    if channel == "email" and notif_type in IN_APP_ONLY_TYPES:
+        return False
     prefs = user.notification_preferences or DEFAULT_NOTIFICATION_PREFERENCES
     channel_prefs = prefs.get(channel, {})
     # Default to True for in_app, False for email if pref not set
@@ -109,6 +119,52 @@ async def create_notification(
             pass  # Email failure shouldn't block the notification
 
     return notif
+
+
+async def notify_all_users(
+    db: AsyncSession,
+    *,
+    notif_type: str,
+    title: str,
+    message: str = "",
+    link: str | None = None,
+    data: dict[str, Any] | None = None,
+) -> int:
+    """Notify every active user in one pass. Returns how many were notified.
+
+    ``create_notification`` is the right tool for a handful of recipients but
+    the wrong one for the whole directory: it re-reads the user row per call
+    and publishes an SSE event per call. This does one query for the users, one
+    ``add_all`` for the rows, and deliberately skips **both** the email branch
+    and the realtime publish.
+
+    Skipping the publish is safe for the only current caller: the announcement
+    runs during startup, so every client's stream has just dropped and its bell
+    refetches the unread count when the page next mounts. Do not reuse this for
+    something a user must see *without* reloading.
+
+    Does not commit — the caller owns the transaction.
+    """
+    result = await db.execute(select(User).where(User.is_active == True))  # noqa: E712
+    users = result.scalars().all()
+
+    rows = [
+        Notification(
+            user_id=user.id,
+            type=notif_type,
+            title=title,
+            message=message,
+            link=link,
+            data=data or {},
+            is_emailed=False,
+        )
+        for user in users
+        if _user_wants_notification(user, notif_type, "in_app")
+    ]
+    if rows:
+        db.add_all(rows)
+        await db.flush()
+    return len(rows)
 
 
 async def create_notifications_for_subscribers(

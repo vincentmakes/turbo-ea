@@ -174,6 +174,14 @@ Tjekket **giver kun besked**: der hentes intet, og intet ændres på værten. Op
 
 Slås kontakten **fra**, bortfalder den daglige forespørgsel til github.com helt, hvilket er præcis, hvad en air-gapped installation eller et miljø med begrænset udgående trafik har brug for. Uanset hvad kører instansen normalt: Kan udgivelsesfeedet ikke nås, registreres fejlen stilfærdigt, og der vises intet.
 
+### Når opgraderingen er gennemført
+
+En anden kontakt, **Annoncér opgraderinger til brugerne**, dækker den anden halvdel. Når instansen genstarter på en nyere version, får **alle** brugere — ikke kun administratorer — én notifikation om, at Turbo EA er opdateret, og et klik viser changeloggen for alle de versioner, opgraderingen krydsede. En instans, der springer fra 2.57.0 til 2.60.0, viser alle fire udgivelser, ikke kun den sidste.
+
+Annonceringen sendes **én gang pr. version**: ti genstarter på samme version giver én notifikation, og en tilbagerulning giver ingen. En helt ny installation annoncerer intet, for der er ingen opgradering at beskrive. Noterne kommer fra changeloggen i imaget, så denne halvdel kræver slet ikke netværk.
+
+Denne er **kun i appen** og sendes aldrig som e-mail — den når hver aktiv bruger ved hver opgradering, og en e-mailkanal ville gøre hver patch-udgivelse til en masseudsendelse. Den enkelte bruger kan stadig slå den fra under **Opdateringsnotifikationer** i sine egne notifikationsindstillinger, hvor e-mailkontakten vises deaktiveret.
+
 ## Støt-knap
 
 Vis eller skjul **Støt**-knappen i brugermenuen (avatar). Når den er skjult, ser brugerne ikke længere Støt-knappen i deres profilmenu. Støt-knappen — og dialogen, der forklarer, hvordan man støtter Turbo EA — er altid tilgængelig fra dette indstillingspanel, så administratorer stadig kan nå den, selv når den er skjult i menuen.

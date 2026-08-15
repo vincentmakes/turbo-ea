@@ -91,7 +91,7 @@ Within a major version line, migrations stay additive and backwards-compatible-o
 
 ### Knowing when an upgrade is available
 
-Rather than watching the repository, let the instance tell you: Turbo EA checks daily for a newer release and notifies administrators in the notification bell, with the version number and the release notes. It never downloads or installs anything — step 1 above still begins with reading the changelog. The check is on by default and can be switched off under [Admin → Settings → General](settings.md#update-notifications), which also stops the outbound request on air-gapped installs.
+Rather than watching the repository, let the instance tell you: Turbo EA checks daily for a newer release and notifies administrators in the notification bell, with the version number and the release notes. It never downloads or installs anything — step 1 above still begins with reading the changelog. The check is on by default and can be switched off under [Admin → Settings → General](settings.md#update-notifications), which also stops the outbound request on air-gapped installs. Once the upgrade lands, every user is told in the notification bell that the app was updated and can read the changelog for the versions it crossed.
 
 ## Backups
 

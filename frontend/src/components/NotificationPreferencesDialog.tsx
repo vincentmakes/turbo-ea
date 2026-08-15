@@ -18,7 +18,16 @@ import Box from "@mui/material/Box";
 import { api } from "@/api/client";
 import type { NotificationPreferences } from "@/types";
 
-const NOTIFICATION_TYPES = [
+interface NotificationTypeRow {
+  key: string;
+  labelKey: string;
+  /** Email cannot be switched off — the type always mails. */
+  forceEmail?: boolean;
+  /** Email is not offered at all; the switch renders off and disabled. */
+  noEmail?: boolean;
+}
+
+const NOTIFICATION_TYPES: NotificationTypeRow[] = [
   { key: "todo_assigned", labelKey: "preferences.todoAssigned" },
   { key: "task_assigned", labelKey: "preferences.taskAssigned" },
   { key: "card_updated", labelKey: "preferences.cardUpdated" },
@@ -30,6 +39,10 @@ const NOTIFICATION_TYPES = [
   // Only ever sent to users whose role can act on it (admin.settings); listed
   // for everyone the same way SoAW rows are, since roles change over time.
   { key: "app_update_available", labelKey: "preferences.appUpdateAvailable" },
+  // In-app only: this one goes to every user on every upgrade, so an email
+  // channel would make each patch release a mass mailing. The backend enforces
+  // it via IN_APP_ONLY_TYPES; the disabled switch is the visible half.
+  { key: "app_updated", labelKey: "preferences.appUpdated", noEmail: true },
 ];
 
 interface Props {
@@ -126,9 +139,9 @@ export default function NotificationPreferencesDialog({ open, onClose }: Props) 
                     <TableCell align="center">
                       <Switch
                         size="small"
-                        checked={nt.forceEmail || (prefs.email[nt.key] ?? false)}
+                        checked={!nt.noEmail && (nt.forceEmail || (prefs.email[nt.key] ?? false))}
                         onChange={() => toggle("email", nt.key)}
-                        disabled={nt.forceEmail}
+                        disabled={nt.forceEmail || nt.noEmail}
                       />
                     </TableCell>
                   </TableRow>

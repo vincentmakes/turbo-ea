@@ -149,6 +149,7 @@ interface GeneralSettingsBootstrap {
   grc_enabled: boolean;
   sponsor_button_enabled: boolean;
   update_check_enabled: boolean;
+  announce_upgrades_enabled: boolean;
   file_uploads_enabled: boolean;
   enabled_locales: string[];
   fiscal_year_start: number;
@@ -251,6 +252,8 @@ function GeneralTab() {
   const [savingSponsorButton, setSavingSponsorButton] = useState(false);
   const [updateCheckEnabled, setUpdateCheckEnabled] = useState(true);
   const [savingUpdateCheck, setSavingUpdateCheck] = useState(false);
+  const [announceUpgrades, setAnnounceUpgrades] = useState(true);
+  const [savingAnnounceUpgrades, setSavingAnnounceUpgrades] = useState(false);
   const [sponsorDialogOpen, setSponsorDialogOpen] = useState(false);
 
   // File uploads toggle state
@@ -344,6 +347,7 @@ function GeneralTab() {
         setGrcEnabled(general.grc_enabled);
         setSponsorButtonEnabled(general.sponsor_button_enabled);
         setUpdateCheckEnabled(general.update_check_enabled);
+        setAnnounceUpgrades(general.announce_upgrades_enabled);
         setFileUploadsEnabled(general.file_uploads_enabled);
         setFiscalYearStart(general.fiscal_year_start);
         setArchiveRetentionDays(general.archive_retention_days);
@@ -589,6 +593,24 @@ function GeneralTab() {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingUpdateCheck(false);
+    }
+  };
+
+  const handleAnnounceUpgradesToggle = async (enabled: boolean) => {
+    setSavingAnnounceUpgrades(true);
+    setError("");
+    try {
+      await api.patch("/settings/announce-upgrades-enabled", { enabled });
+      setAnnounceUpgrades(enabled);
+      setSnack(
+        enabled
+          ? t("settings.announceUpgrades.enabledSuccess")
+          : t("settings.announceUpgrades.disabledSuccess"),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingAnnounceUpgrades(false);
     }
   };
 
@@ -1484,6 +1506,30 @@ function GeneralTab() {
             updateCheckEnabled
               ? t("settings.updateCheck.on")
               : t("settings.updateCheck.off")
+          }
+        />
+
+        <Divider sx={{ my: 2 }} />
+
+        <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.5 }}>
+          {t("settings.announceUpgrades.title")}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("settings.announceUpgrades.description")}
+        </Typography>
+        <FormControlLabel
+          sx={{ display: "flex" }}
+          control={
+            <Switch
+              checked={announceUpgrades}
+              onChange={(e) => handleAnnounceUpgradesToggle(e.target.checked)}
+              disabled={savingAnnounceUpgrades}
+            />
+          }
+          label={
+            announceUpgrades
+              ? t("settings.announceUpgrades.on")
+              : t("settings.announceUpgrades.off")
           }
         />
       </Paper>

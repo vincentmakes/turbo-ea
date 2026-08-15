@@ -1,6 +1,10 @@
 .git
 .env
 *.md
+# …except the changelog, which the backend image ships so the post-upgrade
+# "what's new" dialog can read the running version's notes without a network
+# round-trip. Keep this below the `*.md` line — order decides.
+!CHANGELOG.md
 frontend/node_modules
 frontend/dist
 backend/__pycache__

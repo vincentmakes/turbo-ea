@@ -163,8 +163,40 @@ describe("NotificationBell link handling", () => {
     open.mockRestore();
   });
 
-  it("does not mark the update notice as leaving the app", async () => {
-    // It opens a dialog, so the open-in-new glyph would be a lie.
+  it("opens the what's-new dialog for a post-upgrade notice", async () => {
+    // This one has no link at all — its notes come from the changelog bundled
+    // in the image, read through /settings/whats-new.
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.startsWith("/notifications?")) {
+        const row = { ...notif("n1", "", "app_updated"), link: undefined };
+        return { items: [row], total: 1, page: 1, page_size: 20 };
+      }
+      if (path === "/settings/whats-new") {
+        return {
+          version: "2.60.0",
+          from_version: "2.57.0",
+          notes: "### Added\n- **Something shipped** in this release",
+        };
+      }
+      return { count: 1 };
+    });
+
+    const user = userEvent.setup();
+    render(<NotificationBell userId="u1" />);
+    await user.click(bellButton());
+    await user.click(await screen.findByText("notification n1"));
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(await screen.findByText("Something shipped")).toBeInTheDocument();
+    // The installed variant has no external page to offer.
+    expect(screen.queryByText("releaseNotes.viewOnGithub")).toBeNull();
+    expect(screen.queryByRole("img", { name: "opensExternally" })).toBeNull();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it("marks a dialog-opening notice as such, not as leaving the app", async () => {
+    // It opens a dialog, so open_in_new would be a lie — but the row still
+    // needs to say that clicking it shows something.
     await openList(
       "https://github.com/vincentmakes/turbo-ea/releases/tag/v2.61.0",
       "app_update_available",
@@ -172,5 +204,8 @@ describe("NotificationBell link handling", () => {
     await screen.findByText("notification n1");
 
     expect(screen.queryByRole("img", { name: "opensExternally" })).toBeNull();
+    expect(screen.getByRole("img", { name: "opensReleaseNotes" })).toHaveTextContent(
+      "open_in_full",
+    );
   });
 });

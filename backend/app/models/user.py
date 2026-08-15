@@ -19,6 +19,7 @@ DEFAULT_NOTIFICATION_PREFERENCES = {
         "soaw_signed": True,
         "survey_request": True,
         "app_update_available": True,
+        "app_updated": True,
     },
     "email": {
         "todo_assigned": True,

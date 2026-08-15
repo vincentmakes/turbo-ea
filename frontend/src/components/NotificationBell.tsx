@@ -21,6 +21,8 @@ import { formatDateWith, getCachedDateFormat } from "@/hooks/useDateFormat";
 import { NOTIFICATION_TYPE_COLORS } from "@/theme/tokens";
 import type { Notification, NotificationListResponse } from "@/types";
 
+import type { ReleaseNotesVariant } from "@/components/ReleaseNotesDialog";
+
 const ReleaseNotesDialog = lazy(() => import("@/components/ReleaseNotesDialog"));
 
 const NOTIFICATION_ICONS: Record<string, { icon: string; color: string }> = {
@@ -39,6 +41,7 @@ const NOTIFICATION_ICONS: Record<string, { icon: string; color: string }> = {
     icon: "system_update_alt",
     color: NOTIFICATION_TYPE_COLORS.app_update_available,
   },
+  app_updated: { icon: "auto_awesome", color: NOTIFICATION_TYPE_COLORS.app_updated },
 };
 
 /** Notification links are usually in-app routes, but some are absolute URLs.
@@ -48,13 +51,21 @@ function isExternalLink(link: string): boolean {
   return /^https?:\/\//i.test(link);
 }
 
-/** Types the bell handles itself instead of following `link`.
+/** Types the bell handles itself instead of following `link`, and which
+ *  flavour of the release-notes dialog each one opens.
  *
- *  An update notice carries the GitHub release URL — that is what an email
- *  copy of the notification needs — but in the app the release notes open in a
- *  dialog rather than sending an administrator off-site. */
+ *  An update-available notice carries the GitHub release URL — that is what an
+ *  email copy of the notification needs — but in the app the notes open in a
+ *  dialog rather than sending an administrator off-site. The post-upgrade
+ *  notice has no link at all: its notes come from the changelog bundled in the
+ *  image. */
+const DIALOG_TYPES: Record<string, ReleaseNotesVariant> = {
+  app_update_available: "available",
+  app_updated: "installed",
+};
+
 function opensInApp(notif: Notification): boolean {
-  return notif.type === "app_update_available";
+  return notif.type in DIALOG_TYPES;
 }
 
 /** Whether clicking this row leaves Turbo EA, which is what the trailing
@@ -90,7 +101,7 @@ export default function NotificationBell({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [releaseNotesOpen, setReleaseNotesOpen] = useState(false);
+  const [releaseNotesVariant, setReleaseNotesVariant] = useState<ReleaseNotesVariant | null>(null);
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
 
@@ -171,7 +182,7 @@ export default function NotificationBell({
     }
     handleClose();
     if (opensInApp(notif)) {
-      setReleaseNotesOpen(true);
+      setReleaseNotesVariant(DIALOG_TYPES[notif.type]);
       return;
     }
     if (notif.link) {
@@ -268,6 +279,14 @@ export default function NotificationBell({
                 icon: "notifications",
                 color: "text.secondary",
               };
+              // Trailing marker for rows that do more than mark themselves
+              // read. `open_in_new` is reserved for rows that genuinely leave
+              // the app; one that opens a dialog gets the expand glyph.
+              const trailing = leavesTheApp(notif)
+                ? { icon: "open_in_new", label: t("opensExternally") }
+                : opensInApp(notif)
+                  ? { icon: "open_in_full", label: t("opensReleaseNotes") }
+                  : null;
               return (
                 <ListItemButton
                   key={notif.id}
@@ -310,21 +329,19 @@ export default function NotificationBell({
                           {notif.message.length > 100
                             ? notif.message.slice(0, 100) + "..."
                             : notif.message}
-                          {/* Trailing marker: this row leaves the app, so say
-                              so before it is clicked. */}
-                          {leavesTheApp(notif) && (
+                          {trailing && (
                             <Box
                               component="span"
                               role="img"
-                              aria-label={t("opensExternally")}
-                              title={t("opensExternally")}
+                              aria-label={trailing.label}
+                              title={trailing.label}
                               sx={{
                                 display: "inline-flex",
                                 verticalAlign: "text-bottom",
                                 ml: 0.5,
                               }}
                             >
-                              <MaterialSymbol icon="open_in_new" size={14} />
+                              <MaterialSymbol icon={trailing.icon} size={14} />
                             </Box>
                           )}
                         </Typography>
@@ -347,9 +364,13 @@ export default function NotificationBell({
 
       {/* Lazy: the bell renders on every page, the dialog opens on a handful
           of clicks a year. */}
-      {releaseNotesOpen && (
+      {releaseNotesVariant && (
         <Suspense fallback={null}>
-          <ReleaseNotesDialog open onClose={() => setReleaseNotesOpen(false)} />
+          <ReleaseNotesDialog
+            open
+            variant={releaseNotesVariant}
+            onClose={() => setReleaseNotesVariant(null)}
+          />
         </Suspense>
       )}
     </>

@@ -174,6 +174,14 @@ The check is **notification-only** — nothing is downloaded and nothing on the 
 
 Turning the toggle **off** stops the daily request to github.com altogether, which is what an air-gapped or egress-restricted install wants. Either way the instance behaves normally: when the release feed cannot be reached, the failure is recorded quietly and nothing is shown.
 
+### After the upgrade lands
+
+A second switch, **Announce upgrades to users**, covers the other half of the story. When the instance restarts on a newer version, **every** user — not just administrators — gets one notification saying Turbo EA was updated, and clicking it shows the changelog for every version the upgrade crossed. An instance jumping from 2.57.0 to 2.60.0 shows all four releases, not just the last one.
+
+The announcement is sent **once per version**: restarting ten times on the same version produces one notification, and a rollback produces none. A brand-new install announces nothing, because there is no upgrade to describe. These notes come from the changelog bundled inside the image, so this half needs no network at all.
+
+This one is **in-app only** and is never emailed — it reaches every active user on every upgrade, and an email channel would turn each patch release into a mass mailing. Individual users can still mute it under **Update notifications** in their own notification preferences, where the email switch is shown disabled.
+
 ## Sponsor Button
 
 Show or hide the **Sponsor** button in the user (avatar) menu. When hidden, users no longer see the Sponsor button in their profile menu. The Sponsor button — and the dialog explaining how to support Turbo EA — always remains available from this settings panel, so administrators can still reach it even when it is hidden from the menu.

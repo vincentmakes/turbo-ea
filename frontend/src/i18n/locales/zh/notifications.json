@@ -3,6 +3,7 @@
   "markAllRead": "全部标为已读",
   "noNotifications": "暂无通知",
   "opensExternally": "在新标签页中打开",
+  "opensReleaseNotes": "打开发行说明",
   "preferences.title": "通知偏好设置",
   "preferences.description": "选择您希望接收的通知类型和接收方式。",
   "preferences.notification": "通知",
@@ -20,11 +21,14 @@
   "preferences.soawSigned": "SoAW 已签署",
   "preferences.surveyRequest": "调查请求",
   "preferences.appUpdateAvailable": "有可用更新",
+  "preferences.appUpdated": "应用已更新",
 
   "releaseNotes.title": "Turbo EA {{version}} 已发布",
   "releaseNotes.titleFallback": "发行说明",
   "releaseNotes.running": "当前运行版本为 {{version}}",
   "releaseNotes.viewOnGithub": "在 GitHub 上查看",
   "releaseNotes.empty": "该版本没有发布发行说明。",
-  "releaseNotes.loadFailed": "无法加载发行说明"
+  "releaseNotes.loadFailed": "无法加载发行说明",
+  "releaseNotes.installedTitle": "Turbo EA {{version}} 新增内容",
+  "releaseNotes.updatedFrom": "由 {{version}} 升级而来"
 }

@@ -115,6 +115,7 @@ export const NOTIFICATION_TYPE_COLORS = {
   soaw_signed: RAG_COLORS.green, // #2e7d32
   survey_request: "#0288d1", // light blue 700
   app_update_available: "#00796b", // teal 700
+  app_updated: "#5e35b1", // deep purple 600
 } as const;
 
 // ── Data quality buckets (Dashboard chart) ───────────────────────────────

@@ -3,6 +3,7 @@
   "markAllRead": "Mark all read",
   "noNotifications": "No notifications",
   "opensExternally": "Opens in a new tab",
+  "opensReleaseNotes": "Opens the release notes",
 
   "preferences.title": "Notification Preferences",
   "preferences.description": "Choose which notifications you want to receive and how.",
@@ -21,11 +22,14 @@
   "preferences.soawSigned": "SoAW Signed",
   "preferences.surveyRequest": "Survey Request",
   "preferences.appUpdateAvailable": "Update Available",
+  "preferences.appUpdated": "App Updated",
 
   "releaseNotes.title": "Turbo EA {{version}} is available",
   "releaseNotes.titleFallback": "Release notes",
   "releaseNotes.running": "You are running {{version}}",
   "releaseNotes.viewOnGithub": "View on GitHub",
   "releaseNotes.empty": "No release notes were published for this version.",
-  "releaseNotes.loadFailed": "Could not load the release notes"
+  "releaseNotes.loadFailed": "Could not load the release notes",
+  "releaseNotes.installedTitle": "What's new in Turbo EA {{version}}",
+  "releaseNotes.updatedFrom": "Updated from {{version}}"
 }

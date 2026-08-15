@@ -174,6 +174,14 @@ Il controllo si limita a **segnalare**: non viene scaricato nulla e nulla viene 
 
 Disattivando l'opzione la richiesta quotidiana a github.com viene eliminata del tutto, che è ciò che serve a un'installazione isolata o con traffico in uscita limitato. In entrambi i casi l'istanza funziona normalmente: se il feed delle release non è raggiungibile, l'errore viene registrato in silenzio e non viene mostrato nulla.
 
+### Dopo l'aggiornamento
+
+Un secondo interruttore, **Annunciare gli aggiornamenti agli utenti**, copre l'altra metà. Quando l'istanza riparte su una versione più recente, **tutti** gli utenti — non solo gli amministratori — ricevono una notifica che segnala l'aggiornamento di Turbo EA, e un clic mostra il changelog di tutte le versioni attraversate. Un'istanza che passa da 2.57.0 a 2.60.0 mostra tutte e quattro le release, non solo l'ultima.
+
+L'annuncio viene inviato **una volta per versione**: dieci riavvii sulla stessa versione producono una sola notifica e un rollback non ne produce nessuna. Un'installazione nuova non annuncia nulla, perché non c'è alcun aggiornamento da descrivere. Queste note provengono dal changelog incluso nell'immagine, quindi questa metà non richiede alcuna rete.
+
+Questa notifica è **solo in-app** e non viene mai inviata via e-mail: raggiunge ogni utente attivo a ogni aggiornamento, e un canale e-mail trasformerebbe ogni patch in un invio di massa. I singoli utenti possono comunque silenziarla in **Notifiche di aggiornamento** nelle proprie preferenze, dove l'interruttore e-mail appare disattivato.
+
 ## Pulsante Sostieni
 
 Mostra o nascondi il pulsante **Sostieni** nel menu utente (avatar). Quando è nascosto, gli utenti non vedono più il pulsante Sostieni nel loro menu del profilo. Il pulsante Sostieni — e la finestra che spiega come sostenere Turbo EA — rimane sempre disponibile da questo pannello delle impostazioni, così gli amministratori possono comunque raggiungerlo anche quando è nascosto dal menu.

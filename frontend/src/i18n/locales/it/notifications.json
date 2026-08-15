@@ -3,6 +3,7 @@
   "markAllRead": "Segna tutte come lette",
   "noNotifications": "Nessuna notifica",
   "opensExternally": "Si apre in una nuova scheda",
+  "opensReleaseNotes": "Apre le note di rilascio",
   "preferences.title": "Preferenze di notifica",
   "preferences.description": "Scegliere quali notifiche ricevere e in che modo.",
   "preferences.notification": "Notifica",
@@ -20,11 +21,14 @@
   "preferences.soawSigned": "SoAW firmato",
   "preferences.surveyRequest": "Richiesta di sondaggio",
   "preferences.appUpdateAvailable": "Aggiornamento disponibile",
+  "preferences.appUpdated": "Applicazione aggiornata",
 
   "releaseNotes.title": "Turbo EA {{version}} è disponibile",
   "releaseNotes.titleFallback": "Note di rilascio",
   "releaseNotes.running": "Stai usando la versione {{version}}",
   "releaseNotes.viewOnGithub": "Vedi su GitHub",
   "releaseNotes.empty": "Per questa versione non sono state pubblicate note di rilascio.",
-  "releaseNotes.loadFailed": "Impossibile caricare le note di rilascio"
+  "releaseNotes.loadFailed": "Impossibile caricare le note di rilascio",
+  "releaseNotes.installedTitle": "Novità di Turbo EA {{version}}",
+  "releaseNotes.updatedFrom": "Aggiornato dalla versione {{version}}"
 }
