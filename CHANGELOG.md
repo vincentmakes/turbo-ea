@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.61.0] - 2026-08-15
+
+### Added
+- **Right-clicking a cell that names a card now offers to preview it.** The Inventory's cell menu already filtered on the value under the cursor; it now also opens that card in the side panel, so looking at a related application no longer costs you your filters, sort and scroll position. It appears on every cell that names a card — the **Name** column for the row's own card, the **Parent** column, and the relation columns — and when a cell names several cards the menu lists them to pick from, exactly the way **Show matching** already works on a multi-valued cell. Each entry carries its card type's icon and colour, and a long-press opens the same menu on touch.
+
 ## [2.60.0] - 2026-08-15
 
 ### Added

@@ -28,16 +28,17 @@ El panel lateral izquierdo permite **filtrar** las fichas por diferentes criteri
 
 Un **contador de filtros activos** muestra cuántos filtros están aplicados actualmente.
 
-### Filtrar desde una celda
+### Acciones de celda
 
-Haga clic derecho en cualquier celda de la cuadrícula (pulsación larga en dispositivos táctiles) para abrir un menú contextual con acciones de filtrado rápidas, al estilo de ServiceNow:
+Haga clic derecho en cualquier celda de la cuadrícula (pulsación larga en dispositivos táctiles) para abrir un menú contextual con acciones rápidas sobre lo que hay bajo el cursor, al estilo de ServiceNow:
 
+- **Vista previa de la ficha** — abrir la ficha que nombra la celda en el panel lateral, sin salir de la cuadrícula
 - **Mostrar coincidencias** — conservar solo las filas cuyo valor coincide con el de la celda pulsada
 - **Excluir** — ocultar las filas cuyo valor coincide con el de la celda pulsada
 - **Copiar valor** — copiar el texto de la celda al portapapeles
 - **Borrar filtro de columna** — quitar el filtro de esa columna (visible solo mientras haya uno activo)
 
-En una celda con varios valores (etiquetas, relaciones, partes interesadas, atributos de selección múltiple), el menú muestra primero los valores individuales, para filtrar por uno de ellos o por la celda completa. Estos filtros van a los filtros de columna de la cuadrícula: se combinan con los filtros de la barra lateral, cuentan en el botón **Borrar filtros** de la barra de herramientas y se conservan con su vista. El mismo menú está disponible en todas las cuadrículas de Turbo EA — Decisiones, Registro de riesgos, Cumplimiento y las cuadrículas de administración. Cuando la columna tiene un filtro equivalente en el panel izquierdo — tipo de tarjeta, subtipo, ciclo de vida, estado de aprobación o un atributo de selección única —, **Mostrar coincidencias** también selecciona ese valor en el panel, y **Borrar** borra ambos, de modo que una vista guardada nunca puede contener un filtro del panel y un filtro de columna contradictorios. Si después se edita el filtro en el panel, este simplemente toma el control.
+En una celda con varios valores (etiquetas, relaciones, partes interesadas, atributos de selección múltiple), el menú muestra primero los valores individuales, para filtrar por uno de ellos o por la celda completa. **Vista previa de la ficha** aparece en toda celda que nombra una ficha — la columna **Nombre** (la ficha de la propia fila), la columna **Padre** y las columnas de relaciones — y cuando la celda nombra varias, el menú las lista igual, para que elija cuál abrir. Estos filtros van a los filtros de columna de la cuadrícula: se combinan con los filtros de la barra lateral, cuentan en el botón **Borrar filtros** de la barra de herramientas y se conservan con su vista. El mismo menú está disponible en todas las cuadrículas de Turbo EA — Decisiones, Registro de riesgos, Cumplimiento y las cuadrículas de administración. Cuando la columna tiene un filtro equivalente en el panel izquierdo — tipo de tarjeta, subtipo, ciclo de vida, estado de aprobación o un atributo de selección única —, **Mostrar coincidencias** también selecciona ese valor en el panel, y **Borrar** borra ambos, de modo que una vista guardada nunca puede contener un filtro del panel y un filtro de columna contradictorios. Si después se edita el filtro en el panel, este simplemente toma el control.
 
 ![Menú contextual de una celda del inventario](../assets/img/es/62_inventario_menu_contextual.png)
 

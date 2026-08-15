@@ -28,16 +28,17 @@ Das linke Seitenpanel ermöglicht es Ihnen, Karten nach verschiedenen Kriterien 
 
 Ein **Badge mit der Anzahl aktiver Filter** zeigt an, wie viele Filter derzeit angewendet werden.
 
-### Filtern aus einer Zelle
+### Zellenaktionen
 
-Klicken Sie mit der rechten Maustaste auf eine beliebige Zelle im Raster (langes Drücken auf Touch-Geräten), um ein Kontextmenü mit schnellen Filteraktionen zu öffnen, ähnlich wie in ServiceNow:
+Klicken Sie mit der rechten Maustaste auf eine beliebige Zelle im Raster (langes Drücken auf Touch-Geräten), um ein Kontextmenü mit Schnellaktionen für das zu öffnen, was sich unter dem Mauszeiger befindet, ähnlich wie in ServiceNow:
 
+- **Karte vorschauen** — die Karte, die die Zelle benennt, im Seitenbereich öffnen, ohne das Raster zu verlassen
 - **Übereinstimmende anzeigen** — nur die Zeilen behalten, deren Wert dem der angeklickten Zelle entspricht
 - **Herausfiltern** — die Zeilen ausblenden, deren Wert dem der angeklickten Zelle entspricht
 - **Wert kopieren** — den Zellentext in die Zwischenablage kopieren
 - **Spaltenfilter löschen** — den Filter dieser Spalte entfernen (nur sichtbar, solange einer aktiv ist)
 
-Bei mehrwertigen Zellen (Tags, Relationen, Stakeholder, Mehrfachauswahl-Attribute) listet das Menü zunächst die einzelnen Werte auf, sodass Sie nach einem davon oder nach der gesamten Zelle filtern können. Diese Filter landen in den Spaltenfiltern des Rasters: Sie kombinieren sich mit den Seitenleistenfiltern, zählen in die Schaltfläche **Filter löschen** der Werkzeugleiste und werden mit Ihrer Ansicht gespeichert. Dasselbe Menü ist in jedem Raster von Turbo EA verfügbar — Entscheidungen, Risikoregister, Compliance und die Admin-Raster. Wenn die Spalte einen passenden Filter im linken Panel hat — Kartentyp, Subtyp, Lebenszyklus, Genehmigungsstatus oder ein Einfachauswahl-Attribut —, wählt **Übereinstimmende anzeigen** diesen Wert auch im Panel aus, und **Löschen** löscht beides, sodass eine gespeicherte Ansicht nie einen Panel-Filter und einen Spaltenfilter enthalten kann, die sich widersprechen. Wird der Filter danach im Panel bearbeitet, übernimmt dieser einfach.
+Bei mehrwertigen Zellen (Tags, Relationen, Stakeholder, Mehrfachauswahl-Attribute) listet das Menü zunächst die einzelnen Werte auf, sodass Sie nach einem davon oder nach der gesamten Zelle filtern können. **Karte vorschauen** erscheint bei jeder Zelle, die eine Karte benennt — der Spalte **Name** (die Karte der Zeile selbst), der Spalte **Übergeordnet** und den Relationsspalten — und wenn die Zelle mehrere Karten benennt, listet das Menü sie genauso auf, sodass Sie die zu öffnende auswählen. Diese Filter landen in den Spaltenfiltern des Rasters: Sie kombinieren sich mit den Seitenleistenfiltern, zählen in die Schaltfläche **Filter löschen** der Werkzeugleiste und werden mit Ihrer Ansicht gespeichert. Dasselbe Menü ist in jedem Raster von Turbo EA verfügbar — Entscheidungen, Risikoregister, Compliance und die Admin-Raster. Wenn die Spalte einen passenden Filter im linken Panel hat — Kartentyp, Subtyp, Lebenszyklus, Genehmigungsstatus oder ein Einfachauswahl-Attribut —, wählt **Übereinstimmende anzeigen** diesen Wert auch im Panel aus, und **Löschen** löscht beides, sodass eine gespeicherte Ansicht nie einen Panel-Filter und einen Spaltenfilter enthalten kann, die sich widersprechen. Wird der Filter danach im Panel bearbeitet, übernimmt dieser einfach.
 
 ![Kontextmenü einer Inventarzelle](../assets/img/de/62_inventar_kontextmenue.png)
 

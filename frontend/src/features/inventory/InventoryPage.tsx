@@ -82,7 +82,9 @@ import TagPicker from "@/components/TagPicker";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
 import {
   useCellContextMenu,
+  MAX_SPLIT_VALUES,
   type CellMenuContext,
+  type CellPickTarget,
   type CellSplitValue,
 } from "@/components/grid/useCellContextMenu";
 import { useFacetColumnSync } from "@/components/grid/useFacetColumnSync";
@@ -91,7 +93,7 @@ import TagsCellEditor from "@/features/inventory/TagsCellEditor";
 import MultiSelectCellEditor from "@/features/inventory/MultiSelectCellEditor";
 import ParentCellEditor from "@/features/inventory/ParentCellEditor";
 import StakeholdersCellEditor from "@/features/inventory/StakeholdersCellEditor";
-import type { Card, CardListResponse, CardType, ColumnLayoutItem, FieldDef, FieldOption, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
+import type { Card, CardListResponse, CardType, ColumnLayoutItem, FieldDef, FieldOption, RelatedCardRef, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
 
@@ -250,27 +252,32 @@ function buildDescendantIndex(items: Card[]): Map<string, string[]> {
 }
 
 /**
- * Build a lookup: for each relation type, map cardId → array of related names.
- * When the selected type is the source, we index by source_id and show target names.
- * When the selected type is the target, we index by target_id and show source names.
+ * Build a lookup: for each relation type, map cardId → array of related cards.
+ * When the selected type is the source, we index by source_id and show targets.
+ * When the selected type is the target, we index by target_id and show sources.
+ *
+ * The far end's **id** is kept, not just its name: the cell text needs the
+ * name, but the context menu's Preview action needs to open the card, and
+ * resolving a name back to an id is ambiguous the moment two cards share one.
  */
 function buildRelationIndex(
   relations: Relation[],
   relationType: RelationType,
   selectedType: string
-): Map<string, string[]> {
-  const index = new Map<string, string[]>();
+): Map<string, RelatedCardRef[]> {
+  const index = new Map<string, RelatedCardRef[]>();
   const isSource = relationType.source_type_key === selectedType;
 
   for (const rel of relations) {
     const myId = isSource ? rel.source_id : rel.target_id;
-    const otherName = isSource ? rel.target?.name : rel.source?.name;
-    if (!otherName) continue;
+    const other = isSource ? rel.target : rel.source;
+    if (!other?.name || !other.id) continue;
+    const ref: RelatedCardRef = { id: other.id, name: other.name, type: other.type };
     const existing = index.get(myId);
     if (existing) {
-      existing.push(otherName);
+      existing.push(ref);
     } else {
-      index.set(myId, [otherName]);
+      index.set(myId, [ref]);
     }
   }
   return index;
@@ -298,6 +305,69 @@ function urlHasFilterParams(searchParams: URLSearchParams): boolean {
 
 /** How many chips a multi-valued cell shows before collapsing into "+N". */
 const CHIP_CELL_MAX = 3;
+
+/**
+ * The cards a right-clicked cell names, offered as the context menu's Preview
+ * action:
+ *
+ *   core_name    → the row's own card
+ *   core_parent  → its immediate parent
+ *   rel_<type>   → every related card behind the cell
+ *
+ * Every other column names none: `core_path` is a joined ancestor chain rather
+ * than one card, and the stakeholder columns name *users*.
+ *
+ * Related cards come back in the same order and with the same cap the cell
+ * text and the menu's per-value filter stage use, so the three can't disagree
+ * about which cards a cell holds. Deduplication is by **id**, so two related
+ * cards that happen to share a name yield two identically labelled items —
+ * they are two different cards, and dropping one would preview an arbitrary
+ * pick. Exported for tests.
+ */
+export function inventoryPreviewTargets(
+  ctx: CellMenuContext<InventoryRow>,
+  deps: {
+    relatedRefsOf: (cardId: string | undefined, otherTypeKey: string) => RelatedCardRef[];
+    /** Metamodel lookup — a row wears its card type's icon and colour. */
+    typeGlyph: (typeKey: string) => { icon?: string; color?: string };
+    locale: string;
+  },
+): CellPickTarget[] {
+  const card = ctx.data;
+  if (!card?.id) return [];
+  const target = (key: string, label: string, typeKey: string): CellPickTarget => ({
+    key,
+    label,
+    ...deps.typeGlyph(typeKey),
+  });
+
+  if (ctx.colId === "core_name") {
+    return [target(card.id, card.name, card.type)];
+  }
+  if (ctx.colId === "core_parent") {
+    // The column's valueFormatter already resolved the parent to a name, so
+    // displayValue is the label. A parent outside the loaded page resolves to
+    // "" — offer nothing rather than a nameless item. A hierarchy parent is
+    // always the same card type as its child.
+    if (!card.parent_id || !ctx.displayValue) return [];
+    return [target(card.parent_id, ctx.displayValue, card.type)];
+  }
+  if (ctx.colId.startsWith("rel_")) {
+    const otherTypeKey = ctx.colId.slice("rel_".length);
+    const seen = new Set<string>();
+    const unique: RelatedCardRef[] = [];
+    for (const ref of deps.relatedRefsOf(card.id, otherTypeKey)) {
+      if (seen.has(ref.id)) continue;
+      seen.add(ref.id);
+      unique.push(ref);
+    }
+    return unique
+      .sort((a, b) => a.name.localeCompare(b.name, deps.locale, { sensitivity: "base" }))
+      .slice(0, MAX_SPLIT_VALUES)
+      .map((ref) => target(ref.id, ref.name, ref.type || otherTypeKey));
+  }
+  return [];
+}
 
 /**
  * A multi-valued grid cell, rendered as compact chips with a "+N" overflow.
@@ -722,8 +792,8 @@ export default function InventoryPage() {
   // Card-detail side panel: opened from the eye icon in the Name column.
   const [previewCardId, setPreviewCardId] = useState<string | null>(null);
 
-  // Relations data: relTypeKey → Map<cardId, relatedNames[]>
-  const [relationsMap, setRelationsMap] = useState<Map<string, Map<string, string[]>>>(new Map());
+  // Relations data: relTypeKey → Map<cardId, relatedCards[]>
+  const [relationsMap, setRelationsMap] = useState<Map<string, Map<string, RelatedCardRef[]>>>(new Map());
 
   // Tag groups (for filter + column rendering)
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
@@ -1243,6 +1313,28 @@ export default function InventoryPage() {
     return keys;
   }, [relTypeGroupMap]);
 
+  /**
+   * Every card behind one relation cell, merged across the relation types
+   * that connect the selected type to `otherTypeKey` (a relation column is
+   * keyed by the *other end's type*, so several relation types can feed it).
+   *
+   * The cell's valueGetter and the context menu's Preview list both go
+   * through here: they used to be two separate merges, which is exactly how a
+   * cell's text and its menu drift apart.
+   */
+  const relatedRefsOf = useCallback(
+    (cardId: string | undefined, otherTypeKey: string): RelatedCardRef[] => {
+      if (!cardId) return [];
+      const out: RelatedCardRef[] = [];
+      for (const rk of relTypeGroupMap.get(otherTypeKey) ?? []) {
+        const refs = relationsMap.get(rk)?.get(cardId);
+        if (refs) out.push(...refs);
+      }
+      return out;
+    },
+    [relTypeGroupMap, relationsMap],
+  );
+
   // True while the relation request is in flight. Relation cells render a
   // placeholder instead of looking empty — an empty cell is indistinguishable
   // from "no relations", which is what made slow loads read as missing data
@@ -1294,7 +1386,7 @@ export default function InventoryPage() {
         if (bucket) bucket.push(rel);
         else byType.set(rel.type, [rel]);
       }
-      const newMap = new Map<string, Map<string, string[]>>();
+      const newMap = new Map<string, Map<string, RelatedCardRef[]>>();
       for (const key of allRelTypeKeys) {
         const rt = relationTypes.find((r) => r.key === key);
         if (!rt) continue;
@@ -1398,11 +1490,13 @@ export default function InventoryPage() {
         return relEntries.every(([relTypeKey, selectedNames]) => {
           if (!Array.isArray(selectedNames) || selectedNames.length === 0) return true;
           const index = relationsMap.get(relTypeKey);
-          const names = index?.get(card.id);
+          const refs = index?.get(card.id);
           const wantEmpty = selectedNames.includes(EMPTY_VALUE);
           // No related cards of this type → only matches when "(empty)" is selected.
-          if (!names || names.length === 0) return wantEmpty;
-          return selectedNames.some((n) => n !== EMPTY_VALUE && names.includes(n));
+          if (!refs || refs.length === 0) return wantEmpty;
+          return selectedNames.some(
+            (n) => n !== EMPTY_VALUE && refs.some((r) => r.name === n),
+          );
         });
       });
     }
@@ -1487,11 +1581,34 @@ export default function InventoryPage() {
   // Suppressed in grid-edit mode so it never fights the cell editors; filters
   // land in the grid's column filter model, which handleFilterChanged already
   // persists to localStorage and saved views.
+  //
+  // Preview: on any cell that names a card, open it in the side panel without
+  // leaving the grid. A cell naming several cards lists them in a pick stage,
+  // exactly as Show matching does for a multi-valued cell.
+  const previewTargets = useCallback(
+    (ctx: CellMenuContext<InventoryRow>): CellPickTarget[] =>
+      inventoryPreviewTargets(ctx, {
+        relatedRefsOf,
+        typeGlyph: (typeKey) => {
+          const ct = types.find((ty) => ty.key === typeKey);
+          return { icon: ct?.icon, color: ct?.color };
+        },
+        locale: i18n.language,
+      }),
+    [relatedRefsOf, types, i18n.language],
+  );
+
   const cellMenu = useCellContextMenu<InventoryRow>(gridRef, {
     disabled: () => gridEditMode,
     suppressForRow: (data) => !!data?.__group,
     splitValues: splitInventoryCellValues,
     facetSync: facetSync.cellMenu,
+    pickAction: {
+      icon: "visibility",
+      label: t("actions.previewCard"),
+      targets: previewTargets,
+      onPick: (target) => setPreviewCardId(target.key),
+    },
   });
 
   const handleCellEdit = async (event: CellValueChangedEvent) => {
@@ -2739,30 +2856,20 @@ export default function InventoryPage() {
       const headerName = otherType ? typeLabel(otherType) : otherTypeKey;
       const relTypeRef = rt;
       const colKey = `rel_${otherTypeKey}`;
-      // All relation type keys that connect selectedType ↔ otherTypeKey
-      const groupKeys = relTypeGroupMap.get(otherTypeKey) || [rt.key];
 
       cols.push({
         field: colKey,
         headerName,
         width: 180,
         hide: !selectedColumns.has(colKey),
-        valueGetter: (p: { data: Card }) => {
-          // Merge names from all relation types in the group
-          const allNames: string[] = [];
-          for (const rk of groupKeys) {
-            const index = relationsMap.get(rk);
-            if (index) {
-              const names = index.get(p.data?.id);
-              if (names) allNames.push(...names);
-            }
-          }
+        valueGetter: (p: { data: Card }) =>
           // Deduplicate, then sort alphabetically (#918) so the cell reads
-          // consistently and AG Grid's own sort on this column is sane.
-          return [...new Set(allNames)]
+          // consistently and AG Grid's own sort on this column is sane. Names,
+          // not ids: two related cards sharing a name read as one value here,
+          // exactly as they always have.
+          [...new Set(relatedRefsOf(p.data?.id, otherTypeKey).map((r) => r.name))]
             .sort((a, b) => a.localeCompare(b, i18n.language, { sensitivity: "base" }))
-            .join("; ");
-        },
+            .join("; "),
         cellRenderer: (p: { value: string; data: Card }) => {
           if (gridEditMode) {
             return (
@@ -2958,7 +3065,7 @@ export default function InventoryPage() {
     );
 
     return columnFreeze.applyFrozen(cols);
-  }, [columnFreeze, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, tagGroups, stakeholderRoles, typeLabel]);
+  }, [columnFreeze, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relatedRefsOf, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, tagGroups, stakeholderRoles, typeLabel]);
 
   // Restore the saved column layout (order/width/pinning/sort) onto the grid.
   // Keyed on `columnDefs` so it re-applies each time the column *set* changes —

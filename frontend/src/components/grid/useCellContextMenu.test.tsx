@@ -9,8 +9,8 @@ import { useRef } from "react";
 import { AgGridReact } from "ag-grid-react";
 import type { GridApi } from "ag-grid-community";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
-import { useCellContextMenu, LONG_PRESS_MS } from "./useCellContextMenu";
-import type { UseCellContextMenuOptions } from "./useCellContextMenu";
+import { useCellContextMenu, LONG_PRESS_MS, MAX_SPLIT_VALUES } from "./useCellContextMenu";
+import type { CellPickTarget, UseCellContextMenuOptions } from "./useCellContextMenu";
 
 interface Row {
   name: string;
@@ -333,6 +333,108 @@ describe("useCellContextMenu — multi-valued cells", () => {
         filter: "Two",
       });
     });
+  });
+});
+
+describe("useCellContextMenu — pickAction", () => {
+  const onPick = vi.fn();
+
+  /** One target per word of the cell's text, keyed so ids stay distinct. */
+  function optionsFor(
+    targets: (displayValue: string) => CellPickTarget[] | null,
+  ): UseCellContextMenuOptions<Row> {
+    return {
+      pickAction: {
+        icon: "visibility",
+        label: "Preview card",
+        targets: (ctx) => targets(ctx.displayValue),
+        onPick,
+      },
+    };
+  }
+
+  const splitTargets = (displayValue: string): CellPickTarget[] | null =>
+    displayValue
+      ? displayValue.split("; ").map((v) => ({ key: `id-${v}`, label: v }))
+      : null;
+
+  beforeEach(() => onPick.mockClear());
+
+  it("acts straight away when the cell names exactly one entity", async () => {
+    const { container } = await renderGrid(optionsFor(splitTargets));
+    fireEvent.contextMenu(cellOf(container, "tags", 1)); // Beta: "Two"
+
+    fireEvent.click(await screen.findByText("Preview card"));
+    expect(onPick).toHaveBeenCalledTimes(1);
+    expect(onPick.mock.calls[0][0]).toMatchObject({ key: "id-Two", label: "Two" });
+    // No intermediate stage — the menu closed on the single target.
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+  });
+
+  it("lists the entities when the cell names several, then picks one", async () => {
+    const { container } = await renderGrid(optionsFor(splitTargets));
+    fireEvent.contextMenu(cellOf(container, "tags")); // Alpha: "One; Two"
+
+    fireEvent.click(await screen.findByText("Preview card"));
+    const menu = await findMenu();
+    expect(within(menu).getByText("One")).toBeInTheDocument();
+    expect(within(menu).getByText("Two")).toBeInTheDocument();
+    // A pick action has no whole-cell equivalent, unlike the filter stages.
+    expect(within(menu).queryByText("Entire cell")).toBeNull();
+
+    fireEvent.click(within(menu).getByText("Two"));
+    expect(onPick).toHaveBeenCalledTimes(1);
+    expect(onPick.mock.calls[0][0]).toMatchObject({ key: "id-Two" });
+  });
+
+  it("renders the root item above the filter items", async () => {
+    const { container } = await renderGrid(optionsFor(splitTargets));
+    fireEvent.contextMenu(cellOf(container, "tags"));
+
+    // textContent carries the MaterialSymbol's ligature name ahead of the
+    // label, so match on substrings rather than equality.
+    const items = within(await findMenu())
+      .getAllByRole("menuitem")
+      .map((el) => el.textContent ?? "");
+    expect(items[0]).toContain("Preview card");
+    expect(items.findIndex((s) => s.includes("Show matching"))).toBeGreaterThan(0);
+  });
+
+  it("caps the list at MAX_SPLIT_VALUES, like the per-value filter stage", async () => {
+    const many = Array.from({ length: MAX_SPLIT_VALUES + 4 }, (_unused, i) => ({
+      key: `id-${i}`,
+      label: `Card ${i}`,
+    }));
+    const { container } = await renderGrid(optionsFor(() => many));
+    fireEvent.contextMenu(cellOf(container, "name"));
+    fireEvent.click(await screen.findByText("Preview card"));
+
+    const menu = await findMenu();
+    expect(within(menu).getAllByRole("menuitem")).toHaveLength(MAX_SPLIT_VALUES);
+    expect(within(menu).queryByText(`Card ${MAX_SPLIT_VALUES}`)).toBeNull();
+  });
+
+  it.each([
+    ["null", () => null],
+    ["an empty list", () => []],
+  ])("offers nothing, and no stray divider, when targets returns %s", async (_label, targets) => {
+    const { container } = await renderGrid(optionsFor(targets));
+    fireEvent.contextMenu(cellOf(container, "name"));
+
+    expect(await screen.findByText("Show matching")).toBeInTheDocument();
+    const menu = await findMenu();
+    expect(within(menu).queryByText("Preview card")).toBeNull();
+    expect(menu.querySelector("hr")).toBeNull();
+  });
+
+  it("renders no divider when extraItems returns an empty array", async () => {
+    // `[] != null`, so an empty array used to trip the divider and open the
+    // menu with a rule above nothing.
+    const { container } = await renderGrid({ extraItems: () => [] });
+    fireEvent.contextMenu(cellOf(container, "name"));
+
+    expect(await screen.findByText("Show matching")).toBeInTheDocument();
+    expect((await findMenu()).querySelector("hr")).toBeNull();
   });
 });
 

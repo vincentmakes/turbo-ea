@@ -28,16 +28,17 @@ Le panneau latéral gauche permet de **filtrer** les fiches selon différents cr
 
 Un **badge de nombre de filtres actifs** indique combien de filtres sont actuellement appliqués.
 
-### Filtrer depuis une cellule
+### Actions sur une cellule
 
-Faites un clic droit sur n'importe quelle cellule de la grille (appui long sur un appareil tactile) pour ouvrir un menu contextuel avec des actions de filtrage rapides, à la manière de ServiceNow :
+Faites un clic droit sur n'importe quelle cellule de la grille (appui long sur un appareil tactile) pour ouvrir un menu contextuel d'actions rapides sur ce qui se trouve sous le curseur, à la manière de ServiceNow :
 
+- **Aperçu de la fiche** — ouvrir la fiche nommée par la cellule dans le panneau latéral, sans quitter la grille
 - **Afficher les correspondances** — ne conserver que les lignes dont la valeur est égale à celle de la cellule cliquée
 - **Exclure** — masquer les lignes dont la valeur est égale à celle de la cellule cliquée
 - **Copier la valeur** — copier le texte de la cellule dans le presse-papiers
 - **Effacer le filtre de colonne** — supprimer le filtre de cette colonne (visible uniquement lorsqu'un filtre est actif)
 
-Sur une cellule à valeurs multiples (étiquettes, relations, parties prenantes, attributs à choix multiples), le menu liste d'abord les valeurs individuelles, afin de filtrer sur l'une d'elles ou sur la cellule entière. Ces filtres alimentent les filtres de colonnes de la grille : ils se combinent avec les filtres de la barre latérale, comptent dans le bouton **Effacer les filtres** de la barre d'outils et sont conservés avec votre vue. Le même menu est disponible sur toutes les grilles de Turbo EA — Décisions, Registre des risques, Conformité et les grilles d'administration. Lorsque la colonne possède un filtre correspondant dans le panneau de gauche — type de carte, sous-type, cycle de vie, statut d'approbation ou attribut à choix unique —, **Afficher les correspondances** sélectionne également cette valeur dans le panneau, et **Effacer** efface les deux : une vue enregistrée ne peut donc jamais contenir un filtre de panneau et un filtre de colonne contradictoires. Si le filtre est ensuite modifié dans le panneau, c'est lui qui prend le relais.
+Sur une cellule à valeurs multiples (étiquettes, relations, parties prenantes, attributs à choix multiples), le menu liste d'abord les valeurs individuelles, afin de filtrer sur l'une d'elles ou sur la cellule entière. **Aperçu de la fiche** apparaît sur toute cellule qui nomme une fiche — la colonne **Nom** (la fiche de la ligne elle-même), la colonne **Parent** et les colonnes de relations — et lorsque la cellule en nomme plusieurs, le menu les liste de la même manière, pour que vous choisissiez celle à ouvrir. Ces filtres alimentent les filtres de colonnes de la grille : ils se combinent avec les filtres de la barre latérale, comptent dans le bouton **Effacer les filtres** de la barre d'outils et sont conservés avec votre vue. Le même menu est disponible sur toutes les grilles de Turbo EA — Décisions, Registre des risques, Conformité et les grilles d'administration. Lorsque la colonne possède un filtre correspondant dans le panneau de gauche — type de carte, sous-type, cycle de vie, statut d'approbation ou attribut à choix unique —, **Afficher les correspondances** sélectionne également cette valeur dans le panneau, et **Effacer** efface les deux : une vue enregistrée ne peut donc jamais contenir un filtre de panneau et un filtre de colonne contradictoires. Si le filtre est ensuite modifié dans le panneau, c'est lui qui prend le relais.
 
 ![Menu contextuel d'une cellule de l'inventaire](../assets/img/fr/62_inventaire_menu_contextuel.png)
 

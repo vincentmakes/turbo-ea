@@ -4,6 +4,12 @@
  *
  *   Show matching · Filter out · Copy value · Clear column filter
  *
+ * A page may also contribute one action on the entities a cell *names* via
+ * `pickAction` — Inventory's Preview, which opens the card drawer for a name,
+ * parent or relation cell. It reuses the same two-stage pick the filter items
+ * use on a multi-valued cell: one target acts directly, several list
+ * themselves for the user to choose from.
+ *
  * AG Grid's own context menu is an Enterprise feature; this supplies the
  * affordance on Community via `onCellContextMenu` plus a MUI Menu anchored at
  * the pointer. Filters land in AG Grid's column filter model, merged one
@@ -60,8 +66,12 @@ const LONG_PRESS_MOVE_TOLERANCE_PX = 5;
  * so the menu doesn't open twice.
  */
 const LONG_PRESS_CONTEXTMENU_GUARD_MS = 400;
-/** Longest list of individual values offered for a multi-valued cell. */
-const MAX_SPLIT_VALUES = 8;
+/**
+ * Longest list a cell's pick stage offers — both the individual values of a
+ * multi-valued cell and a `pickAction`'s targets. Shared so the two lists on
+ * one cell can never disagree about how much of it they cover.
+ */
+export const MAX_SPLIT_VALUES = 8;
 
 export interface CellMenuContext<TData> {
   colId: string;
@@ -81,6 +91,32 @@ export interface CellMenuContext<TData> {
 export interface CellSplitValue {
   label: string;
   filter: string;
+}
+
+/**
+ * One entity a cell names — a row in the pick stage, and what `onPick`
+ * receives. Deliberately entity-agnostic: this hook serves every grid in the
+ * app and must not learn what a card is.
+ */
+export interface CellPickTarget {
+  /** Stable identity, handed back to onPick; also the React key. */
+  key: string;
+  label: string;
+  /** MaterialSymbol name + colour, so a row carries the entity's own identity. */
+  icon?: string;
+  color?: string;
+}
+
+/**
+ * One extra action on the entities a cell names — Inventory's Preview, which
+ * opens the card drawer for a relation / parent / name cell.
+ */
+export interface CellPickAction<TData> {
+  icon: string;
+  /** Root-menu label, shown whether the cell names one entity or many. */
+  label: string;
+  targets: (ctx: CellMenuContext<TData>) => CellPickTarget[] | null;
+  onPick: (target: CellPickTarget, ctx: CellMenuContext<TData>) => void;
 }
 
 export interface UseCellContextMenuOptions<TData> {
@@ -109,6 +145,14 @@ export interface UseCellContextMenuOptions<TData> {
    * menu. Call `close` after handling a click.
    */
   extraItems?: (ctx: CellMenuContext<TData>, close: () => void) => ReactNode;
+  /**
+   * One extra action on the entities a cell names — Inventory's Preview,
+   * which opens the card drawer. Returning more than one target swaps the
+   * root item to a pick stage listing them, exactly as Show matching does for
+   * a multi-valued cell; exactly one target acts directly; null or empty
+   * hides the item entirely.
+   */
+  pickAction?: CellPickAction<TData>;
   /**
    * Sidebar-facet mirroring (see useFacetColumnSync). On bound columns,
    * Show matching sets the facet too (and surfaces the item even when
@@ -148,6 +192,8 @@ interface MenuState<TData> {
   ctx: CellMenuContext<TData>;
   /** splitValues() result, captured at open. */
   values: CellSplitValue[] | null;
+  /** pickAction.targets() result, captured at open. */
+  pickTargets: CellPickTarget[] | null;
   /** Whether the clicked column had an active filter at open. */
   hasColumnFilter: boolean;
   /** facetSync state for the clicked column, captured at open. */
@@ -156,7 +202,7 @@ interface MenuState<TData> {
   facetOnly: boolean;
 }
 
-type MenuStage = "root" | "pickMatch" | "pickExclude";
+type MenuStage = "root" | "pickMatch" | "pickExclude" | "pickAction";
 
 function apiOf<TData>(source: GridApiSource<TData>): GridApi<TData> | null {
   if (!source) return null;
@@ -222,6 +268,7 @@ export function useCellContextMenu<TData = unknown>(
         y,
         ctx,
         values,
+        pickTargets: opts.pickAction?.targets(ctx) ?? null,
         hasColumnFilter,
         canMirror: facetSync?.canMirror(ctx) ?? false,
         hasFacetFilter: facetSync?.hasFacetFilter(ctx) ?? false,
@@ -394,6 +441,27 @@ export function useCellContextMenu<TData = unknown>(
     [menuState, applyColumnModel, closeMenu],
   );
 
+  // Mirrors handleFilterAction's shape: several targets push a pick stage,
+  // exactly one acts straight away.
+  const handlePickAction = useCallback(() => {
+    const targets = menuState?.pickTargets;
+    if (!menuState || !targets?.length) return;
+    if (targets.length > 1) {
+      setStage("pickAction");
+      return;
+    }
+    options.pickAction?.onPick(targets[0], menuState.ctx);
+    closeMenu();
+  }, [menuState, closeMenu, options.pickAction]);
+
+  const handlePickTarget = useCallback(
+    (target: CellPickTarget) => {
+      if (menuState) options.pickAction?.onPick(target, menuState.ctx);
+      closeMenu();
+    },
+    [menuState, closeMenu, options.pickAction],
+  );
+
   const handleCopy = useCallback(() => {
     if (menuState) {
       void copyText(menuState.ctx.displayValue).then((ok) => ok && setCopied(true));
@@ -427,6 +495,14 @@ export function useCellContextMenu<TData = unknown>(
       ((menuState?.hasFacetFilter ?? false) || (menuState?.hasColumnFilter ?? false)));
   const extra = menuState ? options.extraItems?.(menuState.ctx, closeMenu) : null;
   const pickExclude = stage === "pickExclude";
+  // Preview and friends are row actions, so they sit above the filter items
+  // and share extraItems' divider — same placement as the ADR grid's actions.
+  const pickAction = options.pickAction;
+  const showPickAction = Boolean(pickAction && menuState?.pickTargets?.length);
+  // `[] != null` is true, so an extraItems callback that returns an empty
+  // array for a cell it has no actions on would otherwise render a leading
+  // divider with nothing above it.
+  const hasExtra = Array.isArray(extra) ? extra.length > 0 : extra != null;
 
   const menu = (
     <>
@@ -437,7 +513,15 @@ export function useCellContextMenu<TData = unknown>(
         anchorPosition={menuState ? { top: menuState.y, left: menuState.x } : undefined}
       >
         {stage === "root" && extra}
-        {stage === "root" && extra != null && <Divider />}
+        {stage === "root" && showPickAction && (
+          <MenuItem onClick={handlePickAction}>
+            <ListItemIcon>
+              <MaterialSymbol icon={pickAction!.icon} size={20} />
+            </ListItemIcon>
+            <ListItemText>{pickAction!.label}</ListItemText>
+          </MenuItem>
+        )}
+        {stage === "root" && (hasExtra || showPickAction) && <Divider />}
         {stage === "root" && showMatchItem && (
           <MenuItem onClick={() => handleFilterAction(false)}>
             <ListItemIcon>
@@ -472,7 +556,20 @@ export function useCellContextMenu<TData = unknown>(
             </ListItemText>
           </MenuItem>
         )}
-        {stage !== "root" &&
+        {stage === "pickAction" &&
+          (menuState?.pickTargets ?? []).slice(0, MAX_SPLIT_VALUES).map((target) => (
+            <MenuItem key={target.key} onClick={() => handlePickTarget(target)}>
+              <ListItemIcon>
+                <MaterialSymbol
+                  icon={target.icon ?? pickAction!.icon}
+                  size={20}
+                  color={target.color}
+                />
+              </ListItemIcon>
+              <ListItemText>{target.label}</ListItemText>
+            </MenuItem>
+          ))}
+        {(stage === "pickMatch" || stage === "pickExclude") &&
           (menuState?.values ?? []).slice(0, MAX_SPLIT_VALUES).map((value) => (
             <MenuItem key={value.filter} onClick={() => handlePickValue(value.filter, pickExclude)}>
               <ListItemIcon>
@@ -481,8 +578,10 @@ export function useCellContextMenu<TData = unknown>(
               <ListItemText>{value.label}</ListItemText>
             </MenuItem>
           ))}
-        {stage !== "root" && <Divider />}
-        {stage !== "root" && (
+        {/* There is no whole-cell equivalent of a pick action, so the
+            "Entire cell" escape belongs to the filter stages only. */}
+        {(stage === "pickMatch" || stage === "pickExclude") && <Divider />}
+        {(stage === "pickMatch" || stage === "pickExclude") && (
           <MenuItem onClick={() => handlePickValue(null, pickExclude)}>
             <ListItemIcon>
               <MaterialSymbol icon="select_all" size={20} />

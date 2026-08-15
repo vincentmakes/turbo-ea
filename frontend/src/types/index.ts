@@ -475,6 +475,18 @@ export interface RelationRef {
   subtype?: string;
 }
 
+/**
+ * The far end of a relation as the inventory grid indexes it: enough to
+ * render the cell text *and* to open the card, which is why the id is kept.
+ * Lives here rather than in InventoryPage so the filter sidebar can type its
+ * prop without importing from the page that renders it.
+ */
+export interface RelatedCardRef {
+  id: string;
+  name: string;
+  type: string;
+}
+
 export interface Relation {
   id: string;
   type: string;

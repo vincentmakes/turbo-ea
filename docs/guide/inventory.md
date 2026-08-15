@@ -28,16 +28,17 @@ The left sidebar panel allows you to **filter** cards by different criteria:
 
 An **active filter count** badge shows how many filters are currently applied.
 
-### Filtering from a Cell
+### Cell Actions
 
-Right-click any cell in the grid (long-press on a touch device) to open a context menu with quick filter actions, similar to ServiceNow:
+Right-click any cell in the grid (long-press on a touch device) to open a context menu of quick actions on whatever is under the cursor, similar to ServiceNow:
 
+- **Preview card** — open the card the cell names in the side panel, without leaving the grid
 - **Show matching** — keep only the rows whose value equals the clicked cell's
 - **Filter out** — hide the rows whose value equals the clicked cell's
 - **Copy value** — copy the cell text to the clipboard
 - **Clear column filter** — remove that column's filter (shown only while one is active)
 
-On a multi-valued cell (tags, relations, stakeholders, multi-select attributes) the menu first lists the individual values, so you can filter on one of them or on the entire cell. These filters land in the grid's own column filters: they combine with the sidebar filters, count into the **Clear filters** toolbar button, and persist with your view. The same menu is available on every grid in Turbo EA — Decisions, Risk Register, Compliance, and the admin grids. On the Resources grid, where filtering happens on the server, **Show matching** drives the sidebar filters directly, so it narrows the whole result set rather than just the page you are looking at. When the column has a matching filter in the left panel — card type, subtype, lifecycle, approval status or a single-select attribute — **Show matching** selects that value in the panel too, and **Clear** clears both, so a saved view can never carry a panel filter and a column filter that disagree. Editing the filter in the panel afterwards simply takes over.
+On a multi-valued cell (tags, relations, stakeholders, multi-select attributes) the menu first lists the individual values, so you can filter on one of them or on the entire cell. **Preview card** appears on every cell that names a card — the **Name** column (the row's own card), the **Parent** column, and the relation columns — and when the cell names several cards it lists them the same way, so you pick the one to open. These filters land in the grid's own column filters: they combine with the sidebar filters, count into the **Clear filters** toolbar button, and persist with your view. The same menu is available on every grid in Turbo EA — Decisions, Risk Register, Compliance, and the admin grids. On the Resources grid, where filtering happens on the server, **Show matching** drives the sidebar filters directly, so it narrows the whole result set rather than just the page you are looking at. When the column has a matching filter in the left panel — card type, subtype, lifecycle, approval status or a single-select attribute — **Show matching** selects that value in the panel too, and **Clear** clears both, so a saved view can never carry a panel filter and a column filter that disagree. Editing the filter in the panel afterwards simply takes over.
 
 ![Inventory cell context menu](../assets/img/en/62_inventory_cell_menu.png)
 

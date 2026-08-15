@@ -5,9 +5,12 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import InventoryPage, {
   splitInventoryCellValues,
+  inventoryPreviewTargets,
   buildInventoryFacetBindings,
   normalizeAttrValue,
 } from "./InventoryPage";
+import { MAX_SPLIT_VALUES } from "@/components/grid/useCellContextMenu";
+import type { RelatedCardRef } from "@/types";
 import MultiSelectCellEditor from "./MultiSelectCellEditor";
 import { EMPTY_VALUE, type Filters } from "./InventoryFilterSidebar";
 
@@ -64,6 +67,8 @@ vi.mock("ag-grid-react", () => {
     const cols = (columnDefs ?? []).map((def) => ({
       def,
       getColId: () => def.colId ?? def.field,
+      // The cell context menu reads the colDef to pick a filter kind.
+      getColDef: () => def,
     }));
     const stubs: Record<string, any> = {
       getDisplayedRowCount: () => (rowData ?? []).length,
@@ -72,7 +77,13 @@ vi.mock("ag-grid-react", () => {
       forEachNodeAfterFilterAndSort: (fn: any) =>
         (rowData ?? []).forEach((data) => fn({ data })),
       getCellValue: ({ rowNode, colKey, useFormatter }: any) => {
-        const def = colKey.def;
+        // Real AG Grid takes either a Column or a colId string; the export
+        // path passes the column, the cell context menu passes the id.
+        const def =
+          typeof colKey === "string"
+            ? cols.find((c) => c.getColId() === colKey)?.def
+            : colKey.def;
+        if (!def) return undefined;
         const value = def.valueGetter
           ? def.valueGetter({ data: rowNode.data })
           : rowNode.data?.[def.field];
@@ -183,6 +194,13 @@ vi.mock("./ImportDialog", () => ({
 
 vi.mock("./RelationCellPopover", () => ({
   default: () => null,
+}));
+
+// The real panel drags in the whole card-detail graph; the tests only need to
+// see which card it was opened for.
+vi.mock("@/components/CardDetailSidePanel", () => ({
+  default: ({ cardId, open }: { cardId: string | null; open: boolean }) =>
+    open ? <div data-testid="card-preview" data-card-id={cardId} /> : null,
 }));
 
 vi.mock("./excelExport", () => ({
@@ -1278,6 +1296,136 @@ describe("InventoryPage cell context menu", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Preview from the cell context menu — the whole feature, end to end: the
+// grid's own onCellContextMenu, through the menu, to the opened side panel.
+// ---------------------------------------------------------------------------
+
+describe("InventoryPage cell context menu — Preview", () => {
+  const REDIS = { id: "itc-redis", type: "ITComponent", name: "Redis" };
+  const POSTGRES = { id: "itc-pg", type: "ITComponent", name: "PostgreSQL" };
+
+  beforeEach(() => {
+    vi.mocked(useMetamodel).mockReturnValue({
+      types: [
+        ...MOCK_TYPES,
+        {
+          key: "ITComponent",
+          label: "IT Component",
+          icon: "memory",
+          color: "#d29270",
+          category: "Technical Architecture",
+          has_hierarchy: false,
+          subtypes: [],
+          fields_schema: [],
+          is_hidden: false,
+        },
+      ],
+      relationTypes: MOCK_REL_TYPES,
+      loading: false,
+      getType: (key: string) => MOCK_TYPES.find((t) => t.key === key),
+      getRelationsForType: () => MOCK_REL_TYPES,
+      invalidateCache: vi.fn(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve(MOCK_CARDS);
+      if (path.startsWith("/relations"))
+        return Promise.resolve([
+          // Deliberately reverse-alphabetical, so the menu's own sort shows.
+          { id: "r1", type: "app_to_itc", source_id: "c1", target_id: REDIS.id, target: REDIS },
+          {
+            id: "r2",
+            type: "app_to_itc",
+            source_id: "c1",
+            target_id: POSTGRES.id,
+            target: POSTGRES,
+          },
+        ]);
+      if (path.startsWith("/bookmarks")) return Promise.resolve([]);
+      return Promise.resolve({});
+    });
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async function gridProps(): Promise<Record<string, any>> {
+    const { AgGridReact } = await import("ag-grid-react");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return vi.mocked(AgGridReact).mock.calls.at(-1)![0] as Record<string, any>;
+  }
+
+  /** What the first row's `colId` cell reads, straight out of the grid. */
+  async function cellText(colId: string): Promise<string> {
+    const props = await gridProps();
+    return props.ref.current.api.getCellValue({
+      rowNode: { data: MOCK_CARDS.items[0] },
+      colKey: colId,
+      useFormatter: true,
+    });
+  }
+
+  /** Right-click a cell of `colId` on the first row, via the grid's own prop. */
+  async function rightClick(colId: string) {
+    const props = await gridProps();
+    const api_ = props.ref.current.api;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const column = api_.getAllDisplayedColumns().find((c: any) => c.getColId() === colId);
+    expect(column, `column ${colId} is not displayed`).toBeDefined();
+    await act(async () => {
+      (props.onCellContextMenu as (e: unknown) => void)({
+        column,
+        node: { data: MOCK_CARDS.items[0] },
+        event: { clientX: 20, clientY: 30 },
+      });
+    });
+    return within(await screen.findByRole("menu"));
+  }
+
+  it("previews the related card a relation cell names", async () => {
+    renderInventory("/inventory?type=Application&col=rel_ITComponent");
+    await waitFor(() => expect(screen.getByTestId("ag-grid")).toBeInTheDocument());
+    // Wait for the relations to reach state — until they do the cell names
+    // nothing and there is legitimately no Preview to offer.
+    await waitFor(async () =>
+      expect(await cellText("rel_ITComponent")).toBe("PostgreSQL; Redis"),
+    );
+
+    const menu = await rightClick("rel_ITComponent");
+    await userEvent.click(menu.getByText("Preview card"));
+
+    // Two related cards, so a pick stage — listed alphabetically, matching
+    // the order the cell text joins them in.
+    const stage = within(await screen.findByRole("menu"));
+    await userEvent.click(stage.getByText("PostgreSQL"));
+
+    const panel = await screen.findByTestId("card-preview");
+    expect(panel).toHaveAttribute("data-card-id", POSTGRES.id);
+  });
+
+  it("previews the row's own card from the Name cell", async () => {
+    renderInventory("/inventory?type=Application");
+    await waitFor(() => expect(screen.getByTestId("ag-grid")).toBeInTheDocument());
+
+    const menu = await rightClick("core_name");
+    // One target, so it acts directly with no pick stage.
+    await userEvent.click(menu.getByText("Preview card"));
+
+    const panel = await screen.findByTestId("card-preview");
+    expect(panel).toHaveAttribute("data-card-id", MOCK_CARDS.items[0].id);
+  });
+
+  it("offers no Preview, and no stray divider, on a cell that names no card", async () => {
+    renderInventory("/inventory?type=Application");
+    await waitFor(() => expect(screen.getByTestId("ag-grid")).toBeInTheDocument());
+
+    const menu = await rightClick("core_type");
+    expect(menu.queryByText("Preview card")).toBeNull();
+    expect(menu.getByText("Show matching")).toBeInTheDocument();
+    expect(screen.getByRole("menu").querySelector("hr")).toBeNull();
+  });
+});
+
 describe("splitInventoryCellValues", () => {
   const ctx = (over: Partial<Parameters<typeof splitInventoryCellValues>[0]>) =>
     ({
@@ -1347,6 +1495,112 @@ describe("splitInventoryCellValues", () => {
       splitInventoryCellValues(ctx({ colId: "core_name", displayValue: "NexaCore ERP" })),
     ).toBeNull();
   });
+});
+
+describe("inventoryPreviewTargets", () => {
+  const CARD = {
+    id: "card-1",
+    name: "NexaCore ERP",
+    type: "Application",
+    parent_id: "parent-1",
+  } as never;
+
+  const ctx = (over: Partial<Parameters<typeof inventoryPreviewTargets>[0]>) => ({
+    colId: "core_name",
+    data: CARD,
+    displayValue: "",
+    filterValue: null,
+    filterKind: "text" as const,
+    ...over,
+  });
+
+  /** Every type resolves to a distinguishable glyph so icon/colour is asserted. */
+  const typeGlyph = (typeKey: string) => ({ icon: `icon-${typeKey}`, color: "#123456" });
+
+  const deps = (refs: RelatedCardRef[] = []) => ({
+    relatedRefsOf: () => refs,
+    typeGlyph,
+    locale: "en",
+  });
+
+  it("names the row's own card on the Name column", () => {
+    expect(inventoryPreviewTargets(ctx({ colId: "core_name" }), deps())).toEqual([
+      { key: "card-1", label: "NexaCore ERP", icon: "icon-Application", color: "#123456" },
+    ]);
+  });
+
+  it("names the parent on the Parent column, labelled from the resolved cell text", () => {
+    expect(
+      inventoryPreviewTargets(
+        ctx({ colId: "core_parent", displayValue: "Finance Platform" }),
+        deps(),
+      ),
+    ).toEqual([
+      // A hierarchy parent shares its child's card type.
+      { key: "parent-1", label: "Finance Platform", icon: "icon-Application", color: "#123456" },
+    ]);
+  });
+
+  it("offers no parent when there is none, or when it is outside the loaded page", () => {
+    // No parent at all.
+    expect(
+      inventoryPreviewTargets(
+        ctx({ colId: "core_parent", data: { ...CARD, parent_id: undefined } as never }),
+        deps(),
+      ),
+    ).toEqual([]);
+    // Parent set, but unresolvable — offering a nameless item would be worse.
+    expect(
+      inventoryPreviewTargets(ctx({ colId: "core_parent", displayValue: "" }), deps()),
+    ).toEqual([]);
+  });
+
+  it("sorts related cards by name, matching the order the cell text lists them", () => {
+    const targets = inventoryPreviewTargets(
+      ctx({ colId: "rel_ITComponent", displayValue: "PostgreSQL; Redis" }),
+      deps([
+        { id: "c-redis", name: "Redis", type: "ITComponent" },
+        { id: "c-pg", name: "PostgreSQL", type: "ITComponent" },
+      ]),
+    );
+    expect(targets.map((t) => t.label)).toEqual(["PostgreSQL", "Redis"]);
+    expect(targets[0]).toMatchObject({ key: "c-pg", icon: "icon-ITComponent" });
+  });
+
+  it("dedupes by id across merged relation types, but keeps two same-named cards", () => {
+    const targets = inventoryPreviewTargets(
+      ctx({ colId: "rel_Application" }),
+      // The same card reached through two relation types, plus a genuinely
+      // different card that happens to share a name.
+      deps([
+        { id: "c-1", name: "Payments", type: "Application" },
+        { id: "c-1", name: "Payments", type: "Application" },
+        { id: "c-2", name: "Payments", type: "Application" },
+      ]),
+    );
+    expect(targets.map((t) => t.key)).toEqual(["c-1", "c-2"]);
+  });
+
+  it("caps the list at MAX_SPLIT_VALUES, keeping the alphabetically first", () => {
+    const refs = Array.from({ length: MAX_SPLIT_VALUES + 4 }, (_unused, i) => ({
+      id: `c-${i}`,
+      // Reverse-alphabetical input, so a missing sort would be obvious.
+      name: `Card ${String(MAX_SPLIT_VALUES + 4 - i).padStart(2, "0")}`,
+      type: "Application",
+    }));
+    const targets = inventoryPreviewTargets(ctx({ colId: "rel_Application" }), deps(refs));
+    expect(targets).toHaveLength(MAX_SPLIT_VALUES);
+    expect(targets[0].label).toBe("Card 01");
+  });
+
+  it.each(["core_path", "core_tags", "core_type", "attr_hosting", "stakeholder_owner"])(
+    "names no card on the %s column",
+    (colId) => {
+      expect(
+        inventoryPreviewTargets(ctx({ colId, displayValue: "something" }), deps()),
+      ).toEqual([]);
+    },
+  );
 });
 
 describe("buildInventoryFacetBindings", () => {

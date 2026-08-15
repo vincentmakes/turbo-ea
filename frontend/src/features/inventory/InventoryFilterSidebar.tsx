@@ -44,6 +44,7 @@ import type {
   Bookmark,
   ColumnLayoutItem,
   FieldDef,
+  RelatedCardRef,
   RelationType,
   StakeholderRoleOption,
   TagGroup,
@@ -92,7 +93,7 @@ interface Props {
   // Stakeholder roles of the single selected type — one togglable
   // "Stakeholders: <role>" column each.
   stakeholderRoles?: StakeholderRoleOption[];
-  relationsMap?: Map<string, Map<string, string[]>>;
+  relationsMap?: Map<string, Map<string, RelatedCardRef[]>>;
   tagGroups?: TagGroup[];
   canArchive?: boolean;
   canShareBookmarks?: boolean;
@@ -449,8 +450,10 @@ export default function InventoryFilterSidebar({
       const index = relationsMap.get(rt.key);
       if (!index) continue;
       const names = new Set<string>();
+      // Facets filter on the related card's name, not its id — two cards
+      // sharing a name collapse into one option, as they always have.
       for (const arr of index.values()) {
-        for (const name of arr) names.add(name);
+        for (const ref of arr) names.add(ref.name);
       }
       if (names.size > 0) {
         result.set(rt.key, Array.from(names).sort());
