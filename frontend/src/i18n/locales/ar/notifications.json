@@ -2,6 +2,7 @@
   "title": "الإشعارات",
   "markAllRead": "وضع علامة مقروء على الكل",
   "noNotifications": "لا توجد إشعارات",
+  "opensExternally": "يُفتح في تبويب جديد",
 
   "preferences.title": "تفضيلات الإشعارات",
   "preferences.description": "اختر الإشعارات التي تريد تلقيها وكيفية تلقيها.",

@@ -62,7 +62,8 @@ describe("NotificationBell link handling", () => {
     vi.mocked(api.get).mockReset();
   });
 
-  async function openAndClick(link: string, type?: string) {
+  /** Render the bell with one canned notification and open the popover. */
+  async function openList(link: string, type?: string) {
     vi.mocked(api.get).mockImplementation(async (path: string) => {
       if (path.startsWith("/notifications?")) {
         return { items: [notif("n1", link, type)], total: 1, page: 1, page_size: 20 };
@@ -72,6 +73,11 @@ describe("NotificationBell link handling", () => {
     const user = userEvent.setup();
     render(<NotificationBell userId="u1" />);
     await user.click(bellButton());
+    return user;
+  }
+
+  async function openAndClick(link: string, type?: string) {
+    const user = await openList(link, type);
     const item = await screen.findByText("notification n1");
     await user.click(item);
   }
@@ -79,6 +85,20 @@ describe("NotificationBell link handling", () => {
   it("navigates in-app for a relative link", async () => {
     await openAndClick("/cards/abc-123");
     await waitFor(() => expect(navigate).toHaveBeenCalledWith("/cards/abc-123"));
+  });
+
+  it("marks an external notification with an open-in-new glyph", async () => {
+    await openList("https://github.com/vincentmakes/turbo-ea/releases/tag/v2.60.0");
+    // The row leaves the app, so it must say so before it is clicked.
+    expect(await screen.findByRole("img", { name: "opensExternally" })).toHaveTextContent(
+      "open_in_new",
+    );
+  });
+
+  it("does not mark an in-app notification with that glyph", async () => {
+    await openList("/cards/abc-123");
+    await screen.findByText("notification n1");
+    expect(screen.queryByRole("img", { name: "opensExternally" })).toBeNull();
   });
 
   it("opens an absolute link in a new tab instead of routing to it", async () => {

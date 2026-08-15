@@ -2,6 +2,7 @@
   "title": "Notifications",
   "markAllRead": "Mark all read",
   "noNotifications": "No notifications",
+  "opensExternally": "Opens in a new tab",
 
   "preferences.title": "Notification Preferences",
   "preferences.description": "Choose which notifications you want to receive and how.",

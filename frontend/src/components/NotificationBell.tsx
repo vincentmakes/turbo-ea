@@ -289,6 +289,23 @@ export default function NotificationBell({
                           {notif.message.length > 100
                             ? notif.message.slice(0, 100) + "..."
                             : notif.message}
+                          {/* Trailing marker: this row leaves the app, so say
+                              so before it is clicked. */}
+                          {notif.link && isExternalLink(notif.link) && (
+                            <Box
+                              component="span"
+                              role="img"
+                              aria-label={t("opensExternally")}
+                              title={t("opensExternally")}
+                              sx={{
+                                display: "inline-flex",
+                                verticalAlign: "text-bottom",
+                                ml: 0.5,
+                              }}
+                            >
+                              <MaterialSymbol icon="open_in_new" size={14} />
+                            </Box>
+                          )}
                         </Typography>
                         <Typography
                           variant="caption"

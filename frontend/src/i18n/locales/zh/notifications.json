@@ -2,6 +2,7 @@
   "title": "通知",
   "markAllRead": "全部标为已读",
   "noNotifications": "暂无通知",
+  "opensExternally": "在新标签页中打开",
   "preferences.title": "通知偏好设置",
   "preferences.description": "选择您希望接收的通知类型和接收方式。",
   "preferences.notification": "通知",

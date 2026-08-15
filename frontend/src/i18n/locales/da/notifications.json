@@ -2,6 +2,7 @@
   "title": "Notifikationer",
   "markAllRead": "Markér alle som læst",
   "noNotifications": "Ingen notifikationer",
+  "opensExternally": "Åbnes i en ny fane",
   "preferences.title": "Notifikationsindstillinger",
   "preferences.description": "Vælg hvilke notifikationer du vil modtage og hvordan.",
   "preferences.notification": "Notifikation",

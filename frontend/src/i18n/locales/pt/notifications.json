@@ -2,6 +2,7 @@
   "title": "Notificações",
   "markAllRead": "Marcar todas como lidas",
   "noNotifications": "Sem notificações",
+  "opensExternally": "Abre num novo separador",
   "preferences.title": "Preferências de notificação",
   "preferences.description": "Escolha quais notificações você deseja receber e como.",
   "preferences.notification": "Notificação",

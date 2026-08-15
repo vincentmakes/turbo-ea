@@ -2,6 +2,7 @@
   "title": "Уведомления",
   "markAllRead": "Отметить все как прочитанные",
   "noNotifications": "Нет уведомлений",
+  "opensExternally": "Откроется в новой вкладке",
   "preferences.title": "Настройки уведомлений",
   "preferences.description": "Выберите, какие уведомления вы хотите получать и каким способом.",
   "preferences.notification": "Уведомление",

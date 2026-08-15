@@ -2,6 +2,7 @@
   "title": "Benachrichtigungen",
   "markAllRead": "Alle als gelesen markieren",
   "noNotifications": "Keine Benachrichtigungen",
+  "opensExternally": "Wird in einem neuen Tab geöffnet",
   "preferences.title": "Benachrichtigungseinstellungen",
   "preferences.description": "Wählen Sie, welche Benachrichtigungen Sie erhalten möchten und wie.",
   "preferences.notification": "Benachrichtigung",
