@@ -243,7 +243,15 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
       </Box>
 
       {/* Content */}
-      <Box sx={{ p: 2 }}>
+      {/*
+        Isolated so the header above keeps its sticky guarantee. The Paper is the
+        scroll container and the header only holds zIndex 1, so any section that
+        uses a zIndex of its own would otherwise paint over it while scrolling --
+        the lifecycle timeline did exactly that. Containing the whole content
+        subtree settles it for every section, present and future, rather than
+        trading zIndex numbers with each one.
+      */}
+      <Box sx={{ p: 2, isolation: "isolate" }}>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}

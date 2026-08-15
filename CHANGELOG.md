@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.61.1] - 2026-08-15
+
+### Fixed
+- **The lifecycle timeline no longer floats over the card preview panel's header.** Scrolling a card in the side panel dragged the timeline's dots, phase names and dates across the card's name and its quality, lifecycle and approval badges instead of sliding underneath them. The panel's content now scrolls under its header, as every other section already did.
+
 ## [2.61.0] - 2026-08-15
 
 ### Added

@@ -90,7 +90,23 @@ function LifecycleSection({
       </AccordionSummary>
       <AccordionDetails>
         {/* Timeline visualization */}
-        <Box sx={{ position: "relative", px: 1, pt: 3, pb: 1, mb: 2 }}>
+        <Box
+          sx={{
+            position: "relative",
+            px: 1,
+            pt: 3,
+            pb: 1,
+            mb: 2,
+            // The track / fill / dots below stack 0 - 1 - 2 against each other and
+            // nothing else. `position: relative` alone does not contain them, so
+            // without this they resolve against whatever ancestor stacking context
+            // happens to exist and out-paint it -- the card side panel's sticky
+            // header (zIndex 1) lost to the dots at 2 and to the fill at 1 on DOM
+            // order. `isolation` contains them without altering paint order the
+            // way a `zIndex` here would.
+            isolation: "isolate",
+          }}
+        >
           {/* Connecting track behind the dots */}
           <Box
             sx={{
