@@ -776,6 +776,25 @@ async def update_sponsor_button_enabled(
     return {"ok": True}
 
 
+@router.get("/update-status")
+async def get_update_status(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Cached result of the last update check, for the release-notes dialog.
+
+    Gated on ``admin.settings`` — the same permission that decides who gets
+    notified in the first place, so the endpoint cannot tell a non-admin
+    anything the notification would not have. Serves only what the daily check
+    already stored; it never reaches out to GitHub itself.
+    """
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    from app.services.update_check import read_status
+
+    return await read_status(db)
+
+
 class UpdateCheckEnabledPayload(BaseModel):
     enabled: bool
 

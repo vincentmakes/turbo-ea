@@ -325,6 +325,47 @@ class TestUpdateCheckEnabledSettings:
         )
         assert resp.status_code == 403
 
+    async def test_update_status_serves_the_cached_release_notes(self, client, db, settings_env):
+        from app.services.update_check import ReleaseInfo, record_result
+
+        await record_result(
+            db,
+            release=ReleaseInfo(
+                version="99.0.0",
+                url="https://github.com/vincentmakes/turbo-ea/releases/tag/v99.0.0",
+                notes="### Added\n- Something new",
+            ),
+            error=None,
+        )
+        await db.commit()
+
+        resp = await client.get(
+            "/api/v1/settings/update-status", headers=auth_headers(settings_env["admin"])
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["latest_version"] == "99.0.0"
+        assert body["release_notes"] == "### Added\n- Something new"
+        assert body["update_available"] is True
+        assert body["checked_at"]
+
+    async def test_update_status_is_empty_before_the_first_check(self, client, db, settings_env):
+        resp = await client.get(
+            "/api/v1/settings/update-status", headers=auth_headers(settings_env["admin"])
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["latest_version"] is None
+        assert body["release_notes"] == ""
+        assert body["update_available"] is False
+
+    async def test_member_cannot_read_update_status(self, client, db, settings_env):
+        """Same gate as the notification: a non-admin learns nothing here."""
+        resp = await client.get(
+            "/api/v1/settings/update-status", headers=auth_headers(settings_env["member"])
+        )
+        assert resp.status_code == 403
+
 
 # -------------------------------------------------------------------
 # GET /settings/file-uploads-enabled + PATCH /settings/file-uploads-enabled

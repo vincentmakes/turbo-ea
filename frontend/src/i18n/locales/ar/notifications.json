@@ -20,5 +20,12 @@
   "preferences.soawSignRequested": "تم طلب توقيع SoAW",
   "preferences.soawSigned": "تم توقيع SoAW",
   "preferences.surveyRequest": "طلب استبيان",
-  "preferences.appUpdateAvailable": "يتوفر تحديث"
+  "preferences.appUpdateAvailable": "يتوفر تحديث",
+
+  "releaseNotes.title": "الإصدار Turbo EA {{version}} متاح",
+  "releaseNotes.titleFallback": "ملاحظات الإصدار",
+  "releaseNotes.running": "أنت تستخدم الإصدار {{version}}",
+  "releaseNotes.viewOnGithub": "العرض على GitHub",
+  "releaseNotes.empty": "لم تُنشر ملاحظات لهذا الإصدار.",
+  "releaseNotes.loadFailed": "تعذّر تحميل ملاحظات الإصدار"
 }

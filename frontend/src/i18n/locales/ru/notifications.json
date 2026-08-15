@@ -19,5 +19,12 @@
   "preferences.soawSignRequested": "Запрошена подпись SoAW",
   "preferences.soawSigned": "SoAW подписан",
   "preferences.surveyRequest": "Запрос на опрос",
-  "preferences.appUpdateAvailable": "Доступно обновление"
+  "preferences.appUpdateAvailable": "Доступно обновление",
+
+  "releaseNotes.title": "Доступна версия Turbo EA {{version}}",
+  "releaseNotes.titleFallback": "Заметки о выпуске",
+  "releaseNotes.running": "У вас установлена версия {{version}}",
+  "releaseNotes.viewOnGithub": "Открыть на GitHub",
+  "releaseNotes.empty": "Для этой версии заметки о выпуске не публиковались.",
+  "releaseNotes.loadFailed": "Не удалось загрузить заметки о выпуске"
 }

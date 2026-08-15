@@ -168,7 +168,7 @@ Siehe den [GRC-Leitfaden](../guide/grc.md) für die vollständige Funktionsüber
 
 ## Update-Benachrichtigungen
 
-Turbo EA prüft einmal täglich, ob eine neuere Version veröffentlicht wurde, und legt in diesem Fall eine Benachrichtigung in die Glocke jedes Benutzers, dessen Rolle `admin.settings` gewährt. Die Benachrichtigung nennt die neue Version und verlinkt auf deren Release Notes.
+Turbo EA prüft einmal täglich, ob eine neuere Version veröffentlicht wurde, und legt in diesem Fall eine Benachrichtigung in die Glocke jedes Benutzers, dessen Rolle `admin.settings` gewährt. Ein Klick darauf öffnet die Release Notes — das Changelog dieser Version — in einem Dialog innerhalb von Turbo EA. Die Notes werden von der täglichen Prüfung zwischengespeichert; das Lesen verursacht also keine ausgehende Anfrage und funktioniert auch dann noch, wenn die Instanz später keine Netzwerkverbindung mehr hat. Eine Schaltfläche **Auf GitHub ansehen** im Dialog öffnet die Release-Seite bei Bedarf in einem neuen Tab.
 
 Die Prüfung ist **reine Benachrichtigung** — es wird nichts heruntergeladen und nichts auf dem Host verändert. Das Upgrade bleibt der bewusste, durch ein Backup abgesicherte Ablauf, der unter [Betrieb](operations.md#the-upgrade-procedure) beschrieben ist. Administratoren, die nicht erinnert werden möchten, können die Zeile **Update verfügbar** in ihren eigenen Benachrichtigungseinstellungen stummschalten.
 

@@ -168,7 +168,7 @@ Se [GRC-vejledningen](../guide/grc.md) for den fulde funktionsreference.
 
 ## Opdateringsnotifikationer
 
-Turbo EA tjekker én gang om dagen, om der er udgivet en nyere version, og lægger i så fald en notifikation i klokken hos hver bruger, hvis rolle giver `admin.settings`. Notifikationen nævner den nye version og linker til dens udgivelsesnoter.
+Turbo EA tjekker én gang om dagen, om der er udgivet en nyere version, og lægger i så fald en notifikation i klokken hos hver bruger, hvis rolle giver `admin.settings`. Et klik åbner udgivelsesnoterne — changeloggen for den version — i en dialog inde i Turbo EA. Noterne caches af det daglige tjek, så det koster ingen udgående forespørgsel at læse dem, og det virker fortsat, hvis instansen senere mister netværksadgang. En **Se på GitHub**-knap i dialogen åbner udgivelsessiden i en ny fane for dem, der vil have den.
 
 Tjekket **giver kun besked**: der hentes intet, og intet ændres på værten. Opgradering er fortsat den bevidste, backup-sikrede procedure, der er beskrevet i [Drift](operations.md#the-upgrade-procedure). En administrator, der hellere vil være fri for påmindelsen, kan slå rækken **Opdatering tilgængelig** fra i sine egne notifikationsindstillinger.
 

@@ -19,5 +19,12 @@
   "preferences.soawSignRequested": "Signature SoAW demandée",
   "preferences.soawSigned": "SoAW signé",
   "preferences.surveyRequest": "Demande d’enquête",
-  "preferences.appUpdateAvailable": "Mise à jour disponible"
+  "preferences.appUpdateAvailable": "Mise à jour disponible",
+
+  "releaseNotes.title": "Turbo EA {{version}} est disponible",
+  "releaseNotes.titleFallback": "Notes de version",
+  "releaseNotes.running": "Vous utilisez la version {{version}}",
+  "releaseNotes.viewOnGithub": "Voir sur GitHub",
+  "releaseNotes.empty": "Aucune note de version n'a été publiée pour cette version.",
+  "releaseNotes.loadFailed": "Impossible de charger les notes de version"
 }

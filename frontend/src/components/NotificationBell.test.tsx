@@ -102,18 +102,75 @@ describe("NotificationBell link handling", () => {
   });
 
   it("opens an absolute link in a new tab instead of routing to it", async () => {
-    // An "update available" notification points at the GitHub release notes.
-    // Handing that to react-router would resolve it as an in-app path and land
-    // the user on a blank route.
+    // Handing an absolute URL to react-router would resolve it as an in-app
+    // path and land the user on a blank route.
     const open = vi.spyOn(window, "open").mockImplementation(() => null);
-    const url = "https://github.com/vincentmakes/turbo-ea/releases/tag/v2.60.0";
+    const url = "https://example.com/some/page";
 
-    await openAndClick(url, "app_update_available");
+    await openAndClick(url);
 
     await waitFor(() =>
       expect(open).toHaveBeenCalledWith(url, "_blank", "noopener,noreferrer"),
     );
     expect(navigate).not.toHaveBeenCalled();
     open.mockRestore();
+  });
+
+  it("opens the release-notes dialog for an update notice, staying in the app", async () => {
+    // The notification carries the GitHub URL for the benefit of its email
+    // copy, but in the app the notes render in a dialog — clicking must not
+    // navigate away or pop a tab.
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.startsWith("/notifications?")) {
+        return {
+          items: [
+            notif(
+              "n1",
+              "https://github.com/vincentmakes/turbo-ea/releases/tag/v2.61.0",
+              "app_update_available",
+            ),
+          ],
+          total: 1,
+          page: 1,
+          page_size: 20,
+        };
+      }
+      if (path === "/settings/update-status") {
+        return {
+          current_version: "2.60.0",
+          latest_version: "2.61.0",
+          release_url: "https://github.com/vincentmakes/turbo-ea/releases/tag/v2.61.0",
+          release_notes: "### Added\n- **A new thing** that matters",
+          checked_at: new Date().toISOString(),
+          error: null,
+          update_available: true,
+          enabled: true,
+        };
+      }
+      return { count: 1 };
+    });
+
+    const user = userEvent.setup();
+    render(<NotificationBell userId="u1" />);
+    await user.click(bellButton());
+    await user.click(await screen.findByText("notification n1"));
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(await screen.findByText("A new thing")).toBeInTheDocument();
+    expect(open).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+    open.mockRestore();
+  });
+
+  it("does not mark the update notice as leaving the app", async () => {
+    // It opens a dialog, so the open-in-new glyph would be a lie.
+    await openList(
+      "https://github.com/vincentmakes/turbo-ea/releases/tag/v2.61.0",
+      "app_update_available",
+    );
+    await screen.findByText("notification n1");
+
+    expect(screen.queryByRole("img", { name: "opensExternally" })).toBeNull();
   });
 });

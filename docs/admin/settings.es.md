@@ -168,7 +168,7 @@ Consulte la [guía de GRC](../guide/grc.md) para la referencia completa de funci
 
 ## Notificaciones de actualización
 
-Turbo EA comprueba una vez al día si se ha publicado una versión más reciente y, cuando la hay, deja una notificación en la campana de cada usuario cuyo rol conceda `admin.settings`. La notificación indica la nueva versión y enlaza con sus notas de la versión.
+Turbo EA comprueba una vez al día si se ha publicado una versión más reciente y, cuando la hay, deja una notificación en la campana de cada usuario cuyo rol conceda `admin.settings`. Al hacer clic se abren las notas de la versión —el changelog de esa versión— en un diálogo dentro de Turbo EA. Las notas se almacenan en caché durante la comprobación diaria, así que leerlas no supone ninguna petición saliente y sigue funcionando si la instancia pierde después el acceso a la red. Un botón **Ver en GitHub** en el diálogo abre la página de la versión en una pestaña nueva para quien la quiera.
 
 La comprobación **solo notifica**: no se descarga nada ni se modifica nada en el host. La actualización sigue siendo el procedimiento deliberado y respaldado por copia de seguridad que se describe en [Operaciones](operations.md#the-upgrade-procedure). Un administrador que prefiera no recibir avisos puede silenciar la fila **Actualización disponible** en sus propias preferencias de notificación.
 

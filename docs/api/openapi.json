@@ -35185,6 +35185,26 @@
         ]
       }
     },
+    "/api/v1/settings/update-status": {
+      "get": {
+        "description": "Cached result of the last update check, for the release-notes dialog.\n\nGated on ``admin.settings`` \u2014 the same permission that decides who gets\nnotified in the first place, so the endpoint cannot tell a non-admin\nanything the notification would not have. Serves only what the daily check\nalready stored; it never reaches out to GitHub itself.",
+        "operationId": "get_update_status_api_v1_settings_update_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Update Status",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
     "/api/v1/soaw": {
       "get": {
         "operationId": "list_soaws_api_v1_soaw_get",

@@ -168,7 +168,7 @@ See the [GRC guide](../guide/grc.md) for the full feature reference.
 
 ## Update notifications
 
-Turbo EA checks once a day whether a newer version has been published and, when there is one, drops a notification into the bell for every user whose role grants `admin.settings`. The notification names the new version and links to its release notes.
+Turbo EA checks once a day whether a newer version has been published and, when there is one, drops a notification into the bell for every user whose role grants `admin.settings`. Clicking it opens the release notes — the changelog for that version — in a dialog inside Turbo EA. The notes are cached by the daily check, so reading them costs no outbound request and still works if the instance later loses network access. A **View on GitHub** button in the dialog opens the release page in a new tab for anyone who wants it.
 
 The check is **notification-only** — nothing is downloaded and nothing on the host is changed. Upgrading remains the deliberate, backed-up procedure described in [Operations](operations.md#the-upgrade-procedure). An administrator who would rather not be reminded can mute the **Update Available** row in their own notification preferences.
 

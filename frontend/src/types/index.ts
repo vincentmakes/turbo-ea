@@ -714,6 +714,18 @@ export interface NotificationListResponse {
   page_size: number;
 }
 
+/** Cached result of the daily "is there a newer release?" check. */
+export interface UpdateStatus {
+  current_version: string;
+  latest_version: string | null;
+  release_url: string | null;
+  release_notes: string;
+  checked_at: string | null;
+  error: string | null;
+  update_available: boolean;
+  enabled: boolean;
+}
+
 export interface NotificationPreferences {
   in_app: Record<string, boolean>;
   email: Record<string, boolean>;

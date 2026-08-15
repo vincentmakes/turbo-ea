@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import Badge from "@mui/material/Badge";
@@ -21,6 +21,8 @@ import { formatDateWith, getCachedDateFormat } from "@/hooks/useDateFormat";
 import { NOTIFICATION_TYPE_COLORS } from "@/theme/tokens";
 import type { Notification, NotificationListResponse } from "@/types";
 
+const ReleaseNotesDialog = lazy(() => import("@/components/ReleaseNotesDialog"));
+
 const NOTIFICATION_ICONS: Record<string, { icon: string; color: string }> = {
   todo_assigned: { icon: "assignment_ind", color: NOTIFICATION_TYPE_COLORS.todo_assigned },
   task_assigned: { icon: "task", color: NOTIFICATION_TYPE_COLORS.task_assigned },
@@ -39,12 +41,26 @@ const NOTIFICATION_ICONS: Record<string, { icon: string; color: string }> = {
   },
 };
 
-/** Notification links are usually in-app routes, but some point at an external
- *  page (the release notes behind an "update available" notice). Feeding an
- *  absolute URL to react-router's `navigate` would treat it as a relative path
- *  and land on a broken route, so those open in a new tab instead. */
+/** Notification links are usually in-app routes, but some are absolute URLs.
+ *  Feeding one of those to react-router's `navigate` would treat it as a
+ *  relative path and land on a broken route, so they open in a new tab. */
 function isExternalLink(link: string): boolean {
   return /^https?:\/\//i.test(link);
+}
+
+/** Types the bell handles itself instead of following `link`.
+ *
+ *  An update notice carries the GitHub release URL — that is what an email
+ *  copy of the notification needs — but in the app the release notes open in a
+ *  dialog rather than sending an administrator off-site. */
+function opensInApp(notif: Notification): boolean {
+  return notif.type === "app_update_available";
+}
+
+/** Whether clicking this row leaves Turbo EA, which is what the trailing
+ *  open-in-new glyph announces. */
+function leavesTheApp(notif: Notification): boolean {
+  return !!notif.link && isExternalLink(notif.link) && !opensInApp(notif);
 }
 
 function timeAgo(dateStr: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
@@ -74,6 +90,7 @@ export default function NotificationBell({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [releaseNotesOpen, setReleaseNotesOpen] = useState(false);
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
 
@@ -153,6 +170,10 @@ export default function NotificationBell({
       }
     }
     handleClose();
+    if (opensInApp(notif)) {
+      setReleaseNotesOpen(true);
+      return;
+    }
     if (notif.link) {
       if (isExternalLink(notif.link)) {
         window.open(notif.link, "_blank", "noopener,noreferrer");
@@ -291,7 +312,7 @@ export default function NotificationBell({
                             : notif.message}
                           {/* Trailing marker: this row leaves the app, so say
                               so before it is clicked. */}
-                          {notif.link && isExternalLink(notif.link) && (
+                          {leavesTheApp(notif) && (
                             <Box
                               component="span"
                               role="img"
@@ -323,6 +344,14 @@ export default function NotificationBell({
           </List>
         )}
       </Popover>
+
+      {/* Lazy: the bell renders on every page, the dialog opens on a handful
+          of clicks a year. */}
+      {releaseNotesOpen && (
+        <Suspense fallback={null}>
+          <ReleaseNotesDialog open onClose={() => setReleaseNotesOpen(false)} />
+        </Suspense>
+      )}
     </>
   );
 }

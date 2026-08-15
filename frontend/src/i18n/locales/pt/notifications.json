@@ -19,5 +19,12 @@
   "preferences.soawSignRequested": "Assinatura de SoAW solicitada",
   "preferences.soawSigned": "SoAW assinado",
   "preferences.surveyRequest": "Solicitação de pesquisa",
-  "preferences.appUpdateAvailable": "Atualização disponível"
+  "preferences.appUpdateAvailable": "Atualização disponível",
+
+  "releaseNotes.title": "O Turbo EA {{version}} está disponível",
+  "releaseNotes.titleFallback": "Notas de lançamento",
+  "releaseNotes.running": "Está a utilizar a versão {{version}}",
+  "releaseNotes.viewOnGithub": "Ver no GitHub",
+  "releaseNotes.empty": "Não foram publicadas notas para esta versão.",
+  "releaseNotes.loadFailed": "Não foi possível carregar as notas de lançamento"
 }

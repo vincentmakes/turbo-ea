@@ -19,5 +19,12 @@
   "preferences.soawSignRequested": "SoAW 签署请求",
   "preferences.soawSigned": "SoAW 已签署",
   "preferences.surveyRequest": "调查请求",
-  "preferences.appUpdateAvailable": "有可用更新"
+  "preferences.appUpdateAvailable": "有可用更新",
+
+  "releaseNotes.title": "Turbo EA {{version}} 已发布",
+  "releaseNotes.titleFallback": "发行说明",
+  "releaseNotes.running": "当前运行版本为 {{version}}",
+  "releaseNotes.viewOnGithub": "在 GitHub 上查看",
+  "releaseNotes.empty": "该版本没有发布发行说明。",
+  "releaseNotes.loadFailed": "无法加载发行说明"
 }

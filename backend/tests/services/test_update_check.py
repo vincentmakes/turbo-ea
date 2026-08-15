@@ -127,6 +127,42 @@ async def test_fetch_falls_back_to_the_releases_page_when_the_url_is_unusable(fa
     assert release.url == "https://github.com/vincentmakes/turbo-ea/releases"
 
 
+async def test_fetch_keeps_the_release_body_as_notes(fake_http):
+    fake_http.response = _FakeResponse(
+        {
+            "tag_name": "v2.60.0",
+            "html_url": "https://example.com/r",
+            "body": "\n### Added\n- Something new\n",
+        }
+    )
+
+    release, error = await fetch_latest_release()
+
+    assert error is None
+    assert release.notes == "### Added\n- Something new"
+
+
+async def test_fetch_caps_an_oversized_release_body(fake_http):
+    """The notes land on the singleton settings row every read touches."""
+    fake_http.response = _FakeResponse(
+        {"tag_name": "2.60.0", "html_url": "https://example.com/r", "body": "x" * 50_000}
+    )
+
+    release, _ = await fetch_latest_release()
+
+    assert len(release.notes) <= update_check.MAX_RELEASE_NOTES_CHARS + 4
+    assert release.notes.endswith("…")
+
+
+async def test_fetch_tolerates_a_release_with_no_body(fake_http):
+    fake_http.response = _FakeResponse({"tag_name": "2.60.0", "html_url": "https://example.com/r"})
+
+    release, error = await fetch_latest_release()
+
+    assert error is None
+    assert release.notes == ""
+
+
 async def test_fetch_reports_an_unreachable_github_without_raising(fake_http):
     """Air-gapped installs must not see a stack trace every day."""
     fake_http.raises = httpx.ConnectError("no route to host")
@@ -293,6 +329,34 @@ async def test_running_the_latest_version_notifies_nobody(db, monkeypatch):
     state = await _state(db)
     assert state["latestVersion"] == "2.60.0"
     assert "notifiedVersion" not in state
+
+
+async def test_read_status_reports_the_cached_notes(db, monkeypatch):
+    monkeypatch.setattr(update_check, "APP_VERSION", "2.59.1")
+    await record_result(
+        db,
+        release=ReleaseInfo(version="2.60.0", url="https://example.com/r", notes="### Added\n- x"),
+        error=None,
+    )
+
+    status = await update_check.read_status(db)
+
+    assert status["latest_version"] == "2.60.0"
+    assert status["release_notes"] == "### Added\n- x"
+    assert status["release_url"] == "https://example.com/r"
+    assert status["update_available"] is True
+    assert status["enabled"] is True
+
+
+async def test_read_status_reports_no_update_when_current(db, monkeypatch):
+    monkeypatch.setattr(update_check, "APP_VERSION", "2.60.0")
+    await record_result(
+        db, release=ReleaseInfo(version="2.60.0", url="https://example.com/r"), error=None
+    )
+
+    status = await update_check.read_status(db)
+
+    assert status["update_available"] is False
 
 
 async def test_a_failed_probe_records_the_error_and_notifies_nobody(db):

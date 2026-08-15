@@ -54,6 +54,11 @@ GITHUB_LATEST_RELEASE_URL = "https://api.github.com/repos/vincentmakes/turbo-ea/
 
 RELEASE_FETCH_TIMEOUT_SECONDS = 10.0
 
+#: The release body lands in the singleton settings row, which every settings
+#: read touches, so it is capped rather than stored at whatever length GitHub
+#: returns. Real Turbo EA release notes run to a few KB.
+MAX_RELEASE_NOTES_CHARS = 20_000
+
 #: ``app_settings.general_settings`` keys owned by this module.
 ENABLED_SETTING = "updateCheckEnabled"
 STATE_SETTING = "updateCheck"
@@ -68,10 +73,18 @@ ADMIN_PERMISSION = "admin.settings"
 
 @dataclass(frozen=True)
 class ReleaseInfo:
-    """The two fields we need out of a GitHub release."""
+    """What we keep out of a GitHub release.
+
+    ``notes`` is the release body — the CHANGELOG section for that version,
+    cut by ``.github/workflows/github-release.yml``. It is stored alongside the
+    version so the in-app release-notes dialog renders from cache: an admin
+    reading the notes costs no outbound request, and the notes stay readable
+    after the feed becomes unreachable.
+    """
 
     version: str
     url: str
+    notes: str = ""
 
 
 async def _settings_row(db: AsyncSession) -> AppSettings | None:
@@ -121,7 +134,13 @@ async def fetch_latest_release() -> tuple[ReleaseInfo | None, str | None]:
         # Fall back to the repository's releases page rather than dropping a
         # notification with no changelog to point at.
         url = "https://github.com/vincentmakes/turbo-ea/releases"
-    return ReleaseInfo(version=version, url=url), None
+
+    notes = payload.get("body")
+    notes = notes.strip() if isinstance(notes, str) else ""
+    if len(notes) > MAX_RELEASE_NOTES_CHARS:
+        notes = notes[:MAX_RELEASE_NOTES_CHARS].rstrip() + "\n\n…"
+
+    return ReleaseInfo(version=version, url=url, notes=notes), None
 
 
 def is_newer(latest: str, current: str | None = None) -> bool:
@@ -165,6 +184,30 @@ async def admin_recipient_ids(db: AsyncSession) -> list[uuid.UUID]:
     return [u.id for u in users]
 
 
+async def read_status(db: AsyncSession) -> dict:
+    """The cached probe result, shaped for the release-notes dialog.
+
+    Reads only what the last check stored — it never triggers a fetch, so
+    opening the dialog costs nothing outbound and works unchanged on an
+    instance that has since lost network access.
+    """
+    row = await _settings_row(db)
+    general = (row.general_settings if row else None) or {}
+    state = general.get(STATE_SETTING) or {}
+    latest = state.get("latestVersion")
+
+    return {
+        "current_version": APP_VERSION,
+        "latest_version": latest,
+        "release_url": state.get("releaseUrl"),
+        "release_notes": state.get("releaseNotes") or "",
+        "checked_at": state.get("checkedAt"),
+        "error": state.get("error"),
+        "update_available": bool(latest) and is_newer(latest),
+        "enabled": bool(general.get(ENABLED_SETTING, True)),
+    }
+
+
 async def record_result(
     db: AsyncSession,
     *,
@@ -189,6 +232,7 @@ async def record_result(
     if release is not None:
         state["latestVersion"] = release.version
         state["releaseUrl"] = release.url
+        state["releaseNotes"] = release.notes
 
     created = 0
     if (
