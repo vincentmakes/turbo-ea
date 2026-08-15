@@ -198,6 +198,73 @@ describe("NotificationBell link handling", () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
+  it("opens an old notice against its own version, not the newest one", async () => {
+    // The regression: every notification the bell keeps is a claim about a
+    // particular release. Clicking one from several upgrades ago used to show
+    // whatever shipped most recently, because the dialog only ever asked
+    // "what is newest?". It must ask for the versions on the row itself.
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.startsWith("/notifications?")) {
+        const row = {
+          ...notif("n1", "", "app_updated"),
+          link: undefined,
+          data: { from_version: "2.54.0", to_version: "2.55.0" },
+        };
+        return { items: [row], total: 1, page: 1, page_size: 20 };
+      }
+      if (path.startsWith("/settings/release-notes")) {
+        return {
+          version: "2.55.0",
+          from_version: "2.54.0",
+          notes: "### Added\n- **An old thing** from back then",
+          source: "changelog",
+          release_url: null,
+          is_installed: true,
+          current_version: "2.61.0",
+        };
+      }
+      return { count: 1 };
+    });
+
+    const user = userEvent.setup();
+    render(<NotificationBell userId="u1" />);
+    await user.click(bellButton());
+    await user.click(await screen.findByText("notification n1"));
+
+    expect(await screen.findByText("An old thing")).toBeInTheDocument();
+    const asked = vi
+      .mocked(api.get)
+      .mock.calls.map(([p]) => p as string)
+      .filter((p) => p.startsWith("/settings/release-notes"));
+    expect(asked).toHaveLength(1);
+    expect(asked[0]).toContain("version=2.55.0");
+    expect(asked[0]).toContain("from_version=2.54.0");
+    // The "what changed most recently" endpoint has no business here.
+    expect(
+      vi.mocked(api.get).mock.calls.filter(([p]) => p === "/settings/whats-new"),
+    ).toHaveLength(0);
+  });
+
+  it("falls back to the latest notes for a row predating the version payload", async () => {
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path.startsWith("/notifications?")) {
+        const row = { ...notif("n1", "", "app_updated"), link: undefined };
+        return { items: [row], total: 1, page: 1, page_size: 20 };
+      }
+      if (path === "/settings/whats-new") {
+        return { version: "2.61.0", from_version: "2.60.0", notes: "### Added\n- **Newest**" };
+      }
+      return { count: 1 };
+    });
+
+    const user = userEvent.setup();
+    render(<NotificationBell userId="u1" />);
+    await user.click(bellButton());
+    await user.click(await screen.findByText("notification n1"));
+
+    expect(await screen.findByText("Newest")).toBeInTheDocument();
+  });
+
   it("marks a dialog-opening notice as such, not as leaving the app", async () => {
     // It opens a dialog, so open_in_new would be a lie — but the row still
     // needs to say that clicking it shows something.

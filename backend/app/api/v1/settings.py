@@ -19,6 +19,7 @@ from app.models.relation_type import RelationType
 from app.models.resource_type import ResourceType
 from app.models.user import User
 from app.services.ai_service import DEFAULT_AZURE_API_VERSION
+from app.services.app_identity import DEFAULT_APP_TITLE
 from app.services.email_backends.base import (
     ALLOWED_METHODS as ALLOWED_EMAIL_METHODS,
 )
@@ -443,8 +444,6 @@ async def update_date_format(
 # App title endpoint
 # ---------------------------------------------------------------------------
 
-DEFAULT_APP_TITLE = "Turbo EA"
-
 
 @router.get("/app-title")
 async def get_app_title(db: AsyncSession = Depends(get_db)):
@@ -814,6 +813,47 @@ async def get_whats_new(
     from app.services.upgrade_announce import read_whats_new
 
     return await read_whats_new(db)
+
+
+@router.get("/release-notes")
+async def get_release_notes(
+    version: str | None = None,
+    from_version: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Release notes for one specific version, as a notification announced it.
+
+    ``/whats-new`` answers "what changed in the most recent upgrade?" — right
+    for the newest notification and wrong for every older one still sitting in
+    the bell. This takes the versions off the notification itself, so a notice
+    from six releases ago still opens its own notes.
+
+    Authenticated but **not** permission-gated, on the same reasoning as
+    ``/whats-new``: every user is told when the app is updated, so every user
+    has to be able to read the changelog, which is public information anyway.
+    The one privileged ingredient is narrower — the cached GitHub body for a
+    release this instance has *not* installed is readable only by holders of
+    ``admin.settings``, matching ``/update-status``, since they are also the
+    only people who ever receive an update-available notification. None of that
+    endpoint's operational state (``checked_at``, ``error``, ``enabled``) is
+    exposed here.
+    """
+    from app.services.release_notes import resolve_release_notes, valid_version
+
+    # Reject junk before it reaches the lenient version parser.
+    for value in (version, from_version):
+        if value is not None and not valid_version(value):
+            raise HTTPException(status_code=422, detail="Invalid version")
+
+    allow_cached_github = await PermissionService.check_permission(db, user, "admin.settings")
+
+    return await resolve_release_notes(
+        db,
+        version=version,
+        from_version=from_version,
+        allow_cached_github=allow_cached_github,
+    )
 
 
 class AnnounceUpgradesEnabledPayload(BaseModel):

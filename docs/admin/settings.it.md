@@ -168,7 +168,9 @@ Consultate la [guida GRC](../guide/grc.md) per il riferimento completo delle fun
 
 ## Notifiche di aggiornamento
 
-Turbo EA controlla una volta al giorno se è stata pubblicata una versione più recente e, in tal caso, inserisce una notifica nella campanella di ogni utente il cui ruolo concede `admin.settings`. Facendo clic si aprono le note di rilascio — il changelog di quella versione — in una finestra di dialogo all'interno di Turbo EA. Le note vengono memorizzate dalla verifica quotidiana, quindi leggerle non comporta alcuna richiesta in uscita e continua a funzionare se l'istanza perde in seguito l'accesso alla rete. Un pulsante **Vedi su GitHub** nella finestra apre la pagina della versione in una nuova scheda per chi lo desidera.
+Turbo EA controlla una volta al giorno se è stata pubblicata una versione più recente e, in tal caso, inserisce una notifica nella campanella di ogni utente il cui ruolo concede `admin.settings`. Facendo clic si aprono le note di rilascio — il changelog di quella versione — in una finestra di dialogo all'interno di Turbo EA. Ogni notifica continua a mostrare la versione che ha annunciato, per quanto a lungo sia rimasta nella campanella: le note vengono lette dal changelog incluso nell'immagine, quindi non comportano alcuna richiesta in uscita e funzionano identiche su un'installazione isolata. Solo una release non ancora installata proviene invece dalla cache della verifica quotidiana, perché un changelog scritto in fase di build non può descriverla; per quelle, un pulsante **Vedi su GitHub** apre la pagina della versione in una nuova scheda.
+
+Le notifiche riportano il nome configurato per questa istanza, così un'installazione rinominata non si annuncia con un altro nome di prodotto.
 
 Il controllo si limita a **segnalare**: non viene scaricato nulla e nulla viene modificato sull'host. L'aggiornamento resta la procedura consapevole e protetta da backup descritta in [Operazioni](operations.md#the-upgrade-procedure). Un amministratore che preferisce non ricevere avvisi può silenziare la riga **Aggiornamento disponibile** nelle proprie preferenze di notifica.
 
@@ -176,7 +178,7 @@ Disattivando l'opzione la richiesta quotidiana a github.com viene eliminata del 
 
 ### Dopo l'aggiornamento
 
-Un secondo interruttore, **Annunciare gli aggiornamenti agli utenti**, copre l'altra metà. Quando l'istanza riparte su una versione più recente, **tutti** gli utenti — non solo gli amministratori — ricevono una notifica che segnala l'aggiornamento di Turbo EA, e un clic mostra il changelog di tutte le versioni attraversate. Un'istanza che passa da 2.57.0 a 2.60.0 mostra tutte e quattro le release, non solo l'ultima.
+Un secondo interruttore, **Annunciare gli aggiornamenti agli utenti**, copre l'altra metà. Quando l'istanza riparte su una versione più recente, **tutti** gli utenti — non solo gli amministratori — ricevono una notifica che segnala l'aggiornamento dell'applicazione, e un clic mostra il changelog di tutte le versioni attraversate. Un'istanza che passa da 2.57.0 a 2.60.0 mostra tutte e quattro le release, non solo l'ultima. Ognuna di queste notifiche resta legata al proprio aggiornamento: aprirne una di un anno fa mostra ancora le versioni attraversate da *quell'* aggiornamento.
 
 L'annuncio viene inviato **una volta per versione**: dieci riavvii sulla stessa versione producono una sola notifica e un rollback non ne produce nessuna. Un'installazione nuova non annuncia nulla, perché non c'è alcun aggiornamento da descrivere. Queste note provengono dal changelog incluso nell'immagine, quindi questa metà non richiede alcuna rete.
 

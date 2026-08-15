@@ -11,6 +11,7 @@ import httpx
 import pytest
 from sqlalchemy import select
 
+from app.config import settings as app_config
 from app.models.app_settings import AppSettings
 from app.models.notification import Notification
 from app.services import update_check
@@ -283,6 +284,20 @@ async def test_a_newer_release_notifies_every_admin(db, monkeypatch):
     assert notifs[0].data["current_version"] == "2.59.1"
     assert notifs[0].data["latest_version"] == "2.60.0"
     assert (await _state(db))["notifiedVersion"] == "2.60.0"
+
+
+async def test_the_notification_title_uses_the_configured_instance_name(db, monkeypatch):
+    """A white-labelled install must not announce itself as "Turbo EA"."""
+    monkeypatch.setattr(update_check, "APP_VERSION", "2.59.1")
+    monkeypatch.setattr(app_config, "APP_TITLE", "Acme Architecture")
+    await create_role(db, key="admin", permissions={"*": True})
+    await create_user(db, role="admin", email="a@example.com")
+
+    await record_result(
+        db, release=ReleaseInfo(version="2.60.0", url="https://example.com/r"), error=None
+    )
+
+    assert (await _notifications(db))[0].title == "Acme Architecture 2.60.0 is available"
 
 
 async def test_the_same_version_is_announced_only_once(db, monkeypatch):

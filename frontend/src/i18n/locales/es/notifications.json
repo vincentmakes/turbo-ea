@@ -23,12 +23,14 @@
   "preferences.appUpdateAvailable": "Actualización disponible",
   "preferences.appUpdated": "Aplicación actualizada",
 
-  "releaseNotes.title": "Turbo EA {{version}} está disponible",
+  "releaseNotes.title": "{{app}} {{version}} está disponible",
   "releaseNotes.titleFallback": "Notas de la versión",
   "releaseNotes.running": "Está usando la versión {{version}}",
   "releaseNotes.viewOnGithub": "Ver en GitHub",
   "releaseNotes.empty": "No se publicaron notas para esta versión.",
   "releaseNotes.loadFailed": "No se pudieron cargar las notas de la versión",
-  "releaseNotes.installedTitle": "Novedades de Turbo EA {{version}}",
-  "releaseNotes.updatedFrom": "Actualizado desde la versión {{version}}"
+  "releaseNotes.installedTitle": "Novedades de {{app}} {{version}}",
+  "releaseNotes.updatedFrom": "Actualizado desde la versión {{version}}",
+  "releaseNotes.alreadyInstalled": "Ya instalada",
+  "releaseNotes.unavailableForVersion": "Las notas de la versión {{version}} no están disponibles en esta instancia."
 }

@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import APP_VERSION
 from app.models.app_settings import AppSettings
+from app.services.app_identity import get_app_title
 from app.services.catalogue_common import version_tuple
 from app.services.notification_service import notify_all_users
 
@@ -88,7 +89,8 @@ async def announce_upgrade_if_needed(db: AsyncSession) -> int | None:
     notified = await notify_all_users(
         db,
         notif_type=NOTIFICATION_TYPE,
-        title=f"Turbo EA was updated to {APP_VERSION}",
+        # The instance's own name, not the product's — see app_identity.
+        title=f"{get_app_title()} was updated to {APP_VERSION}",
         message=f"Updated from {previous}. Open to see what changed in this release.",
         data={"from_version": previous, "to_version": APP_VERSION},
     )

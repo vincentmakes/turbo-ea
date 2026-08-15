@@ -168,7 +168,9 @@ Siehe den [GRC-Leitfaden](../guide/grc.md) für die vollständige Funktionsüber
 
 ## Update-Benachrichtigungen
 
-Turbo EA prüft einmal täglich, ob eine neuere Version veröffentlicht wurde, und legt in diesem Fall eine Benachrichtigung in die Glocke jedes Benutzers, dessen Rolle `admin.settings` gewährt. Ein Klick darauf öffnet die Release Notes — das Changelog dieser Version — in einem Dialog innerhalb von Turbo EA. Die Notes werden von der täglichen Prüfung zwischengespeichert; das Lesen verursacht also keine ausgehende Anfrage und funktioniert auch dann noch, wenn die Instanz später keine Netzwerkverbindung mehr hat. Eine Schaltfläche **Auf GitHub ansehen** im Dialog öffnet die Release-Seite bei Bedarf in einem neuen Tab.
+Turbo EA prüft einmal täglich, ob eine neuere Version veröffentlicht wurde, und legt in diesem Fall eine Benachrichtigung in die Glocke jedes Benutzers, dessen Rolle `admin.settings` gewährt. Ein Klick darauf öffnet die Release Notes — das Changelog dieser Version — in einem Dialog innerhalb von Turbo EA. Jede Benachrichtigung zeigt weiterhin genau die Version, die sie angekündigt hat, egal wie lange sie schon in der Glocke liegt: Die Notes werden aus dem im Image mitgelieferten Changelog gelesen, verursachen also keine ausgehende Anfrage und funktionieren auf einer Air-Gap-Installation unverändert. Nur ein noch nicht installiertes Release stammt stattdessen aus dem Cache der täglichen Prüfung, denn ein zur Build-Zeit geschriebenes Changelog kann es nicht beschreiben; dafür öffnet eine Schaltfläche **Auf GitHub ansehen** die Release-Seite in einem neuen Tab.
+
+Benachrichtigungen tragen den für diese Instanz konfigurierten Namen, sodass sich eine umbenannte Installation nicht unter einem anderen Produktnamen ankündigt.
 
 Die Prüfung ist **reine Benachrichtigung** — es wird nichts heruntergeladen und nichts auf dem Host verändert. Das Upgrade bleibt der bewusste, durch ein Backup abgesicherte Ablauf, der unter [Betrieb](operations.md#the-upgrade-procedure) beschrieben ist. Administratoren, die nicht erinnert werden möchten, können die Zeile **Update verfügbar** in ihren eigenen Benachrichtigungseinstellungen stummschalten.
 
@@ -176,7 +178,7 @@ Wird der Schalter **deaktiviert**, entfällt die tägliche Anfrage an github.com
 
 ### Nach dem Upgrade
 
-Ein zweiter Schalter, **Upgrades an Benutzer ankündigen**, deckt die andere Hälfte ab. Startet die Instanz mit einer neueren Version, erhält **jeder** Benutzer — nicht nur Administratoren — eine Benachrichtigung, dass Turbo EA aktualisiert wurde; ein Klick zeigt das Changelog aller übersprungenen Versionen. Eine Instanz, die von 2.57.0 auf 2.60.0 springt, zeigt alle vier Releases, nicht nur das letzte.
+Ein zweiter Schalter, **Upgrades an Benutzer ankündigen**, deckt die andere Hälfte ab. Startet die Instanz mit einer neueren Version, erhält **jeder** Benutzer — nicht nur Administratoren — eine Benachrichtigung, dass die Anwendung aktualisiert wurde; ein Klick zeigt das Changelog aller übersprungenen Versionen. Eine Instanz, die von 2.57.0 auf 2.60.0 springt, zeigt alle vier Releases, nicht nur das letzte. Jede dieser Meldungen bleibt an ihr eigenes Upgrade gebunden — wer eine ein Jahr alte Meldung öffnet, sieht weiterhin die Versionen, die *dieses* Upgrade übersprungen hat.
 
 Die Ankündigung erfolgt **einmal pro Version**: zehn Neustarts derselben Version ergeben eine Benachrichtigung, ein Rollback keine. Eine brandneue Installation kündigt nichts an, weil es kein Upgrade zu beschreiben gibt. Diese Notes stammen aus dem im Image mitgelieferten Changelog, dieser Teil benötigt also überhaupt kein Netzwerk.
 

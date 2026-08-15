@@ -24,12 +24,14 @@
   "preferences.appUpdateAvailable": "يتوفر تحديث",
   "preferences.appUpdated": "تم تحديث التطبيق",
 
-  "releaseNotes.title": "الإصدار Turbo EA {{version}} متاح",
+  "releaseNotes.title": "الإصدار {{app}} {{version}} متاح",
   "releaseNotes.titleFallback": "ملاحظات الإصدار",
   "releaseNotes.running": "أنت تستخدم الإصدار {{version}}",
   "releaseNotes.viewOnGithub": "العرض على GitHub",
   "releaseNotes.empty": "لم تُنشر ملاحظات لهذا الإصدار.",
   "releaseNotes.loadFailed": "تعذّر تحميل ملاحظات الإصدار",
-  "releaseNotes.installedTitle": "الجديد في Turbo EA {{version}}",
-  "releaseNotes.updatedFrom": "تم التحديث من الإصدار {{version}}"
+  "releaseNotes.installedTitle": "الجديد في {{app}} {{version}}",
+  "releaseNotes.updatedFrom": "تم التحديث من الإصدار {{version}}",
+  "releaseNotes.alreadyInstalled": "مثبَّت بالفعل",
+  "releaseNotes.unavailableForVersion": "ملاحظات الإصدار {{version}} غير متوفرة في هذا المثيل."
 }

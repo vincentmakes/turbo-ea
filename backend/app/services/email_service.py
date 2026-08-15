@@ -12,17 +12,15 @@ import html
 import logging
 
 from app.config import settings
+from app.services.app_identity import get_app_title
 from app.services.email_backends import EmailConfig, get_backend
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_APP_TITLE = "Turbo EA"
-
 
 def _get_app_title() -> str:
     """Return the configured app title from the runtime config, or the default."""
-    title = (getattr(settings, "APP_TITLE", "") or "").strip()
-    return title or DEFAULT_APP_TITLE
+    return get_app_title()
 
 
 def _is_configured() -> bool:

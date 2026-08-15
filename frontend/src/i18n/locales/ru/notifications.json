@@ -23,12 +23,14 @@
   "preferences.appUpdateAvailable": "Доступно обновление",
   "preferences.appUpdated": "Приложение обновлено",
 
-  "releaseNotes.title": "Доступна версия Turbo EA {{version}}",
+  "releaseNotes.title": "Доступна версия {{app}} {{version}}",
   "releaseNotes.titleFallback": "Заметки о выпуске",
   "releaseNotes.running": "У вас установлена версия {{version}}",
   "releaseNotes.viewOnGithub": "Открыть на GitHub",
   "releaseNotes.empty": "Для этой версии заметки о выпуске не публиковались.",
   "releaseNotes.loadFailed": "Не удалось загрузить заметки о выпуске",
-  "releaseNotes.installedTitle": "Что нового в Turbo EA {{version}}",
-  "releaseNotes.updatedFrom": "Обновлено с версии {{version}}"
+  "releaseNotes.installedTitle": "Что нового в {{app}} {{version}}",
+  "releaseNotes.updatedFrom": "Обновлено с версии {{version}}",
+  "releaseNotes.alreadyInstalled": "Уже установлена",
+  "releaseNotes.unavailableForVersion": "Заметки о выпуске {{version}} недоступны в этом экземпляре."
 }

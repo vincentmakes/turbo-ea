@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
+from app.config import settings as app_config
 from app.models.app_settings import AppSettings
 from app.models.notification import Notification
 from app.services import upgrade_announce
@@ -117,6 +118,27 @@ class TestAnnouncing:
         assert notifs[0].data["to_version"] == "2.60.0"
         # No link: the notes come from the bundled changelog, not a web page.
         assert notifs[0].link is None
+
+    async def test_the_title_uses_the_configured_instance_name(self, db, monkeypatch):
+        """A white-labelled install must not announce itself as "Turbo EA"."""
+        monkeypatch.setattr(upgrade_announce, "APP_VERSION", "2.60.0")
+        monkeypatch.setattr(app_config, "APP_TITLE", "Acme Architecture")
+        await _three_users(db)
+        await _settings(db, **{LAST_ANNOUNCED_KEY: "2.57.0"})
+
+        await announce_upgrade_if_needed(db)
+
+        assert (await _notifications(db))[0].title == "Acme Architecture was updated to 2.60.0"
+
+    async def test_the_title_falls_back_to_the_product_name(self, db, monkeypatch):
+        monkeypatch.setattr(upgrade_announce, "APP_VERSION", "2.60.0")
+        monkeypatch.setattr(app_config, "APP_TITLE", "")
+        await _three_users(db)
+        await _settings(db, **{LAST_ANNOUNCED_KEY: "2.57.0"})
+
+        await announce_upgrade_if_needed(db)
+
+        assert (await _notifications(db))[0].title == "Turbo EA was updated to 2.60.0"
 
     async def test_the_announced_span_is_recorded_for_the_dialog(self, db, monkeypatch):
         monkeypatch.setattr(upgrade_announce, "APP_VERSION", "2.60.0")

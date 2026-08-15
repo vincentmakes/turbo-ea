@@ -168,7 +168,9 @@ Se [GRC-vejledningen](../guide/grc.md) for den fulde funktionsreference.
 
 ## Opdateringsnotifikationer
 
-Turbo EA tjekker én gang om dagen, om der er udgivet en nyere version, og lægger i så fald en notifikation i klokken hos hver bruger, hvis rolle giver `admin.settings`. Et klik åbner udgivelsesnoterne — changeloggen for den version — i en dialog inde i Turbo EA. Noterne caches af det daglige tjek, så det koster ingen udgående forespørgsel at læse dem, og det virker fortsat, hvis instansen senere mister netværksadgang. En **Se på GitHub**-knap i dialogen åbner udgivelsessiden i en ny fane for dem, der vil have den.
+Turbo EA tjekker én gang om dagen, om der er udgivet en nyere version, og lægger i så fald en notifikation i klokken hos hver bruger, hvis rolle giver `admin.settings`. Et klik åbner udgivelsesnoterne — changeloggen for den version — i en dialog inde i Turbo EA. Hver notifikation bliver ved med at vise netop den version, den annoncerede, uanset hvor længe den har ligget i klokken: noterne læses fra den changelog, der følger med imaget, så de koster ingen udgående forespørgsel og virker uændret på en air-gapped installation. Kun en udgivelse, du endnu ikke har installeret, kommer i stedet fra det daglige tjeks cache, for en changelog skrevet på byggetidspunktet kan ikke beskrive den; for dem åbner en **Se på GitHub**-knap udgivelsessiden i en ny fane.
+
+Notifikationer bærer det navn, der er konfigureret for denne instans, så en omdøbt installation ikke annoncerer sig under et andet produktnavn.
 
 Tjekket **giver kun besked**: der hentes intet, og intet ændres på værten. Opgradering er fortsat den bevidste, backup-sikrede procedure, der er beskrevet i [Drift](operations.md#the-upgrade-procedure). En administrator, der hellere vil være fri for påmindelsen, kan slå rækken **Opdatering tilgængelig** fra i sine egne notifikationsindstillinger.
 
@@ -176,7 +178,7 @@ Slås kontakten **fra**, bortfalder den daglige forespørgsel til github.com hel
 
 ### Når opgraderingen er gennemført
 
-En anden kontakt, **Annoncér opgraderinger til brugerne**, dækker den anden halvdel. Når instansen genstarter på en nyere version, får **alle** brugere — ikke kun administratorer — én notifikation om, at Turbo EA er opdateret, og et klik viser changeloggen for alle de versioner, opgraderingen krydsede. En instans, der springer fra 2.57.0 til 2.60.0, viser alle fire udgivelser, ikke kun den sidste.
+En anden kontakt, **Annoncér opgraderinger til brugerne**, dækker den anden halvdel. Når instansen genstarter på en nyere version, får **alle** brugere — ikke kun administratorer — én notifikation om, at appen er opdateret, og et klik viser changeloggen for alle de versioner, opgraderingen krydsede. En instans, der springer fra 2.57.0 til 2.60.0, viser alle fire udgivelser, ikke kun den sidste. Hver af disse beskeder forbliver knyttet til sin egen opgradering, så en besked fra et år siden stadig viser de versioner, *den* opgradering krydsede.
 
 Annonceringen sendes **én gang pr. version**: ti genstarter på samme version giver én notifikation, og en tilbagerulning giver ingen. En helt ny installation annoncerer intet, for der er ingen opgradering at beskrive. Noterne kommer fra changeloggen i imaget, så denne halvdel kræver slet ikke netværk.
 

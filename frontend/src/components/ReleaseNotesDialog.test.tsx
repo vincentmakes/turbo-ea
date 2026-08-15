@@ -67,7 +67,18 @@ describe("ReleaseNotesDialog", () => {
       if (path === "/settings/whats-new") {
         return { version: "2.61.0", from_version: "2.60.0", notes: "### Added\n- **Shipped**" };
       }
-      return {};
+      if (path.startsWith("/settings/release-notes")) {
+        return {
+          version: "2.55.0",
+          from_version: "2.54.0",
+          notes: "### Added\n- **An old thing** from back then",
+          source: "changelog",
+          release_url: null,
+          is_installed: true,
+          current_version: "2.61.0",
+        };
+      }
+      return { app_title: "Turbo EA" };
     });
   });
 
@@ -84,6 +95,48 @@ describe("ReleaseNotesDialog", () => {
 
     expect(callsTo("/settings/whats-new")).toHaveLength(1);
     expect(callsTo("/settings/update-status")).toHaveLength(0);
+  });
+
+  it("asks for the version it was given, not for whatever is newest", async () => {
+    // The regression: a notification about 2.55.0 must not resolve to the
+    // current release. The endpoint is version-scoped, and the legacy
+    // "what is newest" endpoints must not be consulted at all.
+    render(
+      <ReleaseNotesDialog
+        open
+        variant="installed"
+        version="2.55.0"
+        fromVersion="2.54.0"
+        onClose={() => {}}
+      />,
+    );
+    await settle();
+
+    const calls = vi
+      .mocked(api.get)
+      .mock.calls.map(([p]) => p as string)
+      .filter((p) => p.startsWith("/settings/release-notes"));
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain("version=2.55.0");
+    expect(calls[0]).toContain("from_version=2.54.0");
+    expect(callsTo("/settings/whats-new")).toHaveLength(0);
+    expect(callsTo("/settings/update-status")).toHaveLength(0);
+  });
+
+  it("refetches when asked about a different version", async () => {
+    const { rerender } = render(
+      <ReleaseNotesDialog open variant="installed" version="2.55.0" onClose={() => {}} />,
+    );
+    await settle();
+    rerender(<ReleaseNotesDialog open variant="installed" version="2.60.0" onClose={() => {}} />);
+    await settle();
+
+    const calls = vi
+      .mocked(api.get)
+      .mock.calls.map(([p]) => p as string)
+      .filter((p) => p.startsWith("/settings/release-notes"));
+    expect(calls).toHaveLength(2);
+    expect(calls[1]).toContain("version=2.60.0");
   });
 
   it("does not load anything while closed", async () => {

@@ -23,12 +23,14 @@
   "preferences.appUpdateAvailable": "Opdatering tilgængelig",
   "preferences.appUpdated": "Appen er opdateret",
 
-  "releaseNotes.title": "Turbo EA {{version}} er tilgængelig",
+  "releaseNotes.title": "{{app}} {{version}} er tilgængelig",
   "releaseNotes.titleFallback": "Udgivelsesnoter",
   "releaseNotes.running": "Du kører version {{version}}",
   "releaseNotes.viewOnGithub": "Se på GitHub",
   "releaseNotes.empty": "Der blev ikke udgivet noter til denne version.",
   "releaseNotes.loadFailed": "Udgivelsesnoterne kunne ikke indlæses",
-  "releaseNotes.installedTitle": "Nyheder i Turbo EA {{version}}",
-  "releaseNotes.updatedFrom": "Opdateret fra {{version}}"
+  "releaseNotes.installedTitle": "Nyheder i {{app}} {{version}}",
+  "releaseNotes.updatedFrom": "Opdateret fra {{version}}",
+  "releaseNotes.alreadyInstalled": "Allerede installeret",
+  "releaseNotes.unavailableForVersion": "Noter til {{version}} er ikke tilgængelige på denne instans."
 }

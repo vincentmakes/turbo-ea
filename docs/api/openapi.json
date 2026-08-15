@@ -35004,6 +35004,70 @@
         ]
       }
     },
+    "/api/v1/settings/release-notes": {
+      "get": {
+        "description": "Release notes for one specific version, as a notification announced it.\n\n``/whats-new`` answers \"what changed in the most recent upgrade?\" \u2014 right\nfor the newest notification and wrong for every older one still sitting in\nthe bell. This takes the versions off the notification itself, so a notice\nfrom six releases ago still opens its own notes.\n\nAuthenticated but **not** permission-gated, on the same reasoning as\n``/whats-new``: every user is told when the app is updated, so every user\nhas to be able to read the changelog, which is public information anyway.\nThe one privileged ingredient is narrower \u2014 the cached GitHub body for a\nrelease this instance has *not* installed is readable only by holders of\n``admin.settings``, matching ``/update-status``, since they are also the\nonly people who ever receive an update-available notification. None of that\nendpoint's operational state (``checked_at``, ``error``, ``enabled``) is\nexposed here.",
+        "operationId": "get_release_notes_api_v1_settings_release_notes_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from_version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Release Notes",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
     "/api/v1/settings/sponsor-button-enabled": {
       "get": {
         "description": "Public endpoint \u2014 returns whether the Sponsor button is shown in the user menu.\n\nDefaults to True so existing installations keep showing it; administrators can\nhide it from the avatar menu via the admin UI. It always remains reachable from\nAdmin \u2192 Settings regardless of this flag.",

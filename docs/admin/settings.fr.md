@@ -168,7 +168,9 @@ Voir le [guide GRC](../guide/grc.md) pour la référence complète des fonctionn
 
 ## Notifications de mise à jour
 
-Turbo EA vérifie une fois par jour si une version plus récente a été publiée et, le cas échéant, dépose une notification dans la cloche de chaque utilisateur dont le rôle accorde `admin.settings`. Un clic ouvre les notes de version — le changelog de cette version — dans une boîte de dialogue au sein de Turbo EA. Les notes sont mises en cache par la vérification quotidienne : les lire ne déclenche aucune requête sortante et fonctionne encore si l'instance perd ensuite l'accès réseau. Un bouton **Voir sur GitHub** dans la boîte de dialogue ouvre la page de la version dans un nouvel onglet pour qui le souhaite.
+Turbo EA vérifie une fois par jour si une version plus récente a été publiée et, le cas échéant, dépose une notification dans la cloche de chaque utilisateur dont le rôle accorde `admin.settings`. Un clic ouvre les notes de version — le changelog de cette version — dans une boîte de dialogue au sein de Turbo EA. Chaque notification continue d'afficher la version qu'elle a annoncée, quel que soit le temps passé dans la cloche : les notes sont lues dans le changelog embarqué dans l'image, elles ne déclenchent donc aucune requête sortante et fonctionnent à l'identique sur une installation isolée. Seule une version que vous n'avez pas encore installée provient du cache de la vérification quotidienne, car un changelog écrit au moment de la construction ne peut pas la décrire ; pour celles-là, un bouton **Voir sur GitHub** ouvre la page de la version dans un nouvel onglet.
+
+Les notifications portent le nom configuré pour cette instance, afin qu'un déploiement renommé ne s'annonce pas sous un autre nom de produit.
 
 La vérification se limite à **prévenir** : rien n'est téléchargé et rien n'est modifié sur l'hôte. La mise à niveau reste la procédure délibérée et sauvegardée décrite dans [Exploitation](operations.md#the-upgrade-procedure). Un administrateur qui préfère ne pas être notifié peut désactiver la ligne **Mise à jour disponible** dans ses propres préférences de notification.
 
@@ -176,7 +178,7 @@ Désactiver l'option supprime totalement la requête quotidienne vers github.com
 
 ### Une fois la mise à niveau effectuée
 
-Un second interrupteur, **Annoncer les mises à niveau aux utilisateurs**, couvre l'autre moitié. Lorsque l'instance redémarre sur une version plus récente, **tous** les utilisateurs — pas seulement les administrateurs — reçoivent une notification indiquant que Turbo EA a été mis à jour, et un clic affiche le changelog de toutes les versions franchies. Une instance passant de 2.57.0 à 2.60.0 montre les quatre versions, pas seulement la dernière.
+Un second interrupteur, **Annoncer les mises à niveau aux utilisateurs**, couvre l'autre moitié. Lorsque l'instance redémarre sur une version plus récente, **tous** les utilisateurs — pas seulement les administrateurs — reçoivent une notification indiquant que l'application a été mise à jour, et un clic affiche le changelog de toutes les versions franchies. Une instance passant de 2.57.0 à 2.60.0 montre les quatre versions, pas seulement la dernière. Chacun de ces avis reste rattaché à sa propre mise à niveau : ouvrir un avis vieux d'un an affiche toujours les versions franchies par *cette* mise à niveau.
 
 L'annonce est envoyée **une fois par version** : dix redémarrages sur la même version ne produisent qu'une notification, et un retour arrière n'en produit aucune. Une installation toute neuve n'annonce rien, puisqu'il n'y a aucune mise à niveau à décrire. Ces notes proviennent du changelog embarqué dans l'image : cette moitié ne nécessite aucun réseau.
 

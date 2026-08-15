@@ -23,12 +23,14 @@
   "preferences.appUpdateAvailable": "有可用更新",
   "preferences.appUpdated": "应用已更新",
 
-  "releaseNotes.title": "Turbo EA {{version}} 已发布",
+  "releaseNotes.title": "{{app}} {{version}} 已发布",
   "releaseNotes.titleFallback": "发行说明",
   "releaseNotes.running": "当前运行版本为 {{version}}",
   "releaseNotes.viewOnGithub": "在 GitHub 上查看",
   "releaseNotes.empty": "该版本没有发布发行说明。",
   "releaseNotes.loadFailed": "无法加载发行说明",
-  "releaseNotes.installedTitle": "Turbo EA {{version}} 新增内容",
-  "releaseNotes.updatedFrom": "由 {{version}} 升级而来"
+  "releaseNotes.installedTitle": "{{app}} {{version}} 新增内容",
+  "releaseNotes.updatedFrom": "由 {{version}} 升级而来",
+  "releaseNotes.alreadyInstalled": "已安装",
+  "releaseNotes.unavailableForVersion": "本实例没有 {{version}} 的发行说明。"
 }

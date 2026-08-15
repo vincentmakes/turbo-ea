@@ -91,7 +91,7 @@ Dentro de uma mesma linha de versão principal, as migrações permanecem aditiv
 
 ### Saber quando há uma atualização disponível
 
-Em vez de vigiar o repositório, deixe a instância avisá-lo: o Turbo EA verifica diariamente se existe uma versão mais recente e avisa os administradores no sino de notificações, com o número da versão e as notas de lançamento. Nunca descarrega nem instala nada — o passo 1 acima continua a começar pela leitura do changelog. A verificação está ativa por predefinição e pode ser desativada em [Administração → Definições → Geral](settings.md#update-notifications), o que elimina também o pedido de saída em instalações isoladas. Assim que a atualização fica concluída, todos os utilizadores são avisados no sino de notificações de que a aplicação foi atualizada e podem ler o changelog das versões percorridas.
+Em vez de vigiar o repositório, deixe a instância avisá-lo: o Turbo EA verifica diariamente se existe uma versão mais recente e avisa os administradores no sino de notificações, com o número da versão e as notas de lançamento. Nunca descarrega nem instala nada — o passo 1 acima continua a começar pela leitura do changelog. A verificação está ativa por predefinição e pode ser desativada em [Administração → Definições → Geral](settings.md#update-notifications), o que elimina também o pedido de saída em instalações isoladas. Assim que a atualização fica concluída, todos os utilizadores são avisados no sino de notificações de que a aplicação foi atualizada e podem ler o changelog das versões percorridas. Cada notificação continua a mostrar a versão que anunciou — as notas vêm do changelog incluído na imagem —, pelo que um aviso antigo nunca é acompanhado pelas notas da versão mais recente.
 
 ## Backups
 

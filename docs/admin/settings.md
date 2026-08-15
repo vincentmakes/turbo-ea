@@ -168,7 +168,9 @@ See the [GRC guide](../guide/grc.md) for the full feature reference.
 
 ## Update notifications
 
-Turbo EA checks once a day whether a newer version has been published and, when there is one, drops a notification into the bell for every user whose role grants `admin.settings`. Clicking it opens the release notes — the changelog for that version — in a dialog inside Turbo EA. The notes are cached by the daily check, so reading them costs no outbound request and still works if the instance later loses network access. A **View on GitHub** button in the dialog opens the release page in a new tab for anyone who wants it.
+Turbo EA checks once a day whether a newer version has been published and, when there is one, drops a notification into the bell for every user whose role grants `admin.settings`. Clicking it opens the release notes — the changelog for that version — in a dialog inside Turbo EA. Every notification keeps showing the version it announced, however long it has sat in the bell: the notes are read from the changelog shipped inside the image, so they cost no outbound request and work unchanged on an air-gapped install. Only a release you have not installed yet comes from the daily check's cache instead, because a changelog written at build time cannot describe it; for those, a **View on GitHub** button opens the release page in a new tab.
+
+Notifications are titled with the name configured for this instance, so a renamed deployment does not announce itself under a different product name.
 
 The check is **notification-only** — nothing is downloaded and nothing on the host is changed. Upgrading remains the deliberate, backed-up procedure described in [Operations](operations.md#the-upgrade-procedure). An administrator who would rather not be reminded can mute the **Update Available** row in their own notification preferences.
 
@@ -176,7 +178,7 @@ Turning the toggle **off** stops the daily request to github.com altogether, whi
 
 ### After the upgrade lands
 
-A second switch, **Announce upgrades to users**, covers the other half of the story. When the instance restarts on a newer version, **every** user — not just administrators — gets one notification saying Turbo EA was updated, and clicking it shows the changelog for every version the upgrade crossed. An instance jumping from 2.57.0 to 2.60.0 shows all four releases, not just the last one.
+A second switch, **Announce upgrades to users**, covers the other half of the story. When the instance restarts on a newer version, **every** user — not just administrators — gets one notification saying the app was updated, and clicking it shows the changelog for every version the upgrade crossed. An instance jumping from 2.57.0 to 2.60.0 shows all four releases, not just the last one. Each of these notices stays tied to its own upgrade, so opening one from a year ago still shows the versions *that* upgrade crossed.
 
 The announcement is sent **once per version**: restarting ten times on the same version produces one notification, and a rollback produces none. A brand-new install announces nothing, because there is no upgrade to describe. These notes come from the changelog bundled inside the image, so this half needs no network at all.
 

@@ -168,7 +168,9 @@ Consulte la [guía de GRC](../guide/grc.md) para la referencia completa de funci
 
 ## Notificaciones de actualización
 
-Turbo EA comprueba una vez al día si se ha publicado una versión más reciente y, cuando la hay, deja una notificación en la campana de cada usuario cuyo rol conceda `admin.settings`. Al hacer clic se abren las notas de la versión —el changelog de esa versión— en un diálogo dentro de Turbo EA. Las notas se almacenan en caché durante la comprobación diaria, así que leerlas no supone ninguna petición saliente y sigue funcionando si la instancia pierde después el acceso a la red. Un botón **Ver en GitHub** en el diálogo abre la página de la versión en una pestaña nueva para quien la quiera.
+Turbo EA comprueba una vez al día si se ha publicado una versión más reciente y, cuando la hay, deja una notificación en la campana de cada usuario cuyo rol conceda `admin.settings`. Al hacer clic se abren las notas de la versión —el changelog de esa versión— en un diálogo dentro de Turbo EA. Cada notificación sigue mostrando la versión que anunció, por mucho tiempo que lleve en la campana: las notas se leen del changelog incluido en la imagen, así que no suponen ninguna petición saliente y funcionan igual en una instalación aislada. Solo una versión que aún no hayas instalado procede de la caché de la comprobación diaria, porque un changelog escrito en tiempo de compilación no puede describirla; para esas, un botón **Ver en GitHub** abre la página de la versión en una pestaña nueva.
+
+Las notificaciones llevan el nombre configurado para esta instancia, de modo que un despliegue renombrado no se anuncia con otro nombre de producto.
 
 La comprobación **solo notifica**: no se descarga nada ni se modifica nada en el host. La actualización sigue siendo el procedimiento deliberado y respaldado por copia de seguridad que se describe en [Operaciones](operations.md#the-upgrade-procedure). Un administrador que prefiera no recibir avisos puede silenciar la fila **Actualización disponible** en sus propias preferencias de notificación.
 
@@ -176,7 +178,7 @@ Desactivar el interruptor elimina por completo la petición diaria a github.com,
 
 ### Cuando la actualización se completa
 
-Un segundo interruptor, **Anunciar las actualizaciones a los usuarios**, cubre la otra mitad. Cuando la instancia se reinicia con una versión más reciente, **todos** los usuarios —no solo los administradores— reciben una notificación que indica que Turbo EA se ha actualizado, y al hacer clic se muestra el changelog de todas las versiones que se saltaron. Una instancia que pasa de 2.57.0 a 2.60.0 muestra las cuatro versiones, no solo la última.
+Un segundo interruptor, **Anunciar las actualizaciones a los usuarios**, cubre la otra mitad. Cuando la instancia se reinicia con una versión más reciente, **todos** los usuarios —no solo los administradores— reciben una notificación que indica que la aplicación se ha actualizado, y al hacer clic se muestra el changelog de todas las versiones que se saltaron. Una instancia que pasa de 2.57.0 a 2.60.0 muestra las cuatro versiones, no solo la última. Cada uno de estos avisos permanece ligado a su propia actualización: abrir uno de hace un año sigue mostrando las versiones que recorrió *esa* actualización.
 
 El anuncio se envía **una vez por versión**: reiniciar diez veces con la misma versión produce una sola notificación, y una reversión no produce ninguna. Una instalación recién creada no anuncia nada, porque no hay ninguna actualización que describir. Estas notas proceden del changelog incluido en la imagen, así que esta mitad no necesita red en absoluto.
 

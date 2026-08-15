@@ -168,7 +168,9 @@ Consulte o [guia do GRC](../guide/grc.md) para a referência completa de funcion
 
 ## Notificações de atualização
 
-O Turbo EA verifica uma vez por dia se foi publicada uma versão mais recente e, quando existe, coloca uma notificação no sino de cada utilizador cujo perfil conceda `admin.settings`. Ao clicar, as notas de lançamento — o changelog dessa versão — abrem numa caixa de diálogo dentro do Turbo EA. As notas são guardadas em cache pela verificação diária, pelo que lê-las não implica qualquer pedido de saída e continua a funcionar se a instância perder mais tarde o acesso à rede. Um botão **Ver no GitHub** na caixa de diálogo abre a página da versão num novo separador para quem a quiser.
+O Turbo EA verifica uma vez por dia se foi publicada uma versão mais recente e, quando existe, coloca uma notificação no sino de cada utilizador cujo perfil conceda `admin.settings`. Ao clicar, as notas de lançamento — o changelog dessa versão — abrem numa caixa de diálogo dentro do Turbo EA. Cada notificação continua a mostrar a versão que anunciou, por mais tempo que já esteja no sino: as notas são lidas do changelog incluído na imagem, pelo que não implicam qualquer pedido de saída e funcionam de igual modo numa instalação isolada. Apenas uma versão que ainda não tenha instalado vem da cache da verificação diária, porque um changelog escrito no momento da construção não a consegue descrever; para essas, um botão **Ver no GitHub** abre a página da versão num novo separador.
+
+As notificações levam o nome configurado para esta instância, para que uma instalação renomeada não se anuncie com outro nome de produto.
 
 A verificação **apenas avisa**: nada é descarregado e nada é alterado no anfitrião. A atualização continua a ser o procedimento deliberado e com cópia de segurança descrito em [Operações](operations.md#the-upgrade-procedure). Um administrador que prefira não ser avisado pode silenciar a linha **Atualização disponível** nas suas próprias preferências de notificação.
 
@@ -176,7 +178,7 @@ Desativar o interruptor elimina por completo o pedido diário ao github.com, que
 
 ### Depois de a atualização ficar concluída
 
-Um segundo interruptor, **Anunciar as atualizações aos utilizadores**, cobre a outra metade. Quando a instância reinicia numa versão mais recente, **todos** os utilizadores — não apenas os administradores — recebem uma notificação a indicar que o Turbo EA foi atualizado, e um clique mostra o changelog de todas as versões atravessadas. Uma instância que salta de 2.57.0 para 2.60.0 mostra as quatro versões, não apenas a última.
+Um segundo interruptor, **Anunciar as atualizações aos utilizadores**, cobre a outra metade. Quando a instância reinicia numa versão mais recente, **todos** os utilizadores — não apenas os administradores — recebem uma notificação a indicar que a aplicação foi atualizada, e um clique mostra o changelog de todas as versões atravessadas. Uma instância que salta de 2.57.0 para 2.60.0 mostra as quatro versões, não apenas a última. Cada um destes avisos permanece ligado à sua própria atualização: abrir um de há um ano continua a mostrar as versões que *essa* atualização percorreu.
 
 O anúncio é enviado **uma vez por versão**: reiniciar dez vezes na mesma versão produz uma única notificação e uma reversão não produz nenhuma. Uma instalação nova não anuncia nada, porque não há qualquer atualização a descrever. Estas notas vêm do changelog incluído na imagem, pelo que esta metade não necessita de rede alguma.
 

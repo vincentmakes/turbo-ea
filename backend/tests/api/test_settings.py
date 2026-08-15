@@ -419,6 +419,106 @@ class TestWhatsNewSettings:
 
 
 # -------------------------------------------------------------------
+# GET /settings/release-notes
+# -------------------------------------------------------------------
+
+
+class TestReleaseNotesSettings:
+    """Notes for one *named* version, which is what a notification announced.
+
+    /whats-new answers "the most recent upgrade" — correct for the newest
+    notification and wrong for every older one still in the bell.
+    """
+
+    async def test_any_authenticated_user_can_read_changelog_notes(self, client, db, settings_env):
+        """Same posture as /whats-new — everyone is told about an upgrade."""
+        for who in ("admin", "member", "viewer"):
+            resp = await client.get(
+                "/api/v1/settings/release-notes?version=2.60.0",
+                headers=auth_headers(settings_env[who]),
+            )
+            assert resp.status_code == 200, who
+            body = resp.json()
+            assert body["version"] == "2.60.0"
+            assert body["source"] == "changelog"
+            # The bundled changelog really does describe 2.60.0.
+            assert "2.60.0" in body["notes"]
+
+    async def test_an_old_version_does_not_return_the_newest_notes(self, client, db, settings_env):
+        """The regression: clicking a stale notice showed the latest release."""
+        resp = await client.get(
+            "/api/v1/settings/release-notes?version=2.60.0&from_version=2.59.0",
+            headers=auth_headers(settings_env["member"]),
+        )
+        assert resp.status_code == 200
+        notes = resp.json()["notes"]
+        assert "## 2.60.0" in notes
+        assert "## 2.61.1" not in notes
+
+    async def test_without_a_version_it_falls_back_to_the_latest_span(
+        self, client, db, settings_env
+    ):
+        resp = await client.get(
+            "/api/v1/settings/release-notes", headers=auth_headers(settings_env["member"])
+        )
+        assert resp.status_code == 200
+        assert resp.json()["version"]
+
+    async def test_a_member_is_not_served_the_cached_github_body(self, client, db, settings_env):
+        """The cache is admin-only on /update-status; it stays so here."""
+        from app.services.update_check import ReleaseInfo, record_result
+
+        await record_result(
+            db,
+            release=ReleaseInfo(
+                version="99.0.0",
+                url="https://github.com/vincentmakes/turbo-ea/releases/tag/v99.0.0",
+                notes="### Added\n- Something unreleased",
+            ),
+            error=None,
+        )
+        await db.commit()
+
+        member = await client.get(
+            "/api/v1/settings/release-notes?version=99.0.0",
+            headers=auth_headers(settings_env["member"]),
+        )
+        assert member.status_code == 200
+        assert member.json()["notes"] == ""
+        assert member.json()["source"] == "none"
+
+        admin = await client.get(
+            "/api/v1/settings/release-notes?version=99.0.0",
+            headers=auth_headers(settings_env["admin"]),
+        )
+        assert admin.status_code == 200
+        assert "Something unreleased" in admin.json()["notes"]
+        assert admin.json()["source"] == "github"
+        assert admin.json()["is_installed"] is False
+
+    async def test_an_unknown_version_yields_an_empty_state(self, client, db, settings_env):
+        resp = await client.get(
+            "/api/v1/settings/release-notes?version=0.0.1",
+            headers=auth_headers(settings_env["admin"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["notes"] == ""
+        assert resp.json()["source"] == "none"
+
+    @pytest.mark.parametrize("bad", ["banana", "2.61.0;DROP", "../../etc/passwd", ""])
+    async def test_a_malformed_version_is_rejected(self, client, db, settings_env, bad):
+        resp = await client.get(
+            f"/api/v1/settings/release-notes?version={bad}",
+            headers=auth_headers(settings_env["admin"]),
+        )
+        assert resp.status_code == 422
+
+    async def test_release_notes_require_authentication(self, client, db, settings_env):
+        resp = await client.get("/api/v1/settings/release-notes?version=2.60.0")
+        assert resp.status_code == 401
+
+
+# -------------------------------------------------------------------
 # GET /settings/file-uploads-enabled + PATCH /settings/file-uploads-enabled
 # -------------------------------------------------------------------
 

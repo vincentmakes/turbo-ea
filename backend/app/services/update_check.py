@@ -42,6 +42,7 @@ from app.config import APP_VERSION
 from app.models.app_settings import AppSettings
 from app.models.role import Role
 from app.models.user import User
+from app.services.app_identity import get_app_title
 from app.services.catalogue_common import now_iso, version_tuple
 from app.services.notification_service import create_notification
 
@@ -249,7 +250,9 @@ async def record_result(
                 db,
                 user_id=user_id,
                 notif_type=NOTIFICATION_TYPE,
-                title=f"Turbo EA {release.version} is available",
+                # The instance's own name, not the product's — a white-labelled
+                # install should not suddenly say "Turbo EA" once a year.
+                title=f"{get_app_title()} {release.version} is available",
                 # Kept under the 100 characters the notification bell shows
                 # before truncating, so the whole message reads in the popover.
                 message=(

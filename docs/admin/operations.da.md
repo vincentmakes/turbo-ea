@@ -91,7 +91,7 @@ Inden for en major-versionslinje forbliver migrationerne additive og bagudkompat
 
 ### At vide, hvornår en opgradering er klar
 
-I stedet for at holde øje med repositoriet kan instansen sige det selv: Turbo EA tjekker dagligt for en nyere udgivelse og giver administratorer besked i notifikationsklokken med versionsnummer og udgivelsesnoterne. Den henter og installerer aldrig noget — trin 1 ovenfor begynder fortsat med at læse changeloggen. Tjekket er slået til som standard og kan slås fra under [Administration → Indstillinger → Generelt](settings.md#update-notifications), hvilket også fjerner den udgående forespørgsel på air-gapped installationer. Når opgraderingen er gennemført, får alle brugere besked i notifikationsklokken om, at appen er opdateret, og kan læse changeloggen for de versioner, den krydsede.
+I stedet for at holde øje med repositoriet kan instansen sige det selv: Turbo EA tjekker dagligt for en nyere udgivelse og giver administratorer besked i notifikationsklokken med versionsnummer og udgivelsesnoterne. Den henter og installerer aldrig noget — trin 1 ovenfor begynder fortsat med at læse changeloggen. Tjekket er slået til som standard og kan slås fra under [Administration → Indstillinger → Generelt](settings.md#update-notifications), hvilket også fjerner den udgående forespørgsel på air-gapped installationer. Når opgraderingen er gennemført, får alle brugere besked i notifikationsklokken om, at appen er opdateret, og kan læse changeloggen for de versioner, den krydsede. Hver notifikation bliver ved med at vise den udgivelse, den annoncerede — noterne kommer fra den changelog, der følger med imaget — så en gammel besked aldrig besvares med den nyeste udgivelses noter.
 
 ## Backup
 

@@ -68,6 +68,36 @@ function opensInApp(notif: Notification): boolean {
   return notif.type in DIALOG_TYPES;
 }
 
+/** What the dialog needs to show *this* notification rather than the newest one. */
+type OpenReleaseNotes = {
+  variant: ReleaseNotesVariant;
+  version?: string;
+  fromVersion?: string;
+};
+
+/** `data` is JSONB coming back as `Record<string, unknown>`, so narrow it. */
+function readVersion(data: Record<string, unknown> | undefined, key: string): string | undefined {
+  const value = data?.[key];
+  return typeof value === "string" && value ? value : undefined;
+}
+
+/** The versions a notification is *about*.
+ *
+ *  Without these the dialog can only ask "what is newest?", which is right for
+ *  the notification that just arrived and wrong for every one it joins in the
+ *  bell — a notice about 2.55.0 would open 2.61.0's notes. Older rows predating
+ *  the `data` payload yield `undefined` and fall back to that old behaviour. */
+function releaseNotesTarget(notif: Notification): OpenReleaseNotes {
+  const variant = DIALOG_TYPES[notif.type];
+  return variant === "installed"
+    ? {
+        variant,
+        version: readVersion(notif.data, "to_version"),
+        fromVersion: readVersion(notif.data, "from_version"),
+      }
+    : { variant, version: readVersion(notif.data, "latest_version") };
+}
+
 /** Whether clicking this row leaves Turbo EA, which is what the trailing
  *  open-in-new glyph announces. */
 function leavesTheApp(notif: Notification): boolean {
@@ -101,7 +131,7 @@ export default function NotificationBell({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [releaseNotesVariant, setReleaseNotesVariant] = useState<ReleaseNotesVariant | null>(null);
+  const [releaseNotes, setReleaseNotes] = useState<OpenReleaseNotes | null>(null);
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
 
@@ -182,7 +212,7 @@ export default function NotificationBell({
     }
     handleClose();
     if (opensInApp(notif)) {
-      setReleaseNotesVariant(DIALOG_TYPES[notif.type]);
+      setReleaseNotes(releaseNotesTarget(notif));
       return;
     }
     if (notif.link) {
@@ -364,12 +394,14 @@ export default function NotificationBell({
 
       {/* Lazy: the bell renders on every page, the dialog opens on a handful
           of clicks a year. */}
-      {releaseNotesVariant && (
+      {releaseNotes && (
         <Suspense fallback={null}>
           <ReleaseNotesDialog
             open
-            variant={releaseNotesVariant}
-            onClose={() => setReleaseNotesVariant(null)}
+            variant={releaseNotes.variant}
+            version={releaseNotes.version}
+            fromVersion={releaseNotes.fromVersion}
+            onClose={() => setReleaseNotes(null)}
           />
         </Suspense>
       )}

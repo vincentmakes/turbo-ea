@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.61.2] - 2026-08-15
+
+### Fixed
+- **An old update notification now opens its own release notes, not the newest ones.** Every notice in the bell is a claim about a particular release, but clicking one always showed whatever had shipped most recently — so a "was updated to 2.55.0" notice from months ago read like it announced today's version. Each notification now resolves the versions it actually announced, read from the changelog bundled in the image, so it costs no outbound request and reads the same on an air-gapped install. A notice for a release this instance never installed says so plainly instead of borrowing another release's notes.
+
+### Changed
+- **Update notifications use the name configured for the instance.** A renamed deployment announced itself as "Turbo EA" in the notification bell even though the app title was set elsewhere; both the update-available and the post-upgrade notice now use the configured name, as emails already did.
+
 ## [2.61.1] - 2026-08-15
 
 ### Fixed

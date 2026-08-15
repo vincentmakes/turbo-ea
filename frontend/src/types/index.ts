@@ -746,6 +746,21 @@ export interface WhatsNewResponse {
   notes: string;
 }
 
+/** Notes for one specific version — the one a notification announced.
+ *
+ *  `source` says where they came from: `changelog` is the copy bundled in the
+ *  image (every installed version), `github` the cached body for a release not
+ *  installed yet, `none` when neither can describe this version. */
+export interface ReleaseNotesResponse {
+  version: string;
+  from_version: string | null;
+  notes: string;
+  source: "changelog" | "github" | "none";
+  release_url: string | null;
+  is_installed: boolean;
+  current_version: string;
+}
+
 export interface NotificationPreferences {
   in_app: Record<string, boolean>;
   email: Record<string, boolean>;
