@@ -26,12 +26,25 @@ import type { UpdateStatus, WhatsNewResponse } from "@/types";
  */
 export type ReleaseNotesVariant = "available" | "installed";
 
-interface Content {
-  headline: string;
-  subtitle: string | null;
-  notes: string;
-  releaseUrl: string | null;
-}
+/**
+ * The raw payload, kept unformatted on purpose.
+ *
+ * Formatting it inside the loader would put `t` in that effect's dependency
+ * array, and `t` is only referentially stable because react-i18next memoises
+ * it. Any caller whose test mocks `useTranslation` inline hands back a fresh
+ * `t` per render, which would re-fire the loader on every render — refetching
+ * and remounting the notes without end. Headlines are built during render
+ * instead, so the loader depends on nothing but `open` and `variant`.
+ */
+type Loaded =
+  | { variant: "installed"; version: string | null; fromVersion: string | null; notes: string }
+  | {
+      variant: "available";
+      latestVersion: string | null;
+      currentVersion: string | null;
+      notes: string;
+      releaseUrl: string | null;
+    };
 
 /**
  * Shows what changed in a release without sending anyone off to github.com.
@@ -48,43 +61,38 @@ export default function ReleaseNotesDialog({
   variant?: ReleaseNotesVariant;
 }) {
   const { t } = useTranslation(["notifications", "common"]);
-  const [content, setContent] = useState<Content | null>(null);
+  const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     let current = true;
     setLoading(true);
-    setError("");
+    setFailed(false);
 
-    const load =
+    const load: Promise<Loaded> =
       variant === "installed"
         ? api.get<WhatsNewResponse>("/settings/whats-new").then((res) => ({
-            headline: t("releaseNotes.installedTitle", { version: res.version }),
-            subtitle: res.from_version
-              ? t("releaseNotes.updatedFrom", { version: res.from_version })
-              : null,
+            variant: "installed" as const,
+            version: res.version ?? null,
+            fromVersion: res.from_version ?? null,
             notes: res.notes ?? "",
-            releaseUrl: null,
           }))
         : api.get<UpdateStatus>("/settings/update-status").then((res) => ({
-            headline: res.latest_version
-              ? t("releaseNotes.title", { version: res.latest_version })
-              : t("releaseNotes.titleFallback"),
-            subtitle: res.current_version
-              ? t("releaseNotes.running", { version: res.current_version })
-              : null,
+            variant: "available" as const,
+            latestVersion: res.latest_version ?? null,
+            currentVersion: res.current_version ?? null,
             notes: res.release_notes ?? "",
-            releaseUrl: res.release_url,
+            releaseUrl: res.release_url ?? null,
           }));
 
     load
       .then((next) => {
-        if (current) setContent(next);
+        if (current) setLoaded(next);
       })
       .catch(() => {
-        if (current) setError(t("releaseNotes.loadFailed"));
+        if (current) setFailed(true);
       })
       .finally(() => {
         if (current) setLoading(false);
@@ -93,9 +101,32 @@ export default function ReleaseNotesDialog({
     return () => {
       current = false;
     };
-  }, [open, variant, t]);
+  }, [open, variant]);
 
-  const notes = content?.notes.trim() ?? "";
+  const notes = loaded?.notes.trim() ?? "";
+
+  // Built here rather than in the loader — see `Loaded` above.
+  const headline =
+    loaded === null
+      ? t("releaseNotes.titleFallback")
+      : loaded.variant === "installed"
+        ? t("releaseNotes.installedTitle", { version: loaded.version })
+        : loaded.latestVersion
+          ? t("releaseNotes.title", { version: loaded.latestVersion })
+          : t("releaseNotes.titleFallback");
+
+  const subtitle =
+    loaded === null
+      ? null
+      : loaded.variant === "installed"
+        ? loaded.fromVersion
+          ? t("releaseNotes.updatedFrom", { version: loaded.fromVersion })
+          : null
+        : loaded.currentVersion
+          ? t("releaseNotes.running", { version: loaded.currentVersion })
+          : null;
+
+  const releaseUrl = loaded?.variant === "available" ? loaded.releaseUrl : null;
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth scroll="paper">
@@ -105,11 +136,9 @@ export default function ReleaseNotesDialog({
             icon={variant === "installed" ? "auto_awesome" : "system_update_alt"}
             size={22}
           />
-          <Box sx={{ flex: 1 }}>{content?.headline ?? t("releaseNotes.titleFallback")}</Box>
+          <Box sx={{ flex: 1 }}>{headline}</Box>
         </Box>
-        {content?.subtitle && (
-          <Chip size="small" variant="outlined" sx={{ mt: 1 }} label={content.subtitle} />
-        )}
+        {subtitle && <Chip size="small" variant="outlined" sx={{ mt: 1 }} label={subtitle} />}
       </DialogTitle>
       <Divider />
 
@@ -118,8 +147,8 @@ export default function ReleaseNotesDialog({
           <Box sx={{ display: "flex", justifyContent: "center", py: 5 }}>
             <CircularProgress size={28} />
           </Box>
-        ) : error ? (
-          <Alert severity="error">{error}</Alert>
+        ) : failed ? (
+          <Alert severity="error">{t("releaseNotes.loadFailed")}</Alert>
         ) : notes ? (
           renderReleaseNotes(notes)
         ) : (
@@ -130,9 +159,9 @@ export default function ReleaseNotesDialog({
       </DialogContent>
 
       <DialogActions>
-        {content?.releaseUrl && (
+        {releaseUrl && (
           <Button
-            href={content.releaseUrl}
+            href={releaseUrl}
             target="_blank"
             rel="noopener noreferrer"
             sx={{ textTransform: "none", mr: "auto" }}

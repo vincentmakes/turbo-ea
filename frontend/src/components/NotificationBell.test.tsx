@@ -5,8 +5,12 @@ import NotificationBell from "./NotificationBell";
 
 const navigate = vi.fn();
 
+// Hoisted so `t` keeps one identity across renders, the way react-i18next's
+// memoised `t` does. Returning a fresh arrow here makes every render look like
+// a new translator to any effect that depends on `t`.
+const t = (k: string) => k;
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
+  useTranslation: () => ({ t }),
 }));
 vi.mock("react-router", () => ({
   useNavigate: () => navigate,
