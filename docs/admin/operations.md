@@ -89,6 +89,10 @@ Within a major version line, migrations stay additive and backwards-compatible-o
 !!! note "Maintenance windows"
     Migrations are usually fast, but on large inventories some data migrations can take a few minutes, during which the backend isn't serving. Schedule upgrades in a maintenance window.
 
+### Knowing when an upgrade is available
+
+Rather than watching the repository, let the instance tell you: Turbo EA checks daily for a newer release and notifies administrators in the notification bell, with the version number and a link to the release notes. It never downloads or installs anything — step 1 above still begins with reading the changelog. The check is on by default and can be switched off under [Admin → Settings → General](settings.md#update-notifications), which also stops the outbound request on air-gapped installs.
+
 ## Backups
 
 Take a backup **before every upgrade**, and automate a nightly one regardless:

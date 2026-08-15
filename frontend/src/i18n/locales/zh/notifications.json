@@ -17,5 +17,6 @@
   "preferences.approvalStatusChanged": "审批状态已变更",
   "preferences.soawSignRequested": "SoAW 签署请求",
   "preferences.soawSigned": "SoAW 已签署",
-  "preferences.surveyRequest": "调查请求"
+  "preferences.surveyRequest": "调查请求",
+  "preferences.appUpdateAvailable": "有可用更新"
 }

@@ -14402,6 +14402,19 @@
         "title": "UiPreferencesUpdate",
         "type": "object"
       },
+      "UpdateCheckEnabledPayload": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "UpdateCheckEnabledPayload",
+        "type": "object"
+      },
       "UserBulkDelete": {
         "properties": {
           "ids": {
@@ -35127,6 +35140,46 @@
           }
         },
         "summary": "Update Turbolens Enabled",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/update-check-enabled": {
+      "patch": {
+        "description": "Admin endpoint \u2014 enable or disable the daily \"newer release available\" check.\n\nTurning it off stops the outbound request to GitHub entirely (the flag is\nread before the fetch), which is what an egress-restricted or air-gapped\ninstall wants. The current value rides along on ``GET /settings/bootstrap``\nrather than getting its own endpoint \u2014 only the admin page reads it.",
+        "operationId": "update_update_check_enabled_api_v1_settings_update_check_enabled_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCheckEnabledPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Update Check Enabled",
         "tags": [
           "settings"
         ]

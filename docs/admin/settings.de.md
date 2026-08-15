@@ -166,6 +166,14 @@ Schalten Sie das **Governance, Risk and Compliance**-Modul (GRC) ein oder aus. W
 
 Siehe den [GRC-Leitfaden](../guide/grc.md) für die vollständige Funktionsübersicht.
 
+## Update-Benachrichtigungen
+
+Turbo EA prüft einmal täglich, ob eine neuere Version veröffentlicht wurde, und legt in diesem Fall eine Benachrichtigung in die Glocke jedes Benutzers, dessen Rolle `admin.settings` gewährt. Die Benachrichtigung nennt die neue Version und verlinkt auf deren Release Notes.
+
+Die Prüfung ist **reine Benachrichtigung** — es wird nichts heruntergeladen und nichts auf dem Host verändert. Das Upgrade bleibt der bewusste, durch ein Backup abgesicherte Ablauf, der unter [Betrieb](operations.md#the-upgrade-procedure) beschrieben ist. Administratoren, die nicht erinnert werden möchten, können die Zeile **Update verfügbar** in ihren eigenen Benachrichtigungseinstellungen stummschalten.
+
+Wird der Schalter **deaktiviert**, entfällt die tägliche Anfrage an github.com vollständig — genau das, was eine Air-Gap- oder Egress-beschränkte Installation benötigt. In beiden Fällen verhält sich die Instanz normal: Ist der Release-Feed nicht erreichbar, wird der Fehler still protokolliert und nichts angezeigt.
+
 ## Sponsor-Schaltfläche
 
 Blenden Sie die **Sponsor**-Schaltfläche im Benutzermenü (Avatar) ein oder aus. Wenn sie ausgeblendet ist, sehen Benutzer die Sponsor-Schaltfläche nicht mehr in ihrem Profilmenü. Die Sponsor-Schaltfläche — und der Dialog, der erklärt, wie man Turbo EA unterstützt — bleibt in diesem Einstellungsbereich immer verfügbar, sodass Administratoren sie auch dann erreichen, wenn sie im Menü ausgeblendet ist.

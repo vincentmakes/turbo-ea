@@ -166,6 +166,14 @@ Toggle the **Governance, Risk and Compliance** module on or off. When disabled:
 
 See the [GRC guide](../guide/grc.md) for the full feature reference.
 
+## Update notifications
+
+Turbo EA checks once a day whether a newer version has been published and, when there is one, drops a notification into the bell for every user whose role grants `admin.settings`. The notification names the new version and links to its release notes.
+
+The check is **notification-only** — nothing is downloaded and nothing on the host is changed. Upgrading remains the deliberate, backed-up procedure described in [Operations](operations.md#the-upgrade-procedure). An administrator who would rather not be reminded can mute the **Update Available** row in their own notification preferences.
+
+Turning the toggle **off** stops the daily request to github.com altogether, which is what an air-gapped or egress-restricted install wants. Either way the instance behaves normally: when the release feed cannot be reached, the failure is recorded quietly and nothing is shown.
+
 ## Sponsor Button
 
 Show or hide the **Sponsor** button in the user (avatar) menu. When hidden, users no longer see the Sponsor button in their profile menu. The Sponsor button — and the dialog explaining how to support Turbo EA — always remains available from this settings panel, so administrators can still reach it even when it is hidden from the menu.

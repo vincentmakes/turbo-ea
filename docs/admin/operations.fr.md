@@ -89,6 +89,10 @@ Au sein d'une même ligne de version majeure, les migrations restent additives e
 !!! note "Fenêtres de maintenance"
     Les migrations sont généralement rapides, mais sur de grands inventaires certaines migrations de données peuvent prendre quelques minutes, pendant lesquelles le backend ne répond pas. Planifiez les mises à niveau dans une fenêtre de maintenance.
 
+### Savoir qu'une mise à niveau est disponible
+
+Plutôt que de surveiller le dépôt, laissez l'instance vous prévenir : Turbo EA vérifie chaque jour l'existence d'une version plus récente et notifie les administrateurs dans la cloche de notifications, avec le numéro de version et un lien vers les notes de version. Rien n'est jamais téléchargé ni installé — l'étape 1 ci-dessus commence toujours par la lecture du changelog. La vérification est active par défaut et peut être désactivée dans [Administration → Paramètres → Général](settings.md#update-notifications), ce qui supprime aussi la requête sortante sur les installations isolées.
+
 ## Sauvegardes
 
 Effectuez une sauvegarde **avant chaque mise à niveau**, et automatisez-en une chaque nuit dans tous les cas :

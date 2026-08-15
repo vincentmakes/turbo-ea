@@ -689,7 +689,8 @@ export type NotificationType =
   | "approval_status_changed"
   | "soaw_sign_requested"
   | "soaw_signed"
-  | "survey_request";
+  | "survey_request"
+  | "app_update_available";
 
 export interface Notification {
   id: string;

@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.60.0] - 2026-08-15
+
+### Added
+- **Administrators are notified when a new Turbo EA release is available.** The instance checks once a day whether a newer version has been published and drops a notification into the bell — naming the version and linking straight to its release notes — for everyone whose role can act on it. Nothing is downloaded or installed: upgrading stays the deliberate, backed-up procedure it always was. The check can be switched off under **Admin → Settings → General**, which also stops the outbound request for air-gapped installs, and individual administrators can mute the new **Update Available** row in their notification preferences.
+
+### Fixed
+- **Notifications that point at an external page now open it instead of landing on a blank screen.** Every notification link was treated as an in-app route, so an absolute URL resolved to a page that does not exist. External links now open in a new tab.
+
 ## [2.59.1] - 2026-08-14
 
 ### Fixed

@@ -89,6 +89,10 @@ Inden for en major-versionslinje forbliver migrationerne additive og bagudkompat
 !!! note "Servicevinduer"
     Migrationer er normalt hurtige, men på store inventarer kan visse datamigrationer tage nogle minutter, hvor backenden ikke svarer. Planlæg opgraderinger i et servicevindue.
 
+### At vide, hvornår en opgradering er klar
+
+I stedet for at holde øje med repositoriet kan instansen sige det selv: Turbo EA tjekker dagligt for en nyere udgivelse og giver administratorer besked i notifikationsklokken med versionsnummer og et link til udgivelsesnoterne. Den henter og installerer aldrig noget — trin 1 ovenfor begynder fortsat med at læse changeloggen. Tjekket er slået til som standard og kan slås fra under [Administration → Indstillinger → Generelt](settings.md#update-notifications), hvilket også fjerner den udgående forespørgsel på air-gapped installationer.
+
 ## Backup
 
 Tag en backup **før hver opgradering**, og automatiser under alle omstændigheder en natlig:

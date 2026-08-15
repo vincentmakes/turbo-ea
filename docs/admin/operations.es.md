@@ -89,6 +89,10 @@ Dentro de una misma línea de versión mayor, las migraciones se mantienen aditi
 !!! note "Ventanas de mantenimiento"
     Las migraciones suelen ser rápidas, pero con inventarios grandes algunas migraciones de datos pueden tardar unos minutos, durante los cuales el backend no responde. Programe las actualizaciones en una ventana de mantenimiento.
 
+### Saber cuándo hay una actualización disponible
+
+En lugar de vigilar el repositorio, deje que la instancia se lo diga: Turbo EA comprueba a diario si hay una versión más reciente y avisa a los administradores en la campana de notificaciones, con el número de versión y un enlace a las notas de la versión. Nunca descarga ni instala nada: el paso 1 anterior sigue empezando por leer el changelog. La comprobación está activada por defecto y puede desactivarse en [Administración → Configuración → General](settings.md#update-notifications), lo que además elimina la petición saliente en instalaciones aisladas.
+
 ## Copias de seguridad
 
 Haga una copia de seguridad **antes de cada actualización**, y automatice una nocturna en cualquier caso:

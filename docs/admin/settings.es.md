@@ -166,6 +166,14 @@ Active o desactive el módulo de **Gobernanza, Riesgo y Cumplimiento** (GRC). Cu
 
 Consulte la [guía de GRC](../guide/grc.md) para la referencia completa de funciones.
 
+## Notificaciones de actualización
+
+Turbo EA comprueba una vez al día si se ha publicado una versión más reciente y, cuando la hay, deja una notificación en la campana de cada usuario cuyo rol conceda `admin.settings`. La notificación indica la nueva versión y enlaza con sus notas de la versión.
+
+La comprobación **solo notifica**: no se descarga nada ni se modifica nada en el host. La actualización sigue siendo el procedimiento deliberado y respaldado por copia de seguridad que se describe en [Operaciones](operations.md#the-upgrade-procedure). Un administrador que prefiera no recibir avisos puede silenciar la fila **Actualización disponible** en sus propias preferencias de notificación.
+
+Desactivar el interruptor elimina por completo la petición diaria a github.com, que es lo que necesita una instalación aislada o con salida restringida. En cualquier caso la instancia funciona con normalidad: si no se puede acceder al feed de versiones, el fallo se registra discretamente y no se muestra nada.
+
 ## Botón Patrocinar
 
 Muestra u oculta el botón **Patrocinar** en el menú de usuario (avatar). Cuando está oculto, los usuarios ya no ven el botón Patrocinar en su menú de perfil. El botón Patrocinar — y el cuadro de diálogo que explica cómo apoyar Turbo EA — siempre permanece disponible desde este panel de configuración, por lo que los administradores aún pueden acceder a él incluso cuando está oculto en el menú.

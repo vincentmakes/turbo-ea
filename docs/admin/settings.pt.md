@@ -166,6 +166,14 @@ Alterne o módulo de **Governança, Risco e Conformidade** (GRC) ligado ou desli
 
 Consulte o [guia do GRC](../guide/grc.md) para a referência completa de funcionalidades.
 
+## Notificações de atualização
+
+O Turbo EA verifica uma vez por dia se foi publicada uma versão mais recente e, quando existe, coloca uma notificação no sino de cada utilizador cujo perfil conceda `admin.settings`. A notificação indica a nova versão e liga às respetivas notas de lançamento.
+
+A verificação **apenas avisa**: nada é descarregado e nada é alterado no anfitrião. A atualização continua a ser o procedimento deliberado e com cópia de segurança descrito em [Operações](operations.md#the-upgrade-procedure). Um administrador que prefira não ser avisado pode silenciar a linha **Atualização disponível** nas suas próprias preferências de notificação.
+
+Desativar o interruptor elimina por completo o pedido diário ao github.com, que é o que uma instalação isolada ou com saída restringida necessita. Em qualquer dos casos a instância funciona normalmente: se o feed de versões estiver inacessível, a falha é registada discretamente e nada é apresentado.
+
 ## Botão Apoiar
 
 Mostre ou oculte o botão **Apoiar** no menu de utilizador (avatar). Quando está oculto, os utilizadores deixam de ver o botão Apoiar no seu menu de perfil. O botão Apoiar — e a caixa de diálogo que explica como apoiar o Turbo EA — permanece sempre disponível neste painel de definições, pelo que os administradores ainda conseguem aceder-lhe mesmo quando está oculto no menu.

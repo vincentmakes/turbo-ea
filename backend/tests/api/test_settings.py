@@ -281,6 +281,52 @@ class TestSponsorButtonEnabledSettings:
 
 
 # -------------------------------------------------------------------
+# PATCH /settings/update-check-enabled
+# -------------------------------------------------------------------
+
+
+class TestUpdateCheckEnabledSettings:
+    async def test_update_check_defaults_to_enabled(self, client, db, settings_env):
+        admin = settings_env["admin"]
+        resp = await client.get("/api/v1/settings/bootstrap", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        assert resp.json()["update_check_enabled"] is True
+
+    async def test_admin_can_toggle_update_check(self, client, db, settings_env):
+        admin = settings_env["admin"]
+
+        resp = await client.patch(
+            "/api/v1/settings/update-check-enabled",
+            json={"enabled": False},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["ok"] is True
+
+        get_resp = await client.get("/api/v1/settings/bootstrap", headers=auth_headers(admin))
+        assert get_resp.json()["update_check_enabled"] is False
+
+        resp2 = await client.patch(
+            "/api/v1/settings/update-check-enabled",
+            json={"enabled": True},
+            headers=auth_headers(admin),
+        )
+        assert resp2.status_code == 200
+
+        get_resp2 = await client.get("/api/v1/settings/bootstrap", headers=auth_headers(admin))
+        assert get_resp2.json()["update_check_enabled"] is True
+
+    async def test_member_cannot_toggle_update_check(self, client, db, settings_env):
+        member = settings_env["member"]
+        resp = await client.patch(
+            "/api/v1/settings/update-check-enabled",
+            json={"enabled": False},
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 403
+
+
+# -------------------------------------------------------------------
 # GET /settings/file-uploads-enabled + PATCH /settings/file-uploads-enabled
 # -------------------------------------------------------------------
 

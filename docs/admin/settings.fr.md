@@ -166,6 +166,14 @@ Activez ou désactivez le module **Gouvernance, Risque et Conformité** (GRC). L
 
 Voir le [guide GRC](../guide/grc.md) pour la référence complète des fonctionnalités.
 
+## Notifications de mise à jour
+
+Turbo EA vérifie une fois par jour si une version plus récente a été publiée et, le cas échéant, dépose une notification dans la cloche de chaque utilisateur dont le rôle accorde `admin.settings`. La notification indique la nouvelle version et renvoie vers ses notes de version.
+
+La vérification se limite à **prévenir** : rien n'est téléchargé et rien n'est modifié sur l'hôte. La mise à niveau reste la procédure délibérée et sauvegardée décrite dans [Exploitation](operations.md#the-upgrade-procedure). Un administrateur qui préfère ne pas être notifié peut désactiver la ligne **Mise à jour disponible** dans ses propres préférences de notification.
+
+Désactiver l'option supprime totalement la requête quotidienne vers github.com, ce que recherche une installation isolée ou à sortie réseau restreinte. Dans les deux cas l'instance fonctionne normalement : si le flux des versions est injoignable, l'échec est consigné discrètement et rien n'est affiché.
+
 ## Bouton Soutenir
 
 Affichez ou masquez le bouton **Soutenir** dans le menu utilisateur (avatar). Lorsqu'il est masqué, les utilisateurs ne voient plus le bouton Soutenir dans leur menu de profil. Le bouton Soutenir — et la boîte de dialogue expliquant comment soutenir Turbo EA — reste toujours disponible depuis ce panneau de paramètres, de sorte que les administrateurs peuvent toujours y accéder même lorsqu'il est masqué du menu.

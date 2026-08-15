@@ -17,5 +17,6 @@
   "preferences.approvalStatusChanged": "Genehmigungsstatus geändert",
   "preferences.soawSignRequested": "SoAW-Unterschrift angefordert",
   "preferences.soawSigned": "SoAW unterzeichnet",
-  "preferences.surveyRequest": "Umfrageanfrage"
+  "preferences.surveyRequest": "Umfrageanfrage",
+  "preferences.appUpdateAvailable": "Update verfügbar"
 }

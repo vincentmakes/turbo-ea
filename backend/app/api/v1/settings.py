@@ -235,6 +235,7 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         "turbolens_enabled": general.get("turboLensEnabled", True),
         "grc_enabled": general.get("grcEnabled", True),
         "sponsor_button_enabled": general.get("sponsorButtonEnabled", True),
+        "update_check_enabled": general.get("updateCheckEnabled", True),
         "file_uploads_enabled": general.get("fileUploadsEnabled", True),
         "enabled_locales": general.get("enabledLocales", SUPPORTED_LOCALES),
         "fiscal_year_start": general.get("fiscalYearStart", 1),
@@ -769,6 +770,34 @@ async def update_sponsor_button_enabled(
     row = await _get_or_create_row(db)
     general = dict(row.general_settings or {})
     general["sponsorButtonEnabled"] = body.enabled
+    row.general_settings = general
+
+    await db.commit()
+    return {"ok": True}
+
+
+class UpdateCheckEnabledPayload(BaseModel):
+    enabled: bool
+
+
+@router.patch("/update-check-enabled")
+async def update_update_check_enabled(
+    body: UpdateCheckEnabledPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — enable or disable the daily "newer release available" check.
+
+    Turning it off stops the outbound request to GitHub entirely (the flag is
+    read before the fetch), which is what an egress-restricted or air-gapped
+    install wants. The current value rides along on ``GET /settings/bootstrap``
+    rather than getting its own endpoint — only the admin page reads it.
+    """
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["updateCheckEnabled"] = body.enabled
     row.general_settings = general
 
     await db.commit()

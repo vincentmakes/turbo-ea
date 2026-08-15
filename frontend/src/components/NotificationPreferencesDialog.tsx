@@ -27,6 +27,9 @@ const NOTIFICATION_TYPES = [
   { key: "soaw_sign_requested", labelKey: "preferences.soawSignRequested" },
   { key: "soaw_signed", labelKey: "preferences.soawSigned" },
   { key: "survey_request", labelKey: "preferences.surveyRequest", forceEmail: true },
+  // Only ever sent to users whose role can act on it (admin.settings); listed
+  // for everyone the same way SoAW rows are, since roles change over time.
+  { key: "app_update_available", labelKey: "preferences.appUpdateAvailable" },
 ];
 
 interface Props {

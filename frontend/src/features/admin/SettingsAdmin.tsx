@@ -148,6 +148,7 @@ interface GeneralSettingsBootstrap {
   ppm_enabled: boolean;
   grc_enabled: boolean;
   sponsor_button_enabled: boolean;
+  update_check_enabled: boolean;
   file_uploads_enabled: boolean;
   enabled_locales: string[];
   fiscal_year_start: number;
@@ -248,6 +249,8 @@ function GeneralTab() {
   // Sponsor button toggle state (gates the avatar-menu button only)
   const [sponsorButtonEnabled, setSponsorButtonEnabled] = useState(true);
   const [savingSponsorButton, setSavingSponsorButton] = useState(false);
+  const [updateCheckEnabled, setUpdateCheckEnabled] = useState(true);
+  const [savingUpdateCheck, setSavingUpdateCheck] = useState(false);
   const [sponsorDialogOpen, setSponsorDialogOpen] = useState(false);
 
   // File uploads toggle state
@@ -340,6 +343,7 @@ function GeneralTab() {
         setPpmEnabled(general.ppm_enabled);
         setGrcEnabled(general.grc_enabled);
         setSponsorButtonEnabled(general.sponsor_button_enabled);
+        setUpdateCheckEnabled(general.update_check_enabled);
         setFileUploadsEnabled(general.file_uploads_enabled);
         setFiscalYearStart(general.fiscal_year_start);
         setArchiveRetentionDays(general.archive_retention_days);
@@ -567,6 +571,24 @@ function GeneralTab() {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingSponsorButton(false);
+    }
+  };
+
+  const handleUpdateCheckToggle = async (enabled: boolean) => {
+    setSavingUpdateCheck(true);
+    setError("");
+    try {
+      await api.patch("/settings/update-check-enabled", { enabled });
+      setUpdateCheckEnabled(enabled);
+      setSnack(
+        enabled
+          ? t("settings.updateCheck.enabledSuccess")
+          : t("settings.updateCheck.disabledSuccess"),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingUpdateCheck(false);
     }
   };
 
@@ -1425,6 +1447,44 @@ function GeneralTab() {
             />
           }
           label={grcEnabled ? t("settings.grc.visible") : t("settings.grc.hidden")}
+        />
+      </Paper>
+
+      {/* Update check toggle */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="system_update_alt" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.updateCheck.title")}
+          </Typography>
+          <Chip
+            label={
+              updateCheckEnabled
+                ? t("settings.updateCheck.enabled")
+                : t("settings.updateCheck.disabled")
+            }
+            size="small"
+            color={updateCheckEnabled ? "success" : "default"}
+            sx={{ ml: 1 }}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("settings.updateCheck.description")}
+        </Typography>
+        <FormControlLabel
+          sx={{ display: "flex" }}
+          control={
+            <Switch
+              checked={updateCheckEnabled}
+              onChange={(e) => handleUpdateCheckToggle(e.target.checked)}
+              disabled={savingUpdateCheck}
+            />
+          }
+          label={
+            updateCheckEnabled
+              ? t("settings.updateCheck.on")
+              : t("settings.updateCheck.off")
+          }
         />
       </Paper>
 

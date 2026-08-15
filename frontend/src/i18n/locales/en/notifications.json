@@ -18,5 +18,6 @@
   "preferences.approvalStatusChanged": "Approval Status Changed",
   "preferences.soawSignRequested": "SoAW Signature Requested",
   "preferences.soawSigned": "SoAW Signed",
-  "preferences.surveyRequest": "Survey Request"
+  "preferences.surveyRequest": "Survey Request",
+  "preferences.appUpdateAvailable": "Update Available"
 }

@@ -305,6 +305,28 @@ async def _license_refresh_loop() -> None:
             logger.exception("Error in extension license refresh loop")
 
 
+async def _update_check_loop() -> None:
+    """Daily loop that notifies administrators when a newer release exists.
+
+    Awareness only — nothing is downloaded, installed or restarted. Runs
+    shortly after boot (so an instance that has been off for a while catches up
+    without waiting a day) and then every 24h. Silent on air-gapped installs,
+    and skipped entirely when an admin turns the check off.
+    """
+    from app.services.update_check import run_update_check
+
+    delay = 180  # first attempt shortly after boot, then daily
+    while True:
+        try:
+            await asyncio.sleep(delay)
+            delay = 24 * 3600
+            await run_update_check()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Error in update check loop")
+
+
 async def _promote_recurring_tasks_loop() -> None:
     """Daily background loop that flips eligible ``scheduled`` recurring
     items to ``open`` once their lead-time window opens.
@@ -823,6 +845,10 @@ async def lifespan(app: FastAPI):
     # manually issued licenses and on air-gapped installs).
     license_refresh_task = asyncio.create_task(_license_refresh_loop())
 
+    # Daily "a newer release exists" check that notifies administrators via the
+    # bell. Notification only — never downloads or installs anything.
+    update_check_task = asyncio.create_task(_update_check_loop())
+
     # One-shot canonical data-quality rescore (guarded by a settings marker;
     # a no-op on every boot after the first successful run).
     dq_rescore_task = asyncio.create_task(_one_shot_data_quality_rescore())
@@ -863,6 +889,11 @@ async def lifespan(app: FastAPI):
     license_refresh_task.cancel()
     try:
         await license_refresh_task
+    except asyncio.CancelledError:
+        pass
+    update_check_task.cancel()
+    try:
+        await update_check_task
     except asyncio.CancelledError:
         pass
     ops_access_task.cancel()

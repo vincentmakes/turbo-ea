@@ -17,5 +17,6 @@
   "preferences.approvalStatusChanged": "Statut d’approbation modifié",
   "preferences.soawSignRequested": "Signature SoAW demandée",
   "preferences.soawSigned": "SoAW signé",
-  "preferences.surveyRequest": "Demande d’enquête"
+  "preferences.surveyRequest": "Demande d’enquête",
+  "preferences.appUpdateAvailable": "Mise à jour disponible"
 }

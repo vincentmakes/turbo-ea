@@ -94,6 +94,10 @@ class TestCallAiTakesNoSession:
         ("app/api/v1/migration.py", "_parse_and_stage_job", "source.parse("),
         ("app/api/v1/workspace.py", "_preview_job", "parse_bundle("),
         ("app/api/v1/workspace.py", "_apply_job", "parse_bundle("),
+        # The update check's network round-trip is bounded by a 10s timeout, but
+        # a connection held for 10s of every daily run is still a connection
+        # held for no reason.
+        ("app/services/update_check.py", "run_update_check", "fetch_latest_release("),
     ],
 )
 def test_parse_happens_outside_any_session_block(module: str, func: str, slow_call: str):

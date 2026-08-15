@@ -166,6 +166,14 @@ Slå **Governance, Risk and Compliance**-modulet til eller fra. Når det er deak
 
 Se [GRC-vejledningen](../guide/grc.md) for den fulde funktionsreference.
 
+## Opdateringsnotifikationer
+
+Turbo EA tjekker én gang om dagen, om der er udgivet en nyere version, og lægger i så fald en notifikation i klokken hos hver bruger, hvis rolle giver `admin.settings`. Notifikationen nævner den nye version og linker til dens udgivelsesnoter.
+
+Tjekket **giver kun besked**: der hentes intet, og intet ændres på værten. Opgradering er fortsat den bevidste, backup-sikrede procedure, der er beskrevet i [Drift](operations.md#the-upgrade-procedure). En administrator, der hellere vil være fri for påmindelsen, kan slå rækken **Opdatering tilgængelig** fra i sine egne notifikationsindstillinger.
+
+Slås kontakten **fra**, bortfalder den daglige forespørgsel til github.com helt, hvilket er præcis, hvad en air-gapped installation eller et miljø med begrænset udgående trafik har brug for. Uanset hvad kører instansen normalt: Kan udgivelsesfeedet ikke nås, registreres fejlen stilfærdigt, og der vises intet.
+
 ## Støt-knap
 
 Vis eller skjul **Støt**-knappen i brugermenuen (avatar). Når den er skjult, ser brugerne ikke længere Støt-knappen i deres profilmenu. Støt-knappen — og dialogen, der forklarer, hvordan man støtter Turbo EA — er altid tilgængelig fra dette indstillingspanel, så administratorer stadig kan nå den, selv når den er skjult i menuen.

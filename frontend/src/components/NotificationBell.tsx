@@ -33,7 +33,19 @@ const NOTIFICATION_ICONS: Record<string, { icon: string; color: string }> = {
   soaw_sign_requested: { icon: "draw", color: NOTIFICATION_TYPE_COLORS.soaw_sign_requested },
   soaw_signed: { icon: "task_alt", color: NOTIFICATION_TYPE_COLORS.soaw_signed },
   survey_request: { icon: "assignment", color: NOTIFICATION_TYPE_COLORS.survey_request },
+  app_update_available: {
+    icon: "system_update_alt",
+    color: NOTIFICATION_TYPE_COLORS.app_update_available,
+  },
 };
+
+/** Notification links are usually in-app routes, but some point at an external
+ *  page (the release notes behind an "update available" notice). Feeding an
+ *  absolute URL to react-router's `navigate` would treat it as a relative path
+ *  and land on a broken route, so those open in a new tab instead. */
+function isExternalLink(link: string): boolean {
+  return /^https?:\/\//i.test(link);
+}
 
 function timeAgo(dateStr: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -142,7 +154,11 @@ export default function NotificationBell({
     }
     handleClose();
     if (notif.link) {
-      navigate(notif.link);
+      if (isExternalLink(notif.link)) {
+        window.open(notif.link, "_blank", "noopener,noreferrer");
+      } else {
+        navigate(notif.link);
+      }
     }
   };
 

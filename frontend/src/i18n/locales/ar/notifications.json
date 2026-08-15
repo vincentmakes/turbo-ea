@@ -18,5 +18,6 @@
   "preferences.approvalStatusChanged": "تغيّرت حالة الاعتماد",
   "preferences.soawSignRequested": "تم طلب توقيع SoAW",
   "preferences.soawSigned": "تم توقيع SoAW",
-  "preferences.surveyRequest": "طلب استبيان"
+  "preferences.surveyRequest": "طلب استبيان",
+  "preferences.appUpdateAvailable": "يتوفر تحديث"
 }

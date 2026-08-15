@@ -166,6 +166,14 @@ Attivate/disattivate il modulo **Governance, Rischio e Conformità** (GRC). Quan
 
 Consultate la [guida GRC](../guide/grc.md) per il riferimento completo delle funzionalità.
 
+## Notifiche di aggiornamento
+
+Turbo EA controlla una volta al giorno se è stata pubblicata una versione più recente e, in tal caso, inserisce una notifica nella campanella di ogni utente il cui ruolo concede `admin.settings`. La notifica indica la nuova versione e rimanda alle relative note di rilascio.
+
+Il controllo si limita a **segnalare**: non viene scaricato nulla e nulla viene modificato sull'host. L'aggiornamento resta la procedura consapevole e protetta da backup descritta in [Operazioni](operations.md#the-upgrade-procedure). Un amministratore che preferisce non ricevere avvisi può silenziare la riga **Aggiornamento disponibile** nelle proprie preferenze di notifica.
+
+Disattivando l'opzione la richiesta quotidiana a github.com viene eliminata del tutto, che è ciò che serve a un'installazione isolata o con traffico in uscita limitato. In entrambi i casi l'istanza funziona normalmente: se il feed delle release non è raggiungibile, l'errore viene registrato in silenzio e non viene mostrato nulla.
+
 ## Pulsante Sostieni
 
 Mostra o nascondi il pulsante **Sostieni** nel menu utente (avatar). Quando è nascosto, gli utenti non vedono più il pulsante Sostieni nel loro menu del profilo. Il pulsante Sostieni — e la finestra che spiega come sostenere Turbo EA — rimane sempre disponibile da questo pannello delle impostazioni, così gli amministratori possono comunque raggiungerlo anche quando è nascosto dal menu.

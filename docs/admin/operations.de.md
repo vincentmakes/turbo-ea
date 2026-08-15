@@ -89,6 +89,10 @@ Innerhalb einer Major-Versionslinie bleiben Migrationen additiv und beim Upgrade
 !!! note "Wartungsfenster"
     Migrationen sind in der Regel schnell, aber bei großen Inventaren können manche Datenmigrationen einige Minuten dauern, während derer das Backend nicht erreichbar ist. Planen Sie Upgrades in einem Wartungsfenster.
 
+### Wissen, wann ein Upgrade verfügbar ist
+
+Statt das Repository zu beobachten, kann die Instanz Sie informieren: Turbo EA prüft täglich auf eine neuere Version und benachrichtigt Administratoren über die Benachrichtigungsglocke — mit Versionsnummer und Link zu den Release Notes. Es wird dabei nie etwas heruntergeladen oder installiert; Schritt 1 oben beginnt weiterhin mit dem Lesen des Changelogs. Die Prüfung ist standardmäßig aktiv und lässt sich unter [Administration → Einstellungen → Allgemein](settings.md#update-notifications) abschalten, was auf Air-Gap-Installationen auch die ausgehende Anfrage unterbindet.
+
 ## Backups
 
 Erstellen Sie **vor jedem Upgrade** ein Backup und automatisieren Sie unabhängig davon ein nächtliches:

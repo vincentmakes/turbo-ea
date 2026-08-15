@@ -17,5 +17,6 @@
   "preferences.approvalStatusChanged": "Godkendelsesstatus ændret",
   "preferences.soawSignRequested": "Anmodning om SoAW-underskrift",
   "preferences.soawSigned": "SoAW underskrevet",
-  "preferences.surveyRequest": "Anmodning om undersøgelse"
+  "preferences.surveyRequest": "Anmodning om undersøgelse",
+  "preferences.appUpdateAvailable": "Opdatering tilgængelig"
 }
