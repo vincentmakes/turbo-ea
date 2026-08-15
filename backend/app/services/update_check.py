@@ -194,7 +194,11 @@ async def read_status(db: AsyncSession) -> dict:
     row = await _settings_row(db)
     general = (row.general_settings if row else None) or {}
     state = general.get(STATE_SETTING) or {}
-    latest = state.get("latestVersion")
+
+    # This comes back out of JSONB, so it is only a version string by
+    # convention — anything could be in there. Narrow before comparing.
+    raw_latest = state.get("latestVersion")
+    latest = raw_latest if isinstance(raw_latest, str) and raw_latest else None
 
     return {
         "current_version": APP_VERSION,
@@ -203,7 +207,7 @@ async def read_status(db: AsyncSession) -> dict:
         "release_notes": state.get("releaseNotes") or "",
         "checked_at": state.get("checkedAt"),
         "error": state.get("error"),
-        "update_available": bool(latest) and is_newer(latest),
+        "update_available": latest is not None and is_newer(latest),
         "enabled": bool(general.get(ENABLED_SETTING, True)),
     }
 
