@@ -199,15 +199,20 @@ const rowGroupingSx = { position: "relative" } as const;
  * the grid body, driven by the scroll offset and a cache of where each group
  * header sits.
  *
- * It renders `GroupHeaderRow` VERBATIM — same component, `selectable: false`
- * to drop the checkbox — rather than a lookalike, so the bar and the real row
- * cannot drift apart, and the member counts are computed by the one piece of
- * code that already knows how.
+ * It renders `GroupHeaderRow` VERBATIM rather than a lookalike, so the bar and
+ * the real row cannot drift apart, and the counts and select-all state are
+ * computed by the one piece of code that already knows how.
  *
- * `aria-hidden` on purpose: the bar duplicates a row that is already in the
- * accessibility tree, and announcing a group change on every scroll tick would
- * be hostile. With no checkbox it holds nothing focusable, so hiding it traps
- * no focus.
+ * That includes the **select-all checkbox**, which is the point of the whole
+ * affordance: the group header exists so you can tick it and then bulk-edit
+ * the group. Deep inside a long group, having to scroll back to the real
+ * header to reach that tick box is exactly the friction this bar removes.
+ * `selectable` is inherited from the grid's own context, so a grid with no row
+ * selection (the Risk Register) still gets a bar with no checkbox.
+ *
+ * The bar therefore stays IN the accessibility tree — it holds a real control,
+ * and a focusable control inside `aria-hidden` is reachable by keyboard but
+ * invisible to assistive tech, which is worse than the duplication it avoids.
  */
 function StickyGroupHeader<T extends { id: string }>({
   gridRef,
@@ -354,8 +359,10 @@ function StickyGroupHeader<T extends { id: string }>({
 
   const stickyContext = useMemo<GroupRowContext>(
     () => ({
+      // `selectable` rides along from the grid's own context: the bar carries
+      // the same select-all tick box as the real header, and no checkbox at
+      // all on a grid that has no row selection.
       ...context,
-      selectable: false,
       // Collapsing the group you are scrolled *inside* removes rows from above
       // the viewport, which would fling the scroll position somewhere
       // arbitrary. Bring the real header to the top first: everything above it
@@ -385,7 +392,6 @@ function StickyGroupHeader<T extends { id: string }>({
       <div ref={anchorRef} className="tea-group-sticky-probe" style={{ display: "none" }} />
       {api && current && (
         <Box
-          aria-hidden
           sx={{
             position: "absolute",
             insetInline: 0,

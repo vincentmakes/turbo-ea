@@ -13,7 +13,7 @@
  * which always renders immediately after the overlay's probe element.
  */
 import { describe, it, expect, vi } from "vitest";
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { useRef } from "react";
 import { AgGridReact } from "ag-grid-react";
 import type { GridApi } from "ag-grid-community";
@@ -43,9 +43,17 @@ const ROWS: Row[] = [
   ...Array.from({ length: 12 }, (_, i) => ({ id: `s${i}`, name: `Beta ${i}`, tier: "silver" })),
 ];
 
-function GroupedGrid({ groupBy, onApi }: { groupBy: string | null; onApi: (a: GridApi) => void }) {
+function GroupedGrid({
+  groupBy,
+  onApi,
+  selectable = true,
+}: {
+  groupBy: string | null;
+  onApi: (a: GridApi) => void;
+  selectable?: boolean;
+}) {
   const gridRef = useRef<AgGridReact<Row>>(null);
-  const grouping = useRowGrouping<Row>(gridRef, { rows: ROWS, axes: [AXIS], groupBy });
+  const grouping = useRowGrouping<Row>(gridRef, { rows: ROWS, axes: [AXIS], groupBy, selectable });
   return (
     <div
       className="ag-theme-quartz"
@@ -56,6 +64,7 @@ function GroupedGrid({ groupBy, onApi }: { groupBy: string | null; onApi: (a: Gr
         ref={gridRef}
         rowData={grouping.rowData}
         columnDefs={[{ field: "name", headerName: "Name" }]}
+        rowSelection={selectable ? { mode: "multiRow", headerCheckbox: true } : undefined}
         getRowId={(p) => grouping.groupRowId(p.data)}
         onGridReady={(e) => onApi(e.api)}
         onFilterChanged={grouping.handleFilterChanged}
@@ -67,9 +76,11 @@ function GroupedGrid({ groupBy, onApi }: { groupBy: string | null; onApi: (a: Gr
   );
 }
 
-async function renderGrid(groupBy: string | null) {
+async function renderGrid(groupBy: string | null, selectable = true) {
   let api: GridApi | null = null;
-  const { container } = render(<GroupedGrid groupBy={groupBy} onApi={(a) => (api = a)} />);
+  const { container } = render(
+    <GroupedGrid groupBy={groupBy} selectable={selectable} onApi={(a) => (api = a)} />,
+  );
   await waitFor(() => expect(api).not.toBeNull());
   /** The bar, when one is showing — it follows the overlay's probe element. */
   const bar = () =>
@@ -84,7 +95,7 @@ async function renderGrid(groupBy: string | null) {
     // one an outsider can fire.
     window.dispatchEvent(new Event("resize"));
   };
-  return { container, bar, scrollTo };
+  return { container, bar, scrollTo, api: api as unknown as GridApi };
 }
 
 describe("sticky group header + AG Grid", () => {
@@ -123,15 +134,37 @@ describe("sticky group header + AG Grid", () => {
     await waitFor(() => expect(bar()).toBeNull());
   });
 
-  it("keeps the bar out of the accessibility tree", async () => {
+  it("carries the select-all tick box, so a deep group can be selected in place", async () => {
+    const { bar, scrollTo, api } = await renderGrid("tier");
+    scrollTo(99999);
+    await waitFor(() => expect(bar()).not.toBeNull());
+
+    const box = bar()?.querySelector<HTMLInputElement>("input[type='checkbox']");
+    expect(box).not.toBeNull();
+    expect(box!.checked).toBe(false);
+
+    // Ticking it selects that whole group — the point of the header checkbox,
+    // now reachable without scrolling back up to the real header.
+    fireEvent.click(box!);
+    await waitFor(() => expect(api.getSelectedNodes().length).toBe(12));
+    expect(api.getSelectedNodes().every((n) => n.data?.tier === "silver")).toBe(true);
+  });
+
+  it("stays in the accessibility tree, since it holds a real control", async () => {
     const { bar, scrollTo } = await renderGrid("tier");
     scrollTo(99999);
     await waitFor(() => expect(bar()).not.toBeNull());
-    // It duplicates a row that is already exposed, and announcing a group
-    // change on every scroll tick would be hostile. Nothing inside is
-    // focusable (the select-all checkbox is suppressed), so hiding it traps no
-    // focus.
-    expect(bar()?.getAttribute("aria-hidden")).toBe("true");
-    expect(bar()?.querySelector("input")).toBeNull();
+    // A focusable control inside aria-hidden is reachable by keyboard but
+    // invisible to assistive tech — worse than the duplication it would avoid.
+    expect(bar()?.getAttribute("aria-hidden")).toBeNull();
+  });
+
+  it("shows no checkbox on a grid that has no row selection", async () => {
+    // The Risk Register passes `selectable: false` — there grouping is purely
+    // a reading aid, and the bar must not offer a selection it cannot make.
+    const { bar, scrollTo } = await renderGrid("tier", false);
+    scrollTo(99999);
+    await waitFor(() => expect(bar()?.textContent).toContain("SilverTier"));
+    expect(bar()?.querySelector("input[type='checkbox']")).toBeNull();
   });
 });

@@ -150,7 +150,7 @@ Clique em **Agrupar por** na barra de ferramentas (ao lado da contagem de itens)
 
 - Os cartões sem valor no campo escolhido caem num grupo **Não definido**, no topo: o ponto de partida natural para classificar cartões pendentes.
 - Clique no cabeçalho de um grupo para o recolher ou expandir. O cabeçalho mostra o número de cartões do grupo.
-- Ao percorrer um grupo longo, o seu cabeçalho permanece fixo logo abaixo dos cabeçalhos de coluna, para que saiba sempre que grupo está a ler; o cabeçalho do grupo seguinte empurra-o ao chegar.
+- Ao percorrer um grupo longo, o seu cabeçalho permanece fixo logo abaixo dos cabeçalhos de coluna, para que saiba sempre que grupo está a ler; o cabeçalho do grupo seguinte empurra-o ao chegar. É o cabeçalho completo, incluindo a caixa de seleção, pelo que pode selecionar um grupo longo sem voltar ao seu início.
 - A caixa de seleção do cabeçalho seleciona todos os cartões do grupo: para reclassificar um lote, expanda **Não definido**, marque o cabeçalho e defina o valor com a [Edição em massa](#mass-edit). Deliberadamente não há arrastar e largar: selecionar e definir funciona da mesma forma em computador, tablet e telemóvel.
 - A ordenação aplica-se dentro de cada grupo; o agrupamento é mantido após recarregar, guardado nas vistas guardadas e partilhável através do parâmetro de URL `group_by`.
 

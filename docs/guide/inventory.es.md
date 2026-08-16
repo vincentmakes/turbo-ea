@@ -150,7 +150,7 @@ Haga clic en **Agrupar por** en la barra de herramientas (junto al recuento de e
 
 - Las tarjetas sin valor en el campo elegido se agrupan en **Sin definir**, al principio de la lista: el punto de partida natural para clasificar tarjetas pendientes.
 - Haga clic en la cabecera de un grupo para plegarlo o desplegarlo. La cabecera muestra el número de tarjetas del grupo.
-- Al desplazarse por un grupo largo, su cabecera permanece fijada justo debajo de las cabeceras de columna, de modo que siempre sabe qué grupo está leyendo; la cabecera del grupo siguiente la desplaza al llegar.
+- Al desplazarse por un grupo largo, su cabecera permanece fijada justo debajo de las cabeceras de columna, de modo que siempre sabe qué grupo está leyendo; la cabecera del grupo siguiente la desplaza al llegar. Es la cabecera completa, casilla incluida, de modo que puede seleccionar un grupo largo sin volver a su principio.
 - La casilla de la cabecera selecciona todas las tarjetas del grupo: para reclasificar un lote, despliegue **Sin definir**, marque la cabecera y establezca el valor con la [Edición masiva](#mass-edit). Deliberadamente no hay arrastrar y soltar: seleccionar y establecer funciona igual en escritorio, tableta y móvil.
 - La ordenación se aplica dentro de cada grupo; la agrupación se conserva al recargar, se guarda en las vistas guardadas y puede compartirse mediante el parámetro de URL `group_by`.
 
