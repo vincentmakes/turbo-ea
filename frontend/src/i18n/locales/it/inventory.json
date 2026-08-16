@@ -35,6 +35,7 @@
   "gridEdit.parentHint": "Svuotate il campo per spostare questa scheda al livello principale.",
   "gridEdit.parentFailed": "Impossibile modificare il padre.",
   "gridEdit.attrFailed": "Impossibile salvare il valore.",
+  "gridEdit.saveFailed": "Impossibile salvare la modifica.",
   "columns.path": "Percorso",
   "filter.title": "Filtri",
   "filter.expand": "Espandi filtri",

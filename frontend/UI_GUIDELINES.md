@@ -267,6 +267,57 @@ colDefs reorder from moving it. Pair `syncFromGrid` with
 move a column *and* pin it, and `onDragStopped` also fires for resizes, so both
 syncs no-op when nothing changed.
 
+**Grid edit mode gets a drag-fill handle.** Setting the same value on twenty
+rows must not be twenty double-click-type-tab cycles. AG Grid ships the
+gesture as `enableFillHandle`, but that lives in the Enterprise Range Selection
+module, so it is re-implemented in `useDragFill`
+(`src/components/grid/useDragFill.tsx`) — the same posture as column freeze.
+Wiring is three lines plus two render slots:
+
+```tsx
+const dragFill = useDragFill(gridRef, {
+  containerRef: columnFreeze.containerRef,   // borrowed, never minted here
+  enabled: () => gridEditMode,
+  isFillable: pageIsFillable,
+  onFill: handleGridFill,
+});
+<Box ref={columnFreeze.containerRef} sx={{ …, ...dragFill.sx }}>
+  <AgGridReact … {...dragFill.gridProps} />
+  {dragFill.overlay}                          // inside the wrapper
+</Box>
+{dragFill.dialog}                             // after it
+```
+
+Unlike freeze and reorder this is **edit-mode**-scoped, not grid-scoped: a grid
+with no editable cells shows no handle, so today only Inventory wires it. Four
+rules the module exists to hold, each of which has a cheap way to get wrong:
+
+- **One wrapper ref, minted by `useColumnFreeze`.** `useCellContextMenu` adds
+  React pointer handlers to that same element; `useDragFill` adds *none* — every
+  handler lives on the handle it renders, and the handle's `pointerdown`
+  `stopPropagation()`s so the cell menu's long-press never even arms. Hooks stay
+  clear of each other by construction, not by spread order.
+- **A hook never claims a `gridProps` key another hook already owns.**
+  `useRowGrouping` returns `onModelUpdated`; a second hook returning it would
+  silently win in a later spread and break grouping. `useDragFill` returns
+  `onCellFocused` alone and subscribes to everything else through
+  `api.addEventListener`, which is additive.
+- **The fill is write-then-reload, never optimistic.** It persists each row and
+  re-reads once at the end — it must not call `node.setDataValue()`, which would
+  re-fire `onCellValueChanged` and write every row twice, and it never touches a
+  `valueSetter`, which is what keeps it clear of the in-place-mutation stale-value
+  trap.
+- **Position is measured and written to `.style`, never React state** —
+  repositioning runs on every scroll frame. Use plain `left`/`top` from
+  `getBoundingClientRect()` deltas: AG Grid's `enableRtl` already mirrors the
+  rects, so a logical inset would mirror a second time (same trap §3.11 records
+  for drag handles).
+
+The anchor is the **focused** cell, not a hovered one, so the affordance is
+reachable by tap on touch; the handle is `role="button"` with a translated
+`aria-label` and a keyboard path (Enter/arrows/Enter) per §5, and its hit area
+grows under `@media (pointer: coarse)` while the dot stays small.
+
 ### 3.7 Status Representation
 
 Always render status through one of these:

@@ -90,6 +90,7 @@ Das Inventar verwendet eine **AG Grid**-Datentabelle mit leistungsstarken Funkti
 
 - **Sortierung** — Klicken Sie auf eine Spaltenüberschrift zum auf-/absteigenden Sortieren
 - **Inline-Bearbeitung** — Im Rasterbearbeitungsmodus können Feldwerte direkt in der Tabelle bearbeitet werden
+- **Spalte nach unten füllen** — Klicken Sie im Rasterbearbeitungsmodus auf eine Zelle und ziehen Sie das kleine Quadrat an ihrer Ecke nach oben oder unten, um den Wert in alle überstrichenen Zeilen zu kopieren. Vor dem Speichern nennt eine Bestätigung Spalte, Wert und Zeilenanzahl; lehnt der Server eine Zeile ab, wird sie mit Begründung und Link aufgeführt, und die erfolgreichen Zeilen bleiben gespeichert. Die Geste funktioniert mit dem Finger ebenso wie mit der Maus und mit der Tastatur — Quadrat fokussieren, mit den Pfeiltasten erweitern, mit Eingabe bestätigen. Gefüllt werden nur die nach Filtern und Sortierung sichtbaren Zeilen; die Spalte Name ist bewusst ausgenommen, damit keine Karten denselben Namen erhalten.
 - **Mehrfachauswahl** — Mehrere Zeilen für Massenoperationen auswählen
 - **Hierarchieanzeige** — Eltern-/Kind-Beziehungen werden als Brotkrumenpfade dargestellt
 - **Spaltenkonfiguration** — Spalten ein-/ausblenden und neu anordnen

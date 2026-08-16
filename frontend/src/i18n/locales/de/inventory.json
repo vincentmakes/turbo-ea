@@ -35,6 +35,7 @@
   "gridEdit.parentHint": "Leeren Sie das Feld, um diese Karte auf die oberste Ebene zu verschieben.",
   "gridEdit.parentFailed": "Das übergeordnete Element konnte nicht geändert werden.",
   "gridEdit.attrFailed": "Der Wert konnte nicht gespeichert werden.",
+  "gridEdit.saveFailed": "Die Änderung konnte nicht gespeichert werden.",
   "columns.path": "Pfad",
   "filter.title": "Filter",
   "filter.expand": "Filter aufklappen",

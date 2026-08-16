@@ -91,6 +91,7 @@ The inventory uses an **AG Grid** data table with powerful features:
 
 - **Sorting** — Click any column header to sort ascending/descending
 - **Inline editing** — In grid edit mode, edit field values directly in the table
+- **Fill down a column** — In grid edit mode, click a cell and drag the small square at its corner up or down to copy that value into every row you cover. Before anything is saved a confirmation tells you which column, which value and how many rows; if the server refuses a row, it is listed with the reason and a link, and the rows that did succeed stay saved. The gesture works with a finger as well as a mouse, and with the keyboard — focus the square, extend with the arrow keys, confirm with Enter. Only the rows currently on screen after your filters and sorting are filled, and the Name column is deliberately excluded so cards cannot end up sharing a name.
 - **Multi-select** — Select multiple rows for bulk operations
 - **Quick preview** — Use the eye icon next to any name to open the card detail in a side panel
 - **Open in new tab** — Ctrl/Cmd-click a name to open the card in a new browser tab; main-nav links also support this

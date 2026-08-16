@@ -90,6 +90,7 @@ L'inventaire utilise un tableau de données **AG Grid** avec des fonctionnalité
 
 - **Tri** -- Cliquer sur l'en-tête de n'importe quelle colonne pour trier par ordre croissant/décroissant
 - **Édition en ligne** -- En mode édition grille, modifiez les valeurs des champs directement dans le tableau
+- **Remplir une colonne** -- En mode édition grille, cliquez sur une cellule puis faites glisser le petit carré situé dans son coin vers le haut ou vers le bas pour recopier cette valeur dans toutes les lignes parcourues. Avant tout enregistrement, une confirmation indique la colonne, la valeur et le nombre de lignes ; si le serveur refuse une ligne, elle est listée avec le motif et un lien, et les lignes réussies restent enregistrées. Le geste fonctionne au doigt comme à la souris, ainsi qu'au clavier -- placez le focus sur le carré, étendez avec les flèches, validez avec Entrée. Seules les lignes actuellement affichées, après vos filtres et votre tri, sont remplies, et la colonne Nom est volontairement exclue afin que deux fiches ne puissent pas porter le même nom.
 - **Sélection multiple** -- Sélectionnez plusieurs lignes pour des opérations en masse
 - **Affichage hiérarchique** -- Les relations parent/enfant sont affichées sous forme de chemins de navigation
 - **Configuration des colonnes** -- Afficher, masquer et réorganiser les colonnes

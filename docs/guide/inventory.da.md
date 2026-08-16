@@ -91,6 +91,7 @@ Lageret bruger en **AG Grid**-datatabel med kraftfulde funktioner:
 
 - **Sortering** — Klik på en kolonneoverskrift for at sortere stigende/faldende
 - **Inline-redigering** — I gitter-redigeringstilstand redigeres feltværdier direkte i tabellen
+- **Udfyld en kolonne nedad** — I gitter-redigeringstilstand klikker du på en celle og trækker den lille firkant i hjørnet op eller ned for at kopiere værdien til alle de rækker, du dækker. Før noget gemmes, oplyser en bekræftelse kolonne, værdi og antal rækker; afviser serveren en række, vises den med årsag og et link, og de rækker der lykkedes forbliver gemt. Bevægelsen virker med en finger såvel som med musen, og med tastaturet — sæt fokus på firkanten, udvid med piletasterne, bekræft med Enter. Kun de rækker, der aktuelt vises efter dine filtre og din sortering, udfyldes, og kolonnen Navn er bevidst udeladt, så to kort ikke kan ende med samme navn.
 - **Multi-valg** — Vælg flere rækker til masse­operationer
 - **Hurtig forhåndsvisning** — Brug øje-ikonet ved siden af et navn for at åbne kortdetaljen i et sidepanel
 - **Åbn i ny fane** — Ctrl/Cmd-klik på et navn for at åbne kortet i en ny browser-fane; hoved-nav-links understøtter dette også

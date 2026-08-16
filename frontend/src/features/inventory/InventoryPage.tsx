@@ -92,6 +92,13 @@ import {
 } from "@/components/grid/useCellContextMenu";
 import { useFacetColumnSync } from "@/components/grid/useFacetColumnSync";
 import type { FacetBinding } from "@/components/grid/facetColumnSync";
+import { useDragFill } from "@/components/grid/useDragFill";
+import type {
+  FillFailure,
+  FillOutcome,
+  FillRequest,
+} from "@/components/grid/useDragFill";
+import { cloneFillValue, runWithConcurrency } from "@/components/grid/dragFill";
 import TagsCellEditor from "@/features/inventory/TagsCellEditor";
 import MultiSelectCellEditor from "@/features/inventory/MultiSelectCellEditor";
 import ParentCellEditor from "@/features/inventory/ParentCellEditor";
@@ -445,6 +452,55 @@ function optionChipItems(
  */
 export function normalizeAttrValue(value: unknown): unknown {
   return valueIsEmpty(value) ? null : value;
+}
+
+/**
+ * How many fill writes run at once. The browser's own per-host connection cap
+ * is around six; going wider just queues in the socket pool while making the
+ * progress bar lie about how far along the fill really is.
+ */
+const FILL_CONCURRENCY = 6;
+
+/**
+ * Which columns offer a drag-fill handle in grid-edit mode. Exported for tests.
+ *
+ * Everything else is gated by AG Grid's own `editable`, which the hook already
+ * consults — so the readonly attributes, the Parent column outside a single
+ * hierarchical type, and the stakeholder columns without the manage permission
+ * need no special case here. Two exclusions are ours:
+ *
+ *  - **Name** is the card's identity. Copying one name down a column produces
+ *    duplicates that the backend rejects on sibling-name uniqueness for every
+ *    hierarchical type, so the affordance would be an invitation to fail.
+ *  - **Relation columns** are driven by a popover, not an AG Grid editor;
+ *    they carry no `editable` and no `field` to write through.
+ */
+export function isInventoryFillable(colId: string, colDef: { field?: string }): boolean {
+  if (colId === "core_name") return false;
+  if (colId.startsWith("rel_")) return false;
+  // AG Grid's own selection / controls column, and anything with no field to
+  // persist through (Path, Data Quality, …).
+  if (colId.startsWith("ag-Grid-")) return false;
+  return Boolean(colDef.field);
+}
+
+/**
+ * The value `persistCellValue` should treat as a target row's *current* value
+ * during a fill.
+ *
+ * Tags and stakeholders persist as a diff, and the fill semantic is "make this
+ * row's set equal the source's set" — which only comes out right when the diff
+ * runs against each target's own set rather than the source's.
+ */
+export function currentFieldValue(card: Card, field: string): unknown {
+  if (field === "tags") return card.tags ?? [];
+  if (field.startsWith("stakeholder_")) {
+    const role = field.slice("stakeholder_".length);
+    return (card.stakeholders ?? []).filter((s) => s.role === role);
+  }
+  if (field.startsWith("attr_")) return (card.attributes ?? {})[field.slice("attr_".length)];
+  if (field === "parent_id") return card.parent_id ?? null;
+  return (card as unknown as Record<string, unknown>)[field];
 }
 
 /**
@@ -1652,77 +1708,176 @@ export default function InventoryPage() {
     },
   });
 
+  /**
+   * Persist one cell's new value.
+   *
+   * Throws on failure and never reloads — surfacing the error and deciding
+   * whether to re-read is the caller's job, because the two callers want
+   * different things: the inline editor reverts one optimistic cell right
+   * away, while a drag-fill collects every failure and reloads once at the end.
+   *
+   * Returns whether the write needs a reload to be reflected correctly (a
+   * re-parent cascades levels and the Path column down the whole subtree).
+   */
+  const persistCellValue = useCallback(
+    async (
+      card: Card,
+      field: string,
+      newValue: unknown,
+      oldValue: unknown,
+    ): Promise<{ needsReload: boolean }> => {
+      if (field === "name" || field === "description") {
+        await api.patch(`/cards/${card.id}`, { [field]: newValue });
+      } else if (field === "subtype") {
+        await api.patch(`/cards/${card.id}`, { subtype: (newValue as string) || null });
+      } else if (field.startsWith("attr_")) {
+        const key = field.replace("attr_", "");
+        const fieldDef = typeConfig?.fields_schema
+          .flatMap((s) => s.fields)
+          .find((f) => f.key === key);
+        if (fieldDef?.readonly) return { needsReload: false };
+        // Merge onto the card's own attributes. Never PATCH /cards/bulk with an
+        // `attributes` payload — that endpoint replaces the whole JSONB blob
+        // per card and would wipe every other attribute.
+        const attrs = { ...card.attributes, [key]: normalizeAttrValue(newValue) };
+        await api.patch(`/cards/${card.id}`, { attributes: attrs });
+      } else if (field === "parent_id") {
+        await api.patch(`/cards/${card.id}`, { parent_id: (newValue as string | null) ?? null });
+        return { needsReload: true };
+      } else if (field === "tags") {
+        const oldIds = new Set<string>(((oldValue as TagRef[] | undefined) ?? []).map((v) => v.id));
+        const newIds = new Set<string>(((newValue as TagRef[] | undefined) ?? []).map((v) => v.id));
+        const toAdd = [...newIds].filter((id) => !oldIds.has(id));
+        const toRemove = [...oldIds].filter((id) => !newIds.has(id));
+        if (toAdd.length > 0) {
+          await api.post(`/cards/${card.id}/tags`, toAdd);
+        }
+        for (const id of toRemove) {
+          await api.delete(`/cards/${card.id}/tags/${id}`);
+        }
+      } else if (field.startsWith("stakeholder_")) {
+        const role = field.slice("stakeholder_".length);
+        const oldUserIds = new Set(
+          ((oldValue as StakeholderRef[] | undefined) ?? []).map((s) => s.user_id),
+        );
+        const newUserIds = new Set(
+          ((newValue as StakeholderRef[] | undefined) ?? []).map((s) => s.user_id),
+        );
+        const operations = [
+          ...[...newUserIds]
+            .filter((id) => !oldUserIds.has(id))
+            .map((id) => ({ action: "add", card_id: card.id, user_id: id, role })),
+          ...[...oldUserIds]
+            .filter((id) => !newUserIds.has(id))
+            .map((id) => ({ action: "remove", card_id: card.id, user_id: id, role })),
+        ];
+        if (operations.length > 0) {
+          const res = await api.post<{ failed: number }>("/stakeholders/bulk", { operations });
+          // Partial denial (a per-card permission) is reported as a count, not
+          // an error — reload so the row shows what actually stuck.
+          if (res.failed > 0) return { needsReload: true };
+        }
+      }
+      return { needsReload: false };
+    },
+    [typeConfig],
+  );
+
+  /** Fallback message when the server sends no reason of its own. */
+  const cellEditFallback = useCallback(
+    (field: string): string => {
+      if (field === "parent_id") return t("gridEdit.parentFailed");
+      if (field.startsWith("attr_")) return t("gridEdit.attrFailed");
+      return t("gridEdit.saveFailed");
+    },
+    [t],
+  );
+
   const handleCellEdit = async (event: CellValueChangedEvent) => {
     const card = event.data as Card;
     const field = event.colDef.field!;
-    if (field === "name" || field === "description") {
-      await api.patch(`/cards/${card.id}`, { [field]: event.newValue });
-    } else if (field.startsWith("attr_")) {
-      const key = field.replace("attr_", "");
-      const fieldDef = typeConfig?.fields_schema
-        .flatMap((s) => s.fields)
-        .find((f) => f.key === key);
-      if (fieldDef?.readonly) return;
-      const attrs = { ...card.attributes, [key]: normalizeAttrValue(event.newValue) };
-      try {
-        await api.patch(`/cards/${card.id}`, { attributes: attrs });
-      } catch (err) {
-        // The server may reject the write — e.g. clearing a required field.
-        // Surface the reason and reload to revert the optimistic cell value.
-        setCellEditError(err instanceof Error ? err.message : t("gridEdit.attrFailed"));
-        loadData();
-      }
-    } else if (field === "parent_id") {
-      const newParentId = (event.newValue as string | null) ?? null;
-      try {
-        await api.patch(`/cards/${card.id}`, { parent_id: newParentId });
-      } catch (err) {
-        // The server owns the hierarchy rules — a cycle, a name collision under
-        // the new parent, or a capability depth limit all land here. Surface the
-        // reason rather than silently snapping the cell back.
-        setCellEditError(err instanceof Error ? err.message : t("gridEdit.parentFailed"));
-      }
-      // Reload either way: a success cascades levels (and the Path column) down
-      // the subtree, a failure has to revert the optimistic row state.
+    try {
+      const { needsReload } = await persistCellValue(card, field, event.newValue, event.oldValue);
+      if (needsReload) loadData();
+    } catch (err) {
+      // The server owns the rules — a cycle or name collision on a re-parent, a
+      // cleared required attribute, a per-card permission denial. Surface the
+      // reason and reload to revert the optimistic cell value.
+      setCellEditError(err instanceof Error ? err.message : cellEditFallback(field));
       loadData();
-    } else if (field === "tags") {
-      const oldIds = new Set<string>((event.oldValue as TagRef[] | undefined ?? []).map((t) => t.id));
-      const newIds = new Set<string>((event.newValue as TagRef[] | undefined ?? []).map((t) => t.id));
-      const toAdd = [...newIds].filter((id) => !oldIds.has(id));
-      const toRemove = [...oldIds].filter((id) => !newIds.has(id));
-      if (toAdd.length > 0) {
-        await api.post(`/cards/${card.id}/tags`, toAdd);
-      }
-      for (const id of toRemove) {
-        await api.delete(`/cards/${card.id}/tags/${id}`);
-      }
-    } else if (field.startsWith("stakeholder_")) {
-      const role = field.slice("stakeholder_".length);
-      const oldUserIds = new Set(
-        (event.oldValue as StakeholderRef[] | undefined ?? []).map((s) => s.user_id),
-      );
-      const newUserIds = new Set(
-        (event.newValue as StakeholderRef[] | undefined ?? []).map((s) => s.user_id),
-      );
-      const operations = [
-        ...[...newUserIds]
-          .filter((id) => !oldUserIds.has(id))
-          .map((id) => ({ action: "add", card_id: card.id, user_id: id, role })),
-        ...[...oldUserIds]
-          .filter((id) => !newUserIds.has(id))
-          .map((id) => ({ action: "remove", card_id: card.id, user_id: id, role })),
-      ];
-      if (operations.length > 0) {
-        try {
-          const res = await api.post<{ failed: number }>("/stakeholders/bulk", { operations });
-          if (res.failed > 0) loadData();
-        } catch {
-          // Revert the optimistic row state (e.g. a per-card permission denial).
-          loadData();
-        }
-      }
     }
   };
+
+  /**
+   * Apply a drag-fill: write the anchor's value into every covered row.
+   *
+   * Write-then-reload, deliberately: the rows are persisted first and the grid
+   * re-reads once at the end, rather than painting optimistically and rolling
+   * back per row. That keeps the fill clear of the in-place `valueSetter`
+   * mutation trap documented at the top of this file, and means no path here
+   * can fire `onCellValueChanged` — so a filled row is never written twice.
+   * The confirm dialog covers the grid for the whole window, so the brief
+   * staleness is invisible.
+   */
+  const handleGridFill = useCallback(
+    async (
+      request: FillRequest<InventoryRow>,
+      onProgress: (done: number, total: number) => void,
+    ): Promise<FillOutcome> => {
+      const field = request.field;
+      if (!field) return { succeeded: 0, failures: [] };
+      const targets = request.targets.filter((target) => !target.data.__group);
+
+      const results = await runWithConcurrency(
+        targets,
+        FILL_CONCURRENCY,
+        async (target) => {
+          const card = target.data as Card;
+          await persistCellValue(
+            card,
+            field,
+            // A fresh copy per row: the setters mutate in place, so a shared
+            // array would give every filled row the same identity.
+            cloneFillValue(request.value),
+            currentFieldValue(card, field),
+          );
+        },
+        onProgress,
+      );
+
+      const failures: FillFailure[] = [];
+      let succeeded = 0;
+      results.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          succeeded++;
+          return;
+        }
+        const card = targets[index].data as Card;
+        failures.push({
+          rowId: targets[index].rowId,
+          label: card.name || card.id,
+          href: `/cards/${card.id}`,
+          message:
+            result.reason instanceof Error ? result.reason.message : cellEditFallback(field),
+        });
+      });
+
+      loadData();
+      return { succeeded, failures };
+    },
+    [persistCellValue, cellEditFallback, loadData],
+  );
+
+  // Excel-style drag-fill, live only in grid-edit mode. Borrows the freeze
+  // hook's wrapper ref and adds no wrapper handlers of its own, so it cannot
+  // contend with the cell menu's long-press (which is disabled here anyway).
+  const dragFill = useDragFill<InventoryRow>(gridRef, {
+    containerRef: columnFreeze.containerRef,
+    enabled: () => gridEditMode,
+    suppressForRow: (data) => !!data?.__group,
+    isFillable: isInventoryFillable,
+    onFill: handleGridFill,
+  });
 
   const handleCreate = async (createData: {
     type: string;
@@ -3758,6 +3913,7 @@ export default function InventoryPage() {
             ...columnFreeze.sx,
             ...cellMenu.sx,
             ...grouping.sx,
+            ...dragFill.sx,
           }}
         >
           <AgGridReact
@@ -3785,6 +3941,7 @@ export default function InventoryPage() {
             getRowStyle={getRowStyle}
             {...grouping.gridProps}
             {...cellMenu.gridProps}
+            {...dragFill.gridProps}
             animateRows
             defaultColDef={defaultColDef}
             initialState={
@@ -3801,10 +3958,12 @@ export default function InventoryPage() {
             }
           />
           {grouping.stickyHeader}
+          {dragFill.overlay}
         </Box>
       </Box>
 
       {cellMenu.menu}
+      {dragFill.dialog}
 
       {/* Inline-edit failures (rejected re-parent, …) */}
       <Snackbar

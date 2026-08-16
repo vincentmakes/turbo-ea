@@ -90,6 +90,7 @@ El inventario utiliza una tabla de datos **AG Grid** con funciones avanzadas:
 
 - **Ordenamiento** — Haga clic en cualquier encabezado de columna para ordenar de forma ascendente/descendente
 - **Edición en línea** — En modo de edición en cuadrícula, edite los valores de los campos directamente en la tabla
+- **Rellenar una columna** — En modo de edición en cuadrícula, haga clic en una celda y arrastre el pequeño cuadrado de su esquina hacia arriba o hacia abajo para copiar ese valor en todas las filas recorridas. Antes de guardar nada, una confirmación indica la columna, el valor y cuántas filas; si el servidor rechaza una fila, se muestra con el motivo y un enlace, y las filas que sí se guardaron permanecen. El gesto funciona con el dedo igual que con el ratón, y también con el teclado: enfoque el cuadrado, extienda con las flechas y confirme con Intro. Solo se rellenan las filas visibles tras sus filtros y su orden, y la columna Nombre queda excluida a propósito para que dos tarjetas no acaben compartiendo nombre.
 - **Selección múltiple** — Seleccione múltiples filas para operaciones masivas
 - **Vista jerárquica** — Las relaciones padre/hijo se muestran como rutas de navegación
 - **Configuración de columnas** — Mostrar, ocultar y reordenar columnas

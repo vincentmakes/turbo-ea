@@ -35,6 +35,7 @@
   "gridEdit.parentHint": "Очистите поле, чтобы переместить карточку на верхний уровень.",
   "gridEdit.parentFailed": "Не удалось изменить родителя.",
   "gridEdit.attrFailed": "Не удалось сохранить значение.",
+  "gridEdit.saveFailed": "Не удалось сохранить изменение.",
   "columns.path": "Путь",
   "filter.title": "Фильтры",
   "filter.expand": "Развернуть фильтры",

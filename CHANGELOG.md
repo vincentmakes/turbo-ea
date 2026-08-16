@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.64.0] - 2026-08-16
+
+### Added
+- **Drag a cell's corner to fill its value down a column.** Setting the same owner, lifecycle, subtype or cost on twenty rows used to mean twenty separate edits, or leaving the table for the Mass Edit dialog. In grid edit mode every editable cell now carries a small square at its corner: drag it up or down and the rows you cover are outlined with a running count. Nothing is written until you confirm — the confirmation names the column, the value and how many rows — and the fill then applies row by row with a progress bar. If the server refuses a row (a name collision or a depth limit on a re-parent, a cleared required field), that row is listed with the reason and a link to it while the rest stay saved. It works with a finger as well as a mouse, and with the keyboard.
+
+### Fixed
+- **Changing a card's subtype directly in the table now saves.** In grid edit mode the Subtype cell accepted a new value and showed it, but the change was never sent to the server and vanished on the next reload.
+- **A failed inline edit now tells you why.** Editing a name, description, tag or stakeholder directly in the table and having the server reject it left the cell showing the new value with no message and no revert; only re-parenting and attribute edits reported the reason. All of them now do, and the row reverts.
+
 ## [2.63.0] - 2026-08-16
 
 ### Added

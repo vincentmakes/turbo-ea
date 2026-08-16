@@ -90,6 +90,7 @@ O inventário usa uma tabela de dados **AG Grid** com recursos poderosos:
 
 - **Ordenação** — Clique em qualquer cabeçalho de coluna para ordenar em ascendente/descendente
 - **Edição inline** — No modo de edição da grade, edite valores de campos diretamente na tabela
+- **Preencher uma coluna** — No modo de edição da grade, clique numa célula e arraste o pequeno quadrado do seu canto para cima ou para baixo para copiar esse valor para todas as linhas percorridas. Antes de guardar seja o que for, uma confirmação indica a coluna, o valor e quantas linhas; se o servidor recusar uma linha, esta é listada com o motivo e uma ligação, e as linhas bem-sucedidas continuam guardadas. O gesto funciona com o dedo tal como com o rato, e também com o teclado: coloque o foco no quadrado, estenda com as setas e confirme com Enter. Só são preenchidas as linhas visíveis após os seus filtros e ordenação, e a coluna Nome fica propositadamente excluída para que dois cards não partilhem o mesmo nome.
 - **Seleção múltipla** — Selecione múltiplas linhas para operações em massa
 - **Exibição de hierarquia** — Relacionamentos pai/filho mostrados como caminhos em breadcrumb
 - **Configuração de colunas** — Mostrar, ocultar e reordenar colunas

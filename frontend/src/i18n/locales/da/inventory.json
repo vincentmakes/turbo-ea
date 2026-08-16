@@ -35,6 +35,7 @@
   "gridEdit.parentHint": "Ryd feltet for at flytte kortet til øverste niveau.",
   "gridEdit.parentFailed": "Det overordnede kort kunne ikke ændres.",
   "gridEdit.attrFailed": "Værdien kunne ikke gemmes.",
+  "gridEdit.saveFailed": "Ændringen kunne ikke gemmes.",
   "columns.path": "Sti",
   "filter.title": "Filtre",
   "filter.expand": "Udvid filtre",

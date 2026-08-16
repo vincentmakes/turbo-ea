@@ -90,6 +90,7 @@ L'inventario utilizza una tabella dati **AG Grid** con funzionalità avanzate:
 
 - **Ordinamento** — Cliccate sull'intestazione di qualsiasi colonna per ordinare in modo crescente/decrescente
 - **Modifica in linea** — In modalità modifica griglia, modificate i valori dei campi direttamente nella tabella
+- **Riempire una colonna** — In modalità modifica griglia, cliccate una cella e trascinate il quadratino nel suo angolo verso l'alto o verso il basso per copiare quel valore in tutte le righe attraversate. Prima di salvare qualsiasi cosa, una conferma indica la colonna, il valore e quante righe; se il server rifiuta una riga, questa viene elencata con il motivo e un collegamento, mentre le righe riuscite restano salvate. Il gesto funziona con il dito come con il mouse, e anche da tastiera: mettete a fuoco il quadratino, estendete con le frecce, confermate con Invio. Vengono riempite solo le righe attualmente visibili dopo filtri e ordinamento, e la colonna Nome è deliberatamente esclusa perché due card non possano condividere lo stesso nome.
 - **Selezione multipla** — Selezionate più righe per operazioni in blocco
 - **Visualizzazione gerarchica** — Le relazioni genitore/figlio sono mostrate come percorsi breadcrumb
 - **Configurazione colonne** — Mostrate, nascondete e riordinate le colonne
