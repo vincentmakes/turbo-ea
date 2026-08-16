@@ -56,6 +56,8 @@ The **Capability Map** shows a hierarchical **heatmap** of the organization's bu
 - **Heatmap coloring** — Blocks are colored based on a selected metric (e.g., number of supporting applications, average data quality, or risk level)
 - **Click to explore** — Click any capability to drill down into its details and supporting applications
 
+**Scoping to specific capabilities** — By default the map draws every capability. Use the capability chip in the toolbar to open a picker and select one or more capabilities; the map then shows only those and everything beneath them. Sub-capabilities are included automatically, so picking a top-level capability gives you its whole branch. **Display Depth** counts from the capabilities you selected, so *Level 2* always means two tiers below what you are looking at. The scope is stored with the report, so a saved report reopens on the same branch.
+
 ## Lifecycle Report
 
 ![Lifecycle Report](../assets/img/en/12_lifecycle.png)

@@ -413,5 +413,12 @@
   "dependency.createDiagramError": "Diagrammet kunne ikke oprettes. Prøv igen.",
   "cost.permissionDeniedTitle": "Omkostningsdata begrænset",
   "cost.permissionDeniedBody": "Du har ikke tilladelse til at se omkostningsrapporter. Bed en administrator om at give dig tilladelsen «costs.view», eller bliv interessent på de kort, hvis omkostninger du har brug for.",
-  "portfolio.viewInInventory": "Vis i lageret"
+  "portfolio.viewInInventory": "Vis i lageret",
+  "common.scope": "Omfang",
+  "capabilityMap.scopeAll": "Alle kapabiliteter",
+  "capabilityMap.scopeCount_one": "{{count}} kapabilitet",
+  "capabilityMap.scopeCount_other": "{{count}} kapabiliteter",
+  "capabilityMap.scopeDialogTitle": "Afgræns til kapabiliteter",
+  "capabilityMap.scopeHelper": "Underkapabiliteter under en valgt kapabilitet medtages automatisk.",
+  "capabilityMap.scopeTooltip": "Vis kun de valgte kapabiliteter og alt under dem"
 }

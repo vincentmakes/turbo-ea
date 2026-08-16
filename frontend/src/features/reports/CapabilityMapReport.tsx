@@ -13,6 +13,10 @@ import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import TimelineSlider from "@/components/TimelineSlider";
 import FilterSelect, { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
+import CardScopeDialog, {
+  dedupeScopeRoots,
+  type CardScopeOption,
+} from "@/components/CardScopeDialog";
 import TagPicker from "@/components/TagPicker";
 import type { TagGroup } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -264,6 +268,8 @@ function buildTree(
   tagGroups: TagGroupDef[],
   timelineDate: number,
   costFieldKeys: string[],
+  /** Subtree roots to narrow the map to. Empty = the whole capability tree. */
+  scopeIds: string[] = [],
 ): CapNode[] {
   const nodeMap = new Map<string, CapNode>();
   for (const item of items) {
@@ -282,13 +288,32 @@ function buildTree(
     });
   }
 
-  const roots: CapNode[] = [];
+  let roots: CapNode[] = [];
   for (const node of nodeMap.values()) {
     if (node.parent_id && nodeMap.has(node.parent_id)) {
       nodeMap.get(node.parent_id)!.children.push(node);
     } else {
       roots.push(node);
     }
+  }
+
+  // Scope: the map re-roots on the chosen capabilities, so everything below
+  // runs against the subtree and nothing else. Re-levelling is deliberate —
+  // a scoped L3 becomes level 1, so "Display Depth: Level 2" keeps meaning
+  // "two tiers from what I'm looking at" wherever the user scoped
+  // (discussion #954). Deep metrics follow for free: `propagate` only walks
+  // these roots, so an application supporting a capability outside the scope
+  // correctly drops out of the counts.
+  //
+  // Dedupe defensively — a restored config could name both a capability and
+  // one of its descendants, which would otherwise render the inner subtree
+  // twice.
+  if (scopeIds.length > 0) {
+    const parentById = new Map<string, string | null>();
+    for (const [id, node] of nodeMap) parentById.set(id, node.parent_id);
+    roots = dedupeScopeRoots(scopeIds, parentById)
+      .map((id) => nodeMap.get(id))
+      .filter((n): n is CapNode => !!n);
   }
 
   // Set levels & sort children. Macro Capabilities (cards with
@@ -638,6 +663,9 @@ export default function CapabilityMapReport() {
   const [displayLevel, setDisplayLevel] = useState(2);
   const [showApps, setShowApps] = useState(false);
   const [colorBy, setColorBy] = useState("");
+  /** Capabilities the map is scoped to (subtree roots). Empty = all. */
+  const [scopeIds, setScopeIds] = useState<string[]>([]);
+  const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
 
   // Timeline slider
   const tl = useTimeline();
@@ -658,6 +686,9 @@ export default function CapabilityMapReport() {
       if (cfg.displayLevel != null) setDisplayLevel(cfg.displayLevel as number);
       if (cfg.showApps != null) setShowApps(cfg.showApps as boolean);
       if (cfg.colorBy != null) setColorBy(cfg.colorBy as string);
+      if (Array.isArray(cfg.scopeIds)) {
+        setScopeIds((cfg.scopeIds as unknown[]).filter((v): v is string => typeof v === "string"));
+      }
       if (cfg.attrFilters) setAttrFilters(cfg.attrFilters as Record<string, string[]>);
       if (cfg.relationFilters) setRelationFilters(cfg.relationFilters as Record<string, string[]>);
       // Migrate prior `{groupId: tagIds[]}` shape to a flat `string[]`
@@ -675,12 +706,12 @@ export default function CapabilityMapReport() {
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ metric, displayLevel, showApps, colorBy, timelineDate: tl.persistValue, attrFilters, relationFilters, tagFilterIds });
+  const getConfig = () => ({ metric, displayLevel, showApps, colorBy, timelineDate: tl.persistValue, attrFilters, relationFilters, tagFilterIds, scopeIds });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [metric, displayLevel, showApps, colorBy, tl.timelineDate, attrFilters, relationFilters, tagFilterIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [metric, displayLevel, showApps, colorBy, tl.timelineDate, attrFilters, relationFilters, tagFilterIds, scopeIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -689,6 +720,7 @@ export default function CapabilityMapReport() {
     setDisplayLevel(2);
     setShowApps(false);
     setColorBy("");
+    setScopeIds([]);
     tl.reset();
     setAttrFilters({});
     setRelationFilters({});
@@ -851,11 +883,42 @@ export default function CapabilityMapReport() {
       });
   }, [drawer, colorBy, selectFields]);
 
+  /**
+   * Drop scoped ids the fetch didn't return — a capability deleted since the
+   * report was saved, or one hidden by a metamodel change. Without this a
+   * stale saved report renders an empty map with no way to tell why; falling
+   * back to the wider map is the recoverable failure.
+   */
+  const effectiveScopeIds = useMemo(() => {
+    if (scopeIds.length === 0 || !data) return [];
+    const known = new Set(data.map((c) => c.id));
+    return scopeIds.filter((id) => known.has(id));
+  }, [scopeIds, data]);
+
+  /** Scoped capabilities as picker options, so chips label instantly. */
+  const scopeOptions = useMemo<CardScopeOption[]>(() => {
+    if (!data) return [];
+    return data.map((c) => ({
+      id: c.id,
+      name: c.name,
+      type: "BusinessCapability",
+      parent_id: c.parent_id,
+    }));
+  }, [data]);
+
   const tree = useMemo(
-    () => (data ? buildTree(data, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys) : []),
-    [data, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys],
+    () => (data ? buildTree(data, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, effectiveScopeIds) : []),
+    [data, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, effectiveScopeIds],
   );
   const maxLvl = useMemo(() => getMaxLevel(tree), [tree]);
+
+  // Scoping into a shallower branch re-ranges the Display Depth options, which
+  // can strand the current value outside them — a MUI Select with no matching
+  // MenuItem renders blank and warns. Clamp it back into range. `99`
+  // ("all levels") is a sentinel, not a depth, so it is never clamped.
+  useEffect(() => {
+    if (displayLevel !== 99 && maxLvl > 0 && displayLevel > maxLvl) setDisplayLevel(maxLvl);
+  }, [maxLvl, displayLevel]);
 
   // Compute max metric value for heatmap coloring
   const maxVal = useMemo(() => {
@@ -929,6 +992,12 @@ export default function CapabilityMapReport() {
     params.push({ label: t("common.metric"), value: metricLabel });
     const depthLabel = levelOptions.find((o) => o.value === displayLevel)?.label || "";
     params.push({ label: t("common.depth"), value: depthLabel });
+    if (effectiveScopeIds.length > 0) {
+      params.push({
+        label: t("common.scope"),
+        value: t("capabilityMap.scopeCount", { count: effectiveScopeIds.length }),
+      });
+    }
     if (showApps) params.push({ label: t("common.showApps"), value: t("common:labels.yes") });
     if (showApps && colorBy && colorBy !== "none") {
       const cLabel = colorByOptions.find((o) => o.key === colorBy)?.label || "";
@@ -937,7 +1006,7 @@ export default function CapabilityMapReport() {
     if (tl.printParam) params.push(tl.printParam);
     if (activeFilterCount > 0) params.push({ label: t("common.filters"), value: t("common.filtersActive", { count: activeFilterCount }) });
     return params;
-  }, [metric, displayLevel, showApps, colorBy, colorByOptions, levelOptions, tl.printParam, activeFilterCount, t]);
+  }, [metric, displayLevel, showApps, colorBy, colorByOptions, levelOptions, tl.printParam, activeFilterCount, effectiveScopeIds, t]);
 
   if (data === null)
     return (
@@ -994,6 +1063,25 @@ export default function CapabilityMapReport() {
               </MenuItem>
             ))}
           </TextField>
+
+          {/* Scopes the *capabilities* the map draws, so it belongs up here
+              with the other structural controls — not in the Application
+              Filters block below, which narrows the apps inside them. */}
+          <Tooltip title={t("capabilityMap.scopeTooltip")}>
+            <Chip
+              icon={<MaterialSymbol icon="account_tree" size={16} />}
+              label={
+                effectiveScopeIds.length > 0
+                  ? t("capabilityMap.scopeCount", { count: effectiveScopeIds.length })
+                  : t("capabilityMap.scopeAll")
+              }
+              variant={effectiveScopeIds.length > 0 ? "filled" : "outlined"}
+              color={effectiveScopeIds.length > 0 ? "primary" : "default"}
+              onClick={() => setScopeDialogOpen(true)}
+              onDelete={effectiveScopeIds.length > 0 ? () => setScopeIds([]) : undefined}
+              sx={{ height: 32 }}
+            />
+          </Tooltip>
 
           <FormControlLabel
             control={
@@ -1378,6 +1466,16 @@ export default function CapabilityMapReport() {
         cardId={sidePanelCardId}
         open={!!sidePanelCardId}
         onClose={() => setSidePanelCardId(null)}
+      />
+      <CardScopeDialog
+        open={scopeDialogOpen}
+        onClose={() => setScopeDialogOpen(false)}
+        types="BusinessCapability"
+        value={effectiveScopeIds}
+        onChange={setScopeIds}
+        title={t("capabilityMap.scopeDialogTitle")}
+        helperText={t("capabilityMap.scopeHelper")}
+        initialOptions={scopeOptions}
       />
       <SaveReportDialog
         open={saved.saveDialogOpen}

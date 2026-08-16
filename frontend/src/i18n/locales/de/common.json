@@ -407,5 +407,15 @@
   "groupBy.buttonActive": "Gruppieren nach: {{label}}",
   "groupBy.none": "Keine Gruppierung",
   "groupBy.notSet": "Nicht gesetzt",
-  "groupBy.selectGroup": "Alle in {{group}} auswählen"
+  "groupBy.selectGroup": "Alle in {{group}} auswählen",
+  "cardScope.title": "Karten auswählen",
+  "cardScope.helper": "Karten unterhalb einer ausgewählten Karte werden automatisch einbezogen.",
+  "cardScope.searchPlaceholder": "Karten suchen…",
+  "cardScope.selected_one": "{{count}} ausgewählt",
+  "cardScope.selected_other": "{{count}} ausgewählt",
+  "cardScope.included": "einbezogen",
+  "cardScope.clearAll": "Alle löschen",
+  "cardScope.apply_one": "Anwenden ({{count}})",
+  "cardScope.apply_other": "Anwenden ({{count}})",
+  "cardScope.flatFallback": "Zu viele Karten für die Hierarchieansicht — tippen Sie, um die gesamte Liste zu durchsuchen."
 }

@@ -407,5 +407,15 @@
   "groupBy.buttonActive": "Agrupar por: {{label}}",
   "groupBy.none": "Sem agrupamento",
   "groupBy.notSet": "Não definido",
-  "groupBy.selectGroup": "Selecionar tudo em {{group}}"
+  "groupBy.selectGroup": "Selecionar tudo em {{group}}",
+  "cardScope.title": "Selecionar cartões",
+  "cardScope.helper": "Os cartões abaixo de um cartão selecionado são incluídos automaticamente.",
+  "cardScope.searchPlaceholder": "Pesquisar cartões…",
+  "cardScope.selected_one": "{{count}} selecionado",
+  "cardScope.selected_other": "{{count}} selecionados",
+  "cardScope.included": "incluído",
+  "cardScope.clearAll": "Limpar tudo",
+  "cardScope.apply_one": "Aplicar ({{count}})",
+  "cardScope.apply_other": "Aplicar ({{count}})",
+  "cardScope.flatFallback": "Cartões demais para mostrar a hierarquia — digite para pesquisar na lista completa."
 }

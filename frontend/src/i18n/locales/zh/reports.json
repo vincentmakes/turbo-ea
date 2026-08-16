@@ -413,5 +413,12 @@
   "dependency.createDiagramError": "无法创建图表，请重试。",
   "cost.permissionDeniedTitle": "成本数据受限",
   "cost.permissionDeniedBody": "您无权查看成本报告。请管理员授予您「costs.view」权限，或成为相关卡片的利益相关方。",
-  "portfolio.viewInInventory": "在资产清单中查看"
+  "portfolio.viewInInventory": "在资产清单中查看",
+  "common.scope": "范围",
+  "capabilityMap.scopeAll": "全部能力",
+  "capabilityMap.scopeCount_one": "{{count}} 项能力",
+  "capabilityMap.scopeCount_other": "{{count}} 项能力",
+  "capabilityMap.scopeDialogTitle": "限定能力范围",
+  "capabilityMap.scopeHelper": "所选能力下的子能力将自动包含在内。",
+  "capabilityMap.scopeTooltip": "仅显示所选能力及其下属内容"
 }

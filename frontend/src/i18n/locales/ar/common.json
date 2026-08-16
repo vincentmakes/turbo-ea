@@ -407,5 +407,15 @@
   "groupBy.buttonActive": "تجميع حسب: {{label}}",
   "groupBy.none": "بدون تجميع",
   "groupBy.notSet": "غير محدد",
-  "groupBy.selectGroup": "تحديد الكل في {{group}}"
+  "groupBy.selectGroup": "تحديد الكل في {{group}}",
+  "cardScope.title": "تحديد البطاقات",
+  "cardScope.helper": "يتم تضمين البطاقات الواقعة أسفل البطاقة المحددة تلقائيًا.",
+  "cardScope.searchPlaceholder": "البحث عن البطاقات…",
+  "cardScope.selected_one": "{{count}} محددة",
+  "cardScope.selected_other": "{{count}} محددة",
+  "cardScope.included": "مُضمَّنة",
+  "cardScope.clearAll": "مسح الكل",
+  "cardScope.apply_one": "تطبيق ({{count}})",
+  "cardScope.apply_other": "تطبيق ({{count}})",
+  "cardScope.flatFallback": "عدد البطاقات كبير جدًا لعرض التسلسل الهرمي — اكتب للبحث في القائمة الكاملة."
 }

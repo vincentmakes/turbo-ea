@@ -413,5 +413,12 @@
   "dependency.createDiagramError": "Не удалось создать диаграмму. Повторите попытку.",
   "cost.permissionDeniedTitle": "Доступ к данным о расходах ограничен",
   "cost.permissionDeniedBody": "У вас нет прав на просмотр отчётов о расходах. Попросите администратора предоставить вам разрешение «costs.view» или станьте заинтересованным лицом по соответствующим карточкам.",
-  "portfolio.viewInInventory": "Показать в инвентаре"
+  "portfolio.viewInInventory": "Показать в инвентаре",
+  "common.scope": "Область",
+  "capabilityMap.scopeAll": "Все способности",
+  "capabilityMap.scopeCount_one": "{{count}} способность",
+  "capabilityMap.scopeCount_other": "{{count}} способностей",
+  "capabilityMap.scopeDialogTitle": "Ограничить способностями",
+  "capabilityMap.scopeHelper": "Подспособности выбранной способности включаются автоматически.",
+  "capabilityMap.scopeTooltip": "Показывать только выбранные способности и всё, что находится под ними"
 }

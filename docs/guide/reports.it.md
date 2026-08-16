@@ -56,6 +56,8 @@ La **Mappa delle Capability** mostra una **mappa di calore** gerarchica delle bu
 - **Colorazione a mappa di calore** — I blocchi sono colorati in base a una metrica selezionata (es. numero di applicazioni di supporto, qualità media dei dati o livello di rischio)
 - **Cliccate per esplorare** — Cliccate su qualsiasi capability per approfondire i dettagli e le applicazioni di supporto
 
+**Limitare a capacità specifiche** — Per impostazione predefinita la mappa disegna tutte le capacità. Usa il chip delle capacità nella barra degli strumenti per aprire un selettore e scegliere una o più capacità; la mappa mostrerà allora solo quelle e tutto ciò che si trova sotto di esse. Le sotto-capacità sono incluse automaticamente, quindi scegliendo una capacità di primo livello ottieni l'intero ramo. La **Profondità di visualizzazione** si conta a partire dalle capacità selezionate, perciò *Livello 2* significa sempre due livelli sotto ciò che stai guardando. L'ambito viene salvato con il report, così un report salvato si riapre sullo stesso ramo.
+
 ## Report Ciclo di vita
 
 ![Report Ciclo di vita](../assets/img/it/12_ciclo_vita.png)

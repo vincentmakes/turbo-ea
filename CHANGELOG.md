@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.65.0] - 2026-08-16
+
+### Added
+- **The Capability Map can now be scoped to the capabilities you care about.** Drawing a large landscape meant drawing every capability, with no way to look at one branch — the existing filters all narrow the applications inside the blocks, not the blocks themselves. The toolbar now carries a capability chip: open it, pick one or more capabilities, and the map shows only those and everything beneath them. Sub-capabilities come along automatically, so picking a top-level capability gives you its whole branch, and picking a capability that already sits inside another pick changes nothing. Display Depth counts from what you selected, so *Level 2* keeps meaning two tiers below what you are looking at wherever you scoped. The scope is saved with the report and appears in print and Excel/PowerPoint exports.
+
 ## [2.64.0] - 2026-08-16
 
 ### Added

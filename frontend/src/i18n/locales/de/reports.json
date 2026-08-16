@@ -413,5 +413,12 @@
   "dependency.createDiagramError": "Diagramm konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
   "cost.permissionDeniedTitle": "Kostendaten eingeschränkt",
   "cost.permissionDeniedBody": "Sie sind nicht berechtigt, Kostenberichte einzusehen. Bitten Sie einen Administrator, Ihnen die Berechtigung «costs.view» zu erteilen, oder werden Sie Stakeholder der betreffenden Karten.",
-  "portfolio.viewInInventory": "Im Inventar anzeigen"
+  "portfolio.viewInInventory": "Im Inventar anzeigen",
+  "common.scope": "Bereich",
+  "capabilityMap.scopeAll": "Alle Fähigkeiten",
+  "capabilityMap.scopeCount_one": "{{count}} Fähigkeit",
+  "capabilityMap.scopeCount_other": "{{count}} Fähigkeiten",
+  "capabilityMap.scopeDialogTitle": "Auf Fähigkeiten eingrenzen",
+  "capabilityMap.scopeHelper": "Unterfähigkeiten einer ausgewählten Fähigkeit werden automatisch einbezogen.",
+  "capabilityMap.scopeTooltip": "Nur die ausgewählten Fähigkeiten und alles darunter anzeigen"
 }

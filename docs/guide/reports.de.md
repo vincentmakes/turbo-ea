@@ -56,6 +56,8 @@ Die **Fähigkeitskarte** zeigt eine hierarchische **Heatmap** der Geschäftsfäh
 - **Heatmap-Einfärbung** — Blöcke werden basierend auf einer ausgewählten Metrik eingefärbt (z.B. Anzahl unterstützender Anwendungen, durchschnittliche Datenqualität oder Risikoniveau)
 - **Zum Erkunden klicken** — Klicken Sie auf eine beliebige Fähigkeit, um in deren Details und unterstützende Anwendungen einzutauchen
 
+**Auf bestimmte Fähigkeiten eingrenzen** — Standardmäßig zeigt die Karte alle Fähigkeiten. Über den Fähigkeits-Chip in der Symbolleiste öffnen Sie eine Auswahl und wählen eine oder mehrere Fähigkeiten aus; die Karte zeigt dann nur diese und alles darunter. Unterfähigkeiten werden automatisch einbezogen — die Auswahl einer obersten Fähigkeit liefert also ihren gesamten Zweig. Die **Anzeigetiefe** zählt ab den ausgewählten Fähigkeiten, *Ebene 2* bedeutet also stets zwei Stufen unterhalb dessen, was Sie gerade betrachten. Der Bereich wird mit dem Bericht gespeichert, sodass ein gespeicherter Bericht wieder im selben Zweig öffnet.
+
 ## Lebenszyklus-Bericht
 
 ![Lebenszyklus-Bericht](../assets/img/de/12_lebenszyklus.png)

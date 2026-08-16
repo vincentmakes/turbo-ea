@@ -413,5 +413,12 @@
   "dependency.createDiagramError": "Impossibile creare il diagramma. Riprova.",
   "cost.permissionDeniedTitle": "Dati sui costi limitati",
   "cost.permissionDeniedBody": "Non hai i permessi per visualizzare i report sui costi. Chiedi a un amministratore di concederti il permesso «costs.view», oppure diventa stakeholder delle schede in questione.",
-  "portfolio.viewInInventory": "Visualizza nell'inventario"
+  "portfolio.viewInInventory": "Visualizza nell'inventario",
+  "common.scope": "Ambito",
+  "capabilityMap.scopeAll": "Tutte le capacità",
+  "capabilityMap.scopeCount_one": "{{count}} capacità",
+  "capabilityMap.scopeCount_other": "{{count}} capacità",
+  "capabilityMap.scopeDialogTitle": "Limita alle capacità",
+  "capabilityMap.scopeHelper": "Le sotto-capacità di una capacità selezionata sono incluse automaticamente.",
+  "capabilityMap.scopeTooltip": "Mostra solo le capacità selezionate e tutto ciò che si trova sotto di esse"
 }

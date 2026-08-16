@@ -407,5 +407,15 @@
   "groupBy.buttonActive": "分组方式：{{label}}",
   "groupBy.none": "不分组",
   "groupBy.notSet": "未设置",
-  "groupBy.selectGroup": "选择「{{group}}」中的全部"
+  "groupBy.selectGroup": "选择「{{group}}」中的全部",
+  "cardScope.title": "选择卡片",
+  "cardScope.helper": "所选卡片下的子卡片将自动包含在内。",
+  "cardScope.searchPlaceholder": "搜索卡片…",
+  "cardScope.selected_one": "已选 {{count}} 项",
+  "cardScope.selected_other": "已选 {{count}} 项",
+  "cardScope.included": "已包含",
+  "cardScope.clearAll": "全部清除",
+  "cardScope.apply_one": "应用（{{count}}）",
+  "cardScope.apply_other": "应用（{{count}}）",
+  "cardScope.flatFallback": "卡片过多，无法显示层级结构 — 请输入以搜索完整列表。"
 }

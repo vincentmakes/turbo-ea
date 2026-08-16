@@ -407,5 +407,15 @@
   "groupBy.buttonActive": "Raggruppa per: {{label}}",
   "groupBy.none": "Nessun raggruppamento",
   "groupBy.notSet": "Non impostato",
-  "groupBy.selectGroup": "Seleziona tutto in {{group}}"
+  "groupBy.selectGroup": "Seleziona tutto in {{group}}",
+  "cardScope.title": "Seleziona schede",
+  "cardScope.helper": "Le schede sotto una scheda selezionata sono incluse automaticamente.",
+  "cardScope.searchPlaceholder": "Cerca schede…",
+  "cardScope.selected_one": "{{count}} selezionata",
+  "cardScope.selected_other": "{{count}} selezionate",
+  "cardScope.included": "inclusa",
+  "cardScope.clearAll": "Cancella tutto",
+  "cardScope.apply_one": "Applica ({{count}})",
+  "cardScope.apply_other": "Applica ({{count}})",
+  "cardScope.flatFallback": "Troppe schede per mostrare la gerarchia: digita per cercare nell'elenco completo."
 }

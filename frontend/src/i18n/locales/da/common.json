@@ -407,5 +407,15 @@
   "groupBy.buttonActive": "Gruppér efter: {{label}}",
   "groupBy.none": "Ingen gruppering",
   "groupBy.notSet": "Ikke angivet",
-  "groupBy.selectGroup": "Vælg alle i {{group}}"
+  "groupBy.selectGroup": "Vælg alle i {{group}}",
+  "cardScope.title": "Vælg kort",
+  "cardScope.helper": "Kort under et valgt kort medtages automatisk.",
+  "cardScope.searchPlaceholder": "Søg efter kort…",
+  "cardScope.selected_one": "{{count}} valgt",
+  "cardScope.selected_other": "{{count}} valgt",
+  "cardScope.included": "medtaget",
+  "cardScope.clearAll": "Ryd alle",
+  "cardScope.apply_one": "Anvend ({{count}})",
+  "cardScope.apply_other": "Anvend ({{count}})",
+  "cardScope.flatFallback": "For mange kort til at vise hierarkiet — skriv for at søge i hele listen."
 }

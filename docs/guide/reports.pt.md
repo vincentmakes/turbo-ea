@@ -56,6 +56,8 @@ O **Mapa de Capacidades** mostra um **mapa de calor** hierárquico das capacidad
 - **Coloração por mapa de calor** — Os blocos são coloridos com base em uma métrica selecionada (ex.: número de aplicações de suporte, qualidade média dos dados ou nível de risco)
 - **Clique para explorar** — Clique em qualquer capacidade para aprofundar nos detalhes e aplicações de suporte
 
+**Limitar a capacidades específicas** — Por predefinição, o mapa desenha todas as capacidades. Use o chip de capacidade na barra de ferramentas para abrir um seletor e escolher uma ou mais capacidades; o mapa mostra então apenas essas e tudo o que está abaixo delas. As subcapacidades são incluídas automaticamente, pelo que escolher uma capacidade de primeiro nível lhe dá todo o seu ramo. A **Profundidade de visualização** conta a partir das capacidades selecionadas, por isso *Nível 2* significa sempre dois níveis abaixo daquilo que está a ver. O âmbito é guardado com o relatório, para que um relatório guardado reabra no mesmo ramo.
+
 ## Relatório de Ciclo de Vida
 
 ![Relatório de Ciclo de Vida](../assets/img/pt/12_ciclo_vida.png)

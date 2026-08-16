@@ -413,5 +413,12 @@
   "dependency.createDiagramError": "تعذّر إنشاء المخطط. يرجى المحاولة مرة أخرى.",
   "cost.permissionDeniedTitle": "بيانات التكلفة مقيّدة",
   "cost.permissionDeniedBody": "ليس لديك إذن لعرض تقارير التكلفة. اطلب من المسؤول منحك إذن «costs.view»، أو كُن صاحب مصلحة في البطاقات التي تحتاج إلى تكاليفها.",
-  "portfolio.viewInInventory": "عرض في المخزون"
+  "portfolio.viewInInventory": "عرض في المخزون",
+  "common.scope": "النطاق",
+  "capabilityMap.scopeAll": "جميع القدرات",
+  "capabilityMap.scopeCount_one": "{{count}} قدرة",
+  "capabilityMap.scopeCount_other": "{{count}} قدرات",
+  "capabilityMap.scopeDialogTitle": "تحديد نطاق القدرات",
+  "capabilityMap.scopeHelper": "يتم تضمين القدرات الفرعية للقدرة المحددة تلقائيًا.",
+  "capabilityMap.scopeTooltip": "عرض القدرات المحددة وكل ما يندرج تحتها فقط"
 }

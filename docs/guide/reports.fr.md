@@ -56,6 +56,8 @@ La **Carte de capacités** affiche une **carte thermique hiérarchique** des cap
 - **Coloration thermique** -- Les blocs sont colorés en fonction d'une métrique sélectionnée (par ex. nombre d'applications de support, qualité moyenne des données, ou niveau de risque)
 - **Cliquer pour explorer** -- Cliquez sur n'importe quelle capacité pour approfondir ses détails et ses applications de support
 
+**Limiter à certaines capacités** — Par défaut, la carte affiche toutes les capacités. Utilisez la puce de capacité dans la barre d'outils pour ouvrir un sélecteur et choisir une ou plusieurs capacités ; la carte n'affiche alors que celles-ci et tout ce qui se trouve en dessous. Les sous-capacités sont incluses automatiquement : choisir une capacité de premier niveau vous donne donc toute sa branche. La **Profondeur d'affichage** se compte à partir des capacités sélectionnées, de sorte que *Niveau 2* signifie toujours deux niveaux sous ce que vous regardez. Le périmètre est enregistré avec le rapport, si bien qu'un rapport sauvegardé se rouvre sur la même branche.
+
 ## Rapport Cycle de vie
 
 ![Rapport Cycle de vie](../assets/img/fr/12_cycle_de_vie.png)

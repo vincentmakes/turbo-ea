@@ -407,5 +407,15 @@
   "groupBy.buttonActive": "Group by: {{label}}",
   "groupBy.none": "No grouping",
   "groupBy.notSet": "Not set",
-  "groupBy.selectGroup": "Select all in {{group}}"
+  "groupBy.selectGroup": "Select all in {{group}}",
+  "cardScope.title": "Select cards",
+  "cardScope.helper": "Cards beneath a selected card are included automatically.",
+  "cardScope.searchPlaceholder": "Search cards…",
+  "cardScope.selected_one": "{{count}} selected",
+  "cardScope.selected_other": "{{count}} selected",
+  "cardScope.included": "included",
+  "cardScope.clearAll": "Clear all",
+  "cardScope.apply_one": "Apply ({{count}})",
+  "cardScope.apply_other": "Apply ({{count}})",
+  "cardScope.flatFallback": "Too many cards to show the hierarchy — type to search the full list."
 }

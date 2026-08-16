@@ -56,6 +56,8 @@ Et klik på en kapabilitet åbner et sidepanel med alle applikationer i dens und
 - **Heatmap-farvelægning** — Blokke er farvet baseret på en valgt metrik (f.eks. antal understøttende applikationer, gennemsnitlig datakvalitet eller risikoniveau)
 - **Klik for at udforske** — Klik på en kompetence for at drille ned i dens detaljer og understøttende applikationer
 
+**Afgrænsning til bestemte kapabiliteter** — Som standard tegner kortet alle kapabiliteter. Brug kapabilitetschippen i værktøjslinjen til at åbne en vælger og markere en eller flere kapabiliteter; kortet viser derefter kun disse og alt under dem. Underkapabiliteter medtages automatisk, så hvis du vælger en kapabilitet på øverste niveau, får du hele dens gren. **Visningsdybde** tælles fra de valgte kapabiliteter, så *Niveau 2* altid betyder to niveauer under det, du kigger på. Omfanget gemmes sammen med rapporten, så en gemt rapport åbnes igen på den samme gren.
+
 ## Livscyklusrapport
 
 ![Livscyklusrapport](../assets/img/da/12_lifecycle.png)
