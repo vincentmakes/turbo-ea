@@ -31,6 +31,9 @@ import Switch from "@mui/material/Switch";
 import Autocomplete from "@mui/material/Autocomplete";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
+import ColumnOrderSection, {
+  type ColumnOrderItem,
+} from "@/components/grid/ColumnOrderSection";
 import { useTypeLabel, useSubtypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import { readableTextColor } from "@/lib/color";
@@ -108,6 +111,12 @@ interface Props {
   /** Grid colIds frozen to the leading edge; the pin on each row toggles one. */
   frozenColumns: Set<string>;
   onToggleFrozen: (colId: string) => void;
+  /** Visible, movable columns in grid order — feeds the reorder section. */
+  columnOrderItems: ColumnOrderItem[];
+  /** The full stored colId order (may include hidden columns). */
+  columnOrder: string[];
+  onColumnOrderChange: (next: string[]) => void;
+  onResetColumnOrder?: () => void;
   columnState?: ColumnLayoutItem[];
   onApplyColumnState?: (state: ColumnLayoutItem[] | null) => void;
   // The grid's current AG Grid column-filter model (a layer separate from these
@@ -313,6 +322,10 @@ export default function InventoryFilterSidebar({
   onResetColumns,
   frozenColumns,
   onToggleFrozen,
+  columnOrderItems,
+  columnOrder,
+  onColumnOrderChange,
+  onResetColumnOrder,
   columnState,
   onApplyColumnState,
   columnFilterModel,
@@ -1533,6 +1546,10 @@ export default function InventoryFilterSidebar({
               onResetColumns={onResetColumns}
               frozenColumns={frozenColumns}
               onToggleFrozen={onToggleFrozen}
+              columnOrderItems={columnOrderItems}
+              columnOrder={columnOrder}
+              onColumnOrderChange={onColumnOrderChange}
+              onResetColumnOrder={onResetColumnOrder}
               columnsChanged={columnsChanged}
               t={t}
             />
@@ -2045,6 +2062,10 @@ function ColumnsTab({
   columnsChanged,
   frozenColumns,
   onToggleFrozen,
+  columnOrderItems,
+  columnOrder,
+  onColumnOrderChange,
+  onResetColumnOrder,
   t,
 }: {
   types: CardType[];
@@ -2057,6 +2078,10 @@ function ColumnsTab({
   columnsChanged?: boolean;
   frozenColumns: Set<string>;
   onToggleFrozen: (colId: string) => void;
+  columnOrderItems: ColumnOrderItem[];
+  columnOrder: string[];
+  onColumnOrderChange: (next: string[]) => void;
+  onResetColumnOrder?: () => void;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
   const typeLabel = useTypeLabel();
@@ -2208,6 +2233,17 @@ function ColumnsTab({
 
   return (
     <>
+      {/* Reorder — deliberately above (and outside) the search box:
+          reordering a filtered list by index is not sound. */}
+      <ColumnOrderSection
+        items={columnOrderItems}
+        order={columnOrder}
+        frozen={frozenColumns}
+        onToggleFrozen={onToggleFrozen}
+        onReorder={onColumnOrderChange}
+        onReset={onResetColumnOrder}
+      />
+
       {/* Search */}
       <TextField
         size="small"

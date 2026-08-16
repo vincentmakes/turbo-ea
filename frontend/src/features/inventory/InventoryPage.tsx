@@ -80,6 +80,9 @@ import { api, ApiError, isAbortError } from "@/api/client";
 import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
 import TagPicker from "@/components/TagPicker";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
+import { useColumnOrder } from "@/components/grid/useColumnOrder";
+import { colIdOf, isOrderableColumn } from "@/components/grid/columnOrder";
+import type { ColumnOrderItem } from "@/components/grid/ColumnOrderSection";
 import {
   useCellContextMenu,
   MAX_SPLIT_VALUES,
@@ -599,9 +602,15 @@ const LS_KEY = "turboea_inventory";
 interface InventoryPrefs {
   filters?: Filters;
   columns?: string[];
-  // AG Grid column layout (order/width/pinning), captured via getColumnState().
-  // Visibility still flows from `columns` → `selectedColumns` → colDef `hide`.
+  // AG Grid column layout, captured via getColumnState(). It owns **width and
+  // sort only** — visibility flows from `columns` → `selectedColumns`, freezing
+  // from `frozenColumns` and order from `columnOrder`, all via colDefs.
   columnState?: ColumnLayoutItem[];
+  // colId order. Owned separately from `columnState` for the same reason
+  // `frozenColumns` is: the layout's restore stops re-applying the moment the
+  // user first rearranges a column, which is not a window an order can depend
+  // on. A colDef carries its position from the first render it appears in.
+  columnOrder?: string[];
   // Frozen colIds. Owned separately from `columnState` because the layout's
   // restore only runs until the user first rearranges a column, which is not
   // a window a freeze can depend on.
@@ -871,6 +880,15 @@ export default function InventoryPage() {
         .filter((c) => c.pinned === "left" && c.colId)
         .map((c) => c.colId),
   );
+  // colId order. Seeded from the order of a layout saved before ordering had
+  // its own pref, so an existing user's arrangement carries over.
+  const [columnOrder, setColumnOrder] = useState<string[]>(
+    () =>
+      savedPrefsRef.current?.columnOrder ??
+      (savedPrefsRef.current?.columnState ?? [])
+        .map((c) => c.colId)
+        .filter((id): id is string => !!id),
+  );
   // Mirror of the latest columnState for the apply effect (which keys on
   // columnDefs, not columnState, to avoid re-applying on every capture).
   const columnStateRef = useRef(columnState);
@@ -898,6 +916,9 @@ export default function InventoryPage() {
     setFrozenColumns(
       (layout ?? []).filter((c) => c.pinned === "left" && c.colId).map((c) => c.colId),
     );
+    // A view's order rides in its layout's array positions; hand it to
+    // `columnOrder`, which is what actually drives the grid.
+    setColumnOrder((layout ?? []).map((c) => c.colId).filter((id): id is string => !!id));
     setLayoutNonce((n) => n + 1);
   }, []);
 
@@ -912,6 +933,16 @@ export default function InventoryPage() {
   const columnFreeze = useColumnFreeze(gridRef, {
     frozen: frozenColumns,
     onFrozenChange: setFrozenColumns,
+  });
+
+  // --- Column order ---------------------------------------------------------
+  // Same ownership story as `frozenColumns` above: a list of colIds stamped
+  // onto the column defs, not a slice of the layout snapshot. This is also why
+  // `maintainColumnOrder` is deliberately absent from the grid below — it makes
+  // AG Grid ignore a colDefs order, which would make the pref invisible.
+  const gridColumnOrder = useColumnOrder(gridRef, {
+    order: columnOrder,
+    onOrderChange: setColumnOrder,
   });
 
   // --- Column filters (AG Grid filter model) --------------------------------
@@ -1231,13 +1262,23 @@ export default function InventoryPage() {
       filters,
       columns: Array.from(selectedColumns),
       columnState,
+      columnOrder,
       frozenColumns,
       columnFilterModel,
       sortModel,
       coreTagsMerged: true,
       groupBy,
     });
-  }, [filters, selectedColumns, sortModel, columnState, frozenColumns, columnFilterModel, groupBy]);
+  }, [
+    filters,
+    selectedColumns,
+    sortModel,
+    columnState,
+    columnOrder,
+    frozenColumns,
+    columnFilterModel,
+    groupBy,
+  ]);
 
   // Free-text search is debounced; every other filter stays instant. Typing
   // "SAP ERP" used to fire seven whole-repository requests, one per keystroke.
@@ -1732,7 +1773,11 @@ export default function InventoryPage() {
     if (!api) return;
     restorePendingRef.current = false;
     setColumnState(api.getColumnState() as unknown as ColumnLayoutItem[]);
-  }, []);
+    // The same drag can have moved the column or pinned it; both own their
+    // own pref now, so read them back rather than leaving them to the layout.
+    gridColumnOrder.syncFromGrid();
+    columnFreeze.syncFrozenFromGrid();
+  }, [gridColumnOrder, columnFreeze]);
 
   const handleGridReady = useCallback((_event: GridReadyEvent) => {
     setGridReady(true);
@@ -3064,8 +3109,24 @@ export default function InventoryPage() {
       }
     );
 
-    return columnFreeze.applyFrozen(cols);
-  }, [columnFreeze, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relatedRefsOf, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, tagGroups, stakeholderRoles, typeLabel]);
+    return gridColumnOrder.applyOrder(columnFreeze.applyFrozen(cols));
+  }, [columnFreeze, gridColumnOrder, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relatedRefsOf, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, tagGroups, stakeholderRoles, typeLabel]);
+
+  // Feeds the Columns tab's "Column order" section: only the columns actually
+  // on screen, built from the grid's own defs. On this page that matters twice
+  // over — the attribute, relation and stakeholder columns are metamodel-driven
+  // and `core_status` only exists while archived cards are shown, so no static
+  // catalogue could describe the live set.
+  const columnOrderItems = useMemo<ColumnOrderItem[]>(
+    () =>
+      columnDefs
+        .filter((c) => !c.hide && isOrderableColumn(c))
+        .map((c) => ({
+          colId: colIdOf(c),
+          label: c.headerName ?? colIdOf(c),
+        })),
+    [columnDefs],
+  );
 
   // Restore the saved column layout (order/width/pinning/sort) onto the grid.
   // Keyed on `columnDefs` so it re-applies each time the column *set* changes —
@@ -3080,13 +3141,15 @@ export default function InventoryPage() {
     if (!layout || layout.length === 0) return;
     const api = gridRef.current?.api;
     if (!api) return;
-    // `hide` and `pinned` are stripped: visibility flows from
-    // `selectedColumns` and freezing from `frozenColumns`, both via colDefs.
+    // `hide` and `pinned` are stripped, and `applyOrder` is off: visibility
+    // flows from `selectedColumns`, freezing from `frozenColumns` and order
+    // from `columnOrder`, all via colDefs. What is left for the snapshot to
+    // own is width and sort.
     const state: ColumnState[] = layout.map(
       ({ hide: _hide, pinned: _pinned, ...rest }) => rest,
     );
     applyingLayoutRef.current = true;
-    api.applyColumnState({ state, applyOrder: true });
+    api.applyColumnState({ state, applyOrder: false });
     applyingLayoutRef.current = false;
   }, [gridReady, columnDefs, layoutNonce]);
 
@@ -3367,6 +3430,10 @@ export default function InventoryPage() {
             onResetColumns={handleResetColumns}
             frozenColumns={columnFreeze.frozenColumns}
             onToggleFrozen={columnFreeze.toggleFrozen}
+            columnOrderItems={columnOrderItems}
+            columnOrder={gridColumnOrder.orderedIds}
+            onColumnOrderChange={setColumnOrder}
+            onResetColumnOrder={gridColumnOrder.resetOrder}
             columnState={columnState}
             onApplyColumnState={applyColumnLayout}
             onApplyColumnFilters={applyColumnFilters}
@@ -3398,6 +3465,10 @@ export default function InventoryPage() {
           onResetColumns={handleResetColumns}
           frozenColumns={columnFreeze.frozenColumns}
           onToggleFrozen={columnFreeze.toggleFrozen}
+          columnOrderItems={columnOrderItems}
+          columnOrder={gridColumnOrder.orderedIds}
+          onColumnOrderChange={setColumnOrder}
+          onResetColumnOrder={gridColumnOrder.resetOrder}
           columnState={columnState}
           onApplyColumnState={applyColumnLayout}
           onApplyColumnFilters={applyColumnFilters}
@@ -3703,7 +3774,6 @@ export default function InventoryPage() {
             onModelUpdated={handleModelUpdated}
             onDragStopped={captureColumnState}
             onColumnPinned={captureColumnState}
-            maintainColumnOrder
             getRowId={getRowId}
             getRowStyle={getRowStyle}
             {...grouping.gridProps}
