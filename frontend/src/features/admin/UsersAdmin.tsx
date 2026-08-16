@@ -36,6 +36,8 @@ import { useIsRtl } from "@/hooks/useIsRtl";
 import type { User, SsoInvitation, AppRole } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
+import { useColumnOrder } from "@/components/grid/useColumnOrder";
+import type { ColumnOrderItem } from "@/components/grid/ColumnOrderSection";
 import { useCellContextMenu } from "@/components/grid/useCellContextMenu";
 import { useFacetColumnSync } from "@/components/grid/useFacetColumnSync";
 import { arrayFacetBinding } from "@/components/grid/facetColumnSync";
@@ -44,6 +46,8 @@ import RolesAdmin from "@/features/admin/RolesAdmin";
 import UsersFilterSidebar, {
   EMPTY_USER_FILTERS,
   DEFAULT_USER_COLUMNS,
+  USER_COLUMNS,
+  LOCKED_USER_COLUMN_KEYS,
   type UserFilters,
 } from "./UsersFilterSidebar";
 import UserImportDialog from "./users/UserImportDialog";
@@ -84,6 +88,8 @@ interface UsersAdminPrefs {
   columns?: string[];
   /** colIds frozen to the leading edge via the header pin. */
   frozenColumns?: string[];
+  /** colId order, owned by `useColumnOrder` (header drag + Columns tab). */
+  columnOrder?: string[];
   sidebarWidth?: number;
   sidebarCollapsed?: boolean;
 }
@@ -185,6 +191,20 @@ export default function UsersAdmin() {
     frozen: frozenColumns,
     onFrozenChange: setFrozenColumns,
   });
+  const [columnOrderIds, setColumnOrderIds] = useState<string[]>(
+    () => savedPrefsRef.current?.columnOrder ?? [],
+  );
+  // Column order — from the Columns tab's drag handles and from dragging a
+  // column header, which both land here.
+  const columnOrder = useColumnOrder<User>(gridApiRef, {
+    order: columnOrderIds,
+    onOrderChange: setColumnOrderIds,
+  });
+  // One drag can move a column *and* pin it; capture both at drag end.
+  const handleDragStopped = useCallback(() => {
+    columnOrder.syncFromGrid();
+    columnFreeze.syncFrozenFromGrid();
+  }, [columnOrder, columnFreeze]);
 
   // Persist prefs whenever they change
   useEffect(() => {
@@ -192,10 +212,18 @@ export default function UsersAdmin() {
       filters,
       columns: Array.from(selectedColumns),
       frozenColumns,
+      columnOrder: columnOrderIds,
       sidebarWidth,
       sidebarCollapsed,
     });
-  }, [filters, selectedColumns, frozenColumns, sidebarWidth, sidebarCollapsed]);
+  }, [
+    filters,
+    selectedColumns,
+    frozenColumns,
+    columnOrderIds,
+    sidebarWidth,
+    sidebarCollapsed,
+  ]);
 
   const fetchRoles = useCallback(async () => {
     try {
@@ -913,8 +941,19 @@ export default function UsersAdmin() {
   );
 
   const columnDefs = useMemo<ColDef<User>[]>(
-    () => columnFreeze.applyFrozen(rawColumnDefs),
-    [rawColumnDefs, columnFreeze],
+    () => columnOrder.applyOrder(columnFreeze.applyFrozen(rawColumnDefs)),
+    [rawColumnDefs, columnFreeze, columnOrder],
+  );
+
+  // Feeds the Columns tab's "Column order" section. NOTE the two id spaces:
+  // `key` is what the visibility prefs store, `colId` is what the grid (and
+  // therefore the order and the freeze) uses — never swap them.
+  const columnOrderItems = useMemo<ColumnOrderItem[]>(
+    () =>
+      USER_COLUMNS.filter(
+        (c) => selectedColumns.has(c.key) || LOCKED_USER_COLUMN_KEYS.has(c.key),
+      ).map((c) => ({ colId: c.colId, label: t(c.tKey), icon: c.icon })),
+    [selectedColumns, t],
   );
 
   const defaultColDef = useMemo<ColDef>(
@@ -1003,6 +1042,10 @@ export default function UsersAdmin() {
       frozenColumns={columnFreeze.frozenColumns}
       onToggleFrozen={columnFreeze.toggleFrozen}
       onResetColumns={handleResetColumns}
+      columnOrderItems={columnOrderItems}
+      columnOrder={columnOrder.orderedIds}
+      onColumnOrderChange={setColumnOrderIds}
+      onResetColumnOrder={columnOrder.resetOrder}
     />
   );
 
@@ -1141,6 +1184,7 @@ export default function UsersAdmin() {
                 onGridReady={(params) => {
                   gridApiRef.current = params.api;
                 }}
+                onDragStopped={handleDragStopped}
                 onSelectionChanged={(e: { api: GridApi<User> }) => {
                   const rows = e.api.getSelectedRows();
                   setSelectedIds(rows.map((r) => r.id));

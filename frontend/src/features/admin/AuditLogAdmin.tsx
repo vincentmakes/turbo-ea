@@ -32,6 +32,9 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
+import { useColumnOrder } from "@/components/grid/useColumnOrder";
+import { colIdOf, isOrderableColumn } from "@/components/grid/columnOrder";
+import type { ColumnOrderItem } from "@/components/grid/ColumnOrderSection";
 import { useCellContextMenu } from "@/components/grid/useCellContextMenu";
 import { useFacetColumnSync } from "@/components/grid/useFacetColumnSync";
 import { arrayFacetBinding } from "@/components/grid/facetColumnSync";
@@ -67,6 +70,8 @@ interface AuditPrefs {
   visibleColumns: string[];
   /** colIds frozen to the leading edge via the header pin. */
   frozenColumns: string[];
+  /** colId order, owned by `useColumnOrder` (header drag + Columns tab). */
+  columnOrder: string[];
   pageSize: number;
 }
 
@@ -76,6 +81,7 @@ function loadAuditPrefs(): AuditPrefs {
     sidebarWidth: 280,
     visibleColumns: ALL_AUDIT_COLUMN_IDS,
     frozenColumns: [],
+    columnOrder: [],
     pageSize: DEFAULT_PAGE_SIZE,
   };
   try {
@@ -100,6 +106,12 @@ function loadAuditPrefs(): AuditPrefs {
           : ALL_AUDIT_COLUMN_IDS,
       frozenColumns: Array.isArray(parsed.frozenColumns)
         ? parsed.frozenColumns.filter(
+            (id): id is string =>
+              typeof id === "string" && ALL_AUDIT_COLUMN_IDS.includes(id),
+          )
+        : [],
+      columnOrder: Array.isArray(parsed.columnOrder)
+        ? parsed.columnOrder.filter(
             (id): id is string =>
               typeof id === "string" && ALL_AUDIT_COLUMN_IDS.includes(id),
           )
@@ -152,11 +164,25 @@ export default function AuditLogAdmin() {
   const [frozenColumns, setFrozenColumns] = useState<string[]>(
     initialPrefs.frozenColumns,
   );
+  const [columnOrderIds, setColumnOrderIds] = useState<string[]>(
+    initialPrefs.columnOrder,
+  );
   // Per-column freeze toggles in the header, persisted with the other prefs.
   const columnFreeze = useColumnFreeze<AuditBatch>(gridRef, {
     frozen: frozenColumns,
     onFrozenChange: setFrozenColumns,
   });
+  // Column order — from the Columns tab's drag handles and from dragging a
+  // column header, which both land here.
+  const columnOrder = useColumnOrder<AuditBatch>(gridRef, {
+    order: columnOrderIds,
+    onOrderChange: setColumnOrderIds,
+  });
+  // One drag can move a column *and* pin it; capture both at drag end.
+  const handleDragStopped = useCallback(() => {
+    columnOrder.syncFromGrid();
+    columnFreeze.syncFrozenFromGrid();
+  }, [columnOrder, columnFreeze]);
 
   // Server-side pagination. AG Grid Community lacks the enterprise
   // server-side row model, so we drive page changes ourselves and let
@@ -173,9 +199,17 @@ export default function AuditLogAdmin() {
       sidebarWidth,
       visibleColumns: Array.from(visibleColumns),
       frozenColumns,
+      columnOrder: columnOrderIds,
       pageSize,
     });
-  }, [sidebarCollapsed, sidebarWidth, visibleColumns, frozenColumns, pageSize]);
+  }, [
+    sidebarCollapsed,
+    sidebarWidth,
+    visibleColumns,
+    frozenColumns,
+    columnOrderIds,
+    pageSize,
+  ]);
 
   const resetVisibleColumns = useCallback(() => {
     setVisibleColumns(new Set(ALL_AUDIT_COLUMN_IDS));
@@ -443,14 +477,28 @@ export default function AuditLogAdmin() {
 
   const visibleColumnDefs = useMemo<ColDef<AuditBatch>[]>(
     () =>
-      columnFreeze.applyFrozen(
-        columnDefs.map((c) => {
-          const id = c.colId ?? c.field ?? "";
-          return { ...c, hide: id ? !visibleColumns.has(id) : false };
-        }),
+      columnOrder.applyOrder(
+        columnFreeze.applyFrozen(
+          columnDefs.map((c) => {
+            const id = c.colId ?? c.field ?? "";
+            return { ...c, hide: id ? !visibleColumns.has(id) : false };
+          }),
+        ),
       ),
-    [columnDefs, visibleColumns, columnFreeze],
+    [columnDefs, visibleColumns, columnFreeze, columnOrder],
   );
+
+  // Feeds the Columns tab's "Column order" section: only the columns actually
+  // on screen, built from the grid's own defs so the ids can never drift.
+  const columnOrderItems = useMemo<ColumnOrderItem[]>(() => {
+    const labels = new Map(AUDIT_GRID_COLUMNS.map((c) => [c.id, t(c.labelKey)]));
+    return visibleColumnDefs
+      .filter((c) => !c.hide && isOrderableColumn(c))
+      .map((c) => {
+        const id = colIdOf(c);
+        return { colId: id, label: labels.get(id) ?? id };
+      });
+  }, [visibleColumnDefs, t]);
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
@@ -496,6 +544,10 @@ export default function AuditLogAdmin() {
           onToggleFrozen={columnFreeze.toggleFrozen}
           onVisibleColumnsChange={setVisibleColumns}
           onResetColumns={resetVisibleColumns}
+          columnOrderItems={columnOrderItems}
+          columnOrder={columnOrder.orderedIds}
+          onColumnOrderChange={setColumnOrderIds}
+          onResetColumnOrder={columnOrder.resetOrder}
         />
 
         <Box
@@ -572,6 +624,7 @@ export default function AuditLogAdmin() {
               loading={loading}
               animateRows
               getRowId={(p) => p.data.id}
+              onDragStopped={handleDragStopped}
               onRowClicked={(e: RowClickedEvent<AuditBatch>) => {
                 if (e.data) setDrawerBatch(e.data);
               }}

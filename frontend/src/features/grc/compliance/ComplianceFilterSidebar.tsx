@@ -33,6 +33,9 @@ import {
   FilterCheckboxList,
   FilterSectionHeader,
 } from "@/components/FilterSidebarSection";
+import ColumnOrderSection, {
+  type ColumnOrderItem,
+} from "@/components/grid/ColumnOrderSection";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import {
   CARD_TYPE_COLORS,
@@ -87,6 +90,12 @@ interface Props {
   /** colIds frozen to the leading edge; the pin on each row toggles one. */
   frozenColumns: Set<string>;
   onToggleFrozen: (colId: string) => void;
+  /** Visible, movable columns in grid order — feeds the reorder section. */
+  columnOrderItems: ColumnOrderItem[];
+  /** The full stored colId order (may include hidden columns). */
+  columnOrder: string[];
+  onColumnOrderChange: (next: string[]) => void;
+  onResetColumnOrder?: () => void;
   /** Reset visible columns to the default (all columns). */
   onResetColumns?: () => void;
   width?: number;
@@ -154,6 +163,10 @@ export default function ComplianceFilterSidebar({
   frozenColumns,
   onToggleFrozen,
   onResetColumns,
+  columnOrderItems,
+  columnOrder,
+  onColumnOrderChange,
+  onResetColumnOrder,
   width = DEFAULT_WIDTH,
 }: Props) {
   const { t } = useTranslation("admin");
@@ -456,6 +469,14 @@ export default function ComplianceFilterSidebar({
       ) : (
         /* ─────── Columns tab ─────── */
         <Box>
+          <ColumnOrderSection
+            items={columnOrderItems}
+            order={columnOrder}
+            frozen={frozenColumns}
+            onToggleFrozen={onToggleFrozen}
+            onReorder={onColumnOrderChange}
+            onReset={onResetColumnOrder}
+          />
           <Stack
             direction="row"
             alignItems="center"

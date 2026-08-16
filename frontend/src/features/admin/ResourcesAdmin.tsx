@@ -43,6 +43,9 @@ import { api } from "@/api/client";
 import BulkSelectionBar, { BulkSelectionAction } from "@/components/BulkSelectionBar";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
+import { useColumnOrder } from "@/components/grid/useColumnOrder";
+import { colIdOf, isOrderableColumn } from "@/components/grid/columnOrder";
+import type { ColumnOrderItem } from "@/components/grid/ColumnOrderSection";
 import { useCellContextMenu } from "@/components/grid/useCellContextMenu";
 import { useFacetColumnSync } from "@/components/grid/useFacetColumnSync";
 import { arrayFacetBinding, type FacetBinding } from "@/components/grid/facetColumnSync";
@@ -88,6 +91,8 @@ interface ResourcePrefs {
   visibleColumns: string[];
   /** colIds frozen to the leading edge via the header pin. */
   frozenColumns: string[];
+  /** colId order, owned by `useColumnOrder` (header drag + Columns tab). */
+  columnOrder: string[];
   pageSize: number;
   statsExpanded: boolean;
 }
@@ -98,6 +103,7 @@ function loadPrefs(): ResourcePrefs {
     sidebarWidth: 280,
     visibleColumns: ALL_COLUMN_IDS,
     frozenColumns: [],
+    columnOrder: [],
     pageSize: DEFAULT_PAGE_SIZE,
     statsExpanded: false,
   };
@@ -121,6 +127,11 @@ function loadPrefs(): ResourcePrefs {
           : ALL_COLUMN_IDS,
       frozenColumns: Array.isArray(parsed.frozenColumns)
         ? parsed.frozenColumns.filter(
+            (id): id is string => typeof id === "string" && ALL_COLUMN_IDS.includes(id),
+          )
+        : [],
+      columnOrder: Array.isArray(parsed.columnOrder)
+        ? parsed.columnOrder.filter(
             (id): id is string => typeof id === "string" && ALL_COLUMN_IDS.includes(id),
           )
         : [],
@@ -265,6 +276,18 @@ export default function ResourcesAdmin() {
     frozen: frozenColumns,
     onFrozenChange: setFrozenColumns,
   });
+  const [columnOrderIds, setColumnOrderIds] = useState<string[]>(initialPrefs.columnOrder);
+  // Column order — from the Columns tab's drag handles and from dragging a
+  // column header, which both land here.
+  const columnOrder = useColumnOrder<RepositoryResource>(gridApiRef, {
+    order: columnOrderIds,
+    onOrderChange: setColumnOrderIds,
+  });
+  // One drag can move a column *and* pin it; capture both at drag end.
+  const handleDragStopped = useCallback(() => {
+    columnOrder.syncFromGrid();
+    columnFreeze.syncFrozenFromGrid();
+  }, [columnOrder, columnFreeze]);
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(initialPrefs.pageSize);
@@ -284,6 +307,7 @@ export default function ResourcesAdmin() {
       sidebarWidth,
       visibleColumns: Array.from(visibleColumns),
       frozenColumns,
+      columnOrder: columnOrderIds,
       pageSize,
       statsExpanded,
     });
@@ -292,6 +316,7 @@ export default function ResourcesAdmin() {
     sidebarWidth,
     visibleColumns,
     frozenColumns,
+    columnOrderIds,
     pageSize,
     statsExpanded,
   ]);
@@ -701,14 +726,29 @@ export default function ResourcesAdmin() {
 
   const visibleColumnDefs = useMemo(
     () =>
-      columnFreeze.applyFrozen(
-        columnDefs.map((c) => ({
-          ...c,
-          hide: !visibleColumns.has((c.colId ?? c.field) as string),
-        })),
+      columnOrder.applyOrder(
+        columnFreeze.applyFrozen(
+          columnDefs.map((c) => ({
+            ...c,
+            hide: !visibleColumns.has((c.colId ?? c.field) as string),
+          })),
+        ),
       ),
-    [columnDefs, visibleColumns, columnFreeze],
+    [columnDefs, visibleColumns, columnFreeze, columnOrder],
   );
+
+  // Feeds the Columns tab's "Column order" section: only the columns actually
+  // on screen, built from the grid's own defs so the ids can never drift.
+  const columnOrderItems = useMemo<ColumnOrderItem[]>(() => {
+    const meta = new Map(RESOURCE_GRID_COLUMNS.map((c) => [c.id, c]));
+    return visibleColumnDefs
+      .filter((c) => !c.hide && isOrderableColumn(c))
+      .map((c) => {
+        const id = colIdOf(c);
+        const col = meta.get(id);
+        return { colId: id, label: col ? t(col.labelKey) : id, icon: col?.icon };
+      });
+  }, [visibleColumnDefs, t]);
 
   const rowSelection = useMemo(
     () =>
@@ -810,6 +850,10 @@ export default function ResourcesAdmin() {
           onToggleFrozen={columnFreeze.toggleFrozen}
           onVisibleColumnsChange={setVisibleColumns}
           onResetColumns={resetVisibleColumns}
+          columnOrderItems={columnOrderItems}
+          columnOrder={columnOrder.orderedIds}
+          onColumnOrderChange={setColumnOrderIds}
+          onResetColumnOrder={columnOrder.resetOrder}
           cardTypeOptions={cardTypeOptions}
           categoryOptions={categoryOptions}
           creatorOptions={creators}
@@ -890,6 +934,7 @@ export default function ResourcesAdmin() {
               }}
               onSelectionChanged={(e) => setSelected(e.api.getSelectedRows())}
               onSortChanged={handleSortChanged}
+              onDragStopped={handleDragStopped}
               {...cellMenu.gridProps}
             />
           </Box>

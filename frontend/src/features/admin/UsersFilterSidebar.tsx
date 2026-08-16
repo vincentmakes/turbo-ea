@@ -20,6 +20,9 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
+import ColumnOrderSection, {
+  type ColumnOrderItem,
+} from "@/components/grid/ColumnOrderSection";
 import type { AppRole } from "@/types";
 
 export type UserStatusFilter = "active" | "invited" | "inactive";
@@ -113,6 +116,12 @@ interface Props {
   frozenColumns: Set<string>;
   onToggleFrozen: (colId: string) => void;
   onResetColumns?: () => void;
+  /** Visible, movable columns in grid order — feeds the reorder section. */
+  columnOrderItems: ColumnOrderItem[];
+  /** The full stored colId order (may include hidden columns). */
+  columnOrder: string[];
+  onColumnOrderChange: (next: string[]) => void;
+  onResetColumnOrder?: () => void;
 }
 
 export default function UsersFilterSidebar({
@@ -128,6 +137,10 @@ export default function UsersFilterSidebar({
   frozenColumns,
   onToggleFrozen,
   onResetColumns,
+  columnOrderItems,
+  columnOrder,
+  onColumnOrderChange,
+  onResetColumnOrder,
 }: Props) {
   const { t } = useTranslation(["admin", "common"]);
   const [tab, setTab] = useState(0);
@@ -522,6 +535,14 @@ export default function UsersFilterSidebar({
           ) : (
             /* ====================== COLUMNS TAB ====================== */
             <>
+              <ColumnOrderSection
+                items={columnOrderItems}
+                order={columnOrder}
+                frozen={frozenColumns}
+                onToggleFrozen={onToggleFrozen}
+                onReorder={onColumnOrderChange}
+                onReset={onResetColumnOrder}
+              />
               <List dense disablePadding>
                 {USER_COLUMNS.map((c) => {
                   const locked = LOCKED_USER_COLUMN_KEYS.has(c.key);

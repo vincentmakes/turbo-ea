@@ -28,6 +28,9 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
+import ColumnOrderSection, {
+  type ColumnOrderItem,
+} from "@/components/grid/ColumnOrderSection";
 
 // ──────────────────────────────────────────────────────────────────────────
 // Types
@@ -101,6 +104,12 @@ interface Props {
   frozenColumns: Set<string>;
   onToggleFrozen: (colId: string) => void;
   onResetColumns?: () => void;
+  /** Visible, movable columns in grid order — feeds the reorder section. */
+  columnOrderItems: ColumnOrderItem[];
+  /** The full stored colId order (may include hidden columns). */
+  columnOrder: string[];
+  onColumnOrderChange: (next: string[]) => void;
+  onResetColumnOrder?: () => void;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -156,6 +165,10 @@ export default function AuditLogFilterSidebar({
   frozenColumns,
   onToggleFrozen,
   onResetColumns,
+  columnOrderItems,
+  columnOrder,
+  onColumnOrderChange,
+  onResetColumnOrder,
 }: Props) {
   const { t } = useTranslation("admin");
   const [tab, setTab] = useState<0 | 1>(0);
@@ -496,6 +509,14 @@ export default function AuditLogFilterSidebar({
           ) : (
             /* ─────── Columns tab ─────── */
             <Box>
+              <ColumnOrderSection
+                items={columnOrderItems}
+                order={columnOrder}
+                frozen={frozenColumns}
+                onToggleFrozen={onToggleFrozen}
+                onReorder={onColumnOrderChange}
+                onReset={onResetColumnOrder}
+              />
               <Box
                 sx={{
                   display: "flex",

@@ -35,6 +35,9 @@ import { DateField } from "@/components/DateField";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
+import ColumnOrderSection, {
+  type ColumnOrderItem,
+} from "@/components/grid/ColumnOrderSection";
 import { LAYER_COLORS, STATUS_COLORS } from "@/theme";
 import type { ResourceKind } from "@/types";
 
@@ -168,6 +171,12 @@ interface Props {
   frozenColumns: Set<string>;
   onToggleFrozen: (colId: string) => void;
   onResetColumns?: () => void;
+  /** Visible, movable columns in grid order — feeds the reorder section. */
+  columnOrderItems: ColumnOrderItem[];
+  /** The full stored colId order (may include hidden columns). */
+  columnOrder: string[];
+  onColumnOrderChange: (next: string[]) => void;
+  onResetColumnOrder?: () => void;
   cardTypeOptions: FilterOption[];
   categoryOptions: FilterOption[];
   creatorOptions: FilterOption[];
@@ -289,6 +298,10 @@ export default function ResourcesFilterSidebar({
   frozenColumns,
   onToggleFrozen,
   onResetColumns,
+  columnOrderItems,
+  columnOrder,
+  onColumnOrderChange,
+  onResetColumnOrder,
   cardTypeOptions,
   categoryOptions,
   creatorOptions,
@@ -742,6 +755,14 @@ export default function ResourcesFilterSidebar({
           ) : (
             /* ─────── Columns tab ─────── */
             <Box>
+              <ColumnOrderSection
+                items={columnOrderItems}
+                order={columnOrder}
+                frozen={frozenColumns}
+                onToggleFrozen={onToggleFrozen}
+                onReorder={onColumnOrderChange}
+                onReset={onResetColumnOrder}
+              />
               <Box
                 sx={{
                   display: "flex",

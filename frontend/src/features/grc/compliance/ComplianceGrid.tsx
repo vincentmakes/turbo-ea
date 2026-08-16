@@ -57,6 +57,9 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
+import { useColumnOrder } from "@/components/grid/useColumnOrder";
+import { colIdOf, isOrderableColumn } from "@/components/grid/columnOrder";
+import type { ColumnOrderItem } from "@/components/grid/ColumnOrderSection";
 import { useCellContextMenu } from "@/components/grid/useCellContextMenu";
 import { useFacetColumnSync } from "@/components/grid/useFacetColumnSync";
 import { arrayFacetBinding } from "@/components/grid/facetColumnSync";
@@ -133,6 +136,8 @@ interface CompliancePrefs {
   visibleColumns: string[];
   /** colIds frozen to the leading edge via the header pin. */
   frozenColumns: string[];
+  /** colId order, owned by `useColumnOrder` (header drag + Columns tab). */
+  columnOrder: string[];
   sortModel: { colId: string; sort: "asc" | "desc" }[];
 }
 
@@ -146,6 +151,7 @@ function loadPrefs(): CompliancePrefs {
     filtersCollapsed: false,
     visibleColumns: ALL_COLUMN_IDS,
     frozenColumns: [...DEFAULT_FROZEN_COLUMNS],
+    columnOrder: [],
     sortModel: [],
   };
   try {
@@ -176,6 +182,12 @@ function loadPrefs(): CompliancePrefs {
               typeof id === "string" && ALL_COLUMN_IDS.includes(id),
           )
         : [...DEFAULT_FROZEN_COLUMNS],
+      columnOrder: Array.isArray(parsed.columnOrder)
+        ? parsed.columnOrder.filter(
+            (id): id is string =>
+              typeof id === "string" && ALL_COLUMN_IDS.includes(id),
+          )
+        : [],
       sortModel: Array.isArray(parsed.sortModel)
         ? parsed.sortModel.filter(
             (s): s is { colId: string; sort: "asc" | "desc" } =>
@@ -239,6 +251,9 @@ export default function ComplianceGrid({
   const [frozenColumns, setFrozenColumns] = useState<string[]>(
     initialPrefs.frozenColumns,
   );
+  const [columnOrderIds, setColumnOrderIds] = useState<string[]>(
+    initialPrefs.columnOrder,
+  );
   const [sortModel, setSortModel] = useState<
     { colId: string; sort: "asc" | "desc" }[]
   >(initialPrefs.sortModel);
@@ -295,6 +310,7 @@ export default function ComplianceGrid({
       filtersCollapsed,
       visibleColumns: Array.from(visibleColumns),
       frozenColumns,
+      columnOrder: columnOrderIds,
       sortModel,
       ...next,
     });
@@ -310,6 +326,28 @@ export default function ComplianceGrid({
       persist({ frozenColumns: next });
     },
   });
+
+  // Column order — from the Columns tab's drag handles and from dragging a
+  // column header, which both land here.
+  const columnOrder = useColumnOrder<TurboLensComplianceFinding>(gridRef, {
+    order: columnOrderIds,
+    onOrderChange: (next) => {
+      setColumnOrderIds(next);
+      persist({ columnOrder: next });
+    },
+  });
+
+  // One drag can move a column *and* pin it; capture both at drag end.
+  const handleDragStopped = () => {
+    columnOrder.syncFromGrid();
+    columnFreeze.syncFrozenFromGrid();
+  };
+
+  // The Columns tab's drag handles write straight through.
+  const handleColumnOrderChange = (next: string[]) => {
+    setColumnOrderIds(next);
+    persist({ columnOrder: next });
+  };
 
   const setGroupMode = (next: GroupMode) => {
     setGroupModeRaw(next);
@@ -590,14 +628,29 @@ export default function ComplianceGrid({
   // factory closure on every toggle.
   const visibleColumnDefs = useMemo<ColDef<TurboLensComplianceFinding>[]>(
     () =>
-      columnFreeze.applyFrozen(
-        columnDefs.map((c) => ({
-          ...c,
-          hide: c.field ? !visibleColumns.has(c.field) : false,
-        })),
+      columnOrder.applyOrder(
+        columnFreeze.applyFrozen(
+          columnDefs.map((c) => ({
+            ...c,
+            hide: c.field ? !visibleColumns.has(c.field) : false,
+          })),
+        ),
       ),
-    [columnDefs, visibleColumns, columnFreeze],
+    [columnDefs, visibleColumns, columnFreeze, columnOrder],
   );
+
+  // Feeds the Columns tab's "Column order" section: only the columns actually
+  // on screen, built from the grid's own defs so the ids can never drift.
+  const columnOrderItems = useMemo<ColumnOrderItem[]>(() => {
+    // The compliance column labels live in the `cards` namespace.
+    const labels = new Map(COMPLIANCE_GRID_COLUMNS.map((c) => [c.id, tCards(c.labelKey)]));
+    return visibleColumnDefs
+      .filter((c) => !c.hide && isOrderableColumn(c))
+      .map((c) => {
+        const id = colIdOf(c);
+        return { colId: id, label: labels.get(id) ?? id };
+      });
+  }, [visibleColumnDefs, tCards]);
 
   // Match the Inventory grid's defaults so the GRC table feels the same:
   // sortable + filterable + resizable on every column. Per-column filter
@@ -757,6 +810,10 @@ export default function ComplianceGrid({
         frozenColumns={columnFreeze.frozenColumns}
         onToggleFrozen={columnFreeze.toggleFrozen}
         onResetColumns={resetVisibleColumns}
+        columnOrderItems={columnOrderItems}
+        columnOrder={columnOrder.orderedIds}
+        onColumnOrderChange={handleColumnOrderChange}
+        onResetColumnOrder={columnOrder.resetOrder}
       />
 
       {/* Grid + toolbar */}
@@ -941,6 +998,7 @@ export default function ComplianceGrid({
             loading={loading}
             onCellClicked={onCellClicked}
             onSortChanged={onSortChanged}
+            onDragStopped={handleDragStopped}
             rowSelection={canManage ? rowSelection : undefined}
             // Keeps the checkbox column left of every frozen column.
             selectionColumnDef={columnFreeze.selectionColumnDef}

@@ -32,6 +32,9 @@ import {
   FilterCheckboxList,
   FilterSectionHeader,
 } from "@/components/FilterSidebarSection";
+import ColumnOrderSection, {
+  type ColumnOrderItem,
+} from "@/components/grid/ColumnOrderSection";
 import { SEVERITY_COLORS } from "@/theme/tokens";
 import type {
   RiskCategory,
@@ -113,6 +116,12 @@ interface Props {
   frozenColumns: Set<string>;
   onToggleFrozen: (colId: string) => void;
   onResetColumns?: () => void;
+  /** Visible, movable columns in grid order — feeds the reorder section. */
+  columnOrderItems: ColumnOrderItem[];
+  /** The full stored colId order (may include hidden columns). */
+  columnOrder: string[];
+  onColumnOrderChange: (next: string[]) => void;
+  onResetColumnOrder?: () => void;
 }
 
 export const STATUSES: RiskStatus[] = [
@@ -159,6 +168,10 @@ export default function RiskFilterSidebar({
   frozenColumns,
   onToggleFrozen,
   onResetColumns,
+  columnOrderItems,
+  columnOrder,
+  onColumnOrderChange,
+  onResetColumnOrder,
 }: Props) {
   const { t } = useTranslation(["grc", "common"]);
 
@@ -663,6 +676,14 @@ export default function RiskFilterSidebar({
         ) : (
           /* ─────── Columns tab ─────── */
           <Box>
+            <ColumnOrderSection
+              items={columnOrderItems}
+              order={columnOrder}
+              frozen={frozenColumns}
+              onToggleFrozen={onToggleFrozen}
+              onReorder={onColumnOrderChange}
+              onReset={onResetColumnOrder}
+            />
             <Box
               sx={{
                 display: "flex",

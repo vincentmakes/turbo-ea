@@ -32,6 +32,9 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import StakeholderHoverCard from "@/components/StakeholderHoverCard";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
+import { useColumnOrder } from "@/components/grid/useColumnOrder";
+import { colIdOf, isOrderableColumn } from "@/components/grid/columnOrder";
+import type { ColumnOrderItem } from "@/components/grid/ColumnOrderSection";
 import { useCellContextMenu } from "@/components/grid/useCellContextMenu";
 import { useFacetColumnSync } from "@/components/grid/useFacetColumnSync";
 import { arrayFacetBinding } from "@/components/grid/facetColumnSync";
@@ -123,6 +126,8 @@ interface RiskPrefs {
   visibleColumns: string[];
   /** colIds frozen to the leading edge via the header pin. */
   frozenColumns: string[];
+  /** colId order, owned by `useColumnOrder` (header drag + Columns tab). */
+  columnOrder: string[];
   sortModel: { colId: string; sort: "asc" | "desc" }[];
   /** Active group-by axis key (see the groupAxes memo), or null. */
   groupBy: string | null;
@@ -133,6 +138,7 @@ function loadRiskPrefs(): RiskPrefs {
     filtersCollapsed: false,
     visibleColumns: ALL_RISK_COLUMN_IDS,
     frozenColumns: [],
+    columnOrder: [],
     sortModel: [],
     groupBy: null,
   };
@@ -156,6 +162,12 @@ function loadRiskPrefs(): RiskPrefs {
           : ALL_RISK_COLUMN_IDS,
       frozenColumns: Array.isArray(parsed.frozenColumns)
         ? parsed.frozenColumns.filter(
+            (id): id is string =>
+              typeof id === "string" && ALL_RISK_COLUMN_IDS.includes(id),
+          )
+        : [],
+      columnOrder: Array.isArray(parsed.columnOrder)
+        ? parsed.columnOrder.filter(
             (id): id is string =>
               typeof id === "string" && ALL_RISK_COLUMN_IDS.includes(id),
           )
@@ -219,6 +231,9 @@ export default function RiskRegisterPage() {
   const [frozenColumns, setFrozenColumns] = useState<string[]>(
     initialPrefs.frozenColumns,
   );
+  const [columnOrderIds, setColumnOrderIds] = useState<string[]>(
+    initialPrefs.columnOrder,
+  );
   const [groupBy, setGroupByRaw] = useState<string | null>(initialPrefs.groupBy);
 
   const persistRiskPrefs = useCallback(
@@ -227,12 +242,13 @@ export default function RiskRegisterPage() {
         filtersCollapsed: sidebarCollapsed,
         visibleColumns: Array.from(visibleColumns),
         frozenColumns,
+        columnOrder: columnOrderIds,
         sortModel,
         groupBy,
         ...next,
       });
     },
-    [sidebarCollapsed, visibleColumns, frozenColumns, sortModel, groupBy],
+    [sidebarCollapsed, visibleColumns, frozenColumns, columnOrderIds, sortModel, groupBy],
   );
 
   const setGroupBy = useCallback(
@@ -252,6 +268,32 @@ export default function RiskRegisterPage() {
       persistRiskPrefs({ frozenColumns: next });
     },
   });
+
+  // Column order — from the Columns tab's drag handles and from dragging a
+  // column header, which both land here (see `handleDragStopped`).
+  const columnOrder = useColumnOrder<Risk>(gridRef, {
+    order: columnOrderIds,
+    onOrderChange: (next) => {
+      setColumnOrderIds(next);
+      persistRiskPrefs({ columnOrder: next });
+    },
+  });
+
+  // One drag can move a column *and* pin it; capture both at drag end.
+  const handleDragStopped = useCallback(() => {
+    columnOrder.syncFromGrid();
+    columnFreeze.syncFrozenFromGrid();
+  }, [columnOrder, columnFreeze]);
+
+  // The Columns tab's drag handles write straight through — the hook only
+  // reconciles what the grid reports, it doesn't own the sidebar's edits.
+  const handleColumnOrderChange = useCallback(
+    (next: string[]) => {
+      setColumnOrderIds(next);
+      persistRiskPrefs({ columnOrder: next });
+    },
+    [persistRiskPrefs],
+  );
 
   const setSidebarCollapsed = useCallback(
     (updater: boolean | ((prev: boolean) => boolean)) => {
@@ -715,14 +757,29 @@ export default function RiskRegisterPage() {
   // or `colId`) to RISK_GRID_COLUMNS membership.
   const visibleColumnDefs = useMemo<ColDef<Risk>[]>(
     () =>
-      columnFreeze.applyFrozen(
-        columnDefs.map((c) => {
-          const id = c.field ?? c.colId ?? "";
-          return { ...c, hide: id ? !visibleColumns.has(id) : false };
-        }),
+      columnOrder.applyOrder(
+        columnFreeze.applyFrozen(
+          columnDefs.map((c) => {
+            const id = c.field ?? c.colId ?? "";
+            return { ...c, hide: id ? !visibleColumns.has(id) : false };
+          }),
+        ),
       ),
-    [columnDefs, visibleColumns, columnFreeze],
+    [columnDefs, visibleColumns, columnFreeze, columnOrder],
   );
+
+  // Feeds the Columns tab's "Column order" section: only the columns actually
+  // on screen, built from the grid's own defs so the ids can never drift from
+  // what AG Grid reports back.
+  const columnOrderItems = useMemo<ColumnOrderItem[]>(() => {
+    const labels = new Map(RISK_GRID_COLUMNS.map((c) => [c.id, t(c.labelKey)]));
+    return visibleColumnDefs
+      .filter((c) => !c.hide && isOrderableColumn(c))
+      .map((c) => {
+        const id = colIdOf(c);
+        return { colId: id, label: labels.get(id) ?? id };
+      });
+  }, [visibleColumnDefs, t]);
 
   const onSortChanged = useCallback(() => {
     const api = gridRef.current?.api;
@@ -891,6 +948,10 @@ export default function RiskRegisterPage() {
           frozenColumns={columnFreeze.frozenColumns}
           onToggleFrozen={columnFreeze.toggleFrozen}
           onResetColumns={resetVisibleColumns}
+          columnOrderItems={columnOrderItems}
+          columnOrder={columnOrder.orderedIds}
+          onColumnOrderChange={handleColumnOrderChange}
+          onResetColumnOrder={columnOrder.resetOrder}
         />
 
         <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
@@ -984,6 +1045,7 @@ export default function RiskRegisterPage() {
                 sortModel.length > 0 ? { sort: { sortModel } } : undefined
               }
               onSortChanged={onSortChanged}
+              onDragStopped={handleDragStopped}
               onFilterChanged={grouping.handleFilterChanged}
               onRowClicked={(e: RowClickedEvent<Risk>) => {
                 if (grouping.isGroupRow(e.data as GroupedRow<Risk>)) return;
