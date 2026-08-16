@@ -96,6 +96,7 @@ Lageret bruger en **AG Grid**-datatabel med kraftfulde funktioner:
 - **Åbn i ny fane** — Ctrl/Cmd-klik på et navn for at åbne kortet i en ny browser-fane; hoved-nav-links understøtter dette også
 - **Kolonne-konfiguration** — Vis, skjul og omarrangér kolonner (inklusive de altid-aktive standardkolonner)
 - **Frys en kolonne** — Hold musen over en kolonneoverskrift og klik på nåle-ikonet for at fryse kolonnen til venstre kant, så den bliver stående, mens du ruller til siden. Klik på nålen igen for at frigive den. Hver kolonne har også den samme nål i fanen **Kolonner** i filterpanelet, så du kan fryse en kolonne uden at lede efter dens overskrift. Frosne kolonner huskes pr. tabel, og den samme funktion findes i alle datatabeller i Turbo EA (Risikoregister, Beslutninger, Compliance-fund, Brugere, Ressourcer, Auditlog).
+- **Skift kolonnerækkefølge** — Træk en kolonneoverskrift for at flytte kolonnen, eller åbn afsnittet **Kolonnerækkefølge** øverst i fanen **Kolonner** og træk en række i dens håndtag. Den liste *er* tabellens rækkefølge, så de to stemmer altid overens, og frosne kolonner er samlet forrest, fordi de altid vises først — frigiv en kolonnes nål dér, hvis du vil flytte den ud af gruppen. Håndtaget virker også med tastaturet (mellemrum for at tage en kolonne op, piletaster for at flytte den, mellemrum for at slippe den) og med berøring, så rækkefølgen kan ændres på en telefon. Din kolonnerækkefølge huskes pr. tabel i alle datatabeller i Turbo EA.
 
 ### Værktøjslinje
 

@@ -237,6 +237,36 @@ the two can't fight. A frozen column is a per-user preference and must survive
 a reload like column visibility and width do. The same `frozenColumns` / `toggleFrozen` feed the
 per-row pin in the page's Columns tab (§3.11).
 
+**Every AG Grid gets column reordering.** Order is a per-user preference too,
+and dragging a column header is not a discoverable or touch-usable way to set
+it. It lives in `useColumnOrder` (`src/components/grid/useColumnOrder.ts`) and
+flows through **colDef array order**, exactly the way `pinned` flows through
+`applyFrozen()`:
+
+```tsx
+const columnOrder = useColumnOrder(gridRef, { order, onOrderChange });
+const cols = useMemo(() => columnOrder.applyOrder(columnFreeze.applyFrozen(withHide)), [...]);
+<AgGridReact onDragStopped={() => { columnOrder.syncFromGrid(); columnFreeze.syncFrozenFromGrid(); }} />
+```
+
+`applyOrder()` is the **single owner** of order. Never set `maintainColumnOrder`
+— it makes AG Grid ignore a colDefs order, which masks the preference entirely.
+If the page also persists a `getColumnState()` snapshot, restore it with
+`applyOrder: false`: that snapshot owns width and sort only, the same way it
+already stopped owning `hide` and `pinned`. Persist the colIds as their own
+`columnOrder` pref beside `frozenColumns`, and seed it from the snapshot's
+positions so an existing user's arrangement carries over.
+
+A stored id is never pruned just because its column is off screen — a page
+whose columns arrive late (Inventory's attribute and relation columns land only
+once the metamodel resolves) would otherwise lose every position on mount.
+`suppressMovable` / `lockPosition` columns keep their natural index and never
+join the permutation: those flags stop the *user* dragging a column, not a
+colDefs reorder from moving it. Pair `syncFromGrid` with
+`columnFreeze.syncFrozenFromGrid` on one `onDragStopped` — the same drag can
+move a column *and* pin it, and `onDragStopped` also fires for resizes, so both
+syncs no-op when nothing changed.
+
 ### 3.7 Status Representation
 
 Always render status through one of these:
@@ -400,13 +430,15 @@ Take colours from `theme/tokens.ts` (`STATUS_COLORS`, `SEVERITY_COLORS`, `LAYER_
 
 **The Columns tab** mirrors the Filters tab, plus:
 
+- **A "Column order" section at the very top, collapsed by default** — `<ColumnOrderSection>` (`src/components/grid/ColumnOrderSection.tsx`), fed by the page's `columnOrder.orderedIds` / `applyOrder` (§3.6). It lists only the **visible** columns, and frozen ones first in their own `role="group"` block: pinning does not move a column in the grid's logical order, but AG Grid draws the whole pinned region ahead of everything unpinned, so a single flat list would disagree with the table and dragging a frozen row would produce no visible change at all. A drop across that boundary is a no-op — the freeze pin on each row is the way out, which is why the row is `[drag handle][label][ColumnFreezeToggle]` as flex siblings. Build the `items` from the **page's own column defs**, never from a static catalogue: that is what stops the id spaces drifting (Users stores visibility under `key` but the grid uses `colId`) and what covers columns no catalogue lists (Inventory's `core_status` exists only while archived cards are shown). The section deliberately does **not** participate in the tab's search box — reordering a filtered list by index is not sound.
+- The handle carries `{...attributes} {...listeners}` and **`touchAction: "none"`** — without it the browser claims a touch drag as a scroll and cancels it, so the feature is dead on a phone. Put the drag transform in an inline `style`, never `sx`: `stylis-plugin-rtl` flips X translations in emotion-processed CSS. Pass translated `accessibility.announcements` (dnd-kit's defaults are hardcoded English) and an `accessibility.container` inside the section, because the mobile filter Drawer is a MUI `Modal` and `aria-hidden`s the rest of `document.body` where dnd-kit would otherwise put its live region.
 - One `<MaterialSymbol>` per column in a second `<ListItemIcon>` (`minWidth: 24`) — the column picker is a list of glyph + label, not bare text.
 - An italic **Select all** row with an `indeterminate` checkbox.
 - A selected-count caption and a **Reset** button with a `restart_alt` icon.
 - Locked columns render checked + `disabled`, wrapped in a `<Tooltip placement="right">` explaining why, with `"&.Mui-disabled": { opacity: 0.7 }` so they stay readable.
 - **A freeze pin on every row** — `<ColumnFreezeToggle frozen onToggle/>` (`src/components/grid/ColumnFreezeToggle.tsx`), fed by the page's `columnFreeze.frozenColumns` / `toggleFrozen` (§3.6). It is the discoverable twin of the pin on the column header, and it must be a **sibling** of the `ListItemButton` inside a `Box sx={{ display: "flex" }}` — never a child, because a locked row disables its button and would swallow the pin's click, and a locked column is exactly the one worth freezing. Rows built with the shared `FilterCheckboxList` get it by passing `frozen` / `onToggleFrozen` on the item.
 
-**Filter/column state is persisted** under a `turboea.<page>.prefs` localStorage key through a defensive loader that validates every field and falls back to defaults — a malformed or stale entry must never break the page.
+**Filter/column state is persisted** under a `turboea.<page>.prefs` localStorage key through a defensive loader that validates every field and falls back to defaults — a malformed or stale entry must never break the page. Column visibility, `frozenColumns` and `columnOrder` each get their own field.
 
 ✅ Do
 - Give each new section a glyph and a count, even when the section holds a single control.

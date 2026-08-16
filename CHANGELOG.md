@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.62.0] - 2026-08-16
+
+### Added
+- **Columns can now be reordered from the Columns tab, on every table.** Moving a column used to mean dragging its header — undiscoverable, and impossible on a phone, where the drag fights the page scroll. Every table's **Columns** tab now opens with a **Column order** section listing the columns you can see, in the order the table draws them; drag one by its handle to move it. The list and the table are the same thing, so dragging a header updates the list and vice versa, and frozen columns are grouped first because that is where they always render — release a column's pin there to move it out of that group. The handle works with the keyboard (Space to pick a column up, arrow keys to move it, Space to drop it) and by touch, and announces each move to screen readers in your own language.
+
+### Fixed
+- **Column order is now remembered on the Risk Register, Compliance, Users, Resources and Audit log tables.** Dragging a column header on any of those five rearranged the table for as long as you stayed on the page and was silently lost on the next reload; the arrangement is now saved per table like column visibility, width and freezing already were.
+- **Dragging a column into the frozen area now sticks.** On the tables that store their own column preferences, freezing a column by dragging it (rather than by clicking its pin) was reverted the next time the table rebuilt its columns.
+
 ## [2.61.2] - 2026-08-15
 
 ### Fixed

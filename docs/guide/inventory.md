@@ -96,6 +96,7 @@ The inventory uses an **AG Grid** data table with powerful features:
 - **Open in new tab** — Ctrl/Cmd-click a name to open the card in a new browser tab; main-nav links also support this
 - **Column configuration** — Show, hide, and reorder columns (including the always-on default columns)
 - **Freeze a column** — Hover a column header and click the pin icon to freeze that column to the left edge, so it stays in view while you scroll sideways. Click the pin again to release it. Every column also carries a pin in the **Columns** tab of the filter panel, so you can freeze one without hunting for its header. Your frozen columns are remembered per table, and the same control is available on every data table in Turbo EA (Risk Register, Decisions, Compliance findings, Users, Resources, Audit log).
+- **Reorder columns** — Drag a column header to move it, or open the **Column order** section at the top of the **Columns** tab and drag a row by its handle. That list *is* the table's order, so the two always agree, and frozen columns are grouped first because they always render at the leading edge — release a column's pin there if you want to move it out of that group. The handle also works with the keyboard (Space to pick a column up, arrow keys to move it, Space to drop it) and by touch, so the order can be changed on a phone. Your column order is remembered per table, on every data table in Turbo EA.
 
 ### Toolbar
 
