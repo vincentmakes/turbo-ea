@@ -75,7 +75,7 @@ interface Props {
   /** The columns currently visible and movable, in any order. */
   items: ColumnOrderItem[];
   /** The full stored order — may hold ids that are hidden or not present. */
-  order: string[];
+  order?: string[];
   frozen?: ReadonlySet<string>;
   onToggleFrozen?: (colId: string) => void;
   /** Receives the full new order, ready to persist. */
@@ -157,7 +157,9 @@ function SortableRow({
 
 export default function ColumnOrderSection({
   items,
-  order,
+  // Defaulted rather than merely required: this renders inside a filter
+  // sidebar, and throwing here would blank the whole panel.
+  order = [],
   frozen,
   onToggleFrozen,
   onReorder,

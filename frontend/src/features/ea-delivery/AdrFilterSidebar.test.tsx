@@ -25,6 +25,8 @@ function renderSidebar(overrides: {
       onHiddenColumnsChange={overrides.onHiddenColumnsChange ?? vi.fn()}
       frozenColumns={overrides.frozenColumns ?? new Set()}
       onToggleFrozen={overrides.onToggleFrozen ?? vi.fn()}
+      columnOrder={overrides.columnOrder ?? []}
+      onColumnOrderChange={overrides.onColumnOrderChange ?? vi.fn()}
       extensionColumns={overrides.extensionColumns ?? []}
     />,
   );

@@ -19,6 +19,7 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
+import { useColumnOrder } from "@/components/grid/useColumnOrder";
 import { useCellContextMenu } from "@/components/grid/useCellContextMenu";
 import { type GroupAxis, type GroupedRow } from "@/components/grid/rowGrouping";
 import { GroupByMenuButton, useRowGrouping } from "@/components/grid/useRowGrouping";
@@ -90,6 +91,9 @@ interface Props {
   hiddenColumns: Set<string>;
   /** colIds frozen to the leading edge — owned by the parent, like `hiddenColumns`. */
   frozenColumns?: string[];
+  /** Full stored colId order; owned by the panel, like `frozenColumns`. */
+  columnOrder?: string[];
+  onColumnOrderChange?: (next: string[]) => void;
   onFrozenColumnsChange?: (next: string[]) => void;
   /**
    * When true, the grid sizes itself to its rows instead of filling a fixed
@@ -124,6 +128,8 @@ export default function AdrGrid({
   onQuickFilterChange,
   hiddenColumns,
   frozenColumns,
+  columnOrder,
+  onColumnOrderChange,
   onFrozenColumnsChange,
   autoHeight = false,
 }: Props) {
@@ -138,6 +144,10 @@ export default function AdrGrid({
   // frozen set is owned by the parent (the chooser is a sibling component),
   // so `pinned` is stamped on from `applyFrozen` and stripped from the
   // restored column-state snapshot below — one owner, no tug of war.
+  const gridColumnOrder = useColumnOrder(gridRef, {
+    order: columnOrder ?? [],
+    onOrderChange: onColumnOrderChange,
+  });
   const columnFreeze = useColumnFreeze(gridRef, {
     frozen: frozenColumns ?? [],
     onFrozenChange: (next) => onFrozenColumnsChange?.(next),
@@ -495,8 +505,8 @@ export default function AdrGrid({
   );
 
   const frozenColumnDefs = useMemo(
-    () => columnFreeze.applyFrozen(columnDefs),
-    [columnDefs, columnFreeze],
+    () => gridColumnOrder.applyOrder(columnFreeze.applyFrozen(columnDefs)),
+    [columnDefs, columnFreeze, gridColumnOrder],
   );
 
   // Reflect the grid's column-filter model into `hasColumnFilters` (drives
@@ -533,7 +543,11 @@ export default function AdrGrid({
     const state = api.getColumnState();
     columnStateRef.current = state;
     updateAdrGridPrefs({ columnState: state });
-  }, []);
+    // The same drag can have moved the column or pinned it; both own their
+    // own pref now, so read them back rather than leaving them to the layout.
+    gridColumnOrder.syncFromGrid();
+    columnFreeze.syncFrozenFromGrid();
+  }, [gridColumnOrder, columnFreeze]);
 
   // Sort lives inside getColumnState(); persist it too, but a sort-only
   // change doesn't end the restore window (matches the Inventory grid).
@@ -548,8 +562,10 @@ export default function AdrGrid({
 
   // Restore the saved column layout. Keyed on `columnDefs` so it re-applies
   // when the column set changes — extension columns register after the grid
-  // is ready. `hide` and `pinned` are stripped: visibility keeps flowing from
-  // `hiddenColumns` and freezing from `frozenColumns`.
+  // is ready. `hide` and `pinned` are stripped and `applyOrder` is off:
+  // visibility keeps flowing from `hiddenColumns`, freezing from
+  // `frozenColumns` and order from `columnOrder`, all via colDefs. What is
+  // left for the snapshot to own is width and sort.
   useEffect(() => {
     if (!gridReady || !restorePendingRef.current) return;
     const layout = columnStateRef.current;
@@ -558,7 +574,7 @@ export default function AdrGrid({
     if (!api) return;
     const state = layout.map(({ hide: _hide, pinned: _pinned, ...rest }) => rest);
     applyingLayoutRef.current = true;
-    api.applyColumnState({ state, applyOrder: true });
+    api.applyColumnState({ state, applyOrder: false });
     applyingLayoutRef.current = false;
   }, [gridReady, columnDefs]);
 

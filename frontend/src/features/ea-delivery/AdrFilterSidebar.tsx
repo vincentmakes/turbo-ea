@@ -19,6 +19,9 @@ import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
+import ColumnOrderSection, {
+  type ColumnOrderItem,
+} from "@/components/grid/ColumnOrderSection";
 import { ADR_COLUMN_DEFS, ADR_LOCKED_COLUMN_KEYS } from "./adrGridPrefs";
 
 /* ------------------------------------------------------------------ */
@@ -67,6 +70,9 @@ interface Props {
   frozenColumns: Set<string>;
   onToggleFrozen: (colId: string) => void;
   onHiddenColumnsChange: (next: Set<string>) => void;
+  /** The full stored colId order (may include hidden columns). */
+  columnOrder: string[];
+  onColumnOrderChange: (next: string[]) => void;
   /** Extension-contributed grid columns, choosable like built-in ones. */
   extensionColumns: { colId: string; label: string }[];
 }
@@ -126,12 +132,16 @@ function ColumnsTab({
   onHiddenColumnsChange,
   frozenColumns,
   onToggleFrozen,
+  columnOrder,
+  onColumnOrderChange,
   extensionColumns,
 }: {
   hiddenColumns: Set<string>;
   onHiddenColumnsChange: (next: Set<string>) => void;
   frozenColumns: Set<string>;
   onToggleFrozen: (colId: string) => void;
+  columnOrder: string[];
+  onColumnOrderChange: (next: string[]) => void;
   extensionColumns: { colId: string; label: string }[];
 }) {
   const { t } = useTranslation("delivery");
@@ -157,6 +167,16 @@ function ColumnsTab({
     [hiddenColumns, allKeys],
   );
   const shownCount = allKeys.size - hiddenCount;
+
+  // Feeds the reorder section: the visible columns only. Locked ones are
+  // always visible, so they are always orderable too.
+  const orderItems = useMemo<ColumnOrderItem[]>(
+    () =>
+      [...builtInColumns, ...extColumns]
+        .filter((c) => !hiddenColumns.has(c.key) || ADR_LOCKED_COLUMN_KEYS.has(c.key))
+        .map((c) => ({ colId: c.key, label: c.label })),
+    [builtInColumns, extColumns, hiddenColumns],
+  );
 
   const matchesSearch = (label: string) =>
     !search || label.toLowerCase().includes(search.toLowerCase());
@@ -209,6 +229,15 @@ function ColumnsTab({
 
   return (
     <>
+      {/* Reorder — deliberately above (and outside) the search box:
+          reordering a filtered list by index is not sound. */}
+      <ColumnOrderSection
+        items={orderItems}
+        order={columnOrder}
+        frozen={frozenColumns}
+        onToggleFrozen={onToggleFrozen}
+        onReorder={onColumnOrderChange}
+      />
       <TextField
         size="small"
         fullWidth
@@ -278,6 +307,8 @@ export default function AdrFilterSidebar({
   onHiddenColumnsChange,
   frozenColumns,
   onToggleFrozen,
+  columnOrder,
+  onColumnOrderChange,
   extensionColumns,
 }: Props) {
   // delivery namespace — keys: adr.filter.* / adr.columns.*
@@ -512,6 +543,8 @@ export default function AdrFilterSidebar({
               onHiddenColumnsChange={onHiddenColumnsChange}
               frozenColumns={frozenColumns}
               onToggleFrozen={onToggleFrozen}
+              columnOrder={columnOrder}
+              onColumnOrderChange={onColumnOrderChange}
               extensionColumns={extensionColumns}
             />
           </Box>

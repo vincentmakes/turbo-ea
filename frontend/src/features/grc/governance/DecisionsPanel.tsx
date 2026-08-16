@@ -64,6 +64,21 @@ export default function DecisionsPanel() {
     updateAdrGridPrefs({ frozenColumns: next });
   }, []);
   const frozenColumnSet = useMemo(() => new Set(frozenColumns), [frozenColumns]);
+
+  // Column order, owned here for the same reason visibility and freezing are:
+  // the Columns tab lives in the sidebar, a sibling of the grid. Seeded from
+  // the positions of a layout saved before ordering had its own pref.
+  const [columnOrder, setColumnOrder] = useState<string[]>(() => {
+    const prefs = loadAdrGridPrefs();
+    return (
+      prefs?.columnOrder ??
+      (prefs?.columnState ?? []).map((c) => c.colId).filter((id): id is string => !!id)
+    );
+  });
+  const handleColumnOrderChange = useCallback((next: string[]) => {
+    setColumnOrder(next);
+    updateAdrGridPrefs({ columnOrder: next });
+  }, []);
   const toggleFrozenColumn = useCallback(
     (colId: string) =>
       handleFrozenColumnsChange(
@@ -311,6 +326,8 @@ export default function DecisionsPanel() {
               onHiddenColumnsChange={handleHiddenColumnsChange}
               frozenColumns={frozenColumnSet}
               onToggleFrozen={toggleFrozenColumn}
+              columnOrder={columnOrder}
+              onColumnOrderChange={handleColumnOrderChange}
               extensionColumns={extensionColumns}
             />
           </Box>
@@ -324,6 +341,8 @@ export default function DecisionsPanel() {
               hiddenColumns={hiddenColumns}
               frozenColumns={frozenColumns}
               onFrozenColumnsChange={handleFrozenColumnsChange}
+              columnOrder={columnOrder}
+              onColumnOrderChange={handleColumnOrderChange}
               onEdit={(adr) => navigate(`/ea-delivery/adr/${adr.id}`)}
               onPreview={(adr) => navigate(`/ea-delivery/adr/${adr.id}/preview`)}
               onDuplicate={handleDuplicate}
