@@ -20,6 +20,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import type { Card, CardType } from "@/types";
 import { useCardSearch } from "@/hooks/useCardSearch";
+import { compareByRank, searchRank } from "@/lib/searchRank";
 import { readableTextColor } from "@/lib/color";
 
 interface CountsResponse {
@@ -109,6 +110,23 @@ export default function InsertCardsDialog({
     enabled: searchEnabled,
   });
 
+  /**
+   * What the list actually shows: the loaded page narrowed and ranked on the
+   * RAW input, so it responds to the first character instead of waiting out
+   * the debounce plus a round-trip. The debounced value still drives the
+   * server query above — that is the only thing a debounce should protect.
+   * Ranking mirrors the server's own (`searchRank` ↔ `_search_rank`), so the
+   * order does not jump when the debounced response lands.
+   *
+   * Deliberately *not* used by `handleInsertSelected`: a card ticked before
+   * the search term was typed is still selected, and must still resolve.
+   */
+  const visibleResults = useMemo(() => {
+    const q = search.trim();
+    if (!q) return results;
+    return results.filter((c) => searchRank(c.name, q) >= 0).sort(compareByRank(q));
+  }, [results, search]);
+
   // Infinite scroll: load the next page when the sentinel scrolls into view.
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -171,14 +189,17 @@ export default function InsertCardsDialog({
     [onInsert, onClose, buildTypeMapForCards],
   );
 
+  // "Insert all" means all of what is on screen, so it follows the visible
+  // list — inserting rows the search has filtered out would not match the
+  // count on the button.
   const handleInsertAll = useCallback(() => {
-    if (results.length > 50 && !confirmInsertAll) {
+    if (visibleResults.length > 50 && !confirmInsertAll) {
       setConfirmInsertAll(true);
       return;
     }
-    onInsert(results, buildTypeMapForCards(results));
+    onInsert(visibleResults, buildTypeMapForCards(visibleResults));
     onClose();
-  }, [results, confirmInsertAll, onInsert, onClose, buildTypeMapForCards]);
+  }, [visibleResults, confirmInsertAll, onInsert, onClose, buildTypeMapForCards]);
 
   if (!open) return null;
   const isMulti = mode === "multi";
@@ -290,7 +311,7 @@ export default function InsertCardsDialog({
               {!searchEnabled
                 ? t("insertDialog.selectOrSearch")
                 : hasMore
-                  ? t("insertDialog.showingOf", { loaded: results.length, total })
+                  ? t("insertDialog.showingOf", { loaded: visibleResults.length, total })
                   : t("insertDialog.resultsCount", { count: total })}
             </Typography>
           </Box>
@@ -298,11 +319,11 @@ export default function InsertCardsDialog({
           <Divider />
 
           <Box ref={scrollContainerRef} sx={{ flex: 1, overflow: "auto" }}>
-            {loading && results.length === 0 ? (
+            {loading && visibleResults.length === 0 ? (
               <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
                 <CircularProgress size={24} />
               </Box>
-            ) : results.length === 0 ? (
+            ) : visibleResults.length === 0 ? (
               <Box sx={{ textAlign: "center", py: 6, color: "text.disabled" }}>
                 <MaterialSymbol icon="search_off" size={36} color="#bbb" />
                 <Typography variant="body2" sx={{ mt: 1 }}>
@@ -313,7 +334,7 @@ export default function InsertCardsDialog({
               </Box>
             ) : (
               <Box>
-                {results.map((c) => {
+                {visibleResults.map((c) => {
                   const ct = typeMap.get(c.type);
                   const selected = selectedCardIds.has(c.id);
                   return (
@@ -438,7 +459,7 @@ export default function InsertCardsDialog({
             )}
             {confirmInsertAll && (
               <Typography variant="caption" color="warning.main" sx={{ ml: 1 }}>
-                {t("insertDialog.confirmInsertAll", { count: results.length })}
+                {t("insertDialog.confirmInsertAll", { count: visibleResults.length })}
               </Typography>
             )}
           </Box>
@@ -446,12 +467,12 @@ export default function InsertCardsDialog({
             <Button onClick={onClose}>{t("common:actions.cancel")}</Button>
             <Button
               variant="outlined"
-              disabled={results.length === 0}
+              disabled={visibleResults.length === 0}
               onClick={handleInsertAll}
             >
               {confirmInsertAll
                 ? t("insertDialog.insertAllConfirm")
-                : t("insertDialog.insertAll", { count: results.length })}
+                : t("insertDialog.insertAll", { count: visibleResults.length })}
             </Button>
             <Button
               variant="contained"

@@ -255,15 +255,24 @@ export default function CardScopeDialog({
   }, [byId]);
 
   /**
+   * The live query. Filtering runs on the RAW input, never the debounced one:
+   * the whole type is already in memory here, so there is no request to spare
+   * and a debounce would only make the list sit unfiltered for 300ms after
+   * every keystroke. `debouncedSearch` exists solely for the flat-mode server
+   * query — the one place a keystroke actually reaches the backend. Same split
+   * as `CardPicker`.
+   */
+  const query = search.trim();
+
+  /**
    * Ids matching the query, plus the ancestor chain of every match — searching
    * for a deep sub-capability must not orphan it from its parents.
    */
   const visibleSet = useMemo(() => {
-    const q = debouncedSearch.trim();
-    if (!q) return null; // null = everything visible
+    if (!query) return null; // null = everything visible
     const ids = new Set<string>();
     for (const c of byId.values()) {
-      if (searchRank(c.name, q) >= 0) ids.add(c.id);
+      if (searchRank(c.name, query) >= 0) ids.add(c.id);
     }
     for (const id of Array.from(ids)) {
       let cursor = byId.get(id)?.parent_id ?? null;
@@ -273,22 +282,67 @@ export default function CardScopeDialog({
       }
     }
     return ids;
-  }, [byId, debouncedSearch]);
+  }, [byId, query]);
+
+  /**
+   * Best rank found anywhere in each node's subtree, itself included.
+   *
+   * Ordering tree siblings by their *own* rank gets this wrong: an ancestor
+   * kept only for context scores "no match" on its own name, so the branch
+   * holding the best match in the whole tree would sink to the bottom. Rolling
+   * the best descendant rank up means a branch is ranked by the best thing
+   * inside it, while a branch with nothing matching beneath it still sorts
+   * last. One post-order pass over the loaded set.
+   */
+  const bestRank = useMemo(() => {
+    if (!query) return null;
+    const cache = new Map<string, number>();
+    const NO_MATCH = Number.MAX_SAFE_INTEGER;
+    const visit = (id: string, seen: Set<string>): number => {
+      const cached = cache.get(id);
+      if (cached !== undefined) return cached;
+      // A cycle would be a data bug upstream; guard rather than trust it.
+      if (seen.has(id)) return NO_MATCH;
+      seen.add(id);
+      const card = byId.get(id);
+      const own = card ? searchRank(card.name, query) : -1;
+      let best = own < 0 ? NO_MATCH : own;
+      for (const child of byParent.get(id) ?? []) {
+        best = Math.min(best, visit(child.id, seen));
+      }
+      seen.delete(id);
+      cache.set(id, best);
+      return best;
+    };
+    for (const id of byId.keys()) visit(id, new Set());
+    return cache;
+  }, [byId, byParent, query]);
 
   /** Depth-first flatten, so one scrolling list can render an indented tree. */
   const rows = useMemo<TreeRow[]>(() => {
-    const q = debouncedSearch.trim();
-
     if (flatMode) {
       // Partial set: no reliable hierarchy, so offer a plain ranked list.
       return Array.from(byId.values())
-        .sort(compareByRank(q))
+        .sort(compareByRank(query))
         .map((card) => ({ card, depth: 0, selected: picked.has(card.id), implied: false }));
     }
 
+    // While searching, each level is ordered by the best match inside it and
+    // ties break alphabetically; with no query, plain alphabetical (the order
+    // `byParent` already holds).
+    const order = (siblings: CardScopeOption[]) => {
+      if (!bestRank) return siblings;
+      return [...siblings].sort((a, b) => {
+        const diff =
+          (bestRank.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+          (bestRank.get(b.id) ?? Number.MAX_SAFE_INTEGER);
+        return diff !== 0 ? diff : a.name.localeCompare(b.name);
+      });
+    };
+
     const out: TreeRow[] = [];
     const walk = (parent: string | null, depth: number, impliedByAncestor: boolean) => {
-      for (const card of byParent.get(parent) ?? []) {
+      for (const card of order(byParent.get(parent) ?? [])) {
         if (visibleSet && !visibleSet.has(card.id)) continue;
         const selected = picked.has(card.id);
         out.push({ card, depth, selected, implied: impliedByAncestor && !selected });
@@ -297,9 +351,12 @@ export default function CardScopeDialog({
     };
     walk(null, 0, false);
     return out;
-  }, [flatMode, byId, byParent, visibleSet, picked, debouncedSearch]);
+  }, [flatMode, byId, byParent, visibleSet, bestRank, picked, query]);
 
-  const busy = loading || searchPending || (hasMore && pagesWalked < MAX_TREE_PAGES);
+  // `searchPending` only means something in flat mode, where the query goes to
+  // the server. In tree mode the filter is instant, so counting it would show
+  // a spinner over a list that is already correct.
+  const busy = loading || (flatMode && searchPending) || (hasMore && pagesWalked < MAX_TREE_PAGES);
 
   const toggle = (card: CardScopeOption) => {
     setPicked((prev) => {

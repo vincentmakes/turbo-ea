@@ -24,14 +24,23 @@ import { api } from "@/api/client";
  *  Sales
  *    ├─ Lead Management
  *    │    └─ Lead Scoring
+ *    ├─ Scoping
  *    └─ Quoting
+ *  Scorecard Tools
  *  Finance
+ *
+ * Shaped for the ranking tests: against the query "sco", "Sales" and "Lead
+ * Management" don't match on their own names but hold matching descendants,
+ * while "Scorecard Tools" and "Scoping" match directly and start with it. In
+ * plain alphabetical order "Sales" would precede both.
  */
 const CARDS = [
   { id: "sales", name: "Sales", type: "BusinessCapability", parent_id: null },
   { id: "leads", name: "Lead Management", type: "BusinessCapability", parent_id: "sales" },
   { id: "scoring", name: "Lead Scoring", type: "BusinessCapability", parent_id: "leads" },
+  { id: "scoping", name: "Scoping", type: "BusinessCapability", parent_id: "sales" },
   { id: "quoting", name: "Quoting", type: "BusinessCapability", parent_id: "sales" },
+  { id: "scoretools", name: "Scorecard Tools", type: "BusinessCapability", parent_id: null },
   { id: "finance", name: "Finance", type: "BusinessCapability", parent_id: null },
 ];
 
@@ -132,6 +141,65 @@ describe("CardScopeDialog", () => {
     await user.click(screen.getByRole("button", { name: /Apply/ }));
 
     expect(onChange).toHaveBeenCalledWith(["sales"]);
+  });
+
+  it("narrows on the first character, with no debounce to wait out", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await waitFor(() => expect(screen.getByText("Finance")).toBeInTheDocument());
+
+    await user.type(screen.getByPlaceholderText(/Search cards/), "F");
+
+    // Asserted synchronously — no `waitFor`, no timer advance. Filtering runs
+    // on the raw input, so the row is already gone by the time typing
+    // resolves. Keying it off the debounced value would leave "Sales" on
+    // screen for another 300ms and fail here.
+    expect(screen.queryByRole("checkbox", { name: "Sales" })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Finance" })).toBeInTheDocument();
+  });
+
+  it("ranks a branch by its best descendant, not by its own name", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await waitFor(() => expect(screen.getByText("Sales")).toBeInTheDocument());
+
+    // "scor" rather than "sco" so the two roots can't tie: it excludes
+    // "Scoping", leaving Sales to be ranked by "Lead Scoring" two levels down.
+    await user.type(screen.getByPlaceholderText(/Search cards/), "scor");
+
+    const rendered = screen
+      .getAllByRole("button")
+      .map((el) => el.textContent ?? "")
+      .filter((text) => text.length > 0);
+    const rootOrder = rendered.filter(
+      (t) => t.includes("Scorecard Tools") || t.includes("Sales"),
+    );
+
+    // "Scorecard Tools" starts with the term (rank 1); "Sales" matches nothing
+    // itself and is ranked 2 through "Lead Scoring" beneath it. Ranking by
+    // each node's own name would bury Sales entirely, and plain alphabetical
+    // order would put it first.
+    expect(rootOrder[0]).toContain("Scorecard Tools");
+    expect(rootOrder[1]).toContain("Sales");
+  });
+
+  it("orders siblings by relevance, beating alphabetical order", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await waitFor(() => expect(screen.getByText("Sales")).toBeInTheDocument());
+
+    await user.type(screen.getByPlaceholderText(/Search cards/), "sco");
+
+    const rendered = screen.getAllByRole("button").map((el) => el.textContent ?? "");
+    const scopingAt = rendered.findIndex((t) => t.includes("Scoping"));
+    const leadsAt = rendered.findIndex((t) => t.includes("Lead Management"));
+
+    // Both are children of Sales. "Scoping" matches directly; "Lead
+    // Management" only carries a match below it. Alphabetically it would be
+    // the other way round.
+    expect(scopingAt).toBeGreaterThanOrEqual(0);
+    expect(leadsAt).toBeGreaterThanOrEqual(0);
+    expect(scopingAt).toBeLessThan(leadsAt);
   });
 
   it("keeps ancestors visible when a deep child matches the search", async () => {

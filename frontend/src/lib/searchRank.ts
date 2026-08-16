@@ -35,10 +35,27 @@ export function searchRank(name: string, query: string): number {
   return 3;
 }
 
-/** Comparator: rank ascending, then alphabetically within a rank. */
+/**
+ * Comparator: rank ascending, then alphabetically within a rank.
+ *
+ * A non-match sorts **last**, not first — `searchRank` reports it as `-1`, and
+ * a raw subtraction would float exactly the rows that don't match to the top.
+ * Callers that pre-filter never see the difference; the ones that can't are
+ * why this is handled here rather than at each call site:
+ *   - a tree keeps a match's ancestors for context, and those score -1;
+ *   - a server-searched list matches name OR description, while this ranks on
+ *     name alone, so a description-only hit scores -1 too.
+ */
 export function compareByRank(query: string, locale?: string) {
+  // Any value above the "contains" tier (3) works; keep it finite so the
+  // subtraction below can't produce NaN.
+  const UNMATCHED = Number.MAX_SAFE_INTEGER;
+  const rank = (name: string) => {
+    const r = searchRank(name, query);
+    return r < 0 ? UNMATCHED : r;
+  };
   return (a: { name: string }, b: { name: string }) => {
-    const diff = searchRank(a.name, query) - searchRank(b.name, query);
+    const diff = rank(a.name) - rank(b.name);
     if (diff !== 0) return diff;
     return a.name.localeCompare(b.name, locale, { sensitivity: "base" });
   };

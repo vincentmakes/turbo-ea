@@ -166,3 +166,56 @@ describe("AddRelationsDialog relation attributes", () => {
     expect(vi.mocked(api.post).mock.calls[0][1]).not.toHaveProperty("attributes");
   });
 });
+
+describe("AddRelationsDialog candidate search", () => {
+  beforeEach(() => {
+    vi.mocked(api.get).mockReset();
+    vi.mocked(api.get).mockResolvedValue({
+      items: [
+        { id: "org-a", name: "Legal Operations", type: "Organization" },
+        { id: "org-b", name: "Legal", type: "Organization" },
+        { id: "org-c", name: "Paralegal Services", type: "Organization" },
+        { id: "org-d", name: "Finance", type: "Organization" },
+      ],
+      total: 4,
+      page: 1,
+      page_size: 50,
+    } as never);
+  });
+
+  it("narrows on the first character, with no debounce to wait out", async () => {
+    const user = userEvent.setup();
+    mountDialog();
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText("Finance");
+
+    await user.type(within(dialog).getByPlaceholderText("Search Organization"), "Legal");
+
+    // Asserted synchronously — no `waitFor`, no timer advance. The loaded page
+    // is already in memory, so filtering it is instant; keying the filter off
+    // the debounced value would leave "Finance" on screen for another 300ms.
+    expect(within(dialog).queryByText("Finance")).not.toBeInTheDocument();
+    expect(within(dialog).getByText("Legal")).toBeInTheDocument();
+  });
+
+  it("ranks an exact match above starts-with, and both above mid-word", async () => {
+    const user = userEvent.setup();
+    mountDialog();
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText("Finance");
+
+    await user.type(within(dialog).getByPlaceholderText("Search Organization"), "Legal");
+
+    const names = within(dialog)
+      .getAllByRole("button")
+      .map((el) => el.textContent ?? "");
+    const at = (name: string) => names.findIndex((t) => t.includes(name));
+
+    // Exact match, then starts-with, then the mid-word one. Alphabetically
+    // "Legal Operations" would precede "Legal", and "Paralegal Services" would
+    // come first of all.
+    expect(at("Legal")).toBeGreaterThanOrEqual(0);
+    expect(at("Legal")).toBeLessThan(at("Legal Operations"));
+    expect(at("Legal Operations")).toBeLessThan(at("Paralegal Services"));
+  });
+});

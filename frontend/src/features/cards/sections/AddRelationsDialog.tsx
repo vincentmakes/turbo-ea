@@ -135,18 +135,33 @@ export default function AddRelationsDialog({
     pageSize: 50,
   });
 
-  const candidates = useMemo(() => {
-    const visible = items.filter((c) => !excluded.has(c.id));
-    const q = debouncedSearch.trim();
-    if (!q) return visible;
-    return visible.filter((c) => searchRank(c.name, q) >= 0).sort(compareByRank(q));
-  }, [items, excluded, debouncedSearch]);
+  /** Rows the server's current page offers, once exclusions are applied. */
+  const offered = useMemo(
+    () => items.filter((c) => !excluded.has(c.id)),
+    [items, excluded],
+  );
 
+  // Filtered and ranked on the RAW input, not the debounced one: the loaded
+  // page is already in memory, so narrowing it costs nothing and waiting would
+  // only leave the previous query's rows on screen for another 300ms. The
+  // debounce belongs to the server query above and nowhere else — same split
+  // as `CardPicker`.
+  const candidates = useMemo(() => {
+    const q = search.trim();
+    if (!q) return offered;
+    return offered.filter((c) => searchRank(c.name, q) >= 0).sort(compareByRank(q));
+  }, [offered, search]);
+
+  // Counted on `offered`, deliberately *not* on `candidates`: this hook exists
+  // to page past exclusions eating page slots (#918), and the server has not
+  // seen the half-typed term yet. Feeding it the optimistically-narrowed count
+  // would make every keystroke look like an exhausted page and pull more pages
+  // for a query that is about to be replaced.
   const filling = useFillVisible({
     enabled: open && !!otherTypeKey,
     loading,
     hasMore,
-    visible: candidates.length,
+    visible: offered.length,
     pageSize: 50,
     loadMore,
     resetKey: `${rtKey}|${debouncedSearch}`,

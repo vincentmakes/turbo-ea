@@ -63,4 +63,23 @@ describe("compareByRank", () => {
       "Network Monitor",
     ]);
   });
+
+  it("sorts a non-match last, not first", () => {
+    // `searchRank` reports no-match as -1, so a raw subtraction would float
+    // exactly the rows that don't match to the top. Callers that cannot
+    // pre-filter — a tree keeping a match's ancestors for context, a
+    // server-searched list where the hit was on the description — depend on
+    // this.
+    const names = [{ name: "Payroll" }, { name: "Workday" }, { name: "Ledger" }];
+    expect([...names].sort(compareByRank("work")).map((o) => o.name)).toEqual([
+      "Workday",
+      "Ledger",
+      "Payroll",
+    ]);
+  });
+
+  it("keeps non-matches in alphabetical order among themselves", () => {
+    const names = [{ name: "Zebra" }, { name: "Apple" }];
+    expect([...names].sort(compareByRank("work")).map((o) => o.name)).toEqual(["Apple", "Zebra"]);
+  });
 });
