@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -88,7 +89,14 @@ export function GroupHeaderRow({ data, api, context }: GroupHeaderRowProps) {
 
   const [memberState, setMemberState] = useState({ displayed: 0, selected: 0 });
 
-  useEffect(() => {
+  // A LAYOUT effect, not a plain one: it runs after the DOM is mutated but
+  // BEFORE the browser paints, so the measured count and selection land in the
+  // same frame as the label. With a plain effect the first paint of any
+  // expanded header shows the seed values — "0/25", checkbox clear — and
+  // corrects a frame later. That flash is invisible on a row that scrolls into
+  // view once, but the sticky bar re-runs this at every group boundary, which
+  // is exactly where it reads as flicker.
+  useLayoutEffect(() => {
     if (!info || !context) return;
     const compute = () => {
       const nodes = context.getGroupMemberNodes(info.key);
@@ -411,10 +419,26 @@ function StickyGroupHeader<T extends { id: string }>({
             sx={{
               height: "100%",
               pointerEvents: "auto",
-              // GroupHeaderRow's own `action.hover` is translucent, and this
-              // one floats over real rows.
-              bgcolor: "background.paper",
-              boxShadow: 1,
+              // Paint EXACTLY what a real group header row paints, so the
+              // hand-off between the two is invisible and needs no animation:
+              // AG Grid's row canvas underneath (GroupHeaderRow's own
+              // `action.hover` on top of it is translucent, and this one floats
+              // over real rows so it cannot be transparent), plus the row's own
+              // top border. Quartz sets no row striping — the base
+              // `--ag-odd-row-background-color` falls back to
+              // `--ag-background-color` — so one colour matches every row
+              // position. Deliberately NO elevation: a shadow that exists only
+              // while floating is exactly what made the swap flicker.
+              //
+              // The border goes on the BOTTOM: `.ag-row` renders its separator
+              // there (the base stylesheet's `border-top` rule applies to a
+              // different row variant), and it sits inside the row height under
+              // `box-sizing: border-box`, so this does not change the bar's
+              // height. Verified by diffing computed styles against a real
+              // header row in both themes.
+              bgcolor: "var(--ag-background-color)",
+              borderBottom:
+                "var(--ag-row-border-width) var(--ag-row-border-style) var(--ag-row-border-color)",
             }}
           >
             <GroupHeaderRow
