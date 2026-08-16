@@ -23,6 +23,8 @@ import SaveReportDialog from "./SaveReportDialog";
 import MetricCard from "./MetricCard";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
+import { applyScope, useCardScope } from "@/hooks/useCardScope";
+import CardScopeFilter from "@/components/CardScopeFilter";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useCurrency, type CurrencyFormatter } from "@/hooks/useCurrency";
 import { useIsRtl } from "@/hooks/useIsRtl";
@@ -199,6 +201,29 @@ export default function CostReport() {
   // cards contributing to that frame's parent. Re-queried via parent_card_id.
   const [drillStack, setDrillStack] = useState<DrillFrame[]>([]);
 
+  // Narrow the treemap to chosen cards and everything beneath them (#954),
+  // at the root level only: a drill switches to the *related* card type, so a
+  // hierarchy scope over the root type is meaningless there. Same reasoning
+  // the group-by control already applies when `drillFrame` is set.
+  //
+  // No `hierarchy` here on purpose — `/reports/cost-treemap` drops zero-cost
+  // cards and returns only the drill level, so walking its payload would miss
+  // descendants under a zero-cost parent.
+  const scope = useCardScope({
+    typeKey: cardTypeKey,
+    enabled: drillStack.length === 0,
+  });
+  const { scopeIds, setScopeIds, effectiveScopeIds } = scope;
+
+  /** Changing the scope invalidates any drill built on the old root set. */
+  const applyScopeChange = useCallback(
+    (ids: string[]) => {
+      setScopeIds(ids);
+      setDrillStack([]);
+    },
+    [setScopeIds],
+  );
+
   // Load saved report config
   useEffect(() => {
     const cfg = saved.consumeConfig();
@@ -221,18 +246,21 @@ export default function CostReport() {
             .filter((f): f is DrillFrame => f !== null)
         : [];
       setDrillStack(restored);
+      if (Array.isArray(cfg.scopeIds)) {
+        setScopeIds((cfg.scopeIds as unknown[]).filter((v): v is string => typeof v === "string"));
+      }
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getConfig = () => ({
     cardTypeKey, costField, costSources, groupBy, view, sortK, sortD,
-    drillStack,
+    drillStack, scopeIds,
   });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [cardTypeKey, costField, costSources, groupBy, view, sortK, sortD, drillStack]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardTypeKey, costField, costSources, groupBy, view, sortK, sortD, drillStack, scopeIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -245,6 +273,7 @@ export default function CostReport() {
     setSortK("cost");
     setSortD("desc");
     setDrillStack([]);
+    setScopeIds([]);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const typeDef = useMemo(() => types.find((t) => t.key === cardTypeKey), [types, cardTypeKey]);
@@ -385,9 +414,11 @@ export default function CostReport() {
   // anonymous panel; drilled levels have one labelled panel per source.
   const panels = useMemo<{ source?: SourceRef; items: CostItem[] }[]>(() => {
     if (drillPanels) return drillPanels;
-    if (rawItems) return [{ items: rawItems }];
+    // Scoped here and nowhere else, so the metric cards, treemap, groups and
+    // the table footer total can never disagree with each other.
+    if (rawItems) return [{ items: applyScope(rawItems, scope.closure) }];
     return [];
-  }, [drillPanels, rawItems]);
+  }, [drillPanels, rawItems, scope.closure]);
 
   // Per-panel totals (no time-travel filtering — costs reflect the current
   // state of the cards, not their state at an earlier point in time).
@@ -443,6 +474,12 @@ export default function CostReport() {
       params.push({ label: t("cost.groupBy"), value: gLabel });
     }
     if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
+    if (effectiveScopeIds.length > 0) {
+      params.push({
+        label: t("common.scope"),
+        value: t("cost.scopeCount", { count: effectiveScopeIds.length }),
+      });
+    }
     if (drillStack.length > 0) {
       params.push({
         label: t("cost.drillDown.path"),
@@ -450,7 +487,7 @@ export default function CostReport() {
       });
     }
     return params;
-  }, [cardTypeKey, types, costField, costFields, activeAggregates, groupBy, groupableFields, view, drillStack, t, typeLabel]);
+  }, [cardTypeKey, types, costField, costFields, activeAggregates, groupBy, groupableFields, view, drillStack, effectiveScopeIds, t, typeLabel]);
 
   // Drill is offered at depth 0 whenever at least one aggregate source is
   // active. With multiple sources, depth 1 renders one chart per source so
@@ -558,6 +595,20 @@ export default function CostReport() {
           <TextField select size="small" label={t("cost.cardType")} value={cardTypeKey} onChange={(e) => { setCardTypeKey(e.target.value); setDrillStack([]); }} sx={{ minWidth: 150 }}>
             {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{typeLabel(tp)}</MenuItem>)}
           </TextField>
+          {/* Hidden while drilled: at depth >= 1 the cards are of the related
+              type, so a scope over the root type has nothing to say. */}
+          {drillStack.length === 0 && (
+            <CardScopeFilter
+              types={cardTypeKey}
+              value={effectiveScopeIds}
+              onChange={applyScopeChange}
+              labelAll={t("cost.scopeAll")}
+              labelCount={(count) => t("cost.scopeCount", { count })}
+              dialogTitle={t("cost.scopeDialogTitle")}
+              helperText={t("cost.scopeHelper")}
+              tooltip={t("cost.scopeTooltip")}
+            />
+          )}
           {aggregateOptions.length > 0 && (
             <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
               <TextField

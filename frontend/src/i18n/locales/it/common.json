@@ -417,5 +417,6 @@
   "cardScope.clearAll": "Cancella tutto",
   "cardScope.apply_one": "Applica ({{count}})",
   "cardScope.apply_other": "Applica ({{count}})",
-  "cardScope.flatFallback": "Troppe schede per mostrare la gerarchia: digita per cercare nell'elenco completo."
+  "cardScope.flatFallback": "Troppe schede per mostrare la gerarchia: digita per cercare nell'elenco completo.",
+  "cardScope.chipAll": "Tutte le schede"
 }

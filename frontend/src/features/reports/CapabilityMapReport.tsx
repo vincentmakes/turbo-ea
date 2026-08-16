@@ -13,10 +13,8 @@ import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import TimelineSlider from "@/components/TimelineSlider";
 import FilterSelect, { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
-import CardScopeDialog, {
-  dedupeScopeRoots,
-  type CardScopeOption,
-} from "@/components/CardScopeDialog";
+import CardScopeFilter from "@/components/CardScopeFilter";
+import type { CardScopeOption } from "@/components/CardScopeDialog";
 import TagPicker from "@/components/TagPicker";
 import type { TagGroup } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -35,6 +33,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTimeline } from "@/hooks/useTimeline";
+import { applyScope, useCardScope } from "@/hooks/useCardScope";
 import { useTypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 
 /* ------------------------------------------------------------------ */
@@ -268,8 +267,6 @@ function buildTree(
   tagGroups: TagGroupDef[],
   timelineDate: number,
   costFieldKeys: string[],
-  /** Subtree roots to narrow the map to. Empty = the whole capability tree. */
-  scopeIds: string[] = [],
 ): CapNode[] {
   const nodeMap = new Map<string, CapNode>();
   for (const item of items) {
@@ -288,32 +285,20 @@ function buildTree(
     });
   }
 
-  let roots: CapNode[] = [];
+  // A scope is applied to `items` *before* this runs (see `scopedData`), so a
+  // scoped capability's parent is simply absent and it lands here as a root.
+  // Re-levelling then falls out of the existing pass below: a scoped L3
+  // becomes level 1, so "Display Depth: Level 2" keeps meaning "two tiers from
+  // what I'm looking at" wherever the user scoped (#954). Deep metrics follow
+  // too — `propagate` only walks these roots, so an application supporting a
+  // capability outside the scope drops out of the counts.
+  const roots: CapNode[] = [];
   for (const node of nodeMap.values()) {
     if (node.parent_id && nodeMap.has(node.parent_id)) {
       nodeMap.get(node.parent_id)!.children.push(node);
     } else {
       roots.push(node);
     }
-  }
-
-  // Scope: the map re-roots on the chosen capabilities, so everything below
-  // runs against the subtree and nothing else. Re-levelling is deliberate —
-  // a scoped L3 becomes level 1, so "Display Depth: Level 2" keeps meaning
-  // "two tiers from what I'm looking at" wherever the user scoped
-  // (discussion #954). Deep metrics follow for free: `propagate` only walks
-  // these roots, so an application supporting a capability outside the scope
-  // correctly drops out of the counts.
-  //
-  // Dedupe defensively — a restored config could name both a capability and
-  // one of its descendants, which would otherwise render the inner subtree
-  // twice.
-  if (scopeIds.length > 0) {
-    const parentById = new Map<string, string | null>();
-    for (const [id, node] of nodeMap) parentById.set(id, node.parent_id);
-    roots = dedupeScopeRoots(scopeIds, parentById)
-      .map((id) => nodeMap.get(id))
-      .filter((n): n is CapNode => !!n);
   }
 
   // Set levels & sort children. Macro Capabilities (cards with
@@ -663,10 +648,6 @@ export default function CapabilityMapReport() {
   const [displayLevel, setDisplayLevel] = useState(2);
   const [showApps, setShowApps] = useState(false);
   const [colorBy, setColorBy] = useState("");
-  /** Capabilities the map is scoped to (subtree roots). Empty = all. */
-  const [scopeIds, setScopeIds] = useState<string[]>([]);
-  const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
-
   // Timeline slider
   const tl = useTimeline();
 
@@ -676,6 +657,12 @@ export default function CapabilityMapReport() {
   const [tagFilterIds, setTagFilterIds] = useState<string[]>([]);
   const [tagGroupsData, setTagGroupsData] = useState<TagGroupDef[]>([]);
   const [showAllRelFilters, setShowAllRelFilters] = useState(false);
+
+  // Narrow the map to chosen capabilities and everything beneath them (#954).
+  // The heatmap payload is the complete capability set with parent chains, so
+  // the hook takes its hierarchy from `data` and issues no fetch of its own.
+  const scope = useCardScope({ typeKey: "BusinessCapability", hierarchy: data });
+  const { scopeIds, setScopeIds, effectiveScopeIds } = scope;
 
   // Load saved report config
   useEffect(() => {
@@ -883,18 +870,6 @@ export default function CapabilityMapReport() {
       });
   }, [drawer, colorBy, selectFields]);
 
-  /**
-   * Drop scoped ids the fetch didn't return — a capability deleted since the
-   * report was saved, or one hidden by a metamodel change. Without this a
-   * stale saved report renders an empty map with no way to tell why; falling
-   * back to the wider map is the recoverable failure.
-   */
-  const effectiveScopeIds = useMemo(() => {
-    if (scopeIds.length === 0 || !data) return [];
-    const known = new Set(data.map((c) => c.id));
-    return scopeIds.filter((id) => known.has(id));
-  }, [scopeIds, data]);
-
   /** Scoped capabilities as picker options, so chips label instantly. */
   const scopeOptions = useMemo<CardScopeOption[]>(() => {
     if (!data) return [];
@@ -906,9 +881,16 @@ export default function CapabilityMapReport() {
     }));
   }, [data]);
 
+  // The heatmap payload is the complete capability set with parent chains, so
+  // the hook needs no fetch of its own here.
+  const scopedData = useMemo(
+    () => (data ? applyScope(data, scope.closure) : null),
+    [data, scope.closure],
+  );
+
   const tree = useMemo(
-    () => (data ? buildTree(data, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, effectiveScopeIds) : []),
-    [data, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, effectiveScopeIds],
+    () => (scopedData ? buildTree(scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys) : []),
+    [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys],
   );
   const maxLvl = useMemo(() => getMaxLevel(tree), [tree]);
 
@@ -1067,21 +1049,17 @@ export default function CapabilityMapReport() {
           {/* Scopes the *capabilities* the map draws, so it belongs up here
               with the other structural controls — not in the Application
               Filters block below, which narrows the apps inside them. */}
-          <Tooltip title={t("capabilityMap.scopeTooltip")}>
-            <Chip
-              icon={<MaterialSymbol icon="account_tree" size={16} />}
-              label={
-                effectiveScopeIds.length > 0
-                  ? t("capabilityMap.scopeCount", { count: effectiveScopeIds.length })
-                  : t("capabilityMap.scopeAll")
-              }
-              variant={effectiveScopeIds.length > 0 ? "filled" : "outlined"}
-              color={effectiveScopeIds.length > 0 ? "primary" : "default"}
-              onClick={() => setScopeDialogOpen(true)}
-              onDelete={effectiveScopeIds.length > 0 ? () => setScopeIds([]) : undefined}
-              sx={{ height: 32 }}
-            />
-          </Tooltip>
+          <CardScopeFilter
+            types="BusinessCapability"
+            value={effectiveScopeIds}
+            onChange={setScopeIds}
+            labelAll={t("capabilityMap.scopeAll")}
+            labelCount={(count) => t("capabilityMap.scopeCount", { count })}
+            dialogTitle={t("capabilityMap.scopeDialogTitle")}
+            helperText={t("capabilityMap.scopeHelper")}
+            tooltip={t("capabilityMap.scopeTooltip")}
+            initialOptions={scopeOptions}
+          />
 
           <FormControlLabel
             control={
@@ -1466,16 +1444,6 @@ export default function CapabilityMapReport() {
         cardId={sidePanelCardId}
         open={!!sidePanelCardId}
         onClose={() => setSidePanelCardId(null)}
-      />
-      <CardScopeDialog
-        open={scopeDialogOpen}
-        onClose={() => setScopeDialogOpen(false)}
-        types="BusinessCapability"
-        value={effectiveScopeIds}
-        onChange={setScopeIds}
-        title={t("capabilityMap.scopeDialogTitle")}
-        helperText={t("capabilityMap.scopeHelper")}
-        initialOptions={scopeOptions}
       />
       <SaveReportDialog
         open={saved.saveDialogOpen}

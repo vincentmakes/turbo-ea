@@ -70,6 +70,8 @@ O **Relatório de Ciclo de Vida** mostra uma **visualização de linha do tempo*
 
 Os componentes são exibidos como barras horizontais abrangendo suas fases do ciclo de vida: Planejamento, Implantação, Ativo, Desativação e Fim de Vida.
 
+**Limitar a cartões específicos** — Depois de escolher um tipo de cartão, o chip ao lado abre um seletor: escolha um ou mais cartões e a linha temporal mostra apenas esses e tudo o que está abaixo deles. Os cartões filhos são incluídos automaticamente. O chip fica desativado enquanto o seletor estiver em *Todos os tipos*, porque um âmbito precisa de uma única hierarquia.
+
 ## Relatório de Dependências
 
 ![Relatório de Dependências](../assets/img/pt/13_dependencias.png)
@@ -154,6 +156,8 @@ Sempre que pelo menos uma Origem de custos estiver ativa, os retângulos do mapa
 
 O cursor de cronologia, a seleção de Origem de custos e os restantes filtros são preservados durante o detalhamento, e o nível de detalhamento faz parte da configuração do relatório guardado — guardar um relatório enquanto se está a detalhar reabre-o diretamente nesse nível. Sem uma Origem de custos ativa, um clique num retângulo abre antes o painel lateral do cartão (não há nada a decompor).
 
+**Limitar a cartões específicos** — O chip ao lado do seletor de tipo abre um seletor: escolha um ou mais cartões e o treemap, os totais e a tabela limitam-se a esses e a tudo o que está abaixo deles. O chip fica oculto enquanto estiver dentro de um retângulo, pois esse detalhe já o levou a outro tipo de cartão; saia dele e o âmbito continua lá.
+
 ## Relatório de Matriz
 
 ![Relatório de Matriz](../assets/img/pt/35_relatorio_matriz.png)
@@ -207,6 +211,8 @@ Dois mosaicos contam os cards de cada eixo que não têm qualquer relação. **M
 
 A exportação para Excel produz duas folhas: a grelha tal como aparece no ecrã e uma linha por relação com os seus valores distribuídos por colunas — a folha sobre a qual construir uma tabela dinâmica. A exportação para PowerPoint capta a imagem.
 
+**Limitar cada eixo** — Cada eixo tem o seu próprio chip junto ao seletor de tipo, para que possa pedir *estas capacidades × estas aplicações*. Os indicadores acima da grelha seguem o âmbito, pelo que os números descrevem sempre o que está a ver. Mudar o tipo de um eixo limpa o âmbito desse eixo; ao transpor, os dois âmbitos trocam juntamente com os eixos.
+
 ## Relatório de Qualidade dos Dados
 
 ![Relatório de Qualidade dos Dados](../assets/img/pt/33_relatorio_qualidade_dados.png)
@@ -258,3 +264,5 @@ Os filtros e agrupamentos ativos no momento da exportação são registrados no 
 ## Mapa de Processos
 
 O **Mapa de Processos** visualiza o cenário de processos de negócio da organização como um mapa estruturado, mostrando categorias de processos (Gestão, Core, Suporte) e seus relacionamentos hierárquicos.
+
+**Limitar a processos específicos** — O chip ao lado de *Profundidade de visualização* abre um seletor: escolha um ou mais processos e o mapa mostra apenas esses e tudo o que está abaixo deles. Os subprocessos são incluídos automaticamente e a **Profundidade de visualização** conta a partir da sua seleção. O zoom por clique continua a funcionar, agora dentro do âmbito. É um controlo diferente da linha **Âmbito** abaixo, que filtra por Organização ou Contexto de Negócio relacionado.

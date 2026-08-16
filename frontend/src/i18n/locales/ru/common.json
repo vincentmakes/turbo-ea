@@ -417,5 +417,6 @@
   "cardScope.clearAll": "Очистить всё",
   "cardScope.apply_one": "Применить ({{count}})",
   "cardScope.apply_other": "Применить ({{count}})",
-  "cardScope.flatFallback": "Слишком много карточек для отображения иерархии — введите запрос для поиска по полному списку."
+  "cardScope.flatFallback": "Слишком много карточек для отображения иерархии — введите запрос для поиска по полному списку.",
+  "cardScope.chipAll": "Все карточки"
 }

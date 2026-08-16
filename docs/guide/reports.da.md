@@ -70,6 +70,8 @@ Et klik på en kapabilitet åbner et sidepanel med alle applikationer i dens und
 
 Komponenter vises som vandrette bjælker, der spænder over deres livscyklus-faser: Plan, Phase In, Active, Phase Out og End of Life.
 
+**Afgrænsning til bestemte kort** — Når du har valgt en korttype, åbner chippen ved siden af en vælger: vælg et eller flere kort, og tidslinjen viser kun disse og alt under dem. Underkort medtages automatisk. Chippen er deaktiveret, så længe vælgeren står på *Alle typer*, fordi en afgrænsning kræver ét hierarki.
+
 ## Afhængighedsrapport
 
 ![Afhængighedsrapport](../assets/img/da/13_dependencies.png)
@@ -154,6 +156,8 @@ Når mindst én Cost Source er aktiv, er treemap-rektanglerne **klikbare**. Klik
 
 Tidslinjeskyderen, Cost Source-valget og andre filtre bevares, mens du driller, og det drillede niveau er en del af den gemte rapports konfiguration — at gemme en rapport, mens du har drillet ind, genåbner direkte på det niveau. Uden **nogen** Cost Source aktiv åbner klik på et rektangel kort-sidepanelet i stedet (der er intet at bryde ned).
 
+**Afgrænsning til bestemte kort** — Chippen ved siden af korttypevælgeren åbner en vælger: vælg et eller flere kort, og træstrukturen, totalerne og tabellen afgrænses til disse og alt under dem. Chippen skjules, mens du er inde i et rektangel, da det allerede har flyttet dig til en anden korttype; forlad det, og afgrænsningen er der stadig.
+
 ## Matrixrapport
 
 ![Matrixrapport](../assets/img/da/35_report_matrix.png)
@@ -207,6 +211,8 @@ To felter tæller de kort på hver akse, der slet ingen relation har. **Vis kun 
 
 Excel-eksport giver to ark: gitteret, som det ser ud på skærmen, og én række pr. relation med værdierne fordelt på kolonner — arket, du laver pivot på. PowerPoint-eksport fanger billedet.
 
+**Afgrænsning af hver akse** — Hver akse har sin egen chip ved siden af typevælgeren, så du kan spørge om *disse kapabiliteter × disse applikationer*. Nøgletallene over gitteret følger afgrænsningen, så tallene altid beskriver det, du kigger på. Ændring af en akses korttype rydder den akses afgrænsning; ved transponering bytter de to afgrænsninger plads sammen med akserne.
+
 ## Datakvalitetsrapport
 
 ![Datakvalitetsrapport](../assets/img/da/33_report_data_quality.png)
@@ -258,3 +264,5 @@ Aktive filtre og grupperingsindstillinger, der er anvendt på eksporttidspunktet
 ## Procesmap
 
 **Procesmappet** visualiserer organisationens forretningsproces-landskab som et struktureret kort, der viser proceskategorier (Management, Core, Support) og deres hierarkiske relationer.
+
+**Afgrænsning til bestemte processer** — Chippen ved siden af *Visningsdybde* åbner en vælger: vælg en eller flere processer, og kortet viser kun disse og alt under dem. Underprocesser medtages automatisk, og **Visningsdybde** tælles fra dit valg. Klik-zoom virker stadig, nu inden for afgrænsningen. Det er et andet element end rækken **Omfang** nedenfor, som filtrerer efter relateret organisation eller forretningskontekst.

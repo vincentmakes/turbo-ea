@@ -35,6 +35,9 @@ import { useProcessTypeOptions } from "@/features/bpm/useProcessTypeOptions";
 import { CARD_TYPE_COLORS } from "@/theme";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useSavedReport } from "@/hooks/useSavedReport";
+import { applyScope, useCardScope } from "@/hooks/useCardScope";
+import CardScopeFilter from "@/components/CardScopeFilter";
+import type { CardScopeOption } from "@/components/CardScopeDialog";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -553,6 +556,24 @@ export default function ProcessMapReport() {
   const [filterOrgs, setFilterOrgs] = useState<string[]>([]);
   const [filterCtxs, setFilterCtxs] = useState<string[]>([]);
 
+  // Narrow the map to chosen processes and everything beneath them (#954).
+  // `/reports/bpm/process-map` takes no query params and returns every ACTIVE
+  // BusinessProcess with its parent chain, so the hook needs no fetch here.
+  const scope = useCardScope({ typeKey: "BusinessProcess", hierarchy: data });
+  const { scopeIds, setScopeIds, effectiveScopeIds } = scope;
+
+  /** Processes as picker options, so the chips label without a round-trip. */
+  const scopeOptions = useMemo<CardScopeOption[]>(
+    () =>
+      (data ?? []).map((p) => ({
+        id: p.id,
+        name: p.name,
+        type: "BusinessProcess",
+        parent_id: p.parent_id,
+      })),
+    [data],
+  );
+
   // Load saved/local config
   useEffect(() => {
     const cfg = saved.consumeConfig();
@@ -562,15 +583,18 @@ export default function ProcessMapReport() {
       if (cfg.showRelated) setShowRelated(cfg.showRelated as ShowRelated);
       if (cfg.filterOrgs) setFilterOrgs(cfg.filterOrgs as string[]);
       if (cfg.filterCtxs) setFilterCtxs(cfg.filterCtxs as string[]);
+      if (Array.isArray(cfg.scopeIds)) {
+        setScopeIds((cfg.scopeIds as unknown[]).filter((v): v is string => typeof v === "string"));
+      }
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ metric, displayLevel, showRelated, filterOrgs, filterCtxs });
+  const getConfig = () => ({ metric, displayLevel, showRelated, filterOrgs, filterCtxs, scopeIds });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [metric, displayLevel, showRelated, filterOrgs, filterCtxs]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [metric, displayLevel, showRelated, filterOrgs, filterCtxs, scopeIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -581,6 +605,7 @@ export default function ProcessMapReport() {
     setZoomNodeId(null);
     setFilterOrgs([]);
     setFilterCtxs([]);
+    setScopeIds([]);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -593,10 +618,13 @@ export default function ProcessMapReport() {
     });
   }, []);
 
-  // Build full tree (with filters applied)
+  // Build full tree (with filters applied). The scope is applied to the flat
+  // items *before* `buildTree`, so its `addAncestors` pass cannot climb above
+  // the scope root, and the existing `setLevel(roots, 1)` re-levels the scoped
+  // subtree with no extra handling.
   const fullTree = useMemo(
-    () => (data ? buildTree(data, filterOrgs, filterCtxs) : []),
-    [data, filterOrgs, filterCtxs],
+    () => (data ? buildTree(applyScope(data, scope.closure), filterOrgs, filterCtxs) : []),
+    [data, scope.closure, filterOrgs, filterCtxs],
   );
 
   // If zoomed, find the subtree root and render only its children
@@ -613,6 +641,21 @@ export default function ProcessMapReport() {
   }, [fullTree, zoomNodeId]);
 
   const maxLvl = useMemo(() => getMaxLevel(fullTree), [fullTree]);
+
+  // Scoping into a shallow branch re-ranges the Display Depth options, which
+  // can strand the current value outside them — a MUI Select with no matching
+  // MenuItem renders blank and warns. `99` ("all levels") is a sentinel.
+  useEffect(() => {
+    if (displayLevel !== 99 && maxLvl > 0 && displayLevel > maxLvl) setDisplayLevel(maxLvl);
+  }, [maxLvl, displayLevel]);
+
+  // A zoom target outside a newly-set scope is no longer in the tree. The
+  // derivation below already falls back to the whole (scoped) tree, so nothing
+  // breaks — but the stale id would linger in state with no breadcrumb to
+  // clear it from.
+  useEffect(() => {
+    if (zoomNodeId && scope.closure && !scope.closure.has(zoomNodeId)) setZoomNodeId(null);
+  }, [zoomNodeId, scope.closure]);
 
   // Compute max metric value across visible tree
   const maxVal = useMemo(() => {
@@ -733,6 +776,12 @@ export default function ProcessMapReport() {
     params.push({ label: t("common.metric"), value: mLabel });
     const depthLabel = levelOptions.find((o) => o.value === displayLevel)?.label || "";
     params.push({ label: t("common.depth"), value: depthLabel });
+    if (effectiveScopeIds.length > 0) {
+      params.push({
+        label: t("common.scope"),
+        value: t("processMap.scopeCount", { count: effectiveScopeIds.length }),
+      });
+    }
     if (showRelated !== "none") params.push({ label: t("processMap.showRelated"), value: showRelatedLabel });
     if (filterOrgs.length > 0) {
       const orgNames = filterOrgs.map((id) => orgOptions.find((o) => o.key === id)?.label || id).join(", ");
@@ -788,6 +837,22 @@ export default function ProcessMapReport() {
               <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
             ))}
           </TextField>
+
+          {/* Scopes which *processes* the map draws. The Row 2 block below is
+              also labelled "Scope", but that one narrows by related
+              Organization / Business Context — a different axis, and this
+              belongs with the structural controls. */}
+          <CardScopeFilter
+            types="BusinessProcess"
+            value={effectiveScopeIds}
+            onChange={setScopeIds}
+            labelAll={t("processMap.scopeAll")}
+            labelCount={(count) => t("processMap.scopeCount", { count })}
+            dialogTitle={t("processMap.scopeDialogTitle")}
+            helperText={t("processMap.scopeHelper")}
+            tooltip={t("processMap.scopeTooltip")}
+            initialOptions={scopeOptions}
+          />
 
           <TextField
             select

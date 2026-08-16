@@ -417,5 +417,6 @@
   "cardScope.clearAll": "Limpar tudo",
   "cardScope.apply_one": "Aplicar ({{count}})",
   "cardScope.apply_other": "Aplicar ({{count}})",
-  "cardScope.flatFallback": "Cartões demais para mostrar a hierarquia — digite para pesquisar na lista completa."
+  "cardScope.flatFallback": "Cartões demais para mostrar a hierarquia — digite para pesquisar na lista completa.",
+  "cardScope.chipAll": "Todos os cartões"
 }

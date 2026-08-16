@@ -24,6 +24,8 @@ import SaveReportDialog from "./SaveReportDialog";
 import ReportLegend from "./ReportLegend";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
+import { applyScope, useCardScope } from "@/hooks/useCardScope";
+import CardScopeFilter from "@/components/CardScopeFilter";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
@@ -119,6 +121,13 @@ export default function LifecycleReport() {
   const [customColorBy, setCustomColorBy] = useState("");
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
 
+  // Narrow the timeline to chosen cards and everything beneath them (#954).
+  // No `hierarchy` here on purpose: `/reports/roadmap` returns no `parent_id`
+  // AND drops cards with no lifecycle dates, so a payload-walked chain would
+  // break at any dateless parent. The hook fetches the type itself instead.
+  const scope = useCardScope({ typeKey: cardTypeKey || null });
+  const { scopeIds, setScopeIds, effectiveScopeIds } = scope;
+
   // Load saved report config
   useEffect(() => {
     const cfg = saved.consumeConfig();
@@ -132,15 +141,18 @@ export default function LifecycleReport() {
       else if (cfg.useInitiativeDates !== undefined) setUseCustomDates(cfg.useInitiativeDates as boolean);
       if (cfg.customColorBy) setCustomColorBy(cfg.customColorBy as string);
       else if (cfg.initiativeColorBy) setCustomColorBy(cfg.initiativeColorBy as string);
+      if (Array.isArray(cfg.scopeIds)) {
+        setScopeIds((cfg.scopeIds as unknown[]).filter((v): v is string => typeof v === "string"));
+      }
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ cardTypeKey, view, sortK, sortD, useCustomDates, customColorBy });
+  const getConfig = () => ({ cardTypeKey, view, sortK, sortD, useCustomDates, customColorBy, scopeIds });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [cardTypeKey, view, sortK, sortD, useCustomDates, customColorBy]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardTypeKey, view, sortK, sortD, useCustomDates, customColorBy, scopeIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -151,6 +163,7 @@ export default function LifecycleReport() {
     setSortD("asc");
     setUseCustomDates(false);
     setCustomColorBy("");
+    setScopeIds([]);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Derive date fields and single_select fields from selected type's schema
@@ -219,7 +232,13 @@ export default function LifecycleReport() {
     [cardTypeKey],
   );
 
+  const scopedData = useMemo(
+    () => (data ? applyScope(data, scope.closure) : null),
+    [data, scope.closure],
+  );
+
   const { items, totalMin, totalRange, viewMin, contentPct, todayPct, eolCount } = useMemo(() => {
+    const data = scopedData;
     if (!data || !data.length) return { items: [], totalMin: 0, totalRange: 1, viewMin: 0, contentPct: 100, todayPct: 50, eolCount: 0 };
     const now = Date.now();
     const fiveYears = 5 * 365.25 * 86400000;
@@ -254,7 +273,7 @@ export default function LifecycleReport() {
       todayPct: ((now - tMin) / tRange) * 100,
       eolCount: eol,
     };
-  }, [data]);
+  }, [scopedData]);
 
   // Year tick marks across the full range
   const totalMax = totalMin + totalRange;
@@ -301,6 +320,12 @@ export default function LifecycleReport() {
     const tp = types.find((tp) => tp.key === cardTypeKey);
     const tpLabel = cardTypeKey ? (typeLabel(tp) || cardTypeKey) : t("lifecycle.allTypes");
     params.push({ label: t("common:labels.type"), value: tpLabel });
+    if (effectiveScopeIds.length > 0) {
+      params.push({
+        label: t("common.scope"),
+        value: t("lifecycle.scopeCount", { count: effectiveScopeIds.length }),
+      });
+    }
     if (useCustomDates) params.push({ label: t("common.mode"), value: t("lifecycle.dateRangeView") });
     if (useCustomDates && customColorBy) {
       const cLabel = colorByOptions.find((o) => o.key === customColorBy)?.label || customColorBy;
@@ -308,7 +333,7 @@ export default function LifecycleReport() {
     }
     if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
     return params;
-  }, [cardTypeKey, types, useCustomDates, customColorBy, colorByOptions, view, typeLabel, t]);
+  }, [cardTypeKey, types, useCustomDates, customColorBy, colorByOptions, view, effectiveScopeIds, typeLabel, t]);
 
   if (ml || data === null)
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
@@ -364,6 +389,21 @@ export default function LifecycleReport() {
             <MenuItem value="">{t("lifecycle.allTypes")}</MenuItem>
             {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{typeLabel(tp)}</MenuItem>)}
           </TextField>
+
+          {/* Disabled on "All types": the picker needs one concrete type, and
+              scoping across every type at once has no coherent hierarchy. */}
+          <CardScopeFilter
+            types={cardTypeKey}
+            value={effectiveScopeIds}
+            onChange={setScopeIds}
+            labelAll={t("lifecycle.scopeAll")}
+            labelCount={(count) => t("lifecycle.scopeCount", { count })}
+            dialogTitle={t("lifecycle.scopeDialogTitle")}
+            helperText={t("lifecycle.scopeHelper")}
+            tooltip={t("lifecycle.scopeTooltip")}
+            disabled={!cardTypeKey}
+            disabledReason={t("lifecycle.scopeNeedsType")}
+          />
 
           {hasDateFields && (
             <>

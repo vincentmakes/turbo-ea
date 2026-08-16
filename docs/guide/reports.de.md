@@ -70,6 +70,8 @@ Der **Lebenszyklus-Bericht** zeigt eine **Zeitleisten-Visualisierung** darüber,
 
 Komponenten werden als horizontale Balken dargestellt, die ihre Lebenszyklusphasen umspannen: Planung, Einführung, Aktiv, Auslauf und Lebensende.
 
+**Auf bestimmte Karten eingrenzen** — Sobald ein Kartentyp gewählt ist, öffnet der Chip daneben eine Auswahl: Wählen Sie eine oder mehrere Karten, und die Zeitachse zeigt nur diese und alles darunter. Unterkarten werden automatisch einbezogen. Solange *Alle Typen* eingestellt ist, bleibt der Chip deaktiviert, da eine Eingrenzung eine einzelne Hierarchie benötigt.
+
 ## Abhängigkeitsbericht
 
 ![Abhängigkeitsbericht](../assets/img/de/13_abhaengigkeiten.png)
@@ -154,6 +156,8 @@ Sobald mindestens eine Kostenquelle aktiv ist, sind die Treemap-Rechtecke **ankl
 
 Der Zeitleisten-Schieberegler, die Kostenquellen-Auswahl und andere Filter bleiben beim Drilldown erhalten, und die Drilldown-Ebene ist Teil der gespeicherten Berichtskonfiguration — wer einen Bericht im hineingezoomten Zustand speichert, öffnet ihn direkt auf dieser Ebene wieder. Wenn **keine** Kostenquelle aktiv ist, öffnet ein Klick auf ein Rechteck stattdessen das Karten-Seitenpanel (es gibt nichts aufzuschlüsseln).
 
+**Auf bestimmte Karten eingrenzen** — Der Chip neben der Kartentyp-Auswahl öffnet eine Auswahl: Wählen Sie eine oder mehrere Karten, und Treemap, Summen und Tabelle zeigen nur diese und alles darunter. Während Sie in ein Rechteck hineingezoomt haben, wird der Chip ausgeblendet, da eine Detailansicht bereits zu einem anderen Kartentyp gewechselt ist; verlassen Sie sie, ist die Eingrenzung weiterhin aktiv.
+
 ## Matrixbericht
 
 ![Matrixbericht](../assets/img/de/35_bericht_matrix.png)
@@ -207,6 +211,8 @@ Zwei Kacheln zählen die Karten je Achse, die überhaupt keine Beziehung haben. 
 
 Der Excel-Export erzeugt zwei Blätter: das Raster wie auf dem Bildschirm und eine Zeile je Beziehung mit ihren Werten in Spalten — das Blatt zum Pivotieren. Der PowerPoint-Export erfasst das Bild.
 
+**Beide Achsen eingrenzen** — Jede Achse hat ihren eigenen Chip neben ihrer Typ-Auswahl, sodass Sie *diese Fähigkeiten × diese Anwendungen* abfragen können. Die Kennzahlen über dem Raster folgen der Eingrenzung, sodass die Zahlen immer das Gezeigte beschreiben. Ein Wechsel des Kartentyps einer Achse löscht deren Eingrenzung; beim Transponieren tauschen die beiden Eingrenzungen mit den Achsen.
+
 ## Datenqualitätsbericht
 
 ![Datenqualitätsbericht](../assets/img/de/33_bericht_datenqualitaet.png)
@@ -258,3 +264,5 @@ Beim Export aktive Filter- und Gruppierungseinstellungen werden auf der Titelfol
 ## Prozesskarte
 
 Die **Prozesskarte** visualisiert die Geschäftsprozesslandschaft der Organisation als strukturierte Karte und zeigt Prozesskategorien (Management, Kern, Unterstützung) und ihre hierarchischen Beziehungen.
+
+**Auf bestimmte Prozesse eingrenzen** — Der Chip neben *Anzeigetiefe* öffnet eine Auswahl: Wählen Sie einen oder mehrere Prozesse, und die Karte zeigt nur diese und alles darunter. Teilprozesse werden automatisch einbezogen, und die **Anzeigetiefe** zählt ab Ihrer Auswahl. Das Hineinzoomen per Klick funktioniert weiterhin — nun innerhalb der Eingrenzung. Dies ist ein anderes Bedienelement als die Zeile **Bereich** darunter, die nach verknüpfter Organisation oder Geschäftskontext filtert.

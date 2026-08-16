@@ -412,3 +412,95 @@ describe("MatrixReport", () => {
     });
   });
 });
+
+describe("MatrixReport scope filter", () => {
+  /** Row axis with a parent/child pair, so a scope has a subtree to pull in. */
+  const HIER_PAYLOAD = {
+    ...PAYLOAD,
+    rows: [
+      { id: "app-1", name: "App One", parent_id: null },
+      { id: "app-1a", name: "App One Child", parent_id: "app-1" },
+      { id: "app-2", name: "App Two", parent_id: null },
+    ],
+    // Two relations on different rows/columns, so a per-axis scope changes the
+    // Relations count and the assertions can actually discriminate.
+    intersections: [
+      { row_id: "app-1", col_id: "bc-1", e: [[0, "f", 1]] },
+      { row_id: "app-2", col_id: "bc-2", e: [[0, "f", 0]] },
+    ],
+  };
+
+  function withConfig(cfg: Record<string, unknown> | null) {
+    vi.mocked(useSavedReport).mockReturnValue({
+      savedReport: null,
+      savedReportName: null,
+      saveDialogOpen: false,
+      setSaveDialogOpen: vi.fn(),
+      loadedConfig: null,
+      consumeConfig: vi.fn().mockReturnValue(cfg),
+      resetSavedReport: vi.fn(),
+      persistConfig: vi.fn(),
+      resetAll: vi.fn(),
+      reportType: "matrix",
+    } as unknown as ReturnType<typeof useSavedReport>);
+  }
+
+  it("shows both scope chips, unscoped by default", async () => {
+    vi.mocked(api.get).mockResolvedValue(HIER_PAYLOAD);
+    renderMatrix();
+    await screen.findByText("App One");
+
+    expect(screen.getByText("All rows")).toBeInTheDocument();
+    expect(screen.getByText("All columns")).toBeInTheDocument();
+  });
+
+  it("narrows the row axis to the scoped subtree", async () => {
+    vi.mocked(api.get).mockResolvedValue(HIER_PAYLOAD);
+    withConfig({ rowScopeIds: ["app-1"] });
+    renderMatrix();
+
+    await screen.findByText("App One");
+    expect(screen.getByText("App One Child")).toBeInTheDocument();
+    expect(screen.queryByText("App Two")).not.toBeInTheDocument();
+  });
+
+  it("keeps the KPI cards in step with the scoped grid", async () => {
+    // The failure this guards against is silent and convincing: the grid
+    // narrows while the metric strip keeps reporting whole-axis numbers.
+    vi.mocked(api.get).mockResolvedValue(HIER_PAYLOAD);
+    withConfig({ rowScopeIds: ["app-1"] });
+    renderMatrix();
+    await screen.findByText("App One");
+
+    // Only App One's relation survives the scope; App Two's is outside it.
+    // Unscoped this reads 2.
+    expect(metricCard("Relations")).toHaveTextContent("1");
+    // App One carries a relation, so its child is the lone uncovered row.
+    // Unscoped there would be two uncovered rows (the child and App Two).
+    expect(metricCard("Application with no relation")).toHaveTextContent("1");
+  });
+
+  it("scopes the two axes independently", async () => {
+    vi.mocked(api.get).mockResolvedValue(HIER_PAYLOAD);
+    withConfig({ colScopeIds: ["bc-1"] });
+    renderMatrix();
+    await screen.findByText("Cap One");
+
+    // Only the column axis narrowed — every row is still there.
+    expect(screen.queryByText("Cap Two")).not.toBeInTheDocument();
+    expect(screen.getByText("App Two")).toBeInTheDocument();
+    expect(screen.getByText("App One Child")).toBeInTheDocument();
+    // The relation on Cap Two is outside the column scope.
+    expect(metricCard("Relations")).toHaveTextContent("1");
+  });
+
+  it("drops a scoped id the payload no longer contains", async () => {
+    vi.mocked(api.get).mockResolvedValue(HIER_PAYLOAD);
+    withConfig({ rowScopeIds: ["deleted-app"] });
+    renderMatrix();
+
+    await screen.findByText("App One");
+    expect(screen.getByText("App Two")).toBeInTheDocument();
+    expect(screen.getByText("All rows")).toBeInTheDocument();
+  });
+});

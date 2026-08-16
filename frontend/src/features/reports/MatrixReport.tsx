@@ -26,6 +26,8 @@ import ReportLegend from "./ReportLegend";
 import MatrixFilterBar, { type MatrixFilterState } from "./MatrixFilterBar";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
+import { applyScope, useCardScope } from "@/hooks/useCardScope";
+import CardScopeFilter from "@/components/CardScopeFilter";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
@@ -283,6 +285,18 @@ export default function MatrixReport() {
       if (cfg.rowExpandedDepth !== undefined) setRowExpandedDepth(cfg.rowExpandedDepth as number);
       if (cfg.colExpandedDepth !== undefined) setColExpandedDepth(cfg.colExpandedDepth as number);
       setFilters(sanitiseFilters(cfg.filters));
+      // Guarded the same way as the Capability Map's: a config is free-form
+      // JSONB, so never trust its element types.
+      if (Array.isArray(cfg.rowScopeIds)) {
+        rowScope.setScopeIds(
+          (cfg.rowScopeIds as unknown[]).filter((v): v is string => typeof v === "string"),
+        );
+      }
+      if (Array.isArray(cfg.colScopeIds)) {
+        colScope.setScopeIds(
+          (cfg.colScopeIds as unknown[]).filter((v): v is string => typeof v === "string"),
+        );
+      }
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -291,14 +305,11 @@ export default function MatrixReport() {
     rowExpandedDepth: effectiveRowDepth,
     colExpandedDepth: effectiveColDepth,
     filters,
+    rowScopeIds: rowScope.scopeIds,
+    colScopeIds: colScope.scopeIds,
     // Row/column search is deliberately not persisted: reopening a saved report
     // onto a near-empty grid with no visible cause is a support ticket.
   });
-
-  // Auto-persist config to localStorage
-  useEffect(() => {
-    saved.persistConfig(getConfig());
-  }, [rowType, colType, cellMode, hideEmpty, showOnlyGaps, sortRows, sortCols, rowExpandedDepth, colExpandedDepth, filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -315,6 +326,8 @@ export default function MatrixReport() {
     setFilters(EMPTY_FILTERS);
     setRowSearch("");
     setColSearch("");
+    rowScope.clear();
+    colScope.clear();
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keys and values are sorted so two equivalent filter sets always produce the
@@ -347,6 +360,20 @@ export default function MatrixReport() {
   );
   const data = matrixData ?? null;
 
+  // Per-axis scope: "these capabilities x these applications" is the whole
+  // point of a matrix, so the two are independent.
+  const rowScope = useCardScope({ typeKey: rowType, hierarchy: data?.rows ?? null });
+  const colScope = useCardScope({ typeKey: colType, hierarchy: data?.columns ?? null });
+
+  // Declared here rather than beside the other config plumbing above: its
+  // dependency array names the scope hooks, and an array literal is evaluated
+  // eagerly, so it has to sit below their declarations.
+  // Auto-persist config to localStorage
+  useEffect(() => {
+    saved.persistConfig(getConfig());
+  }, [rowType, colType, cellMode, hideEmpty, showOnlyGaps, sortRows, sortCols, rowExpandedDepth, colExpandedDepth, filters, rowScope.scopeIds, colScope.scopeIds]); // eslint-disable-line react-hooks/exhaustive-deps
+
+
   // Reset depth when switching types
   useEffect(() => {
     const meta = types.find((t) => t.key === rowType);
@@ -365,6 +392,8 @@ export default function MatrixReport() {
   // Filter keys are namespaced by relation type, so they are meaningless for a
   // different axis pair — carrying them over would silently empty the new grid.
   // Skipped on the first run so a saved report's filters survive being loaded.
+  // (Scope ids are per-axis rather than per-pair, so `useCardScope` clears
+  // each one on its own type change instead of both being wiped here.)
   const loadedAxes = useRef<string | null>(null);
   useEffect(() => {
     const axes = `${rowType}|${colType}`;
@@ -417,17 +446,42 @@ export default function MatrixReport() {
     );
   }, [data, debouncedColSearch]);
 
-  // Build trees from raw data
-  const rowTreeFull = useMemo(() => data ? buildTree(data.rows) : null, [data]);
-  const colTreeFull = useMemo(() => data ? buildTree(data.columns) : null, [data]);
+  // Scope each axis to chosen cards and everything beneath them (#954).
+  // `/reports/matrix` guarantees complete card lists with intact parent chains
+  // (its docstring says so), so the hooks take their hierarchy from `data` and
+  // the scope never reaches the server — putting it in `matrixPath` would
+  // trigger a refetch and defeat that design.
+  const rowScopeOptions = useMemo(
+    () => (data?.rows ?? []).map((r) => ({ ...r, type: rowType })),
+    [data, rowType],
+  );
+  const colScopeOptions = useMemo(
+    () => (data?.columns ?? []).map((c) => ({ ...c, type: colType })),
+    [data, colType],
+  );
+
+  const scopedRowItems = useMemo(
+    () => applyScope(data?.rows ?? [], rowScope.closure),
+    [data, rowScope.closure],
+  );
+  const scopedColItems = useMemo(
+    () => applyScope(data?.columns ?? [], colScope.closure),
+    [data, colScope.closure],
+  );
+
+  // Build trees from the scoped items. `buildTree` treats an item whose parent
+  // is absent from the array as a root, so a scoped card becomes a root and
+  // the depth steppers re-range from there.
+  const rowTreeFull = useMemo(() => data ? buildTree(scopedRowItems) : null, [data, scopedRowItems]);
+  const colTreeFull = useMemo(() => data ? buildTree(scopedColItems) : null, [data, scopedColItems]);
 
   // Prefer the metamodel over the data: a hierarchical type whose cards have no
   // parent yet still deserves the option, and the answer must not flip while a
   // fetch is in flight (which would leave the Select on a value it no longer offers).
   const rowHasHierarchy = types.find((t) => t.key === rowType)?.has_hierarchy
-    ?? (data ? data.rows.some((r) => r.parent_id !== null) : false);
+    ?? (data ? scopedRowItems.some((r) => r.parent_id !== null) : false);
   const colHasHierarchy = types.find((t) => t.key === colType)?.has_hierarchy
-    ?? (data ? data.columns.some((c) => c.parent_id !== null) : false);
+    ?? (data ? scopedColItems.some((c) => c.parent_id !== null) : false);
 
   // Effective depth (clamped to actual max)
   const effectiveRowDepth = rowTreeFull ? Math.min(
@@ -469,12 +523,12 @@ export default function MatrixReport() {
   };
 
   const visibleRowIds = useMemo(
-    () => buildVisibleIds(data?.rows, relatedRowIds, searchedRowIds),
-    [data, relatedRowIds, searchedRowIds, hideEmpty, showOnlyGaps], // eslint-disable-line react-hooks/exhaustive-deps
+    () => buildVisibleIds(scopedRowItems, relatedRowIds, searchedRowIds),
+    [scopedRowItems, relatedRowIds, searchedRowIds, hideEmpty, showOnlyGaps], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const visibleColIds = useMemo(
-    () => buildVisibleIds(data?.columns, relatedColIds, searchedColIds),
-    [data, relatedColIds, searchedColIds, hideEmpty, showOnlyGaps], // eslint-disable-line react-hooks/exhaustive-deps
+    () => buildVisibleIds(scopedColItems, relatedColIds, searchedColIds),
+    [scopedColItems, relatedColIds, searchedColIds, hideEmpty, showOnlyGaps], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   // Cards that carry relations of their own AND have children. A card like that
@@ -526,7 +580,9 @@ export default function MatrixReport() {
   const leafRowNodes = useMemo(() => {
     if (prunedRowRoots) return getLeafNodes(prunedRowRoots);
     if (!data) return [];
-    const items = visibleRowIds ? data.rows.filter((r) => visibleRowIds.has(r.id)) : [...data.rows];
+    const items = visibleRowIds
+      ? scopedRowItems.filter((r) => visibleRowIds.has(r.id))
+      : [...scopedRowItems];
     if (sortRows === "count") {
       items.sort((a, b) => (cardRowCounts.get(b.id) ?? 0) - (cardRowCounts.get(a.id) ?? 0));
     } else {
@@ -536,12 +592,14 @@ export default function MatrixReport() {
       item, children: [], depth: 0, leafCount: 1,
       leafDescendants: [item.id], isPrunedGroup: false, originalLeafCount: 1,
     }));
-  }, [prunedRowRoots, data, sortRows, cardRowCounts, visibleRowIds]);
+  }, [prunedRowRoots, data, scopedRowItems, sortRows, cardRowCounts, visibleRowIds]);
 
   const leafColNodes = useMemo(() => {
     if (prunedColRoots) return getLeafNodes(prunedColRoots);
     if (!data) return [];
-    const items = visibleColIds ? data.columns.filter((c) => visibleColIds.has(c.id)) : [...data.columns];
+    const items = visibleColIds
+      ? scopedColItems.filter((c) => visibleColIds.has(c.id))
+      : [...scopedColItems];
     if (sortCols === "count") {
       items.sort((a, b) => (cardColCounts.get(b.id) ?? 0) - (cardColCounts.get(a.id) ?? 0));
     } else {
@@ -551,7 +609,7 @@ export default function MatrixReport() {
       item, children: [], depth: 0, leafCount: 1,
       leafDescendants: [item.id], isPrunedGroup: false, originalLeafCount: 1,
     }));
-  }, [prunedColRoots, data, sortCols, cardColCounts, visibleColIds]);
+  }, [prunedColRoots, data, scopedColItems, sortCols, cardColCounts, visibleColIds]);
 
   // Node maps for aggregation lookups
   const allRowNodesMap = useMemo(
@@ -600,20 +658,27 @@ export default function MatrixReport() {
   const grandTotal = cellMatrix.grandTotal;
 
   // Stats — counts reflect the visible (filtered) set
-  const totalRelations = useMemo(
-    () => (data?.intersections ?? []).reduce((sum, i) => sum + (i.e ?? []).length, 0),
-    [data],
-  );
-  const visibleRowCount = visibleRowIds ? visibleRowIds.size : (data?.rows.length || 0);
-  const visibleColCount = visibleColIds ? visibleColIds.size : (data?.columns.length || 0);
+  const totalRelations = useMemo(() => {
+    const rows = rowScope.closure;
+    const cols = colScope.closure;
+    return (data?.intersections ?? []).reduce((sum, i) => {
+      if (rows && !rows.has(i.row_id)) return sum;
+      if (cols && !cols.has(i.col_id)) return sum;
+      return sum + (i.e ?? []).length;
+    }, 0);
+  }, [data, rowScope.closure, colScope.closure]);
+  // Counted off the scoped axes, not the raw payload: a KPI reporting the
+  // whole axis next to a scoped grid is wrong in the most convincing way.
+  const visibleRowCount = visibleRowIds ? visibleRowIds.size : scopedRowItems.length;
+  const visibleColCount = visibleColIds ? visibleColIds.size : scopedColItems.length;
   const maxPossible = visibleRowCount * visibleColCount;
   const populatedCells = cellMatrix.cells.size;
   const coverage = maxPossible > 0 ? ((populatedCells / maxPossible) * 100).toFixed(1) : "0";
 
   // Coverage gaps, over the whole axis rather than the visible slice: a card is
   // uncovered because nothing links to it, not because it scrolled off.
-  const uncoveredRowCount = (data?.rows.length ?? 0) - relatedRowIds.size;
-  const uncoveredColCount = (data?.columns.length ?? 0) - relatedColIds.size;
+  const uncoveredRowCount = scopedRowItems.filter((r) => !relatedRowIds.has(r.id)).length;
+  const uncoveredColCount = scopedColItems.filter((c) => !relatedColIds.has(c.id)).length;
 
   const gridCellCount = leafRowNodes.length * leafColNodes.length;
 
@@ -748,6 +813,12 @@ export default function MatrixReport() {
     setColExpandedDepth(rowExpandedDepth);
     setRowSearch(colSearch);
     setColSearch(rowSearch);
+    // The scopes belong to their axes, so they swap too. Read before either
+    // setter runs, since both are stale-closure snapshots of this render.
+    const nextRowScope = colScope.scopeIds;
+    const nextColScope = rowScope.scopeIds;
+    rowScope.setScopeIds(nextRowScope);
+    colScope.setScopeIds(nextColScope);
   };
 
   const sortModeLabel = (m: SortMode) => m === "alpha" ? t("matrix.alphaSort") : m === "count" ? t("matrix.byCount") : t("matrix.hierarchy");
@@ -771,6 +842,18 @@ export default function MatrixReport() {
     const params: { label: string; value: string }[] = [];
     params.push({ label: t("matrix.rows"), value: rowLabel });
     params.push({ label: t("matrix.columns"), value: colLabel });
+    if (rowScope.effectiveScopeIds.length > 0) {
+      params.push({
+        label: t("matrix.scopeRows"),
+        value: t("matrix.scopeCountRows", { count: rowScope.effectiveScopeIds.length }),
+      });
+    }
+    if (colScope.effectiveScopeIds.length > 0) {
+      params.push({
+        label: t("matrix.scopeCols"),
+        value: t("matrix.scopeCountCols", { count: colScope.effectiveScopeIds.length }),
+      });
+    }
     params.push({ label: t("matrix.cell"), value: cellModeLabel(cellMode) });
     params.push({ label: t("matrix.sortRows"), value: sortModeLabel(sortRows) });
     params.push({ label: t("matrix.sortColumns"), value: sortModeLabel(sortCols) });
@@ -939,9 +1022,31 @@ export default function MatrixReport() {
           <TextField select size="small" label={t("matrix.rows")} value={rowType} onChange={(e) => setRowType(e.target.value)} sx={{ minWidth: 150 }}>
             {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{typeLabel(tp)}</MenuItem>)}
           </TextField>
+          <CardScopeFilter
+            types={rowType}
+            value={rowScope.effectiveScopeIds}
+            onChange={rowScope.setScopeIds}
+            labelAll={t("matrix.scopeAllRows")}
+            labelCount={(count) => t("matrix.scopeCountRows", { count })}
+            dialogTitle={t("matrix.scopeDialogRows")}
+            helperText={t("matrix.scopeHelper")}
+            tooltip={t("matrix.scopeTooltipRows")}
+            initialOptions={rowScopeOptions}
+          />
           <TextField select size="small" label={t("matrix.columns")} value={colType} onChange={(e) => setColType(e.target.value)} sx={{ minWidth: 150 }}>
             {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{typeLabel(tp)}</MenuItem>)}
           </TextField>
+          <CardScopeFilter
+            types={colType}
+            value={colScope.effectiveScopeIds}
+            onChange={colScope.setScopeIds}
+            labelAll={t("matrix.scopeAllCols")}
+            labelCount={(count) => t("matrix.scopeCountCols", { count })}
+            dialogTitle={t("matrix.scopeDialogCols")}
+            helperText={t("matrix.scopeHelper")}
+            tooltip={t("matrix.scopeTooltipCols")}
+            initialOptions={colScopeOptions}
+          />
           <TextField select size="small" label={t("matrix.cellDisplay")} value={cellMode} onChange={(e) => setCellMode(e.target.value as CellMode)} sx={{ minWidth: 150 }}>
             <MenuItem value="exists">{t("matrix.existsDot")}</MenuItem>
             <MenuItem value="count">{t("matrix.countHeatmap")}</MenuItem>

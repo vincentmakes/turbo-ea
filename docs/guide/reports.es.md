@@ -70,6 +70,8 @@ El **Informe de Ciclo de Vida** muestra una **visualización de línea temporal*
 
 Los componentes se muestran como barras horizontales que abarcan sus fases de ciclo de vida: Plan, Fase de Entrada, Activo, Fase de Salida y Fin de Vida.
 
+**Limitar a tarjetas concretas** — Una vez elegido un tipo de tarjeta, el chip contiguo abre un selector: elija una o varias tarjetas y la línea de tiempo mostrará solo esas y todo lo que hay debajo. Las tarjetas hijas se incluyen automáticamente. El chip permanece desactivado mientras el selector esté en *Todos los tipos*, porque un alcance necesita una única jerarquía.
+
 ## Informe de Dependencias
 
 ![Informe de Dependencias](../assets/img/es/13_dependencias.png)
@@ -154,6 +156,8 @@ Siempre que haya al menos un Origen de los costes activo, los rectángulos del m
 
 El control deslizante de cronología, la selección de Origen de los costes y los demás filtros se conservan al profundizar, y el nivel de desglose forma parte de la configuración del informe guardado: guardar un informe mientras se está profundizando lo abre directamente en ese nivel. Sin un Origen de costes activo, hacer clic en un rectángulo abre en su lugar el panel lateral de la tarjeta (no hay nada que desglosar).
 
+**Limitar a tarjetas concretas** — El chip contiguo al selector de tipo abre un selector: elija una o varias tarjetas y el treemap, los totales y la tabla se limitarán a esas y a todo lo que hay debajo. El chip se oculta mientras esté dentro de un rectángulo, ya que ese detalle le ha llevado a otro tipo de tarjeta; salga de él y el alcance seguirá ahí.
+
 ## Informe de Matriz
 
 ![Informe de Matriz](../assets/img/es/35_informe_matriz.png)
@@ -207,6 +211,8 @@ Dos tarjetas cuentan las fichas de cada eje que no tienen ninguna relación. **M
 
 La exportación a Excel genera dos hojas: la cuadrícula tal como aparece en pantalla y una fila por relación con sus valores repartidos en columnas, la hoja sobre la que construir una tabla dinámica. La exportación a PowerPoint captura la imagen.
 
+**Limitar cada eje** — Cada eje tiene su propio chip junto a su selector de tipo, de modo que puede pedir *estas capacidades × estas aplicaciones*. Los indicadores sobre la cuadrícula siguen al alcance, así que las cifras siempre describen lo que está viendo. Cambiar el tipo de un eje borra su alcance; al transponer, los dos alcances se intercambian junto con los ejes.
+
 ## Informe de Calidad de Datos
 
 ![Informe de Calidad de Datos](../assets/img/es/33_informe_calidad_datos.png)
@@ -258,3 +264,5 @@ Los filtros y agrupaciones activos en el momento de la exportación se registran
 ## Mapa de Procesos
 
 El **Mapa de Procesos** visualiza el panorama de procesos de negocio de la organización como un mapa estructurado, mostrando las categorías de procesos (Gestión, Principal, Soporte) y sus relaciones jerárquicas.
+
+**Limitar a procesos concretos** — El chip contiguo a *Profundidad de visualización* abre un selector: elija uno o varios procesos y el mapa mostrará solo esos y todo lo que hay debajo. Los subprocesos se incluyen automáticamente y la **Profundidad de visualización** se cuenta desde su selección. El zoom con un clic sigue funcionando, ahora dentro del alcance. Es un control distinto de la fila **Alcance** de abajo, que filtra por Organización o Contexto de negocio relacionado.

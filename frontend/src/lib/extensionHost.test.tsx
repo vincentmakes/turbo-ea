@@ -69,6 +69,10 @@ describe("extensionHost", () => {
     // SDK 1.14 — shared card scope picker
     expect(sdk.CardScopeDialog).toBeDefined();
     expect(typeof sdk.dedupeScopeRoots).toBe("function");
+    // SDK 1.15 — the rest of the report-scoping kit
+    expect(sdk.CardScopeFilter).toBeDefined();
+    expect(typeof sdk.useCardScope).toBe("function");
+    expect(typeof sdk.applyScope).toBe("function");
   });
 
   it("registers a plugin and lists its routes", () => {
@@ -331,7 +335,7 @@ describe("extensionHost", () => {
   });
 
   it("pins the current UI SDK version", () => {
-    expect(UI_SDK_VERSION).toBe("1.14");
+    expect(UI_SDK_VERSION).toBe("1.15");
   });
 
   it("aggregates generic slots (component + data), sorts by order, drops invalid ones", () => {

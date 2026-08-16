@@ -257,3 +257,86 @@ describe("LifecycleReport", () => {
     });
   });
 });
+
+describe("LifecycleReport scope filter", () => {
+  /**
+   * `parent` deliberately carries NO lifecycle dates, so `/reports/roadmap`
+   * omits it entirely. That is the case a payload-walked hierarchy gets
+   * wrong: without the hook's own `/cards` fetch, `child` would be
+   * unreachable from a scope on `parent` and would silently vanish.
+   */
+  const HIERARCHY = [
+    { id: "parent", name: "Parent App", type: "Application", parent_id: null },
+    { id: "child", name: "Child App", type: "Application", parent_id: "parent" },
+    { id: "other", name: "Other App", type: "Application", parent_id: null },
+  ];
+
+  const DATED_ITEMS = {
+    items: [
+      {
+        id: "child",
+        name: "Child App",
+        type: "Application",
+        lifecycle: { active: "2021-01-01" },
+        attributes: {},
+      },
+      {
+        id: "other",
+        name: "Other App",
+        type: "Application",
+        lifecycle: { active: "2022-01-01" },
+        attributes: {},
+      },
+    ],
+  };
+
+  function mockApi() {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/reports/roadmap")) return Promise.resolve(DATED_ITEMS) as never;
+      return Promise.resolve({ items: HIERARCHY, total: HIERARCHY.length }) as never;
+    });
+  }
+
+  function withConfig(cfg: Record<string, unknown> | null) {
+    vi.mocked(useSavedReport).mockReturnValue({
+      savedReport: null,
+      savedReportName: null,
+      saveDialogOpen: false,
+      setSaveDialogOpen: vi.fn(),
+      loadedConfig: null,
+      consumeConfig: vi.fn().mockReturnValue(cfg),
+      resetSavedReport: vi.fn(),
+      persistConfig: vi.fn(),
+      resetAll: vi.fn(),
+      reportType: "lifecycle",
+    } as never);
+  }
+
+  it("disables the scope chip until a card type is chosen", async () => {
+    mockApi();
+    withConfig(null);
+    renderLifecycle();
+    await waitFor(() => expect(screen.getByText("Other App")).toBeInTheDocument());
+
+    // Default is "All types", which has no single hierarchy to scope over.
+    expect(screen.getByText("All cards").closest("div")).toHaveClass("Mui-disabled");
+  });
+
+  it("brings a dated child into view through its dateless parent", async () => {
+    mockApi();
+    withConfig({ cardTypeKey: "Application", scopeIds: ["parent"] });
+    renderLifecycle();
+
+    await waitFor(() => expect(screen.getByText("Child App")).toBeInTheDocument());
+    expect(screen.queryByText("Other App")).not.toBeInTheDocument();
+  });
+
+  it("drops a scoped id the hierarchy no longer knows", async () => {
+    mockApi();
+    withConfig({ cardTypeKey: "Application", scopeIds: ["deleted"] });
+    renderLifecycle();
+
+    await waitFor(() => expect(screen.getByText("Other App")).toBeInTheDocument());
+    expect(screen.getByText("Child App")).toBeInTheDocument();
+  });
+});

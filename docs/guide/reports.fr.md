@@ -70,6 +70,8 @@ Le **Rapport Cycle de vie** affiche une **visualisation chronologique** indiquan
 
 Les composants sont affichés sous forme de barres horizontales couvrant leurs phases de cycle de vie : Planification, Mise en service, Actif, Retrait progressif et Fin de vie.
 
+**Limiter à certaines cartes** — Une fois un type de carte choisi, la puce voisine ouvre un sélecteur : choisissez une ou plusieurs cartes et la chronologie n'affiche que celles-ci et tout ce qui se trouve en dessous. Les cartes filles sont incluses automatiquement. La puce reste désactivée tant que le sélecteur est sur *Tous les types*, car un périmètre a besoin d'une seule hiérarchie.
+
 ## Rapport Dépendances
 
 ![Rapport Dépendances](../assets/img/fr/13_dependances.png)
@@ -154,6 +156,8 @@ Dès qu'au moins une Source de coût est active, les rectangles du treemap devie
 
 Le curseur de chronologie, la sélection de Source de coût et les autres filtres sont préservés pendant le forage, et le niveau de forage fait partie de la configuration du rapport sauvegardé — sauvegarder un rapport en cours de forage le rouvre directement à ce niveau. Sans Source de coût active, un clic sur un rectangle ouvre plutôt le panneau latéral de la fiche (il n'y a rien à décomposer).
 
+**Limiter à certaines cartes** — La puce voisine du sélecteur de type ouvre un sélecteur : choisissez une ou plusieurs cartes et la treemap, les totaux et le tableau se limitent à celles-ci et à tout ce qui se trouve en dessous. La puce disparaît lorsque vous avez zoomé dans un rectangle, puisqu'un tel zoom vous a déjà déplacé vers un autre type de carte ; quittez-le et le périmètre est toujours là.
+
 ## Rapport Matrice
 
 ![Rapport Matrice](../assets/img/fr/35_rapport_matrice.png)
@@ -207,6 +211,8 @@ Deux tuiles comptent les fiches de chaque axe qui n'ont aucune relation. **Affic
 
 L'export Excel produit deux feuilles : la grille telle qu'elle apparaît à l'écran, et une ligne par relation avec ses valeurs réparties en colonnes — la feuille sur laquelle construire un tableau croisé. L'export PowerPoint capture l'image.
 
+**Limiter chaque axe** — Chaque axe possède sa propre puce à côté de son sélecteur de type, ce qui permet de demander *ces capacités × ces applications*. Les indicateurs au-dessus de la grille suivent le périmètre, de sorte que les chiffres décrivent toujours ce que vous regardez. Changer le type d'un axe efface son périmètre ; la transposition échange les deux périmètres en même temps que les axes.
+
 ## Rapport Qualité des données
 
 ![Rapport Qualité des données](../assets/img/fr/33_rapport_qualite_donnees.png)
@@ -258,3 +264,5 @@ Les filtres et options de regroupement actifs au moment de l'export sont consign
 ## Carte de processus
 
 La **Carte de processus** visualise le paysage des processus métier de l'organisation sous forme de carte structurée, montrant les catégories de processus (Management, Cœur de métier, Support) et leurs relations hiérarchiques.
+
+**Limiter à certains processus** — La puce voisine de *Profondeur d'affichage* ouvre un sélecteur : choisissez un ou plusieurs processus et la carte n'affiche que ceux-ci et tout ce qui se trouve en dessous. Les sous-processus sont inclus automatiquement, et la **Profondeur d'affichage** se compte à partir de votre sélection. Le zoom par clic fonctionne toujours, désormais à l'intérieur du périmètre. Il s'agit d'un contrôle distinct de la ligne **Périmètre** située en dessous, qui filtre par Organisation ou Contexte métier lié.
