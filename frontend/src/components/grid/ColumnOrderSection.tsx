@@ -261,7 +261,11 @@ export default function ColumnOrderSection({
     ));
 
   return (
-    <Box ref={setLiveRegionHost}>
+    // The gap below the section belongs out here, not inside the `Collapse`:
+    // in there it exists only while the section is open, and this section is
+    // collapsed by default, so the header would sit flush against whatever the
+    // Columns tab puts after it.
+    <Box ref={setLiveRegionHost} sx={{ mb: 1 }}>
       <FilterSectionHeader
         label={t("grid.columnOrder.title")}
         icon="swap_vert"
@@ -270,7 +274,7 @@ export default function ColumnOrderSection({
         count={items.length}
       />
       <Collapse in={expanded} unmountOnExit>
-        <Box sx={{ mb: 1 }}>
+        <Box>
           <Typography
             variant="caption"
             color="text.secondary"
