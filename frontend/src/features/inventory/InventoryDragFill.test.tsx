@@ -7,6 +7,18 @@
  * so the page's `onFill` can be invoked directly — the request shape is a
  * stable seam, and driving a pointer drag through the page's own stubbed grid
  * would test the stub, not the writes.
+ *
+ * AG Grid itself is stubbed too, so **there is no grid DOM to assert on here**
+ * — add a case that needs one to `useDragFill.integration.test.tsx` instead.
+ * That is not just tidiness: `handleGridFill` fires `loadData()` without
+ * awaiting it (one reload per fill, by design), so every test below ends with
+ * a re-render in flight. React's scheduler runs on Node's `setImmediate`,
+ * which jsdom's teardown does not cancel — so with a real grid mounted, a
+ * continuation could commit after `window` was deleted and reach AG Grid's
+ * `dispatchAsync`, throwing `ReferenceError: window is not defined` as an
+ * unhandled error and failing CI with every test passing. With no grid there
+ * is no `RowRenderer`, so that cannot happen rather than merely being
+ * unlikely. `InventoryPage.test.tsx` stubs AG Grid for the same reason.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, waitFor } from "@testing-library/react";
@@ -34,6 +46,13 @@ vi.mock("./ImportDialog", () => ({ default: () => null }));
 vi.mock("./RelationCellPopover", () => ({ default: () => null }));
 vi.mock("ag-grid-community/styles/ag-grid.css", () => ({}));
 vi.mock("ag-grid-community/styles/ag-theme-quartz.css", () => ({}));
+// Nothing here reads grid DOM or the grid api — see the header. `AgGridReact`
+// is the page's only value import from this module (the rest are types), and
+// every `gridRef.current?.api` call site is optional-chained, so the page
+// mounts fine without it.
+vi.mock("ag-grid-react", () => ({
+  AgGridReact: () => <div data-testid="ag-grid" />,
+}));
 
 // Capture the options the page hands the hook so `onFill` can be driven
 // directly; render nothing.
