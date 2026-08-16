@@ -34,6 +34,9 @@
  *   - **The page persists only a slice of prefs** (Risk, Compliance, Users,
  *     Resources, Audit log, ADR). Pass `frozen` + `onFrozenChange` and run the
  *     column defs through `applyFrozen()`, which stamps `pinned` from `frozen`.
+ *
+ * Column *order* is the sibling feature, owned the same way — see
+ * `useColumnOrder` / `columnOrder.ts`. Wire both syncs on one `onDragStopped`.
  */
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { RefObject } from "react";
@@ -41,6 +44,7 @@ import type { ColDef, GridApi } from "ag-grid-community";
 import type { AgGridReact } from "ag-grid-react";
 import type { SxProps, Theme } from "@mui/material";
 import { useTranslation } from "react-i18next";
+import { colIdOf, sameOrder } from "./columnOrder";
 
 /** Marker class on both pins — the click delegate keys on it. */
 export const FREEZE_TOGGLE_CLASS = "tea-freeze";
@@ -197,11 +201,15 @@ export interface ColumnFreeze {
    * does the sidebar's per-column pin, so the two can never diverge.
    */
   toggleFrozen: (colId: string) => void;
-}
-
-/** Stable id of a column def — what AG Grid reports back as `colId`. */
-function colIdOf(col: ColDef): string {
-  return col.colId ?? col.field ?? "";
+  /**
+   * Re-read the frozen set from the grid. Wire alongside `syncFromGrid` (see
+   * `useColumnOrder`) on `onDragStopped`: AG Grid lets a user *drag* a column
+   * into the pinned region, which never went through `toggleFrozen`, so the
+   * next `applyFrozen()` rebuild would stamp `pinned: null` back over it.
+   * No-ops when nothing changed, and when the page persists AG Grid's own
+   * column state instead (no `onFrozenChange`).
+   */
+  syncFrozenFromGrid: () => void;
 }
 
 /**
@@ -210,9 +218,17 @@ function colIdOf(col: ColDef): string {
  */
 export type GridApiSource<TData> = AgGridReact<TData> | GridApi<TData> | null;
 
-function apiOf<TData>(source: GridApiSource<TData>): GridApi<TData> | null {
+export function apiOf<TData>(source: GridApiSource<TData>): GridApi<TData> | null {
   if (!source) return null;
   return "api" in source ? ((source.api as GridApi<TData> | undefined) ?? null) : source;
+}
+
+/** The colIds the grid currently has pinned to the leading edge. */
+function frozenIdsFromGrid<TData>(api: GridApi<TData>): string[] {
+  return api
+    .getColumnState()
+    .filter((c) => c.pinned === "left" && c.colId)
+    .map((c) => c.colId as string);
 }
 
 export function useColumnFreeze<TData = unknown>(
@@ -225,6 +241,8 @@ export function useColumnFreeze<TData = unknown>(
   // Read through refs so the listener is installed once and never goes stale.
   const onFrozenChangeRef = useRef(options.onFrozenChange);
   onFrozenChangeRef.current = options.onFrozenChange;
+  const frozenRef = useRef(options.frozen);
+  frozenRef.current = options.frozen;
 
   const headerComponentParams = useMemo(
     () => ({ template: buildFreezeHeaderTemplate(t("grid.freezeColumn"), t("grid.unfreezeColumn")) }),
@@ -242,18 +260,24 @@ export function useColumnFreeze<TData = unknown>(
 
       api.setColumnsPinned([colId], column.getPinned() ? null : "left");
 
-      const onFrozenChange = onFrozenChangeRef.current;
-      if (onFrozenChange) {
-        onFrozenChange(
-          api
-            .getColumnState()
-            .filter((c) => c.pinned === "left" && c.colId)
-            .map((c) => c.colId as string),
-        );
-      }
+      onFrozenChangeRef.current?.(frozenIdsFromGrid(api));
     },
     [gridRef],
   );
+
+  // A column can also become frozen without passing through `toggleFrozen`:
+  // AG Grid Community lets the user drag one into the pinned region. Nothing
+  // captured that, so the next `applyFrozen()` rebuild stamped `pinned: null`
+  // back over it — invisible while rebuilds were rare, immediate now that a
+  // header drag writes a column order and therefore rebuilds every time.
+  const syncFrozenFromGrid = useCallback(() => {
+    const onFrozenChange = onFrozenChangeRef.current;
+    const api = apiOf(gridRef.current);
+    if (!api || !onFrozenChange) return;
+    const next = frozenIdsFromGrid(api);
+    if (sameOrder(next, frozenRef.current ?? [])) return;
+    onFrozenChange(next);
+  }, [gridRef]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -308,7 +332,8 @@ export function useColumnFreeze<TData = unknown>(
       applyFrozen,
       frozenColumns,
       toggleFrozen,
+      syncFrozenFromGrid,
     }),
-    [headerComponentParams, applyFrozen, frozenColumns, toggleFrozen],
+    [headerComponentParams, applyFrozen, frozenColumns, toggleFrozen, syncFrozenFromGrid],
   );
 }

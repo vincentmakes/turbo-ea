@@ -227,6 +227,51 @@ describe("useColumnFreeze", () => {
     expect(onFrozenChange).toHaveBeenCalledWith(["name", "type"]);
   });
 
+  // AG Grid Community also lets a user *drag* a column into the pinned region,
+  // which never passes through `toggleFrozen`. Nothing captured that, so the
+  // next `applyFrozen()` rebuild stamped `pinned: null` back over it.
+  it("syncFrozenFromGrid publishes a column the user dragged into the pinned region", () => {
+    const columns: FakeColumn[] = [
+      { colId: "name", pinned: null },
+      { colId: "type", pinned: null },
+    ];
+    const { api } = makeApi(columns);
+    const onFrozenChange = vi.fn();
+    const freezeRef = { current: null as ColumnFreeze | null };
+    render(
+      <Harness
+        api={api}
+        columns={columns}
+        onFrozenChange={onFrozenChange}
+        freezeRef={freezeRef}
+      />,
+    );
+
+    // The drag lands in the grid without the hook being told.
+    columns[1].pinned = "left";
+    freezeRef.current!.syncFrozenFromGrid();
+    expect(onFrozenChange).toHaveBeenCalledWith(["type"]);
+  });
+
+  it("syncFrozenFromGrid no-ops when nothing changed", () => {
+    const columns: FakeColumn[] = [{ colId: "name", pinned: "left" }];
+    const { api } = makeApi(columns);
+    const onFrozenChange = vi.fn();
+    const freezeRef = { current: null as ColumnFreeze | null };
+    render(
+      <Harness
+        api={api}
+        columns={columns}
+        onFrozenChange={onFrozenChange}
+        freezeRef={freezeRef}
+      />,
+    );
+
+    // `onDragStopped` fires for resizes too — no write when the set is the same.
+    freezeRef.current!.syncFrozenFromGrid();
+    expect(onFrozenChange).not.toHaveBeenCalled();
+  });
+
   it("leaves column defs alone when the grid persists AG Grid's own state", () => {
     const columns: FakeColumn[] = [{ colId: "name", pinned: null }];
     const { api } = makeApi(columns);
