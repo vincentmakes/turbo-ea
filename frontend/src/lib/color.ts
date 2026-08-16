@@ -12,7 +12,22 @@
 
 import { darken, lighten } from "@mui/material/styles";
 
+import { CATEGORICAL_COLORS } from "@/theme/tokens";
+
 export const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+
+/**
+ * Colour for a value the metamodel left uncoloured, by its position within the
+ * ordered set it belongs to.
+ *
+ * Assigning by position rather than by hashing the key is deliberate: the
+ * values of one set are read side by side — in a matrix legend, or as a column
+ * of group headers — so what matters is that NEIGHBOURS look different. A hash
+ * gives two of four values near-identical reds often enough to matter.
+ */
+export function categoricalColor(index: number): string {
+  return CATEGORICAL_COLORS[index % CATEGORICAL_COLORS.length];
+}
 
 export function isHexColor(value: unknown): value is string {
   return typeof value === "string" && HEX_COLOR_RE.test(value);

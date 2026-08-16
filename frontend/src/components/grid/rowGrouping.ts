@@ -16,6 +16,8 @@
  * orphan header (or a headerless group) is impossible by construction.
  */
 
+import { categoricalColor } from "@/lib/color";
+
 /** Group key for rows that have no value on the grouping axis. Always the
  * first group — it is the triage bucket the feature exists for. */
 export const NOT_SET_KEY = "__not_set__";
@@ -24,8 +26,23 @@ export interface GroupVocabEntry {
   key: string;
   label: string;
   /** Option/state color (hex) — the header renders the label as a colored
-   * pill when set. Omit for axes with no real color (subtypes, owners, …). */
+   * pill. Omit for a value with no color of its own (subtypes, owners, …):
+   * `buildGroupedRows` then assigns one from the shared categorical palette by
+   * position, so every real group reads as a pill on every axis. */
   color?: string;
+}
+
+/**
+ * Pill color of one vocabulary entry: its own color when the metamodel gives
+ * it one, else a positional categorical color so uncolored axes are still
+ * recognisable at a glance — in the header row and, more importantly, in the
+ * sticky bar that names the group you are scrolled into.
+ *
+ * By position rather than by hashing the key, because group headers are read
+ * as a vertical column: what matters is that neighbours look different.
+ */
+export function resolveVocabColor(entry: GroupVocabEntry, vocabIndex: number): string {
+  return entry.color ?? categoricalColor(vocabIndex);
 }
 
 /** One way a grid can be grouped: a stable axis id (persisted / in URLs), a
@@ -44,7 +61,10 @@ export interface GroupInfo {
   axis: string;
   key: string;
   label: string;
-  /** Vocabulary color of this group, if the axis carries one. */
+  /** Pill color: the vocabulary entry's own color, or the positional
+   * categorical fallback. Undefined only for the Not set bucket and for stray
+   * keys — neither is a value the metamodel still knows about, and colouring
+   * them would make a data-quality problem look intentional. */
   color?: string;
   /** Members before grid-level filters (column/quick filters may hide some —
    * the header renderer shows the displayed count when they do). */
@@ -86,7 +106,12 @@ export function buildGroupedRows<T extends { id: string }>(
     else buckets.set(key, [row]);
   }
 
-  const order: GroupVocabEntry[] = [{ key: NOT_SET_KEY, label: notSetLabel }, ...axis.vocab];
+  // Not set and stray keys stay uncolored; every real vocabulary entry gets a
+  // pill color, its own or the positional fallback.
+  const order: GroupVocabEntry[] = [
+    { key: NOT_SET_KEY, label: notSetLabel },
+    ...axis.vocab.map((entry, i) => ({ ...entry, color: resolveVocabColor(entry, i) })),
+  ];
   const known = new Set(order.map((e) => e.key));
   for (const key of buckets.keys()) {
     if (!known.has(key)) order.push({ key, label: key });
@@ -133,6 +158,40 @@ export function collapsedSetForFocus<T>(
   for (const row of rows) keys.add(groupKeyOn(row, axis));
   keys.delete(focusKey);
   return keys;
+}
+
+/** Where one group header row sits inside the grid body: its pixel offset, its
+ * height, and its displayed row index (the handle `ensureIndexVisible` needs). */
+export interface GroupHeaderAnchor {
+  top: number;
+  height: number;
+  rowIndex: number;
+  group: GroupInfo;
+}
+
+/**
+ * Index of the anchor whose group owns `scrollTop` — the last header at or
+ * above it — or -1 when scrolled above the very first header, where there is
+ * nothing to stick. `anchors` must be sorted by `top` ascending, which is the
+ * order the grid lays its rows out in.
+ *
+ * A binary search rather than a scan: this runs on every scroll frame and a
+ * grouped inventory routinely carries thousands of rows.
+ */
+export function findStickyGroupIndex(anchors: GroupHeaderAnchor[], scrollTop: number): number {
+  let lo = 0;
+  let hi = anchors.length - 1;
+  let found = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (anchors[mid].top <= scrollTop) {
+      found = mid;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return found;
 }
 
 /**

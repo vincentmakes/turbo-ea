@@ -2,7 +2,7 @@
 
 **Risikoregistret** fanger arkitekturrisici gennem hele deres livscyklus — fra identifikation til afhjælpning, residualvurdering, overvågning og lukning (eller formel accept). Det lever som **Risk**-fanen i [GRC-modulet](grc.md) på `/grc?tab=risk`.
 
-Registertabellen kan **grupperes**: knappen *Gruppér efter* i tabellens værktøjslinje ordner risici under sammenfoldelige overskrifter efter status, kategori, indledende eller resterende niveau eller ejer, med gruppen »Ikke angivet« øverst — praktisk til at gennemgå registret gruppe for gruppe på et review-møde.
+Registertabellen kan **grupperes**: knappen *Gruppér efter* i tabellens værktøjslinje ordner risici under sammenfoldelige overskrifter efter status, kategori, indledende eller resterende niveau eller ejer, med gruppen »Ikke angivet« øverst — praktisk til at gennemgå registret gruppe for gruppe på et review-møde. Når du ruller gennem en lang gruppe, forbliver dens overskrift fastgjort under kolonneoverskrifterne, så du aldrig mister overblikket over, hvilken gruppe du er i.
 
 ## TOGAF-tilpasning
 

@@ -17,7 +17,7 @@
  *   the unit a cell renders and the legend explains.
  */
 
-import { CATEGORICAL_COLORS } from "@/theme/tokens";
+import { categoricalColor } from "@/lib/color";
 import type { FieldDef, FieldOption, RelationType } from "@/types";
 
 export type DimensionKind = "flag" | "enum" | "scalar";
@@ -107,16 +107,11 @@ export function shortCode(label: string, taken: Set<string>): string {
 
 /**
  * Colour for a value the metamodel left uncoloured, by its position within its
- * relation type.
- *
- * Assigning by position rather than by hashing the key is deliberate: the
- * values of one relation type are read side by side in a cell and in the
- * legend, so what matters is that neighbours look different. A hash gives two
- * of four CRUD flags near-identical reds often enough to matter.
+ * relation type. Thin alias over the shared `categoricalColor` — grouped grids
+ * colour their uncoloured group vocabularies from the same palette, and one
+ * implementation keeps the two from drifting.
  */
-export function fallbackColor(index: number): string {
-  return CATEGORICAL_COLORS[index % CATEGORICAL_COLORS.length];
-}
+export const fallbackColor = categoricalColor;
 
 /**
  * Every codeable value across the axis pair, with its glyph, label and colour.

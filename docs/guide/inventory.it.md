@@ -150,6 +150,7 @@ Fai clic su **Raggruppa per** nella barra degli strumenti (accanto al conteggio 
 
 - Le schede senza valore nel campo scelto finiscono nel gruppo **Non impostato**, in cima all'elenco: il punto di partenza naturale per classificare le schede in sospeso.
 - Fai clic sull'intestazione di un gruppo per comprimerlo o espanderlo. L'intestazione mostra il numero di schede del gruppo.
+- Scorrendo un gruppo lungo, la sua intestazione resta fissata appena sotto le intestazioni di colonna, così sai sempre quale gruppo stai leggendo; l'intestazione del gruppo successivo la spinge via quando arriva.
 - La casella di controllo nell'intestazione seleziona tutte le schede del gruppo: per riclassificare un lotto, espandi **Non impostato**, spunta l'intestazione e imposta il valore con la [Modifica di massa](#mass-edit). Non c'è volutamente alcun drag and drop: selezionare e impostare funziona allo stesso modo su desktop, tablet e telefono.
 - L'ordinamento si applica all'interno di ogni gruppo; il raggruppamento viene ricordato dopo un ricaricamento, salvato nelle viste salvate e condivisibile tramite il parametro URL `group_by`.
 

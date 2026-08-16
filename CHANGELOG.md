@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.63.0] - 2026-08-16
+
+### Added
+- **A grouped table now tells you which group you are in while you scroll.** Grouping the Inventory, the Risk Register or the Decisions table by a field put a header above each group, but once you had scrolled a few screens into a long one that header was gone and every row looked alike — the only way to check which group you were reading was to scroll back up. The group's header now stays pinned just below the column headers for as long as you are inside it, and the next group's header slides it aside as it arrives. Clicking it collapses that group and returns you to its top.
+
+### Changed
+- **Every group now shows its name as a coloured pill.** Grouping by a field that carries its own colours — lifecycle, approval status, data quality — always did this, but grouping by subtype, owner, risk status or risk category fell back to plain text. Those now take a stable colour too, so neighbouring groups are told apart at a glance whichever field you group by. A group keeps its colour across reloads and as you filter the table.
+
 ## [2.62.0] - 2026-08-16
 
 ### Added

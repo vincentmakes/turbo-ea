@@ -1020,7 +1020,14 @@ export default function RiskRegisterPage() {
             ref={columnFreeze.containerRef}
             {...cellMenu.containerProps}
             className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
-            sx={{ flex: 1, width: "100%", minHeight: 0, ...columnFreeze.sx, ...cellMenu.sx }}
+            sx={{
+              flex: 1,
+              width: "100%",
+              minHeight: 0,
+              ...columnFreeze.sx,
+              ...cellMenu.sx,
+              ...grouping.sx,
+            }}
           >
             <AgGridReact<Risk>
               key={isRtl ? "rtl" : "ltr"}
@@ -1047,12 +1054,14 @@ export default function RiskRegisterPage() {
               onSortChanged={onSortChanged}
               onDragStopped={handleDragStopped}
               onFilterChanged={grouping.handleFilterChanged}
+              onModelUpdated={grouping.handleModelUpdated}
               onRowClicked={(e: RowClickedEvent<Risk>) => {
                 if (grouping.isGroupRow(e.data as GroupedRow<Risk>)) return;
                 if (e.data) navigate(`/grc/risks/${e.data.id}`);
               }}
               {...cellMenu.gridProps}
             />
+            {grouping.stickyHeader}
           </Box>
         </Box>
       </Box>

@@ -2,7 +2,7 @@
 
 The **Risk Register** captures architecture risks through their full lifecycle — from identification to mitigation, residual assessment, monitoring and closure (or formal acceptance). It lives as the **Risk** tab of the [GRC module](grc.md) at `/grc?tab=risk`.
 
-The register grid can be **grouped**: the *Group by* button in the table toolbar groups risks under collapsible headers by status, category, initial or residual level, or owner, with a "Not set" bucket first — handy for walking a review meeting through the register one bucket at a time.
+The register grid can be **grouped**: the *Group by* button in the table toolbar groups risks under collapsible headers by status, category, initial or residual level, or owner, with a "Not set" bucket first — handy for walking a review meeting through the register one bucket at a time. Scroll into a long bucket and its header stays pinned below the column headers, so you never lose track of which one you are in.
 
 ## TOGAF alignment
 

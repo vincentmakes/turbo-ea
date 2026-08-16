@@ -2,7 +2,7 @@
 
 El **Registro de Riesgos** captura los riesgos de arquitectura durante todo su ciclo de vida — desde la identificación hasta la mitigación, la evaluación residual, la supervisión y el cierre (o la aceptación formal). Vive como la pestaña **Riesgo** del [módulo GRC](grc.md) en `/grc?tab=risk`.
 
-La cuadrícula del registro puede **agruparse**: el botón *Agrupar por* de la barra de herramientas de la tabla ordena los riesgos bajo cabeceras plegables por estado, categoría, nivel inicial o residual, o responsable, con un grupo «Sin definir» al principio — útil para repasar el registro grupo a grupo en una reunión de revisión.
+La cuadrícula del registro puede **agruparse**: el botón *Agrupar por* de la barra de herramientas de la tabla ordena los riesgos bajo cabeceras plegables por estado, categoría, nivel inicial o residual, o responsable, con un grupo «Sin definir» al principio — útil para repasar el registro grupo a grupo en una reunión de revisión. Al desplazarse por un grupo largo, su cabecera permanece fijada bajo las cabeceras de columna, de modo que nunca pierde de vista en cuál se encuentra.
 
 ## Alineación con TOGAF
 

@@ -25,10 +25,13 @@ import { readableTextColor } from "@/lib/color";
 import {
   buildGroupedRows,
   collapsedSetForFocus,
+  findStickyGroupIndex,
   glueGroups,
   groupKeyOn,
   type GroupAxis,
   type GroupedRow,
+  type GroupHeaderAnchor,
+  type GroupInfo,
 } from "./rowGrouping";
 
 /**
@@ -40,13 +43,16 @@ import {
  * AdrGrid for the minimal one):
  *
  *   const grouping = useRowGrouping(gridRef, { rows, axes, groupBy });
- *   <AgGridReact
- *     rowData={grouping.rowData}
- *     {...grouping.gridProps}
- *     getRowId={(p) => grouping.groupRowId(p.data)}
- *     onFilterChanged={grouping.handleFilterChanged}   // or chain into yours
- *     onModelUpdated={grouping.handleModelUpdated}     // or chain into yours
- *   />
+ *   <Box sx={{ ...grouping.sx }}>            // sticky bar positions against this
+ *     <AgGridReact
+ *       rowData={grouping.rowData}
+ *       {...grouping.gridProps}
+ *       getRowId={(p) => grouping.groupRowId(p.data)}
+ *       onFilterChanged={grouping.handleFilterChanged}   // or chain into yours
+ *       onModelUpdated={grouping.handleModelUpdated}     // or chain into yours
+ *     />
+ *     {grouping.stickyHeader}
+ *   </Box>
  *
  * Pages with their own onRowClicked / getRowStyle / selection handlers must
  * early-return on `grouping.isGroupRow(data)`.
@@ -178,6 +184,245 @@ export function GroupHeaderRow({ data, api, context }: GroupHeaderRowProps) {
   );
 }
 
+/** Wrapper styling the sticky bar needs: it is positioned against the Box that
+ * wraps the grid. Reached by pages as `grouping.sx`, spread alongside
+ * `columnFreeze.sx` / `cellMenu.sx`. */
+const rowGroupingSx = { position: "relative" } as const;
+
+/**
+ * The group bar that stays put under the column headers while you scroll, so a
+ * long group never leaves you wondering which one you are inside.
+ *
+ * AG Grid Community has no `groupRowsSticky` (Enterprise only), and its rows
+ * are absolutely positioned inside a scrolling viewport, so `position: sticky`
+ * on a row is not available either. This is therefore an overlay painted over
+ * the grid body, driven by the scroll offset and a cache of where each group
+ * header sits.
+ *
+ * It renders `GroupHeaderRow` VERBATIM — same component, `selectable: false`
+ * to drop the checkbox — rather than a lookalike, so the bar and the real row
+ * cannot drift apart, and the member counts are computed by the one piece of
+ * code that already knows how.
+ *
+ * `aria-hidden` on purpose: the bar duplicates a row that is already in the
+ * accessibility tree, and announcing a group change on every scroll tick would
+ * be hostile. With no checkbox it holds nothing focusable, so hiding it traps
+ * no focus.
+ */
+function StickyGroupHeader<T extends { id: string }>({
+  gridRef,
+  heads,
+  context,
+}: {
+  gridRef: RefObject<AgGridReact<T> | AgGridReact | null>;
+  /** Every group header currently in the row list, with its grid row id. */
+  heads: Array<{ id: string; info: GroupInfo }>;
+  context: GroupRowContext;
+}) {
+  const anchorRef = useRef<HTMLDivElement | null>(null);
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const anchorsRef = useRef<GroupHeaderAnchor[]>([]);
+  const [api, setApi] = useState<GridApi | null>(null);
+  const [current, setCurrent] = useState<{ info: GroupInfo; height: number } | null>(null);
+  const [top, setTop] = useState(0);
+
+  // The grid creates its api in its own effect, so it may not exist on our
+  // first pass. Poll for a bounded number of frames rather than making every
+  // page wire an onGridReady just for this.
+  useEffect(() => {
+    let raf = 0;
+    let tries = 0;
+    const grab = () => {
+      const next = gridRef.current?.api;
+      if (next) {
+        setApi(next);
+        return;
+      }
+      if (tries++ < 120) raf = requestAnimationFrame(grab);
+    };
+    grab();
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [gridRef]);
+
+  // Header positions, refreshed on model updates only. `rowTop` is assigned
+  // when AG Grid lays the displayed rows out — after `postSortRows` — so
+  // reading it from inside the sort glue would give stale geometry. Resolving
+  // by row id keeps this O(groups) instead of a walk over every row.
+  const rebuildAnchors = useCallback(() => {
+    const a = gridRef.current?.api;
+    const out: GroupHeaderAnchor[] = [];
+    if (a) {
+      for (const head of heads) {
+        const node = a.getRowNode(head.id);
+        if (node?.rowTop != null && node.rowIndex != null) {
+          out.push({
+            top: node.rowTop,
+            height: node.rowHeight ?? 0,
+            rowIndex: node.rowIndex,
+            group: head.info,
+          });
+        }
+      }
+      out.sort((x, y) => x.top - y.top);
+    }
+    anchorsRef.current = out;
+  }, [gridRef, heads]);
+
+  useEffect(() => {
+    if (!api) return;
+    let raf = 0;
+
+    const tick = () => {
+      raf = 0;
+      const hide = () => setCurrent(null);
+      try {
+        // Re-read the DOM every pass instead of caching elements or attaching
+        // a ResizeObserver: the grid is remounted whenever the writing
+        // direction flips, and jsdom has no ResizeObserver, which would push
+        // a stub into every page test that renders a grid.
+        const wrap = anchorRef.current?.parentElement;
+        const viewport = wrap?.querySelector<HTMLElement>(".ag-body-viewport");
+        if (!wrap || !viewport) return hide();
+        // An autoHeight grid has no viewport of its own to scroll, so there is
+        // nothing for a sticky bar to track.
+        if (wrap.querySelector(".ag-layout-auto-height")) return hide();
+
+        // Several page tests mock ag-grid-react with a proxy that answers
+        // every api call with undefined — never destructure this blind.
+        const scrollTop = api.getVerticalPixelRange?.()?.top;
+        if (typeof scrollTop !== "number") return hide();
+
+        const anchors = anchorsRef.current;
+        const i = findStickyGroupIndex(anchors, scrollTop);
+        // Flush against the top edge means the real header row is on screen;
+        // showing both at once would read as a duplicate, not as a sticky one.
+        if (i < 0 || anchors[i].top >= scrollTop - 0.5) return hide();
+
+        const vpRect = viewport.getBoundingClientRect();
+        const nextTop = vpRect.top - wrap.getBoundingClientRect().top;
+        setTop((prev) => (prev === nextTop ? prev : nextTop));
+
+        const { group, height } = anchors[i];
+        setCurrent((prev) =>
+          prev && prev.info === group && prev.height === height ? prev : { info: group, height },
+        );
+
+        // Push-out: once the next group's real header reaches the bar, it
+        // slides this one up and out rather than swapping it abruptly. Written
+        // straight to the node so scrolling inside one group costs no render.
+        const next = anchors[i + 1];
+        const barH = barRef.current?.offsetHeight || height;
+        const offset = next ? Math.min(0, next.top - scrollTop - barH) : 0;
+        if (barRef.current) {
+          barRef.current.style.transform = offset ? `translateY(${offset}px)` : "";
+        }
+      } catch {
+        // The grid can be torn down between a scroll event and this frame.
+        hide();
+      }
+    };
+
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(tick);
+    };
+    const onModel = () => {
+      rebuildAnchors();
+      schedule();
+    };
+
+    onModel();
+    api.addEventListener("modelUpdated", onModel);
+    api.addEventListener("firstDataRendered", onModel);
+    api.addEventListener("bodyScroll", schedule);
+    api.addEventListener("gridSizeChanged", schedule);
+    window.addEventListener("resize", schedule);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener("resize", schedule);
+      try {
+        api.removeEventListener("modelUpdated", onModel);
+        api.removeEventListener("firstDataRendered", onModel);
+        api.removeEventListener("bodyScroll", schedule);
+        api.removeEventListener("gridSizeChanged", schedule);
+      } catch {
+        // The grid may already be destroyed.
+      }
+    };
+  }, [api, rebuildAnchors]);
+
+  const stickyContext = useMemo<GroupRowContext>(
+    () => ({
+      ...context,
+      selectable: false,
+      // Collapsing the group you are scrolled *inside* removes rows from above
+      // the viewport, which would fling the scroll position somewhere
+      // arbitrary. Bring the real header to the top first: everything above it
+      // is untouched by the collapse, so it stays exactly where the bar was.
+      toggleGroupCollapse: (key: string) => {
+        const a = gridRef.current?.api;
+        const anchor = anchorsRef.current.find((x) => x.group.key === key);
+        if (a && anchor) {
+          try {
+            a.ensureIndexVisible(anchor.rowIndex, "top");
+          } catch {
+            // Non-fatal — the collapse below is the part that matters.
+          }
+        }
+        context.toggleGroupCollapse(key);
+      },
+    }),
+    [context, gridRef],
+  );
+
+  return (
+    <>
+      {/* Zero-size probe: gives the effect a handle on the wrapper element
+          without competing for the wrapper's own ref (which the pages already
+          hand to useColumnFreeze). A plain div, not a Box — it is never
+          painted, so it has no business minting an emotion class. */}
+      <div ref={anchorRef} className="tea-group-sticky-probe" style={{ display: "none" }} />
+      {api && current && (
+        <Box
+          aria-hidden
+          sx={{
+            position: "absolute",
+            insetInline: 0,
+            top: `${top}px`,
+            height: current.height,
+            overflow: "hidden",
+            // Sits above the rows (later sibling, positioned) but below AG
+            // Grid's own popups, which carry positive z-indexes — a column
+            // filter opens exactly here.
+            zIndex: 0,
+            pointerEvents: "none",
+            "@media print": { display: "none" },
+          }}
+        >
+          <Box
+            ref={barRef}
+            sx={{
+              height: "100%",
+              pointerEvents: "auto",
+              // GroupHeaderRow's own `action.hover` is translucent, and this
+              // one floats over real rows.
+              bgcolor: "background.paper",
+              boxShadow: 1,
+            }}
+          >
+            <GroupHeaderRow
+              data={{ __group: current.info } as GroupedRow<T>}
+              api={api}
+              context={stickyContext}
+            />
+          </Box>
+        </Box>
+      )}
+    </>
+  );
+}
+
 export interface UseRowGroupingOptions<T extends { id: string }> {
   rows: T[];
   /** The axes this grid can group by. An unknown `groupBy` value (stale pref,
@@ -202,6 +447,7 @@ export function useRowGrouping<T extends { id: string }>(
   { rows, axes, groupBy, selectable = true, initialFocusGroup = null }: UseRowGroupingOptions<T>,
 ) {
   const { t } = useTranslation("common");
+  const isRtl = useIsRtl();
 
   const activeAxis = useMemo(
     () => (groupBy ? (axes.find((a) => a.key === groupBy) ?? null) : null),
@@ -368,6 +614,16 @@ export function useRowGrouping<T extends { id: string }>(
     [context],
   );
 
+  // Group headers currently in the row list, with the grid row id each one was
+  // registered under — the sticky bar resolves their positions through these.
+  const heads = useMemo(
+    () =>
+      activeAxis
+        ? rowData.flatMap((row) => (row.__group ? [{ id: groupRowId(row), info: row.__group }] : []))
+        : [],
+    [activeAxis, rowData, groupRowId],
+  );
+
   return {
     activeAxis,
     rowData,
@@ -376,6 +632,19 @@ export function useRowGrouping<T extends { id: string }>(
     gridProps,
     handleFilterChanged,
     handleModelUpdated,
+    /** Spread into the grid wrapper's `sx` — the sticky bar positions against it. */
+    sx: rowGroupingSx,
+    /** Render inside the grid wrapper, after `<AgGridReact>`. */
+    stickyHeader: activeAxis ? (
+      // Keyed like the grid itself: a writing-direction flip remounts the grid
+      // and mints a new api, so the bar has to start over too.
+      <StickyGroupHeader
+        key={isRtl ? "rtl" : "ltr"}
+        gridRef={gridRef}
+        heads={heads}
+        context={context}
+      />
+    ) : null,
   };
 }
 

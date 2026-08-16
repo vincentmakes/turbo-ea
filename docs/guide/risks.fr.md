@@ -2,7 +2,7 @@
 
 Le **Registre des risques** capture les risques d'architecture tout au long de leur cycle de vie — de l'identification à la mitigation, à l'évaluation résiduelle, à la surveillance et à la clôture (ou à l'acceptation formelle). Il vit comme l'onglet **Risque** du [module GRC](grc.md) à `/grc?tab=risk`.
 
-La grille du registre peut être **regroupée** : le bouton *Grouper par* de la barre d'outils du tableau classe les risques sous des en-têtes repliables par statut, catégorie, niveau initial ou résiduel, ou responsable, avec un groupe « Non défini » en tête — pratique pour passer le registre en revue groupe par groupe en réunion.
+La grille du registre peut être **regroupée** : le bouton *Grouper par* de la barre d'outils du tableau classe les risques sous des en-têtes repliables par statut, catégorie, niveau initial ou résiduel, ou responsable, avec un groupe « Non défini » en tête — pratique pour passer le registre en revue groupe par groupe en réunion. Lorsque vous faites défiler un groupe long, son en-tête reste épinglé sous les en-têtes de colonnes : vous ne perdez jamais de vue celui dans lequel vous êtes.
 
 ## Alignement TOGAF
 

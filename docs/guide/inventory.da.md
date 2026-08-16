@@ -152,6 +152,7 @@ Klik på **Gruppér efter** i værktøjslinjen (ved siden af antallet af element
 
 - Kort uden værdi i det valgte felt havner i gruppen **Ikke angivet** øverst — det naturlige udgangspunkt for at klassificere uklassificerede kort.
 - Klik på en gruppeoverskrift for at folde gruppen sammen eller ud. Overskriften viser antallet af kort i gruppen.
+- Når du ruller gennem en lang gruppe, forbliver dens overskrift fastgjort lige under kolonneoverskrifterne, så du altid ved, hvilken gruppe du læser; den næste gruppes overskrift skubber den væk, når den når frem.
 - Afkrydsningsfeltet i overskriften vælger alle kort i gruppen: for at omklassificere en stak skal du folde **Ikke angivet** ud, markere overskriften og sætte værdien med [Masseredigering](#mass-edit). Der er bevidst ingen træk-og-slip — vælg og sæt fungerer ens på computer, tablet og telefon.
 - Sortering gælder inden for hver gruppe; grupperingen huskes efter genindlæsning, gemmes i gemte visninger og kan deles via URL-parameteren `group_by`.
 

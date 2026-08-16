@@ -2,7 +2,7 @@
 
 Il **Registro dei Rischi** cattura i rischi dell'architettura lungo l'intero ciclo di vita — dall'identificazione alla mitigazione, dalla valutazione residua al monitoraggio e alla chiusura (o all'accettazione formale). Vive come la scheda **Rischio** del [modulo GRC](grc.md) a `/grc?tab=risk`.
 
-La griglia del registro può essere **raggruppata**: il pulsante *Raggruppa per* nella barra degli strumenti della tabella ordina i rischi sotto intestazioni comprimibili per stato, categoria, livello iniziale o residuo, oppure responsabile, con un gruppo «Non impostato» in cima — utile per esaminare il registro un gruppo alla volta in una riunione di revisione.
+La griglia del registro può essere **raggruppata**: il pulsante *Raggruppa per* nella barra degli strumenti della tabella ordina i rischi sotto intestazioni comprimibili per stato, categoria, livello iniziale o residuo, oppure responsabile, con un gruppo «Non impostato» in cima — utile per esaminare il registro un gruppo alla volta in una riunione di revisione. Scorrendo un gruppo lungo, la sua intestazione resta fissata sotto le intestazioni di colonna, così non perdi mai di vista in quale ti trovi.
 
 ## Allineamento a TOGAF
 

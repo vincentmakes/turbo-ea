@@ -150,6 +150,7 @@ Cliquez sur **Grouper par** dans la barre d'outils (à côté du nombre d'élém
 
 - Les cartes sans valeur pour le champ choisi sont rassemblées dans un groupe **Non défini** en haut de la grille : le point de départ naturel pour trier les cartes non classées.
 - Cliquez sur l'en-tête d'un groupe pour le replier ou le déplier. L'en-tête affiche le nombre de cartes du groupe.
+- Lorsque vous faites défiler un groupe long, son en-tête reste épinglé juste sous les en-têtes de colonnes : vous savez toujours quel groupe vous lisez, et l'en-tête du groupe suivant le chasse à son arrivée.
 - La case à cocher de l'en-tête sélectionne toutes les cartes du groupe : pour reclasser un lot, dépliez **Non défini**, cochez l'en-tête, puis définissez la valeur via la [Modification en masse](#mass-edit). Il n'y a volontairement pas de glisser-déposer : sélectionner puis définir fonctionne de la même façon sur ordinateur, tablette et téléphone.
 - Le tri s'applique à l'intérieur de chaque groupe ; le regroupement est conservé après rechargement, enregistré dans les vues sauvegardées et partageable via le paramètre d'URL `group_by`.
 

@@ -3751,7 +3751,14 @@ export default function InventoryPage() {
           ref={columnFreeze.containerRef}
           {...cellMenu.containerProps}
           className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
-          sx={{ flex: 1, width: "100%", minHeight: 0, ...columnFreeze.sx, ...cellMenu.sx }}
+          sx={{
+            flex: 1,
+            width: "100%",
+            minHeight: 0,
+            ...columnFreeze.sx,
+            ...cellMenu.sx,
+            ...grouping.sx,
+          }}
         >
           <AgGridReact
             key={isRtl ? "rtl" : "ltr"}
@@ -3793,6 +3800,7 @@ export default function InventoryPage() {
                 : undefined
             }
           />
+          {grouping.stickyHeader}
         </Box>
       </Box>
 

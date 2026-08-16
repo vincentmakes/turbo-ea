@@ -747,6 +747,7 @@ export default function AdrGrid({
           sx={{
             ...columnFreeze.sx,
             ...cellMenu.sx,
+            ...grouping.sx,
             flex: autoHeight ? "none" : 1,
             minHeight: 0,
             // Rows are clickable (open ADR detail) — surface that affordance:
@@ -791,6 +792,9 @@ export default function AdrGrid({
             getRowId={(params) => grouping.groupRowId(params.data)}
             domLayout={autoHeight ? "autoHeight" : undefined}
           />
+          {/* No-ops under `autoHeight` — that grid scrolls with the page, so it
+              has no viewport of its own for the bar to track. */}
+          {grouping.stickyHeader}
         </Box>
       </Box>
 

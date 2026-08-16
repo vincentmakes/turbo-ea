@@ -152,6 +152,7 @@ Click **Group by** in the toolbar (next to the item count) to organise the grid 
 
 - Cards without a value on the chosen field land in a **Not set** group at the top — the natural triage bucket for unclassified cards.
 - Click a group header to collapse or expand it. The header shows the group's card count.
+- Scroll into a long group and its header stays pinned just below the column headers, so you always know which group you are reading; the next group's header slides it aside as it arrives.
 - The header checkbox selects every card in the group, so reclassifying a batch is: expand **Not set**, tick the header, then [Mass Edit](#mass-edit) the value. There is deliberately no drag and drop — select and set works the same on desktop, tablet, and phone.
 - Sorting applies within each group, and the grouping is remembered across reloads, stored in saved views, and shareable via the `group_by` URL parameter.
 

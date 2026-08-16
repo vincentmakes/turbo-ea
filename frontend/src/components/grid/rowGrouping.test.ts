@@ -1,12 +1,17 @@
 import { describe, it, expect } from "vitest";
+import { CATEGORICAL_COLORS } from "@/theme/tokens";
 import {
   NOT_SET_KEY,
   buildGroupedRows,
   collapsedSetForFocus,
+  findStickyGroupIndex,
   glueGroups,
   groupKeyOn,
+  resolveVocabColor,
   type GroupAxis,
   type GroupedRow,
+  type GroupHeaderAnchor,
+  type GroupInfo,
 } from "./rowGrouping";
 
 interface Row {
@@ -84,6 +89,34 @@ describe("buildGroupedRows", () => {
     const rows = buildGroupedRows([mission1, notSet], colored, new Set(), null, "Not set");
     expect(rows.find((r) => r.__group?.key === "missionCritical")!.__group!.color).toBe("#d32f2f");
     expect(rows.find((r) => r.__group?.key === NOT_SET_KEY)!.__group!.color).toBeUndefined();
+  });
+
+  it("falls back to a categorical color on an axis whose vocabulary has none", () => {
+    // AXIS carries no colors at all — the subtype / owner / category case.
+    const rows = buildGroupedRows([mission1, admin1], AXIS, new Set(), null, "Not set");
+    const mission = rows.find((r) => r.__group?.key === "missionCritical")!.__group!;
+    const admin = rows.find((r) => r.__group?.key === "administrative")!.__group!;
+    expect(mission.color).toBe(CATEGORICAL_COLORS[0]);
+    expect(admin.color).toBe(CATEGORICAL_COLORS[2]);
+    // Neighbours must be told apart — that is the whole point of the palette.
+    expect(mission.color).not.toBe(admin.color);
+  });
+
+  it("keeps a group's fallback color when an earlier group empties out", () => {
+    const all = buildGroupedRows([mission1, admin1], AXIS, new Set(), null, "Not set");
+    const withoutMission = buildGroupedRows([admin1], AXIS, new Set(), null, "Not set");
+    // Colors index the axis vocabulary, not the surviving groups, so filtering
+    // one group away must not re-hue everything below it.
+    expect(withoutMission.find((r) => r.__group?.key === "administrative")!.__group!.color).toBe(
+      all.find((r) => r.__group?.key === "administrative")!.__group!.color,
+    );
+  });
+
+  it("leaves stray keys uncolored", () => {
+    // A value whose metamodel option was deleted: it renders as the raw key,
+    // and coloring it would dress a data-quality problem up as intentional.
+    const rows = buildGroupedRows([row("x", "X", "retired")], AXIS, new Set(), null, "Not set");
+    expect(rows.find((r) => r.__group?.key === "retired")!.__group!.color).toBeUndefined();
   });
 
   it("collapsed groups emit the header only", () => {
@@ -190,5 +223,61 @@ describe("glueGroups", () => {
     const nodes = [node(row("x", "X"))];
     glueGroups(nodes, AXIS);
     expect(nodes.map((n) => n.data.id)).toEqual(["x"]);
+  });
+});
+
+describe("resolveVocabColor", () => {
+  it("prefers the entry's own color", () => {
+    expect(resolveVocabColor({ key: "a", label: "A", color: "#d32f2f" }, 3)).toBe("#d32f2f");
+  });
+
+  it("falls back to the categorical palette by position", () => {
+    expect(resolveVocabColor({ key: "a", label: "A" }, 0)).toBe(CATEGORICAL_COLORS[0]);
+    expect(resolveVocabColor({ key: "b", label: "B" }, 4)).toBe(CATEGORICAL_COLORS[4]);
+  });
+
+  it("wraps around a vocabulary longer than the palette", () => {
+    expect(resolveVocabColor({ key: "a", label: "A" }, CATEGORICAL_COLORS.length)).toBe(
+      CATEGORICAL_COLORS[0],
+    );
+  });
+});
+
+describe("findStickyGroupIndex", () => {
+  const info = (key: string): GroupInfo => ({
+    axis: "a",
+    key,
+    label: key,
+    count: 1,
+    memberIds: [],
+    collapsed: false,
+    index: 0,
+  });
+  const anchor = (top: number, key: string): GroupHeaderAnchor => ({
+    top,
+    height: 32,
+    rowIndex: 0,
+    group: info(key),
+  });
+  const anchors = [anchor(0, "first"), anchor(300, "second"), anchor(900, "third")];
+
+  it("returns -1 with no groups at all", () => {
+    expect(findStickyGroupIndex([], 100)).toBe(-1);
+  });
+
+  it("returns -1 when scrolled above the first header", () => {
+    expect(findStickyGroupIndex([anchor(50, "first")], 10)).toBe(-1);
+  });
+
+  it("picks the group a mid-group offset belongs to", () => {
+    expect(findStickyGroupIndex(anchors, 500)).toBe(1);
+  });
+
+  it("treats a header's own top as inside that group", () => {
+    expect(findStickyGroupIndex(anchors, 300)).toBe(1);
+  });
+
+  it("stays on the last group past the last header", () => {
+    expect(findStickyGroupIndex(anchors, 99999)).toBe(2);
   });
 });

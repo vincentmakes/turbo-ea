@@ -2,7 +2,7 @@
 
 O **Registo de Riscos** captura os riscos de arquitetura ao longo de todo o seu ciclo de vida — da identificação à mitigação, avaliação residual, monitorização e fecho (ou aceitação formal). Vive como o separador **Risco** do [módulo GRC](grc.md) em `/grc?tab=risk`.
 
-A grelha do registo pode ser **agrupada**: o botão *Agrupar por* na barra de ferramentas da tabela organiza os riscos sob cabeçalhos expansíveis por estado, categoria, nível inicial ou residual, ou responsável, com um grupo «Não definido» no topo — útil para percorrer o registo grupo a grupo numa reunião de revisão.
+A grelha do registo pode ser **agrupada**: o botão *Agrupar por* na barra de ferramentas da tabela organiza os riscos sob cabeçalhos expansíveis por estado, categoria, nível inicial ou residual, ou responsável, com um grupo «Não definido» no topo — útil para percorrer o registo grupo a grupo numa reunião de revisão. Ao percorrer um grupo longo, o seu cabeçalho permanece fixo sob os cabeçalhos de coluna, pelo que nunca perde de vista em qual se encontra.
 
 ## Alinhamento com TOGAF
 
