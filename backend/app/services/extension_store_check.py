@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from sqlalchemy import select
@@ -180,7 +181,7 @@ def classify(
     return StoreChanges(new=new, updates=updates)
 
 
-def _names(entries: list) -> str:
+def _names(entries: Sequence[NewExtension] | Sequence[ExtensionUpdate]) -> str:
     """``"A, B and 2 more"`` — keeps a digest message inside the bell's width."""
     names = [e.name for e in entries]
     if len(names) == 1:
