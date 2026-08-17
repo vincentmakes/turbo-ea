@@ -38,6 +38,16 @@ const MOCK_ROLES = [
   { id: "4", key: "old", label: "Archived role", color: "#000", is_system: false, is_default: false, is_archived: true, permissions: {}, sort_order: 4 },
 ];
 
+/**
+ * The Select is gated behind the dialog's `loading` flag, so it does not exist
+ * until `api.get` has *resolved* and React has committed. Waiting on the mock
+ * having been *called* is not the same thing — that is true the instant the
+ * effect fires, one microtask too early — so these tests wait on the rendered
+ * combobox instead. `findByRole` retries; `getByRole` does not, which is what
+ * made this file fail under load on CI while passing locally.
+ */
+const combobox = () => screen.findByRole("combobox");
+
 describe("ImpersonateRoleDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -51,9 +61,9 @@ describe("ImpersonateRoleDialog", () => {
 
   it("fetches roles on open and excludes admin + archived", async () => {
     wrap(<ImpersonateRoleDialog open onClose={() => {}} onSuccess={() => {}} />);
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/roles"));
     // Open the Select to make its options visible in the DOM.
-    fireEvent.mouseDown(screen.getByRole("combobox"));
+    fireEvent.mouseDown(await combobox());
+    expect(api.get).toHaveBeenCalledWith("/roles");
     await screen.findByRole("option", { name: "Member" });
     expect(screen.queryByRole("option", { name: "Admin" })).not.toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Archived role" })).not.toBeInTheDocument();
@@ -66,9 +76,8 @@ describe("ImpersonateRoleDialog", () => {
     const onSuccess = vi.fn();
     const onClose = vi.fn();
     wrap(<ImpersonateRoleDialog open onClose={onClose} onSuccess={onSuccess} />);
-    await waitFor(() => expect(api.get).toHaveBeenCalled());
 
-    fireEvent.mouseDown(screen.getByRole("combobox"));
+    fireEvent.mouseDown(await combobox());
     fireEvent.click(await screen.findByRole("option", { name: "Viewer" }));
     fireEvent.click(screen.getByRole("button", { name: /Start viewing/i }));
 
@@ -81,9 +90,8 @@ describe("ImpersonateRoleDialog", () => {
   it("renders an error when impersonate API fails", async () => {
     (auth.impersonate as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("Forbidden"));
     wrap(<ImpersonateRoleDialog open onClose={() => {}} onSuccess={() => {}} />);
-    await waitFor(() => expect(api.get).toHaveBeenCalled());
 
-    fireEvent.mouseDown(screen.getByRole("combobox"));
+    fireEvent.mouseDown(await combobox());
     fireEvent.click(await screen.findByRole("option", { name: "Member" }));
     fireEvent.click(screen.getByRole("button", { name: /Start viewing/i }));
 
