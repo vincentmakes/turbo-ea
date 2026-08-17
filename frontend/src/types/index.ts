@@ -703,7 +703,9 @@ export type NotificationType =
   | "soaw_signed"
   | "survey_request"
   | "app_update_available"
-  | "app_updated";
+  | "app_updated"
+  | "extension_available"
+  | "extension_update_available";
 
 export interface Notification {
   id: string;

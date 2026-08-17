@@ -184,6 +184,16 @@ L'annonce est envoyée **une fois par version** : dix redémarrages sur la même
 
 Celle-ci est **uniquement dans l'application** et n'est jamais envoyée par e-mail — elle touche chaque utilisateur actif à chaque mise à niveau, et un canal e-mail transformerait chaque correctif en publipostage. Chaque utilisateur peut toutefois la désactiver sous **Notifications de mise à jour** dans ses propres préférences, où l'interrupteur e-mail apparaît désactivé.
 
+### Notifications de la boutique d'extensions
+
+Un troisième commutateur, **Notifications de la boutique d'extensions**, remplit le même rôle pour la [boutique d'extensions](extensions.md). Une fois par jour, l'instance lit le catalogue public de la boutique et, en cas de changement, prévient tous les utilisateurs dont le rôle accorde `admin.manage_extensions` — la permission qui ouvre la page Extensions. Deux choses sont annoncées : une extension publiée dans la boutique que vous n'avez pas installée, et une version plus récente d'une extension que vous avez.
+
+Les jours de sortie chargés restent lisibles : quel que soit le nombre d'extensions concernées, chaque administrateur reçoit **une** notification par catégorie (« 3 mises à jour d'extensions disponibles »), et non une par extension. Chaque changement est annoncé **une seule fois** — un catalogue inchangé pendant un mois produit une notification, pas trente — et un clic ouvre l'onglet Boutique dans Turbo EA.
+
+La toute première lecture réussie du catalogue n'annonce **aucune** nouvelle extension : une instance qui découvre la boutique signalerait sinon tout son contenu. Les mises à jour des extensions déjà installées sont signalées immédiatement, car elles sont toujours peu nombreuses et directement actionnables.
+
+Comme la vérification des versions, ceci relève **uniquement de l'information** — rien n'est téléchargé ni installé, et l'installation reste une action délibérée sur la page Extensions. Désactiver le commutateur supprime totalement la requête quotidienne vers la boutique. Chaque administrateur peut désactiver séparément les lignes **Nouvelle extension disponible** et **Mise à jour d'extension disponible** dans ses propres préférences de notification.
+
 ## Bouton Soutenir
 
 Affichez ou masquez le bouton **Soutenir** dans le menu utilisateur (avatar). Lorsqu'il est masqué, les utilisateurs ne voient plus le bouton Soutenir dans leur menu de profil. Le bouton Soutenir — et la boîte de dialogue expliquant comment soutenir Turbo EA — reste toujours disponible depuis ce panneau de paramètres, de sorte que les administrateurs peuvent toujours y accéder même lorsqu'il est masqué du menu.

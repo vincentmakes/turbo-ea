@@ -34,6 +34,8 @@ La scheda **Store** funziona senza alcuna configurazione ed elenca le estensioni
 
 La scheda Store è in sola lettura e anonima: nessun account, nessun token, e nulla della tua istanza viene inviato — viene letto solo il catalogo pubblico del fornitore. Le istanze isolate non richiedono alcuna configurazione — la scheda mostra allora semplicemente un avviso cordiale — e usano il flusso basato su file qui sotto; il sito dello store del fornitore offre gli stessi acquisti e download da qualsiasi browser connesso a Internet.
 
+L'istanza **controlla inoltre il catalogo una volta al giorno** e segnala i cambiamenti, così una nuova estensione — o una correzione di sicurezza per una già in uso — non deve attendere che qualcuno apra per caso questa pagina. Gli amministratori (chiunque abbia un ruolo che concede `admin.manage_extensions`) ricevono una notifica nella campanella quando una nuova estensione viene pubblicata nello store e un'altra quando un'estensione installata ha una versione più recente. Ogni cambiamento viene annunciato una sola volta e una giornata di rilasci intensa arriva come una notifica per tipo anziché una per estensione. Non viene scaricato né installato nulla: la notifica ti porta semplicemente qui. Il controllo giornaliero può essere disattivato del tutto in [Admin → Impostazioni → Notifiche di aggiornamento](settings.md#update-notifications).
+
 ## Installare un'estensione
 
 1. Se non lo hai già fatto, applica prima la licenza (vedi sotto).

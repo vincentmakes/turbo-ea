@@ -184,6 +184,16 @@ O anúncio é enviado **uma vez por versão**: reiniciar dez vezes na mesma vers
 
 Esta é **apenas na aplicação** e nunca é enviada por e-mail: chega a todos os utilizadores ativos em cada atualização, e um canal de e-mail transformaria cada versão de correção num envio em massa. Cada utilizador pode silenciá-la em **Notificações de atualização** nas suas próprias preferências, onde o interruptor de e-mail surge desativado.
 
+### Notificações da loja de extensões
+
+Um terceiro interruptor, **Notificações da loja de extensões**, faz o mesmo para a [loja de extensões](extensions.md). Uma vez por dia a instância lê o catálogo público da loja e, quando algo mudou, avisa todos os utilizadores cujo perfil concede `admin.manage_extensions` — a mesma permissão que abre a página Extensões. São anunciadas duas coisas: uma extensão publicada na loja que não tem instalada e uma versão mais recente de alguma que tem.
+
+Os dias de lançamento mais intensos continuam legíveis: por muitas extensões que mudem, cada administrador recebe **uma** notificação por tipo («3 atualizações de extensões disponíveis»), não uma por extensão. Cada mudança é anunciada **uma só vez** — um catálogo que fica um mês sem alterações produz uma notificação, não trinta — e um clique abre o separador Loja dentro do Turbo EA.
+
+A primeira leitura bem-sucedida do catálogo não anuncia **nenhuma** extensão nova: uma instância que vê a loja pela primeira vez comunicaria todo o seu conteúdo. As atualizações de extensões já instaladas são comunicadas de imediato, porque são sempre poucas e diretamente acionáveis.
+
+Tal como a verificação de versões, isto é **apenas informativo** — nada é descarregado nem instalado, e instalar continua a ser uma ação deliberada na página Extensões. Desativar o interruptor elimina por completo o pedido diário à loja. Cada administrador pode silenciar separadamente as linhas **Nova extensão disponível** e **Atualização de extensão disponível** nas suas próprias preferências de notificação.
+
 ## Botão Apoiar
 
 Mostre ou oculte o botão **Apoiar** no menu de utilizador (avatar). Quando está oculto, os utilizadores deixam de ver o botão Apoiar no seu menu de perfil. O botão Apoiar — e a caixa de diálogo que explica como apoiar o Turbo EA — permanece sempre disponível neste painel de definições, pelo que os administradores ainda conseguem aceder-lhe mesmo quando está oculto no menu.

@@ -20,7 +20,8 @@ class Notification(Base, UUIDMixin, TimestampMixin):
     type: Mapped[str] = mapped_column(String(50), nullable=False)
     # Types: todo_assigned, card_updated, comment_added,
     #        approval_status_changed, soaw_sign_requested, soaw_signed,
-    #        stakeholder_update, app_update_available, app_updated
+    #        stakeholder_update, app_update_available, app_updated,
+    #        extension_available, extension_update_available
 
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False, default="")

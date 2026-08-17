@@ -325,6 +325,45 @@ class TestUpdateCheckEnabledSettings:
         )
         assert resp.status_code == 403
 
+    async def test_extension_notices_default_to_enabled(self, client, db, settings_env):
+        admin = settings_env["admin"]
+        resp = await client.get("/api/v1/settings/bootstrap", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        assert resp.json()["extension_notices_enabled"] is True
+
+    async def test_admin_can_toggle_extension_notices(self, client, db, settings_env):
+        admin = settings_env["admin"]
+
+        resp = await client.patch(
+            "/api/v1/settings/extension-notices-enabled",
+            json={"enabled": False},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["ok"] is True
+
+        get_resp = await client.get("/api/v1/settings/bootstrap", headers=auth_headers(admin))
+        assert get_resp.json()["extension_notices_enabled"] is False
+
+        resp2 = await client.patch(
+            "/api/v1/settings/extension-notices-enabled",
+            json={"enabled": True},
+            headers=auth_headers(admin),
+        )
+        assert resp2.status_code == 200
+
+        get_resp2 = await client.get("/api/v1/settings/bootstrap", headers=auth_headers(admin))
+        assert get_resp2.json()["extension_notices_enabled"] is True
+
+    async def test_member_cannot_toggle_extension_notices(self, client, db, settings_env):
+        member = settings_env["member"]
+        resp = await client.patch(
+            "/api/v1/settings/extension-notices-enabled",
+            json={"enabled": False},
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 403
+
     async def test_update_status_serves_the_cached_release_notes(self, client, db, settings_env):
         from app.services.update_check import ReleaseInfo, record_result
 

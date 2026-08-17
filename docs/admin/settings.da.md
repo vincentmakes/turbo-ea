@@ -184,6 +184,16 @@ Annonceringen sendes **én gang pr. version**: ti genstarter på samme version g
 
 Denne er **kun i appen** og sendes aldrig som e-mail — den når hver aktiv bruger ved hver opgradering, og en e-mailkanal ville gøre hver patch-udgivelse til en masseudsendelse. Den enkelte bruger kan stadig slå den fra under **Opdateringsnotifikationer** i sine egne notifikationsindstillinger, hvor e-mailkontakten vises deaktiveret.
 
+### Notifikationer fra udvidelsesbutikken
+
+En tredje kontakt, **Notifikationer fra udvidelsesbutikken**, gør det samme for [udvidelsesbutikken](extensions.md). En gang om dagen læser instansen butikkens offentlige katalog og giver ved ændringer besked til alle brugere, hvis rolle giver `admin.manage_extensions` — den samme tilladelse, der åbner siden Udvidelser. To ting annonceres: en udvidelse udgivet i butikken, som du ikke har installeret, og en nyere version af en, du har.
+
+Travle udgivelsesdage forbliver overskuelige: uanset hvor mange udvidelser der er ændret, får hver administrator **én** notifikation pr. type ("3 udvidelsesopdateringer tilgængelige") og ikke én pr. udvidelse. Hver ændring annonceres **én gang** — et katalog, der ligger uændret i en måned, giver én notifikation, ikke tredive — og et klik åbner fanen Butik inde i Turbo EA.
+
+Den allerførste vellykkede læsning af kataloget annoncerer **ingen** nye udvidelser: en instans, der møder butikken for første gang, ville ellers rapportere hele indholdet. Opdateringer til udvidelser, du allerede har, rapporteres derimod med det samme, fordi de altid er få og kan håndteres straks.
+
+Ligesom versionstjekket er dette **kun en notifikation** — intet hentes eller installeres, og installation er fortsat en bevidst handling på siden Udvidelser. Slås kontakten **fra**, forsvinder den daglige forespørgsel til butikken helt. Den enkelte administrator kan slå rækkerne **Ny udvidelse tilgængelig** og **Udvidelsesopdatering tilgængelig** fra hver for sig i sine egne notifikationsindstillinger.
+
 ## Støt-knap
 
 Vis eller skjul **Støt**-knappen i brugermenuen (avatar). Når den er skjult, ser brugerne ikke længere Støt-knappen i deres profilmenu. Støt-knappen — og dialogen, der forklarer, hvordan man støtter Turbo EA — er altid tilgængelig fra dette indstillingspanel, så administratorer stadig kan nå den, selv når den er skjult i menuen.

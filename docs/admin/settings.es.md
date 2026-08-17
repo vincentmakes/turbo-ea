@@ -184,6 +184,16 @@ El anuncio se envía **una vez por versión**: reiniciar diez veces con la misma
 
 Esta notificación es **solo en la aplicación** y nunca se envía por correo: llega a todos los usuarios activos en cada actualización, y un canal de correo convertiría cada versión de parche en un envío masivo. Cada usuario puede silenciarla en **Notificaciones de actualización** dentro de sus propias preferencias, donde el interruptor de correo aparece desactivado.
 
+### Notificaciones de la tienda de extensiones
+
+Un tercer interruptor, **Notificaciones de la tienda de extensiones**, hace lo mismo para la [tienda de extensiones](extensions.md). Una vez al día la instancia lee el catálogo público de la tienda y, cuando algo ha cambiado, avisa a todos los usuarios cuyo rol conceda `admin.manage_extensions`, el mismo permiso que abre la página Extensiones. Se anuncian dos cosas: una extensión publicada en la tienda que no tenga instalada, y una versión más reciente de alguna que sí tenga.
+
+Los días de lanzamiento intensos siguen siendo legibles: por muchas extensiones que cambien, cada administrador recibe **una** notificación por tipo («3 actualizaciones de extensiones disponibles»), no una por extensión. Cada cambio se anuncia **una sola vez** —un catálogo que no cambia en un mes produce una notificación, no treinta— y al hacer clic se abre la pestaña Tienda dentro de Turbo EA.
+
+La primera lectura correcta del catálogo no anuncia **ninguna** extensión nueva: una instancia que ve la tienda por primera vez informaría de todo su contenido. Las actualizaciones de extensiones ya instaladas sí se informan de inmediato, porque siempre son unas pocas y se pueden aplicar directamente.
+
+Igual que la comprobación de versiones, esto es **solo informativo**: no se descarga ni se instala nada, e instalar sigue siendo una acción deliberada en la página Extensiones. Desactivar el interruptor elimina por completo la petición diaria a la tienda. Cada administrador puede silenciar por separado las filas **Nueva extensión disponible** y **Actualización de extensión disponible** en sus propias preferencias de notificación.
+
 ## Botón Patrocinar
 
 Muestra u oculta el botón **Patrocinar** en el menú de usuario (avatar). Cuando está oculto, los usuarios ya no ven el botón Patrocinar en su menú de perfil. El botón Patrocinar — y el cuadro de diálogo que explica cómo apoyar Turbo EA — siempre permanece disponible desde este panel de configuración, por lo que los administradores aún pueden acceder a él incluso cuando está oculto en el menú.

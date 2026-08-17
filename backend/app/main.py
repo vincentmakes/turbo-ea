@@ -327,6 +327,31 @@ async def _update_check_loop() -> None:
             logger.exception("Error in update check loop")
 
 
+async def _extension_store_check_loop() -> None:
+    """Daily loop that notifies administrators about new and updated extensions.
+
+    Awareness only — nothing is downloaded, installed or restarted. Runs shortly
+    after boot (so an instance that has been off for a while catches up without
+    waiting a day) and then every 24h. Silent on air-gapped installs, and
+    skipped entirely when an admin turns the notices off.
+
+    Staggered behind the license refresh (120s) and the app-update check (180s):
+    firing three outbound probes within a second of boot is a needless burst.
+    """
+    from app.services.extension_store_check import run_extension_store_check
+
+    delay = 240  # first attempt shortly after boot, then daily
+    while True:
+        try:
+            await asyncio.sleep(delay)
+            delay = 24 * 3600
+            await run_extension_store_check()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Error in extension store check loop")
+
+
 async def _promote_recurring_tasks_loop() -> None:
     """Daily background loop that flips eligible ``scheduled`` recurring
     items to ``open`` once their lead-time window opens.
@@ -873,6 +898,10 @@ async def lifespan(app: FastAPI):
     # bell. Notification only — never downloads or installs anything.
     update_check_task = asyncio.create_task(_update_check_loop())
 
+    # Daily "new / updated extensions in the store" check that notifies
+    # administrators via the bell. Notification only — never installs anything.
+    extension_store_task = asyncio.create_task(_extension_store_check_loop())
+
     # One-shot canonical data-quality rescore (guarded by a settings marker;
     # a no-op on every boot after the first successful run).
     dq_rescore_task = asyncio.create_task(_one_shot_data_quality_rescore())
@@ -922,6 +951,11 @@ async def lifespan(app: FastAPI):
     update_check_task.cancel()
     try:
         await update_check_task
+    except asyncio.CancelledError:
+        pass
+    extension_store_task.cancel()
+    try:
+        await extension_store_task
     except asyncio.CancelledError:
         pass
     ops_access_task.cancel()

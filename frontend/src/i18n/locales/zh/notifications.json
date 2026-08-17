@@ -22,6 +22,8 @@
   "preferences.surveyRequest": "调查请求",
   "preferences.appUpdateAvailable": "有可用更新",
   "preferences.appUpdated": "应用已更新",
+  "preferences.extensionAvailable": "有新扩展可用",
+  "preferences.extensionUpdateAvailable": "有扩展更新可用",
 
   "releaseNotes.title": "{{app}} {{version}} 已发布",
   "releaseNotes.titleFallback": "发行说明",

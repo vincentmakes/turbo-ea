@@ -23,6 +23,8 @@
   "preferences.surveyRequest": "Survey Request",
   "preferences.appUpdateAvailable": "Update Available",
   "preferences.appUpdated": "App Updated",
+  "preferences.extensionAvailable": "New Extension Available",
+  "preferences.extensionUpdateAvailable": "Extension Update Available",
 
   "releaseNotes.title": "{{app}} {{version}} is available",
   "releaseNotes.titleFallback": "Release notes",

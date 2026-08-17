@@ -238,6 +238,7 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         "sponsor_button_enabled": general.get("sponsorButtonEnabled", True),
         "update_check_enabled": general.get("updateCheckEnabled", True),
         "announce_upgrades_enabled": general.get("announceUpgradesEnabled", True),
+        "extension_notices_enabled": general.get("extensionNoticesEnabled", True),
         "file_uploads_enabled": general.get("fileUploadsEnabled", True),
         "enabled_locales": general.get("enabledLocales", SUPPORTED_LOCALES),
         "fiscal_year_start": general.get("fiscalYearStart", 1),
@@ -905,6 +906,35 @@ async def update_update_check_enabled(
     row = await _get_or_create_row(db)
     general = dict(row.general_settings or {})
     general["updateCheckEnabled"] = body.enabled
+    row.general_settings = general
+
+    await db.commit()
+    return {"ok": True}
+
+
+class ExtensionNoticesEnabledPayload(BaseModel):
+    enabled: bool
+
+
+@router.patch("/extension-notices-enabled")
+async def update_extension_notices_enabled(
+    body: ExtensionNoticesEnabledPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — enable or disable the daily extension-store check.
+
+    Turning it off stops the outbound request to the store entirely (the flag is
+    read before the fetch), which is what an egress-restricted or air-gapped
+    install wants. Gated on ``admin.settings`` like its two neighbours: who owns
+    the switch for outbound traffic is a separate question from who receives the
+    resulting notifications (``admin.manage_extensions``).
+    """
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["extensionNoticesEnabled"] = body.enabled
     row.general_settings = general
 
     await db.commit()

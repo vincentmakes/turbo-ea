@@ -40,10 +40,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import APP_VERSION
 from app.models.app_settings import AppSettings
-from app.models.role import Role
-from app.models.user import User
 from app.services.app_identity import get_app_title
 from app.services.catalogue_common import now_iso, version_tuple
+from app.services.notification_recipients import users_with_permission
 from app.services.notification_service import create_notification
 
 logger = logging.getLogger(__name__)
@@ -158,31 +157,7 @@ def is_newer(latest: str, current: str | None = None) -> bool:
 
 async def admin_recipient_ids(db: AsyncSession) -> list[uuid.UUID]:
     """Active users whose role grants ``admin.settings`` (or the wildcard)."""
-    roles = (
-        (await db.execute(select(Role).where(Role.is_archived == False)))  # noqa: E712
-        .scalars()
-        .all()
-    )
-    keys = [
-        r.key
-        for r in roles
-        if (r.permissions or {}).get("*") or (r.permissions or {}).get(ADMIN_PERMISSION)
-    ]
-    if not keys:
-        return []
-    users = (
-        (
-            await db.execute(
-                select(User).where(
-                    User.role.in_(keys),
-                    User.is_active == True,  # noqa: E712
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    return [u.id for u in users]
+    return await users_with_permission(db, ADMIN_PERMISSION)
 
 
 async def read_status(db: AsyncSession) -> dict:

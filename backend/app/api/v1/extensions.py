@@ -64,6 +64,11 @@ from app.services.extensions.instance_id import get_instance_id, license_binding
 from app.services.extensions.license import LicenseError, parse_and_verify
 from app.services.extensions.license_refresh import persist_license, refresh_license_if_due
 from app.services.extensions.registry import extension_registry
+from app.services.extensions.store_catalog import (
+    STORE_CATALOG_TIMEOUT,
+    fetch_store_catalog,
+    store_update_available,
+)
 from app.services.permission_service import PermissionService
 
 logger = logging.getLogger(__name__)
@@ -509,7 +514,6 @@ async def delete_install(
 # friendly offline hint and file-based installs are unaffected.
 # ---------------------------------------------------------------------------
 
-_STORE_CATALOG_TIMEOUT = 6.0
 _STORE_BUNDLE_TIMEOUT = 120.0
 _STORE_BUNDLE_MAX_BYTES = 200 * 1024 * 1024  # generous; signature is the real gate
 
@@ -544,13 +548,6 @@ class StoreInstallIn(BaseModel):
     key: str
 
 
-def _version_tuple(value: str) -> tuple[int, ...]:
-    try:
-        return tuple(int(p) for p in value.strip().split("."))
-    except (ValueError, AttributeError):
-        return ()
-
-
 def _resolve_screenshots(base_url: str, raw: object) -> list[str]:
     """Resolve catalogue screenshot paths to absolute, same-origin URLs.
 
@@ -577,19 +574,6 @@ def _resolve_screenshots(base_url: str, raw: object) -> list[str]:
     return out
 
 
-async def _fetch_store_catalog(base_url: str) -> list[dict]:
-    """GET {base_url}/catalog.json and return its ``extensions`` list."""
-    url = base_url.rstrip("/") + "/catalog.json"
-    async with httpx.AsyncClient(timeout=_STORE_CATALOG_TIMEOUT) as client:
-        resp = await client.get(url)
-        resp.raise_for_status()
-        data = resp.json()
-    items = data.get("extensions") if isinstance(data, dict) else None
-    if not isinstance(items, list):
-        raise ValueError("catalog.json has no 'extensions' list")
-    return [item for item in items if isinstance(item, dict) and item.get("key")]
-
-
 @router.get("/store/catalog", response_model=StoreCatalogOut)
 async def store_catalog(
     db: AsyncSession = Depends(get_db),
@@ -601,7 +585,7 @@ async def store_catalog(
         return StoreCatalogOut(configured=False)
 
     try:
-        raw_items = await _fetch_store_catalog(base_url)
+        raw_items = await fetch_store_catalog(base_url)
     except (httpx.HTTPError, ValueError) as exc:
         logger.warning("Extension store catalogue unreachable (%s): %s", base_url, exc)
         return StoreCatalogOut(configured=True, reachable=False, store_url=base_url)
@@ -634,11 +618,7 @@ async def store_catalog(
                 screenshots=_resolve_screenshots(base_url, item.get("screenshots")),
                 version=catalog_version,
                 installed_version=installed_version,
-                update_available=bool(
-                    installed_version
-                    and catalog_version
-                    and _version_tuple(catalog_version) > _version_tuple(installed_version)
-                ),
+                update_available=store_update_available(catalog_version, installed_version),
                 entitlement_state=extension_registry.entitlement(key).state,
                 free=item.get("free") is True,
             )
@@ -682,7 +662,7 @@ async def claim_store_purchase(
 
     url = base_url.rstrip("/") + "/account/claim"
     try:
-        async with httpx.AsyncClient(timeout=_STORE_CATALOG_TIMEOUT) as client:
+        async with httpx.AsyncClient(timeout=STORE_CATALOG_TIMEOUT) as client:
             resp = await client.get(url, params={"token": payload.token})
             resp.raise_for_status()
             data = resp.json()
@@ -790,7 +770,7 @@ async def install_from_store(
         raise HTTPException(status_code=400, detail="No extension store is configured")
 
     try:
-        raw_items = await _fetch_store_catalog(base_url)
+        raw_items = await fetch_store_catalog(base_url)
     except (httpx.HTTPError, ValueError) as exc:
         raise HTTPException(status_code=502, detail=f"Extension store unreachable: {exc}") from exc
 

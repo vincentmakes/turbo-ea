@@ -105,6 +105,30 @@ describe("NotificationBell link handling", () => {
     expect(screen.queryByRole("img", { name: "opensExternally" })).toBeNull();
   });
 
+  it.each(["extension_available", "extension_update_available"])(
+    "routes %s in-app to the store tab rather than opening a dialog or a tab",
+    async (type) => {
+      // These carry a relative link and deliberately have no DIALOG_TYPES
+      // entry, so they must follow the ordinary navigate path.
+      const open = vi.spyOn(window, "open").mockImplementation(() => null);
+
+      await openAndClick("/admin/extensions?tab=store", type);
+
+      await waitFor(() =>
+        expect(navigate).toHaveBeenCalledWith("/admin/extensions?tab=store"),
+      );
+      expect(open).not.toHaveBeenCalled();
+      open.mockRestore();
+    },
+  );
+
+  it("does not mark an extension notice as leaving the app", async () => {
+    await openList("/admin/extensions?tab=store", "extension_update_available");
+    await screen.findByText("notification n1");
+    expect(screen.queryByRole("img", { name: "opensExternally" })).toBeNull();
+    expect(screen.queryByRole("img", { name: "opensReleaseNotes" })).toBeNull();
+  });
+
   it("opens an absolute link in a new tab instead of routing to it", async () => {
     // Handing an absolute URL to react-router would resolve it as an in-app
     // path and land the user on a blank route.

@@ -22,6 +22,8 @@
   "preferences.surveyRequest": "Demande d’enquête",
   "preferences.appUpdateAvailable": "Mise à jour disponible",
   "preferences.appUpdated": "Application mise à jour",
+  "preferences.extensionAvailable": "Nouvelle extension disponible",
+  "preferences.extensionUpdateAvailable": "Mise à jour d'extension disponible",
 
   "releaseNotes.title": "{{app}} {{version}} est disponible",
   "releaseNotes.titleFallback": "Notes de version",

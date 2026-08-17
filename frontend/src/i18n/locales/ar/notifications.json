@@ -23,6 +23,8 @@
   "preferences.surveyRequest": "طلب استبيان",
   "preferences.appUpdateAvailable": "يتوفر تحديث",
   "preferences.appUpdated": "تم تحديث التطبيق",
+  "preferences.extensionAvailable": "تتوفر إضافة جديدة",
+  "preferences.extensionUpdateAvailable": "يتوفر تحديث للإضافة",
 
   "releaseNotes.title": "الإصدار {{app}} {{version}} متاح",
   "releaseNotes.titleFallback": "ملاحظات الإصدار",

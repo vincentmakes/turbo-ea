@@ -34,6 +34,8 @@ La pestaña **Tienda** funciona sin configuración alguna y lista las extensione
 
 La pestaña Tienda es de solo lectura y anónima: sin cuenta, sin token, y no se envía nada sobre tu instancia — solo se lee el catálogo público del proveedor. Las instancias aisladas no necesitan configuración — la pestaña muestra entonces simplemente un aviso amable — y usan el flujo basado en archivos de abajo; el sitio web de la tienda del proveedor ofrece las mismas compras y descargas desde cualquier navegador con conexión a Internet.
 
+La instancia también **comprueba el catálogo una vez al día** e informa de los cambios, para que una extensión nueva —o una corrección de seguridad de alguna que ya utiliza— no espere a que alguien abra esta página por casualidad. Los administradores (cualquiera cuyo rol conceda `admin.manage_extensions`) reciben una notificación en la campana cuando se publica una extensión nueva en la tienda, y otra cuando una extensión instalada tiene una versión más reciente. Cada cambio se anuncia una sola vez, y un día de lanzamientos intenso llega como una notificación por tipo en lugar de una por extensión. No se descarga ni se instala nada: la notificación simplemente le trae hasta aquí. La comprobación diaria puede desactivarse por completo en [Admin → Configuración → Notificaciones de actualización](settings.md#update-notifications).
+
 ## Instalar una extensión
 
 1. Si aún no lo ha hecho, aplique primero su licencia (véase más abajo).

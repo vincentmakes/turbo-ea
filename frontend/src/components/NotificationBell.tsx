@@ -42,6 +42,16 @@ const NOTIFICATION_ICONS: Record<string, { icon: string; color: string }> = {
     color: NOTIFICATION_TYPE_COLORS.app_update_available,
   },
   app_updated: { icon: "auto_awesome", color: NOTIFICATION_TYPE_COLORS.app_updated },
+  // Both carry a relative link to the Store tab, so they follow the default
+  // navigate path — no DIALOG_TYPES entry, no external-link glyph.
+  extension_available: {
+    icon: "extension",
+    color: NOTIFICATION_TYPE_COLORS.extension_available,
+  },
+  extension_update_available: {
+    icon: "extension",
+    color: NOTIFICATION_TYPE_COLORS.extension_update_available,
+  },
 };
 
 /** Notification links are usually in-app routes, but some are absolute URLs.

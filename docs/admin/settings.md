@@ -184,6 +184,16 @@ The announcement is sent **once per version**: restarting ten times on the same 
 
 This one is **in-app only** and is never emailed — it reaches every active user on every upgrade, and an email channel would turn each patch release into a mass mailing. Individual users can still mute it under **Update notifications** in their own notification preferences, where the email switch is shown disabled.
 
+### Extension store notifications
+
+A third switch, **Extension store notifications**, does the same job for the [Extension Store](extensions.md). Once a day the instance reads the store's public catalogue and, when something has changed, notifies every user whose role grants `admin.manage_extensions` — the same permission that opens the Extensions page. Two things are announced: an extension published to the store that you do not have installed, and a newer version of one you do.
+
+Busy release days stay readable: however many extensions changed, each administrator gets **one** notification per kind ("3 extension updates are available"), not one per extension. Each is announced **once** — a catalogue that sits unchanged for a month produces one notification, not thirty — and clicking it opens the Store tab inside Turbo EA.
+
+The very first successful reading of the catalogue announces **no** new extensions: an instance meeting the store for the first time would otherwise report everything in it. Updates to extensions you already have are reported straight away, because there are only ever a handful of them and they are immediately actionable.
+
+Like the release check, this is **notification-only** — nothing is downloaded or installed, and installing stays a deliberate action on the Extensions page. Turning the toggle **off** stops the daily request to the store altogether. Individual administrators can mute the **New Extension Available** and **Extension Update Available** rows separately in their own notification preferences.
+
 ## Sponsor Button
 
 Show or hide the **Sponsor** button in the user (avatar) menu. When hidden, users no longer see the Sponsor button in their profile menu. The Sponsor button — and the dialog explaining how to support Turbo EA — always remains available from this settings panel, so administrators can still reach it even when it is hidden from the menu.

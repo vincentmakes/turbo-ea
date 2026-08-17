@@ -34,6 +34,8 @@ Der Tab **Store** funktioniert ohne jede Konfiguration und listet die veröffent
 
 Der Store-Tab ist schreibgeschützt und anonym: kein Konto, kein Token, und es werden keinerlei Informationen über Ihre Instanz übertragen — es wird nur der öffentliche Katalog des Anbieters gelesen. Abgeschottete Instanzen brauchen keine Konfiguration — der Tab zeigt dann einfach einen freundlichen Hinweis — und nutzen den dateibasierten Ablauf unten; die Storefront-Website des Anbieters bietet dieselben Käufe und Downloads von jedem Browser mit Internetzugang.
 
+Die Instanz **prüft den Katalog außerdem einmal täglich** und meldet Änderungen, damit eine neue Erweiterung — oder ein Sicherheitsfix für eine bereits genutzte — nicht darauf warten muss, dass jemand zufällig diese Seite öffnet. Administratoren (alle, deren Rolle `admin.manage_extensions` gewährt) erhalten eine Benachrichtigung in der Glocke, wenn eine neue Erweiterung im Store veröffentlicht wird, und eine weitere, wenn für eine installierte Erweiterung eine neuere Version vorliegt. Jede Änderung wird einmal angekündigt, und ein ereignisreicher Release-Tag kommt als eine Benachrichtigung pro Art an, nicht als eine pro Erweiterung. Es wird nichts heruntergeladen oder installiert — die Benachrichtigung führt Sie lediglich hierher. Die tägliche Prüfung lässt sich unter [Admin → Einstellungen → Update-Benachrichtigungen](settings.md#update-notifications) vollständig deaktivieren.
+
 ## Eine Erweiterung installieren
 
 1. Falls noch nicht geschehen, wenden Sie zuerst Ihre Lizenz an (siehe unten).

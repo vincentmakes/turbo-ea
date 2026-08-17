@@ -689,6 +689,35 @@ class TestStoreCatalog:
         assert item["license_url"] == ""
         assert item["screenshots"] == []
 
+    async def test_catalog_ignores_a_catalogue_version_with_no_digits(
+        self, client, db, vendor, monkeypatch
+    ):
+        """A rolling tag must not read as an upgrade over a real version.
+
+        The old comparator returned an empty tuple for anything unparseable,
+        which made this comparison silently false for the *right* reason but
+        also hid genuine upgrades whose version carried a pre-release suffix.
+        The shared ``store_update_available`` refuses to compare either side
+        without a digit instead.
+        """
+        admin = await make_admin(db)
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor)},
+            headers=auth_headers(admin),
+        )
+        install = await upload_and_preview(client, db, admin, vendor, version="0.9.0")
+        await ext_api.run_apply(db, install, admin)
+        mock_store(monkeypatch, catalog=catalog_payload(version="nightly"))
+
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        assert res.status_code == 200
+        (item,) = res.json()["items"]
+        assert item["installed_version"] == "0.9.0"
+        assert item["update_available"] is False
+
     async def test_catalog_surfaces_details_metadata(self, client, db, vendor, monkeypatch):
         admin = await make_admin(db)
         mock_store(

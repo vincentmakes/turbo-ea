@@ -34,6 +34,8 @@ O separador **Loja** funciona sem qualquer configuração e lista as extensões 
 
 O separador Loja é só de leitura e anónimo: sem conta, sem token, e nada sobre a sua instância é enviado — apenas o catálogo público do fornecedor é lido. As instâncias isoladas não precisam de configuração — o separador mostra então simplesmente uma indicação amigável — e usam o fluxo baseado em ficheiros abaixo; o site da loja do fornecedor oferece as mesmas compras e transferências a partir de qualquer navegador com ligação à Internet.
 
+A instância também **verifica o catálogo uma vez por dia** e comunica as alterações, para que uma extensão nova — ou uma correção de segurança de alguma que já utiliza — não fique à espera de que alguém abra esta página por acaso. Os administradores (qualquer pessoa cujo perfil conceda `admin.manage_extensions`) recebem uma notificação no sino quando é publicada uma nova extensão na loja e outra quando uma extensão instalada tem uma versão mais recente. Cada alteração é anunciada uma só vez e um dia de lançamentos intenso chega como uma notificação por tipo em vez de uma por extensão. Nada é descarregado nem instalado — a notificação limita-se a trazê-lo até aqui. A verificação diária pode ser desativada por completo em [Admin → Definições → Notificações de atualização](settings.md#update-notifications).
+
 ## Instalar uma extensão
 
 1. Se ainda não o fez, aplique primeiro a sua licença (ver abaixo).

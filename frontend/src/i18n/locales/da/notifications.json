@@ -22,6 +22,8 @@
   "preferences.surveyRequest": "Anmodning om undersøgelse",
   "preferences.appUpdateAvailable": "Opdatering tilgængelig",
   "preferences.appUpdated": "Appen er opdateret",
+  "preferences.extensionAvailable": "Ny udvidelse tilgængelig",
+  "preferences.extensionUpdateAvailable": "Udvidelsesopdatering tilgængelig",
 
   "releaseNotes.title": "{{app}} {{version}} er tilgængelig",
   "releaseNotes.titleFallback": "Udgivelsesnoter",

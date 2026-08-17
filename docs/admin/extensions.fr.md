@@ -34,6 +34,8 @@ L'onglet **Boutique** fonctionne sans aucune configuration et liste les extensio
 
 L'onglet Boutique est en lecture seule et anonyme : pas de compte, pas de jeton, et aucune information sur votre instance n'est transmise — seul le catalogue public du fournisseur est lu. Les instances isolées n'ont rien à configurer — l'onglet affiche alors simplement une indication conviviale — et utilisent le flux basé sur les fichiers ci-dessous ; le site de la boutique du fournisseur offre les mêmes achats et téléchargements depuis n'importe quel navigateur connecté à Internet.
 
+L'instance **vérifie également le catalogue une fois par jour** et signale les changements, afin qu'une nouvelle extension — ou un correctif de sécurité pour une extension déjà utilisée — n'attende pas que quelqu'un ouvre cette page par hasard. Les administrateurs (toute personne dont le rôle accorde `admin.manage_extensions`) reçoivent une notification dans la cloche lorsqu'une nouvelle extension est publiée dans la boutique, et une autre lorsqu'une extension installée dispose d'une version plus récente. Chaque changement est annoncé une seule fois, et un jour de sortie chargé arrive sous la forme d'une notification par catégorie plutôt qu'une par extension. Rien n'est téléchargé ni installé — la notification vous amène simplement ici. La vérification quotidienne peut être totalement désactivée dans [Admin → Paramètres → Notifications de mise à jour](settings.md#update-notifications).
+
 ## Installer une extension
 
 1. Si ce n'est pas déjà fait, appliquez d'abord votre licence (voir ci-dessous).

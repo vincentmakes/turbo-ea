@@ -4838,6 +4838,19 @@
         "title": "ExtensionInstallOut",
         "type": "object"
       },
+      "ExtensionNoticesEnabledPayload": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "ExtensionNoticesEnabledPayload",
+        "type": "object"
+      },
       "ExtensionOut": {
         "properties": {
           "capabilities": {
@@ -34263,6 +34276,46 @@
           }
         },
         "summary": "Update Enabled Locales",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/extension-notices-enabled": {
+      "patch": {
+        "description": "Admin endpoint \u2014 enable or disable the daily extension-store check.\n\nTurning it off stops the outbound request to the store entirely (the flag is\nread before the fetch), which is what an egress-restricted or air-gapped\ninstall wants. Gated on ``admin.settings`` like its two neighbours: who owns\nthe switch for outbound traffic is a separate question from who receives the\nresulting notifications (``admin.manage_extensions``).",
+        "operationId": "update_extension_notices_enabled_api_v1_settings_extension_notices_enabled_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtensionNoticesEnabledPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Extension Notices Enabled",
         "tags": [
           "settings"
         ]

@@ -22,6 +22,8 @@
   "preferences.surveyRequest": "Запрос на опрос",
   "preferences.appUpdateAvailable": "Доступно обновление",
   "preferences.appUpdated": "Приложение обновлено",
+  "preferences.extensionAvailable": "Доступно новое расширение",
+  "preferences.extensionUpdateAvailable": "Доступно обновление расширения",
 
   "releaseNotes.title": "Доступна версия {{app}} {{version}}",
   "releaseNotes.titleFallback": "Заметки о выпуске",

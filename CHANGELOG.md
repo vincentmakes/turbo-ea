@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.66.0] - 2026-08-17
+
+### Added
+- **You are now told when an extension is published or updated, instead of having to go and look.** Turbo EA already announced new releases of itself in the notification bell; the Extension Store had no equivalent, so the only hint that an installed extension had a newer version was a button label on a page somebody had to open first — a security fix could sit there unnoticed for weeks. The instance now reads the store's public catalogue once a day and notifies everyone who can act on it (anyone whose role grants `admin.manage_extensions`) about two things: an extension published to the store that you do not have, and a newer version of one you do. Each change is announced once rather than every day, and a busy release day arrives as one notification per kind — "3 extension updates are available" — not one per extension. Clicking it opens the Store tab inside Turbo EA. Nothing is ever downloaded or installed. The first successful reading of the catalogue deliberately announces no new extensions, so an instance meeting the store for the first time does not report everything in it; updates to extensions you already have are reported straight away. The two notification types can be muted separately in your own notification preferences, and the whole daily check can be switched off under Admin → Settings → Update notifications, which stops the outbound request entirely for air-gapped and egress-restricted installs.
+
+### Fixed
+- **The Store tab no longer misjudges versions that carry a suffix.** An extension whose published version read something like `1.2.0-rc1` was compared as though it were older than everything, so a genuine new release could silently fail to offer an **Update** button — and an installed pre-release could make the button appear when it should not. Both the button and the new notification now use one shared comparison that ignores any version string carrying no digits at all, so a rolling tag can neither announce itself as an upgrade nor mask a real one.
+
 ## [2.65.0] - 2026-08-16
 
 ### Added

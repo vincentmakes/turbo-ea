@@ -150,6 +150,7 @@ interface GeneralSettingsBootstrap {
   sponsor_button_enabled: boolean;
   update_check_enabled: boolean;
   announce_upgrades_enabled: boolean;
+  extension_notices_enabled: boolean;
   file_uploads_enabled: boolean;
   enabled_locales: string[];
   fiscal_year_start: number;
@@ -254,6 +255,8 @@ function GeneralTab() {
   const [savingUpdateCheck, setSavingUpdateCheck] = useState(false);
   const [announceUpgrades, setAnnounceUpgrades] = useState(true);
   const [savingAnnounceUpgrades, setSavingAnnounceUpgrades] = useState(false);
+  const [extensionNotices, setExtensionNotices] = useState(true);
+  const [savingExtensionNotices, setSavingExtensionNotices] = useState(false);
   const [sponsorDialogOpen, setSponsorDialogOpen] = useState(false);
 
   // File uploads toggle state
@@ -348,6 +351,7 @@ function GeneralTab() {
         setSponsorButtonEnabled(general.sponsor_button_enabled);
         setUpdateCheckEnabled(general.update_check_enabled);
         setAnnounceUpgrades(general.announce_upgrades_enabled);
+        setExtensionNotices(general.extension_notices_enabled);
         setFileUploadsEnabled(general.file_uploads_enabled);
         setFiscalYearStart(general.fiscal_year_start);
         setArchiveRetentionDays(general.archive_retention_days);
@@ -611,6 +615,24 @@ function GeneralTab() {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingAnnounceUpgrades(false);
+    }
+  };
+
+  const handleExtensionNoticesToggle = async (enabled: boolean) => {
+    setSavingExtensionNotices(true);
+    setError("");
+    try {
+      await api.patch("/settings/extension-notices-enabled", { enabled });
+      setExtensionNotices(enabled);
+      setSnack(
+        enabled
+          ? t("settings.extensionNotices.enabledSuccess")
+          : t("settings.extensionNotices.disabledSuccess"),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingExtensionNotices(false);
     }
   };
 
@@ -1530,6 +1552,30 @@ function GeneralTab() {
             announceUpgrades
               ? t("settings.announceUpgrades.on")
               : t("settings.announceUpgrades.off")
+          }
+        />
+
+        <Divider sx={{ my: 2 }} />
+
+        <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.5 }}>
+          {t("settings.extensionNotices.title")}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("settings.extensionNotices.description")}
+        </Typography>
+        <FormControlLabel
+          sx={{ display: "flex" }}
+          control={
+            <Switch
+              checked={extensionNotices}
+              onChange={(e) => handleExtensionNoticesToggle(e.target.checked)}
+              disabled={savingExtensionNotices}
+            />
+          }
+          label={
+            extensionNotices
+              ? t("settings.extensionNotices.on")
+              : t("settings.extensionNotices.off")
           }
         />
       </Paper>

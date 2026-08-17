@@ -34,6 +34,8 @@ Fanen **Butik** virker uden nogen konfiguration og viser leverandørens udgivne 
 
 Fanen Butik er skrivebeskyttet og anonym: ingen konto, intet token, og intet om din instans sendes nogen steder hen — kun leverandørens offentlige katalog læses. Isolerede instanser behøver ingen konfiguration — fanen viser i stedet blot et venligt hint — og bruger det filbaserede forløb nedenfor; leverandørens butikswebsted tilbyder de samme køb og downloads fra enhver browser med internetadgang.
 
+Instansen **tjekker desuden kataloget én gang om dagen** og fortæller, hvad der er ændret, så en ny udvidelse — eller en sikkerhedsrettelse til en, du allerede kører — ikke skal vente på, at nogen tilfældigvis åbner denne side. Administratorer (alle, hvis rolle giver `admin.manage_extensions`) får en notifikation i klokken, når en ny udvidelse udgives i butikken, og en anden, når en installeret udvidelse har en nyere version. Hver ændring annonceres én gang, og en travl udgivelsesdag ankommer som én notifikation pr. type frem for én pr. udvidelse. Intet hentes eller installeres — notifikationen bringer dig blot hertil. Det daglige tjek kan slås helt fra under [Admin → Indstillinger → Opdateringsnotifikationer](settings.md#update-notifications).
+
 ## Installer en udvidelse
 
 1. Hvis du ikke allerede har gjort det, skal du først anvende din licens (se nedenfor).

@@ -184,6 +184,16 @@ L'annuncio viene inviato **una volta per versione**: dieci riavvii sulla stessa 
 
 Questa notifica è **solo in-app** e non viene mai inviata via e-mail: raggiunge ogni utente attivo a ogni aggiornamento, e un canale e-mail trasformerebbe ogni patch in un invio di massa. I singoli utenti possono comunque silenziarla in **Notifiche di aggiornamento** nelle proprie preferenze, dove l'interruttore e-mail appare disattivato.
 
+### Notifiche dello store delle estensioni
+
+Un terzo interruttore, **Notifiche dello store delle estensioni**, fa lo stesso per lo [store delle estensioni](extensions.md). Una volta al giorno l'istanza legge il catalogo pubblico dello store e, quando qualcosa è cambiato, avvisa tutti gli utenti il cui ruolo concede `admin.manage_extensions`, lo stesso permesso che apre la pagina Estensioni. Vengono annunciate due cose: un'estensione pubblicata nello store che non hai installato e una versione più recente di una che hai già.
+
+Anche nei giorni di rilascio più intensi il risultato resta leggibile: per quante estensioni siano cambiate, ogni amministratore riceve **una** notifica per tipo («3 aggiornamenti di estensioni disponibili»), non una per estensione. Ogni cambiamento viene annunciato **una sola volta** — un catalogo che resta invariato per un mese produce una notifica, non trenta — e un clic apre la scheda Store all'interno di Turbo EA.
+
+La primissima lettura riuscita del catalogo non annuncia **nessuna** nuova estensione: un'istanza che incontra lo store per la prima volta segnalerebbe altrimenti tutto il suo contenuto. Gli aggiornamenti delle estensioni già installate vengono invece segnalati subito, perché sono sempre pochi e immediatamente utilizzabili.
+
+Come il controllo delle versioni, questo è **solo informativo**: non viene scaricato né installato nulla e l'installazione resta un'azione deliberata nella pagina Estensioni. Disattivando l'interruttore la richiesta quotidiana allo store scompare del tutto. I singoli amministratori possono silenziare separatamente le righe **Nuova estensione disponibile** e **Aggiornamento estensione disponibile** nelle proprie preferenze di notifica.
+
 ## Pulsante Sostieni
 
 Mostra o nascondi il pulsante **Sostieni** nel menu utente (avatar). Quando è nascosto, gli utenti non vedono più il pulsante Sostieni nel loro menu del profilo. Il pulsante Sostieni — e la finestra che spiega come sostenere Turbo EA — rimane sempre disponibile da questo pannello delle impostazioni, così gli amministratori possono comunque raggiungerlo anche quando è nascosto dal menu.

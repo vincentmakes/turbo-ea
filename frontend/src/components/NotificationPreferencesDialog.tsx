@@ -43,6 +43,11 @@ const NOTIFICATION_TYPES: NotificationTypeRow[] = [
   // channel would make each patch release a mass mailing. The backend enforces
   // it via IN_APP_ONLY_TYPES; the disabled switch is the visible half.
   { key: "app_updated", labelKey: "preferences.appUpdated", noEmail: true },
+  // Only ever sent to users whose role can act on them (admin.manage_extensions).
+  // Email stays a real opt-in rather than a mass mailing, so unlike app_updated
+  // these keep their email switch.
+  { key: "extension_available", labelKey: "preferences.extensionAvailable" },
+  { key: "extension_update_available", labelKey: "preferences.extensionUpdateAvailable" },
 ];
 
 interface Props {

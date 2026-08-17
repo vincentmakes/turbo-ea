@@ -184,6 +184,16 @@ Die Ankündigung erfolgt **einmal pro Version**: zehn Neustarts derselben Versio
 
 Diese Benachrichtigung erfolgt **nur in der App** und wird nie per E-Mail versendet — sie erreicht bei jedem Upgrade jeden aktiven Benutzer, und ein E-Mail-Kanal würde jedes Patch-Release zu einem Massenversand machen. Einzelne Benutzer können sie weiterhin unter **Update-Benachrichtigungen** in ihren eigenen Benachrichtigungseinstellungen stummschalten; der E-Mail-Schalter wird dort deaktiviert angezeigt.
 
+### Benachrichtigungen zum Erweiterungs-Store
+
+Ein dritter Schalter, **Benachrichtigungen zum Erweiterungs-Store**, erfüllt dieselbe Aufgabe für den [Erweiterungs-Store](extensions.md). Einmal täglich liest die Instanz den öffentlichen Katalog des Stores und benachrichtigt bei Änderungen alle Benutzer, deren Rolle `admin.manage_extensions` gewährt — dieselbe Berechtigung, die die Seite «Erweiterungen» öffnet. Angekündigt wird zweierlei: eine im Store veröffentlichte Erweiterung, die Sie nicht installiert haben, und eine neuere Version einer bereits installierten.
+
+Auch an ereignisreichen Tagen bleibt es übersichtlich: Egal wie viele Erweiterungen sich geändert haben, jeder Administrator erhält **eine** Benachrichtigung pro Art («3 Erweiterungs-Updates verfügbar»), nicht eine pro Erweiterung. Jede Änderung wird **einmal** angekündigt — ein Katalog, der einen Monat unverändert bleibt, erzeugt eine Benachrichtigung, nicht dreißig — und ein Klick öffnet den Store-Tab innerhalb von Turbo EA.
+
+Beim allerersten erfolgreichen Lesen des Katalogs werden **keine** neuen Erweiterungen angekündigt: Eine Instanz, die den Store zum ersten Mal sieht, würde sonst alles darin melden. Updates für bereits installierte Erweiterungen werden sofort gemeldet, da es davon immer nur wenige gibt und sie unmittelbar umsetzbar sind.
+
+Wie die Release-Prüfung dient dies **nur der Information** — es wird nichts heruntergeladen oder installiert, und die Installation bleibt eine bewusste Aktion auf der Seite «Erweiterungen». Wird der Schalter **deaktiviert**, entfällt die tägliche Anfrage an den Store vollständig. Einzelne Administratoren können die Zeilen **Neue Erweiterung verfügbar** und **Erweiterungs-Update verfügbar** in ihren eigenen Benachrichtigungseinstellungen getrennt stummschalten.
+
 ## Sponsor-Schaltfläche
 
 Blenden Sie die **Sponsor**-Schaltfläche im Benutzermenü (Avatar) ein oder aus. Wenn sie ausgeblendet ist, sehen Benutzer die Sponsor-Schaltfläche nicht mehr in ihrem Profilmenü. Die Sponsor-Schaltfläche — und der Dialog, der erklärt, wie man Turbo EA unterstützt — bleibt in diesem Einstellungsbereich immer verfügbar, sodass Administratoren sie auch dann erreichen, wenn sie im Menü ausgeblendet ist.
