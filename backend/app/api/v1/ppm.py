@@ -105,7 +105,7 @@ async def _sync_initiative_costs(db: AsyncSession, initiative_id: str) -> None:
     # overwrite each other on alternate edits. It is computed here, after the
     # caller's commit, so deleting the last budget line correctly releases
     # `costBudget` back to calculations.
-    from app.api.v1.cards import _get_ppm_exclusions
+    from app.services.card_write_service import _get_ppm_exclusions
 
     await run_calculations_for_card(db, card, exclude_fields=await _get_ppm_exclusions(db, card))
 

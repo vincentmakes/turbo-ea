@@ -24,11 +24,11 @@ from app.schemas.relation import (
     RelationResponse,
     RelationUpdate,
 )
+from app.services import card_write_service
 from app.services.calculation_engine import run_calculations_for_card
 from app.services.card_resolver import CardResolver
 from app.services.cost_field_filter import cost_field_keys_from_relation_schema
 from app.services.data_quality import calc_data_quality
-from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/relations", tags=["relations"])
@@ -40,91 +40,9 @@ router = APIRouter(prefix="/relations", tags=["relations"])
 MAX_CARD_IDS_PER_QUERY = 500
 
 
-async def _resolve_relation_labels(
-    db: AsyncSession, type_key: str
-) -> tuple[str | None, str | None]:
-    """Look up the human-readable label + reverse_label for a relation type.
-    Returns (None, None) if the type is unknown — we fall back to the raw key."""
-    result = await db.execute(
-        select(RelationType.label, RelationType.reverse_label).where(RelationType.key == type_key)
-    )
-    row = result.first()
-    if row is None:
-        return None, None
-    return row[0], row[1]
-
-
-async def _emit_relation_events(
-    db: AsyncSession,
-    *,
-    event_type: str,
-    rel: Relation,
-    source_card: Card | None,
-    target_card: Card | None,
-    actor_id: uuid.UUID,
-    extra: dict | None = None,
-) -> None:
-    """Fan out a relation mutation event to both endpoints.
-
-    Each side's payload carries the directional label so the history
-    timeline reads naturally — the source sees the forward label
-    (e.g. "supports → ITComponent X"), the target sees the reverse
-    label (e.g. "supported by ← Application Y").
-    """
-    label, reverse_label = await _resolve_relation_labels(db, rel.type)
-    forward = label or rel.type
-    backward = reverse_label or label or rel.type
-
-    source_name = source_card.name if source_card else None
-    target_name = target_card.name if target_card else None
-    source_type = source_card.type if source_card else None
-    target_type = target_card.type if target_card else None
-
-    base = {
-        "id": str(rel.id),
-        "type": rel.type,
-        "relation_label": label,
-        "relation_reverse_label": reverse_label,
-        "source_id": str(rel.source_id),
-        "target_id": str(rel.target_id),
-        "source_name": source_name,
-        "target_name": target_name,
-        "source_type": source_type,
-        "target_type": target_type,
-    }
-    if extra:
-        base.update(extra)
-
-    await event_bus.publish(
-        event_type,
-        {
-            **base,
-            "direction": "outgoing",
-            "peer_id": str(rel.target_id),
-            "peer_name": target_name,
-            "peer_type": target_type,
-            "directional_label": forward,
-            "summary": f"{forward} → {target_name or str(rel.target_id)}",
-        },
-        db=db,
-        card_id=rel.source_id,
-        user_id=actor_id,
-    )
-    await event_bus.publish(
-        event_type,
-        {
-            **base,
-            "direction": "incoming",
-            "peer_id": str(rel.source_id),
-            "peer_name": source_name,
-            "peer_type": source_type,
-            "directional_label": backward,
-            "summary": f"{backward} ← {source_name or str(rel.source_id)}",
-        },
-        db=db,
-        card_id=rel.target_id,
-        user_id=actor_id,
-    )
+# Relation event emission lives in the shared card write service (B0
+# extraction); re-exported here for legacy lazy importers (surveys.py).
+from app.services.card_write_service import _emit_relation_events  # noqa: E402, F401
 
 
 def _rel_to_response(
@@ -352,75 +270,18 @@ async def create_relation(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "relations.manage")
-    source_uuid = uuid.UUID(body.source_id)
-    target_uuid = uuid.UUID(body.target_id)
-
-    # Reuse an existing (type, source, target) relation instead of inserting a
-    # second identical row. Drawing an edge on a diagram between two cards that
-    # are already related must not fork the repository into duplicates
-    # (discussion #905) — the bulk endpoint has always upserted on this key, and
-    # the single-relation path now matches it. Supplied attributes / description
-    # are merged onto the survivor so the relation-picker's values still land.
-    existing = await db.execute(
-        select(Relation).where(
-            Relation.type == body.type,
-            Relation.source_id == source_uuid,
-            Relation.target_id == target_uuid,
-        )
+    # Idempotent upsert on (type, source, target) — discussion #905 — via the
+    # shared card write service, so every write path merges instead of
+    # duplicating.
+    rel, _, _ = await card_write_service.upsert_relation(
+        db,
+        card_write_service.WriteActor.from_user(user),
+        type_key=body.type,
+        source_id=uuid.UUID(body.source_id),
+        target_id=uuid.UUID(body.target_id),
+        attributes=body.attributes,
+        description=body.description,
     )
-    rel = existing.scalar_one_or_none()
-    reused = rel is not None
-    changed: list[str] = []
-
-    if rel is None:
-        rel = Relation(
-            type=body.type,
-            source_id=source_uuid,
-            target_id=target_uuid,
-            attributes=body.attributes or {},
-            description=body.description,
-        )
-        db.add(rel)
-    else:
-        if body.attributes is not None and body.attributes != (rel.attributes or {}):
-            rel.attributes = body.attributes
-            changed.append("attributes")
-        if body.description is not None and body.description != rel.description:
-            rel.description = body.description
-            changed.append("description")
-    await db.flush()
-
-    # Run calculated fields for both source and target cards, then rescore.
-    # Data quality must follow the calculations, or a calculated field's
-    # weight is scored one save stale (same rule as ppm.py).
-    source_card = await db.get(Card, source_uuid)
-    target_card = await db.get(Card, target_uuid)
-    if source_card:
-        await run_calculations_for_card(db, source_card)
-        source_card.data_quality = await calc_data_quality(db, source_card)
-    if target_card:
-        await run_calculations_for_card(db, target_card)
-        target_card.data_quality = await calc_data_quality(db, target_card)
-
-    if not reused:
-        await _emit_relation_events(
-            db,
-            event_type="relation.created",
-            rel=rel,
-            source_card=source_card,
-            target_card=target_card,
-            actor_id=user.id,
-        )
-    elif changed:
-        await _emit_relation_events(
-            db,
-            event_type="relation.updated",
-            rel=rel,
-            source_card=source_card,
-            target_card=target_card,
-            actor_id=user.id,
-            extra={"fields": changed},
-        )
 
     await db.commit()
     result = await db.execute(

@@ -138,7 +138,7 @@ async def apply_child_strategy(
     # calculations for every card whose level moved, so hierarchy_level / parent
     # formulas stay correct after the subtree move. Imported lazily to avoid a
     # circular import with the cards router module.
-    from app.api.v1.cards import (  # noqa: PLC0415
+    from app.services.card_write_service import (  # noqa: PLC0415
         _recalc_changed_descendants,
         _sync_hierarchy_levels,
     )

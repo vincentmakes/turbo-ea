@@ -333,8 +333,8 @@ async def _apply_relation_change(
     API) and recalculates calculated fields on every touched card. Returns
     True when anything changed."""
     # Local imports avoid any router import-ordering coupling.
-    from app.api.v1.relations import _emit_relation_events
     from app.services.calculation_engine import run_calculations_for_card
+    from app.services.card_write_service import _emit_relation_events
 
     rtk = field_def["relation_type_key"]
     direction = field_def["direction"]

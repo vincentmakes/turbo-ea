@@ -686,8 +686,8 @@ async def _finalize_cards(db) -> None:
     exist — the PPM entity sections have already been applied at this point),
     then the data-quality score is derived from the final attribute state.
     """
-    from app.api.v1.cards import _get_ppm_exclusions
     from app.services.calculation_engine import run_calculations_for_card
+    from app.services.card_write_service import _get_ppm_exclusions
     from app.services.data_quality import calc_data_quality
 
     ids = list((await db.execute(select(Card.id).where(Card.status != "ARCHIVED"))).scalars().all())
@@ -705,7 +705,7 @@ async def _finalize_cards(db) -> None:
 
 def _make_cards_applier(user: User):
     async def _apply(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: bool) -> None:
-        from app.api.v1.cards import (
+        from app.services.card_write_service import (
             _check_hierarchy_depth,
             _sync_hierarchy_levels,
             _validate_url_attributes,
