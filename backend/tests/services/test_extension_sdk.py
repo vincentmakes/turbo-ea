@@ -15,8 +15,8 @@ from app.database import get_db as core_get_db
 from app.services.extensions import sdk
 
 
-def test_sdk_version_is_1_4():
-    assert sdk.SDK_VERSION == "1.4"
+def test_sdk_version_is_1_5():
+    assert sdk.SDK_VERSION == "1.5"
 
 
 def test_sdk_reexports_route_dependencies_verbatim():
@@ -50,6 +50,57 @@ def test_sdk_1_4_surface_exists():
     fields = sdk.ExtensionContext.__dataclass_fields__
     assert "get_settings" in fields
     assert "set_settings" in fields
+
+
+def test_sdk_1_5_surface_exists():
+    # SDK 1.5 — inventory data bridge, cron jobs, card events scope.
+    assert sdk.ExtCard is not None
+    assert sdk.ExtCardPage is not None
+    assert sdk.ExtRelation is not None
+    assert sdk.DataBridge is not None
+    fields = sdk.ExtensionContext.__dataclass_fields__
+    assert "data" in fields
+    job_fields = sdk.ExtensionJob.__dataclass_fields__
+    assert "cron" in job_fields
+
+
+def test_ext_card_is_frozen_and_wire_shaped():
+    card = sdk.ExtCard(
+        id="c1",
+        type="Application",
+        subtype=None,
+        name="App",
+        description=None,
+        parent_id=None,
+        status="ACTIVE",
+        approval_status="DRAFT",
+        reference=None,
+        alias=None,
+        lifecycle={},
+        attributes={"k": "v"},
+        data_quality=0.0,
+        created_at=None,
+        updated_at=None,
+    )
+    assert card.attributes == {"k": "v"}
+    try:
+        card.name = "x"  # type: ignore[misc]
+        raise AssertionError("ExtCard must be frozen")
+    except AttributeError:
+        pass
+
+
+def test_extension_job_interval_construction_still_works():
+    # 1.4-era positional construction (name, interval_seconds, run) must
+    # keep working; cron stays an optional keyword.
+    async def run(ctx):
+        pass
+
+    job = sdk.ExtensionJob("tick", 60, run)
+    assert job.interval_seconds == 60
+    assert job.cron is None
+    cron_job = sdk.ExtensionJob(name="nightly", interval_seconds=None, run=run, cron="0 3 * * *")
+    assert cron_job.cron == "0 3 * * *"
 
 
 def test_ext_user_is_frozen_and_wire_shaped():
@@ -145,6 +196,7 @@ def test_sdk_compatibility_is_major_only():
     assert sdk.sdk_compatible("1.2")
     assert sdk.sdk_compatible("1.3")
     assert sdk.sdk_compatible("1.4")
+    assert sdk.sdk_compatible("1.5")
     assert not sdk.sdk_compatible("2.0")
 
 
@@ -152,6 +204,7 @@ def test_sdk_minor_newer_truth_table():
     # Newer minor on the same major → warn (still loads).
     assert sdk.sdk_minor_newer("1.9")
     # Same or older minor → no warning.
+    assert not sdk.sdk_minor_newer("1.5")
     assert not sdk.sdk_minor_newer("1.4")
     assert not sdk.sdk_minor_newer("1.3")
     assert not sdk.sdk_minor_newer("1.2")

@@ -540,9 +540,7 @@ _SOAWS = [
                 "<p>6-wave migration approach over 18 months (Q1 2026 \u2013 Q3 2027), "
                 "starting with lowest-risk IoT and DevOps workloads.</p>"
             ),
-            "7.0": _rich(
-                "<p>Key risks and open issues from architecture planning.</p>"
-            ),
+            "7.0": _rich("<p>Key risks and open issues from architecture planning.</p>"),
             "7.1": _table(
                 ["Risk #", "Description", "Priority", "Status"],
                 [
@@ -649,22 +647,14 @@ _SOAWS = [
                     "F": "Planned Q2 2026 \u2014 cutover planning",
                 }
             ),
-            "4.1": _rich(
-                "<p>SAP ECC 6.0 EHP8 on Oracle. 170 custom programs, 85 interfaces.</p>"
-            ),
-            "4.2": _rich(
-                "<p>Month-end close: 5 days. MRP run: 4 hours. Availability: 99.5%.</p>"
-            ),
-            "4.3": _rich(
-                "<p>40% custom code unused. Oracle license renewal due Q4 2026.</p>"
-            ),
+            "4.1": _rich("<p>SAP ECC 6.0 EHP8 on Oracle. 170 custom programs, 85 interfaces.</p>"),
+            "4.2": _rich("<p>Month-end close: 5 days. MRP run: 4 hours. Availability: 99.5%.</p>"),
+            "4.3": _rich("<p>40% custom code unused. Oracle license renewal due Q4 2026.</p>"),
             "5.1": _rich(
                 "<p>S/4HANA 2023 on Azure (HANA managed). ~65 custom programs. "
                 "SAP Integration Suite. Fiori launchpad.</p>"
             ),
-            "5.2": _rich(
-                "<p>Month-end close: 3 days. MRP: &lt; 30 min. Availability: 99.9%.</p>"
-            ),
+            "5.2": _rich("<p>Month-end close: 3 days. MRP: &lt; 30 min. Availability: 99.9%.</p>"),
             "5.3": _rich(
                 "<p>Eliminated Oracle license (EUR 400K/yr). Real-time analytics. "
                 "Simplified integration.</p>"
@@ -771,9 +761,7 @@ _SOAWS = [
                     "B": "Planned Q1 2026",
                 }
             ),
-            "4.1": _rich(
-                "<p>Azure IoT Hub (standard tier), NexaCloud, NexaConnect, Kafka.</p>"
-            ),
+            "4.1": _rich("<p>Azure IoT Hub (standard tier), NexaCloud, NexaConnect, Kafka.</p>"),
             "4.2": _empty_section(),
             "4.3": _empty_section(),
             "5.1": _empty_section(),
@@ -783,9 +771,7 @@ _SOAWS = [
             "6.2": _empty_section(),
             "6.3": _empty_section(),
             "7.0": _empty_section(),
-            "7.1": _table(
-                ["Risk #", "Description", "Priority", "Status"], [["", "", "", ""]]
-            ),
+            "7.1": _table(["Risk #", "Description", "Priority", "Status"], [["", "", "", ""]]),
             "7.2": _table(["Description", "Status"], [["", ""]]),
         },
         "revision_number": 1,
@@ -811,9 +797,7 @@ async def seed(db: AsyncSession) -> dict:
     name_to_id: dict[str, uuid.UUID] = {row.name: row.id for row in result.all()}
 
     # Look up admin user for SoAW created_by
-    admin_result = await db.execute(
-        select(User.id).where(User.role == "admin").limit(1)
-    )
+    admin_result = await db.execute(select(User.id).where(User.role == "admin").limit(1))
     admin_id = admin_result.scalar_one_or_none()
 
     # Delete in FK order
@@ -880,9 +864,7 @@ async def main() -> None:
     db_name = os.environ.get("POSTGRES_DB", "turboea")
     print(f"[seed_soaw_adrs] Connecting to {host}/{db_name}...")
     engine = create_async_engine(url, echo=False)
-    session_factory = async_sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
-    )
+    session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with session_factory() as db:
         result = await seed(db)
@@ -893,9 +875,7 @@ async def main() -> None:
         f"{result['adr_links']} ADR-card links, {result['soaws']} SoAWs"
     )
     if result["skipped_links"]:
-        print(
-            f"  [warn] {result['skipped_links']} card links skipped (cards not found)"
-        )
+        print(f"  [warn] {result['skipped_links']} card links skipped (cards not found)")
 
 
 if __name__ == "__main__":

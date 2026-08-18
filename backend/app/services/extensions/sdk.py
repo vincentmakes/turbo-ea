@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable, Sequence
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
@@ -110,7 +111,34 @@ from app.database import get_db  # noqa: F401
 #   refuses ``secret.``-prefixed names (credentials must go through
 #   ``set_secret`` so they are Fernet-encrypted and transfer-scrubbed).
 
-SDK_VERSION = "1.4"
+# --- SDK 1.5 — inventory data bridge, card events, cron jobs -----------------
+# 1.5 added the inventory domain to the connector seam (existing 1.x
+# extensions load and run unchanged):
+#
+# - ``ctx.data`` — a typed bridge to core cards, relations, and the metamodel,
+#   gated per call by the manifest grants ``core.cards.read`` /
+#   ``core.cards.write`` (write implies read). Reads return wire-shaped
+#   payloads (``ExtCard`` / ``ExtRelation`` / plain metamodel dicts), exclude
+#   hidden-type cards always and archived cards by default. Writes are
+#   guarded: audited as an ``ext:{key}`` mutation batch with origin ``ext``
+#   (grouped under ``ctx.data.batch(label)``), capped per batch and
+#   rate-limited per extension, disabled instance-wide by the
+#   ``EXTENSION_WRITES_ENABLED`` kill switch, and support ``dry_run``.
+#   ``update_card`` MERGES ``attributes`` (unlike REST's full replace) so an
+#   enrichment write can never wipe keys it does not carry. There is no hard
+#   delete: ``archive_card`` is the only removal, and relations cannot be
+#   deleted through the bridge at all.
+# - ``core.events.card`` — a new event scope delivering ``card.*`` and
+#   ``relation.*`` events to ``get_event_handlers()`` subscriptions. Events
+#   caused by this extension's own bridge writes carry ``data["ext"]`` and
+#   are filtered by the default ``include_self=False``, so a sync loop
+#   cannot form; pair handlers with a periodic reconcile job — delivery is
+#   at-most-once (bounded drop-oldest queue).
+# - ``ExtensionJob.cron`` — a 5-field UTC cron expression as an alternative
+#   to ``interval_seconds`` (exactly one of the two must be set). Numeric
+#   fields only; day-of-month/day-of-week use the classic vixie OR rule.
+
+SDK_VERSION = "1.5"
 
 
 @dataclass(frozen=True)
@@ -129,13 +157,22 @@ class ExtensionMigration:
 
 @dataclass(frozen=True)
 class ExtensionJob:
-    """A periodic background job. ``run`` is invoked every
-    ``interval_seconds`` while the extension is enabled and licensed —
-    lapse or disable pauses the job without a restart."""
+    """A scheduled background job, paused while the extension is disabled
+    or unlicensed (checked every tick — no restart needed to resume).
+
+    Exactly ONE of ``interval_seconds`` / ``cron`` must be set. An interval
+    job runs every ``interval_seconds`` (sleep-first — never at boot; use
+    ``on_startup`` for a first pass). A ``cron`` job (SDK 1.5) runs at the
+    UTC instants matched by a 5-field cron expression (numeric fields only;
+    ``*``, steps, ranges, lists; vixie day-of-month/day-of-week OR rule).
+    A job declaring both, neither, or an invalid expression is skipped at
+    startup with an error log — never fatal.
+    """
 
     name: str
-    interval_seconds: int
+    interval_seconds: int | None
     run: Callable[["ExtensionContext"], Awaitable[None]]
+    cron: str | None = None
 
 
 class ExtensionError(Exception):
@@ -268,6 +305,140 @@ class UsersBridge(Protocol):
     async def find_by_email(self, email: str) -> ExtUser | None: ...
 
 
+@dataclass(frozen=True)
+class ExtCard:
+    """Read model returned by the data bridge (SDK 1.5). Wire-shaped: string
+    ids, ISO timestamps, plain dicts — safe to serialize as-is. ``lifecycle``
+    and ``attributes`` are copies; mutating them never touches the card."""
+
+    id: str
+    type: str
+    subtype: str | None
+    name: str
+    description: str | None
+    parent_id: str | None
+    status: str
+    approval_status: str
+    reference: str | None
+    alias: str | None
+    lifecycle: dict[str, Any]
+    attributes: dict[str, Any]
+    data_quality: float
+    created_at: str | None
+    updated_at: str | None
+
+
+@dataclass(frozen=True)
+class ExtCardPage:
+    """One page of a card listing (SDK 1.5), mirroring ``GET /cards``
+    pagination so a sync job can walk the inventory deterministically."""
+
+    items: tuple[ExtCard, ...]
+    total: int
+    page: int
+    page_size: int
+
+
+@dataclass(frozen=True)
+class ExtRelation:
+    """Read model for a relation between two cards (SDK 1.5)."""
+
+    id: str
+    type: str
+    source_id: str
+    target_id: str
+    attributes: dict[str, Any]
+    description: str | None
+    created_at: str | None
+
+
+class DataBridge(Protocol):
+    """Typed access to core cards, relations, and the metamodel (SDK 1.5).
+
+    Reads require the ``core.cards.read`` or ``core.cards.write`` grant;
+    writes require ``core.cards.write``. Both are re-evaluated per call, so
+    disabling the extension or a license lapse revokes access immediately.
+
+    Reads exclude hidden-type cards always and archived cards unless asked
+    for. Writes run through the same core service the REST routes use —
+    validation, data-quality recompute, calculated fields, approval-breaking
+    and event emission behave identically whether a human or an extension
+    performed the write — and are guarded in depth: every write lands in an
+    ``ext:{key}`` mutation batch (visible in the admin audit log, revertible
+    via rollback), batches are size-capped and rate-limited, the operator
+    kill switch ``EXTENSION_WRITES_ENABLED=false`` pauses all extension
+    writes without a restart, and ``dry_run=True`` validates then rolls back
+    without emitting events. ``update_card`` MERGES the ``attributes`` patch
+    onto the stored dict (REST's PATCH replaces it wholesale) — an
+    enrichment write must never wipe keys it does not carry; a key set to
+    ``None`` is removed. There is no hard delete and no relation delete.
+    """
+
+    # -- reads --------------------------------------------------------------
+
+    async def get_card(self, card_id: str) -> ExtCard | None: ...
+
+    async def search_cards(
+        self,
+        *,
+        type: str | None = None,  # noqa: A002 - mirrors GET /cards
+        subtype: str | None = None,
+        search: str | None = None,
+        parent_id: str | None = None,
+        include_archived: bool = False,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> ExtCardPage: ...
+
+    async def get_relations(self, card_id: str) -> list[ExtRelation]: ...
+
+    async def get_card_types(self) -> list[dict]: ...
+
+    async def get_relation_types(self) -> list[dict]: ...
+
+    # -- writes -------------------------------------------------------------
+
+    def batch(self, label: str) -> AbstractAsyncContextManager[None]:
+        """Group several writes into ONE audited mutation batch. Without it
+        each write opens its own single-op batch."""
+        ...
+
+    async def create_card(
+        self,
+        *,
+        type: str,  # noqa: A002 - mirrors POST /cards
+        name: str,
+        subtype: str | None = None,
+        description: str | None = None,
+        parent_id: str | None = None,
+        lifecycle: dict[str, Any] | None = None,
+        attributes: dict[str, Any] | None = None,
+        alias: str | None = None,
+        dry_run: bool = False,
+    ) -> ExtCard: ...
+
+    async def update_card(
+        self,
+        card_id: str,
+        patch: dict[str, Any],
+        *,
+        dry_run: bool = False,
+    ) -> ExtCard: ...
+
+    async def archive_card(self, card_id: str, *, cascade_children: bool = False) -> None: ...
+
+    async def upsert_relation(
+        self,
+        *,
+        type: str,  # noqa: A002 - mirrors POST /relations
+        source_id: str,
+        target_id: str,
+        attributes: dict[str, Any] | None = None,
+        description: str | None = None,
+        dry_run: bool = False,
+    ) -> ExtRelation: ...
+
+
 @dataclass
 class ExtensionContext:
     """Runtime services handed to extension jobs and ``on_startup``.
@@ -280,7 +451,9 @@ class ExtensionContext:
     read-only user-directory bridge (grant ``core.users.read``). SDK 1.4
     adds ``get_settings`` / ``set_settings`` — batch variants that cost one
     database transaction for N keys (``set_settings`` refuses ``secret.``
-    names; use ``set_secret``).
+    names; use ``set_secret``). SDK 1.5 adds ``data`` — the inventory
+    bridge to cards, relations, and the metamodel (grants
+    ``core.cards.read`` / ``core.cards.write``).
     """
 
     key: str
@@ -295,6 +468,7 @@ class ExtensionContext:
     users: UsersBridge | None = None
     get_settings: Callable[[Sequence[str]], Awaitable[dict[str, Any]]] | None = None
     set_settings: Callable[[dict[str, Any]], Awaitable[None]] | None = None
+    data: DataBridge | None = None
 
     def __post_init__(self) -> None:
         if not self.settings_namespace:

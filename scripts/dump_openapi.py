@@ -45,7 +45,6 @@ if BACKEND_DIR.is_dir():
 
 from app.main import app  # noqa: E402
 
-
 STATIC_VERSION = "latest"
 
 

@@ -239,9 +239,23 @@ class TestGrantsValidation:
         ]
 
     def test_unknown_grant_is_rejected(self, tmp_path, keypair):
-        path = self._bundle(keypair, tmp_path, grants=["core.cards.write"])
+        # core.cards.delete stays the canonical rejected grant — the data
+        # bridge deliberately exposes no hard delete.
+        path = self._bundle(keypair, tmp_path, grants=["core.cards.delete"])
         with pytest.raises(BundleError, match="unknown grants"):
             read_bundle(path, core_version=CORE_VERSION)
+
+    def test_card_grants_pass(self, tmp_path, keypair):
+        path = self._bundle(
+            keypair,
+            tmp_path,
+            grants=["core.cards.read", "core.cards.write", "core.events.card"],
+        )
+        assert read_bundle(path, core_version=CORE_VERSION).manifest["grants"] == [
+            "core.cards.read",
+            "core.cards.write",
+            "core.events.card",
+        ]
 
     def test_non_list_grants_rejected(self, tmp_path, keypair):
         path = self._bundle(keypair, tmp_path, grants="core.todos.read")

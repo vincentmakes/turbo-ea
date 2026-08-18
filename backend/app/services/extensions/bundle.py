@@ -60,6 +60,9 @@ VALID_GRANTS = frozenset(
         "core.todos.write",
         "core.events.todo",
         "core.users.read",
+        "core.cards.read",
+        "core.cards.write",
+        "core.events.card",
     }
 )
 

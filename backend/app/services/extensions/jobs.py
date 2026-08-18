@@ -13,12 +13,15 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
 
 from app.core.encryption import decrypt_value, encrypt_value
 from app.database import async_session
+from app.services.extensions.cron import CronError, next_fire, validate_cron
+from app.services.extensions.data_service import ExtensionData
 from app.services.extensions.loader import LoadReport
 from app.services.extensions.registry import extension_registry
 from app.services.extensions.sdk import ExtensionContext, ExtensionJob
@@ -139,6 +142,7 @@ def build_context(key: str) -> ExtensionContext:
         users=ExtensionUsers(key),
         get_settings=get_settings,
         set_settings=set_settings,
+        data=ExtensionData(key),
     )
     _contexts[key] = ctx
     return ctx
@@ -151,11 +155,33 @@ def _job_may_run(key: str) -> bool:
     return extension_registry.entitlement(key).usable
 
 
+def validate_job_schedule(job: ExtensionJob) -> str | None:
+    """Return a problem string when the job's schedule is invalid, else None.
+
+    Exactly one of ``interval_seconds`` / ``cron`` must be set; a cron
+    expression must parse. Kept as a pure helper so startup can skip (never
+    crash on) a misdeclared job and tests can pin the rule.
+    """
+    has_interval = job.interval_seconds is not None
+    has_cron = job.cron is not None
+    if has_interval == has_cron:
+        return "exactly one of interval_seconds / cron must be set"
+    if has_cron:
+        try:
+            validate_cron(job.cron or "")
+        except CronError as e:
+            return str(e)
+    return None
+
+
 async def _job_loop(key: str, job: ExtensionJob, ctx: ExtensionContext) -> None:
-    interval = max(1, int(job.interval_seconds))
     while True:
         try:
-            await asyncio.sleep(interval)
+            if job.cron is not None:
+                fire_at = next_fire(job.cron, datetime.now(UTC))
+                await asyncio.sleep(max(1.0, (fire_at - datetime.now(UTC)).total_seconds()))
+            else:
+                await asyncio.sleep(max(1, int(job.interval_seconds or 1)))
             if not _job_may_run(key):
                 continue
             await job.run(ctx)
@@ -178,11 +204,23 @@ def start_extension_jobs(report: LoadReport) -> list[asyncio.Task]:
             continue
         ctx = build_context(ext.key)
         for job in jobs:
+            problem = validate_job_schedule(job)
+            if problem:
+                logger.error(
+                    "Extension %s job %s has an invalid schedule (%s) — job skipped",
+                    ext.key,
+                    job.name,
+                    problem,
+                )
+                continue
             task = asyncio.create_task(
                 _job_loop(ext.key, job, ctx), name=f"ext:{ext.key}:{job.name}"
             )
             tasks.append(task)
             logger.info(
-                "Started extension job %s/%s (every %ss)", ext.key, job.name, job.interval_seconds
+                "Started extension job %s/%s (%s)",
+                ext.key,
+                job.name,
+                f"cron {job.cron}" if job.cron else f"every {job.interval_seconds}s",
             )
     return tasks

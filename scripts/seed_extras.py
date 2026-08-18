@@ -59,9 +59,7 @@ async def main() -> None:
     print(f"[seed_extras] Connecting to {host}/{db_name}...")
 
     engine = create_async_engine(url, echo=False)
-    session_factory = async_sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
-    )
+    session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with session_factory() as db:
         result = await seed_extras_demo_data(db)

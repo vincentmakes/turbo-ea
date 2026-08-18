@@ -48,7 +48,9 @@ class TestTeaxGrantsLint:
         assert set(teax.VALID_GRANTS) == set(BACKEND_VALID_GRANTS)
 
     def test_unknown_grant_is_a_problem(self, teax, tmp_path):
-        src = write_source(tmp_path, {**BASE_MANIFEST, "grants": ["core.cards.write"]})
+        # core.cards.delete stays the canonical rejected grant: the bridge
+        # deliberately exposes no hard delete, so no such grant may exist.
+        src = write_source(tmp_path, {**BASE_MANIFEST, "grants": ["core.cards.delete"]})
         _, _, problems, _ = teax._lint_source(src)
         assert any("unknown grant" in p for p in problems)
 
@@ -82,6 +84,28 @@ class TestTeaxGrantsLint:
         src = write_source(
             tmp_path,
             {**BASE_MANIFEST, "grants": ["core.users.read"], "sdk_version": "1.3"},
+        )
+        _, _, problems, warnings = teax._lint_source(src)
+        assert problems == []
+        assert warnings == []
+
+    def test_cards_grant_with_pre_1_5_sdk_warns(self, teax, tmp_path):
+        src = write_source(
+            tmp_path,
+            {**BASE_MANIFEST, "grants": ["core.cards.read"], "sdk_version": "1.4"},
+        )
+        _, _, problems, warnings = teax._lint_source(src)
+        assert problems == []
+        assert any("SDK 1.5" in w for w in warnings)
+
+    def test_cards_grants_with_1_5_sdk_are_clean(self, teax, tmp_path):
+        src = write_source(
+            tmp_path,
+            {
+                **BASE_MANIFEST,
+                "grants": ["core.cards.read", "core.cards.write", "core.events.card"],
+                "sdk_version": "1.5",
+            },
         )
         _, _, problems, warnings = teax._lint_source(src)
         assert problems == []
