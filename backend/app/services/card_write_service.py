@@ -834,7 +834,7 @@ async def archive_card_set(
     actor: WriteActor,
     primary: Card,
     *,
-    child_strategy: str | None,
+    child_strategy: card_lifecycle.ChildStrategy | None,
     descendants: list[uuid.UUID],
     related_card_ids: list[uuid.UUID],
     full_affected: list[uuid.UUID],
@@ -846,7 +846,7 @@ async def archive_card_set(
     affected_related_card_ids)``. Caller has already run permission checks
     on every affected card and owns the commit."""
     # Apply parent-id mutation on the primary's direct children for disconnect/reparent.
-    if direct_children and child_strategy in ("disconnect", "reparent"):
+    if direct_children and (child_strategy == "disconnect" or child_strategy == "reparent"):
         await card_lifecycle.apply_child_strategy(db, primary, child_strategy, actor.user_id)
     # For ticked related cards, give their own children a `disconnect` so their
     # `parent_id` doesn't point at a soon-to-be-archived parent. Single-hop.

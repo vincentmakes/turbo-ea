@@ -256,10 +256,11 @@ class ExtensionData:
             q = q.where(Card.parent_id == pid)
             count_q = count_q.where(Card.parent_id == pid)
 
-        order = [Card.name.asc(), Card.id.asc()]
         if search:
-            order.insert(0, search_rank(Card.name, search).asc())
-        q = q.order_by(*order).offset((page - 1) * page_size).limit(page_size)
+            q = q.order_by(search_rank(Card.name, search).asc(), Card.name.asc(), Card.id.asc())
+        else:
+            q = q.order_by(Card.name.asc(), Card.id.asc())
+        q = q.offset((page - 1) * page_size).limit(page_size)
 
         async with async_session() as db:
             total = (await db.execute(count_q)).scalar() or 0
@@ -574,7 +575,9 @@ class ExtensionData:
                     f"Card {card_id} has {len(direct_children)} child card(s); "
                     "pass cascade_children=True to archive the subtree"
                 )
-            strategy = "cascade" if (direct_children and cascade_children) else None
+            strategy: card_lifecycle.ChildStrategy | None = (
+                "cascade" if (direct_children and cascade_children) else None
+            )
             descendants, related, full = await card_write_service.resolve_archive_delete_set(
                 db,
                 card,
