@@ -87,8 +87,13 @@ Die meisten Erweiterungen arbeiten nur mit ihren eigenen Daten. Eine Erweiterung
 - `core.todos.read` / `core.todos.write` — Todos über das Erweiterungs-SDK lesen oder ändern. Schreiben schließt Lesen ein. Bei System-Todos (etwa Signaturanfragen) kann eine Sync-Erweiterung nur die als Chip angezeigte externe Referenz setzen — sie kann sie niemals erledigen, bearbeiten, neu zuweisen oder löschen, und Todos einer anderen Erweiterung bleiben ebenfalls tabu.
 - `core.events.todo` — Todo-Änderungsereignisse empfangen, damit ein Konnektor sofort reagiert statt erst beim nächsten Abfragezyklus.
 - `core.users.read` — Benutzer nachschlagen (nur Name, E-Mail und Aktiv-Status), damit ein Konnektor Zuständige mit Konten im externen Tool abgleichen kann. Rollen-, Anmelde- oder Einstellungsdaten werden nicht offengelegt, und Erweiterungen können Benutzer niemals ändern.
+- `core.cards.read` — Karten, Relationen und das Metamodell lesen, z. B. damit ein Konnektor Ihre Applikationen mit Einträgen in einem externen System abgleichen kann. Archivierte Karten bleiben ausgeblendet.
+- `core.cards.write` — Karten anlegen, ändern oder archivieren und Relationen hinzufügen, mit exakt derselben Validierung wie im Editor der App. Änderungen führen Feldwerte zusammen statt sie zu ersetzen, sodass eine Erweiterung niemals Daten löschen kann, die sie nicht verwaltet, und es gibt **kein endgültiges Löschen** — Archivieren mit Wiederherstellungsfenster ist die einzige Entfernung, die einer Erweiterung möglich ist.
+- `core.events.card` — Änderungsereignisse zu Karten und Relationen empfangen, damit ein Konnektor sofort auf Inventaränderungen reagiert statt erst beim nächsten Abfragezyklus.
 
 Grants sind Teil des vom Anbieter signierten Bundles, stehen also beim Paketieren fest und sind vor der Installation sichtbar. Sie gelten nur, solange die Erweiterung installiert, aktiviert und lizenziert ist — Deaktivieren oder ein Lizenzablauf entzieht den Zugriff sofort, ohne Neustart. Jede Änderung einer Erweiterung wird in **Admin → Audit-Log** unter der Herkunft **Erweiterung** aufgezeichnet, und ein aus einem externen Tracker gespiegeltes Todo zeigt einen Chip mit Link auf das externe Element.
+
+Jede Änderung einer Erweiterung erscheint unter **Admin → Audit-Log** als `ext:<key>`-Batch mit Feld-Diffs und kann dort wie jeder andere Batch zurückgerollt werden. Betreiber behalten das letzte Wort: Die Umgebungsvariable `EXTENSION_WRITES_ENABLED=false` pausiert sofort alle Schreibzugriffe von Erweiterungen (Lesezugriffe laufen weiter, kein Neustart nötig), und `EXTENSION_MAX_WRITES_PER_BATCH` / `EXTENSION_MAX_BATCHES_PER_MINUTE` begrenzen, wie viel eine einzelne Erweiterung pro Batch und pro Minute ändern darf.
 
 ## Wo Erweiterungsseiten erscheinen
 

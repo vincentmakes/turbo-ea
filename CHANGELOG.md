@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.67.0] - 2026-08-18
+
+### Added
+- **Extensions can now read your inventory — with your explicit, visible consent.** Backend extension SDK 1.5 adds a typed data bridge to cards, relations, and the metamodel. Like every core capability an extension touches, access is declared in the extension's signed manifest as a grant (`core.cards.read`) that is shown on the Admin → Extensions page, counts only while the extension is enabled and licensed, and revokes the moment either stops being true. Reads return safe copies, never live rows, and archived cards stay out of view unless asked for.
+- **Extensions can now write to the inventory — guarded, audited, and reversible.** The same bridge accepts card create/update/archive and relation upserts under a separate `core.cards.write` grant, running through exactly the validation and side effects the app's own editor uses (field validation, hierarchy guards, calculated fields, data-quality scoring). Every write lands in the Admin → Audit log as an `ext:<key>` batch with per-event diffs and one-click rollback; batches are size-capped and rate-limited; updates merge attributes rather than replacing them, so a partial write can never wipe fields it does not carry; and there is no hard delete — archiving, with its restore window, is the only removal. Operators hold a kill switch: `EXTENSION_WRITES_ENABLED=false` pauses all extension writes instantly without touching reads or requiring a restart.
+- **Extensions can react to inventory changes.** A new `core.events.card` grant delivers card and relation events to extension event handlers, with an extension's own writes filtered out by default so a sync loop cannot form.
+- **Extension background jobs can run on a cron schedule.** Alongside the existing fixed interval, a job may declare a standard 5-field cron expression (evaluated in UTC) — nightly syncs no longer need a self-gating minute tick.
+
+### Changed
+- Card create, update, and archive logic now lives in one shared service used by every write path (the editor, bulk operations, and the extension bridge), so validation and side effects can never drift between them. No behaviour change.
+
 ## [2.66.1] - 2026-08-18
 
 ### Fixed

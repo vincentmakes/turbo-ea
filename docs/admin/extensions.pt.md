@@ -87,8 +87,13 @@ A maioria das extensões trabalha apenas com os seus próprios dados. Uma extens
 - `core.todos.read` / `core.todos.write` — ler ou alterar todos através do SDK de extensões. Escrever inclui ler. Nos todos de sistema (como pedidos de assinatura), uma extensão de sincronização só pode definir a referência externa mostrada como chip — nunca pode concluí-los, editá-los, reatribuí-los ou eliminá-los, e os todos de outra extensão continuam fora do seu alcance.
 - `core.events.todo` — receber os eventos de alteração dos todos, para que um conector reaja de imediato em vez de esperar pelo próximo ciclo de sondagem.
 - `core.users.read` — consultar utilizadores (apenas nome, e-mail e estado ativo) para que um conector possa fazer corresponder responsáveis a contas da ferramenta externa. Não são expostos dados de função, início de sessão ou preferências, e as extensões nunca podem alterar utilizadores.
+- `core.cards.read` — ler cartões, relações e o metamodelo, por exemplo para que um conector possa fazer corresponder as suas aplicações a registos de um sistema externo. Os cartões arquivados permanecem fora de vista.
+- `core.cards.write` — criar, atualizar ou arquivar cartões e adicionar relações, com exatamente a validação que o editor da aplicação aplica. As atualizações fundem os valores dos campos em vez de os substituir, pelo que uma extensão nunca pode apagar dados que não gere, e **não existe eliminação permanente** — arquivar, com a sua janela de restauro, é a única remoção possível para uma extensão.
+- `core.events.card` — receber eventos de alteração de cartões e relações, para que um conector reaja de imediato às mudanças do inventário em vez de esperar pelo próximo ciclo de consulta.
 
 Os grants fazem parte do pacote assinado pelo fornecedor: ficam fixados no empacotamento e são visíveis antes da instalação. Só se aplicam enquanto a extensão está instalada, ativada e licenciada — desativá-la ou deixar a licença expirar revoga o acesso imediatamente, sem reinício. Cada alteração feita por uma extensão fica registada em **Admin → Registo de auditoria** sob a origem **Extensão**, e um todo espelhado de um gestor externo mostra um chip com ligação ao item externo.
+
+Cada alteração feita por uma extensão aparece em **Admin → Registo de auditoria** como um lote `ext:<chave>` com diferenças campo a campo, e pode ser revertida aí como qualquer outro lote. Os operadores têm a última palavra: a variável de ambiente `EXTENSION_WRITES_ENABLED=false` pausa de imediato todas as escritas de extensões (as leituras continuam, sem reinício), e `EXTENSION_MAX_WRITES_PER_BATCH` / `EXTENSION_MAX_BATCHES_PER_MINUTE` limitam quanto uma extensão pode alterar por lote e por minuto.
 
 ## Onde as páginas de extensão aparecem
 

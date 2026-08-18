@@ -87,8 +87,13 @@ De fleste udvidelser arbejder kun med deres egne data. En udvidelse, der integre
 - `core.todos.read` / `core.todos.write` — læs eller ændr todos gennem udvidelses-SDK'et. Skriveadgang omfatter læseadgang. På system-todos (såsom underskriftsanmodninger) kan en synkroniseringsudvidelse kun sætte den eksterne reference, der vises som en chip — den kan aldrig fuldføre, redigere, omfordele eller slette dem, og todos, der ejes af en anden udvidelse, forbliver urørlige.
 - `core.events.todo` — modtag hændelser om todo-ændringer, så en connector reagerer med det samme i stedet for at vente på næste polling-cyklus.
 - `core.users.read` — slå brugere op (kun navn, e-mail og aktiv-status), så en connector kan matche ansvarlige med konti i det eksterne værktøj. Ingen data om roller, login eller præferencer eksponeres, og udvidelser kan aldrig ændre brugere.
+- `core.cards.read` — læse kort, relationer og metamodellen, fx så en connector kan matche jeres applikationer med poster i et eksternt system. Arkiverede kort forbliver ude af syne.
+- `core.cards.write` — oprette, opdatere eller arkivere kort og tilføje relationer, med præcis den validering appens egen editor anvender. Opdateringer fletter feltværdier i stedet for at erstatte dem, så en udvidelse aldrig kan slette data, den ikke administrerer, og der findes **ingen permanent sletning** — arkivering, med sit gendannelsesvindue, er den eneste fjernelse en udvidelse kan udføre.
+- `core.events.card` — modtage ændringshændelser for kort og relationer, så en connector reagerer på ændringer i inventaret med det samme i stedet for ved næste afstemningscyklus.
 
 Grants er en del af det leverandørsignerede bundle: de fastlægges ved pakningen og er synlige før installation. De gælder kun, mens udvidelsen er installeret, aktiveret og licenseret — deaktivering eller en udløbet licens tilbagekalder adgangen med det samme, uden genstart. Enhver ændring foretaget af en udvidelse registreres i **Admin → Auditlog** under oprindelsen **Udvidelse**, og en todo, der spejles fra et eksternt system, viser en chip med link til det eksterne element.
+
+Hver ændring en udvidelse foretager, vises i **Admin → Auditlog** som en `ext:<nøgle>`-batch med felt-for-felt-forskelle og kan rulles tilbage derfra som enhver anden batch. Operatører har det sidste ord: miljøvariablen `EXTENSION_WRITES_ENABLED=false` sætter øjeblikkeligt alle udvidelsers skrivninger på pause (læsninger fortsætter, ingen genstart), og `EXTENSION_MAX_WRITES_PER_BATCH` / `EXTENSION_MAX_BATCHES_PER_MINUTE` begrænser, hvor meget en enkelt udvidelse kan ændre pr. batch og pr. minut.
 
 ## Hvor udvidelsessider vises
 

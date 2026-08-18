@@ -87,8 +87,13 @@ Most extensions only work with their own data. An extension that integrates with
 - `core.todos.read` / `core.todos.write` — read or change todos through the extension SDK. Write implies read. On system todos (such as sign-off requests) a sync extension can only set the external reference shown as a chip — it can never complete, edit, reassign or delete them, and it can never touch todos owned by another extension.
 - `core.events.todo` — receive todo change events, so a connector reacts to a completed todo immediately instead of on its next polling cycle.
 - `core.users.read` — look up users (name, email, active flag only) so a connector can match assignees with accounts in the external tool. No role, login or preference data is exposed, and extensions can never change users.
+- `core.cards.read` — read cards, relations and the metamodel, e.g. so a connector can match your applications against records in an external system. Archived cards stay out of view.
+- `core.cards.write` — create, update or archive cards and add relations, with exactly the validation the app's own editor applies. Updates merge field values rather than replacing them, so an extension can never wipe data it does not manage, and there is **no permanent delete** — archiving, with its restore window, is the only removal an extension can perform.
+- `core.events.card` — receive card and relation change events, so a connector reacts to inventory changes immediately instead of on its next polling cycle.
 
-Grants ride inside the vendor-signed bundle, so they are fixed at packaging time and visible before you install. They only apply while the extension is installed, enabled and licensed — disabling it or letting the license lapse revokes access immediately, no restart needed. Every change an extension makes is recorded in **Admin → Audit log** under the **Extension** origin, and a todo mirrored from an external tracker shows a chip linking to the external item.
+Grants ride inside the vendor-signed bundle, so they are fixed at packaging time and visible before you install. They only apply while the extension is installed, enabled and licensed — disabling it or letting the license lapse revokes access immediately, no restart needed. Every change an extension makes is recorded in **Admin → Audit log** under the **Extension** origin as an `ext:<key>` batch with per-field diffs, and can be rolled back from there like any other batch. A todo mirrored from an external tracker shows a chip linking to the external item.
+
+Operators keep the last word on inventory writes: setting the environment variable `EXTENSION_WRITES_ENABLED=false` pauses every extension write instantly (reads keep working, no restart needed), and `EXTENSION_MAX_WRITES_PER_BATCH` / `EXTENSION_MAX_BATCHES_PER_MINUTE` cap how much a single extension can change per batch and per minute.
 
 ## Where extension pages appear
 
