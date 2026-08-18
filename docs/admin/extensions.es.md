@@ -50,6 +50,8 @@ Subir el mismo paquete otra vez es seguro — la vista previa muestra todo como 
 
 Aplica una licencia mediante **Introducir licencia…** en la pestaña Instaladas (pega el texto o sube el archivo); el botón también aparece en cada fila de extensión que la necesite. La página muestra entonces el titular y un distintivo por derecho con su fecha de caducidad.
 
+Su instancia mantiene **una sola licencia a la vez** — aplicar una nueva sustituye a la anterior. Las licencias emitidas por la Store siempre contienen todas las compras realizadas para su instancia, por lo que sustituirla es seguro. Si además posee licencias emitidas manualmente, pida a su proveedor una licencia combinada en lugar de aplicar archivos por extensión; si una licencia aplicada eliminara derechos que la actual todavía cubre, Turbo EA los enumera y pide confirmación primero (en ningún caso se eliminan datos).
+
 Cuando un derecho supera su caducidad entra en un **periodo de gracia** (30 días por defecto): todo sigue funcionando y los administradores ven un aviso. Tras la gracia, la extensión se **desactiva suavemente** — sus páginas desaparecen, su API rechaza peticiones y sus tareas en segundo plano se pausan. **Nunca se borran datos.** Aplicar una licencia renovada lo restaura todo al instante, sin reinicio.
 
 Las licencias compradas en la Tienda se renuevan solas en las instancias conectadas: tras cada pago correcto, tu instancia obtiene automáticamente la licencia ampliada — nada que pegar. En una instancia aislada, la renovación consiste en pegar el archivo de licencia actualizado del correo de renovación (o pedirlo al proveedor) — nada más.

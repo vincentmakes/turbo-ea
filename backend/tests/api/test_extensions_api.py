@@ -80,16 +80,19 @@ def make_license_text(
     renewal_key="",
     instance_id="",
     auto_renew=None,
+    entitlements=None,
 ) -> str:
-    entitlement = {"extension_key": extension_key, "expires_at": expires_at}
-    if auto_renew is not None:
-        entitlement["auto_renew"] = auto_renew
+    if entitlements is None:
+        entitlement = {"extension_key": extension_key, "expires_at": expires_at}
+        if auto_renew is not None:
+            entitlement["auto_renew"] = auto_renew
+        entitlements = [entitlement]
     payload = {
         "licensee": "ACME Corp",
         "customer_id": "cus_1",
         "issued_at": "2026-01-01T00:00:00Z",
         "grace_days": 30,
-        "entitlements": [entitlement],
+        "entitlements": entitlements,
     }
     if renewal_key:
         payload["renewal_key"] = renewal_key
@@ -153,15 +156,88 @@ class TestLicenseRoutes:
 
     async def test_reupload_supersedes(self, client, db, vendor):
         admin = await make_admin(db)
-        for licensee_key in ("sample-ext", "other-ext"):
-            res = await client.put(
-                "/api/v1/admin/extensions/license",
-                json={"text": make_license_text(vendor, extension_key=licensee_key)},
-                headers=auth_headers(admin),
-            )
-            assert res.status_code == 200
+        res = await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor, extension_key="sample-ext")},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 200
+        # Replacing an active entitlement with a license that drops it is a
+        # downgrade — confirmed applies, and the new license supersedes.
+        res = await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor, extension_key="other-ext"), "confirm": True},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 200
         res = await client.get("/api/v1/admin/extensions/license", headers=auth_headers(admin))
         assert res.json()["entitlements"][0]["extension_key"] == "other-ext"
+
+    async def test_downgrade_paste_refused_without_confirm(self, client, db, vendor):
+        admin = await make_admin(db)
+        res = await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor, extension_key="sample-ext")},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 200
+        res = await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor, extension_key="other-ext")},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 409, res.text
+        detail = res.json()["detail"]
+        assert detail["code"] == "entitlement_downgrade"
+        assert detail["dropped"] == ["sample-ext"]
+        # The refused paste changed nothing — the original license stays active.
+        res = await client.get("/api/v1/admin/extensions/license", headers=auth_headers(admin))
+        assert res.json()["entitlements"][0]["extension_key"] == "sample-ext"
+
+    async def test_superset_paste_needs_no_confirm(self, client, db, vendor):
+        admin = await make_admin(db)
+        res = await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor, extension_key="sample-ext")},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 200
+        composite = make_license_text(
+            vendor,
+            entitlements=[
+                {"extension_key": "sample-ext", "expires_at": EXPIRES},
+                {"extension_key": "other-ext", "expires_at": EXPIRES},
+            ],
+        )
+        res = await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": composite},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 200, res.text
+        res = await client.get("/api/v1/admin/extensions/license", headers=auth_headers(admin))
+        keys = {e["extension_key"] for e in res.json()["entitlements"]}
+        assert keys == {"sample-ext", "other-ext"}
+
+    async def test_dropping_expired_entitlement_needs_no_confirm(self, client, db, vendor):
+        admin = await make_admin(db)
+        # Expired beyond the 30-day grace window — dropping it is not a downgrade.
+        res = await client.put(
+            "/api/v1/admin/extensions/license",
+            json={
+                "text": make_license_text(
+                    vendor, extension_key="sample-ext", expires_at="2020-01-01T00:00:00Z"
+                )
+            },
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 200
+        res = await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor, extension_key="other-ext")},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 200, res.text
 
     async def test_tampered_license_rejected(self, client, db, vendor):
         admin = await make_admin(db)

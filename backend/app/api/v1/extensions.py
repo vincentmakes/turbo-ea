@@ -61,7 +61,7 @@ from app.services.extensions.field_contributions import (
 )
 from app.services.extensions.installer import install_bundle, uninstall
 from app.services.extensions.instance_id import get_instance_id, license_binding_problem
-from app.services.extensions.license import LicenseError, parse_and_verify
+from app.services.extensions.license import LicenseError, entitlement_state, parse_and_verify
 from app.services.extensions.license_refresh import persist_license, refresh_license_if_due
 from app.services.extensions.registry import extension_registry
 from app.services.extensions.store_catalog import (
@@ -132,6 +132,13 @@ class InstanceOut(BaseModel):
 
 class LicenseIn(BaseModel):
     text: str
+    # Acknowledge an entitlement downgrade. Core keeps ONE active license per
+    # instance, so applying a license REPLACES the previous one. When the new
+    # license omits entitlement keys the current license still covers (active
+    # or in grace), the apply is refused with 409 until the admin confirms —
+    # otherwise pasting a narrower (e.g. single-extension) license silently
+    # lapses everything it does not carry.
+    confirm: bool = False
 
 
 class ExtensionInstallOut(BaseModel):
@@ -276,12 +283,21 @@ def _license_store_managed() -> bool:
     return bool(doc and doc.renewal_key)
 
 
-async def _apply_license_text(db: AsyncSession, text: str, user_id: uuid.UUID) -> LicenseOut:
+async def _apply_license_text(
+    db: AsyncSession, text: str, user_id: uuid.UUID, *, confirm: bool = False
+) -> LicenseOut:
     """Verify a license and make it the active one (supersede + registry refresh).
 
     A license may be pasted directly or read from an uploaded file; either
     way it goes through the same signature verification here. The persist
     step is shared with the automatic store renewal (license_refresh.py).
+
+    Because one active license per instance means REPLACE, a license that
+    drops entitlement keys the current license still covers (active or in
+    grace) is refused with 409 until ``confirm`` is set — the trap is a
+    manually issued single-extension license lapsing everything else. The
+    auto-renew path never comes through here and is already shrink-proof
+    (``_should_apply`` in license_refresh.py).
     """
     try:
         doc = parse_and_verify(text)
@@ -294,6 +310,32 @@ async def _apply_license_text(db: AsyncSession, text: str, user_id: uuid.UUID) -
     binding = license_binding_problem(doc.instance_id)
     if binding:
         raise HTTPException(status_code=400, detail=binding)
+
+    # Downgrade gate. ``extension_registry.license`` is None when no license
+    # is installed or the stored one is not in effect (binding/verify
+    # problem) — nothing usable can be dropped in those cases. Long-expired
+    # entitlements are noise, so only active/grace keys count.
+    current = extension_registry.license
+    if current is not None and not confirm:
+        usable = {
+            ent.extension_key
+            for ent in current.entitlements
+            if entitlement_state(ent, current.grace_days) in ("active", "grace")
+        }
+        dropped = sorted(usable - {ent.extension_key for ent in doc.entitlements})
+        if dropped:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "entitlement_downgrade",
+                    "message": (
+                        "This license does not include entitlements the current "
+                        f"license still covers: {', '.join(dropped)}. Applying it "
+                        "will disable those extensions (no data is deleted)."
+                    ),
+                    "dropped": dropped,
+                },
+            )
 
     row = await persist_license(db, doc, created_by=user_id)
     logger.info("Extension license updated: licensee=%s", doc.licensee)
@@ -316,7 +358,7 @@ async def put_license(
     user: User = Depends(get_current_user),
 ) -> LicenseOut:
     await PermissionService.require_permission(db, user, "admin.manage_extensions")
-    return await _apply_license_text(db, payload.text, user.id)
+    return await _apply_license_text(db, payload.text, user.id, confirm=payload.confirm)
 
 
 @router.delete("/license", status_code=204)

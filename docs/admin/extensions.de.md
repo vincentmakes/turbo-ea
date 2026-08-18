@@ -50,6 +50,8 @@ Das erneute Hochladen desselben Pakets ist unbedenklich — die Vorschau zeigt a
 
 Wenden Sie eine Lizenz über **Lizenz eingeben…** im Tab Installiert an (Text einfügen oder Datei hochladen) — die Schaltfläche erscheint auch an jeder Erweiterungszeile, der eine Lizenz fehlt. Die Seite zeigt dann den Lizenznehmer sowie einen Chip pro Berechtigung mit Ablaufdatum.
 
+Ihre Instanz hält **jeweils nur eine Lizenz** — das Anwenden einer neuen ersetzt die vorherige. Über den Store ausgestellte Lizenzen enthalten immer alle Käufe Ihrer Instanz, das Ersetzen ist also sicher. Wenn Sie zusätzlich manuell ausgestellte Lizenzen besitzen, bitten Sie Ihren Anbieter um eine kombinierte Lizenz, statt Dateien pro Erweiterung anzuwenden; würde eine angewendete Lizenz Berechtigungen entfernen, die die aktuelle noch abdeckt, listet Turbo EA sie auf und fragt zuerst nach einer Bestätigung (Daten werden in keinem Fall gelöscht).
+
 Überschreitet eine Berechtigung ihr Ablaufdatum, beginnt eine **Kulanzfrist** (standardmäßig 30 Tage): Alles funktioniert weiter, Administratoren sehen einen Warnhinweis. Danach wird die Erweiterung **weich deaktiviert** — ihre Seiten verschwinden, ihre API lehnt Anfragen ab, ihre Hintergrundjobs pausieren. **Es werden niemals Daten gelöscht.** Das Anwenden einer erneuerten Lizenzdatei stellt sofort alles wieder her, ohne Neustart.
 
 Über den Store gekaufte Lizenzen verlängern sich auf verbundenen Instanzen von selbst: Nach jeder erfolgreichen Zahlung holt Ihre Instanz die verlängerte Lizenz automatisch — nichts einzufügen. Auf einer abgeschotteten Instanz gilt: die aktualisierte Lizenzdatei aus der Verlängerungs-E-Mail einfügen (oder beim Anbieter anfordern) — fertig.

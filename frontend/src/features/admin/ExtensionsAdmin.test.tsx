@@ -13,12 +13,23 @@ vi.mock("@/api/client", () => ({
     delete: vi.fn(),
     upload: vi.fn(),
   },
+  // The component branches on `instanceof ApiError` (status + structured
+  // detail), so the mock must ship a compatible class, not just `api`.
+  ApiError: class ApiError extends Error {
+    status: number;
+    detail: unknown;
+    constructor(message: string, status: number, detail: unknown) {
+      super(message);
+      this.status = status;
+      this.detail = detail;
+    }
+  },
 }));
 vi.mock("@/hooks/useMetamodel", () => ({
   invalidateCache: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { api } from "@/api/client";
+import { api, ApiError } from "@/api/client";
 
 const mockGet = api.get as ReturnType<typeof vi.fn>;
 const mockPost = api.post as ReturnType<typeof vi.fn>;
@@ -296,9 +307,48 @@ describe("ExtensionsAdmin", () => {
     await waitFor(() =>
       expect(mockPut).toHaveBeenCalledWith("/admin/extensions/license", {
         text: "signed-license-text",
+        confirm: false,
       }),
     );
     await waitFor(() => expect(screen.getByText("Licensed to ACME Corp")).toBeInTheDocument());
+  });
+
+  it("asks for confirmation before applying a license that drops active entitlements", async () => {
+    primeInitialLoad({ extensions: [SAMPLE_EXT] });
+    mockPut.mockRejectedValueOnce(
+      new ApiError("downgrade", 409, {
+        code: "entitlement_downgrade",
+        message: "downgrade",
+        dropped: ["sample-ext"],
+      }),
+    );
+    renderPage();
+    await openInstalledTab();
+    await userEvent.click(screen.getByText("Enter license…", { selector: "button" }));
+    await userEvent.type(
+      screen.getByPlaceholderText("Paste license text here…"),
+      "narrow-license",
+    );
+    await userEvent.click(screen.getByText("Apply license"));
+
+    // The 409 opens the confirmation dialog naming the dropped extension
+    // (once in the list row, once inside the dialog).
+    await waitFor(() =>
+      expect(
+        screen.getByText("This license drops active entitlements"),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getAllByText("Sample Extension").length).toBeGreaterThan(1);
+
+    mockPut.mockResolvedValue(LICENSE);
+    primeInitialLoad({ extensions: [SAMPLE_EXT], license: LICENSE });
+    await userEvent.click(screen.getByText("Apply anyway"));
+    await waitFor(() =>
+      expect(mockPut).toHaveBeenLastCalledWith("/admin/extensions/license", {
+        text: "narrow-license",
+        confirm: true,
+      }),
+    );
   });
 
   it("uploads a bundle from the Store tab, shows the preview, and installs it", async () => {

@@ -241,6 +241,10 @@ export default function ExtensionsAdmin() {
   const [licenseBusy, setLicenseBusy] = useState(false);
   const [licenseError, setLicenseError] = useState<string | null>(null);
   const licenseFileRef = useRef<HTMLInputElement>(null);
+  // Set when a paste was refused with 409 entitlement_downgrade: the new
+  // license drops entitlements the current one still covers, so the admin
+  // must confirm before the replace lapses them.
+  const [downgrade, setDowngrade] = useState<{ text: string; dropped: string[] } | null>(null);
 
   // Purchase claim polling (Buy → Stripe tab → poll until license lands).
   const [claiming, setClaiming] = useState<{ token: string; itemKey: string } | null>(null);
@@ -419,16 +423,17 @@ export default function ExtensionsAdmin() {
     setGateItem(null);
     setLicenseText("");
     setLicenseError(null);
+    setDowngrade(null);
     pendingInstallRef.current = null;
     pendingApplyRef.current = null;
     setApplyGate(false);
   }, []);
 
-  const submitLicense = async (text: string) => {
+  const submitLicense = async (text: string, confirm = false) => {
     setLicenseBusy(true);
     setLicenseError(null);
     try {
-      await api.put("/admin/extensions/license", { text });
+      await api.put("/admin/extensions/license", { text, confirm });
       setLicenseText("");
       // A new license can activate capability grants — drop the cache.
       invalidateExtensionCapabilities();
@@ -445,7 +450,13 @@ export default function ExtensionsAdmin() {
       if (continueApplyId) void applyInstall(continueApplyId);
       else if (continueKey) void startStoreInstall(continueKey);
     } catch (e) {
-      setLicenseError(e instanceof Error ? e.message : String(e));
+      const detail =
+        e instanceof ApiError ? (e.detail as { code?: string; dropped?: string[] } | null) : null;
+      if (e instanceof ApiError && e.status === 409 && detail?.code === "entitlement_downgrade") {
+        setDowngrade({ text, dropped: detail.dropped ?? [] });
+      } else {
+        setLicenseError(e instanceof Error ? e.message : String(e));
+      }
     } finally {
       setLicenseBusy(false);
     }
@@ -1394,6 +1405,63 @@ export default function ExtensionsAdmin() {
             }
           >
             {t("extensions.license.apply", "Apply license")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Entitlement-downgrade confirmation. Applying a license REPLACES the
+          active one, so entitlements the new license does not carry lapse —
+          the 409 from the backend routes here instead of applying silently. */}
+      <Dialog
+        open={downgrade !== null}
+        onClose={() => setDowngrade(null)}
+        fullWidth
+        maxWidth="sm"
+        disableRestoreFocus
+      >
+        <DialogTitle>
+          {t("extensions.license.downgradeTitle", "This license drops active entitlements")}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 1.5 }}>
+            {t(
+              "extensions.license.downgradeBody",
+              "Your instance holds one license at a time, and the license you are applying does not include the entitlements below. Applying it will disable these extensions until a license covering them is applied again — no data is deleted.",
+            )}
+          </DialogContentText>
+          <Stack spacing={0.5} sx={{ mb: 1.5 }}>
+            {(downgrade?.dropped ?? []).map((key) => (
+              <Stack key={key} direction="row" spacing={1} alignItems="center">
+                <MaterialSymbol icon="extension_off" size={18} />
+                <Typography variant="body2">
+                  {extensions.find((x) => x.key === key)?.name ?? key}
+                </Typography>
+              </Stack>
+            ))}
+          </Stack>
+          <DialogContentText>
+            {t(
+              "extensions.license.downgradeHint",
+              "If you expected this license to cover everything you own, ask your vendor for one combined license instead of per-extension files.",
+            )}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDowngrade(null)}>
+            {t("extensions.uninstall.cancel", "Cancel")}
+          </Button>
+          <Button
+            color="warning"
+            variant="contained"
+            disabled={licenseBusy}
+            onClick={() => {
+              const text = downgrade?.text ?? "";
+              setDowngrade(null);
+              void submitLicense(text, true);
+            }}
+            startIcon={<MaterialSymbol icon="warning" size={18} />}
+          >
+            {t("extensions.license.downgradeConfirm", "Apply anyway")}
           </Button>
         </DialogActions>
       </Dialog>

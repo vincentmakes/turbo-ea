@@ -50,6 +50,8 @@ Det er sikkert at uploade den samme pakke igen — forhåndsvisningen viser alt 
 
 Anvend en licens via **Indtast licens…** under fanen Installerede (indsæt teksten eller upload filen) — knappen vises også på hver udvidelsesrække, der mangler en. Siden viser derefter licenstageren og en chip pr. rettighed med udløbsdato.
 
+Din instans har **kun én licens ad gangen** — at anvende en ny erstatter den forrige. Licenser udstedt via Store indeholder altid alle køb foretaget for din instans, så udskiftning er sikker. Hvis du også har manuelt udstedte licenser, så bed din leverandør om én samlet licens i stedet for at anvende filer pr. udvidelse; hvis en anvendt licens ville fjerne rettigheder, som den nuværende stadig dækker, viser Turbo EA dem og beder først om bekræftelse (der slettes under ingen omstændigheder data).
+
 Når en rettighed passerer sin udløbsdato, starter en **henstandsperiode** (30 dage som standard): alt fungerer fortsat, og administratorer ser et advarselsbanner. Efter henstanden bliver udvidelsen **blødt deaktiveret** — dens sider forsvinder, dens API afviser forespørgsler, og dens baggrundsjobs pauser. **Der slettes aldrig data.** Anvendelse af en fornyet licensfil gendanner alt med det samme, uden genstart.
 
 Licenser købt via Butikken fornyer sig selv på forbundne instanser: efter hver gennemført betaling henter din instans automatisk den forlængede licens — intet at indsætte. På en isoleret installation er fornyelse: indsæt den opdaterede licensfil fra fornyelses-e-mailen (eller anmod leverandøren om en) — intet andet.

@@ -50,6 +50,8 @@ Caricare due volte lo stesso pacchetto è sicuro — l'anteprima mostra tutto co
 
 Applica una licenza tramite **Inserisci licenza…** nella scheda Installate (incolla il testo o carica il file); il pulsante compare anche su ogni riga di estensione che ne ha bisogno. La pagina mostra quindi l'intestatario e un badge per ogni diritto con la sua scadenza.
 
+La tua istanza mantiene **una sola licenza alla volta** — applicarne una nuova sostituisce la precedente. Le licenze emesse dallo Store contengono sempre tutti gli acquisti effettuati per la tua istanza, quindi la sostituzione è sicura. Se possiedi anche licenze emesse manualmente, chiedi al tuo fornitore una licenza combinata invece di applicare file per singola estensione; se una licenza applicata rimuovesse diritti ancora coperti da quella attuale, Turbo EA li elenca e chiede prima conferma (in nessun caso vengono eliminati dati).
+
 Quando un diritto supera la scadenza entra in un **periodo di tolleranza** (30 giorni per impostazione predefinita): tutto continua a funzionare e gli amministratori vedono un avviso. Dopo la tolleranza l'estensione viene **disattivata dolcemente** — le sue pagine spariscono, la sua API rifiuta le richieste, i suoi processi in background si fermano. **Nessun dato viene mai cancellato.** Applicare una licenza rinnovata ripristina tutto all'istante, senza riavvio.
 
 Le licenze acquistate tramite lo Store si rinnovano da sole sulle istanze connesse: dopo ogni pagamento andato a buon fine, l'istanza recupera automaticamente la licenza estesa — niente da incollare. Su un'istanza isolata il rinnovo è: incollare il file di licenza aggiornato ricevuto via e-mail (o richiederlo al fornitore) — nient'altro.

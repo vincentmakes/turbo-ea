@@ -50,6 +50,8 @@ Uploading the same bundle again is safe — the preview shows everything as "ski
 
 Apply a license via **Enter license…** on the Installed tab (paste the text or upload the file) — the button also appears on each extension row that needs one. The page then shows the licensee and one chip per entitlement with its expiry date.
 
+Your instance holds **one license at a time** — applying a new one replaces the previous one. Store-issued licenses always contain every purchase made for your instance, so replacing is safe. If you also hold manually issued licenses, ask your vendor for one combined license instead of installing per-extension files; should a license you apply drop entitlements the current one still covers, Turbo EA lists them and asks for confirmation first (no data is deleted either way).
+
 When an entitlement passes its expiry it enters a **grace window** (30 days by default): everything keeps working and administrators see a warning banner. After grace the extension is **soft-disabled** — its pages disappear, its API refuses requests, and its background jobs pause. **No data is ever deleted.** Applying a renewed license file restores everything instantly, without a restart.
 
 Licenses bought through the Store renew themselves on connected instances: after each successful payment, your instance fetches the extended license automatically — nothing to paste. Renewal on an air-gapped instance is: paste the updated license file from the renewal email (or request one from your vendor) — nothing else.

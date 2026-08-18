@@ -5387,6 +5387,11 @@
       },
       "LicenseIn": {
         "properties": {
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
+            "type": "boolean"
+          },
           "text": {
             "title": "Text",
             "type": "string"

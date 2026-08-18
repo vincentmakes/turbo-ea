@@ -50,6 +50,8 @@ Carregar o mesmo pacote outra vez é seguro — a pré-visualização mostra tud
 
 Aplique uma licença através de **Introduzir licença…** no separador Instaladas (cole o texto ou carregue o ficheiro); o botão também aparece em cada linha de extensão que precise dela. A página mostra então o titular e um distintivo por direito com a respetiva data de expiração.
 
+A sua instância mantém **apenas uma licença de cada vez** — aplicar uma nova substitui a anterior. As licenças emitidas pela Store contêm sempre todas as compras feitas para a sua instância, pelo que a substituição é segura. Se também possuir licenças emitidas manualmente, peça ao seu fornecedor uma licença combinada em vez de aplicar ficheiros por extensão; se uma licença aplicada removesse direitos que a atual ainda cobre, o Turbo EA lista-os e pede primeiro confirmação (em nenhum caso são eliminados dados).
+
 Quando um direito ultrapassa a validade entra num **período de tolerância** (30 dias por predefinição): tudo continua a funcionar e os administradores veem um aviso. Após a tolerância, a extensão é **desativada suavemente** — as suas páginas desaparecem, a sua API recusa pedidos e as suas tarefas em segundo plano ficam em pausa. **Nunca são apagados dados.** Aplicar uma licença renovada restaura tudo de imediato, sem reinício.
 
 As licenças compradas na Loja renovam-se sozinhas nas instâncias ligadas: após cada pagamento bem-sucedido, a sua instância obtém automaticamente a licença prolongada — nada a colar. Numa instância isolada, a renovação resume-se a colar o ficheiro de licença atualizado do e-mail de renovação (ou pedi-lo ao fornecedor) — nada mais.
