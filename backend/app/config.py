@@ -126,6 +126,18 @@ class Settings:
     # constant by design (see the module-level comment) — no env override.
     EXTENSION_STORE_URL: str = EXTENSION_STORE_URL
 
+    # Extension write-bridge guardrails (SDK 1.5). Mirrors the MCP_* write
+    # guardrails: a kill switch that pauses all extension writes without a
+    # restart (reads keep working), a per-batch write cap, and an in-process
+    # per-extension rate cap on batches.
+    EXTENSION_WRITES_ENABLED: bool = os.getenv("EXTENSION_WRITES_ENABLED", "true").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    EXTENSION_MAX_WRITES_PER_BATCH: int = int(os.getenv("EXTENSION_MAX_WRITES_PER_BATCH", "500"))
+    EXTENSION_MAX_BATCHES_PER_MINUTE: int = int(os.getenv("EXTENSION_MAX_BATCHES_PER_MINUTE", "60"))
+
     # AI / LLM (optional — disabled by default)
     AI_PROVIDER_URL: str = os.getenv("AI_PROVIDER_URL", "")
     AI_MODEL: str = os.getenv("AI_MODEL", "")
