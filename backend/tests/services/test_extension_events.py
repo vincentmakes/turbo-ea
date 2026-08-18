@@ -184,3 +184,34 @@ class TestDispatcher:
 
     async def test_scope_map_covers_todo_prefix(self):
         assert ev_mod.EVENT_SCOPE_GRANTS["core.events.todo"] == ("todo.",)
+
+    async def test_scope_map_covers_card_and_relation_prefixes(self):
+        # SDK 1.5 — the inventory domain rides one grant.
+        assert ev_mod.EVENT_SCOPE_GRANTS["core.events.card"] == ("card.", "relation.")
+
+
+class TestCardScope:
+    def test_card_grant_delivers_card_and_relation_events(self):
+        load_registry(grants=["core.events.card"])
+        assert _deliverable(KEY, sub("card."), msg("card.updated"))
+        assert _deliverable(KEY, sub("relation."), msg("relation.created"))
+        # The todo domain stays off without its own grant.
+        assert not _deliverable(KEY, sub("todo."), msg("todo.created"))
+
+    def test_todo_grant_does_not_imply_card_events(self):
+        load_registry(grants=["core.events.todo"])
+        assert not _deliverable(KEY, sub("card."), msg("card.updated"))
+
+    def test_own_bridge_writes_are_suppressed_by_default(self):
+        # The data bridge stamps data["ext"] on events its writes cause —
+        # the loop breaker for write → event → handler → write.
+        load_registry(grants=["core.events.card"])
+        own = msg("card.updated", {"ext": KEY})
+        other = msg("card.updated", {"ext": "another-ext"})
+        assert not _deliverable(KEY, sub("card."), own)
+        assert _deliverable(KEY, sub("card.", include_self=True), own)
+        assert _deliverable(KEY, sub("card."), other)
+
+    def test_lapse_pauses_card_delivery(self):
+        load_registry(grants=["core.events.card"], licensed=False)
+        assert not _deliverable(KEY, sub("card."), msg("card.updated"))

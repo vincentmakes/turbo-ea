@@ -40,6 +40,13 @@ logger = logging.getLogger(__name__)
 # matching VALID_GRANTS entry in bundle.py / teax.py.
 EVENT_SCOPE_GRANTS: dict[str, tuple[str, ...]] = {
     "core.events.todo": ("todo.",),
+    # SDK 1.5 — the inventory domain: card.* (created/updated/archived/
+    # restored/deleted/approval_status, plus batch variants) and relation.*
+    # (created/updated/deleted). Events caused by an extension's own data-
+    # bridge writes carry data["ext"] and are suppressed by the default
+    # include_self=False; delivery is at-most-once, so handlers pair with a
+    # periodic reconcile job.
+    "core.events.card": ("card.", "relation."),
 }
 
 HANDLER_TIMEOUT_SECONDS = 30
