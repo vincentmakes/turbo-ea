@@ -37,7 +37,7 @@ import {
   useOptionLabel,
   useSubtypeLabel,
 } from "@/hooks/useResolveLabel";
-import { useAiStatus } from "@/hooks/useAiStatus";
+import { useAiStatus, aiSuggestEnabledFor } from "@/hooks/useAiStatus";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { api, ApiError } from "@/api/client";
@@ -268,11 +268,7 @@ export default function CreateCardDialog({
   };
 
   // Whether AI suggest button should be shown for the current type
-  const aiEnabled =
-    aiStatus.enabled &&
-    aiStatus.configured &&
-    selectedType &&
-    (aiStatus.enabled_types.length === 0 || aiStatus.enabled_types.includes(selectedType));
+  const aiEnabled = aiSuggestEnabledFor(aiStatus, selectedType);
 
   const handleAiSuggest = async () => {
     if (!selectedType || !name.trim()) return;

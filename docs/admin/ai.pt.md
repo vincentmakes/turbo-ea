@@ -111,6 +111,8 @@ Uma vez conectado, você pode ajustar o recurso em **Configurações > Sugestõe
 
 Nem todo tipo de card se beneficia igualmente de sugestões de IA. Você pode habilitar ou desabilitar a IA para cada tipo individualmente. Por exemplo, você pode habilitá-la para cards de Aplicação e Componente de TI, mas desabilitá-la para cards de Organização onde as descrições são específicas da empresa.
 
+Deixar **todos** os tipos de card desmarcados não é o mesmo que desativar o recurso: significa *nenhuma restrição por tipo*, portanto o botão de sugestão aparece em todos os tipos de card.
+
 ### Provedor de Busca
 
 Escolha qual provedor de busca web usar para coletar contexto antes de enviar ao LLM. O DuckDuckGo funciona sem nenhuma configuração. Google Custom Search e SearXNG requerem configuração adicional (veja a tabela de Provedores de Busca acima).

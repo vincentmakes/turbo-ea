@@ -115,6 +115,8 @@ Once connected, you can fine-tune the AI features in **Settings > AI**. The sett
 
 Not every card type benefits equally from AI suggestions. You can enable or disable AI for each type individually. For example, you might enable it for Application and IT Component cards but disable it for Organization cards where descriptions are company-specific.
 
+Leaving **every** card type unchecked is not the same as switching the feature off — it means *no per-type restriction*, so the suggestion button appears on all card types.
+
 ### Search Provider
 
 Choose which web search provider to use for gathering context before sending to the LLM. DuckDuckGo works out of the box with no configuration. Google Custom Search and SearXNG require additional setup (see the Search Providers table above).

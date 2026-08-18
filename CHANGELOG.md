@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.67.1] - 2026-08-18
+
+### Fixed
+- **Leaving every card type unchecked under Admin → Settings → AI now really does enable AI description suggestions everywhere, as the page says it does.** The setting has always been a restriction rather than a selection — an empty list means "no per-type restriction", which is exactly how the server treats it — but the card detail page and the card side panel read it as a literal list of permitted types, so an empty one matched nothing and the **Suggest with AI** button vanished from every card. Administrators who followed the on-screen wording were left with a feature that looked configured and did nothing, fixable only by ticking each type by hand. Both surfaces now agree with the server and with the Create card dialog, which was already correct. Reported in [#962](https://github.com/vincentmakes/turbo-ea/issues/962).
+
+### Changed
+- The AI administration guide now spells out that unchecking every card type means "no per-type restriction" rather than "off".
+
 ## [2.67.0] - 2026-08-18
 
 ### Added

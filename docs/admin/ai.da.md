@@ -115,6 +115,8 @@ Når du er forbundet, kan du finjustere AI-funktionerne i **Indstillinger > AI**
 
 Ikke alle korttyper drager lige meget gavn af AI-forslag. Du kan aktivere eller deaktivere AI for hver type individuelt. For eksempel kan du aktivere det for Application- og IT Component-kort, men deaktivere det for Organization-kort, hvor beskrivelser er virksomhedsspecifikke.
 
+At lade **alle** korttyper være umarkerede er ikke det samme som at slå funktionen fra — det betyder *ingen begrænsning pr. type*, så forslagsknappen vises for alle korttyper.
+
 ### Søgeudbyder
 
 Vælg, hvilken websøgeudbyder der skal bruges til at indsamle kontekst, før der sendes til LLM'en. DuckDuckGo virker ud af kassen uden konfiguration. Google Custom Search og SearXNG kræver yderligere opsætning (se tabellen Søgeudbydere ovenfor).

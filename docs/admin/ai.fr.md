@@ -111,6 +111,8 @@ Une fois connecté, vous pouvez affiner la fonctionnalité dans **Paramètres > 
 
 Tous les types de fiches ne bénéficient pas également des suggestions IA. Vous pouvez activer ou désactiver l'IA pour chaque type individuellement. Par exemple, vous pourriez l'activer pour les fiches Application et Composant IT mais la désactiver pour les fiches Organisation où les descriptions sont spécifiques à l'entreprise.
 
+Ne cocher **aucun** type de fiche ne revient pas à désactiver la fonctionnalité — cela signifie *aucune restriction par type*, et le bouton de suggestion apparaît donc sur tous les types de fiches.
+
 ### Fournisseur de recherche
 
 Choisissez quel fournisseur de recherche web utiliser pour collecter le contexte avant l'envoi au LLM. DuckDuckGo fonctionne immédiatement sans configuration. Google Custom Search et SearXNG nécessitent une configuration supplémentaire (voir le tableau des fournisseurs de recherche ci-dessus).

@@ -111,6 +111,8 @@ Una volta connessi, potete perfezionare la funzionalità in **Impostazioni > Sug
 
 Non tutti i tipi di card beneficiano allo stesso modo dei suggerimenti AI. Potete abilitare o disabilitare l'AI per ogni tipo individualmente. Ad esempio, potreste abilitarla per le card Application e IT Component ma disabilitarla per le card Organization dove le descrizioni sono specifiche dell'azienda.
 
+Lasciare **tutti** i tipi di card deselezionati non equivale a disattivare la funzione: significa *nessuna restrizione per tipo*, quindi il pulsante di suggerimento appare su tutti i tipi di card.
+
 ### Provider di ricerca
 
 Scegliete quale provider di ricerca web utilizzare per raccogliere il contesto prima di inviarlo al LLM. DuckDuckGo funziona immediatamente senza configurazione. Google Custom Search e SearXNG richiedono una configurazione aggiuntiva (vedi la tabella dei Provider di ricerca sopra).

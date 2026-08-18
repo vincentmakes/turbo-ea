@@ -111,6 +111,8 @@ Una vez conectado, puede ajustar la funcionalidad en **Configuración > Sugerenc
 
 No todos los tipos de ficha se benefician por igual de las sugerencias de IA. Puede habilitar o deshabilitar la IA para cada tipo individualmente. Por ejemplo, puede habilitarla para fichas de Aplicación y Componente TI, pero deshabilitarla para fichas de Organización donde las descripciones son específicas de la empresa.
 
+Dejar **todos** los tipos de ficha sin marcar no equivale a desactivar la función: significa *ninguna restricción por tipo*, por lo que el botón de sugerencia aparece en todos los tipos de ficha.
+
 ### Proveedor de Búsqueda
 
 Elija qué proveedor de búsqueda web usar para recopilar contexto antes de enviar al LLM. DuckDuckGo funciona sin configuración. Google Custom Search y SearXNG requieren configuración adicional (consulte la tabla de Proveedores de Búsqueda arriba).

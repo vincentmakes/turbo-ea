@@ -111,6 +111,8 @@ Nach der Verbindung können Sie die Funktion in **Einstellungen > KI-Vorschläge
 
 Nicht jeder Kartentyp profitiert gleichermaßen von KI-Vorschlägen. Sie können KI für jeden Typ einzeln aktivieren oder deaktivieren. Zum Beispiel könnten Sie sie für Anwendungs- und IT-Komponenten-Karten aktivieren, aber für Organisations-Karten deaktivieren, bei denen Beschreibungen unternehmensspezifisch sind.
 
+Wenn **kein** Kartentyp ausgewählt ist, ist die Funktion nicht deaktiviert — das bedeutet *keine Einschränkung pro Typ*, die Vorschlagsschaltfläche erscheint also bei allen Kartentypen.
+
 ### Suchanbieter
 
 Wählen Sie, welcher Websuchanbieter zum Sammeln von Kontext vor dem Senden an das LLM verwendet wird. DuckDuckGo funktioniert ohne Konfiguration sofort. Google Custom Search und SearXNG erfordern zusätzliche Einrichtung (siehe die Suchanbieter-Tabelle oben).

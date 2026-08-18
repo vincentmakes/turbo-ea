@@ -28,7 +28,7 @@ import RestoreDialog from "@/features/cards/RestoreDialog";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useTypeLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
-import { useAiStatus } from "@/hooks/useAiStatus";
+import { useAiStatus, aiSuggestEnabledFor } from "@/hooks/useAiStatus";
 import { useArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
 import { api, ApiError } from "@/api/client";
 import { CardIdPill, DataQualityPill } from "@/features/cards/sections";
@@ -379,10 +379,7 @@ export default function CardDetail() {
   };
 
   // ── AI suggestions ──────────────────────────────────────────
-  const aiEnabled =
-    aiStatus.enabled &&
-    aiStatus.configured &&
-    aiStatus.enabled_types.includes(card.type);
+  const aiEnabled = aiSuggestEnabledFor(aiStatus, card.type);
 
   const handleAiSuggest = async () => {
     setAiError("");

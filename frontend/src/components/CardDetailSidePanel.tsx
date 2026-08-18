@@ -16,7 +16,7 @@ import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
-import { useAiStatus } from "@/hooks/useAiStatus";
+import { useAiStatus, aiSuggestEnabledFor } from "@/hooks/useAiStatus";
 import { api } from "@/api/client";
 import { DataQualityPill } from "@/features/cards/sections";
 import CardDetailContent from "@/features/cards/CardDetailContent";
@@ -92,11 +92,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
   // (e.g. "AI Model"), mirroring CardDetail.tsx's header.
   const subtypeLabel = card ? resolveSubtypeLabel(card.type, card.subtype) : "";
   const isArchived = card?.status === "ARCHIVED";
-  const aiEnabled =
-    !!card &&
-    aiStatus.enabled &&
-    aiStatus.configured &&
-    aiStatus.enabled_types.includes(card.type);
+  const aiEnabled = aiSuggestEnabledFor(aiStatus, card?.type);
 
   const handleAiSuggest = async () => {
     if (!card) return;

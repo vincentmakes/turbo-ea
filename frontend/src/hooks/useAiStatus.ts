@@ -55,6 +55,25 @@ function _fetch(): Promise<void> {
   return _inflight;
 }
 
+/**
+ * Whether the "Suggest with AI" affordance should be offered for a card type.
+ *
+ * An **empty** `enabled_types` means "no per-type restriction", i.e. every type
+ * is enabled — that is what the backend enforces in `POST /ai/suggest`
+ * (`if ai_cfg["enabled_types"] and type_key not in …`) and what the Admin →
+ * Settings → AI helper text promises ("Leave all unchecked to enable for all
+ * types"). A bare `enabled_types.includes(type)` is always false on an empty
+ * list and so hid the button on every card (#962); the three call sites go
+ * through this helper so they cannot drift from the backend again.
+ */
+export function aiSuggestEnabledFor(
+  status: AiStatus,
+  typeKey: string | null | undefined,
+): boolean {
+  if (!status.enabled || !status.configured || !typeKey) return false;
+  return status.enabled_types.length === 0 || status.enabled_types.includes(typeKey);
+}
+
 export function useAiStatus() {
   const [status, setStatus] = useState<AiStatus>(_cached ?? _default);
   const [loaded, setLoaded] = useState<boolean>(_cached !== null);
