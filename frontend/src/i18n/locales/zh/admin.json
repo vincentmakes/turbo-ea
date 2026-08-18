@@ -1832,6 +1832,7 @@
   "extensions.tabs.installed": "已安装",
   "extensions.store.notConfigured": "此实例未配置扩展商店。请在「已安装」标签页中通过文件安装扩展——基于文件的流程涵盖商店的全部功能。",
   "extensions.store.unreachable": "无法连接扩展商店。实例处于隔离或离线状态?请改为在「已安装」标签页中通过文件安装。",
+  "extensions.store.blocked": "扩展商店拒绝了此实例的请求（HTTP {{status}}）。此实例与商店之间的某个环节——代理、防火墙或商店自身的机器人防护——正在阻止它；出站互联网访问本身是正常的。在此期间，请在「已安装」标签页中通过文件安装。",
   "extensions.store.empty": "暂无已发布的扩展。",
   "extensions.store.installedChip": "已安装 {{version}}",
   "extensions.store.licensed": "已授权",

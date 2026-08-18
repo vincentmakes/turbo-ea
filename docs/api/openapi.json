@@ -12953,6 +12953,22 @@
             "title": "Reachable",
             "type": "boolean"
           },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "status_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Code"
+          },
           "store_url": {
             "default": "",
             "title": "Store Url",

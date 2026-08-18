@@ -27,8 +27,11 @@ from app.services.extension_store_check import (
 )
 from app.services.extensions import store_catalog
 from app.services.extensions.store_catalog import (
+    STORE_USER_AGENT,
+    classify_store_error,
     fetch_store_catalog,
     fetch_store_catalog_safe,
+    store_client,
     store_update_available,
 )
 from tests.conftest import create_role, create_user
@@ -509,3 +512,54 @@ async def test_an_unparseable_catalogue_version_is_seen_but_never_an_update(db):
 
     assert await record_result(db, items=_catalogue(("a", "Acme", "nightly")), error=None) == 0
     assert (await _state(db))["knownKeys"] == ["a"]
+
+
+# ---------------------------------------------------------------------------
+# Talking to the store: identity, and telling "blocked" from "offline"
+# ---------------------------------------------------------------------------
+
+
+def test_every_store_call_identifies_itself():
+    """httpx's default user agent is what bot protection rejects (#958).
+
+    A stable, distinctive one is what a store operator or a customer proxy can
+    allowlist, so it must be on the client every store call is built from.
+    """
+    client = store_client(1.0)
+    assert client.headers["user-agent"] == STORE_USER_AGENT
+    assert STORE_USER_AGENT.startswith("TurboEA/")
+    assert "httpx" not in STORE_USER_AGENT
+
+
+def test_a_refusal_is_blocked_and_carries_its_status():
+    request = httpx.Request("GET", f"{STORE}/catalog.json")
+    response = httpx.Response(403, request=request)
+    exc = httpx.HTTPStatusError("refused", request=request, response=response)
+
+    assert classify_store_error(exc) == ("blocked", 403)
+
+
+def test_a_transport_failure_is_offline():
+    """Only this may be reported to an admin as air-gapped."""
+    assert classify_store_error(httpx.ConnectError("no route")) == ("offline", None)
+    assert classify_store_error(ValueError("bad payload")) == ("offline", None)
+
+
+async def test_safe_fetch_says_refused_rather_than_unreachable(fake_http):
+    request = httpx.Request("GET", f"{STORE}/catalog.json")
+    response = httpx.Response(403, request=request)
+    fake_http.raises = httpx.HTTPStatusError("refused", request=request, response=response)
+
+    items, error = await fetch_store_catalog_safe(STORE)
+
+    assert items is None
+    assert "refused" in error and "403" in error
+
+
+async def test_safe_fetch_stays_quiet_when_there_is_no_route(fake_http):
+    fake_http.raises = httpx.ConnectError("no route")
+
+    items, error = await fetch_store_catalog_safe(STORE)
+
+    assert items is None
+    assert error == "Could not reach the extension store"

@@ -66,7 +66,9 @@ from app.services.extensions.license_refresh import persist_license, refresh_lic
 from app.services.extensions.registry import extension_registry
 from app.services.extensions.store_catalog import (
     STORE_CATALOG_TIMEOUT,
+    classify_store_error,
     fetch_store_catalog,
+    store_client,
     store_update_available,
 )
 from app.services.permission_service import PermissionService
@@ -540,6 +542,13 @@ class StoreItemOut(BaseModel):
 class StoreCatalogOut(BaseModel):
     configured: bool
     reachable: bool = False
+    # Why the catalogue could not be read: "blocked" when the store answered and
+    # refused us (bot protection, WAF, corporate proxy), "offline" when there was
+    # no route to it at all. Empty when the read succeeded. The Store tab used to
+    # call every failure air-gapped, which is a misdiagnosis an operator can only
+    # disprove by auditing their own egress (#958).
+    reason: str = ""
+    status_code: int | None = None
     store_url: str = ""
     items: list[StoreItemOut] = []
 
@@ -587,8 +596,20 @@ async def store_catalog(
     try:
         raw_items = await fetch_store_catalog(base_url)
     except (httpx.HTTPError, ValueError) as exc:
-        logger.warning("Extension store catalogue unreachable (%s): %s", base_url, exc)
-        return StoreCatalogOut(configured=True, reachable=False, store_url=base_url)
+        reason, status = classify_store_error(exc)
+        logger.warning(
+            "Extension store catalogue %s (%s): %s",
+            "refused the request" if reason == "blocked" else "unreachable",
+            base_url,
+            exc,
+        )
+        return StoreCatalogOut(
+            configured=True,
+            reachable=False,
+            reason=reason,
+            status_code=status,
+            store_url=base_url,
+        )
 
     installed = {
         row.key: row.version
@@ -662,7 +683,7 @@ async def claim_store_purchase(
 
     url = base_url.rstrip("/") + "/account/claim"
     try:
-        async with httpx.AsyncClient(timeout=STORE_CATALOG_TIMEOUT) as client:
+        async with store_client(STORE_CATALOG_TIMEOUT) as client:
             resp = await client.get(url, params={"token": payload.token})
             resp.raise_for_status()
             data = resp.json()
@@ -717,7 +738,7 @@ async def open_billing_portal(
 
     url = base_url.rstrip("/") + "/account/portal"
     try:
-        async with httpx.AsyncClient(timeout=_STORE_PORTAL_TIMEOUT) as client:
+        async with store_client(_STORE_PORTAL_TIMEOUT) as client:
             resp = await client.post(url, json=body)
             resp.raise_for_status()
             data = resp.json()
@@ -790,7 +811,7 @@ async def install_from_store(
         )
 
     try:
-        async with httpx.AsyncClient(timeout=_STORE_BUNDLE_TIMEOUT) as client:
+        async with store_client(_STORE_BUNDLE_TIMEOUT) as client:
             resp = await client.get(bundle_url)
             resp.raise_for_status()
             raw = resp.content

@@ -25,6 +25,7 @@ import logging
 
 import httpx
 
+from app.config import APP_VERSION
 from app.services.catalogue_common import version_tuple
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,43 @@ logger = logging.getLogger(__name__)
 #: The catalogue is a small static JSON file, so a short timeout is right — a
 #: store that is slow to answer is, for our purposes, a store that is down.
 STORE_CATALOG_TIMEOUT = 6.0
+
+#: Identifies this instance to the store — and to anything in front of it.
+#: httpx's default user agent is rejected outright by bot-protection products
+#: that gate on non-browser clients, which is exactly how every cloud-hosted
+#: instance came to see an empty Store tab (#958). The same block hits license
+#: auto-renewal, where it is invisible, so the fix belongs on every store call
+#: rather than on the catalogue alone.
+STORE_USER_AGENT = f"TurboEA/{APP_VERSION} (+https://turbo-ea.org; extension-store)"
+
+
+def store_client(timeout: float) -> httpx.AsyncClient:
+    """The one HTTP client for every outbound call to the extension store.
+
+    A single, stable, distinctive user agent is what lets a store operator — or
+    a customer's own proxy — allowlist Turbo EA by name instead of by IP. It is
+    trivially spoofable, and that costs nothing here: every store path an
+    instance reads is public, and provenance comes from the Ed25519 signature on
+    the bundle and the license, never from who served the bytes.
+
+    ``app.services.sso_service`` sets a user agent on its JWKS fetch for the
+    same reason; this is that lesson applied to the store surface.
+    """
+    return httpx.AsyncClient(timeout=timeout, headers={"User-Agent": STORE_USER_AGENT})
+
+
+def classify_store_error(exc: Exception) -> tuple[str, int | None]:
+    """``("blocked", status)`` or ``("offline", None)`` for a failed store call.
+
+    The distinction is the whole point: an instance that got an HTTP response
+    reached the store and was turned away — by bot protection, a WAF, a corporate
+    proxy — while one that failed at the transport has no route to it at all.
+    Reporting the first as the second is what sent #958's reporter auditing
+    security groups and NAT for a problem that was never on his side.
+    """
+    if isinstance(exc, httpx.HTTPStatusError):
+        return "blocked", exc.response.status_code
+    return "offline", None
 
 
 async def fetch_store_catalog(base_url: str) -> list[dict]:
@@ -45,7 +83,7 @@ async def fetch_store_catalog(base_url: str) -> list[dict]:
     one we can neither install nor annotate.
     """
     url = base_url.rstrip("/") + "/catalog.json"
-    async with httpx.AsyncClient(timeout=STORE_CATALOG_TIMEOUT) as client:
+    async with store_client(STORE_CATALOG_TIMEOUT) as client:
         resp = await client.get(url)
         resp.raise_for_status()
         data = resp.json()
@@ -65,6 +103,14 @@ async def fetch_store_catalog_safe(base_url: str) -> tuple[list[dict] | None, st
     try:
         return await fetch_store_catalog(base_url), None
     except (httpx.HTTPError, ValueError) as exc:
+        reason, status = classify_store_error(exc)
+        if reason == "blocked":
+            # The store answered, so this is not an egress problem: something in
+            # front of it turned us away. Say so at a level an operator sees.
+            logger.warning(
+                "Extension store catalogue refused the request (%s): HTTP %s", base_url, status
+            )
+            return None, f"The extension store refused the request (HTTP {status})"
         logger.debug("Extension store catalogue unreachable (%s): %s", base_url, exc)
         return None, "Could not reach the extension store"
 

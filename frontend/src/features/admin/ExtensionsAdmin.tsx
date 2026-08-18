@@ -142,6 +142,10 @@ interface StoreItem {
 interface StoreCatalog {
   configured: boolean;
   reachable: boolean;
+  // "blocked" = the store answered and refused us (bot protection, WAF, proxy);
+  // "offline" = no route to it at all. Only the second one means air-gapped.
+  reason?: "" | "blocked" | "offline";
+  status_code?: number | null;
   store_url: string;
   items: StoreItem[];
 }
@@ -905,10 +909,16 @@ export default function ExtensionsAdmin() {
             </Alert>
           ) : !catalog.reachable ? (
             <Alert severity="warning">
-              {t(
-                "extensions.store.unreachable",
-                "The extension store could not be reached. Air-gapped or offline? Install from files on the Installed tab instead.",
-              )}
+              {catalog.reason === "blocked"
+                ? t("extensions.store.blocked", {
+                    status: catalog.status_code ?? "",
+                    defaultValue:
+                      "The extension store refused this instance's request (HTTP {{status}}). Something between this instance and the store — a proxy, a firewall or the store's own bot protection — is blocking it; outbound internet access is working. Install from files on the Installed tab meanwhile.",
+                  })
+                : t(
+                    "extensions.store.unreachable",
+                    "The extension store could not be reached. Air-gapped or offline? Install from files on the Installed tab instead.",
+                  )}
             </Alert>
           ) : catalog.items.length === 0 ? (
             <Typography variant="body2" color="text.secondary">

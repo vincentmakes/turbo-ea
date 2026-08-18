@@ -1832,6 +1832,7 @@
   "extensions.tabs.installed": "Installed",
   "extensions.store.notConfigured": "No extension store is configured on this instance. Install extensions from files on the Installed tab — the file-based flow covers everything the store does.",
   "extensions.store.unreachable": "The extension store could not be reached. Air-gapped or offline? Install from files on the Installed tab instead.",
+  "extensions.store.blocked": "The extension store refused this instance's request (HTTP {{status}}). Something between this instance and the store — a proxy, a firewall or the store's own bot protection — is blocking it; outbound internet access itself is working. Install from files on the Installed tab meanwhile.",
   "extensions.store.empty": "No extensions published yet.",
   "extensions.store.installedChip": "Installed {{version}}",
   "extensions.store.licensed": "Licensed",

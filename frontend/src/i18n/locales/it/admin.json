@@ -1832,6 +1832,7 @@
   "extensions.tabs.installed": "Installate",
   "extensions.store.notConfigured": "Nessuno store di estensioni è configurato su questa istanza. Installa le estensioni da file nella scheda Installate: il flusso basato su file copre tutto ciò che offre lo store.",
   "extensions.store.unreachable": "Impossibile raggiungere lo store delle estensioni. Istanza isolata o offline? Installa da file nella scheda Installate.",
+  "extensions.store.blocked": "Lo store delle estensioni ha rifiutato la richiesta di questa istanza (HTTP {{status}}). Qualcosa tra questa istanza e lo store — un proxy, un firewall o la protezione anti-bot dello store — la sta bloccando; l'accesso a Internet in uscita funziona. Nel frattempo, installa da file nella scheda Installate.",
   "extensions.store.empty": "Nessuna estensione pubblicata al momento.",
   "extensions.store.installedChip": "Installata {{version}}",
   "extensions.store.licensed": "Con licenza",

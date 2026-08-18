@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -573,10 +574,14 @@ def mock_store(
     claim: dict | None = None,
     renew: dict | None = None,
     portal: dict | None = None,
+    catalog_status: int = 200,
 ):
     """Point EXTENSION_STORE_URL at a MockTransport-backed fake static host.
 
     ``catalog=None`` simulates an unreachable host (connection error).
+    ``catalog_status`` simulates a host that answers and refuses — bot
+    protection or a WAF in front of the store (#958), which is a different
+    diagnosis from being offline.
     ``claim`` / ``renew`` / ``portal`` are the JSON bodies of /account/claim,
     /account/renew and /account/portal.
     """
@@ -586,6 +591,8 @@ def mock_store(
         if catalog is None:
             raise httpx.ConnectError("boom", request=request)
         if request.url.path == "/catalog.json":
+            if catalog_status != 200:
+                return httpx.Response(catalog_status, text="Forbidden")
             return httpx.Response(200, json=catalog)
         if request.url.path == "/account/claim":
             return httpx.Response(200, json=claim or {"status": "pending"})
@@ -637,6 +644,8 @@ class TestStoreCatalog:
         assert res.json() == {
             "configured": False,
             "reachable": False,
+            "reason": "",
+            "status_code": None,
             "store_url": "",
             "items": [],
         }
@@ -650,6 +659,34 @@ class TestStoreCatalog:
         assert res.status_code == 200
         body = res.json()
         assert body["configured"] is True and body["reachable"] is False
+
+    async def test_unreachable_store_is_reported_as_offline(self, client, db, vendor, monkeypatch):
+        """A transport failure is the only thing that may read as air-gapped."""
+        admin = await make_admin(db)
+        mock_store(monkeypatch, catalog=None)
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        body = res.json()
+        assert body["reason"] == "offline"
+        assert body["status_code"] is None
+
+    async def test_refused_store_is_reported_as_blocked(self, client, db, vendor, monkeypatch):
+        """A store that answers 403 is blocked, not air-gapped.
+
+        Collapsing the two is what sent #958's reporter auditing security groups
+        and NAT for a problem that was never on his side.
+        """
+        admin = await make_admin(db)
+        mock_store(monkeypatch, catalog=catalog_payload(), catalog_status=403)
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        assert res.status_code == 200
+        body = res.json()
+        assert body["configured"] is True and body["reachable"] is False
+        assert body["reason"] == "blocked"
+        assert body["status_code"] == 403
 
     async def test_catalog_annotated_with_license_and_install_state(
         self, client, db, vendor, monkeypatch
@@ -970,6 +1007,37 @@ class TestStoreClaimAndRefresh:
         assert res.json() == {"refreshed": True}
         res = await client.get("/api/v1/admin/extensions/license", headers=auth_headers(admin))
         assert res.json()["entitlements"][0]["expires_at"].startswith(far[:10])
+
+    async def test_refresh_refused_by_the_store_warns(
+        self, client, db, vendor, monkeypatch, caplog
+    ):
+        """A refused renewal must be audible.
+
+        Renewal failures used to log at debug and return False, so a blocked
+        instance lost its extensions when the grace period ended with nothing in
+        the logs at default level — the expensive half of #958.
+        """
+        admin = await make_admin(db)
+        near = (datetime.now(timezone.utc) + timedelta(days=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={
+                "text": make_license_text(
+                    vendor, expires_at=near, renewal_key="rk_0123456789abcdef"
+                )
+            },
+            headers=auth_headers(admin),
+        )
+        # renew=None -> the fake store answers 403.
+        mock_store(monkeypatch, catalog=catalog_payload())
+
+        with caplog.at_level(logging.WARNING, logger="app.services.extensions.license_refresh"):
+            res = await client.post(
+                "/api/v1/admin/extensions/store/refresh-license", headers=auth_headers(admin)
+            )
+        assert res.status_code == 200
+        assert res.json() == {"refreshed": False}
+        assert any("403" in r.getMessage() for r in caplog.records), caplog.text
 
     async def test_refresh_noop_for_manual_license(self, client, db, vendor, monkeypatch):
         admin = await make_admin(db)

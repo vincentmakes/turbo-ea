@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.66.1] - 2026-08-18
+
+### Fixed
+- **An instance that is being blocked from the Extension Store no longer reports itself as air-gapped.** The Store tab has only ever had one thing to say when it could not read the vendor's catalogue — that you might be offline — so an instance whose request was *refused* by something in the middle looked exactly like one with no internet at all. That is the wrong direction to send somebody: the reported case was a cloud-hosted instance with entirely open egress, whose request was turned away by bot protection sitting in front of the store, and the hint had the administrator auditing firewalls and routing for a problem that was never on their side. The tab now distinguishes the two and, when the store answers and refuses, says so and names the status code it got back, so the search starts at the proxy, the firewall or the store rather than at your own network.
+- **Turbo EA now identifies itself when it talks to the Extension Store.** Every outbound store request — reading the catalogue, downloading a bundle, claiming a purchase, opening the billing portal, renewing a license — went out with the default identity of the underlying HTTP library, which bot-protection products routinely reject on sight. All of them now carry a stable Turbo EA user agent, which is what lets a store operator or your own outbound proxy recognise and allow these requests instead of blocking them as anonymous automation. Nothing about your instance is disclosed by it, and the store's files remain signature-verified regardless of who serves them.
+- **A refused license renewal is no longer silent.** Automatic renewal deliberately says nothing when it cannot reach the store, because air-gapped installs take that path every single day and would otherwise fill the log with noise. But a store that *answers* and refuses is a different situation entirely — a subscription that is paid for is quietly heading toward expiry — and that case was being swallowed at the same debug level, so extensions could soft-disable at the end of the grace period with nothing in the log to explain why. That case is now a warning that says what happened and what it will cost.
+
 ## [2.66.0] - 2026-08-17
 
 ### Added

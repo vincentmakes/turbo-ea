@@ -1832,6 +1832,7 @@
   "extensions.tabs.installed": "Instaladas",
   "extensions.store.notConfigured": "Nenhuma loja de extensões está configurada nesta instância. Instale extensões a partir de ficheiros no separador Instaladas — o fluxo baseado em ficheiros cobre tudo o que a loja oferece.",
   "extensions.store.unreachable": "Não foi possível aceder à loja de extensões. Instância isolada ou offline? Instale a partir de ficheiros no separador Instaladas.",
+  "extensions.store.blocked": "A loja de extensões recusou o pedido desta instância (HTTP {{status}}). Algo entre esta instância e a loja — um proxy, uma firewall ou a própria proteção anti-bots da loja — está a bloqueá-lo; o acesso à Internet de saída está a funcionar. Entretanto, instale a partir de ficheiros no separador Instaladas.",
   "extensions.store.empty": "Ainda não há extensões publicadas.",
   "extensions.store.installedChip": "Instalada {{version}}",
   "extensions.store.licensed": "Com licença",
