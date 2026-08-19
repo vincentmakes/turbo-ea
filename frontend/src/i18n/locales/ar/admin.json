@@ -428,6 +428,7 @@
   "settings.tabs.webPortals": "البوابات الإلكترونية",
   "settings.tabs.ai": "الذكاء الاصطناعي",
   "settings.tabs.servicenow": "ServiceNow",
+  "settings.tabs.integrations": "عمليات التكامل",
   "settings.tabs.turbolens": "TurboLens",
   "settings.tabs.migration": "الترحيل",
   "settings.tabs.auditLog": "سجل التدقيق",

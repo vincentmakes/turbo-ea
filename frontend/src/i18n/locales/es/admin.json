@@ -428,6 +428,7 @@
   "settings.tabs.webPortals": "Portales web",
   "settings.tabs.ai": "IA",
   "settings.tabs.servicenow": "ServiceNow",
+  "settings.tabs.integrations": "Integraciones",
   "settings.tabs.turbolens": "TurboLens",
   "settings.tabs.migration": "Migración",
   "settings.tabs.auditLog": "Registro de auditoría",

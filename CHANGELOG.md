@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.68.0] - 2026-08-19
+
+### Added
+- **All integrations are now configured in one place: Admin → Settings → Integrations.** The tab hosts the built-in ServiceNow sync as its first sub-tab, and an installed extension that connects Turbo EA to an external system can place its own configuration panel right next to it (UI extension SDK 1.16, `integrationPanels`) — same location, same look, instead of living on the separate Extensions page. Existing links and bookmarks to the ServiceNow tab keep working.
+
+### Changed
+- The ServiceNow settings tab is now the first sub-tab of the new Integrations tab; `/admin/settings?tab=servicenow` still resolves there.
+
 ## [2.67.1] - 2026-08-18
 
 ### Fixed

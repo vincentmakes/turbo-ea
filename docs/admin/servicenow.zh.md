@@ -1,6 +1,6 @@
 # ServiceNow 集成
 
-ServiceNow 集成（**管理 > 设置 > ServiceNow**）实现 Turbo EA 与 ServiceNow CMDB 之间的双向同步。本指南涵盖从初始设置到高级方案和运维最佳实践的所有内容。
+ServiceNow 集成（**管理 > 设置 > 集成 > ServiceNow**）实现 Turbo EA 与 ServiceNow CMDB 之间的双向同步。本指南涵盖从初始设置到高级方案和运维最佳实践的所有内容。
 
 ![ServiceNow 集成](../assets/img/zh/31_admin_settings_servicenow.png)
 

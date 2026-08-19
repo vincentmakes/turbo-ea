@@ -9,7 +9,7 @@
 | **ИИ** | `/admin/settings?tab=ai` | Провайдер LLM, модель, бэкенд веб-поиска, переключатели ИИ-подсказок по типу карточки | [Возможности ИИ](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Массовая привязка продуктов к записям endoflife.date | [Окончание жизненного цикла (EOL)](eol.md) |
 | **Веб-порталы** | `/admin/settings?tab=web-portals` | Slug-и публичных порталов только для чтения, фильтры видимости | [Веб-порталы](web-portals.md) |
-| **ServiceNow** | `/admin/settings?tab=servicenow` | Соединение ServiceNow, конфигурация синхронизации, сопоставление личности | [Интеграция с ServiceNow](servicenow.md) |
+| **Интеграции** | `/admin/settings?tab=integrations` | Синхронизация ServiceNow и интеграции, добавленные расширениями | [Интеграция с ServiceNow](servicenow.md) |
 | **TurboLens** | `/admin/settings?tab=turbolens` | Специфичные для TurboLens переключатели, включённые регламенты, опрос анализов | См. раздел [Настройки TurboLens](#turbolens) ниже |
 | **Миграция** | `/admin/settings?tab=migration` | Импорт из других EA-платформ и полный перенос рабочего пространства между экземплярами Turbo EA | [Миграция платформы](migration.md) |
 | **Журнал аудита** | `/admin/settings?tab=audit-log` | Реестр изменений — кто и что изменил, и пришло ли это из веб-интерфейса, API или ИИ-инструмента | — |

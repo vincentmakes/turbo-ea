@@ -9,7 +9,7 @@ The **Settings** page at **Admin → Settings** (`/admin/settings`) is the centr
 | **AI** | `/admin/settings?tab=ai` | LLM provider, model, web search backend, per-card-type AI suggestion toggles | [AI Capabilities](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Mass-linking products to endoflife.date entries | [End-of-Life (EOL)](eol.md) |
 | **Web Portals** | `/admin/settings?tab=web-portals` | Public read-only portal slugs, visibility filters | [Web Portals](web-portals.md) |
-| **ServiceNow** | `/admin/settings?tab=servicenow` | ServiceNow connection, sync configuration, identity mapping | [ServiceNow Integration](servicenow.md) |
+| **Integrations** | `/admin/settings?tab=integrations` | ServiceNow sync and integrations added by extensions | [ServiceNow Integration](servicenow.md) |
 | **TurboLens** | `/admin/settings?tab=turbolens` | TurboLens-specific toggles, enabled regulations, analysis polling | See section [TurboLens settings](#turbolens-settings) below |
 | **Migration** | `/admin/settings?tab=migration` | Imports from other EA platforms, and full workspace transfer between Turbo EA instances | [Platform Migration](migration.md) |
 | **Audit log** | `/admin/settings?tab=audit-log` | Mutation-batch ledger — who changed what, and whether it came from the web UI, the API, or an AI tool | — |

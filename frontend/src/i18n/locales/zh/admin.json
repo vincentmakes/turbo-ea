@@ -428,6 +428,7 @@
   "settings.tabs.webPortals": "Web 门户",
   "settings.tabs.ai": "AI",
   "settings.tabs.servicenow": "ServiceNow",
+  "settings.tabs.integrations": "集成",
   "settings.tabs.turbolens": "TurboLens",
   "settings.tabs.migration": "迁移",
   "settings.tabs.auditLog": "审计日志",

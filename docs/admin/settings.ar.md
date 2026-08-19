@@ -9,7 +9,7 @@
 | **AI** | `/admin/settings?tab=ai` | مزوّد LLM، النموذج، خلفية البحث على الويب، مفاتيح تبديل اقتراحات الذكاء الاصطناعي لكل نوع بطاقة | [قدرات الذكاء الاصطناعي](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | الربط بالجملة للمنتجات بإدخالات endoflife.date | [نهاية العمر (EOL)](eol.md) |
 | **Web Portals** | `/admin/settings?tab=web-portals` | معرّفات البوابات العامة للقراءة فقط، مرشّحات الظهور | [البوابات الإلكترونية](web-portals.md) |
-| **ServiceNow** | `/admin/settings?tab=servicenow` | اتصال ServiceNow، تهيئة المزامنة، ربط الهوية | [تكامل ServiceNow](servicenow.md) |
+| **عمليات التكامل** | `/admin/settings?tab=integrations` | مزامنة ServiceNow وعمليات التكامل المضافة عبر الامتدادات | [تكامل ServiceNow](servicenow.md) |
 | **TurboLens** | `/admin/settings?tab=turbolens` | مفاتيح التبديل الخاصة بـ TurboLens، اللوائح المُفعّلة، استطلاع التحليل | انظر قسم [إعدادات TurboLens](#turbolens-settings) أدناه |
 | **Migration** | `/admin/settings?tab=migration` | الاستيراد من منصات EA أخرى، ونقل مساحة العمل بالكامل بين نسخ Turbo EA | [ترحيل المنصات](migration.md) |
 | **Audit log** | `/admin/settings?tab=audit-log` | سجل التغييرات — من غيّر ماذا، وما إذا كان مصدره واجهة الويب أو واجهة البرمجة أو أداة ذكاء اصطناعي | — |

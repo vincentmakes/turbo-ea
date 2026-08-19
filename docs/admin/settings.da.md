@@ -9,7 +9,7 @@ Siden **Indstillinger** under **Admin → Indstillinger** (`/admin/settings`) er
 | **AI** | `/admin/settings?tab=ai` | LLM-udbyder, model, websøgningsbackend, AI-forslagskontakter pr. korttype | [AI-funktioner](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Massetilknytning af produkter til endoflife.date-poster | [End-of-Life (EOL)](eol.md) |
 | **Webportaler** | `/admin/settings?tab=web-portals` | Offentlige skrivebeskyttede portal-slugs, synlighedsfiltre | [Webportaler](web-portals.md) |
-| **ServiceNow** | `/admin/settings?tab=servicenow` | ServiceNow-forbindelse, synkroniseringskonfiguration, identitetskortlægning | [ServiceNow-integration](servicenow.md) |
+| **Integrationer** | `/admin/settings?tab=integrations` | ServiceNow-synkronisering og integrationer tilføjet af udvidelser | [ServiceNow-integration](servicenow.md) |
 | **TurboLens** | `/admin/settings?tab=turbolens` | TurboLens-specifikke kontakter, aktiverede reguleringer, analysepolling | Se afsnittet [TurboLens-indstillinger](#turbolens-indstillinger) nedenfor |
 | **Migrering** | `/admin/settings?tab=migration` | Import fra andre EA-platforme og fuld overførsel af arbejdsområde mellem Turbo EA-instanser | [Platformsmigrering](migration.md) |
 | **Revisionslog** | `/admin/settings?tab=audit-log` | Ændringsregister — hvem der ændrede hvad, og om det kom fra webgrænsefladen, API'et eller et AI-værktøj | — |

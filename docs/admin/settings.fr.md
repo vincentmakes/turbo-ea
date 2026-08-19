@@ -9,7 +9,7 @@ La page **Paramètres** sous **Admin → Paramètres** (`/admin/settings`) est l
 | **IA** | `/admin/settings?tab=ai` | Fournisseur LLM, modèle, backend de recherche web, bascules de suggestion IA par type de fiche | [Capacités IA](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Liaison en masse des produits aux entrées endoflife.date | [Fin de vie (EOL)](eol.md) |
 | **Portails web** | `/admin/settings?tab=web-portals` | Slugs de portail en lecture seule, filtres de visibilité | [Portails web](web-portals.md) |
-| **ServiceNow** | `/admin/settings?tab=servicenow` | Connexion ServiceNow, configuration de synchronisation, mappage d'identité | [Intégration ServiceNow](servicenow.md) |
+| **Intégrations** | `/admin/settings?tab=integrations` | Synchronisation ServiceNow et intégrations ajoutées par des extensions | [Intégration ServiceNow](servicenow.md) |
 | **TurboLens** | `/admin/settings?tab=turbolens` | Bascules spécifiques à TurboLens, réglementations activées, sondage d'analyses | Voir la section [Paramètres TurboLens](#parametres-turbolens) ci-dessous |
 | **Migration** | `/admin/settings?tab=migration` | Imports depuis d'autres plateformes EA, et transfert complet d'espace de travail entre instances Turbo EA | [Migration de plateforme](migration.md) |
 | **Journal d'audit** | `/admin/settings?tab=audit-log` | Registre des modifications — qui a changé quoi, et si cela provient de l'interface web, de l'API ou d'un outil IA | — |

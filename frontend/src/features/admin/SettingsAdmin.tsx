@@ -49,7 +49,7 @@ import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
 const AuthAdmin = lazy(() => import("./AuthAdmin"));
 const EolAdmin = lazy(() => import("./EolAdmin"));
 const WebPortalsAdmin = lazy(() => import("./WebPortalsAdmin"));
-const ServiceNowAdmin = lazy(() => import("./ServiceNowAdmin"));
+const IntegrationsHub = lazy(() => import("./IntegrationsHub"));
 const AiAdmin = lazy(() => import("./AiAdmin"));
 const TurboLensAdmin = lazy(() => import("./TurboLensAdmin"));
 const MigrationHub = lazy(() => import("./MigrationHub"));
@@ -62,12 +62,19 @@ const TAB_KEYS = [
   "ai",
   "eol",
   "web-portals",
-  "servicenow",
+  "integrations",
   "turbolens",
   "migration",
   "audit-log",
   "resources",
 ];
+
+// Legacy tab keys that bookmarks / redirects may still carry, mapped to the
+// tab that replaced them. `?tab=servicenow` predates the Integrations hub
+// (ServiceNow is its first sub-tab), so it must keep resolving.
+const LEGACY_TAB_ALIASES: Record<string, string> = {
+  servicenow: "integrations",
+};
 
 function TabLoader() {
   return (
@@ -1925,7 +1932,8 @@ function GeneralTab() {
 export default function SettingsAdmin() {
   const { t } = useTranslation(["admin", "common"]);
   const [params, setParams] = useSearchParams();
-  const tabKey = params.get("tab") || "general";
+  const rawTabKey = params.get("tab") || "general";
+  const tabKey = LEGACY_TAB_ALIASES[rawTabKey] ?? rawTabKey;
   const tabIndex = Math.max(0, TAB_KEYS.indexOf(tabKey));
 
   const TAB_LABELS = [
@@ -1934,7 +1942,7 @@ export default function SettingsAdmin() {
     t("settings.tabs.ai"),
     t("settings.tabs.eol"),
     t("settings.tabs.webPortals"),
-    t("settings.tabs.servicenow"),
+    t("settings.tabs.integrations", "Integrations"),
     t("settings.tabs.turbolens"),
     t("settings.tabs.migration"),
     t("settings.tabs.auditLog", "Audit log"),
@@ -1994,7 +2002,7 @@ export default function SettingsAdmin() {
       )}
       {tabIndex === 5 && (
         <Suspense fallback={<TabLoader />}>
-          <ServiceNowAdmin />
+          <IntegrationsHub />
         </Suspense>
       )}
       {tabIndex === 6 && (

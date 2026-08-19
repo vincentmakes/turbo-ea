@@ -42,7 +42,11 @@
  * comes with — plus its `dedupeScopeRoots` helper. Since SDK 1.15 the rest of
  * the kit ships too: `CardScopeFilter` (the toolbar chip that opens it),
  * `useCardScope` (scope state, closure, stale-id handling, type-change reset)
- * and `applyScope` (narrow a list to a closure).
+ * and `applyScope` (narrow a list to a closure). Since SDK 1.16
+ * `integrationPanels` places an extension's integration configuration as a
+ * sub-tab of Admin → Settings → Integrations, next to the built-in ServiceNow
+ * integration (`adminPanels` is unchanged and still renders on Admin →
+ * Extensions).
  *
  * Since SDK 1.12 the preferred way to add a plug point is the GENERIC SLOT
  * registry, not a new named extension point. An extension declares
@@ -87,7 +91,7 @@ import { useSavedReport as useCoreSavedReport } from "@/hooks/useSavedReport";
 import * as tokens from "@/theme/tokens";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.15";
+export const UI_SDK_VERSION = "1.16";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -122,6 +126,25 @@ export interface ExtensionCardTabContribution {
 export interface ExtensionAdminPanelContribution {
   id: string;
   label: string;
+  component: React.ComponentType;
+}
+
+/**
+ * A panel rendered as a sub-tab of Admin → Settings → Integrations (SDK 1.16),
+ * alongside the built-in ServiceNow integration and with the same chrome — the
+ * sanctioned home for an extension that connects Turbo EA to an external
+ * system (its connection settings, sync configuration, logs). A typed named
+ * point rather than a generic slot because the hub needs display metadata
+ * (label + icon) to build the sub-tab list before mounting anything.
+ * `permission` hides the entry silently from users who lack it. `adminPanels`
+ * is unchanged and still renders on Admin → Extensions; an integration opts
+ * into the Integrations tab explicitly with this point.
+ */
+export interface ExtensionIntegrationPanelContribution {
+  id: string;
+  label: string; // sub-tab text — the extension localizes it at registration time
+  icon?: string; // Material Symbols name shown next to the label
+  permission?: string;
   component: React.ComponentType;
 }
 
@@ -295,6 +318,7 @@ export interface TurboExtensionUI {
   routes?: ExtensionRouteContribution[];
   cardTabs?: ExtensionCardTabContribution[];
   adminPanels?: ExtensionAdminPanelContribution[];
+  integrationPanels?: ExtensionIntegrationPanelContribution[];
   fieldTypes?: ExtensionFieldTypeContribution[];
   surveyTemplates?: ExtensionSurveyTemplateContribution[];
   adrPanels?: ExtensionAdrPanelContribution[];
@@ -317,6 +341,11 @@ export interface RegisteredFieldType {
 export interface RegisteredSlot {
   extKey: string;
   contribution: ExtensionSlotContribution;
+}
+
+export interface RegisteredIntegrationPanel {
+  extKey: string;
+  contribution: ExtensionIntegrationPanelContribution;
 }
 
 export interface RegisteredSurveyTemplate {
@@ -374,6 +403,7 @@ let _fieldVisibilityCache: RegisteredFieldVisibility[] | null = null;
 // Generic slots are cached per slot name — one stable snapshot array per name so
 // each `getExtensionSlots(name)` is safe as a useSyncExternalStore snapshot.
 let _slotsCache: Map<string, RegisteredSlot[]> | null = null;
+let _integrationPanelsCache: RegisteredIntegrationPanel[] | null = null;
 
 function notify() {
   _fieldTypesCache = null;
@@ -382,6 +412,7 @@ function notify() {
   _adrGridColumnsCache = null;
   _fieldVisibilityCache = null;
   _slotsCache = null;
+  _integrationPanelsCache = null;
   _listeners.forEach((fn) => fn());
 }
 
@@ -672,6 +703,38 @@ export function useExtensionAdrGridColumns(): RegisteredAdrGridColumn[] {
 }
 
 /**
+ * Integration panels contributed by registered extensions (SDK 1.16), in
+ * registration order. Rendered as sub-tabs of Admin → Settings → Integrations
+ * next to the built-in ServiceNow integration; the hub filters `permission`
+ * itself so a hidden entry never even shows a tab. A contribution missing
+ * `id`/`label`/`component` is dropped. Cached (stable reference) so it is safe
+ * as a useSyncExternalStore snapshot.
+ */
+export function getExtensionIntegrationPanels(): RegisteredIntegrationPanel[] {
+  if (_integrationPanelsCache) return _integrationPanelsCache;
+  const out: RegisteredIntegrationPanel[] = [];
+  for (const { key, plugin } of _registered) {
+    for (const panel of plugin.integrationPanels ?? []) {
+      if (!panel?.id || !panel.label || typeof panel.component !== "function") {
+        console.warn(`[extension:${key}] invalid integration panel — ignored`, panel);
+        continue;
+      }
+      out.push({ extKey: key, contribution: panel });
+    }
+  }
+  _integrationPanelsCache = out;
+  return out;
+}
+
+export function useExtensionIntegrationPanels(): RegisteredIntegrationPanel[] {
+  return useSyncExternalStore(
+    subscribe,
+    getExtensionIntegrationPanels,
+    getExtensionIntegrationPanels,
+  );
+}
+
+/**
  * Generic slot contributions for a given `slot` name (SDK 1.12), in `order`
  * then registration order. A contribution without an `id`, or that does not
  * supply exactly one of `component`/`build`, is dropped with a warning. Cached
@@ -764,6 +827,7 @@ export function resetExtensionHost(): void {
   _loadStarted = false;
   _fieldTypesCache = null;
   _slotsCache = null;
+  _integrationPanelsCache = null;
   notify();
 }
 

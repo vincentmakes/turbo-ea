@@ -9,7 +9,7 @@ La pagina **Impostazioni** sotto **Admin → Impostazioni** (`/admin/settings`) 
 | **IA** | `/admin/settings?tab=ai` | Provider LLM, modello, backend di ricerca web, interruttori di suggerimento IA per tipo di card | [Funzionalità IA](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Collegamento in massa dei prodotti a voci di endoflife.date | [Fine vita (EOL)](eol.md) |
 | **Portali web** | `/admin/settings?tab=web-portals` | Slug di portali pubblici in sola lettura, filtri di visibilità | [Portali web](web-portals.md) |
-| **ServiceNow** | `/admin/settings?tab=servicenow` | Connessione ServiceNow, configurazione di sincronizzazione, mappatura identità | [Integrazione ServiceNow](servicenow.md) |
+| **Integrazioni** | `/admin/settings?tab=integrations` | Sincronizzazione ServiceNow e integrazioni aggiunte dalle estensioni | [Integrazione ServiceNow](servicenow.md) |
 | **TurboLens** | `/admin/settings?tab=turbolens` | Interruttori specifici di TurboLens, normative abilitate, polling delle analisi | Vedi sezione [Impostazioni TurboLens](#impostazioni-turbolens) sotto |
 | **Migrazione** | `/admin/settings?tab=migration` | Importazioni da altre piattaforme EA e trasferimento completo del workspace tra istanze Turbo EA | [Migrazione di piattaforma](migration.md) |
 | **Registro di audit** | `/admin/settings?tab=audit-log` | Registro delle modifiche — chi ha cambiato cosa e se proviene dall'interfaccia web, dall'API o da uno strumento IA | — |
