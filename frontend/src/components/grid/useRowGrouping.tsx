@@ -315,9 +315,15 @@ function StickyGroupHeader<T extends { id: string }>({
 
         const anchors = anchorsRef.current;
         const i = findStickyGroupIndex(anchors, scrollTop);
-        // Flush against the top edge means the real header row is on screen;
-        // showing both at once would read as a duplicate, not as a sticky one.
-        if (i < 0 || anchors[i].top >= scrollTop - 0.5) return hide();
+        // Hide only while the real header row sits at or below the top edge —
+        // flush means the row itself is pixel-exact and needs no bar. Any
+        // scroll past it shows the bar IMMEDIATELY: the old `- 0.5` fudge
+        // created a dead zone where the header was already clipped but the
+        // bar had not appeared, so on fractional (trackpad/retina) scrolling
+        // the label visibly snapped ~1px back down when the bar finally
+        // popped in. At exact overlap the opaque bar covers the real row
+        // invisibly, so there is no duplicate to avoid.
+        if (i < 0 || anchors[i].top >= scrollTop) return hide();
 
         const vpRect = viewport.getBoundingClientRect();
         const nextTop = vpRect.top - wrap.getBoundingClientRect().top;
@@ -360,6 +366,20 @@ function StickyGroupHeader<T extends { id: string }>({
     const schedule = () => {
       if (!raf) raf = requestAnimationFrame(tick);
     };
+    // Scrolling gets a SYNCHRONOUS tick: the rows move natively in the same
+    // frame as the scroll, so deferring the bar to a rAF painted the real
+    // header uncovered ~1px above the top for a frame at every group
+    // boundary — the visible "bump" when a header became sticky. Running in
+    // the bodyScroll listener puts the bar update in the same task (and
+    // paint) as the grid's own scroll handling. The bursty layout events
+    // keep the rAF debounce.
+    const onScroll = () => {
+      if (raf) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      }
+      tick();
+    };
     const onModel = () => {
       rebuildAnchors();
       schedule();
@@ -368,7 +388,7 @@ function StickyGroupHeader<T extends { id: string }>({
     onModel();
     api.addEventListener("modelUpdated", onModel);
     api.addEventListener("firstDataRendered", onModel);
-    api.addEventListener("bodyScroll", schedule);
+    api.addEventListener("bodyScroll", onScroll);
     api.addEventListener("gridSizeChanged", schedule);
     window.addEventListener("resize", schedule);
     return () => {
@@ -377,7 +397,7 @@ function StickyGroupHeader<T extends { id: string }>({
       try {
         api.removeEventListener("modelUpdated", onModel);
         api.removeEventListener("firstDataRendered", onModel);
-        api.removeEventListener("bodyScroll", schedule);
+        api.removeEventListener("bodyScroll", onScroll);
         api.removeEventListener("gridSizeChanged", schedule);
       } catch {
         // The grid may already be destroyed.
