@@ -1,0 +1,73 @@
+# Monthly automated dependency bump for the embedded UI engines:
+# DrawIO (Dockerfile git-clone tag → always latest upstream release),
+# AG Grid / bpmn-js / bpmn-js-color-picker (npm → latest patch/minor
+# within the installed major; newly available majors are only listed in
+# the PR body for a deliberate, hand-tested follow-up).
+#
+# This deliberately complements the security-only Dependabot posture
+# (.github/dependabot.yml): Dependabot never opens npm version PRs here,
+# and the DrawIO pin is a git clone inside the Dockerfile that no
+# dependency bot can see. See also .github/SECURITY_PIPELINE.md.
+#
+# Token: the PR is opened with the DEPENDENCY_BUMP_TOKEN repo secret — a
+# fine-grained PAT (this repo; Contents: read/write, Pull requests:
+# read/write). The default GITHUB_TOKEN cannot be used for this:
+#   1. the PR author would be github-actions[bot], which
+#      restrict-pr-authors.yml auto-closes, and
+#   2. GitHub suppresses workflow triggers on PRs created with the
+#      default token, so CI would never run on the bump PR.
+name: Dependency Bump
+
+on:
+  schedule:
+    - cron: "0 6 1 * *" # 06:00 UTC on the 1st of every month
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-bump
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check DEPENDENCY_BUMP_TOKEN is configured
+        env:
+          DEPENDENCY_BUMP_TOKEN: ${{ secrets.DEPENDENCY_BUMP_TOKEN }}
+        run: |
+          if [ -z "$DEPENDENCY_BUMP_TOKEN" ]; then
+            echo "::error::The DEPENDENCY_BUMP_TOKEN repo secret is not set." \
+              "Create a fine-grained PAT (this repo; Contents + Pull requests read/write)" \
+              "and save it as DEPENDENCY_BUMP_TOKEN — see the header of this workflow."
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Bump dependencies
+        id: bump
+        env:
+          GH_TOKEN: ${{ github.token }} # read-only: jgraph/drawio release lookup
+          BUMP_REPORT: ${{ runner.temp }}/bump-report.md
+        run: ./scripts/bump-deps.sh
+
+      - name: Create or update the bump PR
+        if: steps.bump.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ secrets.DEPENDENCY_BUMP_TOKEN }}
+          branch: chore/monthly-dependency-bump
+          delete-branch: true
+          commit-message: "Monthly dependency bump (DrawIO / AG Grid / bpmn-js)"
+          title: "Monthly dependency bump (DrawIO / AG Grid / bpmn-js)"
+          labels: dependencies
+          body-path: ${{ runner.temp }}/bump-report.md
