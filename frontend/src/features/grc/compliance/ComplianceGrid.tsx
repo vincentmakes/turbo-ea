@@ -36,8 +36,7 @@ import type {
   SelectionChangedEvent,
   SortChangedEvent,
 } from "ag-grid-community";
-import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-quartz.css";
+import { gridThemeDark, gridThemeLight } from "@/lib/agGridSetup";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -966,7 +965,6 @@ export default function ComplianceGrid({
         <Box
           ref={columnFreeze.containerRef}
           {...cellMenu.containerProps}
-          className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
           sx={{
             ...columnFreeze.sx,
             ...cellMenu.sx,
@@ -989,6 +987,7 @@ export default function ComplianceGrid({
           }}
         >
           <AgGridReact<TurboLensComplianceFinding>
+            theme={mode === "dark" ? gridThemeDark : gridThemeLight}
             ref={gridRef}
             key={isRtl ? "rtl" : "ltr"}
             enableRtl={isRtl}

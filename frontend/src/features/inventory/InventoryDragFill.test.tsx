@@ -44,8 +44,6 @@ vi.mock("./InventoryFilterSidebar", async () => {
 vi.mock("@/components/CreateCardDialog", () => ({ default: () => null }));
 vi.mock("./ImportDialog", () => ({ default: () => null }));
 vi.mock("./RelationCellPopover", () => ({ default: () => null }));
-vi.mock("ag-grid-community/styles/ag-grid.css", () => ({}));
-vi.mock("ag-grid-community/styles/ag-theme-quartz.css", () => ({}));
 // Nothing here reads grid DOM or the grid api — see the header. `AgGridReact`
 // is the page's only value import from this module (the rest are types), and
 // every `gridRef.current?.api` call site is optional-chained, so the page

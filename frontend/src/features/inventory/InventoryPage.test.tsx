@@ -209,8 +209,6 @@ vi.mock("./excelExport", () => ({
 }));
 
 // Stub CSS imports
-vi.mock("ag-grid-community/styles/ag-grid.css", () => ({}));
-vi.mock("ag-grid-community/styles/ag-theme-quartz.css", () => ({}));
 
 import { api } from "@/api/client";
 import { AgGridReact } from "ag-grid-react";

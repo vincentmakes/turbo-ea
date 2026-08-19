@@ -49,13 +49,15 @@ import { colIdOf, sameOrder } from "./columnOrder";
 /** Marker class on both pins — the click delegate keys on it. */
 export const FREEZE_TOGGLE_CLASS = "tea-freeze";
 /**
- * AG Grid's auto-generated row-selection column (`CONTROLS_COLUMN_ID_PREFIX`).
- * It is `lockPosition: "left"`, which only orders it within its own region —
- * so as soon as the user freezes a column, the checkboxes end up *after* the
- * pinned region. Pinning it too keeps it genuinely first; see
- * `selectionColumnDef` below.
+ * AG Grid's auto-generated row-selection column — colId prefix
+ * `ag-Grid-SelectionColumn` since v33 (`ag-Grid-ControlsColumn` in v32,
+ * kept as a fallback). It is `lockPosition: "left"`, which only orders it
+ * within its own region — so as soon as the user freezes a column, the
+ * checkboxes end up *after* the pinned region. Pinning it too keeps it
+ * genuinely first; see `selectionColumnDef` below.
  */
-const CONTROLS_COLUMN_SELECTOR = '[col-id^="ag-Grid-ControlsColumn"]';
+const CONTROLS_COLUMN_SELECTOR =
+  '[col-id^="ag-Grid-SelectionColumn"], [col-id^="ag-Grid-ControlsColumn"]';
 /** Shown on hover over a column that is not frozen. */
 const FREEZE_ACTION_CLASS = "tea-freeze-do";
 /** Shown permanently on a frozen column. */

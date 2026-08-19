@@ -17,8 +17,7 @@ import type {
   ICellRendererParams,
   RowClickedEvent,
 } from "ag-grid-community";
-import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-quartz.css";
+import { gridThemeDark, gridThemeLight } from "@/lib/agGridSetup";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -1019,7 +1018,6 @@ export default function RiskRegisterPage() {
           <Box
             ref={columnFreeze.containerRef}
             {...cellMenu.containerProps}
-            className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
             sx={{
               flex: 1,
               width: "100%",
@@ -1030,6 +1028,7 @@ export default function RiskRegisterPage() {
             }}
           >
             <AgGridReact<Risk>
+              theme={mode === "dark" ? gridThemeDark : gridThemeLight}
               key={isRtl ? "rtl" : "ltr"}
               enableRtl={isRtl}
               ref={gridRef}

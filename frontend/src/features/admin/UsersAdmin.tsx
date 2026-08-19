@@ -27,8 +27,7 @@ import Stack from "@mui/material/Stack";
 import Drawer from "@mui/material/Drawer";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
-import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-quartz.css";
+import { gridThemeDark, gridThemeLight } from "@/lib/agGridSetup";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useThemeMode } from "@/hooks/useThemeMode";
@@ -1164,10 +1163,10 @@ export default function UsersAdmin() {
             <Box
               ref={columnFreeze.containerRef}
               {...cellMenu.containerProps}
-              className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
               sx={{ flex: 1, minHeight: 0, ...columnFreeze.sx, ...cellMenu.sx }}
             >
               <AgGridReact<User>
+                theme={mode === "dark" ? gridThemeDark : gridThemeLight}
                 key={isRtl ? "rtl" : "ltr"}
                 enableRtl={isRtl}
                 rowData={filteredUsers}

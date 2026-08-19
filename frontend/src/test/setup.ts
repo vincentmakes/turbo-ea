@@ -1,6 +1,9 @@
 import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
 import i18n from "@/i18n";
+// AG Grid module registration (mandatory since v33) for every test that
+// mounts a real <AgGridReact> — same side-effect import the grid pages use.
+import "@/lib/agGridSetup";
 
 // Provide a minimal sessionStorage for tests (jsdom includes one, but
 // this ensures it's always clean between test files).

@@ -104,8 +104,7 @@ import MultiSelectCellEditor from "@/features/inventory/MultiSelectCellEditor";
 import ParentCellEditor from "@/features/inventory/ParentCellEditor";
 import StakeholdersCellEditor from "@/features/inventory/StakeholdersCellEditor";
 import type { Card, CardListResponse, CardType, ColumnLayoutItem, FieldDef, FieldOption, RelatedCardRef, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
-import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-quartz.css";
+import { gridThemeDark, gridThemeLight } from "@/lib/agGridSetup";
 
 const DEFAULT_SIDEBAR_WIDTH = 300;
 
@@ -3905,7 +3904,6 @@ export default function InventoryPage() {
         <Box
           ref={columnFreeze.containerRef}
           {...cellMenu.containerProps}
-          className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
           sx={{
             flex: 1,
             width: "100%",
@@ -3917,6 +3915,7 @@ export default function InventoryPage() {
           }}
         >
           <AgGridReact
+            theme={mode === "dark" ? gridThemeDark : gridThemeLight}
             key={isRtl ? "rtl" : "ltr"}
             enableRtl={isRtl}
             ref={gridRef}

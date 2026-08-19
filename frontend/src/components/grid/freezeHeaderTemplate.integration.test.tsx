@@ -89,7 +89,7 @@ describe("freeze header template + AG Grid", () => {
       expect(container.querySelector('.ag-header-cell[col-id="name"]')).not.toBeNull(),
     );
     const selectionHeader = container.querySelector(
-      '.ag-header-cell[col-id^="ag-Grid-ControlsColumn"]',
+      '.ag-header-cell[col-id^="ag-Grid-SelectionColumn"]',
     );
     expect(selectionHeader).not.toBeNull();
     expect(selectionHeader!.querySelector(".tea-freeze")).toBeNull();
@@ -140,7 +140,7 @@ describe("freeze header template + AG Grid", () => {
       [...container.querySelectorAll(".ag-pinned-left-header .ag-header-cell")].map((el) =>
         el.getAttribute("col-id"),
       );
-    expect(pinnedIds()).toEqual([expect.stringContaining("ag-Grid-ControlsColumn")]);
+    expect(pinnedIds()).toEqual([expect.stringContaining("ag-Grid-SelectionColumn")]);
 
     const pin = header.querySelector(".tea-freeze-do") as HTMLElement;
     pin.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
@@ -148,7 +148,7 @@ describe("freeze header template + AG Grid", () => {
 
     // Freezing a column must not push the checkboxes to its right.
     await waitFor(() => expect(pinnedIds()).toHaveLength(2));
-    expect(pinnedIds()[0]).toContain("ag-Grid-ControlsColumn");
+    expect(pinnedIds()[0]).toContain("ag-Grid-SelectionColumn");
     expect(pinnedIds()[1]).toBe("name");
   });
 });

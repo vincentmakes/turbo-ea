@@ -33,8 +33,7 @@ import {
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import { loadAdrGridPrefs, updateAdrGridPrefs } from "./adrGridPrefs";
 import type { ArchitectureDecision, CardType } from "@/types";
-import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-quartz.css";
+import { gridThemeDark, gridThemeLight } from "@/lib/agGridSetup";
 
 /** Extract plain text from HTML using the browser's DOM parser */
 function stripHtml(html: string | null | undefined): string {
@@ -743,7 +742,6 @@ export default function AdrGrid({
         <Box
           ref={columnFreeze.containerRef}
           {...cellMenu.containerProps}
-          className={isDark ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
           sx={{
             ...columnFreeze.sx,
             ...cellMenu.sx,
@@ -763,6 +761,7 @@ export default function AdrGrid({
           }}
         >
           <AgGridReact<ArchitectureDecision>
+            theme={isDark ? gridThemeDark : gridThemeLight}
             key={isRtl ? "rtl" : "ltr"}
             enableRtl={isRtl}
             ref={gridRef}

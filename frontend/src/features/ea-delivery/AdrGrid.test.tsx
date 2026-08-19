@@ -43,8 +43,6 @@ vi.mock("ag-grid-react", () => ({
 }));
 
 // Stub CSS imports
-vi.mock("ag-grid-community/styles/ag-grid.css", () => ({}));
-vi.mock("ag-grid-community/styles/ag-theme-quartz.css", () => ({}));
 
 import AdrGrid from "./AdrGrid";
 import { compareDateFilter } from "@/lib/dateColumnFilter";

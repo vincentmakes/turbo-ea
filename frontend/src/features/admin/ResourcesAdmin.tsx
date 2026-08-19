@@ -17,8 +17,7 @@ import { Link as RouterLink } from "react-router";
 import { useTranslation } from "react-i18next";
 import { AgGridReact } from "ag-grid-react";
 import type { ColDef, GridApi, ICellRendererParams, SortChangedEvent } from "ag-grid-community";
-import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-quartz.css";
+import { gridThemeDark, gridThemeLight } from "@/lib/agGridSetup";
 import Alert from "@mui/material/Alert";
 import AlertTitle from "@mui/material/AlertTitle";
 import Box from "@mui/material/Box";
@@ -913,10 +912,10 @@ export default function ResourcesAdmin() {
           <Box
             ref={columnFreeze.containerRef}
             {...cellMenu.containerProps}
-            className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
             sx={{ flex: 1, width: "100%", minHeight: 0, ...columnFreeze.sx, ...cellMenu.sx }}
           >
             <AgGridReact<RepositoryResource>
+              theme={mode === "dark" ? gridThemeDark : gridThemeLight}
               key={isRtl ? "rtl" : "ltr"}
               enableRtl={isRtl}
               rowData={rows}

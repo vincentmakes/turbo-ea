@@ -437,8 +437,10 @@ function StickyGroupHeader<T extends { id: string }>({
               // height. Verified by diffing computed styles against a real
               // header row in both themes.
               bgcolor: "var(--ag-background-color)",
-              borderBottom:
-                "var(--ag-row-border-width) var(--ag-row-border-style) var(--ag-row-border-color)",
+              // Theming API (v33+) exposes the row border as the single
+              // shorthand --ag-row-border; the -width/-style/-color triplet
+              // only existed in the legacy CSS themes.
+              borderBottom: "var(--ag-row-border)",
             }}
           >
             <GroupHeaderRow
