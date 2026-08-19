@@ -1980,7 +1980,7 @@ All container images are built from one `/Dockerfile` at the repo root using mul
 
 ### Nginx Configuration
 - `/api/*` → proxy to `backend:8000` (with SSE support headers)
-- `/drawio/*` → static DrawIO assets (30-day cache, no-transform)
+- `/drawio/*` → static DrawIO assets (`no-cache` + ETag revalidation — DrawIO files are not content-hashed, so a long TTL serves a stale editor for weeks after an upgrade)
 - `/*` → SPA fallback to `index.html`
 - Security headers on all responses
 - Static assets → 1-year cache with `immutable`

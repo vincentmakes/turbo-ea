@@ -452,7 +452,7 @@ ${nginx_https_ipv6_line}
         proxy_pass \$frontend_upstream\$request_uri;
         proxy_set_header Host \$host;
         add_header X-Robots-Tag \"noindex, nofollow\" always;
-        add_header Cache-Control \"public, no-transform, max-age=2592000\" always;
+        add_header Cache-Control \"no-cache, no-transform\" always;
     }
 
     location / {
@@ -659,7 +659,7 @@ ${nginx_http_ipv6_line}
         proxy_pass \$frontend_upstream\$request_uri;
         proxy_set_header Host \$host;
         add_header X-Robots-Tag \"noindex, nofollow\" always;
-        add_header Cache-Control \"public, no-transform, max-age=2592000\" always;
+        add_header Cache-Control \"no-cache, no-transform\" always;
     }
 
     location / {

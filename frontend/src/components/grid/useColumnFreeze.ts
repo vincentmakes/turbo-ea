@@ -138,6 +138,21 @@ export const columnFreezeSx: SxProps<Theme> = {
     [`& .ag-pinned-left-header .ag-header-cell .${FREEZE_ACTION_CLASS}, & .ag-pinned-right-header .ag-header-cell .${FREEZE_ACTION_CLASS}`]:
       { display: "none" },
   },
+  // Touch: a 16px glyph with 2px margins is far below the ~44px target Apple
+  // recommends, and it sits right next to the filter button — tapping the pin
+  // on an iPad took several tries and often hit the filter instead. Grow the
+  // hit area with padding (the click delegate keys on the element, so padding
+  // counts) and push the pin away from its neighbours. Negative block margin
+  // keeps the taller box from stretching the header row.
+  "@media (pointer: coarse)": {
+    [`& .${FREEZE_TOGGLE_CLASS}`]: {
+      padding: "10px 8px",
+      marginBlock: "-10px",
+      marginInlineStart: "6px",
+      marginInlineEnd: "2px",
+      opacity: 0.8,
+    },
+  },
   // The pins are an on-screen affordance only.
   "@media print": {
     [`& .${FREEZE_TOGGLE_CLASS}`]: { display: "none" },

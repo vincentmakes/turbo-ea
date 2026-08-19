@@ -201,7 +201,18 @@ export function GroupHeaderRow({ data, api, context }: GroupHeaderRowProps) {
 /** Wrapper styling the sticky bar needs: it is positioned against the Box that
  * wraps the grid. Reached by pages as `grouping.sx`, spread alongside
  * `columnFreeze.sx` / `cellMenu.sx`. */
-const rowGroupingSx = { position: "relative" } as const;
+const rowGroupingSx = {
+  position: "relative",
+  // AG Grid's popups (column filter menu, …) live in `.ag-popup` inside the
+  // grid root with z-index only on their CHILD, so their paint order over the
+  // sticky group bars otherwise rests on DOM tree order. Chromium honours
+  // that; WebKit promotes `position: sticky` elements to their own
+  // compositing layer and can misorder them against later, non-composited
+  // siblings — the column menu then renders UNDER a pinned group bar on
+  // iPadOS. An explicit stacking context on the popup outranks the bars'
+  // implicit level-0 contexts in every engine.
+  "& .ag-popup": { position: "relative", zIndex: 2 },
+} as const;
 
 /**
  * The group bar that stays put under the column headers while you scroll, so a
