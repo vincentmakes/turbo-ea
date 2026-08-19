@@ -23,7 +23,7 @@ to them. This file records those components and where they come from.
 
 - **Component:** The embedded diagram editor. The frontend Docker image clones and
   bundles draw.io at build time and serves it under `/drawio/`.
-- **Version:** jgraph/drawio v26.0.9 — https://github.com/jgraph/drawio
+- **Version:** jgraph/drawio v31.1.8 — https://github.com/jgraph/drawio
 - **Original license:** Apache License 2.0
 
 ---

@@ -113,7 +113,7 @@ RUN npm run build
 
 FROM alpine/git:v2.47.2 AS drawio
 
-RUN git clone --depth 1 --branch v26.0.9 https://github.com/jgraph/drawio.git /drawio
+RUN git clone --depth 1 --branch v31.1.8 https://github.com/jgraph/drawio.git /drawio
 
 
 FROM nginx:1.30.3-alpine AS frontend
@@ -136,11 +136,17 @@ COPY frontend/drawio-config/PostConfig.js /usr/share/nginx/drawio/js/PostConfig.
 # JARs so Trivy stops re-flagging upstream Java CVEs that we cannot reach.
 RUN rm -rf /usr/share/nginx/drawio/WEB-INF
 
+# The greps assert the patches actually landed — a DrawIO upgrade that
+# reformats index.html must fail the build here, not silently ship an
+# unpatched page (sed -e '/…/d' exits 0 even when nothing matches).
 RUN sed -i \
     -e '/<link rel="manifest"/d' \
     -e '/serviceWorker/d' \
     -e 's/<head>/<head><!--email_off-->/' \
-    /usr/share/nginx/drawio/index.html
+    /usr/share/nginx/drawio/index.html && \
+    ! grep -q 'rel="manifest"' /usr/share/nginx/drawio/index.html && \
+    ! grep -qi 'serviceWorker' /usr/share/nginx/drawio/index.html && \
+    grep -q '<!--email_off-->' /usr/share/nginx/drawio/index.html
 
 RUN mkdir -p /var/cache/nginx /var/run && \
     touch /var/run/nginx.pid && \
