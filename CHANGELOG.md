@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Removed
 - Unused `bpmn-js-properties-panel` / `@bpmn-io/properties-panel` frontend packages and two dead DrawIO config CSS files.
 
+### Fixed
+- DrawIO assets are now served with `no-cache` (ETag revalidation) instead of a 30-day browser cache: DrawIO ships no content-hashed filenames, so the old policy kept serving the previous editor version for up to a month after an upgrade.
+- Grid popups (column filter menu) now explicitly stack above the sticky group headers on iPadOS/Safari, and the column freeze pins get larger touch targets on tablets.
+
 ## [2.68.0] - 2026-08-19
 
 ### Added
