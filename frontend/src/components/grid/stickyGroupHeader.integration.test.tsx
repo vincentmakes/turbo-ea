@@ -17,6 +17,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react";
 import { useRef } from "react";
 import { AgGridReact } from "ag-grid-react";
 import type { GridApi } from "ag-grid-community";
+import { gridThemeLight } from "@/lib/agGridSetup";
 import { useRowGrouping } from "./useRowGrouping";
 import type { GroupAxis } from "./rowGrouping";
 
@@ -56,11 +57,11 @@ function GroupedGrid({
   const grouping = useRowGrouping<Row>(gridRef, { rows: ROWS, axes: [AXIS], groupBy, selectable });
   return (
     <div
-      className="ag-theme-quartz"
       // What `grouping.sx` contributes on the real pages.
       style={{ position: "relative", height: 400, width: 600 }}
     >
       <AgGridReact<Row>
+        theme={gridThemeLight}
         ref={gridRef}
         rowData={grouping.rowData}
         columnDefs={[{ field: "name", headerName: "Name" }]}
@@ -157,6 +158,34 @@ describe("sticky group header + AG Grid", () => {
     // A focusable control inside aria-hidden is reachable by keyboard but
     // invisible to assistive tech — worse than the duplication it would avoid.
     expect(bar()?.getAttribute("aria-hidden")).toBeNull();
+  });
+
+  it("never paints a transparent backdrop — the bar floats over real rows", async () => {
+    // Regression: since the Theming API (AG Grid 33) the --ag-* variables are
+    // scoped to the grid's own element, and the bar is a SIBLING of it — a
+    // `var(--ag-background-color)` in the bar's sx resolves to nothing, so the
+    // bar went transparent and the group header read as duplicated. jsdom has
+    // no stylesheet cascade, so this exercises the MUI-token fallback path:
+    // the emitted CSS for the bar must carry a concrete background, never a
+    // bare var(--ag-…) and never none at all.
+    const { bar, scrollTo } = await renderGrid("tier");
+    scrollTo(99999);
+    await waitFor(() => expect(bar()).not.toBeNull());
+
+    const inner = bar()!.firstElementChild as HTMLElement;
+    const emotionClasses = Array.from(inner.classList).filter((c) => c.startsWith("css-"));
+    expect(emotionClasses.length).toBeGreaterThan(0);
+    const css = Array.from(document.querySelectorAll("style"))
+      .map((s) => s.textContent ?? "")
+      .join("\n");
+    const rule = emotionClasses
+      .map((c) => {
+        const at = css.indexOf(`.${c}`);
+        if (at < 0) return "";
+        return css.slice(at, css.indexOf("}", at) + 1);
+      })
+      .join("\n");
+    expect(rule).toMatch(/background-color:\s*(?!var\(--ag-)\S/);
   });
 
   it("shows no checkbox on a grid that has no row selection", async () => {

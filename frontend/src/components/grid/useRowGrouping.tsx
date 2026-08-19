@@ -29,10 +29,12 @@ import {
   findStickyGroupIndex,
   glueGroups,
   groupKeyOn,
+  resolveStickyBarBackdrop,
   type GroupAxis,
   type GroupedRow,
   type GroupHeaderAnchor,
   type GroupInfo,
+  type StickyBarBackdrop,
 } from "./rowGrouping";
 
 /**
@@ -238,6 +240,10 @@ function StickyGroupHeader<T extends { id: string }>({
   const [api, setApi] = useState<GridApi | null>(null);
   const [current, setCurrent] = useState<{ info: GroupInfo; height: number } | null>(null);
   const [top, setTop] = useState(0);
+  const [backdrop, setBackdrop] = useState<StickyBarBackdrop>({
+    backgroundColor: "",
+    borderBottom: "",
+  });
 
   // The grid creates its api in its own effect, so it may not exist on our
   // first pass. Poll for a bounded number of frames rather than making every
@@ -316,6 +322,20 @@ function StickyGroupHeader<T extends { id: string }>({
         const vpRect = viewport.getBoundingClientRect();
         const nextTop = vpRect.top - wrap.getBoundingClientRect().top;
         setTop((prev) => (prev === nextTop ? prev : nextTop));
+
+        // The bar lives OUTSIDE the grid's Theming API scope (see
+        // resolveStickyBarBackdrop), so its backdrop is read off the grid's
+        // own root here instead of via `var(--ag-*)` in sx. Re-read every
+        // pass — it's two computed-style lookups — so a theme flip is picked
+        // up on the next scroll/model tick; the compare keeps renders at zero
+        // while nothing changes.
+        const nextBackdrop = resolveStickyBarBackdrop(wrap.querySelector(".ag-root-wrapper"));
+        setBackdrop((prev) =>
+          prev.backgroundColor === nextBackdrop.backgroundColor &&
+          prev.borderBottom === nextBackdrop.borderBottom
+            ? prev
+            : nextBackdrop,
+        );
 
         const { group, height } = anchors[i];
         setCurrent((prev) =>
@@ -436,11 +456,17 @@ function StickyGroupHeader<T extends { id: string }>({
               // `box-sizing: border-box`, so this does not change the bar's
               // height. Verified by diffing computed styles against a real
               // header row in both themes.
-              bgcolor: "var(--ag-background-color)",
-              // Theming API (v33+) exposes the row border as the single
-              // shorthand --ag-row-border; the -width/-style/-color triplet
-              // only existed in the legacy CSS themes.
-              borderBottom: "var(--ag-row-border)",
+              //
+              // NOT `var(--ag-*)`: since the Theming API (v33) those variables
+              // are scoped to the grid's own element, and this bar is a
+              // sibling of it — a var() here resolves to nothing and painted
+              // the bar transparent over real rows (the "duplicated group
+              // header" bug). The concrete values are read off the grid root
+              // each reposition pass; the MUI tokens are the jsdom/teardown
+              // fallback and are never transparent.
+              bgcolor: backdrop.backgroundColor || "background.paper",
+              borderBottom: backdrop.borderBottom || "1px solid",
+              ...(backdrop.borderBottom ? {} : { borderColor: "divider" }),
             }}
           >
             <GroupHeaderRow

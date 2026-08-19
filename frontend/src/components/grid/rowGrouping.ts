@@ -240,3 +240,52 @@ export function glueGroups<T, N extends { data?: GroupedRow<T> }>(
     for (const leaf of leaves.get(key) ?? []) nodes[i++] = leaf;
   }
 }
+
+/** What the sticky group-header bar paints behind `GroupHeaderRow`. */
+export interface StickyBarBackdrop {
+  /** Concrete row background, e.g. `rgb(24, 29, 31)` — `""` when unknown. */
+  backgroundColor: string;
+  /** Full row-separator border shorthand — `""` when unknown. */
+  borderBottom: string;
+}
+
+/**
+ * Resolve the sticky bar's backdrop from the grid's OWN theme scope.
+ *
+ * The bar is rendered as a sibling of `<AgGridReact>`, and since the Theming
+ * API (v33) the `--ag-*` custom properties live on the grid's own element —
+ * a generated `ag-theme-params-N` class — not on the shared wrapper the way
+ * the legacy `ag-theme-quartz` class did. A `var(--ag-background-color)` on
+ * the bar therefore resolves to nothing (transparent bar over real rows, so
+ * the group header reads as duplicated). Instead, read the values off
+ * `.ag-root-wrapper`, which sits inside the theme scope:
+ *   - its computed `background-color` IS `--ag-background-color`, already
+ *     resolved to a concrete color;
+ *   - `--ag-row-border` inherits onto it, and custom properties have their
+ *     nested `var()`s substituted at computed-value time in real browsers,
+ *     yielding a usable `solid 1px rgb(…)` shorthand.
+ * jsdom applies no stylesheets, so both come back empty there — callers fall
+ * back to MUI tokens, which are never transparent.
+ */
+export function resolveStickyBarBackdrop(
+  gridRoot: Element | null,
+  getStyle: (el: Element) => CSSStyleDeclaration = (el) => getComputedStyle(el),
+): StickyBarBackdrop {
+  if (!gridRoot) return { backgroundColor: "", borderBottom: "" };
+  try {
+    const style = getStyle(gridRoot);
+    const backgroundColor = style.backgroundColor ?? "";
+    const borderBottom = (style.getPropertyValue("--ag-row-border") ?? "").trim();
+    return {
+      // A transparent computed background means the theme did not paint here
+      // (or the element is mid-teardown) — treat it as unknown, not as a value.
+      backgroundColor:
+        backgroundColor === "transparent" || backgroundColor === "rgba(0, 0, 0, 0)"
+          ? ""
+          : backgroundColor,
+      borderBottom,
+    };
+  } catch {
+    return { backgroundColor: "", borderBottom: "" };
+  }
+}
