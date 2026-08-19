@@ -1,18 +1,20 @@
 /**
- * Contract test against the *real* AG Grid for the sticky group bar.
+ * Contract test against the *real* AG Grid for the sticky group bars.
  *
- * The bar exists because AG Grid Community has no `groupRowsSticky` and its
- * rows are absolutely positioned, so it is an overlay that reads the scroll
- * offset and the grid's own row geometry. Both are things a mocked grid cannot
- * give us, which is why this drives a real one.
+ * The bars exist because AG Grid Community has no `groupRowsSticky`. They are
+ * portaled INTO the grid's own `.ag-full-width-container` — one absolute
+ * wrapper per group spanning that group's rows, each holding a natively
+ * `position: sticky` bar, so the browser compositor does the pinning,
+ * hand-off, and rubber-band behaviour with no scroll listeners at all.
  *
- * jsdom has no layout, so `getVerticalPixelRange` is stubbed — everything else
- * (row tops, row ids, virtualisation) is AG Grid for real. Note that it
- * virtualises aggressively in a zero-height jsdom viewport, so a group's own
- * header row is usually NOT in the DOM: assertions target the bar itself,
- * which always renders immediately after the overlay's probe element.
+ * jsdom has no layout and does not emulate sticky pinning, so these tests
+ * assert the STRUCTURE the compositor consumes: the wrappers' offsets and
+ * spans (straight from AG Grid's own row geometry, which it computes without
+ * layout), the bar contents, and the controls. The pinning itself is
+ * verified against real Chromium in development (see the harness referenced
+ * in the hook's docblock history).
  */
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { useRef } from "react";
 import { AgGridReact } from "ag-grid-react";
@@ -79,68 +81,78 @@ function GroupedGrid({
 
 async function renderGrid(groupBy: string | null, selectable = true) {
   let api: GridApi | null = null;
-  const { container } = render(
+  const { container, unmount } = render(
     <GroupedGrid groupBy={groupBy} selectable={selectable} onApi={(a) => (api = a)} />,
   );
   await waitFor(() => expect(api).not.toBeNull());
-  /** The bar, when one is showing — it follows the overlay's probe element. */
-  const bar = () =>
-    container.querySelector(".tea-group-sticky-probe")?.nextElementSibling ?? null;
-  /** Pretend the user scrolled to `top` and let the overlay's frame run. */
-  const scrollTo = (top: number) => {
-    vi.spyOn(api as unknown as GridApi, "getVerticalPixelRange").mockReturnValue({
-      top,
-      bottom: top + 400,
-    });
-    // The overlay listens for resize as well as bodyScroll, and resize is the
-    // one an outsider can fire.
-    window.dispatchEvent(new Event("resize"));
-  };
-  return { container, bar, scrollTo, api: api as unknown as GridApi };
+  const host = () => container.querySelector<HTMLElement>(".tea-group-sticky-host");
+  const ranges = () =>
+    Array.from(container.querySelectorAll<HTMLElement>(".tea-group-sticky-range"));
+  const barFor = (label: string) =>
+    ranges().find((r) => r.textContent?.includes(label))?.firstElementChild ?? null;
+  return { container, unmount, host, ranges, barFor, api: api as unknown as GridApi };
 }
 
-describe("sticky group header + AG Grid", () => {
+describe("sticky group headers + AG Grid", () => {
   it("renders nothing at all when the grid is not grouped", async () => {
-    const { container, scrollTo } = await renderGrid(null);
-    scrollTo(99999);
-    await waitFor(() =>
-      expect(container.querySelector(".tea-group-sticky-probe")).not.toBeInTheDocument(),
-    );
+    const { container, ranges } = await renderGrid(null);
+    expect(container.querySelector(".tea-group-sticky-probe")).not.toBeInTheDocument();
+    expect(ranges()).toHaveLength(0);
   });
 
-  it("names the group the viewport is scrolled into", async () => {
-    const { bar, scrollTo } = await renderGrid("tier");
-    // Scrolled past every header, the last group owns the viewport top.
-    scrollTo(99999);
-    await waitFor(() => expect(bar()?.textContent).toContain("SilverTier"));
-    // …and it names that group, not the one above it.
-    expect(bar()?.textContent).not.toContain("GoldTier");
+  it("portals one sticky range per group into the grid's full-width container", async () => {
+    const { container, host, ranges } = await renderGrid("tier");
+    await waitFor(() => expect(ranges()).toHaveLength(2));
+    // Inside AG Grid's own full-width row layer — that is what puts the bars
+    // in the scrolled content (compositor-pinned) AND inside the Theming API
+    // variable scope.
+    const h = host();
+    expect(h).not.toBeNull();
+    expect(h!.closest(".ag-full-width-container")).not.toBeNull();
+    expect(container.querySelector(".ag-full-width-container")).toContainElement(h);
   });
 
-  it("carries the group's member count, like the real header row", async () => {
-    const { bar, scrollTo } = await renderGrid("tier");
-    scrollTo(99999);
-    await waitFor(() => expect(bar()?.textContent).toContain("SilverTier"));
-    expect(bar()?.textContent).toContain("12");
+  it("gives each range the group's own row geometry as its sticky bounds", async () => {
+    const { ranges, api } = await renderGrid("tier");
+    await waitFor(() => expect(ranges()).toHaveLength(2));
+
+    // The grid's row model is the source of truth for where the group headers
+    // sit and how far their groups extend.
+    const headerTops: Record<string, { top: number; height: number }> = {};
+    let contentEnd = 0;
+    api.forEachNode((n) => {
+      const g = (n.data as { __group?: { key: string } } | undefined)?.__group;
+      if (g && n.rowTop != null) headerTops[g.key] = { top: n.rowTop, height: n.rowHeight ?? 0 };
+      if (n.rowTop != null) contentEnd = Math.max(contentEnd, n.rowTop + (n.rowHeight ?? 0));
+    });
+
+    const [gold, silver] = ranges();
+    expect(gold.style.top).toBe(`${headerTops.gold.top}px`);
+    expect(silver.style.top).toBe(`${headerTops.silver.top}px`);
+    // Each wrapper spans exactly to the next group (or the content end): that
+    // bound is what makes the next group push the pinned bar out natively.
+    expect(gold.style.height).toBe(`${headerTops.silver.top - headerTops.gold.top}px`);
+    expect(silver.style.height).toBe(`${contentEnd - headerTops.silver.top}px`);
+    // And the bar inside pins with native sticky at the group's row height.
+    const bar = gold.firstElementChild as HTMLElement;
+    expect(bar.style.position).toBe("sticky");
+    expect(bar.style.top).toBe("0px");
+    expect(bar.style.height).toBe(`${headerTops.gold.height}px`);
   });
 
-  it("hides the bar when the real header row is flush with the top", async () => {
-    const { bar, scrollTo } = await renderGrid("tier");
-    scrollTo(99999);
-    await waitFor(() => expect(bar()).not.toBeNull());
-
-    // Flush with the very top: the first group's own header is on screen, so a
-    // bar would just duplicate a row already visible.
-    scrollTo(0);
-    await waitFor(() => expect(bar()).toBeNull());
+  it("names each group and carries its member count, like the real header row", async () => {
+    const { barFor, ranges } = await renderGrid("tier");
+    await waitFor(() => expect(ranges()).toHaveLength(2));
+    await waitFor(() => expect(barFor("SilverTier")?.textContent).toContain("12"));
+    expect(barFor("GoldTier")?.textContent).toContain("12");
+    expect(barFor("GoldTier")?.textContent).not.toContain("SilverTier");
   });
 
   it("carries the select-all tick box, so a deep group can be selected in place", async () => {
-    const { bar, scrollTo, api } = await renderGrid("tier");
-    scrollTo(99999);
-    await waitFor(() => expect(bar()).not.toBeNull());
+    const { barFor, ranges, api } = await renderGrid("tier");
+    await waitFor(() => expect(ranges()).toHaveLength(2));
 
-    const box = bar()?.querySelector<HTMLInputElement>("input[type='checkbox']");
+    const box = barFor("SilverTier")?.querySelector<HTMLInputElement>("input[type='checkbox']");
     expect(box).not.toBeNull();
     expect(box!.checked).toBe(false);
 
@@ -152,48 +164,29 @@ describe("sticky group header + AG Grid", () => {
   });
 
   it("stays in the accessibility tree, since it holds a real control", async () => {
-    const { bar, scrollTo } = await renderGrid("tier");
-    scrollTo(99999);
-    await waitFor(() => expect(bar()).not.toBeNull());
+    const { barFor, ranges } = await renderGrid("tier");
+    await waitFor(() => expect(ranges()).toHaveLength(2));
     // A focusable control inside aria-hidden is reachable by keyboard but
-    // invisible to assistive tech — worse than the duplication it would avoid.
-    expect(bar()?.getAttribute("aria-hidden")).toBeNull();
-  });
-
-  it("never paints a transparent backdrop — the bar floats over real rows", async () => {
-    // Regression: since the Theming API (AG Grid 33) the --ag-* variables are
-    // scoped to the grid's own element, and the bar is a SIBLING of it — a
-    // `var(--ag-background-color)` in the bar's sx resolves to nothing, so the
-    // bar went transparent and the group header read as duplicated. jsdom has
-    // no stylesheet cascade, so this exercises the MUI-token fallback path:
-    // the emitted CSS for the bar must carry a concrete background, never a
-    // bare var(--ag-…) and never none at all.
-    const { bar, scrollTo } = await renderGrid("tier");
-    scrollTo(99999);
-    await waitFor(() => expect(bar()).not.toBeNull());
-
-    const inner = bar()!.firstElementChild as HTMLElement;
-    const emotionClasses = Array.from(inner.classList).filter((c) => c.startsWith("css-"));
-    expect(emotionClasses.length).toBeGreaterThan(0);
-    const css = Array.from(document.querySelectorAll("style"))
-      .map((s) => s.textContent ?? "")
-      .join("\n");
-    const rule = emotionClasses
-      .map((c) => {
-        const at = css.indexOf(`.${c}`);
-        if (at < 0) return "";
-        return css.slice(at, css.indexOf("}", at) + 1);
-      })
-      .join("\n");
-    expect(rule).toMatch(/background-color:\s*(?!var\(--ag-)\S/);
+    // invisible to assistive tech — worse than the duplication it would avoid
+    // (the real header row is often virtualised out of the DOM entirely).
+    const bar = barFor("SilverTier");
+    expect(bar?.getAttribute("aria-hidden")).toBeNull();
+    expect(bar?.closest("[aria-hidden='true']")).toBeNull();
   });
 
   it("shows no checkbox on a grid that has no row selection", async () => {
     // The Risk Register passes `selectable: false` — there grouping is purely
     // a reading aid, and the bar must not offer a selection it cannot make.
-    const { bar, scrollTo } = await renderGrid("tier", false);
-    scrollTo(99999);
-    await waitFor(() => expect(bar()?.textContent).toContain("SilverTier"));
-    expect(bar()?.querySelector("input[type='checkbox']")).toBeNull();
+    const { barFor, ranges } = await renderGrid("tier", false);
+    await waitFor(() => expect(ranges()).toHaveLength(2));
+    expect(barFor("SilverTier")?.querySelector("input[type='checkbox']")).toBeNull();
+  });
+
+  it("removes its host from the grid DOM on unmount", async () => {
+    const { host, ranges, unmount } = await renderGrid("tier");
+    await waitFor(() => expect(ranges()).toHaveLength(2));
+    expect(host()).not.toBeNull();
+    unmount();
+    expect(document.querySelector(".tea-group-sticky-host")).toBeNull();
   });
 });
