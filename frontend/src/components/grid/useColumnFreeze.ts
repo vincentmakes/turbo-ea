@@ -300,24 +300,36 @@ export function useColumnFreeze<TData = unknown>(
     const el = containerRef.current;
     if (!el) return;
 
-    const handler = (event: MouseEvent) => {
+    const handler = (event: Event) => {
       const target = event.target as HTMLElement | null;
       if (!target?.closest?.(`.${FREEZE_TOGGLE_CLASS}`)) return;
-      // Keep the click off AG Grid's own header handlers: `mousedown` would
-      // start a column drag, `click` would progress the sort.
+      // Keep the interaction off AG Grid's own header handlers: `mousedown`
+      // would start a column drag, `click` would progress the sort — and on
+      // touch devices AG Grid handles the tap through its OWN touch listener
+      // (tap-to-sort) and prevents the default, so the synthetic `click`
+      // never fires at all: a pin tap on an iPad sorted the column and never
+      // froze anything. Capture-phase touch handling stops the tap before it
+      // reaches the header cell, and the touchend preventDefault suppresses
+      // the synthetic click so the toggle cannot run twice.
       event.preventDefault();
       event.stopPropagation();
-      if (event.type !== "click") return;
+      if (event.type !== "click" && event.type !== "touchend") return;
 
       const colId = target.closest(".ag-header-cell")?.getAttribute("col-id");
       if (colId) toggleFrozen(colId);
     };
 
+    // Touch listeners must be explicitly non-passive to be allowed to call
+    // preventDefault.
     el.addEventListener("mousedown", handler, true);
     el.addEventListener("click", handler, true);
+    el.addEventListener("touchstart", handler, { capture: true, passive: false });
+    el.addEventListener("touchend", handler, { capture: true, passive: false });
     return () => {
       el.removeEventListener("mousedown", handler, true);
       el.removeEventListener("click", handler, true);
+      el.removeEventListener("touchstart", handler, true);
+      el.removeEventListener("touchend", handler, true);
     };
   }, [toggleFrozen]);
 

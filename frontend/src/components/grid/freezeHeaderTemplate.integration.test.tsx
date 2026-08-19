@@ -125,6 +125,35 @@ describe("freeze header template + AG Grid", () => {
     );
   });
 
+  it("freezes on a touch tap — AG Grid's tap-to-sort must not win", async () => {
+    // On touch devices AG Grid handles header taps through its own touch
+    // listener (tap-to-sort) and prevents the default, so the synthetic
+    // `click` never fires — the delegate must act on `touchend` itself, and
+    // swallow the tap before it reaches the header cell.
+    const { container } = render(<FreezableGrid />);
+    const header = await waitFor(() => {
+      const el = container.querySelector('.ag-header-cell[col-id="name"]');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+
+    const pin = header.querySelector(".tea-freeze-do") as HTMLElement;
+    const start = new Event("touchstart", { bubbles: true, cancelable: true });
+    const end = new Event("touchend", { bubbles: true, cancelable: true });
+    pin.dispatchEvent(start);
+    pin.dispatchEvent(end);
+    // preventDefault on touchend is what suppresses the synthetic click, so
+    // the toggle cannot run a second time.
+    expect(end.defaultPrevented).toBe(true);
+
+    const pinnedHeader = await waitFor(() => {
+      const el = container.querySelector('.ag-pinned-left-header [col-id="name"]');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+    expect(pinnedHeader.classList.contains("ag-header-cell-sorted-asc")).toBe(false);
+  });
+
   it("keeps the row-selection checkboxes ahead of a frozen column", async () => {
     const { container } = render(<FreezableGrid />);
 

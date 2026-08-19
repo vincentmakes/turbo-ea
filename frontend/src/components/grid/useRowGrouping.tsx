@@ -201,18 +201,10 @@ export function GroupHeaderRow({ data, api, context }: GroupHeaderRowProps) {
 /** Wrapper styling the sticky bar needs: it is positioned against the Box that
  * wraps the grid. Reached by pages as `grouping.sx`, spread alongside
  * `columnFreeze.sx` / `cellMenu.sx`. */
-const rowGroupingSx = {
-  position: "relative",
-  // AG Grid's popups (column filter menu, …) live in `.ag-popup` inside the
-  // grid root with z-index only on their CHILD, so their paint order over the
-  // sticky group bars otherwise rests on DOM tree order. Chromium honours
-  // that; WebKit promotes `position: sticky` elements to their own
-  // compositing layer and can misorder them against later, non-composited
-  // siblings — the column menu then renders UNDER a pinned group bar on
-  // iPadOS. An explicit stacking context on the popup outranks the bars'
-  // implicit level-0 contexts in every engine.
-  "& .ag-popup": { position: "relative", zIndex: 2 },
-} as const;
+// Wrapper styling only — grid popups no longer render inside the wrapper at
+// all (popupParent: document.body in agGridSetup.ts), which is what keeps
+// them clear of the sticky group bars' compositing layers on WebKit.
+const rowGroupingSx = { position: "relative" } as const;
 
 /**
  * The group bar that stays put under the column headers while you scroll, so a
@@ -431,7 +423,17 @@ function StickyGroupHeader<T extends { id: string }>({
               sx={{ "@media print": { display: "none" } }}
             >
               <Box
-                style={{ position: "sticky", top: 0, height: `${a.height}px` }}
+                style={{
+                  position: "sticky",
+                  top: 0,
+                  height: `${a.height}px`,
+                  // Forces the bar onto its own compositor layer so WebKit
+                  // updates its stuck position on the compositor thread —
+                  // without it, iPadOS repositions the bar a frame late on
+                  // direction changes and it shows a few px off its pin
+                  // (reading as a brief duplicate next to the real row).
+                  transform: "translateZ(0)",
+                }}
                 sx={{
                   pointerEvents: "auto",
                   // Paint EXACTLY what a real group header row paints, so bar

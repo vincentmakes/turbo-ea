@@ -23,9 +23,26 @@
  * Deliberately NOT imported from main.tsx: all grid pages are React.lazy,
  * and an eager import here would pull AG Grid into the main bundle.
  */
-import { AllCommunityModule, ModuleRegistry, colorSchemeDark, themeQuartz } from "ag-grid-community";
+import {
+  AllCommunityModule,
+  ModuleRegistry,
+  colorSchemeDark,
+  provideGlobalGridOptions,
+  themeQuartz,
+} from "ag-grid-community";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
+
+// Popups (column filter menu, …) render into <body> instead of the grid
+// root. Inside the grid they carry no z-index of their own and rely on DOM
+// tree order to paint above the rows — which WebKit gets wrong once the
+// sticky group headers (position: sticky lives in the grid's scrolled
+// content, see useRowGrouping) are promoted to their own compositing
+// layers: on iPadOS the filter menu opened invisible (its input still took
+// focus and popped the keyboard) or under a pinned group bar. In <body> the
+// popup is outside the grid's stacking and compositing world entirely; the
+// Theming API styles it there via the popup's own theme wrapper.
+provideGlobalGridOptions({ popupParent: typeof document === "undefined" ? undefined : document.body });
 
 export const gridThemeLight = themeQuartz;
 export const gridThemeDark = themeQuartz.withPart(colorSchemeDark);
