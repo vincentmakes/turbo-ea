@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.69.0] - 2026-08-19
+
+### Added
+- Monthly automated dependency-bump pull request for the embedded UI engines (DrawIO, AG Grid, bpmn-js): DrawIO always follows the latest upstream release, npm packages get patch/minor updates within their installed major, and newly available majors are flagged in the PR body for a deliberate upgrade. Requires the `DEPENDENCY_BUMP_TOKEN` repository secret (fine-grained PAT).
+
+### Changed
+- Upgraded the bundled DrawIO editor from v26.0.9 to v31.1.8 (improved auto-layout for large diagrams, five majors of upstream fixes). The Dockerfile now fails the build loudly if a future DrawIO release reformats `index.html` in a way that defeats the hardening patches.
+- Upgraded AG Grid from 32.3 to 35.3 and migrated all grids from the deprecated legacy CSS themes to the AG Grid Theming API — same Quartz design in light and dark mode.
+- Upgraded bpmn-js from 18.12 to 18.25.
+
+### Removed
+- Unused `bpmn-js-properties-panel` / `@bpmn-io/properties-panel` frontend packages and two dead DrawIO config CSS files.
+
 ## [2.68.0] - 2026-08-19
 
 ### Added
