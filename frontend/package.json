@@ -15,7 +15,6 @@
     "gen:diagram-icons": "node scripts/gen-diagram-icon-paths.mjs"
   },
   "dependencies": {
-    "@bpmn-io/properties-panel": "^3.39.0",
     "@dagrejs/dagre": "^2.0.4",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
@@ -35,9 +34,8 @@
     "@xyflow/react": "^12.10.1",
     "ag-grid-community": "^32.3.0",
     "ag-grid-react": "^32.3.0",
-    "bpmn-js": "^18.12.0",
+    "bpmn-js": "^18.25.1",
     "bpmn-js-color-picker": "^0.7.2",
-    "bpmn-js-properties-panel": "^5.50.1",
     "docx": "^9.5.1",
     "dompurify": "^3.4.11",
     "file-saver": "^2.0.5",
