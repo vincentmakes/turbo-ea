@@ -46,6 +46,13 @@ The instance also **checks the catalogue once a day** and tells you what changed
 
 Uploading the same bundle again is safe — the preview shows everything as "skipped" and applying changes nothing.
 
+## Updating an extension
+
+When the store publishes a newer version of an installed extension, the Installed tab shows an **Update to X** chip next to the extension's version (and the Store tab's button turns into **Update**). One click runs the same signature verification, dry-run preview, and apply as a fresh install. Two safeguards apply:
+
+- Updating an extension you have deliberately **disabled** keeps it disabled — the new version lands on disk, but its content stays hidden and nothing runs until you enable it again.
+- Installing a bundle **older** than the installed version asks for an explicit confirmation first: a downgrade may not understand data written by the newer version. Nothing is deleted either way.
+
 ## Licenses and renewal
 
 Apply a license via **Enter license…** on the Installed tab (paste the text or upload the file) — the button also appears on each extension row that needs one. The page then shows the licensee and one chip per entitlement with its expiry date.

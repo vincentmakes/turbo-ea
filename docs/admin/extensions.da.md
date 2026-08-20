@@ -46,6 +46,13 @@ Instansen **tjekker desuden kataloget én gang om dagen** og fortæller, hvad de
 
 Det er sikkert at uploade den samme pakke igen — forhåndsvisningen viser alt som «sprunget over», og anvendelse ændrer intet.
 
+## Opdatering af en udvidelse
+
+Når butikken udgiver en nyere version af en installeret udvidelse, viser fanen Installerede en chip **Opdater til X** ved siden af versionen (og knappen på fanen Butik bliver til **Opdater**). Ét klik kører den samme signaturkontrol, forhåndsvisning og anvendelse som en ny installation. To sikkerhedsforanstaltninger gælder:
+
+- Opdatering af en udvidelse, du bevidst har **deaktiveret**, holder den deaktiveret — den nye version lander på disken, men dens indhold forbliver skjult, og intet kører, før du aktiverer den igen.
+- Installation af en pakke, der er **ældre** end den installerede version, kræver først en udtrykkelig bekræftelse: en nedgradering forstår muligvis ikke data skrevet af den nyere version. Intet slettes i nogen af tilfældene.
+
 ## Licenser og fornyelse
 
 Anvend en licens via **Indtast licens…** under fanen Installerede (indsæt teksten eller upload filen) — knappen vises også på hver udvidelsesrække, der mangler en. Siden viser derefter licenstageren og en chip pr. rettighed med udløbsdato.

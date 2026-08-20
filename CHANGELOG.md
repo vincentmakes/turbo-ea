@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.70.0] - 2026-08-20
+
+### Added
+- Admin → Extensions → Installed now shows an "Update to X" chip next to an extension's version whenever the store catalogue carries a newer release — one click starts the same guided install as the Store tab. Air-gapped instances are unaffected (no catalogue, no chip).
+- Installing an extension bundle **older** than the currently installed version now requires an explicit confirmation — the dry-run preview flags the downgrade and the apply endpoint refuses it without the confirm flag, on both the store install and manual upload paths.
+
+### Fixed
+- Updating a deliberately disabled extension no longer re-enables it: the new version installs with the extension kept disabled (content stays hidden, no field contributions applied) until an admin turns it back on. A disabled backend extension also keeps its restart requirement through the update.
+
 ## [2.69.0] - 2026-08-19
 
 ### Added

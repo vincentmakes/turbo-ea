@@ -46,6 +46,13 @@ L'istanza **controlla inoltre il catalogo una volta al giorno** e segnala i camb
 
 Caricare due volte lo stesso pacchetto è sicuro — l'anteprima mostra tutto come «saltato» e l'applicazione non cambia nulla.
 
+## Aggiornare un'estensione
+
+Quando lo store pubblica una versione più recente di un'estensione installata, la scheda Installate mostra un chip **Aggiorna a X** accanto alla versione (e il pulsante della scheda Store diventa **Aggiorna**). Un clic esegue la stessa verifica della firma, la stessa anteprima e la stessa applicazione di una nuova installazione. Valgono due protezioni:
+
+- Aggiornare un'estensione che hai deliberatamente **disattivato** la lascia disattivata: la nuova versione arriva su disco, ma i suoi contenuti restano nascosti e nulla viene eseguito finché non la riattivi.
+- Installare un pacchetto **più vecchio** della versione installata richiede prima una conferma esplicita: un downgrade potrebbe non comprendere i dati scritti dalla versione più recente. In nessun caso viene eliminato qualcosa.
+
 ## Licenze e rinnovo
 
 Applica una licenza tramite **Inserisci licenza…** nella scheda Installate (incolla il testo o carica il file); il pulsante compare anche su ogni riga di estensione che ne ha bisogno. La pagina mostra quindi l'intestatario e un badge per ogni diritto con la sua scadenza.

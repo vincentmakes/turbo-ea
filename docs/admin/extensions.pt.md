@@ -46,6 +46,13 @@ A instância também **verifica o catálogo uma vez por dia** e comunica as alte
 
 Carregar o mesmo pacote outra vez é seguro — a pré-visualização mostra tudo como «ignorado» e aplicar não altera nada.
 
+## Atualizar uma extensão
+
+Quando a loja publica uma versão mais recente de uma extensão instalada, o separador Instaladas mostra um selo **Atualizar para X** ao lado da versão (e o botão do separador Loja passa a **Atualizar**). Um clique executa a mesma verificação de assinatura, a mesma pré-visualização e a mesma aplicação de uma instalação nova. Aplicam-se duas salvaguardas:
+
+- Atualizar uma extensão que você **desativou** deliberadamente mantém-na desativada: a nova versão chega ao disco, mas o seu conteúdo permanece oculto e nada é executado até que a reative.
+- Instalar um pacote **mais antigo** do que a versão instalada pede primeiro uma confirmação explícita: um downgrade pode não compreender os dados escritos pela versão mais recente. Em nenhum caso algo é eliminado.
+
 ## Licenças e renovação
 
 Aplique uma licença através de **Introduzir licença…** no separador Instaladas (cole o texto ou carregue o ficheiro); o botão também aparece em cada linha de extensão que precise dela. A página mostra então o titular e um distintivo por direito com a respetiva data de expiração.

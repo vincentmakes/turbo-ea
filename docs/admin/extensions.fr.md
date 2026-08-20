@@ -46,6 +46,13 @@ L'instance **vérifie également le catalogue une fois par jour** et signale les
 
 Téléverser deux fois le même paquet est sans risque — l'aperçu montre tout comme « ignoré » et l'application ne change rien.
 
+## Mettre à jour une extension
+
+Lorsque la boutique publie une version plus récente d'une extension installée, l'onglet Installées affiche une puce **Mettre à jour vers X** à côté de la version (et le bouton de l'onglet Boutique devient **Mettre à jour**). Un clic déclenche la même vérification de signature, le même aperçu et la même application qu'une installation. Deux garde-fous s'appliquent :
+
+- Mettre à jour une extension que vous avez délibérément **désactivée** la laisse désactivée — la nouvelle version est installée sur le disque, mais son contenu reste masqué et rien ne s'exécute tant que vous ne la réactivez pas.
+- Installer un paquet **plus ancien** que la version installée demande d'abord une confirmation explicite : une rétrogradation peut ne pas comprendre les données écrites par la version plus récente. Rien n'est supprimé dans les deux cas.
+
 ## Licences et renouvellement
 
 Appliquez une licence via **Saisir la licence…** dans l'onglet Installées (collez le texte ou téléversez le fichier) — le bouton apparaît aussi sur chaque ligne d'extension qui en a besoin. La page affiche ensuite le titulaire et une pastille par droit avec sa date d'expiration.

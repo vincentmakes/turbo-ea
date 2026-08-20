@@ -46,6 +46,13 @@ Die Instanz **prüft den Katalog außerdem einmal täglich** und meldet Änderun
 
 Das erneute Hochladen desselben Pakets ist unbedenklich — die Vorschau zeigt alles als „übersprungen“ und das Anwenden ändert nichts.
 
+## Eine Erweiterung aktualisieren
+
+Veröffentlicht der Store eine neuere Version einer installierten Erweiterung, zeigt der Tab «Installiert» neben der Version einen Chip **Auf X aktualisieren** (und die Schaltfläche im Store-Tab wird zu **Aktualisieren**). Ein Klick durchläuft dieselbe Signaturprüfung, Vorschau und Anwendung wie eine Neuinstallation. Zwei Schutzmechanismen greifen:
+
+- Die Aktualisierung einer bewusst **deaktivierten** Erweiterung lässt sie deaktiviert — die neue Version landet auf der Festplatte, aber ihre Inhalte bleiben verborgen und nichts läuft, bis Sie sie wieder aktivieren.
+- Die Installation eines Bundles, das **älter** ist als die installierte Version, verlangt zuerst eine ausdrückliche Bestätigung: Ein Downgrade versteht möglicherweise Daten nicht, die die neuere Version geschrieben hat. Gelöscht wird in keinem Fall etwas.
+
 ## Lizenzen und Verlängerung
 
 Wenden Sie eine Lizenz über **Lizenz eingeben…** im Tab Installiert an (Text einfügen oder Datei hochladen) — die Schaltfläche erscheint auch an jeder Erweiterungszeile, der eine Lizenz fehlt. Die Seite zeigt dann den Lizenznehmer sowie einen Chip pro Berechtigung mit Ablaufdatum.

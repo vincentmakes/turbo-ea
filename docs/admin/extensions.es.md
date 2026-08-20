@@ -46,6 +46,13 @@ La instancia también **comprueba el catálogo una vez al día** e informa de lo
 
 Subir el mismo paquete otra vez es seguro — la vista previa muestra todo como «omitido» y aplicarlo no cambia nada.
 
+## Actualizar una extensión
+
+Cuando la tienda publica una versión más reciente de una extensión instalada, la pestaña Instaladas muestra un distintivo **Actualizar a X** junto a la versión (y el botón de la pestaña Tienda se convierte en **Actualizar**). Un clic ejecuta la misma verificación de firma, la misma vista previa y la misma aplicación que una instalación nueva. Se aplican dos salvaguardas:
+
+- Actualizar una extensión que usted ha **desactivado** deliberadamente la mantiene desactivada: la nueva versión se instala en el disco, pero su contenido permanece oculto y nada se ejecuta hasta que la vuelva a activar.
+- Instalar un paquete **más antiguo** que la versión instalada pide primero una confirmación explícita: una versión anterior puede no entender los datos escritos por la más reciente. En ningún caso se elimina nada.
+
 ## Licencias y renovación
 
 Aplica una licencia mediante **Introducir licencia…** en la pestaña Instaladas (pega el texto o sube el archivo); el botón también aparece en cada fila de extensión que la necesite. La página muestra entonces el titular y un distintivo por derecho con su fecha de caducidad.
