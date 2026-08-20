@@ -28,6 +28,12 @@ Subscription semantics: an entitlement is ``active`` until
 everything keeps working), then ``expired`` (soft-disable — extension
 surfaces refuse, data is never touched). ``expires_at: null`` means a
 perpetual entitlement.
+
+A trial entitlement additionally carries ``"trial": true``. Trials get NO
+grace window — expiry is a hard stop straight to ``expired`` (the grace
+period exists to absorb a paid subscription's billing hiccups; a trial has
+nothing to renew). The field is tolerant and additive: cores that predate
+it simply treat the entitlement as a normal short subscription.
 """
 
 from __future__ import annotations
@@ -62,6 +68,9 @@ class Entitlement:
     # None = unknown (manual/offline licenses, and licenses issued before the
     # store carried the field).
     auto_renew: bool | None = None
+    # A store-issued trial entitlement. Trials get no grace window (expiry is
+    # a hard stop) and are labelled in the admin UI. None/False = not a trial.
+    trial: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -174,10 +183,11 @@ def parse_and_verify(text: str, *, public_key_b64: str | None = None) -> License
         if not isinstance(ext_key, str) or not ext_key.strip():
             raise LicenseError(f"Invalid license: entitlement #{idx + 1} is missing extension_key")
         # Any legacy ``plan`` key in an already-signed license is simply ignored.
-        # ``auto_renew`` is optional and tolerant: only a real bool is taken,
-        # anything else degrades to None (unknown) — an already-signed license
-        # must never fail to verify over a display-only field.
+        # ``auto_renew`` and ``trial`` are optional and tolerant: only a real
+        # bool is taken, anything else degrades to None (unknown) — an
+        # already-signed license must never fail to verify over these fields.
         auto_renew_raw = raw.get("auto_renew")
+        trial_raw = raw.get("trial")
         entitlements.append(
             Entitlement(
                 extension_key=ext_key.strip(),
@@ -185,6 +195,7 @@ def parse_and_verify(text: str, *, public_key_b64: str | None = None) -> License
                     raw.get("expires_at"), f"entitlement #{idx + 1} expires_at"
                 ),
                 auto_renew=auto_renew_raw if isinstance(auto_renew_raw, bool) else None,
+                trial=trial_raw if isinstance(trial_raw, bool) else None,
             )
         )
 

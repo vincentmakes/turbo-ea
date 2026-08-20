@@ -38,6 +38,15 @@ The Store tab is read-only and anonymous: no account, no token, and nothing abou
 
 The instance also **checks the catalogue once a day** and tells you what changed, so a new extension — or a security fix to one you already run — does not wait until somebody happens to open this page. Administrators (anyone whose role grants `admin.manage_extensions`) get a notification in the bell when a new extension is published to the store, and another when an extension they have installed has a newer version. Each change is announced once, and a busy release day arrives as one notification per kind rather than one per extension. Nothing is downloaded or installed — the notification simply brings you here. The daily check can be switched off entirely under [Admin → Settings → Update notifications](settings.md#update-notifications).
 
+## Trials
+
+Some paid extensions offer a **free 30-day trial** — look for the **Start 30-day trial** button on the Store tab (or the trial option on the store website). Starting a trial works like a purchase without the payment: no credit card is needed, your license updates automatically (a copy also arrives by email for air-gapped installs), and the extension runs with full functionality for 30 days.
+
+- Each Turbo EA instance can trial a given extension **once**.
+- A trial ends exactly on its end date — there is no grace period. The extension then stops running until you subscribe; **your data is never deleted**, and everything comes back the moment a subscription license is applied.
+- The Installed tab shows trial entitlements as **Trial until …**.
+- Trials end by themselves — there is nothing to cancel and nothing is ever billed.
+
 ## Installing an extension
 
 1. If you have not done so yet, apply your license first (see below).

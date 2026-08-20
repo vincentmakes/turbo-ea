@@ -27,6 +27,7 @@ def make_doc(
     expires_in_days: float | None = 5,
     keys: tuple[str, ...] = ("esg-pack",),
     auto_renew: bool | None = None,
+    trial: bool | None = None,
     licensee: str = "ACME Corp",
     grace_days: int = 30,
 ) -> LicenseDocument:
@@ -37,7 +38,8 @@ def make_doc(
         issued_at=NOW - timedelta(days=30),
         grace_days=grace_days,
         entitlements=[
-            Entitlement(extension_key=k, expires_at=expires, auto_renew=auto_renew) for k in keys
+            Entitlement(extension_key=k, expires_at=expires, auto_renew=auto_renew, trial=trial)
+            for k in keys
         ],
         renewal_key=renewal_key,
     )
@@ -127,6 +129,27 @@ class TestShouldApply:
                 make_doc(expires_in_days=5, auto_renew=None),
             )
             is True
+        )
+
+    def test_trial_flip_applies_at_identical_coverage(self):
+        # Mid-trial conversion: the store re-issues the same coverage with the
+        # trial flag cleared — connected instances must pick that up, or they
+        # keep showing "Trial" (and enforcing zero grace) on a paid customer.
+        # Only the trial flag differs — auto_renew held constant so this
+        # asserts the trial comparison specifically.
+        assert (
+            _should_apply(
+                make_doc(expires_in_days=5, trial=None),
+                make_doc(expires_in_days=5, trial=True),
+            )
+            is True
+        )
+        assert (
+            _should_apply(
+                make_doc(expires_in_days=5, trial=True),
+                make_doc(expires_in_days=5, trial=True),
+            )
+            is False
         )
 
     def test_metadata_change_cannot_shrink_coverage(self):

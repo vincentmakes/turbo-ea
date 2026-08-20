@@ -38,6 +38,15 @@ La pestaña Tienda es de solo lectura y anónima: sin cuenta, sin token, y no se
 
 La instancia también **comprueba el catálogo una vez al día** e informa de los cambios, para que una extensión nueva —o una corrección de seguridad de alguna que ya utiliza— no espere a que alguien abra esta página por casualidad. Los administradores (cualquiera cuyo rol conceda `admin.manage_extensions`) reciben una notificación en la campana cuando se publica una extensión nueva en la tienda, y otra cuando una extensión instalada tiene una versión más reciente. Cada cambio se anuncia una sola vez, y un día de lanzamientos intenso llega como una notificación por tipo en lugar de una por extensión. No se descarga ni se instala nada: la notificación simplemente le trae hasta aquí. La comprobación diaria puede desactivarse por completo en [Admin → Configuración → Notificaciones de actualización](settings.md#update-notifications).
 
+## Pruebas
+
+Algunas extensiones de pago ofrecen una **prueba gratuita de 30 días** — busque el botón **Iniciar prueba de 30 días** en la pestaña Tienda (o la opción de prueba en el sitio web de la tienda). Iniciar una prueba funciona como una compra sin pago: no se necesita tarjeta de crédito, su licencia se actualiza automáticamente (también llega una copia por correo electrónico para instalaciones aisladas) y la extensión funciona con toda su funcionalidad durante 30 días.
+
+- Cada instancia de Turbo EA puede probar una extensión determinada **una sola vez**.
+- Una prueba termina exactamente en su fecha de finalización — no hay período de gracia. La extensión deja entonces de funcionar hasta que se suscriba; **sus datos nunca se eliminan**, y todo vuelve en cuanto se aplica una licencia de suscripción.
+- La pestaña «Instaladas» muestra los derechos de prueba como **Prueba hasta …**.
+- Las pruebas terminan por sí solas — no hay nada que cancelar y nunca se factura nada.
+
 ## Instalar una extensión
 
 1. Si aún no lo ha hecho, aplique primero su licencia (véase más abajo).

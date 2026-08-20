@@ -201,6 +201,37 @@ class TestParseAndVerify:
         doc = parse_and_verify(make_license(private, payload), public_key_b64=public_b64)
         assert doc.entitlement_for("x").auto_renew is None
 
+    def test_trial_parses_and_defaults_to_unknown(self):
+        private, public_b64 = make_keypair()
+        payload = dict(
+            PAYLOAD,
+            entitlements=[
+                {
+                    "extension_key": "trialing",
+                    "expires_at": "2026-08-01T00:00:00Z",
+                    "trial": True,
+                },
+                {"extension_key": "paid", "expires_at": "2027-07-01T00:00:00Z"},
+            ],
+        )
+        doc = parse_and_verify(make_license(private, payload), public_key_b64=public_b64)
+        assert doc.entitlement_for("trialing").trial is True
+        # Absent on paid/manual/pre-field licenses → unknown, never True.
+        assert doc.entitlement_for("paid").trial is None
+
+    @pytest.mark.parametrize("garbage", ["yes", 1, 0, [], {}])
+    def test_garbage_trial_degrades_to_unknown(self, garbage):
+        """Like auto_renew: a signed license must never fail to verify over it."""
+        private, public_b64 = make_keypair()
+        payload = dict(
+            PAYLOAD,
+            entitlements=[
+                {"extension_key": "x", "expires_at": None, "trial": garbage},
+            ],
+        )
+        doc = parse_and_verify(make_license(private, payload), public_key_b64=public_b64)
+        assert doc.entitlement_for("x").trial is None
+
 
 class TestEntitlementState:
     EXPIRES = datetime(2027, 7, 1, tzinfo=timezone.utc)

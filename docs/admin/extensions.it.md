@@ -38,6 +38,15 @@ La scheda Store è in sola lettura e anonima: nessun account, nessun token, e nu
 
 L'istanza **controlla inoltre il catalogo una volta al giorno** e segnala i cambiamenti, così una nuova estensione — o una correzione di sicurezza per una già in uso — non deve attendere che qualcuno apra per caso questa pagina. Gli amministratori (chiunque abbia un ruolo che concede `admin.manage_extensions`) ricevono una notifica nella campanella quando una nuova estensione viene pubblicata nello store e un'altra quando un'estensione installata ha una versione più recente. Ogni cambiamento viene annunciato una sola volta e una giornata di rilasci intensa arriva come una notifica per tipo anziché una per estensione. Non viene scaricato né installato nulla: la notifica ti porta semplicemente qui. Il controllo giornaliero può essere disattivato del tutto in [Admin → Impostazioni → Notifiche di aggiornamento](settings.md#update-notifications).
 
+## Prove
+
+Alcune estensioni a pagamento offrono una **prova gratuita di 30 giorni** — cerca il pulsante **Avvia la prova di 30 giorni** nella scheda Store (o l'opzione di prova sul sito web dello store). Avviare una prova funziona come un acquisto senza pagamento: non serve alcuna carta di credito, la licenza si aggiorna automaticamente (una copia arriva anche via e-mail per le installazioni isolate) e l'estensione funziona con tutte le funzionalità per 30 giorni.
+
+- Ogni istanza Turbo EA può provare una determinata estensione **una sola volta**.
+- Una prova termina esattamente alla data di fine — non c'è periodo di tolleranza. L'estensione smette quindi di funzionare finché non ti abboni; **i tuoi dati non vengono mai eliminati** e tutto torna nel momento in cui viene applicata una licenza in abbonamento.
+- La scheda «Installate» mostra i diritti di prova come **Prova fino al …**.
+- Le prove terminano da sole — non c'è nulla da annullare e non viene mai addebitato nulla.
+
 ## Installare un'estensione
 
 1. Se non lo hai già fatto, applica prima la licenza (vedi sotto).

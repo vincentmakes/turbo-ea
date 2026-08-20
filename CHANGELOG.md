@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.72.0] - 2026-08-20
+
+### Added
+
+- Extension trials: the Store tab shows a "Start 30-day trial" button on extensions whose catalogue listing offers one, and the Installed tab labels trial entitlements ("Trial until …" / "Trial ended — subscribe to reactivate"). A trial entitlement has no grace window — expiry is a hard stop; data is never deleted and everything comes back on subscribing.
+
 ## [2.71.0] - 2026-08-20
 
 ### Added

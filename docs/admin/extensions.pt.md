@@ -38,6 +38,15 @@ O separador Loja é só de leitura e anónimo: sem conta, sem token, e nada sobr
 
 A instância também **verifica o catálogo uma vez por dia** e comunica as alterações, para que uma extensão nova — ou uma correção de segurança de alguma que já utiliza — não fique à espera de que alguém abra esta página por acaso. Os administradores (qualquer pessoa cujo perfil conceda `admin.manage_extensions`) recebem uma notificação no sino quando é publicada uma nova extensão na loja e outra quando uma extensão instalada tem uma versão mais recente. Cada alteração é anunciada uma só vez e um dia de lançamentos intenso chega como uma notificação por tipo em vez de uma por extensão. Nada é descarregado nem instalado — a notificação limita-se a trazê-lo até aqui. A verificação diária pode ser desativada por completo em [Admin → Definições → Notificações de atualização](settings.md#update-notifications).
 
+## Avaliações
+
+Algumas extensões pagas oferecem uma **avaliação gratuita de 30 dias** — procure o botão **Iniciar avaliação de 30 dias** na aba Loja (ou a opção de avaliação no site da loja). Iniciar uma avaliação funciona como uma compra sem pagamento: não é necessário cartão de crédito, a sua licença é atualizada automaticamente (uma cópia também chega por e-mail para instalações isoladas) e a extensão funciona com todas as funcionalidades durante 30 dias.
+
+- Cada instância do Turbo EA pode avaliar uma determinada extensão **uma única vez**.
+- Uma avaliação termina exatamente na data de término — não há período de carência. A extensão deixa então de funcionar até que você assine; **os seus dados nunca são excluídos**, e tudo volta assim que uma licença de assinatura é aplicada.
+- A aba «Instaladas» mostra os direitos de avaliação como **Avaliação até …**.
+- As avaliações terminam por si mesmas — não há nada a cancelar e nada é jamais cobrado.
+
 ## Instalar uma extensão
 
 1. Se ainda não o fez, aplique primeiro a sua licença (ver abaixo).

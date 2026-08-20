@@ -4568,6 +4568,17 @@
           "state": {
             "title": "State",
             "type": "string"
+          },
+          "trial": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial"
           }
         },
         "required": [
@@ -13133,6 +13144,11 @@
             },
             "title": "Tags",
             "type": "array"
+          },
+          "trial_link": {
+            "default": "",
+            "title": "Trial Link",
+            "type": "string"
           },
           "update_available": {
             "default": false,

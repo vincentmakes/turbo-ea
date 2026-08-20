@@ -90,6 +90,44 @@ class TestRegistryEntitlement:
         assert status.state == "expired"
         assert status.usable is False
 
+    def test_trial_entitlement_gets_no_grace(self):
+        """A trial's expiry is a hard stop — no 30 bonus days of grace.
+
+        The same one-second-past-expiry instant that puts a paid entitlement
+        into ``grace`` puts a trial straight into ``expired``.
+        """
+        reg = ExtensionRegistry()
+        expires = NOW - timedelta(seconds=1)
+        reg.set_license(
+            make_license(
+                Entitlement(extension_key="sample-ext", expires_at=expires, trial=True),
+                Entitlement(extension_key="paid-ext", expires_at=expires),
+            )
+        )
+        trial = reg.entitlement("sample-ext", now=NOW)
+        assert trial.state == "expired"
+        assert trial.usable is False
+        assert trial.trial is True
+        assert trial.grace_until == expires  # zero grace window
+        # The license-global grace_days still applies to the paid entitlement.
+        paid = reg.entitlement("paid-ext", now=NOW)
+        assert paid.state == "grace"
+        assert paid.usable is True
+
+    def test_active_trial_is_usable_and_labelled(self):
+        reg = ExtensionRegistry()
+        reg.set_license(
+            make_license(
+                Entitlement(
+                    extension_key="sample-ext", expires_at=NOW + timedelta(days=10), trial=True
+                )
+            )
+        )
+        status = reg.entitlement("sample-ext", now=NOW)
+        assert status.state == "active"
+        assert status.usable is True
+        assert status.trial is True
+
     def test_load_and_lookup(self):
         reg = ExtensionRegistry()
         reg.load_installed([make_info(), make_info(key="second-ext")])

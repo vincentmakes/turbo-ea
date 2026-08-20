@@ -44,6 +44,9 @@ class EntitlementStatus:
     # unknown (manual/offline licenses, pre-field licenses, free extensions).
     # Display-only — never part of the usable/gating logic.
     auto_renew: bool | None = None
+    # Store-issued trial entitlement. Trials get zero grace (state math above)
+    # and a "Trial until …" label in the admin UI. None = not a trial.
+    trial: bool | None = None
 
     @property
     def usable(self) -> bool:
@@ -173,11 +176,16 @@ class ExtensionRegistry:
         ent = self._license.entitlement_for(key)
         if ent is None:
             return EntitlementStatus(state="unlicensed")
+        # Trial entitlements get NO grace window — expiry is a hard stop. The
+        # grace period exists to absorb a paid subscription's billing hiccups;
+        # a trial has nothing to renew, so grace would just be 30 bonus days.
+        grace_days = 0 if ent.trial else self._license.grace_days
         return EntitlementStatus(
-            state=entitlement_state(ent, self._license.grace_days, now=now),
+            state=entitlement_state(ent, grace_days, now=now),
             expires_at=ent.expires_at,
-            grace_until=grace_until(ent, self._license.grace_days),
+            grace_until=grace_until(ent, grace_days),
             auto_renew=ent.auto_renew,
+            trial=ent.trial,
         )
 
     def grants_for(self, key: str, now: datetime | None = None) -> list[str]:

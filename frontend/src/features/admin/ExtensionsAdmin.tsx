@@ -58,6 +58,8 @@ interface EntitlementInfo {
   // Whether the backing store subscription renews at period end; null/absent
   // on manual/offline licenses and licenses issued before the flag existed.
   auto_renew?: boolean | null;
+  // Store-issued trial entitlement — no grace window, labelled "Trial".
+  trial?: boolean | null;
 }
 
 interface ExtensionInfo {
@@ -128,6 +130,9 @@ interface StoreItem {
   long_description?: string;
   price: string;
   payment_link: string;
+  // Optional no-card trial checkout link; opened through the same
+  // claim-token flow as payment_link.
+  trial_link?: string;
   demo_url?: string;
   homepage?: string;
   license?: string;
@@ -561,22 +566,31 @@ export default function ExtensionsAdmin() {
     [clearClaimPoll, loadAll, startStoreInstall, t],
   );
 
-  const handleBuy = (item: StoreItem) => {
-    if (!item.payment_link) return;
+  // Open a Stripe checkout link (paid subscription or no-card trial) and
+  // start polling the store's claim endpoint. The claim flow is mechanism-
+  // agnostic: a completed trial checkout resolves to a license exactly like
+  // a paid one.
+  const openCheckout = (link: string, itemKey: string) => {
     const token = makeClaimToken();
-    const sep = item.payment_link.includes("?") ? "&" : "?";
+    const sep = link.includes("?") ? "&" : "?";
     // The instance ID rides along so the store can key the purchase to this
     // instance (composite licensing) — parsed off the end by the webhook
     // (fixed TEA-XXXX-XXXX-XXXX shape). Stripe allows [A-Za-z0-9_-] here.
     const ref = instanceId ? `${token}-${instanceId}` : token;
-    window.open(
-      `${item.payment_link}${sep}client_reference_id=${ref}`,
-      "_blank",
-      "noopener",
-    );
+    window.open(`${link}${sep}client_reference_id=${ref}`, "_blank", "noopener");
     claimCountRef.current = 0;
-    setClaiming({ token, itemKey: item.key });
-    pollClaim(token, item.key);
+    setClaiming({ token, itemKey });
+    pollClaim(token, itemKey);
+  };
+
+  const handleBuy = (item: StoreItem) => {
+    if (!item.payment_link) return;
+    openCheckout(item.payment_link, item.key);
+  };
+
+  const handleTrial = (item: StoreItem) => {
+    if (!item.trial_link) return;
+    openCheckout(item.trial_link, item.key);
   };
 
   const handleInstallClick = (item: StoreItem) => {
@@ -744,6 +758,31 @@ export default function ExtensionsAdmin() {
   const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString() : "");
 
   const entitlementChip = (ent: EntitlementInfo) => {
+    // Trials first: they have no grace window (expiry is a hard stop), so the
+    // chip says exactly that — and an ended trial points at the fix.
+    if (ent.trial === true && (ent.state === "active" || ent.state === "grace")) {
+      return (
+        <Chip
+          size="small"
+          color="info"
+          label={t("extensions.entitlement.trialUntil", "Trial until {{date}}", {
+            date: fmtDate(ent.expires_at),
+          })}
+        />
+      );
+    }
+    if (ent.trial === true && ent.state === "expired") {
+      return (
+        <Chip
+          size="small"
+          color="warning"
+          label={t(
+            "extensions.entitlement.trialEnded",
+            "Trial ended — subscribe to reactivate",
+          )}
+        />
+      );
+    }
     // Active + a known auto-renew state: say what actually happens on the
     // date — "renews" vs "will not renew" — instead of the ambiguous
     // "active until". Unknown (manual/offline licenses) keeps today's label.
@@ -1140,6 +1179,19 @@ export default function ExtensionsAdmin() {
                           </Button>
                         )}
                         {!item.free &&
+                          item.trial_link &&
+                          item.entitlement_state === "unlicensed" &&
+                          claiming?.itemKey !== item.key && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => handleTrial(item)}
+                              startIcon={<MaterialSymbol icon="hourglass_top" size={18} />}
+                            >
+                              {t("extensions.store.startTrial", "Start 30-day trial")}
+                            </Button>
+                          )}
+                        {!item.free &&
                           item.payment_link &&
                           item.entitlement_state === "unlicensed" &&
                           claiming?.itemKey !== item.key && (
@@ -1483,15 +1535,26 @@ export default function ExtensionsAdmin() {
                   <LinearProgress sx={{ mt: 0.5 }} />
                 </>
               ) : (
-                <Button
-                  variant="contained"
-                  onClick={() => handleBuy(gateItem)}
-                  startIcon={<MaterialSymbol icon="shopping_cart" size={18} />}
-                >
-                  {gateItem.price
-                    ? t("extensions.gate.buyFor", "Buy — {{price}}", { price: gateItem.price })
-                    : t("extensions.store.buy", "Buy")}
-                </Button>
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    variant="contained"
+                    onClick={() => handleBuy(gateItem)}
+                    startIcon={<MaterialSymbol icon="shopping_cart" size={18} />}
+                  >
+                    {gateItem.price
+                      ? t("extensions.gate.buyFor", "Buy — {{price}}", { price: gateItem.price })
+                      : t("extensions.store.buy", "Buy")}
+                  </Button>
+                  {gateItem.trial_link && gateItem.entitlement_state === "unlicensed" && (
+                    <Button
+                      variant="outlined"
+                      onClick={() => handleTrial(gateItem)}
+                      startIcon={<MaterialSymbol icon="hourglass_top" size={18} />}
+                    >
+                      {t("extensions.store.startTrial", "Start 30-day trial")}
+                    </Button>
+                  )}
+                </Stack>
               )}
             </Box>
           )}

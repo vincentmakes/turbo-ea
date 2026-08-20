@@ -38,6 +38,15 @@ Der Store-Tab ist schreibgeschützt und anonym: kein Konto, kein Token, und es w
 
 Die Instanz **prüft den Katalog außerdem einmal täglich** und meldet Änderungen, damit eine neue Erweiterung — oder ein Sicherheitsfix für eine bereits genutzte — nicht darauf warten muss, dass jemand zufällig diese Seite öffnet. Administratoren (alle, deren Rolle `admin.manage_extensions` gewährt) erhalten eine Benachrichtigung in der Glocke, wenn eine neue Erweiterung im Store veröffentlicht wird, und eine weitere, wenn für eine installierte Erweiterung eine neuere Version vorliegt. Jede Änderung wird einmal angekündigt, und ein ereignisreicher Release-Tag kommt als eine Benachrichtigung pro Art an, nicht als eine pro Erweiterung. Es wird nichts heruntergeladen oder installiert — die Benachrichtigung führt Sie lediglich hierher. Die tägliche Prüfung lässt sich unter [Admin → Einstellungen → Update-Benachrichtigungen](settings.md#update-notifications) vollständig deaktivieren.
 
+## Testphasen
+
+Einige kostenpflichtige Erweiterungen bieten eine **kostenlose 30-Tage-Testphase** — achten Sie auf die Schaltfläche **30-Tage-Test starten** im Store-Tab (oder auf die Testoption auf der Store-Website). Eine Testphase zu starten funktioniert wie ein Kauf ohne Bezahlung: Es wird keine Kreditkarte benötigt, Ihre Lizenz aktualisiert sich automatisch (für Air-Gapped-Installationen kommt zusätzlich eine Kopie per E-Mail), und die Erweiterung läuft 30 Tage lang mit vollem Funktionsumfang.
+
+- Jede Turbo-EA-Instanz kann eine bestimmte Erweiterung **einmal** testen.
+- Eine Testphase endet exakt am Enddatum — es gibt keine Kulanzfrist. Die Erweiterung stellt dann den Betrieb ein, bis Sie abonnieren; **Ihre Daten werden niemals gelöscht**, und alles ist sofort wieder da, sobald eine Abonnementlizenz angewendet wird.
+- Der Tab «Installiert» zeigt Test-Berechtigungen als **Testphase bis …** an.
+- Testphasen enden von selbst — es gibt nichts zu kündigen, und es wird niemals etwas berechnet.
+
 ## Eine Erweiterung installieren
 
 1. Falls noch nicht geschehen, wenden Sie zuerst Ihre Lizenz an (siehe unten).

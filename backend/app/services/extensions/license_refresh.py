@@ -67,8 +67,9 @@ async def persist_license(
                 "extension_key": ent.extension_key,
                 "expires_at": ent.expires_at.isoformat() if ent.expires_at else None,
                 # None = unknown (pre-field or manual license); rows written
-                # before this key existed simply lack it.
+                # before these keys existed simply lack them.
                 "auto_renew": ent.auto_renew,
+                "trial": ent.trial,
             }
             for ent in doc.entitlements
         ],
@@ -106,12 +107,18 @@ def _same_coverage(new: LicenseDocument, current: LicenseDocument) -> bool:
 
 
 def _renewal_metadata_changed(new: LicenseDocument, current: LicenseDocument) -> bool:
-    """Anything display-relevant beyond coverage: auto_renew flags, grace, licensee."""
+    """Anything display-relevant beyond coverage: auto_renew/trial flags, grace, licensee.
+
+    ``trial`` matters here because a mid-trial conversion re-issues the same
+    coverage with the flag cleared (and often the same expiry) — without this,
+    a connected instance would keep showing "Trial" until the expiry moved.
+    """
     if new.grace_days != current.grace_days or new.licensee != current.licensee:
         return True
-    cur = {e.extension_key: e.auto_renew for e in current.entitlements}
+    cur = {e.extension_key: (e.auto_renew, e.trial) for e in current.entitlements}
     return any(
-        e.extension_key in cur and e.auto_renew != cur[e.extension_key] for e in new.entitlements
+        e.extension_key in cur and (e.auto_renew, e.trial) != cur[e.extension_key]
+        for e in new.entitlements
     )
 
 

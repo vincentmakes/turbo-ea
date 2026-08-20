@@ -94,6 +94,8 @@ class EntitlementOut(BaseModel):
     # Whether the backing store subscription renews at period end; None on
     # manual/offline licenses and licenses issued before the flag existed.
     auto_renew: bool | None = None
+    # Store-issued trial entitlement (no grace window; labelled in the UI).
+    trial: bool | None = None
 
 
 class ExtensionOut(BaseModel):
@@ -182,6 +184,7 @@ def _extension_out(row: Extension) -> ExtensionOut:
             expires_at=ent.expires_at,
             grace_until=ent.grace_until,
             auto_renew=ent.auto_renew,
+            trial=ent.trial,
         ),
         created_at=row.created_at,
         updated_at=row.updated_at,
@@ -590,6 +593,10 @@ class StoreItemOut(BaseModel):
     long_description: str = ""
     price: str = ""
     payment_link: str = ""
+    # Optional checkout link for a no-card trial of this extension. Same
+    # treatment as payment_link: opened in a new tab, license claimed through
+    # the ordinary claim-token flow.
+    trial_link: str = ""
     demo_url: str = ""
     homepage: str = ""
     license: str = ""
@@ -715,6 +722,7 @@ async def store_catalog(
                 long_description=str(item.get("long_description") or ""),
                 price=str(item.get("price") or ""),
                 payment_link=str(item.get("payment_link") or ""),
+                trial_link=str(item.get("trial_link") or ""),
                 demo_url=str(item.get("demo_url") or ""),
                 homepage=str(item.get("homepage") or ""),
                 license=str(item.get("license") or ""),

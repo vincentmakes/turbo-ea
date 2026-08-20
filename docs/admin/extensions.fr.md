@@ -38,6 +38,15 @@ L'onglet Boutique est en lecture seule et anonyme : pas de compte, pas de jeton,
 
 L'instance **vérifie également le catalogue une fois par jour** et signale les changements, afin qu'une nouvelle extension — ou un correctif de sécurité pour une extension déjà utilisée — n'attende pas que quelqu'un ouvre cette page par hasard. Les administrateurs (toute personne dont le rôle accorde `admin.manage_extensions`) reçoivent une notification dans la cloche lorsqu'une nouvelle extension est publiée dans la boutique, et une autre lorsqu'une extension installée dispose d'une version plus récente. Chaque changement est annoncé une seule fois, et un jour de sortie chargé arrive sous la forme d'une notification par catégorie plutôt qu'une par extension. Rien n'est téléchargé ni installé — la notification vous amène simplement ici. La vérification quotidienne peut être totalement désactivée dans [Admin → Paramètres → Notifications de mise à jour](settings.md#update-notifications).
 
+## Essais
+
+Certaines extensions payantes proposent un **essai gratuit de 30 jours** — repérez le bouton **Démarrer l'essai de 30 jours** dans l'onglet Boutique (ou l'option d'essai sur le site de la boutique). Démarrer un essai fonctionne comme un achat sans paiement : aucune carte bancaire n'est requise, votre licence se met à jour automatiquement (une copie arrive aussi par e-mail pour les installations isolées), et l'extension fonctionne avec toutes ses fonctionnalités pendant 30 jours.
+
+- Chaque instance Turbo EA peut essayer une extension donnée **une seule fois**.
+- Un essai se termine exactement à sa date de fin — il n'y a pas de période de grâce. L'extension cesse alors de fonctionner jusqu'à ce que vous vous abonniez ; **vos données ne sont jamais supprimées**, et tout revient dès qu'une licence d'abonnement est appliquée.
+- L'onglet « Installées » affiche les droits d'essai sous la forme **Essai jusqu'au …**.
+- Les essais se terminent d'eux-mêmes — il n'y a rien à annuler et rien n'est jamais facturé.
+
 ## Installer une extension
 
 1. Si ce n'est pas déjà fait, appliquez d'abord votre licence (voir ci-dessous).

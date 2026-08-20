@@ -938,7 +938,10 @@ class TestStoreCatalog:
         await ext_api.run_apply(db, install, admin)
         mock_store(
             monkeypatch,
-            catalog=catalog_payload(demo_url="https://youtu.be/demo"),
+            catalog=catalog_payload(
+                demo_url="https://youtu.be/demo",
+                trial_link="https://buy.stripe.test/pl_trial_1",
+            ),
         )
 
         res = await client.get(
@@ -951,6 +954,8 @@ class TestStoreCatalog:
         assert item["key"] == "sample-ext"
         assert item["price"] == "990 EUR / year"
         assert item["payment_link"] == "https://buy.stripe.test/pl_1"
+        # Trial checkout link passes through; absent from the catalogue → "".
+        assert item["trial_link"] == "https://buy.stripe.test/pl_trial_1"
         assert item["demo_url"] == "https://youtu.be/demo"
         assert item["installed_version"] == "0.9.0"
         assert item["update_available"] is True
