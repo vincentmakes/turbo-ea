@@ -107,6 +107,7 @@ interface InstallReport {
     conflict: number;
     failed: number;
   };
+  downgrade?: { from: string; to: string };
 }
 
 interface ExtensionInstall {
@@ -221,6 +222,11 @@ export default function ExtensionsAdmin() {
   const [extensions, setExtensions] = useState<ExtensionInfo[]>([]);
   const [license, setLicense] = useState<LicenseInfo | null>(null);
   const [catalog, setCatalog] = useState<StoreCatalog | null>(null);
+  const [downgradeConfirm, setDowngradeConfirm] = useState<{
+    id: string;
+    from: string;
+    to: string;
+  } | null>(null);
   const [instanceId, setInstanceId] = useState("");
   const [instanceCopied, setInstanceCopied] = useState(false);
   const [storeBusyKey, setStoreBusyKey] = useState<string | null>(null);
@@ -326,13 +332,15 @@ export default function ExtensionsAdmin() {
   }, [loadAll]);
 
   const applyInstall = useCallback(
-    async (id: string) => {
+    async (id: string, opts?: { confirmDowngrade?: boolean }) => {
       setInstallBusy(true);
       setInstallError(null);
       try {
-        const updated = await api.post<ExtensionInstall>(
-          `/admin/extensions/install/${id}/apply`,
-        );
+        const updated = opts?.confirmDowngrade
+          ? await api.post<ExtensionInstall>(`/admin/extensions/install/${id}/apply`, {
+              confirm_downgrade: true,
+            })
+          : await api.post<ExtensionInstall>(`/admin/extensions/install/${id}/apply`);
         setInstall(updated);
         poll(updated.id);
       } catch (err) {
@@ -345,6 +353,22 @@ export default function ExtensionsAdmin() {
           setLicenseError(null);
           setApplyGate(true);
           setLicenseDialogOpen(true);
+        } else if (
+          err instanceof ApiError &&
+          err.status === 409 &&
+          typeof err.detail === "object" &&
+          err.detail !== null &&
+          (err.detail as { code?: string }).code === "version_downgrade"
+        ) {
+          // Belt-and-braces: the server recomputed a downgrade the client
+          // missed — surface the same confirmation dialog.
+          const detail = err.detail as { installed?: string; bundle?: string };
+          autoApplyRef.current = false;
+          setDowngradeConfirm({
+            id,
+            from: detail.installed ?? "?",
+            to: detail.bundle ?? "?",
+          });
         } else {
           setInstallError(err instanceof Error ? err.message : String(err));
         }
@@ -379,8 +403,12 @@ export default function ExtensionsAdmin() {
             void loadAll();
           } else if (next.status === "previewed" && autoApplyRef.current) {
             // One-click store install: apply automatically unless the
-            // dry-run flagged failures (then fall back to manual review).
-            if (next.diff?.totals?.failed) {
+            // dry-run flagged failures (then fall back to manual review) or
+            // this would be a version DOWNGRADE (then confirm explicitly).
+            if (next.diff?.downgrade) {
+              autoApplyRef.current = false;
+              setDowngradeConfirm({ id: next.id, ...next.diff.downgrade });
+            } else if (next.diff?.totals?.failed) {
               autoApplyRef.current = false;
             } else {
               void applyInstall(next.id);
@@ -565,6 +593,10 @@ export default function ExtensionsAdmin() {
 
   const handleApply = async () => {
     if (!install) return;
+    if (install.diff?.downgrade) {
+      setDowngradeConfirm({ id: install.id, ...install.diff.downgrade });
+      return;
+    }
     await applyInstall(install.id);
   };
 
@@ -1218,7 +1250,17 @@ export default function ExtensionsAdmin() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {extensions.map((ext) => (
+                    {extensions.map((ext) => {
+                      // The store catalog (already fetched by loadAll) knows
+                      // whether a newer version exists — surface it here too,
+                      // not only on the Store tab. Air-gapped instances have
+                      // no catalog, so the chip simply never renders.
+                      const updateItem = catalog?.reachable
+                        ? catalog.items.find(
+                            (item) => item.key === ext.key && item.update_available,
+                          )
+                        : undefined;
+                      return (
                       <TableRow key={ext.key}>
                         <TableCell>
                           <Typography variant="body2">{ext.name}</Typography>
@@ -1238,7 +1280,23 @@ export default function ExtensionsAdmin() {
                             </Tooltip>
                           )}
                         </TableCell>
-                        <TableCell>{ext.version}</TableCell>
+                        <TableCell>
+                          {ext.version}
+                          {updateItem && (
+                            <Chip
+                              size="small"
+                              color="info"
+                              variant="outlined"
+                              icon={<MaterialSymbol icon="upgrade" size={16} />}
+                              label={t("extensions.list.updateAvailable", "Update to {{version}}", {
+                                version: updateItem.version,
+                              })}
+                              onClick={() => handleInstallClick(updateItem)}
+                              disabled={storeBusyKey !== null || installBusy}
+                              sx={{ ml: 1 }}
+                            />
+                          )}
+                        </TableCell>
                         <TableCell>
                           <Chip
                             size="small"
@@ -1286,7 +1344,8 @@ export default function ExtensionsAdmin() {
                           </Tooltip>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}
@@ -1622,6 +1681,38 @@ export default function ExtensionsAdmin() {
           </Button>
           <Button color="error" variant="contained" onClick={() => void handleUninstall()}>
             {t("extensions.uninstall.confirm", "Uninstall")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={downgradeConfirm !== null} onClose={() => setDowngradeConfirm(null)}>
+        <DialogTitle>{t("extensions.downgrade.title", "Install an older version?")}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {t(
+              "extensions.downgrade.body",
+              "This will install version {{to}} over the currently installed {{from}} — a downgrade. Extension data is never deleted, but the older version may not understand data written by the newer one.",
+              {
+                from: downgradeConfirm?.from ?? "",
+                to: downgradeConfirm?.to ?? "",
+              },
+            )}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDowngradeConfirm(null)}>
+            {t("extensions.downgrade.cancel", "Cancel")}
+          </Button>
+          <Button
+            color="warning"
+            variant="contained"
+            onClick={() => {
+              const pending = downgradeConfirm;
+              setDowngradeConfirm(null);
+              if (pending) void applyInstall(pending.id, { confirmDowngrade: true });
+            }}
+          >
+            {t("extensions.downgrade.confirm", "Install older version")}
           </Button>
         </DialogActions>
       </Dialog>

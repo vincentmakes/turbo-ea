@@ -549,6 +549,118 @@ describe("ExtensionsAdmin", () => {
     ).not.toBeInTheDocument();
   });
 
+  it(
+    "one-click store install stops at the downgrade confirmation instead of auto-applying",
+    async () => {
+      primeInitialLoad({
+        license: LICENSE,
+        catalog: {
+          configured: true,
+          reachable: true,
+          store_url: "https://x",
+          items: [{ ...STORE_ITEM, entitlement_state: "active" }],
+        },
+      });
+      mockPost.mockImplementation(async (path: string) => {
+        if (path === "/admin/extensions/store/install")
+          return { id: "s1", filename: "esg.teax", status: "verifying" };
+        if (path === "/admin/extensions/install/s1/apply")
+          return { id: "s1", filename: "esg.teax", status: "applying" };
+        throw new Error(`unexpected POST ${path}`);
+      });
+      mockGet.mockImplementation(async (path: string) => {
+        if (path === "/admin/extensions") return [];
+        if (path === "/admin/extensions/license") return LICENSE;
+        if (path === "/admin/extensions/store/catalog")
+          return {
+            configured: true,
+            reachable: true,
+            store_url: "https://x",
+            items: [{ ...STORE_ITEM, entitlement_state: "active" }],
+          };
+        if (path.startsWith("/admin/extensions/install/")) {
+          // The dry-run flagged this bundle as OLDER than what is installed.
+          return {
+            id: "s1",
+            filename: "esg.teax",
+            status: "previewed",
+            diff: {
+              downgrade: { from: "2.0.0", to: "1.0.0" },
+              totals: { created: 0, updated: 1, skipped: 0, conflict: 0, failed: 0 },
+            },
+          };
+        }
+        throw new Error(`unexpected GET ${path}`);
+      });
+
+      renderPage();
+      await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+      await userEvent.click(screen.getByText("Install", { selector: "button" }));
+
+      // The confirmation dialog opens instead of the silent auto-apply…
+      await waitFor(
+        () => expect(screen.getByText("Install an older version?")).toBeInTheDocument(),
+        { timeout: 5000 },
+      );
+      expect(screen.getByText(/a downgrade/)).toBeInTheDocument();
+      expect(mockPost).not.toHaveBeenCalledWith(
+        "/admin/extensions/install/s1/apply",
+        expect.anything(),
+      );
+
+      // …and confirming re-applies WITH the explicit confirm flag.
+      await userEvent.click(screen.getByText("Install older version", { selector: "button" }));
+      await waitFor(() =>
+        expect(mockPost).toHaveBeenCalledWith("/admin/extensions/install/s1/apply", {
+          confirm_downgrade: true,
+        }),
+      );
+    },
+    10000,
+  );
+
+  it("shows an update chip on the Installed tab and clicking it starts the store install", async () => {
+    const updateItem = {
+      ...STORE_ITEM,
+      key: "sample-ext",
+      name: "Sample Extension",
+      version: "2.0.0",
+      installed_version: "1.0.0",
+      update_available: true,
+      entitlement_state: "active",
+    };
+    primeInitialLoad({
+      extensions: [SAMPLE_EXT],
+      license: LICENSE,
+      catalog: { configured: true, reachable: true, store_url: "https://x", items: [updateItem] },
+    });
+    mockPost.mockResolvedValue({ id: "s9", filename: "sample.teax", status: "verifying" });
+    renderPage();
+    await openInstalledTab();
+    await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
+
+    // The Version cell carries the chip because the catalog says a newer
+    // version exists — no separate request is made for it.
+    await userEvent.click(screen.getByText("Update to 2.0.0"));
+    await waitFor(() =>
+      expect(mockPost).toHaveBeenCalledWith("/admin/extensions/store/install", {
+        key: "sample-ext",
+      }),
+    );
+  });
+
+  it("shows no update chip when the catalog is unreachable (air-gapped)", async () => {
+    primeInitialLoad({
+      extensions: [SAMPLE_EXT],
+      license: LICENSE,
+      catalog: { configured: true, reachable: false, store_url: "https://x", items: [] },
+    });
+    renderPage();
+    await openInstalledTab();
+    await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
+    expect(screen.queryByText(/Update to/)).not.toBeInTheDocument();
+  });
+
   it("shows a 'See it in action' demo link only when the item has a demo_url", async () => {
     primeInitialLoad({
       catalog: {
