@@ -145,6 +145,9 @@ interface StoreItem {
   installed_version?: string | null;
   update_available: boolean;
   entitlement_state: EntitlementInfo["state"];
+  // Entitlement is a trial (active or expired) — Buy stays visible so a
+  // trialing customer can convert in-product.
+  entitlement_trial?: boolean;
   free?: boolean;
 }
 
@@ -1193,7 +1196,11 @@ export default function ExtensionsAdmin() {
                           )}
                         {!item.free &&
                           item.payment_link &&
-                          item.entitlement_state === "unlicensed" &&
+                          // Unlicensed, or on a trial (active or expired) —
+                          // a trialing customer converts in-product; the
+                          // claim flow replaces the trial entitlement with
+                          // the paid one automatically.
+                          (item.entitlement_state === "unlicensed" || item.entitlement_trial) &&
                           claiming?.itemKey !== item.key && (
                             <Button
                               size="small"

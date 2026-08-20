@@ -604,6 +604,11 @@ class StoreItemOut(BaseModel):
     screenshots: list[str] = []
     tags: list[str] = []
     version: str = ""
+    # True while this instance's entitlement for the item is a trial (active
+    # OR already expired) — the UI keeps the Buy button visible so a trialing
+    # customer can convert in-product, even though the state isn't
+    # "unlicensed".
+    entitlement_trial: bool = False
     installed_version: str | None = None
     update_available: bool = False
     entitlement_state: str = "unlicensed"
@@ -714,6 +719,7 @@ async def store_catalog(
         key = str(item["key"])
         catalog_version = str(item.get("version") or "")
         installed_version = installed.get(key)
+        entitlement = extension_registry.entitlement(key)
         items.append(
             StoreItemOut(
                 key=key,
@@ -732,7 +738,8 @@ async def store_catalog(
                 version=catalog_version,
                 installed_version=installed_version,
                 update_available=store_update_available(catalog_version, installed_version),
-                entitlement_state=extension_registry.entitlement(key).state,
+                entitlement_state=entitlement.state,
+                entitlement_trial=entitlement.trial is True,
                 free=item.get("free") is True,
             )
         )

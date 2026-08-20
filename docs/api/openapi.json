@@ -13075,6 +13075,11 @@
             "title": "Entitlement State",
             "type": "string"
           },
+          "entitlement_trial": {
+            "default": false,
+            "title": "Entitlement Trial",
+            "type": "boolean"
+          },
           "free": {
             "default": false,
             "title": "Free",
