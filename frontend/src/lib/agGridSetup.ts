@@ -33,6 +33,25 @@ import {
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
+/**
+ * Veto for AG Grid's viewport guard. Since v33 the grid auto-unpins columns
+ * whenever the pinned region would leave the centre viewport under 50px
+ * (`keepPinnedColumnsNarrowerThanViewport`) — and it sacrifices the 50px
+ * auto row-selection column first, permanently: once stripped, neither
+ * `setColumnsPinned` nor `applyColumnState` will re-pin it. On an iPad with
+ * the filter sidebar open, freezing one column was enough to trigger it and
+ * the checkboxes jumped to the first unpinned slot. This callback is AG
+ * Grid's sanctioned escape hatch: it receives the columns the guard wants
+ * to unpin and returns the ones actually allowed — everything except the
+ * selection column. Frozen DATA columns may still be relieved; the freeze
+ * hook's `syncFrozenFromGrid` picks that up and updates the saved prefs.
+ */
+export function keepSelectionColumnPinned<T extends { getColId(): string }>(params: {
+  columns: T[];
+}): T[] {
+  return params.columns.filter((col) => !col.getColId().startsWith("ag-Grid-"));
+}
+
 // Popups (column filter menu, …) render into <body> instead of the grid
 // root. Inside the grid they carry no z-index of their own and rely on DOM
 // tree order to paint above the rows — which WebKit gets wrong once the
@@ -42,7 +61,13 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 // focus and popped the keyboard) or under a pinned group bar. In <body> the
 // popup is outside the grid's stacking and compositing world entirely; the
 // Theming API styles it there via the popup's own theme wrapper.
-provideGlobalGridOptions({ popupParent: typeof document === "undefined" ? undefined : document.body });
+//
+// One call for all global options — repeated calls may replace rather than
+// merge.
+provideGlobalGridOptions({
+  popupParent: typeof document === "undefined" ? undefined : document.body,
+  processUnpinnedColumns: keepSelectionColumnPinned,
+});
 
 export const gridThemeLight = themeQuartz;
 export const gridThemeDark = themeQuartz.withPart(colorSchemeDark);

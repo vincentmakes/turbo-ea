@@ -18,6 +18,7 @@ import { describe, it, expect } from "vitest";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { useRef } from "react";
 import { AgGridReact } from "ag-grid-react";
+import Box from "@mui/material/Box";
 import type { GridApi } from "ag-grid-community";
 import { gridThemeLight } from "@/lib/agGridSetup";
 import { useRowGrouping } from "./useRowGrouping";
@@ -58,10 +59,9 @@ function GroupedGrid({
   const gridRef = useRef<AgGridReact<Row>>(null);
   const grouping = useRowGrouping<Row>(gridRef, { rows: ROWS, axes: [AXIS], groupBy, selectable });
   return (
-    <div
-      // What `grouping.sx` contributes on the real pages.
-      style={{ position: "relative", height: 400, width: 600 }}
-    >
+    // A Box carrying `grouping.sx`, exactly as the real pages wire it — the
+    // sx is load-bearing (positioning context + hiding the real group rows).
+    <Box sx={grouping.sx} style={{ height: 400, width: 600 }}>
       <AgGridReact<Row>
         theme={gridThemeLight}
         ref={gridRef}
@@ -75,7 +75,7 @@ function GroupedGrid({
         {...grouping.gridProps}
       />
       {grouping.stickyHeader}
-    </div>
+    </Box>
   );
 }
 
@@ -180,6 +180,29 @@ describe("sticky group headers + AG Grid", () => {
     const { barFor, ranges } = await renderGrid("tier", false);
     await waitFor(() => expect(ranges()).toHaveLength(2));
     expect(barFor("SilverTier")?.querySelector("input[type='checkbox']")).toBeNull();
+  });
+
+  it("hides the real group header rows while bars render — no duplicate is possible", async () => {
+    // WebKit repositions non-composited sticky elements a beat late on
+    // scroll direction changes; with the real rows visible, that lag showed
+    // the header twice for a few px. The wrapper hides `.ag-full-width-row`
+    // whenever bar wrappers exist (and only then — autoHeight grids render
+    // no bars and keep their rows), restoring them for print. jsdom has no
+    // stylesheet cascade, so assert the emitted emotion CSS carries the rule.
+    const { container, ranges } = await renderGrid("tier");
+    await waitFor(() => expect(ranges()).toHaveLength(2));
+
+    const wrapper = container.firstElementChild as HTMLElement;
+    const emotionClasses = Array.from(wrapper.classList).filter((c) => c.startsWith("css-"));
+    expect(emotionClasses.length).toBeGreaterThan(0);
+    const css = Array.from(document.querySelectorAll("style"))
+      .map((s) => s.textContent ?? "")
+      .join("\n");
+    const flat = css.replace(/\s+/g, "");
+    const hasRule = emotionClasses.some((c) =>
+      flat.includes(`.${c}:has(.tea-group-sticky-range).ag-full-width-row{visibility:hidden`),
+    );
+    expect(hasRule).toBe(true);
   });
 
   it("removes its host from the grid DOM on unmount", async () => {

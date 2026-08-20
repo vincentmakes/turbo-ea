@@ -201,10 +201,25 @@ export function GroupHeaderRow({ data, api, context }: GroupHeaderRowProps) {
 /** Wrapper styling the sticky bar needs: it is positioned against the Box that
  * wraps the grid. Reached by pages as `grouping.sx`, spread alongside
  * `columnFreeze.sx` / `cellMenu.sx`. */
-// Wrapper styling only — grid popups no longer render inside the wrapper at
-// all (popupParent: document.body in agGridSetup.ts), which is what keeps
-// them clear of the sticky group bars' compositing layers on WebKit.
-const rowGroupingSx = { position: "relative" } as const;
+// Wrapper styling. Grid popups no longer render inside the wrapper at all
+// (popupParent: document.body in agGridSetup.ts), which is what keeps them
+// clear of the sticky group bars' compositing layers on WebKit.
+const rowGroupingSx = {
+  position: "relative",
+  // While the sticky bars are rendering, the REAL full-width group rows
+  // never need to paint: each bar overlays its row pixel-exactly and carries
+  // the same GroupHeaderRow. Hiding the rows makes a duplicated header
+  // impossible BY CONSTRUCTION — WebKit repositions non-composited sticky
+  // elements a beat late on scroll direction changes, and with the rows
+  // visible that lag exposed the real header next to the bar for a few px.
+  // Gated on the bar wrappers actually existing, so autoHeight grids (which
+  // render no bars — their viewport is not the scrollport) keep their rows.
+  "&:has(.tea-group-sticky-range) .ag-full-width-row": { visibility: "hidden" },
+  // The bars are display:none in print — there the real rows are the record.
+  "@media print": {
+    "& .ag-full-width-row": { visibility: "visible" },
+  },
+} as const;
 
 /**
  * The group bar that stays put under the column headers while you scroll, so a
