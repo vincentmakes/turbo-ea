@@ -1844,6 +1844,8 @@
   "extensions.store.unreachable": "Impossibile raggiungere lo store delle estensioni. Istanza isolata o offline? Installa da file nella scheda Installate.",
   "extensions.store.blocked": "Lo store delle estensioni ha rifiutato la richiesta di questa istanza (HTTP {{status}}). Qualcosa tra questa istanza e lo store — un proxy, un firewall o la protezione anti-bot dello store — la sta bloccando; l'accesso a Internet in uscita funziona. Nel frattempo, installa da file nella scheda Installate.",
   "extensions.store.empty": "Nessuna estensione pubblicata al momento.",
+  "extensions.store.allTags": "Tutte",
+  "extensions.store.noTagMatch": "Nessuna estensione corrisponde alle categorie selezionate.",
   "extensions.store.installedChip": "Installata {{version}}",
   "extensions.store.licensed": "Con licenza",
   "extensions.store.buy": "Acquista",

@@ -26,7 +26,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 
@@ -133,12 +133,18 @@ interface StoreItem {
   license?: string;
   license_url?: string;
   screenshots?: string[];
+  // Category slugs; the first is the commercial-model tag ("free"/"commercial")
+  // the catalogue derives at publish time, the rest are topical.
+  tags?: string[];
   version: string;
   installed_version?: string | null;
   update_available: boolean;
   entitlement_state: EntitlementInfo["state"];
   free?: boolean;
 }
+
+// The commercial-model tags always sort ahead of topical ones in the filter bar.
+const MODEL_TAGS = ["free", "commercial"];
 
 interface StoreCatalog {
   configured: boolean;
@@ -222,6 +228,24 @@ export default function ExtensionsAdmin() {
   const [extensions, setExtensions] = useState<ExtensionInfo[]>([]);
   const [license, setLicense] = useState<LicenseInfo | null>(null);
   const [catalog, setCatalog] = useState<StoreCatalog | null>(null);
+  // Multi-select AND filter over the catalogue's category tags. Empty = All.
+  const [activeTags, setActiveTags] = useState<string[]>([]);
+  const allTags = useMemo(() => {
+    const union = new Set((catalog?.items ?? []).flatMap((item) => item.tags ?? []));
+    return [
+      ...MODEL_TAGS.filter((tag) => union.has(tag)),
+      ...[...union].filter((tag) => !MODEL_TAGS.includes(tag)).sort(),
+    ];
+  }, [catalog]);
+  const filteredItems = useMemo(() => {
+    const items = catalog?.items ?? [];
+    if (activeTags.length === 0) return items;
+    return items.filter((item) => activeTags.every((tag) => (item.tags ?? []).includes(tag)));
+  }, [catalog, activeTags]);
+  const toggleTag = (tag: string) =>
+    setActiveTags((current) =>
+      current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag],
+    );
   const [downgradeConfirm, setDowngradeConfirm] = useState<{
     id: string;
     from: string;
@@ -969,6 +993,35 @@ export default function ExtensionsAdmin() {
             </Typography>
           ) : (
             <>
+              {allTags.length > 0 && (
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Chip
+                    size="small"
+                    label={t("extensions.store.allTags", "All")}
+                    color={activeTags.length === 0 ? "primary" : "default"}
+                    variant={activeTags.length === 0 ? "filled" : "outlined"}
+                    onClick={() => setActiveTags([])}
+                  />
+                  {allTags.map((tag) => (
+                    <Chip
+                      key={tag}
+                      size="small"
+                      label={tag}
+                      color={activeTags.includes(tag) ? "primary" : "default"}
+                      variant={activeTags.includes(tag) ? "filled" : "outlined"}
+                      onClick={() => toggleTag(tag)}
+                    />
+                  ))}
+                </Stack>
+              )}
+              {filteredItems.length === 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  {t(
+                    "extensions.store.noTagMatch",
+                    "No extensions match the selected categories.",
+                  )}
+                </Typography>
+              )}
               <Box
                 sx={{
                   display: "grid",
@@ -976,7 +1029,7 @@ export default function ExtensionsAdmin() {
                   gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
                 }}
               >
-                {catalog.items.map((item) => (
+                {filteredItems.map((item) => (
                   <Card variant="outlined" key={item.key}>
                     <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
                       <Stack
@@ -1021,6 +1074,26 @@ export default function ExtensionsAdmin() {
                       <Typography variant="body2" color="text.secondary" sx={{ flex: 1, mb: 1.5 }}>
                         {item.description}
                       </Typography>
+                      {(item.tags?.length ?? 0) > 0 && (
+                        <Stack
+                          direction="row"
+                          spacing={0.5}
+                          flexWrap="wrap"
+                          useFlexGap
+                          sx={{ mb: 1.5 }}
+                        >
+                          {item.tags?.map((tag) => (
+                            <Chip
+                              key={tag}
+                              size="small"
+                              label={tag}
+                              color={activeTags.includes(tag) ? "primary" : "default"}
+                              variant="outlined"
+                              onClick={() => toggleTag(tag)}
+                            />
+                          ))}
+                        </Stack>
+                      )}
                       {claiming?.itemKey === item.key && (
                         <Box sx={{ mb: 1.5 }}>
                           <Typography variant="caption" color="text.secondary">

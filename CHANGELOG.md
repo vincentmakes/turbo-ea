@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.71.0] - 2026-08-20
+
+### Added
+- The extension Store tab now shows category pills (free/commercial plus topical tags like integration or value-creation) on each catalogue item and a click-to-filter bar above the grid — select several tags to narrow the list, «All» resets. Catalogues without tags render exactly as before.
+
 ## [2.70.0] - 2026-08-20
 
 ### Added

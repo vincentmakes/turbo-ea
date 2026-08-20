@@ -1844,6 +1844,8 @@
   "extensions.store.unreachable": "No se pudo acceder a la tienda de extensiones. ¿Instancia aislada o sin conexión? Instala desde archivos en la pestaña Instaladas.",
   "extensions.store.blocked": "La tienda de extensiones rechazó la solicitud de esta instancia (HTTP {{status}}). Algo entre esta instancia y la tienda — un proxy, un cortafuegos o la propia protección anti-bots de la tienda — la está bloqueando; el acceso saliente a Internet en sí funciona. Mientras tanto, instala desde archivos en la pestaña Instaladas.",
   "extensions.store.empty": "Aún no se han publicado extensiones.",
+  "extensions.store.allTags": "Todas",
+  "extensions.store.noTagMatch": "Ninguna extensión coincide con las categorías seleccionadas.",
   "extensions.store.installedChip": "Instalada {{version}}",
   "extensions.store.licensed": "Con licencia",
   "extensions.store.buy": "Comprar",

@@ -1025,6 +1025,52 @@ class TestStoreCatalog:
             f"{STORE_URL}/screenshots/sample-ext/b.png",
         ]
 
+    async def test_catalog_surfaces_sanitized_tags(self, client, db, vendor, monkeypatch):
+        """Category tags pass through as slugs only, deduped and capped — the
+        catalogue is external data, so anything markup-ish is dropped."""
+        admin = await make_admin(db)
+        mock_store(
+            monkeypatch,
+            catalog=catalog_payload(
+                tags=[
+                    "commercial",
+                    "integration",
+                    "integration",  # duplicate → dropped
+                    "<script>",  # not a slug → dropped
+                    "Way Too Loud",  # spaces/uppercase → dropped (slugs only)
+                    123,  # not a string → dropped
+                    "x" * 40,  # over the length cap → dropped
+                ]
+            ),
+        )
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        assert res.status_code == 200
+        (item,) = res.json()["items"]
+        assert item["tags"] == ["commercial", "integration"]
+
+    async def test_catalog_caps_tag_count(self, client, db, vendor, monkeypatch):
+        admin = await make_admin(db)
+        mock_store(
+            monkeypatch,
+            catalog=catalog_payload(tags=[f"tag-{i}" for i in range(40)]),
+        )
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        (item,) = res.json()["items"]
+        assert len(item["tags"]) == 16
+
+    async def test_catalog_without_tags_defaults_empty(self, client, db, vendor, monkeypatch):
+        admin = await make_admin(db)
+        mock_store(monkeypatch, catalog=catalog_payload())
+        res = await client.get(
+            "/api/v1/admin/extensions/store/catalog", headers=auth_headers(admin)
+        )
+        (item,) = res.json()["items"]
+        assert item["tags"] == []
+
     async def test_unlicensed_uninstalled_item(self, client, db, vendor, monkeypatch):
         admin = await make_admin(db)
         mock_store(monkeypatch, catalog=catalog_payload(key="other-ext", name="Other"))

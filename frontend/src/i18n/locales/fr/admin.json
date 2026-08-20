@@ -1844,6 +1844,8 @@
   "extensions.store.unreachable": "La boutique d'extensions est injoignable. Instance isolée ou hors ligne ? Installez plutôt à partir de fichiers dans l'onglet Installées.",
   "extensions.store.blocked": "La boutique d'extensions a refusé la requête de cette instance (HTTP {{status}}). Quelque chose entre cette instance et la boutique — un proxy, un pare-feu ou la protection anti-bots de la boutique — la bloque ; l'accès Internet sortant lui-même fonctionne. En attendant, installez à partir de fichiers dans l'onglet Installées.",
   "extensions.store.empty": "Aucune extension publiée pour le moment.",
+  "extensions.store.allTags": "Toutes",
+  "extensions.store.noTagMatch": "Aucune extension ne correspond aux catégories sélectionnées.",
   "extensions.store.installedChip": "Installée {{version}}",
   "extensions.store.licensed": "Sous licence",
   "extensions.store.buy": "Acheter",

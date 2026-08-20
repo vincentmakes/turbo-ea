@@ -13126,6 +13126,14 @@
             "title": "Screenshots",
             "type": "array"
           },
+          "tags": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
           "update_available": {
             "default": false,
             "title": "Update Available",

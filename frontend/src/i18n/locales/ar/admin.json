@@ -1844,6 +1844,8 @@
   "extensions.store.unreachable": "تعذّر الوصول إلى متجر الملحقات. هل المثيل معزول أو غير متصل؟ ثبِّت من الملفات في تبويب المثبَّتة بدلاً من ذلك.",
   "extensions.store.blocked": "رفض متجر الملحقات طلب هذا المثيل (HTTP {{status}}). هناك ما يحجبه بين هذا المثيل والمتجر — وسيط أو جدار حماية أو حماية المتجر نفسه من الروبوتات — بينما يعمل الاتصال الصادر بالإنترنت نفسه بشكل سليم. في هذه الأثناء، ثبِّت من الملفات في تبويب المثبَّتة.",
   "extensions.store.empty": "لا توجد ملحقات منشورة بعد.",
+  "extensions.store.allTags": "الكل",
+  "extensions.store.noTagMatch": "لا توجد ملحقات تطابق الفئات المحددة.",
   "extensions.store.installedChip": "مثبَّت {{version}}",
   "extensions.store.licensed": "مرخَّص",
   "extensions.store.buy": "شراء",

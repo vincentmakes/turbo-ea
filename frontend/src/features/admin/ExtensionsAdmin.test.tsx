@@ -682,6 +682,61 @@ describe("ExtensionsAdmin", () => {
     expect(demoLinks[0].closest("a")).toHaveAttribute("target", "_blank");
   });
 
+  it("filters store items by clicking category tag pills (multi-select AND, All resets)", async () => {
+    primeInitialLoad({
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [
+          {
+            ...STORE_ITEM,
+            key: "a-ext",
+            name: "Alpha Ext",
+            tags: ["commercial", "integration", "jira"],
+          },
+          {
+            ...STORE_ITEM,
+            key: "b-ext",
+            name: "Beta Ext",
+            free: true,
+            payment_link: "",
+            tags: ["free", "value-creation"],
+          },
+        ],
+      },
+    });
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Alpha Ext")).toBeInTheDocument());
+    expect(screen.getByText("Beta Ext")).toBeInTheDocument();
+
+    // one pill narrows the grid (the pill renders in the bar AND on the card)
+    await userEvent.click(screen.getAllByText("integration")[0]);
+    expect(screen.getByText("Alpha Ext")).toBeInTheDocument();
+    expect(screen.queryByText("Beta Ext")).not.toBeInTheDocument();
+
+    // a second pill ANDs with the first — nothing carries both
+    await userEvent.click(screen.getAllByText("free")[0]);
+    expect(screen.queryByText("Alpha Ext")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("No extensions match the selected categories."),
+    ).toBeInTheDocument();
+
+    // «All» resets the filter
+    await userEvent.click(screen.getByText("All"));
+    expect(screen.getByText("Alpha Ext")).toBeInTheDocument();
+    expect(screen.getByText("Beta Ext")).toBeInTheDocument();
+  });
+
+  it("shows no tag filter bar when the catalogue carries no tags", async () => {
+    primeInitialLoad({
+      catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },
+    });
+    renderPage();
+    await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+    expect(screen.queryByText("All")).not.toBeInTheDocument();
+  });
+
   it("Buy opens the payment link with a claim token and starts polling", async () => {
     primeInitialLoad({
       catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },

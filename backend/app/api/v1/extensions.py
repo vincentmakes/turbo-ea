@@ -595,6 +595,7 @@ class StoreItemOut(BaseModel):
     license: str = ""
     license_url: str = ""
     screenshots: list[str] = []
+    tags: list[str] = []
     version: str = ""
     installed_version: str | None = None
     update_available: bool = False
@@ -643,6 +644,25 @@ def _resolve_screenshots(base_url: str, raw: object) -> list[str]:
         if not path.startswith("/") or path.startswith("//"):
             continue
         out.append(base + path)
+    return out
+
+
+# Category tags are external catalogue data: keep only short kebab-case slugs
+# and cap the list so a tampered catalogue can't inject markup-ish strings or
+# unbounded payloads into the Store tab's filter pills.
+_STORE_TAG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
+_STORE_TAG_MAX = 16
+
+
+def _sanitize_tags(raw: object) -> list[str]:
+    if not isinstance(raw, list):
+        return []
+    out: list[str] = []
+    for entry in raw:
+        if isinstance(entry, str) and _STORE_TAG_RE.match(entry) and entry not in out:
+            out.append(entry)
+        if len(out) >= _STORE_TAG_MAX:
+            break
     return out
 
 
@@ -700,6 +720,7 @@ async def store_catalog(
                 license=str(item.get("license") or ""),
                 license_url=str(item.get("license_url") or ""),
                 screenshots=_resolve_screenshots(base_url, item.get("screenshots")),
+                tags=_sanitize_tags(item.get("tags")),
                 version=catalog_version,
                 installed_version=installed_version,
                 update_available=store_update_available(catalog_version, installed_version),

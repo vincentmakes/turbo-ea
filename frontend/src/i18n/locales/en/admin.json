@@ -1844,6 +1844,8 @@
   "extensions.store.unreachable": "The extension store could not be reached. Air-gapped or offline? Install from files on the Installed tab instead.",
   "extensions.store.blocked": "The extension store refused this instance's request (HTTP {{status}}). Something between this instance and the store — a proxy, a firewall or the store's own bot protection — is blocking it; outbound internet access itself is working. Install from files on the Installed tab meanwhile.",
   "extensions.store.empty": "No extensions published yet.",
+  "extensions.store.allTags": "All",
+  "extensions.store.noTagMatch": "No extensions match the selected categories.",
   "extensions.store.installedChip": "Installed {{version}}",
   "extensions.store.licensed": "Licensed",
   "extensions.store.buy": "Buy",

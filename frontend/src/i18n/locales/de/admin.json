@@ -1844,6 +1844,8 @@
   "extensions.store.unreachable": "Der Erweiterungs-Store ist nicht erreichbar. Abgeschottet oder offline? Installieren Sie stattdessen aus Dateien im Tab Installiert.",
   "extensions.store.blocked": "Der Erweiterungs-Store hat die Anfrage dieser Instanz abgelehnt (HTTP {{status}}). Etwas zwischen dieser Instanz und dem Store — ein Proxy, eine Firewall oder der Bot-Schutz des Stores — blockiert sie; der ausgehende Internetzugang selbst funktioniert. Installieren Sie währenddessen aus Dateien im Tab Installiert.",
   "extensions.store.empty": "Noch keine Erweiterungen veröffentlicht.",
+  "extensions.store.allTags": "Alle",
+  "extensions.store.noTagMatch": "Keine Erweiterungen entsprechen den ausgewählten Kategorien.",
   "extensions.store.installedChip": "Installiert {{version}}",
   "extensions.store.licensed": "Lizenziert",
   "extensions.store.buy": "Kaufen",
