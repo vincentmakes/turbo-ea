@@ -1074,7 +1074,9 @@ export default function ExtensionsAdmin() {
                       <Typography variant="body2" color="text.secondary" sx={{ flex: 1, mb: 1.5 }}>
                         {item.description}
                       </Typography>
-                      {(item.tags?.length ?? 0) > 0 && (
+                      {/* topical tags only — the card already shows free vs
+                          paid via its Free chip, price and Buy button */}
+                      {(item.tags ?? []).some((tag) => !MODEL_TAGS.includes(tag)) && (
                         <Stack
                           direction="row"
                           spacing={0.5}
@@ -1082,16 +1084,18 @@ export default function ExtensionsAdmin() {
                           useFlexGap
                           sx={{ mb: 1.5 }}
                         >
-                          {item.tags?.map((tag) => (
-                            <Chip
-                              key={tag}
-                              size="small"
-                              label={tag}
-                              color={activeTags.includes(tag) ? "primary" : "default"}
-                              variant="outlined"
-                              onClick={() => toggleTag(tag)}
-                            />
-                          ))}
+                          {item.tags
+                            ?.filter((tag) => !MODEL_TAGS.includes(tag))
+                            .map((tag) => (
+                              <Chip
+                                key={tag}
+                                size="small"
+                                label={tag}
+                                color={activeTags.includes(tag) ? "primary" : "default"}
+                                variant="outlined"
+                                onClick={() => toggleTag(tag)}
+                              />
+                            ))}
                         </Stack>
                       )}
                       {claiming?.itemKey === item.key && (

@@ -710,6 +710,12 @@ describe("ExtensionsAdmin", () => {
     await waitFor(() => expect(screen.getByText("Alpha Ext")).toBeInTheDocument());
     expect(screen.getByText("Beta Ext")).toBeInTheDocument();
 
+    // model tags render in the filter bar ONLY — on the card they would just
+    // repeat the Free chip / price, so cards carry topical tags alone
+    expect(screen.getAllByText("free")).toHaveLength(1);
+    expect(screen.getAllByText("commercial")).toHaveLength(1);
+    expect(screen.getAllByText("integration")).toHaveLength(2); // bar + Alpha card
+
     // one pill narrows the grid (the pill renders in the bar AND on the card)
     await userEvent.click(screen.getAllByText("integration")[0]);
     expect(screen.getByText("Alpha Ext")).toBeInTheDocument();
