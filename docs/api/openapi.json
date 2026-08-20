@@ -530,6 +530,18 @@
         "title": "ApplyBody",
         "type": "object"
       },
+      "ApplyInstallIn": {
+        "description": "Optional apply-time flags. The body may be omitted entirely.",
+        "properties": {
+          "confirm_downgrade": {
+            "default": false,
+            "title": "Confirm Downgrade",
+            "type": "boolean"
+          }
+        },
+        "title": "ApplyInstallIn",
+        "type": "object"
+      },
       "ArchiveImpactCardRef": {
         "properties": {
           "id": {
@@ -15746,6 +15758,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ApplyInstallIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
         "responses": {
           "202": {
             "content": {

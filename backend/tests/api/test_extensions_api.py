@@ -613,6 +613,166 @@ class TestEnableDisableUninstall:
         assert res.status_code == 404
 
 
+class TestDisabledUpdate:
+    """Updating a deliberately disabled extension must keep it disabled —
+    content stays hidden (including anything new in the update) and nothing
+    re-enables until the admin flips the switch."""
+
+    async def _install_v1(self, client, db, admin, vendor):
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor)},
+            headers=auth_headers(admin),
+        )
+        install = await upload_and_preview(client, db, admin, vendor)
+        await ext_api.run_apply(db, install, admin)
+
+    async def test_update_of_disabled_extension_stays_disabled(self, client, db, vendor):
+        admin = await make_admin(db)
+        await self._install_v1(client, db, admin, vendor)
+        res = await client.put(
+            "/api/v1/admin/extensions/sample-ext/enabled",
+            json={"enabled": False},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 200
+
+        install = await upload_and_preview(client, db, admin, vendor, version="2.0.0")
+        assert install.status == "previewed"
+        assert "downgrade" not in (install.diff or {})  # upgrades never flag
+        await ext_api.run_apply(db, install, admin)
+        assert install.status == "installed"
+
+        row = (
+            await db.execute(select(Extension).where(Extension.key == "sample-ext"))
+        ).scalar_one()
+        await db.refresh(row)
+        assert row.version == "2.0.0"
+        assert row.enabled is False
+        assert row.status == "disabled"
+        # the pack's card type stays hidden through the update
+        ct = (await db.execute(select(CardType).where(CardType.key == "EsgMetric"))).scalar_one()
+        await db.refresh(ct)
+        assert ct.is_hidden is True
+
+        # enabling later restores visibility from the UPDATED manifest
+        res = await client.put(
+            "/api/v1/admin/extensions/sample-ext/enabled",
+            json={"enabled": True},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 200
+        assert res.json()["status"] == "installed"
+        await db.refresh(ct)
+        assert ct.is_hidden is False
+
+    async def test_update_of_disabled_backend_extension_keeps_restart_gate(
+        self, client, db, vendor
+    ):
+        """A disabled backend extension carries status needs_restart with
+        enabled=False — the update must preserve BOTH (the restart signal
+        survives so a later enable never runs stale code)."""
+        from tests.teax_helpers import build_wheel
+
+        admin = await make_admin(db)
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor)},
+            headers=auth_headers(admin),
+        )
+        wheel_rel = "wheels/turbo_ext_sample_ext-1.0.0-py3-none-any.whl"
+        backend_kwargs = dict(
+            files={wheel_rel: build_wheel("turbo_ext_sample_ext", "extension = None\n")},
+            capabilities=["backend"],
+            backend={"entrypoint": "turbo_ext_sample_ext:extension", "wheels": [wheel_rel]},
+        )
+        install = await upload_and_preview(client, db, admin, vendor, **backend_kwargs)
+        await ext_api.run_apply(db, install, admin)
+        res = await client.put(
+            "/api/v1/admin/extensions/sample-ext/enabled",
+            json={"enabled": False},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 200
+
+        install2 = await upload_and_preview(
+            client, db, admin, vendor, version="2.0.0", **backend_kwargs
+        )
+        await ext_api.run_apply(db, install2, admin)
+        row = (
+            await db.execute(select(Extension).where(Extension.key == "sample-ext"))
+        ).scalar_one()
+        await db.refresh(row)
+        assert row.version == "2.0.0"
+        assert row.enabled is False
+        assert row.status == "needs_restart"
+
+
+class TestDowngradeGuard:
+    """Installing an OLDER bundle over a newer installed version requires an
+    explicit confirmation — the preview stamps it, apply gates on it."""
+
+    async def _install_v2(self, client, db, admin, vendor):
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor)},
+            headers=auth_headers(admin),
+        )
+        install = await upload_and_preview(client, db, admin, vendor, version="2.0.0")
+        await ext_api.run_apply(db, install, admin)
+
+    async def test_preview_stamps_downgrade(self, client, db, vendor):
+        admin = await make_admin(db)
+        await self._install_v2(client, db, admin, vendor)
+        install = await upload_and_preview(client, db, admin, vendor, version="1.0.0")
+        assert install.status == "previewed"
+        assert install.diff["downgrade"] == {"from": "2.0.0", "to": "1.0.0"}
+
+    async def test_apply_refuses_downgrade_without_confirm(self, client, db, vendor):
+        admin = await make_admin(db)
+        await self._install_v2(client, db, admin, vendor)
+        install = await upload_and_preview(client, db, admin, vendor, version="1.0.0")
+        res = await client.post(
+            f"/api/v1/admin/extensions/install/{install.id}/apply",
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 409, res.text
+        detail = res.json()["detail"]
+        assert detail["code"] == "version_downgrade"
+        assert detail["installed"] == "2.0.0"
+        assert detail["bundle"] == "1.0.0"
+        await db.refresh(install)
+        assert install.status == "previewed"  # untouched — still reviewable
+
+    async def test_apply_with_confirm_downgrades(self, client, db, vendor):
+        admin = await make_admin(db)
+        await self._install_v2(client, db, admin, vendor)
+        install = await upload_and_preview(client, db, admin, vendor, version="1.0.0")
+        res = await client.post(
+            f"/api/v1/admin/extensions/install/{install.id}/apply",
+            json={"confirm_downgrade": True},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 202, res.text
+        await ext_api.run_apply(db, install, admin)
+        row = (
+            await db.execute(select(Extension).where(Extension.key == "sample-ext"))
+        ).scalar_one()
+        await db.refresh(row)
+        assert row.version == "1.0.0"
+
+    async def test_same_or_newer_version_never_flags(self, client, db, vendor):
+        admin = await make_admin(db)
+        await self._install_v2(client, db, admin, vendor)
+        same = await upload_and_preview(client, db, admin, vendor, version="2.0.0")
+        assert "downgrade" not in (same.diff or {})
+        res = await client.post(
+            f"/api/v1/admin/extensions/install/{same.id}/apply",
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 202, res.text
+
+
 class TestStatusEndpoint:
     async def test_status_lists_enabled_extensions_for_members(self, client, db, vendor):
         admin = await make_admin(db)

@@ -68,6 +68,7 @@ from app.services.extensions.store_catalog import (
     STORE_CATALOG_TIMEOUT,
     classify_store_error,
     fetch_store_catalog,
+    parsed_version,
     store_client,
     store_update_available,
 )
@@ -484,10 +485,17 @@ async def get_install(
     return _install_out(await _load_install(db, install_id))
 
 
+class ApplyInstallIn(BaseModel):
+    """Optional apply-time flags. The body may be omitted entirely."""
+
+    confirm_downgrade: bool = False
+
+
 @router.post("/install/{install_id}/apply", response_model=ExtensionInstallOut, status_code=202)
 async def apply_install(
     install_id: uuid.UUID,
     background_tasks: BackgroundTasks,
+    payload: ApplyInstallIn | None = None,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> ExtensionInstallOut:
@@ -496,6 +504,19 @@ async def apply_install(
     if install.status not in {"previewed", "failed"}:
         raise HTTPException(
             status_code=400, detail=f"Cannot apply an upload in status {install.status!r}"
+        )
+    # Installing an OLDER version over a newer one is a silent rollback —
+    # require an explicit confirmation. Recomputed server-side (never trust
+    # the stamped preview) so the manual-upload and store paths both gate.
+    downgrade = await _detect_downgrade(db, install.extension_key, install.extension_version)
+    if downgrade is not None and not (payload and payload.confirm_downgrade):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "version_downgrade",
+                "installed": downgrade["from"],
+                "bundle": downgrade["to"],
+            },
         )
     # Second gate: installing an extension requires a usable entitlement for
     # its key (a valid signature alone is provenance, not activation) — UNLESS
@@ -1071,6 +1092,26 @@ async def _load_install(db: AsyncSession, install_id: uuid.UUID) -> ExtensionIns
     return install
 
 
+async def _detect_downgrade(db: AsyncSession, key: str | None, version: str | None) -> dict | None:
+    """``{"from": installed, "to": bundle}`` when the bundle's version is
+    strictly OLDER than the installed one (same comparator as the store's
+    update detection); ``None`` otherwise. Unparseable versions never flag."""
+    if not key or not version:
+        return None
+    installed_row = (
+        await db.execute(
+            select(Extension).where(Extension.key == key, Extension.status != "removed")
+        )
+    ).scalar_one_or_none()
+    if installed_row is None:
+        return None
+    bundle_v = parsed_version(version)
+    installed_v = parsed_version(installed_row.version)
+    if bundle_v is None or installed_v is None or bundle_v >= installed_v:
+        return None
+    return {"from": installed_row.version, "to": version}
+
+
 async def run_verify_and_preview(db: AsyncSession, install: ExtensionInstall, user: User) -> None:
     """Verify a bundle upload and dry-run its content pack.
 
@@ -1094,6 +1135,9 @@ async def run_verify_and_preview(db: AsyncSession, install: ExtensionInstall, us
             install.diff = result.as_dict()
         else:
             install.diff = {}
+        downgrade = await _detect_downgrade(db, bundle.key, bundle.version)
+        if downgrade is not None:
+            install.diff = {**(install.diff or {}), "downgrade": downgrade}
         install.status = "previewed"
         install.previewed_at = datetime.now(timezone.utc)
         await db.commit()
@@ -1143,14 +1187,23 @@ async def run_apply(db: AsyncSession, install: ExtensionInstall, user: User) -> 
                 await extension_registry.refresh_from_db(db)
                 return
 
-        # Reinstalling after an uninstall/disable must bring the pack's
-        # soft-hidden card/relation types back.
-        await set_content_visibility(
-            db, ext_installer.EXTENSIONS_DIR / extension.key, bundle.manifest, False
-        )
-        # Merge manifest field contributions into their target card types
-        # (idempotent; updates re-sync the extension-owned sections).
-        await apply_field_contributions(db, extension.key, bundle.manifest)
+        if extension.enabled:
+            # Reinstalling after an uninstall must bring the pack's
+            # soft-hidden card/relation types back.
+            await set_content_visibility(
+                db, ext_installer.EXTENSIONS_DIR / extension.key, bundle.manifest, False
+            )
+            # Merge manifest field contributions into their target card types
+            # (idempotent; updates re-sync the extension-owned sections).
+            await apply_field_contributions(db, extension.key, bundle.manifest)
+        else:
+            # Updating a DISABLED extension: content stays hidden — including
+            # card/relation types NEW in this version — and field
+            # contributions stay stripped. The enable path restores both from
+            # the row's (now updated) manifest.
+            await set_content_visibility(
+                db, ext_installer.EXTENSIONS_DIR / extension.key, bundle.manifest, True
+            )
         install.status = "installed"
         install.applied_at = datetime.now(timezone.utc)
         await db.commit()

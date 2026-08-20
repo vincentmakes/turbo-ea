@@ -163,15 +163,25 @@ async def install_bundle(
         )
         db.add(existing)
     else:
+        # Capture BEFORE overwriting: a deliberately disabled extension must
+        # stay disabled through an update (the old guard read the status
+        # AFTER it was overwritten, so every update re-enabled the row).
+        # Not status=="disabled" alone: a disabled backend extension awaiting
+        # a restart still carries status "needs_restart" with enabled=False.
+        # A previously "removed" row (also enabled=False) is the one case
+        # that must still come back enabled on re-install.
+        was_disabled = not existing.enabled and existing.status != "removed"
         existing.name = str(bundle.manifest.get("name") or key)
         existing.version = bundle.version
         existing.manifest = bundle.manifest
         existing.capabilities = bundle.capabilities
-        existing.status = status
+        # Keep "needs_restart" even when disabled: the loader only loads
+        # enabled extensions, so the row stays inert, but the restart signal
+        # must survive so a later enable never runs stale backend code.
+        existing.status = status if not was_disabled or has_runtime_code else "disabled"
         existing.last_error = None
         existing.installed_by = user_id
-        # A re-install of a previously removed extension comes back enabled.
-        if existing.status != "disabled":
+        if not was_disabled:
             existing.enabled = True
     await db.flush()
     logger.info("Installed extension %s %s (status=%s)", key, bundle.version, status)
