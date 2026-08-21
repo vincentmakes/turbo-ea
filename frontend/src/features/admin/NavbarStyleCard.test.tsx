@@ -121,8 +121,11 @@ describe("NavbarStyleCard", () => {
       navbar_fg: "#ffffff",
     });
     render(<NavbarStyleCard onSaved={onSaved} onError={onError} />);
+    // Wait for the button to be enabled, not just for the GET to have been
+    // *called* — Save is disabled while loading, and under a loaded runner
+    // the click can land before the settings response commits (CI flake).
     await waitFor(() =>
-      expect(api.get).toHaveBeenCalledWith("/settings/navbar-style"),
+      expect(screen.getByRole("button", { name: /Save$/ })).toBeEnabled(),
     );
 
     fireEvent.click(screen.getByRole("radio", { name: "Forest" }));
@@ -144,8 +147,10 @@ describe("NavbarStyleCard", () => {
     mockGet({ navbar_bg: "#1a1a2e", navbar_fg: "#ffffff" });
     vi.mocked(api.patch).mockRejectedValue(new Error("boom"));
     render(<NavbarStyleCard onSaved={onSaved} onError={onError} />);
+    // Same enabled-wait as above — clicking a still-disabled Save button
+    // means api.patch never fires and onError never gets called.
     await waitFor(() =>
-      expect(api.get).toHaveBeenCalledWith("/settings/navbar-style"),
+      expect(screen.getByRole("button", { name: /Save$/ })).toBeEnabled(),
     );
 
     fireEvent.click(screen.getByRole("button", { name: /Save$/ }));
