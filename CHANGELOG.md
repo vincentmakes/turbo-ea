@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - Extension trials: the Store tab shows a "Start 30-day trial" button on extensions whose catalogue listing offers one, and the Installed tab labels trial entitlements ("Trial until …" / "Trial ended — subscribe to reactivate"). A trial entitlement has no grace window — expiry is a hard stop; data is never deleted and everything comes back on subscribing. The Buy button stays visible during and after a trial, so converting to a subscription is one click in-product.
 
+### Fixed
+
+- In-app store purchases now confirm automatically: the post-checkout poll sent only part of the checkout reference, so the "Waiting for payment confirmation" state never resolved and the license had to be pasted from the email.
+
 ## [2.71.0] - 2026-08-20
 
 ### Added

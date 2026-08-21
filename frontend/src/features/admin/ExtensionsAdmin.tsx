@@ -582,8 +582,12 @@ export default function ExtensionsAdmin() {
     const ref = instanceId ? `${token}-${instanceId}` : token;
     window.open(`${link}${sep}client_reference_id=${ref}`, "_blank", "noopener");
     claimCountRef.current = 0;
-    setClaiming({ token, itemKey });
-    pollClaim(token, itemKey);
+    // Poll with the FULL ref: the store looks the checkout session up by an
+    // EXACT client_reference_id match, so polling with the bare token while
+    // the session carries token-instance never resolves ("waiting for
+    // payment confirmation" forever, paid and trial alike).
+    setClaiming({ token: ref, itemKey });
+    pollClaim(ref, itemKey);
   };
 
   const handleBuy = (item: StoreItem) => {

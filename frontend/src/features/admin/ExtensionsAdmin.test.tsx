@@ -72,6 +72,7 @@ function primeInitialLoad({
   extensions = [] as unknown[],
   license = null as unknown,
   catalog = UNCONFIGURED_CATALOG as unknown,
+  instanceId = "",
 } = {}) {
   mockGet.mockImplementation(async (path: string) => {
     if (path === "/admin/extensions") return extensions;
@@ -80,6 +81,7 @@ function primeInitialLoad({
       throw new Error("No license installed");
     }
     if (path === "/admin/extensions/store/catalog") return catalog;
+    if (path === "/admin/extensions/instance") return { instance_id: instanceId };
     throw new Error(`unexpected GET ${path}`);
   });
 }
@@ -760,6 +762,46 @@ describe("ExtensionsAdmin", () => {
     expect(screen.getByText(/Waiting for payment confirmation/)).toBeInTheDocument();
     openSpy.mockRestore();
   });
+
+  it(
+    "claim poll sends the FULL client_reference_id incl. the instance suffix",
+    async () => {
+      // The store resolves the checkout by an EXACT client_reference_id
+      // match: polling with the bare token while the session carries
+      // token-instance never resolves — the "waiting for payment
+      // confirmation forever" bug.
+      primeInitialLoad({
+        catalog: {
+          configured: true,
+          reachable: true,
+          store_url: "https://x",
+          items: [STORE_ITEM],
+        },
+        instanceId: "TEA-AAAA-AAAA-AAAM",
+      });
+      const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
+      mockPost.mockResolvedValue({ status: "pending" });
+
+      renderPage();
+      await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+      await userEvent.click(screen.getByText("Buy", { selector: "button" }));
+
+      const url = openSpy.mock.calls[0][0] as string;
+      const ref = url.split("client_reference_id=")[1];
+      expect(ref).toMatch(/-TEA-AAAA-AAAA-AAAM$/);
+
+      // the first poll fires after CLAIM_POLL_MS (5s) of real time
+      await waitFor(
+        () =>
+          expect(mockPost).toHaveBeenCalledWith("/admin/extensions/store/claim", {
+            token: ref,
+          }),
+        { timeout: 7000 },
+      );
+      openSpy.mockRestore();
+    },
+    12000,
+  );
 
   it("shows the not-configured hint on the Store tab by default", async () => {
     primeInitialLoad();
