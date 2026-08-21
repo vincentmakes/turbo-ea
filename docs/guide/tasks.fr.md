@@ -10,16 +10,16 @@ Les tâches sont des éléments qui vous sont assignés ou que vous avez créés
 
 ### Filtrage, recherche et tri
 
-**Puces d'origine** -- Chaque tâche porte une origine : d'où elle provient. Cliquez sur une puce pour n'afficher que les tâches de cette origine (cliquez sur plusieurs puces pour les combiner) ; chaque puce affiche un compteur en direct. Les origines sont :
+**Puces d'origine** -- Chaque tâche porte une origine : d'où elle provient. Lorsque votre liste mélange des tâches de plusieurs origines, des puces de filtrage apparaissent au-dessus -- cliquez sur une puce pour n'afficher que les tâches de cette origine (cliquez sur plusieurs puces pour les combiner) ; chaque puce affiche un compteur en direct. Les origines sont :
 
 - **Tâche projet** -- Synchronisée depuis le tableau des tâches d'une initiative PPM
 - **Risque** -- Affectations en tant que responsable de risque et cycles récurrents de tâches d'atténuation du registre des risques GRC
 - **ADR** / **SoAW** -- Demandes de signature sur des décisions d'architecture et des Statements of Architecture Work
 - **Approbation de processus** -- Révisions de flux de processus en attente de votre relecture (BPM)
-- **Extension** -- Reflétée depuis un outil de suivi externe par une extension installée
+- **Extension** -- Créée par une extension installée
 - **Manuelle** -- Créée à la main, sur une fiche ou de façon autonome
 
-Chaque ligne porte également un badge d'origine et une bande d'accent codés par couleur, de sorte que les listes mixtes se lisent d'un coup d'œil.
+Chaque ligne porte également une icône d'origine et une bande d'accent codées par couleur, de sorte que les listes mixtes se lisent d'un coup d'œil. Une tâche qu'une extension connecteur a reflétée vers un outil de suivi externe (Jira, GitLab, …) conserve son origine réelle et affiche la référence externe (p. ex. *KAN-6*) sous la forme d'un petit lien -- le miroir n'est là qu'à titre de référence, et la tâche se termine toujours dans Turbo EA.
 
 **Statut** -- Utilisez le sélecteur de statut pour filtrer :
 

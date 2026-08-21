@@ -10,16 +10,16 @@ Todos are tasks assigned to you or created by you. They can be linked to specifi
 
 ### Filtering, search and sorting
 
-**Origin chips** — Every todo carries an origin: where it came from. Click a chip to show only todos of that origin (click several to combine them); each chip shows a live count. Origins are:
+**Origin chips** — Every todo carries an origin: where it came from. When your list mixes tasks from more than one origin, filter chips appear above it — click a chip to show only todos of that origin (click several to combine them); each chip shows a live count. Origins are:
 
 - **Project task** — Synced from a PPM initiative's task board
 - **Risk** — Risk-owner assignments and recurring mitigation-task cycles from the GRC Risk Register
 - **ADR** / **SoAW** — Signature requests on architecture decisions and Statements of Architecture Work
 - **Process approval** — Process-flow revisions awaiting your review (BPM)
-- **Extension** — Mirrored from an external tracker by an installed extension
+- **Extension** — Created by an installed extension
 - **Manual** — Created by hand, on a card or standalone
 
-Each row also carries a colour-coded origin badge and accent stripe, so mixed lists scan at a glance.
+Each row also carries a colour-coded origin icon and accent stripe, so mixed lists scan at a glance. A task that a connector extension has mirrored to an external tracker (Jira, GitLab, …) keeps its real origin and shows the external reference (e.g. *KAN-6*) as a small link — the mirror is for reference only, and the task is always completed in Turbo EA.
 
 **Status** — Use the status toggle to filter:
 

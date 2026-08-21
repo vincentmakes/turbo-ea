@@ -277,15 +277,41 @@ class TestTodoOriginAndCreator:
             assert by_id[str(todo_id)]["origin"] == expected[key], key
             assert by_id[str(todo_id)]["creator_name"] == admin.display_name
 
-    async def test_extension_source_wins_and_manual_link_stays_manual(self, client, db, todos_env):
+    async def test_mirrored_todos_keep_their_origin(self, client, db, todos_env):
+        """A connector extension stamping external_source onto a todo it
+        mirrors to Jira/GitLab must NOT change the todo's origin — the task
+        is still Turbo EA work (the is_system mirror carve-out). Only rows
+        the bridge *created* (no human creator) are origin "extension"."""
         from app.models.todo import Todo
 
         admin = todos_env["admin"]
-        bridge = Todo(
-            description="Mirrored from tracker",
-            link=f"/ea-delivery/adr/{uuid.uuid4()}",
+        # A risk todo mirrored to Jira: system link + external stamp + human
+        # creator. Origin must stay "risk".
+        mirrored_risk = Todo(
+            description="[Risk R-000006] Article 10",
+            link=f"/ea-delivery/risks/{uuid.uuid4()}",
             is_system=True,
             assigned_to=admin.id,
+            created_by=admin.id,
+            external_source="jira",
+            external_ref="KAN-6",
+        )
+        # A manual card todo mirrored to Jira keeps origin "manual".
+        mirrored_manual = Todo(
+            description="Test repeat",
+            is_system=False,
+            assigned_to=admin.id,
+            created_by=admin.id,
+            external_source="jira",
+            external_ref="KAN-9",
+        )
+        # A row the bridge itself created has no human creator — that one is
+        # genuinely origin "extension".
+        bridge_created = Todo(
+            description="Imported from tracker",
+            is_system=False,
+            assigned_to=admin.id,
+            created_by=None,
             external_source="jira",
             external_ref="PROJ-1",
         )
@@ -297,16 +323,19 @@ class TestTodoOriginAndCreator:
             assigned_to=admin.id,
             created_by=admin.id,
         )
-        db.add(bridge)
-        db.add(manual)
+        rows = [mirrored_risk, mirrored_manual, bridge_created, manual]
+        for row in rows:
+            db.add(row)
         await db.flush()
-        bridge_id, manual_id = bridge.id, manual.id
+        ids = [row.id for row in rows]
         await db.commit()
 
         listing = await client.get("/api/v1/todos", headers=auth_headers(admin))
         by_id = {t["id"]: t for t in listing.json()}
-        assert by_id[str(bridge_id)]["origin"] == "extension"
-        assert by_id[str(manual_id)]["origin"] == "manual"
+        assert by_id[str(ids[0])]["origin"] == "risk"
+        assert by_id[str(ids[1])]["origin"] == "manual"
+        assert by_id[str(ids[2])]["origin"] == "extension"
+        assert by_id[str(ids[3])]["origin"] == "manual"
 
 
 # ---------------------------------------------------------------

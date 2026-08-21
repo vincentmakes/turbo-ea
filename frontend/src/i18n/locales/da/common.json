@@ -291,6 +291,7 @@
   "todos.overdue": "Forsinket",
   "todos.assignedTo": "Tildelt: {{name}}",
   "todos.openExternal": "Åbn i {{source}}",
+  "todos.mirroredTo": "Spejlet til {{source}} — denne opgave fuldføres i Turbo EA",
   "todos.unassigned": "Utildelt",
   "todos.goToDocument": "Gå til dokument",
   "todos.dueDate": "Forfalder: {{date}}",

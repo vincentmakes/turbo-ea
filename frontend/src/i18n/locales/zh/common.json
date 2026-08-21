@@ -215,6 +215,7 @@
   "todos.overdue": "已逾期",
   "todos.assignedTo": "分配给：{{name}}",
   "todos.openExternal": "在 {{source}} 中打开",
+  "todos.mirroredTo": "已镜像至 {{source}}——该任务需在 Turbo EA 中完成",
   "todos.unassigned": "未分配",
   "todos.goToDocument": "前往文档",
   "todos.dueDate": "截止日期：{{date}}",

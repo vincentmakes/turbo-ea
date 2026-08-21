@@ -215,6 +215,7 @@
   "todos.overdue": "Scaduto",
   "todos.assignedTo": "Assegnata a: {{name}}",
   "todos.openExternal": "Apri in {{source}}",
+  "todos.mirroredTo": "Replicata in {{source}} — questa attività si completa in Turbo EA",
   "todos.unassigned": "Non assegnata",
   "todos.goToDocument": "Vai al documento",
   "todos.dueDate": "Scadenza: {{date}}",

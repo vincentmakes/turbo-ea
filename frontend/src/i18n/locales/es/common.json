@@ -215,6 +215,7 @@
   "todos.overdue": "Vencido",
   "todos.assignedTo": "Asignada a: {{name}}",
   "todos.openExternal": "Abrir en {{source}}",
+  "todos.mirroredTo": "Reflejada en {{source}} — esta tarea se completa en Turbo EA",
   "todos.unassigned": "Sin asignar",
   "todos.goToDocument": "Ir al documento",
   "todos.dueDate": "Vence: {{date}}",

@@ -10,16 +10,16 @@ Opgaver er arbejdsemner tildelt dig eller oprettet af dig. De kan være knyttet 
 
 ### Filtrering, søgning og sortering
 
-**Oprindelseschips** — Hver todo bærer en oprindelse: hvor den kom fra. Klik på en chip for kun at vise todos med den oprindelse (klik på flere for at kombinere dem); hver chip viser et live-antal. Oprindelserne er:
+**Oprindelseschips** — Hver todo bærer en oprindelse: hvor den kom fra. Når din liste blander opgaver fra mere end én oprindelse, vises filterchips ovenover — klik på en chip for kun at vise todos med den oprindelse (klik på flere for at kombinere dem); hver chip viser et live-antal. Oprindelserne er:
 
 - **Projektopgave** — Synkroniseret fra et PPM-initiativs opgavetavle
 - **Risiko** — Tildelinger som risikoejer og tilbagevendende afbødningscyklusser fra GRC-risikoregisteret
 - **ADR** / **SoAW** — Underskriftsanmodninger på arkitekturbeslutninger og Statements of Architecture Work
 - **Procesgodkendelse** — Procesflow-revisioner, der afventer din gennemgang (BPM)
-- **Udvidelse** — Spejlet fra et eksternt sporingssystem af en installeret udvidelse
+- **Udvidelse** — Oprettet af en installeret udvidelse
 - **Manuel** — Oprettet i hånden, på et kort eller selvstændigt
 
-Hver række bærer desuden et farvekodet oprindelsesbadge og en accentstribe, så blandede lister kan aflæses med et enkelt blik.
+Hver række bærer desuden et farvekodet oprindelsesikon og en accentstribe, så blandede lister kan aflæses med et enkelt blik. En opgave, som en konnektor-udvidelse har spejlet til et eksternt sporingssystem (Jira, GitLab, …), beholder sin reelle oprindelse og viser den eksterne reference (f.eks. *KAN-6*) som et lille link — spejlingen er kun til reference, og opgaven fuldføres altid i Turbo EA.
 
 **Status** — Brug statusvælgeren til at filtrere:
 

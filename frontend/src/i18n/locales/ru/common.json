@@ -215,6 +215,7 @@
   "todos.overdue": "Просрочено",
   "todos.assignedTo": "Назначено: {{name}}",
   "todos.openExternal": "Открыть в {{source}}",
+  "todos.mirroredTo": "Зеркалируется в {{source}} — задача выполняется в Turbo EA",
   "todos.unassigned": "Не назначено",
   "todos.goToDocument": "Перейти к документу",
   "todos.dueDate": "Срок: {{date}}",

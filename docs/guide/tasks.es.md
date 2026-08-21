@@ -10,16 +10,16 @@ Las tareas son actividades asignadas a usted o creadas por usted. Pueden estar v
 
 ### Filtrado, búsqueda y ordenación
 
-**Chips de origen** — Cada tarea lleva un origen: de dónde proviene. Haga clic en un chip para mostrar solo las tareas de ese origen (haga clic en varios para combinarlos); cada chip muestra un contador en vivo. Los orígenes son:
+**Chips de origen** — Cada tarea lleva un origen: de dónde proviene. Cuando su lista mezcla tareas de más de un origen, aparecen chips de filtrado encima — haga clic en un chip para mostrar solo las tareas de ese origen (haga clic en varios para combinarlos); cada chip muestra un contador en vivo. Los orígenes son:
 
 - **Tarea de proyecto** — Sincronizada desde el tablero de tareas de una iniciativa PPM
 - **Riesgo** — Asignaciones como propietario de riesgo y ciclos recurrentes de tareas de mitigación del Registro de Riesgos de GRC
 - **ADR** / **SoAW** — Solicitudes de firma sobre decisiones de arquitectura y Statements of Architecture Work
 - **Aprobación de proceso** — Revisiones de flujos de proceso en espera de su revisión (BPM)
-- **Extensión** — Reflejada desde un sistema de seguimiento externo por una extensión instalada
+- **Extensión** — Creada por una extensión instalada
 - **Manual** — Creada a mano, en una ficha o de forma independiente
 
-Cada fila lleva además una insignia de origen y una franja de acento codificadas por color, de modo que las listas mixtas se leen de un vistazo.
+Cada fila lleva además un icono de origen y una franja de acento codificados por color, de modo que las listas mixtas se leen de un vistazo. Una tarea que una extensión conectora ha reflejado en un sistema de seguimiento externo (Jira, GitLab, …) conserva su origen real y muestra la referencia externa (p. ej., *KAN-6*) como un pequeño enlace — el reflejo es solo de referencia, y la tarea siempre se completa en Turbo EA.
 
 **Estado** — Use el selector de estado para filtrar:
 

@@ -10,16 +10,16 @@ Aufgaben sind Ihnen zugewiesene oder von Ihnen erstellte Tasks. Sie können mit 
 
 ### Filtern, Suchen und Sortieren
 
-**Ursprungs-Chips** — Jedes Todo trägt einen Ursprung: woher es stammt. Klicken Sie auf einen Chip, um nur Todos dieses Ursprungs anzuzeigen (mehrere Chips lassen sich kombinieren); jeder Chip zeigt eine Live-Anzahl. Die Ursprünge sind:
+**Ursprungs-Chips** — Jedes Todo trägt einen Ursprung: woher es stammt. Mischt Ihre Liste Todos aus mehr als einem Ursprung, erscheinen darüber Filter-Chips — klicken Sie auf einen Chip, um nur Todos dieses Ursprungs anzuzeigen (mehrere Chips lassen sich kombinieren); jeder Chip zeigt eine Live-Anzahl. Die Ursprünge sind:
 
 - **Projektaufgabe** — Synchronisiert vom Task-Board einer PPM-Initiative
 - **Risiko** — Zuweisungen als Risikoverantwortlicher und wiederkehrende Mitigationszyklen aus dem GRC-Risikoregister
 - **ADR** / **SoAW** — Signaturanfragen zu Architekturentscheidungen und Statements of Architecture Work
 - **Prozessfreigabe** — Prozessfluss-Revisionen, die auf Ihre Prüfung warten (BPM)
-- **Erweiterung** — Von einer installierten Erweiterung aus einem externen Tracker gespiegelt
+- **Erweiterung** — Von einer installierten Erweiterung erstellt
 - **Manuell** — Von Hand erstellt, auf einer Karte oder eigenständig
 
-Jede Zeile trägt zudem ein farbcodiertes Ursprungs-Badge und einen Akzentstreifen, sodass gemischte Listen auf einen Blick erfassbar sind.
+Jede Zeile trägt zudem ein farbcodiertes Ursprungs-Symbol und einen Akzentstreifen, sodass gemischte Listen auf einen Blick erfassbar sind. Eine Aufgabe, die eine Konnektor-Erweiterung in einen externen Tracker (Jira, GitLab, …) gespiegelt hat, behält ihren echten Ursprung und zeigt die externe Referenz (z. B. *KAN-6*) als kleinen Link — die Spiegelung dient nur der Referenz, und die Aufgabe wird immer in Turbo EA abgeschlossen.
 
 **Status** — Verwenden Sie den Status-Umschalter zum Filtern:
 

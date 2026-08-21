@@ -1,13 +1,13 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
+import Link from "@mui/material/Link";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
-import ListItemText from "@mui/material/ListItemText";
 import IconButton from "@mui/material/IconButton";
 import Chip from "@mui/material/Chip";
 import Tabs from "@mui/material/Tabs";
@@ -27,7 +27,7 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import { formatRecurrence } from "@/lib/recurrence/recurrenceLabel";
 import { brand, STATUS_COLORS } from "@/theme/tokens";
 import type { RecurrenceUnit, Todo, TodoOrigin, MySurveyItem } from "@/types";
-import { ORIGIN_META, ORIGIN_ORDER, originOf } from "./originMeta";
+import { ORIGIN_META, ORIGIN_ORDER, originOf, type OriginMeta } from "./originMeta";
 import { applyTodoView, countByOrigin, type TodoSort } from "./todosFiltering";
 
 const PREFS_KEY = "turboea.todos.prefs";
@@ -146,6 +146,117 @@ function TodosPanel() {
     toggleStatus(todo);
   };
 
+  // The single quiet metadata line under a row's title. Only the card name
+  // and the external mirror are interactive (links); everything else is
+  // plain text or an icon with a tooltip, so the title and the due-date
+  // column stay the dominant elements.
+  const metaLine = (
+    todo: Todo,
+    origin: TodoOrigin,
+    meta: OriginMeta,
+    withAssignee: boolean,
+  ): ReactNode[] => {
+    const items: ReactNode[] = [];
+    if (origin !== "manual") {
+      items.push(
+        <Box
+          key="origin"
+          component="span"
+          sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}
+        >
+          <MaterialSymbol icon={meta.icon} size={14} color={meta.color} />
+          {t(meta.labelKey)}
+        </Box>,
+      );
+    }
+    if (todo.card_name) {
+      items.push(
+        <Link
+          key="card"
+          component="button"
+          variant="caption"
+          underline="hover"
+          onClick={() => navigate(`/cards/${todo.card_id}`)}
+        >
+          {todo.card_name}
+        </Link>,
+      );
+    }
+    if (withAssignee) {
+      items.push(
+        <span key="who">
+          {todo.assignee_name
+            ? t("todos.assignedTo", { name: todo.assignee_name })
+            : t("todos.unassigned")}
+        </span>,
+      );
+    } else if (todo.creator_name) {
+      items.push(<span key="who">{t("todos.assignedBy", { name: todo.creator_name })}</span>);
+    }
+    if (todo.external_url) {
+      // A task mirrored to an external tracker (Jira, GitLab, …) links to
+      // its mirror for reference — completion always happens in Turbo EA.
+      items.push(
+        <Tooltip key="ext" title={t("todos.mirroredTo", { source: todo.external_source ?? "" })}>
+          <Link
+            component="button"
+            variant="caption"
+            underline="hover"
+            onClick={() => window.open(todo.external_url, "_blank", "noopener,noreferrer")}
+            sx={{ display: "inline-flex", alignItems: "center", gap: 0.25 }}
+          >
+            {todo.external_ref ?? todo.external_source}
+            <MaterialSymbol icon="open_in_new" size={12} />
+          </Link>
+        </Tooltip>,
+      );
+    }
+    if (todo.recurrence_unit && todo.recurrence_unit !== "none") {
+      items.push(
+        <Tooltip
+          key="recurrence"
+          title={formatRecurrence(
+            todo.recurrence_unit as RecurrenceUnit,
+            todo.recurrence_interval ?? 1,
+            t,
+            "cards:todos.recurrence",
+          )}
+        >
+          <Box component="span" sx={{ display: "inline-flex" }}>
+            <MaterialSymbol icon="repeat" size={14} />
+          </Box>
+        </Tooltip>,
+      );
+    }
+    if (todo.status === "scheduled") {
+      items.push(
+        <Box
+          key="scheduled"
+          component="span"
+          sx={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 0.5,
+            color: STATUS_COLORS.info,
+          }}
+        >
+          <MaterialSymbol icon="schedule" size={14} />
+          {t("cards:todos.scheduled")}
+        </Box>,
+      );
+    }
+    return items.flatMap((item, i) =>
+      i === 0
+        ? [item]
+        : [
+            <span key={`sep-${i}`} className="meta-sep">
+              ·
+            </span>,
+            item,
+          ],
+    );
+  };
+
   return (
     <>
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
@@ -154,7 +265,11 @@ function TodosPanel() {
       </Tabs>
 
       {/* Quick origin filter — chips with per-origin counts over the loaded
-          (tab/status-scoped) list. Multi-select; empty selection = all. */}
+          (tab/status-scoped) list. Multi-select; empty selection = all.
+          Hidden when everything shares one origin (nothing to filter), but
+          never while a selection is active — the user must be able to
+          unselect it. */}
+      {(Object.keys(originCounts).length > 1 || origins.size > 0) && (
       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 1.5, alignItems: "center" }}>
         <Chip
           size="small"
@@ -196,6 +311,7 @@ function TodosPanel() {
           );
         })}
       </Box>
+      )}
 
       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, mb: 2, alignItems: "center" }}>
         <ToggleButtonGroup
@@ -245,6 +361,7 @@ function TodosPanel() {
         {visibleTodos.map((todo) => {
           const origin = originOf(todo);
           const originMeta = ORIGIN_META[origin];
+          const metaItems = metaLine(todo, origin, originMeta, showAssignee);
           return (
           <Card
             key={todo.id}
@@ -255,7 +372,7 @@ function TodosPanel() {
               borderLeftColor: originMeta.color,
             }}
           >
-            <ListItem>
+            <ListItem sx={{ alignItems: "flex-start" }}>
               {todo.is_system ? (
                 <Tooltip title={todo.link ? t("todos.goToDocument") : ""}>
                   <IconButton
@@ -290,131 +407,57 @@ function TodosPanel() {
                   />
                 </IconButton>
               )}
-              <ListItemText
-                primary={
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography
+                  variant="body1"
+                  sx={{
+                    textDecoration: todo.status === "done" ? "line-through" : "none",
+                    cursor: (todo.is_system && todo.link) || todo.card_id ? "pointer" : "default",
+                  }}
+                  onClick={() => {
+                    if (todo.is_system && todo.link) navigate(todo.link);
+                    else if (todo.card_id) navigate(`/cards/${todo.card_id}`);
+                  }}
+                >
+                  {todo.description}
+                </Typography>
+                {metaItems.length > 0 && (
                   <Typography
-                    variant="body1"
+                    component="div"
+                    variant="caption"
+                    color="text.secondary"
                     sx={{
-                      textDecoration: todo.status === "done" ? "line-through" : "none",
-                      cursor: (todo.is_system && todo.link) || todo.card_id ? "pointer" : "default",
-                    }}
-                    onClick={() => {
-                      if (todo.is_system && todo.link) navigate(todo.link);
-                      else if (todo.card_id) navigate(`/cards/${todo.card_id}`);
+                      display: "flex",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      columnGap: 0.75,
+                      rowGap: 0.25,
+                      mt: 0.25,
+                      "& > .meta-sep": { color: "text.disabled" },
                     }}
                   >
-                    {todo.description}
+                    {metaItems}
                   </Typography>
-                }
-                secondary={
-                  <Box sx={{ display: "flex", gap: 1, mt: 0.5, alignItems: "center" }}>
-                    {isOverdue(todo) && (
-                      <Chip
-                        size="small"
-                        label={t("todos.overdue")}
-                        color="error"
-                        sx={{ height: 20, fontSize: "0.7rem", fontWeight: 600 }}
-                      />
-                    )}
-                    {origin !== "manual" && (
-                      <Chip
-                        size="small"
-                        variant="outlined"
-                        icon={<MaterialSymbol icon={originMeta.icon} size={14} />}
-                        label={t(originMeta.labelKey)}
-                        sx={{
-                          height: 20,
-                          fontSize: "0.7rem",
-                          color: originMeta.color,
-                          borderColor: originMeta.color,
-                          "& .MuiChip-icon": { color: originMeta.color },
-                        }}
-                      />
-                    )}
-                    {todo.card_name && (
-                      <Chip
-                        size="small"
-                        label={todo.card_name}
-                        onClick={() => navigate(`/cards/${todo.card_id}`)}
-                        sx={{ cursor: "pointer" }}
-                      />
-                    )}
-                    {showAssignee ? (
-                      <Chip
-                        size="small"
-                        variant="outlined"
-                        icon={<MaterialSymbol icon="person" size={14} />}
-                        label={
-                          todo.assignee_name
-                            ? t("todos.assignedTo", { name: todo.assignee_name })
-                            : t("todos.unassigned")
-                        }
-                        sx={{ height: 20, fontSize: "0.7rem" }}
-                      />
-                    ) : (
-                      // Assigned-to-me tab: show who assigned it instead.
-                      todo.creator_name && (
-                        <Chip
-                          size="small"
-                          variant="outlined"
-                          icon={<MaterialSymbol icon="person" size={14} />}
-                          label={t("todos.assignedBy", { name: todo.creator_name })}
-                          sx={{ height: 20, fontSize: "0.7rem" }}
-                        />
-                      )
-                    )}
-                    {todo.external_url && (
-                      <Tooltip
-                        title={t("todos.openExternal", {
-                          source: todo.external_source ?? "",
-                        })}
-                      >
-                        <Chip
-                          size="small"
-                          variant="outlined"
-                          color="primary"
-                          icon={<MaterialSymbol icon="open_in_new" size={14} />}
-                          label={todo.external_ref ?? todo.external_source}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.open(todo.external_url, "_blank", "noopener,noreferrer");
-                          }}
-                          sx={{ height: 20, fontSize: "0.7rem", cursor: "pointer" }}
-                        />
-                      </Tooltip>
-                    )}
-                    {todo.recurrence_unit && todo.recurrence_unit !== "none" && (
-                      <Chip
-                        size="small"
-                        variant="outlined"
-                        icon={<MaterialSymbol icon="repeat" size={14} />}
-                        label={formatRecurrence(
-                          todo.recurrence_unit as RecurrenceUnit,
-                          todo.recurrence_interval ?? 1,
-                          t,
-                          "cards:todos.recurrence",
-                        )}
-                        sx={{ height: 20, fontSize: "0.7rem" }}
-                      />
-                    )}
-                    {todo.status === "scheduled" && (
-                      <Chip
-                        size="small"
-                        variant="outlined"
-                        color="info"
-                        icon={<MaterialSymbol icon="schedule" size={14} />}
-                        label={t("cards:todos.scheduled")}
-                        sx={{ height: 20, fontSize: "0.7rem" }}
-                      />
-                    )}
-                    {todo.due_date && (
-                      <Typography variant="caption">
-                        {t("todos.dueDate", { date: formatDate(todo.due_date) })}
-                      </Typography>
-                    )}
-                  </Box>
-                }
-              />
+                )}
+              </Box>
+              {todo.due_date && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    ml: 2,
+                    mt: 0.5,
+                    whiteSpace: "nowrap",
+                    alignSelf: "flex-start",
+                    ...(isOverdue(todo)
+                      ? { color: STATUS_COLORS.error, fontWeight: 600 }
+                      : { color: "text.secondary" }),
+                  }}
+                >
+                  {isOverdue(todo)
+                    ? `${t("todos.overdue")} · ${formatDate(todo.due_date)}`
+                    : t("todos.dueDate", { date: formatDate(todo.due_date) })}
+                </Typography>
+              )}
             </ListItem>
           </Card>
           );

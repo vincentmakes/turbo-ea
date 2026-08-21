@@ -10,16 +10,16 @@ Tarefas são itens atribuídos a você ou criados por você. Elas podem estar vi
 
 ### Filtragem, busca e ordenação
 
-**Chips de origem** — Cada tarefa carrega uma origem: de onde ela veio. Clique em um chip para mostrar apenas as tarefas daquela origem (clique em vários para combiná-los); cada chip exibe uma contagem em tempo real. As origens são:
+**Chips de origem** — Cada tarefa carrega uma origem: de onde ela veio. Quando sua lista mistura tarefas de mais de uma origem, chips de filtro aparecem acima dela — clique em um chip para mostrar apenas as tarefas daquela origem (clique em vários para combiná-los); cada chip exibe uma contagem em tempo real. As origens são:
 
 - **Tarefa de projeto** — Sincronizada do quadro de tarefas de uma iniciativa PPM
 - **Risco** — Atribuições como responsável por risco e ciclos recorrentes de tarefas de mitigação do Registro de Riscos do GRC
 - **ADR** / **SoAW** — Solicitações de assinatura em decisões de arquitetura e Statements of Architecture Work
 - **Aprovação de processo** — Revisões de fluxo de processo aguardando sua análise (BPM)
-- **Extensão** — Espelhada de um rastreador externo por uma extensão instalada
+- **Extensão** — Criada por uma extensão instalada
 - **Manual** — Criada à mão, em um card ou de forma independente
 
-Cada linha também carrega um selo de origem e uma faixa de destaque codificados por cor, de modo que listas mistas se leem num relance.
+Cada linha também carrega um ícone de origem e uma faixa de destaque codificados por cor, de modo que listas mistas se leem num relance. Uma tarefa que uma extensão conectora espelhou em um rastreador externo (Jira, GitLab, …) mantém sua origem real e mostra a referência externa (por exemplo, *KAN-6*) como um pequeno link — o espelhamento é apenas para referência, e a tarefa é sempre concluída no Turbo EA.
 
 **Status** — Use o seletor de status para filtrar:
 

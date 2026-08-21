@@ -24,6 +24,8 @@ const TODOS: Todo[] = [
     due_date: "2026-08-01",
   },
   {
+    // A risk todo mirrored to Jira: origin stays "risk", the mirror shows
+    // only as the external-reference link.
     id: "t2",
     description: "Check access rights",
     status: "open",
@@ -31,6 +33,9 @@ const TODOS: Todo[] = [
     link: "/ea-delivery/risks/r1",
     origin: "risk",
     creator_name: "Sam Moss",
+    external_source: "jira",
+    external_ref: "KAN-6",
+    external_url: "https://jira.example/browse/KAN-6",
   },
   {
     id: "t3",
@@ -102,6 +107,36 @@ describe("TodosPage", () => {
       expect(screen.getAllByText("From: Dana Lee")).toHaveLength(2);
     });
     expect(screen.getByText("From: Sam Moss")).toBeInTheDocument();
+  });
+
+  it("shows a mirrored todo's external reference without relabeling its origin", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Check access rights")).toBeInTheDocument();
+    });
+    // The Jira mirror appears as a small reference link…
+    expect(screen.getByText("KAN-6")).toBeInTheDocument();
+    // …but the todo keeps its real origin: the only "Extension" text would
+    // be an origin label, and there is none anywhere on the page.
+    expect(screen.queryByText(/Extension/)).not.toBeInTheDocument();
+    expect(screen.getByText("Risk · 1")).toBeInTheDocument();
+  });
+
+  it("hides the origin chip row when every todo shares one origin", async () => {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/notifications/badge-counts")) {
+        return Promise.resolve({ open_todos: 1, pending_surveys: 0 });
+      }
+      if (path.startsWith("/todos")) {
+        return Promise.resolve([TODOS[2]]);
+      }
+      return Promise.resolve({});
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Write onboarding doc")).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/All · /)).not.toBeInTheDocument();
   });
 
   it("search filters on raw input and shows the no-matches state", async () => {

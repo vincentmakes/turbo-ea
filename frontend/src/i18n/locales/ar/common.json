@@ -291,6 +291,7 @@
   "todos.overdue": "متأخرة",
   "todos.assignedTo": "مُسندة إلى: {{name}}",
   "todos.openExternal": "فتح في {{source}}",
+  "todos.mirroredTo": "منعكسة في {{source}} — تُستكمل هذه المهمة في Turbo EA",
   "todos.unassigned": "غير مُسندة",
   "todos.goToDocument": "الانتقال إلى المستند",
   "todos.dueDate": "الاستحقاق: {{date}}",

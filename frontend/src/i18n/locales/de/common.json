@@ -215,6 +215,7 @@
   "todos.overdue": "Überfällig",
   "todos.assignedTo": "Zugewiesen an: {{name}}",
   "todos.openExternal": "In {{source}} öffnen",
+  "todos.mirroredTo": "Nach {{source}} gespiegelt — diese Aufgabe wird in Turbo EA abgeschlossen",
   "todos.unassigned": "Nicht zugewiesen",
   "todos.goToDocument": "Zum Dokument",
   "todos.dueDate": "Fällig: {{date}}",

@@ -291,6 +291,7 @@
   "todos.overdue": "Overdue",
   "todos.assignedTo": "Assigned to: {{name}}",
   "todos.openExternal": "Open in {{source}}",
+  "todos.mirroredTo": "Mirrored to {{source}} — complete this task in Turbo EA",
   "todos.unassigned": "Unassigned",
   "todos.goToDocument": "Go to document",
   "todos.dueDate": "Due: {{date}}",

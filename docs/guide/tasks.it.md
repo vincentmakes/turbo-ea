@@ -10,16 +10,16 @@ I todo sono attività assegnate a voi o da voi create. Possono essere collegati 
 
 ### Filtri, ricerca e ordinamento
 
-**Chip di origine** — Ogni todo porta un'origine: da dove proviene. Cliccate su un chip per mostrare solo i todo di quell'origine (cliccate su più chip per combinarli); ogni chip mostra un conteggio in tempo reale. Le origini sono:
+**Chip di origine** — Ogni todo porta un'origine: da dove proviene. Quando la lista mescola todo di più origini, sopra di essa compaiono chip di filtro — cliccate su un chip per mostrare solo i todo di quell'origine (cliccate su più chip per combinarli); ogni chip mostra un conteggio in tempo reale. Le origini sono:
 
 - **Attività di progetto** — Sincronizzata dalla board delle attività di un'iniziativa PPM
 - **Rischio** — Assegnazioni come responsabile del rischio e cicli ricorrenti di attività di mitigazione dal Registro dei rischi GRC
 - **ADR** / **SoAW** — Richieste di firma su decisioni di architettura e Statements of Architecture Work
 - **Approvazione processo** — Revisioni dei flussi di processo in attesa della vostra verifica (BPM)
-- **Estensione** — Replicata da un tracker esterno tramite un'estensione installata
+- **Estensione** — Creata da un'estensione installata
 - **Manuale** — Creata a mano, su una card o autonoma
 
-Ogni riga porta inoltre un badge di origine e una striscia di accento codificati per colore, così le liste miste si leggono a colpo d'occhio.
+Ogni riga porta inoltre un'icona di origine e una striscia di accento codificate per colore, così le liste miste si leggono a colpo d'occhio. Un'attività che un'estensione connettore ha replicato in un tracker esterno (Jira, GitLab, …) mantiene la sua origine reale e mostra il riferimento esterno (ad es. *KAN-6*) come piccolo link — la replica è solo di riferimento e l'attività si completa sempre in Turbo EA.
 
 **Stato** — Utilizzate il selettore di stato per filtrare:
 
