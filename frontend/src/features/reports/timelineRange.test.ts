@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { classifyTimelineChange, computeTimelineRange } from "./timelineRange";
+import {
+  classifyTimelineChange,
+  computeTimelineMilestones,
+  computeTimelineRange,
+  isVisibleAtDate,
+} from "./timelineRange";
 
 const ms = (iso: string) => new Date(iso).getTime();
 const YEAR = 365.25 * 86_400_000;
@@ -88,5 +93,111 @@ describe("classifyTimelineChange", () => {
     expect(
       classifyTimelineChange({ plan: "2027-01-01", endOfLife: "2027-06-01" }, TODAY, future),
     ).toBeNull();
+  });
+});
+
+describe("isVisibleAtDate", () => {
+  const future = ms("2028-01-01");
+  const SHOWN = { showRetiring: true };
+  const HIDDEN = { showRetiring: false };
+
+  it("hides a card that has not started by the date, either way", () => {
+    expect(isVisibleAtDate({ plan: "2035-01-01" }, TODAY, future, SHOWN)).toBe(false);
+    expect(isVisibleAtDate({ plan: "2035-01-01" }, TODAY, future, HIDDEN)).toBe(false);
+  });
+
+  it("shows a card that is alive on the date, either way", () => {
+    expect(isVisibleAtDate({ active: "2020-01-01" }, TODAY, future, HIDDEN)).toBe(true);
+  });
+
+  it("shows a card with no lifecycle at all", () => {
+    expect(isVisibleAtDate(undefined, TODAY, future, HIDDEN)).toBe(true);
+    expect(isVisibleAtDate({}, TODAY, future, HIDDEN)).toBe(true);
+  });
+
+  it("shows a card retiring inside the window by default, hides it on request", () => {
+    const lc = { active: "2020-01-01", endOfLife: "2027-01-01" };
+    expect(isVisibleAtDate(lc, TODAY, future, SHOWN)).toBe(true);
+    expect(isVisibleAtDate(lc, TODAY, future, HIDDEN)).toBe(false);
+  });
+
+  it("leaves a card retired before the window opened to the view, not this rule", () => {
+    // Already gone today. Whether it is worth drawing is the LDV's end-of-life
+    // toggle's business, so this rule must pass it through either way.
+    const lc = { active: "2010-01-01", endOfLife: "2015-01-01" };
+    expect(isVisibleAtDate(lc, TODAY, future, SHOWN)).toBe(true);
+    expect(isVisibleAtDate(lc, TODAY, future, HIDDEN)).toBe(true);
+  });
+
+  it("does not change the today view", () => {
+    // Nothing retires in an empty window, so the toggle cannot alter today.
+    const lc = { active: "2010-01-01", endOfLife: "2015-01-01" };
+    expect(isVisibleAtDate(lc, TODAY, TODAY, SHOWN)).toBe(true);
+    expect(isVisibleAtDate(lc, TODAY, TODAY, HIDDEN)).toBe(true);
+  });
+
+  it("does not change a past view", () => {
+    const past = ms("2020-01-01");
+    const lc = { active: "2010-01-01", endOfLife: "2015-01-01" };
+    expect(isVisibleAtDate(lc, TODAY, past, HIDDEN)).toBe(true);
+    expect(isVisibleAtDate({ active: "2010-01-01" }, TODAY, past, HIDDEN)).toBe(true);
+    // ...but a card not yet born at that past date is still hidden.
+    expect(isVisibleAtDate({ active: "2024-01-01" }, TODAY, past, SHOWN)).toBe(false);
+  });
+});
+
+describe("computeTimelineMilestones", () => {
+  it("returns nothing for cards with no lifecycle dates", () => {
+    expect(computeTimelineMilestones([])).toEqual([]);
+    expect(computeTimelineMilestones([undefined, {}, { active: "nope" }])).toEqual([]);
+  });
+
+  it("marks an arrival at the earliest phase date, whichever phase that is", () => {
+    expect(computeTimelineMilestones([{ plan: "2027-01-01" }])).toEqual([
+      { value: ms("2027-01-01"), appearing: 1, disappearing: 0 },
+    ]);
+    expect(computeTimelineMilestones([{ phaseOut: "2027-01-01", active: "2024-01-01" }])).toEqual([
+      { value: ms("2024-01-01"), appearing: 1, disappearing: 0 },
+    ]);
+  });
+
+  it("marks both ends for a card with a start and an end of life", () => {
+    expect(
+      computeTimelineMilestones([{ active: "2020-01-01", endOfLife: "2030-01-01" }]),
+    ).toEqual([
+      { value: ms("2020-01-01"), appearing: 1, disappearing: 0 },
+      { value: ms("2030-01-01"), appearing: 0, disappearing: 1 },
+    ]);
+  });
+
+  it("ignores a card that is never alive", () => {
+    // End of life on or before the earliest date: it was never in the landscape,
+    // so marking an arrival and a departure would both be lies.
+    expect(computeTimelineMilestones([{ endOfLife: "2020-01-01" }])).toEqual([]);
+    expect(
+      computeTimelineMilestones([{ active: "2020-01-01", endOfLife: "2019-01-01" }]),
+    ).toEqual([]);
+  });
+
+  it("aggregates cards that change on the same date", () => {
+    const result = computeTimelineMilestones([
+      { active: "2025-01-01" },
+      { active: "2025-01-01" },
+      { active: "2010-01-01", endOfLife: "2025-01-01" },
+    ]);
+    expect(result).toContainEqual({ value: ms("2025-01-01"), appearing: 2, disappearing: 1 });
+  });
+
+  it("returns milestones sorted ascending", () => {
+    const result = computeTimelineMilestones([
+      { active: "2030-01-01" },
+      { active: "2010-01-01" },
+      { active: "2020-01-01" },
+    ]);
+    expect(result.map((m) => m.value)).toEqual([
+      ms("2010-01-01"),
+      ms("2020-01-01"),
+      ms("2030-01-01"),
+    ]);
   });
 });

@@ -5,12 +5,18 @@ import Slider from "@mui/material/Slider";
 import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
 import { useTheme } from "@mui/material/styles";
+import ButtonBase from "@mui/material/ButtonBase";
+import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { TIMELINE_COLORS } from "@/theme/tokens";
+import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
+import type { TimelineMilestone } from "@/features/reports/timelineRange";
 
 const ONE_DAY_MS = 86_400_000;
 const TEN_YEARS_MS = 10 * 365.25 * ONE_DAY_MS;
 const MIN_LABEL_SPACING_PX = 48;
+/** Markers closer together than this merge into one, so a landscape with
+ *  hundreds of transition dates reads as marks rather than a smear. */
+const MIN_MILESTONE_SPACING_PX = 10;
 
 interface TimelineSliderProps {
   value: number;
@@ -18,6 +24,10 @@ interface TimelineSliderProps {
   dateRange: { min: number; max: number };
   yearMarks: { value: number; label: string }[];
   todayMs?: number;
+  /** Dates at which cards enter or leave the landscape. Rendered as clickable
+   *  marks under the track that jump the slider to the change. Omit for a plain
+   *  slider. */
+  milestones?: TimelineMilestone[];
 }
 
 const fmtTip = (v: number) =>
@@ -66,12 +76,62 @@ function useResponsiveMarks(
   return marks;
 }
 
+/**
+ * Merge milestones that would render within `minSpacingPx` of each other into a
+ * single mark. Keyed off the same measured width `useResponsiveMarks` uses, so
+ * the two thin consistently as the slider resizes.
+ *
+ * A cluster's click target is its EARLIEST date: jumping to the first change in
+ * a busy stretch lets the user step forward through the rest, whereas landing in
+ * the middle silently skips some.
+ */
+function useMilestoneClusters(
+  milestones: TimelineMilestone[],
+  range: { min: number; max: number },
+  containerRef: React.RefObject<HTMLDivElement | null>,
+) {
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => setWidth(el.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [containerRef]);
+
+  return useMemo(() => {
+    const span = range.max - range.min;
+    if (!milestones.length || span <= 0) return [];
+    const inRange = milestones.filter((m) => m.value >= range.min && m.value <= range.max);
+    // Before the first measurement, fall back to a nominal width so the marks
+    // render rather than vanishing on the first paint.
+    const px = width || 400;
+
+    const clusters: TimelineMilestone[] = [];
+    for (const m of inRange) {
+      const last = clusters[clusters.length - 1];
+      const gap = last ? ((m.value - last.value) / span) * px : Infinity;
+      if (last && gap < MIN_MILESTONE_SPACING_PX) {
+        last.appearing += m.appearing;
+        last.disappearing += m.disappearing;
+      } else {
+        clusters.push({ ...m });
+      }
+    }
+    return clusters;
+  }, [milestones, range, width]);
+}
+
 export default function TimelineSlider({
   value,
   onChange,
   dateRange,
   yearMarks,
   todayMs: todayProp,
+  milestones,
 }: TimelineSliderProps) {
   const { t } = useTranslation("common");
   const theme = useTheme();
@@ -94,6 +154,7 @@ export default function TimelineSlider({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const responsiveMarks = useResponsiveMarks(cappedMarks, containerRef);
+  const milestoneClusters = useMilestoneClusters(milestones ?? [], cappedRange, containerRef);
 
   const isAway = Math.abs(value - todayMs) > ONE_DAY_MS;
   const isPast = value < todayMs - ONE_DAY_MS;
@@ -104,7 +165,7 @@ export default function TimelineSlider({
   const RESET_COLOR = TIMELINE_COLORS.reset;
 
   return (
-    <Box sx={{ width: "100%", maxWidth: 560, pt: 0.5, pb: 2 }}>
+    <Box sx={{ width: "100%", maxWidth: 560, pt: 0.5, pb: milestoneClusters.length ? 5 : 2 }}>
       {/* Label row */}
       <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.5 }}>
         <MaterialSymbol icon="electric_bolt" size={16} color={accent} />
@@ -222,6 +283,66 @@ export default function TimelineSlider({
             },
           }}
         />
+
+        {/* Transition marks: where cards enter or leave the landscape. Sits
+            below the year labels (which MUI puts at top: 30) and shares the
+            track's coordinate space, so a mark lines up with the thumb that
+            lands on it. */}
+        {milestoneClusters.length > 0 && (
+          <Box sx={{ position: "relative", height: 18, mt: 2.5 }}>
+            {milestoneClusters.map((m) => {
+              const pct = ((m.value - cappedRange.min) / (cappedRange.max - cappedRange.min)) * 100;
+              const parts: string[] = [];
+              if (m.appearing)
+                parts.push(t("timelineSlider.milestoneAppearing", { count: m.appearing }));
+              if (m.disappearing)
+                parts.push(t("timelineSlider.milestoneDisappearing", { count: m.disappearing }));
+              const summary = `${fmtFull(m.value)} — ${parts.join(" · ")}`;
+              return (
+                <Tooltip key={m.value} title={summary} arrow>
+                  <ButtonBase
+                    aria-label={`${summary}. ${t("timelineSlider.milestoneJump")}`}
+                    onClick={() => onChange(m.value)}
+                    sx={{
+                      position: "absolute",
+                      left: `${pct}%`,
+                      top: 0,
+                      transform: "translateX(-50%)",
+                      // Generous hit area around a deliberately small mark.
+                      px: 0.75,
+                      py: 0.5,
+                      borderRadius: 1,
+                      display: "flex",
+                      gap: "1px",
+                      "&:hover": { bgcolor: "action.hover" },
+                    }}
+                  >
+                    {m.appearing > 0 && (
+                      <Box
+                        sx={{
+                          width: 3,
+                          height: 10,
+                          borderRadius: "1px",
+                          bgcolor: TIMELINE_COLORS.future,
+                        }}
+                      />
+                    )}
+                    {m.disappearing > 0 && (
+                      <Box
+                        sx={{
+                          width: 3,
+                          height: 10,
+                          borderRadius: "1px",
+                          bgcolor: STATUS_COLORS.error,
+                        }}
+                      />
+                    )}
+                  </ButtonBase>
+                </Tooltip>
+              );
+            })}
+          </Box>
+        )}
       </Box>
     </Box>
   );

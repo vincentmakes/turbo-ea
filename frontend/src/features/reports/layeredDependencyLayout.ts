@@ -73,9 +73,12 @@ export function resolveRevealIds(
 
 /**
  * Drop nodes whose lifecycle phase is `endOfLife`, then drop any edge that lost
- * an endpoint. The centered card (`centerId`) and any proposed/NEW card are
- * always kept, so an end-of-life card can still be inspected when it is the
- * focus of the view.
+ * an endpoint. Three kinds of node are always kept, because each is something
+ * the consumer put on the diagram on purpose and a generic filter has no
+ * business second-guessing: the centered card (`centerId`), a proposed/NEW card,
+ * and a card the consumer marked `changeState: "retiring"` — which is
+ * end-of-life at the viewed date *by definition*, and is precisely what a
+ * time-travelled view is trying to show.
  *
  * `asOfMs` evaluates the phase at a time-travelled date instead of today. It is
  * not optional for a consumer that time-travels: judging "end of life" against
@@ -88,7 +91,11 @@ export function filterEndOfLifeNodes(
   asOfMs?: number,
 ): { nodes: GNode[]; edges: GEdge[] } {
   const visible = nodes.filter(
-    (n) => n.id === centerId || n.proposed || getCurrentPhase(n.lifecycle, asOfMs) !== "endOfLife",
+    (n) =>
+      n.id === centerId ||
+      n.proposed ||
+      n.changeState === "retiring" ||
+      getCurrentPhase(n.lifecycle, asOfMs) !== "endOfLife",
   );
   const ids = new Set(visible.map((n) => n.id));
   return {

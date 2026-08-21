@@ -174,6 +174,8 @@
   "dependency.hasHiddenChildren": "存在未显示的子级——请使用「显示子级」",
   "dependency.showEndOfLife": "显示生命周期终止的卡片",
   "dependency.showEndOfLifeHint": "包含在时间轴所选日期已达到生命周期终止的相关卡片。当前聚焦的卡片始终显示。",
+  "dependency.showRetiring": "显示即将退役的卡片",
+  "dependency.showRetiringHint": "将今天到所选日期之间退役的卡片以淡化并带标记的方式保留在图上，以便看清此次转型移除了什么。关闭后仅显示保留下来的部分。",
   "dependency.showRelationValues": "显示关系值",
   "dependency.showRelationValuesHint": "当某个关系带有限定值（例如支持类型「主导」）时，将其显示在标签旁边，如支持 [主导]。没有值的关系保持不变。",
   "dependency.hierarchyContains": "包含",

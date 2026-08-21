@@ -174,6 +174,8 @@
   "dependency.hasHiddenChildren": "A des enfants non affichés — utilisez Afficher les enfants",
   "dependency.showEndOfLife": "Afficher les fiches en fin de vie",
   "dependency.showEndOfLifeHint": "Inclure les fiches liées arrivées en fin de vie à la date choisie sur la frise chronologique. La fiche centrée est toujours affichée.",
+  "dependency.showRetiring": "Afficher les fiches retirées",
+  "dependency.showRetiringHint": "Conserver sur le diagramme, estompées et marquées, les fiches retirées entre aujourd'hui et la date sélectionnée, afin de voir ce que la transformation supprime. Désactivez pour n'afficher que ce qui subsiste.",
   "dependency.showRelationValues": "Afficher les valeurs de relation",
   "dependency.showRelationValuesHint": "Lorsqu'une relation porte une valeur qualifiante (par ex. Type de support «Principal»), elle s'affiche à côté du libellé, comme prend en charge [Principal]. Les relations sans valeur restent inchangées.",
   "dependency.hierarchyContains": "contient",

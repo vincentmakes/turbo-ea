@@ -82,7 +82,7 @@ The **Dependencies Report** visualizes **connections between components** as a n
 - **Type filtering** — Show only specific card types and relation types
 - **Interactive exploration** — Click any node to recenter the graph on that card
 - **Impact analysis** — Understand the blast radius of changes to a specific component
-- **Time travel** — Drag the timeline slider to see the landscape as it stands on any date. Cards that have not started yet are hidden, and cards retired by that date drop out along with their relations. Looking into the future, cards that **arrive** in the meantime are outlined and badged *PLANNED*, and cards that **retire** are badged *RETIRING* — so a planned transformation reads directly off the diagram instead of having to be inferred by dragging back and forth. Turn on **Show end-of-life cards** to keep retired cards on the canvas. The slider applies to every view, and the date is saved with the report.
+- **Time travel** — Drag the timeline slider to see the landscape as it stands on any date. Cards that have not started yet are hidden. Looking into the future, cards that **arrive** in the meantime are outlined and badged *PLANNED*, while cards that **retire** stay on the diagram faded and badged *RETIRING* — so a planned transformation shows what it removes as well as what it leaves, read directly off the diagram instead of inferred by dragging back and forth. The **Show retiring cards** switch beside the slider turns the departing cards off to leave only the end state. The timeline is marked with every date on which cards enter or leave the landscape; click a mark to jump the slider straight to that change. The slider applies to every view, and the date is saved with the report.
 
 ### Layered Dependency View
 

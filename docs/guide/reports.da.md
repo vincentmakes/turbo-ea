@@ -82,7 +82,7 @@ Komponenter vises som vandrette bjælker, der spænder over deres livscyklus-fas
 - **Type-filtrering** — Vis kun specifikke korttyper og relations­typer
 - **Interaktiv udforskning** — Klik på en node for at centrere grafen om det kort
 - **Impact-analyse** — Forstå sprængradius af ændringer på en specifik komponent
-- **Tidsrejse** — Træk i tidslinje-skyderen for at se landskabet, som det ser ud på en vilkårlig dato. Kort, der endnu ikke er startet, skjules, og kort, der er udfaset på den dato, forsvinder sammen med deres relationer. Når du kigger fremad, får kort, der **kommer til** i mellemtiden, en stiplet ramme og mærket *PLANLAGT*, og kort, der **udfases**, får mærket *UDFASES* — så en planlagt transformation kan læses direkte af diagrammet. Slå **Vis kort ved slutningen af deres levetid** til for at beholde udfasede kort på lærredet. Skyderen gælder alle visninger, og datoen gemmes sammen med rapporten.
+- **Tidsrejse** — Træk i tidslinje-skyderen for at se landskabet, som det ser ud på en vilkårlig dato. Kort, der endnu ikke er startet, skjules. Når du kigger fremad, får kort, der **kommer til** i mellemtiden, en stiplet ramme og mærket *PLANLAGT*, mens kort, der **udfases**, bliver på diagrammet, nedtonede og mærket *UDFASES* — så en planlagt transformation viser både, hvad den fjerner, og hvad den efterlader. Kontakten **Vis kort, der udfases** ved siden af skyderen slår dem fra, så kun sluttilstanden vises. Tidslinjen er markeret ved hver dato, hvor kort kommer til eller forsvinder; klik på en markering for at flytte skyderen direkte til den ændring. Skyderen gælder alle visninger, og datoen gemmes sammen med rapporten.
 
 ### Lagdelt afhængighedsvisning
 

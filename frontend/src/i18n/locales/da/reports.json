@@ -174,6 +174,8 @@
   "dependency.hasHiddenChildren": "Har underordnede, der ikke vises — brug Vis underordnede",
   "dependency.showEndOfLife": "Vis kort ved slutningen af deres levetid",
   "dependency.showEndOfLifeHint": "Medtag relaterede kort, der har nået slutningen af deres levetid på den dato, der er valgt på tidslinjen. Det kort, du er centreret på, vises altid.",
+  "dependency.showRetiring": "Vis kort, der udfases",
+  "dependency.showRetiringHint": "Behold kort, der udfases mellem i dag og den valgte dato, på diagrammet — nedtonede og mærkede — så du kan se, hvad transformationen fjerner. Slå fra for kun at vise det, der bliver tilbage.",
   "dependency.showRelationValues": "Vis relationsværdier",
   "dependency.showRelationValuesHint": "Når en relation har en kvalificerende værdi (f.eks. Supporttype «Førende»), vises den ved siden af etiketten, som understøtter [Førende]. Relationer uden værdi er uændrede.",
   "dependency.hierarchyContains": "indeholder",

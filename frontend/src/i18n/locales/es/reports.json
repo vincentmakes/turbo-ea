@@ -174,6 +174,8 @@
   "dependency.hasHiddenChildren": "Tiene hijos no mostrados — use Mostrar hijos",
   "dependency.showEndOfLife": "Mostrar tarjetas al final de su vida útil",
   "dependency.showEndOfLifeHint": "Incluir las tarjetas relacionadas que hayan llegado al final de su vida útil en la fecha elegida en la línea de tiempo. La tarjeta centrada siempre se muestra.",
+  "dependency.showRetiring": "Mostrar tarjetas que se retiran",
+  "dependency.showRetiringHint": "Mantener en el diagrama, atenuadas y etiquetadas, las fichas que se retiran entre hoy y la fecha seleccionada, para ver qué elimina la transformación. Desactive para mostrar solo lo que permanece.",
   "dependency.showRelationValues": "Mostrar valores de relación",
   "dependency.showRelationValuesHint": "Cuando una relación tiene un valor que la cualifica (p. ej. Tipo de soporte «Principal»), se muestra junto a la etiqueta, como admite [Principal]. Las relaciones sin valor no cambian.",
   "dependency.hierarchyContains": "contiene",

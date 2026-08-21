@@ -493,6 +493,25 @@ describe("filterEndOfLifeNodes", () => {
     expect(filterEndOfLifeNodes(nodes, [], undefined, Date.now()).nodes).toHaveLength(1);
   });
 
+  it("keeps a node the consumer marked as retiring in the window it is showing", () => {
+    // A card retiring inside a time-travel window IS end-of-life at the viewed
+    // date — dropping it would delete exactly what the view exists to show.
+    const nodes: GNode[] = [
+      {
+        id: "going",
+        name: "On its way out",
+        type: "Application",
+        lifecycle: { active: "2000-01-01", endOfLife: PAST },
+        changeState: "retiring",
+      },
+    ];
+    expect(filterEndOfLifeNodes(nodes, []).nodes.map((n) => n.id)).toEqual(["going"]);
+    const beyond = new Date(PAST).getTime() + 86_400_000;
+    expect(filterEndOfLifeNodes(nodes, [], undefined, beyond).nodes.map((n) => n.id)).toEqual([
+      "going",
+    ]);
+  });
+
   it("keeps a node that is end-of-life today but was alive at a past date", () => {
     const nodes: GNode[] = [
       { id: "gone", name: "Retired", type: "Application", lifecycle: { active: "2000-01-01", endOfLife: PAST } },

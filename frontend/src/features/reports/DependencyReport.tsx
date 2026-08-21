@@ -14,6 +14,8 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Autocomplete from "@mui/material/Autocomplete";
 import Tooltip from "@mui/material/Tooltip";
+import Switch from "@mui/material/Switch";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import InputAdornment from "@mui/material/InputAdornment";
 import IconButton from "@mui/material/IconButton";
 import Badge from "@mui/material/Badge";
@@ -31,9 +33,12 @@ import { useSavedReport } from "@/hooks/useSavedReport";
 import { useTimeline } from "@/hooks/useTimeline";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import TimelineSlider from "@/components/TimelineSlider";
-import { useLdvSettings } from "./ldvDisplaySettings";
-import { hasStartedByDate, isRetiredByDate } from "./portfolioHelpers";
-import { classifyTimelineChange, computeTimelineRange } from "./timelineRange";
+import {
+  classifyTimelineChange,
+  computeTimelineMilestones,
+  computeTimelineRange,
+  isVisibleAtDate,
+} from "./timelineRange";
 import type { TimelineChange } from "./timelineRange";
 import type { GNode, GEdge } from "./layeredDependencyLayout";
 import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
@@ -399,11 +404,12 @@ export default function DependencyReport() {
   // filter (which re-runs the LDV's dagre layout) keys off a settled value —
   // dragging fires onChange on every pixel.
   const [timelineFilterDate] = useDebouncedValue(timeline.timelineDate, 150);
-  // Read-only here: the toggle lives in the LDV's Card-display menu, but the
-  // report owns the filtering for all four views, so it needs the same value.
-  const [settings] = useLdvSettings();
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [cardTypeKey, setCardTypeKey] = useState("");
+  // Keep cards that retire inside the time-travel window on the canvas, ghosted
+  // and badged. On by default: seeing what a transformation removes is half the
+  // point of looking forward.
+  const [showRetiring, setShowRetiring] = useState(true);
   const [center, setCenter] = useState("");
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
   const [rawNodes, setRawNodes] = useState<GNode[]>([]);
@@ -480,6 +486,7 @@ export default function DependencyReport() {
       if (cfg.center) setCenter(cfg.center as string);
       if (cfg.view) setView(cfg.view as "chart" | "table");
       if (cfg.chartMode) setChartMode(cfg.chartMode as "tree" | "c4");
+      if (cfg.showRetiring != null) setShowRetiring(cfg.showRetiring as boolean);
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -489,12 +496,13 @@ export default function DependencyReport() {
     view,
     chartMode,
     timelineDate: timeline.persistValue,
+    showRetiring,
   });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [cardTypeKey, center, view, chartMode, timeline.timelineDate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardTypeKey, center, view, chartMode, timeline.timelineDate, showRetiring]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -505,6 +513,7 @@ export default function DependencyReport() {
     setChartMode("c4");
     setPickerSearch("");
     setPickerTypeFilter(null);
+    setShowRetiring(true);
     timeline.reset();
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -541,32 +550,43 @@ export default function DependencyReport() {
     [rawNodes, timeline.todayMs],
   );
 
+  // Transition marks describe the WHOLE graph, not the current LDV
+  // neighbourhood — otherwise they would churn on every re-centre.
+  const milestones = useMemo(
+    () => computeTimelineMilestones(rawNodes.map((n) => n.lifecycle)),
+    [rawNodes],
+  );
+
   // The landscape as it stands on the selected date. Every downstream consumer
   // (adjacency, LDV BFS, tree layout, centre picker, table) reads `nodes` /
-  // `edges`, so filtering once here covers all of them.
-  //
-  // A card is shown when it has started by the date and has not retired by it —
-  // the same rule the Portfolio and Capability Map reports apply. "Show
-  // end-of-life cards" is the escape hatch for the retired half, and the centred
-  // card is always kept so travelling past its retirement doesn't strip the
-  // view's anchor (and with it the back/forward history).
+  // `edges`, so filtering once here covers all of them. `isVisibleAtDate` owns
+  // the rule; the centred card is additionally always kept, so travelling past
+  // its retirement doesn't strip the view's anchor (and with it the
+  // back/forward history).
   const { nodes, edges } = useMemo(() => {
     const at = timelineFilterDate;
-    const visible = rawNodes.filter(
-      (n) =>
-        n.id === center ||
-        (hasStartedByDate(n.lifecycle, at) &&
-          (settings.showEndOfLife || !isRetiredByDate(n.lifecycle, at))),
-    );
-    const ids = new Set(visible.map((n) => n.id));
-    return {
-      nodes: visible.map((n) => ({
+    const visibility = { showRetiring };
+    const visible = rawNodes
+      .map((n) => ({
         ...n,
         changeState: classifyTimelineChange(n.lifecycle, timeline.todayMs, at) ?? undefined,
-      })),
+      }))
+      .filter(
+        (n) => n.id === center || isVisibleAtDate(n.lifecycle, timeline.todayMs, at, visibility),
+      );
+    const ids = new Set(visible.map((n) => n.id));
+    return {
+      nodes: visible,
       edges: rawEdges.filter((e) => ids.has(e.source) && ids.has(e.target)),
     };
-  }, [rawNodes, rawEdges, timelineFilterDate, timeline.todayMs, center, settings.showEndOfLife]);
+  }, [
+    rawNodes,
+    rawEdges,
+    timelineFilterDate,
+    timeline.todayMs,
+    center,
+    showRetiring,
+  ]);
 
   // Adjacency map
   const adjMap = useMemo(() => {
@@ -917,14 +937,36 @@ export default function DependencyReport() {
 
           {/* Time travel — full-width row (the toolbar Box wraps) */}
           {hasLifecycleData && (
-            <Box sx={{ width: "100%" }}>
+            <Box
+              sx={{ width: "100%", display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}
+            >
               <TimelineSlider
                 value={timeline.timelineDate}
                 onChange={timeline.setTimelineDate}
                 dateRange={dateRange}
                 yearMarks={yearMarks}
                 todayMs={timeline.todayMs}
+                milestones={milestones}
               />
+              {/* Only meaningful looking forward — nothing retires in the past. */}
+              {timeline.timelineDate > timeline.todayMs && (
+                <Tooltip title={t("dependency.showRetiringHint")} arrow>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        size="small"
+                        checked={showRetiring}
+                        onChange={(e) => setShowRetiring(e.target.checked)}
+                      />
+                    }
+                    label={
+                      <Typography variant="caption" color="text.secondary">
+                        {t("dependency.showRetiring")}
+                      </Typography>
+                    }
+                  />
+                </Tooltip>
+              )}
             </Box>
           )}
         </>
