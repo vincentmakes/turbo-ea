@@ -143,16 +143,20 @@ describe("availableFiscalYears", () => {
 });
 
 describe("fiscalYearOptions", () => {
-  it("lists years chronologically, not with the current year pinned first", () => {
-    // The picker used to render the current year first and the rest ascending,
-    // so the list jumped backwards after its first entry.
+  it("lists years newest first", () => {
     expect(fiscalYearOptions([2024, 2025, 2026, 2027], 2026)).toEqual([
-      2024, 2025, 2026, 2027,
+      2027, 2026, 2025, 2024,
     ]);
   });
 
+  it("keeps the current year in its chronological slot, not pinned to the top", () => {
+    // The picker used to render the current year first and the rest in order,
+    // so the list broke sequence after its first entry.
+    expect(fiscalYearOptions([2024, 2025, 2026, 2027], 2025)[0]).toBe(2027);
+  });
+
   it("includes the current year even when it carries no data", () => {
-    expect(fiscalYearOptions([2024, 2027], 2026)).toEqual([2024, 2026, 2027]);
+    expect(fiscalYearOptions([2024, 2027], 2026)).toEqual([2027, 2026, 2024]);
   });
 
   it("does not duplicate the current year", () => {
@@ -161,7 +165,7 @@ describe("fiscalYearOptions", () => {
 
   it("sorts numerically rather than lexicographically", () => {
     expect(fiscalYearOptions([2030, 2009, 2100], 2026)).toEqual([
-      2009, 2026, 2030, 2100,
+      2100, 2030, 2026, 2009,
     ]);
   });
 

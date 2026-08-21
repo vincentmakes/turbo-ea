@@ -139,15 +139,14 @@ export function availableFiscalYears(
 }
 
 /**
- * The fiscal years the picker offers, ascending.
+ * The fiscal years the picker offers, newest first.
  *
- * The current year is always included even when it carries no data — it is the
- * default selection — and every year sits in its natural chronological slot.
- * Pinning the current year to the top instead made the list jump backwards
- * after its first entry.
+ * Descending because the recent years are the ones anyone opens the picker
+ * for; the current year is always included even when it carries no data, since
+ * it is the default selection.
  */
 export function fiscalYearOptions(years: number[], currentFy: number): number[] {
-  return [...new Set([...years, currentFy])].sort((a, b) => a - b);
+  return [...new Set([...years, currentFy])].sort((a, b) => b - a);
 }
 
 /**

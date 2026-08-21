@@ -104,8 +104,7 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
     [costLines, budgetLines, fyStart],
   );
 
-  // Chronological, with the current year in its natural slot rather than
-  // pinned to the top.
+  // Newest first, with the current year in its natural slot.
   const yearOptions = useMemo(
     () => fiscalYearOptions(years, currentFy),
     [years, currentFy],
@@ -178,6 +177,7 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
               }}
               inputProps={{ "aria-label": t("fiscalYear") }}
             >
+              <MenuItem value="all">{t("allFiscalYears")}</MenuItem>
               {yearOptions.map((y) => (
                 // The current year carries the "current" sentinel, so the saved
                 // preference keeps following today as years roll over.
@@ -185,7 +185,6 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
                   {yearLabel(y)}
                 </MenuItem>
               ))}
-              <MenuItem value="all">{t("allFiscalYears")}</MenuItem>
             </Select>
           </FormControl>
         )}
