@@ -12,6 +12,8 @@ import IconButton from "@mui/material/IconButton";
 import Chip from "@mui/material/Chip";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
+import TextField from "@mui/material/TextField";
+import MenuItem from "@mui/material/MenuItem";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Tooltip from "@mui/material/Tooltip";
@@ -23,15 +25,30 @@ import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { formatRecurrence } from "@/lib/recurrence/recurrenceLabel";
-import type { RecurrenceUnit, Todo, MySurveyItem } from "@/types";
+import { brand, STATUS_COLORS } from "@/theme/tokens";
+import type { RecurrenceUnit, Todo, TodoOrigin, MySurveyItem } from "@/types";
+import { ORIGIN_META, ORIGIN_ORDER, originOf } from "./originMeta";
+import { applyTodoView, countByOrigin, type TodoSort } from "./todosFiltering";
 
-function compareByDueDateAsc(a: Todo, b: Todo): number {
-  // Sort by due date ascending so the most urgent items (overdue first,
-  // then nearest due) land at the top. Rows without a due date go last.
-  if (!a.due_date && !b.due_date) return 0;
-  if (!a.due_date) return 1;
-  if (!b.due_date) return -1;
-  return a.due_date.localeCompare(b.due_date);
+const PREFS_KEY = "turboea.todos.prefs";
+const SORT_VALUES: readonly TodoSort[] = ["dueDate", "created", "origin"];
+
+function loadSortPref(): TodoSort {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY);
+    const sort = raw ? (JSON.parse(raw) as { sort?: string }).sort : undefined;
+    return SORT_VALUES.includes(sort as TodoSort) ? (sort as TodoSort) : "dueDate";
+  } catch {
+    return "dueDate";
+  }
+}
+
+function saveSortPref(sort: TodoSort) {
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ sort }));
+  } catch {
+    // Storage unavailable (private mode) — the preference just won't stick.
+  }
 }
 
 function isOverdue(todo: Todo): boolean {
@@ -57,6 +74,11 @@ function TodosPanel() {
   const [tab, setTab] = useState(0);
   const [assignedStatus, setAssignedStatus] = useState<StatusFilter>("open");
   const [createdStatus, setCreatedStatus] = useState<StatusFilter>("open");
+  // View controls, applied client-side over the fetched list. Origin
+  // selection and search are per-visit intent; only the sort persists.
+  const [origins, setOrigins] = useState<ReadonlySet<TodoOrigin>>(new Set());
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<TodoSort>(loadSortPref);
 
   const currentStatus = tab === 0 ? assignedStatus : createdStatus;
   const setCurrentStatus = tab === 0 ? setAssignedStatus : setCreatedStatus;
@@ -78,8 +100,26 @@ function TodosPanel() {
     [tab, currentStatus],
   );
 
-  const sortedTodos = useMemo(() => [...todos].sort(compareByDueDateAsc), [todos]);
+  const originCounts = useMemo(() => countByOrigin(todos), [todos]);
+  const visibleTodos = useMemo(
+    () => applyTodoView(todos, { origins, search, sort }),
+    [todos, origins, search, sort],
+  );
   const showAssignee = tab === 1;
+
+  const toggleOrigin = (origin: TodoOrigin) => {
+    setOrigins((prev) => {
+      const next = new Set(prev);
+      if (next.has(origin)) next.delete(origin);
+      else next.add(origin);
+      return next;
+    });
+  };
+
+  const changeSort = (value: TodoSort) => {
+    setSort(value);
+    saveSortPref(value);
+  };
 
   const toggleStatus = async (todo: Todo) => {
     // A scheduled (dormant) recurring occurrence isn't completable yet —
@@ -113,7 +153,51 @@ function TodosPanel() {
         <Tab label={t("todos.tabs.createdByMe")} />
       </Tabs>
 
-      <Box sx={{ mb: 2 }}>
+      {/* Quick origin filter — chips with per-origin counts over the loaded
+          (tab/status-scoped) list. Multi-select; empty selection = all. */}
+      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 1.5, alignItems: "center" }}>
+        <Chip
+          size="small"
+          label={`${t("todos.origin.all")} · ${todos.length}`}
+          variant={origins.size === 0 ? "filled" : "outlined"}
+          color={origins.size === 0 ? "primary" : "default"}
+          onClick={() => setOrigins(new Set())}
+        />
+        {ORIGIN_ORDER.map((origin) => {
+          const count = originCounts[origin] ?? 0;
+          // Hide empty origins, but never an active selection (the user
+          // needs the chip to be able to unselect it).
+          if (count === 0 && !origins.has(origin)) return null;
+          const meta = ORIGIN_META[origin];
+          const selected = origins.has(origin);
+          return (
+            <Chip
+              key={origin}
+              size="small"
+              icon={<MaterialSymbol icon={meta.icon} size={14} />}
+              label={`${t(meta.labelKey)} · ${count}`}
+              variant={selected ? "filled" : "outlined"}
+              onClick={() => toggleOrigin(origin)}
+              sx={
+                selected
+                  ? {
+                      bgcolor: meta.color,
+                      color: "#fff",
+                      "&:hover": { bgcolor: meta.color },
+                      "& .MuiChip-icon": { color: "#fff" },
+                    }
+                  : {
+                      color: meta.color,
+                      borderColor: meta.color,
+                      "& .MuiChip-icon": { color: meta.color },
+                    }
+              }
+            />
+          );
+        })}
+      </Box>
+
+      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, mb: 2, alignItems: "center" }}>
         <ToggleButtonGroup
           size="small"
           exclusive
@@ -125,11 +209,52 @@ function TodosPanel() {
           <ToggleButton value="done">{t("todos.tabs.done")}</ToggleButton>
           <ToggleButton value="all">{t("todos.tabs.all")}</ToggleButton>
         </ToggleButtonGroup>
+        <TextField
+          select
+          size="small"
+          value={sort}
+          onChange={(e) => changeSort(e.target.value as TodoSort)}
+          label={t("todos.sort.label")}
+          sx={{ minWidth: 150 }}
+        >
+          <MenuItem value="dueDate">{t("todos.sort.dueDate")}</MenuItem>
+          <MenuItem value="created">{t("todos.sort.created")}</MenuItem>
+          <MenuItem value="origin">{t("todos.sort.origin")}</MenuItem>
+        </TextField>
+        {/* The list is already in memory, so search filters on the raw
+            input — no debounce (house search-box rule). */}
+        <TextField
+          size="small"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={t("todos.searchPlaceholder")}
+          sx={{ flex: 1, minWidth: 180 }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <Box component="span" sx={{ mr: 0.75, display: "inline-flex" }}>
+                  <MaterialSymbol icon="search" size={18} />
+                </Box>
+              ),
+            },
+          }}
+        />
       </Box>
 
       <List>
-        {sortedTodos.map((todo) => (
-          <Card key={todo.id} sx={{ mb: 1 }}>
+        {visibleTodos.map((todo) => {
+          const origin = originOf(todo);
+          const originMeta = ORIGIN_META[origin];
+          return (
+          <Card
+            key={todo.id}
+            sx={{
+              mb: 1,
+              // Origin accent for at-a-glance scanning of mixed lists.
+              borderLeft: 3,
+              borderLeftColor: originMeta.color,
+            }}
+          >
             <ListItem>
               {todo.is_system ? (
                 <Tooltip title={todo.link ? t("todos.goToDocument") : ""}>
@@ -141,7 +266,7 @@ function TodosPanel() {
                     <MaterialSymbol
                       icon={todo.status === "done" ? "check_circle" : "open_in_new"}
                       size={22}
-                      color={todo.status === "done" ? "#4caf50" : "#1976d2"}
+                      color={todo.status === "done" ? STATUS_COLORS.success : brand.primary}
                     />
                   </IconButton>
                 </Tooltip>
@@ -161,7 +286,7 @@ function TodosPanel() {
                           : "radio_button_unchecked"
                     }
                     size={22}
-                    color={todo.status === "done" ? "#4caf50" : "#999"}
+                    color={todo.status === "done" ? STATUS_COLORS.success : STATUS_COLORS.neutral}
                   />
                 </IconButton>
               )}
@@ -191,13 +316,19 @@ function TodosPanel() {
                         sx={{ height: 20, fontSize: "0.7rem", fontWeight: 600 }}
                       />
                     )}
-                    {todo.is_system && (
+                    {origin !== "manual" && (
                       <Chip
                         size="small"
-                        label={t("todos.actionRequired")}
-                        color="warning"
                         variant="outlined"
-                        sx={{ height: 20, fontSize: "0.7rem" }}
+                        icon={<MaterialSymbol icon={originMeta.icon} size={14} />}
+                        label={t(originMeta.labelKey)}
+                        sx={{
+                          height: 20,
+                          fontSize: "0.7rem",
+                          color: originMeta.color,
+                          borderColor: originMeta.color,
+                          "& .MuiChip-icon": { color: originMeta.color },
+                        }}
                       />
                     )}
                     {todo.card_name && (
@@ -208,7 +339,7 @@ function TodosPanel() {
                         sx={{ cursor: "pointer" }}
                       />
                     )}
-                    {showAssignee && (
+                    {showAssignee ? (
                       <Chip
                         size="small"
                         variant="outlined"
@@ -220,6 +351,17 @@ function TodosPanel() {
                         }
                         sx={{ height: 20, fontSize: "0.7rem" }}
                       />
+                    ) : (
+                      // Assigned-to-me tab: show who assigned it instead.
+                      todo.creator_name && (
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          icon={<MaterialSymbol icon="person" size={14} />}
+                          label={t("todos.assignedBy", { name: todo.creator_name })}
+                          sx={{ height: 20, fontSize: "0.7rem" }}
+                        />
+                      )
                     )}
                     {todo.external_url && (
                       <Tooltip
@@ -275,11 +417,18 @@ function TodosPanel() {
               />
             </ListItem>
           </Card>
-        ))}
-        {todos.length === 0 && (
+          );
+        })}
+        {todos.length === 0 ? (
           <Typography color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
             {t("todos.empty")}
           </Typography>
+        ) : (
+          visibleTodos.length === 0 && (
+            <Typography color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
+              {t("todos.noMatches")}
+            </Typography>
+          )
         )}
       </List>
     </>

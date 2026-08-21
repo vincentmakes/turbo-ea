@@ -545,6 +545,10 @@ export interface Comment {
   replies: Comment[];
 }
 
+/** Computed provenance of a todo — which module produced it. Derived
+ *  server-side from existing columns (see derive_origin in todo_service). */
+export type TodoOrigin = "ppm" | "risk" | "adr" | "soaw" | "bpm" | "extension" | "manual";
+
 export interface Todo {
   id: string;
   card_id?: string;
@@ -557,6 +561,8 @@ export interface Todo {
   assigned_to?: string;
   assignee_name?: string;
   created_by?: string;
+  creator_name?: string;
+  origin?: TodoOrigin;
   due_date?: string;
   created_at?: string;
   // Recurrence (card todos). series_id groups occurrences of one

@@ -8,18 +8,34 @@ La pagina **Attività** centralizza tutti gli elementi di lavoro in sospeso in u
 
 I todo sono attività assegnate a voi o da voi create. Possono essere collegati a card specifiche o autonomi.
 
-### Filtri
+### Filtri, ricerca e ordinamento
 
-Utilizzate le schede di stato per filtrare:
+**Chip di origine** — Ogni todo porta un'origine: da dove proviene. Cliccate su un chip per mostrare solo i todo di quell'origine (cliccate su più chip per combinarli); ogni chip mostra un conteggio in tempo reale. Le origini sono:
+
+- **Attività di progetto** — Sincronizzata dalla board delle attività di un'iniziativa PPM
+- **Rischio** — Assegnazioni come responsabile del rischio e cicli ricorrenti di attività di mitigazione dal Registro dei rischi GRC
+- **ADR** / **SoAW** — Richieste di firma su decisioni di architettura e Statements of Architecture Work
+- **Approvazione processo** — Revisioni dei flussi di processo in attesa della vostra verifica (BPM)
+- **Estensione** — Replicata da un tracker esterno tramite un'estensione installata
+- **Manuale** — Creata a mano, su una card o autonoma
+
+Ogni riga porta inoltre un badge di origine e una striscia di accento codificati per colore, così le liste miste si leggono a colpo d'occhio.
+
+**Stato** — Utilizzate il selettore di stato per filtrare:
 
 - **Aperti** — Attività ancora in sospeso o in corso
 - **In arrivo** — Occorrenze future pianificate di todo ricorrenti non ancora in scadenza
 - **Completati** — Attività completate
 - **Tutti** — Tutto
 
+**Ordinamento** — Ordinate per data di scadenza (i più urgenti per primi), i più recenti per primi, o per origine. La vostra scelta viene ricordata.
+
+**Ricerca** — La casella di ricerca filtra istantaneamente il testo del todo, la card collegata e i nomi di chi ha assegnato e dell'assegnatario.
+
 ### Gestione dei todo
 
 - **Toggle rapido** — Cliccate sulla casella di controllo per segnare un todo come completato (o riaprirlo)
+- **Chi lo ha assegnato** — Nella scheda *Assegnati a me* ogni todo mostra un chip **Da:** con il nome della persona che lo ha assegnato; in *Creati da me* il chip indica invece l'assegnatario
 - **Link alla card** — Se un todo è collegato a una card, cliccate sul nome della card per navigare alla sua pagina di dettaglio
 - **Todo di sistema** — Alcuni todo sono generati automaticamente dal sistema (es. "Rispondi al sondaggio per Card X"). Questi includono un link diretto all'azione pertinente
 

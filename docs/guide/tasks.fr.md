@@ -8,18 +8,34 @@ La page **Tâches** centralise tous les éléments de travail en attente en un s
 
 Les tâches sont des éléments qui vous sont assignés ou que vous avez créés. Elles peuvent être liées à des fiches spécifiques ou être autonomes.
 
-### Filtrage
+### Filtrage, recherche et tri
 
-Utilisez les onglets de statut pour filtrer :
+**Puces d'origine** -- Chaque tâche porte une origine : d'où elle provient. Cliquez sur une puce pour n'afficher que les tâches de cette origine (cliquez sur plusieurs puces pour les combiner) ; chaque puce affiche un compteur en direct. Les origines sont :
+
+- **Tâche projet** -- Synchronisée depuis le tableau des tâches d'une initiative PPM
+- **Risque** -- Affectations en tant que responsable de risque et cycles récurrents de tâches d'atténuation du registre des risques GRC
+- **ADR** / **SoAW** -- Demandes de signature sur des décisions d'architecture et des Statements of Architecture Work
+- **Approbation de processus** -- Révisions de flux de processus en attente de votre relecture (BPM)
+- **Extension** -- Reflétée depuis un outil de suivi externe par une extension installée
+- **Manuelle** -- Créée à la main, sur une fiche ou de façon autonome
+
+Chaque ligne porte également un badge d'origine et une bande d'accent codés par couleur, de sorte que les listes mixtes se lisent d'un coup d'œil.
+
+**Statut** -- Utilisez le sélecteur de statut pour filtrer :
 
 - **Ouvert** -- Tâches encore en attente ou en cours
 - **À venir** -- Occurrences futures planifiées de tâches récurrentes pas encore dues
 - **Terminé** -- Tâches terminées
 - **Tout** -- Tout afficher
 
+**Tri** -- Triez par date d'échéance (les plus urgentes d'abord), les plus récentes d'abord, ou par origine. Votre choix est mémorisé.
+
+**Recherche** -- Le champ de recherche filtre instantanément sur le texte de la tâche, la fiche liée et les noms de l'assignateur et du responsable.
+
 ### Gestion des tâches
 
 - **Bascule rapide** -- Cliquez sur la case à cocher pour marquer une tâche comme terminée (ou la réouvrir)
+- **Qui l'a assignée** -- Sur l'onglet *Assignées à moi*, chaque tâche affiche une puce **De :** nommant la personne qui l'a assignée ; sur *Créées par moi*, la puce nomme à la place le responsable
 - **Lien vers la fiche** -- Si une tâche est liée à une fiche, cliquez sur le nom de la fiche pour naviguer vers sa page de détail
 - **Tâches système** -- Certaines tâches sont générées automatiquement par le système (par ex. « Répondre à l'enquête pour la fiche X »). Celles-ci incluent un lien direct vers l'action correspondante
 

@@ -196,6 +196,120 @@ class TestListAllTodos:
 
 
 # ---------------------------------------------------------------
+# origin + creator_name (computed fields on every todo payload)
+# ---------------------------------------------------------------
+
+
+class TestTodoOriginAndCreator:
+    async def test_manual_todo_carries_origin_and_creator_name(self, client, db, todos_env):
+        admin = todos_env["admin"]
+        card = todos_env["card"]
+        resp = await client.post(
+            f"/api/v1/cards/{card.id}/todos",
+            json={"description": "Manual task", "assigned_to": str(admin.id)},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["origin"] == "manual"
+        assert data["creator_name"] == admin.display_name
+
+        # Present on the list endpoints and preserved through PATCH.
+        listing = await client.get("/api/v1/todos", headers=auth_headers(admin))
+        row = next(t for t in listing.json() if t["id"] == data["id"])
+        assert row["origin"] == "manual"
+        assert row["creator_name"] == admin.display_name
+
+        card_listing = await client.get(
+            f"/api/v1/cards/{card.id}/todos", headers=auth_headers(admin)
+        )
+        row = next(t for t in card_listing.json() if t["id"] == data["id"])
+        assert row["origin"] == "manual"
+        assert row["creator_name"] == admin.display_name
+
+        patched = await client.patch(
+            f"/api/v1/todos/{data['id']}",
+            json={"status": "done"},
+            headers=auth_headers(admin),
+        )
+        assert patched.status_code == 200
+        assert patched.json()["origin"] == "manual"
+        assert patched.json()["creator_name"] == admin.display_name
+
+    async def test_system_todo_origins_derived_from_link(self, client, db, todos_env):
+        from app.models.todo import Todo
+
+        admin = todos_env["admin"]
+        # One row per producer link shape (see derive_origin in todo_service).
+        shapes = {
+            "ppm": f"/ppm/{uuid.uuid4()}?tab=tasks#task-{uuid.uuid4()}",
+            "risk-owner": f"/ea-delivery/risks/{uuid.uuid4()}",
+            "risk-occurrence": f"/ea-delivery/risks/{uuid.uuid4()}?task=x#occurrence-y",
+            "adr": f"/ea-delivery/adr/{uuid.uuid4()}",
+            "soaw": f"/ea-delivery/soaw/{uuid.uuid4()}",
+            "bpm": f"/cards/{uuid.uuid4()}?tab=process-flow&subtab=drafts",
+        }
+        expected = {
+            "ppm": "ppm",
+            "risk-owner": "risk",
+            "risk-occurrence": "risk",
+            "adr": "adr",
+            "soaw": "soaw",
+            "bpm": "bpm",
+        }
+        ids: dict[str, uuid.UUID] = {}
+        for key, link in shapes.items():
+            todo = Todo(
+                description=f"System todo {key}",
+                link=link,
+                is_system=True,
+                assigned_to=admin.id,
+                created_by=admin.id,
+            )
+            db.add(todo)
+            await db.flush()
+            ids[key] = todo.id
+        await db.commit()
+
+        listing = await client.get("/api/v1/todos", headers=auth_headers(admin))
+        by_id = {t["id"]: t for t in listing.json()}
+        for key, todo_id in ids.items():
+            assert by_id[str(todo_id)]["origin"] == expected[key], key
+            assert by_id[str(todo_id)]["creator_name"] == admin.display_name
+
+    async def test_extension_source_wins_and_manual_link_stays_manual(self, client, db, todos_env):
+        from app.models.todo import Todo
+
+        admin = todos_env["admin"]
+        bridge = Todo(
+            description="Mirrored from tracker",
+            link=f"/ea-delivery/adr/{uuid.uuid4()}",
+            is_system=True,
+            assigned_to=admin.id,
+            external_source="jira",
+            external_ref="PROJ-1",
+        )
+        # A non-system todo whose user-set link points at an ADR is still manual.
+        manual = Todo(
+            description="Look at that ADR",
+            link=f"/ea-delivery/adr/{uuid.uuid4()}",
+            is_system=False,
+            assigned_to=admin.id,
+            created_by=admin.id,
+        )
+        db.add(bridge)
+        db.add(manual)
+        await db.flush()
+        bridge_id, manual_id = bridge.id, manual.id
+        await db.commit()
+
+        listing = await client.get("/api/v1/todos", headers=auth_headers(admin))
+        by_id = {t["id"]: t for t in listing.json()}
+        assert by_id[str(bridge_id)]["origin"] == "extension"
+        assert by_id[str(manual_id)]["origin"] == "manual"
+
+
+# ---------------------------------------------------------------
 # PATCH /todos/{id}  (update)
 # ---------------------------------------------------------------
 
