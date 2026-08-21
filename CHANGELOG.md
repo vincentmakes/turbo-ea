@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.72.1] - 2026-08-21
+
+### Fixed
+
+- The app now recovers from a stale cached build on its own: on startup it compares its version with the backend and reloads once when a cache served an outdated page, and a page whose lazy-loaded chunks disappeared after a deploy reloads onto the new build instead of breaking — no more asking users to hard-refresh after an upgrade.
+
 ## [2.72.0] - 2026-08-20
 
 ### Added
