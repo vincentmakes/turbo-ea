@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type { PrintParam } from "@/features/reports/ReportShell";
 
 function isSameDay(a: number, b: number): boolean {
@@ -22,6 +23,7 @@ function isSameDay(a: number, b: number): boolean {
  * - Reset: snaps back to today
  */
 export function useTimeline() {
+  const { t } = useTranslation("common");
   const todayMs = useMemo(() => Date.now(), []);
   const [timelineDate, setTimelineDate] = useState(todayMs);
 
@@ -34,7 +36,7 @@ export function useTimeline() {
   /** PrintParam to include in report print header, or null. */
   const printParam: PrintParam | null = isTimeTraveling
     ? {
-        label: "Time travel",
+        label: t("timelineSlider.timeTravel"),
         value: new Date(timelineDate).toLocaleDateString("en-US", {
           year: "numeric",
           month: "short",

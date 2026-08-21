@@ -82,6 +82,7 @@ Komponenter vises som vandrette bjælker, der spænder over deres livscyklus-fas
 - **Type-filtrering** — Vis kun specifikke korttyper og relations­typer
 - **Interaktiv udforskning** — Klik på en node for at centrere grafen om det kort
 - **Impact-analyse** — Forstå sprængradius af ændringer på en specifik komponent
+- **Tidsrejse** — Træk i tidslinje-skyderen for at se landskabet, som det ser ud på en vilkårlig dato. Kort, der endnu ikke er startet, skjules, og kort, der er udfaset på den dato, forsvinder sammen med deres relationer. Når du kigger fremad, får kort, der **kommer til** i mellemtiden, en stiplet ramme og mærket *PLANLAGT*, og kort, der **udfases**, får mærket *UDFASES* — så en planlagt transformation kan læses direkte af diagrammet. Slå **Vis kort ved slutningen af deres levetid** til for at beholde udfasede kort på lærredet. Skyderen gælder alle visninger, og datoen gemmes sammen med rapporten.
 
 ### Lagdelt afhængighedsvisning
 
@@ -109,7 +110,7 @@ Skift til **lagdelt afhængighedsvisning** ved hjælp af view-mode-knapperne i v
 **Tilpasning af visningen** (fra værktøjslinjen)
 
 - **Kortvisningsmenu** — Slå **type**-etiketten og et **livscyklus-statuspunkt** til, slå **hierarki-markører** til (en lille vinkel på hvert kort, der har en forælder ovenover eller underordnede nedenunder, som ikke vises på diagrammet — et hint om at bruge Vis-værktøjerne), og vælg **ekstra attributfelter** til hvert kort — de to første vises på kortet, og hele sættet vises i værktøjstippet ved at holde musen over. Valgene huskes mellem besøg.
-- **Vis kort ved slutningen af deres levetid** — Relaterede kort, hvis livscyklus har nået slutningen af levetiden, skjules som standard for at holde grafen fokuseret; slå denne til/fra (i menuen **Kortvisning**) for at vise dem igen. Det kort, du er centreret om, vises altid, også hvis det selv er ved slutningen af sin levetid.
+- **Vis kort ved slutningen af deres levetid** — Relaterede kort, der har nået slutningen af levetiden **på den dato, der er valgt på tidslinjen**, skjules som standard for at holde grafen fokuseret; slå denne til/fra (i menuen **Kortvisning**) for at vise dem igen. Det kort, du er centreret om, vises altid, også hvis det selv er ved slutningen af sin levetid.
 - **Vis relationsværdier** — Mange relationer kan kvalificeres med en værdi (f.eks. understøtter en applikation en kapabilitet som *Førende*, *Understøttende* eller *Ingen understøttelse*). Når den er slået til (standard), vises disse værdier i kantede parenteser ved siden af relationsetiketten (*supports [Førende]*) og inkluderes i billedeksporter. Slå den fra i menuen **Kortvisning** for en renere visning; relationer uden værdi er uændrede uanset hvad.
 - **Omarrangér** — Træk et kort for at flytte det inden for dets lag, eller træk en hel **lag-boks** for at flytte den med alle dens kort. **Nulstil visning** (i venstre værktøjslinje) gendanner den automatiske placering og rydder al udforskning.
 - **Baggrund** — Skift lærredsbaggrunden mellem gitter, prikker og ingen.

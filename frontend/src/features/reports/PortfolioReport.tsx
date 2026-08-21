@@ -59,9 +59,7 @@ import {
   extractRelSubtypes,
   getAppColor,
   getAppColorLabel,
-  LIFECYCLE_PHASES,
   matchesFilters,
-  parseDate,
   pickSelectFields,
   relationMemberMatchesSubtypeFilters,
   relSubtypeComposite,
@@ -69,6 +67,7 @@ import {
   resolveColorBy,
   UNSET_COLOR,
 } from "./portfolioHelpers";
+import { computeTimelineRange } from "./timelineRange";
 import type {
   AppData,
   ColorLabels,
@@ -875,46 +874,10 @@ export default function PortfolioReport({
   }, [relSubtypes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Timeline range
-  const { dateRange, yearMarks, hasLifecycleData } = useMemo(() => {
-    const now = tl.todayMs;
-    const pad3y = 3 * 365.25 * 86400000;
-    const empty = {
-      dateRange: { min: now - pad3y, max: now + pad3y },
-      yearMarks: [] as { value: number; label: string }[],
-      hasLifecycleData: false,
-    };
-    if (!data) return empty;
-
-    let minD = Infinity;
-    let maxD = -Infinity;
-    let hasLC = false;
-    for (const app of data.items) {
-      const lc = app.lifecycle || {};
-      for (const p of LIFECYCLE_PHASES) {
-        const d = parseDate(lc[p]);
-        if (d != null) {
-          minD = Math.min(minD, d);
-          maxD = Math.max(maxD, d);
-          hasLC = true;
-        }
-      }
-    }
-
-    if (!hasLC) return empty;
-
-    const pad = 365.25 * 86400000;
-    minD -= pad;
-    maxD += pad;
-    const marks: { value: number; label: string }[] = [];
-    const sy = new Date(minD).getFullYear();
-    const ey = new Date(maxD).getFullYear();
-    for (let y = sy; y <= ey + 1; y++) {
-      const t = new Date(y, 0, 1).getTime();
-      if (t >= minD && t <= maxD) marks.push({ value: t, label: String(y) });
-    }
-
-    return { dateRange: { min: minD, max: maxD }, yearMarks: marks, hasLifecycleData: hasLC };
-  }, [data, tl.todayMs]);
+  const { dateRange, yearMarks, hasLifecycleData } = useMemo(
+    () => computeTimelineRange(data?.items.map((a) => a.lifecycle) ?? [], tl.todayMs),
+    [data, tl.todayMs],
+  );
 
   // Build filters state
   const filters = useMemo<FilterState>(

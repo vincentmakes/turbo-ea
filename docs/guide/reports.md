@@ -82,6 +82,7 @@ The **Dependencies Report** visualizes **connections between components** as a n
 - **Type filtering** — Show only specific card types and relation types
 - **Interactive exploration** — Click any node to recenter the graph on that card
 - **Impact analysis** — Understand the blast radius of changes to a specific component
+- **Time travel** — Drag the timeline slider to see the landscape as it stands on any date. Cards that have not started yet are hidden, and cards retired by that date drop out along with their relations. Looking into the future, cards that **arrive** in the meantime are outlined and badged *PLANNED*, and cards that **retire** are badged *RETIRING* — so a planned transformation reads directly off the diagram instead of having to be inferred by dragging back and forth. Turn on **Show end-of-life cards** to keep retired cards on the canvas. The slider applies to every view, and the date is saved with the report.
 
 ### Layered Dependency View
 
@@ -109,7 +110,7 @@ Toggle to the **Layered Dependency View** using the view-mode buttons in the too
 **Customising the view** (from the toolbar)
 
 - **Card display menu** — Toggle the **type** label and a **lifecycle-status dot**, turn on **hierarchy markers** (a small chevron on each card that has a parent above or children below not currently on the diagram — a hint to use the Reveal tools), and choose **extra attribute fields** to show on each card — the first two render on the card and the full set appears in the hover tooltip. Choices are remembered between visits.
-- **Show end-of-life cards** — Related cards whose lifecycle has reached End of Life are hidden by default to keep the graph focused; turn this toggle on (in the **Card display** menu) to bring them back. The card you are centered on is always shown, even if it is itself end-of-life.
+- **Show end-of-life cards** — Related cards that have reached End of Life **by the date shown on the timeline** are hidden by default to keep the graph focused; turn this toggle on (in the **Card display** menu) to bring them back. The card you are centered on is always shown, even if it is itself end-of-life.
 - **Show relationship values** — Many relations can be qualified with a value (e.g. an application *supports* a capability as *Leading*, *Supporting* or *No Support*). When on (the default), these values appear in brackets next to the relation label (*supports [Leading]*) and are included in image exports. Turn it off in the **Card display** menu for a cleaner view; relations without a value are unchanged either way.
 - **Rearrange** — Drag a card to move it within its layer, or drag a whole **layer box** to move it with all its cards. **Reset view** (in the left toolbar) restores the automatic arrangement and clears any exploration.
 - **Background** — Cycle the canvas background between grid, dots, and none.

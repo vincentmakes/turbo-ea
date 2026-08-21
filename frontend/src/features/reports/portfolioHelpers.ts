@@ -162,17 +162,36 @@ export function parseDate(s: string | undefined): number | null {
   return isNaN(d.getTime()) ? null : d.getTime();
 }
 
-export function isAppAliveAtDate(app: AppData, dateMs: number): boolean {
-  const lc = app.lifecycle;
-  if (!lc) return true;
-  const dates = LIFECYCLE_PHASES.map((p) => parseDate(lc[p])).filter(
+/** A bare lifecycle map (`plan`/`phaseIn`/`active`/`phaseOut`/`endOfLife` → ISO date). */
+export type Lifecycle = Record<string, string> | undefined;
+
+/**
+ * Whether the card exists yet at `dateMs` — i.e. its earliest lifecycle date has
+ * arrived. A card with no lifecycle dates at all has no birthday to miss, so it
+ * counts as started (fail-open: an undated card is landscape furniture, not a plan).
+ */
+export function hasStartedByDate(lifecycle: Lifecycle, dateMs: number): boolean {
+  if (!lifecycle) return true;
+  const dates = LIFECYCLE_PHASES.map((p) => parseDate(lifecycle[p])).filter(
     (d): d is number => d != null,
   );
   if (dates.length === 0) return true;
-  if (Math.min(...dates) > dateMs) return false;
-  const eol = parseDate(lc.endOfLife);
-  if (eol != null && eol <= dateMs) return false;
-  return true;
+  return Math.min(...dates) <= dateMs;
+}
+
+/** Whether the card has reached end of life by `dateMs` (inclusive). */
+export function isRetiredByDate(lifecycle: Lifecycle, dateMs: number): boolean {
+  const eol = parseDate(lifecycle?.endOfLife);
+  return eol != null && eol <= dateMs;
+}
+
+/** Whether the card is part of the landscape at `dateMs`: born, not yet retired. */
+export function isAliveAtDate(lifecycle: Lifecycle, dateMs: number): boolean {
+  return hasStartedByDate(lifecycle, dateMs) && !isRetiredByDate(lifecycle, dateMs);
+}
+
+export function isAppAliveAtDate(app: AppData, dateMs: number): boolean {
+  return isAliveAtDate(app.lifecycle, dateMs);
 }
 
 /* ------------------------------------------------------------------ */

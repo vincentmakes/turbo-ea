@@ -32,7 +32,9 @@ describe("useTimeline", () => {
     expect(result.current.isTimeTraveling).toBe(true);
     expect(result.current.persistValue).toBeDefined();
     expect(result.current.printParam).not.toBeNull();
-    expect(result.current.printParam?.label).toBe("Time travel");
+    // Label comes from the shared `common:timelineSlider.timeTravel` key, so the
+    // print header is translated like the slider chrome above it.
+    expect(result.current.printParam?.label).toBe("Time Travel");
   });
 
   it("reset snaps back to today", () => {

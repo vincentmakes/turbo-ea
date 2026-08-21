@@ -88,6 +88,24 @@ describe("buildLdvFlow", () => {
     expect(groupLabels).toContain("Technical Architecture");
   });
 
+  it("forwards changeState and proposed onto node data", () => {
+    const nodes: GNode[] = [
+      { id: "new", name: "Arriving", type: "Application", changeState: "arriving" },
+      { id: "old", name: "Retiring", type: "Application", changeState: "retiring" },
+      { id: "same", name: "Unchanged", type: "Application" },
+    ];
+    const result = buildLdvFlow(nodes, [], TYPES);
+    const byId = new Map(
+      result.nodes
+        .filter((n) => n.type === "ldvNode")
+        .map((n) => [n.id, n.data as { changeState?: string }]),
+    );
+
+    expect(byId.get("new")?.changeState).toBe("arriving");
+    expect(byId.get("old")?.changeState).toBe("retiring");
+    expect(byId.get("same")?.changeState).toBeUndefined();
+  });
+
   it("creates ldvNode nodes as children of groups", () => {
     const nodes: GNode[] = [
       { id: "a1", name: "App 1", type: "Application" },
@@ -462,6 +480,28 @@ describe("filterEndOfLifeNodes", () => {
     // a2's endOfLife date is in the future, so it is not yet end-of-life.
     expect(result.nodes.map((n) => n.id).sort()).toEqual(["a1", "a2", "a3"]);
     expect(result.edges).toHaveLength(2);
+  });
+
+  it("judges end of life against asOfMs when time-travelling", () => {
+    const nodes: GNode[] = [
+      { id: "later", name: "Retires later", type: "Application", lifecycle: { endOfLife: FUTURE } },
+    ];
+    // Viewed from beyond its end-of-life date it is gone...
+    const beyond = new Date(FUTURE).getTime() + 86_400_000;
+    expect(filterEndOfLifeNodes(nodes, [], undefined, beyond).nodes).toHaveLength(0);
+    // ...but from today it is still very much alive.
+    expect(filterEndOfLifeNodes(nodes, [], undefined, Date.now()).nodes).toHaveLength(1);
+  });
+
+  it("keeps a node that is end-of-life today but was alive at a past date", () => {
+    const nodes: GNode[] = [
+      { id: "gone", name: "Retired", type: "Application", lifecycle: { active: "2000-01-01", endOfLife: PAST } },
+    ];
+    expect(filterEndOfLifeNodes(nodes, []).nodes).toHaveLength(0);
+    const before = new Date(PAST).getTime() - 86_400_000;
+    expect(filterEndOfLifeNodes(nodes, [], undefined, before).nodes.map((n) => n.id)).toEqual([
+      "gone",
+    ]);
   });
 });
 

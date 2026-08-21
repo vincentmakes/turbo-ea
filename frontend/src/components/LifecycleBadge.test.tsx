@@ -126,3 +126,29 @@ describe("LifecycleBadge", () => {
     expect(screen.getByText("Phase Out")).toBeInTheDocument();
   });
 });
+
+describe("getCurrentPhase asOfMs (time travel)", () => {
+  const lc = {
+    plan: "2020-01-01",
+    active: "2022-01-01",
+    phaseOut: "2030-01-01",
+    endOfLife: "2032-01-01",
+  };
+  const at = (iso: string) => new Date(iso).getTime();
+
+  it("reports the phase in force on the given date, not today", () => {
+    expect(getCurrentPhase(lc, at("2021-01-01"))).toBe("plan");
+    expect(getCurrentPhase(lc, at("2025-01-01"))).toBe("active");
+    expect(getCurrentPhase(lc, at("2031-01-01"))).toBe("phaseOut");
+    expect(getCurrentPhase(lc, at("2033-01-01"))).toBe("endOfLife");
+  });
+
+  it("reports nothing before the first phase date", () => {
+    expect(getCurrentPhase(lc, at("2019-01-01"))).toBe("plan");
+    expect(getCurrentPhase({ active: "2030-01-01" }, at("2019-01-01"))).toBeNull();
+  });
+
+  it("falls back to today when no date is given", () => {
+    expect(getCurrentPhase(lc)).toBe(getCurrentPhase(lc, Date.now()));
+  });
+});

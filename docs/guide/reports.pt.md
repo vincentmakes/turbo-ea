@@ -82,6 +82,7 @@ O **Relatório de Dependências** visualiza **conexões entre componentes** como
 - **Filtragem por tipo** — Mostre apenas tipos específicos de card e tipos de relacionamento
 - **Exploração interativa** — Clique em qualquer nó para recentrar o grafo naquele card
 - **Análise de impacto** — Entenda o raio de impacto de alterações em um componente específico
+- **Viagem no tempo** — Arraste o controle deslizante da linha do tempo para ver o panorama tal como está em qualquer data. Os cards que ainda não começaram ficam ocultos, e os desativados até aquela data somem junto com seus relacionamentos. Olhando para o futuro, os cards que **entram** nesse intervalo aparecem com borda tracejada e o rótulo *PREVISTO*, e os que **saem** levam o rótulo *A SAIR* — assim uma transformação planejada é lida diretamente no diagrama. Ative **Mostrar cartões em fim de vida** para manter os cards desativados na tela. O controle se aplica a todas as vistas e a data é salva com o relatório.
 
 ### Layered Dependency View (vista de dependências em camadas)
 
@@ -109,7 +110,7 @@ Alterne para a **Layered Dependency View** usando os botões de modo de visualiz
 **Personalizando a vista** (a partir da barra de ferramentas)
 
 - **Menu de exibição de cartão** — Ative a etiqueta de **tipo** e um **ponto de estado do ciclo de vida**, ative os **marcadores de hierarquia** (um pequeno chevron em cada cartão que tem um elemento-pai acima ou filhos abaixo não presentes no diagrama — uma dica para usar as ferramentas Mostrar) e escolha **campos de atributo adicionais** para mostrar em cada cartão — os dois primeiros aparecem no cartão e o conjunto completo aparece na dica ao passar o cursor. As escolhas são lembradas entre visitas.
-- **Mostrar cartões em fim de vida** — Os cartões relacionados cujo ciclo de vida atingiu o fim de vida são ocultados por padrão para manter o gráfico focado; ative esta opção (no menu **Exibição de cartões**) para trazê-los de volta. O cartão no qual você está centrado é sempre mostrado, mesmo que ele próprio esteja em fim de vida.
+- **Mostrar cartões em fim de vida** — Os cartões relacionados que atingiram o fim de vida **na data escolhida na linha do tempo** são ocultados por padrão para manter o gráfico focado; ative esta opção (no menu **Exibição de cartões**) para trazê-los de volta. O cartão no qual você está centrado é sempre mostrado, mesmo que ele próprio esteja em fim de vida.
 - **Mostrar valores de relação** — Muitas relações podem ser qualificadas com um valor (por ex. uma aplicação *suporta* uma capacidade como *Principal*, *Secundário* ou *Sem suporte*). Quando ativado (padrão), esses valores aparecem entre colchetes ao lado do rótulo da relação (*suporta [Principal]*) e são incluídos nas exportações de imagem. Desative-o no menu **Exibição de cartões** para uma vista mais limpa; relações sem valor permanecem inalteradas de qualquer forma.
 - **Reorganizar** — Arraste um cartão para movê-lo dentro da sua camada, ou arraste uma **caixa de camada** inteira para movê-la com todos os seus cartões. **Repor vista** (na barra de ferramentas à esquerda) restaura a disposição automática e limpa qualquer exploração.
 - **Plano de fundo** — Alterne o plano de fundo do canvas entre grade, pontos e nenhum.

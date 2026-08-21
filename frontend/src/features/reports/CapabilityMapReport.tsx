@@ -20,6 +20,8 @@ import type { TagGroup } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import ReportCardListPanel, { type ReportCardListItem } from "./ReportCardListPanel";
+import { isAliveAtDate } from "./portfolioHelpers";
+import { computeTimelineRange } from "./timelineRange";
 import {
   buildInventorySliceUrl,
   type InventorySliceFilters,
@@ -111,8 +113,6 @@ const METRIC_OPTIONS: { key: Metric; labelKey: string; icon: string }[] = [
 
 const UNSET_COLOR = "rgba(128, 128, 128, 0.2)";
 
-const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"];
-
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -122,24 +122,6 @@ function pickSelectFields(schema: SectionDef[]): FieldDef[] {
   for (const s of schema)
     for (const f of s.fields) if (f.type === "single_select") out.push(f);
   return out;
-}
-
-function parseDate(s: string | undefined): number | null {
-  if (!s) return null;
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? null : d.getTime();
-}
-
-/** An app is "alive" at a date if it has started (earliest phase <= date) and hasn't been retired (endOfLife > date). */
-function isAppAliveAtDate(app: AppData, dateMs: number): boolean {
-  const lc = app.lifecycle;
-  if (!lc) return true;
-  const dates = LIFECYCLE_PHASES.map((p) => parseDate(lc[p])).filter((d): d is number => d != null);
-  if (dates.length === 0) return true;
-  if (Math.min(...dates) > dateMs) return false;
-  const eol = parseDate(lc.endOfLife);
-  if (eol != null && eol <= dateMs) return false;
-  return true;
 }
 
 function nodeMetric(node: CapNode, metric: Metric): number {
@@ -200,7 +182,7 @@ function matchesFilters(
   tagGroups: TagGroupDef[],
   timelineDate: number,
 ): boolean {
-  if (!isAppAliveAtDate(app, timelineDate)) return false;
+  if (!isAliveAtDate(app.lifecycle, timelineDate)) return false;
   // Attribute filters
   const attrs = app.attributes || {};
   for (const [key, vals] of Object.entries(attrFilters)) {
@@ -769,42 +751,14 @@ export default function CapabilityMapReport() {
   );
 
   // Compute date range from all app lifecycle dates
-  const { dateRange, yearMarks } = useMemo(() => {
-    const now = tl.todayMs;
-    const pad3y = 3 * 365.25 * 86400000;
-    if (!data)
-      return { dateRange: { min: now - pad3y, max: now + pad3y }, yearMarks: [] as { value: number; label: string }[] };
-
-    let minD = Infinity, maxD = -Infinity;
-    for (const cap of data) {
-      for (const app of cap.apps) {
-        const lc = app.lifecycle || {};
-        for (const p of LIFECYCLE_PHASES) {
-          const d = parseDate(lc[p]);
-          if (d != null) { minD = Math.min(minD, d); maxD = Math.max(maxD, d); }
-        }
-      }
-    }
-    if (minD === Infinity)
-      return { dateRange: { min: now - pad3y, max: now + pad3y }, yearMarks: [] as { value: number; label: string }[] };
-
-    const pad = 365.25 * 86400000;
-    minD -= pad; maxD += pad;
-    const marks: { value: number; label: string }[] = [];
-    const sy = new Date(minD).getFullYear(), ey = new Date(maxD).getFullYear();
-    for (let y = sy; y <= ey + 1; y++) {
-      const t = new Date(y, 0, 1).getTime();
-      if (t >= minD && t <= maxD) marks.push({ value: t, label: String(y) });
-    }
-    return { dateRange: { min: minD, max: maxD }, yearMarks: marks };
-  }, [data, tl.todayMs]);
-
-  const hasLifecycleData = useMemo(() => {
-    if (!data) return false;
-    return data.some((cap) =>
-      cap.apps.some((app) => app.lifecycle && LIFECYCLE_PHASES.some((p) => app.lifecycle?.[p])),
-    );
-  }, [data]);
+  const { dateRange, yearMarks, hasLifecycleData } = useMemo(
+    () =>
+      computeTimelineRange(
+        (data ?? []).flatMap((cap) => cap.apps.map((app) => app.lifecycle)),
+        tl.todayMs,
+      ),
+    [data, tl.todayMs],
+  );
 
   const hasActiveFilters =
     Object.values(attrFilters).some((v) => v.length > 0) ||

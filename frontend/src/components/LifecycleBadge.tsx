@@ -23,9 +23,19 @@ export const PHASE_ICONS: Record<string, string> = {
   endOfLife: "block",
 };
 
-export function getCurrentPhase(lifecycle?: Record<string, string>): string | null {
+/**
+ * The lifecycle phase a card is in on a given date.
+ *
+ * `asOfMs` defaults to now. Pass it when rendering a time-travelled view, so the
+ * phase shown is the one at the selected date rather than today's — otherwise a
+ * card retired in 2030 reads as "active" while you are looking at 2031.
+ */
+export function getCurrentPhase(
+  lifecycle?: Record<string, string>,
+  asOfMs?: number,
+): string | null {
   if (!lifecycle) return null;
-  const now = new Date().toISOString().slice(0, 10);
+  const now = new Date(asOfMs ?? Date.now()).toISOString().slice(0, 10);
   const phases = ["endOfLife", "phaseOut", "active", "phaseIn", "plan"] as const;
   for (const phase of phases) {
     if (lifecycle[phase] && lifecycle[phase] <= now) return phase;

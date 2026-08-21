@@ -82,6 +82,8 @@ import {
   type LdvGroupData,
   type LdvEdgeData,
 } from "./layeredDependencyLayout";
+import type { TimelineChange } from "./timelineRange";
+import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
 
 /* ------------------------------------------------------------------ */
 /*  Card display settings (persisted, shared store)                    */
@@ -218,6 +220,15 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   // children (below) the card can surface via the Reveal toolbar tools.
   const hiddenParent = data.hiddenParent === true;
   const hiddenChildren = data.hiddenChildren === true;
+  // Time-travel: how this card's presence changes between today and the date
+  // being viewed. Dashes the border like `proposed` does, and badges the card.
+  const changeState = data.changeState as TimelineChange | undefined;
+  const changeColor =
+    changeState === "arriving"
+      ? TIMELINE_COLORS.future
+      : changeState === "retiring"
+        ? STATUS_COLORS.error
+        : null;
 
   const usedSet = useMemo(() => new Set(data.usedHandles ?? []), [data.usedHandles]);
   const hs = (id: string, extra?: React.CSSProperties) => {
@@ -333,8 +344,14 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         width: LDV_NODE_W,
         height: LDV_NODE_H,
         borderRadius: "8px",
-        border: data.proposed ? `2px dashed ${accent}` : `1.5px solid ${accent}`,
+        border: changeColor
+          ? `2px dashed ${changeColor}`
+          : data.proposed
+            ? `2px dashed ${accent}`
+            : `1.5px solid ${accent}`,
         bgcolor: data.proposed ? (isDark ? `rgba(${r},${g},${b},0.06)` : `rgba(${r},${g},${b},0.06)`) : bg,
+        // A card on its way out is still readable, just visibly on the way out.
+        opacity: changeState === "retiring" ? 0.55 : 1,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -438,6 +455,18 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           textTransform: "uppercase", letterSpacing: 0.5,
         }}>
           {t("dependency.proposedBadge")}
+        </Box>
+      )}
+      {/* Time-travel change badge (bottom-right; every other corner is taken) */}
+      {changeState && changeColor && (
+        <Box sx={{
+          position: "absolute", bottom: -8, right: 8,
+          bgcolor: changeColor, color: "#fff",
+          fontSize: 9, fontWeight: 700, lineHeight: 1,
+          px: 0.7, py: 0.25, borderRadius: "4px",
+          textTransform: "uppercase", letterSpacing: 0.5,
+        }}>
+          {t(changeState === "arriving" ? "dependency.arrivingBadge" : "dependency.retiringBadge")}
         </Box>
       )}
       {/* Long-press radial progress ring */}
@@ -869,6 +898,10 @@ interface Props {
   centerName?: string;
   /** Id of the centered/target card — always kept visible by the end-of-life filter. */
   centerId?: string;
+  /** Render the graph as of this date (epoch ms) instead of today: the
+   *  end-of-life filter and each card's lifecycle dot are evaluated against it.
+   *  Omit for a live "today" view. */
+  asOfMs?: number;
   /** When true, show the "Create diagram" toolbar action (gated on `diagrams.manage`
    *  by the parent). Only enable in consumers whose nodes are real inventory cards. */
   canCreateDiagram?: boolean;
@@ -895,6 +928,7 @@ function LayeredDependencyInner({
   hasNext,
   centerName,
   centerId,
+  asOfMs,
   canCreateDiagram,
 }: Props) {
   const { t } = useTranslation(["reports", "common"]);
@@ -911,8 +945,8 @@ function LayeredDependencyInner({
     () =>
       settings.showEndOfLife
         ? { nodes: rawNodes, edges: rawEdges }
-        : filterEndOfLifeNodes(rawNodes, rawEdges, centerId),
-    [rawNodes, rawEdges, settings.showEndOfLife, centerId],
+        : filterEndOfLifeNodes(rawNodes, rawEdges, centerId, asOfMs),
+    [rawNodes, rawEdges, settings.showEndOfLife, centerId, asOfMs],
   );
 
   /* ---- Resolve a relation's single-select attribute value(s) into a
@@ -1336,7 +1370,7 @@ function LayeredDependencyInner({
   const cardDisplayData = useCallback(
     (n: Node) => {
       const g = gnodeById.get(n.id);
-      const phase = settings.showLifecycle ? getCurrentPhase(g?.lifecycle) : null;
+      const phase = settings.showLifecycle ? getCurrentPhase(g?.lifecycle, asOfMs) : null;
 
       // Resolve every chosen extra field to a label/value line (skips empties).
       const lines: DisplayLine[] = [];
@@ -1368,6 +1402,7 @@ function LayeredDependencyInner({
     [
       gnodeById,
       hierarchyMarkers,
+      asOfMs,
       settings.showLifecycle,
       settings.showType,
       settings.extraFields,

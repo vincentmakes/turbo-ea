@@ -14,6 +14,7 @@ import type { Node, Edge } from "@xyflow/react";
 import { getCurrentPhase } from "@/components/LifecycleBadge";
 import { LAYER_COLORS } from "@/theme/tokens";
 import type { CardType, RelationType, FieldOption } from "@/types";
+import type { TimelineChange } from "./timelineRange";
 
 /* ------------------------------------------------------------------ */
 /*  Input types (same as DependencyReport)                             */
@@ -28,6 +29,10 @@ export interface GNode {
   parent_id?: string | null;
   path?: string[];
   proposed?: boolean;
+  /** How this card's presence changes between today and the time-travelled date
+   *  the consumer is showing (set by the consumer — the view has no timeline of
+   *  its own). Drives the "arriving"/"retiring" badge. */
+  changeState?: TimelineChange;
   /** Whether this card has any child card in the full dataset (set by the
    *  consumer, which holds the whole graph). Drives the "has hidden children"
    *  hierarchy marker — the view only sees the visible slice, so it can't
@@ -67,18 +72,23 @@ export function resolveRevealIds(
 }
 
 /**
- * Drop nodes whose current lifecycle phase is `endOfLife`, then drop any edge
- * that lost an endpoint. The centered card (`centerId`) and any proposed/NEW
- * card are always kept, so an end-of-life card can still be inspected when it
- * is the focus of the view.
+ * Drop nodes whose lifecycle phase is `endOfLife`, then drop any edge that lost
+ * an endpoint. The centered card (`centerId`) and any proposed/NEW card are
+ * always kept, so an end-of-life card can still be inspected when it is the
+ * focus of the view.
+ *
+ * `asOfMs` evaluates the phase at a time-travelled date instead of today. It is
+ * not optional for a consumer that time-travels: judging "end of life" against
+ * today would delete a card from a past-dated view that was very much alive then.
  */
 export function filterEndOfLifeNodes(
   nodes: GNode[],
   edges: GEdge[],
   centerId?: string,
+  asOfMs?: number,
 ): { nodes: GNode[]; edges: GEdge[] } {
   const visible = nodes.filter(
-    (n) => n.id === centerId || n.proposed || getCurrentPhase(n.lifecycle) !== "endOfLife",
+    (n) => n.id === centerId || n.proposed || getCurrentPhase(n.lifecycle, asOfMs) !== "endOfLife",
   );
   const ids = new Set(visible.map((n) => n.id));
   return {
@@ -104,6 +114,7 @@ export interface LdvNodeData {
   dimmed?: boolean;
   usedHandles?: string[];
   proposed?: boolean;
+  changeState?: TimelineChange;
   [key: string]: unknown;
 }
 
@@ -423,6 +434,7 @@ export function buildLdvFlow(
           typeIcon: typeIcon(nd.type, types),
           category: gl.cat,
           proposed: nd.proposed,
+          changeState: nd.changeState,
         } satisfies LdvNodeData,
         style: { width: LDV_NODE_W, height: LDV_NODE_H },
         draggable: false,

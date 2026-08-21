@@ -1647,6 +1647,31 @@ class TestDependencies:
             assert "type" in edge
             assert "label" in edge
 
+    async def test_dependencies_nodes_carry_lifecycle(self, client, db, env):
+        """Each node exposes its raw lifecycle dict.
+
+        The Dependencies report's time-travel slider filters the graph entirely
+        client-side off this field, so dropping it from the payload would
+        silently break the feature rather than fail a route test.
+        """
+        admin = env["admin"]
+        lifecycle = {"active": "2020-01-01", "endOfLife": "2030-01-01"}
+        await create_card(
+            db,
+            card_type="Application",
+            name="Dated App",
+            user_id=admin.id,
+            lifecycle=lifecycle,
+        )
+
+        resp = await client.get(
+            "/api/v1/reports/dependencies",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        node = next(n for n in resp.json()["nodes"] if n["name"] == "Dated App")
+        assert node["lifecycle"] == lifecycle
+
     async def test_dependencies_with_center_id_bfs(self, client, db, env):
         """BFS from center_id limits nodes to given depth."""
         admin = env["admin"]
