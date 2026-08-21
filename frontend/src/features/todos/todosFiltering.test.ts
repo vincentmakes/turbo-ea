@@ -1,6 +1,12 @@
 import { describe, it, expect } from "vitest";
 import type { Todo, TodoOrigin } from "@/types";
-import { applyTodoView, compareByDueDateAsc, countByOrigin } from "./todosFiltering";
+import {
+  applyTodoView,
+  compareByDueDateAsc,
+  countByOrigin,
+  groupTodosByOrigin,
+  isOverdue,
+} from "./todosFiltering";
 
 let seq = 0;
 function makeTodo(overrides: Partial<Todo> = {}): Todo {
@@ -123,5 +129,40 @@ describe("applyTodoView — sorting", () => {
 describe("compareByDueDateAsc", () => {
   it("treats two undated todos as equal", () => {
     expect(compareByDueDateAsc(makeTodo(), makeTodo())).toBe(0);
+  });
+});
+
+describe("isOverdue", () => {
+  it("is true only for open todos with a past due date", () => {
+    expect(isOverdue(makeTodo({ status: "open", due_date: "2020-01-01" }))).toBe(true);
+    expect(isOverdue(makeTodo({ status: "open", due_date: "2999-01-01" }))).toBe(false);
+    expect(isOverdue(makeTodo({ status: "done", due_date: "2020-01-01" }))).toBe(false);
+    expect(isOverdue(makeTodo({ status: "open" }))).toBe(false);
+  });
+});
+
+describe("groupTodosByOrigin", () => {
+  it("orders groups by ORIGIN_ORDER, keeps row order, omits empty groups", () => {
+    const todos = [
+      makeTodo({ origin: "manual", description: "m1" }),
+      makeTodo({ origin: "risk", description: "r1" }),
+      makeTodo({ origin: "ppm", description: "p1" }),
+      makeTodo({ origin: "risk", description: "r2" }),
+    ];
+    const groups = groupTodosByOrigin(todos);
+    expect(groups.map((g) => g.origin)).toEqual(["ppm", "risk", "manual"]);
+    expect(groups[1].todos.map((t) => t.description)).toEqual(["r1", "r2"]);
+  });
+
+  it("counts only open past-due rows as overdue, and buckets missing origin as manual", () => {
+    const todos = [
+      makeTodo({ origin: "risk", status: "open", due_date: "2020-01-01" }),
+      makeTodo({ origin: "risk", status: "done", due_date: "2020-01-01" }),
+      makeTodo({ origin: "risk", status: "open", due_date: "2999-01-01" }),
+      makeTodo({ description: "no origin field" }),
+    ];
+    const groups = groupTodosByOrigin(todos);
+    expect(groups.find((g) => g.origin === "risk")?.overdueCount).toBe(1);
+    expect(groups.find((g) => g.origin === "manual")?.todos).toHaveLength(1);
   });
 });

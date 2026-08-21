@@ -21,6 +21,8 @@ Aufgaben sind Ihnen zugewiesene oder von Ihnen erstellte Tasks. Sie können mit 
 
 Jede Zeile trägt zudem ein farbcodiertes Ursprungs-Symbol und einen Akzentstreifen, sodass gemischte Listen auf einen Blick erfassbar sind. Eine Aufgabe, die eine Konnektor-Erweiterung in einen externen Tracker (Jira, GitLab, …) gespiegelt hat, behält ihren echten Ursprung und zeigt die externe Referenz (z. B. *KAN-6*) als kleinen Link — die Spiegelung dient nur der Referenz, und die Aufgabe wird immer in Turbo EA abgeschlossen.
 
+**Gruppierte Ansicht** — Standardmäßig ist die Liste in je einen einklappbaren Abschnitt pro Ursprung unterteilt, in fester Reihenfolge. Jede Abschnittsüberschrift zeigt das Ursprungs-Symbol, die Anzahl der Aufgaben und — wenn einige überfällig sind — einen roten Zähler, sodass auch ein eingeklappter Abschnitt Dringlichkeit signalisiert. Klicken Sie auf eine Überschrift, um den Abschnitt ein- oder auszuklappen; eingeklappte Abschnitte werden gemerkt. Der Umschalter **Nach Herkunft gruppieren** / **Einfache Liste** neben der Sortiersteuerung wechselt zu einer einzelnen flachen Liste (nützlich, um über alle Ursprünge hinweg nach Fälligkeitsdatum zu priorisieren); auch diese Auswahl wird gemerkt. Eine Liste, in der alle Aufgaben denselben Ursprung haben, wird automatisch flach dargestellt.
+
 **Status** — Verwenden Sie den Status-Umschalter zum Filtern:
 
 - **Offen** — Noch ausstehende oder in Bearbeitung befindliche Aufgaben

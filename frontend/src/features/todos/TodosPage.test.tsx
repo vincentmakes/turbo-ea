@@ -122,6 +122,84 @@ describe("TodosPage", () => {
     expect(screen.getByText("Risk · 1")).toBeInTheDocument();
   });
 
+  it("groups by origin by default: headers in order, counts, overdue hint", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Approve process flow revision 3")).toBeInTheDocument();
+    });
+    const headers = screen
+      .getAllByRole("button")
+      .filter((el) => el.hasAttribute("aria-expanded"));
+    // Fixtures span risk, bpm, manual — headers follow ORIGIN_ORDER.
+    expect(headers).toHaveLength(3);
+    expect(headers[0]).toHaveTextContent("Risk");
+    expect(headers[1]).toHaveTextContent("Process approval");
+    expect(headers[2]).toHaveTextContent("Manual");
+    // t1 (bpm) is overdue (due 2026-08-01) — its header carries the red hint.
+    expect(headers[1]).toHaveTextContent("1 overdue");
+    expect(headers[0]).not.toHaveTextContent("overdue");
+  });
+
+  it("clicking a header collapses its rows and persists the collapsed set", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Check access rights")).toBeInTheDocument();
+    });
+    const riskHeader = screen
+      .getAllByRole("button")
+      .find((el) => el.hasAttribute("aria-expanded") && el.textContent?.includes("Risk"));
+    expect(riskHeader).toBeDefined();
+    await user.click(riskHeader!);
+    expect(riskHeader).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Check access rights")).not.toBeInTheDocument();
+    // Other groups stay expanded.
+    expect(screen.getByText("Write onboarding doc")).toBeInTheDocument();
+    const prefs = JSON.parse(localStorage.getItem("turboea.todos.prefs") ?? "{}");
+    expect(prefs.collapsed).toEqual(["risk"]);
+  });
+
+  it("toggling to the flat list removes headers and restores the origin sort option", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Write onboarding doc")).toBeInTheDocument();
+    });
+    // Grouped mode hides the redundant sort-by-origin option.
+    await user.click(screen.getByLabelText("Sort"));
+    expect(screen.queryByRole("option", { name: "Origin" })).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
+
+    await user.click(screen.getByRole("button", { name: "Flat list" }));
+    expect(
+      screen.getAllByRole("button").filter((el) => el.hasAttribute("aria-expanded")),
+    ).toHaveLength(0);
+    expect(screen.getByText("Write onboarding doc")).toBeInTheDocument();
+    await user.click(screen.getByLabelText("Sort"));
+    expect(screen.getByRole("option", { name: "Origin" })).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+
+    const prefs = JSON.parse(localStorage.getItem("turboea.todos.prefs") ?? "{}");
+    expect(prefs.grouped).toBe(false);
+  });
+
+  it("renders flat when the visible list spans a single origin, even with grouping on", async () => {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/notifications/badge-counts")) {
+        return Promise.resolve({ open_todos: 1, pending_surveys: 0 });
+      }
+      if (path.startsWith("/todos")) return Promise.resolve([TODOS[2]]);
+      return Promise.resolve({});
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Write onboarding doc")).toBeInTheDocument();
+    });
+    expect(
+      screen.getAllByRole("button").filter((el) => el.hasAttribute("aria-expanded")),
+    ).toHaveLength(0);
+  });
+
   it("hides the origin chip row when every todo shares one origin", async () => {
     vi.mocked(api.get).mockImplementation((path: string) => {
       if (path.startsWith("/notifications/badge-counts")) {

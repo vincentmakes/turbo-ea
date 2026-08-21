@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.74.0] - 2026-08-21
+
+### Added
+
+- My Tasks: the list is now segmented into collapsible per-origin groups (project tasks, risks, ADRs, …) — each header shows the origin icon, count, and a red overdue hint so a collapsed group still signals urgency. A group/flat toggle next to the sort control returns to the flat list for cross-origin due-date triage; the choice and collapsed groups persist.
+
 ## [2.73.0] - 2026-08-21
 
 ### Added

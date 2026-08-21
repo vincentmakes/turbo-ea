@@ -21,6 +21,8 @@ Las tareas son actividades asignadas a usted o creadas por usted. Pueden estar v
 
 Cada fila lleva además un icono de origen y una franja de acento codificados por color, de modo que las listas mixtas se leen de un vistazo. Una tarea que una extensión conectora ha reflejado en un sistema de seguimiento externo (Jira, GitLab, …) conserva su origen real y muestra la referencia externa (p. ej., *KAN-6*) como un pequeño enlace — el reflejo es solo de referencia, y la tarea siempre se completa en Turbo EA.
 
+**Vista agrupada** — De forma predeterminada, la lista se segmenta en una sección plegable por origen, en un orden fijo. Cada encabezado de sección muestra el icono del origen, el número de tareas y — cuando algunas están vencidas — un contador rojo, de modo que una sección plegada sigue señalando la urgencia. Haga clic en un encabezado para plegarla o desplegarla; las secciones plegadas se recuerdan. El conmutador **Agrupar por origen** / **Lista simple** junto al control de ordenación cambia a una única lista plana (útil para priorizar por fecha de vencimiento entre todos los orígenes); esta elección también se recuerda. Una lista en la que todas las tareas comparten un mismo origen se muestra plana automáticamente.
+
 **Estado** — Use el selector de estado para filtrar:
 
 - **Abiertas** — Tareas aún pendientes o en progreso

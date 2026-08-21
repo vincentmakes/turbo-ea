@@ -19,6 +19,15 @@ export interface TodoViewState {
   sort: TodoSort;
 }
 
+export function isOverdue(todo: Todo): boolean {
+  if (todo.status !== "open" || !todo.due_date) return false;
+  // due_date is an ISO date (YYYY-MM-DD); compare against today in the
+  // user's local timezone using the same YYYY-MM-DD shape.
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  return todo.due_date.slice(0, 10) < todayStr;
+}
+
 export function compareByDueDateAsc(a: Todo, b: Todo): number {
   // Due date ascending so the most urgent items (overdue first, then nearest
   // due) land at the top. Rows without a due date go last.
@@ -69,6 +78,33 @@ function todoSearchRank(todo: Todo, query: string): number {
     if (rank >= 0 && (best < 0 || rank < best)) best = rank;
   }
   return best;
+}
+
+export interface TodoOriginGroup {
+  origin: TodoOrigin;
+  todos: Todo[];
+  overdueCount: number;
+}
+
+/** Bucket an already filtered/sorted list (the output of `applyTodoView`)
+ *  into per-origin sections for the grouped view. Groups follow
+ *  `ORIGIN_ORDER`; rows keep their incoming order; empty groups are
+ *  omitted. `overdueCount` powers the red hint on a collapsed header. */
+export function groupTodosByOrigin(todos: Todo[]): TodoOriginGroup[] {
+  const buckets = new Map<TodoOrigin, TodoOriginGroup>();
+  for (const todo of todos) {
+    const origin = originOf(todo);
+    let group = buckets.get(origin);
+    if (!group) {
+      group = { origin, todos: [], overdueCount: 0 };
+      buckets.set(origin, group);
+    }
+    group.todos.push(todo);
+    if (isOverdue(todo)) group.overdueCount += 1;
+  }
+  return ORIGIN_ORDER.filter((origin) => buckets.has(origin)).map(
+    (origin) => buckets.get(origin) as TodoOriginGroup,
+  );
 }
 
 /** Apply origin filter, search and sort. When a query is active the results

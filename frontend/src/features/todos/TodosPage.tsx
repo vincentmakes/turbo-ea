@@ -28,36 +28,46 @@ import { formatRecurrence } from "@/lib/recurrence/recurrenceLabel";
 import { brand, STATUS_COLORS } from "@/theme/tokens";
 import type { RecurrenceUnit, Todo, TodoOrigin, MySurveyItem } from "@/types";
 import { ORIGIN_META, ORIGIN_ORDER, originOf, type OriginMeta } from "./originMeta";
-import { applyTodoView, countByOrigin, type TodoSort } from "./todosFiltering";
+import {
+  applyTodoView,
+  countByOrigin,
+  groupTodosByOrigin,
+  isOverdue,
+  type TodoSort,
+} from "./todosFiltering";
 
 const PREFS_KEY = "turboea.todos.prefs";
 const SORT_VALUES: readonly TodoSort[] = ["dueDate", "created", "origin"];
 
-function loadSortPref(): TodoSort {
+interface TodosPrefs {
+  sort: TodoSort;
+  grouped: boolean;
+  collapsed: TodoOrigin[];
+}
+
+function loadPrefs(): TodosPrefs {
+  const defaults: TodosPrefs = { sort: "dueDate", grouped: true, collapsed: [] };
   try {
     const raw = localStorage.getItem(PREFS_KEY);
-    const sort = raw ? (JSON.parse(raw) as { sort?: string }).sort : undefined;
-    return SORT_VALUES.includes(sort as TodoSort) ? (sort as TodoSort) : "dueDate";
+    const parsed = raw ? (JSON.parse(raw) as Partial<TodosPrefs>) : {};
+    return {
+      sort: SORT_VALUES.includes(parsed.sort as TodoSort) ? (parsed.sort as TodoSort) : "dueDate",
+      grouped: typeof parsed.grouped === "boolean" ? parsed.grouped : true,
+      collapsed: Array.isArray(parsed.collapsed)
+        ? parsed.collapsed.filter((o): o is TodoOrigin => ORIGIN_ORDER.includes(o as TodoOrigin))
+        : [],
+    };
   } catch {
-    return "dueDate";
+    return defaults;
   }
 }
 
-function saveSortPref(sort: TodoSort) {
+function savePrefs(prefs: TodosPrefs) {
   try {
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ sort }));
+    localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
   } catch {
     // Storage unavailable (private mode) — the preference just won't stick.
   }
-}
-
-function isOverdue(todo: Todo): boolean {
-  if (todo.status !== "open" || !todo.due_date) return false;
-  // due_date is an ISO date (YYYY-MM-DD); compare against today in the
-  // user's local timezone using the same YYYY-MM-DD shape.
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  return todo.due_date.slice(0, 10) < todayStr;
 }
 
 /* ── Todos sub-panel ─────────────────────────────────────────────────── */
@@ -75,10 +85,15 @@ function TodosPanel() {
   const [assignedStatus, setAssignedStatus] = useState<StatusFilter>("open");
   const [createdStatus, setCreatedStatus] = useState<StatusFilter>("open");
   // View controls, applied client-side over the fetched list. Origin
-  // selection and search are per-visit intent; only the sort persists.
+  // selection and search are per-visit intent; sort, the grouped/flat
+  // choice and the collapsed groups persist in localStorage.
   const [origins, setOrigins] = useState<ReadonlySet<TodoOrigin>>(new Set());
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<TodoSort>(loadSortPref);
+  const [sort, setSort] = useState<TodoSort>(() => loadPrefs().sort);
+  const [grouped, setGrouped] = useState<boolean>(() => loadPrefs().grouped);
+  const [collapsed, setCollapsed] = useState<ReadonlySet<TodoOrigin>>(
+    () => new Set(loadPrefs().collapsed),
+  );
 
   const currentStatus = tab === 0 ? assignedStatus : createdStatus;
   const setCurrentStatus = tab === 0 ? setAssignedStatus : setCreatedStatus;
@@ -101,10 +116,17 @@ function TodosPanel() {
   );
 
   const originCounts = useMemo(() => countByOrigin(todos), [todos]);
+  // Grouping supersedes sort-by-origin — coerce a persisted "origin" sort
+  // to due date while the grouped view is active.
+  const effectiveSort = grouped && sort === "origin" ? "dueDate" : sort;
   const visibleTodos = useMemo(
-    () => applyTodoView(todos, { origins, search, sort }),
-    [todos, origins, search, sort],
+    () => applyTodoView(todos, { origins, search, sort: effectiveSort }),
+    [todos, origins, search, effectiveSort],
   );
+  const groups = useMemo(() => groupTodosByOrigin(visibleTodos), [visibleTodos]);
+  // A single-origin result renders flat even with grouping on — one header
+  // over everything conveys nothing (same principle as the chip row).
+  const useGroupedView = grouped && groups.length > 1;
   const showAssignee = tab === 1;
 
   const toggleOrigin = (origin: TodoOrigin) => {
@@ -116,9 +138,24 @@ function TodosPanel() {
     });
   };
 
+  const changeGrouped = (value: boolean) => {
+    setGrouped(value);
+    savePrefs({ sort, grouped: value, collapsed: [...collapsed] });
+  };
+
+  const toggleCollapsed = (origin: TodoOrigin) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(origin)) next.delete(origin);
+      else next.add(origin);
+      savePrefs({ sort, grouped, collapsed: [...next] });
+      return next;
+    });
+  };
+
   const changeSort = (value: TodoSort) => {
     setSort(value);
-    saveSortPref(value);
+    savePrefs({ sort: value, grouped, collapsed: [...collapsed] });
   };
 
   const toggleStatus = async (todo: Todo) => {
@@ -155,9 +192,12 @@ function TodosPanel() {
     origin: TodoOrigin,
     meta: OriginMeta,
     withAssignee: boolean,
+    showOrigin: boolean,
   ): ReactNode[] => {
     const items: ReactNode[] = [];
-    if (origin !== "manual") {
+    // Inside a grouped section the header already names the origin, so the
+    // per-row origin item only renders in the flat view.
+    if (showOrigin && origin !== "manual") {
       items.push(
         <Box
           key="origin"
@@ -257,6 +297,109 @@ function TodosPanel() {
     );
   };
 
+  // One row, shared by the flat list and the grouped sections (which pass
+  // showOriginInMeta=false — their header already names the origin).
+  const renderTodoRow = (todo: Todo, showOriginInMeta: boolean) => {
+    const origin = originOf(todo);
+    const originMeta = ORIGIN_META[origin];
+    const metaItems = metaLine(todo, origin, originMeta, showAssignee, showOriginInMeta);
+    return (
+      <Card
+        key={todo.id}
+        sx={{
+          mb: 1,
+          // Origin accent for at-a-glance scanning of mixed lists.
+          borderLeft: 3,
+          borderLeftColor: originMeta.color,
+        }}
+      >
+        <ListItem sx={{ alignItems: "flex-start" }}>
+          {todo.is_system ? (
+            <Tooltip title={todo.link ? t("todos.goToDocument") : ""}>
+              <IconButton size="small" onClick={() => handleTodoAction(todo)} sx={{ mr: 1 }}>
+                <MaterialSymbol
+                  icon={todo.status === "done" ? "check_circle" : "open_in_new"}
+                  size={22}
+                  color={todo.status === "done" ? STATUS_COLORS.success : brand.primary}
+                />
+              </IconButton>
+            </Tooltip>
+          ) : (
+            <IconButton
+              size="small"
+              onClick={() => toggleStatus(todo)}
+              sx={{ mr: 1 }}
+              title={todo.status === "scheduled" ? t("cards:todos.activateNow") : undefined}
+            >
+              <MaterialSymbol
+                icon={
+                  todo.status === "scheduled"
+                    ? "event_upcoming"
+                    : todo.status === "done"
+                      ? "check_circle"
+                      : "radio_button_unchecked"
+                }
+                size={22}
+                color={todo.status === "done" ? STATUS_COLORS.success : STATUS_COLORS.neutral}
+              />
+            </IconButton>
+          )}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              variant="body1"
+              sx={{
+                textDecoration: todo.status === "done" ? "line-through" : "none",
+                cursor: (todo.is_system && todo.link) || todo.card_id ? "pointer" : "default",
+              }}
+              onClick={() => {
+                if (todo.is_system && todo.link) navigate(todo.link);
+                else if (todo.card_id) navigate(`/cards/${todo.card_id}`);
+              }}
+            >
+              {todo.description}
+            </Typography>
+            {metaItems.length > 0 && (
+              <Typography
+                component="div"
+                variant="caption"
+                color="text.secondary"
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  columnGap: 0.75,
+                  rowGap: 0.25,
+                  mt: 0.25,
+                  "& > .meta-sep": { color: "text.disabled" },
+                }}
+              >
+                {metaItems}
+              </Typography>
+            )}
+          </Box>
+          {todo.due_date && (
+            <Typography
+              variant="caption"
+              sx={{
+                ml: 2,
+                mt: 0.5,
+                whiteSpace: "nowrap",
+                alignSelf: "flex-start",
+                ...(isOverdue(todo)
+                  ? { color: STATUS_COLORS.error, fontWeight: 600 }
+                  : { color: "text.secondary" }),
+              }}
+            >
+              {isOverdue(todo)
+                ? `${t("todos.overdue")} · ${formatDate(todo.due_date)}`
+                : t("todos.dueDate", { date: formatDate(todo.due_date) })}
+            </Typography>
+          )}
+        </ListItem>
+      </Card>
+    );
+  };
+
   return (
     <>
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
@@ -328,15 +471,37 @@ function TodosPanel() {
         <TextField
           select
           size="small"
-          value={sort}
+          value={effectiveSort}
           onChange={(e) => changeSort(e.target.value as TodoSort)}
           label={t("todos.sort.label")}
           sx={{ minWidth: 150 }}
         >
           <MenuItem value="dueDate">{t("todos.sort.dueDate")}</MenuItem>
           <MenuItem value="created">{t("todos.sort.created")}</MenuItem>
-          <MenuItem value="origin">{t("todos.sort.origin")}</MenuItem>
+          {/* Sorting by origin is superseded by the grouped view. */}
+          {!grouped && <MenuItem value="origin">{t("todos.sort.origin")}</MenuItem>}
         </TextField>
+        <ToggleButtonGroup
+          size="small"
+          exclusive
+          value={grouped ? "grouped" : "flat"}
+          onChange={(_, v: string | null) => v && changeGrouped(v === "grouped")}
+        >
+          <ToggleButton value="grouped" aria-label={t("todos.groupByOrigin")}>
+            <Tooltip title={t("todos.groupByOrigin")}>
+              <Box component="span" sx={{ display: "inline-flex" }}>
+                <MaterialSymbol icon="splitscreen" size={18} />
+              </Box>
+            </Tooltip>
+          </ToggleButton>
+          <ToggleButton value="flat" aria-label={t("todos.flatList")}>
+            <Tooltip title={t("todos.flatList")}>
+              <Box component="span" sx={{ display: "inline-flex" }}>
+                <MaterialSymbol icon="list" size={18} />
+              </Box>
+            </Tooltip>
+          </ToggleButton>
+        </ToggleButtonGroup>
         {/* The list is already in memory, so search filters on the raw
             input — no debounce (house search-box rule). */}
         <TextField
@@ -358,110 +523,52 @@ function TodosPanel() {
       </Box>
 
       <List>
-        {visibleTodos.map((todo) => {
-          const origin = originOf(todo);
-          const originMeta = ORIGIN_META[origin];
-          const metaItems = metaLine(todo, origin, originMeta, showAssignee);
-          return (
-          <Card
-            key={todo.id}
-            sx={{
-              mb: 1,
-              // Origin accent for at-a-glance scanning of mixed lists.
-              borderLeft: 3,
-              borderLeftColor: originMeta.color,
-            }}
-          >
-            <ListItem sx={{ alignItems: "flex-start" }}>
-              {todo.is_system ? (
-                <Tooltip title={todo.link ? t("todos.goToDocument") : ""}>
-                  <IconButton
-                    size="small"
-                    onClick={() => handleTodoAction(todo)}
-                    sx={{ mr: 1 }}
-                  >
-                    <MaterialSymbol
-                      icon={todo.status === "done" ? "check_circle" : "open_in_new"}
-                      size={22}
-                      color={todo.status === "done" ? STATUS_COLORS.success : brand.primary}
-                    />
-                  </IconButton>
-                </Tooltip>
-              ) : (
-                <IconButton
-                  size="small"
-                  onClick={() => toggleStatus(todo)}
-                  sx={{ mr: 1 }}
-                  title={todo.status === "scheduled" ? t("cards:todos.activateNow") : undefined}
+        {(useGroupedView
+          ? groups.flatMap((group) => {
+              const meta = ORIGIN_META[group.origin];
+              const isCollapsed = collapsed.has(group.origin);
+              return [
+                <Box
+                  key={`header-${group.origin}`}
+                  role="button"
+                  aria-expanded={!isCollapsed}
+                  onClick={() => toggleCollapsed(group.origin)}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 0.75,
+                    px: 0.5,
+                    py: 0.75,
+                    mb: 0.5,
+                    borderRadius: 1,
+                    cursor: "pointer",
+                    userSelect: "none",
+                    "&:hover": { bgcolor: "action.hover" },
+                  }}
                 >
                   <MaterialSymbol
-                    icon={
-                      todo.status === "scheduled"
-                        ? "event_upcoming"
-                        : todo.status === "done"
-                          ? "check_circle"
-                          : "radio_button_unchecked"
-                    }
-                    size={22}
-                    color={todo.status === "done" ? STATUS_COLORS.success : STATUS_COLORS.neutral}
+                    icon={isCollapsed ? "chevron_right" : "expand_more"}
+                    size={18}
+                    color="var(--mui-palette-text-secondary, #666)"
                   />
-                </IconButton>
-              )}
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography
-                  variant="body1"
-                  sx={{
-                    textDecoration: todo.status === "done" ? "line-through" : "none",
-                    cursor: (todo.is_system && todo.link) || todo.card_id ? "pointer" : "default",
-                  }}
-                  onClick={() => {
-                    if (todo.is_system && todo.link) navigate(todo.link);
-                    else if (todo.card_id) navigate(`/cards/${todo.card_id}`);
-                  }}
-                >
-                  {todo.description}
-                </Typography>
-                {metaItems.length > 0 && (
-                  <Typography
-                    component="div"
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                      columnGap: 0.75,
-                      rowGap: 0.25,
-                      mt: 0.25,
-                      "& > .meta-sep": { color: "text.disabled" },
-                    }}
-                  >
-                    {metaItems}
+                  <MaterialSymbol icon={meta.icon} size={16} color={meta.color} />
+                  <Typography variant="subtitle2">{t(meta.labelKey)}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    · {group.todos.length}
                   </Typography>
-                )}
-              </Box>
-              {todo.due_date && (
-                <Typography
-                  variant="caption"
-                  sx={{
-                    ml: 2,
-                    mt: 0.5,
-                    whiteSpace: "nowrap",
-                    alignSelf: "flex-start",
-                    ...(isOverdue(todo)
-                      ? { color: STATUS_COLORS.error, fontWeight: 600 }
-                      : { color: "text.secondary" }),
-                  }}
-                >
-                  {isOverdue(todo)
-                    ? `${t("todos.overdue")} · ${formatDate(todo.due_date)}`
-                    : t("todos.dueDate", { date: formatDate(todo.due_date) })}
-                </Typography>
-              )}
-            </ListItem>
-          </Card>
-          );
-        })}
+                  {group.overdueCount > 0 && (
+                    <Typography
+                      variant="caption"
+                      sx={{ color: STATUS_COLORS.error, fontWeight: 600 }}
+                    >
+                      · {t("todos.overdueCount", { count: group.overdueCount })}
+                    </Typography>
+                  )}
+                </Box>,
+                ...(isCollapsed ? [] : group.todos.map((todo) => renderTodoRow(todo, false))),
+              ];
+            })
+          : visibleTodos.map((todo) => renderTodoRow(todo, true)))}
         {todos.length === 0 ? (
           <Typography color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
             {t("todos.empty")}

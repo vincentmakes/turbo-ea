@@ -21,6 +21,8 @@ Opgaver er arbejdsemner tildelt dig eller oprettet af dig. De kan være knyttet 
 
 Hver række bærer desuden et farvekodet oprindelsesikon og en accentstribe, så blandede lister kan aflæses med et enkelt blik. En opgave, som en konnektor-udvidelse har spejlet til et eksternt sporingssystem (Jira, GitLab, …), beholder sin reelle oprindelse og viser den eksterne reference (f.eks. *KAN-6*) som et lille link — spejlingen er kun til reference, og opgaven fuldføres altid i Turbo EA.
 
+**Grupperet visning** — Som standard er listen opdelt i én sammenklappelig sektion pr. oprindelse, i en fast rækkefølge. Hver sektionsoverskrift viser oprindelsesikonet, antallet af opgaver og — når nogle er forfaldne — en rød tæller, så en sammenklappet sektion stadig signalerer, at det haster. Klik på en overskrift for at klappe sektionen sammen eller folde den ud; sammenklappede sektioner huskes. Skifteren **Gruppér efter oprindelse** / **Flad liste** ved siden af sorteringskontrollen skifter til én samlet flad liste (nyttigt til at prioritere efter forfaldsdato på tværs af alle oprindelser); dette valg huskes også. En liste, hvor alle opgaver har samme oprindelse, vises automatisk fladt.
+
 **Status** — Brug statusvælgeren til at filtrere:
 
 - **Åbne** — Opgaver, der stadig er afventende eller i gang

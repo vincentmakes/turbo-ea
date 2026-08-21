@@ -21,6 +21,8 @@ I todo sono attività assegnate a voi o da voi create. Possono essere collegati 
 
 Ogni riga porta inoltre un'icona di origine e una striscia di accento codificate per colore, così le liste miste si leggono a colpo d'occhio. Un'attività che un'estensione connettore ha replicato in un tracker esterno (Jira, GitLab, …) mantiene la sua origine reale e mostra il riferimento esterno (ad es. *KAN-6*) come piccolo link — la replica è solo di riferimento e l'attività si completa sempre in Turbo EA.
 
+**Vista raggruppata** — Per impostazione predefinita la lista è suddivisa in una sezione richiudibile per ciascuna origine, in un ordine fisso. Ogni intestazione di sezione mostra l'icona dell'origine, il numero di attività e — quando alcune sono scadute — un contatore rosso, così una sezione richiusa continua a segnalare l'urgenza. Fate clic su un'intestazione per richiuderla o espanderla; le sezioni richiuse vengono ricordate. L'interruttore **Raggruppa per origine** / **Elenco semplice** accanto al controllo di ordinamento passa a un unico elenco piatto (utile per smistare per data di scadenza tra tutte le origini); anche questa scelta viene ricordata. Un elenco in cui tutte le attività condividono la stessa origine viene mostrato piatto automaticamente.
+
 **Stato** — Utilizzate il selettore di stato per filtrare:
 
 - **Aperti** — Attività ancora in sospeso o in corso
