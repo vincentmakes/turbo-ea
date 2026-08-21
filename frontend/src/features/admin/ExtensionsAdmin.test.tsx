@@ -786,9 +786,15 @@ describe("ExtensionsAdmin", () => {
       await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
       await userEvent.click(screen.getByText("Buy", { selector: "button" }));
 
-      const url = openSpy.mock.calls[0][0] as string;
-      const ref = url.split("client_reference_id=")[1];
-      expect(ref).toMatch(/-TEA-AAAA-AAAA-AAAM$/);
+      // With a known instance id the checkout goes through the store's
+      // server-created session endpoint (no typed instance field) …
+      const url = new URL(openSpy.mock.calls[0][0] as string);
+      expect(url.pathname).toBe("/checkout");
+      expect(url.searchParams.get("kind")).toBe("buy");
+      expect(url.searchParams.get("instance")).toBe("TEA-AAAA-AAAA-AAAM");
+      // … and the session's client_reference_id is <ref>-<instance>, which
+      // is exactly what the claim poll must send.
+      const ref = `${url.searchParams.get("ref")}-TEA-AAAA-AAAA-AAAM`;
 
       // the first poll fires after CLAIM_POLL_MS (5s) of real time
       await waitFor(

@@ -573,14 +573,28 @@ export default function ExtensionsAdmin() {
   // start polling the store's claim endpoint. The claim flow is mechanism-
   // agnostic: a completed trial checkout resolves to a license exactly like
   // a paid one.
-  const openCheckout = (link: string, itemKey: string) => {
+  const openCheckout = (link: string, itemKey: string, kind: "buy" | "trial") => {
     const token = makeClaimToken();
-    const sep = link.includes("?") ? "&" : "?";
     // The instance ID rides along so the store can key the purchase to this
     // instance (composite licensing) — parsed off the end by the webhook
     // (fixed TEA-XXXX-XXXX-XXXX shape). Stripe allows [A-Za-z0-9_-] here.
     const ref = instanceId ? `${token}-${instanceId}` : token;
-    window.open(`${link}${sep}client_reference_id=${ref}`, "_blank", "noopener");
+    // Prefer the store's server-created checkout: no typed instance-ID field
+    // (the app passes it; the store stamps it onto the subscription and uses
+    // the same token-instance client_reference_id, so the claim poll below
+    // works identically). The static payment link stays as the fallback for
+    // an unknown instance id — and the store itself falls back to it too.
+    const storeBase = catalog?.store_url?.replace(/\/$/, "");
+    let target: string;
+    if (instanceId && storeBase) {
+      target =
+        `${storeBase}/checkout?item=${encodeURIComponent(itemKey)}` +
+        `&kind=${kind}&ref=${token}&instance=${instanceId}`;
+    } else {
+      const sep = link.includes("?") ? "&" : "?";
+      target = `${link}${sep}client_reference_id=${ref}`;
+    }
+    window.open(target, "_blank", "noopener");
     claimCountRef.current = 0;
     // Poll with the FULL ref: the store looks the checkout session up by an
     // EXACT client_reference_id match, so polling with the bare token while
@@ -592,12 +606,12 @@ export default function ExtensionsAdmin() {
 
   const handleBuy = (item: StoreItem) => {
     if (!item.payment_link) return;
-    openCheckout(item.payment_link, item.key);
+    openCheckout(item.payment_link, item.key, "buy");
   };
 
   const handleTrial = (item: StoreItem) => {
     if (!item.trial_link) return;
-    openCheckout(item.trial_link, item.key);
+    openCheckout(item.trial_link, item.key, "trial");
   };
 
   const handleInstallClick = (item: StoreItem) => {
