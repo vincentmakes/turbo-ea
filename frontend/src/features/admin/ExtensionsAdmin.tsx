@@ -148,6 +148,11 @@ interface StoreItem {
   // Entitlement is a trial (active or expired) — Buy stays visible so a
   // trialing customer can convert in-product.
   entitlement_trial?: boolean;
+  // Expiry/renewal info for the card's entitlement chip ("Trial until …" /
+  // "Renews on …") — present even for licensed-but-not-installed items.
+  entitlement_expires_at?: string | null;
+  entitlement_grace_until?: string | null;
+  entitlement_auto_renew?: boolean | null;
   free?: boolean;
 }
 
@@ -1121,15 +1126,20 @@ export default function ExtensionsAdmin() {
                             label={t("extensions.entitlement.free", "Free")}
                           />
                         )}
-                        {!item.installed_version &&
-                          !item.free &&
-                          item.entitlement_state !== "unlicensed" && (
-                            <Chip
-                              size="small"
-                              color={ENTITLEMENT_COLOR[item.entitlement_state]}
-                              label={t("extensions.store.licensed", "Licensed")}
-                            />
-                          )}
+                        {/* Live entitlement chip — the same cascade as the
+                            Installed tab ("Trial until …", "Renews on …",
+                            "Expires … — will not renew"), shown even while
+                            installed so trial countdowns and renewal dates
+                            are visible where Buy/Start-trial live. */}
+                        {!item.free &&
+                          item.entitlement_state !== "unlicensed" &&
+                          entitlementChip({
+                            state: item.entitlement_state,
+                            expires_at: item.entitlement_expires_at,
+                            grace_until: item.entitlement_grace_until,
+                            auto_renew: item.entitlement_auto_renew,
+                            trial: item.entitlement_trial,
+                          })}
                       </Stack>
                       <Typography variant="body2" color="text.secondary" sx={{ flex: 1, mb: 1.5 }}>
                         {item.description}

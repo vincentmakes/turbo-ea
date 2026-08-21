@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Extension trials: the Store tab shows a "Start 30-day trial" button on extensions whose catalogue listing offers one, and the Installed tab labels trial entitlements ("Trial until …" / "Trial ended — subscribe to reactivate"). A trial entitlement has no grace window — expiry is a hard stop; data is never deleted and everything comes back on subscribing. The Buy button stays visible during and after a trial, so converting to a subscription is one click in-product.
+- Extension trials: the Store tab shows a "Start 30-day trial" button on extensions whose catalogue listing offers one, and the Installed tab labels trial entitlements ("Trial until …" / "Trial ended — subscribe to reactivate"). A trial entitlement has no grace window — expiry is a hard stop; data is never deleted and everything comes back on subscribing. The Buy button stays visible during and after a trial, so converting to a subscription is one click in-product. Store cards show the live entitlement — trial countdown and renewal/expiry dates — even while the extension is installed.
 
 ### Changed
 

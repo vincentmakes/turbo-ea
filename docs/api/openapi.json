@@ -13070,6 +13070,41 @@
             "title": "Description",
             "type": "string"
           },
+          "entitlement_auto_renew": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entitlement Auto Renew"
+          },
+          "entitlement_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entitlement Expires At"
+          },
+          "entitlement_grace_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entitlement Grace Until"
+          },
           "entitlement_state": {
             "default": "unlicensed",
             "title": "Entitlement State",

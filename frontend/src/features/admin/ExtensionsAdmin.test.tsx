@@ -809,6 +809,42 @@ describe("ExtensionsAdmin", () => {
     12000,
   );
 
+  it("store card shows the live entitlement chip with the trial expiry date", async () => {
+    const trialItem = {
+      ...STORE_ITEM,
+      installed_version: "1.0.0", // chip must show even while installed
+      entitlement_state: "active",
+      entitlement_trial: true,
+      entitlement_expires_at: "2026-09-20T00:00:00Z",
+      entitlement_auto_renew: false,
+    };
+    primeInitialLoad({
+      catalog: { configured: true, reachable: true, store_url: "https://x", items: [trialItem] },
+    });
+    renderPage();
+    await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+    expect(
+      screen.getByText(
+        `Trial until ${new Date("2026-09-20T00:00:00Z").toLocaleDateString()}`,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("store card shows the renewal date for a paid yearly entitlement", async () => {
+    const paidItem = {
+      ...STORE_ITEM,
+      entitlement_state: "active",
+      entitlement_expires_at: "2027-08-21T00:00:00Z",
+      entitlement_auto_renew: true,
+    };
+    primeInitialLoad({
+      catalog: { configured: true, reachable: true, store_url: "https://x", items: [paidItem] },
+    });
+    renderPage();
+    await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+    expect(screen.getByText(/Renews on/)).toBeInTheDocument();
+  });
+
   it("shows the not-configured hint on the Store tab by default", async () => {
     primeInitialLoad();
     renderPage();

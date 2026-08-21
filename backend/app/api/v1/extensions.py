@@ -609,6 +609,12 @@ class StoreItemOut(BaseModel):
     # customer can convert in-product, even though the state isn't
     # "unlicensed".
     entitlement_trial: bool = False
+    # Expiry/renewal info so the store card can show "Trial until …" /
+    # "Renews on …" without cross-referencing the installed-extensions list
+    # (a licensed-but-not-installed item has no row there).
+    entitlement_expires_at: datetime | None = None
+    entitlement_grace_until: datetime | None = None
+    entitlement_auto_renew: bool | None = None
     installed_version: str | None = None
     update_available: bool = False
     entitlement_state: str = "unlicensed"
@@ -740,6 +746,9 @@ async def store_catalog(
                 update_available=store_update_available(catalog_version, installed_version),
                 entitlement_state=entitlement.state,
                 entitlement_trial=entitlement.trial is True,
+                entitlement_expires_at=entitlement.expires_at,
+                entitlement_grace_until=entitlement.grace_until,
+                entitlement_auto_renew=entitlement.auto_renew,
                 free=item.get("free") is True,
             )
         )

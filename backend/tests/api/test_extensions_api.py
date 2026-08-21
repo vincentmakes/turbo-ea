@@ -1000,6 +1000,9 @@ class TestStoreCatalog:
         (item,) = res.json()["items"]
         assert item["entitlement_state"] == "active"
         assert item["entitlement_trial"] is True
+        # the card's chip needs the dates without cross-referencing installed rows
+        assert item["entitlement_expires_at"] is not None
+        assert item["entitlement_auto_renew"] is False
 
     async def test_catalog_ignores_a_catalogue_version_with_no_digits(
         self, client, db, vendor, monkeypatch
