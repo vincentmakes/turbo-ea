@@ -47,6 +47,7 @@ import type { PpmCostLine, PpmBudgetLine } from "@/types";
 import {
   availableFiscalYears,
   budgetTotals,
+  fiscalYearOptions,
   buildCumulativeSeries,
   countUndated,
   fiscalYearFor,
@@ -103,6 +104,13 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
     [costLines, budgetLines, fyStart],
   );
 
+  // Chronological, with the current year in its natural slot rather than
+  // pinned to the top.
+  const yearOptions = useMemo(
+    () => fiscalYearOptions(years, currentFy),
+    [years, currentFy],
+  );
+
   // A year stored from another initiative may have no data here; fall back to
   // the current fiscal year rather than rendering an empty chart.
   const activeFy = useMemo(
@@ -113,7 +121,7 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
   // The current year renders as the "current" entry, and a stale stored year
   // has no entry at all — either would leave the Select without a match.
   const selectValue: string | number =
-    typeof fyChoice === "number" && years.includes(fyChoice) && fyChoice !== currentFy
+    typeof fyChoice === "number" && yearOptions.includes(fyChoice) && fyChoice !== currentFy
       ? fyChoice
       : fyChoice === "all"
         ? "all"
@@ -170,14 +178,13 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
               }}
               inputProps={{ "aria-label": t("fiscalYear") }}
             >
-              <MenuItem value="current">{yearLabel(currentFy)}</MenuItem>
-              {years
-                .filter((y) => y !== currentFy)
-                .map((y) => (
-                  <MenuItem key={y} value={y}>
-                    {yearLabel(y)}
-                  </MenuItem>
-                ))}
+              {yearOptions.map((y) => (
+                // The current year carries the "current" sentinel, so the saved
+                // preference keeps following today as years roll over.
+                <MenuItem key={y} value={y === currentFy ? "current" : y}>
+                  {yearLabel(y)}
+                </MenuItem>
+              ))}
               <MenuItem value="all">{t("allFiscalYears")}</MenuItem>
             </Select>
           </FormControl>

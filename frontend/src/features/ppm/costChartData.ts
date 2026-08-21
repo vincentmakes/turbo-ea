@@ -139,6 +139,18 @@ export function availableFiscalYears(
 }
 
 /**
+ * The fiscal years the picker offers, ascending.
+ *
+ * The current year is always included even when it carries no data — it is the
+ * default selection — and every year sits in its natural chronological slot.
+ * Pinning the current year to the top instead made the list jump backwards
+ * after its first entry.
+ */
+export function fiscalYearOptions(years: number[], currentFy: number): number[] {
+  return [...new Set([...years, currentFy])].sort((a, b) => a - b);
+}
+
+/**
  * Every month from the first to the last dated cost line, inclusive. Empty
  * when no cost line carries a date — there is no timeline to draw.
  */

@@ -5,6 +5,7 @@ import {
   fiscalYearMonths,
   monthKey,
   availableFiscalYears,
+  fiscalYearOptions,
   projectMonthRange,
   countUndated,
   budgetTotals,
@@ -138,6 +139,34 @@ describe("availableFiscalYears", () => {
   it("respects a non-January start month", () => {
     // October 2025 already belongs to FY2026.
     expect(availableFiscalYears([cost("2025-10-01", "capex", 10)], [], 10)).toEqual([2026]);
+  });
+});
+
+describe("fiscalYearOptions", () => {
+  it("lists years chronologically, not with the current year pinned first", () => {
+    // The picker used to render the current year first and the rest ascending,
+    // so the list jumped backwards after its first entry.
+    expect(fiscalYearOptions([2024, 2025, 2026, 2027], 2026)).toEqual([
+      2024, 2025, 2026, 2027,
+    ]);
+  });
+
+  it("includes the current year even when it carries no data", () => {
+    expect(fiscalYearOptions([2024, 2027], 2026)).toEqual([2024, 2026, 2027]);
+  });
+
+  it("does not duplicate the current year", () => {
+    expect(fiscalYearOptions([2026], 2026)).toEqual([2026]);
+  });
+
+  it("sorts numerically rather than lexicographically", () => {
+    expect(fiscalYearOptions([2030, 2009, 2100], 2026)).toEqual([
+      2009, 2026, 2030, 2100,
+    ]);
+  });
+
+  it("offers the current year alone when there is no data at all", () => {
+    expect(fiscalYearOptions([], 2026)).toEqual([2026]);
   });
 });
 
