@@ -32,6 +32,7 @@ import { useSearchParams } from "react-router";
 
 import { api, ApiError } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import { invalidateExtensionCapabilities } from "@/hooks/useExtensionCapabilities";
 import { invalidateCache as invalidateMetamodel } from "@/hooks/useMetamodel";
 
@@ -238,6 +239,9 @@ export default function ExtensionsAdmin() {
     else params.set("tab", next);
     setSearchParams(params, { replace: true });
   };
+  // Entitlement/license dates follow the app-wide configured date format
+  // (Admin → Settings), never the browser locale.
+  const { formatDate: fmtDate } = useDateFormat();
   const [extensions, setExtensions] = useState<ExtensionInfo[]>([]);
   const [license, setLicense] = useState<LicenseInfo | null>(null);
   const [catalog, setCatalog] = useState<StoreCatalog | null>(null);
@@ -781,7 +785,6 @@ export default function ExtensionsAdmin() {
     (plugin.adminPanels ?? []).map((panel) => ({ extKey: key, panel })),
   );
 
-  const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString() : "");
 
   const entitlementChip = (ent: EntitlementInfo) => {
     // Trials first: they have no grace window (expiry is a hard stop), so the

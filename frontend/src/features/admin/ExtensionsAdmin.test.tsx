@@ -30,6 +30,7 @@ vi.mock("@/hooks/useMetamodel", () => ({
 }));
 
 import { api, ApiError } from "@/api/client";
+import { DEFAULT_DATE_FORMAT, formatDateWith } from "@/hooks/useDateFormat";
 
 const mockGet = api.get as ReturnType<typeof vi.fn>;
 const mockPost = api.post as ReturnType<typeof vi.fn>;
@@ -823,9 +824,10 @@ describe("ExtensionsAdmin", () => {
     });
     renderPage();
     await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+    // dates follow the app-wide configured format, not the browser locale
     expect(
       screen.getByText(
-        `Trial until ${new Date("2026-09-20T00:00:00Z").toLocaleDateString()}`,
+        `Trial until ${formatDateWith(DEFAULT_DATE_FORMAT, "2026-09-20T00:00:00Z")}`,
       ),
     ).toBeInTheDocument();
   });
