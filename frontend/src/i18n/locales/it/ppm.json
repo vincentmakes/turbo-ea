@@ -170,5 +170,20 @@
   "workPackage": "Pacchetto di lavoro",
   "confirmDeleteTask": "Eliminare questa attività? Questa azione non può essere annullata.",
   "addTaskUnderWbs": "Aggiungi attività",
-  "deleteConfirm": "Conferma eliminazione"
+  "deleteConfirm": "Conferma eliminazione",
+  "spendOverTime": "Spesa nel tempo",
+  "cumulativeByCategory": "Spesa cumulata per categoria",
+  "cumulativeTotal": "Spesa totale cumulata",
+  "projectCumulative": "Progetto a oggi",
+  "allFiscalYears": "Tutti gli esercizi",
+  "showBoth": "Entrambi",
+  "cumulativeCapex": "CapEx cumulate",
+  "cumulativeOpex": "OpEx cumulate",
+  "cumulativeSpend": "Spesa cumulata",
+  "capexBudgetLine": "Budget CapEx",
+  "opexBudgetLine": "Budget OpEx",
+  "totalBudgetLine": "Budget totale",
+  "noChartData": "Nessun dato di costo da rappresentare",
+  "undatedExcluded_one": "{{count}} voce di costo senza data non è mostrata nei grafici",
+  "undatedExcluded_other": "{{count}} voci di costo senza data non sono mostrate nei grafici"
 }

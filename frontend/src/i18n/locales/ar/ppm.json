@@ -170,5 +170,20 @@
   "workPackage": "حزمة العمل",
   "confirmDeleteTask": "هل تريد حذف هذه المهمة؟ لا يمكن التراجع عن هذا الإجراء.",
   "addTaskUnderWbs": "إضافة مهمة",
-  "deleteConfirm": "تأكيد الحذف"
+  "deleteConfirm": "تأكيد الحذف",
+  "spendOverTime": "الإنفاق عبر الزمن",
+  "cumulativeByCategory": "الإنفاق التراكمي حسب الفئة",
+  "cumulativeTotal": "إجمالي الإنفاق التراكمي",
+  "projectCumulative": "المشروع حتى تاريخه",
+  "allFiscalYears": "كل السنوات المالية",
+  "showBoth": "كلاهما",
+  "cumulativeCapex": "النفقات الرأسمالية التراكمية",
+  "cumulativeOpex": "النفقات التشغيلية التراكمية",
+  "cumulativeSpend": "الإنفاق التراكمي",
+  "capexBudgetLine": "ميزانية النفقات الرأسمالية",
+  "opexBudgetLine": "ميزانية النفقات التشغيلية",
+  "totalBudgetLine": "الميزانية الإجمالية",
+  "noChartData": "لا توجد بيانات تكلفة لعرضها في الرسم البياني بعد",
+  "undatedExcluded_one": "{{count}} بند تكلفة بلا تاريخ لا يظهر في الرسوم البيانية",
+  "undatedExcluded_other": "{{count}} بنود تكلفة بلا تاريخ لا تظهر في الرسوم البيانية"
 }

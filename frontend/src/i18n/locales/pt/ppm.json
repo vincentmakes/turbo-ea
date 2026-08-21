@@ -170,5 +170,20 @@
   "workPackage": "Pacote de trabalho",
   "confirmDeleteTask": "Excluir esta tarefa? Esta ação não pode ser desfeita.",
   "addTaskUnderWbs": "Adicionar tarefa",
-  "deleteConfirm": "Confirmar exclusão"
+  "deleteConfirm": "Confirmar exclusão",
+  "spendOverTime": "Gastos ao longo do tempo",
+  "cumulativeByCategory": "Gasto acumulado por categoria",
+  "cumulativeTotal": "Gasto total acumulado",
+  "projectCumulative": "Projeto até à data",
+  "allFiscalYears": "Todos os anos fiscais",
+  "showBoth": "Ambos",
+  "cumulativeCapex": "CapEx acumulado",
+  "cumulativeOpex": "OpEx acumulado",
+  "cumulativeSpend": "Gasto acumulado",
+  "capexBudgetLine": "Orçamento CapEx",
+  "opexBudgetLine": "Orçamento OpEx",
+  "totalBudgetLine": "Orçamento total",
+  "noChartData": "Ainda não há dados de custo para o gráfico",
+  "undatedExcluded_one": "{{count}} item de custo sem data não é apresentado nos gráficos",
+  "undatedExcluded_other": "{{count}} itens de custo sem data não são apresentados nos gráficos"
 }

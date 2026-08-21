@@ -170,5 +170,20 @@
   "workPackage": "Arbeitspaket",
   "confirmDeleteTask": "Diese Aufgabe löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
   "addTaskUnderWbs": "Aufgabe hinzufügen",
-  "deleteConfirm": "Löschen bestätigen"
+  "deleteConfirm": "Löschen bestätigen",
+  "spendOverTime": "Ausgaben im Zeitverlauf",
+  "cumulativeByCategory": "Kumulierte Ausgaben nach Kategorie",
+  "cumulativeTotal": "Kumulierte Gesamtausgaben",
+  "projectCumulative": "Projekt bis heute",
+  "allFiscalYears": "Alle Geschäftsjahre",
+  "showBoth": "Beide",
+  "cumulativeCapex": "Kumulierte CapEx",
+  "cumulativeOpex": "Kumulierte OpEx",
+  "cumulativeSpend": "Kumulierte Ausgaben",
+  "capexBudgetLine": "CapEx-Budget",
+  "opexBudgetLine": "OpEx-Budget",
+  "totalBudgetLine": "Gesamtbudget",
+  "noChartData": "Noch keine Kostendaten für das Diagramm",
+  "undatedExcluded_one": "{{count}} Kostenposition ohne Datum wird in den Diagrammen nicht angezeigt",
+  "undatedExcluded_other": "{{count}} Kostenpositionen ohne Datum werden in den Diagrammen nicht angezeigt"
 }

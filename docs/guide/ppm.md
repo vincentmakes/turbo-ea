@@ -67,6 +67,21 @@ Track financial data with two types of line items:
 
 Budget and cost totals automatically roll up to the Initiative card's `costBudget` and `costActual` attributes. When PPM cost lines exist, these card fields are marked as auto-computed and become read-only in the card detail view.
 
+#### Spend Over Time
+
+Above the budget and cost tables, three charts plot how spend has accumulated month by month:
+
+- **Cumulative spend by category** — cumulative CapEx and OpEx for the selected fiscal year, with dotted horizontal lines marking the CapEx and OpEx budget for that year. Use the **Both / CapEx / OpEx** toggle to focus on one category
+- **Cumulative total spend** — the same fiscal year with both categories combined, against a dotted total-budget line
+- **Project to date** — cumulative CapEx and OpEx across every month of the project, against the total budget for all fiscal years
+
+The fiscal-year selector applies to the first two charts and offers the current year, any other year with data, and **All fiscal years**. Your category, fiscal-year and expand/collapse choices are remembered between visits.
+
+Two things to be aware of when reading the charts:
+
+- Lines stop at the current month rather than running flat to the end of the year, so an unfinished year is not mistaken for one where spending has stopped
+- Cost lines with no date cannot be placed on a timeline and are left out. A note below the charts reports how many were excluded, so the chart totals can be reconciled with the summary bar
+
 ### Risk Management Tab
 
 ![PPM Risk Management](../assets/img/en/44_ppm_risk_management.png)

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
@@ -28,6 +28,11 @@ import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import type { PpmCostLine, PpmBudgetLine } from "@/types";
+
+// Lazy: PpmProjectDetail imports every tab eagerly, so a static import would
+// pull Recharts into the PPM route chunk even for visitors who never open
+// this tab.
+const PpmCostCharts = lazy(() => import("./PpmCostCharts"));
 
 interface Props {
   initiativeId: string;
@@ -235,6 +240,11 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
           </Typography>
         </Box>
       </Paper>
+
+      {/* Cumulative spend charts */}
+      <Suspense fallback={null}>
+        <PpmCostCharts costLines={costLines} budgetLines={budgetLines} />
+      </Suspense>
 
       {/* ── Planned Budget ── */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>

@@ -67,6 +67,21 @@ Seguimiento de datos financieros con dos tipos de partidas:
 
 Los totales de presupuesto y costos se acumulan automáticamente en los atributos `costBudget` y `costActual` de la tarjeta de Iniciativa.
 
+#### Gasto a lo largo del tiempo
+
+Encima de las tablas de presupuesto y costes, tres gráficos muestran cómo se acumula el gasto mes a mes:
+
+- **Gasto acumulado por categoría** — CapEx y OpEx acumulados del ejercicio seleccionado, con líneas horizontales punteadas que marcan el presupuesto CapEx y OpEx de ese ejercicio. El selector **Ambos / CapEx / OpEx** permite centrarse en una sola categoría
+- **Gasto total acumulado** — el mismo ejercicio con ambas categorías combinadas, frente a una línea punteada de presupuesto total
+- **Proyecto hasta la fecha** — CapEx y OpEx acumulados a lo largo de todos los meses del proyecto, frente al presupuesto total de todos los ejercicios
+
+El selector de ejercicio se aplica a los dos primeros gráficos y ofrece el ejercicio actual, cualquier otro ejercicio con datos y **Todos los ejercicios fiscales**. Sus elecciones de categoría, ejercicio y estado plegado o desplegado se recuerdan entre visitas.
+
+Dos aspectos a tener en cuenta al leer los gráficos:
+
+- Las líneas se detienen en el mes actual en lugar de continuar planas hasta el final del ejercicio, de modo que un ejercicio en curso no se confunda con uno en el que el gasto se ha detenido
+- Las partidas de coste sin fecha no pueden situarse en una línea temporal y quedan excluidas. Una nota bajo los gráficos indica cuántas se excluyeron, para poder conciliar los totales del gráfico con la barra de resumen
+
 ### Pestaña de gestión de riesgos
 
 ![Pestaña de gestión de riesgos](../assets/img/es/44_ppm_gestion_riesgos.png)

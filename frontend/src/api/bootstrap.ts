@@ -29,6 +29,7 @@ import { invalidateGrcEnabled } from "@/hooks/useGrcEnabled";
 import { invalidateSponsorButtonEnabled } from "@/hooks/useSponsorButtonEnabled";
 import { invalidatePpmEnabled } from "@/hooks/usePpmEnabled";
 import { invalidateArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
+import { invalidateFiscalYearStart } from "@/hooks/useFiscalYearStart";
 import { invalidateFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
 import { invalidateEnabledLocalesGlobal } from "@/hooks/useEnabledLocales";
 import { invalidateLoginBranding } from "@/hooks/useLoginBranding";
@@ -97,6 +98,10 @@ export function primeBootstrap(): Promise<void> {
 
       if (typeof r.archive_retention_days === "number") {
         invalidateArchiveRetentionDays(r.archive_retention_days);
+      }
+
+      if (typeof r.fiscal_year_start === "number") {
+        invalidateFiscalYearStart(r.fiscal_year_start);
       }
 
       const validLocales = r.enabled_locales.filter((l): l is SupportedLocale =>

@@ -170,5 +170,20 @@
   "workPackage": "Рабочий пакет",
   "confirmDeleteTask": "Удалить эту задачу? Это действие нельзя отменить.",
   "addTaskUnderWbs": "Добавить задачу",
-  "deleteConfirm": "Подтвердить удаление"
+  "deleteConfirm": "Подтвердить удаление",
+  "spendOverTime": "Расходы во времени",
+  "cumulativeByCategory": "Накопленные расходы по категориям",
+  "cumulativeTotal": "Накопленные совокупные расходы",
+  "projectCumulative": "Проект на текущую дату",
+  "allFiscalYears": "Все финансовые годы",
+  "showBoth": "Оба",
+  "cumulativeCapex": "Накопленные CapEx",
+  "cumulativeOpex": "Накопленные OpEx",
+  "cumulativeSpend": "Накопленные расходы",
+  "capexBudgetLine": "Бюджет CapEx",
+  "opexBudgetLine": "Бюджет OpEx",
+  "totalBudgetLine": "Общий бюджет",
+  "noChartData": "Пока нет данных о затратах для диаграммы",
+  "undatedExcluded_one": "{{count}} статья затрат без даты не показана на диаграммах",
+  "undatedExcluded_other": "{{count}} статей затрат без даты не показаны на диаграммах"
 }

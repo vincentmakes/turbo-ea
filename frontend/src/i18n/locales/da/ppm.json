@@ -170,5 +170,20 @@
   "workPackage": "Arbejdspakke",
   "confirmDeleteTask": "Slet denne opgave? Denne handling kan ikke fortrydes.",
   "addTaskUnderWbs": "Tilføj opgave",
-  "deleteConfirm": "Bekræft sletning"
+  "deleteConfirm": "Bekræft sletning",
+  "spendOverTime": "Forbrug over tid",
+  "cumulativeByCategory": "Akkumuleret forbrug efter kategori",
+  "cumulativeTotal": "Akkumuleret samlet forbrug",
+  "projectCumulative": "Projektet til dato",
+  "allFiscalYears": "Alle regnskabsår",
+  "showBoth": "Begge",
+  "cumulativeCapex": "Akkumuleret CapEx",
+  "cumulativeOpex": "Akkumuleret OpEx",
+  "cumulativeSpend": "Akkumuleret forbrug",
+  "capexBudgetLine": "CapEx-budget",
+  "opexBudgetLine": "OpEx-budget",
+  "totalBudgetLine": "Samlet budget",
+  "noChartData": "Ingen omkostningsdata at vise endnu",
+  "undatedExcluded_one": "{{count}} omkostningspost uden dato vises ikke i diagrammerne",
+  "undatedExcluded_other": "{{count}} omkostningsposter uden dato vises ikke i diagrammerne"
 }

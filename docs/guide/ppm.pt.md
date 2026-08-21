@@ -67,6 +67,21 @@ Acompanhamento de dados financeiros com dois tipos de itens:
 
 Os totais de orçamento e custos são automaticamente acumulados nos atributos `costBudget` e `costActual` do card de Iniciativa.
 
+#### Gastos ao longo do tempo
+
+Acima das tabelas de orçamento e custos, três gráficos mostram como os gastos se acumulam mês a mês:
+
+- **Gasto acumulado por categoria** — CapEx e OpEx acumulados do ano fiscal selecionado, com linhas horizontais tracejadas a marcar o orçamento CapEx e OpEx desse ano. O seletor **Ambos / CapEx / OpEx** permite focar numa única categoria
+- **Gasto total acumulado** — o mesmo ano fiscal com ambas as categorias combinadas, face a uma linha tracejada de orçamento total
+- **Projeto até à data** — CapEx e OpEx acumulados ao longo de todos os meses do projeto, face ao orçamento total de todos os anos fiscais
+
+O seletor de ano fiscal aplica-se aos dois primeiros gráficos e oferece o ano atual, qualquer outro ano com dados e **Todos os anos fiscais**. As suas escolhas de categoria, ano fiscal e estado recolhido ou expandido são memorizadas entre visitas.
+
+Dois aspetos a ter em conta ao ler os gráficos:
+
+- As linhas param no mês atual em vez de seguirem planas até ao fim do ano, para que um ano em curso não seja confundido com um em que os gastos pararam
+- Os itens de custo sem data não podem ser colocados numa linha temporal e são excluídos. Uma nota por baixo dos gráficos indica quantos foram excluídos, permitindo conciliar os totais do gráfico com a barra de resumo
+
 ### Aba Gestão de Riscos
 
 ![Gestão de Riscos PPM](../assets/img/pt/44_ppm_gestao_riscos.png)

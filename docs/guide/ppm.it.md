@@ -67,6 +67,21 @@ Monitoraggio dei dati finanziari con due tipi di voci:
 
 I totali di budget e costi vengono automaticamente aggregati negli attributi `costBudget` e `costActual` della card Iniziativa.
 
+#### Spesa nel tempo
+
+Sopra le tabelle di budget e costi, tre grafici mostrano come la spesa si accumula mese per mese:
+
+- **Spesa cumulata per categoria** — CapEx e OpEx cumulate per l'esercizio selezionato, con linee orizzontali tratteggiate che indicano il budget CapEx e OpEx di quell'esercizio. Il selettore **Entrambi / CapEx / OpEx** consente di concentrarsi su una sola categoria
+- **Spesa totale cumulata** — lo stesso esercizio con entrambe le categorie combinate, rispetto a una linea tratteggiata di budget totale
+- **Progetto a oggi** — CapEx e OpEx cumulate su tutti i mesi del progetto, rispetto al budget totale di tutti gli esercizi
+
+Il selettore dell'esercizio si applica ai primi due grafici e propone l'esercizio corrente, qualsiasi altro esercizio con dati e **Tutti gli esercizi**. Le scelte di categoria, esercizio e stato aperto o chiuso vengono ricordate tra una visita e l'altra.
+
+Due aspetti da tenere presenti nella lettura dei grafici:
+
+- Le linee si fermano al mese corrente anziché proseguire piatte fino a fine esercizio, così un esercizio in corso non viene scambiato per uno in cui la spesa si è fermata
+- Le voci di costo senza data non possono essere collocate su una linea temporale e vengono escluse. Una nota sotto i grafici riporta quante ne sono state escluse, per riconciliare i totali del grafico con la barra di riepilogo
+
 ### Scheda Gestione dei Rischi
 
 ![Gestione dei Rischi PPM](../assets/img/it/44_ppm_gestione_rischi.png)

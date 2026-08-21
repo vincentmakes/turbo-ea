@@ -67,6 +67,21 @@ Suivi des données financières avec deux types de lignes :
 
 Les totaux de budget et de coûts sont automatiquement agrégés dans les attributs `costBudget` et `costActual` de la carte Initiative.
 
+#### Dépenses dans le temps
+
+Au-dessus des tableaux de budget et de coûts, trois graphiques montrent comment les dépenses se cumulent mois après mois :
+
+- **Dépenses cumulées par catégorie** — CapEx et OpEx cumulées pour l'exercice sélectionné, avec des lignes horizontales pointillées marquant le budget CapEx et OpEx de cet exercice. Le sélecteur **Les deux / CapEx / OpEx** permet de se concentrer sur une seule catégorie
+- **Dépenses totales cumulées** — le même exercice avec les deux catégories combinées, face à une ligne pointillée de budget total
+- **Projet à ce jour** — CapEx et OpEx cumulées sur tous les mois du projet, face au budget total de tous les exercices
+
+Le sélecteur d'exercice s'applique aux deux premiers graphiques et propose l'exercice en cours, tout autre exercice comportant des données, ainsi que **Tous les exercices**. Vos choix de catégorie, d'exercice et d'affichage replié ou déplié sont mémorisés d'une visite à l'autre.
+
+Deux points à garder à l'esprit :
+
+- Les courbes s'arrêtent au mois en cours au lieu de se prolonger à plat jusqu'à la fin de l'exercice, afin qu'un exercice en cours ne soit pas confondu avec un exercice où les dépenses se sont arrêtées
+- Les postes de coût sans date ne peuvent pas être placés sur une chronologie et sont exclus. Une note sous les graphiques indique combien ont été exclus, ce qui permet de rapprocher les totaux des graphiques de la barre de synthèse
+
 ### Onglet Gestion des Risques
 
 ![Gestion des risques PPM](../assets/img/fr/44_ppm_gestion_risques.png)

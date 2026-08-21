@@ -170,5 +170,20 @@
   "workPackage": "工作包",
   "confirmDeleteTask": "删除此任务？此操作无法撤销。",
   "addTaskUnderWbs": "添加任务",
-  "deleteConfirm": "确认删除"
+  "deleteConfirm": "确认删除",
+  "spendOverTime": "支出趋势",
+  "cumulativeByCategory": "按类别累计支出",
+  "cumulativeTotal": "累计总支出",
+  "projectCumulative": "项目至今",
+  "allFiscalYears": "所有财年",
+  "showBoth": "两者",
+  "cumulativeCapex": "累计资本支出",
+  "cumulativeOpex": "累计运营支出",
+  "cumulativeSpend": "累计支出",
+  "capexBudgetLine": "资本支出预算",
+  "opexBudgetLine": "运营支出预算",
+  "totalBudgetLine": "总预算",
+  "noChartData": "暂无可用于绘图的成本数据",
+  "undatedExcluded_one": "{{count}} 项未填日期的成本条目未显示在图表中",
+  "undatedExcluded_other": "{{count}} 项未填日期的成本条目未显示在图表中"
 }
