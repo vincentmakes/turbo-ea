@@ -132,6 +132,12 @@ async def _create_todo(
         select(Todo)
         .where(Todo.id == todo.id)
         .options(selectinload(Todo.card), selectinload(Todo.assignee), selectinload(Todo.creator))
+        # The route's first, option-less SELECT left this instance in the
+        # identity map with its noload relationships initialised to None;
+        # expire_on_commit=False means commit() does not expire it, so a
+        # plain re-select would keep those Nones. Force a refresh so the
+        # response carries the card/assignee/creator names.
+        .execution_options(populate_existing=True)
     )
     return _todo_to_dict(result.scalar_one())
 
@@ -185,6 +191,12 @@ async def update_todo(
         select(Todo)
         .where(Todo.id == todo.id)
         .options(selectinload(Todo.card), selectinload(Todo.assignee), selectinload(Todo.creator))
+        # The route's first, option-less SELECT left this instance in the
+        # identity map with its noload relationships initialised to None;
+        # expire_on_commit=False means commit() does not expire it, so a
+        # plain re-select would keep those Nones. Force a refresh so the
+        # response carries the card/assignee/creator names.
+        .execution_options(populate_existing=True)
     )
     todo = result.scalar_one()
     return _todo_to_dict(todo)
@@ -220,6 +232,12 @@ async def promote_todo(
         select(Todo)
         .where(Todo.id == todo.id)
         .options(selectinload(Todo.card), selectinload(Todo.assignee), selectinload(Todo.creator))
+        # The route's first, option-less SELECT left this instance in the
+        # identity map with its noload relationships initialised to None;
+        # expire_on_commit=False means commit() does not expire it, so a
+        # plain re-select would keep those Nones. Force a refresh so the
+        # response carries the card/assignee/creator names.
+        .execution_options(populate_existing=True)
     )
     todo = result.scalar_one()
     return _todo_to_dict(todo)
