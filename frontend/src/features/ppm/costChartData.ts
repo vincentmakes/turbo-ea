@@ -14,7 +14,6 @@
 import type { PpmCostLine, PpmBudgetLine } from "@/types";
 
 export type Bucket = "capex" | "opex";
-export type SeriesMode = "both" | "capex" | "opex";
 /** "current" = whichever fiscal year contains today; resolved at render time. */
 export type FiscalYearChoice = number | "all" | "current";
 

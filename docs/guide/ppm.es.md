@@ -71,11 +71,11 @@ Los totales de presupuesto y costos se acumulan automáticamente en los atributo
 
 Encima de las tablas de presupuesto y costes, tres gráficos muestran cómo se acumula el gasto mes a mes:
 
-- **Gasto acumulado por categoría** — CapEx y OpEx acumulados del ejercicio seleccionado, con líneas horizontales punteadas que marcan el presupuesto CapEx y OpEx de ese ejercicio. El selector **Ambos / CapEx / OpEx** permite centrarse en una sola categoría
+- **Gasto acumulado por categoría** — CapEx y OpEx acumulados del ejercicio seleccionado, con líneas horizontales punteadas que marcan el presupuesto CapEx y OpEx de ese ejercicio
 - **Gasto total acumulado** — el mismo ejercicio con ambas categorías combinadas, frente a una línea punteada de presupuesto total
 - **Proyecto hasta la fecha** — CapEx y OpEx acumulados a lo largo de todos los meses del proyecto, frente al presupuesto total de todos los ejercicios
 
-El selector de ejercicio se aplica a los dos primeros gráficos y ofrece el ejercicio actual, cualquier otro ejercicio con datos y **Todos los ejercicios fiscales**. Sus elecciones de categoría, ejercicio y estado plegado o desplegado se recuerdan entre visitas.
+El selector de ejercicio se aplica a los dos primeros gráficos y ofrece el ejercicio actual, cualquier otro ejercicio con datos y **Todos los ejercicios fiscales**. Sus elecciones de ejercicio y estado plegado o desplegado se recuerdan entre visitas.
 
 Dos aspectos a tener en cuenta al leer los gráficos:
 

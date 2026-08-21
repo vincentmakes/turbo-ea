@@ -71,11 +71,11 @@ I totali di budget e costi vengono automaticamente aggregati negli attributi `co
 
 Sopra le tabelle di budget e costi, tre grafici mostrano come la spesa si accumula mese per mese:
 
-- **Spesa cumulata per categoria** — CapEx e OpEx cumulate per l'esercizio selezionato, con linee orizzontali tratteggiate che indicano il budget CapEx e OpEx di quell'esercizio. Il selettore **Entrambi / CapEx / OpEx** consente di concentrarsi su una sola categoria
+- **Spesa cumulata per categoria** — CapEx e OpEx cumulate per l'esercizio selezionato, con linee orizzontali tratteggiate che indicano il budget CapEx e OpEx di quell'esercizio
 - **Spesa totale cumulata** — lo stesso esercizio con entrambe le categorie combinate, rispetto a una linea tratteggiata di budget totale
 - **Progetto a oggi** — CapEx e OpEx cumulate su tutti i mesi del progetto, rispetto al budget totale di tutti gli esercizi
 
-Il selettore dell'esercizio si applica ai primi due grafici e propone l'esercizio corrente, qualsiasi altro esercizio con dati e **Tutti gli esercizi**. Le scelte di categoria, esercizio e stato aperto o chiuso vengono ricordate tra una visita e l'altra.
+Il selettore dell'esercizio si applica ai primi due grafici e propone l'esercizio corrente, qualsiasi altro esercizio con dati e **Tutti gli esercizi**. Le scelte di esercizio e stato aperto o chiuso vengono ricordate tra una visita e l'altra.
 
 Due aspetti da tenere presenti nella lettura dei grafici:
 

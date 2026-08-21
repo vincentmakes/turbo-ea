@@ -71,11 +71,11 @@ Budget and cost totals automatically roll up to the Initiative card's `costBudge
 
 Above the budget and cost tables, three charts plot how spend has accumulated month by month:
 
-- **Cumulative spend by category** — cumulative CapEx and OpEx for the selected fiscal year, with dotted horizontal lines marking the CapEx and OpEx budget for that year. Use the **Both / CapEx / OpEx** toggle to focus on one category
+- **Cumulative spend by category** — cumulative CapEx and OpEx for the selected fiscal year, with dotted horizontal lines marking the CapEx and OpEx budget for that year
 - **Cumulative total spend** — the same fiscal year with both categories combined, against a dotted total-budget line
 - **Project to date** — cumulative CapEx and OpEx across every month of the project, against the total budget for all fiscal years
 
-The fiscal-year selector applies to the first two charts and offers the current year, any other year with data, and **All fiscal years**. Your category, fiscal-year and expand/collapse choices are remembered between visits.
+The fiscal-year selector applies to the first two charts and offers the current year, any other year with data, and **All fiscal years**. Your fiscal-year and expand/collapse choices are remembered between visits.
 
 Two things to be aware of when reading the charts:
 

@@ -19,8 +19,6 @@ import Collapse from "@mui/material/Collapse";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
-import ToggleButton from "@mui/material/ToggleButton";
-import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import {
@@ -55,7 +53,6 @@ import {
   fiscalYearMonths,
   projectMonthRange,
   type MonthPoint,
-  type SeriesMode,
   type FiscalYearChoice,
 } from "./costChartData";
 import {
@@ -83,13 +80,12 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
   const headingId = useId();
 
   const [prefs] = useState(loadCostChartPrefs);
-  const [series, setSeries] = useState<SeriesMode>(prefs.series);
   const [fyChoice, setFyChoice] = useState<FiscalYearChoice>(prefs.fiscalYear);
   const [expanded, setExpanded] = useState(prefs.expanded);
 
   useEffect(() => {
-    saveCostChartPrefs({ series, fiscalYear: fyChoice, expanded });
-  }, [series, fyChoice, expanded]);
+    saveCostChartPrefs({ fiscalYear: fyChoice, expanded });
+  }, [fyChoice, expanded]);
 
   // `today` is read once per render rather than per helper call so every chart
   // on screen agrees on where "now" is.
@@ -200,38 +196,21 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
         <Box display="flex" gap={2} flexWrap="wrap">
           {/* ── 1. By category, one fiscal year ── */}
           <Box flex="1 1 380px" minWidth={0}>
-            <Box display="flex" alignItems="center" justifyContent="space-between" mb={0.5} gap={1}>
-              <Typography variant="body2" fontWeight={600} id={`${headingId}-cat`}>
-                {t("cumulativeByCategory")}
-              </Typography>
-              <ToggleButtonGroup
-                size="small"
-                exclusive
-                value={series}
-                onChange={(_, v: SeriesMode | null) => v && setSeries(v)}
-                aria-label={t("cumulativeByCategory")}
-              >
-                <ToggleButton value="both">{t("showBoth")}</ToggleButton>
-                <ToggleButton value="capex">{t("capex")}</ToggleButton>
-                <ToggleButton value="opex">{t("opex")}</ToggleButton>
-              </ToggleButtonGroup>
-            </Box>
+            <Typography variant="body2" fontWeight={600} mb={0.5} id={`${headingId}-cat`}>
+              {t("cumulativeByCategory")}
+            </Typography>
             <CumulativeChart
               data={fySeries}
               labelledBy={`${headingId}-cat`}
               lines={[
-                ...(series !== "opex"
-                  ? [{ key: "capex" as const, name: t("cumulativeCapex"), color: capexColor }]
-                  : []),
-                ...(series !== "capex"
-                  ? [{ key: "opex" as const, name: t("cumulativeOpex"), color: opexColor }]
-                  : []),
+                { key: "capex", name: t("cumulativeCapex"), color: capexColor },
+                { key: "opex", name: t("cumulativeOpex"), color: opexColor },
               ]}
               references={[
-                ...(series !== "opex" && fyBudget.capex > 0
+                ...(fyBudget.capex > 0
                   ? [{ value: fyBudget.capex, name: t("capexBudgetLine"), color: capexColor }]
                   : []),
-                ...(series !== "capex" && fyBudget.opex > 0
+                ...(fyBudget.opex > 0
                   ? [{ value: fyBudget.opex, name: t("opexBudgetLine"), color: opexColor }]
                   : []),
               ]}
@@ -362,7 +341,7 @@ function CumulativeChart(props: {
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
           data={chartData}
-          margin={mirrorChartMargin({ top: 8, right: 16, bottom: 0, left: 0 }, isRtl)}
+          margin={mirrorChartMargin({ top: 8, right: 16, bottom: 0, left: 8 }, isRtl)}
         >
           <CartesianGrid strokeDasharray="3 3" stroke={theme.gridStroke} />
           <XAxis
@@ -376,7 +355,10 @@ function CumulativeChart(props: {
           <YAxis
             tick={isRtl ? rtlTick : theme.axisTick}
             tickLine={false}
-            width={64}
+            // Measured from the rendered ticks (Recharts 3.7): a fixed width
+            // clipped long labels once costs ran to millions, since fmtShort
+            // only abbreviates to thousands ("$12000k", "CHF12000k").
+            width="auto"
             orientation={isRtl ? "right" : "left"}
             tickFormatter={(v: number) => fmtShort(v)}
           />

@@ -7,20 +7,16 @@
  * preferences, not project data, and a key per initiative would grow
  * localStorage without bound as projects accumulate.
  */
-import type { FiscalYearChoice, SeriesMode } from "./costChartData";
+import type { FiscalYearChoice } from "./costChartData";
 
 const PREFS_KEY = "turboea.ppm.costcharts.prefs";
 
-const SERIES_VALUES: readonly SeriesMode[] = ["both", "capex", "opex"];
-
 export interface CostChartPrefs {
-  series: SeriesMode;
   fiscalYear: FiscalYearChoice;
   expanded: boolean;
 }
 
 export const DEFAULT_COST_CHART_PREFS: CostChartPrefs = {
-  series: "both",
   fiscalYear: "current",
   expanded: true,
 };
@@ -39,9 +35,6 @@ export function loadCostChartPrefs(): CostChartPrefs {
     const raw = localStorage.getItem(PREFS_KEY);
     const parsed = raw ? (JSON.parse(raw) as Partial<CostChartPrefs>) : {};
     return {
-      series: SERIES_VALUES.includes(parsed.series as SeriesMode)
-        ? (parsed.series as SeriesMode)
-        : DEFAULT_COST_CHART_PREFS.series,
       fiscalYear: coerceFiscalYear(parsed.fiscalYear),
       expanded:
         typeof parsed.expanded === "boolean"

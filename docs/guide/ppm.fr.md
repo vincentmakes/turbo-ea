@@ -71,11 +71,11 @@ Les totaux de budget et de coûts sont automatiquement agrégés dans les attrib
 
 Au-dessus des tableaux de budget et de coûts, trois graphiques montrent comment les dépenses se cumulent mois après mois :
 
-- **Dépenses cumulées par catégorie** — CapEx et OpEx cumulées pour l'exercice sélectionné, avec des lignes horizontales pointillées marquant le budget CapEx et OpEx de cet exercice. Le sélecteur **Les deux / CapEx / OpEx** permet de se concentrer sur une seule catégorie
+- **Dépenses cumulées par catégorie** — CapEx et OpEx cumulées pour l'exercice sélectionné, avec des lignes horizontales pointillées marquant le budget CapEx et OpEx de cet exercice
 - **Dépenses totales cumulées** — le même exercice avec les deux catégories combinées, face à une ligne pointillée de budget total
 - **Projet à ce jour** — CapEx et OpEx cumulées sur tous les mois du projet, face au budget total de tous les exercices
 
-Le sélecteur d'exercice s'applique aux deux premiers graphiques et propose l'exercice en cours, tout autre exercice comportant des données, ainsi que **Tous les exercices**. Vos choix de catégorie, d'exercice et d'affichage replié ou déplié sont mémorisés d'une visite à l'autre.
+Le sélecteur d'exercice s'applique aux deux premiers graphiques et propose l'exercice en cours, tout autre exercice comportant des données, ainsi que **Tous les exercices**. Vos choix d'exercice et d'affichage replié ou déplié sont mémorisés d'une visite à l'autre.
 
 Deux points à garder à l'esprit :
 

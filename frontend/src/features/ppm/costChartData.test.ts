@@ -312,17 +312,18 @@ describe("cost chart prefs", () => {
   });
 
   it("round-trips a saved selection", () => {
-    saveCostChartPrefs({ series: "opex", fiscalYear: 2024, expanded: false });
-    expect(loadCostChartPrefs()).toEqual({
-      series: "opex",
-      fiscalYear: 2024,
-      expanded: false,
-    });
+    saveCostChartPrefs({ fiscalYear: 2024, expanded: false });
+    expect(loadCostChartPrefs()).toEqual({ fiscalYear: 2024, expanded: false });
   });
 
-  it("falls back on an out-of-range series value", () => {
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ series: "bogus" }));
-    expect(loadCostChartPrefs().series).toBe("both");
+  it("ignores a stale key from an older build", () => {
+    // The CapEx/OpEx toggle was removed; prefs written by the previous build
+    // still carry `series` and must load rather than throw.
+    localStorage.setItem(
+      PREFS_KEY,
+      JSON.stringify({ series: "opex", fiscalYear: 2024, expanded: false }),
+    );
+    expect(loadCostChartPrefs()).toEqual({ fiscalYear: 2024, expanded: false });
   });
 
   it("falls back on a nonsense fiscal year", () => {

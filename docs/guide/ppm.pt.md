@@ -71,11 +71,11 @@ Os totais de orçamento e custos são automaticamente acumulados nos atributos `
 
 Acima das tabelas de orçamento e custos, três gráficos mostram como os gastos se acumulam mês a mês:
 
-- **Gasto acumulado por categoria** — CapEx e OpEx acumulados do ano fiscal selecionado, com linhas horizontais tracejadas a marcar o orçamento CapEx e OpEx desse ano. O seletor **Ambos / CapEx / OpEx** permite focar numa única categoria
+- **Gasto acumulado por categoria** — CapEx e OpEx acumulados do ano fiscal selecionado, com linhas horizontais tracejadas a marcar o orçamento CapEx e OpEx desse ano
 - **Gasto total acumulado** — o mesmo ano fiscal com ambas as categorias combinadas, face a uma linha tracejada de orçamento total
 - **Projeto até à data** — CapEx e OpEx acumulados ao longo de todos os meses do projeto, face ao orçamento total de todos os anos fiscais
 
-O seletor de ano fiscal aplica-se aos dois primeiros gráficos e oferece o ano atual, qualquer outro ano com dados e **Todos os anos fiscais**. As suas escolhas de categoria, ano fiscal e estado recolhido ou expandido são memorizadas entre visitas.
+O seletor de ano fiscal aplica-se aos dois primeiros gráficos e oferece o ano atual, qualquer outro ano com dados e **Todos os anos fiscais**. As suas escolhas de ano fiscal e estado recolhido ou expandido são memorizadas entre visitas.
 
 Dois aspetos a ter em conta ao ler os gráficos:
 

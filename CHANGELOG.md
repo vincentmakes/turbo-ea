@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- PPM Budget & Costs: three cumulative spend charts above the budget and cost tables — cumulative CapEx/OpEx for a fiscal year against dotted per-category budget lines (with a Both / CapEx / OpEx toggle), the same year combined into a single total, and a project-to-date view across every month. The fiscal-year selector honours the configured fiscal year start month and offers any year with data plus All fiscal years; the category, year and expand/collapse choices persist between visits. Lines stop at the current month rather than running flat to year end, and undated cost items are excluded with a note reporting how many.
+- PPM Budget & Costs: three cumulative spend charts above the budget and cost tables — cumulative CapEx/OpEx for a fiscal year against dotted per-category budget lines, the same year combined into a single total, and a project-to-date view across every month. The fiscal-year selector honours the configured fiscal year start month and offers any year with data plus All fiscal years; the year and expand/collapse choices persist between visits. Lines stop at the current month rather than running flat to year end, and undated cost items are excluded with a note reporting how many.
 
 ## [2.74.0] - 2026-08-21
 
