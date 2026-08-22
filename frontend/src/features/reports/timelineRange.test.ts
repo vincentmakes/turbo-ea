@@ -91,10 +91,15 @@ describe("classifyTimelineChange", () => {
     expect(classifyTimelineChange({}, TODAY, future)).toBeNull();
   });
 
-  it("never flags an arrival when travelling to the past or to today", () => {
+  it("flags a card that has not started by the date as planned, at any date", () => {
     const past = ms("2020-01-01");
-    expect(classifyTimelineChange({ plan: "2027-01-01" }, TODAY, past)).toBeNull();
-    expect(classifyTimelineChange({ plan: "2027-01-01" }, TODAY, TODAY)).toBeNull();
+    // Not yet started at the viewed date — whether viewed from the past,
+    // today, or a future date before its start.
+    expect(classifyTimelineChange({ plan: "2027-01-01" }, TODAY, past)).toBe("planned");
+    expect(classifyTimelineChange({ plan: "2027-01-01" }, TODAY, TODAY)).toBe("planned");
+    expect(classifyTimelineChange({ active: "2035-01-01" }, TODAY, future)).toBe("planned");
+    // Started by the viewed date: an in-window ARRIVAL, not a plan.
+    expect(classifyTimelineChange({ plan: "2027-01-01" }, TODAY, future)).toBe("arriving");
   });
 
   it("flags a card that both arrives and retires inside the window as retired", () => {
@@ -107,12 +112,17 @@ describe("classifyTimelineChange", () => {
 
 describe("isVisibleAtDate", () => {
   const future = ms("2028-01-01");
-  const PERSIST = { persistRetired: true };
-  const ALIVE_ONLY = { persistRetired: false };
+  const PERSIST = { persistRetired: true, previewPlanned: false };
+  const ALIVE_ONLY = { persistRetired: false, previewPlanned: false };
+  const PREVIEW = { persistRetired: false, previewPlanned: true };
 
-  it("hides a card that has not started by the date, either way", () => {
+  it("hides a card that has not started by the date, unless previewed", () => {
     expect(isVisibleAtDate({ plan: "2035-01-01" }, future, PERSIST)).toBe(false);
     expect(isVisibleAtDate({ plan: "2035-01-01" }, future, ALIVE_ONLY)).toBe(false);
+    // Preview shows it at any date before its start — past, today or future.
+    expect(isVisibleAtDate({ plan: "2035-01-01" }, future, PREVIEW)).toBe(true);
+    expect(isVisibleAtDate({ plan: "2035-01-01" }, TODAY, PREVIEW)).toBe(true);
+    expect(isVisibleAtDate({ plan: "2035-01-01" }, ms("2020-01-01"), PREVIEW)).toBe(true);
   });
 
   it("shows a card that is alive on the date, either way", () => {

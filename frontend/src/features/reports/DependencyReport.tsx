@@ -145,7 +145,7 @@ type BadgeState = TimelineChange | "atRisk";
 
 /** Accent per badge state — the same trio the LDV corner badges use. */
 function changeColor(state: BadgeState): string {
-  if (state === "arriving") return TIMELINE_COLORS.future;
+  if (state === "arriving" || state === "planned") return TIMELINE_COLORS.future;
   if (state === "atRisk") return STATUS_COLORS.warning;
   return STATUS_COLORS.error;
 }
@@ -153,6 +153,7 @@ function changeColor(state: BadgeState): string {
 const BADGE_LABEL_KEY: Record<BadgeState, string> = {
   arriving: "dependency.arrivingBadge",
   retired: "dependency.retiredBadge",
+  planned: "dependency.plannedBadge",
   atRisk: "dependency.atRiskBadge",
 };
 
@@ -190,6 +191,7 @@ function ChangeBadge({
 /** Legend entries for the time-travel change badges drawn by the LDV. */
 const CHANGE_LEGEND = [
   { key: "arriving", color: TIMELINE_COLORS.future, labelKey: "dependency.legendArriving" },
+  { key: "planned", color: TIMELINE_COLORS.future, labelKey: "dependency.legendPlanned" },
   { key: "retired", color: STATUS_COLORS.error, labelKey: "dependency.legendRetired" },
   { key: "atRisk", color: STATUS_COLORS.warning, labelKey: "dependency.legendAtRisk" },
 ] as const;
@@ -424,6 +426,9 @@ export default function DependencyReport() {
   // their retirement. On by default: seeing what a transformation removes is
   // half the point of the timeline.
   const [persistRetired, setPersistRetired] = useState(true);
+  // Show not-yet-started cards — ghosted and badged — at any date before their
+  // start. Off by default so today's landscape stays today's landscape.
+  const [previewPlanned, setPreviewPlanned] = useState(false);
   const [center, setCenter] = useState("");
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
   const [rawNodes, setRawNodes] = useState<GNode[]>([]);
@@ -501,6 +506,7 @@ export default function DependencyReport() {
       if (cfg.view) setView(cfg.view as "chart" | "table");
       if (cfg.chartMode) setChartMode(cfg.chartMode as "tree" | "c4");
       if (cfg.persistRetired != null) setPersistRetired(cfg.persistRetired as boolean);
+      if (cfg.previewPlanned != null) setPreviewPlanned(cfg.previewPlanned as boolean);
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -511,12 +517,13 @@ export default function DependencyReport() {
     chartMode,
     timelineDate: timeline.persistValue,
     persistRetired,
+    previewPlanned,
   });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [cardTypeKey, center, view, chartMode, timeline.timelineDate, persistRetired]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardTypeKey, center, view, chartMode, timeline.timelineDate, persistRetired, previewPlanned]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -528,6 +535,7 @@ export default function DependencyReport() {
     setPickerSearch("");
     setPickerTypeFilter(null);
     setPersistRetired(true);
+    setPreviewPlanned(false);
     timeline.reset();
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -660,7 +668,7 @@ export default function DependencyReport() {
   // back/forward history).
   const { nodes, edges } = useMemo(() => {
     const at = timelineFilterDate;
-    const visibility = { persistRetired };
+    const visibility = { persistRetired, previewPlanned };
     const filtered = rawNodes
       .map((n) => ({
         ...n,
@@ -684,6 +692,7 @@ export default function DependencyReport() {
     timeline.todayMs,
     center,
     persistRetired,
+    previewPlanned,
   ]);
 
   // Adjacency map
@@ -1021,23 +1030,42 @@ export default function DependencyReport() {
           />
 
           {hasLifecycleData && diagramShown && (
-            <Tooltip title={t("dependency.persistRetiredHint")} arrow>
-              <FormControlLabel
-                sx={{ ml: 0 }}
-                control={
-                  <Switch
-                    size="small"
-                    checked={persistRetired}
-                    onChange={(e) => setPersistRetired(e.target.checked)}
-                  />
-                }
-                label={
-                  <Typography variant="body2" color="text.secondary">
-                    {t("dependency.persistRetired")}
-                  </Typography>
-                }
-              />
-            </Tooltip>
+            <>
+              <Tooltip title={t("dependency.persistRetiredHint")} arrow>
+                <FormControlLabel
+                  sx={{ ml: 0 }}
+                  control={
+                    <Switch
+                      size="small"
+                      checked={persistRetired}
+                      onChange={(e) => setPersistRetired(e.target.checked)}
+                    />
+                  }
+                  label={
+                    <Typography variant="body2" color="text.secondary">
+                      {t("dependency.persistRetired")}
+                    </Typography>
+                  }
+                />
+              </Tooltip>
+              <Tooltip title={t("dependency.previewPlannedHint")} arrow>
+                <FormControlLabel
+                  sx={{ ml: 0 }}
+                  control={
+                    <Switch
+                      size="small"
+                      checked={previewPlanned}
+                      onChange={(e) => setPreviewPlanned(e.target.checked)}
+                    />
+                  }
+                  label={
+                    <Typography variant="body2" color="text.secondary">
+                      {t("dependency.previewPlanned")}
+                    </Typography>
+                  }
+                />
+              </Tooltip>
+            </>
           )}
 
           {center && chartMode === "tree" && (
@@ -1406,7 +1434,10 @@ export default function DependencyReport() {
                         ...(card.node.changeState && {
                           border: `1.5px dashed ${changeColor(card.node.changeState)}`,
                           borderLeft: `3.5px solid ${color}`,
-                          ...(card.node.changeState === "retired" && { opacity: dimmed ? 0.4 : 0.6 }),
+                          ...((card.node.changeState === "retired" ||
+                            card.node.changeState === "planned") && {
+                            opacity: dimmed ? 0.4 : 0.6,
+                          }),
                         }),
                       }}
                       onClick={() => toggleExpand(card.instanceId)}

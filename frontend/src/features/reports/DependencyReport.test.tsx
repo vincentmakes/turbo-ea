@@ -76,10 +76,18 @@ const GRAPH = {
     },
     { id: "portal", name: "Web Portal", type: "Application", lifecycle: { active: "2020-01-01" } },
     { id: "crm", name: "CRM Cloud", type: "Application", lifecycle: { active: "2021-01-01" } },
+    // Starts after the travelled date — only visible with the preview toggle.
+    {
+      id: "next-gen",
+      name: "NextGen Suite",
+      type: "Application",
+      lifecycle: { plan: "2030-01-01" },
+    },
   ],
   edges: [
     { source: "legacy", target: "portal", type: "app_to_app", label: "uses" },
     { source: "portal", target: "crm", type: "app_to_app", label: "uses" },
+    { source: "next-gen", target: "crm", type: "app_to_app", label: "uses" },
   ],
 };
 
@@ -156,7 +164,7 @@ describe("DependencyReport time travel — persist retired cards", () => {
     renderReport();
     await screen.findByText("Legacy ERP");
 
-    await userEvent.click(screen.getByRole("checkbox"));
+    await userEvent.click(screen.getByRole("checkbox", { name: /Keep retired cards/ }));
 
     await waitFor(() => {
       expect(screen.queryByText("Legacy ERP")).not.toBeInTheDocument();
@@ -171,7 +179,7 @@ describe("DependencyReport time travel — persist retired cards", () => {
     renderReport();
     await screen.findByText("Legacy ERP");
 
-    await userEvent.click(screen.getByRole("checkbox"));
+    await userEvent.click(screen.getByRole("checkbox", { name: /Keep retired cards/ }));
 
     await waitFor(() => {
       expect(screen.getByText("AT RISK")).toBeInTheDocument();
@@ -184,11 +192,36 @@ describe("DependencyReport time travel — persist retired cards", () => {
     renderReport();
     await screen.findByText("Legacy ERP");
 
-    await userEvent.click(screen.getByRole("checkbox"));
+    await userEvent.click(screen.getByRole("checkbox", { name: /Keep retired cards/ }));
     await waitFor(() => expect(screen.queryByText("Legacy ERP")).not.toBeInTheDocument());
 
-    await userEvent.click(screen.getByRole("checkbox"));
+    await userEvent.click(screen.getByRole("checkbox", { name: /Keep retired cards/ }));
     expect(await screen.findByText("Legacy ERP")).toBeInTheDocument();
     expect(screen.queryByText("AT RISK")).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Preview planned cards
+// ---------------------------------------------------------------------------
+
+describe("DependencyReport time travel — preview planned cards", () => {
+  it("hides a not-yet-started card by default", async () => {
+    renderReport();
+    await screen.findByText("Legacy ERP");
+    expect(screen.queryByText("NextGen Suite")).not.toBeInTheDocument();
+  });
+
+  it("shows it badged UPCOMING when the preview toggle is on", async () => {
+    renderReport();
+    await screen.findByText("Legacy ERP");
+
+    await userEvent.click(screen.getByRole("checkbox", { name: /Show cards that have not started/ }));
+
+    expect(await screen.findByText("NextGen Suite")).toBeInTheDocument();
+    expect(screen.getByText("UPCOMING")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("checkbox", { name: /Show cards that have not started/ }));
+    await waitFor(() => expect(screen.queryByText("NextGen Suite")).not.toBeInTheDocument());
   });
 });

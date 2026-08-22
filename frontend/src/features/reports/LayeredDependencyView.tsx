@@ -224,7 +224,7 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   // being viewed. Dashes the border like `proposed` does, and badges the card.
   const changeState = data.changeState as TimelineChange | undefined;
   const changeColor =
-    changeState === "arriving"
+    changeState === "arriving" || changeState === "planned"
       ? TIMELINE_COLORS.future
       : changeState === "retired"
         ? STATUS_COLORS.error
@@ -233,7 +233,8 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   const atRisk = data.atRisk === true;
   // The NEW badge owns the top-edge slot when both would render (TurboLens
   // proposed cards never carry changeState today, but precedence is explicit).
-  const arrivingOnTop = changeState === "arriving" && !data.proposed;
+  const futureOnTop =
+    (changeState === "arriving" || changeState === "planned") && !data.proposed;
 
   const usedSet = useMemo(() => new Set(data.usedHandles ?? []), [data.usedHandles]);
   const hs = (id: string, extra?: React.CSSProperties) => {
@@ -365,8 +366,10 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         ...(changeState === "arriving" && {
           boxShadow: `0 0 0 3px ${TIMELINE_COLORS.future}30`,
         }),
-        // A card on its way out is still readable, just visibly on the way out.
-        opacity: changeState === "retired" ? 0.55 : 1,
+        // Ghost what isn't in this date's landscape: retired (already gone)
+        // and planned (not here yet). The visual grammar: glowing = newly
+        // here, ghost-purple = coming later, ghost-red = gone.
+        opacity: changeState === "retired" || changeState === "planned" ? 0.55 : 1,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -477,13 +480,19 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
       {changeState && changeColor && (
         <Box sx={{
           position: "absolute",
-          ...(arrivingOnTop ? { top: -8, left: 8 } : { bottom: -8, right: 8 }),
+          ...(futureOnTop ? { top: -8, left: 8 } : { bottom: -8, right: 8 }),
           bgcolor: changeColor, color: "#fff",
           fontSize: 9, fontWeight: 700, lineHeight: 1,
           px: 0.7, py: 0.25, borderRadius: "4px",
           textTransform: "uppercase", letterSpacing: 0.5,
         }}>
-          {t(changeState === "arriving" ? "dependency.arrivingBadge" : "dependency.retiredBadge")}
+          {t(
+            changeState === "arriving"
+              ? "dependency.arrivingBadge"
+              : changeState === "planned"
+                ? "dependency.plannedBadge"
+                : "dependency.retiredBadge",
+          )}
         </Box>
       )}
       {/* At-risk badge: bottom-right, free unless the card is itself retired —

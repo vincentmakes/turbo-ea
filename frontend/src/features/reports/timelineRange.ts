@@ -69,7 +69,7 @@ export function computeTimelineRange(
 }
 
 /** How a card presents at the selected date, relative to the timeline. */
-export type TimelineChange = "arriving" | "retired";
+export type TimelineChange = "arriving" | "retired" | "planned";
 
 /**
  * Classify a card at a target date:
@@ -77,9 +77,12 @@ export type TimelineChange = "arriving" | "retired";
  *    was. Retirement is a state, not a window: a card dead since 2015 is
  *    retired at 2026 and at 2035 alike, so a persisted retired card stays
  *    ghosted and badged at every later date.
- *  - "arriving" — not in the landscape today, but in it at a *future* `dateMs`.
- *    Arrival stays window-based and forward-only: nothing about the past is a
- *    plan, so travelling backwards badges nothing as arriving.
+ *  - "planned" — the card has not started by `dateMs`: it will only appear
+ *    later on the timeline. The mirror of "retired", equally stateful — a card
+ *    starting in 2028 is planned at 2026 and at 2020 alike, so a previewed
+ *    planned card is ghosted and badged at every earlier date.
+ *  - "arriving" — live at a *future* `dateMs` but not in the landscape today:
+ *    the transformation's own additions. Window-based and forward-only.
  */
 export function classifyTimelineChange(
   lifecycle: Lifecycle,
@@ -87,6 +90,7 @@ export function classifyTimelineChange(
   dateMs: number,
 ): TimelineChange | null {
   if (isRetiredByDate(lifecycle, dateMs)) return "retired";
+  if (!hasStartedByDate(lifecycle, dateMs)) return "planned";
   if (dateMs > todayMs && !isAliveAtDate(lifecycle, todayMs) && isAliveAtDate(lifecycle, dateMs))
     return "arriving";
   return null;
@@ -97,18 +101,23 @@ export interface TimelineVisibility {
    *  their retirement. On by default: what a transformation *removes* is half
    *  of what the view is for. Off shows only the cards alive on the date. */
   persistRetired: boolean;
+  /** Show cards that have not started yet — ghosted and badged — at any date
+   *  before their start, so a past or present view can preview what is coming.
+   *  Off by default: today's landscape stays today's landscape. */
+  previewPlanned: boolean;
 }
 
 /**
- * Whether a card belongs on a graph drawn as of `dateMs`: it has started, and
- * it is either still alive or the user asked retired cards to persist.
+ * Whether a card belongs on a graph drawn as of `dateMs`: alive at the date,
+ * or kept by one of the two toggles — retired cards persisting after their end,
+ * planned cards previewed before their start.
  */
 export function isVisibleAtDate(
   lifecycle: Lifecycle,
   dateMs: number,
-  { persistRetired }: TimelineVisibility,
+  { persistRetired, previewPlanned }: TimelineVisibility,
 ): boolean {
-  if (!hasStartedByDate(lifecycle, dateMs)) return false;
+  if (!hasStartedByDate(lifecycle, dateMs)) return previewPlanned;
   return persistRetired || !isRetiredByDate(lifecycle, dateMs);
 }
 
