@@ -386,6 +386,10 @@ export default function TimelineSlider({
               if (m.disappearing)
                 parts.push(t("timelineSlider.milestoneDisappearing", { count: m.disappearing }));
               const summary = `${fmtFull(m.value)} — ${parts.join(" · ")}`;
+              // Past transitions are shown — a stateful RETIRED/UPCOMING badge
+              // needs its mark whichever side of today it falls on — but muted,
+              // so the upcoming transformation still reads as the subject.
+              const isPast = m.value <= todayMs;
               return (
                 <Tooltip key={m.value} title={summary} arrow>
                   <ButtonBase
@@ -396,13 +400,14 @@ export default function TimelineSlider({
                       left: `${pct}%`,
                       top: 0,
                       transform: "translateX(-50%)",
+                      opacity: isPast ? 0.4 : 1,
                       // Generous hit area around a deliberately small mark.
                       px: 0.75,
                       py: 0.5,
                       borderRadius: 1,
                       display: "flex",
                       gap: "1px",
-                      "&:hover": { bgcolor: "action.hover" },
+                      "&:hover": { opacity: 1, bgcolor: "action.hover" },
                     }}
                   >
                     {m.appearing > 0 && (

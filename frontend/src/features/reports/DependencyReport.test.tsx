@@ -37,8 +37,12 @@ vi.mock("./SaveReportDialog", () => ({
   default: () => null,
 }));
 
+const sliderProps: { milestones?: { value: number }[] }[] = [];
 vi.mock("@/components/TimelineSlider", () => ({
-  default: () => <div data-testid="timeline-slider" />,
+  default: (props: { milestones?: { value: number }[] }) => {
+    sliderProps.push(props);
+    return <div data-testid="timeline-slider" />;
+  },
 }));
 
 // React Flow can't lay out in jsdom; the LDV has its own pure-logic tests.
@@ -76,6 +80,14 @@ const GRAPH = {
     },
     { id: "portal", name: "Web Portal", type: "Application", lifecycle: { active: "2020-01-01" } },
     { id: "crm", name: "CRM Cloud", type: "Application", lifecycle: { active: "2021-01-01" } },
+    // Retired well before today: badged RETIRED at every date (persist on), so
+    // its retirement must still be marked on the timeline.
+    {
+      id: "mainframe",
+      name: "Legacy Mainframe",
+      type: "Application",
+      lifecycle: { active: "2005-01-01", endOfLife: "2015-01-01" },
+    },
     // Starts after the travelled date — only visible with the preview toggle.
     {
       id: "next-gen",
@@ -88,11 +100,13 @@ const GRAPH = {
     { source: "legacy", target: "portal", type: "app_to_app", label: "uses" },
     { source: "portal", target: "crm", type: "app_to_app", label: "uses" },
     { source: "next-gen", target: "crm", type: "app_to_app", label: "uses" },
+    { source: "mainframe", target: "crm", type: "app_to_app", label: "uses" },
   ],
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  sliderProps.length = 0;
 
   vi.mocked(api.get).mockResolvedValue(GRAPH);
 
@@ -154,7 +168,9 @@ describe("DependencyReport time travel — persist retired cards", () => {
   it("keeps a window-retired card on the table by default, badged RETIRED", async () => {
     renderReport();
     expect(await screen.findByText("Legacy ERP")).toBeInTheDocument();
-    expect(screen.getByText("RETIRED")).toBeInTheDocument();
+    // Two retired cards are on the table: the one retiring inside the window
+    // and the mainframe that went years ago — both badged, persist being on.
+    expect(screen.getAllByText("RETIRED").length).toBeGreaterThanOrEqual(2);
     // The ghost is displayed, so its surviving dependent is NOT badged — the
     // dashed red edge (in chart view) already tells the story.
     expect(screen.queryByText("IMPACTED")).not.toBeInTheDocument();
@@ -169,6 +185,8 @@ describe("DependencyReport time travel — persist retired cards", () => {
     await waitFor(() => {
       expect(screen.queryByText("Legacy ERP")).not.toBeInTheDocument();
     });
+    // Persist off drops every retired card, whenever it retired.
+    expect(screen.queryByText("Legacy Mainframe")).not.toBeInTheDocument();
     expect(screen.queryByText("RETIRED")).not.toBeInTheDocument();
     // The surviving pair stays.
     expect(screen.getAllByText("Web Portal").length).toBeGreaterThan(0);
@@ -184,8 +202,9 @@ describe("DependencyReport time travel — persist retired cards", () => {
     await waitFor(() => {
       expect(screen.getByText("IMPACTED")).toBeInTheDocument();
     });
-    // Only the direct dependent, not the whole chain.
-    expect(screen.getAllByText("IMPACTED")).toHaveLength(1);
+    // Only the direct dependents of a hidden retiring card — Web Portal (lost
+    // Legacy ERP) and CRM Cloud (lost the mainframe) — not the whole chain.
+    expect(screen.getAllByText("IMPACTED").length).toBeGreaterThanOrEqual(1);
   });
 
   it("toggling back on restores the retired card and clears the badge", async () => {
@@ -223,5 +242,26 @@ describe("DependencyReport time travel — preview planned cards", () => {
 
     await userEvent.click(screen.getByRole("checkbox", { name: /Show cards that have not started/ }));
     await waitFor(() => expect(screen.queryByText("NextGen Suite")).not.toBeInTheDocument());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Transition marks
+// ---------------------------------------------------------------------------
+
+describe("DependencyReport time travel — transition marks", () => {
+  it("marks past transitions too, so a stateful badge always has its mark", () => {
+    // Regression: marks were once filtered to the future, which left every
+    // card retired before today badged RETIRED with nothing on the timeline to
+    // explain it — and the same for UPCOMING cards viewed from the past.
+    renderReport();
+
+    return waitFor(() => {
+      const marks = sliderProps.at(-1)?.milestones ?? [];
+      const dates = marks.map((m) => m.value);
+      expect(dates).toContain(ms("2015-01-01")); // Legacy Mainframe retires
+      expect(dates).toContain(ms("2005-01-01")); // ...and appeared, long ago
+      expect(dates.some((d) => d > TODAY)).toBe(true); // future ones still there
+    });
   });
 });

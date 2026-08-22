@@ -636,11 +636,8 @@ export default function DependencyReport() {
   ]);
 
   const milestones = useMemo(
-    () =>
-      computeTimelineMilestones(milestoneScope.map((n) => n.lifecycle)).filter(
-        (m) => m.value > timeline.todayMs,
-      ),
-    [milestoneScope, timeline.todayMs],
+    () => computeTimelineMilestones(milestoneScope.map((n) => n.lifecycle)),
+    [milestoneScope],
   );
 
   // The transformation between today and the selected date, over the same

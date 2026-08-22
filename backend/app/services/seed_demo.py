@@ -2303,7 +2303,12 @@ _ITC_DEFAULT_LIFECYCLE = {
     "phaseIn": "2022-06-01",
     "active": "2023-01-01",
     "phaseOut": "2028-06-01",
-    "eol": "2030-12-31",
+    # "endOfLife", not "eol": the lifecycle phase keys are plan / phaseIn /
+    # active / phaseOut / endOfLife everywhere (seed.py, lifecycle.py,
+    # LifecycleBadge). "eol" is a card-detail SECTION key — an unrecognised
+    # lifecycle key meant no IT Component ever reached end of life, in the
+    # Lifecycle report or in the Dependencies report's time travel.
+    "endOfLife": "2030-12-31",
 }
 for _c in IT_COMPONENTS:
     if not _c.get("lifecycle"):

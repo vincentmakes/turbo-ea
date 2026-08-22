@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Dependencies report: a **Preview planned cards** switch — the mirror of Persist retired cards — shows cards that have not started yet, ghosted and badged **UPCOMING**, at any date before their start, so even a past or present view can preview what is coming. Off by default.
 - Dependencies report: the impact of a retirement is now visible on its dependents — relations into retired cards render as dashed red (the dependencies the transformation severs), and when retired cards are hidden, surviving cards that lose one are badged **IMPACTED**, so the severed dependency is never silently lost. Arriving cards are also easier to spot: a purple glow, tinted background, and the **PLANNED** badge on the card's top edge.
 - Dependencies report: while looking forward, chips beside the time-travel date summarise the transformation ("+4 arriving · −7 retiring"), arrow buttons step the slider from one change date to the next, and the summary is included in print and export headers.
-- Dependencies report: the timeline is marked with every upcoming date on which cards on the displayed diagram enter (purple), go live (green — a card already on the canvas reaching its active date), or leave (red), aggregated where they crowd together. Click a mark to jump the slider straight to that change, instead of hunting for it by dragging. The timeline appears once a card is centred (or on the table view), where there is a diagram for it to act on.
+- Dependencies report: the timeline is marked with every date on which cards on the displayed diagram enter (purple), go live (green — a card already on the canvas reaching its active date), or leave (red), aggregated where they crowd together and muted in the past so the upcoming transformation stays the subject. Click a mark to jump the slider straight to that change, instead of hunting for it by dragging. The timeline appears once a card is centred (or on the table view), where there is a diagram for it to act on.
 
 ### Changed
 
@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - A card carrying only end-phase lifecycle dates (e.g. an IT component whose `endOfLife` was set by the End-of-Life mass-link, with no plan/active date) was treated as "born" at its own death — invisible for its entire life in the Portfolio, Capability Map and Dependencies reports. Start phases alone now determine when a card enters the landscape.
 - Dependencies report: the tree view fetched a type-filtered graph while the Layered Dependency View fetched everything, so switching views with a type filter active dropped every cross-type neighbour — a card whose relations are all cross-type rendered alone. Both views now share one unfiltered graph; the type filter scopes the card picker instead.
 - Dependencies report: the card picker's "All" filter chip showed the raw translation key instead of its label.
+- Demo dataset: IT Components carried their end-of-life date under an unrecognised `eol` key instead of `endOfLife`, so no IT Component ever reached end of life — neither in the Lifecycle report nor in the Dependencies report's time travel.
 
 ## [2.75.0] - 2026-08-21
 
