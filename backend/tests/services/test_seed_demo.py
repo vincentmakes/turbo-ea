@@ -9,6 +9,8 @@ it ever hits the database.
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from app.services.seed import RELATIONS as META_RELATIONS
@@ -82,6 +84,22 @@ for _t in META_TYPES:
                 _select_options_by_field[compound] = {o["key"] for o in f["options"]}
 
 _rel_type_by_key: dict[str, dict] = {r["key"]: r for r in META_RELATIONS}
+
+# Every demo card, in one list — the same set the seeder inserts.
+_ALL_DEMO_CARDS: list[dict] = (
+    ORGANIZATIONS
+    + BUSINESS_CAPABILITIES
+    + BUSINESS_CONTEXTS
+    + APPLICATIONS
+    + IT_COMPONENTS
+    + INTERFACES
+    + DATA_OBJECTS
+    + TECH_CATEGORIES
+    + PROVIDERS
+    + OBJECTIVES
+    + INITIATIVES
+    + PLATFORMS
+)
 
 _rel_attr_options: dict[str, dict[str, set[str]]] = {}
 for _r in META_RELATIONS:
@@ -788,3 +806,66 @@ class TestExtrasDemoData:
                     f"{sorted(extra)} that the {rt} component doesn't read"
                 )
         assert not errors, "\n".join(errors)
+
+
+class TestSalesGrowthStory:
+    """The demo's time-travel story stays a story.
+
+    The Dependencies report's time travel only demonstrates anything if the
+    landscape around a card actually changes as the slider moves. The sales
+    growth objective is the dataset's showcase for that, so pin the property
+    the demo depends on — cards leaving *behind* today and arriving *ahead* of
+    it — rather than the individual cards, which are free to be rewritten.
+    """
+
+    @staticmethod
+    def _neighbourhood() -> set[str]:
+        """Refs one hop from the objective, plus a second hop through them."""
+        target = _id("obj_sales_growth")
+        by_id = {c["id"]: c for c in _ALL_DEMO_CARDS}
+        first = set()
+        for r in DEMO_RELATIONS:
+            if r["source_id"] == target:
+                first.add(r["target_id"])
+            elif r["target_id"] == target:
+                first.add(r["source_id"])
+        second = set(first)
+        for r in DEMO_RELATIONS:
+            if r["source_id"] in first:
+                second.add(r["target_id"])
+            elif r["target_id"] in first:
+                second.add(r["source_id"])
+        return {i for i in second if i in by_id}
+
+    def test_objective_exists(self):
+        names = {o["name"] for o in OBJECTIVES}
+        assert "Increase Sales by 25%" in names
+
+    def test_objective_pulls_in_initiatives_and_capabilities(self):
+        by_id = {c["id"]: c for c in _ALL_DEMO_CARDS}
+        types = {by_id[i]["type"] for i in self._neighbourhood()}
+        # Every layer the story claims to span must actually be reachable.
+        for expected in ("Initiative", "BusinessCapability", "Application", "Organization"):
+            assert expected in types, f"{expected} missing from the sales objective's neighbourhood"
+
+    def test_landscape_changes_in_both_directions(self):
+        today = date.today().isoformat()
+        by_id = {c["id"]: c for c in _ALL_DEMO_CARDS}
+        retired_before_today = []
+        live_after_today = []
+        for ref_id in self._neighbourhood():
+            lc = by_id[ref_id].get("lifecycle") or {}
+            eol = lc.get("endOfLife")
+            active = lc.get("active")
+            if eol and eol < today:
+                retired_before_today.append(by_id[ref_id]["name"])
+            if active and active > today:
+                live_after_today.append(by_id[ref_id]["name"])
+        assert retired_before_today, (
+            "No card around the sales objective retires in the past — "
+            "travelling backwards shows nothing"
+        )
+        assert live_after_today, (
+            "No card around the sales objective goes live in the future — "
+            "travelling forwards shows nothing"
+        )
