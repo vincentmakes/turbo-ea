@@ -33,6 +33,9 @@ export interface GNode {
    *  the consumer is showing (set by the consumer — the view has no timeline of
    *  its own). Drives the "arriving"/"retiring" badge. */
   changeState?: TimelineChange;
+  /** Set by the consumer: this card survives the viewed date but is linked to
+   *  at least one card retired by then — it loses a dependency. */
+  atRisk?: boolean;
   /** Whether this card has any child card in the full dataset (set by the
    *  consumer, which holds the whole graph). Drives the "has hidden children"
    *  hierarchy marker — the view only sees the visible slice, so it can't
@@ -122,6 +125,7 @@ export interface LdvNodeData {
   usedHandles?: string[];
   proposed?: boolean;
   changeState?: TimelineChange;
+  atRisk?: boolean;
   [key: string]: unknown;
 }
 
@@ -141,6 +145,9 @@ export interface LdvEdgeData {
    * exports. Vector shapes rasterise identically live and in export.
    */
   flowDirection?: "forward" | "reverse" | "bidirectional";
+  /** One endpoint is retired at the viewed date: this dependency is being
+   *  severed by the transformation. Rendered in the error colour. */
+  severed?: boolean;
   description?: string;
   connectedToHovered?: boolean;
   isHovered?: boolean;
@@ -339,6 +346,9 @@ export function buildLdvFlow(
 ): { nodes: Node[]; edges: Edge[] } {
   if (gNodes.length === 0) return { nodes: [], edges: [] };
 
+  // For severing edges whose endpoint is retired at the viewed date.
+  const changeStateById = new Map(gNodes.map((n) => [n.id, n.changeState]));
+
   // Build node ID set for edge validation
   const nodeIdSet = new Set(gNodes.map((n) => n.id));
 
@@ -442,6 +452,7 @@ export function buildLdvFlow(
           category: gl.cat,
           proposed: nd.proposed,
           changeState: nd.changeState,
+          atRisk: nd.atRisk,
         } satisfies LdvNodeData,
         style: { width: LDV_NODE_W, height: LDV_NODE_H },
         draggable: false,
@@ -957,7 +968,9 @@ export function buildLdvFlow(
     //  - reverse: arrow at source end only — data flows target → source
     //  - bidirectional: arrows on both ends
     //  - unset: keep the historical default (markerEnd only)
-    const arrow = { type: "arrowclosed" as const, color: "#888" };
+    const severed =
+      changeStateById.get(e.source) === "retired" || changeStateById.get(e.target) === "retired";
+    const arrow = { type: "arrowclosed" as const, color: severed ? "#d32f2f" : "#888" };
     const markerStart =
       e.flowDirection === "reverse" || e.flowDirection === "bidirectional" ? arrow : undefined;
     const markerEnd =
@@ -974,6 +987,7 @@ export function buildLdvFlow(
         relLabel: e.relLabel,
         flowDirection: e.flowDirection,
         description: e.description,
+        severed,
         pathOffset: pathOffsets[i],
         minOffset: edgeHandles[i].minOffset,
         labelT: labelTs[i],

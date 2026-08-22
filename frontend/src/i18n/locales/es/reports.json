@@ -200,6 +200,8 @@
   "dependency.retiredBadge": "RETIRADA",
   "dependency.legendArriving": "Se incorpora antes de la fecha seleccionada",
   "dependency.legendRetired": "Retirada en la fecha seleccionada",
+  "dependency.atRiskBadge": "EN RIESGO",
+  "dependency.legendAtRisk": "Pierde una dependencia hacia una tarjeta retirada",
   "dependency.highlightMode": "Modo resaltado: haga clic en una tarjeta para resaltar sus conexiones",
   "cost.title": "Análisis de costos",
   "cost.cardType": "Tipo de ficha",

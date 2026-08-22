@@ -200,6 +200,8 @@
   "dependency.retiredBadge": "DISMESSA",
   "dependency.legendArriving": "Arriva entro la data selezionata",
   "dependency.legendRetired": "Dismessa alla data selezionata",
+  "dependency.atRiskBadge": "A RISCHIO",
+  "dependency.legendAtRisk": "Perde una dipendenza verso una scheda dismessa",
   "dependency.highlightMode": "Modalità evidenziazione: clicca su una scheda per evidenziare le sue connessioni",
   "cost.title": "Analisi dei costi",
   "cost.cardType": "Tipo di scheda",

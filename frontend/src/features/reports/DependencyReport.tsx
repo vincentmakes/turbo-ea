@@ -35,6 +35,7 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import TimelineSlider from "@/components/TimelineSlider";
 import {
   classifyTimelineChange,
+  computeAtRiskIds,
   computeTimelineMilestones,
   computeTimelineRange,
   isVisibleAtDate,
@@ -139,10 +140,21 @@ function tc(key: string, types: CardType[]): string {
   return types.find((t) => t.key === key)?.color || FALLBACK_COLORS[key] || "#999";
 }
 
-/** Accent for a time-travel change state — the same pair the LDV badges use. */
-function changeColor(state: TimelineChange): string {
-  return state === "arriving" ? TIMELINE_COLORS.future : STATUS_COLORS.error;
+/** Badge states the tree and table views render as compact chips. */
+type BadgeState = TimelineChange | "atRisk";
+
+/** Accent per badge state — the same trio the LDV corner badges use. */
+function changeColor(state: BadgeState): string {
+  if (state === "arriving") return TIMELINE_COLORS.future;
+  if (state === "atRisk") return STATUS_COLORS.warning;
+  return STATUS_COLORS.error;
 }
+
+const BADGE_LABEL_KEY: Record<BadgeState, string> = {
+  arriving: "dependency.arrivingBadge",
+  retired: "dependency.retiredBadge",
+  atRisk: "dependency.atRiskBadge",
+};
 
 /**
  * Compact "PLANNED" / "RETIRING" marker for the tree and table views, so the
@@ -153,14 +165,14 @@ function ChangeBadge({
   state,
   t,
 }: {
-  state: TimelineChange;
+  state: BadgeState;
   t: (key: string) => string;
 }) {
   const color = changeColor(state);
   return (
     <Chip
       size="small"
-      label={t(state === "arriving" ? "dependency.arrivingBadge" : "dependency.retiredBadge")}
+      label={t(BADGE_LABEL_KEY[state])}
       sx={{
         height: 17,
         fontSize: "0.6rem",
@@ -179,6 +191,7 @@ function ChangeBadge({
 const CHANGE_LEGEND = [
   { key: "arriving", color: TIMELINE_COLORS.future, labelKey: "dependency.legendArriving" },
   { key: "retired", color: STATUS_COLORS.error, labelKey: "dependency.legendRetired" },
+  { key: "atRisk", color: STATUS_COLORS.warning, labelKey: "dependency.legendAtRisk" },
 ] as const;
 
 function tl(key: string, types: CardType[], locale?: string): string {
@@ -625,11 +638,15 @@ export default function DependencyReport() {
   const { nodes, edges } = useMemo(() => {
     const at = timelineFilterDate;
     const visibility = { persistRetired };
-    const visible = rawNodes
-      .map((n) => ({
-        ...n,
-        changeState: classifyTimelineChange(n.lifecycle, timeline.todayMs, at) ?? undefined,
-      }))
+    const tagged = rawNodes.map((n) => ({
+      ...n,
+      changeState: classifyTimelineChange(n.lifecycle, timeline.todayMs, at) ?? undefined,
+    }));
+    // At-risk is derived from the PRE-persist set: hiding retired cards must
+    // not hide the fact that their dependents lose a dependency.
+    const atRiskIds = computeAtRiskIds(tagged, rawEdges);
+    const visible = tagged
+      .map((n) => (atRiskIds.has(n.id) ? { ...n, atRisk: true } : n))
       .filter((n) => n.id === center || isVisibleAtDate(n.lifecycle, at, visibility));
     const ids = new Set(visible.map((n) => n.id));
     return {
@@ -822,10 +839,11 @@ export default function DependencyReport() {
   // Only legend the change states actually on screen — retired cards are
   // hidden when "Persist retired cards" is off, so an unconditional entry
   // would advertise a badge the user cannot see.
-  const usedChangeStates = useMemo(
-    () => new Set(nodes.map((n) => n.changeState).filter(Boolean)),
-    [nodes],
-  );
+  const usedChangeStates = useMemo(() => {
+    const set = new Set<string>(nodes.map((n) => n.changeState).filter(Boolean) as string[]);
+    if (nodes.some((n) => n.atRisk && n.changeState !== "retired")) set.add("atRisk");
+    return set;
+  }, [nodes]);
 
   // Picker: filtered items
   const pickerItems = useMemo(() => {
@@ -1449,6 +1467,9 @@ export default function DependencyReport() {
                       )}
 
                       {card.node.changeState && <ChangeBadge state={card.node.changeState} t={t} />}
+                      {card.node.atRisk && card.node.changeState !== "retired" && (
+                        <ChangeBadge state="atRisk" t={t} />
+                      )}
 
                       {/* Open in new tab */}
                       <Tooltip title={t("dependency.openCard")} arrow>
@@ -1745,6 +1766,9 @@ export default function DependencyReport() {
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                         {s?.name}
                         {s?.changeState && <ChangeBadge state={s.changeState} t={t} />}
+                        {s?.atRisk && s.changeState !== "retired" && (
+                          <ChangeBadge state="atRisk" t={t} />
+                        )}
                       </Box>
                     </TableCell>
                     <TableCell>
@@ -1765,6 +1789,9 @@ export default function DependencyReport() {
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                         {target?.name}
                         {target?.changeState && <ChangeBadge state={target.changeState} t={t} />}
+                        {target?.atRisk && target.changeState !== "retired" && (
+                          <ChangeBadge state="atRisk" t={t} />
+                        )}
                       </Box>
                     </TableCell>
                   </TableRow>

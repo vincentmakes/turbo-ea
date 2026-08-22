@@ -200,6 +200,8 @@
   "dependency.retiredBadge": "RETIRED",
   "dependency.legendArriving": "Arrives by the selected date",
   "dependency.legendRetired": "Retired by the selected date",
+  "dependency.atRiskBadge": "AT RISK",
+  "dependency.legendAtRisk": "Loses a dependency to a retired card",
   "dependency.highlightMode": "Highlight mode: click a card to highlight its connections",
   "cost.title": "Cost Analysis",
   "cost.cardType": "Card Type",

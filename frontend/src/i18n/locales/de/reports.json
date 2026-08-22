@@ -200,6 +200,8 @@
   "dependency.retiredBadge": "AUSGEMUSTERT",
   "dependency.legendArriving": "Kommt bis zum gewählten Datum hinzu",
   "dependency.legendRetired": "Zum gewählten Datum ausgemustert",
+  "dependency.atRiskBadge": "GEFÄHRDET",
+  "dependency.legendAtRisk": "Verliert eine Abhängigkeit zu einer ausgemusterten Karte",
   "dependency.highlightMode": "Hervorhebungsmodus: Klicken Sie auf eine Karte, um ihre Verbindungen hervorzuheben",
   "cost.title": "Kostenanalyse",
   "cost.cardType": "Kartentyp",

@@ -200,6 +200,8 @@
   "dependency.retiredBadge": "ВЫВЕДЕНА",
   "dependency.legendArriving": "Появляется к выбранной дате",
   "dependency.legendRetired": "Выведена из эксплуатации к выбранной дате",
+  "dependency.atRiskBadge": "ПОД РИСКОМ",
+  "dependency.legendAtRisk": "Теряет зависимость от выведенной карточки",
   "dependency.highlightMode": "Режим подсветки: нажмите на карточку, чтобы подсветить её связи",
   "cost.title": "Анализ стоимости",
   "cost.cardType": "Тип карточки",

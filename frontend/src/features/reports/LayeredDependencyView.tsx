@@ -229,6 +229,11 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
       : changeState === "retired"
         ? STATUS_COLORS.error
         : null;
+  // Survives the date, but loses a dependency to the transformation.
+  const atRisk = data.atRisk === true;
+  // The NEW badge owns the top-edge slot when both would render (TurboLens
+  // proposed cards never carry changeState today, but precedence is explicit).
+  const arrivingOnTop = changeState === "arriving" && !data.proposed;
 
   const usedSet = useMemo(() => new Set(data.usedHandles ?? []), [data.usedHandles]);
   const hs = (id: string, extra?: React.CSSProperties) => {
@@ -349,7 +354,17 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           : data.proposed
             ? `2px dashed ${accent}`
             : `1.5px solid ${accent}`,
-        bgcolor: data.proposed ? (isDark ? `rgba(${r},${g},${b},0.06)` : `rgba(${r},${g},${b},0.06)`) : bg,
+        bgcolor:
+          changeState === "arriving"
+            ? // Tint toward the timeline's future colour, not the type colour —
+              // glowing = coming, faded = going, readable at a glance.
+              `${TIMELINE_COLORS.future}${isDark ? "1f" : "12"}`
+            : data.proposed
+              ? (isDark ? `rgba(${r},${g},${b},0.06)` : `rgba(${r},${g},${b},0.06)`)
+              : bg,
+        ...(changeState === "arriving" && {
+          boxShadow: `0 0 0 3px ${TIMELINE_COLORS.future}30`,
+        }),
         // A card on its way out is still readable, just visibly on the way out.
         opacity: changeState === "retired" ? 0.55 : 1,
         display: "flex",
@@ -457,16 +472,31 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           {t("dependency.proposedBadge")}
         </Box>
       )}
-      {/* Time-travel change badge (bottom-right; every other corner is taken) */}
+      {/* Time-travel change badge. Arriving cards take the prominent top-edge
+          slot (unless a NEW badge holds it); retired cards keep bottom-right. */}
       {changeState && changeColor && (
         <Box sx={{
-          position: "absolute", bottom: -8, right: 8,
+          position: "absolute",
+          ...(arrivingOnTop ? { top: -8, left: 8 } : { bottom: -8, right: 8 }),
           bgcolor: changeColor, color: "#fff",
           fontSize: 9, fontWeight: 700, lineHeight: 1,
           px: 0.7, py: 0.25, borderRadius: "4px",
           textTransform: "uppercase", letterSpacing: 0.5,
         }}>
           {t(changeState === "arriving" ? "dependency.arrivingBadge" : "dependency.retiredBadge")}
+        </Box>
+      )}
+      {/* At-risk badge: bottom-right, free unless the card is itself retired —
+          and a retired card is never at risk by definition. */}
+      {atRisk && changeState !== "retired" && (
+        <Box sx={{
+          position: "absolute", bottom: -8, right: 8,
+          bgcolor: STATUS_COLORS.warning, color: "#fff",
+          fontSize: 9, fontWeight: 700, lineHeight: 1,
+          px: 0.7, py: 0.25, borderRadius: "4px",
+          textTransform: "uppercase", letterSpacing: 0.5,
+        }}>
+          {t("dependency.atRiskBadge")}
         </Box>
       )}
       {/* Long-press radial progress ring */}
@@ -699,8 +729,12 @@ const LdvEdgeComponent = memo(
       ? connectedToHovered
       : isHovered || connectedToHovered;
     const isDark = theme.palette.mode === "dark";
-    const baseColor = isDark ? "#aaa" : "#777";
-    const hoverColor = isDark ? "#4fc3f7" : "#1976d2";
+    // A severed edge (one endpoint retired at the viewed date) keeps the error
+    // colour even while hovered — the highlight bumps its width instead, so
+    // "this dependency is going away" never reads as a healthy blue link.
+    const severed = edgeData?.severed === true;
+    const baseColor = severed ? STATUS_COLORS.error : isDark ? "#aaa" : "#777";
+    const hoverColor = severed ? STATUS_COLORS.error : isDark ? "#4fc3f7" : "#1976d2";
     const color = active ? hoverColor : baseColor;
 
     const rawOffset = edgeData?.pathOffset ?? 20;
@@ -818,7 +852,7 @@ const LdvEdgeComponent = memo(
           style={{
             stroke: color,
             strokeWidth: active ? 2 : 1.2,
-            strokeDasharray: active ? "none" : "5 3",
+            strokeDasharray: severed ? "3 3" : active ? "none" : "5 3",
             transition: "stroke 0.15s, stroke-width 0.15s",
           }}
         />

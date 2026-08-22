@@ -157,3 +157,31 @@ export function computeTimelineMilestones(lifecycles: Lifecycle[]): TimelineMile
 
   return [...byDate.values()].sort((a, b) => a.value - b.value);
 }
+
+/**
+ * Cards that survive the transformation but lose a dependency to it: alive at
+ * the viewed date, linked to at least one card that is retired by then.
+ *
+ * Call it on the PRE-persist node set — hiding retired cards must not hide the
+ * fact that their dependents lose a dependency; with the retired card off the
+ * canvas, the at-risk badge is the only trace of the broken edge. Direction is
+ * deliberately ignored: the dependency graph is walked undirected everywhere
+ * else in the report, and pretending precision here would be false.
+ *
+ * Structural parameter types (not GNode) so the layout module can depend on
+ * this one without a cycle.
+ */
+export function computeAtRiskIds(
+  nodes: { id: string; changeState?: TimelineChange }[],
+  edges: { source: string; target: string }[],
+): Set<string> {
+  const stateById = new Map(nodes.map((n) => [n.id, n.changeState]));
+  const atRisk = new Set<string>();
+  for (const e of edges) {
+    const sourceRetired = stateById.get(e.source) === "retired";
+    const targetRetired = stateById.get(e.target) === "retired";
+    if (sourceRetired && !targetRetired && stateById.has(e.target)) atRisk.add(e.target);
+    if (targetRetired && !sourceRetired && stateById.has(e.source)) atRisk.add(e.source);
+  }
+  return atRisk;
+}

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   classifyTimelineChange,
+  computeAtRiskIds,
   computeTimelineMilestones,
   computeTimelineRange,
   isVisibleAtDate,
@@ -208,5 +209,37 @@ describe("computeTimelineMilestones", () => {
       ms("2020-01-01"),
       ms("2030-01-01"),
     ]);
+  });
+});
+
+describe("computeAtRiskIds", () => {
+  const nodes = [
+    { id: "gone", changeState: "retired" as const },
+    { id: "dependent" },
+    { id: "planned", changeState: "arriving" as const },
+    { id: "alsoGone", changeState: "retired" as const },
+    { id: "unrelated" },
+  ];
+
+  it("flags survivors linked to a retired card, in either edge direction", () => {
+    const atRisk = computeAtRiskIds(nodes, [
+      { source: "gone", target: "dependent" },
+      { source: "planned", target: "alsoGone" },
+    ]);
+    expect([...atRisk].sort()).toEqual(["dependent", "planned"]);
+  });
+
+  it("never flags a retired card, even one linked to another retired card", () => {
+    const atRisk = computeAtRiskIds(nodes, [{ source: "gone", target: "alsoGone" }]);
+    expect(atRisk.size).toBe(0);
+  });
+
+  it("flags nothing when no retired cards are linked", () => {
+    expect(computeAtRiskIds(nodes, [{ source: "dependent", target: "unrelated" }]).size).toBe(0);
+    expect(computeAtRiskIds(nodes, []).size).toBe(0);
+  });
+
+  it("ignores edges whose surviving endpoint is not in the node set", () => {
+    expect(computeAtRiskIds(nodes, [{ source: "gone", target: "elsewhere" }]).size).toBe(0);
   });
 });

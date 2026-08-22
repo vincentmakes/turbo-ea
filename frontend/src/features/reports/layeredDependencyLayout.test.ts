@@ -88,6 +88,37 @@ describe("buildLdvFlow", () => {
     expect(groupLabels).toContain("Technical Architecture");
   });
 
+  it("marks edges with a retired endpoint as severed, in either direction", () => {
+    const nodes: GNode[] = [
+      { id: "gone", name: "Gone", type: "Application", changeState: "retired" },
+      { id: "stays", name: "Stays", type: "Application" },
+      { id: "other", name: "Other", type: "Application" },
+    ];
+    const edges: GEdge[] = [
+      { source: "gone", target: "stays", type: "uses" },
+      { source: "stays", target: "other", type: "uses" },
+    ];
+    const result = buildLdvFlow(nodes, edges, TYPES);
+    const severedFlags = result.edges.map((e) => (e.data as { severed?: boolean }).severed);
+    expect(severedFlags).toContain(true);
+    expect(severedFlags).toContain(false);
+  });
+
+  it("forwards atRisk onto node data", () => {
+    const nodes: GNode[] = [
+      { id: "risky", name: "Risky", type: "Application", atRisk: true },
+      { id: "fine", name: "Fine", type: "Application" },
+    ];
+    const result = buildLdvFlow(nodes, [], TYPES);
+    const byId = new Map(
+      result.nodes
+        .filter((n) => n.type === "ldvNode")
+        .map((n) => [n.id, n.data as { atRisk?: boolean }]),
+    );
+    expect(byId.get("risky")?.atRisk).toBe(true);
+    expect(byId.get("fine")?.atRisk).toBeUndefined();
+  });
+
   it("forwards changeState and proposed onto node data", () => {
     const nodes: GNode[] = [
       { id: "new", name: "Arriving", type: "Application", changeState: "arriving" },

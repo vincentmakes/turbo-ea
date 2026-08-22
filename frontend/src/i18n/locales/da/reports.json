@@ -200,6 +200,8 @@
   "dependency.retiredBadge": "UDFASET",
   "dependency.legendArriving": "Kommer til inden den valgte dato",
   "dependency.legendRetired": "Udfaset på den valgte dato",
+  "dependency.atRiskBadge": "I RISIKO",
+  "dependency.legendAtRisk": "Mister en afhængighed til et udfaset kort",
   "dependency.highlightMode": "Fremhævningstilstand: klik på et kort for at fremhæve dets forbindelser",
   "cost.title": "Omkostningsanalyse",
   "cost.cardType": "Korttype",

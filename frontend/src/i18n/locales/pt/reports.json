@@ -200,6 +200,8 @@
   "dependency.retiredBadge": "DESATIVADO",
   "dependency.legendArriving": "Entra até à data selecionada",
   "dependency.legendRetired": "Desativado na data selecionada",
+  "dependency.atRiskBadge": "EM RISCO",
+  "dependency.legendAtRisk": "Perde uma dependência de um card desativado",
   "dependency.highlightMode": "Modo destaque: clique num cartão para destacar as suas conexões",
   "cost.title": "Análise de custos",
   "cost.cardType": "Tipo de ficha",
