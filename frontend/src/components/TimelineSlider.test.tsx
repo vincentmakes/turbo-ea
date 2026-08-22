@@ -78,6 +78,37 @@ describe("TimelineSlider transition pills", () => {
     expect(screen.queryByText("PLM Analytics Workbench")).toBeNull();
   });
 
+  it("heads each side of the row with a + or − marker", () => {
+    renderSlider(RETIRE);
+    // Only retirements here, so only the minus marker.
+    expect(screen.getByText("−")).toBeInTheDocument();
+    expect(screen.queryByText("+")).toBeNull();
+    expect(screen.getByLabelText("2 cards retire")).toBeInTheDocument();
+
+    renderSlider(GO_LIVE);
+    expect(screen.getByText("+")).toBeInTheDocument();
+    expect(screen.getByLabelText("1 card goes live")).toBeInTheDocument();
+  });
+
+  it("marks both sides when a date does both", () => {
+    render(
+      <TimelineSlider
+        value={RETIRE}
+        onChange={vi.fn()}
+        dateRange={{ min: ms("2020-01-01"), max: ms("2030-01-01") }}
+        yearMarks={[]}
+        todayMs={TODAY}
+        milestones={MILESTONES}
+        milestoneCards={() => [
+          { id: "in", name: "Successor", kind: "activating" },
+          { id: "out", name: "Predecessor", kind: "disappearing" },
+        ]}
+      />,
+    );
+    expect(screen.getByText("+")).toBeInTheDocument();
+    expect(screen.getByText("−")).toBeInTheDocument();
+  });
+
   it("still matches a mark a day off the value, since a drag cannot land exactly", () => {
     // MUI snaps a dragged value to `min + n * step`, which essentially never
     // coincides with a mark's epoch; only a click or an arrow step does.

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useEffect, useCallback } from "react";
+import { Fragment, useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Slider from "@mui/material/Slider";
@@ -242,6 +242,22 @@ export default function TimelineSlider({
       activeCluster ? (milestoneCards?.(activeCluster.value, activeCluster.spanEnd) ?? []) : [],
     [activeCluster, milestoneCards],
   );
+
+  // Split into the two sides, each behind its own +/- marker. The cap is
+  // applied to the whole row FIRST, so a crowded date drops the same cards it
+  // would have dropped unsplit; `cardsChangingBetween` sorts activating first,
+  // so the two groups stay contiguous after the slice.
+  const activeGroups = useMemo(() => {
+    const shown = activeCards.slice(0, MAX_MILESTONE_PILLS);
+    return (
+      [
+        { kind: "activating", sign: "+", labelKey: "timelineSlider.milestoneActivating" },
+        { kind: "disappearing", sign: "−", labelKey: "timelineSlider.milestoneDisappearing" },
+      ] as const
+    )
+      .map((g) => ({ ...g, cards: shown.filter((c) => c.kind === g.kind) }))
+      .filter((g) => g.cards.length > 0);
+  }, [activeCards]);
   // Outlined and tinted in the slider's own accent so the pair reads as part of
   // the track rather than as toolbar chrome. `mt` centres a 28px button on the
   // 32px-tall slider row (MUI pads the 6px track by 13px top and bottom).
@@ -515,43 +531,65 @@ export default function TimelineSlider({
               aria-label={t("timelineSlider.milestoneCardsLabel")}
               sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 0.75 }}
             >
-              {activeCards.slice(0, MAX_MILESTONE_PILLS).map((card) => {
+              {activeGroups.map((group) => {
                 const accent =
-                  card.kind === "activating" ? TIMELINE_COLORS.goLive : STATUS_COLORS.error;
+                  group.kind === "activating" ? TIMELINE_COLORS.goLive : STATUS_COLORS.error;
                 return (
-                  <Chip
-                    key={card.id}
-                    size="small"
-                    label={card.name}
-                    onClick={onMilestoneCardClick ? () => onMilestoneCardClick(card) : undefined}
-                    icon={
-                      <Box
+                  <Fragment key={group.kind}>
+                    {/* Which way the group goes, said once rather than on every
+                        pill. The glyph carries it; the count is already the
+                        number of pills that follow. */}
+                    <Chip
+                      size="small"
+                      label={group.sign}
+                      aria-label={t(group.labelKey, { count: group.cards.length })}
+                      sx={{
+                        height: 22,
+                        fontSize: "0.8rem",
+                        fontWeight: 800,
+                        color: accent,
+                        bgcolor: `${accent}1F`,
+                        border: `1.5px solid ${accent}80`,
+                        "& .MuiChip-label": { px: 0.75 },
+                      }}
+                    />
+                    {group.cards.map((card) => (
+                      <Chip
+                        key={card.id}
+                        size="small"
+                        label={card.name}
+                        onClick={onMilestoneCardClick ? () => onMilestoneCardClick(card) : undefined}
+                        icon={
+                          <Box
+                            sx={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: "50%",
+                              flexShrink: 0,
+                              // The card type's own colour, so a pill is
+                              // recognisable as the node it names; going-live
+                              // vs retiring is carried by the group marker,
+                              // the border and the tint.
+                              bgcolor: card.color || accent,
+                              ml: "6px !important",
+                            }}
+                          />
+                        }
                         sx={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: "50%",
-                          flexShrink: 0,
-                          // The card type's own colour, so a pill is
-                          // recognisable as the node it names; going-live vs
-                          // retiring is carried by the border and tint.
-                          bgcolor: card.color || accent,
-                          ml: "6px !important",
+                          height: 22,
+                          maxWidth: 220,
+                          fontSize: "0.68rem",
+                          fontWeight: 600,
+                          color: accent,
+                          bgcolor: `${accent}14`,
+                          border: `1px solid ${accent}59`,
+                          ...(onMilestoneCardClick && {
+                            "&:hover": { bgcolor: `${accent}2E` },
+                          }),
                         }}
                       />
-                    }
-                    sx={{
-                      height: 22,
-                      maxWidth: 220,
-                      fontSize: "0.68rem",
-                      fontWeight: 600,
-                      color: accent,
-                      bgcolor: `${accent}14`,
-                      border: `1px solid ${accent}59`,
-                      ...(onMilestoneCardClick && {
-                        "&:hover": { bgcolor: `${accent}2E` },
-                      }),
-                    }}
-                  />
+                    ))}
+                  </Fragment>
                 );
               })}
               {activeCards.length > MAX_MILESTONE_PILLS && (
