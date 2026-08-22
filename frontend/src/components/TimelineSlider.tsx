@@ -9,6 +9,7 @@ import ButtonBase from "@mui/material/ButtonBase";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useIsRtl } from "@/hooks/useIsRtl";
 import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
 import type { TimelineMilestone } from "@/features/reports/timelineRange";
 
@@ -18,6 +19,10 @@ const MIN_LABEL_SPACING_PX = 48;
 /** Markers closer together than this merge into one, so a landscape with
  *  hundreds of transition dates reads as marks rather than a smear. */
 const MIN_MILESTONE_SPACING_PX = 10;
+/** Heavier chevrons on the step buttons — the outlined Material Symbol at its
+ *  default weight is a hairline, which reads as decoration rather than a
+ *  control next to the track. */
+const STEP_GLYPH: React.CSSProperties = { fontVariationSettings: "'wght' 600" };
 
 interface TimelineSliderProps {
   value: number;
@@ -154,6 +159,7 @@ export default function TimelineSlider({
   onMilestoneClick,
 }: TimelineSliderProps) {
   const { t } = useTranslation("common");
+  const isRtl = useIsRtl();
   const theme = useTheme();
   const primary = theme.palette.primary.main;
   const todayMs = useMemo(() => todayProp ?? Date.now(), [todayProp]);
@@ -198,6 +204,29 @@ export default function TimelineSlider({
   // Color shifts: amber for past, purple for future, primary for today
   const accent = isPast ? TIMELINE_COLORS.past : isFuture ? TIMELINE_COLORS.future : primary;
   const RESET_COLOR = TIMELINE_COLORS.reset;
+
+  const hasMilestones = (milestones?.length ?? 0) > 0;
+  // Outlined and tinted in the slider's own accent so the pair reads as part of
+  // the track rather than as toolbar chrome. `mt` centres a 28px button on the
+  // 32px-tall slider row (MUI pads the 6px track by 13px top and bottom).
+  const stepButtonSx = {
+    flexShrink: 0,
+    width: 28,
+    height: 28,
+    mt: "2px",
+    p: 0,
+    borderRadius: 1.5,
+    color: accent,
+    border: `1.5px solid ${accent}59`,
+    bgcolor: `${accent}12`,
+    transition: "background-color 0.2s, border-color 0.2s, color 0.3s",
+    "&:hover": { bgcolor: `${accent}2E`, borderColor: accent },
+    "&.Mui-disabled": {
+      color: "text.disabled",
+      borderColor: "divider",
+      bgcolor: "transparent",
+    },
+  } as const;
 
   return (
     <Box sx={{ width: "100%", maxWidth: 560, pt: 0.5, pb: 2 }}>
@@ -270,37 +299,6 @@ export default function TimelineSlider({
           />
         )}
         <Box sx={{ flex: 1 }} />
-        {/* Step through the transitions: prev/next change date. */}
-        {(milestones?.length ?? 0) > 0 && (
-          <>
-            <Tooltip title={t("timelineSlider.prevChange")} arrow>
-              <span>
-                <IconButton
-                  size="small"
-                  aria-label={t("timelineSlider.prevChange")}
-                  disabled={prevMilestone == null}
-                  onClick={() => prevMilestone != null && onChange(prevMilestone)}
-                  sx={{ p: 0.25 }}
-                >
-                  <MaterialSymbol icon="navigate_before" size={18} />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title={t("timelineSlider.nextChange")} arrow>
-              <span>
-                <IconButton
-                  size="small"
-                  aria-label={t("timelineSlider.nextChange")}
-                  disabled={nextMilestone == null}
-                  onClick={() => nextMilestone != null && onChange(nextMilestone)}
-                  sx={{ p: 0.25 }}
-                >
-                  <MaterialSymbol icon="navigate_next" size={18} />
-                </IconButton>
-              </span>
-            </Tooltip>
-          </>
-        )}
         {isAway && (
           <Chip
             size="small"
@@ -319,137 +317,177 @@ export default function TimelineSlider({
         )}
       </Box>
 
-      {/* Slider with native MUI marks */}
-      <Box ref={containerRef} sx={{ px: 1.5 }}>
-        <Slider
-          value={value}
-          min={cappedRange.min}
-          max={cappedRange.max}
-          step={ONE_DAY_MS}
-          track={false}
-          marks={responsiveMarks}
-          onChange={(_, v) => onChange(v as number)}
-          valueLabelDisplay="auto"
-          valueLabelFormat={fmtTip}
-          sx={{
-            color: accent,
-            height: 6,
-            transition: "color 0.3s",
-            ...(milestoneClusters.length > 0 && {
-              "&.MuiSlider-marked": { marginBottom: 0 },
-            }),
-            "& .MuiSlider-rail": {
+      {/* Slider with native MUI marks, flanked by the step-through buttons.
+          Stepping is a move along the timeline, so the control belongs beside
+          the track it moves rather than up in the label row. */}
+      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.25 }}>
+        {hasMilestones && (
+          <Tooltip title={t("timelineSlider.prevChange")} arrow>
+            <span>
+              <IconButton
+                aria-label={t("timelineSlider.prevChange")}
+                disabled={prevMilestone == null}
+                onClick={() => prevMilestone != null && onChange(prevMilestone)}
+                sx={stepButtonSx}
+              >
+                <MaterialSymbol
+                  icon={isRtl ? "chevron_right" : "chevron_left"}
+                  size={20}
+                  style={STEP_GLYPH}
+                />
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
+        <Box ref={containerRef} sx={{ flex: 1, minWidth: 0, px: 1.5 }}>
+          <Slider
+            value={value}
+            min={cappedRange.min}
+            max={cappedRange.max}
+            step={ONE_DAY_MS}
+            track={false}
+            marks={responsiveMarks}
+            onChange={(_, v) => onChange(v as number)}
+            valueLabelDisplay="auto"
+            valueLabelFormat={fmtTip}
+            sx={{
+              color: accent,
               height: 6,
-              borderRadius: 3,
-              bgcolor: `${accent}40`,
-              opacity: 1,
-              transition: "background-color 0.3s",
-            },
-            "& .MuiSlider-thumb": {
-              width: 18,
-              height: 18,
-              bgcolor: accent,
-              border: "2px solid #fff",
-              boxShadow: `0 0 0 1px ${accent}40`,
-              transition: "background-color 0.3s, box-shadow 0.3s",
-              "&:hover, &.Mui-focusVisible": {
-                boxShadow: `0 0 0 6px ${accent}24`,
-              },
-            },
-            "& .MuiSlider-mark": {
-              width: 2,
-              height: 10,
-              bgcolor: `${accent}AA`,
-              borderRadius: 1,
-              transition: "background-color 0.3s",
-            },
-            "& .MuiSlider-markActive": {
-              bgcolor: `${accent}AA`,
-            },
-            "& .MuiSlider-markLabel": {
-              fontSize: "0.68rem",
-              fontWeight: 600,
-              color: `${accent}E0`,
-              top: 30,
               transition: "color 0.3s",
-            },
-            // Prevent first/last labels from clipping outside container
-            "& .MuiSlider-markLabel:first-of-type": {
-              transform: "translateX(0%)",
-            },
-            "& .MuiSlider-markLabel:last-of-type": {
-              transform: "translateX(-100%)",
-            },
-          }}
-        />
+              ...(milestoneClusters.length > 0 && {
+                "&.MuiSlider-marked": { marginBottom: 0 },
+              }),
+              "& .MuiSlider-rail": {
+                height: 6,
+                borderRadius: 3,
+                bgcolor: `${accent}40`,
+                opacity: 1,
+                transition: "background-color 0.3s",
+              },
+              "& .MuiSlider-thumb": {
+                width: 18,
+                height: 18,
+                bgcolor: accent,
+                border: "2px solid #fff",
+                boxShadow: `0 0 0 1px ${accent}40`,
+                transition: "background-color 0.3s, box-shadow 0.3s",
+                "&:hover, &.Mui-focusVisible": {
+                  boxShadow: `0 0 0 6px ${accent}24`,
+                },
+              },
+              "& .MuiSlider-mark": {
+                width: 2,
+                height: 10,
+                bgcolor: `${accent}AA`,
+                borderRadius: 1,
+                transition: "background-color 0.3s",
+              },
+              "& .MuiSlider-markActive": {
+                bgcolor: `${accent}AA`,
+              },
+              "& .MuiSlider-markLabel": {
+                fontSize: "0.68rem",
+                fontWeight: 600,
+                color: `${accent}E0`,
+                top: 30,
+                transition: "color 0.3s",
+              },
+              // Prevent first/last labels from clipping outside container
+              "& .MuiSlider-markLabel:first-of-type": {
+                transform: "translateX(0%)",
+              },
+              "& .MuiSlider-markLabel:last-of-type": {
+                transform: "translateX(-100%)",
+              },
+            }}
+          />
 
-        {/* Transition marks: where cards enter or leave the landscape. Sits
-            below the year labels (which MUI puts at top: 30) and shares the
-            track's coordinate space, so a mark lines up with the thumb that
-            lands on it. */}
-        {milestoneClusters.length > 0 && (
-          <Box sx={{ position: "relative", height: 18, mt: 1.25 }}>
-            {milestoneClusters.map((m) => {
-              const pct = ((m.value - cappedRange.min) / (cappedRange.max - cappedRange.min)) * 100;
-              const parts: string[] = [];
-              if (m.activating)
-                parts.push(t("timelineSlider.milestoneActivating", { count: m.activating }));
-              if (m.disappearing)
-                parts.push(t("timelineSlider.milestoneDisappearing", { count: m.disappearing }));
-              const summary = `${fmtFull(m.value)} — ${parts.join(" · ")}`;
-              // Past transitions render exactly like upcoming ones. A stateful
-              // RETIRED/UPCOMING badge needs its mark whichever side of today
-              // it falls on, and muting the past ones made every mark in a
-              // mostly-historical landscape read as disabled.
-              return (
-                <Tooltip key={m.value} title={summary} arrow>
-                  <ButtonBase
-                    aria-label={`${summary}. ${t("timelineSlider.milestoneJump")}`}
-                    onClick={() => {
-                      onChange(m.value);
-                      onMilestoneClick?.(m.value, m.spanEnd);
-                    }}
-                    sx={{
-                      position: "absolute",
-                      left: `${pct}%`,
-                      top: 0,
-                      transform: "translateX(-50%)",
-                      // Generous hit area around a deliberately small mark.
-                      px: 0.75,
-                      py: 0.5,
-                      borderRadius: 1,
-                      display: "flex",
-                      gap: "1px",
-                      "&:hover": { bgcolor: "action.hover" },
-                    }}
-                  >
-                    {m.activating > 0 && (
-                      <Box
-                        sx={{
-                          width: 3,
-                          height: 10,
-                          borderRadius: "1px",
-                          // Same accent as the pulse this mark triggers on the
-                          // canvas, so mark and highlighted card read as one.
-                          bgcolor: TIMELINE_COLORS.goLive,
-                        }}
-                      />
-                    )}
-                    {m.disappearing > 0 && (
-                      <Box
-                        sx={{
-                          width: 3,
-                          height: 10,
-                          borderRadius: "1px",
-                          bgcolor: STATUS_COLORS.error,
-                        }}
-                      />
-                    )}
-                  </ButtonBase>
-                </Tooltip>
-              );
-            })}
-          </Box>
+          {/* Transition marks: where cards enter or leave the landscape. Sits
+              below the year labels (which MUI puts at top: 30) and shares the
+              track's coordinate space, so a mark lines up with the thumb that
+              lands on it. */}
+          {milestoneClusters.length > 0 && (
+            <Box sx={{ position: "relative", height: 18, mt: 1.25 }}>
+              {milestoneClusters.map((m) => {
+                const pct = ((m.value - cappedRange.min) / (cappedRange.max - cappedRange.min)) * 100;
+                const parts: string[] = [];
+                if (m.activating)
+                  parts.push(t("timelineSlider.milestoneActivating", { count: m.activating }));
+                if (m.disappearing)
+                  parts.push(t("timelineSlider.milestoneDisappearing", { count: m.disappearing }));
+                const summary = `${fmtFull(m.value)} — ${parts.join(" · ")}`;
+                // Past transitions render exactly like upcoming ones. A stateful
+                // RETIRED/UPCOMING badge needs its mark whichever side of today
+                // it falls on, and muting the past ones made every mark in a
+                // mostly-historical landscape read as disabled.
+                return (
+                  <Tooltip key={m.value} title={summary} arrow>
+                    <ButtonBase
+                      aria-label={`${summary}. ${t("timelineSlider.milestoneJump")}`}
+                      onClick={() => {
+                        onChange(m.value);
+                        onMilestoneClick?.(m.value, m.spanEnd);
+                      }}
+                      sx={{
+                        position: "absolute",
+                        left: `${pct}%`,
+                        top: 0,
+                        transform: "translateX(-50%)",
+                        // Generous hit area around a deliberately small mark.
+                        px: 0.75,
+                        py: 0.5,
+                        borderRadius: 1,
+                        display: "flex",
+                        gap: "1px",
+                        "&:hover": { bgcolor: "action.hover" },
+                      }}
+                    >
+                      {m.activating > 0 && (
+                        <Box
+                          sx={{
+                            width: 3,
+                            height: 10,
+                            borderRadius: "1px",
+                            // Same accent as the pulse this mark triggers on the
+                            // canvas, so mark and highlighted card read as one.
+                            bgcolor: TIMELINE_COLORS.goLive,
+                          }}
+                        />
+                      )}
+                      {m.disappearing > 0 && (
+                        <Box
+                          sx={{
+                            width: 3,
+                            height: 10,
+                            borderRadius: "1px",
+                            bgcolor: STATUS_COLORS.error,
+                          }}
+                        />
+                      )}
+                    </ButtonBase>
+                  </Tooltip>
+                );
+              })}
+            </Box>
+          )}
+        </Box>
+        {hasMilestones && (
+          <Tooltip title={t("timelineSlider.nextChange")} arrow>
+            <span>
+              <IconButton
+                aria-label={t("timelineSlider.nextChange")}
+                disabled={nextMilestone == null}
+                onClick={() => nextMilestone != null && onChange(nextMilestone)}
+                sx={stepButtonSx}
+              >
+                <MaterialSymbol
+                  icon={isRtl ? "chevron_left" : "chevron_right"}
+                  size={20}
+                  style={STEP_GLYPH}
+                />
+              </IconButton>
+            </span>
+          </Tooltip>
         )}
       </Box>
     </Box>
