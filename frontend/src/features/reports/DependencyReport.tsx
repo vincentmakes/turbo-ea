@@ -40,10 +40,10 @@ import {
   computeTimelineRange,
   isVisibleAtDate,
 } from "./timelineRange";
-import { isRetiredByDate } from "./portfolioHelpers";
+import { isRetiredByDate, parseDate } from "./portfolioHelpers";
 import type { TimelineChange } from "./timelineRange";
 import type { GNode, GEdge } from "./layeredDependencyLayout";
-import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
+import { brand, STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTypeLabel, typeLabel as resolveTypeLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
@@ -640,6 +640,54 @@ export default function DependencyReport() {
     [milestoneScope],
   );
 
+  /* ---------------------------------------------------------------- */
+  /*  Clicking a transition mark                                        */
+  /* ---------------------------------------------------------------- */
+
+  // Cards that change at the clicked mark, spotlighted for ~1.6s. Transient by
+  // design: the badges already state permanently what each card is, so the
+  // click only has to answer "which one just changed?".
+  const [pulseCards, setPulseCards] = useState<Record<string, "live" | "retire">>({});
+  // A retirement mark clicked while retired cards are hidden has nothing to
+  // point at, so the subjects are revealed for the duration of the pulse and
+  // then hidden again — the toggle is not changed, only briefly overridden.
+  const [revealedForPulse, setRevealedForPulse] = useState<Set<string>>(new Set());
+  const pulseTimer = useRef<number | null>(null);
+
+  const handleMilestoneClick = useCallback(
+    (from: number, to: number) => {
+      const hit: Record<string, "live" | "retire"> = {};
+      const reveal = new Set<string>();
+      for (const n of milestoneScope) {
+        const active = parseDate(n.lifecycle?.active);
+        const eol = parseDate(n.lifecycle?.endOfLife);
+        // A card can both go live and retire inside one merged cluster; the
+        // retirement is the later fact, so it wins the colour.
+        if (active != null && active >= from && active <= to) hit[n.id] = "live";
+        if (eol != null && eol >= from && eol <= to) {
+          hit[n.id] = "retire";
+          reveal.add(n.id);
+        }
+      }
+      if (pulseTimer.current) window.clearTimeout(pulseTimer.current);
+      setPulseCards(hit);
+      setRevealedForPulse(reveal);
+      pulseTimer.current = window.setTimeout(() => {
+        setPulseCards({});
+        setRevealedForPulse(new Set());
+        pulseTimer.current = null;
+      }, 1600);
+    },
+    [milestoneScope],
+  );
+
+  useEffect(
+    () => () => {
+      if (pulseTimer.current) window.clearTimeout(pulseTimer.current);
+    },
+    [],
+  );
+
   // The transformation between today and the selected date, over the same
   // scope as the marks and computed BEFORE the persist filter — hiding retired
   // cards must not make the count lie. Cards dead before today are landscape,
@@ -671,7 +719,12 @@ export default function DependencyReport() {
         ...n,
         changeState: classifyTimelineChange(n.lifecycle, timeline.todayMs, at) ?? undefined,
       }))
-      .filter((n) => n.id === center || isVisibleAtDate(n.lifecycle, at, visibility));
+      .filter(
+        (n) =>
+          n.id === center ||
+          revealedForPulse.has(n.id) ||
+          isVisibleAtDate(n.lifecycle, at, visibility),
+      );
     const ids = new Set(filtered.map((n) => n.id));
     // Badge only the survivors whose severed dependency is NOT on the canvas —
     // a displayed ghost with dashed red edges already tells the story, and
@@ -690,6 +743,7 @@ export default function DependencyReport() {
     center,
     persistRetired,
     previewPlanned,
+    revealedForPulse,
   ]);
 
   // Adjacency map
@@ -1109,6 +1163,7 @@ export default function DependencyReport() {
                 todayMs={timeline.todayMs}
                 milestones={milestones}
                 delta={timelineDelta}
+                onMilestoneClick={handleMilestoneClick}
               />
             </Box>
           )}
@@ -1172,6 +1227,7 @@ export default function DependencyReport() {
               centerName={centerNode?.name}
               centerId={center || undefined}
               asOfMs={timelineFilterDate}
+              pulseCards={pulseCards}
               canCreateDiagram={canCreateDiagram}
             />
           </Box>
@@ -1428,6 +1484,15 @@ export default function DependencyReport() {
                             borderStyle: "dashed",
                             borderLeftStyle: "solid",
                           }),
+                        ...(Object.keys(pulseCards).length > 0 && {
+                          opacity: pulseCards[card.id] ? 1 : 0.3,
+                          transition: "opacity 0.2s, box-shadow 0.2s",
+                          ...(pulseCards[card.id] && {
+                            boxShadow: `0 0 0 4px ${
+                              pulseCards[card.id] === "live" ? brand.primary : STATUS_COLORS.error
+                            }55`,
+                          }),
+                        }),
                         ...(card.node.changeState && {
                           border: `1.5px dashed ${changeColor(card.node.changeState)}`,
                           borderLeft: `3.5px solid ${color}`,
@@ -1807,8 +1872,25 @@ export default function DependencyReport() {
               {edges.map((e, i) => {
                 const s = nodes.find((n) => n.id === e.source);
                 const target = nodes.find((n) => n.id === e.target);
+                const pulsed = pulseCards[e.source] ?? pulseCards[e.target];
                 return (
-                  <TableRow key={i} hover>
+                  <TableRow
+                    key={i}
+                    hover
+                    sx={
+                      Object.keys(pulseCards).length > 0
+                        ? {
+                            opacity: pulsed ? 1 : 0.35,
+                            transition: "opacity 0.2s, background-color 0.2s",
+                            ...(pulsed && {
+                              bgcolor: `${
+                                pulsed === "live" ? brand.primary : STATUS_COLORS.error
+                              }1f`,
+                            }),
+                          }
+                        : undefined
+                    }
+                  >
                     <TableCell
                       sx={{ cursor: "pointer", fontWeight: 500 }}
                       onClick={() =>

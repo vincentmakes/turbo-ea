@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import DependencyReport from "./DependencyReport";
@@ -37,9 +37,13 @@ vi.mock("./SaveReportDialog", () => ({
   default: () => null,
 }));
 
-const sliderProps: { milestones?: { value: number }[] }[] = [];
+type SliderProps = {
+  milestones?: { value: number }[];
+  onMilestoneClick?: (from: number, to: number) => void;
+};
+const sliderProps: SliderProps[] = [];
 vi.mock("@/components/TimelineSlider", () => ({
-  default: (props: { milestones?: { value: number }[] }) => {
+  default: (props: SliderProps) => {
     sliderProps.push(props);
     return <div data-testid="timeline-slider" />;
   },
@@ -263,5 +267,37 @@ describe("DependencyReport time travel — transition marks", () => {
       expect(dates).toContain(ms("2005-01-01")); // ...and appeared, long ago
       expect(dates.some((d) => d > TODAY)).toBe(true); // future ones still there
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Clicking a transition mark
+// ---------------------------------------------------------------------------
+
+describe("DependencyReport time travel — clicking a mark", () => {
+  it("reveals a hidden retiring card for the duration of the highlight", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      renderReport();
+      await screen.findByText("Legacy ERP");
+
+      // Hide retired cards: the retirement mark now has nothing to point at.
+      await userEvent.click(screen.getByRole("checkbox", { name: /Keep retired cards/ }));
+      await waitFor(() => expect(screen.queryByText("Legacy ERP")).not.toBeInTheDocument());
+
+      // Click the mark covering Legacy ERP's retirement.
+      const eol = ms("2027-06-01");
+      act(() => sliderProps.at(-1)?.onMilestoneClick?.(eol, eol));
+
+      // Revealed while the pulse runs...
+      expect(await screen.findByText("Legacy ERP")).toBeInTheDocument();
+
+      // ...and hidden again once it ends, without touching the toggle.
+      act(() => void vi.advanceTimersByTime(2000));
+      await waitFor(() => expect(screen.queryByText("Legacy ERP")).not.toBeInTheDocument());
+      expect(screen.getByRole("checkbox", { name: /Keep retired cards/ })).not.toBeChecked();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

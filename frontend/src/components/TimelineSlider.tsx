@@ -29,6 +29,10 @@ interface TimelineSliderProps {
    *  marks under the track that jump the slider to the change, and stepped
    *  through by the prev/next buttons. Omit for a plain slider. */
   milestones?: TimelineMilestone[];
+  /** Fired when a transition mark is clicked, with the date span it covers, so
+   *  the consumer can highlight the cards that change there. The slider also
+   *  fires `onChange` with the span's start, as a drag would. */
+  onMilestoneClick?: (from: number, to: number) => void;
   /** Summary of the transformation between today and the selected date:
    *  how many cards arrive and how many retire. Rendered as two chips in the
    *  label row while travelling forward. Omit to show none. */
@@ -90,6 +94,12 @@ function useResponsiveMarks(
  * a busy stretch lets the user step forward through the rest, whereas landing in
  * the middle silently skips some.
  */
+/** A rendered mark: one milestone, or several merged by pixel proximity. */
+interface MilestoneCluster extends TimelineMilestone {
+  /** Latest date merged into this mark (equals `value` when nothing merged). */
+  spanEnd: number;
+}
+
 function useMilestoneClusters(
   milestones: TimelineMilestone[],
   range: { min: number; max: number },
@@ -115,15 +125,18 @@ function useMilestoneClusters(
     // render rather than vanishing on the first paint.
     const px = width || 400;
 
-    const clusters: TimelineMilestone[] = [];
+    const clusters: MilestoneCluster[] = [];
     for (const m of inRange) {
       const last = clusters[clusters.length - 1];
       const gap = last ? ((m.value - last.value) / span) * px : Infinity;
       if (last && gap < MIN_MILESTONE_SPACING_PX) {
         last.activating += m.activating;
         last.disappearing += m.disappearing;
+        // Remember how far the cluster reaches: clicking it must highlight
+        // every card it merged, not just those on its earliest date.
+        last.spanEnd = m.value;
       } else {
-        clusters.push({ ...m });
+        clusters.push({ ...m, spanEnd: m.value });
       }
     }
     return clusters;
@@ -138,6 +151,7 @@ export default function TimelineSlider({
   todayMs: todayProp,
   milestones,
   delta,
+  onMilestoneClick,
 }: TimelineSliderProps) {
   const { t } = useTranslation("common");
   const theme = useTheme();
@@ -391,7 +405,10 @@ export default function TimelineSlider({
                 <Tooltip key={m.value} title={summary} arrow>
                   <ButtonBase
                     aria-label={`${summary}. ${t("timelineSlider.milestoneJump")}`}
-                    onClick={() => onChange(m.value)}
+                    onClick={() => {
+                      onChange(m.value);
+                      onMilestoneClick?.(m.value, m.spanEnd);
+                    }}
                     sx={{
                       position: "absolute",
                       left: `${pct}%`,

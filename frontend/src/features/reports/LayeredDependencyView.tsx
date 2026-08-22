@@ -83,7 +83,7 @@ import {
   type LdvEdgeData,
 } from "./layeredDependencyLayout";
 import type { TimelineChange } from "./timelineRange";
-import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
+import { brand, STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
 
 /* ------------------------------------------------------------------ */
 /*  Card display settings (persisted, shared store)                    */
@@ -945,6 +945,11 @@ interface Props {
    *  end-of-life filter and each card's lifecycle dot are evaluated against it.
    *  Omit for a live "today" view. */
   asOfMs?: number;
+  /** Cards to spotlight, id → the kind of change ("live" | "retire"). Fired by
+   *  clicking a transition mark: the rest of the canvas dims briefly and these
+   *  pulse in the mark's own colour. Purely a transient attention cue — the
+   *  badges carry the permanent state. */
+  pulseCards?: Record<string, "live" | "retire">;
   /** When true, show the "Create diagram" toolbar action (gated on `diagrams.manage`
    *  by the parent). Only enable in consumers whose nodes are real inventory cards. */
   canCreateDiagram?: boolean;
@@ -972,6 +977,7 @@ function LayeredDependencyInner({
   centerName,
   centerId,
   asOfMs,
+  pulseCards,
   canCreateDiagram,
 }: Props) {
   const { t } = useTranslation(["reports", "common"]);
@@ -1611,6 +1617,30 @@ function LayeredDependencyInner({
     ].join("\n");
   }, [hoveredNeighbors]);
 
+  // Spotlight for a clicked transition mark. Built as CSS keyed on node id,
+  // exactly like `hoverStyle` above: recreating node objects to carry a
+  // transient flag causes flicker, and this needs to layer over whatever
+  // border/badge the card already has rather than replace it.
+  const pulseStyle = useMemo(() => {
+    const entries = Object.entries(pulseCards ?? {});
+    if (!entries.length) return "";
+    const rules = [
+      // Everything fades for the pulse, so the changed cards read instantly
+      // even on a dense canvas; the fade lifts on its own.
+      `.ldv-pulse-active .react-flow__node-ldvNode { opacity: 0.3; transition: opacity 0.2s; }`,
+      `@keyframes ldv-pulse-live { 0%,100% { box-shadow: 0 0 0 0 ${brand.primary}00 } 50% { box-shadow: 0 0 0 7px ${brand.primary}55 } }`,
+      `@keyframes ldv-pulse-retire { 0%,100% { box-shadow: 0 0 0 0 ${STATUS_COLORS.error}00 } 50% { box-shadow: 0 0 0 7px ${STATUS_COLORS.error}55 } }`,
+    ];
+    for (const [id, kind] of entries) {
+      const sel = `.react-flow__node[data-id="${CSS.escape(id)}"]`;
+      rules.push(
+        `${sel} { opacity: 1 !important; z-index: 10 !important; }`,
+        `${sel} > * { animation: ldv-pulse-${kind === "live" ? "live" : "retire"} 0.65s ease-in-out 2; border-radius: 8px; }`,
+      );
+    }
+    return rules.join("\n");
+  }, [pulseCards]);
+
   // Obstacle boxes for edge-label placement — computed once here and shared
   // with every edge via context (each edge no longer walks the node list).
   const obstacles = useMemo(() => computeObstacles(flowNodes), [flowNodes]);
@@ -1729,8 +1759,16 @@ function LayeredDependencyInner({
           )}
         </Box>
       </Box>
-      <Box sx={{ flex: 1, minHeight: 0 }} className={hoveredNode ? "ldv-hover-active" : undefined}>
+      <Box
+        sx={{ flex: 1, minHeight: 0 }}
+        className={
+          [hoveredNode ? "ldv-hover-active" : "", pulseStyle ? "ldv-pulse-active" : ""]
+            .filter(Boolean)
+            .join(" ") || undefined
+        }
+      >
         {hoverStyle && <style>{hoverStyle}</style>}
+        {pulseStyle && <style>{pulseStyle}</style>}
         <ReactFlow
           nodes={flowNodes}
           edges={orderedEdges}
