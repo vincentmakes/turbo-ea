@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.76.1] - 2026-08-22
+
+### Fixed
+
+- Dependencies report: stepping between transition marks with the arrows beside the time-travel slider now spotlights the cards that change there, the same as clicking the mark — the canvas dims while they pulse, and a retiring card hidden by **Persist retired cards** is revealed for the pulse. The arrows moved the date but animated nothing, so the two ways of reaching the same change behaved differently.
+
 ## [2.76.0] - 2026-08-21
 
 ### Added

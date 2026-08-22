@@ -160,3 +160,66 @@ describe("TimelineSlider transition pills", () => {
     expect(screen.queryByLabelText("Cards changing on this date")).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Stepping between marks
+// ---------------------------------------------------------------------------
+
+describe("TimelineSlider step-through", () => {
+  /** Regression: the arrows called `onChange` alone, so stepping to a mark
+   *  navigated without spotlighting while clicking the same mark did both. */
+  it("spotlights the mark it steps forward onto, not just the date", async () => {
+    const onChange = vi.fn();
+    const onMilestoneClick = vi.fn();
+    renderSlider(TODAY, { onChange, onMilestoneClick });
+
+    await userEvent.click(screen.getByRole("button", { name: /Next change/i }));
+
+    expect(onChange).toHaveBeenCalledWith(GO_LIVE);
+    expect(onMilestoneClick).toHaveBeenCalledWith(GO_LIVE, GO_LIVE);
+  });
+
+  it("spotlights the mark it steps back onto", async () => {
+    const onChange = vi.fn();
+    const onMilestoneClick = vi.fn();
+    renderSlider(RETIRE, { onChange, onMilestoneClick });
+
+    await userEvent.click(screen.getByRole("button", { name: /Previous change/i }));
+
+    expect(onChange).toHaveBeenCalledWith(GO_LIVE);
+    expect(onMilestoneClick).toHaveBeenCalledWith(GO_LIVE, GO_LIVE);
+  });
+
+  it("spotlights the whole cluster when the mark it lands on is a merged one", async () => {
+    // Two dates three days apart inside a ten-year range render as one mark
+    // (jsdom measures nothing, so the slider falls back to its nominal width).
+    // The pill row lists both, so the spotlight has to cover both — stepping
+    // onto the bare date would pulse half of what is named right below it.
+    const SECOND = GO_LIVE + 3 * 86_400_000;
+    const onMilestoneClick = vi.fn();
+    render(
+      <TimelineSlider
+        value={TODAY}
+        onChange={vi.fn()}
+        dateRange={{ min: ms("2020-01-01"), max: ms("2030-01-01") }}
+        yearMarks={[]}
+        todayMs={TODAY}
+        milestones={[
+          { value: GO_LIVE, activating: 1, disappearing: 0 },
+          { value: SECOND, activating: 0, disappearing: 1 },
+        ]}
+        onMilestoneClick={onMilestoneClick}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /Next change/i }));
+    expect(onMilestoneClick).toHaveBeenCalledWith(GO_LIVE, SECOND);
+  });
+
+  it("still works as plain navigation when no consumer wants the spotlight", async () => {
+    const onChange = vi.fn();
+    renderSlider(TODAY, { onChange });
+    await userEvent.click(screen.getByRole("button", { name: /Next change/i }));
+    expect(onChange).toHaveBeenCalledWith(GO_LIVE);
+  });
+});

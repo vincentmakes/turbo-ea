@@ -224,17 +224,40 @@ export default function TimelineSlider({
 
   const hasMilestones = (milestones?.length ?? 0) > 0;
 
-  // The mark the slider is standing on, if any. A click or an arrow step calls
-  // `onChange(m.value)` and lands on it exactly; a drag cannot, because MUI
-  // snaps to `min + n * step` and a mark's epoch is almost never on that
+  // The mark a given date stands on, if any. A mark click or an arrow step
+  // calls `onChange(m.value)` and lands on one exactly; a drag cannot, because
+  // MUI snaps to `min + n * step` and a mark's epoch is almost never on that
   // lattice — hence the one-day tolerance, which is below the resolution
   // anything on this timeline is modelled at anyway.
-  const activeCluster = useMemo(
-    () =>
+  const clusterAt = useCallback(
+    (at: number) =>
       milestoneClusters.find(
-        (c) => value >= c.value - ONE_DAY_MS && value <= c.spanEnd + ONE_DAY_MS,
+        (c) => at >= c.value - ONE_DAY_MS && at <= c.spanEnd + ONE_DAY_MS,
       ) ?? null,
-    [milestoneClusters, value],
+    [milestoneClusters],
+  );
+
+  const activeCluster = useMemo(() => clusterAt(value), [clusterAt, value]);
+
+  /**
+   * Move to a mark by arrow, spotlighting it exactly as clicking it would.
+   * Stepping used to call `onChange` alone, so the two ways of reaching the
+   * same mark behaved differently — the arrows navigated but never lit
+   * anything up.
+   *
+   * The span is the CLUSTER's, not the stepped-to date's: the step targets a
+   * single milestone (`prevMilestone` / `nextMilestone` are deliberately
+   * unclustered so stepping behaves the same at every screen width), but the
+   * pill row below is keyed on the cluster, so spotlighting the bare date
+   * would pulse a subset of the pills sitting right there.
+   */
+  const stepTo = useCallback(
+    (target: number) => {
+      onChange(target);
+      const cluster = clusterAt(target);
+      onMilestoneClick?.(cluster?.value ?? target, cluster?.spanEnd ?? target);
+    },
+    [onChange, onMilestoneClick, clusterAt],
   );
 
   const activeCards = useMemo(
@@ -379,7 +402,7 @@ export default function TimelineSlider({
               <IconButton
                 aria-label={t("timelineSlider.prevChange")}
                 disabled={prevMilestone == null}
-                onClick={() => prevMilestone != null && onChange(prevMilestone)}
+                onClick={() => prevMilestone != null && stepTo(prevMilestone)}
                 sx={stepButtonSx}
               >
                 <MaterialSymbol
@@ -618,7 +641,7 @@ export default function TimelineSlider({
               <IconButton
                 aria-label={t("timelineSlider.nextChange")}
                 disabled={nextMilestone == null}
-                onClick={() => nextMilestone != null && onChange(nextMilestone)}
+                onClick={() => nextMilestone != null && stepTo(nextMilestone)}
                 sx={stepButtonSx}
               >
                 <MaterialSymbol
