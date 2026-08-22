@@ -33,14 +33,16 @@ import { useSavedReport } from "@/hooks/useSavedReport";
 import { useTimeline } from "@/hooks/useTimeline";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import TimelineSlider from "@/components/TimelineSlider";
+import type { TimelineMilestoneCard } from "@/components/TimelineSlider";
 import {
+  cardsChangingBetween,
   classifyTimelineChange,
   computeImpactedIds,
   computeTimelineMilestones,
   computeTimelineRange,
   isVisibleAtDate,
 } from "./timelineRange";
-import { isRetiredByDate, parseDate } from "./portfolioHelpers";
+import { isRetiredByDate } from "./portfolioHelpers";
 import type { TimelineChange } from "./timelineRange";
 import type { GNode, GEdge } from "./layeredDependencyLayout";
 import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
@@ -654,31 +656,62 @@ export default function DependencyReport() {
   const [revealedForPulse, setRevealedForPulse] = useState<Set<string>>(new Set());
   const pulseTimer = useRef<number | null>(null);
 
+  const spotlight = useCallback((hit: Record<string, "live" | "retire">, reveal: Set<string>) => {
+    if (pulseTimer.current) window.clearTimeout(pulseTimer.current);
+    setPulseCards(hit);
+    setRevealedForPulse(reveal);
+    pulseTimer.current = window.setTimeout(() => {
+      setPulseCards({});
+      setRevealedForPulse(new Set());
+      pulseTimer.current = null;
+    }, 1600);
+  }, []);
+
   const handleMilestoneClick = useCallback(
     (from: number, to: number) => {
       const hit: Record<string, "live" | "retire"> = {};
       const reveal = new Set<string>();
-      for (const n of milestoneScope) {
-        const active = parseDate(n.lifecycle?.active);
-        const eol = parseDate(n.lifecycle?.endOfLife);
-        // A card can both go live and retire inside one merged cluster; the
-        // retirement is the later fact, so it wins the colour.
-        if (active != null && active >= from && active <= to) hit[n.id] = "live";
-        if (eol != null && eol >= from && eol <= to) {
-          hit[n.id] = "retire";
-          reveal.add(n.id);
+      for (const c of cardsChangingBetween(milestoneScope, from, to)) {
+        if (c.kind === "disappearing") {
+          hit[c.id] = "retire";
+          // A retirement mark clicked while retired cards are hidden has
+          // nothing to point at, so its subjects are revealed for the pulse.
+          reveal.add(c.id);
+        } else {
+          hit[c.id] = "live";
         }
       }
-      if (pulseTimer.current) window.clearTimeout(pulseTimer.current);
-      setPulseCards(hit);
-      setRevealedForPulse(reveal);
-      pulseTimer.current = window.setTimeout(() => {
-        setPulseCards({});
-        setRevealedForPulse(new Set());
-        pulseTimer.current = null;
-      }, 1600);
+      spotlight(hit, reveal);
     },
-    [milestoneScope],
+    [milestoneScope, spotlight],
+  );
+
+  // The same cards, named, for the pill row the slider renders under the marks.
+  // Built from `milestoneScope` — the scope the marks themselves are computed
+  // from — so a pill can never name a card the mark above it did not count.
+  const milestoneCardColors = useMemo(
+    () => new Map(milestoneScope.map((n) => [n.id, tc(n.type, types)])),
+    [milestoneScope, types],
+  );
+
+  const milestoneCards = useCallback(
+    (from: number, to: number) =>
+      cardsChangingBetween(milestoneScope, from, to).map((c) => ({
+        ...c,
+        color: milestoneCardColors.get(c.id),
+      })),
+    [milestoneScope, milestoneCardColors],
+  );
+
+  const handleMilestoneCardClick = useCallback(
+    (card: TimelineMilestoneCard) => {
+      const retiring = card.kind === "disappearing";
+      spotlight(
+        { [card.id]: retiring ? "retire" : "live" },
+        retiring ? new Set([card.id]) : new Set(),
+      );
+    },
+    [spotlight],
   );
 
   useEffect(
@@ -1164,6 +1197,8 @@ export default function DependencyReport() {
                 milestones={milestones}
                 delta={timelineDelta}
                 onMilestoneClick={handleMilestoneClick}
+                milestoneCards={milestoneCards}
+                onMilestoneCardClick={handleMilestoneCardClick}
               />
             </Box>
           )}

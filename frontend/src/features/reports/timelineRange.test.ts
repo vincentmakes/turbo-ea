@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  cardsChangingBetween,
   classifyTimelineChange,
   computeImpactedIds,
   computeTimelineMilestones,
@@ -300,5 +301,54 @@ describe("computeImpactedIds", () => {
       NONE_SHOWN,
     );
     expect(impacted.size).toBe(0);
+  });
+});
+
+describe("cardsChangingBetween", () => {
+  const CARDS = [
+    { id: "live", name: "Zulu Workbench", lifecycle: { active: "2027-03-01" } },
+    { id: "gone", name: "Alpha Mainframe", lifecycle: { active: "2010-01-01", endOfLife: "2027-03-01" } },
+    { id: "both", name: "Bravo Bridge", lifecycle: { active: "2027-03-02", endOfLife: "2027-03-05" } },
+    { id: "outside", name: "Charlie CRM", lifecycle: { active: "2029-01-01" } },
+    { id: "stillborn", name: "Delta Ghost", lifecycle: { active: "2027-03-03", endOfLife: "2027-03-03" } },
+    { id: "dateless", name: "Echo Unknown" },
+  ];
+  const FROM = ms("2027-03-01");
+  const TO = ms("2027-03-05");
+
+  it("names the cards going live and retiring inside the span", () => {
+    const got = cardsChangingBetween(CARDS, FROM, TO);
+    // "both" retires inside this span too, so it lands on the retiring side,
+    // after "gone" — retiring cards are ordered by name.
+    expect(got.map((c) => c.id)).toEqual(["live", "gone", "both"]);
+  });
+
+  it("orders cards going live first, then by name", () => {
+    const got = cardsChangingBetween(CARDS, ms("2027-03-01"), ms("2027-03-02"));
+    expect(got.map((c) => c.kind)).toEqual(["activating", "activating", "disappearing"]);
+    expect(got.slice(0, 2).map((c) => c.name)).toEqual(["Bravo Bridge", "Zulu Workbench"]);
+  });
+
+  it("lets retirement win for a card that does both inside one span", () => {
+    const got = cardsChangingBetween(CARDS, ms("2027-03-02"), ms("2027-03-05"));
+    expect(got.find((c) => c.id === "both")?.kind).toBe("disappearing");
+  });
+
+  it("skips a card that never lived — it carries no mark either", () => {
+    expect(cardsChangingBetween(CARDS, FROM, TO).some((c) => c.id === "stillborn")).toBe(false);
+  });
+
+  it("skips dates outside the span and cards with no lifecycle at all", () => {
+    const ids = cardsChangingBetween(CARDS, FROM, TO).map((c) => c.id);
+    expect(ids).not.toContain("outside");
+    expect(ids).not.toContain("dateless");
+  });
+
+  it("names exactly what the mark at the same date counts", () => {
+    const marks = computeTimelineMilestones(CARDS.map((c) => c.lifecycle));
+    const mark = marks.find((m) => m.value === FROM)!;
+    const named = cardsChangingBetween(CARDS, FROM, FROM);
+    expect(named.filter((c) => c.kind === "activating")).toHaveLength(mark.activating);
+    expect(named.filter((c) => c.kind === "disappearing")).toHaveLength(mark.disappearing);
   });
 });

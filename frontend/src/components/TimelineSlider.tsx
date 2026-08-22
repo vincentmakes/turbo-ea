@@ -11,7 +11,7 @@ import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useIsRtl } from "@/hooks/useIsRtl";
 import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
-import type { TimelineMilestone } from "@/features/reports/timelineRange";
+import type { TimelineChangeCard, TimelineMilestone } from "@/features/reports/timelineRange";
 
 const ONE_DAY_MS = 86_400_000;
 const TEN_YEARS_MS = 10 * 365.25 * ONE_DAY_MS;
@@ -23,6 +23,15 @@ const MIN_MILESTONE_SPACING_PX = 10;
  *  default weight is a hairline, which reads as decoration rather than a
  *  control next to the track. */
 const STEP_GLYPH: React.CSSProperties = { fontVariationSettings: "'wght' 600" };
+/** Pills shown before the row collapses into a "+N more" chip. A date where
+ *  fifty cards retire is a fact about the landscape, not a list to read. */
+const MAX_MILESTONE_PILLS = 10;
+
+/** A card named in the pill row. `color` is the card type's accent, supplied
+ *  by the consumer — the slider knows nothing about the metamodel. */
+export interface TimelineMilestoneCard extends TimelineChangeCard {
+  color?: string;
+}
 
 interface TimelineSliderProps {
   value: number;
@@ -38,6 +47,12 @@ interface TimelineSliderProps {
    *  the consumer can highlight the cards that change there. The slider also
    *  fires `onChange` with the span's start, as a drag would. */
   onMilestoneClick?: (from: number, to: number) => void;
+  /** Which cards change across a mark's span, for the pill row under the marks.
+   *  Called only while the slider stands on a mark. Omit for no pill row. */
+  milestoneCards?: (from: number, to: number) => TimelineMilestoneCard[];
+  /** Fired when a pill is clicked, so the consumer can spotlight that card.
+   *  Omit to render the pills as plain, non-clickable labels. */
+  onMilestoneCardClick?: (card: TimelineMilestoneCard) => void;
   /** Summary of the transformation between today and the selected date:
    *  how many cards arrive and how many retire. Rendered as two chips in the
    *  label row while travelling forward. Omit to show none. */
@@ -157,6 +172,8 @@ export default function TimelineSlider({
   milestones,
   delta,
   onMilestoneClick,
+  milestoneCards,
+  onMilestoneCardClick,
 }: TimelineSliderProps) {
   const { t } = useTranslation("common");
   const isRtl = useIsRtl();
@@ -206,6 +223,25 @@ export default function TimelineSlider({
   const RESET_COLOR = TIMELINE_COLORS.reset;
 
   const hasMilestones = (milestones?.length ?? 0) > 0;
+
+  // The mark the slider is standing on, if any. A click or an arrow step calls
+  // `onChange(m.value)` and lands on it exactly; a drag cannot, because MUI
+  // snaps to `min + n * step` and a mark's epoch is almost never on that
+  // lattice — hence the one-day tolerance, which is below the resolution
+  // anything on this timeline is modelled at anyway.
+  const activeCluster = useMemo(
+    () =>
+      milestoneClusters.find(
+        (c) => value >= c.value - ONE_DAY_MS && value <= c.spanEnd + ONE_DAY_MS,
+      ) ?? null,
+    [milestoneClusters, value],
+  );
+
+  const activeCards = useMemo(
+    () =>
+      activeCluster ? (milestoneCards?.(activeCluster.value, activeCluster.spanEnd) ?? []) : [],
+    [activeCluster, milestoneCards],
+  );
   // Outlined and tinted in the slider's own accent so the pair reads as part of
   // the track rather than as toolbar chrome. `mt` centres a 28px button on the
   // 32px-tall slider row (MUI pads the 6px track by 13px top and bottom).
@@ -407,7 +443,7 @@ export default function TimelineSlider({
               track's coordinate space, so a mark lines up with the thumb that
               lands on it. */}
           {milestoneClusters.length > 0 && (
-            <Box sx={{ position: "relative", height: 18, mt: 1.25 }}>
+            <Box sx={{ position: "relative", height: 18, mt: 0.75 }}>
               {milestoneClusters.map((m) => {
                 const pct = ((m.value - cappedRange.min) / (cappedRange.max - cappedRange.min)) * 100;
                 const parts: string[] = [];
@@ -468,6 +504,71 @@ export default function TimelineSlider({
                   </Tooltip>
                 );
               })}
+            </Box>
+          )}
+
+          {/* The cards behind the mark the slider is standing on. The marks say
+              how many change and when; standing on one has to say WHICH, and
+              keep saying it — the click pulse is gone in 1.6 seconds. */}
+          {activeCards.length > 0 && (
+            <Box
+              aria-label={t("timelineSlider.milestoneCardsLabel")}
+              sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 0.75 }}
+            >
+              {activeCards.slice(0, MAX_MILESTONE_PILLS).map((card) => {
+                const accent =
+                  card.kind === "activating" ? TIMELINE_COLORS.goLive : STATUS_COLORS.error;
+                return (
+                  <Chip
+                    key={card.id}
+                    size="small"
+                    label={card.name}
+                    onClick={onMilestoneCardClick ? () => onMilestoneCardClick(card) : undefined}
+                    icon={
+                      <Box
+                        sx={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          flexShrink: 0,
+                          // The card type's own colour, so a pill is
+                          // recognisable as the node it names; going-live vs
+                          // retiring is carried by the border and tint.
+                          bgcolor: card.color || accent,
+                          ml: "6px !important",
+                        }}
+                      />
+                    }
+                    sx={{
+                      height: 22,
+                      maxWidth: 220,
+                      fontSize: "0.68rem",
+                      fontWeight: 600,
+                      color: accent,
+                      bgcolor: `${accent}14`,
+                      border: `1px solid ${accent}59`,
+                      ...(onMilestoneCardClick && {
+                        "&:hover": { bgcolor: `${accent}2E` },
+                      }),
+                    }}
+                  />
+                );
+              })}
+              {activeCards.length > MAX_MILESTONE_PILLS && (
+                <Chip
+                  size="small"
+                  label={t("timelineSlider.milestoneCardsMore", {
+                    count: activeCards.length - MAX_MILESTONE_PILLS,
+                  })}
+                  sx={{
+                    height: 22,
+                    fontSize: "0.68rem",
+                    fontWeight: 600,
+                    color: "text.secondary",
+                    bgcolor: "action.hover",
+                  }}
+                />
+              )}
             </Box>
           )}
         </Box>

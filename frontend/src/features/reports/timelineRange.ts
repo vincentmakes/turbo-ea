@@ -162,6 +162,48 @@ export function computeTimelineMilestones(lifecycles: Lifecycle[]): TimelineMile
   return [...byDate.values()].sort((a, b) => a.value - b.value);
 }
 
+/** A card whose presence changes at a transition mark. */
+export interface TimelineChangeCard {
+  id: string;
+  name: string;
+  /** `activating` reaches its `active` date in the span, `disappearing` its
+   *  `endOfLife`. Same two kinds the mark's two bars stand for. */
+  kind: "activating" | "disappearing";
+}
+
+/**
+ * Which cards change across a mark's span — what the mark above them counts,
+ * named.
+ *
+ * Deliberately mirrors `computeTimelineMilestones` rule for rule, including the
+ * never-alive skip: a pill must never name a card at a date that carries no
+ * mark, and the two drifting apart is exactly how this feature has broken
+ * before. `from`/`to` are inclusive so they agree with the graph filter's `<=`.
+ */
+export function cardsChangingBetween(
+  cards: { id: string; name: string; lifecycle?: Lifecycle }[],
+  from: number,
+  to: number,
+): TimelineChangeCard[] {
+  const out: TimelineChangeCard[] = [];
+  for (const card of cards) {
+    const active = parseDate(card.lifecycle?.active);
+    const eol = parseDate(card.lifecycle?.endOfLife);
+    if (active != null && eol != null && eol <= active) continue;
+
+    // A card can do both inside one merged cluster; the retirement is the later
+    // fact, so it names the pill (the pulse colour picks the same winner).
+    let kind: TimelineChangeCard["kind"] | null = null;
+    if (active != null && active >= from && active <= to) kind = "activating";
+    if (eol != null && eol >= from && eol <= to) kind = "disappearing";
+    if (kind) out.push({ id: card.id, name: card.name, kind });
+  }
+  // Going live before retiring, matching the order of the mark's own two bars.
+  return out.sort((a, b) =>
+    a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === "activating" ? -1 : 1,
+  );
+}
+
 /**
  * Cards IMPACTED by the transformation in a way that would otherwise be
  * invisible: linked to a card that retires between today and the viewed date

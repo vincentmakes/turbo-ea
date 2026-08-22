@@ -40,6 +40,11 @@ vi.mock("./SaveReportDialog", () => ({
 type SliderProps = {
   milestones?: { value: number }[];
   onMilestoneClick?: (from: number, to: number) => void;
+  milestoneCards?: (
+    from: number,
+    to: number,
+  ) => { id: string; name: string; kind: string; color?: string }[];
+  onMilestoneCardClick?: (card: { id: string; kind: string }) => void;
 };
 const sliderProps: SliderProps[] = [];
 vi.mock("@/components/TimelineSlider", () => ({
@@ -296,6 +301,57 @@ describe("DependencyReport time travel — clicking a mark", () => {
       act(() => void vi.advanceTimersByTime(2000));
       await waitFor(() => expect(screen.queryByText("Legacy ERP")).not.toBeInTheDocument());
       expect(screen.getByRole("checkbox", { name: /Keep retired cards/ })).not.toBeChecked();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The pill row under the marks
+// ---------------------------------------------------------------------------
+
+describe("DependencyReport time travel — cards behind a mark", () => {
+  it("names the cards a mark counts, coloured by card type", async () => {
+    renderReport();
+    await screen.findByText("Legacy ERP");
+
+    const eol = ms("2027-06-01");
+    const named = sliderProps.at(-1)!.milestoneCards!(eol, eol);
+    expect(named).toEqual([
+      { id: "legacy", name: "Legacy ERP", kind: "disappearing", color: "#0f7eb5" },
+    ]);
+
+    // A go-live date names the arriving side instead.
+    const live = ms("2021-01-01");
+    expect(sliderProps.at(-1)!.milestoneCards!(live, live)).toEqual([
+      { id: "crm", name: "CRM Cloud", kind: "activating", color: "#0f7eb5" },
+    ]);
+  });
+
+  it("names nothing on a date where nothing changes", async () => {
+    renderReport();
+    await screen.findByText("Legacy ERP");
+    const quiet = ms("2023-04-04");
+    expect(sliderProps.at(-1)!.milestoneCards!(quiet, quiet)).toEqual([]);
+  });
+
+  it("spotlights just the clicked card, revealing it if it is hidden", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      renderReport();
+      await screen.findByText("Legacy ERP");
+
+      await userEvent.click(screen.getByRole("checkbox", { name: /Keep retired cards/ }));
+      await waitFor(() => expect(screen.queryByText("Legacy ERP")).not.toBeInTheDocument());
+
+      act(() =>
+        sliderProps.at(-1)?.onMilestoneCardClick?.({ id: "legacy", kind: "disappearing" }),
+      );
+      expect(await screen.findByText("Legacy ERP")).toBeInTheDocument();
+
+      act(() => void vi.advanceTimersByTime(2000));
+      await waitFor(() => expect(screen.queryByText("Legacy ERP")).not.toBeInTheDocument());
     } finally {
       vi.useRealTimers();
     }
