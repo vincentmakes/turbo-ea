@@ -204,6 +204,12 @@ export const TIMELINE_COLORS = {
   past: "#e68a00",
   future: "#7c4dff",
   reset: "#ef6c00",
+  /** Go-live accent — a card becoming active on the timeline. Deliberately
+   *  more saturated than `brand.primary`: transition marks are 3px wide, and
+   *  at that size the darker brand blue reads as grey next to the red
+   *  retirement mark. Also used for the matching highlight pulse, so the mark
+   *  and the card it points at are unmistakably the same colour. */
+  goLive: "#0177FF",
 } as const;
 
 // ── Categorical series ──────────────────────────────────────────────────

@@ -9,7 +9,7 @@ import ButtonBase from "@mui/material/ButtonBase";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { brand, STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
+import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
 import type { TimelineMilestone } from "@/features/reports/timelineRange";
 
 const ONE_DAY_MS = 86_400_000;
@@ -397,10 +397,10 @@ export default function TimelineSlider({
               if (m.disappearing)
                 parts.push(t("timelineSlider.milestoneDisappearing", { count: m.disappearing }));
               const summary = `${fmtFull(m.value)} — ${parts.join(" · ")}`;
-              // Past transitions are shown — a stateful RETIRED/UPCOMING badge
-              // needs its mark whichever side of today it falls on — but muted,
-              // so the upcoming transformation still reads as the subject.
-              const isPast = m.value <= todayMs;
+              // Past transitions render exactly like upcoming ones. A stateful
+              // RETIRED/UPCOMING badge needs its mark whichever side of today
+              // it falls on, and muting the past ones made every mark in a
+              // mostly-historical landscape read as disabled.
               return (
                 <Tooltip key={m.value} title={summary} arrow>
                   <ButtonBase
@@ -414,14 +414,13 @@ export default function TimelineSlider({
                       left: `${pct}%`,
                       top: 0,
                       transform: "translateX(-50%)",
-                      opacity: isPast ? 0.4 : 1,
                       // Generous hit area around a deliberately small mark.
                       px: 0.75,
                       py: 0.5,
                       borderRadius: 1,
                       display: "flex",
                       gap: "1px",
-                      "&:hover": { opacity: 1, bgcolor: "action.hover" },
+                      "&:hover": { bgcolor: "action.hover" },
                     }}
                   >
                     {m.activating > 0 && (
@@ -430,9 +429,9 @@ export default function TimelineSlider({
                           width: 3,
                           height: 10,
                           borderRadius: "1px",
-                          // The app's blue, not the washed-out MUI info tone —
-                          // it matches the slider's own accent at today.
-                          bgcolor: brand.primary,
+                          // Same accent as the pulse this mark triggers on the
+                          // canvas, so mark and highlighted card read as one.
+                          bgcolor: TIMELINE_COLORS.goLive,
                         }}
                       />
                     )}

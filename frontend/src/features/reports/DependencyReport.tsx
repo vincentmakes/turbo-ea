@@ -43,7 +43,7 @@ import {
 import { isRetiredByDate, parseDate } from "./portfolioHelpers";
 import type { TimelineChange } from "./timelineRange";
 import type { GNode, GEdge } from "./layeredDependencyLayout";
-import { brand, STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
+import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTypeLabel, typeLabel as resolveTypeLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
@@ -1489,7 +1489,7 @@ export default function DependencyReport() {
                           transition: "opacity 0.2s, box-shadow 0.2s",
                           ...(pulseCards[card.id] && {
                             boxShadow: `0 0 0 4px ${
-                              pulseCards[card.id] === "live" ? brand.primary : STATUS_COLORS.error
+                              pulseCards[card.id] === "live" ? TIMELINE_COLORS.goLive : STATUS_COLORS.error
                             }55`,
                           }),
                         }),
@@ -1884,7 +1884,7 @@ export default function DependencyReport() {
                             transition: "opacity 0.2s, background-color 0.2s",
                             ...(pulsed && {
                               bgcolor: `${
-                                pulsed === "live" ? brand.primary : STATUS_COLORS.error
+                                pulsed === "live" ? TIMELINE_COLORS.goLive : STATUS_COLORS.error
                               }1f`,
                             }),
                           }

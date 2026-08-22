@@ -83,7 +83,7 @@ import {
   type LdvEdgeData,
 } from "./layeredDependencyLayout";
 import type { TimelineChange } from "./timelineRange";
-import { brand, STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
+import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
 
 /* ------------------------------------------------------------------ */
 /*  Card display settings (persisted, shared store)                    */
@@ -1628,7 +1628,7 @@ function LayeredDependencyInner({
       // Everything fades for the pulse, so the changed cards read instantly
       // even on a dense canvas; the fade lifts on its own.
       `.ldv-pulse-active .react-flow__node-ldvNode { opacity: 0.3; transition: opacity 0.2s; }`,
-      `@keyframes ldv-pulse-live { 0%,100% { box-shadow: 0 0 0 0 ${brand.primary}00 } 50% { box-shadow: 0 0 0 7px ${brand.primary}55 } }`,
+      `@keyframes ldv-pulse-live { 0%,100% { box-shadow: 0 0 0 0 ${TIMELINE_COLORS.goLive}00 } 50% { box-shadow: 0 0 0 7px ${TIMELINE_COLORS.goLive}66 } }`,
       `@keyframes ldv-pulse-retire { 0%,100% { box-shadow: 0 0 0 0 ${STATUS_COLORS.error}00 } 50% { box-shadow: 0 0 0 7px ${STATUS_COLORS.error}55 } }`,
     ];
     for (const [id, kind] of entries) {
