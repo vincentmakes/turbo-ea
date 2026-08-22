@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.76.1] - 2026-08-22
+
+### Fixed
+
+- Dependencies report: stepping between transition marks with the arrows beside the time-travel slider now spotlights the cards that change there, the same as clicking the mark — the canvas dims while they pulse, and a retiring card hidden by **Persist retired cards** is revealed for the pulse. The arrows moved the date but animated nothing, so the two ways of reaching the same change behaved differently.
+- Dependencies report: a transition mark that merges several nearby dates now names the span it covers ("1 Apr 2027 – 1 Jul 2027") instead of only its earliest date, so a change absorbed into a crowded mark can be found rather than appearing unmarked.
+- Demo dataset: lifecycle dates repaired — nothing retires that never went live, phases no longer run backwards, and dates are spread rather than piled onto a handful of days.
+
 ## [2.76.0] - 2026-08-21
 
 ### Added

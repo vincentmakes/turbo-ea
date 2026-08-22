@@ -174,6 +174,26 @@ describe("computeTimelineMilestones", () => {
     ).toEqual([{ value: ms("2027-06-01"), activating: 1, disappearing: 0 }]);
   });
 
+  it("marks the go-live of a card that carries every phase", () => {
+    // The shape a planned-then-delivered card ends up with once someone fills
+    // the lifecycle in by hand. Its retirement mark was never in doubt; the
+    // arrival is the one that has to come with it.
+    expect(
+      computeTimelineMilestones([
+        {
+          plan: "2026-10-01",
+          phaseIn: "2027-01-01",
+          active: "2027-04-01",
+          phaseOut: "2029-01-01",
+          endOfLife: "2029-06-30",
+        },
+      ]),
+    ).toEqual([
+      { value: ms("2027-04-01"), activating: 1, disappearing: 0 },
+      { value: ms("2029-06-30"), activating: 0, disappearing: 1 },
+    ]);
+  });
+
   it("marks both ends for a card that goes live and later retires", () => {
     expect(
       computeTimelineMilestones([{ active: "2020-01-01", endOfLife: "2030-01-01" }]),
