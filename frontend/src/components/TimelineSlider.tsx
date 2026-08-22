@@ -120,7 +120,6 @@ function useMilestoneClusters(
       const last = clusters[clusters.length - 1];
       const gap = last ? ((m.value - last.value) / span) * px : Infinity;
       if (last && gap < MIN_MILESTONE_SPACING_PX) {
-        last.appearing += m.appearing;
         last.activating += m.activating;
         last.disappearing += m.disappearing;
       } else {
@@ -379,8 +378,6 @@ export default function TimelineSlider({
             {milestoneClusters.map((m) => {
               const pct = ((m.value - cappedRange.min) / (cappedRange.max - cappedRange.min)) * 100;
               const parts: string[] = [];
-              if (m.appearing)
-                parts.push(t("timelineSlider.milestoneAppearing", { count: m.appearing }));
               if (m.activating)
                 parts.push(t("timelineSlider.milestoneActivating", { count: m.activating }));
               if (m.disappearing)
@@ -410,23 +407,13 @@ export default function TimelineSlider({
                       "&:hover": { opacity: 1, bgcolor: "action.hover" },
                     }}
                   >
-                    {m.appearing > 0 && (
-                      <Box
-                        sx={{
-                          width: 3,
-                          height: 10,
-                          borderRadius: "1px",
-                          bgcolor: TIMELINE_COLORS.future,
-                        }}
-                      />
-                    )}
                     {m.activating > 0 && (
                       <Box
                         sx={{
                           width: 3,
                           height: 10,
                           borderRadius: "1px",
-                          bgcolor: STATUS_COLORS.success,
+                          bgcolor: STATUS_COLORS.info,
                         }}
                       />
                     )}

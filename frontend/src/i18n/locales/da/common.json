@@ -264,8 +264,6 @@
   "timelineSlider.past": "Fortid",
   "timelineSlider.future": "Fremtid",
   "timelineSlider.resetToToday": "Nulstil til i dag",
-  "timelineSlider.milestoneAppearing_one": "{{count}} kort kommer til",
-  "timelineSlider.milestoneAppearing_other": "{{count}} kort kommer til",
   "timelineSlider.milestoneActivating_one": "{{count}} kort går i drift",
   "timelineSlider.milestoneActivating_other": "{{count}} kort går i drift",
   "timelineSlider.milestoneDisappearing_one": "{{count}} kort udfases",

@@ -188,8 +188,6 @@
   "timelineSlider.past": "Passato",
   "timelineSlider.future": "Futuro",
   "timelineSlider.resetToToday": "Reimposta a oggi",
-  "timelineSlider.milestoneAppearing_one": "{{count}} scheda arriva",
-  "timelineSlider.milestoneAppearing_other": "{{count}} schede arrivano",
   "timelineSlider.milestoneActivating_one": "{{count}} scheda entra in produzione",
   "timelineSlider.milestoneActivating_other": "{{count}} schede entrano in produzione",
   "timelineSlider.milestoneDisappearing_one": "{{count}} scheda esce",

@@ -264,8 +264,6 @@
   "timelineSlider.past": "Past",
   "timelineSlider.future": "Future",
   "timelineSlider.resetToToday": "Reset to today",
-  "timelineSlider.milestoneAppearing_one": "{{count}} card appears",
-  "timelineSlider.milestoneAppearing_other": "{{count}} cards appear",
   "timelineSlider.milestoneActivating_one": "{{count}} card goes live",
   "timelineSlider.milestoneActivating_other": "{{count}} cards go live",
   "timelineSlider.milestoneDisappearing_one": "{{count}} card retires",

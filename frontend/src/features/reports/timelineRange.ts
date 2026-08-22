@@ -1,5 +1,4 @@
 import {
-  earliestStartDate,
   hasStartedByDate,
   isAliveAtDate,
   isRetiredByDate,
@@ -124,57 +123,39 @@ export function isVisibleAtDate(
 export interface TimelineMilestone {
   /** Epoch ms at which the change takes effect. */
   value: number;
-  /** How many cards enter the landscape on this date. */
-  appearing: number;
-  /** How many cards already on the canvas go live (reach `active`) on it. */
+  /** How many cards reach their `active` date — go live — on it. */
   activating: number;
-  /** How many leave it. */
+  /** How many reach their `endOfLife` — retire — on it. */
   disappearing: number;
 }
 
 /**
- * Every date at which the landscape changes shape — cards entering or leaving —
- * so a timeline can mark where the interesting moments are instead of leaving
- * the user to find them by dragging.
+ * The dates a transformation actually turns on: when cards go live and when
+ * they retire. Two kinds, deliberately — plan and phase-in dates are milestones
+ * on paper, not changes to the landscape you are looking at, and marking them
+ * buried the two that matter.
  *
- * The rule is derived from the same helpers as the graph filter on purpose: a
- * card enters when its earliest start-phase date arrives (the moment
- * `hasStartedByDate` flips true) and leaves on its `endOfLife`. Both sides
- * compare with `<=` on the same epoch values, so jumping the slider to a
- * milestone lands on the first day the change is *in effect* — the arriving
- * card is present, the departing one is retired.
+ * Both sides compare with `<=` on the same epoch values as the graph filter, so
+ * jumping the slider to a mark lands on the first day the change is *in
+ * effect* — the card that goes live is active, the one that retires is gone.
  */
 export function computeTimelineMilestones(lifecycles: Lifecycle[]): TimelineMilestone[] {
   const byDate = new Map<number, TimelineMilestone>();
-  const bump = (value: number, key: "appearing" | "activating" | "disappearing") => {
-    const entry = byDate.get(value) ?? { value, appearing: 0, activating: 0, disappearing: 0 };
+  const bump = (value: number, key: "activating" | "disappearing") => {
+    const entry = byDate.get(value) ?? { value, activating: 0, disappearing: 0 };
     entry[key] += 1;
     byDate.set(value, entry);
   };
 
   for (const lc of lifecycles) {
     if (!lc) continue;
-    const start = earliestStartDate(lc);
-    const eol = parseDate(lc.endOfLife);
-    // Never alive: born at or after its own end of life — marking it would
-    // advertise an arrival and a departure on a day it was never there.
-    if (start != null && eol != null && eol <= start) continue;
-
-    // A card with no start-phase date is treated as always present (same rule
-    // as hasStartedByDate), so only its retirement is a transition.
-    if (start != null) bump(start, "appearing");
-    // Go-live: a card that enters the canvas at its plan/phaseIn date changes
-    // again when `active` arrives — the lifecycle dot turns green. That is the
-    // date a transformation viewer actually steers by, so it gets its own
-    // mark; when active IS the earliest date, the appearing mark covers it.
     const active = parseDate(lc.active);
-    if (
-      active != null &&
-      start != null &&
-      active > start &&
-      (eol == null || active < eol)
-    )
-      bump(active, "activating");
+    const eol = parseDate(lc.endOfLife);
+    // Never alive: retired at or before it went live. Marking either end would
+    // advertise a change on a day nothing happened.
+    if (active != null && eol != null && eol <= active) continue;
+
+    if (active != null) bump(active, "activating");
     if (eol != null) bump(eol, "disappearing");
   }
 

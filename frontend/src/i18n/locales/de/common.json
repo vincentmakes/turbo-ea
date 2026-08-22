@@ -188,8 +188,6 @@
   "timelineSlider.past": "Vergangenheit",
   "timelineSlider.future": "Zukunft",
   "timelineSlider.resetToToday": "Auf heute zurücksetzen",
-  "timelineSlider.milestoneAppearing_one": "{{count}} Karte kommt hinzu",
-  "timelineSlider.milestoneAppearing_other": "{{count}} Karten kommen hinzu",
   "timelineSlider.milestoneActivating_one": "{{count}} Karte geht live",
   "timelineSlider.milestoneActivating_other": "{{count}} Karten gehen live",
   "timelineSlider.milestoneDisappearing_one": "{{count}} Karte scheidet aus",

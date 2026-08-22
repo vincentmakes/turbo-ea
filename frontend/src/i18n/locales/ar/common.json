@@ -264,8 +264,6 @@
   "timelineSlider.past": "الماضي",
   "timelineSlider.future": "المستقبل",
   "timelineSlider.resetToToday": "إعادة التعيين إلى اليوم",
-  "timelineSlider.milestoneAppearing_one": "تُضاف {{count}} بطاقة",
-  "timelineSlider.milestoneAppearing_other": "تُضاف {{count}} بطاقة",
   "timelineSlider.milestoneActivating_one": "يدخل {{count}} بطاقة الخدمة",
   "timelineSlider.milestoneActivating_other": "يدخل {{count}} بطاقة الخدمة",
   "timelineSlider.milestoneDisappearing_one": "تتوقّف {{count}} بطاقة",

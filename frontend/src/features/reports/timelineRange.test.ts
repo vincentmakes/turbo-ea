@@ -156,41 +156,39 @@ describe("isVisibleAtDate", () => {
 });
 
 describe("computeTimelineMilestones", () => {
-  it("returns nothing for cards with no lifecycle dates", () => {
+  it("returns nothing for cards with no active or end-of-life date", () => {
     expect(computeTimelineMilestones([])).toEqual([]);
     expect(computeTimelineMilestones([undefined, {}, { active: "nope" }])).toEqual([]);
+    // Plan and phase-in are milestones on paper, not changes to the landscape.
+    expect(computeTimelineMilestones([{ plan: "2027-01-01", phaseIn: "2027-06-01" }])).toEqual([]);
   });
 
-  it("marks an arrival at the earliest START-phase date only", () => {
-    expect(computeTimelineMilestones([{ plan: "2027-01-01" }])).toEqual([
-      { value: ms("2027-01-01"), appearing: 1, activating: 0, disappearing: 0 },
+  it("marks a go-live at the active date", () => {
+    expect(computeTimelineMilestones([{ active: "2027-06-01" }])).toEqual([
+      { value: ms("2027-06-01"), activating: 1, disappearing: 0 },
     ]);
-    // phaseOut is not a birthday candidate.
-    expect(computeTimelineMilestones([{ phaseOut: "2023-01-01", active: "2024-01-01" }])).toEqual([
-      { value: ms("2024-01-01"), appearing: 1, activating: 0, disappearing: 0 },
-    ]);
+    // ...and only there, whatever else the card carries.
+    expect(
+      computeTimelineMilestones([{ plan: "2026-10-01", phaseIn: "2027-01-01", active: "2027-06-01" }]),
+    ).toEqual([{ value: ms("2027-06-01"), activating: 1, disappearing: 0 }]);
   });
 
-  it("marks only the retirement for a card with an endOfLife and no start dates", () => {
-    // Such a card (the endoflife.date mass-link shape) is always present until
-    // it dies — so its death is a transition, its (nonexistent) birth is not.
-    expect(computeTimelineMilestones([{ endOfLife: "2030-01-01" }])).toEqual([
-      { value: ms("2030-01-01"), appearing: 0, activating: 0, disappearing: 1 },
-    ]);
-  });
-
-  it("marks both ends for a card with a start and an end of life", () => {
+  it("marks both ends for a card that goes live and later retires", () => {
     expect(
       computeTimelineMilestones([{ active: "2020-01-01", endOfLife: "2030-01-01" }]),
     ).toEqual([
-      { value: ms("2020-01-01"), appearing: 1, activating: 0, disappearing: 0 },
-      { value: ms("2030-01-01"), appearing: 0, activating: 0, disappearing: 1 },
+      { value: ms("2020-01-01"), activating: 1, disappearing: 0 },
+      { value: ms("2030-01-01"), activating: 0, disappearing: 1 },
+    ]);
+  });
+
+  it("marks the retirement of a card that carries no active date", () => {
+    expect(computeTimelineMilestones([{ endOfLife: "2030-01-01" }])).toEqual([
+      { value: ms("2030-01-01"), activating: 0, disappearing: 1 },
     ]);
   });
 
   it("ignores a card that is never alive", () => {
-    // End of life on or before its start date: it was never in the landscape,
-    // so marking an arrival and a departure would both be lies.
     expect(
       computeTimelineMilestones([{ active: "2020-01-01", endOfLife: "2019-01-01" }]),
     ).toEqual([]);
@@ -199,40 +197,17 @@ describe("computeTimelineMilestones", () => {
     ).toEqual([]);
   });
 
-  it("marks a go-live when the active date follows the appearing date", () => {
-    expect(
-      computeTimelineMilestones([{ plan: "2026-10-01", active: "2027-06-01" }]),
-    ).toEqual([
-      { value: ms("2026-10-01"), appearing: 1, activating: 0, disappearing: 0 },
-      { value: ms("2027-06-01"), appearing: 0, activating: 1, disappearing: 0 },
-    ]);
-  });
-
-  it("does not double-mark a card whose active date IS its earliest date", () => {
-    expect(computeTimelineMilestones([{ active: "2027-06-01" }])).toEqual([
-      { value: ms("2027-06-01"), appearing: 1, activating: 0, disappearing: 0 },
-    ]);
-  });
-
-  it("skips a go-live at or after the card's end of life", () => {
-    // Data noise: an active date the card never reaches must not mark.
-    expect(
-      computeTimelineMilestones([
-        { plan: "2026-01-01", active: "2028-01-01", endOfLife: "2027-06-01" },
-      ]),
-    ).toEqual([
-      { value: ms("2026-01-01"), appearing: 1, activating: 0, disappearing: 0 },
-      { value: ms("2027-06-01"), appearing: 0, activating: 0, disappearing: 1 },
-    ]);
-  });
-
   it("aggregates cards that change on the same date", () => {
     const result = computeTimelineMilestones([
       { active: "2025-01-01" },
       { active: "2025-01-01" },
       { active: "2010-01-01", endOfLife: "2025-01-01" },
     ]);
-    expect(result).toContainEqual({ value: ms("2025-01-01"), appearing: 2, activating: 0, disappearing: 1 });
+    expect(result).toContainEqual({
+      value: ms("2025-01-01"),
+      activating: 2,
+      disappearing: 1,
+    });
   });
 
   it("returns milestones sorted ascending", () => {

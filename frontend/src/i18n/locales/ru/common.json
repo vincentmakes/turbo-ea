@@ -188,8 +188,6 @@
   "timelineSlider.past": "Прошлое",
   "timelineSlider.future": "Будущее",
   "timelineSlider.resetToToday": "Сбросить на сегодня",
-  "timelineSlider.milestoneAppearing_one": "{{count}} карточка появляется",
-  "timelineSlider.milestoneAppearing_other": "{{count}} карточек появляется",
   "timelineSlider.milestoneActivating_one": "{{count}} карточка вводится в эксплуатацию",
   "timelineSlider.milestoneActivating_other": "{{count}} карточек вводится в эксплуатацию",
   "timelineSlider.milestoneDisappearing_one": "{{count}} карточка выводится",
