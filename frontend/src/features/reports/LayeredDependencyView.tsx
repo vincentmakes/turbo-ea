@@ -1628,8 +1628,8 @@ function LayeredDependencyInner({
       // Everything fades for the pulse, so the changed cards read instantly
       // even on a dense canvas; the fade lifts on its own.
       `.ldv-pulse-active .react-flow__node-ldvNode { opacity: 0.3; transition: opacity 0.2s; }`,
-      `@keyframes ldv-pulse-live { 0%,100% { box-shadow: 0 0 0 0 ${TIMELINE_COLORS.goLive}00 } 50% { box-shadow: 0 0 0 7px ${TIMELINE_COLORS.goLive}66 } }`,
-      `@keyframes ldv-pulse-retire { 0%,100% { box-shadow: 0 0 0 0 ${STATUS_COLORS.error}00 } 50% { box-shadow: 0 0 0 7px ${STATUS_COLORS.error}55 } }`,
+      `@keyframes ldv-pulse-live { 0%,100% { box-shadow: 0 0 0 0 ${TIMELINE_COLORS.goLive}00 } 50% { box-shadow: 0 0 0 8px ${TIMELINE_COLORS.goLive}66 } }`,
+      `@keyframes ldv-pulse-retire { 0%,100% { box-shadow: 0 0 0 0 ${STATUS_COLORS.error}00 } 50% { box-shadow: 0 0 0 8px ${STATUS_COLORS.error}66 } }`,
     ];
     for (const [id, kind] of entries) {
       const sel = `.react-flow__node[data-id="${CSS.escape(id)}"]`;

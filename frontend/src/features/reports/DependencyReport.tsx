@@ -142,6 +142,23 @@ function tc(key: string, types: CardType[]): string {
   return types.find((t) => t.key === key)?.color || FALLBACK_COLORS[key] || "#999";
 }
 
+/**
+ * Keyframes for the mark-click spotlight in the TREE and TABLE views. The LDV
+ * injects its own equivalents (it has to style React Flow's DOM by node id),
+ * and these give the other two views the same 0.65s x2 pulse — without them a
+ * spotlight there was a static dim and ring, so the highlight simply did not
+ * animate depending on which view you happened to be in.
+ *
+ * A row gets a background pulse rather than a ring: MUI's table collapses its
+ * borders, and a collapsed-border `<tr>` does not paint a box-shadow.
+ */
+const PULSE_KEYFRAMES = `
+@keyframes dep-pulse-live { 0%,100% { box-shadow: 0 0 0 0 ${TIMELINE_COLORS.goLive}00 } 50% { box-shadow: 0 0 0 8px ${TIMELINE_COLORS.goLive}66 } }
+@keyframes dep-pulse-retire { 0%,100% { box-shadow: 0 0 0 0 ${STATUS_COLORS.error}00 } 50% { box-shadow: 0 0 0 8px ${STATUS_COLORS.error}66 } }
+@keyframes dep-pulse-row-live { 0%,100% { background-color: ${TIMELINE_COLORS.goLive}1f } 50% { background-color: ${TIMELINE_COLORS.goLive}47 } }
+@keyframes dep-pulse-row-retire { 0%,100% { background-color: ${STATUS_COLORS.error}1f } 50% { background-color: ${STATUS_COLORS.error}47 } }
+`;
+
 /** Badge states the tree and table views render as compact chips. */
 type BadgeState = TimelineChange | "impacted";
 
@@ -1239,6 +1256,7 @@ export default function DependencyReport() {
         </Box>
       }
     >
+      {Object.keys(pulseCards).length > 0 && <style>{PULSE_KEYFRAMES}</style>}
       {/* ==================== CHART VIEW ==================== */}
       {view === "chart" ? (
         chartMode === "c4" && center && ldvData.nodes.length > 0 ? (
@@ -1526,6 +1544,9 @@ export default function DependencyReport() {
                             boxShadow: `0 0 0 4px ${
                               pulseCards[card.id] === "live" ? TIMELINE_COLORS.goLive : STATUS_COLORS.error
                             }55`,
+                            animation: `dep-pulse-${
+                              pulseCards[card.id] === "live" ? "live" : "retire"
+                            } 0.65s ease-in-out 2`,
                           }),
                         }),
                         ...(card.node.changeState && {
@@ -1921,6 +1942,9 @@ export default function DependencyReport() {
                               bgcolor: `${
                                 pulsed === "live" ? TIMELINE_COLORS.goLive : STATUS_COLORS.error
                               }1f`,
+                              animation: `dep-pulse-row-${
+                                pulsed === "live" ? "live" : "retire"
+                              } 0.65s ease-in-out 2`,
                             }),
                           }
                         : undefined

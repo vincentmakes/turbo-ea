@@ -55,8 +55,16 @@ vi.mock("@/components/TimelineSlider", () => ({
 }));
 
 // React Flow can't lay out in jsdom; the LDV has its own pure-logic tests.
+// Props are captured so the spotlight data path can be asserted at the
+// boundary — whether the pulse reaches the canvas is a CSS question, whether
+// it is handed over is this report's job.
+type LdvProps = { pulseCards?: Record<string, "live" | "retire">; nodes?: { id: string }[] };
+const ldvProps: LdvProps[] = [];
 vi.mock("./LayeredDependencyView", () => ({
-  default: () => <div data-testid="ldv" />,
+  default: (props: LdvProps) => {
+    ldvProps.push(props);
+    return <div data-testid="ldv" />;
+  },
 }));
 
 vi.mock("@/components/CardDetailSidePanel", () => ({
@@ -116,6 +124,7 @@ const GRAPH = {
 beforeEach(() => {
   vi.clearAllMocks();
   sliderProps.length = 0;
+  ldvProps.length = 0;
 
   vi.mocked(api.get).mockResolvedValue(GRAPH);
 
@@ -352,6 +361,99 @@ describe("DependencyReport time travel — cards behind a mark", () => {
 
       act(() => void vi.advanceTimersByTime(2000));
       await waitFor(() => expect(screen.queryByText("Legacy ERP")).not.toBeInTheDocument());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The spotlight reaches the canvas
+// ---------------------------------------------------------------------------
+
+describe("DependencyReport time travel — spotlight handover", () => {
+  function renderLdv() {
+    vi.mocked(useSavedReport).mockReturnValue({
+      savedReport: null,
+      savedReportName: null,
+      saveDialogOpen: false,
+      setSaveDialogOpen: vi.fn(),
+      loadedConfig: null,
+      consumeConfig: vi
+        .fn()
+        .mockReturnValue({ view: "chart", chartMode: "c4", center: "portal" }),
+      resetSavedReport: vi.fn(),
+      persistConfig: vi.fn(),
+      resetAll: vi.fn(),
+      reportType: "dependencies",
+    } as unknown as ReturnType<typeof useSavedReport>);
+    return renderReport();
+  }
+
+  it("hands the clicked mark's cards to the Layered Dependency View", async () => {
+    renderLdv();
+    await screen.findByTestId("ldv");
+
+    const eol = ms("2027-06-01");
+    act(() => sliderProps.at(-1)?.onMilestoneClick?.(eol, eol));
+
+    await waitFor(() => {
+      expect(ldvProps.at(-1)?.pulseCards).toEqual({ legacy: "retire" });
+    });
+    // ...and the card it points at is actually on the canvas to be pulsed.
+    expect(ldvProps.at(-1)?.nodes?.some((n) => n.id === "legacy")).toBe(true);
+  });
+
+  it("hands over a go-live spotlight the same way", async () => {
+    renderLdv();
+    await screen.findByTestId("ldv");
+
+    const live = ms("2021-01-01");
+    act(() => sliderProps.at(-1)?.onMilestoneClick?.(live, live));
+
+    await waitFor(() => {
+      expect(ldvProps.at(-1)?.pulseCards).toEqual({ crm: "live" });
+    });
+  });
+
+  it("clears the spotlight when the highlight ends", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      renderLdv();
+      await screen.findByTestId("ldv");
+
+      const eol = ms("2027-06-01");
+      act(() => sliderProps.at(-1)?.onMilestoneClick?.(eol, eol));
+      await waitFor(() => expect(ldvProps.at(-1)?.pulseCards).toEqual({ legacy: "retire" }));
+
+      act(() => void vi.advanceTimersByTime(2000));
+      await waitFor(() => expect(ldvProps.at(-1)?.pulseCards).toEqual({}));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The spotlight animates in every view
+// ---------------------------------------------------------------------------
+
+describe("DependencyReport time travel — spotlight animation", () => {
+  it("injects the pulse keyframes only while a spotlight is running", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      // Table view (the default here): the LDV injects its own keyframes, so
+      // without these the tree and table dimmed and ringed but never pulsed.
+      const { container } = renderReport();
+      await screen.findByText("Legacy ERP");
+      expect(container.innerHTML).not.toContain("dep-pulse-row-retire");
+
+      const eol = ms("2027-06-01");
+      act(() => sliderProps.at(-1)?.onMilestoneClick?.(eol, eol));
+      await waitFor(() => expect(container.innerHTML).toContain("dep-pulse-row-retire"));
+
+      act(() => void vi.advanceTimersByTime(2000));
+      await waitFor(() => expect(container.innerHTML).not.toContain("dep-pulse-row-retire"));
     } finally {
       vi.useRealTimers();
     }
