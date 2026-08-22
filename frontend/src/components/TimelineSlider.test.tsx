@@ -78,16 +78,15 @@ describe("TimelineSlider transition pills", () => {
     expect(screen.queryByText("PLM Analytics Workbench")).toBeNull();
   });
 
-  it("heads each side of the row with a + or − marker", () => {
+  it("heads each side of the row with a plus or minus marker", () => {
+    // Queried by accessible name: the marker is a bare Material Symbol, so its
+    // text content is the ligature ("remove"), not the glyph it renders.
     renderSlider(RETIRE);
-    // Only retirements here, so only the minus marker.
-    expect(screen.getByText("−")).toBeInTheDocument();
-    expect(screen.queryByText("+")).toBeNull();
-    expect(screen.getByLabelText("2 cards retire")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "2 cards retire" })).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /goes live/ })).toBeNull();
 
     renderSlider(GO_LIVE);
-    expect(screen.getByText("+")).toBeInTheDocument();
-    expect(screen.getByLabelText("1 card goes live")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "1 card goes live" })).toBeInTheDocument();
   });
 
   it("marks both sides when a date does both", () => {
@@ -105,8 +104,8 @@ describe("TimelineSlider transition pills", () => {
         ]}
       />,
     );
-    expect(screen.getByText("+")).toBeInTheDocument();
-    expect(screen.getByText("−")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "1 card goes live" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "1 card retires" })).toBeInTheDocument();
   });
 
   it("still matches a mark a day off the value, since a drag cannot land exactly", () => {

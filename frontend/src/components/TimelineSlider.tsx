@@ -251,8 +251,8 @@ export default function TimelineSlider({
     const shown = activeCards.slice(0, MAX_MILESTONE_PILLS);
     return (
       [
-        { kind: "activating", sign: "+", labelKey: "timelineSlider.milestoneActivating" },
-        { kind: "disappearing", sign: "−", labelKey: "timelineSlider.milestoneDisappearing" },
+        { kind: "activating", icon: "add", labelKey: "timelineSlider.milestoneActivating" },
+        { kind: "disappearing", icon: "remove", labelKey: "timelineSlider.milestoneDisappearing" },
       ] as const
     )
       .map((g) => ({ ...g, cards: shown.filter((c) => c.kind === g.kind) }))
@@ -537,22 +537,24 @@ export default function TimelineSlider({
                 return (
                   <Fragment key={group.kind}>
                     {/* Which way the group goes, said once rather than on every
-                        pill. The glyph carries it; the count is already the
-                        number of pills that follow. */}
-                    <Chip
-                      size="small"
-                      label={group.sign}
-                      aria-label={t(group.labelKey, { count: group.cards.length })}
-                      sx={{
-                        height: 22,
-                        fontSize: "0.8rem",
-                        fontWeight: 800,
-                        color: accent,
-                        bgcolor: `${accent}1F`,
-                        border: `1.5px solid ${accent}80`,
-                        "& .MuiChip-label": { px: 0.75 },
-                      }}
-                    />
+                        pill — and as a bare glyph, not a chip: inside a row of
+                        card chips a chip reads as one more card. */}
+                    <Tooltip title={t(group.labelKey, { count: group.cards.length })} arrow>
+                      <Box
+                        component="span"
+                        role="img"
+                        aria-label={t(group.labelKey, { count: group.cards.length })}
+                        sx={{
+                          display: "inline-flex",
+                          // The chips pin their own height; a bare glyph would
+                          // stretch to the line box without this.
+                          alignSelf: "center",
+                          color: accent,
+                        }}
+                      >
+                        <MaterialSymbol icon={group.icon} size={18} style={STEP_GLYPH} />
+                      </Box>
+                    </Tooltip>
                     {group.cards.map((card) => (
                       <Chip
                         key={card.id}
