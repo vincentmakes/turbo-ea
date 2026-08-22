@@ -165,7 +165,7 @@ export default function TimelineSlider({
   const RESET_COLOR = TIMELINE_COLORS.reset;
 
   return (
-    <Box sx={{ width: "100%", maxWidth: 560, pt: 0.5, pb: milestoneClusters.length ? 5 : 2 }}>
+    <Box sx={{ width: "100%", maxWidth: 560, pt: 0.5, pb: 2 }}>
       {/* Label row */}
       <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.5 }}>
         <MaterialSymbol icon="electric_bolt" size={16} color={accent} />
@@ -289,7 +289,7 @@ export default function TimelineSlider({
             track's coordinate space, so a mark lines up with the thumb that
             lands on it. */}
         {milestoneClusters.length > 0 && (
-          <Box sx={{ position: "relative", height: 18, mt: 2.5 }}>
+          <Box sx={{ position: "relative", height: 18, mt: 1.5 }}>
             {milestoneClusters.map((m) => {
               const pct = ((m.value - cappedRange.min) / (cappedRange.max - cappedRange.min)) * 100;
               const parts: string[] = [];

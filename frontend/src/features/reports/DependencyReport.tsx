@@ -550,12 +550,43 @@ export default function DependencyReport() {
     [rawNodes, timeline.todayMs],
   );
 
-  // Transition marks describe the WHOLE graph, not the current LDV
-  // neighbourhood — otherwise they would churn on every re-centre.
-  const milestones = useMemo(
-    () => computeTimelineMilestones(rawNodes.map((n) => n.lifecycle)),
-    [rawNodes],
-  );
+  // Transition marks describe the cards on the DISPLAYED diagram, not the whole
+  // fetched graph — an inventory of hundreds of dated cards would smear the
+  // track with marks that have nothing to do with what the user is looking at.
+  //
+  // The scope is built on the RAW (unfiltered) adjacency on purpose: the
+  // rendered neighbourhood shrinks and grows as the slider moves, and marks
+  // that churn mid-drag can never be clicked. So: the centred card plus its
+  // raw depth-1 neighbours, widened by the same expand/reveal sets the LDV
+  // view honours. Without a centre nothing is centred yet — the picker and the
+  // table genuinely show the whole fetched set, so the marks do too.
+  const rawNeighborIds = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const e of rawEdges) {
+      if (!m.has(e.source)) m.set(e.source, []);
+      m.get(e.source)!.push(e.target);
+      if (!m.has(e.target)) m.set(e.target, []);
+      m.get(e.target)!.push(e.source);
+    }
+    return m;
+  }, [rawEdges]);
+
+  const milestones = useMemo(() => {
+    let scope = rawNodes;
+    if (view === "chart" && center) {
+      const rawIds = new Set(rawNodes.map((n) => n.id));
+      const visited = new Set<string>([center]);
+      for (const nb of rawNeighborIds.get(center) ?? []) if (rawIds.has(nb)) visited.add(nb);
+      for (const expId of ldvExpandedNodes) {
+        if (!visited.has(expId)) continue;
+        for (const nb of rawNeighborIds.get(expId) ?? []) if (rawIds.has(nb)) visited.add(nb);
+      }
+      for (const id of revealedParentIds) if (rawIds.has(id)) visited.add(id);
+      for (const id of revealedChildIds) if (rawIds.has(id)) visited.add(id);
+      scope = rawNodes.filter((n) => visited.has(n.id));
+    }
+    return computeTimelineMilestones(scope.map((n) => n.lifecycle));
+  }, [rawNodes, rawNeighborIds, view, center, ldvExpandedNodes, revealedParentIds, revealedChildIds]);
 
   // The landscape as it stands on the selected date. Every downstream consumer
   // (adjacency, LDV BFS, tree layout, centre picker, table) reads `nodes` /
@@ -902,6 +933,27 @@ export default function DependencyReport() {
             sx={{ minWidth: 220 }}
           />
 
+          {/* Only meaningful looking forward — nothing retires in the past. */}
+          {hasLifecycleData && timeline.timelineDate > timeline.todayMs && (
+            <Tooltip title={t("dependency.showRetiringHint")} arrow>
+              <FormControlLabel
+                sx={{ ml: 0 }}
+                control={
+                  <Switch
+                    size="small"
+                    checked={showRetiring}
+                    onChange={(e) => setShowRetiring(e.target.checked)}
+                  />
+                }
+                label={
+                  <Typography variant="body2" color="text.secondary">
+                    {t("dependency.showRetiring")}
+                  </Typography>
+                }
+              />
+            </Tooltip>
+          )}
+
           {center && chartMode === "tree" && (
             <Tooltip title={t("dependency.collapseAll")}>
               <IconButton size="small" onClick={collapseAll}>
@@ -937,9 +989,7 @@ export default function DependencyReport() {
 
           {/* Time travel — full-width row (the toolbar Box wraps) */}
           {hasLifecycleData && (
-            <Box
-              sx={{ width: "100%", display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}
-            >
+            <Box sx={{ width: "100%" }}>
               <TimelineSlider
                 value={timeline.timelineDate}
                 onChange={timeline.setTimelineDate}
@@ -948,25 +998,6 @@ export default function DependencyReport() {
                 todayMs={timeline.todayMs}
                 milestones={milestones}
               />
-              {/* Only meaningful looking forward — nothing retires in the past. */}
-              {timeline.timelineDate > timeline.todayMs && (
-                <Tooltip title={t("dependency.showRetiringHint")} arrow>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        size="small"
-                        checked={showRetiring}
-                        onChange={(e) => setShowRetiring(e.target.checked)}
-                      />
-                    }
-                    label={
-                      <Typography variant="caption" color="text.secondary">
-                        {t("dependency.showRetiring")}
-                      </Typography>
-                    }
-                  />
-                </Tooltip>
-              )}
             </Box>
           )}
         </>

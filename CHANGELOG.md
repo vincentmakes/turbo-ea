@@ -10,8 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - Dependencies report: a **Time Travel** slider, like the Portfolio and Capability Map reports. Drag a date and the graph shows the landscape as it stands then — cards that have not started yet are hidden. Looking forward, cards that arrive in the meantime are outlined and badged **PLANNED** and cards that retire are badged **RETIRING**, so a planned transformation reads straight off the diagram instead of having to be inferred by dragging back and forth. The slider applies to the Layered Dependency View, the tree view and the table, each card's lifecycle dot reflects the selected date, and the date is saved with the report.
-- Dependencies report: a **Show retiring cards** switch beside the slider, on by default, keeps cards that retire before the selected date on the diagram — faded and badged — so you can see what a transformation removes as well as what it leaves. Turn it off to show only the end state.
-- Dependencies report: the timeline is marked with every date on which cards enter or leave the landscape, coloured by direction and aggregated where they crowd together. Click a mark to jump the slider straight to that change, instead of hunting for it by dragging.
+- Dependencies report: a **Show retiring cards** switch in the report toolbar, on by default, keeps cards that retire before the selected date on the diagram — faded and badged — so you can see what a transformation removes as well as what it leaves. Turn it off to show only the end state.
+- Dependencies report: the timeline is marked with every date on which cards on the displayed diagram enter or leave, coloured by direction and aggregated where they crowd together. Click a mark to jump the slider straight to that change, instead of hunting for it by dragging.
 
 ### Changed
 
