@@ -9,7 +9,7 @@ import ButtonBase from "@mui/material/ButtonBase";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
+import { brand, STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
 import type { TimelineMilestone } from "@/features/reports/timelineRange";
 
 const ONE_DAY_MS = 86_400_000;
@@ -413,7 +413,9 @@ export default function TimelineSlider({
                           width: 3,
                           height: 10,
                           borderRadius: "1px",
-                          bgcolor: STATUS_COLORS.info,
+                          // The app's blue, not the washed-out MUI info tone —
+                          // it matches the slider's own accent at today.
+                          bgcolor: brand.primary,
                         }}
                       />
                     )}
