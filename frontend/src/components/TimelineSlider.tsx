@@ -495,10 +495,10 @@ export default function TimelineSlider({
                 // it does: stating a single date made a merged neighbour look
                 // unmarked, which is how a card whose arrival was absorbed
                 // into a busy mark reads as having no go-live mark at all.
-                const when =
-                  m.spanEnd > m.value
-                    ? `${fmtFull(m.value)} – ${fmtFull(m.spanEnd)}`
-                    : fmtFull(m.value);
+                const isMerged = m.spanEnd > m.value;
+                const when = isMerged
+                  ? `${fmtFull(m.value)} – ${fmtFull(m.spanEnd)}`
+                  : fmtFull(m.value);
                 const summary = `${when} — ${parts.join(" · ")}`;
                 // Past transitions render exactly like upcoming ones. A stateful
                 // RETIRED/UPCOMING badge needs its mark whichever side of today
@@ -523,7 +523,19 @@ export default function TimelineSlider({
                         borderRadius: 1,
                         display: "flex",
                         gap: "1px",
-                        "&:hover": { bgcolor: "action.hover" },
+                        // A merged mark stands for several dates, so it is
+                        // tinted to say so — the bars inside keep their own
+                        // blue and red, since WHAT happens matters more than
+                        // that it happens more than once. Without this a
+                        // crowded mark is indistinguishable from a single-date
+                        // one and a change absorbed into it looks unmarked.
+                        ...(isMerged && {
+                          bgcolor: `${TIMELINE_COLORS.merged}1F`,
+                          boxShadow: `inset 0 0 0 1px ${TIMELINE_COLORS.merged}66`,
+                        }),
+                        "&:hover": {
+                          bgcolor: isMerged ? `${TIMELINE_COLORS.merged}3D` : "action.hover",
+                        },
                       }}
                     >
                       {m.activating > 0 && (
@@ -589,7 +601,9 @@ export default function TimelineSlider({
                     </Tooltip>
                     {group.cards.map((card) => (
                       <Chip
-                        key={card.id}
+                        // Not `card.id`: a card that arrives and retires inside
+                        // one merged cluster is listed on both sides.
+                        key={`${card.id}:${card.kind}`}
                         size="small"
                         label={card.name}
                         onClick={onMilestoneCardClick ? () => onMilestoneCardClick(card) : undefined}

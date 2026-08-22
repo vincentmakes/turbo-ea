@@ -716,6 +716,12 @@ export default function DependencyReport() {
     (from: number, to: number) => {
       const hit: Record<string, "live" | "retire"> = {};
       const reveal = new Set<string>();
+      // A card that arrives AND retires inside one merged span is listed
+      // twice, but it is ONE node on the canvas and can only glow one colour.
+      // `cardsChangingBetween` sorts activating first, so the retirement — the
+      // later fact, and the one that decides whether the card is still there
+      // when the span is out — overwrites the arrival. Its own pill still
+      // pulses the other way when clicked directly.
       for (const c of cardsChangingBetween(milestoneScope, from, to)) {
         if (c.kind === "disappearing") {
           hit[c.id] = "retire";
