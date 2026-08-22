@@ -159,29 +159,49 @@ export function computeTimelineMilestones(lifecycles: Lifecycle[]): TimelineMile
 }
 
 /**
- * Cards that survive the transformation but lose a dependency to it: alive at
- * the viewed date, linked to at least one card that is retired by then.
+ * Cards whose broken dependency would otherwise be INVISIBLE: linked to a card
+ * that retires between today and the viewed date but is currently hidden
+ * (persist toggled off). While the retired card is on the canvas — ghosted,
+ * with dashed red edges — the story is already told and a badge on every
+ * neighbour is pure spam: centre on a retiring card and the whole canvas
+ * would light up amber. The badge exists to carry the information the hidden
+ * ghost can no longer carry, nothing more.
  *
- * Call it on the PRE-persist node set — hiding retired cards must not hide the
- * fact that their dependents lose a dependency; with the retired card off the
- * canvas, the at-risk badge is the only trace of the broken edge. Direction is
- * deliberately ignored: the dependency graph is walked undirected everywhere
- * else in the report, and pretending precision here would be false.
+ * Window-scoped on purpose: a dependency lost years before today is history,
+ * not this transformation's impact — without the window, one long-dead hub
+ * card badges half the landscape forever.
  *
- * Structural parameter types (not GNode) so the layout module can depend on
- * this one without a cycle.
+ * Direction is deliberately ignored: the dependency graph is walked undirected
+ * everywhere else in the report. Structural parameter types (not GNode) so the
+ * layout module can depend on this one without a cycle.
  */
 export function computeAtRiskIds(
-  nodes: { id: string; changeState?: TimelineChange }[],
+  nodes: { id: string; lifecycle?: Record<string, string> }[],
   edges: { source: string; target: string }[],
+  todayMs: number,
+  dateMs: number,
+  /** Ids currently displayed — a visible retired card tells its own story. */
+  displayedIds: Set<string>,
 ): Set<string> {
-  const stateById = new Map(nodes.map((n) => [n.id, n.changeState]));
+  if (dateMs <= todayMs) return new Set();
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const severs = (id: string): boolean => {
+    const n = byId.get(id);
+    return (
+      !!n &&
+      !displayedIds.has(id) &&
+      isRetiredByDate(n.lifecycle, dateMs) &&
+      !isRetiredByDate(n.lifecycle, todayMs)
+    );
+  };
+  const survives = (id: string): boolean => {
+    const n = byId.get(id);
+    return !!n && !isRetiredByDate(n.lifecycle, dateMs);
+  };
   const atRisk = new Set<string>();
   for (const e of edges) {
-    const sourceRetired = stateById.get(e.source) === "retired";
-    const targetRetired = stateById.get(e.target) === "retired";
-    if (sourceRetired && !targetRetired && stateById.has(e.target)) atRisk.add(e.target);
-    if (targetRetired && !sourceRetired && stateById.has(e.source)) atRisk.add(e.source);
+    if (severs(e.source) && survives(e.target)) atRisk.add(e.target);
+    if (severs(e.target) && survives(e.source)) atRisk.add(e.source);
   }
   return atRisk;
 }

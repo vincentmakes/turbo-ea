@@ -595,14 +595,37 @@ export default function DependencyReport() {
     const rawIds = new Set(rawNodes.map((n) => n.id));
     const visited = new Set<string>([center]);
     for (const nb of rawNeighborIds.get(center) ?? []) if (rawIds.has(nb)) visited.add(nb);
-    for (const expId of ldvExpandedNodes) {
-      if (!visited.has(expId)) continue;
-      for (const nb of rawNeighborIds.get(expId) ?? []) if (rawIds.has(nb)) visited.add(nb);
+    if (chartMode === "c4") {
+      for (const expId of ldvExpandedNodes) {
+        if (!visited.has(expId)) continue;
+        for (const nb of rawNeighborIds.get(expId) ?? []) if (rawIds.has(nb)) visited.add(nb);
+      }
+      for (const id of revealedParentIds) if (rawIds.has(id)) visited.add(id);
+      for (const id of revealedChildIds) if (rawIds.has(id)) visited.add(id);
+    } else {
+      // Tree mode renders the neighbours of every EXPANDED node, so a card
+      // deep in an expanded branch can visibly retire — its transition must be
+      // marked too. Tree instance ids are colon-joined paths ("root:A:B"); the
+      // last segment is the card id (UUIDs never contain a colon).
+      for (const instanceId of expanded) {
+        const nodeId = instanceId.split(":").pop();
+        if (!nodeId || !rawIds.has(nodeId)) continue;
+        visited.add(nodeId);
+        for (const nb of rawNeighborIds.get(nodeId) ?? []) if (rawIds.has(nb)) visited.add(nb);
+      }
     }
-    for (const id of revealedParentIds) if (rawIds.has(id)) visited.add(id);
-    for (const id of revealedChildIds) if (rawIds.has(id)) visited.add(id);
     return rawNodes.filter((n) => visited.has(n.id));
-  }, [rawNodes, rawNeighborIds, view, center, ldvExpandedNodes, revealedParentIds, revealedChildIds]);
+  }, [
+    rawNodes,
+    rawNeighborIds,
+    view,
+    center,
+    chartMode,
+    ldvExpandedNodes,
+    expanded,
+    revealedParentIds,
+    revealedChildIds,
+  ]);
 
   const milestones = useMemo(
     () =>
@@ -638,17 +661,18 @@ export default function DependencyReport() {
   const { nodes, edges } = useMemo(() => {
     const at = timelineFilterDate;
     const visibility = { persistRetired };
-    const tagged = rawNodes.map((n) => ({
-      ...n,
-      changeState: classifyTimelineChange(n.lifecycle, timeline.todayMs, at) ?? undefined,
-    }));
-    // At-risk is derived from the PRE-persist set: hiding retired cards must
-    // not hide the fact that their dependents lose a dependency.
-    const atRiskIds = computeAtRiskIds(tagged, rawEdges);
-    const visible = tagged
-      .map((n) => (atRiskIds.has(n.id) ? { ...n, atRisk: true } : n))
+    const filtered = rawNodes
+      .map((n) => ({
+        ...n,
+        changeState: classifyTimelineChange(n.lifecycle, timeline.todayMs, at) ?? undefined,
+      }))
       .filter((n) => n.id === center || isVisibleAtDate(n.lifecycle, at, visibility));
-    const ids = new Set(visible.map((n) => n.id));
+    const ids = new Set(filtered.map((n) => n.id));
+    // Badge only the survivors whose severed dependency is NOT on the canvas —
+    // a displayed ghost with dashed red edges already tells the story, and
+    // badging every neighbour of a visible retiring card is spam.
+    const atRiskIds = computeAtRiskIds(rawNodes, rawEdges, timeline.todayMs, at, ids);
+    const visible = filtered.map((n) => (atRiskIds.has(n.id) ? { ...n, atRisk: true } : n));
     return {
       nodes: visible,
       edges: rawEdges.filter((e) => ids.has(e.source) && ids.has(e.target)),

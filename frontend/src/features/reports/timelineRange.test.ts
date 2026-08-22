@@ -213,33 +213,80 @@ describe("computeTimelineMilestones", () => {
 });
 
 describe("computeAtRiskIds", () => {
+  const at = ms("2028-06-01");
   const nodes = [
-    { id: "gone", changeState: "retired" as const },
-    { id: "dependent" },
-    { id: "planned", changeState: "arriving" as const },
-    { id: "alsoGone", changeState: "retired" as const },
-    { id: "unrelated" },
+    // Retires inside the today→date window.
+    { id: "windowGone", lifecycle: { active: "2020-01-01", endOfLife: "2027-01-01" } },
+    // Was already dead before today — history, not this transformation.
+    { id: "longGone", lifecycle: { active: "2010-01-01", endOfLife: "2015-01-01" } },
+    { id: "dependent", lifecycle: { active: "2020-01-01" } },
+    { id: "other", lifecycle: { active: "2020-01-01" } },
+    // Also retires in the window — retired cards are never themselves at risk.
+    { id: "alsoGone", lifecycle: { active: "2020-01-01", endOfLife: "2028-01-01" } },
   ];
+  const NONE_SHOWN = new Set<string>();
 
-  it("flags survivors linked to a retired card, in either edge direction", () => {
-    const atRisk = computeAtRiskIds(nodes, [
-      { source: "gone", target: "dependent" },
-      { source: "planned", target: "alsoGone" },
-    ]);
-    expect([...atRisk].sort()).toEqual(["dependent", "planned"]);
+  it("flags survivors linked to a hidden window-retiring card, either direction", () => {
+    const atRisk = computeAtRiskIds(
+      nodes,
+      [
+        { source: "windowGone", target: "dependent" },
+        { source: "other", target: "windowGone" },
+      ],
+      TODAY,
+      at,
+      NONE_SHOWN,
+    );
+    expect([...atRisk].sort()).toEqual(["dependent", "other"]);
   });
 
-  it("never flags a retired card, even one linked to another retired card", () => {
-    const atRisk = computeAtRiskIds(nodes, [{ source: "gone", target: "alsoGone" }]);
+  it("does not badge when the retiring card is displayed — its ghost tells the story", () => {
+    const atRisk = computeAtRiskIds(
+      nodes,
+      [{ source: "windowGone", target: "dependent" }],
+      TODAY,
+      at,
+      new Set(["windowGone", "dependent"]),
+    );
     expect(atRisk.size).toBe(0);
   });
 
-  it("flags nothing when no retired cards are linked", () => {
-    expect(computeAtRiskIds(nodes, [{ source: "dependent", target: "unrelated" }]).size).toBe(0);
-    expect(computeAtRiskIds(nodes, []).size).toBe(0);
+  it("ignores cards retired before today — a dependency lost years ago is history", () => {
+    const atRisk = computeAtRiskIds(
+      nodes,
+      [{ source: "longGone", target: "dependent" }],
+      TODAY,
+      at,
+      NONE_SHOWN,
+    );
+    expect(atRisk.size).toBe(0);
   });
 
-  it("ignores edges whose surviving endpoint is not in the node set", () => {
-    expect(computeAtRiskIds(nodes, [{ source: "gone", target: "elsewhere" }]).size).toBe(0);
+  it("never flags a card that is itself retired at the date", () => {
+    const atRisk = computeAtRiskIds(
+      nodes,
+      [{ source: "windowGone", target: "alsoGone" }],
+      TODAY,
+      at,
+      NONE_SHOWN,
+    );
+    expect(atRisk.size).toBe(0);
+  });
+
+  it("flags nothing at today or in the past — no window, no transformation", () => {
+    const edges = [{ source: "windowGone", target: "dependent" }];
+    expect(computeAtRiskIds(nodes, edges, TODAY, TODAY, NONE_SHOWN).size).toBe(0);
+    expect(computeAtRiskIds(nodes, edges, TODAY, ms("2020-01-01"), NONE_SHOWN).size).toBe(0);
+  });
+
+  it("ignores edges with an unknown endpoint", () => {
+    const atRisk = computeAtRiskIds(
+      nodes,
+      [{ source: "windowGone", target: "elsewhere" }],
+      TODAY,
+      at,
+      NONE_SHOWN,
+    );
+    expect(atRisk.size).toBe(0);
   });
 });
