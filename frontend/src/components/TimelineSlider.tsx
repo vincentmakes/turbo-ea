@@ -6,6 +6,7 @@ import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
 import { useTheme } from "@mui/material/styles";
 import ButtonBase from "@mui/material/ButtonBase";
+import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
@@ -25,9 +26,13 @@ interface TimelineSliderProps {
   yearMarks: { value: number; label: string }[];
   todayMs?: number;
   /** Dates at which cards enter or leave the landscape. Rendered as clickable
-   *  marks under the track that jump the slider to the change. Omit for a plain
-   *  slider. */
+   *  marks under the track that jump the slider to the change, and stepped
+   *  through by the prev/next buttons. Omit for a plain slider. */
   milestones?: TimelineMilestone[];
+  /** Summary of the transformation between today and the selected date:
+   *  how many cards arrive and how many retire. Rendered as two chips in the
+   *  label row while travelling forward. Omit to show none. */
+  delta?: { arriving: number; retiring: number };
 }
 
 const fmtTip = (v: number) =>
@@ -132,6 +137,7 @@ export default function TimelineSlider({
   yearMarks,
   todayMs: todayProp,
   milestones,
+  delta,
 }: TimelineSliderProps) {
   const { t } = useTranslation("common");
   const theme = useTheme();
@@ -155,6 +161,21 @@ export default function TimelineSlider({
   const containerRef = useRef<HTMLDivElement>(null);
   const responsiveMarks = useResponsiveMarks(cappedMarks, containerRef);
   const milestoneClusters = useMilestoneClusters(milestones ?? [], cappedRange, containerRef);
+
+  // Step-through targets: the per-date milestone list, NOT the pixel clusters —
+  // clusters depend on container width, so stepping through them would behave
+  // differently per screen. Restricted to the capped range so a step can never
+  // jump outside the slider.
+  const { prevMilestone, nextMilestone } = useMemo(() => {
+    let prev: number | null = null;
+    let next: number | null = null;
+    for (const m of milestones ?? []) {
+      if (m.value < cappedRange.min || m.value > cappedRange.max) continue;
+      if (m.value < value && (prev == null || m.value > prev)) prev = m.value;
+      if (m.value > value && (next == null || m.value < next)) next = m.value;
+    }
+    return { prevMilestone: prev, nextMilestone: next };
+  }, [milestones, value, cappedRange]);
 
   const isAway = Math.abs(value - todayMs) > ONE_DAY_MS;
   const isPast = value < todayMs - ONE_DAY_MS;
@@ -204,7 +225,68 @@ export default function TimelineSlider({
         >
           {fmtFull(value)}
         </Typography>
+        {/* Transformation delta: what arrives and what retires between today
+            and the selected date. Only meaningful looking forward. */}
+        {isFuture && delta && delta.arriving > 0 && (
+          <Chip
+            size="small"
+            label={t("timelineSlider.deltaArriving", { count: delta.arriving })}
+            sx={{
+              height: 20,
+              fontSize: "0.65rem",
+              fontWeight: 700,
+              bgcolor: `${TIMELINE_COLORS.future}18`,
+              color: TIMELINE_COLORS.future,
+              border: `1px solid ${TIMELINE_COLORS.future}40`,
+            }}
+          />
+        )}
+        {isFuture && delta && delta.retiring > 0 && (
+          <Chip
+            size="small"
+            label={t("timelineSlider.deltaRetiring", { count: delta.retiring })}
+            sx={{
+              height: 20,
+              fontSize: "0.65rem",
+              fontWeight: 700,
+              bgcolor: `${STATUS_COLORS.error}14`,
+              color: STATUS_COLORS.error,
+              border: `1px solid ${STATUS_COLORS.error}40`,
+            }}
+          />
+        )}
         <Box sx={{ flex: 1 }} />
+        {/* Step through the transitions: prev/next change date. */}
+        {(milestones?.length ?? 0) > 0 && (
+          <>
+            <Tooltip title={t("timelineSlider.prevChange")} arrow>
+              <span>
+                <IconButton
+                  size="small"
+                  aria-label={t("timelineSlider.prevChange")}
+                  disabled={prevMilestone == null}
+                  onClick={() => prevMilestone != null && onChange(prevMilestone)}
+                  sx={{ p: 0.25 }}
+                >
+                  <MaterialSymbol icon="navigate_before" size={18} />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title={t("timelineSlider.nextChange")} arrow>
+              <span>
+                <IconButton
+                  size="small"
+                  aria-label={t("timelineSlider.nextChange")}
+                  disabled={nextMilestone == null}
+                  onClick={() => nextMilestone != null && onChange(nextMilestone)}
+                  sx={{ p: 0.25 }}
+                >
+                  <MaterialSymbol icon="navigate_next" size={18} />
+                </IconButton>
+              </span>
+            </Tooltip>
+          </>
+        )}
         {isAway && (
           <Chip
             size="small"

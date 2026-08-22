@@ -39,6 +39,7 @@ import {
   computeTimelineRange,
   isVisibleAtDate,
 } from "./timelineRange";
+import { isRetiredByDate } from "./portfolioHelpers";
 import type { TimelineChange } from "./timelineRange";
 import type { GNode, GEdge } from "./layeredDependencyLayout";
 import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
@@ -576,33 +577,44 @@ export default function DependencyReport() {
   // transformation, and a past arrival mark is a phantom — clicking it lands on
   // the first day the card is present (inclusive <=), which for a card already
   // on screen looks identical to today. Past exploration stays a drag away.
-  const milestones = useMemo(() => {
-    let scope = rawNodes;
-    if (view === "chart" && center) {
-      const rawIds = new Set(rawNodes.map((n) => n.id));
-      const visited = new Set<string>([center]);
-      for (const nb of rawNeighborIds.get(center) ?? []) if (rawIds.has(nb)) visited.add(nb);
-      for (const expId of ldvExpandedNodes) {
-        if (!visited.has(expId)) continue;
-        for (const nb of rawNeighborIds.get(expId) ?? []) if (rawIds.has(nb)) visited.add(nb);
-      }
-      for (const id of revealedParentIds) if (rawIds.has(id)) visited.add(id);
-      for (const id of revealedChildIds) if (rawIds.has(id)) visited.add(id);
-      scope = rawNodes.filter((n) => visited.has(n.id));
+  const milestoneScope = useMemo(() => {
+    if (!(view === "chart" && center)) return rawNodes;
+    const rawIds = new Set(rawNodes.map((n) => n.id));
+    const visited = new Set<string>([center]);
+    for (const nb of rawNeighborIds.get(center) ?? []) if (rawIds.has(nb)) visited.add(nb);
+    for (const expId of ldvExpandedNodes) {
+      if (!visited.has(expId)) continue;
+      for (const nb of rawNeighborIds.get(expId) ?? []) if (rawIds.has(nb)) visited.add(nb);
     }
-    return computeTimelineMilestones(scope.map((n) => n.lifecycle)).filter(
-      (m) => m.value > timeline.todayMs,
-    );
-  }, [
-    rawNodes,
-    rawNeighborIds,
-    view,
-    center,
-    ldvExpandedNodes,
-    revealedParentIds,
-    revealedChildIds,
-    timeline.todayMs,
-  ]);
+    for (const id of revealedParentIds) if (rawIds.has(id)) visited.add(id);
+    for (const id of revealedChildIds) if (rawIds.has(id)) visited.add(id);
+    return rawNodes.filter((n) => visited.has(n.id));
+  }, [rawNodes, rawNeighborIds, view, center, ldvExpandedNodes, revealedParentIds, revealedChildIds]);
+
+  const milestones = useMemo(
+    () =>
+      computeTimelineMilestones(milestoneScope.map((n) => n.lifecycle)).filter(
+        (m) => m.value > timeline.todayMs,
+      ),
+    [milestoneScope, timeline.todayMs],
+  );
+
+  // The transformation between today and the selected date, over the same
+  // scope as the marks and computed BEFORE the persist filter — hiding retired
+  // cards must not make the count lie. Cards dead before today are landscape,
+  // not transformation, so "retiring" is the in-window half of "retired".
+  const timelineDelta = useMemo(() => {
+    const at = timelineFilterDate;
+    if (at <= timeline.todayMs) return { arriving: 0, retiring: 0 };
+    let arriving = 0;
+    let retiring = 0;
+    for (const n of milestoneScope) {
+      if (classifyTimelineChange(n.lifecycle, timeline.todayMs, at) === "arriving") arriving++;
+      else if (isRetiredByDate(n.lifecycle, at) && !isRetiredByDate(n.lifecycle, timeline.todayMs))
+        retiring++;
+    }
+    return { arriving, retiring };
+  }, [milestoneScope, timelineFilterDate, timeline.todayMs]);
 
   // The landscape as it stands on the selected date. Every downstream consumer
   // (adjacency, LDV BFS, tree layout, centre picker, table) reads `nodes` /
@@ -876,8 +888,13 @@ export default function DependencyReport() {
     if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
     if (chartMode === "c4") params.push({ label: t("common.view"), value: t("dependency.ldvView") });
     if (timeline.printParam) params.push(timeline.printParam);
+    if (timelineDelta.arriving > 0 || timelineDelta.retiring > 0)
+      params.push({
+        label: t("common:timelineSlider.deltaLabel"),
+        value: `+${timelineDelta.arriving} / −${timelineDelta.retiring}`,
+      });
     return params;
-  }, [cardTypeKey, types, centerNode, view, chartMode, typeLabel, t, timeline.printParam]);
+  }, [cardTypeKey, types, centerNode, view, chartMode, typeLabel, t, timeline.printParam, timelineDelta]);
 
   if (loading)
     return (
@@ -1024,6 +1041,7 @@ export default function DependencyReport() {
                 yearMarks={yearMarks}
                 todayMs={timeline.todayMs}
                 milestones={milestones}
+                delta={timelineDelta}
               />
             </Box>
           )}
