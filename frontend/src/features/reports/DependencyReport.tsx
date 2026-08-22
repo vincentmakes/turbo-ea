@@ -1041,9 +1041,19 @@ export default function DependencyReport() {
       const sb = types.find((t) => t.key === b)?.sort_order ?? 99;
       return sa - sb;
     });
-    for (const arr of groups.values()) arr.sort((a, b) => a.name.localeCompare(b.name));
+    // Best-connected first, name as the tiebreak. The picker's job is to
+    // answer "which card is worth centring on?", and a card with two
+    // neighbours makes a poor centre for a dependency graph however early its
+    // name sorts. Finding a card you can already name is what the search box
+    // above is for, and alphabetical order survives within each count.
+    for (const arr of groups.values())
+      arr.sort(
+        (a, b) =>
+          (connCounts.get(b.id) ?? 0) - (connCounts.get(a.id) ?? 0) ||
+          a.name.localeCompare(b.name),
+      );
     return { groups, order };
-  }, [pickerItems, types]);
+  }, [pickerItems, types, connCounts]);
 
   // Autocomplete options for toolbar
   const acOptions = useMemo(

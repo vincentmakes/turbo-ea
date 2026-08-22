@@ -532,3 +532,38 @@ describe("DependencyReport deep link", () => {
     expect(screen.getByRole("combobox", { name: /Type/i })).toHaveTextContent("Application");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Choosing a centre
+// ---------------------------------------------------------------------------
+
+describe("DependencyReport centre picker", () => {
+  it("offers the best-connected cards first, not the alphabetically first", async () => {
+    vi.mocked(useSavedReport).mockReturnValue({
+      savedReport: null,
+      savedReportName: null,
+      saveDialogOpen: false,
+      setSaveDialogOpen: vi.fn(),
+      loadedConfig: null,
+      // No centre and no view: the report opens on the picker.
+      consumeConfig: vi.fn().mockReturnValue({ view: "chart" }),
+      resetSavedReport: vi.fn(),
+      persistConfig: vi.fn(),
+      resetAll: vi.fn(),
+      reportType: "dependencies",
+    } as unknown as ReturnType<typeof useSavedReport>);
+
+    const { container } = renderReport();
+    await screen.findByText("CRM Cloud");
+
+    // In the fixture CRM Cloud has three relations and Legacy ERP one, so
+    // alphabetical order would put "CRM Cloud" first for the wrong reason.
+    // "Web Portal" has two and must beat "Legacy Mainframe" and "NextGen
+    // Suite", which have one each.
+    const names = Array.from(container.querySelectorAll("p"))
+      .map((el) => el.textContent ?? "")
+      .filter((t) => ["CRM Cloud", "Web Portal", "Legacy ERP", "NextGen Suite"].includes(t));
+    expect(names.indexOf("CRM Cloud")).toBeLessThan(names.indexOf("Web Portal"));
+    expect(names.indexOf("Web Portal")).toBeLessThan(names.indexOf("Legacy ERP"));
+  });
+});

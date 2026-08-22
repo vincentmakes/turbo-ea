@@ -869,3 +869,89 @@ class TestSalesGrowthStory:
             "No card around the sales objective goes live in the future — "
             "travelling forwards shows nothing"
         )
+
+
+class TestCapabilityHinge:
+    """The capability layer is what makes a Dependencies centre worth opening.
+
+    A capability is the only card type that reaches strategy in one direction
+    and applications in the other — the metamodel has no Objective→Application
+    relation — so it is the card a user centres on to see a transformation whole.
+    That only works if the wiring is there; it once was not (11 of 78
+    capabilities reached both an objective and an application), which made most
+    of the demo a dead end.
+    """
+
+    @staticmethod
+    def _neighbour_types() -> dict:
+        by_id = {c["id"]: c for c in _ALL_DEMO_CARDS}
+        adj: dict = {}
+        for r in DEMO_RELATIONS:
+            adj.setdefault(r["source_id"], set()).add(r["target_id"])
+            adj.setdefault(r["target_id"], set()).add(r["source_id"])
+        return {
+            c["id"]: {by_id[n]["type"] for n in adj.get(c["id"], ()) if n in by_id}
+            for c in _ALL_DEMO_CARDS
+        }
+
+    def test_capabilities_bridge_objectives_and_applications(self):
+        types_by_id = self._neighbour_types()
+        caps = [c for c in _ALL_DEMO_CARDS if c["type"] == "BusinessCapability"]
+        hinges = [c for c in caps if {"Objective", "Application"} <= types_by_id[c["id"]]]
+        assert len(hinges) >= 30, (
+            f"only {len(hinges)} of {len(caps)} capabilities reach both an objective "
+            "and an application — centring on one shows a dead end"
+        )
+
+    def test_every_application_supports_a_capability(self):
+        cap_ids = {c["id"] for c in _ALL_DEMO_CARDS if c["type"] == "BusinessCapability"}
+        supported = {r["source_id"] for r in DEMO_RELATIONS if r["target_id"] in cap_ids}
+        orphans = [a["name"] for a in APPLICATIONS if a["id"] not in supported]
+        assert not orphans, f"applications supporting no capability: {orphans}"
+
+
+class TestDemoLifecycles:
+    """Lifecycle dates are what the Dependencies timeline actually reads."""
+
+    def test_no_card_dies_before_it_lives(self):
+        """A card retired at or before its own start draws a mark on a day
+        nothing happened — the invariant `cardsChangingBetween` encodes on the
+        client. Several lifecycles here are derived, so pin it on the data too.
+        """
+        broken = [
+            (c["name"], c["lifecycle"])
+            for c in _ALL_DEMO_CARDS
+            if (c.get("lifecycle") or {}).get("endOfLife")
+            and (c.get("lifecycle") or {}).get("active")
+            and c["lifecycle"]["endOfLife"] <= c["lifecycle"]["active"]
+        ]
+        assert not broken, f"cards retiring at or before their start: {broken}"
+
+    def test_it_components_do_not_all_retire_on_one_day(self):
+        """They used to share a single hard-coded end date, which drew one
+        enormous mark on the timeline — and a literal that would go stale."""
+        ends = [
+            (c.get("lifecycle") or {}).get("endOfLife")
+            for c in IT_COMPONENTS
+            if (c.get("lifecycle") or {}).get("endOfLife")
+        ]
+        assert len(set(ends)) >= 5, f"IT component end dates cluster on {set(ends)}"
+
+    def test_enough_of_the_landscape_can_retire(self):
+        """Time travel needs something to remove. Two thirds of the demo used
+        to carry no lifecycle at all."""
+        retiring = [c for c in _ALL_DEMO_CARDS if (c.get("lifecycle") or {}).get("endOfLife")]
+        dated = [c for c in _ALL_DEMO_CARDS if any((c.get("lifecycle") or {}).values())]
+        assert len(retiring) >= 50, f"only {len(retiring)} cards ever retire"
+        assert len(dated) >= 140, f"only {len(dated)} cards carry any lifecycle date"
+
+    def test_every_relation_points_at_a_real_card(self):
+        """A mistyped ref mints a fresh UUID silently and only FK-fails at
+        insert time, long after the tests have passed."""
+        known = {c["id"] for c in _ALL_DEMO_CARDS}
+        dangling = [
+            r["type"]
+            for r in DEMO_RELATIONS
+            if r["source_id"] not in known or r["target_id"] not in known
+        ]
+        assert not dangling, f"relations pointing at no card: {sorted(set(dangling))}"
