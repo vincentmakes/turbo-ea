@@ -92,6 +92,12 @@ Zeigt alle Verbindungen zu anderen Karten, gruppiert nach Beziehungstyp. Für je
 
 ![Über Unterelemente verknüpfte Karten, nach Untertyp gruppiert](../assets/img/de/60_karte_unterelemente_beziehungen.png)
 
+### Abhängigkeiten-Abschnitt
+
+Eine [Layered Dependency View](reports.md) der Karte und aller Karten in einem Schritt Entfernung, gruppiert nach den vier Architekturebenen. Mit Umschalt-Klick auf eine Karte zentrieren Sie die Ansicht neu und durchlaufen die Landschaft, ohne die Seite zu verlassen.
+
+Das Symbol **in neuem Tab öffnen** in der Werkzeugleiste öffnet den vollständigen [Abhängigkeitsbericht](reports.md) in einem neuen Tab, zentriert auf die Karte, auf die die Ansicht gerade zentriert ist — also auf die Karte, zu der Sie navigiert sind, nicht zwingend auf die Ausgangskarte. Nützlich, wenn Sie das brauchen, was der Bericht rund um dasselbe Bild ergänzt: Zeitreise, die Übergangsmarkierungen, die Tabellenansicht und das Speichern der Ansicht als Bericht.
+
 ### Tags-Abschnitt
 
 Wenden Sie Tags aus den konfigurierten [Tag-Gruppen](../admin/tags.md) an. Je nach Gruppenmodus können Sie ein Tag (Einfachauswahl) oder mehrere Tags (Mehrfachauswahl) auswählen.

@@ -424,6 +424,7 @@
   "dependency.createDiagramDefaultName": "{{name}} — зависимости",
   "dependency.createDiagramSubmit": "Создать",
   "dependency.createDiagramError": "Не удалось создать диаграмму. Повторите попытку.",
+  "dependency.openInReport": "Открыть в отчёте «Зависимости»",
   "cost.permissionDeniedTitle": "Доступ к данным о расходах ограничен",
   "cost.permissionDeniedBody": "У вас нет прав на просмотр отчётов о расходах. Попросите администратора предоставить вам разрешение «costs.view» или станьте заинтересованным лицом по соответствующим карточкам.",
   "portfolio.viewInInventory": "Показать в инвентаре",

@@ -65,6 +65,11 @@ vi.mock("./LayeredDependencyView", () => ({
     ldvProps.push(props);
     return <div data-testid="ldv" />;
   },
+  // Re-exported from @/lib/color by the real module and used by the TREE view,
+  // which this mock must not break. Stubbed rather than pulled in with
+  // importOriginal — that would evaluate the module and drag React Flow back in,
+  // which is the whole reason the view is mocked.
+  readableTypeColor: (color: string) => color,
 }));
 
 vi.mock("@/components/CardDetailSidePanel", () => ({
@@ -170,9 +175,9 @@ beforeEach(() => {
   });
 });
 
-function renderReport() {
+function renderReport(initialEntry = "/reports/dependencies") {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <DependencyReport />
     </MemoryRouter>,
   );
@@ -457,5 +462,73 @@ describe("DependencyReport time travel — spotlight animation", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Arriving from a card's Dependencies section
+// ---------------------------------------------------------------------------
+
+describe("DependencyReport deep link", () => {
+  /** Stored config pointing somewhere else entirely — the link must win. */
+  function seedStoredConfig(cfg: Record<string, unknown>) {
+    vi.mocked(useSavedReport).mockReturnValue({
+      savedReport: null,
+      savedReportName: null,
+      saveDialogOpen: false,
+      setSaveDialogOpen: vi.fn(),
+      loadedConfig: null,
+      consumeConfig: vi.fn().mockReturnValue(cfg),
+      resetSavedReport: vi.fn(),
+      persistConfig: vi.fn(),
+      resetAll: vi.fn(),
+      reportType: "dependencies",
+    } as unknown as ReturnType<typeof useSavedReport>);
+  }
+
+  it("centres on the linked card over whatever the tab was last showing", async () => {
+    seedStoredConfig({ view: "table", center: "crm", cardTypeKey: "Application" });
+    renderReport("/reports/dependencies?center=portal&mode=c4");
+
+    // The LDV is mocked, so its presence is the proof the deep link forced the
+    // chart view; the centre reaches it through the captured props.
+    await screen.findByTestId("ldv");
+    await waitFor(() => {
+      expect(ldvProps.at(-1)?.nodes?.some((n) => n.id === "portal")).toBe(true);
+    });
+  });
+
+  it("opens the tree view when the link asks for it", async () => {
+    seedStoredConfig({ view: "table", chartMode: "c4" });
+    renderReport("/reports/dependencies?center=portal&mode=tree");
+
+    // "Collapse all branches" renders only when a centre is set AND the mode
+    // is tree, so it witnesses both halves of the link at once. The tree
+    // canvas itself lays out from measured rects, which jsdom reports as zero,
+    // so asserting on its cards would prove nothing.
+    expect(
+      await screen.findByRole("button", { name: /Collapse all branches/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("ldv")).toBeNull();
+  });
+
+  it("clears a stored type filter that would hide the linked card", async () => {
+    // The type filter scopes the centre picker and the toolbar autocomplete,
+    // not the graph — carried over, a stored "Application" would leave a
+    // linked BusinessCapability centred but absent from its own autocomplete.
+    seedStoredConfig({ cardTypeKey: "Application" });
+    renderReport("/reports/dependencies?center=portal");
+    await screen.findByTestId("ldv");
+    // MUI renders a zero-width space for an empty select value, so assert the
+    // absence of the carried type rather than the "All Types" item's label.
+    expect(screen.getByRole("combobox", { name: /Type/i })).not.toHaveTextContent("Application");
+  });
+
+  it("leaves the stored config alone when there is no link", async () => {
+    seedStoredConfig({ view: "chart", chartMode: "c4", center: "crm", cardTypeKey: "Application" });
+    renderReport();
+    await screen.findByTestId("ldv");
+    // No ?center=, so nothing overrides: the stored type filter survives.
+    expect(screen.getByRole("combobox", { name: /Type/i })).toHaveTextContent("Application");
   });
 });

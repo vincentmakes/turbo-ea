@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
@@ -434,6 +435,7 @@ export default function DependencyReport() {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
   const saved = useSavedReport("dependencies");
+  const [searchParams, setSearchParams] = useSearchParams();
   const timeline = useTimeline();
   // The slider itself tracks `timeline.timelineDate` so the handle never lags, but the
   // filter (which re-runs the LDV's dagre layout) keys off a settled value —
@@ -515,7 +517,7 @@ export default function DependencyReport() {
     setNavIndex(-1);
   }, []);
 
-  // Load saved report config
+  // Load saved report config, then let a deep link override it.
   useEffect(() => {
     const cfg = saved.consumeConfig();
     timeline.restore(cfg?.timelineDate as number | undefined);
@@ -526,6 +528,32 @@ export default function DependencyReport() {
       if (cfg.chartMode) setChartMode(cfg.chartMode as "tree" | "c4");
       if (cfg.persistRetired != null) setPersistRetired(cfg.persistRetired as boolean);
       if (cfg.previewPlanned != null) setPreviewPlanned(cfg.previewPlanned as boolean);
+    }
+
+    // `?center=` — arriving from a card's Dependencies section. A fourth
+    // persistence layer above the three `useSavedReport` owns (saved report >
+    // localStorage > defaults), applied last so it wins over whatever this tab
+    // was last looking at.
+    const linkedCenter = searchParams.get("center");
+    if (linkedCenter) {
+      setCenter(linkedCenter);
+      // A deep link means "show me this card's graph", whichever view and mode
+      // the tab happened to be left in.
+      setView("chart");
+      setChartMode(searchParams.get("mode") === "tree" ? "tree" : "c4");
+      // The type filter scopes the centre picker and the toolbar autocomplete,
+      // not the graph — a stored "Application" would leave a linked
+      // BusinessCapability centred but missing from its own autocomplete. The
+      // link names the centre outright, so the filter has nothing left to do.
+      setCardTypeKey("");
+      // Consume it: a deep link is an entry point, not persistent state. Left
+      // in the URL, navigating to another centre and reloading would snap back
+      // to the linked card. The auto-persist effect below has written the
+      // centre to localStorage by then, so a reload still lands correctly.
+      const next = new URLSearchParams(searchParams);
+      next.delete("center");
+      next.delete("mode");
+      setSearchParams(next, { replace: true });
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 

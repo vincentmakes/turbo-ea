@@ -12,6 +12,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { api } from "@/api/client";
 import { resolveRevealIds } from "@/features/reports/layeredDependencyLayout";
+import { buildDependencyReportUrl } from "@/features/reports/dependencyReportLink";
 import type { GNode, GEdge } from "@/features/reports/layeredDependencyLayout";
 
 interface Props {
@@ -297,6 +298,10 @@ export default function LayeredDependencySection({ cardId }: Props) {
               centerName={centerNode?.name}
               centerId={center}
               canCreateDiagram={canCreateDiagram}
+              // `center`, not `cardId`: shift-clicking across the graph and
+              // then opening the report should land on the card you are
+              // actually looking at.
+              openInReportHref={buildDependencyReportUrl({ centerId: center })}
             />
           </Box>
         )}

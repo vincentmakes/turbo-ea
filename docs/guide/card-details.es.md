@@ -92,6 +92,12 @@ Muestra todas las conexiones con otras fichas, agrupadas por tipo de relación. 
 
 ![Fichas vinculadas a través de subelementos, agrupadas por subtipo](../assets/img/es/60_ficha_subelementos_relaciones.png)
 
+### Sección de Dependencias
+
+Una [Layered Dependency View](reports.md) de la ficha y de todo lo que está a un salto de distancia, agrupado en las cuatro capas de arquitectura. Mayús-clic en una ficha para volver a centrar la vista y recorrer el panorama sin salir de la página.
+
+El icono **abrir en una pestaña nueva** de la barra de herramientas abre el [informe de dependencias](reports.md) completo en una pestaña nueva, centrado en la ficha en la que la vista esté centrada en ese momento — es decir, la ficha a la que ha navegado, no necesariamente la de partida. Útil cuando necesita lo que el informe añade alrededor de la misma imagen: el viaje en el tiempo, las marcas de transición, la vista de tabla y guardar la vista como informe.
+
 ### Sección de Etiquetas
 
 Aplique etiquetas de los [grupos de etiquetas](../admin/tags.es.md) configurados. Dependiendo del modo del grupo, puede seleccionar una etiqueta (selección única) o múltiples etiquetas (selección múltiple).

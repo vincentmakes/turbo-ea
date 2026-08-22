@@ -950,6 +950,13 @@ interface Props {
    *  pulse in the mark's own colour. Purely a transient attention cue — the
    *  badges carry the permanent state. */
   pulseCards?: Record<string, "live" | "retire">;
+  /** When set, the nav bar offers an "open in the Dependencies report" link to
+   *  this URL, in a new tab. Supplied by the card-detail section, which has no
+   *  timeline, table view or saving of its own; omitted by the report itself
+   *  (it would link to itself) and by TurboLens Architect (its cards are
+   *  proposals that do not exist yet). Build it with
+   *  `buildDependencyReportUrl` — see `dependencyReportLink.ts`. */
+  openInReportHref?: string;
   /** When true, show the "Create diagram" toolbar action (gated on `diagrams.manage`
    *  by the parent). Only enable in consumers whose nodes are real inventory cards. */
   canCreateDiagram?: boolean;
@@ -978,6 +985,7 @@ function LayeredDependencyInner({
   centerId,
   asOfMs,
   pulseCards,
+  openInReportHref,
   canCreateDiagram,
 }: Props) {
   const { t } = useTranslation(["reports", "common"]);
@@ -1754,6 +1762,22 @@ function LayeredDependencyInner({
             <Tooltip title={t("dependency.createDiagram")} arrow>
               <IconButton size="small" onClick={openCreateDialog}>
                 <MaterialSymbol icon="note_add" size={19} />
+              </IconButton>
+            </Tooltip>
+          )}
+          {openInReportHref && (
+            <Tooltip title={t("dependency.openInReport")} arrow>
+              {/* A real anchor, not window.open: middle-click, cmd-click and
+                  "copy link address" all have to work on a link. */}
+              <IconButton
+                size="small"
+                component="a"
+                href={openInReportHref}
+                target="_blank"
+                rel="noopener"
+                aria-label={t("dependency.openInReport")}
+              >
+                <MaterialSymbol icon="open_in_new" size={19} />
               </IconButton>
             </Tooltip>
           )}

@@ -92,6 +92,12 @@ Shows all connections to other cards, grouped by relation type. For each relatio
 
 ![Cards linked through sub-items, grouped by subtype](../assets/img/en/60_card_subitem_relations.png)
 
+### Dependencies Section
+
+A [Layered Dependency View](reports.md) of the card and everything one hop away, grouped into the four architecture layers. Shift-click a card to re-centre on it and walk the landscape without leaving the page.
+
+The **open in new tab** icon in the view's toolbar opens the full [Dependencies report](reports.md) in a new tab, centred on whatever the view is centred on at that moment — so a card you navigated to, not necessarily the one you started from. Use it when you need what the report adds around the same picture: time travel, the transition marks, the table view, and saving the view as a report.
+
 ### Tags Section
 
 Apply tags from the configured [tag groups](../admin/tags.md). Depending on the group mode, you can select one tag (single select) or multiple tags (multi select).

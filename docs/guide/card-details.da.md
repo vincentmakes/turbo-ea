@@ -92,6 +92,12 @@ Viser alle forbindelser til andre kort, grupperet efter relations­type. For hve
 
 ![Kort forbundet via underelementer, grupperet efter undertype](../assets/img/da/60_card_subitem_relations.png)
 
+### Afhængighedssektion
+
+En [Layered Dependency View](reports.md) af kortet og alt, hvad der ligger ét hop væk, grupperet i de fire arkitekturlag. Shift-klik på et kort for at centrere visningen på ny og gennemgå landskabet uden at forlade siden.
+
+Ikonet **åbn i ny fane** i værktøjslinjen åbner den fulde [afhængighedsrapport](reports.md) i en ny fane, centreret om det kort, visningen er centreret om i det øjeblik — altså det kort, du har navigeret til, ikke nødvendigvis det, du startede fra. Brug det, når du har brug for det, rapporten tilføjer omkring det samme billede: tidsrejse, overgangsmarkeringerne, tabelvisningen og at gemme visningen som en rapport.
+
 ### Tags-sektion
 
 Anvend tags fra de konfigurerede [tag-grupper](../admin/tags.md). Afhængigt af gruppe-tilstanden kan du vælge ét tag (single select) eller flere tags (multi select).

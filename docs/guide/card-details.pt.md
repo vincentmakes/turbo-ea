@@ -92,6 +92,12 @@ Mostra todas as conexões com outros cards, agrupadas por tipo de relacionamento
 
 ![Cards ligados através de subelementos, agrupados por subtipo](../assets/img/pt/60_ficha_subelementos_relacoes.png)
 
+### Seção de Dependências
+
+Uma [Layered Dependency View](reports.md) do card e de tudo o que está a um salto de distância, agrupado nas quatro camadas de arquitetura. Shift-clique em um card para recentralizar a vista e percorrer o panorama sem sair da página.
+
+O ícone **abrir em nova aba** na barra de ferramentas abre o [relatório de dependências](reports.md) completo em uma nova aba, centralizado no card em que a vista estiver centralizada naquele momento — ou seja, o card para o qual você navegou, não necessariamente o de partida. Útil quando você precisa do que o relatório acrescenta em torno da mesma imagem: viagem no tempo, as marcas de transição, a vista de tabela e salvar a vista como relatório.
+
 ### Seção de Tags
 
 Aplique tags dos [grupos de tags](../admin/tags.md) configurados. Dependendo do modo do grupo, você pode selecionar uma tag (seleção única) ou múltiplas tags (seleção múltipla).

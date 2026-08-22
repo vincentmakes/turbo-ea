@@ -92,6 +92,12 @@ Affiche toutes les connexions avec d'autres fiches, groupées par type de relati
 
 ![Fiches liées via les sous-éléments, regroupées par sous-type](../assets/img/fr/60_fiche_sous_elements_relations.png)
 
+### Section Dépendances
+
+Une [Layered Dependency View](reports.md) de la fiche et de tout ce qui se trouve à un lien de distance, regroupé selon les quatre couches d'architecture. Maj-cliquez sur une fiche pour recentrer la vue et parcourir le paysage sans quitter la page.
+
+L'icône **ouvrir dans un nouvel onglet** de la barre d'outils ouvre le [rapport Dépendances](reports.md) complet dans un nouvel onglet, centré sur la fiche sur laquelle la vue est centrée à cet instant — donc la fiche vers laquelle vous avez navigué, pas nécessairement celle de départ. Utile lorsque vous avez besoin de ce que le rapport ajoute autour de la même image : le voyage dans le temps, les repères de transition, la vue tableau et l'enregistrement de la vue comme rapport.
+
 ### Section Tags
 
 Appliquez des tags à partir des [groupes de tags](../admin/tags.md) configurés. Selon le mode du groupe, vous pouvez sélectionner un tag (sélection unique) ou plusieurs tags (sélection multiple).

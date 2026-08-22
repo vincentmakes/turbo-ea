@@ -92,6 +92,12 @@ Mostra tutte le connessioni con altre card, raggruppate per tipo di relazione. P
 
 ![Card collegate tramite i sottoelementi, raggruppate per sottotipo](../assets/img/it/60_scheda_sottoelementi_relazioni.png)
 
+### Sezione Dipendenze
+
+Una [Layered Dependency View](reports.md) della scheda e di tutto ciò che si trova a un passo di distanza, raggruppato nei quattro livelli architetturali. Maiusc-clic su una scheda per ricentrare la vista e percorrere il panorama senza lasciare la pagina.
+
+L'icona **apri in una nuova scheda** nella barra degli strumenti apre il [report Dipendenze](reports.md) completo in una nuova scheda del browser, centrato sulla scheda su cui la vista è centrata in quel momento — quindi quella verso cui avete navigato, non necessariamente quella di partenza. Utile quando serve ciò che il report aggiunge attorno alla stessa immagine: il viaggio nel tempo, i segni di transizione, la vista tabellare e il salvataggio della vista come report.
+
 ### Sezione Tag
 
 Applicate tag dai [gruppi di tag](../admin/tags.md) configurati. A seconda della modalità del gruppo, potete selezionare un tag (selezione singola) o più tag (selezione multipla).

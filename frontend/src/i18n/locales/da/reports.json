@@ -424,6 +424,7 @@
   "dependency.createDiagramDefaultName": "{{name}} – afhængigheder",
   "dependency.createDiagramSubmit": "Opret",
   "dependency.createDiagramError": "Diagrammet kunne ikke oprettes. Prøv igen.",
+  "dependency.openInReport": "Åbn i afhængighedsrapporten",
   "cost.permissionDeniedTitle": "Omkostningsdata begrænset",
   "cost.permissionDeniedBody": "Du har ikke tilladelse til at se omkostningsrapporter. Bed en administrator om at give dig tilladelsen «costs.view», eller bliv interessent på de kort, hvis omkostninger du har brug for.",
   "portfolio.viewInInventory": "Vis i lageret",

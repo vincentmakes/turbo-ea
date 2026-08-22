@@ -424,6 +424,7 @@
   "dependency.createDiagramDefaultName": "{{name}} – dependencias",
   "dependency.createDiagramSubmit": "Crear",
   "dependency.createDiagramError": "No se pudo crear el diagrama. Inténtalo de nuevo.",
+  "dependency.openInReport": "Abrir en el informe de dependencias",
   "cost.permissionDeniedTitle": "Datos de costos restringidos",
   "cost.permissionDeniedBody": "No tiene permiso para ver los informes de costos. Solicite a un administrador que le conceda el permiso «costs.view», o conviértase en parte interesada de las tarjetas implicadas.",
   "portfolio.viewInInventory": "Ver en el inventario",
