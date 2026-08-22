@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +27,18 @@ def _id(ref: str) -> uuid.UUID:
     if ref not in _refs:
         _refs[ref] = uuid.uuid4()
     return _refs[ref]
+
+
+def _in_months(months: int) -> str:
+    """ISO date roughly N months from today.
+
+    The PLM Modernisation transformation story (PTC Windchill → Teamcenter)
+    exists to demo the Dependencies report's time travel, so its dates must
+    stay in the future relative to whenever the demo is seeded — hard literals
+    would make the story historical within months of a release. Mirrors the
+    relative-date pattern the risk seeder already uses.
+    """
+    return (date.today() + timedelta(days=months * 30)).isoformat()
 
 
 def _fs(
@@ -1852,7 +1864,9 @@ APPLICATIONS = [
             "productName": "Windchill 12",
             "commercialApplication": True,
         },
-        lifecycle={"active": "2012-01-01", "phaseOut": "2026-06-01", "endOfLife": "2027-01-01"},
+        # Evergreen: retires ~5 months after seeding, so the time-travel demo
+        # always has a retirement ahead of it (see _in_months).
+        lifecycle={"active": "2012-01-01", "phaseOut": _in_months(-2), "endOfLife": _in_months(5)},
     ),
     _fs(
         "app_anomaly_ai",
@@ -1891,6 +1905,30 @@ APPLICATIONS = [
             "commercialApplication": False,
         },
         lifecycle={"phaseIn": "2025-06-01", "active": "2026-01-01"},
+    ),
+    # ── PLM Modernisation transformation story ────────────────────
+    _fs(
+        "app_plm_analytics",
+        "Application",
+        "PLM Analytics Workbench",
+        subtype="businessApplication",
+        desc="Engineering analytics on Teamcenter data — design-cycle KPIs, BOM change "
+        "impact and part-reuse dashboards. Replaces the reporting half of PTC Windchill "
+        "as part of the Legacy PLM Retirement initiative.",
+        attrs={
+            "businessCriticality": "businessOperational",
+            "functionalSuitability": "appropriate",
+            "technicalSuitability": "fullyAppropriate",
+            "timeModel": "invest",
+            "hostingType": "cloudSaaS",
+            "costTotalAnnual": 60000,
+            "numberOfUsers": 35,
+            "productName": "Teamcenter Reporting & Analytics",
+            "commercialApplication": True,
+        },
+        # Planned next month, live in ~9 — exercises UPCOMING, the arrival mark
+        # and the go-live mark whenever the demo is seeded.
+        lifecycle={"plan": _in_months(1), "phaseIn": _in_months(4), "active": _in_months(9)},
     ),
 ]
 # ── IT Components ─────────────────────────────────────────────────
@@ -2238,6 +2276,22 @@ IT_COMPONENTS = [
             "licenseType": "Pay-as-you-go",
         },
     ),
+    # ── PLM Modernisation transformation story ────────────────────
+    _fs(
+        "itc_windchill_vault",
+        "ITComponent",
+        "Windchill File Vault Server",
+        subtype="hardware",
+        desc="On-premise CAD file vault backing PTC Windchill; decommissioned with it.",
+        attrs={
+            "technicalSuitability": "inappropriate",
+            "resourceClassification": "tolerated",
+            "version": "Dell R740 / WS2016",
+            "costTotalAnnual": 18000,
+        },
+        # Evergreen: decommissioned one month after Windchill itself.
+        lifecycle={"active": "2013-01-01", "endOfLife": _in_months(6)},
+    ),
 ]
 
 # Default lifecycle for IT Components — every component has been in production
@@ -2416,6 +2470,19 @@ INTERFACES = [
         subtype="logicalInterface",
         desc="Approved expense reports and invoices posted to ERP.",
         attrs={"frequency": "daily", "dataFormat": "XML", "protocol": "cXML / REST"},
+    ),
+    # ── PLM Modernisation transformation story ────────────────────
+    _fs(
+        "if_wc_tc_migration",
+        "Interface",
+        "Windchill → Teamcenter Migration Feed",
+        subtype="logicalInterface",
+        desc="One-way bulk transfer of legacy CAD models and BOMs into Teamcenter; "
+        "switched off when Windchill is retired.",
+        attrs={"frequency": "daily", "dataFormat": "PLM XML", "protocol": "SFTP"},
+        # Evergreen: dies with Windchill — its loss is what puts Teamcenter
+        # at risk in the Dependencies report when retired cards are hidden.
+        lifecycle={"active": _in_months(-3), "endOfLife": _in_months(5)},
     ),
 ]
 # ── Data Objects ──────────────────────────────────────────────────
@@ -3853,6 +3920,42 @@ RELATIONS = [
     _rel("relBizCtxToBC", "bctx_design_review", "bc_elec_design"),
     _rel("relBizCtxToBC", "bctx_regulatory_sub", "bc_regulatory"),
     _rel("relBizCtxToBC", "bctx_regulatory_sub", "bc_certification"),
+    # ── PLM Modernisation transformation story ────────────────────
+    # Windchill's dependency surface: what the retirement severs.
+    _rel("relAppSuccessor", "app_teamcenter", "app_ptc_windchill"),
+    _rel("relOrgToApp", "org_engineering", "app_ptc_windchill", {"usageType": "user"}),
+    _rel("relAppToITC", "app_ptc_windchill", "itc_windchill_vault"),
+    _rel(
+        "relAppToDataObj",
+        "app_ptc_windchill",
+        "do_bom",
+        {"crudCreate": False, "crudRead": True, "crudUpdate": False, "crudDelete": False},
+    ),
+    _rel(
+        "relAppToInterface",
+        "app_ptc_windchill",
+        "if_wc_tc_migration",
+        {"flowDirection": "forward"},
+    ),
+    _rel(
+        "relAppToInterface",
+        "app_teamcenter",
+        "if_wc_tc_migration",
+        {"flowDirection": "reverse"},
+    ),
+    _rel("relInitiativeToITC", "init_plm_retire", "itc_windchill_vault"),
+    _rel("relInitiativeToInterface", "init_plm_retire", "if_wc_tc_migration"),
+    # The arriving replacement: what the transformation adds.
+    _rel("relAppToBC", "app_plm_analytics", "bc_mech_design", {"supportType": "supporting"}),
+    _rel("relOrgToApp", "org_engineering", "app_plm_analytics", {"usageType": "owner"}),
+    _rel("relProviderToApp", "prov_siemens", "app_plm_analytics"),
+    _rel(
+        "relAppToDataObj",
+        "app_plm_analytics",
+        "do_bom",
+        {"crudCreate": False, "crudRead": True, "crudUpdate": False, "crudDelete": False},
+    ),
+    _rel("relInitiativeToApp", "init_plm_retire", "app_plm_analytics"),
 ]
 
 
