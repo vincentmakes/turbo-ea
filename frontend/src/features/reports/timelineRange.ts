@@ -126,6 +126,8 @@ export interface TimelineMilestone {
   value: number;
   /** How many cards enter the landscape on this date. */
   appearing: number;
+  /** How many cards already on the canvas go live (reach `active`) on it. */
+  activating: number;
   /** How many leave it. */
   disappearing: number;
 }
@@ -144,8 +146,8 @@ export interface TimelineMilestone {
  */
 export function computeTimelineMilestones(lifecycles: Lifecycle[]): TimelineMilestone[] {
   const byDate = new Map<number, TimelineMilestone>();
-  const bump = (value: number, key: "appearing" | "disappearing") => {
-    const entry = byDate.get(value) ?? { value, appearing: 0, disappearing: 0 };
+  const bump = (value: number, key: "appearing" | "activating" | "disappearing") => {
+    const entry = byDate.get(value) ?? { value, appearing: 0, activating: 0, disappearing: 0 };
     entry[key] += 1;
     byDate.set(value, entry);
   };
@@ -161,6 +163,18 @@ export function computeTimelineMilestones(lifecycles: Lifecycle[]): TimelineMile
     // A card with no start-phase date is treated as always present (same rule
     // as hasStartedByDate), so only its retirement is a transition.
     if (start != null) bump(start, "appearing");
+    // Go-live: a card that enters the canvas at its plan/phaseIn date changes
+    // again when `active` arrives — the lifecycle dot turns green. That is the
+    // date a transformation viewer actually steers by, so it gets its own
+    // mark; when active IS the earliest date, the appearing mark covers it.
+    const active = parseDate(lc.active);
+    if (
+      active != null &&
+      start != null &&
+      active > start &&
+      (eol == null || active < eol)
+    )
+      bump(active, "activating");
     if (eol != null) bump(eol, "disappearing");
   }
 

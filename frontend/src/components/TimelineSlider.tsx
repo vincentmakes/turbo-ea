@@ -121,6 +121,7 @@ function useMilestoneClusters(
       const gap = last ? ((m.value - last.value) / span) * px : Infinity;
       if (last && gap < MIN_MILESTONE_SPACING_PX) {
         last.appearing += m.appearing;
+        last.activating += m.activating;
         last.disappearing += m.disappearing;
       } else {
         clusters.push({ ...m });
@@ -380,6 +381,8 @@ export default function TimelineSlider({
               const parts: string[] = [];
               if (m.appearing)
                 parts.push(t("timelineSlider.milestoneAppearing", { count: m.appearing }));
+              if (m.activating)
+                parts.push(t("timelineSlider.milestoneActivating", { count: m.activating }));
               if (m.disappearing)
                 parts.push(t("timelineSlider.milestoneDisappearing", { count: m.disappearing }));
               const summary = `${fmtFull(m.value)} — ${parts.join(" · ")}`;
@@ -409,6 +412,16 @@ export default function TimelineSlider({
                           height: 10,
                           borderRadius: "1px",
                           bgcolor: TIMELINE_COLORS.future,
+                        }}
+                      />
+                    )}
+                    {m.activating > 0 && (
+                      <Box
+                        sx={{
+                          width: 3,
+                          height: 10,
+                          borderRadius: "1px",
+                          bgcolor: STATUS_COLORS.success,
                         }}
                       />
                     )}

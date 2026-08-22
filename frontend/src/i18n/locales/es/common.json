@@ -190,6 +190,8 @@
   "timelineSlider.resetToToday": "Restablecer a hoy",
   "timelineSlider.milestoneAppearing_one": "{{count}} ficha se incorpora",
   "timelineSlider.milestoneAppearing_other": "{{count}} fichas se incorporan",
+  "timelineSlider.milestoneActivating_one": "{{count}} ficha entra en producción",
+  "timelineSlider.milestoneActivating_other": "{{count}} fichas entran en producción",
   "timelineSlider.milestoneDisappearing_one": "{{count}} ficha se retira",
   "timelineSlider.milestoneDisappearing_other": "{{count}} fichas se retiran",
   "timelineSlider.milestoneJump": "Ir a este cambio",

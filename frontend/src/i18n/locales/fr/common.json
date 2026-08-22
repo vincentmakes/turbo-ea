@@ -190,6 +190,8 @@
   "timelineSlider.resetToToday": "Réinitialiser à aujourd’hui",
   "timelineSlider.milestoneAppearing_one": "{{count}} fiche arrive",
   "timelineSlider.milestoneAppearing_other": "{{count}} fiches arrivent",
+  "timelineSlider.milestoneActivating_one": "{{count}} fiche entre en service",
+  "timelineSlider.milestoneActivating_other": "{{count}} fiches entrent en service",
   "timelineSlider.milestoneDisappearing_one": "{{count}} fiche est retirée",
   "timelineSlider.milestoneDisappearing_other": "{{count}} fiches sont retirées",
   "timelineSlider.milestoneJump": "Aller à ce changement",

@@ -190,6 +190,8 @@
   "timelineSlider.resetToToday": "重置到今天",
   "timelineSlider.milestoneAppearing_one": "{{count}} 张卡片加入",
   "timelineSlider.milestoneAppearing_other": "{{count}} 张卡片加入",
+  "timelineSlider.milestoneActivating_one": "{{count}} 张卡片投入使用",
+  "timelineSlider.milestoneActivating_other": "{{count}} 张卡片投入使用",
   "timelineSlider.milestoneDisappearing_one": "{{count}} 张卡片退役",
   "timelineSlider.milestoneDisappearing_other": "{{count}} 张卡片退役",
   "timelineSlider.milestoneJump": "跳转到此变化",
