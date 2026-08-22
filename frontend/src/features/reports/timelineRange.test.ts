@@ -174,6 +174,26 @@ describe("computeTimelineMilestones", () => {
     ).toEqual([{ value: ms("2027-06-01"), activating: 1, disappearing: 0 }]);
   });
 
+  it("marks the go-live of a card that carries every phase", () => {
+    // The shape a planned-then-delivered card ends up with once someone fills
+    // the lifecycle in by hand. Its retirement mark was never in doubt; the
+    // arrival is the one that has to come with it.
+    expect(
+      computeTimelineMilestones([
+        {
+          plan: "2026-10-01",
+          phaseIn: "2027-01-01",
+          active: "2027-04-01",
+          phaseOut: "2029-01-01",
+          endOfLife: "2029-06-30",
+        },
+      ]),
+    ).toEqual([
+      { value: ms("2027-04-01"), activating: 1, disappearing: 0 },
+      { value: ms("2029-06-30"), activating: 0, disappearing: 1 },
+    ]);
+  });
+
   it("marks both ends for a card that goes live and later retires", () => {
     expect(
       computeTimelineMilestones([{ active: "2020-01-01", endOfLife: "2030-01-01" }]),
@@ -318,9 +338,10 @@ describe("cardsChangingBetween", () => {
 
   it("names the cards going live and retiring inside the span", () => {
     const got = cardsChangingBetween(CARDS, FROM, TO);
-    // "both" retires inside this span too, so it lands on the retiring side,
-    // after "gone" — retiring cards are ordered by name.
-    expect(got.map((c) => c.id)).toEqual(["live", "gone", "both"]);
+    // "both" arrives AND retires inside this span, so it appears on each side:
+    // going live first (ordered by name, so Bravo before Zulu), then retiring
+    // (Alpha before Bravo).
+    expect(got.map((c) => c.id)).toEqual(["both", "live", "gone", "both"]);
   });
 
   it("orders cards going live first, then by name", () => {
@@ -329,9 +350,15 @@ describe("cardsChangingBetween", () => {
     expect(got.slice(0, 2).map((c) => c.name)).toEqual(["Bravo Bridge", "Zulu Workbench"]);
   });
 
-  it("lets retirement win for a card that does both inside one span", () => {
+  it("lists a card that arrives and retires inside one span on both sides", () => {
+    // The mark above counts it twice — one date for the arrival, one for the
+    // retirement — so naming it once made the pills contradict the count they
+    // spell out. Both entries carry the same id, so consumers must key by id
+    // AND kind.
     const got = cardsChangingBetween(CARDS, ms("2027-03-02"), ms("2027-03-05"));
-    expect(got.find((c) => c.id === "both")?.kind).toBe("disappearing");
+    const both = got.filter((c) => c.id === "both");
+    expect(both.map((c) => c.kind)).toEqual(["activating", "disappearing"]);
+    expect(both.every((c) => c.name === "Bravo Bridge")).toBe(true);
   });
 
   it("skips a card that never lived — it carries no mark either", () => {
@@ -350,5 +377,17 @@ describe("cardsChangingBetween", () => {
     const named = cardsChangingBetween(CARDS, FROM, FROM);
     expect(named.filter((c) => c.kind === "activating")).toHaveLength(mark.activating);
     expect(named.filter((c) => c.kind === "disappearing")).toHaveLength(mark.disappearing);
+  });
+
+  it("names exactly what a MERGED mark counts, across its whole span", () => {
+    // The invariant that matters once marks cluster: the pills under a merged
+    // mark have to add up to the numbers on it, dual-change cards included.
+    const marks = computeTimelineMilestones(CARDS.map((c) => c.lifecycle)).filter(
+      (m) => m.value >= FROM && m.value <= TO,
+    );
+    const named = cardsChangingBetween(CARDS, FROM, TO);
+    const sum = (k: "activating" | "disappearing") => marks.reduce((n, m) => n + m[k], 0);
+    expect(named.filter((c) => c.kind === "activating")).toHaveLength(sum("activating"));
+    expect(named.filter((c) => c.kind === "disappearing")).toHaveLength(sum("disappearing"));
   });
 });

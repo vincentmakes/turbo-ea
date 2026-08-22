@@ -641,10 +641,10 @@ export default function DependencyReport() {
     return m;
   }, [rawEdges]);
 
-  // Only FUTURE transitions are marked: the purpose is the forward
-  // transformation, and a past arrival mark is a phantom — clicking it lands on
-  // the first day the card is present (inclusive <=), which for a card already
-  // on screen looks identical to today. Past exploration stays a drag away.
+  // Past transitions are marked as well as future ones: a landscape whose
+  // story is mostly historical would otherwise show an empty track, and the
+  // stateful RETIRED / UPCOMING badges need their mark whichever side of today
+  // it falls on. (This once marked only the future, hence the scope name.)
   const milestoneScope = useMemo(() => {
     if (!(view === "chart" && center)) return rawNodes;
     const rawIds = new Set(rawNodes.map((n) => n.id));
@@ -716,6 +716,12 @@ export default function DependencyReport() {
     (from: number, to: number) => {
       const hit: Record<string, "live" | "retire"> = {};
       const reveal = new Set<string>();
+      // A card that arrives AND retires inside one merged span is listed
+      // twice, but it is ONE node on the canvas and can only glow one colour.
+      // `cardsChangingBetween` sorts activating first, so the retirement — the
+      // later fact, and the one that decides whether the card is still there
+      // when the span is out — overwrites the arrival. Its own pill still
+      // pulses the other way when clicked directly.
       for (const c of cardsChangingBetween(milestoneScope, from, to)) {
         if (c.kind === "disappearing") {
           hit[c.id] = "retire";

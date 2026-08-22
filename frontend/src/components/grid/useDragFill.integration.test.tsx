@@ -94,6 +94,21 @@ function handleOf(): HTMLElement {
   return el as HTMLElement;
 }
 
+/**
+ * Wait for the handle to be shown. `focusCell` lets exactly ONE animation
+ * frame run, which is enough locally but not always on a loaded CI runner —
+ * the handle is positioned in a rAF, so a slow frame left it `display: none`
+ * and `getByRole` could not see it (it is outside the accessibility tree while
+ * hidden). Only the tests asserting the handle APPEARS need this; the ones
+ * asserting it stays hidden must not wait for it.
+ */
+async function waitForHandle(): Promise<HTMLElement> {
+  await waitFor(() => {
+    expect(handleOf().style.display).toBe("block");
+  });
+  return handleOf();
+}
+
 /** The dialog's primary action. Its name carries the MaterialSymbol glyph text. */
 function fillButton(count: number): HTMLElement {
   return screen.getByRole("button", { name: new RegExp(`Fill ${count} rows?$`) });
@@ -170,12 +185,13 @@ describe("handle visibility", () => {
   it("appears on a fillable focused cell", async () => {
     await renderGrid();
     await focusCell(0, "value");
-    expect(handleOf().style.display).toBe("block");
+    await waitForHandle();
   });
 
   it("exposes a focusable, translated control once visible (§5)", async () => {
     await renderGrid();
     await focusCell(0, "value");
+    await waitForHandle();
     const handle = screen.getByRole("button", { name: "Fill cells from here" });
     expect(handle).toBe(handleOf());
     expect(handle.getAttribute("tabindex")).toBe("0");
@@ -198,7 +214,7 @@ describe("handle visibility", () => {
     await focusCell(0, "name");
     expect(handleOf().style.display).toBe("none");
     await focusCell(0, "value");
-    expect(handleOf().style.display).toBe("block");
+    await waitForHandle();
   });
 
   it("stays hidden on a suppressed row", async () => {
@@ -207,7 +223,7 @@ describe("handle visibility", () => {
     await focusCell(0, "value");
     expect(handleOf().style.display).toBe("none");
     await focusCell(1, "value");
-    expect(handleOf().style.display).toBe("block");
+    await waitForHandle();
   });
 });
 

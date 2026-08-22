@@ -224,17 +224,40 @@ export default function TimelineSlider({
 
   const hasMilestones = (milestones?.length ?? 0) > 0;
 
-  // The mark the slider is standing on, if any. A click or an arrow step calls
-  // `onChange(m.value)` and lands on it exactly; a drag cannot, because MUI
-  // snaps to `min + n * step` and a mark's epoch is almost never on that
+  // The mark a given date stands on, if any. A mark click or an arrow step
+  // calls `onChange(m.value)` and lands on one exactly; a drag cannot, because
+  // MUI snaps to `min + n * step` and a mark's epoch is almost never on that
   // lattice — hence the one-day tolerance, which is below the resolution
   // anything on this timeline is modelled at anyway.
-  const activeCluster = useMemo(
-    () =>
+  const clusterAt = useCallback(
+    (at: number) =>
       milestoneClusters.find(
-        (c) => value >= c.value - ONE_DAY_MS && value <= c.spanEnd + ONE_DAY_MS,
+        (c) => at >= c.value - ONE_DAY_MS && at <= c.spanEnd + ONE_DAY_MS,
       ) ?? null,
-    [milestoneClusters, value],
+    [milestoneClusters],
+  );
+
+  const activeCluster = useMemo(() => clusterAt(value), [clusterAt, value]);
+
+  /**
+   * Move to a mark by arrow, spotlighting it exactly as clicking it would.
+   * Stepping used to call `onChange` alone, so the two ways of reaching the
+   * same mark behaved differently — the arrows navigated but never lit
+   * anything up.
+   *
+   * The span is the CLUSTER's, not the stepped-to date's: the step targets a
+   * single milestone (`prevMilestone` / `nextMilestone` are deliberately
+   * unclustered so stepping behaves the same at every screen width), but the
+   * pill row below is keyed on the cluster, so spotlighting the bare date
+   * would pulse a subset of the pills sitting right there.
+   */
+  const stepTo = useCallback(
+    (target: number) => {
+      onChange(target);
+      const cluster = clusterAt(target);
+      onMilestoneClick?.(cluster?.value ?? target, cluster?.spanEnd ?? target);
+    },
+    [onChange, onMilestoneClick, clusterAt],
   );
 
   const activeCards = useMemo(
@@ -379,7 +402,7 @@ export default function TimelineSlider({
               <IconButton
                 aria-label={t("timelineSlider.prevChange")}
                 disabled={prevMilestone == null}
-                onClick={() => prevMilestone != null && onChange(prevMilestone)}
+                onClick={() => prevMilestone != null && stepTo(prevMilestone)}
                 sx={stepButtonSx}
               >
                 <MaterialSymbol
@@ -467,7 +490,16 @@ export default function TimelineSlider({
                   parts.push(t("timelineSlider.milestoneActivating", { count: m.activating }));
                 if (m.disappearing)
                   parts.push(t("timelineSlider.milestoneDisappearing", { count: m.disappearing }));
-                const summary = `${fmtFull(m.value)} — ${parts.join(" · ")}`;
+                // Marks closer together than MIN_MILESTONE_SPACING_PX merge,
+                // so one mark can stand for several dates. Say the span when
+                // it does: stating a single date made a merged neighbour look
+                // unmarked, which is how a card whose arrival was absorbed
+                // into a busy mark reads as having no go-live mark at all.
+                const isMerged = m.spanEnd > m.value;
+                const when = isMerged
+                  ? `${fmtFull(m.value)} – ${fmtFull(m.spanEnd)}`
+                  : fmtFull(m.value);
+                const summary = `${when} — ${parts.join(" · ")}`;
                 // Past transitions render exactly like upcoming ones. A stateful
                 // RETIRED/UPCOMING badge needs its mark whichever side of today
                 // it falls on, and muting the past ones made every mark in a
@@ -491,7 +523,19 @@ export default function TimelineSlider({
                         borderRadius: 1,
                         display: "flex",
                         gap: "1px",
-                        "&:hover": { bgcolor: "action.hover" },
+                        // A merged mark stands for several dates, so it is
+                        // tinted to say so — the bars inside keep their own
+                        // blue and red, since WHAT happens matters more than
+                        // that it happens more than once. Without this a
+                        // crowded mark is indistinguishable from a single-date
+                        // one and a change absorbed into it looks unmarked.
+                        ...(isMerged && {
+                          bgcolor: `${TIMELINE_COLORS.merged}1F`,
+                          boxShadow: `inset 0 0 0 1px ${TIMELINE_COLORS.merged}66`,
+                        }),
+                        "&:hover": {
+                          bgcolor: isMerged ? `${TIMELINE_COLORS.merged}3D` : "action.hover",
+                        },
                       }}
                     >
                       {m.activating > 0 && (
@@ -557,7 +601,9 @@ export default function TimelineSlider({
                     </Tooltip>
                     {group.cards.map((card) => (
                       <Chip
-                        key={card.id}
+                        // Not `card.id`: a card that arrives and retires inside
+                        // one merged cluster is listed on both sides.
+                        key={`${card.id}:${card.kind}`}
                         size="small"
                         label={card.name}
                         onClick={onMilestoneCardClick ? () => onMilestoneCardClick(card) : undefined}
@@ -618,7 +664,7 @@ export default function TimelineSlider({
               <IconButton
                 aria-label={t("timelineSlider.nextChange")}
                 disabled={nextMilestone == null}
-                onClick={() => nextMilestone != null && onChange(nextMilestone)}
+                onClick={() => nextMilestone != null && stepTo(nextMilestone)}
                 sx={stepButtonSx}
               >
                 <MaterialSymbol

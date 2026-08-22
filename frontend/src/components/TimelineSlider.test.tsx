@@ -108,6 +108,41 @@ describe("TimelineSlider transition pills", () => {
     expect(screen.getByRole("img", { name: "1 card retires" })).toBeInTheDocument();
   });
 
+  it("lists a card on both sides when it arrives and retires in the same span", async () => {
+    // Real case on a merged mark: a card goes live and is retired again before
+    // the span is out. It gets a pill under the plus AND under the minus, and
+    // each one spotlights the change it names — the plus pulses it live, the
+    // minus pulses it retiring — even though both name the same card.
+    const onMilestoneCardClick = vi.fn();
+    render(
+      <TimelineSlider
+        value={RETIRE}
+        onChange={vi.fn()}
+        dateRange={{ min: ms("2020-01-01"), max: ms("2030-01-01") }}
+        yearMarks={[]}
+        todayMs={TODAY}
+        milestones={MILESTONES}
+        milestoneCards={() => [
+          { id: "stopgap", name: "Interim Bridge", kind: "activating" },
+          { id: "stopgap", name: "Interim Bridge", kind: "disappearing" },
+        ]}
+        onMilestoneCardClick={onMilestoneCardClick}
+      />,
+    );
+
+    expect(screen.getByRole("img", { name: "1 card goes live" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "1 card retires" })).toBeInTheDocument();
+    const pills = screen.getAllByText("Interim Bridge");
+    expect(pills).toHaveLength(2);
+
+    await userEvent.click(pills[0]);
+    await userEvent.click(pills[1]);
+    expect(onMilestoneCardClick.mock.calls.map(([c]) => c.kind)).toEqual([
+      "activating",
+      "disappearing",
+    ]);
+  });
+
   it("still matches a mark a day off the value, since a drag cannot land exactly", () => {
     // MUI snaps a dragged value to `min + n * step`, which essentially never
     // coincides with a mark's epoch; only a click or an arrow step does.
@@ -158,5 +193,128 @@ describe("TimelineSlider transition pills", () => {
       />,
     );
     expect(screen.queryByLabelText("Cards changing on this date")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stepping between marks
+// ---------------------------------------------------------------------------
+
+describe("TimelineSlider step-through", () => {
+  /** Regression: the arrows called `onChange` alone, so stepping to a mark
+   *  navigated without spotlighting while clicking the same mark did both. */
+  it("spotlights the mark it steps forward onto, not just the date", async () => {
+    const onChange = vi.fn();
+    const onMilestoneClick = vi.fn();
+    renderSlider(TODAY, { onChange, onMilestoneClick });
+
+    await userEvent.click(screen.getByRole("button", { name: /Next change/i }));
+
+    expect(onChange).toHaveBeenCalledWith(GO_LIVE);
+    expect(onMilestoneClick).toHaveBeenCalledWith(GO_LIVE, GO_LIVE);
+  });
+
+  it("spotlights the mark it steps back onto", async () => {
+    const onChange = vi.fn();
+    const onMilestoneClick = vi.fn();
+    renderSlider(RETIRE, { onChange, onMilestoneClick });
+
+    await userEvent.click(screen.getByRole("button", { name: /Previous change/i }));
+
+    expect(onChange).toHaveBeenCalledWith(GO_LIVE);
+    expect(onMilestoneClick).toHaveBeenCalledWith(GO_LIVE, GO_LIVE);
+  });
+
+  it("spotlights the whole cluster when the mark it lands on is a merged one", async () => {
+    // Two dates three days apart inside a ten-year range render as one mark
+    // (jsdom measures nothing, so the slider falls back to its nominal width).
+    // The pill row lists both, so the spotlight has to cover both — stepping
+    // onto the bare date would pulse half of what is named right below it.
+    const SECOND = GO_LIVE + 3 * 86_400_000;
+    const onMilestoneClick = vi.fn();
+    render(
+      <TimelineSlider
+        value={TODAY}
+        onChange={vi.fn()}
+        dateRange={{ min: ms("2020-01-01"), max: ms("2030-01-01") }}
+        yearMarks={[]}
+        todayMs={TODAY}
+        milestones={[
+          { value: GO_LIVE, activating: 1, disappearing: 0 },
+          { value: SECOND, activating: 0, disappearing: 1 },
+        ]}
+        onMilestoneClick={onMilestoneClick}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /Next change/i }));
+    expect(onMilestoneClick).toHaveBeenCalledWith(GO_LIVE, SECOND);
+  });
+
+  it("names the span it covers when a mark stands for several dates", async () => {
+    // A merged mark used to state its earliest date and nothing else, so a
+    // change absorbed into a busy one looked unmarked — the report of "I set an
+    // active date and got no go-live mark" was an arrival merged into a mark
+    // three months away, with 28 cards on it.
+    const SECOND = GO_LIVE + 3 * 86_400_000;
+    render(
+      <TimelineSlider
+        value={TODAY}
+        onChange={vi.fn()}
+        dateRange={{ min: ms("2020-01-01"), max: ms("2030-01-01") }}
+        yearMarks={[]}
+        todayMs={TODAY}
+        milestones={[
+          { value: GO_LIVE, activating: 1, disappearing: 0 },
+          { value: SECOND, activating: 0, disappearing: 1 },
+        ]}
+      />,
+    );
+
+    const mark = screen.getByRole("button", { name: /Jump to this change/i });
+    expect(mark).toHaveAccessibleName(/Mar 1, 2027 – Mar 4, 2027/);
+    expect(mark).toHaveAccessibleName(/1 card goes live/);
+    expect(mark).toHaveAccessibleName(/1 card retires/);
+  });
+
+  it("tints a merged mark so it is distinguishable from a single-date one", () => {
+    // The label alone is not enough: a merged mark is what a change gets
+    // absorbed into, and until it looked different from an ordinary mark there
+    // was nothing on screen saying "several dates live here".
+    const SECOND = GO_LIVE + 3 * 86_400_000;
+    const { unmount } = render(
+      <TimelineSlider
+        value={TODAY}
+        onChange={vi.fn()}
+        dateRange={{ min: ms("2020-01-01"), max: ms("2030-01-01") }}
+        yearMarks={[]}
+        todayMs={TODAY}
+        milestones={[
+          { value: GO_LIVE, activating: 1, disappearing: 0 },
+          { value: SECOND, activating: 0, disappearing: 1 },
+        ]}
+      />,
+    );
+    const merged = screen.getByRole("button", { name: /Jump to this change/i });
+    const mergedBg = getComputedStyle(merged).backgroundColor;
+    unmount();
+
+    renderSlider(TODAY);
+    const plain = screen.getAllByRole("button", { name: /Jump to this change/i })[0];
+    expect(mergedBg).not.toBe("");
+    expect(mergedBg).not.toBe(getComputedStyle(plain).backgroundColor);
+  });
+
+  it("names a single date when a mark stands for one", () => {
+    renderSlider(TODAY);
+    const marks = screen.getAllByRole("button", { name: /Jump to this change/i });
+    expect(marks[0]).toHaveAccessibleName(/^Mar 1, 2027 —/);
+  });
+
+  it("still works as plain navigation when no consumer wants the spotlight", async () => {
+    const onChange = vi.fn();
+    renderSlider(TODAY, { onChange });
+    await userEvent.click(screen.getByRole("button", { name: /Next change/i }));
+    expect(onChange).toHaveBeenCalledWith(GO_LIVE);
   });
 });

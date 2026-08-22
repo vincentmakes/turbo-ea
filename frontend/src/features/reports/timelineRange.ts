@@ -191,12 +191,16 @@ export function cardsChangingBetween(
     const eol = parseDate(card.lifecycle?.endOfLife);
     if (active != null && eol != null && eol <= active) continue;
 
-    // A card can do both inside one merged cluster; the retirement is the later
-    // fact, so it names the pill (the pulse colour picks the same winner).
-    let kind: TimelineChangeCard["kind"] | null = null;
-    if (active != null && active >= from && active <= to) kind = "activating";
-    if (eol != null && eol >= from && eol <= to) kind = "disappearing";
-    if (kind) out.push({ id: card.id, name: card.name, kind });
+    // A card can do both inside one merged cluster — arrive and then retire
+    // before the span is out — and it is listed TWICE, once per side. The mark
+    // above counts it twice too (`computeTimelineMilestones` bumps a separate
+    // date for each), so naming it once made the pills contradict the count
+    // they are supposed to spell out. Callers keying by card id must key by
+    // id AND kind.
+    if (active != null && active >= from && active <= to)
+      out.push({ id: card.id, name: card.name, kind: "activating" });
+    if (eol != null && eol >= from && eol <= to)
+      out.push({ id: card.id, name: card.name, kind: "disappearing" });
   }
   // Going live before retiring, matching the order of the mark's own two bars.
   return out.sort((a, b) =>
