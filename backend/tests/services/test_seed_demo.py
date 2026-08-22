@@ -903,6 +903,33 @@ class TestCapabilityHinge:
             "and an application — centring on one shows a dead end"
         )
 
+    def test_no_capability_arrives_after_the_application_leading_it(self):
+        """The canvas shows a capability and the app that implements it side by
+        side, so the capability arriving second reads as a data error. Nothing
+        catches the emptier version of this — a capability with no application
+        at all, which is how "Customer Relationship Management" ended up going
+        live in 2029 at a company that has run a CRM since 2017 — so the CRM
+        applications now lead it and this pins the ordering.
+        """
+        by_id = {c["id"]: c for c in _ALL_DEMO_CARDS}
+        today = date.today().isoformat()
+        late = []
+        for r in DEMO_RELATIONS:
+            if r["type"] != "relAppToBC":
+                continue
+            if (r.get("attributes") or {}).get("supportType") != "leading":
+                continue
+            app, cap = by_id.get(r["source_id"]), by_id.get(r["target_id"])
+            if not app or not cap:
+                continue
+            app_live = (app.get("lifecycle") or {}).get("active")
+            cap_live = (cap.get("lifecycle") or {}).get("active")
+            # Only against an app that is ALREADY live: a capability may well
+            # predate a future application built to lead it.
+            if app_live and cap_live and app_live <= today and cap_live > app_live:
+                late.append(f"{cap['name']} ({cap_live}) after {app['name']} ({app_live})")
+        assert not late, f"capabilities arriving after the app leading them: {late}"
+
     def test_every_application_supports_a_capability(self):
         cap_ids = {c["id"] for c in _ALL_DEMO_CARDS if c["type"] == "BusinessCapability"}
         supported = {r["source_id"] for r in DEMO_RELATIONS if r["target_id"] in cap_ids}
@@ -927,6 +954,39 @@ class TestDemoLifecycles:
         ]
         assert not broken, f"cards retiring at or before their start: {broken}"
 
+    def test_nothing_ends_without_having_been_active(self):
+        """A card with an end and no start retires on the timeline having never
+        gone live: the retirement mark has no arrival mark to answer it, and the
+        card's own lifecycle bar starts nowhere. Four initiatives carried only a
+        plan date and were stamped with an endOfLife derived from their end
+        date, which is exactly this.
+        """
+        broken = [
+            (c["type"], c["name"], c["lifecycle"])
+            for c in _ALL_DEMO_CARDS
+            for lc in [c.get("lifecycle") or {}]
+            if (lc.get("endOfLife") or lc.get("phaseOut")) and not lc.get("active")
+        ]
+        assert not broken, f"cards that end without ever being active: {broken}"
+
+    def test_lifecycle_phases_run_forwards(self):
+        """plan -> phaseIn -> active -> phaseOut -> endOfLife, non-decreasing.
+
+        Catches the class of bug where a lifecycle mixes the two date helpers:
+        `_in_months(6)` overtakes `_in_years(1)` every second half of the year,
+        so the data was correct in spring and backwards in autumn depending
+        only on the day the demo happened to be seeded.
+        """
+        phases = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"]
+        broken = []
+        for c in _ALL_DEMO_CARDS:
+            lc = {k: v for k, v in (c.get("lifecycle") or {}).items() if v}
+            dated = [(p, lc[p]) for p in phases if p in lc]
+            for (p1, v1), (p2, v2) in zip(dated, dated[1:]):
+                if v2 < v1:
+                    broken.append(f"{c['name']}: {p1}={v1} after {p2}={v2}")
+        assert not broken, f"lifecycles running backwards: {broken}"
+
     def test_it_components_do_not_all_retire_on_one_day(self):
         """They used to share a single hard-coded end date, which drew one
         enormous mark on the timeline — and a literal that would go stale."""
@@ -936,6 +996,19 @@ class TestDemoLifecycles:
             if (c.get("lifecycle") or {}).get("endOfLife")
         ]
         assert len(set(ends)) >= 5, f"IT component end dates cluster on {set(ends)}"
+
+    def test_it_components_do_not_all_go_live_on_one_day(self):
+        """The mirror of the retirement spread. 28 components shared a single
+        hard-coded go-live date, which the timeline draws as ONE mark — and a
+        mark standing for 28 cards swallows any arrival merged into it, so a
+        date set by hand on a nearby card looks as though it were never marked.
+        """
+        actives = [
+            (c.get("lifecycle") or {}).get("active")
+            for c in IT_COMPONENTS
+            if (c.get("lifecycle") or {}).get("active")
+        ]
+        assert len(set(actives)) >= 5, f"IT component go-live dates cluster on {set(actives)}"
 
     def test_enough_of_the_landscape_can_retire(self):
         """Time travel needs something to remove. Two thirds of the demo used

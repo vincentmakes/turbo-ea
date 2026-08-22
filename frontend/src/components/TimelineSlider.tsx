@@ -490,7 +490,16 @@ export default function TimelineSlider({
                   parts.push(t("timelineSlider.milestoneActivating", { count: m.activating }));
                 if (m.disappearing)
                   parts.push(t("timelineSlider.milestoneDisappearing", { count: m.disappearing }));
-                const summary = `${fmtFull(m.value)} — ${parts.join(" · ")}`;
+                // Marks closer together than MIN_MILESTONE_SPACING_PX merge,
+                // so one mark can stand for several dates. Say the span when
+                // it does: stating a single date made a merged neighbour look
+                // unmarked, which is how a card whose arrival was absorbed
+                // into a busy mark reads as having no go-live mark at all.
+                const when =
+                  m.spanEnd > m.value
+                    ? `${fmtFull(m.value)} – ${fmtFull(m.spanEnd)}`
+                    : fmtFull(m.value);
+                const summary = `${when} — ${parts.join(" · ")}`;
                 // Past transitions render exactly like upcoming ones. A stateful
                 // RETIRED/UPCOMING badge needs its mark whichever side of today
                 // it falls on, and muting the past ones made every mark in a

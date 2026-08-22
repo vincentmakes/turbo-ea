@@ -920,7 +920,11 @@ BUSINESS_CAPABILITIES = [
         parent="bc_crm",
         desc="One conversation across web, portal, email, phone and partner channels.",
         attrs={"capabilityLevel": "L2", "strategicImportance": "critical", "maturity": "initial"},
-        lifecycle={"plan": _in_years(-1), "phaseIn": _in_months(-3), "active": _in_months(6)},
+        lifecycle={
+            "plan": _in_years(-1),
+            "phaseIn": _in_years(0, 6, 1),
+            "active": _in_years(1, 2, 1),
+        },
     ),
     _fs(
         "bc_marketing_automation",
@@ -929,7 +933,11 @@ BUSINESS_CAPABILITIES = [
         parent="bc_crm",
         desc="Behaviour-triggered journeys and generated content, run without a campaign manager.",
         attrs={"capabilityLevel": "L2", "strategicImportance": "high", "maturity": "initial"},
-        lifecycle={"plan": _in_months(6), "phaseIn": _in_years(1), "active": _in_years(1, 7, 1)},
+        lifecycle={
+            "plan": _in_years(0, 10, 1),
+            "phaseIn": _in_years(1),
+            "active": _in_years(1, 7, 1),
+        },
     ),
     _fs(
         "bc_conversational_ai",
@@ -2151,7 +2159,11 @@ APPLICATIONS = [
             "productName": "Service Cloud Digital Engagement",
             "commercialApplication": True,
         },
-        lifecycle={"plan": _in_years(-1), "phaseIn": _in_months(-3), "active": _in_months(6)},
+        lifecycle={
+            "plan": _in_years(-1),
+            "phaseIn": _in_years(0, 6, 1),
+            "active": _in_years(1, 2, 1),
+        },
     ),
     _fs(
         "app_marketing_ai",
@@ -2170,7 +2182,11 @@ APPLICATIONS = [
             "numberOfUsers": 30,
             "commercialApplication": True,
         },
-        lifecycle={"plan": _in_months(6), "phaseIn": _in_years(1), "active": _in_years(1, 7, 1)},
+        lifecycle={
+            "plan": _in_years(0, 10, 1),
+            "phaseIn": _in_years(1),
+            "active": _in_years(1, 7, 1),
+        },
     ),
     _fs(
         "app_ai_sdr",
@@ -2280,7 +2296,7 @@ APPLICATIONS = [
             "commercialApplication": True,
         },
         lifecycle={
-            "plan": _in_months(6),
+            "plan": _in_years(0, 10, 1),
             "phaseIn": _in_years(1),
             "active": _in_years(1, 7, 1),
         },
@@ -2689,7 +2705,7 @@ IT_COMPONENTS = [
             "hasAiFeatures": True,
             "costTotalAnnual": 96000,
         },
-        lifecycle={"phaseIn": _in_months(6), "active": _in_years(1)},
+        lifecycle={"phaseIn": _in_years(0, 10, 1), "active": _in_years(1)},
     ),
     _fs(
         "itc_vector_store",
@@ -2755,34 +2771,39 @@ IT_COMPONENTS = [
 ]
 
 # Default lifecycle for IT Components — every component has been in production
-# for several years, is currently active, and has a vendor-style end-of-life
+# for a few years, is currently active, and has a vendor-style end-of-life
 # planned several years out. Per-card overrides remain possible via _fs().
 # Drives the Technology Lifecycle report (`/reports/lifecycle?type=ITComponent`)
 # and gives the demo a populated timeline out of the box.
-_ITC_DEFAULT_LIFECYCLE = {
-    "phaseIn": "2022-06-01",
-    "active": "2023-01-01",
-    "phaseOut": "2028-06-01",
-    # "endOfLife", not "eol": the lifecycle phase keys are plan / phaseIn /
-    # active / phaseOut / endOfLife everywhere (seed.py, lifecycle.py,
-    # LifecycleBadge). "eol" is a card-detail SECTION key — an unrecognised
-    # lifecycle key meant no IT Component ever reached end of life, in the
-    # Lifecycle report or in the Dependencies report's time travel.
-    "endOfLife": "2030-12-31",
-}
+#
+# Every date is derived per component, never shared. The literals that used to
+# live here put 28 components on ONE go-live date and 25 on one end date, which
+# the Dependencies timeline draws as a single mark — and a mark standing for 28
+# cards swallows any individual arrival beside it, so a date set by hand on a
+# neighbouring card looks as though it were never marked at all. Keyed off the
+# component name so a component keeps its dates across reseeds; the month comes
+# off a SEPARATE hash, since deriving it from the year bucket would only
+# correlate the two and spread nothing.
+#
+# The end key is "endOfLife", not "eol": the lifecycle phase keys are plan /
+# phaseIn / active / phaseOut / endOfLife everywhere (seed.py, lifecycle.py,
+# LifecycleBadge). "eol" is a card-detail SECTION key — an unrecognised
+# lifecycle key meant no IT Component ever reached end of life, in the
+# Lifecycle report or in the Dependencies report's time travel.
 for _c in IT_COMPONENTS:
     if not _c.get("lifecycle"):
-        # Spread, not the shared literal: every component used to phase out on
-        # 2028-06-01 and die on 2030-12-31, so the Dependencies timeline drew
-        # one enormous mark on a date that would also go stale. Keyed off the
-        # ref so a given component keeps its dates across reseeds.
         _bucket = zlib.crc32(_c["name"].encode()) % 7
+        _month = 1 + zlib.crc32(f"{_c['name']}:month".encode()) % 12
+        # In production between two and five years ago, phased in over the year
+        # before that — a whole year apart, so the two can never cross.
+        _live_year = -(2 + zlib.crc32(f"{_c['name']}:live".encode()) % 4)
         _c["lifecycle"] = {
-            "phaseIn": _ITC_DEFAULT_LIFECYCLE["phaseIn"],
-            "active": _ITC_DEFAULT_LIFECYCLE["active"],
-            "phaseOut": _in_years(_bucket, 6, 1),
-            "endOfLife": _in_years(1 + _bucket, 12, 31),
+            "phaseIn": _in_years(_live_year - 1, _month, 1),
+            "active": _in_years(_live_year, _month, 1),
+            "phaseOut": _in_years(_bucket, _month, 1),
+            "endOfLife": _in_years(1 + _bucket, _month, 28),
         }
+
 
 # ── Interfaces ────────────────────────────────────────────────────
 INTERFACES = [
@@ -3041,7 +3062,7 @@ INTERFACES = [
         subtype="api",
         desc="Every sales-side AI feature calls the model estate through the shared gateway.",
         attrs={"frequency": "realTime", "dataFormat": "JSON", "protocol": "HTTPS"},
-        lifecycle={"phaseIn": _in_months(6), "active": _in_years(1)},
+        lifecycle={"phaseIn": _in_years(0, 10, 1), "active": _in_years(1)},
     ),
     # ── Sales Growth transformation story ────────────────────────
     _fs(
@@ -3698,7 +3719,7 @@ INITIATIVES = [
             "startDate": "2025-06-01",
             "endDate": "2026-09-30",
         },
-        lifecycle={"phaseIn": "2025-06-01"},
+        lifecycle={"phaseIn": "2025-03-01", "active": "2025-06-01"},
     ),
     _fs(
         "init_zero_trust",
@@ -3715,7 +3736,7 @@ INITIATIVES = [
             "startDate": "2025-09-01",
             "endDate": "2027-06-30",
         },
-        lifecycle={"plan": "2025-06-01"},
+        lifecycle={"plan": "2025-06-01", "active": "2025-09-01"},
     ),
     # ── Go-to-market maturity story ──────────────────────────────
     # One programme per era, so the delivery side of the canvas moves with the
@@ -3785,12 +3806,13 @@ INITIATIVES = [
             "effort": "high",
             "costBudget": 2400000,
             "costActual": 180000,
-            "startDate": _in_months(6),
+            "startDate": _in_years(1),
             "endDate": _in_years(3, 6, 30),
         },
         lifecycle={
-            "plan": _in_months(3),
-            "phaseIn": _in_months(6),
+            "plan": _in_years(0, 10, 1),
+            "phaseIn": _in_years(1),
+            "active": _in_years(1, 4, 1),
             "endOfLife": _in_years(3, 6, 30),
         },
     ),
@@ -3852,7 +3874,11 @@ INITIATIVES = [
             "startDate": _in_years(1),
             "endDate": _in_years(2, 12, 31),
         },
-        lifecycle={"plan": _in_months(6), "phaseIn": _in_years(1)},
+        lifecycle={
+            "plan": _in_years(0, 9, 1),
+            "phaseIn": _in_years(1),
+            "active": _in_years(1, 5, 1),
+        },
     ),
     _fs(
         "init_partner_channel",
@@ -4745,6 +4771,12 @@ RELATIONS = [
     _rel("relBizCtxToBC", "bctx_otc", "bc_digital_commerce"),
     # Wave 1 — the CRM the company outgrew, gone two years ago.
     _rel("relAppSuccessor", "app_sf_sales", "app_salestrack"),
+    # The CRM capability itself, led by whichever CRM is current. Without these
+    # bc_crm had no application at all, so the clamp below had nothing to bite
+    # on and the derived pass handed it a random future start — a company
+    # running a CRM since 2017 acquiring the *capability* in 2029.
+    _rel("relAppToBC", "app_salestrack", "bc_crm", {"supportType": "leading"}),
+    _rel("relAppToBC", "app_sf_sales", "bc_crm", {"supportType": "leading"}),
     _rel("relAppToBC", "app_salestrack", "bc_lead_mgmt", {"supportType": "supporting"}),
     _rel("relAppToBC", "app_salestrack", "bc_opp_mgmt", {"supportType": "supporting"}),
     _rel("relOrgToApp", "org_sales", "app_salestrack", {"usageType": "owner"}),
@@ -5133,7 +5165,10 @@ def _apply_derived_lifecycles() -> None:
         ref = u2r[app["id"]]
         # Eliminate/migrate go in the next few years, tolerated ones later.
         base = 1 if time_model in ("eliminate", "migrate") else 4
-        end = _in_years(base + _spread(ref, 3), 6 if _spread(ref, 2) else 12, 30)
+        # Spread across the calendar, not onto two month-ends: a dozen cards
+        # sharing one date collapse into a single timeline mark, and an arrival
+        # the user is looking for disappears into it.
+        end = _in_years(base + _spread(ref, 3), 1 + _spread(ref + ":m", 12), 28)
         if end <= lc["active"]:
             continue
         app["lifecycle"] = {
@@ -5167,12 +5202,30 @@ def _apply_derived_lifecycles() -> None:
         iface["lifecycle"] = lc
 
     # --- Initiatives: a delivery that finished is no longer running
+    #
+    # The start comes first, and an end is never stamped without one. This used
+    # to fall back to `phaseIn` / `plan` for the start, so an initiative that
+    # carried only a plan date got an endOfLife and no `active` at all — the
+    # timeline retired a card that had never gone live, and the retirement mark
+    # had no arrival mark to answer it. An initiative already publishes the date
+    # it started; that is the honest source for the missing phase.
     for init in INITIATIVES:
         lc = lifecycle_of(init)
+        attrs = init.get("attributes") or {}
+        start_date = attrs.get("startDate")
+        if not lc.get("active") and start_date:
+            # Earlier phases move with it: a plan or phase-in left after the
+            # derived start would read backwards on the card's own timeline.
+            lc = {
+                **{k: min(v, start_date) for k, v in lc.items() if k in ("plan", "phaseIn")},
+                **{k: v for k, v in lc.items() if k not in ("plan", "phaseIn")},
+                "active": start_date,
+            }
+            init["lifecycle"] = lc
         if lc.get("endOfLife"):
             continue
-        end = (init.get("attributes") or {}).get("endDate")
-        start = lc.get("active") or lc.get("phaseIn") or lc.get("plan")
+        end = attrs.get("endDate")
+        start = lc.get("active")
         if end and start and end > start:
             init["lifecycle"] = {**lc, "endOfLife": end}
 
@@ -5217,17 +5270,24 @@ def _apply_derived_lifecycles() -> None:
             # Half stay dateless: a long-standing capability has no "start".
             continue
         first_app = live_app_of_cap.get(cap["id"])
+        # Every derived capability used to land on 1 January or 1 July, piling a
+        # dozen of them onto one timeline mark. The month is spread off the same
+        # ref so a capability keeps its date across reseeds.
+        month = 1 + _spread(ref + ":m", 12)
         if bucket == 9 and not first_app:
             # A few arrive during the plan horizon — but only where no
             # application already implements them. A capability that switches on
             # years after the apps supporting it is nonsense, and the
             # Dependencies canvas shows the two side by side.
+            live_year = 1 + _spread(ref, 3)
             cap["lifecycle"] = {
-                "plan": _in_years(_spread(ref, 2)),
-                "active": _in_years(1 + _spread(ref, 3), 7, 1),
+                # A year of planning ahead of it, so plan can never overtake
+                # active however the buckets fall.
+                "plan": _in_years(live_year - 1, month, 1),
+                "active": _in_years(live_year, month, 1),
             }
         else:
-            started = _in_years(-(4 + _spread(ref, 8)))
+            started = _in_years(-(4 + _spread(ref, 8)), month, 1)
             # Never later than the first application that implements it.
             cap["lifecycle"] = {"active": min(started, first_app) if first_app else started}
 

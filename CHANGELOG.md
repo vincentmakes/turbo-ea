@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.76.2] - 2026-08-22
+
+### Fixed
+
+- Demo dataset: initiatives that retired on the timeline having never gone live. Four carried a plan or phase-in date and an end date but no active date, because the end was derived from the initiative's own end date while the start fell back to whatever earlier phase existed. An initiative's start date now supplies the missing active phase, and an end is never derived for a card that has no start.
+- Demo dataset: lifecycle phases that ran backwards — a plan date landing after its phase-in, or a phase-in after its go-live — in six cards of the go-to-market story. The dates mixed a months-from-today helper with a whole-years one, so the demo was correct when seeded in spring and backwards when seeded in autumn.
+- Demo dataset: the Customer Relationship Management capability went live in 2029 at a company that has run a CRM since 2017. No application was linked to it, so it fell through to a random future date; both CRM applications now lead it and it starts when the first one did.
+- Demo dataset: dates no longer pile up on a handful of days. 28 IT components shared one go-live date and 25 shared one end date, and derived capability dates all landed on 1 January or 1 July — each of which the timeline draws as a single mark. A mark standing for 28 cards also swallows any nearby arrival, so a date set by hand on a neighbouring card could look as though it were never marked at all.
+- Dependencies report: a transition mark that merges several nearby dates now names the span it covers ("1 Apr 2027 – 1 Jul 2027") instead of only its earliest date, so a change absorbed into a crowded mark can be found rather than appearing unmarked.
+
 ## [2.76.1] - 2026-08-22
 
 ### Fixed

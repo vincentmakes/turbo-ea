@@ -216,6 +216,38 @@ describe("TimelineSlider step-through", () => {
     expect(onMilestoneClick).toHaveBeenCalledWith(GO_LIVE, SECOND);
   });
 
+  it("names the span it covers when a mark stands for several dates", async () => {
+    // A merged mark used to state its earliest date and nothing else, so a
+    // change absorbed into a busy one looked unmarked — the report of "I set an
+    // active date and got no go-live mark" was an arrival merged into a mark
+    // three months away, with 28 cards on it.
+    const SECOND = GO_LIVE + 3 * 86_400_000;
+    render(
+      <TimelineSlider
+        value={TODAY}
+        onChange={vi.fn()}
+        dateRange={{ min: ms("2020-01-01"), max: ms("2030-01-01") }}
+        yearMarks={[]}
+        todayMs={TODAY}
+        milestones={[
+          { value: GO_LIVE, activating: 1, disappearing: 0 },
+          { value: SECOND, activating: 0, disappearing: 1 },
+        ]}
+      />,
+    );
+
+    const mark = screen.getByRole("button", { name: /Jump to this change/i });
+    expect(mark).toHaveAccessibleName(/Mar 1, 2027 – Mar 4, 2027/);
+    expect(mark).toHaveAccessibleName(/1 card goes live/);
+    expect(mark).toHaveAccessibleName(/1 card retires/);
+  });
+
+  it("names a single date when a mark stands for one", () => {
+    renderSlider(TODAY);
+    const marks = screen.getAllByRole("button", { name: /Jump to this change/i });
+    expect(marks[0]).toHaveAccessibleName(/^Mar 1, 2027 —/);
+  });
+
   it("still works as plain navigation when no consumer wants the spotlight", async () => {
     const onChange = vi.fn();
     renderSlider(TODAY, { onChange });
