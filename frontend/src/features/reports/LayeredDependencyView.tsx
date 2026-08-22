@@ -230,7 +230,7 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         ? STATUS_COLORS.error
         : null;
   // Survives the date, but loses a dependency to the transformation.
-  const atRisk = data.atRisk === true;
+  const impacted = data.impacted === true;
   // The NEW badge owns the top-edge slot when both would render (TurboLens
   // proposed cards never carry changeState today, but precedence is explicit).
   const futureOnTop =
@@ -495,9 +495,9 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           )}
         </Box>
       )}
-      {/* At-risk badge: bottom-right, free unless the card is itself retired —
-          and a retired card is never at risk by definition. */}
-      {atRisk && changeState !== "retired" && (
+      {/* Impacted badge: bottom-right, free unless the card is itself retired —
+          and a retired card is never "impacted" by definition. */}
+      {impacted && changeState !== "retired" && (
         <Box sx={{
           position: "absolute", bottom: -8, right: 8,
           bgcolor: STATUS_COLORS.warning, color: "#fff",
@@ -505,7 +505,7 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           px: 0.7, py: 0.25, borderRadius: "4px",
           textTransform: "uppercase", letterSpacing: 0.5,
         }}>
-          {t("dependency.atRiskBadge")}
+          {t("dependency.impactedBadge")}
         </Box>
       )}
       {/* Long-press radial progress ring */}

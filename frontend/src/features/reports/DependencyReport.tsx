@@ -35,7 +35,7 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import TimelineSlider from "@/components/TimelineSlider";
 import {
   classifyTimelineChange,
-  computeAtRiskIds,
+  computeImpactedIds,
   computeTimelineMilestones,
   computeTimelineRange,
   isVisibleAtDate,
@@ -141,12 +141,12 @@ function tc(key: string, types: CardType[]): string {
 }
 
 /** Badge states the tree and table views render as compact chips. */
-type BadgeState = TimelineChange | "atRisk";
+type BadgeState = TimelineChange | "impacted";
 
 /** Accent per badge state — the same trio the LDV corner badges use. */
 function changeColor(state: BadgeState): string {
   if (state === "arriving" || state === "planned") return TIMELINE_COLORS.future;
-  if (state === "atRisk") return STATUS_COLORS.warning;
+  if (state === "impacted") return STATUS_COLORS.warning;
   return STATUS_COLORS.error;
 }
 
@@ -154,7 +154,7 @@ const BADGE_LABEL_KEY: Record<BadgeState, string> = {
   arriving: "dependency.arrivingBadge",
   retired: "dependency.retiredBadge",
   planned: "dependency.plannedBadge",
-  atRisk: "dependency.atRiskBadge",
+  impacted: "dependency.impactedBadge",
 };
 
 /**
@@ -193,7 +193,7 @@ const CHANGE_LEGEND = [
   { key: "arriving", color: TIMELINE_COLORS.future, labelKey: "dependency.legendArriving" },
   { key: "planned", color: TIMELINE_COLORS.future, labelKey: "dependency.legendPlanned" },
   { key: "retired", color: STATUS_COLORS.error, labelKey: "dependency.legendRetired" },
-  { key: "atRisk", color: STATUS_COLORS.warning, labelKey: "dependency.legendAtRisk" },
+  { key: "impacted", color: STATUS_COLORS.warning, labelKey: "dependency.legendImpacted" },
 ] as const;
 
 function tl(key: string, types: CardType[], locale?: string): string {
@@ -679,8 +679,8 @@ export default function DependencyReport() {
     // Badge only the survivors whose severed dependency is NOT on the canvas —
     // a displayed ghost with dashed red edges already tells the story, and
     // badging every neighbour of a visible retiring card is spam.
-    const atRiskIds = computeAtRiskIds(rawNodes, rawEdges, timeline.todayMs, at, ids);
-    const visible = filtered.map((n) => (atRiskIds.has(n.id) ? { ...n, atRisk: true } : n));
+    const impactedIds = computeImpactedIds(rawNodes, rawEdges, timeline.todayMs, at, ids);
+    const visible = filtered.map((n) => (impactedIds.has(n.id) ? { ...n, impacted: true } : n));
     return {
       nodes: visible,
       edges: rawEdges.filter((e) => ids.has(e.source) && ids.has(e.target)),
@@ -874,7 +874,7 @@ export default function DependencyReport() {
   // would advertise a badge the user cannot see.
   const usedChangeStates = useMemo(() => {
     const set = new Set<string>(nodes.map((n) => n.changeState).filter(Boolean) as string[]);
-    if (nodes.some((n) => n.atRisk && n.changeState !== "retired")) set.add("atRisk");
+    if (nodes.some((n) => n.impacted && n.changeState !== "retired")) set.add("impacted");
     return set;
   }, [nodes]);
 
@@ -1522,8 +1522,8 @@ export default function DependencyReport() {
                       )}
 
                       {card.node.changeState && <ChangeBadge state={card.node.changeState} t={t} />}
-                      {card.node.atRisk && card.node.changeState !== "retired" && (
-                        <ChangeBadge state="atRisk" t={t} />
+                      {card.node.impacted && card.node.changeState !== "retired" && (
+                        <ChangeBadge state="impacted" t={t} />
                       )}
 
                       {/* Open in new tab */}
@@ -1821,8 +1821,8 @@ export default function DependencyReport() {
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                         {s?.name}
                         {s?.changeState && <ChangeBadge state={s.changeState} t={t} />}
-                        {s?.atRisk && s.changeState !== "retired" && (
-                          <ChangeBadge state="atRisk" t={t} />
+                        {s?.impacted && s.changeState !== "retired" && (
+                          <ChangeBadge state="impacted" t={t} />
                         )}
                       </Box>
                     </TableCell>
@@ -1844,8 +1844,8 @@ export default function DependencyReport() {
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                         {target?.name}
                         {target?.changeState && <ChangeBadge state={target.changeState} t={t} />}
-                        {target?.atRisk && target.changeState !== "retired" && (
-                          <ChangeBadge state="atRisk" t={t} />
+                        {target?.impacted && target.changeState !== "retired" && (
+                          <ChangeBadge state="impacted" t={t} />
                         )}
                       </Box>
                     </TableCell>

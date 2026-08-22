@@ -33,9 +33,9 @@ export interface GNode {
    *  the consumer is showing (set by the consumer — the view has no timeline of
    *  its own). Drives the "arriving"/"retiring" badge. */
   changeState?: TimelineChange;
-  /** Set by the consumer: this card survives the viewed date but is linked to
-   *  at least one card retired by then — it loses a dependency. */
-  atRisk?: boolean;
+  /** Set by the consumer: this card survives the viewed date but loses a
+   *  dependency to the transformation (linked to a card retired by then). */
+  impacted?: boolean;
   /** Whether this card has any child card in the full dataset (set by the
    *  consumer, which holds the whole graph). Drives the "has hidden children"
    *  hierarchy marker — the view only sees the visible slice, so it can't
@@ -125,7 +125,7 @@ export interface LdvNodeData {
   usedHandles?: string[];
   proposed?: boolean;
   changeState?: TimelineChange;
-  atRisk?: boolean;
+  impacted?: boolean;
   [key: string]: unknown;
 }
 
@@ -452,7 +452,7 @@ export function buildLdvFlow(
           category: gl.cat,
           proposed: nd.proposed,
           changeState: nd.changeState,
-          atRisk: nd.atRisk,
+          impacted: nd.impacted,
         } satisfies LdvNodeData,
         style: { width: LDV_NODE_W, height: LDV_NODE_H },
         draggable: false,

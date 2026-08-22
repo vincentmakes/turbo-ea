@@ -104,19 +104,19 @@ describe("buildLdvFlow", () => {
     expect(severedFlags).toContain(false);
   });
 
-  it("forwards atRisk onto node data", () => {
+  it("forwards impacted onto node data", () => {
     const nodes: GNode[] = [
-      { id: "risky", name: "Risky", type: "Application", atRisk: true },
+      { id: "risky", name: "Risky", type: "Application", impacted: true },
       { id: "fine", name: "Fine", type: "Application" },
     ];
     const result = buildLdvFlow(nodes, [], TYPES);
     const byId = new Map(
       result.nodes
         .filter((n) => n.type === "ldvNode")
-        .map((n) => [n.id, n.data as { atRisk?: boolean }]),
+        .map((n) => [n.id, n.data as { impacted?: boolean }]),
     );
-    expect(byId.get("risky")?.atRisk).toBe(true);
-    expect(byId.get("fine")?.atRisk).toBeUndefined();
+    expect(byId.get("risky")?.impacted).toBe(true);
+    expect(byId.get("fine")?.impacted).toBeUndefined();
   });
 
   it("forwards changeState and proposed onto node data", () => {

@@ -157,7 +157,7 @@ describe("DependencyReport time travel — persist retired cards", () => {
     expect(screen.getByText("RETIRED")).toBeInTheDocument();
     // The ghost is displayed, so its surviving dependent is NOT badged — the
     // dashed red edge (in chart view) already tells the story.
-    expect(screen.queryByText("AT RISK")).not.toBeInTheDocument();
+    expect(screen.queryByText("IMPACTED")).not.toBeInTheDocument();
   });
 
   it("un-toggling the switch removes retired cards and their relations", async () => {
@@ -175,17 +175,17 @@ describe("DependencyReport time travel — persist retired cards", () => {
     expect(screen.getByText("CRM Cloud")).toBeInTheDocument();
   });
 
-  it("badges the surviving dependent AT RISK once its severed dependency is hidden", async () => {
+  it("badges the surviving dependent IMPACTED once its severed dependency is hidden", async () => {
     renderReport();
     await screen.findByText("Legacy ERP");
 
     await userEvent.click(screen.getByRole("checkbox", { name: /Keep retired cards/ }));
 
     await waitFor(() => {
-      expect(screen.getByText("AT RISK")).toBeInTheDocument();
+      expect(screen.getByText("IMPACTED")).toBeInTheDocument();
     });
     // Only the direct dependent, not the whole chain.
-    expect(screen.getAllByText("AT RISK")).toHaveLength(1);
+    expect(screen.getAllByText("IMPACTED")).toHaveLength(1);
   });
 
   it("toggling back on restores the retired card and clears the badge", async () => {
@@ -197,7 +197,7 @@ describe("DependencyReport time travel — persist retired cards", () => {
 
     await userEvent.click(screen.getByRole("checkbox", { name: /Keep retired cards/ }));
     expect(await screen.findByText("Legacy ERP")).toBeInTheDocument();
-    expect(screen.queryByText("AT RISK")).not.toBeInTheDocument();
+    expect(screen.queryByText("IMPACTED")).not.toBeInTheDocument();
   });
 });
 

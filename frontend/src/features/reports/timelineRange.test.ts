@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   classifyTimelineChange,
-  computeAtRiskIds,
+  computeImpactedIds,
   computeTimelineMilestones,
   computeTimelineRange,
   isVisibleAtDate,
@@ -249,7 +249,7 @@ describe("computeTimelineMilestones", () => {
   });
 });
 
-describe("computeAtRiskIds", () => {
+describe("computeImpactedIds", () => {
   const at = ms("2028-06-01");
   const nodes = [
     // Retires inside the today→date window.
@@ -263,8 +263,8 @@ describe("computeAtRiskIds", () => {
   ];
   const NONE_SHOWN = new Set<string>();
 
-  it("flags survivors linked to a hidden window-retiring card, either direction", () => {
-    const atRisk = computeAtRiskIds(
+  it("flags survivors impacted by a hidden window-retiring card, either direction", () => {
+    const impacted = computeImpactedIds(
       nodes,
       [
         { source: "windowGone", target: "dependent" },
@@ -274,56 +274,56 @@ describe("computeAtRiskIds", () => {
       at,
       NONE_SHOWN,
     );
-    expect([...atRisk].sort()).toEqual(["dependent", "other"]);
+    expect([...impacted].sort()).toEqual(["dependent", "other"]);
   });
 
   it("does not badge when the retiring card is displayed — its ghost tells the story", () => {
-    const atRisk = computeAtRiskIds(
+    const impacted = computeImpactedIds(
       nodes,
       [{ source: "windowGone", target: "dependent" }],
       TODAY,
       at,
       new Set(["windowGone", "dependent"]),
     );
-    expect(atRisk.size).toBe(0);
+    expect(impacted.size).toBe(0);
   });
 
   it("ignores cards retired before today — a dependency lost years ago is history", () => {
-    const atRisk = computeAtRiskIds(
+    const impacted = computeImpactedIds(
       nodes,
       [{ source: "longGone", target: "dependent" }],
       TODAY,
       at,
       NONE_SHOWN,
     );
-    expect(atRisk.size).toBe(0);
+    expect(impacted.size).toBe(0);
   });
 
   it("never flags a card that is itself retired at the date", () => {
-    const atRisk = computeAtRiskIds(
+    const impacted = computeImpactedIds(
       nodes,
       [{ source: "windowGone", target: "alsoGone" }],
       TODAY,
       at,
       NONE_SHOWN,
     );
-    expect(atRisk.size).toBe(0);
+    expect(impacted.size).toBe(0);
   });
 
   it("flags nothing at today or in the past — no window, no transformation", () => {
     const edges = [{ source: "windowGone", target: "dependent" }];
-    expect(computeAtRiskIds(nodes, edges, TODAY, TODAY, NONE_SHOWN).size).toBe(0);
-    expect(computeAtRiskIds(nodes, edges, TODAY, ms("2020-01-01"), NONE_SHOWN).size).toBe(0);
+    expect(computeImpactedIds(nodes, edges, TODAY, TODAY, NONE_SHOWN).size).toBe(0);
+    expect(computeImpactedIds(nodes, edges, TODAY, ms("2020-01-01"), NONE_SHOWN).size).toBe(0);
   });
 
   it("ignores edges with an unknown endpoint", () => {
-    const atRisk = computeAtRiskIds(
+    const impacted = computeImpactedIds(
       nodes,
       [{ source: "windowGone", target: "elsewhere" }],
       TODAY,
       at,
       NONE_SHOWN,
     );
-    expect(atRisk.size).toBe(0);
+    expect(impacted.size).toBe(0);
   });
 });

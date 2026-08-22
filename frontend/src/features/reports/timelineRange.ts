@@ -182,13 +182,13 @@ export function computeTimelineMilestones(lifecycles: Lifecycle[]): TimelineMile
 }
 
 /**
- * Cards whose broken dependency would otherwise be INVISIBLE: linked to a card
- * that retires between today and the viewed date but is currently hidden
- * (persist toggled off). While the retired card is on the canvas — ghosted,
- * with dashed red edges — the story is already told and a badge on every
- * neighbour is pure spam: centre on a retiring card and the whole canvas
- * would light up amber. The badge exists to carry the information the hidden
- * ghost can no longer carry, nothing more.
+ * Cards IMPACTED by the transformation in a way that would otherwise be
+ * invisible: linked to a card that retires between today and the viewed date
+ * but is currently hidden (persist toggled off). While the retired card is on
+ * the canvas — ghosted, with dashed red edges — the story is already told and
+ * a badge on every neighbour is pure spam: centre on a retiring card and the
+ * whole canvas would light up amber. The badge exists to carry the
+ * information the hidden ghost can no longer carry, nothing more.
  *
  * Window-scoped on purpose: a dependency lost years before today is history,
  * not this transformation's impact — without the window, one long-dead hub
@@ -198,7 +198,7 @@ export function computeTimelineMilestones(lifecycles: Lifecycle[]): TimelineMile
  * everywhere else in the report. Structural parameter types (not GNode) so the
  * layout module can depend on this one without a cycle.
  */
-export function computeAtRiskIds(
+export function computeImpactedIds(
   nodes: { id: string; lifecycle?: Record<string, string> }[],
   edges: { source: string; target: string }[],
   todayMs: number,
@@ -221,10 +221,10 @@ export function computeAtRiskIds(
     const n = byId.get(id);
     return !!n && !isRetiredByDate(n.lifecycle, dateMs);
   };
-  const atRisk = new Set<string>();
+  const impacted = new Set<string>();
   for (const e of edges) {
-    if (severs(e.source) && survives(e.target)) atRisk.add(e.target);
-    if (severs(e.target) && survives(e.source)) atRisk.add(e.source);
+    if (severs(e.source) && survives(e.target)) impacted.add(e.target);
+    if (severs(e.target) && survives(e.source)) impacted.add(e.source);
   }
-  return atRisk;
+  return impacted;
 }
