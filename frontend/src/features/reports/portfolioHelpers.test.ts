@@ -306,10 +306,19 @@ describe("lifecycle date helpers", () => {
     expect(isAliveAtDate({ active: "not-a-date" }, at)).toBe(true);
   });
 
-  it("uses the earliest phase date as the birthday, whichever phase it is", () => {
+  it("uses the earliest START-phase date as the birthday", () => {
     expect(hasStartedByDate({ plan: "2027-01-01" }, at)).toBe(false);
     expect(hasStartedByDate({ plan: "2027-01-01", active: "2020-01-01" }, at)).toBe(true);
+  });
+
+  it("treats end-phase-only lifecycles as already started", () => {
+    // A card carrying nothing but phaseOut/endOfLife dates (the endoflife.date
+    // mass-link shape) must exist to be phasing out — its end date is not its
+    // birthday, or it would be invisible its entire life.
     expect(hasStartedByDate({ phaseOut: "2020-01-01" }, at)).toBe(true);
+    expect(hasStartedByDate({ endOfLife: "2030-01-01" }, at)).toBe(true);
+    expect(isAliveAtDate({ endOfLife: "2030-01-01" }, at)).toBe(true);
+    expect(isAliveAtDate({ endOfLife: "2030-01-01" }, ms("2031-01-01"))).toBe(false);
   });
 
   it("counts a card retired exactly on the date as retired", () => {

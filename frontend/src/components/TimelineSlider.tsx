@@ -239,6 +239,9 @@ export default function TimelineSlider({
             color: accent,
             height: 6,
             transition: "color 0.3s",
+            ...(milestoneClusters.length > 0 && {
+              "&.MuiSlider-marked": { marginBottom: 0 },
+            }),
             "& .MuiSlider-rail": {
               height: 6,
               borderRadius: 3,
@@ -289,7 +292,7 @@ export default function TimelineSlider({
             track's coordinate space, so a mark lines up with the thumb that
             lands on it. */}
         {milestoneClusters.length > 0 && (
-          <Box sx={{ position: "relative", height: 18, mt: 1.5 }}>
+          <Box sx={{ position: "relative", height: 18, mt: 1.25 }}>
             {milestoneClusters.map((m) => {
               const pct = ((m.value - cappedRange.min) / (cappedRange.max - cappedRange.min)) * 100;
               const parts: string[] = [];

@@ -226,7 +226,7 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   const changeColor =
     changeState === "arriving"
       ? TIMELINE_COLORS.future
-      : changeState === "retiring"
+      : changeState === "retired"
         ? STATUS_COLORS.error
         : null;
 
@@ -351,7 +351,7 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
             : `1.5px solid ${accent}`,
         bgcolor: data.proposed ? (isDark ? `rgba(${r},${g},${b},0.06)` : `rgba(${r},${g},${b},0.06)`) : bg,
         // A card on its way out is still readable, just visibly on the way out.
-        opacity: changeState === "retiring" ? 0.55 : 1,
+        opacity: changeState === "retired" ? 0.55 : 1,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -466,7 +466,7 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           px: 0.7, py: 0.25, borderRadius: "4px",
           textTransform: "uppercase", letterSpacing: 0.5,
         }}>
-          {t(changeState === "arriving" ? "dependency.arrivingBadge" : "dependency.retiringBadge")}
+          {t(changeState === "arriving" ? "dependency.arrivingBadge" : "dependency.retiredBadge")}
         </Box>
       )}
       {/* Long-press radial progress ring */}

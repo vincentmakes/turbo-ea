@@ -9,13 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Dependencies report: a **Time Travel** slider, like the Portfolio and Capability Map reports. Drag a date and the graph shows the landscape as it stands then — cards that have not started yet are hidden. Looking forward, cards that arrive in the meantime are outlined and badged **PLANNED** and cards that retire are badged **RETIRING**, so a planned transformation reads straight off the diagram instead of having to be inferred by dragging back and forth. The slider applies to the Layered Dependency View, the tree view and the table, each card's lifecycle dot reflects the selected date, and the date is saved with the report.
-- Dependencies report: a **Show retiring cards** switch in the report toolbar, on by default, keeps cards that retire before the selected date on the diagram — faded and badged — so you can see what a transformation removes as well as what it leaves. Turn it off to show only the end state.
-- Dependencies report: the timeline is marked with every date on which cards on the displayed diagram enter or leave, coloured by direction and aggregated where they crowd together. Click a mark to jump the slider straight to that change, instead of hunting for it by dragging.
+- Dependencies report: a **Time Travel** slider, like the Portfolio and Capability Map reports. Drag a date and the graph shows the landscape as it stands then — cards that have not started yet are hidden. Looking forward, cards that arrive in the meantime are outlined and badged **PLANNED** and retired cards are badged **RETIRED**, so a planned transformation reads straight off the diagram instead of having to be inferred by dragging back and forth. The slider applies to the Layered Dependency View, the tree view and the table, each card's lifecycle dot reflects the selected date, and the date is saved with the report.
+- Dependencies report: a **Persist retired cards** switch in the report toolbar, on by default, keeps retired cards on the diagram — faded and badged **RETIRED** — at any date after their retirement, so a transformation shows what it removes as well as what it leaves. Turn it off to show only the cards alive on the selected date.
+- Dependencies report: the timeline is marked with every upcoming date on which cards on the displayed diagram enter or leave, coloured by direction and aggregated where they crowd together. Click a mark to jump the slider straight to that change, instead of hunting for it by dragging. The timeline appears once a card is centred (or on the table view), where there is a diagram for it to act on.
 
 ### Changed
 
 - Dependencies report: the graph now reflects lifecycle dates at all times, matching the Portfolio and Capability Map reports — cards whose lifecycle only starts in the future no longer appear at today's date.
+
+### Fixed
+
+- A card carrying only end-phase lifecycle dates (e.g. an IT component whose `endOfLife` was set by the End-of-Life mass-link, with no plan/active date) was treated as "born" at its own death — invisible for its entire life in the Portfolio, Capability Map and Dependencies reports. Start phases alone now determine when a card enters the landscape.
+- Dependencies report: the tree view fetched a type-filtered graph while the Layered Dependency View fetched everything, so switching views with a type filter active dropped every cross-type neighbour — a card whose relations are all cross-type rendered alone. Both views now share one unfiltered graph; the type filter scopes the card picker instead.
+- Dependencies report: the card picker's "All" filter chip showed the raw translation key instead of its label.
 
 ## [2.75.0] - 2026-08-21
 

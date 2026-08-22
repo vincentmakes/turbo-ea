@@ -1,6 +1,8 @@
 import {
+  earliestStartDate,
   hasStartedByDate,
   isAliveAtDate,
+  isRetiredByDate,
   LIFECYCLE_PHASES,
   parseDate,
 } from "./portfolioHelpers";
@@ -66,58 +68,48 @@ export function computeTimelineRange(
   return { dateRange: { min: minD, max: maxD }, yearMarks, hasLifecycleData: true };
 }
 
-/** How a card's presence in the landscape changes between today and the selected date. */
-export type TimelineChange = "arriving" | "retiring";
+/** How a card presents at the selected date, relative to the timeline. */
+export type TimelineChange = "arriving" | "retired";
 
 /**
- * Classify a card against a *future* target date, so a dependency view can show
- * the planned transformation rather than just its end state:
- *  - "arriving" — not in the landscape today, but in it at `dateMs`.
- *  - "retiring" — in the landscape today, retired by `dateMs`.
- *
- * Returns null for a past or same-day target: travelling backwards shows the
- * landscape as it stood, and nothing about the past is a plan, so badging it
- * "arriving"/"retiring" would read backwards.
+ * Classify a card at a target date:
+ *  - "retired" — the card's end of life is at or before `dateMs`, whenever that
+ *    was. Retirement is a state, not a window: a card dead since 2015 is
+ *    retired at 2026 and at 2035 alike, so a persisted retired card stays
+ *    ghosted and badged at every later date.
+ *  - "arriving" — not in the landscape today, but in it at a *future* `dateMs`.
+ *    Arrival stays window-based and forward-only: nothing about the past is a
+ *    plan, so travelling backwards badges nothing as arriving.
  */
 export function classifyTimelineChange(
   lifecycle: Lifecycle,
   todayMs: number,
   dateMs: number,
 ): TimelineChange | null {
-  if (dateMs <= todayMs) return null;
-  const aliveToday = isAliveAtDate(lifecycle, todayMs);
-  const aliveThen = isAliveAtDate(lifecycle, dateMs);
-  if (!aliveToday && aliveThen) return "arriving";
-  if (aliveToday && !aliveThen) return "retiring";
+  if (isRetiredByDate(lifecycle, dateMs)) return "retired";
+  if (dateMs > todayMs && !isAliveAtDate(lifecycle, todayMs) && isAliveAtDate(lifecycle, dateMs))
+    return "arriving";
   return null;
 }
 
 export interface TimelineVisibility {
-  /** Keep cards that retire between today and the viewed date. On by default:
-   *  what a transformation *removes* is half of what the view is for. */
-  showRetiring: boolean;
+  /** Keep retired cards on the diagram — ghosted and badged — at any date after
+   *  their retirement. On by default: what a transformation *removes* is half
+   *  of what the view is for. Off shows only the cards alive on the date. */
+  persistRetired: boolean;
 }
 
 /**
- * Whether a card belongs on a graph drawn as of `dateMs`, for the purposes of
- * time travel only.
- *
- * Deliberately narrow: it answers "has this started yet" and "did the user ask
- * to hide what retires in this window", and nothing else. Whether a card that
- * was *already* end of life before the window opened is worth drawing is a
- * different question, owned by whichever view is rendering (the Layered
- * Dependency View has its own toggle for it) — so this must not filter on
- * end-of-life status or the two would fight.
+ * Whether a card belongs on a graph drawn as of `dateMs`: it has started, and
+ * it is either still alive or the user asked retired cards to persist.
  */
 export function isVisibleAtDate(
   lifecycle: Lifecycle,
-  todayMs: number,
   dateMs: number,
-  { showRetiring }: TimelineVisibility,
+  { persistRetired }: TimelineVisibility,
 ): boolean {
   if (!hasStartedByDate(lifecycle, dateMs)) return false;
-  if (showRetiring) return true;
-  return classifyTimelineChange(lifecycle, todayMs, dateMs) !== "retiring";
+  return persistRetired || !isRetiredByDate(lifecycle, dateMs);
 }
 
 export interface TimelineMilestone {
@@ -134,15 +126,12 @@ export interface TimelineMilestone {
  * so a timeline can mark where the interesting moments are instead of leaving
  * the user to find them by dragging.
  *
- * The rule is derived from `isAliveAtDate` on purpose: a card enters when its
- * earliest lifecycle date arrives (the moment `hasStartedByDate` flips true) and
- * leaves on its `endOfLife`. Both sides compare with `<=` on the same epoch
- * values, so jumping the slider to a milestone lands on the first day the change
- * is *in effect* — the arriving card is present, the departing one is gone.
- *
- * A card whose end of life is at or before its earliest date is never alive at
- * all and contributes nothing: marking it would advertise an arrival and a
- * departure on a day it was never there.
+ * The rule is derived from the same helpers as the graph filter on purpose: a
+ * card enters when its earliest start-phase date arrives (the moment
+ * `hasStartedByDate` flips true) and leaves on its `endOfLife`. Both sides
+ * compare with `<=` on the same epoch values, so jumping the slider to a
+ * milestone lands on the first day the change is *in effect* — the arriving
+ * card is present, the departing one is retired.
  */
 export function computeTimelineMilestones(lifecycles: Lifecycle[]): TimelineMilestone[] {
   const byDate = new Map<number, TimelineMilestone>();
@@ -154,16 +143,15 @@ export function computeTimelineMilestones(lifecycles: Lifecycle[]): TimelineMile
 
   for (const lc of lifecycles) {
     if (!lc) continue;
-    const dates = LIFECYCLE_PHASES.map((phase) => parseDate(lc[phase])).filter(
-      (d): d is number => d != null,
-    );
-    if (dates.length === 0) continue;
-
-    const start = Math.min(...dates);
+    const start = earliestStartDate(lc);
     const eol = parseDate(lc.endOfLife);
-    if (eol != null && eol <= start) continue;
+    // Never alive: born at or after its own end of life — marking it would
+    // advertise an arrival and a departure on a day it was never there.
+    if (start != null && eol != null && eol <= start) continue;
 
-    bump(start, "appearing");
+    // A card with no start-phase date is treated as always present (same rule
+    // as hasStartedByDate), so only its retirement is a transition.
+    if (start != null) bump(start, "appearing");
     if (eol != null) bump(eol, "disappearing");
   }
 

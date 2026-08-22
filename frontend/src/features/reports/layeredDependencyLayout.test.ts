@@ -91,7 +91,7 @@ describe("buildLdvFlow", () => {
   it("forwards changeState and proposed onto node data", () => {
     const nodes: GNode[] = [
       { id: "new", name: "Arriving", type: "Application", changeState: "arriving" },
-      { id: "old", name: "Retiring", type: "Application", changeState: "retiring" },
+      { id: "old", name: "Retiring", type: "Application", changeState: "retired" },
       { id: "same", name: "Unchanged", type: "Application" },
     ];
     const result = buildLdvFlow(nodes, [], TYPES);
@@ -102,7 +102,7 @@ describe("buildLdvFlow", () => {
     );
 
     expect(byId.get("new")?.changeState).toBe("arriving");
-    expect(byId.get("old")?.changeState).toBe("retiring");
+    expect(byId.get("old")?.changeState).toBe("retired");
     expect(byId.get("same")?.changeState).toBeUndefined();
   });
 
@@ -493,7 +493,7 @@ describe("filterEndOfLifeNodes", () => {
     expect(filterEndOfLifeNodes(nodes, [], undefined, Date.now()).nodes).toHaveLength(1);
   });
 
-  it("keeps a node the consumer marked as retiring in the window it is showing", () => {
+  it("keeps a node the consumer marked as retired at the date it is showing", () => {
     // A card retiring inside a time-travel window IS end-of-life at the viewed
     // date — dropping it would delete exactly what the view exists to show.
     const nodes: GNode[] = [
@@ -502,7 +502,7 @@ describe("filterEndOfLifeNodes", () => {
         name: "On its way out",
         type: "Application",
         lifecycle: { active: "2000-01-01", endOfLife: PAST },
-        changeState: "retiring",
+        changeState: "retired",
       },
     ];
     expect(filterEndOfLifeNodes(nodes, []).nodes.map((n) => n.id)).toEqual(["going"]);

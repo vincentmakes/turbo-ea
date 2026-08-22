@@ -76,7 +76,7 @@ export function resolveRevealIds(
  * an endpoint. Three kinds of node are always kept, because each is something
  * the consumer put on the diagram on purpose and a generic filter has no
  * business second-guessing: the centered card (`centerId`), a proposed/NEW card,
- * and a card the consumer marked `changeState: "retiring"` — which is
+ * and a card the consumer marked `changeState: "retired"` — which is
  * end-of-life at the viewed date *by definition*, and is precisely what a
  * time-travelled view is trying to show.
  *
@@ -94,7 +94,7 @@ export function filterEndOfLifeNodes(
     (n) =>
       n.id === centerId ||
       n.proposed ||
-      n.changeState === "retiring" ||
+      n.changeState === "retired" ||
       getCurrentPhase(n.lifecycle, asOfMs) !== "endOfLife",
   );
   const ids = new Set(visible.map((n) => n.id));
