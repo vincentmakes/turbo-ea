@@ -179,6 +179,8 @@
   "dependency.persistRetiredHint": "Conserver sur le diagramme, estompées et marquées, les fiches retirées, à toute date postérieure à leur retrait. Désactivez pour n'afficher que les fiches actives à la date sélectionnée.",
   "dependency.previewPlanned": "Prévisualiser les fiches planifiées",
   "dependency.previewPlannedHint": "Afficher les fiches qui n'ont pas encore démarré — estompées et marquées — à toute date antérieure à leur démarrage, pour voir ce qui arrive. Désactivé, le paysage se limite à ce qui existe à la date sélectionnée.",
+  "dependency.showRelationLabels": "Afficher les libellés de relation",
+  "dependency.showRelationLabelsHint": "Afficher le verbe de chaque relation sur son trait (prend en charge, utilise, …). Désactivez-le pour un canevas plus lisible sur un paysage dense — les traits et leurs pointes de flèche montrent toujours ce qui est relié à quoi, et dans quel sens.",
   "dependency.showRelationValues": "Afficher les valeurs de relation",
   "dependency.showRelationValuesHint": "Lorsqu'une relation porte une valeur qualifiante (par ex. Type de support «Principal»), elle s'affiche à côté du libellé, comme prend en charge [Principal]. Les relations sans valeur restent inchangées.",
   "dependency.hierarchyContains": "contient",

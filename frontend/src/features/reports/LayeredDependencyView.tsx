@@ -203,10 +203,12 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   const r = parseInt(color.slice(1, 3), 16);
   const g = parseInt(color.slice(3, 5), 16);
   const b = parseInt(color.slice(5, 7), 16);
-  const mix = (c: number) => Math.round(c + (255 - c) * (isDark ? 0.92 : 0.88));
-  const bg = isDark
-    ? `rgba(${r},${g},${b},0.12)`
-    : `rgb(${mix(r)},${mix(g)},${mix(b)})`;
+  // The card's tint. In dark mode this used to BE the background — a 12% wash
+  // with nothing behind it, so the canvas grid and every edge crossing under a
+  // card showed straight through. The tint is now layered over an opaque
+  // `background.paper` (see `sx` below), which is what light mode already did
+  // by mixing toward white rather than going translucent.
+  const tint = isDark ? `rgba(${r},${g},${b},0.22)` : `rgba(${r},${g},${b},0.12)`;
 
   const name = data.name.length > 26 ? data.name.slice(0, 25) + "\u2026" : data.name;
 
@@ -223,6 +225,16 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   // Time-travel: how this card's presence changes between today and the date
   // being viewed. Dashes the border like `proposed` does, and badges the card.
   const changeState = data.changeState as TimelineChange | undefined;
+  // Which tint this card wears: arriving cards lean on the timeline's future
+  // colour rather than their type colour (glowing = coming, faded = going),
+  // proposed ones stay faint, everything else takes its type tint.
+  const cardTint =
+    changeState === "arriving"
+      ? `${TIMELINE_COLORS.future}${isDark ? "38" : "12"}`
+      : data.proposed
+        ? `rgba(${r},${g},${b},0.06)`
+        : tint;
+
   const changeColor =
     changeState === "arriving" || changeState === "planned"
       ? TIMELINE_COLORS.future
@@ -355,14 +367,12 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           : data.proposed
             ? `2px dashed ${accent}`
             : `1.5px solid ${accent}`,
-        bgcolor:
-          changeState === "arriving"
-            ? // Tint toward the timeline's future colour, not the type colour —
-              // glowing = coming, faded = going, readable at a glance.
-              `${TIMELINE_COLORS.future}${isDark ? "1f" : "12"}`
-            : data.proposed
-              ? (isDark ? `rgba(${r},${g},${b},0.06)` : `rgba(${r},${g},${b},0.06)`)
-              : bg,
+        // Opaque base + the tint as a layer on top: a card is a solid object,
+        // and anything showing through it reads as a rendering fault rather
+        // than as depth. `background-image` composites over `background-color`,
+        // so this needs no per-theme colour maths of its own.
+        bgcolor: "background.paper",
+        backgroundImage: `linear-gradient(${cardTint}, ${cardTint})`,
         ...(changeState === "arriving" && {
           boxShadow: `0 0 0 3px ${TIMELINE_COLORS.future}30`,
         }),
@@ -1589,6 +1599,11 @@ function LayeredDependencyInner({
       const cbs = getEdgeHoverCbs(e.id);
       return {
         ...e,
+        // Dropping the label here rather than in the builder keeps routing
+        // identical either way: the layout spreads colliding labels along
+        // their own paths, and edges should not move when the verbs are
+        // merely hidden.
+        ...(settings.showRelationLabels ? {} : { label: undefined }),
         data: {
           ...e.data,
           connectedToHovered: hoveredNode
@@ -1611,7 +1626,7 @@ function LayeredDependencyInner({
       result = [...notConn, ...conn];
     }
     return result;
-  }, [rfEdges, hoveredEdge, hoveredNode, highlightMode, getEdgeHoverCbs]);
+  }, [rfEdges, hoveredEdge, hoveredNode, highlightMode, getEdgeHoverCbs, settings.showRelationLabels]);
 
   // CSS-based dimming avoids recreating node objects (which causes flickering)
   const hoverStyle = useMemo(() => {
@@ -2050,6 +2065,11 @@ function LayeredDependencyInner({
               key: "showEndOfLife",
               label: t("dependency.showEndOfLife"),
               hint: t("dependency.showEndOfLifeHint"),
+            },
+            {
+              key: "showRelationLabels",
+              label: t("dependency.showRelationLabels"),
+              hint: t("dependency.showRelationLabelsHint"),
             },
             {
               key: "showRelationValues",

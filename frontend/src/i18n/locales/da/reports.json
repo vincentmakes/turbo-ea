@@ -179,6 +179,8 @@
   "dependency.persistRetiredHint": "Behold udfasede kort på diagrammet — nedtonede og mærkede — på enhver dato efter deres udfasning. Slå fra for kun at vise de kort, der er aktive på den valgte dato.",
   "dependency.previewPlanned": "Forhåndsvis planlagte kort",
   "dependency.previewPlannedHint": "Vis kort, der endnu ikke er startet — nedtonede og mærkede — på enhver dato før deres start, så du kan se, hvad der kommer. Slået fra begrænses landskabet til det, der findes på den valgte dato.",
+  "dependency.showRelationLabels": "Vis relationsetiketter",
+  "dependency.showRelationLabelsHint": "Vis hver relations udsagnsord på dens linje (understøtter, bruger, …). Slå det fra for et renere lærred i et tæt landskab — linjerne og deres pilespidser viser stadig, hvad der er forbundet med hvad, og i hvilken retning.",
   "dependency.showRelationValues": "Vis relationsværdier",
   "dependency.showRelationValuesHint": "Når en relation har en kvalificerende værdi (f.eks. Supporttype «Førende»), vises den ved siden af etiketten, som understøtter [Førende]. Relationer uden værdi er uændrede.",
   "dependency.hierarchyContains": "indeholder",

@@ -23,6 +23,9 @@ export interface LdvDisplaySettings {
   showHierarchyMarkers: boolean;
   /** Show related cards whose current lifecycle phase is End of Life. The centered card is always shown. */
   showEndOfLife: boolean;
+  /** Show the verb on each relation edge ("supports", "uses", …). Off leaves
+   *  the line and its arrowhead, which still carry the direction. */
+  showRelationLabels: boolean;
   /** Append a relation's single-select attribute value to its label (e.g. "supports [Leading]"). */
   showRelationValues: boolean;
   extraFields: string[];
@@ -36,6 +39,7 @@ export const LDV_DEFAULT_SETTINGS: LdvDisplaySettings = {
   showLifecycle: true,
   showHierarchyMarkers: true,
   showEndOfLife: false,
+  showRelationLabels: true,
   showRelationValues: true,
   extraFields: [],
   background: "dots",

@@ -179,6 +179,8 @@
   "dependency.persistRetiredHint": "Manter no diagrama, esmaecidos e rotulados, os cards desativados em qualquer data após a desativação. Desative para mostrar apenas os cards ativos na data selecionada.",
   "dependency.previewPlanned": "Pré-visualizar cards planejados",
   "dependency.previewPlannedHint": "Mostrar os cards que ainda não começaram — esmaecidos e rotulados — em qualquer data anterior ao seu início, para ver o que está por vir. Desativado, o panorama fica restrito ao que existe na data selecionada.",
+  "dependency.showRelationLabels": "Mostrar rótulos de relação",
+  "dependency.showRelationLabelsHint": "Mostrar o verbo de cada relação na sua linha (apoia, usa, …). Desative para uma tela mais limpa em um panorama denso — as linhas e suas pontas de seta continuam mostrando o que se conecta a quê, e em que direção.",
   "dependency.showRelationValues": "Mostrar valores de relação",
   "dependency.showRelationValuesHint": "Quando uma relação tem um valor qualificador (por ex. Tipo de suporte «Principal»), ele é mostrado ao lado do rótulo, como apoia [Principal]. Relações sem valor permanecem inalteradas.",
   "dependency.hierarchyContains": "contém",

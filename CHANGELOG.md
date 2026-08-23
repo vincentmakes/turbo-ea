@@ -5,10 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.76.1] - 2026-08-22
+## [2.77.0] - 2026-08-23
+
+### Added
+
+- Layered Dependency View: a **Show relationship labels** option in the Card display menu, on by default. Turn it off for a cleaner canvas on a dense landscape — the lines and their arrowheads still carry what connects to what and in which direction.
 
 ### Fixed
 
+- Layered Dependency View: cards were translucent in dark mode, so the canvas grid and every edge passing beneath one showed through it. The card-type tint now sits on an opaque background, as it already did in light mode.
 - Dependencies report: stepping between transition marks with the arrows beside the time-travel slider now spotlights the cards that change there, the same as clicking the mark — the canvas dims while they pulse, and a retiring card hidden by **Persist retired cards** is revealed for the pulse. The arrows moved the date but animated nothing, so the two ways of reaching the same change behaved differently.
 - Dependencies report: transition marks now read at a glance — one bar per mark, blue where cards only arrive, red where they only retire, purple where it does both, drawn wider when it merges several nearby dates and labelled with the span it covers ("1 Apr 2027 – 1 Jul 2027"). A crowded mark used to look exactly like a single-date one, so a change absorbed into it appeared unmarked.
 - Dependencies report: a card that goes live and retires within the same mark is now named on both sides of the pill row — once under the **+**, once under the **−** — and each pill spotlights the change it names. It was listed once as a retirement, which contradicted the mark above it, since that counts both.
