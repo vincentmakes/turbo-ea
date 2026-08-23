@@ -15,6 +15,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTranslation } from "react-i18next";
 import {
   Gantt,
@@ -106,7 +107,13 @@ function loadInitialViewMode(): ViewMode {
   } catch {
     /* localStorage unavailable */
   }
-  return ViewMode.Week;
+  // No stored preference. A phone-width viewport cannot show a useful Week
+  // scale (columnWidth 200 against ~180px of chart once the task list is
+  // subtracted), so start zoomed out. A stored choice always wins — this only
+  // moves the default. Raw innerWidth because this runs in a useState
+  // initializer, outside any hook (same posture as AppLayout's px queries).
+  const narrow = typeof window !== "undefined" && window.innerWidth < 900;
+  return narrow ? ViewMode.QuarterYear : ViewMode.Week;
 }
 
 /** Convert a Gantt task id ("task-uuid" / "wbs-uuid") to the API's
@@ -380,6 +387,7 @@ function getParentIds(wbsList: PpmWbs[], tasks: PpmTask[]): Set<string> {
 export default function PpmGanttTab({ initiativeId, card }: Props) {
   const { t } = useTranslation("ppm");
   const theme = useTheme();
+  const isNarrow = useMediaQuery(theme.breakpoints.down("md"));
 
   const [wbsList, setWbsList] = useState<PpmWbs[]>([]);
   const [tasks, setTasks] = useState<PpmTask[]>([]);
@@ -1192,44 +1200,66 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   }, [rowMeta]);
 
   const ganttColumns: Column[] = useMemo(
-    () => [
-      {
-        id: "title",
-        Cell: NameCell,
-        width: 200,
-        title: t("wbsTitle"),
-        canResize: true,
-      },
-      {
-        id: "completion",
-        Cell: CompletionCell,
-        width: 56,
-        title: "%",
-        canResize: false,
-      },
-      {
-        id: "assignee",
-        Cell: AssigneeCell,
-        width: 100,
-        title: t("wbsAssignee"),
-        canResize: true,
-      },
-      {
-        id: "start",
-        Cell: DateStartColumn,
-        width: 90,
-        title: t("startDate"),
-        canResize: true,
-      },
-      {
-        id: "end",
-        Cell: DateEndColumn,
-        width: 90,
-        title: t("endDate"),
-        canResize: true,
-      },
-    ],
-    [t, NameCell, CompletionCell, AssigneeCell],
+    () =>
+      // The full set is 200+56+100+90+90 = 536px of task list before the chart
+      // even starts, so a phone would render no timeline at all. Keep the two
+      // columns that identify a row and drop the rest; the dates and assignee
+      // are still on the bar tooltip and in the task dialog.
+      isNarrow
+        ? [
+            {
+              id: "title",
+              Cell: NameCell,
+              width: 150,
+              title: t("wbsTitle"),
+              canResize: true,
+            },
+            {
+              id: "completion",
+              Cell: CompletionCell,
+              width: 48,
+              title: "%",
+              canResize: false,
+            },
+          ]
+        : [
+            {
+              id: "title",
+              Cell: NameCell,
+              width: 200,
+              title: t("wbsTitle"),
+              canResize: true,
+            },
+            {
+              id: "completion",
+              Cell: CompletionCell,
+              width: 56,
+              title: "%",
+              canResize: false,
+            },
+            {
+              id: "assignee",
+              Cell: AssigneeCell,
+              width: 100,
+              title: t("wbsAssignee"),
+              canResize: true,
+            },
+            {
+              id: "start",
+              Cell: DateStartColumn,
+              width: 90,
+              title: t("startDate"),
+              canResize: true,
+            },
+            {
+              id: "end",
+              Cell: DateEndColumn,
+              width: 90,
+              title: t("endDate"),
+              canResize: true,
+            },
+          ],
+    [t, NameCell, CompletionCell, AssigneeCell, isNarrow],
   );
 
   const columnWidth = useMemo(() => {
@@ -1844,7 +1874,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   }
 
   return (
-    <Box sx={{ mx: { xs: -2, md: -3 } }}>
+    <Box sx={{ mx: { xs: -1.5, sm: -3 } }}>
       {/* Toolbar */}
       <Box
         display="flex"
@@ -1852,7 +1882,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         gap={1}
         mb={2}
         flexWrap="wrap"
-        px={{ xs: 2, md: 3 }}
+        px={{ xs: 1.5, sm: 3 }}
       >
         <Button
           variant="contained"
@@ -1993,7 +2023,9 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
              The library sets a solid background on the SVG and renders column
              lines + alternating bands via a wrapper div's backgroundImage.
              We override the wrapper div's gradient in dark mode and add 1px
-             horizontal dividers on the SVG itself. */
+             horizontal dividers on the SVG itself.
+             COUPLED: the 40px/39px stops below must match the `rowHeight`
+             passed to <Gantt distances> or the stripes drift off the rows. */
           "& [class*='ganttTaskContent_'] > div": {
             backgroundImage: `
               linear-gradient(to right, ${theme.palette.divider} 1px, transparent 2px),
@@ -2134,6 +2166,10 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           }}
           distances={{
             columnWidth,
+            // COUPLED: the row stripes and dividers are drawn by hardcoded
+            // 40px/39px stops in the backgroundImage gradients above (search
+            // "ganttTaskContent_"). Changing rowHeight without updating all
+            // four of those literals desyncs the stripes from the rows.
             rowHeight: 40,
             headerHeight: 50,
             barCornerRadius: 4,

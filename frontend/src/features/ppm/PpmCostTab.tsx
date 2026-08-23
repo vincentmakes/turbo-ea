@@ -25,6 +25,8 @@ import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { KPI_VALUE_SX } from "./ppmStyles";
+import { useFullScreenDialog } from "@/hooks/useFullScreenDialog";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import type { PpmCostLine, PpmBudgetLine } from "@/types";
@@ -42,6 +44,7 @@ interface Props {
 
 export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props) {
   const { t } = useTranslation("ppm");
+  const fullScreen = useFullScreenDialog();
   const { fmt } = useCurrency();
   const { formatDate } = useDateFormat();
 
@@ -185,13 +188,13 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
       {/* Summary Bar */}
       <Paper
         sx={{
-          display: "flex",
-          gap: 4,
-          px: 3,
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+          columnGap: { xs: 2, sm: 4 },
+          rowGap: 1.5,
+          px: { xs: 2, sm: 3 },
           py: 1.5,
           mb: 3,
-          flexWrap: "wrap",
-          alignItems: "center",
         }}
         variant="outlined"
       >
@@ -199,7 +202,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
           <Typography variant="caption" color="text.secondary">
             {t("totalBudget")}
           </Typography>
-          <Typography variant="h6" fontWeight={600}>
+          <Typography variant="h6" fontWeight={600} sx={KPI_VALUE_SX}>
             {fmt.format(totalBudget)}
           </Typography>
         </Box>
@@ -207,7 +210,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
           <Typography variant="caption" color="text.secondary">
             {t("totalActual")}
           </Typography>
-          <Typography variant="h6" fontWeight={600}>
+          <Typography variant="h6" fontWeight={600} sx={KPI_VALUE_SX}>
             {fmt.format(totalActual)}
           </Typography>
         </Box>
@@ -219,6 +222,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
             variant="h6"
             fontWeight={600}
             color={totalActual > totalBudget ? "error" : "success.main"}
+            sx={KPI_VALUE_SX}
           >
             {fmt.format(totalBudget - totalActual)}
           </Typography>
@@ -227,7 +231,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
           <Typography variant="caption" color="text.secondary">
             {t("capex")}
           </Typography>
-          <Typography variant="body2">
+          <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
             {fmt.format(capexActual)} / {fmt.format(capexBudget)}
           </Typography>
         </Box>
@@ -235,7 +239,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
           <Typography variant="caption" color="text.secondary">
             {t("opex")}
           </Typography>
-          <Typography variant="body2">
+          <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
             {fmt.format(opexActual)} / {fmt.format(opexBudget)}
           </Typography>
         </Box>
@@ -261,8 +265,12 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
         </Button>
       </Box>
 
-      <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
-        <Table size="small">
+      <TableContainer
+        component={Paper}
+        variant="outlined"
+        sx={{ mb: 3, WebkitOverflowScrolling: "touch" }}
+      >
+        <Table size="small" sx={{ minWidth: { xs: 520, md: "auto" } }}>
           <TableHead>
             <TableRow>
               <TableCell>{t("fiscalYear")}</TableCell>
@@ -332,8 +340,12 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
         </Button>
       </Box>
 
-      <TableContainer component={Paper} variant="outlined">
-        <Table size="small">
+      <TableContainer
+        component={Paper}
+        variant="outlined"
+        sx={{ WebkitOverflowScrolling: "touch" }}
+      >
+        <Table size="small" sx={{ minWidth: { xs: 660, md: "auto" } }}>
           <TableHead>
             <TableRow>
               <TableCell>{t("common:description", "Description")}</TableCell>
@@ -346,7 +358,11 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
           <TableBody>
             {costLines.map((cl) => (
               <TableRow key={cl.id} hover>
-                <TableCell>{cl.description}</TableCell>
+                <TableCell sx={{ maxWidth: 240 }}>
+                  <Typography variant="body2" noWrap title={cl.description}>
+                    {cl.description}
+                  </Typography>
+                </TableCell>
                 <TableCell>
                   <Chip
                     label={cl.category === "capex" ? t("capex") : t("opex")}
@@ -393,6 +409,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
           onClose={() => setBudgetDialog({ open: false })}
           maxWidth="xs"
           fullWidth
+          fullScreen={fullScreen}
         >
           <DialogTitle>
             {budgetDialog.item ? t("editBudgetLine") : t("addBudgetLine")}
@@ -459,6 +476,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
           onClose={() => setCostDialog({ open: false })}
           maxWidth="sm"
           fullWidth
+          fullScreen={fullScreen}
         >
           <DialogTitle>
             {costDialog.item ? t("editCostLine") : t("addCostItem")}

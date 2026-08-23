@@ -68,6 +68,8 @@ interface Props {
 }
 
 const CHART_HEIGHT = 260;
+/** Three stacked charts at 260px is most of a phone screen; shrink on xs. */
+const CHART_HEIGHT_SX = { xs: 200, sm: CHART_HEIGHT };
 /** Dotted budget reference lines, distinct from the solid actuals. */
 const BUDGET_DASH = "6 4";
 
@@ -168,7 +170,7 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
         </Typography>
         <Box flexGrow={1} />
         {expanded && (
-          <FormControl size="small" sx={{ minWidth: 160 }}>
+          <FormControl size="small" sx={{ minWidth: { xs: 120, sm: 160 } }}>
             <Select
               value={selectValue}
               onChange={(e) => {
@@ -327,11 +329,15 @@ function CumulativeChart(props: {
   if (chartData.length === 0 || !hasAnyPoint) {
     return (
       <Box
-        height={CHART_HEIGHT}
         display="flex"
         alignItems="center"
         justifyContent="center"
-        sx={{ border: 1, borderColor: "divider", borderRadius: 1 }}
+        sx={{
+          height: CHART_HEIGHT_SX,
+          border: 1,
+          borderColor: "divider",
+          borderRadius: 1,
+        }}
       >
         <Typography variant="body2" color="text.secondary">
           {emptyLabel}
@@ -343,7 +349,11 @@ function CumulativeChart(props: {
   const rtlTick = makeRtlAxisTick(theme.axisTick.fill, theme.axisTick.fontSize);
 
   return (
-    <Box height={CHART_HEIGHT} aria-labelledby={labelledBy} role="img">
+    <Box
+      sx={{ height: CHART_HEIGHT_SX }}
+      aria-labelledby={labelledBy}
+      role="img"
+    >
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
           data={chartData}

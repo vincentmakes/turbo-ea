@@ -20,6 +20,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
 import { api } from "@/api/client";
+import { useFullScreenDialog } from "@/hooks/useFullScreenDialog";
 import type { PpmWbs } from "@/types";
 
 interface UserOption {
@@ -63,6 +64,7 @@ export default function PpmWbsDialog({
   onSaved,
 }: Props) {
   const { t } = useTranslation("ppm");
+  const fullScreen = useFullScreenDialog();
   const isEdit = !!wbs;
 
   const [title, setTitle] = useState(wbs?.title || "");
@@ -135,7 +137,14 @@ export default function PpmWbsDialog({
   };
 
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth disableRestoreFocus>
+    <Dialog
+      open
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      fullScreen={fullScreen}
+      disableRestoreFocus
+    >
       <DialogTitle>{isEdit ? t("editWbs") : t("addWbs")}</DialogTitle>
       <DialogContent>
         <Box display="flex" flexDirection="column" gap={2} mt={1}>
@@ -145,7 +154,7 @@ export default function PpmWbsDialog({
             onChange={(e) => setTitle(e.target.value)}
             fullWidth
             required
-            autoFocus
+            autoFocus={!fullScreen}
           />
           <TextField
             label={t("wbsDescription")}
@@ -194,7 +203,11 @@ export default function PpmWbsDialog({
             }
             label={t("milestone")}
           />
-          <Box display="flex" gap={2}>
+          <Box
+          display="flex"
+          flexDirection={{ xs: "column", sm: "row" }}
+          gap={2}
+        >
             <DateField
               label={isMilestone ? t("milestoneDate") : t("wbsStartDate")}
               value={startDate}

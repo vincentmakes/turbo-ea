@@ -51,20 +51,30 @@ export default function PpmReportsTab({ initiativeId, reports, onRefresh }: Prop
       </Box>
 
       {reports.length === 0 ? (
-        <Paper sx={{ p: 4, textAlign: "center" }}>
+        <Paper sx={{ p: { xs: 3, sm: 4 }, textAlign: "center" }}>
           <Typography color="text.secondary">{t("noReportsYet")}</Typography>
         </Paper>
       ) : (
         reports.map((report) => (
-          <Paper key={report.id} sx={{ p: 3, mb: 2 }}>
+          <Paper key={report.id} sx={{ p: { xs: 2, sm: 3 }, mb: 2 }}>
             {/* Header */}
             <Box
               display="flex"
               justifyContent="space-between"
               alignItems="center"
+              flexWrap="wrap"
+              gap={1}
               mb={2}
             >
-              <Box display="flex" alignItems="center" gap={2}>
+              {/* Own flex/minWidth/wrap: as a single unshrinkable flex item this
+                  block ignored the parent's wrap and pushed the actions off. */}
+              <Box
+                display="flex"
+                alignItems="center"
+                gap={{ xs: 1, sm: 2 }}
+                flexWrap="wrap"
+                sx={{ flex: 1, minWidth: 0, rowGap: 0.75 }}
+              >
                 <Typography variant="subtitle1" fontWeight={600}>
                   {formatDate(report.report_date)}
                 </Typography>
@@ -112,7 +122,7 @@ export default function PpmReportsTab({ initiativeId, reports, onRefresh }: Prop
                   </Typography>
                 )}
               </Box>
-              <Box>
+              <Box sx={{ flexShrink: 0 }}>
                 <IconButton
                   size="small"
                   onClick={() => setReportDialog({ open: true, report })}
@@ -140,7 +150,7 @@ export default function PpmReportsTab({ initiativeId, reports, onRefresh }: Prop
                 >
                   {t("summary")}
                 </Typography>
-                <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
                   {report.summary}
                 </Typography>
               </Box>
@@ -160,7 +170,7 @@ export default function PpmReportsTab({ initiativeId, reports, onRefresh }: Prop
                 >
                   {t("accomplishments")}
                 </Typography>
-                <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
                   {report.accomplishments}
                 </Typography>
               </Box>
@@ -177,7 +187,7 @@ export default function PpmReportsTab({ initiativeId, reports, onRefresh }: Prop
                 >
                   {t("nextSteps")}
                 </Typography>
-                <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
                   {report.next_steps}
                 </Typography>
               </Box>

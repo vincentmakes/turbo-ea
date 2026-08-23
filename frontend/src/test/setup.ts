@@ -4,11 +4,17 @@ import i18n from "@/i18n";
 // AG Grid module registration (mandatory since v33) for every test that
 // mounts a real <AgGridReact> — same side-effect import the grid pages use.
 import "@/lib/agGridSetup";
+import { installMatchMedia, setViewportWidth } from "./matchMedia";
+
+installMatchMedia();
 
 // Provide a minimal sessionStorage for tests (jsdom includes one, but
 // this ensures it's always clean between test files).
 beforeEach(() => {
   sessionStorage.clear();
+  // Desktop by default, so every pre-existing test keeps seeing exactly what
+  // it saw when jsdom had no matchMedia at all (every query false).
+  setViewportWidth(1280);
 });
 
 // Drain pending async work after each test, so nothing lands after Vitest has

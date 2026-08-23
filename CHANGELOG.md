@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.79.2] - 2026-08-23
+
+### Fixed
+
+- **The PPM Initiative page is usable on a phone.** Every tab was built desktop-first and several overflowed the screen. On **Overview**, the Total Budget / Total Actual / Variance figures ran off the right edge instead of wrapping — they now reflow to fit whatever width the card actually has, which also fixes the same clipping on a small laptop, where the card is only half the page wide. The budget bars underneath no longer print a contradictory unit: a 2.5M budget read «1.7M/2.5M kCHF» (million-thousand) and now reads «1.7/2.5 MCHF». «Total Budget» was also printed twice on that card, once as the figure and again on the bar below it; the bars now read Total / CapEx / OpEx.
+- **PPM tabs no longer overflow on narrow screens.** The **Risk** and **Status Reports** summary rows wrap instead of pushing content off-screen, and the report actions stay reachable. The wide tables on **Risk**, **Budget & Costs** and the task list scroll sideways within their own panel rather than dragging the whole page with them. Cost charts are shorter on a phone so three of them no longer fill the screen, and a long cost description is truncated with the full text on hover instead of forcing a very wide table.
+- **The PPM task board can be used on a phone.** The kanban squeezed all four status columns into the screen width, leaving each about 85px wide. Columns are now full-size and the board scrolls sideways between them; drag-and-drop, including long-press to drag on touch, still works.
+- **The PPM Gantt fits a phone screen.** Its task list showed five fixed columns totalling more than a phone's entire width, so the timeline was pushed off-screen entirely; on narrow screens it now shows just the name and completion. A first visit on a phone also starts at a quarterly zoom rather than weekly, where barely one column was visible. An explicitly chosen zoom level is still remembered.
+- **PPM dialogs open full-screen on a phone.** Creating or editing a task, work package, status report, risk, budget line or cost line now uses the whole screen instead of a cramped box, paired fields stack instead of being squeezed side by side, and the keyboard no longer springs open the moment a dialog appears.
+
 ## [2.79.1] - 2026-08-23
 
 ### Added

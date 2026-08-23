@@ -26,6 +26,7 @@ import {
   DndContext,
   DragOverlay,
   closestCorners,
+  MeasuringStrategy,
   MouseSensor,
   TouchSensor,
   KeyboardSensor,
@@ -270,98 +271,123 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
       else byStatus.todo.push(task);
     }
     return (
+      // Swipeable strip below md. No transform/filter/will-change may go on
+      // this element or any ancestor: that would create a containing block for
+      // the position:fixed <DragOverlay> and offset the drag preview. Do not
+      // height-constrain it either — overflowX:auto forces overflowY to auto,
+      // which would nest a vertical scroller and hijack dnd-kit auto-scroll.
       <Box
         sx={{
-          display: "grid",
-          gridTemplateColumns: `repeat(${COLUMNS.length}, 1fr)`,
-          gap: 2,
-          minHeight: 200,
+          overflowX: { xs: "auto", md: "visible" },
+          WebkitOverflowScrolling: "touch",
+          overscrollBehaviorX: "contain",
+          mx: { xs: -1.5, md: 0 },
+          px: { xs: 1.5, md: 0 },
+          pb: { xs: 1, md: 0 },
+          scrollPaddingInline: { xs: 12, md: 0 },
+          // Snap fights dnd-kit's programmatic scrollLeft during auto-scroll.
+          scrollSnapType: activeTask
+            ? "none"
+            : { xs: "x proximity", md: "none" },
         }}
       >
-        {COLUMNS.map((status) => {
-          const columnTasks = byStatus[status] || [];
-          return (
-            <Paper
-              key={status}
-              variant="outlined"
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                borderTop: `3px solid ${STATUS_COLORS[status]}`,
-              }}
-            >
-              <Box
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: {
+              xs: `repeat(${COLUMNS.length}, min(80vw, 300px))`,
+              md: `repeat(${COLUMNS.length}, 1fr)`,
+            },
+            gap: 2,
+            minHeight: 200,
+          }}
+        >
+          {COLUMNS.map((status) => {
+            const columnTasks = byStatus[status] || [];
+            return (
+              <Paper
+                key={status}
+                variant="outlined"
                 sx={{
-                  px: 1.5,
-                  py: 1,
                   display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
+                  flexDirection: "column",
+                  borderTop: `3px solid ${STATUS_COLORS[status]}`,
+                  scrollSnapAlign: { xs: "start", md: "none" },
                 }}
               >
-                <Box display="flex" alignItems="center" gap={1}>
-                  <Typography variant="subtitle2" fontWeight={600}>
-                    {t(
-                      `status${status.charAt(0).toUpperCase()}${status.slice(1).replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())}`,
-                    )}
-                  </Typography>
-                  <Chip
-                    label={columnTasks.length}
-                    size="small"
-                    sx={{ height: 20, fontSize: "0.7rem" }}
-                  />
-                </Box>
-              </Box>
-              <SortableContext
-                items={columnTasks.map((t) => t.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                <DroppableColumn status={status}>
-                  {columnTasks.map((task) => (
-                    <PpmTaskCard
-                      key={task.id}
-                      task={task}
-                      wbsName={
-                        task.wbs_id ? wbsMap[task.wbs_id]?.title : undefined
-                      }
-                      onClick={() => setTaskDialog({ open: true, task })}
-                      onMarkDone={handleMarkDone}
+                <Box
+                  sx={{
+                    px: 1.5,
+                    py: 1,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <Typography variant="subtitle2" fontWeight={600}>
+                      {t(
+                        `status${status.charAt(0).toUpperCase()}${status.slice(1).replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())}`,
+                      )}
+                    </Typography>
+                    <Chip
+                      label={columnTasks.length}
+                      size="small"
+                      sx={{ height: 20, fontSize: "0.7rem" }}
                     />
-                  ))}
-                </DroppableColumn>
-              </SortableContext>
-              <Box sx={{ p: 1, mt: "auto" }}>
-                {quickAdd?.status === status ? (
-                  <TextField
-                    autoFocus
-                    size="small"
-                    fullWidth
-                    placeholder={t("taskTitle")}
-                    value={quickAdd.title}
-                    onChange={(e) =>
-                      setQuickAdd({ ...quickAdd, title: e.target.value })
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleQuickAdd(status);
-                      if (e.key === "Escape") setQuickAdd(null);
-                    }}
-                    onBlur={() => handleQuickAdd(status)}
-                  />
-                ) : (
-                  <Button
-                    size="small"
-                    fullWidth
-                    startIcon={<MaterialSymbol icon="add" size={16} />}
-                    onClick={() => setQuickAdd({ status, title: "" })}
-                    sx={{ justifyContent: "flex-start", textTransform: "none" }}
-                  >
-                    {t("quickAdd")}
-                  </Button>
-                )}
-              </Box>
-            </Paper>
-          );
-        })}
+                  </Box>
+                </Box>
+                <SortableContext
+                  items={columnTasks.map((t) => t.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <DroppableColumn status={status}>
+                    {columnTasks.map((task) => (
+                      <PpmTaskCard
+                        key={task.id}
+                        task={task}
+                        wbsName={
+                          task.wbs_id ? wbsMap[task.wbs_id]?.title : undefined
+                        }
+                        onClick={() => setTaskDialog({ open: true, task })}
+                        onMarkDone={handleMarkDone}
+                      />
+                    ))}
+                  </DroppableColumn>
+                </SortableContext>
+                <Box sx={{ p: 1, mt: "auto" }}>
+                  {quickAdd?.status === status ? (
+                    <TextField
+                      autoFocus
+                      size="small"
+                      fullWidth
+                      placeholder={t("taskTitle")}
+                      value={quickAdd.title}
+                      onChange={(e) =>
+                        setQuickAdd({ ...quickAdd, title: e.target.value })
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleQuickAdd(status);
+                        if (e.key === "Escape") setQuickAdd(null);
+                      }}
+                      onBlur={() => handleQuickAdd(status)}
+                    />
+                  ) : (
+                    <Button
+                      size="small"
+                      fullWidth
+                      startIcon={<MaterialSymbol icon="add" size={16} />}
+                      onClick={() => setQuickAdd({ status, title: "" })}
+                      sx={{ justifyContent: "flex-start", textTransform: "none" }}
+                    >
+                      {t("quickAdd")}
+                    </Button>
+                  )}
+                </Box>
+              </Paper>
+            );
+          })}
+        </Box>
       </Box>
     );
   };
@@ -371,6 +397,8 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
     <DndContext
       sensors={sensors}
       collisionDetection={closestCorners}
+      measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+      autoScroll={{ threshold: { x: 0.15, y: 0.2 }, acceleration: 12 }}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
@@ -521,8 +549,12 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
     });
 
   const renderList = () => (
-    <TableContainer component={Paper} variant="outlined">
-      <Table size="small">
+    <TableContainer
+      component={Paper}
+      variant="outlined"
+      sx={{ WebkitOverflowScrolling: "touch" }}
+    >
+      <Table size="small" sx={{ minWidth: { xs: 760, md: "auto" } }}>
         <TableHead>
           <TableRow>
             <TableCell>{t("taskTitle")}</TableCell>
@@ -591,7 +623,10 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
         <Box display="flex" gap={1} alignItems="center" flexWrap="wrap">
           {/* WBS Filter */}
           {wbsList.length > 0 && (
-            <FormControl size="small" sx={{ minWidth: 160 }}>
+            <FormControl
+          size="small"
+          sx={{ minWidth: 160, flex: { xs: "1 1 100%", sm: "0 0 auto" } }}
+        >
               <InputLabel>{t("filterByWbs")}</InputLabel>
               <Select
                 value={filterWbs}

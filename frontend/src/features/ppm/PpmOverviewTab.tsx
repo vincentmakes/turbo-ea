@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
-import Grid from "@mui/material/Grid";
 import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
@@ -13,6 +12,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveLabel } from "@/hooks/useResolveLabel";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { api } from "@/api/client";
+import { KPI_VALUE_SX } from "./ppmStyles";
 import type { Card, PpmStatusReport, PpmCostLine, PpmBudgetLine } from "@/types";
 
 const RAG_COLORS: Record<string, string> = {
@@ -28,11 +28,40 @@ interface Props {
   budgetLines: PpmBudgetLine[];
 }
 
-/** Format a number in compact "k" notation */
-function fmtK(n: number): string {
-  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
+/** Format a number compactly. Pass `scale` to force a shared magnitude so a
+ * budget/actual pair renders against one unit suffix. */
+function fmtK(n: number, scale?: Scale): string {
+  const s = scale ?? magnitude(n);
+  if (s === "M") return (n / 1_000_000).toFixed(1);
+  if (s === "k") return (n / 1_000).toFixed(0);
   return String(Math.round(n));
+}
+
+type Scale = "M" | "k" | "";
+
+function magnitude(n: number): Scale {
+  if (Math.abs(n) >= 1_000_000) return "M";
+  if (Math.abs(n) >= 1_000) return "k";
+  return "";
+}
+
+/** Health RAG dot. Module scope: defined inline it was a fresh component type
+ * on every render, remounting the row each time. */
+function HealthDot({ value, label }: { value: string; label: string }) {
+  return (
+    <Box display="flex" alignItems="center" gap={1}>
+      <Box
+        sx={{
+          width: 16,
+          height: 16,
+          flexShrink: 0,
+          borderRadius: "50%",
+          bgcolor: RAG_COLORS[value] || "#bdbdbd",
+        }}
+      />
+      <Typography variant="body2">{label}</Typography>
+    </Box>
+  );
 }
 
 /** Reusable budget vs actual bar */
@@ -54,10 +83,12 @@ function BudgetBar({
   const pct = budget > 0 ? Math.min((actual / budget) * 100, 100) : 0;
   const over = actual > budget && budget > 0;
   const color = over ? overColor : barColor;
-  const useK = Math.abs(budget) >= 1_000 || Math.abs(actual) >= 1_000;
-  const unit = useK ? `k${currency}` : currency;
-  const aVal = useK ? fmtK(actual) : String(Math.round(actual));
-  const pVal = useK ? fmtK(budget) : String(Math.round(budget));
+  // One shared scale for both figures, and a unit suffix that matches it.
+  // Deriving them separately rendered a 2.5M budget as "1.7M/2.5M kCHF".
+  const scale = magnitude(Math.max(Math.abs(budget), Math.abs(actual)));
+  const unit = `${scale}${currency}`;
+  const aVal = fmtK(actual, scale);
+  const pVal = fmtK(budget, scale);
 
   return (
     <Box sx={{ mb: 1.5 }}>
@@ -155,234 +186,238 @@ export default function PpmOverviewTab({
   const resolveSubtype = (subtype: string | null | undefined): string | null =>
     subtypeLabel(card.type, subtype) || null;
 
-  const HealthDot = ({ value, label }: { value: string; label: string }) => (
-    <Box display="flex" alignItems="center" gap={1}>
-      <Box
-        sx={{
-          width: 16,
-          height: 16,
-          borderRadius: "50%",
-          bgcolor: RAG_COLORS[value] || "#bdbdbd",
-        }}
-      />
-      <Typography variant="body2">{label}</Typography>
-    </Box>
-  );
-
   return (
-    <Grid container spacing={2}>
+    <Box
+      sx={{
+        display: "grid",
+        gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+        gap: 2,
+      }}
+    >
       {/* Health Summary */}
-      <Grid item xs={12} md={6}>
-        <Paper sx={{ p: 2.5 }}>
-          <Typography variant="subtitle1" fontWeight={600} mb={2}>
-            {t("healthSummary")}
+      <Paper sx={{ p: 2.5 }}>
+        <Typography variant="subtitle1" fontWeight={600} mb={2}>
+          {t("healthSummary")}
+        </Typography>
+        {latestReport ? (
+          <Box display="flex" gap={{ xs: 1.5, sm: 4 }} flexWrap="wrap">
+            <HealthDot
+              value={latestReport.schedule_health}
+              label={t("health_schedule")}
+            />
+            <HealthDot
+              value={latestReport.cost_health}
+              label={t("health_cost")}
+            />
+            <HealthDot
+              value={latestReport.scope_health}
+              label={t("health_scope")}
+            />
+          </Box>
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            {t("noReportsYet")}
           </Typography>
-          {latestReport ? (
-            <Box display="flex" gap={4}>
-              <HealthDot
-                value={latestReport.schedule_health}
-                label={t("health_schedule")}
-              />
-              <HealthDot
-                value={latestReport.cost_health}
-                label={t("health_cost")}
-              />
-              <HealthDot
-                value={latestReport.scope_health}
-                label={t("health_scope")}
-              />
-            </Box>
-          ) : (
-            <Typography variant="body2" color="text.secondary">
-              {t("noReportsYet")}
-            </Typography>
-          )}
-        </Paper>
-      </Grid>
+        )}
+      </Paper>
 
       {/* Completion KPI */}
-      <Grid item xs={12} md={6}>
-        <Paper sx={{ p: 2.5 }}>
-          <Typography variant="subtitle1" fontWeight={600} mb={2}>
-            {t("completion")}
-          </Typography>
-          {completionPct !== null ? (
-            <Box display="flex" alignItems="center" gap={2}>
-              <Box sx={{ position: "relative", display: "inline-flex" }}>
-                <CircularProgress
-                  variant="determinate"
-                  value={completionPct}
-                  size={64}
-                  thickness={5}
-                  sx={{
-                    color:
-                      completionPct >= 80
-                        ? theme.palette.success.main
-                        : completionPct >= 40
-                          ? theme.palette.warning.main
-                          : theme.palette.error.main,
-                  }}
-                />
-                <Box
-                  sx={{
-                    top: 0,
-                    left: 0,
-                    bottom: 0,
-                    right: 0,
-                    position: "absolute",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
+      <Paper sx={{ p: 2.5 }}>
+        <Typography variant="subtitle1" fontWeight={600} mb={2}>
+          {t("completion")}
+        </Typography>
+        {completionPct !== null ? (
+          <Box display="flex" alignItems="center" gap={2}>
+            <Box
+              sx={{
+                position: "relative",
+                display: "inline-flex",
+                flexShrink: 0,
+              }}
+            >
+              <CircularProgress
+                variant="determinate"
+                value={completionPct}
+                size={64}
+                thickness={5}
+                sx={{
+                  color:
+                    completionPct >= 80
+                      ? theme.palette.success.main
+                      : completionPct >= 40
+                        ? theme.palette.warning.main
+                        : theme.palette.error.main,
+                }}
+              />
+              <Box
+                sx={{
+                  top: 0,
+                  left: 0,
+                  bottom: 0,
+                  right: 0,
+                  position: "absolute",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Typography
+                  variant="body2"
+                  fontWeight={700}
+                  color="text.primary"
                 >
-                  <Typography
-                    variant="body2"
-                    fontWeight={700}
-                    color="text.primary"
-                  >
-                    {Math.round(completionPct)}%
-                  </Typography>
-                </Box>
-              </Box>
-              <Box>
-                <Typography variant="body2" color="text.secondary">
-                  {t("completionDesc")}
+                  {Math.round(completionPct)}%
                 </Typography>
               </Box>
             </Box>
-          ) : (
-            <Typography variant="body2" color="text.secondary">
-              {t("noWbsItems")}
-            </Typography>
-          )}
-        </Paper>
-      </Grid>
-
-      {/* Financials — KPIs + Budget Bars combined */}
-      <Grid item xs={12} md={6}>
-        <Paper sx={{ p: 2.5 }}>
-          <Typography variant="subtitle1" fontWeight={600} mb={2}>
-            {t("financials")}
-          </Typography>
-          <Box display="flex" gap={4} mb={2.5}>
             <Box>
-              <Typography variant="caption" color="text.secondary">
-                {t("totalBudget")}
-              </Typography>
-              <Typography variant="h6" fontWeight={600}>
-                {fmt.format(totalBudget)}
-              </Typography>
-            </Box>
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                {t("totalActual")}
-              </Typography>
-              <Typography variant="h6" fontWeight={600}>
-                {fmt.format(totalActual)}
-              </Typography>
-            </Box>
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                {t("variance")}
-              </Typography>
-              <Typography
-                variant="h6"
-                fontWeight={600}
-                color={variance < 0 ? "error" : "success.main"}
-              >
-                {fmt.format(variance)}
+              <Typography variant="body2" color="text.secondary">
+                {t("completionDesc")}
               </Typography>
             </Box>
           </Box>
-          <BudgetBar
-            label={t("totalBudget")}
-            budget={totalBudget}
-            actual={totalActual}
-            currency={currency}
-            barColor={budgetBarColor}
-            overColor={overBudgetColor}
-          />
-          <BudgetBar
-            label={t("capex")}
-            budget={capexBudget}
-            actual={capexActual}
-            currency={currency}
-            barColor={budgetBarColor}
-            overColor={overBudgetColor}
-          />
-          <BudgetBar
-            label={t("opex")}
-            budget={opexBudget}
-            actual={opexActual}
-            currency={currency}
-            barColor={budgetBarColor}
-            overColor={overBudgetColor}
-          />
-        </Paper>
-      </Grid>
-
-      {/* Timeline + Status */}
-      <Grid item xs={12} md={6}>
-        <Paper sx={{ p: 2.5 }}>
-          <Typography variant="subtitle1" fontWeight={600} mb={1}>
-            {t("timeline")}
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            {t("noWbsItems")}
           </Typography>
-          <Box display="flex" gap={3} mb={2}>
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                {t("startDate")}
-              </Typography>
-              <Typography variant="body2">
-                {(attrs.startDate as string) || "\u2014"}
-              </Typography>
-            </Box>
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                {t("endDate")}
-              </Typography>
-              <Typography variant="body2">
-                {(attrs.endDate as string) || "\u2014"}
-              </Typography>
-            </Box>
-            {card.subtype && (
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  {t("subtype")}
-                </Typography>
-                <Box mt={0.5}>
-                  <Chip
-                    label={resolveSubtype(card.subtype)}
-                    size="small"
-                    variant="outlined"
-                  />
-                </Box>
-              </Box>
-            )}
+        )}
+      </Paper>
+
+      {/* Financials — KPIs + Budget Bars combined */}
+      <Paper sx={{ p: 2.5 }}>
+        <Typography variant="subtitle1" fontWeight={600} mb={2}>
+          {t("financials")}
+        </Typography>
+        {/* auto-fit rather than a breakpoint: this Paper is half-width at md,
+            so its width is not monotonic with the viewport and an { xs, md }
+            rule would be wrong in the 900-1100px band. */}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(112px, 1fr))",
+            columnGap: 3,
+            rowGap: 1.5,
+            mb: 2.5,
+          }}
+        >
+          <Box>
+            <Typography variant="caption" color="text.secondary">
+              {t("totalBudget")}
+            </Typography>
+            <Typography variant="h6" fontWeight={600} sx={KPI_VALUE_SX}>
+              {fmt.format(totalBudget)}
+            </Typography>
           </Box>
           <Box>
             <Typography variant="caption" color="text.secondary">
-              {t("initiativeStatus")}
+              {t("totalActual")}
             </Typography>
-            <Typography variant="body2">
-              {resolveOption("initiativeStatus", attrs.initiativeStatus)}
+            <Typography variant="h6" fontWeight={600} sx={KPI_VALUE_SX}>
+              {fmt.format(totalActual)}
             </Typography>
           </Box>
-        </Paper>
-      </Grid>
+          <Box>
+            <Typography variant="caption" color="text.secondary">
+              {t("variance")}
+            </Typography>
+            <Typography
+              variant="h6"
+              fontWeight={600}
+              color={variance < 0 ? "error" : "success.main"}
+              sx={KPI_VALUE_SX}
+            >
+              {fmt.format(variance)}
+            </Typography>
+          </Box>
+        </Box>
+        <BudgetBar
+          label={t("budgetBarTotal")}
+          budget={totalBudget}
+          actual={totalActual}
+          currency={currency}
+          barColor={budgetBarColor}
+          overColor={overBudgetColor}
+        />
+        <BudgetBar
+          label={t("capex")}
+          budget={capexBudget}
+          actual={capexActual}
+          currency={currency}
+          barColor={budgetBarColor}
+          overColor={overBudgetColor}
+        />
+        <BudgetBar
+          label={t("opex")}
+          budget={opexBudget}
+          actual={opexActual}
+          currency={currency}
+          barColor={budgetBarColor}
+          overColor={overBudgetColor}
+        />
+      </Paper>
+
+      {/* Timeline + Status */}
+      <Paper sx={{ p: 2.5 }}>
+        <Typography variant="subtitle1" fontWeight={600} mb={1}>
+          {t("timeline")}
+        </Typography>
+        <Box display="flex" gap={{ xs: 2, sm: 3 }} mb={2} flexWrap="wrap">
+          <Box>
+            <Typography variant="caption" color="text.secondary">
+              {t("startDate")}
+            </Typography>
+            <Typography variant="body2">
+              {(attrs.startDate as string) || "\u2014"}
+            </Typography>
+          </Box>
+          <Box>
+            <Typography variant="caption" color="text.secondary">
+              {t("endDate")}
+            </Typography>
+            <Typography variant="body2">
+              {(attrs.endDate as string) || "\u2014"}
+            </Typography>
+          </Box>
+          {card.subtype && (
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="caption" color="text.secondary">
+                {t("subtype")}
+              </Typography>
+              <Box mt={0.5}>
+                <Chip
+                  label={resolveSubtype(card.subtype)}
+                  size="small"
+                  variant="outlined"
+                  sx={{ maxWidth: "100%" }}
+                />
+              </Box>
+            </Box>
+          )}
+        </Box>
+        <Box>
+          <Typography variant="caption" color="text.secondary">
+            {t("initiativeStatus")}
+          </Typography>
+          <Typography variant="body2">
+            {resolveOption("initiativeStatus", attrs.initiativeStatus)}
+          </Typography>
+        </Box>
+      </Paper>
 
       {/* Description */}
       {card.description && (
-        <Grid item xs={12}>
-          <Paper sx={{ p: 2.5 }}>
-            <Typography variant="subtitle1" fontWeight={600} mb={1}>
-              {t("common:description", "Description")}
-            </Typography>
-            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-              {card.description}
-            </Typography>
-          </Paper>
-        </Grid>
+        <Paper sx={{ p: 2.5, gridColumn: { md: "1 / -1" } }}>
+          <Typography variant="subtitle1" fontWeight={600} mb={1}>
+            {t("common:description", "Description")}
+          </Typography>
+          <Typography
+            variant="body2"
+            sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
+          >
+            {card.description}
+          </Typography>
+        </Paper>
       )}
-    </Grid>
+    </Box>
   );
 }

@@ -118,21 +118,28 @@ export default function PpmProjectDetail() {
   const latestReport = reports[0] || null;
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1400, mx: "auto" }}>
+    <Box sx={{ p: { xs: 1.5, sm: 3 }, maxWidth: 1400, mx: "auto" }}>
       {/* Header */}
       <Box display="flex" alignItems="center" gap={1} mb={2}>
-        <IconButton onClick={() => navigate("/ppm")}>
+        <IconButton sx={{ flexShrink: 0 }} onClick={() => navigate("/ppm")}>
           <MaterialSymbol icon="arrow_back" size={20} />
         </IconButton>
-        <Typography variant="h5" fontWeight={700}>
-          {card.name}
-        </Typography>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography
+            variant="h5"
+            fontWeight={700}
+            noWrap
+            sx={{ fontSize: { xs: "1.25rem", sm: "1.5rem" } }}
+          >
+            {card.name}
+          </Typography>
+        </Box>
         {card.subtype && (
           <Chip
             label={subtypeLabel(card.type, card.subtype)}
             size="small"
             variant="outlined"
-            sx={{ ml: 1 }}
+            sx={{ marginInlineStart: 1, flexShrink: 0 }}
           />
         )}
       </Box>

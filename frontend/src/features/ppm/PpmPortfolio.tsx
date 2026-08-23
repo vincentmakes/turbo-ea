@@ -591,7 +591,14 @@ export default function PpmPortfolio() {
         </Box>
 
         {/* Row 3: RAG dots + Report date */}
-        <Box display="flex" alignItems="center" gap={1.5} mt={0.75}>
+        <Box
+              display="flex"
+              alignItems="center"
+              gap={1.5}
+              mt={0.75}
+              flexWrap="wrap"
+              sx={{ rowGap: 0.5 }}
+            >
           {(
             [
               ["schedule_health", "onTime"],
