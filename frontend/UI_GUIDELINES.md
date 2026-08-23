@@ -449,6 +449,8 @@ These are presentation/interaction concerns layered in the component — they do
 
 ### 3.11 Grid Filter Sidebar
 
+> For the collapsible filter block in a *report toolbar* (rather than a grid sidebar), see §3.12 — it mirrors this section's header vocabulary.
+
 Every AG Grid page that filters server-side uses the same left-hand sidebar. The reference implementation is the **Inventory** sidebar (`features/inventory/InventoryFilterSidebar.tsx`); `AuditLogFilterSidebar`, `RiskFilterSidebar` and `ResourcesFilterSidebar` follow it. Reuse the shape — a sidebar that only *works* like the inventory but doesn't *look* like it is a bug.
 
 **Structure** — collapsed rail (44 px, chevron + active-filter count chip) · tabbed header (**Filters** / **Columns**, each with an 8 px primary dot when it has changes) · scrollable body of collapsible sections · 4 px drag resize handle (`MIN_WIDTH` 220 / `MAX_WIDTH` 480).
@@ -498,6 +500,44 @@ Take colours from `theme/tokens.ts` (`STATUS_COLORS`, `SEVERITY_COLORS`, `LAYER_
 ❌ Don't
 - Don't ship a section header without an icon, or an option row that is just a checkbox and text.
 - Don't filter client-side over the fetched page when the grid pages server-side — that narrows one page, not the result set.
+
+---
+
+### 3.12 Report Toolbar Filters
+
+A report's filter block is the tallest thing in its toolbar, so it collapses. Use
+`features/reports/ReportFilterSection.tsx` — never hand-roll the header again (Portfolio
+and Capability Map had duplicated it near-verbatim before it was extracted).
+
+✅ Do
+- Render it inside the report's existing `toolbar={<>…</>}` fragment, so the block stays
+  inside `.report-toolbar` — print CSS hides that class wholesale, which is what keeps
+  filter controls out of every PDF. Filter *information* reaches print through
+  `printParams`, not the DOM.
+- Keep it **expanded by default** and persist the collapse as `filtersCollapsed` in the
+  report's saved-report config (the five-edit convention: `useState(false)` → restore with
+  `if (cfg.filtersCollapsed != null)` → `getConfig()` → persist dep array → `handleReset`).
+  The `!= null` guard is what lets a stored `false` survive.
+- Pass `count` — the **same integer the report puts in its print params** (both reports
+  already compute `activeFilterCount`), so a collapsed section on screen and the printed
+  header can never disagree. It counts what the section *contains*; a search box that lives
+  in another toolbar row is not part of it.
+- Let the header be a real button. The component gives you `aria-expanded`, `aria-controls`,
+  a `role="region"` body and a focus ring for free — the vocabulary of §3.11's
+  `FilterSectionHeader` (chevron → glyph → label → primary count chip) with the button
+  semantics that one lacks.
+
+❌ Don't
+- Don't nest the clear-all chip inside the toggle button. It is a **sibling** — a deletable
+  chip inside a `<button>` is a second tab stop inside the first and needs `stopPropagation`
+  on click *and* keydown to avoid toggling the section. Same reasoning as the freeze pin in
+  §3.11's `FilterCheckboxList`.
+- Don't add `unmountOnExit`: MUI's `Collapse` already applies `visibility: hidden`, so hidden
+  controls leave the tab order, and `aria-controls` must keep resolving.
+- Don't drop `width: "100%"` from the wrapper — it is what keeps the block on its own line in
+  the wrapping flex toolbar, so collapsing never reflows the rows above it.
+- Don't force-expand when a conditionally-rendered block reappears. A stored collapse is the
+  user's preference; an effect there fights it on every toggle.
 
 ---
 

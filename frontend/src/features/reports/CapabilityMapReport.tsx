@@ -20,6 +20,7 @@ import type { TagGroup } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import ReportCardListPanel, { type ReportCardListItem } from "./ReportCardListPanel";
+import ReportFilterSection from "./ReportFilterSection";
 import { isAliveAtDate, isRetiredByDate } from "./portfolioHelpers";
 import {
   classifyTimelineChange,
@@ -695,6 +696,9 @@ export default function CapabilityMapReport() {
   const [tagFilterIds, setTagFilterIds] = useState<string[]>([]);
   const [tagGroupsData, setTagGroupsData] = useState<TagGroupDef[]>([]);
   const [showAllRelFilters, setShowAllRelFilters] = useState(false);
+  // Fold the filter block away. Expanded by default; persisted with the rest
+  // of the report config, so a missing key means expanded.
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
   // Narrow the map to chosen capabilities and everything beneath them (#954).
   // The heatmap payload is the complete capability set with parent chains, so
@@ -716,6 +720,7 @@ export default function CapabilityMapReport() {
       }
       if (cfg.attrFilters) setAttrFilters(cfg.attrFilters as Record<string, string[]>);
       if (cfg.relationFilters) setRelationFilters(cfg.relationFilters as Record<string, string[]>);
+      if (cfg.filtersCollapsed != null) setFiltersCollapsed(!!cfg.filtersCollapsed);
       // Migrate prior `{groupId: tagIds[]}` shape to a flat `string[]`
       if (cfg.tagFilterIds) {
         setTagFilterIds(cfg.tagFilterIds as string[]);
@@ -731,12 +736,12 @@ export default function CapabilityMapReport() {
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ metric, displayLevel, showApps, colorBy, timelineDate: tl.persistValue, attrFilters, relationFilters, tagFilterIds, scopeIds });
+  const getConfig = () => ({ metric, displayLevel, showApps, colorBy, timelineDate: tl.persistValue, attrFilters, relationFilters, tagFilterIds, scopeIds, filtersCollapsed });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [metric, displayLevel, showApps, colorBy, tl.timelineDate, attrFilters, relationFilters, tagFilterIds, scopeIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [metric, displayLevel, showApps, colorBy, tl.timelineDate, attrFilters, relationFilters, tagFilterIds, scopeIds, filtersCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -751,6 +756,7 @@ export default function CapabilityMapReport() {
     setRelationFilters({});
     setTagFilterIds([]);
     setShowAllRelFilters(false);
+    setFiltersCollapsed(false);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Derived: select fields from schema — resolve labels for the current locale
@@ -1219,184 +1225,166 @@ export default function CapabilityMapReport() {
             />
           )}
 
-          {/* Row 2: Dynamic application filters */}
+          {/* Row 2: Dynamic application filters — collapsible, state
+              persisted as filtersCollapsed */}
           {(showApps || hasActiveFilters) && (
-            <Box sx={{ width: "100%", pt: 0.5 }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  mb: 1,
-                }}
-              >
-                <MaterialSymbol icon="filter_alt" size={16} color="#999" />
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                  {t("capabilityMap.applicationFilters")}
-                </Typography>
-                {hasActiveFilters && (
-                  <Chip
-                    size="small"
-                    label={t("capabilityMap.clearAll")}
-                    variant="outlined"
-                    onDelete={() => {
+            <ReportFilterSection
+              label={t("capabilityMap.applicationFilters")}
+              collapsed={filtersCollapsed}
+              onToggle={() => setFiltersCollapsed((v) => !v)}
+              count={activeFilterCount}
+              clearAllLabel={hasActiveFilters ? t("capabilityMap.clearAll") : undefined}
+              onClearAll={
+                hasActiveFilters
+                  ? () => {
                       setAttrFilters({});
                       setRelationFilters({});
                       setTagFilterIds([]);
-                    }}
-                    sx={{ fontSize: "0.7rem", height: 22, ml: 0.5 }}
-                  />
-                )}
-              </Box>
-              <Box
-                sx={{
-                  display: "flex",
-                  gap: 2,
-                  flexWrap: "wrap",
-                }}
-              >
-                {/* Related By section */}
-                {relationFilterOptions.length > 0 && (
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      flexWrap: "wrap",
-                      bgcolor: "action.hover",
-                      borderRadius: 1.5,
-                      px: 1.5,
-                      py: 0.75,
-                    }}
+                    }
+                  : undefined
+              }
+            >
+              {/* Related By section */}
+              {relationFilterOptions.length > 0 && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    flexWrap: "wrap",
+                    bgcolor: "action.hover",
+                    borderRadius: 1.5,
+                    px: 1.5,
+                    py: 0.75,
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
                   >
-                    <Typography
-                      variant="caption"
-                      sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
-                    >
-                      {t("capabilityMap.relatedBy")}
-                    </Typography>
-                    {relationFilterOptions.slice(0, showAllRelFilters ? undefined : 2).map((rf) => (
-                      <FilterSelect
-                        key={rf.typeKey}
-                        label={rf.label}
-                        options={rf.options}
-                        value={relationFilters[rf.typeKey] || []}
-                        onChange={(v) =>
-                          setRelationFilters((prev) => ({ ...prev, [rf.typeKey]: v }))
-                        }
-                      />
-                    ))}
-                    {!showAllRelFilters && relationFilterOptions.length > 2 && (
-                      <Tooltip title={t("capabilityMap.showMore", { count: relationFilterOptions.length - 2 })}>
-                        <Chip
-                          size="small"
-                          icon={<MaterialSymbol icon="add" size={14} />}
-                          label={t("capabilityMap.more", { count: relationFilterOptions.length - 2 })}
-                          onClick={() => setShowAllRelFilters(true)}
-                          sx={{
-                            height: 26,
-                            fontSize: "0.72rem",
-                            fontWeight: 500,
-                            cursor: "pointer",
-                            bgcolor: "background.paper",
-                            border: "1px dashed",
-                            borderColor: "divider",
-                            "&:hover": { bgcolor: "action.hover" },
-                          }}
-                        />
-                      </Tooltip>
-                    )}
-                    {showAllRelFilters && relationFilterOptions.length > 2 && (
+                    {t("capabilityMap.relatedBy")}
+                  </Typography>
+                  {relationFilterOptions.slice(0, showAllRelFilters ? undefined : 2).map((rf) => (
+                    <FilterSelect
+                      key={rf.typeKey}
+                      label={rf.label}
+                      options={rf.options}
+                      value={relationFilters[rf.typeKey] || []}
+                      onChange={(v) =>
+                        setRelationFilters((prev) => ({ ...prev, [rf.typeKey]: v }))
+                      }
+                    />
+                  ))}
+                  {!showAllRelFilters && relationFilterOptions.length > 2 && (
+                    <Tooltip title={t("capabilityMap.showMore", { count: relationFilterOptions.length - 2 })}>
                       <Chip
                         size="small"
-                        label={t("capabilityMap.less")}
-                        onClick={() => setShowAllRelFilters(false)}
+                        icon={<MaterialSymbol icon="add" size={14} />}
+                        label={t("capabilityMap.more", { count: relationFilterOptions.length - 2 })}
+                        onClick={() => setShowAllRelFilters(true)}
                         sx={{
                           height: 26,
                           fontSize: "0.72rem",
+                          fontWeight: 500,
                           cursor: "pointer",
                           bgcolor: "background.paper",
-                          border: 1,
+                          border: "1px dashed",
                           borderColor: "divider",
+                          "&:hover": { bgcolor: "action.hover" },
                         }}
                       />
-                    )}
-                  </Box>
-                )}
-
-                {/* Tags section */}
-                {tagGroupsData.length > 0 && (
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      flexWrap: "wrap",
-                      bgcolor: "action.hover",
-                      borderRadius: 1.5,
-                      px: 1.5,
-                      py: 0.75,
-                    }}
-                  >
-                    <Typography
-                      variant="caption"
-                      sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
-                    >
-                      {t("capabilityMap.tags")}
-                    </Typography>
-                    <TagPicker
-                      groups={tagGroupsData as unknown as TagGroup[]}
-                      value={tagFilterIds}
-                      onChange={setTagFilterIds}
+                    </Tooltip>
+                  )}
+                  {showAllRelFilters && relationFilterOptions.length > 2 && (
+                    <Chip
                       size="small"
-                      label={t("capabilityMap.tags")}
-                      placeholder=""
-                      sx={{ minWidth: 180, maxWidth: 320 }}
+                      label={t("capabilityMap.less")}
+                      onClick={() => setShowAllRelFilters(false)}
+                      sx={{
+                        height: 26,
+                        fontSize: "0.72rem",
+                        cursor: "pointer",
+                        bgcolor: "background.paper",
+                        border: 1,
+                        borderColor: "divider",
+                      }}
                     />
-                  </Box>
-                )}
+                  )}
+                </Box>
+              )}
 
-                {/* Own Fields section */}
-                {selectFields.filter((f) => f.options && f.options.length > 0).length > 0 && (
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      flexWrap: "wrap",
-                      bgcolor: "action.hover",
-                      borderRadius: 1.5,
-                      px: 1.5,
-                      py: 0.75,
-                    }}
+              {/* Tags section */}
+              {tagGroupsData.length > 0 && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    flexWrap: "wrap",
+                    bgcolor: "action.hover",
+                    borderRadius: 1.5,
+                    px: 1.5,
+                    py: 0.75,
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
                   >
-                    <Typography
-                      variant="caption"
-                      sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
-                    >
-                      {t("capabilityMap.fields")}
-                    </Typography>
-                    {selectFields
-                      .filter((f) => f.options && f.options.length > 0)
-                      .map((f) => (
-                        <FilterSelect
-                          key={f.key}
-                          label={f.label}
-                          options={(f.options || []).map((o) => ({
-                            key: o.key,
-                            label: o.label,
-                            color: o.color,
-                          }))}
-                          value={attrFilters[f.key] || []}
-                          onChange={(v) =>
-                            setAttrFilters((prev) => ({ ...prev, [f.key]: v }))
-                          }
-                        />
-                      ))}
-                  </Box>
-                )}
-              </Box>
-            </Box>
+                    {t("capabilityMap.tags")}
+                  </Typography>
+                  <TagPicker
+                    groups={tagGroupsData as unknown as TagGroup[]}
+                    value={tagFilterIds}
+                    onChange={setTagFilterIds}
+                    size="small"
+                    label={t("capabilityMap.tags")}
+                    placeholder=""
+                    sx={{ minWidth: 180, maxWidth: 320 }}
+                  />
+                </Box>
+              )}
+
+              {/* Own Fields section */}
+              {selectFields.filter((f) => f.options && f.options.length > 0).length > 0 && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    flexWrap: "wrap",
+                    bgcolor: "action.hover",
+                    borderRadius: 1.5,
+                    px: 1.5,
+                    py: 0.75,
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
+                  >
+                    {t("capabilityMap.fields")}
+                  </Typography>
+                  {selectFields
+                    .filter((f) => f.options && f.options.length > 0)
+                    .map((f) => (
+                      <FilterSelect
+                        key={f.key}
+                        label={f.label}
+                        options={(f.options || []).map((o) => ({
+                          key: o.key,
+                          label: o.label,
+                          color: o.color,
+                        }))}
+                        value={attrFilters[f.key] || []}
+                        onChange={(v) =>
+                          setAttrFilters((prev) => ({ ...prev, [f.key]: v }))
+                        }
+                      />
+                    ))}
+                </Box>
+              )}
+            </ReportFilterSection>
           )}
         </>
       }

@@ -25,6 +25,10 @@ When AI is configured and portfolio insights are enabled by an admin, the portfo
 
 Clicking a group opens a drawer listing that group's cards. Its **View in inventory** button opens the Inventory on that exact slice. When the report is grouped by one of the card type's own fields, the inventory arrives grouped by the same field with the clicked group expanded and every other group collapsed (counts stay visible), and the report's search, attribute, relation and tag filters are carried over — ready for a select-all and [mass edit](inventory.md#mass-edit). When grouping by a related card type (such as Organization), the inventory instead arrives filtered to that related card. The button is hidden while *Nested groups* is active: a rolled-up subtree has no single inventory filter.
 
+### Collapsing the filters
+
+The **Filters** row folds away: click its header to hide the filter controls and give the chart the vertical space back. The setting is remembered with the rest of the report's configuration, so a report reopens the way you left it. While collapsed the header still shows how many filters are active, and **Clear all** stays reachable — a folded section never hides the fact that the data is filtered.
+
 ### Time travel
 
 The timeline slider carries the same transition instruments as the [Dependencies Report](#dependencies-report): marks on every date an application goes live (blue) or retires (red), pills naming the changing applications while the slider stands on a mark, arrow buttons that step from change to change, and chips summarising the transformation while you look forward ("+4 arriving · −7 retiring" — also included in print and export headers). Clicking a mark or a pill spotlights the applications that change there — the rest of the view dims while they pulse, and an application already gone at the selected date is revealed just for the pulse, then hidden again.
@@ -63,6 +67,8 @@ The **Capability Map** shows a hierarchical **heatmap** of the organization's bu
 **Scoping to specific capabilities** — By default the map draws every capability. Use the capability chip in the toolbar to open a picker and select one or more capabilities; the map then shows only those and everything beneath them. Sub-capabilities are included automatically, so picking a top-level capability gives you its whole branch. **Display Depth** counts from the capabilities you selected, so *Level 2* always means two tiers below what you are looking at. The scope is stored with the report, so a saved report reopens on the same branch.
 
 **Time travel** — The timeline slider carries the same transition instruments as the [Dependencies Report](#dependencies-report): marks on every date an application goes live (blue) or retires (red), pills naming the changing applications while the slider stands on a mark, arrow buttons that step from change to change, and chips summarising the transformation while you look forward (also included in print and export headers). Clicking a mark or a pill spotlights the change: with **Show Applications** on, the changing application chips pulse while the rest dim, and an application already gone at the selected date is revealed just for the pulse; with it off, the spotlight falls on the capability boxes containing the changing applications — blue where they only arrive, red where they only retire, purple where both happen.
+
+**Collapsing the filters** — The **Application Filters** row folds away; click its header to reclaim the space. The state is saved with the report, the active-filter count stays visible on the collapsed header, and **Clear all** remains reachable without expanding first.
 
 ## Lifecycle Report
 

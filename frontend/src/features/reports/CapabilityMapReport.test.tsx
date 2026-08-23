@@ -306,6 +306,63 @@ describe("CapabilityMapReport scope filter", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Collapsible filters section
+// ---------------------------------------------------------------------------
+
+describe("CapabilityMapReport collapsible filters", () => {
+  const filtersToggle = () =>
+    within(toolbar()).getByRole("button", { name: /Application Filters/ });
+
+  it("starts expanded once the section is showing", async () => {
+    consumedConfig = { showApps: true };
+    renderMap();
+    await waitFor(() => expect(filtersToggle()).toBeInTheDocument());
+    expect(filtersToggle()).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("restores a collapsed section from the saved config", async () => {
+    consumedConfig = { showApps: true, filtersCollapsed: true };
+    renderMap();
+    await waitFor(() => expect(filtersToggle()).toBeInTheDocument());
+    expect(filtersToggle()).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("honours the stored collapse when the section first appears", async () => {
+    // The gate: with Show Applications off and no active filters there is no
+    // section at all, so nothing to collapse. Turning it on must reveal a
+    // COLLAPSED header — the stored preference — not spring open. Pins the
+    // decision not to add an auto-expand effect on the hidden→visible edge.
+    const user = userEvent.setup();
+    consumedConfig = { filtersCollapsed: true };
+    renderMap();
+    await waitFor(() => expect(within(chart()).getByText("Sales")).toBeInTheDocument());
+    expect(
+      within(toolbar()).queryByRole("button", { name: /Application Filters/ }),
+    ).not.toBeInTheDocument();
+
+    await user.click(within(toolbar()).getByRole("checkbox"));
+
+    await waitFor(() => expect(filtersToggle()).toBeInTheDocument());
+    expect(filtersToggle()).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("persists the collapse when the header is clicked", async () => {
+    const user = userEvent.setup();
+    consumedConfig = { showApps: true };
+    renderMap();
+    await waitFor(() => expect(filtersToggle()).toBeInTheDocument());
+    await user.click(filtersToggle());
+
+    const persistConfig = vi.mocked(useSavedReport).mock.results[0].value.persistConfig;
+    await waitFor(() =>
+      expect(persistConfig).toHaveBeenCalledWith(
+        expect.objectContaining({ filtersCollapsed: true }),
+      ),
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Time travel — transition marks, delta, spotlight
 //
 //   Operations (L1) ── Dual App (retires 2027-06-01, supports BOTH caps)

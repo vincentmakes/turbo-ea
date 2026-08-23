@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import PortfolioReport from "./PortfolioReport";
@@ -590,6 +590,80 @@ describe("PortfolioReport group drawer", () => {
     // Reopening the same group must still render it — an in-place sort of a
     // memoized array is the kind of thing that only breaks on the second open.
     expect(screen.getAllByText("SAP ERP").length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Collapsible filters section
+// ---------------------------------------------------------------------------
+
+describe("PortfolioReport collapsible filters", () => {
+  /** The filters header toggle — a real button, so addressable by role. */
+  const filtersToggle = () =>
+    screen.getByRole("button", { name: /Application Filters/ });
+
+  it("starts expanded, with the filter controls visible", async () => {
+    vi.mocked(api.get).mockResolvedValue(MOCK_API_RESPONSE);
+    renderPortfolio();
+
+    await waitFor(() => expect(filtersToggle()).toBeInTheDocument());
+    expect(filtersToggle()).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("restores a collapsed section from the saved config", async () => {
+    mockSavedConfig({ filtersCollapsed: true });
+    vi.mocked(api.get).mockResolvedValue(MOCK_API_RESPONSE);
+    renderPortfolio();
+
+    await waitFor(() => expect(filtersToggle()).toBeInTheDocument());
+    expect(filtersToggle()).toHaveAttribute("aria-expanded", "false");
+    // The header stays readable so the section can be found and reopened.
+    expect(screen.getByText("Application Filters")).toBeVisible();
+  });
+
+  it("restores an explicitly stored expanded state", async () => {
+    // Guards the `!= null` restore idiom: a truthiness check would drop a
+    // stored `false` — invisible here (the default is also false) but the
+    // pairing with the collapsed case above pins the intent.
+    mockSavedConfig({ filtersCollapsed: false });
+    vi.mocked(api.get).mockResolvedValue(MOCK_API_RESPONSE);
+    renderPortfolio();
+
+    await waitFor(() => expect(filtersToggle()).toBeInTheDocument());
+    expect(filtersToggle()).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("persists the collapse when the header is clicked", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.get).mockResolvedValue(MOCK_API_RESPONSE);
+    mockSavedConfig({ groupByRaw: "rel:Organization" });
+    renderPortfolio();
+
+    await waitFor(() => expect(filtersToggle()).toBeInTheDocument());
+    await user.click(filtersToggle());
+
+    // Asserted only after an interaction: `skipFirstPersistRef` swallows the
+    // mount-time call.
+    const persistConfig = vi.mocked(useSavedReport).mock.results[0].value.persistConfig;
+    await waitFor(() =>
+      expect(persistConfig).toHaveBeenCalledWith(
+        expect.objectContaining({ filtersCollapsed: true }),
+      ),
+    );
+  });
+
+  it("shows the active-filter count on the collapsed header", async () => {
+    mockSavedConfig({
+      filtersCollapsed: true,
+      attrFilters: { businessCriticality: ["high"] },
+    });
+    vi.mocked(api.get).mockResolvedValue(MOCK_API_RESPONSE);
+    renderPortfolio();
+
+    await waitFor(() => expect(filtersToggle()).toBeInTheDocument());
+    // Same integer the report puts in its print params, so a collapsed
+    // section on screen and the printed header cannot disagree.
+    expect(within(filtersToggle()).getByText("1")).toBeInTheDocument();
   });
 });
 
