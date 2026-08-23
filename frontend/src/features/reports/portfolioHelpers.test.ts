@@ -306,9 +306,25 @@ describe("lifecycle date helpers", () => {
     expect(isAliveAtDate({ active: "not-a-date" }, at)).toBe(true);
   });
 
-  it("uses the earliest START-phase date as the birthday", () => {
+  it("uses the go-live date as the birthday, not an earlier plan", () => {
     expect(hasStartedByDate({ plan: "2027-01-01" }, at)).toBe(false);
     expect(hasStartedByDate({ plan: "2027-01-01", active: "2020-01-01" }, at)).toBe(true);
+    // The go-live mark sits on `active`, so a card must not appear years before
+    // it — taking the earliest start phase made this one visible from 2020.
+    expect(hasStartedByDate({ plan: "2020-01-01", active: "2029-01-01" }, at)).toBe(false);
+    expect(hasStartedByDate({ phaseIn: "2020-01-01", active: "2029-01-01" }, at)).toBe(false);
+    expect(hasStartedByDate({ plan: "2020-01-01", active: "2029-01-01" }, ms("2029-01-01"))).toBe(
+      true,
+    );
+  });
+
+  it("treats a card that never went live as upcoming, whatever its plan date", () => {
+    // No `active` at all: it has not entered the landscape, so it shows only
+    // where planned cards are previewed — even once its plan date has passed.
+    expect(hasStartedByDate({ plan: "2020-01-01" }, at)).toBe(false);
+    expect(hasStartedByDate({ phaseIn: "2020-01-01" }, at)).toBe(false);
+    expect(hasStartedByDate({ plan: "2020-01-01", phaseIn: "2021-01-01" }, at)).toBe(false);
+    expect(isAliveAtDate({ plan: "2020-01-01" }, at)).toBe(false);
   });
 
   it("treats end-phase-only lifecycles as already started", () => {

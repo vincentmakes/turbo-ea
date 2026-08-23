@@ -40,10 +40,38 @@ describe("computeTimelineRange", () => {
     expect(r.yearMarks.map((m) => m.label)).toEqual(["2024", "2025", "2026", "2027"]);
   });
 
-  it("spans every phase key, not just active", () => {
-    const r = computeTimelineRange([{ plan: "2019-03-01", phaseOut: "2028-09-01" }], TODAY);
-    expect(r.dateRange.min).toBe(ms("2019-03-01") - YEAR);
-    expect(r.dateRange.max).toBe(ms("2028-09-01") + YEAR);
+  it("is bounded by go-live and end of life, not by every phase key", () => {
+    // A phase-out date changes nothing on the canvas and carries no mark, so
+    // letting it bound the axis only bought empty labelled years of dead track.
+    const r = computeTimelineRange(
+      [{ plan: "2019-03-01", active: "2020-01-01", phaseOut: "2028-09-01" }],
+      TODAY,
+    );
+    expect(r.dateRange.min).toBe(ms("2020-01-01") - YEAR);
+    expect(r.dateRange.max).toBe(ms("2020-01-01") + YEAR);
+  });
+
+  it("carries no timeline when nothing can change the view", () => {
+    // Nothing reads plan / phaseIn / phaseOut, so such a landscape looks
+    // identical at every date and the slider is hidden entirely.
+    expect(computeTimelineRange([{ phaseOut: "2028-09-01" }], TODAY).hasLifecycleData).toBe(false);
+    expect(
+      computeTimelineRange([{ plan: "2019-03-01", phaseIn: "2019-09-01" }], TODAY)
+        .hasLifecycleData,
+    ).toBe(false);
+  });
+
+  it("stops the axis a year after the last real change", () => {
+    // The reported shape: a phase-out date years past the last go-live or
+    // retirement used to stretch the axis into 2033/2034.
+    const r = computeTimelineRange(
+      [{ active: "2018-01-01", endOfLife: "2031-01-01", phaseOut: "2033-06-01" }],
+      TODAY,
+    );
+    const labels = r.yearMarks.map((m) => m.label);
+    expect(labels.at(-1)).toBe("2032");
+    expect(labels).not.toContain("2033");
+    expect(labels).not.toContain("2034");
   });
 
   it("skips unparseable dates", () => {
@@ -51,11 +79,55 @@ describe("computeTimelineRange", () => {
   });
 });
 
+describe("computeTimelineRange contains computeTimelineMilestones", () => {
+  // The slider drops any milestone outside the range it was given
+  // (`useMilestoneClusters` filters on it), and a dropped milestone renders as
+  // a mark that is simply missing — silently. So the two must be kept in step:
+  // sweep every combination of the five phases against a fixed date pool.
+  const PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"] as const;
+  const POOL = ["2012-04-01", "2018-01-01", "2024-09-15", "2031-06-30", "2040-12-01"];
+
+  it("never places a milestone outside the axis", () => {
+    for (let mask = 0; mask < 1 << PHASES.length; mask++) {
+      for (let rotation = 0; rotation < POOL.length; rotation++) {
+        const lc: Record<string, string> = {};
+        PHASES.forEach((p, i) => {
+          if (mask & (1 << i)) lc[p] = POOL[(i + rotation) % POOL.length];
+        });
+        const lifecycles = [lc];
+        const { dateRange, hasLifecycleData, yearMarks } = computeTimelineRange(
+          lifecycles,
+          TODAY,
+        );
+        const milestones = computeTimelineMilestones(lifecycles);
+
+        for (const m of milestones) {
+          expect(m.value).toBeGreaterThanOrEqual(dateRange.min);
+          expect(m.value).toBeLessThanOrEqual(dateRange.max);
+        }
+        // No axis means nothing can change, so there is nothing to mark.
+        if (!hasLifecycleData) expect(milestones).toEqual([]);
+        expect(dateRange.min).toBeLessThan(dateRange.max);
+        if (hasLifecycleData) {
+          expect(yearMarks.length).toBeGreaterThan(0);
+          for (let i = 1; i < yearMarks.length; i++)
+            expect(yearMarks[i].value).toBeGreaterThan(yearMarks[i - 1].value);
+        }
+      }
+    }
+  });
+});
+
 describe("classifyTimelineChange", () => {
   const future = ms("2028-01-01");
 
-  it("flags a card that starts after today but before the target date as arriving", () => {
-    expect(classifyTimelineChange({ plan: "2027-01-01" }, TODAY, future)).toBe("arriving");
+  it("flags a card that goes live after today but before the target date as arriving", () => {
+    expect(classifyTimelineChange({ active: "2027-01-01" }, TODAY, future)).toBe("arriving");
+    // The go-live date is what counts, not an earlier plan: the card arrives
+    // on the date its mark sits on.
+    expect(
+      classifyTimelineChange({ plan: "2020-01-01", active: "2027-01-01" }, TODAY, future),
+    ).toBe("arriving");
   });
 
   it("flags a card whose end of life is at or before the date as retired — whenever it retired", () => {
@@ -96,11 +168,15 @@ describe("classifyTimelineChange", () => {
     const past = ms("2020-01-01");
     // Not yet started at the viewed date — whether viewed from the past,
     // today, or a future date before its start.
-    expect(classifyTimelineChange({ plan: "2027-01-01" }, TODAY, past)).toBe("planned");
-    expect(classifyTimelineChange({ plan: "2027-01-01" }, TODAY, TODAY)).toBe("planned");
+    expect(classifyTimelineChange({ active: "2027-01-01" }, TODAY, past)).toBe("planned");
+    expect(classifyTimelineChange({ active: "2027-01-01" }, TODAY, TODAY)).toBe("planned");
     expect(classifyTimelineChange({ active: "2035-01-01" }, TODAY, future)).toBe("planned");
-    // Started by the viewed date: an in-window ARRIVAL, not a plan.
-    expect(classifyTimelineChange({ plan: "2027-01-01" }, TODAY, future)).toBe("arriving");
+    // Live by the viewed date: an in-window ARRIVAL, not a plan.
+    expect(classifyTimelineChange({ active: "2027-01-01" }, TODAY, future)).toBe("arriving");
+    // No go-live date at all: it never entered the landscape, so it is planned
+    // at every date rather than arriving at whichever phase date came first.
+    expect(classifyTimelineChange({ plan: "2027-01-01" }, TODAY, future)).toBe("planned");
+    expect(classifyTimelineChange({ plan: "2020-01-01" }, TODAY, future)).toBe("planned");
   });
 
   it("flags a card that both arrives and retires inside the window as retired", () => {

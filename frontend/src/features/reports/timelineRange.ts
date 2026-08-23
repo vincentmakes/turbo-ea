@@ -2,7 +2,6 @@ import {
   hasStartedByDate,
   isAliveAtDate,
   isRetiredByDate,
-  LIFECYCLE_PHASES,
   parseDate,
 } from "./portfolioHelpers";
 import type { Lifecycle } from "./portfolioHelpers";
@@ -23,9 +22,11 @@ export interface TimelineRange {
  * Dependencies) so they scale their sliders identically — the padding and the
  * "no lifecycle data anywhere" fallback used to be copy-pasted per report.
  *
- * `hasLifecycleData` is false when nothing in the payload carries a lifecycle
- * date; callers hide the slider entirely in that case, since a landscape with
- * no dates looks the same at every point in time.
+ * `hasLifecycleData` is false when nothing in the payload carries a date that
+ * can change the view — a go-live or an end of life. Callers hide the slider
+ * entirely in that case, and a landscape dated only with `plan` / `phaseIn` /
+ * `phaseOut` qualifies: nothing on the canvas reads those, so it genuinely
+ * looks the same at every point in time.
  */
 export function computeTimelineRange(
   lifecycles: Lifecycle[],
@@ -37,8 +38,13 @@ export function computeTimelineRange(
 
   for (const lc of lifecycles) {
     if (!lc) continue;
-    for (const p of LIFECYCLE_PHASES) {
-      const d = parseDate(lc[p]);
+    // Only two dates can change what the timeline shows, and they are exactly
+    // the two that carry marks: `active` (the card appears — `hasStartedByDate`
+    // flips) and `endOfLife` (it goes — `isRetiredByDate` flips). Nothing here
+    // reads `plan`, `phaseIn` or `phaseOut`, so letting those bound the axis
+    // only stretched it into years where nothing happens — a lone phase-out
+    // date three years out bought three empty labelled years of dead track.
+    for (const d of [parseDate(lc.active), parseDate(lc.endOfLife)]) {
       if (d == null) continue;
       minD = Math.min(minD, d);
       maxD = Math.max(maxD, d);

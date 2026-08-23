@@ -5,7 +5,7 @@
  * jsdom gives every element a zero rect, so these assert on what the row
  * contains rather than where it sits.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import TimelineSlider from "./TimelineSlider";
@@ -324,5 +324,141 @@ describe("TimelineSlider step-through", () => {
     renderSlider(TODAY, { onChange });
     await userEvent.click(screen.getByRole("button", { name: /Next change/i }));
     expect(onChange).toHaveBeenCalledWith(GO_LIVE);
+  });
+});
+
+/**
+ * Year labels. jsdom reports `clientWidth` 0, so these stub it — deliberately
+ * per-test rather than globally, because the merged-mark tests above lean on
+ * the component's nominal-width fallback.
+ */
+describe("TimelineSlider year labels", () => {
+  const jan1 = (y: number) => new Date(y, 0, 1).getTime();
+  const YEAR_MARKS = Array.from({ length: 18 }, (_, i) => ({
+    value: jan1(2017 + i),
+    label: String(2017 + i),
+  }));
+  // The axis the reported screenshot had: 2017…2034 with a year of padding.
+  const RANGE = { min: jan1(2017) - 365.25 * 86_400_000, max: jan1(2034) + 365.25 * 86_400_000 };
+  // Must stay within ten years of the first mark, or the slider's own cap
+  // truncates the axis before the labels are ever thinned.
+  const YEARS_TODAY = TODAY;
+
+  function stubTrackWidth(px: number) {
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", {
+      configurable: true,
+      get: () => px,
+    });
+  }
+
+  afterEach(() => {
+    // An own property on the prototype; deleting it re-exposes jsdom's getter.
+    delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientWidth;
+  });
+
+  const renderYears = (width: number, overrides = {}) => {
+    stubTrackWidth(width);
+    return render(
+      <TimelineSlider
+        value={YEARS_TODAY}
+        onChange={vi.fn()}
+        dateRange={RANGE}
+        yearMarks={YEAR_MARKS}
+        todayMs={YEARS_TODAY}
+        {...overrides}
+      />,
+    );
+  };
+
+  const labelEls = () => Array.from(document.querySelectorAll(".MuiSlider-markLabel"));
+  const labelText = () => labelEls().map((e) => e.textContent);
+
+  it("spaces the labels evenly and does not force the final year", () => {
+    renderYears(480);
+    expect(labelText()).toEqual([
+      "2017",
+      "2019",
+      "2021",
+      "2023",
+      "2025",
+      "2027",
+      "2029",
+      "2031",
+      "2033",
+    ]);
+    expect(labelText()).not.toContain("2034");
+  });
+
+  it("labels a single stride of marks", () => {
+    // The assertion that would have caught the bug: the old code produced
+    // …,"16","17" — the last label one stride after its neighbour instead of
+    // two, which is why 2033 and 2034 overlapped.
+    renderYears(480);
+    expect(labelEls().map((e) => e.getAttribute("data-index"))).toEqual([
+      "0",
+      "2",
+      "4",
+      "6",
+      "8",
+      "10",
+      "12",
+      "14",
+      "16",
+    ]);
+  });
+
+  it("keeps a tick for every year it labels only some of", () => {
+    renderYears(480);
+    expect(document.querySelectorAll(".MuiSlider-mark")).toHaveLength(18);
+    expect(labelEls()).toHaveLength(9);
+  });
+
+  it("renders no empty label spans for the thinned years", () => {
+    renderYears(480);
+    expect(labelText().every((t) => t !== "")).toBe(true);
+  });
+
+  it("labels every year when there is room", () => {
+    renderYears(1600);
+    expect(labelEls()).toHaveLength(18);
+    expect(labelText()).toContain("2034");
+  });
+
+  it("falls back to a single label on a very narrow slider", () => {
+    renderYears(24);
+    expect(labelText()).toEqual(["2017"]);
+    expect(document.querySelectorAll(".MuiSlider-mark")).toHaveLength(18);
+  });
+
+  it("drops marks older than the ten-year cap", () => {
+    stubTrackWidth(480);
+    render(
+      <TimelineSlider
+        value={TODAY}
+        onChange={vi.fn()}
+        dateRange={{ min: jan1(2010), max: jan1(2030) }}
+        yearMarks={[{ value: jan1(2010), label: "2010" }, ...YEAR_MARKS.slice(0, 8)]}
+        todayMs={TODAY}
+      />,
+    );
+    expect(labelText()).not.toContain("2010");
+    // today − 10y is mid-2016, so 2017 onwards survive the cap.
+    expect(labelText()).toContain("2017");
+  });
+});
+
+describe("TimelineSlider out-of-range value", () => {
+  it("pins the thumb to the axis while the read-out keeps the real date", () => {
+    // A saved report can carry a date the current data no longer spans.
+    const max = ms("2030-01-01");
+    renderSlider(ms("2032-06-01"), { dateRange: { min: ms("2020-01-01"), max } });
+    expect(screen.getByRole("slider")).toHaveAttribute("aria-valuenow", String(max));
+    expect(screen.getByText("Jun 1, 2032")).toBeInTheDocument();
+  });
+
+  it("pins a date before the axis start to the axis start", () => {
+    const min = ms("2020-01-01");
+    renderSlider(ms("2011-01-01"), { dateRange: { min, max: ms("2030-01-01") } });
+    expect(screen.getByRole("slider")).toHaveAttribute("aria-valuenow", String(min));
   });
 });

@@ -165,32 +165,31 @@ export function parseDate(s: string | undefined): number | null {
 /** A bare lifecycle map (`plan`/`phaseIn`/`active`/`phaseOut`/`endOfLife` → ISO date). */
 export type Lifecycle = Record<string, string> | undefined;
 
-/** The phases whose dates can mark a card's entry into the landscape. */
-const START_PHASES = ["plan", "phaseIn", "active"];
+/** The phases that say a card is MEANT to go live but has not done so yet. */
+const PLANNED_PHASES = ["plan", "phaseIn"];
 
 /**
- * The card's earliest START-phase date (epoch ms), or null when it has none.
- * Only `plan` / `phaseIn` / `active` count as birth candidates: a card carrying
- * nothing but `phaseOut`/`endOfLife` dates (the shape the endoflife.date
- * mass-link writes) must already exist to be phasing out — treating its end
- * date as its birthday made such cards invisible their entire life.
- */
-export function earliestStartDate(lifecycle: Lifecycle): number | null {
-  if (!lifecycle) return null;
-  const dates = START_PHASES.map((p) => parseDate(lifecycle[p])).filter(
-    (d): d is number => d != null,
-  );
-  return dates.length ? Math.min(...dates) : null;
-}
-
-/**
- * Whether the card exists yet at `dateMs` — i.e. its earliest start-phase date
- * has arrived. A card with no start-phase dates has no birthday to miss, so it
- * counts as started (fail-open: an undated card is landscape furniture, not a plan).
+ * Whether the card is in the landscape at `dateMs` — i.e. its go-live date has
+ * arrived.
+ *
+ * A card enters on its `active` date and not before. The timeline's go-live
+ * marks sit on `active`, so taking the EARLIEST start phase as the birthday
+ * made a card with `plan 2027 / active 2029` appear in 2027 — two years before
+ * the mark that announces it, on a date carrying no mark at all.
+ *
+ * With no `active` date the card never went live:
+ *  - carrying a `plan`/`phaseIn` date makes it upcoming, so it shows only when
+ *    planned cards are previewed;
+ *  - carrying neither leaves it no birthday to miss, so it counts as started.
+ *    That fail-open branch is what keeps undated landscape furniture visible,
+ *    and what keeps a card holding only `phaseOut`/`endOfLife` (the shape the
+ *    endoflife.date mass-link writes) from being invisible its entire life —
+ *    it must already exist to be phasing out.
  */
 export function hasStartedByDate(lifecycle: Lifecycle, dateMs: number): boolean {
-  const start = earliestStartDate(lifecycle);
-  return start == null || start <= dateMs;
+  const active = parseDate(lifecycle?.active);
+  if (active != null) return active <= dateMs;
+  return !PLANNED_PHASES.some((p) => parseDate(lifecycle?.[p]) != null);
 }
 
 /** Whether the card has reached end of life by `dateMs` (inclusive). */

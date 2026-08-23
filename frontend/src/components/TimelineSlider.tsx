@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useRef, useState, useEffect, useCallback } from "react";
+import { Fragment, useMemo, useRef, useState, useLayoutEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Slider from "@mui/material/Slider";
@@ -11,11 +11,16 @@ import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useIsRtl } from "@/hooks/useIsRtl";
 import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
+import {
+  MIN_LABEL_SPACING_PX,
+  NOMINAL_TRACK_PX,
+  thinYearLabels,
+  type ThinnedMark,
+} from "@/components/timelineMarks";
 import type { TimelineChangeCard, TimelineMilestone } from "@/features/reports/timelineRange";
 
 const ONE_DAY_MS = 86_400_000;
 const TEN_YEARS_MS = 10 * 365.25 * ONE_DAY_MS;
-const MIN_LABEL_SPACING_PX = 48;
 /** Markers closer together than this merge into one, so a landscape with
  *  hundreds of transition dates reads as marks rather than a smear. */
 const MIN_MILESTONE_SPACING_PX = 10;
@@ -69,43 +74,44 @@ const fmtFull = (v: number) =>
   new Date(v).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 
 /**
- * Thin year marks responsively: keep tick dots for every mark but only
- * show text labels on a subset so they stay >= minSpacingPx apart.
+ * Live pixel width of the slider's coordinate space, 0 until first measured.
+ *
+ * One observer for the whole component: the year labels and the transition
+ * marks are laid out in the SAME space, and measuring it twice let the two
+ * drift apart. `useLayoutEffect` so the measured labelling is committed before
+ * paint instead of flashing the nominal-width pass first.
  */
-function useResponsiveMarks(
-  allMarks: { value: number; label: string }[],
-  containerRef: React.RefObject<HTMLDivElement | null>,
-  minSpacingPx = MIN_LABEL_SPACING_PX,
-) {
-  const [marks, setMarks] = useState(allMarks);
+function useMeasuredWidth(ref: React.RefObject<HTMLElement | null>): number {
+  const [width, setWidth] = useState(0);
 
-  const update = useCallback(() => {
-    const width = containerRef.current?.clientWidth ?? 400;
-    if (!allMarks.length) { setMarks([]); return; }
-
-    const maxLabels = Math.max(2, Math.floor(width / minSpacingPx));
-    if (allMarks.length <= maxLabels) { setMarks(allMarks); return; }
-
-    // pick a nice step that keeps labels readable
-    const step = Math.ceil(allMarks.length / maxLabels);
-    setMarks(
-      allMarks.map((m, i) => ({
-        value: m.value,
-        label: i % step === 0 || i === allMarks.length - 1 ? m.label : "",
-      })),
-    );
-  }, [allMarks, containerRef, minSpacingPx]);
-
-  useEffect(() => {
-    update();
-    const el = containerRef.current;
+  useLayoutEffect(() => {
+    const el = ref.current;
     if (!el) return;
+    const update = () => setWidth(el.clientWidth);
+    update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [update, containerRef]);
+  }, [ref]);
 
-  return marks;
+  return width;
+}
+
+/**
+ * Thin year marks responsively: keep a tick for every mark but label only a
+ * subset, on a fixed stride, so the labels stay >= minSpacingPx apart AND
+ * evenly spaced. See `thinYearLabels` for why the last mark is not special.
+ */
+function useResponsiveMarks(
+  allMarks: { value: number; label: string }[],
+  range: { min: number; max: number },
+  width: number,
+  minSpacingPx = MIN_LABEL_SPACING_PX,
+): ThinnedMark[] {
+  return useMemo(
+    () => thinYearLabels(allMarks, range, width, minSpacingPx),
+    [allMarks, range, width, minSpacingPx],
+  );
 }
 
 /**
@@ -126,27 +132,15 @@ interface MilestoneCluster extends TimelineMilestone {
 function useMilestoneClusters(
   milestones: TimelineMilestone[],
   range: { min: number; max: number },
-  containerRef: React.RefObject<HTMLDivElement | null>,
+  width: number,
 ) {
-  const [width, setWidth] = useState(0);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const update = () => setWidth(el.clientWidth);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [containerRef]);
-
   return useMemo(() => {
     const span = range.max - range.min;
     if (!milestones.length || span <= 0) return [];
     const inRange = milestones.filter((m) => m.value >= range.min && m.value <= range.max);
     // Before the first measurement, fall back to a nominal width so the marks
     // render rather than vanishing on the first paint.
-    const px = width || 400;
+    const px = width || NOMINAL_TRACK_PX;
 
     const clusters: MilestoneCluster[] = [];
     for (const m of inRange) {
@@ -198,9 +192,17 @@ export default function TimelineSlider({
     [yearMarks, cappedRange],
   );
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const responsiveMarks = useResponsiveMarks(cappedMarks, containerRef);
-  const milestoneClusters = useMilestoneClusters(milestones ?? [], cappedRange, containerRef);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const trackWidth = useMeasuredWidth(trackRef);
+  const responsiveMarks = useResponsiveMarks(cappedMarks, cappedRange, trackWidth);
+  const milestoneClusters = useMilestoneClusters(milestones ?? [], cappedRange, trackWidth);
+
+  // A saved report can carry a date the current data no longer spans — the axis
+  // shrinks whenever a lifecycle is edited. Pin the thumb to the end rather than
+  // render it off the rail. Display only: the read-out, the past/future accent
+  // and the step targets all keep the true `value`, and no effect calls
+  // `onChange` to snap, which would silently rewrite the saved date on open.
+  const thumbValue = Math.min(Math.max(value, cappedRange.min), cappedRange.max);
 
   // Step-through targets: the per-date milestone list, NOT the pixel clusters —
   // clusters depend on container width, so stepping through them would behave
@@ -417,152 +419,160 @@ export default function TimelineSlider({
             </span>
           </Tooltip>
         )}
-        <Box ref={containerRef} sx={{ flex: 1, minWidth: 0, px: 1.5 }}>
-          <Slider
-            value={value}
-            min={cappedRange.min}
-            max={cappedRange.max}
-            step={ONE_DAY_MS}
-            track={false}
-            marks={responsiveMarks}
-            onChange={(_, v) => onChange(v as number)}
-            valueLabelDisplay="auto"
-            valueLabelFormat={fmtTip}
-            sx={{
-              color: accent,
-              height: 6,
-              transition: "color 0.3s",
-              ...(milestoneClusters.length > 0 && {
-                "&.MuiSlider-marked": { marginBottom: 0 },
-              }),
-              "& .MuiSlider-rail": {
+        {/* The padding holds the half of the first and last year labels that
+            overhangs the track — MUI centres a mark label on its tick. */}
+        <Box sx={{ flex: 1, minWidth: 0, px: 2 }}>
+          {/* Measured on the TRACK, not on the padded row: `clientWidth` counts
+              padding, so measuring the outer box claimed 24px more room than
+              the labels actually have and packed them that much tighter. The
+              milestone overlay shares this box, and so its coordinate space. */}
+          <Box ref={trackRef}>
+            <Slider
+              value={thumbValue}
+              min={cappedRange.min}
+              max={cappedRange.max}
+              step={ONE_DAY_MS}
+              track={false}
+              marks={responsiveMarks}
+              onChange={(_, v) => onChange(v as number)}
+              valueLabelDisplay="auto"
+              valueLabelFormat={fmtTip}
+              sx={{
+                color: accent,
                 height: 6,
-                borderRadius: 3,
-                bgcolor: `${accent}40`,
-                opacity: 1,
-                transition: "background-color 0.3s",
-              },
-              "& .MuiSlider-thumb": {
-                width: 18,
-                height: 18,
-                bgcolor: accent,
-                border: "2px solid #fff",
-                boxShadow: `0 0 0 1px ${accent}40`,
-                transition: "background-color 0.3s, box-shadow 0.3s",
-                "&:hover, &.Mui-focusVisible": {
-                  boxShadow: `0 0 0 6px ${accent}24`,
-                },
-              },
-              "& .MuiSlider-mark": {
-                width: 2,
-                height: 10,
-                bgcolor: `${accent}AA`,
-                borderRadius: 1,
-                transition: "background-color 0.3s",
-              },
-              "& .MuiSlider-markActive": {
-                bgcolor: `${accent}AA`,
-              },
-              "& .MuiSlider-markLabel": {
-                fontSize: "0.68rem",
-                fontWeight: 600,
-                color: `${accent}E0`,
-                top: 30,
                 transition: "color 0.3s",
-              },
-              // Prevent first/last labels from clipping outside container
-              "& .MuiSlider-markLabel:first-of-type": {
-                transform: "translateX(0%)",
-              },
-              "& .MuiSlider-markLabel:last-of-type": {
-                transform: "translateX(-100%)",
-              },
-            }}
-          />
+                ...(milestoneClusters.length > 0 && {
+                  "&.MuiSlider-marked": { marginBottom: 0 },
+                }),
+                "& .MuiSlider-rail": {
+                  height: 6,
+                  borderRadius: 3,
+                  bgcolor: `${accent}40`,
+                  opacity: 1,
+                  transition: "background-color 0.3s",
+                },
+                "& .MuiSlider-thumb": {
+                  width: 18,
+                  height: 18,
+                  bgcolor: accent,
+                  border: "2px solid #fff",
+                  boxShadow: `0 0 0 1px ${accent}40`,
+                  transition: "background-color 0.3s, box-shadow 0.3s",
+                  "&:hover, &.Mui-focusVisible": {
+                    boxShadow: `0 0 0 6px ${accent}24`,
+                  },
+                },
+                "& .MuiSlider-mark": {
+                  width: 2,
+                  height: 10,
+                  bgcolor: `${accent}AA`,
+                  borderRadius: 1,
+                  transition: "background-color 0.3s",
+                },
+                "& .MuiSlider-markActive": {
+                  bgcolor: `${accent}AA`,
+                },
+                // Edge labels are contained by the wrapper's own padding, not by
+                // a :first-of-type / :last-of-type transform override. Under MUI's
+                // DOM the rail, every mark, every label and the thumb are sibling
+                // <span>s, so those selectors matched the rail and the thumb —
+                // never a label — and the rules they carried never applied.
+                "& .MuiSlider-markLabel": {
+                  fontSize: "0.68rem",
+                  fontWeight: 600,
+                  color: `${accent}E0`,
+                  top: 30,
+                  transition: "color 0.3s",
+                },
+              }}
+            />
 
-          {/* Transition marks: where cards enter or leave the landscape. Sits
-              below the year labels (which MUI puts at top: 30) and shares the
-              track's coordinate space, so a mark lines up with the thumb that
-              lands on it. */}
-          {milestoneClusters.length > 0 && (
-            <Box sx={{ position: "relative", height: 18, mt: 0.75 }}>
-              {milestoneClusters.map((m) => {
-                const pct = ((m.value - cappedRange.min) / (cappedRange.max - cappedRange.min)) * 100;
-                const parts: string[] = [];
-                if (m.activating)
-                  parts.push(t("timelineSlider.milestoneActivating", { count: m.activating }));
-                if (m.disappearing)
-                  parts.push(t("timelineSlider.milestoneDisappearing", { count: m.disappearing }));
-                // Marks closer together than MIN_MILESTONE_SPACING_PX merge,
-                // so one mark can stand for several dates. Say the span when
-                // it does: stating a single date made a merged neighbour look
-                // unmarked, which is how a card whose arrival was absorbed
-                // into a busy mark reads as having no go-live mark at all.
-                const isMerged = m.spanEnd > m.value;
-                const when = isMerged
-                  ? `${fmtFull(m.value)} – ${fmtFull(m.spanEnd)}`
-                  : fmtFull(m.value);
-                const summary = `${when} — ${parts.join(" · ")}`;
-                // One bar, coloured by WHAT the mark does: blue where cards
-                // only arrive, red where they only retire, purple where it
-                // does both. Two abutting bars said the same thing but read as
-                // two marks at a glance, which is the last thing a crowded
-                // track needs.
-                const barColor =
-                  m.activating > 0 && m.disappearing > 0
-                    ? TIMELINE_COLORS.mixed
-                    : m.activating > 0
-                      ? TIMELINE_COLORS.goLive
-                      : STATUS_COLORS.error;
-                // Past transitions render exactly like upcoming ones. A stateful
-                // RETIRED/UPCOMING badge needs its mark whichever side of today
-                // it falls on, and muting the past ones made every mark in a
-                // mostly-historical landscape read as disabled.
-                return (
-                  <Tooltip key={m.value} title={summary} arrow>
-                    <ButtonBase
-                      aria-label={`${summary}. ${t("timelineSlider.milestoneJump")}`}
-                      onClick={() => {
-                        onChange(m.value);
-                        onMilestoneClick?.(m.value, m.spanEnd);
-                      }}
-                      sx={{
-                        position: "absolute",
-                        left: `${pct}%`,
-                        top: 0,
-                        transform: "translateX(-50%)",
-                        // Generous hit area around a deliberately small mark.
-                        px: 0.75,
-                        py: 0.5,
-                        borderRadius: 1,
-                        display: "flex",
-                        "&:hover": { bgcolor: "action.hover" },
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          // Merged marks stand for several dates, so they are
-                          // drawn wider. Width is the only thing that says a
-                          // mark covers a span; without it a change absorbed
-                          // into a crowded neighbour looks unmarked.
-                          width: isMerged ? MERGED_MARK_PX : MARK_PX,
-                          height: 10,
-                          borderRadius: "1px",
-                          // Same accents as the pulse this mark triggers on the
-                          // canvas, so mark and highlighted card read as one.
-                          bgcolor: barColor,
+            {/* Transition marks: where cards enter or leave the landscape. Sits
+                below the year labels (which MUI puts at top: 30) and shares the
+                track's coordinate space, so a mark lines up with the thumb that
+                lands on it. */}
+            {milestoneClusters.length > 0 && (
+              <Box sx={{ position: "relative", height: 18, mt: 0.75 }}>
+                {milestoneClusters.map((m) => {
+                  const pct = ((m.value - cappedRange.min) / (cappedRange.max - cappedRange.min)) * 100;
+                  const parts: string[] = [];
+                  if (m.activating)
+                    parts.push(t("timelineSlider.milestoneActivating", { count: m.activating }));
+                  if (m.disappearing)
+                    parts.push(t("timelineSlider.milestoneDisappearing", { count: m.disappearing }));
+                  // Marks closer together than MIN_MILESTONE_SPACING_PX merge,
+                  // so one mark can stand for several dates. Say the span when
+                  // it does: stating a single date made a merged neighbour look
+                  // unmarked, which is how a card whose arrival was absorbed
+                  // into a busy mark reads as having no go-live mark at all.
+                  const isMerged = m.spanEnd > m.value;
+                  const when = isMerged
+                    ? `${fmtFull(m.value)} – ${fmtFull(m.spanEnd)}`
+                    : fmtFull(m.value);
+                  const summary = `${when} — ${parts.join(" · ")}`;
+                  // One bar, coloured by WHAT the mark does: blue where cards
+                  // only arrive, red where they only retire, purple where it
+                  // does both. Two abutting bars said the same thing but read as
+                  // two marks at a glance, which is the last thing a crowded
+                  // track needs.
+                  const barColor =
+                    m.activating > 0 && m.disappearing > 0
+                      ? TIMELINE_COLORS.mixed
+                      : m.activating > 0
+                        ? TIMELINE_COLORS.goLive
+                        : STATUS_COLORS.error;
+                  // Past transitions render exactly like upcoming ones. A stateful
+                  // RETIRED/UPCOMING badge needs its mark whichever side of today
+                  // it falls on, and muting the past ones made every mark in a
+                  // mostly-historical landscape read as disabled.
+                  return (
+                    <Tooltip key={m.value} title={summary} arrow>
+                      <ButtonBase
+                        aria-label={`${summary}. ${t("timelineSlider.milestoneJump")}`}
+                        onClick={() => {
+                          onChange(m.value);
+                          onMilestoneClick?.(m.value, m.spanEnd);
                         }}
-                      />
-                    </ButtonBase>
-                  </Tooltip>
-                );
-              })}
-            </Box>
-          )}
+                        sx={{
+                          position: "absolute",
+                          left: `${pct}%`,
+                          top: 0,
+                          transform: "translateX(-50%)",
+                          // Generous hit area around a deliberately small mark.
+                          px: 0.75,
+                          py: 0.5,
+                          borderRadius: 1,
+                          display: "flex",
+                          "&:hover": { bgcolor: "action.hover" },
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            // Merged marks stand for several dates, so they are
+                            // drawn wider. Width is the only thing that says a
+                            // mark covers a span; without it a change absorbed
+                            // into a crowded neighbour looks unmarked.
+                            width: isMerged ? MERGED_MARK_PX : MARK_PX,
+                            height: 10,
+                            borderRadius: "1px",
+                            // Same accents as the pulse this mark triggers on the
+                            // canvas, so mark and highlighted card read as one.
+                            bgcolor: barColor,
+                          }}
+                        />
+                      </ButtonBase>
+                    </Tooltip>
+                  );
+                })}
+              </Box>
+            )}
+          </Box>
 
           {/* The cards behind the mark the slider is standing on. The marks say
               how many change and when; standing on one has to say WHICH, and
-              keep saying it — the click pulse is gone in 1.6 seconds. */}
+              keep saying it — the click pulse is gone in 1.6 seconds. Outside
+              the measured track box, so a wrapping row of chips can never
+              change the width the labels are laid out against. */}
           {activeCards.length > 0 && (
             <Box
               aria-label={t("timelineSlider.milestoneCardsLabel")}

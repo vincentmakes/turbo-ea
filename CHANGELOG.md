@@ -5,6 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.78.2] - 2026-08-23
+
+### Fixed
+
+- Time Travel slider: the year labels are now evenly spaced at every window width. The final year was labelled unconditionally, so on a timeline whose labels were thinned to every other year the last two sat one year apart instead of two and overlapped (2033 and 2034 in the reported case). Labels now fall on a single stride chosen from their real on-screen positions, so the spacing guarantee holds however the window is sized; a trailing year that would crowd its neighbour goes unlabelled, and every year still carries its own tick.
+- Time Travel slider: the timeline no longer runs years past the last thing that happens on it. Phase-out dates, which no view and no marker reads, used to stretch the axis — a single phase-out date three years out bought three empty labelled years of dead track. The axis is now bounded by the dates that actually change the landscape: go-live and end of life.
+- Time Travel slider: a saved report whose stored date falls outside the current timeline — after a lifecycle edit shortens it, say — keeps its handle on the track instead of rendering it past the end. The date shown above the slider is still the one that was saved.
+
+### Changed
+
+- Time travel: a card now enters the landscape on its **Active** date rather than on the earliest of its plan, phase-in and active dates. A card planned for 2027 and going live in 2029 used to appear in 2027 — two years before the go-live marker that announces it, on a date carrying no marker at all. A card with no Active date has not gone live at all, so it now shows only with **Preview planned cards** turned on, badged as upcoming. Cards with no lifecycle dates, and those carrying only phase-out or end-of-life dates, are unaffected and stay visible as before.
+
 ## [2.78.1] - 2026-08-23
 
 ### Fixed
