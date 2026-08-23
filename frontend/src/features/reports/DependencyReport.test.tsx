@@ -45,6 +45,7 @@ type SliderProps = {
     to: number,
   ) => { id: string; name: string; kind: string; color?: string }[];
   onMilestoneCardClick?: (card: { id: string; kind: string }) => void;
+  onActiveSpanChange?: (span: { from: number; to: number } | null) => void;
 };
 const sliderProps: SliderProps[] = [];
 vi.mock("@/components/TimelineSlider", () => ({
@@ -90,6 +91,7 @@ import { createRef } from "react";
 const ms = (iso: string) => new Date(iso).getTime();
 const TODAY = ms("2026-08-22");
 const FUTURE = ms("2028-06-01");
+const LEGACY_EOL = ms("2027-06-01");
 
 const GRAPH = {
   nodes: [
@@ -175,6 +177,39 @@ beforeEach(() => {
   });
 });
 
+/**
+ * Render with the slider parked on a given date. The report only trusts a mark's
+ * span once its (debounced) date agrees with it, which is what the real slider
+ * guarantees by snapping the value onto the mark.
+ */
+function renderAt(dateMs: number, initialEntry = "/reports/dependencies") {
+  vi.mocked(useTimeline).mockReturnValue({
+    timelineDate: dateMs,
+    setTimelineDate: vi.fn(),
+    todayMs: TODAY,
+    isTimeTraveling: true,
+    persistValue: dateMs,
+    printParam: { label: "Time Travel", value: "marker" },
+    restore: vi.fn(),
+    reset: vi.fn(),
+  });
+  return renderReport(initialEntry);
+}
+
+/** The connection-change icons, counted by their accessible title. */
+const gainedMarks = () =>
+  document.querySelectorAll('[title="Gains a connection here"]').length;
+const lostMarks = () => document.querySelectorAll('[title="Loses a connection here"]').length;
+
+/** Tell the report which mark the slider is standing on, as the slider would. */
+function standOn(span: number | null) {
+  act(() => {
+    sliderProps
+      .at(-1)
+      ?.onActiveSpanChange?.(span == null ? null : { from: span, to: span });
+  });
+}
+
 function renderReport(initialEntry = "/reports/dependencies") {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
@@ -194,9 +229,8 @@ describe("DependencyReport time travel — persist retired cards", () => {
     // Two retired cards are on the table: the one retiring inside the window
     // and the mainframe that went years ago — both badged, persist being on.
     expect(screen.getAllByText("RETIRED").length).toBeGreaterThanOrEqual(2);
-    // The ghost is displayed, so its surviving dependent is NOT badged — the
-    // dashed red edge (in chart view) already tells the story.
-    expect(screen.queryByText("IMPACTED")).not.toBeInTheDocument();
+    // Nothing is standing on a mark, so no connection-change marks anywhere.
+    expect(document.querySelectorAll("[title$='connection here']").length).toBe(0);
   });
 
   it("un-toggling the switch removes retired cards and their relations", async () => {
@@ -216,18 +250,84 @@ describe("DependencyReport time travel — persist retired cards", () => {
     expect(screen.getByText("CRM Cloud")).toBeInTheDocument();
   });
 
-  it("badges the surviving dependent IMPACTED once its severed dependency is hidden", async () => {
+  it("marks nothing away from a transition mark", async () => {
+    // The regression: scoped to today→viewed-date, a mark earned at one
+    // retirement was earned at every later date and never expired.
     renderReport();
     await screen.findByText("Legacy ERP");
 
     await userEvent.click(screen.getByRole("checkbox", { name: /Keep retired cards/ }));
+    await waitFor(() => expect(screen.queryByText("Legacy ERP")).not.toBeInTheDocument());
 
-    await waitFor(() => {
-      expect(screen.getByText("IMPACTED")).toBeInTheDocument();
+    expect(lostMarks()).toBe(0);
+    expect(gainedMarks()).toBe(0);
+  });
+
+  it("marks the bystanders that lose a connection while standing on the mark", async () => {
+    renderAt(LEGACY_EOL);
+    await screen.findAllByText("Web Portal");
+
+    await userEvent.click(screen.getByRole("checkbox", { name: /Keep retired cards/ }));
+    standOn(LEGACY_EOL);
+
+    // Web Portal loses Legacy ERP, which retires exactly here.
+    await waitFor(() => expect(lostMarks()).toBeGreaterThanOrEqual(1));
+    expect(gainedMarks()).toBe(0);
+  });
+
+  it("marks the bystanders that gain a connection when a neighbour goes live", async () => {
+    // The half that never existed: an arrival hands its neighbours a connection.
+    vi.mocked(api.get).mockResolvedValue({
+      ...GRAPH,
+      nodes: [
+        ...GRAPH.nodes,
+        {
+          id: "arriving",
+          name: "Arriving Platform",
+          type: "Application",
+          lifecycle: { active: "2027-09-01" },
+        },
+      ],
+      edges: [
+        ...GRAPH.edges,
+        { source: "arriving", target: "crm", type: "app_to_app", label: "uses" },
+      ],
     });
-    // Only the direct dependents of a hidden retiring card — Web Portal (lost
-    // Legacy ERP) and CRM Cloud (lost the mainframe) — not the whole chain.
-    expect(screen.getAllByText("IMPACTED").length).toBeGreaterThanOrEqual(1);
+    renderAt(ms("2027-09-01"));
+    await screen.findByText("Arriving Platform");
+
+    standOn(ms("2027-09-01"));
+
+    // CRM Cloud gains a link to the arriving card; the arriving card gets none.
+    await waitFor(() => expect(gainedMarks()).toBeGreaterThanOrEqual(1));
+  });
+
+  it("keeps a card retiring at the mark on screen, badged RETIRED, with persist off", async () => {
+    // The pill row names the cards changing here, so they have to be somewhere
+    // to be named — even though persist off would otherwise drop them.
+    renderAt(LEGACY_EOL);
+    await screen.findByText("Legacy ERP");
+
+    await userEvent.click(screen.getByRole("checkbox", { name: /Keep retired cards/ }));
+    standOn(LEGACY_EOL);
+
+    await waitFor(() => expect(screen.getByText("Legacy ERP")).toBeInTheDocument());
+    expect(screen.getAllByText("RETIRED").length).toBeGreaterThanOrEqual(1);
+    // The card that went years earlier is NOT dragged back by this mark.
+    expect(screen.queryByText("Legacy Mainframe")).not.toBeInTheDocument();
+  });
+
+  it("drops both the retiring card and the badges when the slider leaves the mark", async () => {
+    renderAt(LEGACY_EOL);
+    await screen.findByText("Legacy ERP");
+
+    await userEvent.click(screen.getByRole("checkbox", { name: /Keep retired cards/ }));
+    standOn(LEGACY_EOL);
+    await waitFor(() => expect(screen.getByText("Legacy ERP")).toBeInTheDocument());
+
+    standOn(null);
+    await waitFor(() => expect(screen.queryByText("Legacy ERP")).not.toBeInTheDocument());
+    expect(lostMarks()).toBe(0);
   });
 
   it("toggling back on restores the retired card and clears the badge", async () => {
@@ -239,7 +339,7 @@ describe("DependencyReport time travel — persist retired cards", () => {
 
     await userEvent.click(screen.getByRole("checkbox", { name: /Keep retired cards/ }));
     expect(await screen.findByText("Legacy ERP")).toBeInTheDocument();
-    expect(screen.queryByText("IMPACTED")).not.toBeInTheDocument();
+    expect(lostMarks()).toBe(0);
   });
 });
 

@@ -234,50 +234,75 @@ export function cardsChangingBetween(
   );
 }
 
+/** Which way a card's connections change at a transition mark. */
+export interface ConnectionChanges {
+  /** Present cards that gain a connection because a neighbour arrives here. */
+  gained: Set<string>;
+  /** Present cards that lose a connection because a neighbour retires here. */
+  lost: Set<string>;
+}
+
 /**
- * Cards IMPACTED by the transformation in a way that would otherwise be
- * invisible: linked to a card that retires between today and the viewed date
- * but is currently hidden (persist toggled off). While the retired card is on
- * the canvas — ghosted, with dashed red edges — the story is already told and
- * a badge on every neighbour is pure spam: centre on a retiring card and the
- * whole canvas would light up amber. The badge exists to carry the
- * information the hidden ghost can no longer carry, nothing more.
+ * What happens to a card's CONNECTIONS at a transition mark: which cards gain
+ * one because a neighbour goes live here, and which lose one because a neighbour
+ * retires here.
  *
- * Window-scoped on purpose: a dependency lost years before today is history,
- * not this transformation's impact — without the window, one long-dead hub
- * card badges half the landscape forever.
+ * Scoped to the mark, not to the trip. This used to be scoped to today→viewed
+ * date and it only ever said "lost": because `isRetiredByDate` becomes more true
+ * as the date advances while today never moves, a card marked once stayed marked
+ * at every later position — a single retirement eventually marked its neighbours
+ * across the whole future. A mark is a moment: what changed here, and who felt
+ * it.
+ *
+ * The mark is read on BOTH sides. An arrival brings its relations with it, so the
+ * cards it attaches to gain a connection exactly as a retirement's neighbours
+ * lose one; only the losing half was ever shown, which told half the story.
+ *
+ * A card is marked only when it is present at `to` and is not itself arriving or
+ * retiring in the span — the change belongs to the neighbour that stays, not to
+ * the card that comes or goes, which says so itself by appearing or by being
+ * ghosted. That also keeps the marks off cards carrying a state badge of their
+ * own, so the two never compete for the same corner.
+ *
+ * Uses the same `∈ [from, to]` tests as `cardsChangingBetween`, so the marks and
+ * the mark's own pills can never disagree about what changed here. Past marks
+ * count: a retirement in 2015 is as real a change as one in 2030.
  *
  * Direction is deliberately ignored: the dependency graph is walked undirected
  * everywhere else in the report. Structural parameter types (not GNode) so the
  * layout module can depend on this one without a cycle.
  */
-export function computeImpactedIds(
+export function computeConnectionChanges(
   nodes: { id: string; lifecycle?: Record<string, string> }[],
   edges: { source: string; target: string }[],
-  todayMs: number,
-  dateMs: number,
-  /** Ids currently displayed — a visible retired card tells its own story. */
-  displayedIds: Set<string>,
-): Set<string> {
-  if (dateMs <= todayMs) return new Set();
+  /** Start of the mark's span, inclusive. */
+  from: number,
+  /** End of the mark's span, inclusive — the date the graph is drawn as of. */
+  to: number,
+): ConnectionChanges {
+  const gained = new Set<string>();
+  const lost = new Set<string>();
+  if (to < from) return { gained, lost };
+
   const byId = new Map(nodes.map((n) => [n.id, n]));
-  const severs = (id: string): boolean => {
+  const inSpan = (d: number | null) => d != null && d >= from && d <= to;
+  const arrives = (id: string) => inSpan(parseDate(byId.get(id)?.lifecycle?.active));
+  const retires = (id: string) => inSpan(parseDate(byId.get(id)?.lifecycle?.endOfLife));
+  /** Eligible to be marked: here at the end of the span, and not itself moving. */
+  const bystander = (id: string): boolean => {
     const n = byId.get(id);
-    return (
-      !!n &&
-      !displayedIds.has(id) &&
-      isRetiredByDate(n.lifecycle, dateMs) &&
-      !isRetiredByDate(n.lifecycle, todayMs)
-    );
+    return !!n && isAliveAtDate(n.lifecycle, to) && !arrives(id) && !retires(id);
   };
-  const survives = (id: string): boolean => {
-    const n = byId.get(id);
-    return !!n && !isRetiredByDate(n.lifecycle, dateMs);
-  };
-  const impacted = new Set<string>();
+
   for (const e of edges) {
-    if (severs(e.source) && survives(e.target)) impacted.add(e.target);
-    if (severs(e.target) && survives(e.source)) impacted.add(e.source);
+    for (const [moved, other] of [
+      [e.source, e.target],
+      [e.target, e.source],
+    ] as const) {
+      if (!bystander(other)) continue;
+      if (arrives(moved)) gained.add(other);
+      if (retires(moved)) lost.add(other);
+    }
   }
-  return impacted;
+  return { gained, lost };
 }

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   cardsChangingBetween,
   classifyTimelineChange,
-  computeImpactedIds,
+  computeConnectionChanges,
   computeTimelineMilestones,
   computeTimelineRange,
   isPresentAtDate,
@@ -339,82 +339,139 @@ describe("computeTimelineMilestones", () => {
   });
 });
 
-describe("computeImpactedIds", () => {
-  const at = ms("2028-06-01");
+describe("computeConnectionChanges", () => {
+  // A mark spanning the first week of 2028.
+  const FROM = ms("2028-01-01");
+  const TO = ms("2028-01-07");
   const nodes = [
-    // Retires inside the today→date window.
-    { id: "windowGone", lifecycle: { active: "2020-01-01", endOfLife: "2027-01-01" } },
-    // Was already dead before today — history, not this transformation.
-    { id: "longGone", lifecycle: { active: "2010-01-01", endOfLife: "2015-01-01" } },
+    // Retires inside the mark's span, and goes live inside it.
+    { id: "goesHere", lifecycle: { active: "2020-01-01", endOfLife: "2028-01-03" } },
+    { id: "arrivesHere", lifecycle: { active: "2028-01-04" } },
+    // Changes outside the span: their own marks, not this one.
+    { id: "goneEarlier", lifecycle: { active: "2010-01-01", endOfLife: "2015-01-01" } },
+    { id: "goesLater", lifecycle: { active: "2020-01-01", endOfLife: "2030-01-01" } },
+    // Bystanders: here throughout.
     { id: "dependent", lifecycle: { active: "2020-01-01" } },
     { id: "other", lifecycle: { active: "2020-01-01" } },
-    // Also retires in the window — retired cards are never themselves at risk.
-    { id: "alsoGone", lifecycle: { active: "2020-01-01", endOfLife: "2028-01-01" } },
+    // Alive back in 2015, so it can be a bystander at a mark in the past.
+    { id: "oldTimer", lifecycle: { active: "2005-01-01" } },
   ];
-  const NONE_SHOWN = new Set<string>();
 
-  it("flags survivors impacted by a hidden window-retiring card, either direction", () => {
-    const impacted = computeImpactedIds(
+  it("marks a bystander that loses a connection, either edge direction", () => {
+    const a = computeConnectionChanges(nodes, [{ source: "goesHere", target: "dependent" }], FROM, TO);
+    expect([...a.lost]).toEqual(["dependent"]);
+    expect(a.gained.size).toBe(0);
+
+    const b = computeConnectionChanges(nodes, [{ source: "other", target: "goesHere" }], FROM, TO);
+    expect([...b.lost]).toEqual(["other"]);
+  });
+
+  it("marks a bystander that gains a connection when a neighbour goes live", () => {
+    // The half that never existed: an arrival hands its neighbours a connection
+    // exactly as a retirement takes one away.
+    const r = computeConnectionChanges(
+      nodes,
+      [{ source: "arrivesHere", target: "dependent" }],
+      FROM,
+      TO,
+    );
+    expect([...r.gained]).toEqual(["dependent"]);
+    expect(r.lost.size).toBe(0);
+  });
+
+  it("marks a card on both sides when it gains and loses at the same mark", () => {
+    const r = computeConnectionChanges(
       nodes,
       [
-        { source: "windowGone", target: "dependent" },
-        { source: "other", target: "windowGone" },
+        { source: "arrivesHere", target: "dependent" },
+        { source: "goesHere", target: "dependent" },
       ],
-      TODAY,
-      at,
-      NONE_SHOWN,
+      FROM,
+      TO,
     );
-    expect([...impacted].sort()).toEqual(["dependent", "other"]);
+    expect([...r.gained]).toEqual(["dependent"]);
+    expect([...r.lost]).toEqual(["dependent"]);
   });
 
-  it("does not badge when the retiring card is displayed — its ghost tells the story", () => {
-    const impacted = computeImpactedIds(
+  it("never marks the card that is itself coming or going", () => {
+    // The change belongs to the neighbour that stays; the mover says so itself
+    // by appearing, or by being ghosted.
+    const r = computeConnectionChanges(
       nodes,
-      [{ source: "windowGone", target: "dependent" }],
-      TODAY,
-      at,
-      new Set(["windowGone", "dependent"]),
+      [{ source: "arrivesHere", target: "goesHere" }],
+      FROM,
+      TO,
     );
-    expect(impacted.size).toBe(0);
+    expect(r.gained.size).toBe(0);
+    expect(r.lost.size).toBe(0);
   });
 
-  it("ignores cards retired before today — a dependency lost years ago is history", () => {
-    const impacted = computeImpactedIds(
+  it("ignores changes outside the mark's span, before or after", () => {
+    // The regression this exists for: scoped to today→viewed-date, a mark once
+    // earned was earned at every later date and never expired.
+    const before = computeConnectionChanges(
       nodes,
-      [{ source: "longGone", target: "dependent" }],
-      TODAY,
-      at,
-      NONE_SHOWN,
+      [{ source: "goneEarlier", target: "dependent" }],
+      FROM,
+      TO,
     );
-    expect(impacted.size).toBe(0);
-  });
-
-  it("never flags a card that is itself retired at the date", () => {
-    const impacted = computeImpactedIds(
+    expect(before.lost.size + before.gained.size).toBe(0);
+    const after = computeConnectionChanges(
       nodes,
-      [{ source: "windowGone", target: "alsoGone" }],
-      TODAY,
-      at,
-      NONE_SHOWN,
+      [{ source: "goesLater", target: "dependent" }],
+      FROM,
+      TO,
     );
-    expect(impacted.size).toBe(0);
+    expect(after.lost.size + after.gained.size).toBe(0);
+    // ...and that card's own mark, later on, does mark it.
+    const later = ms("2030-01-01");
+    expect([
+      ...computeConnectionChanges(nodes, [{ source: "goesLater", target: "dependent" }], later, later)
+        .lost,
+    ]).toEqual(["dependent"]);
   });
 
-  it("flags nothing at today or in the past — no window, no transformation", () => {
-    const edges = [{ source: "windowGone", target: "dependent" }];
-    expect(computeImpactedIds(nodes, edges, TODAY, TODAY, NONE_SHOWN).size).toBe(0);
-    expect(computeImpactedIds(nodes, edges, TODAY, ms("2020-01-01"), NONE_SHOWN).size).toBe(0);
+  it("marks at a mark in the past too", () => {
+    // A retirement in 2015 is as real a change as one in 2030, and carries a
+    // mark either way; the old forward-only guard hid it.
+    const at = ms("2015-01-01");
+    expect([
+      ...computeConnectionChanges(nodes, [{ source: "goneEarlier", target: "oldTimer" }], at, at)
+        .lost,
+    ]).toEqual(["oldTimer"]);
+    // ...but a card that does not exist yet at that date cannot lose anything.
+    expect(
+      computeConnectionChanges(nodes, [{ source: "goneEarlier", target: "dependent" }], at, at).lost
+        .size,
+    ).toBe(0);
   });
 
-  it("ignores edges with an unknown endpoint", () => {
-    const impacted = computeImpactedIds(
+  it("never marks a card that is gone by the end of the span", () => {
+    const r = computeConnectionChanges(
       nodes,
-      [{ source: "windowGone", target: "elsewhere" }],
-      TODAY,
-      at,
-      NONE_SHOWN,
+      [{ source: "arrivesHere", target: "goneEarlier" }],
+      FROM,
+      TO,
     );
-    expect(impacted.size).toBe(0);
+    expect(r.gained.size).toBe(0);
+  });
+
+  it("ignores unknown endpoints and inverted spans", () => {
+    const unknown = computeConnectionChanges(
+      nodes,
+      [{ source: "goesHere", target: "elsewhere" }],
+      FROM,
+      TO,
+    );
+    expect(unknown.lost.size + unknown.gained.size).toBe(0);
+
+    const inverted = computeConnectionChanges(
+      nodes,
+      [{ source: "goesHere", target: "dependent" }],
+      TO,
+      FROM,
+    );
+    expect(inverted.lost.size + inverted.gained.size).toBe(0);
   });
 });
 

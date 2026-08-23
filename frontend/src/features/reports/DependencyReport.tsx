@@ -35,14 +35,16 @@ import { useTimeline } from "@/hooks/useTimeline";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import TimelineSlider from "@/components/TimelineSlider";
 import {
+  cardsChangingBetween,
   classifyTimelineChange,
-  computeImpactedIds,
+  computeConnectionChanges,
   computeTimelineMilestones,
   computeTimelineRange,
   isPresentAtDate,
   isVisibleAtDate,
 } from "./timelineRange";
 import { isRetiredByDate } from "./portfolioHelpers";
+import LinkChangeIcon from "./LinkChangeIcon";
 import { TIMELINE_PULSE_KEYFRAMES, useMilestoneSpotlight } from "./useMilestoneSpotlight";
 import type { TimelineChange } from "./timelineRange";
 import type { GNode, GEdge } from "./layeredDependencyLayout";
@@ -143,13 +145,16 @@ function tc(key: string, types: CardType[]): string {
   return types.find((t) => t.key === key)?.color || FALLBACK_COLORS[key] || "#999";
 }
 
+/** Tolerance for matching the debounced date to the mark's span — the same
+ *  one-day slack the slider uses to decide it is standing on a mark. */
+const ONE_DAY_MS = 86_400_000;
+
 /** Badge states the tree and table views render as compact chips. */
-type BadgeState = TimelineChange | "impacted";
+type BadgeState = TimelineChange;
 
 /** Accent per badge state — the same trio the LDV corner badges use. */
 function changeColor(state: BadgeState): string {
   if (state === "arriving" || state === "planned") return TIMELINE_COLORS.future;
-  if (state === "impacted") return STATUS_COLORS.warning;
   return STATUS_COLORS.error;
 }
 
@@ -160,8 +165,8 @@ function changeColor(state: BadgeState): string {
  *
  * Renders nothing for a card that IS part of the landscape at the viewed date —
  * the same `isPresentAtDate` rule the diagram applies, shared so the two cannot
- * drift. `impacted` describes a surviving card's dependencies rather than its
- * presence, so it always badges.
+ * drift. A card whose CONNECTIONS change at the mark is marked by an icon
+ * instead, not by a word — see `LinkChangeIcon`.
  */
 function ChangeBadge({
   state,
@@ -170,13 +175,9 @@ function ChangeBadge({
   state: BadgeState;
   t: (key: string) => string;
 }) {
-  if (state !== "impacted" && isPresentAtDate(state)) return null;
+  if (isPresentAtDate(state)) return null;
   const labelKey =
-    state === "impacted"
-      ? "dependency.impactedBadge"
-      : state === "planned"
-        ? "dependency.plannedBadge"
-        : "dependency.retiredBadge";
+    state === "planned" ? "dependency.plannedBadge" : "dependency.retiredBadge";
   const color = changeColor(state);
   return (
     <Chip
@@ -196,12 +197,41 @@ function ChangeBadge({
   );
 }
 
+/**
+ * The same two icons the diagram draws, for the tree and table rows — one
+ * vocabulary across all three views.
+ */
+function LinkChangeMarks({
+  node,
+  t,
+}: {
+  node: { gainedLink?: boolean; lostLink?: boolean };
+  t: (key: string) => string;
+}) {
+  if (!node.gainedLink && !node.lostLink) return null;
+  return (
+    <Box sx={{ display: "flex", gap: 0.25, lineHeight: 0, alignSelf: "center" }}>
+      {node.gainedLink && (
+        <Box component="span" title={t("dependency.gainedConnection")} sx={{ display: "flex" }}>
+          <LinkChangeIcon kind="gained" color={TIMELINE_COLORS.goLive} />
+        </Box>
+      )}
+      {node.lostLink && (
+        <Box component="span" title={t("dependency.lostConnection")} sx={{ display: "flex" }}>
+          <LinkChangeIcon kind="lost" color={STATUS_COLORS.error} />
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 /** Legend entries for the time-travel change badges drawn by the LDV. */
 const CHANGE_LEGEND = [
   { key: "arriving", color: TIMELINE_COLORS.future, labelKey: "dependency.legendArriving" },
   { key: "planned", color: TIMELINE_COLORS.future, labelKey: "dependency.legendPlanned" },
   { key: "retired", color: STATUS_COLORS.error, labelKey: "dependency.legendRetired" },
-  { key: "impacted", color: STATUS_COLORS.warning, labelKey: "dependency.legendImpacted" },
+  { key: "gainedLink", color: TIMELINE_COLORS.goLive, labelKey: "dependency.legendGainedLink" },
+  { key: "lostLink", color: STATUS_COLORS.error, labelKey: "dependency.legendLostLink" },
 ] as const;
 
 function tl(key: string, types: CardType[], locale?: string): string {
@@ -462,6 +492,11 @@ export default function DependencyReport() {
 
   /* -- LDV expanded nodes (expand mode digs into a card's relations) -- */
   const [ldvExpandedNodes, setLdvExpandedNodes] = useState<Set<string>>(new Set());
+
+  /* -- The transition mark the slider is standing on, or null between marks.
+        Reported by the slider on every path onto a mark, so "at this marker"
+        means one thing however it was reached. -- */
+  const [activeSpan, setActiveSpan] = useState<{ from: number; to: number } | null>(null);
 
   /* -- LDV targeted reveals (hierarchy parent / children tools); tracked
         separately so toggling one tool off clears only its own reveals -- */
@@ -725,6 +760,26 @@ export default function DependencyReport() {
   const { nodes, edges } = useMemo(() => {
     const at = timelineFilterDate;
     const visibility = { persistRetired, previewPlanned };
+    // The span arrives undebounced while the filter runs on the debounced date,
+    // so mid-drag they can disagree. Trust it only once the date has caught up,
+    // using the same one-day tolerance the slider matches marks with — otherwise
+    // a fast drag flashes badges for a mark the view has not reached.
+    const span =
+      activeSpan &&
+      at >= activeSpan.from - ONE_DAY_MS &&
+      at <= activeSpan.to + ONE_DAY_MS
+        ? activeSpan
+        : null;
+    // A card retiring AT this mark stays on the canvas — ghosted and badged —
+    // even with persist off, for as long as the slider stands here. Without it
+    // the pill row names a card that is nowhere to be seen.
+    const retiringHere = new Set(
+      span
+        ? cardsChangingBetween(rawNodes, span.from, span.to)
+            .filter((c) => c.kind === "disappearing")
+            .map((c) => c.id)
+        : [],
+    );
     const filtered = rawNodes
       .map((n) => ({
         ...n,
@@ -734,14 +789,21 @@ export default function DependencyReport() {
         (n) =>
           n.id === center ||
           revealedForPulse.has(n.id) ||
+          retiringHere.has(n.id) ||
           isVisibleAtDate(n.lifecycle, at, visibility),
       );
     const ids = new Set(filtered.map((n) => n.id));
-    // Badge only the survivors whose severed dependency is NOT on the canvas —
-    // a displayed ghost with dashed red edges already tells the story, and
-    // badging every neighbour of a visible retiring card is spam.
-    const impactedIds = computeImpactedIds(rawNodes, rawEdges, timeline.todayMs, at, ids);
-    const visible = filtered.map((n) => (impactedIds.has(n.id) ? { ...n, impacted: true } : n));
+    // What the mark does to the cards that stay put: a neighbour arriving hands
+    // them a connection, a neighbour retiring takes one away. Nothing off a mark
+    // — this says "changed here", not "changed at some point on the way".
+    const links = span
+      ? computeConnectionChanges(rawNodes, rawEdges, span.from, span.to)
+      : null;
+    const visible = filtered.map((n) =>
+      links?.gained.has(n.id) || links?.lost.has(n.id)
+        ? { ...n, gainedLink: links.gained.has(n.id), lostLink: links.lost.has(n.id) }
+        : n,
+    );
     return {
       nodes: visible,
       edges: rawEdges.filter((e) => ids.has(e.source) && ids.has(e.target)),
@@ -755,6 +817,7 @@ export default function DependencyReport() {
     persistRetired,
     previewPlanned,
     revealedForPulse,
+    activeSpan,
   ]);
 
   // Adjacency map
@@ -936,7 +999,8 @@ export default function DependencyReport() {
   // would advertise a badge the user cannot see.
   const usedChangeStates = useMemo(() => {
     const set = new Set<string>(nodes.map((n) => n.changeState).filter(Boolean) as string[]);
-    if (nodes.some((n) => n.impacted && n.changeState !== "retired")) set.add("impacted");
+    if (nodes.some((n) => n.gainedLink)) set.add("gainedLink");
+    if (nodes.some((n) => n.lostLink)) set.add("lostLink");
     return set;
   }, [nodes]);
 
@@ -1187,6 +1251,7 @@ export default function DependencyReport() {
                 onMilestoneClick={handleMilestoneClick}
                 milestoneCards={milestoneCards}
                 onMilestoneCardClick={handleMilestoneCardClick}
+                onActiveSpanChange={setActiveSpan}
               />
             </Box>
           )}
@@ -1616,9 +1681,7 @@ export default function DependencyReport() {
                       )}
 
                       {card.node.changeState && <ChangeBadge state={card.node.changeState} t={t} />}
-                      {card.node.impacted && card.node.changeState !== "retired" && (
-                        <ChangeBadge state="impacted" t={t} />
-                      )}
+                      <LinkChangeMarks node={card.node} t={t} />
 
                       {/* Open in new tab */}
                       <Tooltip title={t("dependency.openCard")} arrow>
@@ -1935,9 +1998,7 @@ export default function DependencyReport() {
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                         {s?.name}
                         {s?.changeState && <ChangeBadge state={s.changeState} t={t} />}
-                        {s?.impacted && s.changeState !== "retired" && (
-                          <ChangeBadge state="impacted" t={t} />
-                        )}
+                        {s && <LinkChangeMarks node={s} t={t} />}
                       </Box>
                     </TableCell>
                     <TableCell>
@@ -1958,9 +2019,7 @@ export default function DependencyReport() {
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                         {target?.name}
                         {target?.changeState && <ChangeBadge state={target.changeState} t={t} />}
-                        {target?.impacted && target.changeState !== "retired" && (
-                          <ChangeBadge state="impacted" t={t} />
-                        )}
+                        {target && <LinkChangeMarks node={target} t={t} />}
                       </Box>
                     </TableCell>
                   </TableRow>

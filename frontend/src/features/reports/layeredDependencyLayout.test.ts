@@ -128,19 +128,22 @@ describe("buildLdvFlow", () => {
     }
   });
 
-  it("forwards impacted onto node data", () => {
+  it("forwards the connection-change marks onto node data", () => {
     const nodes: GNode[] = [
-      { id: "risky", name: "Risky", type: "Application", impacted: true },
+      { id: "loses", name: "Loses", type: "Application", lostLink: true },
+      { id: "gains", name: "Gains", type: "Application", gainedLink: true },
       { id: "fine", name: "Fine", type: "Application" },
     ];
     const result = buildLdvFlow(nodes, [], TYPES);
     const byId = new Map(
       result.nodes
         .filter((n) => n.type === "ldvNode")
-        .map((n) => [n.id, n.data as { impacted?: boolean }]),
+        .map((n) => [n.id, n.data as { gainedLink?: boolean; lostLink?: boolean }]),
     );
-    expect(byId.get("risky")?.impacted).toBe(true);
-    expect(byId.get("fine")?.impacted).toBeUndefined();
+    expect(byId.get("loses")?.lostLink).toBe(true);
+    expect(byId.get("gains")?.gainedLink).toBe(true);
+    expect(byId.get("fine")?.lostLink).toBeUndefined();
+    expect(byId.get("fine")?.gainedLink).toBeUndefined();
   });
 
   it("forwards changeState and proposed onto node data", () => {

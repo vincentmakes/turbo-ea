@@ -1,4 +1,12 @@
-import { Fragment, useMemo, useRef, useState, useLayoutEffect, useCallback } from "react";
+import {
+  Fragment,
+  useMemo,
+  useRef,
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+} from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Slider from "@mui/material/Slider";
@@ -53,8 +61,14 @@ interface TimelineSliderProps {
   milestones?: TimelineMilestone[];
   /** Fired when a transition mark is clicked, with the date span it covers, so
    *  the consumer can highlight the cards that change there. The slider also
-   *  fires `onChange` with the span's start, as a drag would. */
+   *  fires `onChange` with the span's end, as a drag onto the mark would. */
   onMilestoneClick?: (from: number, to: number) => void;
+  /** The span of the mark the slider is STANDING on, or null between marks.
+   *  Unlike `onMilestoneClick` this is state, not an event: it fires on every
+   *  path onto a mark — a click, an arrow step, a drag that snaps onto it, and
+   *  a value set from outside (a saved report, the reset chip) — so a consumer
+   *  can treat "standing on a marker" as one thing however it was reached. */
+  onActiveSpanChange?: (span: { from: number; to: number } | null) => void;
   /** Which cards change across a mark's span, for the pill row under the marks.
    *  Called only while the slider stands on a mark. Omit for no pill row. */
   milestoneCards?: (from: number, to: number) => TimelineMilestoneCard[];
@@ -185,6 +199,7 @@ export default function TimelineSlider({
   onMilestoneClick,
   milestoneCards,
   onMilestoneCardClick,
+  onActiveSpanChange,
 }: TimelineSliderProps) {
   const { t } = useTranslation("common");
   const isRtl = useIsRtl();
@@ -243,6 +258,23 @@ export default function TimelineSlider({
   );
 
   const activeCluster = useMemo(() => clusterAt(value), [clusterAt, value]);
+
+  /**
+   * Report the mark being stood on. Keyed on the span's own values, never on the
+   * callback's identity: a consumer that re-creates the function on each render
+   * would otherwise re-fire this every render, and a consumer that sets state
+   * from it would loop. The ref keeps the latest callback without making it a
+   * dependency.
+   */
+  const activeSpanCb = useRef(onActiveSpanChange);
+  activeSpanCb.current = onActiveSpanChange;
+  const spanFrom = activeCluster?.value ?? null;
+  const spanTo = activeCluster?.spanEnd ?? null;
+  useEffect(() => {
+    activeSpanCb.current?.(
+      spanFrom != null && spanTo != null ? { from: spanFrom, to: spanTo } : null,
+    );
+  }, [spanFrom, spanTo]);
 
   // Standing on a merged mark, the landscape is drawn as of the END of its span,
   // so say the span rather than a single day — a read-out of "Jun 1" beside a

@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.79.1] - 2026-08-23
+
+### Added
+
+- Dependencies report: while you stand on a transition marker, the cards that stay put are marked where their connections change — a red broken-link icon where a neighbour retires there, a blue one where a neighbour goes live there, and both when both happen. The card that is itself coming or going carries no icon; it says so by appearing, or by being ghosted. The arrival side is new: until now the timeline marked who lost a dependency but never who gained one.
+
+### Fixed
+
+- Dependencies report: a card retiring at the marker you are standing on now stays on the diagram — ghosted and badged *RETIRED* — even with **Persist retired cards** switched off. Previously the marker's card pills named a card that was nowhere to be seen, because the view is drawn as of the end of the marker's range and the card was already gone by then. It stays for as long as you stand on that marker, however you got there — a click, an arrow step, or a drag that snaps onto it.
+
+### Changed
+
+- Dependencies report: the *IMPACTED* badge is replaced by the connection-change icons above, and it is tied to a marker rather than to a travel window. It used to be scoped to the whole span between today and the date you travelled to, and because that span only ever grows, a badge earned at one retirement was earned again at every later date and never expired. Away from a marker no card is marked, however far forward you travel; at a marker the icons appear whether **Persist retired cards** is on or off, and at markers in the past too, where a retirement is just as real a change.
+
 ## [2.79.0] - 2026-08-23
 
 ### Added
