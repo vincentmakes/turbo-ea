@@ -42,7 +42,7 @@ Ogni card Business Process può avere un **diagramma del flusso di processo BPMN
 
 - **Modellazione visiva** — Trascinate elementi BPMN: attività, eventi, gateway, corsie e sotto-processi
 - **Template iniziali** — Scegliete tra 6 template BPMN predefiniti per i pattern di processo comuni (o iniziate da una tela bianca)
-- **Estrazione degli elementi** — Quando salvate un diagramma, il sistema estrae automaticamente tutte le attività, gli eventi, i gateway e le corsie per l'analisi
+- **Estrazione degli elementi** — Quando salvate un diagramma, il sistema estrae automaticamente tutte le attività, gli eventi, i gateway e le corsie per l'analisi. Gli elementi estratti sono elencati nell'**ordine del flusso di processo** — seguendo i flussi di sequenza e di messaggio del diagramma, a partire dall'evento di inizio — e non raggruppati per tipo di elemento. I passaggi di un ciclo restano uniti e il contenuto di un sotto-processo è elencato subito sotto di esso
 - **Colori degli elementi** — Selezionate uno o più elementi e usate il pulsante con il secchiello di vernice nel pannello contestuale per applicare un colore. I colori vengono salvati nel file BPMN stesso, quindi compaiono anche nel visualizzatore di sola lettura, nelle esportazioni e nelle stampe
 
 ### Collegamento degli elementi

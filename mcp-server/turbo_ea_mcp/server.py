@@ -2631,12 +2631,15 @@ async def import_bpmn(
     # Dry-run shortcut: the flow endpoints don't have a dry_run flag and
     # we don't want to fake one. The card-create step above already
     # validated the card path; for the flow side, we surface the parsed
-    # element count via a parser-free regex count of <bpmn:*Task /
-    # *Event / *Gateway> so the agent can show the user something useful.
+    # element count via a parser-free regex count of *Task / *Event /
+    # *Gateway so the agent can show the user something useful. The
+    # namespace prefix is optional: plenty of exports declare BPMN as the
+    # default namespace (`<definitions xmlns="...">`), which the real
+    # parser handles and a prefix-only pattern would count as zero.
     if dry_run:
         preview_node_count = len(
             re.findall(
-                r"<\w+:(?:task|userTask|serviceTask|scriptTask|businessRuleTask|"
+                r"<(?:\w+:)?(?:task|userTask|serviceTask|scriptTask|businessRuleTask|"
                 r"sendTask|receiveTask|manualTask|callActivity|subProcess|"
                 r"exclusiveGateway|parallelGateway|inclusiveGateway|"
                 r"eventBasedGateway|startEvent|endEvent|"

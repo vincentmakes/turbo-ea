@@ -693,3 +693,72 @@ class TestListArchived:
         assert data[0]["status"] == "archived"
         # Archived list uses summaries — no bpmn_xml
         assert "bpmn_xml" not in data[0]
+
+
+# ---------------------------------------------------------------------------
+# Element ordering (issue #978)
+# ---------------------------------------------------------------------------
+
+
+# Declared end-first with interleaved element types, so neither document order
+# nor the parser's old element-type grouping produces the reading order below.
+ORDERED_BPMN = """<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="defs_wf">
+  <bpmn:process id="P_wf" isExecutable="true">
+    <bpmn:endEvent id="Ev_end" name="Closed" />
+    <bpmn:sendTask id="Task_inform" name="Inform requester" />
+    <bpmn:userTask id="Task_assess" name="Assess request" />
+    <bpmn:startEvent id="Ev_start" name="Request raised" />
+    <bpmn:sequenceFlow id="wf1" sourceRef="Ev_start" targetRef="Task_assess" />
+    <bpmn:sequenceFlow id="wf2" sourceRef="Task_assess" targetRef="Task_inform" />
+    <bpmn:sequenceFlow id="wf3" sourceRef="Task_inform" targetRef="Ev_end" />
+  </bpmn:process>
+</bpmn:definitions>
+"""
+
+ORDERED_EXPECTED = ["Request raised", "Assess request", "Inform requester", "Closed"]
+
+
+class TestElementOrdering:
+    """`approve` is a second, independent writer of `process_elements` — the
+    ordering guarantee has to hold on this path too, not just on save_diagram.
+    """
+
+    async def test_draft_elements_are_listed_in_flow_order(self, client, db, wf_env):
+        admin = wf_env["admin"]
+        process = wf_env["process"]
+        resp = await _create_draft(client, process.id, admin, bpmn_xml=ORDERED_BPMN)
+        vid = resp.json()["id"]
+
+        resp = await client.get(
+            f"/api/v1/bpm/processes/{process.id}/flow/versions/{vid}/draft-elements",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        elements = resp.json()
+        # The pre-link table renders this list positionally, so list order and
+        # sequence_order both matter.
+        assert [e["name"] for e in elements] == ORDERED_EXPECTED
+        assert [e["sequence_order"] for e in elements] == list(range(len(ORDERED_EXPECTED)))
+
+    async def test_approved_elements_are_persisted_in_flow_order(self, client, db, wf_env):
+        admin = wf_env["admin"]
+        process = wf_env["process"]
+        resp = await _create_draft(client, process.id, admin, bpmn_xml=ORDERED_BPMN)
+        vid = resp.json()["id"]
+        await client.post(
+            f"/api/v1/bpm/processes/{process.id}/flow/versions/{vid}/submit",
+            headers=auth_headers(admin),
+        )
+        resp = await client.post(
+            f"/api/v1/bpm/processes/{process.id}/flow/versions/{vid}/approve",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+
+        resp = await client.get(
+            f"/api/v1/bpm/processes/{process.id}/elements",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        assert [e["name"] for e in resp.json()] == ORDERED_EXPECTED

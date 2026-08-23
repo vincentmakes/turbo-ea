@@ -408,3 +408,88 @@ class TestSaveDiagramDryRun:
             .all()
         )
         assert len(rows) == 1
+
+
+# A deliberately "unsorted" model: the elements are declared end-first, and the
+# element types are interleaved, so neither document order nor the parser's old
+# element-type grouping produces the reading order below.
+_FLOW_ORDER_BPMN = """<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="defs_order">
+  <bpmn:process id="P_order" isExecutable="true">
+    <bpmn:endEvent id="Ev_end" name="Order shipped" />
+    <bpmn:sendTask id="Task_notify" name="Notify customer" />
+    <bpmn:exclusiveGateway id="Gw_stock" name="In stock?" />
+    <bpmn:userTask id="Task_check" name="Check stock" />
+    <bpmn:manualTask id="Task_pick" name="Pick items" />
+    <bpmn:startEvent id="Ev_start" name="Order received" />
+    <bpmn:sequenceFlow id="f1" sourceRef="Ev_start" targetRef="Task_check" />
+    <bpmn:sequenceFlow id="f2" sourceRef="Task_check" targetRef="Gw_stock" />
+    <bpmn:sequenceFlow id="f3" sourceRef="Gw_stock" targetRef="Task_pick" />
+    <bpmn:sequenceFlow id="f4" sourceRef="Task_pick" targetRef="Task_notify" />
+    <bpmn:sequenceFlow id="f5" sourceRef="Task_notify" targetRef="Ev_end" />
+  </bpmn:process>
+</bpmn:definitions>
+"""
+
+_FLOW_ORDER_EXPECTED = [
+    "Order received",
+    "Check stock",
+    "In stock?",
+    "Pick items",
+    "Notify customer",
+    "Order shipped",
+]
+
+
+class TestElementOrderingEndToEnd:
+    """Issue #978 — the persisted `#` column has to follow the process.
+
+    The parser can be right and the stored order still wrong: `save_diagram`
+    upserts elements one by one and the read endpoint re-derives the order with
+    `ORDER BY sequence_order`, so both halves need pinning.
+    """
+
+    async def test_saved_elements_are_returned_in_flow_order(self, client, db, bpm_env):
+        admin = bpm_env["admin"]
+        process = bpm_env["process"]
+        resp = await client.put(
+            f"/api/v1/bpm/processes/{process.id}/diagram",
+            json={"bpmn_xml": _FLOW_ORDER_BPMN, "dry_run": False},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+
+        resp = await client.get(
+            f"/api/v1/bpm/processes/{process.id}/elements",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        elements = resp.json()
+        assert [e["name"] for e in elements] == _FLOW_ORDER_EXPECTED
+        assert [e["sequence_order"] for e in elements] == list(range(len(_FLOW_ORDER_EXPECTED)))
+
+    async def test_resaving_rewrites_the_stored_order(self, client, db, bpm_env):
+        """The upsert path preserves EA links by matching on `bpmn_element_id`;
+        it must still refresh `sequence_order` on rows it keeps."""
+        admin = bpm_env["admin"]
+        process = bpm_env["process"]
+        for _ in range(2):
+            resp = await client.put(
+                f"/api/v1/bpm/processes/{process.id}/diagram",
+                json={"bpmn_xml": _FLOW_ORDER_BPMN, "dry_run": False},
+                headers=auth_headers(admin),
+            )
+            assert resp.status_code == 200, resp.text
+
+        rows = (
+            (
+                await db.execute(
+                    select(ProcessElement)
+                    .where(ProcessElement.process_id == process.id)
+                    .order_by(ProcessElement.sequence_order)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert [r.name for r in rows] == _FLOW_ORDER_EXPECTED

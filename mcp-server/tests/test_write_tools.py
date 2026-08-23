@@ -371,6 +371,35 @@ class TestImportBpmn:
         assert data["diagram_preview"]["flow_nodes_estimated"] == 3
 
     @pytest.mark.asyncio
+    async def test_dry_run_counts_unprefixed_bpmn(self, fake_token):
+        """BPMN that declares the spec as the *default* namespace carries no
+        `bpmn:` prefix. The backend parser handles it; the dry-run preview must
+        not report zero flow nodes for a diagram it is about to import fine."""
+        get_mock = AsyncMock(
+            return_value={
+                "items": [{"id": "bp-1", "name": "Order to Cash", "parent_id": None}],
+                "total": 1,
+            }
+        )
+        post_mock = AsyncMock()  # must not be called
+        with (
+            patch.object(server.TurboEAClient, "get", get_mock),
+            patch.object(server.TurboEAClient, "post", post_mock),
+        ):
+            bpmn = (
+                '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">'
+                '<process id="P"><startEvent id="s"/>'
+                '<userTask id="t"/><endEvent id="e"/></process>'
+                "</definitions>"
+            )
+            out = await server.import_bpmn(
+                business_process_name="Order to Cash", bpmn_xml=bpmn
+            )
+        post_mock.assert_not_called()
+        data = _parse(out)
+        assert data["diagram_preview"]["flow_nodes_estimated"] == 3
+
+    @pytest.mark.asyncio
     async def test_missing_card_returns_card_not_found_with_next_action(
         self, fake_token
     ):

@@ -649,7 +649,12 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     title = t("flowTab.processStepsAndElements"),
     subtitle = t("flowTab.elementsTableSubtitle"),
   ) => {
-    const namedElements = elems.filter((e) => e.name);
+    // The backend already returns elements in process-flow order, but the `#`
+    // column below is a position in this array — so sort a copy defensively
+    // rather than trusting the caller to have kept that order.
+    const namedElements = [...elems]
+      .sort((a, b) => (a.sequence_order ?? 0) - (b.sequence_order ?? 0))
+      .filter((e) => e.name);
     if (namedElements.length === 0) return null;
 
     return (

@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.78.1] - 2026-08-23
+
+### Fixed
+
+- Process Flow: the steps in the **Pre-link Elements** and **Elements** tables now read in process order — starting from the start event and following the diagram's sequence and message flows — instead of being grouped by BPMN element type, which listed every user task first and left the start event near the bottom. Steps that sit inside a loop stay together, a sub-process's contents are listed directly beneath it, and the two sides of a cross-pool conversation interleave where the message flows connect them. A diagram with no connections falls back to the order the elements appear in the file. Processes already published on an existing instance are re-ordered on upgrade — no need to re-save or re-approve them ([#978](https://github.com/vincentmakes/turbo-ea/issues/978)).
+
 ## [2.78.0] - 2026-08-23
 
 ### Added

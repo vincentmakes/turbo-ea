@@ -42,7 +42,7 @@ Jede Geschäftsprozess-Karte kann ein **BPMN 2.0 Prozessflussdiagramm** haben. D
 
 - **Visuelle Modellierung** — BPMN-Elemente per Drag & Drop: Aufgaben, Ereignisse, Gateways, Bahnen und Teilprozesse
 - **Startervorlagen** — Wählen Sie aus 6 vorgefertigten BPMN-Vorlagen für gängige Prozessmuster (oder beginnen Sie mit einer leeren Zeichenfläche)
-- **Elementextraktion** — Wenn Sie ein Diagramm speichern, extrahiert das System automatisch alle Aufgaben, Ereignisse, Gateways und Bahnen zur Analyse
+- **Elementextraktion** — Wenn Sie ein Diagramm speichern, extrahiert das System automatisch alle Aufgaben, Ereignisse, Gateways und Bahnen zur Analyse. Die extrahierten Elemente werden in der **Reihenfolge des Prozessablaufs** aufgelistet — entlang der Sequenz- und Nachrichtenflüsse des Diagramms, beginnend beim Startereignis — und nicht nach Elementtyp gruppiert. Schritte innerhalb einer Schleife bleiben zusammen, und der Inhalt eines Teilprozesses wird direkt darunter aufgeführt
 - **Elementfarben** — Wählen Sie ein oder mehrere Elemente aus und verwenden Sie die Farbeimer-Schaltfläche im Kontextmenü, um eine Farbe zuzuweisen. Farben werden in der BPMN-Datei selbst gespeichert und erscheinen daher auch im schreibgeschützten Viewer, in Exporten und Ausdrucken
 
 ### Elementverknüpfung

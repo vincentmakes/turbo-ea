@@ -42,7 +42,7 @@ Cada ficha de Proceso de Negocio puede tener un **diagrama de flujo de proceso B
 
 - **Modelado visual** — Arrastre y suelte elementos BPMN: tareas, eventos, compuertas, carriles y subprocesos
 - **Plantillas de inicio** — Elija entre 6 plantillas BPMN predefinidas para patrones de proceso comunes (o comience desde un lienzo en blanco)
-- **Extracción de elementos** — Al guardar un diagrama, el sistema extrae automáticamente todas las tareas, eventos, compuertas y carriles para su análisis
+- **Extracción de elementos** — Al guardar un diagrama, el sistema extrae automáticamente todas las tareas, eventos, compuertas y carriles para su análisis. Los elementos extraídos se enumeran en **orden de flujo del proceso** —siguiendo los flujos de secuencia y de mensaje del diagrama, desde el evento de inicio— y no agrupados por tipo de elemento. Los pasos de un bucle se mantienen juntos y el contenido de un subproceso se enumera justo debajo de él
 - **Colores de los elementos** — Seleccione uno o varios elementos y use el botón del bote de pintura en el panel contextual para aplicar un color. Los colores se guardan en el propio archivo BPMN, por lo que también aparecen en el visor de solo lectura, en las exportaciones y en las impresiones
 
 ### Vinculación de Elementos

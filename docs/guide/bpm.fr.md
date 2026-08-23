@@ -42,7 +42,7 @@ Chaque fiche Processus Métier peut avoir un **diagramme de flux de processus BP
 
 - **Modélisation visuelle** -- Glisser-déposer des éléments BPMN : tâches, événements, passerelles, couloirs et sous-processus
 - **Modèles de démarrage** -- Choisir parmi 6 modèles BPMN préconstruits pour des schémas de processus courants (ou commencer à partir d'un canevas vierge)
-- **Extraction d'éléments** -- Lorsque vous sauvegardez un diagramme, le système extrait automatiquement toutes les tâches, événements, passerelles et couloirs pour analyse
+- **Extraction d'éléments** -- Lorsque vous sauvegardez un diagramme, le système extrait automatiquement toutes les tâches, événements, passerelles et couloirs pour analyse. Les éléments extraits sont listés dans l'**ordre du déroulement du processus** -- en suivant les flux de séquence et de message du diagramme, à partir de l'événement de début -- et non regroupés par type d'élément. Les étapes d'une boucle restent groupées, et le contenu d'un sous-processus est listé juste en dessous de celui-ci
 - **Couleurs des éléments** -- Sélectionnez un ou plusieurs éléments et utilisez le bouton pot de peinture de la palette contextuelle pour appliquer une couleur. Les couleurs sont enregistrées dans le fichier BPMN lui-même : elles apparaissent donc aussi dans la visionneuse en lecture seule, les exports et les impressions
 
 ### Liaison d'éléments

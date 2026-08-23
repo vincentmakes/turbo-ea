@@ -42,7 +42,7 @@ Hvert forretningsproceskort kan have et **BPMN 2.0-procesflowdiagram**. Editoren
 
 - **Visuel modellering** — Træk og slip BPMN-elementer: opgaver, hændelser, gateways, baner og underprocesser
 - **Skabeloner** — Vælg blandt 6 forudbyggede BPMN-skabeloner til almindelige procesmønstre (eller start fra et blankt lærred)
-- **Element­udtrækning** — Når du gemmer et diagram, udtrækker systemet automatisk alle opgaver, hændelser, gateways og baner til analyse
+- **Element­udtrækning** — Når du gemmer et diagram, udtrækker systemet automatisk alle opgaver, hændelser, gateways og baner til analyse. De udtrukne elementer vises i **procesforløbets rækkefølge** — langs diagrammets sekvens- og beskedforløb med start i starthændelsen — og ikke grupperet efter elementtype. Trin i en løkke holdes samlet, og indholdet af en underproces vises lige under den
 - **Elementfarver** — Markér et eller flere elementer, og brug malerbøtte-knappen i kontekstpanelet for at give dem en farve. Farverne gemmes i selve BPMN-filen, så de vises også i den skrivebeskyttede fremviser, i eksporter og på udskrifter
 
 ### Element-linking

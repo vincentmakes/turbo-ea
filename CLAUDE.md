@@ -575,6 +575,7 @@ turbo-ea/
 │   │   │   ├── calculation_engine.py  # Safe formula eval (simpleeval sandbox)
 │   │   │   ├── ai_service.py          # AI description suggestions (web search + LLM)
 │   │   │   ├── bpmn_parser.py         # BPMN 2.0 XML → element extraction
+│   │   │   ├── bpmn_flow_order.py     # Causal ordering of extracted flow nodes
 │   │   │   ├── element_relation_sync.py # Link BPMN elements to EA cards
 │   │   │   ├── servicenow_service.py  # ServiceNow API client + sync
 │   │   │   ├── seed.py                # Default metamodel (13 types, 30+ relations)
@@ -1477,6 +1478,7 @@ COUNT(FILTER(related_interfaces, "status", "ACTIVE"))
 - **BusinessProcess** card type with fields: process type, maturity level, automation level, risk level, frequency
 - **BPMN 2.0 Editor**: bpmn-js integration with 6 starter templates
 - **Element Extraction**: `bpmn_parser.py` extracts tasks, events, gateways, lanes from BPMN XML
+- **`sequence_order` is causal, not an iteration artefact.** The element tables (Pre-link Elements, published Elements, the Process × Organization matrix) render the parser's order positionally, so it *is* the reading order of the process. `bpmn_flow_order.order_flow_nodes` computes it: build a graph from `sequenceFlow` + `messageFlow` + `boundaryEvent[@attachedToRef]`, condense strongly connected components (so a rework loop is one causal level and never strands what follows it), rank by **longest** path over the condensation, and break every tie on document order. Four things look simplifiable and are not: (1) a greedy topological walk is *not* equivalent — it emits a short branch's tail before a long branch's head, which gets a two-pool conversation wrong; (2) sub-processes are solved as their own containers and spliced in after their parent — a flat "container → child" edge lets a sibling interleave into the sub-process body; (3) the weakly-connected-component key is what keeps two unrelated processes in one file as separate blocks instead of interleaving them rank by rank; (4) containers are sub-processes only, never `<process>` — grouping by process would order the pools of a collaboration one after another and lose the message-flow interleaving. Tarjan is iterative on purpose (a 2000-node chain is a real model), and it already emits components in reverse topological order, which is why no separate topological sort is needed. Ordering is derived entirely from the stored XML, so a change here warrants a backfill migration for already-published processes — see `138_backfill_process_element_order.py` ([#978](https://github.com/vincentmakes/turbo-ea/issues/978)).
 - **Element Linking**: `ElementLinker.tsx` connects BPMN elements to Application/DataObject/ITComponent cards
 - **Approval Workflow**: Process flows go through draft → pending → published → archived states
 
