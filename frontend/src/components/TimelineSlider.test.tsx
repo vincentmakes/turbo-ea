@@ -462,3 +462,131 @@ describe("TimelineSlider out-of-range value", () => {
     expect(screen.getByRole("slider")).toHaveAttribute("aria-valuenow", String(min));
   });
 });
+
+/**
+ * Stepping OVER a merged mark. A mark that stands for several dates is one
+ * thing on screen, so it has to be one stop: walking the dates behind it moved
+ * the thumb repeatedly while the highlighted mark and the pill row never
+ * changed, which reads as a dead button.
+ */
+describe("TimelineSlider step-through over a merged mark", () => {
+  // At the 400px nominal width over this ten-year range, marks merge when they
+  // are less than ~91 days apart. So MERGED joins GO_LIVE into one mark, and
+  // RETIRE — 549 days later — stays its own.
+  const MERGED = GO_LIVE + 3 * 86_400_000;
+  const THREE = [
+    { value: GO_LIVE, activating: 1, disappearing: 0 },
+    { value: MERGED, activating: 0, disappearing: 1 },
+    { value: RETIRE, activating: 0, disappearing: 2 },
+  ];
+
+  const renderThree = (value: number, overrides = {}) => {
+    const onChange = vi.fn();
+    const onMilestoneClick = vi.fn();
+    render(
+      <TimelineSlider
+        value={value}
+        onChange={onChange}
+        dateRange={{ min: ms("2020-01-01"), max: ms("2030-01-01") }}
+        yearMarks={[]}
+        todayMs={TODAY}
+        milestones={THREE}
+        onMilestoneClick={onMilestoneClick}
+        {...overrides}
+      />,
+    );
+    return { onChange, onMilestoneClick };
+  };
+
+  const clickNext = () => userEvent.click(screen.getByRole("button", { name: /Next change/i }));
+  const clickPrev = () =>
+    userEvent.click(screen.getByRole("button", { name: /Previous change/i }));
+
+  it("steps clear of the whole mark rather than onto the date behind it", async () => {
+    // The regression: standing on the merged mark, "next" used to land on the
+    // second date inside it — the thumb moved, nothing else did.
+    const { onChange, onMilestoneClick } = renderThree(GO_LIVE);
+    await clickNext();
+    expect(onChange).toHaveBeenCalledWith(RETIRE);
+    expect(onChange).not.toHaveBeenCalledWith(MERGED);
+    expect(onMilestoneClick).toHaveBeenCalledWith(RETIRE, RETIRE);
+  });
+
+  it("reaches the merged mark by its earliest date, spotlighting the whole span", async () => {
+    const { onChange, onMilestoneClick } = renderThree(TODAY);
+    await clickNext();
+    expect(onChange).toHaveBeenCalledWith(GO_LIVE);
+    expect(onMilestoneClick).toHaveBeenCalledWith(GO_LIVE, MERGED);
+  });
+
+  it("steps back onto the mark's earliest date, not the last date it merged", async () => {
+    const { onChange } = renderThree(RETIRE);
+    await clickPrev();
+    expect(onChange).toHaveBeenCalledWith(GO_LIVE);
+    expect(onChange).not.toHaveBeenCalledWith(MERGED);
+  });
+
+  it("treats a date dragged into the middle of the mark as standing on it", async () => {
+    // A drag can land between the merged dates; the arrows must still step off
+    // the mark as a whole in both directions.
+    const { onChange } = renderThree(MERGED);
+    await clickNext();
+    expect(onChange).toHaveBeenCalledWith(RETIRE);
+    expect(onChange).not.toHaveBeenCalledWith(GO_LIVE);
+  });
+
+  it("disables the arrows at the ends, counting a merged mark once", async () => {
+    const { unmount } = render(
+      <TimelineSlider
+        value={MERGED}
+        onChange={vi.fn()}
+        dateRange={{ min: ms("2020-01-01"), max: ms("2030-01-01") }}
+        yearMarks={[]}
+        todayMs={TODAY}
+        milestones={THREE}
+      />,
+    );
+    // Nothing before the merged mark, so back is dead even though the thumb sits
+    // on the LAST date the mark merged.
+    expect(screen.getByRole("button", { name: /Previous change/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Next change/i })).toBeEnabled();
+    unmount();
+
+    render(
+      <TimelineSlider
+        value={RETIRE}
+        onChange={vi.fn()}
+        dateRange={{ min: ms("2020-01-01"), max: ms("2030-01-01") }}
+        yearMarks={[]}
+        todayMs={TODAY}
+        milestones={THREE}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /Next change/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Previous change/i })).toBeEnabled();
+  });
+
+  it("names every card the mark merged while the slider stands on it", async () => {
+    // `to` matters here, so this stub honours the span — unlike the shared
+    // renderSlider helper, which keys only on `from`.
+    render(
+      <TimelineSlider
+        value={GO_LIVE}
+        onChange={vi.fn()}
+        dateRange={{ min: ms("2020-01-01"), max: ms("2030-01-01") }}
+        yearMarks={[]}
+        todayMs={TODAY}
+        milestones={THREE}
+        milestoneCards={(from, to) =>
+          [
+            { id: "a", name: "Arrives On Day One", kind: "activating" as const },
+            { id: "b", name: "Retires Three Days Later", kind: "disappearing" as const },
+          ].filter((c) => (c.kind === "activating" ? GO_LIVE : MERGED) >= from &&
+            (c.kind === "activating" ? GO_LIVE : MERGED) <= to)
+        }
+      />,
+    );
+    expect(screen.getByText("Arrives On Day One")).toBeInTheDocument();
+    expect(screen.getByText("Retires Three Days Later")).toBeInTheDocument();
+  });
+});

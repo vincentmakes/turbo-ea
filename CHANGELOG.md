@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.78.3] - 2026-08-23
+
+### Fixed
+
+- Time Travel slider: the **Previous change** / **Next change** arrows now treat a merged mark as a single stop. Where transition dates fall close together the timeline draws them as one wider mark, but the arrows stepped through the individual dates behind it — so on a busy stretch two or three presses moved the handle without the highlighted mark, the spotlight or the card pills below ever changing, and the button looked broken. One press now moves clear of everything the mark covers, landing on its earliest date and spotlighting every card it merged, exactly as clicking the mark does.
+
 ## [2.78.2] - 2026-08-23
 
 ### Fixed

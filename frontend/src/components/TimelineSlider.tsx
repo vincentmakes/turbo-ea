@@ -119,9 +119,10 @@ function useResponsiveMarks(
  * single mark. Keyed off the same measured width `useResponsiveMarks` uses, so
  * the two thin consistently as the slider resizes.
  *
- * A cluster's click target is its EARLIEST date: jumping to the first change in
- * a busy stretch lets the user step forward through the rest, whereas landing in
- * the middle silently skips some.
+ * A cluster's target — for a click and for an arrow step alike — is its EARLIEST
+ * date, because that is where the mark is drawn. Nothing it merged is lost by
+ * landing there: the pill row names every card behind the mark, and the arrows
+ * treat the whole cluster as one stop rather than walking the dates inside it.
  */
 /** A rendered mark: one milestone, or several merged by pixel proximity. */
 interface MilestoneCluster extends TimelineMilestone {
@@ -204,21 +205,6 @@ export default function TimelineSlider({
   // `onChange` to snap, which would silently rewrite the saved date on open.
   const thumbValue = Math.min(Math.max(value, cappedRange.min), cappedRange.max);
 
-  // Step-through targets: the per-date milestone list, NOT the pixel clusters —
-  // clusters depend on container width, so stepping through them would behave
-  // differently per screen. Restricted to the capped range so a step can never
-  // jump outside the slider.
-  const { prevMilestone, nextMilestone } = useMemo(() => {
-    let prev: number | null = null;
-    let next: number | null = null;
-    for (const m of milestones ?? []) {
-      if (m.value < cappedRange.min || m.value > cappedRange.max) continue;
-      if (m.value < value && (prev == null || m.value > prev)) prev = m.value;
-      if (m.value > value && (next == null || m.value < next)) next = m.value;
-    }
-    return { prevMilestone: prev, nextMilestone: next };
-  }, [milestones, value, cappedRange]);
-
   const isAway = Math.abs(value - todayMs) > ONE_DAY_MS;
   const isPast = value < todayMs - ONE_DAY_MS;
   const isFuture = value > todayMs + ONE_DAY_MS;
@@ -230,10 +216,11 @@ export default function TimelineSlider({
   const hasMilestones = (milestones?.length ?? 0) > 0;
 
   // The mark a given date stands on, if any. A mark click or an arrow step
-  // calls `onChange(m.value)` and lands on one exactly; a drag cannot, because
-  // MUI snaps to `min + n * step` and a mark's epoch is almost never on that
-  // lattice — hence the one-day tolerance, which is below the resolution
-  // anything on this timeline is modelled at anyway.
+  // calls `onChange(cluster.value)` and lands on one exactly; a drag cannot,
+  // because MUI snaps to `min + n * step` and a mark's epoch is almost never on
+  // that lattice — hence the one-day tolerance, which is below the resolution
+  // anything on this timeline is modelled at anyway. A drag INTO a merged mark
+  // still resolves to that mark, so the arrows step off it as a whole.
   const clusterAt = useCallback(
     (at: number) =>
       milestoneClusters.find(
@@ -244,25 +231,45 @@ export default function TimelineSlider({
 
   const activeCluster = useMemo(() => clusterAt(value), [clusterAt, value]);
 
+  // Step-through targets are the marks AS DRAWN — the pixel clusters, not the
+  // raw per-date milestones behind them. A merged mark is one thing on screen
+  // and has to be one stop: stepping the dates it merged moved the thumb several
+  // times while the highlighted mark and the pill row never changed, so the
+  // arrow read as broken. Stepping is therefore resolution-dependent — but so is
+  // the merging it follows, and arrows that disagree with the marks you can see
+  // are the worse half of that trade. Clusters are already restricted to the
+  // capped range, so a step can never jump outside the slider.
+  const { prevCluster, nextCluster } = useMemo(() => {
+    // Standing on a mark, step past the whole span it covers rather than past
+    // the date the thumb happens to sit on.
+    const from = activeCluster?.value ?? value;
+    const to = activeCluster?.spanEnd ?? value;
+    let prev: MilestoneCluster | null = null;
+    let next: MilestoneCluster | null = null;
+    for (const c of milestoneClusters) {
+      if (c.spanEnd < from && (prev == null || c.value > prev.value)) prev = c;
+      if (c.value > to && (next == null || c.value < next.value)) next = c;
+    }
+    return { prevCluster: prev, nextCluster: next };
+  }, [milestoneClusters, activeCluster, value]);
+
   /**
    * Move to a mark by arrow, spotlighting it exactly as clicking it would.
    * Stepping used to call `onChange` alone, so the two ways of reaching the
    * same mark behaved differently — the arrows navigated but never lit
    * anything up.
    *
-   * The span is the CLUSTER's, not the stepped-to date's: the step targets a
-   * single milestone (`prevMilestone` / `nextMilestone` are deliberately
-   * unclustered so stepping behaves the same at every screen width), but the
-   * pill row below is keyed on the cluster, so spotlighting the bare date
-   * would pulse a subset of the pills sitting right there.
+   * Lands on the mark's EARLIEST date and spotlights the whole span it merged,
+   * which is what clicking that mark does. The pill row below is keyed on the
+   * cluster too, so spotlighting a bare date would pulse a subset of the pills
+   * sitting right there.
    */
   const stepTo = useCallback(
-    (target: number) => {
-      onChange(target);
-      const cluster = clusterAt(target);
-      onMilestoneClick?.(cluster?.value ?? target, cluster?.spanEnd ?? target);
+    (cluster: MilestoneCluster) => {
+      onChange(cluster.value);
+      onMilestoneClick?.(cluster.value, cluster.spanEnd);
     },
-    [onChange, onMilestoneClick, clusterAt],
+    [onChange, onMilestoneClick],
   );
 
   const activeCards = useMemo(
@@ -406,8 +413,8 @@ export default function TimelineSlider({
             <span>
               <IconButton
                 aria-label={t("timelineSlider.prevChange")}
-                disabled={prevMilestone == null}
-                onClick={() => prevMilestone != null && stepTo(prevMilestone)}
+                disabled={prevCluster == null}
+                onClick={() => prevCluster && stepTo(prevCluster)}
                 sx={stepButtonSx}
               >
                 <MaterialSymbol
@@ -666,8 +673,8 @@ export default function TimelineSlider({
             <span>
               <IconButton
                 aria-label={t("timelineSlider.nextChange")}
-                disabled={nextMilestone == null}
-                onClick={() => nextMilestone != null && stepTo(nextMilestone)}
+                disabled={nextCluster == null}
+                onClick={() => nextCluster && stepTo(nextCluster)}
                 sx={stepButtonSx}
               >
                 <MaterialSymbol
