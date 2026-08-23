@@ -39,6 +39,7 @@ import {
   computeImpactedIds,
   computeTimelineMilestones,
   computeTimelineRange,
+  isPresentAtDate,
   isVisibleAtDate,
 } from "./timelineRange";
 import { isRetiredByDate } from "./portfolioHelpers";
@@ -152,17 +153,15 @@ function changeColor(state: BadgeState): string {
   return STATUS_COLORS.error;
 }
 
-const BADGE_LABEL_KEY: Record<BadgeState, string> = {
-  arriving: "dependency.arrivingBadge",
-  retired: "dependency.retiredBadge",
-  planned: "dependency.plannedBadge",
-  impacted: "dependency.impactedBadge",
-};
-
 /**
- * Compact "PLANNED" / "RETIRING" marker for the tree and table views, so the
+ * Compact "UPCOMING" / "RETIRED" marker for the tree and table views, so the
  * transformation is legible outside the diagram too. The LDV draws its own
  * corner badge (it has no room for a chip).
+ *
+ * Renders nothing for a card that IS part of the landscape at the viewed date —
+ * the same `isPresentAtDate` rule the diagram applies, shared so the two cannot
+ * drift. `impacted` describes a surviving card's dependencies rather than its
+ * presence, so it always badges.
  */
 function ChangeBadge({
   state,
@@ -171,11 +170,18 @@ function ChangeBadge({
   state: BadgeState;
   t: (key: string) => string;
 }) {
+  if (state !== "impacted" && isPresentAtDate(state)) return null;
+  const labelKey =
+    state === "impacted"
+      ? "dependency.impactedBadge"
+      : state === "planned"
+        ? "dependency.plannedBadge"
+        : "dependency.retiredBadge";
   const color = changeColor(state);
   return (
     <Chip
       size="small"
-      label={t(BADGE_LABEL_KEY[state])}
+      label={t(labelKey)}
       sx={{
         height: 17,
         fontSize: "0.6rem",
@@ -1515,10 +1521,14 @@ export default function DependencyReport() {
                           }),
                         }),
                         ...(card.node.changeState && {
-                          border: `1.5px dashed ${changeColor(card.node.changeState)}`,
+                          // Solid where the card is part of this date's
+                          // landscape, dashed where it is drawn despite not
+                          // being — the grammar the diagram uses.
+                          border: `1.5px ${
+                            isPresentAtDate(card.node.changeState) ? "solid" : "dashed"
+                          } ${changeColor(card.node.changeState)}`,
                           borderLeft: `3.5px solid ${color}`,
-                          ...((card.node.changeState === "retired" ||
-                            card.node.changeState === "planned") && {
+                          ...(!isPresentAtDate(card.node.changeState) && {
                             opacity: dimmed ? 0.4 : 0.6,
                           }),
                         }),

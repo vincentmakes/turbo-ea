@@ -74,6 +74,16 @@ const fmtFull = (v: number) =>
   new Date(v).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 
 /**
+ * How a mark states when it happens. A merged mark stands for a RANGE, and
+ * saying only its first date made a change absorbed into it look unmarked — and
+ * made the read-out disagree with the landscape, which is drawn as of the end of
+ * the range. Shared by the mark's tooltip and the label-row read-out so the two
+ * can never word the same mark differently.
+ */
+const spanLabel = (from: number, to: number) =>
+  to > from ? `${fmtFull(from)} – ${fmtFull(to)}` : fmtFull(from);
+
+/**
  * Live pixel width of the slider's coordinate space, 0 until first measured.
  *
  * One observer for the whole component: the year labels and the transition
@@ -119,10 +129,13 @@ function useResponsiveMarks(
  * single mark. Keyed off the same measured width `useResponsiveMarks` uses, so
  * the two thin consistently as the slider resizes.
  *
- * A cluster's target — for a click and for an arrow step alike — is its EARLIEST
- * date, because that is where the mark is drawn. Nothing it merged is lost by
- * landing there: the pill row names every card behind the mark, and the arrows
- * treat the whole cluster as one stop rather than walking the dates inside it.
+ * A merged mark stands for a RANGE, so landing on it — by click, by arrow, or by
+ * a drag that snaps onto it — means the whole range has happened: the target is
+ * the cluster's LATEST date, `spanEnd`. Landing on its earliest date instead drew
+ * the landscape at a moment when the later changes had not happened yet, so a
+ * card the pill row named as arriving was drawn as not-yet-live right beside a
+ * card that had arrived. The arrows treat the whole cluster as one stop rather
+ * than walking the dates inside it.
  */
 /** A rendered mark: one milestone, or several merged by pixel proximity. */
 interface MilestoneCluster extends TimelineMilestone {
@@ -231,6 +244,14 @@ export default function TimelineSlider({
 
   const activeCluster = useMemo(() => clusterAt(value), [clusterAt, value]);
 
+  // Standing on a merged mark, the landscape is drawn as of the END of its span,
+  // so say the span rather than a single day — a read-out of "Jun 1" beside a
+  // view that already includes a 1 September go-live is the same disagreement
+  // this mark's tooltip has always avoided.
+  const readout = activeCluster
+    ? spanLabel(activeCluster.value, activeCluster.spanEnd)
+    : fmtFull(value);
+
   // Step-through targets are the marks AS DRAWN — the pixel clusters, not the
   // raw per-date milestones behind them. A merged mark is one thing on screen
   // and has to be one stop: stepping the dates it merged moved the thumb several
@@ -259,17 +280,28 @@ export default function TimelineSlider({
    * same mark behaved differently — the arrows navigated but never lit
    * anything up.
    *
-   * Lands on the mark's EARLIEST date and spotlights the whole span it merged,
-   * which is what clicking that mark does. The pill row below is keyed on the
-   * cluster too, so spotlighting a bare date would pulse a subset of the pills
-   * sitting right there.
+   * Lands on the END of the mark's span, so the landscape is drawn with every
+   * change the mark merged already applied. The spotlight covers the whole span,
+   * matching the pill row, which is keyed on the cluster rather than on a date.
    */
   const stepTo = useCallback(
     (cluster: MilestoneCluster) => {
-      onChange(cluster.value);
+      onChange(cluster.spanEnd);
       onMilestoneClick?.(cluster.value, cluster.spanEnd);
     },
     [onChange, onMilestoneClick],
+  );
+
+  /**
+   * Where a dragged value actually lands. Dropping the handle inside a mark
+   * means standing on that mark, so it reports the mark's span end exactly as a
+   * click would — otherwise the same marker meant two different things
+   * depending on how you reached it. Clusters are at most a few pixels wide, so
+   * this is a small magnet, not a jump.
+   */
+  const snapToCluster = useCallback(
+    (at: number) => clusterAt(at)?.spanEnd ?? at,
+    [clusterAt],
   );
 
   const activeCards = useMemo(
@@ -353,7 +385,7 @@ export default function TimelineSlider({
             transition: "color 0.2s",
           }}
         >
-          {fmtFull(value)}
+          {readout}
         </Typography>
         {/* Transformation delta: what arrives and what retires between today
             and the selected date. Only meaningful looking forward. */}
@@ -441,7 +473,7 @@ export default function TimelineSlider({
               step={ONE_DAY_MS}
               track={false}
               marks={responsiveMarks}
-              onChange={(_, v) => onChange(v as number)}
+              onChange={(_, v) => onChange(snapToCluster(v as number))}
               valueLabelDisplay="auto"
               valueLabelFormat={fmtTip}
               sx={{
@@ -513,10 +545,7 @@ export default function TimelineSlider({
                   // unmarked, which is how a card whose arrival was absorbed
                   // into a busy mark reads as having no go-live mark at all.
                   const isMerged = m.spanEnd > m.value;
-                  const when = isMerged
-                    ? `${fmtFull(m.value)} – ${fmtFull(m.spanEnd)}`
-                    : fmtFull(m.value);
-                  const summary = `${when} — ${parts.join(" · ")}`;
+                  const summary = `${spanLabel(m.value, m.spanEnd)} — ${parts.join(" · ")}`;
                   // One bar, coloured by WHAT the mark does: blue where cards
                   // only arrive, red where they only retire, purple where it
                   // does both. Two abutting bars said the same thing but read as
@@ -537,7 +566,7 @@ export default function TimelineSlider({
                       <ButtonBase
                         aria-label={`${summary}. ${t("timelineSlider.milestoneJump")}`}
                         onClick={() => {
-                          onChange(m.value);
+                          onChange(m.spanEnd);
                           onMilestoneClick?.(m.value, m.spanEnd);
                         }}
                         sx={{

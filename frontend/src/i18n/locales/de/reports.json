@@ -200,7 +200,6 @@
   "dependency.background_dots": "Punkte",
   "dependency.background_none": "keiner",
   "dependency.proposedBadge": "NEU",
-  "dependency.arrivingBadge": "GEPLANT",
   "dependency.retiredBadge": "AUSGEMUSTERT",
   "dependency.legendArriving": "Kommt bis zum gewählten Datum hinzu",
   "dependency.plannedBadge": "KOMMEND",

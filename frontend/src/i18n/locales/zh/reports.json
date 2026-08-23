@@ -200,7 +200,6 @@
   "dependency.background_dots": "圆点",
   "dependency.background_none": "无",
   "dependency.proposedBadge": "新",
-  "dependency.arrivingBadge": "计划中",
   "dependency.retiredBadge": "已退役",
   "dependency.legendArriving": "在所选日期前投入使用",
   "dependency.plannedBadge": "即将上线",

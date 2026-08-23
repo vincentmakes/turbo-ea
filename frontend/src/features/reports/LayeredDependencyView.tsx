@@ -83,6 +83,7 @@ import {
   type LdvGroupData,
   type LdvEdgeData,
 } from "./layeredDependencyLayout";
+import { isPresentAtDate } from "./timelineRange";
 import type { TimelineChange } from "./timelineRange";
 import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
 
@@ -224,17 +225,14 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   const hiddenParent = data.hiddenParent === true;
   const hiddenChildren = data.hiddenChildren === true;
   // Time-travel: how this card's presence changes between today and the date
-  // being viewed. Dashes the border like `proposed` does, and badges the card.
+  // being viewed.
   const changeState = data.changeState as TimelineChange | undefined;
-  // Which tint this card wears: arriving cards lean on the timeline's future
-  // colour rather than their type colour (glowing = coming, faded = going),
-  // proposed ones stay faint, everything else takes its type tint.
-  const cardTint =
-    changeState === "arriving"
-      ? `${TIMELINE_COLORS.future}${isDark ? "38" : "12"}`
-      : data.proposed
-        ? `rgba(${r},${g},${b},0.06)`
-        : tint;
+  // A card that IS part of the landscape at the viewed date is drawn as an
+  // ordinary card — time travel shows the state as it will be, and what arrives
+  // or leaves is the timeline's job to say, not the diagram's. Only a card drawn
+  // despite not being there is decorated: ghosted and badged.
+  const present = isPresentAtDate(changeState);
+  const cardTint = data.proposed ? `rgba(${r},${g},${b},0.06)` : tint;
 
   const changeColor =
     changeState === "arriving" || changeState === "planned"
@@ -246,8 +244,7 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   const impacted = data.impacted === true;
   // The NEW badge owns the top-edge slot when both would render (TurboLens
   // proposed cards never carry changeState today, but precedence is explicit).
-  const futureOnTop =
-    (changeState === "arriving" || changeState === "planned") && !data.proposed;
+  const futureOnTop = changeState === "planned" && !data.proposed;
 
   const usedSet = useMemo(() => new Set(data.usedHandles ?? []), [data.usedHandles]);
   const hs = (id: string, extra?: React.CSSProperties) => {
@@ -363,8 +360,13 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         width: LDV_NODE_W,
         height: LDV_NODE_H,
         borderRadius: "8px",
+        // An arriving card is here, so it keeps a solid border and wears the
+        // future accent as its only cue — the quiet hint that it is new. Dashes
+        // are reserved for cards that are NOT in this date's landscape.
         border: changeColor
-          ? `2px dashed ${changeColor}`
+          ? present
+            ? `2px solid ${changeColor}`
+            : `2px dashed ${changeColor}`
           : data.proposed
             ? `2px dashed ${accent}`
             : `1.5px solid ${accent}`,
@@ -374,13 +376,10 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         // so this needs no per-theme colour maths of its own.
         bgcolor: "background.paper",
         backgroundImage: `linear-gradient(${cardTint}, ${cardTint})`,
-        ...(changeState === "arriving" && {
-          boxShadow: `0 0 0 3px ${TIMELINE_COLORS.future}30`,
-        }),
-        // Ghost what isn't in this date's landscape: retired (already gone)
-        // and planned (not here yet). The visual grammar: glowing = newly
-        // here, ghost-purple = coming later, ghost-red = gone.
-        opacity: changeState === "retired" || changeState === "planned" ? 0.55 : 1,
+        // Ghost what isn't in this date's landscape: retired (already gone) and
+        // planned (not here yet). The visual grammar: solid purple = here and
+        // new, ghost-purple = coming later, ghost-red = gone.
+        opacity: present ? 1 : 0.55,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -486,9 +485,11 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           {t("dependency.proposedBadge")}
         </Box>
       )}
-      {/* Time-travel change badge. Arriving cards take the prominent top-edge
-          slot (unless a NEW badge holds it); retired cards keep bottom-right. */}
-      {changeState && changeColor && (
+      {/* Time-travel change badge — only for a card that is NOT in this date's
+          landscape. Planned cards take the prominent top-edge slot (unless a NEW
+          badge holds it); retired cards keep bottom-right. An arriving card is
+          simply here, so it carries no badge. */}
+      {changeState && changeColor && !present && (
         <Box sx={{
           position: "absolute",
           ...(futureOnTop ? { top: -8, left: 8 } : { bottom: -8, right: 8 }),
@@ -498,11 +499,9 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
           textTransform: "uppercase", letterSpacing: 0.5,
         }}>
           {t(
-            changeState === "arriving"
-              ? "dependency.arrivingBadge"
-              : changeState === "planned"
-                ? "dependency.plannedBadge"
-                : "dependency.retiredBadge",
+            changeState === "planned"
+              ? "dependency.plannedBadge"
+              : "dependency.retiredBadge",
           )}
         </Box>
       )}

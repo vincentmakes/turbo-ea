@@ -6,7 +6,7 @@
  * contains rather than where it sits.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import TimelineSlider from "./TimelineSlider";
 import type { TimelineMilestoneCard } from "./TimelineSlider";
@@ -512,18 +512,22 @@ describe("TimelineSlider step-through over a merged mark", () => {
     expect(onMilestoneClick).toHaveBeenCalledWith(RETIRE, RETIRE);
   });
 
-  it("reaches the merged mark by its earliest date, spotlighting the whole span", async () => {
+  it("reaches the merged mark at the END of its span, spotlighting the whole span", async () => {
+    // The mark stands for a range, so standing on it means the whole range has
+    // happened — otherwise a card the pill row names as arriving is drawn as
+    // not-yet-live beside one that has already arrived.
     const { onChange, onMilestoneClick } = renderThree(TODAY);
     await clickNext();
-    expect(onChange).toHaveBeenCalledWith(GO_LIVE);
+    expect(onChange).toHaveBeenCalledWith(MERGED);
+    expect(onChange).not.toHaveBeenCalledWith(GO_LIVE);
     expect(onMilestoneClick).toHaveBeenCalledWith(GO_LIVE, MERGED);
   });
 
-  it("steps back onto the mark's earliest date, not the last date it merged", async () => {
+  it("steps back onto the end of the mark's span, not its earliest date", async () => {
     const { onChange } = renderThree(RETIRE);
     await clickPrev();
-    expect(onChange).toHaveBeenCalledWith(GO_LIVE);
-    expect(onChange).not.toHaveBeenCalledWith(MERGED);
+    expect(onChange).toHaveBeenCalledWith(MERGED);
+    expect(onChange).not.toHaveBeenCalledWith(GO_LIVE);
   });
 
   it("treats a date dragged into the middle of the mark as standing on it", async () => {
@@ -588,5 +592,76 @@ describe("TimelineSlider step-through over a merged mark", () => {
     );
     expect(screen.getByText("Arrives On Day One")).toBeInTheDocument();
     expect(screen.getByText("Retires Three Days Later")).toBeInTheDocument();
+  });
+});
+
+/**
+ * A merged mark stands for a RANGE, so standing on it means the whole range has
+ * happened. Landing on its earliest date instead drew the landscape at a moment
+ * when the later changes had not happened yet — a card the pill row named as
+ * arriving appeared as not-yet-live beside one that had already arrived.
+ */
+describe("TimelineSlider merged mark range", () => {
+  const MERGED = GO_LIVE + 3 * 86_400_000;
+  const TWO = [
+    { value: GO_LIVE, activating: 1, disappearing: 0 },
+    { value: MERGED, activating: 1, disappearing: 0 },
+  ];
+
+  const renderMerged = (value: number, overrides = {}) => {
+    const onChange = vi.fn();
+    const onMilestoneClick = vi.fn();
+    render(
+      <TimelineSlider
+        value={value}
+        onChange={onChange}
+        dateRange={{ min: ms("2020-01-01"), max: ms("2030-01-01") }}
+        yearMarks={[]}
+        todayMs={TODAY}
+        milestones={TWO}
+        onMilestoneClick={onMilestoneClick}
+        {...overrides}
+      />,
+    );
+    return { onChange, onMilestoneClick };
+  };
+
+  it("lands on the end of the range when the mark is clicked", async () => {
+    const { onChange, onMilestoneClick } = renderMerged(TODAY);
+    await userEvent.click(screen.getByRole("button", { name: /Jump to this change/i }));
+    expect(onChange).toHaveBeenCalledWith(MERGED);
+    expect(onChange).not.toHaveBeenCalledWith(GO_LIVE);
+    // The spotlight still covers everything the mark merged.
+    expect(onMilestoneClick).toHaveBeenCalledWith(GO_LIVE, MERGED);
+  });
+
+  it("reads out the range while standing on the mark", () => {
+    renderMerged(MERGED);
+    expect(screen.getByText("Mar 1, 2027 – Mar 4, 2027")).toBeInTheDocument();
+  });
+
+  it("reads out a single date on an unmerged mark", () => {
+    renderSlider(RETIRE);
+    expect(screen.getByText("Sep 1, 2028")).toBeInTheDocument();
+  });
+
+  it("reads out a single date away from every mark", () => {
+    renderSlider(TODAY);
+    expect(screen.getByText("Jun 15, 2026")).toBeInTheDocument();
+  });
+
+  it("snaps a drag that lands inside the mark to the end of its range", () => {
+    // Dropping the handle on a marker has to mean the same thing as clicking it,
+    // or the same marker says two things depending on how it was reached.
+    const { onChange } = renderMerged(TODAY);
+    fireEvent.change(screen.getByRole("slider"), { target: { value: String(GO_LIVE) } });
+    expect(onChange).toHaveBeenCalledWith(MERGED);
+  });
+
+  it("leaves a drag well clear of every mark alone", () => {
+    const away = ms("2025-01-01");
+    const { onChange } = renderMerged(TODAY);
+    fireEvent.change(screen.getByRole("slider"), { target: { value: String(away) } });
+    expect(onChange).toHaveBeenCalledWith(away);
   });
 });

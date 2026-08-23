@@ -5,6 +5,7 @@ import {
   computeImpactedIds,
   computeTimelineMilestones,
   computeTimelineRange,
+  isPresentAtDate,
   isVisibleAtDate,
 } from "./timelineRange";
 
@@ -184,6 +185,23 @@ describe("classifyTimelineChange", () => {
     expect(
       classifyTimelineChange({ plan: "2027-01-01", endOfLife: "2027-06-01" }, TODAY, future),
     ).toBe("retired");
+  });
+});
+
+describe("isPresentAtDate", () => {
+  it("counts an unchanged card and an arrived one as part of the landscape", () => {
+    // Nothing to say about a card that is simply there: time travel draws the
+    // state as it will be, and what arrived is the timeline's job to report.
+    expect(isPresentAtDate(undefined)).toBe(true);
+    expect(isPresentAtDate(null)).toBe(true);
+    expect(isPresentAtDate("arriving")).toBe(true);
+  });
+
+  it("counts a retired or not-yet-live card as absent", () => {
+    // These are drawn DESPITE not being in the landscape at the viewed date —
+    // kept by persistRetired / previewPlanned — so they are ghosted and badged.
+    expect(isPresentAtDate("retired")).toBe(false);
+    expect(isPresentAtDate("planned")).toBe(false);
   });
 });
 

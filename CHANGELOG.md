@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.79.0] - 2026-08-23
+
+### Fixed
+
+- Time Travel slider: a merged marker now means its whole range. Where several transition dates are drawn as one wider marker, standing on it — by click, by arrow, or by a drag that snaps onto it — shows the landscape as of the **end** of that range, and the date beside the slider names the range rather than a single day. Previously it landed on the range's first date, so a card going live later in the same marker was drawn as not-yet-live right beside one that had already arrived, even though the pills below named both.
+
+### Changed
+
+- Time travel now draws a plain future state: a card that is part of the landscape at the date you travelled to renders as an ordinary card, carrying only a purple outline as a quiet cue that it is new. It no longer takes a *PLANNED* badge, a tint or a glow. Badges are reserved for cards shown **despite** not being there at that date — retired ones (*RETIRED*) and, with **Preview planned cards** on, not-yet-live ones (*UPCOMING*). What arrives and leaves is carried by the timeline's markers, its card pills and the arriving/retiring chips. Applies to the diagram, the tree and the table alike.
+
 ## [2.78.3] - 2026-08-23
 
 ### Fixed

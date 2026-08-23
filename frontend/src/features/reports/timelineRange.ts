@@ -101,6 +101,26 @@ export function classifyTimelineChange(
   return null;
 }
 
+/**
+ * Whether a card carrying this change state is actually part of the landscape at
+ * the viewed date.
+ *
+ * Time travel shows the state as it will be, so a card that is simply there
+ * renders plainly — what arrives and leaves is carried by the timeline's marks,
+ * its pill row and the arriving/retiring chips, not by decorating the landscape
+ * itself. Only a card drawn DESPITE not being in that state earns a badge and a
+ * ghost: a retired card kept by `persistRetired`, or a not-yet-live one kept by
+ * `previewPlanned`. `arriving` is present — it went live on the way to the date
+ * you travelled to — so it is plain, carrying only the accent border that hints
+ * at what is new.
+ *
+ * Shared so the diagram and the tree/table cannot disagree about which cards
+ * count as being there.
+ */
+export function isPresentAtDate(state?: TimelineChange | null): boolean {
+  return state == null || state === "arriving";
+}
+
 export interface TimelineVisibility {
   /** Keep retired cards on the diagram — ghosted and badged — at any date after
    *  their retirement. On by default: what a transformation *removes* is half

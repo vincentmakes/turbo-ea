@@ -254,6 +254,35 @@ describe("DependencyReport time travel — preview planned cards", () => {
     expect(screen.queryByText("NextGen Suite")).not.toBeInTheDocument();
   });
 
+  it("leaves a card that has arrived by the viewed date unbadged", async () => {
+    // Time travel shows the state as it will be: a card that went live on the
+    // way to the viewed date is simply part of the landscape there, and what
+    // arrived is the timeline's job to say. Only cards drawn DESPITE not being
+    // in that state — retired ghosts, previewed planned ones — are badged.
+    vi.mocked(api.get).mockResolvedValue({
+      ...GRAPH,
+      nodes: [
+        ...GRAPH.nodes,
+        {
+          id: "arriving",
+          name: "Arriving Platform",
+          type: "Application",
+          lifecycle: { active: "2027-06-01" }, // after TODAY, before FUTURE
+        },
+      ],
+      edges: [...GRAPH.edges, { source: "arriving", target: "crm", type: "app_to_app", label: "uses" }],
+    });
+    renderReport();
+
+    // It is on the canvas...
+    expect(await screen.findByText("Arriving Platform")).toBeInTheDocument();
+    // ...and carries no badge of its own. RETIRED still belongs to Legacy ERP,
+    // which really is gone by the viewed date.
+    expect(screen.queryByText("PLANNED")).not.toBeInTheDocument();
+    expect(screen.queryByText("UPCOMING")).not.toBeInTheDocument();
+    expect(screen.getAllByText("RETIRED").length).toBeGreaterThan(0);
+  });
+
   it("shows it badged UPCOMING when the preview toggle is on", async () => {
     renderReport();
     await screen.findByText("Legacy ERP");

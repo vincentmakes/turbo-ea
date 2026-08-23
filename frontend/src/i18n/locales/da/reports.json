@@ -200,7 +200,6 @@
   "dependency.background_dots": "prikker",
   "dependency.background_none": "ingen",
   "dependency.proposedBadge": "NY",
-  "dependency.arrivingBadge": "PLANLAGT",
   "dependency.retiredBadge": "UDFASET",
   "dependency.legendArriving": "Kommer til inden den valgte dato",
   "dependency.plannedBadge": "PÅ VEJ",
