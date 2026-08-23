@@ -1250,6 +1250,7 @@ export default function DependencyReport() {
               hasNext={hasNext}
               centerName={centerNode?.name}
               centerId={center || undefined}
+              expandedIds={ldvExpandedNodes}
               asOfMs={timelineFilterDate}
               pulseCards={pulseCards}
               canCreateDiagram={canCreateDiagram}

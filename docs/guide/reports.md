@@ -117,7 +117,7 @@ Toggle to the **Layered Dependency View** using the view-mode buttons in the too
 - **Click to inspect** — Click any node to open the card detail side panel.
 - **Recenter** — Shift+click or long-press a card to center the diagram on it; the toolbar's **Back to card picker**, **Previous card**, and **Next card** buttons step through your navigation history.
 - **Highlight mode** — Hover a card to highlight its connections; on touch devices, turn on **Highlight mode** in the controls panel to tap-highlight instead.
-- **Expand mode** — Turn on **Expand mode** in the controls panel, then click a card to reveal all of its relations on demand.
+- **Expand mode** — Turn on **Expand mode** in the controls panel, then click a card to reveal all of its relations on demand. The card the diagram is centred on carries a double border in its card type's colour, and each card you expand carries a thinner one, so your bearings stay visible as the diagram grows.
 - **Reveal parent / Reveal children** — Two targeted alternatives to Expand mode. Turn on **Reveal parent** (up-arrow) or **Reveal children** (down-arrow) in the controls panel, then click a card to add just its hierarchy parent or its direct children to the diagram. Revealed cards stay on the diagram — so you can layer parents and children together — and clear when you re-center or reset the view.
 - **No center card required** — On the Dependencies report the Layered Dependency View shows all cards matching the current type filter, so you don't have to pick a starting card first.
 

@@ -83,6 +83,7 @@ import {
   type LdvGroupData,
   type LdvEdgeData,
 } from "./layeredDependencyLayout";
+import { ldvFocusRing } from "./ldvFocusRing";
 import { isPresentAtDate } from "./timelineRange";
 import type { TimelineChange } from "./timelineRange";
 import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
@@ -360,6 +361,15 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         width: LDV_NODE_W,
         height: LDV_NODE_H,
         borderRadius: "8px",
+        // A second border outside the card's own, in the card type's colour:
+        // the centre of the graph, and the cards expanded from it. An outline
+        // rather than a thicker border, because the border below is already
+        // spoken for — and because it survives the hover elevation and the
+        // timeline pulse, which both animate `box-shadow` on this element.
+        ...ldvFocusRing(accent, {
+          isCenter: data.isCenter === true,
+          isExpanded: data.isExpanded === true,
+        }),
         // An arriving card is here, so it keeps a solid border and wears the
         // future accent as its only cue — the quiet hint that it is new. Dashes
         // are reserved for cards that are NOT in this date's landscape.
@@ -949,8 +959,12 @@ interface Props {
   hasPrev?: boolean;
   hasNext?: boolean;
   centerName?: string;
-  /** Id of the centered/target card — always kept visible by the end-of-life filter. */
+  /** Id of the centered/target card — always kept visible by the end-of-life
+   *  filter, and marked on the canvas with a ring. */
   centerId?: string;
+  /** Cards the reader expanded with the expand tool, marked with a lighter ring
+   *  than the centre. Omit where there is no expand mode (the card-detail view). */
+  expandedIds?: Set<string>;
   /** Render the graph as of this date (epoch ms) instead of today: the
    *  end-of-life filter and each card's lifecycle dot are evaluated against it.
    *  Omit for a live "today" view. */
@@ -993,6 +1007,7 @@ function LayeredDependencyInner({
   hasNext,
   centerName,
   centerId,
+  expandedIds,
   asOfMs,
   pulseCards,
   openInReportHref,
@@ -1464,12 +1479,18 @@ function LayeredDependencyInner({
         detailText: detailParts.join("\n"),
         hiddenParent: marker?.hiddenParent ?? false,
         hiddenChildren: marker?.hiddenChildren ?? false,
+        // The reader's own bearings: what the graph is built around, and what
+        // they dug into. Both ring the card in its type colour.
+        isCenter: !!centerId && n.id === centerId,
+        isExpanded: expandedIds?.has(n.id) ?? false,
       };
     },
     [
       gnodeById,
       hierarchyMarkers,
       asOfMs,
+      centerId,
+      expandedIds,
       settings.showLifecycle,
       settings.showType,
       settings.extraFields,

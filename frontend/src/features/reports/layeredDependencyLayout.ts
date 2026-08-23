@@ -126,6 +126,10 @@ export interface LdvNodeData {
   proposed?: boolean;
   changeState?: TimelineChange;
   impacted?: boolean;
+  /** The card the graph is built around — injected by the view, not the layout. */
+  isCenter?: boolean;
+  /** A card the reader expanded, pulling its relations onto the canvas. */
+  isExpanded?: boolean;
   [key: string]: unknown;
 }
 

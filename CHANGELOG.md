@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [2.79.0] - 2026-08-23
 
+### Added
+
+- Layered Dependency View: the card the diagram is centred on now carries a double border in its own card type's colour, and every card you pull in with the **Expand mode** tool carries a thinner one. Your bearings — what the diagram is built around, and what you dug into — stay visible as the diagram grows. The centre marking also appears on a card's Dependencies section.
+
 ### Fixed
 
 - Time Travel slider: a merged marker now means its whole range. Where several transition dates are drawn as one wider marker, standing on it — by click, by arrow, or by a drag that snaps onto it — shows the landscape as of the **end** of that range, and the date beside the slider names the range rather than a single day. Previously it landed on the range's first date, so a card going live later in the same marker was drawn as not-yet-live right beside one that had already arrived, even though the pills below named both.
