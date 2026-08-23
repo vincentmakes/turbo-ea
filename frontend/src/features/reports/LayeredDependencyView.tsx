@@ -520,21 +520,19 @@ const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         </Box>
       )}
       {/* What the mark does to this card's connections: blue where one is gained,
-          red where one is lost, both when both. Bottom-right, which is free —
-          a card marked here is never itself arriving or retiring, so it carries
-          no state badge of its own. */}
+          red where one is lost, both when both. Inside the bottom-right corner
+          on the same 6px inset as the type icon and the lifecycle dot — that
+          corner is free, because a card marked here is never itself arriving or
+          retiring and so carries no state badge of its own. */}
       {(gainedLink || lostLink) && (
         <Box
           sx={{
             position: "absolute",
-            bottom: -7,
+            bottom: 5,
             right: 6,
             display: "flex",
-            gap: 0.25,
+            gap: 0.375,
             lineHeight: 0,
-            bgcolor: "background.paper",
-            borderRadius: "4px",
-            px: 0.25,
           }}
         >
           {gainedLink && (
