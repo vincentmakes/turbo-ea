@@ -25,6 +25,10 @@ Lorsque l'IA est configurée et que les analyses de portefeuille sont activées 
 
 Cliquer sur un groupe ouvre un panneau listant les cartes de ce groupe. Son bouton **Voir dans l'inventaire** ouvre l'inventaire exactement sur cette tranche. Lorsque le rapport est regroupé par un champ propre au type de carte, l'inventaire arrive regroupé par le même champ : le groupe cliqué est déplié, tous les autres sont repliés (les compteurs restent visibles), et la recherche ainsi que les filtres d'attributs, de relations et d'étiquettes du rapport sont repris — prêt pour un « tout sélectionner » suivi de la [modification en masse](inventory.md#mass-edit). Lors d'un regroupement par un type de carte lié (par exemple Organisation), l'inventaire arrive filtré sur cette carte liée. Le bouton est masqué lorsque les *groupes imbriqués* sont actifs : un sous-arbre agrégé ne correspond à aucun filtre d'inventaire unique.
 
+### Voyage dans le temps
+
+Le curseur de la frise chronologique porte les mêmes instruments de transformation que le [Rapport Dépendances](#rapport-dependances) : des repères à chaque date où une application entre en service (bleu) ou est retirée (rouge), des pastilles nommant les applications qui changent tant que le curseur se trouve sur un repère, des flèches qui passent de changement en changement, et des pastilles qui résument la transformation quand vous regardez vers l'avenir (« +4 arrivent · −7 retirées » — reprises aussi dans les en-têtes d'impression et d'export). Cliquer sur un repère ou une pastille met en lumière les applications qui changent à cette date — le reste de la vue s'estompe pendant qu'elles pulsent, et une application déjà disparue à la date sélectionnée est révélée le temps de la pulsation, puis masquée à nouveau.
+
 ## Portefeuille flexible
 
 ![Portefeuille flexible — portefeuille d'Objets de données regroupé par Application et coloré par Sensibilité des données](../assets/img/fr/57_rapport_portefeuille_flexible.png)
@@ -57,6 +61,8 @@ La **Carte de capacités** affiche une **carte thermique hiérarchique** des cap
 - **Cliquer pour explorer** -- Cliquez sur n'importe quelle capacité pour approfondir ses détails et ses applications de support
 
 **Limiter à certaines capacités** — Par défaut, la carte affiche toutes les capacités. Utilisez la puce de capacité dans la barre d'outils pour ouvrir un sélecteur et choisir une ou plusieurs capacités ; la carte n'affiche alors que celles-ci et tout ce qui se trouve en dessous. Les sous-capacités sont incluses automatiquement : choisir une capacité de premier niveau vous donne donc toute sa branche. La **Profondeur d'affichage** se compte à partir des capacités sélectionnées, de sorte que *Niveau 2* signifie toujours deux niveaux sous ce que vous regardez. Le périmètre est enregistré avec le rapport, si bien qu'un rapport sauvegardé se rouvre sur la même branche.
+
+**Voyage dans le temps** — Le curseur de la frise chronologique porte les mêmes instruments de transformation que le [Rapport Dépendances](#rapport-dependances) : des repères à chaque date où une application entre en service (bleu) ou est retirée (rouge), des pastilles nommant les applications qui changent tant que le curseur se trouve sur un repère, des flèches qui passent de changement en changement, et des pastilles qui résument la transformation quand vous regardez vers l'avenir (reprises aussi dans les en-têtes d'impression et d'export). Cliquer sur un repère ou une pastille met le changement en lumière : avec **Afficher les applications** activé, les puces des applications qui changent pulsent pendant que le reste s'estompe, et une application déjà disparue à la date sélectionnée est révélée le temps de la pulsation ; avec l'option désactivée, la lumière tombe sur les blocs de capacité contenant les applications qui changent — bleu là où elles ne font qu'arriver, rouge là où elles ne font qu'être retirées, violet là où les deux se produisent.
 
 ## Rapport Cycle de vie
 

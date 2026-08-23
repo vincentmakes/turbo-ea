@@ -451,14 +451,14 @@ describe("DependencyReport time travel — spotlight animation", () => {
       // without these the tree and table dimmed and ringed but never pulsed.
       const { container } = renderReport();
       await screen.findByText("Legacy ERP");
-      expect(container.innerHTML).not.toContain("dep-pulse-row-retire");
+      expect(container.innerHTML).not.toContain("tl-pulse-row-retire");
 
       const eol = ms("2027-06-01");
       act(() => sliderProps.at(-1)?.onMilestoneClick?.(eol, eol));
-      await waitFor(() => expect(container.innerHTML).toContain("dep-pulse-row-retire"));
+      await waitFor(() => expect(container.innerHTML).toContain("tl-pulse-row-retire"));
 
       act(() => void vi.advanceTimersByTime(2000));
-      await waitFor(() => expect(container.innerHTML).not.toContain("dep-pulse-row-retire"));
+      await waitFor(() => expect(container.innerHTML).not.toContain("tl-pulse-row-retire"));
     } finally {
       vi.useRealTimers();
     }

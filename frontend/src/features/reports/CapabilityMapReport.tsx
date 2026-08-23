@@ -20,8 +20,18 @@ import type { TagGroup } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import ReportCardListPanel, { type ReportCardListItem } from "./ReportCardListPanel";
-import { isAliveAtDate } from "./portfolioHelpers";
-import { computeTimelineRange } from "./timelineRange";
+import { isAliveAtDate, isRetiredByDate } from "./portfolioHelpers";
+import {
+  classifyTimelineChange,
+  computeTimelineMilestones,
+  computeTimelineRange,
+} from "./timelineRange";
+import {
+  PULSE_COLORS,
+  TIMELINE_PULSE_KEYFRAMES,
+  useMilestoneSpotlight,
+} from "./useMilestoneSpotlight";
+import type { ContainerPulseKind, PulseKind } from "./useMilestoneSpotlight";
 import {
   buildInventorySliceUrl,
   type InventorySliceFilters,
@@ -173,16 +183,19 @@ function getAppColorLabel(
   return opt?.label || val;
 }
 
-/** Filter an app based on active attribute, relation and tag filters */
+/**
+ * Filter an app based on active attribute, relation and tag filters. The
+ * timeline date is deliberately NOT part of this matcher: the milestone
+ * marks/delta/pills are computed from the statically-filtered set, and the
+ * alive-at-date check is applied separately by the caller.
+ */
 function matchesFilters(
   app: AppData,
   attrFilters: Record<string, string[]>,
   relationFilters: Record<string, string[]>,
   tagFilterIds: string[],
   tagGroups: TagGroupDef[],
-  timelineDate: number,
 ): boolean {
-  if (!isAliveAtDate(app.lifecycle, timelineDate)) return false;
   // Attribute filters
   const attrs = app.attributes || {};
   for (const [key, vals] of Object.entries(attrFilters)) {
@@ -249,11 +262,17 @@ function buildTree(
   tagGroups: TagGroupDef[],
   timelineDate: number,
   costFieldKeys: string[],
+  /** Retiring apps transiently kept visible while a retirement mark's
+   *  spotlight runs — the map hides retired apps, so the pulse needs a ghost
+   *  to point at. */
+  revealedForPulse: Set<string>,
 ): CapNode[] {
   const nodeMap = new Map<string, CapNode>();
   for (const item of items) {
-    const filteredApps = item.apps.filter((a) =>
-      matchesFilters(a, attrFilters, relationFilters, tagFilterIds, tagGroups, timelineDate),
+    const filteredApps = item.apps.filter(
+      (a) =>
+        matchesFilters(a, attrFilters, relationFilters, tagFilterIds, tagGroups) &&
+        (isAliveAtDate(a.lifecycle, timelineDate) || revealedForPulse.has(a.id)),
     );
     nodeMap.set(item.id, {
       ...item,
@@ -367,11 +386,17 @@ function AppChip({
   colorBy,
   selectFields,
   onClick,
+  pulse,
+  dimmed,
 }: {
   app: AppData;
   colorBy: string;
   selectFields: FieldDef[];
   onClick: () => void;
+  /** Mark-click spotlight: this chip's card changes at the clicked mark. */
+  pulse?: PulseKind;
+  /** A spotlight is running and this chip is not part of it. */
+  dimmed?: boolean;
 }) {
   // Metamodel Application color (admin-editable) when not coloring by field.
   const { getType } = useMetamodel();
@@ -398,6 +423,11 @@ function AppChip({
           maxWidth: 160,
           cursor: "pointer",
           "&:hover": { opacity: 0.85 },
+          ...(dimmed && { opacity: 0.3, transition: "opacity 0.2s, box-shadow 0.2s" }),
+          ...(pulse && {
+            boxShadow: `0 0 0 3px ${PULSE_COLORS[pulse]}55`,
+            animation: `tl-pulse-${pulse} 0.65s ease-in-out 2`,
+          }),
         }}
       />
     </Tooltip>
@@ -415,6 +445,9 @@ function CapabilityCard({
   onCapClick,
   onAppClick,
   fmtCost,
+  pulseCards,
+  pulsing,
+  pulsedCaps,
 }: {
   node: CapNode;
   displayLevel: number;
@@ -426,6 +459,12 @@ function CapabilityCard({
   onCapClick: (cap: CapNode) => void;
   onAppClick: (id: string) => void;
   fmtCost: (v: number) => string;
+  pulseCards: Record<string, PulseKind>;
+  pulsing: boolean;
+  /** Capability boxes pulsed on behalf of hidden app chips (Show
+   *  Applications off) — a ring only, never a dim: dimming a heatmap box
+   *  would read as a data change. */
+  pulsedCaps: Map<string, ContainerPulseKind>;
 }) {
   const { t } = useTranslation(["reports"]);
   const val = nodeMetric(node, metric);
@@ -437,6 +476,14 @@ function CapabilityCard({
     () => getVisibleApps(node, displayLevel),
     [node, displayLevel],
   );
+
+  const boxPulse = pulsedCaps.get(node.id);
+  const boxPulseSx = boxPulse
+    ? {
+        boxShadow: `0 0 0 3px ${PULSE_COLORS[boxPulse]}55`,
+        animation: `tl-pulse-${boxPulse} 0.65s ease-in-out 2`,
+      }
+    : undefined;
 
   // If this node is at or below the display level, render as a leaf card
   const isLeaf = node.level >= displayLevel || node.children.length === 0;
@@ -453,6 +500,7 @@ function CapabilityCard({
           cursor: "pointer",
           transition: "box-shadow 0.2s",
           "&:hover": { boxShadow: 3 },
+          ...boxPulseSx,
         }}
         onClick={() => onCapClick(node)}
       >
@@ -505,6 +553,8 @@ function CapabilityCard({
                   colorBy={colorBy}
                   selectFields={selectFields}
                   onClick={() => onAppClick(app.id)}
+                  pulse={pulseCards[app.id]}
+                  dimmed={pulsing && !pulseCards[app.id]}
                 />
               ))}
           </Box>
@@ -522,6 +572,7 @@ function CapabilityCard({
         borderRadius: 2,
         overflow: "hidden",
         bgcolor: "background.paper",
+        ...boxPulseSx,
       }}
     >
       {/* Header */}
@@ -576,6 +627,8 @@ function CapabilityCard({
                 colorBy={colorBy}
                 selectFields={selectFields}
                 onClick={() => onAppClick(app.id)}
+                pulse={pulseCards[app.id]}
+                dimmed={pulsing && !pulseCards[app.id]}
               />
             ))}
         </Box>
@@ -596,6 +649,9 @@ function CapabilityCard({
               onCapClick={onCapClick}
               onAppClick={onAppClick}
               fmtCost={fmtCost}
+              pulseCards={pulseCards}
+              pulsing={pulsing}
+              pulsedCaps={pulsedCaps}
             />
           </Box>
         ))}
@@ -842,11 +898,106 @@ export default function CapabilityMapReport() {
     [data, scope.closure],
   );
 
+  // Transition marks, delta and pills are computed from the statically-
+  // filtered set (timeline filter NOT applied — what changes over time must
+  // not vanish from the track the moment the travelled date hides it),
+  // DEDUPED by app id: an app supporting several capabilities appears once
+  // per capability in the payload, and counting it per appearance would
+  // inflate every mark, pill row and delta chip.
+  const milestoneScope = useMemo(() => {
+    if (!scopedData) return [];
+    const byId = new Map<string, AppData>();
+    for (const cap of scopedData) {
+      for (const app of cap.apps) {
+        if (byId.has(app.id)) continue;
+        if (matchesFilters(app, attrFilters, relationFilters, tagFilterIds, tagGroupsData))
+          byId.set(app.id, app);
+      }
+    }
+    return [...byId.values()];
+  }, [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData]);
+
+  const milestones = useMemo(
+    () => computeTimelineMilestones(milestoneScope.map((a) => a.lifecycle)),
+    [milestoneScope],
+  );
+
+  // Pill accents reuse the report's own colour-by, so the pill row matches
+  // the chips it spotlights.
+  const appDefaultColor = useMemo(
+    () =>
+      metamodelTypes.find((tp) => tp.key === "Application")?.color ||
+      CARD_TYPE_COLORS.Application,
+    [metamodelTypes],
+  );
+  const milestoneById = useMemo(
+    () => new Map(milestoneScope.map((a) => [a.id, a])),
+    [milestoneScope],
+  );
+  const milestoneCardColor = useCallback(
+    (id: string) => {
+      const app = milestoneById.get(id);
+      return app ? getAppColor(app, colorBy, selectFields, appDefaultColor) : undefined;
+    },
+    [milestoneById, colorBy, selectFields, appDefaultColor],
+  );
+
+  const {
+    pulseCards,
+    revealedForPulse,
+    pulsing,
+    handleMilestoneClick,
+    milestoneCards,
+    handleMilestoneCardClick,
+  } = useMilestoneSpotlight({ scope: milestoneScope, getColor: milestoneCardColor });
+
+  // The transformation between today and the selected date, over the same
+  // scope as the marks and computed BEFORE the alive-at-date filter — hiding
+  // retired apps must not make the count lie.
+  const timelineDelta = useMemo(() => {
+    const at = tl.timelineDate;
+    if (at <= tl.todayMs) return { arriving: 0, retiring: 0 };
+    let arriving = 0;
+    let retiring = 0;
+    for (const a of milestoneScope) {
+      if (classifyTimelineChange(a.lifecycle, tl.todayMs, at) === "arriving") arriving++;
+      else if (isRetiredByDate(a.lifecycle, at) && !isRetiredByDate(a.lifecycle, tl.todayMs))
+        retiring++;
+    }
+    return { arriving, retiring };
+  }, [milestoneScope, tl.timelineDate, tl.todayMs]);
+
   const tree = useMemo(
-    () => (scopedData ? buildTree(scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys) : []),
-    [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys],
+    () => (scopedData ? buildTree(scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, revealedForPulse) : []),
+    [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, revealedForPulse],
   );
   const maxLvl = useMemo(() => getMaxLevel(tree), [tree]);
+
+  // With Show Applications off there are no chips to pulse, so a mark-click
+  // spotlight falls on the capability boxes instead: each pulsed app lights
+  // the DEEPEST VISIBLE box it displays under (the same box its chip would
+  // occupy), never the whole ancestor chain. A box holding both an arriving
+  // and a retiring app pulses "mixed".
+  const pulsedCaps = useMemo(() => {
+    const out = new Map<string, ContainerPulseKind>();
+    if (!pulsing || showApps) return out;
+    const walk = (nodes: CapNode[]) => {
+      for (const n of nodes) {
+        let live = false;
+        let retire = false;
+        for (const app of getVisibleApps(n, displayLevel)) {
+          const kind = pulseCards[app.id];
+          if (kind === "live") live = true;
+          else if (kind === "retire") retire = true;
+        }
+        if (live || retire) out.set(n.id, live && retire ? "mixed" : live ? "live" : "retire");
+        // A leaf-rendered node draws no children, so their boxes can't pulse.
+        if (n.level < displayLevel && n.children.length > 0) walk(n.children);
+      }
+    };
+    walk(tree);
+    return out;
+  }, [pulsing, showApps, pulseCards, tree, displayLevel]);
 
   // Scoping into a shallower branch re-ranges the Display Depth options, which
   // can strand the current value outside them — a MUI Select with no matching
@@ -940,9 +1091,14 @@ export default function CapabilityMapReport() {
       params.push({ label: t("common.colorBy"), value: cLabel });
     }
     if (tl.printParam) params.push(tl.printParam);
+    if (timelineDelta.arriving > 0 || timelineDelta.retiring > 0)
+      params.push({
+        label: t("common:timelineSlider.deltaLabel"),
+        value: `+${timelineDelta.arriving} / −${timelineDelta.retiring}`,
+      });
     if (activeFilterCount > 0) params.push({ label: t("common.filters"), value: t("common.filtersActive", { count: activeFilterCount }) });
     return params;
-  }, [metric, displayLevel, showApps, colorBy, colorByOptions, levelOptions, tl.printParam, activeFilterCount, effectiveScopeIds, t]);
+  }, [metric, displayLevel, showApps, colorBy, colorByOptions, levelOptions, tl.printParam, timelineDelta, activeFilterCount, effectiveScopeIds, t]);
 
   if (data === null)
     return (
@@ -1055,6 +1211,11 @@ export default function CapabilityMapReport() {
               dateRange={dateRange}
               yearMarks={yearMarks}
               todayMs={tl.todayMs}
+              milestones={milestones}
+              delta={timelineDelta}
+              onMilestoneClick={handleMilestoneClick}
+              milestoneCards={milestoneCards}
+              onMilestoneCardClick={handleMilestoneCardClick}
             />
           )}
 
@@ -1310,6 +1471,7 @@ export default function CapabilityMapReport() {
         </Box>
       }
     >
+      {pulsing && <style>{TIMELINE_PULSE_KEYFRAMES}</style>}
       {tree.length === 0 ? (
         <Box sx={{ py: 8, textAlign: "center" }}>
           <Typography color="text.secondary">
@@ -1343,6 +1505,9 @@ export default function CapabilityMapReport() {
                 onCapClick={setDrawer}
                 onAppClick={handleAppClick}
                 fmtCost={fmtShort}
+                pulseCards={pulseCards}
+                pulsing={pulsing}
+                pulsedCaps={pulsedCaps}
               />
             </Box>
           ))}

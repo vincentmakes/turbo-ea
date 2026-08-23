@@ -34,9 +34,7 @@ import { useSavedReport } from "@/hooks/useSavedReport";
 import { useTimeline } from "@/hooks/useTimeline";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import TimelineSlider from "@/components/TimelineSlider";
-import type { TimelineMilestoneCard } from "@/components/TimelineSlider";
 import {
-  cardsChangingBetween,
   classifyTimelineChange,
   computeImpactedIds,
   computeTimelineMilestones,
@@ -44,6 +42,7 @@ import {
   isVisibleAtDate,
 } from "./timelineRange";
 import { isRetiredByDate } from "./portfolioHelpers";
+import { TIMELINE_PULSE_KEYFRAMES, useMilestoneSpotlight } from "./useMilestoneSpotlight";
 import type { TimelineChange } from "./timelineRange";
 import type { GNode, GEdge } from "./layeredDependencyLayout";
 import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
@@ -142,23 +141,6 @@ const FALLBACK_COLORS: Record<string, string> = {
 function tc(key: string, types: CardType[]): string {
   return types.find((t) => t.key === key)?.color || FALLBACK_COLORS[key] || "#999";
 }
-
-/**
- * Keyframes for the mark-click spotlight in the TREE and TABLE views. The LDV
- * injects its own equivalents (it has to style React Flow's DOM by node id),
- * and these give the other two views the same 0.65s x2 pulse — without them a
- * spotlight there was a static dim and ring, so the highlight simply did not
- * animate depending on which view you happened to be in.
- *
- * A row gets a background pulse rather than a ring: MUI's table collapses its
- * borders, and a collapsed-border `<tr>` does not paint a box-shadow.
- */
-const PULSE_KEYFRAMES = `
-@keyframes dep-pulse-live { 0%,100% { box-shadow: 0 0 0 0 ${TIMELINE_COLORS.goLive}00 } 50% { box-shadow: 0 0 0 8px ${TIMELINE_COLORS.goLive}66 } }
-@keyframes dep-pulse-retire { 0%,100% { box-shadow: 0 0 0 0 ${STATUS_COLORS.error}00 } 50% { box-shadow: 0 0 0 8px ${STATUS_COLORS.error}66 } }
-@keyframes dep-pulse-row-live { 0%,100% { background-color: ${TIMELINE_COLORS.goLive}1f } 50% { background-color: ${TIMELINE_COLORS.goLive}47 } }
-@keyframes dep-pulse-row-retire { 0%,100% { background-color: ${STATUS_COLORS.error}1f } 50% { background-color: ${STATUS_COLORS.error}47 } }
-`;
 
 /** Badge states the tree and table views render as compact chips. */
 type BadgeState = TimelineChange | "impacted";
@@ -691,86 +673,25 @@ export default function DependencyReport() {
   /*  Clicking a transition mark                                        */
   /* ---------------------------------------------------------------- */
 
-  // Cards that change at the clicked mark, spotlighted for ~1.6s. Transient by
-  // design: the badges already state permanently what each card is, so the
-  // click only has to answer "which one just changed?".
-  const [pulseCards, setPulseCards] = useState<Record<string, "live" | "retire">>({});
-  // A retirement mark clicked while retired cards are hidden has nothing to
-  // point at, so the subjects are revealed for the duration of the pulse and
-  // then hidden again — the toggle is not changed, only briefly overridden.
-  const [revealedForPulse, setRevealedForPulse] = useState<Set<string>>(new Set());
-  const pulseTimer = useRef<number | null>(null);
-
-  const spotlight = useCallback((hit: Record<string, "live" | "retire">, reveal: Set<string>) => {
-    if (pulseTimer.current) window.clearTimeout(pulseTimer.current);
-    setPulseCards(hit);
-    setRevealedForPulse(reveal);
-    pulseTimer.current = window.setTimeout(() => {
-      setPulseCards({});
-      setRevealedForPulse(new Set());
-      pulseTimer.current = null;
-    }, 1600);
-  }, []);
-
-  const handleMilestoneClick = useCallback(
-    (from: number, to: number) => {
-      const hit: Record<string, "live" | "retire"> = {};
-      const reveal = new Set<string>();
-      // A card that arrives AND retires inside one merged span is listed
-      // twice, but it is ONE node on the canvas and can only glow one colour.
-      // `cardsChangingBetween` sorts activating first, so the retirement — the
-      // later fact, and the one that decides whether the card is still there
-      // when the span is out — overwrites the arrival. Its own pill still
-      // pulses the other way when clicked directly.
-      for (const c of cardsChangingBetween(milestoneScope, from, to)) {
-        if (c.kind === "disappearing") {
-          hit[c.id] = "retire";
-          // A retirement mark clicked while retired cards are hidden has
-          // nothing to point at, so its subjects are revealed for the pulse.
-          reveal.add(c.id);
-        } else {
-          hit[c.id] = "live";
-        }
-      }
-      spotlight(hit, reveal);
-    },
-    [milestoneScope, spotlight],
-  );
-
-  // The same cards, named, for the pill row the slider renders under the marks.
-  // Built from `milestoneScope` — the scope the marks themselves are computed
-  // from — so a pill can never name a card the mark above it did not count.
+  // Pill accents come from the metamodel type colour — the scope the marks are
+  // computed from is multi-type here, unlike Portfolio / Capability Map.
   const milestoneCardColors = useMemo(
     () => new Map(milestoneScope.map((n) => [n.id, tc(n.type, types)])),
     [milestoneScope, types],
   );
-
-  const milestoneCards = useCallback(
-    (from: number, to: number) =>
-      cardsChangingBetween(milestoneScope, from, to).map((c) => ({
-        ...c,
-        color: milestoneCardColors.get(c.id),
-      })),
-    [milestoneScope, milestoneCardColors],
+  const milestoneCardColor = useCallback(
+    (id: string) => milestoneCardColors.get(id),
+    [milestoneCardColors],
   );
 
-  const handleMilestoneCardClick = useCallback(
-    (card: TimelineMilestoneCard) => {
-      const retiring = card.kind === "disappearing";
-      spotlight(
-        { [card.id]: retiring ? "retire" : "live" },
-        retiring ? new Set([card.id]) : new Set(),
-      );
-    },
-    [spotlight],
-  );
-
-  useEffect(
-    () => () => {
-      if (pulseTimer.current) window.clearTimeout(pulseTimer.current);
-    },
-    [],
-  );
+  const {
+    pulseCards,
+    revealedForPulse,
+    pulsing,
+    handleMilestoneClick,
+    milestoneCards,
+    handleMilestoneCardClick,
+  } = useMilestoneSpotlight({ scope: milestoneScope, getColor: milestoneCardColor });
 
   // The transformation between today and the selected date, over the same
   // scope as the marks and computed BEFORE the persist filter — hiding retired
@@ -1300,7 +1221,7 @@ export default function DependencyReport() {
         </Box>
       }
     >
-      {Object.keys(pulseCards).length > 0 && <style>{PULSE_KEYFRAMES}</style>}
+      {pulsing && <style>{TIMELINE_PULSE_KEYFRAMES}</style>}
       {/* ==================== CHART VIEW ==================== */}
       {view === "chart" ? (
         chartMode === "c4" && center && ldvData.nodes.length > 0 ? (
@@ -1581,14 +1502,14 @@ export default function DependencyReport() {
                             borderStyle: "dashed",
                             borderLeftStyle: "solid",
                           }),
-                        ...(Object.keys(pulseCards).length > 0 && {
+                        ...(pulsing && {
                           opacity: pulseCards[card.id] ? 1 : 0.3,
                           transition: "opacity 0.2s, box-shadow 0.2s",
                           ...(pulseCards[card.id] && {
                             boxShadow: `0 0 0 4px ${
                               pulseCards[card.id] === "live" ? TIMELINE_COLORS.goLive : STATUS_COLORS.error
                             }55`,
-                            animation: `dep-pulse-${
+                            animation: `tl-pulse-${
                               pulseCards[card.id] === "live" ? "live" : "retire"
                             } 0.65s ease-in-out 2`,
                           }),
@@ -1978,7 +1899,7 @@ export default function DependencyReport() {
                     key={i}
                     hover
                     sx={
-                      Object.keys(pulseCards).length > 0
+                      pulsing
                         ? {
                             opacity: pulsed ? 1 : 0.35,
                             transition: "opacity 0.2s, background-color 0.2s",
@@ -1986,7 +1907,7 @@ export default function DependencyReport() {
                               bgcolor: `${
                                 pulsed === "live" ? TIMELINE_COLORS.goLive : STATUS_COLORS.error
                               }1f`,
-                              animation: `dep-pulse-row-${
+                              animation: `tl-pulse-row-${
                                 pulsed === "live" ? "live" : "retire"
                               } 0.65s ease-in-out 2`,
                             }),

@@ -393,6 +393,18 @@ export function relationMemberMatchesSubtypeFilters(
 
 export function matchesFilters(app: AppData, filters: FilterState): boolean {
   if (!isAppAliveAtDate(app, filters.timelineDate)) return false;
+  return matchesStaticFilters(app, filters);
+}
+
+/**
+ * Every filter EXCEPT the timeline date. Split out so the timeline milestone
+ * scope — which must stay stable while the slider is dragged — can be built
+ * from the statically-filtered set without re-running per date change.
+ */
+export function matchesStaticFilters(
+  app: AppData,
+  filters: Omit<FilterState, "timelineDate">,
+): boolean {
   // Attribute filters
   const attrs = app.attributes || {};
   for (const [key, vals] of Object.entries(filters.attributeFilters)) {

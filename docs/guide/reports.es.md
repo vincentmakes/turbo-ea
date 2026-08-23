@@ -25,6 +25,10 @@ Cuando la IA está configurada y los análisis de portafolio están habilitados 
 
 Al hacer clic en un grupo se abre un panel con las tarjetas de ese grupo. Su botón **Ver en el inventario** abre el inventario exactamente en ese segmento. Cuando el informe está agrupado por un campo propio del tipo de tarjeta, el inventario llega agrupado por el mismo campo: el grupo pulsado aparece desplegado y el resto plegado (los recuentos siguen visibles), y se trasladan la búsqueda y los filtros de atributos, relaciones y etiquetas del informe — listo para «seleccionar todo» y la [edición masiva](inventory.md#mass-edit). Al agrupar por un tipo de tarjeta relacionado (por ejemplo, Organización), el inventario llega filtrado a esa tarjeta relacionada. El botón se oculta cuando los *grupos anidados* están activos: un subárbol agregado no se corresponde con ningún filtro único del inventario.
 
+### Viaje en el tiempo
+
+El control deslizante de la línea de tiempo lleva los mismos instrumentos de transformación que el [Informe de Dependencias](#informe-de-dependencias): marcas en cada fecha en la que una aplicación entra en producción (azul) o se retira (rojo), pastillas que nombran las aplicaciones que cambian mientras el control permanece sobre una marca, flechas que saltan de cambio en cambio, y chips que resumen la transformación al mirar hacia el futuro («+4 se incorporan · −7 se retiran» — incluidos también en las cabeceras de impresión y exportación). Al hacer clic en una marca o en una pastilla se destacan las aplicaciones que cambian en esa fecha: el resto de la vista se atenúa mientras parpadean, y una aplicación ya desaparecida en la fecha seleccionada se muestra solo durante el parpadeo y vuelve a ocultarse después.
+
 ## Portafolio flexible
 
 ![Portafolio flexible — portafolio de Objetos de Datos agrupado por Aplicación y coloreado por Sensibilidad de Datos](../assets/img/es/57_informe_portafolio_flexible.png)
@@ -57,6 +61,8 @@ El **Mapa de Capacidades** muestra un **mapa de calor** jerárquico de las capac
 - **Clic para explorar** — Haga clic en cualquier capacidad para profundizar en sus detalles y aplicaciones de soporte
 
 **Limitar a capacidades concretas** — De forma predeterminada, el mapa dibuja todas las capacidades. Use el chip de capacidad de la barra de herramientas para abrir un selector y elegir una o varias capacidades; el mapa mostrará entonces solo esas y todo lo que hay debajo. Las subcapacidades se incluyen automáticamente, así que elegir una capacidad de primer nivel le da toda su rama. La **Profundidad de visualización** se cuenta desde las capacidades seleccionadas, por lo que *Nivel 2* siempre significa dos niveles por debajo de lo que está viendo. El alcance se guarda con el informe, de modo que un informe guardado se vuelve a abrir en la misma rama.
+
+**Viaje en el tiempo** — El control deslizante de la línea de tiempo lleva los mismos instrumentos de transformación que el [Informe de Dependencias](#informe-de-dependencias): marcas en cada fecha en la que una aplicación entra en producción (azul) o se retira (rojo), pastillas que nombran las aplicaciones que cambian mientras el control permanece sobre una marca, flechas que saltan de cambio en cambio, y chips que resumen la transformación al mirar hacia el futuro (incluidos también en las cabeceras de impresión y exportación). Al hacer clic en una marca o en una pastilla se destaca el cambio: con **Mostrar aplicaciones** activado, los chips de las aplicaciones que cambian parpadean mientras el resto se atenúa, y una aplicación ya desaparecida en la fecha seleccionada se muestra solo durante el parpadeo; con el interruptor desactivado, el foco recae sobre los bloques de capacidad que contienen las aplicaciones que cambian — azul donde solo se incorporan, rojo donde solo se retiran, morado donde ocurren ambas cosas.
 
 ## Informe de Ciclo de Vida
 

@@ -25,6 +25,10 @@ Quando l'IA è configurata e le analisi del portafoglio sono abilitate da un amm
 
 Facendo clic su un gruppo si apre un pannello con le schede di quel gruppo. Il suo pulsante **Visualizza nell'inventario** apre l'inventario esattamente su quella porzione. Quando il report è raggruppato per un campo proprio del tipo di scheda, l'inventario arriva raggruppato per lo stesso campo: il gruppo cliccato è espanso e tutti gli altri sono compressi (i conteggi restano visibili), e vengono trasferiti la ricerca e i filtri di attributi, relazioni e tag del report — pronto per «seleziona tutto» e la [modifica di massa](inventory.md#mass-edit). Raggruppando per un tipo di scheda correlato (ad esempio Organizzazione), l'inventario arriva invece filtrato su quella scheda correlata. Il pulsante è nascosto quando i *gruppi annidati* sono attivi: un sottoalbero aggregato non corrisponde a un singolo filtro dell'inventario.
 
+### Viaggio nel tempo
+
+Il cursore della linea temporale offre gli stessi strumenti di transizione del [Report Dipendenze](#report-dipendenze): segni su ogni data in cui un'applicazione entra in produzione (blu) o viene dismessa (rosso), pastiglie che nominano le applicazioni che cambiano finché il cursore resta su un segno, pulsanti freccia per passare da un cambiamento all'altro e chip che riassumono la trasformazione quando si guarda al futuro («+4 in arrivo · −7 in uscita» — inclusi anche nelle intestazioni di stampa ed esportazione). Un clic su un segno o su una pastiglia mette in evidenza le applicazioni che cambiano in quel punto: il resto della vista si attenua mentre pulsano, e un'applicazione già dismessa alla data selezionata viene mostrata solo per la durata della pulsazione, poi nascosta di nuovo.
+
 ## Portfolio flessibile
 
 ![Portfolio flessibile — portfolio di Oggetti dati raggruppato per Applicazione e colorato per Sensibilità dei dati](../assets/img/it/57_report_portfolio_flessibile.png)
@@ -57,6 +61,8 @@ La **Mappa delle Capability** mostra una **mappa di calore** gerarchica delle bu
 - **Cliccate per esplorare** — Cliccate su qualsiasi capability per approfondire i dettagli e le applicazioni di supporto
 
 **Limitare a capacità specifiche** — Per impostazione predefinita la mappa disegna tutte le capacità. Usa il chip delle capacità nella barra degli strumenti per aprire un selettore e scegliere una o più capacità; la mappa mostrerà allora solo quelle e tutto ciò che si trova sotto di esse. Le sotto-capacità sono incluse automaticamente, quindi scegliendo una capacità di primo livello ottieni l'intero ramo. La **Profondità di visualizzazione** si conta a partire dalle capacità selezionate, perciò *Livello 2* significa sempre due livelli sotto ciò che stai guardando. L'ambito viene salvato con il report, così un report salvato si riapre sullo stesso ramo.
+
+**Viaggio nel tempo** — Il cursore della linea temporale offre gli stessi strumenti di transizione del [Report Dipendenze](#report-dipendenze): segni su ogni data in cui un'applicazione entra in produzione (blu) o viene dismessa (rosso), pastiglie che nominano le applicazioni che cambiano finché il cursore resta su un segno, pulsanti freccia per passare da un cambiamento all'altro e chip che riassumono la trasformazione quando si guarda al futuro (inclusi anche nelle intestazioni di stampa ed esportazione). Un clic su un segno o su una pastiglia mette in evidenza il cambiamento: con **Mostra applicazioni** attivo, i chip delle applicazioni che cambiano pulsano mentre il resto si attenua, e un'applicazione già dismessa alla data selezionata viene mostrata solo per la durata della pulsazione; con l'opzione disattivata, l'evidenziazione ricade sui blocchi delle capacità che contengono le applicazioni che cambiano — blu dove queste soltanto arrivano, rosso dove vengono soltanto dismesse, viola dove accadono entrambe le cose.
 
 ## Report Ciclo di vita
 

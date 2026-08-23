@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.78.0] - 2026-08-23
+
+### Added
+
+- Portfolio and Capability Map reports: the timeline instruments introduced on the Dependencies report now work here too. The time-travel slider is marked with every date on which the displayed applications go live (blue) or retire (red), with nearby dates merged into one wider bar; standing on a mark names the changing applications as pills below the track, and clicking a mark — or stepping between marks with the arrow buttons — spotlights the applications that change there, the rest of the view dimming while they pulse. An application already gone at the travelled date is revealed just for the pulse, then hidden again. On the Capability Map with **Show Applications** off, the spotlight falls on the capability boxes the changing applications sit in instead — blue where they only arrive, red where they only retire, purple where both happen. While looking forward, chips beside the date summarise the transformation ("+4 arriving · −7 retiring"), and the summary is included in print and export headers.
+
 ## [2.77.0] - 2026-08-23
 
 ### Added

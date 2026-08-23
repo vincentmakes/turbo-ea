@@ -25,6 +25,10 @@ Wenn KI konfiguriert und Portfolio-Erkenntnisse von einem Administrator aktivier
 
 Ein Klick auf eine Gruppe öffnet eine Seitenleiste mit den Karten der Gruppe. Deren Schaltfläche **Im Inventar anzeigen** öffnet das Inventar genau auf diesem Ausschnitt. Ist der Bericht nach einem eigenen Feld des Kartentyps gruppiert, kommt das Inventar nach demselben Feld gruppiert an: die angeklickte Gruppe ist ausgeklappt, alle anderen sind eingeklappt (die Anzahlen bleiben sichtbar), und Suche, Attribut-, Beziehungs- und Tag-Filter des Berichts werden übernommen — bereit für „alle auswählen“ und die [Massenbearbeitung](inventory.md#mass-edit). Bei Gruppierung nach einem verknüpften Kartentyp (etwa Organisation) kommt das Inventar stattdessen auf diese verknüpfte Karte gefiltert an. Bei aktiven *verschachtelten Gruppen* ist die Schaltfläche ausgeblendet: Für einen aufsummierten Teilbaum gibt es keinen einzelnen Inventarfilter.
 
+### Zeitreise
+
+Der Zeitleistenregler trägt dieselben Transformationsinstrumente wie der [Abhängigkeitsbericht](#abhangigkeitsbericht): Markierungen an jedem Datum, an dem eine Anwendung live geht (blau) oder ausscheidet (rot), Chips, die die sich ändernden Anwendungen benennen, solange der Regler auf einer Markierung steht, Pfeiltasten, die von Änderung zu Änderung springen, und Chips, die beim Blick nach vorn die Transformation zusammenfassen („+4 kommen hinzu · −7 scheiden aus“ — auch in den Kopfzeilen von Druck und Export enthalten). Ein Klick auf eine Markierung oder einen Chip hebt die Anwendungen hervor, die sich dort ändern — der Rest der Ansicht wird abgeblendet, während sie pulsieren, und eine Anwendung, die zum gewählten Datum bereits verschwunden ist, wird nur für die Dauer des Pulsierens eingeblendet und danach wieder ausgeblendet.
+
 ## Flexibles Portfolio
 
 ![Flexibles Portfolio — Datenobjekt-Portfolio gruppiert nach Anwendung, gefärbt nach Datensensibilität](../assets/img/de/57_bericht_flexibles_portfolio.png)
@@ -57,6 +61,8 @@ Die **Fähigkeitskarte** zeigt eine hierarchische **Heatmap** der Geschäftsfäh
 - **Zum Erkunden klicken** — Klicken Sie auf eine beliebige Fähigkeit, um in deren Details und unterstützende Anwendungen einzutauchen
 
 **Auf bestimmte Fähigkeiten eingrenzen** — Standardmäßig zeigt die Karte alle Fähigkeiten. Über den Fähigkeits-Chip in der Symbolleiste öffnen Sie eine Auswahl und wählen eine oder mehrere Fähigkeiten aus; die Karte zeigt dann nur diese und alles darunter. Unterfähigkeiten werden automatisch einbezogen — die Auswahl einer obersten Fähigkeit liefert also ihren gesamten Zweig. Die **Anzeigetiefe** zählt ab den ausgewählten Fähigkeiten, *Ebene 2* bedeutet also stets zwei Stufen unterhalb dessen, was Sie gerade betrachten. Der Bereich wird mit dem Bericht gespeichert, sodass ein gespeicherter Bericht wieder im selben Zweig öffnet.
+
+**Zeitreise** — Der Zeitleistenregler trägt dieselben Transformationsinstrumente wie der [Abhängigkeitsbericht](#abhangigkeitsbericht): Markierungen an jedem Datum, an dem eine Anwendung live geht (blau) oder ausscheidet (rot), Chips, die die sich ändernden Anwendungen benennen, solange der Regler auf einer Markierung steht, Pfeiltasten, die von Änderung zu Änderung springen, und Chips, die beim Blick nach vorn die Transformation zusammenfassen (auch in den Kopfzeilen von Druck und Export enthalten). Ein Klick auf eine Markierung oder einen Chip hebt die Änderung hervor: Bei eingeschaltetem **Anwendungen anzeigen** pulsieren die Chips der sich ändernden Anwendungen, während der Rest abgeblendet wird, und eine Anwendung, die zum gewählten Datum bereits verschwunden ist, wird nur für die Dauer des Pulsierens eingeblendet; ist der Schalter aus, fällt das Schlaglicht auf die Fähigkeitsblöcke, die die sich ändernden Anwendungen enthalten — blau, wo Anwendungen nur hinzukommen, rot, wo sie nur ausscheiden, violett, wo beides geschieht.
 
 ## Lebenszyklus-Bericht
 

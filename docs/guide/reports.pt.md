@@ -25,6 +25,10 @@ Quando a IA está configurada e as análises de portfólio estão habilitadas po
 
 Clicar num grupo abre um painel com os cartões desse grupo. O seu botão **Ver no inventário** abre o inventário exatamente nessa fatia. Quando o relatório está agrupado por um campo próprio do tipo de cartão, o inventário chega agrupado pelo mesmo campo: o grupo clicado aparece expandido e todos os outros recolhidos (as contagens continuam visíveis), e a pesquisa e os filtros de atributos, relações e etiquetas do relatório são transportados — pronto para «selecionar tudo» e a [edição em massa](inventory.md#mass-edit). Ao agrupar por um tipo de cartão relacionado (por exemplo, Organização), o inventário chega filtrado para esse cartão relacionado. O botão fica oculto quando os *grupos aninhados* estão ativos: uma subárvore agregada não corresponde a um único filtro do inventário.
 
+### Viagem no tempo
+
+O controle deslizante da linha do tempo traz os mesmos instrumentos de transição do [Relatório de Dependências](#relatorio-de-dependencias): marcas em cada data em que uma aplicação entra em produção (azul) ou é desativada (vermelho), pílulas que nomeiam as aplicações que mudam enquanto o controle está sobre uma marca, botões de seta que saltam de mudança em mudança e chips que resumem a transformação quando se olha para o futuro («+4 entram · −7 saem» — também incluídos nos cabeçalhos de impressão e exportação). Clicar numa marca ou numa pílula destaca as aplicações que mudam ali — o resto da vista escurece enquanto elas pulsam, e uma aplicação já desaparecida na data selecionada é revelada apenas durante a pulsação, voltando depois a ficar oculta.
+
 ## Portfólio flexível
 
 ![Portfólio flexível — portfólio de Objetos de Dados agrupado por Aplicação e colorido por Sensibilidade dos Dados](../assets/img/pt/57_relatorio_portfolio_flexivel.png)
@@ -57,6 +61,8 @@ O **Mapa de Capacidades** mostra um **mapa de calor** hierárquico das capacidad
 - **Clique para explorar** — Clique em qualquer capacidade para aprofundar nos detalhes e aplicações de suporte
 
 **Limitar a capacidades específicas** — Por predefinição, o mapa desenha todas as capacidades. Use o chip de capacidade na barra de ferramentas para abrir um seletor e escolher uma ou mais capacidades; o mapa mostra então apenas essas e tudo o que está abaixo delas. As subcapacidades são incluídas automaticamente, pelo que escolher uma capacidade de primeiro nível lhe dá todo o seu ramo. A **Profundidade de visualização** conta a partir das capacidades selecionadas, por isso *Nível 2* significa sempre dois níveis abaixo daquilo que está a ver. O âmbito é guardado com o relatório, para que um relatório guardado reabra no mesmo ramo.
+
+**Viagem no tempo** — O controle deslizante da linha do tempo traz os mesmos instrumentos de transição do [Relatório de Dependências](#relatorio-de-dependencias): marcas em cada data em que uma aplicação entra em produção (azul) ou é desativada (vermelho), pílulas que nomeiam as aplicações que mudam enquanto o controle está sobre uma marca, botões de seta que saltam de mudança em mudança e chips que resumem a transformação quando se olha para o futuro (também incluídos nos cabeçalhos de impressão e exportação). Clicar numa marca ou numa pílula destaca a mudança: com **Mostrar aplicações** ativo, os chips das aplicações que mudam pulsam enquanto o resto escurece, e uma aplicação já desaparecida na data selecionada é revelada apenas durante a pulsação; com ele desativado, o destaque recai sobre os blocos de capacidade que contêm as aplicações que mudam — azul onde elas apenas entram, vermelho onde apenas são desativadas, roxo onde acontecem as duas coisas.
 
 ## Relatório de Ciclo de Vida
 

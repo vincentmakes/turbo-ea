@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { createRef } from "react";
@@ -26,13 +26,35 @@ vi.mock("@/api/client", () => ({
 vi.mock("@/hooks/useMetamodel", () => ({ useMetamodel: vi.fn() }));
 vi.mock("@/hooks/useSavedReport", () => ({ useSavedReport: vi.fn() }));
 vi.mock("@/hooks/useThumbnailCapture", () => ({ useThumbnailCapture: vi.fn() }));
+vi.mock("@/hooks/useTimeline", () => ({ useTimeline: vi.fn() }));
 vi.mock("./SaveReportDialog", () => ({ default: () => null }));
 vi.mock("@/components/CardDetailSidePanel", () => ({ default: () => null }));
+
+// Captured so the milestone/delta/spotlight wiring can be asserted at the
+// slider boundary, same pattern as DependencyReport.test.tsx.
+type SliderProps = {
+  milestones?: { value: number; activating: number; disappearing: number }[];
+  delta?: { arriving: number; retiring: number };
+  onMilestoneClick?: (from: number, to: number) => void;
+  milestoneCards?: (
+    from: number,
+    to: number,
+  ) => { id: string; name: string; kind: string; color?: string }[];
+  onMilestoneCardClick?: (card: { id: string; name: string; kind: string }) => void;
+};
+const sliderProps: SliderProps[] = [];
+vi.mock("@/components/TimelineSlider", () => ({
+  default: (props: SliderProps) => {
+    sliderProps.push(props);
+    return <div data-testid="timeline-slider" />;
+  },
+}));
 
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
+import { useTimeline } from "@/hooks/useTimeline";
 
 // ---------------------------------------------------------------------------
 // Test data
@@ -108,6 +130,18 @@ let consumedConfig: Record<string, unknown> | null = null;
 beforeEach(() => {
   vi.clearAllMocks();
   consumedConfig = null;
+  sliderProps.length = 0;
+
+  vi.mocked(useTimeline).mockReturnValue({
+    timelineDate: Date.now(),
+    setTimelineDate: vi.fn(),
+    todayMs: Date.now(),
+    isTimeTraveling: false,
+    persistValue: undefined,
+    printParam: null,
+    restore: vi.fn(),
+    reset: vi.fn(),
+  });
 
   vi.mocked(api.get).mockImplementation((path: string) => {
     if (path.startsWith("/reports/capability-heatmap")) {
@@ -268,5 +302,104 @@ describe("CapabilityMapReport scope filter", () => {
     // a root of its own.
     expect(within(chart()).getAllByText("Lead Management")).toHaveLength(1);
     expect(within(chart()).queryByText("Finance")).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Time travel — transition marks, delta, spotlight
+//
+//   Operations (L1) ── Dual App (retires 2027-06-01, supports BOTH caps)
+//   HR (L1)         ── Dual App
+// ---------------------------------------------------------------------------
+
+const ms = (iso: string) => new Date(iso).getTime();
+const TODAY = ms("2026-08-22");
+const FUTURE = ms("2028-06-01");
+const DUAL_EOL = ms("2027-06-01");
+
+const DUAL_APP = {
+  ...app("dual", "Dual App"),
+  lifecycle: { active: "2015-01-01", endOfLife: "2027-06-01" },
+};
+
+const TT_HEATMAP = {
+  items: [cap("ops", "Operations", null, [DUAL_APP]), cap("hr", "HR", null, [DUAL_APP])],
+  metric: "app_count",
+  filterable_types: {},
+  fields_schema: [],
+  tag_groups: [],
+};
+
+function mockTimeTravel() {
+  vi.mocked(api.get).mockResolvedValue(TT_HEATMAP as never);
+  vi.mocked(useTimeline).mockReturnValue({
+    timelineDate: FUTURE,
+    setTimelineDate: vi.fn(),
+    todayMs: TODAY,
+    isTimeTraveling: true,
+    persistValue: FUTURE,
+    printParam: { label: "Time Travel", value: "Jun 1, 2028" },
+    restore: vi.fn(),
+    reset: vi.fn(),
+  });
+}
+
+describe("CapabilityMapReport time travel — transition marks", () => {
+  it("dedupes an app supporting several capabilities: one mark, one pill, delta of one", async () => {
+    mockTimeTravel();
+    renderMap();
+    await waitFor(() => expect(within(chart()).getByText("Operations")).toBeInTheDocument());
+
+    const props = sliderProps.at(-1)!;
+    // The app appears under two capabilities in the payload; counted once.
+    expect(props.milestones).toContainEqual({ value: DUAL_EOL, activating: 0, disappearing: 1 });
+    expect(props.delta).toEqual({ arriving: 0, retiring: 1 });
+    expect(props.milestoneCards!(DUAL_EOL, DUAL_EOL)).toHaveLength(1);
+  });
+
+  it("with Show Applications off, a mark click pulses the containing capability boxes", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      mockTimeTravel();
+      const { container } = renderMap();
+      await waitFor(() => expect(within(chart()).getByText("Operations")).toBeInTheDocument());
+      expect(container.innerHTML).not.toContain("tl-pulse-retire");
+
+      act(() => sliderProps.at(-1)!.onMilestoneClick!(DUAL_EOL, DUAL_EOL));
+      // Chips are hidden, so the spotlight falls on the capability boxes; the
+      // keyframes are injected for the duration of the pulse.
+      await waitFor(() => expect(container.innerHTML).toContain("tl-pulse-retire"));
+      expect(within(chart()).queryByText("Dual App")).not.toBeInTheDocument();
+
+      act(() => void vi.advanceTimersByTime(2000));
+      await waitFor(() => expect(container.innerHTML).not.toContain("tl-pulse-retire"));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("with Show Applications on, a retirement mark click reveals the hidden chip for the pulse", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      mockTimeTravel();
+      consumedConfig = { showApps: true };
+      renderMap();
+      await waitFor(() => expect(within(chart()).getByText("Operations")).toBeInTheDocument());
+      // Retired at the travelled 2028 date, so the chip is hidden …
+      expect(within(chart()).queryByText("Dual App")).not.toBeInTheDocument();
+
+      act(() => sliderProps.at(-1)!.onMilestoneClick!(DUAL_EOL, DUAL_EOL));
+      // … and transiently revealed as the spotlight's ghost.
+      await waitFor(() =>
+        expect(within(chart()).getAllByText("Dual App").length).toBeGreaterThan(0),
+      );
+
+      act(() => void vi.advanceTimersByTime(2000));
+      await waitFor(() =>
+        expect(within(chart()).queryByText("Dual App")).not.toBeInTheDocument(),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

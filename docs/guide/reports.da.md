@@ -25,6 +25,10 @@ Når AI er konfigureret, og porteføljeindsigter er aktiveret af en administrato
 
 Et klik på en gruppe åbner et panel med gruppens kort. Panelets knap **Vis i lageret** åbner lageret på præcis dette udsnit. Når rapporten er grupperet efter et af korttypens egne felter, ankommer lageret grupperet efter samme felt: den valgte gruppe er foldet ud, alle andre er foldet sammen (antallene er stadig synlige), og rapportens søgning samt attribut-, relations- og tagfiltre følger med — klar til «vælg alle» og [masseredigering](inventory.md#mass-edit). Ved gruppering efter en relateret korttype (for eksempel Organisation) ankommer lageret i stedet filtreret til det relaterede kort. Knappen skjules, når *indlejrede grupper* er aktive: et sammenlagt undertræ svarer ikke til ét enkelt lagerfilter.
 
+### Tidsrejse
+
+Tidslinje-skyderen bærer de samme transformationsinstrumenter som [Afhængighedsrapporten](#afhngighedsrapport): markeringer ved hver dato, hvor en applikation går i drift (blå) eller udfases (rød), piller, der navngiver de applikationer, der ændrer sig, mens skyderen står på en markering, pileknapper, der springer fra ændring til ændring, og chips, der opsummerer transformationen, når du kigger fremad («+4 kommer til · −7 udfases» — de indgår også i print- og eksportoverskrifter). Et klik på en markering eller en pille fremhæver de applikationer, der ændrer sig dér — resten af visningen nedtones, mens de pulserer, og en applikation, der allerede er væk på den valgte dato, vises kun under pulseringen og skjules derefter igen.
+
 ## Fleksibel portefølje
 
 ![Fleksibel portefølje — Data Object-portefølje grupperet efter Application, farvet efter Data Sensitivity](../assets/img/da/57_report_flexible_portfolio.png)
@@ -57,6 +61,8 @@ Et klik på en kapabilitet åbner et sidepanel med alle applikationer i dens und
 - **Klik for at udforske** — Klik på en kompetence for at drille ned i dens detaljer og understøttende applikationer
 
 **Afgrænsning til bestemte kapabiliteter** — Som standard tegner kortet alle kapabiliteter. Brug kapabilitetschippen i værktøjslinjen til at åbne en vælger og markere en eller flere kapabiliteter; kortet viser derefter kun disse og alt under dem. Underkapabiliteter medtages automatisk, så hvis du vælger en kapabilitet på øverste niveau, får du hele dens gren. **Visningsdybde** tælles fra de valgte kapabiliteter, så *Niveau 2* altid betyder to niveauer under det, du kigger på. Omfanget gemmes sammen med rapporten, så en gemt rapport åbnes igen på den samme gren.
+
+**Tidsrejse** — Tidslinje-skyderen bærer de samme transformationsinstrumenter som [Afhængighedsrapporten](#afhngighedsrapport): markeringer ved hver dato, hvor en applikation går i drift (blå) eller udfases (rød), piller, der navngiver de applikationer, der ændrer sig, mens skyderen står på en markering, pileknapper, der springer fra ændring til ændring, og chips, der opsummerer transformationen, når du kigger fremad (de indgår også i print- og eksportoverskrifter). Et klik på en markering eller en pille sætter spot på ændringen: med **Vis applikationer** slået til pulserer de ændrede applikationers chips, mens resten nedtones, og en applikation, der allerede er væk på den valgte dato, vises kun under pulseringen; med den slået fra falder fremhævningen på de kompetenceblokke, der indeholder de applikationer, der ændrer sig — blå hvor de kun kommer til, røde hvor de kun udfases, lilla hvor begge dele sker.
 
 ## Livscyklusrapport
 

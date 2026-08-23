@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import PortfolioReport from "./PortfolioReport";
@@ -40,8 +40,24 @@ vi.mock("./SaveReportDialog", () => ({
   default: () => null,
 }));
 
+// Captured so the milestone/delta/spotlight wiring can be asserted at the
+// slider boundary, same pattern as DependencyReport.test.tsx.
+type SliderProps = {
+  milestones?: { value: number; activating: number; disappearing: number }[];
+  delta?: { arriving: number; retiring: number };
+  onMilestoneClick?: (from: number, to: number) => void;
+  milestoneCards?: (
+    from: number,
+    to: number,
+  ) => { id: string; name: string; kind: string; color?: string }[];
+  onMilestoneCardClick?: (card: { id: string; name: string; kind: string }) => void;
+};
+const sliderProps: SliderProps[] = [];
 vi.mock("@/components/TimelineSlider", () => ({
-  default: () => <div data-testid="timeline-slider" />,
+  default: (props: SliderProps) => {
+    sliderProps.push(props);
+    return <div data-testid="timeline-slider" />;
+  },
 }));
 
 // The real one pulls in CardDetailContent, which needs an AuthProvider.
@@ -114,6 +130,7 @@ const MOCK_API_RESPONSE = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  sliderProps.length = 0;
 
   vi.mocked(useMetamodel).mockReturnValue({
     types: [
@@ -573,5 +590,159 @@ describe("PortfolioReport group drawer", () => {
     // Reopening the same group must still render it — an in-place sort of a
     // memoized array is the kind of thing that only breaks on the second open.
     expect(screen.getAllByText("SAP ERP").length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Time travel — transition marks, delta, spotlight
+// ---------------------------------------------------------------------------
+
+const ms = (iso: string) => new Date(iso).getTime();
+const TODAY = ms("2026-08-22");
+const FUTURE = ms("2028-06-01");
+const OLD_EOL = ms("2027-06-01");
+
+const TT_API_RESPONSE = {
+  items: [
+    {
+      id: "app-old",
+      name: "Old System",
+      subtype: "Business Application",
+      attributes: { businessCriticality: "medium" },
+      lifecycle: { active: "2015-01-01", endOfLife: "2027-06-01" },
+      relations: [],
+      org_ids: [],
+    },
+    {
+      id: "app-new",
+      name: "New System",
+      subtype: "Business Application",
+      attributes: { businessCriticality: "high" },
+      lifecycle: { active: "2027-09-01" },
+      relations: [],
+      org_ids: [],
+    },
+    {
+      id: "app-steady",
+      name: "Steady App",
+      subtype: "SaaS",
+      attributes: { businessCriticality: "high" },
+      lifecycle: { active: "2020-01-01" },
+      relations: [],
+      org_ids: [],
+    },
+  ],
+  fields_schema: MOCK_API_RESPONSE.fields_schema,
+  relation_types: [],
+  groupable_types: {},
+  organizations: [],
+};
+
+function mockTimeTravel() {
+  vi.mocked(useTimeline).mockReturnValue({
+    timelineDate: FUTURE,
+    setTimelineDate: vi.fn(),
+    todayMs: TODAY,
+    isTimeTraveling: true,
+    persistValue: FUTURE,
+    printParam: { label: "Time Travel", value: "Jun 1, 2028" },
+    restore: vi.fn(),
+    reset: vi.fn(),
+  });
+}
+
+describe("PortfolioReport time travel — transition marks", () => {
+  it("marks come from the statically-filtered set: a date-hidden app still marks its dates", async () => {
+    vi.mocked(api.get).mockResolvedValue(TT_API_RESPONSE);
+    mockTimeTravel();
+    renderPortfolio();
+    await screen.findByText("Steady App");
+
+    // Old System is hidden at the travelled 2028 date — its chip is gone …
+    expect(screen.queryByText("Old System")).not.toBeInTheDocument();
+    // … but its retirement is still a mark, and the delta still counts it.
+    const props = sliderProps.at(-1)!;
+    expect(props.milestones).toContainEqual({ value: OLD_EOL, activating: 0, disappearing: 1 });
+    expect(props.delta).toEqual({ arriving: 1, retiring: 1 });
+  });
+
+  it("an app excluded by an attribute filter contributes no mark and no delta", async () => {
+    vi.mocked(api.get).mockResolvedValue(TT_API_RESPONSE);
+    mockTimeTravel();
+    // Filter to "high" criticality — Old System (medium) drops out of scope.
+    mockSavedConfig({ attrFilters: { businessCriticality: ["high"] } });
+    renderPortfolio();
+    await screen.findByText("Steady App");
+
+    const props = sliderProps.at(-1)!;
+    expect(props.milestones?.some((m) => m.value === OLD_EOL)).toBe(false);
+    expect(props.delta).toEqual({ arriving: 1, retiring: 0 });
+  });
+
+  it("clicking a retirement mark reveals the hidden chip for the pulse, then re-hides it", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.mocked(api.get).mockResolvedValue(TT_API_RESPONSE);
+      mockTimeTravel();
+      const { container } = renderPortfolio();
+      await screen.findByText("Steady App");
+      expect(screen.queryByText("Old System")).not.toBeInTheDocument();
+      expect(container.innerHTML).not.toContain("tl-pulse-retire");
+
+      act(() => sliderProps.at(-1)!.onMilestoneClick!(OLD_EOL, OLD_EOL));
+      // The retiring app's chip appears as the spotlight's ghost, and the
+      // pulse keyframes are injected while it runs.
+      await waitFor(() => expect(screen.getByText("Old System")).toBeInTheDocument());
+      expect(container.innerHTML).toContain("tl-pulse-retire");
+
+      act(() => void vi.advanceTimersByTime(2000));
+      await waitFor(() => expect(screen.queryByText("Old System")).not.toBeInTheDocument());
+      expect(container.innerHTML).not.toContain("tl-pulse-retire");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("names the changing apps as pills and spotlights one on a pill click", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.mocked(api.get).mockResolvedValue(TT_API_RESPONSE);
+      mockTimeTravel();
+      const { container } = renderPortfolio();
+      await screen.findByText("Steady App");
+
+      const props = sliderProps.at(-1)!;
+      const pills = props.milestoneCards!(ms("2027-01-01"), ms("2028-01-01"));
+      expect(pills.map((p) => p.name).sort()).toEqual(["New System", "Old System"]);
+
+      act(() =>
+        props.onMilestoneCardClick!({ id: "app-new", name: "New System", kind: "activating" }),
+      );
+      await waitFor(() => expect(container.innerHTML).toContain("tl-pulse-live"));
+
+      act(() => void vi.advanceTimersByTime(2000));
+      await waitFor(() => expect(container.innerHTML).not.toContain("tl-pulse-live"));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("pulses table rows too", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.mocked(api.get).mockResolvedValue(TT_API_RESPONSE);
+      mockTimeTravel();
+      mockSavedConfig({ view: "table" });
+      const { container } = renderPortfolio();
+      await screen.findByText("Steady App");
+
+      act(() => sliderProps.at(-1)!.onMilestoneClick!(OLD_EOL, OLD_EOL));
+      await waitFor(() => expect(container.innerHTML).toContain("tl-pulse-row-retire"));
+
+      act(() => void vi.advanceTimersByTime(2000));
+      await waitFor(() => expect(container.innerHTML).not.toContain("tl-pulse-row-retire"));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
