@@ -190,7 +190,13 @@ const LP_CIRCUMFERENCE = 2 * Math.PI * 15; // ~94.25
 // luminance-gating rationale. Re-exported for existing importers.
 export { readableTypeColor };
 
-const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
+// Exported for `LdvNode.test.tsx` only. The card's chrome — the corner icons,
+// the badges, the focus ring — is otherwise reachable only by mounting the
+// whole view, which React Flow cannot do under jsdom (it needs
+// `SVGPathElement.getTotalLength`, `CSS.escape` and `ResizeObserver`, none of
+// which jsdom has, and every rect is 0x0 regardless). Rendering the node on its
+// own costs nothing and is what caught the icons sitting outside the card.
+export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
   const typeLabel = useTypeLabel();
   const { t } = useTranslation("reports");
   const theme = useTheme();
