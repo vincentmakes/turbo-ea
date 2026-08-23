@@ -160,6 +160,27 @@ export interface LdvEdgeData {
   [key: string]: unknown;
 }
 
+/**
+ * Clear the verb from every edge, for the "hide relationship labels" display
+ * option.
+ *
+ * Applied AFTER layout on purpose: the layout detects colliding labels and
+ * spreads them along their own paths, so building without labels would move
+ * the edges — and edges must not shift when the verbs are merely hidden.
+ *
+ * The label the edge component renders is `data.relLabel`, NOT React Flow's
+ * own `label` prop. Clearing the latter type-checks (RF's Edge declares it)
+ * and does exactly nothing, which is how the option shipped inert once —
+ * keeping the field name in one tested place is the point of this helper.
+ */
+export function stripEdgeLabels(edges: Edge[]): Edge[] {
+  return edges.map((e) => {
+    const d = e.data as LdvEdgeData | undefined;
+    return d?.relLabel ? { ...e, data: { ...d, relLabel: "" } } : e;
+  });
+}
+
+
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
 /* ------------------------------------------------------------------ */

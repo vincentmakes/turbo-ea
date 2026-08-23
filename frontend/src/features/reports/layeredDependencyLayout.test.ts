@@ -4,6 +4,7 @@ import {
   relationValueSuffix,
   filterEndOfLifeNodes,
   resolveRevealIds,
+  stripEdgeLabels,
   type GNode,
   type GEdge,
 } from "./layeredDependencyLayout";
@@ -102,6 +103,29 @@ describe("buildLdvFlow", () => {
     const severedFlags = result.edges.map((e) => (e.data as { severed?: boolean }).severed);
     expect(severedFlags).toContain(true);
     expect(severedFlags).toContain(false);
+  });
+
+  it("clears the verb the edge component actually renders", () => {
+    // `data.relLabel` is what LdvEdgeComponent draws — NOT React Flow's own
+    // `label` prop, which type-checks and does nothing. The hide-labels option
+    // shipped inert on exactly that mistake, so this names the field.
+    const nodes: GNode[] = [
+      { id: "a", name: "A", type: "Application" },
+      { id: "b", name: "B", type: "Application" },
+    ];
+    const built = buildLdvFlow(nodes, [{ source: "a", target: "b", type: "uses", label: "uses" }], TYPES);
+    expect((built.edges[0].data as { relLabel: string }).relLabel).not.toBe("");
+
+    const stripped = stripEdgeLabels(built.edges);
+    expect((stripped[0].data as { relLabel: string }).relLabel).toBe("");
+    // Everything else about the edge survives — routing, handles, direction —
+    // so hiding the verbs cannot move an edge.
+    expect({ ...stripped[0], data: null }).toEqual({ ...built.edges[0], data: null });
+    const before = built.edges[0].data as Record<string, unknown>;
+    const after = stripped[0].data as Record<string, unknown>;
+    for (const k of Object.keys(before)) {
+      if (k !== "relLabel") expect(after[k]).toEqual(before[k]);
+    }
   });
 
   it("forwards impacted onto node data", () => {

@@ -74,6 +74,7 @@ import {
   buildLdvFlow,
   relationValueSuffix,
   filterEndOfLifeNodes,
+  stripEdgeLabels,
   LDV_NODE_W,
   LDV_NODE_H,
   type GNode,
@@ -1595,15 +1596,11 @@ function LayeredDependencyInner({
 
   // Inject hover state + callbacks into edges + reorder for z-index
   const orderedEdges = useMemo(() => {
-    let result = rfEdges.map((e) => {
+    const base = settings.showRelationLabels ? rfEdges : stripEdgeLabels(rfEdges);
+    let result = base.map((e) => {
       const cbs = getEdgeHoverCbs(e.id);
       return {
         ...e,
-        // Dropping the label here rather than in the builder keeps routing
-        // identical either way: the layout spreads colliding labels along
-        // their own paths, and edges should not move when the verbs are
-        // merely hidden.
-        ...(settings.showRelationLabels ? {} : { label: undefined }),
         data: {
           ...e.data,
           connectedToHovered: hoveredNode
