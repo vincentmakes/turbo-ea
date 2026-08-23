@@ -210,12 +210,12 @@ export const TIMELINE_COLORS = {
    *  retirement mark. Also used for the matching highlight pulse, so the mark
    *  and the card it points at are unmistakably the same colour. */
   goLive: "#0177FF",
-  /** A transition mark that merges several dates into one. Deliberately a
-   *  DIFFERENT purple from `future`: on the canvas that violet means "arriving
-   *  later", and reusing it on the track would give one colour two meanings
-   *  inside the same feature. This one is magenta-leaning, so a merged mark
-   *  reads as its own thing rather than as a future arrival. */
-  merged: "#8e24aa",
+  /** A transition mark where cards both arrive and retire — blue and red at
+   *  once. As vibrant as `goLive` and `STATUS_COLORS.error`, since it sits in
+   *  the same 3px-wide company. Deliberately a DIFFERENT purple from `future`:
+   *  on the canvas that violet means "arriving later", and reusing it on the
+   *  track would give one colour two meanings inside the same feature. */
+  mixed: "#9c27b0",
 } as const;
 
 // ── Categorical series ──────────────────────────────────────────────────

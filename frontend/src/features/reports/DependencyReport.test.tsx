@@ -567,3 +567,47 @@ describe("DependencyReport centre picker", () => {
     expect(names.indexOf("Web Portal")).toBeLessThan(names.indexOf("Legacy ERP"));
   });
 });
+
+// ---------------------------------------------------------------------------
+// Both toggles off, in the chart view
+// ---------------------------------------------------------------------------
+
+describe("DependencyReport time travel — both toggles off (chart)", () => {
+  function renderChart() {
+    vi.mocked(useSavedReport).mockReturnValue({
+      savedReport: null,
+      savedReportName: null,
+      saveDialogOpen: false,
+      setSaveDialogOpen: vi.fn(),
+      loadedConfig: null,
+      consumeConfig: vi
+        .fn()
+        .mockReturnValue({ view: "chart", chartMode: "c4", center: "crm" }),
+      resetSavedReport: vi.fn(),
+      persistConfig: vi.fn(),
+      resetAll: vi.fn(),
+      reportType: "dependencies",
+    } as unknown as ReturnType<typeof useSavedReport>);
+    return renderReport();
+  }
+
+  it("hands the canvas nothing retired or not-yet-started", async () => {
+    renderChart();
+    await screen.findByTestId("ldv");
+    await userEvent.click(screen.getByRole("checkbox", { name: /Keep retired cards/ }));
+
+    await waitFor(() => {
+      const last = ldvProps[ldvProps.length - 1];
+      const bad = (last.nodes ?? []).filter(
+        (n) => (n as { changeState?: string }).changeState === "retired",
+      );
+      expect(bad.map((n) => n.id)).toEqual([]);
+    });
+    const last = ldvProps[ldvProps.length - 1] as LdvProps & {
+      nodes?: { id: string; changeState?: string }[];
+    };
+    expect((last.nodes ?? []).filter((n) => n.changeState === "planned").map((n) => n.id)).toEqual(
+      [],
+    );
+  });
+});

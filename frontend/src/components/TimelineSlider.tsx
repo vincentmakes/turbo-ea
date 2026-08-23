@@ -19,6 +19,9 @@ const MIN_LABEL_SPACING_PX = 48;
 /** Markers closer together than this merge into one, so a landscape with
  *  hundreds of transition dates reads as marks rather than a smear. */
 const MIN_MILESTONE_SPACING_PX = 10;
+/** Width of a transition mark, and of one that merges several dates. */
+const MARK_PX = 3;
+const MERGED_MARK_PX = 7;
 /** Heavier chevrons on the step buttons — the outlined Material Symbol at its
  *  default weight is a hairline, which reads as decoration rather than a
  *  control next to the track. */
@@ -500,6 +503,17 @@ export default function TimelineSlider({
                   ? `${fmtFull(m.value)} – ${fmtFull(m.spanEnd)}`
                   : fmtFull(m.value);
                 const summary = `${when} — ${parts.join(" · ")}`;
+                // One bar, coloured by WHAT the mark does: blue where cards
+                // only arrive, red where they only retire, purple where it
+                // does both. Two abutting bars said the same thing but read as
+                // two marks at a glance, which is the last thing a crowded
+                // track needs.
+                const barColor =
+                  m.activating > 0 && m.disappearing > 0
+                    ? TIMELINE_COLORS.mixed
+                    : m.activating > 0
+                      ? TIMELINE_COLORS.goLive
+                      : STATUS_COLORS.error;
                 // Past transitions render exactly like upcoming ones. A stateful
                 // RETIRED/UPCOMING badge needs its mark whichever side of today
                 // it falls on, and muting the past ones made every mark in a
@@ -522,44 +536,23 @@ export default function TimelineSlider({
                         py: 0.5,
                         borderRadius: 1,
                         display: "flex",
-                        gap: "1px",
-                        // A merged mark stands for several dates, so it is
-                        // tinted to say so — the bars inside keep their own
-                        // blue and red, since WHAT happens matters more than
-                        // that it happens more than once. Without this a
-                        // crowded mark is indistinguishable from a single-date
-                        // one and a change absorbed into it looks unmarked.
-                        ...(isMerged && {
-                          bgcolor: `${TIMELINE_COLORS.merged}1F`,
-                          boxShadow: `inset 0 0 0 1px ${TIMELINE_COLORS.merged}66`,
-                        }),
-                        "&:hover": {
-                          bgcolor: isMerged ? `${TIMELINE_COLORS.merged}3D` : "action.hover",
-                        },
+                        "&:hover": { bgcolor: "action.hover" },
                       }}
                     >
-                      {m.activating > 0 && (
-                        <Box
-                          sx={{
-                            width: 3,
-                            height: 10,
-                            borderRadius: "1px",
-                            // Same accent as the pulse this mark triggers on the
-                            // canvas, so mark and highlighted card read as one.
-                            bgcolor: TIMELINE_COLORS.goLive,
-                          }}
-                        />
-                      )}
-                      {m.disappearing > 0 && (
-                        <Box
-                          sx={{
-                            width: 3,
-                            height: 10,
-                            borderRadius: "1px",
-                            bgcolor: STATUS_COLORS.error,
-                          }}
-                        />
-                      )}
+                      <Box
+                        sx={{
+                          // Merged marks stand for several dates, so they are
+                          // drawn wider. Width is the only thing that says a
+                          // mark covers a span; without it a change absorbed
+                          // into a crowded neighbour looks unmarked.
+                          width: isMerged ? MERGED_MARK_PX : MARK_PX,
+                          height: 10,
+                          borderRadius: "1px",
+                          // Same accents as the pulse this mark triggers on the
+                          // canvas, so mark and highlighted card read as one.
+                          bgcolor: barColor,
+                        }}
+                      />
                     </ButtonBase>
                   </Tooltip>
                 );

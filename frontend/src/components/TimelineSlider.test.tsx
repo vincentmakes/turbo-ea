@@ -277,11 +277,15 @@ describe("TimelineSlider step-through", () => {
     expect(mark).toHaveAccessibleName(/1 card retires/);
   });
 
-  it("tints a merged mark so it is distinguishable from a single-date one", () => {
-    // The label alone is not enough: a merged mark is what a change gets
-    // absorbed into, and until it looked different from an ordinary mark there
-    // was nothing on screen saying "several dates live here".
+  it("widens a merged mark, and colours a mark by what it does", () => {
+    // One bar, not two: blue where cards only arrive, red where they only
+    // retire, purple where the mark does both — and wider when it stands for
+    // more than one date. Width is the only thing on screen saying a mark
+    // covers a span, which is what a change absorbed into a crowded neighbour
+    // needs in order not to look unmarked.
     const SECOND = GO_LIVE + 3 * 86_400_000;
+    const bar = (el: Element) => getComputedStyle(el.firstElementChild!);
+
     const { unmount } = render(
       <TimelineSlider
         value={TODAY}
@@ -295,14 +299,18 @@ describe("TimelineSlider step-through", () => {
         ]}
       />,
     );
-    const merged = screen.getByRole("button", { name: /Jump to this change/i });
-    const mergedBg = getComputedStyle(merged).backgroundColor;
+    const merged = bar(screen.getByRole("button", { name: /Jump to this change/i }));
+    // Merged AND mixed: it absorbed an arrival and a retirement.
+    expect(merged.width).toBe("7px");
+    expect(merged.backgroundColor).toBe("rgb(156, 39, 176)");
     unmount();
 
     renderSlider(TODAY);
-    const plain = screen.getAllByRole("button", { name: /Jump to this change/i })[0];
-    expect(mergedBg).not.toBe("");
-    expect(mergedBg).not.toBe(getComputedStyle(plain).backgroundColor);
+    const marks = screen.getAllByRole("button", { name: /Jump to this change/i });
+    // MILESTONES: one pure go-live, one pure retirement, neither merged.
+    expect(bar(marks[0]).width).toBe("3px");
+    expect(bar(marks[0]).backgroundColor).toBe("rgb(1, 119, 255)");
+    expect(bar(marks[1]).backgroundColor).toBe("rgb(244, 67, 54)");
   });
 
   it("names a single date when a mark stands for one", () => {
