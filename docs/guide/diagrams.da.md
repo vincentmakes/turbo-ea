@@ -87,6 +87,16 @@ Dropdownen **View** i værktøjslinjen omfarver hvert kort på lærredet efter e
 
 En flydende forklaring nederst til venstre på lærredet viser den aktive tilknytning. Den valgte visning gemmes med diagrammet.
 
+#### Felter vist på kort
+
+Den samme dropdown afgør også, **hvad hver figur siger**. Under *Felter vist på kort* sætter du flueben ved **korttypen**, **undertypen** eller en vilkårlig egenskab fra de korttyper, der aktuelt er på lærredet, og hver figur får små detaljelinjer under sit navn.
+
+De to første valg tegnes på figuren: et kort har en begrænset størrelse, og tekst der ikke passer, ville flyde ud over kanten. Alt du sætter flueben ved, huskes, så en senere udvidelse af udvalget ændrer hvilke to der vises, uden at du skal vælge forfra.
+
+Linjerne gemmes med diagrammet, så alle læsere — også den, der åbner et publiceret link — ser de samme figurer. Udfoldede underkort beholder kun deres navn: de er for små til mere.
+
+Knappen **Create diagram** i [afhængighedsrapporten](reports.md) tager sine egne kortvisningsindstillinger med, så et diagram genereret fra en rapport åbner med præcis de linjer, rapporten viste.
+
 ### Hvordan relationskanter tegnes
 
 Enhver Turbo EA-relation ser ens ud på lærredet, uanset hvordan den kom derhen — tegnet i hånden med relationsvælgeren eller hentet ind fra inventaret med **+** / Expand-menuen:

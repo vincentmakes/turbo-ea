@@ -81,6 +81,9 @@ import {
   resetViewColors,
   setRelationLabelsHidden,
   applyCardTypeIcons,
+  applyCardLabels,
+  attachCardLabelEditListener,
+  readCardName,
 } from "./drawio-shapes";
 import type {
   HierarchyChild,
@@ -89,6 +92,7 @@ import type {
   ResolvedRelationMeta,
 } from "./drawio-shapes";
 import type {
+  CardDetailLine,
   ChildLayout,
   ExpandChildData,
   RelationFlowDirection,
@@ -105,7 +109,17 @@ import DiagramViewLegend from "./DiagramViewLegend";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useLatestRequest } from "@/hooks/useLatestRequest";
-import { relationLabel, useTypeLabel } from "@/hooks/useResolveLabel";
+import { relationLabel, useFieldLabel, useOptionLabel, useTypeLabel } from "@/hooks/useResolveLabel";
+import {
+  buildFieldCatalog,
+  DEFAULT_CARD_LABELS,
+  EMPTY_VALUE,
+  formatFieldValue,
+  hasCardLabelLines,
+  MAX_CARD_LINES,
+  type CardLabelSettings,
+} from "@/lib/cardDisplayFields";
+import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useAuthContext } from "@/hooks/AuthContext";
 import type { Card, CardType, Relation, RelationType } from "@/types";
 import {
@@ -180,6 +194,9 @@ interface DiagramData {
     xml?: string;
     thumbnail?: string;
     view?: ViewSource;
+    /** Attributes rendered as detail lines under each card name. Rides with
+     *  the diagram like `view` does, so every reader sees the same shapes. */
+    cardLabels?: CardLabelSettings;
     /** Relation verbs hidden on this diagram (display-only, see
      *  setRelationLabelsHidden). Rides with the diagram so the viewer
      *  and any published embed match what the author arranged. */
@@ -528,8 +545,8 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
                 targetCardId: tgtFsId,
                 sourceType: srcType,
                 targetType: tgtType,
-                sourceName: src.value.getAttribute("label") || "",
-                targetName: tgt.value.getAttribute("label") || "",
+                sourceName: readCardName(src.value),
+                targetName: readCardName(tgt.value),
                 sourceColor: pick(srcStyle),
                 targetColor: pick(tgtStyle),
               }),
@@ -583,6 +600,9 @@ export default function DiagramEditor() {
   // Metamodel
   const { types: fsTypes, relationTypes } = useMetamodel();
   const typeLabel = useTypeLabel();
+  const fieldLabel = useFieldLabel();
+  const optionLabel = useOptionLabel();
+  const subtypeLabel = useCardSubtypeLabel();
   const fsTypesRef = useRef(fsTypes);
   fsTypesRef.current = fsTypes;
   const relTypesRef = useRef(relationTypes);
@@ -724,6 +744,14 @@ export default function DiagramEditor() {
 
   // Phase 5 — view perspectives (color cells by attribute)
   const [view, setView] = useState<ViewSource>({ kind: "card_type" });
+  // Which attributes render as detail lines under each card name. Orthogonal
+  // to `view` — one is what colours a shape, the other is what it says.
+  const [cardLabels, setCardLabels] = useState<CardLabelSettings>(DEFAULT_CARD_LABELS);
+  // Always-current line builder. A ref for the same reason
+  // `hideRelationLabelsRef` is one: the insert callback is declared far above
+  // the builder and doesn't re-create when the settings change, so a plain
+  // closure capture would go stale.
+  const detailLinesForCardRef = useRef<(card: Card) => CardDetailLine[]>(() => []);
   const [viewLegendEntries, setViewLegendEntries] = useState<ColorEntry[]>([]);
   const [viewAppliedCount, setViewAppliedCount] = useState(0);
   // Relation verbs ("provides", "consumes", …) hidden on this diagram. Saved
@@ -751,6 +779,7 @@ export default function DiagramEditor() {
       .then((d) => {
         setDiagram(d);
         if (d.data?.view) setView(d.data.view);
+        if (d.data?.cardLabels) setCardLabels(d.data.cardLabels);
         setHideRelationLabels(Boolean(d.data?.hideRelationLabels));
         // Check for a newer locally-autosaved draft once per mount.
         if (!restoreCheckedRef.current) {
@@ -794,6 +823,7 @@ export default function DiagramEditor() {
             xml,
             ...(thumbnail ? { thumbnail } : {}),
             view,
+            cardLabels,
             hideRelationLabels,
           },
         };
@@ -807,6 +837,7 @@ export default function DiagramEditor() {
                   xml,
                   ...(thumbnail ? { thumbnail } : {}),
                   view,
+                  cardLabels,
                   hideRelationLabels,
                 },
               }
@@ -826,7 +857,7 @@ export default function DiagramEditor() {
         setSaving(false);
       }
     },
-    [diagram, view, hideRelationLabels],
+    [diagram, view, cardLabels, hideRelationLabels],
   );
 
   /* ---------- Expand / collapse ---------- */
@@ -1719,6 +1750,9 @@ export default function DiagramEditor() {
       // drag-out-of-container gestures and routes them through the
       // hierarchy confirm dialog + Sync drawer.
       attachParentChangeListener(frame, handleParentChanged);
+      // Keep `cardName` in step with a hand-typed (F2) label, so the inventory
+      // rename diff keeps comparing what is actually on the shape.
+      attachCardLabelEditListener(frame);
       // Safety-net periodic scan. Does two things:
       //   (1) Detect cells inserted via DrawIO clipboard paths that don't
       //       surface through CELLS_ADDED to our listener.
@@ -1869,6 +1903,9 @@ export default function DiagramEditor() {
           name: c.name,
           color: ct.color,
           icon: ct.icon,
+          // Compose here rather than waiting for the next view pass, so a
+          // freshly inserted card doesn't sit blank next to its neighbours.
+          detailLines: detailLinesForCardRef.current(c),
           x,
           y,
         });
@@ -2846,9 +2883,80 @@ export default function DiagramEditor() {
     };
   }, []);
 
+  /** Attribute catalogue for whatever card types are on the canvas — the same
+   *  builder the Layered Dependency View's picker uses. */
+  const labelFieldCatalog = useMemo(
+    () => buildFieldCatalog(fsTypes, new Set(activeTypeKeys)),
+    [fsTypes, activeTypeKeys],
+  );
+  const labelFieldMetaByKey = useMemo(
+    () => new Map(labelFieldCatalog.map((f) => [f.key, f] as const)),
+    [labelFieldCatalog],
+  );
+
+  /** Turn one card into the detail rows its shape should show, honouring the
+   *  diagram's `cardLabels` settings. Shared shape with the Layered Dependency
+   *  View: same catalogue, same formatter, same `MAX_CARD_LINES` budget. */
+  const buildDetailLines = useCallback(
+    (card: Card, catalog: Map<string, ReturnType<typeof buildFieldCatalog>[number]>) => {
+      const lines: CardDetailLine[] = [];
+      if (cardLabels.showType) {
+        const tp = fsTypesRef.current.find((t2) => t2.key === card.type);
+        lines.push({
+          label: t("viewSelector.cardTypeLine"),
+          value: tp ? typeLabel(tp) : card.type,
+        });
+      }
+      if (cardLabels.showSubtype && card.subtype) {
+        lines.push({
+          label: t("viewSelector.subtypeLine"),
+          value: subtypeLabel(card.type, card.subtype),
+        });
+      }
+      for (const key of cardLabels.fields) {
+        if (lines.length >= MAX_CARD_LINES) break;
+        const meta = catalog.get(key);
+        const value = formatFieldValue(card.attributes?.[key], meta, {
+          optionLabel,
+          yes: t("common:labels.yes"),
+          no: t("common:labels.no"),
+        });
+        if (value === EMPTY_VALUE) continue;
+        lines.push({ label: meta ? fieldLabel(meta) : key, value });
+      }
+      return lines.slice(0, MAX_CARD_LINES);
+    },
+    [cardLabels, t, typeLabel, subtypeLabel, optionLabel, fieldLabel],
+  );
+
+  detailLinesForCardRef.current = (card: Card) =>
+    hasCardLabelLines(cardLabels) ? buildDetailLines(card, labelFieldMetaByKey) : [];
+
+  const buildLinesByCardId = useCallback(
+    (cards: Card[]) => {
+      const out = new Map<string, CardDetailLine[]>();
+      if (!hasCardLabelLines(cardLabels)) return out;
+      for (const c of cards) out.set(c.id, buildDetailLines(c, labelFieldMetaByKey));
+      return out;
+    },
+    [cardLabels, buildDetailLines, labelFieldMetaByKey],
+  );
+
+  /** Fetch the canvas cards and re-render their labels only — used by the
+   *  card-type (no colour perspective) branch, which has no fetch of its own. */
+  const refreshCardLabels = useCallback(
+    async (frame: HTMLIFrameElement, ids: string[]) => {
+      const params = new URLSearchParams({ ids: ids.join(",") });
+      const resp = await api.get<{ items: Card[] }>(`/cards?${params.toString()}`);
+      applyCardLabels(frame, buildLinesByCardId(resp.items));
+    },
+    [buildLinesByCardId],
+  );
+
   /** Recompute and apply the active view to the canvas. Pulls a batch
    *  card payload via /cards?ids=... so a single round-trip recolors
-   *  every cell. */
+   *  every cell AND re-renders its detail lines — deliberately one fetch,
+   *  not two, since both need the same full card records. */
   const applyView = useCallback(async () => {
     const frame = iframeRef.current;
     if (!frame) return;
@@ -2864,11 +2972,20 @@ export default function DiagramEditor() {
       const touched = resetViewColors(frame, colorByType, "#999");
       setViewLegendEntries([]);
       setViewAppliedCount(touched);
+      // Colour is reset, but the detail lines are a separate setting — they
+      // still need a pass (and a fetch, when any field is selected).
+      if (snapshot.ids.length > 0 && hasCardLabelLines(cardLabels)) {
+        await refreshCardLabels(frame, snapshot.ids);
+      } else {
+        applyCardLabels(frame, new Map());
+      }
       return;
     }
 
     if (snapshot.ids.length === 0) {
-      setViewLegendEntries(Array.from(buildColorMap(view, fsTypesRef.current).values()));
+      setViewLegendEntries(
+        Array.from(buildColorMap(view, fsTypesRef.current, optionLabel).values()),
+      );
       setViewAppliedCount(0);
       return;
     }
@@ -2877,7 +2994,7 @@ export default function DiagramEditor() {
       const params = new URLSearchParams({ ids: snapshot.ids.join(",") });
       const resp = await api.get<{ items: Card[] }>(`/cards?${params.toString()}`);
       const cardById = new Map(resp.items.map((c) => [c.id, c] as const));
-      const colorMap = buildColorMap(view, fsTypesRef.current);
+      const colorMap = buildColorMap(view, fsTypesRef.current, optionLabel);
       const colorByCardId = new Map<string, string>();
       let coverable = 0;
       for (const id of snapshot.ids) {
@@ -2891,6 +3008,7 @@ export default function DiagramEditor() {
         coverable += 1;
       }
       const touched = applyViewToGraph(frame, colorByCardId, "#cbd5e1");
+      applyCardLabels(frame, buildLinesByCardId(resp.items));
       setViewLegendEntries(Array.from(colorMap.values()));
       // Show how many cells the user can see colored vs total — helps debug
       // when a field isn't populated on most cards.
@@ -2898,7 +3016,15 @@ export default function DiagramEditor() {
     } catch {
       setSnackMsg(t("editor.errors.applyViewFailed"));
     }
-  }, [view, collectCanvasCards, t]);
+  }, [
+    view,
+    cardLabels,
+    collectCanvasCards,
+    buildLinesByCardId,
+    refreshCardLabels,
+    optionLabel,
+    t,
+  ]);
 
   // Overflow ("More") menu for occasional / migration actions that don't
   // warrant a permanent toolbar button.
@@ -2950,7 +3076,7 @@ export default function DiagramEditor() {
     if (!diagramId) return;
     void applyView();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [diagramId, view]);
+  }, [diagramId, view, cardLabels]);
 
   /* ---------- Restore banner: replace the XML with the locally-saved draft ---------- */
   const acceptRestore = useCallback(() => {
@@ -3126,6 +3252,8 @@ export default function DiagramEditor() {
           types={fsTypes}
           current={view}
           onChange={setView}
+          labels={cardLabels}
+          onLabelsChange={setCardLabels}
         />
 
         {/* Sync button — louder when there are unsynced changes so users
@@ -3231,7 +3359,12 @@ export default function DiagramEditor() {
                       const f = (tp?.fields_schema ?? [])
                         .flatMap((s) => s.fields ?? [])
                         .find((x) => x.key === view.field_key);
-                      return tp && f ? `${tp.label} · ${f.label}` : t("viewSelector.cardType");
+                      // Resolve through the locale-aware helpers, exactly as
+                      // the ViewSelector button does — the raw `.label` leaks
+                      // the untranslated name and the two would disagree.
+                      return tp && f
+                        ? `${typeLabel(tp)} · ${fieldLabel(f)}`
+                        : t("viewSelector.cardType");
                     })()
               }
               entries={viewLegendEntries}

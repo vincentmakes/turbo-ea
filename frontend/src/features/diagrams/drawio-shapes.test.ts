@@ -18,6 +18,16 @@ import {
   scanDiagramItems,
   scanSyncedRelationEdges,
   applyEdgeFlowDirection,
+  composeCardLabel,
+  readCardName,
+  renameCardLabel,
+  firstLineText,
+  applyCardLabels,
+  normaliseEditedCardLabel,
+  dedupClonedCell,
+  unlinkCell,
+  MAX_CARD_DETAIL_LINES,
+  type CardDetailLine,
   type DiagramCardInput,
   type DiagramRelInput,
   type DiagramLayerInput,
@@ -1275,5 +1285,331 @@ describe("applyEdgeFlowDirection", () => {
   it("returns false for an unknown edge cell", () => {
     const { iframe } = flowFrame(attrBag({}));
     expect(applyEdgeFlowDirection(iframe, "nope", "forward", false)).toBe(false);
+  });
+});
+
+
+/* ------------------------------------------------------------------ */
+/*  Card labels — one renderer, one reader                             */
+/* ------------------------------------------------------------------ */
+
+describe("composeCardLabel", () => {
+  it("returns the bare name when there are no detail lines", () => {
+    // The backwards-compatibility guarantee: an untouched diagram is untouched.
+    expect(composeCardLabel("NexaCore ERP")).toBe("NexaCore ERP");
+    expect(composeCardLabel("NexaCore ERP", [])).toBe("NexaCore ERP");
+  });
+
+  it("HTML-escapes the name in both the bare and the composed form", () => {
+    expect(composeCardLabel('R&D <x> "q"')).toBe("R&amp;D &lt;x&gt; &quot;q&quot;");
+    const composed = composeCardLabel('R&D <x>', [{ label: "Type", value: "App" }]);
+    expect(composed).toContain("<b>R&amp;D &lt;x&gt;</b>");
+    // The only raw markup is ours.
+    expect(composed).not.toContain("<x>");
+  });
+
+  it("escapes field labels and values so an attribute cannot inject markup", () => {
+    const composed = composeCardLabel("App", [
+      { label: "Owner", value: '<img src=x onerror=alert(1)>' },
+    ]);
+    expect(composed).not.toContain("<img");
+    expect(composed).toContain("&lt;img src=x onerror=alert(1)&gt;");
+  });
+
+  it("renders detail rows unbolded — the card style bolds the whole label", () => {
+    const composed = composeCardLabel("App", [{ label: "Type", value: "Application" }]);
+    expect(composed).toContain("font-weight:normal");
+    expect(composed).toContain("Type: Application");
+  });
+
+  it("never renders more rows than the cell can hold", () => {
+    const lines: CardDetailLine[] = [
+      { label: "A", value: "1" },
+      { label: "B", value: "2" },
+      { label: "C", value: "3" },
+      { label: "D", value: "4" },
+    ];
+    const composed = composeCardLabel("App", lines);
+    expect(composed.match(/<div/g)).toHaveLength(MAX_CARD_DETAIL_LINES);
+    expect(composed).not.toContain("C: 3");
+  });
+});
+
+describe("readCardName", () => {
+  it("prefers cardName over a composed label", () => {
+    const v = attrBag({
+      cardName: "NexaCore ERP",
+      label: composeCardLabel("NexaCore ERP", [{ label: "Type", value: "Application" }]),
+    });
+    expect(readCardName(v)).toBe("NexaCore ERP");
+  });
+
+  it("falls back to label for a cell created before cardName existed", () => {
+    expect(readCardName(attrBag({ label: "Legacy Card" }))).toBe("Legacy Card");
+  });
+
+  it("handles plain string values and empty cells", () => {
+    expect(readCardName("Plain Shape")).toBe("Plain Shape");
+    expect(readCardName(null)).toBe("");
+    expect(readCardName(attrBag({}))).toBe("");
+  });
+});
+
+describe("renameCardLabel / firstLineText", () => {
+  it("swaps the name and keeps the detail rows", () => {
+    const before = composeCardLabel("Old Name", [{ label: "Type", value: "Application" }]);
+    const after = renameCardLabel(before, "New Name");
+    expect(after).toContain("<b>New Name</b>");
+    expect(after).toContain("Type: Application");
+    expect(after).not.toContain("Old Name");
+  });
+
+  it("collapses to a bare name when there were no rows", () => {
+    expect(renameCardLabel("Old Name", "New & Name")).toBe("New &amp; Name");
+  });
+
+  it("recovers the typed name from a hand-edited label, ignoring the rows", () => {
+    const edited = "<b>Payment GW</b><div style=\"font-size:9px\">Type: Application</div>";
+    expect(firstLineText(edited)).toBe("Payment GW");
+    expect(firstLineText("R&amp;D")).toBe("R&D");
+    expect(firstLineText("Plain")).toBe("Plain");
+  });
+});
+
+/** Fake frame for the label-apply passes: cells carry an attribute bag and the
+ *  model supports the lookups `applyCardLabels` performs. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function labelFrame(cells: Record<string, any>) {
+  const model = {
+    cells,
+    beginUpdate() {},
+    endUpdate() {},
+    getCell: (id: string) => cells[id] ?? null,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getStyle: (c: any) => c._style ?? "",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setStyle: (c: any, style: string) => {
+      c._style = style;
+    },
+  };
+  const graph = { getModel: () => model, refresh() {}, removeCellOverlays() {} };
+  return { contentWindow: { __turboGraph: graph } } as unknown as HTMLIFrameElement;
+}
+
+describe("applyCardLabels", () => {
+  const lines = new Map<string, CardDetailLine[]>([
+    ["id-top", [{ label: "Type", value: "Application" }]],
+  ]);
+
+  function canvas() {
+    return {
+      top: scanVertex("top", { cardId: "id-top", cardType: "Application", label: "Top", cardName: "Top" }),
+      child: scanVertex("child", {
+        cardId: "id-child",
+        cardType: "Application",
+        label: "Child",
+        cardName: "Child",
+        parentGroupCell: "top",
+      }),
+      pending: scanVertex("pending", {
+        cardId: "pending-x",
+        cardType: "Application",
+        label: "Draft",
+        cardName: "Draft",
+      }),
+      plain: scanVertex("plain", { label: "Just a box" }),
+    };
+  }
+
+  it("composes only top-level synced card cells", () => {
+    const cells = canvas();
+    const touched = applyCardLabels(labelFrame(cells), lines);
+    expect(touched).toBe(1);
+    expect(cells.top.value.getAttribute("label")).toContain("Type: Application");
+    // A pending cell's name is POSTed verbatim on sync — never compose it.
+    expect(cells.pending.value.getAttribute("label")).toBe("Draft");
+    // Expanded-group children are too small to hold rows.
+    expect(cells.child.value.getAttribute("label")).toBe("Child");
+    expect(cells.plain.value.getAttribute("label")).toBe("Just a box");
+  });
+
+  it("is idempotent — a second identical pass touches nothing", () => {
+    const frame = labelFrame(canvas());
+    expect(applyCardLabels(frame, lines)).toBe(1);
+    expect(applyCardLabels(frame, lines)).toBe(0);
+  });
+
+  it("adopts a legacy cell that predates cardName, recovering the plain name", () => {
+    const cells = {
+      old: scanVertex("old", {
+        cardId: "id-top",
+        cardType: "Application",
+        // No `cardName`, and the user had hand-bolded the label in DrawIO.
+        label: "<b>Top</b>",
+      }),
+    };
+    applyCardLabels(labelFrame(cells), lines);
+    expect(cells.old.value.getAttribute("cardName")).toBe("Top");
+    expect(cells.old.value.getAttribute("label")).toContain("Type: Application");
+  });
+
+  it("resets a card to its bare name when its fields are turned off", () => {
+    const cells = canvas();
+    const frame = labelFrame(cells);
+    applyCardLabels(frame, lines);
+    expect(applyCardLabels(frame, new Map())).toBe(1);
+    expect(cells.top.value.getAttribute("label")).toBe("Top");
+    expect(cells.top.value.getAttribute("cardName")).toBe("Top");
+  });
+});
+
+describe("normaliseEditedCardLabel", () => {
+  it("re-syncs cardName after a hand-typed (F2) rename", () => {
+    const cells = {
+      top: scanVertex("top", {
+        cardId: "id-top",
+        cardType: "Application",
+        cardName: "Old Name",
+        // What DrawIO leaves behind after an in-place edit: only `label` moved.
+        label: "<b>Hand Typed</b><div style=\"font-size:9px\">Type: Application</div>",
+      }),
+    };
+    const name = normaliseEditedCardLabel(labelFrame(cells), "top");
+    expect(name).toBe("Hand Typed");
+    expect(cells.top.value.getAttribute("cardName")).toBe("Hand Typed");
+    // The rows are re-rendered, not taken as prose.
+    expect(cells.top.value.getAttribute("label")).toContain("Type: Application");
+  });
+
+  it("ignores cells that are not card cells", () => {
+    const cells = { plain: scanVertex("plain", { label: "Just a box" }) };
+    expect(normaliseEditedCardLabel(labelFrame(cells), "plain")).toBeNull();
+  });
+});
+
+describe("scanDiagramItems — composed labels", () => {
+  it("reports the plain name, never the composed HTML", () => {
+    const frame = scanFrame({
+      top: scanVertex("top", {
+        cardId: "id-top",
+        cardType: "Application",
+        cardName: "NexaCore ERP",
+        label: composeCardLabel("NexaCore ERP", [{ label: "Type", value: "Application" }]),
+      }),
+    });
+    // This is what staleCheck diffs against the inventory — HTML here would
+    // flag every card on every diagram as renamed.
+    expect(scanDiagramItems(frame).syncedFS[0].name).toBe("NexaCore ERP");
+  });
+
+  it("keeps a pending card's name safe to POST verbatim", () => {
+    const frame = scanFrame({
+      p: scanVertex("p", {
+        cardId: "pending-x",
+        cardType: "Application",
+        cardName: "Draft App",
+        label: "Draft App",
+        pending: "1",
+      }),
+    });
+    expect(scanDiagramItems(frame).pendingCards[0].name).toBe("Draft App");
+  });
+});
+
+describe("unlinking collapses the detail rows", () => {
+  function linkedCell() {
+    return scanVertex("c1", {
+      cardId: "id-1",
+      cardType: "Application",
+      cardName: "NexaCore ERP",
+      label: composeCardLabel("NexaCore ERP", [{ label: "Owner", value: "Alice" }]),
+    });
+  }
+
+  it("unlinkCell drops the rows a stub no longer has data for", () => {
+    const cells = { c1: linkedCell() };
+    const frame = labelFrame(cells);
+    expect(unlinkCell(frame, "c1")).toBe("id-1");
+    expect(cells.c1.value.getAttribute("label")).toBe("NexaCore ERP");
+    expect(cells.c1.value.getAttribute("cardId")).toBeNull();
+  });
+
+  it("dedupClonedCell does the same for a pasted copy", () => {
+    const cells = { c1: linkedCell() };
+    const frame = labelFrame(cells);
+    expect(dedupClonedCell(frame, "c1", false)).toEqual({ mode: "unlinked" });
+    expect(cells.c1.value.getAttribute("label")).toBe("NexaCore ERP");
+  });
+});
+
+describe("buildLdvDiagramXml — detail lines carried from the report", () => {
+  const layers: DiagramLayerInput[] = [];
+  const rels: DiagramRelInput[] = [];
+
+  it("emits the composed label plus a cardName stamp", () => {
+    const xml = buildLdvDiagramXml(
+      [
+        {
+          cardId: "11111111-1111-1111-1111-111111111111",
+          cardType: "Application",
+          name: "NexaCore ERP",
+          color: "#0f7eb5",
+          detailLines: [{ label: "Type", value: "Application" }],
+          x: 0,
+          y: 0,
+          w: 200,
+          h: 72,
+        },
+      ],
+      rels,
+      layers,
+    );
+    expect(xml).toContain('cardName="NexaCore ERP"');
+    // HTML-escaped by composeCardLabel, then XML-escaped for the attribute.
+    expect(xml).toContain("&lt;b&gt;NexaCore ERP&lt;/b&gt;");
+    expect(xml).toContain("Type: Application");
+  });
+
+  it("double-escapes an ampersand exactly once each way", () => {
+    const xml = buildLdvDiagramXml(
+      [
+        {
+          cardId: "22222222-2222-2222-2222-222222222222",
+          cardType: "Application",
+          name: "R&D Portal",
+          color: "#0f7eb5",
+          detailLines: [{ label: "Owner", value: "A & B" }],
+          x: 0,
+          y: 0,
+          w: 200,
+          h: 72,
+        },
+      ],
+      rels,
+      layers,
+    );
+    // Parsing the attribute yields `&amp;`, which renders under html=1 as `&`.
+    expect(xml).toContain("&amp;amp;D Portal");
+    expect(xml).toContain('cardName="R&amp;D Portal"');
+  });
+
+  it("keeps emitting a bare name when the report showed no extra rows", () => {
+    const xml = buildLdvDiagramXml(
+      [
+        {
+          cardId: "33333333-3333-3333-3333-333333333333",
+          cardType: "Application",
+          name: "Plain App",
+          color: "#0f7eb5",
+          x: 0,
+          y: 0,
+          w: 200,
+          h: 72,
+        },
+      ],
+      rels,
+      layers,
+    );
+    expect(xml).toContain('label="Plain App"');
   });
 });

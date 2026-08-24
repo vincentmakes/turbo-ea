@@ -87,6 +87,16 @@ Das Dropdown **Ansicht** in der Symbolleiste färbt jede Karte auf der Leinwand 
 
 Eine schwebende Legende unten links auf der Leinwand zeigt die aktive Zuordnung. Die gewählte Ansicht wird mit dem Diagramm gespeichert.
 
+#### Auf Karten angezeigte Felder
+
+Dasselbe Dropdown bestimmt auch, **was jede Form aussagt**. Unter *Auf Karten angezeigte Felder* wählen Sie den **Kartentyp**, den **Untertyp** oder ein beliebiges Attribut der aktuell auf der Leinwand vorhandenen Kartentypen — jede Form erhält dann kleine Detailzeilen unter ihrem Namen.
+
+Die ersten beiden Auswahlen werden auf der Form gezeichnet: eine Karte ist nur so groß, und Text, der nicht passt, würde über ihren Rand hinauslaufen. Alles Angehakte wird gespeichert, sodass eine spätere Erweiterung der Auswahl ändert, welche zwei erscheinen, ohne dass Sie neu wählen müssen.
+
+Diese Zeilen werden mit dem Diagramm gespeichert, sodass alle Lesenden — auch beim Öffnen eines veröffentlichten Links — dieselben Formen sehen. Ausgeklappte Unterkarten behalten nur ihren Namen: sie sind zu klein für mehr.
+
+Die Schaltfläche **Diagramm erstellen** im [Abhängigkeitsbericht](reports.md) überträgt ihre eigenen Kartenanzeige-Einstellungen, sodass ein aus einem Bericht erzeugtes Diagramm genau die Zeilen zeigt, die der Bericht zeigte.
+
 ### Wie Beziehungskanten gezeichnet werden
 
 Jede Turbo-EA-Beziehung sieht auf der Leinwand gleich aus, unabhängig davon, wie sie dorthin gelangt ist — von Hand mit der Beziehungsauswahl gezeichnet oder über **+** / das Erweiterungsmenü aus dem Inventar geholt:

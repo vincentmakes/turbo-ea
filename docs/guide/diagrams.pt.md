@@ -87,6 +87,16 @@ O menu pendente **Vista** na barra de ferramentas recoloria cada cartão da tela
 
 Uma legenda flutuante no canto inferior esquerdo mostra o mapeamento ativo. A vista escolhida é guardada com o diagrama.
 
+#### Campos exibidos nos cartões
+
+O mesmo menu decide também **o que cada forma diz**. Em *Campos exibidos nos cartões*, assinale o **tipo de cartão**, o **subtipo** ou qualquer atributo dos tipos de cartão presentes na tela, e cada forma ganha pequenas linhas de detalhe sob o seu nome.
+
+As duas primeiras seleções são desenhadas na forma: um cartão tem um tamanho limitado e o texto que não cabe transbordaria da sua borda. Tudo o que assinalar é memorizado, pelo que alargar a seleção mais tarde muda quais as duas que aparecem sem ter de escolher de novo.
+
+Estas linhas são guardadas com o diagrama, pelo que todos os leitores — incluindo quem abra uma ligação publicada — veem as mesmas formas. Os cartões filhos expandidos mantêm apenas o nome: são demasiado pequenos para mais.
+
+O botão **Criar diagrama** do [relatório de dependências](reports.md) transporta as suas próprias definições de exibição, pelo que um diagrama gerado a partir de um relatório mostra exatamente as linhas que o relatório mostrava.
+
 ### Como as arestas de relação são desenhadas
 
 Qualquer relação do Turbo EA tem o mesmo aspeto na tela, independentemente de como lá chegou — desenhada à mão com o seletor de relações ou trazida do inventário com **+** / o menu de expansão:

@@ -1971,6 +1971,7 @@ async def dependencies(
                 "id": nid,
                 "name": card.name,
                 "type": card.type,
+                "subtype": card.subtype,
                 "lifecycle": card.lifecycle,
                 "attributes": card.attributes,
                 "parent_id": str(card.parent_id) if card.parent_id else None,

@@ -87,6 +87,16 @@ Il menu a tendina **Vista** nella barra strumenti ricolora ogni scheda sulla tel
 
 Una legenda fluttuante in basso a sinistra mostra la mappatura attiva. La vista scelta viene salvata col diagramma.
 
+#### Campi mostrati sulle schede
+
+Lo stesso menu decide anche **cosa dice ogni forma**. In *Campi mostrati sulle schede*, spuntate il **tipo di scheda**, il **sottotipo** o qualsiasi attributo dei tipi di scheda presenti sulla tela: ogni forma acquisirà piccole righe di dettaglio sotto il proprio nome.
+
+Le prime due selezioni vengono disegnate sulla forma: una scheda ha una dimensione limitata e il testo che non entra sborderebbe dal bordo. Tutto ciò che spuntate viene ricordato, così ampliare la selezione in seguito cambia quali due appaiono senza doverle riscegliere.
+
+Queste righe vengono salvate col diagramma, così ogni lettore — anche chi apre un link pubblicato — vede le stesse forme. Le schede figlie espanse mantengono solo il nome: sono troppo piccole per altro.
+
+Il pulsante **Crea diagramma** del [rapporto sulle dipendenze](reports.md) trasferisce le proprie impostazioni di visualizzazione, così un diagramma generato da un rapporto mostra esattamente le righe che il rapporto mostrava.
+
 ### Come vengono disegnati gli archi di relazione
 
 Ogni relazione di Turbo EA appare uguale sulla tela, comunque vi sia arrivata — disegnata a mano con il selettore di relazioni oppure richiamata dall'inventario con **+** / il menu di espansione:

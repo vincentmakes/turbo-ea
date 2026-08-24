@@ -1618,6 +1618,31 @@ class TestDependencies:
         assert data["nodes"] == []
         assert data["edges"] == []
 
+    async def test_dependencies_node_carries_subtype(self, client, db, env):
+        """The Layered Dependency View renders a subtype row and carries it into
+        a generated DrawIO diagram, so the node payload has to serialise it."""
+        admin = env["admin"]
+        app1 = await create_card(
+            db,
+            card_type="Application",
+            name="App A",
+            subtype="microservice",
+            user_id=admin.id,
+        )
+        app2 = await create_card(db, card_type="Application", name="App B", user_id=admin.id)
+        await create_relation(db, type_key="app_to_app", source_id=app1.id, target_id=app2.id)
+
+        resp = await client.get(
+            "/api/v1/reports/dependencies",
+            params={"depth": 2},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        by_name = {n["name"]: n for n in resp.json()["nodes"]}
+        assert by_name["App A"]["subtype"] == "microservice"
+        # A card with no subtype still reports the key, as null.
+        assert by_name["App B"]["subtype"] is None
+
     async def test_dependencies_with_data(self, client, db, env):
         """Dependencies returns nodes and edges from relations."""
         admin = env["admin"]

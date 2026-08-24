@@ -87,6 +87,17 @@ The **View** dropdown in the toolbar recolors every card on the canvas by an att
 
 A floating legend in the bottom-left of the canvas shows the active mapping. The chosen view is saved with the diagram.
 
+#### Fields shown on cards
+
+The same dropdown also chooses **what each shape says**. Under *Fields shown on cards*, tick the **card type**, the **subtype**, or any attribute from the card types currently on the canvas, and each shape gains small detail lines under its name.
+
+The first two selections are drawn on the shape — a card is only so big, and text that doesn't fit would spill outside its border. Everything you tick is remembered, so widening the selection later changes which two show without you having to re-pick.
+
+These lines are saved with the diagram, so every reader — including anyone opening a published link — sees the same shapes. Expanded child cards keep just their name: they are too small to hold anything more.
+
+The **Create diagram** button on the [Dependencies report](reports.md#dependencies-report) carries its own card-display settings across, so a diagram generated from a report opens showing exactly the rows the report showed.
+
+
 ### How relation edges are drawn
 
 Every Turbo EA relation looks the same on the canvas however it got there — drawn by hand with the relation picker, or pulled in from the inventory with the **+** / Expand menu:

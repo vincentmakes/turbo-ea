@@ -24,6 +24,8 @@ export interface GNode {
   id: string;
   name: string;
   type: string;
+  /** Metamodel subtype key, when the card has one. */
+  subtype?: string;
   lifecycle?: Record<string, string>;
   attributes?: Record<string, unknown>;
   parent_id?: string | null;
@@ -116,6 +118,8 @@ export interface LdvNodeData {
   name: string;
   typeKey: string;
   typeLabel: string;
+  /** Raw subtype key; the view resolves it to a label for display. */
+  subtypeKey?: string;
   typeColor: string;
   typeIcon: string;
   category: string;
@@ -474,6 +478,7 @@ export function buildLdvFlow(
           name: nd.name,
           typeKey: nd.type,
           typeLabel: typeLabel(nd.type, types),
+          subtypeKey: nd.subtype,
           typeColor: typeColor(nd.type, types),
           typeIcon: typeIcon(nd.type, types),
           category: gl.cat,

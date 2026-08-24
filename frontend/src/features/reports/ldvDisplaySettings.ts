@@ -13,6 +13,8 @@ export type LdvBackgroundStyle = "lines" | "dots" | "none";
 
 export interface LdvDisplaySettings {
   showType: boolean;
+  /** Show the card's subtype ("Microservice", "SaaS", …) under its name. */
+  showSubtype: boolean;
   showLifecycle: boolean;
   /**
    * Show a minimalistic marker on each card indicating it has a hierarchical
@@ -32,10 +34,13 @@ export interface LdvDisplaySettings {
   background: LdvBackgroundStyle;
 }
 
+// Adding a *new* key needs no version bump: `read()` spreads the defaults over
+// whatever is stored, so an older blob simply picks up the default.
 const KEY = "tea.ldv.display.v3";
 
 export const LDV_DEFAULT_SETTINGS: LdvDisplaySettings = {
   showType: true,
+  showSubtype: false,
   showLifecycle: true,
   showHierarchyMarkers: true,
   showEndOfLife: false,

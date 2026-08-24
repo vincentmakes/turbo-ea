@@ -27,7 +27,8 @@ from tests.conftest import auth_headers, create_role, create_user
 # A realistic fragment: a card-shaped cell plus a relation-stamped edge.
 CARD_XML = (
     '<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>'
-    '<object label="NexaCore ERP" cardId="11111111-1111-1111-1111-111111111111" '
+    '<object label="&lt;b&gt;NexaCore ERP&lt;/b&gt;&lt;div&gt;Type: Application&lt;/div&gt;" '
+    'cardName="NexaCore ERP" cardId="11111111-1111-1111-1111-111111111111" '
     'cardType="Application" parentGroupCell="c9"><mxCell style="fillColor=#0f7eb5" '
     'vertex="1" parent="1"/></object>'
     '<object label="" relationId="22222222-2222-2222-2222-222222222222" '
@@ -67,6 +68,7 @@ class TestSanitiser:
         out = sanitise_public_xml(CARD_XML)
         for attr in (
             "cardId=",
+            "cardName=",
             "cardType=",
             "relationId=",
             "relationType=",
@@ -81,6 +83,15 @@ class TestSanitiser:
         assert "fillColor=#0f7eb5" in out
         assert 'edge="1"' in out
         assert out.startswith("<mxGraphModel>")
+
+    def test_keeps_the_detail_rows_the_publisher_chose_to_show(self):
+        """A composed label IS the picture: the rows under a card's name are
+        exactly what the publisher selected, so they survive — while the
+        `cardName` stamp behind them does not."""
+        out = sanitise_public_xml(CARD_XML)
+        assert "Type: Application" in out
+        assert "&lt;b&gt;NexaCore ERP&lt;/b&gt;" in out
+        assert "cardName=" not in out
 
     def test_handles_missing_xml(self):
         assert sanitise_public_xml(None) == ""

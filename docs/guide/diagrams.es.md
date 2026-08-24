@@ -87,6 +87,16 @@ El desplegable **Vista** de la barra de herramientas recolorea cada tarjeta del 
 
 Una leyenda flotante en la esquina inferior izquierda del lienzo muestra la asignación activa. La vista elegida se guarda con el diagrama.
 
+#### Campos mostrados en las tarjetas
+
+El mismo desplegable decide también **qué dice cada forma**. En *Campos mostrados en las tarjetas*, marque el **tipo de tarjeta**, el **subtipo** o cualquier atributo de los tipos de tarjeta presentes en el lienzo, y cada forma añadirá pequeñas líneas de detalle bajo su nombre.
+
+Las dos primeras selecciones se dibujan en la forma: una tarjeta tiene un tamaño limitado y el texto que no cabe se saldría de su borde. Todo lo que marque se recuerda, así que ampliar la selección más adelante cambia cuáles dos aparecen sin tener que volver a elegir.
+
+Estas líneas se guardan con el diagrama, de modo que todos los lectores — incluido quien abra un enlace publicado — ven las mismas formas. Las tarjetas hijas desplegadas conservan solo su nombre: son demasiado pequeñas para más.
+
+El botón **Crear diagrama** del [informe de dependencias](reports.md) traslada sus propios ajustes de visualización, así que un diagrama generado desde un informe muestra exactamente las filas que mostraba el informe.
+
 ### Cómo se dibujan las aristas de relación
 
 Toda relación de Turbo EA se ve igual en el lienzo, sin importar cómo llegó allí — dibujada a mano con el selector de relaciones o traída del inventario con **+** / el menú de expansión:

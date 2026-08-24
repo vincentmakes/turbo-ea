@@ -1,13 +1,20 @@
-import { useMemo, useState as useReactState } from "react";
+import { useMemo, useState as useReactState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Divider from "@mui/material/Divider";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { useTypeLabel } from "@/hooks/useResolveLabel";
+import { useFieldLabel, useTypeLabel } from "@/hooks/useResolveLabel";
+import {
+  buildFieldCatalog,
+  MAX_CARD_LINES,
+  type CardLabelSettings,
+} from "@/lib/cardDisplayFields";
 import { APPROVAL_STATUS_COLORS, SEVERITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import type { CardType, FieldDef } from "@/types";
 
@@ -29,26 +36,34 @@ interface Props {
   types: CardType[];
   current: ViewSource;
   onChange: (next: ViewSource) => void;
+  /** Which fields are rendered as detail lines on each card shape. */
+  labels: CardLabelSettings;
+  onLabelsChange: (next: CardLabelSettings) => void;
 }
 
 /**
- * "Select a view" toolbar dropdown — LeanIX-style. Lists fields the user can
- * colour the canvas by. v1 supports:
- *   - Card type (reset)
- *   - Approval status (always available)
- *   - Single-select fields from the metamodel for each type on the canvas
+ * Card display dropdown — LeanIX-style. Carries two independent settings:
  *
- * Numeric / cost / lifecycle / relation-attribute perspectives are left for
- * a follow-up because they need quantile binning or extra fetches.
+ *  - **Colour by** (one choice): card type, approval status, or a single-select
+ *    field on a type currently on the canvas. Numeric / cost / lifecycle /
+ *    relation-attribute perspectives need quantile binning or extra fetches and
+ *    are left for a follow-up.
+ *  - **Fields shown on cards** (many): card type, subtype, and any metamodel
+ *    attribute, rendered as detail lines under the card name. The catalogue is
+ *    the same one the Layered Dependency View offers, so a field reads the same
+ *    in a report and on the diagram exported from it.
  */
 export default function ViewSelector({
   activeTypeKeys,
   types,
   current,
   onChange,
+  labels,
+  onLabelsChange,
 }: Props) {
   const { t } = useTranslation(["diagrams", "common"]);
   const typeLabel = useTypeLabel();
+  const fieldLabel = useFieldLabel();
   const [anchorEl, setAnchorEl] = useMenu();
 
   const typeMap = useMemo(
@@ -74,6 +89,13 @@ export default function ViewSelector({
     return result;
   }, [activeTypeKeys, typeMap]);
 
+  /** Attribute catalogue for the "fields shown on cards" section — shared with
+   *  the Layered Dependency View so the two pickers cannot drift apart. */
+  const fieldCatalog = useMemo(
+    () => buildFieldCatalog(types, new Set(activeTypeKeys)),
+    [types, activeTypeKeys],
+  );
+
   const currentLabel = useMemo(() => {
     if (current.kind === "card_type") return t("viewSelector.cardType");
     if (current.kind === "approval_status") return t("viewSelector.approvalStatus");
@@ -83,30 +105,53 @@ export default function ViewSelector({
       .flatMap((s) => s.fields ?? [])
       .find((f) => f.key === current.field_key);
     return field
-      ? `${typeLabel(tp)} · ${field.label}`
+      ? `${typeLabel(tp)} · ${fieldLabel(field)}`
       : t("viewSelector.cardType");
-  }, [current, typeMap, typeLabel, t]);
+  }, [current, typeMap, typeLabel, fieldLabel, t]);
+
+  const buttonText = t("viewSelector.button", { view: currentLabel });
+
+  const toggleField = (key: string) => {
+    const next = labels.fields.includes(key)
+      ? labels.fields.filter((k) => k !== key)
+      : [...labels.fields, key];
+    onLabelsChange({ ...labels, fields: next });
+  };
 
   return (
     <>
-      <Button
-        size="small"
-        variant="outlined"
-        startIcon={<MaterialSymbol icon="palette" size={18} />}
-        endIcon={<MaterialSymbol icon="expand_more" size={16} />}
-        onClick={(e) => setAnchorEl(e.currentTarget)}
-        sx={{
-          textTransform: "none",
-          fontSize: "0.8rem",
-          minWidth: 0,
-          maxWidth: 240,
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-        }}
-      >
-        {t("viewSelector.button", { view: currentLabel })}
-      </Button>
+      <Tooltip title={buttonText}>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<MaterialSymbol icon="palette" size={18} />}
+          endIcon={<MaterialSymbol icon="expand_more" size={16} />}
+          onClick={(e) => setAnchorEl(e.currentTarget)}
+          sx={{
+            textTransform: "none",
+            fontSize: "0.8rem",
+            minWidth: 0,
+            maxWidth: 260,
+            // `overflow`/`textOverflow` must NOT live on the Button root: it is
+            // an inline-flex container, so `text-overflow` never applies to its
+            // anonymous text child and the clip eats the icons at both ends.
+            // The inner span below is the block box that can actually ellipsis.
+            "& .MuiButton-startIcon, & .MuiButton-endIcon": { flexShrink: 0 },
+          }}
+        >
+          <Box
+            component="span"
+            sx={{
+              minWidth: 0,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {buttonText}
+          </Box>
+        </Button>
+      </Tooltip>
       <Menu
         open={!!anchorEl}
         anchorEl={anchorEl}
@@ -140,20 +185,7 @@ export default function ViewSelector({
         </MenuItem>
 
         {fieldsByType.length > 0 && <Divider sx={{ my: 0.5 }} />}
-        {fieldsByType.length > 0 && (
-          <Box
-            sx={{
-              px: 2,
-              py: 0.5,
-              fontSize: "0.7rem",
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              color: "text.secondary",
-            }}
-          >
-            {t("viewSelector.fieldsOnCard")}
-          </Box>
-        )}
+        {fieldsByType.length > 0 && <SectionHeader>{t("viewSelector.fieldsOnCard")}</SectionHeader>}
 
         {fieldsByType.map(({ type, fields }) => [
           <Box
@@ -183,23 +215,92 @@ export default function ViewSelector({
                 }}
                 sx={{ pl: 4 }}
               >
-                <Typography variant="body2">{f.label}</Typography>
+                <Typography variant="body2">{fieldLabel(f)}</Typography>
               </MenuItem>
             );
           }),
         ])}
+
+        {/* Fields shown as detail lines under each card name. Multi-select, so
+            these rows deliberately keep the menu open. */}
+        <Divider sx={{ my: 0.5 }} />
+        <SectionHeader>{t("viewSelector.fieldsShown")}</SectionHeader>
+        <Box sx={{ px: 2, pb: 0.5 }}>
+          <Typography variant="caption" color="text.secondary">
+            {t("viewSelector.linesHint", { count: MAX_CARD_LINES })}
+          </Typography>
+        </Box>
+
+        <CheckRow
+          checked={!!labels.showType}
+          label={t("viewSelector.cardTypeLine")}
+          onToggle={() => onLabelsChange({ ...labels, showType: !labels.showType })}
+        />
+        <CheckRow
+          checked={!!labels.showSubtype}
+          label={t("viewSelector.subtypeLine")}
+          onToggle={() => onLabelsChange({ ...labels, showSubtype: !labels.showSubtype })}
+        />
+        {fieldCatalog.map((f) => (
+          <CheckRow
+            key={`lbl-${f.key}`}
+            checked={labels.fields.includes(f.key)}
+            label={fieldLabel(f)}
+            onToggle={() => toggleField(f.key)}
+          />
+        ))}
       </Menu>
     </>
+  );
+}
+
+function SectionHeader({ children }: { children: ReactNode }) {
+  return (
+    <Box
+      sx={{
+        px: 2,
+        py: 0.5,
+        fontSize: "0.7rem",
+        textTransform: "uppercase",
+        letterSpacing: 0.5,
+        color: "text.secondary",
+      }}
+    >
+      {children}
+    </Box>
+  );
+}
+
+function CheckRow({
+  checked,
+  label,
+  onToggle,
+}: {
+  checked: boolean;
+  label: string;
+  onToggle: () => void;
+}) {
+  return (
+    <MenuItem onClick={onToggle} sx={{ pl: 1.5, py: 0.25 }}>
+      <Checkbox size="small" checked={checked} sx={{ p: 0.5, mr: 1 }} />
+      <Typography variant="body2" noWrap>
+        {label}
+      </Typography>
+    </MenuItem>
   );
 }
 
 // ─── Color-mapping helpers ─────────────────────────────────────────────────
 
 /** Build a value → ColorEntry map for the chosen view. Returns an empty map
- *  for the default (card-type) view since cells keep their type colour. */
+ *  for the default (card-type) view since cells keep their type colour.
+ *
+ *  `optionLabel` is passed in rather than resolved here so the map can be built
+ *  outside React; pass `useOptionLabel()` from a component. */
 export function buildColorMap(
   view: ViewSource,
   types: CardType[],
+  optionLabel: (o: { key: string; label: string; translations?: Record<string, string> }) => string,
 ): Map<string, ColorEntry> {
   if (view.kind === "card_type") return new Map();
   if (view.kind === "approval_status") {
@@ -232,7 +333,7 @@ export function buildColorMap(
   opts.forEach((opt, i) => {
     result.set(opt.key, {
       value: opt.key,
-      label: opt.label,
+      label: optionLabel(opt),
       color: opt.color || fallbackPalette[i % fallbackPalette.length],
     });
   });

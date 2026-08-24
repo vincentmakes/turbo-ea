@@ -222,6 +222,144 @@ function iconTokensFromStyle(style: string): string[] {
     );
 }
 
+/* ------------------------------------------------------------------ */
+/*  Card label — exactly one renderer, exactly one reader               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * XML attribute holding a card cell's plain, unformatted name.
+ *
+ * `label` may carry composed HTML once the user asks for detail lines, so it
+ * can no longer answer "what is this card called?". Everything that needs the
+ * name — the rename diff against the inventory, the `POST /cards` payload for
+ * a pending cell, every confirm dialog — reads this instead, via
+ * {@link readCardName}. Cells created before the feature existed carry no
+ * `cardName`, hence the fallback to `label`.
+ */
+const CARD_NAME_ATTR = "cardName";
+
+/** Escape a string for safe inclusion in an HTML label. Card names and
+ *  attribute values are user data and must never be able to inject markup
+ *  into the DrawIO iframe. */
+function escapeHtml(value: string): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** One `Label: Value` row rendered under a card's name. */
+export interface CardDetailLine {
+  label: string;
+  value: string;
+}
+
+/**
+ * How many detail rows a card cell renders. Mirrors the Layered Dependency
+ * View's own cap so a diagram and the report it was generated from show the
+ * same amount — and because a 210x60 cell fits the name plus two small rows
+ * and nothing more. mxGraph paints label overflow *outside* the shape, so this
+ * is a hard limit, not a preference.
+ */
+export const MAX_CARD_DETAIL_LINES = 2;
+
+/**
+ * Build a card cell's `label` value. **The single renderer** — every path that
+ * labels a card goes through here, the same rule `relationEdgeStyle` enforces
+ * for edges, so a card cannot read one way when inserted from the picker and
+ * another when pulled in by an expand.
+ *
+ * With no detail lines the result is the escaped bare name, byte-identical to
+ * what shipped before for any name without `& < > " '` — so an untouched
+ * diagram is untouched.
+ *
+ * Every interpolated value is HTML-escaped here rather than at the call sites,
+ * so no caller can bypass it. `font-weight:normal` on the rows is required:
+ * the card style carries `fontStyle=1`, which bolds the whole label.
+ */
+export function composeCardLabel(name: string, lines: CardDetailLine[] = []): string {
+  const safeName = escapeHtml(name);
+  const rows = lines.slice(0, MAX_CARD_DETAIL_LINES);
+  if (rows.length === 0) return safeName;
+  const detail = rows
+    .map(
+      (l) =>
+        `<div style="font-size:9px;font-weight:normal">` +
+        `${escapeHtml(l.label)}: ${escapeHtml(l.value)}</div>`,
+    )
+    .join("");
+  return `<b>${safeName}</b>${detail}`;
+}
+
+/**
+ * Write a card cell's name and detail lines onto its user object. Always sets
+ * both `label` (composed, for display) and `cardName` (raw, for identity).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function setCardLabel(obj: any, name: string, lines: CardDetailLine[] = []): void {
+  if (!obj?.setAttribute) return;
+  obj.setAttribute("label", composeCardLabel(name, lines));
+  obj.setAttribute(CARD_NAME_ATTR, name);
+}
+
+/**
+ * Read a card cell's plain name. **The single reader** — never read `label`
+ * off a card cell directly, it may be HTML.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function readCardName(value: any): string {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (!value.getAttribute) return "";
+  const stored = value.getAttribute(CARD_NAME_ATTR);
+  if (stored != null && stored !== "") return stored;
+  return value.getAttribute("label") || "";
+}
+
+/** Split a composed label into its name part and its detail-row suffix. The
+ *  rows are always trailing `<div>` blocks, so this is a splice, never a
+ *  parse of the values inside them. */
+function splitCardLabel(label: string): { namePart: string; detail: string } {
+  const raw = String(label ?? "");
+  const idx = raw.search(/<div\b/i);
+  if (idx < 0) return { namePart: raw, detail: "" };
+  return { namePart: raw.slice(0, idx), detail: raw.slice(idx) };
+}
+
+/**
+ * Recover the plain name a user typed into a hand-edited (F2) label.
+ *
+ * Only the part above the detail rows is considered: the name is the first
+ * line of a composed label, and the rows below it are data we re-render rather
+ * than accept edits to.
+ */
+export function firstLineText(html: string): string {
+  return splitCardLabel(html)
+    .namePart.replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .trim();
+}
+
+/**
+ * Swap the name in an already-composed label, keeping whatever detail rows it
+ * carries. Used when an inventory rename is accepted, and when a hand-edited
+ * label is normalised — neither knows the field values, and neither should
+ * have to.
+ */
+export function renameCardLabel(existingLabel: string, newName: string): string {
+  const { detail } = splitCardLabel(existingLabel);
+  if (!detail) return composeCardLabel(newName);
+  return `<b>${escapeHtml(newName)}</b>${detail}`;
+}
+
 export interface InsertCardOpts {
   cardId: string;
   cardType: string;
@@ -229,6 +367,8 @@ export interface InsertCardOpts {
   color: string;
   /** Card-type Material Symbols icon name (e.g. "apps"). Optional. */
   icon?: string;
+  /** Attribute rows to render under the name (max {@link MAX_CARD_DETAIL_LINES}). */
+  detailLines?: CardDetailLine[];
   x: number;
   y: number;
 }
@@ -236,7 +376,11 @@ export interface InsertCardOpts {
 /** Shape data needed for direct mxGraph API insertion */
 export interface CardCellData {
   cellId: string;
+  /** Composed display label — HTML when `detailLines` is non-empty. */
   label: string;
+  /** The plain card name, stamped separately so identity survives composition. */
+  name: string;
+  detailLines: CardDetailLine[];
   cardId: string;
   cardType: string;
   x: number;
@@ -251,6 +395,7 @@ export interface CardCellData {
  */
 export function buildCardCellData(opts: InsertCardOpts): CardCellData {
   const { cardId, cardType, name, color, icon, x, y } = opts;
+  const detailLines = opts.detailLines ?? [];
   const stroke = darken(color);
   const cellId = `card-${cardId.slice(0, 8)}-${Date.now()}`;
 
@@ -270,7 +415,9 @@ export function buildCardCellData(opts: InsertCardOpts): CardCellData {
 
   return {
     cellId,
-    label: name,
+    label: composeCardLabel(name, detailLines),
+    name,
+    detailLines,
     cardId,
     cardType,
     x,
@@ -310,7 +457,7 @@ export function insertCardIntoGraph(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const xmlDoc = (win.mxUtils as any).createXmlDocument();
     const obj = xmlDoc.createElement("object");
-    obj.setAttribute("label", data.label);
+    setCardLabel(obj, data.name, data.detailLines);
     obj.setAttribute("cardId", data.cardId);
     obj.setAttribute("cardType", data.cardType);
 
@@ -430,7 +577,9 @@ export function insertPendingCard(
 
   const xmlDoc = win.mxUtils.createXmlDocument();
   const obj = xmlDoc.createElement("object");
-  obj.setAttribute("label", opts.name);
+  // Never composed: `scanDiagramItems` feeds this name straight into
+  // `POST /cards` when the pending card is synced.
+  setCardLabel(obj, opts.name);
   obj.setAttribute("cardId", opts.tempId);
   obj.setAttribute("cardType", opts.type);
   obj.setAttribute("pending", "1");
@@ -592,7 +741,13 @@ export function updateCellLabel(
   model.beginUpdate();
   try {
     if (cell.value?.setAttribute) {
-      cell.value.setAttribute("label", newLabel);
+      // Keep whatever detail rows the cell carries — the caller knows the new
+      // name, not the field values behind those rows.
+      cell.value.setAttribute(
+        "label",
+        renameCardLabel(cell.value.getAttribute("label") || "", newLabel),
+      );
+      cell.value.setAttribute(CARD_NAME_ATTR, newLabel);
     }
     graph.refresh(cell);
   } finally {
@@ -688,8 +843,8 @@ export function scanDiagramItems(iframe: HTMLIFrameElement): {
         relationLabel: cell.value.getAttribute("label") || relType,
         sourceCardId: src?.value?.getAttribute?.("cardId") || "",
         targetCardId: tgt?.value?.getAttribute?.("cardId") || "",
-        sourceName: src?.value?.getAttribute?.("label") || "?",
-        targetName: tgt?.value?.getAttribute?.("label") || "?",
+        sourceName: readCardName(src?.value) || "?",
+        targetName: readCardName(tgt?.value) || "?",
         reversed: cell.value.getAttribute("reversed") === "1",
       });
     } else if (fsId && isPending) {
@@ -698,14 +853,14 @@ export function scanDiagramItems(iframe: HTMLIFrameElement): {
         cellId: cell.id,
         tempId: fsId,
         type: cell.value.getAttribute("cardType") || "",
-        name: cell.value.getAttribute("label") || "",
+        name: readCardName(cell.value),
       });
     } else if (fsId && !isPending) {
       // Synced card vertex — top-level or expanded-group child
       const entry: ScannedSyncedFS = {
         cellId: cell.id,
         cardId: fsId,
-        name: cell.value.getAttribute("label") || "",
+        name: readCardName(cell.value),
         type: cell.value.getAttribute("cardType") || "",
       };
       if (cell.value.getAttribute("parentGroupCell")) {
@@ -761,8 +916,8 @@ export function scanSyncedRelationEdges(
       edgeLabel: cell.value.getAttribute("label") || "",
       sourceCardId: src?.value?.getAttribute?.("cardId") || "",
       targetCardId: tgt?.value?.getAttribute?.("cardId") || "",
-      sourceName: src?.value?.getAttribute?.("label") || "?",
-      targetName: tgt?.value?.getAttribute?.("label") || "?",
+      sourceName: readCardName(src?.value) || "?",
+      targetName: readCardName(tgt?.value) || "?",
       flowDirection: readFlowDirection(cell.value.getAttribute("flowDirection")),
     });
   }
@@ -1039,7 +1194,7 @@ export function expandCardGroup(
 
       const xmlDoc = win.mxUtils.createXmlDocument();
       const obj = xmlDoc.createElement("object");
-      obj.setAttribute("label", ch.name);
+      setCardLabel(obj, ch.name);
       obj.setAttribute("cardId", ch.id);
       obj.setAttribute("cardType", ch.type);
       obj.setAttribute("parentGroupCell", parentCellId);
@@ -1454,7 +1609,7 @@ export function attachCellLifecycleListeners(
         id: c?.id,
         edge: !!c?.edge,
         cardId: c?.value?.getAttribute?.("cardId"),
-        label: c?.value?.getAttribute?.("label"),
+        label: readCardName(c?.value),
       })),
     });
 
@@ -1553,16 +1708,8 @@ export function attachCellLifecycleListeners(
         continue;
       }
 
-      const srcLabel: string =
-        srcName ||
-        srcCell?.value?.getAttribute?.("label") ||
-        (typeof srcCell?.value === "string" ? srcCell.value : "") ||
-        "";
-      const tgtLabel: string =
-        tgtName ||
-        tgtCell?.value?.getAttribute?.("label") ||
-        (typeof tgtCell?.value === "string" ? tgtCell.value : "") ||
-        "";
+      const srcLabel: string = srcName || readCardName(srcCell?.value) || "";
+      const tgtLabel: string = tgtName || readCardName(tgtCell?.value) || "";
       const liveStyle = String(model.getStyle(cell) || "");
       tombstones.push({
         kind: "relation",
@@ -1731,7 +1878,7 @@ export function attachCellLifecycleListeners(
       vertices: goneVertices.map((v) => ({
         id: v?.id,
         cardId: v?.value?.getAttribute?.("cardId"),
-        label: v?.value?.getAttribute?.("label"),
+        label: readCardName(v?.value),
       })),
       edges: goneEdges.map((e) => ({ id: e?.id })),
     });
@@ -1959,18 +2106,23 @@ export function describeEdgeEndpoints(
       style: "",
       label: "",
     };
-  const labelOf = (c: { value?: { getAttribute?: (k: string) => string | null } | string | null } | null | undefined) => {
+  // Endpoints are card cells (name lives in `cardName`); the edge itself is a
+  // relation cell whose `label` IS the verb. Two readers, deliberately — one
+  // shared helper here would put HTML into the restore dialog's card names.
+  const edgeLabelOf = (
+    c: { value?: { getAttribute?: (k: string) => string | null } | string | null } | null | undefined,
+  ) => {
     if (!c?.value) return "";
     if (typeof c.value === "string") return c.value;
     return c.value.getAttribute?.("label") || "";
   };
   return {
-    sourceName: labelOf(cell.source),
-    targetName: labelOf(cell.target),
+    sourceName: readCardName(cell.source?.value),
+    targetName: readCardName(cell.target?.value),
     sourceCellId: cell.source?.id ?? null,
     targetCellId: cell.target?.id ?? null,
     style: String(ctx.graph.getModel().getStyle(cell) || ""),
-    label: labelOf(cell),
+    label: edgeLabelOf(cell),
   };
 }
 
@@ -2133,6 +2285,10 @@ export function dedupClonedCell(
       return { mode: "regenerated", tempId };
     }
 
+    // Collapse the label first, while cardId is still readable: an unlinked
+    // stub must not keep showing attribute rows for a card it no longer
+    // points at, and nothing manages them once the link is gone.
+    setCardLabel(cell.value, readCardName(cell.value));
     cell.value.removeAttribute("cardId");
     if (cell.value.removeAttribute) {
       cell.value.removeAttribute("expanded");
@@ -2189,6 +2345,8 @@ export function unlinkCell(
 
   model.beginUpdate();
   try {
+    // Same reasoning as `dedupClonedCell`: drop the detail rows with the link.
+    setCardLabel(cell.value, readCardName(cell.value));
     cell.value.removeAttribute("cardId");
     if (cell.value.removeAttribute) {
       cell.value.removeAttribute("pending");
@@ -2253,7 +2411,9 @@ export function relinkCell(
     }
     value.setAttribute("cardId", opts.cardId);
     value.setAttribute("cardType", opts.cardType);
-    value.setAttribute("label", opts.name);
+    // Bare name: relink has no field values to hand. The next display pass
+    // fills the detail rows in.
+    setCardLabel(value, opts.name);
     if (value.removeAttribute) {
       value.removeAttribute("pending");
       value.removeAttribute("expanded");
@@ -2324,9 +2484,9 @@ export function getCellLabel(iframe: HTMLIFrameElement, cellId: string): string 
   if (!ctx) return "";
   const cell = ctx.graph.getModel().getCell(cellId);
   if (!cell) return "";
-  const v = cell.value;
-  if (typeof v === "string") return v;
-  return v?.getAttribute?.("label") || "";
+  // A card cell's `label` may be composed HTML — `readCardName` unwraps it and
+  // falls through to `label` for plain shapes, which is what the caller wants.
+  return readCardName(cell.value);
 }
 
 /**
@@ -2351,7 +2511,7 @@ export function convertShapeToPendingCard(
   try {
     const xmlDoc = win.mxUtils.createXmlDocument();
     const obj = xmlDoc.createElement("object");
-    obj.setAttribute("label", opts.name);
+    setCardLabel(obj, opts.name);
     obj.setAttribute("cardId", opts.tempId);
     obj.setAttribute("cardType", opts.type);
     obj.setAttribute("pending", "1");
@@ -2399,8 +2559,11 @@ export function convertShapeToContainer(
       obj.setAttribute("label", seedLabel || fallbackLabel);
       model.setValue(cell, obj);
       value = obj;
-    } else if (!value.getAttribute("label")) {
-      value.setAttribute("label", fallbackLabel);
+    } else {
+      // A composed card turning into a swimlane: the header strip is ~28px, so
+      // collapse back to the bare name rather than render detail rows in it.
+      const plain = readCardName(value);
+      value.setAttribute("label", composeCardLabel(plain || fallbackLabel));
     }
 
     // Make sure the container is big enough to hold cells — 320×220 is
@@ -2551,7 +2714,7 @@ export function attachParentChangeListener(
       cellId: cell.id,
       cardId,
       cardType: cell.value.getAttribute("cardType") || "",
-      label: cell.value.getAttribute("label") || "",
+      label: readCardName(cell.value),
     };
   };
 
@@ -3048,7 +3211,7 @@ function insertChildVertex(
 
   const xmlDoc = win.mxUtils.createXmlDocument();
   const obj = xmlDoc.createElement("object");
-  obj.setAttribute("label", ch.name);
+  setCardLabel(obj, ch.name);
   obj.setAttribute("cardId", ch.id);
   obj.setAttribute("cardType", ch.type);
   obj.setAttribute("parentGroupCell", parentCellId);
@@ -3301,7 +3464,7 @@ export function drillDownInto(
 
       const xmlDoc = win.mxUtils.createXmlDocument();
       const obj = xmlDoc.createElement("object");
-      obj.setAttribute("label", ch.name);
+      setCardLabel(obj, ch.name);
       obj.setAttribute("cardId", ch.id);
       obj.setAttribute("cardType", ch.type);
       // Mark as a drill-down child so future scans don't mistake the inner
@@ -3376,7 +3539,7 @@ export function rollUpInto(
     // current card so the user sees the relationship.
     const xmlDoc = win.mxUtils.createXmlDocument();
     const parentObj = xmlDoc.createElement("object");
-    parentObj.setAttribute("label", parent.name);
+    setCardLabel(parentObj, parent.name);
     parentObj.setAttribute("cardId", parent.id);
     parentObj.setAttribute("cardType", parent.type);
 
@@ -3457,7 +3620,7 @@ export function rollUpInto(
       ].join(";");
 
       const childObj = xmlDoc.createElement("object");
-      childObj.setAttribute("label", card.name);
+      setCardLabel(childObj, card.name);
       childObj.setAttribute("cardId", card.id);
       childObj.setAttribute("cardType", card.type);
       childObj.setAttribute("rollUpChild", "1");
@@ -3725,6 +3888,134 @@ export function applyCardTypeIcons(
   return touched;
 }
 
+/**
+ * Re-render every synced card cell's label with the caller's detail rows.
+ *
+ * Modelled on `applyCardTypeIcons`: one pass over the live model, no fetches,
+ * returns how many cells it touched. A card whose id is absent from the map is
+ * reset to its bare name, which is how turning a field off clears the canvas.
+ *
+ * Deliberately skipped:
+ *  - **pending cells** (`pending-…` ids) — `scanDiagramItems` feeds their name
+ *    straight into `POST /cards`, so a composed label there would create a card
+ *    literally named `<b>Foo</b>…`;
+ *  - **child cells** (expanded groups, drill-down, roll-up) — they are 190x40
+ *    or smaller and mxGraph paints label overflow outside the shape;
+ *  - **cells with no `cardId`** — unlinked stubs and plain DrawIO shapes are
+ *    nobody's to rewrite.
+ */
+export function applyCardLabels(
+  iframe: HTMLIFrameElement,
+  linesByCardId: Map<string, CardDetailLine[]>,
+): number {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return 0;
+  const { graph } = ctx;
+  const model = graph.getModel();
+  const cells = model.cells || {};
+  let touched = 0;
+  model.beginUpdate();
+  try {
+    for (const k of Object.keys(cells)) {
+      const cell = cells[k];
+      if (!cell?.value?.getAttribute) continue;
+      if (cell.edge) continue;
+      const cardId = cell.value.getAttribute("cardId");
+      if (!cardId || cardId.startsWith("pending-")) continue;
+      if (
+        cell.value.getAttribute("parentGroupCell") ||
+        cell.value.getAttribute("drillDownChild") ||
+        cell.value.getAttribute("rollUpChild")
+      ) {
+        continue;
+      }
+      // Adopting a cell that predates `cardName`: its `label` is the name, but
+      // it may carry hand-applied markup, which would otherwise be escaped and
+      // rendered as literal text. `firstLineText` recovers the plain name.
+      const stamped = cell.value.getAttribute(CARD_NAME_ATTR);
+      const name = stamped || firstLineText(cell.value.getAttribute("label") || "");
+      if (!name) continue;
+      const next = composeCardLabel(name, linesByCardId.get(cardId) ?? []);
+      if (next !== (cell.value.getAttribute("label") || "")) {
+        cell.value.setAttribute("label", next);
+        cell.value.setAttribute(CARD_NAME_ATTR, name);
+        graph.refresh(cell);
+        touched += 1;
+      }
+    }
+  } finally {
+    model.endUpdate();
+  }
+  return touched;
+}
+
+/**
+ * Listen for hand edits to a card's label (F2 / double-click rename) and keep
+ * `cardName` in step, via {@link normaliseEditedCardLabel}.
+ *
+ * Without this the inventory-rename diff would go dead on any cell the user
+ * renamed by hand: DrawIO writes only `label`, so `cardName` would keep the old
+ * value and `staleCheck` would keep comparing that instead of what is on screen.
+ */
+export function attachCardLabelEditListener(
+  iframe: HTMLIFrameElement,
+  onRenamed?: (cellId: string, name: string) => void,
+): () => void {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return () => {};
+  const { win, graph } = ctx;
+  const listener = (_sender: unknown, evt: { getProperty?: (k: string) => unknown }) => {
+    const cell = evt?.getProperty?.("cell") as { id?: string } | undefined;
+    if (!cell?.id) return;
+    const name = normaliseEditedCardLabel(iframe, cell.id);
+    if (name != null) onRenamed?.(cell.id, name);
+  };
+  graph.addListener(win.mxEvent.LABEL_CHANGED, listener);
+  return () => {
+    try {
+      graph.removeListener(listener);
+    } catch {
+      // Editor already torn down.
+    }
+  };
+}
+
+/**
+ * Normalise a card cell after DrawIO wrote a hand-typed (F2) label straight
+ * onto it. DrawIO only ever sets `label`, so without this the plain name in
+ * `cardName` would silently keep the old value and the inventory rename diff
+ * would go dead for that cell.
+ *
+ * The first line becomes the new name; the detail rows below it are re-rendered
+ * from what the cell already carries rather than from whatever the user typed
+ * over them — they are data, not prose. Returns the recovered name, or null
+ * when the cell is not a card cell.
+ */
+export function normaliseEditedCardLabel(
+  iframe: HTMLIFrameElement,
+  cellId: string,
+): string | null {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return null;
+  const { graph } = ctx;
+  const model = graph.getModel();
+  const cell = model.getCell(cellId);
+  if (!cell?.value?.getAttribute || cell.edge) return null;
+  if (!cell.value.getAttribute("cardId")) return null;
+  const raw = cell.value.getAttribute("label") || "";
+  const name = firstLineText(raw);
+  if (!name) return null;
+  model.beginUpdate();
+  try {
+    cell.value.setAttribute("label", renameCardLabel(raw, name));
+    cell.value.setAttribute(CARD_NAME_ATTR, name);
+    graph.refresh(cell);
+  } finally {
+    model.endUpdate();
+  }
+  return name;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Layered Dependency View → DrawIO diagram serialiser               */
 /* ------------------------------------------------------------------ */
@@ -3737,6 +4028,9 @@ export interface DiagramCardInput {
   color: string;
   /** Card-type Material Symbols icon name (e.g. "apps"). Optional. */
   icon?: string;
+  /** Attribute rows the source view was showing, carried onto the shape so a
+   *  generated diagram reads like the report it came from. */
+  detailLines?: CardDetailLine[];
   x: number;
   y: number;
   w: number;
@@ -3817,17 +4111,22 @@ export function buildLdvDiagramXml(
   cards.forEach((c, i) => {
     const cellId = `card-${i}-${c.cardId.slice(0, 8)}`;
     cellIdByCard.set(c.cardId, cellId);
-    const { style } = buildCardCellData({
+    const { style, label } = buildCardCellData({
       cardId: c.cardId,
       cardType: c.cardType,
       name: c.name,
       color: c.color,
       icon: c.icon,
+      detailLines: c.detailLines,
       x: c.x,
       y: c.y,
     });
+    // Two escaping layers, in this order: `composeCardLabel` escaped for HTML
+    // (it is rendered under `html=1`), `escapeXml` now escapes for the XML
+    // attribute. Reverse them and every `&` in a card name renders as `&amp;`.
     parts.push(
-      `<object id="${escapeXml(cellId)}" label="${escapeXml(c.name)}" ` +
+      `<object id="${escapeXml(cellId)}" label="${escapeXml(label)}" ` +
+        `cardName="${escapeXml(c.name)}" ` +
         `cardId="${escapeXml(c.cardId)}" cardType="${escapeXml(c.cardType)}">` +
         `<mxCell style="${escapeXml(style)}" vertex="1" parent="1">` +
         `<mxGeometry x="${r(c.x)}" y="${r(c.y)}" width="${r(c.w)}" height="${r(c.h)}" ` +

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { api } from "@/api/client";
 import { diffStaleItems, fetchInventoryState } from "./staleCheck";
 import type { InventoryState } from "./staleCheck";
+import { composeCardLabel, scanDiagramItems } from "./drawio-shapes";
 import type { ScannedSyncedEdge, ScannedSyncedFS } from "./drawio-shapes";
 import type { Card, Relation } from "@/types";
 
@@ -360,5 +361,69 @@ describe("fetchInventoryState", () => {
     for (const call of mockGet.mock.calls) {
       expect(call[1]).toEqual({ signal: ctrl.signal });
     }
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Detail lines must not look like a rename                           */
+/* ------------------------------------------------------------------ */
+
+/** Minimal scan frame — enough for scanDiagramItems to walk one card cell. */
+function labelledCanvas(attrs: Record<string, string>) {
+  const bag = { ...attrs };
+  const cells = {
+    c1: {
+      id: "c1",
+      value: {
+        getAttribute: (k: string) => (k in bag ? bag[k] : null),
+        setAttribute: (k: string, v: string) => {
+          bag[k] = v;
+        },
+        removeAttribute: (k: string) => {
+          delete bag[k];
+        },
+      },
+    },
+  };
+  const model = { cells, getTerminal: () => null };
+  const graph = { getModel: () => model };
+  return { contentWindow: { __turboGraph: graph } } as unknown as HTMLIFrameElement;
+}
+
+describe("diffStaleItems — composed card labels", () => {
+  it("does not report a rename just because the shape shows detail lines", () => {
+    const frame = labelledCanvas({
+      cardId: "a1",
+      cardType: "Application",
+      cardName: "NexaCore ERP",
+      label: composeCardLabel("NexaCore ERP", [{ label: "Type", value: "Application" }]),
+    });
+    const scanned = scanDiagramItems(frame).syncedFS;
+    const inventory: InventoryState = {
+      cardById: new Map([["a1", card("a1", "NexaCore ERP")]]),
+      relationById: new Map(),
+    };
+    expect(diffStaleItems(scanned, [], inventory, color, relLabel, flowOf)).toEqual([]);
+  });
+
+  it("still reports a genuine rename, showing the plain diagram name", () => {
+    const frame = labelledCanvas({
+      cardId: "a1",
+      cardType: "Application",
+      cardName: "Old Name",
+      label: composeCardLabel("Old Name", [{ label: "Type", value: "Application" }]),
+    });
+    const scanned = scanDiagramItems(frame).syncedFS;
+    const inventory: InventoryState = {
+      cardById: new Map([["a1", card("a1", "New Name")]]),
+      relationById: new Map(),
+    };
+    const items = diffStaleItems(scanned, [], inventory, color, relLabel, flowOf);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      kind: "renamed",
+      diagramName: "Old Name",
+      inventoryName: "New Name",
+    });
   });
 });

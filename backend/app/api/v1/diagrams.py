@@ -56,6 +56,7 @@ def _extract_card_refs(data: dict | None) -> list[str]:
 # and the relation graph behind the picture.
 _PRIVATE_CELL_ATTRS = (
     "cardId",
+    "cardName",
     "cardType",
     "relationId",
     "relationType",
@@ -72,8 +73,15 @@ def sanitise_public_xml(xml: str | None) -> str:
     """Strip Turbo EA attributes from diagram XML for public rendering.
 
     Labels, geometry and styling survive untouched — that is the picture the
-    publisher chose to share. Card names are visible either way (they *are* the
-    labels); what leaves with this is the internal identity of every shape.
+    publisher chose to share, including any attribute rows they chose to render
+    under a card's name. What leaves with this is the internal identity of every
+    shape.
+
+    ``cardName`` is stripped along with the ids even though a card's name is
+    normally its label: once a shape carries detail rows the label is composed
+    HTML, and a hand-renamed shape's label no longer matches ``cardName`` at
+    all — so the attribute can hold a name the published picture deliberately
+    does not show.
     """
     if not xml:
         return ""
