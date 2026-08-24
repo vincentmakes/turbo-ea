@@ -6,10 +6,16 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { COLUMN_COUNTS, isColumnCount, type ColumnCount } from "@/components/cardColumns";
 
-const ICONS: Record<ColumnCount, string> = {
-  1: "view_agenda",
-  2: "vertical_split",
-  3: "view_column",
+/**
+ * One frame subdivided into N panes, so the three buttons differ only in the
+ * number of divisions. `view_stream` is a frame split into two *rows*, so it
+ * is turned on its side to read as two columns; the glyph is symmetric, so
+ * the rotation needs no RTL handling.
+ */
+const ICONS: Record<ColumnCount, { icon: string; rotate?: boolean }> = {
+  1: { icon: "crop_portrait" },
+  2: { icon: "view_stream", rotate: true },
+  3: { icon: "view_column" },
 };
 
 const TOOLTIP_KEYS: Record<ColumnCount, string> = {
@@ -55,7 +61,11 @@ export default function ColumnCountPicker({ value, onChange }: Props) {
         >
           <Tooltip title={t(TOOLTIP_KEYS[n])}>
             <Box component="span" sx={{ display: "flex" }}>
-              <MaterialSymbol icon={ICONS[n]} size={18} />
+              <MaterialSymbol
+                icon={ICONS[n].icon}
+                size={18}
+                style={ICONS[n].rotate ? { transform: "rotate(90deg)" } : undefined}
+              />
             </Box>
           </Tooltip>
         </ToggleButton>
