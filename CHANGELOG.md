@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **A diagram generated from the Dependencies report keeps the report's detail.** The **Create diagram** button used to hand DrawIO nothing but names, so a landscape that read richly in the report went flat on the diagram made from it. The card-display settings and the resolved rows now travel across, and the new diagram opens with its own dropdown pre-set to match.
 - **Subtype can be shown on a dependency card.** The Dependencies report's **Card display** menu has a *Show subtype* switch, alongside the existing type and lifecycle toggles.
 - **The Dependencies report's Card display menu is grouped.** Its switches sit under **Cards** and **Relations** instead of running together, and the extra-fields picker lists each attribute under the card type that owns it.
+- **The colour and the fields on a diagram card are set independently.** Both live in the same **View** dropdown, and neither now depends on the other: the attribute rows are populated whenever the menu is opened rather than as a side effect of applying a colour, and picking a colour no longer dismisses the menu, so both can be set in one visit.
 
 ### Fixed
 

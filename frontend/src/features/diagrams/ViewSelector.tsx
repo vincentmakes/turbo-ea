@@ -37,6 +37,9 @@ export interface ColorEntry {
 interface Props {
   /** Card-type keys actually present on the canvas — drives which fields are offered. */
   activeTypeKeys: string[];
+  /** Re-scan the canvas before the menu paints, so the field lists reflect what
+   *  is on it right now rather than whenever they last happened to be built. */
+  onOpen?: () => void;
   types: CardType[];
   current: ViewSource;
   onChange: (next: ViewSource) => void;
@@ -51,8 +54,13 @@ interface Props {
  * Two settings, deliberately independent and deliberately shaped differently
  * so a reader can tell them apart without trying them:
  *
- *  - **Color by** — pick ONE. Radio rows; choosing closes the menu.
- *  - **Show on card** — pick MANY. Checkbox rows; ticking keeps the menu open.
+ *  - **Color by** — pick ONE. Radio rows.
+ *  - **Show on card** — pick MANY. Checkbox rows.
+ *
+ * Neither closes the menu. Two settings share this dropdown, so dismissing it
+ * on a colour pick would interrupt the other one — you would have to reopen to
+ * carry on. The radio-vs-checkbox affordance is what says "one" and "many";
+ * the close was never carrying that meaning.
  *
  * Both field lists are filed under the card type that owns them, using the same
  * catalogue the Layered Dependency View offers, so a field reads the same in a
@@ -60,6 +68,7 @@ interface Props {
  */
 export default function ViewSelector({
   activeTypeKeys,
+  onOpen,
   types,
   current,
   onChange,
@@ -121,11 +130,6 @@ export default function ViewSelector({
   const shownCount =
     labels.fields.length + (labels.showType ? 1 : 0) + (labels.showSubtype ? 1 : 0);
 
-  const pickColor = (next: ViewSource) => {
-    onChange(next);
-    setAnchorEl(null);
-  };
-
   const toggleField = (key: string) => {
     const next = labels.fields.includes(key)
       ? labels.fields.filter((k) => k !== key)
@@ -144,7 +148,10 @@ export default function ViewSelector({
           variant="outlined"
           startIcon={<MaterialSymbol icon="palette" size={18} />}
           endIcon={<MaterialSymbol icon="expand_more" size={16} />}
-          onClick={(e) => setAnchorEl(e.currentTarget)}
+          onClick={(e) => {
+            onOpen?.();
+            setAnchorEl(e.currentTarget);
+          }}
           sx={{
             textTransform: "none",
             fontSize: "0.8rem",
@@ -182,12 +189,12 @@ export default function ViewSelector({
         <ChoiceRow
           checked={current.kind === "card_type"}
           label={t("viewSelector.cardType")}
-          onSelect={() => pickColor({ kind: "card_type" })}
+          onSelect={() => onChange({ kind: "card_type" })}
         />
         <ChoiceRow
           checked={current.kind === "approval_status"}
           label={t("viewSelector.approvalStatus")}
-          onSelect={() => pickColor({ kind: "approval_status" })}
+          onSelect={() => onChange({ kind: "approval_status" })}
         />
 
         {colorFieldsByType.map(({ type, fields }) => [
@@ -202,7 +209,7 @@ export default function ViewSelector({
               }
               label={fieldLabel(f)}
               onSelect={() =>
-                pickColor({ kind: "card_field", type_key: type.key, field_key: f.key })
+                onChange({ kind: "card_field", type_key: type.key, field_key: f.key })
               }
             />
           )),
@@ -280,7 +287,8 @@ function TypeHeading({ type, label }: { type?: CardType; label: string }) {
   );
 }
 
-/** Pick-one row. Closes the menu, like every other single-choice menu item. */
+/** Pick-one row. Deliberately leaves the menu open — see the note on the
+ *  component: the other setting lives here too. */
 function ChoiceRow({
   checked,
   label,
@@ -300,7 +308,7 @@ function ChoiceRow({
   );
 }
 
-/** Pick-many row. Deliberately keeps the menu open. */
+/** Pick-many row. */
 function CheckRow({
   checked,
   label,

@@ -2043,7 +2043,11 @@ export default function DiagramEditor() {
     const frame = iframeRef.current;
     if (!frame) return;
 
-    const { pendingCards: pfs, pendingRels: prels, syncedFS: _ } = scanDiagramItems(frame);
+    const { pendingCards: pfs, pendingRels: prels, syncedFS } = scanDiagramItems(frame);
+
+    // Free: this scan already knows what is on the canvas, and it runs on every
+    // change, so the card-display dropdown stays current as cards come and go.
+    setActiveTypeKeys(Array.from(new Set(syncedFS.map((c) => c.type))));
 
     setPendingFS(
       pfs.map((p) => {
@@ -2953,6 +2957,20 @@ export default function DiagramEditor() {
     [buildLinesByCardId],
   );
 
+  /** Refresh the set of card types on the canvas — the list both halves of the
+   *  card-display dropdown are built from.
+   *
+   *  Deliberately its own callback rather than a by-product of `applyView`:
+   *  that effect runs when the diagram id lands, which is *before* DrawIO has a
+   *  graph, so its early return left the type list empty and the dropdown's
+   *  attribute rows blank until something happened to re-run it — in practice,
+   *  picking a colour. That made two independent settings feel ordered. */
+  const refreshActiveTypeKeys = useCallback(() => {
+    const snapshot = collectCanvasCards();
+    if (!snapshot) return;
+    setActiveTypeKeys(Array.from(snapshot.types));
+  }, [collectCanvasCards]);
+
   /** Recompute and apply the active view to the canvas. Pulls a batch
    *  card payload via /cards?ids=... so a single round-trip recolors
    *  every cell AND re-renders its detail lines — deliberately one fetch,
@@ -3248,6 +3266,7 @@ export default function DiagramEditor() {
 
         {/* View perspective dropdown (Phase 5) */}
         <ViewSelector
+          onOpen={refreshActiveTypeKeys}
           activeTypeKeys={activeTypeKeys}
           types={fsTypes}
           current={view}

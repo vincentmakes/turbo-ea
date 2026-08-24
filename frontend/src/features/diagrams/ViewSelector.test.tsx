@@ -48,12 +48,20 @@ const PROVIDER = type("Provider", [{ key: "tier", label: "Tier" }]);
 
 const TYPES = [APPLICATION, ITCOMPONENT, PROVIDER];
 
-function setup(over: Partial<{ current: ViewSource; labels: CardLabelSettings }> = {}) {
+function setup(
+  over: Partial<{
+    current: ViewSource;
+    labels: CardLabelSettings;
+    activeTypeKeys: string[];
+  }> = {},
+) {
   const onChange = vi.fn();
   const onLabelsChange = vi.fn();
+  const onOpen = vi.fn();
   render(
     <ViewSelector
-      activeTypeKeys={["Application", "ITComponent"]}
+      activeTypeKeys={over.activeTypeKeys ?? ["Application", "ITComponent"]}
+      onOpen={onOpen}
       types={TYPES}
       current={over.current ?? { kind: "card_type" }}
       onChange={onChange}
@@ -61,7 +69,7 @@ function setup(over: Partial<{ current: ViewSource; labels: CardLabelSettings }>
       onLabelsChange={onLabelsChange}
     />,
   );
-  return { onChange, onLabelsChange };
+  return { onChange, onLabelsChange, onOpen };
 }
 
 async function openMenu() {
@@ -85,12 +93,14 @@ describe("ViewSelector", () => {
     expect(within(menu).getAllByRole("checkbox").length).toBeGreaterThan(0);
   });
 
-  it("closes on a colour choice — one pick and you are done", async () => {
+  it("stays open on a colour choice — the other setting lives here too", async () => {
+    // Two settings share this menu, so dismissing on a colour pick would force
+    // a reopen to carry on with the display fields.
     const { onChange } = setup();
     const menu = await openMenu();
     await userEvent.click(within(menu).getByText("Approval status"));
     expect(onChange).toHaveBeenCalledWith({ kind: "approval_status" });
-    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(screen.getByRole("menu")).toBeInTheDocument();
   });
 
   it("stays open while display fields are ticked — they are a multi-select", async () => {
@@ -99,6 +109,15 @@ describe("ViewSelector", () => {
     await userEvent.click(within(menu).getByText("Card type"));
     expect(onLabelsChange).toHaveBeenCalledWith({ fields: [], showType: true });
     expect(screen.getByRole("menu")).toBeInTheDocument();
+  });
+
+  it("lets a colour and a display field be set without reopening", async () => {
+    const { onChange, onLabelsChange } = setup();
+    const menu = await openMenu();
+    await userEvent.click(within(menu).getByText("Approval status"));
+    await userEvent.click(within(menu).getByText("Hosting"));
+    expect(onChange).toHaveBeenCalledWith({ kind: "approval_status" });
+    expect(onLabelsChange).toHaveBeenCalledWith({ fields: ["hosting"] });
   });
 
   it("files a field shared by two canvas types under Shared, exactly once", async () => {
@@ -136,5 +155,29 @@ describe("ViewSelector", () => {
     const menu = await openMenu();
     await userEvent.click(within(menu).getByText("Owner"));
     expect(onLabelsChange).toHaveBeenCalledWith({ fields: ["hosting"] });
+  });
+
+  it("re-scans the canvas every time the menu opens", async () => {
+    // Regression: the type list used to be populated only as a side effect of
+    // applying a colour perspective, and that effect ran before DrawIO had a
+    // graph — so the attribute rows stayed empty until the user picked a
+    // colour, which made two independent settings feel ordered.
+    const { onOpen } = setup();
+    await openMenu();
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(screen.getByRole("button"));
+    expect(onOpen).toHaveBeenCalledTimes(2);
+  });
+
+  it("still offers both settings when the canvas scan has not landed yet", async () => {
+    // No card types known: the colour perspectives that need none, and the
+    // card-type/subtype rows, must all still be reachable.
+    setup({ activeTypeKeys: [] });
+    const menu = await openMenu();
+    expect(within(menu).getByText("Color by")).toBeInTheDocument();
+    expect(within(menu).getByText("Approval status")).toBeInTheDocument();
+    expect(within(menu).getByText("Show on card")).toBeInTheDocument();
+    expect(within(menu).getByText("Subtype")).toBeInTheDocument();
   });
 });
