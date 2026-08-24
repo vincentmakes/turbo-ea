@@ -61,7 +61,7 @@ export default function LdvShowOnCard({
           // read alike.
           label: t("dependency.lifecycleLabel"),
           checked: settings.showLifecycle,
-          onToggle: () => update({ showLifecycle: !settings.showLifecycle }),
+          onSet: (checked) => update({ showLifecycle: checked }),
         },
       ]}
     />

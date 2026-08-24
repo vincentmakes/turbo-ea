@@ -31,7 +31,12 @@ export interface CardDisplayLine {
   key: string;
   label: string;
   checked: boolean;
-  onToggle: () => void;
+  /**
+   * Set the line, rather than flip it. Clear-all has to force every line off,
+   * and a flip would switch *on* the ones already off — so the row passes
+   * `!checked` and clear passes `false`, which no-ops on an off line.
+   */
+  onSet: (checked: boolean) => void;
 }
 
 interface Props {
@@ -111,6 +116,13 @@ export default function ShowOnCardSelector({
     (labels.showSubtype ? 1 : 0) +
     extraLines.filter((l) => l.checked).length;
 
+  /* One onChange for everything the shared settings own, so the store takes a
+     single write and the user gets one undo step rather than one per tick. */
+  const clearAll = () => {
+    onChange({ ...labels, showType: false, showSubtype: false, fields: [] });
+    for (const l of extraLines) l.onSet(false);
+  };
+
   const toggleField = (key: string) => {
     const next = labels.fields.includes(key)
       ? labels.fields.filter((k) => k !== key)
@@ -134,10 +146,26 @@ export default function ShowOnCardSelector({
      A flat array, never a Fragment: MUI clones a menu's top-level children to
      drive focus and keyboard navigation, and a Fragment reads as one child. */
   const rows: ReactNode[] = [
-    <Box key="__hint" sx={{ px: 2, pb: 0.5 }}>
-      <Typography variant="caption" color="text.secondary">
+    <Box
+      key="__hint"
+      sx={{ px: 2, pb: 0.5, display: "flex", alignItems: "center", gap: 1 }}
+    >
+      <Typography variant="caption" color="text.secondary" sx={{ flex: 1, minWidth: 0 }}>
         {t("cardDisplay.linesHint", { count: MAX_CARD_LINES })}
       </Typography>
+      {/* Always rendered and disabled at zero, rather than hidden as in the
+          Inventory columns tab: appearing on the first tick would shift every
+          row below it just as the reader is aiming at the next one. And a plain
+          Button, never a MenuItem — an action in the keyboard tick sequence is
+          a stray Enter away from wiping the selection. */}
+      <Button
+        size="small"
+        onClick={clearAll}
+        disabled={shownCount === 0}
+        sx={{ textTransform: "none", fontSize: 12, minWidth: 0, px: 1, flexShrink: 0 }}
+      >
+        {t("cardDisplay.clearAll")}
+      </Button>
     </Box>,
     <CheckRow
       key="__type"
@@ -152,7 +180,12 @@ export default function ShowOnCardSelector({
       onToggle={() => onChange({ ...labels, showSubtype: !labels.showSubtype })}
     />,
     ...extraLines.map((l) => (
-      <CheckRow key={l.key} checked={l.checked} label={l.label} onToggle={l.onToggle} />
+      <CheckRow
+        key={l.key}
+        checked={l.checked}
+        label={l.label}
+        onToggle={() => l.onSet(!l.checked)}
+      />
     )),
     ...groups.flatMap((g) => [
       <TypeHeading

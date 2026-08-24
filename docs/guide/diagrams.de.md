@@ -89,7 +89,7 @@ Eine schwebende Legende unten links zeigt eine Skala je aktiver Regel. Feldregel
 
 #### Auf Karte anzeigen
 
-Eine zweite Schaltfläche in der Symbolleiste, **Auf Karte anzeigen**, bestimmt, **was jede Form aussagt**. Wählen Sie den **Kartentyp**, den **Untertyp** oder ein beliebiges Attribut der aktuell auf der Leinwand vorhandenen Kartentypen — jede Form erhält dann kleine Detailzeilen unter ihrem Namen. Die Felder stehen unter dem Kartentyp, zu dem sie gehören; ein Feld, das mehrere dieser Typen teilen, steht unter **Gemeinsam**. Eine eigene Schaltfläche neben **Färben nach**, damit für keine der beiden Listen an der anderen vorbeigescrollt werden muss.
+Eine zweite Schaltfläche in der Symbolleiste, **Auf Karte anzeigen**, bestimmt, **was jede Form aussagt**. Wählen Sie den **Kartentyp**, den **Untertyp** oder ein beliebiges Attribut der aktuell auf der Leinwand vorhandenen Kartentypen — jede Form erhält dann kleine Detailzeilen unter ihrem Namen. Die Felder stehen unter dem Kartentyp, zu dem sie gehören; ein Feld, das mehrere dieser Typen teilen, steht unter **Gemeinsam**. Eine eigene Schaltfläche neben **Färben nach**, damit für keine der beiden Listen an der anderen vorbeigescrollt werden muss. **Alle löschen** entfernt sämtliche Häkchen auf einmal.
 
 Die ersten beiden Auswahlen werden auf der Form gezeichnet: eine Karte ist nur so groß, und Text, der nicht passt, würde über ihren Rand hinauslaufen. Alles Angehakte wird gespeichert, sodass eine spätere Erweiterung der Auswahl ändert, welche zwei erscheinen, ohne dass Sie neu wählen müssen.
 

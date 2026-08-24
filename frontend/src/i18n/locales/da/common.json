@@ -460,6 +460,7 @@
   "cardDisplay.showOnCard": "Vis på kortet",
   "cardDisplay.sharedFields": "Fælles",
   "cardDisplay.cardTypeLine": "Korttype",
+  "cardDisplay.clearAll": "Ryd alle",
   "cardDisplay.subtypeLine": "Undertype",
   "cardDisplay.linesHint": "De første {{count}} vises på kortet.",
   "cardDisplay.noFields": "Ingen felter tilgængelige"

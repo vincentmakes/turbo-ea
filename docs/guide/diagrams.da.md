@@ -89,7 +89,7 @@ En flydende forklaring nederst til venstre viser én skala pr. aktiv regel. Felt
 
 #### Vis på kortet
 
-En anden knap i værktøjslinjen, **Vis på kortet**, afgør, **hvad hver figur siger**. Sæt flueben ved **korttypen**, **undertypen** eller en vilkårlig egenskab fra de korttyper, der aktuelt er på lærredet, og hver figur får små detaljelinjer under sit navn. Felterne står under den korttype, de hører til; et felt, som flere af de typer deler, samles under **Fælles**. Det er en separat knap fra **Farvelæg efter**, så ingen af de to lister skal scrolles forbi for at nå den anden.
+En anden knap i værktøjslinjen, **Vis på kortet**, afgør, **hvad hver figur siger**. Sæt flueben ved **korttypen**, **undertypen** eller en vilkårlig egenskab fra de korttyper, der aktuelt er på lærredet, og hver figur får små detaljelinjer under sit navn. Felterne står under den korttype, de hører til; et felt, som flere af de typer deler, samles under **Fælles**. Det er en separat knap fra **Farvelæg efter**, så ingen af de to lister skal scrolles forbi for at nå den anden. **Ryd alle** fjerner alle flueben på én gang.
 
 De to første valg tegnes på figuren: et kort har en begrænset størrelse, og tekst der ikke passer, ville flyde ud over kanten. Alt du sætter flueben ved, huskes, så en senere udvidelse af udvalget ændrer hvilke to der vises, uden at du skal vælge forfra.
 

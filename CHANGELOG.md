@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - **Picking what a dependency card shows is its own toolbar button, with tickboxes.** In the Layered Dependency View the attribute picker was a chip-and-text field at the bottom of the settings menu — hard to find, and awkward on a tablet. It is now a **Show on card** button of its own in the toolbar, listing the type, the subtype, the lifecycle dot and every attribute in play as tickboxes filed under the card type that owns them, with a badge counting what is shown. It is the same menu the diagram editor uses, so a landscape is dressed the same way in a report and on the diagram exported from it.
+- **Show on card has a Clear all action**, so returning a card to just its name is one click instead of hunting down each ticked row. It clears the type, the subtype, the lifecycle line and every picked field in a single step, on both the report and the diagram.
 - **The card-display menus are usable on a touch screen.** Rows in the Dependencies and diagram menus are finger-sized on a tablet, and on a phone the list opens as a full-screen sheet instead of a cramped dropdown.
 - **The Dependencies report's `tune` menu is now View options**, keeping the hierarchy-marker, end-of-life and relationship-label settings; everything that changes the text printed on a card moved to **Show on card**.
 

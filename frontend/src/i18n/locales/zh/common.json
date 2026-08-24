@@ -460,6 +460,7 @@
   "cardDisplay.showOnCard": "在卡片上显示",
   "cardDisplay.sharedFields": "共用",
   "cardDisplay.cardTypeLine": "卡片类型",
+  "cardDisplay.clearAll": "全部清除",
   "cardDisplay.subtypeLine": "子类型",
   "cardDisplay.linesHint": "前 {{count}} 个显示在卡片上。",
   "cardDisplay.noFields": "无可用字段"

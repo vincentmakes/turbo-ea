@@ -91,4 +91,16 @@ describe("LdvShowOnCard", () => {
     const menu = await openMenu();
     expect(within(menu).queryByText("Tier")).not.toBeInTheDocument();
   });
+
+  it("clears the picked fields and the lifecycle line together", async () => {
+    const { update } = setup({ showLifecycle: true, extraFields: ["owner"], showType: true });
+    const menu = await openMenu();
+    await userEvent.click(within(menu).getByRole("button", { name: "Clear all" }));
+    expect(update).toHaveBeenCalledWith({
+      showType: false,
+      showSubtype: false,
+      extraFields: [],
+    });
+    expect(update).toHaveBeenCalledWith({ showLifecycle: false });
+  });
 });

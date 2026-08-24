@@ -89,7 +89,7 @@ Una legenda fluttuante in basso a sinistra mostra una scala per ogni regola atti
 
 #### Mostra sulla scheda
 
-Un secondo pulsante nella barra strumenti, **Mostra sulla scheda**, decide **cosa dice ogni forma**. Spuntate il **tipo di scheda**, il **sottotipo** o qualsiasi attributo dei tipi di scheda presenti sulla tela: ogni forma acquisirà piccole righe di dettaglio sotto il proprio nome. I campi sono elencati sotto il tipo di scheda a cui appartengono; un campo condiviso da più di questi tipi è raggruppato sotto **Comuni**. È un pulsante distinto da **Colora per**, così nessuna delle due liste costringe a scorrere l'altra.
+Un secondo pulsante nella barra strumenti, **Mostra sulla scheda**, decide **cosa dice ogni forma**. Spuntate il **tipo di scheda**, il **sottotipo** o qualsiasi attributo dei tipi di scheda presenti sulla tela: ogni forma acquisirà piccole righe di dettaglio sotto il proprio nome. I campi sono elencati sotto il tipo di scheda a cui appartengono; un campo condiviso da più di questi tipi è raggruppato sotto **Comuni**. È un pulsante distinto da **Colora per**, così nessuna delle due liste costringe a scorrere l'altra. **Cancella tutto** toglie tutte le spunte in una volta.
 
 Le prime due selezioni vengono disegnate sulla forma: una scheda ha una dimensione limitata e il testo che non entra sborderebbe dal bordo. Tutto ciò che spuntate viene ricordato, così ampliare la selezione in seguito cambia quali due appaiono senza doverle riscegliere.
 

@@ -460,6 +460,7 @@
   "cardDisplay.showOnCard": "Показывать на карточке",
   "cardDisplay.sharedFields": "Общие",
   "cardDisplay.cardTypeLine": "Тип карточки",
+  "cardDisplay.clearAll": "Очистить всё",
   "cardDisplay.subtypeLine": "Подтип",
   "cardDisplay.linesHint": "Первые {{count}} отображаются на карточке.",
   "cardDisplay.noFields": "Нет доступных полей"

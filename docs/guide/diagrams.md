@@ -89,7 +89,7 @@ A floating legend in the bottom-left shows one scale per active rule. Field rule
 
 #### Show on card
 
-A second toolbar button, **Show on card**, chooses **what each shape says**. Tick the **card type**, the **subtype**, or any attribute from the card types currently on the canvas, and each shape gains small detail lines under its name. Fields are listed under the card type they belong to, with any field several of those types share grouped under **Shared**. It is a separate button from **Color by** so that neither list has to be scrolled past to reach the other.
+A second toolbar button, **Show on card**, chooses **what each shape says**. Tick the **card type**, the **subtype**, or any attribute from the card types currently on the canvas, and each shape gains small detail lines under its name. Fields are listed under the card type they belong to, with any field several of those types share grouped under **Shared**. It is a separate button from **Color by** so that neither list has to be scrolled past to reach the other. **Clear all** empties every tick at once.
 
 The first two selections are drawn on the shape — a card is only so big, and text that doesn't fit would spill outside its border. Everything you tick is remembered, so widening the selection later changes which two show without you having to re-pick.
 

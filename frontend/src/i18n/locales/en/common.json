@@ -460,6 +460,7 @@
   "cardDisplay.showOnCard": "Show on card",
   "cardDisplay.sharedFields": "Shared",
   "cardDisplay.cardTypeLine": "Card type",
+  "cardDisplay.clearAll": "Clear all",
   "cardDisplay.subtypeLine": "Subtype",
   "cardDisplay.linesHint": "The first {{count}} appear on the card.",
   "cardDisplay.noFields": "No fields available"

@@ -89,7 +89,7 @@ Uma legenda flutuante no canto inferior esquerdo mostra uma escala por regra ati
 
 #### Mostrar no cartão
 
-Um segundo botão da barra de ferramentas, **Mostrar no cartão**, decide **o que cada forma diz**. Assinale o **tipo de cartão**, o **subtipo** ou qualquer atributo dos tipos de cartão presentes na tela, e cada forma ganha pequenas linhas de detalhe sob o seu nome. Os campos são listados sob o tipo de cartão a que pertencem; um campo partilhado por vários desses tipos é agrupado sob **Comuns**. É um botão separado de **Colorir por**, para que nenhuma das duas listas obrigue a percorrer a outra.
+Um segundo botão da barra de ferramentas, **Mostrar no cartão**, decide **o que cada forma diz**. Assinale o **tipo de cartão**, o **subtipo** ou qualquer atributo dos tipos de cartão presentes na tela, e cada forma ganha pequenas linhas de detalhe sob o seu nome. Os campos são listados sob o tipo de cartão a que pertencem; um campo partilhado por vários desses tipos é agrupado sob **Comuns**. É um botão separado de **Colorir por**, para que nenhuma das duas listas obrigue a percorrer a outra. **Limpar tudo** desmarca todas as caixas de uma só vez.
 
 As duas primeiras seleções são desenhadas na forma: um cartão tem um tamanho limitado e o texto que não cabe transbordaria da sua borda. Tudo o que assinalar é memorizado, pelo que alargar a seleção mais tarde muda quais as duas que aparecem sem ter de escolher de novo.
 

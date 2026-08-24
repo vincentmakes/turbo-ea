@@ -460,6 +460,7 @@
   "cardDisplay.showOnCard": "Mostrar no cartão",
   "cardDisplay.sharedFields": "Comuns",
   "cardDisplay.cardTypeLine": "Tipo de cartão",
+  "cardDisplay.clearAll": "Limpar tudo",
   "cardDisplay.subtypeLine": "Subtipo",
   "cardDisplay.linesHint": "Os primeiros {{count}} aparecem no cartão.",
   "cardDisplay.noFields": "Nenhum campo disponível"

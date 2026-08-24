@@ -89,7 +89,7 @@ Une légende flottante en bas à gauche affiche une échelle par règle active. 
 
 #### Afficher sur la fiche
 
-Un second bouton de la barre d'outils, **Afficher sur la fiche**, détermine **ce que dit chaque forme**. Cochez le **type de fiche**, le **sous-type** ou n'importe quel attribut des types de fiches présents sur le canevas : chaque forme reçoit alors de petites lignes de détail sous son nom. Les champs sont classés sous le type de fiche auquel ils appartiennent ; un champ partagé par plusieurs de ces types est regroupé sous **Communs**. C'est un bouton distinct de **Colorer par**, afin qu'aucune des deux listes n'oblige à faire défiler l'autre.
+Un second bouton de la barre d'outils, **Afficher sur la fiche**, détermine **ce que dit chaque forme**. Cochez le **type de fiche**, le **sous-type** ou n'importe quel attribut des types de fiches présents sur le canevas : chaque forme reçoit alors de petites lignes de détail sous son nom. Les champs sont classés sous le type de fiche auquel ils appartiennent ; un champ partagé par plusieurs de ces types est regroupé sous **Communs**. C'est un bouton distinct de **Colorer par**, afin qu'aucune des deux listes n'oblige à faire défiler l'autre. **Tout effacer** décoche l'ensemble en une fois.
 
 Les deux premières sélections sont dessinées sur la forme — une fiche a une taille limitée, et un texte trop long déborderait de sa bordure. Tout ce que vous cochez est mémorisé : élargir la sélection plus tard change lesquelles des deux s'affichent, sans avoir à recommencer.
 

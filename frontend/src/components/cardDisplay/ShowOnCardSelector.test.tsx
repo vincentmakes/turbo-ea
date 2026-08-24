@@ -128,7 +128,7 @@ describe("ShowOnCardSelector", () => {
   });
 
   it("renders caller-supplied extra lines and counts the ticked ones", async () => {
-    const onToggle = vi.fn();
+    const onSet = vi.fn();
     const onChange = vi.fn();
     render(
       <ShowOnCardSelector
@@ -137,14 +137,15 @@ describe("ShowOnCardSelector", () => {
         labels={{ fields: [] }}
         onChange={onChange}
         extraLines={[
-          { key: "showLifecycle", label: "Lifecycle", checked: true, onToggle },
+          { key: "showLifecycle", label: "Lifecycle", checked: true, onSet },
         ]}
       />,
     );
     expect(screen.getByRole("button")).toHaveTextContent("(1)");
     const menu = await openMenu();
     await userEvent.click(within(menu).getByText("Lifecycle"));
-    expect(onToggle).toHaveBeenCalledTimes(1);
+    // Ticked, so clicking the row asks for it to be turned off.
+    expect(onSet).toHaveBeenCalledWith(false);
     // The caller owns the state, so the component must not also fire onChange.
     expect(onChange).not.toHaveBeenCalled();
   });
@@ -177,5 +178,45 @@ describe("ShowOnCardSelector", () => {
     );
     const menu = await openMenu();
     expect(within(menu).getByText("No fields available")).toBeInTheDocument();
+  });
+
+  it("clears every tick the shared settings own in one update", async () => {
+    const { onChange } = setup({ fields: ["owner", "hosting"], showType: true, showSubtype: true });
+    const menu = await openMenu();
+    await userEvent.click(within(menu).getByRole("button", { name: "Clear all" }));
+    // One call, not one per tick — the store takes a single write and the
+    // reader gets a single undo step.
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith({
+      fields: [],
+      showType: false,
+      showSubtype: false,
+    });
+  });
+
+  it("leaves an already-unticked extra line alone when clearing", async () => {
+    const onSet = vi.fn();
+    const onChange = vi.fn();
+    render(
+      <ShowOnCardSelector
+        activeTypeKeys={["Application"]}
+        types={TYPES}
+        labels={{ fields: ["owner"] }}
+        onChange={onChange}
+        extraLines={[{ key: "showLifecycle", label: "Lifecycle", checked: false, onSet }]}
+      />,
+    );
+    const menu = await openMenu();
+    await userEvent.click(within(menu).getByRole("button", { name: "Clear all" }));
+    // The reason the line contract sets rather than flips: a flip here would
+    // switch lifecycle ON while clearing everything else.
+    expect(onSet).toHaveBeenCalledWith(false);
+    expect(onSet).not.toHaveBeenCalledWith(true);
+  });
+
+  it("offers nothing to clear when the card is already bare", async () => {
+    setup({ fields: [] });
+    const menu = await openMenu();
+    expect(within(menu).getByRole("button", { name: "Clear all" })).toBeDisabled();
   });
 });

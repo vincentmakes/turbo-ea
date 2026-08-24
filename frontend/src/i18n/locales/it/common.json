@@ -460,6 +460,7 @@
   "cardDisplay.showOnCard": "Mostra sulla scheda",
   "cardDisplay.sharedFields": "Comuni",
   "cardDisplay.cardTypeLine": "Tipo di scheda",
+  "cardDisplay.clearAll": "Cancella tutto",
   "cardDisplay.subtypeLine": "Sottotipo",
   "cardDisplay.linesHint": "I primi {{count}} appaiono sulla scheda.",
   "cardDisplay.noFields": "Nessun campo disponibile"

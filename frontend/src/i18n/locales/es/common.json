@@ -460,6 +460,7 @@
   "cardDisplay.showOnCard": "Mostrar en la tarjeta",
   "cardDisplay.sharedFields": "Comunes",
   "cardDisplay.cardTypeLine": "Tipo de tarjeta",
+  "cardDisplay.clearAll": "Borrar todo",
   "cardDisplay.subtypeLine": "Subtipo",
   "cardDisplay.linesHint": "Los primeros {{count}} aparecen en la tarjeta.",
   "cardDisplay.noFields": "No hay campos disponibles"

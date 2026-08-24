@@ -460,6 +460,7 @@
   "cardDisplay.showOnCard": "العرض على البطاقة",
   "cardDisplay.sharedFields": "مشتركة",
   "cardDisplay.cardTypeLine": "نوع البطاقة",
+  "cardDisplay.clearAll": "مسح الكل",
   "cardDisplay.subtypeLine": "النوع الفرعي",
   "cardDisplay.linesHint": "تظهر أول {{count}} على البطاقة.",
   "cardDisplay.noFields": "لا توجد حقول متاحة"

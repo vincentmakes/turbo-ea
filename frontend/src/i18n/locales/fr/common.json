@@ -460,6 +460,7 @@
   "cardDisplay.showOnCard": "Afficher sur la fiche",
   "cardDisplay.sharedFields": "Communs",
   "cardDisplay.cardTypeLine": "Type de fiche",
+  "cardDisplay.clearAll": "Tout effacer",
   "cardDisplay.subtypeLine": "Sous-type",
   "cardDisplay.linesHint": "Les {{count}} premiers apparaissent sur la fiche.",
   "cardDisplay.noFields": "Aucun champ disponible"
