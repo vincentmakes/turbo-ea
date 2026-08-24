@@ -19,7 +19,7 @@ The **Process Navigator** organizes processes into three main categories:
 
 Cards with a published BPMN diagram show a **flow icon** — click it to open the diagram full-screen without leaving the navigator (or jump from there to the full flow editor).
 
-**Column layout:** the toolbar carries a **column picker** — one, two or three columns — so you can widen the process cards or fit more of a row on screen. A row never stretches across more columns than it has processes, and the choice is remembered between visits.
+**Column layout:** the toolbar carries a **column picker** — one, two or three columns — so you can widen the process cards or fit more of a row on screen. A row never stretches across more columns than it has processes, and the choice is remembered between visits. The choice cascades into the nested levels too, one column fewer per level, so drilling down no longer squeezes deep processes into slivers.
 
 ## BPM Dashboard
 

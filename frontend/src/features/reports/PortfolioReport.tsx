@@ -39,6 +39,8 @@ import ColumnCountPicker from "@/components/ColumnCountPicker";
 import {
   columnGridProps,
   isColumnCount,
+  nestedColumns,
+  nestedGridProps,
   DEFAULT_COLUMNS,
   type ColumnCount,
 } from "@/components/cardColumns";
@@ -407,6 +409,8 @@ function GroupCard({
 function NestedGroupCard({
   node,
   displayLevel,
+  columns,
+  depth = 1,
   colorRes,
   colorLabels,
   perMemberColor,
@@ -418,6 +422,10 @@ function NestedGroupCard({
 }: {
   node: GroupNode;
   displayLevel: number;
+  /** The toolbar's top-level pick; the children grid tapers from it. */
+  columns: ColumnCount;
+  /** 1-based depth of THIS card, relative to the rendered root. */
+  depth?: number;
   colorRes: ColorResolution;
   colorLabels: ColorLabels;
   /** When colouring by a relation subtype, each chip uses its own member. */
@@ -550,12 +558,19 @@ function NestedGroupCard({
       {header}
       {colorBar}
       {chips}
-      <Box sx={{ p: 1.5, display: "flex", flexWrap: "wrap", gap: 1.5, alignItems: "flex-start" }}>
+      <Box
+        {...nestedGridProps(nestedColumns(columns, depth + 1), {
+          gap: 1.5,
+          sx: { p: 1.5, alignItems: "start" },
+        })}
+      >
         {node.children.map((child) => (
-          <Box key={child.key} sx={{ flex: "1 1 220px", minWidth: 200 }}>
+          <Box key={child.key}>
             <NestedGroupCard
               node={child}
               displayLevel={displayLevel}
+              columns={columns}
+              depth={depth + 1}
               colorRes={colorRes}
               colorLabels={colorLabels}
               perMemberColor={perMemberColor}
@@ -2025,6 +2040,7 @@ export default function PortfolioReport({
                       <NestedGroupCard
                         node={n}
                         displayLevel={groupDepth}
+                        columns={columns}
                         colorRes={colorRes}
                         colorLabels={colorLabels}
                         perMemberColor={perMemberColor}

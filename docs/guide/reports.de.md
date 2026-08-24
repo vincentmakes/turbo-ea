@@ -53,7 +53,7 @@ Beim Gruppieren nach einem verknüpften Kartentyp mit Hierarchie (z. B. Geschäf
 
 ### Spaltenanzahl wählen
 
-Das Kartenraster in den Berichten **Portfolio**, **Flexibles Portfolio**, **Fähigkeitskarte** und **Prozesslandkarte** hat eine **Spaltenauswahl** in der Werkzeugleiste — drei Schaltflächen für eine, zwei oder drei Spalten. Wählen Sie weniger Spalten, wenn die Karten viele Informationen enthalten und breit genug zum Lesen sein sollen; wählen Sie drei, um mehr von der Landschaft auf einmal zu sehen. Die Auswahl gilt auf jeder Detailebene, wird pro Bericht gespeichert, wird in einem [gespeicherten Bericht](saved-reports.md) mitgeführt und beim Drucken oder Exportieren verwendet. Schmale Bildschirme reduzieren weiterhin von selbst auf eine oder zwei Spalten.
+Das Kartenraster in den Berichten **Portfolio**, **Flexibles Portfolio**, **Fähigkeitskarte** und **Prozesslandkarte** hat eine **Spaltenauswahl** in der Werkzeugleiste — drei Schaltflächen für eine, zwei oder drei Spalten. Wählen Sie weniger Spalten, wenn die Karten viele Informationen enthalten und breit genug zum Lesen sein sollen; wählen Sie drei, um mehr von der Landschaft auf einmal zu sehen. Die Auswahl wird pro Bericht gespeichert, wird in einem [gespeicherten Bericht](saved-reports.md) mitgeführt und beim Drucken oder Exportieren verwendet. Schmale Bildschirme reduzieren weiterhin von selbst auf eine oder zwei Spalten. Die Auswahl wirkt sich nach unten aus: Jede Ebene unterhalb der ersten erhält eine Spalte weniger. Bei einer Spalte steht Ebene 2 dreispaltig und Ebene 3 zweispaltig, bei drei Spalten bleibt alles darunter gestapelt und in voller Breite. Eine Ebene reduziert sich weiterhin selbst, wenn eine Karte wirklich zu schmal dafür ist.
 
 ## Fähigkeitskarte
 

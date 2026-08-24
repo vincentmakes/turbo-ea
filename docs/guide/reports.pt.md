@@ -53,7 +53,7 @@ Ao agrupar por um tipo de cartão relacionado que suporta hierarquia (como Capac
 
 ### Escolher o número de colunas
 
-A grelha de cartões dos relatórios **Portefólio**, **Portefólio flexível**, **Mapa de capacidades** e **Mapa de processos** tem um **seletor de colunas** na barra de ferramentas — três botões para uma, duas ou três colunas. Escolha menos colunas quando os cartões forem densos e precisarem de largura suficiente para se lerem; escolha três para ver mais do panorama de uma só vez. A escolha aplica-se em todos os níveis de detalhe, é memorizada por relatório, acompanha um [relatório guardado](saved-reports.md) e é usada ao imprimir ou exportar. Os ecrãs estreitos continuam a reduzir sozinhos para uma ou duas colunas.
+A grelha de cartões dos relatórios **Portefólio**, **Portefólio flexível**, **Mapa de capacidades** e **Mapa de processos** tem um **seletor de colunas** na barra de ferramentas — três botões para uma, duas ou três colunas. Escolha menos colunas quando os cartões forem densos e precisarem de largura suficiente para se lerem; escolha três para ver mais do panorama de uma só vez. A escolha é memorizada por relatório, acompanha um [relatório guardado](saved-reports.md) e é usada ao imprimir ou exportar. Os ecrãs estreitos continuam a reduzir sozinhos para uma ou duas colunas. A escolha propaga-se para baixo: cada nível abaixo do primeiro recebe menos uma coluna. Com uma coluna, o nível 2 fica com três e o nível 3 com duas; com três colunas, tudo o que está abaixo permanece empilhado a toda a largura. Um nível continua a reduzir-se sozinho quando um cartão é realmente demasiado estreito.
 
 ## Mapa de Capacidades
 

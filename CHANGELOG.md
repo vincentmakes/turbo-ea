@@ -13,7 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- The chosen column count now applies at every drill-down level. Previously these reports quietly switched to a narrower grid once you drilled past the top level, and widened to four columns on very large monitors; the picker replaces both.
+- **The column choice now cascades through the nested levels.** Cards at level 3 were the hardest to read, because every level below the first sized its children off a fixed minimum width that ignored how much room the parent card actually had. The choice you make at the top now sets the levels beneath it, tapering one column per level: pick one column and level 2 sits three across and level 3 two across, pick three and everything below stays stacked and full width. Levels still fold down to fewer columns when a card is genuinely too narrow, and drilling into a card restarts the layout from what you are looking at.
+- Two layout rules these reports applied silently are gone, replaced by the picker: they switched to a narrower grid once you drilled past the top level, and widened to four columns on very large monitors.
 
 ## [2.79.3] - 2026-08-24
 

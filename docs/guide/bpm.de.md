@@ -19,7 +19,7 @@ Der **Prozessnavigator** organisiert Prozesse in drei Hauptkategorien:
 
 Karten mit einem veröffentlichten BPMN-Diagramm zeigen ein **Ablaufsymbol** — klicken Sie darauf, um das Diagramm im Vollbild zu öffnen, ohne den Navigator zu verlassen (oder von dort zum vollständigen Ablauf-Editor zu springen).
 
-**Spaltenlayout:** Die Werkzeugleiste enthält eine **Spaltenauswahl** — eine, zwei oder drei Spalten —, mit der Sie die Prozesskarten verbreitern oder mehr einer Zeile auf den Bildschirm bringen. Eine Zeile wird nie über mehr Spalten gestreckt, als sie Prozesse enthält, und die Auswahl bleibt zwischen Besuchen erhalten.
+**Spaltenlayout:** Die Werkzeugleiste enthält eine **Spaltenauswahl** — eine, zwei oder drei Spalten —, mit der Sie die Prozesskarten verbreitern oder mehr einer Zeile auf den Bildschirm bringen. Eine Zeile wird nie über mehr Spalten gestreckt, als sie Prozesse enthält, und die Auswahl bleibt zwischen Besuchen erhalten. Die Auswahl wirkt auch auf die verschachtelten Ebenen — jeweils eine Spalte weniger pro Ebene —, sodass tiefe Prozesse beim Aufklappen nicht mehr zu schmalen Streifen zusammengedrückt werden.
 
 ## BPM-Dashboard
 

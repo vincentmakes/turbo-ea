@@ -53,7 +53,7 @@ Når du grupperer efter en relateret korttype, der understøtter hierarki (såso
 
 ### Vælg antal kolonner
 
-Kortgitteret i rapporterne **Portefølje**, **Fleksibel portefølje**, **Kapabilitetskort** og **Proceskort** har en **kolonnevælger** i værktøjslinjen — tre knapper for én, to eller tre kolonner. Vælg færre kolonner, når kortene er tætpakkede og skal være brede nok til at læses; vælg tre for at se mere af landskabet på én gang. Valget gælder på alle detaljeniveauer, huskes pr. rapport, følger med en [gemt rapport](saved-reports.md) og bruges ved udskrift og eksport. Smalle skærme falder fortsat af sig selv tilbage til én eller to kolonner.
+Kortgitteret i rapporterne **Portefølje**, **Fleksibel portefølje**, **Kapabilitetskort** og **Proceskort** har en **kolonnevælger** i værktøjslinjen — tre knapper for én, to eller tre kolonner. Vælg færre kolonner, når kortene er tætpakkede og skal være brede nok til at læses; vælg tre for at se mere af landskabet på én gang. Valget huskes pr. rapport, følger med en [gemt rapport](saved-reports.md) og bruges ved udskrift og eksport. Smalle skærme falder fortsat af sig selv tilbage til én eller to kolonner. Valget forplanter sig nedad: hvert niveau under det første får én kolonne færre. Med én kolonne står niveau 2 i tre kolonner og niveau 3 i to; med tre kolonner forbliver alt derunder stablet i fuld bredde. Et niveau reducerer stadig sig selv, når et kort reelt er for smalt.
 
 ## Kompetencekort
 

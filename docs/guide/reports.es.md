@@ -53,7 +53,7 @@ Al agrupar por un tipo de tarjeta relacionado que admite jerarquía (como Capaci
 
 ### Elegir el número de columnas
 
-La cuadrícula de tarjetas de los informes **Cartera**, **Cartera flexible**, **Mapa de capacidades** y **Mapa de procesos** tiene un **selector de columnas** en la barra de herramientas: tres botones para una, dos o tres columnas. Elija menos columnas cuando las tarjetas contengan mucha información y deban ser lo bastante anchas para leerse; elija tres para ver más del panorama de una sola vez. La elección se aplica en todos los niveles de detalle, se recuerda por informe, viaja con un [informe guardado](saved-reports.md) y se utiliza al imprimir o exportar. Las pantallas estrechas siguen reduciéndose por sí solas a una o dos columnas.
+La cuadrícula de tarjetas de los informes **Cartera**, **Cartera flexible**, **Mapa de capacidades** y **Mapa de procesos** tiene un **selector de columnas** en la barra de herramientas: tres botones para una, dos o tres columnas. Elija menos columnas cuando las tarjetas contengan mucha información y deban ser lo bastante anchas para leerse; elija tres para ver más del panorama de una sola vez. La elección se recuerda por informe, viaja con un [informe guardado](saved-reports.md) y se utiliza al imprimir o exportar. Las pantallas estrechas siguen reduciéndose por sí solas a una o dos columnas. La elección se propaga hacia abajo: cada nivel por debajo del primero recibe una columna menos. Con una columna, el nivel 2 se muestra en tres y el nivel 3 en dos; con tres columnas, todo lo inferior permanece apilado a ancho completo. Un nivel sigue reduciéndose por sí solo cuando una tarjeta es realmente demasiado estrecha.
 
 ## Mapa de Capacidades
 

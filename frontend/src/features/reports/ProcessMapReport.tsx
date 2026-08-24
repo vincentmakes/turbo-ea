@@ -26,6 +26,8 @@ import ColumnCountPicker from "@/components/ColumnCountPicker";
 import {
   columnGridProps,
   isColumnCount,
+  nestedColumns,
+  nestedGridProps,
   DEFAULT_COLUMNS,
   type ColumnCount,
 } from "@/components/cardColumns";
@@ -338,6 +340,8 @@ function getAncestors(nodes: ProcNode[], id: string): ProcNode[] {
 function ProcessCard({
   node,
   displayLevel,
+  columns,
+  depth = 1,
   showRelated,
   metric,
   maxVal,
@@ -348,6 +352,10 @@ function ProcessCard({
 }: {
   node: ProcNode;
   displayLevel: number;
+  /** The toolbar's top-level pick; the children grid tapers from it. */
+  columns: ColumnCount;
+  /** 1-based depth of THIS card, relative to the rendered root. */
+  depth?: number;
   showRelated: ShowRelated;
   metric: Metric;
   maxVal: number;
@@ -512,12 +520,14 @@ function ProcessCard({
         </Box>
       )}
 
-      <Box sx={{ p: 1, display: "flex", flexWrap: "wrap", gap: 1 }}>
+      <Box {...nestedGridProps(nestedColumns(columns, depth + 1), { gap: 1, sx: { p: 1 } })}>
         {node.children.map((ch) => (
-          <Box key={ch.id} sx={{ flex: "1 1 200px", minWidth: 180, maxWidth: 400 }}>
+          <Box key={ch.id}>
             <ProcessCard
               node={ch}
               displayLevel={displayLevel}
+              columns={columns}
+              depth={depth + 1}
               showRelated={showRelated}
               metric={metric}
               maxVal={maxVal}
@@ -1008,6 +1018,7 @@ export default function ProcessMapReport() {
               key={proc.id}
               node={proc}
               displayLevel={displayLevel}
+              columns={columns}
               showRelated={showRelated}
               metric={metric}
               maxVal={maxVal}

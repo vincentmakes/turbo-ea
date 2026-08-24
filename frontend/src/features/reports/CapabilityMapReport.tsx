@@ -23,6 +23,8 @@ import ColumnCountPicker from "@/components/ColumnCountPicker";
 import {
   columnGridProps,
   isColumnCount,
+  nestedColumns,
+  nestedGridProps,
   DEFAULT_COLUMNS,
   type ColumnCount,
 } from "@/components/cardColumns";
@@ -445,6 +447,8 @@ function AppChip({
 function CapabilityCard({
   node,
   displayLevel,
+  columns,
+  depth = 1,
   showApps,
   colorBy,
   selectFields,
@@ -459,6 +463,10 @@ function CapabilityCard({
 }: {
   node: CapNode;
   displayLevel: number;
+  /** The toolbar's top-level pick; the children grid tapers from it. */
+  columns: ColumnCount;
+  /** 1-based depth of THIS card, relative to the rendered root. */
+  depth?: number;
   showApps: boolean;
   colorBy: string;
   selectFields: FieldDef[];
@@ -643,12 +651,14 @@ function CapabilityCard({
       )}
 
       {/* Children */}
-      <Box sx={{ p: 1, display: "flex", flexWrap: "wrap", gap: 1 }}>
+      <Box {...nestedGridProps(nestedColumns(columns, depth + 1), { gap: 1, sx: { p: 1 } })}>
         {node.children.map((ch) => (
-          <Box key={ch.id} sx={{ flex: "1 1 200px", minWidth: 180, maxWidth: 400 }}>
+          <Box key={ch.id}>
             <CapabilityCard
               node={ch}
               displayLevel={displayLevel}
+              columns={columns}
+              depth={depth + 1}
               showApps={showApps}
               colorBy={colorBy}
               selectFields={selectFields}
@@ -1486,6 +1496,7 @@ export default function CapabilityMapReport() {
               <CapabilityCard
                 node={cap}
                 displayLevel={displayLevel}
+                columns={columns}
                 showApps={showApps}
                 colorBy={colorBy}
                 selectFields={selectFields}

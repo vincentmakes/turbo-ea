@@ -54,6 +54,8 @@ import ColumnCountPicker from "@/components/ColumnCountPicker";
 import {
   columnGridProps,
   isColumnCount,
+  nestedColumns,
+  nestedGridProps,
   DEFAULT_COLUMNS,
   type ColumnCount,
 } from "@/components/cardColumns";
@@ -333,6 +335,8 @@ function getCardColor(
 function HouseCard({
   node,
   displayLevel,
+  columns,
+  depth = 1,
   overlay,
   search,
   isAdmin,
@@ -346,6 +350,12 @@ function HouseCard({
 }: {
   node: ProcNode;
   displayLevel: number;
+  /** The toolbar's top-level pick; the children grid tapers from it. */
+  columns: ColumnCount;
+  /** 1-based depth of THIS card, relative to the rendered root. Zooming
+   *  re-roots the tree without re-levelling its nodes, so this is tracked
+   *  separately from `node.level`. */
+  depth?: number;
   overlay: ColorOverlay;
   search: string;
   isAdmin?: boolean;
@@ -769,12 +779,19 @@ function HouseCard({
           )}
         </Box>
       </Box>
-      <Box sx={{ p: 0.75, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 0.75, bgcolor: "rgba(0,0,0,0.02)" }}>
+      <Box
+        {...nestedGridProps(nestedColumns(columns, depth + 1), {
+          gap: 0.75,
+          sx: { p: 0.75, bgcolor: "rgba(0,0,0,0.02)" },
+        })}
+      >
         {node.children.map((ch) => (
           <Box key={ch.id}>
             <HouseCard
               node={ch}
               displayLevel={displayLevel}
+              columns={columns}
+              depth={depth + 1}
               overlay={overlay}
               search={search}
               isAdmin={isAdmin}
@@ -2689,6 +2706,7 @@ export default function ProcessNavigator() {
                               key={node.id}
                               node={node}
                               displayLevel={displayLevel}
+                              columns={columns}
                               overlay={overlay}
                               search={search}
                               isAdmin={isAdmin}
@@ -2710,6 +2728,7 @@ export default function ProcessNavigator() {
                               key={node.id}
                               node={node}
                               displayLevel={displayLevel}
+                              columns={columns}
                               overlay={overlay}
                               search={search}
                               isAdmin={isAdmin}

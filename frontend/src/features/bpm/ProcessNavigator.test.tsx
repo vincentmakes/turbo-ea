@@ -401,3 +401,92 @@ describe("ProcessNavigator column picker", () => {
     expect(rowGrid()).toHaveClass("report-print-grid-3");
   });
 });
+
+/* ────────────────────────────────────────────────────────────────
+ * Nested column taper.
+ *
+ * The top-level pick propagates down the tree, tapering one column per
+ * level, so drilling in doesn't leave L3 cards fighting for space.
+ * ──────────────────────────────────────────────────────────────── */
+
+function makeProcessTree() {
+  const proc = (id: string, name: string, parent_id: string | null) => ({
+    id,
+    name,
+    subtype: undefined,
+    parent_id,
+    attributes: { processType: "core" },
+    lifecycle: {},
+    app_count: 0,
+    total_cost: 0,
+    apps: [],
+    data_objects: [],
+    org_ids: [],
+    ctx_ids: [],
+    has_diagram: false,
+    element_count: 0,
+  });
+  return {
+    // Root > Mid > Deep
+    items: [
+      proc("root-1", "Root Process", null),
+      proc("mid-1", "Mid Process", "root-1"),
+      proc("deep-1", "Deep Process", "mid-1"),
+    ],
+    organizations: [],
+    business_contexts: [],
+  };
+}
+
+describe("ProcessNavigator nested column taper", () => {
+  /** The count on the nested grid holding `name`. */
+  const colsAround = (name: string) =>
+    screen.getByText(name).closest("[data-nested-cols]")?.getAttribute("data-nested-cols");
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  const renderAtLevel3 = async (columns: number) => {
+    localStorage.setItem(
+      NAV_STORAGE_KEY,
+      JSON.stringify({ columns, displayLevel: 3, viewMode: "house" }),
+    );
+    mockApi(makeProcessTree());
+    renderNavigator();
+    await screen.findByText("Deep Process");
+  };
+
+  it("gives L2 three columns and L3 two when one column is picked", async () => {
+    await renderAtLevel3(1);
+    expect(colsAround("Mid Process")).toBe("3");
+    expect(colsAround("Deep Process")).toBe("2");
+  });
+
+  it("stacks the levels below the top when three columns are picked", async () => {
+    await renderAtLevel3(3);
+    expect(colsAround("Mid Process")).toBe("1");
+    expect(colsAround("Deep Process")).toBe("1");
+  });
+
+  it("restarts the taper at the zoomed root", async () => {
+    // Zoom re-roots the tree without re-levelling its nodes, so a taper keyed
+    // on the absolute node level would start from the wrong origin: Mid is
+    // level 2, but once zoomed it is what the page is built around, so its
+    // children must be laid out as depth 2, not depth 3.
+    mockApi(makeProcessTree());
+    // URL params deliberately take precedence over the stored config, so the
+    // pick has to travel in the URL here alongside the zoom.
+    render(
+      <MemoryRouter initialEntries={["/bpm?zoom=root-1&level=3&cols=1"]}>
+        <ProcessNavigator />
+      </MemoryRouter>,
+    );
+    await screen.findByText("Deep Process");
+
+    // Zoomed onto Root, its child Mid is now a rendered root (depth 1), so
+    // Deep sits in a depth-2 grid and gets the full three columns.
+    expect(colsAround("Deep Process")).toBe("3");
+  });
+});

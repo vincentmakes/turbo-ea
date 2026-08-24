@@ -53,7 +53,7 @@ Lorsque vous regroupez par un type de carte lié prenant en charge la hiérarchi
 
 ### Choisir le nombre de colonnes
 
-La grille de cartes des rapports **Portefeuille**, **Portefeuille flexible**, **Carte des capacités** et **Carte des processus** dispose d'un **sélecteur de colonnes** dans la barre d'outils — trois boutons pour une, deux ou trois colonnes. Choisissez moins de colonnes lorsque les cartes sont denses et doivent rester assez larges pour être lues ; choisissez trois pour voir davantage du paysage d'un seul coup d'œil. Le choix s'applique à chaque niveau de détail, est mémorisé par rapport, accompagne un [rapport enregistré](saved-reports.md) et est utilisé à l'impression comme à l'export. Les écrans étroits repassent d'eux-mêmes à une ou deux colonnes.
+La grille de cartes des rapports **Portefeuille**, **Portefeuille flexible**, **Carte des capacités** et **Carte des processus** dispose d'un **sélecteur de colonnes** dans la barre d'outils — trois boutons pour une, deux ou trois colonnes. Choisissez moins de colonnes lorsque les cartes sont denses et doivent rester assez larges pour être lues ; choisissez trois pour voir davantage du paysage d'un seul coup d'œil. Le choix est mémorisé par rapport, accompagne un [rapport enregistré](saved-reports.md) et est utilisé à l'impression comme à l'export. Les écrans étroits repassent d'eux-mêmes à une ou deux colonnes. Le choix se propage vers le bas : chaque niveau sous le premier reçoit une colonne de moins. Avec une colonne, le niveau 2 s'affiche sur trois colonnes et le niveau 3 sur deux ; avec trois colonnes, tout ce qui suit reste empilé sur toute la largeur. Un niveau se réduit toujours de lui-même lorsqu'une carte est réellement trop étroite.
 
 ## Carte de capacités
 

@@ -53,7 +53,7 @@ Quando si raggruppa per un tipo di scheda correlato che supporta la gerarchia (c
 
 ### Scegliere il numero di colonne
 
-La griglia di schede dei report **Portfolio**, **Portfolio flessibile**, **Mappa delle capability** e **Mappa dei processi** dispone di un **selettore di colonne** nella barra degli strumenti: tre pulsanti per una, due o tre colonne. Scegliete meno colonne quando le schede sono dense e devono restare abbastanza larghe da leggersi; scegliete tre per vedere più panorama in una sola volta. La scelta vale a ogni livello di dettaglio, viene ricordata per report, accompagna un [report salvato](saved-reports.md) ed è usata in stampa e in esportazione. Gli schermi stretti continuano a ridursi da soli a una o due colonne.
+La griglia di schede dei report **Portfolio**, **Portfolio flessibile**, **Mappa delle capability** e **Mappa dei processi** dispone di un **selettore di colonne** nella barra degli strumenti: tre pulsanti per una, due o tre colonne. Scegliete meno colonne quando le schede sono dense e devono restare abbastanza larghe da leggersi; scegliete tre per vedere più panorama in una sola volta. La scelta viene ricordata per report, accompagna un [report salvato](saved-reports.md) ed è usata in stampa e in esportazione. Gli schermi stretti continuano a ridursi da soli a una o due colonne. La scelta si propaga verso il basso: ogni livello sotto il primo riceve una colonna in meno. Con una colonna il livello 2 si dispone su tre e il livello 3 su due; con tre colonne tutto ciò che sta sotto resta impilato a piena larghezza. Un livello continua a ridursi da solo quando una scheda è davvero troppo stretta.
 
 ## Mappa delle Capability
 

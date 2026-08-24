@@ -532,3 +532,59 @@ describe("CapabilityMapReport column picker", () => {
     expect(grid()).toHaveClass("report-print-grid-2");
   });
 });
+
+describe("CapabilityMapReport nested column taper", () => {
+  /**
+   * The count on the grid that holds `name`. Anchoring to a card rather than
+   * to DOM order keeps this readable as the fixture tree grows.
+   *
+   * Fixture: Sales > Lead Management > Lead Scoring, and Finance > Billing.
+   * So "Lead Management" sits in a depth-2 grid and "Lead Scoring" in a
+   * depth-3 one.
+   */
+  const colsAround = (name: string) =>
+    within(chart())
+      .getByText(name)
+      .closest("[data-nested-cols]")
+      ?.getAttribute("data-nested-cols");
+
+  const renderAtDepth3 = async (columns: number) => {
+    consumedConfig = { columns, displayLevel: 3 };
+    renderMap();
+    await waitFor(() => expect(within(chart()).getByText("Lead Scoring")).toBeInTheDocument());
+  };
+
+  it("gives L2 three columns and L3 two when one column is picked", async () => {
+    await renderAtDepth3(1);
+    expect(colsAround("Lead Management")).toBe("3");
+    expect(colsAround("Lead Scoring")).toBe("2");
+  });
+
+  it("tapers to two then one when two columns are picked", async () => {
+    await renderAtDepth3(2);
+    expect(colsAround("Lead Management")).toBe("2");
+    expect(colsAround("Lead Scoring")).toBe("1");
+  });
+
+  it("stacks every level below the top when three columns are picked", async () => {
+    await renderAtDepth3(3);
+    expect(colsAround("Lead Management")).toBe("1");
+    expect(colsAround("Lead Scoring")).toBe("1");
+  });
+
+  it("re-derives the nested counts when the pick changes", async () => {
+    await renderAtDepth3(3);
+    expect(colsAround("Lead Management")).toBe("1");
+
+    await userEvent.click(within(toolbar()).getByRole("button", { name: "One column" }));
+
+    expect(colsAround("Lead Management")).toBe("3");
+    expect(colsAround("Lead Scoring")).toBe("2");
+  });
+
+  it("applies the taper to every branch, not just the first", async () => {
+    await renderAtDepth3(1);
+    // Finance is a sibling root; its children grid is depth 2 as well.
+    expect(colsAround("Billing")).toBe("3");
+  });
+});

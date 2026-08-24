@@ -198,3 +198,29 @@ describe("ProcessMapReport column picker", () => {
     expect(grid()).toHaveClass("report-print-grid-2");
   });
 });
+
+describe("ProcessMapReport nested column taper", () => {
+  const colsAround = (name: string) =>
+    within(chart()).getByText(name).closest("[data-nested-cols]")?.getAttribute("data-nested-cols");
+
+  it("tapers the nested levels from the top-level pick", async () => {
+    consumedConfig = { columns: 1, displayLevel: 3 };
+    renderMap();
+    await waitFor(() =>
+      expect(within(chart()).getByText("Order to Cash")).toBeInTheDocument(),
+    );
+
+    // Invoicing is a child of Order to Cash, so it sits in a depth-2 grid.
+    expect(colsAround("Invoicing")).toBe("3");
+  });
+
+  it("stacks the nested levels when three columns are picked", async () => {
+    consumedConfig = { columns: 3, displayLevel: 3 };
+    renderMap();
+    await waitFor(() =>
+      expect(within(chart()).getByText("Order to Cash")).toBeInTheDocument(),
+    );
+
+    expect(colsAround("Invoicing")).toBe("1");
+  });
+});

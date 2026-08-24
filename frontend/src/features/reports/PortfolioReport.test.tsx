@@ -883,3 +883,32 @@ describe("PortfolioReport column picker", () => {
     expect(screen.queryByRole("button", { name: "Two columns" })).not.toBeInTheDocument();
   });
 });
+
+describe("PortfolioReport nested column taper", () => {
+  const colsAround = (name: string) =>
+    screen.getByText(name).closest("[data-nested-cols]")?.getAttribute("data-nested-cols");
+
+  const renderNested = async (columns: number) => {
+    vi.mocked(api.get).mockResolvedValue(HIER_API_RESPONSE);
+    mockHierarchicalMetamodel();
+    mockSavedConfig({
+      groupByRaw: "rel:Organization",
+      nestedGroups: true,
+      groupDepth: 99,
+      columns,
+    });
+    renderPortfolio();
+    await waitFor(() => expect(screen.getByLabelText("Display Depth")).toBeInTheDocument());
+  };
+
+  it("gives the nested group tree three columns when one is picked", async () => {
+    await renderNested(1);
+    // Payments Team is a child of Finance HQ, so it sits in a depth-2 grid.
+    expect(colsAround("Payments Team")).toBe("3");
+  });
+
+  it("stacks the nested group tree when three columns are picked", async () => {
+    await renderNested(3);
+    expect(colsAround("Payments Team")).toBe("1");
+  });
+});
