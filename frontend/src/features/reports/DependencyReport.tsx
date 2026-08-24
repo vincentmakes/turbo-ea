@@ -1071,7 +1071,7 @@ export default function DependencyReport() {
       const tpLabel = typeLabel(tp) || cardTypeKey;
       params.push({ label: t("common:labels.type"), value: tpLabel });
     }
-    if (centerNode) params.push({ label: t("dependency.center"), value: centerNode.name });
+    if (centerNode) params.push({ label: t("dependency.centerOn"), value: centerNode.name });
     if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
     if (chartMode === "c4") params.push({ label: t("common.view"), value: t("dependency.ldvView") });
     if (timeline.printParam) params.push(timeline.printParam);
@@ -1522,7 +1522,7 @@ export default function DependencyReport() {
                         {t("dependency.connections", { count: card.connectionCount })}
                         {card.isDuplicate ? ` · ${t("dependency.alsoAppears")}` : ""}
                         <br />
-                        <em>{t("dependency.clickHint")}</em>
+                        <em>{t("dependency.clickToExpand")}</em>
                       </span>
                     }
                     placement="top"
@@ -1673,7 +1673,7 @@ export default function DependencyReport() {
                       )}
 
                       {card.isDuplicate && !card.isRoot && (
-                        <Tooltip title={t("dependency.alsoAppearsTree")} arrow>
+                        <Tooltip title={t("dependency.alsoAppears")} arrow>
                           <Box sx={{ display: "flex" }}>
                             <MaterialSymbol icon="link" size={14} color="#bbb" />
                           </Box>
@@ -1756,7 +1756,7 @@ export default function DependencyReport() {
                   {t("dependency.selectCard")}
                 </Typography>
                 <Typography variant="body2" color="text.disabled" sx={{ maxWidth: 400, mx: "auto" }}>
-                  {t("dependency.selectHint")}
+                  {t("dependency.selectCardDesc")}
                 </Typography>
               </Box>
 
@@ -1845,7 +1845,7 @@ export default function DependencyReport() {
                 <Typography color="text.disabled" variant="body2">
                   {nodes.length === 0
                     ? t("dependency.noCards")
-                    : t("dependency.noResults")}
+                    : t("common:labels.noResults")}
                 </Typography>
               </Box>
             ) : (

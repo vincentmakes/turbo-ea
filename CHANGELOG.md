@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.79.3] - 2026-08-24
+
+### Fixed
+
+- **Labels that printed their internal name instead of their text.** The Dependencies report showed «dependency.selectHint» under «Select a card to explore», where the subtitle belongs. Twenty-one further labels were broken the same way and in every language, because the name the screen asked for and the name the translation was filed under had drifted apart: in the Dependencies report, the expand hint on a card, the tooltip on a card that appears twice, both empty states under the search box, and the «Center on» line printed onto an exported image; in the Cost report, the «Cost» and «% of Total» table headings, the «None» entry in Group By, and the message shown when there is nothing to chart; the Category and Cardinality pickers on Admin → Metamodel; every error message on Admin → Roles together with its «Key» field label; and the two link errors when attaching a card to a decision record. Each now shows the text it was always meant to show.
+
 ## [2.79.2] - 2026-08-23
 
 ### Fixed

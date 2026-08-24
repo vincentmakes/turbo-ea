@@ -668,7 +668,7 @@ export default function CostReport() {
 
           {view === "table" && !drillFrame && groupableFields.length > 0 && (
             <TextField select size="small" label={t("cost.groupBy")} value={groupBy} onChange={(e) => setGroupBy(e.target.value)} sx={{ minWidth: 150 }}>
-              <MenuItem value="">{t("cost.none")}</MenuItem>
+              <MenuItem value="">{t("common:labels.none")}</MenuItem>
               {groupableFields.map((f) => <MenuItem key={f.key} value={f.key}>{f.label}</MenuItem>)}
             </TextField>
           )}
@@ -734,7 +734,7 @@ export default function CostReport() {
       {view === "chart" ? (
         items.length === 0 ? (
           <Box sx={{ py: 8, textAlign: "center" }}>
-            <Typography color="text.secondary">{t("cost.noData")}</Typography>
+            <Typography color="text.secondary">{t("cost.noCostData")}</Typography>
           </Box>
         ) : (
           <Box
@@ -775,7 +775,7 @@ export default function CostReport() {
                   )}
                   {panel.data.length === 0 ? (
                     <Box sx={{ py: 6, textAlign: "center" }}>
-                      <Typography color="text.secondary" variant="body2">{t("cost.noData")}</Typography>
+                      <Typography color="text.secondary" variant="body2">{t("cost.noCostData")}</Typography>
                     </Box>
                   ) : (
                     <ResponsiveContainer width="100%" height={panelHeight}>
@@ -810,7 +810,7 @@ export default function CostReport() {
               <TableRow>
                 <TableCell><TableSortLabel active={sortK === "name"} direction={sortK === "name" ? sortD : "asc"} onClick={() => sort("name")}>{t("common:labels.name")}</TableSortLabel></TableCell>
                 <TableCell align="right"><TableSortLabel active={sortK === "cost"} direction={sortK === "cost" ? sortD : "asc"} onClick={() => sort("cost")}>{t("cost.cost")}</TableSortLabel></TableCell>
-                <TableCell align="right">{t("cost.percentTotal")}</TableCell>
+                <TableCell align="right">{t("cost.percentOfTotal")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

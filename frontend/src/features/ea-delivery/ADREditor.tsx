@@ -322,7 +322,7 @@ export default function ADREditor() {
       setLinkedCards(updated.linked_cards || []);
       setCardLinkOpen(false);
     } catch {
-      setError(t("resources.error.linkFailed"));
+      setError(t("cards:resources.error.linkFailed"));
     }
   };
 
@@ -332,7 +332,7 @@ export default function ADREditor() {
       await api.delete(`/adr/${id}/cards/${cardId}`);
       setLinkedCards((prev) => prev.filter((c) => c.id !== cardId));
     } catch {
-      setError(t("resources.error.unlinkFailed"));
+      setError(t("cards:resources.error.unlinkFailed"));
     }
   };
 
