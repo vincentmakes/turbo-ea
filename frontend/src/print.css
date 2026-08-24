@@ -60,20 +60,25 @@
     max-width: none !important;
   }
 
-  /* ---- Force grid columns to match desktop layout ---- */
+  /* ---- Force grid columns to match the chosen column count ---- */
   /* MUI responsive breakpoints collapse during print because the print
-     viewport is narrower than the lg breakpoint (1200px). Override with
-     the intended column counts so print matches screen. */
-  .report-print-grid-4 {
-    grid-template-columns: repeat(4, 1fr) !important;
+     viewport is narrower than the lg breakpoint (1200px), so the grid would
+     drop to a single column. Re-assert the count the user picked in the
+     report's column picker (see components/cardColumns.ts). */
+  .report-print-grid-1 {
+    grid-template-columns: 1fr !important;
+  }
+  .report-print-grid-2 {
+    grid-template-columns: repeat(2, 1fr) !important;
   }
   .report-print-grid-3 {
     grid-template-columns: repeat(3, 1fr) !important;
   }
 
   /* Tighten grid gap for print compactness */
-  .report-print-grid-3,
-  .report-print-grid-4 {
+  .report-print-grid-1,
+  .report-print-grid-2,
+  .report-print-grid-3 {
     gap: 8px !important;
   }
 

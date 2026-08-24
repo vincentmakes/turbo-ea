@@ -51,6 +51,10 @@ Quando as relações de um cartão têm um valor de «tipo» — por exemplo o *
 
 Ao agrupar por um tipo de cartão relacionado que suporta hierarquia (como Capacidade de negócio ou Organização), um interruptor **Grupos aninhados** aparece ao lado do seletor *Agrupar por*. Ative-o para exibir os grupos como caixas aninhadas seguindo a hierarquia pai/filho do tipo relacionado — como no Mapa de Capacidades. O seletor **Profundidade de exibição** controla quantos níveis são expandidos: cada cartão aparece sob o seu grupo visível mais profundo, e os grupos abaixo do limite de profundidade elevam os seus cartões ao ancestral visível mais próximo. Ramos sem cartões são ocultados.
 
+### Escolher o número de colunas
+
+A grelha de cartões dos relatórios **Portefólio**, **Portefólio flexível**, **Mapa de capacidades** e **Mapa de processos** tem um **seletor de colunas** na barra de ferramentas — três botões para uma, duas ou três colunas. Escolha menos colunas quando os cartões forem densos e precisarem de largura suficiente para se lerem; escolha três para ver mais do panorama de uma só vez. A escolha aplica-se em todos os níveis de detalhe, é memorizada por relatório, acompanha um [relatório guardado](saved-reports.md) e é usada ao imprimir ou exportar. Os ecrãs estreitos continuam a reduzir sozinhos para uma ou duas colunas.
+
 ## Mapa de Capacidades
 
 Clicar numa capacidade abre um painel lateral com todas as aplicações da sua subárvore. No nível mais baixo, o painel oferece **Ver no inventário**, que leva às aplicações ligadas a ela.

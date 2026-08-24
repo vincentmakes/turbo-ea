@@ -51,6 +51,10 @@ Cuando las relaciones de una tarjeta llevan un valor de «tipo» —por ejemplo 
 
 Al agrupar por un tipo de tarjeta relacionado que admite jerarquía (como Capacidad de negocio u Organización), aparece un interruptor **Grupos anidados** junto al selector *Agrupar por*. Actívelo para mostrar los grupos como cajas anidadas siguiendo la jerarquía padre/hijo del tipo relacionado, como en el Mapa de Capacidades. El selector **Profundidad de visualización** controla cuántos niveles se expanden: cada tarjeta aparece bajo su grupo visible más profundo, y los grupos por debajo del límite de profundidad suben sus tarjetas al ancestro visible más cercano. Las ramas sin tarjetas se ocultan.
 
+### Elegir el número de columnas
+
+La cuadrícula de tarjetas de los informes **Cartera**, **Cartera flexible**, **Mapa de capacidades** y **Mapa de procesos** tiene un **selector de columnas** en la barra de herramientas: tres botones para una, dos o tres columnas. Elija menos columnas cuando las tarjetas contengan mucha información y deban ser lo bastante anchas para leerse; elija tres para ver más del panorama de una sola vez. La elección se aplica en todos los niveles de detalle, se recuerda por informe, viaja con un [informe guardado](saved-reports.md) y se utiliza al imprimir o exportar. Las pantallas estrechas siguen reduciéndose por sí solas a una o dos columnas.
+
 ## Mapa de Capacidades
 
 Al hacer clic en una capacidad se abre un panel lateral con todas las aplicaciones de su subárbol. En el nivel más bajo, el panel ofrece **Ver en el inventario**, que lleva a las aplicaciones vinculadas a ella.

@@ -19,6 +19,8 @@ El **Navegador de Procesos** organiza los procesos en tres categorías principal
 
 Las tarjetas con un diagrama BPMN publicado muestran un **icono de flujo**: haga clic en él para abrir el diagrama en pantalla completa sin salir del navegador (o para saltar desde allí al editor de flujo completo).
 
+**Disposición en columnas:** la barra de herramientas incluye un **selector de columnas** —una, dos o tres— para ensanchar las tarjetas de proceso o encajar más de una fila en pantalla. Una fila nunca se estira sobre más columnas de las que tiene procesos, y la elección se recuerda entre visitas.
+
 ## Panel de Control BPM
 
 ![Panel de Control BPM con Estadísticas](../assets/img/es/15_bpm_panel_control.png)

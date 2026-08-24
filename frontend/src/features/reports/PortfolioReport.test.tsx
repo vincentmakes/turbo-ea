@@ -820,3 +820,66 @@ describe("PortfolioReport time travel — transition marks", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Column picker
+//
+// Portfolio is the one report with two card grids — the flat group grid and
+// the nested group tree — so both have to honour the same pick.
+// ---------------------------------------------------------------------------
+
+describe("PortfolioReport column picker", () => {
+  const grid = () =>
+    document.querySelector(
+      ".report-chart-area [class*='report-print-grid-']",
+    ) as HTMLElement;
+
+  it("defaults the flat group grid to three columns", async () => {
+    vi.mocked(api.get).mockResolvedValue(HIER_API_RESPONSE);
+    mockSavedConfig({ groupByRaw: "rel:Organization" });
+    renderPortfolio();
+
+    await waitFor(() => expect(screen.getByText("Finance HQ")).toBeInTheDocument());
+    expect(grid()).toHaveClass("report-print-grid-3");
+  });
+
+  it("reflows the flat grid and persists the pick", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.get).mockResolvedValue(HIER_API_RESPONSE);
+    mockSavedConfig({ groupByRaw: "rel:Organization" });
+    renderPortfolio();
+
+    await waitFor(() => expect(screen.getByText("Finance HQ")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Two columns" }));
+
+    expect(grid()).toHaveClass("report-print-grid-2");
+    const persistConfig = vi.mocked(useSavedReport).mock.results[0].value.persistConfig;
+    await waitFor(() =>
+      expect(persistConfig).toHaveBeenCalledWith(expect.objectContaining({ columns: 2 })),
+    );
+  });
+
+  it("applies the same pick to the nested group tree", async () => {
+    vi.mocked(api.get).mockResolvedValue(HIER_API_RESPONSE);
+    mockHierarchicalMetamodel();
+    mockSavedConfig({
+      groupByRaw: "rel:Organization",
+      nestedGroups: true,
+      groupDepth: 99,
+      columns: 1,
+    });
+    renderPortfolio();
+
+    await waitFor(() => expect(screen.getByLabelText("Display Depth")).toBeInTheDocument());
+    expect(grid()).toHaveClass("report-print-grid-1");
+  });
+
+  it("is not offered in table view, where there is no grid to reflow", async () => {
+    vi.mocked(api.get).mockResolvedValue(HIER_API_RESPONSE);
+    mockSavedConfig({ groupByRaw: "rel:Organization", view: "table" });
+    renderPortfolio();
+
+    await waitFor(() => expect(screen.getByText("SAP ERP")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Two columns" })).not.toBeInTheDocument();
+  });
+});

@@ -19,6 +19,8 @@ Le **Navigateur de processus** organise les processus en trois catégories princ
 
 Les cartes disposant d'un diagramme BPMN publié affichent une **icône de flux** — cliquez dessus pour ouvrir le diagramme en plein écran sans quitter le navigateur (ou pour accéder de là à l'éditeur de flux complet).
 
+**Disposition en colonnes :** la barre d'outils propose un **sélecteur de colonnes** — une, deux ou trois colonnes — pour élargir les cartes de processus ou faire tenir davantage d'une ligne à l'écran. Une ligne n'est jamais étirée sur plus de colonnes qu'elle ne compte de processus, et le choix est mémorisé d'une visite à l'autre.
+
 ## Tableau de bord BPM
 
 ![Tableau de bord BPM avec statistiques](../assets/img/fr/15_bpm_tableau_de_bord.png)

@@ -452,5 +452,9 @@
   "cardScope.apply_one": "Anvend ({{count}})",
   "cardScope.apply_other": "Anvend ({{count}})",
   "cardScope.flatFallback": "For mange kort til at vise hierarkiet — skriv for at søge i hele listen.",
-  "cardScope.chipAll": "Alle kort"
+  "cardScope.chipAll": "Alle kort",
+  "cardColumns.label": "Kolonner",
+  "cardColumns.tooltipOne": "Én kolonne",
+  "cardColumns.tooltipTwo": "To kolonner",
+  "cardColumns.tooltipThree": "Tre kolonner"
 }

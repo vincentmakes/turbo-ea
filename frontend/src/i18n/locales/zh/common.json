@@ -452,5 +452,9 @@
   "cardScope.apply_one": "应用（{{count}}）",
   "cardScope.apply_other": "应用（{{count}}）",
   "cardScope.flatFallback": "卡片过多，无法显示层级结构 — 请输入以搜索完整列表。",
-  "cardScope.chipAll": "全部卡片"
+  "cardScope.chipAll": "全部卡片",
+  "cardColumns.label": "列数",
+  "cardColumns.tooltipOne": "一列",
+  "cardColumns.tooltipTwo": "两列",
+  "cardColumns.tooltipThree": "三列"
 }

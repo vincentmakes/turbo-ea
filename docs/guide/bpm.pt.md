@@ -19,6 +19,8 @@ O **Navegador de Processos** organiza processos em três categorias principais:
 
 Os cartões com um diagrama BPMN publicado exibem um **ícone de fluxo** — clique nele para abrir o diagrama em tela cheia sem sair do navegador (ou para ir dali para o editor de fluxo completo).
 
+**Disposição em colunas:** a barra de ferramentas inclui um **seletor de colunas** — uma, duas ou três — para alargar os cartões de processo ou encaixar mais de uma linha no ecrã. Uma linha nunca é esticada por mais colunas do que os processos que contém, e a escolha é memorizada entre visitas.
+
 ## Painel BPM
 
 ![Painel BPM com Estatísticas](../assets/img/pt/15_bpm_painel.png)

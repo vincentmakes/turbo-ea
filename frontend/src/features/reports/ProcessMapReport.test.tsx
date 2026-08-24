@@ -5,6 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import ProcessMapReport from "./ProcessMapReport";
 
@@ -169,5 +170,31 @@ describe("ProcessMapReport scope filter", () => {
       .mocked(api.get)
       .mock.calls.filter(([path]) => String(path).startsWith("/cards"));
     expect(cardCalls).toHaveLength(0);
+  });
+});
+
+describe("ProcessMapReport column picker", () => {
+  const grid = () =>
+    chart().querySelector("[class*='report-print-grid-']") as HTMLElement;
+
+  it("defaults to three columns and reflows on a pick", async () => {
+    renderMap();
+    await waitFor(() =>
+      expect(within(chart()).getByText("Order to Cash")).toBeInTheDocument(),
+    );
+    expect(grid()).toHaveClass("report-print-grid-3");
+
+    await userEvent.click(within(toolbar()).getByRole("button", { name: "One column" }));
+
+    expect(grid()).toHaveClass("report-print-grid-1");
+  });
+
+  it("restores a stored count and ignores an unsupported one", async () => {
+    consumedConfig = { columns: 2 };
+    renderMap();
+    await waitFor(() =>
+      expect(within(chart()).getByText("Order to Cash")).toBeInTheDocument(),
+    );
+    expect(grid()).toHaveClass("report-print-grid-2");
   });
 });

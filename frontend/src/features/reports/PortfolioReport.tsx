@@ -35,6 +35,13 @@ import TagPicker from "@/components/TagPicker";
 import type { TagGroup } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
+import ColumnCountPicker from "@/components/ColumnCountPicker";
+import {
+  columnGridProps,
+  isColumnCount,
+  DEFAULT_COLUMNS,
+  type ColumnCount,
+} from "@/components/cardColumns";
 import ReportCardListPanel, { type ReportCardListItem } from "./ReportCardListPanel";
 import ReportFilterSection from "./ReportFilterSection";
 import { api, isAbortError } from "@/api/client";
@@ -629,6 +636,7 @@ export default function PortfolioReport({
   // Nested groups (only offered when grouping by a hierarchical related type)
   const [nestedGroups, setNestedGroups] = useState(false);
   const [groupDepth, setGroupDepth] = useState(2);
+  const [columns, setColumns] = useState<ColumnCount>(DEFAULT_COLUMNS);
 
   // Filters
   const [attrFilters, setAttrFilters] = useState<Record<string, string[]>>({});
@@ -665,6 +673,7 @@ export default function PortfolioReport({
       if (cfg.filtersCollapsed != null) setFiltersCollapsed(!!cfg.filtersCollapsed);
       if (cfg.nestedGroups != null) setNestedGroups(!!cfg.nestedGroups);
       if (cfg.groupDepth != null) setGroupDepth(cfg.groupDepth as number);
+      if (isColumnCount(cfg.columns)) setColumns(cfg.columns);
       // Migrate prior `{groupId: tagIds[]}` shape to a flat `string[]`
       if (cfg.tagFilterIds) {
         setTagFilterIds(cfg.tagFilterIds as string[]);
@@ -683,7 +692,7 @@ export default function PortfolioReport({
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ cardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, tagFilterIds, timelineDate: tl.persistValue, sortK, sortD, nestedGroups, groupDepth, filtersCollapsed });
+  const getConfig = () => ({ cardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, tagFilterIds, timelineDate: tl.persistValue, sortK, sortD, nestedGroups, groupDepth, columns, filtersCollapsed });
 
   // Auto-persist config to localStorage. Skip the very first run so that on
   // mount we don't overwrite a previously-saved config with the initial
@@ -700,7 +709,7 @@ export default function PortfolioReport({
     }
     if (dataCardType !== cardType) return;
     saved.persistConfig(getConfig());
-  }, [cardType, dataCardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, tagFilterIds, tl.timelineDate, sortK, sortD, nestedGroups, groupDepth, filtersCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardType, dataCardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, tagFilterIds, tl.timelineDate, sortK, sortD, nestedGroups, groupDepth, columns, filtersCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -721,6 +730,7 @@ export default function PortfolioReport({
     setSortD("asc");
     setNestedGroups(false);
     setGroupDepth(2);
+    setColumns(DEFAULT_COLUMNS);
     setDefaultsApplied(false);
   }, [saved, initialCardType]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1393,9 +1403,10 @@ export default function PortfolioReport({
         value: `+${timelineDelta.arriving} / −${timelineDelta.retiring}`,
       });
     if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
+    else params.push({ label: t("common:cardColumns.label"), value: String(columns) });
     if (activeFilterCount > 0) params.push({ label: t("common.filters"), value: t("common.filtersActive", { count: activeFilterCount }) });
     return params;
-  }, [groupByLabel, nestedActive, depthLabel, colorBy, colorByLabel, search, tl.printParam, timelineDelta, view, activeFilterCount, t]);
+  }, [groupByLabel, nestedActive, depthLabel, colorBy, colorByLabel, search, tl.printParam, timelineDelta, view, columns, activeFilterCount, t]);
 
   if (loadFailed)
     return (
@@ -1546,6 +1557,10 @@ export default function PortfolioReport({
                 </MenuItem>
               ))}
             </TextField>
+          )}
+
+          {view === "chart" && (
+            <ColumnCountPicker value={columns} onChange={setColumns} />
           )}
 
           <TextField
@@ -2004,20 +2019,7 @@ export default function PortfolioReport({
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {nestedActive && groupTree ? (
                 /* Nested group tree — boxes within boxes per hierarchy */
-                <Box
-                  className={groupDepth <= 1 ? "report-print-grid-4" : "report-print-grid-3"}
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: {
-                      xs: "1fr",
-                      sm: "1fr 1fr",
-                      md: groupDepth <= 1 ? "1fr 1fr 1fr" : "1fr 1fr",
-                      lg: groupDepth <= 1 ? "1fr 1fr 1fr 1fr" : "1fr 1fr 1fr",
-                    },
-                    gap: 2,
-                    alignItems: "start",
-                  }}
-                >
+                <Box {...columnGridProps(columns, { sx: { alignItems: "start" } })}>
                   {groupTree.map((n) => (
                     <Box key={n.key} data-export-row>
                       <NestedGroupCard
@@ -2037,19 +2039,7 @@ export default function PortfolioReport({
                 </Box>
               ) : (
                 /* Flat group cards grid */
-                <Box
-                  className="report-print-grid-4"
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: {
-                      xs: "1fr",
-                      sm: "1fr 1fr",
-                      md: "1fr 1fr 1fr",
-                      lg: "1fr 1fr 1fr 1fr",
-                    },
-                    gap: 2,
-                  }}
-                >
+                <Box {...columnGridProps(columns)}>
                   {groups.map((g) => (
                     <Box key={g.key} data-export-row>
                       <GroupCard

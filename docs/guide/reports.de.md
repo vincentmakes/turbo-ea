@@ -51,6 +51,10 @@ Wenn die Beziehungen einer Karte einen «Typ»-Wert tragen — etwa den **Verwen
 
 Beim Gruppieren nach einem verknüpften Kartentyp mit Hierarchie (z. B. Geschäftsfähigkeit oder Organisation) erscheint neben der Auswahl *Gruppieren nach* ein Schalter **Verschachtelte Gruppen**. Aktivieren Sie ihn, um die Gruppen als ineinander verschachtelte Boxen entlang der Eltern-Kind-Hierarchie des verknüpften Typs darzustellen — wie in der Fähigkeitskarte. Die Auswahl **Anzeigetiefe** steuert, wie viele Ebenen aufgeklappt werden: Jede Karte erscheint unter ihrer tiefsten sichtbaren Gruppe, und Gruppen unterhalb der Tiefengrenze rollen ihre Karten in den nächsten sichtbaren Vorfahren hoch. Zweige ohne Karten werden ausgeblendet.
 
+### Spaltenanzahl wählen
+
+Das Kartenraster in den Berichten **Portfolio**, **Flexibles Portfolio**, **Fähigkeitskarte** und **Prozesslandkarte** hat eine **Spaltenauswahl** in der Werkzeugleiste — drei Schaltflächen für eine, zwei oder drei Spalten. Wählen Sie weniger Spalten, wenn die Karten viele Informationen enthalten und breit genug zum Lesen sein sollen; wählen Sie drei, um mehr von der Landschaft auf einmal zu sehen. Die Auswahl gilt auf jeder Detailebene, wird pro Bericht gespeichert, wird in einem [gespeicherten Bericht](saved-reports.md) mitgeführt und beim Drucken oder Exportieren verwendet. Schmale Bildschirme reduzieren weiterhin von selbst auf eine oder zwei Spalten.
+
 ## Fähigkeitskarte
 
 Ein Klick auf eine Fähigkeit öffnet ein Seitenpanel mit allen Anwendungen ihres Teilbaums. Auf der untersten Ebene bietet das Panel **In Inventar anzeigen**, was zu den damit verknüpften Anwendungen führt.

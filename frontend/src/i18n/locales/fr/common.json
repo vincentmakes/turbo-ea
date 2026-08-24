@@ -452,5 +452,9 @@
   "cardScope.apply_one": "Appliquer ({{count}})",
   "cardScope.apply_other": "Appliquer ({{count}})",
   "cardScope.flatFallback": "Trop de cartes pour afficher la hiérarchie — saisissez du texte pour rechercher dans la liste complète.",
-  "cardScope.chipAll": "Toutes les cartes"
+  "cardScope.chipAll": "Toutes les cartes",
+  "cardColumns.label": "Colonnes",
+  "cardColumns.tooltipOne": "Une colonne",
+  "cardColumns.tooltipTwo": "Deux colonnes",
+  "cardColumns.tooltipThree": "Trois colonnes"
 }

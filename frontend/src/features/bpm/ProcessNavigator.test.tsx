@@ -308,3 +308,96 @@ describe("ProcessNavigator — metamodel-driven process types (issue #857)", () 
     expect(screen.getByText("Old Timer")).toBeInTheDocument();
   });
 });
+
+/* ────────────────────────────────────────────────────────────────
+ * Column picker.
+ *
+ * The navigator lays each process-type row out on its own grid, so the
+ * pick has to reach the rows rather than a single page-level container —
+ * and a row shorter than the pick must not stretch across empty tracks.
+ * ──────────────────────────────────────────────────────────────── */
+
+const NAV_STORAGE_KEY = "turboea-report:process-navigator";
+
+function makeCoreProcesses(count: number) {
+  return {
+    items: Array.from({ length: count }, (_, i) => ({
+      id: `core-${i}`,
+      name: `Core Process ${i}`,
+      subtype: undefined,
+      parent_id: null,
+      attributes: { processType: "core" },
+      lifecycle: {},
+      app_count: 0,
+      total_cost: 0,
+      apps: [],
+      data_objects: [],
+      org_ids: [],
+      ctx_ids: [],
+      has_diagram: false,
+      element_count: 0,
+    })),
+    organizations: [],
+    business_contexts: [],
+  };
+}
+
+describe("ProcessNavigator column picker", () => {
+  /** The grid holding a process row's cards. */
+  const rowGrid = () =>
+    document.querySelector("[class*='report-print-grid-']") as HTMLElement;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it("defaults to three columns", async () => {
+    mockApi(makeCoreProcesses(4));
+    renderNavigator();
+    await screen.findByText("Core Process 0");
+
+    expect(rowGrid()).toHaveClass("report-print-grid-3");
+  });
+
+  it("never stretches a row across more tracks than it has cards", async () => {
+    mockApi(makeCoreProcesses(2));
+    renderNavigator();
+    await screen.findByText("Core Process 0");
+
+    expect(rowGrid()).toHaveClass("report-print-grid-2");
+  });
+
+  it("reflows the rows and remembers the pick", async () => {
+    mockApi(makeCoreProcesses(4));
+    renderNavigator();
+    await screen.findByText("Core Process 0");
+
+    await userEvent.click(screen.getByRole("button", { name: "One column" }));
+
+    expect(rowGrid()).toHaveClass("report-print-grid-1");
+    await waitFor(() =>
+      expect(JSON.parse(localStorage.getItem(NAV_STORAGE_KEY)!)).toMatchObject({
+        columns: 1,
+      }),
+    );
+  });
+
+  it("restores a stored count on the next visit", async () => {
+    localStorage.setItem(NAV_STORAGE_KEY, JSON.stringify({ columns: 2 }));
+    mockApi(makeCoreProcesses(4));
+    renderNavigator();
+    await screen.findByText("Core Process 0");
+
+    expect(rowGrid()).toHaveClass("report-print-grid-2");
+  });
+
+  it("ignores a stored count it does not support", async () => {
+    localStorage.setItem(NAV_STORAGE_KEY, JSON.stringify({ columns: 4 }));
+    mockApi(makeCoreProcesses(4));
+    renderNavigator();
+    await screen.findByText("Core Process 0");
+
+    expect(rowGrid()).toHaveClass("report-print-grid-3");
+  });
+});

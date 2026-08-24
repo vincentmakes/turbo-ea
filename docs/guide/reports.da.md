@@ -51,6 +51,10 @@ Når et korts relationer bærer en «type»-værdi — for eksempel **anvendelse
 
 Når du grupperer efter en relateret korttype, der understøtter hierarki (såsom Forretningskompetence eller Organisation), vises en **Indlejrede grupper**-kontakt ved siden af *Gruppér efter*-vælgeren. Aktivér den for at vise grupperne som bokse i bokse efter den relaterede types forælder/barn-hierarki — ligesom kompetencekortet. Vælgeren **Visningsdybde** styrer, hvor mange niveauer der udfoldes: hvert kort vises under sin dybeste synlige gruppe, og grupper under dybdegrænsen ruller deres kort op i den nærmeste synlige forfader. Grene uden kort skjules.
 
+### Vælg antal kolonner
+
+Kortgitteret i rapporterne **Portefølje**, **Fleksibel portefølje**, **Kapabilitetskort** og **Proceskort** har en **kolonnevælger** i værktøjslinjen — tre knapper for én, to eller tre kolonner. Vælg færre kolonner, når kortene er tætpakkede og skal være brede nok til at læses; vælg tre for at se mere af landskabet på én gang. Valget gælder på alle detaljeniveauer, huskes pr. rapport, følger med en [gemt rapport](saved-reports.md) og bruges ved udskrift og eksport. Smalle skærme falder fortsat af sig selv tilbage til én eller to kolonner.
+
 ## Kompetencekort
 
 Et klik på en kapabilitet åbner et sidepanel med alle applikationer i dens undertræ. På nederste niveau tilbyder panelet **Vis i inventar**, som fører til de applikationer, der er knyttet til den.

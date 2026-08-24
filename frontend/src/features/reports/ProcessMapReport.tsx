@@ -22,6 +22,13 @@ import ReportShell from "./ReportShell";
 import FilterSelect from "@/components/FilterSelect";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
+import ColumnCountPicker from "@/components/ColumnCountPicker";
+import {
+  columnGridProps,
+  isColumnCount,
+  DEFAULT_COLUMNS,
+  type ColumnCount,
+} from "@/components/cardColumns";
 import ReportCardListPanel, {
   ReportCardListRows,
   type ReportCardListItem,
@@ -547,6 +554,7 @@ export default function ProcessMapReport() {
   // Controls
   const [metric, setMetric] = useState<Metric>("maturity");
   const [displayLevel, setDisplayLevel] = useState(2);
+  const [columns, setColumns] = useState<ColumnCount>(DEFAULT_COLUMNS);
   const [showRelated, setShowRelated] = useState<ShowRelated>("none");
 
   // Drill-down: zoom into a subtree
@@ -580,6 +588,7 @@ export default function ProcessMapReport() {
     if (cfg) {
       if (cfg.metric) setMetric(cfg.metric as Metric);
       if (cfg.displayLevel != null) setDisplayLevel(cfg.displayLevel as number);
+      if (isColumnCount(cfg.columns)) setColumns(cfg.columns);
       if (cfg.showRelated) setShowRelated(cfg.showRelated as ShowRelated);
       if (cfg.filterOrgs) setFilterOrgs(cfg.filterOrgs as string[]);
       if (cfg.filterCtxs) setFilterCtxs(cfg.filterCtxs as string[]);
@@ -589,18 +598,19 @@ export default function ProcessMapReport() {
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ metric, displayLevel, showRelated, filterOrgs, filterCtxs, scopeIds });
+  const getConfig = () => ({ metric, displayLevel, columns, showRelated, filterOrgs, filterCtxs, scopeIds });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [metric, displayLevel, showRelated, filterOrgs, filterCtxs, scopeIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [metric, displayLevel, columns, showRelated, filterOrgs, filterCtxs, scopeIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
     saved.resetAll();
     setMetric("maturity");
     setDisplayLevel(2);
+    setColumns(DEFAULT_COLUMNS);
     setShowRelated("none");
     setZoomNodeId(null);
     setFilterOrgs([]);
@@ -776,6 +786,7 @@ export default function ProcessMapReport() {
     params.push({ label: t("common.metric"), value: mLabel });
     const depthLabel = levelOptions.find((o) => o.value === displayLevel)?.label || "";
     params.push({ label: t("common.depth"), value: depthLabel });
+    params.push({ label: t("common:cardColumns.label"), value: String(columns) });
     if (effectiveScopeIds.length > 0) {
       params.push({
         label: t("common.scope"),
@@ -792,7 +803,7 @@ export default function ProcessMapReport() {
       params.push({ label: t("processMap.businessContext"), value: ctxNames });
     }
     return params;
-  }, [metric, displayLevel, showRelated, showRelatedLabel, filterOrgs, orgOptions, filterCtxs, ctxOptions, levelOptions, t]);
+  }, [metric, displayLevel, columns, showRelated, showRelatedLabel, filterOrgs, orgOptions, filterCtxs, ctxOptions, levelOptions, t]);
 
   if (data === null)
     return (
@@ -837,6 +848,8 @@ export default function ProcessMapReport() {
               <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
             ))}
           </TextField>
+
+          <ColumnCountPicker value={columns} onChange={setColumns} />
 
           {/* Scopes which *processes* the map draws. The Row 2 block below is
               also labelled "Scope", but that one narrows by related
@@ -989,19 +1002,7 @@ export default function ProcessMapReport() {
           </Typography>
         </Box>
       ) : (
-        <Box
-          className={displayLevel <= 1 ? "report-print-grid-4" : "report-print-grid-3"}
-          sx={{
-            display: "grid",
-            gridTemplateColumns: {
-              xs: "1fr",
-              sm: "1fr 1fr",
-              md: displayLevel <= 1 ? "1fr 1fr 1fr" : "1fr 1fr",
-              lg: displayLevel <= 1 ? "1fr 1fr 1fr 1fr" : "1fr 1fr 1fr",
-            },
-            gap: 2,
-          }}
-        >
+        <Box {...columnGridProps(columns)}>
           {displayTree.map((proc) => (
             <ProcessCard
               key={proc.id}

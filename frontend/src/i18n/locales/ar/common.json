@@ -452,5 +452,9 @@
   "cardScope.apply_one": "تطبيق ({{count}})",
   "cardScope.apply_other": "تطبيق ({{count}})",
   "cardScope.flatFallback": "عدد البطاقات كبير جدًا لعرض التسلسل الهرمي — اكتب للبحث في القائمة الكاملة.",
-  "cardScope.chipAll": "جميع البطاقات"
+  "cardScope.chipAll": "جميع البطاقات",
+  "cardColumns.label": "الأعمدة",
+  "cardColumns.tooltipOne": "عمود واحد",
+  "cardColumns.tooltipTwo": "عمودان",
+  "cardColumns.tooltipThree": "ثلاثة أعمدة"
 }

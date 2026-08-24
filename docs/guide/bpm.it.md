@@ -19,6 +19,8 @@ Il **Navigatore dei processi** organizza i processi in tre categorie principali:
 
 Le schede con un diagramma BPMN pubblicato mostrano un'**icona di flusso**: fai clic su di essa per aprire il diagramma a schermo intero senza lasciare il navigatore (o per passare da lì all'editor di flusso completo).
 
+**Disposizione in colonne:** la barra degli strumenti offre un **selettore di colonne** — una, due o tre — per allargare le schede di processo o far entrare più righe nello schermo. Una riga non viene mai distesa su più colonne di quanti processi contenga e la scelta viene ricordata tra una visita e l'altra.
+
 ## Dashboard BPM
 
 ![Dashboard BPM con statistiche](../assets/img/it/15_bpm_dashboard.png)

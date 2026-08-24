@@ -19,6 +19,8 @@
 
 Kort med et publiceret BPMN-diagram viser et **flow-ikon** — klik på det for at åbne diagrammet i fuld skærm uden at forlade navigatoren (eller for at springe derfra til den fulde flow-editor).
 
+**Kolonnelayout:** værktøjslinjen har en **kolonnevælger** — én, to eller tre kolonner — så du kan gøre proceskortene bredere eller få mere af en række på skærmen. En række strækkes aldrig over flere kolonner, end den har processer, og valget huskes mellem besøg.
+
 ## BPM-dashboard
 
 ![BPM-dashboard med statistik](../assets/img/da/15_bpm_dashboard.png)

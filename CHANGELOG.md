@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.80.0] - 2026-08-24
+
+### Added
+
+- **Choose how many columns a report lays its cards out in.** The Capability Map, Process Map, Portfolio, Flexible Portfolio and the BPM Process Navigator all placed their cards in a fixed three-across grid, whatever the screen or the content. Each now has a 1 / 2 / 3 column picker in its toolbar, next to the depth control — three buttons, no dropdown. Wider cards are easier to read at one or two across; a sparse landscape no longer wastes half the page. The choice sticks per report, travels with a saved report, and is used when you print. Narrow screens still reduce to one or two columns on their own, and the Process Navigator never stretches a row across more tracks than it has processes.
+
+### Changed
+
+- The chosen column count now applies at every drill-down level. Previously these reports quietly switched to a narrower grid once you drilled past the top level, and widened to four columns on very large monitors; the picker replaces both.
+
 ## [2.79.3] - 2026-08-24
 
 ### Fixed

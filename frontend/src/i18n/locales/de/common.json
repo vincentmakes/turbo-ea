@@ -452,5 +452,9 @@
   "cardScope.apply_one": "Anwenden ({{count}})",
   "cardScope.apply_other": "Anwenden ({{count}})",
   "cardScope.flatFallback": "Zu viele Karten für die Hierarchieansicht — tippen Sie, um die gesamte Liste zu durchsuchen.",
-  "cardScope.chipAll": "Alle Karten"
+  "cardScope.chipAll": "Alle Karten",
+  "cardColumns.label": "Spalten",
+  "cardColumns.tooltipOne": "Eine Spalte",
+  "cardColumns.tooltipTwo": "Zwei Spalten",
+  "cardColumns.tooltipThree": "Drei Spalten"
 }

@@ -50,6 +50,13 @@ import Toolbar from "@mui/material/Toolbar";
 import Button from "@mui/material/Button";
 import DOMPurify from "dompurify";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import ColumnCountPicker from "@/components/ColumnCountPicker";
+import {
+  columnGridProps,
+  isColumnCount,
+  DEFAULT_COLUMNS,
+  type ColumnCount,
+} from "@/components/cardColumns";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
@@ -2083,6 +2090,9 @@ export default function ProcessNavigator() {
   const searchParam = searchParams.get("search") || "";
   const levelParam = parseInt(searchParams.get("level") || (!hasUrlParams && localConfig?.displayLevel != null ? String(localConfig.displayLevel) : "2"), 10);
   const overlayParam = (searchParams.get("overlay") as ColorOverlay) || (!hasUrlParams && localConfig?.overlay as ColorOverlay) || "processType";
+  const colsRaw = searchParams.get("cols") ?? (!hasUrlParams ? localConfig?.columns : undefined);
+  const colsNum = Number(colsRaw);
+  const colsParam: ColumnCount = isColumnCount(colsNum) ? colsNum : DEFAULT_COLUMNS;
   const zoomParam = searchParams.get("zoom") || null;
   const drawerParam = searchParams.get("open") || null;
 
@@ -2090,6 +2100,7 @@ export default function ProcessNavigator() {
   const [search, setSearch] = useState(searchParam);
   const [displayLevel, setDisplayLevel] = useState(levelParam);
   const [overlay, setOverlay] = useState<ColorOverlay>(overlayParam);
+  const [columns, setColumns] = useState<ColumnCount>(colsParam);
   const [zoomNodeId, setZoomNodeId] = useState<string | null>(zoomParam);
   const [drawerNode, setDrawerNode] = useState<ProcNode | null>(null);
   const [flowNode, setFlowNode] = useState<ProcNode | null>(null);
@@ -2168,10 +2179,11 @@ export default function ProcessNavigator() {
     if (search) params.search = search;
     if (displayLevel !== 2) params.level = String(displayLevel);
     if (overlay !== "processType") params.overlay = overlay;
+    if (columns !== DEFAULT_COLUMNS) params.cols = String(columns);
     if (zoomNodeId) params.zoom = zoomNodeId;
     if (drawerNode) params.open = drawerNode.id;
     setSearchParams(params, { replace: true });
-  }, [viewMode, search, displayLevel, overlay, zoomNodeId, drawerNode, setSearchParams]);
+  }, [viewMode, search, displayLevel, overlay, columns, zoomNodeId, drawerNode, setSearchParams]);
 
   // ── Auto-persist to localStorage ──
   useEffect(() => {
@@ -2180,9 +2192,10 @@ export default function ProcessNavigator() {
         viewMode,
         displayLevel,
         overlay,
+        columns,
       }));
     } catch { /* ignore */ }
-  }, [viewMode, displayLevel, overlay, STORAGE_KEY]);
+  }, [viewMode, displayLevel, overlay, columns, STORAGE_KEY]);
 
   // ── Reset all parameters to defaults ──
   const handleReset = useCallback(() => {
@@ -2191,6 +2204,7 @@ export default function ProcessNavigator() {
     setSearch("");
     setDisplayLevel(2);
     setOverlay("processType");
+    setColumns(DEFAULT_COLUMNS);
     setZoomNodeId(null);
     setDrawerNode(null);
     setOrgFilter([]);
@@ -2483,6 +2497,8 @@ export default function ProcessNavigator() {
             />
           )}
 
+          <ColumnCountPicker value={columns} onChange={setColumns} />
+
           {/* Organization filter */}
           {organizations.length > 0 && (
             <Autocomplete
@@ -2662,15 +2678,12 @@ export default function ProcessNavigator() {
                       const allLeaves = nodes.every(
                         (n) => n.level >= displayLevel || n.children.length === 0,
                       );
+                      // Honour the user's column choice, but never leave a
+                      // short row stretched across empty tracks.
+                      const rowCols = Math.min(columns, nodes.length) as ColumnCount;
                       return allLeaves ? (
                         // Leaf cards: multi-column grid filling the row
-                        <Box
-                          sx={{
-                            display: "grid",
-                            gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))",
-                            gap: 1.5,
-                          }}
-                        >
+                        <Box {...columnGridProps(rowCols, { gap: 1.5 })}>
                           {nodes.map((node) => (
                             <HouseCard
                               key={node.id}
@@ -2690,18 +2703,8 @@ export default function ProcessNavigator() {
                           ))}
                         </Box>
                       ) : (
-                        // Container cards: 2-column layout on wide screens
-                        <Box
-                          sx={{
-                            display: "grid",
-                            gridTemplateColumns: {
-                              xs: "1fr",
-                              md: nodes.length === 1 ? "1fr" : "1fr 1fr",
-                              lg: nodes.length <= 2 ? "repeat(" + nodes.length + ", 1fr)" : "1fr 1fr 1fr",
-                            },
-                            gap: 1.5,
-                          }}
-                        >
+                        // Container cards: same column choice as leaf rows
+                        <Box {...columnGridProps(rowCols, { gap: 1.5 })}>
                           {nodes.map((node) => (
                             <HouseCard
                               key={node.id}

@@ -51,6 +51,10 @@ Lorsque les relations d'une carte portent une valeur de « type » — par exemp
 
 Lorsque vous regroupez par un type de carte lié prenant en charge la hiérarchie (par exemple Capacité métier ou Organisation), un interrupteur **Groupes imbriqués** apparaît à côté du sélecteur *Regrouper par*. Activez-le pour afficher les groupes sous forme de boîtes imbriquées suivant la hiérarchie parent/enfant du type lié — comme dans la carte de capacités. Le sélecteur **Profondeur d’affichage** contrôle le nombre de niveaux développés : chaque carte apparaît sous son groupe visible le plus profond, et les groupes situés au-delà de la limite de profondeur remontent leurs cartes vers l’ancêtre visible le plus proche. Les branches sans cartes sont masquées.
 
+### Choisir le nombre de colonnes
+
+La grille de cartes des rapports **Portefeuille**, **Portefeuille flexible**, **Carte des capacités** et **Carte des processus** dispose d'un **sélecteur de colonnes** dans la barre d'outils — trois boutons pour une, deux ou trois colonnes. Choisissez moins de colonnes lorsque les cartes sont denses et doivent rester assez larges pour être lues ; choisissez trois pour voir davantage du paysage d'un seul coup d'œil. Le choix s'applique à chaque niveau de détail, est mémorisé par rapport, accompagne un [rapport enregistré](saved-reports.md) et est utilisé à l'impression comme à l'export. Les écrans étroits repassent d'eux-mêmes à une ou deux colonnes.
+
 ## Carte de capacités
 
 Un clic sur une capacité ouvre un panneau latéral listant toutes les applications de son sous-arbre. Au niveau le plus bas, le panneau propose **Voir dans l'inventaire**, qui mène aux applications qui lui sont liées.
