@@ -57,6 +57,7 @@ def _extract_card_refs(data: dict | None) -> list[str]:
 _PRIVATE_CELL_ATTRS = (
     "cardId",
     "cardName",
+    "cardDetail",
     "cardType",
     "relationId",
     "relationType",

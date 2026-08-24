@@ -20,7 +20,8 @@ import {
   applyEdgeFlowDirection,
   composeCardLabel,
   readCardName,
-  renameCardLabel,
+  readCardDetail,
+  setCardLabel,
   firstLineText,
   applyCardLabels,
   normaliseEditedCardLabel,
@@ -1355,24 +1356,60 @@ describe("readCardName", () => {
   });
 });
 
-describe("renameCardLabel / firstLineText", () => {
-  it("swaps the name and keeps the detail rows", () => {
-    const before = composeCardLabel("Old Name", [{ label: "Type", value: "Application" }]);
-    const after = renameCardLabel(before, "New Name");
-    expect(after).toContain("<b>New Name</b>");
-    expect(after).toContain("Type: Application");
-    expect(after).not.toContain("Old Name");
+describe("detail rows are carried as data, not as markup", () => {
+  it("stamps the rows alongside the rendered label, and reads them back", () => {
+    const bag = attrBag({});
+    const lines = [{ label: "Type", value: "Application" }];
+    setCardLabel(bag, "NexaCore ERP", lines);
+    expect(readCardName(bag)).toBe("NexaCore ERP");
+    expect(readCardDetail(bag)).toEqual(lines);
   });
 
-  it("collapses to a bare name when there were no rows", () => {
-    expect(renameCardLabel("Old Name", "New & Name")).toBe("New &amp; Name");
+  it("clears the rows when a card is composed without any", () => {
+    const bag = attrBag({});
+    setCardLabel(bag, "App", [{ label: "Type", value: "Application" }]);
+    setCardLabel(bag, "App", []);
+    expect(readCardDetail(bag)).toEqual([]);
+    expect(bag.getAttribute("label")).toBe("App");
   });
 
-  it("recovers the typed name from a hand-edited label, ignoring the rows", () => {
-    const edited = "<b>Payment GW</b><div style=\"font-size:9px\">Type: Application</div>";
+  it("never re-emits markup from a hand-edited label", () => {
+    // A label is hand-editable, so anything spliced out of one and into
+    // another is user input. Recomposition goes through the stored rows.
+    const bag = attrBag({
+      cardName: "App",
+      cardDetail: JSON.stringify([{ label: "Owner", value: "Alice" }]),
+      label: '<b>App</b><div onmouseover="steal()">Owner: Alice</div>',
+    });
+    setCardLabel(bag, "Renamed", readCardDetail(bag));
+    expect(bag.getAttribute("label")).not.toContain("onmouseover");
+    expect(bag.getAttribute("label")).toContain("Owner: Alice");
+  });
+
+  it("ignores a cardDetail attribute that was tampered with by hand", () => {
+    expect(readCardDetail(attrBag({ cardDetail: "not json" }))).toEqual([]);
+    expect(readCardDetail(attrBag({ cardDetail: '{"not":"an array"}' }))).toEqual([]);
+    expect(readCardDetail(attrBag({ cardDetail: '[{"label":1,"value":2}]' }))).toEqual([]);
+  });
+});
+
+describe("firstLineText", () => {
+  it("recovers the typed name from a hand-edited label, dropping the rows", () => {
+    const edited = '<b>Payment GW</b><div style="font-size:9px">Type: Application</div>';
     expect(firstLineText(edited)).toBe("Payment GW");
     expect(firstLineText("R&amp;D")).toBe("R&D");
     expect(firstLineText("Plain")).toBe("Plain");
+  });
+
+  it("joins a multi-line hand-typed name", () => {
+    expect(firstLineText("Line one<br>Line two")).toBe("Line one Line two");
+  });
+
+  it("is not fooled by markup a strip-tags regex would let through", () => {
+    // `<[^>]*>` — the pattern this replaced — stops at the first `>`, so it
+    // leaks `">Payment` out of the attribute, and cannot skip a comment.
+    expect(firstLineText('<b title="a>b">Payment</b>')).toBe("Payment");
+    expect(firstLineText("<!-- <b> -->Payment")).toBe("Payment");
   });
 });
 
@@ -1470,6 +1507,7 @@ describe("normaliseEditedCardLabel", () => {
         cardId: "id-top",
         cardType: "Application",
         cardName: "Old Name",
+        cardDetail: JSON.stringify([{ label: "Type", value: "Application" }]),
         // What DrawIO leaves behind after an in-place edit: only `label` moved.
         label: "<b>Hand Typed</b><div style=\"font-size:9px\">Type: Application</div>",
       }),
@@ -1477,8 +1515,25 @@ describe("normaliseEditedCardLabel", () => {
     const name = normaliseEditedCardLabel(labelFrame(cells), "top");
     expect(name).toBe("Hand Typed");
     expect(cells.top.value.getAttribute("cardName")).toBe("Hand Typed");
-    // The rows are re-rendered, not taken as prose.
+    // The rows are re-rendered from the stored data, not lifted out of the
+    // markup the user just edited.
     expect(cells.top.value.getAttribute("label")).toContain("Type: Application");
+  });
+
+  it("keeps the typed name on a cell that carries no stored rows", () => {
+    // A cell composed before the rows became data. The name is what matters;
+    // the rows come back on the next display pass, which renders from the
+    // card record rather than from the cell.
+    const cells = {
+      top: scanVertex("top", {
+        cardId: "id-top",
+        cardType: "Application",
+        cardName: "Old Name",
+        label: "<b>Hand Typed</b><div>Type: Application</div>",
+      }),
+    };
+    expect(normaliseEditedCardLabel(labelFrame(cells), "top")).toBe("Hand Typed");
+    expect(cells.top.value.getAttribute("label")).toBe("Hand Typed");
   });
 
   it("ignores cells that are not card cells", () => {

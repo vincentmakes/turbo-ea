@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Subtype can be shown on a dependency card.** The Dependencies report's **Card display** menu has a *Show subtype* switch, alongside the existing type and lifecycle toggles.
 - **The Dependencies report's Card display menu is grouped.** Its switches sit under **Cards** and **Relations** instead of running together, and the extra-fields picker lists each attribute under the card type that owns it.
 - **The colour and the fields on a diagram card are set independently.** Both live in the same **View** dropdown, and neither now depends on the other: the attribute rows are populated whenever the menu is opened rather than as a side effect of applying a colour, and picking a colour no longer dismisses the menu, so both can be set in one visit.
+- **A card's detail rows are stored as data rather than re-read from its own markup.** A diagram label is hand-editable, so lifting the rendered rows out of one label and splicing them into another re-emitted whatever markup that label happened to carry. The rows now travel as data on the cell and every re-render goes back through the escaper, and the name is recovered from a hand-edited label with a real HTML parse instead of a strip-tags pattern that a comment or a quoted `>` defeats.
 
 ### Fixed
 

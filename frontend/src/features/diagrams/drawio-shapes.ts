@@ -238,6 +238,17 @@ function iconTokensFromStyle(style: string): string[] {
  */
 const CARD_NAME_ATTR = "cardName";
 
+/**
+ * XML attribute holding the detail rows as data.
+ *
+ * The rows live here rather than being recovered by re-reading the rendered
+ * `label`. Splicing an HTML suffix out of one label and into another re-emits
+ * whatever markup that label happened to carry — and a label is hand-editable
+ * (F2), so "whatever it carried" is user input. Every recomposition goes back
+ * to this data and through `composeCardLabel`'s escaping.
+ */
+const CARD_DETAIL_ATTR = "cardDetail";
+
 /** Escape a string for safe inclusion in an HTML label. Card names and
  *  attribute values are user data and must never be able to inject markup
  *  into the DrawIO iframe. */
@@ -302,6 +313,11 @@ export function setCardLabel(obj: any, name: string, lines: CardDetailLine[] = [
   if (!obj?.setAttribute) return;
   obj.setAttribute("label", composeCardLabel(name, lines));
   obj.setAttribute(CARD_NAME_ATTR, name);
+  if (lines.length > 0) {
+    obj.setAttribute(CARD_DETAIL_ATTR, JSON.stringify(lines));
+  } else if (obj.removeAttribute) {
+    obj.removeAttribute(CARD_DETAIL_ATTR);
+  }
 }
 
 /**
@@ -318,46 +334,48 @@ export function readCardName(value: any): string {
   return value.getAttribute("label") || "";
 }
 
-/** Split a composed label into its name part and its detail-row suffix. The
- *  rows are always trailing `<div>` blocks, so this is a splice, never a
- *  parse of the values inside them. */
-function splitCardLabel(label: string): { namePart: string; detail: string } {
-  const raw = String(label ?? "");
-  const idx = raw.search(/<div\b/i);
-  if (idx < 0) return { namePart: raw, detail: "" };
-  return { namePart: raw.slice(0, idx), detail: raw.slice(idx) };
+/** Read the detail rows back off a cell. Defensive: the attribute is
+ *  hand-editable in the DrawIO XML like any other. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function readCardDetail(value: any): CardDetailLine[] {
+  const raw = value?.getAttribute?.(CARD_DETAIL_ATTR);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((l) => l && typeof l.label === "string" && typeof l.value === "string")
+      .map((l) => ({ label: l.label, value: l.value }));
+  } catch {
+    return [];
+  }
 }
 
 /**
  * Recover the plain name a user typed into a hand-edited (F2) label.
  *
- * Only the part above the detail rows is considered: the name is the first
- * line of a composed label, and the rows below it are data we re-render rather
- * than accept edits to.
+ * Parses with the DOM rather than stripping tags with a regex. A regex that
+ * tries to match HTML tags cannot be made correct — comments and attribute
+ * values containing `>` both defeat `<[^>]*>` — which is why CodeQL rates the
+ * attempt as a high-severity `js/bad-tag-filter`. `DOMParser` with `text/html`
+ * builds an inert document: no script runs and no resource loads, so this is
+ * safe on a hand-edited label as well as on one we wrote.
+ *
+ * The detail rows are `<div>`s, so they are dropped: the name is what is left.
  */
 export function firstLineText(html: string): string {
-  return splitCardLabel(html)
-    .namePart.replace(/<br\s*\/?>/gi, " ")
-    .replace(/<[^>]*>/g, "")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, "&")
-    .trim();
-}
-
-/**
- * Swap the name in an already-composed label, keeping whatever detail rows it
- * carries. Used when an inventory rename is accepted, and when a hand-edited
- * label is normalised — neither knows the field values, and neither should
- * have to.
- */
-export function renameCardLabel(existingLabel: string, newName: string): string {
-  const { detail } = splitCardLabel(existingLabel);
-  if (!detail) return composeCardLabel(newName);
-  return `<b>${escapeHtml(newName)}</b>${detail}`;
+  const raw = String(html ?? "");
+  if (!raw) return "";
+  if (typeof DOMParser === "undefined") {
+    // No DOM (a bare, non-jsdom test host). Returning the input whole beats
+    // half-stripping it with a regex we just removed for being unsound.
+    return raw.trim();
+  }
+  const body = new DOMParser().parseFromString(raw, "text/html").body;
+  for (const row of Array.from(body.querySelectorAll("div"))) row.remove();
+  // A hand-typed multi-line name arrives as <br>-separated text.
+  for (const br of Array.from(body.querySelectorAll("br"))) br.replaceWith(" ");
+  return (body.textContent || "").replace(/\s+/g, " ").trim();
 }
 
 export interface InsertCardOpts {
@@ -741,13 +759,10 @@ export function updateCellLabel(
   model.beginUpdate();
   try {
     if (cell.value?.setAttribute) {
-      // Keep whatever detail rows the cell carries — the caller knows the new
-      // name, not the field values behind those rows.
-      cell.value.setAttribute(
-        "label",
-        renameCardLabel(cell.value.getAttribute("label") || "", newLabel),
-      );
-      cell.value.setAttribute(CARD_NAME_ATTR, newLabel);
+      // Keep the detail rows the cell carries — the caller knows the new name,
+      // not the field values behind those rows. Read as data and re-rendered,
+      // so no markup from the old label survives into the new one.
+      setCardLabel(cell.value, newLabel, readCardDetail(cell.value));
     }
     graph.refresh(cell);
   } finally {
@@ -4007,8 +4022,7 @@ export function normaliseEditedCardLabel(
   if (!name) return null;
   model.beginUpdate();
   try {
-    cell.value.setAttribute("label", renameCardLabel(raw, name));
-    cell.value.setAttribute(CARD_NAME_ATTR, name);
+    setCardLabel(cell.value, name, readCardDetail(cell.value));
     graph.refresh(cell);
   } finally {
     model.endUpdate();
@@ -4127,6 +4141,9 @@ export function buildLdvDiagramXml(
     parts.push(
       `<object id="${escapeXml(cellId)}" label="${escapeXml(label)}" ` +
         `cardName="${escapeXml(c.name)}" ` +
+        (c.detailLines?.length
+          ? `cardDetail="${escapeXml(JSON.stringify(c.detailLines))}" `
+          : "") +
         `cardId="${escapeXml(c.cardId)}" cardType="${escapeXml(c.cardType)}">` +
         `<mxCell style="${escapeXml(style)}" vertex="1" parent="1">` +
         `<mxGeometry x="${r(c.x)}" y="${r(c.y)}" width="${r(c.w)}" height="${r(c.h)}" ` +

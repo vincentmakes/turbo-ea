@@ -28,7 +28,9 @@ from tests.conftest import auth_headers, create_role, create_user
 CARD_XML = (
     '<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>'
     '<object label="&lt;b&gt;NexaCore ERP&lt;/b&gt;&lt;div&gt;Type: Application&lt;/div&gt;" '
-    'cardName="NexaCore ERP" cardId="11111111-1111-1111-1111-111111111111" '
+    'cardName="NexaCore ERP" cardDetail="[{&quot;label&quot;:&quot;Type&quot;,'
+    '&quot;value&quot;:&quot;Application&quot;}]" '
+    'cardId="11111111-1111-1111-1111-111111111111" '
     'cardType="Application" parentGroupCell="c9"><mxCell style="fillColor=#0f7eb5" '
     'vertex="1" parent="1"/></object>'
     '<object label="" relationId="22222222-2222-2222-2222-222222222222" '
@@ -69,6 +71,7 @@ class TestSanitiser:
         for attr in (
             "cardId=",
             "cardName=",
+            "cardDetail=",
             "cardType=",
             "relationId=",
             "relationType=",
@@ -92,6 +95,8 @@ class TestSanitiser:
         assert "Type: Application" in out
         assert "&lt;b&gt;NexaCore ERP&lt;/b&gt;" in out
         assert "cardName=" not in out
+        # The rows are carried as data on the cell too; that copy is internal.
+        assert "cardDetail=" not in out
 
     def test_handles_missing_xml(self):
         assert sanitise_public_xml(None) == ""
