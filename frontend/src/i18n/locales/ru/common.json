@@ -456,5 +456,11 @@
   "cardColumns.label": "Столбцы",
   "cardColumns.tooltipOne": "Один столбец",
   "cardColumns.tooltipTwo": "Два столбца",
-  "cardColumns.tooltipThree": "Три столбца"
+  "cardColumns.tooltipThree": "Три столбца",
+  "cardDisplay.showOnCard": "Показывать на карточке",
+  "cardDisplay.sharedFields": "Общие",
+  "cardDisplay.cardTypeLine": "Тип карточки",
+  "cardDisplay.subtypeLine": "Подтип",
+  "cardDisplay.linesHint": "Первые {{count}} отображаются на карточке.",
+  "cardDisplay.noFields": "Нет доступных полей"
 }

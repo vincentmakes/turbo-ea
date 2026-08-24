@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import type { CardLabelSettings } from "@/lib/cardDisplayFields";
+
 /**
  * Shared, persisted display settings for the Layered Dependency View.
  *
@@ -96,4 +98,16 @@ export function useLdvSettings(): [LdvDisplaySettings, (patch: Partial<LdvDispla
     return subscribe(setS);
   }, []);
   return [s, setLdvSettings];
+}
+
+/**
+ * The subset of these settings that describes what a card *says*, in the shape
+ * the shared card-display vocabulary uses.
+ *
+ * Two callers need exactly this projection and must not disagree: the
+ * "Show on card" picker, and the Create-diagram export that seeds a new DrawIO
+ * diagram's `cardLabels` so it opens showing the rows that were on screen.
+ */
+export function toCardLabels(s: LdvDisplaySettings): CardLabelSettings {
+  return { showType: s.showType, showSubtype: s.showSubtype, fields: s.extraFields };
 }

@@ -456,5 +456,11 @@
   "cardColumns.label": "Colonne",
   "cardColumns.tooltipOne": "Una colonna",
   "cardColumns.tooltipTwo": "Due colonne",
-  "cardColumns.tooltipThree": "Tre colonne"
+  "cardColumns.tooltipThree": "Tre colonne",
+  "cardDisplay.showOnCard": "Mostra sulla scheda",
+  "cardDisplay.sharedFields": "Comuni",
+  "cardDisplay.cardTypeLine": "Tipo di scheda",
+  "cardDisplay.subtypeLine": "Sottotipo",
+  "cardDisplay.linesHint": "I primi {{count}} appaiono sulla scheda.",
+  "cardDisplay.noFields": "Nessun campo disponibile"
 }

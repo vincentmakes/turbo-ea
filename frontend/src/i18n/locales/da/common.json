@@ -456,5 +456,11 @@
   "cardColumns.label": "Kolonner",
   "cardColumns.tooltipOne": "Én kolonne",
   "cardColumns.tooltipTwo": "To kolonner",
-  "cardColumns.tooltipThree": "Tre kolonner"
+  "cardColumns.tooltipThree": "Tre kolonner",
+  "cardDisplay.showOnCard": "Vis på kortet",
+  "cardDisplay.sharedFields": "Fælles",
+  "cardDisplay.cardTypeLine": "Korttype",
+  "cardDisplay.subtypeLine": "Undertype",
+  "cardDisplay.linesHint": "De første {{count}} vises på kortet.",
+  "cardDisplay.noFields": "Ingen felter tilgængelige"
 }

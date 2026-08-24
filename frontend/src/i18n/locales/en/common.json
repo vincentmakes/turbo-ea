@@ -456,5 +456,11 @@
   "cardColumns.label": "Columns",
   "cardColumns.tooltipOne": "One column",
   "cardColumns.tooltipTwo": "Two columns",
-  "cardColumns.tooltipThree": "Three columns"
+  "cardColumns.tooltipThree": "Three columns",
+  "cardDisplay.showOnCard": "Show on card",
+  "cardDisplay.sharedFields": "Shared",
+  "cardDisplay.cardTypeLine": "Card type",
+  "cardDisplay.subtypeLine": "Subtype",
+  "cardDisplay.linesHint": "The first {{count}} appear on the card.",
+  "cardDisplay.noFields": "No fields available"
 }

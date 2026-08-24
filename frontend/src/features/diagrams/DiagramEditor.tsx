@@ -103,7 +103,7 @@ import type {
   ExpandMenuTarget,
 } from "./ExpandMenu";
 import ColorBySelector from "./ColorBySelector";
-import ShowOnCardSelector from "./ShowOnCardSelector";
+import ShowOnCardSelector from "@/components/cardDisplay/ShowOnCardSelector";
 import {
   buildColorMap,
   colorKeyForCard,
@@ -2927,13 +2927,13 @@ export default function DiagramEditor() {
       if (cardLabels.showType) {
         const tp = fsTypesRef.current.find((t2) => t2.key === card.type);
         lines.push({
-          label: t("viewSelector.cardTypeLine"),
+          label: t("common:cardDisplay.cardTypeLine"),
           value: tp ? typeLabel(tp) : card.type,
         });
       }
       if (cardLabels.showSubtype && card.subtype) {
         lines.push({
-          label: t("viewSelector.subtypeLine"),
+          label: t("common:cardDisplay.subtypeLine"),
           value: subtypeLabel(card.type, card.subtype),
         });
       }

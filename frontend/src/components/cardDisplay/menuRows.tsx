@@ -7,12 +7,27 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import type { CardType } from "@/types";
 
 /**
- * Row primitives shared by the diagram toolbar's two card-display menus.
+ * Row primitives shared by every card-display menu — the diagram toolbar's two
+ * dropdowns and the Layered Dependency View's "Show on card" button.
  *
- * Both menus file their options under the card type that owns them and use the
+ * They all file their options under the card type that owns them and use the
  * same radio-vs-checkbox grammar for "pick one" vs "pick several", so the rows
  * live here rather than being copied into each.
  */
+
+/**
+ * Sizing shared by every row.
+ *
+ * The dense default is right for a mouse, but a 30px row is well under the 44px
+ * a finger needs, and these menus are used on an iPad. `pointer: coarse` is the
+ * discriminator rather than a width breakpoint: a tablet in landscape is a wide
+ * viewport that still gets tapped, and a narrow desktop window is not.
+ */
+const ROW_SX = {
+  pl: 1.5,
+  py: 0.25,
+  "@media (pointer: coarse)": { py: 1, minHeight: 44 },
+} as const;
 
 /**
  * Sub-heading naming the card type a group of rows belongs to. Carries the
@@ -52,7 +67,7 @@ export function ChoiceRow({
   onSelect: () => void;
 }) {
   return (
-    <MenuItem selected={checked} onClick={onSelect} sx={{ pl: 1.5, py: 0.25 }}>
+    <MenuItem selected={checked} onClick={onSelect} sx={ROW_SX}>
       <Radio size="small" checked={checked} sx={{ p: 0.5, mr: 1 }} />
       <Typography variant="body2" noWrap>
         {label}
@@ -72,7 +87,7 @@ export function CheckRow({
   onToggle: () => void;
 }) {
   return (
-    <MenuItem onClick={onToggle} sx={{ pl: 1.5, py: 0.25 }}>
+    <MenuItem onClick={onToggle} sx={ROW_SX}>
       <Checkbox size="small" checked={checked} sx={{ p: 0.5, mr: 1 }} />
       <Typography variant="body2" noWrap>
         {label}

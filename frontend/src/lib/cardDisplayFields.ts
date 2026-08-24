@@ -100,10 +100,9 @@ export type FieldGroup =
  * File a catalogue under headings — shared keys first, then one heading per
  * card type in metamodel order. Empty groups are dropped.
  *
- * The flattened output is group-contiguous, which matters beyond looks: MUI's
- * `Autocomplete` `groupBy` re-prints a heading every time the group changes, so
- * an unordered option list renders the same heading several times. Consumers
- * that need a flat list must take it from these groups, not from the catalogue.
+ * The output is group-contiguous, so a consumer that flattens it keeps every
+ * heading's rows together and never re-prints a heading. Consumers that need a
+ * flat list must take it from these groups, not from the catalogue.
  */
 export function groupFieldCatalog(
   catalog: FieldMeta[],

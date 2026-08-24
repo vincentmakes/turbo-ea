@@ -7,7 +7,7 @@ import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import MenuSectionHeader from "@/components/MenuSectionHeader";
 import { useFieldLabel, useOptionLabel, useTypeLabel } from "@/hooks/useResolveLabel";
-import { ChoiceRow, CheckRow, TypeHeading } from "./menuRows";
+import { ChoiceRow, CheckRow, TypeHeading } from "@/components/cardDisplay/menuRows";
 import { describeView, toggleFieldRule, type ViewResolvers, type ViewSource } from "./viewSource";
 import type { CardType, FieldDef } from "@/types";
 

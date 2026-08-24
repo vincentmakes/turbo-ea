@@ -21,8 +21,6 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Popover from "@mui/material/Popover";
 import Switch from "@mui/material/Switch";
-import Divider from "@mui/material/Divider";
-import Autocomplete from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -38,7 +36,6 @@ import { api } from "@/api/client";
 import { readableTypeColor } from "@/lib/color";
 import {
   buildFieldCatalog,
-  groupFieldCatalog,
   EMPTY_VALUE,
   formatFieldValue,
   MAX_CARD_LINES,
@@ -48,6 +45,7 @@ import {
 import MaterialSymbol from "@/components/MaterialSymbol";
 import MenuSectionHeader from "@/components/MenuSectionHeader";
 import { getCurrentPhase } from "@/components/LifecycleBadge";
+import LdvShowOnCard from "./LdvShowOnCard";
 import {
   ReactFlow,
   Background,
@@ -73,7 +71,7 @@ import "@xyflow/react/dist/style.css";
 import { useTypeLabel, useFieldLabel } from "@/hooks/useResolveLabel";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useLdvSettings, type LdvBackgroundStyle } from "./ldvDisplaySettings";
+import { useLdvSettings, toCardLabels, type LdvBackgroundStyle } from "./ldvDisplaySettings";
 import type { CardType } from "@/types";
 import {
   buildLdvDiagramXml,
@@ -1006,7 +1004,6 @@ function LayeredDependencyInner({
   const theme = useTheme();
   const fieldLabel = useFieldLabel();
   const subtypeLabel = useCardSubtypeLabel();
-  const cardTypeLabel = useTypeLabel();
   const navigate = useNavigate();
   const { fitView, getNodes, zoomIn, zoomOut } = useReactFlow();
 
@@ -1071,30 +1068,16 @@ function LayeredDependencyInner({
     return m;
   }, [nodes, settings.showHierarchyMarkers, onNodeReveal]);
 
-  const fieldCatalog = useMemo(() => {
-    const present = new Set(nodes.map((n) => n.type));
-    return buildFieldCatalog(types, present);
-  }, [types, nodes]);
-  /** The same catalogue filed under card-type headings, and flattened in group
-   *  order — `Autocomplete.groupBy` re-prints a heading every time the group
-   *  changes, so an unordered option list would repeat headings. */
-  const fieldGroups = useMemo(
-    () => groupFieldCatalog(fieldCatalog, types),
-    [fieldCatalog, types],
+  /** Card types actually on the canvas — the picker only offers their fields,
+   *  and the node renderer only needs their metadata. */
+  const activeTypeKeys = useMemo(
+    () => Array.from(new Set(nodes.map((n) => n.type))),
+    [nodes],
   );
-  const groupedFieldOptions = useMemo(
-    () => fieldGroups.flatMap((g) => g.fields),
-    [fieldGroups],
+  const fieldCatalog = useMemo(
+    () => buildFieldCatalog(types, new Set(activeTypeKeys)),
+    [types, activeTypeKeys],
   );
-  const groupNameByFieldKey = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const g of fieldGroups) {
-      const name =
-        g.kind === "shared" ? t("dependency.sharedFields") : cardTypeLabel(g.type);
-      for (const f of g.fields) m.set(f.key, name);
-    }
-    return m;
-  }, [fieldGroups, cardTypeLabel, t]);
   const fieldMetaByKey = useMemo(
     () => new Map(fieldCatalog.map((f) => [f.key, f])),
     [fieldCatalog],
@@ -1379,14 +1362,7 @@ function LayeredDependencyInner({
         // Seed the diagram's own display settings from the report's, so the
         // editor's card-display dropdown opens pre-set to what was on screen
         // and a later re-apply reproduces the same rows.
-        data: {
-          xml,
-          cardLabels: {
-            showType: settings.showType,
-            showSubtype: settings.showSubtype,
-            fields: settings.extraFields,
-          },
-        },
+        data: { xml, cardLabels: toCardLabels(settings) },
       });
       setCreateOpen(false);
       navigate(`/diagrams/${created.id}/edit`);
@@ -1777,12 +1753,25 @@ function LayeredDependencyInner({
         {centerName && (
           <Typography
             variant="body2"
-            sx={{ fontWeight: 600, ml: 0.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+            /* minWidth 0 is load-bearing: without it a flex item's min-width
+               resolves to its content, so a long card name pushes the button
+               cluster off a narrow bar instead of ellipsing. */
+            sx={{
+              fontWeight: 600,
+              ml: 0.5,
+              minWidth: 0,
+              flexShrink: 1,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
           >
             {centerName}
           </Typography>
         )}
-        <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 0.25 }}>
+        <Box
+          sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 0.25, flexShrink: 0 }}
+        >
           <Typography
             variant="caption"
             sx={{
@@ -1795,7 +1784,14 @@ function LayeredDependencyInner({
           >
             {t("dependency.shiftClickHint")}
           </Typography>
-          <Tooltip title={t("dependency.displaySettings")} arrow>
+          <LdvShowOnCard
+            types={types}
+            activeTypeKeys={activeTypeKeys}
+            settings={settings}
+            update={updateSettings}
+            container={isFullscreen ? containerRef.current : undefined}
+          />
+          <Tooltip title={t("dependency.viewSettings")} arrow>
             <IconButton size="small" onClick={(e) => setSettingsAnchor(e.currentTarget)}>
               <MaterialSymbol icon="tune" size={19} />
             </IconButton>
@@ -2090,7 +2086,10 @@ function LayeredDependencyInner({
         </DialogActions>
       </Dialog>
 
-      {/* Card display settings */}
+      {/* View options — everything that does NOT change the text printed on a
+          card. What a card says lives in the Show-on-card button instead, so no
+          setting has two controls. These four are the ones carrying a hint
+          caption, which a one-line tick row cannot host. */}
       <Popover
         anchorEl={settingsAnchor}
         open={Boolean(settingsAnchor)}
@@ -2101,13 +2100,10 @@ function LayeredDependencyInner({
         slotProps={{ paper: { sx: { p: 2, width: 320, maxWidth: "90vw" } } }}
       >
         <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
-          {t("dependency.displaySettings")}
+          {t("dependency.viewSettings")}
         </Typography>
         {(
           [
-            { group: "cards", key: "showType", label: t("dependency.showType") },
-            { group: "cards", key: "showSubtype", label: t("dependency.showSubtype") },
-            { group: "cards", key: "showLifecycle", label: t("dependency.showLifecycle") },
             {
               group: "cards",
               key: "showHierarchyMarkers",
@@ -2136,8 +2132,8 @@ function LayeredDependencyInner({
         ).map((row, i, rows) => (
           <Box key={row.key}>
             {/* Heading whenever the group changes — the switches split into
-                what a card shows and what a relation shows, which read as one
-                undifferentiated run without it. */}
+                what applies to a card and what applies to a relation, which
+                read as one undifferentiated run without it. */}
             {(i === 0 || rows[i - 1].group !== row.group) && (
               <MenuSectionHeader
                 px={0}
@@ -2180,29 +2176,6 @@ function LayeredDependencyInner({
           </Box>
           </Box>
         ))}
-        <Divider sx={{ my: 1.5 }} />
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-          {t("dependency.extraFieldsHint", { count: MAX_CARD_LINES })}
-        </Typography>
-        <Autocomplete
-          multiple
-          size="small"
-          options={groupedFieldOptions}
-          groupBy={(f) => groupNameByFieldKey.get(f.key) ?? ""}
-          value={groupedFieldOptions.filter((f) => settings.extraFields.includes(f.key))}
-          getOptionLabel={(f) => fieldLabel(f)}
-          isOptionEqualToValue={(a, b) => a.key === b.key}
-          onChange={(_, vals) => updateSettings({ extraFields: vals.map((v) => v.key) })}
-          renderInput={(params) => (
-            <TextField {...params} placeholder={t("dependency.extraFields")} />
-          )}
-          renderTags={(vals, getTagProps) =>
-            vals.map((v, i) => (
-              <Chip {...getTagProps({ index: i })} key={v.key} label={fieldLabel(v)} size="small" />
-            ))
-          }
-          noOptionsText={t("dependency.noFields")}
-        />
       </Popover>
     </Paper>
     </LdvObstaclesContext.Provider>

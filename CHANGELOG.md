@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.83.0] - 2026-08-24
+
+### Changed
+
+- **Picking what a dependency card shows is its own toolbar button, with tickboxes.** In the Layered Dependency View the attribute picker was a chip-and-text field at the bottom of the settings menu — hard to find, and awkward on a tablet. It is now a **Show on card** button of its own in the toolbar, listing the type, the subtype, the lifecycle dot and every attribute in play as tickboxes filed under the card type that owns them, with a badge counting what is shown. It is the same menu the diagram editor uses, so a landscape is dressed the same way in a report and on the diagram exported from it.
+- **The card-display menus are usable on a touch screen.** Rows in the Dependencies and diagram menus are finger-sized on a tablet, and on a phone the list opens as a full-screen sheet instead of a cramped dropdown.
+- **The Dependencies report's `tune` menu is now View options**, keeping the hierarchy-marker, end-of-life and relationship-label settings; everything that changes the text printed on a card moved to **Show on card**.
+
 ## [2.82.0] - 2026-08-24
 
 ### Added

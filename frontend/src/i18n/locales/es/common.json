@@ -456,5 +456,11 @@
   "cardColumns.label": "Columnas",
   "cardColumns.tooltipOne": "Una columna",
   "cardColumns.tooltipTwo": "Dos columnas",
-  "cardColumns.tooltipThree": "Tres columnas"
+  "cardColumns.tooltipThree": "Tres columnas",
+  "cardDisplay.showOnCard": "Mostrar en la tarjeta",
+  "cardDisplay.sharedFields": "Comunes",
+  "cardDisplay.cardTypeLine": "Tipo de tarjeta",
+  "cardDisplay.subtypeLine": "Subtipo",
+  "cardDisplay.linesHint": "Los primeros {{count}} aparecen en la tarjeta.",
+  "cardDisplay.noFields": "No hay campos disponibles"
 }

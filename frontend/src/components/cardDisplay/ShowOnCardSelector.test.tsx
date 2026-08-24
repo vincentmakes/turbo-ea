@@ -1,11 +1,14 @@
 /**
- * Tests for the diagram's "Show on card" dropdown — what each shape says, as
- * distinct from what colours it. Carried over from the combined menu these two
- * buttons replaced.
+ * Tests for the shared "Show on card" dropdown — what each card says, as
+ * distinct from what colours it. Carried over from the combined menu the
+ * diagram's two buttons replaced, and since extended to the Layered Dependency
+ * View, which is why the trigger, the extra lines and the phone shell are
+ * covered here too.
  */
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitForElementToBeRemoved, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { setViewportWidth } from "@/test/matchMedia";
 import ShowOnCardSelector from "./ShowOnCardSelector";
 import type { CardLabelSettings } from "@/lib/cardDisplayFields";
 import type { CardType } from "@/types";
@@ -52,6 +55,10 @@ async function openMenu() {
   await userEvent.click(screen.getByRole("button"));
   return screen.getByRole("menu");
 }
+
+// setup.ts resets to 1280 before each test; undo any per-test narrowing so a
+// mobile case cannot leak into the next file.
+afterEach(() => setViewportWidth(1280));
 
 describe("ShowOnCardSelector", () => {
   it("files a field shared by two canvas types under Shared, exactly once", async () => {
@@ -101,5 +108,74 @@ describe("ShowOnCardSelector", () => {
     expect(onOpen).toHaveBeenCalledTimes(1);
     await userEvent.click(within(menu).getByText("Subtype"));
     expect(screen.getByRole("menu")).toBeInTheDocument();
+  });
+
+  it("labels the icon trigger and badges it with the count", async () => {
+    const onChange = vi.fn();
+    render(
+      <ShowOnCardSelector
+        trigger="icon"
+        activeTypeKeys={["Application"]}
+        types={TYPES}
+        labels={{ fields: ["owner"], showType: true }}
+        onChange={onChange}
+      />,
+    );
+    // Icon-only, so the accessible name has to come from aria-label, and the
+    // count has to be visible without reading the label.
+    const button = screen.getByRole("button", { name: "Show on card" });
+    expect(button).toHaveTextContent("2");
+  });
+
+  it("renders caller-supplied extra lines and counts the ticked ones", async () => {
+    const onToggle = vi.fn();
+    const onChange = vi.fn();
+    render(
+      <ShowOnCardSelector
+        activeTypeKeys={["Application"]}
+        types={TYPES}
+        labels={{ fields: [] }}
+        onChange={onChange}
+        extraLines={[
+          { key: "showLifecycle", label: "Lifecycle", checked: true, onToggle },
+        ]}
+      />,
+    );
+    expect(screen.getByRole("button")).toHaveTextContent("(1)");
+    const menu = await openMenu();
+    await userEvent.click(within(menu).getByText("Lifecycle"));
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    // The caller owns the state, so the component must not also fire onChange.
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("opens the same rows in a full-screen sheet on a phone", async () => {
+    setViewportWidth(500);
+    setup();
+    await userEvent.click(screen.getByRole("button"));
+
+    const dialog = screen.getByRole("dialog");
+    // Same tree as the dropdown: a MenuList, not a bare Box, so assistive tech
+    // and these tests see one shape on both viewports.
+    expect(within(dialog).getByRole("menu")).toBeInTheDocument();
+    expect(within(dialog).getByText("Hosting")).toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+    // The dialog outlives the click by its exit transition.
+    await waitForElementToBeRemoved(() => screen.queryByRole("dialog"));
+  });
+
+  it("says so when no card type in play has any fields", async () => {
+    const onChange = vi.fn();
+    render(
+      <ShowOnCardSelector
+        activeTypeKeys={[]}
+        types={TYPES}
+        labels={{ fields: [] }}
+        onChange={onChange}
+      />,
+    );
+    const menu = await openMenu();
+    expect(within(menu).getByText("No fields available")).toBeInTheDocument();
   });
 });
