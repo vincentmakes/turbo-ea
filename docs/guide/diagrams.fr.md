@@ -79,17 +79,17 @@ Supprimer une arête portant une vraie relation ouvre *« Supprimer la relation 
 
 ### Perspectives de vue
 
-Le menu déroulant **Vue** dans la barre d'outils recolore chaque fiche du canevas selon un attribut :
+Le menu déroulant **Colorer par** dans la barre d'outils recolore les fiches du canevas :
 
 - **Couleurs des fiches** (par défaut) -- chaque fiche utilise la couleur de son type.
 - **Statut d'approbation** -- recolore par `approuvée` / `en attente` / `cassée`.
-- **Valeurs de champ** -- choisissez n'importe quel champ à sélection unique sur les types de fiches présents sur le canevas (p. ex. *Cycle de vie*, *Statut*). Les cellules sans valeur retombent sur un gris neutre.
+- **Valeurs de champ** -- cochez un champ à sélection unique sous n'importe quel type de fiche présent sur le canevas. **Plusieurs types de fiches peuvent porter chacun une règle en même temps** -- les Applications par criticité *et* les Composants IT par modèle d'hébergement. Un type sans règle conserve sa couleur actuelle, y compris un remplissage défini à la main ; seule une fiche dont la règle ne trouve aucune valeur devient grise. Un second champ au sein d'un même type remplace le premier, car une fiche n'a qu'un remplissage.
 
-Une légende flottante en bas à gauche du canevas affiche la correspondance active. La vue choisie est enregistrée avec le diagramme.
+Une légende flottante en bas à gauche affiche une échelle par règle active. Les règles de champ et le **Statut d'approbation** sont des alternatives, pas des couches : choisir l'un efface l'autre. Décochez toutes les règles et le canevas revient aux couleurs des fiches. Le choix est enregistré avec le diagramme.
 
 #### Afficher sur la fiche
 
-Le même menu détermine aussi **ce que dit chaque forme**. Sous **Afficher sur la fiche**, cochez le **type de fiche**, le **sous-type** ou n'importe quel attribut des types de fiches présents sur le canevas : chaque forme reçoit alors de petites lignes de détail sous son nom. Le menu se divise en deux : **Colorer par** choisit l'unique attribut qui colore les formes, **Afficher sur la fiche** choisit autant de champs que voulu à imprimer dessus. Les champs sont classés sous le type de fiche auquel ils appartiennent ; un champ partagé par plusieurs de ces types est regroupé sous **Communs**.
+Un second bouton de la barre d'outils, **Afficher sur la fiche**, détermine **ce que dit chaque forme**. Cochez le **type de fiche**, le **sous-type** ou n'importe quel attribut des types de fiches présents sur le canevas : chaque forme reçoit alors de petites lignes de détail sous son nom. Les champs sont classés sous le type de fiche auquel ils appartiennent ; un champ partagé par plusieurs de ces types est regroupé sous **Communs**. C'est un bouton distinct de **Colorer par**, afin qu'aucune des deux listes n'oblige à faire défiler l'autre.
 
 Les deux premières sélections sont dessinées sur la forme — une fiche a une taille limitée, et un texte trop long déborderait de sa bordure. Tout ce que vous cochez est mémorisé : élargir la sélection plus tard change lesquelles des deux s'affichent, sans avoir à recommencer.
 

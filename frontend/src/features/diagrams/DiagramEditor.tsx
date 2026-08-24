@@ -78,7 +78,6 @@ import {
   findExistingCardCellId,
   getNestedCardIds,
   applyViewToGraph,
-  resetViewColors,
   setRelationLabelsHidden,
   applyCardTypeIcons,
   applyCardLabels,
@@ -103,8 +102,18 @@ import type {
   ExpandMenuPick,
   ExpandMenuTarget,
 } from "./ExpandMenu";
-import ViewSelector, { buildColorMap, extractCardValue } from "./ViewSelector";
-import type { ColorEntry, ViewSource } from "./ViewSelector";
+import ColorBySelector from "./ColorBySelector";
+import ShowOnCardSelector from "./ShowOnCardSelector";
+import {
+  buildColorMap,
+  colorKeyForCard,
+  describeView,
+  normaliseViewSource,
+  NO_VALUE,
+  type ViewResolvers,
+  type ViewSource,
+} from "./viewSource";
+import type { LegendSection } from "./DiagramViewLegend";
 import DiagramViewLegend from "./DiagramViewLegend";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -603,6 +612,15 @@ export default function DiagramEditor() {
   const fieldLabel = useFieldLabel();
   const optionLabel = useOptionLabel();
   const subtypeLabel = useCardSubtypeLabel();
+  /** Label resolvers the pure colour helpers need. */
+  const viewResolvers = useMemo<ViewResolvers>(
+    () => ({ typeLabel, fieldLabel, optionLabel, t }),
+    [typeLabel, fieldLabel, optionLabel, t],
+  );
+  /** Serialises overlapping colour passes. Without it the loser's restore can
+   *  land after the winner's paint and strip its stamps — ticking several rules
+   *  quickly is enough to hit it (#882 pattern). */
+  const viewReq = useLatestRequest();
   const fsTypesRef = useRef(fsTypes);
   fsTypesRef.current = fsTypes;
   const relTypesRef = useRef(relationTypes);
@@ -752,7 +770,7 @@ export default function DiagramEditor() {
   // the builder and doesn't re-create when the settings change, so a plain
   // closure capture would go stale.
   const detailLinesForCardRef = useRef<(card: Card) => CardDetailLine[]>(() => []);
-  const [viewLegendEntries, setViewLegendEntries] = useState<ColorEntry[]>([]);
+  const [viewLegendSections, setViewLegendSections] = useState<LegendSection[]>([]);
   const [viewAppliedCount, setViewAppliedCount] = useState(0);
   // Relation verbs ("provides", "consumes", …) hidden on this diagram. Saved
   // with the diagram, so the read-only viewer and any published embed show
@@ -778,7 +796,9 @@ export default function DiagramEditor() {
       .get<DiagramData>(`/diagrams/${id}`)
       .then((d) => {
         setDiagram(d);
-        if (d.data?.view) setView(d.data.view);
+        // Untrusted: this blob can predate the current shape, and a
+        // workspace-transfer bundle carries it verbatim between instances.
+        if (d.data?.view) setView(normaliseViewSource(d.data.view));
         if (d.data?.cardLabels) setCardLabels(d.data.cardLabels);
         setHideRelationLabels(Boolean(d.data?.hideRelationLabels));
         // Check for a newer locally-autosaved draft once per mount.
@@ -2982,16 +3002,16 @@ export default function DiagramEditor() {
     if (!snapshot) return;
     setActiveTypeKeys(Array.from(snapshot.types));
 
+    const colorByType = new Map(
+      fsTypesRef.current.map((tp) => [tp.key, tp.color] as const),
+    );
+    const restore = { colorByType, fallback: "#999" };
+
     if (view.kind === "card_type") {
-      // Reset to per-type colours, then drop the legend.
-      const colorByType = new Map(
-        fsTypesRef.current.map((tp) => [tp.key, tp.color] as const),
-      );
-      const touched = resetViewColors(frame, colorByType, "#999");
-      setViewLegendEntries([]);
-      setViewAppliedCount(touched);
-      // Colour is reset, but the detail lines are a separate setting — they
-      // still need a pass (and a fetch, when any field is selected).
+      // Nothing to fetch: hand every view-managed cell back to its base colour.
+      const { restored } = applyViewToGraph(frame, new Map(), restore);
+      setViewLegendSections([]);
+      setViewAppliedCount(restored);
       if (snapshot.ids.length > 0 && hasCardLabelLines(cardLabels)) {
         await refreshCardLabels(frame, snapshot.ids);
       } else {
@@ -3000,37 +3020,69 @@ export default function DiagramEditor() {
       return;
     }
 
+    const colorMap = buildColorMap(view, fsTypesRef.current, viewResolvers);
+    const described = describeView(view, fsTypesRef.current, viewResolvers);
+
     if (snapshot.ids.length === 0) {
-      setViewLegendEntries(
-        Array.from(buildColorMap(view, fsTypesRef.current, optionLabel).values()),
+      setViewLegendSections(
+        described.sections.map((sec) => ({
+          key: sec.key,
+          title: sec.title,
+          entries: [],
+        })),
       );
       setViewAppliedCount(0);
       return;
     }
 
     try {
-      const params = new URLSearchParams({ ids: snapshot.ids.join(",") });
-      const resp = await api.get<{ items: Card[] }>(`/cards?${params.toString()}`);
-      const cardById = new Map(resp.items.map((c) => [c.id, c] as const));
-      const colorMap = buildColorMap(view, fsTypesRef.current, optionLabel);
-      const colorByCardId = new Map<string, string>();
-      let coverable = 0;
-      for (const id of snapshot.ids) {
-        const c = cardById.get(id);
-        if (!c) continue;
-        const value = extractCardValue(view, c);
-        if (value == null) continue;
-        const entry = colorMap.get(value);
-        if (!entry) continue;
-        colorByCardId.set(id, entry.color);
-        coverable += 1;
-      }
-      const touched = applyViewToGraph(frame, colorByCardId, "#cbd5e1");
-      applyCardLabels(frame, buildLinesByCardId(resp.items));
-      setViewLegendEntries(Array.from(colorMap.values()));
-      // Show how many cells the user can see colored vs total — helps debug
-      // when a field isn't populated on most cards.
-      setViewAppliedCount(coverable > 0 ? coverable : touched);
+      await viewReq.run(async ({ signal, isCurrent }) => {
+        const params = new URLSearchParams({ ids: snapshot.ids.join(",") });
+        const resp = await api.get<{ items: Card[] }>(`/cards?${params.toString()}`, { signal });
+        // Nothing above this line touched the graph. A rejected fetch must not
+        // leave the canvas half-reset while the toolbar advertises new rules —
+        // and the 5s autosave would snapshot exactly that.
+        if (!isCurrent()) return;
+
+        const cardById = new Map(resp.items.map((c) => [c.id, c] as const));
+        const colorByCardId = new Map<string, string>();
+        const seenKeys = new Set<string>();
+        let coloured = 0;
+        for (const id of snapshot.ids) {
+          const c = cardById.get(id);
+          if (!c) continue;
+          const key = colorKeyForCard(view, c);
+          if (key == null) continue; // no rule covers this card — leave it alone
+          const entry = colorMap.get(key);
+          if (!entry) continue;
+          colorByCardId.set(id, entry.color);
+          seenKeys.add(key);
+          if (entry.value !== NO_VALUE) coloured += 1;
+        }
+
+        if (!isCurrent()) return;
+        const { painted } = applyViewToGraph(frame, colorByCardId, restore);
+        applyCardLabels(frame, buildLinesByCardId(resp.items));
+
+        // One legend section per rule. The "no value" swatch only appears where
+        // a card on this canvas actually has no value — a permanent grey swatch
+        // in every section would be noise.
+        setViewLegendSections(
+          described.sections.map((sec) => ({
+            key: sec.key,
+            title: sec.title,
+            entries: Array.from(colorMap.values()).filter(
+              (e) =>
+                e.typeKey === sec.typeKey &&
+                e.fieldKey === sec.fieldKey &&
+                (e.value !== NO_VALUE || seenKeys.has(e.key)),
+            ),
+          })),
+        );
+        // Cells a rule actually coloured — not "cells touched", which used to
+        // report the number greyed out whenever nothing matched.
+        setViewAppliedCount(coloured > 0 ? coloured : painted);
+      });
     } catch {
       setSnackMsg(t("editor.errors.applyViewFailed"));
     }
@@ -3040,7 +3092,8 @@ export default function DiagramEditor() {
     collectCanvasCards,
     buildLinesByCardId,
     refreshCardLabels,
-    optionLabel,
+    viewResolvers,
+    viewReq,
     t,
   ]);
 
@@ -3265,14 +3318,22 @@ export default function DiagramEditor() {
         </Menu>
 
         {/* View perspective dropdown (Phase 5) */}
-        <ViewSelector
+        {/* Two settings, two buttons. Per-type colour rules make that list one
+            row per field per card type, so sharing a menu meant scrolling past
+            every colour option to reach the display fields. */}
+        <ColorBySelector
           onOpen={refreshActiveTypeKeys}
           activeTypeKeys={activeTypeKeys}
           types={fsTypes}
           current={view}
           onChange={setView}
+        />
+        <ShowOnCardSelector
+          onOpen={refreshActiveTypeKeys}
+          activeTypeKeys={activeTypeKeys}
+          types={fsTypes}
           labels={cardLabels}
-          onLabelsChange={setCardLabels}
+          onChange={setCardLabels}
         />
 
         {/* Sync button — louder when there are unsynced changes so users
@@ -3368,25 +3429,9 @@ export default function DiagramEditor() {
             style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
             title={t("editor.title")}
           />
-          {view.kind !== "card_type" && (
+          {viewLegendSections.length > 0 && (
             <DiagramViewLegend
-              title={
-                view.kind === "approval_status"
-                  ? t("viewSelector.approvalStatus")
-                  : (() => {
-                      const tp = fsTypes.find((x) => x.key === view.type_key);
-                      const f = (tp?.fields_schema ?? [])
-                        .flatMap((s) => s.fields ?? [])
-                        .find((x) => x.key === view.field_key);
-                      // Resolve through the locale-aware helpers, exactly as
-                      // the ViewSelector button does — the raw `.label` leaks
-                      // the untranslated name and the two would disagree.
-                      return tp && f
-                        ? `${typeLabel(tp)} · ${fieldLabel(f)}`
-                        : t("viewSelector.cardType");
-                    })()
-              }
-              entries={viewLegendEntries}
+              sections={viewLegendSections}
               appliedCount={viewAppliedCount}
               onReset={() => setView({ kind: "card_type" })}
             />

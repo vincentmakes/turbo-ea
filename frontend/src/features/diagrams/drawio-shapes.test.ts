@@ -545,8 +545,12 @@ function stylePart(style: string, key: string): string | undefined {
     ?.slice(key.length + 1);
 }
 
-describe("applyViewToGraph / resetViewColors — manual fills survive", () => {
-  const TYPE_COLORS = new Map([["Application", "#0f7eb5"]]);
+describe("applyViewToGraph — colours only what a rule covers", () => {
+  const TYPE_COLORS = new Map([
+    ["Application", "#0f7eb5"],
+    ["Provider", "#ffa31f"],
+  ]);
+  const RESTORE = { colorByType: TYPE_COLORS, fallback: "#999" };
 
   it("stamps the pre-view fill so the view can be undone", () => {
     const cell = viewCell(
@@ -555,7 +559,7 @@ describe("applyViewToGraph / resetViewColors — manual fills survive", () => {
     );
     const frame = viewFrame({ a: cell });
 
-    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), "#cbd5e1");
+    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), RESTORE);
 
     expect(stylePart(cell._style, "fillColor")).toBe("#ff0000");
     expect(stylePart(cell._style, "turboBaseFill")).toBe("#0f7eb5");
@@ -569,74 +573,158 @@ describe("applyViewToGraph / resetViewColors — manual fills survive", () => {
     );
     const frame = viewFrame({ a: cell });
 
-    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), "#cbd5e1");
-    applyViewToGraph(frame, new Map([["c1", "#00ff00"]]), "#cbd5e1");
+    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), RESTORE);
+    applyViewToGraph(frame, new Map([["c1", "#00ff00"]]), RESTORE);
 
     // Still the ORIGINAL colour, not the first view's colour.
     expect(stylePart(cell._style, "turboBaseFill")).toBe("#abcdef");
     expect(stylePart(cell._style, "fillColor")).toBe("#00ff00");
   });
 
-  it("restores the stamped colour and clears the stamp on reset", () => {
+  it("REGRESSION #986: leaves a card no rule covers completely untouched", () => {
+    // A Provider on a canvas where only Applications carry a rule. It used to
+    // be painted with a single grey fallback, which greyed out most of the
+    // diagram the moment one type was coloured by a field.
+    const covered = viewCell({ cardId: "c1", cardType: "Application" }, "fillColor=#0f7eb5");
+    const untouched = viewCell(
+      { cardId: "c2", cardType: "Provider" },
+      "rounded=1;fillColor=#ffa31f;strokeColor=#cc8219",
+    );
+    const frame = viewFrame({ a: covered, b: untouched });
+
+    const { painted, restored } = applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), RESTORE);
+
+    expect({ painted, restored }).toEqual({ painted: 1, restored: 0 });
+    expect(untouched._style).toBe("rounded=1;fillColor=#ffa31f;strokeColor=#cc8219");
+    expect(stylePart(untouched._style, "turboBaseFill")).toBeUndefined();
+  });
+
+  it("hands a card back when it drops out of the rule set", () => {
     const cell = viewCell(
       { cardId: "c1", cardType: "Application" },
       "fillColor=#0f7eb5;strokeColor=#0b5f88",
     );
     const frame = viewFrame({ a: cell });
 
-    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), "#cbd5e1");
-    const touched = resetViewColors(frame, TYPE_COLORS, "#999");
+    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), RESTORE);
+    const { restored } = applyViewToGraph(frame, new Map(), RESTORE);
 
-    expect(touched).toBe(1);
+    expect(restored).toBe(1);
     expect(stylePart(cell._style, "fillColor")).toBe("#0f7eb5");
     expect(stylePart(cell._style, "strokeColor")).toBe("#0b5f88");
     expect(stylePart(cell._style, "turboBaseFill")).toBeUndefined();
     expect(stylePart(cell._style, "turboBaseStroke")).toBeUndefined();
   });
 
-  it("REGRESSION #905: leaves a hand-picked fill alone on reset", () => {
-    // The user set this card to pink by hand. No view ever claimed it, so it
-    // carries no stamp — reset (which runs on every save) must not touch it.
+  it("REGRESSION #905: a hand-picked fill survives a rule-set A → B → A cycle", () => {
+    // The user set this card to pink by hand, then coloured by a field, then
+    // switched the rule to a different card type, then switched back.
     const cell = viewCell(
       { cardId: "c1", cardType: "Application" },
       "rounded=1;fillColor=#ff69b4;strokeColor=#c71585",
     );
     const frame = viewFrame({ a: cell });
 
-    const touched = resetViewColors(frame, TYPE_COLORS, "#999");
+    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), RESTORE); // rules A
+    applyViewToGraph(frame, new Map(), RESTORE); // rules B — Applications drop out
+    expect(stylePart(cell._style, "fillColor")).toBe("#ff69b4");
+    expect(stylePart(cell._style, "turboBaseFill")).toBeUndefined();
 
-    expect(touched).toBe(0);
-    expect(cell._style).toBe("rounded=1;fillColor=#ff69b4;strokeColor=#c71585");
+    applyViewToGraph(frame, new Map([["c1", "#00ff00"]]), RESTORE); // back to A
+    // Re-stamped from the PINK it was handed back to, not from rule A's colour.
+    expect(stylePart(cell._style, "turboBaseFill")).toBe("#ff69b4");
   });
 
-  it("restores a manual fill applied BEFORE a view was switched on", () => {
-    const cell = viewCell({ cardId: "c1", cardType: "Application" }, "fillColor=#ff69b4");
+  it("never touches a hand-picked fill no view ever claimed", () => {
+    const cell = viewCell(
+      { cardId: "c1", cardType: "Application" },
+      "rounded=1;fillColor=#ff69b4;strokeColor=#c71585",
+    );
     const frame = viewFrame({ a: cell });
 
-    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), "#cbd5e1");
-    resetViewColors(frame, TYPE_COLORS, "#999");
+    const { painted, restored } = applyViewToGraph(frame, new Map(), RESTORE);
 
-    expect(stylePart(cell._style, "fillColor")).toBe("#ff69b4");
+    expect({ painted, restored }).toEqual({ painted: 0, restored: 0 });
+    expect(cell._style).toBe("rounded=1;fillColor=#ff69b4;strokeColor=#c71585");
   });
 
   it("falls back to the card-type colour when the cell had no explicit fill", () => {
     const cell = viewCell({ cardId: "c1", cardType: "Application" }, "rounded=1");
     const frame = viewFrame({ a: cell });
 
-    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), "#cbd5e1");
-    resetViewColors(frame, TYPE_COLORS, "#999");
+    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), RESTORE);
+    applyViewToGraph(frame, new Map(), RESTORE);
 
     expect(stylePart(cell._style, "fillColor")).toBe("#0f7eb5");
   });
 
-  it("ignores edges and pending cells", () => {
+  it("ignores edges and pending cells on both branches", () => {
     const edge = viewCell({ cardId: "c1" }, "strokeColor=#000", { edge: true });
     const pending = viewCell({ cardId: "pending-xyz" }, "fillColor=#eee");
     const frame = viewFrame({ e: edge, p: pending });
 
-    expect(applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), "#cbd5e1")).toBe(0);
+    expect(applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), RESTORE)).toEqual({
+      painted: 0,
+      restored: 0,
+    });
     expect(edge._style).toBe("strokeColor=#000");
     expect(pending._style).toBe("fillColor=#eee");
+  });
+
+  it("writes one undo step per call, not one per branch", () => {
+    // Two passes would cost the reader two Ctrl+Z presses per view change.
+    const covered = viewCell({ cardId: "c1", cardType: "Application" }, "fillColor=#0f7eb5");
+    const dropping = viewCell(
+      { cardId: "c2", cardType: "Provider" },
+      "fillColor=#111;turboBaseFill=#ffa31f;turboBaseStroke=#cc8219",
+    );
+    const frame = viewFrame({ a: covered, b: dropping });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const model = (frame.contentWindow as any).__turboGraph.getModel();
+    let begins = 0;
+    const realBegin = model.beginUpdate;
+    model.beginUpdate = () => {
+      begins += 1;
+      realBegin?.call(model);
+    };
+
+    const { painted, restored } = applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), RESTORE);
+
+    expect(begins).toBe(1);
+    expect({ painted, restored }).toEqual({ painted: 1, restored: 1 });
+  });
+});
+
+describe("resetViewColors — still the card-colours path", () => {
+  const TYPE_COLORS = new Map([["Application", "#0f7eb5"]]);
+
+  it("restores the stamped colour and clears the stamp", () => {
+    const cell = viewCell(
+      { cardId: "c1", cardType: "Application" },
+      "fillColor=#0f7eb5;strokeColor=#0b5f88",
+    );
+    const frame = viewFrame({ a: cell });
+
+    applyViewToGraph(frame, new Map([["c1", "#ff0000"]]), {
+      colorByType: TYPE_COLORS,
+      fallback: "#999",
+    });
+    const touched = resetViewColors(frame, TYPE_COLORS, "#999");
+
+    expect(touched).toBe(1);
+    expect(stylePart(cell._style, "fillColor")).toBe("#0f7eb5");
+    expect(stylePart(cell._style, "turboBaseFill")).toBeUndefined();
+  });
+
+  it("REGRESSION #905: leaves a hand-picked fill alone", () => {
+    const cell = viewCell(
+      { cardId: "c1", cardType: "Application" },
+      "rounded=1;fillColor=#ff69b4;strokeColor=#c71585",
+    );
+    const frame = viewFrame({ a: cell });
+
+    expect(resetViewColors(frame, TYPE_COLORS, "#999")).toBe(0);
+    expect(cell._style).toBe("rounded=1;fillColor=#ff69b4;strokeColor=#c71585");
   });
 });
 

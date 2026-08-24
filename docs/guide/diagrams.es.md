@@ -79,17 +79,17 @@ Eliminar una arista que lleva una relación real abre «¿Eliminar la relación 
 
 ### Perspectivas de vista
 
-El desplegable **Vista** de la barra de herramientas recolorea cada tarjeta del lienzo según un atributo:
+El desplegable **Colorear por** de la barra de herramientas recolorea las tarjetas del lienzo:
 
 - **Colores de tarjetas** (predeterminado) -- cada tarjeta usa el color de su tipo.
 - **Estado de aprobación** -- recolorea por `aprobada` / `pendiente` / `rota`.
-- **Valores de campo** -- elija cualquier campo de selección única en los tipos de tarjeta presentes en el lienzo (p. ej. *Ciclo de vida*, *Estado*). Las celdas sin valor caen a un gris neutro.
+- **Valores de campo** -- marque un campo de selección única bajo cualquier tipo de tarjeta presente en el lienzo. **Varios tipos de tarjeta pueden llevar una regla cada uno al mismo tiempo**: Aplicaciones por criticidad *y* Componentes de TI por modelo de alojamiento. Un tipo sin regla conserva el color que ya tenía, incluido un relleno puesto a mano; solo se vuelve gris una tarjeta cuya propia regla no encuentra valor. Un segundo campo dentro de un mismo tipo sustituye al primero, porque una tarjeta tiene un relleno.
 
-Una leyenda flotante en la esquina inferior izquierda del lienzo muestra la asignación activa. La vista elegida se guarda con el diagrama.
+Una leyenda flotante en la esquina inferior izquierda muestra una escala por regla activa. Las reglas de campo y el **Estado de aprobación** son alternativas, no capas: elegir una borra la otra. Si desmarca todas las reglas, el lienzo vuelve a los colores de tarjeta. La elección se guarda con el diagrama.
 
 #### Mostrar en la tarjeta
 
-El mismo desplegable decide también **qué dice cada forma**. En **Mostrar en la tarjeta**, marque el **tipo de tarjeta**, el **subtipo** o cualquier atributo de los tipos de tarjeta presentes en el lienzo, y cada forma añadirá pequeñas líneas de detalle bajo su nombre. El desplegable se divide en dos: **Colorear por** elige el único atributo que colorea las formas y **Mostrar en la tarjeta** elige cuantos campos quiera para imprimir en ellas. Los campos se listan bajo el tipo de tarjeta al que pertenecen; un campo compartido por varios de esos tipos se agrupa bajo **Comunes**.
+Un segundo botón de la barra de herramientas, **Mostrar en la tarjeta**, decide **qué dice cada forma**. Marque el **tipo de tarjeta**, el **subtipo** o cualquier atributo de los tipos de tarjeta presentes en el lienzo, y cada forma añadirá pequeñas líneas de detalle bajo su nombre. Los campos se listan bajo el tipo de tarjeta al que pertenecen; un campo compartido por varios de esos tipos se agrupa bajo **Comunes**. Es un botón aparte de **Colorear por**, para que ninguna de las dos listas obligue a recorrer la otra.
 
 Las dos primeras selecciones se dibujan en la forma: una tarjeta tiene un tamaño limitado y el texto que no cabe se saldría de su borde. Todo lo que marque se recuerda, así que ampliar la selección más adelante cambia cuáles dos aparecen sin tener que volver a elegir.
 

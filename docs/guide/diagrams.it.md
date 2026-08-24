@@ -79,17 +79,17 @@ Rimuovere un arco che porta una relazione reale apre «Eliminare la relazione tr
 
 ### Prospettive di visualizzazione
 
-Il menu a tendina **Vista** nella barra strumenti ricolora ogni scheda sulla tela in base a un attributo:
+Il menu a tendina **Colora per** nella barra strumenti ricolora le schede sulla tela:
 
 - **Colori delle schede** (predefinito) -- ogni scheda usa il colore del proprio tipo.
 - **Stato di approvazione** -- ricolora per `approvata` / `in attesa` / `rotta`.
-- **Valori di campo** -- scegliete qualsiasi campo a selezione singola sui tipi di scheda presenti sulla tela (es. *Ciclo di vita*, *Stato*). Le celle senza valore cadono su un grigio neutro.
+- **Valori di campo** -- spuntate un campo a selezione singola sotto qualsiasi tipo di scheda presente sulla tela. **Più tipi di scheda possono portare una regola ciascuno nello stesso momento**: le Applicazioni per criticità *e* i Componenti IT per modello di hosting. Un tipo senza regola mantiene il colore che ha già, compreso un riempimento impostato a mano; diventa grigia solo una scheda la cui regola non trova alcun valore. Un secondo campo all'interno di uno stesso tipo sostituisce il primo, perché una scheda ha un solo riempimento.
 
-Una legenda fluttuante in basso a sinistra mostra la mappatura attiva. La vista scelta viene salvata col diagramma.
+Una legenda fluttuante in basso a sinistra mostra una scala per ogni regola attiva. Le regole di campo e lo **Stato di approvazione** sono alternative, non livelli: sceglierne una cancella l'altra. Togliendo ogni regola la tela torna ai colori delle schede. La scelta viene salvata col diagramma.
 
 #### Mostra sulla scheda
 
-Lo stesso menu decide anche **cosa dice ogni forma**. In **Mostra sulla scheda**, spuntate il **tipo di scheda**, il **sottotipo** o qualsiasi attributo dei tipi di scheda presenti sulla tela: ogni forma acquisirà piccole righe di dettaglio sotto il proprio nome. Il menu si divide in due: **Colora per** sceglie l'unico attributo che colora le forme, **Mostra sulla scheda** sceglie quanti campi volete da stamparvi sopra. I campi sono elencati sotto il tipo di scheda a cui appartengono; un campo condiviso da più di questi tipi è raggruppato sotto **Comuni**.
+Un secondo pulsante nella barra strumenti, **Mostra sulla scheda**, decide **cosa dice ogni forma**. Spuntate il **tipo di scheda**, il **sottotipo** o qualsiasi attributo dei tipi di scheda presenti sulla tela: ogni forma acquisirà piccole righe di dettaglio sotto il proprio nome. I campi sono elencati sotto il tipo di scheda a cui appartengono; un campo condiviso da più di questi tipi è raggruppato sotto **Comuni**. È un pulsante distinto da **Colora per**, così nessuna delle due liste costringe a scorrere l'altra.
 
 Le prime due selezioni vengono disegnate sulla forma: una scheda ha una dimensione limitata e il testo che non entra sborderebbe dal bordo. Tutto ciò che spuntate viene ricordato, così ampliare la selezione in seguito cambia quali due appaiono senza doverle riscegliere.
 

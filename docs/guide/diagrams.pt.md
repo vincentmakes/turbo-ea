@@ -79,17 +79,17 @@ Remover uma aresta que carrega uma relação real abre «Eliminar a relação en
 
 ### Perspetivas de visualização
 
-O menu pendente **Vista** na barra de ferramentas recoloria cada cartão da tela por um atributo:
+O menu pendente **Colorir por** na barra de ferramentas recoloria os cartões da tela:
 
 - **Cores dos cartões** (predefinição) -- cada cartão usa a cor do seu tipo.
 - **Estado de aprovação** -- recoloria por `aprovado` / `pendente` / `quebrado`.
-- **Valores de campo** -- escolha qualquer campo de seleção única nos tipos de cartão presentes na tela (ex.: *Ciclo de vida*, *Estado*). Células sem valor caem num cinzento neutro.
+- **Valores de campo** -- assinale um campo de seleção única sob qualquer tipo de cartão presente na tela. **Vários tipos de cartão podem ter uma regra cada um ao mesmo tempo**: Aplicações por criticidade *e* Componentes de TI por modelo de alojamento. Um tipo sem regra mantém a cor que já tinha, incluindo um preenchimento definido à mão; só fica cinzento um cartão cuja própria regra não encontra valor. Um segundo campo dentro do mesmo tipo substitui o primeiro, porque um cartão tem um preenchimento.
 
-Uma legenda flutuante no canto inferior esquerdo mostra o mapeamento ativo. A vista escolhida é guardada com o diagrama.
+Uma legenda flutuante no canto inferior esquerdo mostra uma escala por regra ativa. As regras de campo e o **Estado de aprovação** são alternativas, não camadas: escolher uma limpa a outra. Ao desmarcar todas as regras, a tela volta às cores dos cartões. A escolha é guardada com o diagrama.
 
 #### Mostrar no cartão
 
-O mesmo menu decide também **o que cada forma diz**. Em **Mostrar no cartão**, assinale o **tipo de cartão**, o **subtipo** ou qualquer atributo dos tipos de cartão presentes na tela, e cada forma ganha pequenas linhas de detalhe sob o seu nome. O menu divide-se em dois: **Colorir por** escolhe o único atributo que colore as formas e **Mostrar no cartão** escolhe quantos campos quiser para imprimir nelas. Os campos são listados sob o tipo de cartão a que pertencem; um campo partilhado por vários desses tipos é agrupado sob **Comuns**.
+Um segundo botão da barra de ferramentas, **Mostrar no cartão**, decide **o que cada forma diz**. Assinale o **tipo de cartão**, o **subtipo** ou qualquer atributo dos tipos de cartão presentes na tela, e cada forma ganha pequenas linhas de detalhe sob o seu nome. Os campos são listados sob o tipo de cartão a que pertencem; um campo partilhado por vários desses tipos é agrupado sob **Comuns**. É um botão separado de **Colorir por**, para que nenhuma das duas listas obrigue a percorrer a outra.
 
 As duas primeiras seleções são desenhadas na forma: um cartão tem um tamanho limitado e o texto que não cabe transbordaria da sua borda. Tudo o que assinalar é memorizado, pelo que alargar a seleção mais tarde muda quais as duas que aparecem sem ter de escolher de novo.
 

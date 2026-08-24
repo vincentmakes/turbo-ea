@@ -3672,15 +3672,20 @@ export function rollUpInto(
 export function applyViewToGraph(
   iframe: HTMLIFrameElement,
   colorByCardId: Map<string, string>,
-  defaultColor: string,
-): number {
+  restore: { colorByType: Map<string, string>; fallback: string },
+): { painted: number; restored: number } {
   const ctx = getMxGraph(iframe);
-  if (!ctx) return 0;
+  if (!ctx) return { painted: 0, restored: 0 };
   const { graph } = ctx;
   const model = graph.getModel();
   const cells = model.cells || {};
 
-  let touched = 0;
+  let painted = 0;
+  let restored = 0;
+  // One update — one undo step. Two passes would cost the reader two Ctrl+Z
+  // presses per view change, and doing them in the wrong order is fatal:
+  // painting first stamps every cell, so a following restore would undo the
+  // paint it just did.
   model.beginUpdate();
   try {
     for (const k of Object.keys(cells)) {
@@ -3690,12 +3695,46 @@ export function applyViewToGraph(
       if (cell.edge) continue;
       const cardId = cell.value.getAttribute("cardId");
       if (!cardId || cardId.startsWith("pending-")) continue;
-      const color = colorByCardId.get(cardId) || defaultColor;
-      const stroke = darken(color);
+
       const styleStr = (model.getStyle(cell) || "") as string;
       const parts = styleStr.split(";").filter(Boolean);
+      const color = colorByCardId.get(cardId);
+
+      if (color === undefined) {
+        // The view says nothing about this card. If a previous view took it
+        // over, hand it back; otherwise leave it exactly as the user has it.
+        //
+        // Leaving it alone is the whole point: painting every uncovered card a
+        // single fallback colour is what greyed out an entire canvas the moment
+        // one card type was coloured by a field.
+        const baseFill = readStylePart(parts, BASE_FILL_KEY);
+        if (baseFill == null) continue;
+        const baseStroke = readStylePart(parts, BASE_STROKE_KEY);
+        const cardType = cell.value.getAttribute("cardType") || "";
+        const typeColor = restore.colorByType.get(cardType) || restore.fallback;
+        const back = baseFill === NO_STYLE_VALUE ? typeColor : baseFill;
+        const backStroke =
+          baseStroke == null || baseStroke === NO_STYLE_VALUE ? darken(back) : baseStroke;
+        const next = parts
+          .filter(
+            (p) =>
+              !p.startsWith("fillColor=") &&
+              !p.startsWith("strokeColor=") &&
+              !p.startsWith(`${BASE_FILL_KEY}=`) &&
+              !p.startsWith(`${BASE_STROKE_KEY}=`),
+          )
+          .concat([`fillColor=${back}`, `strokeColor=${backStroke}`])
+          .join(";");
+        if (next !== styleStr) {
+          model.setStyle(cell, next);
+          restored += 1;
+        }
+        continue;
+      }
+
+      const stroke = darken(color);
       // Remember what the cell looked like BEFORE the view took it over, once.
-      // `resetViewColors` restores from this stamp, which is what makes a view
+      // The restore branch above reads this stamp, which is what makes a view
       // reversible and — crucially — lets it tell its own colours apart from a
       // fill the user set by hand (discussion #905).
       const stamped = parts.some((p) => p.startsWith(`${BASE_FILL_KEY}=`));
@@ -3710,13 +3749,15 @@ export function applyViewToGraph(
         .concat(baseStamps)
         .concat([`fillColor=${color}`, `strokeColor=${stroke}`])
         .join(";");
-      model.setStyle(cell, next);
-      touched += 1;
+      if (next !== styleStr) {
+        model.setStyle(cell, next);
+      }
+      painted += 1;
     }
   } finally {
     model.endUpdate();
   }
-  return touched;
+  return { painted, restored };
 }
 
 /**

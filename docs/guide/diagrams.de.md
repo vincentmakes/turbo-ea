@@ -79,17 +79,17 @@ Das Entfernen einer Kante, die eine echte Beziehung trägt, öffnet «Beziehung 
 
 ### Ansichts-Perspektiven
 
-Das Dropdown **Ansicht** in der Symbolleiste färbt jede Karte auf der Leinwand nach einem Attribut um:
+Das Dropdown **Färben nach** in der Symbolleiste färbt die Karten auf der Leinwand ein:
 
 - **Kartenfarben** (Standard) -- jede Karte nutzt ihre Kartentyp-Farbe.
 - **Genehmigungsstatus** -- färbt nach `genehmigt` / `ausstehend` / `defekt`.
-- **Feldwerte** -- wählen Sie ein beliebiges Einzelauswahl-Feld der aktuell auf der Leinwand vorhandenen Kartentypen (z. B. *Lebenszyklus*, *Status*). Zellen ohne Wert fallen auf neutrales Grau zurück.
+- **Feldwerte** -- haken Sie ein Einzelauswahl-Feld unter einem beliebigen Kartentyp auf der Leinwand an. **Mehrere Kartentypen können gleichzeitig je eine Regel tragen** -- Anwendungen nach Kritikalität *und* IT-Komponenten nach Hosting-Modell. Ein Kartentyp ohne Regel behält seine bisherige Farbe, auch eine von Hand gesetzte Füllung; grau wird nur eine Karte, deren eigene Regel keinen Wert findet. Ein zweites Feld innerhalb eines Kartentyps ersetzt das erste, denn eine Karte hat eine Füllung.
 
-Eine schwebende Legende unten links auf der Leinwand zeigt die aktive Zuordnung. Die gewählte Ansicht wird mit dem Diagramm gespeichert.
+Eine schwebende Legende unten links zeigt eine Skala je aktiver Regel. Feldregeln und **Genehmigungsstatus** sind Alternativen, keine Ebenen: die Wahl der einen löscht die andere. Werden alle Regeln abgewählt, kehrt die Leinwand zu den Kartenfarben zurück. Die Wahl wird mit dem Diagramm gespeichert.
 
 #### Auf Karte anzeigen
 
-Dasselbe Dropdown bestimmt auch, **was jede Form aussagt**. Unter **Auf Karte anzeigen** wählen Sie den **Kartentyp**, den **Untertyp** oder ein beliebiges Attribut der aktuell auf der Leinwand vorhandenen Kartentypen — jede Form erhält dann kleine Detailzeilen unter ihrem Namen. Das Dropdown ist zweigeteilt: **Färben nach** wählt das eine Attribut, das die Formen einfärbt, **Auf Karte anzeigen** wählt beliebig viele Felder, die darauf gedruckt werden. Die Felder stehen unter dem Kartentyp, zu dem sie gehören; ein Feld, das mehrere dieser Typen teilen, steht unter **Gemeinsam**.
+Eine zweite Schaltfläche in der Symbolleiste, **Auf Karte anzeigen**, bestimmt, **was jede Form aussagt**. Wählen Sie den **Kartentyp**, den **Untertyp** oder ein beliebiges Attribut der aktuell auf der Leinwand vorhandenen Kartentypen — jede Form erhält dann kleine Detailzeilen unter ihrem Namen. Die Felder stehen unter dem Kartentyp, zu dem sie gehören; ein Feld, das mehrere dieser Typen teilen, steht unter **Gemeinsam**. Eine eigene Schaltfläche neben **Färben nach**, damit für keine der beiden Listen an der anderen vorbeigescrollt werden muss.
 
 Die ersten beiden Auswahlen werden auf der Form gezeichnet: eine Karte ist nur so groß, und Text, der nicht passt, würde über ihren Rand hinauslaufen. Alles Angehakte wird gespeichert, sodass eine spätere Erweiterung der Auswahl ändert, welche zwei erscheinen, ohne dass Sie neu wählen müssen.
 

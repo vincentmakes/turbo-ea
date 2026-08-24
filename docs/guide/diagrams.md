@@ -79,17 +79,17 @@ Removing an edge that carries a real relation opens *"Delete the relation betwee
 
 ### View perspectives
 
-The **View** dropdown in the toolbar recolors every card on the canvas by an attribute:
+The **Color by** dropdown in the toolbar recolors the cards on the canvas:
 
 - **Card colors** (default) — each card uses its card-type color.
 - **Approval status** — recolors by `approved` / `pending` / `broken`.
-- **Field values** — pick any single-select field on the card types currently on the canvas (e.g., *Lifecycle*, *Status*). Cells with no value fall back to a neutral grey.
+- **Field values** — tick a single-select field under any card type on the canvas. **Several card types can each carry one rule at the same time** — Applications by criticality *and* IT Components by hosting model. A card type you give no rule keeps the colour it already has, including a fill you set by hand; only a card whose own rule finds no value turns grey. Ticking a second field within one card type replaces the first, because a card has one fill.
 
-A floating legend in the bottom-left of the canvas shows the active mapping. The chosen view is saved with the diagram.
+A floating legend in the bottom-left shows one scale per active rule. Field rules and **Approval status** are alternatives rather than layers: choosing one clears the other. Untick every rule and the canvas returns to card colors. The choice is saved with the diagram.
 
 #### Show on card
 
-The same dropdown also chooses **what each shape says**. Under **Show on card**, tick the **card type**, the **subtype**, or any attribute from the card types currently on the canvas, and each shape gains small detail lines under its name. The dropdown splits in two: **Color by** picks the one attribute that recolours the shapes, **Show on card** picks any number of fields to print on them. Fields are listed under the card type they belong to, with any field several of those types share grouped under **Shared**.
+A second toolbar button, **Show on card**, chooses **what each shape says**. Tick the **card type**, the **subtype**, or any attribute from the card types currently on the canvas, and each shape gains small detail lines under its name. Fields are listed under the card type they belong to, with any field several of those types share grouped under **Shared**. It is a separate button from **Color by** so that neither list has to be scrolled past to reach the other.
 
 The first two selections are drawn on the shape — a card is only so big, and text that doesn't fit would spill outside its border. Everything you tick is remembered, so widening the selection later changes which two show without you having to re-pick.
 

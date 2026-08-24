@@ -4,26 +4,34 @@ import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import type { ColorEntry } from "./ViewSelector";
+import type { ColorEntry } from "./viewSource";
+
+/** One colour scale — a card type's field rule, or the approval status scale. */
+export interface LegendSection {
+  key: string;
+  title: string;
+  entries: ColorEntry[];
+}
 
 interface Props {
-  /** Display title for the active view (e.g. "Application · Lifecycle"). */
-  title: string;
-  /** Ordered colour entries for the chart legend. */
-  entries: ColorEntry[];
-  /** Number of cells the colour was applied to (helps the user gauge coverage). */
+  /** One per active rule. Several types can be coloured at once. */
+  sections: LegendSection[];
+  /** Number of cells a rule actually coloured. */
   appliedCount: number;
   onReset: () => void;
 }
 
 /**
- * Small floating legend rendered below the toolbar when a view is active.
- * Mirrors the LeanIX "fact-sheet colours" panel without competing with the
- * canvas — collapses to a single row at the bottom-left.
+ * Floating legend below the toolbar, one row per active colour rule.
+ *
+ * Sections rather than a single flat list because several card types can be
+ * coloured at the same time, each by its own field — and two types' scales can
+ * legitimately share an option key, so the swatches need to say which rule they
+ * belong to.
  */
-export default function DiagramViewLegend({ title, entries, appliedCount, onReset }: Props) {
+export default function DiagramViewLegend({ sections, appliedCount, onReset }: Props) {
   const { t } = useTranslation(["diagrams", "common"]);
-  if (entries.length === 0) return null;
+  if (sections.every((s) => s.entries.length === 0)) return null;
   return (
     <Box
       sx={{
@@ -36,36 +44,39 @@ export default function DiagramViewLegend({ title, entries, appliedCount, onRese
         px: 1.5,
         py: 1,
         display: "flex",
-        alignItems: "center",
+        alignItems: "flex-start",
         gap: 1,
-        flexWrap: "wrap",
         maxWidth: "calc(100% - 24px)",
         zIndex: 4,
       }}
     >
-      <Box sx={{ display: "flex", flexDirection: "column", mr: 1 }}>
-        <Typography variant="caption" fontWeight={700}>
-          {title}
-        </Typography>
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75, minWidth: 0 }}>
         <Typography variant="caption" color="text.secondary">
           {t("legend.applied", { count: appliedCount })}
         </Typography>
-      </Box>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-        {entries.map((e) => (
-          <Box key={e.value} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-            <Box
-              sx={{
-                width: 12,
-                height: 12,
-                borderRadius: "3px",
-                bgcolor: e.color,
-                border: "1px solid rgba(0,0,0,0.2)",
-              }}
-            />
-            <Typography variant="caption">{e.label}</Typography>
-          </Box>
-        ))}
+        {sections
+          .filter((s) => s.entries.length > 0)
+          .map((section) => (
+            <Box key={section.key} sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+              <Typography variant="caption" fontWeight={700} sx={{ mr: 0.5 }}>
+                {section.title}
+              </Typography>
+              {section.entries.map((e) => (
+                <Box key={e.key} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                  <Box
+                    sx={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: "3px",
+                      bgcolor: e.color,
+                      border: "1px solid rgba(0,0,0,0.2)",
+                    }}
+                  />
+                  <Typography variant="caption">{e.label}</Typography>
+                </Box>
+              ))}
+            </Box>
+          ))}
       </Box>
       <Tooltip title={t("legend.reset")}>
         <IconButton size="small" onClick={onReset} sx={{ ml: 1 }}>

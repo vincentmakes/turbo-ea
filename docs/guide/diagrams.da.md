@@ -79,17 +79,17 @@ At fjerne en kant, der bærer en rigtig relation, åbner *"Delete the relation b
 
 ### Visningsperspektiver
 
-Dropdownen **View** i værktøjslinjen omfarver hvert kort på lærredet efter en egenskab:
+Dropdownen **Farvelæg efter** i værktøjslinjen omfarver kortene på lærredet:
 
 - **Card colors** (standard) — hvert kort bruger sin korttype-farve.
 - **Approval status** — omfarver efter `approved` / `pending` / `broken`.
-- **Field values** — vælg et hvilket som helst single-select-felt på de korttyper, der aktuelt er på lærredet (f.eks. *Lifecycle*, *Status*). Celler uden værdi falder tilbage til en neutral grå.
+- **Field values** — sæt flueben ved et single-select-felt under en hvilken som helst korttype på lærredet. **Flere korttyper kan hver bære én regel samtidig** — Applications efter kritikalitet *og* IT Components efter hosting-model. En korttype uden regel beholder den farve, den allerede har, også en udfyldning du selv har sat; kun et kort, hvis egen regel ikke finder nogen værdi, bliver gråt. Et andet felt inden for samme korttype erstatter det første, for et kort har én udfyldning.
 
-En flydende forklaring nederst til venstre på lærredet viser den aktive tilknytning. Den valgte visning gemmes med diagrammet.
+En flydende forklaring nederst til venstre viser én skala pr. aktiv regel. Feltregler og **Approval status** er alternativer, ikke lag: vælger du det ene, ryddes det andet. Fjerner du alle regler, vender lærredet tilbage til kortfarverne. Valget gemmes med diagrammet.
 
 #### Vis på kortet
 
-Den samme dropdown afgør også, **hvad hver figur siger**. Under **Vis på kortet** sætter du flueben ved **korttypen**, **undertypen** eller en vilkårlig egenskab fra de korttyper, der aktuelt er på lærredet, og hver figur får små detaljelinjer under sit navn. Dropdownen er delt i to: **Farvelæg efter** vælger den ene egenskab, der farver figurerne, og **Vis på kortet** vælger så mange felter, du vil, til at stå på dem. Felterne står under den korttype, de hører til; et felt, som flere af de typer deler, samles under **Fælles**.
+En anden knap i værktøjslinjen, **Vis på kortet**, afgør, **hvad hver figur siger**. Sæt flueben ved **korttypen**, **undertypen** eller en vilkårlig egenskab fra de korttyper, der aktuelt er på lærredet, og hver figur får små detaljelinjer under sit navn. Felterne står under den korttype, de hører til; et felt, som flere af de typer deler, samles under **Fælles**. Det er en separat knap fra **Farvelæg efter**, så ingen af de to lister skal scrolles forbi for at nå den anden.
 
 De to første valg tegnes på figuren: et kort har en begrænset størrelse, og tekst der ikke passer, ville flyde ud over kanten. Alt du sætter flueben ved, huskes, så en senere udvidelse af udvalget ændrer hvilke to der vises, uden at du skal vælge forfra.
 

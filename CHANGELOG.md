@@ -5,6 +5,21 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.82.0] - 2026-08-24
+
+### Added
+
+- **A diagram can be coloured by several card types at once.** Under **Color by**, tick a field on each card type you care about — Applications by criticality *and* IT Components by hosting model — and each type takes its own scale, with one legend block per rule. Field rules and **Approval status** remain alternatives rather than layers, and unticking every rule returns the canvas to card colors.
+- **Colour and card contents are now two toolbar buttons.** Per-type rules make the colour list long, so **Color by** and **Show on card** each have their own button; neither list has to be scrolled past to reach the other.
+
+### Fixed
+
+- **Colouring by a field no longer greys out every other card type.** Picking, say, *Application · Criticality* painted every card that was not an Application a flat grey, which made the feature unusable on any landscape holding more than one card type. A card type you have given no rule now keeps the colour it already had — including a fill set by hand — and only a card whose own rule finds no value is greyed, with a **No value** swatch in the legend to say so.
+- **Two card types coloured by the same field no longer share one palette.** Rules on two types whose fields offer the same option value (`high`, `active`, …) collided, so one type rendered in the other's colours.
+- **Switching colour rules is a single undo step**, and the swatch count reports how many cards a rule actually coloured rather than how many were greyed.
+- **Rapidly changing the colour rules can no longer leave the canvas mis-painted.** The colour pass now cancels the request it supersedes, and touches the canvas only after the card data has arrived — so a failed or overtaken fetch cannot leave shapes half-reset.
+- **Approval-status swatches are translated** instead of showing a capitalised internal key.
+
 ## [2.81.0] - 2026-08-24
 
 ### Added
