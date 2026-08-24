@@ -9,9 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Diagrams can show more than a card's name.** The **View** dropdown in the diagram toolbar now also chooses *what each shape says*: tick the card type, the subtype, or any attribute of the card types on the canvas, and every shape gains small detail lines under its name. The first two selections are drawn on the shape — a card is only so big — and the choice is saved with the diagram, so every reader, including anyone opening a published link, sees the same shapes. Expanded child cards keep just their name.
+- **Diagrams can show more than a card's name.** The **View** dropdown in the diagram toolbar now carries two independent settings: **Color by** picks the one attribute that recolours the shapes, and **Show on card** picks any number of fields to print on them — the card type, the subtype, or any attribute of the card types on the canvas. Fields are listed under the card type they belong to, with any field several of those types share grouped under **Shared**. The first two selections are drawn on the shape — a card is only so big — and the choice is saved with the diagram, so every reader, including anyone opening a published link, sees the same shapes. Expanded child cards keep just their name.
 - **A diagram generated from the Dependencies report keeps the report's detail.** The **Create diagram** button used to hand DrawIO nothing but names, so a landscape that read richly in the report went flat on the diagram made from it. The card-display settings and the resolved rows now travel across, and the new diagram opens with its own dropdown pre-set to match.
 - **Subtype can be shown on a dependency card.** The Dependencies report's **Card display** menu has a *Show subtype* switch, alongside the existing type and lifecycle toggles.
+- **The Dependencies report's Card display menu is grouped.** Its switches sit under **Cards** and **Relations** instead of running together, and the extra-fields picker lists each attribute under the card type that owns it.
 
 ### Fixed
 

@@ -87,9 +87,9 @@ Dropdownen **View** i værktøjslinjen omfarver hvert kort på lærredet efter e
 
 En flydende forklaring nederst til venstre på lærredet viser den aktive tilknytning. Den valgte visning gemmes med diagrammet.
 
-#### Felter vist på kort
+#### Vis på kortet
 
-Den samme dropdown afgør også, **hvad hver figur siger**. Under *Felter vist på kort* sætter du flueben ved **korttypen**, **undertypen** eller en vilkårlig egenskab fra de korttyper, der aktuelt er på lærredet, og hver figur får små detaljelinjer under sit navn.
+Den samme dropdown afgør også, **hvad hver figur siger**. Under **Vis på kortet** sætter du flueben ved **korttypen**, **undertypen** eller en vilkårlig egenskab fra de korttyper, der aktuelt er på lærredet, og hver figur får små detaljelinjer under sit navn. Dropdownen er delt i to: **Farvelæg efter** vælger den ene egenskab, der farver figurerne, og **Vis på kortet** vælger så mange felter, du vil, til at stå på dem. Felterne står under den korttype, de hører til; et felt, som flere af de typer deler, samles under **Fælles**.
 
 De to første valg tegnes på figuren: et kort har en begrænset størrelse, og tekst der ikke passer, ville flyde ud over kanten. Alt du sætter flueben ved, huskes, så en senere udvidelse af udvalget ændrer hvilke to der vises, uden at du skal vælge forfra.
 

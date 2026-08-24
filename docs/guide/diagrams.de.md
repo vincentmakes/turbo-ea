@@ -87,9 +87,9 @@ Das Dropdown **Ansicht** in der Symbolleiste färbt jede Karte auf der Leinwand 
 
 Eine schwebende Legende unten links auf der Leinwand zeigt die aktive Zuordnung. Die gewählte Ansicht wird mit dem Diagramm gespeichert.
 
-#### Auf Karten angezeigte Felder
+#### Auf Karte anzeigen
 
-Dasselbe Dropdown bestimmt auch, **was jede Form aussagt**. Unter *Auf Karten angezeigte Felder* wählen Sie den **Kartentyp**, den **Untertyp** oder ein beliebiges Attribut der aktuell auf der Leinwand vorhandenen Kartentypen — jede Form erhält dann kleine Detailzeilen unter ihrem Namen.
+Dasselbe Dropdown bestimmt auch, **was jede Form aussagt**. Unter **Auf Karte anzeigen** wählen Sie den **Kartentyp**, den **Untertyp** oder ein beliebiges Attribut der aktuell auf der Leinwand vorhandenen Kartentypen — jede Form erhält dann kleine Detailzeilen unter ihrem Namen. Das Dropdown ist zweigeteilt: **Färben nach** wählt das eine Attribut, das die Formen einfärbt, **Auf Karte anzeigen** wählt beliebig viele Felder, die darauf gedruckt werden. Die Felder stehen unter dem Kartentyp, zu dem sie gehören; ein Feld, das mehrere dieser Typen teilen, steht unter **Gemeinsam**.
 
 Die ersten beiden Auswahlen werden auf der Form gezeichnet: eine Karte ist nur so groß, und Text, der nicht passt, würde über ihren Rand hinauslaufen. Alles Angehakte wird gespeichert, sodass eine spätere Erweiterung der Auswahl ändert, welche zwei erscheinen, ohne dass Sie neu wählen müssen.
 

@@ -17,6 +17,13 @@ export interface FieldMeta {
   translations?: Record<string, string>;
   type: string;
   options?: { key: string; label: string; translations?: Record<string, string> }[];
+  /**
+   * Every card type *in play* that defines this key. Field keys are shared
+   * across types in the metamodel, so a catalogue entry can have several
+   * owners; the pickers group on this and put multi-owner keys in one shared
+   * bucket rather than repeating a row the user could tick twice.
+   */
+  typeKeys: string[];
 }
 
 /** One label/value line displayed on a card and/or its tooltip. */
@@ -40,20 +47,28 @@ export const EMPTY_VALUE = "—";
 /**
  * Collect a de-duplicated, sorted catalogue of attribute fields across the card
  * types currently in play — drives the "extra fields" pickers.
+ *
+ * One entry per field key, so no picker ever shows the same field twice, but
+ * every owning type is recorded on `typeKeys` so the entry can still be filed
+ * under the right heading.
  */
 export function buildFieldCatalog(
   types: CardType[],
   presentTypeKeys: Set<string>,
 ): FieldMeta[] {
   const out: FieldMeta[] = [];
-  const seen = new Set<string>();
+  const byKey = new Map<string, FieldMeta>();
   for (const ct of types) {
     if (!presentTypeKeys.has(ct.key)) continue;
     for (const sec of ct.fields_schema || []) {
       for (const f of sec.fields || []) {
-        if (seen.has(f.key)) continue;
-        seen.add(f.key);
-        out.push({
+        const existing = byKey.get(f.key);
+        if (existing) {
+          // Same key on a second type — one row, two owners.
+          if (!existing.typeKeys.includes(ct.key)) existing.typeKeys.push(ct.key);
+          continue;
+        }
+        const meta: FieldMeta = {
           key: f.key,
           label: f.label || f.key,
           translations: f.translations,
@@ -63,11 +78,47 @@ export function buildFieldCatalog(
             label: o.label || o.key,
             translations: o.translations,
           })),
-        });
+          typeKeys: [ct.key],
+        };
+        byKey.set(f.key, meta);
+        out.push(meta);
       }
     }
   }
   return out.sort((a, b) => a.label.localeCompare(b.label));
+}
+
+/**
+ * One heading in a grouped field picker: either the bucket for keys several
+ * card types share, or a single card type.
+ */
+export type FieldGroup =
+  | { kind: "shared"; fields: FieldMeta[] }
+  | { kind: "type"; type: CardType; fields: FieldMeta[] };
+
+/**
+ * File a catalogue under headings — shared keys first, then one heading per
+ * card type in metamodel order. Empty groups are dropped.
+ *
+ * The flattened output is group-contiguous, which matters beyond looks: MUI's
+ * `Autocomplete` `groupBy` re-prints a heading every time the group changes, so
+ * an unordered option list renders the same heading several times. Consumers
+ * that need a flat list must take it from these groups, not from the catalogue.
+ */
+export function groupFieldCatalog(
+  catalog: FieldMeta[],
+  types: CardType[],
+): FieldGroup[] {
+  const groups: FieldGroup[] = [];
+  const shared = catalog.filter((f) => f.typeKeys.length > 1);
+  if (shared.length > 0) groups.push({ kind: "shared", fields: shared });
+  for (const ct of types) {
+    const fields = catalog.filter(
+      (f) => f.typeKeys.length === 1 && f.typeKeys[0] === ct.key,
+    );
+    if (fields.length > 0) groups.push({ kind: "type", type: ct, fields });
+  }
+  return groups;
 }
 
 /** Resolvers the formatter needs from the React layer (locale-aware option

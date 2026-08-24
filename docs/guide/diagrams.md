@@ -87,9 +87,9 @@ The **View** dropdown in the toolbar recolors every card on the canvas by an att
 
 A floating legend in the bottom-left of the canvas shows the active mapping. The chosen view is saved with the diagram.
 
-#### Fields shown on cards
+#### Show on card
 
-The same dropdown also chooses **what each shape says**. Under *Fields shown on cards*, tick the **card type**, the **subtype**, or any attribute from the card types currently on the canvas, and each shape gains small detail lines under its name.
+The same dropdown also chooses **what each shape says**. Under **Show on card**, tick the **card type**, the **subtype**, or any attribute from the card types currently on the canvas, and each shape gains small detail lines under its name. The dropdown splits in two: **Color by** picks the one attribute that recolours the shapes, **Show on card** picks any number of fields to print on them. Fields are listed under the card type they belong to, with any field several of those types share grouped under **Shared**.
 
 The first two selections are drawn on the shape — a card is only so big, and text that doesn't fit would spill outside its border. Everything you tick is remembered, so widening the selection later changes which two show without you having to re-pick.
 

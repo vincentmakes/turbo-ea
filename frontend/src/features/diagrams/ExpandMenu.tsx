@@ -11,6 +11,7 @@ import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import MenuSectionHeader from "@/components/MenuSectionHeader";
 import { api } from "@/api/client";
 
 export interface RelationSummaryEntry {
@@ -297,7 +298,7 @@ export default function ExpandMenu({ target, onClose, onPick }: Props) {
       {!loading && !error && (
         <>
           {/* ── Show Dependency (multi-select) ────────────────────── */}
-          <SectionHeader icon="hub" label={t("editor.expandMenu.showDependency")} />
+          <MenuSectionHeader icon="hub" label={t("editor.expandMenu.showDependency")} />
           {entries && entries.length === 0 && (
             <Box sx={{ px: 2, py: 1, color: "text.disabled", fontSize: "0.8rem" }}>
               {t("editor.expandMenu.empty")}
@@ -368,10 +369,10 @@ export default function ExpandMenu({ target, onClose, onPick }: Props) {
 
           {/* ── Drill-Down (children) ─────────────────────────────── */}
           <Divider sx={{ my: 0.5 }} />
-          <SectionHeader
+          <MenuSectionHeader
             icon="south"
             label={t("editor.expandMenu.drillDown")}
-            badge={hierarchy?.children_count}
+            count={hierarchy?.children_count}
           />
           {hierarchy && hierarchy.children_count === 0 && (
             <Box sx={{ px: 2, py: 1, color: "text.disabled", fontSize: "0.8rem" }}>
@@ -449,7 +450,7 @@ export default function ExpandMenu({ target, onClose, onPick }: Props) {
 
           {/* ── Roll-Up (parent + siblings) ───────────────────────── */}
           <Divider sx={{ my: 0.5 }} />
-          <SectionHeader icon="north" label={t("editor.expandMenu.rollUp")} />
+          <MenuSectionHeader icon="north" label={t("editor.expandMenu.rollUp")} />
           {!hierarchy?.parent_id && (
             <Box sx={{ px: 2, py: 1, color: "text.disabled", fontSize: "0.8rem" }}>
               {t("editor.expandMenu.noParent")}
@@ -504,41 +505,5 @@ export default function ExpandMenu({ target, onClose, onPick }: Props) {
         </>
       )}
     </Menu>
-  );
-}
-
-function SectionHeader({
-  icon,
-  label,
-  badge,
-}: {
-  icon: string;
-  label: string;
-  badge?: number;
-}) {
-  return (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: 0.75,
-        px: 2,
-        py: 0.5,
-        fontSize: "0.7rem",
-        textTransform: "uppercase",
-        letterSpacing: 0.5,
-        color: "text.secondary",
-      }}
-    >
-      <MaterialSymbol icon={icon} size={14} color="#666" />
-      {label}
-      {badge != null && badge > 0 && (
-        <Chip
-          size="small"
-          label={badge}
-          sx={{ ml: "auto", height: 18, fontSize: "0.65rem" }}
-        />
-      )}
-    </Box>
   );
 }

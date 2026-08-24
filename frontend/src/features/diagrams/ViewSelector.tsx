@@ -1,4 +1,4 @@
-import { useMemo, useState as useReactState, type ReactNode } from "react";
+import { useMemo, useState as useReactState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -6,14 +6,18 @@ import Checkbox from "@mui/material/Checkbox";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Divider from "@mui/material/Divider";
+import Radio from "@mui/material/Radio";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import MenuSectionHeader from "@/components/MenuSectionHeader";
 import { useFieldLabel, useTypeLabel } from "@/hooks/useResolveLabel";
 import {
   buildFieldCatalog,
+  groupFieldCatalog,
   MAX_CARD_LINES,
   type CardLabelSettings,
+  type FieldGroup,
 } from "@/lib/cardDisplayFields";
 import { APPROVAL_STATUS_COLORS, SEVERITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import type { CardType, FieldDef } from "@/types";
@@ -42,16 +46,17 @@ interface Props {
 }
 
 /**
- * Card display dropdown — LeanIX-style. Carries two independent settings:
+ * Card display dropdown for the diagram toolbar.
  *
- *  - **Colour by** (one choice): card type, approval status, or a single-select
- *    field on a type currently on the canvas. Numeric / cost / lifecycle /
- *    relation-attribute perspectives need quantile binning or extra fetches and
- *    are left for a follow-up.
- *  - **Fields shown on cards** (many): card type, subtype, and any metamodel
- *    attribute, rendered as detail lines under the card name. The catalogue is
- *    the same one the Layered Dependency View offers, so a field reads the same
- *    in a report and on the diagram exported from it.
+ * Two settings, deliberately independent and deliberately shaped differently
+ * so a reader can tell them apart without trying them:
+ *
+ *  - **Color by** — pick ONE. Radio rows; choosing closes the menu.
+ *  - **Show on card** — pick MANY. Checkbox rows; ticking keeps the menu open.
+ *
+ * Both field lists are filed under the card type that owns them, using the same
+ * catalogue the Layered Dependency View offers, so a field reads the same in a
+ * report and on the diagram exported from it.
  */
 export default function ViewSelector({
   activeTypeKeys,
@@ -71,7 +76,9 @@ export default function ViewSelector({
     [types],
   );
 
-  const fieldsByType = useMemo(() => {
+  /** Colour perspectives: single-select fields only, since a perspective needs
+   *  a bounded set of values to map onto a palette. */
+  const colorFieldsByType = useMemo(() => {
     const result: Array<{ type: CardType; fields: FieldDef[] }> = [];
     for (const key of activeTypeKeys) {
       const tp = typeMap.get(key);
@@ -89,12 +96,12 @@ export default function ViewSelector({
     return result;
   }, [activeTypeKeys, typeMap]);
 
-  /** Attribute catalogue for the "fields shown on cards" section — shared with
-   *  the Layered Dependency View so the two pickers cannot drift apart. */
-  const fieldCatalog = useMemo(
-    () => buildFieldCatalog(types, new Set(activeTypeKeys)),
-    [types, activeTypeKeys],
-  );
+  /** Display fields: every attribute of every card type on the canvas, filed
+   *  under its owner. Shared with the Layered Dependency View's picker. */
+  const labelGroups = useMemo(() => {
+    const catalog = buildFieldCatalog(types, new Set(activeTypeKeys));
+    return groupFieldCatalog(catalog, types);
+  }, [types, activeTypeKeys]);
 
   const currentLabel = useMemo(() => {
     if (current.kind === "card_type") return t("viewSelector.cardType");
@@ -111,12 +118,23 @@ export default function ViewSelector({
 
   const buttonText = t("viewSelector.button", { view: currentLabel });
 
+  const shownCount =
+    labels.fields.length + (labels.showType ? 1 : 0) + (labels.showSubtype ? 1 : 0);
+
+  const pickColor = (next: ViewSource) => {
+    onChange(next);
+    setAnchorEl(null);
+  };
+
   const toggleField = (key: string) => {
     const next = labels.fields.includes(key)
       ? labels.fields.filter((k) => k !== key)
       : [...labels.fields, key];
     onLabelsChange({ ...labels, fields: next });
   };
+
+  const groupLabel = (g: FieldGroup) =>
+    g.kind === "shared" ? t("viewSelector.sharedFields") : typeLabel(g.type);
 
   return (
     <>
@@ -156,75 +174,48 @@ export default function ViewSelector({
         open={!!anchorEl}
         anchorEl={anchorEl}
         onClose={() => setAnchorEl(null)}
-        slotProps={{ paper: { sx: { minWidth: 280, maxHeight: 480 } } }}
+        slotProps={{ paper: { sx: { minWidth: 300, maxHeight: 520 } } }}
       >
-        <MenuItem
-          selected={current.kind === "card_type"}
-          onClick={() => {
-            onChange({ kind: "card_type" });
-            setAnchorEl(null);
-          }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <MaterialSymbol icon="palette" size={16} color="#666" />
-            {t("viewSelector.cardType")}
-          </Box>
-        </MenuItem>
+        {/* ── Colour perspective: exactly one ─────────────────────────── */}
+        <MenuSectionHeader icon="palette" label={t("viewSelector.colorBy")} />
 
-        <MenuItem
-          selected={current.kind === "approval_status"}
-          onClick={() => {
-            onChange({ kind: "approval_status" });
-            setAnchorEl(null);
-          }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <MaterialSymbol icon="check_circle" size={16} color="#666" />
-            {t("viewSelector.approvalStatus")}
-          </Box>
-        </MenuItem>
+        <ChoiceRow
+          checked={current.kind === "card_type"}
+          label={t("viewSelector.cardType")}
+          onSelect={() => pickColor({ kind: "card_type" })}
+        />
+        <ChoiceRow
+          checked={current.kind === "approval_status"}
+          label={t("viewSelector.approvalStatus")}
+          onSelect={() => pickColor({ kind: "approval_status" })}
+        />
 
-        {fieldsByType.length > 0 && <Divider sx={{ my: 0.5 }} />}
-        {fieldsByType.length > 0 && <SectionHeader>{t("viewSelector.fieldsOnCard")}</SectionHeader>}
-
-        {fieldsByType.map(({ type, fields }) => [
-          <Box
-            key={`hdr-${type.key}`}
-            sx={{
-              px: 2,
-              py: 0.25,
-              fontSize: "0.7rem",
-              color: type.color,
-              fontWeight: 600,
-            }}
-          >
-            {typeLabel(type)}
-          </Box>,
-          ...fields.map((f) => {
-            const active =
-              current.kind === "card_field" &&
-              current.type_key === type.key &&
-              current.field_key === f.key;
-            return (
-              <MenuItem
-                key={`${type.key}-${f.key}`}
-                selected={active}
-                onClick={() => {
-                  onChange({ kind: "card_field", type_key: type.key, field_key: f.key });
-                  setAnchorEl(null);
-                }}
-                sx={{ pl: 4 }}
-              >
-                <Typography variant="body2">{fieldLabel(f)}</Typography>
-              </MenuItem>
-            );
-          }),
+        {colorFieldsByType.map(({ type, fields }) => [
+          <TypeHeading key={`color-hdr-${type.key}`} type={type} label={typeLabel(type)} />,
+          ...fields.map((f) => (
+            <ChoiceRow
+              key={`color-${type.key}-${f.key}`}
+              checked={
+                current.kind === "card_field" &&
+                current.type_key === type.key &&
+                current.field_key === f.key
+              }
+              label={fieldLabel(f)}
+              onSelect={() =>
+                pickColor({ kind: "card_field", type_key: type.key, field_key: f.key })
+              }
+            />
+          )),
         ])}
 
-        {/* Fields shown as detail lines under each card name. Multi-select, so
-            these rows deliberately keep the menu open. */}
         <Divider sx={{ my: 0.5 }} />
-        <SectionHeader>{t("viewSelector.fieldsShown")}</SectionHeader>
+
+        {/* ── What the shape says: any number ─────────────────────────── */}
+        <MenuSectionHeader
+          icon="visibility"
+          label={t("viewSelector.showOnCard")}
+          count={shownCount}
+        />
         <Box sx={{ px: 2, pb: 0.5 }}>
           <Typography variant="caption" color="text.secondary">
             {t("viewSelector.linesHint", { count: MAX_CARD_LINES })}
@@ -241,36 +232,75 @@ export default function ViewSelector({
           label={t("viewSelector.subtypeLine")}
           onToggle={() => onLabelsChange({ ...labels, showSubtype: !labels.showSubtype })}
         />
-        {fieldCatalog.map((f) => (
-          <CheckRow
-            key={`lbl-${f.key}`}
-            checked={labels.fields.includes(f.key)}
-            label={fieldLabel(f)}
-            onToggle={() => toggleField(f.key)}
-          />
-        ))}
+
+        {labelGroups.map((g) => [
+          <TypeHeading
+            key={`show-hdr-${g.kind === "shared" ? "shared" : g.type.key}`}
+            type={g.kind === "type" ? g.type : undefined}
+            label={groupLabel(g)}
+          />,
+          ...g.fields.map((f) => (
+            <CheckRow
+              key={`show-${f.key}`}
+              checked={labels.fields.includes(f.key)}
+              label={fieldLabel(f)}
+              onToggle={() => toggleField(f.key)}
+            />
+          )),
+        ])}
       </Menu>
     </>
   );
 }
 
-function SectionHeader({ children }: { children: ReactNode }) {
+/**
+ * Sub-heading naming the card type a group of rows belongs to. Carries the
+ * type's own glyph in its own colour, per UI_GUIDELINES §3.11 — a card type is
+ * never a bare label. The shared bucket has no type, so it takes a neutral
+ * glyph.
+ */
+function TypeHeading({ type, label }: { type?: CardType; label: string }) {
   return (
     <Box
       sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 0.75,
         px: 2,
-        py: 0.5,
+        pt: 0.75,
+        pb: 0.25,
         fontSize: "0.7rem",
-        textTransform: "uppercase",
-        letterSpacing: 0.5,
-        color: "text.secondary",
+        fontWeight: 600,
+        color: type ? type.color : "text.secondary",
       }}
     >
-      {children}
+      <MaterialSymbol icon={type?.icon || "widgets"} size={14} />
+      {label}
     </Box>
   );
 }
 
+/** Pick-one row. Closes the menu, like every other single-choice menu item. */
+function ChoiceRow({
+  checked,
+  label,
+  onSelect,
+}: {
+  checked: boolean;
+  label: string;
+  onSelect: () => void;
+}) {
+  return (
+    <MenuItem selected={checked} onClick={onSelect} sx={{ pl: 1.5, py: 0.25 }}>
+      <Radio size="small" checked={checked} sx={{ p: 0.5, mr: 1 }} />
+      <Typography variant="body2" noWrap>
+        {label}
+      </Typography>
+    </MenuItem>
+  );
+}
+
+/** Pick-many row. Deliberately keeps the menu open. */
 function CheckRow({
   checked,
   label,

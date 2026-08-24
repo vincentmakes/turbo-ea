@@ -87,9 +87,9 @@ El desplegable **Vista** de la barra de herramientas recolorea cada tarjeta del 
 
 Una leyenda flotante en la esquina inferior izquierda del lienzo muestra la asignación activa. La vista elegida se guarda con el diagrama.
 
-#### Campos mostrados en las tarjetas
+#### Mostrar en la tarjeta
 
-El mismo desplegable decide también **qué dice cada forma**. En *Campos mostrados en las tarjetas*, marque el **tipo de tarjeta**, el **subtipo** o cualquier atributo de los tipos de tarjeta presentes en el lienzo, y cada forma añadirá pequeñas líneas de detalle bajo su nombre.
+El mismo desplegable decide también **qué dice cada forma**. En **Mostrar en la tarjeta**, marque el **tipo de tarjeta**, el **subtipo** o cualquier atributo de los tipos de tarjeta presentes en el lienzo, y cada forma añadirá pequeñas líneas de detalle bajo su nombre. El desplegable se divide en dos: **Colorear por** elige el único atributo que colorea las formas y **Mostrar en la tarjeta** elige cuantos campos quiera para imprimir en ellas. Los campos se listan bajo el tipo de tarjeta al que pertenecen; un campo compartido por varios de esos tipos se agrupa bajo **Comunes**.
 
 Las dos primeras selecciones se dibujan en la forma: una tarjeta tiene un tamaño limitado y el texto que no cabe se saldría de su borde. Todo lo que marque se recuerda, así que ampliar la selección más adelante cambia cuáles dos aparecen sin tener que volver a elegir.
 

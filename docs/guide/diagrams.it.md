@@ -87,9 +87,9 @@ Il menu a tendina **Vista** nella barra strumenti ricolora ogni scheda sulla tel
 
 Una legenda fluttuante in basso a sinistra mostra la mappatura attiva. La vista scelta viene salvata col diagramma.
 
-#### Campi mostrati sulle schede
+#### Mostra sulla scheda
 
-Lo stesso menu decide anche **cosa dice ogni forma**. In *Campi mostrati sulle schede*, spuntate il **tipo di scheda**, il **sottotipo** o qualsiasi attributo dei tipi di scheda presenti sulla tela: ogni forma acquisirà piccole righe di dettaglio sotto il proprio nome.
+Lo stesso menu decide anche **cosa dice ogni forma**. In **Mostra sulla scheda**, spuntate il **tipo di scheda**, il **sottotipo** o qualsiasi attributo dei tipi di scheda presenti sulla tela: ogni forma acquisirà piccole righe di dettaglio sotto il proprio nome. Il menu si divide in due: **Colora per** sceglie l'unico attributo che colora le forme, **Mostra sulla scheda** sceglie quanti campi volete da stamparvi sopra. I campi sono elencati sotto il tipo di scheda a cui appartengono; un campo condiviso da più di questi tipi è raggruppato sotto **Comuni**.
 
 Le prime due selezioni vengono disegnate sulla forma: una scheda ha una dimensione limitata e il testo che non entra sborderebbe dal bordo. Tutto ciò che spuntate viene ricordato, così ampliare la selezione in seguito cambia quali due appaiono senza doverle riscegliere.
 
