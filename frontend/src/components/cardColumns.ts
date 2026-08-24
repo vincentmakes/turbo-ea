@@ -79,6 +79,18 @@ const SPACING_PX = 8;
 export const NESTED_MIN_TRACK = 180;
 
 /**
+ * Floor for a card header's title.
+ *
+ * A header is a flex row of `<title><chips>`, and the title carries `noWrap`
+ * — which sets `overflow: hidden` and so gives it an automatic minimum size of
+ * **zero**. Without an explicit floor, a narrow card squeezes the title out of
+ * existence entirely and pushes the chips past the card edge, where they are
+ * clipped mid-word. Pair this with `flexWrap: "wrap"` on the row so the chips
+ * drop to a second line instead of overflowing.
+ */
+export const CARD_TITLE_MIN_WIDTH = 96;
+
+/**
  * How many columns a *nested* level gets, tapering from the top-level pick.
  *
  * Each step down, and each extra column at the top, costs one column — so

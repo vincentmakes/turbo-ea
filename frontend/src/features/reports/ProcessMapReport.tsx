@@ -28,6 +28,7 @@ import {
   isColumnCount,
   nestedColumns,
   nestedGridProps,
+  CARD_TITLE_MIN_WIDTH,
   DEFAULT_COLUMNS,
   type ColumnCount,
 } from "@/components/cardColumns";
@@ -414,13 +415,19 @@ function ProcessCard({
             borderBottom: relatedChips.length > 0 ? 1 : "none",
             borderColor: "divider",
             display: "flex",
+            flexWrap: "wrap",
             alignItems: "center",
             gap: 0.5,
           }}
         >
           <Typography
             variant="subtitle2"
-            sx={{ fontWeight: 700, flex: 1, color: isHighContrast ? "#fff" : "#333" }}
+            sx={{
+              fontWeight: 700,
+              flex: 1,
+              minWidth: CARD_TITLE_MIN_WIDTH,
+              color: isHighContrast ? "#fff" : "#333",
+            }}
             noWrap
           >
             {node.name}
@@ -474,6 +481,7 @@ function ProcessCard({
           borderBottom: 1,
           borderColor: "divider",
           display: "flex",
+          flexWrap: "wrap",
           alignItems: "center",
           gap: 0.5,
           cursor: "pointer",
@@ -483,7 +491,12 @@ function ProcessCard({
       >
         <Typography
           variant="subtitle2"
-          sx={{ fontWeight: 700, flex: 1, color: isHighContrast ? "#fff" : "#333" }}
+          sx={{
+            fontWeight: 700,
+            flex: 1,
+            minWidth: CARD_TITLE_MIN_WIDTH,
+            color: isHighContrast ? "#fff" : "#333",
+          }}
           noWrap
         >
           {node.name}

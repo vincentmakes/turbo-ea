@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - **Choose how many columns a report lays its cards out in.** The Capability Map, Process Map, Portfolio, Flexible Portfolio and the BPM Process Navigator all placed their cards in a fixed three-across grid, whatever the screen or the content. Each now has a 1 / 2 / 3 column picker in its toolbar, next to the depth control — three buttons, no dropdown. Wider cards are easier to read at one or two across; a sparse landscape no longer wastes half the page. The choice sticks per report, travels with a saved report, and is used when you print. Narrow screens still reduce to one or two columns on their own, and the Process Navigator never stretches a row across more tracks than it has processes.
 
+### Fixed
+
+- **Card titles no longer vanish in a narrow card.** A card header lays its title and chips out in a row, and the title was allowed to shrink to nothing — so in a narrow card, such as a level-3 process in the Process Map, the name disappeared entirely and the chips beside it were cut off mid-word. The title now keeps a minimum width and ellipsises, and the chips wrap onto a second line instead of running past the card edge.
+
 ### Changed
 
 - **The column choice now cascades through the nested levels.** Cards at level 3 were the hardest to read, because every level below the first sized its children off a fixed minimum width that ignored how much room the parent card actually had. The choice you make at the top now sets the levels beneath it, tapering one column per level: pick one column and level 2 sits three across and level 3 two across, pick three and everything below stays stacked and full width. Levels still fold down to fewer columns when a card is genuinely too narrow, and drilling into a card restarts the layout from what you are looking at.

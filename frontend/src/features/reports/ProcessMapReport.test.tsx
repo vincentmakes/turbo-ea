@@ -224,3 +224,32 @@ describe("ProcessMapReport nested column taper", () => {
     expect(colsAround("Invoicing")).toBe("1");
   });
 });
+
+describe("ProcessMapReport narrow card headers", () => {
+  /**
+   * A card header is `<title><chips>` in a flex row, and the title carries
+   * `noWrap` — which sets `overflow: hidden` and so gives it an automatic
+   * minimum size of zero. Without a floor and a wrap, a narrow card (which
+   * the nested taper now routinely produces) squeezes the title out of
+   * existence and pushes the chips past the card edge, clipping them
+   * mid-word. jsdom has no layout, but it does resolve emotion's styles,
+   * so the two properties that prevent it can be pinned here.
+   */
+  const headerOf = (name: string) =>
+    within(chart()).getByText(name).closest("div") as HTMLElement;
+
+  it("keeps a title floor and lets the chips wrap instead of overflowing", async () => {
+    consumedConfig = { columns: 1, displayLevel: 3 };
+    renderMap();
+    await waitFor(() =>
+      expect(within(chart()).getByText("Invoicing")).toBeInTheDocument(),
+    );
+
+    const header = headerOf("Invoicing");
+    expect(getComputedStyle(header).flexWrap).toBe("wrap");
+
+    const title = within(chart()).getByText("Invoicing");
+    expect(getComputedStyle(title).minWidth).not.toBe("0px");
+    expect(getComputedStyle(title).minWidth).not.toBe("");
+  });
+});

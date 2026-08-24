@@ -25,6 +25,7 @@ import {
   isColumnCount,
   nestedColumns,
   nestedGridProps,
+  CARD_TITLE_MIN_WIDTH,
   DEFAULT_COLUMNS,
   type ColumnCount,
 } from "@/components/cardColumns";
@@ -528,6 +529,7 @@ function CapabilityCard({
               showApps && visibleApps.length > 0 ? 1 : "none",
             borderColor: "divider",
             display: "flex",
+            flexWrap: "wrap",
             alignItems: "center",
             gap: 1,
           }}
@@ -537,6 +539,7 @@ function CapabilityCard({
             sx={{
               fontWeight: 700,
               flex: 1,
+              minWidth: CARD_TITLE_MIN_WIDTH,
               color: val > maxVal * 0.7 ? "#fff" : "#333",
             }}
             noWrap
@@ -599,6 +602,7 @@ function CapabilityCard({
           borderBottom: 1,
           borderColor: "divider",
           display: "flex",
+          flexWrap: "wrap",
           alignItems: "center",
           gap: 1,
           cursor: "pointer",
@@ -611,6 +615,7 @@ function CapabilityCard({
           sx={{
             fontWeight: 700,
             flex: 1,
+            minWidth: CARD_TITLE_MIN_WIDTH,
             color: val > maxVal * 0.7 ? "#fff" : "#333",
           }}
           noWrap

@@ -41,6 +41,7 @@ import {
   isColumnCount,
   nestedColumns,
   nestedGridProps,
+  CARD_TITLE_MIN_WIDTH,
   DEFAULT_COLUMNS,
   type ColumnCount,
 } from "@/components/cardColumns";
@@ -334,13 +335,14 @@ function GroupCard({
           borderBottom: count > 0 ? 1 : "none",
           borderColor: "divider",
           display: "flex",
+          flexWrap: "wrap",
           alignItems: "center",
           gap: 1,
         }}
       >
         <Typography
           variant="subtitle2"
-          sx={{ fontWeight: 700, flex: 1 }}
+          sx={{ fontWeight: 700, flex: 1, minWidth: CARD_TITLE_MIN_WIDTH }}
           noWrap
         >
           {group.label}
@@ -457,6 +459,7 @@ function NestedGroupCard({
         borderBottom: 1,
         borderColor: "divider",
         display: "flex",
+        flexWrap: "wrap",
         alignItems: "center",
         gap: 1,
         cursor: "pointer",
@@ -467,7 +470,11 @@ function NestedGroupCard({
         onNodeClick(node);
       }}
     >
-      <Typography variant="subtitle2" sx={{ fontWeight: 700, flex: 1 }} noWrap>
+      <Typography
+        variant="subtitle2"
+        sx={{ fontWeight: 700, flex: 1, minWidth: CARD_TITLE_MIN_WIDTH }}
+        noWrap
+      >
         {node.label}
       </Typography>
       <Chip
