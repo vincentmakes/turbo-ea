@@ -34,11 +34,12 @@ Selezionate a quale tipo di card si applica il sondaggio (es. Application, IT Co
 
 ### Filtri
 
-Restringete opzionalmente l'ambito con i filtri. Sono disponibili tre tipi di filtro, combinabili tra loro:
+Restringete opzionalmente l'ambito con i filtri. Sono disponibili quattro tipi di filtro, combinabili tra loro:
 
 - **Schede specifiche** — Selezionate direttamente una o più schede (limitate al tipo di destinazione). Utile per destinare una singola scheda o un sottoinsieme scelto manualmente.
 - **Schede correlate a** — Include solo le schede che hanno una relazione con uno degli elementi elencati (es. tutte le applicazioni correlate all'organizzazione Vendite).
 - **Tag** e **filtri di attributi** — Filtrate le schede per tag o per condizione di attributo (es. costo maggiore di 10 000, valutazione TIME mancante).
+- **Ultimo aggiornamento** — Includete solo le schede che nessuno modifica da tempo: 30 giorni, 90 giorni, 6 mesi, 1 anno oppure un numero personalizzato di giorni o mesi. Il generatore mostra la data limite corrispondente mentre scegliete. La finestra è relativa al momento dell'**invio**, non a quello della progettazione: una bozza lasciata in sospeso troverà quindi le schede obsolete in quel momento. Misura la data di modifica della scheda, la stessa mostrata dalla colonna dell'inventario e dalla cronologia della scheda.
 
 ### Domande
 

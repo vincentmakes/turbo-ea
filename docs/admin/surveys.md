@@ -34,11 +34,12 @@ Select which card type the survey applies to (e.g., Application, IT Component). 
 
 ### Filters
 
-Optionally narrow the scope by filtering cards. Three filter types are available and can be combined:
+Optionally narrow the scope by filtering cards. Four filter types are available and can be combined:
 
 - **Specific cards** — Pick one or more cards directly (filtered to the selected target type). Use this to target a single card or a hand-picked subset.
 - **Cards related to** — Only include cards that have a relation to one of the listed items (e.g., all Applications related to the Sales organization).
 - **Tags** and **Attribute filters** — Match cards by tag or by attribute conditions (e.g., cost greater than 10 000, TIME rating is missing).
+- **Last update** — Only include cards nobody has changed for a while: 30 days, 90 days, 6 months, 1 year, or a custom number of days or months. The builder shows the cutoff date it resolves to as you pick. The window is relative to when the survey is **sent**, not when you design it, so a draft parked for a while still finds the cards that are stale then. It measures the card's **Modified** date — the same one the inventory column and the card's History tab show.
 
 ### Questions
 

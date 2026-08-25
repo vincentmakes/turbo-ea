@@ -34,11 +34,12 @@ Vælg, hvilken korttype undersøgelsen gælder for (f.eks. Application, IT Compo
 
 ### Filtre
 
-Indsnæver eventuelt omfanget ved at filtrere kort. Tre filtertyper er tilgængelige og kan kombineres:
+Indsnæver eventuelt omfanget ved at filtrere kort. Fire filtertyper er tilgængelige og kan kombineres:
 
 - **Specifikke kort** — Vælg et eller flere kort direkte (filtreret til den valgte måltype). Brug dette til at målrette et enkelt kort eller en håndplukket delmængde.
 - **Kort relateret til** — Inkluder kun kort, der har en relation til et af de listede elementer (f.eks. alle Applications relateret til Sales-organisationen).
 - **Tags** og **Egenskabsfiltre** — Match kort efter tag eller efter egenskabsbetingelser (f.eks. omkostninger større end 10.000, TIME-vurdering mangler).
+- **Seneste opdatering** — Medtag kun kort, som ingen har ændret i et stykke tid: 30 dage, 90 dage, 6 måneder, 1 år eller et selvvalgt antal dage eller måneder. Byggeren viser den skæringsdato, det svarer til, mens du vælger. Vinduet er relativt til, hvornår undersøgelsen **sendes**, ikke hvornår du designer den, så et udkast, der har ligget stille, finder stadig de kort, der er forældede til den tid. Det måler kortets ændringsdato — den samme, som inventarkolonnen og kortets historik viser.
 
 ### Spørgsmål
 

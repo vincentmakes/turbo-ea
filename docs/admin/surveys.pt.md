@@ -34,11 +34,12 @@ Selecione a qual tipo de card a pesquisa se aplica (ex.: Aplicação, Componente
 
 ### Filtros
 
-Restrinja opcionalmente o escopo com filtros. Há três tipos de filtro disponíveis, que podem ser combinados:
+Restrinja opcionalmente o escopo com filtros. Há quatro tipos de filtro disponíveis, que podem ser combinados:
 
 - **Cards específicos** — Escolha um ou mais cards diretamente (restritos ao tipo alvo). Útil para direcionar um único card ou um subconjunto selecionado manualmente.
 - **Cards relacionados com** — Inclua apenas cards que tenham uma relação com um dos itens listados (ex.: todas as aplicações relacionadas à organização Vendas).
 - **Tags** e **filtros de atributos** — Selecione cards por tag ou por condição de atributo (ex.: custo superior a 10 000, classificação TIME ausente).
+- **Última atualização** — Incluir apenas os cards que ninguém altera há algum tempo: 30 dias, 90 dias, 6 meses, 1 ano ou um número personalizado de dias ou meses. O construtor mostra a data-limite correspondente à medida que escolhe. A janela é relativa ao momento do **envio**, e não ao da conceção, pelo que um rascunho deixado de lado continuará a encontrar os cards desatualizados nessa altura. Mede a data de modificação do card — a mesma que a coluna do inventário e o histórico do card apresentam.
 
 ### Perguntas
 

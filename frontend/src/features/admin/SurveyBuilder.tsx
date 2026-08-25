@@ -19,6 +19,8 @@ import Autocomplete from "@mui/material/Autocomplete";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Divider from "@mui/material/Divider";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -39,6 +41,14 @@ import {
 } from "@/hooks/useResolveLabel";
 import { FIELD_TYPE_OPTIONS } from "@/features/admin/metamodel/constants";
 import { readableTextColor } from "@/lib/color";
+import { useDateFormat } from "@/hooks/useDateFormat";
+import {
+  MAX_STALENESS_BY_UNIT,
+  STALENESS_PRESETS,
+  matchStalenessPreset,
+  parseStalenessWindow,
+  stalenessCutoffDate,
+} from "@/lib/staleness";
 import type {
   Survey,
   SurveyField,
@@ -47,6 +57,8 @@ import type {
   Card,
   TagGroup,
   StakeholderRoleDef,
+  StalenessUnit,
+  StalenessWindow,
 } from "@/types";
 
 export default function SurveyBuilder() {
@@ -56,6 +68,7 @@ export default function SurveyBuilder() {
   const { types, relationTypes } = useMetamodel();
   const extFieldTypes = useExtensionFieldTypes();
   const typeLabel = useTypeLabel();
+  const { formatDate } = useDateFormat();
   // An ext.* field whose extension isn't installed+enabled+licensed is absent
   // from the registry — surveying it will degrade to a plain input (and, if the
   // extension is uninstalled, collect into an orphan attribute). Warn the admin.
@@ -106,6 +119,13 @@ export default function SurveyBuilder() {
   const [attributeFilters, setAttributeFilters] = useState<
     { key: string; op: string; value: string }[]
   >([]);
+  // Staleness window. `staleness` is the only thing that reaches
+  // target_filters; the draft/unit pair backs the Custom row and survives
+  // switching to a preset and back, so a typed value isn't lost on a detour.
+  const [staleness, setStaleness] = useState<StalenessWindow | null>(null);
+  const [stalenessCustom, setStalenessCustom] = useState(false);
+  const [stalenessDraft, setStalenessDraft] = useState("180");
+  const [stalenessUnit, setStalenessUnit] = useState<StalenessUnit>("days");
 
   // Step 3 — Fields
   const [selectedFields, setSelectedFields] = useState<SurveyField[]>([]);
@@ -129,6 +149,15 @@ export default function SurveyBuilder() {
         setCardIds(s.target_filters?.card_ids || []);
         setTagIds(s.target_filters?.tag_ids || []);
         setAttributeFilters(s.target_filters?.attribute_filters || []);
+        // Through the parser, not a cast: a window stored by an extension
+        // template or edited by hand degrades to "Any" rather than rendering NaN.
+        const stored = parseStalenessWindow(s.target_filters?.not_updated_for);
+        setStaleness(stored);
+        setStalenessCustom(stored !== null && matchStalenessPreset(stored) === "custom");
+        if (stored) {
+          setStalenessDraft(String(stored.value));
+          setStalenessUnit(stored.unit);
+        }
         setSelectedFields(s.fields || []);
         setSurveyId(s.id);
       } catch (e) {
@@ -287,6 +316,28 @@ export default function SurveyBuilder() {
     [tagGroups],
   );
 
+  // The date the window resolves to, shown to the admin before anything is
+  // saved. Computed client-side by the mirror of the backend helper — no
+  // round-trip, and it cannot disagree with what the query will match.
+  const stalenessCutoff = useMemo(
+    () => (staleness ? stalenessCutoffDate(staleness) : null),
+    [staleness],
+  );
+
+  // One builder for both the save and the preview payloads. These were two
+  // byte-identical literals; a filter added to one and not the other is
+  // exactly how a preview ends up describing a different set than the send.
+  const buildTargetFilters = useCallback(
+    (): SurveyTargetFilters => ({
+      card_ids: cardIds.length > 0 ? cardIds : undefined,
+      related_ids: relatedIds.length > 0 ? relatedIds : undefined,
+      tag_ids: tagIds.length > 0 ? tagIds : undefined,
+      attribute_filters: attributeFilters.length > 0 ? attributeFilters : undefined,
+      not_updated_for: staleness ?? undefined,
+    }),
+    [cardIds, relatedIds, tagIds, attributeFilters, staleness],
+  );
+
   // Save draft
   const saveDraft = useCallback(async () => {
     setSaving(true);
@@ -297,12 +348,7 @@ export default function SurveyBuilder() {
         description,
         message,
         target_type_key: targetTypeKey,
-        target_filters: {
-          card_ids: cardIds.length > 0 ? cardIds : undefined,
-          related_ids: relatedIds.length > 0 ? relatedIds : undefined,
-          tag_ids: tagIds.length > 0 ? tagIds : undefined,
-          attribute_filters: attributeFilters.length > 0 ? attributeFilters : undefined,
-        } as SurveyTargetFilters,
+        target_filters: buildTargetFilters(),
         target_roles: targetRoles,
         fields: selectedFields,
       };
@@ -319,7 +365,7 @@ export default function SurveyBuilder() {
     } finally {
       setSaving(false);
     }
-  }, [name, description, message, targetTypeKey, targetRoles, relatedIds, cardIds, tagIds, attributeFilters, selectedFields, surveyId]);
+  }, [name, description, message, targetTypeKey, targetRoles, buildTargetFilters, selectedFields, surveyId]);
 
   // Preview targets
   const loadPreview = useCallback(async () => {
@@ -336,12 +382,7 @@ export default function SurveyBuilder() {
         description,
         message,
         target_type_key: targetTypeKey,
-        target_filters: {
-          card_ids: cardIds.length > 0 ? cardIds : undefined,
-          related_ids: relatedIds.length > 0 ? relatedIds : undefined,
-          tag_ids: tagIds.length > 0 ? tagIds : undefined,
-          attribute_filters: attributeFilters.length > 0 ? attributeFilters : undefined,
-        } as SurveyTargetFilters,
+        target_filters: buildTargetFilters(),
         target_roles: targetRoles,
         fields: selectedFields,
       };
@@ -363,7 +404,7 @@ export default function SurveyBuilder() {
     } finally {
       setPreviewing(false);
     }
-  }, [surveyId, name, description, message, targetTypeKey, targetRoles, relatedIds, cardIds, tagIds, attributeFilters, selectedFields, saveDraft]);
+  }, [surveyId, name, description, message, targetTypeKey, targetRoles, buildTargetFilters, selectedFields, saveDraft]);
 
   // Send survey
   const handleSend = async () => {
@@ -760,6 +801,98 @@ export default function SurveyBuilder() {
           >
             {t("surveyBuilder.target.addAttributeFilter")}
           </Button>
+
+          <Divider sx={{ my: 2 }} />
+          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+            {t("surveyBuilder.target.filterStale")}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {t("surveyBuilder.target.filterStaleHint")}
+          </Typography>
+          <ToggleButtonGroup
+            size="small"
+            exclusive
+            value={stalenessCustom ? "custom" : matchStalenessPreset(staleness)}
+            onChange={(_, key: string | null) => {
+              // MUI hands back null when the active button is re-clicked;
+              // an exclusive group has no "deselected" state to fall into.
+              if (!key) return;
+              if (key === "custom") {
+                setStalenessCustom(true);
+                setStaleness(
+                  parseStalenessWindow({ value: Number(stalenessDraft), unit: stalenessUnit }),
+                );
+                return;
+              }
+              setStalenessCustom(false);
+              setStaleness(STALENESS_PRESETS.find((p) => p.key === key)?.window ?? null);
+            }}
+            sx={{ flexWrap: "wrap" }}
+          >
+            {STALENESS_PRESETS.map((p) => (
+              <ToggleButton key={p.key} value={p.key} sx={{ textTransform: "none" }}>
+                {t(`surveyBuilder.target.stalePresets.${p.key}`)}
+              </ToggleButton>
+            ))}
+            <ToggleButton value="custom" sx={{ textTransform: "none" }}>
+              {t("surveyBuilder.target.stalePresets.custom")}
+            </ToggleButton>
+          </ToggleButtonGroup>
+
+          {stalenessCustom && (
+            <Box sx={{ display: "flex", gap: 1, mt: 1.5, alignItems: "flex-start" }}>
+              <TextField
+                size="small"
+                type="number"
+                sx={{ width: 140 }}
+                label={t("surveyBuilder.target.staleValueLabel")}
+                value={stalenessDraft}
+                inputProps={{ min: 1, max: MAX_STALENESS_BY_UNIT[stalenessUnit] }}
+                error={stalenessDraft !== "" && staleness === null}
+                helperText={
+                  stalenessDraft !== "" && staleness === null
+                    ? t("surveyBuilder.target.staleInvalid", {
+                        max: MAX_STALENESS_BY_UNIT[stalenessUnit],
+                      })
+                    : " "
+                }
+                onChange={(e) => {
+                  // Keep the raw text so the field can be cleared mid-typing;
+                  // an unparseable draft simply yields no window to save.
+                  setStalenessDraft(e.target.value);
+                  setStaleness(
+                    parseStalenessWindow({ value: Number(e.target.value), unit: stalenessUnit }),
+                  );
+                }}
+              />
+              <TextField
+                select
+                size="small"
+                sx={{ width: 150 }}
+                label={t("surveyBuilder.target.staleUnitLabel")}
+                value={stalenessUnit}
+                helperText=" "
+                onChange={(e) => {
+                  const unit = e.target.value as StalenessUnit;
+                  setStalenessUnit(unit);
+                  setStaleness(parseStalenessWindow({ value: Number(stalenessDraft), unit }));
+                }}
+              >
+                <MenuItem value="days">{t("surveyBuilder.target.staleUnits.days")}</MenuItem>
+                <MenuItem value="months">{t("surveyBuilder.target.staleUnits.months")}</MenuItem>
+              </TextField>
+            </Box>
+          )}
+
+          {stalenessCutoff && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: "block", mt: 1, mb: 2 }}
+            >
+              {t("surveyBuilder.target.staleCutoff", { date: formatDate(stalenessCutoff) })}
+            </Typography>
+          )}
 
           <Divider sx={{ my: 2 }} />
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>

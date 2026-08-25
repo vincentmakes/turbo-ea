@@ -13,6 +13,7 @@ Covers the full survey lifecycle beyond basic CRUD:
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import select
@@ -1360,3 +1361,158 @@ class TestRelationSurveyFields:
             .all()
         )
         assert {r.target_id for r in rels} == {itc_current.id}
+
+
+# ---------------------------------------------------------------------------
+# target_filters.not_updated_for — staleness window
+# ---------------------------------------------------------------------------
+
+
+async def _age_card(db, card, days: int):
+    """Back-date a card's ``updated_at``.
+
+    Assigning the attribute explicitly suppresses the ``onupdate`` default, so
+    the flush writes the value we asked for rather than "now".
+    """
+    card.updated_at = datetime.now(timezone.utc) - timedelta(days=days)
+    db.add(card)
+    await db.flush()
+
+
+async def _preview(client, admin, survey_id):
+    resp = await client.post(f"/api/v1/surveys/{survey_id}/preview", headers=auth_headers(admin))
+    assert resp.status_code == 200, resp.json()
+    return resp.json()
+
+
+class TestNotUpdatedForFilter:
+    """The survey builder's "only cards nobody has touched" scope.
+
+    Asserted through ``/preview`` rather than ``/send`` so the tests don't fan
+    out notifications for what is purely a targeting question.
+    """
+
+    async def _app_with_owner(self, db, admin, member, name, *, age_days):
+        card = await create_card(
+            db,
+            card_type="Application",
+            name=name,
+            user_id=admin.id,
+            attributes={"costTotalAnnual": 1000, "riskLevel": "low"},
+        )
+        db.add(Stakeholder(card_id=card.id, user_id=member.id, role="responsible"))
+        await db.flush()
+        # Age last: the stakeholder insert above rescores data quality, which
+        # writes the card row and would otherwise refresh updated_at.
+        await _age_card(db, card, age_days)
+        return card
+
+    async def test_excludes_recently_touched_cards(self, client, db, survey_env):
+        admin, member = survey_env["admin"], survey_env["member"]
+        await _age_card(db, survey_env["card"], 400)
+        await self._app_with_owner(db, admin, member, "Ancient App", age_days=200)
+        await self._app_with_owner(db, admin, member, "Fresh App", age_days=5)
+
+        survey = await _create_draft_survey(
+            client, admin, target_filters={"not_updated_for": {"value": 90, "unit": "days"}}
+        )
+        body = await _preview(client, admin, survey["id"])
+
+        assert {t["card_name"] for t in body["targets"]} == {"Survey Test App", "Ancient App"}
+        assert body["total_cards"] == 2
+
+    async def test_day_boundary(self, client, db, survey_env):
+        """Pins `<` against the cutoff: 91 days out matches a 90-day window,
+        89 does not."""
+        admin, member = survey_env["admin"], survey_env["member"]
+        await _age_card(db, survey_env["card"], 91)
+        await self._app_with_owner(db, admin, member, "Just Inside", age_days=89)
+
+        survey = await _create_draft_survey(
+            client, admin, target_filters={"not_updated_for": {"value": 90, "unit": "days"}}
+        )
+        body = await _preview(client, admin, survey["id"])
+
+        assert {t["card_name"] for t in body["targets"]} == {"Survey Test App"}
+
+    async def test_months_are_calendar_months(self, client, db, survey_env):
+        admin, member = survey_env["admin"], survey_env["member"]
+        await _age_card(db, survey_env["card"], 200)
+        await self._app_with_owner(db, admin, member, "Hundred Days", age_days=100)
+
+        survey = await _create_draft_survey(
+            client, admin, target_filters={"not_updated_for": {"value": 6, "unit": "months"}}
+        )
+        body = await _preview(client, admin, survey["id"])
+
+        assert {t["card_name"] for t in body["targets"]} == {"Survey Test App"}
+
+    async def test_absent_key_targets_everything(self, client, db, survey_env):
+        admin, member = survey_env["admin"], survey_env["member"]
+        await self._app_with_owner(db, admin, member, "Fresh App", age_days=0)
+
+        survey = await _create_draft_survey(client, admin, target_filters={})
+        body = await _preview(client, admin, survey["id"])
+
+        assert body["total_cards"] == 2
+
+    async def test_composes_with_another_filter(self, client, db, survey_env):
+        """Filters AND together — the staleness window narrows the card_ids
+        selection rather than replacing it."""
+        admin, member = survey_env["admin"], survey_env["member"]
+        await _age_card(db, survey_env["card"], 200)
+        old_other = await self._app_with_owner(db, admin, member, "Other Old App", age_days=200)
+
+        survey = await _create_draft_survey(
+            client,
+            admin,
+            target_filters={
+                "card_ids": [str(old_other.id)],
+                "not_updated_for": {"value": 90, "unit": "days"},
+            },
+        )
+        body = await _preview(client, admin, survey["id"])
+
+        assert {t["card_name"] for t in body["targets"]} == {"Other Old App"}
+
+    @pytest.mark.parametrize(
+        "window",
+        [
+            "yesterday",
+            None,
+            [],
+            {},
+            {"value": 6},
+            {"unit": "months"},
+            {"value": 0, "unit": "days"},
+            {"value": -5, "unit": "days"},
+            {"value": True, "unit": "days"},
+            {"value": "90", "unit": "days"},
+            {"value": 90, "unit": "weeks"},
+            {"value": 10**9, "unit": "days"},
+            {"value": 10**9, "unit": "months"},
+        ],
+    )
+    async def test_malformed_window_is_ignored_not_fatal(self, client, db, survey_env, window):
+        """A window that cannot be read drops the clause. It must never 500 the
+        preview, and must never silently resolve to nobody."""
+        admin = survey_env["admin"]
+        await _age_card(db, survey_env["card"], 5)
+
+        survey = await _create_draft_survey(
+            client, admin, target_filters={"not_updated_for": window}
+        )
+        body = await _preview(client, admin, survey["id"])
+
+        assert body["total_cards"] == 1
+
+    async def test_window_round_trips_through_the_api(self, client, db, survey_env):
+        admin = survey_env["admin"]
+        window = {"value": 45, "unit": "days"}
+        survey = await _create_draft_survey(
+            client, admin, target_filters={"not_updated_for": window}
+        )
+
+        resp = await client.get(f"/api/v1/surveys/{survey['id']}", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        assert resp.json()["target_filters"]["not_updated_for"] == window

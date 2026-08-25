@@ -34,11 +34,12 @@ Wählen Sie aus, auf welchen Kartentyp sich die Umfrage bezieht (z.B. Anwendung,
 
 ### Filter
 
-Schränken Sie den Umfang optional über Filter ein. Drei Filtertypen lassen sich beliebig kombinieren:
+Schränken Sie den Umfang optional über Filter ein. Vier Filtertypen lassen sich beliebig kombinieren:
 
 - **Bestimmte Karten** — Wählen Sie eine oder mehrere Karten direkt aus (eingeschränkt auf den gewählten Zieltyp). Geeignet, um eine einzelne oder eine handverlesene Auswahl von Karten anzusprechen.
 - **Mit Karten verknüpft** — Nur Karten einbeziehen, die eine Beziehung zu einem der aufgeführten Elemente haben (z. B. alle Anwendungen, die mit der Organisation Vertrieb verknüpft sind).
 - **Tags** und **Attributfilter** — Karten anhand von Tags oder Attributbedingungen treffen (z. B. Kosten größer als 10 000, TIME-Bewertung fehlt).
+- **Letzte Änderung** — Nur Karten einbeziehen, die seit Längerem niemand geändert hat: 30 Tage, 90 Tage, 6 Monate, 1 Jahr oder eine eigene Anzahl von Tagen oder Monaten. Der Builder zeigt bei der Auswahl das resultierende Stichtagsdatum an. Das Zeitfenster bezieht sich auf den Zeitpunkt des **Versands**, nicht auf den der Erstellung — ein länger liegen gebliebener Entwurf findet also weiterhin die dann veralteten Karten. Gemessen wird das Änderungsdatum der Karte — dasselbe, das die Inventarspalte und der Verlauf der Karte anzeigen.
 
 ### Fragen
 

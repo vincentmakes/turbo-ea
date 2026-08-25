@@ -970,12 +970,26 @@ export interface SurveyField {
   related_type_key?: string;
 }
 
+/** Unit of a survey staleness window. Days and months only — weeks add
+ *  nothing over days, and years are just months. Mirrors STALENESS_UNITS in
+ *  backend/app/services/card_flags.py. */
+export type StalenessUnit = "days" | "months";
+
+/** "Not updated in the last N days/months". Stored relative rather than as a
+ *  resolved date, so a survey re-sent later re-reads the landscape as it is
+ *  then rather than as it was when the survey was authored. */
+export interface StalenessWindow {
+  value: number;
+  unit: StalenessUnit;
+}
+
 export interface SurveyTargetFilters {
   related_type?: string;
   related_ids?: string[];
   card_ids?: string[];
   tag_ids?: string[];
   attribute_filters?: { key: string; op: string; value: string }[];
+  not_updated_for?: StalenessWindow;
 }
 
 export interface Survey {

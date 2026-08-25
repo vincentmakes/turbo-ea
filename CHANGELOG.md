@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.88.0] - 2026-08-25
+
+### Added
+
+- **A survey can target only the cards that have gone stale.** Building a survey, the **Target** step gains a **last update** filter — 30 days, 90 days, 6 months, 1 year, or your own number of days or months — so a data-maintenance survey can go to exactly the cards nobody has looked at, instead of everything of a type. It shows the date it resolves to as you pick ("Cards last changed before 27 May 2026"), and measures from the card's Modified date, the same one the inventory and the card's History tab show. The window is relative, not a fixed date: a draft parked for a month and sent later still reaches the cards that are stale *then*. It narrows the other filters rather than replacing them, so "related to the Sales unit **and** untouched for six months" is one survey.
+
 ## [2.87.1] - 2026-08-25
 
 ### Fixed

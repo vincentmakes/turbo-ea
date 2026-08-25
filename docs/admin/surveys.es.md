@@ -34,11 +34,12 @@ Seleccione a qué tipo de ficha se aplica la encuesta (por ejemplo, Aplicación,
 
 ### Filtros
 
-Limite opcionalmente el alcance mediante filtros. Hay tres tipos de filtros que pueden combinarse:
+Limite opcionalmente el alcance mediante filtros. Hay cuatro tipos de filtros que pueden combinarse:
 
 - **Fichas específicas** — Elija una o varias fichas directamente (restringidas al tipo objetivo). Útil para dirigirse a una sola ficha o a un subconjunto seleccionado manualmente.
 - **Fichas relacionadas con** — Incluir solo fichas que tengan una relación con alguno de los elementos listados (por ejemplo, todas las aplicaciones relacionadas con la organización de Ventas).
 - **Etiquetas** y **filtros de atributos** — Acotar las fichas por etiqueta o por condición de atributo (por ejemplo, coste superior a 10 000, calificación TIME ausente).
+- **Última actualización** — Incluir solo las fichas que nadie ha modificado desde hace tiempo: 30 días, 90 días, 6 meses, 1 año o un número personalizado de días o meses. El generador muestra la fecha límite resultante mientras la elige. La ventana es relativa al momento del **envío**, no al del diseño, de modo que un borrador aparcado seguirá encontrando las fichas que estén desactualizadas entonces. Mide la fecha de modificación de la ficha: la misma que muestran la columna del inventario y el historial de la ficha.
 
 ### Preguntas
 

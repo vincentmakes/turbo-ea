@@ -23,7 +23,11 @@ class Survey(Base, UUIDMixin, TimestampMixin):
 
     target_type_key: Mapped[str] = mapped_column(String(100), nullable=False)
     target_filters: Mapped[dict | None] = mapped_column(JSONB, default=dict)
-    # {related_type?, related_ids?, tag_ids?, attribute_filters?: [{key, op, value}]}
+    # {card_ids?, related_ids?, tag_ids?,
+    #  attribute_filters?: [{key, op, value}],
+    #  not_updated_for?: {value: int, unit: "days"|"months"}}
+    # Free-form JSONB: keys were added over time and old rows lack the newer
+    # ones, so every reader validates shape rather than assuming it.
     target_roles: Mapped[list | None] = mapped_column(JSONB, default=list)
     # e.g. ["responsible", "technicalApplicationOwner"]
 

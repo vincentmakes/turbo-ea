@@ -20,6 +20,7 @@ from app.models.survey import Survey, SurveyResponse
 from app.models.tag import CardTag
 from app.models.user import User
 from app.services import notification_service
+from app.services.card_flags import not_updated_condition
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -184,6 +185,14 @@ async def _resolve_targets(db: AsyncSession, survey: Survey) -> list[dict]:
                     q = q.where(num_col <= num_val)
             elif op == "contains":
                 q = q.where(col.ilike(f"%{str_val}%"))
+
+    # Staleness window — "only cards nobody has changed in the last N
+    # days/months". Relative, resolved at send time rather than stored as a
+    # date, so re-sending a survey next quarter re-reads the landscape as it
+    # is then. A malformed window resolves to None and is skipped.
+    not_updated = not_updated_condition(filters)
+    if not_updated is not None:
+        q = q.where(not_updated)
 
     result = await db.execute(q)
     cards = result.scalars().all()
