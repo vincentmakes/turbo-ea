@@ -11,6 +11,7 @@ import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import Chip from "@mui/material/Chip";
 import Alert from "@mui/material/Alert";
+import AlertTitle from "@mui/material/AlertTitle";
 import CircularProgress from "@mui/material/CircularProgress";
 import MuiCard from "@mui/material/Card";
 import Checkbox from "@mui/material/Checkbox";
@@ -326,48 +327,32 @@ export default function SurveyBuilder() {
 
       if (surveyId) {
         await api.patch(`/surveys/${surveyId}`, body);
-      } else {
-        const created = await api.post<Survey>("/surveys", body);
-        setSurveyId(created.id);
-        window.history.replaceState(null, "", `/admin/surveys/${created.id}`);
+        return surveyId;
       }
+      const created = await api.post<Survey>("/surveys", body);
+      setSurveyId(created.id);
+      window.history.replaceState(null, "", `/admin/surveys/${created.id}`);
+      // Returned, not just stored: `setSurveyId` does not update the `surveyId`
+      // a caller already captured, so a caller that awaited us and then read
+      // that variable would still see "" and create a *second* survey.
+      return created.id;
     } catch (e) {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
+      return null;
     } finally {
       setSaving(false);
     }
   }, [name, description, message, targetTypeKey, targetRoles, buildTargetFilters, selectedFields, surveyId]);
 
-  // Preview targets
+  // Preview targets. The preview reads the *persisted* survey, so the draft has
+  // to be written first — `saveDraft` both creates-or-updates and hands back the
+  // id to preview, which is what keeps this from minting a second draft.
   const loadPreview = useCallback(async () => {
-    if (!surveyId) {
-      // Save first
-      await saveDraft();
-    }
+    const sid = await saveDraft();
+    if (!sid) return; // save failed; saveDraft has already surfaced the error
     setPreviewing(true);
     setError("");
     try {
-      // Save latest changes first
-      const body = {
-        name: name.trim() || "Untitled Survey",
-        description,
-        message,
-        target_type_key: targetTypeKey,
-        target_filters: buildTargetFilters(),
-        target_roles: targetRoles,
-        fields: selectedFields,
-      };
-
-      let sid = surveyId;
-      if (sid) {
-        await api.patch(`/surveys/${sid}`, body);
-      } else {
-        const created = await api.post<Survey>("/surveys", body);
-        sid = created.id;
-        setSurveyId(created.id);
-        window.history.replaceState(null, "", `/admin/surveys/${created.id}`);
-      }
-
       const data = await api.post<SurveyPreviewResult>(`/surveys/${sid}/preview`, {});
       setPreview(data);
     } catch (e) {
@@ -375,7 +360,7 @@ export default function SurveyBuilder() {
     } finally {
       setPreviewing(false);
     }
-  }, [surveyId, name, description, message, targetTypeKey, targetRoles, buildTargetFilters, selectedFields, saveDraft]);
+  }, [saveDraft]);
 
   // Send survey
   const handleSend = async () => {
@@ -1062,6 +1047,15 @@ export default function SurveyBuilder() {
                   <Typography variant="body2" color="text.secondary">
                     {t("surveyBuilder.preview.cards")}
                   </Typography>
+                  {/* A card is only reachable through a stakeholder holding a
+                      target role, so the tile is a subset of what the filters
+                      matched. Say so, or thin ownership reads as a filter that
+                      is too narrow. */}
+                  {preview.total_matched !== preview.total_cards && (
+                    <Typography variant="caption" color="text.secondary">
+                      {t("surveyBuilder.preview.ofMatched", { count: preview.total_matched })}
+                    </Typography>
+                  )}
                 </MuiCard>
                 <MuiCard variant="outlined" sx={{ p: 2, flex: 1, textAlign: "center" }}>
                   <Typography variant="h4" sx={{ fontWeight: 700, color: "#1976d2" }}>
@@ -1087,9 +1081,43 @@ export default function SurveyBuilder() {
                 </MuiCard>
               </Box>
 
-              {preview.total_cards === 0 && (
+              {preview.total_cards === 0 && preview.total_matched === 0 && (
                 <Alert severity="warning" sx={{ mb: 2 }}>
                   {t("surveyBuilder.preview.noMatches")}
+                </Alert>
+              )}
+
+              {preview.total_matched > preview.total_cards && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  <AlertTitle sx={{ fontSize: "0.875rem", fontWeight: 600 }}>
+                    {t("surveyBuilder.preview.skippedTitle", {
+                      count: preview.total_matched - preview.total_cards,
+                    })}
+                  </AlertTitle>
+                  {t("surveyBuilder.preview.skippedHint")}
+                  {preview.skipped.length > 0 && (
+                    <Box sx={{ mt: 1, display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                      {preview.skipped.map((c) => (
+                        <Chip
+                          key={c.card_id}
+                          label={c.card_name}
+                          size="small"
+                          variant="outlined"
+                          component="a"
+                          href={`/cards/${c.card_id}`}
+                          target="_blank"
+                          clickable
+                        />
+                      ))}
+                      {preview.total_matched - preview.total_cards > preview.skipped.length && (
+                        <Typography variant="caption" color="text.secondary" sx={{ alignSelf: "center" }}>
+                          {t("surveyBuilder.preview.skippedTruncated", {
+                            count: preview.skipped.length,
+                          })}
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
                 </Alert>
               )}
 

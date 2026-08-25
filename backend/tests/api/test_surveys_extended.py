@@ -1506,6 +1506,21 @@ class TestNotUpdatedForFilter:
 
         assert body["total_cards"] == 1
 
+    async def test_cutoff_is_a_day_boundary_not_the_clock(self, client, db, survey_env):
+        """A card touched earlier on the cutoff day is inside the window. Before
+        the boundary fix this depended on the time of day the preview ran."""
+        admin = survey_env["admin"]
+        # 30 days back to the minute — same calendar day as the cutoff, so the
+        # card counts as touched within the window and must not be targeted.
+        await _age_card(db, survey_env["card"], 30)
+
+        survey = await _create_draft_survey(
+            client, admin, target_filters={"not_updated_for": {"value": 30, "unit": "days"}}
+        )
+        body = await _preview(client, admin, survey["id"])
+
+        assert body["total_cards"] == 0
+
     async def test_window_round_trips_through_the_api(self, client, db, survey_env):
         admin = survey_env["admin"]
         window = {"value": 45, "unit": "days"}
@@ -1614,3 +1629,103 @@ class TestPreviewPayload:
         )
         assert send.status_code == 200, send.json()
         assert send.json()["targets_created"] == body["total_requests"]
+
+
+# ---------------------------------------------------------------------------
+# POST /surveys/{id}/preview — cards the filters matched but nobody can answer
+# ---------------------------------------------------------------------------
+
+
+class TestSkippedCards:
+    """A card is only reachable through someone holding a target role on it.
+
+    Cards that match every filter but have no such stakeholder used to vanish
+    from the preview with no explanation, so a landscape with thin ownership
+    read as a filter that was too narrow.
+    """
+
+    async def _app(self, db, admin, name, *, owner=None, role="responsible"):
+        card = await create_card(
+            db,
+            card_type="Application",
+            name=name,
+            user_id=admin.id,
+            attributes={"costTotalAnnual": 1000, "riskLevel": "low"},
+        )
+        if owner is not None:
+            db.add(Stakeholder(card_id=card.id, user_id=owner.id, role=role))
+        await db.flush()
+        return card
+
+    async def test_reports_matched_alongside_targeted_and_names_the_rest(
+        self, client, db, survey_env
+    ):
+        admin, member = survey_env["admin"], survey_env["member"]
+        await self._app(db, admin, "Ownerless One")
+        await self._app(db, admin, "Ownerless Two")
+
+        survey = await _create_draft_survey(client, admin)
+        body = await _preview(client, admin, survey["id"])
+
+        # survey_env's own card has the stakeholder; the two new ones do not.
+        assert body["total_matched"] == 3
+        assert body["total_cards"] == 1
+        assert {c["card_name"] for c in body["skipped"]} == {"Ownerless One", "Ownerless Two"}
+        assert member.id  # the one targeted card is reachable through member
+
+    async def test_a_stakeholder_in_another_role_still_counts_as_skipped(
+        self, client, db, survey_env
+    ):
+        admin, viewer = survey_env["admin"], survey_env["viewer"]
+        await create_stakeholder_role_def(
+            db, card_type_key="Application", key="observer", label="Observer"
+        )
+        await self._app(db, admin, "Watched Only", owner=viewer, role="observer")
+
+        survey = await _create_draft_survey(client, admin, target_roles=["responsible"])
+        body = await _preview(client, admin, survey["id"])
+
+        assert body["total_matched"] == 2
+        assert body["total_cards"] == 1
+        assert [c["card_name"] for c in body["skipped"]] == ["Watched Only"]
+
+    async def test_nothing_skipped_when_every_card_has_a_recipient(self, client, db, survey_env):
+        admin, member = survey_env["admin"], survey_env["member"]
+        await self._app(db, admin, "Owned Too", owner=member)
+
+        survey = await _create_draft_survey(client, admin)
+        body = await _preview(client, admin, survey["id"])
+
+        assert body["total_matched"] == body["total_cards"] == 2
+        assert body["skipped"] == []
+
+    async def test_skipped_list_is_capped_but_the_total_is_not(
+        self, client, db, survey_env, monkeypatch
+    ):
+        """The count must stay truthful even when the list is trimmed."""
+        from app.api.v1 import surveys as surveys_module
+
+        monkeypatch.setattr(surveys_module, "SKIPPED_SAMPLE", 2)
+        admin = survey_env["admin"]
+        for i in range(4):
+            await self._app(db, admin, f"Ownerless {i}")
+
+        survey = await _create_draft_survey(client, admin)
+        body = await _preview(client, admin, survey["id"])
+
+        assert body["total_matched"] == 5
+        assert body["total_cards"] == 1
+        assert len(body["skipped"]) == 2
+
+    async def test_send_is_unaffected(self, client, db, survey_env):
+        """Skipped cards are reported, not surveyed — `send` behaves as before."""
+        admin = survey_env["admin"]
+        await self._app(db, admin, "Ownerless One")
+
+        survey = await _create_draft_survey(client, admin)
+        body = await _preview(client, admin, survey["id"])
+        send = await client.post(
+            f"/api/v1/surveys/{survey['id']}/send", headers=auth_headers(admin)
+        )
+        assert send.status_code == 200, send.json()
+        assert send.json()["targets_created"] == body["total_requests"] == 1

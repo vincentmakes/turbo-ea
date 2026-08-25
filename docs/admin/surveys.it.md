@@ -73,6 +73,10 @@ Una volta che il vostro sondaggio è in stato **Active**:
 2. Ogni card target genera un todo per gli stakeholder assegnati
 3. Gli stakeholder vedono il sondaggio nella scheda **I miei sondaggi** nella [pagina Attività](../guide/tasks.md)
 
+!!! note "Una scheda ha bisogno di qualcuno a cui chiedere"
+
+    Una scheda viene inclusa nell'indagine solo se almeno una persona vi ricopre uno dei **ruoli di stakeholder selezionati**. Le schede che corrispondono ai filtri ma non hanno tale stakeholder vengono saltate; il passaggio **Anteprima e invio** ne riporta il numero e i nomi, così potete assegnare i responsabili.
+
 ## Visualizzazione dei risultati
 
 Navigate su **Admin > Sondaggi > [Nome sondaggio] > Risultati** per vedere:

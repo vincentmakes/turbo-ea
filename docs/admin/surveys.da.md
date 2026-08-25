@@ -73,6 +73,10 @@ Når din undersøgelse er i **Aktiv**-status:
 2. Hvert målrettet kort genererer en todo for de tildelte interessenter
 3. Interessenter ser undersøgelsen i deres **Mine undersøgelser**-faneblad på [Opgaver-siden](../guide/tasks.md)
 
+!!! note "Et kort skal have nogen at spørge"
+
+    Et kort indgår kun i undersøgelsen, hvis mindst én person har en af de **valgte interessentroller** på det. Kort, der matcher dine filtre, men ikke har en sådan interessent, springes over; trinnet **Forhåndsvis og send** oplyser hvor mange og deres navne, så du kan tildele ansvarlige.
+
 ## Visning af resultater
 
 Naviger til **Admin > Undersøgelser > [Undersøgelsesnavn] > Resultater** for at se:

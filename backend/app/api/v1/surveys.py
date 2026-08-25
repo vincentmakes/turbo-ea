@@ -26,6 +26,10 @@ from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/surveys", tags=["surveys"])
 
+#: How many skipped cards the preview names. Enough to act on, small enough that
+#: an inventory with no stakeholder coverage can't balloon the response.
+SKIPPED_SAMPLE = 100
+
 
 # ── Pydantic bodies ──────────────────────────────────────────────────────────
 
@@ -103,8 +107,16 @@ def _response_to_dict(r: SurveyResponse) -> dict:
     }
 
 
-async def _resolve_targets(db: AsyncSession, survey: Survey) -> list[dict]:
-    """Resolve survey filters into a list of {card, users} dicts."""
+async def _resolve_targets(db: AsyncSession, survey: Survey) -> tuple[list[dict], list[Card]]:
+    """Resolve survey filters into ``(targets, matched_cards)``.
+
+    A survey can only reach a card through someone who holds one of its target
+    roles on it, so a card that matches every filter but has no such stakeholder
+    yields no target. Both halves are returned because the *difference* is what
+    the builder needs to show: "5 cards" with no further explanation reads as a
+    filter that is too narrow, when the real answer is usually that the other
+    207 have nobody to ask.
+    """
     filters = survey.target_filters or {}
     roles = survey.target_roles or []
 
@@ -195,10 +207,10 @@ async def _resolve_targets(db: AsyncSession, survey: Survey) -> list[dict]:
         q = q.where(not_updated)
 
     result = await db.execute(q)
-    cards = result.scalars().all()
+    cards = list(result.scalars().all())
 
     if not cards:
-        return []
+        return [], []
 
     # Find subscribers for these cards with matching roles
     card_ids = [card.id for card in cards]
@@ -253,7 +265,7 @@ async def _resolve_targets(db: AsyncSession, survey: Survey) -> list[dict]:
         for entry in target["users"]:
             entry["roles"].sort()
 
-    return list(targets.values())
+    return list(targets.values()), cards
 
 
 async def _get_response_stats(db: AsyncSession, survey_id: uuid.UUID) -> dict:
@@ -643,9 +655,14 @@ async def preview_survey(
     if not survey:
         raise HTTPException(404, "Survey not found")
 
-    targets = await _resolve_targets(db, survey)
+    targets, matched = await _resolve_targets(db, survey)
+    targeted_ids = {t["card_id"] for t in targets}
+    skipped = [c for c in matched if str(c.id) not in targeted_ids]
     return {
         "total_cards": len(targets),
+        # Everything the filters matched, recipient or not. `total_cards` is a
+        # subset of this, and the gap is the number the builder has to explain.
+        "total_matched": len(matched),
         # Distinct people. Summing the per-card lists counts one person once per
         # card they hold a role on, which is a request count, not a headcount —
         # and the tile above it reads "Users to Notify".
@@ -654,6 +671,10 @@ async def preview_survey(
         # notification per (card, user). Equals `targets_created` by construction.
         "total_requests": sum(len(t["users"]) for t in targets),
         "targets": targets,
+        # Named so the admin can go assign owners, but capped: a landscape with
+        # thousands of ownerless cards must not hand the builder a payload the
+        # size of its inventory. `total_matched` still reports the true total.
+        "skipped": [{"card_id": str(c.id), "card_name": c.name} for c in skipped[:SKIPPED_SAMPLE]],
     }
 
 
@@ -678,7 +699,7 @@ async def send_survey(
     if not survey.target_roles:
         raise HTTPException(400, "Survey must target at least one stakeholder role")
 
-    targets = await _resolve_targets(db, survey)
+    targets, _matched = await _resolve_targets(db, survey)
     if not targets:
         raise HTTPException(
             400,

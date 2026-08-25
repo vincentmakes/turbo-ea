@@ -9,7 +9,7 @@ builder previews to the admin, and every malformed input must degrade to
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
@@ -31,12 +31,33 @@ NOW = datetime(2026, 8, 25, 14, 30, tzinfo=timezone.utc)
 
 
 def test_days_subtracts_exactly():
-    assert staleness_cutoff(30, "days", now=NOW) == NOW - timedelta(days=30)
+    assert staleness_cutoff(30, "days", now=NOW).date() == (NOW - timedelta(days=30)).date()
 
 
-def test_days_preserves_time_of_day():
-    cutoff = staleness_cutoff(1, "days", now=NOW)
-    assert (cutoff.hour, cutoff.minute) == (14, 30)
+def test_a_card_touched_earlier_on_the_cutoff_day_is_not_stale():
+    """The boundary is the start of the cutoff day, so anything modified during
+    that day is inside the window — which is what "before <date>" means."""
+    cutoff = staleness_cutoff(30, "days", now=NOW)
+    same_day_early = datetime(cutoff.year, cutoff.month, cutoff.day, 9, 0, tzinfo=timezone.utc)
+    assert not same_day_early < cutoff
+    day_before = same_day_early - timedelta(days=1)
+    assert day_before < cutoff
+
+
+@pytest.mark.parametrize("unit", STALENESS_UNITS)
+def test_cutoff_is_midnight_not_the_current_time_of_day(unit):
+    """The builder shows the admin a date, so the query must use one. A cutoff
+    carrying the clock would answer the same preview differently at 08:00 and
+    at 14:30."""
+    cutoff = staleness_cutoff(1, unit, now=NOW)
+    assert (cutoff.hour, cutoff.minute, cutoff.second, cutoff.microsecond) == (0, 0, 0, 0)
+
+
+@pytest.mark.parametrize("unit", STALENESS_UNITS)
+def test_cutoff_is_stable_across_the_day(unit):
+    morning = staleness_cutoff(30, unit, now=NOW.replace(hour=6, minute=0))
+    evening = staleness_cutoff(30, unit, now=NOW.replace(hour=23, minute=59))
+    assert morning == evening
 
 
 # ---------------------------------------------------------------------------
@@ -65,8 +86,13 @@ def test_months_clamps_into_leap_february():
 
 def test_months_is_not_a_thirty_day_approximation():
     """A 30-day subtraction from Aug 25 gives Jul 26 — the calendar answer is
-    Jul 25. If these ever coincide the month path has regressed to timedelta."""
-    assert staleness_cutoff(1, "months", now=NOW) != NOW - timedelta(days=30)
+    Jul 25. Compared as dates: now that both sides are truncated to midnight,
+    comparing the datetimes would differ on the time alone and prove nothing."""
+    assert (
+        staleness_cutoff(1, "months", now=NOW).date()
+        != staleness_cutoff(30, "days", now=NOW).date()
+    )
+    assert staleness_cutoff(1, "months", now=NOW).date() == date(2026, 7, 25)
 
 
 # ---------------------------------------------------------------------------
@@ -87,7 +113,7 @@ def test_naive_now_is_treated_as_utc(unit):
 
 def test_defaults_to_now_when_not_supplied():
     cutoff = staleness_cutoff(1, "days")
-    assert abs((datetime.now(timezone.utc) - timedelta(days=1) - cutoff).total_seconds()) < 60
+    assert cutoff.date() == (datetime.now(timezone.utc) - timedelta(days=1)).date()
 
 
 # ---------------------------------------------------------------------------

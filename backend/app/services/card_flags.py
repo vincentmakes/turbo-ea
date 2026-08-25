@@ -60,6 +60,14 @@ def staleness_cutoff(value, unit, *, now: datetime | None = None) -> datetime | 
     (day clamped, so Mar 31 − 1 month is Feb 28), not a 30-day approximation:
     "6 months" has to mean the same day-of-month six months back, or the
     cut-off date the builder previews would not be the one the query uses.
+
+    The result is **midnight UTC**, not "this instant N days ago". The builder
+    promises the admin a date ("only cards last modified before 26 Jul"), and a
+    cutoff carrying the current time of day would make that date a lie for the
+    part of it already elapsed — and would answer the same preview differently
+    depending on when in the day it ran. ``stale_cutoff`` above deliberately
+    keeps instant semantics: it backs a fixed flag with no date shown anywhere,
+    and moving it would shift the inventory filter and the data-quality tile.
     """
     # ``bool`` is a subclass of ``int``: ``True`` would otherwise read as 1 day.
     if isinstance(value, bool) or not isinstance(value, int):
@@ -76,8 +84,10 @@ def staleness_cutoff(value, unit, *, now: datetime | None = None) -> datetime | 
         moment = moment.replace(tzinfo=timezone.utc)
 
     if unit == "days":
-        return moment - timedelta(days=value)
-    return datetime.combine(add_months(moment.date(), -value), moment.timetz())
+        cut = moment.date() - timedelta(days=value)
+    else:
+        cut = add_months(moment.date(), -value)
+    return datetime(cut.year, cut.month, cut.day, tzinfo=timezone.utc)
 
 
 def not_updated_condition(filters: dict | None):

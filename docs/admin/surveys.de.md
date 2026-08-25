@@ -73,6 +73,10 @@ Sobald Ihre Umfrage im Status **Aktiv** ist:
 2. Für jede Zielkarte wird eine Aufgabe für die zugewiesenen Stakeholder generiert
 3. Stakeholder sehen die Umfrage in ihrem Tab **Meine Umfragen** auf der [Aufgabenseite](../guide/tasks.md)
 
+!!! note "Eine Karte braucht jemanden zum Fragen"
+
+    Eine Karte wird nur befragt, wenn mindestens eine Person eine der **Ziel-Stakeholder-Rollen** auf ihr innehat. Karten, die Ihren Filtern entsprechen, aber keinen solchen Stakeholder haben, werden übersprungen. Der Schritt **Vorschau & Senden** nennt deren Anzahl und Namen, damit Sie Verantwortliche zuweisen können.
+
 ## Ergebnisse anzeigen
 
 Navigieren Sie zu **Admin > Umfragen > [Umfragename] > Ergebnisse**, um zu sehen:

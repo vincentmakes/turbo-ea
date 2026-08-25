@@ -52,7 +52,9 @@ async function gotoTargetStep(user: ReturnType<typeof userEvent.setup>) {
   await waitFor(() => expect(screen.getByLabelText(/survey name/i)).toBeInTheDocument());
   await user.type(screen.getByLabelText(/survey name/i), "Annual refresh");
   await user.click(screen.getByRole("button", { name: /next/i }));
-  await waitFor(() => expect(screen.getByText(/filter by last update/i)).toBeInTheDocument());
+  await waitFor(() =>
+    expect(screen.getByText(/filter by age since last modified/i)).toBeInTheDocument(),
+  );
 
   await user.click(screen.getByRole("combobox", { name: /^type$/i }));
   await user.click(await screen.findByRole("option", { name: /application/i }));
@@ -105,12 +107,12 @@ describe("SurveyBuilder — last-update (staleness) filter", () => {
     const user = userEvent.setup();
     await gotoTargetStep(user);
 
-    expect(screen.queryByText(/cards last changed before/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/only cards last modified before/i)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "90 days" }));
 
     const expected = new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10);
     await waitFor(() =>
-      expect(screen.getByText(new RegExp(`cards last changed before ${expected}`, "i"))).toBeInTheDocument(),
+      expect(screen.getByText(new RegExp(`only cards last modified before ${expected}`, "i"))).toBeInTheDocument(),
     );
   });
 
@@ -118,10 +120,10 @@ describe("SurveyBuilder — last-update (staleness) filter", () => {
     const user = userEvent.setup();
     await gotoTargetStep(user);
 
-    expect(screen.queryByLabelText(/not updated for/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/older than/i)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /custom/i }));
 
-    const value = screen.getByLabelText(/not updated for/i);
+    const value = screen.getByLabelText(/older than/i);
     await user.clear(value);
     await user.type(value, "45");
     await user.click(screen.getByRole("button", { name: /save draft/i }));
@@ -135,7 +137,7 @@ describe("SurveyBuilder — last-update (staleness) filter", () => {
     await gotoTargetStep(user);
 
     await user.click(screen.getByRole("button", { name: /custom/i }));
-    const value = screen.getByLabelText(/not updated for/i);
+    const value = screen.getByLabelText(/older than/i);
     await user.clear(value);
     await user.type(value, "99999");
 
@@ -181,7 +183,9 @@ async function gotoPreviewStep(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByText(/annual cost/i));
   await user.click(screen.getByRole("button", { name: /next/i }));
 
-  await waitFor(() => expect(screen.getByText(/target breakdown/i)).toBeInTheDocument());
+  // Anchor on a tile that renders for every preview — the breakdown table
+  // only appears when there is at least one target.
+  await waitFor(() => expect(screen.getByText("Users to Notify")).toBeInTheDocument());
 }
 
 describe("SurveyBuilder — preview & send step", () => {
@@ -196,6 +200,8 @@ describe("SurveyBuilder — preview & send step", () => {
       if (path.endsWith("/preview")) {
         return Promise.resolve({
           total_cards: 2,
+          total_matched: 2,
+          skipped: [],
           total_users: 1,
           total_requests: 2,
           targets: [
@@ -251,5 +257,81 @@ describe("SurveyBuilder — preview & send step", () => {
     expect(
       screen.getByText("Ada Lovelace (Business Owner, technicalApplicationOwner)"),
     ).toBeInTheDocument();
+  });
+});
+
+describe("SurveyBuilder — cards with nobody to ask", () => {
+  function previewWith(extra: Record<string, unknown>) {
+    (api.get as ReturnType<typeof vi.fn>).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve({ items: [] });
+      if (path.startsWith("/stakeholder-roles")) return Promise.resolve(ROLE_DEFS);
+      return Promise.resolve([]);
+    });
+    mockPost.mockImplementation((path: string) => {
+      if (path.endsWith("/preview")) {
+        return Promise.resolve({
+          total_cards: 5,
+          total_matched: 5,
+          skipped: [],
+          total_users: 3,
+          total_requests: 5,
+          targets: [],
+          ...extra,
+        });
+      }
+      return Promise.resolve({ id: "survey-1" });
+    });
+    (api.patch as ReturnType<typeof vi.fn>).mockResolvedValue({});
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("explains that matching cards were dropped for want of a recipient", async () => {
+    previewWith({
+      total_matched: 212,
+      skipped: [
+        { card_id: "s1", card_name: "Orphan One" },
+        { card_id: "s2", card_name: "Orphan Two" },
+      ],
+    });
+    const user = userEvent.setup();
+    await gotoPreviewStep(user);
+
+    // 5 of 212 — the 207 are the answer to "why so few?"
+    expect(screen.getByText("of 212 matching")).toBeInTheDocument();
+    expect(screen.getByText(/207 matching cards have nobody to ask/i)).toBeInTheDocument();
+    expect(screen.getByText("Orphan One")).toBeInTheDocument();
+    expect(screen.getByText("Orphan Two")).toBeInTheDocument();
+  });
+
+  it("says when the named list is only the first slice", async () => {
+    previewWith({
+      total_matched: 212,
+      skipped: [{ card_id: "s1", card_name: "Orphan One" }],
+    });
+    const user = userEvent.setup();
+    await gotoPreviewStep(user);
+
+    expect(screen.getByText(/showing the first 1/i)).toBeInTheDocument();
+  });
+
+  it("stays quiet when every matching card has a recipient", async () => {
+    previewWith({ total_matched: 5, skipped: [] });
+    const user = userEvent.setup();
+    await gotoPreviewStep(user);
+
+    expect(screen.queryByText(/nobody to ask/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/of 5 matching/i)).not.toBeInTheDocument();
+  });
+
+  it("creates exactly one draft when previewing an unsaved survey", async () => {
+    previewWith({});
+    const user = userEvent.setup();
+    await gotoPreviewStep(user);
+
+    const creates = mockPost.mock.calls.filter(([path]) => path === "/surveys");
+    expect(creates).toHaveLength(1);
   });
 });

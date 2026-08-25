@@ -73,6 +73,10 @@ Uma vez que sua pesquisa está no status **Ativa**:
 2. Cada card alvo gera uma tarefa para as partes interessadas atribuídas
 3. Partes interessadas veem a pesquisa na aba **Minhas Pesquisas** na [página de Tarefas](../guide/tasks.md)
 
+!!! note "Um cartão precisa de alguém a quem perguntar"
+
+    Um cartão só é inquirido se pelo menos uma pessoa detiver nele uma das **funções de parte interessada selecionadas**. Os cartões que correspondem aos seus filtros mas não têm essa parte interessada são ignorados; o passo **Pré-visualizar e enviar** indica quantos são e os respetivos nomes, para que possa atribuir responsáveis.
+
 ## Visualizando Resultados
 
 Navegue até **Admin > Pesquisas > [Nome da Pesquisa] > Resultados** para ver:

@@ -1042,13 +1042,20 @@ export interface SurveyPreviewTarget {
 }
 
 export interface SurveyPreviewResult {
+  /** Cards that will actually be surveyed — matched the filters AND have a
+   *  stakeholder in one of the target roles. A subset of `total_matched`. */
   total_cards: number;
+  /** Cards the filters matched, recipient or not. */
+  total_matched: number;
   /** Distinct people across every target card. */
   total_users: number;
   /** Survey requests `send` will create — one per (card, user), so a person on
    *  several cards counts once in `total_users` and once per card here. */
   total_requests: number;
   targets: SurveyPreviewTarget[];
+  /** Matched cards with nobody to ask, so they will not be surveyed. Capped
+   *  server-side — `total_matched - total_cards` is the true count. */
+  skipped: { card_id: string; card_name: string }[];
 }
 
 export interface MySurveyItem {

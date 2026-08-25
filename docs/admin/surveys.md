@@ -73,6 +73,10 @@ Once your survey is in **Active** status:
 2. Each targeted card generates a todo for the assigned stakeholders
 3. Stakeholders see the survey in their **My Surveys** tab on the [Tasks page](../guide/tasks.md)
 
+!!! note "A card needs someone to ask"
+
+    A card is only surveyed if at least one person holds one of the **target stakeholder roles** on it. Cards that match your filters but have no such stakeholder are skipped, and the **Preview & send** step reports how many — with their names — so you can assign owners rather than wonder why the count is low.
+
 ## Viewing Results
 
 Navigate to **Admin > Surveys > [Survey Name] > Results** to see:
