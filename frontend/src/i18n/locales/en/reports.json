@@ -178,6 +178,8 @@
   "dependency.hasHiddenChildren": "Has children not shown — use Reveal children",
   "dependency.showEndOfLife": "Show end-of-life cards",
   "dependency.showEndOfLifeHint": "Include related cards that have reached End of Life by the date shown on the timeline. The card you are centered on is always shown.",
+  "dependency.hideEndOfLife": "Hide end-of-life",
+  "dependency.endOfLifeOn": "Reached End of Life on {{date}}",
   "dependency.persistRetired": "Persist retired cards",
   "dependency.persistRetiredHint": "Keep retired cards on the diagram — ghosted and badged — at any date after their retirement. Turn off to show only the cards alive on the selected date.",
   "dependency.previewPlanned": "Preview planned cards",

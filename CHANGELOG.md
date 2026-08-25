@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.85.0] - 2026-08-25
+
+### Added
+
+- **The card picker marks what has already retired, and can hide it.** A card that reached its End of Life **as of today** now carries a *RETIRED* badge with its end-of-life date, and a **Hide end-of-life** switch beside the type chips filters those cards out. Judged against today, never against the timeline — the picker is reached by a button that hides the slider.
+
+### Fixed
+
+- **Expanding a card on a card page now rings it, as it does in the report.** The card page's dependency section offered Expand mode and pulled the neighbours in, but the expanded card never got the double border in its card type's colour, so your bearings vanished as the diagram grew. The report has always drawn it; the card page simply never passed the expanded cards on to the canvas.
+- **Back to card picker shows the whole inventory again.** The picker listed the landscape as of the timeline date, while the slider and its two visibility switches are hidden at that stage — so cards were dropped by controls you could not see, and a card that has not gone live yet never appeared at all, even on today's date. It now lists every card (archived aside) whatever the timeline shows, as does the toolbar's **Center on** picker, which likewise could not reach a retired card. The diagram, tree and table still show the landscape at the selected date.
+
 ## [2.84.0] - 2026-08-25
 
 ### Added

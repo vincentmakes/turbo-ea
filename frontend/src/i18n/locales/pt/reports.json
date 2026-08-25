@@ -178,6 +178,8 @@
   "dependency.hasHiddenChildren": "Tem filhos não mostrados — use Mostrar filhos",
   "dependency.showEndOfLife": "Mostrar cartões em fim de vida",
   "dependency.showEndOfLifeHint": "Incluir os cartões relacionados que atingiram o fim de vida na data escolhida na linha temporal. O cartão em que está centrado é sempre apresentado.",
+  "dependency.hideEndOfLife": "Ocultar as de fim de vida",
+  "dependency.endOfLifeOn": "Atingiu o fim de vida em {{date}}",
   "dependency.persistRetired": "Manter cards desativados",
   "dependency.persistRetiredHint": "Manter no diagrama, esmaecidos e rotulados, os cards desativados em qualquer data após a desativação. Desative para mostrar apenas os cards ativos na data selecionada.",
   "dependency.previewPlanned": "Pré-visualizar cards planejados",

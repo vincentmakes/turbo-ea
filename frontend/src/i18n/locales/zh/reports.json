@@ -178,6 +178,8 @@
   "dependency.hasHiddenChildren": "存在未显示的子级——请使用「显示子级」",
   "dependency.showEndOfLife": "显示生命周期终止的卡片",
   "dependency.showEndOfLifeHint": "包含在时间轴所选日期已达到生命周期终止的相关卡片。当前聚焦的卡片始终显示。",
+  "dependency.hideEndOfLife": "隐藏生命周期终止的卡片",
+  "dependency.endOfLifeOn": "已于 {{date}} 达到生命周期终止",
   "dependency.persistRetired": "保留已退役卡片",
   "dependency.persistRetiredHint": "在退役日期之后的任何时间点，将已退役的卡片以淡化并带标记的方式保留在图上。关闭后仅显示所选日期仍在使用的卡片。",
   "dependency.previewPlanned": "预览计划中的卡片",

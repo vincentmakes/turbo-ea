@@ -178,6 +178,8 @@
   "dependency.hasHiddenChildren": "Har underordnede, der ikke vises — brug Vis underordnede",
   "dependency.showEndOfLife": "Vis kort ved slutningen af deres levetid",
   "dependency.showEndOfLifeHint": "Medtag relaterede kort, der har nået slutningen af deres levetid på den dato, der er valgt på tidslinjen. Det kort, du er centreret på, vises altid.",
+  "dependency.hideEndOfLife": "Skjul kort ved slutningen af deres levetid",
+  "dependency.endOfLifeOn": "Nåede slutningen af sin levetid den {{date}}",
   "dependency.persistRetired": "Behold udfasede kort",
   "dependency.persistRetiredHint": "Behold udfasede kort på diagrammet — nedtonede og mærkede — på enhver dato efter deres udfasning. Slå fra for kun at vise de kort, der er aktive på den valgte dato.",
   "dependency.previewPlanned": "Forhåndsvis planlagte kort",

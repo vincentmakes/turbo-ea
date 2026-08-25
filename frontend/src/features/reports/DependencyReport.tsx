@@ -50,6 +50,7 @@ import type { TimelineChange } from "./timelineRange";
 import type { GNode, GEdge } from "./layeredDependencyLayout";
 import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
+import { useDateFormat } from "@/hooks/useDateFormat";
 import { useTypeLabel, typeLabel as resolveTypeLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
@@ -460,6 +461,7 @@ export default function DependencyReport() {
   // dragging fires onChange on every pixel.
   const [timelineFilterDate] = useDebouncedValue(timeline.timelineDate, 150);
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
+  const { formatDate } = useDateFormat();
   const [cardTypeKey, setCardTypeKey] = useState("");
   // Keep retired cards on the canvas — ghosted and badged — at any date after
   // their retirement. On by default: seeing what a transformation removes is
@@ -488,6 +490,10 @@ export default function DependencyReport() {
 
   /* -- picker state -- */
   const [pickerSearch, setPickerSearch] = useState("");
+  // Picker-only: drop cards already at End of Life today. Off by default — the
+  // picker's job is to present the whole inventory, and hiding is opt-in. Not
+  // persisted in the saved report, like the other two picker-local filters.
+  const [hideEndOfLife, setHideEndOfLife] = useState(false);
   const [pickerTypeFilter, setPickerTypeFilter] = useState<string | null>(null);
 
   /* -- LDV expanded nodes (expand mode digs into a card's relations) -- */
@@ -604,6 +610,7 @@ export default function DependencyReport() {
     setChartMode("c4");
     setPickerSearch("");
     setPickerTypeFilter(null);
+    setHideEndOfLife(false);
     setPersistRetired(true);
     setPreviewPlanned(false);
     timeline.reset();
@@ -834,12 +841,19 @@ export default function DependencyReport() {
 
   const nodeMap = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
 
-  // Connection counts
+  // Connection counts, over the RAW graph: this map serves the centre picker
+  // alone, and the picker lists the whole inventory rather than the landscape at
+  // the viewed date. Counting over the timeline-filtered `adjMap` would score
+  // every card the timeline hides as 0 and sort it to the bottom of its group —
+  // "worth centring on?" is a property of the card, not of where the slider is.
   const connCounts = useMemo(() => {
     const m = new Map<string, number>();
-    for (const n of nodes) m.set(n.id, (adjMap.get(n.id) || []).length);
+    for (const e of rawEdges) {
+      m.set(e.source, (m.get(e.source) ?? 0) + 1);
+      m.set(e.target, (m.get(e.target) ?? 0) + 1);
+    }
     return m;
-  }, [nodes, adjMap]);
+  }, [rawEdges]);
 
   // LDV mode: BFS from center to get dependency neighborhood (all types)
   // Also include depth-1 neighbors of any nodes that have been "expanded"
@@ -988,10 +1002,15 @@ export default function DependencyReport() {
   // Legend: types present on the displayed graph
   const usedTypes = useMemo(() => [...new Set(nodes.map((n) => n.type))], [nodes]);
 
-  // Picker chips: types within the dropdown scope (all, when no type is picked)
+  // Picker chips: types within the dropdown scope (all, when no type is picked).
+  // Sourced from the RAW graph, not `usedTypes` — that one describes the
+  // displayed diagram and feeds the legend, while the picker answers "what is
+  // in the inventory?" and must not lose a whole type because nothing of it is
+  // alive at the viewed date.
+  const rawTypes = useMemo(() => [...new Set(rawNodes.map((n) => n.type))], [rawNodes]);
   const pickerTypes = useMemo(
-    () => (cardTypeKey ? [cardTypeKey] : usedTypes),
-    [cardTypeKey, usedTypes],
+    () => (cardTypeKey ? [cardTypeKey] : rawTypes),
+    [cardTypeKey, rawTypes],
   );
 
   // Only legend the change states actually on screen — retired cards are
@@ -1004,12 +1023,40 @@ export default function DependencyReport() {
     return set;
   }, [nodes]);
 
-  // Picker: filtered items
-  const pickerItems = useMemo(() => {
-    let items = nodes;
+  /**
+   * Cards already at End of Life TODAY — judged against `todayMs`, never against
+   * the slider. "Has this been retired?" is a fact about the landscape as it
+   * stands, and the picker is reached by a button that hides the slider.
+   */
+  const eolTodayIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const n of rawNodes) if (isRetiredByDate(n.lifecycle, timeline.todayMs)) s.add(n.id);
+    return s;
+  }, [rawNodes, timeline.todayMs]);
+
+  /**
+   * The picker's base set: the whole inventory (minus archived, which the
+   * endpoint never sends), narrowed only by the type dropdown and the
+   * end-of-life toggle.
+   *
+   * Deliberately `rawNodes`, NOT the timeline-filtered `nodes`. The picker is
+   * where you choose what to look at, and the slider plus its two visibility
+   * switches are hidden at this stage (`diagramShown`) — so reading the filtered
+   * set meant cards were dropped by controls the user could not see, and a card
+   * that has not gone live yet never appeared at all.
+   */
+  const pickerBase = useMemo(() => {
+    let items = rawNodes;
     // The type dropdown used to be applied by the fetch; it scopes the picker
     // client-side now (the graph itself stays cross-type in every view).
     if (cardTypeKey) items = items.filter((n) => n.type === cardTypeKey);
+    if (hideEndOfLife) items = items.filter((n) => !eolTodayIds.has(n.id));
+    return items;
+  }, [rawNodes, cardTypeKey, hideEndOfLife, eolTodayIds]);
+
+  // Picker: filtered items
+  const pickerItems = useMemo(() => {
+    let items = pickerBase;
     if (pickerTypeFilter) items = items.filter((n) => n.type === pickerTypeFilter);
     if (pickerSearch.trim()) {
       const q = pickerSearch.trim().toLowerCase();
@@ -1020,7 +1067,7 @@ export default function DependencyReport() {
       );
     }
     return items;
-  }, [nodes, cardTypeKey, pickerTypeFilter, pickerSearch]);
+  }, [pickerBase, pickerTypeFilter, pickerSearch]);
 
   // Picker: group by type
   const pickerGroups = useMemo(() => {
@@ -1052,10 +1099,13 @@ export default function DependencyReport() {
     return { groups, order };
   }, [pickerItems, types, connCounts]);
 
-  // Autocomplete options for toolbar
+  // Autocomplete options for toolbar. Raw, for the same reason as the picker:
+  // "Center on" chooses a starting point, and centring is always honoured (the
+  // `nodes` memo keeps `n.id === center` at every date), so filtering the list
+  // by the slider only made a retired card impossible to reach.
   const acOptions = useMemo(
-    () => (cardTypeKey ? nodes.filter((n) => n.type === cardTypeKey) : nodes),
-    [nodes, cardTypeKey],
+    () => (cardTypeKey ? rawNodes.filter((n) => n.type === cardTypeKey) : rawNodes),
+    [rawNodes, cardTypeKey],
   );
 
   const centerNode = nodes.find((n) => n.id === center);
@@ -1790,7 +1840,9 @@ export default function DependencyReport() {
               />
 
               {/* Type filter chips */}
-              <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap", mb: 1.5 }}>
+              <Box
+                sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap", mb: 1.5 }}
+              >
                 <Chip
                   label={t("dependency.all")}
                   size="small"
@@ -1803,7 +1855,7 @@ export default function DependencyReport() {
                 {pickerTypes.map((tk) => {
                   const active = pickerTypeFilter === tk;
                   const color = tc(tk, types);
-                  const count = nodes.filter((n) => n.type === tk).length;
+                  const count = pickerBase.filter((n) => n.type === tk).length;
                   return (
                     <Chip
                       key={tk}
@@ -1836,6 +1888,26 @@ export default function DependencyReport() {
                     />
                   );
                 })}
+                {/* Judged at today, not at the slider: the picker is reached by a
+                    button that hides the timeline, so an end-of-life card here is
+                    one that is retired now — whatever date the diagram was on. */}
+                {eolTodayIds.size > 0 && (
+                  <FormControlLabel
+                    sx={{ ml: "auto", mr: 0 }}
+                    control={
+                      <Switch
+                        size="small"
+                        checked={hideEndOfLife}
+                        onChange={(e) => setHideEndOfLife(e.target.checked)}
+                      />
+                    }
+                    label={
+                      <Typography variant="caption" color="text.secondary">
+                        {t("dependency.hideEndOfLife")}
+                      </Typography>
+                    }
+                  />
+                )}
               </Box>
             </Box>
 
@@ -1843,7 +1915,7 @@ export default function DependencyReport() {
             {pickerItems.length === 0 ? (
               <Box sx={{ py: 4, textAlign: "center" }}>
                 <Typography color="text.disabled" variant="body2">
-                  {nodes.length === 0
+                  {rawNodes.length === 0
                     ? t("dependency.noCards")
                     : t("common:labels.noResults")}
                 </Typography>
@@ -1886,6 +1958,7 @@ export default function DependencyReport() {
                       {items.map((n) => {
                         const conns = connCounts.get(n.id) || 0;
                         const path = n.path || [];
+                        const atEol = eolTodayIds.has(n.id);
                         return (
                           <Box
                             key={n.id}
@@ -1924,6 +1997,20 @@ export default function DependencyReport() {
                                 {n.name}
                               </Typography>
                             </Box>
+                            {atEol && (
+                              <Tooltip
+                                arrow
+                                title={t("dependency.endOfLifeOn", {
+                                  date: formatDate(n.lifecycle?.endOfLife),
+                                })}
+                              >
+                                {/* The same RETIRED chip the tree and table rows
+                                    carry — one vocabulary for one fact. */}
+                                <Box sx={{ display: "flex" }}>
+                                  <ChangeBadge state="retired" t={t} />
+                                </Box>
+                              </Tooltip>
+                            )}
                             {conns > 0 && (
                               <Chip
                                 size="small"

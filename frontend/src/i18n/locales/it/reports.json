@@ -178,6 +178,8 @@
   "dependency.hasHiddenChildren": "Ha figli non mostrati — usa Mostra figli",
   "dependency.showEndOfLife": "Mostra schede a fine vita",
   "dependency.showEndOfLifeHint": "Includi le schede collegate che hanno raggiunto il fine vita alla data scelta sulla linea temporale. La scheda centrata è sempre mostrata.",
+  "dependency.hideEndOfLife": "Nascondi le schede a fine vita",
+  "dependency.endOfLifeOn": "Fine vita raggiunta il {{date}}",
   "dependency.persistRetired": "Mantieni le schede dismesse",
   "dependency.persistRetiredHint": "Mantenete sul diagramma, attenuate ed etichettate, le schede dismesse a qualsiasi data successiva alla dismissione. Disattivate per mostrare solo le schede attive alla data selezionata.",
   "dependency.previewPlanned": "Anteprima delle schede pianificate",

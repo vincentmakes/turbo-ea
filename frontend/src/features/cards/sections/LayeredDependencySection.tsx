@@ -297,6 +297,7 @@ export default function LayeredDependencySection({ cardId }: Props) {
               hasNext={hasNext}
               centerName={centerNode?.name}
               centerId={center}
+              expandedIds={expandedNodes}
               canCreateDiagram={canCreateDiagram}
               // `center`, not `cardId`: shift-clicking across the graph and
               // then opening the report should land on the card you are

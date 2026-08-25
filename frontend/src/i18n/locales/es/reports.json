@@ -178,6 +178,8 @@
   "dependency.hasHiddenChildren": "Tiene hijos no mostrados — use Mostrar hijos",
   "dependency.showEndOfLife": "Mostrar tarjetas al final de su vida útil",
   "dependency.showEndOfLifeHint": "Incluir las tarjetas relacionadas que hayan llegado al final de su vida útil en la fecha elegida en la línea de tiempo. La tarjeta centrada siempre se muestra.",
+  "dependency.hideEndOfLife": "Ocultar las de fin de vida útil",
+  "dependency.endOfLifeOn": "Alcanzó el final de su vida útil el {{date}}",
   "dependency.persistRetired": "Conservar tarjetas retiradas",
   "dependency.persistRetiredHint": "Mantener en el diagrama, atenuadas y etiquetadas, las fichas retiradas en cualquier fecha posterior a su retirada. Desactive para mostrar solo las fichas activas en la fecha seleccionada.",
   "dependency.previewPlanned": "Previsualizar tarjetas planificadas",

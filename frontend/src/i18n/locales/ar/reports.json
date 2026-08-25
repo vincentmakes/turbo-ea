@@ -178,6 +178,8 @@
   "dependency.hasHiddenChildren": "له فروع غير معروضة — استخدم إظهار الفروع",
   "dependency.showEndOfLife": "إظهار البطاقات المنتهية الصلاحية",
   "dependency.showEndOfLifeHint": "تضمين البطاقات المرتبطة التي انتهت صلاحيتها بحلول التاريخ المحدد على الخط الزمني. تظهر البطاقة التي تتمركز عليها دائمًا.",
+  "dependency.hideEndOfLife": "إخفاء البطاقات المنتهية الصلاحية",
+  "dependency.endOfLifeOn": "انتهت صلاحيتها في {{date}}",
   "dependency.persistRetired": "الإبقاء على البطاقات المتوقّفة",
   "dependency.persistRetiredHint": "الإبقاء على البطاقات المتوقّفة في الرسم البياني — باهتة وموسومة — في أي تاريخ بعد توقّفها. أوقِف الخيار لعرض البطاقات النشطة في التاريخ المحدّد فقط.",
   "dependency.previewPlanned": "معاينة البطاقات المخطّطة",

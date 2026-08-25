@@ -1016,7 +1016,10 @@ interface Props {
    *  filter, and marked on the canvas with a ring. */
   centerId?: string;
   /** Cards the reader expanded with the expand tool, marked with a lighter ring
-   *  than the centre. Omit where there is no expand mode (the card-detail view). */
+   *  than the centre. Any consumer that wires `onNodeExpand` owes this too — the
+   *  report and the card-detail section both do. Omitting it while offering the
+   *  tool is what left the card page expanding cards with no ring to show for it:
+   *  the state existed, it just never reached the canvas. */
   expandedIds?: Set<string>;
   /** Render the graph as of this date (epoch ms) instead of today: the
    *  end-of-life filter and each card's lifecycle dot are evaluated against it.

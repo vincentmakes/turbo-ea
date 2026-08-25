@@ -667,7 +667,8 @@ describe("DependencyReport deep link", () => {
 // ---------------------------------------------------------------------------
 
 describe("DependencyReport centre picker", () => {
-  it("offers the best-connected cards first, not the alphabetically first", async () => {
+  /** Open on the picker (no centre), with the slider parked in 2028. */
+  function renderPicker() {
     vi.mocked(useSavedReport).mockReturnValue({
       savedReport: null,
       savedReportName: null,
@@ -681,8 +682,11 @@ describe("DependencyReport centre picker", () => {
       resetAll: vi.fn(),
       reportType: "dependencies",
     } as unknown as ReturnType<typeof useSavedReport>);
+    return renderReport();
+  }
 
-    const { container } = renderReport();
+  it("offers the best-connected cards first, not the alphabetically first", async () => {
+    const { container } = renderPicker();
     await screen.findByText("CRM Cloud");
 
     // In the fixture CRM Cloud has three relations and Legacy ERP one, so
@@ -694,6 +698,48 @@ describe("DependencyReport centre picker", () => {
       .filter((t) => ["CRM Cloud", "Web Portal", "Legacy ERP", "NextGen Suite"].includes(t));
     expect(names.indexOf("CRM Cloud")).toBeLessThan(names.indexOf("Web Portal"));
     expect(names.indexOf("Web Portal")).toBeLessThan(names.indexOf("Legacy ERP"));
+  });
+
+  // The picker is reached by a button that HIDES the slider and the two
+  // visibility switches, so anything it filters by date is filtered by a control
+  // the reader cannot see. It lists the inventory; the diagram shows the date.
+  it("lists a card that has not gone live yet, though the timeline hides it", async () => {
+    // `next-gen` is planned for 2030 and the slider is parked on 2028, with
+    // "Preview planned cards" off — it is absent from the diagram by design, and
+    // used to be absent from the picker too.
+    renderPicker();
+    await screen.findByText("CRM Cloud");
+    expect(screen.getByText("NextGen Suite")).toBeInTheDocument();
+  });
+
+  it("lists a card retired before today, badged RETIRED", async () => {
+    renderPicker();
+    await screen.findByText("CRM Cloud");
+    expect(screen.getByText("Legacy Mainframe")).toBeInTheDocument();
+    // `mainframe` retired in 2015, `legacy` not until 2027: exactly one row is
+    // at end of life TODAY, whatever date the slider is standing on.
+    expect(screen.getAllByText("RETIRED")).toHaveLength(1);
+  });
+
+  it("counts every card of a type on its chip, not just the ones alive today", async () => {
+    renderPicker();
+    await screen.findByText("CRM Cloud");
+    // All five fixture cards are Applications.
+    expect(screen.getByText("Application (5)")).toBeInTheDocument();
+  });
+
+  it("drops the end-of-life cards, and only those, when the toggle is on", async () => {
+    renderPicker();
+    await screen.findByText("CRM Cloud");
+
+    await userEvent.click(screen.getByRole("checkbox", { name: /Hide end-of-life/ }));
+
+    expect(screen.queryByText("Legacy Mainframe")).toBeNull();
+    expect(screen.queryByText("RETIRED")).toBeNull();
+    // Not yet at end of life (2027) and not yet live (2030): both stay.
+    expect(screen.getByText("Legacy ERP")).toBeInTheDocument();
+    expect(screen.getByText("NextGen Suite")).toBeInTheDocument();
+    expect(screen.getByText("Application (4)")).toBeInTheDocument();
   });
 });
 
