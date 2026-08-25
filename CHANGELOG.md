@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **A survey can target only the cards that have gone stale.** Building a survey, the **Target** step gains a **last update** filter — 30 days, 90 days, 6 months, 1 year, or your own number of days or months — so a data-maintenance survey can go to exactly the cards nobody has looked at, instead of everything of a type. It shows the date it resolves to as you pick ("Only cards last modified before 27 May 2026"), and measures from the card's Modified date, the same one the inventory and the card's History tab show. The window is relative, not a fixed date: a draft parked for a month and sent later still reaches the cards that are stale *then*. It narrows the other filters rather than replacing them, so "related to the Sales unit **and** untouched for six months" is one survey.
+- **A survey can target only the cards that have gone stale.** Building a survey, the **Target** step gains a **last update** filter — 30 days, 90 days, 6 months, 1 year, or your own number of days or months — so a data-maintenance survey can go to exactly the cards nobody has looked at, instead of everything of a type. It shows the date it resolves to as you pick ("Cards last changed before 27 May 2026"), and measures from the card's Modified date, the same one the inventory and the card's History tab show. The window is relative, not a fixed date: a draft parked for a month and sent later still reaches the cards that are stale *then*. It narrows the other filters rather than replacing them, so "related to the Sales unit **and** untouched for six months" is one survey.
 
 ### Fixed
 
@@ -23,7 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - **The survey builder's Target step now uses the app's own pickers.** Choosing cards, related cards and tags was done through plain lists built just for that screen: they showed only the first 20 matches with no way to reach the rest, listed bare names with none of the colour coding used everywhere else, and labelled a related card with its internal type key. Cards are now picked with the same picker as the rest of the app — it opens showing the inventory, ranks as you type, and keeps loading as you scroll — and tags with the standard tag picker, so tag groups appear under their headings, a single-choice group replaces rather than accumulates, and groups restricted to other card types stop being offered.
-- **The last-update filter says what it compares.** The step read *Filter by Last Update* with a list of plain durations, which could fairly be taken to mean "not updated for exactly 30 days". It is now **Filter by age since last modified**, the custom row reads **Older than**, and the caption spells out the rule: *Only cards last modified before 27 May 2026*.
 - **Stakeholder roles are shown in the target type's colours, and only that type's roles.** The list offered every role defined anywhere in the instance, including ones the chosen card type does not have, which could never match anything. It now lists only the roles that type defines, each with its colour.
 
 ## [2.87.1] - 2026-08-25

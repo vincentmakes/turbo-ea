@@ -53,7 +53,7 @@ async function gotoTargetStep(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/survey name/i), "Annual refresh");
   await user.click(screen.getByRole("button", { name: /next/i }));
   await waitFor(() =>
-    expect(screen.getByText(/filter by age since last modified/i)).toBeInTheDocument(),
+    expect(screen.getByText(/filter by last update/i)).toBeInTheDocument(),
   );
 
   await user.click(screen.getByRole("combobox", { name: /^type$/i }));
@@ -107,12 +107,12 @@ describe("SurveyBuilder — last-update (staleness) filter", () => {
     const user = userEvent.setup();
     await gotoTargetStep(user);
 
-    expect(screen.queryByText(/only cards last modified before/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/cards last changed before/i)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "90 days" }));
 
     const expected = new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10);
     await waitFor(() =>
-      expect(screen.getByText(new RegExp(`only cards last modified before ${expected}`, "i"))).toBeInTheDocument(),
+      expect(screen.getByText(new RegExp(`cards last changed before ${expected}`, "i"))).toBeInTheDocument(),
     );
   });
 
@@ -120,10 +120,10 @@ describe("SurveyBuilder — last-update (staleness) filter", () => {
     const user = userEvent.setup();
     await gotoTargetStep(user);
 
-    expect(screen.queryByLabelText(/older than/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/not updated for/i)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /custom/i }));
 
-    const value = screen.getByLabelText(/older than/i);
+    const value = screen.getByLabelText(/not updated for/i);
     await user.clear(value);
     await user.type(value, "45");
     await user.click(screen.getByRole("button", { name: /save draft/i }));
@@ -137,7 +137,7 @@ describe("SurveyBuilder — last-update (staleness) filter", () => {
     await gotoTargetStep(user);
 
     await user.click(screen.getByRole("button", { name: /custom/i }));
-    const value = screen.getByLabelText(/older than/i);
+    const value = screen.getByLabelText(/not updated for/i);
     await user.clear(value);
     await user.type(value, "99999");
 
