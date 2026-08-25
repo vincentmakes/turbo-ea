@@ -871,9 +871,13 @@ describe("InventoryPage parent column", () => {
     // which never consults cellRenderer — so the workbook showed the parent's
     // UUID for a child card and nothing at all for a root one.
     renderInventory();
-    await waitFor(() => expect(parentCol()).toBeDefined());
-
-    expect(parentCol()!.valueFormatter!({ value: "p1" })).toBe("Finance Suite");
+    // Same race as the renderer test above, and the same fix: `valueFormatter`
+    // and `cellRenderer` are the one `parentNameOf`, resolving against the
+    // LOADED rows. Waiting only for the column def asserts before the fetch
+    // lands, which is what flaked on a slow CI runner.
+    await waitFor(() =>
+      expect(parentCol()?.valueFormatter?.({ value: "p1" })).toBe("Finance Suite"),
+    );
     expect(parentCol()!.valueFormatter!({ value: null })).toBe("");
     // An id that resolves to nothing must not leak into the sheet either.
     expect(parentCol()!.valueFormatter!({ value: "gone" })).toBe("");
