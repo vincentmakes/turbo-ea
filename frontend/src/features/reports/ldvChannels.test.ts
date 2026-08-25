@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
   buildRowBands,
-  nearestFreeX,
   buildChannel,
   buildRoundedOrthPath,
+  type ChannelInput,
   type RowBand,
 } from "./ldvChannels";
 
@@ -14,6 +14,25 @@ import {
 function card(x: number, y: number) {
   return { x1: x - 100, y1: y - 36, x2: x + 100, y2: y + 36 };
 }
+
+/** A downward channel over the given middle bands, sides available. */
+function input(overrides: Partial<ChannelInput> & Pick<ChannelInput, "bands" | "betweenIdxs">): ChannelInput {
+  return {
+    sx: 0,
+    sy: 36,
+    tx: 0,
+    ty: 764,
+    srcRowIdx: -1,
+    tgtRowIdx: -1,
+    srcCard: { x1: -100, x2: 100, cy: 0 },
+    tgtCard: { x1: -100, x2: 100, cy: 800 },
+    sides: { exitLeft: true, exitRight: true, entryLeft: true, entryRight: true },
+    reservations: new Map(),
+    ...overrides,
+  };
+}
+
+const MIDDLE: RowBand[] = [{ y1: 364, y2: 436, intervals: [{ x1: -100, x2: 100 }] }];
 
 describe("buildRowBands", () => {
   it("buckets cards into rows and merges overlapping intervals", () => {
@@ -34,94 +53,114 @@ describe("buildRowBands", () => {
   });
 });
 
-describe("nearestFreeX", () => {
-  const bands: RowBand[] = [
-    { y1: 364, y2: 436, intervals: [{ x1: -100, x2: 100 }] },
-  ];
-
-  it("returns the ideal x when it is free", () => {
-    expect(nearestFreeX(bands, 0, 300, new Map())).toBe(300);
-  });
-
-  it("dodges a card to the nearest free x, ties to the smaller x", () => {
-    // Ideal 0 is dead center of the card — both sides equidistant.
-    expect(nearestFreeX(bands, 0, 0, new Map())).toBe(-107);
-    // Ideal 50 is nearer the right edge.
-    expect(nearestFreeX(bands, 0, 50, new Map())).toBe(107);
-  });
-
-  it("keeps corridors separated from reservations in the band and its neighbours", () => {
-    const reservations = new Map<number, number[]>([[0, [107]]]);
-    const x = nearestFreeX(bands, 0, 107, reservations);
-    expect(Math.abs(x - 107)).toBeGreaterThanOrEqual(14);
-    expect(x > -100 && x < 100).toBe(false); // still clear of the card
-  });
-});
-
 describe("buildChannel", () => {
-  const bands: RowBand[] = [
-    { y1: 364, y2: 436, intervals: [{ x1: -100, x2: 100 }] },
-  ];
-
-  it("walks straight through when the column is free (no forced jogs)", () => {
-    const res = buildChannel(300, 36, 300, 764, bands, [0], new Map());
-    expect(res.forcedJogs).toBe(0);
-    expect(res.waypoints).toHaveLength(0);
+  it("needs no waypoints when the straight column is clear", () => {
+    const plan = buildChannel(input({ bands: MIDDLE, betweenIdxs: [0], sx: 300, tx: 300 }));
+    expect(plan.kind).toBe("none");
+    expect(plan.waypoints).toHaveLength(0);
   });
 
-  it("jogs directly to the target x when a band blocks the column", () => {
-    // Column at x=0 is blocked; the target column (600) is clear, so the
-    // walk jogs once, straight to the target-handle x.
-    const res = buildChannel(0, 36, 600, 764, bands, [0], new Map());
-    expect(res.forcedJogs).toBe(1);
-    expect(res.waypoints).toHaveLength(2);
-    expect(res.waypoints[0].x).toBe(0);
-    expect(res.waypoints[1].x).toBe(600);
-    // The jog sits in the free gap ABOVE the blocking band.
-    expect(res.waypoints[0].y).toBeGreaterThan(36);
-    expect(res.waypoints[0].y).toBeLessThan(364);
-    expect(res.jogs).toHaveLength(1);
+  it("prefers a straight rise into the target when its column is clear", () => {
+    // Source column (0) blocked by the middle card; target column (600)
+    // clear. With sides available, one bend: out the source's side, then a
+    // straight drop into the target's top.
+    const plan = buildChannel(input({ bands: MIDDLE, betweenIdxs: [0], tx: 600 }));
+    expect(plan.kind).toBe("route");
+    expect(plan.corridor).toBe(600);
+    expect(plan.exit).toBe("side-right");
+    expect(plan.entry).toBe("straight");
+    expect(plan.waypoints).toEqual([{ x: 600, y: 0 }]);
   });
 
-  it("adds a final approach jog when the corridor cannot be the target x", () => {
-    // Target column itself is blocked by the band → corridor beside the
-    // card, then a second jog back to the target x below the band.
-    const res = buildChannel(0, 36, 0, 764, bands, [0], new Map());
-    expect(res.forcedJogs).toBe(1);
-    expect(res.waypoints).toHaveLength(4);
-    const corridorX = res.waypoints[1].x;
-    expect(corridorX < -100 || corridorX > 100).toBe(true);
-    expect(res.waypoints[3].x).toBe(0);
-    // Second jog lives below the band, above the target handle.
-    expect(res.waypoints[2].y).toBeGreaterThan(436);
-    expect(res.waypoints[2].y).toBeLessThan(764);
+  it("jogs in the gap when the side is unavailable", () => {
+    const plan = buildChannel(
+      input({
+        bands: MIDDLE,
+        betweenIdxs: [0],
+        tx: 600,
+        sides: { exitLeft: false, exitRight: false, entryLeft: false, entryRight: false },
+      }),
+    );
+    expect(plan.exit).toBe("jog");
+    expect(plan.entry).toBe("straight");
+    expect(plan.waypoints).toHaveLength(2);
+    expect(plan.waypoints[0].x).toBe(0);
+    expect(plan.waypoints[1].x).toBe(600);
+    // The jog sits in the free gap between source row and the blocking band.
+    expect(plan.waypoints[0].y).toBeGreaterThan(36);
+    expect(plan.waypoints[0].y).toBeLessThan(364);
+    expect(plan.jogs).toHaveLength(1);
   });
 
-  it("mirrors for an upward edge", () => {
-    const res = buildChannel(0, 764, 0, 36, bands, [0], new Map());
-    expect(res.forcedJogs).toBe(1);
-    expect(res.waypoints).toHaveLength(4);
-    // Walking upward: first jog below the band, final approach above it.
-    expect(res.waypoints[0].y).toBeGreaterThan(436);
-    expect(res.waypoints[3].y).toBeLessThan(364);
-    // y strictly decreases along the polyline corners.
-    for (let i = 1; i < res.waypoints.length; i++) {
-      expect(res.waypoints[i].y).toBeLessThanOrEqual(res.waypoints[i - 1].y);
+  it("routes side-to-side around a card blocking both columns", () => {
+    // Both handle columns sit on the blocked card column → corridor beside
+    // it, entering and leaving through the card sides: two bends total.
+    const plan = buildChannel(input({ bands: MIDDLE, betweenIdxs: [0] }));
+    expect(plan.kind).toBe("route");
+    expect(plan.corridor < -100 || plan.corridor > 100).toBe(true);
+    expect(plan.exit).toMatch(/^side-/);
+    expect(plan.entry).toMatch(/^side-/);
+    expect(plan.waypoints).toEqual([
+      { x: plan.corridor, y: 0 },
+      { x: plan.corridor, y: 800 },
+    ]);
+  });
+
+  it("uses ONE corridor even when several rows block different columns", () => {
+    // Three rows, each blocking a different x — the per-row greedy walk this
+    // replaces would have staircased. The single corridor is free in ALL
+    // rows (around the side here), so at most one x-change happens.
+    const bands: RowBand[] = [
+      { y1: 200, y2: 272, intervals: [{ x1: -100, x2: 100 }] },
+      { y1: 350, y2: 422, intervals: [{ x1: -50, x2: 150 }] },
+      { y1: 500, y2: 572, intervals: [{ x1: -150, x2: 50 }] },
+    ];
+    const plan = buildChannel(input({ bands, betweenIdxs: [0, 1, 2] }));
+    expect(plan.kind).toBe("route");
+    const xs = new Set(plan.waypoints.map((p) => p.x));
+    // Every bend shares the single corridor x.
+    expect(xs.size).toBe(1);
+    expect(xs.has(plan.corridor)).toBe(true);
+    for (const band of bands) {
+      for (const iv of band.intervals) {
+        expect(plan.corridor <= iv.x1 - 7 || plan.corridor >= iv.x2 + 7).toBe(true);
+      }
     }
   });
 
-  it("reserves its corridors so a second channel keeps its distance", () => {
+  it("mirrors for an upward edge", () => {
+    const plan = buildChannel(
+      input({
+        bands: MIDDLE,
+        betweenIdxs: [0],
+        sy: 764,
+        ty: 36,
+        srcCard: { x1: -100, x2: 100, cy: 800 },
+        tgtCard: { x1: -100, x2: 100, cy: 0 },
+        sides: { exitLeft: false, exitRight: false, entryLeft: false, entryRight: false },
+      }),
+    );
+    expect(plan.exit).toBe("jog");
+    expect(plan.entry).toBe("jog");
+    // y strictly decreases along the polyline corners (edge runs upward).
+    for (let i = 1; i < plan.waypoints.length; i++) {
+      expect(plan.waypoints[i].y).toBeLessThanOrEqual(plan.waypoints[i - 1].y);
+    }
+    // First jog below the band, final jog above it.
+    expect(plan.waypoints[0].y).toBeGreaterThan(436);
+    expect(plan.waypoints[3].y).toBeLessThan(364);
+  });
+
+  it("keeps a second channel's corridor separated from the first", () => {
     const reservations = new Map<number, number[]>();
-    const first = buildChannel(0, 36, 0, 764, bands, [0], reservations);
-    const second = buildChannel(0, 36, 0, 764, bands, [0], reservations);
-    const c1 = first.waypoints[1].x;
-    const c2 = second.waypoints[1].x;
-    expect(Math.abs(c1 - c2)).toBeGreaterThanOrEqual(14);
+    const a = buildChannel(input({ bands: MIDDLE, betweenIdxs: [0], reservations }));
+    const b = buildChannel(input({ bands: MIDDLE, betweenIdxs: [0], reservations }));
+    expect(Math.abs(a.corridor - b.corridor)).toBeGreaterThanOrEqual(12);
   });
 
   it("is deterministic", () => {
-    const a = buildChannel(0, 36, 0, 764, bands, [0], new Map());
-    const b = buildChannel(0, 36, 0, 764, bands, [0], new Map());
+    const a = buildChannel(input({ bands: MIDDLE, betweenIdxs: [0] }));
+    const b = buildChannel(input({ bands: MIDDLE, betweenIdxs: [0] }));
     expect(a).toEqual(b);
   });
 });

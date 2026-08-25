@@ -1,15 +1,16 @@
 /**
- * Channel routing for lane-skipping edges in the Layered Dependency View —
- * the piece of DrawIO's hierarchical layout that keeps long edges out of the
- * way of nodes in intermediate ranks.
+ * Channel routing for the Layered Dependency View — the piece of DrawIO's
+ * hierarchical layout that keeps long edges out of the way of nodes in
+ * intermediate ranks.
  *
- * A vertical edge that must cross rows of cards between its endpoints walks
- * those "row bands" carrying its current x: while the column is free it goes
- * straight; when a band blocks it, it jogs — in the card-free gap before the
- * band — to the free x nearest the target handle, and reserves that corridor
- * so other channel edges keep their distance. The result is an orthogonal
- * polyline whose verticals never cut through a card, with a jog only where a
- * dodge was actually forced.
+ * An edge whose endpoints have whole rows of cards between them picks ONE
+ * corridor — an x that is free through every row it must cross (free space
+ * is unbounded on both sides, so the route around a lane's content always
+ * exists) — and connects each end to that corridor as cheaply as possible:
+ * straight when the corridor lines up with the handle, through the card's
+ * SIDE (one bend) when the corridor runs directly beside the card, or with
+ * a jog in the adjacent gap (two bends) otherwise. A single corridor is what
+ * prevents the staircase paths a per-row greedy dodge produces.
  *
  * Pure module: no React, no React Flow — unit-testable geometry only.
  */
@@ -26,14 +27,18 @@ export interface RowBand {
   intervals: { x1: number; x2: number }[];
 }
 
-/** Cards must be cleared by this much when a corridor passes beside them. */
-const CARD_CLEARANCE = 7;
+/** Cards must be cleared by this much when a corridor passes beside them —
+ *  deliberately larger than SIDE_STUB so a corridor placed at a card's
+ *  clearance boundary still qualifies for a side connection. */
+const CARD_CLEARANCE = 12;
 /** Two corridors in the same band keep at least this separation. */
-const CORRIDOR_SEP = 14;
+const CORRIDOR_SEP = 12;
 /** Breathing room between a jog and the row bands above/below it. */
 const BAND_INSET = 8;
-/** Minimum stub out of a handle before the first jog may happen. */
+/** Minimum stub out of a top/bottom handle before the first jog. */
 const CHANNEL_STUB = 12;
+/** Minimum horizontal stub out of a side handle. */
+const SIDE_STUB = 10;
 
 function mergeIntervals(intervals: { x1: number; x2: number }[]): { x1: number; x2: number }[] {
   const sorted = [...intervals].sort((a, b) => a.x1 - b.x1 || a.x2 - b.x2);
@@ -70,9 +75,9 @@ export function buildRowBands(
     .sort((a, b) => a.y1 - b.y1);
 }
 
-/** Blocked x-intervals of a band: cards inflated by clearance, reserved
- *  corridors (this band and its neighbours) inflated by corridor separation. */
-function blockedIntervals(
+/** Blocked x-intervals of a band: cards inflated by clearance, plus the
+ *  corridors already reserved in the SAME band inflated by their separation. */
+export function blockedIntervals(
   bands: RowBand[],
   bandIdx: number,
   reservations: Map<number, number[]>,
@@ -81,10 +86,8 @@ function blockedIntervals(
     x1: iv.x1 - CARD_CLEARANCE,
     x2: iv.x2 + CARD_CLEARANCE,
   }));
-  for (const nb of [bandIdx - 1, bandIdx, bandIdx + 1]) {
-    for (const r of reservations.get(nb) ?? []) {
-      blocked.push({ x1: r - CORRIDOR_SEP, x2: r + CORRIDOR_SEP });
-    }
+  for (const r of reservations.get(bandIdx) ?? []) {
+    blocked.push({ x1: r - CORRIDOR_SEP, x2: r + CORRIDOR_SEP });
   }
   return mergeIntervals(blocked);
 }
@@ -93,19 +96,9 @@ function isBlockedX(blocked: { x1: number; x2: number }[], x: number): boolean {
   return blocked.some((iv) => x > iv.x1 && x < iv.x2);
 }
 
-/**
- * The free x nearest `ideal` in a band (free space is the complement of the
- * blocked intervals and is unbounded on both sides, so a corridor always
- * exists — worst case it runs just outside the lane's content). Deterministic:
- * ties resolve to the smaller x.
- */
-export function nearestFreeX(
-  bands: RowBand[],
-  bandIdx: number,
-  ideal: number,
-  reservations: Map<number, number[]>,
-): number {
-  const blocked = blockedIntervals(bands, bandIdx, reservations);
+/** Free x nearest `ideal` in the complement of `blocked` (unbounded on both
+ *  sides, so a solution always exists). Ties resolve to the smaller x. */
+function nearestFreeInBlocked(blocked: { x1: number; x2: number }[], ideal: number): number {
   if (!isBlockedX(blocked, ideal)) return ideal;
   let best = ideal;
   let bestDist = Infinity;
@@ -123,99 +116,210 @@ export function nearestFreeX(
 }
 
 export interface ChannelJog {
-  /** Index into the returned waypoint list of the jog's first corner (the
-   *  second corner is wpIndex + 1). */
+  /** Index into the waypoint list of the jog's first corner (second corner
+   *  is wpIndex + 1). */
   wpIndex: number;
   /** Feasible y range for the jog's horizontal run. */
   lo: number;
   hi: number;
 }
 
-export interface ChannelResult {
+export interface ChannelCard {
+  x1: number;
+  x2: number;
+  /** Vertical center of the card — where a side connection attaches. */
+  cy: number;
+}
+
+export type ChannelEnd = "straight" | "side-left" | "side-right" | "jog";
+
+export interface ChannelPlan {
+  /** "none": the straight column is clear and identical at both ends — the
+   *  edge needs no waypoints at all. */
+  kind: "none" | "route";
+  corridor: number;
+  exit: ChannelEnd;
+  entry: ChannelEnd;
   waypoints: ChannelXY[];
   jogs: ChannelJog[];
-  /** Jogs forced by a blocked band (the final approach to the target-handle
-   *  x is not counted). Zero means the straight column was clear and the
-   *  edge should keep its ordinary smoothstep rendering. */
-  forcedJogs: number;
+}
+
+export interface ChannelInput {
+  /** Handle points as currently assigned (top/bottom slots). */
+  sx: number;
+  sy: number;
+  tx: number;
+  ty: number;
+  bands: RowBand[];
+  /** Bands strictly between the handles, ordered along the walk direction. */
+  betweenIdxs: number[];
+  /** Band index of the source's / target's own row (-1 when not found). */
+  srcRowIdx: number;
+  tgtRowIdx: number;
+  srcCard: ChannelCard;
+  tgtCard: ChannelCard;
+  /** Whether each card side is still available for a side connection
+   *  (at most one per card side, claimed by the caller). */
+  sides: { exitLeft: boolean; exitRight: boolean; entryLeft: boolean; entryRight: boolean };
+  reservations: Map<number, number[]>;
+}
+
+interface EndPlan {
+  bends: number;
+  kind: ChannelEnd;
 }
 
 /**
- * Walk the row bands between the two handle points, dodging blocked bands.
- * `bandIdxs` are indexes into `bands` for the rows strictly between the
- * handles, ordered along the walk direction (top→bottom for a downward edge,
- * bottom→top for an upward one). Reserves every corridor it uses.
+ * Whether `x` sits in the free region DIRECTLY adjacent to the card in its
+ * row band — nothing (card, clearance, reservation) between the card's edge
+ * and `x`. That is the condition for a clean side connection: the horizontal
+ * from the card edge to the corridor crosses nothing.
  */
-export function buildChannel(
-  sx: number,
-  sy: number,
-  tx: number,
-  ty: number,
+function adjacentClear(
   bands: RowBand[],
-  bandIdxs: number[],
+  rowIdx: number,
   reservations: Map<number, number[]>,
-): ChannelResult {
+  card: ChannelCard,
+  x: number,
+  side: "left" | "right",
+): boolean {
+  if (rowIdx < 0) return true; // no known row → no siblings to hit
+  const blocked = blockedIntervals(bands, rowIdx, reservations);
+  const own = blocked.find((iv) => iv.x1 <= card.x1 && iv.x2 >= card.x2);
+  if (!own) return !isBlockedX(blocked, x);
+  if (side === "left") {
+    const prev = blocked.filter((iv) => iv.x2 <= own.x1).pop();
+    return x < own.x1 && (!prev || x > prev.x2);
+  }
+  const next = blocked.find((iv) => iv.x1 >= own.x2);
+  return x > own.x2 && (!next || x < next.x1);
+}
+
+/**
+ * Plan the route for one channel edge. Deterministic; reserves the chosen
+ * corridor in every band it crosses (including the source/target rows when
+ * a side connection is used).
+ */
+export function buildChannel(input: ChannelInput): ChannelPlan {
+  const { sx, sy, tx, ty, bands, betweenIdxs, srcRowIdx, tgtRowIdx, srcCard, tgtCard, sides, reservations } = input;
   const down = ty > sy;
+
+  // Union of blocked space over every crossed band — a corridor must be
+  // free in all of them (plus the end rows when a side connection is used).
+  const blockedUnion = mergeIntervals(
+    betweenIdxs.flatMap((b) => blockedIntervals(bands, b, reservations)),
+  );
+  const freeAll = (x: number) => !isBlockedX(blockedUnion, x);
+
+  const exitPlanFor = (c: number): EndPlan => {
+    if (Math.abs(c - sx) < 0.5) return { bends: 0, kind: "straight" };
+    const side: "left" | "right" | null =
+      c <= srcCard.x1 - SIDE_STUB ? "left" : c >= srcCard.x2 + SIDE_STUB ? "right" : null;
+    if (
+      side &&
+      (side === "left" ? sides.exitLeft : sides.exitRight) &&
+      adjacentClear(bands, srcRowIdx, reservations, srcCard, c, side)
+    ) {
+      return { bends: 1, kind: side === "left" ? "side-left" : "side-right" };
+    }
+    return { bends: 2, kind: "jog" };
+  };
+  const entryPlanFor = (c: number): EndPlan => {
+    if (Math.abs(c - tx) < 0.5) return { bends: 0, kind: "straight" };
+    const side: "left" | "right" | null =
+      c <= tgtCard.x1 - SIDE_STUB ? "left" : c >= tgtCard.x2 + SIDE_STUB ? "right" : null;
+    if (
+      side &&
+      (side === "left" ? sides.entryLeft : sides.entryRight) &&
+      adjacentClear(bands, tgtRowIdx, reservations, tgtCard, c, side)
+    ) {
+      return { bends: 1, kind: side === "left" ? "side-left" : "side-right" };
+    }
+    return { bends: 2, kind: "jog" };
+  };
+
+  // Candidate corridors in preference order: straight into the target,
+  // straight out of the source, then the nearest x free through every band.
+  const candidates: number[] = [];
+  if (freeAll(tx)) candidates.push(tx);
+  if (freeAll(sx)) candidates.push(sx);
+  candidates.push(nearestFreeInBlocked(blockedUnion, tx));
+
+  let best: { c: number; exit: EndPlan; entry: EndPlan; score: [number, number] } | null = null;
+  for (const c of candidates) {
+    const exit = exitPlanFor(c);
+    const entry = entryPlanFor(c);
+    const score: [number, number] = [exit.bends + entry.bends, Math.abs(c - sx) + Math.abs(c - tx)];
+    if (
+      !best ||
+      score[0] < best.score[0] ||
+      (score[0] === best.score[0] && score[1] < best.score[1])
+    ) {
+      best = { c, exit, entry, score };
+    }
+  }
+  const { c, exit, entry } = best!;
+
+  if (exit.kind === "straight" && entry.kind === "straight") {
+    // Fully straight column — no waypoints needed at all.
+    for (const b of betweenIdxs) reserve(reservations, b, c);
+    return { kind: "none", corridor: c, exit: "straight", entry: "straight", waypoints: [], jogs: [] };
+  }
+
+  // Free gaps adjacent to the first / last crossed band, along the walk.
+  const first = bands[betweenIdxs[0]];
+  const last = bands[betweenIdxs[betweenIdxs.length - 1]];
+  const firstGap = down
+    ? { lo: sy + CHANNEL_STUB, hi: first.y1 - BAND_INSET }
+    : { lo: first.y2 + BAND_INSET, hi: sy - CHANNEL_STUB };
+  const lastGap = down
+    ? { lo: last.y2 + BAND_INSET, hi: ty - CHANNEL_STUB }
+    : { lo: ty + CHANNEL_STUB, hi: last.y1 - BAND_INSET };
+  const norm = (g: { lo: number; hi: number }) => ({
+    lo: Math.min(g.lo, g.hi),
+    hi: Math.max(g.lo, g.hi),
+  });
+
   const waypoints: ChannelXY[] = [];
   const jogs: ChannelJog[] = [];
-  let forcedJogs = 0;
-  let x = sx;
 
-  const reserve = (bandIdx: number, atX: number) => {
-    let list = reservations.get(bandIdx);
-    if (!list) {
-      list = [];
-      reservations.set(bandIdx, list);
-    }
-    list.push(atX);
-  };
-
-  // Free y-gap crossed just before band k of the walk (between the previous
-  // band — or the source handle — and this band), as [lo, hi] with lo < hi.
-  const gapBefore = (k: number): { lo: number; hi: number } => {
-    const band = bands[bandIdxs[k]];
-    const prev = k > 0 ? bands[bandIdxs[k - 1]] : null;
-    if (down) {
-      return {
-        lo: prev ? prev.y2 + BAND_INSET : sy + CHANNEL_STUB,
-        hi: band.y1 - BAND_INSET,
-      };
-    }
-    return {
-      lo: band.y2 + BAND_INSET,
-      hi: prev ? prev.y1 - BAND_INSET : sy - CHANNEL_STUB,
-    };
-  };
-
-  const pushJog = (toX: number, lo: number, hi: number) => {
-    const y = (lo + hi) / 2;
-    jogs.push({ wpIndex: waypoints.length, lo, hi });
-    waypoints.push({ x, y }, { x: toX, y });
-    x = toX;
-  };
-
-  for (let k = 0; k < bandIdxs.length; k++) {
-    const bandIdx = bandIdxs[k];
-    const blocked = blockedIntervals(bands, bandIdx, reservations);
-    if (isBlockedX(blocked, x)) {
-      const nx = nearestFreeX(bands, bandIdx, tx, reservations);
-      const { lo, hi } = gapBefore(k);
-      pushJog(nx, Math.min(lo, hi), Math.max(lo, hi));
-      forcedJogs++;
-    }
-    reserve(bandIdx, x);
+  if (exit.kind === "jog") {
+    const g = norm(firstGap);
+    jogs.push({ wpIndex: waypoints.length, lo: g.lo, hi: g.hi });
+    const y = (g.lo + g.hi) / 2;
+    waypoints.push({ x: sx, y }, { x: c, y });
+  } else if (exit.kind !== "straight") {
+    // Side exit: the horizontal leaves the card edge at its center y.
+    waypoints.push({ x: c, y: srcCard.cy });
   }
 
-  if (Math.abs(x - tx) > 0.5) {
-    // Final approach: jog to the target-handle x in the gap after the last
-    // crossed band (or the whole span when nothing was crossed).
-    const last = bandIdxs.length ? bands[bandIdxs[bandIdxs.length - 1]] : null;
-    const lo = down ? (last ? last.y2 + BAND_INSET : sy + CHANNEL_STUB) : ty + CHANNEL_STUB;
-    const hi = down ? ty - CHANNEL_STUB : last ? last.y1 - BAND_INSET : sy - CHANNEL_STUB;
-    pushJog(tx, Math.min(lo, hi), Math.max(lo, hi));
+  if (entry.kind === "jog") {
+    const g = norm(lastGap);
+    jogs.push({ wpIndex: waypoints.length, lo: g.lo, hi: g.hi });
+    const y = (g.lo + g.hi) / 2;
+    waypoints.push({ x: c, y }, { x: tx, y });
+  } else if (entry.kind !== "straight") {
+    waypoints.push({ x: c, y: tgtCard.cy });
   }
 
-  return { waypoints, jogs, forcedJogs };
+  for (const b of betweenIdxs) reserve(reservations, b, c);
+  if (exit.kind === "side-left" || exit.kind === "side-right") {
+    if (srcRowIdx >= 0) reserve(reservations, srcRowIdx, c);
+  }
+  if (entry.kind === "side-left" || entry.kind === "side-right") {
+    if (tgtRowIdx >= 0) reserve(reservations, tgtRowIdx, c);
+  }
+
+  return { kind: "route", corridor: c, exit: exit.kind, entry: entry.kind, waypoints, jogs };
+}
+
+function reserve(reservations: Map<number, number[]>, bandIdx: number, x: number): void {
+  let list = reservations.get(bandIdx);
+  if (!list) {
+    list = [];
+    reservations.set(bandIdx, list);
+  }
+  list.push(x);
 }
 
 /**

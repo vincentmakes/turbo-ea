@@ -71,11 +71,11 @@ describe("routeLdvEdges port assignment", () => {
       },
       { s: "A", left: "B", mid: "B", right: "B" },
     );
-    // Three attachments on one side → symmetric slots [2, 3, 4], ordered by
-    // the direction toward the target regardless of edge declaration order.
-    expect(routes[1].sourceHandle).toBe("b-2"); // → left
+    // Slots follow each edge's direction (straightness-seeking assignment),
+    // ordered left-to-right regardless of edge declaration order.
+    expect(routes[1].sourceHandle).toBe("b-1"); // → left
     expect(routes[0].sourceHandle).toBe("b-3"); // → mid
-    expect(routes[2].sourceHandle).toBe("b-4"); // → right
+    expect(routes[2].sourceHandle).toBe("b-5"); // → right
   });
 
   it("orders fan-in slots on the target the same way", () => {
@@ -89,19 +89,33 @@ describe("routeLdvEdges port assignment", () => {
       },
       { a: "A", b: "A", c: "A", t: "B" },
     );
-    expect(routes[0].targetHandle).toBe("t-2");
+    expect(routes[0].targetHandle).toBe("t-1");
     expect(routes[1].targetHandle).toBe("t-3");
-    expect(routes[2].targetHandle).toBe("t-4");
+    expect(routes[2].targetHandle).toBe("t-5");
   });
 
-  it("uses symmetric inner slots for a pair of edges", () => {
+  it("spreads a pair of edges toward their targets", () => {
     const { routes } = route(
       [edge("s", "l"), edge("s", "r")],
       { s: { x: 0, y: 0 }, l: { x: -300, y: 400 }, r: { x: 300, y: 400 } },
       { s: "A", l: "B", r: "B" },
     );
-    expect(routes[0].sourceHandle).toBe("b-2");
-    expect(routes[1].sourceHandle).toBe("b-4");
+    expect(routes[0].sourceHandle).toBe("b-1");
+    expect(routes[1].sourceHandle).toBe("b-5");
+  });
+
+  it("gives an aligned partner the straight slot even with a sibling edge", () => {
+    // "below" sits exactly in s's column; "off" pulls to the right. The
+    // aligned edge must keep the center slot (dead-straight vertical), the
+    // other spreads — instead of both being pushed to symmetric slots.
+    const { routes } = route(
+      [edge("s", "below"), edge("s", "off")],
+      { s: { x: 0, y: 0 }, below: { x: 0, y: 400 }, off: { x: 400, y: 400 } },
+      { s: "A", below: "B", off: "B" },
+    );
+    expect(routes[0].sourceHandle).toBe("b-3");
+    expect(routes[0].targetHandle).toBe("t-3");
+    expect(routes[1].sourceHandle).toBe("b-5");
   });
 
   it("orders upward and downward attachments on one border together", () => {
@@ -117,8 +131,8 @@ describe("routeLdvEdges port assignment", () => {
       },
       { above: "A", up: "A", hub: "B" },
     );
-    expect(routes[0].targetHandle).toBe("t-2"); // from above-left
-    expect(routes[1].sourceHandle).toBe("ts-4"); // toward above-right
+    expect(routes[0].targetHandle).toBe("t-1"); // from above-left
+    expect(routes[1].sourceHandle).toBe("ts-5"); // toward above-right
   });
 
   it("shares slots in declaration-stable order when a side has more than five edges", () => {
@@ -171,9 +185,10 @@ describe("routeLdvEdges port assignment", () => {
     expect(routes[0].targetHandle).toMatch(/^t-/);
   });
 
-  it("routes a lane-skipping edge to a clear target column with one jog", () => {
+  it("routes a lane-skipping edge out the source's side into a straight drop", () => {
     // Column at the source x is blocked in the middle lane; the target
-    // column is clear, so the walk jogs once — directly to the target x.
+    // column is clear — one bend: out the source's side, straight down into
+    // the target's top.
     const { routes } = route(
       [edge("s", "t")],
       {
@@ -183,13 +198,12 @@ describe("routeLdvEdges port assignment", () => {
       },
       { s: "A", m: "B", t: "C" },
     );
+    expect(routes[0].sourceHandle).toBe("right");
     const wps = routes[0].waypoints!;
-    expect(wps).toHaveLength(2);
-    expect(wps[0].x).toBe(0);
-    expect(wps[1].x).toBeCloseTo(600 + handleOffset(routes[0].targetHandle).dx, 5);
-    // The jog sits in the gap between the source row and the blocking row.
-    expect(wps[0].y).toBeGreaterThan(36);
-    expect(wps[0].y).toBeLessThan(364);
+    expect(wps).toHaveLength(1);
+    // Bend at the target-handle column, level with the source's center.
+    expect(wps[0].x).toBeCloseTo(600 + handleOffset(routes[0].targetHandle).dx, 5);
+    expect(wps[0].y).toBe(0);
   });
 
   it("staggers a channel jog against a normal edge sharing its gap", () => {
@@ -250,6 +264,73 @@ describe("routeLdvEdges port assignment", () => {
     const c1 = routes[0].waypoints![1].x;
     const c2 = routes[1].waypoints![1].x;
     expect(Math.abs(c1 - c2)).toBeGreaterThanOrEqual(14);
+  });
+
+  it("never staircases: one corridor even across several populated rows", () => {
+    // Screenshot regression: a Platform above three fully populated business
+    // rows, connected to an Application below them, surrounded by sibling
+    // edges whose corridors already occupy the handy gaps. The old per-row
+    // greedy walk zigzagged across the whole lane; the single-corridor route
+    // must use at most 2 jogs (4 bends) and clear every card.
+    const positions: Record<string, XY> = {
+      platform: { x: 350, y: 0 },
+      ea: { x: 350, y: 340 },
+      schem: { x: 575, y: 340 },
+      comp: { x: 800, y: 340 },
+      engdiv: { x: 350, y: 435 },
+      epcb: { x: 575, y: 435 },
+      emea: { x: 800, y: 435 },
+      ecm: { x: 350, y: 530 },
+      pcb: { x: 575, y: 530 },
+      altium: { x: 465, y: 840 },
+    };
+    const lanes: Record<string, string> = {
+      platform: "S", altium: "A",
+      ea: "B", schem: "B", comp: "B", engdiv: "B", epcb: "B", emea: "B", ecm: "B", pcb: "B",
+    };
+    const oriented = [
+      edge("altium", "ecm", true),
+      edge("altium", "pcb", true),
+      edge("altium", "epcb", true),
+      edge("altium", "schem", true),
+      edge("engdiv", "altium"),
+      edge("ea", "altium"),
+      edge("emea", "altium"),
+      edge("platform", "altium"),
+    ];
+    const { routes } = route(oriented, positions, lanes);
+    const bounds = Object.entries(positions).map(([id, p]) => ({
+      id, x1: p.x - 100, y1: p.y - 36, x2: p.x + 100, y2: p.y + 36,
+    }));
+    for (let i = 0; i < routes.length; i++) {
+      const r = routes[i];
+      if (!r.waypoints) continue;
+      expect(r.waypoints.length).toBeLessThanOrEqual(4);
+      // Every segment of the polyline stays clear of every card body.
+      const a = r.anchors!;
+      const pts = [{ x: a.sx, y: a.sy }, ...r.waypoints, { x: a.tx, y: a.ty }];
+      for (let k = 0; k + 1 < pts.length; k++) {
+        const x1 = Math.min(pts[k].x, pts[k + 1].x);
+        const x2 = Math.max(pts[k].x, pts[k + 1].x);
+        const y1 = Math.min(pts[k].y, pts[k + 1].y);
+        const y2 = Math.max(pts[k].y, pts[k + 1].y);
+        for (const b of bounds) {
+          if (b.id === oriented[i].source || b.id === oriented[i].target) continue;
+          const overlaps = x2 > b.x1 + 2 && x1 < b.x2 - 2 && y2 > b.y1 + 2 && y1 < b.y2 - 2;
+          expect(overlaps, `edge ${i} segment ${k} crosses ${b.id}`).toBe(false);
+        }
+      }
+    }
+    // The Platform edge specifically must not zigzag: at most one corridor,
+    // i.e. at most 3 distinct x values across its whole polyline.
+    const plat = routes[7];
+    expect(plat.waypoints).toBeDefined();
+    const xs = new Set(
+      [plat.anchors!.sx, ...plat.waypoints!.map((p) => p.x), plat.anchors!.tx].map((x) =>
+        Math.round(x),
+      ),
+    );
+    expect(xs.size).toBeLessThanOrEqual(3);
   });
 
   it("is deterministic with channels in play", () => {
@@ -398,10 +479,10 @@ describe("routeLdvEdges horizontal-run placement (centerY)", () => {
     expect(Math.abs(routes[0].centerY! - routes[1].centerY!)).toBeGreaterThanOrEqual(10);
   });
 
-  it("moves a run off a card body its span would cross", () => {
-    // A wide edge whose midpoint line would slice through the card "o"
-    // sitting between its endpoints (but off the direct corridor, so the
-    // edge is not classified as obstructed).
+  it("routes around a card between the endpoints instead of crossing it", () => {
+    // The card "o" forms a row between the endpoints — the edge becomes a
+    // channel route whose segments all clear it (o spans x 300..500,
+    // y 164..236).
     const { routes } = route(
       [edge("s", "t")],
       {
@@ -411,9 +492,17 @@ describe("routeLdvEdges horizontal-run placement (centerY)", () => {
       },
       { s: "A", o: "A", t: "B" },
     );
-    const y = routes[0].centerY!;
-    // Card "o" spans y 164..236 — the run must clear it (with margin).
-    expect(y < 158 || y > 242).toBe(true);
+    expect(routes[0].centerY).toBeUndefined();
+    const a = routes[0].anchors!;
+    const pts = [{ x: a.sx, y: a.sy }, ...routes[0].waypoints!, { x: a.tx, y: a.ty }];
+    for (let k = 0; k + 1 < pts.length; k++) {
+      const x1 = Math.min(pts[k].x, pts[k + 1].x);
+      const x2 = Math.max(pts[k].x, pts[k + 1].x);
+      const y1 = Math.min(pts[k].y, pts[k + 1].y);
+      const y2 = Math.max(pts[k].y, pts[k + 1].y);
+      const overlaps = x2 > 300 && x1 < 500 && y2 > 164 && y1 < 236;
+      expect(overlaps).toBe(false);
+    }
   });
 
   it("channel-routes an edge whose straight column is blocked by a card", () => {

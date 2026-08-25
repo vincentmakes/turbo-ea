@@ -773,8 +773,19 @@ const LdvEdgeComponent = memo(
     let lx: number;
     let ly: number;
     if (waypointsFresh) {
-      // Live endpoints, stored bends: avoids 1px disconnects at the handles.
-      const pts = [{ x: sourceX, y: sourceY }, ...waypoints, { x: targetX, y: targetY }];
+      // Live endpoints with stored bends. Snap the first/last bend onto the
+      // live handle along the axis its segment runs on, so every segment is
+      // exactly orthogonal despite the few px of live-vs-layout measurement
+      // drift the anchor tolerance admits — that drift used to render as
+      // visibly tilted "verticals".
+      const wps = waypoints.map((p) => ({ ...p }));
+      const first = wps[0];
+      if (Math.abs(first.x - anchors.sx) < 1) first.x = sourceX;
+      else if (Math.abs(first.y - anchors.sy) < 1) first.y = sourceY;
+      const last = wps[wps.length - 1];
+      if (Math.abs(last.x - anchors.tx) < 1) last.x = targetX;
+      else if (Math.abs(last.y - anchors.ty) < 1) last.y = targetY;
+      const pts = [{ x: sourceX, y: sourceY }, ...wps, { x: targetX, y: targetY }];
       path = buildRoundedOrthPath(pts, 8);
       // Default label anchor: midpoint of the longest segment.
       let bi = 0;

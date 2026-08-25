@@ -17,7 +17,7 @@
  */
 
 import { handleOffset, LDV_HANDLE_FRACTIONS, LDV_NODE_W, LDV_NODE_H } from "./ldvHandles";
-import { buildRowBands, buildChannel, type ChannelXY } from "./ldvChannels";
+import { buildRowBands, buildChannel, type ChannelXY, type ChannelCard } from "./ldvChannels";
 import type { Node } from "@xyflow/react";
 
 export interface XY {
@@ -142,25 +142,55 @@ export function countEdgeCrossings(segments: Segment[]): number {
 /** Prefer side handles only for near-horizontal edges within one lane. */
 const SIDE_RATIO = 2.5;
 
-/**
- * Slot patterns for k ≤ 5 attachments on one side: keep them symmetric around
- * the center so a single edge leaves from the middle and a pair leaves from
- * the two inner slots. Order-preserving — index i of the sorted attachment
- * list gets pattern[i].
- */
-const CENTERED_SLOTS: readonly (readonly number[])[] = [
-  [],
-  [3],
-  [2, 4],
-  [2, 3, 4],
-  [1, 2, 4, 5],
-  [1, 2, 3, 4, 5],
-];
+/** Slot x-offsets from the node center, one per handle fraction. */
+const SLOT_OFFSETS = LDV_HANDLE_FRACTIONS.map((f) => (f - 0.5) * LDV_NODE_W);
 
-function slotForIndex(i: number, k: number): number {
-  if (k <= 5) return CENTERED_SLOTS[k][i];
-  // More attachments than slots: spread in order, sharing slots as needed.
-  return 1 + Math.round((i * (LDV_HANDLE_FRACTIONS.length - 1)) / (k - 1));
+/**
+ * Straightness-seeking, order-preserving slot assignment: attachments keep
+ * their sorted order (slots strictly increasing — the no-crossing guarantee),
+ * but each pays |slot offset − ideal Δx toward its partner|, minimized
+ * exactly by a tiny DP. A partner card standing in the same column therefore
+ * gets the aligned slot and a dead-straight edge, even when sibling edges
+ * share the side. Ties resolve to the smaller slots (deterministic). With
+ * more attachments than slots, they spread in order, sharing slots.
+ */
+function assignSlotsByIdeal(ideals: number[]): number[] {
+  const k = ideals.length;
+  const m = SLOT_OFFSETS.length;
+  if (k > m) {
+    return ideals.map((_, i) => 1 + Math.round((i * (m - 1)) / (k - 1)));
+  }
+  const dp: number[][] = Array.from({ length: k }, () => new Array<number>(m).fill(Infinity));
+  const choice: number[][] = Array.from({ length: k }, () => new Array<number>(m).fill(-1));
+  for (let s = 0; s < m; s++) dp[0][s] = Math.abs(SLOT_OFFSETS[s] - ideals[0]);
+  for (let i = 1; i < k; i++) {
+    for (let s = i; s < m; s++) {
+      let best = Infinity;
+      let bi = -1;
+      for (let p = i - 1; p < s; p++) {
+        if (dp[i - 1][p] < best) {
+          best = dp[i - 1][p];
+          bi = p;
+        }
+      }
+      dp[i][s] = best + Math.abs(SLOT_OFFSETS[s] - ideals[i]);
+      choice[i][s] = bi;
+    }
+  }
+  let s = k - 1;
+  let bestCost = Infinity;
+  for (let cand = k - 1; cand < m; cand++) {
+    if (dp[k - 1][cand] < bestCost) {
+      bestCost = dp[k - 1][cand];
+      s = cand;
+    }
+  }
+  const slots = new Array<number>(k);
+  for (let i = k - 1; i >= 0; i--) {
+    slots[i] = s + 1;
+    s = choice[i][s];
+  }
+  return slots;
 }
 
 interface Attachment {
@@ -314,9 +344,15 @@ export function routeLdvEdges(
       return a.edgeIdx - b.edgeIdx;
     });
     const k = sorted.length;
+    const ideals = sorted.map((a) => {
+      const self = absPos.get(a.selfId)!;
+      const other = absPos.get(a.otherId)!;
+      return Math.max(SLOT_OFFSETS[0], Math.min(SLOT_OFFSETS[SLOT_OFFSETS.length - 1], other.x - self.x));
+    });
+    const slots = assignSlotsByIdeal(ideals);
     const entries: SlotEntry[] = [];
     for (let i = 0; i < k; i++) {
-      const slot = slotForIndex(i, k);
+      const slot = slots[i];
       const a = sorted[i];
       entries.push({ edgeIdx: a.edgeIdx, role: a.role, slot });
       if (a.role === "src") {
@@ -354,18 +390,33 @@ export function routeLdvEdges(
   /* ---- Step 3.5: channel-route edges that must cross rows of cards ---- */
   // The DrawIO-inspired piece: an edge whose endpoints have whole rows of
   // cards between them (a lane-skipping edge, or a source/target that is not
-  // in its lane's edge row) walks those rows carrying its x, and jogs — in
-  // the card-free gap before a row — only where the row actually blocks it.
-  // The corridor it uses is reserved so other channel edges keep their
-  // distance. When nothing blocked the straight column, no waypoints are
-  // emitted and the edge keeps its ordinary staggered smoothstep shape.
+  // in its lane's edge row) picks ONE corridor free through every crossed
+  // row and connects each end to it as cheaply as possible — straight when
+  // aligned, through the card's side (one bend) when the corridor runs
+  // directly beside it, or with a jog in the adjacent gap. A single corridor
+  // is what prevents staircase paths.
   const waypointsArr = new Array<ChannelXY[] | undefined>(n);
   const jogRunsMeta: { edge: number; wpIndex: number; lo: number; hi: number }[] = [];
   {
     const bands = buildRowBands(nodeBounds);
+    const boundsById = new Map(nodeBounds.map((b) => [b.id, b]));
+    const rowIdxOf = (id: string): number => {
+      const b = boundsById.get(id);
+      if (!b) return -1;
+      return bands.findIndex((band) => b.y1 >= band.y1 - 1 && b.y1 <= band.y2);
+    };
+    const cardOf = (id: string): ChannelCard => {
+      const b = boundsById.get(id)!;
+      return { x1: b.x1, x2: b.x2, cy: (b.y1 + b.y2) / 2 };
+    };
     const reservations = new Map<number, number[]>();
+    // At most one side connection per card side, so two horizontals never
+    // coincide on a card's center line.
+    const claimedSides = new Set<string>();
     for (let i = 0; i < n; i++) {
       if (!vertical[i]) continue;
+      const e = oriented[i];
+      if (!absPos.has(e.source) || !absPos.has(e.target)) continue;
       const p = endpoints[i];
       const minY = Math.min(p.sy, p.ty);
       const maxY = Math.max(p.sy, p.ty);
@@ -375,15 +426,48 @@ export function routeLdvEdges(
       }
       if (idxs.length === 0) continue;
       if (p.ty < p.sy) idxs.reverse(); // upward edge walks bottom→top
-      const res = buildChannel(p.sx, p.sy, p.tx, p.ty, bands, idxs, reservations);
-      if (res.forcedJogs > 0) {
-        waypointsArr[i] = res.waypoints;
-        for (const j of res.jogs) {
-          jogRunsMeta.push({ edge: i, wpIndex: j.wpIndex, lo: j.lo, hi: j.hi });
-        }
-        // Channel verticals are clear by construction — never the legacy shape.
+      const plan = buildChannel({
+        sx: p.sx,
+        sy: p.sy,
+        tx: p.tx,
+        ty: p.ty,
+        bands,
+        betweenIdxs: idxs,
+        srcRowIdx: rowIdxOf(e.source),
+        tgtRowIdx: rowIdxOf(e.target),
+        srcCard: cardOf(e.source),
+        tgtCard: cardOf(e.target),
+        sides: {
+          exitLeft: !claimedSides.has(`${e.source}|left`),
+          exitRight: !claimedSides.has(`${e.source}|right`),
+          entryLeft: !claimedSides.has(`${e.target}|left`),
+          entryRight: !claimedSides.has(`${e.target}|right`),
+        },
+        reservations,
+      });
+      if (plan.kind === "none") {
+        // Straight column verified clear through every crossed row — never
+        // the legacy wrap-around shape.
         minOffsets[i] = 0;
+        continue;
       }
+      // Side connections re-anchor the edge onto the card's side handle.
+      if (plan.exit === "side-left" || plan.exit === "side-right") {
+        srcHandles[i] = plan.exit === "side-left" ? "left-src" : "right";
+        srcSideKey[i] = ""; // no longer in a top/bottom slot table
+        claimedSides.add(`${e.source}|${plan.exit === "side-left" ? "left" : "right"}`);
+      }
+      if (plan.entry === "side-left" || plan.entry === "side-right") {
+        tgtHandles[i] = plan.entry === "side-left" ? "left" : "right-tgt";
+        tgtSideKey[i] = "";
+        claimedSides.add(`${e.target}|${plan.entry === "side-left" ? "left" : "right"}`);
+      }
+      endpoints[i] = computeEndpoint(i);
+      waypointsArr[i] = plan.waypoints;
+      for (const j of plan.jogs) {
+        jogRunsMeta.push({ edge: i, wpIndex: j.wpIndex, lo: j.lo, hi: j.hi });
+      }
+      minOffsets[i] = 0;
     }
   }
 
