@@ -321,6 +321,24 @@ export function detailRowsHeight(count: number): number {
   return Math.max(0, count - CARD_FREE_DETAIL_ROWS) * CARD_DETAIL_LINE_H;
 }
 
+/** Height of a swimlane container's title strip with no detail rows on it. */
+export const CONTAINER_HEADER_H = 28;
+
+/**
+ * Header height for a container showing `count` detail rows.
+ *
+ * No free allowance, unlike {@link detailRowsHeight}: the strip was drawn for
+ * the name alone, where a 210x60 card had room for two small lines already.
+ */
+export function containerHeaderHeight(count: number): number {
+  return CONTAINER_HEADER_H + count * CARD_DETAIL_LINE_H;
+}
+
+/** True when a cell's style renders it as a swimlane container. */
+export function isSwimlaneStyle(style: unknown): boolean {
+  return String(style ?? "").includes("shape=swimlane");
+}
+
 /**
  * Build a card cell's `label` value. **The single renderer** — every path that
  * labels a card goes through here, the same rule `relationEdgeStyle` enforces
@@ -2667,6 +2685,7 @@ export function convertShapeToContainer(
     // Ensure the cell carries an XML user-object so the swimlane header
     // can show a label.
     let value = cell.value;
+    let headerRows = 0;
     if (!value?.setAttribute) {
       const xmlDoc = win.mxUtils.createXmlDocument();
       const obj = xmlDoc.createElement("object");
@@ -2676,10 +2695,13 @@ export function convertShapeToContainer(
       model.setValue(cell, obj);
       value = obj;
     } else {
-      // A composed card turning into a swimlane: the header strip is ~28px, so
-      // collapse back to the bare name rather than render detail rows in it.
+      // A composed card turning into a swimlane keeps its detail rows: the
+      // header strip below is sized for them. Re-composed rather than carried
+      // over verbatim so the label goes back through the one renderer.
       const plain = readCardName(value);
-      value.setAttribute("label", composeCardLabel(plain || fallbackLabel));
+      const rows = readCardDetail(value);
+      headerRows = rows.length;
+      value.setAttribute("label", composeCardLabel(plain || fallbackLabel, rows));
     }
 
     // Make sure the container is big enough to hold cells — 320×220 is
@@ -2703,7 +2725,7 @@ export function convertShapeToContainer(
       cell,
       [
         "shape=swimlane",
-        "startSize=28",
+        `startSize=${containerHeaderHeight(headerRows)}`,
         "horizontal=1",
         `fillColor=${fill}`,
         `fontColor=${readableTextColor(fill)}`,
@@ -3385,8 +3407,7 @@ export function isContainerCell(iframe: HTMLIFrameElement, cellId: string): bool
   const { graph } = ctx;
   const cell = graph.getModel().getCell(cellId);
   if (!cell) return false;
-  const style = String(graph.getModel().getStyle(cell) || "");
-  return style.includes("shape=swimlane");
+  return isSwimlaneStyle(graph.getModel().getStyle(cell));
 }
 
 /** Return true when the cell currently lives INSIDE another swimlane
@@ -3404,8 +3425,7 @@ export function isInsideContainer(iframe: HTMLIFrameElement, cellId: string): bo
   // Default parent / layer cells are not containers.
   if (parent === graph.getDefaultParent()) return false;
   if (!parent.value?.getAttribute) return false;
-  const parentStyle = String(graph.getModel().getStyle(parent) || "");
-  return parentStyle.includes("shape=swimlane");
+  return isSwimlaneStyle(graph.getModel().getStyle(parent));
 }
 
 /** Return the set of cardIds currently nested as direct children of
@@ -3492,7 +3512,6 @@ export function drillDownInto(
   if (!geo) return [];
 
   // Layout constants tuned to feel like LeanIX's container drill-down.
-  const HEADER = 28;
   const PAD = 12;
   const CHILD_W = 180;
   const CHILD_H = NESTED_CARD_H;
@@ -3504,11 +3523,20 @@ export function drillDownInto(
   // backfill a child they previously removed without rebuilding the
   // group from scratch.
   const currentStyle = String(model.getStyle(parentCell) || "");
-  const isAlreadyContainer = currentStyle.includes("shape=swimlane");
+  const isAlreadyContainer = isSwimlaneStyle(currentStyle);
   const existingChildCount =
     isAlreadyContainer && typeof model.getChildCount === "function"
       ? model.getChildCount(parentCell)
       : 0;
+
+  // The title strip has to hold the card's detail rows as well as its name.
+  // On a re-drill the style is deliberately left alone, so the live `startSize`
+  // is what the grid must clear — a backfilled child laid out against the bare
+  // constant would be tucked under a header that has since grown.
+  const HEADER = isAlreadyContainer
+    ? Number(readStylePart(currentStyle.split(";").filter(Boolean), "startSize")) ||
+      CONTAINER_HEADER_H
+    : containerHeaderHeight(readCardDetail(parentCell.value).length);
 
   const totalCount = existingChildCount + children.length;
   const COLS = Math.min(3, Math.max(1, totalCount));
@@ -3538,7 +3566,7 @@ export function drillDownInto(
         parentCell,
         [
           "shape=swimlane",
-          "startSize=" + HEADER,
+          `startSize=${HEADER}`,
           "horizontal=1",
           `fillColor=${parentColor}`,
           `fontColor=${readableTextColor(parentColor)}`,
@@ -3633,7 +3661,9 @@ export function rollUpInto(
   // Build the list of vertices to nest: the current card + a vertex per
   // sibling. Siblings that already exist on the canvas keep their cell;
   // missing ones are freshly inserted.
-  const HEADER = 28;
+  // Bare label at creation, so the strip starts at its natural height; the
+  // display pass grows it (and moves these children down) once the rows land.
+  const HEADER = CONTAINER_HEADER_H;
   const PAD = 12;
   const CHILD_W = 180;
   const CHILD_H = NESTED_CARD_H;
@@ -3671,7 +3701,7 @@ export function rollUpInto(
       containerH,
       [
         "shape=swimlane",
-        "startSize=" + HEADER,
+        `startSize=${HEADER}`,
         "horizontal=1",
         `fillColor=${parent.color}`,
         `fontColor=${readableTextColor(parent.color)}`,
@@ -4099,7 +4129,14 @@ export function applyCardLabels(
       if (changed) {
         // `readCardDetail` BEFORE the write — the row count the cell is
         // currently sized for is what the resize below measures against.
-        resizeForDetailRows(win, graph, cell, readCardDetail(cell.value).length, rows.length);
+        const was = readCardDetail(cell.value).length;
+        // A container carries its label in a title strip, not in the body, so
+        // the room has to come out of `startSize` rather than the cell height.
+        if (isSwimlaneStyle(model.getStyle(cell))) {
+          resizeContainerHeader(win, graph, model, cell, was, rows.length);
+        } else {
+          resizeForDetailRows(win, graph, cell, was, rows.length);
+        }
         setCardLabel(cell.value, name, rows);
         graph.refresh(cell);
         touched += 1;
@@ -4143,6 +4180,70 @@ function resizeForDetailRows(
   );
   if (target === geo.height) return;
   graph.resizeCell(cell, new win.mxRectangle(geo.x, geo.y, geo.width, target));
+}
+
+/**
+ * Grow or shrink a swimlane container's title strip to hold `newCount` rows.
+ *
+ * Three moves, and the order matters: widen `startSize`, give the container the
+ * same amount of extra height so its body keeps exactly the room its grid
+ * needs, then push every child down by that amount — the top grid row would
+ * otherwise end up underneath the header. Children move last so mxGraph's
+ * `constrainChild` has somewhere to put them.
+ *
+ * Delta-plus-floor like {@link resizeForDetailRows}, so a header divider the
+ * user dragged themselves survives the pass, and a second identical pass
+ * computes a zero delta and touches nothing.
+ */
+function resizeContainerHeader(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  win: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  graph: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  model: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  cell: any,
+  oldCount: number,
+  newCount: number,
+): void {
+  const geo = graph.getCellGeometry?.(cell);
+  if (!geo) return;
+  const parts = String(model.getStyle(cell) || "").split(";").filter(Boolean);
+  const current = Number(readStylePart(parts, "startSize") ?? CONTAINER_HEADER_H);
+  if (!Number.isFinite(current)) return;
+  const next = Math.max(
+    current + (newCount - oldCount) * CARD_DETAIL_LINE_H,
+    containerHeaderHeight(newCount),
+  );
+  const delta = next - current;
+  // Everything below moves together — read the geometry first so a cell that
+  // has none cannot end up with a widened strip and an unchanged box.
+  if (delta === 0) return;
+
+  model.setStyle(
+    cell,
+    parts
+      .filter((part) => !part.startsWith("startSize="))
+      .concat([`startSize=${next}`])
+      .join(";"),
+  );
+  graph.resizeCell(
+    cell,
+    new win.mxRectangle(geo.x, geo.y, geo.width, geo.height + delta),
+  );
+
+  const count = typeof model.getChildCount === "function" ? model.getChildCount(cell) : 0;
+  for (let i = 0; i < count; i++) {
+    const child = model.getChildAt(cell, i);
+    if (!child || child.edge) continue;
+    const cgeo = graph.getCellGeometry?.(child);
+    if (!cgeo) continue;
+    graph.resizeCell(
+      child,
+      new win.mxRectangle(cgeo.x, cgeo.y + delta, cgeo.width, cgeo.height),
+    );
+  }
 }
 
 /**

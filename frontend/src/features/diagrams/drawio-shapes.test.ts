@@ -4,6 +4,8 @@ import {
   applyCardTypeIcons,
   buildLdvDiagramXml,
   rollUpInto,
+  drillDownInto,
+  convertShapeToContainer,
   expandCardGroup,
   childEscapedParentBounds,
   applyViewToGraph,
@@ -389,10 +391,21 @@ function rollUpFrame(initial: RUCell[]) {
       parent.children.push(child);
       return child;
     },
+    getStyle: (c: RUCell) => c.style ?? "",
+    setStyle: (c: RUCell, style: string) => {
+      c.style = style;
+    },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setValue: (c: RUCell, value: any) => {
+      c.value = value;
+    },
+    getChildCount: (c: RUCell) => c.children.length,
+    getChildAt: (c: RUCell, i: number) => c.children[i] ?? null,
   };
   const graph = {
     getModel: () => model,
     getDefaultParent: () => root,
+    refresh() {},
     getCellGeometry: (c: RUCell) => c.geometry,
     resizeCell: (c: RUCell, r: Geo) => {
       c.geometry = { x: r.x, y: r.y, width: r.width, height: r.height };
@@ -496,6 +509,90 @@ describe("rollUpInto — re-parent existing vs insert new", () => {
     // count = 1 (current card only) → single column/row container.
     expect(container.geometry.width).toBe(204); // 1*180 + 0 + 2*12
     expect(container.geometry.height).toBe(102); // 28 + 12 + 50 + 12
+  });
+});
+
+describe("a card that becomes a container sizes its header for its rows", () => {
+  const rows = [
+    { label: "Owner", value: "Alice" },
+    { label: "Tier", value: "Gold" },
+    { label: "Hosting", value: "SaaS" },
+  ];
+
+  const startSizeOf = (style: string | undefined) =>
+    Number(/startSize=(\d+)/.exec(style ?? "")?.[1] ?? NaN);
+
+  /** A synced card already showing three detail rows. */
+  function labelledCard(id: string, geo: Geo, style?: string): RUCell {
+    const cell = ruCell(id, geo, {
+      cardId: `id-${id}`,
+      cardType: "Application",
+      cardName: "NexaCore ERP",
+      cardDetail: JSON.stringify(rows),
+      label: composeCardLabel("NexaCore ERP", rows),
+    });
+    cell.style = style ?? "rounded=1;fillColor=#0f7eb5";
+    return cell;
+  }
+
+  it("convertShapeToContainer keeps the rows instead of stripping them", () => {
+    // The strip used to be a fixed 28px, so the rows were dropped on the way
+    // in — and since the display pass puts them straight back, dropping them
+    // only ever bought an overflowing header one repaint later.
+    const card = labelledCard("c1", { x: 0, y: 0, width: 210, height: 74 });
+    const { iframe } = rollUpFrame([card]);
+
+    expect(convertShapeToContainer(iframe, "c1", "Fallback")).toBe(true);
+
+    expect(card.value!.getAttribute("label")).toContain("Owner: Alice");
+    expect(readCardDetail(card.value)).toHaveLength(3);
+    expect(startSizeOf(card.style)).toBe(28 + 3 * CARD_DETAIL_LINE_H);
+  });
+
+  it("convertShapeToContainer leaves a plain shape's header at its natural height", () => {
+    const shape = ruCell("s1", { x: 0, y: 0, width: 120, height: 60 });
+    shape.value = null;
+    const { iframe } = rollUpFrame([shape]);
+
+    expect(convertShapeToContainer(iframe, "s1", "Group")).toBe(true);
+    expect(startSizeOf(shape.style)).toBe(28);
+  });
+
+  it("drillDownInto clears the header it just sized for the parent's rows", () => {
+    const card = labelledCard("p1", { x: 0, y: 0, width: 210, height: 74 });
+    const { iframe, cells } = rollUpFrame([card]);
+
+    const inserted = drillDownInto(iframe, "p1", [
+      { id: "kid-1", name: "Child", type: "Application", color: "#0f7eb5" },
+    ]);
+
+    const header = 28 + 3 * CARD_DETAIL_LINE_H;
+    expect(startSizeOf(card.style)).toBe(header);
+    // The grid starts below the strip, not underneath it.
+    expect(cells[inserted[0].cellId].geometry.y).toBe(header + 12);
+  });
+
+  it("a re-drill lays the backfilled child against the live header", () => {
+    // The style is deliberately left alone on a re-drill, so the constant is
+    // the wrong thing to measure against once the header has grown. The stored
+    // row count is one, so a header recomputed from it would be 42, not 70 —
+    // only reading the live strip gets this right.
+    const card = ruCell("p1", { x: 0, y: 0, width: 320, height: 300 }, {
+      cardId: "id-p1",
+      cardType: "Application",
+      cardName: "NexaCore ERP",
+      cardDetail: JSON.stringify(rows.slice(0, 1)),
+      label: composeCardLabel("NexaCore ERP", rows.slice(0, 1)),
+    });
+    card.style = "shape=swimlane;startSize=70;fillColor=#0f7eb5";
+    const { iframe, cells } = rollUpFrame([card]);
+
+    const inserted = drillDownInto(iframe, "p1", [
+      { id: "kid-2", name: "Backfilled", type: "Application", color: "#0f7eb5" },
+    ]);
+
+    expect(startSizeOf(card.style)).toBe(70);
+    expect(cells[inserted[0].cellId].geometry.y).toBe(70 + 12);
   });
 });
 
@@ -1562,6 +1659,10 @@ function labelFrame(cells: Record<string, any>) {
     setStyle: (c: any, style: string) => {
       c._style = style;
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getChildCount: (c: any) => (c.children ?? []).length,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getChildAt: (c: any, i: number) => (c.children ?? [])[i] ?? null,
   };
   const graph = {
     getModel: () => model,
@@ -1807,6 +1908,101 @@ describe("applyCardLabels — the cell grows to hold its rows", () => {
       new Map([["id-top", rows(4).map((r) => ({ ...r, value: "changed" }))]]),
     );
     expect(cells.top.geometry.height).toBe(grown);
+  });
+});
+
+describe("applyCardLabels — a container's header holds its rows", () => {
+  const rows = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ label: `L${i}`, value: `${i}` }));
+
+  const SWIMLANE = "shape=swimlane;startSize=28;fillColor=#0f7eb5";
+
+  /** A drilled-down card: a swimlane header over a 3-wide grid of children. */
+  function container(style = SWIMLANE, stored: number = 0) {
+    const child = labelVertex(
+      "kid",
+      {
+        cardId: "id-kid",
+        cardType: "Application",
+        label: "Kid",
+        cardName: "Kid",
+        drillDownChild: "1",
+      },
+      { x: 12, y: 40, width: 180, height: 50 },
+    );
+    const box = labelVertex(
+      "box",
+      {
+        cardId: "id-box",
+        cardType: "Application",
+        label: "Box",
+        cardName: "Box",
+        ...(stored ? { cardDetail: JSON.stringify(rows(stored)) } : {}),
+      },
+      { x: 0, y: 0, width: 320, height: 220 },
+    );
+    box._style = style;
+    box.children = [child];
+    return { box, kid: child };
+  }
+
+  const startSizeOf = (style: string) =>
+    Number(/startSize=(\d+)/.exec(style)?.[1] ?? NaN);
+
+  it("grows the strip, the box and the children together", () => {
+    const cells = container();
+    applyCardLabels(labelFrame(cells), new Map([["id-box", rows(3)]]));
+    // No free allowance on a strip drawn for the name alone.
+    expect(startSizeOf(cells.box._style)).toBe(28 + 3 * CARD_DETAIL_LINE_H);
+    expect(cells.box.geometry.height).toBe(220 + 3 * CARD_DETAIL_LINE_H);
+    // Without this the top grid row would sit under the header.
+    expect(cells.kid.geometry.y).toBe(40 + 3 * CARD_DETAIL_LINE_H);
+  });
+
+  it("puts all three back when the fields are turned off", () => {
+    const cells = container();
+    const frame = labelFrame(cells);
+    applyCardLabels(frame, new Map([["id-box", rows(3)]]));
+    applyCardLabels(frame, new Map());
+    expect(startSizeOf(cells.box._style)).toBe(28);
+    expect(cells.box.geometry.height).toBe(220);
+    expect(cells.kid.geometry.y).toBe(40);
+  });
+
+  it("leaves a container with no rows exactly as it found it", () => {
+    const cells = container();
+    applyCardLabels(labelFrame(cells), new Map());
+    expect(cells.box._style).toBe(SWIMLANE);
+    expect(cells.box.geometry.height).toBe(220);
+    expect(cells.kid.geometry.y).toBe(40);
+  });
+
+  it("grows a header the user dragged from their size, not from the default", () => {
+    const cells = container("shape=swimlane;startSize=44;fillColor=#0f7eb5");
+    applyCardLabels(labelFrame(cells), new Map([["id-box", rows(1)]]));
+    expect(startSizeOf(cells.box._style)).toBe(44 + CARD_DETAIL_LINE_H);
+  });
+
+  it("does not drift when the same pass runs again", () => {
+    const cells = container();
+    const frame = labelFrame(cells);
+    applyCardLabels(frame, new Map([["id-box", rows(3)]]));
+    const style = cells.box._style;
+    const { height } = cells.box.geometry;
+    const { y } = cells.kid.geometry;
+    expect(applyCardLabels(frame, new Map([["id-box", rows(3)]]))).toBe(0);
+    expect(cells.box._style).toBe(style);
+    expect(cells.box.geometry.height).toBe(height);
+    expect(cells.kid.geometry.y).toBe(y);
+  });
+
+  it("takes the room out of the header, never out of the body", () => {
+    // The card path would have grown the cell height and left the strip at 28,
+    // spilling the rows over the children.
+    const cells = container();
+    applyCardLabels(labelFrame(cells), new Map([["id-box", rows(4)]]));
+    const grown = startSizeOf(cells.box._style) - 28;
+    expect(cells.box.geometry.height - 220).toBe(grown);
   });
 });
 

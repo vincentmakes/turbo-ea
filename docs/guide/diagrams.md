@@ -93,7 +93,7 @@ A second toolbar button, **Show on card**, chooses **what each shape says**. Tic
 
 Every selection is drawn on the shape, and the shape **grows to hold it**. Two rows fit in a card as it stands, so nothing moves until you tick a third; from there each card gets a little taller per selection and shrinks back when you untick one. A card you have resized by hand keeps your height: it only gains or gives back the room a row needs.
 
-These lines are saved with the diagram, so every reader — including anyone opening a published link — sees the same shapes. Cards pulled onto the canvas by **Expand** carry the same rows as any other card and grow the same way. Cards tiled inside a **Drill-Down** or **Roll-Up** container show what fits in their slot: growing one would push it over the row beneath.
+These lines are saved with the diagram, so every reader — including anyone opening a published link — sees the same shapes. Cards pulled onto the canvas by **Expand** carry the same rows as any other card and grow the same way. Cards tiled inside a **Drill-Down** or **Roll-Up** container show what fits in their slot: growing one would push it over the row beneath. The container's own title bar, though, grows to hold its rows — and its contents move down with it — so turning a card into a container never costs you what it was saying.
 
 The **Create diagram** button on the [Dependencies report](reports.md#dependencies-report) carries its own card-display settings across, so a diagram generated from a report opens showing exactly the rows the report showed — all of them, even the ones the report itself had no room to draw.
 

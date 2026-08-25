@@ -93,7 +93,7 @@ En anden knap i værktøjslinjen, **Vis på kortet**, afgør, **hvad hver figur 
 
 Hvert valg tegnes på figuren, og figuren **vokser, så der er plads**. Der er allerede plads til to linjer i et kort, så intet flytter sig, før du sætter flueben ved et tredje; derfra bliver hvert kort en anelse højere pr. valg og skrumper tilbage, når du fjerner et. Et kort, du selv har ændret størrelse på, beholder din højde: det får kun tilføjet eller frigivet pladsen til én linje.
 
-Linjerne gemmes med diagrammet, så alle læsere — også den, der åbner et publiceret link — ser de samme figurer. Kort, der hentes ind på lærredet med **Expand**, bærer de samme linjer som ethvert andet kort og vokser på samme måde. Kort, der er lagt ind i en **Drill-Down**- eller **Roll-Up**-beholder, viser det, der er plads til i deres felt: gjorde man dem højere, ville de dække rækken nedenunder.
+Linjerne gemmes med diagrammet, så alle læsere — også den, der åbner et publiceret link — ser de samme figurer. Kort, der hentes ind på lærredet med **Expand**, bærer de samme linjer som ethvert andet kort og vokser på samme måde. Kort, der er lagt ind i en **Drill-Down**- eller **Roll-Up**-beholder, viser det, der er plads til i deres felt: gjorde man dem højere, ville de dække rækken nedenunder. Beholderens egen titellinje vokser til gengæld, så der er plads til dens linjer — og indholdet flytter med ned — så det aldrig koster et kort det, det sagde, at blive lavet om til en beholder.
 
 Knappen **Create diagram** i [afhængighedsrapporten](reports.md) tager sine egne kortvisningsindstillinger med, så et diagram genereret fra en rapport åbner med præcis de linjer, rapporten valgte — dem alle, også dem rapporten selv ikke havde plads til at tegne.
 

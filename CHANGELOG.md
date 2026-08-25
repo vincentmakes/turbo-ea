@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - **A diagram card shows every field you tick, and grows to fit.** **Show on card** used to draw only the first two picks, because a card shape was a fixed size and anything longer spilled outside its border. A third field is now drawn rather than silently dropped: the shape grows by a row per selection past the two it already had room for, and shrinks back when you untick one, so an existing diagram opens exactly as it did. A card you resized by hand keeps your height — it only gains or gives back the room a row needs. Cards tiled inside a **Drill-Down** or **Roll-Up** container still stop at what fits in their slot, and the Dependencies report still shows two lines per node (both are laid out in fixed positions) — but a diagram generated from that report opens with all of them.
+- **A container's title bar grows for its rows too.** Turning a card into a container — **Drill-Down**, **Roll-Up** or **Convert to Container** — put its detail rows in a fixed-height title strip, so they spilled over the cards inside; **Convert to Container** avoided that by silently dropping the rows altogether. The strip now sizes itself to what the card is showing, and the container and its contents move down to keep the same room, so a card never loses what it was saying by becoming a container.
 
 ### Fixed
 
