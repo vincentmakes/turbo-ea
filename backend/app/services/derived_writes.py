@@ -36,6 +36,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 
 from sqlalchemy import event, inspect
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -45,12 +46,14 @@ __all__ = ["derived_maintenance", "pin_updated_at"]
 
 # None when no block is active; otherwise the cards that were already dirty when
 # the innermost block opened, which must keep their real timestamps.
-_preexisting_dirty: ContextVar[set | None] = ContextVar("derived_preexisting_dirty", default=None)
+_preexisting_dirty: ContextVar[set[Card] | None] = ContextVar(
+    "derived_preexisting_dirty", default=None
+)
 
 
-def _sync_session(session) -> Session:
+def _sync_session(session: AsyncSession | Session) -> Session:
     """Accept either an ``AsyncSession`` or a plain ``Session``."""
-    return getattr(session, "sync_session", session)
+    return session.sync_session if isinstance(session, AsyncSession) else session
 
 
 def pin_updated_at(card: Card) -> None:
@@ -65,7 +68,7 @@ def pin_updated_at(card: Card) -> None:
     flag_modified(card, "updated_at")
 
 
-def _pin_dirty_cards(sync: Session, exclude: set) -> None:
+def _pin_dirty_cards(sync: Session, exclude: set[Card]) -> None:
     for obj in list(sync.dirty):
         if not isinstance(obj, Card) or obj in exclude:
             continue
@@ -75,7 +78,7 @@ def _pin_dirty_cards(sync: Session, exclude: set) -> None:
 
 
 @contextmanager
-def derived_maintenance(session) -> Iterator[None]:
+def derived_maintenance(session: AsyncSession | Session) -> Iterator[None]:
     """Recompute derived values without re-dating the cards they belong to.
 
     Wrap only work that has no per-card user intent behind it. A write the user
