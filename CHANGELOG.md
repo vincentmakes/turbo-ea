@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.87.1] - 2026-08-25
+
+### Fixed
+
+- **A card archived by a ServiceNow sync is now kept for the retention window, then purged like any other.** The sync marked the card archived but never stamped when — and the clean-up job only considers cards carrying that stamp, so those cards sat in the archive forever instead of being permanently deleted after the retention period. They also recorded nobody as having made the change. Cards already stranded this way are picked up on upgrade: their retention clock starts at the upgrade, so you get a full window to spot and restore anything that should not have been archived before it is removed.
+
 ## [2.87.0] - 2026-08-25
 
 ### Fixed

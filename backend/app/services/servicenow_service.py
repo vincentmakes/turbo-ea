@@ -25,6 +25,7 @@ from app.models.servicenow import (
     SnowStagedRecord,
     SnowSyncRun,
 )
+from app.services.card_lifecycle import archive_cards_in_place
 from app.services.event_bus import event_bus
 
 logger = logging.getLogger(__name__)
@@ -857,7 +858,13 @@ class SyncEngine:
         if not card or card.status == "ARCHIVED":
             return
 
-        card.status = "ARCHIVED"
+        # Archive through the shared helper rather than flipping `status` by
+        # hand: the purge loop selects on `archived_at IS NOT NULL`
+        # (`app/main.py`), so a card archived without that stamp is invisible to
+        # retention and is kept forever. `archive_cards_in_place` sets status,
+        # `archived_at` and `updated_by` the same way every other archive path
+        # does.
+        archive_cards_in_place([card], actor_id)
 
         # Remove from identity map
         await self.db.execute(

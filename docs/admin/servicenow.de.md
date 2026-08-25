@@ -326,7 +326,7 @@ Die **Synchronisationshistorie**-Tabelle zeigt nach jedem Lauf:
 | Abgerufen | Insgesamt von ServiceNow abgerufene Datensätze |
 | Erstellt | Neue Karten in Turbo EA erstellt |
 | Aktualisiert | Bestehende Karten aktualisiert |
-| Gelöscht | Karten archiviert (weich gelöscht) |
+| Gelöscht | Karten archiviert (weich gelöscht). Sie unterliegen dem normalen Aufbewahrungszeitraum für Archive — bis zu dessen Ablauf wiederherstellbar, danach endgültig gelöscht. |
 | Fehler | Datensätze, die nicht verarbeitet werden konnten |
 | Dauer | Gesamtlaufzeit |
 

@@ -326,7 +326,7 @@ La tabla **Historial de Sincronización** muestra después de cada ejecución:
 | Obtenidos | Total de registros recuperados de ServiceNow |
 | Creados | Nuevas fichas creadas en Turbo EA |
 | Actualizados | Fichas existentes actualizadas |
-| Eliminados | Fichas archivadas (eliminación suave) |
+| Eliminados | Fichas archivadas (eliminación suave). Siguen el período de retención normal del archivo: se pueden restaurar hasta que expire y después se eliminan de forma permanente. |
 | Errores | Registros que fallaron al procesarse |
 | Duración | Tiempo total transcurrido |
 

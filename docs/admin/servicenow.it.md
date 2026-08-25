@@ -326,7 +326,7 @@ La tabella **Cronologia sincronizzazioni** mostra dopo ogni esecuzione:
 | Recuperati | Record totali recuperati da ServiceNow |
 | Creati | Nuove card create in Turbo EA |
 | Aggiornati | Card esistenti aggiornate |
-| Eliminati | Card archiviate (eliminate temporaneamente) |
+| Eliminati | Card archiviate (eliminate temporaneamente). Seguono il normale periodo di conservazione dell'archivio: ripristinabili fino alla scadenza, poi eliminate definitivamente. |
 | Errori | Record che non sono stati processati |
 | Durata | Tempo effettivo |
 

@@ -326,7 +326,7 @@ Tabellen **Synkroniseringshistorik** vises efter hvert kørsel:
 | Hentet | Total poster hentet fra ServiceNow |
 | Oprettet | Nye kort oprettet i Turbo EA |
 | Opdateret | Eksisterende kort opdateret |
-| Slettet | Kort arkiveret (soft-deleted) |
+| Slettet | Kort arkiveret (soft-deleted). De følger den normale opbevaringsperiode for arkivet — kan gendannes indtil den udløber, hvorefter de slettes permanent. |
 | Fejl | Poster, der mislykkedes at behandle |
 | Varighed | Vægur-tid |
 

@@ -326,7 +326,7 @@ Le tableau **Historique de synchronisation** affiche après chaque exécution :
 | Récupérés | Nombre total d'enregistrements récupérés de ServiceNow |
 | Créés | Nouvelles fiches créées dans Turbo EA |
 | Mis à jour | Fiches existantes mises à jour |
-| Supprimés | Fiches archivées (supprimées de manière logique) |
+| Supprimés | Fiches archivées (supprimées de manière logique). Elles suivent la période de rétention normale des archives : restaurables jusqu'à son expiration, puis supprimées définitivement. |
 | Erreurs | Enregistrements qui n'ont pas pu être traités |
 | Durée | Temps réel |
 

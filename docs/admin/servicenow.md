@@ -326,7 +326,7 @@ The **Sync History** table shows after each run:
 | Fetched | Total records retrieved from ServiceNow |
 | Created | New cards created in Turbo EA |
 | Updated | Existing cards updated |
-| Deleted | Cards archived (soft-deleted) |
+| Deleted | Cards archived (soft-deleted). They follow the normal archive retention window — restorable until it expires, then permanently deleted. |
 | Errors | Records that failed to process |
 | Duration | Wall-clock time |
 

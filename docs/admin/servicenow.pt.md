@@ -326,7 +326,7 @@ A tabela **Histórico de Sincronização** mostra após cada execução:
 | Buscados | Total de registros recuperados do ServiceNow |
 | Criados | Novos cards criados no Turbo EA |
 | Atualizados | Cards existentes atualizados |
-| Excluídos | Cards arquivados (exclusão suave) |
+| Excluídos | Cards arquivados (exclusão suave). Seguem o período de retenção normal do arquivo: podem ser restaurados até expirar e depois são excluídos permanentemente. |
 | Erros | Registros que falharam no processamento |
 | Duração | Tempo total de execução |
 
