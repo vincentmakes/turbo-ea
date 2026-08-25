@@ -10,7 +10,7 @@ from __future__ import annotations
 import io
 
 import pytest
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 
 from app.core.encryption import encrypt_value
 from app.models.app_settings import AppSettings
@@ -897,3 +897,62 @@ async def test_transfer_out_exposes_source_app_version():
     )
     out = _to_out(t)
     assert out.source_app_version == "1.62.3"
+
+
+async def test_import_cannot_reintroduce_legacy_permission_keys(db):
+    """A bundle exported from a pre-024 instance must not re-poison a repaired one.
+
+    The generic config applier writes ``permissions`` straight onto the model,
+    bypassing the Pydantic validators that forgive these keys — so without the
+    normaliser an old bundle would put ``card.quality_seal`` back and break the
+    target's stakeholder-role editor again, with a key its admin cannot see.
+    """
+    from app.models.card_type import CardType
+    from app.models.stakeholder_role_definition import StakeholderRoleDefinition
+
+    user = await create_user(db, email="legacy-perms-ws@test.com", role="admin")
+    db.add(
+        CardType(
+            key="Application",
+            label="Application",
+            icon="apps",
+            color="#0f7eb5",
+            fields_schema=[],
+        )
+    )
+    await db.flush()
+    db.add(
+        StakeholderRoleDefinition(
+            card_type_key="Application",
+            key="responsible",
+            label="Responsible",
+            color="#ff0000",
+            permissions={"card.view": True},
+        )
+    )
+    await db.flush()
+
+    raw = await build_bundle(db)
+
+    # Simulate the source instance still carrying the dead key: rewrite the row
+    # in place, then re-import that bundle over it.
+    await db.execute(
+        update(StakeholderRoleDefinition)
+        .where(StakeholderRoleDefinition.key == "responsible")
+        .values(permissions={"card.view": True, "card.quality_seal": True})
+    )
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    stored = (
+        await db.execute(
+            select(StakeholderRoleDefinition.permissions).where(
+                StakeholderRoleDefinition.card_type_key == "Application",
+                StakeholderRoleDefinition.key == "responsible",
+            )
+        )
+    ).scalar_one()
+    assert "card.quality_seal" not in stored
+    assert stored == {"card.view": True}

@@ -30,6 +30,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.permissions import strip_legacy_card_permissions
 from app.models.app_settings import AppSettings
 from app.models.bookmark import Bookmark, bookmark_shares
 from app.models.card import Card
@@ -39,6 +40,7 @@ from app.models.diagram_group import DiagramGroup, diagram_group_members
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.role import Role
+from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.services import card_reference
@@ -465,6 +467,15 @@ def _make_config_applier(sec: schema.ConfigSection):
         }
         for row in bundle.rows(sec.sheet):
             data = _coerce(row, sec.columns, sec.json_columns)
+            # A bundle exported from an install upgraded through migration 024
+            # carries card permission keys 140 has since dropped. This path
+            # writes straight onto the model, bypassing the Pydantic validators
+            # that forgive them, so without this an old bundle would silently
+            # re-poison a repaired instance and break its role editor again.
+            # Scoped to the stakeholder-role sheet on purpose: app-level
+            # ``roles.permissions`` keys were already repaired by 033.
+            if sec.model is StakeholderRoleDefinition and "permissions" in data:
+                data["permissions"] = strip_legacy_card_permissions(data["permissions"])
             nk = tuple(data.get(k) for k in sec.natural_key)
             if any(part is None for part in nk):
                 sr.failed += 1

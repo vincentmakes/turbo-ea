@@ -188,11 +188,33 @@ function StakeholdersTab({
         </Box>
       )}
       {grouped.map(({ role, items }) => (
-        <MuiCard key={role.key} sx={{ mb: 2 }}>
+        <MuiCard
+          key={role.key}
+          // `color` is null for a role with no definition row (the legacy
+          // card_types mirror and the hardcoded defaults carry none), so the
+          // accent is omitted rather than invented — matching how the survey
+          // builder renders the same payload. Spread, not interpolated: a bare
+          // `4px solid undefined` is invalid CSS.
+          sx={{ mb: 2, ...(role.color ? { borderLeft: `4px solid ${role.color}` } : {}) }}
+        >
           <CardContent>
-            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-              {rl(role.label, role.translations?.label)}
-            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+              {role.color && (
+                <Box
+                  data-testid={`stakeholder-role-color-${role.key}`}
+                  sx={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    bgcolor: role.color,
+                    flexShrink: 0,
+                  }}
+                />
+              )}
+              <Typography variant="subtitle2" fontWeight={600}>
+                {rl(role.label, role.translations?.label)}
+              </Typography>
+            </Box>
             {items.length === 0 ? (
               <Typography variant="body2" color="text.secondary">
                 {t("stakeholders.noneAssigned", {

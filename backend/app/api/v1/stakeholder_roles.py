@@ -11,7 +11,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.core.permissions import ALL_CARD_PERMISSION_KEYS, CARD_PERMISSIONS
+from app.core.permissions import (
+    ALL_CARD_PERMISSION_KEYS,
+    CARD_PERMISSIONS,
+    strip_legacy_card_permissions,
+)
 from app.database import get_db
 from app.models.card import Card
 from app.models.card_type import CardType
@@ -65,6 +69,10 @@ class StakeholderRoleCreate(BaseModel):
     @field_validator("permissions")
     @classmethod
     def validate_permissions(cls, v: dict[str, bool]) -> dict[str, bool]:
+        # Stale keys migration 024 left behind are dropped rather than rejected,
+        # so a client echoing a legacy map back (the admin UI round-trips what it
+        # was served) can still save. Anything else unknown is still an error.
+        v = strip_legacy_card_permissions(v)
         unknown = set(v.keys()) - ALL_CARD_PERMISSION_KEYS
         if unknown:
             raise ValueError(f"Unknown permission keys: {', '.join(sorted(unknown))}")
@@ -93,6 +101,9 @@ class StakeholderRoleUpdate(BaseModel):
     @classmethod
     def validate_permissions(cls, v: dict[str, bool] | None) -> dict[str, bool] | None:
         if v is not None:
+            # Dropping the legacy keys here also cleans them out of the stored
+            # row on the next save, so a role repairs itself as it is edited.
+            v = strip_legacy_card_permissions(v)
             unknown = set(v.keys()) - ALL_CARD_PERMISSION_KEYS
             if unknown:
                 raise ValueError(f"Unknown permission keys: {', '.join(sorted(unknown))}")

@@ -148,6 +148,8 @@ Stakeholders are people with a specific **role** on this card. The available rol
 
 Stakeholder assignments affect **permissions**: a user's effective permissions on a card are the combination of their app-level role and any stakeholder roles they hold on that card.
 
+Where a role has a **colour** set in the metamodel, its group is marked with it, so you can pick out an owner from an observer at a glance.
+
 ### Searching and inviting
 
 Pick a stakeholder via the **searchable autocomplete** — start typing and the dropdown filters on both name and email (email appears as the secondary line so two users with the same name can be told apart at a glance).

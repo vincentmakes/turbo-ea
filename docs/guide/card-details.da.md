@@ -148,6 +148,8 @@ Interessenter er personer med en specifik **rolle** på dette kort. De tilgænge
 
 Interessenttildelinger påvirker **tilladelser**: en brugers effektive tilladelser på et kort er kombinationen af deres app-niveau-rolle og enhver interessentrolle, de har på det kort.
 
+Når en rolle har en **farve** angivet i metamodellen, markeres dens gruppe med den, så du med et enkelt blik kan skelne en ejer fra en observatør.
+
 ### Søgning og invitation
 
 Vælg en interessent via den **søgbare autocomplete** — begynd at skrive, og dropdownen filtrerer på både navn og e-mail (e-mail vises som den sekundære linje, så to brugere med samme navn kan skelnes med et øjekast).

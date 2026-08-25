@@ -148,6 +148,8 @@ Partes interessadas são pessoas com um **papel** específico neste card. Os pap
 
 Atribuições de partes interessadas afetam **permissões**: as permissões efetivas de um usuário em um card são a combinação do seu papel em nível de aplicação e quaisquer papéis de parte interessada que ele possua naquele card.
 
+Quando um papel tem uma **cor** definida no metamodelo, o seu grupo é marcado com ela, permitindo distinguir um proprietário de um observador num relance.
+
 ### Pesquisar e convidar
 
 Escolha uma parte interessada via o **autocompletar pesquisável** — comece a digitar e o menu suspenso filtra tanto por nome quanto por e-mail (o e-mail aparece como linha secundária, para que dois usuários com o mesmo nome possam ser distinguidos num relance).

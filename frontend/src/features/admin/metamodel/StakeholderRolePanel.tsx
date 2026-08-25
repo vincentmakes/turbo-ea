@@ -130,6 +130,10 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
     translations: {} as MetamodelTranslations,
   });
   const [editSaving, setEditSaving] = useState(false);
+  // Mirrors the drawer-level alert next to the Save button. The drawer's
+  // alert renders above the tab bar, so a failure while editing a role far
+  // down the list scrolls out of sight and the save just looks inert.
+  const [editError, setEditError] = useState<string | null>(null);
   /** Usage of the role being edited — `null` while still loading. */
   const [editUsage, setEditUsage] = useState<RoleUsage | null>(null);
 
@@ -226,13 +230,26 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
   /* --- Edit role --- */
   const startEdit = (role: StakeholderRoleDefinitionFull) => {
     setEditRoleKey(role.key);
+    setEditError(null);
     setEditForm({
       key: role.key,
       label: role.label,
       description: role.description || "",
       color: role.color,
       countsForQuality: role.counts_for_quality,
-      permissions: { ...role.permissions },
+      // Carry forward only the keys the permission editor can actually show.
+      // A stored key the schema does not know about — the dead ones a pre-024
+      // install still carries, say — is invisible here yet used to be resent
+      // verbatim on every save, so the server rejected the whole PATCH and the
+      // colour, label and translations went down with it. Guarded on a
+      // non-empty schema so a failed schema fetch can never blank a role's
+      // permissions.
+      permissions:
+        Object.keys(permissionsSchema).length > 0
+          ? Object.fromEntries(
+              Object.entries(role.permissions).filter(([k]) => k in permissionsSchema),
+            )
+          : { ...role.permissions },
       translations: role.translations ? { ...role.translations } : {},
     });
     setExpandedRole(role.key);
@@ -244,6 +261,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
   const handleSaveEdit = async () => {
     if (!editRoleKey) return;
     setEditSaving(true);
+    setEditError(null);
     try {
       const keyChanged = editForm.key !== editRoleKey;
       await api.patch(`/metamodel/types/${typeKey}/stakeholder-roles/${editRoleKey}`, {
@@ -259,7 +277,10 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       setEditRoleKey(null);
       if (keyChanged) setExpandedRole(editForm.key);
     } catch (e: unknown) {
-      onError(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToUpdate"));
+      const message =
+        e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToUpdate");
+      setEditError(message);
+      onError(message);
     } finally {
       setEditSaving(false);
     }
@@ -267,6 +288,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
 
   const cancelEdit = () => {
     setEditRoleKey(null);
+    setEditError(null);
   };
 
   /* --- Archive / Delete / Restore --- */
@@ -601,6 +623,11 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                       )}
                       {renderTranslationFields(editForm.translations, (updated) =>
                         setEditForm({ ...editForm, translations: updated }),
+                      )}
+                      {editError && (
+                        <Alert severity="error" sx={{ mt: 1 }}>
+                          {editError}
+                        </Alert>
                       )}
                       <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end", mt: 1 }}>
                         <Button size="small" onClick={cancelEdit}>

@@ -148,6 +148,8 @@ Les parties prenantes sont des personnes ayant un **rôle** spécifique sur cett
 
 Les affectations de parties prenantes affectent les **permissions** : les permissions effectives d'un utilisateur sur une fiche sont la combinaison de son rôle au niveau de l'application et de tous les rôles de parties prenantes qu'il détient sur cette fiche.
 
+Lorsqu'une **couleur** est définie pour un rôle dans le métamodèle, son groupe en est marqué, ce qui permet de distinguer un propriétaire d'un observateur d'un coup d'œil.
+
 ### Recherche et invitation
 
 Choisissez une partie prenante via l'**autocomplétion recherchable** — commencez à taper et la liste déroulante filtre à la fois sur le nom et sur l'e-mail (l'e-mail apparaît sur une ligne secondaire, pour que deux utilisateurs portant le même nom soient distinguables d'un coup d'œil).

@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.88.1] - 2026-08-25
+
+### Fixed
+
+- **Stakeholder roles can be edited again.** On instances upgraded from an early release, some roles carried two leftover permission entries from a rename made several versions ago. They were invisible in the role editor and impossible to remove, yet were sent back every time you pressed Save — so the save was rejected and the colour, label, description and translations you had just changed were quietly discarded. The leftovers are cleaned up on upgrade and ignored from now on, including in workspace bundles imported from an older instance. **No permission anyone actually holds changes:** the entries had granted nothing since the rename, so they are removed rather than converted, and a role that should approve cards or manage stakeholders can now be given those rights by ticking the boxes.
+- **A stakeholder role's colour now shows on a card's Stakeholders tab.** Each role group carries the colour set for that role in the metamodel, matching the dashboard's My roles section and the stakeholder hover card. The tab was the one place the colour never appeared.
+- **A stakeholder role that fails to save now says why, next to the Save button.** The message previously appeared only at the top of the panel, out of view when editing a role further down the list, which made a rejected save look as though nothing had happened.
+
 ## [2.88.0] - 2026-08-25
 
 ### Added

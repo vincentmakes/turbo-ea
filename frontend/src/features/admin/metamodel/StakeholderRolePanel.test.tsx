@@ -285,3 +285,99 @@ describe("StakeholderRolePanel — archived roles", () => {
     );
   });
 });
+
+describe("StakeholderRolePanel — legacy permission keys", () => {
+  /**
+   * A role on an install upgraded through migration 024 carries permission keys
+   * the current catalogue does not define. The permission editor renders only
+   * the keys the schema endpoint returns, so they were invisible here and could
+   * not be unticked — yet the panel resent the stored map verbatim, the API
+   * rejected the whole PATCH, and the colour change went down with it.
+   */
+  const LEGACY_ROLE = [
+    {
+      id: "1",
+      card_type_key: "Application",
+      key: "responsible",
+      label: "Responsible",
+      color: "#1976d2",
+      permissions: { "card.view": true, "card.quality_seal": true },
+      is_archived: false,
+      sort_order: 0,
+      stakeholder_count: 0,
+    },
+  ];
+
+  function mockLegacyApi() {
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.includes("/usage")) return Promise.resolve(UNUSED);
+      if (path.includes("permissions-schema"))
+        return Promise.resolve({ "card.view": "View card" });
+      return Promise.resolve(LEGACY_ROLE);
+    });
+    apiMock.patch.mockResolvedValue({});
+  }
+
+  it("does not resend a permission key the editor cannot display", async () => {
+    mockLegacyApi();
+    const user = userEvent.setup();
+    render(<StakeholderRolePanel typeKey="Application" onError={() => {}} />);
+
+    await screen.findByText("Responsible");
+    await user.click(screen.getAllByRole("button", { name: /edit/i })[0]);
+
+    const save = await screen.findByRole("button", { name: /^save$/i });
+    await waitFor(() => expect(save).toBeEnabled());
+    await user.click(save);
+
+    await waitFor(() => expect(apiMock.patch).toHaveBeenCalled());
+    const [, body] = apiMock.patch.mock.calls[0];
+    expect(body.permissions).toEqual({ "card.view": true });
+    expect(body.permissions["card.quality_seal"]).toBeUndefined();
+  });
+
+  it("keeps every permission when the schema fetch came back empty", async () => {
+    // Guard on the filter above: an empty schema must mean "cannot tell", not
+    // "no permissions", or a failed fetch would silently blank the role.
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.includes("/usage")) return Promise.resolve(UNUSED);
+      if (path.includes("permissions-schema")) return Promise.resolve({});
+      return Promise.resolve(LEGACY_ROLE);
+    });
+    apiMock.patch.mockResolvedValue({});
+    const user = userEvent.setup();
+    render(<StakeholderRolePanel typeKey="Application" onError={() => {}} />);
+
+    await screen.findByText("Responsible");
+    await user.click(screen.getAllByRole("button", { name: /edit/i })[0]);
+
+    const save = await screen.findByRole("button", { name: /^save$/i });
+    await waitFor(() => expect(save).toBeEnabled());
+    await user.click(save);
+
+    await waitFor(() => expect(apiMock.patch).toHaveBeenCalled());
+    const [, body] = apiMock.patch.mock.calls[0];
+    expect(body.permissions).toEqual({ "card.view": true, "card.quality_seal": true });
+  });
+
+  it("shows a failed save inside the panel, not only at the top of the drawer", async () => {
+    // The drawer's alert renders above the tab bar, so a failure while editing
+    // a role further down scrolls out of sight and the save just looks inert.
+    mockLegacyApi();
+    apiMock.patch.mockRejectedValue(new Error("Unknown permission keys: card.quality_seal"));
+    const onError = vi.fn();
+    const user = userEvent.setup();
+    render(<StakeholderRolePanel typeKey="Application" onError={onError} />);
+
+    await screen.findByText("Responsible");
+    await user.click(screen.getAllByRole("button", { name: /edit/i })[0]);
+
+    const save = await screen.findByRole("button", { name: /^save$/i });
+    await waitFor(() => expect(save).toBeEnabled());
+    await user.click(save);
+
+    expect(await screen.findByText(/Unknown permission keys/)).toBeInTheDocument();
+    // The drawer-level alert still fires for anyone scrolled to the top.
+    expect(onError).toHaveBeenCalled();
+  });
+});

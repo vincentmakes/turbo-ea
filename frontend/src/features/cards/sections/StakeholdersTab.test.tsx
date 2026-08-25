@@ -44,7 +44,9 @@ const card: Card = {
 } as unknown as Card;
 
 const ROLES = [
-  { key: "responsible", label: "Responsible", allowed_types: null },
+  { key: "responsible", label: "Responsible", allowed_types: null, color: "#ff0000" },
+  // No colour: what the API sends for a role with no definition row (the
+  // legacy card_types.stakeholder_roles mirror, or the hardcoded defaults).
   { key: "observer", label: "Observer", allowed_types: null },
 ];
 
@@ -247,5 +249,24 @@ describe("StakeholdersTab", () => {
         role: "responsible",
       });
     });
+  });
+
+  it("marks each role group with the role's colour", async () => {
+    render(<StakeholdersTab card={card} onRefresh={() => {}} />);
+
+    // The endpoint carries the colour; this tab was the one place that read it
+    // and rendered nothing, so a role's colour never showed up on a card.
+    const swatch = await screen.findByTestId("stakeholder-role-color-responsible");
+    expect(swatch).toHaveStyle({ backgroundColor: "#ff0000" });
+  });
+
+  it("omits the accent when a role has no colour", async () => {
+    // The API sends null for a role with no definition row rather than
+    // inventing a colour, so the dot is skipped — same as the survey builder.
+    render(<StakeholdersTab card={card} onRefresh={() => {}} />);
+
+    // Wait for the roles to land before asserting on an absence.
+    await screen.findByTestId("stakeholder-role-color-responsible");
+    expect(screen.queryByTestId("stakeholder-role-color-observer")).toBeNull();
   });
 });

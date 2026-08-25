@@ -148,6 +148,8 @@ Gli stakeholder sono persone con un **ruolo** specifico su questa card. I ruoli 
 
 Le assegnazioni degli stakeholder influenzano i **permessi**: i permessi effettivi di un utente su una card sono la combinazione del suo ruolo a livello di applicazione e di qualsiasi ruolo di stakeholder che detiene su quella card.
 
+Quando un ruolo ha un **colore** impostato nel metamodello, il suo gruppo ne viene contrassegnato, così da distinguere a colpo d'occhio un proprietario da un osservatore.
+
 ### Ricerca e invito
 
 Scegli uno stakeholder tramite l'**autocomplete ricercabile** — inizia a digitare e il menu a tendina filtra sia per nome che per e-mail (l'e-mail appare come riga secondaria, così due utenti con lo stesso nome possono essere distinti a colpo d'occhio).

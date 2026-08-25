@@ -148,6 +148,8 @@ Stakeholder sind Personen mit einer bestimmten **Rolle** auf dieser Karte. Die v
 
 Stakeholder-Zuweisungen beeinflussen **Berechtigungen**: Die effektiven Berechtigungen eines Benutzers auf einer Karte sind die Kombination aus seiner anwendungsweiten Rolle und allen Stakeholder-Rollen, die er auf dieser Karte innehat.
 
+Wenn für eine Rolle im Metamodell eine **Farbe** festgelegt ist, wird ihre Gruppe damit gekennzeichnet, sodass Sie einen Eigentümer auf einen Blick von einem Beobachter unterscheiden können.
+
 ### Suchen und einladen
 
 Wähle einen Stakeholder über das **durchsuchbare Autocomplete** — beginne zu tippen und das Dropdown filtert sowohl nach Name als auch nach E-Mail (die E-Mail erscheint als sekundäre Zeile, sodass zwei Nutzer mit demselben Namen auf einen Blick unterschieden werden können).

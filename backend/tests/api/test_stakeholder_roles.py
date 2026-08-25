@@ -890,3 +890,130 @@ class TestCardPermissionsSchema:
         data = response.json()
         assert isinstance(data, dict)
         assert len(data) > 0
+
+
+# ---------------------------------------------------------------------------
+# Legacy permission keys (migration 024 leftovers)
+# ---------------------------------------------------------------------------
+
+
+class TestLegacyPermissionKeys:
+    """A pre-024 install carries ``card.quality_seal`` /
+    ``card.manage_subscriptions`` in ``permissions``.
+
+    Migration 024 rewrote the ``fs.`` prefix to ``card.`` without applying the
+    semantic rename it was named after, and 033 repaired only the app-level
+    twins. The admin panel renders solely the keys in the permissions schema, so
+    these were invisible and un-removable, yet it resent the stored map verbatim
+    on every save — and the validator rejected the whole request, discarding the
+    colour, label and translation edits riding along with it.
+    """
+
+    async def test_patch_with_legacy_keys_saves_and_strips_them(self, client, db):
+        """The reported bug: changing a colour on a legacy role did nothing."""
+        from sqlalchemy import select
+
+        from app.models.stakeholder_role_definition import StakeholderRoleDefinition
+
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+        await create_card_type(db, key="Application", label="Application")
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Application",
+            key="responsible",
+            label="Responsible",
+            color="#757575",
+            permissions={
+                "card.view": True,
+                "card.quality_seal": True,
+                "card.manage_subscriptions": True,
+            },
+        )
+
+        response = await client.patch(
+            "/api/v1/metamodel/types/Application/stakeholder-roles/responsible",
+            # Exactly what the admin panel sends: the stored map echoed back.
+            json={
+                "color": "#ff0000",
+                "permissions": {
+                    "card.view": True,
+                    "card.quality_seal": True,
+                    "card.manage_subscriptions": True,
+                },
+            },
+            headers=auth_headers(admin),
+        )
+
+        assert response.status_code == 200
+        assert response.json()["color"] == "#ff0000"
+        # The save also cleans the row, so the role repairs itself as it is edited.
+        stored = await db.execute(
+            select(StakeholderRoleDefinition.permissions).where(
+                StakeholderRoleDefinition.card_type_key == "Application",
+                StakeholderRoleDefinition.key == "responsible",
+            )
+        )
+        assert stored.scalar_one() == {"card.view": True}
+
+    async def test_legacy_keys_are_not_remapped_to_modern_equivalents(self, client, db):
+        """Dropping must not become a silent privilege escalation."""
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+        await create_card_type(db, key="Application", label="Application")
+        await create_stakeholder_role_def(
+            db, card_type_key="Application", key="responsible", label="Responsible"
+        )
+
+        response = await client.patch(
+            "/api/v1/metamodel/types/Application/stakeholder-roles/responsible",
+            json={"permissions": {"card.quality_seal": True, "card.manage_subscriptions": True}},
+            headers=auth_headers(admin),
+        )
+
+        assert response.status_code == 200
+        perms = response.json()["permissions"]
+        assert perms == {}
+        assert "card.approval_status" not in perms
+        assert "card.manage_stakeholders" not in perms
+
+    async def test_create_strips_legacy_keys(self, client, db):
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+        await create_card_type(db, key="Application", label="Application")
+
+        response = await client.post(
+            "/api/v1/metamodel/types/Application/stakeholder-roles",
+            json={
+                "key": "dataSteward",
+                "label": "Data Steward",
+                "permissions": {"card.view": True, "card.quality_seal": True},
+            },
+            headers=auth_headers(admin),
+        )
+
+        assert response.status_code == 201
+        assert response.json()["permissions"] == {"card.view": True}
+
+    async def test_unknown_key_still_rejected_alongside_a_legacy_one(self, client, db):
+        """Forgiving the two known leftovers must not open the guard generally."""
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+        await create_card_type(db, key="Application", label="Application")
+        await create_stakeholder_role_def(
+            db, card_type_key="Application", key="responsible", label="Responsible"
+        )
+
+        response = await client.patch(
+            "/api/v1/metamodel/types/Application/stakeholder-roles/responsible",
+            json={"permissions": {"card.quality_seal": True, "fake.permission": True}},
+            headers=auth_headers(admin),
+        )
+
+        assert response.status_code == 422
+        # Assert on the validator's message, not the whole body: Pydantic echoes
+        # the submitted input back under "input", so the forgiven key appears
+        # there regardless of whether it was a reason for the rejection.
+        messages = " ".join(d.get("msg", "") for d in response.json()["detail"])
+        assert "fake.permission" in messages
+        assert "card.quality_seal" not in messages

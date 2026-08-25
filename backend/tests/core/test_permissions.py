@@ -20,12 +20,14 @@ from app.core.permissions import (
     CARD_PERMISSIONS,
     CARD_TO_APP_PERMISSION_MAP,
     DEFAULT_CARD_PERMISSIONS_BY_ROLE,
+    LEGACY_CARD_PERMISSION_KEYS,
     MEMBER_PERMISSIONS,
     OBSERVER_CARD_PERMISSIONS,
     PROCESS_OWNER_CARD_PERMISSIONS,
     RESPONSIBLE_CARD_PERMISSIONS,
     TECH_APP_OWNER_CARD_PERMISSIONS,
     VIEWER_PERMISSIONS,
+    strip_legacy_card_permissions,
 )
 
 # ---------------------------------------------------------------------------
@@ -319,3 +321,60 @@ class TestPermissionCounts:
     def test_minimum_stakeholder_roles(self):
         """There should be at least 5 default stakeholder roles."""
         assert len(DEFAULT_CARD_PERMISSIONS_BY_ROLE) >= 5
+
+
+# ---------------------------------------------------------------------------
+# Legacy card permission keys
+# ---------------------------------------------------------------------------
+
+
+class TestLegacyCardPermissionKeys:
+    """The dead keys migration 024 left in ``stakeholder_role_definitions``.
+
+    024 rewrote the ``fs.`` prefix to ``card.`` without applying the semantic
+    rename shipping alongside it, and 033 repaired only the app-level twins in
+    ``roles.permissions``. The leftovers made every stakeholder-role save 422.
+    """
+
+    def test_names_exactly_the_two_known_stale_keys(self):
+        assert LEGACY_CARD_PERMISSION_KEYS == frozenset(
+            {"card.quality_seal", "card.manage_subscriptions"}
+        )
+
+    def test_stale_keys_are_not_live_permissions(self):
+        # The invariant that makes dropping them safe: nothing reads either one,
+        # so removing them cannot take away a grant anybody actually holds.
+        assert not (LEGACY_CARD_PERMISSION_KEYS & ALL_CARD_PERMISSION_KEYS)
+
+    def test_modern_equivalents_exist_and_are_untouched(self):
+        assert "card.approval_status" in ALL_CARD_PERMISSION_KEYS
+        assert "card.manage_stakeholders" in ALL_CARD_PERMISSION_KEYS
+
+    def test_strips_stale_keys(self):
+        assert strip_legacy_card_permissions(
+            {"card.view": True, "card.quality_seal": True, "card.manage_subscriptions": False}
+        ) == {"card.view": True}
+
+    def test_does_not_remap_onto_the_modern_keys(self):
+        # Remapping would newly grant approve/reject and stakeholder management
+        # to every holder of a legacy role — an escalation dressed as a fix.
+        assert strip_legacy_card_permissions({"card.quality_seal": True}) == {}
+
+    def test_leaves_unknown_keys_for_the_caller_to_reject(self):
+        # Keeps the API validator a validator: only keys this codebase itself
+        # once wrote are forgiven, never anything a client invents.
+        assert strip_legacy_card_permissions({"fake.permission": True}) == {"fake.permission": True}
+        assert strip_legacy_card_permissions({"*": True}) == {"*": True}
+
+    def test_preserves_false_values_and_clean_maps(self):
+        assert strip_legacy_card_permissions({"card.edit": False}) == {"card.edit": False}
+        assert strip_legacy_card_permissions({}) == {}
+
+    def test_is_idempotent(self):
+        once = strip_legacy_card_permissions({"card.view": True, "card.quality_seal": True})
+        assert strip_legacy_card_permissions(once) == once
+
+    def test_tolerates_non_dict(self):
+        # NOT NULL in the model, but a hand-edited or third-party row could hold
+        # anything and this runs on every write path.
+        assert strip_legacy_card_permissions(None) is None
