@@ -91,11 +91,11 @@ Uma legenda flutuante no canto inferior esquerdo mostra uma escala por regra ati
 
 Um segundo botão da barra de ferramentas, **Mostrar no cartão**, decide **o que cada forma diz**. Assinale o **tipo de cartão**, o **subtipo** ou qualquer atributo dos tipos de cartão presentes na tela, e cada forma ganha pequenas linhas de detalhe sob o seu nome. Os campos são listados sob o tipo de cartão a que pertencem; um campo partilhado por vários desses tipos é agrupado sob **Comuns**. É um botão separado de **Colorir por**, para que nenhuma das duas listas obrigue a percorrer a outra. **Limpar tudo** desmarca todas as caixas de uma só vez.
 
-As duas primeiras seleções são desenhadas na forma: um cartão tem um tamanho limitado e o texto que não cabe transbordaria da sua borda. Tudo o que assinalar é memorizado, pelo que alargar a seleção mais tarde muda quais as duas que aparecem sem ter de escolher de novo.
+Cada seleção é desenhada na forma, e a forma **cresce para a acolher**. Duas linhas já cabem num cartão, pelo que nada se move até assinalar uma terceira; a partir daí cada cartão fica um pouco mais alto por seleção e volta a encolher quando desmarca uma. Um cartão que tenha redimensionado à mão mantém a sua altura: apenas ganha ou devolve o espaço de uma linha.
 
-Estas linhas são guardadas com o diagrama, pelo que todos os leitores — incluindo quem abra uma ligação publicada — veem as mesmas formas. Os cartões filhos expandidos mantêm apenas o nome: são demasiado pequenos para mais.
+Estas linhas são guardadas com o diagrama, pelo que todos os leitores — incluindo quem abra uma ligação publicada — veem as mesmas formas. Os cartões trazidos para a tela por **Expandir** levam as mesmas linhas que qualquer outro cartão e crescem da mesma maneira. Os cartões dispostos dentro de um contentor **Drill-Down** ou **Roll-Up** mostram o que cabe na sua célula: aumentá-los faria com que invadissem a linha de baixo.
 
-O botão **Criar diagrama** do [relatório de dependências](reports.md) transporta as suas próprias definições de exibição, pelo que um diagrama gerado a partir de um relatório mostra exatamente as linhas que o relatório mostrava.
+O botão **Criar diagrama** do [relatório de dependências](reports.md) transporta as suas próprias definições de exibição, pelo que um diagrama gerado a partir de um relatório mostra exatamente as linhas que o relatório mostrava — todas elas, incluindo as que o próprio relatório não tinha espaço para desenhar.
 
 ### Como as arestas de relação são desenhadas
 

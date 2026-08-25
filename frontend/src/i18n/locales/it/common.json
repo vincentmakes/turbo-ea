@@ -463,5 +463,6 @@
   "cardDisplay.clearAll": "Cancella tutto",
   "cardDisplay.subtypeLine": "Sottotipo",
   "cardDisplay.linesHint": "I primi {{count}} appaiono sulla scheda.",
+  "cardDisplay.linesHintAll": "Ogni scelta appare sulla scheda, che si ingrandisce di conseguenza.",
   "cardDisplay.noFields": "Nessun campo disponibile"
 }

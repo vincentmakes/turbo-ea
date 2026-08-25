@@ -42,6 +42,7 @@ import {
   expandCardGroupAt,
   collapseCardGroup,
   captureGroupChildLayout,
+  detailRowsHeight,
   getGroupChildCardIds,
   refreshCardOverlays,
   insertPendingCard,
@@ -125,7 +126,6 @@ import {
   EMPTY_VALUE,
   formatFieldValue,
   hasCardLabelLines,
-  MAX_CARD_LINES,
   type CardLabelSettings,
 } from "@/lib/cardDisplayFields";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
@@ -770,6 +770,10 @@ export default function DiagramEditor() {
   // the builder and doesn't re-create when the settings change, so a plain
   // closure capture would go stale.
   const detailLinesForCardRef = useRef<(card: Card) => CardDetailLine[]>(() => []);
+  /** Re-run the display pass (colours + detail rows) over the whole canvas.
+   *  A ref for the same staleness reason, and because every expand / drill-down
+   *  / roll-up callback is declared long before `applyView` itself. */
+  const applyViewRef = useRef<() => void>(() => {});
   const [viewLegendSections, setViewLegendSections] = useState<LegendSection[]>([]);
   const [viewAppliedCount, setViewAppliedCount] = useState(0);
   // Relation verbs ("provides", "consumes", …) hidden on this diagram. Saved
@@ -919,6 +923,10 @@ export default function DiagramEditor() {
           openExpandMenu(child.cellId, child.cardId, anchor),
         );
       }
+      // Expansion is handed card *stubs* (`{id, name, type}` off the relation),
+      // never full records, so it cannot label or colour the children itself.
+      // Re-run the display pass, which fetches them and does both.
+      applyViewRef.current();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -995,6 +1003,12 @@ export default function DiagramEditor() {
 
       const live = captureGroupChildLayout(frame, cellId);
       const pristine = pristineChildLayoutRef.current.get(cellId);
+      // Heights are compared net of the detail rows. The baseline is snapshotted
+      // the moment the children are inserted, which is *before* the display pass
+      // has fetched them and grown them to hold their rows — so comparing raw
+      // heights would read every expansion as arranged and put a confirm dialog
+      // in front of every collapse.
+      const dragged = (l: ChildLayout) => l.height - detailRowsHeight(l.detail.length);
       const arranged =
         live.size > 0 &&
         (pristine == null ||
@@ -1005,7 +1019,7 @@ export default function DiagramEditor() {
               before.x !== layout.x ||
               before.y !== layout.y ||
               before.width !== layout.width ||
-              before.height !== layout.height ||
+              dragged(before) !== dragged(layout) ||
               before.style !== layout.style
             );
           }));
@@ -1264,6 +1278,8 @@ export default function DiagramEditor() {
               t("editor.someNeighboursSkipped", { count: skippedAlreadyPresent }),
             );
           }
+          // Same as `doExpand`: label + colour the freshly-inserted children.
+          applyViewRef.current();
         } catch {
           setSnackMsg(t("editor.errors.loadRelationsFailed"));
         }
@@ -1320,6 +1336,8 @@ export default function DiagramEditor() {
             openExpandMenu(child.cellId, child.cardId, anchor),
           );
         }
+        // Same as `doExpand`: label + colour the freshly-inserted children.
+        applyViewRef.current();
         return;
       }
 
@@ -1413,6 +1431,8 @@ export default function DiagramEditor() {
             openExpandMenu(child.cellId, child.cardId, anchor),
           );
         }
+        // Same as `doExpand`: label + colour the freshly-inserted children.
+        applyViewRef.current();
       }
     },
     [t, requestCollapseGroup, colorForType, registerCellId],
@@ -2894,16 +2914,23 @@ export default function DiagramEditor() {
 
   /* ---------- Phase 5 — apply view perspective to the canvas ---------- */
 
-  /** Snapshot the synced card cells so we know which ids to fetch + recolor. */
+  /** Snapshot the synced card cells so we know which ids to fetch + recolor.
+   *
+   *  Expanded-group children count. They are card cells like any other — one
+   *  `/cards?ids=` round-trip feeds both halves of the display pass, so leaving
+   *  them out is what left a card pulled in with `+` unlabelled AND uncoloured
+   *  while its neighbours followed the perspective. Ids are de-duplicated: the
+   *  same card can sit on the canvas more than once. */
   const collectCanvasCards = useCallback(():
     | { ids: string[]; types: Set<string> }
     | null => {
     const frame = iframeRef.current;
     if (!frame) return null;
-    const { syncedFS } = scanDiagramItems(frame);
+    const { syncedFS, syncedChildren } = scanDiagramItems(frame);
+    const all = [...syncedFS, ...syncedChildren];
     return {
-      ids: syncedFS.map((c) => c.cardId),
-      types: new Set(syncedFS.map((c) => c.type)),
+      ids: Array.from(new Set(all.map((c) => c.cardId))),
+      types: new Set(all.map((c) => c.type)),
     };
   }, []);
 
@@ -2919,8 +2946,10 @@ export default function DiagramEditor() {
   );
 
   /** Turn one card into the detail rows its shape should show, honouring the
-   *  diagram's `cardLabels` settings. Shared shape with the Layered Dependency
-   *  View: same catalogue, same formatter, same `MAX_CARD_LINES` budget. */
+   *  diagram's `cardLabels` settings. Same catalogue and same formatter as the
+   *  Layered Dependency View — but no row budget: a DrawIO cell is resizable,
+   *  so `applyCardLabels` grows it to hold everything the reader ticked, where
+   *  the report's fixed-size nodes have to stop at `MAX_CARD_LINES`. */
   const buildDetailLines = useCallback(
     (card: Card, catalog: Map<string, ReturnType<typeof buildFieldCatalog>[number]>) => {
       const lines: CardDetailLine[] = [];
@@ -2938,7 +2967,6 @@ export default function DiagramEditor() {
         });
       }
       for (const key of cardLabels.fields) {
-        if (lines.length >= MAX_CARD_LINES) break;
         const meta = catalog.get(key);
         const value = formatFieldValue(card.attributes?.[key], meta, {
           optionLabel,
@@ -2948,7 +2976,7 @@ export default function DiagramEditor() {
         if (value === EMPTY_VALUE) continue;
         lines.push({ label: meta ? fieldLabel(meta) : key, value });
       }
-      return lines.slice(0, MAX_CARD_LINES);
+      return lines;
     },
     [cardLabels, t, typeLabel, subtypeLabel, optionLabel, fieldLabel],
   );
@@ -3096,6 +3124,10 @@ export default function DiagramEditor() {
     viewReq,
     t,
   ]);
+
+  applyViewRef.current = () => {
+    void applyView();
+  };
 
   // Overflow ("More") menu for occasional / migration actions that don't
   // warrant a permanent toolbar button.

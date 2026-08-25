@@ -91,11 +91,11 @@ Una leyenda flotante en la esquina inferior izquierda muestra una escala por reg
 
 Un segundo botón de la barra de herramientas, **Mostrar en la tarjeta**, decide **qué dice cada forma**. Marque el **tipo de tarjeta**, el **subtipo** o cualquier atributo de los tipos de tarjeta presentes en el lienzo, y cada forma añadirá pequeñas líneas de detalle bajo su nombre. Los campos se listan bajo el tipo de tarjeta al que pertenecen; un campo compartido por varios de esos tipos se agrupa bajo **Comunes**. Es un botón aparte de **Colorear por**, para que ninguna de las dos listas obligue a recorrer la otra. **Borrar todo** desmarca todas las casillas de una vez.
 
-Las dos primeras selecciones se dibujan en la forma: una tarjeta tiene un tamaño limitado y el texto que no cabe se saldría de su borde. Todo lo que marque se recuerda, así que ampliar la selección más adelante cambia cuáles dos aparecen sin tener que volver a elegir.
+Cada selección se dibuja en la forma, y la forma **crece para acogerla**. Dos líneas ya caben en una tarjeta, así que nada se mueve hasta que marca una tercera; a partir de ahí cada tarjeta se hace un poco más alta por selección y vuelve a encogerse al desmarcar una. Una tarjeta que haya redimensionado a mano conserva su altura: solo gana o devuelve el espacio de una línea.
 
-Estas líneas se guardan con el diagrama, de modo que todos los lectores — incluido quien abra un enlace publicado — ven las mismas formas. Las tarjetas hijas desplegadas conservan solo su nombre: son demasiado pequeñas para más.
+Estas líneas se guardan con el diagrama, de modo que todos los lectores — incluido quien abra un enlace publicado — ven las mismas formas. Las tarjetas traídas al lienzo por **Expandir** llevan las mismas filas que cualquier otra tarjeta y crecen igual. Las tarjetas dispuestas dentro de un contenedor **Drill-Down** o **Roll-Up** muestran lo que cabe en su casilla: agrandarlas las haría invadir la fila de abajo.
 
-El botón **Crear diagrama** del [informe de dependencias](reports.md) traslada sus propios ajustes de visualización, así que un diagrama generado desde un informe muestra exactamente las filas que mostraba el informe.
+El botón **Crear diagrama** del [informe de dependencias](reports.md) traslada sus propios ajustes de visualización, así que un diagrama generado desde un informe muestra exactamente las filas que mostraba el informe — todas ellas, incluso las que el propio informe no tenía sitio para dibujar.
 
 ### Cómo se dibujan las aristas de relación
 

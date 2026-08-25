@@ -91,11 +91,11 @@ Eine schwebende Legende unten links zeigt eine Skala je aktiver Regel. Feldregel
 
 Eine zweite Schaltfläche in der Symbolleiste, **Auf Karte anzeigen**, bestimmt, **was jede Form aussagt**. Wählen Sie den **Kartentyp**, den **Untertyp** oder ein beliebiges Attribut der aktuell auf der Leinwand vorhandenen Kartentypen — jede Form erhält dann kleine Detailzeilen unter ihrem Namen. Die Felder stehen unter dem Kartentyp, zu dem sie gehören; ein Feld, das mehrere dieser Typen teilen, steht unter **Gemeinsam**. Eine eigene Schaltfläche neben **Färben nach**, damit für keine der beiden Listen an der anderen vorbeigescrollt werden muss. **Alle löschen** entfernt sämtliche Häkchen auf einmal.
 
-Die ersten beiden Auswahlen werden auf der Form gezeichnet: eine Karte ist nur so groß, und Text, der nicht passt, würde über ihren Rand hinauslaufen. Alles Angehakte wird gespeichert, sodass eine spätere Erweiterung der Auswahl ändert, welche zwei erscheinen, ohne dass Sie neu wählen müssen.
+Jede Auswahl wird auf der Form gezeichnet, und die Form **wächst mit**. Zwei Zeilen passen ohnehin in eine Karte, es ändert sich also nichts, bis Sie eine dritte anhaken; ab dann wird jede Karte pro Auswahl etwas höher und schrumpft wieder, wenn Sie eine wegnehmen. Eine von Hand vergrößerte Karte behält Ihre Höhe: sie gewinnt oder gibt lediglich den Platz einer Zeile.
 
-Diese Zeilen werden mit dem Diagramm gespeichert, sodass alle Lesenden — auch beim Öffnen eines veröffentlichten Links — dieselben Formen sehen. Ausgeklappte Unterkarten behalten nur ihren Namen: sie sind zu klein für mehr.
+Diese Zeilen werden mit dem Diagramm gespeichert, sodass alle Lesenden — auch beim Öffnen eines veröffentlichten Links — dieselben Formen sehen. Karten, die über **Ausklappen** auf die Leinwand kommen, tragen dieselben Zeilen wie jede andere Karte und wachsen genauso. Karten in einem **Drill-Down**- oder **Roll-Up**-Container zeigen, was in ihre Kachel passt: eine höhere Karte würde die Zeile darunter überdecken.
 
-Die Schaltfläche **Diagramm erstellen** im [Abhängigkeitsbericht](reports.md) überträgt ihre eigenen Kartenanzeige-Einstellungen, sodass ein aus einem Bericht erzeugtes Diagramm genau die Zeilen zeigt, die der Bericht zeigte.
+Die Schaltfläche **Diagramm erstellen** im [Abhängigkeitsbericht](reports.md) überträgt ihre eigenen Kartenanzeige-Einstellungen, sodass ein aus einem Bericht erzeugtes Diagramm genau die Zeilen zeigt, die der Bericht zeigte — und zwar alle, auch die, für die der Bericht selbst keinen Platz hatte.
 
 ### Wie Beziehungskanten gezeichnet werden
 

@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.86.0] - 2026-08-25
+
+### Changed
+
+- **A diagram card shows every field you tick, and grows to fit.** **Show on card** used to draw only the first two picks, because a card shape was a fixed size and anything longer spilled outside its border. A third field is now drawn rather than silently dropped: the shape grows by a row per selection past the two it already had room for, and shrinks back when you untick one, so an existing diagram opens exactly as it did. A card you resized by hand keeps your height — it only gains or gives back the room a row needs. Cards tiled inside a **Drill-Down** or **Roll-Up** container still stop at what fits in their slot, and the Dependencies report still shows two lines per node (both are laid out in fixed positions) — but a diagram generated from that report opens with all of them.
+
+### Fixed
+
+- **Cards pulled in by Expand now show the fields you selected.** A card brought onto the canvas with **+** / **Expand**, **Drill-Down** or **Roll-Up** kept a bare name however many fields **Show on card** had ticked, so half a diagram said one thing and half said another. Those cards now carry the same detail rows as any other card — and pick up the active **Color by** perspective too, which they had also been missing. Collapsing and re-expanding a group brings the rows back with it.
+
 ## [2.85.0] - 2026-08-25
 
 ### Added

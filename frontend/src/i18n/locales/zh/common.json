@@ -463,5 +463,6 @@
   "cardDisplay.clearAll": "全部清除",
   "cardDisplay.subtypeLine": "子类型",
   "cardDisplay.linesHint": "前 {{count}} 个显示在卡片上。",
+  "cardDisplay.linesHintAll": "每一项都会显示在卡片上，卡片会相应变大。",
   "cardDisplay.noFields": "无可用字段"
 }

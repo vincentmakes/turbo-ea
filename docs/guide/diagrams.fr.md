@@ -91,11 +91,11 @@ Une légende flottante en bas à gauche affiche une échelle par règle active. 
 
 Un second bouton de la barre d'outils, **Afficher sur la fiche**, détermine **ce que dit chaque forme**. Cochez le **type de fiche**, le **sous-type** ou n'importe quel attribut des types de fiches présents sur le canevas : chaque forme reçoit alors de petites lignes de détail sous son nom. Les champs sont classés sous le type de fiche auquel ils appartiennent ; un champ partagé par plusieurs de ces types est regroupé sous **Communs**. C'est un bouton distinct de **Colorer par**, afin qu'aucune des deux listes n'oblige à faire défiler l'autre. **Tout effacer** décoche l'ensemble en une fois.
 
-Les deux premières sélections sont dessinées sur la forme — une fiche a une taille limitée, et un texte trop long déborderait de sa bordure. Tout ce que vous cochez est mémorisé : élargir la sélection plus tard change lesquelles des deux s'affichent, sans avoir à recommencer.
+Chaque sélection est dessinée sur la forme, et la forme **s'agrandit pour la contenir**. Deux lignes tiennent déjà dans une fiche : rien ne bouge tant que vous n'en cochez pas une troisième ; au-delà, chaque fiche grandit un peu par sélection et rétrécit d'autant quand vous en décochez une. Une fiche que vous avez redimensionnée à la main garde votre hauteur : elle ne gagne ou ne rend que la place d'une ligne.
 
-Ces lignes sont enregistrées avec le diagramme, si bien que tous les lecteurs — y compris via un lien publié — voient les mêmes formes. Les fiches enfants dépliées ne gardent que leur nom : elles sont trop petites pour davantage.
+Ces lignes sont enregistrées avec le diagramme, si bien que tous les lecteurs — y compris via un lien publié — voient les mêmes formes. Les fiches amenées sur le canevas par **Déplier** portent les mêmes lignes que n'importe quelle autre fiche et s'agrandissent de la même façon. Les fiches disposées dans un conteneur **Drill-Down** ou **Roll-Up** affichent ce qui tient dans leur case : les agrandir les ferait déborder sur la rangée du dessous.
 
-Le bouton **Créer un diagramme** du [rapport de dépendances](reports.md) transmet ses propres réglages d'affichage, de sorte qu'un diagramme généré depuis un rapport affiche exactement les lignes que le rapport affichait.
+Le bouton **Créer un diagramme** du [rapport de dépendances](reports.md) transmet ses propres réglages d'affichage, de sorte qu'un diagramme généré depuis un rapport affiche exactement les lignes que le rapport affichait — toutes, même celles que le rapport lui-même n'avait pas la place de dessiner.
 
 ### Comment les arêtes de relation sont dessinées
 

@@ -33,10 +33,14 @@ export interface DisplayLine {
 }
 
 /**
- * How many detail lines actually render on a card. Everything the user picks
- * beyond this still enriches the tooltip, but a shape has finite room — a
- * DrawIO card cell is 210x60 and a Layered Dependency View node 200x72, which
- * holds the name plus exactly two small lines.
+ * How many detail lines render on a **Layered Dependency View** node.
+ * Everything the user picks beyond this still enriches the tooltip, but the
+ * view lays every node out at a fixed `LDV_NODE_W` x `LDV_NODE_H`, which holds
+ * the name plus exactly two small lines.
+ *
+ * Deliberately not a global ceiling: a DrawIO card cell is resizable, so the
+ * diagram editor renders every picked row and grows the shape to hold it (see
+ * `CARD_DETAIL_LINE_H` in `features/diagrams/drawio-shapes.ts`).
  */
 export const MAX_CARD_LINES = 2;
 

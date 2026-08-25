@@ -463,5 +463,6 @@
   "cardDisplay.clearAll": "مسح الكل",
   "cardDisplay.subtypeLine": "النوع الفرعي",
   "cardDisplay.linesHint": "تظهر أول {{count}} على البطاقة.",
+  "cardDisplay.linesHintAll": "يظهر كل اختيار على البطاقة، التي تكبر لتتسع له.",
   "cardDisplay.noFields": "لا توجد حقول متاحة"
 }

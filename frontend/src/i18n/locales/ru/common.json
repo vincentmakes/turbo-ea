@@ -463,5 +463,6 @@
   "cardDisplay.clearAll": "Очистить всё",
   "cardDisplay.subtypeLine": "Подтип",
   "cardDisplay.linesHint": "Первые {{count}} отображаются на карточке.",
+  "cardDisplay.linesHintAll": "Каждый выбранный пункт отображается на карточке, размер которой увеличивается.",
   "cardDisplay.noFields": "Нет доступных полей"
 }

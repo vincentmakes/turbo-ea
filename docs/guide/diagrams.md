@@ -91,11 +91,11 @@ A floating legend in the bottom-left shows one scale per active rule. Field rule
 
 A second toolbar button, **Show on card**, chooses **what each shape says**. Tick the **card type**, the **subtype**, or any attribute from the card types currently on the canvas, and each shape gains small detail lines under its name. Fields are listed under the card type they belong to, with any field several of those types share grouped under **Shared**. It is a separate button from **Color by** so that neither list has to be scrolled past to reach the other. **Clear all** empties every tick at once.
 
-The first two selections are drawn on the shape — a card is only so big, and text that doesn't fit would spill outside its border. Everything you tick is remembered, so widening the selection later changes which two show without you having to re-pick.
+Every selection is drawn on the shape, and the shape **grows to hold it**. Two rows fit in a card as it stands, so nothing moves until you tick a third; from there each card gets a little taller per selection and shrinks back when you untick one. A card you have resized by hand keeps your height: it only gains or gives back the room a row needs.
 
-These lines are saved with the diagram, so every reader — including anyone opening a published link — sees the same shapes. Expanded child cards keep just their name: they are too small to hold anything more.
+These lines are saved with the diagram, so every reader — including anyone opening a published link — sees the same shapes. Cards pulled onto the canvas by **Expand** carry the same rows as any other card and grow the same way. Cards tiled inside a **Drill-Down** or **Roll-Up** container show what fits in their slot: growing one would push it over the row beneath.
 
-The **Create diagram** button on the [Dependencies report](reports.md#dependencies-report) carries its own card-display settings across, so a diagram generated from a report opens showing exactly the rows the report showed.
+The **Create diagram** button on the [Dependencies report](reports.md#dependencies-report) carries its own card-display settings across, so a diagram generated from a report opens showing exactly the rows the report showed — all of them, even the ones the report itself had no room to draw.
 
 
 ### How relation edges are drawn

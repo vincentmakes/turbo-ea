@@ -36,7 +36,7 @@ const TYPES = [
   type("Provider", [{ key: "tier", label: "Tier" }]),
 ];
 
-function setup(labels: CardLabelSettings = { fields: [] }) {
+function setup(labels: CardLabelSettings = { fields: [] }, maxLines?: number) {
   const onChange = vi.fn();
   const onOpen = vi.fn();
   render(
@@ -46,6 +46,7 @@ function setup(labels: CardLabelSettings = { fields: [] }) {
       types={TYPES}
       labels={labels}
       onChange={onChange}
+      maxLines={maxLines}
     />,
   );
   return { onChange, onOpen };
@@ -218,5 +219,19 @@ describe("ShowOnCardSelector", () => {
     setup({ fields: [] });
     const menu = await openMenu();
     expect(within(menu).getByRole("button", { name: "Clear all" })).toBeDisabled();
+  });
+
+  it("names the ceiling only on a surface that has one", async () => {
+    // The Layered Dependency View lays its nodes out at a fixed size.
+    setup({ fields: [] }, 2);
+    const menu = await openMenu();
+    expect(menu).toHaveTextContent("The first 2 appear on the card.");
+  });
+
+  it("promises every pick where the shape can grow", async () => {
+    // The diagram editor passes no ceiling: a DrawIO cell is resized to fit.
+    setup({ fields: [] });
+    const menu = await openMenu();
+    expect(menu).toHaveTextContent("Every pick appears on the card, which grows to fit.");
   });
 });

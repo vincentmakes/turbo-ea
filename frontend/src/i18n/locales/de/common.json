@@ -463,5 +463,6 @@
   "cardDisplay.clearAll": "Alle löschen",
   "cardDisplay.subtypeLine": "Untertyp",
   "cardDisplay.linesHint": "Die ersten {{count}} erscheinen auf der Karte.",
+  "cardDisplay.linesHintAll": "Jede Auswahl erscheint auf der Karte, die entsprechend wächst.",
   "cardDisplay.noFields": "Keine Felder verfügbar"
 }

@@ -463,5 +463,6 @@
   "cardDisplay.clearAll": "Ryd alle",
   "cardDisplay.subtypeLine": "Undertype",
   "cardDisplay.linesHint": "De første {{count}} vises på kortet.",
+  "cardDisplay.linesHintAll": "Hvert valg vises på kortet, som vokser, så der er plads.",
   "cardDisplay.noFields": "Ingen felter tilgængelige"
 }

@@ -463,5 +463,6 @@
   "cardDisplay.clearAll": "Limpar tudo",
   "cardDisplay.subtypeLine": "Subtipo",
   "cardDisplay.linesHint": "Os primeiros {{count}} aparecem no cartão.",
+  "cardDisplay.linesHintAll": "Cada escolha aparece no cartão, que cresce para caber.",
   "cardDisplay.noFields": "Nenhum campo disponível"
 }

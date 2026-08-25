@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import ShowOnCardSelector from "@/components/cardDisplay/ShowOnCardSelector";
-import type { CardLabelSettings } from "@/lib/cardDisplayFields";
+import { MAX_CARD_LINES, type CardLabelSettings } from "@/lib/cardDisplayFields";
 import type { CardType } from "@/types";
 import { toCardLabels, type LdvDisplaySettings } from "./ldvDisplaySettings";
 
@@ -54,6 +54,7 @@ export default function LdvShowOnCard({
       activeTypeKeys={activeTypeKeys}
       labels={labels}
       onChange={onChange}
+      maxLines={MAX_CARD_LINES}
       extraLines={[
         {
           key: "showLifecycle",

@@ -91,11 +91,11 @@ En flydende forklaring nederst til venstre viser én skala pr. aktiv regel. Felt
 
 En anden knap i værktøjslinjen, **Vis på kortet**, afgør, **hvad hver figur siger**. Sæt flueben ved **korttypen**, **undertypen** eller en vilkårlig egenskab fra de korttyper, der aktuelt er på lærredet, og hver figur får små detaljelinjer under sit navn. Felterne står under den korttype, de hører til; et felt, som flere af de typer deler, samles under **Fælles**. Det er en separat knap fra **Farvelæg efter**, så ingen af de to lister skal scrolles forbi for at nå den anden. **Ryd alle** fjerner alle flueben på én gang.
 
-De to første valg tegnes på figuren: et kort har en begrænset størrelse, og tekst der ikke passer, ville flyde ud over kanten. Alt du sætter flueben ved, huskes, så en senere udvidelse af udvalget ændrer hvilke to der vises, uden at du skal vælge forfra.
+Hvert valg tegnes på figuren, og figuren **vokser, så der er plads**. Der er allerede plads til to linjer i et kort, så intet flytter sig, før du sætter flueben ved et tredje; derfra bliver hvert kort en anelse højere pr. valg og skrumper tilbage, når du fjerner et. Et kort, du selv har ændret størrelse på, beholder din højde: det får kun tilføjet eller frigivet pladsen til én linje.
 
-Linjerne gemmes med diagrammet, så alle læsere — også den, der åbner et publiceret link — ser de samme figurer. Udfoldede underkort beholder kun deres navn: de er for små til mere.
+Linjerne gemmes med diagrammet, så alle læsere — også den, der åbner et publiceret link — ser de samme figurer. Kort, der hentes ind på lærredet med **Expand**, bærer de samme linjer som ethvert andet kort og vokser på samme måde. Kort, der er lagt ind i en **Drill-Down**- eller **Roll-Up**-beholder, viser det, der er plads til i deres felt: gjorde man dem højere, ville de dække rækken nedenunder.
 
-Knappen **Create diagram** i [afhængighedsrapporten](reports.md) tager sine egne kortvisningsindstillinger med, så et diagram genereret fra en rapport åbner med præcis de linjer, rapporten viste.
+Knappen **Create diagram** i [afhængighedsrapporten](reports.md) tager sine egne kortvisningsindstillinger med, så et diagram genereret fra en rapport åbner med præcis de linjer, rapporten valgte — dem alle, også dem rapporten selv ikke havde plads til at tegne.
 
 ### Hvordan relationskanter tegnes
 

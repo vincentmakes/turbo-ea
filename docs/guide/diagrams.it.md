@@ -91,11 +91,11 @@ Una legenda fluttuante in basso a sinistra mostra una scala per ogni regola atti
 
 Un secondo pulsante nella barra strumenti, **Mostra sulla scheda**, decide **cosa dice ogni forma**. Spuntate il **tipo di scheda**, il **sottotipo** o qualsiasi attributo dei tipi di scheda presenti sulla tela: ogni forma acquisirà piccole righe di dettaglio sotto il proprio nome. I campi sono elencati sotto il tipo di scheda a cui appartengono; un campo condiviso da più di questi tipi è raggruppato sotto **Comuni**. È un pulsante distinto da **Colora per**, così nessuna delle due liste costringe a scorrere l'altra. **Cancella tutto** toglie tutte le spunte in una volta.
 
-Le prime due selezioni vengono disegnate sulla forma: una scheda ha una dimensione limitata e il testo che non entra sborderebbe dal bordo. Tutto ciò che spuntate viene ricordato, così ampliare la selezione in seguito cambia quali due appaiono senza doverle riscegliere.
+Ogni selezione viene disegnata sulla forma, e la forma **cresce per contenerla**. Due righe entrano già in una scheda, quindi nulla si muove finché non ne spuntate una terza; da lì ogni scheda diventa un po' più alta per selezione e si riduce quando ne togliete una. Una scheda che avete ridimensionato a mano mantiene la vostra altezza: guadagna o restituisce soltanto lo spazio di una riga.
 
-Queste righe vengono salvate col diagramma, così ogni lettore — anche chi apre un link pubblicato — vede le stesse forme. Le schede figlie espanse mantengono solo il nome: sono troppo piccole per altro.
+Queste righe vengono salvate col diagramma, così ogni lettore — anche chi apre un link pubblicato — vede le stesse forme. Le schede portate sulla tela da **Espandi** riportano le stesse righe di qualsiasi altra scheda e crescono allo stesso modo. Le schede disposte dentro un contenitore **Drill-Down** o **Roll-Up** mostrano ciò che entra nella loro cella: ingrandirle le farebbe sconfinare sulla riga sottostante.
 
-Il pulsante **Crea diagramma** del [rapporto sulle dipendenze](reports.md) trasferisce le proprie impostazioni di visualizzazione, così un diagramma generato da un rapporto mostra esattamente le righe che il rapporto mostrava.
+Il pulsante **Crea diagramma** del [rapporto sulle dipendenze](reports.md) trasferisce le proprie impostazioni di visualizzazione, così un diagramma generato da un rapporto mostra esattamente le righe che il rapporto mostrava — tutte, comprese quelle per cui il rapporto stesso non aveva spazio.
 
 ### Come vengono disegnati gli archi di relazione
 

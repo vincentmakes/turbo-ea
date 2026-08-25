@@ -18,7 +18,6 @@ import { useFieldLabel, useTypeLabel } from "@/hooks/useResolveLabel";
 import {
   buildFieldCatalog,
   groupFieldCatalog,
-  MAX_CARD_LINES,
   type CardLabelSettings,
   type FieldGroup,
 } from "@/lib/cardDisplayFields";
@@ -55,6 +54,14 @@ interface Props {
    * every other row gets, and a `Menu` cannot take a Fragment child.
    */
   extraLines?: CardDisplayLine[];
+  /**
+   * How many of the ticked rows the surface actually draws, when it has a
+   * ceiling. The Layered Dependency View lays its nodes out at a fixed size, so
+   * it renders the first {@link MAX_CARD_LINES} and puts the rest in the
+   * tooltip. A DrawIO cell is resizable and grows to hold everything, so it
+   * omits this and the hint says so instead of naming a limit that isn't one.
+   */
+  maxLines?: number;
   /**
    * Labelled outlined button (the DrawIO toolbar, a row of labelled dropdowns)
    * or an icon-only button (the Layered Dependency View nav bar, a row of
@@ -95,6 +102,7 @@ export default function ShowOnCardSelector({
   labels,
   onChange,
   extraLines = [],
+  maxLines,
   trigger = "button",
   container,
 }: Props) {
@@ -151,7 +159,9 @@ export default function ShowOnCardSelector({
       sx={{ px: 2, pb: 0.5, display: "flex", alignItems: "center", gap: 1 }}
     >
       <Typography variant="caption" color="text.secondary" sx={{ flex: 1, minWidth: 0 }}>
-        {t("cardDisplay.linesHint", { count: MAX_CARD_LINES })}
+        {maxLines
+          ? t("cardDisplay.linesHint", { count: maxLines })
+          : t("cardDisplay.linesHintAll")}
       </Typography>
       {/* Always rendered and disabled at zero, rather than hidden as in the
           Inventory columns tab: appearing on the first tick would shift every

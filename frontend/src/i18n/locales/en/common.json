@@ -463,5 +463,6 @@
   "cardDisplay.clearAll": "Clear all",
   "cardDisplay.subtypeLine": "Subtype",
   "cardDisplay.linesHint": "The first {{count}} appear on the card.",
+  "cardDisplay.linesHintAll": "Every pick appears on the card, which grows to fit.",
   "cardDisplay.noFields": "No fields available"
 }
