@@ -1,0 +1,71 @@
+/**
+ * Single source of truth for the Layered Dependency View's handle geometry.
+ *
+ * The 24 handles per card (5 slots on top + bottom, each with a source/target
+ * mirror, plus one source + one target per side) used to be declared twice —
+ * as JSX `left: "12%"` styles in the view and as `±0.38 * W` offsets in the
+ * layout's routing math — and the two had to be kept in sync by hand. Both
+ * now derive from this table: the view renders `<Handle>`s by mapping
+ * LDV_HANDLE_SPECS, the routing math calls handleOffset().
+ */
+
+export const LDV_NODE_W = 200;
+export const LDV_NODE_H = 72;
+
+/** Horizontal positions of the 5 top/bottom slots, as a fraction of node width. */
+export const LDV_HANDLE_FRACTIONS = [0.12, 0.3, 0.5, 0.7, 0.88] as const;
+
+export interface LdvHandleSpec {
+  id: string;
+  side: "top" | "bottom" | "left" | "right";
+  kind: "source" | "target";
+  /** Position along the side: fraction of node width (top/bottom) or height (sides). */
+  frac: number;
+}
+
+function slotSpecs(
+  side: "top" | "bottom",
+  kind: "source" | "target",
+  prefix: string,
+): LdvHandleSpec[] {
+  return LDV_HANDLE_FRACTIONS.map((frac, i) => ({
+    id: `${prefix}${i + 1}`,
+    side,
+    kind,
+    frac,
+  }));
+}
+
+/**
+ * All 24 handles. Mirrors (`ts-N`, `bt-N`) exist so an upward ("flipped") edge
+ * can exit the top of its source and enter the bottom of its target while
+ * React Flow still sees a source-typed and a target-typed handle.
+ */
+export const LDV_HANDLE_SPECS: LdvHandleSpec[] = [
+  ...slotSpecs("top", "target", "t-"),
+  ...slotSpecs("top", "source", "ts-"),
+  ...slotSpecs("bottom", "source", "b-"),
+  ...slotSpecs("bottom", "target", "bt-"),
+  { id: "left", side: "left", kind: "target", frac: 0.5 },
+  { id: "left-src", side: "left", kind: "source", frac: 0.5 },
+  { id: "right", side: "right", kind: "source", frac: 0.5 },
+  { id: "right-tgt", side: "right", kind: "target", frac: 0.5 },
+];
+
+const SPEC_BY_ID = new Map(LDV_HANDLE_SPECS.map((s) => [s.id, s]));
+
+/** Offset of a handle from the node's center, in canvas pixels. */
+export function handleOffset(id: string): { dx: number; dy: number } {
+  const spec = SPEC_BY_ID.get(id);
+  if (!spec) return { dx: 0, dy: 0 };
+  switch (spec.side) {
+    case "top":
+      return { dx: (spec.frac - 0.5) * LDV_NODE_W, dy: -LDV_NODE_H / 2 };
+    case "bottom":
+      return { dx: (spec.frac - 0.5) * LDV_NODE_W, dy: LDV_NODE_H / 2 };
+    case "left":
+      return { dx: -LDV_NODE_W / 2, dy: (spec.frac - 0.5) * LDV_NODE_H };
+    case "right":
+      return { dx: LDV_NODE_W / 2, dy: (spec.frac - 0.5) * LDV_NODE_H };
+  }
+}

@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.84.0] - 2026-08-25
+
+### Changed
+
+- **Connected cards line up across the layers of a dependency view.** The Layered Dependency View laid out each EA layer on its own, so an Application and the IT Component it runs on could sit at opposite ends of their lanes with a long diagonal line between them. Cards are now nudged horizontally so what is connected across lanes stands in the same column, and connections run as short, mostly vertical lines — in the Dependencies report, the card page's dependency section, and TurboLens target architectures alike.
+- **Connections leave a card in the order of where they are going.** The lines fanning out of a busy card used to pick their exit points one by one, which let two lines cross each other right at the card's border. Exit and entry points are now assigned left-to-right to match each connection's direction, so lines leaving one card never cross each other at the card, and a card with a single connection keeps it centered.
+- **Parallel connections crossing the same gap keep their spacing only when they need it.** Lines that share the band between two layers are staggered only when their horizontal runs actually overlap, so a wide landscape reads with fewer unnecessary jogs.
+
 ## [2.83.0] - 2026-08-24
 
 ### Changed

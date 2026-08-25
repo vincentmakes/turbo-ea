@@ -92,6 +92,7 @@ import {
   type LdvGroupData,
   type LdvEdgeData,
 } from "./layeredDependencyLayout";
+import { LDV_HANDLE_SPECS } from "./ldvHandles";
 import { ldvFocusRing } from "./ldvFocusRing";
 import LinkChangeIcon from "./LinkChangeIcon";
 import { isPresentAtDate } from "./timelineRange";
@@ -148,6 +149,13 @@ function computeObstacles(nodeList: Node[]): ObstacleBounds[] {
 /* ------------------------------------------------------------------ */
 
 const LP_CIRCUMFERENCE = 2 * Math.PI * 15; // ~94.25
+
+const HANDLE_POSITIONS = {
+  top: Position.Top,
+  bottom: Position.Bottom,
+  left: Position.Left,
+  right: Position.Right,
+} as const;
 
 // Shared with every other card-type color consumer — see lib/color.ts for the
 // luminance-gating rationale. Re-exported for existing importers.
@@ -548,33 +556,22 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         </Box>
       )}
       <style>{`@keyframes ldv-lp-ring{to{stroke-dashoffset:0}}`}</style>
-      {/* Top edge: target handles + source mirrors for flipped (upward) edges */}
-      <Handle type="target" position={Position.Top} id="t-1" style={hs("t-1", { left: "12%" })} />
-      <Handle type="target" position={Position.Top} id="t-2" style={hs("t-2", { left: "30%" })} />
-      <Handle type="target" position={Position.Top} id="t-3" style={hs("t-3", { left: "50%" })} />
-      <Handle type="target" position={Position.Top} id="t-4" style={hs("t-4", { left: "70%" })} />
-      <Handle type="target" position={Position.Top} id="t-5" style={hs("t-5", { left: "88%" })} />
-      <Handle type="source" position={Position.Top} id="ts-1" style={hs("ts-1", { left: "12%" })} />
-      <Handle type="source" position={Position.Top} id="ts-2" style={hs("ts-2", { left: "30%" })} />
-      <Handle type="source" position={Position.Top} id="ts-3" style={hs("ts-3", { left: "50%" })} />
-      <Handle type="source" position={Position.Top} id="ts-4" style={hs("ts-4", { left: "70%" })} />
-      <Handle type="source" position={Position.Top} id="ts-5" style={hs("ts-5", { left: "88%" })} />
-      {/* Bottom edge: source handles + target mirrors for flipped (upward) edges */}
-      <Handle type="source" position={Position.Bottom} id="b-1" style={hs("b-1", { left: "12%" })} />
-      <Handle type="source" position={Position.Bottom} id="b-2" style={hs("b-2", { left: "30%" })} />
-      <Handle type="source" position={Position.Bottom} id="b-3" style={hs("b-3", { left: "50%" })} />
-      <Handle type="source" position={Position.Bottom} id="b-4" style={hs("b-4", { left: "70%" })} />
-      <Handle type="source" position={Position.Bottom} id="b-5" style={hs("b-5", { left: "88%" })} />
-      <Handle type="target" position={Position.Bottom} id="bt-1" style={hs("bt-1", { left: "12%" })} />
-      <Handle type="target" position={Position.Bottom} id="bt-2" style={hs("bt-2", { left: "30%" })} />
-      <Handle type="target" position={Position.Bottom} id="bt-3" style={hs("bt-3", { left: "50%" })} />
-      <Handle type="target" position={Position.Bottom} id="bt-4" style={hs("bt-4", { left: "70%" })} />
-      <Handle type="target" position={Position.Bottom} id="bt-5" style={hs("bt-5", { left: "88%" })} />
-      {/* Side handles — both source and target on each side */}
-      <Handle type="target" position={Position.Left} id="left" style={hs("left")} />
-      <Handle type="source" position={Position.Left} id="left-src" style={hs("left-src")} />
-      <Handle type="source" position={Position.Right} id="right" style={hs("right")} />
-      <Handle type="target" position={Position.Right} id="right-tgt" style={hs("right-tgt")} />
+      {/* All 24 handles come from the shared geometry table (ldvHandles.ts) so
+          the rendered positions can never drift from the routing math. */}
+      {LDV_HANDLE_SPECS.map((spec) => (
+        <Handle
+          key={spec.id}
+          type={spec.kind}
+          position={HANDLE_POSITIONS[spec.side]}
+          id={spec.id}
+          style={hs(
+            spec.id,
+            spec.side === "top" || spec.side === "bottom"
+              ? { left: `${spec.frac * 100}%` }
+              : undefined,
+          )}
+        />
+      ))}
       <Typography
         variant="body2"
         sx={{

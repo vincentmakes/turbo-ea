@@ -263,6 +263,90 @@ describe("buildLdvFlow", () => {
     }
   });
 
+  describe("cross-lane x-alignment", () => {
+    /** Absolute center x of a card (group position + child position + W/2). */
+    function absCenterX(nodes: { id: string; position: { x: number }; parentId?: string }[], id: string): number {
+      const byId = new Map(nodes.map((n) => [n.id, n]));
+      const n = byId.get(id)!;
+      const parent = byId.get(n.parentId!)!;
+      return parent.position.x + n.position.x + 100; // LDV_NODE_W / 2
+    }
+
+    it("lines a cross-lane-linked card up under its partner", () => {
+      const nodes: GNode[] = [
+        { id: "a1", name: "App 1", type: "Application" },
+        { id: "a2", name: "App 2", type: "Application" },
+        { id: "a3", name: "App 3", type: "Application" },
+        { id: "a4", name: "App 4", type: "Application" },
+        { id: "it1", name: "Server 1", type: "ITComponent" },
+      ];
+      const edges: GEdge[] = [{ source: "a3", target: "it1", type: "runs_on" }];
+      const result = buildLdvFlow(nodes, edges, TYPES);
+      const rf = result.nodes as { id: string; position: { x: number }; parentId?: string }[];
+      // The single server sits directly under the app it serves — not at the
+      // lane center, which is what produced long diagonal edge runs.
+      expect(absCenterX(rf, "it1")).toBeCloseTo(absCenterX(rf, "a3"), 0);
+    });
+
+    it("aligns a chain through three lanes", () => {
+      const nodes: GNode[] = [
+        { id: "o1", name: "Org 1", type: "Organization" },
+        { id: "o2", name: "Org 2", type: "Organization" },
+        { id: "a", name: "App", type: "Application" },
+        { id: "it", name: "Server", type: "ITComponent" },
+      ];
+      const edges: GEdge[] = [
+        { source: "o2", target: "a", type: "uses" },
+        { source: "a", target: "it", type: "runs_on" },
+      ];
+      const result = buildLdvFlow(nodes, edges, TYPES);
+      const rf = result.nodes as { id: string; position: { x: number }; parentId?: string }[];
+      expect(absCenterX(rf, "a")).toBeCloseTo(absCenterX(rf, "o2"), 0);
+      expect(absCenterX(rf, "it")).toBeCloseTo(absCenterX(rf, "a"), 0);
+    });
+
+    it("keeps minimum separation when several cards want the same column", () => {
+      const nodes: GNode[] = [
+        { id: "a1", name: "App 1", type: "Application" },
+        { id: "a2", name: "App 2", type: "Application" },
+        { id: "a3", name: "App 3", type: "Application" },
+        { id: "it1", name: "Server 1", type: "ITComponent" },
+      ];
+      const edges: GEdge[] = [
+        { source: "a1", target: "it1", type: "runs_on" },
+        { source: "a2", target: "it1", type: "runs_on" },
+        { source: "a3", target: "it1", type: "runs_on" },
+      ];
+      const result = buildLdvFlow(nodes, edges, TYPES);
+      const rf = result.nodes as { id: string; position: { x: number }; parentId?: string }[];
+      const xs = ["a1", "a2", "a3"].map((id) => absCenterX(rf, id)).sort((a, b) => a - b);
+      // All three are pulled toward the shared server but never overlap:
+      // centers stay at least a node width + gap apart.
+      expect(xs[1] - xs[0]).toBeGreaterThanOrEqual(240);
+      expect(xs[2] - xs[1]).toBeGreaterThanOrEqual(240);
+      // …and the server lands at their median.
+      expect(absCenterX(rf, "it1")).toBeCloseTo(xs[1], 0);
+    });
+
+    it("is deterministic", () => {
+      const nodes: GNode[] = [
+        { id: "a1", name: "App 1", type: "Application" },
+        { id: "a2", name: "App 2", type: "Application" },
+        { id: "it1", name: "Server 1", type: "ITComponent" },
+        { id: "o1", name: "Org 1", type: "Organization" },
+      ];
+      const edges: GEdge[] = [
+        { source: "o1", target: "a2", type: "uses" },
+        { source: "a1", target: "it1", type: "runs_on" },
+        { source: "a2", target: "it1", type: "runs_on" },
+      ];
+      const first = buildLdvFlow(nodes, edges, TYPES);
+      const second = buildLdvFlow(nodes, edges, TYPES);
+      expect(second.nodes).toEqual(first.nodes);
+      expect(second.edges).toEqual(first.edges);
+    });
+  });
+
   describe("flowDirection on edges", () => {
     const nodes: GNode[] = [
       { id: "a1", name: "App 1", type: "Application" },
