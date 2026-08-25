@@ -55,7 +55,7 @@ Les colonnes sont regroupées en cinq catégories :
 | Catégorie | Description |
 |-----------|-------------|
 | **Colonnes par défaut** | Colonnes toujours actives : Type, Nom, Chemin, Description, Sous-type, Cycle de vie, Statut d'approbation, Qualité des données. Décochez-les pour les masquer de la grille — utile pour resserrer une vue enregistrée aux seules colonnes que vous utilisez vraiment. |
-| **Métadonnées** | Créé, Modifié, Créé par, Modifié par |
+| **Métadonnées** | Créé, Modifié, Créé par, Modifié par. **Modifié** correspond à la dernière modification du contenu de la fiche — par une personne ou une intégration, jamais par un recalcul de score effectué par le système — vous pouvez donc filtrer sur cette date pour trouver les fiches à faire revoir par leur responsable. |
 | **Attributs** | Champs personnalisés définis dans le métamodèle (texte, nombre, coût, date, sélection, etc.) |
 | **Relations** | Types de cartes liés (par ex., Applications liées à une Capacité Métier) |
 | **Parties prenantes** | Une colonne par rôle de partie prenante défini pour le type sélectionné (par ex. *Parties prenantes : Responsible*), affichant les utilisateurs assignés sous forme de puces. En mode édition de grille, double-cliquez sur une cellule pour assigner ou retirer des utilisateurs pour ce rôle directement depuis la grille (nécessite la permission de gestion des parties prenantes). |

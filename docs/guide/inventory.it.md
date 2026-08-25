@@ -55,7 +55,7 @@ Le colonne sono raggruppate in cinque categorie:
 | Categoria | Descrizione |
 |-----------|-------------|
 | **Colonne predefinite** | Colonne sempre attive: Tipo, Nome, Percorso, Descrizione, Sottotipo, Ciclo di vita, Stato di approvazione, Qualità dei dati. Toglile dalla selezione per nasconderle dalla griglia — utile per restringere una vista salvata alle sole colonne che usi davvero. |
-| **Metadati** | Creato, Modificato, Creato da, Modificato da |
+| **Metadati** | Creato, Modificato, Creato da, Modificato da. **Modificato** indica quando è cambiato l'ultima volta il contenuto della card — per mano di una persona o di un'integrazione, mai per un ricalcolo di sistema — così puoi filtrare su quella data per trovare le card da far rivedere al responsabile. |
 | **Attributi** | Campi personalizzati definiti nel metamodello (testo, numero, costo, data, selezione, ecc.) |
 | **Relazioni** | Tipi di schede correlati (ad es., Applicazioni collegate a una Capacità Aziendale) |
 | **Stakeholder** | Una colonna per ogni ruolo stakeholder definito per il tipo selezionato (ad es. *Stakeholder: Responsible*), che mostra gli utenti assegnati come chip. In modalità modifica griglia, fai doppio clic su una cella per assegnare o rimuovere utenti per quel ruolo direttamente dalla griglia (richiede il permesso di gestione degli stakeholder). |

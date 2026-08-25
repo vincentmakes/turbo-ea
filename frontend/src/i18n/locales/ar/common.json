@@ -241,6 +241,8 @@
   "dashboard.activity.action.file.uploaded": "رفع ملفًا إلى",
   "dashboard.activity.action.file.deleted": "حذف ملفًا من",
   "dashboard.activity.action.comment.created": "علّق على",
+  "dashboard.activity.action.tag.added": "أضاف وسمًا إلى",
+  "dashboard.activity.action.tag.removed": "أزال وسمًا من",
   "dashboard.activity.action.process_diagram.saved": "حفظ مخطط عملية لـ",
   "dashboard.activity.action.process_diagram.deleted": "حذف مخطط عملية لـ",
   "dashboard.activity.action.process_flow.submitted": "أرسل تدفق عملية لـ",

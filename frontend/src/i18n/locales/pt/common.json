@@ -165,6 +165,8 @@
   "dashboard.activity.action.file.uploaded": "enviou um arquivo para",
   "dashboard.activity.action.file.deleted": "excluiu um arquivo de",
   "dashboard.activity.action.comment.created": "comentou em",
+  "dashboard.activity.action.tag.added": "etiquetou",
+  "dashboard.activity.action.tag.removed": "removeu uma etiqueta de",
   "dashboard.activity.action.process_diagram.saved": "salvou um diagrama de processo para",
   "dashboard.activity.action.process_diagram.deleted": "excluiu um diagrama de processo de",
   "dashboard.activity.action.process_flow.submitted": "submeteu um fluxo de processo para",

@@ -218,6 +218,8 @@
   "history.events.fileUploaded": "File caricato",
   "history.events.fileDeleted": "File eliminato",
   "history.events.commentCreated": "Commento aggiunto",
+  "history.events.tagAdded": "Tag aggiunto",
+  "history.events.tagRemoved": "Tag rimosso",
   "history.events.processFlowSubmitted": "Flusso di processo inviato",
   "history.events.processFlowApproved": "Flusso di processo approvato",
   "history.events.processFlowRejected": "Flusso di processo rifiutato",

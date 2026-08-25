@@ -165,6 +165,8 @@
   "dashboard.activity.action.file.uploaded": "Datei hochgeladen zu",
   "dashboard.activity.action.file.deleted": "Datei gelöscht von",
   "dashboard.activity.action.comment.created": "kommentierte",
+  "dashboard.activity.action.tag.added": "markierte",
+  "dashboard.activity.action.tag.removed": "entfernte ein Tag von",
   "dashboard.activity.action.process_diagram.saved": "Prozessdiagramm gespeichert für",
   "dashboard.activity.action.process_diagram.deleted": "Prozessdiagramm gelöscht für",
   "dashboard.activity.action.process_flow.submitted": "Prozessfluss eingereicht für",

@@ -55,7 +55,7 @@ Kolonner er grupperet i fem kategorier:
 | Kategori | Beskrivelse |
 |----------|-------------|
 | **Standardkolonner** | Altid-aktive kolonner: Type, Name, Path, Description, Subtype, Lifecycle, Approval Status, Data Quality. Afmarker en hvilken som helst af disse for at skjule dem fra gitteret — nyttigt ved stramning af en gemt visning til bare de kolonner, du faktisk bruger. |
-| **Metadata** | Created, Modified, Created by, Modified by |
+| **Metadata** | Created, Modified, Created by, Modified by. **Modified** er, hvornår kortets indhold sidst blev ændret — af en person eller en integration, aldrig når systemet sidst genberegnede en score — så du kan filtrere på datoen for at finde kort, der trænger til et gennemsyn af deres ejer. |
 | **Attributes** | Brugerdefinerede felter defineret i metamodellen (text, number, cost, date, select, osv.) |
 | **Relationer** | Relaterede korttyper (f.eks. applikationer linket til en Business Capability) |
 | **Interessenter** | Én kolonne pr. interessentrolle defineret for den valgte korttype (f.eks. *Interessenter: Responsible*), der viser de tildelte brugere som chips. I gitter-redigeringstilstand kan du dobbeltklikke på en celle for at tildele eller fjerne brugere for rollen direkte fra gitteret (kræver tilladelsen til at administrere interessenter). |

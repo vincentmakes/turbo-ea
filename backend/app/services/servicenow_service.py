@@ -330,6 +330,31 @@ def _get_nested(source: dict, path: str) -> Any:
 # ---------------------------------------------------------------------------
 
 
+def _diff_to_changes(
+    diff: dict,
+    before_attrs: dict,
+    before_lifecycle: dict,
+    card: Card,
+) -> dict:
+    """Reshape a staged ServiceNow diff into the History tab's change format.
+
+    The tab's `parseChanges` expects `{field: {"old", "new"}}`, with `attributes`
+    and `lifecycle` carried as whole-blob old/new pairs it re-diffs per key. The
+    sync used to send a bare list of field-path names, which rendered as nothing
+    at all even once the event was persisted (#995).
+    """
+    changes: dict = {}
+    for field_path, change in (diff or {}).items():
+        if field_path.startswith(("attributes.", "lifecycle.")):
+            continue
+        changes[field_path] = {"old": change.get("old"), "new": change.get("new")}
+    if any(k.startswith("attributes.") for k in (diff or {})):
+        changes["attributes"] = {"old": before_attrs, "new": dict(card.attributes or {})}
+    if any(k.startswith("lifecycle.") for k in (diff or {})):
+        changes["lifecycle"] = {"old": before_lifecycle, "new": dict(card.lifecycle or {})}
+    return changes
+
+
 class SyncEngine:
     """Orchestrates pull/push sync between ServiceNow and Turbo EA."""
 
@@ -511,9 +536,9 @@ class SyncEngine:
                 status="applied",
             )
             if action == "create":
-                await self._apply_create(fake_staged, mapping, field_mappings)
+                await self._apply_create(fake_staged, mapping, field_mappings, run.created_by)
             elif action == "update":
-                await self._apply_update(fake_staged, field_mappings)
+                await self._apply_update(fake_staged, field_mappings, run.created_by)
         elif not skip_staging:
             staged = SnowStagedRecord(
                 sync_run_id=run.id,
@@ -689,13 +714,13 @@ class SyncEngine:
         for staged in staged_records:
             try:
                 if staged.action == "create":
-                    await self._apply_create(staged, mapping, field_mappings)
+                    await self._apply_create(staged, mapping, field_mappings, run.created_by)
                     applied["created"] += 1
                 elif staged.action == "update":
-                    await self._apply_update(staged, field_mappings)
+                    await self._apply_update(staged, field_mappings, run.created_by)
                     applied["updated"] += 1
                 elif staged.action == "delete":
-                    await self._apply_delete(staged, mapping)
+                    await self._apply_delete(staged, mapping, run.created_by)
                     applied["deleted"] += 1
                 staged.status = "applied"
             except Exception as exc:
@@ -711,6 +736,7 @@ class SyncEngine:
         staged: SnowStagedRecord,
         mapping: SnowMapping,
         field_mappings: list[SnowFieldMapping],
+        actor_id: uuid.UUID | None = None,
     ) -> None:
         """Create a new card from a staged record."""
         transformed = FieldTransformer.apply_mappings(
@@ -744,16 +770,22 @@ class SyncEngine:
         )
         self.db.add(id_entry)
 
+        # `db=` is what persists the Event row — without it the publish is
+        # SSE-only and the sync never reaches the card's History tab, while the
+        # write it just made moves Last-changed (#995).
         await event_bus.publish(
             event_type="card.created",
             data={"name": card.name, "type": card.type, "source": "servicenow_sync"},
+            db=self.db,
             card_id=card.id,
+            user_id=actor_id,
         )
 
     async def _apply_update(
         self,
         staged: SnowStagedRecord,
         field_mappings: list[SnowFieldMapping],
+        actor_id: uuid.UUID | None = None,
     ) -> None:
         """Update an existing card from a staged record."""
         if not staged.card_id:
@@ -765,6 +797,8 @@ class SyncEngine:
             return
 
         diff = staged.diff or {}
+        before_attrs = dict(card.attributes or {})
+        before_lifecycle = dict(card.lifecycle or {})
         for field_path, change in diff.items():
             new_val = change.get("new")
             if field_path == "name" and new_val:
@@ -801,15 +835,18 @@ class SyncEngine:
                 "name": card.name,
                 "type": card.type,
                 "source": "servicenow_sync",
-                "changes": list(diff.keys()),
+                "changes": _diff_to_changes(diff, before_attrs, before_lifecycle, card),
             },
+            db=self.db,
             card_id=card.id,
+            user_id=actor_id,
         )
 
     async def _apply_delete(
         self,
         staged: SnowStagedRecord,
         mapping: SnowMapping,
+        actor_id: uuid.UUID | None = None,
     ) -> None:
         """Archive a card (soft-delete) based on a staged deletion."""
         if not staged.card_id:
@@ -833,7 +870,9 @@ class SyncEngine:
         await event_bus.publish(
             event_type="card.archived",
             data={"name": card.name, "type": card.type, "source": "servicenow_sync"},
+            db=self.db,
             card_id=card.id,
+            user_id=actor_id,
         )
 
     async def push_sync(

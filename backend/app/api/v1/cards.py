@@ -89,6 +89,7 @@ from app.services.card_write_service import (
     _validate_strict_attributes,
     _validate_url_attributes,
     _walk_ancestor_chain,  # noqa: F401
+    emit_hierarchy_cascade_events,
 )
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.data_quality import calc_data_quality
@@ -1494,12 +1495,17 @@ async def bulk_update(
             if old_val != value:
                 before[field] = str(old_val) if field == "parent_id" and old_val else old_val
                 after[field] = str(value) if field == "parent_id" and value else value
-            if not body.dry_run:
-                setattr(card, field, value)
+                # Only write what actually moved. Assigning an unchanged value
+                # is free (SQLAlchemy compares by equality), but `updated_by`
+                # below is not — and a card the bulk edit did not change must
+                # not surface as "changed just now" in the Inventory while its
+                # History tab stays empty (#995).
+                if not body.dry_run:
+                    setattr(card, field, value)
         if before:
             diffs.append({"id": str(card.id), "before": before, "after": after})
-        if not body.dry_run:
-            card.updated_by = user.id
+            if not body.dry_run:
+                card.updated_by = user.id
 
     if body.dry_run:
         return {
@@ -1517,8 +1523,11 @@ async def bulk_update(
     # descendant — same cascade update_card runs. Do this before the
     # data-quality pass so scores see the fresh level attributes.
     changed_levels_by_card: list[tuple[Card, list[Card]]] = []
+    previous_levels: dict[uuid.UUID, dict] = {}
     for card in moved:
-        changed_levels_by_card.append((card, await _sync_hierarchy_levels(db, card)))
+        changed_levels_by_card.append(
+            (card, await _sync_hierarchy_levels(db, card, previous=previous_levels))
+        )
 
     # Mirror update_card: substantive edits break an approved card.
     status_breaking = {
@@ -1541,7 +1550,13 @@ async def bulk_update(
     # create_card / bulk_create_cards / update_card. Without this a bulk edit
     # persists the new values but leaves data_quality and calculated fields
     # frozen at their prior (often creation-time) value.
+    changed_ids = {diff["id"] for diff in diffs}
     for card in sheets:
+        # Only the cards this edit actually touched. Recomputing a card the
+        # bulk edit left alone can still move a stale calculated field, which
+        # UPDATEs the row and moves Last-changed with nothing in History (#995).
+        if str(card.id) not in changed_ids:
+            continue
         ppm_excl = await _get_ppm_exclusions(db, card)
         await run_calculations_for_card(db, card, exclude_fields=ppm_excl)
         # After the calculations — see the note in `create_card`.
@@ -1569,6 +1584,11 @@ async def bulk_update(
             card_id=uuid.UUID(diff["id"]),
             user_id=user.id,
         )
+
+    # Descendants dragged along by a bulk re-parent get their own entry — their
+    # Modified date moved too (see the updated_at invariant in CLAUDE.md).
+    for card, changed_levels in changed_levels_by_card:
+        await emit_hierarchy_cascade_events(db, changed_levels, previous_levels, card.id, user.id)
 
     await db.commit()
     result = await db.execute(

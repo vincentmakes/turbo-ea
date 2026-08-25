@@ -689,18 +689,23 @@ async def _finalize_cards(db) -> None:
     from app.services.calculation_engine import run_calculations_for_card
     from app.services.card_write_service import _get_ppm_exclusions
     from app.services.data_quality import calc_data_quality
+    from app.services.derived_writes import derived_maintenance
 
     ids = list((await db.execute(select(Card.id).where(Card.status != "ARCHIVED"))).scalars().all())
-    for i in range(0, len(ids), 500):
-        chunk = ids[i : i + 500]
-        cards = (await db.execute(select(Card).where(Card.id.in_(chunk)))).scalars().all()
-        for card in cards:
-            ppm_excl = await _get_ppm_exclusions(db, card)
-            await run_calculations_for_card(db, card, exclude_fields=ppm_excl)
-            score = await calc_data_quality(db, card)
-            if card.data_quality != score:
-                card.data_quality = score
-    await db.flush()
+    # Cards the bundle created carry their own `card.created` event; cards the
+    # target already had are only being rescored, so this pass must not re-date
+    # the whole inventory to the moment of the import.
+    with derived_maintenance(db):
+        for i in range(0, len(ids), 500):
+            chunk = ids[i : i + 500]
+            cards = (await db.execute(select(Card).where(Card.id.in_(chunk)))).scalars().all()
+            for card in cards:
+                ppm_excl = await _get_ppm_exclusions(db, card)
+                await run_calculations_for_card(db, card, exclude_fields=ppm_excl)
+                score = await calc_data_quality(db, card)
+                if card.data_quality != score:
+                    card.data_quality = score
+        await db.flush()
 
 
 def _make_cards_applier(user: User):

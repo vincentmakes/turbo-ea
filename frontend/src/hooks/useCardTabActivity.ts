@@ -34,6 +34,8 @@ const EVENT_TAB_MAP: Record<string, string> = {
   "relation.created": "card",
   "relation.updated": "card",
   "relation.deleted": "card",
+  "tag.added": "card",
+  "tag.removed": "card",
 };
 
 type StoreShape = {

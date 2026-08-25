@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
 from app.models.card_type import CardType
+from app.services.derived_writes import derived_maintenance
 
 # Config defaults --------------------------------------------------------------
 DEFAULT_START = 10000
@@ -178,8 +179,10 @@ async def backfill_references_for_type(db: AsyncSession, card_type: CardType) ->
     )
     cards = result.scalars().all()
     updated = 0
-    for card in cards:
-        n += 1
-        card.reference = format_reference(prefix, padding, n)
-        updated += 1
+    # Minting the human-readable ID is system housekeeping, not a content edit.
+    with derived_maintenance(db):
+        for card in cards:
+            n += 1
+            card.reference = format_reference(prefix, padding, n)
+            updated += 1
     return updated

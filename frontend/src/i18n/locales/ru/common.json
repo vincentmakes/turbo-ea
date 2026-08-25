@@ -165,6 +165,8 @@
   "dashboard.activity.action.file.uploaded": "загрузил файл к",
   "dashboard.activity.action.file.deleted": "удалил файл у",
   "dashboard.activity.action.comment.created": "прокомментировал",
+  "dashboard.activity.action.tag.added": "добавил тег к",
+  "dashboard.activity.action.tag.removed": "удалил тег у",
   "dashboard.activity.action.process_diagram.saved": "сохранил диаграмму процесса для",
   "dashboard.activity.action.process_diagram.deleted": "удалил диаграмму процесса для",
   "dashboard.activity.action.process_flow.submitted": "отправил поток процесса для",

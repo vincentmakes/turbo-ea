@@ -162,6 +162,8 @@ Le chemin d'invitation nécessite la permission **`users.invite`**, une forme d�
 
 Affiche la **piste d'audit complète** des modifications apportées à la fiche : **qui** a effectué la modification, **quand** elle a été effectuée, et **ce qui** a été modifié (valeur précédente vs nouvelle valeur). Cela permet une traçabilité complète de toutes les modifications au fil du temps.
 
+Tout ce qui déplace la date **Modifié** de la fiche apparaît ici — une modification manuelle, un import de tableur, une migration de plateforme ou une synchronisation ServiceNow, un changement d'étiquette, une modification en masse, ou un déplacement hiérarchique qui a entraîné cette fiche. La maintenance système ne change ni l'un ni l'autre : le recalcul des scores de qualité des données, la ré-exécution des champs calculés et le remplissage des niveaux hiérarchiques ou des identifiants de fiche laissent l'historique et la date **Modifié** intacts.
+
 ## Onglet ADR
 
 Chaque fiche dispose d'un onglet **ADR** qui répertorie les [décisions d'architecture](delivery.md) qui lui sont liées, avec la référence, le titre, le statut, toutes les fiches liées et la date de dernière modification. Cliquez sur une ligne pour ouvrir la décision.

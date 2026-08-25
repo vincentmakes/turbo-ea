@@ -46,6 +46,7 @@ from app.models.relation_type import RelationType
 from app.models.stakeholder import Stakeholder
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
+from app.services.event_bus import event_bus
 
 logger = logging.getLogger(__name__)
 
@@ -294,6 +295,21 @@ async def _apply_single_card(
         db.add(card)
         await db.flush()
         staged.target_id = card.id
+        # A migration apply writes cards, so it moves their Modified date — it
+        # owes the History tab an entry like any other write path (#995).
+        await event_bus.publish(
+            "card.created",
+            {
+                "id": str(card.id),
+                "type": card.type,
+                "name": card.name,
+                "source": "migration",
+                "source_type": staged.source_type,
+            },
+            db=db,
+            card_id=card.id,
+            user_id=user.id,
+        )
     elif staged.action == "update":
         if staged.target_id is None:
             raise ValueError(f"update staged row {staged.id} has no target_id")
@@ -303,6 +319,20 @@ async def _apply_single_card(
         if existing_card is None:
             raise ValueError(f"target card {staged.target_id} no longer exists")
         card = existing_card
+        # Snapshot before the merge so the History entry below can say what
+        # actually moved. `staged.diff` is unusable for this: it is computed at
+        # staging time, before `_remap_attributes` rewrites native source column
+        # names to metamodel field keys, and it nests per attribute key rather
+        # than carrying the whole-blob old/new the History tab renders.
+        before = {
+            "name": card.name,
+            "description": card.description,
+            "subtype": card.subtype,
+            "lifecycle": dict(card.lifecycle or {}),
+            "attributes": dict(card.attributes or {}),
+            "external_id": card.external_id,
+            "parent_id": str(card.parent_id) if card.parent_id else None,
+        }
         # Apply diff'd fields back onto the existing card. Attributes
         # the import doesn't know about are intentionally **not** wiped
         # — merge instead of replace.
@@ -320,7 +350,37 @@ async def _apply_single_card(
             card.external_id = payload["external_id"]
         if parent_id is not None:
             card.parent_id = parent_id
-        card.updated_by = user.id
+
+        after = {
+            "name": card.name,
+            "description": card.description,
+            "subtype": card.subtype,
+            "lifecycle": dict(card.lifecycle or {}),
+            "attributes": dict(card.attributes or {}),
+            "external_id": card.external_id,
+            "parent_id": str(card.parent_id) if card.parent_id else None,
+        }
+        changes = {
+            field: {"old": before[field], "new": after[field]}
+            for field in before
+            if before[field] != after[field]
+        }
+        # Re-applying a snapshot that changes nothing must leave the card
+        # entirely alone — `updated_by` alone is enough to re-date it.
+        if changes:
+            card.updated_by = user.id
+            await event_bus.publish(
+                "card.updated",
+                {
+                    "id": str(card.id),
+                    "source": "migration",
+                    "source_type": staged.source_type,
+                    "changes": changes,
+                },
+                db=db,
+                card_id=card.id,
+                user_id=user.id,
+            )
     else:
         raise ValueError(f"unknown action {staged.action!r}")
 

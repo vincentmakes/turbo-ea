@@ -55,7 +55,7 @@ As colunas são agrupadas em cinco categorias:
 | Categoria | Descrição |
 |-----------|-----------|
 | **Colunas padrão** | Colunas sempre ativas: Tipo, Nome, Caminho, Descrição, Subtipo, Ciclo de vida, Estado de aprovação, Qualidade dos dados. Desmarque-as para ocultá-las da grade — útil para ajustar uma visualização salva apenas às colunas que você realmente usa. |
-| **Metadados** | Criado, Modificado, Criado por, Modificado por |
+| **Metadados** | Criado, Modificado, Criado por, Modificado por. **Modificado** é quando o conteúdo do card mudou pela última vez — por uma pessoa ou uma integração, nunca por um recálculo do sistema — assim você pode filtrar por essa data para encontrar cards que precisam de revisão pelo responsável. |
 | **Atributos** | Campos personalizados definidos no metamodelo (texto, número, custo, data, seleção, etc.) |
 | **Relações** | Tipos de cartões relacionados (por ex., Aplicações vinculadas a uma Capacidade de Negócio) |
 | **Partes interessadas** | Uma coluna por cada papel de parte interessada definido para o tipo selecionado (por ex. *Partes interessadas: Responsible*), mostrando os utilizadores atribuídos como chips. No modo de edição da grade, faça duplo clique numa célula para atribuir ou remover utilizadores desse papel diretamente na grade (requer a permissão de gestão de partes interessadas). |

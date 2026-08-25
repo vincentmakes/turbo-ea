@@ -162,6 +162,8 @@ The invite path requires the **`users.invite`** permission, a delegated form of 
 
 Shows the **complete audit trail** of changes made to the card: **who** made the change, **when** it was made, and **what** was modified (previous value vs. new value). This enables full traceability of all modifications over time.
 
+Everything that moves the card's **Modified** date appears here — an edit by hand, a spreadsheet import, a platform migration or ServiceNow sync, a tag change, a bulk edit, or a hierarchy move that pulled this card along. System housekeeping changes neither: recalculating data-quality scores, re-running calculated fields, and backfilling hierarchy levels or card IDs leave both the history and the **Modified** date alone.
+
 ## ADRs Tab
 
 Every card carries an **ADRs** tab listing the [Architecture Decision Records](delivery.md) linked to it, showing each decision's reference, title, status, all of its linked cards, and when it was last modified. Click a row to open the decision.

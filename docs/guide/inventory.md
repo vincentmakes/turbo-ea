@@ -55,7 +55,7 @@ Columns are grouped into five categories:
 | Category | Description |
 |----------|-------------|
 | **Default columns** | Always-on columns: Type, Name, Path, Description, Subtype, Lifecycle, Approval Status, Data Quality. Untick any of these to hide them from the grid — useful when tightening a saved view to just the columns you actually use. |
-| **Metadata** | Created, Modified, Created by, Modified by |
+| **Metadata** | Created, Modified, Created by, Modified by. **Modified** is when the card's content last changed — by a person or an integration, never when the system last recomputed a score — so you can filter it by date to find cards due for an owner review. |
 | **Attributes** | Custom fields defined in the metamodel (text, number, cost, date, select, etc.) |
 | **Relations** | Related card types (e.g., Applications linked to a Business Capability) |
 | **Stakeholders** | One column per stakeholder role defined for the selected card type (e.g. *Stakeholders: Responsible*), showing the assigned users as chips. In grid edit mode, double-click a cell to assign or remove users for that role directly from the grid (requires the *manage stakeholders* permission). |

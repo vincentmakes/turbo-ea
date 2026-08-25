@@ -44,6 +44,7 @@ from app.services.calculation_ppm import (
     get_fiscal_year_start,
     needs_ppm,
 )
+from app.services.derived_writes import derived_maintenance
 from app.services.hierarchy import compute_hierarchy_level
 
 logger = logging.getLogger("turboea.calculations")
@@ -790,44 +791,48 @@ async def run_calculations_for_type(
     # One settings read for the whole run rather than one per card.
     fiscal_year_start = await get_fiscal_year_start(db)
 
-    for card in cards:
-        results = await run_calculations_for_card(db, card, fiscal_year_start=fiscal_year_start)
-        for r in results:
-            calc_id = r["calculation_id"]
-            report = reports.get(calc_id)
-            if report is None:
-                report = reports[calc_id] = {
-                    "calculation_id": calc_id,
-                    "name": r["name"],
-                    "target_field": r["target_field"],
-                    "succeeded": 0,
-                    "failed": 0,
-                    "failures": [],
-                }
-                failures[calc_id] = {}
+    # Re-running a formula across a type recomputes a value the system owns;
+    # it is not an edit to any of those cards, so their Modified dates stay
+    # where they were (see the updated_at invariant in CLAUDE.md).
+    with derived_maintenance(db):
+        for card in cards:
+            results = await run_calculations_for_card(db, card, fiscal_year_start=fiscal_year_start)
+            for r in results:
+                calc_id = r["calculation_id"]
+                report = reports.get(calc_id)
+                if report is None:
+                    report = reports[calc_id] = {
+                        "calculation_id": calc_id,
+                        "name": r["name"],
+                        "target_field": r["target_field"],
+                        "succeeded": 0,
+                        "failed": 0,
+                        "failures": [],
+                    }
+                    failures[calc_id] = {}
 
-            if r["success"]:
-                success_count += 1
-                report["succeeded"] += 1
-                continue
+                if r["success"]:
+                    success_count += 1
+                    report["succeeded"] += 1
+                    continue
 
-            error_count += 1
-            report["failed"] += 1
-            message = r["error"] or "Evaluation error"
-            group = failures[calc_id].get(message)
-            if group is None:
-                group = failures[calc_id][message] = {
-                    "error": message,
-                    "count": 0,
-                    "cards": [],
-                    "cards_truncated": False,
-                }
-                report["failures"].append(group)
-            group["count"] += 1
-            if len(group["cards"]) < MAX_SAMPLE_CARDS:
-                group["cards"].append({"id": str(card.id), "name": card.name})
-            else:
-                group["cards_truncated"] = True
+                error_count += 1
+                report["failed"] += 1
+                message = r["error"] or "Evaluation error"
+                group = failures[calc_id].get(message)
+                if group is None:
+                    group = failures[calc_id][message] = {
+                        "error": message,
+                        "count": 0,
+                        "cards": [],
+                        "cards_truncated": False,
+                    }
+                    report["failures"].append(group)
+                group["count"] += 1
+                if len(group["cards"]) < MAX_SAMPLE_CARDS:
+                    group["cards"].append({"id": str(card.id), "name": card.name})
+                else:
+                    group["cards_truncated"] = True
 
     # `run_calculations_for_card` rewrites `last_error` on every card, so after a
     # bulk run the row carried whichever card happened to be processed last — a

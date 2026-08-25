@@ -165,6 +165,8 @@
   "dashboard.activity.action.file.uploaded": "a téléversé un fichier sur",
   "dashboard.activity.action.file.deleted": "a supprimé un fichier de",
   "dashboard.activity.action.comment.created": "a commenté",
+  "dashboard.activity.action.tag.added": "a étiqueté",
+  "dashboard.activity.action.tag.removed": "a retiré une étiquette de",
   "dashboard.activity.action.process_diagram.saved": "a sauvegardé un diagramme de processus pour",
   "dashboard.activity.action.process_diagram.deleted": "a supprimé un diagramme de processus pour",
   "dashboard.activity.action.process_flow.submitted": "a soumis un flux de processus pour",

@@ -218,6 +218,8 @@
   "history.events.fileUploaded": "File uploaded",
   "history.events.fileDeleted": "File deleted",
   "history.events.commentCreated": "Comment added",
+  "history.events.tagAdded": "Tag added",
+  "history.events.tagRemoved": "Tag removed",
   "history.events.processFlowSubmitted": "Process flow submitted",
   "history.events.processFlowApproved": "Process flow approved",
   "history.events.processFlowRejected": "Process flow rejected",

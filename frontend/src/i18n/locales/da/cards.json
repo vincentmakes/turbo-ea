@@ -218,6 +218,8 @@
   "history.events.fileUploaded": "Fil uploadet",
   "history.events.fileDeleted": "Fil slettet",
   "history.events.commentCreated": "Kommentar tilføjet",
+  "history.events.tagAdded": "Tag tilføjet",
+  "history.events.tagRemoved": "Tag fjernet",
   "history.events.processFlowSubmitted": "Procesflow indsendt",
   "history.events.processFlowApproved": "Procesflow godkendt",
   "history.events.processFlowRejected": "Procesflow afvist",

@@ -218,6 +218,8 @@
   "history.events.fileUploaded": "Fichier téléversé",
   "history.events.fileDeleted": "Fichier supprimé",
   "history.events.commentCreated": "Commentaire ajouté",
+  "history.events.tagAdded": "Étiquette ajoutée",
+  "history.events.tagRemoved": "Étiquette supprimée",
   "history.events.processFlowSubmitted": "Flux de processus soumis",
   "history.events.processFlowApproved": "Flux de processus approuvé",
   "history.events.processFlowRejected": "Flux de processus rejeté",

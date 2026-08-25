@@ -55,7 +55,7 @@ Spalten sind in fünf Kategorien gruppiert:
 | Kategorie | Beschreibung |
 |-----------|-------------|
 | **Standardspalten** | Immer aktive Spalten: Typ, Name, Pfad, Beschreibung, Untertyp, Lebenszyklus, Genehmigungsstatus, Datenqualität. Heben Sie eine davon ab, um sie aus dem Raster auszublenden — nützlich, um eine gespeicherte Ansicht auf genau die Spalten zu reduzieren, die Sie wirklich verwenden. |
-| **Metadaten** | Erstellt, Geändert, Erstellt von, Geändert von |
+| **Metadaten** | Erstellt, Geändert, Erstellt von, Geändert von. **Geändert** ist der Zeitpunkt, zu dem sich der Inhalt der Karte zuletzt geändert hat — durch eine Person oder eine Integration, nie durch eine systemseitige Neuberechnung eines Werts — sodass Sie danach filtern können, um Karten zu finden, die eine Überprüfung durch den Verantwortlichen benötigen. |
 | **Attribute** | Im Metamodell definierte benutzerdefinierte Felder (Text, Zahl, Kosten, Datum, Auswahl usw.) |
 | **Beziehungen** | Verknüpfte Kartentypen (z. B. Anwendungen, die mit einer Geschäftsfähigkeit verknüpft sind) |
 | **Stakeholder** | Eine Spalte pro Stakeholder-Rolle des ausgewählten Kartentyps (z. B. *Stakeholder: Responsible*) mit den zugewiesenen Benutzern als Chips. Im Raster-Bearbeitungsmodus können Sie per Doppelklick Benutzer für die Rolle direkt im Raster zuweisen oder entfernen (erfordert die Berechtigung zum Verwalten von Stakeholdern). |

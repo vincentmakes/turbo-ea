@@ -442,7 +442,9 @@ async def _check_hierarchy_depth(
         )
 
 
-async def _sync_hierarchy_levels(db: AsyncSession, card: Card) -> list[Card]:
+async def _sync_hierarchy_levels(
+    db: AsyncSession, card: Card, *, previous: dict[uuid.UUID, dict] | None = None
+) -> list[Card]:
     """Recompute hierarchy-level attributes for a card and its ACTIVE subtree.
 
     For any ``has_hierarchy`` card type, writes ``attributes.hierarchyLevel``
@@ -453,7 +455,10 @@ async def _sync_hierarchy_levels(db: AsyncSession, card: Card) -> list[Card]:
 
     Cascades into ACTIVE descendants and returns every visited card whose level
     value actually changed, so callers can re-run calculations only where the
-    tree position moved.
+    tree position moved. Pass ``previous`` to collect each changed card's
+    pre-change level values, which the caller needs to record the cascade on the
+    descendants' History tabs (their Modified dates move, so they owe an entry —
+    see the updated_at invariant in CLAUDE.md).
     """
     hier_cache: dict[str, bool] = {}
 
@@ -465,7 +470,7 @@ async def _sync_hierarchy_levels(db: AsyncSession, card: Card) -> list[Card]:
         return hier_cache[type_key]
 
     changed: list[Card] = []
-    await _sync_hierarchy_node(db, card, changed, _is_hierarchical)
+    await _sync_hierarchy_node(db, card, changed, _is_hierarchical, previous)
     return changed
 
 
@@ -474,6 +479,7 @@ async def _sync_hierarchy_node(
     card: Card,
     changed: list[Card],
     is_hierarchical,
+    previous: dict[uuid.UUID, dict] | None = None,
 ) -> None:
     hier = await is_hierarchical(card.type)
     is_bizcap = card.type == "BusinessCapability"
@@ -485,6 +491,7 @@ async def _sync_hierarchy_node(
 
     depth, root_is_macro = await _walk_ancestor_chain(db, card.parent_id, exclude={card.id})
     attrs = dict(card.attributes or {})
+    before = dict(attrs)
     dirty = False
 
     if hier:
@@ -505,13 +512,52 @@ async def _sync_hierarchy_node(
     if dirty:
         card.attributes = attrs
         changed.append(card)
+        if previous is not None:
+            previous.setdefault(card.id, before)
 
     # Cascade to ACTIVE direct children
     children_result = await db.execute(
         select(Card).where(Card.parent_id == card.id, Card.status == "ACTIVE")
     )
     for child in children_result.scalars().all():
-        await _sync_hierarchy_node(db, child, changed, is_hierarchical)
+        await _sync_hierarchy_node(db, child, changed, is_hierarchical, previous)
+
+
+async def emit_hierarchy_cascade_events(
+    db: AsyncSession,
+    changed: list[Card],
+    previous: dict[uuid.UUID, dict],
+    primary_card_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
+) -> None:
+    """Record a re-parent's level cascade on each descendant's History tab.
+
+    Re-parenting a card rewrites ``hierarchyLevel`` / ``capabilityLevel`` down
+    the whole ACTIVE subtree, which UPDATEs each descendant and so moves its
+    Modified date. Unlike a data-quality rescore this has a real actor and a
+    bounded blast radius, and the descendant genuinely moved in the hierarchy —
+    so it earns an event rather than a pinned timestamp (#995).
+    """
+    for card in changed:
+        if card.id == primary_card_id:
+            continue
+        before = previous.get(card.id)
+        if before is None:
+            continue
+        after = dict(card.attributes or {})
+        if before == after:
+            continue
+        await event_bus.publish(
+            "card.updated",
+            {
+                "id": str(card.id),
+                "source": "hierarchy_cascade",
+                "changes": {"attributes": {"old": before, "new": after}},
+            },
+            db=db,
+            card_id=card.id,
+            user_id=actor_id,
+        )
 
 
 async def _recalc_changed_descendants(
@@ -720,12 +766,13 @@ async def update_card(
     # and capabilityLevel for BusinessCapability.
     current_attrs = card.attributes or {}
     changed_levels: list[Card] = []
+    previous_levels: dict[uuid.UUID, dict] = {}
     if (
         "parent_id" in changes
         or current_attrs.get(HIERARCHY_LEVEL_KEY) is None
         or (card.type == "BusinessCapability" and not current_attrs.get("capabilityLevel"))
     ):
-        changed_levels = await _sync_hierarchy_levels(db, card)
+        changed_levels = await _sync_hierarchy_levels(db, card, previous=previous_levels)
 
     # Run calculated fields (skip PPM-managed cost fields if PPM data exists)
     ppm_excl = await _get_ppm_exclusions(db, card)
@@ -761,6 +808,11 @@ async def update_card(
             db=db,
             card_id=card.id,
             user_id=actor.user_id,
+        )
+        # Descendants dragged along by a re-parent get their own entry — their
+        # Modified date moved too.
+        await emit_hierarchy_cascade_events(
+            db, changed_levels, previous_levels, card.id, actor.user_id
         )
 
         # Notify subscribers about the update

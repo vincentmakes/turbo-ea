@@ -51,6 +51,7 @@ from app.schemas.ppm import (
 from app.services import notification_service
 from app.services.calculation_engine import run_calculations_for_card
 from app.services.data_quality import calc_data_quality
+from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/ppm", tags=["ppm"])
@@ -66,7 +67,9 @@ async def _get_initiative_or_404(db: AsyncSession, initiative_id: str) -> Card:
     return card
 
 
-async def _sync_initiative_costs(db: AsyncSession, initiative_id: str) -> None:
+async def _sync_initiative_costs(
+    db: AsyncSession, initiative_id: str, actor_id: uuid.UUID | None = None
+) -> None:
     """Roll up PPM budget/cost line totals into the Initiative card attributes."""
     result = await db.execute(
         select(Card).where(Card.id == initiative_id, Card.type == "Initiative")
@@ -92,7 +95,8 @@ async def _sync_initiative_costs(db: AsyncSession, initiative_id: str) -> None:
     total_actual = float(cost_result.scalar() or 0)
 
     # Update card attributes
-    attrs = dict(card.attributes or {})
+    old_attrs = dict(card.attributes or {})
+    attrs = dict(old_attrs)
     attrs["costBudget"] = total_budget if total_budget else None
     attrs["costActual"] = total_actual if total_actual else None
     card.attributes = attrs
@@ -113,6 +117,22 @@ async def _sync_initiative_costs(db: AsyncSession, initiative_id: str) -> None:
     # field weights and the admin-tuned built-in contributor weights). Must run
     # *after* the calculations, or the score is always one edit stale.
     card.data_quality = await calc_data_quality(db, card)
+
+    # A budget/cost edit rewrites the Initiative card, which moves its
+    # Last-changed date — so it owes the History tab an entry too (#995).
+    # The rollup is idempotent, so say nothing when the totals did not move.
+    if attrs != old_attrs:
+        await event_bus.publish(
+            "card.updated",
+            {
+                "id": str(card.id),
+                "source": "ppm_cost_rollup",
+                "changes": {"attributes": {"old": old_attrs, "new": attrs}},
+            },
+            db=db,
+            card_id=card.id,
+            user_id=actor_id,
+        )
 
     await db.commit()
 
@@ -286,7 +306,7 @@ async def create_cost_line(
     db.add(cl)
     await db.commit()
     await db.refresh(cl)
-    await _sync_initiative_costs(db, initiative_id)
+    await _sync_initiative_costs(db, initiative_id, user.id)
     return _cost_line_out(cl)
 
 
@@ -307,7 +327,7 @@ async def update_cost_line(
         setattr(cl, key, val)
     await db.commit()
     await db.refresh(cl)
-    await _sync_initiative_costs(db, initiative_id)
+    await _sync_initiative_costs(db, initiative_id, user.id)
     return _cost_line_out(cl)
 
 
@@ -325,7 +345,7 @@ async def delete_cost_line(
     initiative_id = str(cl.initiative_id)
     await db.delete(cl)
     await db.commit()
-    await _sync_initiative_costs(db, initiative_id)
+    await _sync_initiative_costs(db, initiative_id, user.id)
 
 
 # ── Budget Lines ──────────────────────────────────────────────────
@@ -384,7 +404,7 @@ async def create_budget_line(
     db.add(bl)
     await db.commit()
     await db.refresh(bl)
-    await _sync_initiative_costs(db, initiative_id)
+    await _sync_initiative_costs(db, initiative_id, user.id)
     return _budget_line_out(bl)
 
 
@@ -405,7 +425,7 @@ async def update_budget_line(
         setattr(bl, key, val)
     await db.commit()
     await db.refresh(bl)
-    await _sync_initiative_costs(db, initiative_id)
+    await _sync_initiative_costs(db, initiative_id, user.id)
     return _budget_line_out(bl)
 
 
@@ -423,7 +443,7 @@ async def delete_budget_line(
     initiative_id = str(bl.initiative_id)
     await db.delete(bl)
     await db.commit()
-    await _sync_initiative_costs(db, initiative_id)
+    await _sync_initiative_costs(db, initiative_id, user.id)
 
 
 # ── Has Costs (lightweight check for frontend auto-field logic) ──

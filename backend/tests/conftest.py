@@ -196,6 +196,44 @@ async def client(app):
 
 
 # ---------------------------------------------------------------------------
+# updated_at observation
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def card_update_sql(db):
+    """Record whether each ``UPDATE cards`` re-derived ``updated_at`` from now().
+
+    You cannot detect an ``updated_at`` bump by comparing timestamps in a test:
+    PostgreSQL's ``now()`` is ``transaction_timestamp()``, constant for the life
+    of a transaction, and the ``db`` fixture wraps the whole test in one. A
+    before/after comparison is therefore byte-identical however many UPDATEs
+    were emitted, and the assertion passes vacuously.
+
+    The real discriminator is the rendered SET clause: ``updated_at=now()``
+    when the ``onupdate`` default fired, a bound parameter when
+    ``derived_writes`` pinned it. See the updated_at invariant in CLAUDE.md.
+    """
+    from types import SimpleNamespace
+
+    statements: list[str] = []
+    bind = db.sync_session.get_bind()
+
+    @sa_event.listens_for(bind, "before_cursor_execute")
+    def _record(conn, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().upper().startswith("UPDATE CARDS"):
+            statements.append(statement)
+
+    yield SimpleNamespace(
+        statements=statements,
+        bumped=lambda: any("updated_at=now()" in s.lower() for s in statements),
+        clear=statements.clear,
+    )
+
+    sa_event.remove(bind, "before_cursor_execute", _record)
+
+
+# ---------------------------------------------------------------------------
 # Permission cache cleanup (autouse)
 # ---------------------------------------------------------------------------
 

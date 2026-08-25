@@ -55,7 +55,7 @@ Las columnas se agrupan en cinco categorías:
 | Categoría | Descripción |
 |-----------|-------------|
 | **Columnas predeterminadas** | Columnas siempre visibles: Tipo, Nombre, Ruta, Descripción, Subtipo, Ciclo de vida, Estado de aprobación, Calidad de datos. Desmárquelas para ocultarlas de la cuadrícula — útil para ajustar una vista guardada solo a las columnas que realmente utiliza. |
-| **Metadatos** | Creado, Modificado, Creado por, Modificado por |
+| **Metadatos** | Creado, Modificado, Creado por, Modificado por. **Modificado** es cuándo cambió por última vez el contenido de la ficha — por una persona o una integración, nunca por un recálculo del sistema — de modo que puede filtrar por esa fecha para encontrar fichas pendientes de revisión por su responsable. |
 | **Atributos** | Campos personalizados definidos en el metamodelo (texto, número, coste, fecha, selección, etc.) |
 | **Relaciones** | Tipos de tarjetas relacionados (p. ej., Aplicaciones vinculadas a una Capacidad de Negocio) |
 | **Partes interesadas** | Una columna por cada rol de parte interesada definido para el tipo seleccionado (p. ej. *Partes interesadas: Responsible*), mostrando los usuarios asignados como chips. En el modo de edición de cuadrícula, haga doble clic en una celda para asignar o quitar usuarios de ese rol directamente desde la cuadrícula (requiere el permiso de gestión de partes interesadas). |

@@ -162,6 +162,8 @@ Invitations-stien kræver tilladelsen **`users.invite`**, en delegeret form af `
 
 Viser det **komplette audit-spor** over ændringer foretaget på kortet: **hvem** der foretog ændringen, **hvornår** den blev foretaget, og **hvad** der blev ændret (tidligere værdi vs. ny værdi). Dette giver fuld sporbarhed over alle ændringer over tid.
 
+Alt, der flytter kortets **Ændret**-dato, vises her — en manuel redigering, et regnearksimport, en platformsmigrering eller ServiceNow-synkronisering, en tag-ændring, en masseredigering eller en hierarkiflytning, der trak dette kort med. Systemvedligeholdelse ændrer ingen af delene: genberegning af datakvalitetsscorer, genkørsel af beregnede felter og udfyldning af hierarkiniveauer eller kort-id'er lader både historikken og **Ændret**-datoen være i fred.
+
 ## ADRs-fane
 
 Hvert kort har en **ADRs**-fane, der viser de [arkitekturbeslutninger](delivery.md), som er tilknyttet kortet, med reference, titel, status, alle tilknyttede kort og tidspunktet for seneste ændring. Klik på en række for at åbne beslutningen.

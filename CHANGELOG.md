@@ -5,6 +5,23 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.87.0] - 2026-08-25
+
+### Fixed
+
+- **The Modified date now means somebody changed the card.** An import, a ServiceNow sync, a tag change or a bulk edit could re-date a card that showed nothing at all in its History tab — so filtering the inventory by **Modified** to find cards nobody had reviewed returned the whole landscape. Every one of those paths now records what it changed on the card: applying a platform migration, a ServiceNow pull, an EOL mass-link and a PPM budget or cost edit each write a history entry, and re-applying an import that changes nothing leaves the card completely alone.
+- **A bulk edit no longer re-dates the cards it left untouched.** Selecting fifty cards and setting a field that forty of them already had marked all fifty as just modified. Only the cards that actually changed are touched now.
+- **Re-linking a card to the same End-of-Life product is a no-op.** The mass-link tool rewrote every card it visited whether or not the product and cycle differed; it now reports, and touches, only the ones it actually changed.
+
+### Changed
+
+- **Housekeeping no longer counts as a change.** Recalculating data-quality scores after a field-weight change, re-running calculated fields across a type, and backfilling hierarchy levels or card IDs all leave each card's **Modified** date where it was. The date answers "when did the content last change", which is what you filter it by.
+
+### Added
+
+- **Tags appear on a card's History tab.** Adding or removing a tag is recorded with who did it and when, so tags synced by an Excel import are as traceable as any other edit.
+- **A re-parent is recorded on the cards it moves.** Moving a card in the hierarchy rewrites the level of everything beneath it; those descendants now each get a history entry instead of silently changing.
+
 ## [2.86.0] - 2026-08-25
 
 ### Changed

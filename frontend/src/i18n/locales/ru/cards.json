@@ -218,6 +218,8 @@
   "history.events.fileUploaded": "Файл загружен",
   "history.events.fileDeleted": "Файл удалён",
   "history.events.commentCreated": "Комментарий добавлен",
+  "history.events.tagAdded": "Тег добавлен",
+  "history.events.tagRemoved": "Тег удалён",
   "history.events.processFlowSubmitted": "Схема процесса подана",
   "history.events.processFlowApproved": "Схема процесса утверждена",
   "history.events.processFlowRejected": "Схема процесса отклонена",

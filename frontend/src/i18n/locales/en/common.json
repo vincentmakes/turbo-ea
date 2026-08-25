@@ -241,6 +241,8 @@
   "dashboard.activity.action.file.uploaded": "uploaded a file to",
   "dashboard.activity.action.file.deleted": "deleted a file from",
   "dashboard.activity.action.comment.created": "commented on",
+  "dashboard.activity.action.tag.added": "tagged",
+  "dashboard.activity.action.tag.removed": "removed a tag from",
   "dashboard.activity.action.process_diagram.saved": "saved a process diagram for",
   "dashboard.activity.action.process_diagram.deleted": "deleted a process diagram for",
   "dashboard.activity.action.process_flow.submitted": "submitted a process flow for",

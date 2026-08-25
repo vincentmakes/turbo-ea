@@ -165,6 +165,8 @@
   "dashboard.activity.action.file.uploaded": "上传了文件：",
   "dashboard.activity.action.file.deleted": "删除了文件：",
   "dashboard.activity.action.comment.created": "评论了",
+  "dashboard.activity.action.tag.added": "添加了标签",
+  "dashboard.activity.action.tag.removed": "移除了标签",
   "dashboard.activity.action.process_diagram.saved": "保存了流程图：",
   "dashboard.activity.action.process_diagram.deleted": "删除了流程图：",
   "dashboard.activity.action.process_flow.submitted": "提交了流程：",

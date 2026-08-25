@@ -218,6 +218,8 @@
   "history.events.fileUploaded": "تم رفع ملف",
   "history.events.fileDeleted": "تم حذف ملف",
   "history.events.commentCreated": "تمت إضافة تعليق",
+  "history.events.tagAdded": "تمت إضافة وسم",
+  "history.events.tagRemoved": "تمت إزالة وسم",
   "history.events.processFlowSubmitted": "تم تقديم مخطط العملية",
   "history.events.processFlowApproved": "تم اعتماد مخطط العملية",
   "history.events.processFlowRejected": "تم رفض مخطط العملية",

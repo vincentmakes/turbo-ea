@@ -38,6 +38,10 @@ const EVENT_META_ICONS: Record<string, { icon: string; color: string }> = {
   "file.uploaded": { icon: "upload_file", color: "#1976d2" },
   "file.deleted": { icon: "delete", color: "#f44336" },
   "comment.created": { icon: "chat", color: "#1976d2" },
+  // Tagging rescores the card, which moves its Modified date — so it belongs
+  // on the timeline like any other edit (#995).
+  "tag.added": { icon: "label", color: "#1976d2" },
+  "tag.removed": { icon: "label_off", color: "#f44336" },
   // BPM process-flow approval trail. Without these the events render as their
   // raw dotted event_type, which makes the approval history of a process
   // unreadable on the card — and an unreadable trail is not an audit trail.
@@ -71,6 +75,8 @@ function getEventMeta(t: (key: string) => string): Record<string, { label: strin
     "file.uploaded": { label: t("history.events.fileUploaded"), ...EVENT_META_ICONS["file.uploaded"] },
     "file.deleted": { label: t("history.events.fileDeleted"), ...EVENT_META_ICONS["file.deleted"] },
     "comment.created": { label: t("history.events.commentCreated"), ...EVENT_META_ICONS["comment.created"] },
+    "tag.added": { label: t("history.events.tagAdded"), ...EVENT_META_ICONS["tag.added"] },
+    "tag.removed": { label: t("history.events.tagRemoved"), ...EVENT_META_ICONS["tag.removed"] },
     "process_flow.submitted": { label: t("history.events.processFlowSubmitted"), ...EVENT_META_ICONS["process_flow.submitted"] },
     "process_flow.approved": { label: t("history.events.processFlowApproved"), ...EVENT_META_ICONS["process_flow.approved"] },
     "process_flow.rejected": { label: t("history.events.processFlowRejected"), ...EVENT_META_ICONS["process_flow.rejected"] },

@@ -218,6 +218,8 @@
   "history.events.fileUploaded": "已上传文件",
   "history.events.fileDeleted": "已删除文件",
   "history.events.commentCreated": "已添加评论",
+  "history.events.tagAdded": "已添加标签",
+  "history.events.tagRemoved": "已移除标签",
   "history.events.processFlowSubmitted": "已提交流程图",
   "history.events.processFlowApproved": "已审批流程图",
   "history.events.processFlowRejected": "已驳回流程图",

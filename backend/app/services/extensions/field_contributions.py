@@ -115,17 +115,25 @@ def _foreign_field_keys(schema: list, ext_key: str) -> set[str]:
 async def _recompute_data_quality(db: AsyncSession, type_keys: set[str]) -> None:
     """Contributed fields carry weights — refresh affected cards' scores."""
     from app.services.data_quality import calc_data_quality
+    from app.services.derived_writes import derived_maintenance
 
-    for type_key in type_keys:
-        cards = (
-            (await db.execute(select(Card).where(Card.type == type_key, Card.status == "ACTIVE")))
-            .scalars()
-            .all()
-        )
-        for card in cards:
-            score = await calc_data_quality(db, card)
-            if card.data_quality != score:
-                card.data_quality = score
+    # Installing an extension is not an edit to every card of the type — the
+    # scores move, the Modified dates do not.
+    with derived_maintenance(db):
+        for type_key in type_keys:
+            cards = (
+                (
+                    await db.execute(
+                        select(Card).where(Card.type == type_key, Card.status == "ACTIVE")
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            for card in cards:
+                score = await calc_data_quality(db, card)
+                if card.data_quality != score:
+                    card.data_quality = score
 
 
 async def apply_field_contributions(

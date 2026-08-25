@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
 from app.models.card_type import CardType
+from app.services.derived_writes import derived_maintenance
 
 HIERARCHY_LEVEL_KEY = "hierarchyLevel"
 
@@ -89,15 +90,19 @@ async def backfill_hierarchy_levels_for_type(db: AsyncSession, type_key: str) ->
     )
     updated = 0
     frontier: list[tuple[Card, int]] = [(c, 1) for c in roots]
-    while frontier:
-        card, level = frontier.pop()
-        attrs = dict(card.attributes or {})
-        if attrs.get(HIERARCHY_LEVEL_KEY) != level:
-            attrs[HIERARCHY_LEVEL_KEY] = level
-            card.attributes = attrs
-            updated += 1
-        children = (await db.execute(select(Card).where(Card.parent_id == card.id))).scalars().all()
-        frontier.extend((child, level + 1) for child in children)
+    # A backfill derives a value the system owns; it is not an edit to the card.
+    with derived_maintenance(db):
+        while frontier:
+            card, level = frontier.pop()
+            attrs = dict(card.attributes or {})
+            if attrs.get(HIERARCHY_LEVEL_KEY) != level:
+                attrs[HIERARCHY_LEVEL_KEY] = level
+                card.attributes = attrs
+                updated += 1
+            children = (
+                (await db.execute(select(Card).where(Card.parent_id == card.id))).scalars().all()
+            )
+            frontier.extend((child, level + 1) for child in children)
     return updated
 
 

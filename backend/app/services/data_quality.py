@@ -37,6 +37,7 @@ from app.models.card_type import CardType
 from app.models.stakeholder import Stakeholder
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.services.card_completeness import missing_mandatory
+from app.services.derived_writes import derived_maintenance
 
 # Reserved key on CardType.section_config holding the built-in weights.
 DATA_QUALITY_CONFIG_KEY = "__dataQuality"
@@ -231,7 +232,10 @@ async def rescore_card_type(db: AsyncSession, type_key: str) -> int:
             await db.execute(select(Card.id).where(Card.type == type_key, Card.status == "ACTIVE"))
         ).scalars()
     )
-    return await rescore_cards(db, ids)
+    # Config-driven housekeeping: the admin who moved a weight did not review
+    # every card of the type, so their Modified dates must not say otherwise.
+    with derived_maintenance(db):
+        return await rescore_cards(db, ids)
 
 
 async def recompute_all_data_quality(db: AsyncSession, *, chunk_size: int = 500) -> int:
@@ -244,6 +248,7 @@ async def recompute_all_data_quality(db: AsyncSession, *, chunk_size: int = 500)
     the same math everywhere.
     """
     ids = list((await db.execute(select(Card.id).where(Card.status != "ARCHIVED"))).scalars().all())
-    changed = await rescore_cards(db, ids, chunk_size=chunk_size)
-    await db.flush()
+    with derived_maintenance(db):
+        changed = await rescore_cards(db, ids, chunk_size=chunk_size)
+        await db.flush()
     return changed

@@ -162,6 +162,8 @@ La ruta de invitación requiere el permiso **`users.invite`**, una forma delegad
 
 Muestra el **registro completo de auditoría** de los cambios realizados en la ficha: **quién** hizo el cambio, **cuándo** se realizó y **qué** se modificó (valor anterior vs. valor nuevo). Esto permite la trazabilidad completa de todas las modificaciones a lo largo del tiempo.
 
+Todo lo que mueve la fecha **Modificado** de la ficha aparece aquí: una edición manual, una importación desde hoja de cálculo, una migración de plataforma o sincronización con ServiceNow, un cambio de etiqueta, una edición masiva, o un movimiento jerárquico que arrastró esta ficha. El mantenimiento del sistema no cambia ninguno de los dos: recalcular las puntuaciones de calidad de datos, volver a ejecutar los campos calculados y rellenar niveles jerárquicos o identificadores de ficha dejan intactos el historial y la fecha **Modificado**.
+
 ## Pestaña de ADR
 
 Cada ficha cuenta con una pestaña **ADR** que enumera las [decisiones de arquitectura](delivery.md) vinculadas a ella, mostrando la referencia, el título, el estado, todas sus fichas vinculadas y la fecha de la última modificación. Haga clic en una fila para abrir la decisión.

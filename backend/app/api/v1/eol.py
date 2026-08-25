@@ -15,12 +15,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm.attributes import flag_modified
 
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
 from app.models.user import User
+from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
 logger = logging.getLogger("turboea.eol")
@@ -368,12 +368,29 @@ async def mass_eol_link(
         if not card:
             continue
 
-        # Update attributes
-        attrs = dict(card.attributes or {})
+        # Update attributes. Re-linking a card to the product/cycle it already
+        # carries must write nothing: the old `flag_modified` forced an UPDATE
+        # regardless, moving Last-changed with no History entry behind it (#995).
+        old_attrs = dict(card.attributes or {})
+        if old_attrs.get("eol_product") == product and old_attrs.get("eol_cycle") == cycle:
+            continue
+
+        attrs = dict(old_attrs)
         attrs["eol_product"] = product
         attrs["eol_cycle"] = cycle
         card.attributes = attrs
-        flag_modified(card, "attributes")
+
+        await event_bus.publish(
+            "card.updated",
+            {
+                "id": str(card.id),
+                "source": "eol_mass_link",
+                "changes": {"attributes": {"old": old_attrs, "new": attrs}},
+            },
+            db=db,
+            card_id=card.id,
+            user_id=user.id,
+        )
 
         updated.append(str(card.id))
 

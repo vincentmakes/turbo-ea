@@ -241,6 +241,8 @@
   "dashboard.activity.action.file.uploaded": "uploadede en fil til",
   "dashboard.activity.action.file.deleted": "slettede en fil fra",
   "dashboard.activity.action.comment.created": "kommenterede på",
+  "dashboard.activity.action.tag.added": "tilføjede et tag til",
+  "dashboard.activity.action.tag.removed": "fjernede et tag fra",
   "dashboard.activity.action.process_diagram.saved": "gemte et procesdiagram for",
   "dashboard.activity.action.process_diagram.deleted": "slettede et procesdiagram for",
   "dashboard.activity.action.process_flow.submitted": "indsendte et procesflow for",

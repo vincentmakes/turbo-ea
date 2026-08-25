@@ -162,6 +162,8 @@ O caminho de convite requer a permissão **`users.invite`**, uma forma delegada 
 
 Mostra a **trilha de auditoria completa** das alterações feitas no card: **quem** fez a alteração, **quando** foi feita e **o que** foi modificado (valor anterior vs. novo valor). Isso permite total rastreabilidade de todas as modificações ao longo do tempo.
 
+Tudo o que move a data **Modificado** do card aparece aqui: uma edição manual, uma importação de planilha, uma migração de plataforma ou sincronização com o ServiceNow, uma alteração de etiqueta, uma edição em massa, ou uma movimentação hierárquica que arrastou este card. A manutenção do sistema não altera nenhum dos dois: recalcular as pontuações de qualidade dos dados, reexecutar os campos calculados e preencher níveis hierárquicos ou identificadores de card deixam o histórico e a data **Modificado** intactos.
+
 ## Aba de ADR
 
 Cada card possui uma aba **ADR** que lista as [decisões de arquitetura](delivery.md) vinculadas a ele, exibindo a referência, o título, o status, todos os cards vinculados e a data da última modificação. Clique em uma linha para abrir a decisão.

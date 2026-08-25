@@ -162,6 +162,8 @@ Il percorso di invito richiede il permesso **`users.invite`**, una forma delegat
 
 Mostra il **registro di audit completo** delle modifiche apportate alla card: **chi** ha effettuato la modifica, **quando** è stata fatta e **cosa** è stato modificato (valore precedente vs. nuovo valore). Questo consente la completa tracciabilità di tutte le modifiche nel tempo.
 
+Tutto ciò che sposta la data **Modificato** della card compare qui: una modifica manuale, un'importazione da foglio di calcolo, una migrazione di piattaforma o una sincronizzazione ServiceNow, un cambio di tag, una modifica di massa, o uno spostamento gerarchico che ha trascinato questa card. La manutenzione di sistema non cambia né l'una né l'altra: il ricalcolo dei punteggi di qualità dei dati, la riesecuzione dei campi calcolati e il popolamento dei livelli gerarchici o degli identificativi delle card lasciano intatti la cronologia e la data **Modificato**.
+
 ## Scheda ADR
 
 Ogni card dispone di una scheda **ADR** che elenca le [decisioni architetturali](delivery.md) collegate, mostrando riferimento, titolo, stato, tutte le card collegate e la data dell'ultima modifica. Fare clic su una riga per aprire la decisione.

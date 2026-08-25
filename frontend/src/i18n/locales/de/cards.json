@@ -218,6 +218,8 @@
   "history.events.fileUploaded": "Datei hochgeladen",
   "history.events.fileDeleted": "Datei gelöscht",
   "history.events.commentCreated": "Kommentar hinzugefügt",
+  "history.events.tagAdded": "Tag hinzugefügt",
+  "history.events.tagRemoved": "Tag entfernt",
   "history.events.processFlowSubmitted": "Prozessablauf eingereicht",
   "history.events.processFlowApproved": "Prozessablauf freigegeben",
   "history.events.processFlowRejected": "Prozessablauf abgelehnt",
