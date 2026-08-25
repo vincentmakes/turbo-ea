@@ -17,6 +17,7 @@
  */
 
 import { handleOffset, LDV_HANDLE_FRACTIONS, LDV_NODE_W, LDV_NODE_H } from "./ldvHandles";
+import { buildRowBands, buildChannel, type ChannelXY } from "./ldvChannels";
 import type { Node } from "@xyflow/react";
 
 export interface XY {
@@ -60,10 +61,19 @@ export interface LdvRoute {
   /**
    * Explicit y for the edge's horizontal run, passed to getSmoothStepPath as
    * `centerY`. Staggered so overlapping runs never share a line, and nudged
-   * off card bodies. Unset for side-handle edges and for obstructed edges
-   * that keep the legacy offset-driven shape.
+   * off card bodies. Unset for side-handle edges, for obstructed edges that
+   * keep the legacy offset-driven shape, and for channel-routed edges.
    */
   centerY?: number;
+  /**
+   * Channel route: bend points of an orthogonal polyline (endpoints
+   * excluded) for an edge that had to dodge rows of cards between its
+   * endpoints. Mutually exclusive with centerY.
+   */
+  waypoints?: ChannelXY[];
+  /** Layout-time handle points, so the renderer can detect staleness after
+   *  a drag and fall back to the default shape. */
+  anchors?: { sx: number; sy: number; tx: number; ty: number };
 }
 
 /**
@@ -341,6 +351,42 @@ export function routeLdvEdges(
     return pathObstruction(nodeBounds, p.sx, p.sy, p.tx, p.ty, e.source, e.target);
   });
 
+  /* ---- Step 3.5: channel-route edges that must cross rows of cards ---- */
+  // The DrawIO-inspired piece: an edge whose endpoints have whole rows of
+  // cards between them (a lane-skipping edge, or a source/target that is not
+  // in its lane's edge row) walks those rows carrying its x, and jogs — in
+  // the card-free gap before a row — only where the row actually blocks it.
+  // The corridor it uses is reserved so other channel edges keep their
+  // distance. When nothing blocked the straight column, no waypoints are
+  // emitted and the edge keeps its ordinary staggered smoothstep shape.
+  const waypointsArr = new Array<ChannelXY[] | undefined>(n);
+  const jogRunsMeta: { edge: number; wpIndex: number; lo: number; hi: number }[] = [];
+  {
+    const bands = buildRowBands(nodeBounds);
+    const reservations = new Map<number, number[]>();
+    for (let i = 0; i < n; i++) {
+      if (!vertical[i]) continue;
+      const p = endpoints[i];
+      const minY = Math.min(p.sy, p.ty);
+      const maxY = Math.max(p.sy, p.ty);
+      const idxs: number[] = [];
+      for (let b = 0; b < bands.length; b++) {
+        if (bands[b].y1 > minY + 4 && bands[b].y2 < maxY - 4) idxs.push(b);
+      }
+      if (idxs.length === 0) continue;
+      if (p.ty < p.sy) idxs.reverse(); // upward edge walks bottom→top
+      const res = buildChannel(p.sx, p.sy, p.tx, p.ty, bands, idxs, reservations);
+      if (res.forcedJogs > 0) {
+        waypointsArr[i] = res.waypoints;
+        for (const j of res.jogs) {
+          jogRunsMeta.push({ edge: i, wpIndex: j.wpIndex, lo: j.lo, hi: j.hi });
+        }
+        // Channel verticals are clear by construction — never the legacy shape.
+        minOffsets[i] = 0;
+      }
+    }
+  }
+
   /* ---- Step 4: place each edge's horizontal run (explicit centerY) ---- */
   // getSmoothStepPath puts the horizontal segment of an opposite top/bottom
   // handle pair at the MIDPOINT of the two handle Ys — its `offset` parameter
@@ -363,10 +409,13 @@ export function routeLdvEdges(
     lo: number; // feasible y range for the run
     hi: number;
     mid: number; // default (midpoint) position
+    /** When set, this run is a channel jog: the y writes into
+     *  waypoints[idx][wp] and [wp+1] instead of centerYs[idx]. */
+    wp?: number;
   }
   const runs: HRun[] = [];
   for (let i = 0; i < n; i++) {
-    if (!vertical[i]) continue;
+    if (!vertical[i] || waypointsArr[i]) continue;
     const p = endpoints[i];
     const lo = Math.min(p.sy, p.ty) + STUB;
     const hi = Math.max(p.sy, p.ty) - STUB;
@@ -380,15 +429,43 @@ export function routeLdvEdges(
       mid: (p.sy + p.ty) / 2,
     });
   }
+  // Channel jogs are horizontal runs too: they cluster and stagger together
+  // with the ordinary edges sharing their gap.
+  for (const j of jogRunsMeta) {
+    const wps = waypointsArr[j.edge]!;
+    const a = wps[j.wpIndex];
+    const b = wps[j.wpIndex + 1];
+    runs.push({
+      idx: j.edge,
+      x1: Math.min(a.x, b.x),
+      x2: Math.max(a.x, b.x),
+      lo: j.lo,
+      hi: j.hi,
+      mid: (j.lo + j.hi) / 2,
+      wp: j.wpIndex,
+    });
+  }
 
-  // Nudge a run's y off any card its horizontal span would cross.
+  const applyRunY = (r: HRun, y: number) => {
+    const v = Math.min(Math.max(y, r.lo), r.hi);
+    if (r.wp !== undefined) {
+      const wps = waypointsArr[r.idx]!;
+      wps[r.wp] = { ...wps[r.wp], y: v };
+      wps[r.wp + 1] = { ...wps[r.wp + 1], y: v };
+    } else {
+      centerYs[r.idx] = v;
+    }
+  };
+
+  // Nudge a run's y off any card — or lane label strip — its span crosses.
+  const runObstacles: Bounds[] = [...nodeBounds, ...groupLabelBounds];
   const clearRunY = (desired: number, x1: number, x2: number, lo: number, hi: number): number => {
     const hits = (y: number) =>
-      nodeBounds.some((b) => b.x2 > x1 - 4 && b.x1 < x2 + 4 && y > b.y1 - 6 && y < b.y2 + 6);
+      runObstacles.some((b) => b.x2 > x1 - 4 && b.x1 < x2 + 4 && y > b.y1 - 6 && y < b.y2 + 6);
     if (!hits(desired)) return desired;
     let best = desired;
     let bestDist = Infinity;
-    for (const b of nodeBounds) {
+    for (const b of runObstacles) {
       if (b.x2 <= x1 - 4 || b.x1 >= x2 + 4) continue;
       for (const cand of [b.y1 - 10, b.y2 + 10]) {
         if (cand < lo || cand > hi || hits(cand)) continue;
@@ -423,14 +500,17 @@ export function routeLdvEdges(
     const members = memberIdxs.map((i) => runs[i]);
     if (members.length === 1) {
       const r = members[0];
-      centerYs[r.idx] = clearRunY(r.mid, r.x1, r.x2, r.lo, r.hi);
+      applyRunY(r, clearRunY(r.mid, r.x1, r.x2, r.lo, r.hi));
       continue;
     }
     // Interval coloring: runs whose x-extents don't overlap share a level
-    // (and therefore a y), overlapping ones get distinct levels.
-    const order = [...members].sort((a, b) => a.x1 - b.x1 || a.x2 - b.x2 || a.idx - b.idx);
+    // (and therefore a y), overlapping ones get distinct levels. Levels key
+    // by the run object — one channel edge can contribute several jog runs.
+    const order = [...members].sort(
+      (a, b) => a.x1 - b.x1 || a.x2 - b.x2 || a.idx - b.idx || (a.wp ?? -1) - (b.wp ?? -1),
+    );
     const levelEnds: number[] = [];
-    const levelOf = new Map<number, number>();
+    const levelOf = new Map<HRun, number>();
     for (const r of order) {
       let level = levelEnds.findIndex((last) => last + X_TOUCH <= r.x1);
       if (level === -1) {
@@ -439,7 +519,7 @@ export function routeLdvEdges(
       } else {
         levelEnds[level] = r.x2;
       }
-      levelOf.set(r.idx, level);
+      levelOf.set(r, level);
     }
     const levels = levelEnds.length;
     // Spread the levels around the center of the shared band. Pairwise
@@ -453,13 +533,13 @@ export function routeLdvEdges(
     const base = (usableLo + usableHi) / 2 - (step * (levels - 1)) / 2;
     const levelY = new Array<number>(levels);
     for (let lv = 0; lv < levels; lv++) {
-      const lvRuns = members.filter((r) => levelOf.get(r.idx) === lv);
+      const lvRuns = members.filter((r) => levelOf.get(r) === lv);
       const x1 = Math.min(...lvRuns.map((r) => r.x1));
       const x2 = Math.max(...lvRuns.map((r) => r.x2));
       levelY[lv] = clearRunY(base + lv * step, x1, x2, usableLo, usableHi);
     }
     for (const r of members) {
-      centerYs[r.idx] = Math.min(Math.max(levelY[levelOf.get(r.idx)!], r.lo), r.hi);
+      applyRunY(r, levelY[levelOf.get(r)!]);
     }
   }
 
@@ -482,6 +562,7 @@ export function routeLdvEdges(
     );
   };
   for (const r of runs) {
+    if (r.wp !== undefined) continue; // jog runs are clear by construction
     const y = centerYs[r.idx];
     if (y === undefined) continue;
     const e = oriented[r.idx];
@@ -520,12 +601,32 @@ export function routeLdvEdges(
     x: number;
     y1: number;
     y2: number;
-    end: "src" | "tgt";
+    /** Which handle can move to resolve a conflict; null = a fixed corridor
+     *  segment of a channel edge (other edges must move instead). */
+    end: "src" | "tgt" | null;
   }
   const segsOf = (i: number): VSeg[] => {
+    const p = endpoints[i];
+    const wps = waypointsArr[i];
+    if (wps && wps.length > 0) {
+      const pts = [{ x: p.sx, y: p.sy }, ...wps, { x: p.tx, y: p.ty }];
+      const segs: VSeg[] = [];
+      for (let k = 0; k + 1 < pts.length; k++) {
+        const a = pts[k];
+        const b = pts[k + 1];
+        if (Math.abs(a.x - b.x) < 0.01 && Math.abs(a.y - b.y) > 0.01) {
+          segs.push({
+            x: a.x,
+            y1: Math.min(a.y, b.y),
+            y2: Math.max(a.y, b.y),
+            end: k === 0 ? "src" : k + 2 === pts.length ? "tgt" : null,
+          });
+        }
+      }
+      return segs;
+    }
     const y = centerYs[i];
     if (y === undefined) return [];
-    const p = endpoints[i];
     if (Math.abs(p.sx - p.tx) < 1) {
       return [{ x: p.sx, y1: Math.min(p.sy, p.ty), y2: Math.max(p.sy, p.ty), end: "src" }];
     }
@@ -555,6 +656,12 @@ export function routeLdvEdges(
       if (end === "src") srcHandles[i] = id;
       else tgtHandles[i] = id;
       endpoints[i] = computeEndpoint(i);
+      // A channel polyline starts/ends at the handle x — keep it attached.
+      const wps = waypointsArr[i];
+      if (wps && wps.length > 0) {
+        if (end === "src") wps[0] = { ...wps[0], x: endpoints[i].sx };
+        else wps[wps.length - 1] = { ...wps[wps.length - 1], x: endpoints[i].tx };
+      }
       return true;
     }
     return false;
@@ -578,7 +685,10 @@ export function routeLdvEdges(
       let conflict = findConflict();
       let guard = 0;
       while (conflict && guard++ < 3) {
-        if (!tryShift(j, conflict.b.end) && !tryShift(i, conflict.a.end)) break;
+        const shiftedB = conflict.b.end !== null && tryShift(j, conflict.b.end);
+        const shiftedA =
+          !shiftedB && conflict.a.end !== null && tryShift(i, conflict.a.end);
+        if (!shiftedB && !shiftedA) break;
         conflict = findConflict();
       }
     }
@@ -678,6 +788,7 @@ export function routeLdvEdges(
   const routes: LdvRoute[] = oriented.map((e, i) => {
     markUsed(e.source, srcHandles[i]);
     markUsed(e.target, tgtHandles[i]);
+    const wps = waypointsArr[i];
     return {
       sourceHandle: srcHandles[i],
       targetHandle: tgtHandles[i],
@@ -685,6 +796,17 @@ export function routeLdvEdges(
       minOffset: minOffsets[i],
       labelT: labelTs[i],
       ...(centerYs[i] !== undefined ? { centerY: centerYs[i] } : {}),
+      ...(wps && wps.length > 0
+        ? {
+            waypoints: wps,
+            anchors: {
+              sx: endpoints[i].sx,
+              sy: endpoints[i].sy,
+              tx: endpoints[i].tx,
+              ty: endpoints[i].ty,
+            },
+          }
+        : {}),
     };
   });
 

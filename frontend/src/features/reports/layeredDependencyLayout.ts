@@ -178,6 +178,13 @@ export interface LdvEdgeData {
    *  Unset on side-handle and obstructed edges — those keep the default
    *  smoothstep shape. */
   centerY?: number;
+  /** Channel route: bend points of an orthogonal polyline (endpoints
+   *  excluded) for an edge that had to dodge rows of cards between its
+   *  endpoints. Mutually exclusive with centerY. */
+  waypoints?: { x: number; y: number }[];
+  /** Layout-time handle points — lets the renderer detect a stale channel
+   *  after a drag and fall back to the default shape. */
+  anchors?: { sx: number; sy: number; tx: number; ty: number };
   onHover?: () => void;
   onLeave?: () => void;
   [key: string]: unknown;
@@ -352,6 +359,104 @@ function median(values: number[]): number {
   return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
+/**
+ * Place one row's nodes by the Sugiyama priority method (the coordinate
+ * refinement DrawIO's hierarchical layout uses): the left-to-right sequence
+ * is fixed by desired x, but nodes are POSITIONED in descending degree order,
+ * so a well-connected hub claims its exact column and sparsely connected
+ * nodes yield around it. Already-placed (higher-priority) nodes act as walls
+ * at minSep × sequence distance.
+ */
+function placeRowByPriority(
+  row: string[],
+  desired: Map<string, number>,
+  centerX: Map<string, number>,
+  minSep: number,
+  degree: Map<string, number>,
+): void {
+  const entries = row
+    .map((id) => ({ id, d: desired.get(id)! }))
+    .sort((a, b) => a.d - b.d || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const nRow = entries.length;
+  const xs = new Array<number>(nRow).fill(NaN);
+  const order = entries
+    .map((e, seq) => ({ seq, deg: degree.get(e.id) ?? 0, d: e.d, id: e.id }))
+    .sort((a, b) => b.deg - a.deg || a.d - b.d || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  for (const o of order) {
+    let leftWall = -Infinity;
+    let rightWall = Infinity;
+    for (let s = o.seq - 1; s >= 0; s--) {
+      if (!Number.isNaN(xs[s])) {
+        leftWall = xs[s] + minSep * (o.seq - s);
+        break;
+      }
+    }
+    for (let s = o.seq + 1; s < nRow; s++) {
+      if (!Number.isNaN(xs[s])) {
+        rightWall = xs[s] - minSep * (s - o.seq);
+        break;
+      }
+    }
+    xs[o.seq] = leftWall > rightWall ? leftWall : Math.min(Math.max(o.d, leftWall), rightWall);
+  }
+  // The walls already guarantee separation except when they conflicted;
+  // one left-to-right sweep restores feasibility deterministically.
+  for (let i = 1; i < nRow; i++) {
+    if (xs[i] < xs[i - 1] + minSep) xs[i] = xs[i - 1] + minSep;
+  }
+  for (let i = 0; i < nRow; i++) centerX.set(entries[i].id, xs[i]);
+}
+
+/**
+ * DrawIO-style transpose refinement: adjacent nodes in a row swap positions
+ * whenever exchanging them strictly reduces the number of straight-line
+ * crossings among the edges incident to the pair. Median placement provably
+ * misses swaps a direct crossing count catches. Above-side and below-side
+ * edges are counted independently — edges leaving opposite sides of a row
+ * cannot cross each other — and swapping exchanges the two x positions, so
+ * the row's position multiset (and its minimum separation) is untouched.
+ * Crossings with third nodes' edges depend only on left-right order, which a
+ * pairwise swap preserves, so each accepted swap strictly reduces the global
+ * crossing count and the pass terminates.
+ *
+ * Exported for unit tests.
+ */
+export function transposeRow(
+  row: string[],
+  centerX: Map<string, number>,
+  neighborXs: (id: string) => { above: number[]; below: number[] },
+): void {
+  if (row.length < 2) return;
+  const inversions = (leftId: string, rightId: string): number => {
+    const l = neighborXs(leftId);
+    const r = neighborXs(rightId);
+    let c = 0;
+    for (const side of ["above", "below"] as const) {
+      for (const xa of l[side]) for (const xb of r[side]) if (xa > xb) c++;
+    }
+    return c;
+  };
+  const ordered = [...row].sort(
+    (a, b) => centerX.get(a)! - centerX.get(b)! || (a < b ? -1 : 1),
+  );
+  for (let pass = 0; pass < ordered.length; pass++) {
+    let improved = false;
+    for (let k = 0; k + 1 < ordered.length; k++) {
+      const u = ordered[k];
+      const v = ordered[k + 1];
+      if (inversions(v, u) < inversions(u, v)) {
+        const xu = centerX.get(u)!;
+        centerX.set(u, centerX.get(v)!);
+        centerX.set(v, xu);
+        ordered[k] = v;
+        ordered[k + 1] = u;
+        improved = true;
+      }
+    }
+    if (!improved) break;
+  }
+}
+
 export interface LaneForAlign {
   /** Lane-local node positions (top-left corners, origin-normalised). */
   positioned: PositionedNode[];
@@ -433,6 +538,32 @@ export function alignLanesX(
     return [...byY.entries()].sort((a, b) => a[0] - b[0]).map(([, ids]) => ids);
   });
 
+  // Degree (total pull count) drives priority placement; the level index
+  // (lane, row) splits each node's neighbours into above/below sets for the
+  // transpose crossing counts.
+  const degree = new Map<string, number>();
+  for (const [id, list] of crossNb) degree.set(id, (degree.get(id) ?? 0) + list.length);
+  for (const [id, list] of intraNb) degree.set(id, (degree.get(id) ?? 0) + list.length);
+
+  const levelOf = new Map<string, number>();
+  lanes.forEach((lane, li) => {
+    for (const p of lane.positioned) levelOf.set(p.id, li * 1e7 + Math.round(p.y));
+  });
+  const neighborXs = (id: string): { above: number[]; below: number[] } => {
+    const above: number[] = [];
+    const below: number[] = [];
+    const own = levelOf.get(id)!;
+    for (const map of [crossNb, intraNb]) {
+      for (const o of map.get(id) ?? []) {
+        const lv = levelOf.get(o);
+        // Same-level neighbours (side-handle edges) are crossing-neutral.
+        if (lv === undefined || lv === own) continue;
+        (lv < own ? above : below).push(centerX.get(o)!);
+      }
+    }
+    return { above, below };
+  };
+
   const sweeps: ("down" | "up")[] = ["down", "up", "down"];
   for (const dir of sweeps) {
     const order = lanes.map((_, li) => li);
@@ -453,23 +584,13 @@ export function alignLanesX(
         desired.set(p.id, nb.length > 0 ? median(nb) : centerX.get(p.id)!);
       }
 
-      // Resolve each row: order by desired x, enforce minimum separation
-      // left→right, then relax right→left back toward the desired positions.
+      // Resolve each row by the priority method (sequence fixed by desired
+      // x, hubs claim their exact column, leaves yield), then run the
+      // transpose crossing-reduction pass on it.
       const minSep = LDV_NODE_W + lanes[li].hGap;
       for (const row of rowsPerLane[li]) {
-        const entries = row
-          .map((id) => ({ id, d: desired.get(id)! }))
-          .sort((a, b) => a.d - b.d || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-        const xs = new Array<number>(entries.length);
-        for (let i = 0; i < entries.length; i++) {
-          xs[i] = i === 0 ? entries[i].d : Math.max(entries[i].d, xs[i - 1] + minSep);
-        }
-        for (let i = entries.length - 1; i >= 0; i--) {
-          const upper = i === entries.length - 1 ? Infinity : xs[i + 1] - minSep;
-          const lower = i === 0 ? -Infinity : xs[i - 1] + minSep;
-          xs[i] = Math.min(Math.max(entries[i].d, lower), upper);
-        }
-        for (let i = 0; i < entries.length; i++) centerX.set(entries[i].id, xs[i]);
+        placeRowByPriority(row, desired, centerX, minSep, degree);
+        transposeRow(row, centerX, neighborXs);
       }
     }
   }
@@ -892,6 +1013,9 @@ export function buildLdvFlow(
         minOffset: routes[i].minOffset,
         labelT: routes[i].labelT,
         ...(routes[i].centerY !== undefined ? { centerY: routes[i].centerY } : {}),
+        ...(routes[i].waypoints
+          ? { waypoints: routes[i].waypoints, anchors: routes[i].anchors }
+          : {}),
       } satisfies LdvEdgeData,
       animated: false,
       ...(markerStart ? { markerStart } : {}),

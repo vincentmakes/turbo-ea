@@ -93,6 +93,7 @@ import {
   type LdvEdgeData,
 } from "./layeredDependencyLayout";
 import { LDV_HANDLE_SPECS } from "./ldvHandles";
+import { buildRoundedOrthPath } from "./ldvChannels";
 import { ldvFocusRing } from "./ldvFocusRing";
 import LinkChangeIcon from "./LinkChangeIcon";
 import { isPresentAtDate } from "./timelineRange";
@@ -753,37 +754,73 @@ const LdvEdgeComponent = memo(
     const rawOffset = edgeData?.pathOffset ?? 20;
     const minOffset = edgeData?.minOffset ?? 0;
     const verticalGap = Math.abs(targetY - sourceY);
-    // The routing engine pins the horizontal run to an explicit centerY
-    // (staggered against other runs and kept clear of cards). Honour it only
-    // while it still lies between the live handle Ys — after a drag the
-    // stored value can go stale, and a centerY outside the span would make
-    // the path double back on itself.
-    const routedCenterY = edgeData?.centerY;
-    const centerY =
-      routedCenterY !== undefined &&
-      routedCenterY > Math.min(sourceY, targetY) + 8 &&
-      routedCenterY < Math.max(sourceY, targetY) - 8
-        ? routedCenterY
-        : undefined;
-    // If the edge must clear an obstruction, use at least minOffset (large
-    // offsets flip the smoothstep into its wrap-around shape, which is what
-    // routes around the card); otherwise keep the offset well inside the
-    // handle span so the bend stubs never fight the pinned centerY.
-    const offset = minOffset > 0
-      ? Math.max(rawOffset, minOffset)
-      : centerY !== undefined
-        ? Math.max(
-            4,
-            Math.min(rawOffset, Math.abs(centerY - sourceY) - 6, Math.abs(targetY - centerY) - 6),
-          )
-        : Math.min(rawOffset, Math.max(10, verticalGap * 0.48));
-    const [path, lx, ly] = getSmoothStepPath({
-      sourceX, sourceY, targetX, targetY,
-      sourcePosition, targetPosition,
-      borderRadius: 8,
-      offset,
-      ...(centerY !== undefined ? { centerY } : {}),
-    });
+    // Channel-routed edges carry an orthogonal waypoint polyline that dodges
+    // the rows of cards between their endpoints. Honour it only while the
+    // live handle positions still match the layout-time anchors — a dragged
+    // endpoint invalidates the stored bends, and the edge then degrades to
+    // the default smoothstep shape instead of a broken polyline.
+    const waypoints = edgeData?.waypoints;
+    const anchors = edgeData?.anchors;
+    const waypointsFresh =
+      !!waypoints &&
+      waypoints.length > 0 &&
+      !!anchors &&
+      Math.abs(anchors.sx - sourceX) < 4 &&
+      Math.abs(anchors.sy - sourceY) < 4 &&
+      Math.abs(anchors.tx - targetX) < 4 &&
+      Math.abs(anchors.ty - targetY) < 4;
+    let path: string;
+    let lx: number;
+    let ly: number;
+    if (waypointsFresh) {
+      // Live endpoints, stored bends: avoids 1px disconnects at the handles.
+      const pts = [{ x: sourceX, y: sourceY }, ...waypoints, { x: targetX, y: targetY }];
+      path = buildRoundedOrthPath(pts, 8);
+      // Default label anchor: midpoint of the longest segment.
+      let bi = 0;
+      let bl = -1;
+      for (let k = 0; k + 1 < pts.length; k++) {
+        const l = Math.abs(pts[k + 1].x - pts[k].x) + Math.abs(pts[k + 1].y - pts[k].y);
+        if (l > bl) {
+          bl = l;
+          bi = k;
+        }
+      }
+      lx = (pts[bi].x + pts[bi + 1].x) / 2;
+      ly = (pts[bi].y + pts[bi + 1].y) / 2;
+    } else {
+      // The routing engine pins the horizontal run to an explicit centerY
+      // (staggered against other runs and kept clear of cards). Honour it
+      // only while it still lies between the live handle Ys — after a drag
+      // the stored value can go stale, and a centerY outside the span would
+      // make the path double back on itself.
+      const routedCenterY = edgeData?.centerY;
+      const centerY =
+        routedCenterY !== undefined &&
+        routedCenterY > Math.min(sourceY, targetY) + 8 &&
+        routedCenterY < Math.max(sourceY, targetY) - 8
+          ? routedCenterY
+          : undefined;
+      // If the edge must clear an obstruction, use at least minOffset (large
+      // offsets flip the smoothstep into its wrap-around shape, which is what
+      // routes around the card); otherwise keep the offset well inside the
+      // handle span so the bend stubs never fight the pinned centerY.
+      const offset = minOffset > 0
+        ? Math.max(rawOffset, minOffset)
+        : centerY !== undefined
+          ? Math.max(
+              4,
+              Math.min(rawOffset, Math.abs(centerY - sourceY) - 6, Math.abs(targetY - centerY) - 6),
+            )
+          : Math.min(rawOffset, Math.max(10, verticalGap * 0.48));
+      [path, lx, ly] = getSmoothStepPath({
+        sourceX, sourceY, targetX, targetY,
+        sourcePosition, targetPosition,
+        borderRadius: 8,
+        offset,
+        ...(centerY !== undefined ? { centerY } : {}),
+      });
+    }
 
     const label = edgeData?.relLabel || "";
     const labelT = edgeData?.labelT ?? 0.5;

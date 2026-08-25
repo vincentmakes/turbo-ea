@@ -5,6 +5,7 @@ import {
   filterEndOfLifeNodes,
   resolveRevealIds,
   stripEdgeLabels,
+  transposeRow,
   type GNode,
   type GEdge,
 } from "./layeredDependencyLayout";
@@ -344,6 +345,97 @@ describe("buildLdvFlow", () => {
       const second = buildLdvFlow(nodes, edges, TYPES);
       expect(second.nodes).toEqual(first.nodes);
       expect(second.edges).toEqual(first.edges);
+    });
+
+    it("lets a well-connected hub claim its exact column (priority placement)", () => {
+      // The hub server pulls toward the median of its two apps; the leaf
+      // server wants the very same column. Priority placement gives the hub
+      // its exact position and pushes the leaf aside — instead of
+      // first-come-first-served.
+      const nodes: GNode[] = [
+        { id: "a1", name: "App 1", type: "Application" },
+        { id: "a2", name: "App 2", type: "Application" },
+        { id: "a3", name: "App 3", type: "Application" },
+        { id: "hub", name: "Hub", type: "ITComponent" },
+        { id: "leaf", name: "Leaf", type: "ITComponent" },
+      ];
+      const edges: GEdge[] = [
+        { source: "a1", target: "hub", type: "runs_on" },
+        { source: "a3", target: "hub", type: "runs_on" },
+        { source: "a2", target: "leaf", type: "runs_on" },
+      ];
+      const result = buildLdvFlow(nodes, edges, TYPES);
+      const rf = result.nodes as { id: string; position: { x: number }; parentId?: string }[];
+      const cx = (id: string) => absCenterX(rf, id);
+      const hubDesired = (cx("a1") + cx("a3")) / 2;
+      expect(cx("hub")).toBeCloseTo(hubDesired, 0);
+      // Minimum separation still holds against the leaf.
+      expect(Math.abs(cx("leaf") - cx("hub"))).toBeGreaterThanOrEqual(240);
+    });
+  });
+
+  describe("transposeRow", () => {
+    it("swaps an adjacent pair when it strictly reduces crossings", () => {
+      const centerX = new Map([
+        ["u", 0],
+        ["v", 240],
+      ]);
+      // u's edge goes far right, v's goes far left — crossed as placed.
+      const nbs: Record<string, { above: number[]; below: number[] }> = {
+        u: { above: [], below: [500] },
+        v: { above: [], below: [0] },
+      };
+      transposeRow(["u", "v"], centerX, (id) => nbs[id]);
+      expect(centerX.get("u")).toBe(240);
+      expect(centerX.get("v")).toBe(0);
+    });
+
+    it("does not swap on ties (both orders cross equally)", () => {
+      const centerX = new Map([
+        ["u", 0],
+        ["v", 240],
+      ]);
+      const nbs: Record<string, { above: number[]; below: number[] }> = {
+        u: { above: [], below: [0, 480] },
+        v: { above: [], below: [240] },
+      };
+      transposeRow(["u", "v"], centerX, (id) => nbs[id]);
+      expect(centerX.get("u")).toBe(0);
+      expect(centerX.get("v")).toBe(240);
+    });
+
+    it("lets a crossing-neutral opposite side coexist with a below-side swap", () => {
+      const centerX = new Map([
+        ["u", 0],
+        ["v", 240],
+      ]);
+      // Both above-side edges meet at the same x (crossing-neutral either
+      // way); the below-side pair is crossed and drives the swap.
+      const nbs: Record<string, { above: number[]; below: number[] }> = {
+        u: { above: [100], below: [500] },
+        v: { above: [100], below: [0] },
+      };
+      transposeRow(["u", "v"], centerX, (id) => nbs[id]);
+      expect(centerX.get("u")).toBe(240);
+      expect(centerX.get("v")).toBe(0);
+    });
+
+    it("bubbles a node across several positions and terminates", () => {
+      const centerX = new Map([
+        ["a", 0],
+        ["b", 240],
+        ["c", 480],
+      ]);
+      // a belongs on the right of both b and c.
+      const nbs: Record<string, { above: number[]; below: number[] }> = {
+        a: { above: [], below: [900] },
+        b: { above: [], below: [0] },
+        c: { above: [], below: [200] },
+      };
+      transposeRow(["a", "b", "c"], centerX, (id) => nbs[id]);
+      expect(centerX.get("b")).toBe(0);
+      expect(centerX.get("c")).toBe(240);
+      expect(centerX.get("a")).toBe(480);
     });
   });
 

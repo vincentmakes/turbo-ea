@@ -171,6 +171,105 @@ describe("routeLdvEdges port assignment", () => {
     expect(routes[0].targetHandle).toMatch(/^t-/);
   });
 
+  it("routes a lane-skipping edge to a clear target column with one jog", () => {
+    // Column at the source x is blocked in the middle lane; the target
+    // column is clear, so the walk jogs once — directly to the target x.
+    const { routes } = route(
+      [edge("s", "t")],
+      {
+        s: { x: 0, y: 0 },
+        m: { x: 0, y: 400 },
+        t: { x: 600, y: 800 },
+      },
+      { s: "A", m: "B", t: "C" },
+    );
+    const wps = routes[0].waypoints!;
+    expect(wps).toHaveLength(2);
+    expect(wps[0].x).toBe(0);
+    expect(wps[1].x).toBeCloseTo(600 + handleOffset(routes[0].targetHandle).dx, 5);
+    // The jog sits in the gap between the source row and the blocking row.
+    expect(wps[0].y).toBeGreaterThan(36);
+    expect(wps[0].y).toBeLessThan(364);
+  });
+
+  it("staggers a channel jog against a normal edge sharing its gap", () => {
+    const { routes } = route(
+      [edge("s", "t"), edge("a", "b")],
+      {
+        s: { x: 0, y: 0 },
+        m: { x: 0, y: 400 },
+        t: { x: 600, y: 800 },
+        a: { x: 300, y: 0 },
+        b: { x: 300, y: 400 },
+      },
+      { s: "A", m: "B", t: "C", a: "A", b: "B" },
+    );
+    const jogY = routes[0].waypoints![0].y;
+    const normalY = routes[1].centerY!;
+    // The straight a→b edge's horizontal run is zero-length at x=300, inside
+    // the jog's 0..600 extent — they must not share a line.
+    expect(Math.abs(jogY - normalY)).toBeGreaterThanOrEqual(8);
+  });
+
+  it("mirrors channel routing for an upward skip edge", () => {
+    const { routes } = route(
+      [edge("s", "t", true)],
+      {
+        s: { x: 0, y: 800 },
+        m: { x: 0, y: 400 },
+        t: { x: 0, y: 0 },
+      },
+      { s: "C", m: "B", t: "A" },
+    );
+    const wps = routes[0].waypoints!;
+    expect(wps.length).toBeGreaterThanOrEqual(4);
+    expect(routes[0].sourceHandle).toMatch(/^ts-/);
+    expect(routes[0].targetHandle).toMatch(/^bt-/);
+    // y decreases along the polyline (the edge runs upward).
+    for (let i = 1; i < wps.length; i++) {
+      expect(wps[i].y).toBeLessThanOrEqual(wps[i - 1].y);
+    }
+    // The corridor clears the middle card.
+    const corridorX = wps[1].x;
+    expect(corridorX < -100 || corridorX > 100).toBe(true);
+  });
+
+  it("keeps two channel corridors in one band separated", () => {
+    const { routes } = route(
+      [edge("s1", "t1"), edge("s2", "t2")],
+      {
+        s1: { x: 0, y: 0 },
+        s2: { x: 240, y: 0 },
+        m1: { x: 0, y: 400 },
+        m2: { x: 240, y: 400 },
+        t1: { x: 0, y: 800 },
+        t2: { x: 240, y: 800 },
+      },
+      { s1: "A", s2: "A", m1: "B", m2: "B", t1: "C", t2: "C" },
+    );
+    const c1 = routes[0].waypoints![1].x;
+    const c2 = routes[1].waypoints![1].x;
+    expect(Math.abs(c1 - c2)).toBeGreaterThanOrEqual(14);
+  });
+
+  it("is deterministic with channels in play", () => {
+    const oriented = [edge("s1", "t1"), edge("s2", "t2"), edge("a", "b")];
+    const positions = {
+      s1: { x: 0, y: 0 },
+      s2: { x: 240, y: 0 },
+      m1: { x: 0, y: 400 },
+      m2: { x: 240, y: 400 },
+      t1: { x: 0, y: 800 },
+      t2: { x: 240, y: 800 },
+      a: { x: 600, y: 0 },
+      b: { x: 600, y: 400 },
+    };
+    const lanes = { s1: "A", s2: "A", m1: "B", m2: "B", t1: "C", t2: "C", a: "A", b: "B" };
+    const first = route(oriented, positions, lanes);
+    const second = route(oriented, positions, lanes);
+    expect(second.routes).toEqual(first.routes);
+  });
+
   it("reports every chosen handle in usedHandles", () => {
     const { routes, usedHandles } = route(
       [edge("s", "t")],
@@ -317,7 +416,10 @@ describe("routeLdvEdges horizontal-run placement (centerY)", () => {
     expect(y < 158 || y > 242).toBe(true);
   });
 
-  it("leaves obstructed edges on the legacy shape (no centerY)", () => {
+  it("channel-routes an edge whose straight column is blocked by a card", () => {
+    // The card "o" sits exactly on the straight line between the endpoints.
+    // The edge used to fall back to the offset-driven wrap-around; it now
+    // dodges through a corridor beside the card, as an explicit polyline.
     const { routes } = route(
       [edge("s", "t")],
       {
@@ -327,8 +429,28 @@ describe("routeLdvEdges horizontal-run placement (centerY)", () => {
       },
       { s: "A", o: "B", t: "C" },
     );
-    expect(routes[0].minOffset).toBeGreaterThan(0);
+    const wps = routes[0].waypoints!;
+    expect(wps.length).toBeGreaterThanOrEqual(4); // dodge out + dodge back
+    expect(routes[0].minOffset).toBe(0);
     expect(routes[0].centerY).toBeUndefined();
+    expect(routes[0].anchors).toBeDefined();
+    // Every vertical of the polyline clears the card "o" (x -100..100,
+    // y 364..436) — the corridor runs beside it, never through it.
+    const pts = [
+      { x: routes[0].anchors!.sx, y: routes[0].anchors!.sy },
+      ...wps,
+      { x: routes[0].anchors!.tx, y: routes[0].anchors!.ty },
+    ];
+    for (let k = 0; k + 1 < pts.length; k++) {
+      const a = pts[k];
+      const b = pts[k + 1];
+      if (Math.abs(a.x - b.x) < 0.01) {
+        const overlap = Math.min(Math.max(a.y, b.y), 436) - Math.max(Math.min(a.y, b.y), 364);
+        if (overlap > 2) {
+          expect(a.x < -100 || a.x > 100).toBe(true);
+        }
+      }
+    }
   });
 });
 
@@ -381,6 +503,28 @@ describe("routeLdvEdges vertical de-overlap", () => {
         }
       }
     }
+  });
+
+  it("shifts a normal edge away from a channel corridor it would overlap", () => {
+    // The skip edge s→t dodges card "o" and its corridor is fixed; if a
+    // plain edge's vertical lands on the corridor, the plain edge moves.
+    const oriented = [edge("s", "t"), edge("a", "b")];
+    const positions: Record<string, XY> = {
+      s: { x: 0, y: 0 },
+      o: { x: 0, y: 400 },
+      t: { x: 0, y: 800 },
+      a: { x: -107, y: 400 },
+      b: { x: -107, y: 800 },
+    };
+    const { routes } = route(oriented, positions, { s: "A", o: "B", t: "C", a: "B", b: "C" });
+    // Determinism of the fixture: the corridor picked beside "o".
+    expect(routes[0].waypoints).toBeDefined();
+    // The normal edge a→b must not share a column with the corridor for a
+    // meaningful stretch — either its handles shifted or the corridor is
+    // far enough away.
+    const corridorX = routes[0].waypoints![1].x;
+    const aOff = handleOffset(routes[1].sourceHandle);
+    expect(Math.abs(positions.a.x + aOff.dx - corridorX)).toBeGreaterThanOrEqual(6);
   });
 
   it("never breaks the left-to-right slot order when nudging", () => {
