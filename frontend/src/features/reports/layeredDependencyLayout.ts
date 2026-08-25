@@ -174,6 +174,10 @@ export interface LdvEdgeData {
   pathOffset?: number;
   minOffset?: number; // minimum offset to clear obstructing nodes
   labelT?: number;
+  /** Explicit y for the horizontal run (staggered + kept clear of cards).
+   *  Unset on side-handle and obstructed edges — those keep the default
+   *  smoothstep shape. */
+  centerY?: number;
   onHover?: () => void;
   onLeave?: () => void;
   [key: string]: unknown;
@@ -887,6 +891,7 @@ export function buildLdvFlow(
         pathOffset: routes[i].pathOffset,
         minOffset: routes[i].minOffset,
         labelT: routes[i].labelT,
+        ...(routes[i].centerY !== undefined ? { centerY: routes[i].centerY } : {}),
       } satisfies LdvEdgeData,
       animated: false,
       ...(markerStart ? { markerStart } : {}),

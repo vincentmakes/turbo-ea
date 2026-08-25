@@ -253,8 +253,21 @@ describe("countEdgeCrossings", () => {
 /*  Offset staggering                                                  */
 /* ------------------------------------------------------------------ */
 
-describe("routeLdvEdges offset staggering", () => {
-  it("lets horizontally separated edges in one gap share the base offset", () => {
+describe("routeLdvEdges horizontal-run placement (centerY)", () => {
+  it("pins the horizontal run strictly between the two handles", () => {
+    const { routes } = route(
+      [edge("s", "t")],
+      { s: { x: 0, y: 0 }, t: { x: 300, y: 400 } },
+      { s: "A", t: "B" },
+    );
+    // Handle ys: 36 (source bottom) and 364 (target top) — the run must sit
+    // between them, at the midpoint when nothing conflicts.
+    expect(routes[0].centerY).toBeGreaterThan(36);
+    expect(routes[0].centerY).toBeLessThan(364);
+    expect(routes[0].centerY).toBe(200);
+  });
+
+  it("keeps horizontally separated runs on one shared line", () => {
     const { routes } = route(
       [edge("a", "b"), edge("c", "d")],
       {
@@ -265,12 +278,12 @@ describe("routeLdvEdges offset staggering", () => {
       },
       { a: "A", b: "B", c: "A", d: "B" },
     );
-    expect(routes[0].pathOffset).toBe(routes[1].pathOffset);
+    expect(routes[0].centerY).toBe(routes[1].centerY);
   });
 
-  it("staggers edges whose horizontal runs overlap", () => {
-    // Two diagonals spanning the same x range: their smoothstep horizontal
-    // segments share the band, so they need distinct offsets.
+  it("staggers runs that overlap horizontally onto distinct lines", () => {
+    // Two diagonals spanning the same x range: at the default midpoint their
+    // horizontal segments would be exactly collinear.
     const { routes } = route(
       [edge("a", "b"), edge("c", "d")],
       {
@@ -281,10 +294,30 @@ describe("routeLdvEdges offset staggering", () => {
       },
       { a: "A", c: "A", b: "B", d: "B" },
     );
-    expect(routes[0].pathOffset).not.toBe(routes[1].pathOffset);
+    expect(routes[0].centerY).toBeDefined();
+    expect(routes[1].centerY).toBeDefined();
+    expect(Math.abs(routes[0].centerY! - routes[1].centerY!)).toBeGreaterThanOrEqual(10);
   });
 
-  it("reports the clearance needed to route around an obstructing card", () => {
+  it("moves a run off a card body its span would cross", () => {
+    // A wide edge whose midpoint line would slice through the card "o"
+    // sitting between its endpoints (but off the direct corridor, so the
+    // edge is not classified as obstructed).
+    const { routes } = route(
+      [edge("s", "t")],
+      {
+        s: { x: 0, y: 0 },
+        o: { x: 400, y: 200 },
+        t: { x: 800, y: 400 },
+      },
+      { s: "A", o: "A", t: "B" },
+    );
+    const y = routes[0].centerY!;
+    // Card "o" spans y 164..236 — the run must clear it (with margin).
+    expect(y < 158 || y > 242).toBe(true);
+  });
+
+  it("leaves obstructed edges on the legacy shape (no centerY)", () => {
     const { routes } = route(
       [edge("s", "t")],
       {
@@ -295,5 +328,77 @@ describe("routeLdvEdges offset staggering", () => {
       { s: "A", o: "B", t: "C" },
     );
     expect(routes[0].minOffset).toBeGreaterThan(0);
+    expect(routes[0].centerY).toBeUndefined();
+  });
+});
+
+describe("routeLdvEdges vertical de-overlap", () => {
+  /** Collect every vertical run (x, y1, y2) of the routed edges. */
+  function verticalSegs(
+    oriented: OrientedEdge[],
+    positions: Record<string, XY>,
+    routes: { sourceHandle: string; targetHandle: string; centerY?: number }[],
+  ) {
+    const segs: { x: number; y1: number; y2: number }[] = [];
+    oriented.forEach((e, i) => {
+      const y = routes[i].centerY;
+      if (y === undefined) return;
+      const sOff = handleOffset(routes[i].sourceHandle);
+      const tOff = handleOffset(routes[i].targetHandle);
+      const sx = positions[e.source].x + sOff.dx;
+      const sy = positions[e.source].y + sOff.dy;
+      const tx = positions[e.target].x + tOff.dx;
+      const ty = positions[e.target].y + tOff.dy;
+      if (Math.abs(sx - tx) < 1) {
+        segs.push({ x: sx, y1: Math.min(sy, ty), y2: Math.max(sy, ty) });
+      } else {
+        segs.push({ x: sx, y1: Math.min(sy, y), y2: Math.max(sy, y) });
+        segs.push({ x: tx, y1: Math.min(y, ty), y2: Math.max(y, ty) });
+      }
+    });
+    return segs;
+  }
+
+  it("shifts a handle so collinear vertical runs separate", () => {
+    // P's source column and S's target column both sit at x = 0, and the
+    // staggered run ys make their y-ranges overlap — without the nudge the
+    // two edges would share a piece of wire.
+    const oriented = [edge("p", "q"), edge("r", "s")];
+    const positions: Record<string, XY> = {
+      p: { x: 0, y: 0 },
+      q: { x: 300, y: 400 },
+      r: { x: -300, y: 0 },
+      s: { x: 0, y: 400 },
+    };
+    const { routes } = route(oriented, positions, { p: "A", q: "B", r: "A", s: "B" });
+    const segs = verticalSegs(oriented, positions, routes);
+    for (let i = 0; i < segs.length; i++) {
+      for (let j = i + 1; j < segs.length; j++) {
+        const overlap =
+          Math.min(segs[i].y2, segs[j].y2) - Math.max(segs[i].y1, segs[j].y1);
+        if (Math.abs(segs[i].x - segs[j].x) < 6) {
+          expect(overlap).toBeLessThanOrEqual(12);
+        }
+      }
+    }
+  });
+
+  it("never breaks the left-to-right slot order when nudging", () => {
+    // A fully occupied side cannot shift — the order guarantee wins over the
+    // overlap fix, and the call must not throw or reorder slots.
+    const targets = ["t1", "t2", "t3", "t4", "t5"];
+    const positions: Record<string, XY> = { s: { x: 0, y: 0 } };
+    const lanes: Record<string, string> = { s: "A" };
+    targets.forEach((t, i) => {
+      positions[t] = { x: (i - 2) * 300, y: 400 };
+      lanes[t] = "B";
+    });
+    const { routes } = route(
+      targets.map((t) => edge("s", t)),
+      positions,
+      lanes,
+    );
+    const slots = routes.map((r) => Number(r.sourceHandle.split("-")[1]));
+    expect(slots).toEqual([1, 2, 3, 4, 5]);
   });
 });

@@ -57,6 +57,13 @@ export interface LdvRoute {
   pathOffset: number;
   minOffset: number;
   labelT: number;
+  /**
+   * Explicit y for the edge's horizontal run, passed to getSmoothStepPath as
+   * `centerY`. Staggered so overlapping runs never share a line, and nudged
+   * off card bodies. Unset for side-handle edges and for obstructed edges
+   * that keep the legacy offset-driven shape.
+   */
+  centerY?: number;
 }
 
 /**
@@ -194,8 +201,6 @@ function pathObstruction(
 /* ------------------------------------------------------------------ */
 
 const BASE_OFFSET = 28;
-/** Horizontal breathing room between edges sharing one offset level. */
-const LEVEL_MARGIN = 24;
 
 export function routeLdvEdges(
   oriented: OrientedEdge[],
@@ -214,6 +219,8 @@ export function routeLdvEdges(
   // target of an upward edge) at the same positions, so both must be ordered
   // together for the no-crossing guarantee to hold.
   const attachments = new Map<string, Attachment[]>();
+  // Edges routed through top/bottom handles (false: side handles / fallback)
+  const vertical = new Array<boolean>(n).fill(false);
   const attach = (nodeId: string, side: "top" | "bottom", a: Attachment) => {
     const key = `${nodeId}|${side}`;
     let list = attachments.get(key);
@@ -251,6 +258,7 @@ export function routeLdvEdges(
       continue;
     }
 
+    vertical[i] = true;
     if (!e.flipped) {
       attach(e.source, "bottom", { edgeIdx: i, role: "src", selfId: e.source, otherId: e.target });
       attach(e.target, "top", { edgeIdx: i, role: "tgt", selfId: e.target, otherId: e.source });
@@ -261,6 +269,24 @@ export function routeLdvEdges(
   }
 
   /* ---- Step 2: order attachments per node side, assign slots ---- */
+  // Slot tables are kept per node side so the vertical de-overlap pass below
+  // can move a handle to an adjacent free slot without breaking the
+  // left-to-right order this step guarantees.
+  interface SlotEntry {
+    edgeIdx: number;
+    role: "src" | "tgt";
+    slot: number;
+  }
+  const sideEntries = new Map<string, SlotEntry[]>();
+  // Per edge: the side-table key each vertical end belongs to ("" = side/none)
+  const srcSideKey = new Array<string>(n).fill("");
+  const tgtSideKey = new Array<string>(n).fill("");
+
+  const handleId = (side: "top" | "bottom", role: "src" | "tgt", slot: number): string => {
+    if (side === "bottom") return role === "src" ? `b-${slot}` : `bt-${slot}`;
+    return role === "src" ? `ts-${slot}` : `t-${slot}`;
+  };
+
   for (const [key, list] of attachments) {
     const side = key.endsWith("|top") ? "top" : "bottom";
     const sorted = [...list].sort((a, b) => {
@@ -278,21 +304,25 @@ export function routeLdvEdges(
       return a.edgeIdx - b.edgeIdx;
     });
     const k = sorted.length;
+    const entries: SlotEntry[] = [];
     for (let i = 0; i < k; i++) {
       const slot = slotForIndex(i, k);
       const a = sorted[i];
-      if (side === "bottom") {
-        if (a.role === "src") srcHandles[a.edgeIdx] = `b-${slot}`;
-        else tgtHandles[a.edgeIdx] = `bt-${slot}`;
+      entries.push({ edgeIdx: a.edgeIdx, role: a.role, slot });
+      if (a.role === "src") {
+        srcHandles[a.edgeIdx] = handleId(side, "src", slot);
+        srcSideKey[a.edgeIdx] = key;
       } else {
-        if (a.role === "src") srcHandles[a.edgeIdx] = `ts-${slot}`;
-        else tgtHandles[a.edgeIdx] = `t-${slot}`;
+        tgtHandles[a.edgeIdx] = handleId(side, "tgt", slot);
+        tgtSideKey[a.edgeIdx] = key;
       }
     }
+    sideEntries.set(key, entries);
   }
 
   /* ---- Step 3: obstruction clearance (slots stay fixed) ---- */
-  const endpoints = oriented.map((e, i) => {
+  const computeEndpoint = (i: number) => {
+    const e = oriented[i];
     const sP = absPos.get(e.source);
     const tP = absPos.get(e.target);
     const sOff = handleOffset(srcHandles[i]);
@@ -303,77 +333,254 @@ export function routeLdvEdges(
       tx: (tP?.x ?? 0) + tOff.dx,
       ty: (tP?.y ?? 0) + tOff.dy,
     };
-  });
+  };
+  const endpoints = oriented.map((_, i) => computeEndpoint(i));
   const minOffsets = oriented.map((e, i) => {
     if (!absPos.has(e.source) || !absPos.has(e.target)) return 0;
     const p = endpoints[i];
     return pathObstruction(nodeBounds, p.sx, p.sy, p.tx, p.ty, e.source, e.target);
   });
 
-  /* ---- Step 4: per-gap offset staggering (interval coloring) ---- */
-  // Smooth-step paths have a horizontal segment at sourceY + offset (or
-  // targetY − offset). Edges crossing the same inter-lane gap share this
-  // horizontal band. Edges whose horizontal extents don't overlap can share
-  // one offset level; overlapping ones get distinct levels — flatter bundles
-  // than giving every edge its own step.
-  const edgesByGap = new Map<string, number[]>();
+  /* ---- Step 4: place each edge's horizontal run (explicit centerY) ---- */
+  // getSmoothStepPath puts the horizontal segment of an opposite top/bottom
+  // handle pair at the MIDPOINT of the two handle Ys — its `offset` parameter
+  // does not move it. So edges whose endpoints share rows all lay their
+  // horizontal runs on exactly the same line, reading as one merged wire.
+  // Instead we pass an explicit `centerY` per edge: runs that overlap
+  // horizontally are interval-colored, spread across their shared band, and
+  // nudged off card bodies. The path keeps its two bends — only the y of the
+  // horizontal run moves.
+  const STUB = 16; // minimum vertical stub out of a handle
+  const Y_SEP = 16; // separation between staggered horizontal runs
+  const X_TOUCH = 12; // runs closer than this in x read as overlapping
+
+  const centerYs = new Array<number | undefined>(n).fill(undefined);
+
+  interface HRun {
+    idx: number;
+    x1: number; // extent of the horizontal run
+    x2: number;
+    lo: number; // feasible y range for the run
+    hi: number;
+    mid: number; // default (midpoint) position
+  }
+  const runs: HRun[] = [];
   for (let i = 0; i < n; i++) {
-    const gapKey = `${laneOf.get(oriented[i].source) ?? "?"}||${laneOf.get(oriented[i].target) ?? "?"}`;
-    let bucket = edgesByGap.get(gapKey);
-    if (!bucket) {
-      bucket = [];
-      edgesByGap.set(gapKey, bucket);
-    }
-    bucket.push(i);
+    if (!vertical[i]) continue;
+    const p = endpoints[i];
+    const lo = Math.min(p.sy, p.ty) + STUB;
+    const hi = Math.max(p.sy, p.ty) - STUB;
+    if (hi - lo < 4) continue;
+    runs.push({
+      idx: i,
+      x1: Math.min(p.sx, p.tx),
+      x2: Math.max(p.sx, p.tx),
+      lo,
+      hi,
+      mid: (p.sy + p.ty) / 2,
+    });
   }
 
-  const pathOffsets = new Array<number>(n).fill(BASE_OFFSET);
-  for (const indices of edgesByGap.values()) {
-    if (indices.length <= 1) continue;
-
-    // Minimum handle-to-handle vertical gap among edges in this bucket caps
-    // how far offsets may fan out before leaving the inter-lane band.
-    let minVertGap = Infinity;
-    for (const idx of indices) {
-      const sP = absPos.get(oriented[idx].source);
-      const tP = absPos.get(oriented[idx].target);
-      if (sP && tP) {
-        const handleGap = Math.abs(tP.y - sP.y) - LDV_NODE_H;
-        minVertGap = Math.min(minVertGap, Math.max(handleGap, 40));
+  // Nudge a run's y off any card its horizontal span would cross.
+  const clearRunY = (desired: number, x1: number, x2: number, lo: number, hi: number): number => {
+    const hits = (y: number) =>
+      nodeBounds.some((b) => b.x2 > x1 - 4 && b.x1 < x2 + 4 && y > b.y1 - 6 && y < b.y2 + 6);
+    if (!hits(desired)) return desired;
+    let best = desired;
+    let bestDist = Infinity;
+    for (const b of nodeBounds) {
+      if (b.x2 <= x1 - 4 || b.x1 >= x2 + 4) continue;
+      for (const cand of [b.y1 - 10, b.y2 + 10]) {
+        if (cand < lo || cand > hi || hits(cand)) continue;
+        const dist = Math.abs(cand - desired);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = cand;
+        }
       }
     }
-    if (!isFinite(minVertGap)) minVertGap = 200;
-    const maxOffset = minVertGap * 0.47;
+    return best;
+  };
 
-    // Greedy interval coloring over the horizontal extent of each edge's
-    // smoothstep horizontal segment, in deterministic left-to-right order.
-    const sorted = [...indices].sort((a, b) => {
-      const aStart = Math.min(endpoints[a].sx, endpoints[a].tx);
-      const bStart = Math.min(endpoints[b].sx, endpoints[b].tx);
-      if (aStart !== bStart) return aStart - bStart;
-      const aEnd = Math.max(endpoints[a].sx, endpoints[a].tx);
-      const bEnd = Math.max(endpoints[b].sx, endpoints[b].tx);
-      if (aEnd !== bEnd) return aEnd - bEnd;
-      return a - b;
-    });
+  // Cluster runs whose x-extents and feasible bands overlap (union-find).
+  const parent = runs.map((_, i) => i);
+  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  for (let a = 0; a < runs.length; a++) {
+    for (let b = a + 1; b < runs.length; b++) {
+      const xGap = Math.max(runs[a].x1, runs[b].x1) - Math.min(runs[a].x2, runs[b].x2);
+      const yOverlap = Math.min(runs[a].hi, runs[b].hi) - Math.max(runs[a].lo, runs[b].lo);
+      if (xGap < X_TOUCH && yOverlap > 0) parent[find(a)] = find(b);
+    }
+  }
+  const clusters = new Map<number, number[]>();
+  for (let i = 0; i < runs.length; i++) {
+    const root = find(i);
+    if (!clusters.has(root)) clusters.set(root, []);
+    clusters.get(root)!.push(i);
+  }
+
+  for (const memberIdxs of clusters.values()) {
+    const members = memberIdxs.map((i) => runs[i]);
+    if (members.length === 1) {
+      const r = members[0];
+      centerYs[r.idx] = clearRunY(r.mid, r.x1, r.x2, r.lo, r.hi);
+      continue;
+    }
+    // Interval coloring: runs whose x-extents don't overlap share a level
+    // (and therefore a y), overlapping ones get distinct levels.
+    const order = [...members].sort((a, b) => a.x1 - b.x1 || a.x2 - b.x2 || a.idx - b.idx);
     const levelEnds: number[] = [];
     const levelOf = new Map<number, number>();
-    for (const idx of sorted) {
-      const start = Math.min(endpoints[idx].sx, endpoints[idx].tx);
-      const end = Math.max(endpoints[idx].sx, endpoints[idx].tx);
-      let level = levelEnds.findIndex((last) => last + LEVEL_MARGIN <= start);
+    for (const r of order) {
+      let level = levelEnds.findIndex((last) => last + X_TOUCH <= r.x1);
       if (level === -1) {
         level = levelEnds.length;
-        levelEnds.push(end);
+        levelEnds.push(r.x2);
       } else {
-        levelEnds[level] = end;
+        levelEnds[level] = r.x2;
       }
-      levelOf.set(idx, level);
+      levelOf.set(r.idx, level);
     }
     const levels = levelEnds.length;
-    const step = levels > 1 ? (maxOffset - BASE_OFFSET) / (levels - 1) : 0;
-    for (const idx of sorted) {
-      pathOffsets[idx] = BASE_OFFSET + levelOf.get(idx)! * step;
+    // Spread the levels around the center of the shared band. Pairwise
+    // overlap doesn't guarantee a common intersection across the whole
+    // cluster, so fall back to the union when the intersection is empty.
+    const bandLo = Math.max(...members.map((r) => r.lo));
+    const bandHi = Math.min(...members.map((r) => r.hi));
+    const usableLo = bandLo <= bandHi ? bandLo : Math.min(...members.map((r) => r.lo));
+    const usableHi = bandLo <= bandHi ? bandHi : Math.max(...members.map((r) => r.hi));
+    const step = levels > 1 ? Math.min(Y_SEP, (usableHi - usableLo) / (levels - 1)) : 0;
+    const base = (usableLo + usableHi) / 2 - (step * (levels - 1)) / 2;
+    const levelY = new Array<number>(levels);
+    for (let lv = 0; lv < levels; lv++) {
+      const lvRuns = members.filter((r) => levelOf.get(r.idx) === lv);
+      const x1 = Math.min(...lvRuns.map((r) => r.x1));
+      const x2 = Math.max(...lvRuns.map((r) => r.x2));
+      levelY[lv] = clearRunY(base + lv * step, x1, x2, usableLo, usableHi);
+    }
+    for (const r of members) {
+      centerYs[r.idx] = Math.min(Math.max(levelY[levelOf.get(r.idx)!], r.lo), r.hi);
+    }
+  }
+
+  // A pinned run only helps if the resulting three-segment path is actually
+  // clear of cards. A vertical that would cut through a card cannot be fixed
+  // by moving the horizontal run, so such edges fall back to the legacy
+  // obstruction shape (minOffset-driven wrap-around) instead — while an edge
+  // whose only problem was the horizontal run keeps its nudged centerY and
+  // drops the legacy fallback.
+  const vertClear = (x: number, yA: number, yB: number, skipA: string, skipB: string) => {
+    const y1 = Math.min(yA, yB);
+    const y2 = Math.max(yA, yB);
+    return !nodeBounds.some(
+      (b) =>
+        b.id !== skipA &&
+        b.id !== skipB &&
+        x > b.x1 - 2 &&
+        x < b.x2 + 2 &&
+        Math.min(y2, b.y2) - Math.max(y1, b.y1) > 2,
+    );
+  };
+  for (const r of runs) {
+    const y = centerYs[r.idx];
+    if (y === undefined) continue;
+    const e = oriented[r.idx];
+    const p = endpoints[r.idx];
+    const horizontalClear = !nodeBounds.some(
+      (b) =>
+        b.id !== e.source &&
+        b.id !== e.target &&
+        b.x2 > r.x1 - 4 &&
+        b.x1 < r.x2 + 4 &&
+        y > b.y1 - 2 &&
+        y < b.y2 + 2,
+    );
+    if (
+      horizontalClear &&
+      vertClear(p.sx, p.sy, y, e.source, e.target) &&
+      vertClear(p.tx, y, p.ty, e.source, e.target)
+    ) {
+      minOffsets[r.idx] = 0;
+    } else {
+      centerYs[r.idx] = undefined;
+    }
+  }
+
+  /* ---- Step 5: de-overlap collinear vertical runs (slot nudges) ---- */
+  // Column alignment makes cards stack vertically, so two edges routinely put
+  // a vertical run at exactly the same x through the same y-range — reading
+  // as one wire. Where that happens, move one edge's handle to an adjacent
+  // free slot. A move is allowed only when it keeps the handle strictly
+  // between its neighbours in the side's slot table, so the left-to-right
+  // no-crossing order from Step 2 is preserved.
+  const V_EPS = 6; // same-x tolerance for "collinear"
+  const V_MIN_OVERLAP = 12;
+
+  interface VSeg {
+    x: number;
+    y1: number;
+    y2: number;
+    end: "src" | "tgt";
+  }
+  const segsOf = (i: number): VSeg[] => {
+    const y = centerYs[i];
+    if (y === undefined) return [];
+    const p = endpoints[i];
+    if (Math.abs(p.sx - p.tx) < 1) {
+      return [{ x: p.sx, y1: Math.min(p.sy, p.ty), y2: Math.max(p.sy, p.ty), end: "src" }];
+    }
+    return [
+      { x: p.sx, y1: Math.min(p.sy, y), y2: Math.max(p.sy, y), end: "src" },
+      { x: p.tx, y1: Math.min(y, p.ty), y2: Math.max(y, p.ty), end: "tgt" },
+    ];
+  };
+
+  const tryShift = (i: number, end: "src" | "tgt"): boolean => {
+    const key = end === "src" ? srcSideKey[i] : tgtSideKey[i];
+    if (!key) return false;
+    const entries = sideEntries.get(key)!;
+    // More attachments than slots — slots are shared and packed, nothing to move.
+    if (entries.length > LDV_HANDLE_FRACTIONS.length) return false;
+    const pos = entries.findIndex((en) => en.edgeIdx === i && en.role === end);
+    if (pos === -1) return false;
+    const prevSlot = pos > 0 ? entries[pos - 1].slot : 0;
+    const nextSlot =
+      pos < entries.length - 1 ? entries[pos + 1].slot : LDV_HANDLE_FRACTIONS.length + 1;
+    const cur = entries[pos].slot;
+    for (const cand of [cur + 1, cur - 1]) {
+      if (cand <= prevSlot || cand >= nextSlot) continue;
+      entries[pos] = { ...entries[pos], slot: cand };
+      const side = key.endsWith("|top") ? "top" : "bottom";
+      const id = handleId(side, end, cand);
+      if (end === "src") srcHandles[i] = id;
+      else tgtHandles[i] = id;
+      endpoints[i] = computeEndpoint(i);
+      return true;
+    }
+    return false;
+  };
+
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const findConflict = () => {
+        for (const a of segsOf(i)) {
+          for (const b of segsOf(j)) {
+            if (
+              Math.abs(a.x - b.x) < V_EPS &&
+              Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1) > V_MIN_OVERLAP
+            ) {
+              return { a, b };
+            }
+          }
+        }
+        return null;
+      };
+      let conflict = findConflict();
+      let guard = 0;
+      while (conflict && guard++ < 3) {
+        if (!tryShift(j, conflict.b.end) && !tryShift(i, conflict.a.end)) break;
+        conflict = findConflict();
+      }
     }
   }
 
@@ -474,9 +681,10 @@ export function routeLdvEdges(
     return {
       sourceHandle: srcHandles[i],
       targetHandle: tgtHandles[i],
-      pathOffset: pathOffsets[i],
+      pathOffset: BASE_OFFSET,
       minOffset: minOffsets[i],
       labelT: labelTs[i],
+      ...(centerYs[i] !== undefined ? { centerY: centerYs[i] } : {}),
     };
   });
 

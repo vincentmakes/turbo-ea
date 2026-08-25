@@ -753,18 +753,36 @@ const LdvEdgeComponent = memo(
     const rawOffset = edgeData?.pathOffset ?? 20;
     const minOffset = edgeData?.minOffset ?? 0;
     const verticalGap = Math.abs(targetY - sourceY);
-    // If the edge must clear an obstruction, use at least minOffset; otherwise
-    // clamp to 48% of the vertical gap so the horizontal segment stays within
-    // the inter-group band. The layout engine already staggers offsets, so we
-    // use a generous fraction to preserve the staggering.
+    // The routing engine pins the horizontal run to an explicit centerY
+    // (staggered against other runs and kept clear of cards). Honour it only
+    // while it still lies between the live handle Ys — after a drag the
+    // stored value can go stale, and a centerY outside the span would make
+    // the path double back on itself.
+    const routedCenterY = edgeData?.centerY;
+    const centerY =
+      routedCenterY !== undefined &&
+      routedCenterY > Math.min(sourceY, targetY) + 8 &&
+      routedCenterY < Math.max(sourceY, targetY) - 8
+        ? routedCenterY
+        : undefined;
+    // If the edge must clear an obstruction, use at least minOffset (large
+    // offsets flip the smoothstep into its wrap-around shape, which is what
+    // routes around the card); otherwise keep the offset well inside the
+    // handle span so the bend stubs never fight the pinned centerY.
     const offset = minOffset > 0
       ? Math.max(rawOffset, minOffset)
-      : Math.min(rawOffset, Math.max(10, verticalGap * 0.48));
+      : centerY !== undefined
+        ? Math.max(
+            4,
+            Math.min(rawOffset, Math.abs(centerY - sourceY) - 6, Math.abs(targetY - centerY) - 6),
+          )
+        : Math.min(rawOffset, Math.max(10, verticalGap * 0.48));
     const [path, lx, ly] = getSmoothStepPath({
       sourceX, sourceY, targetX, targetY,
       sourcePosition, targetPosition,
       borderRadius: 8,
       offset,
+      ...(centerY !== undefined ? { centerY } : {}),
     });
 
     const label = edgeData?.relLabel || "";
