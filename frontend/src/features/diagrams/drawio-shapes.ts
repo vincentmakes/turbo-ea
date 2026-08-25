@@ -93,6 +93,15 @@ export interface RelationEdgeStyleOptions {
   pending?: boolean;
   /** The diagram is hiding relation verbs (see setRelationLabelsHidden). */
   hideLabel?: boolean;
+  /** Route with right-angled bends through explicit waypoints instead of the
+   *  default ER router. The ER router ignores fixed perimeter anchors and
+   *  re-routes freely, so a view handing over its own computed path needs
+   *  this. Only that caller sets it; everyone else keeps the ER routing. */
+  orthogonal?: boolean;
+  /** Fixed attachment point on the source / target shape, as {x, y} fractions
+   *  of its box (mxGraph `exitX/exitY`, `entryX/entryY`). */
+  exit?: { x: number; y: number };
+  entry?: { x: number; y: number };
 }
 
 /**
@@ -143,9 +152,14 @@ function relationArrowParts(opts: RelationEdgeStyleOptions): string {
  */
 export function relationEdgeStyle(opts: RelationEdgeStyleOptions = {}): string {
   const arrow = relationArrowParts(opts);
+  const router = opts.orthogonal ? "orthogonalEdgeStyle;rounded=1" : "entityRelationEdgeStyle";
+  const anchor = (p: { x: number; y: number } | undefined, kind: "exit" | "entry") =>
+    p ? `${kind}X=${p.x};${kind}Y=${p.y};${kind}Dx=0;${kind}Dy=0;` : "";
   return (
-    `edgeStyle=entityRelationEdgeStyle;strokeColor=${RELATION_EDGE_COLOR};` +
+    `edgeStyle=${router};strokeColor=${RELATION_EDGE_COLOR};` +
     `strokeWidth=1.5;${arrow};fontSize=10;fontColor=#666;` +
+    anchor(opts.exit, "exit") +
+    anchor(opts.entry, "entry") +
     (opts.pending ? "dashed=1;dashPattern=5 3;" : "") +
     (opts.hideLabel ? `${NO_LABEL_PART};` : "")
   );
@@ -4098,6 +4112,16 @@ export interface DiagramRelInput {
   targetCardId: string;
   relationType: string;
   label: string;
+  /** Which way the data flows, so the generated diagram puts the arrowhead
+   *  where the source view drew it. */
+  flow?: RelationFlowDirection;
+  /** Where the edge meets each card, as {x, y} fractions of its box. */
+  exit?: { x: number; y: number };
+  entry?: { x: number; y: number };
+  /** Bend points of the source view's own route, in the same coordinate space
+   *  as the card positions. Given these, the edge is routed orthogonally
+   *  through them instead of being re-routed by DrawIO. */
+  waypoints?: { x: number; y: number }[];
 }
 
 /** A background swim-lane box (one per EA layer). */
@@ -4200,7 +4224,20 @@ export function buildLdvDiagramXml(
     if (!src || !tgt) continue;
     // Edges are emitted source -> target, so the default (end) arrowhead
     // already points at the relation's target.
-    const style = `${relationEdgeStyle()}html=1;`;
+    const routed = !!rel.waypoints?.length || !!rel.exit || !!rel.entry;
+    const style = `${relationEdgeStyle({
+      flow: rel.flow,
+      orthogonal: routed,
+      exit: rel.exit,
+      entry: rel.entry,
+    })}html=1;`;
+    // A route the caller computed travels as explicit waypoints; without one
+    // the edge keeps an empty geometry and DrawIO routes it itself.
+    const geometry = rel.waypoints?.length
+      ? `<mxGeometry relative="1" as="geometry"><Array as="points">` +
+        rel.waypoints.map((p) => `<mxPoint x="${r(p.x)}" y="${r(p.y)}"/>`).join("") +
+        `</Array></mxGeometry>`
+      : `<mxGeometry relative="1" as="geometry"/>`;
     // Only stamp a relationType for real relations; synthetic/hierarchy edges
     // (empty type) render as plain labelled lines.
     const relTypeAttr = rel.relationType
@@ -4210,7 +4247,7 @@ export function buildLdvDiagramXml(
       `<object id="edge-${edgeIdx}" label="${escapeXml(rel.label)}"${relTypeAttr}>` +
         `<mxCell style="${escapeXml(style)}" edge="1" parent="1" ` +
         `source="${escapeXml(src)}" target="${escapeXml(tgt)}">` +
-        `<mxGeometry relative="1" as="geometry"/></mxCell></object>`,
+        `${geometry}</mxCell></object>`,
     );
     edgeIdx += 1;
   }

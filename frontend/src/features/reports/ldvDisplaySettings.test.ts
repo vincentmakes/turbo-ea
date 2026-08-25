@@ -40,6 +40,28 @@ describe("LDV display settings", () => {
     expect(s.showRelationLabels).toBe(true);
   });
 
+  it("defaults the connection line style to today's dashed look", async () => {
+    // The option exists to let people change the lines, not to change them:
+    // an install that never opens the picker must look exactly as before.
+    const { LDV_DEFAULT_SETTINGS, getLdvSettings } = await freshStore();
+    expect(LDV_DEFAULT_SETTINGS.edgeLineStyle).toBe("dashed");
+    expect(getLdvSettings().edgeLineStyle).toBe("dashed");
+  });
+
+  it("back-fills the line style for a browser that predates it", async () => {
+    localStorage.setItem(KEY, JSON.stringify({ showType: false }));
+    const { getLdvSettings } = await freshStore();
+    expect(getLdvSettings().edgeLineStyle).toBe("dashed");
+  });
+
+  it("round-trips the line style through storage", async () => {
+    const { getLdvSettings, setLdvSettings } = await freshStore();
+    setLdvSettings({ edgeLineStyle: "solid" });
+    expect(getLdvSettings().edgeLineStyle).toBe("solid");
+    expect(JSON.parse(localStorage.getItem(KEY)!).edgeLineStyle).toBe("solid");
+    expect(getLdvSettings().showRelationLabels).toBe(true);
+  });
+
   it("round-trips a change through storage", async () => {
     const { getLdvSettings, setLdvSettings } = await freshStore();
     setLdvSettings({ showRelationLabels: false });

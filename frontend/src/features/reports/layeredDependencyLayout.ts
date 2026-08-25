@@ -16,6 +16,7 @@ import { LAYER_COLORS } from "@/theme/tokens";
 import type { CardType, RelationType, FieldOption } from "@/types";
 import type { TimelineChange } from "./timelineRange";
 import { LDV_NODE_W, LDV_NODE_H } from "./ldvHandles";
+import type { LdvEdgeLineStyle } from "./ldvLineStyle";
 import {
   routeLdvEdges,
   type OrientedEdge,
@@ -171,6 +172,8 @@ export interface LdvEdgeData {
   connectedToHovered?: boolean;
   isHovered?: boolean;
   highlightMode?: boolean;
+  /** Idle line style, injected by the view from the shared display settings. */
+  lineStyle?: LdvEdgeLineStyle;
   pathOffset?: number;
   minOffset?: number; // minimum offset to clear obstructing nodes
   labelT?: number;

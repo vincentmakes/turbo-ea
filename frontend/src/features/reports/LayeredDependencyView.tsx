@@ -46,6 +46,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import MenuSectionHeader from "@/components/MenuSectionHeader";
 import { getCurrentPhase } from "@/components/LifecycleBadge";
 import LdvShowOnCard from "./LdvShowOnCard";
+import LdvLineStyleSelect from "./LdvLineStyleSelect";
 import {
   ReactFlow,
   Background,
@@ -93,6 +94,8 @@ import {
   type LdvEdgeData,
 } from "./layeredDependencyLayout";
 import { LDV_HANDLE_SPECS } from "./ldvHandles";
+import { ldvEdgeStroke } from "./ldvLineStyle";
+import { computeAbsPos, exportRoute } from "./ldvEdgeRouting";
 import { buildRoundedOrthPath } from "./ldvChannels";
 import { ldvFocusRing } from "./ldvFocusRing";
 import LinkChangeIcon from "./LinkChangeIcon";
@@ -931,7 +934,7 @@ const LdvEdgeComponent = memo(
           style={{
             stroke: color,
             strokeWidth: active ? 2 : 1.2,
-            strokeDasharray: severed ? "3 3" : active ? "none" : "5 3",
+            ...ldvEdgeStroke(edgeData?.lineStyle, { active, severed }),
             transition: "stroke 0.15s, stroke-width 0.15s",
           }}
         />
@@ -1401,15 +1404,29 @@ function LayeredDependencyInner({
         }
       }
 
+      // Card centres in the same space the shapes are written in, so the
+      // view's own route can travel onto the diagram unchanged.
+      const centres = computeAbsPos(live);
       const rels: DiagramRelInput[] = [];
       for (const e of rfEdges) {
         if (!included.has(e.source) || !included.has(e.target)) continue;
         const d = e.data as LdvEdgeData | undefined;
+        const route = exportRoute({
+          sourceHandle: e.sourceHandle,
+          targetHandle: e.targetHandle,
+          sourceCentre: centres.get(e.source),
+          targetCentre: centres.get(e.target),
+          waypoints: d?.waypoints,
+          centerY: d?.centerY,
+          anchors: d?.anchors,
+        });
         rels.push({
           sourceCardId: e.source,
           targetCardId: e.target,
           relationType: relTypeByPair.get([e.source, e.target].sort().join("|")) ?? "",
           label: d?.relLabel ?? "",
+          flow: d?.flowDirection,
+          ...route,
         });
       }
 
@@ -1701,6 +1718,7 @@ function LayeredDependencyInner({
             : false,
           isHovered: e.id === hoveredEdge,
           highlightMode,
+          lineStyle: settings.edgeLineStyle,
           onHover: cbs.onHover,
           onLeave: cbs.onLeave,
         },
@@ -1716,7 +1734,15 @@ function LayeredDependencyInner({
       result = [...notConn, ...conn];
     }
     return result;
-  }, [rfEdges, hoveredEdge, hoveredNode, highlightMode, getEdgeHoverCbs, settings.showRelationLabels]);
+  }, [
+    rfEdges,
+    hoveredEdge,
+    hoveredNode,
+    highlightMode,
+    getEdgeHoverCbs,
+    settings.showRelationLabels,
+    settings.edgeLineStyle,
+  ]);
 
   // CSS-based dimming avoids recreating node objects (which causes flickering)
   const hoverStyle = useMemo(() => {
@@ -2239,6 +2265,13 @@ function LayeredDependencyInner({
           </Box>
           </Box>
         ))}
+        {/* Line style is a union, not a boolean, so it cannot join the switch
+            rows above. It sits last in the Relations group: it describes how a
+            relation is drawn, next to what a relation says. */}
+        <LdvLineStyleSelect
+          value={settings.edgeLineStyle}
+          onChange={(edgeLineStyle) => updateSettings({ edgeLineStyle })}
+        />
       </Popover>
     </Paper>
     </LdvObstaclesContext.Provider>

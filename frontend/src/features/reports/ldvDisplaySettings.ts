@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import type { CardLabelSettings } from "@/lib/cardDisplayFields";
+import type { LdvEdgeLineStyle } from "./ldvLineStyle";
 
 /**
  * Shared, persisted display settings for the Layered Dependency View.
@@ -32,6 +33,8 @@ export interface LdvDisplaySettings {
   showRelationLabels: boolean;
   /** Append a relation's single-select attribute value to its label (e.g. "supports [Leading]"). */
   showRelationValues: boolean;
+  /** Idle look of a relation line. Hover and severed keep their own styles. */
+  edgeLineStyle: LdvEdgeLineStyle;
   extraFields: string[];
   background: LdvBackgroundStyle;
 }
@@ -48,6 +51,7 @@ export const LDV_DEFAULT_SETTINGS: LdvDisplaySettings = {
   showEndOfLife: false,
   showRelationLabels: true,
   showRelationValues: true,
+  edgeLineStyle: "dashed",
   extraFields: [],
   background: "dots",
 };

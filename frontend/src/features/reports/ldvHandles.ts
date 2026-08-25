@@ -69,3 +69,24 @@ export function handleOffset(id: string): { dx: number; dy: number } {
       return { dx: LDV_NODE_W / 2, dy: (spec.frac - 0.5) * LDV_NODE_H };
   }
 }
+
+/**
+ * A handle's position on the card as {x, y} fractions of the card's box —
+ * mxGraph's `exitX/exitY` / `entryX/entryY` vocabulary, so the DrawIO diagram
+ * generated from a view attaches its edges exactly where the view does.
+ * Lives here so the fractions still have one home.
+ */
+export function handleAnchor(id: string): { x: number; y: number } | null {
+  const spec = SPEC_BY_ID.get(id);
+  if (!spec) return null;
+  switch (spec.side) {
+    case "top":
+      return { x: spec.frac, y: 0 };
+    case "bottom":
+      return { x: spec.frac, y: 1 };
+    case "left":
+      return { x: 0, y: spec.frac };
+    case "right":
+      return { x: 1, y: spec.frac };
+  }
+}

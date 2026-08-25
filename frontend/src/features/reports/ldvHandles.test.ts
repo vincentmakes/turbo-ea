@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  handleAnchor,
   LDV_HANDLE_SPECS,
   LDV_HANDLE_FRACTIONS,
   LDV_NODE_W,
@@ -51,5 +52,21 @@ describe("LDV handle geometry", () => {
       if (spec.side === "left") expect(dx).toBe(-LDV_NODE_W / 2);
       if (spec.side === "right") expect(dx).toBe(LDV_NODE_W / 2);
     }
+  });
+
+  it("maps every handle to a fractional anchor on the card's box", () => {
+    // The generated DrawIO diagram attaches its edges with these fractions,
+    // so they must agree with the pixel offsets the view routes against.
+    for (const spec of LDV_HANDLE_SPECS) {
+      const a = handleAnchor(spec.id)!;
+      expect(a).not.toBeNull();
+      const { dx, dy } = handleOffset(spec.id);
+      expect((a.x - 0.5) * LDV_NODE_W).toBeCloseTo(dx, 6);
+      expect((a.y - 0.5) * LDV_NODE_H).toBeCloseTo(dy, 6);
+    }
+  });
+
+  it("returns null for an unknown handle", () => {
+    expect(handleAnchor("nope")).toBeNull();
   });
 });

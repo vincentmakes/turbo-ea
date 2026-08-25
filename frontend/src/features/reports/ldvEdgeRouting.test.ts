@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   routeLdvEdges,
   countEdgeCrossings,
+  exportRoute,
   type OrientedEdge,
   type NodeBounds,
   type XY,
@@ -633,5 +634,80 @@ describe("routeLdvEdges vertical de-overlap", () => {
     );
     const slots = routes.map((r) => Number(r.sourceHandle.split("-")[1]));
     expect(slots).toEqual([1, 2, 3, 4, 5]);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Export routing                                                     */
+/* ------------------------------------------------------------------ */
+
+describe("exportRoute", () => {
+  const sourceCentre = { x: 0, y: 0 };
+  const targetCentre = { x: 0, y: 400 };
+  // b-3 / t-3 are the centre slots, so the handle points are (0, 36), (0, 364).
+  const base = {
+    sourceHandle: "b-3",
+    targetHandle: "t-3",
+    sourceCentre,
+    targetCentre,
+    anchors: { sx: 0, sy: 36, tx: 0, ty: 364 },
+  };
+
+  it("translates handles into fractional anchors on the cards", () => {
+    const route = exportRoute(base);
+    expect(route.exit).toEqual({ x: 0.5, y: 1 });
+    expect(route.entry).toEqual({ x: 0.5, y: 0 });
+  });
+
+  it("carries a channel route's own bend points", () => {
+    const waypoints = [
+      { x: 300, y: 100 },
+      { x: 300, y: 300 },
+    ];
+    expect(exportRoute({ ...base, waypoints }).waypoints).toEqual(waypoints);
+  });
+
+  it("re-derives the two bends of an ordinary staggered edge", () => {
+    // A plain edge has no waypoints, but its horizontal run is pinned — those
+    // corners are the path, so naming them keeps the exported edge identical.
+    const route = exportRoute({ ...base, centerY: 200 });
+    expect(route.waypoints).toEqual([
+      { x: 0, y: 200 },
+      { x: 0, y: 200 },
+    ]);
+  });
+
+  it("contributes anchors only when the edge has no stored route", () => {
+    const route = exportRoute(base);
+    expect(route.waypoints).toBeUndefined();
+    expect(route.exit).toBeDefined();
+  });
+
+  it("drops stale bends after a card was dragged", () => {
+    // Positions are live, the route is from layout time. Exporting bends that
+    // no longer meet the card would draw a broken path.
+    const route = exportRoute({
+      ...base,
+      targetCentre: { x: 500, y: 400 },
+      waypoints: [{ x: 300, y: 100 }],
+    });
+    expect(route.waypoints).toBeUndefined();
+    expect(route.entry).toEqual({ x: 0.5, y: 0 });
+  });
+
+  it("keeps bends when positions moved within the tolerance", () => {
+    const route = exportRoute({
+      ...base,
+      targetCentre: { x: 2, y: 400 },
+      waypoints: [{ x: 300, y: 100 }],
+    });
+    expect(route.waypoints).toHaveLength(1);
+  });
+
+  it("copies the bend points rather than sharing them", () => {
+    const waypoints = [{ x: 300, y: 100 }];
+    const route = exportRoute({ ...base, waypoints });
+    route.waypoints![0].x = 999;
+    expect(waypoints[0].x).toBe(300);
   });
 });

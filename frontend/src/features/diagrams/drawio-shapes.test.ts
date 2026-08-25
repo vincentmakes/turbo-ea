@@ -276,6 +276,48 @@ describe("buildLdvDiagramXml", () => {
     expect(xml).not.toContain('edge="1"');
   });
 
+  it("carries a computed route as waypoints and fixed anchors", () => {
+    // The whole point of the export: a diagram made from a view opens looking
+    // like the view, instead of being re-routed from scratch.
+    const xml = buildLdvDiagramXml(
+      cards,
+      [
+        {
+          ...rels[0],
+          exit: { x: 0.5, y: 1 },
+          entry: { x: 0.12, y: 0 },
+          waypoints: [
+            { x: 300, y: 120 },
+            { x: 460, y: 120 },
+          ],
+        },
+      ],
+      layers,
+    );
+    expect(xml).toContain('<Array as="points">');
+    expect(xml).toContain('<mxPoint x="300" y="120"/>');
+    expect(xml).toContain('<mxPoint x="460" y="120"/>');
+    // Right-angled routing, since the default ER router ignores fixed anchors.
+    expect(xml).toContain("edgeStyle=orthogonalEdgeStyle");
+    expect(xml).toContain("exitX=0.5");
+    expect(xml).toContain("entryX=0.12");
+  });
+
+  it("leaves an unrouted edge for the diagram to route", () => {
+    const xml = buildLdvDiagramXml(cards, rels, layers);
+    expect(xml).not.toContain('<Array as="points">');
+    expect(xml).toContain('<mxGeometry relative="1" as="geometry"/>');
+    expect(xml).toContain("edgeStyle=entityRelationEdgeStyle");
+  });
+
+  it("puts the arrowhead where the view drew it for a reverse flow", () => {
+    // Without this the export silently dropped flowDirection, so a relation
+    // the report drew as "consumes" arrived pointing the other way.
+    const xml = buildLdvDiagramXml(cards, [{ ...rels[0], flow: "reverse" }], layers);
+    expect(xml).toContain("startArrow=block");
+    expect(xml).toContain("endArrow=none");
+  });
+
   it("omits the relationType attribute for synthetic (typeless) edges", () => {
     const hierRel: DiagramRelInput[] = [
       {

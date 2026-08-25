@@ -16,7 +16,13 @@
  * not promise.
  */
 
-import { handleOffset, LDV_HANDLE_FRACTIONS, LDV_NODE_W, LDV_NODE_H } from "./ldvHandles";
+import {
+  handleAnchor,
+  handleOffset,
+  LDV_HANDLE_FRACTIONS,
+  LDV_NODE_W,
+  LDV_NODE_H,
+} from "./ldvHandles";
 import { buildRowBands, buildChannel, type ChannelXY, type ChannelCard } from "./ldvChannels";
 import type { Node } from "@xyflow/react";
 
@@ -895,4 +901,85 @@ export function routeLdvEdges(
   });
 
   return { routes, usedHandles };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Export                                                             */
+/* ------------------------------------------------------------------ */
+
+export interface ExportRouteInput {
+  sourceHandle?: string | null;
+  targetHandle?: string | null;
+  /** Live absolute centres of the two cards (post-drag). */
+  sourceCentre?: XY;
+  targetCentre?: XY;
+  /** Routing the layout computed, off the edge's data. */
+  waypoints?: XY[];
+  centerY?: number;
+  anchors?: { sx: number; sy: number; tx: number; ty: number };
+}
+
+export interface ExportRoute {
+  exit?: { x: number; y: number };
+  entry?: { x: number; y: number };
+  waypoints?: XY[];
+}
+
+/** How far a live handle may sit from its layout-time anchor before the stored
+ *  route counts as stale. Mirrors the renderer's own tolerance. */
+const EXPORT_STALE_PX = 4;
+
+/**
+ * Translate one routed edge into the anchors and bend points a generated
+ * diagram needs, so an exported diagram keeps the path the view drew.
+ *
+ * Three shapes come out of the router and all three are handled: a channel
+ * route carries explicit `waypoints`; an ordinary edge carries a `centerY`,
+ * whose two bends are re-derived here; anything else (a side-handle run, a
+ * legacy obstructed edge) contributes anchors only and is left to the diagram
+ * to route.
+ *
+ * Positions are live while the stored route is from layout time, so a dragged
+ * card would otherwise export bends that no longer meet its edges. When the
+ * two disagree the bends are dropped and only the anchors travel — the same
+ * bargain the renderer strikes.
+ */
+export function exportRoute(input: ExportRouteInput): ExportRoute {
+  const { sourceHandle, targetHandle, sourceCentre, targetCentre } = input;
+  const exit = sourceHandle ? (handleAnchor(sourceHandle) ?? undefined) : undefined;
+  const entry = targetHandle ? (handleAnchor(targetHandle) ?? undefined) : undefined;
+  if (!sourceCentre || !targetCentre) return { exit, entry };
+
+  const sOff = handleOffset(sourceHandle ?? "");
+  const tOff = handleOffset(targetHandle ?? "");
+  const sx = sourceCentre.x + sOff.dx;
+  const sy = sourceCentre.y + sOff.dy;
+  const tx = targetCentre.x + tOff.dx;
+  const ty = targetCentre.y + tOff.dy;
+
+  const a = input.anchors;
+  const fresh =
+    !a ||
+    (Math.abs(a.sx - sx) < EXPORT_STALE_PX &&
+      Math.abs(a.sy - sy) < EXPORT_STALE_PX &&
+      Math.abs(a.tx - tx) < EXPORT_STALE_PX &&
+      Math.abs(a.ty - ty) < EXPORT_STALE_PX);
+  if (!fresh) return { exit, entry };
+
+  if (input.waypoints?.length) {
+    return { exit, entry, waypoints: input.waypoints.map((p) => ({ ...p })) };
+  }
+  if (input.centerY !== undefined) {
+    // The smoothstep shape is an orthogonal two-bend path; naming its corners
+    // is what lets the diagram reproduce it.
+    return {
+      exit,
+      entry,
+      waypoints: [
+        { x: sx, y: input.centerY },
+        { x: tx, y: input.centerY },
+      ],
+    };
+  }
+  return { exit, entry };
 }

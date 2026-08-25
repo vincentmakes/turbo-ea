@@ -393,8 +393,9 @@ Layer order is invariant. Layer color = `LAYER_COLORS[layer]` from `theme/tokens
 | Routing | Smooth-step (curved, orthogonal) |
 | Direction | Always source → target as defined in the metamodel `relation_type` |
 | Label | Forward label of the relation type (e.g. *uses*, *supports*, *runs on*) |
-| Style — idle | 1.5 px dashed (5 / 3 px) |
-| Style — hovered | 2 px solid, label background gains opacity |
+| Style — idle | 1.2 px, dash pattern from the **Line style** view option — solid, dotted (`1 4`, round cap), dashed (`5 3`, the default) or long dash (`12 5`). Presets only: line style is meaningful vocabulary in ArchiMate/UML/C4, so the set stays short and named. See `ldvLineStyle.ts` |
+| Style — hovered | 2 px solid, label background gains opacity — solid whichever idle style is set, so the highlight reads the same |
+| Style — severed | 2 px error colour, `3 3` dashed. A *state* (an endpoint retires at the viewed date), so it overrides both hover and the chosen idle style |
 | Cross-layer | Mirrored top/bottom handles so the line stays orthogonal |
 
 **Layout**

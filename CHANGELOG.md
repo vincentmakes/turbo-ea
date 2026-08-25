@@ -7,9 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [2.84.0] - 2026-08-25
 
+### Added
+
+- **Connection lines have a style option.** **View options** on the Layered Dependency View now offers **Solid**, **Dotted**, **Dashed** (the default, unchanged) and **Long dash**, each shown as a sample of the line itself. Hovering a line still draws it solid and a dependency being severed keeps its own dashes, so the choice never hides what a line is saying.
+
 ### Changed
 
 - **Dependency connections take a cleaner path.** Lines in the Layered Dependency View run straight where they can, route around cards instead of over them, and no longer overlap or cross each other at a card's edge — so going around a busy layer costs a turn or two instead of a zigzag.
+- **A diagram created from a dependency view keeps its routing.** **Create diagram** used to hand DrawIO bare endpoints and let it re-route everything, so the diagram arrived looking nothing like the report. Lines now carry the bends and the exact attachment points the report worked out, and a relation whose data flows the other way finally exports with its arrow pointing the right way.
 - **Cards line up with what they connect to.** Cards linked across layers now stand in the same column, so a dependency reads as a short vertical line rather than a long diagonal — in the Dependencies report, the card page's dependency section and TurboLens target architectures alike.
 
 ## [2.83.0] - 2026-08-24
