@@ -1516,3 +1516,101 @@ class TestNotUpdatedForFilter:
         resp = await client.get(f"/api/v1/surveys/{survey['id']}", headers=auth_headers(admin))
         assert resp.status_code == 200
         assert resp.json()["target_filters"]["not_updated_for"] == window
+
+
+# ---------------------------------------------------------------------------
+# POST /surveys/{id}/preview — payload shape
+# ---------------------------------------------------------------------------
+
+
+class TestPreviewPayload:
+    """What the Preview & send step renders.
+
+    The role a user holds reaches the UI as a key that the builder resolves to a
+    label, and the two counters answer different questions: `total_users` is a
+    headcount, `total_requests` is how many response records `send` will create.
+    """
+
+    async def _app_with_roles(self, db, admin, user, name, roles):
+        card = await create_card(
+            db,
+            card_type="Application",
+            name=name,
+            user_id=admin.id,
+            attributes={"costTotalAnnual": 1000, "riskLevel": "low"},
+        )
+        for role in roles:
+            db.add(Stakeholder(card_id=card.id, user_id=user.id, role=role))
+        await db.flush()
+        return card
+
+    async def test_user_with_two_roles_on_one_card_appears_once(self, client, db, survey_env):
+        """One entry per user — SurveyResponse is unique on (survey, card, user),
+        so a second entry would break the send — but carrying both roles."""
+        admin, member = survey_env["admin"], survey_env["member"]
+        await create_stakeholder_role_def(
+            db, card_type_key="Application", key="observer", label="Observer"
+        )
+        # survey_env's card already has member as 'responsible'; add a second role.
+        db.add(Stakeholder(card_id=survey_env["card"].id, user_id=member.id, role="observer"))
+        await db.flush()
+
+        survey = await _create_draft_survey(client, admin, target_roles=["responsible", "observer"])
+        body = await _preview(client, admin, survey["id"])
+
+        assert body["total_cards"] == 1
+        users = body["targets"][0]["users"]
+        assert len(users) == 1
+        assert users[0]["roles"] == ["observer", "responsible"]  # sorted, not query order
+        assert body["total_users"] == 1
+        assert body["total_requests"] == 1
+
+    async def test_untargeted_roles_are_excluded(self, client, db, survey_env):
+        admin, member = survey_env["admin"], survey_env["member"]
+        await create_stakeholder_role_def(
+            db, card_type_key="Application", key="observer", label="Observer"
+        )
+        db.add(Stakeholder(card_id=survey_env["card"].id, user_id=member.id, role="observer"))
+        await db.flush()
+
+        survey = await _create_draft_survey(client, admin, target_roles=["responsible"])
+        body = await _preview(client, admin, survey["id"])
+
+        assert body["targets"][0]["users"][0]["roles"] == ["responsible"]
+
+    async def test_one_person_on_two_cards_is_one_user_two_requests(self, client, db, survey_env):
+        """The reported bug: total_users summed the per-card lists, so a single
+        person stakeholding several cards was reported as several users."""
+        admin, member = survey_env["admin"], survey_env["member"]
+        await self._app_with_roles(db, admin, member, "Second App", ["responsible"])
+
+        survey = await _create_draft_survey(client, admin)
+        body = await _preview(client, admin, survey["id"])
+
+        assert body["total_cards"] == 2
+        assert body["total_users"] == 1
+        assert body["total_requests"] == 2
+
+    async def test_distinct_people_are_counted_separately(self, client, db, survey_env):
+        admin, member, viewer = survey_env["admin"], survey_env["member"], survey_env["viewer"]
+        await self._app_with_roles(db, admin, viewer, "Viewer App", ["responsible"])
+
+        survey = await _create_draft_survey(client, admin)
+        body = await _preview(client, admin, survey["id"])
+
+        assert body["total_users"] == 2
+        assert body["total_requests"] == 2
+        assert member.id != viewer.id
+
+    async def test_total_requests_matches_what_send_creates(self, client, db, survey_env):
+        admin, member = survey_env["admin"], survey_env["member"]
+        await self._app_with_roles(db, admin, member, "Second App", ["responsible"])
+
+        survey = await _create_draft_survey(client, admin)
+        body = await _preview(client, admin, survey["id"])
+
+        send = await client.post(
+            f"/api/v1/surveys/{survey['id']}/send", headers=auth_headers(admin)
+        )
+        assert send.status_code == 200, send.json()
+        assert send.json()["targets_created"] == body["total_requests"]

@@ -15,7 +15,6 @@ import CircularProgress from "@mui/material/CircularProgress";
 import MuiCard from "@mui/material/Card";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
-import Autocomplete from "@mui/material/Autocomplete";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Divider from "@mui/material/Divider";
@@ -28,10 +27,10 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import CardPicker, { type CardOption } from "@/components/CardPicker";
+import TagPicker from "@/components/TagPicker";
 import { useExtensionFieldTypes } from "@/lib/extensionHost";
 import { api } from "@/api/client";
-import { useAbortableEffect } from "@/hooks/useLatestRequest";
-import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import {
   useTypeLabel,
@@ -40,7 +39,6 @@ import {
   useOptionLabel,
 } from "@/hooks/useResolveLabel";
 import { FIELD_TYPE_OPTIONS } from "@/features/admin/metamodel/constants";
-import { readableTextColor } from "@/lib/color";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import {
   MAX_STALENESS_BY_UNIT,
@@ -106,14 +104,10 @@ export default function SurveyBuilder() {
   const [targetTypeKey, setTargetTypeKey] = useState("");
   const [targetRoles, setTargetRoles] = useState<string[]>([]);
   const [relatedIds, setRelatedIds] = useState<string[]>([]);
-  const [relatedItems, setRelatedItems] = useState<Card[]>([]);
+  const [relatedItems, setRelatedItems] = useState<CardOption[]>([]);
   const [cardIds, setCardIds] = useState<string[]>([]);
-  const [cardItems, setCardItems] = useState<Card[]>([]);
+  const [cardItems, setCardItems] = useState<CardOption[]>([]);
   const [tagIds, setTagIds] = useState<string[]>([]);
-  const [relatedSearch, setRelatedSearch] = useState("");
-  const [relatedOptions, setRelatedOptions] = useState<Card[]>([]);
-  const [cardSearch, setCardSearch] = useState("");
-  const [cardOptions, setCardOptions] = useState<Card[]>([]);
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
   const [roles, setRoles] = useState<StakeholderRoleDef[]>([]);
   const [attributeFilters, setAttributeFilters] = useState<
@@ -169,80 +163,51 @@ export default function SurveyBuilder() {
     load();
   }, [id]);
 
-  // Load tag groups and roles
   useEffect(() => {
     api.get<TagGroup[]>("/tag-groups").then(setTagGroups).catch(() => {});
-    api.get<StakeholderRoleDef[]>("/stakeholder-roles").then(setRoles).catch(() => {});
   }, []);
 
-  // Search cards for related filter. `clearTimeout` only cancelled the timer —
-  // once a request was dispatched nothing stopped a stale response from
-  // replacing newer results (#882).
-  const [debouncedRelatedSearch] = useDebouncedValue(relatedSearch, 300);
-  useAbortableEffect(
-    async ({ signal, isCurrent }) => {
-      try {
-        const params = new URLSearchParams({ page_size: "20" });
-        if (debouncedRelatedSearch) params.set("search", debouncedRelatedSearch);
-        const res = await api.get<{ items: Card[] }>(`/cards?${params.toString()}`, { signal });
-        if (!isCurrent()) return;
-        setRelatedOptions(res.items);
-      } catch {
-        // ignore — empty option list
-      }
-    },
-    [debouncedRelatedSearch],
-  );
-
-  // Search cards for the "specific cards" picker — restricted to the target type
-  const [debouncedCardSearch] = useDebouncedValue(cardSearch, 300);
-  useAbortableEffect(
-    async ({ signal, isCurrent }) => {
-      if (!targetTypeKey) {
-        setCardOptions([]);
-        return;
-      }
-      try {
-        const params = new URLSearchParams({ type: targetTypeKey, page_size: "20" });
-        if (debouncedCardSearch) params.set("search", debouncedCardSearch);
-        const res = await api.get<{ items: Card[] }>(`/cards?${params.toString()}`, { signal });
-        if (!isCurrent()) return;
-        setCardOptions(res.items);
-      } catch {
-        // ignore — empty option list
-      }
-    },
-    [debouncedCardSearch, targetTypeKey],
-  );
-
-  // Hydrate selected items so autocomplete chips render names when editing an existing survey
+  // Roles are per card type. Scoped to the target type once one is chosen, so
+  // the list stops offering roles that type does not define — those could never
+  // match a card and only pad the list. Unscoped until then, purely so the
+  // section isn't empty before a type is picked.
   useEffect(() => {
-    const missing = cardIds.filter((id) => !cardItems.some((c) => c.id === id));
-    if (missing.length === 0) return;
-    Promise.all(
-      missing.map((id) => api.get<Card>(`/cards/${id}`).catch(() => null)),
-    ).then((cards) => {
-      const fetched = cards.filter((c): c is Card => !!c);
-      if (fetched.length > 0) {
-        setCardItems((prev) => {
-          const known = new Set(prev.map((c) => c.id));
-          return [...prev, ...fetched.filter((c) => !known.has(c.id))];
-        });
-      }
-    });
+    const path = targetTypeKey
+      ? `/stakeholder-roles?type_key=${encodeURIComponent(targetTypeKey)}`
+      : "/stakeholder-roles";
+    api.get<StakeholderRoleDef[]>(path).then(setRoles).catch(() => {});
+  }, [targetTypeKey]);
+
+  // Hydrate the selected chips when an existing survey is opened: the survey
+  // stores ids, and a picker needs names. Covers both card filters — related
+  // cards used to be left un-hydrated, so the field rendered empty while the
+  // ids were still in state, and touching it wiped the filter.
+  useEffect(() => {
+    const wanted: [string[], CardOption[], React.Dispatch<React.SetStateAction<CardOption[]>>][] = [
+      [cardIds, cardItems, setCardItems],
+      [relatedIds, relatedItems, setRelatedItems],
+    ];
+    for (const [ids, held, setHeld] of wanted) {
+      const missing = ids.filter((id) => !held.some((c) => c.id === id));
+      if (missing.length === 0) continue;
+      Promise.all(missing.map((id) => api.get<Card>(`/cards/${id}`).catch(() => null))).then(
+        (cards) => {
+          const fetched = cards.filter((c): c is Card => !!c);
+          if (fetched.length === 0) return;
+          setHeld((prev) => {
+            const known = new Set(prev.map((c) => c.id));
+            return [
+              ...prev,
+              ...fetched
+                .filter((c) => !known.has(c.id))
+                .map((c) => ({ id: c.id, name: c.name, type: c.type })),
+            ];
+          });
+        },
+      );
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cardIds]);
-
-  // Merge selected items with search results so selected values are always in options
-  const mergedRelatedOptions = useMemo(() => {
-    const ids = new Set(relatedOptions.map((o) => o.id));
-    return [...relatedOptions, ...relatedItems.filter((item) => !ids.has(item.id))];
-  }, [relatedOptions, relatedItems]);
-
-  const mergedCardOptions = useMemo(() => {
-    const ids = new Set(cardOptions.map((o) => o.id));
-    return [...cardOptions, ...cardItems.filter((item) => !ids.has(item.id))];
-  }, [cardOptions, cardItems]);
+  }, [cardIds, relatedIds]);
 
   // Get the selected type's fields schema
   const selectedType = useMemo(
@@ -266,6 +231,18 @@ export default function SurveyBuilder() {
     }
     return fields;
   }, [selectedType, fieldLabel, optLabel]);
+
+  // Stakeholder role key → display label. The preview payload carries keys, and
+  // rendering those leaks slugs like "technicalApplicationOwner" into the UI.
+  const roleLabel = useMemo(() => {
+    const byKey = new Map(roles.map((r) => [r.key, r]));
+    return (key: string) => {
+      // typeLabel returns "" for an unknown entity, so fall back to the key —
+      // a role archived since the draft was written still renders something.
+      const def = byKey.get(key);
+      return def ? typeLabel(def) : key;
+    };
+  }, [roles, typeLabel]);
 
   // Relation types the surveyed card type can participate in, expanded into one
   // entry per direction (a self-referential relation yields both). Each becomes
@@ -309,12 +286,6 @@ export default function SurveyBuilder() {
     }
     return entries;
   }, [relationTypes, targetTypeKey, types, typeLabel, relLabel]);
-
-  // All tags from all groups
-  const allTags = useMemo(
-    () => tagGroups.flatMap((g) => g.tags.map((tg) => ({ ...tg, group_name: g.name }))),
-    [tagGroups],
-  );
 
   // The date the window resolves to, shown to the admin before anything is
   // saved. Computed client-side by the mirror of the backend helper — no
@@ -595,6 +566,9 @@ export default function SurveyBuilder() {
               setTargetTypeKey(e.target.value);
               setSelectedFields([]);
               setAttributeFilters([]);
+              // Roles are defined per type, so a type change invalidates them
+              // exactly as it does the fields and attribute filters above.
+              setTargetRoles([]);
             }}
             sx={{ mb: 3 }}
             required
@@ -618,39 +592,21 @@ export default function SurveyBuilder() {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             {t("surveyBuilder.target.filterSpecificHint")}
           </Typography>
-          <Autocomplete
+          <CardPicker
             multiple
-            filterSelectedOptions
+            types={targetTypeKey}
+            enabled={!!targetTypeKey}
             disabled={!targetTypeKey}
-            options={mergedCardOptions}
-            getOptionLabel={(o) => o.name}
-            isOptionEqualToValue={(opt, val) => opt.id === val.id}
             value={cardItems}
-            inputValue={cardSearch}
-            onInputChange={(_, val, reason) => {
-              if (reason !== "reset") setCardSearch(val);
-            }}
-            onChange={(_, vals) => {
+            onChange={(vals) => {
               setCardItems(vals);
               setCardIds(vals.map((v) => v.id));
             }}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label={t("surveyBuilder.target.searchSpecificCards")}
-                size="small"
-              />
-            )}
-            renderTags={(vals, getTagProps) =>
-              vals.map((v, i) => (
-                <Chip {...getTagProps({ index: i })} key={v.id} label={v.name} size="small" />
-              ))
-            }
+            label={t("surveyBuilder.target.searchSpecificCards")}
+            fullWidth
             sx={{ mb: 3 }}
             noOptionsText={
-              !targetTypeKey
-                ? t("surveyBuilder.target.selectTypeFirst")
-                : t("common:labels.noResults")
+              !targetTypeKey ? t("surveyBuilder.target.selectTypeFirst") : undefined
             }
           />
 
@@ -661,56 +617,28 @@ export default function SurveyBuilder() {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             {t("surveyBuilder.target.filterRelatedHint")}
           </Typography>
-          <Autocomplete
+          <CardPicker
             multiple
-            filterSelectedOptions
-            options={mergedRelatedOptions}
-            getOptionLabel={(o) => `${o.name} (${o.type})`}
-            isOptionEqualToValue={(opt, val) => opt.id === val.id}
             value={relatedItems}
-            inputValue={relatedSearch}
-            onInputChange={(_, val, reason) => {
-              if (reason !== "reset") setRelatedSearch(val);
-            }}
-            onChange={(_, vals) => {
+            onChange={(vals) => {
               setRelatedItems(vals);
               setRelatedIds(vals.map((v) => v.id));
             }}
-            renderInput={(params) => (
-              <TextField {...params} label={t("surveyBuilder.target.searchCards")} size="small" />
-            )}
-            renderTags={(vals, getTagProps) =>
-              vals.map((v, i) => (
-                <Chip {...getTagProps({ index: i })} key={v.id} label={v.name} size="small" />
-              ))
-            }
+            label={t("surveyBuilder.target.searchCards")}
+            fullWidth
             sx={{ mb: 3 }}
-            noOptionsText={t("common:labels.noResults")}
           />
 
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
             {t("surveyBuilder.target.filterTags")}
           </Typography>
-          <Autocomplete
-            multiple
-            options={allTags}
-            getOptionLabel={(tg) => `${tg.group_name}: ${tg.name}`}
-            value={allTags.filter((tg) => tagIds.includes(tg.id))}
-            onChange={(_, vals) => setTagIds(vals.map((v) => v.id))}
-            renderInput={(params) => (
-              <TextField {...params} label={t("surveyBuilder.target.selectTags")} size="small" />
-            )}
-            renderTags={(vals, getTagProps) =>
-              vals.map((v, i) => (
-                <Chip
-                  {...getTagProps({ index: i })}
-                  key={v.id}
-                  label={v.name}
-                  size="small"
-                  sx={v.color ? { bgcolor: v.color, color: readableTextColor(v.color) } : undefined}
-                />
-              ))
-            }
+          <TagPicker
+            groups={tagGroups}
+            value={tagIds}
+            onChange={setTagIds}
+            typeKey={targetTypeKey || undefined}
+            size="small"
+            label={t("surveyBuilder.target.selectTags")}
             sx={{ mb: 3 }}
           />
 
@@ -918,7 +846,20 @@ export default function SurveyBuilder() {
               }
               label={
                 <Box>
-                  <Typography variant="body2">{role.label}</Typography>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                    {role.color && (
+                      <Box
+                        sx={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: "50%",
+                          bgcolor: role.color,
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+                    <Typography variant="body2">{typeLabel(role)}</Typography>
+                  </Box>
                   {role.allowed_types && (
                     <Typography variant="caption" color="text.secondary">
                       {t("surveyBuilder.target.onlyFor", { types: role.allowed_types.join(", ") })}
@@ -1129,6 +1070,12 @@ export default function SurveyBuilder() {
                   <Typography variant="body2" color="text.secondary">
                     {t("surveyBuilder.preview.usersToNotify")}
                   </Typography>
+                  {/* One person on several cards is one user but several
+                      requests — show both so the headcount isn't read as the
+                      amount of work being created. */}
+                  <Typography variant="caption" color="text.secondary">
+                    {t("surveyBuilder.preview.requests", { count: preview.total_requests })}
+                  </Typography>
                 </MuiCard>
                 <MuiCard variant="outlined" sx={{ p: 2, flex: 1, textAlign: "center" }}>
                   <Typography variant="h4" sx={{ fontWeight: 700, color: "#1976d2" }}>
@@ -1164,14 +1111,17 @@ export default function SurveyBuilder() {
                           <TableRow key={tp.card_id}>
                             <TableCell>{tp.card_name}</TableCell>
                             <TableCell>
-                              {tp.users.map((u) => (
-                                <Chip
-                                  key={u.user_id}
-                                  label={`${u.display_name} (${u.role})`}
-                                  size="small"
-                                  sx={{ mr: 0.5, mb: 0.5 }}
-                                />
-                              ))}
+                              {tp.users.map((u) => {
+                                const named = u.roles.map(roleLabel).filter(Boolean).join(", ");
+                                return (
+                                  <Chip
+                                    key={u.user_id}
+                                    label={named ? `${u.display_name} (${named})` : u.display_name}
+                                    size="small"
+                                    sx={{ mr: 0.5, mb: 0.5 }}
+                                  />
+                                );
+                              })}
                             </TableCell>
                           </TableRow>
                         ))}

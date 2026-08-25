@@ -26,7 +26,12 @@ vi.mock("@/hooks/useMetamodel", () => ({
         icon: "apps",
         color: "#0f7eb5",
         is_hidden: false,
-        fields_schema: [],
+        fields_schema: [
+          {
+            section: "General",
+            fields: [{ key: "costTotalAnnual", label: "Annual Cost", type: "cost" }],
+          },
+        ],
         translations: {},
       },
     ],
@@ -156,5 +161,95 @@ describe("SurveyBuilder — last-update (staleness) filter", () => {
     expect(filters).toHaveProperty("tag_ids");
     expect(filters).toHaveProperty("related_ids");
     expect(filters).toHaveProperty("attribute_filters");
+  });
+});
+
+const ROLE_DEFS = [
+  { key: "responsible", label: "Business Owner", allowed_types: null, translations: {} },
+  { key: "technicalApplicationOwner", label: "Technical Owner", allowed_types: null, translations: {} },
+];
+
+/** Walk all the way to step 4, where the resolved preview is rendered. */
+async function gotoPreviewStep(user: ReturnType<typeof userEvent.setup>) {
+  await gotoTargetStep(user);
+  // Step 2 needs at least one stakeholder role ticked.
+  await user.click(screen.getByRole("checkbox", { name: /business owner/i }));
+  await user.click(screen.getByRole("button", { name: /next/i }));
+
+  // Step 3 needs at least one field selected.
+  await waitFor(() => expect(screen.getByText(/annual cost/i)).toBeInTheDocument());
+  await user.click(screen.getByText(/annual cost/i));
+  await user.click(screen.getByRole("button", { name: /next/i }));
+
+  await waitFor(() => expect(screen.getByText(/target breakdown/i)).toBeInTheDocument());
+}
+
+describe("SurveyBuilder — preview & send step", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (api.get as ReturnType<typeof vi.fn>).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve({ items: [] });
+      if (path.startsWith("/stakeholder-roles")) return Promise.resolve(ROLE_DEFS);
+      return Promise.resolve([]);
+    });
+    mockPost.mockImplementation((path: string) => {
+      if (path.endsWith("/preview")) {
+        return Promise.resolve({
+          total_cards: 2,
+          total_users: 1,
+          total_requests: 2,
+          targets: [
+            {
+              card_id: "c1",
+              card_name: "NexaCore ERP",
+              card_type: "Application",
+              users: [
+                {
+                  user_id: "u1",
+                  display_name: "Ada Lovelace",
+                  email: "ada@test.com",
+                  // Role KEYS, as the backend sends them.
+                  roles: ["responsible", "technicalApplicationOwner"],
+                },
+              ],
+            },
+          ],
+        });
+      }
+      return Promise.resolve({ id: "survey-1" });
+    });
+    (api.patch as ReturnType<typeof vi.fn>).mockResolvedValue({});
+  });
+
+  it("renders stakeholder role labels, not their keys", async () => {
+    const user = userEvent.setup();
+    await gotoPreviewStep(user);
+
+    expect(screen.getByText("Ada Lovelace (Business Owner, Technical Owner)")).toBeInTheDocument();
+    expect(screen.queryByText(/technicalApplicationOwner/)).not.toBeInTheDocument();
+  });
+
+  it("counts distinct people, and shows the requests they generate separately", async () => {
+    const user = userEvent.setup();
+    await gotoPreviewStep(user);
+
+    // One person across two cards: one user, two survey requests.
+    expect(screen.getByText("Users to Notify")).toBeInTheDocument();
+    expect(screen.getByText("2 survey requests")).toBeInTheDocument();
+  });
+
+  it("falls back to the key when a role is no longer defined", async () => {
+    (api.get as ReturnType<typeof vi.fn>).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve({ items: [] });
+      // 'technicalApplicationOwner' has been archived since the draft was written.
+      if (path.startsWith("/stakeholder-roles")) return Promise.resolve([ROLE_DEFS[0]]);
+      return Promise.resolve([]);
+    });
+    const user = userEvent.setup();
+    await gotoPreviewStep(user);
+
+    expect(
+      screen.getByText("Ada Lovelace (Business Owner, technicalApplicationOwner)"),
+    ).toBeInTheDocument();
   });
 });

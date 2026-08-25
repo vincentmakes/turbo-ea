@@ -115,6 +115,8 @@ export interface StakeholderRoleDef {
   key: string;
   label: string;
   allowed_types: string[] | null;
+  /** Absent on the JSONB fallback and the hardcoded default roles. */
+  color?: string | null;
   translations?: MetamodelTranslations;
 }
 
@@ -1034,12 +1036,18 @@ export interface SurveyPreviewTarget {
   card_id: string;
   card_name: string;
   card_type: string;
-  users: { user_id: string; display_name: string; email: string; role: string }[];
+  /** One entry per user, carrying every targeted role they hold on this card
+   *  (sorted server-side). Role **keys** — resolve them for display. */
+  users: { user_id: string; display_name: string; email: string; roles: string[] }[];
 }
 
 export interface SurveyPreviewResult {
   total_cards: number;
+  /** Distinct people across every target card. */
   total_users: number;
+  /** Survey requests `send` will create — one per (card, user), so a person on
+   *  several cards counts once in `total_users` and once per card here. */
+  total_requests: number;
   targets: SurveyPreviewTarget[];
 }
 

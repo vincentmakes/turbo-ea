@@ -210,3 +210,83 @@ describe("CardPicker", () => {
     );
   });
 });
+
+function MultiHarness({
+  initial = [],
+  ...props
+}: { initial?: CardOption[] } & Partial<React.ComponentProps<typeof CardPicker>>) {
+  const [value, setValue] = useState<CardOption[]>(initial);
+  return (
+    <CardPicker
+      multiple
+      types="Application"
+      value={value}
+      onChange={setValue}
+      placeholder="Search Application"
+      {...(props as object)}
+    />
+  );
+}
+
+describe("CardPicker — multi-select", () => {
+  beforeEach(() => {
+    vi.mocked(api.get).mockReset();
+  });
+
+  it("accumulates picks as chips instead of replacing the selection", async () => {
+    vi.mocked(api.get).mockResolvedValue(
+      page(
+        [
+          { id: "1", name: "Alpha App", type: "Application" },
+          { id: "2", name: "Beta App", type: "Application" },
+        ],
+        2,
+      ),
+    );
+    const user = userEvent.setup();
+    render(<MultiHarness />);
+
+    await user.click(screen.getByPlaceholderText("Search Application"));
+    await user.click(await screen.findByText("Alpha App"));
+    // The dropdown stays open (disableCloseOnSelect), so the second pick is
+    // one click rather than a re-open.
+    await user.click(await screen.findByText("Beta App"));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /alpha app/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /beta app/i })).toBeInTheDocument();
+    });
+  });
+
+  it("keeps a chip for a selected card that is not on the current page", async () => {
+    // The server only ever returns Alpha; Zulu was picked in an earlier session.
+    vi.mocked(api.get).mockResolvedValue(
+      page([{ id: "1", name: "Alpha App", type: "Application" }], 1),
+    );
+    render(
+      <MultiHarness initial={[{ id: "99", name: "Zulu App", type: "Application" }]} />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /zulu app/i })).toBeInTheDocument(),
+    );
+  });
+
+  it("removes a card when its chip is deleted", async () => {
+    vi.mocked(api.get).mockResolvedValue(
+      page([{ id: "1", name: "Alpha App", type: "Application" }], 1),
+    );
+    const user = userEvent.setup();
+    render(
+      <MultiHarness initial={[{ id: "1", name: "Alpha App", type: "Application" }]} />,
+    );
+
+    const chip = await screen.findByRole("button", { name: /alpha app/i });
+    await user.click(chip);
+    await user.keyboard("{Backspace}");
+
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: /alpha app/i })).not.toBeInTheDocument(),
+    );
+  });
+});

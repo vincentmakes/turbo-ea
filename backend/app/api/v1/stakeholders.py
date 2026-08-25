@@ -80,6 +80,9 @@ async def list_roles(
             {
                 "key": r["key"],
                 "label": r["label"],
+                # Optional: the JSONB fallback and the hardcoded defaults below
+                # `_roles_for_type` carry no colour, so callers must cope with None.
+                "color": r.get("color"),
                 "translations": r.get("translations", {}),
             }
             for r in roles
@@ -90,6 +93,7 @@ async def list_roles(
         select(
             StakeholderRoleDefinition.key,
             StakeholderRoleDefinition.label,
+            StakeholderRoleDefinition.color,
             StakeholderRoleDefinition.translations,
         )
         .where(StakeholderRoleDefinition.is_archived == False)  # noqa: E712
@@ -100,7 +104,8 @@ async def list_roles(
         {
             "key": row[0],
             "label": row[1],
-            "translations": row[2] or {},
+            "color": row[2],
+            "translations": row[3] or {},
         }
         for row in result.all()
     ]

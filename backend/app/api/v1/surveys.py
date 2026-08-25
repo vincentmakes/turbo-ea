@@ -213,10 +213,19 @@ async def _resolve_targets(db: AsyncSession, survey: Survey) -> list[dict]:
     sub_result = await db.execute(sub_q)
     subs = sub_result.scalars().all()
 
-    # Group subscribers by card
+    # Group subscribers by card, one entry per user carrying every role they
+    # hold on that card. One entry per user is load-bearing, not cosmetic:
+    # SurveyResponse has no role column and is unique on
+    # (survey_id, card_id, user_id), so a second row for the same person would
+    # violate uq_survey_response the moment the survey is sent.
     card_map = {card.id: card for card in cards}
     targets: dict[uuid.UUID, dict] = {}
+    by_user: dict[tuple[uuid.UUID, str], dict] = {}
     for sub in subs:
+        # Skip before creating the card's entry, or a card whose only
+        # stakeholder row has no user would surface with an empty user list.
+        if not sub.user:
+            continue
         if sub.card_id not in targets:
             card = card_map[sub.card_id]
             targets[sub.card_id] = {
@@ -225,17 +234,24 @@ async def _resolve_targets(db: AsyncSession, survey: Survey) -> list[dict]:
                 "card_type": card.type,
                 "users": [],
             }
-        # Avoid duplicate users
-        user_ids = {u["user_id"] for u in targets[sub.card_id]["users"]}
-        if str(sub.user_id) not in user_ids and sub.user:
-            targets[sub.card_id]["users"].append(
-                {
-                    "user_id": str(sub.user_id),
-                    "display_name": sub.user.display_name,
-                    "email": sub.user.email,
-                    "role": sub.role,
-                }
-            )
+        entry = by_user.get((sub.card_id, str(sub.user_id)))
+        if entry is None:
+            entry = {
+                "user_id": str(sub.user_id),
+                "display_name": sub.user.display_name,
+                "email": sub.user.email,
+                "roles": [],
+            }
+            by_user[(sub.card_id, str(sub.user_id))] = entry
+            targets[sub.card_id]["users"].append(entry)
+        if sub.role not in entry["roles"]:
+            entry["roles"].append(sub.role)
+
+    # The subscriber query has no ORDER BY, so sort rather than let the
+    # database decide which of a user's roles the preview shows first.
+    for target in targets.values():
+        for entry in target["users"]:
+            entry["roles"].sort()
 
     return list(targets.values())
 
@@ -628,11 +644,15 @@ async def preview_survey(
         raise HTTPException(404, "Survey not found")
 
     targets = await _resolve_targets(db, survey)
-    total_cards = len(targets)
-    total_users = sum(len(t["users"]) for t in targets)
     return {
-        "total_cards": total_cards,
-        "total_users": total_users,
+        "total_cards": len(targets),
+        # Distinct people. Summing the per-card lists counts one person once per
+        # card they hold a role on, which is a request count, not a headcount —
+        # and the tile above it reads "Users to Notify".
+        "total_users": len({u["user_id"] for t in targets for u in t["users"]}),
+        # What `send` will actually create: one SurveyResponse and one
+        # notification per (card, user). Equals `targets_created` by construction.
+        "total_requests": sum(len(t["users"]) for t in targets),
         "targets": targets,
     }
 

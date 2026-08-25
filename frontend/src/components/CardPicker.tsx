@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import Autocomplete, { type AutocompleteProps } from "@mui/material/Autocomplete";
+import Autocomplete, { type AutocompleteRenderInputParams } from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import type { SxProps, Theme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useCardSearch, useFillVisible } from "@/hooks/useCardSearch";
@@ -35,12 +37,9 @@ function filterAndRank(options: CardOption[], query: string): CardOption[] {
   return options.filter((o) => searchRank(o.name, q) >= 0).sort(compareByRank(q));
 }
 
-interface CardPickerProps {
+interface CardPickerBaseProps {
   /** Card type key(s) to browse/search. Empty array (or omitted) = all types. */
   types?: string | string[];
-  /** Currently selected card, or null. */
-  value: CardOption | null;
-  onChange: (value: CardOption | null) => void;
   /** Ids to hide from the list (self, ancestors, descendants, already-linked, …). */
   excludeIds?: Iterable<string>;
   /** When false, the picker clears and skips fetching. Defaults to true. */
@@ -66,19 +65,40 @@ interface CardPickerProps {
   noOptionsText?: string;
   /** Opens the dropdown on focus so the list browses without typing. Defaults to true. */
   openOnFocus?: boolean;
-  sx?: AutocompleteProps<CardOption, false, false, false>["sx"];
+  sx?: SxProps<Theme>;
 }
 
 /**
- * Shared single-select card picker. Browses on open (shows cards alphabetically
- * with an empty input), filters as you type, and pages in more cards as the
- * dropdown scrolls — all on top of the app-wide `useCardSearch` hook so the
- * inventory grid and every dropdown share one engine (Discussion #702).
+ * Single- and multi-select are one component on purpose: everything that makes
+ * this picker worth reusing — browse-on-open, rank-as-you-type, paging past the
+ * first page — is identical either way, and a second component would drift.
+ * The union keeps `value`/`onChange` honest per mode, so existing single-select
+ * call sites type-check unchanged.
  */
-export default function CardPicker({
+type CardPickerProps =
+  | (CardPickerBaseProps & {
+      multiple?: false;
+      /** Currently selected card, or null. */
+      value: CardOption | null;
+      onChange: (value: CardOption | null) => void;
+    })
+  | (CardPickerBaseProps & {
+      multiple: true;
+      /** Currently selected cards. */
+      value: CardOption[];
+      onChange: (value: CardOption[]) => void;
+    });
+
+/**
+ * Shared card picker, single- or multi-select (`multiple`). Browses on open
+ * (shows cards alphabetically with an empty input), filters as you type, and
+ * pages in more cards as the dropdown scrolls — all on top of the app-wide
+ * `useCardSearch` hook so the inventory grid and every dropdown share one
+ * engine (Discussion #702).
+ */
+export default function CardPicker(props: CardPickerProps) {
+  const {
   types,
-  value,
-  onChange,
   excludeIds,
   enabled = true,
   onInputChange,
@@ -95,7 +115,19 @@ export default function CardPicker({
   noOptionsText,
   openOnFocus = true,
   sx,
-}: CardPickerProps) {
+  } = props;
+  // Read off `props` rather than destructuring, so TypeScript keeps the
+  // discriminant and the value/onChange pair narrowed together.
+  const multiple = props.multiple === true;
+  const singleValue = multiple ? null : props.value;
+  const multiValue = multiple ? props.value : null;
+  // Memoised: the single-select branch mints a fresh array each render, which
+  // would re-run the options memo below on every render.
+  const selected: CardOption[] = useMemo(
+    () => (multiValue ? multiValue : singleValue ? [singleValue] : []),
+    [multiValue, singleValue],
+  );
+
   const { t } = useTranslation("common");
   const { getType } = useMetamodel();
 
@@ -129,11 +161,14 @@ export default function CardPicker({
     // selected value is re-injected below, so that injected row can't mask an
     // otherwise-empty list.
     const offered = mapped.length;
-    // Keep the selected value resolvable so MUI doesn't warn / blank it out
-    // when it isn't on the current page of results.
-    if (value && !mapped.some((o) => o.id === value.id)) mapped.unshift(value);
+    // Keep every selected card resolvable so MUI doesn't warn / blank a chip
+    // out when that card isn't on the current page of results.
+    const present = new Set(mapped.map((o) => o.id));
+    for (const sel of selected) {
+      if (!present.has(sel.id)) mapped.unshift(sel);
+    }
     return { options: mapped, offered };
-  }, [items, excludeIds, value]);
+  }, [items, excludeIds, selected]);
 
   // `excludeIds` is applied above, *after* paging, so hidden cards consume page
   // slots — keep fetching until the list is usable (#918). Inert when nothing
@@ -148,84 +183,126 @@ export default function CardPicker({
     resetKey: debouncedInput,
   });
 
+  // Everything that doesn't depend on multiplicity. Spread into whichever
+  // Autocomplete generic the mode calls for, so the two modes cannot drift.
+  const shared = {
+    options,
+    onBlur,
+    getOptionLabel: (o: CardOption) => o.name,
+    isOptionEqualToValue: (a: CardOption, b: CardOption) => a.id === b.id,
+    onInputChange: (_: unknown, val: string, reason: string) => {
+      if (reason === "input") {
+        setInput(val);
+        onInputChange?.(val);
+      } else if (reason === "clear") {
+        setInput("");
+        onInputChange?.("");
+      } else if (reason === "reset" && multiple) {
+        // Multi-select clears the box after each pick. Single-select instead
+        // *fills* it with the chosen card's name, which must not re-query —
+        // hence the mode check rather than clearing on every reset.
+        setInput("");
+        onInputChange?.("");
+      }
+    },
+    // Filter + rank the loaded options by name so typing narrows the list
+    // instantly (the server query refines/extends it on a debounce).
+    filterOptions: (opts: CardOption[], state: { inputValue: string }) =>
+      filterAndRank(opts, state.inputValue),
+    loading,
+    disabled,
+    openOnFocus,
+    fullWidth,
+    size,
+    sx,
+    noOptionsText:
+      loading || autoPaging ? t("labels.loading") : (noOptionsText ?? t("labels.noResults")),
+    slotProps: {
+      listbox: {
+        onScroll: (event: React.UIEvent<HTMLUListElement>) => {
+          const el = event.currentTarget;
+          if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
+            if (hasMore && !loading) loadMore();
+          }
+        },
+      },
+    },
+    renderOption: (liProps: React.HTMLAttributes<HTMLLIElement> & { key?: string }, opt: CardOption) => {
+      const tConf = getType(opt.type);
+      return (
+        <li {...liProps} key={opt.id}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            {tConf && (
+              <Box
+                sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: tConf.color, flexShrink: 0 }}
+              />
+            )}
+            <Typography variant="body2">{opt.name}</Typography>
+          </Box>
+        </li>
+      );
+    },
+    renderInput: (params: AutocompleteRenderInputParams) => (
+      <TextField
+        {...params}
+        size={size}
+        label={label}
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        error={error}
+        helperText={helperText}
+        slotProps={{
+          input: {
+            ...params.InputProps,
+            endAdornment: (
+              <>
+                {loading ? <CircularProgress color="inherit" size={16} /> : null}
+                {params.InputProps.endAdornment}
+              </>
+            ),
+          },
+        }}
+      />
+    ),
+  };
+
+  if (props.multiple) {
+    const onChangeMulti = props.onChange;
+    return (
+      <Autocomplete<CardOption, true, false, false>
+        {...shared}
+        multiple
+        disableCloseOnSelect
+        filterSelectedOptions
+        value={props.value}
+        onChange={(_, val) => onChangeMulti(val)}
+        renderTags={(vals, getTagProps) =>
+          vals.map((v, i) => {
+            const { key, ...chipProps } = getTagProps({ index: i });
+            const tConf = getType(v.type);
+            return (
+              <Chip
+                {...chipProps}
+                key={key}
+                label={v.name}
+                size="small"
+                // Tinted rather than filled: a card chip is identified by its
+                // type, but a row of saturated chips would out-shout the field.
+                sx={tConf ? { bgcolor: `${tConf.color}22` } : undefined}
+              />
+            );
+          })
+        }
+      />
+    );
+  }
+
+  const onChangeSingle = props.onChange;
   return (
     <Autocomplete<CardOption, false, false, false>
-      options={options}
-      value={value}
-      onChange={(_, val) => onChange(val)}
-      onBlur={onBlur}
-      getOptionLabel={(o) => o.name}
-      isOptionEqualToValue={(a, b) => a.id === b.id}
-      onInputChange={(_, val, reason) => {
-        if (reason === "input") {
-          setInput(val);
-          onInputChange?.(val);
-        } else if (reason === "clear") {
-          setInput("");
-          onInputChange?.("");
-        }
-      }}
-      // Filter + rank the loaded options by name so typing narrows the list
-      // instantly (the server query refines/extends it on a debounce).
-      filterOptions={(opts, state) => filterAndRank(opts, state.inputValue)}
-      loading={loading}
-      disabled={disabled}
-      openOnFocus={openOnFocus}
-      fullWidth={fullWidth}
-      size={size}
-      sx={sx}
-      noOptionsText={
-        loading || autoPaging
-          ? t("labels.loading")
-          : (noOptionsText ?? t("labels.noResults"))
-      }
-      slotProps={{
-        listbox: {
-          onScroll: (event) => {
-            const el = event.currentTarget;
-            if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
-              if (hasMore && !loading) loadMore();
-            }
-          },
-        },
-      }}
-      renderOption={(props, opt) => {
-        const tConf = getType(opt.type);
-        return (
-          <li {...props} key={opt.id}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              {tConf && (
-                <Box
-                  sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: tConf.color, flexShrink: 0 }}
-                />
-              )}
-              <Typography variant="body2">{opt.name}</Typography>
-            </Box>
-          </li>
-        );
-      }}
-      renderInput={(params) => (
-        <TextField
-          {...params}
-          size={size}
-          label={label}
-          placeholder={placeholder}
-          autoFocus={autoFocus}
-          error={error}
-          helperText={helperText}
-          slotProps={{
-            input: {
-              ...params.InputProps,
-              endAdornment: (
-                <>
-                  {loading ? <CircularProgress color="inherit" size={16} /> : null}
-                  {params.InputProps.endAdornment}
-                </>
-              ),
-            },
-          }}
-        />
-      )}
+      {...shared}
+      value={props.value}
+      onChange={(_, val) => onChangeSingle(val)}
     />
   );
 }

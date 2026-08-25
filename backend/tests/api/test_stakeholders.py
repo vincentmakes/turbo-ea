@@ -104,6 +104,26 @@ class TestListStakeholderRoles:
         assert "observer" in keys
         assert "itOwner" not in keys
 
+    async def test_list_roles_expose_colour(self, client, db, stakeholders_env):
+        """Both branches carry `color` so pickers can render the role's dot."""
+        for params in ({}, {"type_key": "Application"}):
+            resp = await client.get("/api/v1/stakeholder-roles", params=params)
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data, params
+            for role in data:
+                assert "color" in role, params
+            assert any(r["color"] for r in data), params
+
+    async def test_default_roles_have_no_colour_but_still_carry_the_key(self, client, db):
+        """The hardcoded fallback roles have no colour — the field must still be
+        present (as null) so the frontend can skip the dot rather than crash."""
+        await create_card_type(db, key="Application", label="Application")
+        resp = await client.get("/api/v1/stakeholder-roles", params={"type_key": "Application"})
+        assert resp.status_code == 200
+        for role in resp.json():
+            assert role["color"] is None
+
     async def test_list_roles_filtered_by_type_key_with_no_defs(self, client, db):
         """Falls back to defaults when no definitions exist for a type."""
         await create_card_type(db, key="Application", label="Application")
