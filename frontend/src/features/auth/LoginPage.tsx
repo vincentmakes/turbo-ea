@@ -12,7 +12,7 @@ import Alert from "@mui/material/Alert";
 import Divider from "@mui/material/Divider";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
-import { PROXY_SIGNOUT_KEY } from "@/hooks/useAuth";
+import { PROXY_SIGNOUT_KEY, SSO_CACHE_KEY } from "@/hooks/useAuth";
 import { auth } from "@/api/client";
 import { useAppTitle } from "@/hooks/useAppTitle";
 import { useLoginBranding, normalizeContactLink } from "@/hooks/useLoginBranding";
@@ -30,7 +30,7 @@ interface Props {
 // while the request is in flight, and no repeat round-trip (the config
 // fetch can take a couple seconds when the backend must reach an OIDC
 // provider's discovery document).
-const SSO_CACHE_KEY = "turboea_sso_config";
+
 
 function readCachedSsoConfig(): SsoConfig | null {
   try {
@@ -102,7 +102,14 @@ export default function LoginPage({ onLogin, onRegister, onProxySession }: Props
     let cancelled = false;
     setProxyPending(true);
     onProxySession()
-      .catch(() => {})
+      .catch((err) => {
+        // Show why: the backend's refusals name the remedy (no account exists
+        // — ask an administrator to invite you; a missing env var; …). A bare
+        // sign-in button with no explanation is a dead end.
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : t("common:errors.occurred"));
+        }
+      })
       .finally(() => {
         if (!cancelled) setProxyPending(false);
       });
@@ -221,6 +228,12 @@ export default function LoginPage({ onLogin, onRegister, onProxySession }: Props
           </Box>
         ) : (
           <>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+
         {/* Trusted reverse-proxy sign-in (#1006). The automatic attempt runs in
             an effect; this block covers the cases where it cannot: right after
             an explicit logout, or when it failed. */}
@@ -353,12 +366,6 @@ export default function LoginPage({ onLogin, onRegister, onProxySession }: Props
 
         {showLocalLogin && (
           <>
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
-              </Alert>
-            )}
-
             <form onSubmit={handleSubmit}>
               <TextField
                 fullWidth

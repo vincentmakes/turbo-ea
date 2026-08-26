@@ -52,3 +52,67 @@ SSO позволяет пользователям входить в систем
 - **Секрет клиента** хранится в зашифрованном виде в базе данных и никогда не показывается в ответах API
 - Когда SSO включён, локальный вход по паролю остаётся доступным как резервный вариант
 - Вы можете настроить URI перенаправления в вашем провайдере идентификации как: `https://your-turbo-ea-domain/auth/callback`
+
+#### Аутентификация через обратный прокси
+
+Если Turbo EA работает за прокси, который уже выполняет вход ваших пользователей — встроенная аутентификация Azure App Service («EasyAuth»), oauth2-proxy, Authelia, Cloudflare Access — платформа может принимать эту идентичность напрямую, вместо того чтобы запускать поверх неё собственный SSO. Не нужен ни OIDC-клиент, ни регистрация приложения, ни секрет клиента. Пользователи попадают в Turbo EA уже вошедшими в систему.
+
+Эта функция настраивается исключительно через переменные окружения и **по умолчанию выключена**.
+
+**Прежде всего задайте bootstrap-администратора.** Пока включена аутентификация через прокси, самостоятельная регистрация закрыта, поэтому именно так первый администратор получает доступ — этому адресу электронной почты при первом входе присваивается роль администратора:
+
+```
+TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL=you@yourcompany.com
+```
+
+**Azure App Service (EasyAuth) — рекомендуемая настройка.** Turbo EA проверяет подписанный токен идентификации, который Azure пересылает с каждым запросом (для этого требуется хранилище токенов App Service, включённое по умолчанию). `AUDIENCE` — это идентификатор клиента вашей регистрации приложения EasyAuth; замените `TENANT` на идентификатор вашего каталога (арендатора):
+
+```
+TURBO_EA_PROXY_AUTH_ENABLED=true
+TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=true
+TURBO_EA_PROXY_AUTH_ISSUER=https://login.microsoftonline.com/TENANT/v2.0
+TURBO_EA_PROXY_AUTH_AUDIENCE=your-easyauth-app-client-id
+TURBO_EA_PROXY_AUTH_JWKS_URI=https://login.microsoftonline.com/TENANT/discovery/v2.0/keys
+TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS=yourcompany.com
+TURBO_EA_PROXY_AUTH_LOGOUT_URL=/.auth/logout
+```
+
+Если ваше хранилище токенов отключено, вместо этого задайте `TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=false` и `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS=true`. Это явным образом полагается на то, что Azure удаляет входящие заголовки идентификации до того, как они достигнут вашего приложения, а без проверенного токена **новые учётные записи не создаются автоматически** — сначала пригласите пользователей или используйте адрес bootstrap-администратора.
+
+**Универсальный прокси (oauth2-proxy, Authelia, Traefik forwardAuth, …).** Настройте прокси так, чтобы он добавлял заголовок с общим секретом к каждому запросу — тогда запрос, не прошедший через прокси, никогда не будет принят за прошедший. Сгенерируйте значение командой `openssl rand -hex 32`:
+
+```
+TURBO_EA_PROXY_AUTH_ENABLED=true
+TURBO_EA_PROXY_AUTH_MODE=header
+TURBO_EA_PROXY_AUTH_SHARED_SECRET=<сгенерированное значение, также задайте его на прокси>
+TURBO_EA_PROXY_AUTH_EMAIL_HEADER=X-Forwarded-Email
+TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS=yourcompany.com
+TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
+```
+
+**Замечания по безопасности:**
+
+- Именно общий секрет (или, в случае Azure, проверенный токен идентификации) делает идентичность заслуживающей доверия — заголовок сам по себе может записать кто угодно. Список разрешённых доменов обязателен; задавайте `TURBO_EA_PROXY_AUTH_ALLOW_ANY_DOMAIN=true` только если вы действительно готовы принимать любой домен электронной почты.
+- Идентичность, не прошедшая криптографическую проверку, может выполнять вход существующих пользователей, но никогда не создаёт новую учётную запись, а ожидающие приглашения на этом пути не передают назначенную им роль.
+- `TURBO_EA_PROXY_AUTH_LOGOUT_URL` — это адрес, куда Turbo EA отправляет браузер после нажатия **Выйти**, чтобы сессия прокси тоже завершилась. Без него прокси по-прежнему считает пользователя вошедшим — тот возвращается на страницу входа и может снова войти одним кликом.
+
+**Все переменные:**
+
+| Переменная | По умолчанию | Назначение |
+|----------|---------|---------|
+| `TURBO_EA_PROXY_AUTH_ENABLED` | `false` | Главный переключатель |
+| `TURBO_EA_PROXY_AUTH_MODE` | `azure_easyauth` | `azure_easyauth` или `header` |
+| `TURBO_EA_PROXY_AUTH_SHARED_SECRET` | — | Обязательна в режиме `header`; заголовок добавляет прокси |
+| `TURBO_EA_PROXY_AUTH_SECRET_HEADER` | `X-Turbo-EA-Proxy-Secret` | Заголовок, несущий общий секрет |
+| `TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN` | `false` | Проверять пересылаемый токен идентификации (режим Azure) |
+| `TURBO_EA_PROXY_AUTH_ISSUER` / `_AUDIENCE` / `_JWKS_URI` | — | Параметры проверки токена |
+| `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS` | `false` | Только для Azure: полагаться на очистку заголовков платформой вместо секрета |
+| `TURBO_EA_PROXY_AUTH_EMAIL_HEADER` | `X-Forwarded-Email` | Режим `header`: заголовок с адресом электронной почты |
+| `TURBO_EA_PROXY_AUTH_NAME_HEADER` | `X-Forwarded-User` | Режим `header`: заголовок с отображаемым именем |
+| `TURBO_EA_PROXY_AUTH_SUBJECT_HEADER` | `X-Forwarded-Subject` | Режим `header`: заголовок со стабильным идентификатором субъекта |
+| `TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS` | — | Разрешённые домены электронной почты через запятую (обязательно) |
+| `TURBO_EA_PROXY_AUTH_ALLOW_ANY_DOMAIN` | `false` | Явно принимать любой домен электронной почты |
+| `TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` | — | Получает роль администратора при первом входе |
+| `TURBO_EA_PROXY_AUTH_LOGOUT_URL` | — | Куда «Выйти» отправляет браузер |
+
+**Ограничения:** OAuth-поток сервера MCP требует настроенного обычного SSO; одной лишь аутентификации через прокси для него недостаточно.

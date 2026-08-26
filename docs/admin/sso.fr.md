@@ -52,3 +52,67 @@ Après avoir sauvegardé, ouvrez un nouvel onglet de navigateur (ou une fenêtre
 - Le **Client Secret** est stocké chiffré dans la base de données et n'est jamais exposé dans les réponses API
 - Lorsque le SSO est activé, la connexion par mot de passe local reste disponible comme solution de secours
 - Vous pouvez configurer l'URI de redirection dans votre fournisseur d'identité comme suit : `https://votre-domaine-turbo-ea/auth/callback`
+
+#### Authentification par proxy inverse
+
+Si Turbo EA fonctionne derrière un proxy qui connecte déjà vos utilisateurs — l'authentification intégrée d'Azure App Service (« EasyAuth »), oauth2-proxy, Authelia, Cloudflare Access — il peut accepter cette identité directement au lieu d'exécuter son propre SSO par-dessus. Pas de client OIDC, pas d'enregistrement d'application, pas de Client Secret. Les utilisateurs arrivent dans Turbo EA déjà connectés.
+
+Cette fonctionnalité se configure entièrement via des variables d'environnement et est **désactivée par défaut**.
+
+**Avant toute chose, définissez l'administrateur d'amorçage.** L'auto-inscription est fermée lorsque l'authentification par proxy est activée ; c'est donc ainsi que le premier administrateur accède à la plateforme — cette adresse e-mail reçoit le rôle admin lors de la première connexion :
+
+```
+TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL=vous@votreentreprise.com
+```
+
+**Azure App Service (EasyAuth) — configuration recommandée.** Turbo EA vérifie le jeton d'identité signé qu'Azure transmet avec chaque requête (cela nécessite le magasin de jetons App Service, activé par défaut). `AUDIENCE` est le Client ID de votre enregistrement d'application EasyAuth ; remplacez `TENANT` par l'identifiant de votre annuaire (Tenant ID) :
+
+```
+TURBO_EA_PROXY_AUTH_ENABLED=true
+TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=true
+TURBO_EA_PROXY_AUTH_ISSUER=https://login.microsoftonline.com/TENANT/v2.0
+TURBO_EA_PROXY_AUTH_AUDIENCE=your-easyauth-app-client-id
+TURBO_EA_PROXY_AUTH_JWKS_URI=https://login.microsoftonline.com/TENANT/discovery/v2.0/keys
+TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS=votreentreprise.com
+TURBO_EA_PROXY_AUTH_LOGOUT_URL=/.auth/logout
+```
+
+Si votre magasin de jetons est désactivé, définissez plutôt `TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=false` et `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS=true`. Cela repose explicitement sur le fait qu'Azure supprime les en-têtes d'identité entrants avant qu'ils n'atteignent votre application, et sans jeton vérifié, **les nouveaux comptes ne sont pas créés automatiquement** — invitez d'abord les utilisateurs, ou utilisez l'e-mail de l'administrateur d'amorçage.
+
+**Proxy générique (oauth2-proxy, Authelia, Traefik forwardAuth, …).** Configurez le proxy pour qu'il injecte un en-tête contenant un secret partagé sur chaque requête, afin qu'une requête qui n'est pas passée par le proxy ne puisse jamais être confondue avec une requête qui l'a fait. Générez la valeur avec `openssl rand -hex 32` :
+
+```
+TURBO_EA_PROXY_AUTH_ENABLED=true
+TURBO_EA_PROXY_AUTH_MODE=header
+TURBO_EA_PROXY_AUTH_SHARED_SECRET=<valeur générée, également définie sur le proxy>
+TURBO_EA_PROXY_AUTH_EMAIL_HEADER=X-Forwarded-Email
+TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS=votreentreprise.com
+TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
+```
+
+**Notes de sécurité :**
+
+- Le secret partagé (ou, sur Azure, le jeton d'identité vérifié) est ce qui rend l'identité digne de confiance — un en-tête seul peut être écrit par n'importe qui. La liste d'autorisation de domaines est obligatoire ; ne définissez `TURBO_EA_PROXY_AUTH_ALLOW_ANY_DOMAIN=true` que si vous acceptez réellement n'importe quel domaine d'e-mail.
+- Une identité qui n'a pas été vérifiée cryptographiquement peut connecter des utilisateurs existants mais ne crée jamais de nouveau compte, et les invitations en attente ne confèrent pas leur rôle par ce chemin.
+- `TURBO_EA_PROXY_AUTH_LOGOUT_URL` est l'adresse vers laquelle Turbo EA envoie le navigateur après **Se déconnecter**, afin que la session du proxy se termine aussi. Sans elle, le proxy considère toujours l'utilisateur comme connecté — il retombe sur la page de connexion et peut se reconnecter en un clic.
+
+**Toutes les variables :**
+
+| Variable | Défaut | Rôle |
+|----------|---------|---------|
+| `TURBO_EA_PROXY_AUTH_ENABLED` | `false` | Interrupteur principal |
+| `TURBO_EA_PROXY_AUTH_MODE` | `azure_easyauth` | `azure_easyauth` ou `header` |
+| `TURBO_EA_PROXY_AUTH_SHARED_SECRET` | — | Obligatoire en mode `header` ; le proxy l'injecte |
+| `TURBO_EA_PROXY_AUTH_SECRET_HEADER` | `X-Turbo-EA-Proxy-Secret` | En-tête transportant le secret partagé |
+| `TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN` | `false` | Vérifier le jeton d'identité transmis (mode Azure) |
+| `TURBO_EA_PROXY_AUTH_ISSUER` / `_AUDIENCE` / `_JWKS_URI` | — | Paramètres de vérification du jeton |
+| `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS` | `false` | Azure uniquement : accepter l'assainissement des en-têtes par la plateforme au lieu d'un secret |
+| `TURBO_EA_PROXY_AUTH_EMAIL_HEADER` | `X-Forwarded-Email` | Mode `header` : en-tête de l'e-mail |
+| `TURBO_EA_PROXY_AUTH_NAME_HEADER` | `X-Forwarded-User` | Mode `header` : en-tête du nom d'affichage |
+| `TURBO_EA_PROXY_AUTH_SUBJECT_HEADER` | `X-Forwarded-Subject` | Mode `header` : en-tête de l'identifiant de sujet stable |
+| `TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS` | — | Domaines d'e-mail autorisés, séparés par des virgules (obligatoire) |
+| `TURBO_EA_PROXY_AUTH_ALLOW_ANY_DOMAIN` | `false` | Accepter explicitement n'importe quel domaine d'e-mail |
+| `TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` | — | Reçoit le rôle admin lors de la première connexion |
+| `TURBO_EA_PROXY_AUTH_LOGOUT_URL` | — | Où Se déconnecter envoie le navigateur |
+
+**Limitations :** le flux OAuth du serveur MCP nécessite qu'un SSO classique soit configuré ; l'authentification par proxy seule ne le couvre pas.

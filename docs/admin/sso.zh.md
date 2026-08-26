@@ -52,3 +52,67 @@ SSO 允许用户使用企业身份提供商登录，而不是本地密码。Turb
 - **客户端密钥**在数据库中加密存储，永远不会在 API 响应中暴露
 - 启用 SSO 后，本地密码登录仍然可用作备用方案
 - 您可以在身份提供商中将重定向 URI 配置为：`https://your-turbo-ea-domain/auth/callback`
+
+#### 反向代理身份验证
+
+如果 Turbo EA 运行在一个已经为用户完成登录的代理之后——Azure App Service 的内置身份验证（「EasyAuth」）、oauth2-proxy、Authelia、Cloudflare Access——它可以直接接受该身份，而无需在其之上再运行自己的 SSO。无需 OIDC 客户端、无需应用注册、无需客户端密钥。用户进入 Turbo EA 时即已处于登录状态。
+
+此功能完全通过环境变量配置，且**默认关闭**。
+
+**首先，请设置引导管理员。** 启用代理身份验证后自助注册将被关闭，因此这是第一位管理员进入系统的方式——该邮箱在首次登录时会被授予管理员角色：
+
+```
+TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL=you@yourcompany.com
+```
+
+**Azure App Service（EasyAuth）——推荐配置。** Turbo EA 会验证 Azure 随每个请求转发的已签名身份令牌（这需要 App Service 令牌存储，默认开启）。`AUDIENCE` 是您的 EasyAuth 应用注册的客户端 ID；请将 `TENANT` 替换为您的目录（租户）ID：
+
+```
+TURBO_EA_PROXY_AUTH_ENABLED=true
+TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=true
+TURBO_EA_PROXY_AUTH_ISSUER=https://login.microsoftonline.com/TENANT/v2.0
+TURBO_EA_PROXY_AUTH_AUDIENCE=your-easyauth-app-client-id
+TURBO_EA_PROXY_AUTH_JWKS_URI=https://login.microsoftonline.com/TENANT/discovery/v2.0/keys
+TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS=yourcompany.com
+TURBO_EA_PROXY_AUTH_LOGOUT_URL=/.auth/logout
+```
+
+如果您的令牌存储已禁用，请改为设置 `TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN=false` 和 `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS=true`。这明确依赖 Azure 在入站请求到达您的应用之前剥离身份标头，并且在没有已验证令牌的情况下**不会自动创建新账户**——请先邀请用户，或使用引导管理员邮箱。
+
+**通用代理（oauth2-proxy、Authelia、Traefik forwardAuth 等）。** 请将代理配置为在每个请求上注入一个共享密钥标头，这样未经过代理的请求就永远不会被误认为是经过代理的请求。使用 `openssl rand -hex 32` 生成该值：
+
+```
+TURBO_EA_PROXY_AUTH_ENABLED=true
+TURBO_EA_PROXY_AUTH_MODE=header
+TURBO_EA_PROXY_AUTH_SHARED_SECRET=<生成的值，同时也要在代理上设置>
+TURBO_EA_PROXY_AUTH_EMAIL_HEADER=X-Forwarded-Email
+TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS=yourcompany.com
+TURBO_EA_PROXY_AUTH_LOGOUT_URL=/oauth2/sign_out
+```
+
+**安全注意事项：**
+
+- 共享密钥（在 Azure 上则是已验证的身份令牌）是身份可信的根本——单独的标头任何人都可以写入。域名允许列表是必需的；只有当您确实接受任何邮箱域名时，才设置 `TURBO_EA_PROXY_AUTH_ALLOW_ANY_DOMAIN=true`。
+- 未经加密学验证的身份可以让现有用户登录，但永远不会创建新账户，且待处理的邀请在此路径上不会授予其预设角色。
+- `TURBO_EA_PROXY_AUTH_LOGOUT_URL` 是用户点击**退出登录**后 Turbo EA 将浏览器重定向到的地址，以便同时结束代理会话。如果不设置，代理仍会认为用户处于登录状态——用户会回到登录页面，并且只需一次点击即可重新进入。
+
+**全部变量：**
+
+| 变量 | 默认值 | 用途 |
+|----------|---------|---------|
+| `TURBO_EA_PROXY_AUTH_ENABLED` | `false` | 总开关 |
+| `TURBO_EA_PROXY_AUTH_MODE` | `azure_easyauth` | `azure_easyauth` 或 `header` |
+| `TURBO_EA_PROXY_AUTH_SHARED_SECRET` | — | `header` 模式下必需；由代理注入 |
+| `TURBO_EA_PROXY_AUTH_SECRET_HEADER` | `X-Turbo-EA-Proxy-Secret` | 携带共享密钥的标头 |
+| `TURBO_EA_PROXY_AUTH_VERIFY_ID_TOKEN` | `false` | 验证转发的身份令牌（Azure 模式） |
+| `TURBO_EA_PROXY_AUTH_ISSUER` / `_AUDIENCE` / `_JWKS_URI` | — | 令牌验证设置 |
+| `TURBO_EA_PROXY_AUTH_TRUST_PLATFORM_HEADERS` | `false` | 仅限 Azure：信任平台对标头的清理机制，而非共享密钥 |
+| `TURBO_EA_PROXY_AUTH_EMAIL_HEADER` | `X-Forwarded-Email` | `header` 模式：邮箱标头 |
+| `TURBO_EA_PROXY_AUTH_NAME_HEADER` | `X-Forwarded-User` | `header` 模式：显示名称标头 |
+| `TURBO_EA_PROXY_AUTH_SUBJECT_HEADER` | `X-Forwarded-Subject` | `header` 模式：稳定主体 ID 标头 |
+| `TURBO_EA_PROXY_AUTH_ALLOWED_DOMAINS` | — | 逗号分隔的允许邮箱域名列表（必需） |
+| `TURBO_EA_PROXY_AUTH_ALLOW_ANY_DOMAIN` | `false` | 明确接受任何邮箱域名 |
+| `TURBO_EA_PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL` | — | 首次登录时被授予管理员角色 |
+| `TURBO_EA_PROXY_AUTH_LOGOUT_URL` | — | 退出登录后浏览器跳转的地址 |
+
+**限制：** MCP 服务器的 OAuth 流程需要配置常规 SSO；仅有代理身份验证无法覆盖该场景。

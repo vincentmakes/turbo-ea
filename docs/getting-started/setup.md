@@ -171,7 +171,7 @@ TLS_HOST_PORT=443
 
 Place `cert.pem` and `key.pem` in `./certs/` (the directory is mounted read-only into the nginx container). The image derives `server_name` and the forwarded scheme from `TURBO_EA_PUBLIC_URL`, serves both HTTP and HTTPS, and redirects HTTP to HTTPS automatically.
 
-For setups behind an existing reverse proxy (Caddy, Traefik, Cloudflare Tunnel), leave `TURBO_EA_TLS_ENABLED=false` and let the proxy handle TLS.
+For setups behind an existing reverse proxy (Caddy, Traefik, Cloudflare Tunnel), leave `TURBO_EA_TLS_ENABLED=false` and let the proxy handle TLS. If that proxy also authenticates your users (Azure App Service EasyAuth, oauth2-proxy, Authelia), Turbo EA can accept that identity directly with no OIDC client at all — see [Reverse proxy authentication](../admin/sso.md#reverse-proxy-authentication).
 
 ## Allowing diagram embedding (optional)
 

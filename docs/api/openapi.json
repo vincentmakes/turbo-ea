@@ -17534,6 +17534,28 @@
         ]
       }
     },
+    "/api/v1/auth/proxy/session": {
+      "post": {
+        "description": "Exchange a proxy-asserted identity for a Turbo EA session.\n\nFor instances behind a proxy that has already authenticated the user (Azure\nApp Service EasyAuth, oauth2-proxy, Authelia, Cloudflare Access). No OIDC\nclient and no app registration are needed. See\n``app/services/proxy_auth_service.py`` for the trust model.\n\n**404 when the feature is off**, mirroring the ops API with ``OPS_PUBLIC_KEY``\nunset: an instance that has not opted in should look like one where this\nroute does not exist.\n\nDeliberately an endpoint rather than a branch inside ``get_current_user``.\nThe ``samesite=lax`` cookie is currently the app's CSRF control; making\nauthentication ambient proxy headers would hand that control to the proxy's\nown cookie policy, and oauth2-proxy and Cloudflare Access can both be\nconfigured ``SameSite=None``. Minting a lax cookie at one POST-only route\nkeeps the existing posture, and leaves ``get_optional_user`` alone so\nanonymous portal and embedded-diagram visitors stay anonymous.\n\nDeliberately *not* rate limited: ``get_remote_address`` always resolves to the\nnginx container (uvicorn runs without ``--proxy-headers``), so a limit here\nwould be one shared bucket. It would not slow an attacker, who needs a single\nrequest, and would lock out a whole office once the SPA calls this on load.",
+        "operationId": "proxy_session_api_v1_auth_proxy_session_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Proxy Session",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/auth/refresh": {
       "post": {
         "description": "Issue a new short-lived access token. Re-reads role and active status from DB.",

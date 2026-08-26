@@ -374,4 +374,19 @@ async def test_sso_config_advertises_proxy_auth_when_sso_is_off(client, proxy_en
 async def test_sso_config_reports_proxy_auth_off_by_default(client, monkeypatch):
     monkeypatch.setattr(settings, "PROXY_AUTH_ENABLED", False)
     response = await client.get("/api/v1/auth/sso/config")
-    assert response.json()["proxy_auth"] is False
+    body = response.json()
+    assert body["proxy_auth"] is False
+    assert "proxy_logout_url" not in body
+
+
+async def test_sso_config_carries_the_proxy_logout_url(client, monkeypatch, proxy_enabled):
+    """The frontend redirects here after logout so the proxy session ends too."""
+    monkeypatch.setattr(settings, "PROXY_AUTH_LOGOUT_URL", "/.auth/logout")
+    response = await client.get("/api/v1/auth/sso/config")
+    assert response.json()["proxy_logout_url"] == "/.auth/logout"
+
+
+async def test_sso_config_omits_logout_url_when_unset(client, monkeypatch, proxy_enabled):
+    monkeypatch.setattr(settings, "PROXY_AUTH_LOGOUT_URL", "")
+    response = await client.get("/api/v1/auth/sso/config")
+    assert "proxy_logout_url" not in response.json()

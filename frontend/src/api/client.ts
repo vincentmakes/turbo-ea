@@ -195,6 +195,7 @@ export const auth = {
       registration_enabled?: boolean;
       local_login_available?: boolean;
       proxy_auth?: boolean;
+      proxy_logout_url?: string;
     }>("/auth/sso/config"),
   ssoCallback: (code: string, redirect_uri: string) =>
     api.post<{ access_token: string }>("/auth/sso/callback", { code, redirect_uri }),
