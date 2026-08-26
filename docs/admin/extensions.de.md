@@ -27,7 +27,7 @@ Die ID wandert mit einem Workspace-Transfer mit, sodass ein Umzug auf einen neue
 
 ## Der Store-Tab
 
-Der Tab **Store** funktioniert ohne jede Konfiguration und listet die veröffentlichten Erweiterungen des Anbieters mit Beschreibung und Preis:
+Der Tab **Store** funktioniert ohne jede Konfiguration und listet die veröffentlichten Erweiterungen des Anbieters als Raster kompakter Kacheln auf – Logo, Name, Lizenzstatus und Preis. Ein Klick auf eine Kachel öffnet rechts ein Panel mit der vollständigen Beschreibung, Screenshots, Kategorie-Tags sowie Quellen- und Lizenzangaben. Erweiterungen ohne eigenes Logo erhalten eine generierte Kachel mit ihren Initialen.
 
 - **Kaufen** öffnet die Zahlungsseite in einem neuen Browser-Tab. Sobald die Zahlung bestätigt ist, wird Ihre Lizenz automatisch angewendet (eine Kopie kommt zusätzlich per E-Mail).
 - **Installieren** (bzw. **Aktualisieren**, wenn eine neuere Version veröffentlicht ist) prüft zuerst Ihre Lizenz — fehlt sie, bietet ein Dialog Kauf oder Einfügen einer Lizenz an und fährt danach automatisch fort — und lädt das Paket durch exakt dieselbe Signaturprüfung und Dry-Run-Vorschau wie ein manueller Upload. Erweiterungen mit Demo zeigen einen **In Aktion ansehen**-Link, und eine veröffentlichte neuere Version macht aus der Schaltfläche **Aktualisieren**.
@@ -37,6 +37,8 @@ Wenn der Katalog Kategorien enthält, zeigt jeder Eintrag kleine Pillen (free od
 Der Store-Tab ist schreibgeschützt und anonym: kein Konto, kein Token, und es werden keinerlei Informationen über Ihre Instanz übertragen — es wird nur der öffentliche Katalog des Anbieters gelesen. Abgeschottete Instanzen brauchen keine Konfiguration — der Tab zeigt dann einfach einen freundlichen Hinweis — und nutzen den dateibasierten Ablauf unten; die Storefront-Website des Anbieters bietet dieselben Käufe und Downloads von jedem Browser mit Internetzugang. Wenn etwas zwischen Ihrer Instanz und dem Store die Anfrage blockiert — ein Proxy, eine Firewall oder ein Bot-Schutz vor dem Store —, sagt der Tab dies und nennt den zurückgegebenen HTTP-Status, sodass eine blockierte Instanz nie mit einer abgeschotteten verwechselt wird.
 
 Die Instanz **prüft den Katalog außerdem einmal täglich** und meldet Änderungen, damit eine neue Erweiterung — oder ein Sicherheitsfix für eine bereits genutzte — nicht darauf warten muss, dass jemand zufällig diese Seite öffnet. Administratoren (alle, deren Rolle `admin.manage_extensions` gewährt) erhalten eine Benachrichtigung in der Glocke, wenn eine neue Erweiterung im Store veröffentlicht wird, und eine weitere, wenn für eine installierte Erweiterung eine neuere Version vorliegt. Jede Änderung wird einmal angekündigt, und ein ereignisreicher Release-Tag kommt als eine Benachrichtigung pro Art an, nicht als eine pro Erweiterung. Es wird nichts heruntergeladen oder installiert — die Benachrichtigung führt Sie lediglich hierher. Die tägliche Prüfung lässt sich unter [Admin → Einstellungen → Update-Benachrichtigungen](settings.md#update-notifications) vollständig deaktivieren.
+
+Der Tab zeigt außerdem, wann der Store zuletzt gelesen wurde, sowie eine Schaltfläche **Jetzt prüfen**, die die Prüfung sofort ausführt und das Ergebnis meldet – so lässt sich die tägliche Prüfung bestätigen, ohne einen Tag zu warten. Ist eine Prüfung fehlgeschlagen, wird der Grund hier angezeigt statt stillschweigend verworfen.
 
 ## Testphasen
 

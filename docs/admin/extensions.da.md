@@ -27,7 +27,7 @@ ID'et følger med en workspace-overførsel, så flytning til en ny vært holder 
 
 ## Fanen Butik
 
-Fanen **Butik** virker uden nogen konfiguration og viser leverandørens udgivne udvidelser med beskrivelse og pris:
+Fanen **Butik** virker uden nogen konfiguration og viser leverandørens udgivne udvidelser som et gitter af kompakte felter — logo, navn, licensstatus og pris. Klik på et felt for at åbne et panel til højre med den fulde beskrivelse, skærmbilleder, kategorimærkater og kilde- og licensangivelser. Udvidelser uden grafik får et genereret felt med deres initialer.
 
 - **Køb** åbner betalingssiden i en ny browserfane. Så snart betalingen er bekræftet, anvendes din licens automatisk (en kopi ankommer også pr. e-mail).
 - **Installer** (eller **Opdater**, når en nyere version er udgivet) tjekker først din licens — hvis udvidelsen endnu ikke er licenseret, tilbyder en dialog at købe eller indsætte en licens og fortsætter derefter automatisk — og downloader pakken gennem præcis den samme signaturkontrol og prøvekørselsforhåndsvisning som en manuel upload. Udvidelser med demo viser et **Se det i praksis**-link, og en udgivet nyere version gør knappen til **Opdater**.
@@ -37,6 +37,8 @@ Når kataloget indeholder kategorier, viser hvert element små piller (free elle
 Fanen Butik er skrivebeskyttet og anonym: ingen konto, intet token, og intet om din instans sendes nogen steder hen — kun leverandørens offentlige katalog læses. Isolerede instanser behøver ingen konfiguration — fanen viser i stedet blot et venligt hint — og bruger det filbaserede forløb nedenfor; leverandørens butikswebsted tilbyder de samme køb og downloads fra enhver browser med internetadgang. Hvis noget mellem din instans og butikken blokerer anmodningen — en proxy, en firewall eller botbeskyttelse foran butikken — siger fanen det og nævner den HTTP-status, den fik tilbage, så en blokeret instans aldrig forveksles med en isoleret.
 
 Instansen **tjekker desuden kataloget én gang om dagen** og fortæller, hvad der er ændret, så en ny udvidelse — eller en sikkerhedsrettelse til en, du allerede kører — ikke skal vente på, at nogen tilfældigvis åbner denne side. Administratorer (alle, hvis rolle giver `admin.manage_extensions`) får en notifikation i klokken, når en ny udvidelse udgives i butikken, og en anden, når en installeret udvidelse har en nyere version. Hver ændring annonceres én gang, og en travl udgivelsesdag ankommer som én notifikation pr. type frem for én pr. udvidelse. Intet hentes eller installeres — notifikationen bringer dig blot hertil. Det daglige tjek kan slås helt fra under [Admin → Indstillinger → Opdateringsnotifikationer](settings.md#update-notifications).
+
+Fanen viser også, hvornår butikken sidst blev læst, og en **Tjek nu**-knap, der kører tjekket med det samme og rapporterer, hvad det fandt — så du kan bekræfte, at det daglige tjek virker, uden at vente et døgn. Mislykkedes et tjek, vises årsagen her i stedet for at forblive tavs.
 
 ## Prøveperioder
 

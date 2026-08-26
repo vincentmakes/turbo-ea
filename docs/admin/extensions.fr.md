@@ -27,7 +27,7 @@ L'ID voyage avec un transfert d'espace de travail : une migration vers un nouvel
 
 ## L'onglet Boutique
 
-L'onglet **Boutique** fonctionne sans aucune configuration et liste les extensions publiées par le fournisseur avec description et prix :
+L'onglet **Boutique** fonctionne sans aucune configuration et liste les extensions publiées par le fournisseur sous forme de grille de tuiles compactes — logo, nom, état de licence et prix. Cliquez sur une tuile pour ouvrir un panneau à droite avec la description complète, les captures d'écran, les étiquettes de catégorie et les crédits de source et de licence. Les extensions sans visuel affichent une tuile générée portant leurs initiales.
 
 - **Acheter** ouvre la page de paiement dans un nouvel onglet du navigateur. Dès que le paiement est confirmé, votre licence s'applique automatiquement (une copie arrive aussi par e-mail).
 - **Installer** (ou **Mettre à jour** lorsqu'une version plus récente est publiée) vérifie d'abord votre licence — si l'extension n'est pas encore licenciée, une boîte de dialogue propose d'acheter ou de coller une licence, puis continue automatiquement — et télécharge le paquet via exactement la même vérification de signature et le même aperçu à blanc qu'un téléversement manuel. Les extensions avec démo affichent un lien **Voir en action**, et une nouvelle version publiée transforme le bouton en **Mettre à jour**.
@@ -37,6 +37,8 @@ Lorsque le catalogue contient des catégories, chaque élément affiche de petit
 L'onglet Boutique est en lecture seule et anonyme : pas de compte, pas de jeton, et aucune information sur votre instance n'est transmise — seul le catalogue public du fournisseur est lu. Les instances isolées n'ont rien à configurer — l'onglet affiche alors simplement une indication conviviale — et utilisent le flux basé sur les fichiers ci-dessous ; le site de la boutique du fournisseur offre les mêmes achats et téléchargements depuis n'importe quel navigateur connecté à Internet. Si quelque chose entre votre instance et la boutique bloque la requête — un proxy, un pare-feu ou une protection anti-bots devant la boutique —, l'onglet le signale et indique le statut HTTP reçu, afin qu'une instance bloquée ne soit jamais confondue avec une instance isolée.
 
 L'instance **vérifie également le catalogue une fois par jour** et signale les changements, afin qu'une nouvelle extension — ou un correctif de sécurité pour une extension déjà utilisée — n'attende pas que quelqu'un ouvre cette page par hasard. Les administrateurs (toute personne dont le rôle accorde `admin.manage_extensions`) reçoivent une notification dans la cloche lorsqu'une nouvelle extension est publiée dans la boutique, et une autre lorsqu'une extension installée dispose d'une version plus récente. Chaque changement est annoncé une seule fois, et un jour de sortie chargé arrive sous la forme d'une notification par catégorie plutôt qu'une par extension. Rien n'est téléchargé ni installé — la notification vous amène simplement ici. La vérification quotidienne peut être totalement désactivée dans [Admin → Paramètres → Notifications de mise à jour](settings.md#update-notifications).
+
+L'onglet indique également quand la boutique a été lue pour la dernière fois, avec un bouton **Vérifier maintenant** qui lance la vérification immédiatement et rapporte ce qu'elle a trouvé : vous confirmez ainsi que la vérification quotidienne fonctionne sans attendre un jour. En cas d'échec, la raison s'affiche ici au lieu de rester silencieuse.
 
 ## Essais
 

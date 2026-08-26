@@ -27,7 +27,7 @@ L'ID viaggia con un trasferimento del workspace, quindi il passaggio a un nuovo 
 
 ## La scheda Store
 
-La scheda **Store** funziona senza alcuna configurazione ed elenca le estensioni pubblicate dal fornitore con descrizione e prezzo:
+La scheda **Store** funziona senza alcuna configurazione ed elenca le estensioni pubblicate dal fornitore come una griglia di riquadri compatti: logo, nome, stato della licenza e prezzo. Fai clic su un riquadro per aprire a destra un pannello con la descrizione completa, le schermate, i tag di categoria e i crediti di origine e licenza. Le estensioni senza immagine mostrano un riquadro generato con le loro iniziali.
 
 - **Acquista** apre la pagina di pagamento in una nuova scheda del browser. Non appena il pagamento è confermato, la licenza viene applicata automaticamente (una copia arriva anche via e-mail).
 - **Installa** (o **Aggiorna** quando è pubblicata una versione più recente) verifica prima la licenza — se l'estensione non è ancora licenziata, una finestra propone di acquistarla o incollare una licenza, poi continua automaticamente — e scarica il pacchetto con esattamente la stessa verifica della firma e la stessa anteprima di simulazione di un caricamento manuale. Le estensioni con demo mostrano un link **Guardalo in azione**, e una versione più recente pubblicata trasforma il pulsante in **Aggiorna**.
@@ -37,6 +37,8 @@ Quando il catalogo include categorie, ogni elemento mostra piccole pillole (free
 La scheda Store è in sola lettura e anonima: nessun account, nessun token, e nulla della tua istanza viene inviato — viene letto solo il catalogo pubblico del fornitore. Le istanze isolate non richiedono alcuna configurazione — la scheda mostra allora semplicemente un avviso cordiale — e usano il flusso basato su file qui sotto; il sito dello store del fornitore offre gli stessi acquisti e download da qualsiasi browser connesso a Internet. Se qualcosa tra la tua istanza e lo store blocca la richiesta — un proxy, un firewall o una protezione anti-bot davanti allo store —, la scheda lo segnala e indica lo stato HTTP ricevuto, così un'istanza bloccata non viene mai scambiata per una isolata.
 
 L'istanza **controlla inoltre il catalogo una volta al giorno** e segnala i cambiamenti, così una nuova estensione — o una correzione di sicurezza per una già in uso — non deve attendere che qualcuno apra per caso questa pagina. Gli amministratori (chiunque abbia un ruolo che concede `admin.manage_extensions`) ricevono una notifica nella campanella quando una nuova estensione viene pubblicata nello store e un'altra quando un'estensione installata ha una versione più recente. Ogni cambiamento viene annunciato una sola volta e una giornata di rilasci intensa arriva come una notifica per tipo anziché una per estensione. Non viene scaricato né installato nulla: la notifica ti porta semplicemente qui. Il controllo giornaliero può essere disattivato del tutto in [Admin → Impostazioni → Notifiche di aggiornamento](settings.md#update-notifications).
+
+La scheda mostra anche quando lo store è stato letto l'ultima volta e un pulsante **Verifica ora** che esegue subito il controllo e riporta ciò che ha trovato: puoi così confermare che il controllo quotidiano funziona senza aspettare un giorno. Se un controllo non è riuscito, il motivo viene mostrato qui anziché restare silenzioso.
 
 ## Prove
 

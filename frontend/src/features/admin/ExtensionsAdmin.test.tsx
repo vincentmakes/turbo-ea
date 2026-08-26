@@ -74,6 +74,10 @@ function primeInitialLoad({
   license = null as unknown,
   catalog = UNCONFIGURED_CATALOG as unknown,
   instanceId = "",
+  // Cached daily-store-check result. Null models an instance whose admin
+  // lacks admin.settings (the endpoint's gate) — the status line then simply
+  // does not render, which is what every pre-existing case here expects.
+  storeCheck = null as unknown,
 } = {}) {
   mockGet.mockImplementation(async (path: string) => {
     if (path === "/admin/extensions") return extensions;
@@ -83,9 +87,25 @@ function primeInitialLoad({
     }
     if (path === "/admin/extensions/store/catalog") return catalog;
     if (path === "/admin/extensions/instance") return { instance_id: instanceId };
+    if (path === "/settings/extension-store-status") {
+      if (storeCheck) return storeCheck;
+      throw new Error("Forbidden");
+    }
     throw new Error(`unexpected GET ${path}`);
   });
 }
+
+const STORE_CHECK = {
+  checked_at: "2026-08-26T04:00:00Z",
+  error: null,
+  seeded: true,
+  known_count: 4,
+  pending_updates: {},
+  enabled: true,
+  last_new: 0,
+  last_updates: 0,
+  last_notified: 0,
+};
 
 async function openInstalledTab() {
   await userEvent.click(screen.getByRole("tab", { name: "Installed" }));
@@ -679,10 +699,23 @@ describe("ExtensionsAdmin", () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("No Demo Pack")).toBeInTheDocument());
 
-    const demoLinks = screen.getAllByText("See it in action");
-    expect(demoLinks).toHaveLength(1);
-    expect(demoLinks[0].closest("a")).toHaveAttribute("href", "https://youtu.be/demo");
-    expect(demoLinks[0].closest("a")).toHaveAttribute("target", "_blank");
+    // The demo link lives in the detail drawer now — a compact tile carries
+    // only the actions that move an extension towards being installed.
+    expect(screen.queryByText("See it in action")).not.toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /Open details for ESG Content Pack/ }),
+    );
+    const demoLink = await screen.findByText("See it in action");
+    expect(demoLink.closest("a")).toHaveAttribute("href", "https://youtu.be/demo");
+    expect(demoLink.closest("a")).toHaveAttribute("target", "_blank");
+
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByText("See it in action")).not.toBeInTheDocument(),
+    );
+    await userEvent.click(screen.getByRole("button", { name: /Open details for No Demo Pack/ }));
+    expect(screen.queryByText("See it in action")).not.toBeInTheDocument();
   });
 
   it("filters store items by clicking category tag pills (multi-select AND, All resets)", async () => {
@@ -713,19 +746,19 @@ describe("ExtensionsAdmin", () => {
     await waitFor(() => expect(screen.getByText("Alpha Ext")).toBeInTheDocument());
     expect(screen.getByText("Beta Ext")).toBeInTheDocument();
 
-    // model tags render in the filter bar ONLY — on the card they would just
-    // repeat the Free chip / price, so cards carry topical tags alone
+    // Every tag pill renders in the filter bar and nowhere else: a compact
+    // tile has no room for them, so they moved into the detail drawer.
     expect(screen.getAllByText("free")).toHaveLength(1);
     expect(screen.getAllByText("commercial")).toHaveLength(1);
-    expect(screen.getAllByText("integration")).toHaveLength(2); // bar + Alpha card
+    expect(screen.getAllByText("integration")).toHaveLength(1);
 
-    // one pill narrows the grid (the pill renders in the bar AND on the card)
-    await userEvent.click(screen.getAllByText("integration")[0]);
+    // one pill narrows the grid
+    await userEvent.click(screen.getByText("integration"));
     expect(screen.getByText("Alpha Ext")).toBeInTheDocument();
     expect(screen.queryByText("Beta Ext")).not.toBeInTheDocument();
 
     // a second pill ANDs with the first — nothing carries both
-    await userEvent.click(screen.getAllByText("free")[0]);
+    await userEvent.click(screen.getByText("free"));
     expect(screen.queryByText("Alpha Ext")).not.toBeInTheDocument();
     expect(
       screen.getByText("No extensions match the selected categories."),
@@ -863,5 +896,126 @@ describe("ExtensionsAdmin", () => {
     await waitFor(() =>
       expect(screen.getByText(/store could not be reached/)).toBeInTheDocument(),
     );
+  });
+
+  // ---- compact tiles + the detail drawer --------------------------------
+
+  it("opens the detail drawer from a tile and shows what the tile omits", async () => {
+    primeInitialLoad({
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [{ ...STORE_ITEM, long_description: "The long story.", homepage: "https://h" }],
+      },
+    });
+    renderPage();
+    await waitFor(() => expect(screen.getByText("ESG Content Pack")).toBeInTheDocument());
+
+    // The tile carries the short description only.
+    expect(screen.queryByText("The long story.")).not.toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /Open details for ESG Content Pack/ }),
+    );
+    expect(await screen.findByText("The long story.")).toBeInTheDocument();
+    expect(screen.getByText("Source").closest("a")).toHaveAttribute("href", "https://h");
+  });
+
+  it("swaps the drawer's content when a different tile is opened", async () => {
+    primeInitialLoad({
+      catalog: {
+        configured: true,
+        reachable: true,
+        store_url: "https://x",
+        items: [
+          { ...STORE_ITEM, long_description: "Alpha story." },
+          {
+            ...STORE_ITEM,
+            key: "b-ext",
+            name: "Beta Ext",
+            long_description: "Beta story.",
+          },
+        ],
+      },
+    });
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Beta Ext")).toBeInTheDocument());
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /Open details for ESG Content Pack/ }),
+    );
+    expect(await screen.findByText("Alpha story.")).toBeInTheDocument();
+
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByText("Alpha story.")).not.toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: /Open details for Beta Ext/ }));
+    expect(await screen.findByText("Beta story.")).toBeInTheDocument();
+    expect(screen.queryByText("Alpha story.")).not.toBeInTheDocument();
+  });
+
+  it("renders an installed extension's own logo on the Installed tab", async () => {
+    primeInitialLoad({
+      extensions: [{ ...SAMPLE_EXT, logo_url: "/api/v1/ext-assets/sample-ext/1.0.0/logo.png" }],
+    });
+    renderPage();
+    await openInstalledTab();
+    await waitFor(() => expect(screen.getByText("Sample Extension")).toBeInTheDocument());
+    expect(
+      document.querySelector('img[src="/api/v1/ext-assets/sample-ext/1.0.0/logo.png"]'),
+    ).toBeInTheDocument();
+  });
+
+  // ---- the daily store check, made visible ------------------------------
+
+  it("reports when the store was last checked", async () => {
+    primeInitialLoad({
+      catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },
+      storeCheck: STORE_CHECK,
+    });
+    renderPage();
+    expect(await screen.findByText(/Store checked/)).toBeInTheDocument();
+  });
+
+  it("surfaces a failing store check instead of leaving it silent", async () => {
+    // The whole point: without this, "I never get notified" cannot be told
+    // apart from "the fetch has been refused for a fortnight".
+    primeInitialLoad({
+      catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },
+      storeCheck: { ...STORE_CHECK, error: "Store refused the request (HTTP 403)" },
+    });
+    renderPage();
+    expect(
+      await screen.findByText(/Store refused the request \(HTTP 403\)/),
+    ).toBeInTheDocument();
+  });
+
+  it("runs the check on demand and reports what it found", async () => {
+    primeInitialLoad({
+      catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },
+      storeCheck: STORE_CHECK,
+    });
+    mockPost.mockImplementation(async (path: string) => {
+      if (path === "/settings/extension-store-check")
+        return { configured: true, disabled: false, new: 2, updates: 1, error: null };
+      throw new Error(`unexpected POST ${path}`);
+    });
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /Check now/ }));
+
+    expect(mockPost).toHaveBeenCalledWith("/settings/extension-store-check", {});
+    expect(await screen.findByText("2 new, 1 updated")).toBeInTheDocument();
+  });
+
+  it("says so when store notices are switched off", async () => {
+    primeInitialLoad({
+      catalog: { configured: true, reachable: true, store_url: "https://x", items: [STORE_ITEM] },
+      storeCheck: { ...STORE_CHECK, enabled: false },
+    });
+    mockPost.mockImplementation(async () => ({ configured: true, disabled: true }));
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /Check now/ }));
+    expect(await screen.findByText(/switched off/)).toBeInTheDocument();
   });
 });

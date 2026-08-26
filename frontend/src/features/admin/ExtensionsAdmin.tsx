@@ -51,153 +51,27 @@ function readStoredTab(): TabKey | null {
   }
 }
 import { ExtensionBoundary, useExtensionUI } from "@/lib/extensionHost";
-
-interface EntitlementInfo {
-  state: "active" | "grace" | "expired" | "unlicensed" | "free";
-  expires_at?: string | null;
-  grace_until?: string | null;
-  // Whether the backing store subscription renews at period end; null/absent
-  // on manual/offline licenses and licenses issued before the flag existed.
-  auto_renew?: boolean | null;
-  // Store-issued trial entitlement — no grace window, labelled "Trial".
-  trial?: boolean | null;
-}
-
-interface ExtensionInfo {
-  key: string;
-  name: string;
-  version: string;
-  status: string;
-  enabled: boolean;
-  capabilities: string[];
-  last_error?: string | null;
-  entitlement: EntitlementInfo;
-}
-
-interface LicenseInfo {
-  licensee: string;
-  customer_id: string;
-  grace_days: number;
-  entitlements: {
-    extension_key: string;
-    expires_at?: string | null;
-    auto_renew?: boolean | null;
-  }[];
-  uploaded_at?: string | null;
-  // Why the stored license is not in effect (bound to another instance,
-  // failed verification) — null/absent when everything is fine.
-  problem?: string | null;
-  // True when the subscription can be managed via the store billing portal
-  // (store-issued license). The credential itself never reaches the browser.
-  store_managed?: boolean;
-}
-
-interface InstallReport {
-  dry_run?: boolean;
-  sections?: {
-    sheet: string;
-    created: number;
-    updated: number;
-    skipped: number;
-    conflict: number;
-    failed: number;
-    errors: string[];
-  }[];
-  totals?: {
-    created: number;
-    updated: number;
-    skipped: number;
-    conflict: number;
-    failed: number;
-  };
-  downgrade?: { from: string; to: string };
-}
-
-interface ExtensionInstall {
-  id: string;
-  filename: string;
-  status: string;
-  extension_key?: string | null;
-  extension_version?: string | null;
-  diff?: InstallReport | null;
-  result?: InstallReport | null;
-  error_message?: string | null;
-}
-
-interface StoreItem {
-  key: string;
-  name: string;
-  description: string;
-  long_description?: string;
-  price: string;
-  payment_link: string;
-  // Optional no-card trial checkout link; opened through the same
-  // claim-token flow as payment_link.
-  trial_link?: string;
-  demo_url?: string;
-  homepage?: string;
-  license?: string;
-  license_url?: string;
-  screenshots?: string[];
-  // Category slugs; the first is the commercial-model tag ("free"/"commercial")
-  // the catalogue derives at publish time, the rest are topical.
-  tags?: string[];
-  version: string;
-  installed_version?: string | null;
-  update_available: boolean;
-  entitlement_state: EntitlementInfo["state"];
-  // Entitlement is a trial (active or expired) — Buy stays visible so a
-  // trialing customer can convert in-product.
-  entitlement_trial?: boolean;
-  // Expiry/renewal info for the card's entitlement chip ("Trial until …" /
-  // "Renews on …") — present even for licensed-but-not-installed items.
-  entitlement_expires_at?: string | null;
-  entitlement_grace_until?: string | null;
-  entitlement_auto_renew?: boolean | null;
-  free?: boolean;
-}
-
-// The commercial-model tags always sort ahead of topical ones in the filter bar.
-const MODEL_TAGS = ["free", "commercial"];
-
-interface StoreCatalog {
-  configured: boolean;
-  reachable: boolean;
-  // "blocked" = the store answered and refused us (bot protection, WAF, proxy);
-  // "offline" = no route to it at all. Only the second one means air-gapped.
-  reason?: "" | "blocked" | "offline";
-  status_code?: number | null;
-  store_url: string;
-  items: StoreItem[];
-}
-
-interface ClaimResult {
-  status: "applied" | "pending";
-  license?: LicenseInfo | null;
-}
+import EntitlementChip from "./extensions/EntitlementChip";
+import ExtensionLogo from "./extensions/ExtensionLogo";
+import StoreCheckStatusLine from "./extensions/StoreCheckStatusLine";
+import StoreDetailDrawer from "./extensions/StoreDetailDrawer";
+import StoreTile from "./extensions/StoreTile";
+import type { StoreActionHandlers } from "./extensions/StoreActions";
+import {
+  MODEL_TAGS,
+  STATUS_COLOR,
+  type ClaimResult,
+  type ExtensionInfo,
+  type ExtensionInstall,
+  type LicenseInfo,
+  type StoreCatalog,
+  type StoreItem,
+} from "./extensions/types";
 
 const POLL_MS = 2000;
 const CLAIM_POLL_MS = 5000;
 const CLAIM_MAX_POLLS = 120; // ~10 minutes
 const TERMINAL = new Set(["previewed", "installed", "failed"]);
-
-const ENTITLEMENT_COLOR: Record<
-  EntitlementInfo["state"],
-  "success" | "warning" | "error" | "default" | "info"
-> = {
-  active: "success",
-  grace: "warning",
-  expired: "error",
-  unlicensed: "default",
-  free: "info",
-};
-
-const STATUS_COLOR: Record<string, "success" | "warning" | "error" | "default"> = {
-  installed: "success",
-  needs_restart: "warning",
-  disabled: "default",
-  failed: "error",
-};
 
 function makeClaimToken(): string {
   const bytes = new Uint8Array(24);
@@ -263,6 +137,14 @@ export default function ExtensionsAdmin() {
     setActiveTags((current) =>
       current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag],
     );
+  // key -> the installed bundle's own logo, for catalogue items already
+  // installed here. The bundle artwork wins over the catalogue's: it is what
+  // this instance actually runs, and it resolves with the store unreachable.
+  const installedLogos = useMemo(() => {
+    const map: Record<string, string | null | undefined> = {};
+    for (const ext of extensions) map[ext.key] = ext.logo_url;
+    return map;
+  }, [extensions]);
   const [downgradeConfirm, setDowngradeConfirm] = useState<{
     id: string;
     from: string;
@@ -280,10 +162,10 @@ export default function ExtensionsAdmin() {
   const [licenseDialogOpen, setLicenseDialogOpen] = useState(false);
   const [gateItem, setGateItem] = useState<StoreItem | null>(null);
 
-  // Store item "Details" dialog (long description, screenshots, credits).
-  const [detailsItem, setDetailsItem] = useState<StoreItem | null>(null);
-  // Full-size screenshot lightbox (nested inside the Details dialog).
-  const [zoomSrc, setZoomSrc] = useState<string | null>(null);
+  // Store detail drawer. The KEY, not the item: the catalogue is refetched
+  // after a purchase or an install, and holding the object would leave the
+  // open panel showing the entitlement and buttons from before it landed.
+  const [drawerKey, setDrawerKey] = useState<string | null>(null);
   const [licenseText, setLicenseText] = useState("");
   const [licenseBusy, setLicenseBusy] = useState(false);
   const [licenseError, setLicenseError] = useState<string | null>(null);
@@ -780,81 +662,28 @@ export default function ExtensionsAdmin() {
     autoApplyRef.current && install?.status === "previewed" && !install.diff?.totals?.failed;
   const report = install?.result || install?.diff || null;
 
+  // One handler bundle for the tile and the drawer, so the two surfaces
+  // cannot end up wiring the same button to different things.
+  const storeHandlers: StoreActionHandlers = {
+    onInstall: handleInstallClick,
+    onBuy: handleBuy,
+    onTrial: handleTrial,
+    busyKey: storeBusyKey,
+    isWorking,
+    claimingKey: claiming?.itemKey ?? null,
+  };
+  // Derived, never stored: a refetch after a purchase or an install must be
+  // reflected in an open drawer rather than leaving it on a stale snapshot.
+  const drawerItem = useMemo(
+    () => (drawerKey ? ((catalog?.items ?? []).find((i) => i.key === drawerKey) ?? null) : null),
+    [catalog, drawerKey],
+  );
+
   const uiExtensions = useExtensionUI();
   const adminPanels = uiExtensions.flatMap(({ key, plugin }) =>
     (plugin.adminPanels ?? []).map((panel) => ({ extKey: key, panel })),
   );
 
-
-  const entitlementChip = (ent: EntitlementInfo) => {
-    // Trials first: they have no grace window (expiry is a hard stop), so the
-    // chip says exactly that — and an ended trial points at the fix.
-    if (ent.trial === true && (ent.state === "active" || ent.state === "grace")) {
-      return (
-        <Chip
-          size="small"
-          color="info"
-          label={t("extensions.entitlement.trialUntil", "Trial until {{date}}", {
-            date: fmtDate(ent.expires_at),
-          })}
-        />
-      );
-    }
-    if (ent.trial === true && ent.state === "expired") {
-      return (
-        <Chip
-          size="small"
-          color="warning"
-          label={t(
-            "extensions.entitlement.trialEnded",
-            "Trial ended — subscribe to reactivate",
-          )}
-        />
-      );
-    }
-    // Active + a known auto-renew state: say what actually happens on the
-    // date — "renews" vs "will not renew" — instead of the ambiguous
-    // "active until". Unknown (manual/offline licenses) keeps today's label.
-    if (ent.state === "active" && ent.expires_at && ent.auto_renew === true) {
-      return (
-        <Chip
-          size="small"
-          color="success"
-          label={t("extensions.entitlement.renewsOn", "Renews on {{date}}", {
-            date: fmtDate(ent.expires_at),
-          })}
-        />
-      );
-    }
-    if (ent.state === "active" && ent.expires_at && ent.auto_renew === false) {
-      return (
-        <Chip
-          size="small"
-          color="warning"
-          label={t("extensions.entitlement.willNotRenew", "Expires {{date}} — will not renew", {
-            date: fmtDate(ent.expires_at),
-          })}
-        />
-      );
-    }
-    const label =
-      ent.state === "free"
-        ? t("extensions.entitlement.free", "Free")
-        : ent.state === "active"
-          ? ent.expires_at
-            ? t("extensions.entitlement.activeUntil", "Active until {{date}}", {
-                date: fmtDate(ent.expires_at),
-              })
-            : t("extensions.entitlement.active", "Active")
-          : ent.state === "grace"
-            ? t("extensions.entitlement.grace", "Grace until {{date}}", {
-                date: fmtDate(ent.grace_until),
-              })
-            : ent.state === "expired"
-              ? t("extensions.entitlement.expired", "Expired")
-              : t("extensions.entitlement.unlicensed", "Unlicensed");
-    return <Chip size="small" color={ENTITLEMENT_COLOR[ent.state]} label={label} />;
-  };
 
   // Shared install progress + preview + apply block. Rendered on the Store
   // tab (both store installs and manual uploads start there now).
@@ -1082,6 +911,7 @@ export default function ExtensionsAdmin() {
                   ))}
                 </Stack>
               )}
+              <StoreCheckStatusLine />
               {filteredItems.length === 0 && (
                 <Typography variant="body2" color="text.secondary">
                   {t(
@@ -1094,182 +924,22 @@ export default function ExtensionsAdmin() {
                 sx={{
                   display: "grid",
                   gap: 2,
-                  gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+                  // auto-fill over a hard column count: four up on a normal
+                  // desktop, degrading to 3 / 2 / 1 with no extra breakpoints
+                  // and never squeezing a tile below a readable width.
+                  // auto-FIT would stretch a three-item catalogue into three
+                  // enormous cards, which is exactly this store's shape.
+                  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
                 }}
               >
                 {filteredItems.map((item) => (
-                  <Card variant="outlined" key={item.key}>
-                    <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-                      <Stack
-                        direction="row"
-                        spacing={1}
-                        alignItems="center"
-                        flexWrap="wrap"
-                        useFlexGap
-                        sx={{ mb: 0.5 }}
-                      >
-                        <MaterialSymbol icon="extension" size={20} />
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                          {item.name}
-                        </Typography>
-                        {item.installed_version && (
-                          <Chip
-                            size="small"
-                            color="success"
-                            variant="outlined"
-                            label={t("extensions.store.installedChip", "Installed {{version}}", {
-                              version: item.installed_version,
-                            })}
-                          />
-                        )}
-                        {!item.installed_version && item.free && (
-                          <Chip
-                            size="small"
-                            color="info"
-                            label={t("extensions.entitlement.free", "Free")}
-                          />
-                        )}
-                        {/* Live entitlement chip — the same cascade as the
-                            Installed tab ("Trial until …", "Renews on …",
-                            "Expires … — will not renew"), shown even while
-                            installed so trial countdowns and renewal dates
-                            are visible where Buy/Start-trial live. */}
-                        {!item.free &&
-                          item.entitlement_state !== "unlicensed" &&
-                          entitlementChip({
-                            state: item.entitlement_state,
-                            expires_at: item.entitlement_expires_at,
-                            grace_until: item.entitlement_grace_until,
-                            auto_renew: item.entitlement_auto_renew,
-                            trial: item.entitlement_trial,
-                          })}
-                      </Stack>
-                      <Typography variant="body2" color="text.secondary" sx={{ flex: 1, mb: 1.5 }}>
-                        {item.description}
-                      </Typography>
-                      {/* topical tags only — the card already shows free vs
-                          paid via its Free chip, price and Buy button */}
-                      {(item.tags ?? []).some((tag) => !MODEL_TAGS.includes(tag)) && (
-                        <Stack
-                          direction="row"
-                          spacing={0.5}
-                          flexWrap="wrap"
-                          useFlexGap
-                          sx={{ mb: 1.5 }}
-                        >
-                          {item.tags
-                            ?.filter((tag) => !MODEL_TAGS.includes(tag))
-                            .map((tag) => (
-                              <Chip
-                                key={tag}
-                                size="small"
-                                label={tag}
-                                color={activeTags.includes(tag) ? "primary" : "default"}
-                                variant="outlined"
-                                onClick={() => toggleTag(tag)}
-                              />
-                            ))}
-                        </Stack>
-                      )}
-                      {claiming?.itemKey === item.key && (
-                        <Box sx={{ mb: 1.5 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            {t(
-                              "extensions.store.waitingPayment",
-                              "Waiting for payment confirmation — complete the checkout in the other browser tab…",
-                            )}
-                          </Typography>
-                          <LinearProgress sx={{ mt: 0.5 }} />
-                        </Box>
-                      )}
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Typography variant="subtitle2" sx={{ flex: 1 }}>
-                          {item.price}
-                        </Typography>
-                        {(item.long_description ||
-                          item.homepage ||
-                          item.license ||
-                          (item.screenshots?.length ?? 0) > 0) && (
-                          <Button
-                            size="small"
-                            color="inherit"
-                            onClick={() => setDetailsItem(item)}
-                            startIcon={<MaterialSymbol icon="info" size={18} />}
-                          >
-                            {t("extensions.store.details", "Details")}
-                          </Button>
-                        )}
-                        {item.demo_url && (
-                          <Button
-                            size="small"
-                            color="inherit"
-                            component="a"
-                            href={item.demo_url}
-                            target="_blank"
-                            rel="noopener"
-                            startIcon={<MaterialSymbol icon="play_circle" size={18} />}
-                          >
-                            {t("extensions.store.seeInAction", "See it in action")}
-                          </Button>
-                        )}
-                        {!item.free &&
-                          item.trial_link &&
-                          item.entitlement_state === "unlicensed" &&
-                          claiming?.itemKey !== item.key && (
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() => handleTrial(item)}
-                              startIcon={<MaterialSymbol icon="hourglass_top" size={18} />}
-                            >
-                              {t("extensions.store.startTrial", "Start 30-day trial")}
-                            </Button>
-                          )}
-                        {!item.free &&
-                          item.payment_link &&
-                          // Unlicensed, or on a trial (active or expired) —
-                          // a trialing customer converts in-product; the
-                          // claim flow replaces the trial entitlement with
-                          // the paid one automatically.
-                          (item.entitlement_state === "unlicensed" || item.entitlement_trial) &&
-                          claiming?.itemKey !== item.key && (
-                            <Button
-                              size="small"
-                              variant="contained"
-                              onClick={() => handleBuy(item)}
-                              startIcon={<MaterialSymbol icon="shopping_cart" size={18} />}
-                            >
-                              {t("extensions.store.buy", "Buy")}
-                            </Button>
-                          )}
-                        {(!item.installed_version || item.update_available) && (
-                          <Button
-                            size="small"
-                            variant={
-                              !item.free && item.entitlement_state === "unlicensed"
-                                ? "outlined"
-                                : "contained"
-                            }
-                            disabled={storeBusyKey !== null || isWorking}
-                            onClick={() => handleInstallClick(item)}
-                            startIcon={
-                              storeBusyKey === item.key ? (
-                                <CircularProgress size={14} color="inherit" />
-                              ) : (
-                                <MaterialSymbol icon="download" size={18} />
-                              )
-                            }
-                          >
-                            {item.update_available
-                              ? t("extensions.store.update", "Update to {{version}}", {
-                                  version: item.version,
-                                })
-                              : t("extensions.store.install", "Install")}
-                          </Button>
-                        )}
-                      </Stack>
-                    </CardContent>
-                  </Card>
+                  <StoreTile
+                    key={item.key}
+                    item={item}
+                    bundleLogoUrl={installedLogos[item.key]}
+                    handlers={storeHandlers}
+                    onOpen={setDrawerKey}
+                  />
                 ))}
               </Box>
               <Typography variant="caption" color="text.secondary">
@@ -1430,7 +1100,22 @@ export default function ExtensionsAdmin() {
                       return (
                       <TableRow key={ext.key}>
                         <TableCell>
-                          <Typography variant="body2">{ext.name}</Typography>
+                          {/* Inside the existing cell rather than a column of
+                              its own: 24px is what keeps a `size="small"` row
+                              at its current height. */}
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <ExtensionLogo
+                              extKey={ext.key}
+                              name={ext.name}
+                              bundleLogoUrl={ext.logo_url}
+                              catalogLogoUrl={
+                                catalog?.items.find((item) => item.key === ext.key)?.logo
+                              }
+                              size={24}
+                              radius={1}
+                            />
+                            <Typography variant="body2">{ext.name}</Typography>
+                          </Stack>
                           <Typography variant="caption" color="text.secondary">
                             {ext.key}
                             {ext.capabilities.length > 0 && ` · ${ext.capabilities.join(", ")}`}
@@ -1471,7 +1156,9 @@ export default function ExtensionsAdmin() {
                             label={t(`extensions.status.${ext.status}`, ext.status)}
                           />
                         </TableCell>
-                        <TableCell>{entitlementChip(ext.entitlement)}</TableCell>
+                        <TableCell>
+                          <EntitlementChip ent={ext.entitlement} />
+                        </TableCell>
                         <TableCell align="center">
                           <Switch
                             size="small"
@@ -1703,113 +1390,13 @@ export default function ExtensionsAdmin() {
         </DialogActions>
       </Dialog>
 
-      {/* Store item "Details" dialog — long description, screenshots, credits. */}
-      <Dialog
-        open={detailsItem !== null}
-        onClose={() => setDetailsItem(null)}
-        fullWidth
-        maxWidth="md"
-      >
-        <DialogTitle>{detailsItem?.name}</DialogTitle>
-        <DialogContent>
-          {detailsItem && (
-            <>
-              <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
-                {detailsItem.long_description || detailsItem.description}
-              </Typography>
-              {(detailsItem.screenshots?.length ?? 0) > 0 && (
-                <Stack spacing={1.5} sx={{ mt: 2 }}>
-                  {detailsItem.screenshots?.map((src) => (
-                    <Box
-                      key={src}
-                      component="img"
-                      src={src}
-                      alt=""
-                      loading="lazy"
-                      onClick={() => setZoomSrc(src)}
-                      sx={{
-                        width: "100%",
-                        borderRadius: 1,
-                        border: "1px solid",
-                        borderColor: "divider",
-                        cursor: "zoom-in",
-                      }}
-                    />
-                  ))}
-                </Stack>
-              )}
-              {(detailsItem.homepage || detailsItem.license) && (
-                <Stack
-                  direction="row"
-                  spacing={2}
-                  alignItems="center"
-                  flexWrap="wrap"
-                  useFlexGap
-                  sx={{ mt: 2, color: "text.secondary" }}
-                >
-                  {detailsItem.homepage && (
-                    <Link
-                      href={detailsItem.homepage}
-                      target="_blank"
-                      rel="noopener"
-                      variant="body2"
-                    >
-                      {t("extensions.store.source", "Source")}
-                    </Link>
-                  )}
-                  {detailsItem.license && (
-                    <Typography variant="body2">
-                      {t("extensions.store.licenseLabel", "License")}:{" "}
-                      {detailsItem.license_url ? (
-                        <Link href={detailsItem.license_url} target="_blank" rel="noopener">
-                          {detailsItem.license}
-                        </Link>
-                      ) : (
-                        detailsItem.license
-                      )}
-                    </Typography>
-                  )}
-                </Stack>
-              )}
-            </>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDetailsItem(null)}>
-            {t("extensions.store.close", "Close")}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Full-size screenshot lightbox — nested inside the Details dialog.
-          Closes on click (image or backdrop) or Escape. */}
-      <Dialog
-        open={zoomSrc !== null}
-        onClose={() => setZoomSrc(null)}
-        disableRestoreFocus
-        maxWidth={false}
-        slotProps={{
-          paper: {
-            sx: { bgcolor: "transparent", boxShadow: "none", m: 0, cursor: "zoom-out" },
-          },
-        }}
-      >
-        {zoomSrc && (
-          <Box
-            component="img"
-            src={zoomSrc}
-            alt=""
-            onClick={() => setZoomSrc(null)}
-            sx={{
-              display: "block",
-              maxWidth: "90vw",
-              maxHeight: "90vh",
-              borderRadius: 1,
-              cursor: "zoom-out",
-            }}
-          />
-        )}
-      </Dialog>
+      <StoreDetailDrawer
+        item={drawerItem}
+        bundleLogoUrl={drawerItem ? installedLogos[drawerItem.key] : null}
+        handlers={storeHandlers}
+        onClose={() => setDrawerKey(null)}
+        onToggleTag={toggleTag}
+      />
 
       <Dialog open={removeLicenseOpen} onClose={() => setRemoveLicenseOpen(false)}>
         <DialogTitle>{t("extensions.license.removeTitle", "Remove license?")}</DialogTitle>

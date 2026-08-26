@@ -5,6 +5,22 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.91.0] - 2026-08-26
+
+### Added
+
+- **Extensions can now carry their own logo, and the Store shows it.** The Store and Installed tabs rendered the same puzzle-piece glyph for every extension, so scanning the catalogue meant reading names. An extension may now ship artwork inside its signed bundle — so it appears even on an air-gapped instance and even while the extension is disabled — and a listing may carry one for extensions you have not installed yet. Anything without artwork gets a generated tile from its initials, in a colour fixed by its key, so a catalogue never looks half-finished.
+- **You can now see when the extension store was last checked, and check it on demand.** Turbo EA reads the store catalogue once a day and notifies administrators about new and updated extensions, but that was the only evidence the check produced: a store that refused the request recorded the reason where nobody could read it, so "I am not being notified" was indistinguishable from "the check never ran", "the fetch has been failing for a fortnight" and "it ran and nothing was new". The Store tab now reports when it last read the catalogue, shows the reason when a read failed, and offers **Check now**, which runs the check immediately and says what it found.
+
+### Changed
+
+- **The Store tab is now a grid of compact tiles with a detail panel.** Two large cards per row meant a lot of scrolling to survey a handful of extensions, and every card had to carry every field it owned. Tiles now fit roughly four to a row on a normal screen — logo, name, licence state, price and the action you are most likely to want — and clicking one opens a panel on the right with the full description, screenshots, categories and source and licence credits. The panel keeps the grid in view, so looking through several extensions no longer means opening and closing a dialog each time.
+
+### Fixed
+
+- **An extension could be announced as new over and over on an instance tracking many of them.** The set of catalogue entries already seen was capped by keeping the alphabetically first entries, so once an instance had seen enough extensions, any whose key sorted late fell out of the set on every check and was announced as brand new on the next one — indefinitely. The cap now forgets the oldest entry instead, which is the one that can most afford to be forgotten.
+- **Nine of the ten languages showed English on parts of the Extensions page.** The page title, the instance-ID block, the licence-removal dialog and the install gate's licence prompt had never been translated, so they fell back to English everywhere. They are now translated in all supported languages.
+
 ## [2.90.0] - 2026-08-26
 
 ### Added

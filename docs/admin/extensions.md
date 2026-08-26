@@ -27,7 +27,7 @@ The ID travels with a workspace transfer, so moving to a new host keeps your lic
 
 ## The Store tab
 
-The **Store** tab works out of the box and lists the vendor's published extensions with description and price:
+The **Store** tab works out of the box and lists the vendor's published extensions as a grid of compact tiles — logo, name, licence state and price. Click any tile to open a panel on the right with the full description, screenshots, category tags and source/licence credits. Extensions that ship no artwork show a generated tile carrying their initials.
 
 - **Buy** opens the payment page in a new browser tab. Once the payment is confirmed, your license applies automatically (a copy also arrives by email).
 - **Install** (or **Update** when a newer version is published) checks your license first — if the extension isn't licensed yet, a dialog offers to buy it or paste a license, then continues automatically — and downloads the bundle through the exact same signature verification and dry-run preview as a manual upload. Extensions with a demo show a **See it in action** link, and a published newer version turns the button into **Update**.
@@ -37,6 +37,8 @@ When the catalogue carries category tags, each item shows small pills (free or c
 The Store tab is read-only and anonymous: no account, no token, and nothing about your instance is sent anywhere — it only reads the vendor's public catalogue. Air-gapped instances need no configuration — the tab simply shows a friendly hint — and use the file-based flow below; the vendor's storefront website offers the same purchases and downloads from any internet-connected browser. If something between your instance and the store blocks the request — a proxy, a firewall, or bot protection in front of the store — the tab says so and names the HTTP status it got back, so a blocked instance is never mistaken for an air-gapped one.
 
 The instance also **checks the catalogue once a day** and tells you what changed, so a new extension — or a security fix to one you already run — does not wait until somebody happens to open this page. Administrators (anyone whose role grants `admin.manage_extensions`) get a notification in the bell when a new extension is published to the store, and another when an extension they have installed has a newer version. Each change is announced once, and a busy release day arrives as one notification per kind rather than one per extension. Nothing is downloaded or installed — the notification simply brings you here. The daily check can be switched off entirely under [Admin → Settings → Update notifications](settings.md#update-notifications).
+
+The tab also shows when the store was last read, and a **Check now** button that runs the check immediately and reports what it found — so you can confirm the daily check is working without waiting a day. If a check failed, the reason is shown here rather than staying silent.
 
 ## Trials
 

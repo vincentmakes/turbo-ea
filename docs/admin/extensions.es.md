@@ -27,7 +27,7 @@ El ID viaja con una transferencia de espacio de trabajo, por lo que mudarse a un
 
 ## La pestaña Tienda
 
-La pestaña **Tienda** funciona sin configuración alguna y lista las extensiones publicadas por el proveedor con descripción y precio:
+La pestaña **Tienda** funciona sin configuración alguna y lista las extensiones publicadas por el proveedor como una cuadrícula de fichas compactas: logotipo, nombre, estado de licencia y precio. Haga clic en cualquier ficha para abrir un panel a la derecha con la descripción completa, las capturas de pantalla, las etiquetas de categoría y los créditos de origen y licencia. Las extensiones que no incluyen imagen muestran una ficha generada con sus iniciales.
 
 - **Comprar** abre la página de pago en una pestaña nueva del navegador. En cuanto se confirma el pago, tu licencia se aplica automáticamente (también llega una copia por correo).
 - **Instalar** (o **Actualizar** cuando se publica una versión más reciente) comprueba primero tu licencia — si la extensión aún no tiene licencia, un diálogo ofrece comprarla o pegar una licencia y luego continúa automáticamente — y descarga el paquete con exactamente la misma verificación de firma y vista previa de simulación que una carga manual. Las extensiones con demo muestran un enlace **Verlo en acción**, y una versión más reciente publicada convierte el botón en **Actualizar**.
@@ -37,6 +37,8 @@ Cuando el catálogo incluye categorías, cada elemento muestra pequeñas píldor
 La pestaña Tienda es de solo lectura y anónima: sin cuenta, sin token, y no se envía nada sobre tu instancia — solo se lee el catálogo público del proveedor. Las instancias aisladas no necesitan configuración — la pestaña muestra entonces simplemente un aviso amable — y usan el flujo basado en archivos de abajo; el sitio web de la tienda del proveedor ofrece las mismas compras y descargas desde cualquier navegador con conexión a Internet. Si algo entre su instancia y la tienda bloquea la solicitud — un proxy, un cortafuegos o una protección anti-bots delante de la tienda —, la pestaña lo indica y muestra el estado HTTP recibido, de modo que una instancia bloqueada nunca se confunda con una aislada.
 
 La instancia también **comprueba el catálogo una vez al día** e informa de los cambios, para que una extensión nueva —o una corrección de seguridad de alguna que ya utiliza— no espere a que alguien abra esta página por casualidad. Los administradores (cualquiera cuyo rol conceda `admin.manage_extensions`) reciben una notificación en la campana cuando se publica una extensión nueva en la tienda, y otra cuando una extensión instalada tiene una versión más reciente. Cada cambio se anuncia una sola vez, y un día de lanzamientos intenso llega como una notificación por tipo en lugar de una por extensión. No se descarga ni se instala nada: la notificación simplemente le trae hasta aquí. La comprobación diaria puede desactivarse por completo en [Admin → Configuración → Notificaciones de actualización](settings.md#update-notifications).
+
+La pestaña también muestra cuándo se leyó la tienda por última vez y un botón **Comprobar ahora** que ejecuta la comprobación de inmediato e informa de lo que encontró, de modo que puede confirmar que la comprobación diaria funciona sin esperar un día. Si una comprobación falló, aquí se muestra el motivo en lugar de quedar en silencio.
 
 ## Pruebas
 
