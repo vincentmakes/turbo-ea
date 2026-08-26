@@ -1670,7 +1670,6 @@ class TestSkippedCards:
         # survey_env's own card has the stakeholder; the two new ones do not.
         assert body["total_matched"] == 3
         assert body["total_cards"] == 1
-        assert {c["card_name"] for c in body["skipped"]} == {"Ownerless One", "Ownerless Two"}
         assert member.id  # the one targeted card is reachable through member
 
     async def test_a_stakeholder_in_another_role_still_counts_as_skipped(
@@ -1687,7 +1686,7 @@ class TestSkippedCards:
 
         assert body["total_matched"] == 2
         assert body["total_cards"] == 1
-        assert [c["card_name"] for c in body["skipped"]] == ["Watched Only"]
+        assert body["total_matched"] - body["total_cards"] == 1
 
     async def test_nothing_skipped_when_every_card_has_a_recipient(self, client, db, survey_env):
         admin, member = survey_env["admin"], survey_env["member"]
@@ -1697,25 +1696,7 @@ class TestSkippedCards:
         body = await _preview(client, admin, survey["id"])
 
         assert body["total_matched"] == body["total_cards"] == 2
-        assert body["skipped"] == []
-
-    async def test_skipped_list_is_capped_but_the_total_is_not(
-        self, client, db, survey_env, monkeypatch
-    ):
-        """The count must stay truthful even when the list is trimmed."""
-        from app.api.v1 import surveys as surveys_module
-
-        monkeypatch.setattr(surveys_module, "SKIPPED_SAMPLE", 2)
-        admin = survey_env["admin"]
-        for i in range(4):
-            await self._app(db, admin, f"Ownerless {i}")
-
-        survey = await _create_draft_survey(client, admin)
-        body = await _preview(client, admin, survey["id"])
-
-        assert body["total_matched"] == 5
-        assert body["total_cards"] == 1
-        assert len(body["skipped"]) == 2
+        assert body["total_matched"] == body["total_cards"]
 
     async def test_send_is_unaffected(self, client, db, survey_env):
         """Skipped cards are reported, not surveyed — `send` behaves as before."""

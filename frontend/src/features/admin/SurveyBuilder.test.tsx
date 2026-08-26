@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -30,6 +30,14 @@ vi.mock("@/hooks/useMetamodel", () => ({
           {
             section: "General",
             fields: [{ key: "costTotalAnnual", label: "Annual Cost", type: "cost" }],
+          },
+          {
+            section: "Assessment",
+            fields: [
+              // `required` drives the mandatory marker via isEnforcedRequiredField.
+              { key: "businessCriticality", label: "Business Criticality", type: "single_select", required: true },
+              { key: "timeModel", label: "TIME Model", type: "single_select" },
+            ],
           },
         ],
         translations: {},
@@ -302,19 +310,8 @@ describe("SurveyBuilder — cards with nobody to ask", () => {
     // 5 of 212 — the 207 are the answer to "why so few?"
     expect(screen.getByText("of 212 matching")).toBeInTheDocument();
     expect(screen.getByText(/207 matching cards have nobody to ask/i)).toBeInTheDocument();
-    expect(screen.getByText("Orphan One")).toBeInTheDocument();
-    expect(screen.getByText("Orphan Two")).toBeInTheDocument();
-  });
-
-  it("says when the named list is only the first slice", async () => {
-    previewWith({
-      total_matched: 212,
-      skipped: [{ card_id: "s1", card_name: "Orphan One" }],
-    });
-    const user = userEvent.setup();
-    await gotoPreviewStep(user);
-
-    expect(screen.getByText(/showing the first 1/i)).toBeInTheDocument();
+    // The count and the reason carry it; the cards themselves are not listed.
+    expect(screen.queryByText("Orphan One")).not.toBeInTheDocument();
   });
 
   it("stays quiet when every matching card has a recipient", async () => {
@@ -333,5 +330,106 @@ describe("SurveyBuilder — cards with nobody to ask", () => {
 
     const creates = mockPost.mock.calls.filter(([path]) => path === "/surveys");
     expect(creates).toHaveLength(1);
+  });
+});
+
+/** Walk to the Fields step (step 3) and stop there. */
+async function gotoFieldsStep(user: ReturnType<typeof userEvent.setup>) {
+  await gotoTargetStep(user);
+  await user.click(screen.getByRole("checkbox", { name: /business owner/i }));
+  await user.click(screen.getByRole("button", { name: /next/i }));
+  await waitFor(() => expect(screen.getByText("Assessment")).toBeInTheDocument());
+}
+
+/** The action select on a row, found by the row's visible label. */
+function actionSelectIn(label: string | RegExp) {
+  const row = screen.getByText(label).closest("tr")!;
+  return within(row).getByRole("combobox");
+}
+
+async function choose(user: ReturnType<typeof userEvent.setup>, combo: HTMLElement, option: string) {
+  await user.click(combo);
+  await user.click(await screen.findByRole("option", { name: option }));
+}
+
+describe("SurveyBuilder — fields grouped by section", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (api.get as ReturnType<typeof vi.fn>).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve({ items: [] });
+      if (path.startsWith("/stakeholder-roles")) return Promise.resolve(ROLE_DEFS);
+      return Promise.resolve([]);
+    });
+    mockPost.mockResolvedValue({ id: "survey-1" });
+    (api.patch as ReturnType<typeof vi.fn>).mockResolvedValue({});
+  });
+
+  it("marks fields the metamodel requires, and leaves the others unmarked", async () => {
+    const user = userEvent.setup();
+    await gotoFieldsStep(user);
+
+    const required = screen.getByText("Business Criticality").closest("td")!;
+    expect(within(required).getByText("*")).toBeInTheDocument();
+
+    const plain = screen.getByText("TIME Model").closest("td")!;
+    expect(within(plain).queryByText("*")).not.toBeInTheDocument();
+  });
+
+  it("ticking a section header selects every field under it", async () => {
+    const user = userEvent.setup();
+    await gotoFieldsStep(user);
+
+    const header = screen.getByText("Assessment").closest("tr")!;
+    await user.click(within(header).getByRole("checkbox"));
+
+    await waitFor(() => expect(screen.getByText(/2 field\(s\) selected/i)).toBeInTheDocument());
+    expect(screen.getByText("2/2")).toBeInTheDocument();
+  });
+
+  it("setting the section action flips the fields already in it", async () => {
+    const user = userEvent.setup();
+    await gotoFieldsStep(user);
+
+    const header = screen.getByText("Assessment").closest("tr")!;
+    await user.click(within(header).getByRole("checkbox"));
+    await choose(user, within(header).getByRole("combobox"), "Confirm");
+
+    await waitFor(() =>
+      expect(screen.getByText(/0 maintain, 2 confirm/i)).toBeInTheDocument(),
+    );
+  });
+
+  it("a field ticked after the section was set inherits the section's action", async () => {
+    const user = userEvent.setup();
+    await gotoFieldsStep(user);
+
+    const header = screen.getByText("Assessment").closest("tr")!;
+    // Select, switch the section to Confirm, then clear one field and re-tick it.
+    await user.click(within(header).getByRole("checkbox"));
+    await choose(user, within(header).getByRole("combobox"), "Confirm");
+    await user.click(screen.getByText("TIME Model"));
+    await waitFor(() => expect(screen.getByText(/1 field\(s\) selected/i)).toBeInTheDocument());
+    await user.click(screen.getByText("TIME Model"));
+
+    // Would be "1 maintain, 1 confirm" if the re-tick fell back to the default.
+    await waitFor(() =>
+      expect(screen.getByText(/0 maintain, 2 confirm/i)).toBeInTheDocument(),
+    );
+  });
+
+  it("an individual override leaves the rest alone and shows the section as mixed", async () => {
+    const user = userEvent.setup();
+    await gotoFieldsStep(user);
+
+    const header = screen.getByText("Assessment").closest("tr")!;
+    await user.click(within(header).getByRole("checkbox"));
+    await choose(user, within(header).getByRole("combobox"), "Confirm");
+    await choose(user, actionSelectIn("TIME Model"), "Maintain");
+
+    await waitFor(() =>
+      expect(screen.getByText(/1 maintain, 1 confirm/i)).toBeInTheDocument(),
+    );
+    // The header must not keep claiming Confirm for a section that is now split.
+    expect(within(header).getByRole("combobox")).toHaveTextContent(/mixed/i);
   });
 });

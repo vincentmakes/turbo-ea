@@ -1053,9 +1053,6 @@ export interface SurveyPreviewResult {
    *  several cards counts once in `total_users` and once per card here. */
   total_requests: number;
   targets: SurveyPreviewTarget[];
-  /** Matched cards with nobody to ask, so they will not be surveyed. Capped
-   *  server-side — `total_matched - total_cards` is the true count. */
-  skipped: { card_id: string; card_name: string }[];
 }
 
 export interface MySurveyItem {

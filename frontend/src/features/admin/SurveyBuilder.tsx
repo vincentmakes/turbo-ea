@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { Fragment, useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
@@ -38,8 +38,10 @@ import {
   useRelationLabel,
   useFieldLabel,
   useOptionLabel,
+  useResolveLabel,
 } from "@/hooks/useResolveLabel";
 import { FIELD_TYPE_OPTIONS } from "@/features/admin/metamodel/constants";
+import { isEnforcedRequiredField } from "@/features/cards/sections/cardDetailUtils";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import {
   MAX_STALENESS_BY_UNIT,
@@ -52,6 +54,7 @@ import type {
   Survey,
   SurveyField,
   SurveyTargetFilters,
+  FieldDef,
   SurveyPreviewResult,
   Card,
   TagGroup,
@@ -76,6 +79,9 @@ export default function SurveyBuilder() {
   const relLabel = useRelationLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
+  // Section names are loose strings on the schema, not entities — the low-level
+  // resolver is the right tool here (there is no section entity to pass).
+  const rl = useResolveLabel();
 
   const STEPS = [
     t("surveyBuilder.steps.basics"),
@@ -124,6 +130,11 @@ export default function SurveyBuilder() {
 
   // Step 3 — Fields
   const [selectedFields, setSelectedFields] = useState<SurveyField[]>([]);
+  // Per-section maintain/confirm default. Only what the author explicitly chose
+  // lives here; the control's displayed value is derived below.
+  const [sectionActions, setSectionActions] = useState<
+    Record<string, "maintain" | "confirm">
+  >({});
 
   // Step 4 — Preview
   const [preview, setPreview] = useState<SurveyPreviewResult | null>(null);
@@ -218,20 +229,46 @@ export default function SurveyBuilder() {
 
   const allFields = useMemo(() => {
     if (!selectedType) return [];
-    const fields: { section: string; key: string; label: string; type: string; options?: { key: string; label: string; color?: string }[] }[] = [];
+    const fields: {
+      section: string;
+      sectionLabel: string;
+      key: string;
+      label: string;
+      type: string;
+      options?: { key: string; label: string; color?: string }[];
+      // Carried so the row can mark what the metamodel declares required —
+      // `isEnforcedRequiredField` needs both.
+      required?: boolean;
+      readonly?: boolean;
+    }[] = [];
     for (const section of selectedType.fields_schema || []) {
       for (const f of section.fields || []) {
         fields.push({
           section: section.section,
+          sectionLabel: rl(section.section, section.translations),
           key: f.key,
           label: fieldLabel(f),
           type: f.type,
           options: f.options?.map((o) => ({ ...o, label: optLabel(o) })),
+          required: f.required,
+          readonly: f.readonly,
         });
       }
     }
     return fields;
-  }, [selectedType, fieldLabel, optLabel]);
+  }, [selectedType, fieldLabel, optLabel, rl]);
+
+  // Sections in fields_schema order. Entries are already contiguous per section,
+  // so first-seen insertion order is the metamodel's own order.
+  const fieldSections = useMemo(() => {
+    const groups = new Map<string, { label: string; fields: typeof allFields }>();
+    for (const f of allFields) {
+      const group = groups.get(f.section);
+      if (group) group.fields.push(f);
+      else groups.set(f.section, { label: f.sectionLabel, fields: [f] });
+    }
+    return [...groups.entries()].map(([section, g]) => ({ section, ...g }));
+  }, [allFields]);
 
   // Stakeholder role key → display label. The preview payload carries keys, and
   // rendering those leaks slugs like "technicalApplicationOwner" into the UI.
@@ -261,6 +298,7 @@ export default function SurveyBuilder() {
       related_type_key: string;
       label: string;
       relatedTypeLabel: string;
+      mandatory: boolean;
     }[] = [];
     for (const rt of relationTypes) {
       if (rt.is_hidden) continue;
@@ -272,6 +310,9 @@ export default function SurveyBuilder() {
           related_type_key: rt.target_type_key,
           label: relLabel(rt),
           relatedTypeLabel: relatedTypeLabel(rt.target_type_key),
+          // Keyed off the generated direction, not `source_type_key === targetTypeKey`:
+          // on a self-referential relation both ends match and that test is ambiguous.
+          mandatory: rt.source_mandatory,
         });
       }
       if (rt.target_type_key === targetTypeKey) {
@@ -282,6 +323,7 @@ export default function SurveyBuilder() {
           related_type_key: rt.source_type_key,
           label: relLabel(rt, true),
           relatedTypeLabel: relatedTypeLabel(rt.source_type_key),
+          mandatory: rt.target_mandatory,
         });
       }
     }
@@ -377,16 +419,71 @@ export default function SurveyBuilder() {
     }
   };
 
+  /** The section's default action — what a newly ticked field inherits. */
+  const sectionAction = (section: string): "maintain" | "confirm" =>
+    sectionActions[section] ?? "maintain";
+
+  /** What the section's control shows. Derived rather than read straight from
+   *  `sectionActions`, so a field overridden on its own row can't leave the
+   *  header claiming an action its fields don't all have. "" renders as Mixed. */
+  const sectionActionValue = (section: string): "maintain" | "confirm" | "" => {
+    const picked = selectedFields.filter((f) => f.section === section && f.kind !== "relation");
+    if (picked.length === 0) return sectionAction(section);
+    const first = picked[0].action;
+    return picked.every((f) => f.action === first) ? first : "";
+  };
+
+  const sectionSelection = (section: string) => {
+    const group = allFields.filter((f) => f.section === section);
+    const picked = group.filter((f) => selectedFields.some((sf) => sf.key === f.key));
+    return { total: group.length, picked: picked.length };
+  };
+
+  const asSurveyField = (
+    field: typeof allFields[number],
+    action: "maintain" | "confirm",
+  ): SurveyField => ({
+    key: field.key,
+    section: field.section,
+    label: field.label,
+    type: field.type,
+    options: field.options,
+    action,
+  });
+
   const toggleField = (field: typeof allFields[number]) => {
     const exists = selectedFields.find((f) => f.key === field.key);
     if (exists) {
       setSelectedFields((prev) => prev.filter((f) => f.key !== field.key));
     } else {
-      setSelectedFields((prev) => [
-        ...prev,
-        { key: field.key, section: field.section, label: field.label, type: field.type, options: field.options, action: "maintain" },
-      ]);
+      // Inherits whatever the section is set to, so ticking one more field
+      // after switching a section to Confirm doesn't silently arrive as Maintain.
+      setSelectedFields((prev) => [...prev, asSurveyField(field, sectionAction(field.section))]);
     }
+  };
+
+  /** Select or clear a whole section. Not a toggle: mapping `toggleField` over a
+   *  group would untick the fields that were already ticked. */
+  const setSectionSelected = (section: string, checked: boolean) => {
+    const group = allFields.filter((f) => f.section === section);
+    const keys = new Set(group.map((f) => f.key));
+    setSelectedFields((prev) => {
+      const rest = prev.filter((f) => !keys.has(f.key));
+      if (!checked) return rest;
+      const action = sectionAction(section);
+      const held = new Map(prev.map((f) => [f.key, f]));
+      // Keep an already-selected field's own action — ticking the header adds
+      // what is missing, it does not overwrite per-field choices.
+      return [...rest, ...group.map((f) => held.get(f.key) ?? asSurveyField(f, action))];
+    });
+  };
+
+  /** Set every selected field in a section to one action, and make it the
+   *  section's default so later ticks inherit it. */
+  const setSectionAction = (section: string, action: "maintain" | "confirm") => {
+    setSectionActions((prev) => ({ ...prev, [section]: action }));
+    const keys = new Set(allFields.filter((f) => f.section === section).map((f) => f.key));
+    setSelectedFields((prev) => prev.map((f) => (keys.has(f.key) ? { ...f, action } : f)));
   };
 
   const toggleRelation = (rel: typeof allRelations[number]) => {
@@ -881,60 +978,124 @@ export default function SurveyBuilder() {
                 <TableHead>
                   <TableRow>
                     <TableCell padding="checkbox" />
-                    <TableCell>{t("surveyBuilder.fields.columns.section")}</TableCell>
                     <TableCell>{t("surveyBuilder.fields.columns.field")}</TableCell>
                     <TableCell>{t("surveyBuilder.fields.columns.type")}</TableCell>
                     <TableCell>{t("surveyBuilder.fields.columns.action")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {allFields.map((f) => {
-                    const selected = selectedFields.find((sf) => sf.key === f.key);
+                  {fieldSections.map((group) => {
+                    const { total, picked } = sectionSelection(group.section);
+                    const value = sectionActionValue(group.section);
                     return (
-                      <TableRow
-                        key={f.key}
-                        hover
-                        onClick={() => toggleField(f)}
-                        sx={{ cursor: "pointer" }}
-                      >
-                        <TableCell padding="checkbox">
-                          <Checkbox checked={!!selected} size="small" />
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="caption" color="text.secondary">
-                            {f.section}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>{f.label}</TableCell>
-                        <TableCell>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                            <Chip label={fieldTypeLabel(f.type)} size="small" variant="outlined" />
-                            {isInactiveExtType(f.type) && (
-                              <Tooltip title={t("surveyBuilder.fields.inactiveExtType")}>
-                                <Box component="span" sx={{ display: "inline-flex" }}>
-                                  <MaterialSymbol icon="warning" size={16} color="#ed6c02" />
-                                </Box>
-                              </Tooltip>
-                            )}
-                          </Box>
-                        </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          {selected && (
+                      <Fragment key={group.section}>
+                        <TableRow
+                          hover
+                          onClick={() => setSectionSelected(group.section, picked < total)}
+                          sx={{ cursor: "pointer", bgcolor: "action.hover" }}
+                        >
+                          <TableCell padding="checkbox">
+                            <Checkbox
+                              size="small"
+                              checked={picked === total}
+                              indeterminate={picked > 0 && picked < total}
+                            />
+                          </TableCell>
+                          <TableCell colSpan={2}>
+                            <Box sx={{ display: "flex", alignItems: "baseline", gap: 1 }}>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                {group.label}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {picked}/{total}
+                              </Typography>
+                            </Box>
+                          </TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
                             <TextField
                               select
                               size="small"
-                              value={selected.action}
+                              value={value}
+                              disabled={picked === 0}
                               onChange={(e) =>
-                                setFieldAction(f.key, e.target.value as "maintain" | "confirm")
+                                setSectionAction(group.section, e.target.value as "maintain" | "confirm")
                               }
                               sx={{ minWidth: 120 }}
+                              slotProps={{
+                                select: {
+                                  // "" is the mixed state — without displayEmpty
+                                  // the control would render blank and read as
+                                  // "nothing chosen" rather than "these differ".
+                                  displayEmpty: true,
+                                  renderValue: (v: unknown) =>
+                                    v === "maintain"
+                                      ? t("surveyBuilder.fields.maintain")
+                                      : v === "confirm"
+                                        ? t("surveyBuilder.fields.confirm")
+                                        : t("surveyBuilder.fields.mixed"),
+                                },
+                              }}
                             >
                               <MenuItem value="maintain">{t("surveyBuilder.fields.maintain")}</MenuItem>
                               <MenuItem value="confirm">{t("surveyBuilder.fields.confirm")}</MenuItem>
                             </TextField>
-                          )}
-                        </TableCell>
-                      </TableRow>
+                          </TableCell>
+                        </TableRow>
+
+                        {group.fields.map((f) => {
+                          const selected = selectedFields.find((sf) => sf.key === f.key);
+                          return (
+                            <TableRow
+                              key={f.key}
+                              hover
+                              onClick={() => toggleField(f)}
+                              sx={{ cursor: "pointer" }}
+                            >
+                              <TableCell padding="checkbox">
+                                <Checkbox checked={!!selected} size="small" />
+                              </TableCell>
+                              <TableCell sx={{ pl: 4 }}>
+                                {f.label}
+                                {isEnforcedRequiredField(f as FieldDef) && (
+                                  <Tooltip title={t("common:labels.required")}>
+                                    <Box component="span" sx={{ color: "error.main", ml: 0.25 }}>
+                                      *
+                                    </Box>
+                                  </Tooltip>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                                  <Chip label={fieldTypeLabel(f.type)} size="small" variant="outlined" />
+                                  {isInactiveExtType(f.type) && (
+                                    <Tooltip title={t("surveyBuilder.fields.inactiveExtType")}>
+                                      <Box component="span" sx={{ display: "inline-flex" }}>
+                                        <MaterialSymbol icon="warning" size={16} color="#ed6c02" />
+                                      </Box>
+                                    </Tooltip>
+                                  )}
+                                </Box>
+                              </TableCell>
+                              <TableCell onClick={(e) => e.stopPropagation()}>
+                                {selected && (
+                                  <TextField
+                                    select
+                                    size="small"
+                                    value={selected.action}
+                                    onChange={(e) =>
+                                      setFieldAction(f.key, e.target.value as "maintain" | "confirm")
+                                    }
+                                    sx={{ minWidth: 120 }}
+                                  >
+                                    <MenuItem value="maintain">{t("surveyBuilder.fields.maintain")}</MenuItem>
+                                    <MenuItem value="confirm">{t("surveyBuilder.fields.confirm")}</MenuItem>
+                                  </TextField>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </Fragment>
                     );
                   })}
                 </TableBody>
@@ -978,7 +1139,16 @@ export default function SurveyBuilder() {
                             <TableCell padding="checkbox">
                               <Checkbox checked={!!selected} size="small" />
                             </TableCell>
-                            <TableCell>{r.label}</TableCell>
+                            <TableCell>
+                              {r.label}
+                              {r.mandatory && (
+                                <Tooltip title={t("common:labels.required")}>
+                                  <Box component="span" sx={{ color: "error.main", ml: 0.25 }}>
+                                    *
+                                  </Box>
+                                </Tooltip>
+                              )}
+                            </TableCell>
                             <TableCell>
                               <Chip label={r.relatedTypeLabel} size="small" variant="outlined" />
                             </TableCell>
@@ -1095,29 +1265,6 @@ export default function SurveyBuilder() {
                     })}
                   </AlertTitle>
                   {t("surveyBuilder.preview.skippedHint")}
-                  {preview.skipped.length > 0 && (
-                    <Box sx={{ mt: 1, display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                      {preview.skipped.map((c) => (
-                        <Chip
-                          key={c.card_id}
-                          label={c.card_name}
-                          size="small"
-                          variant="outlined"
-                          component="a"
-                          href={`/cards/${c.card_id}`}
-                          target="_blank"
-                          clickable
-                        />
-                      ))}
-                      {preview.total_matched - preview.total_cards > preview.skipped.length && (
-                        <Typography variant="caption" color="text.secondary" sx={{ alignSelf: "center" }}>
-                          {t("surveyBuilder.preview.skippedTruncated", {
-                            count: preview.skipped.length,
-                          })}
-                        </Typography>
-                      )}
-                    </Box>
-                  )}
                 </Alert>
               )}
 

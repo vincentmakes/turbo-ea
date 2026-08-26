@@ -26,10 +26,6 @@ from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/surveys", tags=["surveys"])
 
-#: How many skipped cards the preview names. Enough to act on, small enough that
-#: an inventory with no stakeholder coverage can't balloon the response.
-SKIPPED_SAMPLE = 100
-
 
 # ── Pydantic bodies ──────────────────────────────────────────────────────────
 
@@ -656,8 +652,6 @@ async def preview_survey(
         raise HTTPException(404, "Survey not found")
 
     targets, matched = await _resolve_targets(db, survey)
-    targeted_ids = {t["card_id"] for t in targets}
-    skipped = [c for c in matched if str(c.id) not in targeted_ids]
     return {
         "total_cards": len(targets),
         # Everything the filters matched, recipient or not. `total_cards` is a
@@ -671,10 +665,6 @@ async def preview_survey(
         # notification per (card, user). Equals `targets_created` by construction.
         "total_requests": sum(len(t["users"]) for t in targets),
         "targets": targets,
-        # Named so the admin can go assign owners, but capped: a landscape with
-        # thousands of ownerless cards must not hand the builder a payload the
-        # size of its inventory. `total_matched` still reports the true total.
-        "skipped": [{"card_id": str(c.id), "card_name": c.name} for c in skipped[:SKIPPED_SAMPLE]],
     }
 
 
