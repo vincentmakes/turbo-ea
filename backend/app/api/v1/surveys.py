@@ -103,6 +103,18 @@ def _response_to_dict(r: SurveyResponse) -> dict:
     }
 
 
+def _survey_notification_message(survey: Survey, card_count: int) -> str:
+    """Body for the one notification a recipient gets for a survey.
+
+    The author's own message leads, since that is what they wrote to explain
+    the ask; the card count follows, because one notification now stands for
+    however many cards that person was asked about.
+    """
+    noun = "card" if card_count == 1 else "cards"
+    ask = f"You have been asked to review {card_count} {noun}."
+    return f"{survey.message}\n\n{ask}" if survey.message else ask
+
+
 async def _resolve_targets(db: AsyncSession, survey: Survey) -> tuple[list[dict], list[Card]]:
     """Resolve survey filters into ``(targets, matched_cards)``.
 
@@ -661,8 +673,9 @@ async def preview_survey(
         # card they hold a role on, which is a request count, not a headcount —
         # and the tile above it reads "Users to Notify".
         "total_users": len({u["user_id"] for t in targets for u in t["users"]}),
-        # What `send` will actually create: one SurveyResponse and one
-        # notification per (card, user). Equals `targets_created` by construction.
+        # What `send` will actually create: one SurveyResponse per (card, user),
+        # equal to `targets_created` by construction. Notifications are one per
+        # user — that count is the tile above.
         "total_requests": sum(len(t["users"]) for t in targets),
         "targets": targets,
     }
@@ -704,10 +717,16 @@ async def send_survey(
     # inline — the Send button hung for the sum of the handshakes. The response
     # rows are what make the survey real (My Surveys reads them); the
     # notifications are delivery, and delivery can lag the click by seconds.
+    #
+    # One response row per (card, user) — that is the unit of work, and what
+    # My Surveys, the Todos tab and `targets_created` count. One *notification*
+    # per user, though: someone who owns forty applications needs one nudge
+    # saying so, not forty bell entries and forty emails.
     created = 0
-    recipients: list[dict] = []
+    cards_by_user: dict[uuid.UUID, list[tuple[uuid.UUID, str]]] = {}
     for target in targets:
         card_id = uuid.UUID(target["card_id"])
+        card_name = target["card_name"]
         for u in target["users"]:
             u_id = uuid.UUID(u["user_id"])
             resp = SurveyResponse(
@@ -717,15 +736,32 @@ async def send_survey(
             )
             db.add(resp)
             created += 1
-            recipients.append(
-                {
-                    "user_id": u_id,
-                    "title": f"Survey: {survey.name}",
-                    "message": survey.message or "You have been asked to review data for a survey.",
-                    "link": f"/surveys/{survey.id}/respond/{card_id}",
-                    "data": {"survey_id": str(survey.id), "card_id": str(card_id)},
-                }
-            )
+            cards_by_user.setdefault(u_id, []).append((card_id, card_name))
+
+    recipients: list[dict] = [
+        {
+            "user_id": u_id,
+            "title": f"Survey: {survey.name}",
+            "message": _survey_notification_message(survey, len(cards)),
+            # A person with a single card goes straight to it; anyone with
+            # several lands on My Surveys, which lists them all.
+            "link": (
+                f"/surveys/{survey.id}/respond/{cards[0][0]}"
+                if len(cards) == 1
+                else "/todos?tab=surveys"
+            ),
+            "data": {"survey_id": str(survey.id), "card_count": len(cards)},
+            # Emailed only: the mail names every card and links each one
+            # straight to its response form, so a recipient can start from
+            # their inbox. The bell entry stays a one-liner.
+            "email_items": [
+                {"label": name, "link": f"/surveys/{survey.id}/respond/{cid}"}
+                for cid, name in cards
+            ],
+            "email_items_title": "Cards to review",
+        }
+        for u_id, cards in cards_by_user.items()
+    ]
 
     survey.status = "active"
     survey.sent_at = datetime.now(timezone.utc)

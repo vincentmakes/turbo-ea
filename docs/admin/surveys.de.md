@@ -72,10 +72,11 @@ Sobald Ihre Umfrage im Status **Aktiv** ist:
 1. Klicken Sie auf **Senden**, um die Umfrage zu verteilen
 2. Für jede Zielkarte wird eine Aufgabe für die zugewiesenen Stakeholder generiert
 3. Stakeholder sehen die Umfrage in ihrem Tab **Meine Umfragen** auf der [Aufgabenseite](../guide/tasks.md)
+4. Jeder Stakeholder erhält **eine** Benachrichtigung — und, sofern aktiviert, eine E-Mail —, unabhängig davon, wie viele seiner Karten in der Umfrage sind; die E-Mail listet diese Karten auf und verlinkt jede direkt auf ihr Antwortformular
 
 !!! note "Eine Karte braucht jemanden zum Fragen"
 
-    Eine Karte wird nur befragt, wenn mindestens eine Person eine der **Ziel-Stakeholder-Rollen** auf ihr innehat. Karten, die Ihren Filtern entsprechen, aber keinen solchen Stakeholder haben, werden übersprungen. Der Schritt **Vorschau & Senden** nennt deren Anzahl und Namen, damit Sie Verantwortliche zuweisen können.
+    Eine Karte wird nur befragt, wenn mindestens eine Person eine der **Ziel-Stakeholder-Rollen** auf ihr innehat. Karten, die Ihren Filtern entsprechen, aber keinen solchen Stakeholder haben, werden übersprungen. Der Schritt **Vorschau & Senden** nennt deren Anzahl, damit Sie Verantwortliche zuweisen können.
 
 ## Ergebnisse anzeigen
 

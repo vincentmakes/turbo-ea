@@ -155,13 +155,16 @@ async def deliver_notification_batch(
     the survey (or whatever scheduled the batch) stays sent — the in-app lists
     driven by real rows are the source of truth, notifications are the nudge.
 
-    Each recipient dict: ``{user_id, title, message, link?, data?, card_id?}``.
+    Each recipient dict: ``{user_id, title, message, link?, data?, card_id?,
+    email_items?, email_items_title?}``. The ``email_items`` pair is emailed
+    only — a bell entry stays a one-liner, while the email can afford to name
+    what the notification covers.
     """
     from app.database import async_session
     from app.services.email_service import send_notification_email
 
     try:
-        emails: list[tuple[uuid.UUID, str, str, str, str | None]] = []
+        emails: list[tuple[uuid.UUID, str, dict[str, Any]]] = []
         async with async_session() as db:
             user_ids = {r["user_id"] for r in recipients}
             result = await db.execute(select(User).where(User.id.in_(user_ids)))
@@ -182,14 +185,24 @@ async def deliver_notification_batch(
                 recipient = users.get(r["user_id"])
                 if notif and recipient and _user_wants_notification(recipient, notif_type, "email"):
                     emails.append(
-                        (notif.id, recipient.email, r["title"], r.get("message", ""), r.get("link"))
+                        (
+                            notif.id,
+                            recipient.email,
+                            {
+                                "title": r["title"],
+                                "message": r.get("message", ""),
+                                "link": r.get("link"),
+                                "items": r.get("email_items"),
+                                "items_title": r.get("email_items_title"),
+                            },
+                        )
                     )
             await db.commit()
 
         sent_ids: list[uuid.UUID] = []
-        for notif_id, to, title, message, link in emails:
+        for notif_id, to, payload in emails:
             try:
-                if await send_notification_email(to=to, title=title, message=message, link=link):
+                if await send_notification_email(to=to, **payload):
                     sent_ids.append(notif_id)
             except Exception:
                 logger.exception("Failed to email notification to %s", to)

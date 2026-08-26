@@ -72,10 +72,11 @@ Une fois votre enquête en statut **Active** :
 1. Cliquez sur **Envoyer** pour distribuer l'enquête
 2. Chaque fiche ciblée génère une tâche pour les parties prenantes assignées
 3. Les parties prenantes voient l'enquête dans leur onglet **Mes enquêtes** sur la [page Tâches](../guide/tasks.md)
+4. Chaque partie prenante reçoit **une seule** notification — et un seul e-mail, s'il est activé — quel que soit le nombre de ses fiches concernées ; l'e-mail liste ces fiches, chacune renvoyant directement à son formulaire de réponse
 
 !!! note "Une fiche a besoin de quelqu'un à interroger"
 
-    Une fiche n'est incluse dans l'enquête que si au moins une personne y détient l'un des **rôles de partie prenante ciblés**. Les fiches qui correspondent à vos filtres sans une telle partie prenante sont ignorées ; l'étape **Aperçu et envoi** en indique le nombre et les noms, afin que vous puissiez affecter des responsables.
+    Une fiche n'est incluse dans l'enquête que si au moins une personne y détient l'un des **rôles de partie prenante ciblés**. Les fiches qui correspondent à vos filtres sans une telle partie prenante sont ignorées ; l'étape **Aperçu et envoi** en indique le nombre, afin que vous puissiez affecter des responsables.
 
 ## Consultation des résultats
 

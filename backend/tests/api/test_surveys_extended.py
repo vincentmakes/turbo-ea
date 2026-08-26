@@ -243,6 +243,98 @@ class TestSendSurvey:
 
 
 # ---------------------------------------------------------------------------
+# Survey-send notification fan-out
+# ---------------------------------------------------------------------------
+
+
+class TestSendNotificationFanOut:
+    """One notification per person, however many of their cards are surveyed.
+
+    The response rows stay per (card, user) — they are the unit of work — but a
+    stakeholder who owns forty applications must not get forty bell entries and
+    forty emails. Asserted on the payload handed to the background delivery
+    task, which is where the fan-out is decided.
+    """
+
+    @staticmethod
+    def _capture(monkeypatch) -> list[list[dict]]:
+        from app.services import notification_service
+
+        calls: list[list[dict]] = []
+
+        async def fake_deliver(recipients, *, notif_type, actor_id=None):
+            calls.append(recipients)
+
+        monkeypatch.setattr(notification_service, "deliver_notification_batch", fake_deliver)
+        return calls
+
+    async def test_one_notification_for_a_user_holding_roles_on_several_cards(
+        self, client, db, survey_env, monkeypatch
+    ):
+        admin = survey_env["admin"]
+        member = survey_env["member"]
+
+        second = await create_card(
+            db,
+            card_type="Application",
+            name="Second App",
+            user_id=admin.id,
+            attributes={"costTotalAnnual": 2000, "riskLevel": "low"},
+        )
+        db.add(Stakeholder(card_id=second.id, user_id=member.id, role="responsible"))
+        await db.flush()
+
+        calls = self._capture(monkeypatch)
+        survey = await _create_draft_survey(client, admin)
+        resp = await client.post(
+            f"/api/v1/surveys/{survey['id']}/send",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        # Both cards still generate their own response row / todo.
+        assert resp.json()["targets_created"] == 2
+
+        assert len(calls) == 1
+        recipients = calls[0]
+        assert len(recipients) == 1
+        (notif,) = recipients
+        assert notif["user_id"] == member.id
+        # Several cards → My Surveys, which lists them all.
+        assert notif["link"] == "/todos?tab=surveys"
+        assert "2 cards" in notif["message"]
+        assert notif["data"]["card_count"] == 2
+        # The email names both cards and links each to its own response form,
+        # so the recipient can start from their inbox.
+        assert {i["label"] for i in notif["email_items"]} == {"Survey Test App", "Second App"}
+        assert {i["link"] for i in notif["email_items"]} == {
+            f"/surveys/{survey['id']}/respond/{survey_env['card'].id}",
+            f"/surveys/{survey['id']}/respond/{second.id}",
+        }
+
+    async def test_a_single_card_links_straight_to_its_response_form(
+        self, client, db, survey_env, monkeypatch
+    ):
+        admin = survey_env["admin"]
+        member = survey_env["member"]
+        card = survey_env["card"]
+
+        calls = self._capture(monkeypatch)
+        survey = await _create_draft_survey(client, admin)
+        resp = await client.post(
+            f"/api/v1/surveys/{survey['id']}/send",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+
+        (recipients,) = calls
+        assert len(recipients) == 1
+        (notif,) = recipients
+        assert notif["user_id"] == member.id
+        assert notif["link"] == f"/surveys/{survey['id']}/respond/{card.id}"
+        assert "1 card" in notif["message"]
+
+
+# ---------------------------------------------------------------------------
 # GET /surveys/my
 # ---------------------------------------------------------------------------
 

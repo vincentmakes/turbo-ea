@@ -72,10 +72,11 @@ Once your survey is in **Active** status:
 1. Click **Send** to distribute the survey
 2. Each targeted card generates a todo for the assigned stakeholders
 3. Stakeholders see the survey in their **My Surveys** tab on the [Tasks page](../guide/tasks.md)
+4. Each stakeholder receives **one** notification — and one email, where enabled — however many of their cards are in the survey; the email lists those cards, each linking straight to its response form
 
 !!! note "A card needs someone to ask"
 
-    A card is only surveyed if at least one person holds one of the **target stakeholder roles** on it. Cards that match your filters but have no such stakeholder are skipped, and the **Preview & send** step reports how many — with their names — so you can assign owners rather than wonder why the count is low.
+    A card is only surveyed if at least one person holds one of the **target stakeholder roles** on it. Cards that match your filters but have no such stakeholder are skipped, and the **Preview & send** step reports how many, so you can assign owners rather than wonder why the count is low.
 
 ## Viewing Results
 

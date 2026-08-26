@@ -72,10 +72,11 @@ Uma vez que sua pesquisa está no status **Ativa**:
 1. Clique em **Enviar** para distribuir a pesquisa
 2. Cada card alvo gera uma tarefa para as partes interessadas atribuídas
 3. Partes interessadas veem a pesquisa na aba **Minhas Pesquisas** na [página de Tarefas](../guide/tasks.md)
+4. Cada parte interessada recebe **uma** notificação — e um único e-mail, se estiver ativado — independentemente de quantos dos seus cartões entram na pesquisa; o e-mail lista esses cartões, cada um com ligação direta ao respetivo formulário de resposta
 
 !!! note "Um cartão precisa de alguém a quem perguntar"
 
-    Um cartão só é inquirido se pelo menos uma pessoa detiver nele uma das **funções de parte interessada selecionadas**. Os cartões que correspondem aos seus filtros mas não têm essa parte interessada são ignorados; o passo **Pré-visualizar e enviar** indica quantos são e os respetivos nomes, para que possa atribuir responsáveis.
+    Um cartão só é inquirido se pelo menos uma pessoa detiver nele uma das **funções de parte interessada selecionadas**. Os cartões que correspondem aos seus filtros mas não têm essa parte interessada são ignorados; o passo **Pré-visualizar e enviar** indica quantos são, para que possa atribuir responsáveis.
 
 ## Visualizando Resultados
 

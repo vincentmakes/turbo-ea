@@ -261,7 +261,7 @@ class TestDeliverNotificationBatch:
 
         sent: list[str] = []
 
-        async def fake_send(*, to, title, message, link):
+        async def fake_send(*, to, title, message, link, **_kw):
             sent.append(to)
             return True
 
@@ -290,7 +290,7 @@ class TestDeliverNotificationBatch:
         bob = await self._user(db, "bob@test.com")
         monkeypatch.setattr("app.database.async_session", _session_factory_for(db))
 
-        async def flaky_send(*, to, title, message, link):
+        async def flaky_send(*, to, title, message, link, **_kw):
             if to == "alice@test.com":
                 raise RuntimeError("smtp down")
             return True
@@ -308,6 +308,43 @@ class TestDeliverNotificationBatch:
         assert set(rows) == {alice.id, bob.id}  # in-app rows regardless
         assert rows[alice.id].is_emailed is False
         assert rows[bob.id].is_emailed is True
+
+    async def test_email_items_reach_the_email_and_not_the_bell(self, db, monkeypatch):
+        """The card list is an email-only enrichment.
+
+        One notification can now stand for many cards, so the email names them
+        — but the in-app row stays the one-liner the bell renders.
+        """
+        await create_role(db, key="member", permissions={})
+        alice = await self._user(db, "alice@test.com")
+        monkeypatch.setattr("app.database.async_session", _session_factory_for(db))
+
+        seen: list[dict] = []
+
+        async def fake_send(**kwargs):
+            seen.append(kwargs)
+            return True
+
+        items = [{"label": "Payroll", "link": "/surveys/1/respond/2"}]
+        with patch("app.services.email_service.send_notification_email", new=fake_send):
+            await deliver_notification_batch(
+                [
+                    {
+                        "user_id": alice.id,
+                        "title": "Survey: Q3",
+                        "message": "please",
+                        "email_items": items,
+                        "email_items_title": "Cards to review",
+                    }
+                ],
+                notif_type="survey_request",
+            )
+
+        assert seen[0]["items"] == items
+        assert seen[0]["items_title"] == "Cards to review"
+        row = (await db.execute(select(Notification))).scalars().one()
+        assert row.message == "please"
+        assert "Payroll" not in (row.message or "")
 
     async def test_never_raises(self, db, monkeypatch):
         """The batch runs detached — a total failure must be swallowed, not

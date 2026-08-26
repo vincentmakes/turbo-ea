@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.config import settings as real_settings
-from app.services.email_service import send_email, send_notification_email
+from app.services.email_service import MAX_EMAIL_ITEMS, send_email, send_notification_email
 
 SMTP_PATCH_TARGET = "app.services.email_backends.smtp.smtplib.SMTP"
 
@@ -180,3 +180,83 @@ class TestSendEmailEdgeCases:
 
         mock_smtp.starttls.assert_called_once()
         mock_smtp.login.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Item list (a notification that stands for several things names them)
+# ---------------------------------------------------------------------------
+
+
+def _text_part(raw_msg: str) -> str:
+    """Pull the text/plain alternative out of a MIME-encoded message string."""
+    msg = message_from_string(raw_msg)
+    for part in msg.walk():
+        if part.get_content_type() == "text/plain":
+            return part.get_payload(decode=True).decode()
+    raise AssertionError("no text/plain part found")
+
+
+class TestItemList:
+    async def _send(self, monkeypatch, **kwargs):
+        _configure(monkeypatch, _app_base_url="https://ea.test")
+        mock_smtp, captured = _capturing_smtp()
+        with patch(SMTP_PATCH_TARGET, return_value=mock_smtp):
+            await send_notification_email(
+                to="user@test.com",
+                title="Survey: Q3",
+                message="please review",
+                **kwargs,
+            )
+        return captured["msg"]
+
+    async def test_items_are_listed_with_absolute_links(self, monkeypatch):
+        raw = await self._send(
+            monkeypatch,
+            items=[
+                {"label": "Payroll", "link": "/surveys/s1/respond/c1"},
+                {"label": "CRM", "link": "/surveys/s1/respond/c2"},
+            ],
+            items_title="Cards to review",
+        )
+        body = _html_part(raw)
+        assert "Cards to review" in body
+        assert "https://ea.test/surveys/s1/respond/c1" in body
+        assert ">Payroll</a>" in body
+        assert ">CRM</a>" in body
+        # The plain-text alternative carries the same list, not just the HTML.
+        text = _text_part(raw)
+        assert "- Payroll" in text and "- CRM" in text
+
+    async def test_card_names_are_escaped(self, monkeypatch):
+        """Labels are card names — user input on the way into an HTML body."""
+        body = _html_part(
+            await self._send(monkeypatch, items=[{"label": "<img src=x onerror=go()>"}])
+        )
+        assert "<img" not in body
+        assert "&lt;img" in body
+
+    async def test_a_long_list_is_truncated_with_a_count(self, monkeypatch):
+        """A landscape owner can hold hundreds of cards; the email stays a
+        summary rather than becoming a scroll."""
+        items = [{"label": f"App {i}", "link": f"/c/{i}"} for i in range(MAX_EMAIL_ITEMS + 7)]
+        body = _html_part(await self._send(monkeypatch, items=items))
+        assert f"App {MAX_EMAIL_ITEMS - 1}" in body
+        assert f"App {MAX_EMAIL_ITEMS}" not in body
+        assert "and 7 more" in body
+
+    async def test_no_items_renders_no_table(self, monkeypatch):
+        body = _html_part(await self._send(monkeypatch))
+        assert "<table" not in body
+
+    async def test_message_line_breaks_survive_into_html(self, monkeypatch):
+        """A survey message is written in a textarea; its paragraphs must not
+        collapse into one run of text in the email."""
+        _configure(monkeypatch)
+        mock_smtp, captured = _capturing_smtp()
+        with patch(SMTP_PATCH_TARGET, return_value=mock_smtp):
+            await send_notification_email(
+                to="user@test.com",
+                title="Survey: Q3",
+                message="Please review.\n\nYou have been asked to review 3 cards.",
+            )
+        assert "Please review.<br><br>You have been asked" in _html_part(captured["msg"])

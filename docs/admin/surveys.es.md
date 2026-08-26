@@ -72,10 +72,11 @@ Una vez que su encuesta está en estado **Activa**:
 1. Haga clic en **Enviar** para distribuir la encuesta
 2. Cada ficha objetivo genera una tarea para las partes interesadas asignadas
 3. Las partes interesadas ven la encuesta en su pestaña **Mis Encuestas** en la [página de Tareas](../guide/tasks.es.md)
+4. Cada parte interesada recibe **una** notificación —y un solo correo, si está habilitado— sean cuantas sean sus fichas incluidas; el correo enumera esas fichas y enlaza cada una directamente con su formulario de respuesta
 
 !!! note "Una tarjeta necesita a alguien a quien preguntar"
 
-    Una tarjeta solo se incluye en la encuesta si al menos una persona ostenta en ella uno de los **roles de parte interesada seleccionados**. Las tarjetas que coinciden con sus filtros pero carecen de esa parte interesada se omiten; el paso **Vista previa y envío** indica cuántas son y sus nombres, para que pueda asignar responsables.
+    Una tarjeta solo se incluye en la encuesta si al menos una persona ostenta en ella uno de los **roles de parte interesada seleccionados**. Las tarjetas que coinciden con sus filtros pero carecen de esa parte interesada se omiten; el paso **Vista previa y envío** indica cuántas son, para que pueda asignar responsables.
 
 ## Visualización de Resultados
 
