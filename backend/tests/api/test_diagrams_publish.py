@@ -154,15 +154,23 @@ class TestPublishPermission:
 
     async def test_slug_is_not_derived_from_the_name(self, client, db, publish_env):
         """For a public diagram the URL is the capability, so the slug must not
-        be guessable from the title."""
-        did = await _make_diagram(client, publish_env["admin"], name="Q3 Landscape")
+        be guessable from the title.
+
+        Every token in the name is deliberately long. The slug is
+        ``secrets.token_urlsafe(24)`` — 32 random characters — so a short token
+        turns this into a dice roll rather than a check: the name used to be
+        "Q3 Landscape", and a random slug contains "q3" about 1.5% of the time,
+        which failed roughly one CI run in 68 for reasons having nothing to do
+        with how the slug is built. At nine characters the odds are ~1e-13.
+        """
+        did = await _make_diagram(client, publish_env["admin"], name="Quarterly Landscape")
         resp = await client.post(
             f"/api/v1/diagrams/{did}/publish",
             json={"access_mode": "public"},
             headers=auth_headers(publish_env["admin"]),
         )
         slug = resp.json()["public_slug"]
-        assert "q3" not in slug.lower()
+        assert "quarterly" not in slug.lower()
         assert "landscape" not in slug.lower()
         assert len(slug) >= 20
 
