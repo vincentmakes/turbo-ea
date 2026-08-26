@@ -30,7 +30,10 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.permissions import strip_legacy_card_permissions
+from app.core.permissions import (
+    migrate_legacy_app_permissions,
+    strip_legacy_card_permissions,
+)
 from app.models.app_settings import AppSettings
 from app.models.bookmark import Bookmark, bookmark_shares
 from app.models.card import Card
@@ -467,15 +470,22 @@ def _make_config_applier(sec: schema.ConfigSection):
         }
         for row in bundle.rows(sec.sheet):
             data = _coerce(row, sec.columns, sec.json_columns)
-            # A bundle exported from an install upgraded through migration 024
-            # carries card permission keys 140 has since dropped. This path
-            # writes straight onto the model, bypassing the Pydantic validators
-            # that forgive them, so without this an old bundle would silently
-            # re-poison a repaired instance and break its role editor again.
-            # Scoped to the stakeholder-role sheet on purpose: app-level
-            # ``roles.permissions`` keys were already repaired by 033.
-            if sec.model is StakeholderRoleDefinition and "permissions" in data:
-                data["permissions"] = strip_legacy_card_permissions(data["permissions"])
+            # A bundle exported from an install that predates the permission
+            # renames carries keys the validators would reject. This path writes
+            # straight onto the model, bypassing Pydantic entirely, so without
+            # this an old bundle would silently re-poison a repaired instance
+            # and break its role editor — the very bug 140 exists to fix, only
+            # reintroduced through the back door and with no migration watching.
+            #
+            # The two tiers are normalised differently on purpose: dead
+            # card-level keys are dropped (they grant nothing), while app-level
+            # keys are renamed onto the permissions they still mean, so an
+            # import never silently revokes access a role actually had.
+            if "permissions" in data:
+                if sec.model is StakeholderRoleDefinition:
+                    data["permissions"] = strip_legacy_card_permissions(data["permissions"])
+                elif sec.model is Role:
+                    data["permissions"] = migrate_legacy_app_permissions(data["permissions"])
             nk = tuple(data.get(k) for k in sec.natural_key)
             if any(part is None for part in nk):
                 sr.failed += 1

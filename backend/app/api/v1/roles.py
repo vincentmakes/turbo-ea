@@ -11,7 +11,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.core.permissions import ALL_APP_PERMISSION_KEYS, APP_PERMISSIONS
+from app.core.permissions import (
+    ALL_APP_PERMISSION_KEYS,
+    APP_PERMISSIONS,
+    migrate_legacy_app_permissions,
+)
 from app.database import get_db
 from app.models.role import Role
 from app.models.user import User
@@ -48,6 +52,12 @@ class RoleCreate(BaseModel):
     @field_validator("permissions")
     @classmethod
     def validate_permissions(cls, v: dict[str, bool]) -> dict[str, bool]:
+        # Pre-024 keys are renamed to their modern equivalents rather than
+        # rejected. The admin UI renders only the keys the schema endpoint
+        # returns yet resends the stored map verbatim, so a stale key it cannot
+        # display would otherwise be invisible, un-removable, and fatal to every
+        # save. Renaming here also cleans the row on the next save.
+        v = migrate_legacy_app_permissions(v)
         unknown = set(v.keys()) - ALL_APP_PERMISSION_KEYS - {"*"}
         if unknown:
             raise ValueError(f"Unknown permission keys: {', '.join(sorted(unknown))}")
@@ -66,6 +76,7 @@ class RoleUpdate(BaseModel):
     @classmethod
     def validate_permissions(cls, v: dict[str, bool] | None) -> dict[str, bool] | None:
         if v is not None:
+            v = migrate_legacy_app_permissions(v)
             unknown = set(v.keys()) - ALL_APP_PERMISSION_KEYS - {"*"}
             if unknown:
                 raise ValueError(f"Unknown permission keys: {', '.join(sorted(unknown))}")

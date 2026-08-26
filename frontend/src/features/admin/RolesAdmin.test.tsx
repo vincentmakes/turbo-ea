@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import RolesAdmin from "./RolesAdmin";
+import RolesAdmin, { retainKnownPermissions } from "./RolesAdmin";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -283,5 +283,56 @@ describe("RolesAdmin", () => {
     await waitFor(() => {
       expect(screen.getByText(/5 users assigned to this role/i)).toBeInTheDocument();
     });
+  });
+});
+
+describe("retainKnownPermissions", () => {
+  const SCHEMA = {
+    inventory: {
+      label: "Inventory",
+      permissions: { "inventory.view": "View", "inventory.edit": "Edit" },
+    },
+    stakeholders: {
+      label: "Stakeholders",
+      permissions: { "stakeholders.view": "View" },
+    },
+  };
+
+  it("drops a stored key the editor cannot display", () => {
+    // A pre-024 name left in an older database is invisible in the permission
+    // editor yet used to be resent verbatim, so the API rejected the whole
+    // PATCH and the label and colour edits went down with it.
+    expect(
+      retainKnownPermissions(
+        { "inventory.view": true, "subscriptions.view": true },
+        SCHEMA,
+      ),
+    ).toEqual({ "inventory.view": true });
+  });
+
+  it("keeps the admin wildcard, which never appears in the schema", () => {
+    expect(retainKnownPermissions({ "*": true }, SCHEMA)).toEqual({ "*": true });
+  });
+
+  it("preserves false values for known keys", () => {
+    expect(retainKnownPermissions({ "inventory.edit": false }, SCHEMA)).toEqual({
+      "inventory.edit": false,
+    });
+  });
+
+  it("keeps everything when the schema fetch came back empty", () => {
+    // An empty schema means "cannot tell", not "no permissions" — otherwise a
+    // failed fetch would blank the role on the next save.
+    expect(
+      retainKnownPermissions({ "inventory.view": true, "subscriptions.view": true }, {}),
+    ).toEqual({ "inventory.view": true, "subscriptions.view": true });
+  });
+
+  it("is idempotent", () => {
+    const once = retainKnownPermissions(
+      { "inventory.view": true, "subscriptions.view": true },
+      SCHEMA,
+    );
+    expect(retainKnownPermissions(once, SCHEMA)).toEqual(once);
   });
 });

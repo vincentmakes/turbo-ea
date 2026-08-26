@@ -10,7 +10,7 @@ from __future__ import annotations
 import io
 
 import pytest
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, select
 
 from app.core.encryption import encrypt_value
 from app.models.app_settings import AppSettings
@@ -906,6 +906,11 @@ async def test_import_cannot_reintroduce_legacy_permission_keys(db):
     bypassing the Pydantic validators that forgive these keys — so without the
     normaliser an old bundle would put ``card.quality_seal`` back and break the
     target's stakeholder-role editor again, with a key its admin cannot see.
+
+    The stale key is seeded **before** the export so the bundle itself carries
+    it, and the row is deleted before the import so the applier has to take its
+    create path: asserting on a row the bundle merely failed to change would
+    pass without the normaliser doing anything at all.
     """
     from app.models.card_type import CardType
     from app.models.stakeholder_role_definition import StakeholderRoleDefinition
@@ -927,19 +932,19 @@ async def test_import_cannot_reintroduce_legacy_permission_keys(db):
             key="responsible",
             label="Responsible",
             color="#ff0000",
-            permissions={"card.view": True},
+            permissions={"card.view": True, "card.quality_seal": True},
         )
     )
     await db.flush()
 
     raw = await build_bundle(db)
+    # Prove the bundle really carries the stale key, so the assertions below
+    # test the normaliser rather than an export that quietly dropped it.
+    exported = parse_bundle(raw).rows(schema.SHEET_STAKEHOLDER_ROLES)
+    assert any("card.quality_seal" in str(r.get("permissions", "")) for r in exported)
 
-    # Simulate the source instance still carrying the dead key: rewrite the row
-    # in place, then re-import that bundle over it.
     await db.execute(
-        update(StakeholderRoleDefinition)
-        .where(StakeholderRoleDefinition.key == "responsible")
-        .values(permissions={"card.view": True, "card.quality_seal": True})
+        delete(StakeholderRoleDefinition).where(StakeholderRoleDefinition.key == "responsible")
     )
     await db.flush()
 
@@ -956,3 +961,45 @@ async def test_import_cannot_reintroduce_legacy_permission_keys(db):
     ).scalar_one()
     assert "card.quality_seal" not in stored
     assert stored == {"card.view": True}
+
+
+async def test_import_renames_legacy_app_permission_keys(db):
+    """A bundle from a pre-033 instance must not reintroduce the old app names.
+
+    This is the path no migration is watching: the config applier writes
+    ``roles.permissions`` straight onto the model, bypassing the RoleCreate /
+    RoleUpdate validators, so an old bundle would put ``subscriptions.view``
+    back into a repaired database and break its roles admin.
+
+    Renamed, not dropped — the opposite of the card-level keys — because each
+    one still maps to a live permission, so discarding it would silently revoke
+    access the role actually had. Note the seeded value is ``False``: that is
+    what proves the value is carried across rather than the key merely being
+    re-added as a grant.
+    """
+    from app.models.role import Role
+
+    user = await create_user(db, email="legacy-app-perms-ws@test.com", role="admin")
+    db.add(
+        Role(
+            key="auditor",
+            label="Auditor",
+            permissions={"inventory.view": True, "subscriptions.view": False},
+            is_system=False,
+        )
+    )
+    await db.flush()
+
+    raw = await build_bundle(db)
+    exported = parse_bundle(raw).rows(schema.SHEET_ROLES)
+    assert any("subscriptions.view" in str(r.get("permissions", "")) for r in exported)
+
+    await db.execute(delete(Role).where(Role.key == "auditor"))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    stored = (await db.execute(select(Role.permissions).where(Role.key == "auditor"))).scalar_one()
+    assert "subscriptions.view" not in stored
+    assert stored == {"inventory.view": True, "stakeholders.view": False}

@@ -358,3 +358,115 @@ class TestArchiveRestoreRole:
             headers=auth_headers(admin),
         )
         assert response.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Legacy app-level permission keys (pre-024 names)
+# ---------------------------------------------------------------------------
+
+
+class TestLegacyPermissionKeys:
+    """A role map carrying the pre-024 permission names.
+
+    Migration 033 renamed these in place, so an install that ran it is clean.
+    They can still arrive afterwards through a workspace bundle exported from an
+    instance that never did — and the roles admin renders only the keys the
+    schema endpoint returns while resending the stored map verbatim, so such a
+    key is invisible, un-removable, and would otherwise fail every save.
+    """
+
+    async def test_patch_with_legacy_keys_saves_and_renames_them(self, client, db):
+        from sqlalchemy import select
+
+        from app.models.role import Role
+
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        await create_role(
+            db,
+            key="member",
+            label="Member",
+            is_system=False,
+            permissions={"inventory.view": True, "subscriptions.view": True},
+        )
+        admin = await create_user(db, email="admin@test.com", role="admin")
+
+        response = await client.patch(
+            "/api/v1/roles/member",
+            # What the admin panel sends: the stored map echoed back.
+            json={
+                "label": "Team Member",
+                "permissions": {"inventory.view": True, "subscriptions.view": True},
+            },
+            headers=auth_headers(admin),
+        )
+
+        assert response.status_code == 200
+        assert response.json()["label"] == "Team Member"
+        stored = (
+            await db.execute(select(Role.permissions).where(Role.key == "member"))
+        ).scalar_one()
+        # Renamed, not dropped — the role keeps the access it had.
+        assert stored == {"inventory.view": True, "stakeholders.view": True}
+
+    async def test_rename_preserves_a_false_value(self, client, db):
+        """A role that did not hold the permission must not gain it."""
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        await create_role(db, key="member", label="Member", is_system=False, permissions={})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+
+        response = await client.patch(
+            "/api/v1/roles/member",
+            json={"permissions": {"subscriptions.manage": False}},
+            headers=auth_headers(admin),
+        )
+
+        assert response.status_code == 200
+        assert response.json()["permissions"] == {"stakeholders.manage": False}
+
+    async def test_create_renames_legacy_keys(self, client, db):
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+
+        response = await client.post(
+            "/api/v1/roles",
+            json={
+                "key": "auditor",
+                "label": "Auditor",
+                "permissions": {"inventory.quality_seal": True},
+            },
+            headers=auth_headers(admin),
+        )
+
+        assert response.status_code == 201
+        assert response.json()["permissions"] == {"inventory.approval_status": True}
+
+    async def test_unknown_key_still_rejected_alongside_a_legacy_one(self, client, db):
+        """Forgiving the three known leftovers must not open the guard generally."""
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        await create_role(db, key="member", label="Member", is_system=False, permissions={})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+
+        response = await client.patch(
+            "/api/v1/roles/member",
+            json={"permissions": {"subscriptions.view": True, "fake.permission": True}},
+            headers=auth_headers(admin),
+        )
+
+        assert response.status_code == 422
+        messages = " ".join(d.get("msg", "") for d in response.json()["detail"])
+        assert "fake.permission" in messages
+        assert "subscriptions.view" not in messages
+
+    async def test_admin_wildcard_is_untouched(self, client, db):
+        """`*` is a real app-level grant and must survive the rename pass."""
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+
+        response = await client.patch(
+            "/api/v1/roles/admin",
+            json={"permissions": {"*": True}},
+            headers=auth_headers(admin),
+        )
+
+        assert response.status_code == 200
+        assert response.json()["permissions"] == {"*": True}

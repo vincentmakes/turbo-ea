@@ -262,6 +262,50 @@ for group in APP_PERMISSIONS.values():
     ALL_APP_PERMISSION_KEYS.update(group["permissions"].keys())
 
 # ---------------------------------------------------------------------------
+# Legacy app-level permission keys
+# ---------------------------------------------------------------------------
+#
+# The pre-024 names that migration 033 renamed inside ``roles.permissions``.
+# 033 repairs the rows an install already had, so on any instance that ran it
+# the table is clean — this map exists for the maps that arrive *afterwards*,
+# which no migration is watching: a workspace bundle exported from an instance
+# that never ran 033 is written straight onto the model by the transfer
+# applier, bypassing the validators below.
+#
+# Unlike the card-level keys, these are RENAMED, not dropped. Each one maps to
+# a permission that still exists and still means the same thing, so the stored
+# ``true`` is a grant somebody deliberately made; dropping it would silently
+# revoke access, where renaming preserves exactly what the role had.
+LEGACY_APP_PERMISSION_RENAMES: dict[str, str] = {
+    "subscriptions.view": "stakeholders.view",
+    "subscriptions.manage": "stakeholders.manage",
+    "inventory.quality_seal": "inventory.approval_status",
+}
+
+
+def migrate_legacy_app_permissions(permissions: dict) -> dict:
+    """Rename pre-024 app permission keys to their modern equivalents.
+
+    Mirrors migration 033's semantics: the modern key wins when both are
+    present, so a deliberate newer value is never clobbered by a stale one.
+    Keys outside the map are untouched — an unknown key stays unknown, for the
+    caller to reject.
+    """
+    if not isinstance(permissions, dict):
+        return permissions
+    if not LEGACY_APP_PERMISSION_RENAMES.keys() & permissions.keys():
+        return permissions
+    migrated: dict = {}
+    for key, value in permissions.items():
+        new_key = LEGACY_APP_PERMISSION_RENAMES.get(key)
+        if new_key is None:
+            migrated[key] = value
+        elif new_key not in permissions:
+            migrated[new_key] = value
+    return migrated
+
+
+# ---------------------------------------------------------------------------
 # Card-level permissions (stored in stakeholder_role_definitions.permissions)
 # ---------------------------------------------------------------------------
 

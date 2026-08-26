@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -41,6 +41,33 @@ interface PermissionGroup {
 
 type PermissionsSchema = Record<string, PermissionGroup>;
 
+/**
+ * Drop stored permission keys the editor cannot display.
+ *
+ * The permission editor renders only what `/roles/permissions-schema` returns,
+ * but the whole stored map is sent back on save — so a key the schema does not
+ * know about (a pre-024 name left in an older database, say) is invisible here,
+ * impossible to untick, and rejected by the API, taking the label, colour and
+ * every other edit down with it.
+ *
+ * Two things are deliberately kept: `*`, the admin role's wildcard, which is
+ * real but never appears in the schema; and the whole map when the schema is
+ * empty, since a failed schema fetch is not evidence that a role has no
+ * permissions.
+ */
+export function retainKnownPermissions(
+  permissions: Record<string, boolean>,
+  schema: PermissionsSchema,
+): Record<string, boolean> {
+  const known = new Set(
+    Object.values(schema).flatMap((group) => Object.keys(group.permissions)),
+  );
+  if (known.size === 0) return { ...permissions };
+  return Object.fromEntries(
+    Object.entries(permissions).filter(([key]) => key === "*" || known.has(key)),
+  );
+}
+
 interface CreateFormState {
   key: string;
   label: string;
@@ -79,6 +106,10 @@ export default function RolesAdmin() {
   /* ---- Data state ---- */
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [schema, setSchema] = useState<PermissionsSchema>({});
+  // `fetchRoleDetail` is a `useCallback` with no deps, so it cannot read
+  // `schema` without capturing the empty initial value. Mirror it in a ref.
+  const schemaRef = useRef<PermissionsSchema>(schema);
+  schemaRef.current = schema;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -144,7 +175,7 @@ export default function RolesAdmin() {
       setEditDescription(role.description || "");
       setEditColor(role.color);
       setEditIsDefault(role.is_default);
-      setEditPermissions({ ...role.permissions });
+      setEditPermissions(retainKnownPermissions(role.permissions, schemaRef.current));
       setDetailError(null);
     } catch (err) {
       setDetailError(

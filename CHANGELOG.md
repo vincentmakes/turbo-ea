@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.88.2] - 2026-08-26
+
+### Fixed
+
+- **Leftover permission entries are cleaned out of application-wide roles too.** Roles like Member and Viewer carry their own permission list, which went through a rename years ago — the same kind of leftover that stopped stakeholder roles saving in 2.88.1. Existing installs were repaired at the time, but importing a workspace from an instance that predates the rename could put the old entries back, and the Roles admin would then refuse to save: the entries are invisible in the permission editor yet sent back with every save. Those entries are now recognised wherever they turn up. **Unlike the stakeholder-role case they are converted, not removed:** each one still corresponds to a permission in use, so a role keeps exactly the access it had, including where the answer was «no».
+
 ## [2.88.1] - 2026-08-25
 
 ### Fixed

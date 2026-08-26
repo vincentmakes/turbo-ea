@@ -20,6 +20,7 @@ from app.core.permissions import (
     CARD_PERMISSIONS,
     CARD_TO_APP_PERMISSION_MAP,
     DEFAULT_CARD_PERMISSIONS_BY_ROLE,
+    LEGACY_APP_PERMISSION_RENAMES,
     LEGACY_CARD_PERMISSION_KEYS,
     MEMBER_PERMISSIONS,
     OBSERVER_CARD_PERMISSIONS,
@@ -27,6 +28,7 @@ from app.core.permissions import (
     RESPONSIBLE_CARD_PERMISSIONS,
     TECH_APP_OWNER_CARD_PERMISSIONS,
     VIEWER_PERMISSIONS,
+    migrate_legacy_app_permissions,
     strip_legacy_card_permissions,
 )
 
@@ -378,3 +380,78 @@ class TestLegacyCardPermissionKeys:
         # NOT NULL in the model, but a hand-edited or third-party row could hold
         # anything and this runs on every write path.
         assert strip_legacy_card_permissions(None) is None
+
+
+# ---------------------------------------------------------------------------
+# Legacy app-level permission keys
+# ---------------------------------------------------------------------------
+
+
+class TestLegacyAppPermissionKeys:
+    """The pre-024 names migration 033 renamed inside ``roles.permissions``.
+
+    Unlike the card-level keys, these are RENAMED rather than dropped: each maps
+    onto a permission that still exists and still means the same thing, so the
+    stored ``true`` is a grant somebody made on purpose.
+    """
+
+    def test_every_target_is_a_live_permission(self):
+        # The invariant that makes renaming (rather than dropping) correct here:
+        # each destination must be a key the application actually reads.
+        for target in LEGACY_APP_PERMISSION_RENAMES.values():
+            assert target in ALL_APP_PERMISSION_KEYS, target
+
+    def test_no_source_is_a_live_permission(self):
+        # And each source must be dead, or the rename would move a live grant.
+        for source in LEGACY_APP_PERMISSION_RENAMES:
+            assert source not in ALL_APP_PERMISSION_KEYS, source
+
+    def test_renames_the_three_known_keys(self):
+        assert migrate_legacy_app_permissions(
+            {
+                "subscriptions.view": True,
+                "subscriptions.manage": True,
+                "inventory.quality_seal": True,
+            }
+        ) == {
+            "stakeholders.view": True,
+            "stakeholders.manage": True,
+            "inventory.approval_status": True,
+        }
+
+    def test_preserves_the_stored_value_rather_than_granting(self):
+        # A role that did NOT have the permission must not gain it.
+        assert migrate_legacy_app_permissions({"subscriptions.view": False}) == {
+            "stakeholders.view": False
+        }
+
+    def test_modern_key_wins_when_both_present(self):
+        # Matches migration 033: a deliberate newer value is never clobbered by
+        # a stale one, whichever order they happen to be stored in.
+        assert migrate_legacy_app_permissions(
+            {"subscriptions.view": True, "stakeholders.view": False}
+        ) == {"stakeholders.view": False}
+
+    def test_preserves_the_admin_wildcard(self):
+        assert migrate_legacy_app_permissions({"*": True}) == {"*": True}
+
+    def test_leaves_unknown_keys_for_the_caller_to_reject(self):
+        assert migrate_legacy_app_permissions({"fake.permission": True}) == {
+            "fake.permission": True
+        }
+
+    def test_clean_map_is_returned_untouched(self):
+        perms = {"inventory.view": True}
+        assert migrate_legacy_app_permissions(perms) == perms
+
+    def test_is_idempotent(self):
+        once = migrate_legacy_app_permissions({"subscriptions.view": True})
+        assert migrate_legacy_app_permissions(once) == once
+
+    def test_tolerates_non_dict(self):
+        assert migrate_legacy_app_permissions(None) is None
+
+    def test_card_and_app_tiers_do_not_overlap(self):
+        # The two normalisers must never both claim a key, or the tier a map
+        # belongs to would change its meaning.
+        assert not (set(LEGACY_APP_PERMISSION_RENAMES) & LEGACY_CARD_PERMISSION_KEYS)
