@@ -73,6 +73,12 @@ logs/
 # Uploads
 uploads/
 
+# Runtime state the backend persists (the backend_data volume in Docker,
+# created in-tree when you run uvicorn locally): uploaded extension
+# bundles, installed extensions, workspace-transfer bundles. Customer
+# .teax files and workspace exports must never be committed.
+backend/data/
+
 # Alembic
 alembic/versions/__pycache__/
 
