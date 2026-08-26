@@ -14,6 +14,7 @@ from sqlalchemy import select
 from app.models.notification import Notification
 from app.services.notification_service import (
     create_notification,
+    deliver_notification_batch,
     get_unread_count,
     mark_all_as_read,
     mark_as_read,
@@ -227,3 +228,96 @@ class TestGetUnreadCount:
         user = await create_user(db, role="member")
 
         assert await get_unread_count(db, user.id) == 0
+
+
+# ---------------------------------------------------------------------------
+# deliver_notification_batch — background fan-out for bulk sends
+# ---------------------------------------------------------------------------
+
+
+def _session_factory_for(db):
+    """A stand-in for ``app.database.async_session`` that hands the test's
+    savepoint session to the batch deliverer instead of a fresh connection —
+    a real one could not see the test's uncommitted rows, and must not be
+    closed by the code under test."""
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def factory():
+        yield db
+
+    return factory
+
+
+class TestDeliverNotificationBatch:
+    async def _user(self, db, email):
+        return await create_user(db, email=email, role="member")
+
+    async def test_creates_rows_and_emails_opted_in_users(self, db, monkeypatch):
+        await create_role(db, key="member", permissions={})
+        alice = await self._user(db, "alice@test.com")
+        bob = await self._user(db, "bob@test.com")
+        monkeypatch.setattr("app.database.async_session", _session_factory_for(db))
+
+        sent: list[str] = []
+
+        async def fake_send(*, to, title, message, link):
+            sent.append(to)
+            return True
+
+        with patch("app.services.email_service.send_notification_email", new=fake_send):
+            await deliver_notification_batch(
+                [
+                    {"user_id": alice.id, "title": "Survey: Q3", "message": "please"},
+                    {"user_id": bob.id, "title": "Survey: Q3", "message": "please"},
+                ],
+                notif_type="survey_request",
+            )
+
+        rows = (
+            (await db.execute(select(Notification).order_by(Notification.created_at)))
+            .scalars()
+            .all()
+        )
+        assert {r.user_id for r in rows} == {alice.id, bob.id}
+        assert sorted(sent) == ["alice@test.com", "bob@test.com"]
+        # Phase 3 stamped what phase 2 actually delivered.
+        assert all(r.is_emailed for r in rows)
+
+    async def test_a_failed_email_is_not_stamped_and_does_not_stop_the_batch(self, db, monkeypatch):
+        await create_role(db, key="member", permissions={})
+        alice = await self._user(db, "alice@test.com")
+        bob = await self._user(db, "bob@test.com")
+        monkeypatch.setattr("app.database.async_session", _session_factory_for(db))
+
+        async def flaky_send(*, to, title, message, link):
+            if to == "alice@test.com":
+                raise RuntimeError("smtp down")
+            return True
+
+        with patch("app.services.email_service.send_notification_email", new=flaky_send):
+            await deliver_notification_batch(
+                [
+                    {"user_id": alice.id, "title": "T"},
+                    {"user_id": bob.id, "title": "T"},
+                ],
+                notif_type="survey_request",
+            )
+
+        rows = {r.user_id: r for r in (await db.execute(select(Notification))).scalars()}
+        assert set(rows) == {alice.id, bob.id}  # in-app rows regardless
+        assert rows[alice.id].is_emailed is False
+        assert rows[bob.id].is_emailed is True
+
+    async def test_never_raises(self, db, monkeypatch):
+        """The batch runs detached — a total failure must be swallowed, not
+        crash whatever scheduled it."""
+
+        def broken_factory():
+            raise RuntimeError("no database")
+
+        monkeypatch.setattr("app.database.async_session", broken_factory)
+        await deliver_notification_batch(
+            [{"user_id": (await self._user(db, "x@test.com")).id, "title": "T"}],
+            notif_type="survey_request",
+        )

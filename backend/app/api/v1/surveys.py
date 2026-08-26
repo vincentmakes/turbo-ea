@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 import sqlalchemy
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -671,6 +671,7 @@ async def preview_survey(
 @router.post("/{survey_id}/send")
 async def send_survey(
     survey_id: str,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -697,8 +698,14 @@ async def send_survey(
             "Check that cards have subscribers with the selected roles.",
         )
 
-    # Create response records
+    # Create response records. Notifications are handed to a background task
+    # after the commit: each emailed one opens its own SMTP connection, and a
+    # send fanning out to dozens of stakeholders used to sit on that loop
+    # inline — the Send button hung for the sum of the handshakes. The response
+    # rows are what make the survey real (My Surveys reads them); the
+    # notifications are delivery, and delivery can lag the click by seconds.
     created = 0
+    recipients: list[dict] = []
     for target in targets:
         card_id = uuid.UUID(target["card_id"])
         for u in target["users"]:
@@ -710,22 +717,26 @@ async def send_survey(
             )
             db.add(resp)
             created += 1
-
-            # Send notification
-            await notification_service.create_notification(
-                db,
-                user_id=u_id,
-                notif_type="survey_request",
-                title=f"Survey: {survey.name}",
-                message=survey.message or "You have been asked to review data for a survey.",
-                link=f"/surveys/{survey.id}/respond/{card_id}",
-                data={"survey_id": str(survey.id), "card_id": str(card_id)},
-                actor_id=user.id,
+            recipients.append(
+                {
+                    "user_id": u_id,
+                    "title": f"Survey: {survey.name}",
+                    "message": survey.message or "You have been asked to review data for a survey.",
+                    "link": f"/surveys/{survey.id}/respond/{card_id}",
+                    "data": {"survey_id": str(survey.id), "card_id": str(card_id)},
+                }
             )
 
     survey.status = "active"
     survey.sent_at = datetime.now(timezone.utc)
     await db.commit()
+
+    background_tasks.add_task(
+        notification_service.deliver_notification_batch,
+        recipients,
+        notif_type="survey_request",
+        actor_id=user.id,
+    )
     result = await db.execute(
         select(Survey).where(Survey.id == survey.id).options(selectinload(Survey.creator))
     )

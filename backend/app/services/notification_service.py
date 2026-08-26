@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import Notification
 from app.models.user import DEFAULT_NOTIFICATION_PREFERENCES, User
 from app.services.event_bus import event_bus
+
+logger = logging.getLogger(__name__)
 
 #: Types that must never be emailed, whatever a preference row says.
 #:
@@ -43,11 +46,17 @@ async def create_notification(
     data: dict[str, Any] | None = None,
     card_id: uuid.UUID | None = None,
     actor_id: uuid.UUID | None = None,
+    send_email: bool = True,
 ) -> Notification | None:
     """Create a notification for a user if their preferences allow it.
 
     Returns the Notification if created, None if the user has opted out.
     Also publishes to the event bus for real-time SSE delivery.
+
+    ``send_email=False`` skips the email leg entirely. That leg opens a fresh
+    SMTP connection per message, so a caller creating notifications in bulk
+    must not take it inline — use ``deliver_notification_batch``, which sends
+    the emails with no database session held open.
     """
     # Load user to check preferences
     result = await db.execute(select(User).where(User.id == user_id))
@@ -102,7 +111,7 @@ async def create_notification(
     )
 
     # Send email notification if user opted in
-    if _user_wants_notification(user, notif_type, "email"):
+    if send_email and _user_wants_notification(user, notif_type, "email"):
         from app.services.email_service import send_notification_email
 
         try:
@@ -119,6 +128,82 @@ async def create_notification(
             pass  # Email failure shouldn't block the notification
 
     return notif
+
+
+async def deliver_notification_batch(
+    recipients: list[dict[str, Any]],
+    *,
+    notif_type: str,
+    actor_id: uuid.UUID | None = None,
+) -> None:
+    """Create and deliver a batch of notifications from a background task.
+
+    ``create_notification`` holds the caller's session open across an SMTP
+    round-trip per email — one fresh connect/TLS/auth handshake each. Fine for
+    one notification on a request path; a survey send fanning out to dozens of
+    recipients sat on that loop inline, which is why the Send button hung.
+
+    Three phases, honouring the background-job session rule (a session must
+    never be held across slow non-DB work):
+
+    1. one short session — notification rows + SSE publishes, and note who
+       wants an email;
+    2. no session — the SMTP sends;
+    3. one short session — stamp ``is_emailed`` on what actually went out.
+
+    Runs detached, so it must never raise: a delivery problem is logged, and
+    the survey (or whatever scheduled the batch) stays sent — the in-app lists
+    driven by real rows are the source of truth, notifications are the nudge.
+
+    Each recipient dict: ``{user_id, title, message, link?, data?, card_id?}``.
+    """
+    from app.database import async_session
+    from app.services.email_service import send_notification_email
+
+    try:
+        emails: list[tuple[uuid.UUID, str, str, str, str | None]] = []
+        async with async_session() as db:
+            user_ids = {r["user_id"] for r in recipients}
+            result = await db.execute(select(User).where(User.id.in_(user_ids)))
+            users = {u.id: u for u in result.scalars()}
+            for r in recipients:
+                notif = await create_notification(
+                    db,
+                    user_id=r["user_id"],
+                    notif_type=notif_type,
+                    title=r["title"],
+                    message=r.get("message", ""),
+                    link=r.get("link"),
+                    data=r.get("data"),
+                    card_id=r.get("card_id"),
+                    actor_id=actor_id,
+                    send_email=False,
+                )
+                recipient = users.get(r["user_id"])
+                if notif and recipient and _user_wants_notification(recipient, notif_type, "email"):
+                    emails.append(
+                        (notif.id, recipient.email, r["title"], r.get("message", ""), r.get("link"))
+                    )
+            await db.commit()
+
+        sent_ids: list[uuid.UUID] = []
+        for notif_id, to, title, message, link in emails:
+            try:
+                if await send_notification_email(to=to, title=title, message=message, link=link):
+                    sent_ids.append(notif_id)
+            except Exception:
+                logger.exception("Failed to email notification to %s", to)
+
+        if sent_ids:
+            async with async_session() as db:
+                await db.execute(
+                    update(Notification)
+                    .where(Notification.id.in_(sent_ids))
+                    .values(is_emailed=True)
+                )
+                await db.commit()
+    except Exception:
+        logger.exception("Notification batch delivery failed (%s recipients)", len(recipients))
 
 
 async def notify_all_users(

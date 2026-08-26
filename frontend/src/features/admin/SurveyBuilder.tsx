@@ -13,6 +13,7 @@ import Chip from "@mui/material/Chip";
 import Alert from "@mui/material/Alert";
 import AlertTitle from "@mui/material/AlertTitle";
 import CircularProgress from "@mui/material/CircularProgress";
+import LinearProgress from "@mui/material/LinearProgress";
 import MuiCard from "@mui/material/Card";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
@@ -1408,9 +1409,16 @@ export default function SurveyBuilder() {
                 preview.total_cards === 0
               }
               startIcon={<MaterialSymbol icon="send" size={18} />}
-              sx={{ textTransform: "none" }}
+              // overflow keeps the progress line inside the rounded corners.
+              sx={{ textTransform: "none", position: "relative", overflow: "hidden" }}
             >
               {sending ? t("surveyBuilder.sendingSurvey") : t("surveyBuilder.sendSurvey")}
+              {sending && (
+                <LinearProgress
+                  color="inherit"
+                  sx={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2 }}
+                />
+              )}
             </Button>
           )}
         </Box>
