@@ -118,6 +118,23 @@ export const NOTIFICATION_TYPE_COLORS = {
   app_updated: "#5e35b1", // deep purple 600
   extension_available: "#00838f", // cyan 800
   extension_update_available: "#ef6c00", // orange 800
+  // Documents and approvals reuse their family's hue so a glance at the bell
+  // groups them: SoAW/ADR signature traffic red-to-green, process flow amber,
+  // risk deep red, compliance teal.
+  soaw_sign_recalled: "#795548", // brown 500
+  soaw_rejected: RAG_COLORS.red, // #d32f2f
+  adr_sign_requested: RAG_COLORS.red, // #d32f2f
+  adr_signed: RAG_COLORS.green, // #2e7d32
+  adr_sign_recalled: "#795548", // brown 500
+  adr_rejected: RAG_COLORS.red, // #d32f2f
+  process_flow_approval_requested: RAG_COLORS.amber, // #f57c00
+  process_flow_approved: RAG_COLORS.green, // #2e7d32
+  process_flow_rejected: RAG_COLORS.red, // #d32f2f
+  process_flow_withdrawn: "#795548", // brown 500
+  risk_assigned: "#c62828", // red 800
+  risk_status_changed: "#ad1457", // pink 800
+  security_scan_complete: "#00695c", // teal 800
+  ops_rescue_access: "#b71c1c", // red 900 — security alert
 } as const;
 
 // ── Data quality buckets (Dashboard chart) ───────────────────────────────

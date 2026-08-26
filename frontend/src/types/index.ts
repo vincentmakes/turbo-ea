@@ -771,9 +771,23 @@ export interface ReleaseNotesResponse {
   current_version: string;
 }
 
+/** One row of the notification preferences dialog, as the server describes it. */
+export interface NotificationTypeSpec {
+  key: string;
+  in_app_default: boolean;
+  email_default: boolean;
+  /** Never leaves the bell: the email switch renders off and disabled. */
+  in_app_only: boolean;
+  /** Always mails: the email switch renders on and disabled. */
+  email_locked: boolean;
+}
+
 export interface NotificationPreferences {
   in_app: Record<string, boolean>;
   email: Record<string, boolean>;
+  /** Rows to render. Server-owned, so the list can no longer drift from what
+   *  the backend actually emits. */
+  types?: NotificationTypeSpec[];
 }
 
 // ---------------------------------------------------------------------------

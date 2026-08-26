@@ -16,39 +16,20 @@ import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
 import { api } from "@/api/client";
-import type { NotificationPreferences } from "@/types";
+import type { NotificationPreferences, NotificationTypeSpec } from "@/types";
 
-interface NotificationTypeRow {
-  key: string;
-  labelKey: string;
-  /** Email cannot be switched off — the type always mails. */
-  forceEmail?: boolean;
-  /** Email is not offered at all; the switch renders off and disabled. */
-  noEmail?: boolean;
+/**
+ * `todo_assigned` -> `preferences.todoAssigned`.
+ *
+ * The row list comes from the server so the two can no longer drift, but the
+ * labels stay in the frontend bundle where the translations live. A type with
+ * no label yet falls back to its key rather than rendering blank, which makes
+ * a missing translation obvious instead of invisible.
+ */
+function labelKeyFor(typeKey: string): string {
+  const camel = typeKey.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+  return `preferences.${camel}`;
 }
-
-const NOTIFICATION_TYPES: NotificationTypeRow[] = [
-  { key: "todo_assigned", labelKey: "preferences.todoAssigned" },
-  { key: "task_assigned", labelKey: "preferences.taskAssigned" },
-  { key: "card_updated", labelKey: "preferences.cardUpdated" },
-  { key: "comment_added", labelKey: "preferences.commentAdded" },
-  { key: "approval_status_changed", labelKey: "preferences.approvalStatusChanged" },
-  { key: "soaw_sign_requested", labelKey: "preferences.soawSignRequested" },
-  { key: "soaw_signed", labelKey: "preferences.soawSigned" },
-  { key: "survey_request", labelKey: "preferences.surveyRequest", forceEmail: true },
-  // Only ever sent to users whose role can act on it (admin.settings); listed
-  // for everyone the same way SoAW rows are, since roles change over time.
-  { key: "app_update_available", labelKey: "preferences.appUpdateAvailable" },
-  // In-app only: this one goes to every user on every upgrade, so an email
-  // channel would make each patch release a mass mailing. The backend enforces
-  // it via IN_APP_ONLY_TYPES; the disabled switch is the visible half.
-  { key: "app_updated", labelKey: "preferences.appUpdated", noEmail: true },
-  // Only ever sent to users whose role can act on them (admin.manage_extensions).
-  // Email stays a real opt-in rather than a mass mailing, so unlike app_updated
-  // these keep their email switch.
-  { key: "extension_available", labelKey: "preferences.extensionAvailable" },
-  { key: "extension_update_available", labelKey: "preferences.extensionUpdateAvailable" },
-];
 
 interface Props {
   open: boolean;
@@ -73,6 +54,8 @@ export default function NotificationPreferencesDialog({ open, onClose }: Props) 
       .finally(() => setLoading(false));
   }, [open]);
 
+  const types: NotificationTypeSpec[] = prefs?.types ?? [];
+
   const toggle = (channel: "in_app" | "email", type: string) => {
     if (!prefs) return;
     setPrefs({
@@ -89,7 +72,12 @@ export default function NotificationPreferencesDialog({ open, onClose }: Props) 
     setSaving(true);
     setError("");
     try {
-      await api.patch("/users/me/notification-preferences", prefs);
+      // Send the channels only. `types` is server-owned render metadata that
+      // came down on the GET; echoing it back would be noise on the wire.
+      await api.patch("/users/me/notification-preferences", {
+        in_app: prefs.in_app,
+        email: prefs.email,
+      });
       onClose();
     } catch {
       setError(t("preferences.saveFailed"));
@@ -131,22 +119,25 @@ export default function NotificationPreferencesDialog({ open, onClose }: Props) 
                 </TableRow>
               </TableHead>
               <TableBody>
-                {NOTIFICATION_TYPES.map((nt) => (
+                {types.map((nt) => (
                   <TableRow key={nt.key}>
-                    <TableCell>{t(nt.labelKey)}</TableCell>
+                    <TableCell>{t(labelKeyFor(nt.key), nt.key)}</TableCell>
                     <TableCell align="center">
                       <Switch
                         size="small"
-                        checked={prefs.in_app[nt.key] ?? true}
+                        checked={prefs.in_app[nt.key] ?? nt.in_app_default}
                         onChange={() => toggle("in_app", nt.key)}
                       />
                     </TableCell>
                     <TableCell align="center">
                       <Switch
                         size="small"
-                        checked={!nt.noEmail && (nt.forceEmail || (prefs.email[nt.key] ?? false))}
+                        checked={
+                          !nt.in_app_only &&
+                          (nt.email_locked || (prefs.email[nt.key] ?? nt.email_default))
+                        }
                         onChange={() => toggle("email", nt.key)}
-                        disabled={nt.forceEmail || nt.noEmail}
+                        disabled={nt.email_locked || nt.in_app_only}
                       />
                     </TableCell>
                   </TableRow>

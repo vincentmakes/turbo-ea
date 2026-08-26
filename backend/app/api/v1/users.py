@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import uuid
 from typing import Literal
 
@@ -13,7 +14,12 @@ from app.core.security import hash_password
 from app.database import get_db
 from app.models.role import Role
 from app.models.sso_invitation import SsoInvitation
-from app.models.user import DEFAULT_NOTIFICATION_PREFERENCES, DEFAULT_UI_PREFERENCES, User
+from app.models.user import (
+    DEFAULT_NOTIFICATION_PREFERENCES,
+    DEFAULT_UI_PREFERENCES,
+    NOTIFICATION_TYPE_SPECS,
+    User,
+)
 from app.services.permission_service import PermissionService
 from app.services.sso_service import get_sso_config
 
@@ -267,7 +273,28 @@ async def delete_invitation(
 async def get_notification_preferences(
     current_user: User = Depends(get_current_user),
 ):
-    return current_user.notification_preferences or DEFAULT_NOTIFICATION_PREFERENCES
+    """Stored opt-ins, plus what the dialog needs to render itself.
+
+    ``types`` is served rather than hardcoded in the frontend because the two
+    lists had already drifted: fourteen emitted types appeared in neither, so
+    they could not be configured at all. The dialog renders one row per entry
+    here, so adding a type to ``NOTIFICATION_TYPE_SPECS`` is all it takes.
+    """
+    prefs = current_user.notification_preferences or DEFAULT_NOTIFICATION_PREFERENCES
+    return {
+        **prefs,
+        "types": [
+            {
+                "key": spec.key,
+                "in_app_default": spec.in_app_default,
+                "email_default": spec.email_default,
+                "in_app_only": spec.in_app_only,
+                "email_locked": spec.email_locked,
+            }
+            for spec in NOTIFICATION_TYPE_SPECS
+            if spec.user_configurable
+        ],
+    }
 
 
 @router.patch("/me/notification-preferences")
@@ -276,7 +303,10 @@ async def update_notification_preferences(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    prefs = dict(current_user.notification_preferences or DEFAULT_NOTIFICATION_PREFERENCES)
+    # deepcopy, not dict(): the column default shares its inner per-channel
+    # dicts with DEFAULT_NOTIFICATION_PREFERENCES, so a nested in-place write
+    # here would edit the module constant for the life of the process.
+    prefs = copy.deepcopy(current_user.notification_preferences or DEFAULT_NOTIFICATION_PREFERENCES)
 
     if body.in_app is not None:
         prefs["in_app"] = {**prefs.get("in_app", {}), **body.in_app}
