@@ -15,8 +15,8 @@ from app.database import get_db as core_get_db
 from app.services.extensions import sdk
 
 
-def test_sdk_version_is_1_5():
-    assert sdk.SDK_VERSION == "1.5"
+def test_sdk_version_is_1_6():
+    assert sdk.SDK_VERSION == "1.6"
 
 
 def test_sdk_reexports_route_dependencies_verbatim():
@@ -214,3 +214,40 @@ def test_sdk_minor_newer_truth_table():
     # Garbage never warns.
     assert not sdk.sdk_minor_newer("nope")
     assert not sdk.sdk_minor_newer("1")
+
+
+def test_sdk_1_6_surface_exists():
+    # SDK 1.6 — extension-delivered notification channels. The hook is
+    # duck-typed like get_event_handlers, so the Protocol is a typing helper
+    # only and must NOT appear on TurboExtension.
+    assert sdk.NotificationChannel is not None
+    assert sdk.NotificationDelivery is not None
+    assert sdk.SupportsNotificationChannels is not None
+    assert not hasattr(sdk.TurboExtension, "get_notification_channels")
+
+
+def test_notification_delivery_is_frozen_and_wire_shaped():
+    payload = sdk.NotificationDelivery(
+        notification_id=None,
+        user_id="u1",
+        type="todo_assigned",
+        title="A todo",
+        message="",
+        link="/todos",
+        url="http://localhost:8920/todos",
+        data={"k": "v"},
+        created_at="2026-01-01T00:00:00+00:00",
+    )
+    # notification_id is None when the recipient took this type on an
+    # extension channel only — there is no bell row behind the delivery.
+    assert payload.notification_id is None
+    assert payload.data == {"k": "v"}
+    # The recipient's email address is deliberately NOT on the payload: a
+    # channel that needs it declares core.users.read and goes through
+    # ctx.users, so fan-out alone never exposes the directory.
+    assert not hasattr(payload, "user_email")
+    try:
+        payload.title = "x"  # type: ignore[misc]
+        raise AssertionError("NotificationDelivery must be frozen")
+    except AttributeError:
+        pass

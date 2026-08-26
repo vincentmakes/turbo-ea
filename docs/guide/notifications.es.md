@@ -40,3 +40,15 @@ Para cada tipo de notificación, puede alternar de forma independiente:
 - **Correo electrónico** — Si también se envía un correo electrónico (requiere que un administrador configure el envío de correo)
 
 Algunos tipos de notificaciones (ej., solicitudes de encuesta) pueden tener la entrega por correo electrónico obligatoria por el sistema y no pueden desactivarse.
+
+Cada canal es independiente: desactivar un tipo en la campana no detiene su
+correo, ni al revés. Unos pocos tipos solo pasan por la campana —el aviso de
+actualización que llega a todas las cuentas, por ejemplo— y sus demás
+interruptores quedan fijos en «desactivado».
+
+Si hay instalada y con licencia una extensión que entrega las notificaciones en
+otro sitio (un mensaje de chat, por ejemplo), esta añade su propia columna junto
+a «En la aplicación» y «Correo», y usted elige tipo por tipo si la notificación
+va allí. Esas columnas empiezan siempre **desactivadas**. Desactivar la extensión
+o dejar que caduque su licencia oculta la columna y pausa la entrega, pero
+conserva todo lo que eligió: vuelve con la extensión.

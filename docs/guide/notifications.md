@@ -40,3 +40,14 @@ For each notification type, you can independently toggle:
 - **Email** — Whether an email is also sent (requires email delivery to be configured by an admin)
 
 Some notification types (e.g., survey requests) may have email delivery enforced by the system and cannot be disabled.
+
+Each channel is independent: switching a type off in the bell does not stop its
+email, and vice versa. A few types are bell-only — the upgrade announcement that
+reaches every account, for example — and their other switches are fixed off.
+
+If an extension that delivers notifications elsewhere (a chat message, for
+instance) is installed and licensed, it adds its own column next to In-app and
+Email, and you choose per type whether it goes there. Those columns always start
+switched **off**. Disabling the extension or letting its licence lapse hides the
+column and pauses delivery, but keeps everything you chose — it all comes back if
+the extension does.

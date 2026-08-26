@@ -40,3 +40,16 @@ Per ogni tipo di notifica, potete attivare/disattivare indipendentemente:
 - **Email** — Se viene anche inviata un'email (richiede che l'invio email sia configurato da un amministratore)
 
 Alcuni tipi di notifica (es. richieste di sondaggio) possono avere la consegna via email imposta dal sistema e non possono essere disabilitati.
+
+Ogni canale è indipendente: disattivare un tipo nella campanella non ferma la sua
+email, e viceversa. Alcuni tipi passano solo dalla campanella — l'annuncio di
+aggiornamento che raggiunge ogni account, per esempio — e i loro altri
+interruttori restano fissi su «disattivato».
+
+Se è installata e concessa in licenza un'estensione che recapita le notifiche
+altrove (un messaggio di chat, per esempio), questa aggiunge una propria colonna
+accanto a «Nell'app» ed «Email», e potete scegliere tipo per tipo se la notifica
+ci finisce. Quelle colonne partono sempre **disattivate**. Disattivare
+l'estensione o lasciar scadere la sua licenza nasconde la colonna e mette in
+pausa il recapito, ma conserva tutte le vostre scelte: tornano con
+l'estensione.

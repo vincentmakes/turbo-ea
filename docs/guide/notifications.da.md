@@ -40,3 +40,15 @@ For hver notifikationstype kan du uafhængigt slå til/fra:
 - **E-mail** — Om en e-mail også sendes (kræver, at e-mail-afsendelse er konfigureret af en administrator)
 
 Nogle notifikationstyper (f.eks. undersøgelsesanmodninger) kan have e-maillevering håndhævet af systemet og kan ikke deaktiveres.
+
+Hver kanal er uafhængig: at slå en type fra i klokken stopper ikke dens e-mail,
+og omvendt. Nogle få typer går kun via klokken — for eksempel
+opgraderingsmeddelelsen, der når alle konti — og deres øvrige kontakter er låst
+fra.
+
+Hvis en udvidelse, der leverer notifikationer et andet sted (for eksempel som en
+chatbesked), er installeret og licenseret, tilføjer den sin egen kolonne ved
+siden af «I appen» og «E-mail», og du vælger pr. type, om notifikationen sendes
+dertil. De kolonner starter altid **fra**. Deaktiveres udvidelsen, eller udløber
+dens licens, skjules kolonnen og leveringen sættes på pause, men alt hvad du
+valgte, bevares — det kommer tilbage sammen med udvidelsen.

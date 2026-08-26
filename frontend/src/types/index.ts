@@ -782,9 +782,21 @@ export interface NotificationTypeSpec {
   email_locked: boolean;
 }
 
+/** A notification channel an installed extension currently delivers on. */
+export interface NotificationChannelDescriptor {
+  key: string;
+  extension_key: string;
+}
+
 export interface NotificationPreferences {
   in_app: Record<string, boolean>;
   email: Record<string, boolean>;
+  /** Per-extension-channel opt-ins, namespaced so a channel key can never
+   *  collide with a core one. Always opt-in-off. */
+  channels?: Record<string, Record<string, boolean>>;
+  /** Channels the backend reports as live — the half that decides whether a
+   *  column renders at all. */
+  available_channels?: NotificationChannelDescriptor[];
   /** Rows to render. Server-owned, so the list can no longer drift from what
    *  the backend actually emits. */
   types?: NotificationTypeSpec[];

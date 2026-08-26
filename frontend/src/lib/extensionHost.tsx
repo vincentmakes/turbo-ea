@@ -301,6 +301,18 @@ export interface ExtensionFieldVisibilityProps {
  * — never an access-denied page, unlike a full route); `appliesTo` optionally
  * filters on the context's `cardType`/`type`; `order` sorts within a slot
  * (default 0, ties keep registration order).
+ *
+ * Slot locations core exposes today:
+ *   - `card.detail.header`  (component) — CardDetailContent
+ *   - `risk.detail.panel`   (component) — RiskDetailPage
+ *   - `adr.header`, `adr.signature.footer` (component) — ADREditor/ADRPreview
+ *   - `notification.preferences.channels` (data) — one column per
+ *     extension-delivered notification channel. `build({channelKey})` returns
+ *     `{label, order?}`; the column only renders when the BACKEND also reports
+ *     the channel as live, so a UI-only bundle cannot conjure a column whose
+ *     PATCH the backend would ignore.
+ *   - `notification.preferences.footer` (component) — below the preferences
+ *     table, context `{userId}`; where a channel shows its per-user link state.
  */
 export interface ExtensionSlotContribution {
   slot: string;

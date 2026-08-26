@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import func, select, update
@@ -17,6 +18,8 @@ from app.models.user import (
     User,
 )
 from app.services.event_bus import event_bus
+from app.services.extensions import notification_channels
+from app.services.extensions.sdk import NotificationDelivery
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +68,24 @@ def _user_wants_notification(user: User, notif_type: str, channel: str) -> bool:
         stored = (prefs.get("channels") or {}).get(channel) or {}
         default = False
     return stored.get(notif_type, default)
+
+
+def _absolute_link(link: str | None) -> str | None:
+    """Resolve an app-relative notification link against the instance URL.
+
+    Same expression ``email_service`` uses to build the link in a
+    notification email, kept private so extensions read the resolved ``url``
+    off the payload rather than reaching for ``settings._app_base_url``,
+    which is not SDK surface.
+    """
+    if not link:
+        return None
+    if link.startswith(("http://", "https://")):
+        return link
+    from app.config import settings
+
+    base = getattr(settings, "_app_base_url", "") or "http://localhost:8920"
+    return f"{base}{link}"
 
 
 async def create_notification(
@@ -120,7 +141,8 @@ async def create_notification(
 
     wants_in_app = _user_wants_notification(user, notif_type, "in_app")
     wants_email = send_email and _user_wants_notification(user, notif_type, "email")
-    if not wants_in_app and not wants_email:
+    channels = notification_channels.wanted_channels(user, notif_type)
+    if not wants_in_app and not wants_email and not channels:
         return None
 
     notif: Notification | None = None
@@ -170,6 +192,25 @@ async def create_notification(
                 await db.flush()
         except Exception:
             pass  # Email failure shouldn't block the notification
+
+    if channels:
+        # Enqueue-only: dispatch does no I/O and never awaits, so this is
+        # safe with the caller's transaction still open. Guarded by
+        # tests/services/test_db_session_holding.py.
+        notification_channels.dispatch(
+            NotificationDelivery(
+                notification_id=str(notif.id) if notif is not None else None,
+                user_id=str(user_id),
+                type=notif_type,
+                title=title,
+                message=message,
+                link=link,
+                url=_absolute_link(link),
+                data=dict(data or {}),
+                created_at=datetime.now(UTC).isoformat(),
+            ),
+            channels,
+        )
 
     return notif
 

@@ -138,7 +138,19 @@ from app.database import get_db  # noqa: F401
 #   to ``interval_seconds`` (exactly one of the two must be set). Numeric
 #   fields only; day-of-month/day-of-week use the classic vixie OR rule.
 
-SDK_VERSION = "1.5"
+# SDK 1.6 adds one surface:
+#
+# - ``NotificationChannel`` — a third delivery channel for core
+#   notifications, registered through the OPTIONAL
+#   ``get_notification_channels()`` hook and unlocked by the
+#   ``core.notifications.channel`` grant. Core owns the preference matrix
+#   (which types exist, who opted in); the extension owns the transport.
+#   Every channel is opt-in-off per notification type, so installing an
+#   extension never starts delivering on its own, and ``deliver`` must
+#   return fast — persist to your own ``ext_{key}_*`` outbox and drain it
+#   from an ``ExtensionJob``.
+
+SDK_VERSION = "1.6"
 
 
 @dataclass(frozen=True)
@@ -494,6 +506,76 @@ class EventSubscription:
     prefix: str
     handler: Callable[["ExtensionContext", dict[str, Any]], Awaitable[None]]
     include_self: bool = False
+
+
+@dataclass(frozen=True)
+class NotificationDelivery:
+    """One notification handed to a delivery channel (SDK 1.6).
+
+    Wire-shaped — string ids, an ISO-8601 ``created_at``, a plain ``data``
+    dict — so it can be serialized and queued as-is.
+
+    ``notification_id`` is ``None`` when the recipient has the in-app
+    channel switched off for this type: there is no bell row behind the
+    delivery, only this payload. ``link`` is the app-relative path as
+    stored; ``url`` is the same path resolved against the instance's base
+    URL, which is what core's own notification emails link to.
+
+    The recipient's email address is deliberately absent. A channel that
+    needs it declares ``core.users.read`` and resolves it through
+    ``ctx.users``, so an extension that only needs to fan out to its own
+    transport never sees the directory.
+    """
+
+    notification_id: str | None
+    user_id: str
+    type: str  # noqa: A003 - mirrors notifications.type
+    title: str
+    message: str
+    link: str | None
+    url: str | None
+    data: dict[str, Any]
+    created_at: str
+
+
+@dataclass(frozen=True)
+class NotificationChannel:
+    """A third delivery channel for core notifications (SDK 1.6).
+
+    ``key`` must be the extension's own key or ``"{key}.something"`` — it
+    becomes a per-user preference key and a column id in the notification
+    preferences dialog, so the namespace is enforced at registration the
+    same way ``ext.{key}.*`` permissions and ``ext_{key}_*`` tables are.
+
+    Delivery requires the ``core.notifications.channel`` grant and is
+    re-checked live, so disabling the extension or a license lapse pauses
+    the channel at once — no restart, and no stored opt-in is lost.
+
+    ``deliver`` MUST return fast. It runs on a shared per-channel worker
+    behind a bounded drop-oldest queue with a 30s timeout, and core calls
+    it with the emitting request's transaction still open. Persist the
+    payload to your own ``ext_{key}_*`` outbox and do the outbound call
+    from an ``ExtensionJob``; that also gives you retries and back-off,
+    which an inline call cannot have.
+
+    Channels are ALWAYS opt-in: a user receives nothing here until they
+    switch this channel on for a notification type. Types core marks
+    in-app-only (an upgrade announcement that fans out to every account)
+    are never delivered to a channel, whatever a preference row says.
+    """
+
+    key: str
+    deliver: Callable[["ExtensionContext", NotificationDelivery], Awaitable[None]]
+
+
+class SupportsNotificationChannels(Protocol):
+    """Typing helper for extensions that implement the OPTIONAL
+    ``get_notification_channels`` hook. Deliberately not
+    ``runtime_checkable`` and deliberately not part of
+    :class:`TurboExtension` — the loader discovers the hook via
+    ``getattr``, so extensions without it keep loading."""
+
+    def get_notification_channels(self) -> list[NotificationChannel]: ...
 
 
 class SupportsEventHandlers(Protocol):

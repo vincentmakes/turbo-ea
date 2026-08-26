@@ -399,3 +399,198 @@ class TestCreateNotificationsForSubscribers:
 
         assert len(notifs) == 1
         assert notifs[0].card_id == card.id
+
+
+# ---------------------------------------------------------------------------
+# Channels are peers, and extension channels are opt-in-off
+# ---------------------------------------------------------------------------
+
+
+class TestChannelsArePeers:
+    """The bell used to gate everything; each channel now stands alone."""
+
+    async def test_in_app_off_email_on_still_mails(self, db):
+        await create_role(db, key="member")
+        user = await create_user(db, role="member")
+        user.notification_preferences = {
+            "in_app": {"card_updated": False},
+            "email": {"card_updated": True},
+        }
+        await db.flush()
+
+        with patch(
+            "app.services.email_service.send_notification_email", new=AsyncMock(return_value=True)
+        ) as send:
+            notif = await create_notification(
+                db, user_id=user.id, notif_type="card_updated", title="Changed"
+            )
+
+        # No bell row — but the email went out. Before 2.89 this combination
+        # delivered nothing at all.
+        assert notif is None
+        assert send.await_count == 1
+
+    async def test_in_app_off_publishes_no_sse_event(self, db):
+        """The bell must not light up for a delivery with no row behind it."""
+        await create_role(db, key="member")
+        user = await create_user(db, role="member")
+        user.notification_preferences = {
+            "in_app": {"card_updated": False},
+            "email": {"card_updated": True},
+        }
+        await db.flush()
+
+        with (
+            patch(
+                "app.services.email_service.send_notification_email",
+                new=AsyncMock(return_value=True),
+            ),
+            patch(
+                "app.services.notification_service.event_bus.publish", new=AsyncMock()
+            ) as publish,
+        ):
+            await create_notification(
+                db, user_id=user.id, notif_type="card_updated", title="Changed"
+            )
+
+        assert publish.await_count == 0
+
+    async def test_all_channels_off_delivers_nothing(self, db):
+        await create_role(db, key="member")
+        user = await create_user(db, role="member")
+        user.notification_preferences = {
+            "in_app": {"card_updated": False},
+            "email": {"card_updated": False},
+        }
+        await db.flush()
+
+        with patch(
+            "app.services.email_service.send_notification_email", new=AsyncMock(return_value=True)
+        ) as send:
+            notif = await create_notification(
+                db, user_id=user.id, notif_type="card_updated", title="Changed"
+            )
+        assert notif is None
+        assert send.await_count == 0
+
+
+class TestExtensionChannelDelivery:
+    """create_notification's side of the SDK 1.6 seam."""
+
+    async def test_no_registered_channels_never_dispatches(self, db):
+        """The stock-install path must stay exactly what it was."""
+        await create_role(db, key="member")
+        user = await create_user(db, role="member")
+
+        with patch("app.services.extensions.notification_channels.dispatch") as dispatch:
+            notif = await create_notification(
+                db, user_id=user.id, notif_type="card_updated", title="Changed"
+            )
+
+        assert notif is not None
+        assert dispatch.call_count == 0
+
+    async def test_channel_on_without_bell_dispatches_with_no_row_id(self, db, monkeypatch):
+        await create_role(db, key="member")
+        user = await create_user(db, role="member")
+        user.notification_preferences = {
+            "in_app": {"card_updated": False},
+            "email": {"card_updated": False},
+            "channels": {"chat": {"card_updated": True}},
+        }
+        await db.flush()
+
+        monkeypatch.setattr(
+            "app.services.extensions.notification_channels.wanted_channels",
+            lambda user, notif_type: ["chat"],
+        )
+        with patch("app.services.extensions.notification_channels.dispatch") as dispatch:
+            notif = await create_notification(
+                db, user_id=user.id, notif_type="card_updated", title="Changed", link="/cards/1"
+            )
+
+        assert notif is None
+        assert dispatch.call_count == 1
+        payload, keys = dispatch.call_args[0]
+        assert keys == ["chat"]
+        # No bell row behind this delivery.
+        assert payload.notification_id is None
+        assert payload.type == "card_updated"
+        assert payload.link == "/cards/1"
+        assert payload.url and payload.url.endswith("/cards/1")
+
+    async def test_bell_row_id_travels_with_the_delivery(self, db, monkeypatch):
+        await create_role(db, key="member")
+        user = await create_user(db, role="member")
+        user.notification_preferences = {
+            "in_app": {"card_updated": True},
+            "email": {"card_updated": False},
+            "channels": {"chat": {"card_updated": True}},
+        }
+        await db.flush()
+
+        monkeypatch.setattr(
+            "app.services.extensions.notification_channels.wanted_channels",
+            lambda user, notif_type: ["chat"],
+        )
+        with patch("app.services.extensions.notification_channels.dispatch") as dispatch:
+            notif = await create_notification(
+                db, user_id=user.id, notif_type="card_updated", title="Changed"
+            )
+
+        payload, _ = dispatch.call_args[0]
+        assert notif is not None
+        assert payload.notification_id == str(notif.id)
+
+    async def test_in_app_only_type_never_reaches_a_channel(self, db, monkeypatch):
+        """An upgrade announcement fans out to every account — bell only."""
+        await create_role(db, key="member")
+        user = await create_user(db, role="member")
+        user.notification_preferences = {
+            "in_app": {"app_updated": True},
+            "email": {},
+            "channels": {"chat": {"app_updated": True}},
+        }
+        await db.flush()
+
+        # Not monkeypatched: wanted_channels itself must refuse the type.
+        from app.services.extensions import notification_channels as nc
+
+        assert nc.wanted_channels(user, "app_updated") == []
+
+    async def test_self_notification_never_reaches_a_channel(self, db, monkeypatch):
+        await create_role(db, key="member")
+        user = await create_user(db, role="member")
+
+        monkeypatch.setattr(
+            "app.services.extensions.notification_channels.wanted_channels",
+            lambda user, notif_type: ["chat"],
+        )
+        with patch("app.services.extensions.notification_channels.dispatch") as dispatch:
+            notif = await create_notification(
+                db,
+                user_id=user.id,
+                notif_type="card_updated",
+                title="Changed",
+                actor_id=user.id,
+            )
+
+        # Suppressed before any channel work happens.
+        assert notif is None
+        assert dispatch.call_count == 0
+
+    async def test_notify_all_users_never_dispatches(self, db, monkeypatch):
+        """Its only caller announces app_updated, which is bell-only."""
+        from app.services.notification_service import notify_all_users
+
+        await create_role(db, key="member")
+        await create_user(db, role="member")
+
+        monkeypatch.setattr(
+            "app.services.extensions.notification_channels.wanted_channels",
+            lambda user, notif_type: ["chat"],
+        )
+        with patch("app.services.extensions.notification_channels.dispatch") as dispatch:
+            await notify_all_users(db, notif_type="app_updated", title="Upgraded")
+
+        assert dispatch.call_count == 0

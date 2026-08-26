@@ -40,3 +40,15 @@ Para cada tipo de notificação, você pode alternar independentemente:
 - **E-mail** — Se um e-mail também é enviado (requer que o envio de e-mail esteja configurado por um administrador)
 
 Alguns tipos de notificação (ex.: solicitações de pesquisa) podem ter entrega por e-mail imposta pelo sistema e não podem ser desabilitados.
+
+Cada canal é independente: desativar um tipo no sino não interrompe o seu e-mail,
+e vice-versa. Alguns tipos passam apenas pelo sino — o aviso de atualização que
+chega a todas as contas, por exemplo — e os restantes interruptores ficam fixos
+em «desativado».
+
+Se estiver instalada e licenciada uma extensão que entrega notificações noutro
+sítio (uma mensagem de chat, por exemplo), esta acrescenta a sua própria coluna
+ao lado de «Na aplicação» e «E-mail», e escolhe tipo a tipo se a notificação
+segue para lá. Essas colunas começam sempre **desativadas**. Desativar a extensão
+ou deixar caducar a licença oculta a coluna e coloca a entrega em pausa, mas
+conserva tudo o que escolheu: volta com a extensão.

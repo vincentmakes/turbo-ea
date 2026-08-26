@@ -40,3 +40,16 @@ Pour chaque type de notification, vous pouvez activer/désactiver indépendammen
 - **E-mail** -- Si un e-mail est également envoyé (nécessite que l'envoi d'e-mails soit configuré par un administrateur)
 
 Certains types de notifications (par ex. demandes d'enquête) peuvent avoir la livraison par e-mail imposée par le système et ne peuvent pas être désactivés.
+
+Chaque canal est indépendant : désactiver un type dans la cloche n'arrête pas son
+e-mail, et inversement. Quelques types ne passent que par la cloche — l'annonce
+de mise à jour qui atteint tous les comptes, par exemple — et leurs autres
+interrupteurs sont figés sur «désactivé».
+
+Si une extension qui remet les notifications ailleurs (un message de chat, par
+exemple) est installée et sous licence, elle ajoute sa propre colonne à côté de
+«Dans l'application» et «E-mail», et vous choisissez type par type si la
+notification y est envoyée. Ces colonnes démarrent toujours **désactivées**.
+Désactiver l'extension ou laisser sa licence expirer masque la colonne et met la
+remise en pause, mais conserve tous vos choix : ils reviennent avec
+l'extension.

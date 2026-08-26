@@ -63,6 +63,7 @@ VALID_GRANTS = frozenset(
         "core.cards.read",
         "core.cards.write",
         "core.events.card",
+        "core.notifications.channel",
     }
 )
 

@@ -164,3 +164,64 @@ def test_transaction_is_closed_before_the_first_ai_call(module: str, func: str):
         f"{func} reaches its first call_ai without committing — the reads above it "
         "hold a connection for the whole LLM loop."
     )
+
+
+# ---------------------------------------------------------------------------
+# Extension notification channels must be enqueue-only
+# ---------------------------------------------------------------------------
+
+
+class TestNotificationChannelDispatch:
+    """``create_notification`` calls ``dispatch`` with its transaction open.
+
+    Every other channel in this file is a background job that can be told to
+    close its session first. This one cannot: the dispatch happens mid-request,
+    right after the notification row is flushed, so the *only* thing keeping it
+    safe is that ``dispatch`` neither awaits nor touches the network. Making it
+    a coroutine would put an extension's delivery path inside every notification
+    sender's transaction.
+    """
+
+    def test_dispatch_is_a_plain_function(self):
+        tree = ast.parse(_source("app/services/extensions/notification_channels.py"))
+        for node in tree.body:
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == "dispatch":
+                raise AssertionError("dispatch must stay synchronous — enqueue only")
+            if isinstance(node, ast.FunctionDef) and node.name == "dispatch":
+                return
+        raise AssertionError("dispatch not found in notification_channels.py")
+
+    def test_dispatch_body_never_awaits(self):
+        # AST, not a text search: the docstring names ``await`` on purpose.
+        tree = ast.parse(_source("app/services/extensions/notification_channels.py"))
+        target = next(
+            n
+            for n in tree.body
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == "dispatch"
+        )
+        awaits = [n for n in ast.walk(target) if isinstance(n, ast.Await)]
+        assert not awaits, "dispatch must not await — it runs inside an open transaction"
+
+    def test_create_notification_does_not_await_the_dispatch(self):
+        """The call must be a bare expression statement, never an await."""
+        module = "app/services/notification_service.py"
+        tree = ast.parse(_source(module))
+        target = None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == "create_notification":
+                target = node
+                break
+        assert target is not None, "create_notification not found"
+
+        found = False
+        for node in ast.walk(target):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if isinstance(func, ast.Attribute) and func.attr == "dispatch":
+                found = True
+                parents = [
+                    p for p in ast.walk(target) if isinstance(p, ast.Await) and p.value is node
+                ]
+                assert not parents, "dispatch must not be awaited in create_notification"
+        assert found, "create_notification no longer dispatches to extension channels"

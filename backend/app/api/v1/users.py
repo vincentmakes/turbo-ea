@@ -20,6 +20,7 @@ from app.models.user import (
     NOTIFICATION_TYPE_SPECS,
     User,
 )
+from app.services.extensions import notification_channels
 from app.services.permission_service import PermissionService
 from app.services.sso_service import get_sso_config
 
@@ -55,6 +56,14 @@ class UserUpdate(BaseModel):
 class NotificationPreferencesUpdate(BaseModel):
     in_app: dict[str, bool] | None = None
     email: dict[str, bool] | None = None
+    # Extension-delivered channels, namespaced under "channels" so a channel
+    # key can never collide with a core one. Keys for channels that are not
+    # currently registered are IGNORED, not rejected: the dialog sends the
+    # whole object, so a 400 for a channel that de-registered between the GET
+    # and the PATCH would stop the user saving their in-app settings too.
+    # Stored values for such channels are preserved, so an opt-in survives a
+    # license lapse and reappears when the extension comes back.
+    channels: dict[str, dict[str, bool]] | None = None
 
 
 class UiPreferencesUpdate(BaseModel):
@@ -283,6 +292,7 @@ async def get_notification_preferences(
     prefs = current_user.notification_preferences or DEFAULT_NOTIFICATION_PREFERENCES
     return {
         **prefs,
+        "available_channels": notification_channels.channel_descriptors(),
         "types": [
             {
                 "key": spec.key,
@@ -312,6 +322,20 @@ async def update_notification_preferences(
         prefs["in_app"] = {**prefs.get("in_app", {}), **body.in_app}
     if body.email is not None:
         prefs["email"] = {**prefs.get("email", {}), **body.email}
+    if body.channels is not None:
+        live = set(notification_channels.registered_channel_keys())
+        known_types = {spec.key for spec in NOTIFICATION_TYPE_SPECS if spec.user_configurable}
+        stored = dict(prefs.get("channels") or {})
+        for channel_key, values in body.channels.items():
+            if channel_key not in live:
+                continue
+            stored[channel_key] = {
+                **stored.get(channel_key, {}),
+                # Bounded to the types the dialog actually offers, so this
+                # surface cannot be used to grow the JSONB blob arbitrarily.
+                **{t: v for t, v in values.items() if t in known_types},
+            }
+        prefs["channels"] = stored
 
     current_user.notification_preferences = prefs
     await db.commit()

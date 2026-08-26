@@ -40,3 +40,15 @@ Für jeden Benachrichtigungstyp können Sie unabhängig umschalten:
 - **E-Mail** — Ob zusätzlich eine E-Mail gesendet wird (erfordert einen von einem Administrator konfigurierten E-Mail-Versand)
 
 Einige Benachrichtigungstypen (z.B. Umfrageanfragen) können eine vom System erzwungene E-Mail-Zustellung haben und können nicht deaktiviert werden.
+
+Jeder Kanal ist unabhängig: Einen Typ in der Glocke abzuschalten stoppt nicht
+seine E-Mail und umgekehrt. Einige wenige Typen sind reine Glocken-Typen — etwa
+die Upgrade-Ankündigung, die jedes Konto erreicht — und ihre übrigen Schalter
+sind fest aus.
+
+Ist eine Erweiterung installiert und lizenziert, die Benachrichtigungen anderswo
+zustellt (etwa als Chat-Nachricht), fügt sie neben «In der App» und «E-Mail»
+eine eigene Spalte hinzu, und Sie wählen pro Typ, ob er dorthin geht. Diese
+Spalten sind immer zunächst **aus**. Wird die Erweiterung deaktiviert oder läuft
+ihre Lizenz ab, verschwindet die Spalte und die Zustellung pausiert — Ihre
+Einstellungen bleiben jedoch erhalten und kehren mit der Erweiterung zurück.

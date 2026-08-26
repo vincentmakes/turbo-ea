@@ -16,6 +16,8 @@ import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
 import { api } from "@/api/client";
+import { ExtensionSlot, useExtensionSlots } from "@/lib/extensionHost";
+import { useAuthContext } from "@/hooks/AuthContext";
 import type { NotificationPreferences, NotificationTypeSpec } from "@/types";
 
 /**
@@ -31,6 +33,19 @@ function labelKeyFor(typeKey: string): string {
   return `preferences.${camel}`;
 }
 
+/** A column an extension delivers notifications on, ready to render. */
+interface ChannelColumn {
+  key: string;
+  label: string;
+  order: number;
+}
+
+/** What a `notification.preferences.channels` data slot may return. */
+interface ChannelSlotMeta {
+  label?: string;
+  order?: number;
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -38,6 +53,7 @@ interface Props {
 
 export default function NotificationPreferencesDialog({ open, onClose }: Props) {
   const { t } = useTranslation(["notifications", "common"]);
+  const { user } = useAuthContext();
   const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -55,6 +71,31 @@ export default function NotificationPreferencesDialog({ open, onClose }: Props) 
   }, [open]);
 
   const types: NotificationTypeSpec[] = prefs?.types ?? [];
+  const slotColumns = useExtensionSlots("notification.preferences.channels");
+
+  /**
+   * A channel column needs BOTH halves: the backend must report the channel
+   * as live (it decides whether a PATCH for it is honoured) and a slot
+   * supplies the localized label. Backend-only still renders, under the raw
+   * key, so a channel that is genuinely delivering is never unswitchable.
+   * Slot-only renders nothing — a UI bundle installs live while a backend
+   * channel needs a restart, and a column the backend would ignore is worse
+   * than no column at all.
+   */
+  const channels: ChannelColumn[] = (prefs?.available_channels ?? [])
+    .map((c) => {
+      const hit = slotColumns.find((s) => s.contribution.id === c.key);
+      let meta: ChannelSlotMeta = {};
+      try {
+        meta = (hit?.contribution.build?.({ channelKey: c.key }) ?? {}) as ChannelSlotMeta;
+      } catch {
+        // Same posture as extension ADR grid columns: a throwing build()
+        // costs its label, never the column or the dialog.
+        meta = {};
+      }
+      return { key: c.key, label: meta.label || c.key, order: meta.order ?? 0 };
+    })
+    .sort((a, b) => a.order - b.order || a.key.localeCompare(b.key));
 
   const toggle = (channel: "in_app" | "email", type: string) => {
     if (!prefs) return;
@@ -67,16 +108,31 @@ export default function NotificationPreferencesDialog({ open, onClose }: Props) 
     });
   };
 
+  const toggleChannel = (channelKey: string, type: string) => {
+    if (!prefs) return;
+    const current = prefs.channels ?? {};
+    const forChannel = current[channelKey] ?? {};
+    setPrefs({
+      ...prefs,
+      channels: {
+        ...current,
+        [channelKey]: { ...forChannel, [type]: !forChannel[type] },
+      },
+    });
+  };
+
   const handleSave = async () => {
     if (!prefs) return;
     setSaving(true);
     setError("");
     try {
-      // Send the channels only. `types` is server-owned render metadata that
-      // came down on the GET; echoing it back would be noise on the wire.
+      // Send the opt-ins only. `types` and `available_channels` are
+      // server-owned render metadata that came down on the GET; echoing them
+      // back would be noise on the wire.
       await api.patch("/users/me/notification-preferences", {
         in_app: prefs.in_app,
         email: prefs.email,
+        ...(prefs.channels ? { channels: prefs.channels } : {}),
       });
       onClose();
     } catch {
@@ -87,7 +143,7 @@ export default function NotificationPreferencesDialog({ open, onClose }: Props) 
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth={channels.length ? "md" : "sm"} fullWidth>
       <DialogTitle>{t("preferences.title")}</DialogTitle>
       <DialogContent>
         {error && (
@@ -116,6 +172,11 @@ export default function NotificationPreferencesDialog({ open, onClose }: Props) 
                   <TableCell align="center" sx={{ fontWeight: 600 }}>
                     {t("preferences.email")}
                   </TableCell>
+                  {channels.map((ch) => (
+                    <TableCell key={ch.key} align="center" sx={{ fontWeight: 600 }}>
+                      {ch.label}
+                    </TableCell>
+                  ))}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -140,10 +201,28 @@ export default function NotificationPreferencesDialog({ open, onClose }: Props) 
                         disabled={nt.email_locked || nt.in_app_only}
                       />
                     </TableCell>
+                    {channels.map((ch) => (
+                      <TableCell key={ch.key} align="center">
+                        <Switch
+                          size="small"
+                          // Extension channels are always opt-in-off: no
+                          // per-type default can raise them, so an install
+                          // never starts delivering on its own.
+                          checked={!nt.in_app_only && (prefs.channels?.[ch.key]?.[nt.key] ?? false)}
+                          onChange={() => toggleChannel(ch.key, nt.key)}
+                          disabled={nt.in_app_only}
+                        />
+                      </TableCell>
+                    ))}
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+
+            <ExtensionSlot
+              name="notification.preferences.footer"
+              context={{ userId: user?.id }}
+            />
           </>
         ) : null}
       </DialogContent>

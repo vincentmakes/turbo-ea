@@ -6953,6 +6953,23 @@
       },
       "NotificationPreferencesUpdate": {
         "properties": {
+          "channels": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "type": "object"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channels"
+          },
           "email": {
             "anyOf": [
               {
@@ -38480,6 +38497,7 @@
     },
     "/api/v1/users/me/notification-preferences": {
       "get": {
+        "description": "Stored opt-ins, plus what the dialog needs to render itself.\n\n``types`` is served rather than hardcoded in the frontend because the two\nlists had already drifted: fourteen emitted types appeared in neither, so\nthey could not be configured at all. The dialog renders one row per entry\nhere, so adding a type to ``NOTIFICATION_TYPE_SPECS`` is all it takes.",
         "operationId": "get_notification_preferences_api_v1_users_me_notification_preferences_get",
         "responses": {
           "200": {
