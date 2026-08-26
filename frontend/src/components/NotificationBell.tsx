@@ -173,6 +173,9 @@ export default function NotificationBell({
   const [releaseNotes, setReleaseNotes] = useState<OpenReleaseNotes | null>(null);
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
+  // Read inside the reconnect callback, which must not be re-created (and so
+  // re-subscribed) every time the popover opens or closes.
+  const openRef = useRef(false);
 
   const fetchUnreadCount = useCallback(async () => {
     try {
@@ -227,12 +230,23 @@ export default function NotificationBell({
         }
       },
       []
-    )
+    ),
+    // The stream dropped and came back, so anything published in the gap was
+    // missed — SSE has no replay. Re-read rather than leave the badge stale.
+    // An upgrade is the usual cause: the announcement is written while the
+    // backend is still starting, when no client is connected to receive it.
+    useCallback(() => {
+      fetchUnreadCount();
+      if (openRef.current) fetchNotifications();
+    }, [fetchUnreadCount, fetchNotifications])
   );
 
   const handleOpen = (e: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(e.currentTarget);
     fetchNotifications();
+    // Also re-read the count, so the badge can never disagree with the list
+    // the user is looking at.
+    fetchUnreadCount();
   };
 
   const handleClose = () => setAnchorEl(null);
@@ -274,6 +288,7 @@ export default function NotificationBell({
   };
 
   const open = Boolean(anchorEl);
+  openRef.current = open;
 
   return (
     <>

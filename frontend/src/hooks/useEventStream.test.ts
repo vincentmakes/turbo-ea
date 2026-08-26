@@ -9,6 +9,7 @@ import { setAuthenticated } from "@/api/client";
 
 let esInstances: Array<{
   onmessage: ((e: { data: string }) => void) | null;
+  onopen: (() => void) | null;
   onerror: (() => void) | null;
   close: ReturnType<typeof vi.fn>;
 }> = [];
@@ -16,6 +17,9 @@ let esInstances: Array<{
 const MockEventSource = vi.fn(function MockEventSource(this: unknown) {
   const inst = {
     onmessage: null as ((e: { data: string }) => void) | null,
+    // The browser fires this on the initial connection and again on every
+    // silent auto-reconnect — which is what the resync tests below drive.
+    onopen: null as (() => void) | null,
     onerror: null as (() => void) | null,
     close: vi.fn(),
   };
@@ -106,5 +110,99 @@ describe("useEventStream", () => {
     stopEventStream();
 
     expect(esInstances[0].close).toHaveBeenCalled();
+  });
+
+  // -------------------------------------------------------------------------
+  // Reconnect resync
+  // -------------------------------------------------------------------------
+  //
+  // SSE has no replay, so whatever was published while the stream was down is
+  // gone. The case that surfaced this: an upgrade writes its "app updated"
+  // notification during backend startup, before any browser is connected to be
+  // published to, so the bell badge sat at its old count until a full reload.
+
+  it("does NOT call onReconnect for the initial connection", () => {
+    // Consumers already load their state on mount; treating the first open as
+    // a reconnect would double every initial fetch.
+    setAuthenticated(true);
+    const onReconnect = vi.fn();
+
+    renderHook(() => useEventStream(vi.fn(), onReconnect));
+    esInstances[0].onopen!();
+
+    expect(onReconnect).not.toHaveBeenCalled();
+  });
+
+  it("calls onReconnect each time the stream comes back after a drop", () => {
+    setAuthenticated(true);
+    const onReconnect = vi.fn();
+
+    renderHook(() => useEventStream(vi.fn(), onReconnect));
+    esInstances[0].onopen!(); // initial connection
+    esInstances[0].onopen!(); // dropped, then reopened
+
+    expect(onReconnect).toHaveBeenCalledTimes(1);
+
+    esInstances[0].onopen!();
+    expect(onReconnect).toHaveBeenCalledTimes(2);
+  });
+
+  it("notifies every consumer on reconnect", () => {
+    setAuthenticated(true);
+    const a = vi.fn();
+    const b = vi.fn();
+
+    renderHook(() => useEventStream(vi.fn(), a));
+    renderHook(() => useEventStream(vi.fn(), b));
+    esInstances[0].onopen!();
+    esInstances[0].onopen!();
+
+    expect(a).toHaveBeenCalledTimes(1);
+    expect(b).toHaveBeenCalledTimes(1);
+  });
+
+  it("one throwing reconnect listener does not stop the others", () => {
+    setAuthenticated(true);
+    const boom = vi.fn(() => {
+      throw new Error("boom");
+    });
+    const ok = vi.fn();
+
+    renderHook(() => useEventStream(vi.fn(), boom));
+    renderHook(() => useEventStream(vi.fn(), ok));
+    esInstances[0].onopen!();
+    esInstances[0].onopen!();
+
+    expect(boom).toHaveBeenCalled();
+    expect(ok).toHaveBeenCalled();
+  });
+
+  it("stops notifying a consumer once it unmounts", () => {
+    setAuthenticated(true);
+    const onReconnect = vi.fn();
+
+    const { unmount } = renderHook(() => useEventStream(vi.fn(), onReconnect));
+    esInstances[0].onopen!(); // initial
+    unmount();
+    esInstances[0].onopen!(); // would be a reconnect
+
+    expect(onReconnect).not.toHaveBeenCalled();
+  });
+
+  it("treats the stream opened after a logout as a fresh connection", () => {
+    // stopEventStream() runs on logout. The next login opens a new stream, and
+    // that first open is an initial connection — nothing was missed in between.
+    setAuthenticated(true);
+    const onReconnect = vi.fn();
+
+    const { unmount } = renderHook(() => useEventStream(vi.fn(), onReconnect));
+    esInstances[0].onopen!();
+    unmount();
+    stopEventStream();
+
+    renderHook(() => useEventStream(vi.fn(), onReconnect));
+    esInstances[1].onopen!();
+
+    expect(onReconnect).not.toHaveBeenCalled();
   });
 });

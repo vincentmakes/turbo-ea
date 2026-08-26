@@ -390,6 +390,10 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       },
       [debouncedBadgeRefresh],
     ),
+    // Same reasoning as the bell: events missed while the stream was down are
+    // gone, so re-read the counts on reconnect instead of waiting for the next
+    // navigation.
+    debouncedBadgeRefresh,
   );
 
   // Also refresh when navigating (covers completing a todo, responding to a survey)
