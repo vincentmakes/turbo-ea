@@ -170,6 +170,65 @@ class TestReadBundle:
         with pytest.raises(BundleError, match="free"):
             read_bundle(write_bundle(tmp_path, raw), core_version=CORE_VERSION)
 
+    # -- logo ---------------------------------------------------------------
+
+    def test_logo_exposed(self, tmp_path, keypair):
+        raw = build_teax(
+            keypair,
+            files={"content/pack.json": CONTENT, "logo.png": b"\x89PNG\r\n\x1a\n" + b"x" * 32},
+            logo="logo.png",
+        )
+        bundle = read_bundle(write_bundle(tmp_path, raw), core_version=CORE_VERSION)
+        assert bundle.logo == "logo.png"
+
+    def test_absent_logo_is_none(self, tmp_path, keypair):
+        raw = build_teax(keypair, files={"content/pack.json": CONTENT})
+        bundle = read_bundle(write_bundle(tmp_path, raw), core_version=CORE_VERSION)
+        assert bundle.logo is None
+
+    def test_logo_not_in_the_signed_files_map_is_rejected(self, tmp_path, keypair):
+        """The whole security story: the logo is served unauthenticated, so it
+        has to be covered by manifest.sig and the per-boot on-disk re-hash."""
+        raw = build_teax(keypair, files={"content/pack.json": CONTENT}, logo="logo.png")
+        with pytest.raises(BundleError, match="not covered by the signed files map"):
+            read_bundle(write_bundle(tmp_path, raw), core_version=CORE_VERSION)
+
+    def test_traversing_logo_path_is_rejected(self, tmp_path, keypair):
+        raw = build_teax(
+            keypair,
+            files={"content/pack.json": CONTENT},
+            logo="../../etc/passwd.png",
+        )
+        with pytest.raises(BundleError, match="relative path inside the bundle"):
+            read_bundle(write_bundle(tmp_path, raw), core_version=CORE_VERSION)
+
+    def test_logo_with_a_non_image_suffix_is_rejected(self, tmp_path, keypair):
+        """A manifest must not be able to nominate a wheel or the manifest
+        itself as its "logo" and so make it readable through the asset route."""
+        raw = build_teax(
+            keypair,
+            files={"content/pack.json": CONTENT, "secrets.json": b"{}"},
+            logo="secrets.json",
+        )
+        with pytest.raises(BundleError, match="ending in one of"):
+            read_bundle(write_bundle(tmp_path, raw), core_version=CORE_VERSION)
+
+    def test_oversized_logo_is_rejected(self, tmp_path, keypair):
+        from app.services.extensions.bundle import MAX_LOGO_BYTES
+
+        raw = build_teax(
+            keypair,
+            files={"content/pack.json": CONTENT, "logo.png": b"x" * (MAX_LOGO_BYTES + 1)},
+            logo="logo.png",
+        )
+        with pytest.raises(BundleError, match="larger than"):
+            read_bundle(write_bundle(tmp_path, raw), core_version=CORE_VERSION)
+
+    def test_non_string_logo_is_rejected(self, tmp_path, keypair):
+        raw = build_teax(keypair, files={"content/pack.json": CONTENT}, logo=42)
+        with pytest.raises(BundleError, match="relative path inside the bundle"):
+            read_bundle(write_bundle(tmp_path, raw), core_version=CORE_VERSION)
+
 
 class TestExtractBundle:
     def test_extracts_files_and_wheel(self, tmp_path, keypair):

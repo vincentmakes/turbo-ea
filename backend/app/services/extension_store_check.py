@@ -217,6 +217,25 @@ def _update_summary(updates: list[ExtensionUpdate]) -> tuple[str, str]:
     )
 
 
+def _merge_known(known: list[str], items: list[dict]) -> list[str]:
+    """First-seen-ordered union of the seen keys and this catalogue's keys.
+
+    Capped by dropping from the *front* — the oldest key is the one that can
+    most afford to be forgotten. Capping a sorted list instead (the original
+    shape) evicted by key name, so past ``MAX_TRACKED_KEYS`` an extension whose
+    key sorts late fell out of the set on every run and was announced as new on
+    every following one.
+    """
+    seen = set(known)
+    merged = list(known)
+    for item in items:
+        key, _, _ = _entry(item)
+        if key and key not in seen:
+            seen.add(key)
+            merged.append(key)
+    return merged[-MAX_TRACKED_KEYS:]
+
+
 def _pending_versions(items: list[dict], installed: dict[str, str]) -> dict[str, str]:
     """``{key: store_version}`` for every update that is *currently* pending.
 
@@ -260,7 +279,8 @@ async def record_result(
         installed = await installed_versions(db)
         # Both come back out of JSONB, so they are only the right shape by
         # convention — narrow before use.
-        known = {k for k in (state.get("knownKeys") or []) if isinstance(k, str)}
+        known_list = [k for k in (state.get("knownKeys") or []) if isinstance(k, str)]
+        known = set(known_list)
         notified = {
             k: v
             for k, v in (state.get("notifiedVersions") or {}).items()
@@ -284,10 +304,20 @@ async def record_result(
         # run must not retry them. `knownKeys` is a *union* — an outage that
         # returns an empty or partial catalogue must not make everything look
         # new again when the store recovers.
-        catalog_keys = {key for key, _, _ in map(_entry, items) if key}
-        state["knownKeys"] = sorted(known | catalog_keys)[:MAX_TRACKED_KEYS]
+        #
+        # The union is kept in *first-seen* order and capped by dropping from
+        # the front, because the cap must evict the oldest key rather than the
+        # alphabetically last one: sorting first and slicing meant that past the
+        # cap an extension whose key sorts late was dropped from the seen set on
+        # every run and re-announced as new on the next one, forever.
+        state["knownKeys"] = _merge_known(known_list, items)
         state["notifiedVersions"] = _pending_versions(items, installed)
         state["seeded"] = True
+        # What the last run actually found, so the admin status readout can say
+        # "checked, nothing was new" instead of only "checked".
+        state["lastNew"] = len(changes.new)
+        state["lastUpdates"] = len(changes.updates)
+        state["lastNotified"] = created
 
     general[STATE_SETTING] = state
     # Reassign rather than mutate — SQLAlchemy does not track in-place JSONB edits.
@@ -346,7 +376,15 @@ async def _notify(db: AsyncSession, recipients: list[uuid.UUID], changes: StoreC
 
 
 async def read_status(db: AsyncSession) -> dict:
-    """The cached probe result. Never fetches."""
+    """The cached probe result. Never fetches.
+
+    This is the only window onto a job that is otherwise entirely silent: it
+    runs once a day in the background, and a store that cannot be reached
+    records its error here and nowhere else. Without a reading of it, "no
+    notification arrived" is indistinguishable from "the probe never ran", "the
+    fetch was refused" and "it ran and nothing was new" — which are four very
+    different problems.
+    """
     row = await _settings_row(db)
     general = (row.general_settings if row else None) or {}
     state = general.get(STATE_SETTING) or {}
@@ -357,21 +395,30 @@ async def read_status(db: AsyncSession) -> dict:
         "known_count": len(state.get("knownKeys") or []),
         "pending_updates": dict(state.get("notifiedVersions") or {}),
         "enabled": bool(general.get(ENABLED_SETTING, True)),
+        "last_new": int(state.get("lastNew") or 0),
+        "last_updates": int(state.get("lastUpdates") or 0),
+        "last_notified": int(state.get("lastNotified") or 0),
     }
 
 
-async def run_extension_store_check() -> None:
-    """One full probe cycle. Opens its own short-lived sessions."""
+async def run_extension_store_check() -> dict:
+    """One full probe cycle. Opens its own short-lived sessions.
+
+    Returns what the run found so a caller that triggered it on demand can say
+    so immediately; the daily loop ignores the return value.
+    """
     from app.database import async_session
 
     base_url = settings.EXTENSION_STORE_URL.strip()
     if not base_url:
         # No store configured — no request to make and no state worth churning.
-        return
+        return {"configured": False}
 
     async with async_session() as db:
         if not await extension_notices_enabled(db):
-            return
+            # Off means off: the toggle is read before the request, so disabling
+            # it stops the outbound traffic rather than just muting the bell.
+            return {"configured": True, "disabled": True}
 
     # No session held across the network round-trip.
     items, error = await fetch_store_catalog_safe(base_url)
@@ -379,6 +426,17 @@ async def run_extension_store_check() -> None:
     async with async_session() as db:
         created = await record_result(db, items=items, error=error)
         await db.commit()
+        status = await read_status(db)
 
     if created:
         logger.info("Extension store changes notified to %d administrator(s)", created)
+
+    return {
+        "configured": True,
+        "disabled": False,
+        "new": status["last_new"],
+        "updates": status["last_updates"],
+        "notified": created,
+        "error": status["error"],
+        "checked_at": status["checked_at"],
+    }

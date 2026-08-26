@@ -796,6 +796,87 @@ async def get_update_status(
     return await read_status(db)
 
 
+@router.get("/extension-store-status")
+async def get_extension_store_status(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Cached result of the last extension-store check, for the Store tab.
+
+    The daily check is otherwise completely silent — a store that refuses the
+    request records the reason in the settings row and nowhere else, so an
+    administrator who is not being notified has no way to tell "nothing was
+    new" from "the fetch has been failing for a fortnight". Gated on
+    ``admin.settings`` like its ``/update-status`` neighbour, and it serves only
+    what the daily check already stored; it never reaches out to the store.
+    """
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    from app.services.extension_store_check import read_status
+
+    return await read_status(db)
+
+
+@router.post("/extension-store-check")
+async def run_extension_store_check_now(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Run the extension-store check immediately and report what it found.
+
+    Without this, verifying the daily check means waiting up to a day and then
+    inferring the result from whether a notification turned up — which cannot
+    distinguish "nothing was new" from "the fetch is failing".
+
+    Same three phases as the daily loop, over this request's session rather
+    than sessions of its own: read the toggle, hand the connection back, fetch
+    holding nothing, reopen for the writes. It is spelled out here rather than
+    delegated because a helper must never commit a session it was handed, and
+    the loop's entry point owns sessions this request does not have. Honours
+    the notices toggle, so a switched-off instance makes no outbound request
+    here any more than it does on the timer.
+    """
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    from app.services.extension_store_check import (
+        extension_notices_enabled,
+        read_status,
+        record_result,
+    )
+    from app.services.extensions.store_catalog import fetch_store_catalog_safe
+
+    base_url = app_config.EXTENSION_STORE_URL.strip()
+    if not base_url:
+        return {"configured": False}
+    if not await extension_notices_enabled(db):
+        # Off means off: the toggle governs the outbound request, not just the
+        # bell, so the on-demand path honours it exactly as the timer does.
+        return {"configured": True, "disabled": True}
+
+    # Same three-phase shape as the daily loop, on this request's session
+    # instead of its own: read, hand the connection back, fetch holding
+    # nothing, then reopen for the writes. The commit is what releases the
+    # connection — ``get_db`` is a yield-dependency, so without it the
+    # permission check's connection stays checked out for the whole round-trip
+    # to the store.
+    await db.commit()
+    items, error = await fetch_store_catalog_safe(base_url)
+
+    created = await record_result(db, items=items, error=error)
+    await db.commit()
+    status = await read_status(db)
+
+    return {
+        "configured": True,
+        "disabled": False,
+        "new": status["last_new"],
+        "updates": status["last_updates"],
+        "notified": created,
+        "error": status["error"],
+        "checked_at": status["checked_at"],
+    }
+
+
 @router.get("/whats-new")
 async def get_whats_new(
     db: AsyncSession = Depends(get_db),

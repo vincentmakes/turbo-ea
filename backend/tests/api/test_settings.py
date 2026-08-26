@@ -405,6 +405,121 @@ class TestUpdateCheckEnabledSettings:
         )
         assert resp.status_code == 403
 
+    async def test_store_status_serves_the_cached_probe_result(self, client, db, settings_env):
+        """The Store tab's window onto an otherwise entirely silent daily job."""
+        from app.services.extension_store_check import record_result
+
+        await record_result(
+            db,
+            items=[{"key": "a", "name": "Acme", "version": "1.0.0"}],
+            error=None,
+        )
+        await db.commit()
+
+        resp = await client.get(
+            "/api/v1/settings/extension-store-status", headers=auth_headers(settings_env["admin"])
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["seeded"] is True
+        assert body["known_count"] == 1
+        assert body["error"] is None
+        assert body["checked_at"]
+        assert body["enabled"] is True
+
+    async def test_store_status_is_empty_before_the_first_check(self, client, db, settings_env):
+        resp = await client.get(
+            "/api/v1/settings/extension-store-status", headers=auth_headers(settings_env["admin"])
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["checked_at"] is None
+        assert body["seeded"] is False
+        assert body["known_count"] == 0
+
+    async def test_store_status_surfaces_a_failing_fetch(self, client, db, settings_env):
+        """Without this, "no notification arrived" and "the fetch has been
+        refused for a fortnight" look identical from the admin UI."""
+        from app.services.extension_store_check import record_result
+
+        await record_result(db, items=None, error="Store refused the request (HTTP 403)")
+        await db.commit()
+
+        resp = await client.get(
+            "/api/v1/settings/extension-store-status", headers=auth_headers(settings_env["admin"])
+        )
+        assert resp.json()["error"] == "Store refused the request (HTTP 403)"
+
+    async def test_member_cannot_read_store_status(self, client, db, settings_env):
+        resp = await client.get(
+            "/api/v1/settings/extension-store-status", headers=auth_headers(settings_env["member"])
+        )
+        assert resp.status_code == 403
+
+    async def test_manual_store_check_makes_no_request_when_notices_are_off(
+        self, client, db, settings_env
+    ):
+        """Off means off — the toggle governs the outbound traffic, not just
+        the bell, so the on-demand path must honour it too."""
+        from app.services.extensions import store_catalog
+
+        admin = settings_env["admin"]
+        await client.patch(
+            "/api/v1/settings/extension-notices-enabled",
+            json={"enabled": False},
+            headers=auth_headers(admin),
+        )
+
+        called = False
+
+        async def _never(_base_url):
+            nonlocal called
+            called = True
+            return [], None
+
+        original = store_catalog.fetch_store_catalog_safe
+        store_catalog.fetch_store_catalog_safe = _never
+        try:
+            resp = await client.post(
+                "/api/v1/settings/extension-store-check", headers=auth_headers(admin)
+            )
+        finally:
+            store_catalog.fetch_store_catalog_safe = original
+
+        assert resp.status_code == 200
+        assert resp.json()["disabled"] is True
+        assert called is False
+
+    async def test_manual_store_check_reports_what_it_found(self, client, db, settings_env):
+        from app.services.extensions import store_catalog
+
+        async def _catalogue(_base_url):
+            return [{"key": "a", "name": "Acme", "version": "1.0.0"}], None
+
+        original = store_catalog.fetch_store_catalog_safe
+        store_catalog.fetch_store_catalog_safe = _catalogue
+        try:
+            resp = await client.post(
+                "/api/v1/settings/extension-store-check",
+                headers=auth_headers(settings_env["admin"]),
+            )
+        finally:
+            store_catalog.fetch_store_catalog_safe = original
+
+        assert resp.status_code == 200
+        body = resp.json()
+        # The very first successful fetch seeds silently, by design.
+        assert body["new"] == 0
+        assert body["updates"] == 0
+        assert body["error"] is None
+        assert body["checked_at"]
+
+    async def test_member_cannot_trigger_a_store_check(self, client, db, settings_env):
+        resp = await client.post(
+            "/api/v1/settings/extension-store-check", headers=auth_headers(settings_env["member"])
+        )
+        assert resp.status_code == 403
+
 
 # -------------------------------------------------------------------
 # GET /settings/whats-new + PATCH /settings/announce-upgrades-enabled

@@ -137,6 +137,28 @@ def test_parse_happens_outside_any_session_block(module: str, func: str, slow_ca
             )
 
 
+def test_manual_store_check_releases_the_request_session_first():
+    """``POST /settings/extension-store-check`` runs the daily probe on demand.
+
+    The probe opens its own short sessions, but the *request* has one too — the
+    permission check has already used it, so without an explicit close FastAPI's
+    yield-dependency keeps that connection checked out for the whole outbound
+    round-trip to the store. One admin clicking a button is cheap; the rule is
+    not conditional on how often the path is hit.
+    """
+    body = _function_source("app/api/v1/settings.py", "run_extension_store_check_now")
+    fetch_at = body.find("await fetch_store_catalog_safe(")
+    assert fetch_at != -1, "the endpoint must be the one making the fetch"
+    commit_at = body.rfind("await db.commit()", 0, fetch_at)
+    assert commit_at != -1, (
+        "run_extension_store_check_now must `await db.commit()` before the fetch — "
+        "the commit is what hands the connection back, and get_db is a "
+        "yield-dependency that would otherwise pin it for the whole round-trip."
+    )
+    write_at = body.find("await record_result(")
+    assert fetch_at < write_at, "the writes must come after the fetch, on a fresh transaction"
+
+
 # ---------------------------------------------------------------------------
 # AI batch loops must not keep the transaction open across the LLM calls
 # ---------------------------------------------------------------------------

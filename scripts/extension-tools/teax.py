@@ -80,6 +80,11 @@ VALID_GRANTS = {
     "core.events.card",
     "core.notifications.channel",
 }
+# Artwork an extension may ship as its own logo (manifest `logo`), shown on the
+# Store and Installed tabs. Deliberately duplicated from
+# backend/app/services/extensions/bundle.py (LOGO_EXTENSIONS / MAX_LOGO_BYTES).
+LOGO_EXTENSIONS = {".png", ".svg", ".webp", ".jpg", ".jpeg"}
+MAX_LOGO_BYTES = 512 * 1024
 # Grants that require SDK 1.2+ surfaces at runtime.
 SDK_1_2_GRANT_PREFIXES = ("core.",)
 # Grants that require the SDK 1.3 users bridge specifically.
@@ -229,6 +234,25 @@ def _lint_source(src: Path) -> tuple[dict, dict[str, Path], list[str], list[str]
         )
 
     files = _collect_files(src)
+
+    # `pack` sweeps the whole source dir and passes unknown manifest keys
+    # through verbatim, so a root logo.png is already hashed into `files` and
+    # zipped — lint is the only place that needs to know about it.
+    logo = manifest.get("logo")
+    if logo is None:
+        warnings.append(
+            "no logo declared — the Store and Installed tabs will show a generated tile"
+        )
+    elif not isinstance(logo, str) or not logo.strip():
+        problems.append("logo must be a relative path inside the bundle")
+    elif not _safe_member(logo):
+        problems.append(f"unsafe logo path: {logo}")
+    elif PurePosixPath(logo).suffix.lower() not in LOGO_EXTENSIONS:
+        problems.append(f"logo must end in one of {sorted(LOGO_EXTENSIONS)}: {logo}")
+    elif logo not in files:
+        problems.append(f"logo file listed but missing: {logo}")
+    elif files[logo].stat().st_size > MAX_LOGO_BYTES:
+        problems.append(f"logo is larger than {MAX_LOGO_BYTES // 1024} KB: {logo}")
 
     if "content" in capabilities:
         content = manifest.get("content") or [p for p in files if p.startswith("content/")]

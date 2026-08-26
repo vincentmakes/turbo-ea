@@ -32,7 +32,7 @@ import logging
 import re
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from urllib.parse import urljoin, urlsplit
 
 import httpx
@@ -47,7 +47,12 @@ from app.database import async_session, get_db
 from app.models.extension import Extension, ExtensionInstall, ExtensionLicense
 from app.models.user import User
 from app.services.extensions import installer as ext_installer
-from app.services.extensions.bundle import BundleError, read_bundle
+from app.services.extensions.bundle import (
+    LOGO_EXTENSIONS,
+    BundleError,
+    extension_logo_path,
+    read_bundle,
+)
 from app.services.extensions.content_pack import (
     ContentPackError,
     apply_content,
@@ -106,6 +111,11 @@ class ExtensionOut(BaseModel):
     enabled: bool
     capabilities: list[str] = []
     last_error: str | None = None
+    # Same-origin URL of the bundle's own logo artwork, when it ships one.
+    # This response, not /extensions/ui-manifest, is the carrier: the
+    # ui-manifest covers only enabled + entitled *UI* plugins, and a content
+    # pack or a lapsed extension still has a logo worth rendering.
+    logo_url: str | None = None
     entitlement: EntitlementOut
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -171,6 +181,10 @@ class ExtensionStatusOut(BaseModel):
 
 def _extension_out(row: Extension) -> ExtensionOut:
     ent = extension_registry.entitlement(row.key)
+    # Re-run the validator rather than trusting the stored manifest: it is one
+    # pure call, and it means a hand-edited row can never widen what the asset
+    # route will serve.
+    logo_rel = extension_logo_path(row.manifest or {})
     return ExtensionOut(
         key=row.key,
         name=row.name,
@@ -179,6 +193,7 @@ def _extension_out(row: Extension) -> ExtensionOut:
         enabled=row.enabled,
         capabilities=list(row.capabilities or []),
         last_error=row.last_error,
+        logo_url=(f"/api/v1/ext-assets/{row.key}/{row.version}/{logo_rel}" if logo_rel else None),
         entitlement=EntitlementOut(
             state=ent.state,
             expires_at=ent.expires_at,
@@ -602,6 +617,8 @@ class StoreItemOut(BaseModel):
     license: str = ""
     license_url: str = ""
     screenshots: list[str] = []
+    # Same-origin catalogue logo, shown before the extension is installed.
+    logo: str = ""
     tags: list[str] = []
     version: str = ""
     # True while this instance's entitlement for the item is a trial (active
@@ -639,30 +656,38 @@ class StoreInstallIn(BaseModel):
     key: str
 
 
-def _resolve_screenshots(base_url: str, raw: object) -> list[str]:
-    """Resolve catalogue screenshot paths to absolute, same-origin URLs.
+def _resolve_store_path(
+    base_url: str, raw: object, *, suffixes: frozenset[str] | None = None
+) -> str:
+    """One catalogue image path resolved to an absolute, same-origin URL.
 
-    The catalogue stores same-origin ``/screenshots/<key>/…`` paths. We
-    prefix each with the store base URL so the in-product ``<img src>``
-    resolves against the store origin (a relative path would otherwise
-    resolve against the Turbo EA instance's own origin and 404), and we
-    reject anything that is not a ``/``-rooted relative path — an off-origin
-    absolute URL, or a protocol-relative ``//host`` path — mirroring the
-    same-origin ``bundle_url`` guard so a tampered catalogue can never point
-    the browser at an arbitrary host.
+    The catalogue stores same-origin ``/screenshots/<key>/…`` and
+    ``/logos/<key>.png`` paths. We prefix each with the store base URL so the
+    in-product ``<img src>`` resolves against the store origin (a relative
+    path would otherwise resolve against the Turbo EA instance's own origin
+    and 404), and we reject anything that is not a ``/``-rooted relative path
+    — an off-origin absolute URL, or a protocol-relative ``//host`` path —
+    mirroring the same-origin ``bundle_url`` guard so a tampered catalogue can
+    never point the browser at an arbitrary host. ``suffixes`` narrows it
+    further, so a catalogue cannot aim an ``<img src>`` at ``/anything.html``.
+
+    Returns ``""`` for anything that does not pass.
     """
+    if not isinstance(raw, str):
+        return ""
+    path = raw.strip()
+    if not path.startswith("/") or path.startswith("//"):
+        return ""
+    if suffixes is not None and PurePosixPath(path).suffix.lower() not in suffixes:
+        return ""
+    return base_url.rstrip("/") + path
+
+
+def _resolve_screenshots(base_url: str, raw: object) -> list[str]:
+    """Every catalogue screenshot path, resolved through the same guard."""
     if not isinstance(raw, list):
         return []
-    base = base_url.rstrip("/")
-    out: list[str] = []
-    for entry in raw:
-        if not isinstance(entry, str):
-            continue
-        path = entry.strip()
-        if not path.startswith("/") or path.startswith("//"):
-            continue
-        out.append(base + path)
-    return out
+    return [url for url in (_resolve_store_path(base_url, entry) for entry in raw) if url]
 
 
 # Category tags are external catalogue data: keep only short kebab-case slugs
@@ -740,6 +765,7 @@ async def store_catalog(
                 license=str(item.get("license") or ""),
                 license_url=str(item.get("license_url") or ""),
                 screenshots=_resolve_screenshots(base_url, item.get("screenshots")),
+                logo=_resolve_store_path(base_url, item.get("logo"), suffixes=LOGO_EXTENSIONS),
                 tags=_sanitize_tags(item.get("tags")),
                 version=catalog_version,
                 installed_version=installed_version,
@@ -1070,6 +1096,13 @@ _ASSET_MEDIA_TYPES = {
     ".json": "application/json",
     ".svg": "image/svg+xml",
     ".woff2": "font/woff2",
+    # Logo artwork. Explicit rather than left to FileResponse's mimetypes
+    # guess, so the served type does not depend on the container's mime
+    # database.
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
 }
 
 
@@ -1088,7 +1121,7 @@ async def get_extension_asset(key: str, version: str, asset_path: str):
 
     from fastapi.responses import FileResponse
 
-    from app.services.extensions.bundle import KEY_PATTERN
+    from app.services.extensions.bundle import KEY_PATTERN, extension_logo_path
     from app.services.extensions.installer import EXTENSIONS_DIR
 
     # The registry lookup already 404s unknown keys, but validate the raw URL
@@ -1098,29 +1131,56 @@ async def get_extension_asset(key: str, version: str, asset_path: str):
     if not KEY_PATTERN.match(key) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", version):
         raise HTTPException(status_code=404, detail="Not found")
     info = extension_registry.get(key)
-    if info is None or not info.enabled or info.status == "removed":
+    if info is None or info.status == "removed":
+        raise HTTPException(status_code=404, detail="Not found")
+
+    # The logo is artwork, not code, and the Installed tab renders disabled
+    # rows — so it stays readable while everything else here is gated on
+    # `enabled`. `removed` still 404s either way.
+    declared_logo = extension_logo_path(info.manifest or {})
+    is_logo = declared_logo is not None and asset_path == declared_logo
+    if not is_logo and not info.enabled:
         raise HTTPException(status_code=404, detail="Not found")
 
     # Path-traversal barrier: realpath both the key-derived base and the final
     # target, then require each to sit under its untainted parent (prefix guard
     # terminated by os.sep so a sibling like `<root>-evil` can't slip through).
     # This is the canonical realpath + startswith form for path containment.
+    #
+    # A content-only pack has no `frontend/` directory at all, so the
+    # manifest-declared logo resolves against the extension ROOT instead. That
+    # widens the reachable set by exactly one path per extension, gated by
+    # string EQUALITY against a signature-covered manifest value — never a
+    # prefix match, so `logo.png/../../wheels/x.whl` is not the declared logo,
+    # falls into the frontend branch, and dies on the containment check below.
+    # NOTE the asymmetry with /extensions/ui-manifest, which strips a leading
+    # `frontend/` from its entry: here the *base* moves and the path is used
+    # verbatim. Stripping here would break the equality gate.
     root = os.path.realpath(str(EXTENSIONS_DIR))
-    base = os.path.realpath(os.path.join(root, key, "frontend"))
+    ext_root = os.path.realpath(os.path.join(root, key))
+    base = ext_root if is_logo else os.path.realpath(os.path.join(ext_root, "frontend"))
     target = os.path.realpath(os.path.join(base, asset_path))
     if (
-        not base.startswith(root + os.sep)
+        not ext_root.startswith(root + os.sep)
+        or not base.startswith(root + os.sep)
         or not target.startswith(base + os.sep)
         or not os.path.isfile(target)
     ):
         raise HTTPException(status_code=404, detail="Not found")
 
-    media_type = _ASSET_MEDIA_TYPES.get(os.path.splitext(target)[1].lower())
-    return FileResponse(
-        target,
-        media_type=media_type,
-        headers={"Cache-Control": "public, max-age=31536000, immutable"},
-    )
+    suffix = os.path.splitext(target)[1].lower()
+    media_type = _ASSET_MEDIA_TYPES.get(suffix)
+    headers = {
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "X-Content-Type-Options": "nosniff",
+    }
+    if suffix == ".svg":
+        # An SVG never executes inside an <img>, but navigating straight to
+        # this URL renders it as a document in the app's own origin. Neuter it.
+        headers["Content-Security-Policy"] = (
+            "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+        )
+    return FileResponse(target, media_type=media_type, headers=headers)
 
 
 # ---------------------------------------------------------------------------

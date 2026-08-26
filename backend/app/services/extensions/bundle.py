@@ -84,6 +84,15 @@ _BUILTIN_FIELD_TYPES = frozenset(
 )
 KEY_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{1,63}$")
 
+# Artwork an extension may ship as its own logo, shown on the Store and
+# Installed tabs. Raster or SVG; the suffix allowlist is what stops a manifest
+# nominating `manifest.json` or a wheel as its "logo" and thereby making it
+# readable through the unauthenticated asset route. Keep in sync with
+# LOGO_EXTENSIONS / MAX_LOGO_BYTES in scripts/extension-tools/teax.py
+# (deliberately duplicated — teax is stdlib-vendorable).
+LOGO_EXTENSIONS = frozenset({".png", ".svg", ".webp", ".jpg", ".jpeg"})
+MAX_LOGO_BYTES = 512 * 1024
+
 # Largest single file we will read into memory while hashing (bundle members and
 # on-disk re-verification). Bounds the zip-bomb / tampered-file blast radius; no
 # legitimate extension member approaches this.
@@ -117,6 +126,33 @@ class VerifiedBundle:
     def free(self) -> bool:
         """Whether this extension runs without a license entitlement."""
         return self.manifest.get("free") is True
+
+    @property
+    def logo(self) -> str | None:
+        """Relative path of the bundle's own logo artwork, if it ships one."""
+        return extension_logo_path(self.manifest)
+
+
+def extension_logo_path(manifest: dict[str, Any]) -> str | None:
+    """The manifest's declared logo as a validated relative path, or ``None``.
+
+    Pure and total — an absent, malformed or ineligible ``logo`` yields
+    ``None`` rather than raising, so the serving path can ask without a
+    try/except while :func:`_validate_manifest` turns "declared but invalid"
+    into a hard :class:`BundleError`. Having exactly one implementation of the
+    rules is the point: the validator, the API layer and the asset route must
+    agree on what the logo path *is*, or the route would serve something the
+    validator never approved.
+    """
+    raw = manifest.get("logo")
+    if not isinstance(raw, str):
+        return None
+    rel = raw.strip()
+    if not rel or not _safe_member_name(rel):
+        return None
+    if PurePosixPath(rel).suffix.lower() not in LOGO_EXTENSIONS:
+        return None
+    return rel
 
 
 def _safe_member_name(name: str) -> bool:
@@ -216,6 +252,20 @@ def _validate_manifest(manifest: dict[str, Any], core_version: str) -> None:
     if not isinstance(files, dict):
         raise BundleError("Bundle manifest is missing the files hash map")
 
+    if "logo" in manifest:
+        logo = extension_logo_path(manifest)
+        if logo is None:
+            raise BundleError(
+                "Bundle manifest field `logo` must be a relative path inside the bundle "
+                f"ending in one of {sorted(LOGO_EXTENSIONS)}"
+            )
+        if logo not in files:
+            # The whole security story in one line: the logo is served
+            # unauthenticated, so it must be covered by manifest.sig and by the
+            # per-boot on-disk re-hash. A file dropped onto the volume beside a
+            # signed manifest is never served — it quarantines the extension.
+            raise BundleError(f"Bundle logo is not covered by the signed files map: {logo}")
+
     core = manifest.get("core") or {}
     if not isinstance(core, dict) or not core.get("min"):
         raise BundleError("Bundle manifest is missing the core compatibility range")
@@ -312,6 +362,13 @@ def _verify_zip(zf: zipfile.ZipFile, *, core_version: str) -> dict[str, Any]:
         raise BundleError("Bundle manifest must be a JSON object")
 
     _validate_manifest(manifest, core_version)
+
+    # The manifest carries hashes, not sizes, so the logo's size is checked
+    # here where the zip entry is at hand. Once verified it is pinned by its
+    # hash, so no per-request size check is ever needed.
+    logo_rel = extension_logo_path(manifest)
+    if logo_rel is not None and zf.getinfo(logo_rel).file_size > MAX_LOGO_BYTES:
+        raise BundleError(f"Bundle logo is larger than {MAX_LOGO_BYTES // 1024} KB: {logo_rel}")
 
     files: dict[str, str] = manifest["files"]
     members = [n for n in names if n not in (MANIFEST_NAME, SIGNATURE_NAME) and not n.endswith("/")]
