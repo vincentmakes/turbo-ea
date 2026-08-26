@@ -12,6 +12,7 @@ import Alert from "@mui/material/Alert";
 import Divider from "@mui/material/Divider";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
+import { PROXY_SIGNOUT_KEY } from "@/hooks/useAuth";
 import { auth } from "@/api/client";
 import { useAppTitle } from "@/hooks/useAppTitle";
 import { useLoginBranding, normalizeContactLink } from "@/hooks/useLoginBranding";
@@ -20,6 +21,8 @@ import type { SsoConfig } from "@/types";
 interface Props {
   onLogin: (email: string, password: string) => Promise<void>;
   onRegister: (email: string, displayName: string, password: string) => Promise<void>;
+  /** Sign in from a reverse proxy's already-established identity (#1006). */
+  onProxySession?: () => Promise<void>;
 }
 
 // Cache the resolved SSO config for the session so a refresh renders the
@@ -38,7 +41,7 @@ function readCachedSsoConfig(): SsoConfig | null {
   }
 }
 
-export default function LoginPage({ onLogin, onRegister }: Props) {
+export default function LoginPage({ onLogin, onRegister, onProxySession }: Props) {
   const { t } = useTranslation("auth");
   const [tab, setTab] = useState(0);
   const [email, setEmail] = useState("");
@@ -47,6 +50,10 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [ssoConfig, setSsoConfig] = useState<SsoConfig | null>(readCachedSsoConfig);
+  // Whether the automatic proxy sign-in is still in flight. Starts false and is
+  // only ever set once, from the effect below — rendering the form underneath is
+  // fine, the attempt either succeeds (and this component unmounts) or fails.
+  const [proxyPending, setProxyPending] = useState(false);
   // Only "loading" on the very first visit (no cached config yet). With a
   // cached value we render the right layout immediately and refresh silently.
   const [configLoading, setConfigLoading] = useState(() => readCachedSsoConfig() === null);
@@ -78,14 +85,43 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
       .finally(() => setConfigLoading(false));
   }, []);
 
+  // Behind an authenticating proxy the user is already signed in upstream, so
+  // ask the backend to turn that into a session rather than showing a form they
+  // have nothing to type into. Deliberately skipped right after an explicit
+  // logout, or the user could never sign out: the proxy still asserts them on
+  // the very next request. Any failure falls through to the normal form.
+  useEffect(() => {
+    if (!ssoConfig?.proxy_auth || !onProxySession) return;
+    let signedOut = false;
+    try {
+      signedOut = sessionStorage.getItem(PROXY_SIGNOUT_KEY) === "1";
+    } catch {
+      // sessionStorage unavailable (private mode etc.) — attempt anyway.
+    }
+    if (signedOut) return;
+    let cancelled = false;
+    setProxyPending(true);
+    onProxySession()
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setProxyPending(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ssoConfig?.proxy_auth, onProxySession]);
+
   const ssoEnabled = ssoConfig?.enabled === true;
+  const proxyAuthEnabled = ssoConfig?.proxy_auth === true;
+  // Registration is refused server-side while proxy auth is on, so don't offer it.
+  const federated = ssoEnabled || proxyAuthEnabled;
   // Hide the email/password form when SSO is on and every account is SSO-based
   // (the backend reports no local accounts). Any local/invited account keeps
   // the form visible so those users can still sign in or set a password.
   const showLocalLogin =
-    !ssoEnabled || ssoConfig?.local_login_available !== false;
+    !federated || ssoConfig?.local_login_available !== false;
   const registrationAllowed =
-    !ssoEnabled && ssoConfig?.registration_enabled !== false;
+    !federated && ssoConfig?.registration_enabled !== false;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -185,6 +221,51 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
           </Box>
         ) : (
           <>
+        {/* Trusted reverse-proxy sign-in (#1006). The automatic attempt runs in
+            an effect; this block covers the cases where it cannot: right after
+            an explicit logout, or when it failed. */}
+        {proxyAuthEnabled && (
+          <Box sx={{ textAlign: "center", mb: showLocalLogin ? 3 : 1.5 }}>
+            {!showLocalLogin && (
+              <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
+                {t("login.signInToApp", { app: appTitle })}
+              </Typography>
+            )}
+            <Button
+              fullWidth
+              variant="contained"
+              size="large"
+              disabled={proxyPending}
+              onClick={() => {
+                try {
+                  sessionStorage.removeItem(PROXY_SIGNOUT_KEY);
+                } catch {
+                  // sessionStorage unavailable — the click still works.
+                }
+                if (!onProxySession) return;
+                setProxyPending(true);
+                onProxySession()
+                  .catch((err) =>
+                    setError(
+                      err instanceof Error ? err.message : t("common:errors.occurred"),
+                    ),
+                  )
+                  .finally(() => setProxyPending(false));
+              }}
+              sx={{ textTransform: "none", fontWeight: 600 }}
+            >
+              {proxyPending ? t("login.proxySigningIn") : t("login.proxyButton")}
+            </Button>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: "block", mt: 1.5 }}
+            >
+              {t("login.proxyHint")}
+            </Typography>
+          </Box>
+        )}
+
         {/* SSO Login Button */}
         {ssoEnabled && (
           <>

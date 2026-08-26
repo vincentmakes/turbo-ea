@@ -97,8 +97,17 @@ function PageLoader() {
 
 /** Inner component that handles authenticated vs public routes. */
 function AppRoutes() {
-  const { user, loading, login, register, ssoCallback, setPassword, logout, refreshUser } =
-    useAuth();
+  const {
+    user,
+    loading,
+    login,
+    register,
+    ssoCallback,
+    setPassword,
+    logout,
+    refreshUser,
+    proxySession,
+  } = useAuth();
 
   // Sync `document.title` for every route — authenticated and public alike —
   // so public pages (Web Portal, set-password, forgot/reset, SSO callback)
@@ -137,7 +146,12 @@ function AppRoutes() {
           element={<Suspense fallback={<PageLoader />}><ResetPasswordPage /></Suspense>}
         />
         {/* Everything else redirects to login */}
-        <Route path="*" element={<LoginPage onLogin={login} onRegister={register} />} />
+        <Route
+          path="*"
+          element={
+            <LoginPage onLogin={login} onRegister={register} onProxySession={proxySession} />
+          }
+        />
       </Routes>
     );
   }
